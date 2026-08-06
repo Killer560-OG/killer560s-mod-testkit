@@ -86,6 +86,16 @@ public class TestKitServer implements DedicatedServerModInitializer {
                                                                         .then(Commands.argument("z2", IntegerArgumentType.integer())
                                                                                 .then(Commands.argument("block", StringArgumentType.greedyString())
                                                                                         .executes(TestKitServer::fill)))))))))
+                        // A sentinel a scenario can wait for. Commands are processed in order, so once
+                        // this replies every fill sent before it has finished — which is the only
+                        // reliable way to know a map is actually built. Waiting a fixed number of ticks
+                        // instead is a race: a catch floor is sixteen thousand setBlockAndUpdate calls,
+                        // and a scenario that starts measuring early reports the player on generated
+                        // terrain with no map anywhere.
+                        .then(Commands.literal("ping")
+                                .then(Commands.argument("token", StringArgumentType.string())
+                                        .executes(context -> say(context, "pong "
+                                                + StringArgumentType.getString(context, "token")))))
                         .then(Commands.literal("sweep").executes(TestKitServer::sweep))
                         .then(Commands.literal("report").executes(TestKitServer::report))
                         .then(Commands.literal("clear")

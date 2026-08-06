@@ -65,8 +65,19 @@ public class MyTest implements FabricClientGameTest {
 Register the class in [`src/gametest/resources/fabric.mod.json`](src/gametest/resources/fabric.mod.json)
 under `fabric-client-gametest`, then `./gradlew runClientGameTest -Pscenario=my-thing`.
 
-Start from [`ExampleTest`](src/gametest/java/dev/testkit/gametest/ExampleTest.java) — it has a walk, a
-bridge and a duel, all working.
+### Examples to read
+
+Every one of these runs as-is. Copy the closest and change the body.
+
+| file | scenarios |
+| --- | --- |
+| [`ExampleTest`](src/gametest/java/dev/testkit/gametest/ExampleTest.java) | walk, bridge, duel — start here |
+| [`MovementExamples`](src/gametest/java/dev/testkit/gametest/MovementExamples.java) | sprint-jump with a speed assertion, long fall, obstacle course, ice/soul-sand/slabs, a per-second sampled run |
+| [`CombatExamples`](src/gametest/java/dev/testkit/gametest/CombatExamples.java) | knockback with a displacement assertion, frozen dummy, waypoint patrol, a crowd of four for target selection, an A/B armour comparison |
+| [`PlacementExamples`](src/gametest/java/dev/testkit/gametest/PlacementExamples.java) | straight gap, diagonal gap, rising gap, tower, breaking a wall |
+| [`SmokeTest`](src/gametest/java/dev/testkit/gametest/SmokeTest.java) / [`ProofTest`](src/gametest/java/dev/testkit/gametest/ProofTest.java) | the harness testing itself |
+
+Read them roughly in that order — each adds one idea, and the comments say which.
 
 ### Maps
 
@@ -99,7 +110,7 @@ hitboxes, eye heights, reach and knockback all resolve differently.
 TestEnemy bot = TestEnemy.named("Velocity", "1dps")
         .at(4.5, 151, 0.5)
         .health(20)
-        .scale(1.0)                  // vanilla scale attribute — real hitbox, not just the model
+        .size(1.0)                   // vanilla scale attribute — real hitbox, not just the model
         .frozen(true)                // immovable, still damageable, respawns at its anchor when killed
         .heldItem("minecraft:stick")
         .armor("minecraft:iron_helmet", null, null, null)

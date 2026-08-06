@@ -8,7 +8,10 @@
 		"fabric-client-gametest": [
 			"dev.testkit.gametest.SmokeTest",
 			"dev.testkit.gametest.ProofTest",
-			"dev.testkit.gametest.ExampleTest"
+			"dev.testkit.gametest.ExampleTest",
+			"dev.testkit.gametest.MovementExamples",
+			"dev.testkit.gametest.CombatExamples",
+			"dev.testkit.gametest.PlacementExamples"
 		]
 	},
 	"depends": {

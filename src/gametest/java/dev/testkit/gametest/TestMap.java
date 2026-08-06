@@ -34,6 +34,10 @@ public final class TestMap {
     public static final int GROUND_Y = 150;
 
     private int surfaceY = GROUND_Y + 1;
+    // Remembered from the last platform() so walls() can enclose it rather than guessing.
+    private int lastCx;
+    private int lastCz;
+    private int lastRadius = 12;
     private double spawnX = 0.5;
     private double spawnZ = 0.5;
     private float spawnYaw;
@@ -77,6 +81,9 @@ public final class TestMap {
      */
     public TestMap platform(int cx, int y, int cz, int radius) {
         surfaceY = y + 1;
+        lastCx = cx;
+        lastCz = cz;
+        lastRadius = radius;
         return fill(cx - radius, y, cz - radius, cx + radius, y, cz + radius, "smooth_stone")
                 .fill(cx - radius, y + 1, cz - radius, cx + radius, y + 4, cz + radius, "air");
     }
@@ -89,9 +96,14 @@ public final class TestMap {
     /**
      * Barrier walls around the last {@link #platform}, so a test that goes wrong stops at the edge
      * instead of falling out of the world.
+     *
+     * <p>Uses the last platform's own centre and radius. It used to assume radius 12 whatever the
+     * platform was, which walled a 48-block pad at 12 and left the player spawning <i>outside</i> the
+     * walls — a sprint-jump example then measured 0.14 blocks/tick, less than half vanilla, because it
+     * spent the run against a barrier.
      */
     public TestMap walls(int height) {
-        return walls(0, surfaceY - 1, 0, 12, height);
+        return walls(lastCx, surfaceY - 1, lastCz, lastRadius, height);
     }
 
     public TestMap walls(int cx, int y, int cz, int radius, int height) {
@@ -212,9 +224,12 @@ public final class TestMap {
                 server.command(line.trim());
             }
         }
+        // Wait for every block to actually be placed before the player is put on it.
+        server.sync(120);
         if (hasSpawn) {
             server.command(String.format(Locale.ROOT, "tp @p %.2f %d %.2f %.1f %.1f",
                     spawnX, surfaceY, spawnZ, spawnYaw, spawnPitch));
+            server.sync(30);
         }
     }
 }

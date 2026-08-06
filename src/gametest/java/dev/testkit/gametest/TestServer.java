@@ -49,6 +49,7 @@ public final class TestServer implements AutoCloseable {
     private final Writer console;
     private final List<String> log = new ArrayList<>();
     private int marked;
+    private int syncCounter;
 
     private TestServer(Process process) {
         this.process = process;
@@ -230,6 +231,33 @@ public final class TestServer implements AutoCloseable {
         } catch (IOException ignored) {
             // the process died; start() notices via isAlive and reports its tail
         }
+    }
+
+    /**
+     * Block until the server has processed everything sent so far.
+     *
+     * <p>Commands are handled in order, so a sentinel that replies proves the queue ahead of it is done.
+     * This is the only reliable way to know a map has finished building: waiting a fixed number of ticks
+     * is a race that a large fill loses, and losing it means a scenario measures a player standing on
+     * whatever the world generated instead of on the map.
+     */
+    public void sync(int timeoutSeconds) {
+        String token = "sync" + (++syncCounter);
+        command("testkit ping " + token);
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds);
+        while (System.nanoTime() < deadline) {
+            if (logged("pong " + token)) {
+                return;
+            }
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        throw new AssertionError("Server did not finish its command queue within " + timeoutSeconds
+                + "s — the map may be half-built:" + System.lineSeparator() + tail(15));
     }
 
     /** Run a command on the server console, as the console. */
