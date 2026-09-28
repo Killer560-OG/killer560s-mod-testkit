@@ -1,0 +1,17 @@
+{
+	"schemaVersion": 1,
+	"id": "testkit",
+	"version": "${version}",
+	"name": "Anticheat Test Kit",
+	"description": "Client-side harness for testing Minecraft client mods against a real anticheat.",
+	"license": "MIT",
+	"environment": "client",
+	"mixins": [
+		{ "config": "testkit.client.mixins.json", "environment": "client" }
+	],
+	"depends": {
+		"fabricloader": ">=0.16",
+		"minecraft": ">=26.1.2 <26.3",
+		"java": ">=21"
+	}
+}
