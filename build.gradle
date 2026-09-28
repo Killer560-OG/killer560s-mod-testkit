@@ -177,6 +177,56 @@ tasks.matching { it.name == "runTestServer" }.configureEach {
 // The client gametests need the SAME server, started by them so a scenario can bring it up, drive it and
 // tear it down. Rather than reconstruct a dev launch by hand, this records exactly how loom launches
 // runTestServer and lets the test replay it.
+// A server you JOIN, rather than one the gametests drive.
+//
+// killer560 (2026-09-28): "make sure you are able to use it for testing just like the testing server thing
+// already that you use". The harness has always started this server, run scenarios against it headless and shut
+// it down, which is no use for sitting in a room yourself and watching what an anticheat says about what you do
+// by hand. This is the same staged server, same GrimAC pin, left running.
+//
+// Connect with Direct Connect to localhost:25565. The mod treats a localhost server as a dungeon server in dev
+// builds, so solvers, timers and automation actually arm there instead of silently gating themselves off.
+//
+//   ./gradlew grimServer                       server with GrimAC, join it yourself
+//   ./gradlew grimServer -Pnogrim              same, anticheat removed, as a control
+//   ./gradlew grimServer -PseedWorld=<path>    start from a copy of a world save
+tasks.register("grimServer") {
+	group = "verification"
+	description = "Start the staged GrimAC server and leave it running so you can join it yourself."
+	dependsOn "prepareTestServer", "runTestServer"
+	doFirst {
+		logger.lifecycle("GrimAC test server starting - Direct Connect to localhost:25565 when it is ready.")
+	}
+}
+
+tasks.matching { it.name == "runTestServer" }.configureEach {
+	mustRunAfter "prepareTestServer"
+}
+
+// Copy a world into the staged server before it starts. The point of it is the dungeon sim: once rooms are
+// captured and a map is built, this is how that world gets in front of a real anticheat.
+tasks.matching { it.name == "prepareTestServer" }.configureEach {
+	doLast {
+		if (project.hasProperty("seedWorld")) {
+			def src = file(project.property("seedWorld"))
+			if (!src.isDirectory()) {
+				throw new GradleException("-PseedWorld must point at a world SAVE FOLDER; got ${src}")
+			}
+			def dst = new File(testServerDir, "world")
+			// Replaced, not merged: a half-overwritten world is the kind of thing that looks like a corrupt
+			// save days later and gets blamed on the mod.
+			if (dst.exists()) {
+				delete(dst)
+			}
+			copy {
+				from src
+				into dst
+			}
+			logger.lifecycle("Seeded the test server world from ${src}")
+		}
+	}
+}
+
 tasks.register("writeTestServerLaunch") {
 	description = "Record how to launch the test server, for the client gametests."
 	dependsOn "prepareTestServer"
