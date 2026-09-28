@@ -31,6 +31,7 @@ public class SimTests implements FabricClientGameTest {
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String SIM_BUILDER = "com.killer560.hub.roomsim.SimBuilder";
+    private static final String SIM_DOORS = "com.killer560.hub.roomsim.SimDoors";
 
     /** Mirrors DungeonLayout.GRID / LiveMapFeature.START_X / HALF_ROOM and RoomLibrary.TILE. */
     private static final int GRID = 11;
@@ -138,6 +139,41 @@ public class SimTests implements FabricClientGameTest {
                         + "\" - block states are being lost or rotated when they should not be");
             }
 
+            // 4. WITHER DOOR. The spec is "after clicked with a key [it] changes to barrier blocks, and then
+            //    shortly there after the barrier blocks fall away". Both halves matter: a door that turns to
+            //    barriers and never clears is a wall, and one that clears instantly never was a door.
+            BlockPos doorCentre = new BlockPos(x0 + 15, FLOOR_Y + 1, z0 + 10);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_DOORS, "addDoor",
+                    new Class<?>[]{BlockPos.class}, new Object[]{doorCentre}));
+            boolean opened = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_DOORS,
+                    "openForTest", new Class<?>[]{Minecraft.class, BlockPos.class},
+                    new Object[]{mc, doorCentre}));
+            if (!opened) {
+                throw new AssertionError("no wither door was found at the position it was just registered at");
+            }
+            ctx.waitTicks(5);
+            boolean isBarrier = sp.getServer().computeOnServer(server ->
+                    server.overworld().getBlockState(doorCentre).is(Blocks.BARRIER));
+            if (!isBarrier) {
+                String found = sp.getServer().computeOnServer(server ->
+                        server.overworld().getBlockState(doorCentre).getBlock().toString());
+                throw new AssertionError("the door did not become barrier blocks - found " + found);
+            }
+            int delay = ctx.computeOnClient(mc ->
+                    (Integer) ModUnderTest.staticCall(SIM_DOORS, "openDelayTicks",
+                            new Class<?>[]{}, new Object[]{}));
+            // Its own delay plus a margin, rather than a number picked here - if the constant changes this
+            // test follows it instead of quietly starting to fail.
+            ctx.waitTicks(delay + 20);
+            boolean cleared = sp.getServer().computeOnServer(server ->
+                    server.overworld().getBlockState(doorCentre).isAir());
+            if (!cleared) {
+                String found = sp.getServer().computeOnServer(server ->
+                        server.overworld().getBlockState(doorCentre).getBlock().toString());
+                throw new AssertionError("the barriers never fell away after " + delay + " ticks - found "
+                        + found + ". A door stuck as barriers is a wall.");
+            }
+
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave",
                     new Class<?>[]{}, new Object[]{}));
             boolean afterLeave = ctx.computeOnClient(mc ->
@@ -148,7 +184,7 @@ public class SimTests implements FabricClientGameTest {
                         + "abilities fire outside the sim");
             }
             System.out.println("[70-sim-flat-room] PASS - gate off/on/off, room pasted at the right cell, "
-                    + "orientation marker in the right corner, stair kept its east facing");
+                    + "orientation marker in the right corner, stair kept its east facing, wither door went to barriers and then cleared");
         }
     }
 
