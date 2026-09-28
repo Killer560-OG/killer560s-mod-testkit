@@ -22,6 +22,7 @@ import io.netty.channel.embedded.EmbeddedChannel;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -57,9 +58,15 @@ public final class FakePlayer {
     private int attackDelay;
     private float attackDamage = 1.0f;
     private int sinceAttack;
-    private int reports;
+    private int notes;
     private int deaths;
     private float maxHealth = 20f;
+    private double scale = 1.0;
+
+    /** Hopping on {@link #HOP}'s arc; {@code hop} is how far above its footing that has put it this tick. */
+    private boolean jumping;
+    private int hopTick;
+    private double hop;
 
     private double walkYaw;
     private double walkSpeed;
@@ -81,12 +88,12 @@ public final class FakePlayer {
     /**
      * Join a fake player to the server at the given position.
      *
-     * @param name the player's name — the project convention is {@code Bot<Module><detail>}
+     * @param name the player's name — the convention is {@code SicoKaleb<Module><detail>}
      */
     public static FakePlayer join(MinecraftServer server, ServerLevel level, String name, Vec3 position) {
         // A stable UUID per name, so re-running a scenario reuses the same profile rather than
         // accumulating one player file per run.
-        UUID id = UUID.nameUUIDFromBytes(("RavenG4TestPlayer:" + name).getBytes());
+        UUID id = UUID.nameUUIDFromBytes(("TestKitPlayer:" + name).getBytes(StandardCharsets.UTF_8));
         GameProfile profile = new GameProfile(id, name);
 
         ServerPlayer player = new ServerPlayer(server, level, profile, ClientInformation.createDefault());
@@ -125,8 +132,15 @@ public final class FakePlayer {
     }
 
     /** Body scale, through the vanilla attribute — changes the hitbox, not just the model. */
-    public void setScale(double scale) {
-        setAttribute(Attributes.SCALE, scale);
+    public void setScale(double value) {
+        this.scale = value;
+        setAttribute(Attributes.SCALE, value);
+    }
+
+    /** Hop continuously on a vanilla jump's arc, on top of whatever else it is doing. */
+    public void setJumping(boolean value) {
+        this.jumping = value;
+        this.hopTick = 0;
     }
 
     private void setAttribute(net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute> attribute,
@@ -183,6 +197,33 @@ public final class FakePlayer {
 
     // ------------------------------------------------------------------- tick
 
+    /**
+     * Heights above its footing, tick by tick, for one vanilla jump: 0.42 up, then each tick 0.08 of gravity
+     * and 0.98 drag, until it is back down — about twelve ticks. A fake player has no physics of its own (it
+     * is moved by teleports), so the arc is replayed rather than simulated.
+     */
+    private static final double[] HOP = hopArc();
+
+    private static double[] hopArc() {
+        List<Double> heights = new ArrayList<>();
+        double height = 0;
+        double velocity = 0.42;
+        while (true) {
+            height += velocity;
+            velocity = (velocity - 0.08) * 0.98;
+            if (height <= 0) {
+                break;
+            }
+            heights.add(height);
+        }
+        heights.add(0.0);
+        double[] out = new double[heights.size()];
+        for (int i = 0; i < out.length; i++) {
+            out[i] = heights.get(i);
+        }
+        return out;
+    }
+
     /** Called once per server tick by {@link FakePlayerManager}. */
     public void tick() {
         // isRemoved() must NOT short-circuit here. A dead player is a REMOVED player, so returning early
@@ -203,63 +244,71 @@ public final class FakePlayer {
             for (java.util.Map.Entry<EquipmentSlot, ItemStack> entry : carried.entrySet()) {
                 player.setItemSlot(entry.getKey(), entry.getValue());
             }
+            // Everything the scenario configured goes back on the new body. Scale used to be left behind, so
+            // a small target came back full size the first time it was killed and the rest of the run
+            // measured a different hitbox.
             setHealth(maxHealth);
             setFrozen(frozen);
+            setScale(scale);
+            hop = 0;
+            hopTick = 0;
             report("died and rejoined at anchor " + anchor + " (death " + deaths + ")");
             return;
         }
+        // Where the body stands this tick, without last tick's hop.
+        Vec3 footing = new Vec3(player.getX(), player.getY() - hop, player.getZ());
+        Vec3 next = frozen ? anchor : move(footing);
+        double nextHop = jumping ? HOP[hopTick++ % HOP.length] : 0;
         if (frozen) {
             player.setDeltaMovement(Vec3.ZERO);
-            player.teleportTo(anchor.x, anchor.y, anchor.z);
         }
-        move();
+        if (frozen || !next.equals(footing) || nextHop != hop) {
+            player.teleportTo(next.x, next.y + nextHop, next.z);
+        }
+        hop = nextHop;
         attack();
     }
 
-    private void move() {
-        if (frozen) {
-            return;
-        }
+    /** Where walking, chasing or a route takes the body from {@code at} this tick. Turns it to face the way. */
+    private Vec3 move(Vec3 at) {
         if (walking) {
             double radians = Math.toRadians(walkYaw);
-            step(-Math.sin(radians) * walkSpeed, 0, Math.cos(radians) * walkSpeed, (float) walkYaw);
-            return;
+            face((float) walkYaw);
+            return at.add(-Math.sin(radians) * walkSpeed, 0, Math.cos(radians) * walkSpeed);
         }
         if (chasing) {
             ServerPlayer target = nearestRealPlayer();
             if (target == null) {
-                return;
+                return at;
             }
-            double dx = target.getX() - player.getX();
-            double dz = target.getZ() - player.getZ();
+            double dx = target.getX() - at.x;
+            double dz = target.getZ() - at.z;
             double flat = Math.sqrt(dx * dx + dz * dz);
-            if (flat > chaseStop) {
-                double move = Math.min(walkSpeed, flat - chaseStop);
-                step(dx / flat * move, target.getY() - player.getY(), dz / flat * move,
-                        (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0));
+            if (flat <= chaseStop) {
+                return at;
             }
-            return;
+            double step = Math.min(walkSpeed, flat - chaseStop);
+            face((float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0));
+            return new Vec3(at.x + dx / flat * step, target.getY(), at.z + dz / flat * step);
         }
         if (!route.isEmpty()) {
             Vec3 goal = route.get(routeIndex);
-            Vec3 delta = goal.subtract(player.position());
+            Vec3 delta = goal.subtract(at);
             double distance = delta.length();
             if (distance < walkSpeed) {
-                player.teleportTo(goal.x, goal.y, goal.z);
                 routeIndex++;
                 if (routeIndex >= route.size()) {
                     routeIndex = repeatRoute ? 0 : route.size() - 1;
                 }
-            } else {
-                Vec3 stepVector = delta.scale(walkSpeed / distance);
-                step(stepVector.x, stepVector.y, stepVector.z,
-                        (float) (Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90.0));
+                return goal;
             }
+            face((float) (Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90.0));
+            return at.add(delta.scale(walkSpeed / distance));
         }
+        return at;
     }
 
-    private void step(double dx, double dy, double dz, float yaw) {
-        player.teleportTo(player.getX() + dx, player.getY() + dy, player.getZ() + dz);
+    private void face(float yaw) {
         player.setYRot(yaw);
         player.setYHeadRot(yaw);
     }
@@ -273,13 +322,13 @@ public final class FakePlayer {
         }
         ServerPlayer target = nearestRealPlayer();
         if (target == null) {
-            report("no real player found to attack");
+            note("no real player found to attack");
             sinceAttack = 0;
             return;
         }
         double distance = target.distanceTo(player);
         if (distance > attackReach) {
-            report(String.format(java.util.Locale.ROOT,
+            note(String.format(java.util.Locale.ROOT,
                     "target %s is %.2f away, reach is %.2f", target.getGameProfile().name(),
                     distance, attackReach));
             sinceAttack = 0;
@@ -289,15 +338,31 @@ public final class FakePlayer {
         // as it would from a real opponent — which is the entire point for a velocity test.
         boolean hurt = target.hurtServer((net.minecraft.server.level.ServerLevel) player.level(),
                 player.damageSources().playerAttack(player), attackDamage);
-        report(String.format(java.util.Locale.ROOT, "hit %s for %.1f at %.2f blocks -> %s",
-                target.getGameProfile().name(), attackDamage, distance,
-                hurt ? "damaged" : "REFUSED (invulnerable, pvp off, or already hurt this tick)"));
+        // "hit" only for a blow that landed: scenarios count these lines, and a swing the server refused
+        // (a creative or invulnerable client, pvp off, still in its hurt frames) delivered no damage and no
+        // knockback, so counting it would pass a knockback test on a run that had none.
+        if (hurt) {
+            report(String.format(java.util.Locale.ROOT, "hit %s for %.1f at %.2f blocks",
+                    target.getGameProfile().name(), attackDamage, distance));
+        } else {
+            report(String.format(java.util.Locale.ROOT,
+                    "refused: swung at %s at %.2f blocks, no damage (creative or invulnerable, pvp off, "
+                            + "or still in its hurt frames)", target.getGameProfile().name(), distance));
+        }
         sinceAttack = 0;
     }
 
-    /** Server console. Scenarios count hits by matching these lines, so the cap is generous. */
+    /**
+     * An event a scenario counts — a hit, a refusal, a death. Never capped: a cap here once meant a long run
+     * quietly stopped counting and read as the module going quiet.
+     */
     private void report(String message) {
-        if (++reports <= 400) {
+        System.out.println("[testkit] " + name + ": " + message);
+    }
+
+    /** A diagnostic nobody counts. Capped, because an out-of-range attacker says so every swing. */
+    private void note(String message) {
+        if (++notes <= 400) {
             System.out.println("[testkit] " + name + ": " + message);
         }
     }

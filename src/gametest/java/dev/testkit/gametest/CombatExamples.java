@@ -14,6 +14,7 @@ import java.util.Locale;
  *   <li>{@link #patrol} — a bot on a waypoint route, for tracking and prediction.</li>
  *   <li>{@link #crowd} — several bots at once, for target selection.</li>
  *   <li>{@link #armouredVsNaked} — the same fight twice, to isolate one variable.</li>
+ *   <li>{@link #hoppingTarget} — a target whose height keeps changing.</li>
  * </ol>
  */
 public class CombatExamples implements FabricClientGameTest {
@@ -25,6 +26,7 @@ public class CombatExamples implements FabricClientGameTest {
         patrol(ctx);
         crowd(ctx);
         armouredVsNaked(ctx);
+        hoppingTarget(ctx);
     }
 
     /** A flat arena with nothing on it, so only the scenario influences the result. */
@@ -105,11 +107,13 @@ public class CombatExamples implements FabricClientGameTest {
                         throw new AssertionError("the bot never appeared to the client — a module that "
                                 + "filters for players would have nothing to find");
                     }
-                    ctx.getInput().holdKey(options -> options.keyAttack);
-                    dummy.drive(200);
-                    ctx.getInput().releaseKey(options -> options.keyAttack);
+                    int swings = scenario.attackFor(200);
+                    if (dummy.deaths() == 0) {
+                        throw new AssertionError(swings + " swings and the dummy never died — the crosshair "
+                                + "is not on it, so nothing about combat was tested");
+                    }
 
-                    scenario.log("killed it " + dummy.deaths() + " time(s), it is "
+                    scenario.log(swings + " swings, killed it " + dummy.deaths() + " time(s), it is "
                             + String.format(Locale.ROOT, "%.2f", dummy.distanceToPlayer())
                             + " blocks away and back at its anchor");
                     dummy.remove();
@@ -169,9 +173,7 @@ public class CombatExamples implements FabricClientGameTest {
                     TestEnemy small = TestEnemy.named("Crowd", "Small")
                             .at(-3.5, y, 0.5).health(6).size(0.6).frozen(true).spawn(ctx, server);
 
-                    ctx.getInput().holdKey(options -> options.keyAttack);
-                    near.drive(160);
-                    ctx.getInput().releaseKey(options -> options.keyAttack);
+                    scenario.attackFor(160);
 
                     scenario.log("deaths — near " + near.deaths() + ", far " + far.deaths()
                             + ", left " + left.deaths() + ", small " + small.deaths());
@@ -201,9 +203,7 @@ public class CombatExamples implements FabricClientGameTest {
 
                     TestEnemy naked = TestEnemy.named("AB", "Naked")
                             .at(2.5, y, 0.5).health(20).frozen(true).spawn(ctx, server);
-                    ctx.getInput().holdKey(options -> options.keyAttack);
-                    naked.drive(120);
-                    ctx.getInput().releaseKey(options -> options.keyAttack);
+                    scenario.attackFor(120);
                     int nakedDeaths = naked.deaths();
                     naked.remove();
                     ctx.waitTicks(20);
@@ -213,14 +213,45 @@ public class CombatExamples implements FabricClientGameTest {
                             .armor("minecraft:diamond_helmet", "minecraft:diamond_chestplate",
                                     "minecraft:diamond_leggings", "minecraft:diamond_boots")
                             .spawn(ctx, server);
-                    ctx.getInput().holdKey(options -> options.keyAttack);
-                    armoured.drive(120);
-                    ctx.getInput().releaseKey(options -> options.keyAttack);
+                    scenario.attackFor(120);
                     int armouredDeaths = armoured.deaths();
                     armoured.remove();
 
                     scenario.log("kills in 120 ticks — naked " + nakedDeaths
                             + ", diamond-armoured " + armouredDeaths);
+                });
+    }
+
+    /**
+     * A dummy that hops on the spot, for anything that aims at a target whose height changes.
+     *
+     * <p>The height range is asserted before anything else is: a "moving target" test against a target that
+     * never left the ground is a static-target test with a misleading name.
+     */
+    private void hoppingTarget(ClientGameTestContext ctx) {
+        Scenario.run(ctx, "35-combat-hopping-target",
+                (server, scenario) -> arena(server, 0.5, 0.5, -90f),
+                (server, scenario) -> {
+                    TestEnemy hopper = TestEnemy.named("Aim", "Hop")
+                            .at(3.5, TestMap.GROUND_Y + 1, 0.5)
+                            .health(20)
+                            .frozen(true)
+                            .jumping(true)
+                            .spawn(ctx, server);
+
+                    double low = Double.MAX_VALUE;
+                    double high = -Double.MAX_VALUE;
+                    for (int tick = 0; tick < 60; tick++) {
+                        hopper.drive(1);
+                        double y = hopper.position()[1];
+                        low = Math.min(low, y);
+                        high = Math.max(high, y);
+                    }
+                    scenario.log(String.format(Locale.ROOT, "the bot's feet ranged over y %.2f to %.2f", low, high));
+                    if (high - low < 0.8) {
+                        throw new AssertionError("the bot rose only " + (high - low) + " blocks — it is not hopping");
+                    }
+                    hopper.remove();
                 });
     }
 }

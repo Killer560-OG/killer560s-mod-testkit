@@ -4,7 +4,11 @@
 	"package": "dev.testkit.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-		"MixinClientPacketListener"
+		"AccessorConnection",
+		"MixinClientCommonPacketListener",
+		"MixinClientGameTestRunner",
+		"MixinClientPacketListener",
+		"MixinConnection"
 	],
 	"injectors": {
 		"defaultRequire": 1

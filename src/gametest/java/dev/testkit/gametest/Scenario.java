@@ -1,6 +1,9 @@
 package dev.testkit.gametest;
 
 import dev.testkit.harness.ChatWatch;
+import dev.testkit.harness.Disconnects;
+import dev.testkit.harness.PacketTrace;
+import dev.testkit.harness.SuiteVerdict;
 
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
@@ -51,15 +54,30 @@ import java.util.function.BiConsumer;
  * A suite whose job is reporting flags fails silently when it breaks: no anticheat and no flags look
  * identical from outside. {@link #assertDetectorWorks()} cheats deliberately and requires the anticheat
  * to notice. Call it in any scenario whose clean result you intend to quote.
+ *
+ * <h2>One failure does not end the run</h2>
+ * A failing scenario is recorded, the client goes back to the title screen and the next test runs; the
+ * build fails at the end with every failure listed under {@code [suite]}, and {@code -Pfailed} re-runs
+ * just those. A scenario that starts and never reaches its verdict is a failure too — see
+ * {@link SuiteVerdict}.
  */
 public final class Scenario {
 
     /** Shapes an anticheat's verbose and alert lines take. */
     private static final String[] FLAG_MARKERS = {"failed", "[grim]", "grim »", "violation", " vl", "verbose"};
-    /** Looks like a flag, is not: enable confirmations, join noise, our own echoes. */
+    /**
+     * Looks like a flag, is not: enable confirmations, join noise, our own echoes.
+     *
+     * <p>{@code packetevents} is Grim's bundled packet library talking to itself — its update checker runs on
+     * its own thread at some unfixed time after the server starts and logs {@code Failed to check for updates}
+     * / {@code Failed to parse packetevents version!} when it cannot reach the network. That matches
+     * {@code "failed"}, and because it races the measurement window it lands inside some scenario sooner or
+     * later as a "flag" that names no check and no player. No check line carries the library's name, so this
+     * exempts nothing real.
+     */
     private static final String[] FLAG_EXEMPT = {"verbose enabled", "verbose is now", "alerts enabled",
             "alerts is now", "now receiving", "no longer receiving", "grimac", "logged in",
-            "joined the game", "left the game", "made the advancement", "[testkit]"};
+            "joined the game", "left the game", "made the advancement", "[testkit]", "packetevents"};
 
     private final ClientGameTestContext ctx;
     private final String name;
@@ -70,15 +88,33 @@ public final class Scenario {
         this.name = name;
     }
 
-    /** Set by {@code -Pnogrim}: run the bodies with the anticheat muted, to isolate a failure. */
+    /** Set by {@code -Pnogrim}: the server runs without the anticheat, to isolate a failure. */
     public static boolean anticheatMuted() {
         return Boolean.getBoolean("testkit.nogrim");
     }
 
-    /** Honour {@code -Pscenario=…}. */
+    /**
+     * Honour {@code -Pscenario=…}: a substring of the name, or several separated by commas, any of which
+     * selects it. {@code -Pfailed} arrives here as the same comma list.
+     *
+     * <p>Public so a test that does not go through {@link #run} — a singleplayer check, say — can be
+     * filtered the same way. A test that cannot be filtered out is a test every other one depends on.
+     */
     public static boolean skip(String name) {
         String filter = System.getProperty("testkit.scenario", "");
-        return !filter.isEmpty() && !name.contains(filter);
+        if (filter.isBlank()) {
+            SuiteVerdict.started(name);
+            return false;
+        }
+        for (String part : filter.split(",")) {
+            if (!part.isBlank() && name.contains(part.trim())) {
+                // Remembered so a failure from here on is filed under this name, which is what -Pfailed
+                // feeds back in as the filter.
+                SuiteVerdict.started(name);
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -91,6 +127,7 @@ public final class Scenario {
         if (skip(name)) {
             return;
         }
+        SuiteVerdict.expect(name);
         Scenario scenario = new Scenario(ctx, name);
         try (TestServer server = TestServer.start()) {
             scenario.server = server;
@@ -107,18 +144,27 @@ public final class Scenario {
             body.accept(server, scenario);
             ctx.waitTicks(20);          // let a late verbose line land before looking
             scenario.assertClean();
+            SuiteVerdict.finished(name);
         } finally {
             scenario.disconnect();
         }
     }
 
-    /** Like {@link #run}, but for a scenario meant to flag: the body decides the verdict. */
+    /**
+     * Like {@link #run}, but for a scenario meant to flag: the body decides the verdict.
+     *
+     * <p>Use it for a module that departs from vanilla movement by design — one that snaps, nudges or
+     * corrects the player on purpose draws a verbose line per correction by construction, and a scenario
+     * that asserts silence can never pass at any tuning. Measure the lines instead (how many per action,
+     * which check, what offset) and assert on that.
+     */
     public static void runExpectingFlags(ClientGameTestContext ctx, String name,
                                          BiConsumer<TestServer, Scenario> build,
                                          BiConsumer<TestServer, Scenario> body) {
         if (skip(name)) {
             return;
         }
+        SuiteVerdict.expect(name);
         Scenario scenario = new Scenario(ctx, name);
         try (TestServer server = TestServer.start()) {
             scenario.server = server;
@@ -131,18 +177,32 @@ public final class Scenario {
             server.mark();
             ChatWatch.clear();
             body.accept(server, scenario);
+            SuiteVerdict.finished(name);
         } finally {
             scenario.disconnect();
         }
     }
 
+    /**
+     * Join the server, failing with the server's own words if it turns the client away.
+     *
+     * <p>A refused login otherwise surfaces as {@code Timed out waiting for predicate} a minute later, when the
+     * server said exactly what was wrong the moment it happened — and put it on a screen nobody reads.
+     */
     private void connect() {
+        Disconnects.clear();
         ctx.runOnClient(mc -> {
             ServerData data = new ServerData("testkit", TestServer.address(), ServerData.Type.OTHER);
             ConnectScreen.startConnecting(new TitleScreen(), mc,
                     ServerAddress.parseString(TestServer.address()), data, false, null);
         });
-        ctx.waitFor(mc -> mc.player != null && mc.level != null, 1200);
+        ctx.waitFor(mc -> (mc.player != null && mc.level != null) || Disconnects.last() != null, 1200);
+        String refused = Disconnects.last();
+        if (refused != null) {
+            throw new AssertionError("[" + name + "] the test server refused the connection: \"" + refused
+                    + "\". If it mentions a profile, a session or verifying a username, check that "
+                    + "run/testserver/server.properties still says online-mode=false.");
+        }
         // A scenario run opens a window and plays twenty minutes of Minecraft at whatever the machine's
         // volume happens to be.
         ctx.runOnClient(mc -> mc.options.getSoundSourceOptionInstance(
@@ -153,6 +213,9 @@ public final class Scenario {
     }
 
     private void disconnect() {
+        // Nothing a body turns on outlives its scenario. The latency stage goes with the connection; the
+        // trace keeps what it recorded, readable after run() returns, but stops adding to it.
+        PacketTrace.stop();
         ctx.runOnClient(mc -> {
             if (mc.level != null) {
                 mc.disconnectWithProgressScreen();
@@ -174,7 +237,7 @@ public final class Scenario {
      */
     private void arm(TestServer server) {
         if (anticheatMuted()) {
-            System.out.println("[" + name + "] anticheat muted by -Pnogrim");
+            System.out.println("[" + name + "] anticheat removed by -Pnogrim — nothing this run says is a verdict");
             return;
         }
         if (!server.logged("GrimAC")) {
@@ -217,7 +280,9 @@ public final class Scenario {
     private void assertClean() {
         List<String> flags = flags();
         if (flags.isEmpty()) {
-            System.out.println("[" + name + "] anticheat clean — no verbose lines");
+            System.out.println("[" + name + "] " + (anticheatMuted()
+                    ? "no anticheat on the server (-Pnogrim) — the body ran, nothing was judged"
+                    : "anticheat clean — no verbose lines"));
             return;
         }
         StringBuilder message = new StringBuilder("[" + name + "] anticheat flagged "
@@ -235,21 +300,66 @@ public final class Scenario {
      * <p>This is the positive control and it is not optional. Without it, a harness that has lost its
      * anticheat — a bad classpath, a version bump, a permission change — reports every scenario as clean
      * and every module as safe. The failure mode of a silent detector is that it passes everything.
+     *
+     * <p>Anything the body itself drew is a real result and must not be what "proves" the detector. An
+     * earlier version accepted any verbose line since the body's mark as proof, then marked past it — so a
+     * module that flagged during the body printed "positive control OK" followed by "anticheat clean". A
+     * flag from the body now fails the scenario here, the way {@link #run}'s own check would have.
      */
     public void assertDetectorWorks() {
         if (anticheatMuted()) {
             return;
         }
+        List<String> fromBody = flags();
+        if (!fromBody.isEmpty()) {
+            StringBuilder message = new StringBuilder("[" + name + "] anticheat flagged "
+                    + fromBody.size() + " time(s) during the body, before the positive control:");
+            for (String flag : fromBody) {
+                message.append(System.lineSeparator()).append("    ").append(flag);
+            }
+            System.out.println(message);
+            throw new AssertionError(message.toString());
+        }
+        // Twice, because the client JVM is shared across scenarios and a mod under test can be left in a
+        // state that swallows the first cheat (holding packets, say). A second attempt from a fresh mark
+        // either produces a flag or fails the run honestly; it can never turn a dead detector green.
+        if (!detectorSeesCheat()) {
+            server.mark();
+            if (!detectorSeesCheat()) {
+                throw new AssertionError("Positive control FAILED twice: teleported six blocks sideways and "
+                        + "the anticheat said nothing. Every 'clean' result below this is meaningless.");
+            }
+        }
+        System.out.println("[" + name + "] positive control OK — detector saw: " + flags().get(0));
         server.mark();
+    }
+
+    /** Cheat once and report whether the anticheat noticed. */
+    private boolean detectorSeesCheat() {
         ctx.runOnClient(mc -> mc.player.setPos(mc.player.getX() + 6.0, mc.player.getY(), mc.player.getZ()));
         ctx.waitTicks(60);
-        List<String> flags = flags();
-        if (flags.isEmpty()) {
-            throw new AssertionError("Positive control FAILED: teleported six blocks sideways and the "
-                    + "anticheat said nothing. Every 'clean' result below this is meaningless.");
+        return !flags().isEmpty();
+    }
+
+    /**
+     * Attack whatever the crosshair is on, each time the swing has fully recharged, for {@code ticks} ticks.
+     *
+     * <p>Holding the attack key does not do this. Vanilla swings at an entity once per key <i>press</i> —
+     * holding repeats only for breaking blocks — so a held key is one hit and then {@code ticks} of standing
+     * there: a fight that never happened, reported as a clean one.
+     *
+     * @return how many swings were made
+     */
+    public int attackFor(int ticks) {
+        int swings = 0;
+        for (int tick = 0; tick < ticks; tick++) {
+            if (ctx.computeOnClient(mc -> mc.player.getAttackStrengthScale(0f) >= 1.0f)) {
+                ctx.getInput().pressKey(options -> options.keyAttack);
+                swings++;
+            }
+            ctx.waitTick();
         }
-        System.out.println("[" + name + "] positive control OK — detector saw: " + flags.get(0));
-        server.mark();
+        return swings;
     }
 
     /** Dump every entity and where it is relative to the client — the first question when a run is odd. */

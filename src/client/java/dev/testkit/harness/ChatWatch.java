@@ -11,11 +11,11 @@ import java.util.Locale;
  * A ring buffer of every chat line the client has received, kept so a test can read what the server
  * said back.
  *
- * <p>This is the other half of the anticheat feedback loop. {@link Setbacks} records the server
- * <i>correcting</i> us, which only happens once a check has already escalated; Grim's verbose output
- * names the check and its violation level the moment it fires, and it arrives as ordinary chat. With
- * this, a scenario can assert "no check flagged" instead of "it looked fine", which is the difference
- * between a test and a demo.
+ * <p>The harness reads anticheat verdicts from the server console, not from here: verbose only reaches
+ * players with the alerts permission, and a player with permissions is a player the anticheat exempts.
+ * What this is for is everything else the server says back — the replies to a scenario's own commands,
+ * and whatever your mod's server-side counterpart prints. {@link PacketTrace#received(String)} is the
+ * other half: {@code player_position} counts the server moving the client back.
  *
  * <p>Always recording costs one string per chat line and is worth it: a flag that only appears on the
  * run you forgot to instrument is a flag you will chase twice.

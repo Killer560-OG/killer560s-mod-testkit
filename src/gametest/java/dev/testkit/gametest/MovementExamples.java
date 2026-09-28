@@ -1,8 +1,12 @@
 package dev.testkit.gametest;
 
+import dev.testkit.harness.Latency;
+import dev.testkit.harness.PacketTrace;
+
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -16,6 +20,8 @@ import java.util.Locale;
  *   <li>{@link #obstacleCourse} — build terrain and assert the player got through it.</li>
  *   <li>{@link #iceAndSlab} — surfaces change physics, and the anticheat models each one.</li>
  *   <li>{@link #sampledRun} — sample every second so a failure says *when* it went wrong.</li>
+ *   <li>{@link #packetTrace} — read what went on the wire, tick by tick.</li>
+ *   <li>{@link #withLatency} — give the local server a real round trip, and prove it has one.</li>
  * </ol>
  */
 public class MovementExamples implements FabricClientGameTest {
@@ -27,6 +33,8 @@ public class MovementExamples implements FabricClientGameTest {
         obstacleCourse(ctx);
         iceAndSlab(ctx);
         sampledRun(ctx);
+        packetTrace(ctx);
+        withLatency(ctx);
     }
 
     /**
@@ -194,5 +202,123 @@ public class MovementExamples implements FabricClientGameTest {
                     ctx.getInput().releaseKey(options -> options.keySprint);
                     ctx.getInput().releaseKey(options -> options.keyUp);
                 });
+    }
+
+    /**
+     * Sprint-jump with the packet trace on, and hold the wire to what a vanilla client sends.
+     *
+     * <p>When a packet-level check flags, the verbose line names the check but not what earned it; the trace
+     * is that half. Here it also checks itself: every whole tick must end in exactly one
+     * {@code client_tick_end} and carry at most one movement packet, which is what vanilla sends. A trace
+     * that recorded nothing fails the first of those, so an empty table cannot pass for a clean one.
+     */
+    private void packetTrace(ClientGameTestContext ctx) {
+        Scenario.run(ctx, "25-move-packet-trace",
+                (server, scenario) -> TestMap.on(server)
+                        .platform(48)
+                        .walls(4)
+                        .catchFloor(140)
+                        .survival()
+                        .spawn(-40.5, 0.5, -90f)
+                        .build(),
+                (server, scenario) -> {
+                    ctx.runOnClient(mc -> PacketTrace.start());
+                    ctx.getInput().holdKey(options -> options.keyUp);
+                    ctx.getInput().holdKey(options -> options.keySprint);
+                    ctx.getInput().holdKey(options -> options.keyJump);
+                    ctx.waitTicks(60);
+                    ctx.getInput().releaseKey(options -> options.keyJump);
+                    ctx.getInput().releaseKey(options -> options.keySprint);
+                    ctx.getInput().releaseKey(options -> options.keyUp);
+                    ctx.runOnClient(mc -> PacketTrace.stop());
+
+                    List<String> lines = PacketTrace.lines();
+                    lines.stream().limit(8).forEach(scenario::log);
+                    scenario.log("... " + lines.size() + " tick(s) in all");
+
+                    // The first bucket is the part-tick before the first tick started and the last may be cut
+                    // short by stop(), so only whole ticks are held to the rule.
+                    List<String> movement = List.of("move_player_pos", "move_player_rot",
+                            "move_player_pos_rot", "move_player_status_only");
+                    int whole = 0;
+                    for (int tick = 1; tick < PacketTrace.tickCount() - 1; tick++) {
+                        List<String> sent = PacketTrace.sentOn(tick);
+                        long ends = sent.stream().filter("client_tick_end"::equals).count();
+                        long moves = sent.stream().filter(movement::contains).count();
+                        if (ends != 1 || moves > 1) {
+                            throw new AssertionError("tick " + tick + " sent " + sent + " — a vanilla client ends "
+                                    + "every tick exactly once and moves at most once in it");
+                        }
+                        whole++;
+                    }
+                    if (whole < 50) {
+                        throw new AssertionError("only " + whole + " whole tick(s) recorded in a 60-tick run — "
+                                + "the trace is not seeing the connection");
+                    }
+                    scenario.log(whole + " whole ticks, each with one tick end and at most one movement packet; "
+                            + PacketTrace.sent("move_player_pos_rot") + " move_player_pos_rot, "
+                            + PacketTrace.received("player_position") + " setback(s)");
+                });
+    }
+
+    /**
+     * The same sprint-jump over a 100 ms round trip.
+     *
+     * <p>The local server answers inside the tick that asked, which no real connection does, so anything whose
+     * behaviour depends on the gap between an action and the server's answer is untested without this. The
+     * scenario proves the delay is real before it relies on it — a block set by the server takes measurably
+     * longer to reach the client with the stage in — and then that taking it out again is clean too: a
+     * naive delay pulled out mid-stream reorders the anticheat's transactions and flags the harness.
+     */
+    private void withLatency(ClientGameTestContext ctx) {
+        Scenario.run(ctx, "26-move-latency",
+                (server, scenario) -> TestMap.on(server)
+                        .platform(48)
+                        .walls(4)
+                        .catchFloor(140)
+                        .survival()
+                        .spawn(-40.5, 0.5, -90f)
+                        .build(),
+                (server, scenario) -> {
+                    int direct = arrival(ctx, server, "gold_block");
+                    ctx.runOnClient(mc -> Latency.install(250));
+                    ctx.waitTicks(10);
+                    int delayed = arrival(ctx, server, "diamond_block");
+                    scenario.log("a server-side block change reached the client in " + direct
+                            + " tick(s) direct, " + delayed + " through 250 ms of latency");
+                    if (delayed - direct < 3) {
+                        throw new AssertionError("250 ms of latency added only " + (delayed - direct)
+                                + " tick(s) — the delay stage is not in the pipeline");
+                    }
+
+                    ctx.runOnClient(mc -> Latency.install(100));
+                    double[] start = scenario.playerPosition();
+                    ctx.getInput().holdKey(options -> options.keyUp);
+                    ctx.getInput().holdKey(options -> options.keySprint);
+                    ctx.getInput().holdKey(options -> options.keyJump);
+                    ctx.waitTicks(160);
+                    ctx.getInput().releaseKey(options -> options.keyJump);
+                    ctx.getInput().releaseKey(options -> options.keySprint);
+                    ctx.getInput().releaseKey(options -> options.keyUp);
+                    double[] end = scenario.playerPosition();
+                    double travelled = Math.hypot(end[0] - start[0], end[2] - start[2]);
+                    scenario.log(String.format(Locale.ROOT, "travelled %.1f blocks over 100 ms of latency",
+                            travelled));
+                    if (travelled < 20) {
+                        throw new AssertionError("only travelled " + travelled + " blocks — the run did not happen");
+                    }
+                    // Out again, mid-stream, while the server is still talking. Must drain in order.
+                    ctx.runOnClient(mc -> Latency.remove());
+                    ctx.waitTicks(40);
+                });
+    }
+
+    /** Ticks from the server setting a block to the client seeing it. */
+    private static int arrival(ClientGameTestContext ctx, TestServer server, String block) {
+        net.minecraft.core.BlockPos at = new net.minecraft.core.BlockPos(0, TestMap.GROUND_Y + 8, 20);
+        server.command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:%s",
+                at.getX(), at.getY(), at.getZ(), block));
+        return ctx.waitFor(mc -> net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                .getKey(mc.level.getBlockState(at).getBlock()).getPath().equals(block), 200);
     }
 }

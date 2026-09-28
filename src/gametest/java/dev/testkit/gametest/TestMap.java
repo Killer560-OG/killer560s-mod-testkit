@@ -11,7 +11,7 @@ import java.util.Locale;
  *         .walls(4)                       // barrier walls so nothing walks off by accident
  *         .catchFloor(140)                // somewhere survivable to land
  *         .bridgeGap(1, 40)               // carve everything past x=1 into void
- *         .spawn(-3.5, 0.5, -90f)         // stand here, facing west
+ *         .spawn(-3.5, 0.5, -90f)         // stand here, facing east (+X)
  *         .build();
  * }</pre>
  *
@@ -155,6 +155,16 @@ public final class TestMap {
     /** A wall to run into — for testing what a module does when it is blocked. */
     public TestMap wall(int x, int y, int z1, int z2, int height) {
         return fill(x, y + 1, z1, x, y + height, z2, "smooth_stone");
+    }
+
+    /**
+     * Make the server refuse any block placed into this box, the way spawn protection or a claim does: the
+     * client predicts the block and the server puts the cell back. Lasts for the scenario — every scenario's
+     * server starts with none — or until {@code testkit unprotect} or {@code testkit sweep}.
+     */
+    public TestMap protect(int x1, int y1, int z1, int x2, int y2, int z2) {
+        plan.append(String.format(Locale.ROOT, "testkit protect %d %d %d %d %d %d%n", x1, y1, z1, x2, y2, z2));
+        return this;
     }
 
     /** Anything else. Block ids may be given with or without the {@code minecraft:} prefix. */
