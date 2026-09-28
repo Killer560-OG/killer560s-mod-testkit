@@ -33,6 +33,8 @@ public class SimTests implements FabricClientGameTest {
     private static final String SIM_BUILDER = "com.killer560.hub.roomsim.SimBuilder";
     private static final String SIM_DOORS = "com.killer560.hub.roomsim.SimDoors";
     private static final String SIM_MOBS = "com.killer560.hub.roomsim.SimMobs";
+    private static final String SIM_CLASS = "com.killer560.hub.roomsim.SimClass";
+    private static final String SIM_RUN = "com.killer560.hub.roomsim.SimRun";
 
     /** Mirrors DungeonLayout.GRID / LiveMapFeature.START_X / HALF_ROOM and RoomLibrary.TILE. */
     private static final int GRID = 11;
@@ -226,6 +228,69 @@ public class SimTests implements FabricClientGameTest {
                 throw new AssertionError("the Fel did not wake into an enderman after a player stood next to it");
             }
 
+            // 7. MAGE BEAM. Tested by AIM, not by "did something die".
+            //
+            //    The first version fired the beam and checked the target was gone, and it kept reporting the
+            //    mob as already dead before the beam was told to fire. The reason is that the beam fires while
+            //    the attack key is held and the harness reports it held - so everything in front of the player
+            //    dies continuously. That makes "the target died" prove nothing.
+            //
+            //    So: one mob in front and one behind, and the beam is correct only if the front one dies and
+            //    the back one does not. A beam that killed both would be a beam that ignores where you look,
+            //    which is worse than one that does not fire.
+            sp.getServer().runOnServer(server -> server.getPlayerList().getPlayers().get(0)
+                    .teleportTo(x0 + 22.5, FLOOR_Y + 1, z0 + 12.5));
+            ctx.runOnClient(mc -> {
+                mc.player.setYRot(0.0f);   // yaw 0 faces +Z in Minecraft
+                mc.player.setXRot(0.0f);
+            });
+            ctx.waitTicks(5);
+            BlockPos inFront = new BlockPos(x0 + 22, FLOOR_Y + 1, z0 + 17);
+            BlockPos behind = new BlockPos(x0 + 22, FLOOR_Y + 1, z0 + 7);
+            ctx.runOnClient(mc -> {
+                ModUnderTest.staticCall(SIM_MOBS, "spawn",
+                        new Class<?>[]{Minecraft.class, BlockPos.class, zombieKind.getClass()},
+                        new Object[]{mc, inFront, zombieKind});
+                ModUnderTest.staticCall(SIM_MOBS, "spawn",
+                        new Class<?>[]{Minecraft.class, BlockPos.class, zombieKind.getClass()},
+                        new Object[]{mc, behind, zombieKind});
+            });
+            ctx.waitTicks(10);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_CLASS, "fire",
+                    new Class<?>[]{Minecraft.class}, new Object[]{mc}));
+            ctx.waitTicks(10);
+            int frontAlive = livingZombiesNear(sp, inFront);
+            int backAlive = livingZombiesNear(sp, behind);
+            System.out.println("[70-sim-flat-room] beam: front alive=" + frontAlive
+                    + " behind alive=" + backAlive);
+            if (frontAlive != 0) {
+                throw new AssertionError("the mage beam did not kill the mob in front of the player");
+            }
+            if (backAlive != 1) {
+                throw new AssertionError("the mob BEHIND the player died (" + backAlive + " alive) - the beam "
+                        + "is not respecting where the player is looking");
+            }
+
+            // 8. RUN COUNTDOWN. It must not be running during the countdown and must be running after it.
+            //    A run whose clock starts with the countdown reports five seconds that were not run time.
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_RUN, "begin",
+                    new Class<?>[]{Minecraft.class, BlockPos.class}, new Object[]{mc, null}));
+            ctx.waitTicks(20);
+            boolean runningDuringCountdown = ctx.computeOnClient(mc ->
+                    (Boolean) ModUnderTest.staticCall(SIM_RUN, "isRunning",
+                            new Class<?>[]{}, new Object[]{}));
+            if (runningDuringCountdown) {
+                throw new AssertionError("the run clock started during the countdown - five seconds of waiting "
+                        + "would be reported as run time");
+            }
+            ctx.waitTicks(5 * 20 + 20);
+            boolean runningAfter = ctx.computeOnClient(mc ->
+                    (Boolean) ModUnderTest.staticCall(SIM_RUN, "isRunning",
+                            new Class<?>[]{}, new Object[]{}));
+            if (!runningAfter) {
+                throw new AssertionError("the run never started after the countdown finished");
+            }
+
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave",
                     new Class<?>[]{}, new Object[]{}));
             boolean afterLeave = ctx.computeOnClient(mc ->
@@ -236,8 +301,19 @@ public class SimTests implements FabricClientGameTest {
                         + "abilities fire outside the sim");
             }
             System.out.println("[70-sim-flat-room] PASS - gate off/on/off, room pasted at the right cell, "
-                    + "orientation marker in the right corner, stair kept its east facing, wither door went to barriers and then cleared, 1-HP zombie, Fel woke on approach");
+                    + "orientation marker in the right corner, stair kept its east facing, wither door went to barriers and then cleared, 1-HP zombie, Fel woke on approach, mage beam killed, run countdown held then started");
         }
     }
 
+
+    /** Zombies near a point that are still ALIVE - a killed mob lingers through its death animation, so
+     *  counting entities counts the corpse and reports a working beam as having done nothing. */
+    private static int livingZombiesNear(
+            net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext sp,
+            net.minecraft.core.BlockPos pos) {
+        return sp.getServer().computeOnServer(server -> (int) server.overworld()
+                .getEntitiesOfClass(net.minecraft.world.entity.monster.zombie.Zombie.class,
+                        new net.minecraft.world.phys.AABB(pos).inflate(3.5))
+                .stream().filter(z -> z.getHealth() > 0.0f).count());
+    }
 }
