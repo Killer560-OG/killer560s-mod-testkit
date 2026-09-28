@@ -141,8 +141,13 @@ public class FullBlockTests implements FabricClientGameTest {
                             PacketWatch.totalUses(), flippedBefore, flippedAfter, post, other));
 
                     if (PacketWatch.totalUses() == 0) {
-                        throw new AssertionError("nothing was sent, so this says nothing about Full Block. "
-                                + "Check the triggerbot's own state line in the client log.");
+                        throw new AssertionError("nothing was sent, so this says nothing about Full Block."
+                                + (flippedBefore
+                                ? " The lever was ALREADY powered before this scenario began, which means an"
+                                + " earlier scenario in this same client run clicked it and the triggerbot's"
+                                + " static done-set is still carrying it. Run this one on its own"
+                                + " (-Pscenario=62-full-block) - it passes in isolation."
+                                : " Check the triggerbot's own state line in the client log."));
                     }
                     if (flippedAfter != flippedBefore) {
                         scenario.log("FINDING: the server ACCEPTED an interaction aimed at a point its own "

@@ -107,8 +107,13 @@ public class ReachTests implements FabricClientGameTest {
                             accepted ? "ACCEPTED" : "REFUSED", flags));
                     if (PacketWatch.totalUses() == 0) {
                         throw new AssertionError("nothing was sent at " + distance + " blocks, so this rung "
-                                + "measured nothing - the aura may not consider the lever a target at all, "
-                                + "which is a different answer from being out of range");
+                                + "measured nothing"
+                                + (accepted
+                                ? " - and the lever is already powered, so an earlier scenario in this client"
+                                + " run clicked it and the aura's static done-set still carries it. Run the"
+                                + " ladder on its own (-Pscenario=8) - it passes in isolation."
+                                : ". The aura may not consider the lever a target at all, which is a different"
+                                + " answer from being out of range."));
                     }
                     for (String flag : scenario.flags().stream().distinct().limit(2).toList()) {
                         scenario.log("    " + flag);
