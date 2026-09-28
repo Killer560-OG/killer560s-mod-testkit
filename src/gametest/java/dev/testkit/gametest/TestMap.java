@@ -203,6 +203,41 @@ public final class TestMap {
         return this;
     }
 
+    /**
+     * Give the world a Hypixel Skyblock scoreboard sidebar.
+     *
+     * <p>This is the honest way to satisfy a Skyblock mod's gates, and it is worth preferring over a mod's own
+     * force/sim toggle wherever it works. killer560s-mod reads the real sidebar to decide which floor you are
+     * on: the objective's display name and every score line, formatting stripped, looked at for
+     * {@code "The Catacombs (F7)"}. A vanilla scoreboard produces exactly that, so floor detection runs for
+     * real rather than being overridden.
+     *
+     * <p>The difference matters. The mod's {@code /killer560 sim} override forces floor, F7 <b>and boss phase</b>
+     * together, and several features are gated on <i>not</i> being in the boss - so the override that opens
+     * their dungeon gate slams their room gate shut, and they sit out the whole run. Detected-for-real floor
+     * with no boss line gives a dungeon that is not a boss, which is what those features need.
+     *
+     * @param floor e.g. {@code "F7"} or {@code "M3"}; appears as "The Catacombs (F7)"
+     */
+    public TestMap skyblockSidebar(String floor) {
+        plan.append("scoreboard objectives add sbtest dummy {\"text\":\"SKYBLOCK\"}")
+                .append(System.lineSeparator());
+        plan.append("scoreboard objectives setdisplay sidebar sbtest").append(System.lineSeparator());
+        // The line arrives as a TEAM PREFIX on a short score holder, not as the holder's own name.
+        //
+        // Two reasons, one practical and one about fidelity. Practically, a score holder name cannot contain
+        // spaces: "scoreboard players set \"The Catacombs (F7)\" ..." is a parse error at the quote, which is
+        // how the first version of this failed - the objective appeared, the line did not, and the mod read an
+        // empty floor. And in fidelity: this is how Hypixel itself builds sidebar lines, which is why the mod
+        // reassembles prefix + name + suffix rather than reading the holder name.
+        plan.append("team add sbline").append(System.lineSeparator());
+        plan.append(String.format(Locale.ROOT,
+                "team modify sbline prefix {\"text\":\"The Catacombs (%s)\"}%n", floor));
+        plan.append("scoreboard players set sbl1 sbtest 1").append(System.lineSeparator());
+        plan.append("team join sbline sbl1").append(System.lineSeparator());
+        return this;
+    }
+
     /** Any command, if the builder does not cover it. */
     public TestMap command(String command) {
         plan.append(command).append(System.lineSeparator());

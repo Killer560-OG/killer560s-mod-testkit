@@ -12,7 +12,8 @@
 			"dev.testkit.gametest.MovementExamples",
 			"dev.testkit.gametest.CombatExamples",
 			"dev.testkit.gametest.PlacementExamples",
-			"dev.testkit.gametest.BreakerAuraTests"
+			"dev.testkit.gametest.BreakerAuraTests",
+			"dev.testkit.gametest.AuraSweepTests"
 		]
 	},
 	"depends": {
