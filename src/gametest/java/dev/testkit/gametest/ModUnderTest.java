@@ -44,6 +44,25 @@ public final class ModUnderTest {
         }
     }
 
+    /**
+     * Calls a static method that takes arguments.
+     *
+     * <p>The no-argument {@link #staticCall(String, String)} cannot reach the sim, whose entry points all take a
+     * Minecraft or a map code. Parameter types are given explicitly rather than derived from the arguments,
+     * because deriving them picks the concrete class and misses every method declared against an interface or a
+     * supertype - which is most of them.
+     */
+    public static Object staticCall(String className, String method, Class<?>[] types, Object[] args) {
+        try {
+            Class<?> cls = Class.forName(className);
+            var m = cls.getDeclaredMethod(method, types);
+            m.setAccessible(true);
+            return m.invoke(null, args);
+        } catch (Exception e) {
+            throw new AssertionError("could not call " + className + "." + method, e);
+        }
+    }
+
     public static Object staticCall(String className, String method) {
         try {
             return Class.forName(className).getMethod(method).invoke(null);
