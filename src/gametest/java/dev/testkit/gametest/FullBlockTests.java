@@ -35,8 +35,12 @@ public class FullBlockTests implements FabricClientGameTest {
     private static final String DUNGEON_LABEL = "localhost.p3sim.net:25565";
 
     private static final int SURFACE_Y = 151;
-    private static final int BASE_X = -300;
-    private static final int BASE_Z = -300;
+    // Its own corner of the world. These features keep a static done-set of secrets they have already clicked
+    // and it survives the world being rebuilt between scenarios in one client, so sharing coordinates with
+    // another scenario means this one silently finds nothing to do - which is exactly what happened when the
+    // whole suite ran in one go (the lever was already powered before this scenario started).
+    private static final int BASE_X = -700;
+    private static final int BASE_Z = -700;
     private static final BlockPos LEVER = new BlockPos(BASE_X, SURFACE_Y + 1, BASE_Z);
 
     @Override
