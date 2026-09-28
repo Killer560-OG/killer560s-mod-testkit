@@ -32,6 +32,7 @@ public class SimTests implements FabricClientGameTest {
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String SIM_BUILDER = "com.killer560.hub.roomsim.SimBuilder";
     private static final String SIM_DOORS = "com.killer560.hub.roomsim.SimDoors";
+    private static final String SIM_MOBS = "com.killer560.hub.roomsim.SimMobs";
 
     /** Mirrors DungeonLayout.GRID / LiveMapFeature.START_X / HALF_ROOM and RoomLibrary.TILE. */
     private static final int GRID = 11;
@@ -174,6 +175,57 @@ public class SimTests implements FabricClientGameTest {
                         + found + ". A door stuck as barriers is a wall.");
             }
 
+            // 5. MOBS. "all mobs have one HP" - so the thing to check is the health, not that something
+            //    spawned. A zombie with default health is a zombie that takes several hits and makes every
+            //    damage number in the sim wrong.
+            BlockPos mobPos = new BlockPos(x0 + 20, FLOOR_Y + 1, z0 + 20);
+            Object zombieKind = ModUnderTest.enumValue(SIM_MOBS + "$Kind", "ZOMBIE");
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOBS, "spawn",
+                    new Class<?>[]{Minecraft.class, BlockPos.class, zombieKind.getClass()},
+                    new Object[]{mc, mobPos, zombieKind}));
+            ctx.waitTicks(20);
+            double maxHealth = sp.getServer().computeOnServer(server -> {
+                var level = server.overworld();
+                var box = new net.minecraft.world.phys.AABB(mobPos).inflate(6.0);
+                var mobs = level.getEntitiesOfClass(net.minecraft.world.entity.monster.zombie.Zombie.class, box);
+                return mobs.isEmpty() ? -1.0 : (double) mobs.get(0).getMaxHealth();
+            });
+            if (maxHealth < 0) {
+                throw new AssertionError("no zombie spawned near " + mobPos);
+            }
+            if (maxHealth > 1.0001) {
+                throw new AssertionError("sim zombie has " + maxHealth + " max health, should be 1 so anything "
+                        + "one-taps it");
+            }
+
+            // 6. FEL. Dormant skull, then an enderman once you are close. Checked by counting endermen before
+            //    and after moving the player in - a Fel that wakes on spawn, or never wakes, both look like
+            //    "there is an enderman there" if you only look once.
+            BlockPos felPos = new BlockPos(x0 + 25, FLOOR_Y + 1, z0 + 5);
+            Object felKind = ModUnderTest.enumValue(SIM_MOBS + "$Kind", "FEL");
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOBS, "spawn",
+                    new Class<?>[]{Minecraft.class, BlockPos.class, felKind.getClass()},
+                    new Object[]{mc, felPos, felKind}));
+            ctx.waitTicks(20);
+            int endermenBefore = sp.getServer().computeOnServer(server -> server.overworld()
+                    .getEntitiesOfClass(net.minecraft.world.entity.monster.EnderMan.class,
+                            new net.minecraft.world.phys.AABB(felPos).inflate(8.0)).size());
+            if (endermenBefore != 0) {
+                throw new AssertionError("the Fel woke before anyone went near it - it should be a motionless "
+                        + "skull until a player is close");
+            }
+            sp.getServer().runOnServer(server -> {
+                var player = server.getPlayerList().getPlayers().get(0);
+                player.teleportTo(felPos.getX() + 1.0, felPos.getY(), felPos.getZ() + 1.0);
+            });
+            ctx.waitTicks(40);
+            int endermenAfter = sp.getServer().computeOnServer(server -> server.overworld()
+                    .getEntitiesOfClass(net.minecraft.world.entity.monster.EnderMan.class,
+                            new net.minecraft.world.phys.AABB(felPos).inflate(8.0)).size());
+            if (endermenAfter < 1) {
+                throw new AssertionError("the Fel did not wake into an enderman after a player stood next to it");
+            }
+
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave",
                     new Class<?>[]{}, new Object[]{}));
             boolean afterLeave = ctx.computeOnClient(mc ->
@@ -184,7 +236,7 @@ public class SimTests implements FabricClientGameTest {
                         + "abilities fire outside the sim");
             }
             System.out.println("[70-sim-flat-room] PASS - gate off/on/off, room pasted at the right cell, "
-                    + "orientation marker in the right corner, stair kept its east facing, wither door went to barriers and then cleared");
+                    + "orientation marker in the right corner, stair kept its east facing, wither door went to barriers and then cleared, 1-HP zombie, Fel woke on approach");
         }
     }
 

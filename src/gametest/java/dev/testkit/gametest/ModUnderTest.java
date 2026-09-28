@@ -52,6 +52,21 @@ public final class ModUnderTest {
      * because deriving them picks the concrete class and misses every method declared against an interface or a
      * supertype - which is most of them.
      */
+    /** One constant of an enum the mod owns, by name - the test cannot import the mod's classes. */
+    public static Object enumValue(String enumClassName, String constant) {
+        try {
+            Class<?> cls = Class.forName(enumClassName);
+            for (Object o : cls.getEnumConstants()) {
+                if (((Enum<?>) o).name().equals(constant)) {
+                    return o;
+                }
+            }
+            throw new AssertionError("no constant " + constant + " on " + enumClassName);
+        } catch (ClassNotFoundException e) {
+            throw new AssertionError("no enum " + enumClassName, e);
+        }
+    }
+
     public static Object staticCall(String className, String method, Class<?>[] types, Object[] args) {
         try {
             Class<?> cls = Class.forName(className);
