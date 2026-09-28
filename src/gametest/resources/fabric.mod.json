@@ -15,7 +15,8 @@
 			"dev.testkit.gametest.PlacementExamples",
 			"dev.testkit.gametest.BreakerAuraTests",
 			"dev.testkit.gametest.AuraSweepTests",
-			"dev.testkit.gametest.InventoryAutomationTests"
+			"dev.testkit.gametest.InventoryAutomationTests",
+			"dev.testkit.gametest.FullBlockTests"
 		]
 	},
 	"depends": {
