@@ -13,7 +13,8 @@
 			"dev.testkit.gametest.CombatExamples",
 			"dev.testkit.gametest.PlacementExamples",
 			"dev.testkit.gametest.BreakerAuraTests",
-			"dev.testkit.gametest.AuraSweepTests"
+			"dev.testkit.gametest.AuraSweepTests",
+			"dev.testkit.gametest.InventoryAutomationTests"
 		]
 	},
 	"depends": {

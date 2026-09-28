@@ -3,6 +3,7 @@ package dev.testkit.harness;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
@@ -38,6 +39,7 @@ public final class PacketWatch {
     private static int swingsThisTick;
     private static int movesThisTick;
     private static int usesThisTick;
+    private static int clicksThisTick;
 
     private static int ticksObserved;
     private static int totalBreaks;
@@ -53,6 +55,9 @@ public final class PacketWatch {
     private static int totalUses;
     private static int maxUsesOnOneTick;
     private static int usesAfterMove;
+    private static int totalContainerClicks;
+    private static int maxClicksOnOneTick;
+    private static int clicksAfterMove;
     private static int moveCount;
     private static int collisionTicks;
 
@@ -96,6 +101,10 @@ public final class PacketWatch {
         totalUses = 0;
         maxUsesOnOneTick = 0;
         usesAfterMove = 0;
+        clicksThisTick = 0;
+        totalContainerClicks = 0;
+        maxClicksOnOneTick = 0;
+        clicksAfterMove = 0;
         sawRotation = false;
         maxYawStep = 0;
         minPitchSent = Float.NaN;
@@ -124,10 +133,14 @@ public final class PacketWatch {
         if (usesThisTick > maxUsesOnOneTick) {
             maxUsesOnOneTick = usesThisTick;
         }
+        if (clicksThisTick > maxClicksOnOneTick) {
+            maxClicksOnOneTick = clicksThisTick;
+        }
         breaksThisTick = 0;
         swingsThisTick = 0;
         movesThisTick = 0;
         usesThisTick = 0;
+        clicksThisTick = 0;
     }
 
     public static synchronized void record(Packet<?> packet) {
@@ -147,6 +160,15 @@ public final class PacketWatch {
                     breaksAfterMove++;
                 }
                 measureReach(action.getPos());
+            }
+        } else if (packet instanceof ServerboundContainerClickPacket) {
+            // Inventory and menu automation - the sorter, the seller, Croesus, the experiment table. A third
+            // packet class, and worth measuring separately: a server validates a window click against its own
+            // copy of the menu, so it is not obvious in advance whether the ordering check applies here at all.
+            clicksThisTick++;
+            totalContainerClicks++;
+            if (movesThisTick > 0) {
+                clicksAfterMove++;
             }
         } else if (packet instanceof ServerboundUseItemOnPacket) {
             // Right-click-on-block, which is what every one of this mod's auras actually sends: levers,
@@ -224,6 +246,18 @@ public final class PacketWatch {
         return maxUsesOnOneTick;
     }
 
+    public static synchronized int totalContainerClicks() {
+        return totalContainerClicks;
+    }
+
+    public static synchronized int maxClicksOnOneTick() {
+        return maxClicksOnOneTick;
+    }
+
+    public static synchronized int clicksAfterMove() {
+        return clicksAfterMove;
+    }
+
     /** Uses that went out AFTER that tick's movement packet - the shape Grim's Post check looks for. */
     public static synchronized int usesAfterMove() {
         return usesAfterMove;
@@ -268,14 +302,16 @@ public final class PacketWatch {
     public static synchronized String summary() {
         return String.format(Locale.ROOT,
                 "%d ticks: %d break-starts over %d ticks (max %d on one tick, at tick %d), %d block-uses "
-                        + "(max %d on one tick, %d after that tick's movement packet), %d swings, "
+                        + "(max %d on one tick, %d after that tick's movement packet), %d container "
+                        + "clicks (max %d on one tick, %d after that tick's movement packet), %d swings, "
                         + "%d hotbar swaps, %d breaks with no swing that tick, collided with something on "
                         + "%d of %d movement packets, %d breaks sent AFTER that "
                         + "tick's movement packet, furthest reach %.2f to box "
                         + "/ %.2f to centre; rotation sent: max abs yaw %.1f, biggest one-tick yaw step "
                         + "%.1f, pitch %.1f..%.1f%s",
                 ticksObserved, totalBreaks, ticksWithABreak, maxBreaksOnOneTick, tickOfMaxBreaks,
-                totalUses, maxUsesOnOneTick, usesAfterMove, totalSwings, totalHotbarSwaps, breaksWithoutSwing, collisionTicks, moveCount,
+                totalUses, maxUsesOnOneTick, usesAfterMove, totalContainerClicks, maxClicksOnOneTick,
+                clicksAfterMove, totalSwings, totalHotbarSwaps, breaksWithoutSwing, collisionTicks, moveCount,
                 breaksAfterMove, maxBoxReach, maxCentreReach,
                 maxAbsYawSent, maxYawStep,
                 Float.isNaN(minPitchSent) ? 0f : minPitchSent,
