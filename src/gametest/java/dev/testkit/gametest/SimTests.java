@@ -41,6 +41,7 @@ public class SimTests implements FabricClientGameTest {
     private static final String SIM_PUZZLES = "com.killer560.hub.roomsim.puzzles.SimPuzzles";
     private static final String ITEM_IDENTITY = "com.killer560.hub.autoroutes.ItemIdentity";
     private static final String SIM_ITEMS = "com.killer560.hub.roomsim.SimItems";
+    private static final String SIM_ABILITIES = "com.killer560.hub.roomsim.SimAbilities";
     private static final String SIM_ARCHITECT = "com.killer560.hub.roomsim.SimArchitect";
     private static final String ARCHITECT_CONFIG_HOLDER =
             "com.killer560.hub.architect.ArchitectDraftConfig";
@@ -551,6 +552,11 @@ public class SimTests implements FabricClientGameTest {
                     {"STARRED_MIDAS_SWORD", "MIDAS_SWORD"}, {"STARRED_BAT_WAND", "BAT_WAND"},
                     {"STARRED_LAST_BREATH", "LAST_BREATH"}, {"STARRED_ICE_SPRAY_WAND", "ICE_SPRAY_WAND"},
                     {"SPIRIT_LEAP", "INFINITE_SPIRIT_LEAP"},
+                    // Same 8-block Instant Transmission on all three; the range comes from the item's tuners,
+                    // not from which one it is. This pair was asserted the other way round until killer560
+                    // pointed out that AOTV is not 12 blocks by nature.
+                    {"ASPECT_OF_THE_END", "ASPECT_OF_THE_VOID"},
+                    {"ASPECT_OF_THE_VOID", "ETHERWARP_CONDUIT"},
                     {"SUPERBOOM_TNT", "INFINITE_SUPERBOOM_TNT"},
                 };
                 for (String[] pair : same) {
@@ -564,8 +570,6 @@ public class SimTests implements FabricClientGameTest {
                     }
                 }
                 String[][] different = {
-                    // Different teleport distances - grouping these would make a route walk off its path.
-                    {"ASPECT_OF_THE_END", "ASPECT_OF_THE_VOID"},
                     // The unrefined base blade has no Wither Impact to use.
                     {"NECRON_BLADE", "HYPERION"},
                     {"BAT_WAND", "HYPERION"},
@@ -605,6 +609,59 @@ public class SimTests implements FabricClientGameTest {
                         + "route recorded on Hypixel would not find it in the hotbar");
             }
 
+            // 15. Instant Transmission goes the distance he actually plays with.
+            //     killer560: "The tp range depends on how many transmission tuners you add [...] Treat the
+            //     default as 12 nearly no one plays with less." The sim had no plain right-click teleport at
+            //     all before this. Measured as a REAL DISTANCE MOVED down a clear corridor, not by reading the
+            //     constant back - a range that is computed correctly and then never applied would pass that.
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_ITEMS, "give",
+                    new Class<?>[]{Minecraft.class, String.class},
+                    new Object[]{mc, "ASPECT_OF_THE_VOID"}));
+            ctx.waitTicks(20);
+            // Stand in open air well clear of the room so nothing stops the dash short, looking level.
+            sp.getServer().runOnServer(server -> {
+                var player = server.getPlayerList().getPlayers().get(0);
+                player.teleportTo(server.overworld(), originX + 0.5, FLOOR_Y + 40, originZ + 0.5,
+                        java.util.Set.of(), 90.0f, 0.0f, false);
+            });
+            ctx.waitTicks(10);
+            double[] start = sp.getServer().computeOnServer(server -> {
+                var p = server.getPlayerList().getPlayers().get(0);
+                return new double[]{p.getX(), p.getY(), p.getZ()};
+            });
+            ctx.runOnClient(mc -> {
+                int slot = ModUnderTest.getInt(mc.player.getInventory(), "getSelectedSlot");
+                mc.player.getInventory().setSelectedSlot(slot);
+            });
+            // Select the sceptre-free slot holding the AOTV and use it.
+            ctx.runOnClient(mc -> {
+                for (int i = 0; i < 9; i++) {
+                    var data = mc.player.getInventory().getItem(i)
+                            .get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+                    if (data != null && "ASPECT_OF_THE_VOID".equals(data.copyTag().getStringOr("id", ""))) {
+                        mc.player.getInventory().setSelectedSlot(i);
+                        return;
+                    }
+                }
+                throw new AssertionError("the sim did not give an Aspect of the Void");
+            });
+            ctx.waitTicks(5);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_ABILITIES, "instantTransmission",
+                    new Class<?>[]{Minecraft.class, net.minecraft.world.item.ItemStack.class},
+                    new Object[]{mc, mc.player.getInventory().getSelectedItem()}));
+            ctx.waitTicks(20);
+            double[] end = sp.getServer().computeOnServer(server -> {
+                var p = server.getPlayerList().getPlayers().get(0);
+                return new double[]{p.getX(), p.getY(), p.getZ()};
+            });
+            double moved = Math.sqrt(Math.pow(end[0] - start[0], 2) + Math.pow(end[2] - start[2], 2));
+            System.out.println("[70-sim-flat-room] instant transmission moved " + String.format(Locale.US,
+                    "%.2f", moved) + " blocks (expect ~12 with four tuners)");
+            if (moved < 11.0 || moved > 13.0) {
+                throw new AssertionError("a fully tuned Aspect of the Void should teleport about 12 blocks - "
+                        + "8 base plus four tuners - but it moved " + moved);
+            }
+
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave",
                     new Class<?>[]{}, new Object[]{}));
             boolean afterLeave = ctx.computeOnClient(mc ->
@@ -615,7 +672,7 @@ public class SimTests implements FabricClientGameTest {
                         + "abilities fire outside the sim");
             }
             System.out.println("[70-sim-flat-room] PASS - gate off/on/off, room pasted at the right cell, "
-                    + "orientation marker in the right corner, stair kept its east facing, wither door went to barriers and then cleared, 1-HP zombie, Fel woke on approach, mage beam killed only the nearest (zero pierce), run countdown held then started, reads as a dungeon but not the boss, mobs stay put, mimic eligibility, score bonus, Architect draft on a sim puzzle fail, wither-blade/leap/boom item families");
+                    + "orientation marker in the right corner, stair kept its east facing, wither door went to barriers and then cleared, 1-HP zombie, Fel woke on approach, mage beam killed only the nearest (zero pierce), run countdown held then started, reads as a dungeon but not the boss, mobs stay put, mimic eligibility, score bonus, Architect draft on a sim puzzle fail, wither-blade/leap/boom/teleport item families, 12-block instant transmission");
         }
     }
 
