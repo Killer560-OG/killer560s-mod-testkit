@@ -3,6 +3,7 @@ package dev.testkit.harness;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ServerboundClientTickEndPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
@@ -145,6 +146,19 @@ public final class PacketWatch {
 
     public static synchronized void record(Packet<?> packet) {
         if (!active) {
+            return;
+        }
+        // THE TICK BOUNDARY IS VANILLA'S OWN MARKER.
+        //
+        // A vanilla client sends exactly one client_tick_end at the end of each tick (26.1.2), so the boundary
+        // needs no mixin and no guess about the order two injections at the same point happen to run in. This
+        // replaces a Minecraft#tick hook that was wrong in the one case it existed to measure: at TAIL it sat
+        // BEFORE Fabric's END_CLIENT_TICK handlers, filed a module's packets under the following tick, and
+        // reported zero ordering problems while the anticheat reported 808. Credit to upstream's PacketTrace
+        // for the marker; its per-tick sequence is the authoritative record, and this class only survives for
+        // the things a name-only trace cannot give: reach measured to the block box, and collisions.
+        if (packet instanceof ServerboundClientTickEndPacket) {
+            endTick();
             return;
         }
         if (packet instanceof ServerboundPlayerActionPacket action) {

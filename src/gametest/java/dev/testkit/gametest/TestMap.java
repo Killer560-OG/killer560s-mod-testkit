@@ -11,7 +11,7 @@ import java.util.Locale;
  *         .walls(4)                       // barrier walls so nothing walks off by accident
  *         .catchFloor(140)                // somewhere survivable to land
  *         .bridgeGap(1, 40)               // carve everything past x=1 into void
- *         .spawn(-3.5, 0.5, -90f)         // stand here, facing west
+ *         .spawn(-3.5, 0.5, -90f)         // stand here, facing east (+X)
  *         .build();
  * }</pre>
  *
@@ -157,6 +157,16 @@ public final class TestMap {
         return fill(x, y + 1, z1, x, y + height, z2, "smooth_stone");
     }
 
+    /**
+     * Make the server refuse any block placed into this box, the way spawn protection or a claim does: the
+     * client predicts the block and the server puts the cell back. Lasts for the scenario — every scenario's
+     * server starts with none — or until {@code testkit unprotect} or {@code testkit sweep}.
+     */
+    public TestMap protect(int x1, int y1, int z1, int x2, int y2, int z2) {
+        plan.append(String.format(Locale.ROOT, "testkit protect %d %d %d %d %d %d%n", x1, y1, z1, x2, y2, z2));
+        return this;
+    }
+
     /** Anything else. Block ids may be given with or without the {@code minecraft:} prefix. */
     public TestMap fill(int x1, int y1, int z1, int x2, int y2, int z2, String block) {
         String id = block.contains(":") ? block : "minecraft:" + block;
@@ -203,19 +213,22 @@ public final class TestMap {
         return this;
     }
 
+    /** Any command, if the builder does not cover it. */
     /**
      * Give the world a Hypixel Skyblock scoreboard sidebar.
      *
-     * <p>This is the honest way to satisfy a Skyblock mod's gates, and it is worth preferring over a mod's own
-     * force/sim toggle wherever it works. killer560s-mod reads the real sidebar to decide which floor you are
-     * on: the objective's display name and every score line, formatting stripped, looked at for
-     * {@code "The Catacombs (F7)"}. A vanilla scoreboard produces exactly that, so floor detection runs for
-     * real rather than being overridden.
+     * <p>Preferable to a mod's own force/sim toggle wherever it works. killer560s-mod reads the real sidebar
+     * to decide which floor you are on: the objective's display name and every score line, formatting
+     * stripped, looked at for {@code "The Catacombs (F7)"}. A vanilla scoreboard produces exactly that, so
+     * floor detection runs for real instead of being overridden.
      *
-     * <p>The difference matters. The mod's {@code /killer560 sim} override forces floor, F7 <b>and boss phase</b>
-     * together, and several features are gated on <i>not</i> being in the boss - so the override that opens
-     * their dungeon gate slams their room gate shut, and they sit out the whole run. Detected-for-real floor
-     * with no boss line gives a dungeon that is not a boss, which is what those features need.
+     * <p>The difference matters. That mod's {@code /killer560 sim} override forces floor, F7 <b>and boss
+     * phase</b> together, and several features are gated on <i>not</i> being in the boss - so the override
+     * that opens their dungeon gate slams their room gate shut and they sit out the whole run.
+     *
+     * <p>The line arrives as a TEAM PREFIX on a short score holder, not as the holder's own name: a score
+     * holder name cannot contain spaces, so quoting it is a parse error whose symptom is an objective with no
+     * lines. It is also how Hypixel builds sidebar lines, which is why mods reassemble prefix + name + suffix.
      *
      * @param floor e.g. {@code "F7"} or {@code "M3"}; appears as "The Catacombs (F7)"
      */
@@ -223,13 +236,6 @@ public final class TestMap {
         plan.append("scoreboard objectives add sbtest dummy {\"text\":\"SKYBLOCK\"}")
                 .append(System.lineSeparator());
         plan.append("scoreboard objectives setdisplay sidebar sbtest").append(System.lineSeparator());
-        // The line arrives as a TEAM PREFIX on a short score holder, not as the holder's own name.
-        //
-        // Two reasons, one practical and one about fidelity. Practically, a score holder name cannot contain
-        // spaces: "scoreboard players set \"The Catacombs (F7)\" ..." is a parse error at the quote, which is
-        // how the first version of this failed - the objective appeared, the line did not, and the mod read an
-        // empty floor. And in fidelity: this is how Hypixel itself builds sidebar lines, which is why the mod
-        // reassembles prefix + name + suffix rather than reading the holder name.
         plan.append("team add sbline").append(System.lineSeparator());
         plan.append(String.format(Locale.ROOT,
                 "team modify sbline prefix {\"text\":\"The Catacombs (%s)\"}%n", floor));
@@ -238,7 +244,6 @@ public final class TestMap {
         return this;
     }
 
-    /** Any command, if the builder does not cover it. */
     public TestMap command(String command) {
         plan.append(command).append(System.lineSeparator());
         return this;

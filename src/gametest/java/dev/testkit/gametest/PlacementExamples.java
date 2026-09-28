@@ -1,5 +1,7 @@
 package dev.testkit.gametest;
 
+import dev.testkit.harness.Latency;
+
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
@@ -16,6 +18,7 @@ import java.util.Locale;
  *   <li>{@link #risingGap} — bridging that has to climb.</li>
  *   <li>{@link #towerUp} — vertical placement from a standing start.</li>
  *   <li>{@link #breakWall} — breaking rather than placing.</li>
+ *   <li>{@link #refusedPlacement} — a placement the server turns down, with a control that it did not.</li>
  * </ol>
  *
  * <p>With no block-placing module installed these runs simply walk off the edge and land on the catch
@@ -33,6 +36,7 @@ public class PlacementExamples implements FabricClientGameTest {
         risingGap(ctx);
         towerUp(ctx);
         breakWall(ctx);
+        refusedPlacement(ctx);
     }
 
     /** Count blocks that appeared in the gap during the run — not every solid block in it. */
@@ -230,6 +234,69 @@ public class PlacementExamples implements FabricClientGameTest {
                         return count;
                     });
                     scenario.log("wall went from " + before + " to " + after + " blocks");
+                });
+    }
+
+    /**
+     * A placement the server refuses, the way a protected region refuses one.
+     *
+     * <p>The client predicts the block, the server sends the cell back as it was, and the block stands only
+     * for the round trip in between. {@code /testkit protect} is what makes the server say no; nothing else
+     * on the test server ever does. The same click is made first with no protection, as the control: if that
+     * one does not place, the aim is wrong and the refused half would be measuring nothing.
+     *
+     * <p>The refused click is made over 150 ms of {@link Latency}. Without it the local server's answer lands
+     * before the client's next tick and the predicted block is never up for a whole tick — which is not what
+     * any player on a real connection sees.
+     */
+    private void refusedPlacement(ClientGameTestContext ctx) {
+        BlockPos cell = new BlockPos(1, GROUND + 1, 0);
+        Scenario.run(ctx, "45-place-refused",
+                (server, scenario) -> TestMap.on(server)
+                        .platform(12)
+                        .survival()
+                        .clearInventory()
+                        .give("white_wool", 16)
+                        // A block to click the west face of, from where the player stands, facing east.
+                        .fill(2, GROUND + 1, 0, 2, GROUND + 1, 0, "stone")
+                        .spawn(0.5, 0.5, -90f, 37f)
+                        .build(),
+                (server, scenario) -> {
+                    ctx.getInput().pressKey(options -> options.keyUse);
+                    ctx.waitTicks(10);
+                    boolean placed = ctx.computeOnClient(mc -> !mc.level.getBlockState(cell).isAir());
+                    if (!placed) {
+                        throw new AssertionError("the control click placed nothing at " + cell.toShortString()
+                                + " — the aim is wrong, so the refused half would test nothing");
+                    }
+                    scenario.log("control: placed at " + cell.toShortString());
+
+                    server.command("setblock 1 " + (GROUND + 1) + " 0 minecraft:air");
+                    server.command("testkit protect 1 " + (GROUND + 1) + " 0 1 " + (GROUND + 1) + " 0");
+                    server.sync(10);
+                    ctx.waitTicks(5);
+
+                    ctx.runOnClient(mc -> Latency.install(150));
+                    ctx.waitTicks(10);
+                    ctx.getInput().pressKey(options -> options.keyUse);
+                    int up = 0;
+                    for (int tick = 0; tick < 20; tick++) {
+                        ctx.waitTick();
+                        if (ctx.computeOnClient(mc -> !mc.level.getBlockState(cell).isAir())) {
+                            up++;
+                        }
+                    }
+                    ctx.runOnClient(mc -> Latency.remove());
+                    boolean standing = ctx.computeOnClient(mc -> !mc.level.getBlockState(cell).isAir());
+                    scenario.log("refused over 150 ms: the predicted block was up for " + up + " tick(s), "
+                            + (standing ? "and is STILL there" : "then the server put the cell back"));
+                    if (standing) {
+                        throw new AssertionError("the protected cell kept its block — the server did not refuse it");
+                    }
+                    if (up == 0) {
+                        throw new AssertionError("the predicted block was never up for a tick over 150 ms of latency "
+                                + "— either the client did not predict it or the latency stage is not in");
+                    }
                 });
     }
 }

@@ -107,9 +107,8 @@ public class ExampleTest implements FabricClientGameTest {
                     if (!opponent.visibleToClient()) {
                         throw new AssertionError("the fake player never appeared to the client");
                     }
-                    ctx.getInput().holdKey(options -> options.keyAttack);
-                    opponent.drive(200);
-                    ctx.getInput().releaseKey(options -> options.keyAttack);
+                    // One press per recharged swing — holding the key swings at an entity only once.
+                    scenario.attackFor(200);
 
                     scenario.log(opponent.hits() + " hit(s) taken, opponent died "
                             + opponent.deaths() + " time(s)");

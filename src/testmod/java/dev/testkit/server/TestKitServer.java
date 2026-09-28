@@ -39,15 +39,31 @@ import java.util.List;
  * an opponent up a property at a time:
  *
  * <pre>
- * /testkit spawn BotVelocity1dps 2.5 65 0.5
- * /testkit frozen BotVelocity1dps true
- * /testkit attack BotVelocity1dps 4.0 20 1.0
+ * /testkit spawn SicoKalebV1dps 2.5 151 0.5
+ * /testkit frozen SicoKalebV1dps true
+ * /testkit attack SicoKalebV1dps 4.0 20 1.0
  * </pre>
  */
 public class TestKitServer implements DedicatedServerModInitializer {
 
     /** High enough that nothing the world generated can reach it. */
     private static final int ARENA_Y = 150;
+
+    /**
+     * Boxes a block may not be placed into, the way spawn protection or a claim plugin refuses one.
+     *
+     * <p>Nothing else on this server ever says no to a placement: spawn protection is off and nobody is an
+     * operator, and adventure mode is no substitute, because it stops the client predicting the placement at
+     * all. So without this a scenario could only ever measure a placement that landed — and how a client
+     * behaves when the server turns one down (the predicted block, the correction, the acknowledgement) is
+     * half of what placement code has to get right.
+     *
+     * <p>Refused through Fabric's {@code UseBlockCallback} with {@code FAIL}, which stops the server's
+     * {@code useItemOn} before the item is used and so before anything is placed; the packet handler still
+     * answers with the block updates and the acknowledgement it sends after every click. Only block items are
+     * refused — a lever or a chest in the box still works.
+     */
+    private static final List<net.minecraft.world.phys.AABB> PROTECTED = new ArrayList<>();
 
 
     @Override
@@ -58,6 +74,7 @@ public class TestKitServer implements DedicatedServerModInitializer {
         // failing silently -- which meant natural regeneration was quietly healing the client back up
         // and a hit counter based on health drops read zero.
         ServerLifecycleEvents.SERVER_STARTED.register(TestKitServer::applyTestRules);
+        net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register(TestKitServer::refuseProtected);
         CommandRegistrationCallback.EVENT.register((dispatcher, registry, environment) ->
                 dispatcher.register(Commands.literal("testkit")
                         // Deliberately open: this is a local, disposable test server, and being able to
@@ -96,6 +113,18 @@ public class TestKitServer implements DedicatedServerModInitializer {
                                 .then(Commands.argument("token", StringArgumentType.string())
                                         .executes(context -> say(context, "pong "
                                                 + StringArgumentType.getString(context, "token")))))
+                        .then(Commands.literal("protect")
+                                .then(Commands.argument("x1", IntegerArgumentType.integer())
+                                        .then(Commands.argument("y1", IntegerArgumentType.integer())
+                                                .then(Commands.argument("z1", IntegerArgumentType.integer())
+                                                        .then(Commands.argument("x2", IntegerArgumentType.integer())
+                                                                .then(Commands.argument("y2", IntegerArgumentType.integer())
+                                                                        .then(Commands.argument("z2", IntegerArgumentType.integer())
+                                                                                .executes(TestKitServer::protect))))))))
+                        .then(Commands.literal("unprotect").executes(context -> {
+                            PROTECTED.clear();
+                            return say(context, "unprotected");
+                        }))
                         .then(Commands.literal("sweep").executes(TestKitServer::sweep))
                         .then(Commands.literal("report").executes(TestKitServer::report))
                         .then(Commands.literal("clear")
@@ -132,6 +161,11 @@ public class TestKitServer implements DedicatedServerModInitializer {
                                                         .executes(context -> with(context, player -> player.walk(
                                                                 FloatArgumentType.getFloat(context, "yaw"),
                                                                 com.mojang.brigadier.arguments.BoolArgumentType.getBool(context, "sprint"))))))))
+                        .then(Commands.literal("jump")
+                                .then(arg("name")
+                                        .then(Commands.argument("value", com.mojang.brigadier.arguments.BoolArgumentType.bool())
+                                                .executes(context -> with(context, player -> player.setJumping(
+                                                        com.mojang.brigadier.arguments.BoolArgumentType.getBool(context, "value")))))))
                         .then(Commands.literal("chase")
                                 .then(arg("name")
                                         .then(Commands.argument("stopAt", FloatArgumentType.floatArg(0.5f, 16f))
@@ -215,15 +249,6 @@ public class TestKitServer implements DedicatedServerModInitializer {
     }
 
     /**
-     * Remove everything that is not a real player: mobs, items, and any fake player still logged in from
-     * an earlier run.
-     *
-     * <p>Fake players are real players, so they persist in the world save and come back on the next
-     * start; leftover mobs wander over and attack whoever is testing. Both have to go before a scenario
-     * measures anything, or the thing under test is sharing the world with the debris of every run
-     * before it.
-     */
-    /**
      * Fill a box, loading chunks as it goes.
      *
      * <p>Vanilla {@code /fill} silently does nothing in chunks the server has not loaded — it reports
@@ -256,6 +281,15 @@ public class TestKitServer implements DedicatedServerModInitializer {
         return say(context, "filled " + count + " block(s) with " + id);
     }
 
+    /**
+     * Remove everything that is not a real player: mobs, items, any fake player still logged in from an
+     * earlier run — and any protected box.
+     *
+     * <p>Fake players are real players, so they persist in the world save and come back on the next
+     * start; leftover mobs wander over and attack whoever is testing. Both have to go before a scenario
+     * measures anything, or the thing under test is sharing the world with the debris of every run
+     * before it.
+     */
     private static int sweep(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context) {
         int removed = 0;
         for (ServerLevel level : context.getSource().getServer().getAllLevels()) {
@@ -268,8 +302,10 @@ public class TestKitServer implements DedicatedServerModInitializer {
             }
             for (net.minecraft.world.entity.Entity entity : present) {
                 if (entity instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
-                    // Ours are the ones named by the convention; a real tester is never called that.
-                    if (serverPlayer.getGameProfile().name().startsWith("Bot")) {
+                    // Ours are the ones named by the convention; a real tester is never called that. It must match
+                    // TestEnemy's prefix exactly: it once looked for "Bot" while every bot was called SicoKaleb…,
+                    // so no leftover bot was ever swept by name.
+                    if (serverPlayer.getGameProfile().name().startsWith("SicoKaleb")) {
                         serverPlayer.connection.disconnect(Component.literal("swept"));
                         removed++;
                     }
@@ -280,7 +316,36 @@ public class TestKitServer implements DedicatedServerModInitializer {
             }
         }
         FakePlayerManager.clear();
+        // A protected box outliving its scenario would refuse the next one's placements for no reason anybody
+        // reading that scenario could see.
+        PROTECTED.clear();
         return say(context, "swept " + removed + " entit(ies)");
+    }
+
+    private static int protect(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context) {
+        BlockPos from = new BlockPos(IntegerArgumentType.getInteger(context, "x1"),
+                IntegerArgumentType.getInteger(context, "y1"), IntegerArgumentType.getInteger(context, "z1"));
+        BlockPos to = new BlockPos(IntegerArgumentType.getInteger(context, "x2"),
+                IntegerArgumentType.getInteger(context, "y2"), IntegerArgumentType.getInteger(context, "z2"));
+        PROTECTED.add(net.minecraft.world.phys.AABB.encapsulatingFullBlocks(from, to));
+        return say(context, "protected " + from.toShortString() + " to " + to.toShortString());
+    }
+
+    /** Refuse a block placed into a protected box. Anything else — a lever, a chest — is left alone. */
+    private static net.minecraft.world.InteractionResult refuseProtected(
+            net.minecraft.world.entity.player.Player player, net.minecraft.world.level.Level level,
+            net.minecraft.world.InteractionHand hand, net.minecraft.world.phys.BlockHitResult hit) {
+        if (level.isClientSide() || PROTECTED.isEmpty()
+                || !(player.getItemInHand(hand).getItem() instanceof net.minecraft.world.item.BlockItem)) {
+            return net.minecraft.world.InteractionResult.PASS;
+        }
+        BlockPos cell = hit.getBlockPos().relative(hit.getDirection());
+        for (net.minecraft.world.phys.AABB box : PROTECTED) {
+            if (box.contains(cell.getCenter())) {
+                return net.minecraft.world.InteractionResult.FAIL;
+            }
+        }
+        return net.minecraft.world.InteractionResult.PASS;
     }
 
     /**

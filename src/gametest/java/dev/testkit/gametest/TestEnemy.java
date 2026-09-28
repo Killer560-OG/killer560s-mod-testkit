@@ -12,7 +12,7 @@ import java.util.Locale;
  *
  * <pre>{@code
  * TestEnemy attacker = TestEnemy.named("Velocity", "1dps")
- *         .at(5, 64, 0)
+ *         .at(5, 151, 0)
  *         .health(20)
  *         .frozen(true)
  *         .heldItem("minecraft:stick")
@@ -22,6 +22,12 @@ import java.util.Locale;
  * attacker.drive(60);                     // 60 ticks of it doing its thing
  * }</pre>
  *
+ * <h2>A real player, not a mob</h2>
+ * Every enemy is a genuine {@code ServerPlayer}, joined by the companion server mod with a connection that
+ * goes nowhere. Modules pick targets by entity type, so an aura that filters for players cannot see a zombie
+ * at all, and player hitboxes, eye heights, reach and knockback all resolve differently from a mob's. A
+ * scenario that needs a mob summons one with {@code server.command("summon …")}.
+ *
  * <h2>Why it is driven from the test rather than the server</h2>
  * The anticheat server runs as its own process and the harness talks to it through its console, so
  * everything here is expressed as commands rather than server-side code. That turns out to be a feature:
@@ -29,16 +35,10 @@ import java.util.Locale;
  * that caused it appear in the same place, in order.
  *
  * <h2>Naming</h2>
- * Every enemy is {@code SicoKaleb<Module><detail>} — {@code SicoKalebVelocity1dps},
- * {@code SicoKalebKillAuraStatic}. The name is the join key between a scenario, a console log and a
- * verbose line after the fact, so it is required rather than optional.
- *
- * <h2>What "player" means here</h2>
- * These are mobs, not real player entities: a genuine second {@code ServerPlayer} needs a fabricated
- * connection, and nothing in what a scenario actually measures depends on it. Grim only ever checks
- * <i>our</i> client, and knockback, damage, reach and targeting all behave identically. Where a module
- * distinguishes players from mobs when picking targets, the module's own bench setting is the thing to
- * turn on — see {@code KillAuraModule}'s "attack any living entity" option.
+ * Every enemy is {@code SicoKaleb<Module><detail>} — {@code SicoKalebK1dps}, {@code SicoKalebKAStatic}. The name is the join
+ * key between a scenario, a console log and a verbose line after the fact, so it is required rather than
+ * optional. The {@code SicoKaleb} prefix is also how {@code testkit sweep} tells a leftover opponent from a real
+ * tester.
  */
 public final class TestEnemy {
 
@@ -48,7 +48,6 @@ public final class TestEnemy {
     private final String module;
     private final String detail;
 
-    private String type = "minecraft:zombie";
     private double x;
     private double y;
     private double z;
@@ -67,18 +66,14 @@ public final class TestEnemy {
 
     private Walk walk = Walk.NONE;
     private double walkYaw;
-    private double walkSpeed = 0.21;
     private boolean sprint;
-    private boolean consistentJump;
 
     private final List<double[]> waypoints = new ArrayList<>();
     private boolean repeatRoute = true;
-    private int waypointIndex;
 
     private float reach;
     private int attackDelayTicks;
     private float damagePerHit = 1.0f;
-    private int sinceAttack;
 
     private ClientGameTestContext ctx;
     private TestServer server;
@@ -91,12 +86,12 @@ public final class TestEnemy {
     }
 
     /**
-     * Build the in-game name. The convention is {@code SicoKaleb<Module><detail>}, but Minecraft caps a
-     * player name at <b>16 characters</b> and a longer one does not fail politely: the server throws
-     * {@code EncoderException: String too big} while encoding {@code player_info_update} and kicks every
-     * real client on the server. So the module is abbreviated to its capitals — Velocity to V, KillAura
-     * to KA — and the result is truncated. The detail is kept, because that is the part that
-     * distinguishes one run from another.
+     * Build the in-game name. The convention is {@code SicoKaleb<Module><detail>}, but Minecraft caps a player name
+     * at <b>16 characters</b> and a longer one does not fail politely: the server throws
+     * {@code EncoderException: String too big} while encoding {@code player_info_update} and kicks every real
+     * client on the server. So the module is abbreviated to its capitals — Velocity to V, KillAura to KA — and
+     * the result is truncated. The detail is kept, because that is the part that distinguishes one run from
+     * another.
      */
     static String mcName(String module, String detail) {
         StringBuilder initials = new StringBuilder();
@@ -116,12 +111,6 @@ public final class TestEnemy {
 
     // ------------------------------------------------------------------ shape
 
-    /** Entity type, e.g. {@code minecraft:zombie} (default), {@code minecraft:husk}, {@code armor_stand}. */
-    public TestEnemy type(String entityType) {
-        this.type = entityType;
-        return this;
-    }
-
     public TestEnemy at(double x, double y, double z) {
         this.x = x;
         this.y = y;
@@ -129,13 +118,17 @@ public final class TestEnemy {
         return this;
     }
 
-    /** Body scale, via the vanilla {@code minecraft:scale} attribute. 1.0 is a normal player-sized mob. */
+    /** Body scale, via the vanilla {@code minecraft:scale} attribute — the hitbox, not just the model. */
     public TestEnemy size(double scale) {
         this.scale = scale;
         return this;
     }
 
-    /** Half-size model — a different hitbox to aim at without changing the attribute. */
+    /**
+     * Half size. There are no baby players, so this halves the scale attribute, which is what a baby's
+     * hitbox amounts to: a smaller box to aim at, lower eyes, shorter reach to its body. Combines with
+     * {@link #size}.
+     */
     public TestEnemy baby(boolean isBaby) {
         this.baby = isBaby;
         return this;
@@ -187,21 +180,23 @@ public final class TestEnemy {
     /**
      * Walk in a fixed compass direction.
      *
-     * @param yaw   direction of travel, in Minecraft yaw degrees
-     * @param doSprint sprint speed rather than walk speed
+     * @param yaw            direction of travel, in Minecraft yaw degrees
+     * @param doSprint       sprint speed rather than walk speed
+     * @param jumpConstantly hop the whole way, as {@link #jumping} does
      */
     public TestEnemy walking(double yaw, boolean doSprint, boolean jumpConstantly) {
         this.walk = Walk.DIRECTION;
         this.walkYaw = yaw;
         this.sprint = doSprint;
-        this.consistentJump = jumpConstantly;
-        this.walkSpeed = doSprint ? 0.28 : 0.21;
+        if (jumpConstantly) {
+            this.jumping = true;
+        }
         return this;
     }
 
     /**
      * Follow the client, stopping just inside {@code reach}. Without this an attacker knocks its target
-     * out of its own range on the first hit and then stands there — the first run of the velocity
+     * out of its own range on the first hit and then stands there — the first run of the knockback
      * scenario landed three hits and called it a day.
      */
     public TestEnemy chasing(boolean doChase) {
@@ -211,16 +206,19 @@ public final class TestEnemy {
         return this;
     }
 
-    /** Bounce on the spot — useful for checking a module tracks a target that changes height. */
+    /**
+     * Hop continuously, on a vanilla jump's arc (0.42 up, 0.08 gravity, 0.98 drag, about twelve ticks a hop),
+     * on top of whatever else it is doing — standing, frozen at its anchor, walking or chasing. For checking
+     * that a module tracks a target whose height changes.
+     */
     public TestEnemy jumping(boolean isJumping) {
         this.jumping = isJumping;
         return this;
     }
 
     /**
-     * Follow a route. The enemy walks each position in turn at its walk speed; with {@code repeat} it
-     * loops back to the first, otherwise it stops at the last. Knockback resistance is forced on, because
-     * a route the enemy can be shoved off is not a route.
+     * Follow a route. The enemy walks each position in turn at walk speed; with {@code repeat} it loops back
+     * to the first, otherwise it stops at the last.
      */
     public TestEnemy route(boolean repeat, double[]... positions) {
         this.walk = Walk.WAYPOINTS;
@@ -256,16 +254,16 @@ public final class TestEnemy {
         this.server = testServer;
         this.name = mcName(module, detail);
 
-        // A real ServerPlayer, spawned by the companion server mod. Not a named mob: modules pick
-        // targets by entity type, so an aura that filters for players cannot see a zombie at all, and a
-        // scenario built on one measures the zombie rather than the module.
         server.command(String.format(Locale.ROOT, "testkit spawn %s %.2f %.2f %.2f", name, x, y, z));
         ctx.waitTicks(10);
 
         server.command(String.format(Locale.ROOT, "testkit health %s %d", name, health));
-        server.command(String.format(Locale.ROOT, "testkit scale %s %.3f", name, scale));
+        server.command(String.format(Locale.ROOT, "testkit scale %s %.3f", name, baby ? scale * 0.5 : scale));
         if (frozen) {
             server.command("testkit frozen " + name + " true");
+        }
+        if (jumping) {
+            server.command("testkit jump " + name + " true");
         }
         gear("mainhand", heldItem);
         gear("offhand", offhandItem);
@@ -300,7 +298,8 @@ public final class TestEnemy {
 
         System.out.println("[enemy] " + name + " at "
                 + String.format(Locale.ROOT, "(%.1f, %.1f, %.1f)", x, y, z)
-                + (frozen ? " frozen" : "") + (reach > 0 ? " attacking r=" + reach : ""));
+                + (frozen ? " frozen" : "") + (jumping ? " jumping" : "")
+                + (reach > 0 ? " attacking r=" + reach : ""));
         return this;
     }
 
@@ -320,7 +319,7 @@ public final class TestEnemy {
         ctx.waitTicks(ticks);
     }
 
-    /** Where the enemy is now, read back from the server. */
+    /** Where the enemy is now, as the client sees it. */
     public double[] position() {
         return ctx.computeOnClient(mc -> {
             for (var candidate : mc.level.players()) {
@@ -359,9 +358,18 @@ public final class TestEnemy {
      * across a run in which the server was demonstrably landing a hit a second, so a client-side count
      * reported zero while the scenario was working perfectly — measuring the wrong end of the
      * connection. The server is where the hit happens and where it is worth counting.
+     *
+     * <p>Only blows that landed. A swing the server refused — the client in creative, invulnerable, or
+     * still in its hurt frames — is counted by {@link #refused()} instead, because it delivered no damage
+     * and no knockback, and a knockback test that counted it would pass on a run that had none.
      */
     public int hits() {
         return server.countSince(name + ": hit ");
+    }
+
+    /** Swings in reach that the server refused to let land. Non-zero usually means the client is in creative. */
+    public int refused() {
+        return server.countSince(name + ": refused");
     }
 
     public String name() {
@@ -372,11 +380,10 @@ public final class TestEnemy {
      * How many times this enemy has been killed and put back, counted from the server's own log.
      *
      * <p>Necessary because a respawned enemy is back at full health, so comparing health before and
-     * after a run reports "never damaged" for a target that was killed outright — which is exactly what
-     * the first KillAura scenario concluded.
+     * after a run reports "never damaged" for a target that was killed outright.
      */
     public int deaths() {
-        return server.countSince(name + ": died and respawned");
+        return server.countSince(name + ": died and rejoined");
     }
 
     /** Distance from the client right now — for asserting a module kept or lost its target. */
