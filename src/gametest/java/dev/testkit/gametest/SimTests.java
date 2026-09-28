@@ -449,8 +449,20 @@ public class SimTests implements FabricClientGameTest {
             if (emptyBonus != 0) {
                 throw new AssertionError("a fresh run already has bonus points: " + emptyBonus);
             }
+            // Crypts are ONE point each up to five, not five for reaching five. Three crypts must read 3 -
+            // that was wrong here until 2026-09-28 and made four crypts worth nothing when they are worth four.
             ctx.runOnClient(mc -> {
-                for (int i = 0; i < 5; i++) {
+                for (int i = 0; i < 3; i++) {
+                    ModUnderTest.staticCall(SIM_SCORE, "cryptBlown", new Class<?>[]{}, new Object[]{});
+                }
+            });
+            int threeCrypts = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(
+                    SIM_SCORE, "bonusScore", new Class<?>[]{}, new Object[]{}));
+            if (threeCrypts != 3) {
+                throw new AssertionError("three crypts should be 3 bonus, got " + threeCrypts);
+            }
+            ctx.runOnClient(mc -> {
+                for (int i = 0; i < 4; i++) {
                     ModUnderTest.staticCall(SIM_SCORE, "cryptBlown", new Class<?>[]{}, new Object[]{});
                 }
                 ModUnderTest.staticCall(SIM_SCORE, "mimicKilled", new Class<?>[]{}, new Object[]{});
@@ -458,8 +470,10 @@ public class SimTests implements FabricClientGameTest {
             });
             int fullBonus = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(
                     SIM_SCORE, "bonusScore", new Class<?>[]{}, new Object[]{}));
+            // Seven crypts caps at five, plus two for the mimic.
             if (fullBonus != 7) {
-                throw new AssertionError("five crypts plus the mimic should be 7 bonus, got " + fullBonus);
+                throw new AssertionError("seven crypts (capped at 5) plus the mimic should be 7, got "
+                        + fullBonus);
             }
             // A bat is a SECRET, not its own score line - that is the whole reason bats matter to a 300.
             int batsCounted = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(
