@@ -5,11 +5,13 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ServerboundClientTickEndPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
 import net.minecraft.network.protocol.game.ServerboundSwingPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -68,6 +70,12 @@ public final class PacketWatch {
     private static float minPitchSent = Float.NaN;
     private static float maxPitchSent = Float.NaN;
     private static float maxAbsYawSent;
+    private static int itemUses;
+    private static int entityInteracts;
+    private static double maxEntityReach;
+    private static String farthestEntity = "none";
+    private static float maxUseRotationJump;
+    private static String biggestJump = "none";
 
     private PacketWatch() {
     }
@@ -111,6 +119,12 @@ public final class PacketWatch {
         minPitchSent = Float.NaN;
         maxPitchSent = Float.NaN;
         maxAbsYawSent = 0;
+        itemUses = 0;
+        entityInteracts = 0;
+        maxEntityReach = 0;
+        farthestEntity = "none";
+        maxUseRotationJump = 0;
+        biggestJump = "none";
     }
 
     /** Called from a {@code Minecraft#tick} hook: closes the tick just counted. */
@@ -174,6 +188,50 @@ public final class PacketWatch {
                     breaksAfterMove++;
                 }
                 measureReach(action.getPos());
+            }
+        } else if (packet instanceof ServerboundUseItemPacket use) {
+            // A use-item packet carries its OWN yaw and pitch, which is how this mod's puzzle solvers aim
+            // without turning the camera or sending a movement packet. That makes a number worth watching:
+            // how far the rotation claimed inside the use is from the rotation the client last actually
+            // reported moving at. A hand cannot produce a large gap - you have to turn to aim, and turning
+            // sends movement packets on the way.
+            itemUses++;
+            usesThisTick++;
+            totalUses++;
+            if (movesThisTick > 0) {
+                usesAfterMove++;
+            }
+            if (sawRotation) {
+                float jump = Math.abs(use.getYRot() - lastYaw);
+                if (jump > maxUseRotationJump) {
+                    maxUseRotationJump = jump;
+                    biggestJump = String.format(Locale.ROOT,
+                            "use claimed yaw %.1f / pitch %.1f while the last movement packet said yaw %.1f",
+                            use.getYRot(), use.getXRot(), lastYaw);
+                }
+            }
+        } else if (packet instanceof ServerboundInteractPacket interact) {
+            // Clicking an ENTITY, which is a different limit from clicking a block: vanilla allows 4.5 blocks
+            // to a block's box but only 3.0 to an entity's. Terminal Aura, Arrow Align and Goldor Triggerbot
+            // all interact with entities, and several of them default above 3.0 - so this measures the
+            // distance the server would check, eye to the entity's own bounding box.
+            entityInteracts++;
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.level != null && mc.player != null) {
+                var target = mc.level.getEntity(interact.entityId());
+                if (target != null) {
+                    Vec3 eye = mc.player.getEyePosition();
+                    AABB box = target.getBoundingBox();
+                    double dx = Math.max(0, Math.max(box.minX - eye.x, eye.x - box.maxX));
+                    double dy = Math.max(0, Math.max(box.minY - eye.y, eye.y - box.maxY));
+                    double dz = Math.max(0, Math.max(box.minZ - eye.z, eye.z - box.maxZ));
+                    double d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                    if (d > maxEntityReach) {
+                        maxEntityReach = d;
+                        farthestEntity = String.format(Locale.ROOT, "%s at %.2f blocks",
+                                target.getType().toShortString(), d);
+                    }
+                }
             }
         } else if (packet instanceof ServerboundContainerClickPacket) {
             // Inventory and menu automation - the sorter, the seller, Croesus, the experiment table. A third
@@ -256,6 +314,33 @@ public final class PacketWatch {
         return totalUses;
     }
 
+    /** Use-item packets, which carry their own aim. */
+    public static synchronized int itemUses() {
+        return itemUses;
+    }
+
+    public static synchronized int entityInteracts() {
+        return entityInteracts;
+    }
+
+    /** Furthest entity interaction, eye to the entity's box. Vanilla's own limit is 3.0. */
+    public static synchronized double maxEntityReach() {
+        return maxEntityReach;
+    }
+
+    public static synchronized String farthestEntity() {
+        return farthestEntity;
+    }
+
+    /** The largest gap between a use packet's claimed yaw and the last yaw actually reported moving at. */
+    public static synchronized float maxUseRotationJump() {
+        return maxUseRotationJump;
+    }
+
+    public static synchronized String biggestRotationJump() {
+        return biggestJump;
+    }
+
     public static synchronized int maxUsesOnOneTick() {
         return maxUsesOnOneTick;
     }
@@ -317,7 +402,8 @@ public final class PacketWatch {
         return String.format(Locale.ROOT,
                 "%d ticks: %d break-starts over %d ticks (max %d on one tick, at tick %d), %d block-uses "
                         + "(max %d on one tick, %d after that tick's movement packet), %d container "
-                        + "clicks (max %d on one tick, %d after that tick's movement packet), %d swings, "
+                        + "clicks (max %d on one tick, %d after that tick's movement packet), %d entity "
+                        + "interact(s) reaching %.2f blocks, %d swings, "
                         + "%d hotbar swaps, %d breaks with no swing that tick, collided with something on "
                         + "%d of %d movement packets, %d breaks sent AFTER that "
                         + "tick's movement packet, furthest reach %.2f to box "
@@ -325,7 +411,7 @@ public final class PacketWatch {
                         + "%.1f, pitch %.1f..%.1f%s",
                 ticksObserved, totalBreaks, ticksWithABreak, maxBreaksOnOneTick, tickOfMaxBreaks,
                 totalUses, maxUsesOnOneTick, usesAfterMove, totalContainerClicks, maxClicksOnOneTick,
-                clicksAfterMove, totalSwings, totalHotbarSwaps, breaksWithoutSwing, collisionTicks, moveCount,
+                clicksAfterMove, entityInteracts, maxEntityReach, totalSwings, totalHotbarSwaps, breaksWithoutSwing, collisionTicks, moveCount,
                 breaksAfterMove, maxBoxReach, maxCentreReach,
                 maxAbsYawSent, maxYawStep,
                 Float.isNaN(minPitchSent) ? 0f : minPitchSent,

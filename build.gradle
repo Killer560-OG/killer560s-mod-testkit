@@ -220,6 +220,29 @@ dependencies {
 def failedFile = layout.buildDirectory.file("gametest-failed.txt").get().asFile
 
 tasks.matching { it.name == "runClientGameTest" }.configureEach {
+	// --- keep the test window off the main monitor --------------------------------------------------
+	//
+	// A run opens a real Minecraft window, and by default it lands on the primary monitor on top of whatever
+	// is actually being played there. Minecraft has no way to ask for a window position, and the window does
+	// not exist yet at this point, so a detached watcher waits for it and moves it once. It identifies the
+	// window by this project's path in the process command line rather than by title - every Minecraft window
+	// has the same title, and moving the wrong one would drag a real game off-screen.
+	//
+	// -PtestWindow=x,y,w,h to put it somewhere else; -PtestWindow=off to leave it alone.
+	doFirst {
+		def where = project.findProperty("testWindow") ?: "-1920,361,1920,1080"  // left monitor, borderless
+		if (where != "off") {
+			def p = where.toString().split(",")
+			def script = file("place-test-window.ps1")
+			if (script.exists() && p.length == 4) {
+				new ProcessBuilder("powershell", "-NoProfile", "-WindowStyle", "Hidden", "-File",
+						script.absolutePath, "-X", p[0], "-Y", p[1], "-Width", p[2], "-Height", p[3])
+						.directory(script.parentFile).start()
+				logger.lifecycle("Test window will be moved to ${where}")
+			}
+		}
+	}
+
 	// --- the mod under test ---------------------------------------------------------------------------
 	//
 	// The client gametest API rebuilds its game directory every run, so a jar dropped in run/.../mods is

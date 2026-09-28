@@ -1,0 +1,67 @@
+# Moves the gametest client's window onto a chosen monitor, so a test run does not pop up over whatever
+# the person is actually playing on their main monitor.
+#
+# Started detached by build.gradle before runClientGameTest, because the window does not exist yet at that
+# point and Minecraft offers no way to ask for a position. It polls for the client, moves it once, and exits.
+#
+# It identifies the right window by the PROCESS COMMAND LINE containing this project's directory, not by
+# window title: the title is the same "Minecraft*" as any other instance, and moving the wrong one would
+# drag a real game off-screen.
+param(
+  [int]$X = -1920,
+  [int]$Y = 361,
+  [int]$Width = 1920,
+  [int]$Height = 1080,
+  [string]$Marker = 'killer560s-mod-testkit',
+  [int]$TimeoutSeconds = 180
+)
+
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public class WinPlace {
+  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+  [DllImport("user32.dll", SetLastError=true)] public static extern int GetWindowLong(IntPtr h, int i);
+  [DllImport("user32.dll", SetLastError=true)] public static extern int SetWindowLong(IntPtr h, int i, int v);
+  public struct RECT { public int Left, Top, Right, Bottom; }
+}
+'@
+
+# Logged to a file, because this runs detached and its console output goes nowhere - and "the placer ran"
+# is not the same claim as "the window moved".
+$log = Join-Path $PSScriptRoot 'build/place-test-window.log'
+New-Item -ItemType Directory -Force -Path (Split-Path $log) | Out-Null
+function Say($m) { Write-Output $m; Add-Content -Path $log -Value ((Get-Date -Format 'HH:mm:ss') + '  ' + $m) }
+Say ("watching for a window with marker '" + $Marker + "' -> " + $X + "," + $Y + " " + $Width + "x" + $Height)
+
+$deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+$moved = $false
+
+while (-not $moved -and (Get-Date) -lt $deadline) {
+  $candidates = Get-CimInstance Win32_Process -Filter "Name='java.exe' OR Name='javaw.exe'" |
+      Where-Object { $_.CommandLine -and $_.CommandLine -like ("*" + $Marker + "*") }
+  foreach ($c in $candidates) {
+    $proc = Get-Process -Id $c.ProcessId -ErrorAction SilentlyContinue
+    if (-not $proc -or $proc.MainWindowHandle -eq 0) { continue }
+    # Borderless: strip the caption, thick frame and borders so it covers the monitor edge to edge with no
+    # title bar, rather than sitting on it as a window. GWL_STYLE = -16; WS_CAPTION|WS_THICKFRAME|WS_BORDER|
+    # WS_DLGFRAME|WS_SYSMENU = 0x00CC0000 | 0x00040000 | 0x00800000.
+    $h = $proc.MainWindowHandle
+    $style = [WinPlace]::GetWindowLong($h, -16)
+    $stripped = $style -band (-bnot (0x00C00000 -bor 0x00040000 -bor 0x00800000 -bor 0x00080000))
+    [WinPlace]::SetWindowLong($h, -16, $stripped) | Out-Null
+    # SWP_NOZORDER (0x4) | SWP_NOACTIVATE (0x10) | SWP_FRAMECHANGED (0x20): apply the new style, but do not
+    # raise it or steal focus from whatever is being played on the main monitor.
+    [WinPlace]::SetWindowPos($h, [IntPtr]::Zero, $X, $Y, $Width, $Height, 0x34) | Out-Null
+    Start-Sleep -Milliseconds 400
+    $r = New-Object WinPlace+RECT
+    [WinPlace]::GetWindowRect($h, [ref]$r) | Out-Null
+    Say ("borderless: moved pid " + $c.ProcessId + " to " + $r.Left + "," + $r.Top + " " + ($r.Right - $r.Left) + "x" + ($r.Bottom - $r.Top))
+    $moved = $true
+    break
+  }
+  if (-not $moved) { Start-Sleep -Milliseconds 500 }
+}
+
+if (-not $moved) { Say "gametest window never appeared within the timeout - nothing moved" }
