@@ -97,8 +97,9 @@ public final class FakePlayer {
         GameProfile profile = new GameProfile(id, name);
 
         ServerPlayer player = new ServerPlayer(server, level, profile, ClientInformation.createDefault());
-        Connection connection = new SilentConnection();
-        new EmbeddedChannel(connection);   // gives the connection a live channel; sets it up as active
+        SilentConnection connection = new SilentConnection();
+        // Gives the connection a live channel and sets it up as active.
+        connection.embedded = new EmbeddedChannel(connection);
 
         server.getPlayerList().placeNewPlayer(connection, player,
                 CommonListenerCookie.createInitial(profile, false));
@@ -192,7 +193,10 @@ public final class FakePlayer {
     }
 
     public void remove() {
-        player.connection.disconnect(Component.literal("test over"));
+        // sweep takes a bot out by name before it clears the registry, so this can arrive for one already gone.
+        if (!player.hasDisconnected()) {
+            player.connection.disconnect(Component.literal("test over"));
+        }
     }
 
     // ------------------------------------------------------------------- tick
@@ -390,6 +394,9 @@ public final class FakePlayer {
      */
     private static final class SilentConnection extends Connection {
 
+        /** The channel this sits on, so a send can report itself finished the way a real one does. */
+        private EmbeddedChannel embedded;
+
         private SilentConnection() {
             super(PacketFlow.SERVERBOUND);
         }
@@ -400,10 +407,32 @@ public final class FakePlayer {
 
         @Override
         public void send(Packet<?> packet, ChannelFutureListener listener) {
+            finished(listener);
         }
 
         @Override
         public void send(Packet<?> packet, ChannelFutureListener listener, boolean flush) {
+            finished(listener);
+        }
+
+        /**
+         * Tell whoever is waiting on a send that it went out. Sending nothing is the point of this connection,
+         * but vanilla hangs work on a send finishing: {@code ServerCommonPacketListenerImpl.disconnect} closes
+         * the connection only once the disconnect packet has gone (26.1.2 bytecode), and only a closed
+         * connection runs {@code onDisconnect}, which is what takes the player out of the world. With the
+         * listener dropped, a fake player told to leave never left — {@code testkit sweep}, {@code remove} and
+         * every respawn left the old one standing, and a killed bot's dead body stayed on the server as a
+         * "real player" for the others to target.
+         */
+        private void finished(ChannelFutureListener listener) {
+            if (listener == null || embedded == null) {
+                return;
+            }
+            try {
+                listener.operationComplete(embedded.newSucceededFuture());
+            } catch (Exception e) {
+                System.err.println("[testkit] a send listener failed: " + e);
+            }
         }
 
         @Override

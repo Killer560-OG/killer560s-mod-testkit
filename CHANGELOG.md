@@ -26,8 +26,11 @@
   updates* on its own thread at an unfixed time, which matched the `"failed"` flag marker.
 - **A killed bot came back at full size.** Scale was not restored on respawn, so a small target changed
   hitbox the first time it died.
-- **`testkit sweep` never removed a leftover bot by name.** It looked for names starting `Bot` while every bot
-  is named `SicoKaleb…`. It matches `SicoKaleb` now, and the docs say `SicoKaleb<Module><detail>` too.
+- **A bot told to leave never left.** Vanilla closes a connection only once its disconnect packet has been sent,
+  and the fake player's connection sends nothing, so `testkit sweep`, `bot.remove()` and every respawn left the
+  old player on the server — a killed bot's dead body stayed behind as a "real player" other bots could target.
+  The fake connection now reports each send as finished, and vanilla's own leave path runs. `sweep` also
+  looked for names starting `Bot` while every bot is `SicoKaleb…`; it matches `SicoKaleb` now.
 - **Builder methods that did nothing.** `TestEnemy.jumping()`, `baby()` and `walking(…, jumpConstantly)` were
   accepted and ignored; they work now (a vanilla jump arc; half scale). `type()` is gone — the enemy was
   always a real player whatever it said, so a test "against a husk" was a test against a player. Summon mobs
