@@ -244,6 +244,27 @@ public final class TestMap {
         return this;
     }
 
+    /**
+     * Set the player's movement speed on the HYPIXEL scale, where 100 is a normal walk.
+     *
+     * <p>killer560 (2026-09-28): "find a way to get custom speed so you can test on things like 550 speed or
+     * 600 speed equivalent to hypixels". Vanilla's {@code movement_speed} base is 0.1 and that is what Hypixel
+     * calls 100 speed, so the attribute value is simply the stat over a thousand - 550 speed is 0.55.
+     *
+     * <p>This matters for more than covering ground faster. Everything AP3's align planner does is priced off
+     * this attribute: the size of a push, how far a tick carries you, and how much speed the last presses have
+     * to cancel to arrive at rest. A model error that is invisible at 250 speed is four times the distance at
+     * 600, so a planner tested only at walking pace is not tested at the speed he actually plays.
+     *
+     * @param hypixelSpeed the stat as the game shows it - 550 for 550 speed
+     */
+    public TestMap speed(int hypixelSpeed) {
+        plan.append(String.format(Locale.ROOT, "attribute @p minecraft:movement_speed base set %s%n",
+                new java.math.BigDecimal(hypixelSpeed).movePointLeft(3).toPlainString()));
+        return this;
+    }
+
+    /** Any command, if the builder does not cover it. */
     public TestMap command(String command) {
         plan.append(command).append(System.lineSeparator());
         return this;
