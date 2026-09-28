@@ -125,6 +125,17 @@ public final class ModUnderTest {
         return (Integer) call(target, getter);
     }
 
+    /** Calls an instance method on a live config singleton, for a setter the typed helpers do not cover. */
+    public static Object call(Object target, String method, Class<?>[] types, Object[] args) {
+        try {
+            var m = target.getClass().getDeclaredMethod(method, types);
+            m.setAccessible(true);
+            return m.invoke(target, args);
+        } catch (Exception e) {
+            throw new AssertionError("could not call " + target.getClass().getName() + "." + method, e);
+        }
+    }
+
     private static Object call(Object target, String getter) {
         try {
             return target.getClass().getMethod(getter).invoke(target);

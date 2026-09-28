@@ -38,6 +38,12 @@ public class SimTests implements FabricClientGameTest {
     private static final String DUNGEON_STATE = "com.killer560.hub.secrets.DungeonState";
     private static final String SIM_MIMIC = "com.killer560.hub.roomsim.SimMimic";
     private static final String SIM_SCORE = "com.killer560.hub.roomsim.SimScore";
+    private static final String SIM_PUZZLES = "com.killer560.hub.roomsim.puzzles.SimPuzzles";
+    private static final String ITEM_IDENTITY = "com.killer560.hub.autoroutes.ItemIdentity";
+    private static final String SIM_ITEMS = "com.killer560.hub.roomsim.SimItems";
+    private static final String SIM_ARCHITECT = "com.killer560.hub.roomsim.SimArchitect";
+    private static final String ARCHITECT_CONFIG_HOLDER =
+            "com.killer560.hub.architect.ArchitectDraftConfig";
 
     /** Mirrors DungeonLayout.GRID / LiveMapFeature.START_X / HALF_ROOM and RoomLibrary.TILE. */
     private static final int GRID = 11;
@@ -482,6 +488,123 @@ public class SimTests implements FabricClientGameTest {
                 throw new AssertionError("the bat was not counted");
             }
 
+            // 12. The Architect's First Draft on a puzzle fail, inside the sim.
+            //     killer560's existing feature answers Hypixel's "PUZZLE FAIL!" broadcast with a sack command.
+            //     Neither half exists in a local world, so the sim reports the fail directly and hands the item
+            //     over. Asserted by COUNTING THE ITEM in the server's inventory, not by checking the call
+            //     returned: a give that silently no-ops would pass any weaker check, and this mod's whole
+            //     history of false greens is checks that never proved the feature acted.
+            int draftsBefore = draftsHeld(sp);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(ARCHITECT_CONFIG_HOLDER, "load",
+                    new Class<?>[]{}, new Object[]{}));
+            ctx.runOnClient(mc -> {
+                Object cfg = ModUnderTest.staticCall(ARCHITECT_CONFIG_HOLDER, "getInstance",
+                        new Class<?>[]{}, new Object[]{});
+                ModUnderTest.call(cfg, "setAutoGet", new Class<?>[]{boolean.class}, new Object[]{true});
+            });
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_PUZZLES, "reportFail",
+                    new Class<?>[]{String.class}, new Object[]{"Water Board"}));
+            // Hops two threads: onPuzzleFail queues onto the client, the give queues onto the server.
+            ctx.waitTicks(20);
+            int draftsAfter = draftsHeld(sp);
+            if (draftsAfter != draftsBefore + 1) {
+                throw new AssertionError("a sim puzzle fail with Auto Get on should have handed over exactly one "
+                        + "Architect's First Draft - held " + draftsBefore + " before and " + draftsAfter
+                        + " after");
+            }
+
+            // The cooldown has to hold, or one fail that reports twice empties the sack equivalent.
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_PUZZLES, "reportFail",
+                    new Class<?>[]{String.class}, new Object[]{"Water Board"}));
+            ctx.waitTicks(20);
+            if (draftsHeld(sp) != draftsAfter) {
+                throw new AssertionError("two fails inside the cooldown handed over two drafts");
+            }
+
+            // And with the setting OFF it must do nothing at all - the setting is the point.
+            ctx.runOnClient(mc -> {
+                Object cfg = ModUnderTest.staticCall(ARCHITECT_CONFIG_HOLDER, "getInstance",
+                        new Class<?>[]{}, new Object[]{});
+                ModUnderTest.call(cfg, "setAutoGet", new Class<?>[]{boolean.class}, new Object[]{false});
+                ModUnderTest.call(cfg, "setClickMessage", new Class<?>[]{boolean.class}, new Object[]{false});
+            });
+            ModUnderTest.staticCall(SIM_ARCHITECT, "reset", new Class<?>[]{}, new Object[]{});
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_PUZZLES, "reportFail",
+                    new Class<?>[]{String.class}, new Object[]{"Water Board"}));
+            ctx.waitTicks(20);
+            if (draftsHeld(sp) != draftsAfter) {
+                throw new AssertionError("a puzzle fail handed over a draft with both Architect settings off");
+            }
+
+            // 13. USE_ITEM node matching across item variants.
+            //     killer560: "if I set up a used item node with a Hyperion it should work with any of the other
+            //     wither blade variant [...] whether they are starred or not starred [...] and if they're
+            //     recombed or not." Asserted through the real matcher, both ways round, and asserted NEGATIVELY
+            //     too - a family table that matched everything would pass every positive check here.
+            ctx.runOnClient(mc -> {
+                String[][] same = {
+                    {"HYPERION", "ASTRAEA"}, {"ASTRAEA", "SCYLLA"}, {"SCYLLA", "VALKYRIE"},
+                    {"VALKYRIE", "HYPERION"},
+                    // Starred and fragged forms of the same blade, and across blades.
+                    // Real starred ids, from Hypixel's own list - the wither blades have no starred form,
+                    // but plenty of the other items this mod reaches for do.
+                    {"STARRED_MIDAS_SWORD", "MIDAS_SWORD"}, {"STARRED_BAT_WAND", "BAT_WAND"},
+                    {"STARRED_LAST_BREATH", "LAST_BREATH"}, {"STARRED_ICE_SPRAY_WAND", "ICE_SPRAY_WAND"},
+                    {"SPIRIT_LEAP", "INFINITE_SPIRIT_LEAP"},
+                    {"SUPERBOOM_TNT", "INFINITE_SUPERBOOM_TNT"},
+                };
+                for (String[] pair : same) {
+                    Object a = ModUnderTest.staticCall(ITEM_IDENTITY, "family",
+                            new Class<?>[]{String.class}, new Object[]{pair[0]});
+                    Object c = ModUnderTest.staticCall(ITEM_IDENTITY, "family",
+                            new Class<?>[]{String.class}, new Object[]{pair[1]});
+                    if (!java.util.Objects.equals(a, c)) {
+                        throw new AssertionError(pair[0] + " and " + pair[1] + " should be the same item to a "
+                                + "USE_ITEM node, got " + a + " vs " + c);
+                    }
+                }
+                String[][] different = {
+                    // Different teleport distances - grouping these would make a route walk off its path.
+                    {"ASPECT_OF_THE_END", "ASPECT_OF_THE_VOID"},
+                    // The unrefined base blade has no Wither Impact to use.
+                    {"NECRON_BLADE", "HYPERION"},
+                    {"BAT_WAND", "HYPERION"},
+                    {"TERMINATOR", "SPIRIT_LEAP"},
+                };
+                for (String[] pair : different) {
+                    Object a = ModUnderTest.staticCall(ITEM_IDENTITY, "family",
+                            new Class<?>[]{String.class}, new Object[]{pair[0]});
+                    Object c = ModUnderTest.staticCall(ITEM_IDENTITY, "family",
+                            new Class<?>[]{String.class}, new Object[]{pair[1]});
+                    if (java.util.Objects.equals(a, c)) {
+                        throw new AssertionError(pair[0] + " and " + pair[1] + " must NOT be treated as the same "
+                                + "item - both resolved to " + a);
+                    }
+                }
+            });
+
+            // 14. The sim's Spirit Sceptre carries the id Hypixel actually uses, so a route recorded on
+            //     Hypixel finds it here. This was BAT_WAND all along and the sim had SPIRIT_SCEPTRE, which no
+            //     recorded route would ever have matched.
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_ITEMS, "give",
+                    new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, "BAT_WAND"}));
+            ctx.waitTicks(20);
+            boolean sceptreMatches = sp.getServer().computeOnServer(server -> {
+                var player = server.getPlayerList().getPlayers().get(0);
+                for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+                    var stack = player.getInventory().getItem(i);
+                    var data = stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+                    if (data != null && "BAT_WAND".equals(data.copyTag().getStringOr("id", ""))) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+            if (!sceptreMatches) {
+                throw new AssertionError("the sim's Spirit Sceptre does not carry Hypixel's BAT_WAND id, so a "
+                        + "route recorded on Hypixel would not find it in the hotbar");
+            }
+
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave",
                     new Class<?>[]{}, new Object[]{}));
             boolean afterLeave = ctx.computeOnClient(mc ->
@@ -492,10 +615,28 @@ public class SimTests implements FabricClientGameTest {
                         + "abilities fire outside the sim");
             }
             System.out.println("[70-sim-flat-room] PASS - gate off/on/off, room pasted at the right cell, "
-                    + "orientation marker in the right corner, stair kept its east facing, wither door went to barriers and then cleared, 1-HP zombie, Fel woke on approach, mage beam killed only the nearest (zero pierce), run countdown held then started, reads as a dungeon but not the boss, mobs stay put, mimic eligibility, score bonus");
+                    + "orientation marker in the right corner, stair kept its east facing, wither door went to barriers and then cleared, 1-HP zombie, Fel woke on approach, mage beam killed only the nearest (zero pierce), run countdown held then started, reads as a dungeon but not the boss, mobs stay put, mimic eligibility, score bonus, Architect draft on a sim puzzle fail, wither-blade/leap/boom item families");
         }
     }
 
+
+    /** How many Architect's First Drafts the SERVER's player is holding - the client's copy of the inventory
+     *  lags the give by a tick or two, and a count read there reports zero for a give that worked. */
+    private static int draftsHeld(
+            net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext sp) {
+        return sp.getServer().computeOnServer(server -> {
+            var player = server.getPlayerList().getPlayers().get(0);
+            int found = 0;
+            for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+                var stack = player.getInventory().getItem(i);
+                var data = stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+                if (data != null && "ARCHITECT_FIRST_DRAFT".equals(data.copyTag().getStringOr("id", ""))) {
+                    found += stack.getCount();
+                }
+            }
+            return found;
+        });
+    }
 
     /** Zombies near a point that are still ALIVE - a killed mob lingers through its death animation, so
      *  counting entities counts the corpse and reports a working beam as having done nothing. */
