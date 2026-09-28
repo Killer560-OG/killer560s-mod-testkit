@@ -69,6 +69,15 @@ public class FullBlockTests implements FabricClientGameTest {
                 (server, scenario) -> {
                     scenario.assertDetectorWorks();
 
+                    // Switch the triggerbot OFF first. Its config is a live singleton that survives between
+                    // scenarios in one client, so it is still enabled from scenario 60 - and it would click this
+                    // lever during the pitch sweep below, before any measurement starts. That is exactly what
+                    // happened in a full-suite run: the lever was already powered, the done-set then refused the
+                    // measured click, and the scenario reported having sent nothing.
+                    ctx.runOnClient(mc -> ModUnderTest.set(
+                            ModUnderTest.config("com.killer560.hub.secrettrigger.SecretTriggerbotConfig"),
+                            "setEnabled", false));
+
                     setFullBlock(ctx, false);
                     scenario.log("the lever's real interaction shape: " + realShape(ctx));
 
@@ -120,12 +129,17 @@ public class FullBlockTests implements FabricClientGameTest {
 
                     // Let the mod's own triggerbot send it, because Full Block plus a triggerbot is the real
                     // combination - the triggerbot reads the same widened hitResult.
+                    // COUNTING BEFORE ENABLING, not after. Each runOnClient hands control back to the client
+                    // thread, so one or more ticks pass between the switch going on and the next statement -
+                    // and the triggerbot fires on the first of them. Enabling first meant the only click of the
+                    // run happened before the counter was watching, which read as "sent nothing" while the
+                    // mod's own log plainly said it had clicked. Same trap as scenario 60.
+                    PacketWatch.start();
                     ctx.runOnClient(mc -> {
                         Object cfg = ModUnderTest.config(
                                 "com.killer560.hub.secrettrigger.SecretTriggerbotConfig");
                         ModUnderTest.set(cfg, "setEnabled", true);
                     });
-                    PacketWatch.start();
                     ctx.waitTicks(80);
                     PacketWatch.stop();
 

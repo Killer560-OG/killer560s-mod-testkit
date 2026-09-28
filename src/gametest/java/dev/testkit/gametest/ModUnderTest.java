@@ -52,6 +52,25 @@ public final class ModUnderTest {
         }
     }
 
+    /**
+     * Switch a feature back off, for a scenario that turned it on.
+     *
+     * <p>A scenario must leave the mod as it found it. These configs are live singletons that outlive a
+     * scenario, so one that enables an aura and walks away leaves it running through the NEXT scenario's setup -
+     * and the next scenario then finds its lever already clicked and reports having sent nothing, which reads as
+     * a broken feature rather than a dirty fixture. That cost three debugging rounds on one scenario.
+     *
+     * <p>Failures are swallowed on purpose: this runs in cleanup, where throwing would replace a real result
+     * with a teardown error.
+     */
+    public static void turnOff(String configClass, String setter) {
+        try {
+            set(config(configClass), setter, false);
+        } catch (Throwable ignored) {
+            // cleanup must not become the failure
+        }
+    }
+
     public static void set(Object target, String setter, boolean value) {
         invoke(target, setter, boolean.class, value);
     }

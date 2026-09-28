@@ -97,6 +97,8 @@ public class ReachTests implements FabricClientGameTest {
                     ctx.waitTicks(120);
                     PacketWatch.stop();
 
+                    ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+
                     boolean accepted = ctx.computeOnClient(mc ->
                             mc.level.getBlockState(lever).getValue(LeverBlock.POWERED));
                     long flags = scenario.flags().size();

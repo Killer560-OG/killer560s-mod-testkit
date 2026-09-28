@@ -172,6 +172,11 @@ public class AuraSweepTests implements FabricClientGameTest {
                         return n;
                     });
                     scenario.log(leversLeft + " of 21 levers were flipped, so that many clicks landed");
+                    // Leave it off. Its config outlives this scenario, and a later one that builds an arena
+                    // with a lever in it would have this still clicking during its setup.
+                    ctx.runOnClient(mc -> ModUnderTest.turnOff(
+                            "com.killer560.hub.secrettrigger.SecretTriggerbotConfig", "setEnabled"));
+
                     if (PacketWatch.totalUses() == 0) {
                         throw new AssertionError("Secret Triggerbot sent no block-use packets in 200 ticks, "
                                 + "so its anticheat result means nothing. Check the client log for its own "

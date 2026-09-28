@@ -229,6 +229,8 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	// has the same title, and moving the wrong one would drag a real game off-screen.
 	//
 	// -PtestWindow=x,y,w,h to put it somewhere else; -PtestWindow=off to leave it alone.
+	// The window placer also clears any client left over from a previous run, which is what keeps
+	// deleteGameTestRunDir from failing on open file handles - so it runs even when placement is off.
 	doFirst {
 		def where = project.findProperty("testWindow") ?: "-1920,361,1920,1080"  // left monitor, borderless
 		if (where != "off") {

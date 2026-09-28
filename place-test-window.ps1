@@ -35,6 +35,16 @@ New-Item -ItemType Directory -Force -Path (Split-Path $log) | Out-Null
 function Say($m) { Write-Output $m; Add-Content -Path $log -Value ((Get-Date -Format 'HH:mm:ss') + '  ' + $m) }
 Say ("watching for a window with marker '" + $Marker + "' -> " + $X + "," + $Y + " " + $Width + "x" + $Height)
 
+# Before watching for a new window, clear any client left over from a previous run. A gametest client that
+# outlived its gradle invocation keeps the run directory's jars open, and the NEXT run then dies in
+# deleteGameTestRunDir with an IOException that looks nothing like its real cause. That cost two runs before it
+# was understood, so it is handled here rather than left as a thing to remember.
+$stale = Get-CimInstance Win32_Process -Filter "Name='java.exe' OR Name='javaw.exe'" |
+    Where-Object { $_.CommandLine -and $_.CommandLine -like ("*" + $Marker + "*") }
+foreach ($x in $stale) {
+  try { Stop-Process -Id $x.ProcessId -Force -ErrorAction Stop; Say ("closed a leftover client, pid " + $x.ProcessId) } catch {}
+}
+
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 $moved = $false
 
