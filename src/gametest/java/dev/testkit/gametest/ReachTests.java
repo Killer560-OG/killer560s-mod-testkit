@@ -105,15 +105,39 @@ public class ReachTests implements FabricClientGameTest {
                                     + "%d flag(s)",
                             distance, PacketWatch.totalUses(),
                             accepted ? "ACCEPTED" : "REFUSED", flags));
-                    if (PacketWatch.totalUses() == 0) {
-                        throw new AssertionError("nothing was sent at " + distance + " blocks, so this rung "
-                                + "measured nothing"
-                                + (accepted
-                                ? " - and the lever is already powered, so an earlier scenario in this client"
-                                + " run clicked it and the aura's static done-set still carries it. Run the"
-                                + " ladder on its own (-Pscenario=8) - it passes in isolation."
-                                : ". The aura may not consider the lever a target at all, which is a different"
-                                + " answer from being out of range."));
+                    // WHAT COUNTS AS RIGHT DEPENDS ON THE RUNG.
+                    //
+                    // The auras are now capped at the measured limit (4.5 blocks to the block's box), so a rung
+                    // beyond that SHOULD send nothing - the cap declining to try is the cap working, and this
+                    // scenario is what proves it still does. A rung at or inside the limit must land and must
+                    // draw nothing.
+                    boolean insideLimit = distance <= 4.5 + 1.0E-6;
+                    if (insideLimit) {
+                        if (PacketWatch.totalUses() == 0) {
+                            throw new AssertionError(String.format(Locale.ROOT,
+                                    "at %.2f blocks - inside the limit - the aura sent nothing. Either a gate "
+                                            + "is shut, or the range is being measured to the block's CENTRE "
+                                            + "again, which reads up to half a block further and silently "
+                                            + "shortens the real reach.", distance));
+                        }
+                        if (!accepted) {
+                            throw new AssertionError(String.format(Locale.ROOT,
+                                    "at %.2f blocks the server refused a click it should have taken", distance));
+                        }
+                        if (flags > 0) {
+                            throw new AssertionError(String.format(Locale.ROOT,
+                                    "at %.2f blocks, inside the limit, the anticheat still objected %d time(s)",
+                                    distance, flags));
+                        }
+                    } else if (PacketWatch.totalUses() > 0) {
+                        throw new AssertionError(String.format(Locale.ROOT,
+                                "at %.2f blocks - beyond the measured limit - the aura tried anyway (%d "
+                                        + "interaction(s)). The range cap is not holding, and every such "
+                                        + "attempt is refused by the server and flagged on the way.",
+                                distance, PacketWatch.totalUses()));
+                    } else {
+                        scenario.log(String.format(Locale.ROOT,
+                                "  correct: at %.2f blocks the cap declined to try at all", distance));
                     }
                     for (String flag : scenario.flags().stream().distinct().limit(2).toList()) {
                         scenario.log("    " + flag);
