@@ -119,6 +119,30 @@ public class SimStallTests implements FabricClientGameTest {
         }
 
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave", new Class<?>[]{}, new Object[]{}));
+        // The harness requires the world to be closed before the scenario ends, and this one opened a world
+        // that the others do not. Queued rather than run inline: disconnecting needs further client ticks, and
+        // runOnClient waits for its task - the same deadlock that killed this client earlier in the session.
+        ctx.runOnClient(mc -> mc.execute(() -> {
+            if (mc.level != null) {
+                mc.level.disconnect(net.minecraft.network.chat.Component.literal("scenario over"));
+                mc.disconnectWithSavingScreen();
+            }
+        }));
+        // The SERVER, not just the level. The level goes null first and the integrated server takes a few
+        // more ticks to stop; waiting on the level alone let the scenario end with a server still up, which
+        // the harness rejects.
+        // Back to the title screen, which the harness requires. Waiting alone was not enough: leaving a world
+        // the mod opened lands on a saving screen and stays there, so once the world and server are actually
+        // gone this puts the title screen up itself.
+        ctx.waitFor(mc -> mc.level == null && mc.getSingleplayerServer() == null);
+        // getSingleplayerServer() goes null before the server THREAD has finished stopping, and forcing the
+        // title screen during that window ends the scenario with a server still up. So: let it settle, then
+        // put the title screen up, then let that settle too.
+        ctx.waitTicks(60);
+        ctx.runOnClient(mc -> mc.execute(() ->
+                mc.setScreen(new net.minecraft.client.gui.screens.TitleScreen())));
+        ctx.waitFor(mc -> mc.screen instanceof net.minecraft.client.gui.screens.TitleScreen);
+        ctx.waitTicks(20);
         System.out.println("[72-sim-stall] PASS - real library loaded and a full floor generated with no tick "
                 + "over " + MAX_TICK_MS + " ms");
     }
