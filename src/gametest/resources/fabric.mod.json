@@ -25,6 +25,7 @@
 			"dev.testkit.gametest.SimTests",
 			"dev.testkit.gametest.SimLoadTests",
 			"dev.testkit.gametest.SimStallTests",
+			"dev.testkit.gametest.SimFloorShapeTests",
 			"dev.testkit.gametest.InventorySorterTests"
 		]
 	},

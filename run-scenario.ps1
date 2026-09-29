@@ -56,7 +56,13 @@ $hungPolls = 0
 $hungLimit = 8          # 8 polls x 2 s = ~16 s unresponsive before it counts as frozen
 $killedHung = $false
 
-while (-not $proc.HasExited -and (Get-Date) -lt $deadline) {
+# Loop while EITHER the launcher is alive OR a test client exists.
+#
+# Watching only $proc was wrong and is why a run still overran by minutes: gradlew.bat is a batch file, so
+# Start-Process gives back the cmd.exe wrapping it, and that can exit while the Gradle daemon carries on with
+# the client still to come. The loop then ended, found no client yet because it had not started, and left
+# everything running - "automatic" cleanup that cleaned up nothing.
+while ((-not $proc.HasExited -or (Get-TestClients)) -and (Get-Date) -lt $deadline) {
     Start-Sleep -Seconds 2
     $frozen = $false
     foreach ($c in Get-TestClients) {
@@ -88,11 +94,19 @@ if ($killedHung) {
     exit 3
 }
 
-if (-not $proc.HasExited) {
+if ((Get-Date) -ge $deadline) {
     Write-Host "Deadline passed - the run is hung. Cleaning up so nothing is left on screen."
     foreach ($p in Get-TestClients) {
         Write-Host "  killing test client pid $($p.ProcessId)"
         Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+    # And the Gradle daemon running this project. Killing only the client left Gradle waiting on a child that
+    # was gone, which is how a run still ran for eight minutes against a four-minute deadline.
+    Get-CimInstance Win32_Process -Filter "Name = 'java.exe'" -ErrorAction SilentlyContinue | Where-Object {
+        $_.CommandLine -and ($_.CommandLine.Replace('', '/') -like "*$marker*")
+    } | ForEach-Object {
+        Write-Host "  killing gradle/java pid $($_.ProcessId)"
+        Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
     }
     Start-Sleep -Seconds 2
     if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
