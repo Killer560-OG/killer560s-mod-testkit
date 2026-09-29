@@ -70,6 +70,13 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   rotation from the harness would land in the packets being measured.
 - Upstream's `build.gradle` contains two deliberate NUL bytes (a NUL separator for packed launch args), so
   `grep` calls it binary. That is not corruption.
+- `ctx.runOnClient` WAITS for its task to finish, so a task that needs further client ticks to complete
+  deadlocks the client. Opening a world from inside one killed the process outright (exit -805306369 /
+  NTSTATUS 0xCFFFFFFF) rather than failing an assertion, and the frozen window had to be closed by hand.
+  Queue that kind of work with `mc.execute(...)` from inside the task and then poll for the result.
+- These scenarios open a REAL Minecraft window on killer560's desktop for a couple of minutes. A hung one is
+  his problem to close, so a scenario that can hang is worse than no scenario - give anything that waits an
+  explicit bound, and tell him before starting a run.
 - Upstream scenarios 40, 41, 42 report "built 0 block(s)", fall to the catch floor and pass as clean, and 34
   reports "naked 0, diamond-armoured 0" — four tests that go green while proving nothing. Worth telling
   SicoKaleb; his movement example guards against it with a `travelled < 20` check.
