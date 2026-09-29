@@ -23,6 +23,7 @@
 			"dev.testkit.gametest.EntityReachTests",
 			"dev.testkit.gametest.SpeedTests",
 			"dev.testkit.gametest.SimTests",
+			"dev.testkit.gametest.SimLoadTests",
 			"dev.testkit.gametest.InventorySorterTests"
 		]
 	},
