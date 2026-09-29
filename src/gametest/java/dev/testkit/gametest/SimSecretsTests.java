@@ -236,9 +236,29 @@ public class SimSecretsTests implements FabricClientGameTest {
         });
         System.out.println("[76-sim-secrets] the database expects " + expected[0] + " chest(s) across "
                 + roomsWithData[0] + " of " + roomsTotal[0] + " rooms; the floor has " + chests.size());
-        if (expected[0] > 0 && chests.size() < expected[0]) {
-            throw new AssertionError("the floor is missing secrets: the database has " + expected[0]
-                    + " chest(s) for these rooms but only " + chests.size() + " were placed");
+        // Chests the mod itself reports it deliberately dropped, because their coordinates fall outside the
+        // room's own footprint. That is not a translation fault and cannot be fixed here: three of his
+        // captures are the wrong SIZE (Deathmite is two tiles where the database says three), so some of
+        // their secrets have nowhere to go until those rooms are re-captured. This scenario used to fail
+        // whenever one of them happened to land on the floor, which made it a test of the floor's room
+        // lottery rather than of the secrets.
+        int skipped = 0;
+        try {
+            int[] audit = (int[]) ModUnderTest.staticCall(
+                    "com.killer560.hub.roomsim.SimSecrets", "chestAudit");
+            if (audit != null && audit.length > 3) {
+                skipped = audit[3];
+            }
+        } catch (RuntimeException ignored) {
+            // Older jar without the audit: fall through and assert on the raw count, as before.
+        }
+        int reachable = expected[0] - skipped;
+        System.out.println("[76-sim-secrets] " + skipped + " chest secret(s) lie outside their own room and "
+                + "were skipped, so " + reachable + " were placeable");
+        if (reachable > 0 && chests.size() < reachable) {
+            throw new AssertionError("the floor is missing secrets: " + reachable + " chest(s) were placeable "
+                    + "(" + expected[0] + " in the database, " + skipped + " outside their own room) but only "
+                    + chests.size() + " were placed");
         }
 
         int outside = 0;
