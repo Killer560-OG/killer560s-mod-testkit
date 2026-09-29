@@ -3,43 +3,41 @@ package dev.testkit.gametest;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
-import net.minecraft.client.Minecraft;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
- * Is the generated floor actually a dungeon?
+ * Is a generated floor actually a dungeon?
  *
  * <p>killer560 (2026-09-28): "the map is not full nor is it possible to get to every room from the starting
- * room [...] it looks nothing like a normal dungeon." Scenario 72 proved the floor builds quickly and without
- * stalling, and a floor can do both of those while being useless - a row of sealed boxes builds fast.
+ * room [...] it looks nothing like a normal dungeon." Scenario 72 proves a floor builds fast and without
+ * stalling, and a floor can do both while being useless - a row of sealed boxes builds fast.
  *
- * <p>So this checks the SHAPE rather than the speed, on the two properties that make a floor worth practising
- * on: every room is reachable from the green room by walking, and the layout is compact rather than a corridor.
- *
- * <p>Reachability is tested on the MAP DATA - rooms joined by door cells - rather than by walking the world,
- * because that is the thing the generator controls and the thing his map draws. The world doorways are checked
- * separately by sampling: a door cell whose centre is solid at head height never got cut.
+ * <p>This checks the SHAPE, over MANY floors rather than one. The first version built a world and asserted on
+ * the single floor that came out, which made "the generator never places multi-tile rooms" and "this floor
+ * happened not to" indistinguishable - and that assertion duly passed and failed on alternate runs. A test
+ * that flaps is worse than no test, because it teaches you to ignore it. {@code SimFloorGen.plan} exists so
+ * this can lay out a hundred floors in a second without touching the world.
  */
 public class SimFloorShapeTests implements FabricClientGameTest {
 
-    private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
     private static final String FLOOR_GEN = "com.killer560.hub.roomsim.SimFloorGen";
-    private static final String BUILD_QUEUE = "com.killer560.hub.roomsim.SimBuildQueue";
-    private static final String MAP_CODE = "com.killer560.hub.roomsim.MapCode";
+    private static final String ROOM_DOORS = "com.killer560.hub.roomsim.RoomDoors";
 
     private static final String SOURCE_ROOMS =
-            "C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/Map Logger/minecraft/config/killer560smod-rooms";
+            "C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)/minecraft/config/killer560smod-rooms";
 
     private static final int GRID = 11;
+    private static final int FLOORS = 120;
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -48,157 +46,478 @@ public class SimFloorShapeTests implements FabricClientGameTest {
         }
         ModUnderTest.require("killer560smod");
         ctx.waitTicks(40);
+        // The auction scan off first.
+        //
+        // AuctionHouseFeature starts a background scan of the whole auction house the moment a player exists,
+        // and it pulls about 43,000 listings across 44 pages, each decoded into an ItemStack. In a gametest
+        // client that is enough to wedge the process - scenario 71 froze on exactly that, sixteen seconds
+        // after the sim had finished building perfectly. Nothing here is testing the auction house, so the
+        // scan is pure interference.
+        ctx.runOnClient(mc -> ModUnderTest.turnOff(
+                "com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
 
         if (copyRealRooms() < 20) {
             System.out.println("[73-sim-floor-shape] SKIPPED - needs his real rooms to generate a real floor");
             return;
         }
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(ROOM_LIBRARY, "forceReload",
-                new Class<?>[]{}, new Object[]{}));
-        ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isReady",
-                new Class<?>[]{}, new Object[]{}));
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(ROOM_LIBRARY, "forceReload"));
+        ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isReady"));
 
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter",
-                new Class<?>[]{String.class}, new Object[]{"gametest"}));
-        ctx.runOnClient(mc -> mc.execute(() -> {
-            Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
-            ModUnderTest.staticCall(FLOOR_GEN, "generate",
-                    new Class<?>[]{Minecraft.class, floor.getClass(), int.class, int.class},
-                    new Object[]{mc, floor, 3, 5});
-        }));
-        ctx.waitFor(mc -> mc.level != null);
-        ctx.waitFor(mc -> !(Boolean) ModUnderTest.staticCall(BUILD_QUEUE, "isBusy",
-                new Class<?>[]{}, new Object[]{}));
-        ctx.waitTicks(40);
+        String[] floorNames = {"ENTRANCE", "F1", "F3", "F5", "F7"};
+        int planned = 0;
+        int withMulti = 0;
+        int multiRooms = 0;
+        int totalRooms = 0;
+        double fillSum = 0;
+        List<String> failures = new ArrayList<>();
 
-        // Read the GENERATED MAP, not the live map.
-        //
-        // My first version asked DungeonLayout, which is built by scanning the world and only runs while the
-        // mod believes it is in a dungeon - so in the harness it reported zero rooms and the scenario failed
-        // on the test's own environment rather than on the generator. The map code is what the generator
-        // actually produces, so that is the thing to assert on.
-        int[] roomOf = new int[GRID * GRID];
-        int[] doorOf = new int[GRID * GRID];
-        ctx.runOnClient(mc -> {
-            String code = (String) ModUnderTest.staticCall(SIM_STATE, "mapCode",
-                    new Class<?>[]{}, new Object[]{});
-            if (code == null || code.isBlank()) {
-                throw new AssertionError("the sim has no map code after generating a floor");
+        for (int i = 0; i < FLOORS; i++) {
+            final String floorName = floorNames[i % floorNames.length];
+            final int puzzles = 2 + (i % 4);
+            final int toBlood = 2 + (i % 7);
+            final Object[] out = new Object[6];
+            ctx.runOnClient(mc -> {
+                Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", floorName);
+                Object p = ModUnderTest.staticCall(FLOOR_GEN, "plan",
+                        new Class<?>[]{floor.getClass(), int.class, int.class},
+                        new Object[]{floor, puzzles, toBlood});
+                if (p == null) {
+                    return;
+                }
+                Object decoded = ModUnderTest.call(p, "decoded", new Class<?>[]{}, new Object[]{});
+                String[] names = (String[]) ModUnderTest.call(decoded, "nameTable",
+                        new Class<?>[]{}, new Object[]{});
+                out[0] = names;
+                out[1] = ModUnderTest.call(decoded, "cellRoom", new Class<?>[]{}, new Object[]{});
+                out[2] = ModUnderTest.call(decoded, "cellDoor", new Class<?>[]{}, new Object[]{});
+                // Expected CELL count, including the connector cells between a room's own tiles - the
+                // convention a live capture uses and, since 2026-09-29, the one the generator uses too. A
+                // room of t tiles on an axis spans 2t-1 cells. This is not decoration: SimBuilder pastes one
+                // room per flood-filled group of same-id cells and that fill steps one cell at a time, so a
+                // missing connector splits a room into one group per tile and pastes it at each of them.
+                int[] want = new int[names.length];
+                for (int n = 0; n < names.length; n++) {
+                    int tiles = (Integer) ModUnderTest.staticCall(ROOM_LIBRARY, "cellFootprint",
+                            new Class<?>[]{String.class}, new Object[]{names[n]});
+                    int tx = (Integer) ModUnderTest.staticCall(ROOM_LIBRARY, "tilesX",
+                            new Class<?>[]{String.class}, new Object[]{names[n]});
+                    int tz = tiles == 0 || tx == 0 ? 0 : tiles / tx;
+                    want[n] = tiles == 0 ? 0 : (2 * tx - 1) * (2 * tz - 1);
+                }
+                out[3] = want;
+                out[4] = ModUnderTest.call(decoded, "cellRotation", new Class<?>[]{}, new Object[]{});
+                // Every room's measured doorways, flattened to {side, index, tilesX, tilesZ} so nothing here
+                // has to know about the Mask record.
+                int[][] doors = new int[names.length][];
+                for (int n = 0; n < names.length; n++) {
+                    Object mask = ModUnderTest.staticCall(ROOM_DOORS, "of",
+                            new Class<?>[]{String.class}, new Object[]{names[n]});
+                    doors[n] = mask == null ? new int[0] : flatten(mask);
+                }
+                out[5] = doors;
+            });
+            if (out[0] == null) {
+                failures.add(floorName + " #" + i + ": plan() returned null");
+                continue;
             }
-            Object decoded = ModUnderTest.staticCall(MAP_CODE, "decode",
-                    new Class<?>[]{String.class}, new Object[]{code});
-            if (decoded == null) {
-                throw new AssertionError("the generated map code does not decode");
-            }
-            int[] cellRoom = (int[]) ModUnderTest.call(decoded, "cellRoom", new Class<?>[]{}, new Object[]{});
-            int[] cellDoor = (int[]) ModUnderTest.call(decoded, "cellDoor", new Class<?>[]{}, new Object[]{});
-            System.arraycopy(cellRoom, 0, roomOf, 0, Math.min(cellRoom.length, roomOf.length));
-            System.arraycopy(cellDoor, 0, doorOf, 0, Math.min(cellDoor.length, doorOf.length));
-        });
+            planned++;
+            String[] names = (String[]) out[0];
+            int[] roomOf = (int[]) out[1];
+            int[] doorOf = (int[]) out[2];
+            int[] wantCells = (int[]) out[3];
 
-        Set<Integer> rooms = new HashSet<>();
-        List<Integer> roomCells = new ArrayList<>();
-        for (int cell = 0; cell < GRID * GRID; cell++) {
-            if (roomOf[cell] >= 0) {
-                rooms.add(roomOf[cell]);
-                roomCells.add(cell);
+            // 1. Every room covers exactly the cells its capture is wide.
+            //
+            // This catches a layout planning against one footprint while the paste uses another, which on
+            // 2026-09-29 put every multi-tile room over its neighbour. It only means anything because room ids
+            // are per PLACEMENT: while they were deduplicated by name, two placements of one room shared an id
+            // and this could not tell that from a real mismatch.
+            Map<Integer, Integer> cells = new HashMap<>();
+            for (int c = 0; c < GRID * GRID; c++) {
+                if (roomOf[c] >= 0) {
+                    cells.merge(roomOf[c], 1, Integer::sum);
+                }
             }
-        }
-        System.out.println("[73-sim-floor-shape] " + rooms.size() + " room(s) across " + roomCells.size()
-                + " cell(s)");
-        if (rooms.size() < 8) {
-            throw new AssertionError("only " + rooms.size() + " rooms on a Floor 7 - that is not a floor");
-        }
-
-        // How many doors were placed at all. Zero means the map has no connections, which is exactly what he
-        // saw: rooms drawn as islands.
-        int doors = 0;
-        for (int cell = 0; cell < GRID * GRID; cell++) {
-            if (doorOf[cell] != 0) {
-                doors++;
-            }
-        }
-        System.out.println("[73-sim-floor-shape] " + doors + " door(s)");
-        if (doors == 0) {
-            throw new AssertionError("the floor has no doors at all - every room is an island and nothing "
-                    + "links on the map");
-        }
-
-        // Reachability from the entrance, walking cell to cell, through doors between rooms and freely inside
-        // one room.
-        int start = roomCells.get(0);
-        Set<Integer> seenRooms = new HashSet<>();
-        Set<Integer> visited = new HashSet<>();
-        Deque<Integer> queue = new ArrayDeque<>();
-        queue.add(start);
-        visited.add(start);
-        while (!queue.isEmpty()) {
-            int cell = queue.poll();
-            seenRooms.add(roomOf[cell]);
-            int gx = cell % GRID;
-            int gz = cell / GRID;
-            for (int[] step : new int[][]{{2, 0}, {-2, 0}, {0, 2}, {0, -2}}) {
-                int nx = gx + step[0];
-                int nz = gz + step[1];
-                if (nx < 0 || nz < 0 || nx >= GRID || nz >= GRID) {
+            for (Map.Entry<Integer, Integer> e : cells.entrySet()) {
+                int id = e.getKey();
+                if (id >= wantCells.length) {
+                    failures.add(floorName + " #" + i + ": a cell claims room id " + id
+                            + " but the name table holds " + wantCells.length);
                     continue;
                 }
-                int next = nz * GRID + nx;
-                if (roomOf[next] < 0 || visited.contains(next)) {
+                if (wantCells[id] == 0) {
+                    failures.add(floorName + " #" + i + ": placed \"" + names[id]
+                            + "\", which is not usable - it would paste at the wrong size");
+                } else if (e.getValue() != wantCells[id]) {
+                    failures.add(floorName + " #" + i + ": room \"" + names[id] + "\" covers "
+                            + e.getValue() + " cell(s), expected " + wantCells[id]);
+                }
+            }
+            // The paste grouping itself: SimBuilder flood-fills +-1 over same-id cells, so every cell of a
+            // room must be reachable from any other. This is the assertion that would have caught the split,
+            // because the map code looked perfectly well-formed while the paste came out duplicated.
+            for (Map.Entry<Integer, Integer> e : cells.entrySet()) {
+                int id = e.getKey();
+                int first = -1;
+                for (int c = 0; c < GRID * GRID && first < 0; c++) {
+                    if (roomOf[c] == id) {
+                        first = c;
+                    }
+                }
+                Set<Integer> group = new HashSet<>();
+                Deque<Integer> q = new ArrayDeque<>();
+                q.add(first);
+                group.add(first);
+                while (!q.isEmpty()) {
+                    int at = q.poll();
+                    int ax = at % GRID;
+                    int az = at / GRID;
+                    for (int[] st : new int[][]{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+                        int nx = ax + st[0];
+                        int nz = az + st[1];
+                        if (nx < 0 || nz < 0 || nx >= GRID || nz >= GRID) {
+                            continue;
+                        }
+                        int n = nz * GRID + nx;
+                        if (roomOf[n] == id && group.add(n)) {
+                            q.add(n);
+                        }
+                    }
+                }
+                if (group.size() != e.getValue()) {
+                    failures.add(floorName + " #" + i + ": \"" + names[id] + "\" has " + e.getValue()
+                            + " cells but a flood fill reaches only " + group.size()
+                            + " - the builder would paste it once per disconnected piece");
+                }
+            }
+            totalRooms += cells.size();
+            int multi = 0;
+            for (int v : cells.values()) {
+                if (v > 1) {
+                    multi++;
+                }
+            }
+            multiRooms += multi;
+            if (multi > 0) {
+                withMulti++;
+            }
+
+            // 2. Every room reachable from the entrance, through doors between rooms and freely inside one.
+            List<Integer> roomCells = new ArrayList<>();
+            Set<Integer> allRooms = new HashSet<>();
+            for (int c = 0; c < GRID * GRID; c++) {
+                if (roomOf[c] >= 0) {
+                    roomCells.add(c);
+                    allRooms.add(roomOf[c]);
+                }
+            }
+            if (roomCells.isEmpty()) {
+                failures.add(floorName + " #" + i + ": no rooms at all");
+                continue;
+            }
+            Set<Integer> seen = new HashSet<>();
+            Set<Integer> visited = new HashSet<>();
+            Deque<Integer> queue = new ArrayDeque<>();
+            queue.add(roomCells.get(0));
+            visited.add(roomCells.get(0));
+            while (!queue.isEmpty()) {
+                int c = queue.poll();
+                seen.add(roomOf[c]);
+                int gx = c % GRID;
+                int gz = c / GRID;
+                for (int[] step : new int[][]{{2, 0}, {-2, 0}, {0, 2}, {0, -2}}) {
+                    int nx = gx + step[0];
+                    int nz = gz + step[1];
+                    if (nx < 0 || nz < 0 || nx >= GRID || nz >= GRID) {
+                        continue;
+                    }
+                    int next = nz * GRID + nx;
+                    if (roomOf[next] < 0 || visited.contains(next)) {
+                        continue;
+                    }
+                    int between = (gz + step[1] / 2) * GRID + (gx + step[0] / 2);
+                    if (roomOf[next] != roomOf[c] && doorOf[between] == 0) {
+                        continue;
+                    }
+                    visited.add(next);
+                    queue.add(next);
+                }
+            }
+            if (seen.size() < allRooms.size()) {
+                failures.add(floorName + " #" + i + ": only " + seen.size() + " of " + allRooms.size()
+                        + " rooms reachable from the start");
+            }
+
+            // 3. Every door in the map is a doorway in BOTH rooms' geometry.
+            //
+            // This is the whole point of the 2026-09-29 rewrite. A door cell used to mean "the builder will
+            // knock a hole through whatever is here", so the map could put a door anywhere and the world was
+            // made to agree. Now the doorways are read off the captured blocks, so a door in the map that the
+            // room has no opening for is a door drawn through a solid wall.
+            int[] rotationOf = (int[]) out[4];
+            int[][] doorsOf = (int[][]) out[5];
+            Set<Integer> doorwayCells = new HashSet<>();
+            Map<Integer, Integer> linksPerRoom = new HashMap<>();
+            for (int c = 0; c < GRID * GRID; c++) {
+                int id = roomOf[c];
+                if (id < 0 || (c % GRID) % 2 != 0 || (c / GRID) % 2 != 0 || id >= doorsOf.length) {
                     continue;
                 }
-                boolean sameRoom = roomOf[next] == roomOf[cell];
-                int between = (gz + step[1] / 2) * GRID + (gx + step[0] / 2);
-                if (!sameRoom && doorOf[between] == 0) {
+                int[] anchor = anchorOf(roomOf, c, id);
+                int[] flat = rotated(doorsOf[id], rotationOf[c]);
+                for (int k = 0; k + 3 < flat.length; k += 4) {
+                    int[] cellXz = doorCell(anchor[0], anchor[1], flat[k + 2], flat[k + 3],
+                            flat[k], flat[k + 1]);
+                    if (cellXz[0] * 2 != c % GRID || cellXz[1] * 2 != c / GRID) {
+                        continue;   // this doorway belongs to another cell of the same room
+                    }
+                    int nx = c % GRID + DX[flat[k]];
+                    int nz = c / GRID + DZ[flat[k]];
+                    if (nx < 0 || nz < 0 || nx >= GRID || nz >= GRID) {
+                        continue;   // off the map: the builder bricks this one up
+                    }
+                    doorwayCells.add(nz * GRID + nx);
+                }
+            }
+            for (int c = 0; c < GRID * GRID; c++) {
+                if (doorOf[c] == 0) {
                     continue;
                 }
-                visited.add(next);
-                queue.add(next);
+                int gx = c % GRID;
+                int gz = c / GRID;
+                boolean alongX = gx % 2 == 1;
+                int aCell = alongX ? gz * GRID + gx - 1 : (gz - 1) * GRID + gx;
+                int bCell = alongX ? gz * GRID + gx + 1 : (gz + 1) * GRID + gx;
+                if (roomOf[aCell] < 0 || roomOf[bCell] < 0) {
+                    failures.add(floorName + " #" + i + ": a door at cell " + c + " has no room on one side");
+                    continue;
+                }
+                if (!doorwayCells.contains(c)) {
+                    failures.add(floorName + " #" + i + ": the map puts a door between "
+                            + names[roomOf[aCell]] + " and " + names[roomOf[bCell]]
+                            + " but neither room has a doorway there");
+                }
+                linksPerRoom.merge(roomOf[aCell], 1, Integer::sum);
+                linksPerRoom.merge(roomOf[bCell], 1, Integer::sum);
+            }
+
+            // 4. A one-door room is the end of a branch.
+            //
+            // killer560 (2026-09-29): "Some rooms only have one door so they have to be at the end of a split
+            // like puzzles and trap and some other rooms." A room with one doorway that the map has given two
+            // connections to has a door drawn through a wall.
+            for (Map.Entry<Integer, Integer> e : linksPerRoom.entrySet()) {
+                int id = e.getKey();
+                if (id >= doorsOf.length) {
+                    continue;
+                }
+                int doorways = doorsOf[id].length / 4;
+                if (doorways > 0 && e.getValue() > doorways) {
+                    failures.add(floorName + " #" + i + ": " + names[id] + " has " + doorways
+                            + " doorway(s) but the map gives it " + e.getValue() + " door(s)");
+                }
+            }
+            if (cells.size() < expectedRooms(floorName)) {
+                failures.add(floorName + " #" + i + ": only " + cells.size() + " room(s), wanted "
+                        + expectedRooms(floorName));
+            }
+            boolean hasBlood = false;
+            for (int id : allRoomIds(roomOf)) {
+                if (id < names.length && "Blood".equalsIgnoreCase(names[id])) {
+                    hasBlood = true;
+                }
+            }
+            if (!hasBlood) {
+                failures.add(floorName + " #" + i + ": no blood room on the floor");
+            }
+
+            // 5. Compact, not a corridor.
+            int minX = Integer.MAX_VALUE;
+            int minZ = Integer.MAX_VALUE;
+            int maxX = Integer.MIN_VALUE;
+            int maxZ = Integer.MIN_VALUE;
+            for (int c : roomCells) {
+                minX = Math.min(minX, c % GRID);
+                maxX = Math.max(maxX, c % GRID);
+                minZ = Math.min(minZ, c / GRID);
+                maxZ = Math.max(maxZ, c / GRID);
+            }
+            int box = ((maxX - minX) / 2 + 1) * ((maxZ - minZ) / 2 + 1);
+            // ROOM cells only, not connector cells.
+            //
+            // roomCells holds every grid cell a room covers, and a 2x2 room covers nine of them - its four
+            // tiles plus the five connectors between them - while the box is measured in rooms. Comparing the
+            // two reported 121% fill on 2026-09-29, which is not a fraction of anything. Counting the tile
+            // cells makes it the fraction it claims to be again.
+            int tileCells = 0;
+            for (int c : roomCells) {
+                if ((c % GRID) % 2 == 0 && (c / GRID) % 2 == 0) {
+                    tileCells++;
+                }
+            }
+            double fill = box == 0 ? 0 : (double) tileCells / box;
+            fillSum += fill;
+            // A hard floor per layout, and the AVERAGE asserted separately below.
+            //
+            // This was 0.45 per floor, which made the scenario flap: the generator averages about 77% with a
+            // tail, and one floor in a hundred landing at 43% failed the whole suite. A floor at 43% is
+            // sparse, not broken. 0.30 is a genuine corridor, and a generator that drifted towards sparse
+            // floors would show up in the mean long before any single floor hit that.
+            if (fill < 0.30) {
+                failures.add(String.format("%s #%d: fills only %.0f%% of its box - that is a corridor",
+                        floorName, i, fill * 100));
             }
         }
-        System.out.println("[73-sim-floor-shape] reachable: " + seenRooms.size() + "/" + rooms.size()
-                + " room(s)");
-        if (seenRooms.size() < rooms.size()) {
-            throw new AssertionError("only " + seenRooms.size() + " of " + rooms.size()
-                    + " rooms are reachable from the start - the rest cannot be walked to, which is exactly "
-                    + "what killer560 reported");
-        }
 
-        // Compactness. A depth-first growth makes a snake; a real floor fills a block. Measured as the share
-        // of the layout's bounding box that actually holds rooms.
-        int minX = Integer.MAX_VALUE;
-        int minZ = Integer.MAX_VALUE;
-        int maxX = Integer.MIN_VALUE;
-        int maxZ = Integer.MIN_VALUE;
-        for (int cell : roomCells) {
-            minX = Math.min(minX, cell % GRID);
-            maxX = Math.max(maxX, cell % GRID);
-            minZ = Math.min(minZ, cell / GRID);
-            maxZ = Math.max(maxZ, cell / GRID);
-        }
-        int boxCells = ((maxX - minX) / 2 + 1) * ((maxZ - minZ) / 2 + 1);
-        double fill = boxCells == 0 ? 0 : (double) roomCells.size() / boxCells;
-        System.out.println(String.format("[73-sim-floor-shape] fills %.0f%% of its %dx%d box",
-                fill * 100, (maxX - minX) / 2 + 1, (maxZ - minZ) / 2 + 1));
-        if (fill < 0.5) {
-            throw new AssertionError(String.format("the floor fills only %.0f%% of its bounding box - that is "
-                    + "a corridor, not a dungeon", fill * 100));
-        }
+        System.out.println(String.format(
+                "[73-sim-floor-shape] planned %d floor(s): %d rooms, %d multi-tile, %.0f%% of floors had one, "
+                        + "mean fill %.0f%%",
+                planned, totalRooms, multiRooms, 100.0 * withMulti / Math.max(1, planned),
+                100.0 * fillSum / Math.max(1, planned)));
 
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave", new Class<?>[]{}, new Object[]{}));
-        ctx.runOnClient(mc -> mc.execute(() -> {
-            if (mc.level != null) {
-                mc.level.disconnect(net.minecraft.network.chat.Component.literal("scenario over"));
-                mc.disconnectWithSavingScreen();
+        if (!failures.isEmpty()) {
+            StringBuilder sb = new StringBuilder(failures.size() + " floor(s) were not dungeons:");
+            for (int i = 0; i < Math.min(12, failures.size()); i++) {
+                sb.append("\n    ").append(failures.get(i));
             }
-        }));
-        ctx.waitFor(mc -> mc.level == null && mc.getSingleplayerServer() == null);
-        ctx.waitTicks(60);
-        ctx.runOnClient(mc -> mc.execute(() ->
-                mc.setScreen(new net.minecraft.client.gui.screens.TitleScreen())));
-        ctx.waitFor(mc -> mc.screen instanceof net.minecraft.client.gui.screens.TitleScreen);
-        ctx.waitTicks(20);
-        System.out.println("[73-sim-floor-shape] PASS - connected, fully reachable, compact");
+            if (failures.size() > 12) {
+                sb.append("\n    ...and ").append(failures.size() - 12).append(" more");
+            }
+            throw new AssertionError(sb.toString());
+        }
+        if (planned < FLOORS) {
+            throw new AssertionError("only " + planned + " of " + FLOORS + " floors planned at all");
+        }
+        // killer560 (2026-09-28): "dont use 1x1 you need to use more than just that." Over this many floors,
+        // a generator that has multi-tile rooms and never places one is a defect, not luck - and over a single
+        // floor it is indistinguishable from luck, which is exactly why this is measured in aggregate.
+        double meanFill = fillSum / Math.max(1, planned);
+        if (meanFill < 0.60) {
+            throw new AssertionError(String.format(
+                    "floors average only %.0f%% of their bounding box - the generator has drifted towards "
+                            + "corridors even though no single floor is bad enough to fail on its own",
+                    meanFill * 100));
+        }
+        if (multiRooms == 0) {
+            throw new AssertionError("not one multi-tile room across " + planned
+                    + " floors, from a library that has them - the generator is not placing them");
+        }
+        System.out.println("[73-sim-floor-shape] PASS - every floor connected, compact, correctly sized, "
+                + "and every door is a doorway in both rooms");
+    }
+
+    private static final int[] DX = {0, 1, 0, -1};
+    private static final int[] DZ = {-1, 0, 1, 0};
+
+    /** {@code {side, index, tilesX, tilesZ}} per doorway, pulled out of a RoomDoors.Mask by reflection. */
+    private static int[] flatten(Object mask) {
+        int tilesX = (Integer) ModUnderTest.call(mask, "tilesX", new Class<?>[]{}, new Object[]{});
+        int tilesZ = (Integer) ModUnderTest.call(mask, "tilesZ", new Class<?>[]{}, new Object[]{});
+        @SuppressWarnings("unchecked")
+        Set<Integer> edges = (Set<Integer>) ModUnderTest.call(mask, "edges", new Class<?>[]{}, new Object[]{});
+        int[] out = new int[edges.size() * 4];
+        int k = 0;
+        for (int packed : edges) {
+            out[k++] = (Integer) ModUnderTest.staticCall(ROOM_DOORS, "sideOf",
+                    new Class<?>[]{int.class}, new Object[]{packed});
+            out[k++] = (Integer) ModUnderTest.staticCall(ROOM_DOORS, "indexOf",
+                    new Class<?>[]{int.class}, new Object[]{packed});
+            out[k++] = tilesX;
+            out[k++] = tilesZ;
+        }
+        return out;
+    }
+
+    /**
+     * The same doorways, turned.
+     *
+     * <p>Written out here rather than calling {@code RoomDoors.rotate} through reflection, deliberately: a
+     * test that asks the code under test to transform its own data proves only that it is self-consistent.
+     * This is the rotation derived from the physical fact - north becomes east on a clockwise quarter turn -
+     * so if the two ever disagree, the assertions above fail.
+     */
+    private static int[] rotated(int[] flat, int degrees) {
+        int turns = ((degrees / 90) % 4 + 4) % 4;
+        int[] current = flat.clone();
+        for (int t = 0; t < turns; t++) {
+            int[] next = new int[current.length];
+            for (int k = 0; k + 3 < current.length; k += 4) {
+                int side = current[k];
+                int index = current[k + 1];
+                int tilesX = current[k + 2];
+                int tilesZ = current[k + 3];
+                int newSide;
+                int newIndex;
+                switch (side) {
+                    case 0 -> {
+                        newSide = 1;
+                        newIndex = index;
+                    }
+                    case 1 -> {
+                        newSide = 2;
+                        newIndex = tilesZ - 1 - index;
+                    }
+                    case 2 -> {
+                        newSide = 3;
+                        newIndex = index;
+                    }
+                    default -> {
+                        newSide = 0;
+                        newIndex = tilesZ - 1 - index;
+                    }
+                }
+                next[k] = newSide;
+                next[k + 1] = newIndex;
+                next[k + 2] = tilesZ;
+                next[k + 3] = tilesX;
+            }
+            current = next;
+        }
+        return current;
+    }
+
+    private static int[] doorCell(int originX, int originZ, int tilesX, int tilesZ, int side, int index) {
+        return switch (side) {
+            case 0 -> new int[]{originX + index, originZ};
+            case 2 -> new int[]{originX + index, originZ + tilesZ - 1};
+            case 3 -> new int[]{originX, originZ + index};
+            default -> new int[]{originX + tilesX - 1, originZ + index};
+        };
+    }
+
+    /** The top-left ROOM cell of the placement a grid cell belongs to. */
+    private static int[] anchorOf(int[] roomOf, int cell, int id) {
+        int gx = cell % GRID;
+        int gz = cell / GRID;
+        int minX = gx;
+        int minZ = gz;
+        while (minX - 2 >= 0 && roomOf[gz * GRID + (minX - 2)] == id) {
+            minX -= 2;
+        }
+        while (minZ - 2 >= 0 && roomOf[(minZ - 2) * GRID + gx] == id) {
+            minZ -= 2;
+        }
+        return new int[]{minX / 2, minZ / 2};
+    }
+
+    private static Set<Integer> allRoomIds(int[] roomOf) {
+        Set<Integer> out = new HashSet<>();
+        for (int v : roomOf) {
+            if (v >= 0) {
+                out.add(v);
+            }
+        }
+        return out;
+    }
+
+    /** The room counts SimFloorGen.Floor carries, so the test and the generator cannot disagree silently. */
+    private static int expectedRooms(String floorName) {
+        return switch (floorName) {
+            case "ENTRANCE" -> 11;
+            case "F1" -> 13;
+            case "F3" -> 16;
+            default -> 21;
+        };
     }
 
     private static int copyRealRooms() {

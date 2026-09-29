@@ -43,6 +43,15 @@ public class SimLoadTests implements FabricClientGameTest {
         }
         ModUnderTest.require("killer560smod");
         ctx.waitTicks(40);
+        // The auction scan off first.
+        //
+        // AuctionHouseFeature starts a background scan of the whole auction house the moment a player exists,
+        // and it pulls about 43,000 listings across 44 pages, each decoded into an ItemStack. In a gametest
+        // client that is enough to wedge the process - scenario 71 froze on exactly that, sixteen seconds
+        // after the sim had finished building perfectly. Nothing here is testing the auction house, so the
+        // scan is pure interference.
+        ctx.runOnClient(mc -> ModUnderTest.turnOff(
+                "com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
 
         // Precondition: no world. If this is not true the scenario is testing the wrong path entirely and a
         // pass would mean nothing.
@@ -106,15 +115,28 @@ public class SimLoadTests implements FabricClientGameTest {
         //    copy of chunks 100 blocks from spawn is not loaded and every read comes back void_air, which is
         //    how a previous version of the other scenario "passed" while nothing had been placed.
         ctx.waitTicks(40);
-        int centre = GRID / 2;
+        // The EVEN centre cell the mod uses. GRID/2 is 5, which is odd, and rooms sit on even cells - the
+        // builder was corrected on 2026-09-29 and this had kept looking half a tile away.
+        int centre = (GRID / 2) & ~1;
         int x0 = START + centre * HALF_ROOM - TILE / 2;
         int z0 = START + centre * HALF_ROOM - TILE / 2;
         var server = ctx.computeOnClient(mc -> mc.getSingleplayerServer());
         if (server == null) {
             throw new AssertionError("no integrated server after the sim world opened");
         }
-        String floor = server.submit(() -> server.overworld()
-                .getBlockState(new BlockPos(x0 + 15, FLOOR_Y, z0 + 15)).getBlock().toString()).join();
+        // Submitted and POLLED, never joined.
+        //
+        // This was server.submit(...).join() on the test thread, and it deadlocked the client outright: the
+        // render thread parks in the gametest API's postRunTasks waiting for the test thread, while the test
+        // thread blocks on a future the server can only complete once the client lets it run. The thread dump
+        // showed exactly that pair. It is the same trap this harness already documents for runOnClient -
+        // anything that needs further ticks must be polled, not waited on.
+        java.util.concurrent.atomic.AtomicReference<String> floorRef =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        server.execute(() -> floorRef.set(server.overworld()
+                .getBlockState(new BlockPos(x0 + 15, FLOOR_Y, z0 + 15)).getBlock().toString()));
+        ctx.waitFor(mc -> floorRef.get() != null);
+        String floor = floorRef.get();
         System.out.println("[71-sim-load-from-menu] floor at the centre cell: " + floor);
         if (floor.contains("air")) {
             throw new AssertionError("the sim opened but the room was never built - the floor at " + (x0 + 15)
@@ -123,6 +145,19 @@ public class SimLoadTests implements FabricClientGameTest {
         }
 
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave", new Class<?>[]{}, new Object[]{}));
+        // Back to the title screen. The runner fails a scenario that "finished while a server is still
+        // running", and leaving the world up also leaves it locked for the next scenario in the same client.
+        ctx.runOnClient(mc -> mc.execute(() -> {
+            if (mc.level != null) {
+                mc.level.disconnect(net.minecraft.network.chat.Component.literal("scenario over"));
+                mc.disconnectWithSavingScreen();
+            }
+        }));
+        ctx.waitFor(mc -> mc.level == null && mc.getSingleplayerServer() == null);
+        ctx.waitTicks(40);
+        ctx.runOnClient(mc -> mc.execute(() ->
+                mc.setScreen(new net.minecraft.client.gui.screens.TitleScreen())));
+        ctx.waitFor(mc -> mc.screen instanceof net.minecraft.client.gui.screens.TitleScreen);
         System.out.println("[71-sim-load-from-menu] PASS - picked from the main menu with no world, custom "
                 + "loading screen shown and then closed, sim active, room actually built");
     }

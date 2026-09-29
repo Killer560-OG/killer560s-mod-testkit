@@ -65,6 +65,15 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 - A probe's own mistakes look exactly like findings. The entity-reach probe drew `Hitboxes` violations because
   it passed an entity's feet as the hit vector; the mod's own features aim at a point on the box and were never
   at fault. Separate the two halves in the scenario's own output, or a later reader will quote both.
+  **Fixed 2026-09-29**: scenario 85 now clips a real eye-to-box hit, and it PLACES the player with a server
+  `tp` at each distance instead of walking in. Walking sampled every ~1.08 blocks, which could not resolve the
+  one question the mod asks of it. Placed at 0.1 resolution the boundary is exact: **3.00 clean, 3.10 flagged**,
+  so `MEASURED_MAX_ENTITY_REACH = 3.0` is correct and sits right on the edge. A coarse probe is not a
+  measurement, it is a range that happens to contain the answer.
+- The gametest client is **java.exe**, not javaw.exe. `run-scenario.ps1` matched javaw only, so its freeze
+  watcher and its deadline cleanup both operated on an empty set while reporting success - which is why
+  "it doesn't close on freeze" survived two rounds of fixes to the watching logic. It now matches both names,
+  still discriminating on the testkit path plus `fabric.addMods`.
 - Features that click a dungeon secret keep a done-set and never click the same one twice, so one lever
   measures exactly one interaction. Use a row of them and strafe past, rather than writing yaw — a synthetic
   rotation from the harness would land in the packets being measured.
@@ -74,9 +83,41 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   deadlocks the client. Opening a world from inside one killed the process outright (exit -805306369 /
   NTSTATUS 0xCFFFFFFF) rather than failing an assertion, and the frozen window had to be closed by hand.
   Queue that kind of work with `mc.execute(...)` from inside the task and then poll for the result.
+  **The same trap through another door (2026-09-29):** `server.submit(...).join()` from the test thread
+  deadlocks just as hard. The render thread parks in the gametest API's own `postRunTasks` waiting for the
+  test thread, while the test thread waits on a future the integrated server can only complete once the client
+  runs again. A thread dump shows the pair immediately — `jstack` the frozen client rather than guessing, and
+  note the dump PowerShell writes is UTF-16. Use `server.execute(...)` into an `AtomicReference` and
+  `ctx.waitFor` on it.
+- Scenario 71 froze for an hour looking like a mod bug. It was not: the client log showed the sim had built
+  the room perfectly ("Sim build finished: 77850 blocks") before the freeze. Read the client's own log first —
+  this is the second time a "the sim freezes" hunt has ended at something that was not the sim.
+- The auction-house scan (about 43,000 listings across 44 pages, each decoded to an ItemStack) starts as soon
+  as a player exists and is heavy enough to matter in a gametest client. Every sim scenario turns it off with
+  `ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled")`; nothing here tests it.
 - These scenarios open a REAL Minecraft window on killer560's desktop for a couple of minutes. A hung one is
   his problem to close, so a scenario that can hang is worse than no scenario - give anything that waits an
   explicit bound, and tell him before starting a run.
 - Upstream scenarios 40, 41, 42 report "built 0 block(s)", fall to the catch floor and pass as clean, and 34
   reports "naked 0, diamond-armoured 0" — four tests that go green while proving nothing. Worth telling
   SicoKaleb; his movement example guards against it with a `travelled < 20` check.
+- **The instrument is broken more often than the feature.** Three times on 2026-09-29: scenario 76 reported
+  20 of 29 secret chests missing because it scanned only chunks that `hasChunk` said were loaded, and the
+  player stands in one corner of a six-room-wide floor (use `getChunk`, which loads it); scenario 78 reported
+  four puzzles "building nothing" because its measurement box was smaller than SimBoulderPuzzle's `FLOOR_Y`
+  offset of 66; and its entity counter reads 0 for everything, with `Entity.class` and with `Mob.class`
+  alike, while the puzzle's own log says it spawned five blazes. Get the mod to re-read the world and say
+  what it finds before believing a scenario that says the mod is wrong.
+- `System.out.printf` does NOT reach the gametest log - only `println` does. Scenario 82 printed its PASS line
+  and silently dropped every per-floor number behind it, so the run "passed" with nothing to read. Use
+  `System.out.println(String.format(...))`.
+- A movement scenario must assert DISTANCE TRAVELLED before it asserts anything about where the player ended
+  up. Scenario 81 reported "a player cannot pass this doorway" twice while the player had moved 0.00 blocks,
+  and once more after walking 16.2 blocks into a wall because it aimed him from the cell centre rather than
+  from where he stood. Place him square on to the thing under test and measure the crossing axis only.
+- A scenario that throws leaves the sim world open and the client hangs until the deadline watcher shoots it -
+  a frozen Minecraft window on his desktop. Put the teardown in a `finally`.
+- Name the block that stopped the player. "3 of 8 doorways impassable" reads as a floor-generation bug when a
+  shut wither door (coal block) and a blood door (red terracotta) are solid on purpose.
+- `getEntitiesOfClass` returns nothing in a gametest client, for any class tried so far. If a scenario needs
+  a mob count, expose one from the mod and assert on that.

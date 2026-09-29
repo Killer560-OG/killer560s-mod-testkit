@@ -21,9 +21,19 @@ $here = $PSScriptRoot
 $marker = $here.Replace('\', '/')
 
 function Get-TestClients {
-    Get-CimInstance Win32_Process -Filter "Name = 'javaw.exe'" -ErrorAction SilentlyContinue | Where-Object {
+    # BOTH java.exe and javaw.exe.
+    #
+    # The gametest client runs as java.exe - confirmed 2026-09-29, when pid 38312 WAS the client and this
+    # function could not see it. Every protection in this script was therefore inert: the freeze watcher never
+    # found an unresponsive client and the deadline cleanup killed nothing, while the script still reported
+    # success. That is killer560's "it still doesnt close out on freeze it seems", and it explains why the
+    # earlier fixes to the watching logic changed nothing - they were watching an empty set.
+    #
+    # The testkit path stays the discriminator, so a game he is playing is never a candidate; fabric.addMods
+    # narrows it further to the client rather than the Gradle daemon that launched it.
+    Get-CimInstance Win32_Process -Filter "Name = 'javaw.exe' OR Name = 'java.exe'" -ErrorAction SilentlyContinue | Where-Object {
         $cl = $_.CommandLine
-        $cl -and ($cl.Replace('\', '/') -like "*$marker*")
+        $cl -and ($cl.Replace('\', '/') -like "*$marker*") -and ($cl -like '*fabric.addMods*')
     }
 }
 

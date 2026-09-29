@@ -58,32 +58,44 @@ public class EntityReachTests implements FabricClientGameTest {
                     scenario.assertDetectorWorks();
                     ctx.waitTicks(20);
 
-                    // Walk in from too far and interact once per tick. The distance at which the server starts
-                    // accepting - and the distance at which the anticheat stops complaining - are the answers.
+                    // PLACED at each distance, not walked in.
+                    //
+                    // Walking sampled about every 1.08 blocks, which is far too coarse to answer the question
+                    // the mod actually asks of this probe: is 3.0 safe? It reported a flag at 3.26 and none at
+                    // 2.18 and left everything between unmeasured - which is where MEASURED_MAX_ENTITY_REACH
+                    // sits. The stand is at a known place on our own server, so the player can simply be put
+                    // at each distance and the boundary found at 0.1 resolution.
                     PacketWatch.start();
                     double firstClean = Double.NaN;
-                    ctx.getInput().holdKey(options -> options.keyUp);
-                    for (int i = 0; i < 60; i++) {
-                        ctx.waitTicks(2);
-                        double before = PacketWatch.maxEntityReach();
+                    double lowestFlagged = Double.NaN;
+                    for (int step = 40; step >= 15; step--) {
+                        double want = step / 10.0;
+                        // The stand's box is 0.5 wide, so its face is 0.25 from its centre; place the eye that
+                        // much further out to make the eye-to-BOX distance the number we asked for.
+                        server.command(String.format(Locale.ROOT, "tp @p %.3f %d %.3f 0 0",
+                                DEV_X + 0.5, DEV_Y, DEV_Z + 8 - 0.25 - want));
+                        ctx.waitTicks(6);
                         int flagsBefore = scenario.flags().size();
                         double d = interactOnce(ctx);
                         if (Double.isNaN(d)) {
                             continue;
                         }
-                        ctx.waitTicks(3);
+                        ctx.waitTicks(6);
                         boolean clean = scenario.flags().size() == flagsBefore;
                         if (clean && (Double.isNaN(firstClean) || d > firstClean)) {
                             firstClean = d;
                         }
+                        if (!clean && (Double.isNaN(lowestFlagged) || d < lowestFlagged)) {
+                            lowestFlagged = d;
+                        }
                         scenario.log(String.format(Locale.ROOT, "  interacted at %.2f blocks -> %s", d,
                                 clean ? "no flag" : "FLAGGED"));
-                        if (d < 1.0) {
-                            break;
-                        }
                     }
-                    ctx.getInput().releaseKey(options -> options.keyUp);
                     PacketWatch.stop();
+                    scenario.log(String.format(Locale.ROOT,
+                            "  BOUNDARY: highest clean %.2f, lowest flagged %.2f -> the limit is between them; "
+                                    + "MEASURED_MAX_ENTITY_REACH is 3.0",
+                            firstClean, lowestFlagged));
 
                     scenario.log(PacketWatch.summary());
                     scenario.log(String.format(Locale.ROOT,
@@ -116,8 +128,17 @@ public class EntityReachTests implements FabricClientGameTest {
             double dx = Math.max(0, Math.max(box.minX - eye.x, eye.x - box.maxX));
             double dy = Math.max(0, Math.max(box.minY - eye.y, eye.y - box.maxY));
             double dz = Math.max(0, Math.max(box.minZ - eye.z, eye.z - box.maxZ));
+            // A point ON the box, from the eye - not the entity's feet.
+            //
+            // This passed stand.position(), which is a point INSIDE the box that no ray from the eye
+            // produces. That is the fault this harness's own notes already blame for the Hitboxes flags it
+            // drew, so the probe was flagging itself and reporting the result as a distance finding. With a
+            // real clipped hit, a flag here means the DISTANCE was refused, which is what the probe is for.
+            var centre = box.getCenter();
+            var aim = box.clip(eye, eye.add(centre.subtract(eye).normalize()
+                    .scale(eye.distanceTo(centre) + 1.0))).orElse(centre);
             mc.gameMode.interact(mc.player, stand,
-                    new net.minecraft.world.phys.EntityHitResult(stand, stand.position()),
+                    new net.minecraft.world.phys.EntityHitResult(stand, aim),
                     net.minecraft.world.InteractionHand.MAIN_HAND);
             return Math.sqrt(dx * dx + dy * dy + dz * dz);
         });

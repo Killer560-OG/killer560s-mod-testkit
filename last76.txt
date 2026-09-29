@@ -1,0 +1,4 @@
+Running 76-sim-secrets with a 420 s deadline
+Test client has stopped responding - watching it
+Test client frozen for ~16 s - closing it so it is not left on screen
+FROZEN - the client was closed automatically

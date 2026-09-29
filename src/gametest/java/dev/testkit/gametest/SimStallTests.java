@@ -36,7 +36,7 @@ public class SimStallTests implements FabricClientGameTest {
 
     /** Where his real rooms live. */
     private static final String SOURCE_ROOMS =
-            "C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/Map Logger/minecraft/config/killer560smod-rooms";
+            "C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)/minecraft/config/killer560smod-rooms";
 
     /**
      * The longest a single client tick may take.
@@ -54,6 +54,15 @@ public class SimStallTests implements FabricClientGameTest {
         }
         ModUnderTest.require("killer560smod");
         ctx.waitTicks(40);
+        // The auction scan off first.
+        //
+        // AuctionHouseFeature starts a background scan of the whole auction house the moment a player exists,
+        // and it pulls about 43,000 listings across 44 pages, each decoded into an ItemStack. In a gametest
+        // client that is enough to wedge the process - scenario 71 froze on exactly that, sixteen seconds
+        // after the sim had finished building perfectly. Nothing here is testing the auction house, so the
+        // scan is pure interference.
+        ctx.runOnClient(mc -> ModUnderTest.turnOff(
+                "com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
 
         int copied = copyRealRooms(ctx);
         if (copied < 20) {
