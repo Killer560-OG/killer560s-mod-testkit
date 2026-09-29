@@ -34,15 +34,58 @@ foreach ($p in $stale) {
     Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
 }
 
-$args = @("runClientGameTest", "-PmodUnderTest=$ModUnderTest", "--console=plain")
-if ($Scenario -ne "") { $args += "-Pscenario=$Scenario" }
+# Not $args - that is an automatic variable in PowerShell and assigning to it is a parse-time surprise.
+$gradleArgs = @("runClientGameTest", "-PmodUnderTest=$ModUnderTest", "--console=plain")
+if ($Scenario -ne "") { $gradleArgs += "-Pscenario=$Scenario" }
 
-Write-Host "Running $($Scenario -eq '' ? 'all scenarios' : $Scenario) with a $TimeoutSeconds s deadline"
-$proc = Start-Process -FilePath "$here\gradlew.bat" -ArgumentList $args -WorkingDirectory $here -PassThru -NoNewWindow
+# No ternary: this is Windows PowerShell 5.1, where ?: is a parser error.
+$what = $Scenario
+if ($what -eq "") { $what = "all scenarios" }
+Write-Host "Running $what with a $TimeoutSeconds s deadline"
+$proc = Start-Process -FilePath "$here\gradlew.bat" -ArgumentList $gradleArgs -WorkingDirectory $here -PassThru -NoNewWindow
 
+# Watch it WHILE it runs, not only at the deadline.
+#
+# killer560 (2026-09-28): "your sim server still doesnt close automatically whenever it gets stuck and
+# frozen." Killing only on the deadline meant a client that froze thirty seconds in still sat on his screen
+# for the remaining four minutes. Windows already knows when a window has stopped pumping its message queue -
+# that is exactly what "(Not Responding)" in the title bar means - so this asks, and kills as soon as it has
+# been true for long enough to not be a passing hitch.
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+$hungPolls = 0
+$hungLimit = 8          # 8 polls x 2 s = ~16 s unresponsive before it counts as frozen
+$killedHung = $false
+
 while (-not $proc.HasExited -and (Get-Date) -lt $deadline) {
     Start-Sleep -Seconds 2
+    $frozen = $false
+    foreach ($c in Get-TestClients) {
+        $p = Get-Process -Id $c.ProcessId -ErrorAction SilentlyContinue
+        # Responding is only meaningful once there is a window to be unresponsive.
+        if ($p -and $p.MainWindowHandle -ne 0 -and -not $p.Responding) { $frozen = $true }
+    }
+    if ($frozen) {
+        $hungPolls++
+        if ($hungPolls -eq 1) { Write-Host "Test client has stopped responding - watching it" }
+        if ($hungPolls -ge $hungLimit) {
+            Write-Host "Test client frozen for ~$($hungLimit * 2) s - closing it so it is not left on screen"
+            foreach ($c in Get-TestClients) {
+                Stop-Process -Id $c.ProcessId -Force -ErrorAction SilentlyContinue
+            }
+            $killedHung = $true
+            break
+        }
+    } else {
+        $hungPolls = 0
+    }
+}
+
+if ($killedHung) {
+    # Give Gradle a moment to notice its child died, then stop it too rather than leave it waiting.
+    Start-Sleep -Seconds 5
+    if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+    Write-Host "FROZEN - the client was closed automatically"
+    exit 3
 }
 
 if (-not $proc.HasExited) {
