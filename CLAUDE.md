@@ -119,5 +119,14 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   a frozen Minecraft window on his desktop. Put the teardown in a `finally`.
 - Name the block that stopped the player. "3 of 8 doorways impassable" reads as a floor-generation bug when a
   shut wither door (coal block) and a blood door (red terracotta) are solid on purpose.
+- An overlap assertion must be a real RECTANGLE INTERSECTION, not "is A below B". Scenario 83 compared the
+  room list's bottom against the topmost widget anywhere on the screen, which is the search box sitting above
+  the list by design, so it failed at y 64 naming the wrong thing - and it would not have caught what was
+  actually wrong at that window size, the GRID running into the settings row, because it never looked at the
+  grid. Check every drawn box against every control's box.
+- Run a screen scenario and read the NUMBERS, not the verdict. The gametest window is about 240 GUI units
+  tall, far smaller than his, so layout that is fine on his monitor can overlap there - which is how the map
+  designer's `Math.max(14, ...)` cell floor was found. That small window is a feature, not noise: it is the
+  cheapest way to test a layout at its limits.
 - `getEntitiesOfClass` returns nothing in a gametest client, for any class tried so far. If a scenario needs
   a mob count, expose one from the mod and assert on that.
