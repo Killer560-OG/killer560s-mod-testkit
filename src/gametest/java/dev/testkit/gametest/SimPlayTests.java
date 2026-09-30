@@ -208,9 +208,17 @@ public class SimPlayTests implements FabricClientGameTest {
                         case 2 -> "WITHER door";
                         default -> "plain door";
                     };
+                    // WHERE HE STARTED, because "moved 0.2" is a different bug from "moved 4.2".
+                    //
+                    // On 2026-09-30 a doorway failed with "moved 0.2 across" over a seam whose every column
+                    // at y0 and y1 was air - so nothing obstructed him and he simply never walked. That is a
+                    // fault in this scenario's placement, not in the floor, and the two are indistinguishable
+                    // without knowing what he was standing in when the keys went down. A player teleported
+                    // into a solid block does not move, and reads exactly like a wall four blocks ahead.
+                    String start = startState(ctx, sx + 0.5, floorY, sz + 0.5);
                     String line = String.format(
-                            "%s at cell %d (%d,%d) moved %.1f across, blocked by %s, between %s; %s",
-                            kind, cell, cx, cz, crossed, blocking, rooms,
+                            "%s at cell %d (%d,%d) moved %.1f across from %s, blocked by %s, between %s; %s",
+                            kind, cell, cx, cz, crossed, start, blocking, rooms,
                             // WHERE the opening actually is, not just that the player stopped. "blocked by
                             // stone_bricks" is the same sentence whether the carve missed entirely or landed
                             // four blocks too low, and those are different bugs with different fixes.
@@ -318,6 +326,39 @@ public class SimPlayTests implements FabricClientGameTest {
         ctx.waitFor(mc -> mc.screen instanceof net.minecraft.client.gui.screens.TitleScreen);
     }
 
+    /**
+     * What the player was standing in at his starting position.
+     *
+     * <p>Feet, head and the block under him. A start inside stone, or over a hole, explains a crossing
+     * distance near zero without any wall being involved.
+     */
+    private static String startState(ClientGameTestContext ctx, double x, double y, double z) {
+        java.util.concurrent.atomic.AtomicReference<String> got =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            if (server == null) {
+                got.set("no server");
+                return;
+            }
+            server.execute(() -> {
+                var level = server.overworld();
+                var feet = net.minecraft.core.BlockPos.containing(x, y, z);
+                got.set(String.format(java.util.Locale.ROOT, "(%.1f,%.1f,%.1f) feet=%s head=%s under=%s",
+                        x, y, z,
+                        name(level, feet), name(level, feet.above()), name(level, feet.below())));
+            });
+        });
+        ctx.waitFor(mc -> got.get() != null);
+        return got.get();
+    }
+
+    private static String name(net.minecraft.server.level.ServerLevel level, net.minecraft.core.BlockPos at) {
+        var state = level.getBlockState(at);
+        return net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath()
+                + (state.getCollisionShape(level, at).isEmpty() ? "" : "*");
+    }
+
     /** What is standing in the doorway: the blocks across the seam at head and foot height. */
     private static String seamBlocks(ClientGameTestContext ctx, int cx, int cz, int floorY, boolean alongX) {
         // The server reads the blocks and the TEST THREAD waits for the answer. Doing the waiting inside
@@ -334,7 +375,16 @@ public class SimPlayTests implements FabricClientGameTest {
             server.execute(() -> {
                 var level = server.overworld();
                 java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>();
-                for (int d = -2; d <= 2; d++) {
+                // WIDTH ±1, because the carve is three wide.
+                //
+                // This scanned ±2 and so always reached the columns either side of the doorway - the FRAME,
+                // which is stone bricks by design. Every "blocked by ..." this scenario has ever printed was
+                // therefore naming the frame, not an obstruction: on 2026-09-30 two failures reported
+                // "blocked by stone_bricks" over a doorway whose every column at y0 and y1 was air, and an
+                // earlier one blamed a red carpet, which is a sixteenth of a block and cannot stop anyone.
+                // A label that is wrong is worse than no label, because it sends the next reader at the
+                // wrong block.
+                for (int d = -1; d <= 1; d++) {
                     for (int dy = 0; dy <= 1; dy++) {
                         int x = alongX ? cx : cx + d;
                         int z = alongX ? cz + d : cz;
@@ -386,6 +436,30 @@ public class SimPlayTests implements FabricClientGameTest {
                         }
                     }
                     sb.append(y - floorY).append('=').append(open).append(' ');
+                }
+                // NAME the blocks at the walking plane, not just count them.
+                //
+                // A count cannot tell a wall from a carpet, and on 2026-09-30 a doorway failed with
+                // "blocked by red_carpet" over a profile that looked open at every height the player occupies
+                // - a carpet is 1/16 of a block and cannot stop anyone, so the count and the name disagreed
+                // and neither could settle it. The two layers his body is actually in are the ones worth
+                // spelling out, and 42 names is a line, not a dump.
+                for (int y = floorY - 1; y <= floorY + 1; y++) {
+                    sb.append(" | y").append(y - floorY).append(": ");
+                    for (int d = -3; d <= 3; d++) {
+                        for (int w = -1; w <= 1; w++) {
+                            int x = alongX ? cx + d : cx + w;
+                            int z = alongX ? cz + w : cz + d;
+                            var st = level.getBlockState(new net.minecraft.core.BlockPos(x, y, z));
+                            sb.append(net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                                    .getKey(st.getBlock()).getPath());
+                            // Whether it actually OBSTRUCTS, which is the question - a carpet is named here
+                            // and is not an obstacle, and that distinction is the whole point of the line.
+                            sb.append(st.getCollisionShape(level,
+                                    new net.minecraft.core.BlockPos(x, y, z)).isEmpty() ? "" : "*");
+                            sb.append(' ');
+                        }
+                    }
                 }
                 got.set(sb.toString().trim());
             });
