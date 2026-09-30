@@ -42,6 +42,7 @@
 			"dev.testkit.gametest.SimStarredMobTests",
 			"dev.testkit.gametest.SimMapGroupTests",
 			"dev.testkit.gametest.SimSingleRoomTests",
+			"dev.testkit.gametest.SimRoomFloorTests",
 			"dev.testkit.gametest.InventorySorterTests"
 		]
 	},
