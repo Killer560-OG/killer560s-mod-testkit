@@ -62,15 +62,43 @@ public class SimStarredMobTests implements FabricClientGameTest {
 
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter",
                 new Class<?>[]{String.class}, new Object[]{"gametest"}));
-        // The flat test room is enough: this is about the entities, not the floor.
-        ctx.runOnClient(mc -> mc.execute(() -> ModUnderTest.staticCall(BUILDER, "buildFlatTest",
-                new Class<?>[]{Minecraft.class}, new Object[]{mc})));
+        // A real floor, not the flat test room. The flat room builds a world whose chunks the client never
+        // receives when this scenario runs on its own - the server has them, the client does not, and in that
+        // state no entity can be read back, so the scenario skipped. Every other sim scenario generates a
+        // normal floor and their worlds load, so this one does the same rather than depending on whatever ran
+        // before it to warm the chunks.
+        ctx.runOnClient(mc -> mc.execute(() -> {
+            Object floor = ModUnderTest.enumValue("com.killer560.hub.roomsim.SimFloorGen$Floor", "F7");
+            ModUnderTest.staticCall("com.killer560.hub.roomsim.SimFloorGen", "generate",
+                    new Class<?>[]{Minecraft.class, floor.getClass(), int.class, int.class},
+                    new Object[]{mc, floor, 3, 4});
+        }));
         ctx.waitFor(mc -> mc.level != null);
         ctx.waitFor(mc -> !(Boolean) ModUnderTest.staticCall(BUILD_QUEUE, "isBusy"));
         ctx.waitTicks(60);
 
+        // WAIT FOR THE CHUNK, not just for the build.
+        //
+        // Run on its own, this scenario used to reach the spawn before the client had the chunk under the
+        // player, and in that state entities cannot be read back at all - so it skipped. Run after other
+        // scenarios the chunks were already warm and it passed. A test whose verdict depends on what ran
+        // before it is worth nothing, so it now waits for the floor to actually be present, with a bound.
+        boolean[] ready = new boolean[1];
+        for (int i = 0; i < 40 && !ready[0]; i++) {
+            ctx.runOnClient(mc -> {
+                if (mc.level != null && mc.player != null) {
+                    ready[0] = !mc.level.getBlockState(mc.player.blockPosition().below()).isAir();
+                }
+            });
+            if (!ready[0]) {
+                ctx.waitTicks(10);
+            }
+        }
+        System.out.println("[89-sim-starred-mobs] floor visible to the client after the build: " + ready[0]);
+
         try {
             // Spawn one of each mob kind that is meant to be starred, next to the player.
+            List<String> problemsEarly = new ArrayList<>();
             double[] at = new double[3];
             ctx.runOnClient(mc -> {
                 if (mc.player != null) {
@@ -139,7 +167,30 @@ public class SimStarredMobTests implements FabricClientGameTest {
                 return;
             }
 
-            for (String kind : new String[]{"ZOMBIE", "SKELETON", "BAT"}) {
+            // A NON-starred zombie first. Telling a starred mob from an ordinary one is the whole job of a
+            // clear, so a sim where everything is starred cannot test one. This must end up with no star tag.
+            ctx.runOnClient(mc -> {
+                Object k = ModUnderTest.enumValue(SIM_MOBS + "$Kind", "ZOMBIE");
+                ModUnderTest.staticCall(SIM_MOBS, "spawn",
+                        new Class<?>[]{Minecraft.class, BlockPos.class, k.getClass()},
+                        new Object[]{mc, BlockPos.containing(at[0], at[1], at[2]), k});
+            });
+            ctx.waitTicks(10);
+            int[] afterPlain = new int[2];
+            ctx.runOnClient(mc -> {
+                afterPlain[0] = (Integer) ModUnderTest.staticCall(SIM_MOBS, "spawnedCount");
+                afterPlain[1] = (Integer) ModUnderTest.staticCall(SIM_MOBS, "starredCount");
+            });
+            System.out.println("[89-sim-starred-mobs] after one PLAIN zombie: " + afterPlain[0]
+                    + " spawned, " + afterPlain[1] + " starred");
+            if (afterPlain[1] != 0) {
+                problemsEarly.add("an unstarred mob was recorded as starred - a clear could not tell them "
+                        + "apart");
+            }
+
+            // MINIBOSS is spawned alongside the rest and its health checked below: the point of the kind is
+            // that it does not die to the first hit.
+            for (String kind : new String[]{"ZOMBIE", "SKELETON", "BAT", "MINIBOSS", "FEL"}) {
                 ctx.runOnClient(mc -> {
                     Object k = ModUnderTest.enumValue(SIM_MOBS + "$Kind", kind);
                     ModUnderTest.staticCall(SIM_MOBS, "spawnStarred",
@@ -189,8 +240,10 @@ public class SimStarredMobTests implements FabricClientGameTest {
             // The control above settles it: a vanilla pig added with addFreshEntity returning true, in a
             // loaded chunk, never shows up in getAllEntities() in a gametest client. Enumeration is the
             // broken instrument here, not the spawning - which is why this reads each entity directly.
-            List<String> problems = new ArrayList<>();
+            List<String> problems = new ArrayList<>(problemsEarly);
             int[] counts = new int[3];   // {pairs, tag named correctly, mob resolvable by id-1}
+            double[] bossHealth = {-1};
+            String[] felName = {"none"};
             java.util.concurrent.atomic.AtomicReference<String> report =
                     new java.util.concurrent.atomic.AtomicReference<>();
             Object[] pairsBox = new Object[1];
@@ -228,6 +281,10 @@ public class SimStarredMobTests implements FabricClientGameTest {
                         if (idAdjacent && validMob) {
                             counts[2]++;
                         }
+                        if (mob instanceof net.minecraft.world.entity.LivingEntity le
+                                && le.getMaxHealth() > bossHealth[0]) {
+                            bossHealth[0] = le.getMaxHealth();
+                        }
                         sb.append('"').append(name).append("\" mobId=").append(mob.getId())
                                 .append(" tagId=").append(tag.getId())
                                 .append(" named=").append(named)
@@ -243,8 +300,14 @@ public class SimStarredMobTests implements FabricClientGameTest {
                     + " tagged with the star and heart, " + counts[2] + " resolvable by entity id");
             System.out.println("[89-sim-starred-mobs]   " + report.get());
 
+            System.out.println("[89-sim-starred-mobs] toughest starred mob has " + bossHealth[0]
+                    + " max health");
             if (counts[0] == 0) {
                 problems.add("the mod recorded no starred mob at all, so nothing was measured");
+            }
+            if (bossHealth[0] <= 1.0) {
+                problems.add("every starred mob dies to one hit (max health " + bossHealth[0] + ") - the "
+                        + "MINIBOSS kind exists so a clear can be tested against something that does not");
             }
             if (counts[1] < counts[0]) {
                 problems.add((counts[0] - counts[1]) + " starred mob(s) have no armour stand carrying both "

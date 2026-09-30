@@ -136,4 +136,8 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   to inspect an entity, add a vanilla POSITIVE CONTROL first and SKIP with that explanation when the control
   cannot be read back, because otherwise the blind spot reads as a defect in whatever is under test. Scenario
   89 spent six runs "finding" that sim starred mobs never spawn; the mod's own counters said it had spawned
-  five entities the whole time.
+  five entities the whole time. Whether the readback works at all depends on RUN ORDER: in a fresh client the
+  chunk under the player never arrives (the server has it, `hasChunkAt` true, the client shows `void_air`
+  after 400 ticks, with a generated floor or the flat room alike), and entities are unreadable; later in a
+  suite the chunks are warm and everything resolves. So 89 measures for real inside the suite and skips on its
+  own - which is why the control matters more than the assertion.
