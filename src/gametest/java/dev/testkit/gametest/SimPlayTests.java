@@ -137,6 +137,18 @@ public class SimPlayTests implements FabricClientGameTest {
                     doorCells.add(cell);
                 }
             }
+            // THE WAY OUT OF THE GREEN ROOM GOES FIRST.
+            //
+            // killer560 (2026-09-30): "nothing after the green room to run into." Only MAX_DOORS of a floor's
+            // twenty-one doorways are walked, and taking them in cell order means whether the run's very first
+            // doorway is among them depends on where the generator happened to put the entrance - so the one
+            // doorway a player cannot get past without the run being over could be sampled or not, at random.
+            // DOOR_ENTRANCE (4) first, then DOOR_BLOOD (3), then the rest in cell order.
+            doorCells.sort((a, b) -> {
+                int pa = doorFlags[a] == 4 ? 0 : doorFlags[a] == 3 ? 1 : 2;
+                int pb = doorFlags[b] == 4 ? 0 : doorFlags[b] == 3 ? 1 : 2;
+                return pa != pb ? Integer.compare(pa, pb) : Integer.compare(a, b);
+            });
             System.out.println("[81-sim-play] " + doorCells.size() + " doorway(s) on this floor, walking "
                     + Math.min(doorCells.size(), MAX_DOORS) + " of them");
 
@@ -190,8 +202,19 @@ public class SimPlayTests implements FabricClientGameTest {
                     // this there is nothing to reproduce offline. Both sides and both rotations, because a
                     // carve that misses is a disagreement between one room's doorway and the connector.
                     String rooms = roomsEitherSide(ctx, cell, alongX);
-                    String line = String.format("cell %d at %d,%d moved %.1f across, blocked by %s, between %s",
-                            cell, cx, cz, crossed, blocking, rooms);
+                    String kind = switch (doorFlags[cell]) {
+                        case 4 -> "ENTRANCE door";
+                        case 3 -> "BLOOD door";
+                        case 2 -> "WITHER door";
+                        default -> "plain door";
+                    };
+                    String line = String.format(
+                            "%s at cell %d (%d,%d) moved %.1f across, blocked by %s, between %s; %s",
+                            kind, cell, cx, cz, crossed, blocking, rooms,
+                            // WHERE the opening actually is, not just that the player stopped. "blocked by
+                            // stone_bricks" is the same sentence whether the carve missed entirely or landed
+                            // four blocks too low, and those are different bugs with different fixes.
+                            seamProfile(ctx, cx, cz, floorY, alongX));
                     if (blocking.contains("coal_block") || blocking.contains("red_terracotta")) {
                         locked.add(line);
                     } else {
@@ -323,6 +346,48 @@ public class SimPlayTests implements FabricClientGameTest {
                     }
                 }
                 got.set(names.isEmpty() ? "nothing solid across the seam" : String.join("+", names));
+            });
+        });
+        ctx.waitFor(mc -> got.get() != null);
+        return got.get();
+    }
+
+    /**
+     * How much of the carve volume is open, layer by layer.
+     *
+     * <p>{@code SimDoors.carveDoorway} clears 3 wide by 4 high by 7 deep centred on the connector cell, at a
+     * floor it SEARCHES for. So a doorway can be impassable two ways that look identical from the player's
+     * side: the carve never happened (every layer solid), or it happened at a height the player is not
+     * standing at (a run of fully open layers, somewhere other than the walking floor). This prints the open
+     * count of each 3x7 layer from six below the expected floor to nine above, so the two can be told apart
+     * without another run.
+     */
+    private static String seamProfile(ClientGameTestContext ctx, int cx, int cz, int floorY, boolean alongX) {
+        java.util.concurrent.atomic.AtomicReference<String> got =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            if (server == null) {
+                got.set("no server");
+                return;
+            }
+            server.execute(() -> {
+                var level = server.overworld();
+                StringBuilder sb = new StringBuilder("open 3x7 layers (y=count of 21): ");
+                for (int y = floorY - 6; y <= floorY + 9; y++) {
+                    int open = 0;
+                    for (int d = -3; d <= 3; d++) {
+                        for (int w = -1; w <= 1; w++) {
+                            int x = alongX ? cx + d : cx + w;
+                            int z = alongX ? cz + w : cz + d;
+                            if (level.getBlockState(new net.minecraft.core.BlockPos(x, y, z)).isAir()) {
+                                open++;
+                            }
+                        }
+                    }
+                    sb.append(y - floorY).append('=').append(open).append(' ');
+                }
+                got.set(sb.toString().trim());
             });
         });
         ctx.waitFor(mc -> got.get() != null);

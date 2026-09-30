@@ -34,6 +34,7 @@ public class SimMapTests implements FabricClientGameTest {
     private static final String BUILD_QUEUE = "com.killer560.hub.roomsim.SimBuildQueue";
     private static final String LIVE_MAP = "com.killer560.hub.livemap.LiveMapFeature";
     private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
+    private static final String MAP_CODE = "com.killer560.hub.roomsim.MapCode";
 
     private static final String SOURCE_ROOMS =
             "C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
@@ -141,6 +142,81 @@ public class SimMapTests implements FabricClientGameTest {
                     + "on \"the room I am in\" has nothing to resolve");
         }
 
+        // ---- does the map draw one room per PLACEMENT? ---------------------------------------------------
+        //
+        // killer560 (2026-09-30), on a screenshot of the HUD map: "the map is wrong in this second picture.
+        // THis room is not part of supertall it is its on 1x1." A 1x1 room was drawn as part of the 2x2
+        // Supertall beside it - one outline, one label, two rooms.
+        //
+        // Nothing above could see that. The scenario counted rooms, doors and names and every one of those
+        // numbers is still right when two rooms merge: the map code says which placement owns every cell, and
+        // the map's own grouping says which map room owns it, so the question is whether those two partitions
+        // agree. Checked on the EVEN cells only, which are the real room tiles - an odd connector belongs to a
+        // room's interior on one floor and is a door gap on the next, so it cannot settle anything.
+        List<String> mergedRooms = new ArrayList<>();
+        List<String> splitRooms = new ArrayList<>();
+        ctx.runOnClient(mc -> {
+            String code = (String) ModUnderTest.staticCall(SIM_STATE, "mapCode");
+            Object decodedMap = code == null ? null : ModUnderTest.staticCall(MAP_CODE, "decode",
+                    new Class<?>[]{String.class}, new Object[]{code});
+            if (decodedMap == null) {
+                return;
+            }
+            int[] cellRoom = (int[]) ModUnderTest.call(decodedMap, "cellRoom",
+                    new Class<?>[]{}, new Object[]{});
+            String[] table = (String[]) ModUnderTest.call(decodedMap, "nameTable",
+                    new Class<?>[]{}, new Object[]{});
+            Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+            java.util.Map<Integer, java.util.Set<Integer>> placementsOfMapRoom = new java.util.LinkedHashMap<>();
+            java.util.Map<Integer, java.util.Set<Integer>> mapRoomsOfPlacement = new java.util.LinkedHashMap<>();
+            for (int c = 0; c < GRID * GRID; c++) {
+                if ((c % GRID) % 2 != 0 || (c / GRID) % 2 != 0) {
+                    continue;
+                }
+                int placement = c < cellRoom.length ? cellRoom[c] : -1;
+                int mapRoom = (Integer) ModUnderTest.call(layout, "roomOfCell",
+                        new Class<?>[]{int.class}, new Object[]{c});
+                if (placement < 0 || mapRoom < 0) {
+                    continue;
+                }
+                placementsOfMapRoom.computeIfAbsent(mapRoom, k -> new java.util.LinkedHashSet<>())
+                        .add(placement);
+                mapRoomsOfPlacement.computeIfAbsent(placement, k -> new java.util.LinkedHashSet<>())
+                        .add(mapRoom);
+            }
+            for (var e : placementsOfMapRoom.entrySet()) {
+                if (e.getValue().size() < 2) {
+                    continue;
+                }
+                StringBuilder who = new StringBuilder();
+                for (int p : e.getValue()) {
+                    who.append(who.length() == 0 ? "" : " + ")
+                            .append(p < table.length ? table[p] : "?").append(" (placement ").append(p)
+                            .append(')');
+                }
+                mergedRooms.add("map room " + e.getKey() + " is " + e.getValue().size()
+                        + " separate rooms drawn as one: " + who);
+            }
+            for (var e : mapRoomsOfPlacement.entrySet()) {
+                if (e.getValue().size() > 1) {
+                    splitRooms.add((e.getKey() < table.length ? table[e.getKey()] : "?")
+                            + " (placement " + e.getKey() + ") is drawn as " + e.getValue().size()
+                            + " separate map rooms");
+                }
+            }
+        });
+        System.out.println("[79-sim-map] placements merged into a neighbour: " + mergedRooms.size()
+                + ", placements split across map rooms: " + splitRooms.size());
+        for (String s : splitRooms) {
+            System.out.println("[79-sim-map]   SPLIT " + s);
+        }
+        for (String s : mergedRooms) {
+            System.out.println("[79-sim-map]   MERGED " + s);
+        }
+        // The verdict is thrown AFTER the teardown below, not here. A scenario that throws with the sim world
+        // still open hangs the client until the deadline watcher shoots it, and on 2026-09-30 that cost six
+        // later scenarios their run.
+
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave"));
         ctx.runOnClient(mc -> mc.execute(() -> {
             if (mc.level != null) {
@@ -153,6 +229,10 @@ public class SimMapTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> mc.execute(() ->
                 mc.setScreen(new net.minecraft.client.gui.screens.TitleScreen())));
         ctx.waitFor(mc -> mc.screen instanceof net.minecraft.client.gui.screens.TitleScreen);
+        if (!mergedRooms.isEmpty()) {
+            throw new AssertionError(mergedRooms.size() + " map room(s) cover more than one placement - the "
+                    + "map draws two different rooms as one: " + mergedRooms);
+        }
         System.out.println("[79-sim-map] PASS - the sim's floor reaches the dungeon map");
     }
 
