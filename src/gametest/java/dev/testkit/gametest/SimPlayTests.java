@@ -227,6 +227,25 @@ public class SimPlayTests implements FabricClientGameTest {
 
                 int after = (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound");
                 int pendingAfter = (Integer) ModUnderTest.staticCall(SECRET_ITEMS, "pendingCount");
+
+                // The drop FALLS. Follow it down before deciding it could not be collected.
+                //
+                // An item secret can sit in mid-air over a drop, and the item that appears there lands on
+                // whatever is below. Holding the player at the secret's own block then leaves him hovering
+                // several blocks above the thing he is meant to pick up: on 2026-09-30 a secret at y273
+                // appeared, dropped, and was reported uncollectable while sitting on the floor underneath
+                // him, and the identical assertion had passed on the previous run where the secret happened
+                // to be at floor level. Sweeping down four blocks costs two seconds and removes the flake
+                // without weakening the assertion - it still has to actually be collected.
+                if (after <= before && pendingAfter < pendingBefore) {
+                    for (int drop = 1; drop <= 4 && after <= before; drop++) {
+                        for (int hold = 0; hold < 4; hold++) {
+                            teleport(ctx, target.getX() + 0.5, target.getY() - drop, target.getZ() + 0.5, 0f);
+                            ctx.waitTicks(5);
+                        }
+                        after = (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound");
+                    }
+                }
                 int live = (Integer) ModUnderTest.staticCall(SECRET_ITEMS, "liveCount");
                 System.out.println(String.format("[81-sim-play] stood on %s: secrets found %d -> %d, "
                         + "pending %d -> %d, drops on the floor %d",
@@ -240,7 +259,8 @@ public class SimPlayTests implements FabricClientGameTest {
                 }
                 if (after <= before) {
                     throw new AssertionError("the item secret at " + target + " appeared (" + live + " drop(s) "
-                            + "on the floor) but standing on it did not collect it");
+                            + "on the floor) but neither standing on it nor following it four blocks down "
+                            + "collected it");
                 }
             }
         } finally {
