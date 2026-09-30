@@ -154,6 +154,9 @@ public class SimPlayTests implements FabricClientGameTest {
 
             List<String> stuck = new java.util.ArrayList<>();
             List<String> locked = new java.util.ArrayList<>();
+            // Doorways this scenario could not get into position for. Kept apart from `stuck` on purpose: a
+            // doorway it could not reach is a gap in the measurement, not a fault in the floor.
+            List<String> noApproach = new java.util.ArrayList<>();
             int walked = 0;
             for (int cell : doorCells) {
                 if (walked >= MAX_DOORS) {
@@ -165,10 +168,50 @@ public class SimPlayTests implements FabricClientGameTest {
                 boolean alongX = gx % 2 == 1;   // the doorway is crossed along X
                 int cx = -185 + gx * 16;
                 int cz = -185 + gz * 16;
-                // Four blocks back on one side, facing straight across the seam.
-                double sx = alongX ? cx - 4 : cx;
-                double sz = alongX ? cz : cz - 4;
-                float yaw = alongX ? -90f : 0f;
+                // FIND A SPOT HE CAN ACTUALLY STAND ON, rather than assuming four blocks back is one.
+                //
+                // This used to place him at a fixed four blocks back on one fixed side. On 2026-09-30 that put
+                // him at "feet=air head=air under=air" outside an Entrance room at the edge of the map: he
+                // fell instead of walking, moved 0.2 across, and was reported as an impassable doorway over a
+                // seam whose every column at y0 and y1 was air and whose floor was solid all the way across.
+                // The doorway was perfect and the placement was in mid-air.
+                //
+                // So both sides are tried, and three distances on each, nearest-but-one first. A doorway with
+                // no standable approach at all is reported as exactly that - it is not evidence about whether
+                // the doorway can be walked through, and calling it impassable was the instrument's own error
+                // dressed up as a finding.
+                double sx = 0;
+                double sz = 0;
+                float yaw = 0;
+                // +1 when he walks towards increasing x/z, -1 when towards decreasing. The crossing is
+                // measured along the way he is FACING, and forgetting that was worth three false failures:
+                // approaching from the positive side and crossing perfectly reads as "moved -16.5 across",
+                // which fails a "did he get at least N across" test on a doorway he walked straight through.
+                double travel = 1;
+                boolean placed = false;
+                outer:
+                for (int back : new int[]{4, 3, 2}) {
+                    for (int sign : new int[]{-1, 1}) {
+                        double tx = alongX ? cx + sign * back : cx;
+                        double tz = alongX ? cz : cz + sign * back;
+                        if (standable(ctx, tx + 0.5, floorY, tz + 0.5)) {
+                            sx = tx;
+                            sz = tz;
+                            // Face across the seam FROM the side he is actually on: -90 looks towards +X and
+                            // +90 towards -X, 0 towards +Z and 180 towards -Z.
+                            yaw = alongX ? (sign < 0 ? -90f : 90f) : (sign < 0 ? 0f : 180f);
+                            travel = sign < 0 ? 1 : -1;
+                            placed = true;
+                            break outer;
+                        }
+                    }
+                }
+                if (!placed) {
+                    noApproach.add(String.format(
+                            "%s door at cell %d (%d,%d) - no standable spot within four blocks on either side, "
+                                    + "so this scenario cannot test it", kindOf(doorFlags[cell]), cell, cx, cz));
+                    continue;
+                }
                 teleport(ctx, sx + 0.5, floorY, sz + 0.5, yaw);
                 ctx.waitTicks(10);
 
@@ -180,7 +223,18 @@ public class SimPlayTests implements FabricClientGameTest {
                 // a genuine crossing nowhere near a genuine wall (those stop dead at 2-3 blocks).
                 ctx.getInput().holdKey(options -> options.keyUp);
                 ctx.getInput().holdKey(options -> options.keySprint);
+                // JUMP TOO, because a player does.
+                //
+                // On 2026-09-30 a doorway failed with the walking layer entirely solid and the four layers
+                // above it entirely open - the opening simply sat one block higher than the approach, because
+                // the two rooms meet at slightly different heights. Walking cannot climb a full block, so the
+                // harness stopped dead and called it impassable; in game he would hop over it without
+                // noticing. Holding jump makes "walked through" mean what it is supposed to mean, and it does
+                // not weaken the test: a jump clears about 1.25 blocks, so a two-block step and a real wall
+                // both still stop him.
+                ctx.getInput().holdKey(options -> options.keyJump);
                 ctx.waitTicks(60);
+                ctx.getInput().releaseKey(options -> options.keyJump);
                 ctx.getInput().releaseKey(options -> options.keySprint);
                 ctx.getInput().releaseKey(options -> options.keyUp);
                 ctx.waitTicks(5);
@@ -188,7 +242,7 @@ public class SimPlayTests implements FabricClientGameTest {
 
                 // Did he cross the seam? Measured along the crossing axis only, so sliding sideways along a
                 // wall cannot be mistaken for going through.
-                double crossed = alongX ? to[0] - from[0] : to[2] - from[2];
+                double crossed = travel * (alongX ? to[0] - from[0] : to[2] - from[2]);
                 if (crossed < CROSSED_BLOCKS) {
                     // Say WHAT stopped him, then judge it. A shut wither door is coal block and a blood door
                     // red terracotta, and both are solid BY DESIGN until he has the key - reporting those as
@@ -202,12 +256,7 @@ public class SimPlayTests implements FabricClientGameTest {
                     // this there is nothing to reproduce offline. Both sides and both rotations, because a
                     // carve that misses is a disagreement between one room's doorway and the connector.
                     String rooms = roomsEitherSide(ctx, cell, alongX);
-                    String kind = switch (doorFlags[cell]) {
-                        case 4 -> "ENTRANCE door";
-                        case 3 -> "BLOOD door";
-                        case 2 -> "WITHER door";
-                        default -> "plain door";
-                    };
+                    String kind = kindOf(doorFlags[cell]);
                     // WHERE HE STARTED, because "moved 0.2" is a different bug from "moved 4.2".
                     //
                     // On 2026-09-30 a doorway failed with "moved 0.2 across" over a seam whose every column
@@ -232,7 +281,11 @@ public class SimPlayTests implements FabricClientGameTest {
             }
 
             System.out.println("[81-sim-play] doorways walked: " + walked + ", locked as designed: "
-                    + locked.size() + ", impassable: " + stuck.size());
+                    + locked.size() + ", impassable: " + stuck.size()
+                    + ", no standable approach: " + noApproach.size());
+            for (String line : noApproach) {
+                System.out.println("[81-sim-play]   NOT TESTED " + line);
+            }
             for (String shut : locked) {
                 System.out.println("[81-sim-play]   locked " + shut);
             }
@@ -324,6 +377,43 @@ public class SimPlayTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> mc.execute(() ->
                 mc.setScreen(new net.minecraft.client.gui.screens.TitleScreen())));
         ctx.waitFor(mc -> mc.screen instanceof net.minecraft.client.gui.screens.TitleScreen);
+    }
+
+    /** The door kind, for a log line. */
+    private static String kindOf(int flag) {
+        return switch (flag) {
+            case 4 -> "ENTRANCE door";
+            case 3 -> "BLOOD door";
+            case 2 -> "WITHER door";
+            default -> "plain door";
+        };
+    }
+
+    /**
+     * Whether the player could stand here: solid under his feet, and room for his body.
+     *
+     * <p>The precondition for walking at all, and the thing this scenario used to assume. Checked on the
+     * server, where the blocks are - the arena is a long way from spawn and the client may not have it.
+     */
+    private static boolean standable(ClientGameTestContext ctx, double x, double y, double z) {
+        java.util.concurrent.atomic.AtomicReference<Boolean> got =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            if (server == null) {
+                got.set(Boolean.FALSE);
+                return;
+            }
+            server.execute(() -> {
+                var level = server.overworld();
+                var feet = net.minecraft.core.BlockPos.containing(x, y, z);
+                got.set(!level.getBlockState(feet.below()).getCollisionShape(level, feet.below()).isEmpty()
+                        && level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()
+                        && level.getBlockState(feet.above()).getCollisionShape(level, feet.above()).isEmpty());
+            });
+        });
+        ctx.waitFor(mc -> got.get() != null);
+        return got.get();
     }
 
     /**
