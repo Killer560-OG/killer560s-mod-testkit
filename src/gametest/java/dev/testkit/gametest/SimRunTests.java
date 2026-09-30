@@ -54,6 +54,7 @@ public class SimRunTests implements FabricClientGameTest {
                 new Class<?>[]{String.class}, new Object[]{"gametest"}));
 
         // A real floor, because /start opens the entrance door and a map with no door is a different test.
+        long simBuildBefore = Scenario.simBuildCount(ctx);
         ctx.runOnClient(mc -> mc.execute(() -> {
             Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
             ModUnderTest.staticCall(FLOOR_GEN, "generate",
@@ -61,7 +62,7 @@ public class SimRunTests implements FabricClientGameTest {
                     new Object[]{mc, floor, 3, 3});
         }));
         ctx.waitFor(mc -> mc.level != null);
-        ctx.waitFor(mc -> !(Boolean) ModUnderTest.staticCall(BUILD_QUEUE, "isBusy"));
+        Scenario.awaitSimBuild(ctx, simBuildBefore);
         ctx.waitTicks(20);
 
         // Does the MOD think this is a dungeon?

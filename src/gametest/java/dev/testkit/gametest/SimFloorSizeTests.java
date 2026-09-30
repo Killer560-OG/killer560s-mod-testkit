@@ -94,6 +94,7 @@ public class SimFloorSizeTests implements FabricClientGameTest {
     private static void buildAndCheck(ClientGameTestContext ctx, String floorName, List<String> failures) {
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter",
                 new Class<?>[]{String.class}, new Object[]{"gametest"}));
+        long simBuildBefore = Scenario.simBuildCount(ctx);
         ctx.runOnClient(mc -> mc.execute(() -> {
             Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", floorName);
             ModUnderTest.staticCall(FLOOR_GEN, "generate",
@@ -101,7 +102,7 @@ public class SimFloorSizeTests implements FabricClientGameTest {
                     new Object[]{mc, floor, 3, 4});
         }));
         ctx.waitFor(mc -> mc.level != null);
-        ctx.waitFor(mc -> !(Boolean) ModUnderTest.staticCall(BUILD_QUEUE, "isBusy"));
+        Scenario.awaitSimBuild(ctx, simBuildBefore);
         // Long enough for the drop and the landing snap to settle.
         ctx.waitTicks(100);
 

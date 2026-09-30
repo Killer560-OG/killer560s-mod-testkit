@@ -80,6 +80,7 @@ public class SimPlayableTests implements FabricClientGameTest {
 
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter",
                 new Class<?>[]{String.class}, new Object[]{"gametest"}));
+        long simBuildBefore = Scenario.simBuildCount(ctx);
         ctx.runOnClient(mc -> mc.execute(() -> {
             Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
             ModUnderTest.staticCall(FLOOR_GEN, "generate",
@@ -87,7 +88,7 @@ public class SimPlayableTests implements FabricClientGameTest {
                     new Object[]{mc, floor, 3, 4});
         }));
         ctx.waitFor(mc -> mc.level != null);
-        ctx.waitFor(mc -> !(Boolean) ModUnderTest.staticCall(BUILD_QUEUE, "isBusy"));
+        Scenario.awaitSimBuild(ctx, simBuildBefore);
         ctx.waitTicks(80);
 
         int shift = (Integer) ModUnderTest.staticCall(ALTITUDE, "offset");

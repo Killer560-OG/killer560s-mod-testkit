@@ -45,6 +45,20 @@ public class SimSecretsTests implements FabricClientGameTest {
         if (Scenario.skip("76-sim-secrets")) {
             return;
         }
+        // The teardown in a finally, because an assertion in here USED to hang the whole suite.
+        //
+        // When this scenario threw, the sim world stayed open and the client never got back to the title
+        // screen, so the gametest runner's next scenario had nowhere to start and the freeze watcher shot the
+        // process ~16 s later. On 2026-09-29 that cost the six scenarios queued behind this one: 73 had just
+        // passed, this failed, and 79, 80, 82, 83, 84 and 89 never ran at all.
+        try {
+            runChecks(ctx);
+        } finally {
+            teardown(ctx);
+        }
+    }
+
+    private static void runChecks(ClientGameTestContext ctx) {
         ModUnderTest.require("killer560smod");
         ctx.waitTicks(40);
         // The auction scan off first.
@@ -78,6 +92,7 @@ public class SimSecretsTests implements FabricClientGameTest {
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isReady"));
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter",
                 new Class<?>[]{String.class}, new Object[]{"gametest"}));
+        long simBuildBefore1 = Scenario.simBuildCount(ctx);
         ctx.runOnClient(mc -> mc.execute(() -> {
             Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
             ModUnderTest.staticCall(FLOOR_GEN, "generate",
@@ -85,7 +100,7 @@ public class SimSecretsTests implements FabricClientGameTest {
                     new Object[]{mc, floor, 3, 4});
         }));
         ctx.waitFor(mc -> mc.level != null);
-        ctx.waitFor(mc -> !(Boolean) ModUnderTest.staticCall(BUILD_QUEUE, "isBusy"));
+        Scenario.awaitSimBuild(ctx, simBuildBefore1);
         ctx.waitTicks(60);
 
         // Which cells hold a room, from the map the sim actually built.
@@ -301,9 +316,10 @@ public class SimSecretsTests implements FabricClientGameTest {
         // is deterministic: its plinth is three gold blocks between smooth stone slabs at y 84.
         java.util.concurrent.atomic.AtomicReference<int[]> prince =
                 new java.util.concurrent.atomic.AtomicReference<>();
+        long simBuildBefore2 = Scenario.simBuildCount(ctx);
         ctx.runOnClient(mc -> mc.execute(() -> ModUnderTest.staticCall(BUILDER, "buildSingleRoom",
                 new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, "Red Blue"})));
-        ctx.waitFor(mc -> !(Boolean) ModUnderTest.staticCall(BUILD_QUEUE, "isBusy"));
+        Scenario.awaitSimBuild(ctx, simBuildBefore2);
         ctx.waitTicks(60);
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
@@ -351,6 +367,16 @@ public class SimSecretsTests implements FabricClientGameTest {
                     + "handed out more than once");
         }
 
+        System.out.println("[76-sim-secrets] PASS - every secret chest is inside a room");
+    }
+
+    /**
+     * Leaves the sim and gets the client back to the title screen.
+     *
+     * <p>Safe to run when there is no world - which is the point of it, since it runs from a {@code finally}
+     * after an assertion that may have failed anywhere.
+     */
+    private static void teardown(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave"));
         ctx.runOnClient(mc -> mc.execute(() -> {
             if (mc.level != null) {
@@ -363,7 +389,6 @@ public class SimSecretsTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> mc.execute(() ->
                 mc.setScreen(new net.minecraft.client.gui.screens.TitleScreen())));
         ctx.waitFor(mc -> mc.screen instanceof net.minecraft.client.gui.screens.TitleScreen);
-        System.out.println("[76-sim-secrets] PASS - every secret chest is inside a room");
     }
 
     /** Is this world position within the 31-block tile of a cell that holds a room? */

@@ -361,6 +361,32 @@ public class SimFloorShapeTests implements FabricClientGameTest {
             }
             double fill = box == 0 ? 0 : (double) tileCells / box;
             fillSum += fill;
+            // NO LOOPS. killer560 (2026-09-30): "there should only be 1 way to enter a room for the first
+            // time". A connected graph with a cycle in it has more edges than rooms minus one, so counting
+            // the doors between DIFFERENT rooms against the room count catches it without walking the graph
+            // twice - and connectivity is already asserted above, so edges == rooms-1 means a tree exactly.
+            int roomsOnFloor = names.length;
+            int interRoomDoors = 0;
+            for (int cell = 0; cell < doorOf.length; cell++) {
+                if (doorOf[cell] == 0) {
+                    continue;
+                }
+                int gx = cell % GRID;
+                int gz = cell / GRID;
+                int one = gx > 0 ? roomOf[cell - 1] : -1;
+                int two = gx + 1 < GRID ? roomOf[cell + 1] : -1;
+                int up = gz > 0 ? roomOf[cell - GRID] : -1;
+                int dn = gz + 1 < GRID ? roomOf[cell + GRID] : -1;
+                if ((one >= 0 && two >= 0 && one != two) || (up >= 0 && dn >= 0 && up != dn)) {
+                    interRoomDoors++;
+                }
+            }
+            if (interRoomDoors > roomsOnFloor - 1) {
+                failures.add(String.format("%s #%d: %d doors joining %d rooms - %d more than a tree, so there "
+                        + "is a loop and a room can be entered from two directions",
+                        floorName, i, interRoomDoors, roomsOnFloor, interRoomDoors - (roomsOnFloor - 1)));
+            }
+
             int[] tally = perFloor.computeIfAbsent(floorName, k -> new int[2]);
             tally[0]++;
             tally[1] += tileCells;

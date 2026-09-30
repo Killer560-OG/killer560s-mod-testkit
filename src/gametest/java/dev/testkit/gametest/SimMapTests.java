@@ -64,6 +64,7 @@ public class SimMapTests implements FabricClientGameTest {
 
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter",
                 new Class<?>[]{String.class}, new Object[]{"gametest"}));
+        long simBuildBefore = Scenario.simBuildCount(ctx);
         ctx.runOnClient(mc -> mc.execute(() -> {
             Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
             ModUnderTest.staticCall(FLOOR_GEN, "generate",
@@ -71,7 +72,7 @@ public class SimMapTests implements FabricClientGameTest {
                     new Object[]{mc, floor, 3, 4});
         }));
         ctx.waitFor(mc -> mc.level != null);
-        ctx.waitFor(mc -> !(Boolean) ModUnderTest.staticCall(BUILD_QUEUE, "isBusy"));
+        Scenario.awaitSimBuild(ctx, simBuildBefore);
         // Long enough for the build's completion callback to publish and for a tick to snapshot it.
         ctx.waitTicks(80);
 

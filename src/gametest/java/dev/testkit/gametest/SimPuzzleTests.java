@@ -84,11 +84,12 @@ public class SimPuzzleTests implements FabricClientGameTest {
         // they need somewhere with a known, empty starting state to add them to.
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter",
                 new Class<?>[]{String.class}, new Object[]{"gametest"}));
+        long simBuildBefore = Scenario.simBuildCount(ctx);
         ctx.runOnClient(mc -> mc.execute(() ->
                 ModUnderTest.staticCall(BUILDER, "buildFlatTest",
                         new Class<?>[]{net.minecraft.client.Minecraft.class}, new Object[]{mc})));
         ctx.waitFor(mc -> mc.level != null);
-        ctx.waitFor(mc -> !(Boolean) ModUnderTest.staticCall(BUILD_QUEUE, "isBusy"));
+        Scenario.awaitSimBuild(ctx, simBuildBefore);
         ctx.waitTicks(60);
 
         @SuppressWarnings("unchecked")

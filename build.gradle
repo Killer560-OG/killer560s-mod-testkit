@@ -281,6 +281,30 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	// -PtestWindow=x,y,w,h to put it somewhere else; -PtestWindow=off to leave it alone.
 	// The window placer also clears any client left over from a previous run, which is what keeps
 	// deleteGameTestRunDir from failing on open file handles - so it runs even when placement is off.
+	// --- and turn it down ---------------------------------------------------------------------------
+	//
+	// killer560 (2026-09-29): "can you make the audio like 3% it is very loud." A run opens a real client on
+	// his desktop at full volume, several times an hour.
+	//
+	// It has to be written HERE rather than left in options.txt, because deleteGameTestRunDir wipes the game
+	// directory before every run and the client then writes a fresh options.txt at defaults. doFirst runs
+	// after that wipe and before the client starts, which is the one window where the file survives to be
+	// read. Only the sound lines are written; Minecraft fills in every other option with its default.
+	//
+	// -PtestVolume=0.5 to change it for a run, -PtestVolume=1 for full.
+	doFirst {
+		def volume = (project.findProperty("testVolume") ?: "0.03").toString()
+		def runDir = file("build/run/clientGameTest")
+		runDir.mkdirs()
+		def options = new File(runDir, "options.txt")
+		def existing = options.exists() ? options.readLines() : []
+		def keep = existing.findAll { !it.startsWith("soundCategory_") }
+		def sound = ["master", "music", "record", "weather", "block", "hostile", "neutral", "player",
+					 "ambient", "voice", "ui"].collect { "soundCategory_${it}:${volume}" }
+		options.text = (keep + sound).join(System.lineSeparator()) + System.lineSeparator()
+		logger.lifecycle("Test client volume set to ${volume}")
+	}
+
 	doFirst {
 		def where = project.findProperty("testWindow") ?: "-1920,361,1920,1080"  // left monitor, borderless
 		if (where != "off") {

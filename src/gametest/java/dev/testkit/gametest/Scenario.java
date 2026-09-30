@@ -119,6 +119,44 @@ public final class Scenario {
     /** @see #labelServerAs */
     private static String serverLabel;
 
+    private static final String BUILD_QUEUE = "com.killer560.hub.roomsim.SimBuildQueue";
+
+    /**
+     * How many sim builds have finished so far. Snapshot this BEFORE asking for a floor.
+     *
+     * @see #awaitSimBuild
+     */
+    public static long simBuildCount(ClientGameTestContext ctx) {
+        long[] out = new long[1];
+        ctx.runOnClient(mc -> out[0] = (Long) ModUnderTest.staticCall(BUILD_QUEUE, "buildsFinished"));
+        return out[0];
+    }
+
+    /**
+     * Waits for the sim build that was asked for AFTER {@code before} was taken to run to completion.
+     *
+     * <p>Every sim scenario used to do this instead:
+     *
+     * <pre>{@code ctx.waitFor(mc -> !(Boolean) ModUnderTest.staticCall(BUILD_QUEUE, "isBusy")); }</pre>
+     *
+     * <p>which is not a wait at all. {@code generate()} opens the world and the rooms are only queued from a
+     * later server task, so at the moment that predicate first runs the queue is still empty and it returns
+     * immediately - the scenario then measures a world with nothing in it. Scenario 76 reported "found 0
+     * chest(s) in the built floor" three runs running on 2026-09-29 while the client log, one second later,
+     * said "Sim build: 21 room(s) queued". Eleven scenarios shared the bug.
+     *
+     * <p>{@code isBusy()} cannot fix it on its own, because false means both "not started" and "finished".
+     * {@code SimBuildQueue.buildsFinished()} only counts completions and only goes up, so it can.
+     *
+     * @param before the value {@link #simBuildCount} returned before the build was requested
+     */
+    public static void awaitSimBuild(ClientGameTestContext ctx, long before) {
+        // Generous, and bounded: a 36-cell F7 paste is a few million blocks and takes tens of seconds in a
+        // gametest client, but an unbounded wait would leave a frozen Minecraft window on his desktop.
+        ctx.waitFor(mc -> (Long) ModUnderTest.staticCall(BUILD_QUEUE, "buildsFinished") > before, 24_000);
+        ctx.waitFor(mc -> !(Boolean) ModUnderTest.staticCall(BUILD_QUEUE, "isBusy"), 1200);
+    }
+
     public static boolean skip(String name) {
         String filter = System.getProperty("testkit.scenario", "");
         if (filter.isBlank()) {

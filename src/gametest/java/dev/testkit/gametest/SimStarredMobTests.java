@@ -67,6 +67,7 @@ public class SimStarredMobTests implements FabricClientGameTest {
         // state no entity can be read back, so the scenario skipped. Every other sim scenario generates a
         // normal floor and their worlds load, so this one does the same rather than depending on whatever ran
         // before it to warm the chunks.
+        long simBuildBefore = Scenario.simBuildCount(ctx);
         ctx.runOnClient(mc -> mc.execute(() -> {
             Object floor = ModUnderTest.enumValue("com.killer560.hub.roomsim.SimFloorGen$Floor", "F7");
             ModUnderTest.staticCall("com.killer560.hub.roomsim.SimFloorGen", "generate",
@@ -74,7 +75,7 @@ public class SimStarredMobTests implements FabricClientGameTest {
                     new Object[]{mc, floor, 3, 4});
         }));
         ctx.waitFor(mc -> mc.level != null);
-        ctx.waitFor(mc -> !(Boolean) ModUnderTest.staticCall(BUILD_QUEUE, "isBusy"));
+        Scenario.awaitSimBuild(ctx, simBuildBefore);
         ctx.waitTicks(60);
 
         // WAIT FOR THE CHUNK, not just for the build.
@@ -157,6 +158,60 @@ public class SimStarredMobTests implements FabricClientGameTest {
             ctx.waitFor(mc -> control.get() != null);
             ctx.waitTicks(10);
             System.out.println("[89-sim-starred-mobs] CONTROL vanilla pig: " + control.get());
+
+            // SECOND CONTROL: a hostile mob, built the same way the pig was.
+            //
+            // The pig survives and every sim mob vanishes, and the one difference that runs through all of
+            // them is how they are constructed: the pig comes from EntityType.create(...), a sim mob from
+            // `new SimZombie(EntityType.ZOMBIE, level)`. A factory-built zombie separates that from the other
+            // candidate - that hostiles are being removed - because this one is hostile AND factory-built.
+            java.util.concurrent.atomic.AtomicReference<String> control2 =
+                    new java.util.concurrent.atomic.AtomicReference<>();
+            ctx.runOnClient(mc -> {
+                var sp0 = mc.getSingleplayerServer();
+                if (sp0 == null) {
+                    control2.set("no server");
+                    return;
+                }
+                sp0.execute(() -> {
+                    var level = sp0.overworld();
+                    var z = net.minecraft.world.entity.EntityType.ZOMBIE.create(
+                            level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+                    if (z == null) {
+                        control2.set("could not create a zombie");
+                        return;
+                    }
+                    z.setPos(at[0], at[1], at[2]);
+                    z.setPersistenceRequired();
+                    boolean added = level.addFreshEntity(z);
+                    control2.set("addFreshEntity=" + added + " readableByUuid="
+                            + (level.getEntity(z.getUUID()) != null)
+                            + " difficulty=" + level.getDifficulty());
+                });
+            });
+            ctx.waitFor(mc -> control2.get() != null);
+            ctx.waitTicks(40);
+            java.util.concurrent.atomic.AtomicReference<String> later2 =
+                    new java.util.concurrent.atomic.AtomicReference<>();
+            ctx.runOnClient(mc -> {
+                var sp0 = mc.getSingleplayerServer();
+                if (sp0 == null) {
+                    later2.set("no server");
+                    return;
+                }
+                sp0.execute(() -> {
+                    int zombies = 0;
+                    for (var e : sp0.overworld().getAllEntities()) {
+                        if (e instanceof net.minecraft.world.entity.monster.zombie.Zombie) {
+                            zombies++;
+                        }
+                    }
+                    later2.set(zombies + " zombie(s) still present");
+                });
+            });
+            ctx.waitFor(mc -> later2.get() != null);
+            System.out.println("[89-sim-starred-mobs] CONTROL factory zombie: " + control2.get()
+                    + " -> after 40 ticks, " + later2.get());
             // If a plain vanilla entity cannot be read back, this environment cannot answer the question and
             // a FAILURE here would be about the harness, not the mod. Say so and stop, rather than reporting
             // a finding that is really a limitation - a probe's own blind spot must never read as a defect.
@@ -190,7 +245,12 @@ public class SimStarredMobTests implements FabricClientGameTest {
 
             // MINIBOSS is spawned alongside the rest and its health checked below: the point of the kind is
             // that it does not die to the first hit.
+            // Each at its OWN spot. They were all being put on the player's block, which stacks five mobs
+            // and a miniboss in one space - entity cramming, and every sim mob has 1 HP. Spreading them out
+            // isolates that from anything the spawn itself does.
+            int spread = 0;
             for (String kind : new String[]{"ZOMBIE", "SKELETON", "BAT", "MINIBOSS", "FEL"}) {
+                final int dx = ++spread;
                 ctx.runOnClient(mc -> {
                     Object k = ModUnderTest.enumValue(SIM_MOBS + "$Kind", kind);
                     ModUnderTest.staticCall(SIM_MOBS, "spawnStarred",
@@ -199,7 +259,7 @@ public class SimStarredMobTests implements FabricClientGameTest {
                             // blocks over that happens to be inside the room's wall suffocates it on the
                             // first tick - and its star tag is removed with it, which looks exactly like
                             // "the spawn never happened". Where he is standing is air by definition.
-                            new Object[]{mc, BlockPos.containing(at[0], at[1], at[2]), k});
+                            new Object[]{mc, BlockPos.containing(at[0] + dx, at[1], at[2]), k});
                 });
                 // Count immediately, then again after a delay. If they exist now and not later, something is
                 // removing them; if they never exist, addFreshEntity is not taking.
