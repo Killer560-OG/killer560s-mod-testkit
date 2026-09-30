@@ -128,5 +128,12 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   tall, far smaller than his, so layout that is fine on his monitor can overlap there - which is how the map
   designer's `Math.max(14, ...)` cell floor was found. That small window is a feature, not noise: it is the
   cheapest way to test a layout at its limits.
-- `getEntitiesOfClass` returns nothing in a gametest client, for any class tried so far. If a scenario needs
-  a mob count, expose one from the mod and assert on that.
+- **Entities cannot be READ BACK at all in a gametest client.** Not `getEntitiesOfClass`, not
+  `getAllEntities()`, and not `ServerLevel.getEntity(UUID)` - and the writes are fine: a vanilla pig added on
+  the server thread returns `addFreshEntity=true`, `isRemoved=false`, in a chunk `hasChunkAt` calls loaded, and
+  is still invisible to all three (measured 2026-09-29, scenario 89). So a scenario that counts entities is
+  measuring the harness, not the mod. Expose a count from the mod instead - and if a scenario genuinely needs
+  to inspect an entity, add a vanilla POSITIVE CONTROL first and SKIP with that explanation when the control
+  cannot be read back, because otherwise the blind spot reads as a defect in whatever is under test. Scenario
+  89 spent six runs "finding" that sim starred mobs never spawn; the mod's own counters said it had spawned
+  five entities the whole time.

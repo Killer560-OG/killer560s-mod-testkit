@@ -243,6 +243,41 @@ public class SimMapScreenTests implements FabricClientGameTest {
                     + "check which before blaming the generator");
         }
 
+        // ---- 3b. a room he placed by hand survives a Generate -------------------------------------------
+        // killer560 (2026-09-29): "test stuff like putting in a single room that I want personally in
+        // generating a map around the room."
+        String[] pinResult = new String[2];
+        ctx.runOnClient(mc -> {
+            try {
+                var screen = mc.screen;
+                var pinnedF = screen.getClass().getDeclaredField("pinned");
+                pinnedF.setAccessible(true);
+                @SuppressWarnings("unchecked")
+                var pins = (java.util.Map<Integer, String>) pinnedF.get(screen);
+                pins.clear();
+                pins.put(14, "Quiz");          // cell (2,2) of the 6x6 room grid
+                var m = screen.getClass().getDeclaredMethod("preview");
+                m.setAccessible(true);
+                m.invoke(screen);
+                var placedF = screen.getClass().getDeclaredField("placements");
+                placedF.setAccessible(true);
+                @SuppressWarnings("unchecked")
+                var placed = (java.util.Map<Integer, String>) placedF.get(screen);
+                pinResult[0] = String.valueOf(placed.get(14));
+                pinResult[1] = String.valueOf(placed.size());
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError("could not exercise pinning", e);
+            }
+        });
+        ctx.waitTicks(10);
+        System.out.println("[83-sim-map-screen] pinned Quiz at cell 14; after Generate that cell holds \""
+                + pinResult[0] + "\" on a floor of " + pinResult[1] + " room(s)");
+        if (!"Quiz".equals(pinResult[0])) {
+            throw new AssertionError("a room placed by hand at cell 14 was not kept by Generate - it holds \""
+                    + pinResult[0] + "\" instead, so Generate is building OVER his rooms rather than around "
+                    + "them");
+        }
+
         // ---- 4. the sliders: far right is Random, and max is still reachable ----------------------------
         // killer560 (2026-09-29): "have it so if i go all the way right for a slider then it is on random. but
         // still uses the min and max values and cannot go beyond them." The track carries one extra stop past
