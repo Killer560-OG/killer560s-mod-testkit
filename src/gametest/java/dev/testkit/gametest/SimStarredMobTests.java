@@ -84,24 +84,57 @@ public class SimStarredMobTests implements FabricClientGameTest {
         // player, and in that state entities cannot be read back at all - so it skipped. Run after other
         // scenarios the chunks were already warm and it passed. A test whose verdict depends on what ran
         // before it is worth nothing, so it now waits for the floor to actually be present, with a bound.
+        // Ask the SERVER, because the server is what this scenario measures.
+        //
+        // This gate used to read the client's copy of the block under the player, and on 2026-09-30 it skipped
+        // the scenario twice in a row - standalone and inside the full sim suite - while the floor was
+        // demonstrably built (22 rooms, 2,211,735 blocks). Every assertion below reads entities out of
+        // `sp.overworld()` on the server thread, so a client chunk that has not arrived yet is not the
+        // precondition: the precondition is that the server has a floor under the spawn point and keeps what
+        // is put on it. That second half is what the pig and zombie controls below establish, and they run
+        // before any verdict is reached, so loosening this gate cannot hide a mob falling into the void.
+        //
+        // The client's answer is still printed beside the server's. If they ever disagree for long, that is a
+        // finding about chunk delivery worth having - it just is not this scenario's finding.
         boolean[] ready = new boolean[1];
+        boolean[] clientSees = new boolean[1];
+        double[] probeAt = new double[3];
         for (int i = 0; i < 40 && !ready[0]; i++) {
+            java.util.concurrent.atomic.AtomicReference<Boolean> serverSees =
+                    new java.util.concurrent.atomic.AtomicReference<>();
             ctx.runOnClient(mc -> {
                 if (mc.level != null && mc.player != null) {
-                    ready[0] = !mc.level.getBlockState(mc.player.blockPosition().below()).isAir();
+                    clientSees[0] = !mc.level.getBlockState(mc.player.blockPosition().below()).isAir();
+                    probeAt[0] = mc.player.getX();
+                    probeAt[1] = mc.player.getY();
+                    probeAt[2] = mc.player.getZ();
                 }
+                var sp0 = mc.getSingleplayerServer();
+                if (sp0 == null) {
+                    serverSees.set(Boolean.FALSE);
+                    return;
+                }
+                sp0.execute(() -> {
+                    var level = sp0.overworld();
+                    var below = BlockPos.containing(probeAt[0], probeAt[1] - 1, probeAt[2]);
+                    serverSees.set(level.hasChunkAt(below) && !level.getBlockState(below).isAir());
+                });
             });
+            ctx.waitFor(mc -> serverSees.get() != null);
+            ready[0] = serverSees.get();
             if (!ready[0]) {
                 ctx.waitTicks(10);
             }
         }
-        System.out.println("[89-sim-starred-mobs] floor visible to the client after the build: " + ready[0]);
+        System.out.println(String.format(
+                "[89-sim-starred-mobs] floor under the player at %.1f, %.1f, %.1f - server sees it: %s, "
+                        + "client sees it: %s", probeAt[0], probeAt[1], probeAt[2], ready[0], clientSees[0]));
         try {
             if (!ready[0]) {
                 // SKIP, not fail, and INSIDE the try so the finally below still tears the world down - an
                 // early return here would leave the sim world open and hang every scenario behind it.
                 //
-                // The client never received the floor's chunks, so every entity read below would be a
+                // The server has no floor under the spawn point, so every entity read below would be a
                 // reading of the harness rather than of the mod: mobs spawn into unloaded space, the counts
                 // flicker frame to frame, and armour stands turn up with their mob "missing from the level".
                 // That is exactly what happened on 2026-09-30 - "block under the spawn point: void_air"
@@ -112,9 +145,9 @@ public class SimStarredMobTests implements FabricClientGameTest {
                 // The vanilla pig control is not enough on its own: it PASSED that run. A pig added right
                 // beside the player reads back fine while the floor around it is still missing, so the floor
                 // being visible is the precondition that actually matters here.
-                System.out.println("[89-sim-starred-mobs] SKIPPED - the client never received the floor, so "
-                        + "nothing spawned into it can be inspected. That is the harness, not the mod: run "
-                        + "it again, or later in a suite where the chunks are already warm.");
+                System.out.println("[89-sim-starred-mobs] SKIPPED - the SERVER has no floor under the spawn "
+                        + "point, so anything spawned there falls into the void and nothing below would be "
+                        + "measuring the mod.");
                 return;
             }
             // Spawn one of each mob kind that is meant to be starred, next to the player.
