@@ -38,6 +38,7 @@ import java.util.List;
 public class SimPlayTests implements FabricClientGameTest {
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
+    private static final String MAP_CODE = "com.killer560.hub.roomsim.MapCode";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
     private static final String FLOOR_GEN = "com.killer560.hub.roomsim.SimFloorGen";
     private static final String BUILD_QUEUE = "com.killer560.hub.roomsim.SimBuildQueue";
@@ -183,8 +184,14 @@ public class SimPlayTests implements FabricClientGameTest {
                     // entrance gate is different: it is infested chiseled stone brick and it is supposed to be
                     // gone by now, because the run has already started.
                     String blocking = seamBlocks(ctx, cx, cz, floorY, alongX);
-                    String line = String.format("cell %d at %d,%d moved %.1f across, blocked by %s",
-                            cell, cx, cz, crossed, blocking);
+                    // NAME THE ROOMS, not just the block. "blocked by stone_bricks" is the same sentence for
+                    // every one of these and says nothing about which capture or which rotation to go and
+                    // look at; the failing cell changes every run because the floor is random, so without
+                    // this there is nothing to reproduce offline. Both sides and both rotations, because a
+                    // carve that misses is a disagreement between one room's doorway and the connector.
+                    String rooms = roomsEitherSide(ctx, cell, alongX);
+                    String line = String.format("cell %d at %d,%d moved %.1f across, blocked by %s, between %s",
+                            cell, cx, cz, crossed, blocking, rooms);
                     if (blocking.contains("coal_block") || blocking.contains("red_terracotta")) {
                         locked.add(line);
                     } else {
@@ -372,5 +379,41 @@ public class SimPlayTests implements FabricClientGameTest {
         } catch (Exception e) {
             return 0;
         }
+    }
+
+    /**
+     * The two rooms on either side of a connector cell, with the rotation each was pasted at.
+     *
+     * <p>For diagnosing an impassable doorway offline: the room NAME is what lets the capture be opened and
+     * its measured doorway compared against where the carve actually went, and the rotation is what decides
+     * which edge of that capture faces the connector.
+     */
+    private static String roomsEitherSide(ClientGameTestContext ctx, int cell, boolean alongX) {
+        String[] out = new String[1];
+        ctx.runOnClient(mc -> {
+            try {
+                String code = (String) ModUnderTest.staticCall(SIM_STATE, "mapCode");
+                Object decoded = ModUnderTest.staticCall(MAP_CODE, "decode",
+                        new Class<?>[]{String.class}, new Object[]{code});
+                String[] names = (String[]) ModUnderTest.call(decoded, "nameTable",
+                        new Class<?>[]{}, new Object[]{});
+                int[] roomOf = (int[]) ModUnderTest.call(decoded, "cellRoom", new Class<?>[]{}, new Object[]{});
+                int[] rotOf = (int[]) ModUnderTest.call(decoded, "cellRotation",
+                        new Class<?>[]{}, new Object[]{});
+                int a = alongX ? cell - 1 : cell - GRID;
+                int b = alongX ? cell + 1 : cell + GRID;
+                out[0] = describe(names, roomOf, rotOf, a) + " and " + describe(names, roomOf, rotOf, b);
+            } catch (Exception e) {
+                out[0] = "could not read the map (" + e + ")";
+            }
+        });
+        return out[0] == null ? "unknown" : out[0];
+    }
+
+    private static String describe(String[] names, int[] roomOf, int[] rotOf, int cell) {
+        if (cell < 0 || cell >= roomOf.length || roomOf[cell] < 0 || roomOf[cell] >= names.length) {
+            return "nothing";
+        }
+        return "\"" + names[roomOf[cell]] + "\" at " + rotOf[cell] + " degrees";
     }
 }
