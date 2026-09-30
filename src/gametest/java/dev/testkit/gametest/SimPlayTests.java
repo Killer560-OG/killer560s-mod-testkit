@@ -235,22 +235,25 @@ public class SimPlayTests implements FabricClientGameTest {
                 int after = (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound");
                 int pendingAfter = (Integer) ModUnderTest.staticCall(SECRET_ITEMS, "pendingCount");
 
-                // The drop FALLS. Follow it down before deciding it could not be collected.
+                // The drop does NOT fall - SimSecretItems spawns it with setNoGravity(true) - so it sits at
+                // the secret's own block, half a block up. An earlier version of this swept four blocks DOWN
+                // looking for a fallen item, which was a guess at the mechanism and found nothing because
+                // there was nothing down there.
                 //
-                // An item secret can sit in mid-air over a drop, and the item that appears there lands on
-                // whatever is below. Holding the player at the secret's own block then leaves him hovering
-                // several blocks above the thing he is meant to pick up: on 2026-09-30 a secret at y273
-                // appeared, dropped, and was reported uncollectable while sitting on the floor underneath
-                // him, and the identical assertion had passed on the previous run where the secret happened
-                // to be at floor level. Sweeping down four blocks costs two seconds and removes the flake
-                // without weakening the assertion - it still has to actually be collected.
+                // What it does need is patience and a little vertical slack: the drop has a ten-tick pickup
+                // delay by design, and a secret in mid-air drops the player away from it between teleports.
+                // So hold on the item's own position and one block either side of it, well past that delay.
                 if (after <= before && pendingAfter < pendingBefore) {
-                    for (int drop = 1; drop <= 4 && after <= before; drop++) {
-                        for (int hold = 0; hold < 4; hold++) {
-                            teleport(ctx, target.getX() + 0.5, target.getY() - drop, target.getZ() + 0.5, 0f);
-                            ctx.waitTicks(5);
+                    int[] offsets = {0, 1, -1};
+                    for (int off : offsets) {
+                        for (int hold = 0; hold < 8 && after <= before; hold++) {
+                            teleport(ctx, target.getX() + 0.5, target.getY() + off, target.getZ() + 0.5, 0f);
+                            ctx.waitTicks(4);
+                            after = (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound");
                         }
-                        after = (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound");
+                        if (after > before) {
+                            break;
+                        }
                     }
                 }
                 int live = (Integer) ModUnderTest.staticCall(SECRET_ITEMS, "liveCount");
@@ -266,8 +269,8 @@ public class SimPlayTests implements FabricClientGameTest {
                 }
                 if (after <= before) {
                     throw new AssertionError("the item secret at " + target + " appeared (" + live + " drop(s) "
-                            + "on the floor) but neither standing on it nor following it four blocks down "
-                            + "collected it");
+                            + "on the floor) but standing on it, and a block above and below it, for four "
+                            + "seconds did not collect it");
                 }
             }
         } finally {
