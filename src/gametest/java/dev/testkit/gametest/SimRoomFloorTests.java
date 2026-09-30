@@ -56,6 +56,31 @@ public class SimRoomFloorTests implements FabricClientGameTest {
             return;
         }
 
+        // UNREAD COLUMNS, exactly - not "complete", which is a threshold.
+        //
+        // One candidate cause of the trench scenario 81 found is a capture missing blocks there: an unread
+        // column pastes nothing and leaves air. RoomLibrary.complete() cannot rule that out, because it is
+        // completeness >= 0.999 rather than 1.0 - on a three-tile room that is 9409 columns, so nine unread
+        // columns still counts as "complete", and nine is exactly the size of the hole that was measured.
+        // So the count is printed rather than the verdict.
+        List<String> gaps = new ArrayList<>();
+        for (String name : names) {
+            String gap = ctx.computeOnClient(mc -> unreadColumns(name));
+            if (gap != null) {
+                gaps.add(gap);
+            }
+        }
+        if (gaps.isEmpty()) {
+            System.out.println("[92-sim-room-floors] every column of every room was read - a capture missing "
+                    + "blocks is NOT the cause of an unwalkable doorway");
+        } else {
+            System.out.println("[92-sim-room-floors] captures with unread columns (these paste as nothing and "
+                    + "leave air, which is one candidate for the doorway trench):");
+            for (String line : gaps) {
+                System.out.println("[92-sim-room-floors]   " + line);
+            }
+        }
+
         List<String> odd = new ArrayList<>();
         List<String> unreadable = new ArrayList<>();
         int agreeing = 0;
@@ -195,6 +220,37 @@ public class SimRoomFloorTests implements FabricClientGameTest {
                 }
             }
             return bestCount == 0 ? null : best;
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return null;
+        }
+    }
+
+    /**
+     * How many of a room's columns were never read, or null when all of them were.
+     *
+     * @return a one-line description including the count and the fraction, or null for a complete capture
+     */
+    private static String unreadColumns(String name) {
+        Object room = ModUnderTest.staticCall(LIBRARY, "get",
+                new Class<?>[]{String.class}, new Object[]{name});
+        if (room == null) {
+            return null;
+        }
+        try {
+            boolean[] seen = (boolean[]) room.getClass().getField("seenColumn").get(room);
+            int unread = 0;
+            for (boolean b : seen) {
+                if (!b) {
+                    unread++;
+                }
+            }
+            if (unread == 0) {
+                return null;
+            }
+            return String.format(Locale.ROOT, "%s: %d of %d columns unread (%.3f complete%s)",
+                    name, unread, seen.length, 1.0 - (double) unread / seen.length,
+                    // Whether the mod's own threshold would still call it complete, which is the point.
+                    1.0 - (double) unread / seen.length >= 0.999 ? ", still passes complete()" : "");
         } catch (ReflectiveOperationException | RuntimeException e) {
             return null;
         }
