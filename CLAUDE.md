@@ -136,8 +136,19 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   to inspect an entity, add a vanilla POSITIVE CONTROL first and SKIP with that explanation when the control
   cannot be read back, because otherwise the blind spot reads as a defect in whatever is under test. Scenario
   89 spent six runs "finding" that sim starred mobs never spawn; the mod's own counters said it had spawned
-  five entities the whole time. Whether the readback works at all depends on RUN ORDER: in a fresh client the
-  chunk under the player never arrives (the server has it, `hasChunkAt` true, the client shows `void_air`
-  after 400 ticks, with a generated floor or the flat room alike), and entities are unreadable; later in a
-  suite the chunks are warm and everything resolves. So 89 measures for real inside the suite and skips on its
-  own - which is why the control matters more than the assertion.
+  five entities the whole time. **Corrected 2026-09-30:** the readback is NOT the blanket blind spot this
+  entry first claimed - once the build wait was real (see "Not busy" below) 89 read a vanilla pig by UUID and
+  counted every entity type on the floor. What it depends on is the world existing yet: in a fresh client, or
+  before the build has finished, the chunk under the player has not arrived (the server has it, `hasChunkAt`
+  true, the client shows `void_air`) and nothing resolves. The control is still what matters, because it is
+  what tells those two apart.
+- **"Not busy" is not "finished".** Eleven sim scenarios waited on `!SimBuildQueue.isBusy()` immediately
+  after asking for a floor, which is true before the build starts as much as after it ends - `generate()`
+  returns while the world is still opening and the rooms are queued from a later server task. So they all
+  measured an empty world. Scenario 76's "found 0 chest(s)" and 89's "sim starred mobs never spawn" were
+  both this, not the mod; 89 spent six runs on it. `SimBuildQueue.buildsFinished()` only counts completions
+  and only goes up: `Scenario.simBuildCount(ctx)` before the request, `Scenario.awaitSimBuild(ctx, before)`
+  after. With a real wait 76 finds 36 chests and 89 finds every mob kind alive after 40 ticks.
+- **A scenario without a `finally` costs the scenarios behind it, not just itself.** 76 threw, left the sim
+  world open, and the client never reached the title screen; the freeze watcher shot it 16 s later and 79,
+  80, 82, 83, 84 and 89 never ran. The suite reported one failure for what was actually seven scenarios lost.
