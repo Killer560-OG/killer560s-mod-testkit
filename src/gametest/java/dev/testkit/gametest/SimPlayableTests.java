@@ -45,6 +45,7 @@ public class SimPlayableTests implements FabricClientGameTest {
     private static final String SIM_RUN = "com.killer560.hub.roomsim.SimRun";
     private static final String SECRET_ITEMS = "com.killer560.hub.roomsim.SimSecretItems";
     private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
+    private static final String BUILD_AUDIT = "com.killer560.hub.roomsim.SimBuildAudit";
 
     private static final String SOURCE_ROOMS =
             "C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
@@ -185,6 +186,32 @@ public class SimPlayableTests implements FabricClientGameTest {
         } else if (gateAfter > 0) {
             throw new AssertionError(gateAfter + " of " + gateBefore + " gate block(s) are still standing "
                     + "after the countdown - /start did not open the green room");
+        }
+
+        // ---- 2b. the blocks standing there are the rooms they are supposed to be -------------------------
+        //
+        // The one assertion in this suite whose answer comes from the WORLD. Every other sim check - the door
+        // audit, the secret audit, the map - compares the build's own inputs against each other, so a paste
+        // that wrote the wrong blocks, wrote them a quarter turn out, or stopped half way would pass all of
+        // them in silence, and on 2026-09-30 killer560 reported exactly that: "I am standing in Crypt but the
+        // room generated isnt crypt [...] it feels like almost every room was generated wrong."
+        //
+        // SimBuildAudit samples each room's footprint after the last block lands and scores it against the
+        // capture. A healthy room does not score 100 - doorways are carved, unused ones bricked up, secrets
+        // written in - so the mod's own threshold is 70, chosen under the ~90 that two captures of DIFFERENT
+        // rooms reach just by sharing walls and floors. Asserting the count rather than re-deriving the score
+        // here is deliberate: one definition of "matches", in the code that ships.
+        int roomsWrong = (Integer) ModUnderTest.staticCall(BUILD_AUDIT, "lastBelowThreshold");
+        @SuppressWarnings("unchecked")
+        java.util.List<String> scores =
+                (java.util.List<String>) ModUnderTest.staticCall(BUILD_AUDIT, "lastScores");
+        System.out.println("[80-sim-playable] room fidelity: " + scores);
+        if (roomsWrong < 0) {
+            throw new AssertionError("the build audit never ran - SimBuildAudit.verify is not wired into "
+                    + "SimBuilder, so nothing checked that the rooms are the rooms");
+        }
+        if (roomsWrong > 0) {
+            throw new AssertionError(roomsWrong + " room(s) do not match their captures: " + scores);
         }
 
         // ---- 3. an item secret appears when he stands on it and can be picked up -------------------------

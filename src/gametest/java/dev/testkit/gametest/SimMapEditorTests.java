@@ -65,6 +65,14 @@ public class SimMapEditorTests implements FabricClientGameTest {
             @SuppressWarnings("unchecked")
             Iterable<String> names = (Iterable<String>) ModUnderTest.staticCall(ROOM_LIBRARY, "names");
             for (String n : names) {
+                // Only rooms the EDITOR would list. It filters on Room.usable(), and since 2026-09-30 that
+                // also excludes a capture RoomTileAudit found holding another room's blocks - 28 of the 134.
+                // Picking straight out of names() drew a room the builder then correctly refused, and the
+                // scenario reported "drew 5 rooms but the floor has 4" as though the editor had lost one.
+                if (!(Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isUsable",
+                        new Class<?>[]{String.class}, new Object[]{n})) {
+                    continue;
+                }
                 int cells = (Integer) ModUnderTest.staticCall(ROOM_LIBRARY, "cellFootprint",
                         new Class<?>[]{String.class}, new Object[]{n});
                 if (cells == 1 && singles.size() < 6) {

@@ -426,6 +426,14 @@ public class SimTests implements FabricClientGameTest {
 
             // 8. RUN COUNTDOWN. It must not be running during the countdown and must be running after it.
             //    A run whose clock starts with the countdown reports five seconds that were not run time.
+            //
+            //    The generated-floor flag has to be set by hand here. killer560 (2026-09-30): "THere shouldnt
+            //    be the ability for /start in a single generated room only in full map generations", so begin()
+            //    now refuses unless a whole floor is loaded - and this scenario runs in the one synthetic test
+            //    room. The countdown itself is what is under test, not the gate, and the gate has its own
+            //    coverage in 74-sim-run, which builds a real floor.
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "setGeneratedFloor",
+                    new Class<?>[]{boolean.class}, new Object[]{true}));
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_RUN, "begin",
                     new Class<?>[]{Minecraft.class, BlockPos.class}, new Object[]{mc, null}));
             ctx.waitTicks(20);
