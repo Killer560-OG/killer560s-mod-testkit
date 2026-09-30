@@ -34,6 +34,7 @@ public class SimSingleRoomTests implements FabricClientGameTest {
     private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
     private static final String ALTITUDE = "com.killer560.hub.roomsim.SimAltitude";
     private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
+    private static final String SCEPTRE = "com.killer560.hub.roomsim.SimSpiritSceptre";
 
     private static final String SOURCE_ROOMS =
             "C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
@@ -149,7 +150,37 @@ public class SimSingleRoomTests implements FabricClientGameTest {
                 throw new AssertionError("the previous floor is still standing at " + far.toShortString()
                         + " (" + farAfter + ") after a single-room load, which is supposed to wipe the grid");
             }
-            System.out.println("[91-sim-single] PASS - one room in the world and one room on the map");
+            // ---- and while a sim room is standing, does the Spirit Sceptre ACT? --------------------------
+            //
+            // killer560 (2026-09-30): "the sim spirit scepter doesnt work." It fired the whole time - his log
+            // has the chat line six times - and did nothing anyone could see, in a room with nothing in it to
+            // hit. So the thing to assert is not "did the handler run" but "did bats leave the hand and did
+            // they go off": a counter that only goes up, watched across real client ticks.
+            int blastsBefore = (Integer) ModUnderTest.staticCall(SCEPTRE, "blasts");
+            boolean fired = (Boolean) ModUnderTest.staticCall(SCEPTRE, "fire",
+                    new Class<?>[]{Minecraft.class}, new Object[]{ctx.computeOnClient(mc -> mc)});
+            int inFlight = (Integer) ModUnderTest.staticCall(SCEPTRE, "inFlight");
+            System.out.println("[91-sim-single] sceptre fired=" + fired + ", bats in flight=" + inFlight);
+            if (!fired || inFlight == 0) {
+                throw new AssertionError("the Spirit Sceptre reported fired=" + fired + " with " + inFlight
+                        + " bats in the air - nothing left the hand");
+            }
+            ctx.waitTicks(80);
+            int blastsAfter = (Integer) ModUnderTest.staticCall(SCEPTRE, "blasts");
+            int stillFlying = (Integer) ModUnderTest.staticCall(SCEPTRE, "inFlight");
+            System.out.println("[91-sim-single] sceptre blasts " + blastsBefore + " -> " + blastsAfter
+                    + ", still in flight: " + stillFlying);
+            if (blastsAfter <= blastsBefore) {
+                throw new AssertionError("no bat ever exploded - they were launched and then nothing ticked "
+                        + "them, which is the same as the sceptre doing nothing");
+            }
+            if (stillFlying != 0) {
+                throw new AssertionError(stillFlying + " bat(s) are still in the air four seconds later - "
+                        + "they are supposed to run out of range and go off");
+            }
+
+            System.out.println("[91-sim-single] PASS - one room in the world, one room on the map, and the "
+                    + "sceptre's bats fly and detonate");
         } finally {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave"));
             ctx.runOnClient(mc -> mc.execute(() -> {
