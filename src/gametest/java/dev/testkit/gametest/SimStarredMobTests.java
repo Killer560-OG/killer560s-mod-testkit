@@ -96,8 +96,27 @@ public class SimStarredMobTests implements FabricClientGameTest {
             }
         }
         System.out.println("[89-sim-starred-mobs] floor visible to the client after the build: " + ready[0]);
-
         try {
+            if (!ready[0]) {
+                // SKIP, not fail, and INSIDE the try so the finally below still tears the world down - an
+                // early return here would leave the sim world open and hang every scenario behind it.
+                //
+                // The client never received the floor's chunks, so every entity read below would be a
+                // reading of the harness rather than of the mod: mobs spawn into unloaded space, the counts
+                // flicker frame to frame, and armour stands turn up with their mob "missing from the level".
+                // That is exactly what happened on 2026-09-30 - "block under the spawn point: void_air"
+                // while the mod's own counters said eight entities had been spawned - and it was reported
+                // as "sim starred mobs are not real starred mobs", a claim about the mod that the run had no
+                // evidence for.
+                //
+                // The vanilla pig control is not enough on its own: it PASSED that run. A pig added right
+                // beside the player reads back fine while the floor around it is still missing, so the floor
+                // being visible is the precondition that actually matters here.
+                System.out.println("[89-sim-starred-mobs] SKIPPED - the client never received the floor, so "
+                        + "nothing spawned into it can be inspected. That is the harness, not the mod: run "
+                        + "it again, or later in a suite where the chunks are already warm.");
+                return;
+            }
             // Spawn one of each mob kind that is meant to be starred, next to the player.
             List<String> problemsEarly = new ArrayList<>();
             double[] at = new double[3];
