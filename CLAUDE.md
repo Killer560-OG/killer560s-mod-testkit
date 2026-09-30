@@ -152,3 +152,9 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 - **A scenario without a `finally` costs the scenarios behind it, not just itself.** 76 threw, left the sim
   world open, and the client never reached the title screen; the freeze watcher shot it 16 s later and 79,
   80, 82, 83, 84 and 89 never ran. The suite reported one failure for what was actually seven scenarios lost.
+- **`35-combat-hopping-target` fails on its own, and always has.** The upstream hopping bot rises about 0.79
+  blocks where a vanilla jump is 1.25, so the scenario's "it is not hopping" assertion is correct and the bot
+  is the thing that is broken. Measured 2026-09-30 against two different mod jars minutes apart - 0.7661 and
+  0.7909 - so it is not flaky and not caused by anything in the mod. It is upstream's, like 40/41/42 reporting
+  "built 0 block(s)" and passing. Do not read it as a regression; any combat scenario that uses that bot as a
+  moving target is measuring something stiller than it intends.
