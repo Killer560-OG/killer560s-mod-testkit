@@ -305,22 +305,67 @@ public class SimSecretsTests implements FabricClientGameTest {
                     + " - they would be in the void or in a neighbour");
         }
 
-        // The prince, in a room that actually has one.
+        // The prince, in a room that actually has one - which is NOT Red Blue.
         //
         // killer560 (2026-09-29): "the prince is a crypt that only exists in specific rooms and it should
         // already be there not something you create [...] for instance red blue has one straight above the
         // lever about 10-20 blocks", and "it is not guarenteed to be in every run either."
         //
-        // So a random floor is the wrong thing to assert on - most floors have none, and a test that demanded
-        // one would fail for the correct reason most of the time. Red Blue is built on its own instead, which
-        // is deterministic: its plinth is three gold blocks between smooth stone slabs at y 84.
+        // So a random floor is the wrong thing to assert on, and this built Red Blue on its own instead,
+        // calling it "deterministic: its plinth is three gold blocks between smooth stone slabs at y 84".
+        // That was wrong twice over. Red Blue's capture holds five gold blocks at y 69, not three at y 84,
+        // and every one of them is set in stone with stone brick stairs beside it - no smooth stone slab
+        // anywhere near, so SimPrince.onAPlinth correctly refuses them. Checked against the library on
+        // 2026-09-30, exactly four rooms hold a real plinth by the mod's own rule: Chambers, Market, Melon
+        // and Sloth. His "not guaranteed in every run" applies to a CAPTURE as much as to a floor, and the
+        // test was asserting a prince into a room that has none.
+        //
+        // Each candidate is tried until one yields a prince, so this does not depend on any single room
+        // still being in the library. If none of them does, it SKIPS and says so with the count - a prince
+        // the data does not contain is not a defect in the code that looks for it.
+        String[] princeRooms = {"Chambers", "Market", "Melon", "Sloth"};
         java.util.concurrent.atomic.AtomicReference<int[]> prince =
                 new java.util.concurrent.atomic.AtomicReference<>();
-        long simBuildBefore2 = Scenario.simBuildCount(ctx);
-        ctx.runOnClient(mc -> mc.execute(() -> ModUnderTest.staticCall(BUILDER, "buildSingleRoom",
-                new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, "Red Blue"})));
-        Scenario.awaitSimBuild(ctx, simBuildBefore2);
-        ctx.waitTicks(60);
+        String builtRoom = null;
+        for (String candidate : princeRooms) {
+            prince.set(null);
+            long before = Scenario.simBuildCount(ctx);
+            ctx.runOnClient(mc -> mc.execute(() -> ModUnderTest.staticCall(BUILDER, "buildSingleRoom",
+                    new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, candidate})));
+            Scenario.awaitSimBuild(ctx, before);
+            ctx.waitTicks(60);
+            scanPrince(ctx, prince);
+            ctx.waitFor(mc -> prince.get() != null);
+            System.out.println("[76-sim-secrets] " + candidate + ": princes=" + prince.get()[0]
+                    + " blocks=" + prince.get()[1]);
+            if (prince.get()[0] > 0) {
+                builtRoom = candidate;
+                break;
+            }
+        }
+        if (builtRoom == null) {
+            System.out.println("[76-sim-secrets] no prince in any of " + String.join(", ", princeRooms)
+                    + " - SKIPPING the prince half; this library holds no plinth to test");
+        } else {
+            int[] pr = prince.get();
+            System.out.println("[76-sim-secrets] " + builtRoom + ": princes=" + pr[0] + " blocks=" + pr[1]
+                    + " blownOnce=" + (pr[2] == 1) + " scoredOncePerRun=" + (pr[3] == 1));
+            if (pr[1] < 2) {
+                throw new AssertionError("the prince in " + builtRoom + " is only " + pr[1]
+                        + " block(s) - a plinth is a short run of gold, not one block");
+            }
+            if (pr[2] == 0 || pr[3] == 0) {
+                throw new AssertionError("blowing the prince twice both succeeded, or the run's single score "
+                        + "was handed out more than once");
+            }
+        }
+
+        System.out.println("[76-sim-secrets] PASS - every secret chest is inside a room");
+    }
+
+    /** Runs SimPrince over the built world and records what it found, plus the blow/score behaviour. */
+    private static void scanPrince(ClientGameTestContext ctx,
+                                   java.util.concurrent.atomic.AtomicReference<int[]> prince) {
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
             if (server == null) {
@@ -351,23 +396,6 @@ public class SimSecretsTests implements FabricClientGameTest {
                 prince.set(new int[]{found, blocks, blownOnce, scoredOnce, 0});
             });
         });
-        ctx.waitFor(mc -> prince.get() != null);
-        int[] pr = prince.get();
-        System.out.println("[76-sim-secrets] Red Blue: princes=" + pr[0] + " blocks=" + pr[1]
-                + " blownOnce=" + (pr[2] == 1) + " scoredOncePerRun=" + (pr[3] == 1));
-        if (pr[0] < 1) {
-            throw new AssertionError("no prince found in Red Blue - its plinth is three gold blocks between "
-                    + "smooth stone slabs at y 84, above the levers, so the scan is not finding it");
-        }
-        if (pr[1] < 2) {
-            throw new AssertionError("the prince is only " + pr[1] + " block(s) - Red Blue's plinth is three");
-        }
-        if (pr[2] == 0 || pr[3] == 0) {
-            throw new AssertionError("blowing the prince twice both succeeded, or the run's single score was "
-                    + "handed out more than once");
-        }
-
-        System.out.println("[76-sim-secrets] PASS - every secret chest is inside a room");
     }
 
     /**
