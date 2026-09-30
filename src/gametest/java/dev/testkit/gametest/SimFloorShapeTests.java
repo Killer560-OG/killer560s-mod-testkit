@@ -63,7 +63,11 @@ public class SimFloorShapeTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ModUnderTest.staticCall(ROOM_LIBRARY, "forceReload"));
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isReady"));
 
-        String[] floorNames = {"ENTRANCE", "F1", "F3", "F5", "F7"};
+        // EVERY floor size, not a sample. killer560 (2026-09-29): "make sure stuff like all of the different
+        // floor size work". F2, F4 and F6 were never exercised here, and they are exactly the sizes the old
+        // hardcoded expectedRooms() switch got wrong - it fell through to 21 for all three.
+        String[] floorNames = {"ENTRANCE", "F1", "F2", "F3", "F4", "F5", "F6", "F7"};
+        java.util.Map<String, int[]> perFloor = new java.util.LinkedHashMap<>();   // name -> {floors, cells}
         int planned = 0;
         int withMulti = 0;
         int multiRooms = 0;
@@ -357,6 +361,9 @@ public class SimFloorShapeTests implements FabricClientGameTest {
             }
             double fill = box == 0 ? 0 : (double) tileCells / box;
             fillSum += fill;
+            int[] tally = perFloor.computeIfAbsent(floorName, k -> new int[2]);
+            tally[0]++;
+            tally[1] += tileCells;
             // A hard floor per layout, and the AVERAGE asserted separately below.
             //
             // This was 0.45 per floor, which made the scenario flap: the generator averages about 77% with a
@@ -374,6 +381,21 @@ public class SimFloorShapeTests implements FabricClientGameTest {
                         + "mean fill %.0f%%",
                 planned, totalRooms, multiRooms, 100.0 * withMulti / Math.max(1, planned),
                 100.0 * fillSum / Math.max(1, planned)));
+
+        // Per floor size, so "all the floor sizes work" is a number per size rather than one average that a
+        // single broken size could hide inside.
+        for (var e : perFloor.entrySet()) {
+            int floors = e.getValue()[0];
+            double mean = (double) e.getValue()[1] / Math.max(1, floors);
+            int want = expectedCells(e.getKey());
+            System.out.println(String.format(
+                    "[73-sim-floor-shape]   %-8s %3d floor(s), mean %.1f of %d room cells (%.0f%% of target)",
+                    e.getKey(), floors, mean, want, 100.0 * mean / Math.max(1, want)));
+            if (mean < want * 0.80) {
+                failures.add(String.format("%s covers only %.1f of its %d target cells on average - that "
+                        + "floor size generates a sparse map", e.getKey(), mean, want));
+            }
+        }
 
         if (!failures.isEmpty()) {
             StringBuilder sb = new StringBuilder(failures.size() + " floor(s) were not dungeons:");
@@ -511,13 +533,30 @@ public class SimFloorShapeTests implements FabricClientGameTest {
     }
 
     /** The room counts SimFloorGen.Floor carries, so the test and the generator cannot disagree silently. */
+    /**
+     * The floor's own minimum room count, read off the enum.
+     *
+     * <p>This was a switch with {@code default -> 21}, which happened to be right for the five floors this
+     * scenario used to run and silently wrong for F2 (15), F4 (19) and F6 (19). A test that carries its own
+     * copy of a constant fails the day someone adds a case to the real one.
+     */
     private static int expectedRooms(String floorName) {
-        return switch (floorName) {
-            case "ENTRANCE" -> 11;
-            case "F1" -> 13;
-            case "F3" -> 16;
-            default -> 21;
-        };
+        return floorField(floorName, "rooms");
+    }
+
+    /** The floor's target CELL count - what the generator aims to cover of the 6x6 room grid. */
+    private static int expectedCells(String floorName) {
+        return floorField(floorName, "cells");
+    }
+
+    private static int floorField(String floorName, String field) {
+        try {
+            Class<?> cls = Class.forName("com.killer560.hub.roomsim.SimFloorGen$Floor");
+            Object floor = Enum.valueOf(cls.asSubclass(Enum.class), floorName);
+            return cls.getField(field).getInt(floor);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("could not read Floor." + floorName + "." + field, e);
+        }
     }
 
     private static int copyRealRooms() {

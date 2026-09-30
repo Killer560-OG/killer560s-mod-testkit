@@ -37,6 +37,8 @@
 			"dev.testkit.gametest.SimPlayTests",
 			"dev.testkit.gametest.SimSecretRotationTests",
 			"dev.testkit.gametest.SimMapScreenTests",
+			"dev.testkit.gametest.SimFloorSizeTests",
+			"dev.testkit.gametest.SimServerSafetyTests",
 			"dev.testkit.gametest.InventorySorterTests"
 		]
 	},

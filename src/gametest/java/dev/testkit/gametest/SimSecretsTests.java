@@ -252,13 +252,23 @@ public class SimSecretsTests implements FabricClientGameTest {
         } catch (RuntimeException ignored) {
             // Older jar without the audit: fall through and assert on the raw count, as before.
         }
-        int reachable = expected[0] - skipped;
-        System.out.println("[76-sim-secrets] " + skipped + " chest secret(s) lie outside their own room and "
-                + "were skipped, so " + reachable + " were placeable");
+        // Two secrets that land on ONE block yield one chest, so the floor is short by that many through no
+        // fault of the placement. Counted rather than tolerated: the mod reports it, and this subtracts
+        // exactly what it reports instead of loosening the assertion.
+        int collisions = 0;
+        try {
+            collisions = (Integer) ModUnderTest.staticCall(
+                    "com.killer560.hub.roomsim.SimSecrets", "collidingChests");
+        } catch (RuntimeException ignored) {
+            // Older jar without the counter.
+        }
+        int reachable = expected[0] - skipped - collisions;
+        System.out.println("[76-sim-secrets] " + skipped + " chest secret(s) lie outside their own room, "
+                + collisions + " share a block with another, so " + reachable + " were placeable");
         if (reachable > 0 && chests.size() < reachable) {
             throw new AssertionError("the floor is missing secrets: " + reachable + " chest(s) were placeable "
-                    + "(" + expected[0] + " in the database, " + skipped + " outside their own room) but only "
-                    + chests.size() + " were placed");
+                    + "(" + expected[0] + " in the database, " + skipped + " outside their own room, "
+                    + collisions + " sharing a block) but only " + chests.size() + " were placed");
         }
 
         int outside = 0;
