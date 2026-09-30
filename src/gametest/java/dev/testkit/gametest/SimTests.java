@@ -92,7 +92,15 @@ public class SimTests implements FabricClientGameTest {
             // The paste runs on the server thread, so give it real time rather than a single tick.
             ctx.waitTicks(100);
 
-            int centre = GRID / 2;
+            // The SAME cell arithmetic SimBuilder.buildFlatTest uses, including the `& ~1`.
+            //
+            // Rooms live on EVEN grid cells. GRID/2 is 5, which is odd, so the mod snaps the single-room
+            // build down to 4 - a deliberate fix, because a room at cell 5 sits half a tile off the lattice
+            // that the live map, the room scan and secret routes all measure against. This scenario kept the
+            // old odd cell and so read a position the mod had stopped building at: it failed with
+            // "floor=air at -105,69,-105" while the mod's own chat line said "Flat test room built at
+            // -121 70 -121", sixteen blocks away. The test was measuring the behaviour that was fixed.
+            int centre = (GRID / 2) & ~1;
             int originX = START + centre * HALF_ROOM;
             int originZ = START + centre * HALF_ROOM;
             int x0 = originX - TILE / 2;
@@ -326,6 +334,25 @@ public class SimTests implements FabricClientGameTest {
                 return sb.toString();
             });
             System.out.println("[70-sim-flat-room] pre-beam " + preBeam);
+            // WHAT THE CLIENT CAN SEE, because that is what the beam aims with.
+            //
+            // SimClass.fire picks its target out of client.level.getEntities - the CLIENT's copy - while every
+            // count above is read off the server. Those two can disagree in a gametest client, and when they
+            // do the beam has nothing to aim at and kills nothing, which reads exactly like "the beam is
+            // broken". Print both so the difference is visible rather than inferred.
+            int clientVisible = ctx.computeOnClient(mc -> {
+                if (mc.level == null || mc.player == null) {
+                    return 0;
+                }
+                int n = 0;
+                for (var e : mc.level.getEntities(mc.player,
+                        new net.minecraft.world.phys.AABB(x0 - 5, 0, z0 - 5, x0 + 40, 200, z0 + 40),
+                        e -> e instanceof net.minecraft.world.entity.monster.zombie.Zombie && e.isAlive())) {
+                    n++;
+                }
+                return n;
+            });
+            System.out.println("[70-sim-flat-room] zombies the CLIENT can see: " + clientVisible);
             // The harness holds the attack key, so the first tick it reads as down counts as a click and one
             // shot has usually already gone out. Rather than fight that, the test reasons about whatever is
             // actually alive: fire once, and exactly the NEAREST LIVING mob in front must die, with nothing
@@ -381,10 +408,18 @@ public class SimTests implements FabricClientGameTest {
             // the segment eye -> stop, and AABB.clip on a forward segment cannot return a hit behind the eye.
             // It was also observed holding (near dead, far alive, behind alive) on runs where no stray shot
             // intervened.
-            if (canEvaluateBeam && nearWasAlive && nearAlive != 0) {
-                throw new AssertionError("the beam did not kill the nearest mob in front of the player");
+            if (clientVisible == 0) {
+                // The beam aims with the client's entity list. If the client holds none of these mobs, fire()
+                // finds no target and damages nothing - and that is this harness's blind spot, not a defect in
+                // the beam. Saying so is the same rule scenario 89's vanilla control exists for: a probe must
+                // never report its own limitation as a finding about the mod.
+                System.out.println("[70-sim-flat-room] beam step skipped: the server has " + preBeam
+                        + " but the CLIENT can see none of them, so fire() had nothing to aim at");
+            } else if (canEvaluateBeam && nearWasAlive && nearAlive != 0) {
+                throw new AssertionError("the beam did not kill the nearest mob in front of the player, and "
+                        + "the client could see " + clientVisible + " of them, so it had a target");
             }
-            if (canEvaluateBeam && !nearWasAlive && farAlive != 0) {
+            if (clientVisible != 0 && canEvaluateBeam && !nearWasAlive && farAlive != 0) {
                 throw new AssertionError("with the near mob already dead the beam should have killed the far "
                         + "one, and did not");
             }
