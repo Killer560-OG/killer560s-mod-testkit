@@ -196,13 +196,12 @@ public class SimPuzzleTests implements FabricClientGameTest {
     private static int copyRoomData() {
         try {
             java.nio.file.Path source = java.nio.file.Path.of(
-                    "C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
-                            + "/minecraft/config/killer560smod-roomdata");
+                    ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
+                            + "/minecraft/config", "killer560smod-roomdata"));
             if (!java.nio.file.Files.isDirectory(source)) {
                 return 0;
             }
-            java.nio.file.Path target = net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir()
-                    .resolve("killer560smod-roomdata");
+            java.nio.file.Path target = ModUnderTest.modConfig("killer560smod-roomdata");
             java.nio.file.Files.createDirectories(target);
             int n = 0;
             try (var s = java.nio.file.Files.list(source)) {

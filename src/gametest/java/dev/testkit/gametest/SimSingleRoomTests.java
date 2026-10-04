@@ -37,8 +37,8 @@ public class SimSingleRoomTests implements FabricClientGameTest {
     private static final String SCEPTRE = "com.killer560.hub.roomsim.SimSpiritSceptre";
 
     private static final String SOURCE_ROOMS =
-            "C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
-                    + "/minecraft/config/killer560smod-rooms";
+            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
+                    + "/minecraft/config", "killer560smod-rooms");
 
     /** The room he loaded when he reported this. 2x2, so it also exercises a multi-tile single-room map. */
     private static final String ROOM = "Supertall";
@@ -243,7 +243,7 @@ public class SimSingleRoomTests implements FabricClientGameTest {
             if (!Files.isDirectory(source)) {
                 return 0;
             }
-            Path target = net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().resolve(into);
+            Path target = ModUnderTest.modConfig(into);
             Files.createDirectories(target);
             int n = 0;
             try (var s = Files.list(source)) {

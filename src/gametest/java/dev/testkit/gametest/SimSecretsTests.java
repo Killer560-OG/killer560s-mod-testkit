@@ -34,7 +34,7 @@ public class SimSecretsTests implements FabricClientGameTest {
     private static final String MAP_CODE = "com.killer560.hub.roomsim.MapCode";
 
     private static final String SOURCE_ROOMS =
-            "C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)/minecraft/config/killer560smod-rooms";
+            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)/minecraft/config", "killer560smod-rooms");
 
     private static final int GRID = 11;
     private static final int HALF_ROOM = 16;
@@ -440,8 +440,7 @@ public class SimSecretsTests implements FabricClientGameTest {
             if (!Files.isDirectory(source)) {
                 return 0;
             }
-            Path target = net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir()
-                    .resolve("killer560smod-roomdata");
+            Path target = ModUnderTest.modConfig("killer560smod-roomdata");
             Files.createDirectories(target);
             int n = 0;
             try (var s = Files.list(source)) {
@@ -465,8 +464,7 @@ public class SimSecretsTests implements FabricClientGameTest {
             if (!Files.isDirectory(source)) {
                 return 0;
             }
-            Path target = net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir()
-                    .resolve("killer560smod-rooms");
+            Path target = ModUnderTest.modConfig("killer560smod-rooms");
             Files.createDirectories(target);
             List<Path> files = new ArrayList<>();
             try (var s = Files.list(source)) {

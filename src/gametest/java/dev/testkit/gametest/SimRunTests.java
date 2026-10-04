@@ -167,7 +167,7 @@ public class SimRunTests implements FabricClientGameTest {
     }
 
     private static final String SOURCE_ROOMS =
-            "C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)/minecraft/config/killer560smod-rooms";
+            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)/minecraft/config", "killer560smod-rooms");
 
     private static int copyRealRooms() {
         try {
@@ -175,8 +175,7 @@ public class SimRunTests implements FabricClientGameTest {
             if (!java.nio.file.Files.isDirectory(source)) {
                 return 0;
             }
-            java.nio.file.Path target = net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir()
-                    .resolve("killer560smod-rooms");
+            java.nio.file.Path target = ModUnderTest.modConfig("killer560smod-rooms");
             java.nio.file.Files.createDirectories(target);
             java.util.List<java.nio.file.Path> files = new java.util.ArrayList<>();
             try (var s = java.nio.file.Files.list(source)) {

@@ -22,6 +22,44 @@ public final class ModUnderTest {
     private ModUnderTest() {
     }
 
+    private static final String MOD_PATHS = "com.killer560.hub.util.ModPaths";
+
+    /**
+     * Where the mod keeps config file or folder {@code legacyName} (e.g. {@code "killer560smod-rooms"}) in THIS
+     * client's config dir. Since 2026-10-04 the mod files everything under {@code config/killer560/<category>/
+     * <feature>/}, and seeding the old root location after the mod has started is never picked up - so this asks
+     * the mod's own {@code ModPaths.config}, which is the exact folder it reads. An older jar without ModPaths gets
+     * the old root location.
+     */
+    public static java.nio.file.Path modConfig(String legacyName) {
+        try {
+            Class<?> cls = Class.forName(MOD_PATHS);
+            return (java.nio.file.Path) cls.getMethod("config", String.class).invoke(null, legacyName);
+        } catch (ReflectiveOperationException e) {
+            return FabricLoader.getInstance().getConfigDir().resolve(legacyName);
+        }
+    }
+
+    /**
+     * {@code legacyName} inside another Prism instance's config folder ({@code instanceConfigDir}): its
+     * {@code killer560/<category>/<feature>/} location if that instance has already run a build that moved it there,
+     * otherwise the old root location.
+     */
+    public static String instanceConfig(String instanceConfigDir, String legacyName) {
+        java.nio.file.Path dir = java.nio.file.Path.of(instanceConfigDir);
+        try {
+            Class<?> cls = Class.forName(MOD_PATHS);
+            String folder = (String) cls.getMethod("folderFor", String.class).invoke(null, legacyName);
+            java.nio.file.Path moved = dir.resolve("killer560").resolve(folder).resolve(legacyName);
+            if (java.nio.file.Files.exists(moved)) {
+                return moved.toString().replace('\\', '/');
+            }
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            // No ModPaths in this jar (or no mod at all): only the old layout can exist.
+        }
+        return dir.resolve(legacyName).toString().replace('\\', '/');
+    }
+
     public static boolean loaded(String modId) {
         return FabricLoader.getInstance().isModLoaded(modId);
     }

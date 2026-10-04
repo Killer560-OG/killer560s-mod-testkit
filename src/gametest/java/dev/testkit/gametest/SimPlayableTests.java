@@ -48,8 +48,8 @@ public class SimPlayableTests implements FabricClientGameTest {
     private static final String BUILD_AUDIT = "com.killer560.hub.roomsim.SimBuildAudit";
 
     private static final String SOURCE_ROOMS =
-            "C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
-                    + "/minecraft/config/killer560smod-rooms";
+            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
+                    + "/minecraft/config", "killer560smod-rooms");
 
     private static final int GRID = 11;
     private static final int START_X = -185;
@@ -277,7 +277,7 @@ public class SimPlayableTests implements FabricClientGameTest {
             if (!Files.isDirectory(source)) {
                 return 0;
             }
-            Path target = net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().resolve(into);
+            Path target = ModUnderTest.modConfig(into);
             Files.createDirectories(target);
             int n = 0;
             try (var s = Files.list(source)) {

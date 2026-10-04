@@ -32,8 +32,8 @@ public class SimMapScreenTests implements FabricClientGameTest {
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
 
     private static final String SOURCE_ROOMS =
-            "C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
-                    + "/minecraft/config/killer560smod-rooms";
+            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
+                    + "/minecraft/config", "killer560smod-rooms");
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -353,7 +353,7 @@ public class SimMapScreenTests implements FabricClientGameTest {
             if (!Files.isDirectory(source)) {
                 return 0;
             }
-            Path target = net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().resolve(into);
+            Path target = ModUnderTest.modConfig(into);
             Files.createDirectories(target);
             int n = 0;
             try (var s = Files.list(source)) {
