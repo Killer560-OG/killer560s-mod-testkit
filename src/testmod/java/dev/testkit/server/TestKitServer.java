@@ -195,6 +195,7 @@ public class TestKitServer implements DedicatedServerModInitializer {
             rules.set(GameRules.ADVANCE_TIME, false, server);
             rules.set(GameRules.ADVANCE_WEATHER, false, server);
             rules.set(GameRules.FALL_DAMAGE, false, server);
+            rules.set(GameRules.DROWNING_DAMAGE, false, server);
             rules.set(GameRules.NATURAL_HEALTH_REGENERATION, false, server);
             rules.set(GameRules.IMMEDIATE_RESPAWN, true, server);
             rules.set(GameRules.KEEP_INVENTORY, true, server);
