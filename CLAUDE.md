@@ -303,3 +303,9 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   it floors had no blood room. Call `Scenario.ensureRoomDatabase(ctx)` before any `plan`/`generate`. Offline, an earlier
   failed attempt backs off 30 s, which is why it waits up to 1000 ticks.
 - `build/run/clientGameTest` (crash reports included) is rebuilt by the next run. Copy `crash-reports/` out first.
+- `PacketTrace` opens a tick's bucket from its own START_CLIENT_TICK hook, registered after the mod's, so a packet a mod sends
+  at START_CLIENT_TICK lands in the PREVIOUS bucket - right after that bucket's input packet, which is exactly the sneak
+  the server applies to it. Read buckets after the run (96-ar's sampler does); reading one at END_CLIENT_TICK misses them
+  (it counted 0 etherwarps on 2026-10-05).
+- 96-ar (`SimAutoRoutesTests`): an Auto Routes Go To is an Interactive Map warp, and after one only a START node may arm
+  until he passes one (the map-arrival interlock). Cases that arm non-start nodes run before 96-ar-screen.
