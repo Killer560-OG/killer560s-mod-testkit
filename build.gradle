@@ -468,6 +468,14 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	if (project.hasProperty("solveRepeat")) {
 		systemProperty "testkit.solveRepeat", project.property("solveRepeat")
 	}
+	// Lag spikes for the 93-solve watch:  -PserverStallMs=150 [-PserverStallEvery=13]  (see SimPuzzleSolveTests)
+	// or the client connection's netty loop instead:  -PnetStallMs=120
+	// and/or Ice Fill's negative control before the auto plays:  -PicefillControl=true
+	["serverStallMs", "serverStallEvery", "netStallMs", "icefillControl"].each { p ->
+		if (project.hasProperty(p)) {
+			systemProperty "testkit.${p}", project.property(p)
+		}
+	}
 	// Re-run only what failed last time:  -Pfailed
 	if (project.hasProperty("failed")) {
 		if (!failedFile.exists() || failedFile.text.trim().isEmpty()) {

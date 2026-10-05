@@ -431,6 +431,11 @@ public final class SimPuzzleSolveTests {
                         + "switched on - a pass would prove nothing");
             }
 
+            // ---- -PicefillControl: prove the Ice Fill sim still breaks on a real mistake ------------------
+            if ("Ice Fill".equals(spec.room()) && Boolean.getBoolean("testkit.icefillControl")) {
+                iceFillControl(ctx, name);
+            }
+
             // ---- switch it on ---------------------------------------------------------------------------
             ctx.runOnClient(mc -> configure(true, true));
             ctx.waitTicks(2);
@@ -480,8 +485,55 @@ public final class SimPuzzleSolveTests {
                     mc.player.getZ()});
             double travelled = 0;
             double[] last = startPos;
+            // -PserverStallMs=N (with -PserverStallEvery=T, default 13 ticks): freeze the integrated server's thread
+            // for N ms every T client ticks while the auto plays. A stalled server then handles every packet that
+            // queued up in one go, the way a lag spike does - two use packets in one server tick, two position
+            // packets reaching the client between two of its ticks. Added 2026-10-05 for the Ice Fill flake.
+            int stallMs = Integer.getInteger("testkit.serverStallMs", 0);
+            int stallEvery = Math.max(2, Integer.getInteger("testkit.serverStallEvery", 13));
+            if (stallMs > 0) {
+                println(name, "server stall injection: " + stallMs + " ms every " + stallEvery + " ticks");
+            }
+            // -PnetStallMs=N: the same, but freezing the CLIENT connection's netty event loop instead. The client
+            // gametest runs client and integrated server in lockstep, so a server-thread sleep only slows both and
+            // changes nothing (measured: 6/6 identical runs). Packets cross on netty threads outside that lock;
+            // holding them back makes several land in one client tick, which is what machine load can do.
+            int netStallMs = Integer.getInteger("testkit.netStallMs", 0);
+            if (netStallMs > 0) {
+                println(name, "client network stall injection: " + netStallMs + " ms every " + stallEvery
+                        + " ticks");
+            }
             for (int t = 1; t <= limit; t++) {
                 ctx.waitTicks(1);
+                if (stallMs > 0 && t % stallEvery == 0) {
+                    ctx.runOnClient(mc -> mc.getSingleplayerServer().execute(() -> {
+                        try {
+                            Thread.sleep(stallMs);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }));
+                }
+                if (netStallMs > 0 && t % stallEvery == 0) {
+                    ctx.runOnClient(mc -> {
+                        try {
+                            java.lang.reflect.Field f = net.minecraft.network.Connection.class
+                                    .getDeclaredField("channel");
+                            f.setAccessible(true);
+                            io.netty.channel.Channel ch = (io.netty.channel.Channel) f.get(
+                                    mc.getConnection().getConnection());
+                            ch.eventLoop().execute(() -> {
+                                try {
+                                    Thread.sleep(netStallMs);
+                                } catch (InterruptedException e) {
+                                    Thread.currentThread().interrupt();
+                                }
+                            });
+                        } catch (ReflectiveOperationException e) {
+                            throw new RuntimeException("netStallMs: no Connection.channel", e);
+                        }
+                    });
+                }
                 Object[] s = ctx.computeOnClient(mc -> {
                     String open = null;
                     if (mc.player != null && mc.player.containerMenu != mc.player.inventoryMenu) {
@@ -913,6 +965,54 @@ public final class SimPuzzleSolveTests {
             }
         }
         return best;
+    }
+
+    /**
+     * The negative control for Ice Fill's judge (added 2026-10-05, when the judge moved from the client tick to
+     * the server). A pass only shows the judge never broke a section on a legal run; this shows it still breaks
+     * one on the two mistakes a test can make without input: arriving two tiles from the last one ("teleported
+     * off the ice"), and stepping back onto a tile already used ("stepped on ice you had already used"). Both are
+     * plain server teleports, so they exercise the once-a-tick judge; the auto's own run exercises the
+     * per-landing one. Waits out each regeneration and leaves him on the first tile.
+     */
+    @SuppressWarnings("unchecked")
+    private static void iceFillControl(ClientGameTestContext ctx, String name) {
+        List<net.minecraft.world.phys.Vec3> path = ctx.computeOnClient(mc ->
+                (List<net.minecraft.world.phys.Vec3>) ModUnderTest.staticCall(
+                        "com.killer560.hub.puzzlesolvers.IceFillSolverFeature", "getCurrentPath",
+                        new Class<?>[]{}, new Object[]{}));
+        if (path == null || path.size() < 2) {
+            throw new AssertionError("ice fill control: the solver has no path to take tiles from (" + path + ")");
+        }
+        var p0 = path.get(0);
+        var p1 = path.get(1);
+        double dx = Math.signum(p1.x - p0.x);
+        double dz = Math.signum(p1.z - p0.z);
+        // Solver points are feet + 0.1.
+        double[] first = {p0.x, p0.y - 0.1, p0.z};
+        double[] next = {p0.x + dx, p0.y - 0.1, p0.z + dz};
+        double[] far = {p0.x + 2 * dx, p0.y - 0.1, p0.z + 2 * dz};
+
+        long a = LogTap.mark();
+        teleport(ctx, name, first, "control: first tile");
+        teleport(ctx, name, far, "control: two tiles on");
+        boolean warpCaught = LogTap.since(a).stream().anyMatch(l -> l.contains("teleported off the ice"));
+        ctx.waitTicks(50);   // REGEN_TICKS is 40
+
+        long b = LogTap.mark();
+        teleport(ctx, name, first, "control: first tile again");
+        teleport(ctx, name, next, "control: next tile");
+        teleport(ctx, name, first, "control: back onto the used first tile");
+        boolean repeatCaught = LogTap.since(b).stream()
+                .anyMatch(l -> l.contains("stepped on ice you had already used"));
+        ctx.waitTicks(50);
+        teleport(ctx, name, first, "control: first tile for the auto");
+        println(name, "ice fill control: two-tile jump broke the section = " + warpCaught
+                + ", stepping back on a used tile broke it = " + repeatCaught);
+        if (!warpCaught || !repeatCaught) {
+            throw new AssertionError("ice fill control: the sim did not break a section on a real mistake "
+                    + "(two-tile jump " + warpCaught + ", repeated tile " + repeatCaught + ")");
+        }
     }
 
     /** A server teleport, which is where the client is told to be - the sim's own /goto does the same. */
