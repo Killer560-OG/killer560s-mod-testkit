@@ -126,7 +126,11 @@ connection's netty loop for that long every 13 ticks (`-PserverStallEvery`), so 
 tick - the lag a loaded machine produces; it turned Ice Fill's one-in-dozens flake into 6/6 on 2026-10-05.
 `-PserverStallMs` sleeps the integrated server instead and does nothing useful: the client gametest runs client and
 server in lockstep, so both just slow down and every run is identical to the tick. `-PicefillControl=true` makes
-Ice Fill prove the sim still breaks a section on a two-tile warp and on a repeated tile before the auto plays.
+Ice Fill prove the sim still breaks a section on a two-tile warp and on a repeated tile before the auto plays, and
+then forces a mistake half way across sections 1 and 2 while it plays (`-PicefillBreaks=2` for one): the verdict
+also needs that section broken, no sim landing while broken (4-tick grace), regenerated, the first landing after on
+its entry tile, and the room solved. The forced step-back is judged with `SimIceFillPuzzle.onTeleport`: a plain
+server teleport is only seen by the once-a-tick judge, after the auto's next hop has already moved him on.
 
 Room captures are copied from the "26.1.2 (Mod Only Test)" instance unless `TESTKIT_SIM_INSTANCE` names another
 (`$env:TESTKIT_SIM_INSTANCE = "Map Logger"` before the script). They are not the same captures: on 2026-10-04
