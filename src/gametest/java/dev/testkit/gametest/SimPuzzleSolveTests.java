@@ -432,8 +432,10 @@ public final class SimPuzzleSolveTests {
             }
 
             // ---- -PicefillControl: prove the Ice Fill sim still breaks on a real mistake ------------------
+            IceBreaks iceBreaks = null;
             if ("Ice Fill".equals(spec.room()) && Boolean.getBoolean("testkit.icefillControl")) {
                 iceFillControl(ctx, name);
+                iceBreaks = new IceBreaks(name);
             }
 
             // ---- switch it on ---------------------------------------------------------------------------
@@ -476,7 +478,8 @@ public final class SimPuzzleSolveTests {
             }
 
             // ---- watch ------------------------------------------------------------------------------------
-            int limit = spec.seconds() * 20;
+            // Each forced break costs its 2 s regeneration plus the warp back; give the run room for them.
+            int limit = (spec.seconds() + (iceBreaks != null ? 60 : 0)) * 20;
             int failedAt = -1;
             int chestAt = -1;
             String chestWhat = null;
@@ -557,6 +560,9 @@ public final class SimPuzzleSolveTests {
                     travelled += Math.sqrt(sq(p[0] - last[0]) + sq(p[1] - last[1]) + sq(p[2] - last[2]));
                     last = p;
                 }
+                if (iceBreaks != null) {
+                    iceBreaks.tick(ctx, t);
+                }
                 if (failedAt < 0 && failed(ctx)) {
                     failedAt = t;
                     println(name, String.format("t=%.1fs the sim marked %s FAILED", t / 20.0, spec.room()));
@@ -613,6 +619,15 @@ public final class SimPuzzleSolveTests {
                 }
                 return String.format("PASS - solved at %.1fs, %d Terminator arrows%s", solvedAt / 20.0, arrows,
                         extra);
+            }
+            if (iceBreaks != null) {
+                String broke = iceBreaks.verdict();
+                if (broke != null) {
+                    dumpEvidence(ctx, name, mark);
+                    return "FAIL - break recovery: " + broke + (solvedAt > 0 ? " (solved anyway)" : " (not solved)")
+                            + extra;
+                }
+                extra = ", " + iceBreaks.summary() + extra;
             }
             if (solvedAt > 0) {
                 return String.format("PASS - solved at %.1fs%s", solvedAt / 20.0, extra);
@@ -1012,6 +1027,222 @@ public final class SimPuzzleSolveTests {
         if (!warpCaught || !repeatCaught) {
             throw new AssertionError("ice fill control: the sim did not break a section on a real mistake "
                     + "(two-tile jump " + warpCaught + ", repeated tile " + repeatCaught + ")");
+        }
+    }
+
+    /**
+     * Mistakes forced WHILE Auto Ice Fill plays (-PicefillControl, added 2026-10-05 for the break recovery).
+     *
+     * <p>killer560 on Hypixel: a broken section regenerates "after two-ish seconds", only that section, and the auto
+     * "needs to pause everything that it is doing until it regenerates then ... teleport back onto the ice fill
+     * starting position and continue." So, for each planned section (1-based, {@code -PicefillBreaks}, default
+     * "1,2"): once the auto is half way across it, he is put back onto the tile he just left - the classic mistake,
+     * judged by the sim's own server-side judge - and then the SIM is read, not the auto's log:
+     *
+     * <ul>
+     *   <li>the sim broke that section (its break counter went up, naming that section);</li>
+     *   <li>no sim teleport landed while it was broken, after {@link #GRACE} ticks for a hop already in flight
+     *       when the break happened (on Hypixel that is the ping);</li>
+     *   <li>it regenerated;</li>
+     *   <li>the first landing after that was on that section's entry tile (the auto's warp back);</li>
+     * </ul>
+     * and the run still has to end with the sim's own isComplete.
+     */
+    static final class IceBreaks {
+        static final int GRACE = 4;
+        private static final String P = PUZZLES + "SimIceFillPuzzle";
+
+        private final String name;
+        private final List<Integer> plan = new ArrayList<>();   // 0-based sections still to break
+        private final List<String> results = new ArrayList<>();
+        private final List<String> problems = new ArrayList<>();
+        private int target = -1;          // section a forced mistake was just made in
+        private int forcedAt = -1;
+        private int breaksBefore;
+        private int brokenAt = -1;
+        private int landingsAtBreak;
+        private int landedWhileBroken;
+        private int regenAt = -1;
+        private int landingsAtRegen;
+
+        IceBreaks(String name) {
+            this.name = name;
+            String spec = System.getProperty("testkit.icefillBreaks", "1,2");
+            for (String s : spec.split(",")) {
+                if (!s.isBlank()) {
+                    plan.add(Integer.parseInt(s.trim()) - 1);
+                }
+            }
+            println(name, "ice fill breaks planned while the auto plays: sections " + spec);
+        }
+
+        private static Object sim(ClientGameTestContext ctx, String method) {
+            return ctx.computeOnClient(mc -> ModUnderTest.staticCall(P, method, new Class<?>[]{}, new Object[]{}));
+        }
+
+        void tick(ClientGameTestContext ctx, int t) {
+            if (target < 0) {
+                if (plan.isEmpty()) {
+                    return;
+                }
+                maybeForce(ctx, t);
+                return;
+            }
+            boolean broken = (Boolean) sim(ctx, "isBroken");
+            int landings = (Integer) sim(ctx, "landings");
+            if (brokenAt < 0) {
+                if ((Integer) sim(ctx, "breaks") > breaksBefore) {
+                    brokenAt = t;
+                    landingsAtBreak = landings;
+                    int which = (Integer) sim(ctx, "lastBrokenSection");
+                    println(name, String.format("t=%.1fs forced break: the sim broke section %d", t / 20.0, which + 1));
+                    if (which != target) {
+                        problems.add("forced a mistake in section " + (target + 1) + " but the sim broke " + (which + 1));
+                    }
+                } else if (t - forcedAt > 20) {
+                    problems.add("the forced mistake in section " + (target + 1) + " did not break it in 1 s");
+                    target = -1;
+                }
+                return;
+            }
+            if (regenAt < 0) {
+                if (t - brokenAt == GRACE) {
+                    landingsAtBreak = landings;   // whatever was in flight at the break has landed by now
+                }
+                if (broken) {
+                    return;
+                }
+                regenAt = t;
+                landedWhileBroken = landings - landingsAtBreak;
+                landingsAtRegen = landings;
+                println(name, String.format("t=%.1fs section %d regenerated after %.1fs; landings while broken "
+                        + "(after a %d-tick grace): %d", t / 20.0, target + 1, (t - brokenAt) / 20.0, GRACE,
+                        landedWhileBroken));
+                if (landedWhileBroken != 0) {
+                    problems.add(landedWhileBroken + " teleport(s) landed while section " + (target + 1)
+                            + " was broken - the auto did not pause");
+                }
+                return;
+            }
+            if (landings > landingsAtRegen) {
+                var tile = (net.minecraft.core.BlockPos) sim(ctx, "lastLandingTile");
+                var entry = (net.minecraft.core.BlockPos) ctx.computeOnClient(mc -> ModUnderTest.staticCall(P,
+                        "entryTile", new Class<?>[]{int.class}, new Object[]{target}));
+                boolean ok = tile != null && tile.equals(entry);
+                String line = String.format("section %d: broke at %.1fs, back %.1fs later, first landing after "
+                                + "%.1fs on %s (entry %s) %s", target + 1, brokenAt / 20.0, (regenAt - brokenAt) / 20.0,
+                        (t - regenAt) / 20.0, tile == null ? "?" : tile.toShortString(),
+                        entry == null ? "?" : entry.toShortString(), ok ? "OK" : "WRONG TILE");
+                println(name, "t=" + String.format("%.1fs ", t / 20.0) + line);
+                results.add(line);
+                if (!ok) {
+                    problems.add("after section " + (target + 1) + " regenerated the first landing was "
+                            + (tile == null ? "?" : tile.toShortString()) + ", not its entry tile "
+                            + (entry == null ? "?" : entry.toShortString()));
+                }
+                target = -1;
+            } else if (t - regenAt > 300) {
+                problems.add("nothing landed in 15 s after section " + (target + 1) + " regenerated - no warp back");
+                target = -1;
+            }
+        }
+
+        /** Once the auto is half way across the next planned section, put him back on the tile he just left. */
+        private void maybeForce(ClientGameTestContext ctx, int t) {
+            int section = plan.get(0);
+            if ((Boolean) sim(ctx, "isBroken") || (Integer) sim(ctx, "activeSection") != section) {
+                return;
+            }
+            double[] back = ctx.computeOnClient(mc -> {
+                List<net.minecraft.core.BlockPos> tiles = sectionTiles(mc, section);
+                if (tiles.isEmpty() || !mc.player.onGround()) {
+                    return null;
+                }
+                int i = tiles.indexOf(mc.player.blockPosition().below());
+                if (i < Math.max(2, tiles.size() / 2) || i >= tiles.size() - 1) {
+                    return null;
+                }
+                var prev = tiles.get(i - 1);
+                if (!mc.level.getBlockState(prev).is(net.minecraft.world.level.block.Blocks.PACKED_ICE)) {
+                    return null;
+                }
+                return new double[]{prev.getX() + 0.5, prev.getY() + 1, prev.getZ() + 0.5, i, tiles.size()};
+            });
+            if (back == null) {
+                return;
+            }
+            plan.remove(0);
+            target = section;
+            forcedAt = t;
+            brokenAt = -1;
+            regenAt = -1;
+            breaksBefore = (Integer) sim(ctx, "breaks");
+            println(name, String.format("t=%.1fs forcing a mistake in section %d: on tile %d of %d, stepping back "
+                    + "onto the used tile before it", t / 20.0, section + 1, (int) back[3], (int) back[4]));
+            ctx.runOnClient(mc -> {
+                var server = mc.getSingleplayerServer();
+                var uuid = mc.player.getUUID();
+                server.execute(() -> {
+                    var sp = server.getPlayerList().getPlayer(uuid);
+                    if (sp != null) {
+                        sp.teleportTo(back[0], back[1], back[2]);
+                        // Judged as a landing, as a sim ability teleport is. Without this the once-a-tick judge only
+                        // saw where the auto's next hop (handled later in the same server tick) put him, and the
+                        // mistake went unjudged (first run, 2026-10-05: section 1 never broke).
+                        ModUnderTest.staticCall(P, "onTeleport",
+                                new Class<?>[]{net.minecraft.server.level.ServerPlayer.class}, new Object[]{sp});
+                    }
+                });
+            });
+        }
+
+        /** Section {@code s}'s tiles in walking order: the solver's corners, filled in one block at a time. */
+        @SuppressWarnings("unchecked")
+        private static List<net.minecraft.core.BlockPos> sectionTiles(Minecraft mc, int s) {
+            List<net.minecraft.world.phys.Vec3> path = (List<net.minecraft.world.phys.Vec3>) ModUnderTest.staticCall(
+                    SOLVERS + "IceFillSolverFeature", "getCurrentPath", new Class<?>[]{}, new Object[]{});
+            List<Long> heights = new ArrayList<>();
+            List<net.minecraft.world.phys.Vec3> mine = new ArrayList<>();
+            for (var p : path) {
+                long key = Math.round(p.y * 10);
+                if (!heights.contains(key)) {
+                    heights.add(key);
+                }
+                if (heights.indexOf(key) == s) {
+                    mine.add(p);
+                }
+            }
+            List<net.minecraft.core.BlockPos> out = new ArrayList<>();
+            for (int i = 0; i < mine.size(); i++) {
+                var a = mine.get(i);
+                var b = i + 1 < mine.size() ? mine.get(i + 1) : a;
+                int steps = (int) Math.round(Math.max(Math.abs(b.x - a.x), Math.abs(b.z - a.z)));
+                for (int k = 0; k < Math.max(1, steps); k++) {
+                    double r = steps == 0 ? 0 : (double) k / steps;
+                    var tile = net.minecraft.core.BlockPos.containing(a.x + (b.x - a.x) * r, a.y, a.z + (b.z - a.z) * r)
+                            .below();
+                    if (out.isEmpty() || !out.get(out.size() - 1).equals(tile)) {
+                        out.add(tile);
+                    }
+                }
+            }
+            return out;
+        }
+
+        /** Null when every planned break was forced and recovered from; otherwise what went wrong. */
+        String verdict() {
+            List<String> all = new ArrayList<>(problems);
+            if (target >= 0) {
+                all.add("section " + (target + 1) + ": the run ended mid-recovery");
+            }
+            for (int s : plan) {
+                all.add("section " + (s + 1) + ": never reached half way, so no mistake was forced there");
+            }
+            return all.isEmpty() ? null : String.join("; ", all);
+        }
+
+        String summary() {
+            return results.size() + " forced break(s) recovered";
         }
     }
 
