@@ -2,6 +2,7 @@ package dev.testkit.gametest;
 
 import dev.testkit.compat.McCompat;
 
+import dev.testkit.harness.Report;
 import dev.testkit.harness.SuiteVerdict;
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
@@ -257,6 +258,8 @@ public final class SimPuzzleSolveTests {
                 return;
             }
             SuiteVerdict.expect(name);
+            // A row in summary.md for every room, not only the failures (it reported "0 passed" for ten passes).
+            Report.caseStarted(name);
             ModUnderTest.require("killer560smod");
             LogTap.install();
             ctx.waitTicks(20);
@@ -269,6 +272,7 @@ public final class SimPuzzleSolveTests {
             if (!seedRooms(ctx)) {
                 VERDICTS.put(name, "SKIPPED - his room captures / room database are not on this machine");
                 System.out.println("[" + name + "] SKIPPED - needs his real rooms and room database");
+                Report.caseFinished(name, "SKIP", "n/a (singleplayer)", VERDICTS.get(name), List.of(), List.of());
                 SuiteVerdict.finished(name);
                 return;
             }
@@ -297,6 +301,7 @@ public final class SimPuzzleSolveTests {
             if (!verdict.startsWith("PASS")) {
                 throw new AssertionError(verdict);
             }
+            Report.caseFinished(name, "PASS", "n/a (singleplayer)", verdict, List.of(), LogTap.since(mark));
             SuiteVerdict.finished(name);
         }
 
