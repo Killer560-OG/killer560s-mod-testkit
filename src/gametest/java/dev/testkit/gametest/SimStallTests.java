@@ -76,6 +76,8 @@ public class SimStallTests implements FabricClientGameTest {
 
         // Library load, off the render thread. Timed from outside, because the whole point is whether it
         // blocks the client - a fast load that blocks is still a freeze.
+        // Room types come from the room database; the sim will not plan a floor without it (mod, 2026-10-05).
+        Scenario.ensureRoomDatabase(ctx);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(ROOM_LIBRARY, "forceReload",
                 new Class<?>[]{}, new Object[]{}));
         Stall load = tickUntil(ctx, 1200, () -> (Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isReady",

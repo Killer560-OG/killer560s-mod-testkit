@@ -129,6 +129,46 @@ public final class Scenario {
     private static final String BUILD_QUEUE = "com.killer560.hub.roomsim.SimBuildQueue";
 
     /**
+     * Copies his room database (killer560smod-roomdata, from the Mod Only Test instance) into this client and waits
+     * until the mod has loaded it. Since mod 2026-10-05 the sim refuses to plan a floor before it has: room TYPES
+     * (Entrance, Blood, Fairy, puzzles) come from it, and without them floors came out with no blood room. Offline,
+     * an earlier attempt may be in its 30 s backoff, so this keeps asking for up to 1000 ticks.
+     *
+     * @return the number of files copied (0: none on this machine, nothing waited for)
+     */
+    public static int ensureRoomDatabase(ClientGameTestContext ctx) {
+        int copied = 0;
+        try {
+            java.nio.file.Path source = java.nio.file.Path.of(ModUnderTest.instanceConfig(
+                    "C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)/minecraft/config",
+                    "killer560smod-roomdata"));
+            if (java.nio.file.Files.isDirectory(source)) {
+                java.nio.file.Path target = ModUnderTest.modConfig("killer560smod-roomdata");
+                java.nio.file.Files.createDirectories(target);
+                try (var files = java.nio.file.Files.list(source)) {
+                    for (java.nio.file.Path f : files.toList()) {
+                        if (java.nio.file.Files.isRegularFile(f)) {
+                            java.nio.file.Files.copy(f, target.resolve(f.getFileName()),
+                                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                            copied++;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("[room-database] copy failed: " + e);
+        }
+        if (copied == 0) {
+            return 0;
+        }
+        ctx.waitFor(mc -> {
+            ModUnderTest.staticCall("com.killer560.hub.roomdatabase.RoomDatabase", "ensureLoading");
+            return (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomdatabase.RoomDatabase", "isReady");
+        }, 1000);
+        return copied;
+    }
+
+    /**
      * How many sim builds have finished so far. Snapshot this BEFORE asking for a floor.
      *
      * @see #awaitSimBuild

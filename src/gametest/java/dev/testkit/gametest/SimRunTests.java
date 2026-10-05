@@ -50,6 +50,8 @@ public class SimRunTests implements FabricClientGameTest {
             System.out.println("[74-sim-run] SKIPPED - needs his real rooms to build a floor with a door");
             return;
         }
+        // Room types come from the room database; the sim will not plan a floor without it (mod, 2026-10-05).
+        Scenario.ensureRoomDatabase(ctx);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(ROOM_LIBRARY, "forceReload"));
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isReady"));
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter",
