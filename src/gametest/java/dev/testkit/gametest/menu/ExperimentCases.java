@@ -40,6 +40,10 @@ final class ExperimentCases {
         MenuSuite.test(s, "281-menu-exp-superpairs-deduce-powerup", ExperimentCases::deducePowerup);
         MenuSuite.test(s, "282-menu-exp-superpairs-priority", ExperimentCases::priority);
         MenuSuite.test(s, "283-menu-exp-superpairs-end-order", ExperimentCases::endOrder);
+        MenuSuite.test(s, "284-menu-exp-superpairs-powerup-second-click", ExperimentCases::powerupSecondClick);
+        MenuSuite.test(s, "285-menu-exp-superpairs-clicks-free-space", ExperimentCases::clicksFreeSpace);
+        MenuSuite.test(s, "286-menu-exp-superpairs-powerup-into-powerup", ExperimentCases::powerupIntoPowerup);
+        MenuSuite.test(s, "287-menu-exp-superpairs-instant-find-stack", ExperimentCases::instantFindStack);
     }
 
     // ---- 280-283: Superpairs deductions and priority (mod branch etable-deduce) -------------------------------------
@@ -75,8 +79,130 @@ final class ExperimentCases {
         return a;
     }
 
+    // ---- 284-287: powerups as on Hypixel (killer560, 2026-10-05): a powerup never takes a turn's click; Instant
+    // Finds arm the next click and stack. HxExperiments models exactly that.
+
+    private static JsonObject clicksPowerup(int amount) {
+        JsonObject up = new JsonObject();
+        up.addProperty("powerup", "clicks");
+        up.addProperty("amount", amount);
+        return up;
+    }
+
+    /** The server's open tile when the click on {@code slot} arrived (its first effective experiment.click), or -2. */
+    private static int firstOpenAt(Played p, int slot) {
+        for (JsonObject e : p.clickEvents()) {
+            if (e.get("slot").getAsInt() == slot && e.get("correct").getAsBoolean()) {
+                return e.has("firstOpen") ? e.get("firstOpen").getAsInt() : -2;
+            }
+        }
+        return -2;
+    }
+
+    /** Powerup slots clicked again after they were turned over. Turning one over already applies it (killer560,
+     *  2026-10-05), so a second click on the face-up tile is the old activation click: nothing, plus a 1s wait. */
+    private static List<Integer> powerupReclicks(Played p, int... powerupSlots) {
+        List<Integer> out = new ArrayList<>();
+        for (int slot : powerupSlots) {
+            if (p.clicked().stream().filter(x -> x == slot).count() > 1) {
+                out.add(slot);
+            }
+        }
+        return out;
+    }
+
+    /** A claim made by a plain turn (not an Instant Find). */
+    private static boolean plainClaim(Played p, String name, int a, int b) {
+        return p.claims().contains(name + "@" + a + "+" + b);
+    }
+
+    /**
+     * 284: Power VI, Instant Find, Sharpness V, Power VI, Sharpness V, XP, XP. Power VI at 9 is the turn's first
+     * click; the Instant Find at 10 is its second and leaves 9 up. The armed click goes to an unknown tile (11,
+     * Sharpness: its partner 13 comes with it), 9 is still the open tile, so 12 completes Power VI as a plain turn.
+     */
+    static void powerupSecondClick(Session c) throws Exception {
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto E-Table clicks nothing (223-225 cover the no-click check)");
+            return;
+        }
+        Played p = play(c, board(book(P6), powerup(), book(S5), book(P6), book(S5), xp(XP), xp(XP)), 20, false, false, false);
+        c.note(p.line() + "; open tile when 10 was clicked: " + firstOpenAt(p, 10) + ", 11: " + firstOpenAt(p, 11)
+                + ", 12: " + firstOpenAt(p, 12));
+        c.check(firstOpenAt(p, 10) == 9 && firstOpenAt(p, 11) == 9 && firstOpenAt(p, 12) == 9,
+                "Power VI at 9 should stay the open tile through the powerup and the armed click - " + p.line());
+        c.check(p.claims().contains(S5 + "*@11+13"), "the Instant Find should claim Sharpness V at 11+13 - " + p.line());
+        c.check(plainClaim(p, P6, 9, 12), "Power VI should be completed as a plain turn, 9 then 12 - " + p.line());
+        c.check(p.claims().size() == 3 && p.used() == 6, "expected all three pairs in 6 clicks - " + p.line());
+        c.check(powerupReclicks(p, 10).isEmpty(), "the face-up powerup was clicked again - " + p.line());
+    }
+
+    /**
+     * 285: Power VI, +3 Clicks, Power VI, Sharpness V, Sharpness V. The +3 Clicks at 10 is the turn's second click and
+     * a free space: 9 stays up and 11 completes Power VI. 20 clicks, 5 spent, 3 given back.
+     */
+    static void clicksFreeSpace(Session c) throws Exception {
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto E-Table clicks nothing (223-225 cover the no-click check)");
+            return;
+        }
+        Played p = play(c, board(book(P6), clicksPowerup(3), book(P6), book(S5), book(S5)), 20, false, false, false);
+        c.note(p.line() + "; open tile when 11 was clicked: " + firstOpenAt(p, 11));
+        c.check(firstOpenAt(p, 11) == 9 && plainClaim(p, P6, 9, 11), "Power VI should be 9 then 11 across the +3 Clicks - " + p.line());
+        c.check(p.claims().size() == 2 && p.end().get("remainingClicks").getAsInt() == 18,
+                "expected both pairs and 18 clicks left (20 - 5 + 3) - " + p.line());
+        c.check(powerupReclicks(p, 10).isEmpty(), "the face-up powerup was clicked again - " + p.line());
+    }
+
+    /**
+     * 286: Power VI, +3 Clicks, Instant Find, Sharpness V, Power VI, Sharpness V, Growth V, Growth V. Two powerups in a
+     * row as the turn's second click: 9 stays up through both, the armed click claims an unknown pair, and Power VI is
+     * still completed as a plain turn from 9.
+     */
+    static void powerupIntoPowerup(Session c) throws Exception {
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto E-Table clicks nothing (223-225 cover the no-click check)");
+            return;
+        }
+        Played p = play(c, board(book(P6), clicksPowerup(3), powerup(), book(S5), book(P6), book(S5), book("Growth V"),
+                book("Growth V")), 20, false, false, false);
+        c.note(p.line() + "; open tile when 10 was clicked: " + firstOpenAt(p, 10) + ", 11: " + firstOpenAt(p, 11));
+        long viaPowerup = p.claims().stream().filter(x -> x.contains("*@")).count();
+        c.check(firstOpenAt(p, 10) == 9 && firstOpenAt(p, 11) == 9, "9 should stay open through both powerups - " + p.line());
+        c.check(viaPowerup == 1 && p.claims().size() == 3, "expected one Instant Find claim and all three pairs - " + p.line());
+        c.check(p.claims().stream().anyMatch(x -> x.startsWith(P6 + "@9+")), "Power VI should be a plain turn from 9 - " + p.line());
+        c.check(powerupReclicks(p, 10, 11).isEmpty(), "a face-up powerup was clicked again - " + p.line());
+    }
+
+    /**
+     * 287: Instant Find into Instant Find stacks - the next two clicks both match. Board 1: Instant Find, Instant Find,
+     * Power VI, Sharpness V, Power VI, Sharpness V, XP, XP (the armed click at 10 turns over the second Instant Find, a
+     * free space, so two are armed: Power VI and Sharpness V are both claimed by Instant Find). Board 2: Power VI,
+     * Instant Find, Instant Find, Sharpness V, Growth V, Power VI, Sharpness V, Growth V - the same with Power VI up as
+     * the turn's first click the whole time, completed afterwards.
+     */
+    static void instantFindStack(Session c) throws Exception {
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto E-Table clicks nothing (223-225 cover the no-click check)");
+            return;
+        }
+        Played one = play(c, board(powerup(), powerup(), book(P6), book(S5), book(P6), book(S5), xp(XP), xp(XP)), 20, false, false, false);
+        c.note("board 1: " + one.line());
+        List<String> stars = one.claims().stream().filter(x -> x.contains("*@")).toList();
+        c.check(stars.size() == 2 && one.claims().size() == 3, "board 1: expected two Instant Find claims and the XP - " + one.line());
+        c.check(one.clicked().size() >= 4 && one.clicked().subList(0, 4).equals(List.of(9, 10, 11, 12)),
+                "board 1: expected clicks 9, 10 then the two armed clicks 11, 12 - " + one.line());
+        Played two = play(c, board(book(P6), powerup(), powerup(), book(S5), book("Growth V"), book(P6), book(S5),
+                book("Growth V")), 20, false, false, false);
+        c.note("board 2: " + two.line());
+        long stars2 = two.claims().stream().filter(x -> x.contains("*@")).count();
+        c.check(stars2 == 2 && two.claims().size() == 3 && two.claims().stream().anyMatch(x -> x.startsWith(P6 + "@9+")),
+                "board 2: expected two Instant Find claims and Power VI as a plain turn from 9 - " + two.line());
+        c.check(powerupReclicks(two, 10, 11).isEmpty(), "board 2: a face-up powerup was clicked again - " + two.line());
+    }
+
     /** One Superpairs board played by Auto E-Table to the server's end (or 1800 ticks). */
-    record Played(JsonObject end, List<String> claims, List<Integer> clicked, int used, String reason) {
+    record Played(JsonObject end, List<String> claims, List<Integer> clicked, int used, String reason, List<JsonObject> clickEvents) {
         /** Claimed reward names in claim order, colour codes stripped, "*" marking the Instant Find claim. */
         List<String> names() {
             List<String> out = new ArrayList<>();
@@ -100,6 +226,7 @@ final class ExperimentCases {
             boolean gotVo = c.onClient(mc -> (Boolean) Mod.get(CONFIG, "isSuperpairsValuableOnly"));
             c.check(gotVo == valuableOnly, "SuperpairsValuableOnly read back " + gotVo);
             int clicksBefore = c.events("container.click").size();
+            int expClicksBefore = c.events("experiment.click").size();
             JsonObject args = new JsonObject();
             args.addProperty("game", "SUPERPAIRS");
             args.addProperty("clicks", clicks);
@@ -126,7 +253,8 @@ final class ExperimentCases {
             for (JsonObject over : c.events("experiment.over")) {
                 reason = over.get("reason").getAsString();
             }
-            return new Played(end, claims, clicked, used, reason);
+            List<JsonObject> expClicks = c.events("experiment.click");
+            return new Played(end, claims, clicked, used, reason, new ArrayList<>(expClicks.subList(expClicksBefore, expClicks.size())));
         } finally {
             MenuKit.reset(c);
         }
@@ -285,10 +413,12 @@ final class ExperimentCases {
         // grand, guardian, name the powerup's matched click must land on, clicks. Skipped kinds are last priority, not
         // forbidden (mod edcc9549, killer560: "if it reaches the end with clicks left then it can collect those"): with
         // 80 clicks every pair is claimed and a skipped pair only after every money pair; with 14 the clicks run out
-        // first (the Instant Find's Titanic and Power VI), and no skipped pair is claimed.
+        // first (the Instant Find's Titanic and Power VI), and no skipped pair is claimed. 12, not 14, since the
+        // powerup no longer costs an activation click (2026-10-05): with 14 the counting already says no money is
+        // left after Power VI, and the Grand is rightly taken with the last two.
         Object[][] runs = {
                 {false, false, GRAND, 80}, {true, false, GUARDIAN, 80}, {false, true, GRAND, 80}, {true, true, TITANIC, 80},
-                {true, true, TITANIC, 14}};
+                {true, true, TITANIC, 12}};
         for (Object[] run : runs) {
             boolean skipGrand = (Boolean) run[0];
             boolean skipGuardian = (Boolean) run[1];
