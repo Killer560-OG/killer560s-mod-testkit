@@ -177,6 +177,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-hand", GrimAutoRoutesTests::caseHand);
             s.test("62-argrim-crypt", GrimAutoRoutesTests::caseCrypt);
             s.test("62-argrim-mimic", GrimAutoRoutesTests::caseMimic);
+            // The Interactive Map's own executor (livemap/autoclear/ClearExecutor), last: a map warp or a Go To sets the
+            // map-arrival interlock (only a START node arms afterwards) and Go To leaves edit mode on.
+            s.test("62-argrim-imwarp", c -> caseMapWarp(c, false));
+            s.test("62-argrim-imwarp-run", c -> caseMapWarp(c, true));
+            s.test("62-argrim-goto", GrimAutoRoutesTests::caseGoTo);
             teardown(ctx);
         });
     }
@@ -586,15 +591,34 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         // ---- the chest and the secret ----
         startSampling(ctx);
         rightClick(ctx, 24, F, 24, Direction.UP);
-        boolean screen = waitFor(ctx, 40, () -> ctx.computeOnClient(mc -> McCompat.screen(mc) != null));
-        check(screen, "clicking the chest opened no screen");
         hx.overlay("§7     §71/5 Secrets");
         boolean met = waitFor(ctx, 60, () -> logHas(mark, "await met under a screen") || logHas(mark, "await held it"));
         check(met, "the await never saw the secret");
-        check(useTicks(stopSampling(ctx)).isEmpty(), "the etherwarp went out while the chest screen was open");
-        startSampling(ctx);
-        ctx.runOnClient(mc -> mc.player.closeContainer());
-        Vec3 l6 = waitLanded(ctx, 14, 26, 60);
+        check(logHas(mark, "await secret 1: chest at"), "the await was not met by the chest click");
+        // The click meets the await (his rule; Hypixel credits the chest on the click), so the chest's window and #6's
+        // warp race: window first, the route waits under it; warp first, a late window is waited under (mod 98b457be)
+        // or the server closes the far chest before it shows. Both orders came up here (2026-10-05).
+        check(waitFor(ctx, 40, () -> logHas(mark, "Node #6 ETHERWARP acted")
+                || ctx.computeOnClient(mc -> McCompat.screen(mc) != null)), "after the click neither a window nor #6");
+        boolean windowFirst = !logHas(mark, "Node #6 ETHERWARP acted");
+        println("play: " + (windowFirst ? "the chest window came before the warp" : "the warp went out before any window"));
+        Vec3 l6;
+        if (windowFirst) {
+            check(useTicks(stopSampling(ctx)).isEmpty(), "the etherwarp went out while the chest screen was open");
+            startSampling(ctx);
+            ctx.runOnClient(mc -> mc.player.closeContainer());
+            l6 = waitLanded(ctx, 14, 26, 60);
+        } else {
+            check(!logHas(mark, "Stopped: a screen opened"), "a late chest window stopped the route");
+            l6 = waitLanded(ctx, 14, 26, 60);
+            // A late window, if the server sends one, arrives within a few ticks; #7 waits under it until it is closed.
+            waitFor(ctx, 10, () -> ctx.computeOnClient(mc -> McCompat.screen(mc) != null));
+            ctx.runOnClient(mc -> {
+                if (mc.player.containerMenu != mc.player.inventoryMenu) {
+                    mc.player.closeContainer();
+                }
+            });
+        }
         ctx.waitTicks(30);
         List<Sample> second = stopSampling(ctx);
         printTrace("play after chest", second);
@@ -845,6 +869,217 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     new Class<?>[]{enumClass("KillMimic")}, new Object[]{ModUnderTest.enumValue(AR_CONFIG + "$KillMimic",
                             "OFF")}));
         }
+    }
+
+    // ============================================================================================ Interactive Map
+
+    private static final String IM_FEATURE = "com.killer560.hub.livemap.InteractiveMapFeature";
+    private static final String IM_SCREEN = "com.killer560.hub.livemap.InteractiveMapScreen";
+    private static final String LIVE_MAP = "com.killer560.hub.livemap.LiveMapFeature";
+    private static final String EDIT_SCREEN = "com.killer560.hub.autoroutes.AutoRoutesEditScreen";
+    private static final java.util.regex.Pattern RUNNING = java.util.regex.Pattern.compile("\\[Path\\] running (\\d+) warp");
+
+    /**
+     * A press on the Interactive Map, made with its screen OPEN: the Go + Secret bind on this room's cell
+     * ({@code InteractiveMapFeature.onMapSecretPress}, the map's own entry point), which warps to the room's START node -
+     * across the 4-high wall, so the floor planner needs several etherwarps - through {@code ClearExecutor}. With
+     * {@code runWhileOpen} Auto Routes' Run While Map Open is on, so on arrival the START node (an etherwarp) fires under
+     * the still-open map: the hand-over from the map's executor to the route's.
+     */
+    private static void caseMapWarp(Session c, boolean runWhileOpen) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, true);
+        writeRoute(ctx, List.of(ew(24, 10, 24, 22, true)));
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setRunWhileMapOpen", runWhileOpen));
+        List<Sample> s = List.of();
+        try {
+            tpRel(ctx, 6.5, 20.5, 0f, 0f);
+            ctx.waitTicks(5);
+            openMap(ctx);
+            float[] look0 = look(ctx);
+            JsonObject before = stats();
+            long m = LogTap.mark();
+            startSampling(ctx);
+            int cell = ctx.computeOnClient(mc -> {
+                int[] g = (int[]) ModUnderTest.staticCall(LIVE_MAP, "gridCellFor", new Class<?>[]{Vec3.class},
+                        new Object[]{mc.player.position()});
+                return g[0] + g[1] * 11;
+            });
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(IM_FEATURE, "onMapSecretPress", new Class<?>[]{int.class},
+                    new Object[]{cell}));
+            Vec3 landed = waitLanded(ctx, 24, 10, 300);
+            Vec3 landed2 = runWhileOpen ? waitLanded(ctx, 24, 22, 100) : null;
+            ctx.waitTicks(15);
+            s = stopSampling(ctx);
+            printTrace(runWhileOpen ? "imwarp-run" : "imwarp", s);
+            float[] look1 = look(ctx);
+            String screen = ctx.computeOnClient(mc -> String.valueOf(McCompat.screen(mc)));
+            int planned = plannedWarps(m);
+            List<Sample> uses = useTicks(s);
+            int mapUses = uses.size() - (runWhileOpen ? 1 : 0);
+            check(logHas(m, "Warping to the start node"), "the map press did not take the START-node warp (cell " + cell
+                    + ")");
+            check(landed != null, "the map warp did not bring him to the start node (24,10) - at " + relPos(ctx));
+            check(planned >= 2, "the map planned " + planned + " warp(s) across the wall, expected 2 or more");
+            check(mapUses == planned, "the map sent " + mapUses + " use(s) for " + planned + " planned warp(s)");
+            check(delta(before, "etherwarps") == uses.size(), "client sent " + uses.size() + " use(s), the server made "
+                    + delta(before, "etherwarps") + " etherwarp(s)");
+            for (Sample x : uses) {
+                check(x.shift(), "a warp's use went out on tick " + x.tick() + " without the server having the sneak");
+            }
+            check(screen.contains("InteractiveMapScreen"), "the map screen did not stay open: " + screen);
+            if (runWhileOpen) {
+                check(landed2 != null, "Run While Map Open: the START node's etherwarp did not fire under the map (at "
+                        + relPos(ctx) + ")");
+                check(logHas(m, "Node #1 ETHERWARP acted"), "the route's START node never acted");
+            } else {
+                check(!logHas(m, "Node #1 ETHERWARP acted"), "the route fired under the open map with the setting off");
+                // The camera never moved, and the body was given back to it once the last warp went out.
+                check(Math.abs(net.minecraft.util.Mth.wrapDegrees(look1[0] - look0[0])) < 0.01f
+                                && Math.abs(look1[1] - look0[1]) < 0.01f,
+                        "his rotation was not given back after the warps: " + look0[0] + "/" + look0[1] + " -> " + look1[0]
+                                + "/" + look1[1]);
+            }
+            c.note((runWhileOpen ? "map warp then route under the open map: " : "map warp, map open: ") + planned
+                    + " planned, " + uses.size() + " use(s), server etherwarps +" + delta(before, "etherwarps")
+                    + ", landed " + landed + (runWhileOpen ? ", route ew landed " + landed2 : "") + ", body "
+                    + look0[0] + "/" + look0[1] + " -> " + look1[0] + "/" + look1[1]);
+        } finally {
+            writeRoute(ctx, null);
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setRunWhileMapOpen", false));
+            ctx.runOnClient(mc -> McCompat.setScreen(mc, null));
+            ctx.waitTicks(3);
+        }
+        noteFlags(c, s);
+    }
+
+    /** /ar edit 2, Go To: node #2 across the wall, reached by the Interactive Map's warp, then edit mode. */
+    private static void caseGoTo(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, true);
+        writeRoute(ctx, List.of(ew(6, 6, 14, 6, true), node("BOOM", 24, 10, 0f, 0f)));
+        List<Sample> s = List.of();
+        try {
+            tpRel(ctx, 6.5, 20.5, 0f, 0f);
+            ctx.waitTicks(5);
+            float[] look0 = look(ctx);
+            openEditor(ctx, 2);
+            JsonObject before = stats();
+            long m = LogTap.mark();
+            startSampling(ctx);
+            press(ctx, "Go To");
+            boolean edit = waitFor(ctx, 400, () -> ctx.computeOnClient(mc ->
+                    (Boolean) ModUnderTest.staticCall(FEATURE, "isEditMode")));
+            ctx.waitTicks(10);
+            s = stopSampling(ctx);
+            printTrace("goto", s);
+            Vec3 to = relPos(ctx);
+            float[] look1 = look(ctx);
+            int planned = plannedWarps(m);
+            List<Sample> uses = useTicks(s);
+            check(edit, "Go To never turned edit mode on (at " + to + ")");
+            check(to.distanceTo(new Vec3(24.5, F, 10.5)) < 1.5, "Go To did not bring him to node #2: " + to);
+            check(planned >= 2, "Go To planned " + planned + " warp(s) across the wall, expected 2 or more");
+            check(uses.size() == planned, "Go To sent " + uses.size() + " use(s) for " + planned + " planned warp(s)");
+            check(delta(before, "etherwarps") == uses.size(), "client sent " + uses.size() + " use(s), the server made "
+                    + delta(before, "etherwarps"));
+            for (Sample x : uses) {
+                check(x.shift(), "a Go To warp's use went out on tick " + x.tick() + " without the sneak");
+            }
+            check(!logHas(m, "Node #2 BOOM acted"), "node #2 fired under him on arrival");
+            check(Math.abs(net.minecraft.util.Mth.wrapDegrees(look1[0] - look0[0])) < 0.01f
+                    && Math.abs(look1[1] - look0[1]) < 0.01f, "his rotation was not given back after the warps: "
+                    + look0[0] + "/" + look0[1] + " -> " + look1[0] + "/" + look1[1]);
+            c.note("Go To #2: " + planned + " planned, " + uses.size() + " use(s), server etherwarps +"
+                    + delta(before, "etherwarps") + ", at " + to + ", edit mode on");
+        } finally {
+            if (ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(FEATURE, "isEditMode"))) {
+                cmd(ctx, "/ar edit db");
+            }
+            writeRoute(ctx, null);
+        }
+        noteFlags(c, s);
+    }
+
+    private static int plannedWarps(long mark) {
+        int n = -1;
+        for (String l : LogTap.since(mark)) {
+            java.util.regex.Matcher mm = RUNNING.matcher(l);
+            if (mm.find()) {
+                n = Integer.parseInt(mm.group(1));
+            }
+        }
+        return n;
+    }
+
+    private static float[] look(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> new float[]{mc.player.getYRot(), mc.player.getXRot()});
+    }
+
+    private static void openMap(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> {
+            try {
+                McCompat.setScreen(mc, (net.minecraft.client.gui.screens.Screen) Class.forName(IM_SCREEN)
+                        .getConstructor(boolean.class).newInstance(false));
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        ctx.waitTicks(3);
+        String screen = ctx.computeOnClient(mc -> String.valueOf(McCompat.screen(mc)));
+        check(screen.contains("InteractiveMapScreen"), "the Interactive Map did not open: " + screen);
+    }
+
+    private static void openEditor(ClientGameTestContext ctx, int n) {
+        cmd(ctx, "/ar edit " + n);
+        boolean open = waitFor(ctx, 20, () -> ctx.computeOnClient(mc -> McCompat.screen(mc) != null
+                && McCompat.screen(mc).getClass().getName().equals(EDIT_SCREEN)));
+        check(open, "/ar edit " + n + " did not open the node editor (screen "
+                + ctx.computeOnClient(mc -> String.valueOf(McCompat.screen(mc))) + ")");
+        ctx.waitTicks(3);
+    }
+
+    /** A click at the widget's DRAWN centre, through the screen's own mouseClicked (96-ar's helper). */
+    private static void press(ClientGameTestContext ctx, String label) {
+        String result = ctx.computeOnClient(mc -> {
+            net.minecraft.client.gui.screens.Screen sc = McCompat.screen(mc);
+            if (sc == null) {
+                return "no screen";
+            }
+            net.minecraft.client.gui.components.AbstractWidget found = null;
+            for (var child : sc.children()) {
+                if (child instanceof net.minecraft.client.gui.components.AbstractWidget w
+                        && !(w instanceof net.minecraft.client.gui.components.EditBox)) {
+                    String l = strip(w.getMessage().getString());
+                    if (l.equals(label)) {
+                        found = w;
+                        break;
+                    }
+                    if (found == null && l.startsWith(label)) {
+                        found = w;
+                    }
+                }
+            }
+            if (found == null) {
+                return "no button \"" + label + "\"";
+            }
+            double x = found.getX() + found.getWidth() / 2.0;
+            double y = found.getY() + found.getHeight() / 2.0;
+            boolean took = sc.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(x, y,
+                    new net.minecraft.client.input.MouseButtonInfo(0, 0)), false);
+            sc.mouseReleased(new net.minecraft.client.input.MouseButtonEvent(x, y,
+                    new net.minecraft.client.input.MouseButtonInfo(0, 0)));
+            return took ? "ok" : "click at " + x + "," + y + " on \"" + label + "\" was not taken";
+        });
+        check("ok".equals(result), result);
+        ctx.waitTicks(1);
+    }
+
+    private static String strip(String s) {
+        String t = net.minecraft.ChatFormatting.stripFormatting(s);
+        return t == null ? s : t;
     }
 
     private static Class<?> enumClass(String inner) {
