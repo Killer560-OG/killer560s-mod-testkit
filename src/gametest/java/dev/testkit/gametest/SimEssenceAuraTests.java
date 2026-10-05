@@ -99,36 +99,48 @@ public class SimEssenceAuraTests implements FabricClientGameTest {
 
     private static String visit(ClientGameTestContext ctx, int n, String what, String held) {
         String tag = "visit " + n + " (" + what + ", holding " + held + ")";
-        auraOff(ctx);
-        Scenario.ensureRoomDatabase(ctx);
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter",
-                new Class<?>[]{String.class}, new Object[]{"gametest"}));
-        long before = Scenario.simBuildCount(ctx);
-        ctx.runOnClient(mc -> mc.execute(() -> {
-            Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
-            ModUnderTest.staticCall(FLOOR_GEN, "generate",
-                    new Class<?>[]{Minecraft.class, floor.getClass(), int.class, int.class},
-                    new Object[]{mc, floor, 3, 4});
-        }));
-        ctx.waitFor(mc -> mc.level != null && mc.player != null, 2400);
-        Scenario.awaitSimBuild(ctx, before);
-        ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
-        ctx.waitTicks(20);
+        // A random 3x4 floor sometimes holds no wither essence at all (visit 2 hit that on 2026-10-05). That is the
+        // floor's luck, not Secret Aura's: build another floor, up to three, before calling the premise failed.
+        Object[] p = null;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            if (attempt > 1) {
+                println(tag + ": floor " + (attempt - 1) + " had no wither essence - building another");
+                leave(ctx);
+            }
+            auraOff(ctx);
+            Scenario.ensureRoomDatabase(ctx);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter",
+                    new Class<?>[]{String.class}, new Object[]{"gametest"}));
+            long before = Scenario.simBuildCount(ctx);
+            ctx.runOnClient(mc -> mc.execute(() -> {
+                Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
+                ModUnderTest.staticCall(FLOOR_GEN, "generate",
+                        new Class<?>[]{Minecraft.class, floor.getClass(), int.class, int.class},
+                        new Object[]{mc, floor, 3, 4});
+            }));
+            ctx.waitFor(mc -> mc.level != null && mc.player != null, 2400);
+            Scenario.awaitSimBuild(ctx, before);
+            ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
+            ctx.waitTicks(20);
 
-        // ---- pick an essence and a floor block within reach of it, on the SERVER (it has the whole floor) ---
-        AtomicReference<Object[]> pick = new AtomicReference<>();
-        ctx.runOnClient(mc -> {
-            var server = mc.getSingleplayerServer();
-            server.execute(() -> {
-                try {
-                    pick.set(pickEssence(server.overworld()));
-                } catch (Throwable t) {
-                    pick.set(new Object[]{null, null, "pick threw " + t});
-                }
+            // ---- pick an essence and a floor block within reach of it, on the SERVER (it has the whole floor) ---
+            AtomicReference<Object[]> pick = new AtomicReference<>();
+            ctx.runOnClient(mc -> {
+                var server = mc.getSingleplayerServer();
+                server.execute(() -> {
+                    try {
+                        pick.set(pickEssence(server.overworld()));
+                    } catch (Throwable t) {
+                        pick.set(new Object[]{null, null, "pick threw " + t});
+                    }
+                });
             });
-        });
-        ctx.waitFor(mc -> pick.get() != null, 200);
-        Object[] p = pick.get();
+            ctx.waitFor(mc -> pick.get() != null, 200);
+            p = pick.get();
+            if (p[0] != null || !String.valueOf(p[2]).contains("placed no wither essence")) {
+                break;
+            }
+        }
         if (p[0] == null) {
             return tag + ": FAIL premise - " + p[2];
         }

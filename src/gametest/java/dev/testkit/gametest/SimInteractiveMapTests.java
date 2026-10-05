@@ -434,6 +434,8 @@ public class SimInteractiveMapTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ModUnderTest.set(mapCfg, "setRoomLabels", 0));
         ctx.waitTicks(3);
         Path off = ctx.takeScreenshot(Report.fileName(NAME + "-labels-off"));
+        ctx.waitTicks(3);
+        Path off2 = ctx.takeScreenshot(Report.fileName(NAME + "-labels-off-again"));
         ctx.runOnClient(mc -> ModUnderTest.set(mapCfg, "setRoomLabels", 3));
         ctx.waitTicks(3);
         Path names = ctx.takeScreenshot(Report.fileName(NAME + "-labels-names"));
@@ -450,13 +452,20 @@ public class SimInteractiveMapTests implements FabricClientGameTest {
         });
         // The top three quarters of the map: the chat's fading lines cross its bottom edge in the gametest window.
         int cut = mapPanel[1] + (mapPanel[3] - mapPanel[1]) * 3 / 4;
-        int diff = diffPixels(off, names, (int) (mapPanel[0] * toPx), (int) (mapPanel[1] * toPx),
-                (int) (mapPanel[2] * toPx), (int) (cut * toPx));
-        int noise = diffPixels(names, names2, (int) (mapPanel[0] * toPx), (int) (mapPanel[1] * toPx),
-                (int) (mapPanel[2] * toPx), (int) (cut * toPx));
-        println("Room Labels Off vs Room Name: " + diff + " pixel(s) of the Interactive Map's panel differ; the same "
-                + "setting twice: " + noise);
-        if (diff < 50 + 3 * noise) {
+        // Only pixels that held still across BOTH controls count: the world behind the translucent panel can
+        // move by tens of thousands of pixels between shots (96,679 on 2026-10-05), which swamped a plain diff.
+        int x0 = (int) (mapPanel[0] * toPx), y0 = (int) (mapPanel[1] * toPx);
+        int x1 = (int) (mapPanel[2] * toPx), y1 = (int) (cut * toPx);
+        int[] counts = stableDiff(off, off2, names, names2, x0, y0, x1, y1);
+        int diff = counts[0];
+        int stable = counts[1];
+        println("Room Labels Off vs Room Name: " + diff + " steady pixel(s) of the Interactive Map's panel differ, of "
+                + stable + " steady; controls (same setting twice) moved " + diffPixels(off, off2, x0, y0, x1, y1)
+                + " and " + diffPixels(names, names2, x0, y0, x1, y1));
+        if (stable < 10_000) {
+            failures.add("too little of the Interactive Map held still between shots (" + stable
+                    + " steady pixels) to compare Room Labels - the check would be vacuous");
+        } else if (diff < 50) {
             failures.add("changing the Dungeon Map's Room Labels did not change the Interactive Map (" + diff
                     + " pixels differ)");
         }
@@ -489,6 +498,31 @@ public class SimInteractiveMapTests implements FabricClientGameTest {
             }
         }
         return n;
+    }
+
+    /** {pixels that differ between a and b where a==a2 and b==b2, pixels where a==a2 and b==b2}. */
+    private static int[] stableDiff(Path a, Path a2, Path b, Path b2, int x0, int y0, int x1, int y1)
+            throws java.io.IOException {
+        BufferedImage ia = javax.imageio.ImageIO.read(a.toFile());
+        BufferedImage ia2 = javax.imageio.ImageIO.read(a2.toFile());
+        BufferedImage ib = javax.imageio.ImageIO.read(b.toFile());
+        BufferedImage ib2 = javax.imageio.ImageIO.read(b2.toFile());
+        int h = Math.min(Math.min(ia.getHeight(), ia2.getHeight()), Math.min(ib.getHeight(), ib2.getHeight()));
+        int w = Math.min(Math.min(ia.getWidth(), ia2.getWidth()), Math.min(ib.getWidth(), ib2.getWidth()));
+        int diff = 0;
+        int stable = 0;
+        for (int y = Math.max(0, y0); y < Math.min(y1, h); y++) {
+            for (int x = Math.max(0, x0); x < Math.min(x1, w); x++) {
+                if (ia.getRGB(x, y) != ia2.getRGB(x, y) || ib.getRGB(x, y) != ib2.getRGB(x, y)) {
+                    continue;
+                }
+                stable++;
+                if (ia.getRGB(x, y) != ib.getRGB(x, y)) {
+                    diff++;
+                }
+            }
+        }
+        return new int[]{diff, stable};
     }
 
     private static void println(String s) {
