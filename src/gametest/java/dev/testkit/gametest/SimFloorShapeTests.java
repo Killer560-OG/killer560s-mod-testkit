@@ -71,6 +71,7 @@ public class SimFloorShapeTests implements FabricClientGameTest {
         String[] floorNames = {"ENTRANCE", "F1", "F2", "F3", "F4", "F5", "F6", "F7"};
         java.util.Map<String, int[]> perFloor = new java.util.LinkedHashMap<>();   // name -> {floors, cells}
         int planned = 0;
+        int carvedDoors = 0;
         int withMulti = 0;
         int multiRooms = 0;
         int totalRooms = 0;
@@ -263,6 +264,10 @@ public class SimFloorShapeTests implements FabricClientGameTest {
             int[] rotationOf = (int[]) out[4];
             int[][] doorsOf = (int[][]) out[5];
             Set<Integer> doorwayCells = new HashSet<>();
+            // Which rooms have a doorway at each door cell. A door with a doorway on ONE side only is the fill
+            // pass's deliberate carve (SimFloorLayout.fillGaps step 3: "the door cut through the neighbour's wall",
+            // the builder lays its floor), so it does not count against the carved-into room's doorway total.
+            Map<Integer, Set<Integer>> doorwayRooms = new HashMap<>();
             Map<Integer, Integer> linksPerRoom = new HashMap<>();
             for (int c = 0; c < GRID * GRID; c++) {
                 int id = roomOf[c];
@@ -283,6 +288,7 @@ public class SimFloorShapeTests implements FabricClientGameTest {
                         continue;   // off the map: the builder bricks this one up
                     }
                     doorwayCells.add(nz * GRID + nx);
+                    doorwayRooms.computeIfAbsent(nz * GRID + nx, key -> new HashSet<>()).add(id);
                 }
             }
             for (int c = 0; c < GRID * GRID; c++) {
@@ -303,8 +309,16 @@ public class SimFloorShapeTests implements FabricClientGameTest {
                             + names[roomOf[aCell]] + " and " + names[roomOf[bCell]]
                             + " but neither room has a doorway there");
                 }
-                linksPerRoom.merge(roomOf[aCell], 1, Integer::sum);
-                linksPerRoom.merge(roomOf[bCell], 1, Integer::sum);
+                Set<Integer> haveDoorway = doorwayRooms.getOrDefault(c, Set.of());
+                if (haveDoorway.contains(roomOf[aCell])) {
+                    linksPerRoom.merge(roomOf[aCell], 1, Integer::sum);
+                }
+                if (haveDoorway.contains(roomOf[bCell])) {
+                    linksPerRoom.merge(roomOf[bCell], 1, Integer::sum);
+                }
+                if (doorwayCells.contains(c) && haveDoorway.size() == 1) {
+                    carvedDoors++;
+                }
             }
 
             // 4. A one-door room is the end of a branch.
@@ -409,6 +423,8 @@ public class SimFloorShapeTests implements FabricClientGameTest {
                         + "mean fill %.0f%%",
                 planned, totalRooms, multiRooms, 100.0 * withMulti / Math.max(1, planned),
                 100.0 * fillSum / Math.max(1, planned)));
+        System.out.println("[73-sim-floor-shape] carved doors (a doorway on one side only, the fill pass's last "
+                + "resort): " + carvedDoors + " across " + planned + " floor(s)");
 
         // Per floor size, so "all the floor sizes work" is a number per size rather than one average that a
         // single broken size could hide inside.
