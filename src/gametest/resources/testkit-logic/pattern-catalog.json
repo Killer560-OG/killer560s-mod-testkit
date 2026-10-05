@@ -1,15 +1,15 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-04T21:55:20",
- "modSource": "C:/Users/Hunter/killer560s-mod",
- "modGitSha": "f40ec8969ad74d4f5af7022533469a44c10eba86",
+ "generatedAt": "2026-10-05T00:09:17",
+ "modSource": "C:/Users/Hunter/killer560s-mod/.claude/worktrees/night-test",
+ "modGitSha": "a71b82a7f788edae832b8973a170189ad871cf2d",
  "modSourceDirty": false,
- "count": 391,
+ "count": 400,
  "byKind": {
   "dynamic": 7,
   "element": 43,
-  "field": 337,
-  "local": 4
+  "field": 341,
+  "local": 9
  },
  "unresolved": 8,
  "patterns": [
@@ -1903,11 +1903,11 @@
    "field": "CLEARED",
    "index": null,
    "file": "src/main/java/com/killer560/hub/leapmenu/PartyTracker.java",
-   "line": 60,
-   "regex": "^(?:You left the party\\.|You are not currently in a party\\.|You have been kicked from the party by .+|.+ has disbanded the party!|The party was disbanded because .+|You are not in a party.*)$",
+   "line": 63,
+   "regex": "^(?:You left the party\\.|You are not currently in a party\\.|You have been kicked from the party by (?:\\[[^]]+] )?[A-Za-z0-9_]{1,16}|(?:\\[[^]]+] )?[A-Za-z0-9_]{1,16} has disbanded the party!|The party was disbanded because .+|You are not in a party.*)$",
    "flags": null,
    "kind": "field",
-   "expr": "\"^(?:You left the party\\\\.|You are not currently in a party\\\\.|You have been kicked from the party by .+|\" + \".+ has disbanded the party!|The party was disbanded because .+|You are not in a party.*)$\""
+   "expr": "\"^(?:You left the party\\\\.|You are not currently in a party\\\\.|You have been kicked from the party by \" + ANY_NAME + \"|\" + ANY_NAME + \" has disbanded the party!|The party was disbanded because .+|You are not in a party.*)$\""
   },
   {
    "id": "leapmessage.LeapMessageFeature#LEAP_MESSAGE",
@@ -2719,7 +2719,7 @@
    "field": "PETS_TITLE",
    "index": null,
    "file": "src/main/java/com/killer560/hub/petwheel/PetSummoner.java",
-   "line": 48,
+   "line": 64,
    "regex": "^(?:\\((\\d+)/(\\d+)\\)\\s*)?Pets$",
    "flags": null,
    "kind": "field",
@@ -2779,7 +2779,7 @@
    "field": "HEALTH_REGEX",
    "index": null,
    "file": "src/main/java/com/killer560/hub/playerstats/PlayerStatsFeature.java",
-   "line": 47,
+   "line": 48,
    "regex": "([\\d,]+)/([\\d,]+)(?:§.)*[❤]",
    "flags": null,
    "kind": "field",
@@ -2791,7 +2791,7 @@
    "field": "MANA_REGEX",
    "index": null,
    "file": "src/main/java/com/killer560/hub/playerstats/PlayerStatsFeature.java",
-   "line": 48,
+   "line": 49,
    "regex": "([\\d,]+)/([\\d,]+)(?:§.)*[✎]",
    "flags": null,
    "kind": "field",
@@ -2803,11 +2803,95 @@
    "field": "DEFENSE_REGEX",
    "index": null,
    "file": "src/main/java/com/killer560/hub/playerstats/PlayerStatsFeature.java",
-   "line": 49,
+   "line": 50,
    "regex": "([\\d,]+)(?:§.)*[❈]",
    "flags": null,
    "kind": "field",
    "expr": "\"([\\\\d,]+)\" + CODES + \"[\\uE008\\u2748]\""
+  },
+  {
+   "id": "playerstats.PlayerStatsFeature#OVERFLOW_REGEX",
+   "cls": "playerstats.PlayerStatsFeature",
+   "field": "OVERFLOW_REGEX",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/playerstats/PlayerStatsFeature.java",
+   "line": 57,
+   "regex": "(?<![§\\d,])(?:§.)*([\\d,]+)(?:§.)*ʬ",
+   "flags": null,
+   "kind": "field",
+   "expr": "NUMBER_START + \"([\\\\d,]+)\" + CODES + \"\\u02AC\""
+  },
+  {
+   "id": "playerstats.PlayerStatsFeature#OTHER_REGEX",
+   "cls": "playerstats.PlayerStatsFeature",
+   "field": "OTHER_REGEX",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/playerstats/PlayerStatsFeature.java",
+   "line": 63,
+   "regex": "(?<![§\\d,])(?:§.)*([\\d,]+)/([\\d,]+)(?:§.)*([^\\x00-\\x7F§])",
+   "flags": null,
+   "kind": "field",
+   "expr": "NUMBER_START + \"([\\\\d,]+)/([\\\\d,]+)\" + CODES + \"([^\\\\x00-\\\\x7F\\u00A7])\""
+  },
+  {
+   "id": "playerstats.PlayerStatsFeature@69",
+   "cls": "playerstats.PlayerStatsFeature",
+   "field": null,
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/playerstats/PlayerStatsFeature.java",
+   "line": 69,
+   "regex": "(?:§.)*[\\d,]+/[\\d,]+(?:§.)*[❤]",
+   "flags": null,
+   "kind": "local",
+   "expr": "CODES + \"[\\\\d,]+/[\\\\d,]+\" + CODES + \"[\\uE010\\u2764]\""
+  },
+  {
+   "id": "playerstats.PlayerStatsFeature@70",
+   "cls": "playerstats.PlayerStatsFeature",
+   "field": null,
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/playerstats/PlayerStatsFeature.java",
+   "line": 70,
+   "regex": "(?:§.)*[\\d,]+/[\\d,]+(?:§.)*[✎](?:(?:§.)* Mana)?",
+   "flags": null,
+   "kind": "local",
+   "expr": "CODES + \"[\\\\d,]+/[\\\\d,]+\" + CODES + \"[\\uE003\\u270E](?:\" + CODES + \" Mana)?\""
+  },
+  {
+   "id": "playerstats.PlayerStatsFeature@71",
+   "cls": "playerstats.PlayerStatsFeature",
+   "field": null,
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/playerstats/PlayerStatsFeature.java",
+   "line": 71,
+   "regex": "(?:§.)*[\\d,]+(?:§.)*[❈](?:(?:§.)* Defense)?",
+   "flags": null,
+   "kind": "local",
+   "expr": "CODES + \"[\\\\d,]+\" + CODES + \"[\\uE008\\u2748](?:\" + CODES + \" Defense)?\""
+  },
+  {
+   "id": "playerstats.PlayerStatsFeature@72",
+   "cls": "playerstats.PlayerStatsFeature",
+   "field": null,
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/playerstats/PlayerStatsFeature.java",
+   "line": 72,
+   "regex": "(?:§.)*[\\d,]+(?:§.)*ʬ",
+   "flags": null,
+   "kind": "local",
+   "expr": "CODES + \"[\\\\d,]+\" + CODES + \"\\u02AC\""
+  },
+  {
+   "id": "playerstats.PlayerStatsFeature@73",
+   "cls": "playerstats.PlayerStatsFeature",
+   "field": null,
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/playerstats/PlayerStatsFeature.java",
+   "line": 73,
+   "regex": "(?:§.)*[\\d,]+/[\\d,]+(?:§.)*[^\\x00-\\x7F§]",
+   "flags": null,
+   "kind": "local",
+   "expr": "CODES + \"[\\\\d,]+/[\\\\d,]+\" + CODES + \"[^\\\\x00-\\\\x7F\\u00A7]\""
   },
   {
    "id": "profileviewer.api.ProfileViewerApi#NAME",
@@ -3132,6 +3216,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"\\\\((\\\\d+(?:\\\\.\\\\d+)?)%[^)]*Magic Find\\\\)\""
+  },
+  {
+   "id": "rngmeter.MagicFindTracker#PLAYER_CHAT",
+   "cls": "rngmeter.MagicFindTracker",
+   "field": "PLAYER_CHAT",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/rngmeter/MagicFindTracker.java",
+   "line": 36,
+   "regex": "^(?:(?:Party|Guild|Officer|Co-op) > |From |To )?(?:\\[[^\\]]{1,24}] )?[A-Za-z0-9_]{1,16}(?: \\[[^\\]]{1,24}])?: ",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(?:(?:Party|Guild|Officer|Co-op) > |From |To )?(?:\\\\[[^\\\\]]{1,24}] )?[A-Za-z0-9_]{1,16}(?: \\\\[[^\\\\]]{1,24}])?: \""
   },
   {
    "id": "rngmeter.RngMeterOverlay#DUNGEON_SCORE_LINE",
@@ -4284,6 +4380,18 @@
    "flags": "Pattern.CASE_INSENSITIVE",
    "kind": "field",
    "expr": "\"^/?(?:f|fl|friend|friends)(?:\\\\s+(?:list|l))?\\\\s+(\\\\d{1,3})$\""
+  },
+  {
+   "id": "social.FriendsListSync#VALID_NAME",
+   "cls": "social.FriendsListSync",
+   "field": "VALID_NAME",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/social/FriendsListSync.java",
+   "line": 380,
+   "regex": "^[A-Za-z0-9_]{1,16}$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^[A-Za-z0-9_]{1,16}$\""
   },
   {
    "id": "spiritleap.SpiritLeapOverlayFeature#IGN",

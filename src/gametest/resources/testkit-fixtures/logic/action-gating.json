@@ -362,7 +362,7 @@
     "payload": "[NPC] Aldous: The reward is in my chest.",
     "source": {
       "file": "src/main/java/com/killer560/hub/roomsim/puzzles/SimQuizPuzzle.java",
-      "line": 431
+      "line": 449
     },
     "matches": [
       "dungeonextras.AutoDialogueFeature#NPC_LINE",
@@ -370,7 +370,7 @@
     ],
     "mode": "matches",
     "verifiedBy": "regex",
-    "notes": "\"[NPC] \" + WEIRDO_NAMES[i] + \": \" + line (SimQuizPuzzle.java:431, names at :98, line from WeirdosSolverFeature.java:66). AutoDialogue then runs the line's click command. WeirdosSolverFeature reads it with matches() since f40ec89 (WeirdosSolverFeature.java:130)."
+    "notes": "\"[NPC] \" + WEIRDO_NAMES[i] + \": \" + line (SimQuizPuzzle.java:449, names at :98, line from WeirdosSolverFeature.java:66). AutoDialogue then runs the line's click command. WeirdosSolverFeature reads it with matches() since f40ec89 (WeirdosSolverFeature.java:130)."
   },
   {
     "id": "logic.simon-says-progress",
