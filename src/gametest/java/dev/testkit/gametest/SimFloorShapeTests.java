@@ -469,7 +469,7 @@ public class SimFloorShapeTests implements FabricClientGameTest {
                     + " floors, from a library that has them - the generator is not placing them");
         }
         System.out.println("[73-sim-floor-shape] PASS - every floor connected, compact, correctly sized, "
-                + "and every door is a doorway in both rooms");
+                + "and every door a doorway in both rooms or a fill-pass carve (" + carvedDoors + " carved)");
     }
 
     private static final int[] DX = {0, 1, 0, -1};
