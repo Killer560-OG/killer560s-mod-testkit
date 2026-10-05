@@ -256,3 +256,8 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   now anchor the root with `/` and require `fabric.dli.env=client`. Older checkouts still carry the old placer.
 - `powershell -File script.ps1 -Extra a b` binds only `a` to a `string[]` parameter; parallel-suite.ps1 launches its
   children with `-Command` and single-quoted values instead.
+
+- **Pass `-PmodUnderTest` a literal `C:/...` path.** In Git Bash, `$(cygpath -m "$(ls ...)")` around a long scratchpad
+  path came back empty twice (2026-10-04, 2026-10-05) and the run died at configuration with "modUnderTest not found: \\",
+  before any test ran. Write the path out.
+
