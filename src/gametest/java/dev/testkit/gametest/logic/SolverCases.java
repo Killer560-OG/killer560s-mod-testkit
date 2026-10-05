@@ -1,5 +1,7 @@
 package dev.testkit.gametest.logic;
 
+import dev.testkit.compat.McItems;
+
 import dev.testkit.gametest.mod.Mod;
 
 import net.minecraft.core.component.DataComponents;
@@ -57,10 +59,10 @@ final class SolverCases {
 
         // PANES: every red pane, nothing else.
         List<ItemStack> panes = board(45);
-        panes.set(11, stack(Items.RED_STAINED_GLASS_PANE, 1, "", false));
-        panes.set(12, stack(Items.RED_STAINED_GLASS_PANE, 1, "", false));
-        panes.set(20, stack(Items.RED_STAINED_GLASS_PANE, 1, "", false));
-        panes.set(13, stack(Items.LIME_STAINED_GLASS_PANE, 1, "", false));
+        panes.set(11, stack(McItems.RED_STAINED_GLASS_PANE, 1, "", false));
+        panes.set(12, stack(McItems.RED_STAINED_GLASS_PANE, 1, "", false));
+        panes.set(20, stack(McItems.RED_STAINED_GLASS_PANE, 1, "", false));
+        panes.set(13, stack(McItems.LIME_STAINED_GLASS_PANE, 1, "", false));
         Map<Integer, Object> hp = solve("PANES", "Correct all the panes!", panes);
         c.eq("panes highlights", Set.of(11, 12, 20), hp.keySet());
         Object pick = pick("PANES", hp, Set.of(11));
@@ -68,11 +70,11 @@ final class SolverCases {
 
         // NUMBERS: lowest count is the primary next click, then the following one.
         List<ItemStack> nums = board(36);
-        nums.set(10, stack(Items.RED_STAINED_GLASS_PANE, 3, "", false));
-        nums.set(11, stack(Items.RED_STAINED_GLASS_PANE, 1, "", false));
-        nums.set(12, stack(Items.RED_STAINED_GLASS_PANE, 2, "", false));
-        nums.set(14, stack(Items.RED_STAINED_GLASS_PANE, 4, "", false));
-        nums.set(13, stack(Items.LIME_STAINED_GLASS_PANE, 5, "", false));
+        nums.set(10, stack(McItems.RED_STAINED_GLASS_PANE, 3, "", false));
+        nums.set(11, stack(McItems.RED_STAINED_GLASS_PANE, 1, "", false));
+        nums.set(12, stack(McItems.RED_STAINED_GLASS_PANE, 2, "", false));
+        nums.set(14, stack(McItems.RED_STAINED_GLASS_PANE, 4, "", false));
+        nums.set(13, stack(McItems.LIME_STAINED_GLASS_PANE, 5, "", false));
         Map<Integer, Object> hn = solve("NUMBERS", "Click in order!", nums);
         List<Integer> order = new ArrayList<>(hn.keySet());
         c.check("numbers first two", order.size() >= 2 && order.get(0) == 11 && order.get(1) == 12, "order " + order);
@@ -85,9 +87,9 @@ final class SolverCases {
         // RUBIX: a worked board, then a property sweep.
         Mod.staticCall(TERM, "resetRubixTarget");
         List<ItemStack> rubix = board(45);
-        rubix.set(12, stack(Items.ORANGE_STAINED_GLASS_PANE, 1, "", false));
-        rubix.set(13, stack(Items.ORANGE_STAINED_GLASS_PANE, 1, "", false));
-        rubix.set(14, stack(Items.YELLOW_STAINED_GLASS_PANE, 1, "", false));
+        rubix.set(12, stack(McItems.ORANGE_STAINED_GLASS_PANE, 1, "", false));
+        rubix.set(13, stack(McItems.ORANGE_STAINED_GLASS_PANE, 1, "", false));
+        rubix.set(14, stack(McItems.YELLOW_STAINED_GLASS_PANE, 1, "", false));
         Map<Integer, Object> hr = solve("RUBIX", "Change all to same color!", rubix);
         c.eq("rubix worked board slots", Set.of(14), hr.keySet());
         c.eq("rubix worked board label", "-1", hr.isEmpty() ? null : Mod.call(hr.get(14), "label"));
@@ -111,20 +113,20 @@ final class SolverCases {
 
         // SELECT: colour from the title (Hypixel writes it upper case), aliases, glint and black panes skipped.
         List<ItemStack> sel = board(45);
-        sel.set(10, stack(Items.LIGHT_BLUE_WOOL, 1, "Light Blue Wool", false));
-        sel.set(11, stack(Items.BLUE_WOOL, 1, "Blue Wool", false));
-        sel.set(12, stack(Items.LIGHT_BLUE_DYE, 1, "Light Blue Dye", true));
-        sel.set(13, stack(Items.BLACK_STAINED_GLASS_PANE, 1, "Light Blue", false));
+        sel.set(10, stack(McItems.LIGHT_BLUE_WOOL, 1, "Light Blue Wool", false));
+        sel.set(11, stack(McItems.BLUE_WOOL, 1, "Blue Wool", false));
+        sel.set(12, stack(McItems.LIGHT_BLUE_DYE, 1, "Light Blue Dye", true));
+        sel.set(13, stack(McItems.BLACK_STAINED_GLASS_PANE, 1, "Light Blue", false));
         c.eq("select LIGHT BLUE", Set.of(10), solve("SELECT", "Select all the LIGHT BLUE items!", sel).keySet());
         List<ItemStack> silver = board(45);
-        silver.set(10, stack(Items.LIGHT_GRAY_WOOL, 1, "Light Gray Wool", false));
-        silver.set(11, stack(Items.GRAY_WOOL, 1, "Gray Wool", false));
+        silver.set(10, stack(McItems.LIGHT_GRAY_WOOL, 1, "Light Gray Wool", false));
+        silver.set(11, stack(McItems.GRAY_WOOL, 1, "Gray Wool", false));
         c.eq("select SILVER means light gray", Set.of(10),
                 solve("SELECT", "Select all the SILVER items!", silver).keySet());
         List<ItemStack> blue = board(45);
-        blue.set(10, stack(Items.BLUE_WOOL, 1, "Blue Wool", false));
+        blue.set(10, stack(McItems.BLUE_WOOL, 1, "Blue Wool", false));
         blue.set(11, stack(Items.LAPIS_LAZULI, 1, "Lapis Lazuli", false));
-        blue.set(12, stack(Items.LIGHT_BLUE_WOOL, 1, "Light Blue Wool", false));
+        blue.set(12, stack(McItems.LIGHT_BLUE_WOOL, 1, "Light Blue Wool", false));
         c.eq("select BLUE takes lapis, not light blue", Set.of(10, 11),
                 solve("SELECT", "Select all the BLUE items!", blue).keySet());
 
@@ -147,8 +149,8 @@ final class SolverCases {
      * over every target colour.
      */
     private static void rubixSweep(LogicCase c) {
-        Item[] cycle = {Items.ORANGE_STAINED_GLASS_PANE, Items.YELLOW_STAINED_GLASS_PANE,
-            Items.GREEN_STAINED_GLASS_PANE, Items.BLUE_STAINED_GLASS_PANE, Items.RED_STAINED_GLASS_PANE};
+        Item[] cycle = {McItems.ORANGE_STAINED_GLASS_PANE, McItems.YELLOW_STAINED_GLASS_PANE,
+            McItems.GREEN_STAINED_GLASS_PANE, McItems.BLUE_STAINED_GLASS_PANE, McItems.RED_STAINED_GLASS_PANE};
         int[] slots = {12, 13, 14, 21, 22, 23, 30, 31, 32};
         Random rng = new Random(560);
         int bad = 0;

@@ -1,5 +1,7 @@
 package dev.testkit.gametest.ui;
 
+import dev.testkit.compat.McCompat;
+
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
@@ -130,7 +132,7 @@ final class ScreenSweep {
                     out.put("drag", id + " from " + p[0] + "," + p[1] + " -> HudConfig " + saved[0] + "," + saved[1]);
                     out.put("dragOk", saved[0] == p[0] + 10 && saved[1] == p[1] + 6);
                 }
-                mc.setScreen(on);
+                McCompat.setScreen(mc, on);
             } catch (Throwable t) {
                 out.put("error", UiCase.describe(t));
             } finally {
@@ -142,7 +144,7 @@ final class ScreenSweep {
         c.ticks(5);
         c.onClient(mc -> {
             dev.testkit.gametest.mod.Mod.set("hud.HudConfig", "setEditorShowAll", r.get("restoreShowAll"));
-            mc.setScreen(null);
+            McCompat.setScreen(mc, null);
             return null;
         });
         c.check(!r.containsKey("error"), "HUD editor: " + r.get("error"));
@@ -247,13 +249,13 @@ final class ScreenSweep {
                 }
                 n[1]++;
                 c.onClient(mc -> {
-                    mc.setScreen(b.screen());
+                    McCompat.setScreen(mc, b.screen());
                     return null;
                 });
                 c.ticks(3);
-                boolean stillUp = c.onClient(mc -> mc.screen == b.screen());
+                boolean stillUp = c.onClient(mc -> McCompat.screen(mc) == b.screen());
                 c.onClient(mc -> {
-                    mc.setScreen(null);
+                    McCompat.setScreen(mc, null);
                     return null;
                 });
                 c.ticks(1);

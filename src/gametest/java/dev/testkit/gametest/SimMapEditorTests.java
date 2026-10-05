@@ -1,5 +1,7 @@
 package dev.testkit.gametest;
 
+import dev.testkit.compat.McCompat;
+
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
@@ -235,15 +237,15 @@ public class SimMapEditorTests implements FabricClientGameTest {
                 Class<?> cls = Class.forName("com.killer560.hub.roomsim.SimMapEditorScreen");
                 Object screen = cls.getConstructor(net.minecraft.client.gui.screens.Screen.class)
                         .newInstance((Object) null);
-                mc.setScreen((net.minecraft.client.gui.screens.Screen) screen);
+                McCompat.setScreen(mc, (net.minecraft.client.gui.screens.Screen) screen);
             } catch (Exception e) {
                 throw new RuntimeException("could not open the map editor screen", e);
             }
         }));
         ctx.waitTicks(20);
         boolean[] open = new boolean[1];
-        ctx.runOnClient(mc -> open[0] = mc.screen != null
-                && mc.screen.getClass().getName().endsWith("SimMapEditorScreen"));
+        ctx.runOnClient(mc -> open[0] = McCompat.screen(mc) != null
+                && McCompat.screen(mc).getClass().getName().endsWith("SimMapEditorScreen"));
         if (!open[0]) {
             throw new AssertionError("the map editor screen did not stay open - it threw during init or "
                     + "render, which would crash him the moment he opened it");
@@ -251,13 +253,13 @@ public class SimMapEditorTests implements FabricClientGameTest {
         // Rendered for a good few frames, not just constructed: the draw path is where the font measuring and
         // the scissor work live.
         ctx.waitTicks(40);
-        ctx.runOnClient(mc -> open[0] = mc.screen != null
-                && mc.screen.getClass().getName().endsWith("SimMapEditorScreen"));
+        ctx.runOnClient(mc -> open[0] = McCompat.screen(mc) != null
+                && McCompat.screen(mc).getClass().getName().endsWith("SimMapEditorScreen"));
         if (!open[0]) {
             throw new AssertionError("the map editor screen closed itself while rendering");
         }
         System.out.println("[75-sim-map-editor] the editor screen opened and rendered for 60 ticks");
-        ctx.runOnClient(mc -> mc.execute(() -> mc.setScreen(null)));
+        ctx.runOnClient(mc -> mc.execute(() -> McCompat.setScreen(mc, null)));
         ctx.waitTicks(10);
 
         System.out.println("[75-sim-map-editor] PASS - the floor matches the drawing");

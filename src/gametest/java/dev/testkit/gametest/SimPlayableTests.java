@@ -1,5 +1,7 @@
 package dev.testkit.gametest;
 
+import dev.testkit.compat.McCompat;
+
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
@@ -231,8 +233,8 @@ public class SimPlayableTests implements FabricClientGameTest {
         ctx.waitFor(mc -> mc.level == null && mc.getSingleplayerServer() == null);
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> mc.execute(() ->
-                mc.setScreen(new net.minecraft.client.gui.screens.TitleScreen())));
-        ctx.waitFor(mc -> mc.screen instanceof net.minecraft.client.gui.screens.TitleScreen);
+                McCompat.setScreen(mc, new net.minecraft.client.gui.screens.TitleScreen())));
+        ctx.waitFor(mc -> McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.TitleScreen);
         System.out.println("[80-sim-playable] PASS - every door is walkable and the gate comes down");
     }
 

@@ -5,8 +5,10 @@ automation actually sends, per client tick, in the units a server-side check is 
 
 Forked from [SicoKaleb/Automative](https://github.com/SicoKaleb/Automative) (CC0). The harness is his: the
 test server launcher, the arena builder, the flag reader, and the positive control that refuses to call a
-run clean until it has proved the anticheat can still see a violation. Local git only, no remote — do not
-add one or push without asking.
+run clean until it has proved the anticheat can still see a violation. `origin` is killer560's GitHub fork
+(github.com/Killer560-OG/killer560s-mod-testkit), `upstream` is SicoKaleb/Automative. Work happens on branches in
+worktrees; the coordinator merges a round of work into master and pushes master to origin when it lands. Never
+push to upstream.
 
 ## Run
 
@@ -38,6 +40,38 @@ described in `docs/wp/wp1-foundation.md`; change requests to frozen files go in 
 Versions from `gradle.properties`: Minecraft 26.1.2, GrimAC pinned to `2.3.74-8eb5f28` downloaded from
 Modrinth once into the Gradle user home (`caches/testkit-grim/`, shared by every checkout and worktree),
 `cloud_version=2.0.0-beta.16` (beta.17 needs MC ≥ 26.2), sqlite-jdbc for Grim's violation store. Java 25.
+
+## Minecraft 26.2 (compiles; NOT yet run)
+
+`-Pminecraft_version=26.2` switches the whole build, as in killer560s-mod. `versionsByMinecraft` in build.gradle
+then supplies Fabric API `0.160.0+26.2`, loader `0.19.5` (his "26.2 mod only" Prism instance) and cloud-fabric
+`2.0.0-beta.17`, unless those are passed with -P too; 26.1.2 with no flag is unchanged (dependency trees diffed
+identical against master, 2026-10-04). Scripts take `-Minecraft 26.2`, which passes the flag and picks the
+snapshot's `killer560smod-*-26.2-cheat.jar` (a jar named for the other version is refused):
+
+```
+./run-scenario.ps1 -Scenario "smoke,proof,02-seed" -Minecraft 26.2
+./gradlew runClientGameTest -Pminecraft_version=26.2 -Pscenario=smoke -PmodUnderTest=<...-26.2-cheat.jar>
+./gradlew grimServer -Pminecraft_version=26.2
+```
+
+GrimAC: the same pin. `2.3.74-8eb5f28` lists 26.2 on Modrinth, every nested mod declares `>=26.1.2 <26.3`, and its
+PacketEvents has `ServerVersion.V_26_2`; but its only per-version module is `grimac-fabric-mc261`, so whether its
+checks are right on 26.2 is unknown until the smoke/proof positive controls run there. If they fail, try the newest
+Modrinth build (2.3.74-abb95b6 on 2026-10-01 still had only mc261) or `-Pnogrim`.
+
+Status 2026-10-04: main, client, gametest and testmod compile against 26.2 and every mixin target was javap'd on
+the 26.2 jar (unchanged). Nothing has been RUN on 26.2: not the server, not Grim, not a client, not one scenario.
+Start with `smoke,proof,02-seed` and treat every result before those pass as unverified. `run/testserver` is shared
+by both versions; scenarios delete the world, but a hand-played `grimServer` world opened on 26.2 cannot go back.
+
+Version-specific API goes in `dev.testkit.compat` (`McCompat.screen/setScreen`, `McItems`, `McEntities`) under
+`src/client/mc26_1/java` and `src/client/mc26_2/java`, one of which build.gradle puts on the client source path.
+Both copies keep identical public signatures. Nothing in `src/*/java` may use `mc.screen`, `mc.setScreen`, a
+colour-variant `Items.RED_...` constant or `EntityType.<CONSTANT>`: those are gone on 26.2 (the screen moved to
+`Minecraft.gui`, colours to `ColorCollection.pick(DyeColor)`, entity constants to `EntityTypes`), and
+`BlockPos.getCenter()` is gone too (use `Vec3.atCenterOf`). Before merging a branch, compile it with
+`-Pminecraft_version=26.2` as well, or new code quietly breaks the 26.2 build.
 
 ## Layout
 

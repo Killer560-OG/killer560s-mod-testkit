@@ -1,5 +1,7 @@
 package dev.testkit.gametest;
 
+import dev.testkit.compat.McCompat;
+
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
@@ -77,7 +79,7 @@ public class SimLoadTests implements FabricClientGameTest {
         boolean sawLoadingScreen = false;
         for (int i = 0; i < 400 && !sawLoadingScreen; i++) {
             sawLoadingScreen = ctx.computeOnClient(mc ->
-                    mc.screen != null && mc.screen.getClass().getName().equals(LOADING_SCREEN));
+                    McCompat.screen(mc) != null && McCompat.screen(mc).getClass().getName().equals(LOADING_SCREEN));
             if (!sawLoadingScreen) {
                 ctx.waitTicks(1);
             }
@@ -102,7 +104,7 @@ public class SimLoadTests implements FabricClientGameTest {
         boolean cleared = false;
         for (int i = 0; i < 1200 && !cleared; i++) {
             cleared = ctx.computeOnClient(mc ->
-                    mc.screen == null || !mc.screen.getClass().getName().equals(LOADING_SCREEN));
+                    McCompat.screen(mc) == null || !McCompat.screen(mc).getClass().getName().equals(LOADING_SCREEN));
             if (!cleared) {
                 ctx.waitTicks(1);
             }
@@ -156,8 +158,8 @@ public class SimLoadTests implements FabricClientGameTest {
         ctx.waitFor(mc -> mc.level == null && mc.getSingleplayerServer() == null);
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> mc.execute(() ->
-                mc.setScreen(new net.minecraft.client.gui.screens.TitleScreen())));
-        ctx.waitFor(mc -> mc.screen instanceof net.minecraft.client.gui.screens.TitleScreen);
+                McCompat.setScreen(mc, new net.minecraft.client.gui.screens.TitleScreen())));
+        ctx.waitFor(mc -> McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.TitleScreen);
         System.out.println("[71-sim-load-from-menu] PASS - picked from the main menu with no world, custom "
                 + "loading screen shown and then closed, sim active, room actually built");
     }

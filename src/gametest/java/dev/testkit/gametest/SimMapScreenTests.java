@@ -1,5 +1,7 @@
 package dev.testkit.gametest;
 
+import dev.testkit.compat.McCompat;
+
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
@@ -79,7 +81,7 @@ public class SimMapScreenTests implements FabricClientGameTest {
                 Class<?> cls = Class.forName(EDITOR);
                 var ctor = cls.getConstructor(net.minecraft.client.gui.screens.Screen.class);
                 ctor.setAccessible(true);
-                mc.setScreen((net.minecraft.client.gui.screens.Screen) ctor.newInstance((Object) null));
+                McCompat.setScreen(mc, (net.minecraft.client.gui.screens.Screen) ctor.newInstance((Object) null));
             } catch (ReflectiveOperationException e) {
                 throw new AssertionError("could not open the map designer", e);
             }
@@ -96,7 +98,7 @@ public class SimMapScreenTests implements FabricClientGameTest {
         String[] clash = new String[1];
         int[] seen = new int[1];
         ctx.runOnClient(mc -> {
-            var screen = mc.screen;
+            var screen = McCompat.screen(mc);
             if (screen == null) {
                 throw new AssertionError("the map designer did not open");
             }
@@ -140,12 +142,12 @@ public class SimMapScreenTests implements FabricClientGameTest {
 
         // ---- 2. Generate previews, it does not build -----------------------------------------------------
         int[] before = new int[1];
-        ctx.runOnClient(mc -> before[0] = placementCount(mc.screen));
+        ctx.runOnClient(mc -> before[0] = placementCount(McCompat.screen(mc)));
         ctx.runOnClient(mc -> {
             try {
-                var m = mc.screen.getClass().getDeclaredMethod("preview");
+                var m = McCompat.screen(mc).getClass().getDeclaredMethod("preview");
                 m.setAccessible(true);
-                m.invoke(mc.screen);
+                m.invoke(McCompat.screen(mc));
             } catch (ReflectiveOperationException e) {
                 throw new AssertionError("no preview() on the designer", e);
             }
@@ -154,11 +156,11 @@ public class SimMapScreenTests implements FabricClientGameTest {
 
         int[] after = new int[2];
         ctx.runOnClient(mc -> {
-            after[0] = placementCount(mc.screen);
+            after[0] = placementCount(McCompat.screen(mc));
             try {
-                var f = mc.screen.getClass().getDeclaredField("generated");
+                var f = McCompat.screen(mc).getClass().getDeclaredField("generated");
                 f.setAccessible(true);
-                after[1] = f.get(mc.screen) == null ? 0 : 1;
+                after[1] = f.get(McCompat.screen(mc)) == null ? 0 : 1;
             } catch (ReflectiveOperationException e) {
                 throw new AssertionError("no generated field on the designer", e);
             }
@@ -207,9 +209,9 @@ public class SimMapScreenTests implements FabricClientGameTest {
         // Generate again now the database is up, and require a floor that is not entirely 1x1.
         ctx.runOnClient(mc -> {
             try {
-                var m = mc.screen.getClass().getDeclaredMethod("preview");
+                var m = McCompat.screen(mc).getClass().getDeclaredMethod("preview");
                 m.setAccessible(true);
-                m.invoke(mc.screen);
+                m.invoke(McCompat.screen(mc));
             } catch (ReflectiveOperationException e) {
                 throw new AssertionError("no preview() on the designer", e);
             }
@@ -218,9 +220,9 @@ public class SimMapScreenTests implements FabricClientGameTest {
         int[] shape = new int[2];   // {rooms, multiTile}
         ctx.runOnClient(mc -> {
             try {
-                var f = mc.screen.getClass().getDeclaredField("placements");
+                var f = McCompat.screen(mc).getClass().getDeclaredField("placements");
                 f.setAccessible(true);
-                var placed = (java.util.Map<?, ?>) f.get(mc.screen);
+                var placed = (java.util.Map<?, ?>) f.get(McCompat.screen(mc));
                 shape[0] = placed.size();
                 for (Object name : placed.values()) {
                     // cellFootprint returns the CELL COUNT as an int, not a {x,z} pair.
@@ -249,7 +251,7 @@ public class SimMapScreenTests implements FabricClientGameTest {
         String[] pinResult = new String[2];
         ctx.runOnClient(mc -> {
             try {
-                var screen = mc.screen;
+                var screen = McCompat.screen(mc);
                 var pinnedF = screen.getClass().getDeclaredField("pinned");
                 pinnedF.setAccessible(true);
                 @SuppressWarnings("unchecked")
@@ -312,8 +314,8 @@ public class SimMapScreenTests implements FabricClientGameTest {
                 + ", at max reports " + slider[1]);
 
         ctx.runOnClient(mc -> mc.execute(() ->
-                mc.setScreen(new net.minecraft.client.gui.screens.TitleScreen())));
-        ctx.waitFor(mc -> mc.screen instanceof net.minecraft.client.gui.screens.TitleScreen);
+                McCompat.setScreen(mc, new net.minecraft.client.gui.screens.TitleScreen())));
+        ctx.waitFor(mc -> McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.TitleScreen);
         System.out.println("[83-sim-map-screen] PASS - the list clears the buttons and Generate previews");
     }
 

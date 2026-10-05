@@ -1,5 +1,7 @@
 package dev.testkit.gametest.hx;
 
+import dev.testkit.compat.McCompat;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -286,9 +288,9 @@ public final class HxKit {
     public static void type(Session c, String line) {
         c.ctx().runOnClient(mc -> {
             net.minecraft.client.gui.screens.ChatScreen screen = new net.minecraft.client.gui.screens.ChatScreen("", false);
-            mc.setScreen(screen);
+            McCompat.setScreen(mc, screen);
             screen.handleChatInput(line, true);
-            mc.setScreen(null);
+            McCompat.setScreen(mc, null);
         });
     }
 

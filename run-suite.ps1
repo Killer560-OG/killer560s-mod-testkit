@@ -4,6 +4,7 @@
 #   ./run-suite.ps1 -Suite harness
 #   ./run-suite.ps1 -Suite hx -Port 25570 -Window "-1920,361,960,540"
 #   ./run-suite.ps1 -Suite demo -Extra "-PnetOnline"
+#   ./run-suite.ps1 -Suite harness -Minecraft 26.2                 # 26.2 build and the 26.2 mod jar
 #
 # Exit code is the run's (0 = every selected scenario and case passed). The report is build/testkit-report/
 # summary.md - read the rows, not just the exit code: a row's detail line says which number decided it.
@@ -14,6 +15,7 @@ param(
     [string]$Window = "",
     [string[]]$Extra = @(),
     [string]$ModUnderTest = "",
+    [string]$Minecraft = "26.1.2",
     [int]$TimeoutSeconds = 1200
 )
 
@@ -28,7 +30,7 @@ if ($known -notcontains $Suite) {
     exit 4
 }
 
-$runArgs = @{ Suite = $Suite; TimeoutSeconds = $TimeoutSeconds; Extra = $Extra }
+$runArgs = @{ Suite = $Suite; TimeoutSeconds = $TimeoutSeconds; Extra = $Extra; Minecraft = $Minecraft }
 if ($Port -gt 0) { $runArgs.Port = $Port }
 if ($Window -ne "") { $runArgs.Window = $Window }
 if ($ModUnderTest -ne "") { $runArgs.ModUnderTest = $ModUnderTest }

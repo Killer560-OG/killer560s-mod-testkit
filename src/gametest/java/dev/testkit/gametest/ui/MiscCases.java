@@ -1,5 +1,7 @@
 package dev.testkit.gametest.ui;
 
+import dev.testkit.compat.McCompat;
+
 import dev.testkit.gametest.LogTap;
 import dev.testkit.gametest.mod.Mod;
 
@@ -336,11 +338,11 @@ final class MiscCases {
                 for (Supplier<Screen> make : screens) {
                     String label = c.onClient(mc -> {
                         Screen s = make.get();
-                        mc.setScreen(s);
+                        McCompat.setScreen(mc, s);
                         return s.getClass().getSimpleName();
                     });
                     c.ticks(4);
-                    Frames.Drawn d = c.onClient(mc -> Frames.extractFrames(mc, mc.screen, 3));
+                    Frames.Drawn d = c.onClient(mc -> Frames.extractFrames(mc, McCompat.screen(mc), 3));
                     shown.add(label + (combo[0] ? "" : "(theme off)") + " " + d.total());
                     if (d.total() == 0) {
                         c.problem(label + " drew nothing");
@@ -357,7 +359,7 @@ final class MiscCases {
                 Mod.call(cfg, "setEnabled", e0);
                 Mod.call(cfg, "setParticles", p0);
                 Mod.call(cfg, "setOtherMenus", o0);
-                mc.setScreen(new TitleScreen());
+                McCompat.setScreen(mc, new TitleScreen());
                 return null;
             });
         }
@@ -383,7 +385,7 @@ final class MiscCases {
             String row = c.onClient(mc -> {
                 try {
                     Screen s = (Screen) screenCls.getConstructor(Screen.class, typeCls).newInstance(null, type);
-                    mc.setScreen(s);
+                    McCompat.setScreen(mc, s);
                     Frames.extractFrames(mc, s, 3);
                     int ox = (Integer) R.get(s, "gridOriginX");
                     int oy = (Integer) R.get(s, "gridOriginY");
@@ -393,7 +395,7 @@ final class MiscCases {
                     int clicks = 0;
                     for (int y = 0; y < rowsN; y++) {
                         for (int x = 0; x < cols; x++) {
-                            if (mc.screen != s) {
+                            if (McCompat.screen(mc) != s) {
                                 break;
                             }
                             s.mouseClicked(new MouseButtonEvent(ox + x * 18 + 9, oy + y * 18 + 9,
@@ -414,7 +416,7 @@ final class MiscCases {
             rows.add(row);
         }
         c.onClient(mc -> {
-            mc.setScreen(null);
+            McCompat.setScreen(mc, null);
             return null;
         });
         c.note(String.join("; ", rows));
@@ -448,7 +450,7 @@ final class MiscCases {
                         c.problem(k + ": " + e.getMessage());
                     }
                 }
-                mc.setScreen(null);
+                McCompat.setScreen(mc, null);
                 return null;
             });
             long since = System.currentTimeMillis();

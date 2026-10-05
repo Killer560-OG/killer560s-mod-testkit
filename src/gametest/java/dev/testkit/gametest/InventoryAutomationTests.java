@@ -1,5 +1,7 @@
 package dev.testkit.gametest;
 
+import dev.testkit.compat.McCompat;
+
 import dev.testkit.harness.PacketWatch;
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
@@ -84,9 +86,9 @@ public class InventoryAutomationTests implements FabricClientGameTest {
                         mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, hit);
                     });
                     ctx.waitTicks(20);
-                    String screen = ctx.computeOnClient(mc -> mc.screen == null
-                            ? "none" : mc.screen.getClass().getSimpleName()
-                            + " titled \"" + mc.screen.getTitle().getString() + "\"");
+                    String screen = ctx.computeOnClient(mc -> McCompat.screen(mc) == null
+                            ? "none" : McCompat.screen(mc).getClass().getSimpleName()
+                            + " titled \"" + McCompat.screen(mc).getTitle().getString() + "\"");
                     scenario.log("open screen: " + screen);
                     if (screen.equals("none")) {
                         throw new AssertionError("the chest did not open, so Auto Sell has no menu to act in");

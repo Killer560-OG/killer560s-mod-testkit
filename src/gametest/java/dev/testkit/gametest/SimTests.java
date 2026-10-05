@@ -1,5 +1,7 @@
 package dev.testkit.gametest;
 
+import dev.testkit.compat.McItems;
+
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
@@ -711,7 +713,7 @@ public class SimTests implements FabricClientGameTest {
             //     the recorder would queue a floor, never click through, and look like the join was refused.
             ctx.runOnClient(mc -> {
                 // The real lore line from Hypixel's menu, and the colour codes it actually carries.
-                var confirm = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.LIME_DYE);
+                var confirm = new net.minecraft.world.item.ItemStack(McItems.LIME_DYE);
                 confirm.set(net.minecraft.core.component.DataComponents.LORE,
                         new net.minecraft.world.item.component.ItemLore(java.util.List.of(
                                 net.minecraft.network.chat.Component.literal("§eClick to play anyway!"))));

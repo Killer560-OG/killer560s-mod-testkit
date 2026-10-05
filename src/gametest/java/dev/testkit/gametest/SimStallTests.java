@@ -1,5 +1,7 @@
 package dev.testkit.gametest;
 
+import dev.testkit.compat.McCompat;
+
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
@@ -149,8 +151,8 @@ public class SimStallTests implements FabricClientGameTest {
         // put the title screen up, then let that settle too.
         ctx.waitTicks(60);
         ctx.runOnClient(mc -> mc.execute(() ->
-                mc.setScreen(new net.minecraft.client.gui.screens.TitleScreen())));
-        ctx.waitFor(mc -> mc.screen instanceof net.minecraft.client.gui.screens.TitleScreen);
+                McCompat.setScreen(mc, new net.minecraft.client.gui.screens.TitleScreen())));
+        ctx.waitFor(mc -> McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.TitleScreen);
         ctx.waitTicks(20);
         System.out.println("[72-sim-stall] PASS - real library loaded and a full floor generated with no tick "
                 + "over " + MAX_TICK_MS + " ms");

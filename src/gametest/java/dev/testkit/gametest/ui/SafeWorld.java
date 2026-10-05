@@ -1,5 +1,7 @@
 package dev.testkit.gametest.ui;
 
+import dev.testkit.compat.McCompat;
+
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
 import net.minecraft.client.gui.screens.DeathScreen;
@@ -42,7 +44,7 @@ final class SafeWorld {
 
     /** If the client is on the death screen, respawn and re-apply; returns true if it had to. */
     static boolean reviveIfDead(ClientGameTestContext ctx) {
-        boolean dead = ctx.computeOnClient(mc -> mc.screen instanceof DeathScreen
+        boolean dead = ctx.computeOnClient(mc -> McCompat.screen(mc) instanceof DeathScreen
                 || (mc.player != null && mc.player.isDeadOrDying()));
         if (!dead) {
             return false;
@@ -52,7 +54,7 @@ final class SafeWorld {
             if (mc.player != null) {
                 mc.player.respawn();
             }
-            mc.setScreen(null);
+            McCompat.setScreen(mc, null);
         });
         ctx.waitFor(mc -> mc.player != null && !mc.player.isDeadOrDying(), 200);
         apply(ctx);

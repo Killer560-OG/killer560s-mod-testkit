@@ -5,6 +5,40 @@ plugins {
 version = project.mod_version
 group = project.maven_group
 
+// --- which Minecraft --------------------------------------------------------------------------------
+//
+// 26.1.2 is the default (gradle.properties). -Pminecraft_version=26.2 builds and runs everything against 26.2,
+// the same switch killer560s-mod uses. The versions that must move WITH Minecraft are filled in from the table
+// below unless they are passed on the command line too, so the one flag is enough; an explicit
+// -Pfabric_api_version / -Ploader_version / -Pcloud_version still wins. Parsed the way the mod parses it: a
+// fixed [0..1] slice throws on a two-component version like "26.2".
+def mcParts = project.minecraft_version.toString().tokenize('.')
+def mcMinorVersion = mcParts.size() >= 2 ? "${mcParts[0]}.${mcParts[1]}" : "${mcParts[0]}"
+def mcBranch = "mc" + (mcParts.size() >= 2 ? "${mcParts[0]}_${mcParts[1]}" : mcParts[0])
+def versionsByMinecraft = [
+	// 26.1.x: exactly what gradle.properties says, so the default build is unchanged.
+	'26.1': [:],
+	// 26.2: Fabric API as the mod builds it; loader as killer560's "26.2 mod only" Prism instance runs it. Cloud
+	// beta.17 because beta.16 is the 26.1 build and beta.17 declares minecraft >=26.2 (and is the one GrimAC
+	// itself nests).
+	'26.2': [fabric_api_version: '0.160.0+26.2', loader_version: '0.19.5', cloud_version: '2.0.0-beta.17'],
+]
+def versionDefaults = versionsByMinecraft[mcMinorVersion]
+if (versionDefaults == null) {
+	throw new GradleException("No version table for Minecraft ${project.minecraft_version}: add it to "
+			+ "versionsByMinecraft in build.gradle (Fabric API, loader, cloud-fabric) and create the "
+			+ "src/<set>/${mcBranch}/java compatibility directories.")
+}
+def cliProps = gradle.startParameter.projectProperties
+def pickVersion = { String key ->
+	cliProps.containsKey(key) ? cliProps[key] : (versionDefaults[key] ?: project.property(key).toString())
+}
+def fabricApiVersion = pickVersion("fabric_api_version")
+def loaderVersion = pickVersion("loader_version")
+def cloudVersion = pickVersion("cloud_version")
+logger.lifecycle("Minecraft ${project.minecraft_version}: compatibility layer ${mcBranch}, Fabric API "
+		+ "${fabricApiVersion}, loader ${loaderVersion}, cloud-fabric ${cloudVersion}")
+
 repositories {
 	// Cloud command framework — GrimAC's Fabric build expects it as a separate mod rather than bundling it.
 	mavenCentral()
@@ -12,7 +46,22 @@ repositories {
 
 loom {
 	splitEnvironmentSourceSets()
+}
 
+// --- per-Minecraft-version compatibility layer ----------------------------------------------------------
+//
+// The killer560s-mod pattern: API that differs between Minecraft versions lives in dev.testkit.compat (McCompat,
+// McItems, McEntities), and exactly ONE of src/client/mc26_1/java / src/client/mc26_2/java goes on the client
+// source path. The gametest source set sees it through sourceSets.client.output. Both copies keep identical
+// public signatures; everything under src/*/java stays version-neutral and calls these instead.
+def compatDir = file("src/client/${mcBranch}/java")
+if (!compatDir.directory) {
+	throw new GradleException("No compatibility layer for Minecraft ${project.minecraft_version}: expected "
+			+ "${compatDir}. Copy the nearest src/client/mc*/java and fix what moved.")
+}
+sourceSets.client.java.srcDir compatDir
+
+loom {
 	mods {
 		"testkit" {
 			sourceSet sourceSets.main
@@ -23,8 +72,8 @@ loom {
 
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
-	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	implementation "net.fabricmc:fabric-loader:${loaderVersion}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${fabricApiVersion}"
 
 	// GrimAC persists violations to SQLite and refuses to start without the driver, which its Fabric
 	// build does not bundle. Runtime only: a fixture for the test server, never shipped.
@@ -118,7 +167,7 @@ configurations {
 }
 
 dependencies {
-	testServerMods "org.incendo:cloud-fabric:${project.cloud_version}"
+	testServerMods "org.incendo:cloud-fabric:${cloudVersion}"
 }
 
 tasks.register("prepareTestServer") {
@@ -150,9 +199,20 @@ tasks.register("prepareTestServer") {
 		}
 		// Cloud drags in fabric-loader and fabric-api pieces; the dev runtime already provides those and
 		// a second copy in mods/ makes loader complain about duplicates.
-		configurations.testServerMods.findAll {
+		def cloudJars = configurations.testServerMods.findAll {
 			it.name.startsWith("cloud-") || it.name.startsWith("geantyref")
-		}.each { dep ->
+		}
+		// A server staged for the other Minecraft version left ITS cloud jars here. Two cloud-fabric versions in
+		// mods/ is a duplicate mod id, and the 26.1 build (beta.16) next to the 26.2 one is exactly that, so
+		// anything this version did not resolve goes before the copy.
+		def wanted = cloudJars.collect { it.name } as Set
+		mods.listFiles().findAll {
+			(it.name.startsWith("cloud-") || it.name.startsWith("geantyref")) && !wanted.contains(it.name)
+		}.each { stale ->
+			stale.delete()
+			logger.lifecycle("Removed ${stale.name} from the staged server (not this Minecraft version's)")
+		}
+		cloudJars.each { dep ->
 			def copy = new File(mods, dep.name)
 			if (!copy.exists()) {
 				copy.bytes = dep.bytes
