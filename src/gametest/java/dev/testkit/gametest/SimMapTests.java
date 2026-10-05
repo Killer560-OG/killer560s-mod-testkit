@@ -238,6 +238,12 @@ public class SimMapTests implements FabricClientGameTest {
         System.out.println("[79-sim-map] PASS - the sim's floor reaches the dungeon map");
     }
 
+    /** His rooms and room database into the test client, for other sim scenarios; 0 if either is missing. */
+    static int copyRoomsForOthers() {
+        int rooms = copyRooms();
+        return copyRoomData() == 0 ? 0 : rooms;
+    }
+
     private static int copyRooms() {
         return copyDir(SOURCE_ROOMS, "killer560smod-rooms", ".json");
     }
