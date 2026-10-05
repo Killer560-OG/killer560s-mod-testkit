@@ -10,6 +10,7 @@ import dev.testkit.gametest.mod.Mod;
 import dev.testkit.gametest.mod.Quiet;
 import dev.testkit.harness.Coverage;
 import dev.testkit.harness.Report;
+import dev.testkit.harness.ScenarioList;
 import dev.testkit.harness.SuiteVerdict;
 
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
@@ -99,6 +100,9 @@ public final class Session {
     private Scenario scenario;
     private Hx hx;
     private boolean proveDetector = true;
+    /** List mode: runCase records names and runs nothing. */
+    private boolean listing;
+    private int listed;
     private String currentCase;
     private long caseEventHead;
     private int passed;
@@ -120,6 +124,13 @@ public final class Session {
     public static void run(ClientGameTestContext ctx, String name, String label, Setup setup, Body body) {
         Boolean whole = selection(name);
         if (whole == null) {
+            if (ScenarioList.active()) {
+                ScenarioList.record(name, "no", "session");
+            }
+            return;
+        }
+        if (ScenarioList.active()) {
+            list(ctx, name, whole, body);
             return;
         }
         SuiteVerdict.expect(name);
@@ -171,6 +182,23 @@ public final class Session {
         }
     }
 
+    /**
+     * List mode (-PlistScenarios): no server, no client join. The body only REGISTERS cases, so running it with
+     * {@link #runCase} recording names instead of running them yields the session's case list. A body that does
+     * more than register (it needs the world) throws, and the cases registered before that still count.
+     */
+    private static void list(ClientGameTestContext ctx, String name, boolean whole, Body body) {
+        ScenarioList.record(name, whole ? "all" : "part", "session");
+        Session session = new Session(ctx, name, whole);
+        session.listing = true;
+        try {
+            body.run(session);
+        } catch (Throwable t) {
+            System.out.println("[list] " + name + ": body stopped after " + session.listed
+                    + " case(s) (needs a live world): " + t);
+        }
+    }
+
     private static void reportSessionFailure(Session session, Throwable t, long logMark) {
         List<String> serverLines = session.server == null ? List.of() : session.server.tail(300).lines().toList();
         Report.caseFinished(session.name, "FAIL", "", t.getClass().getSimpleName() + ": " + t.getMessage(),
@@ -193,6 +221,11 @@ public final class Session {
     }
 
     private void runCase(String caseName, Case body, boolean expectFlags) {
+        if (listing) {
+            ScenarioList.record(caseName, caseSelected(caseName) ? "all" : "no", "case", name);
+            listed++;
+            return;
+        }
         if (!caseSelected(caseName)) {
             return;
         }

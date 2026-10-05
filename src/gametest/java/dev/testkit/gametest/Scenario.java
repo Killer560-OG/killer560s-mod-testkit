@@ -4,6 +4,7 @@ import dev.testkit.harness.ChatWatch;
 import dev.testkit.harness.Coverage;
 import dev.testkit.harness.Disconnects;
 import dev.testkit.harness.Report;
+import dev.testkit.harness.ScenarioList;
 import dev.testkit.harness.PacketTrace;
 import dev.testkit.harness.SuiteVerdict;
 
@@ -206,6 +207,17 @@ public final class Scenario {
 
     public static boolean skip(String name) {
         String filter = System.getProperty("testkit.scenario", "");
+        if (ScenarioList.active()) {
+            // List mode (-PlistScenarios): say whether the filter selects this name, and skip it either way.
+            boolean selected = filter.isBlank();
+            for (String part : filter.split(",")) {
+                if (!part.isBlank() && name.contains(part.trim())) {
+                    selected = true;
+                }
+            }
+            ScenarioList.record(name, selected ? "all" : "no", "scenario");
+            return true;
+        }
         if (filter.isBlank()) {
             SuiteVerdict.started(name);
             return false;

@@ -464,6 +464,11 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	if (project.hasProperty("scenario")) {
 		systemProperty "testkit.scenario", project.property("scenario")
 	}
+	// List the scenarios the filter selects and exit: no server, no world. -PlistScenarios=<file> writes a TSV
+	// (name, state, unit, kind) that run-sharded.ps1 splits across clients. See dev.testkit.harness.ScenarioList.
+	if (project.hasProperty("listScenarios")) {
+		systemProperty "testkit.listFile", file(project.property("listScenarios").toString()).absolutePath
+	}
 	// Play each selected 93-solve room N times in one launch, to measure a flake rate:  -PsolveRepeat=N
 	if (project.hasProperty("solveRepeat")) {
 		systemProperty "testkit.solveRepeat", project.property("solveRepeat")

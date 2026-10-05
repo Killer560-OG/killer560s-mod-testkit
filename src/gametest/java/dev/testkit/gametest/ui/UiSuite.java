@@ -38,6 +38,17 @@ public class UiSuite implements FabricClientGameTest {
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
+        if (dev.testkit.harness.ScenarioList.active()) {
+            // List mode (-PlistScenarios): name the cases, open no world.
+            for (String n : TITLE_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            for (String n : WORLD_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            dev.testkit.gametest.Scenario.skip(DENY_CASE);
+            return;
+        }
         boolean anyTitle = any(TITLE_CASES);
         boolean anyWorld = any(WORLD_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {

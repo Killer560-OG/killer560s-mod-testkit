@@ -66,6 +66,7 @@ public final class SuiteVerdict {
 
     /** Called before each test class, so a failure is never pinned on the previous class's scenario. */
     public static void beginTest() {
+        ScenarioList.nextUnit();
         // The previous class is done: close a row-less scenario now, so its RAN row carries its own duration.
         if (current != null) {
             ranRow(current);
@@ -112,6 +113,9 @@ public final class SuiteVerdict {
 
     /** Fail every scenario that started and never finished, write (or clear) the failed-names file, summarise. */
     public static String finish() {
+        if (ScenarioList.active()) {
+            ScenarioList.write();
+        }
         for (String name : expected) {
             if (!finished.contains(name) && !failedNames.contains(name)) {
                 failedNames.add(name);
