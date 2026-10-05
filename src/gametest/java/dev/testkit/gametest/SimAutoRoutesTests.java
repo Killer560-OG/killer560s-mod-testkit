@@ -694,6 +694,41 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         cmd(ctx, "/autoroutes list");
         ctx.waitTicks(3);
         check(logHas(m, ": 4 nodes"), "/autoroutes list did not report 4 nodes");
+
+        // ---- six decimals: a node placed at an awkward look holds, in memory, exactly what /ar reload gives back ----
+        tpRel(ctx, 10.5, 14.5, -83.123456789f, 7.987654321f);
+        ctx.waitTicks(4);
+        cmd(ctx, "/ar add ew");
+        ctx.waitTicks(30);
+        String before = ctx.computeOnClient(SimAutoRoutesTests::nodeBits);
+        cmd(ctx, "/ar reload");
+        ctx.waitTicks(3);
+        String after = ctx.computeOnClient(SimAutoRoutesTests::nodeBits);
+        println("six decimals: " + before);
+        check(before.equals(after), "a node is not the same after /ar reload: before " + before + " after " + after);
+        JsonObject last = fileNodes(ctx).get(fileNodes(ctx).size() - 1).getAsJsonObject();
+        String yawText = last.get("yaw").getAsString();
+        check(yawText.contains(".") && yawText.substring(yawText.indexOf('.') + 1).length() <= 6,
+                "the saved yaw has more than six decimals: " + yawText);
+    }
+
+    /** Every node of the room, as the exact bits of x, y, z, yaw, pitch and landing. Client thread. */
+    @SuppressWarnings("unchecked")
+    private static String nodeBits(Minecraft mc) {
+        StringBuilder sb = new StringBuilder();
+        for (Object n : (List<Object>) ModUnderTest.staticCall(FEATURE, "currentRouteNodes")) {
+            try {
+                Class<?> c = n.getClass();
+                sb.append(String.format("[%s %s %s %s/%08x %s/%08x %s %s %s]", c.getField("x").getDouble(n),
+                        c.getField("y").getDouble(n), c.getField("z").getDouble(n), c.getField("yaw").getFloat(n),
+                        Float.floatToIntBits(c.getField("yaw").getFloat(n)), c.getField("pitch").getFloat(n),
+                        Float.floatToIntBits(c.getField("pitch").getFloat(n)), c.getField("landingX").getDouble(n),
+                        c.getField("landingY").getDouble(n), c.getField("landingZ").getDouble(n)));
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return sb.toString();
     }
 
     /** /ar edit n: every control on screen and clickable where drawn, await + start through the real buttons, Go To. */
@@ -1490,7 +1525,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> {
             try {
                 ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", false);
-                ModUnderTest.staticCall(SIM_STATE, "leave");
+                // NOT SimState.leave() here: leaving through the disconnect, as he does, lets the sim's own unload
+                // reset its per-map state. Calling leave() first skipped that, and a Dungeon Breaker block still
+                // waiting to regrow then tried to come back in the NEXT world's server, which hung its loading
+                // screen (2026-10-05; the mod now drops it on any unload as well).
             } catch (Throwable ignored) {
                 // never replaces the verdict
             }
@@ -1502,6 +1540,13 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             }
         }));
         ctx.waitFor(mc -> mc.level == null && mc.getSingleplayerServer() == null, 1200);
+        ctx.runOnClient(mc -> {
+            try {
+                ModUnderTest.staticCall(SIM_STATE, "leave");
+            } catch (Throwable ignored) {
+                // never replaces the verdict
+            }
+        });
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> mc.execute(() ->
                 McCompat.setScreen(mc, new net.minecraft.client.gui.screens.TitleScreen())));
