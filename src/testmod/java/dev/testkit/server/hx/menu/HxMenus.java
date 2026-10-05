@@ -155,7 +155,7 @@ public final class HxMenus {
                     }
                     if (f == net.minecraft.ChatFormatting.RESET) {
                         style = net.minecraft.network.chat.Style.EMPTY.withItalic(false);
-                    } else if (f.isColor()) {
+                    } else if (f.ordinal() < 16) { // the 16 colours come first; isColor() is gone on 26.2 (same rule as the mod's ChatColors)
                         style = net.minecraft.network.chat.Style.EMPTY.withItalic(false).applyFormat(f);
                     } else {
                         style = style.applyFormat(f);
