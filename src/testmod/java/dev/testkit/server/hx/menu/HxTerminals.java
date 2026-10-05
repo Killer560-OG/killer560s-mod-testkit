@@ -113,6 +113,13 @@ final class HxTerminals {
         int melodyLime = 1;
         int melodyDir = 1;
         long melodyLastMove;
+        /** {@code keepDone}: a finished row keeps its lime pane where it was clicked and its lime terracotta, the
+         *  board shape Odin's MelodyHandler copes with by taking the LAST lime pane / lime terracotta (indexOfLast,
+         *  javap Odin 0.3.1). Off = every row is redrawn (TermismPracticeScreen / Odin's MelodySim). */
+        boolean melodyKeepDone;
+        /** {@code freeze}: the marker stops moving on its own, so a test can put it exactly where it wants. */
+        boolean melodyFrozen;
+        final Map<Integer, Integer> melodyDoneCol = new LinkedHashMap<>();
 
         Terminal(Type type, long seed, String title, int rows, int[] grid, boolean closeOnSolve, int melodyInterval) {
             this.type = type;
@@ -126,7 +133,7 @@ final class HxTerminals {
 
         @Override
         public void tick(MinecraftServer server, HxChestMenu menu, ServerPlayer player) {
-            if (type != Type.MELODY || solved) {
+            if (type != Type.MELODY || solved || melodyFrozen) {
                 return;
             }
             long now = server.getTickCount();
@@ -162,6 +169,14 @@ final class HxTerminals {
             }
             if (col == 7 && row == melodyRow) {
                 return HxMenus.stack(server, "minecraft:lime_terracotta", 1);
+            }
+            if (melodyKeepDone && inBand && row < melodyRow && melodyDoneCol.containsKey(row)) {
+                if (col == melodyDoneCol.get(row)) {
+                    return HxMenus.stack(server, "minecraft:lime_stained_glass_pane", 1);
+                }
+                if (col == 7) {
+                    return HxMenus.stack(server, "minecraft:lime_terracotta", 1);
+                }
             }
             if (col == 7 && inBand) {
                 return HxMenus.stack(server, "minecraft:red_terracotta", 1);
@@ -376,6 +391,8 @@ final class HxTerminals {
             case MELODY -> {
                 t = new Terminal(type, seed, "Click the button on time!", 6, new int[]{16, 25, 34, 43}, close, interval);
                 t.melodyTarget = a.has("target") ? a.get("target").getAsInt() : 1 + rng.nextInt(5);
+                t.melodyKeepDone = a.has("keepDone") && a.get("keepDone").getAsBoolean();
+                t.melodyFrozen = a.has("freeze") && a.get("freeze").getAsBoolean();
                 t.melodyLastMove = server.getTickCount();
                 items = new ArrayList<>();
                 for (int i = 0; i < 54; i++) {
@@ -391,6 +408,71 @@ final class HxTerminals {
         lastMenu = menu;
         JsonObject out = t.describe(menu);
         HxEvents.custom("terminal.opened", player, out.deepCopy());
+        return out;
+    }
+
+    /**
+     * menu.terminal.melody {row, lime, target?, via} - moves the open Melody terminal straight to row/lime, the way a
+     * fast auto terminal (NoammAddons' skip) makes the board jump several rows between two updates the client sees.
+     * Rows passed on the way count as done in their current target column. {@code via}:
+     * <ul>
+     *   <li>{@code slots} - one ContainerSetSlot per changed slot, all in this one server tick (broadcastChanges);</li>
+     *   <li>{@code content} - the whole board as one ContainerSetContent (broadcastFullState);</li>
+     *   <li>{@code resend} - as content, and then the same full content a second time;</li>
+     *   <li>{@code reopen} - the same terminal opened again under a NEW container id (Hypixel's re-send).</li>
+     * </ul>
+     * Returns the terminal's describe() plus {@code movingSlot}, the slot the lime marker of the current row is in.
+     */
+    static JsonElement melody(MinecraftServer server, JsonObject a) {
+        ServerPlayer player = HxPrimitives.player(server, a);
+        HxChestMenu menu = HxMenus.current(player);
+        Terminal t = menu == null ? null : HxMenus.state(menu.containerId, Terminal.class);
+        if (t == null || t.type != Type.MELODY) {
+            throw new IllegalStateException("no Hx Melody terminal open");
+        }
+        int row = a.get("row").getAsInt();
+        int lime = a.get("lime").getAsInt();
+        if (row < 1 || row > 4 || lime < 1 || lime > 5) {
+            throw new IllegalArgumentException("row must be 1-4 and lime 1-5, got row " + row + " lime " + lime);
+        }
+        for (int r = t.melodyRow; r < row; r++) {
+            t.melodyDoneCol.put(r, t.melodyTarget);
+        }
+        t.melodyRow = row;
+        t.melodyLime = lime;
+        if (a.has("target")) {
+            t.melodyTarget = a.get("target").getAsInt();
+        }
+        t.melodyLastMove = server.getTickCount();
+        String via = a.has("via") ? a.get("via").getAsString() : "slots";
+        switch (via) {
+            case "slots" -> {
+                t.drawMelody(server, menu);
+                menu.broadcastChanges();
+            }
+            case "content" -> {
+                t.drawMelody(server, menu);
+                menu.broadcastFullState();
+            }
+            case "resend" -> {
+                t.drawMelody(server, menu);
+                menu.broadcastFullState();
+                menu.broadcastFullState();
+            }
+            case "reopen" -> {
+                List<ItemStack> items = new ArrayList<>();
+                for (int i = 0; i < 54; i++) {
+                    items.add(t.melodyItem(server, i % 9, i / 9));
+                }
+                menu = HxMenus.open(player, t.rows, Component.literal(t.title), items, SCRIPT, t);
+                t.containerId = menu.containerId;
+                lastMenu = menu;
+            }
+            default -> throw new IllegalArgumentException("via must be slots, content, resend or reopen, got " + via);
+        }
+        JsonObject out = t.describe(menu);
+        out.addProperty("movingSlot", row * 9 + lime);
+        out.addProperty("via", via);
         return out;
     }
 
@@ -498,6 +580,7 @@ final class HxTerminals {
                     int col = slot % 9;
                     int row = slot / 9;
                     if (col == 7 && row == t.melodyRow && t.melodyLime == t.melodyTarget) {
+                        t.melodyDoneCol.put(t.melodyRow, t.melodyLime);
                         t.melodyTarget = 1 + t.rng.nextInt(5);
                         t.melodyRow++;
                         correct = true;

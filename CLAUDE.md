@@ -309,3 +309,6 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   (it counted 0 etherwarps on 2026-10-05).
 - 96-ar (`SimAutoRoutesTests`): an Auto Routes Go To is an Interactive Map warp, and after one only a START node may arm
   until he passes one (the map-arrival interlock). Cases that arm non-start nodes run before 96-ar-screen.
+- `gameMode.attack` on a 1-HP sim zombie next to the player did not kill it (96-ar-crypt, 2026-10-05: crypts stayed put);
+  the sim plays Mage, whose left click is a beam along the look, which is the likely reason (not traced). A Hyperion
+  `gameMode.useItem` (Wither Impact, radius 5) does kill it - use that to kill a sim mob as the player.
