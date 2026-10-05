@@ -10,6 +10,11 @@ add one or push without asking.
 
 ## Run
 
+Every test client must start MUTED (killer560, 2026-10-04: "have all those test instances you open have the
+audio muted"). build.gradle writes every soundCategory to 0 before each run; never raise the default, and pass
+-PtestVolume only when he asks to hear one. An old checkout or worktree still on a commit before this plays at 3% -
+update it to master or pass -PtestVolume=0.
+
 ```
 ./run-suite.ps1 -Suite harness -Port 25565 -ModUnderTest <jar>          # named suite + freeze watcher + report
 ./run-scenario.ps1 -Scenario 60-secret -ModUnderTest <jar>              # one scenario, same watcher
