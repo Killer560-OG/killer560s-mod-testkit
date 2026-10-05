@@ -119,6 +119,11 @@ public class FpsBenchTest implements FabricClientGameTest {
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isReady"), 6000);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter",
                 new Class<?>[]{String.class}, new Object[]{"gametest"}));
+        // The same floor every run. The generator's RNGs are unseeded statics, and a different floor is a different
+        // amount of vanilla work (signs, block entities, chunks in view): two runs of the same jar differed by 0.7 ms a
+        // frame that way (2026-10-05). Reseeding the existing Random objects changes nothing else in the mod.
+        String seeded = ctx.computeOnClient(mc -> seedSimRandoms(BENCH_SEED));
+        report.add("sim RNGs seeded with " + BENCH_SEED + ": " + seeded);
         long before = Scenario.simBuildCount(ctx);
         ctx.runOnClient(mc -> mc.execute(() -> {
             Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
@@ -256,6 +261,23 @@ public class FpsBenchTest implements FabricClientGameTest {
                 System.out.println("[" + NAME + "] could not write fps-bench.txt: " + e);
             }
         }
+    }
+
+    private static final long BENCH_SEED = 95_2026_1005L;
+
+    /** setSeed on each {@code private static final Random RNG} the floor build draws from; returns which were found. */
+    private static String seedSimRandoms(long seed) {
+        List<String> done = new ArrayList<>();
+        for (String cls : new String[]{"roomsim.SimFloorGen", "roomsim.SimGenerator", "roomsim.SimMimic"}) {
+            try {
+                Object rng = Mod.field(cls, "RNG");
+                ((java.util.Random) rng).setSeed(seed);
+                done.add(cls);
+            } catch (Throwable t) {
+                done.add(cls + " (MISSING: " + t.getMessage() + ")");
+            }
+        }
+        return String.join(", ", done);
     }
 
     // ---- phases -------------------------------------------------------------------------------------------------
