@@ -591,15 +591,34 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         // ---- the chest and the secret ----
         startSampling(ctx);
         rightClick(ctx, 24, F, 24, Direction.UP);
-        boolean screen = waitFor(ctx, 40, () -> ctx.computeOnClient(mc -> McCompat.screen(mc) != null));
-        check(screen, "clicking the chest opened no screen");
         hx.overlay("§7     §71/5 Secrets");
         boolean met = waitFor(ctx, 60, () -> logHas(mark, "await met under a screen") || logHas(mark, "await held it"));
         check(met, "the await never saw the secret");
-        check(useTicks(stopSampling(ctx)).isEmpty(), "the etherwarp went out while the chest screen was open");
-        startSampling(ctx);
-        ctx.runOnClient(mc -> mc.player.closeContainer());
-        Vec3 l6 = waitLanded(ctx, 14, 26, 60);
+        check(logHas(mark, "await secret 1: chest at"), "the await was not met by the chest click");
+        // The click meets the await (his rule; Hypixel credits the chest on the click), so the chest's window and #6's
+        // warp race: window first, the route waits under it; warp first, a late window is waited under (mod 98b457be)
+        // or the server closes the far chest before it shows. Both orders came up here (2026-10-05).
+        check(waitFor(ctx, 40, () -> logHas(mark, "Node #6 ETHERWARP acted")
+                || ctx.computeOnClient(mc -> McCompat.screen(mc) != null)), "after the click neither a window nor #6");
+        boolean windowFirst = !logHas(mark, "Node #6 ETHERWARP acted");
+        println("play: " + (windowFirst ? "the chest window came before the warp" : "the warp went out before any window"));
+        Vec3 l6;
+        if (windowFirst) {
+            check(useTicks(stopSampling(ctx)).isEmpty(), "the etherwarp went out while the chest screen was open");
+            startSampling(ctx);
+            ctx.runOnClient(mc -> mc.player.closeContainer());
+            l6 = waitLanded(ctx, 14, 26, 60);
+        } else {
+            check(!logHas(mark, "Stopped: a screen opened"), "a late chest window stopped the route");
+            l6 = waitLanded(ctx, 14, 26, 60);
+            // A late window, if the server sends one, arrives within a few ticks; #7 waits under it until it is closed.
+            waitFor(ctx, 10, () -> ctx.computeOnClient(mc -> McCompat.screen(mc) != null));
+            ctx.runOnClient(mc -> {
+                if (mc.player.containerMenu != mc.player.inventoryMenu) {
+                    mc.player.closeContainer();
+                }
+            });
+        }
         ctx.waitTicks(30);
         List<Sample> second = stopSampling(ctx);
         printTrace("play after chest", second);
