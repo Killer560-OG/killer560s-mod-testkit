@@ -123,6 +123,10 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 
 ## Quirks and lessons
 
+- The gametest client runs at render distance 5, so on a whole sim floor the far rooms' chunks never reach it: a map
+  press on them says "Couldn't find goal position" and a client-side scan finds air. Scenario 95-sim-map-warp sets
+  `mc.options.renderDistance()` to 16 for its run and puts it back. A sim floor's entrance is also sealed until
+  `SimRun.begin` opens the gate (see 81/95), so nothing outside it is reachable before that.
 - The mod arrives via Fabric Loader's `fabric.addMods` (`-PmodUnderTest`). `modLocalRuntime` does not exist
   in this Loom version, and a jar dropped in the run directory's `mods/` is deleted because the client
   gametest API rebuilds that directory every run.
