@@ -1,0 +1,302 @@
+[
+  {
+    "id": "logic.party-chat-ranked",
+    "kind": "chat",
+    "payload": "Party > [MVP+] Killer560: meow",
+    "source": {"file": "src/main/java/com/killer560/hub/automeow/AutoMeowFeature.java", "line": 88},
+    "matches": [
+      "chatcommands.ChatCommandsFeature#PARTY_REGEX",
+      "leapmenu.PartyTracker#PARTY_CHAT",
+      "fastleap.PosmsgTargets#PARTY_LINE",
+      "interop.InteropChatParser#PARTY_LINE",
+      "fastleap.I4LeapFeature#MELODY_PARTY_LINE"
+    ],
+    "mustNotMatch": [
+      "chatcommands.ChatCommandsFeature#GUILD_REGEX",
+      "chatcommands.ChatCommandsFeature#PRIVATE_REGEX",
+      "chatcommands.ChatCommandsFeature#COOP_REGEX"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "sender": "Killer560",
+    "senderGroup": 1,
+    "channel": "Party > ",
+    "notes": "Party chat shape quoted in AutoMeowFeature's comment. Every listed pattern is called with matches() (checked in the mod source). PARTY_REGEX feeds Party Commands (sends /p warp, /p kick ...), PARTY_CHAT adds the sender as a teammate, PosmsgTargets/Interop/I4Leap read party messages. senderGroup 1 is the sender for all of them, so a forged line may match only when it captures the forger."
+  },
+  {
+    "id": "logic.party-chat-prefix",
+    "kind": "chat",
+    "payload": "Party > [MVP+] Killer560: meow",
+    "source": {"file": "src/main/java/com/killer560/hub/automeow/AutoMeowFeature.java", "line": 88},
+    "matches": ["automeow.AutoMeowFeature#PARTY_PREFIX", "automeow.AutoMeowFeature#TRIGGER"],
+    "mode": "find",
+    "verifiedBy": "regex",
+    "sender": "Killer560",
+    "senderGroup": 0,
+    "channel": "Party > ",
+    "hostileExempt": {
+      "automeow.AutoMeowFeature#TRIGGER": "Auto Meow answers a meow from anyone in any channel by design; TRIGGER is a word match, not a sender check"
+    },
+    "notes": "AutoMeow picks the reply channel with find() on these prefixes (AutoMeowFeature.java:126-135)."
+  },
+  {
+    "id": "logic.guild-chat",
+    "kind": "chat",
+    "payload": "Guild > Killer560 [Member]: meow",
+    "source": {"file": "src/main/java/com/killer560/hub/automeow/AutoMeowFeature.java", "line": 88},
+    "matches": ["chatcommands.ChatCommandsFeature#GUILD_REGEX"],
+    "mustNotMatch": [
+      "chatcommands.ChatCommandsFeature#PARTY_REGEX",
+      "chatcommands.ChatCommandsFeature#PRIVATE_REGEX",
+      "leapmenu.PartyTracker#PARTY_CHAT"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "sender": "Killer560",
+    "senderGroup": 1,
+    "channel": "Guild > ",
+    "notes": "Guild chat shape from AutoMeowFeature's comment."
+  },
+  {
+    "id": "logic.all-chat",
+    "kind": "chat",
+    "payload": "[312] [MVP+] Killer560: meow",
+    "source": {"file": "src/main/java/com/killer560/hub/automeow/AutoMeowFeature.java", "line": 88},
+    "mustNotMatch": [
+      "chatcommands.ChatCommandsFeature#PARTY_REGEX",
+      "chatcommands.ChatCommandsFeature#GUILD_REGEX",
+      "chatcommands.ChatCommandsFeature#PRIVATE_REGEX",
+      "chatcommands.ChatCommandsFeature#COOP_REGEX",
+      "leapmenu.PartyTracker#PARTY_CHAT",
+      "fastleap.PosmsgTargets#PARTY_LINE",
+      "interop.InteropChatParser#PARTY_LINE",
+      "fastleap.I4LeapFeature#MELODY_PARTY_LINE"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "All-chat (lobby) shape with a Skyblock level from AutoMeowFeature's comment: a stranger's line must not be taken for party, guild, DM or co-op chat."
+  },
+  {
+    "id": "logic.puzzle-fail",
+    "kind": "chat",
+    "payload": "PUZZLE FAIL! Killer560 was fooled by Eveleth! Yikes!",
+    "source": {"file": "src/main/java/com/killer560/hub/architect/ArchitectDraftFeature.java", "line": 20},
+    "mode": "find",
+    "verifiedBy": "regex",
+    "gates": ["architect.ArchitectDraftFeature#FAIL_PATTERNS[0]"],
+    "sender": "Killer560",
+    "notes": "Quoted in the class doc. FAIL_PATTERNS is a List, so it is listed under gates (Fixtures.checkPatterns resolves Pattern fields only). A match whose name is yours runs /gfs architect_first_draft 1."
+  },
+  {
+    "id": "logic.oruo-wrong-answer",
+    "kind": "chat",
+    "payload": "[STATUE] Oruo the Omniscient: Killer560 chose the wrong answer! I shall never forget this moment of misrememberance.",
+    "source": {"file": "src/main/java/com/killer560/hub/architect/ArchitectDraftFeature.java", "line": 25},
+    "mode": "find",
+    "verifiedBy": "regex",
+    "gates": ["architect.ArchitectDraftFeature#FAIL_PATTERNS[1]"],
+    "sender": "Killer560",
+    "notes": "Quoted across ArchitectDraftFeature.java:24-25."
+  },
+  {
+    "id": "logic.wither-key",
+    "kind": "chat",
+    "payload": "Killer560 has obtained Wither Key!",
+    "source": {"file": "src/main/java/com/killer560/hub/doorhelpers/AutoDoorOpenerFeature.java", "line": 60},
+    "matches": ["doorhelpers.AutoDoorOpenerFeature#KEY_OBTAINED_WITHER", "witherdoors.WitherDoorsFeature#KEY_OBTAINED_WITHER"],
+    "mustNotMatch": ["doorhelpers.AutoDoorOpenerFeature#KEY_OBTAINED_BLOOD"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "sender": "Killer560",
+    "notes": "Arms Auto Door Opener (it then right-clicks the nearest locked door)."
+  },
+  {
+    "id": "logic.blood-key",
+    "kind": "chat",
+    "payload": "Killer560 has obtained Blood Key!",
+    "source": {"file": "src/main/java/com/killer560/hub/doorhelpers/AutoDoorOpenerFeature.java", "line": 64},
+    "matches": ["doorhelpers.AutoDoorOpenerFeature#KEY_OBTAINED_BLOOD", "witherdoors.WitherDoorsFeature#KEY_OBTAINED_BLOOD"],
+    "mustNotMatch": ["doorhelpers.AutoDoorOpenerFeature#KEY_OBTAINED_WITHER"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "sender": "Killer560"
+  },
+  {
+    "id": "logic.device-done",
+    "kind": "chat",
+    "payload": "Killer560 completed a device! (3/7)",
+    "source": {"file": "src/main/java/com/killer560/hub/leveraura/LeverAuraFeature.java", "line": 58},
+    "matches": [
+      "fastleap.I4LeapFeature#DEVICE_DONE_REGEX",
+      "ap3.Ap3Feature#TERM_COMPLETED",
+      "fastleap.Floor7Tracker$Stage#TERM_COMPLETED",
+      "interop.SelfDerivation#DEVICE_COMPLETE",
+      "leveraura.LeverAuraFeature#TERM_COMPLETED"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "sender": "Killer560",
+    "notes": "Shape \"... completed a device! (x/y)\" from LeverAuraFeature's class doc; x/y chosen inside the single-digit groups. Stops Auto I4 / advances P3 trackers."
+  },
+  {
+    "id": "logic.device-done-find",
+    "kind": "chat",
+    "payload": "Killer560 completed a device! (3/7)",
+    "source": {"file": "src/main/java/com/killer560/hub/i4sensors/AutoI4Feature.java", "line": 71},
+    "matches": ["i4sensors.AutoI4Feature#DEVICE_DONE"],
+    "mode": "find",
+    "verifiedBy": "regex",
+    "sender": "Killer560",
+    "notes": "AutoI4Feature reads it with find() (AutoI4Feature.java:194)."
+  },
+  {
+    "id": "logic.leap-teleported",
+    "kind": "chat",
+    "payload": "You have teleported to Killer560!",
+    "source": {"file": "src/main/java/com/killer560/hub/leapmessage/LeapMessageFeature.java", "line": 35},
+    "matches": [
+      "leapmessage.LeapMessageFeature#LEAP_MESSAGE",
+      "ap3.Ap3Feature#SELF_LEAP",
+      "leapcounter.LeapTracker#SELF_LEAP"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "sender": "Killer560",
+    "notes": "LEAP_MESSAGE sends a party chat message."
+  },
+  {
+    "id": "logic.goldor-start",
+    "kind": "chat",
+    "payload": "[BOSS] Goldor: Who dares trespass into my domain?",
+    "source": {"file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java", "line": 88},
+    "matches": ["simonsays.SimonSaysFeature#AUTO_START_TRIGGER_PATTERN"],
+    "mode": "find",
+    "verifiedBy": "regex",
+    "notes": "Starts Simon Says auto-start."
+  },
+  {
+    "id": "logic.party-disbanded",
+    "kind": "chat",
+    "payload": "Killer560 has disbanded the party!",
+    "source": {"file": "src/main/java/com/killer560/hub/dungeonqueue/DungeonQueueFeature.java", "line": 42},
+    "matches": ["leapmenu.PartyTracker#CLEARED"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "gates": [
+      "dungeonqueue.DungeonQueueFeature#PARTY_LEAVE[5]",
+      "partycommands.PartyLeaderTracker#CLEARED[0]",
+      "scoreboard.ScoreboardPartyLeader#DISBAND[0]"
+    ],
+    "sender": "Killer560",
+    "notes": "PartyTracker.CLEARED empties the teammate list Party Commands authorises against; PARTY_LEAVE cancels a queued requeue; PartyLeaderTracker.CLEARED forgets the leader."
+  },
+  {
+    "id": "logic.joined-party",
+    "kind": "chat",
+    "payload": "You have joined Killer560's party!",
+    "source": {"file": "src/main/java/com/killer560/hub/partycommands/PartyLeaderTracker.java", "line": 27},
+    "matches": ["leapmenu.PartyTracker#YOU_JOINED", "partycommands.PartyLeaderTracker#YOU_JOINED"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "sender": "Killer560",
+    "notes": "Sets the party leader (gates leader-only party commands) and resets the teammate list."
+  },
+  {
+    "id": "logic.member-joined",
+    "kind": "chat",
+    "payload": "Killer560 joined the party.",
+    "source": {"file": "src/main/java/com/killer560/hub/leapmenu/PartyTracker.java", "line": 51},
+    "matches": ["leapmenu.PartyTracker#JOINED"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "sender": "Killer560",
+    "notes": "Adds a teammate - the set Party Commands authorises against."
+  },
+  {
+    "id": "logic.transfer-leave",
+    "kind": "chat",
+    "payload": "The party was transferred to Killer560 because Eveleth left",
+    "source": {"file": "src/main/java/com/killer560/hub/partycommands/PartyLeaderTracker.java", "line": 28},
+    "matches": [
+      "partycommands.PartyLeaderTracker#TRANSFER_LEAVE",
+      "leapmenu.PartyTracker#TRANSFER_LEAVE",
+      "scoreboard.ScoreboardPartyLeader#TRANSFER_LEAVE"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "gates": ["dungeonqueue.DungeonQueueFeature#PARTY_LEAVE[4]"],
+    "sender": "Killer560",
+    "notes": "Second name taken from ArchitectDraftFeature's quoted line (Eveleth)."
+  },
+  {
+    "id": "logic.extra-stats",
+    "kind": "chat",
+    "payload": "> EXTRA STATS <",
+    "source": {"file": "src/main/java/com/killer560/hub/dungeonqueue/DungeonQueueFeature.java", "line": 19},
+    "matches": [
+      "dungeonqueue.DungeonQueueFeature#EXTRA_STATS",
+      "runstats.RunStatsFeature#EXTRA_STATS",
+      "runsummary.RunSummaryFeature#EXTRA_STATS"
+    ],
+    "mode": "find",
+    "verifiedBy": "regex",
+    "notes": "Arms /instancerequeue (Dungeon Queue)."
+  },
+  {
+    "id": "logic.extra-stats-matches",
+    "kind": "chat",
+    "payload": "> EXTRA STATS <",
+    "source": {"file": "src/main/java/com/killer560/hub/partycommands/PartyCommandsFeature.java", "line": 86},
+    "matches": ["partycommands.PartyCommandsFeature#END_OF_RUN"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "Schedules the party-chat downtime announcement."
+  },
+  {
+    "id": "logic.door-opened",
+    "kind": "chat",
+    "payload": "Killer560 opened a WITHER door!",
+    "source": {"file": "src/main/java/com/killer560/hub/fastleap/FastLeapFeature.java", "line": 60},
+    "matches": ["fastleap.FastLeapFeature#DOOR_OPEN_REGEX"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "sender": "Killer560",
+    "notes": "Sets Fast Leap's door-opener leap target."
+  },
+  {
+    "id": "logic.npc-line",
+    "kind": "chat",
+    "payload": "[NPC] Aldous: The reward is in my chest.",
+    "source": {"file": "src/main/java/com/killer560/hub/roomsim/puzzles/SimQuizPuzzle.java", "line": 431},
+    "matches": ["dungeonextras.AutoDialogueFeature#NPC_LINE"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "\"[NPC] \" + WEIRDO_NAMES[i] + \": \" + line (SimQuizPuzzle.java:431, names at :98, line from WeirdosSolverFeature.java:66). AutoDialogue then runs the line's click command."
+  },
+  {
+    "id": "logic.npc-line-find",
+    "kind": "chat",
+    "payload": "[NPC] Aldous: The reward is in my chest.",
+    "source": {"file": "src/main/java/com/killer560/hub/roomsim/puzzles/SimQuizPuzzle.java", "line": 431},
+    "matches": ["puzzlesolvers.WeirdosSolverFeature#NPC_LINE"],
+    "mode": "find",
+    "verifiedBy": "regex",
+    "notes": "WeirdosSolverFeature reads it with find() (WeirdosSolverFeature.java:124)."
+  },
+  {
+    "id": "logic.simon-says-progress",
+    "kind": "chat",
+    "payload": "Party > [MVP+] Killer560: SS 3/5",
+    "source": {"file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java", "line": 81},
+    "matches": ["simonsays.SimonSaysFeature#PROGRESS_PATTERN_SIMPLE", "simonsays.SimonSaysFeature#PROGRESS_PATTERN"],
+    "mode": "find",
+    "verifiedBy": "regex",
+    "sender": "Killer560",
+    "hostileExempt": {
+      "simonsays.SimonSaysFeature#PROGRESS_PATTERN_SIMPLE": "reads other players' progress by design, in any channel; the guard is the bounded \\d{1,3} (Integer.parseInt at SimonSaysFeature.java:724), checked by the 20-digit forgery",
+      "simonsays.SimonSaysFeature#PROGRESS_PATTERN": "same"
+    },
+    "parsedAsInt": true,
+    "notes": "Party shape from AutoMeowFeature.java:88 with the SS payload. The 2026-09-29 disconnect bug (HostileChatTests) was unbounded digits here."
+  }
+]
