@@ -449,20 +449,54 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         // ---- the await: nothing sent while it waits ----
         check(uses.size() == 2, "a use went out while #6 was awaiting a secret (" + uses.size() + " uses)");
         check(relPos(ctx).distanceTo(new Vec3(22.5, F, 26.5)) < 1.5, "he is not on the await node: " + relPos(ctx));
-        // ---- open the chest: a secret, and a screen ----
+        // ---- click the chest: the click is the secret ----
+        // killer560 (2026-10-05): the await is met "once it detects I actually click something". On Hypixel the server
+        // credits a chest on the click packet itself and the window is only its view, arriving a round trip later; so
+        // the route may warp before the window, and the secret is not lost. The window can arrive either side of the
+        // warp - here, before it on 26.1.2 and not at all before it on 26.2 (measured 2026-10-05, 3/3) - and both
+        // orders are right, as long as the click was credited and a window that arrives late does not end the route.
+        int found0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound"));
         startSampling(ctx);
         rightClick(ctx, 24, F, 24, Direction.UP);
-        boolean screen = waitFor(ctx, 40, () -> ctx.computeOnClient(mc -> McCompat.screen(mc) != null));
-        check(screen, "clicking the chest opened no screen");
         boolean met = waitFor(ctx, 60, () -> awaitMet(mark));
-        check(met, "the await never saw the chest secret (sim action bar / await count)");
-        check(ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning")),
-                "the chest's screen stopped the route");
-        check(useTicks(stopSampling(ctx)).isEmpty(), "the etherwarp went out while the chest screen was open");
-        startSampling(ctx);
-        ctx.runOnClient(mc -> mc.player.closeContainer());
-        Vec3 l6 = waitLanded(ctx, 14, 26, 60);
-        check(l6 != null, "#6 did not warp after the screen closed (at " + relPos(ctx) + ")");
+        check(met, "the await never saw the chest click");
+        check(logHas(mark, "await secret 1: chest at"), "the await was not met by the chest click");
+        check(waitFor(ctx, 20, () -> ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE,
+                "secretsFound")) > found0), "the sim did not credit the chest secret for the click");
+        // Which came first: the chest's window, or #6's warp.
+        check(waitFor(ctx, 40, () -> logHas(mark, "Node #6 ETHERWARP acted")
+                        || ctx.computeOnClient(mc -> McCompat.screen(mc) != null)),
+                "after the click neither the chest window opened nor #6 acted");
+        boolean windowFirst = !logHas(mark, "Node #6 ETHERWARP acted");
+        println("96-ar-play: " + (windowFirst ? "the chest window came before the warp"
+                : "the warp went out before any window"));
+        Vec3 l6;
+        if (windowFirst) {
+            // The window came first: the route waits under it, sends nothing, and warps once it is closed.
+            check(ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning")),
+                    "the chest's screen stopped the route");
+            check(useTicks(stopSampling(ctx)).isEmpty(), "the etherwarp went out while the chest screen was open");
+            startSampling(ctx);
+            ctx.runOnClient(mc -> mc.player.closeContainer());
+            l6 = waitLanded(ctx, 14, 26, 60);
+            check(l6 != null, "#6 did not warp after the screen closed (at " + relPos(ctx) + ")");
+        } else {
+            // The click met the await before any window: #6 warps at once. Hypixel's window then arrives a round trip
+            // late, after the warp - emulated here as a container the server opens once #6 has acted (a chest GUI with
+            // no distance check, as Hypixel's are). It must hold the route like the chest's own window, not stop it.
+            check(waitFor(ctx, 20, () -> logHas(mark, "Node #6 ETHERWARP acted")), "#6 did not act after the click");
+            openLateWindow(ctx);
+            check(waitFor(ctx, 20, () -> ctx.computeOnClient(mc -> McCompat.screen(mc) != null)),
+                    "the late chest window never opened");
+            ctx.waitTicks(10);
+            check(!logHas(mark, "Stopped: a screen opened"), "the chest window arriving after the warp stopped the route");
+            check(ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning")),
+                    "the route is not running under the late chest window");
+            check(!logHas(mark, "Node #7 USE_ITEM acted"), "#7 fired under the late chest window");
+            l6 = waitLanded(ctx, 14, 26, 5);
+            check(l6 != null, "#6's warp did not land (at " + relPos(ctx) + ")");
+            ctx.runOnClient(mc -> mc.player.closeContainer());
+        }
         ctx.waitTicks(30);
         List<Sample> afterChest = stopSampling(ctx);
         List<Sample> uses2 = useTicks(afterChest);
@@ -1115,6 +1149,23 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         });
         ctx.waitFor(mc -> given.get() != null, 200);
         ctx.waitTicks(5);
+    }
+
+    /** The server opens a three-row "Chest" window on him (a plain container: no distance check, like Hypixel's). */
+    private static void openLateWindow(ClientGameTestContext ctx) {
+        AtomicReference<Boolean> opened = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            var uuid = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(uuid);
+                opened.set(sp.openMenu(new net.minecraft.world.SimpleMenuProvider((id, inv, p) ->
+                        net.minecraft.world.inventory.ChestMenu.threeRows(id, inv),
+                        net.minecraft.network.chat.Component.literal("Chest"))).isPresent());
+            });
+        });
+        ctx.waitFor(mc -> opened.get() != null, 200);
+        check(Boolean.TRUE.equals(opened.get()), "the server could not open the late chest window");
     }
 
     /** Steps off (2 blocks -z), then onto the start node at (x,z): true once the route has started. */

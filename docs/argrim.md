@@ -10,5 +10,11 @@ abilities are `hx/dungeon/HxAbilities` (etherwarp, Instant Transmission, Superbo
   one with a hand etherwarp (`warpOnto`). Aims for clicks must also tolerate the ring-edge offset.
 - A harness click must LOOK at the block first (a turn, then the click on the ray's hit): a synthetic centre hit while
   facing elsewhere is GrimAC RotationPlace, and it is the harness's flag, not the mod's.
+- The Interactive Map's executor (`ClearExecutor`) has its own cases at the end: `62-argrim-imwarp` (the Go + Secret
+  press on the room's cell with the map screen OPEN, a START-node warp across the 4-high wall), `-imwarp-run` (the same
+  with Run While Map Open, so the route's START etherwarp fires under the open map) and `-goto` (the node editor's Go
+  To). They run last: a map warp leaves the map-arrival interlock set and Go To leaves edit mode on. Select them with
+  `-Pscenario=62-argrim-session:,62-argrim-imwarp,62-argrim-goto`. On main d667bf3a they drew BadPacketsJ on every
+  warp and BadPacketsA (a swap's slot sent twice); clean from mod 09e2c304.
 - Grim's check classes are in its jar under `common-*.jar` (nested twice); javap them from a SHORT path - the
   scratchpad path is too long for javap on Windows.
