@@ -499,18 +499,23 @@ final class MiscCases {
         List<String> stages = new ArrayList<>();
         long mark = LogTap.mark();
         try {
-            // 306 runs "/killer560 sim" too; start from a stopped recorder
-            c.onClient(mc -> Mod.staticCall("roomsim.RoomRecorderFeature", "stop", "testkit"));
-            c.ticks(2);
+            // autoArmCapture arms once per world (autoArmedLevel, RoomRecorderFeature.java:231), so if 306 already
+            // ran "/killer560 sim" in this world the recorder is armed from then and stopping it here would make
+            // the repro impossible. Take whichever: armed by 306, or arm it now.
             stages.add("start: " + R.getStatic(rec, "stage"));
             double y = c.onClient(mc -> mc.player.position().y);
             c.note("player y at the start: " + y);
-            CommandSweep.execute(c, "killer560 sim");
-            c.ticks(5);
-            stages.add("after sim ON: " + R.getStatic(rec, "stage"));
-            CommandSweep.execute(c, "killer560 sim");
-            c.ticks(5);
-            stages.add("after sim OFF: " + R.getStatic(rec, "stage"));
+            if ("OFF".equals(String.valueOf(R.getStatic(rec, "stage")))) {
+                CommandSweep.execute(c, "killer560 sim");
+                c.ticks(5);
+                stages.add("after sim ON: " + R.getStatic(rec, "stage"));
+                CommandSweep.execute(c, "killer560 sim");
+                c.ticks(5);
+                stages.add("after sim OFF: " + R.getStatic(rec, "stage"));
+            }
+            String armed = String.valueOf(R.getStatic(rec, "stage"));
+            c.check(!armed.equals("OFF"), "premise not established: the recorder never armed (stages " + stages
+                    + ") - this case would prove nothing; run it in a fresh world or after 306");
             // somewhere real: above y 0, no screen (DungeonInstanceCooldown.inPlayableWorld && !looksLikeLimbo)
             c.onClient(mc -> {
                 var server = mc.getSingleplayerServer();
