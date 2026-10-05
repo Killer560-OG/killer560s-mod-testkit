@@ -84,7 +84,12 @@ public class SimServerSafetyTests implements FabricClientGameTest {
                                 + "this scenario would prove nothing");
                     }
 
-                    // A fingerprint of the arena before, so "no block changed" is a measurement.
+                    // A fingerprint of the arena before, so "no block changed" is a measurement - taken only once
+                    // the client HAS the arena: on 26.2 the first read came while chunks were still arriving
+                    // (void_air), and the later read then "changed" with no command involved.
+                    for (int wait = 0; wait < 200 && fingerprint(ctx).contains("void_air"); wait += 10) {
+                        ctx.waitTicks(10);
+                    }
                     String before = fingerprint(ctx);
 
                     for (String command : COMMANDS) {
@@ -129,7 +134,7 @@ public class SimServerSafetyTests implements FabricClientGameTest {
                     String after = fingerprint(ctx);
                     if (!before.equals(after)) {
                         problems.add("the world CHANGED around him - a sim command placed or removed blocks "
-                                + "on a server");
+                                + "on a server: before " + before + ", after " + after);
                     }
 
                     boolean[] stillThere = new boolean[1];
@@ -178,7 +183,14 @@ public class SimServerSafetyTests implements FabricClientGameTest {
                     }
                 }
             }
-            got[0] = Integer.toHexString(sb.toString().hashCode()) + ":" + sb.length();
+            // Counts per block, sorted, so a difference says WHAT changed, not just that a hash moved.
+            java.util.TreeMap<String, Integer> counts = new java.util.TreeMap<>();
+            for (String b : sb.toString().split(",")) {
+                if (!b.isEmpty()) {
+                    counts.merge(b, 1, Integer::sum);
+                }
+            }
+            got[0] = Integer.toHexString(sb.toString().hashCode()) + " " + counts;
         });
         return got[0];
     }

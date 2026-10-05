@@ -94,6 +94,8 @@ public class SimFloorSizeTests implements FabricClientGameTest {
     }
 
     private static void buildAndCheck(ClientGameTestContext ctx, String floorName, List<String> failures) {
+        // Room types come from the room database; the sim will not plan a floor without it (mod, 2026-10-05).
+        Scenario.ensureRoomDatabase(ctx);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter",
                 new Class<?>[]{String.class}, new Object[]{"gametest"}));
         long simBuildBefore = Scenario.simBuildCount(ctx);

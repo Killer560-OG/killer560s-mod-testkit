@@ -310,6 +310,15 @@ final class FixtureCases {
                     return true;
                 }
             }
+            // A symbol the payload hinges on (a Quiz answer's circled letter, a stat icon) names the line as well
+            // as a word does; the word split above throws every non-ASCII character away.
+            for (int i = 0; i < t.length(); ) {
+                int cp = t.codePointAt(i);
+                i += Character.charCount(cp);
+                if (cp > 0x7F && cp != 0xA7 && !Character.isWhitespace(cp) && line.contains(Character.toString(cp))) {
+                    return true;
+                }
+            }
         }
         return f.texts().isEmpty();
     }

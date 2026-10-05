@@ -62,6 +62,8 @@ public class SimStarredMobTests implements FabricClientGameTest {
                 "com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         copyDir(Path.of(SOURCE_ROOMS).resolveSibling("killer560smod-roomdata").toString(),
                 "killer560smod-roomdata", "");
+        // Room types come from the room database; the sim will not plan a floor without it (mod, 2026-10-05).
+        Scenario.ensureRoomDatabase(ctx);
 
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter",
                 new Class<?>[]{String.class}, new Object[]{"gametest"}));

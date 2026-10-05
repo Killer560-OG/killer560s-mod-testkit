@@ -86,10 +86,14 @@ public class SimSecretsTests implements FabricClientGameTest {
             System.out.println("[76-sim-secrets] SKIPPED - no room database to place secrets from");
             return;
         }
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(
-                "com.killer560.hub.roomdatabase.RoomDatabase", "ensureLoading"));
-        ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(
-                "com.killer560.hub.roomdatabase.RoomDatabase", "isReady"));
+        // An earlier scenario in this client may already have asked for the database before the files above
+        // existed: offline, that attempt failed and backs off 30 s, during which ensureLoading is a no-op (seen
+        // 2026-10-05: failure at 00:54:44, files copied at 00:54:49, the default wait gave up at 00:55:01, the
+        // retry loaded from the local copy at 00:55:15). Keep asking, and wait out one backoff.
+        ctx.waitFor(mc -> {
+            ModUnderTest.staticCall("com.killer560.hub.roomdatabase.RoomDatabase", "ensureLoading");
+            return (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomdatabase.RoomDatabase", "isReady");
+        }, 1000);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(ROOM_LIBRARY, "forceReload"));
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isReady"));
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter",

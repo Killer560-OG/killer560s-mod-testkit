@@ -68,6 +68,8 @@ public class SimSingleRoomTests implements FabricClientGameTest {
                 "com.killer560.hub.roomdatabase.RoomDatabase", "ensureLoading"));
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(
                 "com.killer560.hub.roomdatabase.RoomDatabase", "isReady"));
+        // Room types come from the room database; the sim will not plan a floor without it (mod, 2026-10-05).
+        Scenario.ensureRoomDatabase(ctx);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(ROOM_LIBRARY, "forceReload"));
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isReady"));
 

@@ -44,7 +44,6 @@ public class SimTests implements FabricClientGameTest {
     private static final String ITEM_IDENTITY = "com.killer560.hub.autoroutes.ItemIdentity";
     private static final String SIM_ITEMS = "com.killer560.hub.roomsim.SimItems";
     private static final String SIM_ABILITIES = "com.killer560.hub.roomsim.SimAbilities";
-    private static final String ROOM_RECORDER = "com.killer560.hub.roomsim.RoomRecorderFeature";
     private static final String SIM_ARCHITECT = "com.killer560.hub.roomsim.SimArchitect";
     private static final String ARCHITECT_CONFIG_HOLDER =
             "com.killer560.hub.architect.ArchitectDraftConfig";
@@ -708,33 +707,8 @@ public class SimTests implements FabricClientGameTest {
                         + "8 base plus four tuners - but it moved " + moved);
             }
 
-            // 16. The Room Recorder's "Undersized party!" confirm is matched on the ITEM'S TEXT, not on a slot
-            //     number read off a screenshot. Asserted here because a typo in that string fails SILENTLY -
-            //     the recorder would queue a floor, never click through, and look like the join was refused.
-            ctx.runOnClient(mc -> {
-                // The real lore line from Hypixel's menu, and the colour codes it actually carries.
-                var confirm = new net.minecraft.world.item.ItemStack(McItems.LIME_DYE);
-                confirm.set(net.minecraft.core.component.DataComponents.LORE,
-                        new net.minecraft.world.item.component.ItemLore(java.util.List.of(
-                                net.minecraft.network.chat.Component.literal("§eClick to play anyway!"))));
-                boolean hit = (Boolean) ModUnderTest.staticCall(ROOM_RECORDER, "looksLikePlayAnyway",
-                        new Class<?>[]{net.minecraft.world.item.ItemStack.class}, new Object[]{confirm});
-                if (!hit) {
-                    throw new AssertionError("the confirm item's 'Click to play anyway!' lore was not matched - "
-                            + "the recorder would queue a floor and never enter it");
-                }
-                // And it must NOT match the barrier sitting next to it, or the recorder clicks the wrong slot.
-                var no = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.BARRIER);
-                no.set(net.minecraft.core.component.DataComponents.LORE,
-                        new net.minecraft.world.item.component.ItemLore(java.util.List.of(
-                                net.minecraft.network.chat.Component.literal(
-                                        "§cTHIS INSTANCE IS BEST WITH A 5 PLAYER PARTY!"))));
-                if ((Boolean) ModUnderTest.staticCall(ROOM_RECORDER, "looksLikePlayAnyway",
-                        new Class<?>[]{net.minecraft.world.item.ItemStack.class}, new Object[]{no})) {
-                    throw new AssertionError("the warning item matched too - the recorder would click the wrong "
-                            + "slot in the undersized-party menu");
-                }
-            });
+            // 16. (The Room Recorder's "Click to play anyway!" check went with the recorder itself, removed from the
+            //     mod on 2026-10-04 in ab23c32e; it lives at the mod's git tag room-recorder-last.)
 
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave",
                     new Class<?>[]{}, new Object[]{}));

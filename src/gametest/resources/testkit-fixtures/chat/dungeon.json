@@ -38,7 +38,7 @@
     "id": "chat.mort-map",
     "kind": "chat",
     "payload": "[NPC] Mort: Here, I found this map when I first entered the dungeon.",
-    "source": {"file": "src/main/java/com/killer560/hub/splittimers/SplitTimersFeature.java", "line": 65},
+    "source": {"file": "src/main/java/com/killer560/hub/splittimers/SplitTimersFeature.java", "line": 66},
     "verifiedBy": "regex",
     "notes": "First alternative of SplitTimers' BLOOD_OPEN split (matched with matches()); the first split to fire starts the run clock AutoKick reads (SplitTimersFeature.getRunStartedAtMs, :529). The pattern lives in a SplitDef record, not a static Pattern field."
   },

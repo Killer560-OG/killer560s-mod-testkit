@@ -16,6 +16,11 @@ public final class McCompat {
     private McCompat() {
     }
 
+    /** The object holding the HUD's title/subtitle/action-bar state: {@code Gui} on 26.1.2, {@code Gui.hud} on 26.2. */
+    public static Object hud(Minecraft mc) {
+        return mc.gui.hud;
+    }
+
     /** The screen that is open, or null for none. 26.2: {@code Minecraft.gui.screen()}. */
     public static Screen screen(Minecraft mc) {
         return mc.gui.screen();
