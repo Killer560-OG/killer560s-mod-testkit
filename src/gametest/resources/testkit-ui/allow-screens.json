@@ -1,0 +1,39 @@
+{
+  "_doc": "Every concrete mod Screen class (found in the jar at run time; a class missing from both lists fails 305). 'args' builds the constructor call: null | int:N | bool:B | str:S | float:F | enum:* (one screen per constant of that parameter's enum) | intconsumer | pvtarget (ProfileViewerFeature.Target of a fixed name/UUID). 'factory' names a public static method to call instead (args apply to it). Constructor sources are mod 8c43a6d.",
+  "screens": [
+    {"class": "gui.ModScreen", "args": ["null"], "source": "gui/ModScreen.java:84"},
+    {"class": "gui.ColorPickerScreen", "args": ["null", "str:Test Colour", "int:-3381760", "int:-1", "intconsumer"], "source": "gui/ColorPickerScreen.java"},
+    {"class": "hud.HudEditorScreen", "args": ["null"], "source": "hud/HudEditorScreen.java:70"},
+    {"class": "ap3.Ap3ConfigScreen", "args": ["null"], "source": "ap3/Ap3ConfigScreen.java"},
+    {"class": "ap3.Ap3EditScreen", "args": ["null", "int:0"], "source": "ap3/Ap3EditScreen.java:65 (index 0 with no nodes: node() returns null, line 74)"},
+    {"class": "accounts.gui.AccountSwitcherScreen", "args": ["null"], "source": "accounts/gui/AccountSwitcherScreen.java (reads the empty Prism accounts fixture)"},
+    {"class": "auction.screen.BazaarScreen", "args": ["null"], "source": "auction/screen/BazaarScreen.java (offline: no data)"},
+    {"class": "auction.screen.AuctionHouseScreen", "args": ["null"], "source": "auction/screen/AuctionHouseScreen.java (offline: no data)"},
+    {"class": "croesus.CroesusTrackerScreen", "args": ["null", "enum:*"], "source": "croesus/CroesusTrackerScreen.java:36 View"},
+    {"class": "dungeonextras.BreakerAuraConfigScreen", "args": ["null"], "source": "dungeonextras/BreakerAuraConfigScreen.java"},
+    {"class": "livemap.InteractiveMapScreen", "args": ["bool:false"], "source": "livemap/InteractiveMapScreen.java"},
+    {"class": "social.FriendsListScreen", "args": ["null"], "source": "social/FriendsListScreen.java"},
+    {"class": "social.BestFriendsScreen", "args": ["null"], "source": "social/BestFriendsScreen.java"},
+    {"class": "windowlayout.WindowLayoutScreen", "args": ["null"], "source": "windowlayout/WindowLayoutScreen.java:33 - constructed and rendered only; a cell click moves the real window and is never made"},
+    {"class": "leapmenu.LeapOrderScreen", "args": ["null"], "source": "leapmenu/LeapOrderScreen.java"},
+    {"class": "mining.chmap.CrystalHollowsMapScreen", "args": [], "source": "mining/chmap/CrystalHollowsMapScreen.java"},
+    {"class": "petwheel.PetWheelScreen", "factory": "forEdit", "args": ["null"], "source": "petwheel/PetWheelScreen.java:117 (what the Pet Wheel tab's Edit Pets opens, gui/tab/PetWheelTab.java:160)"},
+    {"class": "proxy.gui.ProxyConfigScreen", "args": ["null"], "source": "proxy/gui/ProxyConfigScreen.java - render only, nothing saved"},
+    {"class": "profileviewer.screen.ProfileViewerScreen", "args": ["null", "pvtarget"], "source": "profileviewer/screen/ProfileViewerScreen.java (offline: the fetch fails into its own error state)"},
+    {"class": "runsummary.RunLogScreen", "args": ["null"], "source": "runsummary/RunLogScreen.java"},
+    {"class": "roomsim.RoomLibraryScreen", "args": ["null"], "source": "roomsim/RoomLibraryScreen.java"},
+    {"class": "roomsim.SimItemsScreen", "args": ["null"], "source": "roomsim/SimItemsScreen.java"},
+    {"class": "roomsim.SimLoadingScreen", "args": ["str:testkit"], "source": "roomsim/SimLoadingScreen.java"},
+    {"class": "roomsim.SimMapEditorScreen", "args": ["null"], "source": "roomsim/SimMapEditorScreen.java"},
+    {"class": "roomsim.SimMenuScreen", "args": ["null"], "source": "roomsim/SimMenuScreen.java - render only; its buttons open sim worlds"},
+    {"class": "scoreboard.ScoreboardEditorScreen", "args": ["null"], "source": "scoreboard/ScoreboardEditorScreen.java"},
+    {"class": "termism.TermismMenuScreen", "args": ["null"], "source": "termism/TermismMenuScreen.java"},
+    {"class": "termism.TermismPracticeScreen", "args": ["null", "enum:*"], "source": "termism/TermismPracticeScreen.java (one per TerminalType)"},
+    {"class": "storagesearch.StorageSearchScreen", "args": ["null", "str:"], "source": "storagesearch/StorageSearchScreen.java"},
+    {"class": "accounts.gui.DirectSessionLoginScreen", "args": ["null", "null"], "source": "accounts/gui/DirectSessionLoginScreen.java - render only; nothing is typed into it"}
+  ],
+  "deny": [
+    {"class": "accounts.gui.AccountProxyConfigScreen", "why": "needs a real PrismAccount (accounts/gui/AccountProxyConfigScreen.java:24); the accounts store is the empty fixture"},
+    {"class": "autoroutes.AutoRoutesEditScreen", "why": "needs a Route and RouteNode of the dungeon room the player stands in (autoroutes/AutoRoutesCommands.java:390 refuses to open it otherwise)"}
+  ]
+}
