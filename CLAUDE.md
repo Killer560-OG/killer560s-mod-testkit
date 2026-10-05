@@ -251,3 +251,15 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   now anchor the root with `/` and require `fabric.dli.env=client`. Older checkouts still carry the old placer.
 - `powershell -File script.ps1 -Extra a b` binds only `a` to a `string[]` parameter; parallel-suite.ps1 launches its
   children with `-Command` and single-quoted values instead.
+- `pattern-catalog.json` is generated, and goes stale with every mod commit that adds or moves a `Pattern.compile`:
+  350/351 failed on 2026-10-05 for that alone. Regenerate it (`python -X utf8 tools/extract-patterns.py --mod-source
+  <mod checkout>`) before reading a logic failure as a mod bug, and point `TESTKIT_MOD_SOURCE` at the checkout the jar
+  came from - the default is `C:/Users/Hunter/killer560s-mod`, which may be on another commit.
+- One Session case: `-Pscenario=200-menu-session:,226-menu` - a part that CONTAINS the session's name selects the
+  session without selecting all of its cases, then the other parts pick cases.
+- A scenario that only calls `Scenario.skip` writes no report row of its own; `SuiteVerdict` gives it a RAN row (under
+  "other") when its class ends. RAN is not PASS: read its `[name] PASS` line in the log.
+- The sim plans no floor before the mod's room database has loaded (mod 0ad55108); room types come from it, and without
+  it floors had no blood room. Call `Scenario.ensureRoomDatabase(ctx)` before any `plan`/`generate`. Offline, an earlier
+  failed attempt backs off 30 s, which is why it waits up to 1000 ticks.
+- `build/run/clientGameTest` (crash reports included) is rebuilt by the next run. Copy `crash-reports/` out first.
