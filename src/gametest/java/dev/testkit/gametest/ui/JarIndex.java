@@ -16,7 +16,7 @@ import java.util.stream.Stream;
  * Lists classes in the loaded mod jar, so a sweep covers what the jar HAS rather than a list kept here: a config
  * or screen added tomorrow shows up in the next run without anyone editing the testkit.
  */
-final class JarIndex {
+public final class JarIndex {
 
     static final String MOD_ID = "killer560smod";
     static final String ROOT = "com.killer560.hub.";
@@ -25,7 +25,7 @@ final class JarIndex {
     }
 
     /** Fully-qualified names of top-level (no '$') classes under com.killer560.hub whose simple name passes. */
-    static List<String> classNames(Predicate<String> simpleName) {
+    public static List<String> classNames(Predicate<String> simpleName) {
         TreeSet<String> out = new TreeSet<>();
         ModContainer mod = FabricLoader.getInstance().getModContainer(MOD_ID)
                 .orElseThrow(() -> new AssertionError("[ui] " + MOD_ID + " is not loaded (-PmodUnderTest)"));
@@ -54,7 +54,7 @@ final class JarIndex {
     }
 
     /** Load without initialising (so listing a class never runs its static init). Null if it cannot be loaded. */
-    static Class<?> peek(String fq) {
+    public static Class<?> peek(String fq) {
         try {
             return Class.forName(fq, false, JarIndex.class.getClassLoader());
         } catch (Throwable t) {

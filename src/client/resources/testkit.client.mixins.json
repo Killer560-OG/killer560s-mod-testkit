@@ -9,6 +9,8 @@
 		"MixinClientGameTestRunner",
 		"MixinClientPacketListener",
 		"MixinConnection",
+		"MixinFrameClockGameRenderer",
+		"MixinFrameClockMinecraft",
 		"MixinOutboundPackets"
 	],
 	"injectors": {
