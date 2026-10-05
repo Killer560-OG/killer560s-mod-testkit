@@ -44,13 +44,14 @@ function Prepare-Worktree([int]$n) {
     $path = "$WorktreeRoot/$n"
     if (-not (Test-Path $path)) {
         New-Item -ItemType Directory -Force -Path $WorktreeRoot | Out-Null
-        & git -C $here worktree add --detach $path $head | Out-Host
+        # Through cmd so git's progress line on stderr is not turned into a PowerShell error record.
+        cmd /c "git -C `"$here`" worktree add --detach `"$path`" $head 2>&1" | Out-Host
     } else {
         $wtDirty = & git -C $path status --porcelain --untracked-files=no
         if ($wtDirty) {
             throw "worktree $path has uncommitted changes; refusing to move it. Commit or discard them first."
         }
-        & git -C $path checkout --detach $head 2>&1 | Out-Host
+        cmd /c "git -C `"$path`" checkout --detach $head 2>&1" | Out-Host
     }
     return $path
 }

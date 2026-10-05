@@ -11,19 +11,28 @@ add one or push without asking.
 ## Run
 
 ```
-./gradlew runClientGameTest -PmodUnderTest=C:/Users/Hunter/killer560s-mod/build/libs/killer560smod-1.1.0-26.1.2-cheat.jar --no-daemon
-./gradlew runClientGameTest -Pscenario=60-secret -PmodUnderTest=<jar>   # one scenario
-./gradlew runClientGameTest -Pnogrim -PmodUnderTest=<jar>               # anticheat muted
-./gradlew runClientGameTest -Pport=25566 -PmodUnderTest=<jar>           # second concurrent instance
+./run-suite.ps1 -Suite harness -Port 25565 -ModUnderTest <jar>          # named suite + freeze watcher + report
+./run-scenario.ps1 -Scenario 60-secret -ModUnderTest <jar>              # one scenario, same watcher
+./parallel-suite.ps1 -Suites hx,menu -Max 2                             # worktrees -wt/<n>, ports 25700+10n
+./gradlew runClientGameTest -Pscenario=60-secret -PmodUnderTest=<jar>   # no watcher
+./gradlew runClientGameTest -Psuite=demo -Pport=25575 -PmodUnderTest=<jar>
+./gradlew runClientGameTest -Pnogrim -PmodUnderTest=<jar>               # anticheat removed
 ```
 
-About 70 seconds per scenario. `-Pport` gives a separate server, world and port, so copies of this whole
-directory can run at the same time (Gradle locks the project directory, so concurrency needs separate
-checkouts, not just separate ports).
+Use the snapshotted jars in `C:/Users/Hunter/killer560s-mod-testkit-jars/<mod-sha>/`, never the mod's build/libs
+(it moves under a run); run-scenario.ps1 defaults to the newest snapshot. About 70 seconds per server start;
+`hx/Session` runs many cases on one start. `-Pport=N` patches run/testserver/server.properties (sticks for the
+checkout) and puts the Hx bridge on N+5; concurrency needs separate checkouts (Gradle locks the project dir).
+`-Psuite=<name>` reads `suites.properties`. `-PseedConfig=<dir>` copies into the client's config after the wipe.
+Every run points `prismaccountswitcher.accountsFile` at an empty fixture and passes `killer560.net.offline=true`
+and `killer560.test.noExternalOpen=true` (opt out: `-PnetOnline`, `-PallowExternalOpen`, or `-PnoQuiet` for all,
+which also stops Session applying `mod/Quiet`). `-PnetOverride=svc=url;...` points mod services at fakes. Reports
+land in `build/testkit-report/` (summary.md/json, cases/, screens/, coverage.md). WP1 foundation and every API is
+described in `docs/wp/wp1-foundation.md`; change requests to frozen files go in `docs/requests/`.
 
-Versions from `gradle.properties`: Minecraft 26.1.2, GrimAC pinned to `2.3.74-2614909` downloaded from
-Modrinth into `.gradle/grim/`, `cloud_version=2.0.0-beta.16` (beta.17 needs MC ≥ 26.2), sqlite-jdbc for
-Grim's violation store. Java 25.
+Versions from `gradle.properties`: Minecraft 26.1.2, GrimAC pinned to `2.3.74-8eb5f28` downloaded from
+Modrinth once into the Gradle user home (`caches/testkit-grim/`, shared by every checkout and worktree),
+`cloud_version=2.0.0-beta.16` (beta.17 needs MC ≥ 26.2), sqlite-jdbc for Grim's violation store. Java 25.
 
 ## Layout
 
@@ -191,3 +200,9 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 - `ModChat.send` lines never reach `ChatWatch` (they are added to the chat window directly, not received), but
   vanilla logs every shown line as `[System] [CHAT] ...` - note the prefix, a `startsWith("[CHAT]")` filter
   silently matched nothing. `LogTap` captures them together with the mod's own logger lines.
+- **Checkout markers need a trailing slash.** The scripts found "our" client by the path prefix
+  `C:/Users/Hunter/killer560s-mod-testkit`, which is also the start of every sibling checkout (-pzA, -pzB, -wt/N),
+  so one checkout's run moved or killed another's client (pzB's placer moved pzA's window, 2026-10-04). Both scripts
+  now anchor the root with `/` and require `fabric.dli.env=client`. Older checkouts still carry the old placer.
+- `powershell -File script.ps1 -Extra a b` binds only `a` to a `string[]` parameter; parallel-suite.ps1 launches its
+  children with `-Command` and single-quoted values instead.

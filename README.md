@@ -19,8 +19,23 @@ last part is why any of this is trustworthy, and it is his design.
   block uses, the most on any one tick, how many went out *after* that tick's movement packet, swings,
   hotbar swaps, reach to the block box *and* to its centre, rotation sent, and horizontal collisions as the
   client itself reports them.
-- **`-Pport=N`** gives a separate server, world and port, so several copies of this project can run
-  scenarios at the same time.
+- **`-Pport=N`** gives a separate server, world and port (written into `run/testserver/server.properties`), so
+  several copies of this project can run scenarios at the same time. The Hx bridge listens on N+5.
+- **Hx: the test server impersonating Hypixel.** A loopback JSON-RPC bridge in the companion server mod
+  (`src/testmod/.../hx/`) sends Hypixel-shaped chat, action bars, titles, sidebars (team prefixes on invisible
+  owners), tab lists (fake profiles), items, armour stands, menus and command stubs, and records what the client
+  sent back (commands, chat, clicks, interactions). Client side: `gametest/hx/Hx`.
+- **`hx/Session`**: one server start for many cases, each with its own verdict, anticheat check, health check
+  (`mod/Mod.assertHealthy`) and report row.
+- **Reports** in `build/testkit-report/`: `summary.md`, `summary.json`, `cases/<name>.log` (server console and client
+  log slice per case), `screens/`, `coverage.md`.
+- **Suites and worktrees**: `-Psuite=<name>` from `suites.properties`; `run-suite.ps1 -Suite <name> -Port <n>`;
+  `parallel-suite.ps1 -Suites a,b -Max 2` runs each in a git worktree at
+  `C:/Users/Hunter/killer560s-mod-testkit-wt/<n>` on port 25700+10n.
+- **Safe by default**: every run points the mod's Prism account store at an empty fixture and passes
+  `killer560.net.offline=true` / `killer560.test.noExternalOpen=true` (opt out with `-PnetOnline`,
+  `-PallowExternalOpen`, `-PnoQuiet`); `-PnetOverride=svc=url;...` points mod services at local fakes;
+  `-PseedConfig=<dir>` seeds the client's config folder.
 - **`Scenario.labelServerAs(...)`** presents the local server under a different address. killer560s-mod
   refuses to run its dungeon features unless `getCurrentServer().ip` contains `hypixel.net` or `p3sim.net`,
   and several have no override at all; that check reads the stored `ServerData`, which is separate from the
