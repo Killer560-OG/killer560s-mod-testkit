@@ -168,7 +168,7 @@ public class SessionDemoTest implements FabricClientGameTest {
                         // title -> the client's Gui holds it
                         c.hx().title("§cHx Title", "§7hx subtitle");
                         c.waitUntil("the client's Gui title to read 'Hx Title'", mc -> {
-                            Object t = Mod.field(mc.gui, "title");
+                            Object t = Mod.field(dev.testkit.compat.McCompat.hud(mc), "title");
                             return t instanceof Component comp && comp.getString().contains("Hx Title");
                         }, 60);
                         // sound and particle: the ops must succeed (nothing in the mod reads them here)
