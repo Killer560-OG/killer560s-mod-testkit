@@ -32,7 +32,7 @@ public class UiSuite implements FabricClientGameTest {
             "311-ui-config-setters", "320-ui-profiles"};
     static final String[] WORLD_CASES = {"301-ui-smoke-tabs", "302-ui-smoke-search", "303-ui-smoke-toggles",
             "304-ui-smoke-hud-editor", "305-ui-smoke-screens", "306-ui-smoke-commands", "350-ui-termism",
-            "360-ui-visuals"};
+            "360-ui-visuals", "380-ui-recorder-limbo"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -79,6 +79,7 @@ public class UiSuite implements FabricClientGameTest {
                             worldSeconds));
                     UiCase.run(ctx, "350-ui-termism", MiscCases::termism);
                     UiCase.run(ctx, "360-ui-visuals", MiscCases::visuals);
+                    UiCase.run(ctx, "380-ui-recorder-limbo", MiscCases::recorderLimbo);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

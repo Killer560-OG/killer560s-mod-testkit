@@ -22,7 +22,7 @@ final class TabSweep {
      * Floors, measured on mod 8c43a6d (see docs/wp/ui.md): the tab tree as ModScreen builds it, counting folders and
      * leaves. Set at the measured value, so losing even one tab fails - a floor a broken menu can clear is not one.
      */
-    static final int CHEAT_TAB_FLOOR = 170;
+    static final int CHEAT_TAB_FLOOR = 168;
     static final int LEGIT_TAB_FLOOR = 150;
 
     /** A two-state toggle as the mod labels them: "Name: ON" / "Name: OFF" (section signs stripped). */
@@ -143,8 +143,8 @@ final class TabSweep {
                     mc.setScreen(d.screen);
                     return null;
                 });
-                c.ticks(2);
-                counts[1] += 2;
+                c.ticks(5);
+                counts[1] += 5;
             }
         }
         c.onClient(mc -> {

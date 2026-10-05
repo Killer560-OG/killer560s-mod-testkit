@@ -479,6 +479,88 @@ final class MiscCases {
         c.check(!drawnIds.isEmpty(), "no HUD element drew while every visual was on - the render path never ran");
     }
 
+    // ---- 380 room recorder capture-only -> limbo -> rejoin --------------------------------------------------
+
+    /**
+     * Run 2 (mod f40ec89) saw "/killer560 sim" twice in a plain singleplayer world arm the Room Recorder's
+     * capture-only mode and then announce "limbo - waiting, then rejoining when the world is back". Capture-only
+     * promises "It will not join, walk or type anything" (roomsim/RoomRecorderFeature.java:184), but scan() moves ANY
+     * stage to LIMBO when the dungeon is gone and the player is below y 0 (lines 767-785), and LIMBO sends /skyblock
+     * then REJOIN sends /joininstance (lines 553-561, 452-460). This case reproduces it end to end: sim override
+     * on/off at the superflat spawn (y < 0), then the player lifted above y 0, then up to 75 s for the recorder to
+     * act. It records the stage sequence and every command the integrated server was sent.
+     */
+    static void recorderLimbo(UiCase c) {
+        if (!Mod.isDevTools()) {
+            c.note("release jar: the Room Recorder is compiled out (BuildVariant.DEV_TOOLS) - nothing to test");
+            return;
+        }
+        Class<?> rec = R.cls("roomsim.RoomRecorderFeature");
+        List<String> stages = new ArrayList<>();
+        long mark = LogTap.mark();
+        try {
+            // 306 runs "/killer560 sim" too; start from a stopped recorder
+            c.onClient(mc -> Mod.staticCall("roomsim.RoomRecorderFeature", "stop", "testkit"));
+            c.ticks(2);
+            stages.add("start: " + R.getStatic(rec, "stage"));
+            double y = c.onClient(mc -> mc.player.position().y);
+            c.note("player y at the start: " + y);
+            CommandSweep.execute(c, "killer560 sim");
+            c.ticks(5);
+            stages.add("after sim ON: " + R.getStatic(rec, "stage"));
+            CommandSweep.execute(c, "killer560 sim");
+            c.ticks(5);
+            stages.add("after sim OFF: " + R.getStatic(rec, "stage"));
+            // somewhere real: above y 0, no screen (DungeonInstanceCooldown.inPlayableWorld && !looksLikeLimbo)
+            c.onClient(mc -> {
+                var server = mc.getSingleplayerServer();
+                var uuid = mc.player.getUUID();
+                server.execute(() -> {
+                    var sp = server.getPlayerList().getPlayer(uuid);
+                    if (sp != null) {
+                        sp.teleportTo(sp.getX(), 120, sp.getZ());
+                    }
+                });
+                mc.setScreen(null);
+                return null;
+            });
+            String last = String.valueOf(R.getStatic(rec, "stage"));
+            for (int s = 0; s < 80; s++) {
+                c.ticks(20);
+                String now = String.valueOf(R.getStatic(rec, "stage"));
+                if (!now.equals(last)) {
+                    stages.add("t+" + (s + 1) + "s: " + now);
+                    last = now;
+                }
+                if (now.equals("ENTER") || now.equals("CONFIRM") || now.equals("OFF")) {
+                    break;
+                }
+            }
+        } finally {
+            try {
+                c.onClient(mc -> Mod.staticCall("roomsim.RoomRecorderFeature", "stop", "testkit"));
+            } catch (AssertionError ignored) {
+                // stop signature changed; stage is reported anyway
+            }
+        }
+        List<String> sent = new ArrayList<>();
+        for (String line : LogTap.since(mark)) {
+            if (line.contains("Unknown or incomplete command") || line.contains("Room Recorder")
+                    || line.contains("skyblock") || line.contains("joininstance")) {
+                sent.add(line);
+            }
+        }
+        c.note("recorder stages: " + stages);
+        c.note("recorder chat / server replies: " + sent);
+        boolean rejoined = stages.stream().anyMatch(s -> s.contains("REJOIN") || s.contains("ENTER"));
+        if (rejoined) {
+            c.problem("capture-only Room Recorder (armed by /killer560 sim in a local world) went LIMBO -> "
+                    + "REJOIN and sent /skyblock (and then the floor join) once the player stood above y 0: "
+                    + "roomsim/RoomRecorderFeature.java:778-785 puts CAPTURE into LIMBO, 553-561 sends /skyblock. "
+                    + "Stages " + stages);
+        }
+    }
+
     // ---- 370 deny -------------------------------------------------------------------------------------------
 
     /**

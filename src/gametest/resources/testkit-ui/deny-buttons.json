@@ -37,7 +37,7 @@
     {"match": "load ", "why": "profile/layout load; tested directly where it matters"},
     {"match": "record", "why": "Room Recorder captures and writes room data (roomsim/RoomRecorderFeature)"},
     {"match": "capture", "why": "Room Recorder"},
-    {"match": "start", "why": "starts a sim world, a bazaar flip, a recorder"},
+    {"match": "start ", "why": "starts a sim world, a bazaar flip, a recorder"},
     {"match": "sim world", "why": "the dungeon sim opens a singleplayer world of its own"},
     {"match": "rich presence", "why": "Discord IPC"},
     {"match": "notify", "why": "desktop notifications"}

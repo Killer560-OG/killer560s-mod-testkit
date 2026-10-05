@@ -86,17 +86,46 @@ final class ScreenSweep {
                 out.put("shownUnseenOff", ((List<?>) R.get(off, "shown")).size());
                 Frames.extractFrames(mc, off, 2);
 
-                // one real drag on the first listed element (Show Unseen on)
-                if (!shownOn.isEmpty()) {
-                    Object el = shownOn.get(0);
+                // Box sizes as the editor computes them (element.width()/height(), hud/HudEditorScreen.java:169-183).
+                // A listed element with an empty box cannot be grabbed: elementAt (line 186) never hits it.
+                List<String> sizes = new ArrayList<>();
+                List<String> zero = new ArrayList<>();
+                Object grab = null;
+                for (Object el : shownOn) {
+                    String id = (String) dev.testkit.gametest.mod.Mod.call(el, "id");
+                    int w = (Integer) dev.testkit.gametest.mod.Mod.call(el, "width");
+                    int h = (Integer) dev.testkit.gametest.mod.Mod.call(el, "height");
+                    sizes.add(id + " " + w + "x" + h);
+                    if (w <= 0 || h <= 0) {
+                        zero.add(id + " " + w + "x" + h);
+                    } else if (grab == null && w > 2 && h > 2) {
+                        grab = el;
+                    }
+                }
+                out.put("sizes", sizes);
+                out.put("zero", zero);
+                // one real drag, on the centre of the first listed element with a real box (Show Unseen on)
+                if (grab != null) {
+                    Object el = grab;
                     String id = (String) dev.testkit.gametest.mod.Mod.call(el, "id");
                     @SuppressWarnings("unchecked")
                     Map<String, int[]> live = (Map<String, int[]>) R.get(on, "livePositions");
-                    int[] p = live.get(id).clone();
+                    int cx = live.get(id)[0] + 2;
+                    int cy = live.get(id)[1] + 2;
                     var info = new net.minecraft.client.input.MouseButtonInfo(0, 0);
-                    on.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(p[0] + 1, p[1] + 1, info), false);
-                    on.mouseDragged(new net.minecraft.client.input.MouseButtonEvent(p[0] + 11, p[1] + 7, info), 10, 6);
-                    on.mouseReleased(new net.minecraft.client.input.MouseButtonEvent(p[0] + 11, p[1] + 7, info));
+                    boolean took = on.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(cx, cy, info), false);
+                    // The editor grabs the TOPMOST box under the cursor (elementAt walks shown backwards,
+                    // hud/HudEditorScreen.java:186); default positions overlap, so that may be another element.
+                    Object grabbed = R.get(on, "draggingId");
+                    if (grabbed != null) {
+                        id = (String) grabbed;
+                    }
+                    int[] p = live.get(id).clone();
+                    on.mouseDragged(new net.minecraft.client.input.MouseButtonEvent(cx + 10, cy + 6, info), 10, 6);
+                    int[] moved = live.get(id).clone();
+                    on.mouseReleased(new net.minecraft.client.input.MouseButtonEvent(cx + 10, cy + 6, info));
+                    out.put("dragTrace", "click took=" + took + " grabbed " + grabbed + ", live after drag "
+                            + moved[0] + "," + moved[1]);
                     int[] saved = (int[]) dev.testkit.gametest.mod.Mod.call(hudCfg, "getPosition", id, -999, -999);
                     out.put("drag", id + " from " + p[0] + "," + p[1] + " -> HudConfig " + saved[0] + "," + saved[1]);
                     out.put("dragOk", saved[0] == p[0] + 10 && saved[1] == p[1] + 6);
@@ -141,8 +170,15 @@ final class ScreenSweep {
         if ((Integer) r.get("shownUnseenOff") > enabled) {
             c.problem("Show Unseen OFF lists more elements than are enabled");
         }
+        c.note("listed box sizes: " + r.get("sizes"));
+        @SuppressWarnings("unchecked")
+        List<String> zero = (List<String>) r.get("zero");
+        if (zero != null && !zero.isEmpty()) {
+            c.problem("the HUD editor lists element(s) with an empty box, which no click can grab or resize "
+                    + "(hud/HudEditorScreen.java:169-196 uses element.width()/height() as-is): " + zero);
+        }
         if (r.containsKey("drag")) {
-            c.note("drag: " + r.get("drag"));
+            c.note("drag: " + r.get("drag") + " (" + r.get("dragTrace") + ")");
             if (!(Boolean) r.get("dragOk")) {
                 c.problem("a 10,6 drag in the HUD editor did not land in HudConfig: " + r.get("drag"));
             }

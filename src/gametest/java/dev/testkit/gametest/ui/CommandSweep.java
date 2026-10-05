@@ -36,18 +36,37 @@ final class CommandSweep {
     /** Measured on mod 8c43a6d in a singleplayer world (see docs/wp/ui.md). */
     static final int ROOT_FLOOR = 30;
     private static final int MAX_DEPTH = 6;
+    private static final List<String> GATED = new ArrayList<>();
 
     private CommandSweep() {
     }
 
     @SuppressWarnings("unchecked")
     static CommandDispatcher<Object> dispatcher() {
-        try {
-            Class<?> ccm = Class.forName("net.fabricmc.fabric.api.client.command.v2.ClientCommandManager");
-            return (CommandDispatcher<Object>) ccm.getMethod("getActiveDispatcher").invoke(null);
-        } catch (ReflectiveOperationException e) {
-            throw new AssertionError("[ui] Fabric ClientCommandManager.getActiveDispatcher unavailable", e);
+        // Fabric API for 26.1 renamed ClientCommandManager to ClientCommands (the mod imports
+        // net.fabricmc.fabric.api.client.command.v2.ClientCommands, autokick/AutoKickCommands.java:7); older names kept
+        // as a fallback. The dispatcher getter is found by return type, so a renamed method is not a silent miss.
+        List<String> tried = new ArrayList<>();
+        for (String name : new String[]{"net.fabricmc.fabric.api.client.command.v2.ClientCommands",
+                "net.fabricmc.fabric.api.client.command.v2.ClientCommandManager"}) {
+            try {
+                Class<?> k = Class.forName(name);
+                for (java.lang.reflect.Method m : k.getMethods()) {
+                    if (java.lang.reflect.Modifier.isStatic(m.getModifiers()) && m.getParameterCount() == 0
+                            && CommandDispatcher.class.isAssignableFrom(m.getReturnType())) {
+                        return (CommandDispatcher<Object>) m.invoke(null);
+                    }
+                }
+                List<String> ms = new ArrayList<>();
+                for (java.lang.reflect.Method m : k.getMethods()) {
+                    ms.add(m.getName());
+                }
+                tried.add(name + " has no static dispatcher getter; methods " + ms);
+            } catch (ReflectiveOperationException e) {
+                tried.add(name + ": " + e);
+            }
         }
+        throw new AssertionError("[ui] no Fabric client command dispatcher: " + tried);
     }
 
     static Object source(Minecraft mc) {
@@ -56,6 +75,7 @@ final class CommandSweep {
 
     static void commands(UiCase c, Deny deny) {
         // ---- walk: every root, every literal path, parse + suggestions ----
+        GATED.clear();
         List<String> roots = new ArrayList<>();
         List<String> inputs = new ArrayList<>();
         Map<String, CompletableFuture<Suggestions>> pending = new LinkedHashMap<>();
@@ -83,6 +103,7 @@ final class CommandSweep {
             }
         }
         c.note(roots.size() + " client command roots: " + roots);
+        c.note(GATED.size() + " node(s) gated by .requires for this source (not walked): " + GATED);
         c.note("parsed " + inputs.size() + " inputs, " + suggested + " suggestion requests completed with "
                 + suggestions + " suggestions in all");
         if (roots.size() < ROOT_FLOOR) {
@@ -195,6 +216,12 @@ final class CommandSweep {
             return;
         }
         String input = prefix.isEmpty() ? token : prefix + " " + token;
+        // A node behind .requires(...) the source does not meet (the sim's commands outside a sim world) parses to
+        // nothing by design: counted as gated, its subtree is not walked.
+        if (!node.canUse(src)) {
+            GATED.add(input);
+            return;
+        }
         inputs.add(input);
         try {
             ParseResults<Object> parsed = d.parse(input, src);
