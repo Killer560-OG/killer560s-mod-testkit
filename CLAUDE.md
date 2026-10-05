@@ -103,7 +103,9 @@ reaches into the mod by reflection. `src/client/java/dev/testkit/harness/PacketW
 packets per tick, fed by mixins on `ClientCommonPacketListenerImpl#send` and `Minecraft#tick`.
 
 Scenarios so far: 62-argrim (Auto Routes on GrimAC, see below), 48-52 Breaker Aura (with a by-hand control and an open-ground speed control), 60 Secret
-Triggerbot.
+Triggerbot, 99-sim-essence-aura (Secret Aura on a sim wither essence holding AOTV / Hyperion, first world and after a
+rebuild; server-side click record, collection and Auto Routes' await; only when named, captures from "Map Logger" unless
+`TESTKIT_SIM_INSTANCE` says otherwise).
 
 ## Auto puzzle suite (93-solve-*)
 
