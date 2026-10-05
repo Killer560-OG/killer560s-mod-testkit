@@ -64,8 +64,17 @@ public final class SimPuzzleSolveTests {
     private static final String SOLVERS = "com.killer560.hub.puzzlesolvers.";
     private static final String PUZZLES = "com.killer560.hub.roomsim.puzzles.";
 
+    /**
+     * Whose room captures to play. The Prism instances do NOT hold the same ones: on 2026-10-04 Boulder, Ice Fill,
+     * Ice Path, Quiz and Water Board differed between "26.1.2 (Mod Only Test)" and "Map Logger", where he plays
+     * the sim. Set the environment variable {@code TESTKIT_SIM_INSTANCE} to another instance's folder name to
+     * play its captures; the name is printed with every verdict.
+     */
+    static final String ROOM_INSTANCE = System.getenv().getOrDefault("TESTKIT_SIM_INSTANCE",
+            "26.1.2 (Mod Only Test)");
+
     private static final String SOURCE_ROOMS =
-            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
+            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/" + ROOM_INSTANCE
                     + "/minecraft/config", "killer560smod-rooms");
 
     private static final String AOTV = "ASPECT_OF_THE_VOID";
@@ -219,7 +228,7 @@ public final class SimPuzzleSolveTests {
             if (VERDICTS.isEmpty()) {
                 return;
             }
-            StringBuilder out = new StringBuilder("[93-solve] SUITE SUMMARY - " + VERDICTS.size() + " puzzle(s):");
+            StringBuilder out = new StringBuilder("[93-solve] SUITE SUMMARY - " + VERDICTS.size() + " puzzle(s), captures from " + ROOM_INSTANCE + ":");
             long passed = VERDICTS.values().stream().filter(v -> v.startsWith("PASS")).count();
             for (Map.Entry<String, String> e : VERDICTS.entrySet()) {
                 out.append("\n[93-solve]   ").append(String.format("%-24s %s", e.getKey(), e.getValue()));
@@ -305,7 +314,7 @@ public final class SimPuzzleSolveTests {
             List<String> log = LogTap.since(mark);
             String armed = log.stream().filter(l -> l.contains("puzzle room(s) armed")).reduce((a, b) -> b)
                     .orElse(null);
-            println(name, "built " + spec.room() + "; " + (armed == null ? "NO 'armed' line in the log"
+            println(name, "built " + spec.room() + " (captures from " + ROOM_INSTANCE + "); " + (armed == null ? "NO 'armed' line in the log"
                     : armed.substring(armed.indexOf("Sim puzzles"))));
             if (armed == null || !armed.contains(" 1 of 1 ")) {
                 throw new AssertionError(spec.room() + " was not armed as a puzzle (" + armed + ") - nothing for "
