@@ -184,10 +184,13 @@ final class InventoryCases {
             });
             c.ctx().getInput().setCursorPos(at[0], at[1]);
             c.ctx().waitTicks(3);
-            c.ctx().getInput().holdShift();
-            c.ctx().waitTicks(2);
-            c.ctx().getInput().pressMouse(0);
-            c.ctx().getInput().releaseShift();
+            // Fabric's TestInput.pressMouse always builds MouseButtonInfo(button, 0) - no modifiers, even with
+            // holdShift() - so a shift-click goes in through MouseHandler.onButton with GLFW_MOD_SHIFT (1) directly.
+            c.ctx().runOnClient(mc -> {
+                long window = mc.getWindow().handle();
+                Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(0, 1), 1);
+                Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(0, 1), 0);
+            });
             c.waitUntil("a click from the slot bind", mc -> !c.events("container.click").isEmpty(), 60);
             JsonObject click = c.events("container.click").get(0);
             c.check(click.get("input").getAsString().equals("SWAP") && click.get("slot").getAsInt() == 9
