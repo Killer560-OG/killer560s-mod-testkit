@@ -316,5 +316,9 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   `gameMode.useItem` (Wither Impact, radius 5) does kill it - use that to kill a sim mob as the player.
 
 - `menu.experiment` Superpairs takes `layout` (tiles from slot 9: `{item,name}` or `{powerup:true}`, no shuffle). The powerup models Instant Find: a click shows it, a second arms it, the next covered tile and its partner are claimed. The state lists every claimed pair (`claimed`), the server-side truth 229 asserts on.
+- The sim's `/goto` (SimTeleportCommands.goTo) scans the ServerLevel from the RENDER thread; in the gametest lockstep a
+  chunk load there deadlocks the client (99-sim-im, 2026-10-05, jstack). Place the player from `server.execute` instead
+  (99-sim-im `standOn`). A sim scenario that reads the legend's Extra Info must turn Score Calculator on first - it is
+  off in a fresh config, and the section only draws with a live estimate.
 
 Auto Routes on GrimAC (62-argrim): how to run it and its traps are in [docs/argrim.md](docs/argrim.md).
