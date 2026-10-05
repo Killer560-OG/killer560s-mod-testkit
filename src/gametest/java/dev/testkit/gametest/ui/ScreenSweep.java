@@ -129,8 +129,16 @@ final class ScreenSweep {
                     out.put("dragTrace", "click took=" + took + " grabbed " + grabbed + ", live after drag "
                             + moved[0] + "," + moved[1]);
                     int[] saved = (int[]) dev.testkit.gametest.mod.Mod.call(hudCfg, "getPosition", id, -999, -999);
-                    out.put("drag", id + " from " + p[0] + "," + p[1] + " -> HudConfig " + saved[0] + "," + saved[1]);
-                    out.put("dragOk", saved[0] == p[0] + 10 && saved[1] == p[1] + 6);
+                    // Since the mod's Auto Scale (2026-10-05) a SAVED position is in baseline units (2560x1440 / GUI 3)
+                    // and is drawn at saved * factor, so the stored numbers equal the screen numbers only at factor 1.
+                    // What must hold at every factor is that the box is DRAWN where it was dropped: resolvePosition
+                    // (the in-game draw position) must give back the drop point, give or take the 1px of rounding
+                    // in saved = round(x / f), drawn = round(saved * f).
+                    int[] drawn = (int[]) dev.testkit.gametest.mod.Mod.staticCall("hud.HudElementRegistry",
+                            "resolvePosition", dev.testkit.gametest.mod.Mod.staticCall("hud.HudElementRegistry", "byId", id));
+                    out.put("drag", id + " from " + p[0] + "," + p[1] + " -> HudConfig " + saved[0] + "," + saved[1]
+                            + " -> drawn at " + drawn[0] + "," + drawn[1]);
+                    out.put("dragOk", Math.abs(drawn[0] - (p[0] + 10)) <= 1 && Math.abs(drawn[1] - (p[1] + 6)) <= 1);
                 }
                 McCompat.setScreen(mc, on);
             } catch (Throwable t) {
@@ -182,7 +190,7 @@ final class ScreenSweep {
         if (r.containsKey("drag")) {
             c.note("drag: " + r.get("drag") + " (" + r.get("dragTrace") + ")");
             if (!(Boolean) r.get("dragOk")) {
-                c.problem("a 10,6 drag in the HUD editor did not land in HudConfig: " + r.get("drag"));
+                c.problem("a 10,6 drag in the HUD editor is not drawn where it was dropped: " + r.get("drag"));
             }
         } else {
             c.note("no HUD element enabled in settings, so no drag was made");

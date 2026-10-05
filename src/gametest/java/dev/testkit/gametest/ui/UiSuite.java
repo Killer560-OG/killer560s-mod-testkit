@@ -17,7 +17,7 @@ import java.util.List;
  *
  * <pre>
  * title screen:  340 main menu theme, 330 ModPaths.migrateAll, 310 config file round trip, 311 config setters,
- *                320 profiles save/export/import/apply
+ *                320 profiles save/export/import/apply, 380 Auto Scale (window sizes, drawn size, clicks)
  * singleplayer:  301 every ModScreen tab, 302 search, 303 toggles, 304 HUD editor, 305 every mod Screen,
  *                306 client commands, 350 termism, 360 client visuals
  * end:           370 deny lists (no child process, hooks in force)
@@ -29,7 +29,7 @@ import java.util.List;
 public class UiSuite implements FabricClientGameTest {
 
     static final String[] TITLE_CASES = {"340-ui-mainmenu", "330-ui-migrate", "310-ui-config-file-roundtrip",
-            "311-ui-config-setters", "320-ui-profiles"};
+            "311-ui-config-setters", "320-ui-profiles", "380-ui-autoscale"};
     static final String[] WORLD_CASES = {"301-ui-smoke-tabs", "302-ui-smoke-search", "303-ui-smoke-toggles",
             "304-ui-smoke-hud-editor", "305-ui-smoke-screens", "306-ui-smoke-commands", "350-ui-termism",
             "360-ui-visuals", "365-ui-overlay-draws"};
@@ -60,6 +60,7 @@ public class UiSuite implements FabricClientGameTest {
             UiCase.run(ctx, "310-ui-config-file-roundtrip", ConfigSweep::fileLevel);
             UiCase.run(ctx, "311-ui-config-setters", ConfigSweep::setterLevel);
             UiCase.run(ctx, "320-ui-profiles", MiscCases::profiles);
+            UiCase.run(ctx, "380-ui-autoscale", AutoScaleCases::autoScale);
 
             if (anyWorld) {
                 long worldStart = System.nanoTime();
