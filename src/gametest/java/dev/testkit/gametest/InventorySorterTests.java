@@ -1,5 +1,7 @@
 package dev.testkit.gametest;
 
+import dev.testkit.compat.McCompat;
+
 import dev.testkit.harness.PacketWatch;
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
@@ -87,8 +89,8 @@ public class InventorySorterTests implements FabricClientGameTest {
                     ctx.waitTicks(160);
                     PacketWatch.stop();
 
-                    String screen = ctx.computeOnClient(mc -> mc.screen == null
-                            ? "none" : mc.screen.getClass().getSimpleName());
+                    String screen = ctx.computeOnClient(mc -> McCompat.screen(mc) == null
+                            ? "none" : McCompat.screen(mc).getClass().getSimpleName());
                     scenario.log("screen at end of measurement: " + screen);
 
                     String afterA = identityAt(ctx, slotA);

@@ -1,5 +1,7 @@
 package dev.testkit.gametest.ui;
 
+import dev.testkit.compat.McCompat;
+
 import dev.testkit.gametest.mod.Mod;
 
 import net.minecraft.client.Minecraft;
@@ -140,7 +142,7 @@ final class TabSweep {
                 c.onClient(mc -> {
                     d.select(top);
                     d.expandAll(topNode.tab());
-                    mc.setScreen(d.screen);
+                    McCompat.setScreen(mc, d.screen);
                     return null;
                 });
                 c.ticks(5);
@@ -148,7 +150,7 @@ final class TabSweep {
             }
         }
         c.onClient(mc -> {
-            mc.setScreen(null);
+            McCompat.setScreen(mc, null);
             d.select(0);
             return null;
         });

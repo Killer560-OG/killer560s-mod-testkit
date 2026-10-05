@@ -1,5 +1,7 @@
 package dev.testkit.gametest;
 
+import dev.testkit.compat.McCompat;
+
 import com.google.gson.JsonObject;
 
 import dev.testkit.gametest.hx.Session;
@@ -182,7 +184,7 @@ public class SessionDemoTest implements FabricClientGameTest {
                         // menu.open -> a container screen; a click is recorded and moves nothing; close is recorded
                         int id = c.hx().menu("Hx Menu", 3, Map.of(13, "minecraft:diamond"), null);
                         c.waitUntil("a container screen 'Hx Menu' with a diamond in slot 13", mc ->
-                                mc.screen instanceof AbstractContainerScreen<?> scr
+                                McCompat.screen(mc) instanceof AbstractContainerScreen<?> scr
                                         && scr.getTitle().getString().equals("Hx Menu")
                                         && scr.getMenu().containerId == id
                                         && scr.getMenu().getSlot(13).getItem().is(Items.DIAMOND), 100);

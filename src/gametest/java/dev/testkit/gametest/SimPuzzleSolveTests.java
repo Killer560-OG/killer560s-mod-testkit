@@ -1,5 +1,7 @@
 package dev.testkit.gametest;
 
+import dev.testkit.compat.McCompat;
+
 import dev.testkit.harness.SuiteVerdict;
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
@@ -308,7 +310,7 @@ public final class SimPuzzleSolveTests {
             ctx.waitFor(mc -> mc.level != null && mc.player != null, 2400);
             Scenario.awaitSimBuild(ctx, before);
             // The loading screen comes down after the build's completion callback; nothing acts under it.
-            ctx.waitFor(mc -> mc.screen == null, 1200);
+            ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
             ctx.waitTicks(40);
 
             List<String> log = LogTap.since(mark);
@@ -452,7 +454,7 @@ public final class SimPuzzleSolveTests {
                     String open = null;
                     if (mc.player != null && mc.player.containerMenu != mc.player.inventoryMenu) {
                         open = mc.player.containerMenu.getClass().getSimpleName()
-                                + (mc.screen == null ? "" : " / " + mc.screen.getTitle().getString());
+                                + (McCompat.screen(mc) == null ? "" : " / " + McCompat.screen(mc).getTitle().getString());
                         // Closed for him, as he would: a container left open stops every auto
                         // (they all refuse to act with a screen up).
                         mc.player.closeContainer();
@@ -728,7 +730,7 @@ public final class SimPuzzleSolveTests {
             println(name, "player " + ctx.computeOnClient(SimPuzzleSolveTests::where) + ", holding "
                     + ctx.computeOnClient(SimPuzzleSolveTests::heldName) + ", live map room "
                     + ctx.computeOnClient(SimPuzzleSolveTests::liveRoom) + ", screen "
-                    + ctx.computeOnClient(mc -> mc.screen == null ? "none" : mc.screen.getClass().getSimpleName()));
+                    + ctx.computeOnClient(mc -> McCompat.screen(mc) == null ? "none" : McCompat.screen(mc).getClass().getSimpleName()));
             println(name, "---- end evidence ----");
         } catch (Throwable t) {
             println(name, "could not gather evidence: " + t);
@@ -930,8 +932,8 @@ public final class SimPuzzleSolveTests {
         ctx.waitFor(mc -> mc.level == null && mc.getSingleplayerServer() == null, 1200);
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> mc.execute(() ->
-                mc.setScreen(new net.minecraft.client.gui.screens.TitleScreen())));
-        ctx.waitFor(mc -> mc.screen instanceof net.minecraft.client.gui.screens.TitleScreen, 400);
+                McCompat.setScreen(mc, new net.minecraft.client.gui.screens.TitleScreen())));
+        ctx.waitFor(mc -> McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.TitleScreen, 400);
     }
 
     private static int copyDir(String from, String into, String suffix) {

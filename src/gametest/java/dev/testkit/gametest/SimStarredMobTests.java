@@ -1,5 +1,8 @@
 package dev.testkit.gametest;
 
+import dev.testkit.compat.McCompat;
+import dev.testkit.compat.McEntities;
+
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
@@ -191,7 +194,7 @@ public class SimStarredMobTests implements FabricClientGameTest {
                 }
                 sp0.execute(() -> {
                     var level = sp0.overworld();
-                    var pig = net.minecraft.world.entity.EntityType.PIG.create(
+                    var pig = McEntities.PIG.create(
                             level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
                     if (pig == null) {
                         control.set("could not create a pig");
@@ -215,7 +218,7 @@ public class SimStarredMobTests implements FabricClientGameTest {
             //
             // The pig survives and every sim mob vanishes, and the one difference that runs through all of
             // them is how they are constructed: the pig comes from EntityType.create(...), a sim mob from
-            // `new SimZombie(EntityType.ZOMBIE, level)`. A factory-built zombie separates that from the other
+            // `new SimZombie(McEntities.ZOMBIE, level)`. A factory-built zombie separates that from the other
             // candidate - that hostiles are being removed - because this one is hostile AND factory-built.
             java.util.concurrent.atomic.AtomicReference<String> control2 =
                     new java.util.concurrent.atomic.AtomicReference<>();
@@ -227,7 +230,7 @@ public class SimStarredMobTests implements FabricClientGameTest {
                 }
                 sp0.execute(() -> {
                     var level = sp0.overworld();
-                    var z = net.minecraft.world.entity.EntityType.ZOMBIE.create(
+                    var z = McEntities.ZOMBIE.create(
                             level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
                     if (z == null) {
                         control2.set("could not create a zombie");
@@ -451,8 +454,8 @@ public class SimStarredMobTests implements FabricClientGameTest {
             ctx.waitFor(mc -> mc.level == null && mc.getSingleplayerServer() == null);
             ctx.waitTicks(40);
             ctx.runOnClient(mc -> mc.execute(() ->
-                    mc.setScreen(new net.minecraft.client.gui.screens.TitleScreen())));
-            ctx.waitFor(mc -> mc.screen instanceof net.minecraft.client.gui.screens.TitleScreen);
+                    McCompat.setScreen(mc, new net.minecraft.client.gui.screens.TitleScreen())));
+            ctx.waitFor(mc -> McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.TitleScreen);
         }
     }
 

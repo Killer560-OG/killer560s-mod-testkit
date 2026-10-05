@@ -1,5 +1,7 @@
 package dev.testkit.gametest.ui;
 
+import dev.testkit.compat.McCompat;
+
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.brigadier.CommandDispatcher;
@@ -166,18 +168,18 @@ final class CommandSweep {
             executed++;
             if (expect.startsWith("screen:")) {
                 String want = Mod.ROOT + expect.substring(7);
-                String got = c.onClient(mc -> mc.screen == null ? "none" : mc.screen.getClass().getName());
+                String got = c.onClient(mc -> McCompat.screen(mc) == null ? "none" : McCompat.screen(mc).getClass().getName());
                 if (!got.equals(want)) {
                     c.problem("'/" + input + "' should open " + expect.substring(7) + " but the screen is "
                             + got.replace(Mod.ROOT, ""));
                 } else {
-                    Frames.Drawn drawn = c.onClient(mc -> Frames.extract(mc, mc.screen, -1, -1));
+                    Frames.Drawn drawn = c.onClient(mc -> Frames.extract(mc, McCompat.screen(mc), -1, -1));
                     if (drawn.total() == 0) {
                         c.problem("'/" + input + "' opened " + expect.substring(7) + " but it drew nothing");
                     }
                 }
                 c.onClient(mc -> {
-                    mc.setScreen(null);
+                    McCompat.setScreen(mc, null);
                     return null;
                 });
                 c.ticks(1);

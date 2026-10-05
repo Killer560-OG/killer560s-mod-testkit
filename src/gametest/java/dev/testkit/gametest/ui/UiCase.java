@@ -1,5 +1,7 @@
 package dev.testkit.gametest.ui;
 
+import dev.testkit.compat.McCompat;
+
 import dev.testkit.gametest.LogTap;
 import dev.testkit.gametest.Scenario;
 import dev.testkit.gametest.mod.Mod;
@@ -76,7 +78,7 @@ public final class UiCase {
             }
             body.run(c);
             ctx.waitTicks(2);
-            boolean died = ctx.computeOnClient(mc -> mc.screen instanceof net.minecraft.client.gui.screens.DeathScreen
+            boolean died = ctx.computeOnClient(mc -> McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.DeathScreen
                     || (mc.player != null && mc.player.isDeadOrDying()));
             if (died) {
                 throw new AssertionError("[" + name + "] the player DIED during the case (death screen up) - the "
@@ -112,7 +114,7 @@ public final class UiCase {
                 if (ctx.computeOnClient(mc -> mc.level != null)) {
                     SafeWorld.reviveIfDead(ctx);
                 }
-                ctx.runOnClient(mc -> mc.setScreen(null));
+                ctx.runOnClient(mc -> McCompat.setScreen(mc, null));
             } catch (Throwable ignored) {
                 // the next case sets its own screen anyway
             }

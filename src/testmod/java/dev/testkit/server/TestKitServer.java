@@ -343,7 +343,7 @@ public class TestKitServer implements DedicatedServerModInitializer {
         }
         BlockPos cell = hit.getBlockPos().relative(hit.getDirection());
         for (net.minecraft.world.phys.AABB box : PROTECTED) {
-            if (box.contains(cell.getCenter())) {
+            if (box.contains(net.minecraft.world.phys.Vec3.atCenterOf(cell))) {
                 return net.minecraft.world.InteractionResult.FAIL;
             }
         }

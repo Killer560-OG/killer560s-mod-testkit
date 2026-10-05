@@ -1,5 +1,7 @@
 package dev.testkit.gametest;
 
+import dev.testkit.compat.McCompat;
+
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
@@ -227,8 +229,8 @@ public class SimMapTests implements FabricClientGameTest {
         ctx.waitFor(mc -> mc.level == null && mc.getSingleplayerServer() == null);
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> mc.execute(() ->
-                mc.setScreen(new net.minecraft.client.gui.screens.TitleScreen())));
-        ctx.waitFor(mc -> mc.screen instanceof net.minecraft.client.gui.screens.TitleScreen);
+                McCompat.setScreen(mc, new net.minecraft.client.gui.screens.TitleScreen())));
+        ctx.waitFor(mc -> McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.TitleScreen);
         if (!mergedRooms.isEmpty()) {
             throw new AssertionError(mergedRooms.size() + " map room(s) cover more than one placement - the "
                     + "map draws two different rooms as one: " + mergedRooms);
