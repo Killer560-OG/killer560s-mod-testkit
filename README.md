@@ -32,6 +32,15 @@ last part is why any of this is trustworthy, and it is his design.
 - **Suites and worktrees**: `-Psuite=<name>` from `suites.properties`; `run-suite.ps1 -Suite <name> -Port <n>`;
   `parallel-suite.ps1 -Suites a,b -Max 2` runs each in a git worktree at
   `C:/Users/Hunter/killer560s-mod-testkit-wt/<n>` on port 25700+10n.
+- **Sharding one run**: `run-sharded.ps1 -Scenario "smoke,-ui-,93-solve,96-ar" -Shards 3 [-Minecraft 26.1.2|26.2|both]`
+  splits ONE filter across N clients, each with its own dedicated server and Hx port in its own worktree
+  (`C:/Users/Hunter/killer560s-mod-testkit-shards/<mc>-<k>`, ports `-BasePort` 25900 + 10g, Hx +5). A list-mode client
+  start (`-PlistScenarios=<file>`, no server) asks the harness which names the filter selects and which belong to one
+  unit (a Session and its cases, the UI group sharing one world, the 96-ar cases sharing one room - never split), the
+  units are balanced by each name's last measured seconds (`durations.json` beside the worktrees), and every shard's
+  report and logs plus one merged `summary.md` (table per version: status and shard of every name, wall time vs the
+  sum of shard times) land in `build/sharded-<timestamp>/`. `-Max` caps clients at once (3). Exit code 0 only if every
+  shard exited 0 and no selected name is missing from the reports.
 - **Safe by default**: every run points the mod's Prism account store at an empty fixture and passes
   `killer560.net.offline=true` / `killer560.test.noExternalOpen=true` (opt out with `-PnetOnline`,
   `-PallowExternalOpen`, `-PnoQuiet`); `-PnetOverride=svc=url;...` points mod services at local fakes;
