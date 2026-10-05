@@ -174,6 +174,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-pingpong", GrimAutoRoutesTests::casePingPong);
             s.test("62-argrim-path", GrimAutoRoutesTests::casePath);
             s.test("62-argrim-legit", GrimAutoRoutesTests::caseLegit);
+            s.test("62-argrim-hand", GrimAutoRoutesTests::caseHand);
+            s.test("62-argrim-crypt", GrimAutoRoutesTests::caseCrypt);
+            s.test("62-argrim-mimic", GrimAutoRoutesTests::caseMimic);
             teardown(ctx);
         });
     }
@@ -209,11 +212,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
         });
         Hx hx = s.hx();
-        hx.sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
         hx.call("dungeon.abilities", "enabled", true);
         s.server().command("gamemode survival @p");
         s.server().command("effect give @p minecraft:haste 99999 4 true");
-        ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.secrets.DungeonState", "isInDungeon"), 400);
 
         // ---- a real room the live map identifies by itself ----
         List<String> candidates = candidateRooms(ctx);
@@ -232,6 +233,16 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             }
             hx.call("dungeon.blocks", "blocks", pad);
             hx.call("dungeon.tp", "x", CENTRE + 0.5, "y", (double) F, "z", CENTRE + 3.5, "yaw", 0f, "pitch", 0f);
+            if (!ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.secrets.DungeonState",
+                    "isInDungeon"))) {
+                // The Catacombs sidebar only once he stands in the room: the world spawn (about 0,68,0) is inside F7's
+                // boss box, and entering the dungeon there latches "boss room" and switches room matching off - which
+                // is how run 6 failed to identify any of eight rooms.
+                ctx.waitTicks(10);
+                hx.sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
+                ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.secrets.DungeonState",
+                        "isInDungeon"), 400);
+            }
             boolean known = waitFor(ctx, 300, () -> name.equals(ctx.computeOnClient(mc -> {
                 Object f = ModUnderTest.staticCall(FRAME, "current");
                 return f == null ? null : (String) ModUnderTest.call(f, "roomName", new Class<?>[]{}, new Object[]{});
@@ -336,6 +347,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         hx.call("give", "slot", 1, "count", 64, "stack", "minecraft:tnt[custom_data={id:\"SUPERBOOM_TNT\"}]");
         hx.give(2, "minecraft:diamond_shovel[custom_data={id:\"DUNGEONBREAKER\"},unbreakable={},"
                 + "lore=[{text:\"Charges: 20/20\",italic:false}]]");
+        hx.give(4, "minecraft:iron_sword[custom_data={id:\"HYPERION\"},unbreakable={}]");
         ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(2));
         ctx.waitTicks(5);
         s.server().command("enchant @p minecraft:efficiency 5");
@@ -497,8 +509,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         check(uses.size() == 1 && !uses.get(0).shift(), "expected one use with shift up, saw " + uses.size());
         check(delta(before, "transmissions") == 1, "the server made " + delta(before, "transmissions")
                 + " transmission(s)");
-        c.note("use: AOTV Instant Transmission to " + u + "; 1 use, shift up. (Empty-hand use of a lever/chest is not on "
-                + "main yet - see 62-argrim-legit for a lever clicked by a use node with the AOTV in hand.)");
+        c.note("use: AOTV Instant Transmission to " + u + "; 1 use, shift up (empty-hand use: 62-argrim-hand)");
         ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
         noteFlags(c, s);
     }
@@ -720,6 +731,124 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         } finally {
             ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setLegitMode", false));
         }
+    }
+
+    /** Empty-hand use nodes (no item): a lever and a chest clicked by hand along the node's look, body aimed. */
+    private static void caseHand(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        // A lever on a wall at eye height and a chest hit on its side: aims that land on them from anywhere in the
+        // node's ring along the approach (walked in, a node fires at the ring's edge, not its centre).
+        setBlocks(ctx, Map.of(new int[]{14, F + 1, 14}, "minecraft:stone",
+                new int[]{13, F + 1, 14}, "minecraft:lever[face=wall,facing=west,powered=false]",
+                new int[]{13, F, 18}, "minecraft:chest"));
+        JsonObject lever = node("USE_ITEM", 10, 14, -90f, 0f);
+        lever.addProperty("start", true);
+        writeRoute(ctx, List.of(lever));
+        long m = LogTap.mark();
+        startSampling(ctx);
+        walkOnto(ctx, 7.5, 14.5, 10, 14);
+        boolean flipped = waitFor(ctx, 40, () -> String.valueOf(blockState(ctx, 13, F + 1, 14)).contains("powered=true"));
+        ctx.waitTicks(5);
+        List<Sample> s = stopSampling(ctx);
+        printTrace("hand lever", s);
+        check(flipped, "the empty-hand node did not flip the lever: " + blockState(ctx, 13, F + 1, 14));
+        check(logHas(m, "empty hand: clicked"), "no empty-hand click in the log");
+        check(count(s, "use_item_on") == 1 && count(s, "use_item") == 0, "lever: " + count(s, "use_item_on")
+                + " use_item_on / " + count(s, "use_item") + " use_item, expected 1 / 0");
+        // ---- a chest the same way ----
+        JsonObject chest = node("USE_ITEM", 10, 18, -90f, 20f);
+        chest.addProperty("start", true);
+        writeRoute(ctx, List.of(chest));
+        startSampling(ctx);
+        walkOnto(ctx, 7.5, 18.5, 10, 18);
+        boolean opened = waitFor(ctx, 40, () -> ctx.computeOnClient(mc -> McCompat.screen(mc) != null));
+        ctx.runOnClient(mc -> {
+            if (mc.player.containerMenu != mc.player.inventoryMenu) {
+                mc.player.closeContainer();
+            }
+        });
+        ctx.waitTicks(5);
+        List<Sample> s2 = stopSampling(ctx);
+        printTrace("hand chest", s2);
+        check(opened, "the empty-hand node did not open the chest");
+        c.note("hand: lever flipped and chest opened by empty-hand use nodes, one use_item_on each, no use_item");
+        noteFlags(c, s2);
+    }
+
+    /** A crypt node: the Crypt Weapon (Hyperion) used along the node's look until a prince/crypt kill is counted. */
+    private static void caseCrypt(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setCryptWeapon",
+                new Class<?>[]{enumClass("CryptWeapon")}, new Object[]{ModUnderTest.enumValue(AR_CONFIG + "$CryptWeapon",
+                        "HYPERION")}));
+        JsonObject crypt = node("CRYPT", 14, 14, 0f, 10f);
+        crypt.addProperty("start", true);
+        writeRoute(ctx, List.of(crypt));
+        long m = LogTap.mark();
+        startSampling(ctx);
+        walkOnto(ctx, 14.5, 11.5, 14, 14);
+        boolean acted = waitFor(ctx, 40, () -> logHas(m, "CRYPT acted"));
+        ctx.waitTicks(8);   // a few uses, the interact delay apart
+        // Hypixel's line for a prince kill - one of the crypt await's two readers (a crypt raises the tab's Crypts).
+        c.hx().chat("A Prince falls. +1 Bonus Score");
+        boolean done = waitFor(ctx, 40, () -> logHas(m, "CRYPT: 1 kill(s)"));
+        ctx.waitTicks(5);
+        List<Sample> s = stopSampling(ctx);
+        printTrace("crypt", s);
+        check(acted, "the crypt node never used its weapon");
+        check(done, "the crypt node did not finish on the prince kill");
+        int uses = count(s, "use_item");
+        check(uses >= 2, "the crypt node used its weapon " + uses + " time(s)");
+        c.note("crypt: " + uses + " Hyperion use(s) along the node's look until the prince kill (the server emulates no "
+                + "Wither Impact - only the client's packets are under test)");
+        noteFlags(c, s);
+    }
+
+    /** Kill Mimic (Hyperion): an empty-hand node clicks a trapped chest, the blade is used straight down. */
+    private static void caseMimic(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setKillMimic",
+                new Class<?>[]{enumClass("KillMimic")}, new Object[]{ModUnderTest.enumValue(AR_CONFIG + "$KillMimic",
+                        "HYPERION")}));
+        try {
+            setBlocks(ctx, Map.of(new int[]{13, F, 22}, "minecraft:trapped_chest"));
+            JsonObject chest = node("USE_ITEM", 10, 22, -90f, 20f);
+            chest.addProperty("start", true);
+            writeRoute(ctx, List.of(chest));
+            long m = LogTap.mark();
+            startSampling(ctx);
+            walkOnto(ctx, 7.5, 22.5, 10, 22);
+            boolean opened = waitFor(ctx, 40, () -> ctx.computeOnClient(mc -> McCompat.screen(mc) != null));
+            ctx.runOnClient(mc -> {
+                if (mc.player.containerMenu != mc.player.inventoryMenu) {
+                    mc.player.closeContainer();
+                }
+            });
+            boolean killed = waitFor(ctx, 120, () -> logHas(m, "Kill Mimic done"));
+            ctx.waitTicks(5);
+            List<Sample> s = stopSampling(ctx);
+            printTrace("mimic", s);
+            check(opened, "the empty-hand node did not open the trapped chest");
+            check(logHas(m, "used straight down"), "Kill Mimic never used the Hyperion");
+            check(killed, "Kill Mimic did not finish");
+            c.note("mimic: trapped chest clicked by an empty-hand node, Hyperion used straight down ("
+                    + count(s, "use_item") + " use_item)");
+            noteFlags(c, s);
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setKillMimic",
+                    new Class<?>[]{enumClass("KillMimic")}, new Object[]{ModUnderTest.enumValue(AR_CONFIG + "$KillMimic",
+                            "OFF")}));
+        }
+    }
+
+    private static Class<?> enumClass(String inner) {
+        return ModUnderTest.enumValue(AR_CONFIG + "$" + inner, "HYPERION").getClass();
     }
 
     // ============================================================================================ world
