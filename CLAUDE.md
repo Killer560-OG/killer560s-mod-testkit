@@ -11,7 +11,7 @@ add one or push without asking.
 ## Run
 
 ```
-./gradlew runClientGameTest -PmodUnderTest=C:/Users/Hunter/killer560s-mod/build/libs/killer560smod-1.1.0-cheat.jar --no-daemon
+./gradlew runClientGameTest -PmodUnderTest=C:/Users/Hunter/killer560s-mod/build/libs/killer560smod-1.1.0-26.1.2-cheat.jar --no-daemon
 ./gradlew runClientGameTest -Pscenario=60-secret -PmodUnderTest=<jar>   # one scenario
 ./gradlew runClientGameTest -Pnogrim -PmodUnderTest=<jar>               # anticheat muted
 ./gradlew runClientGameTest -Pport=25566 -PmodUnderTest=<jar>           # second concurrent instance
@@ -35,6 +35,26 @@ packets per tick, fed by mixins on `ClientCommonPacketListenerImpl#send` and `Mi
 
 Scenarios so far: 48-52 Breaker Aura (with a by-hand control and an open-ground speed control), 60 Secret
 Triggerbot.
+
+## Auto puzzle suite (93-solve-*)
+
+```
+./run-scenario.ps1 -Scenario 93-solve -ModUnderTest <cheat jar> -TimeoutSeconds 1500    # all eleven, ~12 min
+./run-scenario.ps1 -Scenario 93-solve-icepath -ModUnderTest <cheat jar>                 # one room
+```
+
+`SimPuzzleSolveTests`: one scenario per sim puzzle room (tictactoe, icepath, icefill, higherblaze, lowerblaze,
+creeperbeams, boulder, threeweirdos, waterboard, teleportmaze, quiz), then `[93-solve] SUITE SUMMARY`. Each loads
+the room with `SimBuilder.buildSingleRoom` from the title screen (his path), gives AOTV in slot 1 and Terminator in
+slot 2, waits until the CLIENT has the room under his feet, then switches on this room's auto (solver, master,
+Etherwarp Reposition, pathing and Interactive Map too; every other auto off) and watches for 60 s. The verdict is
+the sim's own `Sim*Puzzle.isComplete()`, failed if `SimRoomState.isFailed` ever went true; Boulder's is "a
+container opened", because Auto Boulder auras the reward chest instead of pushing boxes. Status lines every 5 s
+carry the solver's own state (`probes`), and a failure prints the last 60 mod/chat log lines (`LogTap`).
+
+Human input it drives, only after giving the auto 10 s to do it itself, and says so in the log: Quiz is placed
+between the pillars, Three Weirdos in front of the NPCs (both autos only click within reach and never move), and
+Teleport Maze is walked onto the start pad with the forward key.
 
 ## What a clean run means
 
@@ -158,3 +178,11 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   0.7909 - so it is not flaky and not caused by anything in the mod. It is upstream's, like 40/41/42 reporting
   "built 0 block(s)" and passing. Do not read it as a regression; any combat scenario that uses that bot as a
   moving target is measuring something stiller than it intends.
+- **The first sim world a fresh client opens takes ~27 s to get its chunks** (measured twice, 2026-10-04): the
+  player hangs "airborne" at the spawn while the server already has the room. Anything switched on during that
+  window reads an empty world - the Ice Path solver read a 0-wall board, and the sim's Ice Path re-spawned its
+  silverfish 10 times a second because the server could not see the last one. 93-solve waits for the client to
+  stand on a block before switching an auto on; do the same in any scenario that judges client-side reading.
+- `ModChat.send` lines never reach `ChatWatch` (they are added to the chat window directly, not received), but
+  vanilla logs every shown line as `[System] [CHAT] ...` - note the prefix, a `startsWith("[CHAT]")` filter
+  silently matched nothing. `LogTap` captures them together with the mod's own logger lines.

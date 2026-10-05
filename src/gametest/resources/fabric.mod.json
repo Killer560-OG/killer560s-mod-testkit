@@ -43,7 +43,19 @@
 			"dev.testkit.gametest.SimMapGroupTests",
 			"dev.testkit.gametest.SimSingleRoomTests",
 			"dev.testkit.gametest.SimRoomFloorTests",
-			"dev.testkit.gametest.InventorySorterTests"
+			"dev.testkit.gametest.InventorySorterTests",
+			"dev.testkit.gametest.SimPuzzleSolveTests$TicTacToe",
+			"dev.testkit.gametest.SimPuzzleSolveTests$IcePath",
+			"dev.testkit.gametest.SimPuzzleSolveTests$IceFill",
+			"dev.testkit.gametest.SimPuzzleSolveTests$HigherBlaze",
+			"dev.testkit.gametest.SimPuzzleSolveTests$LowerBlaze",
+			"dev.testkit.gametest.SimPuzzleSolveTests$CreeperBeams",
+			"dev.testkit.gametest.SimPuzzleSolveTests$Boulder",
+			"dev.testkit.gametest.SimPuzzleSolveTests$ThreeWeirdos",
+			"dev.testkit.gametest.SimPuzzleSolveTests$WaterBoard",
+			"dev.testkit.gametest.SimPuzzleSolveTests$TeleportMaze",
+			"dev.testkit.gametest.SimPuzzleSolveTests$Quiz",
+			"dev.testkit.gametest.SimPuzzleSolveTests$Summary"
 		]
 	},
 	"depends": {

@@ -13,7 +13,7 @@
 
 param(
     [string]$Scenario = "",
-    [string]$ModUnderTest = "C:/Users/Hunter/killer560s-mod/build/libs/killer560smod-1.1.0-cheat.jar",
+    [string]$ModUnderTest = "C:/Users/Hunter/killer560s-mod/build/libs/killer560smod-1.1.0-26.1.2-cheat.jar",
     [int]$TimeoutSeconds = 240
 )
 
