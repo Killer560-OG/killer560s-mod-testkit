@@ -1593,7 +1593,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             long mc1 = LogTap.mark();
             ctx.waitTicks(5);
             rightClick(ctx, 12, F, 8, Direction.UP);
-            boolean stopped = waitFor(ctx, 140, () -> logHas(mc1, "killed no crypt or prince"));
+            boolean stopped = waitFor(ctx, 140, () -> logHas(mc1, "up, moving on"));
             check(!logHas(mc1, "CRYPT: 1 kill"), "a secret (lever click) satisfied a crypt node");
             check(stopped, "the crypt node with nothing to kill did not time out");
 
