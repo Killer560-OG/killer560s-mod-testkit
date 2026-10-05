@@ -78,6 +78,12 @@ the anticheat's verbose output, and **fails the build on any flag**.
 
 Built for Minecraft **26.1.2** / Fabric. Requires **Java 25** and a JDK on `JAVA_HOME`.
 
+**Minecraft 26.2** builds with `-Pminecraft_version=26.2` (Fabric API, loader and cloud-fabric follow from the
+table in `build.gradle`); the scripts take `-Minecraft 26.2`. Everything compiles against 26.2, but nothing has
+been run there yet - the server, GrimAC on 26.2 and every scenario are untested. Run
+`-Pscenario=smoke,proof,02-seed` first. API that differs between the two versions lives in `dev.testkit.compat`
+(`src/client/mc26_1/java`, `src/client/mc26_2/java`, identical public signatures).
+
 ---
 
 ## Quick start
@@ -262,7 +268,8 @@ Pinned in [`gradle.properties`](gradle.properties) as `grim_version` / `grim_url
 does not bundle everything it needs, and the build supplies the rest:
 
 - **Cloud** (`org.incendo:cloud-fabric`) — its command framework. Version matters: `2.0.0-beta.17`
-  declares `minecraft >=26.2` and will not load on 26.1.x; **`beta.16`** declares `>=26.1` and does.
+  declares `minecraft >=26.2` and will not load on 26.1.x; **`beta.16`** declares `>=26.1` and does. A 26.2
+  build uses beta.17, and `prepareTestServer` removes the other version's cloud jars from the staged server.
 - **SQLite** (`org.xerial:sqlite-jdbc`) — its violation store. Without it Grim refuses to start.
 
 After changing the version, run `./gradlew prepareTestServer` and then the smoke scenario. If the new

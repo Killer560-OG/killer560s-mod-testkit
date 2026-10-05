@@ -25,6 +25,7 @@ param(
     [int]$Max = 3,
     [int]$BasePort = 25700,
     [string]$ModUnderTest = "",
+    [string]$Minecraft = "26.1.2",
     [string[]]$Extra = @(),
     [int]$TimeoutSeconds = 1800,
     [string]$WorktreeRoot = "C:/Users/Hunter/killer560s-mod-testkit-wt"
@@ -77,6 +78,7 @@ while ($queue.Count -gt 0 -or $running.Count -gt 0) {
         $cmd = "& " + (& $q "$path/run-suite.ps1") + " -Suite " + (& $q $suite) + " -Port $port -Window " +
                (& $q $tiles[$i % $tiles.Count]) + " -TimeoutSeconds $TimeoutSeconds"
         if ($ModUnderTest -ne "") { $cmd += " -ModUnderTest " + (& $q $ModUnderTest) }
+        if ($Minecraft -ne "26.1.2") { $cmd += " -Minecraft " + (& $q $Minecraft) }
         if ($Extra.Count -gt 0) { $cmd += " -Extra " + (($Extra | ForEach-Object { & $q $_ }) -join ",") }
         $cmd += "; exit `$LASTEXITCODE"
         $p = Start-Process -FilePath "powershell" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass",
