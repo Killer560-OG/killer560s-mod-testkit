@@ -1,0 +1,39 @@
+[
+  {
+    "id": "sidebar.dungeon-f7",
+    "kind": "sidebar",
+    "payload": {"title": "§e§lSKYBLOCK", "lines": ["§710/04/26 §8m12AB", "", " §7⏣ §cThe Catac§combs §7(F7)", "", "Keys: §c■ §c✗ §6■ §a0x", "Time Elapsed: §a01m 23s", "Cleared: §c12% §8(31)", "", "§ewww.hypixel.net"]},
+    "source": {"file": "src/main/java/com/killer560/hub/secrets/DungeonState.java", "line": 43},
+    "matches": ["secrets.DungeonState#CATACOMBS_FLOOR_PATTERN", "scorecalc.ScoreCalculatorFeature#SIDEBAR_CLEARED", "scorecalc.ScoreCalculatorFeature#SIDEBAR_ELAPSED"],
+    "verifiedBy": "regex",
+    "notes": "Exactly what surface.sidebar {template: dungeon} renders (case 101 checks the two agree). Line sources are in HxTemplates' javadoc."
+  },
+  {
+    "id": "sidebar.queue-f7",
+    "kind": "sidebar",
+    "payload": {"title": "§e§lSKYBLOCK", "lines": ["§710/04/26 §8m12AB", "", " §7⏣ §cThe Catac§combs §7(F7)", "§fQueue: §a1/5", "", "Keys: §c■ §c✗ §6■ §a0x", "Time Elapsed: §a01m 23s", "Cleared: §c12% §8(31)", "", "§ewww.hypixel.net"]},
+    "source": {"file": "src/main/java/com/killer560/hub/secrets/DungeonState.java", "line": 214},
+    "matches": ["secrets.DungeonState#CATACOMBS_FLOOR_PATTERN"],
+    "verifiedBy": "regex",
+    "notes": "Any sidebar text containing 'Queue' makes the floor null (DungeonState :214; class comment :25). The queue line's wording is a placeholder: only the word Queue is from the mod."
+  },
+  {
+    "id": "sidebar.hub",
+    "kind": "sidebar",
+    "payload": {"title": "§e§lSKYBLOCK", "lines": ["§710/04/26 §8m12AB", "", " §7⏣ §bVillage", "", "§ewww.hypixel.net"]},
+    "source": {"file": "src/main/java/com/killer560/hub/pathfinding/IslandDetector.java", "line": 37},
+    "matches": ["pathfinding.IslandDetector#SIDEBAR_AREA"],
+    "mode": "matches",
+    "verifiedBy": "regex"
+  },
+  {
+    "id": "sidebar.crystal-hollows",
+    "kind": "sidebar",
+    "payload": {"title": "§e§lSKYBLOCK", "lines": ["§710/04/26 §8m12AB", "", " §7⏣ §5Crystal Nucleus", "", "§ewww.hypixel.net"]},
+    "source": {"file": "src/main/java/com/killer560/hub/rngmeter/LocationTracker.java", "line": 48},
+    "matches": ["pathfinding.IslandDetector#SIDEBAR_AREA"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "LocationTracker maps 'nucleus'/'crystal hollows' anywhere in the sidebar to RNG category 3 (Crystal Nucleus)."
+  }
+]

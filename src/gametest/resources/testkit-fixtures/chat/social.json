@@ -1,0 +1,57 @@
+[
+  {
+    "id": "chat.fl-separator",
+    "kind": "chat",
+    "payload": "§9§m-----------------------------------------------------",
+    "source": {"file": "src/main/java/com/killer560/hub/social/FriendsListSync.java", "line": 61},
+    "matches": ["social.FriendsListSync#SEPARATOR"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "The block shape (separator, header, one line per friend, separator) is FriendsListSync's comment at :28-31."
+  },
+  {
+    "id": "chat.fl-header-page1",
+    "kind": "chat",
+    "payload": {"json": ["", {"text": "Friends (Page 1 of 2) ", "color": "gold"}, {"text": ">>", "color": "yellow", "click_event": {"action": "run_command", "command": "/friend list 2"}}]},
+    "source": {"file": "src/main/java/com/killer560/hub/social/FriendsListSync.java", "line": 62},
+    "verifiedBy": "regex",
+    "notes": "HEADER (:62, matched case-insensitively on the stripped line) plus the '>>' click event FriendsListSync reads the next page's command from (:242-249, PAGE_COMMAND :67). Text form: 'Friends (Page 1 of 2) >>'."
+  },
+  {
+    "id": "chat.fl-header-page2",
+    "kind": "chat",
+    "payload": {"json": ["", {"text": "<< ", "color": "yellow", "click_event": {"action": "run_command", "command": "/friend list 1"}}, {"text": "Friends (Page 2 of 2)", "color": "gold"}]},
+    "source": {"file": "src/main/java/com/killer560/hub/social/FriendsListSync.java", "line": 62},
+    "verifiedBy": "regex",
+    "notes": "Pages after the first carry a leading '<<' (comment :29-30). Text form: '<< Friends (Page 2 of 2)'."
+  },
+  {
+    "id": "chat.fl-friend-online",
+    "kind": "chat",
+    "payload": "§bHxFriendA§e is in SkyBlock - Hub",
+    "source": {"file": "src/main/java/com/killer560/hub/social/FriendsListSync.java", "line": 65},
+    "matches": ["social.FriendsListSync#FRIEND_LINE"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "'Name is in SkyBlock - Hub' quoted in the comment at :29."
+  },
+  {
+    "id": "chat.fl-friend-offline",
+    "kind": "chat",
+    "payload": "§b[MVP§c+§b] HxFriendB§c is currently offline",
+    "source": {"file": "src/main/java/com/killer560/hub/social/FriendsListSync.java", "line": 65},
+    "matches": ["social.FriendsListSync#FRIEND_LINE"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "'Name is currently offline' quoted in the comment at :29-30; the rank bracket is the optional group in FRIEND_LINE."
+  },
+  {
+    "id": "chat.fl-friend-page2",
+    "kind": "chat",
+    "payload": "§7HxFriendC§c is currently offline",
+    "source": {"file": "src/main/java/com/killer560/hub/social/FriendsListSync.java", "line": 65},
+    "matches": ["social.FriendsListSync#FRIEND_LINE"],
+    "mode": "matches",
+    "verifiedBy": "regex"
+  }
+]

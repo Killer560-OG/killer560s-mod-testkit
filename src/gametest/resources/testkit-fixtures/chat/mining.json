@@ -1,0 +1,33 @@
+[
+  {
+    "id": "chat.nucleus-loot-start",
+    "kind": "chat",
+    "payload": "  §r§5§lCRYSTAL NUCLEUS LOOT BUNDLE",
+    "source": {"file": "src/main/java/com/killer560/hub/mining/nucleus/NucleusRunProfitTracker.java", "line": 65},
+    "matches": ["mining.nucleus.NucleusRunProfitTracker#LOOT_START"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "Codes from the SkyHanni startPattern quoted at :38-39 (\" \\s*§r§5§lCRYSTAL NUCLEUS LOOT BUNDLE.*\")."
+  },
+  {
+    "id": "chat.nucleus-loot-item",
+    "kind": "chat",
+    "payload": "    §r§aHxTestItem §8x2",
+    "source": {"file": "src/main/java/com/killer560/hub/mining/nucleus/NucleusRunProfitTracker.java", "line": 68},
+    "matches": ["mining.nucleus.NucleusRunProfitTracker#COUNT_SUFFIX"],
+    "mode": "matches",
+    "strip": true,
+    "verifiedBy": "regex",
+    "notes": "4-space-indented 'item xN' line (comment :36-37). The item name is a placeholder the pricer cannot price, so it adds nothing to the value - the run COUNT is what the case asserts."
+  },
+  {
+    "id": "chat.nucleus-loot-end",
+    "kind": "chat",
+    "payload": "§3§l▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
+    "source": {"file": "src/main/java/com/killer560/hub/mining/nucleus/NucleusRunProfitTracker.java", "line": 66},
+    "matches": ["mining.nucleus.NucleusRunProfitTracker#LOOT_END"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "64 bars, from SkyHanni's endPattern \"§3§l▬{64}\" quoted at :39."
+  }
+]

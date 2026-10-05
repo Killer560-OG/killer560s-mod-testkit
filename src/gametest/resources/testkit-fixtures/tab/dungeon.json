@@ -1,0 +1,22 @@
+[
+  {
+    "id": "tab.dungeon-run",
+    "kind": "tab",
+    "payload": {"entries": ["§r§b§lParty §r§f(2)", "§r[42] §r§aHxMateA §r§f(§r§dMage L§r§f)", "§r[38] §r[MVP+] §aHxMateB §r§f(§r§dBerserk XL§r§f)", "§r§b§lDungeon: §r§7Catacombs", " Secrets Found: §r§b12", " Secrets Found: §r§b34.5%", " Crypts: §r§65", " Completed Rooms: §r§d9", " Team Deaths: §r§c1", "§r§b§lPuzzles: §r§f(2)", " Three Weirdos: §r§7[§r§a✔§r§7]", " Quiz: §r§7[§r§c✖§r§7]"]},
+    "source": {"file": "src/main/java/com/killer560/hub/scorecalc/ScoreCalculatorFeature.java", "line": 86},
+    "matches": ["leapmenu.PartyTracker#TAB_REGEX", "scorecalc.ScoreCalculatorFeature#TAB_SECRETS_COUNT", "scorecalc.ScoreCalculatorFeature#TAB_SECRETS_PERCENT", "scorecalc.ScoreCalculatorFeature#TAB_CRYPTS", "scorecalc.ScoreCalculatorFeature#TAB_COMPLETED_ROOMS", "scorecalc.ScoreCalculatorFeature#TAB_DEATHS", "scorecalc.ScoreCalculatorFeature#TAB_PUZZLE_COUNT", "scorecalc.ScoreCalculatorFeature#TAB_PUZZLE", "dungeoninfo.DungeonInfoFeature#TAB_SECRETS_COUNT_PATTERN", "pathfinding.IslandDetector#TAB_AREA"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "The non-blank entries surface.tab {template: dungeon} renders for two players, secrets 12 / 34.5%, crypts 5, rooms 9, deaths 1 and two puzzles (the template pads each column to 20 rows with blanks). Line sources in HxTemplates' javadoc."
+  },
+  {
+    "id": "tab.area-crystal-hollows",
+    "kind": "tab",
+    "payload": {"entries": ["§r§b§lArea: §r§7Crystal Hollows"]},
+    "source": {"file": "src/main/java/com/killer560/hub/pathfinding/IslandDetector.java", "line": 35},
+    "matches": ["pathfinding.IslandDetector#TAB_AREA", "scoreboard.ScoreboardPattern#TAB_AREA"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "'crystal hollows' -> CRYSTAL_HOLLOWS at IslandDetector :49."
+  }
+]

@@ -1,0 +1,323 @@
+[
+  {
+    "id": "hostile.allchat-maxor",
+    "kind": "chat",
+    "payload": "§7[VIP] HxEvil§f: [BOSS] Maxor: WELL! WELL! WELL! LOOK WHO'S HERE!",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/secrets/DungeonState.java",
+      "line": 54
+    },
+    "mustNotMatch": [
+      "secrets.DungeonState#BOSS_START_PATTERN"
+    ],
+    "verifiedBy": "regex",
+    "notes": "The exact forgery DungeonState's comment at :54-56 describes."
+  },
+  {
+    "id": "hostile.allchat-prince",
+    "kind": "chat",
+    "payload": "§7[VIP] HxEvil§f: A Prince falls. +1 Bonus Score",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/scorecalc/ScoreCalculatorFeature.java",
+      "line": 100
+    },
+    "mustNotMatch": [
+      "scorecalc.ScoreCalculatorFeature#PRINCE_KILLED",
+      "interop.SelfDerivation#PRINCE_KILLED"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex"
+  },
+  {
+    "id": "hostile.allchat-extra-stats",
+    "kind": "chat",
+    "payload": "§7[VIP] HxEvil§f: > EXTRA STATS <",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/dungeonqueue/DungeonQueueFeature.java",
+      "line": 32
+    },
+    "mustNotMatch": [
+      "dungeonqueue.DungeonQueueFeature#EXTRA_STATS",
+      "runstats.RunStatsFeature#EXTRA_STATS",
+      "runsummary.RunSummaryFeature#EXTRA_STATS",
+      "partycommands.PartyCommandsFeature#END_OF_RUN"
+    ],
+    "verifiedBy": "regex",
+    "notes": "Would requeue (/instancerequeue) and print run stats if it matched."
+  },
+  {
+    "id": "hostile.allchat-run-start",
+    "kind": "chat",
+    "payload": "§7[VIP] HxEvil§f: Starting in 1 second.",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/runsummary/RunSummaryFeature.java",
+      "line": 64
+    },
+    "verifiedBy": "regex",
+    "notes": "RunSummary/SplitTimers compare the whole stripped line with equals(); this must not start a run."
+  },
+  {
+    "id": "hostile.allchat-party-warp",
+    "kind": "chat",
+    "payload": "§7[VIP] HxEvil§f: Party > HxMateA: !warp",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/chatcommands/ChatCommandsFeature.java",
+      "line": 51
+    },
+    "mustNotMatch": [
+      "chatcommands.ChatCommandsFeature#PARTY_REGEX",
+      "interop.InteropChatParser#PARTY_LINE",
+      "scorecalc.ScoreCalculatorFeature#PARTY_MESSAGE",
+      "leapmenu.PartyTracker#PARTY_CHAT"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "A party line quoted inside all chat."
+  },
+  {
+    "id": "hostile.allchat-mimic",
+    "kind": "chat",
+    "payload": "§7[VIP] HxEvil§f: Party > HxMateA: Mimic Killed!",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/interop/InteropChatParser.java",
+      "line": 68
+    },
+    "mustNotMatch": [
+      "interop.InteropChatParser#PARTY_LINE",
+      "scorecalc.ScoreCalculatorFeature#PARTY_MESSAGE"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex"
+  },
+  {
+    "id": "hostile.allchat-leap",
+    "kind": "chat",
+    "payload": "§7[VIP] HxEvil§f: You have teleported to HxMateA!",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/leapmessage/LeapMessageFeature.java",
+      "line": 35
+    },
+    "mustNotMatch": [
+      "leapmessage.LeapMessageFeature#LEAP_MESSAGE"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex"
+  },
+  {
+    "id": "hostile.allchat-creeper-veil",
+    "kind": "chat",
+    "payload": "§7[VIP] HxEvil§f: Creeper Veil Activated!",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/abilitycooldown/AbilityCooldownState.java",
+      "line": 74
+    },
+    "mustNotMatch": [
+      "abilitycooldown.AbilityCooldownState#CREEPER_VEIL_ON"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex"
+  },
+  {
+    "id": "hostile.allchat-quiz-year",
+    "kind": "chat",
+    "payload": "§7[VIP] HxEvil§f: What SkyBlock year is it?",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/puzzlesolvers/QuizSolverFeature.java",
+      "line": 151
+    },
+    "verifiedBy": "regex",
+    "notes": "Must not set Quiz answers (comment :157-160)."
+  },
+  {
+    "id": "hostile.allchat-quiz-answer",
+    "kind": "chat",
+    "payload": "§7[VIP] HxEvil§f: ⓐ Year 400",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/puzzlesolvers/QuizSolverFeature.java",
+      "line": 170
+    },
+    "verifiedBy": "regex",
+    "notes": "An answer line must start with the circled letter (:170-172)."
+  },
+  {
+    "id": "hostile.allchat-death",
+    "kind": "chat",
+    "payload": "§7[VIP] HxEvil§f: ☠ HxMateA was killed and became a ghost.",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/runstats/RunStatsTracker.java",
+      "line": 53
+    },
+    "mustNotMatch": [
+      "runstats.RunStatsTracker#DEATH"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex"
+  },
+  {
+    "id": "hostile.allchat-left",
+    "kind": "chat",
+    "payload": "§7[VIP] HxEvil§f: HxMateB has left the party.",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/leapmenu/PartyTracker.java",
+      "line": 56
+    },
+    "mustNotMatch": [
+      "leapmenu.PartyTracker#LEFT"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "Would remove a teammate (PartyTracker) and skip the next requeue (DungeonQueue PARTY_LEAVE) if it matched."
+  },
+  {
+    "id": "hostile.allchat-nucleus-start",
+    "kind": "chat",
+    "payload": "§7[VIP] HxEvil§f: CRYSTAL NUCLEUS LOOT BUNDLE",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/mining/nucleus/NucleusRunProfitTracker.java",
+      "line": 65
+    },
+    "mustNotMatch": [
+      "mining.nucleus.NucleusRunProfitTracker#LOOT_START"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "The comment at :62-64 says a player's line can neither open nor close a loot block."
+  },
+  {
+    "id": "hostile.allchat-nucleus-end",
+    "kind": "chat",
+    "payload": "§7[VIP] HxEvil§f: ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/mining/nucleus/NucleusRunProfitTracker.java",
+      "line": 66
+    },
+    "mustNotMatch": [
+      "mining.nucleus.NucleusRunProfitTracker#LOOT_END"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex"
+  },
+  {
+    "id": "hostile.allchat-magic-find",
+    "kind": "chat",
+    "payload": "§7[VIP] HxEvil§f: (99999% Magic Find)",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/rngmeter/MagicFindTracker.java",
+      "line": 20
+    },
+    "verifiedBy": "regex",
+    "notes": "MAGIC_FIND_PATTERN is an unanchored find() on every chat line (:37-38), so this DOES match; whether it moves the tracked Magic Find is what case 1xx asserts. Not listed under mustNotMatch because the fixture would then be false."
+  },
+  {
+    "id": "hostile.allchat-fl-header",
+    "kind": "chat",
+    "payload": "§7[VIP] HxEvil§f: Friends (Page 1 of 1)",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/social/FriendsListSync.java",
+      "line": 62
+    },
+    "mustNotMatch": [
+      "social.FriendsListSync#HEADER"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex"
+  },
+  {
+    "id": "hostile.allchat-fl-friend",
+    "kind": "chat",
+    "payload": "§7[VIP] HxEvil§f: HxEvil is in SkyBlock - Hub",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/social/FriendsListSync.java",
+      "line": 65
+    },
+    "mustNotMatch": [
+      "social.FriendsListSync#FRIEND_LINE"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex"
+  },
+  {
+    "id": "hostile.ss-overflow",
+    "kind": "chat",
+    "payload": "§7[VIP] HxEvil§f: SS 99999999999/5",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java",
+      "line": 80
+    },
+    "mustNotMatch": [
+      "simonsays.SimonSaysFeature#PROGRESS_PATTERN"
+    ],
+    "verifiedBy": "regex",
+    "notes": "Scenario 86's line (the 2026-09-29 disconnect); the digit groups are now bounded to {1,3}."
+  },
+  {
+    "id": "hostile.party-team-score-overflow",
+    "kind": "chat",
+    "payload": "Team Score: 99999999999999999999 (S+)",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/runsummary/RunSummaryFeature.java",
+      "line": 71
+    },
+    "matches": [
+      "runsummary.RunSummaryFeature#TEAM_SCORE"
+    ],
+    "verifiedBy": "regex",
+    "notes": "A server-shaped line with an unbounded number ([\\d,]+ into parseInt): must not throw out of a chat listener."
+  },
+  {
+    "id": "hostile.tab-secrets-overflow",
+    "kind": "tab",
+    "payload": {
+      "entries": [
+        " Secrets Found: §r§b99999999999",
+        " Crypts: §r§699999999999",
+        " Completed Rooms: §r§d99999999999"
+      ]
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/dungeoninfo/DungeonInfoFeature.java",
+      "line": 61
+    },
+    "mustNotMatch": [
+      "dungeoninfo.DungeonInfoFeature#TAB_SECRETS_COUNT_PATTERN"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "DungeonInfo threw on this every tick until a0fe2a2 (comment :170-171); ScoreCalc's own patterns are unbounded but parse through a guarded helper."
+  },
+  {
+    "id": "hostile.tab-teammate-longname",
+    "kind": "tab",
+    "payload": {
+      "entries": [
+        "§r[42] §r§aHxAAAAAAAAAAAAAAAAAAAAAA §r§f(§r§dMage L§r§f)"
+      ]
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/leapmenu/PartyTracker.java",
+      "line": 45
+    },
+    "mustNotMatch": [
+      "leapmenu.PartyTracker#TAB_REGEX",
+      "dungeonalerts.ClassColors#TAB_REGEX"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex"
+  },
+  {
+    "id": "hostile.overlay-huge-stats",
+    "kind": "overlay",
+    "payload": "§c99999999999999999999/1❤     §b-99999999999999999999 Mana (§6Ender Warp§b)",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/playerstats/PlayerStatsFeature.java",
+      "line": 47
+    },
+    "matches": [
+      "playerstats.PlayerStatsFeature#HEALTH_REGEX",
+      "abilitycooldown.AbilityCooldownState#ABILITY_USE"
+    ],
+    "strip": false,
+    "verifiedBy": "regex",
+    "notes": "Overflow probe for the action-bar parsers (they keep the digits as strings); the client must stay connected."
+  }
+]

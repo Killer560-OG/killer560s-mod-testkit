@@ -1,0 +1,101 @@
+[
+  {
+    "id": "chat.boss-maxor-start",
+    "kind": "chat",
+    "payload": "§4[BOSS] Maxor§r§c: §r§cWELL! WELL! WELL! LOOK WHO'S HERE!",
+    "source": {"file": "src/main/java/com/killer560/hub/secrets/DungeonState.java", "line": 63},
+    "matches": ["secrets.DungeonState#BOSS_START_PATTERN"],
+    "verifiedBy": "regex",
+    "notes": "Exact sentence from BOSS_START_PATTERN; colour codes as DungeonState's comment at :45-52 says real lines carry (§4/§r/§c), stripped before matching. Also the F7 Maxor split, splittimers/SplitTimersFeature.java:153."
+  },
+  {
+    "id": "chat.prince-killed",
+    "kind": "chat",
+    "payload": "A Prince falls. +1 Bonus Score",
+    "source": {"file": "src/main/java/com/killer560/hub/scorecalc/ScoreCalculatorFeature.java", "line": 100},
+    "matches": ["scorecalc.ScoreCalculatorFeature#PRINCE_KILLED"],
+    "mode": "matches",
+    "verifiedBy": "regex"
+  },
+  {
+    "id": "chat.extra-stats",
+    "kind": "chat",
+    "payload": "                             > EXTRA STATS <",
+    "source": {"file": "src/main/java/com/killer560/hub/dungeonqueue/DungeonQueueFeature.java", "line": 32},
+    "matches": ["dungeonqueue.DungeonQueueFeature#EXTRA_STATS", "runstats.RunStatsFeature#EXTRA_STATS", "runsummary.RunSummaryFeature#EXTRA_STATS"],
+    "verifiedBy": "regex",
+    "notes": "Leading centring spaces are allowed by the ^\\s* in all three patterns; the count of spaces is not from the mod."
+  },
+  {
+    "id": "chat.run-start",
+    "kind": "chat",
+    "payload": "Starting in 1 second.",
+    "source": {"file": "src/main/java/com/killer560/hub/runsummary/RunSummaryFeature.java", "line": 64},
+    "verifiedBy": "regex",
+    "notes": "Literal compared with equals() by RunSummaryFeature (:420) and SplitTimersFeature (:304). No Pattern constant."
+  },
+  {
+    "id": "chat.mort-map",
+    "kind": "chat",
+    "payload": "[NPC] Mort: Here, I found this map when I first entered the dungeon.",
+    "source": {"file": "src/main/java/com/killer560/hub/splittimers/SplitTimersFeature.java", "line": 65},
+    "verifiedBy": "regex",
+    "notes": "First alternative of SplitTimers' BLOOD_OPEN split (matched with matches()); the first split to fire starts the run clock AutoKick reads (SplitTimersFeature.getRunStartedAtMs, :529). The pattern lives in a SplitDef record, not a static Pattern field."
+  },
+  {
+    "id": "chat.team-score",
+    "kind": "chat",
+    "payload": "             Team Score: 300 (S+)",
+    "source": {"file": "src/main/java/com/killer560/hub/runsummary/RunSummaryFeature.java", "line": 71},
+    "matches": ["runsummary.RunSummaryFeature#TEAM_SCORE", "scorecalc.ScoreCalculatorFeature#TEAM_SCORE"],
+    "verifiedBy": "regex"
+  },
+  {
+    "id": "chat.death-teammate",
+    "kind": "chat",
+    "payload": " ☠ HxMateA was killed and became a ghost.",
+    "source": {"file": "src/main/java/com/killer560/hub/runstats/RunStatsTracker.java", "line": 53},
+    "matches": ["runstats.RunStatsTracker#DEATH"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "The cause text between the name and ' and became a ghost.' is free in the regex (.+?); 'was killed' is a placeholder value, not a claimed Hypixel wording."
+  },
+  {
+    "id": "chat.party-left",
+    "kind": "chat",
+    "payload": "§9HxMateB §ehas left the party.",
+    "source": {"file": "src/main/java/com/killer560/hub/dungeonqueue/DungeonQueueFeature.java", "line": 37},
+    "matches": ["leapmenu.PartyTracker#LEFT"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "First of DungeonQueueFeature.PARTY_LEAVE (a List, so not referenced by Class#FIELD) and PartyTracker.LEFT (:56)."
+  },
+  {
+    "id": "chat.quiz-year",
+    "kind": "chat",
+    "payload": "                         What SkyBlock year is it?",
+    "source": {"file": "src/main/java/com/killer560/hub/puzzlesolvers/QuizSolverFeature.java", "line": 151},
+    "verifiedBy": "regex",
+    "notes": "Compared on the trimmed line with equals(); the comment at :157-160 says Oruo's question is a server line of centring spaces and the question."
+  },
+  {
+    "id": "chat.creeper-veil",
+    "kind": "chat",
+    "payload": "§dCreeper Veil §r§aActivated!",
+    "source": {"file": "src/main/java/com/killer560/hub/abilitycooldown/AbilityCooldownState.java", "line": 74},
+    "matches": ["abilitycooldown.AbilityCooldownState#CREEPER_VEIL_ON"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "Colour codes from the comment at :73 (SkyHanni's §dCreeper Veil §r§aActivated!)."
+  },
+  {
+    "id": "chat.leap-teleported",
+    "kind": "chat",
+    "payload": "§dYou have teleported to §bHxMateA§d!",
+    "source": {"file": "src/main/java/com/killer560/hub/leapmessage/LeapMessageFeature.java", "line": 35},
+    "matches": ["leapmessage.LeapMessageFeature#LEAP_MESSAGE"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "Formatted shape from the comment at :45 (\"§dYou have teleported to §bName§d!\")."
+  }
+]

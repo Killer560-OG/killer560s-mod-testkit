@@ -1,0 +1,29 @@
+[
+  {
+    "id": "chat.magic-find-drop",
+    "kind": "chat",
+    "payload": "§6§lRARE DROP! §r§9HxTestItem §r§b(164% ✯ Magic Find)",
+    "source": {"file": "src/main/java/com/killer560/hub/rngmeter/MagicFindTracker.java", "line": 20},
+    "matches": ["rngmeter.MagicFindTracker#MAGIC_FIND_PATTERN"],
+    "verifiedBy": "regex",
+    "notes": "Only the trailing '(164% ... Magic Find)' is from the mod (class comment :9-10, the star glyph from the comment at :17-18). 'RARE DROP!' and the item are placeholders around it."
+  },
+  {
+    "id": "overlay.ability-ender-warp",
+    "kind": "overlay",
+    "payload": "§c1500/1500❤     §b-50 Mana (§6Ender Warp§b)     §b900/1000✎ Mana",
+    "source": {"file": "src/main/java/com/killer560/hub/abilitycooldown/AbilityCooldownState.java", "line": 72},
+    "matches": ["abilitycooldown.AbilityCooldownState#ABILITY_USE", "playerstats.PlayerStatsFeature#HEALTH_REGEX", "playerstats.PlayerStatsFeature#MANA_REGEX"],
+    "strip": false,
+    "verifiedBy": "regex",
+    "notes": "ABILITY_USE from SkyHanni's '§b-\\d+ Mana \\(§6<type>§b\\)' quoted at :69; ability ENDER_BOW, action-bar name 'Ender Warp', at ItemAbility.java:123 (only abilities built with an actionBarName are action-bar detected, :160-167; Wither Impact is sound-detected); stat parts from PlayerStatsFeature.java:47-48. One line feeding BOTH parsers is the point: PlayerStats used to blank the line for later readers (fixed in f40ec89, comment :120-129)."
+  },
+  {
+    "id": "item.quiver-feather",
+    "kind": "item",
+    "payload": {"stack": "minecraft:feather[custom_name='Quiver',lore=['Arrows Remaining: 1,234']]"},
+    "source": {"file": "src/main/java/com/killer560/hub/quiver/QuiverDisplayFeature.java", "line": 31},
+    "verifiedBy": "regex",
+    "notes": "QuiverDisplayFeature finds a FEATHER/ARROW (:81) and matches ARROWS_REMAINING (:31) against each lore line."
+  }
+]
