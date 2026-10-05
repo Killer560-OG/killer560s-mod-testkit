@@ -44,6 +44,7 @@
 			"dev.testkit.gametest.SimMapGroupTests",
 			"dev.testkit.gametest.SimSingleRoomTests",
 			"dev.testkit.gametest.SimRoomFloorTests",
+			"dev.testkit.gametest.SimLeaveLoopTests",
 			"dev.testkit.gametest.InventorySorterTests",
 			"dev.testkit.gametest.SimPuzzleSolveTests$TicTacToe",
 			"dev.testkit.gametest.SimPuzzleSolveTests$IcePath",
