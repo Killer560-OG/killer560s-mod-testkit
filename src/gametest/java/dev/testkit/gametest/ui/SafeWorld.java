@@ -29,6 +29,7 @@ final class SafeWorld {
             var uuid = mc.player.getUUID();
             server.execute(() -> {
                 server.overworld().getGameRules().set(GameRules.FALL_DAMAGE, false, server);
+                server.overworld().getGameRules().set(GameRules.DROWNING_DAMAGE, false, server);
                 var sp = server.getPlayerList().getPlayer(uuid);
                 if (sp != null) {
                     sp.setGameMode(GameType.CREATIVE);
