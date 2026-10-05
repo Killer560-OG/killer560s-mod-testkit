@@ -1,5 +1,6 @@
 package dev.testkit.gametest.menu;
 
+import dev.testkit.compat.McCompat;
 import dev.testkit.gametest.hx.Session;
 import dev.testkit.gametest.mod.Mod;
 
@@ -218,7 +219,7 @@ final class ItemCases {
             cfg.set("inventorytheme.InventoryThemeConfig", "Enabled", true).set("inventorytheme.InventoryThemeConfig", "HypixelOnly", true);
             MenuKit.show(c, MenuKit.obj("{\"title\":\"Hx Themed\",\"rows\":3,\"fill\":true}"));
             MenuKit.awaitScreen(c, "Hx Themed", 100);
-            boolean themed = c.onClient(mc -> (Boolean) Mod.staticCall("inventorytheme.InventoryThemeFeature", "shouldTheme", mc.screen));
+            boolean themed = c.onClient(mc -> (Boolean) Mod.staticCall("inventorytheme.InventoryThemeFeature", "shouldTheme", McCompat.screen(mc)));
             c.check(themed, "shouldTheme false on a server chest with the connection labelled mc.hypixel.net");
             c.note("inventory theme applies to a server chest (hypixelOnly on, labelled mc.hypixel.net)");
         } finally {

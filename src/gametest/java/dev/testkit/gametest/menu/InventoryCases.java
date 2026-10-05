@@ -1,5 +1,6 @@
 package dev.testkit.gametest.menu;
 
+import dev.testkit.compat.McCompat;
 import com.google.gson.JsonObject;
 
 import dev.testkit.gametest.hx.Session;
@@ -101,10 +102,10 @@ final class InventoryCases {
             c.ctx().waitTicks(5);
             // a real screen click goes through AbstractContainerScreen.slotClicked, where Item Protect sits
             int hotbar0 = 54 + 27;
-            c.ctx().runOnClient(mc -> screenClick(mc.screen, hotbar0, ContainerInput.QUICK_MOVE));
+            c.ctx().runOnClient(mc -> screenClick(McCompat.screen(mc), hotbar0, ContainerInput.QUICK_MOVE));
             c.ctx().waitTicks(20);
             int blocked = c.events("container.click").size();
-            c.ctx().runOnClient(mc -> screenClick(mc.screen, hotbar0 + 1, ContainerInput.QUICK_MOVE));
+            c.ctx().runOnClient(mc -> screenClick(McCompat.screen(mc), hotbar0 + 1, ContainerInput.QUICK_MOVE));
             c.waitUntil("the unprotected diamond's click to reach the server", mc -> !c.events("container.click").isEmpty(), 60);
             int slot = c.events("container.click").get(0).get("slot").getAsInt();
             c.check(blocked == 0, "the protected Hyperion's shift-click reached the server");
@@ -172,10 +173,10 @@ final class InventoryCases {
             c.ctx().runOnClient(mc -> Mod.call(cfgObj, "addBind", 9, 36));
             c.hx().give(9, "minecraft:diamond");
             c.waitUntil("a diamond in inventory slot 9", mc -> mc.player.getInventory().getItem(9).is(Items.DIAMOND), 60);
-            c.ctx().runOnClient(mc -> mc.setScreen(new InventoryScreen(mc.player)));
-            c.waitUntil("the inventory screen", mc -> mc.screen instanceof InventoryScreen, 40);
+            c.ctx().runOnClient(mc -> McCompat.setScreen(mc, new InventoryScreen(mc.player)));
+            c.waitUntil("the inventory screen", mc -> McCompat.screen(mc) instanceof InventoryScreen, 40);
             double[] at = c.onClient(mc -> {
-                AbstractContainerScreen<?> s = (AbstractContainerScreen<?>) mc.screen;
+                AbstractContainerScreen<?> s = (AbstractContainerScreen<?>) McCompat.screen(mc);
                 Slot slot = s.getMenu().slots.get(9);
                 int left = (Integer) Mod.field(s, "leftPos");
                 int top = (Integer) Mod.field(s, "topPos");
@@ -303,11 +304,11 @@ final class InventoryCases {
             MenuKit.awaitScreen(c, "Create BIN Auction", 100);
             c.ctx().waitTicks(5);
             String listed = c.onClient(mc -> {
-                ItemStack st = (ItemStack) Mod.staticCall("auction.ListingHelperFeature", "findListedItem", mc.screen);
+                ItemStack st = (ItemStack) Mod.staticCall("auction.ListingHelperFeature", "findListedItem", McCompat.screen(mc));
                 return st == null ? "null" : String.valueOf(Mod.staticCall("cheatutils.CheatUtils", "skyblockId", st));
             });
             Object match = c.onClient(mc -> Mod.staticCall("auction.ListingHelperFeature", "bestMatch",
-                    Mod.staticCall("auction.ListingHelperFeature", "findListedItem", mc.screen)));
+                    Mod.staticCall("auction.ListingHelperFeature", "findListedItem", McCompat.screen(mc))));
             c.check("HYPERION".equals(listed), "the helper picked the listed item " + listed + ", slot 13 holds HYPERION");
             c.check(match == null, "a BIN match offline? " + match);
             c.check(c.events("container.click").isEmpty(), "the helper clicked the auction menu");
@@ -324,9 +325,9 @@ final class InventoryCases {
             MenuKit.show(c, MenuKit.menu("menus.bazaar-product"));
             MenuKit.awaitScreen(c, "Hx Bazaar Product", 100);
             c.ctx().waitTicks(3);
-            String dump = c.onClient(mc -> (String) Mod.staticCall("bazaarflip.BazaarFlipMenus", "describe", mc.screen));
+            String dump = c.onClient(mc -> (String) Mod.staticCall("bazaarflip.BazaarFlipMenus", "describe", McCompat.screen(mc)));
             int buy = c.onClient(mc -> (Integer) Mod.staticCall("bazaarflip.BazaarFlipMenus", "findMenuSlot",
-                    ((AbstractContainerScreen<?>) mc.screen).getMenu(), new String[]{"instant buy", "buy instantly"}));
+                    ((AbstractContainerScreen<?>) McCompat.screen(mc)).getMenu(), new String[]{"instant buy", "buy instantly"}));
             c.check(buy == 10, "findMenuSlot(instant buy) = " + buy);
             c.check(dump.contains("10=Buy Instantly") && dump.contains("13=Enchanted Diamond x2"), "dump " + dump);
             c.note("bazaar menu dump: " + dump);

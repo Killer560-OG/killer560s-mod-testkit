@@ -1,5 +1,6 @@
 package dev.testkit.gametest.menu;
 
+import dev.testkit.compat.McCompat;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -59,11 +60,11 @@ final class MenuKit {
 
     /** The open container screen's title, or null. */
     static String screenTitle(Minecraft mc) {
-        return mc.screen instanceof AbstractContainerScreen<?> s ? s.getTitle().getString() : null;
+        return McCompat.screen(mc) instanceof AbstractContainerScreen<?> s ? s.getTitle().getString() : null;
     }
 
     static int containerId(Minecraft mc) {
-        return mc.screen instanceof AbstractContainerScreen<?> s ? s.getMenu().containerId : -1;
+        return McCompat.screen(mc) instanceof AbstractContainerScreen<?> s ? s.getMenu().containerId : -1;
     }
 
     /** Wait for a container screen whose plain title equals {@code title}; returns its container id. */
@@ -73,13 +74,13 @@ final class MenuKit {
     }
 
     static void awaitNoScreen(Session c, int ticks) {
-        c.waitUntil("no screen open", mc -> mc.screen == null, ticks);
+        c.waitUntil("no screen open", mc -> McCompat.screen(mc) == null, ticks);
     }
 
     /** A human click: what a real mouse click on that slot sends. */
     static void click(Session c, int slot, int button, ContainerInput input) {
         c.ctx().runOnClient(mc -> {
-            if (mc.screen instanceof AbstractContainerScreen<?> s) {
+            if (McCompat.screen(mc) instanceof AbstractContainerScreen<?> s) {
                 mc.gameMode.handleContainerInput(s.getMenu().containerId, slot, button, input, mc.player);
             }
         });
@@ -87,7 +88,7 @@ final class MenuKit {
 
     static void closeClient(Session c) {
         c.ctx().runOnClient(mc -> {
-            if (mc.player != null && mc.screen instanceof AbstractContainerScreen<?>) {
+            if (mc.player != null && McCompat.screen(mc) instanceof AbstractContainerScreen<?>) {
                 mc.player.closeContainer();
             }
         });
