@@ -52,6 +52,11 @@ the sim's own `Sim*Puzzle.isComplete()`, failed if `SimRoomState.isFailed` ever 
 container opened", because Auto Boulder auras the reward chest instead of pushing boxes. Status lines every 5 s
 carry the solver's own state (`probes`), and a failure prints the last 60 mod/chat log lines (`LogTap`).
 
+Room captures are copied from the "26.1.2 (Mod Only Test)" instance unless `TESTKIT_SIM_INSTANCE` names another
+(`$env:TESTKIT_SIM_INSTANCE = "Map Logger"` before the script). They are not the same captures: on 2026-10-04
+Boulder, Ice Fill, Ice Path, Quiz and Water Board differed, and Mod Only Test's Boulder does not arm as a puzzle
+at all ("best 1 of 7 expected blocks") while Map Logger's does. Say which instance a verdict was played on.
+
 Human input it drives, only after giving the auto 10 s to do it itself, and says so in the log: Quiz is placed
 between the pillars, Three Weirdos in front of the NPCs (both autos only click within reach and never move), and
 Teleport Maze is walked onto the start pad with the forward key.
