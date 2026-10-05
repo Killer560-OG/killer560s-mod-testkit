@@ -8,6 +8,7 @@
     {"input": "termism", "expect": "screen:termism.TermismMenuScreen", "source": "Killer560ModClient.java:652 (needs SkyblockGate off)"},
     {"input": "log", "expect": "screen:runsummary.RunLogScreen", "source": "runsummary/RunLogCommands.java:20"},
     {"input": "runlog", "expect": "screen:runsummary.RunLogScreen", "source": "runsummary/RunLogCommands.java:21"},
+    {"input": "profit", "expect": "screen:gui.profit.ProfitHubScreen", "source": "gui/profit/ProfitCommands.java (case 307 covers the rest)"},
     {"input": "croesus", "expect": "screen:croesus.CroesusTrackerScreen", "source": "croesus/CroesusCommands.java:33"},
     {"input": "croesus items", "expect": "screen:croesus.CroesusTrackerScreen", "source": "croesus/CroesusCommands.java:35"},
     {"input": "croesus drops", "expect": "screen:croesus.CroesusTrackerScreen", "source": "croesus/CroesusCommands.java:37"},

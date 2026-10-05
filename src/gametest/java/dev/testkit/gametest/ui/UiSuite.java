@@ -19,7 +19,8 @@ import java.util.List;
  * title screen:  340 main menu theme, 330 ModPaths.migrateAll, 310 config file round trip, 311 config setters,
  *                320 profiles save/export/import/apply, 380 Auto Scale (window sizes, drawn size, clicks)
  * singleplayer:  301 every ModScreen tab, 302 search, 303 toggles, 304 HUD editor, 305 every mod Screen,
- *                306 client commands, 350 termism, 360 client visuals
+ *                306 client commands, 350 termism, 360 client visuals, 307 /profit hub and trackers,
+ *                385 Interactive Map input/panel
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -32,7 +33,7 @@ public class UiSuite implements FabricClientGameTest {
             "311-ui-config-setters", "320-ui-profiles", "380-ui-autoscale"};
     static final String[] WORLD_CASES = {"301-ui-smoke-tabs", "302-ui-smoke-search", "303-ui-smoke-toggles",
             "304-ui-smoke-hud-editor", "305-ui-smoke-screens", "306-ui-smoke-commands", "350-ui-termism",
-            "360-ui-visuals", "365-ui-overlay-draws"};
+            "360-ui-visuals", "365-ui-overlay-draws", "307-ui-profit", "385-ui-interactive-map"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -82,6 +83,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "350-ui-termism", MiscCases::termism);
                     UiCase.run(ctx, "360-ui-visuals", MiscCases::visuals);
                     UiCase.run(ctx, "365-ui-overlay-draws", MiscCases::overlayDraws);
+                    UiCase.run(ctx, "307-ui-profit", ProfitCases::profit);
+                    UiCase.run(ctx, "385-ui-interactive-map", InteractiveMapCases::run);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

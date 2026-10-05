@@ -103,7 +103,9 @@ reaches into the mod by reflection. `src/client/java/dev/testkit/harness/PacketW
 packets per tick, fed by mixins on `ClientCommonPacketListenerImpl#send` and `Minecraft#tick`.
 
 Scenarios so far: 62-argrim (Auto Routes on GrimAC, see below), 48-52 Breaker Aura (with a by-hand control and an open-ground speed control), 60 Secret
-Triggerbot.
+Triggerbot, 99-sim-essence-aura (Secret Aura on a sim wither essence holding AOTV / Hyperion, first world and after a
+rebuild; server-side click record, collection and Auto Routes' await; only when named, captures from "Map Logger" unless
+`TESTKIT_SIM_INSTANCE` says otherwise).
 
 ## Auto puzzle suite (93-solve-*)
 
@@ -312,5 +314,11 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 - `gameMode.attack` on a 1-HP sim zombie next to the player did not kill it (96-ar-crypt, 2026-10-05: crypts stayed put);
   the sim plays Mage, whose left click is a beam along the look, which is the likely reason (not traced). A Hyperion
   `gameMode.useItem` (Wither Impact, radius 5) does kill it - use that to kill a sim mob as the player.
+
+- `menu.experiment` Superpairs takes `layout` (tiles from slot 9: `{item,name}` or `{powerup:true}`, no shuffle). The powerup models Instant Find: a click shows it, a second arms it, the next covered tile and its partner are claimed. The state lists every claimed pair (`claimed`), the server-side truth 229 asserts on.
+- The sim's `/goto` (SimTeleportCommands.goTo) scans the ServerLevel from the RENDER thread; in the gametest lockstep a
+  chunk load there deadlocks the client (99-sim-im, 2026-10-05, jstack). Place the player from `server.execute` instead
+  (99-sim-im `standOn`). A sim scenario that reads the legend's Extra Info must turn Score Calculator on first - it is
+  off in a fresh config, and the section only draws with a live estimate.
 
 Auto Routes on GrimAC (62-argrim): how to run it and its traps are in [docs/argrim.md](docs/argrim.md).
