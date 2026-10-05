@@ -23,7 +23,7 @@ sub-tab name, 303 every ON/OFF toggle pressed twice with a real click, 304 HUD e
 element's render, one drag into HudConfig), 305 every concrete mod Screen in the jar (allow-screens.json;
 completeness checked against the jar), 306 every client command root (parse + suggestions along every path, an
 executed allowlist with the effect each must have), 350 termism practice screen per TerminalType with every cell
-clicked, 360 18 visual features on for 60 rendered ticks, 380 Room Recorder capture-only -> limbo -> rejoin.
+clicked, 360 18 visual features on for 60 rendered ticks, 380 Room Recorder capture-only must not turn into LIMBO.
 
 End: 370 deny lists (hooks in force, accounts fixture, no child process during the whole run, ExternalOpen near
 misses listed).
@@ -46,9 +46,16 @@ the client and loses every case after it.
   None of those are lost settings.
 - Ap3Config.routeScanPad is saved as a double and loaded with getInt (ap3/Ap3Config.java:397, 462), so 28.8 comes
   back 28.0 - but nothing sets a fractional pad (only load() calls the setter), so it is not reachable today.
-- The plan's ">=170 tabs" was an estimate: mod 8c43a6d and f40ec89 build 168 in the cheat jar (10 top-level, 11
-  folders, 157 leaves). The floor is the measured value.
+- The plan's ">=170 tabs" was an estimate: f40ec89 builds 168 tabs in the cheat jar (10 top-level, 11 folders, 157\n  leaves) and 140 in the legit jar (10, 10, 130). My first legit floor (150) was a guess and was wrong; floors are\n  the measured values.
 - The default gametest world is superflat with the player at y < 0, which the Room Recorder reads as Hypixel limbo
   (roomsim/DungeonInstanceCooldown.java:76). Anything keyed on "below the world" fires in a fresh gametest world.
 - `/killer560 sim` in a singleplayer world arms the Room Recorder's capture-only mode by itself (dev builds), so
   it leaves recorder state behind for later cases; 380 stops it first.
+- The gametest player DIED: 380 lifted him from the superflat spawn to y 106, he fell, and the client sat on the death
+  screen (the user saw it, 2026-10-04). Every world case now starts through `SafeWorld.apply` (creative, invulnerable,
+  flying, gamerule FALL_DAMAGE off), and `UiCase` fails a case that ends dead and respawns before the next one.
+- A player teleported to y 107 with the server's `teleportTo` read y -60 again 20 s later even creative and flying
+  (three tries); unexplained, so 380 no longer depends on lifting him.
+- A Gradle run of this checkout and another WP's script can overlap in time but not in directory; when the report
+  is missing, check `build/gametest-failed.txt`'s age before concluding the run died - it is only rewritten at the
+  end of a run.

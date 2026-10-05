@@ -70,8 +70,18 @@ public final class UiCase {
         long started = System.nanoTime();
         try {
             Mod.Mark health = Mod.mark();
+            if (ctx.computeOnClient(mc -> mc.level != null)) {
+                SafeWorld.reviveIfDead(ctx);
+                SafeWorld.apply(ctx);
+            }
             body.run(c);
             ctx.waitTicks(2);
+            boolean died = ctx.computeOnClient(mc -> mc.screen instanceof net.minecraft.client.gui.screens.DeathScreen
+                    || (mc.player != null && mc.player.isDeadOrDying()));
+            if (died) {
+                throw new AssertionError("[" + name + "] the player DIED during the case (death screen up) - the "
+                        + "case's world setup is wrong; respawned for the next case");
+            }
             if (!c.problems.isEmpty()) {
                 throw new AssertionError("[" + name + "] " + c.problems.size() + " problem(s):\n    "
                         + String.join("\n    ", c.problems));
@@ -97,8 +107,11 @@ public final class UiCase {
                     + t.getMessage(), List.of(), LogTap.since(logMark));
             return false;
         } finally {
-            // Never leave a mod screen up for the next case.
+            // Never leave a mod screen, or a dead player, for the next case.
             try {
+                if (ctx.computeOnClient(mc -> mc.level != null)) {
+                    SafeWorld.reviveIfDead(ctx);
+                }
                 ctx.runOnClient(mc -> mc.setScreen(null));
             } catch (Throwable ignored) {
                 // the next case sets its own screen anyway

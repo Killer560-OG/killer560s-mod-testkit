@@ -65,6 +65,7 @@ public class UiSuite implements FabricClientGameTest {
                 long worldStart = System.nanoTime();
                 try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
                     ctx.waitTicks(40);
+                    SafeWorld.apply(ctx);
                     double worldSeconds = (System.nanoTime() - worldStart) / 1e9;
                     long smokeStart = System.nanoTime();
                     UiCase.run(ctx, "301-ui-smoke-tabs", c -> TabSweep.tabs(c, deny));
