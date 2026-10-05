@@ -55,7 +55,14 @@
 			"dev.testkit.gametest.SimPuzzleSolveTests$WaterBoard",
 			"dev.testkit.gametest.SimPuzzleSolveTests$TeleportMaze",
 			"dev.testkit.gametest.SimPuzzleSolveTests$Quiz",
-			"dev.testkit.gametest.SimPuzzleSolveTests$Summary"
+			"dev.testkit.gametest.SimPuzzleSolveTests$Summary",
+			"dev.testkit.gametest.SessionDemoTest",
+			"dev.testkit.gametest.hx.HxSuite",
+			"dev.testkit.gametest.menu.MenuSuite",
+			"dev.testkit.gametest.ui.UiSuite",
+			"dev.testkit.gametest.logic.LogicSuite",
+			"dev.testkit.gametest.dsim.DungeonServerSuite",
+			"dev.testkit.gametest.boss.BossSuite"
 		]
 	},
 	"depends": {
