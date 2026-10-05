@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-05T15:11:26",
+ "generatedAt": "2026-10-05T15:50:48",
  "modSource": "C:/Users/Hunter/killer560s-mod/.claude/worktrees/prerelease-sweep",
- "modGitSha": "7105a74cd4725fb148be4752e336095f30c6f285",
+ "modGitSha": "c6379bb59c952da292ce2dc054ff0b1d5671b1ab",
  "modSourceDirty": false,
  "count": 399,
  "byKind": {
@@ -223,7 +223,7 @@
    "field": "CHARGES",
    "index": null,
    "file": "src/main/java/com/killer560/hub/autoroutes/RouteExecutor.java",
-   "line": 105,
+   "line": 107,
    "regex": "Charges: (\\d+)/(\\d+)",
    "flags": null,
    "kind": "field",
