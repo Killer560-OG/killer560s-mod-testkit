@@ -35,6 +35,165 @@ final class ExperimentCases {
         MenuSuite.test(s, "226-menu-exp-auto-etable-loop", ExperimentCases::etableLoop);
         MenuSuite.test(s, "227-menu-exp-profit-tracker", ExperimentCases::profit);
         MenuSuite.test(s, "228-menu-exp-guardian-swap", ExperimentCases::guardianSwap);
+        MenuSuite.test(s, "229-menu-exp-superpairs-skips", ExperimentCases::superpairsSkips);
+    }
+
+    // ---- 229: Superpairs "Skip Grand XP Bottles" / "Skip Guardian Pets" -------------------------------------------
+
+    private static final String GRAND = "Grand Experience Bottle";
+    private static final String TITANIC = "Titanic Experience Bottle";
+    private static final String GUARDIAN = "Guardian";
+    private static final String GUARDIAN_LVL = "[Lvl 1] Guardian";
+    private static final String BOOK = "Power VI";
+    private static final String XP = "25k Enchanting Exp";
+
+    private static JsonObject tile(String item, String name) {
+        JsonObject t = new JsonObject();
+        t.addProperty("item", item);
+        t.addProperty("name", name);
+        return t;
+    }
+
+    /**
+     * The board, from slot 9 in the order the solver explores it (snake order, rows of nine; slots 22-26 stay filler).
+     * Tiles 9-12 are four different kinds, so when the powerup at 13 is armed the solver knows exactly those four and
+     * its matched click goes to the first one in snake order it is allowed to claim: Grand (9), unless Grand is
+     * skipped, then Guardian (10), unless both are skipped, then Titanic (11). Every kind has its partner further on
+     * and no two consecutive reveals are partners, so nothing is claimed by chance.
+     * Names carry colour codes like Hypixel's; the mod reads them stripped.
+     */
+    private static com.google.gson.JsonArray skipsLayout() {
+        com.google.gson.JsonArray a = new com.google.gson.JsonArray();
+        String bottle = "minecraft:experience_bottle";
+        String head = "minecraft:player_head";
+        a.add(tile(bottle, "§9" + GRAND));                      // 9
+        a.add(tile(head, "§6" + GUARDIAN));                     // 10
+        a.add(tile(bottle, "§5" + TITANIC));                    // 11
+        a.add(tile("minecraft:enchanted_book", "§a" + BOOK));   // 12
+        JsonObject up = new JsonObject();
+        up.addProperty("powerup", true);
+        a.add(up);                                                   // 13 Instant Find
+        a.add(tile("minecraft:lime_dye", "§a" + XP));           // 14
+        a.add(tile(bottle, "§9" + GRAND));                      // 15
+        a.add(tile(head, "§6" + GUARDIAN));                     // 16
+        a.add(tile(bottle, "§5" + TITANIC));                    // 17
+        a.add(tile(head, "§7[Lvl 1] §6Guardian"));         // 18
+        a.add(tile("minecraft:lime_dye", "§a" + XP));           // 19
+        a.add(tile("minecraft:enchanted_book", "§a" + BOOK));   // 20
+        a.add(tile(head, "§7[Lvl 1] §6Guardian"));         // 21
+        return a;
+    }
+
+    private static String plain(String name) {
+        return name.replaceAll("§.", "");
+    }
+
+    /** Auto E-Table on one Superpairs board with the two skip switches in every combination; asserts what the server counted. */
+    static void superpairsSkips(Session c) throws Exception {
+        MenuKit.reset(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto E-Table clicks nothing, so there is nothing to skip (223-225 cover the no-click check)");
+            return;
+        }
+        List<String> problems = new ArrayList<>();
+        List<String> notes = new ArrayList<>();
+        // grand, guardian, name the powerup's matched click must land on
+        Object[][] runs = {
+                {false, false, GRAND}, {true, false, GUARDIAN}, {false, true, GRAND}, {true, true, TITANIC}};
+        for (Object[] run : runs) {
+            boolean skipGrand = (Boolean) run[0];
+            boolean skipGuardian = (Boolean) run[1];
+            String expectPowerup = (String) run[2];
+            String label = "grand=" + (skipGrand ? "skip" : "pair") + " guardian=" + (skipGuardian ? "skip" : "pair");
+            java.util.Set<String> expected = new java.util.TreeSet<>(List.of(GRAND, TITANIC, GUARDIAN, GUARDIAN_LVL, BOOK, XP));
+            if (skipGrand) {
+                expected.remove(GRAND);
+            }
+            if (skipGuardian) {
+                expected.remove(GUARDIAN);
+                expected.remove(GUARDIAN_LVL);
+            }
+            MenuKit.reset(c);
+            try (MenuKit.Cfg cfg = new MenuKit.Cfg(c); AutoCloseable armed = autoConfig(c, cfg)) {
+                cfg.set(CONFIG, "SkipGrandExpBottles", skipGrand).set(CONFIG, "SkipGuardianPets", skipGuardian);
+                boolean gotGrand = c.onClient(mc -> (Boolean) Mod.get(CONFIG, "isSkipGrandExpBottles"));
+                boolean gotGuardian = c.onClient(mc -> (Boolean) Mod.get(CONFIG, "isSkipGuardianPets"));
+                c.check(gotGrand == skipGrand && gotGuardian == skipGuardian, label + ": the switches read back "
+                        + gotGrand + "/" + gotGuardian);
+                int clicksBefore = c.events("container.click").size();
+                JsonObject args = new JsonObject();
+                args.addProperty("game", "SUPERPAIRS");
+                args.addProperty("clicks", 80);
+                args.add("layout", skipsLayout());
+                JsonObject st = c.hx().call("menu.experiment", args).getAsJsonObject();
+                MenuKit.awaitScreen(c, st.get("title").getAsString(), 100);
+                // Wait for every pair that should be claimed, then give the solver time to do anything else it
+                // would do (a skipped tile claimed by a leftover path shows up in this window).
+                int waited = 0;
+                while (waited < 1800 && state(c).getAsJsonArray("claimed").size() < expected.size()) {
+                    c.ctx().waitTicks(10);
+                    waited += 10;
+                }
+                int toSettle = waited;
+                c.ctx().waitTicks(240);
+                JsonObject end = state(c);
+                List<String> claimedNames = new ArrayList<>();
+                java.util.Set<Integer> claimedSlots = new java.util.HashSet<>();
+                String powerupName = null;
+                int powerupClaims = 0;
+                for (var el : end.getAsJsonArray("claimed")) {
+                    JsonObject cl = el.getAsJsonObject();
+                    claimedNames.add(plain(cl.get("name").getAsString()) + (cl.get("viaPowerup").getAsBoolean() ? "*" : "")
+                            + "@" + cl.get("a") + "+" + cl.get("b"));
+                    claimedSlots.add(cl.get("a").getAsInt());
+                    claimedSlots.add(cl.get("b").getAsInt());
+                    if (cl.get("viaPowerup").getAsBoolean()) {
+                        powerupName = plain(cl.get("name").getAsString());
+                        powerupClaims++;
+                    }
+                }
+                java.util.Set<String> got = new java.util.TreeSet<>();
+                end.getAsJsonArray("claimed").forEach(el -> got.add(plain(el.getAsJsonObject().get("name").getAsString())));
+                // The server's own record is the verdict: what was claimed, not what the mod meant to do.
+                JsonObject board = end.getAsJsonObject("board");
+                List<JsonObject> clicks = c.events("container.click").subList(clicksBefore, c.events("container.click").size());
+                java.util.Set<Integer> touched = new java.util.HashSet<>(claimedSlots);
+                clicks.forEach(e -> touched.add(e.get("slot").getAsInt()));
+                List<Integer> untouched = new ArrayList<>();
+                for (String slot : board.keySet()) {
+                    if (!touched.contains(Integer.parseInt(slot))) {
+                        untouched.add(Integer.parseInt(slot));
+                    }
+                }
+                long skippedClicks = clicks.stream().filter(e -> {
+                    String n = plain(board.has(e.get("slot").getAsString()) ? board.get(e.get("slot").getAsString()).getAsString() : "");
+                    return (skipGrand && n.equals(GRAND)) || (skipGuardian && n.contains("Guardian"));
+                }).count();
+                notes.add(label + ": claimed " + claimedNames + " in " + toSettle + "+240 ticks, " + clicks.size()
+                        + " clicks (" + skippedClicks + " on skipped tiles), powerup state " + end.get("powerupState")
+                        + ", game " + (end.get("phase").getAsString().equals("OVER") ? "over" : "still open"));
+                if (!got.equals(expected)) {
+                    problems.add(label + ": claimed kinds " + got + " but expected " + expected + " (claims " + claimedNames + ")");
+                }
+                if (claimedNames.size() != expected.size()) {
+                    problems.add(label + ": " + claimedNames.size() + " pairs claimed, expected " + expected.size() + " " + claimedNames);
+                }
+                if (powerupClaims != 1) {
+                    problems.add(label + ": the powerup claimed " + powerupClaims + " pair(s), expected exactly 1 (it never acted, "
+                            + "or acted twice) " + claimedNames);
+                } else if (!expectPowerup.equals(powerupName)) {
+                    problems.add(label + ": the powerup's matched click landed on " + powerupName + ", expected " + expectPowerup);
+                }
+                if (!untouched.isEmpty()) {
+                    problems.add(label + ": the solver never touched slots " + untouched + " (" + board
+                            + "), so a skip could not have been exercised there");
+                }
+            } finally {
+                MenuKit.reset(c);
+            }
+        }
+        notes.forEach(c::note);
+        c.check(problems.isEmpty(), String.join(" | ", problems));
     }
 
     static Object solverObj() {

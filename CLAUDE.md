@@ -315,4 +315,6 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   the sim plays Mage, whose left click is a beam along the look, which is the likely reason (not traced). A Hyperion
   `gameMode.useItem` (Wither Impact, radius 5) does kill it - use that to kill a sim mob as the player.
 
+- `menu.experiment` Superpairs takes `layout` (tiles from slot 9: `{item,name}` or `{powerup:true}`, no shuffle). The powerup models Instant Find: a click shows it, a second arms it, the next covered tile and its partner are claimed. The state lists every claimed pair (`claimed`), the server-side truth 229 asserts on.
+
 Auto Routes on GrimAC (62-argrim): how to run it and its traps are in [docs/argrim.md](docs/argrim.md).
