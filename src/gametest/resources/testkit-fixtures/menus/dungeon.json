@@ -1,0 +1,169 @@
+[
+  {
+    "id": "menus.croesus-run-view-f7",
+    "kind": "menu",
+    "payload": {
+      "title": "Catacombs - Floor VII",
+      "rows": 6,
+      "fill": true,
+      "slots": {
+        "10": {
+          "item": "minecraft:chest",
+          "name": "\u00a74Bedrock Chest",
+          "lore": [
+            "\u00a77Contents",
+            "\u00a76Necron's Handle",
+            "",
+            "\u00a77Cost",
+            "\u00a765,000,000 Coins"
+          ]
+        },
+        "11": {
+          "item": "minecraft:chest",
+          "name": "\u00a7fWood Chest",
+          "lore": [
+            "\u00a77Contents",
+            "\u00a7dUndead Essence x10",
+            "",
+            "\u00a77Cost",
+            "\u00a7aFREE"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/croesus/DungeonChestValuer.java",
+      "line": 94
+    },
+    "verifiedBy": "regex",
+    "notes": "RUN_VIEW_TITLE (:94); chest heads named by CHEST_NAME (:95) in slots 0-27 with a 'Contents' lore block; fromLore (:183-224) reads Contents ... '' / Cost, '<n> Coins' (COST :96), FREE, ESSENCE (:97)."
+  },
+  {
+    "id": "menus.dungeon-secret-chest",
+    "kind": "menu",
+    "payload": {
+      "title": "Chest",
+      "rows": 3
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/autoclosechest/AutoCloseChestFeature.java",
+      "line": 30
+    },
+    "verifiedBy": "regex",
+    "notes": "SECRET_CHEST_TITLES (:30): a plain 'Chest' of a GENERIC_9xN type, closed unopened inside a dungeon."
+  },
+  {
+    "id": "menus.spirit-leap",
+    "kind": "menu",
+    "payload": {
+      "title": "Spirit Leap",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "11": {
+          "item": "minecraft:player_head",
+          "name": "\u00a7b[MVP\u00a7c+\u00a7b] Alice"
+        },
+        "13": {
+          "item": "minecraft:player_head",
+          "name": "\u00a7aBob"
+        },
+        "15": {
+          "item": "minecraft:player_head",
+          "name": "\u00a76Carol"
+        }
+      },
+      "on": {
+        "11": {
+          "close": true
+        },
+        "13": {
+          "close": true
+        },
+        "15": {
+          "close": true
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/spiritleap/SpiritLeapOverlayFeature.java",
+      "line": 94
+    },
+    "verifiedBy": "regex",
+    "notes": "Exact title (:94, QUOI's equalsOneOf); teammates are player heads whose stripped name ends in the IGN (IGN :40). Names carry rank colours mid-name like Hypixel's. A click on a head closes the menu (the leap)."
+  },
+  {
+    "id": "menus.catacombs-gate-classes",
+    "kind": "menu",
+    "payload": {
+      "title": "Catacombs Gate",
+      "rows": 6,
+      "fill": true,
+      "slots": {
+        "20": {
+          "item": "minecraft:splash_potion",
+          "name": "\u00a7aHealer"
+        },
+        "21": {
+          "item": "minecraft:blaze_powder",
+          "name": "\u00a7aMage"
+        },
+        "22": {
+          "item": "minecraft:iron_sword",
+          "name": "\u00a7aBerserk"
+        },
+        "23": {
+          "item": "minecraft:bow",
+          "name": "\u00a7aArcher"
+        },
+        "24": {
+          "item": "minecraft:leather_chestplate",
+          "name": "\u00a7aTank"
+        },
+        "45": {
+          "item": "minecraft:paper",
+          "name": "\u00a7aClass",
+          "lore": [
+            "\u00a77Currently Selected: \u00a7bMage"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/partyfinder/PartyFinderParser.java",
+      "line": 21
+    },
+    "verifiedBy": "regex",
+    "notes": "CATACOMBS_GATE_TITLE (:21); class items named exactly a class (dungeonclass/ClassSelectionOverlay.java:38, alias 'berserk' :137); slot 45 lore CURRENTLY_SELECTED (PartyFinderParser.java:39, GATE_CLASS_SLOT :23). Item TYPES and any display name the mod does not match are testkit placeholders (the mod does not read them)."
+  },
+  {
+    "id": "menus.party-finder",
+    "kind": "menu",
+    "payload": {
+      "title": "Party Finder",
+      "rows": 6,
+      "fill": true,
+      "slots": {
+        "10": {
+          "item": "minecraft:player_head",
+          "name": "\u00a7bBob's Party",
+          "lore": [
+            "\u00a77Dungeon: \u00a7bThe Catacombs",
+            "\u00a77Floor: \u00a7bFloor VII",
+            "",
+            "\u00a7f \u00a7aBob\u00a7f: \u00a7eMage \u00a7b(\u00a7e50\u00a7b)",
+            "\u00a7f \u00a7aEve\u00a7f: \u00a7eTank \u00a7b(\u00a7e45\u00a7b)",
+            "",
+            "\u00a7eClick to join!"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/partyfinder/PartyFinderParser.java",
+      "line": 20
+    },
+    "verifiedBy": "regex",
+    "notes": "PARTY_FINDER_TITLE (:20); lore TYPE (:25), FLOOR (:26), member lines USER_ROLE (:35, leading space), read from player heads in slots 0-45."
+  }
+]

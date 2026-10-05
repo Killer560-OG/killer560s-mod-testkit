@@ -1,19 +1,80 @@
 package dev.testkit.gametest.menu;
 
+import dev.testkit.gametest.ModUnderTest;
+import dev.testkit.gametest.TestMap;
+import dev.testkit.gametest.hx.Session;
+
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
 /**
- * WP3 entrypoint: menus and items (port 25580). Scenario names start `2NN-menu-`; `-Psuite=menu` selects them.
+ * WP3: menus and items (port 25580, Hx 25585). One shared server ({@code 200-menu-session}); every case is a
+ * {@code 2NN-menu-*} row. Server-side menus are WP3's Hx module ({@code dev.testkit.server.hx.menu}): terminals with
+ * Hypixel's click mechanics, experiments, and data-driven menus whose specs live in the {@code menus/} fixtures.
  *
- * <p>A STUB registered by WP1 in {@code src/gametest/resources/fabric.mod.json}, so WP3 never edits that frozen
- * file: fill in {@link #runTest} (with {@code hx.Session.run} for server cases, or directly for client-only ones).
- * WP3 owns {@code src/gametest/java/dev/testkit/gametest/menu/**}. Until then it runs nothing and starts nothing.
+ * <ul>
+ *   <li>201-217 terminals: solver vs the server board, solved end-to-end; Auto Terminals per type (clicks/tick,
+ *       Grim), and nothing clicked on the legit jar ({@link TerminalCases})</li>
+ *   <li>220-229 experiments: solver state, Auto E-Table end-to-end, profit tracker ({@link ExperimentCases})</li>
+ *   <li>230-239 dungeon menus: Croesus, reward chests, auto close chest, Spirit Leap, fast leap, class select,
+ *       party finder ({@link DungeonMenuCases})</li>
+ *   <li>240-259 inventory menus: Sell, Item Protect, sorter, slot binds, storage, pets, loadout, auction helper,
+ *       bazaar dump, Chocolate Factory ({@link InventoryCases})</li>
+ *   <li>260-279 items: rarity, enchant colours, master stars, dye, held item, tooltip scroll, theme, HUD, search,
+ *       readers ({@link ItemCases})</li>
+ * </ul>
  */
 public class MenuSuite implements FabricClientGameTest {
 
+    static final String SESSION = "200-menu-session";
+
+    /**
+     * Session.run can only select a whole session or cases whose names contain the session name, so a subset of
+     * these cases is chosen with the environment variable {@code TESTKIT_MENU_ONLY=part,part} (each case whose name
+     * contains a part runs). Unset: every case.
+     */
+    static void test(Session s, String name, Session.Case body) {
+        if (selected(name)) {
+            s.test(name, body);
+        }
+    }
+
+    static void testExpectingFlags(Session s, String name, Session.Case body) {
+        if (selected(name)) {
+            s.testExpectingFlags(name, body);
+        }
+    }
+
+    static boolean selected(String name) {
+        String only = System.getenv("TESTKIT_MENU_ONLY");
+        if (only == null || only.isBlank()) {
+            return true;
+        }
+        for (String part : only.split(",")) {
+            if (!part.isBlank() && name.contains(part.trim())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public void runTest(ClientGameTestContext ctx) {
-        // Stub: no cases yet. Deliberately does not call Scenario.skip/Session.run, so it never counts as started.
+        Session.run(ctx, SESSION,
+                (server, s) -> TestMap.on(server)
+                        .platform(-520, 150, -520, 6)
+                        .catchFloor(140)
+                        .survival()
+                        .clearInventory()
+                        .spawn(-519.5, -519.5, 0f)
+                        .build(),
+                s -> {
+                    ModUnderTest.require("killer560smod");
+                    TerminalCases.register(s);
+                    ExperimentCases.register(s);
+                    DungeonMenuCases.register(s);
+                    InventoryCases.register(s);
+                    ItemCases.register(s);
+                });
     }
 }
