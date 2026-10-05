@@ -36,6 +36,7 @@
 			"dev.testkit.gametest.SimMapTests",
 			"dev.testkit.gametest.SimMapWarpTests",
 			"dev.testkit.gametest.SimAutoRoutesTests",
+			"dev.testkit.gametest.GrimAutoRoutesTests",
 			"dev.testkit.gametest.SimPlayableTests",
 			"dev.testkit.gametest.SimPlayTests",
 			"dev.testkit.gametest.SimSecretRotationTests",
