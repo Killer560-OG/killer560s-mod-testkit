@@ -1,0 +1,216 @@
+[
+  {
+    "id": "menus.experimentation-table",
+    "kind": "menu",
+    "payload": {
+      "title": "Experimentation Table",
+      "rows": 6,
+      "fill": true,
+      "slots": {
+        "20": {
+          "item": "minecraft:clock",
+          "name": "\u00a7aChronomatron"
+        },
+        "22": {
+          "item": "minecraft:repeater",
+          "name": "\u00a7aUltrasequencer"
+        },
+        "24": {
+          "item": "minecraft:ender_eye",
+          "name": "\u00a7aSuperpairs"
+        }
+      },
+      "on": {
+        "20": {
+          "open": {
+            "title": "Chronomatron \u279c Stakes",
+            "rows": 6,
+            "fill": true,
+            "slots": {
+              "20": {
+                "item": "minecraft:light_blue_terracotta",
+                "name": "\u00a7aBeginner"
+              },
+              "22": {
+                "item": "minecraft:lime_terracotta",
+                "name": "\u00a7aHigh"
+              },
+              "24": {
+                "item": "minecraft:red_terracotta",
+                "name": "\u00a7cGrand",
+                "lore": [
+                  "\u00a7cEnchanting level too low!"
+                ]
+              }
+            },
+            "on": {
+              "20": {
+                "close": true
+              },
+              "24": {
+                "close": true
+              },
+              "22": {
+                "experiment": {
+                  "game": "CHRONOMATRON",
+                  "tier": "High",
+                  "seed": 41,
+                  "rounds": 2,
+                  "watch": 8,
+                  "hold": 6,
+                  "rewards": {
+                    "title": "Experiment Over",
+                    "rows": 6,
+                    "fill": true,
+                    "slots": {
+                      "22": {
+                        "item": "minecraft:chest",
+                        "name": "\u00a7aRewards",
+                        "lore": [
+                          "\u00a77Stakes: High",
+                          "",
+                          "\u00a77Rewards:",
+                          "\u00a78 +\u00a7330k Enchanting Exp (Stakes)",
+                          "",
+                          "\u00a7eClick to claim rewards!"
+                        ]
+                      }
+                    },
+                    "on": {
+                      "22": {
+                        "close": true,
+                        "chat": "You claimed the Chronomatron rewards!"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "22": {
+          "close": true
+        },
+        "24": {
+          "close": true
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/experiments/ExperimentNavigator.java",
+      "line": 55
+    },
+    "verifiedBy": "regex",
+    "notes": "Main menu (MAIN_MENU_TITLE). The navigator clicks the item whose NAME contains a game (ExperimentNavigator.java:476-487). Clicking Chronomatron opens its stakes screen; the others close. Item TYPES and any display name the mod does not match are testkit placeholders (the mod does not read them)."
+  },
+  {
+    "id": "menus.chronomatron-stakes",
+    "kind": "menu",
+    "payload": {
+      "title": "Chronomatron \u279c Stakes",
+      "rows": 6,
+      "fill": true,
+      "slots": {
+        "20": {
+          "item": "minecraft:light_blue_terracotta",
+          "name": "\u00a7aBeginner"
+        },
+        "22": {
+          "item": "minecraft:lime_terracotta",
+          "name": "\u00a7aHigh"
+        },
+        "24": {
+          "item": "minecraft:red_terracotta",
+          "name": "\u00a7cGrand",
+          "lore": [
+            "\u00a7cEnchanting level too low!"
+          ]
+        }
+      },
+      "on": {
+        "20": {
+          "close": true
+        },
+        "24": {
+          "close": true
+        },
+        "22": {
+          "experiment": {
+            "game": "CHRONOMATRON",
+            "tier": "High",
+            "seed": 41,
+            "rounds": 2,
+            "watch": 8,
+            "hold": 6,
+            "rewards": {
+              "title": "Experiment Over",
+              "rows": 6,
+              "fill": true,
+              "slots": {
+                "22": {
+                  "item": "minecraft:chest",
+                  "name": "\u00a7aRewards",
+                  "lore": [
+                    "\u00a77Stakes: High",
+                    "",
+                    "\u00a77Rewards:",
+                    "\u00a78 +\u00a7330k Enchanting Exp (Stakes)",
+                    "",
+                    "\u00a7eClick to claim rewards!"
+                  ]
+                }
+              },
+              "on": {
+                "22": {
+                  "close": true,
+                  "chat": "You claimed the Chronomatron rewards!"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/experiments/ExperimentNavigator.java",
+      "line": 57
+    },
+    "verifiedBy": "regex",
+    "notes": "'<Game> \u279c Stakes' (ExperimentNavigator.java:31). Tier names TIER_NAMES (:57-58); the locked marker 'Enchanting level too low!' is LOCKED_LORE_MARKERS (:59-60), so the navigator must pick High, not Grand. High starts a 2-round Chronomatron whose end opens the reward screen. Item TYPES and any display name the mod does not match are testkit placeholders (the mod does not read them)."
+  },
+  {
+    "id": "menus.experiment-over-chronomatron",
+    "kind": "menu",
+    "payload": {
+      "title": "Experiment Over",
+      "rows": 6,
+      "fill": true,
+      "slots": {
+        "22": {
+          "item": "minecraft:chest",
+          "name": "\u00a7aRewards",
+          "lore": [
+            "\u00a77Stakes: High",
+            "",
+            "\u00a77Rewards:",
+            "\u00a78 +\u00a7330k Enchanting Exp (Stakes)",
+            "",
+            "\u00a7eClick to claim rewards!"
+          ]
+        }
+      },
+      "on": {
+        "22": {
+          "close": true,
+          "chat": "You claimed the Chronomatron rewards!"
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/experiments/ExperimentsProfitTracker.java",
+      "line": 54
+    },
+    "verifiedBy": "regex",
+    "notes": "Reward screen title REWARD_SCREEN_TITLE (:81). The claim item's lore is the documented shape (:54-55: Stakes:, Rewards:, ' +<reward> (Stakes)', 'Click to claim rewards!'); ENCHANTING_EXP (:90) reads '30k'. Claiming answers CLAIM_MESSAGE (:82) and closes. Item TYPES and any display name the mod does not match are testkit placeholders (the mod does not read them)."
+  }
+]

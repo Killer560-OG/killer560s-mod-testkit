@@ -1,0 +1,167 @@
+[
+  {
+    "id": "menus.sell",
+    "kind": "menu",
+    "payload": {
+      "title": "Sell",
+      "rows": 6,
+      "fill": true,
+      "sell": true,
+      "slots": {
+        "49": {
+          "item": "minecraft:hopper",
+          "name": "\u00a7aSell Item",
+          "lore": [
+            "\u00a77Click items in your inventory to sell",
+            "\u00a77them to this Shop!"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/itemprotect/ItemProtect.java",
+      "line": 241
+    },
+    "verifiedBy": "regex",
+    "notes": "An NPC Sell menu as the mod recognises it: ItemProtect's SELL detection reads slot 49's first lore line (:241); Auto Sell's default title pattern is '(?i).*sell.*' (autosell/AutoSellConfig.java:38), so the title is 'Sell'. Real shops are titled by NPC; any title containing 'sell' is the same to the mod. Shift-clicking an inventory stack sells it (server event sell.sold). The second lore line is a placeholder."
+  },
+  {
+    "id": "menus.create-bin-auction",
+    "kind": "menu",
+    "payload": {
+      "title": "Create BIN Auction",
+      "rows": 6,
+      "fill": true,
+      "slots": {
+        "13": "minecraft:diamond_sword[custom_data={id:\"HYPERION\",uuid:\"hx-hyp-1\"},custom_name={text:\"Hyperion\",color:\"light_purple\",italic:false}]"
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/ListingHelperFeature.java",
+      "line": 56
+    },
+    "verifiedBy": "regex",
+    "notes": "SCREEN_TITLE (:56); also ItemProtect.lossScreenOf's 'auction' + 'create'/'bin' rule (itemprotect/ItemProtect.java:225). Slot 13 is the listed item (first top slot with custom_data.id, :126-145)."
+  },
+  {
+    "id": "menus.ender-chest-1",
+    "kind": "menu",
+    "payload": {
+      "title": "Ender Chest (1/9)",
+      "rows": 6,
+      "slots": {
+        "0": "minecraft:barrier",
+        "9": {
+          "item": "minecraft:diamond",
+          "count": 5
+        },
+        "10": "minecraft:emerald"
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/storageoverlay/StorageOverlayFeature.java",
+      "line": 52
+    },
+    "verifiedBy": "regex",
+    "notes": "ENDER_CHEST_TITLE (:52); a page is saved once some slot 0-8 holds an item (:284-319), contents are slots 9 .. size-36."
+  },
+  {
+    "id": "menus.pets",
+    "kind": "menu",
+    "payload": {
+      "title": "Pets",
+      "rows": 6,
+      "fill": true,
+      "slots": {
+        "10": "minecraft:player_head[custom_data={id:\"PET\",uuid:\"hx-pet-1\",petInfo:'{\"type\":\"GOLDEN_DRAGON\",\"tier\":\"LEGENDARY\"}'},custom_name=[{text:\"[Lvl 100] \",color:\"gray\",italic:false},{text:\"Golden Dragon\",color:\"gold\",italic:false}]]"
+      },
+      "on": {
+        "10": {
+          "close": true
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/petwheel/PetsMenuScanner.java",
+      "line": 39
+    },
+    "verifiedBy": "regex",
+    "notes": "PETS_TITLE (:39); pets are player heads with custom_data.uuid, name LEVEL_PREFIX '[Lvl N] Name' (:41), petInfo tier (:100-105). A click on the pet closes (summoned)."
+  },
+  {
+    "id": "menus.loadout",
+    "kind": "menu",
+    "payload": {
+      "title": "(1/2) Loadout",
+      "rows": 6,
+      "fill": true
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/loadoutkeybinds/LoadoutKeybindsFeature.java",
+      "line": 24
+    },
+    "verifiedBy": "regex",
+    "notes": "LOADOUT_TITLE (:24); loadout slots 14,15,16,23,... (:25-30), next page 44 / previous 17 (:58, :63)."
+  },
+  {
+    "id": "menus.chocolate-factory",
+    "kind": "menu",
+    "payload": {
+      "title": "Chocolate Factory",
+      "rows": 6,
+      "fill": true,
+      "slots": {
+        "13": {
+          "item": "minecraft:cookie",
+          "name": "\u00a7e1,000 Chocolate",
+          "lore": [
+            "\u00a7610 per second"
+          ]
+        },
+        "45": {
+          "item": "minecraft:paper",
+          "name": "\u00a76Multiplier",
+          "lore": [
+            "\u00a77Total Multiplier: \u00a761.5x"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/cheatutils/ChocolateFactoryFeature.java",
+      "line": 37
+    },
+    "verifiedBy": "regex",
+    "notes": "TITLE (:37), needs more than 45 slots (:87); slot 13 cookie lore CPS (:39), slot 45 TOTAL_MULT (:40). The cookie click is PICKUP slot 13 button 1 (:112). Item TYPES and any display name the mod does not match are testkit placeholders (the mod does not read them)."
+  },
+  {
+    "id": "menus.bazaar-product",
+    "kind": "menu",
+    "payload": {
+      "title": "Hx Bazaar Product",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "10": {
+          "item": "minecraft:golden_horse_armor",
+          "name": "\u00a7aBuy Instantly"
+        },
+        "11": {
+          "item": "minecraft:hopper",
+          "name": "\u00a76Sell Instantly"
+        },
+        "13": {
+          "item": "minecraft:diamond",
+          "name": "\u00a7aEnchanted Diamond",
+          "count": 2
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/bazaarflip/BazaarFlipFeature.java",
+      "line": 474
+    },
+    "verifiedBy": "regex",
+    "notes": "The flipper looks for 'instant buy'/'buy instantly' by NAME in any container (:474) and dumps menus with BazaarFlipMenus.describe (bazaarflip/BazaarFlipMenus.java:129). The TITLE is a testkit placeholder: the flipper accepts whatever container /bz opens."
+  }
+]

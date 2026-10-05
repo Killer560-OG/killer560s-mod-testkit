@@ -1,0 +1,171 @@
+[
+  {
+    "id": "items.hyperion-legendary-lore",
+    "kind": "item",
+    "payload": {
+      "stack": "minecraft:diamond_sword[custom_data={id:\"HYPERION\"},lore=[{text:\"a LEGENDARY DUNGEON SWORD a\",color:\"gold\",bold:true,italic:false}]]"
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/itemrarity/ItemRarityFeature.java",
+      "line": 50
+    },
+    "verifiedBy": "regex",
+    "notes": "LORE_RARITY (:50-51) on a styled lore line (Hypixel wraps a recombobulated rarity in obfuscated 'a' markers); expected LEGENDARY."
+  },
+  {
+    "id": "items.pet-golden-dragon-tierboost",
+    "kind": "item",
+    "payload": {
+      "stack": "minecraft:player_head[custom_data={id:\"PET\",petInfo:'{\"type\":\"GOLDEN_DRAGON\",\"tier\":\"EPIC\",\"heldItem\":\"PET_ITEM_TIER_BOOST\"}'}]"
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/itemrarity/ItemRarityFeature.java",
+      "line": 257
+    },
+    "verifiedBy": "regex",
+    "notes": "petInfo tier EPIC + heldItem PET_ITEM_TIER_BOOST -> one tier up (:195-196, :257): LEGENDARY."
+  },
+  {
+    "id": "items.pet-name-lvl-gold",
+    "kind": "item",
+    "payload": {
+      "stack": "minecraft:player_head[custom_name=[{text:\"[Lvl 100] \",color:\"gray\",italic:false},{text:\"Golden Dragon\",color:\"gold\",italic:false}]]"
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/itemrarity/ItemRarityFeature.java",
+      "line": 267
+    },
+    "verifiedBy": "regex",
+    "notes": "'[Lvl N] ' name prefix; the colour after it decides (ItemRarity.byColor): gold = LEGENDARY."
+  },
+  {
+    "id": "items.tooltip-style-mythic",
+    "kind": "item",
+    "payload": {
+      "stack": "minecraft:stone[tooltip_style=\"hypixel:rarity/mythic\"]"
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/itemrarity/ItemRarityFeature.java",
+      "line": 168
+    },
+    "verifiedBy": "regex",
+    "notes": "A non-minecraft tooltip_style names the rarity by its last path segment (:168, :220-226): MYTHIC."
+  },
+  {
+    "id": "items.sword-enchants-sharp6-wise5",
+    "kind": "item",
+    "payload": {
+      "stack": "minecraft:diamond_sword[custom_data={id:\"HYPERION\",enchantments:{sharpness:6,ultimate_wise:5}},lore=[{text:\"Sharpness VI\",color:\"blue\",italic:false},{text:\"Ultimate Wise V\",color:\"light_purple\",bold:true,italic:false}]]"
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/enchantcolors/EnchantColorsFeature.java",
+      "line": 262
+    },
+    "verifiedBy": "regex",
+    "notes": "custom_data.enchantments levels (:262, :274) decide each lore enchant's tier; lore lines matched by ENCHANT_LINE/ENCHANT (:88-96)."
+  },
+  {
+    "id": "items.hyperion-master-3",
+    "kind": "item",
+    "payload": {
+      "stack": "minecraft:diamond_sword[custom_name=[{text:\"Hyperion \",color:\"light_purple\",italic:false},{text:\"\u272a\u272a\u272a\u272a\u272a\u278c\",color:\"gold\",italic:false}]]"
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/revertmasterstars/RevertMasterStarsFeature.java",
+      "line": 21
+    },
+    "verifiedBy": "regex",
+    "notes": "Five dungeon stars then a master pip \u278a-\u278e (FIRST/LAST_MASTER_STAR :21-22): pip 3 -> first three stars red, pip removed."
+  },
+  {
+    "id": "items.necron-chestplate-starred",
+    "kind": "item",
+    "payload": {
+      "stack": "minecraft:leather_chestplate[custom_data={id:\"STARRED_NECRON_CHESTPLATE\",upgrade_level:5}]"
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/armourdye/ArmourDye.java",
+      "line": 270
+    },
+    "verifiedBy": "regex",
+    "notes": "ArmourDye.identityOf strips STARRED_ (:267-270); upgrade_level makes it 'starred' for Item Protect (itemprotect/ItemProtect.java:107)."
+  },
+  {
+    "id": "items.aotv-ethermerge-tuned3",
+    "kind": "item",
+    "payload": {
+      "stack": "minecraft:diamond_shovel[custom_data={id:\"ASPECT_OF_THE_VOID\",ethermerge:1,tuned_transmission:3}]"
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/pathfinding/EtherwarpHopper.java",
+      "line": 86
+    },
+    "verifiedBy": "regex",
+    "notes": "Etherwarp range 57 + tuned_transmission (EtherwarpHopper.range :86; etherwarpoverlay/EtherwarpOverlayFeature.java:117) for an ethermerge item: 60."
+  },
+  {
+    "id": "items.hyperion-protected-uuid",
+    "kind": "item",
+    "payload": {
+      "stack": "minecraft:diamond_sword[custom_data={id:\"HYPERION\",uuid:\"hx-hyp-1\"},custom_name={text:\"Hyperion\",color:\"light_purple\",italic:false}]"
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/itemprotect/ItemProtect.java",
+      "line": 68
+    },
+    "verifiedBy": "regex",
+    "notes": "Item Protect keys a stack by custom_data.uuid (:66-69), falling back to id (:72-75)."
+  },
+  {
+    "id": "items.master-pip-only-name",
+    "kind": "item",
+    "payload": {
+      "stack": "minecraft:diamond_sword[custom_name={text:\"Hyperion \u278c\",italic:false}]"
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/itemprotect/ItemProtect.java",
+      "line": 114
+    },
+    "verifiedBy": "regex",
+    "notes": "Name fallback of ItemProtect.isStarred: the comment (:114) says the master pips \u278a-\u278e count; the code (:115-117) checks \u2780-\u2784. A name with only a real pip shows which one ran."
+  },
+  {
+    "id": "items.spirit-leap",
+    "kind": "item",
+    "payload": {
+      "stack": "minecraft:ender_pearl[custom_data={id:\"SPIRIT_LEAP\"},custom_name={text:\"Spirit Leap\",color:\"blue\",italic:false}]"
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/fastleap/LeapManager.java",
+      "line": 553
+    },
+    "verifiedBy": "regex",
+    "notes": "A leap item: custom_data.id SPIRIT_LEAP or INFINITE_SPIRIT_LEAP (:553)."
+  },
+  {
+    "id": "items.enchanted-diamond",
+    "kind": "item",
+    "payload": {
+      "stack": "minecraft:diamond[custom_data={id:\"ENCHANTED_DIAMOND\"},custom_name={text:\"Enchanted Diamond\",color:\"green\",italic:false},enchantment_glint_override=true]"
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/autoroutes/ItemIdentity.java",
+      "line": 189
+    },
+    "verifiedBy": "regex",
+    "notes": "ItemIdentity.of reads custom_data.id (:180-190) - what Auto Sell's lists hold."
+  },
+  {
+    "id": "items.hyperion-wither-impact-lore",
+    "kind": "item",
+    "payload": {
+      "stack": "minecraft:diamond_sword[custom_name={text:\"Hyperion\",italic:false},lore=[{text:\"Ability: Wither Impact\",color:\"gold\",italic:false}]]"
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/inventorysearch/InventorySearchFeature.java",
+      "line": 298
+    },
+    "verifiedBy": "regex",
+    "notes": "Inventory search matches the hover name and, with searchLore, each lore line (:295-317)."
+  }
+]
