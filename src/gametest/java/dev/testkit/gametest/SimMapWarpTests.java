@@ -155,18 +155,62 @@ public class SimMapWarpTests implements FabricClientGameTest {
             return;
         }
 
+        // ---- the presses' rooms, chosen while he is still in the entrance ---------------------------------
+        List<int[]> targets = new ArrayList<>();   // {tileIdx, room}
+        int[] entrance = {-1, -1};                  // {tileIdx, room}
+        ctx.runOnClient(mc -> chooseTargets(targets, entrance));
+        println(targets.size() + " room(s) to press; entrance tile " + entrance[0] + " room " + entrance[1]);
+
         // ---- the run starts: the entrance gate opens (a block change, like every door on Hypixel) ---------
         // Until then the entrance is sealed and nothing outside it can be reached by anyone.
+        long markGo = LogTap.mark();
         ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRun", "begin",
                 new Class<?>[]{Minecraft.class, BlockPos.class},
                 new Object[]{mc, ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBuilder", "entranceDoor")}));
+        for (int i = 0; i < 400 && !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                "com.killer560.hub.roomsim.SimRun", "isRunning")); i++) {
+            ctx.waitTicks(1);
+        }
+        ctx.waitTicks(3);   // the gate's block updates reach the client
+
+        // ---- a press during the floor's FIRST warm-up (the gate just opened the whole floor) -------------
+        // Before 2026-10-05 this got 40 ms on the half-built graph and then the room-by-room planner (about twice
+        // the warps). Now it is planned on the quick graph (FloorGraphs), which warms first in about half a second.
+        // It goes to the room farthest from him, so it crosses the whole not-yet-warm floor.
+        String early = null;
+        int[] far = targets.isEmpty() ? null : farthest(ctx, targets);
+        if (far != null) {
+            early = press(ctx, far[0], far[1], "press during the first warm-up", failures);
+            // He is in that room now; a later press on it would be "already there" and move nothing.
+            targets.remove(far);
+            if (early == null) {
+                failures.add("the press during the first warm-up did not get him into the room");
+            } else if (!LAST_GRAPH[0].startsWith("quick")) {
+                failures.add("the press during the first warm-up was planned on the '" + LAST_GRAPH[0]
+                        + "' graph, not the quick one - so it did not test the first warm-up");
+            }
+            // The full graph must not have been warm when it was planned: its warm line comes after the press's.
+            boolean warmFirst = false;
+            boolean pressSeen = false;
+            for (String l : LogTap.since(markGo)) {
+                Matcher m = WARM_NODES.matcher(l);
+                if (!pressSeen && m.find() && Integer.parseInt(m.group(1)) >= 3000) {
+                    warmFirst = true;
+                }
+                pressSeen |= PLANNED.matcher(l).find();
+            }
+            if (warmFirst) {
+                failures.add("the floor graph was already warm when the early press was planned - it tests nothing");
+            }
+        }
 
         // ---- the floor graph warms up in the background (Interactive Map on, in a dungeon) --------------
         long t0 = System.currentTimeMillis();
         String warmLine = null;
         // The first "warm" can be a graph of the few hundred landings loaded before the floor's chunks arrived
         // (the 2026-10-04 Map Logger log has one of 279 nodes before the real 13,454); wait for the floor's.
-        Pattern warmNodes = Pattern.compile("floor graph warm: (\\d+) node");
+        // WARM_NODES, not the quick graph's own "quick floor graph warm" line.
+        Pattern warmNodes = WARM_NODES;
         for (int i = 0; i < 1800 && warmLine == null; i++) {
             ctx.waitTicks(1);
             for (String l : LogTap.since(mark0)) {
@@ -183,37 +227,6 @@ public class SimMapWarpTests implements FabricClientGameTest {
         }
 
         // ---- presses: rooms across the floor -------------------------------------------------------------
-        List<int[]> targets = new ArrayList<>();   // {tileIdx, room}
-        ctx.runOnClient(mc -> {
-            Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
-            int here = (Integer) ModUnderTest.staticCall(LIVE_MAP, "currentRoomIndex");
-            int hereRoom = here >= 0 ? (Integer) ModUnderTest.call(layout, "roomOfCell", new Class<?>[]{int.class},
-                    new Object[]{here}) : -1;
-            List<int[]> all = new ArrayList<>();
-            java.util.Set<Integer> rooms = new java.util.HashSet<>();
-            for (int gz = 0; gz < GRID; gz += 2) {
-                for (int gx = 0; gx < GRID; gx += 2) {
-                    int idx = gz * GRID + gx;
-                    int room = (Integer) ModUnderTest.call(layout, "roomOfCell", new Class<?>[]{int.class},
-                            new Object[]{idx});
-                    Object nm = room >= 0 ? ModUnderTest.call(layout, "name", new Class<?>[]{int.class},
-                            new Object[]{room}) : null;
-                    String n = nm == null ? "" : nm.toString();
-                    // A map press is refused from inside a trap, a maze or Boulder (QUOI's canPath, the same on
-                    // Hypixel), so pressing one would end the run of presses there.
-                    boolean deadEnd = n.contains("Trap") || n.contains("Maze") || n.contains("Boulder");
-                    if (room >= 0 && room != hereRoom && !deadEnd && rooms.add(room)) {
-                        all.add(new int[]{idx, room});
-                    }
-                }
-            }
-            // Spread out: every k-th distinct room.
-            int step = Math.max(1, all.size() / PRESSES);
-            for (int i = 0; i < all.size() && targets.size() < PRESSES; i += step) {
-                targets.add(all.get(i));
-            }
-        });
-        println(targets.size() + " room(s) to press");
         int moved = 0;
         for (int p = 0; p < targets.size(); p++) {
             int[] t = targets.get(p);
@@ -253,6 +266,18 @@ public class SimMapWarpTests implements FabricClientGameTest {
         if (!targets.isEmpty()) {
             int[] t = targets.get(0);
             press(ctx, t[0], t[1], "press after a change", failures);
+        }
+
+        // ---- the early press's trip again, on the warm graph: back to the entrance, then the same room ----
+        if (early != null && entrance[0] >= 0) {
+            String back = press(ctx, entrance[0], entrance[1], "back to the entrance", failures);
+            if (back != null) {
+                String again = press(ctx, far[0], far[1], "the first-warm-up press's trip, warm", failures);
+                println("FIRST WARM-UP vs WARM, same trip: " + EARLY_STATS[0] + " vs " + LAST_STATS[0]);
+                if (again == null) {
+                    failures.add("the repeat of the early press's trip on the warm graph did not get there");
+                }
+            }
         }
         println(moved + " of " + targets.size() + " press(es) got him there; " + UNREACHABLE[0]
                 + " room(s) behind a locked door");
@@ -333,10 +358,23 @@ public class SimMapWarpTests implements FabricClientGameTest {
                 running = l.replaceAll("^.*\\[Path\\]", "[Path]");
             }
         }
+        String graph = "?";
+        for (String l : LogTap.since(mark)) {
+            Matcher g = GRAPH.matcher(l);
+            if (g.find()) {
+                graph = g.group(1);
+            }
+        }
+        LAST_GRAPH[0] = graph;
+        LAST_STATS[0] = warps + " warp(s) in " + ms + " ms on the " + graph + " graph";
+        if (label.startsWith("press during the first warm-up")) {
+            EARLY_STATS[0] = LAST_STATS[0];
+        }
         String summary = String.format("%s: tile %d -> %s warp(s) (%s), planned in %s ms; moved %.1f blocks in %.1f s,"
-                        + " ended %s the clicked room (%.1f, %.1f, %.1f), arrival %s%s%s", label, tileIdx, warps, kind, ms,
+                        + " ended %s the clicked room (%.1f, %.1f, %.1f), arrival %s%s%s; %s graph", label, tileIdx,
+                warps, kind, ms,
                 travelled, ticks / 20.0, inTile ? "IN" : "OUTSIDE", to.x, to.y, to.z, seq1 != seq0 ? "confirmed" : "not confirmed",
-                roomByRoom ? ", FELL BACK TO ROOM BY ROOM" : "", offPlan ? ", went off the plan" : "");
+                roomByRoom ? ", FELL BACK TO ROOM BY ROOM" : "", offPlan ? ", went off the plan" : "", graph);
         println(summary);
         if (running != null) {
             println("  " + running);
@@ -359,6 +397,61 @@ public class SimMapWarpTests implements FabricClientGameTest {
     }
 
     private static final int[] UNREACHABLE = {0};
+    private static final String[] LAST_GRAPH = {""};
+    private static final String[] LAST_STATS = {""};
+    private static final String[] EARLY_STATS = {""};
+    private static final Pattern GRAPH = Pattern.compile("\\[Path\\] \\d+ warp\\(s\\).*? on the (.+?) graph:");
+    private static final Pattern WARM_NODES = Pattern.compile("\\[Path\\] floor graph warm: (\\d+) node");
+
+    /** Rooms across the floor to press (spread out), and the tile/room he stands in. Client thread. */
+    private static void chooseTargets(List<int[]> targets, int[] entrance) {
+        Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+        int here = (Integer) ModUnderTest.staticCall(LIVE_MAP, "currentRoomIndex");
+        int hereRoom = here >= 0 ? (Integer) ModUnderTest.call(layout, "roomOfCell", new Class<?>[]{int.class},
+                new Object[]{here}) : -1;
+        entrance[0] = here;
+        entrance[1] = hereRoom;
+        List<int[]> all = new ArrayList<>();
+        java.util.Set<Integer> rooms = new java.util.HashSet<>();
+        for (int gz = 0; gz < GRID; gz += 2) {
+            for (int gx = 0; gx < GRID; gx += 2) {
+                int idx = gz * GRID + gx;
+                int room = (Integer) ModUnderTest.call(layout, "roomOfCell", new Class<?>[]{int.class},
+                        new Object[]{idx});
+                Object nm = room >= 0 ? ModUnderTest.call(layout, "name", new Class<?>[]{int.class},
+                        new Object[]{room}) : null;
+                String n = nm == null ? "" : nm.toString();
+                // A map press is refused from inside a trap, a maze or Boulder (QUOI's canPath, the same on
+                // Hypixel), so pressing one would end the run of presses there.
+                boolean deadEnd = n.contains("Trap") || n.contains("Maze") || n.contains("Boulder");
+                if (room >= 0 && room != hereRoom && !deadEnd && rooms.add(room)) {
+                    all.add(new int[]{idx, room});
+                }
+            }
+        }
+        // Spread out: every k-th distinct room.
+        int step = Math.max(1, all.size() / PRESSES);
+        for (int i = 0; i < all.size() && targets.size() < PRESSES; i += step) {
+            targets.add(all.get(i));
+        }
+    }
+
+    /** The target whose tile centre is farthest from where he stands. */
+    private static int[] farthest(ClientGameTestContext ctx, List<int[]> targets) {
+        Vec3 at = ctx.computeOnClient(mc -> mc.player.position());
+        int[] best = null;
+        double bd = -1;
+        for (int[] t : targets) {
+            BlockPos c = ctx.computeOnClient(mc -> (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter",
+                    new Class<?>[]{int.class}, new Object[]{t[0]}));
+            double d = Math.hypot(c.getX() + 0.5 - at.x, c.getZ() + 0.5 - at.z);
+            if (d > bd) {
+                bd = d;
+                best = t;
+            }
+        }
+        return best;
+    }
 
     private static void println(String s) {
         System.out.println("[" + NAME + "] " + s);
