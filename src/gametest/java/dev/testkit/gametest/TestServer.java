@@ -76,6 +76,19 @@ public final class TestServer implements AutoCloseable {
     }
 
     /**
+     * The Hx RPC bridge's loopback port: {@code -Dtestkit.hx.port}, which build.gradle sets to the server port + 5 in
+     * both JVMs. Falls back to the server port + 5 for a client launched some other way.
+     */
+    public static int hxPort() {
+        return Integer.getInteger("testkit.hx.port", port + 5);
+    }
+
+    /** The server port this checkout's server uses (read from its server.properties at each start). */
+    public static int port() {
+        return port;
+    }
+
+    /**
      * Start the <b>next</b> server on a copy of a saved world instead of a generated one — a map you built,
      * or one downloaded from the server your mod is meant for. Consumed by the next {@link #start}, so a
      * scenario sets it after {@code Scenario.skip(name)} has said it runs, right before {@code Scenario.run},

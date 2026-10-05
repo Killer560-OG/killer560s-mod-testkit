@@ -1,7 +1,9 @@
 package dev.testkit.gametest;
 
 import dev.testkit.harness.ChatWatch;
+import dev.testkit.harness.Coverage;
 import dev.testkit.harness.Disconnects;
+import dev.testkit.harness.Report;
 import dev.testkit.harness.PacketTrace;
 import dev.testkit.harness.SuiteVerdict;
 
@@ -74,10 +76,15 @@ public final class Scenario {
      * {@code "failed"}, and because it races the measurement window it lands inside some scenario sooner or
      * later as a "flag" that names no check and no player. No check line carries the library's name, so this
      * exempts nothing real.
+     *
+     * <p>{@code [hx] } prefixes every line the Hx bridge in the companion mod prints (its startup line, one
+     * {@code [hx] cmd /...} per player command, op errors). Those echo what a SCENARIO did - a stubbed
+     * {@code /joininstance}, say - and a command can contain any word, "failed" included. GrimAC never prints that
+     * prefix, so this exempts nothing the anticheat said.
      */
     private static final String[] FLAG_EXEMPT = {"verbose enabled", "verbose is now", "alerts enabled",
             "alerts is now", "now receiving", "no longer receiving", "grimac", "logged in",
-            "joined the game", "left the game", "made the advancement", "[testkit]", "packetevents"};
+            "joined the game", "left the game", "made the advancement", "[testkit]", "packetevents", "[hx] "};
 
     private final ClientGameTestContext ctx;
     private final String name;
@@ -181,31 +188,7 @@ public final class Scenario {
     public static void run(ClientGameTestContext ctx, String name,
                            BiConsumer<TestServer, Scenario> build,
                            BiConsumer<TestServer, Scenario> body) {
-        if (skip(name)) {
-            return;
-        }
-        SuiteVerdict.expect(name);
-        Scenario scenario = new Scenario(ctx, name);
-        try (TestServer server = TestServer.start()) {
-            scenario.server = server;
-            scenario.connect();
-            scenario.arm(server);
-            // Every scenario starts in an empty world. Leftover entities from an earlier run wander into
-            // whatever is being measured, and a fake player is a real player in the world save.
-            server.command("testkit sweep");
-            ctx.waitTicks(10);
-            build.accept(server, scenario);
-            ctx.waitTicks(60);          // let the world settle before anything is measured
-            server.mark();
-            ChatWatch.clear();
-            body.accept(server, scenario);
-            ctx.waitTicks(20);          // let a late verbose line land before looking
-            scenario.assertClean();
-            SuiteVerdict.finished(name);
-        } finally {
-            scenario.disconnect();
-            serverLabel = null;
-        }
+        runInternal(ctx, name, build, body, false);
     }
 
     /**
@@ -219,27 +202,102 @@ public final class Scenario {
     public static void runExpectingFlags(ClientGameTestContext ctx, String name,
                                          BiConsumer<TestServer, Scenario> build,
                                          BiConsumer<TestServer, Scenario> body) {
+        runInternal(ctx, name, build, body, true);
+    }
+
+    private static void runInternal(ClientGameTestContext ctx, String name,
+                                    BiConsumer<TestServer, Scenario> build,
+                                    BiConsumer<TestServer, Scenario> body, boolean expectFlags) {
         if (skip(name)) {
             return;
         }
         SuiteVerdict.expect(name);
+        Report.caseStarted(name);
+        Coverage.currentCase(name);
+        LogTap.install();
+        long logMark = LogTap.mark();
         Scenario scenario = new Scenario(ctx, name);
-        try (TestServer server = TestServer.start()) {
-            scenario.server = server;
-            scenario.connect();
-            scenario.arm(server);
-            server.command("testkit sweep");
-            ctx.waitTicks(10);
-            build.accept(server, scenario);
-            ctx.waitTicks(60);
-            server.mark();
-            ChatWatch.clear();
-            body.accept(server, scenario);
-            SuiteVerdict.finished(name);
+        try {
+            try (TestServer server = TestServer.start()) {
+                scenario.server = server;
+                scenario.connect();
+                scenario.arm(server);
+                // Every scenario starts in an empty world. Leftover entities from an earlier run wander into
+                // whatever is being measured, and a fake player is a real player in the world save.
+                server.command("testkit sweep");
+                ctx.waitTicks(10);
+                build.accept(server, scenario);
+                ctx.waitTicks(60);          // let the world settle before anything is measured
+                server.mark();
+                ChatWatch.clear();
+                body.accept(server, scenario);
+                String verdict;
+                if (expectFlags) {
+                    verdict = "flags expected; " + scenario.flags().size() + " line(s) since the last mark";
+                } else {
+                    ctx.waitTicks(20);      // let a late verbose line land before looking
+                    scenario.assertClean();
+                    verdict = anticheatMuted() ? "no anticheat (-Pnogrim)" : "clean";
+                }
+                SuiteVerdict.finished(name);
+                scenario.report(expectFlags ? "FLAGGED" : "PASS", verdict, "", logMark);
+            }
+        } catch (RuntimeException | Error t) {
+            scenario.report("FAIL", "", t.getClass().getSimpleName() + ": " + t.getMessage(), logMark);
+            throw t;
         } finally {
             scenario.disconnect();
             serverLabel = null;
         }
+    }
+
+    /** One row in the run's report, with this scenario's server console and client log attached. */
+    private void report(String status, String anticheat, String detail, long logMark) {
+        List<String> serverLines = server == null ? List.of() : server.tail(600).lines().toList();
+        Report.caseFinished(name, status, anticheat, detail, serverLines, LogTap.since(logMark));
+    }
+
+    // ---- shared-server mode (hx.Session) -------------------------------------------------------------------
+
+    /**
+     * For {@code hx.Session}: connect this client to an already started server, arm the anticheat and sweep the
+     * world - what {@link #run} does before its build step - and hand back the scenario so the session can read
+     * flags, re-connect after a case that got kicked, and leave at the end. The label set with
+     * {@link #labelServerAs} is used and kept until {@link #leave}.
+     */
+    public static Scenario attach(ClientGameTestContext ctx, String name, TestServer server) {
+        Scenario scenario = new Scenario(ctx, name);
+        scenario.server = server;
+        scenario.connect();
+        scenario.arm(server);
+        server.command("testkit sweep");
+        ctx.waitTicks(10);
+        return scenario;
+    }
+
+    /** Whether the client is still in this server's world. */
+    public boolean connected() {
+        return ctx.computeOnClient(mc -> mc.player != null && mc.level != null);
+    }
+
+    /** Join again after a case was kicked or disconnected. Uses the same label as the first join. */
+    public void reconnect() {
+        disconnect();
+        connect();
+    }
+
+    /** Leave the server and go back to the title screen; clears the server label. Safe to call twice. */
+    public void leave() {
+        try {
+            disconnect();
+        } finally {
+            serverLabel = null;
+        }
+    }
+
+    /** Whether flags since the last mark should fail: false under -Pnogrim, where nothing is judged. */
+    public void assertNoFlags() {
+        assertClean();
     }
 
     /**

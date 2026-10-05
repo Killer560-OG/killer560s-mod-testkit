@@ -72,6 +72,22 @@ public final class SuiteVerdict {
         failures.add(name + " (" + test + "): " + failure.getClass().getSimpleName() + ": " + why);
         System.out.println("[suite] FAILED " + name + " — " + why + " — carrying on with the rest");
         failure.printStackTrace(System.out);
+        if (!Report.recorded(name)) {
+            Report.caseFinished(name, "FAIL", "", failure.getClass().getSimpleName() + ": " + why, List.of(),
+                    List.of());
+        }
+    }
+
+    /**
+     * Record one Session case's failure under its own name without ending the test class it runs in: the session
+     * carries on with its next case. The case must have been {@link #expect}ed.
+     */
+    public static void failCase(String name, Throwable failure) {
+        failedNames.add(name);
+        String why = String.valueOf(failure.getMessage()).lines().findFirst().orElse(failure.toString());
+        failures.add(name + ": " + failure.getClass().getSimpleName() + ": " + why);
+        System.out.println("[suite] FAILED " + name + " — " + why + " — the session carries on");
+        failure.printStackTrace(System.out);
     }
 
     public static boolean anyFailed() {
@@ -86,6 +102,9 @@ public final class SuiteVerdict {
                 failures.add(name + ": started and never finished — it threw nothing and reached no verdict, "
                         + "so it tested nothing");
                 System.out.println("[suite] FAILED " + name + " — started and never finished");
+                if (!Report.recorded(name)) {
+                    Report.caseFinished(name, "FAIL", "", "started and never finished", List.of(), List.of());
+                }
             }
         }
         Path file = failedFile();
@@ -98,14 +117,19 @@ public final class SuiteVerdict {
         } catch (IOException e) {
             System.out.println("[suite] could not write " + file.toAbsolutePath() + ": " + e);
         }
+        String summary;
         if (failures.isEmpty()) {
-            return "[suite] " + finished.size() + " scenario(s) reached a verdict, none failed";
+            summary = "[suite] " + finished.size() + " scenario(s) reached a verdict, none failed";
+        } else {
+            StringBuilder out = new StringBuilder("[suite] " + failures.size()
+                    + " failure(s); re-run only these with -Pfailed:");
+            for (String line : failures) {
+                out.append("\n  ").append(line);
+            }
+            summary = out.toString();
         }
-        StringBuilder out = new StringBuilder("[suite] " + failures.size()
-                + " failure(s); re-run only these with -Pfailed:");
-        for (String line : failures) {
-            out.append("\n  ").append(line);
-        }
-        return out.toString();
+        // summary.md / summary.json / coverage.md (build/testkit-report).
+        Report.finish(summary);
+        return summary;
     }
 }

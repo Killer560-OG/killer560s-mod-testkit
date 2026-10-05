@@ -1,0 +1,56 @@
+[
+  {
+    "id": "core.sidebar-catacombs-f7",
+    "kind": "sidebar",
+    "payload": {
+      "title": "§e§lSKYBLOCK",
+      "lines": [
+        "§710/04/26 §8m12AB",
+        "",
+        " §7⏣ §cThe Catac§combs §7(F7)",
+        "",
+        "Keys: §c■ §c✖ §8§l| §6■ §a✔",
+        "Time Elapsed: §a01m 23s",
+        "Cleared: §c12% §8(31)",
+        "",
+        "§ewww.hypixel.net"
+      ]
+    },
+    "source": {"file": "src/main/java/com/killer560/hub/secrets/DungeonState.java", "line": 43},
+    "matches": ["secrets.DungeonState#CATACOMBS_FLOOR_PATTERN"],
+    "mode": "find",
+    "verifiedBy": "regex",
+    "notes": "Mid-word colour code as in DungeonState's comment at line 209-212 (\"The Catac§combs §7(F7)\"). WP1 positive control: DungeonState.getFloor() == F7."
+  },
+  {
+    "id": "core.overlay-stats",
+    "kind": "overlay",
+    "payload": "§c1234/2345❤     §a567§a❈ Defense     §b890/900✎ Mana",
+    "source": {"file": "src/main/java/com/killer560/hub/playerstats/PlayerStatsFeature.java", "line": 47},
+    "matches": [
+      "playerstats.PlayerStatsFeature#HEALTH_REGEX",
+      "playerstats.PlayerStatsFeature#MANA_REGEX",
+      "playerstats.PlayerStatsFeature#DEFENSE_REGEX"
+    ],
+    "mode": "find",
+    "strip": false,
+    "verifiedBy": "regex",
+    "notes": "Shape from PlayerStatsFeature's comment at line 44 (classic glyphs). Matched raw: the patterns allow section-sign codes between number and icon. WP1 positive control: PlayerStatsFeature.health == 1234/2345."
+  },
+  {
+    "id": "core.tab-teammates",
+    "kind": "tab",
+    "payload": {
+      "entries": [
+        "§r§b§lParty §r§f(3)",
+        "§r[42] §r§aHxMateA §r§f(§r§dMage L§r§f)",
+        "§r[38] §r§6[MVP§r§c+§r§6] HxMateB §r§f(§r§cBerserk XL§r§f)"
+      ]
+    },
+    "source": {"file": "src/main/java/com/killer560/hub/leapmenu/PartyTracker.java", "line": 45},
+    "matches": ["leapmenu.PartyTracker#TAB_REGEX"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "TAB_REGEX is matched against the stripped, trimmed display name; the first entry is a header and must not be a teammate. WP1 positive control: PartyTracker.teammates() contains HxMateA and HxMateB (needs a dungeon floor on the sidebar first)."
+  }
+]

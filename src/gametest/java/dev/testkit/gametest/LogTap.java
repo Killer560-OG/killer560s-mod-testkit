@@ -76,6 +76,22 @@ public final class LogTap {
         }
     }
 
+    /**
+     * The mod's own ERROR lines after {@code mark} (from a {@code killer560smod*} logger, not chat). {@code Mod.assertHealthy}
+     * fails a case on any of these.
+     */
+    public static List<String> modErrorsSince(long mark) {
+        List<String> out = new ArrayList<>();
+        for (String line : since(mark)) {
+            // "HH:MM:SS.fff ERROR (logger) message" - see the format in install().
+            String[] parts = line.split(" ", 4);
+            if (parts.length >= 3 && parts[1].equals("ERROR") && parts[2].startsWith("(")) {
+                out.add(line);
+            }
+        }
+        return out;
+    }
+
     /** Every captured line after {@code mark}, oldest first, without the sequence number. */
     public static List<String> since(long mark) {
         List<String> out = new ArrayList<>();
