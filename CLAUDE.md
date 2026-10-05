@@ -121,6 +121,13 @@ the sim's own `Sim*Puzzle.isComplete()`, failed if `SimRoomState.isFailed` ever 
 container opened", because Auto Boulder auras the reward chest instead of pushing boxes. Status lines every 5 s
 carry the solver's own state (`probes`), and a failure prints the last 60 mod/chat log lines (`LogTap`).
 
+`-PsolveRepeat=N` plays each selected room N times in one launch. `-PnetStallMs=120` holds the client
+connection's netty loop for that long every 13 ticks (`-PserverStallEvery`), so several packets land in one client
+tick - the lag a loaded machine produces; it turned Ice Fill's one-in-dozens flake into 6/6 on 2026-10-05.
+`-PserverStallMs` sleeps the integrated server instead and does nothing useful: the client gametest runs client and
+server in lockstep, so both just slow down and every run is identical to the tick. `-PicefillControl=true` makes
+Ice Fill prove the sim still breaks a section on a two-tile warp and on a repeated tile before the auto plays.
+
 Room captures are copied from the "26.1.2 (Mod Only Test)" instance unless `TESTKIT_SIM_INSTANCE` names another
 (`$env:TESTKIT_SIM_INSTANCE = "Map Logger"` before the script). They are not the same captures: on 2026-10-04
 Boulder, Ice Fill, Ice Path, Quiz and Water Board differed, and Mod Only Test's Boulder does not arm as a puzzle
