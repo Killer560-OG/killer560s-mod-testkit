@@ -6,6 +6,9 @@
 	"description": "Server-side helper for the test kit: real fake players and a fill that loads chunks. Never shipped to users.",
 	"license": "MIT",
 	"environment": "server",
+	"mixins": [
+		"testkit-server.mixins.json"
+	],
 	"entrypoints": {
 		"server": [
 			"dev.testkit.server.TestKitServer"

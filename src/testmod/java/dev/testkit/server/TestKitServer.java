@@ -75,6 +75,8 @@ public class TestKitServer implements DedicatedServerModInitializer {
         // and a hit counter based on health drops read zero.
         ServerLifecycleEvents.SERVER_STARTED.register(TestKitServer::applyTestRules);
         net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register(TestKitServer::refuseProtected);
+        // The Hx RPC bridge (loopback, -Dtestkit.hx.port): lets a scenario drive this server as if it were Hypixel.
+        dev.testkit.server.hx.HxBridge.init();
         CommandRegistrationCallback.EVENT.register((dispatcher, registry, environment) ->
                 dispatcher.register(Commands.literal("testkit")
                         // Deliberately open: this is a local, disposable test server, and being able to
