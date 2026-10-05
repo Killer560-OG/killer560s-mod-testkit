@@ -51,7 +51,9 @@ import java.util.function.Supplier;
  * interact delay 2.
  *
  * <p>Cases (each selectable: -Pscenario=96-ar-play etc.; -Pscenario=96-ar runs all):
- * add, play, pingpong, edit, screen, path, rotate. GrimAC does not apply here: the sim is an integrated server.
+ * add, play, interact (empty-hand use nodes), await (what counts as YOUR secret), mimic (Kill Mimic), crypt (crypt
+ * nodes and the two await counters), breaker, pingpong, edit, mapopen, path, screen, rotate. GrimAC does not apply
+ * here: the sim is an integrated server.
  */
 public class SimAutoRoutesTests implements FabricClientGameTest {
 
@@ -74,7 +76,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
 
     // Order matters once: the editor's Go To is an Interactive Map warp, and after one only a START node may arm until
     // he has been through one (the map-arrival interlock), so the cases that arm non-start nodes run before it.
-    private static final String[] CASES = {"96-ar-add", "96-ar-play", "96-ar-breaker", "96-ar-pingpong", "96-ar-edit", "96-ar-mapopen",
+    private static final String[] CASES = {"96-ar-add", "96-ar-play", "96-ar-interact", "96-ar-await", "96-ar-mimic",
+            "96-ar-crypt", "96-ar-breaker", "96-ar-pingpong", "96-ar-edit", "96-ar-mapopen",
             "96-ar-path", "96-ar-screen", "96-ar-rotate"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
@@ -203,6 +206,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     switch (c) {
                         case "96-ar-add" -> caseAdd(ctx);
                         case "96-ar-play" -> casePlay(ctx);
+                        case "96-ar-interact" -> caseInteract(ctx);
+                        case "96-ar-await" -> caseAwait(ctx);
+                        case "96-ar-mimic" -> caseMimic(ctx);
+                        case "96-ar-crypt" -> caseCrypt(ctx);
                         case "96-ar-breaker" -> caseBreaker(ctx);
                         case "96-ar-pingpong" -> casePingPong(ctx);
                         case "96-ar-edit" -> caseEdit(ctx);
@@ -1056,6 +1063,558 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
 
     /** The first 1x1 room in library order with secrets that is not a puzzle/trap/blood/entrance/fairy room. */
     @SuppressWarnings("unchecked")
+    // ============================================================================================ 2026-10-05 cases
+
+    private static final String SIM_MOBS = "com.killer560.hub.roomsim.SimMobs";
+    private static final String SIM_SCORE = "com.killer560.hub.roomsim.SimScore";
+    private static final String SIM_MIMIC = "com.killer560.hub.roomsim.SimMimic";
+
+    /** A floor lever (face FLOOR), off. */
+    private static BlockState floorLever() {
+        return Blocks.LEVER.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.LeverBlock.FACE,
+                        net.minecraft.world.level.block.state.properties.AttachFace.FLOOR)
+                .setValue(net.minecraft.world.level.block.LeverBlock.POWERED, false);
+    }
+
+    private static boolean leverOn(ClientGameTestContext ctx, int x, int y, int z) {
+        BlockState s = blockState(ctx, x, y, z);
+        return s.is(Blocks.LEVER) && s.getValue(net.minecraft.world.level.block.LeverBlock.POWERED);
+    }
+
+    /** Pitch from a STANDING eye over block (fx,fz) to a point {@code h} above the floor top at (tx,tz)'s centre. */
+    private static float standPitch(int fx, int fz, int tx, int tz, double h) {
+        double horiz = Math.hypot(tx - fx, tz - fz);
+        return (float) Math.toDegrees(Math.atan2(1.62 - h, horiz));
+    }
+
+    private static JsonObject handUse(int x, int z, float yaw, float pitch, boolean start, int await) {
+        JsonObject o = node("USE_ITEM", x, z, yaw, pitch);
+        if (start) {
+            o.addProperty("start", true);
+        }
+        if (await > 0) {
+            o.addProperty("awaitEnabled", true);
+            o.addProperty("await", "SECRET");
+            o.addProperty("amount", await);
+        }
+        return o;
+    }
+
+    private static void giveSlot(ClientGameTestContext ctx, int slot, String id) {
+        AtomicReference<Boolean> given = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            var uuid = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(uuid);
+                sp.getInventory().setItem(slot, id == null ? ItemStack.EMPTY : (ItemStack) ModUnderTest.staticCall(SIM_ITEMS,
+                        "build", new Class<?>[]{String.class}, new Object[]{id}));
+                given.set(true);
+            });
+        });
+        ctx.waitFor(mc -> given.get() != null, 200);
+        ctx.waitTicks(5);
+    }
+
+    /** Steps off (2 blocks -z), then onto the start node at (x,z): true once the route has started. */
+    private static boolean arm(ClientGameTestContext ctx, int x, int z, float yaw, float pitch) {
+        tpRel(ctx, x + 0.5, z - 1.5, yaw, pitch);
+        ctx.waitTicks(10);
+        long m = LogTap.mark();
+        tpRel(ctx, x + 0.5, z + 0.5, yaw, pitch);
+        return waitFor(ctx, 40, () -> logHas(m, "Started \""));
+    }
+
+    private static boolean running(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+    }
+
+    private static void stopRoute(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> {
+            McCompat.setScreen(mc, null);
+            ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"});
+        });
+        ctx.waitTicks(3);
+    }
+
+    private static void serverRun(ClientGameTestContext ctx, java.util.function.BiConsumer<net.minecraft.server.MinecraftServer,
+            net.minecraft.server.level.ServerPlayer> task) {
+        AtomicReference<Boolean> done = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            var uuid = mc.player.getUUID();
+            server.execute(() -> {
+                try {
+                    task.accept(server, server.getPlayerList().getPlayer(uuid));
+                } finally {
+                    done.set(true);
+                }
+            });
+        });
+        ctx.waitFor(mc -> done.get() != null, 200);
+        ctx.waitTicks(2);
+    }
+
+    private static BlockPos realNow(ClientGameTestContext ctx, int x, int y, int z) {
+        return ctx.computeOnClient(mc -> real(ModUnderTest.staticCall(FRAME, "current"), x, y, z));
+    }
+
+    private static void spawnBatAt(ClientGameTestContext ctx, int x, int y, int z) {
+        BlockPos p = realNow(ctx, x, y, z);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOBS, "spawn",
+                new Class<?>[]{Minecraft.class, BlockPos.class, enumClass(SIM_MOBS + "$Kind")},
+                new Object[]{mc, p, ModUnderTest.enumValue(SIM_MOBS + "$Kind", "BAT")}));
+    }
+
+    private static Class<?> enumClass(String name) {
+        try {
+            return Class.forName(name);
+        } catch (ClassNotFoundException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static void setArEnum(ClientGameTestContext ctx, String setter, String enumName, String constant) {
+        ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), setter,
+                new Class<?>[]{enumClass(AR_CONFIG + "$" + enumName)},
+                new Object[]{ModUnderTest.enumValue(AR_CONFIG + "$" + enumName, constant)}));
+    }
+
+    private static int countOut(List<Sample> s, String packet) {
+        int n = 0;
+        for (Sample x : s) {
+            n += (int) x.out().stream().filter(packet::equals).count();
+        }
+        return n;
+    }
+
+    /**
+     * Empty-hand use nodes: a start node aimed at a floor lever flips it on its firing tick (an empty slot selected,
+     * use_item_on and no use_item); one aimed at a secret chest opens it and the sim counts the secret; one with
+     * nothing in reach stops with "nothing to click"; recording an empty-hand lever click makes such a node.
+     */
+    private void caseInteract(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        // ---- the lever ----
+        setBlocks(ctx, Map.of(new int[]{10, F, 12}, floorLever()));
+        check(!leverOn(ctx, 10, F, 12), "the test lever did not start off: " + blockState(ctx, 10, F, 12));
+        float lp = standPitch(10, 10, 10, 12, 0.1);
+        writeRoute(ctx, List.of(handUse(10, 10, 0f, lp, true, 0)));
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));   // the AOTV: the node must pick slot 4 (empty)
+        ctx.waitTicks(3);
+        tpRel(ctx, 10.5, 8.5, 0f, lp);
+        ctx.waitTicks(10);
+        long m = LogTap.mark();
+        startSampling(ctx);
+        tpRel(ctx, 10.5, 10.5, 0f, lp);
+        boolean flipped = waitFor(ctx, 30, () -> leverOn(ctx, 10, F, 12));
+        List<Sample> s = stopSampling(ctx);
+        check(flipped, "the empty-hand start node did not flip the lever (" + blockState(ctx, 10, F, 12) + ")");
+        check(logHas(m, "USE_ITEM acted 0 tick(s) after firing") && logHas(m, "empty hand: clicked"),
+                "the empty-hand use did not act on its firing tick");
+        check(countOut(s, "use_item") == 0, "an empty-hand use sent " + countOut(s, "use_item") + " use_item packet(s)");
+        check(countOut(s, "use_item_on") >= 1, "an empty-hand use sent no use_item_on");
+        int sel = ctx.computeOnClient(mc -> mc.player.getInventory().getSelectedSlot());
+        check(sel == 3, "the empty-hand use clicked from slot " + (sel + 1) + ", not the empty slot 4");
+        println("lever flipped by the empty-hand node; slot " + (sel + 1));
+
+        // ---- a secret chest, no await ----
+        setBlocks(ctx, Map.of(new int[]{16, F, 12}, Blocks.CHEST.defaultBlockState()));
+        float cp = standPitch(16, 10, 16, 12, 0.44);
+        writeRoute(ctx, List.of(handUse(16, 10, 0f, cp, true, 0)));
+        int before = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound"));
+        check(arm(ctx, 16, 10, 0f, cp), "the chest node's route did not start");
+        boolean counted = waitFor(ctx, 40, () -> ctx.computeOnClient(mc ->
+                (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound")) > before);
+        check(counted, "the empty-hand node's chest click was not counted as a secret by the sim");
+        ctx.runOnClient(mc -> mc.player.closeContainer());
+        ctx.waitTicks(5);
+
+        // ---- nothing in reach ----
+        writeRoute(ctx, List.of(handUse(10, 20, 0f, -80f, true, 0)));
+        long m3 = LogTap.mark();
+        check(arm(ctx, 10, 20, 0f, -80f), "the no-target node's route did not start");
+        check(waitFor(ctx, 20, () -> logHas(m3, "nothing to click")), "a use node with no block in sight did not stop "
+                + "with \"nothing to click\"");
+
+        // ---- recording an empty-hand lever click ----
+        resetRoutes(ctx);
+        setBlocks(ctx, Map.of(new int[]{10, F, 12}, floorLever()));
+        tpRel(ctx, 10.5, 10.5, 0f, lp);
+        ctx.waitTicks(5);
+        cmd(ctx, "/ar start record");
+        ctx.waitTicks(5);
+        ctx.runOnClient(mc -> {
+            mc.player.setYRot(lookYaw);
+            mc.player.setXRot(lookPitch);
+            mc.player.getInventory().setSelectedSlot(3);
+        });
+        ctx.waitTicks(2);
+        ctx.getInput().holdKey(options -> options.keyUse);
+        ctx.waitTicks(2);
+        ctx.getInput().releaseKey(options -> options.keyUse);
+        ctx.waitTicks(5);
+        boolean recFlip = leverOn(ctx, 10, F, 12);
+        cmd(ctx, "/ar stop record");
+        ctx.waitTicks(5);
+        JsonArray nodes = fileNodes(ctx);
+        JsonObject use = null;
+        for (JsonElement e : nodes) {
+            if ("USE_ITEM".equals(e.getAsJsonObject().get("type").getAsString())) {
+                use = e.getAsJsonObject();
+            }
+        }
+        check(recFlip, "the recorded right click did not flip the lever (" + blockState(ctx, 10, F, 12) + ")");
+        check(use != null, "recording an empty-hand lever click made no use node: " + nodes);
+        check(!use.has("item") || use.get("item").getAsString().isEmpty(), "the recorded use node has an item: " + use);
+        println("recorded: " + use);
+    }
+
+    /** One await sub-run: arm the start node at (12,12), fire {@code event}, and say whether its await:1 was met. */
+    private static String awaitRun(ClientGameTestContext ctx, String label, boolean expect, Runnable event) {
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+        if (!arm(ctx, 12, 12, 0f, 80f)) {
+            return label + ": the route did not start";
+        }
+        long m = LogTap.mark();
+        ctx.waitTicks(10);
+        event.run();
+        boolean met = waitFor(ctx, 60, () -> logHas(m, "secrets met"));
+        ctx.runOnClient(mc -> mc.player.closeContainer());
+        println("await " + label + ": met=" + met + " (expected " + expect + ")");
+        stopRoute(ctx);
+        return met == expect ? null : label + (expect ? " did not satisfy" : " satisfied") + " await:1";
+    }
+
+    /**
+     * Await events: the sim's bar rising with no click, a lever toggled by the server ("a teammate"), and a button
+     * click do NOT satisfy await:1; our lever / chest / skull click, our own item pickup and a secret bat appearing
+     * 5 blocks away each do; a bat 10 blocks away, or one already there, does not.
+     */
+    private void caseAwait(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        BlockState button = Blocks.STONE_BUTTON.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.ButtonBlock.FACE,
+                        net.minecraft.world.level.block.state.properties.AttachFace.FLOOR);
+        setBlocks(ctx, Map.of(new int[]{14, F, 13}, floorLever(), new int[]{10, F, 13}, floorLever(),
+                new int[]{14, F, 11}, button, new int[]{10, F, 11}, Blocks.CHEST.defaultBlockState(),
+                new int[]{11, F, 14}, Blocks.PLAYER_HEAD.defaultBlockState()));
+        // The node's own action: an empty-hand click straight down at the floor - harmless.
+        writeRoute(ctx, List.of(handUse(12, 12, 0f, 80f, true, 1)));
+        BlockPos lever2 = realNow(ctx, 10, F, 13);
+        List<String> wrong = new ArrayList<>();
+        java.util.function.Consumer<String> note = r -> {
+            if (r != null) {
+                wrong.add(r);
+            }
+        };
+        note.accept(awaitRun(ctx, "sim bar rise with no click", false, () -> ctx.runOnClient(mc ->
+                ModUnderTest.staticCall(SIM_SCORE, "secretFound", new Class<?>[]{BlockPos.class},
+                        new Object[]{mc.player.blockPosition()}))));
+        note.accept(awaitRun(ctx, "a lever toggled by the server (a teammate)", false, () -> serverRun(ctx,
+                (server, sp) -> server.overworld().setBlockAndUpdate(lever2, server.overworld().getBlockState(lever2)
+                        .cycle(net.minecraft.world.level.block.LeverBlock.POWERED)))));
+        note.accept(awaitRun(ctx, "our button click", false, () -> rightClick(ctx, 14, F, 11, Direction.UP)));
+        note.accept(awaitRun(ctx, "our lever click", true, () -> rightClick(ctx, 14, F, 13, Direction.UP)));
+        note.accept(awaitRun(ctx, "our chest click", true, () -> rightClick(ctx, 10, F, 11, Direction.UP)));
+        note.accept(awaitRun(ctx, "our skull click", true, () -> rightClick(ctx, 11, F, 14, Direction.UP)));
+        note.accept(awaitRun(ctx, "our own item pickup", true, () -> serverRun(ctx, (server, sp) -> {
+            var item = new net.minecraft.world.entity.item.ItemEntity(server.overworld(), sp.getX(), sp.getY() + 0.2,
+                    sp.getZ(), new ItemStack(net.minecraft.world.item.Items.BONE));
+            item.setNoPickUpDelay();
+            server.overworld().addFreshEntity(item);
+        })));
+        note.accept(awaitRun(ctx, "a secret bat 5 blocks away", true, () -> spawnBatAt(ctx, 12, F - 1, 17)));
+        note.accept(awaitRun(ctx, "a secret bat 10 blocks away", false, () -> spawnBatAt(ctx, 12, F - 1, 22)));
+        spawnBatAt(ctx, 15, F - 1, 12);
+        ctx.waitTicks(30);
+        note.accept(awaitRun(ctx, "a bat already there", false, () -> { }));
+        check(wrong.isEmpty(), String.join("; ", wrong));
+    }
+
+    /** Places a trapped chest at relative (x,F,z) and makes it the sim's mimic (not yet opened). */
+    private static void makeMimic(ClientGameTestContext ctx, int x, int z) {
+        setBlocks(ctx, Map.of(new int[]{x, F, z}, Blocks.TRAPPED_CHEST.defaultBlockState()));
+        BlockPos p = realNow(ctx, x, F, z);
+        try {
+            Class<?> c = Class.forName(SIM_MIMIC);
+            var f = c.getDeclaredField("mimic");
+            f.setAccessible(true);
+            f.set(null, p);
+            var found = c.getDeclaredField("found");
+            found.setAccessible(true);
+            found.set(null, false);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static boolean mimicAlive(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> ModUnderTest.staticCall(SIM_MIMIC, "mimicMob")) != null;
+    }
+
+    private static void killMimicOnServer(ClientGameTestContext ctx) {
+        Object id = ctx.computeOnClient(mc -> ModUnderTest.staticCall(SIM_MIMIC, "mimicMob"));
+        if (id == null) {
+            return;
+        }
+        serverRun(ctx, (server, sp) -> {
+            var e = server.overworld().getEntity((java.util.UUID) id);
+            if (e instanceof net.minecraft.world.entity.LivingEntity le) {
+                le.hurtServer(server.overworld(), server.overworld().damageSources().playerAttack(sp), 1000f);
+            }
+        });
+    }
+
+    /**
+     * Kill Mimic: Hyperion = exactly one use straight down, the mimic dies; Spirit Sceptre = uses until it dies; Off with
+     * an await:1 route = nothing used, the await waits until the mimic is killed (by the test) and then is met; Hyperion
+     * with an await:1 route = the kill satisfies it; no wither blade = a chat line and nothing else.
+     */
+    private void caseMimic(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        giveSlot(ctx, 4, "HYPERION");
+        giveSlot(ctx, 5, "BAT_WAND");
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+        try {
+            // ---- Hyperion, by hand ----
+            setArEnum(ctx, "setKillMimic", "KillMimic", "HYPERION");
+            makeMimic(ctx, 14, 14);
+            tpRel(ctx, 14.5, 12.5, 0f, 30f);
+            ctx.waitTicks(5);
+            long m = LogTap.mark();
+            startSampling(ctx);
+            rightClick(ctx, 14, F, 14, Direction.NORTH);
+            boolean killed = waitFor(ctx, 60, () -> logHas(m, "Mimic of the trapped chest"));
+            ctx.waitTicks(5);
+            List<Sample> s = stopSampling(ctx);
+            check(logHas(m, "watching for its mimic"), "the trapped-chest click was not seen");
+            check(killed, "Kill Mimic (Hyperion) did not kill the mimic (alive " + mimicAlive(ctx) + ")");
+            check(countOut(s, "use_item") == 1, "Kill Mimic (Hyperion) sent " + countOut(s, "use_item")
+                    + " use_item packet(s), expected exactly 1");
+            check(logHas(m, "Hyperion used straight down (use 1)"), "no straight-down Hyperion use logged");
+            int sel = ctx.computeOnClient(mc -> mc.player.getInventory().getSelectedSlot());
+            check(sel == 3, "Kill Mimic did not put slot 4 back (holding slot " + (sel + 1) + ")");
+            println("hyperion: killed, 1 use");
+
+            // ---- Spirit Sceptre, by hand ----
+            setArEnum(ctx, "setKillMimic", "KillMimic", "SPIRIT_SCEPTRE");
+            makeMimic(ctx, 14, 18);
+            tpRel(ctx, 14.5, 16.5, 0f, 30f);
+            ctx.waitTicks(5);
+            long m2 = LogTap.mark();
+            startSampling(ctx);
+            rightClick(ctx, 14, F, 18, Direction.NORTH);
+            boolean killed2 = waitFor(ctx, 120, () -> logHas(m2, "Mimic of the trapped chest"));
+            ctx.waitTicks(5);
+            s = stopSampling(ctx);
+            check(killed2, "Kill Mimic (Spirit Sceptre) did not kill the mimic");
+            check(countOut(s, "use_item") >= 1, "Kill Mimic (Spirit Sceptre) used nothing");
+            println("sceptre: killed after " + countOut(s, "use_item") + " use(s)");
+
+            // ---- Off, with an await:1 route: the click is not the secret, the kill is ----
+            setArEnum(ctx, "setKillMimic", "KillMimic", "OFF");
+            makeMimic(ctx, 14, 22);
+            writeRoute(ctx, List.of(handUse(13, 20, 0f, 80f, true, 1)));
+            check(arm(ctx, 13, 20, 0f, 80f), "the await route did not start (Off)");
+            long m3 = LogTap.mark();
+            startSampling(ctx);
+            rightClick(ctx, 14, F, 22, Direction.NORTH);
+            ctx.waitTicks(40);
+            s = stopSampling(ctx);
+            check(!logHas(m3, "secrets met"), "the trapped-chest click itself satisfied the await");
+            check(countOut(s, "use_item") == 0, "Kill Mimic Off still used an item");
+            check(mimicAlive(ctx), "the mimic died with Kill Mimic off");
+            killMimicOnServer(ctx);
+            check(waitFor(ctx, 40, () -> logHas(m3, "secrets met")), "the mimic's death did not satisfy the await");
+            check(logHas(m3, "mimic killed (your trapped chest"), "the await was met by something other than the mimic");
+            ctx.waitTicks(10);
+            stopRoute(ctx);
+
+            // ---- Hyperion with an await:1 route ----
+            setArEnum(ctx, "setKillMimic", "KillMimic", "HYPERION");
+            makeMimic(ctx, 20, 22);
+            writeRoute(ctx, List.of(handUse(19, 20, 0f, 80f, true, 1)));
+            check(arm(ctx, 19, 20, 0f, 80f), "the await route did not start (Hyperion)");
+            long m4 = LogTap.mark();
+            rightClick(ctx, 20, F, 22, Direction.NORTH);
+            check(waitFor(ctx, 60, () -> logHas(m4, "secrets met")), "Kill Mimic's kill did not satisfy the await");
+            check(logHas(m4, "Hyperion used straight down"), "Kill Mimic did not act inside the route");
+            ctx.waitTicks(10);
+            stopRoute(ctx);
+
+            // ---- no wither blade ----
+            giveSlot(ctx, 4, null);
+            makeMimic(ctx, 20, 16);
+            tpRel(ctx, 20.5, 14.5, 0f, 30f);
+            ctx.waitTicks(5);
+            long m5 = LogTap.mark();
+            rightClick(ctx, 20, F, 16, Direction.NORTH);
+            ctx.waitTicks(10);
+            check(logHas(m5, "no wither blade in the hotbar"), "no chat line for a missing wither blade");
+            check(!logHas(m5, "used straight down"), "something was used with no wither blade");
+            waitFor(ctx, 20, () -> mimicAlive(ctx));
+            killMimicOnServer(ctx);
+            ctx.waitTicks(30);
+        } finally {
+            setArEnum(ctx, "setKillMimic", "KillMimic", "OFF");
+        }
+    }
+
+    /** A 2x2 smooth-stone-slab crypt lid on the floor at relative (x..x+1, F, z..z+1). */
+    private static void slabCrypt(ClientGameTestContext ctx, int x, int z) {
+        BlockState slab = Blocks.SMOOTH_STONE_SLAB.defaultBlockState();
+        setBlocks(ctx, Map.of(new int[]{x, F, z}, slab, new int[]{x + 1, F, z}, slab, new int[]{x, F, z + 1}, slab,
+                new int[]{x + 1, F, z + 1}, slab));
+    }
+
+    private static JsonObject cryptNode(int x, int z, float yaw, float pitch, boolean start, int await) {
+        JsonObject o = node("CRYPT", x, z, yaw, pitch);
+        if (start) {
+            o.addProperty("start", true);
+        }
+        if (await > 0) {
+            o.addProperty("awaitEnabled", true);
+            o.addProperty("await", "SECRET");
+            o.addProperty("amount", await);
+        }
+        return o;
+    }
+
+    private static int cryptsBlown(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "cryptsBlown"));
+    }
+
+    /**
+     * Crypt nodes: boom + crypt on one tile blows a slab crypt and kills its undead with each weapon; a crypt await is
+     * not met by a secret; a secret await is not met by our crypt kill; boom + crypt await:1 + ew await:1 on one tile
+     * runs boom, crypt kill, waits for a secret click, then warps.
+     */
+    private void caseCrypt(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        giveSlot(ctx, 4, "HYPERION");
+        giveSlot(ctx, 5, "BAT_WAND");
+        try {
+            String[] weapons = {"HYPERION", "SPIRIT_SCEPTRE"};
+            int[] xs = {19, 6};
+            for (int i = 0; i < 2; i++) {
+                int x = xs[i];
+                String weapon = weapons[i];
+                setArEnum(ctx, "setCryptWeapon", "CryptWeapon", weapon);
+                slabCrypt(ctx, x, 18);
+                float p = standPitch(x, 16, x, 18, 0.25);
+                JsonObject boom = node("BOOM", x, 16, 0f, p);
+                boom.addProperty("start", true);
+                writeRoute(ctx, List.of(boom, cryptNode(x, 16, 0f, p, false, 0)));
+                int c0 = cryptsBlown(ctx);
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                tpRel(ctx, x + 0.5, 14.5, 0f, p);
+                ctx.waitTicks(10);
+                long m = LogTap.mark();
+                tpRel(ctx, x + 0.5, 16.5, 0f, p);
+                boolean done = waitFor(ctx, 160, () -> logHas(m, "CRYPT: 1 kill(s)"));
+                int iBoom = logIndex(m, "BOOM acted");
+                int iCrypt = logIndex(m, "CRYPT acted");
+                println(weapon + ": boom@" + iBoom + " crypt@" + iCrypt + " done=" + done + " crypts " + c0 + " -> "
+                        + cryptsBlown(ctx));
+                check(iBoom >= 0 && iCrypt > iBoom, weapon + ": the crypt node did not fire right after the boom ("
+                        + iBoom + ", " + iCrypt + ")");
+                check(done, weapon + ": the crypt node never counted a kill (crypts " + c0 + " -> " + cryptsBlown(ctx) + ")");
+                check(cryptsBlown(ctx) == c0 + 1, weapon + ": the sim counted " + (cryptsBlown(ctx) - c0) + " crypt(s)");
+                waitFor(ctx, 40, () -> !running(ctx));
+                stopRoute(ctx);
+            }
+
+            // ---- a crypt await is not met by a secret ----
+            setArEnum(ctx, "setCryptWeapon", "CryptWeapon", "SPIRIT_SCEPTRE");
+            setBlocks(ctx, Map.of(new int[]{12, F, 8}, floorLever()));
+            writeRoute(ctx, List.of(cryptNode(10, 6, 0f, 60f, true, 1)));
+            check(arm(ctx, 10, 6, 0f, 60f), "the lone crypt node did not start");
+            long mc1 = LogTap.mark();
+            ctx.waitTicks(5);
+            rightClick(ctx, 12, F, 8, Direction.UP);
+            boolean stopped = waitFor(ctx, 140, () -> logHas(mc1, "killed no crypt or prince"));
+            check(!logHas(mc1, "CRYPT: 1 kill"), "a secret (lever click) satisfied a crypt node");
+            check(stopped, "the crypt node with nothing to kill did not time out");
+
+            // ---- a secret await is not met by our crypt kill ----
+            writeRoute(ctx, List.of(handUse(10, 22, 0f, 80f, true, 1)));
+            check(arm(ctx, 10, 22, 0f, 80f), "the secret-await route did not start");
+            long mc2 = LogTap.mark();
+            BlockPos undead = realNow(ctx, 11, F, 23);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOBS, "spawnCrypt",
+                    new Class<?>[]{Minecraft.class, BlockPos.class, boolean.class}, new Object[]{mc, undead, false}));
+            ctx.waitTicks(20);
+            String seen = ctx.computeOnClient(mc -> {
+                for (var e : mc.level.entitiesForRendering()) {
+                    if (e instanceof net.minecraft.world.entity.monster.zombie.Zombie z && !z.isDeadOrDying()
+                            && z.distanceTo(mc.player) < 3) {
+                        return "undead " + z.getId() + " at " + z.blockPosition().toShortString();
+                    }
+                }
+                return null;
+            });
+            check(seen != null, "the client never saw the crypt undead");
+            // Our own Wither Impact, straight down (a melee hit in the sim is the mage's beam, not a punch).
+            ctx.runOnClient(mc -> {
+                mc.player.getInventory().setSelectedSlot(4);
+                mc.player.setXRot(90f);
+            });
+            ctx.waitTicks(2);
+            ctx.runOnClient(mc -> mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND));
+            println("secret await vs crypt kill: " + seen);
+            boolean cryptSeen = waitFor(ctx, 60, () -> logHas(mc2, "await crypt 1"));
+            check(cryptSeen, "our crypt kill was not counted at all (crypts " + cryptsBlown(ctx) + ")");
+            check(!logHas(mc2, "secrets met"), "our crypt kill satisfied a SECRET await");
+            stopRoute(ctx);
+
+            // ---- boom + crypt await:1 + ew await:1 on one tile ----
+            slabCrypt(ctx, 19, 12);
+            setBlocks(ctx, Map.of(new int[]{21, F, 10}, floorLever()));
+            float p = standPitch(19, 10, 19, 12, 0.25);
+            JsonObject boom = node("BOOM", 19, 10, 0f, p);
+            boom.addProperty("start", true);
+            JsonObject ew = ew(19, 10, 19, 4, false);
+            ew.addProperty("awaitEnabled", true);
+            ew.addProperty("await", "SECRET");
+            ew.addProperty("amount", 1);
+            writeRoute(ctx, List.of(boom, cryptNode(19, 10, 0f, p, false, 1), ew));
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            tpRel(ctx, 19.5, 8.5, 0f, p);
+            ctx.waitTicks(10);
+            long mc3 = LogTap.mark();
+            tpRel(ctx, 19.5, 10.5, 0f, p);
+            boolean cryptDone = waitFor(ctx, 160, () -> logHas(mc3, "CRYPT: 1 kill(s)"));
+            check(cryptDone, "combined: the crypt node never killed its crypt");
+            ctx.waitTicks(40);
+            check(!logHas(mc3, "ETHERWARP acted"), "combined: the etherwarp went before its secret");
+            check(relPos(ctx).distanceTo(new Vec3(19.5, F, 10.5)) < 1.5, "combined: he left the tile before the secret ("
+                    + relPos(ctx) + ")");
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            rightClick(ctx, 21, F, 10, Direction.UP);
+            Vec3 l = waitLanded(ctx, 19, 4, 80);
+            int iB = logIndex(mc3, "BOOM acted");
+            int iC = logIndex(mc3, "CRYPT: 1 kill");
+            int iS = logIndex(mc3, "await secret 1");
+            int iE = logIndex(mc3, "ETHERWARP acted");
+            println("combined order: boom " + iB + ", crypt kill " + iC + ", secret " + iS + ", ew " + iE);
+            check(l != null, "combined: the etherwarp did not land after the secret (at " + relPos(ctx) + ")");
+            check(iB >= 0 && iC > iB && iS > iC && iE > iS, "combined: wrong order boom " + iB + ", crypt " + iC
+                    + ", secret " + iS + ", ew " + iE);
+        } finally {
+            setArEnum(ctx, "setCryptWeapon", "CryptWeapon", "HYPERION");
+        }
+    }
+
     private static String pickRoom(ClientGameTestContext ctx) {
         Map<String, JsonObject> db = new HashMap<>();
         try {
