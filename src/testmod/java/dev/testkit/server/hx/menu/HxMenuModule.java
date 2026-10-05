@@ -82,6 +82,7 @@ public final class HxMenuModule implements HxModule {
         HxBridge.register("menu.status", (s, a) -> new JsonPrimitive("wp3"));
         HxBridge.register("menu.terminal", HxTerminals::open);
         HxBridge.register("menu.terminal.state", HxTerminals::state);
+        HxBridge.register("menu.terminal.melody", HxTerminals::melody);
         HxBridge.register("menu.experiment", HxExperiments::open);
         HxBridge.register("menu.experiment.state", HxExperiments::state);
         HxBridge.register("menu.show", HxMenuSpec::show);

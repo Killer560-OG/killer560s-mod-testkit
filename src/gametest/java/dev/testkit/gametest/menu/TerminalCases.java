@@ -52,6 +52,7 @@ final class TerminalCases {
             MenuSuite.test(s, name, c -> autoCase(c, spec, false));
         }
         MenuSuite.test(s, "217-menu-term-auto-zero-delay", c -> autoCase(c, SPECS.get(2), true));
+        MenuSuite.test(s, "218-menu-term-melody-jump", TerminalCases::melodyJump);
     }
 
     @SuppressWarnings("unchecked")
@@ -136,6 +137,157 @@ final class TerminalCases {
         } finally {
             MenuKit.reset(c);
         }
+    }
+
+    // ---- 218 Melody moving square across jumps ------------------------------------------------------------------
+
+    /** A colour nothing else in the Melody panel uses, swapped in for the moving piece so a screenshot can find it. */
+    static final int PROBE_ARGB = 0xFF00FFFF;
+    /** TerminalSolverFeature's private CELL_SIZE / SLOT_SIZE (Custom GUI cell pitch and filled square). */
+    static final int CELL = 18;
+    static final int SQUARE = 16;
+    static final int MELODY_STEPS = 16;
+
+    /**
+     * killer560, 2026-10-05: with NoammAddons' auto terms skipping several Melody rows at once, the Terminal Solver's
+     * Custom GUI "no longer draws the moving square". Drives the Melody board through the Hx bridge the way a fast
+     * auto terminal makes it arrive - a one-row advance, a two-row jump as many slot updates in one tick, a two-row
+     * jump as one ContainerSetContent, a full resend, and a reopen under a new container id - and after each one
+     * requires the moving square to be DRAWN on the lime marker's slot: read off a screenshot (the moving colour is
+     * swapped for cyan and the cell is located through the solver's own layout), plus the solver's own record of the
+     * slot it drew when the jar has one. Run twice: once with every row redrawn (TermismPracticeScreen / Odin's
+     * MelodySim), once with finished rows keeping their lime pane and lime terracotta (the board Odin's MelodyHandler
+     * reads with indexOfLast). Every step is reported before the verdict, so a failing jar shows which steps lost it.
+     */
+    static void melodyJump(Session c) throws Exception {
+        MenuKit.reset(c);
+        Object cfgObj = c.onClient(mc -> Mod.cfg(CONFIG));
+        Object movingKey = Mod.enumValue("terminals.TerminalSolverConfig$OverlayColor", "MELODY_MOVING");
+        int oldColour = c.onClient(mc -> (Integer) Mod.call(cfgObj, "getOverlayColor", movingKey));
+        List<String> failures = new ArrayList<>();
+        int steps = 0;
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutoTerminalsEnabled", false)
+                    .set(CONFIG, "MelodyEnabled", true).set(CONFIG, "CustomGuiEnabled", true);
+            c.onClient(mc -> Mod.call(cfgObj, "setOverlayColor", movingKey, PROBE_ARGB));
+            for (boolean keepDone : new boolean[]{false, true}) {
+                String layout = keepDone ? "keepDone" : "redraw";
+                // Phase A: slot updates. Open, move the marker, advance one row, then jump two rows in one tick.
+                JsonObject t = c.hx().call("menu.terminal", "type", "MELODY", "seed", 18, "target", 3, "freeze", true,
+                        "keepDone", keepDone).getAsJsonObject();
+                MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
+                c.waitUntil("TerminalSolverFeature.currentType == MELODY", mc -> "MELODY".equals(currentType()), 100);
+                steps += melodyStep(c, layout + " open row1", 10, failures);
+                steps += melodyStep(c, layout + " marker move", melody(c, 1, 3, "slots"), failures);
+                steps += melodyStep(c, layout + " +1 row (slots)", melody(c, 2, 1, "slots"), failures);
+                steps += melodyStep(c, layout + " +2 rows (slots, one tick)", melody(c, 4, 2, "slots"), failures);
+                MenuKit.reset(c);
+                // Phase B: whole-window sends. Fresh terminal, jump two rows as one ContainerSetContent, resend, reopen.
+                t = c.hx().call("menu.terminal", "type", "MELODY", "seed", 19, "target", 1, "freeze", true,
+                        "keepDone", keepDone).getAsJsonObject();
+                MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
+                c.waitUntil("TerminalSolverFeature.currentType == MELODY", mc -> "MELODY".equals(currentType()), 100);
+                steps += melodyStep(c, layout + " open row1 (B)", 10, failures);
+                steps += melodyStep(c, layout + " +2 rows (content)", melody(c, 3, 4, "content"), failures);
+                steps += melodyStep(c, layout + " full resend", melody(c, 3, 5, "resend"), failures);
+                int idBefore = c.onClient(MenuKit::containerId);
+                int expect = melody(c, 4, 3, "reopen");
+                c.waitUntil("the reopened Melody's new container id", mc -> MenuKit.containerId(mc) != idBefore
+                        && MenuKit.containerId(mc) >= 0, 100);
+                steps += melodyStep(c, layout + " reopen new id (+1 row)", expect, failures);
+                MenuKit.reset(c);
+            }
+        } finally {
+            c.onClient(mc -> Mod.call(cfgObj, "setOverlayColor", movingKey, oldColour));
+            MenuKit.reset(c);
+        }
+        c.check(steps == MELODY_STEPS, "only " + steps + " of " + MELODY_STEPS + " Melody steps were measured");
+        c.check(failures.isEmpty(), failures.size() + " of " + MELODY_STEPS + " Melody steps lost the moving square: "
+                + failures);
+        c.note("the moving square was drawn on the lime marker after all " + MELODY_STEPS + " steps (one-row advance,"
+                + " two-row jumps as slot updates and as one ContainerSetContent, full resend, reopen under a new id;"
+                + " both layouts)");
+    }
+
+    /** menu.terminal.melody; returns the slot the lime marker is now in. */
+    static int melody(Session c, int row, int lime, String via) {
+        return c.hx().call("menu.terminal.melody", "row", row, "lime", lime, "via", via).getAsJsonObject()
+                .get("movingSlot").getAsInt();
+    }
+
+    /** Waits for the client to hold the lime marker on {@code slot}, then checks the square is drawn there. */
+    static int melodyStep(Session c, String step, int slot, List<String> failures) {
+        c.waitUntil(step + ": the client's slot " + slot + " to hold the lime marker",
+                mc -> mc.player != null && slot < mc.player.containerMenu.slots.size()
+                        && net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(
+                        mc.player.containerMenu.slots.get(slot).getItem().getItem()).getPath()
+                        .equals("lime_stained_glass_pane"), 100);
+        c.ctx().waitTicks(3);
+        // The solver's own record of what it drew, when the jar has one (the fix adds it).
+        String probe;
+        Integer drawn = null;
+        try {
+            drawn = c.onClient(mc -> (Integer) Mod.field(FEATURE, "melodyDrawnMovingSlot"));
+            probe = "solver drew moving slot " + drawn;
+        } catch (AssertionError e) {
+            probe = "jar has no melodyDrawnMovingSlot";
+        }
+        // Where the solver's own layout puts that slot's cell, in screenshot pixels.
+        int[] box = c.onClient(mc -> {
+            Object screen = dev.testkit.compat.McCompat.screen(mc);
+            Object layout = Mod.staticCall(FEATURE, "computeCustomGuiLayout", screen);
+            if (layout == null) {
+                return null;
+            }
+            double gui = mc.getWindow().getGuiScale();
+            float scale = (Float) Mod.field(layout, "scale");
+            double x0 = (Integer) Mod.field(layout, "originX")
+                    + ((slot % 9) - (Integer) Mod.field(layout, "minCol")) * CELL * scale;
+            double y0 = (Integer) Mod.field(layout, "originY")
+                    + ((slot / 9) - (Integer) Mod.field(layout, "minRow")) * CELL * scale;
+            return new int[]{(int) Math.round(x0 * gui), (int) Math.round(y0 * gui),
+                    (int) Math.round(SQUARE * scale * gui)};
+        });
+        String name = c.name() + "-" + step.replaceAll("[^A-Za-z0-9]+", "-");
+        java.nio.file.Path shot = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(name));
+        dev.testkit.harness.Report.screenshot(name, shot);
+        int inCell = 0;
+        int cellArea = 0;
+        int total = 0;
+        try {
+            java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(shot.toFile());
+            for (int y = 0; y < img.getHeight(); y++) {
+                for (int x = 0; x < img.getWidth(); x++) {
+                    int rgb = img.getRGB(x, y);
+                    int r = (rgb >> 16) & 0xFF, g = (rgb >> 8) & 0xFF, b = rgb & 0xFF;
+                    boolean cyan = r <= 24 && g >= 230 && b >= 230;
+                    boolean inside = box != null && x >= box[0] + 1 && x < box[0] + box[2] - 1
+                            && y >= box[1] + 1 && y < box[1] + box[2] - 1;
+                    if (inside) {
+                        cellArea++;
+                    }
+                    if (cyan) {
+                        total++;
+                        if (inside) {
+                            inCell++;
+                        }
+                    }
+                }
+            }
+        } catch (java.io.IOException e) {
+            failures.add(step + ": could not read " + shot + ": " + e);
+            return 1;
+        }
+        boolean pixelsOk = box != null && cellArea > 0 && inCell * 10 >= cellArea * 8 && total <= cellArea * 2;
+        boolean probeOk = drawn == null || drawn == slot;
+        String line = step + ": slot " + slot + ", " + inCell + "/" + cellArea + " cyan px in its cell, " + total
+                + " cyan px on screen; " + probe;
+        System.out.println("[menu] 218 " + (pixelsOk && probeOk ? "OK   " : "LOST ") + line);
+        c.note(line);
+        if (!pixelsOk || !probeOk) {
+            failures.add(line);
+        }
+        return 1;
     }
 
     /** Auto Terminals: solves it alone on the cheat jar (clicks/tick + Grim verdict); clicks nothing on legit. */
