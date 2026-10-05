@@ -11,13 +11,48 @@
 # command line contains this testkit's own path, so a game he is actually playing is never a candidate - the
 # same identification the window placer already uses, and for the same reason.
 
+#
+# Parameters beyond the scenario filter (all optional):
+#   -Suite <name>        a named filter from suites.properties instead of -Scenario
+#   -Port <n>            this checkout's server port (Hx bridge on n+5); sticks for later runs of this checkout
+#   -Window <x,y,w,h>    where to put the client window, or "off"
+#   -Extra <args>        anything else for gradle, e.g. -Extra "-Pnogrim","-PseedConfig=C:/x"
+#   -ModUnderTest <jar>  default: the newest snapshot in C:/Users/Hunter/killer560s-mod-testkit-jars/*/ (cheat,
+#                        26.1.2), falling back to the mod's own build/libs. Pass it explicitly when it matters.
+
 param(
     [string]$Scenario = "",
-    [string]$ModUnderTest = "C:/Users/Hunter/killer560s-mod/build/libs/killer560smod-1.1.0-26.1.2-cheat.jar",
+    [string]$Suite = "",
+    [int]$Port = 0,
+    [string]$Window = "",
+    [string[]]$Extra = @(),
+    [string]$ModUnderTest = "",
     [int]$TimeoutSeconds = 240
 )
 
 $here = $PSScriptRoot
+
+if ($ModUnderTest -eq "") {
+    # The old default named a jar in the mod's build/libs, which the mod's own builds overwrite mid-run and which
+    # does not exist at all while the mod is being rebuilt. Snapshots under killer560s-mod-testkit-jars do not move.
+    $snap = Get-ChildItem -Path "C:/Users/Hunter/killer560s-mod-testkit-jars" -Directory -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending |
+        ForEach-Object { Get-ChildItem -Path $_.FullName -Filter "killer560smod-*-26.1.2-cheat.jar" -ErrorAction SilentlyContinue } |
+        Select-Object -First 1
+    if ($snap) {
+        $ModUnderTest = $snap.FullName.Replace('\', '/')
+    } else {
+        $ModUnderTest = "C:/Users/Hunter/killer560s-mod/build/libs/killer560smod-1.1.0-26.1.2-cheat.jar"
+    }
+}
+if (-not (Test-Path $ModUnderTest)) {
+    Write-Host "Mod under test not found: $ModUnderTest"
+    exit 4
+}
+if ($Scenario -ne "" -and $Suite -ne "") {
+    Write-Host "Give -Scenario or -Suite, not both"
+    exit 4
+}
 # With a TRAILING SLASH. Without it C:/Users/Hunter/killer560s-mod-testkit is a prefix of the sibling checkouts
 # (-pzA, -pzB, -wt/1, ...), so this script's freeze watcher and deadline cleanup also matched - and killed - other
 # checkouts' clients mid-run. Found 2026-10-04 with three checkouts running at once.
@@ -51,12 +86,20 @@ foreach ($p in $stale) {
 # Not $args - that is an automatic variable in PowerShell and assigning to it is a parse-time surprise.
 $gradleArgs = @("runClientGameTest", "-PmodUnderTest=$ModUnderTest", "--console=plain")
 if ($Scenario -ne "") { $gradleArgs += "-Pscenario=$Scenario" }
+if ($Suite -ne "") { $gradleArgs += "-Psuite=$Suite" }
+if ($Port -gt 0) { $gradleArgs += "-Pport=$Port" }
+if ($Window -ne "") { $gradleArgs += "-PtestWindow=$Window" }
+$gradleArgs += $Extra
 
 # No ternary: this is Windows PowerShell 5.1, where ?: is a parser error.
 $what = $Scenario
+if ($Suite -ne "") { $what = "suite $Suite" }
 if ($what -eq "") { $what = "all scenarios" }
-Write-Host "Running $what with a $TimeoutSeconds s deadline"
+Write-Host "Running $what with a $TimeoutSeconds s deadline in $here (mod: $ModUnderTest)"
 $proc = Start-Process -FilePath "$here\gradlew.bat" -ArgumentList $gradleArgs -WorkingDirectory $here -PassThru -NoNewWindow
+# Touch the handle now: without it PowerShell 5.1 reports ExitCode as empty once the process has gone, and a caller
+# (run-suite, parallel-suite) cannot tell a failed run from a passed one.
+$null = $proc.Handle
 
 # Watch it WHILE it runs, not only at the deadline.
 #

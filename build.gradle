@@ -49,11 +49,37 @@ tasks.register("testmodJar", Jar) {
 	destinationDirectory = layout.buildDirectory.dir("testmod")
 }
 
+// --- port, and the Hx bridge port beside it -----------------------------------------------------------
+//
+// -Pport=N gives this checkout's server port N. It is written into run/testserver/server.properties (which the
+// server, TestServer and grimServer all read), so it sticks for later runs of the same checkout until another
+// -Pport changes it. The Hx RPC bridge in the companion mod listens on loopback port N+5 (testkit.hx.port, passed to
+// BOTH the client and the server JVM). Concurrency still needs separate checkouts: Gradle locks the project dir.
+def testServerProps = file("${rootDir}/run/testserver/server.properties")
+def requestedPort = project.hasProperty("port") ? project.property("port").toString().trim().toInteger() : null
+def effectivePort = {
+	if (requestedPort != null) {
+		return requestedPort
+	}
+	if (testServerProps.exists()) {
+		def p = new Properties()
+		testServerProps.withInputStream { p.load(it) }
+		return (p.getProperty("server-port") ?: "25565").trim().toInteger()
+	}
+	return 25565
+}
+def serverPort = effectivePort()
+def hxPort = serverPort + 5
+
 // --- GrimAC ---------------------------------------------------------------------------------------
 //
-// Downloaded on demand into .gradle/grim/ rather than committed: it is a 14 MB third-party binary and
-// pinning it in the repo would be both large and stale. Change grim_version / grim_url to move it.
-def grimJar = file("${rootDir}/.gradle/grim/grimac-fabric-${project.grim_version}.jar")
+// Downloaded on demand rather than committed: it is a 14 MB third-party binary and pinning it in the repo would be
+// both large and stale. Change grim_version / grim_url to move it. Cached under the GRADLE USER HOME, not this
+// checkout's .gradle/, so the main checkout and every worktree share one download; an older per-checkout copy in
+// .gradle/grim/ is reused instead of downloading again. Written to a temp file and moved, so two checkouts
+// fetching at once never see half a jar.
+def grimJar = new File(gradle.gradleUserHomeDir, "caches/testkit-grim/grimac-fabric-${project.grim_version}.jar")
+def legacyGrimJar = file("${rootDir}/.gradle/grim/grimac-fabric-${project.grim_version}.jar")
 
 tasks.register("downloadGrim") {
 	description = "Fetch the GrimAC build the anticheat tests run against."
@@ -61,9 +87,20 @@ tasks.register("downloadGrim") {
 	doLast {
 		if (!grimJar.exists()) {
 			grimJar.parentFile.mkdirs()
-			logger.lifecycle("Downloading GrimAC ${project.grim_version}")
-			new URI(project.grim_url).toURL().withInputStream { input ->
-				grimJar.withOutputStream { out -> out << input }
+			def tmp = new File(grimJar.parentFile, grimJar.name + ".part-" + ProcessHandle.current().pid())
+			if (legacyGrimJar.exists()) {
+				logger.lifecycle("GrimAC ${project.grim_version}: reusing ${legacyGrimJar}")
+				tmp.bytes = legacyGrimJar.bytes
+			} else {
+				logger.lifecycle("Downloading GrimAC ${project.grim_version}")
+				new URI(project.grim_url).toURL().withInputStream { input ->
+					tmp.withOutputStream { out -> out << input }
+				}
+			}
+			if (!grimJar.exists()) {
+				java.nio.file.Files.move(tmp.toPath(), grimJar.toPath(), java.nio.file.StandardCopyOption.ATOMIC_MOVE)
+			} else {
+				tmp.delete()
 			}
 		}
 	}
@@ -141,6 +178,18 @@ tasks.register("prepareTestServer") {
 				"motd=Anticheat test server"
 			].join("\n") + "\n"
 		}
+		// -Pport: patched in place, so every other line the server has written stays as it is.
+		if (requestedPort != null) {
+			def text = props.text
+			def patched = text =~ /(?m)^server-port=.*$/ ? text.replaceAll(/(?m)^server-port=.*$/, "server-port=${requestedPort}")
+					: text + "server-port=${requestedPort}\n"
+			// query.port defaults to the server port; it only binds with enable-query=true, but keep the pair together.
+			patched = patched.replaceAll(/(?m)^query\.port=.*$/, "query.port=${requestedPort}")
+			if (patched != text) {
+				props.text = patched
+				logger.lifecycle("Test server port set to ${requestedPort} (Hx bridge ${requestedPort + 5})")
+			}
+		}
 
 		// Send verbose to the console. This is what lets a scenario read check output without the test
 		// player being an operator — and it must not be one, because Grim treats operators as EXEMPT and
@@ -166,6 +215,9 @@ loom {
 			server()
 			configName = "Anticheat Test Server"
 			runDir = "run/testserver"
+			// The Hx RPC bridge (dev.testkit.server.hx.HxBridge) listens on loopback here. Copied into the launch
+			// spec by writeTestServerLaunch, so a gametest-started server gets it too.
+			vmArg "-Dtestkit.hx.port=${hxPort}"
 		}
 	}
 }
@@ -195,7 +247,7 @@ tasks.register("grimServer") {
 	description = "Start the staged GrimAC server and leave it running so you can join it yourself."
 	dependsOn "prepareTestServer", "runTestServer"
 	doFirst {
-		logger.lifecycle("GrimAC test server starting - Direct Connect to localhost:25565 when it is ready.")
+		logger.lifecycle("GrimAC test server starting - Direct Connect to localhost:${serverPort} when it is ready.")
 	}
 }
 
@@ -232,6 +284,9 @@ tasks.register("writeTestServerLaunch") {
 	dependsOn "prepareTestServer"
 	def launchFile = layout.buildDirectory.file("testserver-launch.properties")
 	outputs.file(launchFile)
+	// Outputs and no inputs would let Gradle call this UP-TO-DATE and keep a launch spec with the previous run's
+	// Hx port in it. It is a few lines of text; always write it.
+	outputs.upToDateWhen { false }
 	doLast {
 		def run = tasks.named("runTestServer").get()
 		def props = new Properties()
@@ -363,6 +418,96 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	// Point a scenario that benches on a saved world at a different save:  -Pworld=<folder under run/saves>
 	if (project.hasProperty("world")) {
 		systemProperty "testkit.world", project.property("world")
+	}
+
+	// --- WP1 foundation -----------------------------------------------------------------------------------
+	//
+	// This checkout's root, so scripts and the harness can tell its client from a sibling checkout's.
+	systemProperty "testkit.checkout", rootDir.absolutePath.replace('\\', '/')
+	// The Hx RPC bridge port (server port + 5). The server gets the same number through the launch spec.
+	systemProperty "testkit.hx.port", hxPort.toString()
+
+	// -Psuite=<name>: a named scenario filter from suites.properties. Exclusive with -Pscenario / -Pfailed, because
+	// silently preferring one of two filters is how a run tests something other than what was asked.
+	if (project.hasProperty("suite")) {
+		if (project.hasProperty("scenario") || project.hasProperty("failed")) {
+			throw new GradleException("-Psuite cannot be combined with -Pscenario or -Pfailed")
+		}
+		def suites = new Properties()
+		file("suites.properties").withInputStream { suites.load(it) }
+		def suiteName = project.property("suite").toString().trim()
+		def filter = suites.getProperty(suiteName)
+		if (filter == null) {
+			throw new GradleException("-Psuite=${suiteName}: no such suite in suites.properties (have: "
+					+ suites.stringPropertyNames().sort().join(", ") + ")")
+		}
+		systemProperty "testkit.scenario", filter.trim()
+		systemProperty "testkit.suite", suiteName
+		doFirst { logger.lifecycle("Suite ${suiteName}: ${filter.trim()}") }
+	}
+
+	// Real-machine side effects stay off by default (docs/TESTING-HOOKS.md in the mod):
+	//   killer560.net.offline         every mod HTTP/WebSocket call fails like a dead network, except hosts named by
+	//                                 a killer560.net.<service> override.   Opt out: -PnetOnline
+	//   killer560.test.noExternalOpen folder/link/browser opens become a "[TestHook] would open" log line.
+	//                                                                        Opt out: -PallowExternalOpen
+	//   testkit.quiet                 Quiet.apply() switches network/OS features off in config. Opt out: -PnoQuiet
+	// -PnoQuiet turns all three off. -PnetOverride=hypixel=http://127.0.0.1:25599;noamm=... points services at fakes.
+	def noQuiet = project.hasProperty("noQuiet")
+	if (!noQuiet && !project.hasProperty("netOnline")) {
+		systemProperty "killer560.net.offline", "true"
+	}
+	if (!noQuiet && !project.hasProperty("allowExternalOpen")) {
+		systemProperty "killer560.test.noExternalOpen", "true"
+	}
+	systemProperty "testkit.quiet", noQuiet ? "false" : "true"
+	if (project.hasProperty("netOverride")) {
+		project.property("netOverride").toString().split(";").each { pair ->
+			def eq = pair.indexOf('=')
+			if (eq <= 0) {
+				throw new GradleException("-PnetOverride: expected service=url, got '${pair}'")
+			}
+			systemProperty "killer560.net.${pair.substring(0, eq).trim()}", pair.substring(eq + 1).trim()
+		}
+	}
+
+	// PrismAccountStore reads Prism's REAL accounts.json (refresh tokens included) unless told otherwise. Always
+	// point it at an empty copy in build/, so no run can read or touch his accounts.
+	def accountsFixture = file("src/gametest/resources/testkit-fixtures/prism-accounts-empty.json")
+	def accountsCopy = layout.buildDirectory.file("testkit-fixtures/prism-accounts.json").get().asFile
+	systemProperty "prismaccountswitcher.accountsFile", accountsCopy.absolutePath
+	doFirst {
+		accountsCopy.parentFile.mkdirs()
+		accountsCopy.bytes = accountsFixture.bytes
+	}
+
+	// Reports: summary.md / summary.json / cases/ / screens/ / coverage.md, fresh each run.
+	def reportDir = layout.buildDirectory.dir("testkit-report").get().asFile
+	systemProperty "testkit.reportDir", reportDir.absolutePath
+	doFirst {
+		if (reportDir.exists()) {
+			delete(reportDir)
+		}
+		reportDir.mkdirs()
+	}
+
+	// -PseedConfig=<dir>: copied into the client's config/ AFTER the gametest run dir has been wiped (this doFirst
+	// runs after that wipe, the same window the volume lines above use), so the mod finds e.g. its room database
+	// on start instead of downloading it. Legacy root names are fine: the mod's ModPaths.migrateAll moves them.
+	if (project.hasProperty("seedConfig")) {
+		def seed = file(project.property("seedConfig").toString())
+		if (!seed.isDirectory()) {
+			throw new GradleException("-PseedConfig must be a directory; got ${seed}")
+		}
+		doFirst {
+			def target = file("build/run/clientGameTest/config")
+			target.mkdirs()
+			copy {
+				from seed
+				into target
+			}
+			logger.lifecycle("Seeded client config from ${seed}")
+		}
 	}
 }
 
