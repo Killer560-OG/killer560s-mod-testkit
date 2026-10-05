@@ -102,7 +102,7 @@ a sweep wants. `TestMap` builds the arena. `TestServer` launches the dedicated s
 reaches into the mod by reflection. `src/client/java/dev/testkit/harness/PacketWatch` counts outbound
 packets per tick, fed by mixins on `ClientCommonPacketListenerImpl#send` and `Minecraft#tick`.
 
-Scenarios so far: 48-52 Breaker Aura (with a by-hand control and an open-ground speed control), 60 Secret
+Scenarios so far: 62-argrim (Auto Routes on GrimAC, see below), 48-52 Breaker Aura (with a by-hand control and an open-ground speed control), 60 Secret
 Triggerbot.
 
 ## Auto puzzle suite (93-solve-*)
@@ -312,3 +312,5 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 - `gameMode.attack` on a 1-HP sim zombie next to the player did not kill it (96-ar-crypt, 2026-10-05: crypts stayed put);
   the sim plays Mage, whose left click is a beam along the look, which is the likely reason (not traced). A Hyperion
   `gameMode.useItem` (Wither Impact, radius 5) does kill it - use that to kill a sim mob as the player.
+
+Auto Routes on GrimAC (62-argrim): how to run it and its traps are in [docs/argrim.md](docs/argrim.md).
