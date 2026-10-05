@@ -306,15 +306,49 @@ public final class Scenario {
      * <p>A refused login otherwise surfaces as {@code Timed out waiting for predicate} a minute later, when the
      * server said exactly what was wrong the moment it happened — and put it on a screen nobody reads.
      */
+    /** On the "Failed to connect" screen with no connection: the join died before the server said anything. */
+    private static boolean connectFailed(net.minecraft.client.Minecraft mc) {
+        return mc.getConnection() == null && dev.testkit.compat.McCompat.screen(mc)
+                instanceof net.minecraft.client.gui.screens.DisconnectedScreen;
+    }
+
+    private static String describeScreen(net.minecraft.client.Minecraft mc) {
+        var screen = dev.testkit.compat.McCompat.screen(mc);
+        return (screen == null ? "no screen" : screen.getClass().getSimpleName() + " \"" + screen.getTitle().getString()
+                + "\"") + ", connection " + (mc.getConnection() == null ? "none" : "open");
+    }
+
     private void connect() {
-        Disconnects.clear();
-        ctx.runOnClient(mc -> {
-            String label = serverLabel == null ? TestServer.address() : serverLabel;
-            ServerData data = new ServerData("testkit", label, ServerData.Type.OTHER);
-            ConnectScreen.startConnecting(new TitleScreen(), mc,
-                    ServerAddress.parseString(TestServer.address()), data, false, null);
-        });
-        ctx.waitFor(mc -> (mc.player != null && mc.level != null) || Disconnects.last() != null, 1200);
+        // A join can fail before any packet listener exists ("Failed to connect to the server", a DisconnectedScreen
+        // with no connection), which Disconnects never hears. On 26.2 the second join of a run did exactly that
+        // every time, the moment the restarted server said Done (2026-10-04), and then sat out the whole minute.
+        // That one is retried; anything the server SAYS is still a refusal and fails at once.
+        for (int attempt = 1; ; attempt++) {
+            Disconnects.clear();
+            ctx.runOnClient(mc -> {
+                String label = serverLabel == null ? TestServer.address() : serverLabel;
+                ServerData data = new ServerData("testkit", label, ServerData.Type.OTHER);
+                ConnectScreen.startConnecting(new TitleScreen(), mc,
+                        ServerAddress.parseString(TestServer.address()), data, false, null);
+            });
+            try {
+                ctx.waitFor(mc -> (mc.player != null && mc.level != null) || Disconnects.last() != null
+                        || connectFailed(mc), 1200);
+            } catch (AssertionError timedOut) {
+                throw new AssertionError("[" + name + "] never joined " + TestServer.address() + " in 60 s: "
+                        + ctx.computeOnClient(Scenario::describeScreen), timedOut);
+            }
+            if (Disconnects.last() != null || !ctx.computeOnClient(Scenario::connectFailed)) {
+                break;
+            }
+            String why = ctx.computeOnClient(Scenario::describeScreen);
+            if (attempt >= 5) {
+                throw new AssertionError("[" + name + "] could not reach " + TestServer.address() + " in " + attempt
+                        + " tries: " + why);
+            }
+            System.out.println("[" + name + "] join " + attempt + " failed (" + why + ") - retrying in 2 s");
+            ctx.waitTicks(40);
+        }
         String refused = Disconnects.last();
         if (refused != null) {
             throw new AssertionError("[" + name + "] the test server refused the connection: \"" + refused

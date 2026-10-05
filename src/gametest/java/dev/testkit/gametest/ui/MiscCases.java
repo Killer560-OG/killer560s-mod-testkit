@@ -481,55 +481,48 @@ final class MiscCases {
         c.check(!drawnIds.isEmpty(), "no HUD element drew while every visual was on - the render path never ran");
     }
 
-    // ---- 380 room recorder capture-only -> limbo ------------------------------------------------------------
+    // ---- 365 overlay draws ----------------------------------------------------------------------------------
 
     /**
-     * Capture-only promises "It will not join, walk or type anything" (roomsim/RoomRecorderFeature.java:184). But
-     * scan() moves ANY running stage to LIMBO when the dungeon is gone and the player is below y 0 (lines 767-785),
-     * and LIMBO is the stage that later sends /skyblock and hands over to REJOIN -> the floor join (lines 553-561,
-     * 452-460). In a dev build, "/killer560 sim" in any singleplayer world arms capture-only by itself (autoArmCapture,
-     * line 210: the sim override makes isInDungeon true); toggling it off at a superflat spawn (y -60) is enough.
-     *
-     * <p>This case asserts the observed half: capture-only must not turn into LIMBO. Whether LIMBO then really sends
-     * /skyblock was NOT established here - a lifted player came back below y 0 within 20 s in three tries (runs
-     * 7-9, 2026-10-04), so the LIMBO exit condition never held. That half rests on the source lines above.
+     * The mod's popup text ({@code notify.ModOverlayMessage}) really reaches the screen. It is drawn by a Fabric HUD
+     * layer since 2026-10-04 (seven {@code Gui} mixins crashed 26.2 at startup), and "the jar booted" says nothing
+     * about whether a layer draws - so this counts theme-orange pixels (0xCC6600) in the middle of a screenshot,
+     * where the popup is centred.
      */
-    static void recorderLimbo(UiCase c) {
-        if (!Mod.isDevTools()) {
-            c.note("release jar: the Room Recorder is compiled out (BuildVariant.DEV_TOOLS) - nothing to test");
-            return;
-        }
-        Class<?> rec = R.cls("roomsim.RoomRecorderFeature");
-        List<String> stages = new ArrayList<>();
+    static void overlayDraws(UiCase c) {
+        c.onClient(mc -> {
+            McCompat.setScreen(mc, null);
+            Mod.staticCall("notify.ModOverlayMessage", "show", "TESTKIT OVERLAY CHECK WWWWWWWWWWWW", 10_000L);
+            return null;
+        });
+        c.ticks(10);
+        Path shot = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(c.name()));
+        dev.testkit.harness.Report.screenshot(c.name(), shot);
+        int orange = 0;
         try {
-            // autoArmCapture arms once per world (autoArmedLevel, line 231): if 306 already ran "/killer560 sim"
-            // here, the recorder was armed then; otherwise arm it now.
-            stages.add("start: " + R.getStatic(rec, "stage"));
-            if ("OFF".equals(String.valueOf(R.getStatic(rec, "stage")))) {
-                CommandSweep.execute(c, "killer560 sim");
-                c.ticks(5);
-                stages.add("after sim ON: " + R.getStatic(rec, "stage"));
-                CommandSweep.execute(c, "killer560 sim");
-                c.ticks(5);
-                stages.add("after sim OFF: " + R.getStatic(rec, "stage"));
+            java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(shot.toFile());
+            int w = img.getWidth(), h = img.getHeight();
+            for (int y = h * 2 / 5; y < h * 3 / 5; y++) {
+                for (int x = w / 5; x < w * 4 / 5; x++) {
+                    int rgb = img.getRGB(x, y);
+                    int r = (rgb >> 16) & 0xFF, g = (rgb >> 8) & 0xFF, b = rgb & 0xFF;
+                    if (Math.abs(r - 0xCC) <= 12 && Math.abs(g - 0x66) <= 12 && b <= 12) {
+                        orange++;
+                    }
+                }
             }
-            c.note("player y " + c.onClient(mc -> mc.player.position().y) + "; recorder stages: " + stages);
-            String now = String.valueOf(R.getStatic(rec, "stage"));
-            c.check(!now.equals("OFF"), "premise not established: the recorder never armed (stages " + stages + ")");
-            if (now.equals("LIMBO")) {
-                c.problem("capture-only Room Recorder (armed automatically by /killer560 sim in a singleplayer world) "
-                        + "turned into LIMBO, the stage that sends /skyblock and then rejoins a floor "
-                        + "(roomsim/RoomRecorderFeature.java:778-785 -> 553-561); capture-only promises it will not "
-                        + "join or type anything (line 184). Stages " + stages);
-            }
+        } catch (java.io.IOException e) {
+            c.problem("could not read the screenshot " + shot + ": " + e);
         } finally {
-            try {
-                c.onClient(mc -> Mod.staticCall("roomsim.RoomRecorderFeature", "stop", "testkit"));
-            } catch (AssertionError ignored) {
-                // stop signature changed
-            }
+            c.onClient(mc -> {
+                Mod.staticCall("notify.ModOverlayMessage", "show", "", 1L);
+                return null;
+            });
         }
+        c.note(orange + " theme-orange pixel(s) in the centre of the screen with a popup showing");
+        c.check(orange >= 40, "the popup text never drew - its HUD layer did not run");
     }
+
     // ---- 370 deny -------------------------------------------------------------------------------------------
 
     /**

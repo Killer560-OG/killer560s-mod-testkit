@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-10-04
+
+### Minecraft 26.2 runs
+
+- First runs on 26.2: `smoke`, `proof`, `02-seed` and the UI world group pass; GrimAC detects there.
+- Menu cases and `HxMenus` compile on 26.2 (`McCompat` screen access; colour check by ordinal).
+- **`Scenario.connect` retries a join that dies before the server says anything** ("Failed to connect", no
+  connection) - on 26.2 every join after the first did, the instant the restarted server said Done. A join that
+  still times out now names the screen it is stuck on instead of "Timed out waiting for predicate".
+
+### Added
+
+- `365-ui-overlay-draws`: shows the mod's popup and counts theme-orange pixels in a screenshot, so "the overlay
+  draws" is measured, not assumed.
+
+### Removed
+
+- `380-ui-recorder-limbo`: the mod's Room Recorder is gone (mod tag `room-recorder-last`).
+
 ## 2026-09-27
 
 ### Fixed — results you may have been trusting

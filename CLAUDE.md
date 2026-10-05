@@ -41,7 +41,7 @@ Versions from `gradle.properties`: Minecraft 26.1.2, GrimAC pinned to `2.3.74-8e
 Modrinth once into the Gradle user home (`caches/testkit-grim/`, shared by every checkout and worktree),
 `cloud_version=2.0.0-beta.16` (beta.17 needs MC ≥ 26.2), sqlite-jdbc for Grim's violation store. Java 25.
 
-## Minecraft 26.2 (compiles; NOT yet run)
+## Minecraft 26.2 (runs: smoke, proof, seed and the UI group pass)
 
 `-Pminecraft_version=26.2` switches the whole build, as in killer560s-mod. `versionsByMinecraft` in build.gradle
 then supplies Fabric API `0.160.0+26.2`, loader `0.19.5` (his "26.2 mod only" Prism instance) and cloud-fabric
@@ -55,15 +55,21 @@ snapshot's `killer560smod-*-26.2-cheat.jar` (a jar named for the other version i
 ./gradlew grimServer -Pminecraft_version=26.2
 ```
 
-GrimAC: the same pin. `2.3.74-8eb5f28` lists 26.2 on Modrinth, every nested mod declares `>=26.1.2 <26.3`, and its
-PacketEvents has `ServerVersion.V_26_2`; but its only per-version module is `grimac-fabric-mc261`, so whether its
-checks are right on 26.2 is unknown until the smoke/proof positive controls run there. If they fail, try the newest
-Modrinth build (2.3.74-abb95b6 on 2026-10-01 still had only mc261) or `-Pnogrim`.
+GrimAC: the same pin, `2.3.74-8eb5f28` (its only per-version module is `grimac-fabric-mc261`). It DOES detect on 26.2:
+smoke's positive control and proof's 46 verbose lines both came back on 2026-10-04.
 
-Status 2026-10-04: main, client, gametest and testmod compile against 26.2 and every mixin target was javap'd on
-the 26.2 jar (unchanged). Nothing has been RUN on 26.2: not the server, not Grim, not a client, not one scenario.
-Start with `smoke,proof,02-seed` and treat every result before those pass as unverified. `run/testserver` is shared
-by both versions; scenarios delete the world, but a hand-played `grimServer` world opened on 26.2 cannot go back.
+Status 2026-10-04, first runs: `smoke,proof,02-seed` and the UI world group (301-306, 365) pass on 26.2 with the
+26.2 cheat jar. What it took:
+- `menu/*` used `mc.screen` directly; it goes through `McCompat.screen/setScreen` like everything else now.
+- `HxMenus` used `ChatFormatting.isColor()`, which 26.2 removed; colours are the first 16 ordinals.
+- The MOD's 26.2 jar crashed at startup (seven `Gui.extractRenderState` mixins with the 26.1.2 signature). That was
+  the mod, fixed there in b0ae44cb; `365-ui-overlay-draws` now proves an overlay reaches the screen.
+- On 26.2 every join after the first failed instantly ("Failed to connect to the server", no connection) because the
+  client dials the moment the restarted server prints Done. `Scenario.connect` retries that case up to 5 times, 2 s
+  apart, and says which screen it is stuck on if a join still times out. 26.1.2 never needed the retry.
+
+Not yet run on 26.2: everything else (sim, puzzles, menus, the 40-90 scenarios). `run/testserver` is shared by both
+versions; scenarios delete the world, but a hand-played `grimServer` world opened on 26.2 cannot go back.
 
 Version-specific API goes in `dev.testkit.compat` (`McCompat.screen/setScreen`, `McItems`, `McEntities`) under
 `src/client/mc26_1/java` and `src/client/mc26_2/java`, one of which build.gradle puts on the client source path.

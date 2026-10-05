@@ -79,9 +79,8 @@ the anticheat's verbose output, and **fails the build on any flag**.
 Built for Minecraft **26.1.2** / Fabric. Requires **Java 25** and a JDK on `JAVA_HOME`.
 
 **Minecraft 26.2** builds with `-Pminecraft_version=26.2` (Fabric API, loader and cloud-fabric follow from the
-table in `build.gradle`); the scripts take `-Minecraft 26.2`. Everything compiles against 26.2, but nothing has
-been run there yet - the server, GrimAC on 26.2 and every scenario are untested. Run
-`-Pscenario=smoke,proof,02-seed` first. API that differs between the two versions lives in `dev.testkit.compat`
+table in `build.gradle`); the scripts take `-Minecraft 26.2`. The server, GrimAC (it detects) and the
+`smoke,proof,02-seed` and UI-group scenarios run and pass there; the rest are not yet run on 26.2. API that differs between the two versions lives in `dev.testkit.compat`
 (`src/client/mc26_1/java`, `src/client/mc26_2/java`, identical public signatures).
 
 ---
