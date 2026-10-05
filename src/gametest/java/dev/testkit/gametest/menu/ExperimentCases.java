@@ -34,6 +34,7 @@ final class ExperimentCases {
         MenuSuite.test(s, "225-menu-exp-auto-superpairs", c -> auto(c, "SUPERPAIRS"));
         MenuSuite.test(s, "226-menu-exp-auto-etable-loop", ExperimentCases::etableLoop);
         MenuSuite.test(s, "227-menu-exp-profit-tracker", ExperimentCases::profit);
+        MenuSuite.test(s, "228-menu-exp-guardian-swap", ExperimentCases::guardianSwap);
     }
 
     static Object solverObj() {
@@ -172,7 +173,9 @@ final class ExperimentCases {
     static void etableLoop(Session c) throws Exception {
         MenuKit.reset(c);
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c); AutoCloseable armed = autoConfig(c, cfg)) {
-            cfg.set(CONFIG, "ProfitTrackerEnabled", true);
+            // The Guardian swap (on by default since 2026-10-04) closes the table and sends /pets before the first
+            // game; it has its own case (228). Off here, or this loop waits on a Pets menu that never opens.
+            cfg.set(CONFIG, "ProfitTrackerEnabled", true).set(CONFIG, "AutoSwapGuardianPet", false);
             if (!MenuKit.cheat()) {
                 c.note("legit jar: the navigate/claim loop is cheat-only (covered by 223-225's no-click check)");
                 return;
@@ -194,6 +197,59 @@ final class ExperimentCases {
             c.note("Auto E-Table loop: " + String.join(" -> ", path) + "; game " + done.get("reason") + " in "
                     + done.get("clicks") + " clicks; claimed; profit tracker XP " + xp);
         } finally {
+            MenuKit.reset(c);
+        }
+    }
+
+    /**
+     * Auto E-Table's Guardian swap (cheat): on the armed table it closes the table, sends /pets, and clicks the first
+     * Guardian in the Pets menu - never the other pet. The reopen afterwards right-clicks the remembered table
+     * entity, which a pushed menu does not have, so this stops at the click.
+     */
+    static void guardianSwap(Session c) throws Exception {
+        MenuKit.reset(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: the Guardian swap is part of Auto E-Table, cheat-only");
+            return;
+        }
+        JsonObject pets = MenuKit.obj("{\"title\":\"Pets\",\"rows\":6,\"fill\":true,\"slots\":{"
+                + "\"10\":\"minecraft:player_head[custom_name=[{text:\\\"[Lvl 100] \\\",color:\\\"gray\\\",italic:false},"
+                + "{text:\\\"Golden Dragon\\\",color:\\\"gold\\\",italic:false}],lore=[{text:\\\"Left-click to summon!\\\",italic:false}]]\","
+                + "\"11\":\"minecraft:player_head[custom_name=[{text:\\\"[Lvl 100] \\\",color:\\\"gray\\\",italic:false},"
+                + "{text:\\\"Guardian\\\",color:\\\"gold\\\",italic:false}],lore=[{text:\\\"Left-click to summon!\\\",italic:false}]]\"},"
+                + "\"on\":{\"11\":{\"close\":true}}}");
+        c.hx().call("menu.onCommand", "name", "pets", "menu", pets);
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c); AutoCloseable armed = autoConfig(c, cfg)) {
+            cfg.set(CONFIG, "AutoSwapGuardianPet", true);
+            c.ctx().runOnClient(mc -> Mod.call(Mod.field(FEATURE, "GUARDIAN_SWAPPER"), "reset"));
+            MenuKit.show(c, MenuKit.menu("menus.experimentation-table"));
+            MenuKit.awaitScreen(c, "Experimentation Table", 100);
+            c.waitUntil("a click on the Guardian (slot 11)", mc -> c.events("container.click").stream()
+                    .anyMatch(e -> e.get("slot").getAsInt() == 11), 400);
+            c.check(c.commands().contains("pets"), "no /pets command: " + c.commands());
+            long wrong = c.events("container.click").stream().filter(e -> e.get("slot").getAsInt() == 10).count();
+            c.check(wrong == 0, wrong + " click(s) on the Golden Dragon (slot 10), which is not a Guardian");
+            List<String> opened = new ArrayList<>();
+            c.events("menu.opened").forEach(e -> opened.add(e.get("title").getAsString()));
+            c.check(opened.contains("Pets"), "the Pets menu never opened: " + opened);
+            boolean pending = c.onClient(mc -> (Boolean) Mod.call(Mod.field(FEATURE, "GUARDIAN_SWAPPER"), "isPending"));
+            c.note("Guardian swap: /pets sent, menus " + opened + ", clicked slot 11 (Guardian), 0 clicks on slot 10; "
+                    + "swap still pending afterwards: " + pending);
+            // A /pets that opens nothing (Hypixel dropping or rate-limiting it): the table is already closed, so the
+            // swap must give up on its own rather than hold the run forever.
+            MenuKit.reset(c);
+            c.hx().call("menu.onCommand", "name", "pets", "menu", null);
+            c.ctx().runOnClient(mc -> Mod.call(Mod.field(FEATURE, "GUARDIAN_SWAPPER"), "reset"));
+            long petsBefore = c.commands().stream().filter("pets"::equals).count();
+            MenuKit.show(c, MenuKit.menu("menus.experimentation-table"));
+            MenuKit.awaitScreen(c, "Experimentation Table", 100);
+            c.waitUntil("a second /pets", mc -> c.commands().stream().filter("pets"::equals).count() > petsBefore, 200);
+            long sentAt = System.currentTimeMillis();
+            c.waitUntil("the swap to give up on a Pets menu that never opens", mc ->
+                    !(Boolean) Mod.call(Mod.field(FEATURE, "GUARDIAN_SWAPPER"), "isPending"), 400);
+            c.note("no Pets menu: the swap gave up " + (System.currentTimeMillis() - sentAt) + " ms after /pets");
+        } finally {
+            c.hx().call("menu.onCommand", "name", "pets", "menu", null);
             MenuKit.reset(c);
         }
     }
