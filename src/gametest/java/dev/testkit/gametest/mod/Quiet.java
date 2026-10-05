@@ -24,6 +24,11 @@ public final class Quiet {
             {"bridge.BridgeConfig", "setEnabled"},                    // Devonian/NoammAddons/Odin chat bridges
             {"modchat.ModChatConfig", "setEnabled"},                  // mod chat; drives RelayClient.update
             {"partydata.PartyDataConfig", "setShareEnabled"},         // party data sharing over the relay
+            // ModChatFeature keeps the relay up while ANY of chat / party data / Melody progress / CH sharing wants
+            // it (dataOn = Interop.enabled && Interop.relayData && (PartyData.share || Melody.shareProgress)).
+            // With only the three above off, the 2026-10-04 demo still saw RelayClient retrying.
+            {"melody.MelodyHudConfig", "setShareProgress"},           // Melody progress over the relay
+            {"interop.InteropConfig", "setRelayData"},                // all dungeon data over the relay
             {"updatecheck.UpdateCheckConfig", "setNotifyOnStart"},    // GitHub release check
             {"discordrpc.DiscordRpcConfig", "setEnabled"},            // Discord IPC pipe
             {"voicetotext.VoiceToTextConfig", "setEnabled"},          // microphone + Vosk model download

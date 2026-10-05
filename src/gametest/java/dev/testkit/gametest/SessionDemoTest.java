@@ -9,11 +9,20 @@ import dev.testkit.gametest.mod.Quiet;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * WP1's acceptance demo for shared-server mode, and the POSITIVE CONTROLS every later Hx scenario leans on: each
@@ -153,6 +162,55 @@ public class SessionDemoTest implements FabricClientGameTest {
                         c.hx().call("give", "slot", 0, "stack", "minecraft:air");
                     });
 
+                    s.test(SESSION + "-primitives", c -> {
+                        // title -> the client's Gui holds it
+                        c.hx().title("§cHx Title", "§7hx subtitle");
+                        c.waitUntil("the client's Gui title to read 'Hx Title'", mc -> {
+                            Object t = Mod.field(mc.gui, "title");
+                            return t instanceof Component comp && comp.getString().contains("Hx Title");
+                        }, 60);
+                        // sound and particle: the ops must succeed (nothing in the mod reads them here)
+                        c.hx().sound("minecraft:entity.experience_orb.pickup", 0.05, 1.0);
+                        c.hx().call("particle", "type", "minecraft:flame", "count", 3);
+                        // stand -> the client sees a named armour stand; entity.remove -> it goes
+                        double[] at = c.scenario().playerPosition();
+                        c.hx().stand(at[0] + 2, at[1], at[2], "§cHx Stand", "small", true, "marker", true);
+                        c.waitUntil("the client to see an armour stand named 'Hx Stand'",
+                                mc -> standNamed(mc, "Hx Stand"), 100);
+                        c.hx().removeStands();
+                        c.waitUntil("the stand to be gone on the client", mc -> !standNamed(mc, "Hx Stand"), 100);
+                        // menu.open -> a container screen; a click is recorded and moves nothing; close is recorded
+                        int id = c.hx().menu("Hx Menu", 3, Map.of(13, "minecraft:diamond"), null);
+                        c.waitUntil("a container screen 'Hx Menu' with a diamond in slot 13", mc ->
+                                mc.screen instanceof AbstractContainerScreen<?> scr
+                                        && scr.getTitle().getString().equals("Hx Menu")
+                                        && scr.getMenu().containerId == id
+                                        && scr.getMenu().getSlot(13).getItem().is(Items.DIAMOND), 100);
+                        c.ctx().runOnClient(mc -> mc.gameMode.handleContainerInput(id, 13, 0, ContainerInput.PICKUP, mc.player));
+                        c.waitUntil("container.click and menu.click events for slot 13", mc ->
+                                c.events("container.click").stream().anyMatch(e -> e.get("slot").getAsInt() == 13)
+                                        && c.events("menu.click").stream().anyMatch(e -> e.get("slot").getAsInt() == 13), 60);
+                        c.ctx().waitTicks(5);
+                        boolean kept = c.onClient(mc -> mc.player.containerMenu.getCarried().isEmpty()
+                                && mc.player.containerMenu.getSlot(13).getItem().is(Items.DIAMOND));
+                        c.check(kept, "the click moved the item (carried or slot 13 changed)");
+                        c.ctx().runOnClient(mc -> mc.player.closeContainer());
+                        c.waitUntil("a container.close event", mc -> !c.events("container.close").isEmpty(), 60);
+                        // use_item: right-click with a stick sends ServerboundUseItemPacket
+                        c.hx().give(0, "minecraft:stick");
+                        c.waitUntil("a stick in slot 0", mc -> mc.player.getInventory().getItem(0).is(Items.STICK), 60);
+                        c.ctx().runOnClient(mc -> {
+                            mc.player.getInventory().setSelectedSlot(0);
+                            mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
+                        });
+                        c.waitUntil("a use_item event for the stick", mc -> c.events("use_item").stream()
+                                .anyMatch(e -> e.get("item").getAsString().equals("minecraft:stick")), 60);
+                        c.hx().call("give", "slot", 0, "stack", "minecraft:air");
+                        c.note("title, sound, particle, stand (seen and removed on the client), menu.open + click "
+                                + "(recorded, item not moved) + close, use_item - all observed; events: "
+                                + c.events().size());
+                    });
+
                     s.test(SESSION + "-quiet-and-accounts", c -> {
                         c.check(Quiet.enabled(), "this run has -PnoQuiet; the QUIET control needs the default");
                         List<String> applied = c.onClient(mc -> Quiet.apply());
@@ -165,6 +223,9 @@ public class SessionDemoTest implements FabricClientGameTest {
                                 "PrismAccountStore reads " + used + ", not the fixture " + expected);
                         List<?> accounts = c.onClient(mc -> (List<?>) Mod.staticCall("accounts.core.PrismAccountStore", "load"));
                         c.check(accounts.isEmpty(), "the accounts fixture should hold no accounts, got " + accounts.size());
+                        // Quiet must take the relay down, not just rely on the offline flag refusing it.
+                        c.waitUntil("RelayClient.state() == OFF after Quiet",
+                                mc -> "OFF".equals(String.valueOf(Mod.staticCall("relay.RelayClient", "state"))), 100);
                         c.check("true".equals(System.getProperty("killer560.net.offline")), "killer560.net.offline not set");
                         c.check("true".equals(System.getProperty("killer560.test.noExternalOpen")),
                                 "killer560.test.noExternalOpen not set");
@@ -207,6 +268,15 @@ public class SessionDemoTest implements FabricClientGameTest {
                         c.note("re-connected; server sees 1 player");
                     });
                 });
+    }
+
+    private static boolean standNamed(Minecraft mc, String name) {
+        for (Entity e : mc.level.entitiesForRendering()) {
+            if (e instanceof ArmorStand && e.getCustomName() != null && e.getCustomName().getString().contains(name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void sendSidebar(Session c, Fixtures.Fixture f) {
