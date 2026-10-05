@@ -129,8 +129,29 @@ final class ScreenSweep {
                     out.put("dragTrace", "click took=" + took + " grabbed " + grabbed + ", live after drag "
                             + moved[0] + "," + moved[1]);
                     int[] saved = (int[]) dev.testkit.gametest.mod.Mod.call(hudCfg, "getPosition", id, -999, -999);
-                    out.put("drag", id + " from " + p[0] + "," + p[1] + " -> HudConfig " + saved[0] + "," + saved[1]);
-                    out.put("dragOk", saved[0] == p[0] + 10 && saved[1] == p[1] + 6);
+                    // Since Auto Scale (mod f3cd509f, 2026-10-05) HudConfig holds BASELINE units, drawn at saved *
+                    // factor: the editor saves HudElementRegistry.toSaved(screen position). So the check is that the
+                    // save is toSaved(dropped spot) - identity at factor 1 or on a jar without Auto Scale - and that
+                    // resolving it again puts the box back where it was dropped (within the rounding of one unit).
+                    int[] want = new int[]{p[0] + 10, p[1] + 6};
+                    try {
+                        want = (int[]) dev.testkit.gametest.mod.Mod.staticCall("hud.HudElementRegistry", "toSaved",
+                                p[0] + 10, p[1] + 6);
+                    } catch (AssertionError | RuntimeException noAutoScale) {
+                        // older jar: saved == screen position
+                    }
+                    Object dragged = el;
+                    for (Object e2 : shownOn) {
+                        if (id.equals(dev.testkit.gametest.mod.Mod.call(e2, "id"))) {
+                            dragged = e2;
+                        }
+                    }
+                    int[] back = (int[]) dev.testkit.gametest.mod.Mod.staticCall("hud.HudElementRegistry",
+                            "resolvePosition", dragged);
+                    out.put("drag", id + " from " + p[0] + "," + p[1] + " -> HudConfig " + saved[0] + "," + saved[1]
+                            + " (expected " + want[0] + "," + want[1] + "), drawn back at " + back[0] + "," + back[1]);
+                    out.put("dragOk", saved[0] == want[0] && saved[1] == want[1]
+                            && Math.abs(back[0] - (p[0] + 10)) <= 1 && Math.abs(back[1] - (p[1] + 6)) <= 1);
                 }
                 McCompat.setScreen(mc, on);
             } catch (Throwable t) {
