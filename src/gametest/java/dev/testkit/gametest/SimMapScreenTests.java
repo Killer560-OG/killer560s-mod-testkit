@@ -66,7 +66,15 @@ public class SimMapScreenTests implements FabricClientGameTest {
         int[] lib = new int[2];
         ctx.runOnClient(mc -> {
             lib[0] = (Integer) ModUnderTest.staticCall(ROOM_LIBRARY, "roomCount");
-            lib[1] = (Integer) ModUnderTest.staticCall(ROOM_LIBRARY, "completeCount");
+            // completeCount() went with the Room Recorder (mod ab23c32e); count isUsable over names() instead.
+            int usable = 0;
+            for (Object n : (java.util.List<?>) ModUnderTest.staticCall(ROOM_LIBRARY, "names")) {
+                if ((Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isUsable", new Class<?>[]{String.class},
+                        new Object[]{n})) {
+                    usable++;
+                }
+            }
+            lib[1] = usable;
         });
         System.out.println("[83-sim-map-screen] library from the jar alone: " + lib[0] + " room(s), "
                 + lib[1] + " usable");

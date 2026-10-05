@@ -31,6 +31,8 @@ public final class SuiteVerdict {
     private static final Set<String> failedNames = new LinkedHashSet<>();
     private static final Set<String> expected = new LinkedHashSet<>();
     private static final Set<String> finished = new LinkedHashSet<>();
+    /** Every name that got past its filter, so one that wrote no row of its own still shows in the report. */
+    private static final Set<String> startedNames = new LinkedHashSet<>();
 
     /** The scenario that last got past the filter, so a failure is filed under its name, not its class. */
     private static volatile String current;
@@ -46,6 +48,9 @@ public final class SuiteVerdict {
     /** A scenario got past the filter. Failures from here on are filed under its name. */
     public static void started(String name) {
         current = name;
+        if (startedNames.add(name)) {
+            Report.caseStarted(name);
+        }
     }
 
     /** A scenario is about to run a body, and must reach {@link #finished} or fail. */
@@ -61,7 +66,18 @@ public final class SuiteVerdict {
 
     /** Called before each test class, so a failure is never pinned on the previous class's scenario. */
     public static void beginTest() {
+        // The previous class is done: close a row-less scenario now, so its RAN row carries its own duration.
+        if (current != null) {
+            ranRow(current);
+        }
         current = null;
+    }
+
+    private static void ranRow(String name) {
+        if (startedNames.contains(name) && !failedNames.contains(name) && !Report.recorded(name)) {
+            Report.caseFinished(name, "RAN", "", "finished without throwing; this scenario writes no verdict "
+                    + "row of its own - its PASS/SKIPPED line is in the log", List.of(), List.of());
+        }
     }
 
     /** Record a test's failure. {@code test} is the test class, used when no scenario name ran. */
@@ -106,6 +122,12 @@ public final class SuiteVerdict {
                     Report.caseFinished(name, "FAIL", "", "started and never finished", List.of(), List.of());
                 }
             }
+        }
+        // Scenarios that only call Scenario.skip (most sim scenarios) never wrote a row, so the summary said
+        // "1 passed" for a run where nineteen finished. They get a RAN row: it finished without throwing, which is
+        // all the harness knows - the verdict is the scenario's own PASS line in the log.
+        for (String name : startedNames) {
+            ranRow(name);
         }
         Path file = failedFile();
         try {
