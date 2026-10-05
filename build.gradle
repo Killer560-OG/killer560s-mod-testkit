@@ -312,7 +312,10 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 			def script = file("place-test-window.ps1")
 			if (script.exists() && p.length == 4) {
 				new ProcessBuilder("powershell", "-NoProfile", "-WindowStyle", "Hidden", "-File",
-						script.absolutePath, "-X", p[0], "-Y", p[1], "-Width", p[2], "-Height", p[3])
+						script.absolutePath, "-X", p[0], "-Y", p[1], "-Width", p[2], "-Height", p[3],
+						// This checkout's root; the script anchors it with a trailing slash so a sibling
+						// checkout's client is never "a leftover" of this one.
+						"-Marker", rootDir.absolutePath.replace('\\', '/'))
 						.directory(script.parentFile).start()
 				logger.lifecycle("Test window will be moved to ${where}")
 			}

@@ -12,7 +12,11 @@ param(
   [int]$Y = 361,
   [int]$Width = 1920,
   [int]$Height = 1080,
-  [string]$Marker = 'killer560s-mod-testkit',
+  # build.gradle passes this checkout's root; it is anchored with a TRAILING SLASH below. The old default, the
+  # bare word 'killer560s-mod-testkit', matched every sibling checkout too, so starting a run in one checkout
+  # "cleared the leftover client" of another one mid-run and moved its window (pzB moved pzA's pid 54312,
+  # 2026-10-04).
+  [string]$Marker = '',
   [int]$TimeoutSeconds = 180
 )
 
@@ -30,6 +34,14 @@ public class WinPlace {
 
 # Logged to a file, because this runs detached and its console output goes nowhere - and "the placer ran"
 # is not the same claim as "the window moved".
+if ($Marker -eq '') { $Marker = $PSScriptRoot }
+$Marker = $Marker.Replace('\', '/').TrimEnd('/') + '/'
+function Test-OurClient($cl) {
+  # Slashes normalised (the client's command line carries backslash paths), the marker anchored by its trailing
+  # slash, and only the gametest client itself, never a Gradle daemon.
+  return $cl -and ($cl.Replace('\', '/') -like ("*" + $Marker + "*")) -and ($cl -like '*fabric.dli.env=client*')
+}
+
 $log = Join-Path $PSScriptRoot 'build/place-test-window.log'
 New-Item -ItemType Directory -Force -Path (Split-Path $log) | Out-Null
 function Say($m) { Write-Output $m; Add-Content -Path $log -Value ((Get-Date -Format 'HH:mm:ss') + '  ' + $m) }
@@ -40,7 +52,7 @@ Say ("watching for a window with marker '" + $Marker + "' -> " + $X + "," + $Y +
 # deleteGameTestRunDir with an IOException that looks nothing like its real cause. That cost two runs before it
 # was understood, so it is handled here rather than left as a thing to remember.
 $stale = Get-CimInstance Win32_Process -Filter "Name='java.exe' OR Name='javaw.exe'" |
-    Where-Object { $_.CommandLine -and $_.CommandLine -like ("*" + $Marker + "*") }
+    Where-Object { Test-OurClient $_.CommandLine }
 foreach ($x in $stale) {
   try { Stop-Process -Id $x.ProcessId -Force -ErrorAction Stop; Say ("closed a leftover client, pid " + $x.ProcessId) } catch {}
 }
@@ -50,7 +62,7 @@ $moved = $false
 
 while (-not $moved -and (Get-Date) -lt $deadline) {
   $candidates = Get-CimInstance Win32_Process -Filter "Name='java.exe' OR Name='javaw.exe'" |
-      Where-Object { $_.CommandLine -and $_.CommandLine -like ("*" + $Marker + "*") }
+      Where-Object { Test-OurClient $_.CommandLine }
   foreach ($c in $candidates) {
     $proc = Get-Process -Id $c.ProcessId -ErrorAction SilentlyContinue
     if (-not $proc -or $proc.MainWindowHandle -eq 0) { continue }

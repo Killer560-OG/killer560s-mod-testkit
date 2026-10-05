@@ -18,7 +18,10 @@ param(
 )
 
 $here = $PSScriptRoot
-$marker = $here.Replace('\', '/')
+# With a TRAILING SLASH. Without it C:/Users/Hunter/killer560s-mod-testkit is a prefix of the sibling checkouts
+# (-pzA, -pzB, -wt/1, ...), so this script's freeze watcher and deadline cleanup also matched - and killed - other
+# checkouts' clients mid-run. Found 2026-10-04 with three checkouts running at once.
+$marker = $here.Replace('\', '/').TrimEnd('/') + '/'
 
 function Get-TestClients {
     # BOTH java.exe and javaw.exe.
@@ -29,11 +32,12 @@ function Get-TestClients {
     # success. That is killer560's "it still doesnt close out on freeze it seems", and it explains why the
     # earlier fixes to the watching logic changed nothing - they were watching an empty set.
     #
-    # The testkit path stays the discriminator, so a game he is playing is never a candidate; fabric.addMods
-    # narrows it further to the client rather than the Gradle daemon that launched it.
+    # The testkit path stays the discriminator, so a game he is playing is never a candidate; fabric.dli.env=client
+    # narrows it further to the gametest client rather than the Gradle daemon that launched it (fabric.addMods did
+    # the same job but is absent from a run without -PmodUnderTest).
     Get-CimInstance Win32_Process -Filter "Name = 'javaw.exe' OR Name = 'java.exe'" -ErrorAction SilentlyContinue | Where-Object {
         $cl = $_.CommandLine
-        $cl -and ($cl.Replace('\', '/') -like "*$marker*") -and ($cl -like '*fabric.addMods*')
+        $cl -and ($cl.Replace('\', '/') -like "*$marker*") -and ($cl -like '*fabric.dli.env=client*')
     }
 }
 
@@ -113,7 +117,7 @@ if ((Get-Date) -ge $deadline) {
     # And the Gradle daemon running this project. Killing only the client left Gradle waiting on a child that
     # was gone, which is how a run still ran for eight minutes against a four-minute deadline.
     Get-CimInstance Win32_Process -Filter "Name = 'java.exe'" -ErrorAction SilentlyContinue | Where-Object {
-        $_.CommandLine -and ($_.CommandLine.Replace('', '/') -like "*$marker*")
+        $_.CommandLine -and ($_.CommandLine.Replace('\', '/') -like "*$marker*")
     } | ForEach-Object {
         Write-Host "  killing gradle/java pid $($_.ProcessId)"
         Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
