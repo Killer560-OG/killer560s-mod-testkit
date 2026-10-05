@@ -322,8 +322,7 @@ final class SolverCases {
         block[8] = 'O';
         block[3] = 'X';
         block[4] = 'X';
-        block[1] = 'X';
-        c.eq("tic tac toe blocks", 7, Mod.staticCall(ttt, "getBestMove", block, true));
+        c.eq("tic tac toe blocks the only threat", 5, Mod.staticCall(ttt, "getBestMove", block, true));
         int positions = 0;
         int wrong = 0;
         String firstWrong = "";

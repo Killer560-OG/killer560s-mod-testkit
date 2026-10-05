@@ -138,6 +138,9 @@ final class FixtureCases {
                     boolean substantive = text.length() > 3 && !text.matches("[{}();,\\s]*");
                     c.check("source line is substantive " + id, substantive,
                             f.sourceFile() + ":" + f.sourceLine() + " reads \"" + text + "\"");
+                    c.check("source line relates to the fixture " + id, relates(text, f),
+                            f.sourceFile() + ":" + f.sourceLine() + " reads \"" + text
+                                    + "\" - no word of the payload, no cited field, no Pattern.compile (line moved?)");
                 }
             }
         }
@@ -280,6 +283,35 @@ final class FixtureCases {
             problems.add("cannot list " + root + ": " + e);
         }
         return out;
+    }
+
+    /**
+     * Whether a cited source line plausibly is where the fixture came from: it compiles a pattern, names a field the
+     * fixture cites, or shares a word (3+ letters) with the payload. Catches a citation left behind when the mod
+     * source moved, which "the line exists" never would.
+     */
+    static boolean relates(String line, Fixtures.Fixture f) {
+        if (line.contains("Pattern.compile")) {
+            return true;
+        }
+        List<String> refs = new ArrayList<>(f.matches());
+        refs.addAll(f.mustNotMatch());
+        refs.addAll(gates(f));
+        for (String ref : refs) {
+            String field = ref.substring(ref.indexOf('#') + 1).replaceAll("\\[\\d+]$", "");
+            if (line.contains(field)) {
+                return true;
+            }
+        }
+        String lower = line.toLowerCase(Locale.ROOT);
+        for (String t : texts(f)) {
+            for (String word : t.split("[^A-Za-z]+")) {
+                if (word.length() >= 3 && lower.contains(word.toLowerCase(Locale.ROOT))) {
+                    return true;
+                }
+            }
+        }
+        return f.texts().isEmpty();
     }
 
     private static List<String> readLines(Path p) {

@@ -3,7 +3,10 @@
     "id": "logic.party-chat-ranked",
     "kind": "chat",
     "payload": "Party > [MVP+] Killer560: meow",
-    "source": {"file": "src/main/java/com/killer560/hub/automeow/AutoMeowFeature.java", "line": 88},
+    "source": {
+      "file": "src/main/java/com/killer560/hub/automeow/AutoMeowFeature.java",
+      "line": 107
+    },
     "matches": [
       "chatcommands.ChatCommandsFeature#PARTY_REGEX",
       "leapmenu.PartyTracker#PARTY_CHAT",
@@ -27,8 +30,14 @@
     "id": "logic.party-chat-prefix",
     "kind": "chat",
     "payload": "Party > [MVP+] Killer560: meow",
-    "source": {"file": "src/main/java/com/killer560/hub/automeow/AutoMeowFeature.java", "line": 88},
-    "matches": ["automeow.AutoMeowFeature#PARTY_PREFIX", "automeow.AutoMeowFeature#TRIGGER"],
+    "source": {
+      "file": "src/main/java/com/killer560/hub/automeow/AutoMeowFeature.java",
+      "line": 107
+    },
+    "matches": [
+      "automeow.AutoMeowFeature#PARTY_PREFIX",
+      "automeow.AutoMeowFeature#TRIGGER"
+    ],
     "mode": "find",
     "verifiedBy": "regex",
     "sender": "Killer560",
@@ -43,8 +52,13 @@
     "id": "logic.guild-chat",
     "kind": "chat",
     "payload": "Guild > Killer560 [Member]: meow",
-    "source": {"file": "src/main/java/com/killer560/hub/automeow/AutoMeowFeature.java", "line": 88},
-    "matches": ["chatcommands.ChatCommandsFeature#GUILD_REGEX"],
+    "source": {
+      "file": "src/main/java/com/killer560/hub/automeow/AutoMeowFeature.java",
+      "line": 107
+    },
+    "matches": [
+      "chatcommands.ChatCommandsFeature#GUILD_REGEX"
+    ],
     "mustNotMatch": [
       "chatcommands.ChatCommandsFeature#PARTY_REGEX",
       "chatcommands.ChatCommandsFeature#PRIVATE_REGEX",
@@ -61,7 +75,10 @@
     "id": "logic.all-chat",
     "kind": "chat",
     "payload": "[312] [MVP+] Killer560: meow",
-    "source": {"file": "src/main/java/com/killer560/hub/automeow/AutoMeowFeature.java", "line": 88},
+    "source": {
+      "file": "src/main/java/com/killer560/hub/automeow/AutoMeowFeature.java",
+      "line": 107
+    },
     "mustNotMatch": [
       "chatcommands.ChatCommandsFeature#PARTY_REGEX",
       "chatcommands.ChatCommandsFeature#GUILD_REGEX",
@@ -80,10 +97,15 @@
     "id": "logic.puzzle-fail",
     "kind": "chat",
     "payload": "PUZZLE FAIL! Killer560 was fooled by Eveleth! Yikes!",
-    "source": {"file": "src/main/java/com/killer560/hub/architect/ArchitectDraftFeature.java", "line": 20},
+    "source": {
+      "file": "src/main/java/com/killer560/hub/architect/ArchitectDraftFeature.java",
+      "line": 20
+    },
     "mode": "find",
     "verifiedBy": "regex",
-    "gates": ["architect.ArchitectDraftFeature#FAIL_PATTERNS[0]"],
+    "gates": [
+      "architect.ArchitectDraftFeature#FAIL_PATTERNS[0]"
+    ],
     "sender": "Killer560",
     "notes": "Quoted in the class doc. FAIL_PATTERNS is a List, so it is listed under gates (Fixtures.checkPatterns resolves Pattern fields only). A match whose name is yours runs /gfs architect_first_draft 1."
   },
@@ -91,10 +113,15 @@
     "id": "logic.oruo-wrong-answer",
     "kind": "chat",
     "payload": "[STATUE] Oruo the Omniscient: Killer560 chose the wrong answer! I shall never forget this moment of misrememberance.",
-    "source": {"file": "src/main/java/com/killer560/hub/architect/ArchitectDraftFeature.java", "line": 25},
+    "source": {
+      "file": "src/main/java/com/killer560/hub/architect/ArchitectDraftFeature.java",
+      "line": 25
+    },
     "mode": "find",
     "verifiedBy": "regex",
-    "gates": ["architect.ArchitectDraftFeature#FAIL_PATTERNS[1]"],
+    "gates": [
+      "architect.ArchitectDraftFeature#FAIL_PATTERNS[1]"
+    ],
     "sender": "Killer560",
     "notes": "Quoted across ArchitectDraftFeature.java:24-25."
   },
@@ -102,9 +129,17 @@
     "id": "logic.wither-key",
     "kind": "chat",
     "payload": "Killer560 has obtained Wither Key!",
-    "source": {"file": "src/main/java/com/killer560/hub/doorhelpers/AutoDoorOpenerFeature.java", "line": 60},
-    "matches": ["doorhelpers.AutoDoorOpenerFeature#KEY_OBTAINED_WITHER", "witherdoors.WitherDoorsFeature#KEY_OBTAINED_WITHER"],
-    "mustNotMatch": ["doorhelpers.AutoDoorOpenerFeature#KEY_OBTAINED_BLOOD"],
+    "source": {
+      "file": "src/main/java/com/killer560/hub/doorhelpers/AutoDoorOpenerFeature.java",
+      "line": 60
+    },
+    "matches": [
+      "doorhelpers.AutoDoorOpenerFeature#KEY_OBTAINED_WITHER",
+      "witherdoors.WitherDoorsFeature#KEY_OBTAINED_WITHER"
+    ],
+    "mustNotMatch": [
+      "doorhelpers.AutoDoorOpenerFeature#KEY_OBTAINED_BLOOD"
+    ],
     "mode": "matches",
     "verifiedBy": "regex",
     "sender": "Killer560",
@@ -114,9 +149,17 @@
     "id": "logic.blood-key",
     "kind": "chat",
     "payload": "Killer560 has obtained Blood Key!",
-    "source": {"file": "src/main/java/com/killer560/hub/doorhelpers/AutoDoorOpenerFeature.java", "line": 64},
-    "matches": ["doorhelpers.AutoDoorOpenerFeature#KEY_OBTAINED_BLOOD", "witherdoors.WitherDoorsFeature#KEY_OBTAINED_BLOOD"],
-    "mustNotMatch": ["doorhelpers.AutoDoorOpenerFeature#KEY_OBTAINED_WITHER"],
+    "source": {
+      "file": "src/main/java/com/killer560/hub/doorhelpers/AutoDoorOpenerFeature.java",
+      "line": 64
+    },
+    "matches": [
+      "doorhelpers.AutoDoorOpenerFeature#KEY_OBTAINED_BLOOD",
+      "witherdoors.WitherDoorsFeature#KEY_OBTAINED_BLOOD"
+    ],
+    "mustNotMatch": [
+      "doorhelpers.AutoDoorOpenerFeature#KEY_OBTAINED_WITHER"
+    ],
     "mode": "matches",
     "verifiedBy": "regex",
     "sender": "Killer560"
@@ -125,7 +168,10 @@
     "id": "logic.device-done",
     "kind": "chat",
     "payload": "Killer560 completed a device! (3/7)",
-    "source": {"file": "src/main/java/com/killer560/hub/leveraura/LeverAuraFeature.java", "line": 58},
+    "source": {
+      "file": "src/main/java/com/killer560/hub/leveraura/LeverAuraFeature.java",
+      "line": 58
+    },
     "matches": [
       "fastleap.I4LeapFeature#DEVICE_DONE_REGEX",
       "ap3.Ap3Feature#TERM_COMPLETED",
@@ -142,8 +188,13 @@
     "id": "logic.device-done-find",
     "kind": "chat",
     "payload": "Killer560 completed a device! (3/7)",
-    "source": {"file": "src/main/java/com/killer560/hub/i4sensors/AutoI4Feature.java", "line": 71},
-    "matches": ["i4sensors.AutoI4Feature#DEVICE_DONE"],
+    "source": {
+      "file": "src/main/java/com/killer560/hub/i4sensors/AutoI4Feature.java",
+      "line": 71
+    },
+    "matches": [
+      "i4sensors.AutoI4Feature#DEVICE_DONE"
+    ],
     "mode": "find",
     "verifiedBy": "regex",
     "sender": "Killer560",
@@ -153,7 +204,10 @@
     "id": "logic.leap-teleported",
     "kind": "chat",
     "payload": "You have teleported to Killer560!",
-    "source": {"file": "src/main/java/com/killer560/hub/leapmessage/LeapMessageFeature.java", "line": 35},
+    "source": {
+      "file": "src/main/java/com/killer560/hub/leapmessage/LeapMessageFeature.java",
+      "line": 35
+    },
     "matches": [
       "leapmessage.LeapMessageFeature#LEAP_MESSAGE",
       "ap3.Ap3Feature#SELF_LEAP",
@@ -168,8 +222,13 @@
     "id": "logic.goldor-start",
     "kind": "chat",
     "payload": "[BOSS] Goldor: Who dares trespass into my domain?",
-    "source": {"file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java", "line": 88},
-    "matches": ["simonsays.SimonSaysFeature#AUTO_START_TRIGGER_PATTERN"],
+    "source": {
+      "file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java",
+      "line": 88
+    },
+    "matches": [
+      "simonsays.SimonSaysFeature#AUTO_START_TRIGGER_PATTERN"
+    ],
     "mode": "find",
     "verifiedBy": "regex",
     "notes": "Starts Simon Says auto-start."
@@ -178,8 +237,13 @@
     "id": "logic.party-disbanded",
     "kind": "chat",
     "payload": "Killer560 has disbanded the party!",
-    "source": {"file": "src/main/java/com/killer560/hub/dungeonqueue/DungeonQueueFeature.java", "line": 42},
-    "matches": ["leapmenu.PartyTracker#CLEARED"],
+    "source": {
+      "file": "src/main/java/com/killer560/hub/dungeonqueue/DungeonQueueFeature.java",
+      "line": 42
+    },
+    "matches": [
+      "leapmenu.PartyTracker#CLEARED"
+    ],
     "mode": "matches",
     "verifiedBy": "regex",
     "gates": [
@@ -194,8 +258,14 @@
     "id": "logic.joined-party",
     "kind": "chat",
     "payload": "You have joined Killer560's party!",
-    "source": {"file": "src/main/java/com/killer560/hub/partycommands/PartyLeaderTracker.java", "line": 27},
-    "matches": ["leapmenu.PartyTracker#YOU_JOINED", "partycommands.PartyLeaderTracker#YOU_JOINED"],
+    "source": {
+      "file": "src/main/java/com/killer560/hub/partycommands/PartyLeaderTracker.java",
+      "line": 27
+    },
+    "matches": [
+      "leapmenu.PartyTracker#YOU_JOINED",
+      "partycommands.PartyLeaderTracker#YOU_JOINED"
+    ],
     "mode": "matches",
     "verifiedBy": "regex",
     "sender": "Killer560",
@@ -205,8 +275,13 @@
     "id": "logic.member-joined",
     "kind": "chat",
     "payload": "Killer560 joined the party.",
-    "source": {"file": "src/main/java/com/killer560/hub/leapmenu/PartyTracker.java", "line": 51},
-    "matches": ["leapmenu.PartyTracker#JOINED"],
+    "source": {
+      "file": "src/main/java/com/killer560/hub/leapmenu/PartyTracker.java",
+      "line": 51
+    },
+    "matches": [
+      "leapmenu.PartyTracker#JOINED"
+    ],
     "mode": "matches",
     "verifiedBy": "regex",
     "sender": "Killer560",
@@ -216,7 +291,10 @@
     "id": "logic.transfer-leave",
     "kind": "chat",
     "payload": "The party was transferred to Killer560 because Eveleth left",
-    "source": {"file": "src/main/java/com/killer560/hub/partycommands/PartyLeaderTracker.java", "line": 28},
+    "source": {
+      "file": "src/main/java/com/killer560/hub/partycommands/PartyLeaderTracker.java",
+      "line": 28
+    },
     "matches": [
       "partycommands.PartyLeaderTracker#TRANSFER_LEAVE",
       "leapmenu.PartyTracker#TRANSFER_LEAVE",
@@ -224,7 +302,9 @@
     ],
     "mode": "matches",
     "verifiedBy": "regex",
-    "gates": ["dungeonqueue.DungeonQueueFeature#PARTY_LEAVE[4]"],
+    "gates": [
+      "dungeonqueue.DungeonQueueFeature#PARTY_LEAVE[4]"
+    ],
     "sender": "Killer560",
     "notes": "Second name taken from ArchitectDraftFeature's quoted line (Eveleth)."
   },
@@ -232,7 +312,10 @@
     "id": "logic.extra-stats",
     "kind": "chat",
     "payload": "> EXTRA STATS <",
-    "source": {"file": "src/main/java/com/killer560/hub/dungeonqueue/DungeonQueueFeature.java", "line": 19},
+    "source": {
+      "file": "src/main/java/com/killer560/hub/dungeonqueue/DungeonQueueFeature.java",
+      "line": 19
+    },
     "matches": [
       "dungeonqueue.DungeonQueueFeature#EXTRA_STATS",
       "runstats.RunStatsFeature#EXTRA_STATS",
@@ -246,8 +329,13 @@
     "id": "logic.extra-stats-matches",
     "kind": "chat",
     "payload": "> EXTRA STATS <",
-    "source": {"file": "src/main/java/com/killer560/hub/partycommands/PartyCommandsFeature.java", "line": 86},
-    "matches": ["partycommands.PartyCommandsFeature#END_OF_RUN"],
+    "source": {
+      "file": "src/main/java/com/killer560/hub/partycommands/PartyCommandsFeature.java",
+      "line": 86
+    },
+    "matches": [
+      "partycommands.PartyCommandsFeature#END_OF_RUN"
+    ],
     "mode": "matches",
     "verifiedBy": "regex",
     "notes": "Schedules the party-chat downtime announcement."
@@ -256,8 +344,13 @@
     "id": "logic.door-opened",
     "kind": "chat",
     "payload": "Killer560 opened a WITHER door!",
-    "source": {"file": "src/main/java/com/killer560/hub/fastleap/FastLeapFeature.java", "line": 60},
-    "matches": ["fastleap.FastLeapFeature#DOOR_OPEN_REGEX"],
+    "source": {
+      "file": "src/main/java/com/killer560/hub/fastleap/FastLeapFeature.java",
+      "line": 60
+    },
+    "matches": [
+      "fastleap.FastLeapFeature#DOOR_OPEN_REGEX"
+    ],
     "mode": "matches",
     "verifiedBy": "regex",
     "sender": "Killer560",
@@ -267,28 +360,30 @@
     "id": "logic.npc-line",
     "kind": "chat",
     "payload": "[NPC] Aldous: The reward is in my chest.",
-    "source": {"file": "src/main/java/com/killer560/hub/roomsim/puzzles/SimQuizPuzzle.java", "line": 431},
-    "matches": ["dungeonextras.AutoDialogueFeature#NPC_LINE"],
+    "source": {
+      "file": "src/main/java/com/killer560/hub/roomsim/puzzles/SimQuizPuzzle.java",
+      "line": 431
+    },
+    "matches": [
+      "dungeonextras.AutoDialogueFeature#NPC_LINE",
+      "puzzlesolvers.WeirdosSolverFeature#NPC_LINE"
+    ],
     "mode": "matches",
     "verifiedBy": "regex",
-    "notes": "\"[NPC] \" + WEIRDO_NAMES[i] + \": \" + line (SimQuizPuzzle.java:431, names at :98, line from WeirdosSolverFeature.java:66). AutoDialogue then runs the line's click command."
-  },
-  {
-    "id": "logic.npc-line-find",
-    "kind": "chat",
-    "payload": "[NPC] Aldous: The reward is in my chest.",
-    "source": {"file": "src/main/java/com/killer560/hub/roomsim/puzzles/SimQuizPuzzle.java", "line": 431},
-    "matches": ["puzzlesolvers.WeirdosSolverFeature#NPC_LINE"],
-    "mode": "find",
-    "verifiedBy": "regex",
-    "notes": "WeirdosSolverFeature reads it with find() (WeirdosSolverFeature.java:124)."
+    "notes": "\"[NPC] \" + WEIRDO_NAMES[i] + \": \" + line (SimQuizPuzzle.java:431, names at :98, line from WeirdosSolverFeature.java:66). AutoDialogue then runs the line's click command. WeirdosSolverFeature reads it with matches() since f40ec89 (WeirdosSolverFeature.java:130)."
   },
   {
     "id": "logic.simon-says-progress",
     "kind": "chat",
     "payload": "Party > [MVP+] Killer560: SS 3/5",
-    "source": {"file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java", "line": 81},
-    "matches": ["simonsays.SimonSaysFeature#PROGRESS_PATTERN_SIMPLE", "simonsays.SimonSaysFeature#PROGRESS_PATTERN"],
+    "source": {
+      "file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java",
+      "line": 81
+    },
+    "matches": [
+      "simonsays.SimonSaysFeature#PROGRESS_PATTERN_SIMPLE",
+      "simonsays.SimonSaysFeature#PROGRESS_PATTERN"
+    ],
     "mode": "find",
     "verifiedBy": "regex",
     "sender": "Killer560",
@@ -297,6 +392,6 @@
       "simonsays.SimonSaysFeature#PROGRESS_PATTERN": "same"
     },
     "parsedAsInt": true,
-    "notes": "Party shape from AutoMeowFeature.java:88 with the SS payload. The 2026-09-29 disconnect bug (HostileChatTests) was unbounded digits here."
+    "notes": "Party shape from AutoMeowFeature.java:107 with the SS payload. The 2026-09-29 disconnect bug (HostileChatTests) was unbounded digits here."
   }
 ]

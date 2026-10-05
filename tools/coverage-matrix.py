@@ -147,7 +147,7 @@ def main(argv):
         row(pkg)
     cited = {}
     for fx, path, root in fixtures:
-        for ref in (fx.get('matches') or []) + (fx.get('mustNotMatch') or []):
+        for ref in (fx.get('matches') or []) + (fx.get('mustNotMatch') or []) + (fx.get('gates') or []):
             cited.setdefault(ref, set()).add(fx.get('id'))
         src = (fx.get('source') or {}).get('file') or ''
         if src.startswith(HUB + '/'):
@@ -156,13 +156,13 @@ def main(argv):
     for e in catalog['patterns']:
         r = row(pkg_of(e['cls']))
         r[e['kind'] if e['kind'] in ('field', 'element') else 'other'] += 1
-        if e['kind'] == 'field' and e['id'] in cited:
+        if e['kind'] in ('field', 'element') and e['id'] in cited:
             r['cited'] += 1
             r['citedIds'].append(e['id'])
     for c in cases:
         m = re.match(r'^(\d+)-(\w+)-', c.get('name', ''))
         # cases do not name packages; the report's coverage.md is what ties a run to a package
-    statics = sum(1 for e in catalog['patterns'] if e['kind'] == 'field')
+    statics = sum(1 for e in catalog['patterns'] if e['kind'] in ('field', 'element'))
     cited_total = sum(r['cited'] for r in rows.values())
 
     lines = ['# coverage matrix', '',
@@ -174,11 +174,11 @@ def main(argv):
              f"- report: {args.report if touched else '(none read)'}",
              '', '"cited" = a fixture lists the pattern in matches/mustNotMatch. It proves agreement with the regex, '
              'not that Hypixel sends the line or that the feature works.', '',
-             '| package | owner | static patterns | cited | % | other patterns | fixtures | touched by run |',
+             '| package | owner | static fields | cited (fields+elements) | % | elements+other | fixtures | touched by run |',
              '|---|---|---|---|---|---|---|---|']
     for pkg in sorted(rows):
         r = rows[pkg]
-        pct = f"{100.0 * r['cited'] / r['field']:.0f}" if r['field'] else '-'
+        pct = f"{100.0 * r['cited'] / (r['field'] + r['element']):.0f}" if r['field'] + r['element'] else '-'
         t = '-' if r['touched'] is None else ('yes' if r['touched'] else 'no')
         lines.append(f"| {pkg} | {r['owner']} | {r['field']} | {r['cited']} | {pct} | {r['element'] + r['other']} "
                      f"| {r['fixtures']} | {t} |")
