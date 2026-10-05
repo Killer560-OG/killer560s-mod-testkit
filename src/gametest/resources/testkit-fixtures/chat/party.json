@@ -1,0 +1,65 @@
+[
+  {
+    "id": "chat.party-coords",
+    "kind": "chat",
+    "payload": "§9Party §8> §b[MVP§c+§b] HxMateA§f: !coords",
+    "source": {"file": "src/main/java/com/killer560/hub/chatcommands/ChatCommandsFeature.java", "line": 51},
+    "matches": ["chatcommands.ChatCommandsFeature#PARTY_REGEX", "interop.InteropChatParser#PARTY_LINE"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "!coords is InfoCommand COORDS; the reply goes out as /pc <x>, <y>, <z> (ChatCommandsFeature :306)."
+  },
+  {
+    "id": "chat.party-warp",
+    "kind": "chat",
+    "payload": "§9Party §8> §b[MVP§c+§b] HxMateA§f: !warp",
+    "source": {"file": "src/main/java/com/killer560/hub/chatcommands/ChatCommandsFeature.java", "line": 51},
+    "matches": ["chatcommands.ChatCommandsFeature#PARTY_REGEX"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "PartyCommandsFeature WARP -> /p warp (:249), only for a teammate (:187)."
+  },
+  {
+    "id": "chat.party-mimic",
+    "kind": "chat",
+    "payload": "§9Party §8> §b[MVP§c+§b] HxMateA§f: Mimic Killed!",
+    "source": {"file": "src/main/java/com/killer560/hub/interop/InteropChatParser.java", "line": 68},
+    "matches": ["interop.InteropChatParser#PARTY_LINE", "scorecalc.ScoreCalculatorFeature#PARTY_MESSAGE"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "'Mimic Killed!' is Odin's announcement per InteropChatParser's comment at :40-41."
+  },
+  {
+    "id": "chat.party-meow",
+    "kind": "chat",
+    "payload": "§9Party §8> §b[MVP§c+§b] HxMateA§f: meow",
+    "source": {"file": "src/main/java/com/killer560/hub/automeow/AutoMeowFeature.java", "line": 32},
+    "matches": ["automeow.AutoMeowFeature#TRIGGER", "automeow.AutoMeowFeature#PARTY_PREFIX"],
+    "verifiedBy": "regex"
+  },
+  {
+    "id": "chat.party-list-header",
+    "kind": "chat",
+    "payload": "§6Party Members (3)",
+    "source": {"file": "src/main/java/com/killer560/hub/leapmenu/PartyTracker.java", "line": 48},
+    "matches": ["leapmenu.PartyTracker#LIST_HEADER"],
+    "mode": "matches",
+    "verifiedBy": "regex"
+  },
+  {
+    "id": "chat.party-list-leader",
+    "kind": "chat",
+    "payload": "§eParty Leader: §b[MVP§c+§b] HxLead §a●",
+    "source": {"file": "src/main/java/com/killer560/hub/leapmenu/PartyTracker.java", "line": 49},
+    "matches": ["leapmenu.PartyTracker#LIST_LINE", "leapmenu.PartyTracker#LIST_ENTRY", "partycommands.PartyLeaderTracker#LEADER_LIST"],
+    "verifiedBy": "regex"
+  },
+  {
+    "id": "chat.party-list-members",
+    "kind": "chat",
+    "payload": "§eParty Members: §b[MVP§c+§b] HxMateA§a ● §7HxMateB§a ●",
+    "source": {"file": "src/main/java/com/killer560/hub/leapmenu/PartyTracker.java", "line": 50},
+    "matches": ["leapmenu.PartyTracker#LIST_LINE", "leapmenu.PartyTracker#LIST_ENTRY"],
+    "verifiedBy": "regex"
+  }
+]
