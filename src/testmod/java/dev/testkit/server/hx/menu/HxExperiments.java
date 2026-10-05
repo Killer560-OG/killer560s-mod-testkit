@@ -84,6 +84,14 @@ final class HxExperiments {
         long recoverAt = -1;
         int remainingClicks;
         int pairsFound;
+        // Superpairs powerup (Instant Find), only on a board given a "layout" with a {"powerup":true} tile:
+        // 0 covered, 1 revealed (a click arms it), 2 armed (the next covered tile and its partner are claimed),
+        // 3 spent. The tile never takes part in a pair; the covered tiles read "Next button is instantly
+        // rewarded!" while it is armed (the mod's SUPERPAIRS_HIDDEN_PATTERN lists that text).
+        int powerupIdx = -1;
+        int powerupState;
+        /** Every pair the server counted as claimed, in order: {a, b, name, viaPowerup, tick}. */
+        final List<JsonObject> claimed = new ArrayList<>();
 
         Session(Game game, String tier, long seed, int maxRounds, int watchTicks, int holdTicks, JsonObject rewards) {
             this.game = game;
@@ -216,7 +224,7 @@ final class HxExperiments {
 
         // ---- Superpairs ----
 
-        void setupSuperpairs(MinecraftServer server, HxChestMenu menu, int pairs, int clicksAllowed) {
+        void setupSuperpairs(MinecraftServer server, HxChestMenu menu, int pairs, int clicksAllowed, JsonArray layout) {
             for (int i = 0; i < 54; i++) {
                 menu.items().setItem(i, HxMenus.filler(server));
             }
@@ -224,11 +232,24 @@ final class HxExperiments {
                     {"minecraft:enchanted_book", "Power VI"}, {"minecraft:enchanted_book", "Sharpness V"},
                     {"minecraft:enchanted_book", "Protection V"}, {"minecraft:enchanted_book", "Growth V"},
                     {"minecraft:enchanted_book", "Smite VI"}, {"minecraft:enchanted_book", "Looting III"}};
-            for (int i = 0; i < pairs; i++) {
-                faces.add(kinds[i % kinds.length]);
-                faces.add(kinds[i % kinds.length]);
+            if (layout != null) {
+                // An explicit board, tile by tile from slot 9: {item, name} or {powerup: true}. No shuffle.
+                for (JsonElement el : layout) {
+                    JsonObject t = el.getAsJsonObject();
+                    if (t.has("powerup") && t.get("powerup").getAsBoolean()) {
+                        powerupIdx = faces.size();
+                        faces.add(new String[] {"minecraft:nether_star", "Instant Find", "Powerup for next click!"});
+                    } else {
+                        faces.add(new String[] {t.get("item").getAsString(), t.get("name").getAsString()});
+                    }
+                }
+            } else {
+                for (int i = 0; i < pairs; i++) {
+                    faces.add(kinds[i % kinds.length]);
+                    faces.add(kinds[i % kinds.length]);
+                }
+                Collections.shuffle(faces, rng);
             }
-            Collections.shuffle(faces, rng);
             for (int i = 0; i < faces.size(); i++) {
                 tiles.add(9 + i);   // first row of the 9-44 board, snake order starts at 9
             }
@@ -246,7 +267,22 @@ final class HxExperiments {
                 return;
             }
             menu.items().setItem(slot, HxMenus.named(server, "minecraft:light_blue_stained_glass_pane",
-                    firstOpen >= 0 && slot != firstOpen ? "Click a second button!" : "Click any button!"));
+                    powerupState == 2 ? "Next button is instantly rewarded!"
+                            : firstOpen >= 0 && slot != firstOpen ? "Click a second button!" : "Click any button!"));
+        }
+
+        int regularTiles() {
+            return tiles.size() - (powerupIdx >= 0 ? 1 : 0);
+        }
+
+        void claim(int a, int b, String name, boolean viaPowerup, long tick) {
+            JsonObject c = new JsonObject();
+            c.addProperty("a", a);
+            c.addProperty("b", b);
+            c.addProperty("name", name);
+            c.addProperty("viaPowerup", viaPowerup);
+            c.addProperty("tick", tick);
+            claimed.add(c);
         }
     }
 
@@ -278,7 +314,8 @@ final class HxExperiments {
         last = s;
         if (game == Game.SUPERPAIRS) {
             s.setupSuperpairs(server, menu, a.has("pairs") ? a.get("pairs").getAsInt() : 3,
-                    a.has("clicks") ? a.get("clicks").getAsInt() : 20);
+                    a.has("clicks") ? a.get("clicks").getAsInt() : 20,
+                    a.has("layout") ? a.getAsJsonArray("layout") : null);
         } else {
             s.startRound(server, menu);
         }
@@ -307,6 +344,15 @@ final class HxExperiments {
         JsonArray ticks = new JsonArray();
         s.clickTicks.forEach(ticks::add);
         o.add("clickTicks", ticks);
+        o.addProperty("powerupState", s.powerupState);
+        JsonArray claimedArr = new JsonArray();
+        s.claimed.forEach(claimedArr::add);
+        o.add("claimed", claimedArr);
+        JsonObject board = new JsonObject();
+        for (int i = 0; i < s.tiles.size(); i++) {
+            board.addProperty(String.valueOf(s.tiles.get(i)), s.faces.get(i)[1]);
+        }
+        o.add("board", board);
         return o;
     }
 
@@ -374,10 +420,66 @@ final class HxExperiments {
             case SUPERPAIRS -> {
                 int idx = s.tiles.indexOf(slot);
                 boolean covered = idx >= 0 && !s.matched[slot] && slot != s.firstOpen && slot != s.secondOpen;
-                e.addProperty("correct", covered);
+                boolean powerupTurn = idx >= 0 && s.powerupIdx >= 0 && s.firstOpen < 0 && s.recoverAt < 0;
+                boolean powerupTile = powerupTurn && idx == s.powerupIdx && (s.powerupState == 0 || s.powerupState == 1);
+                e.addProperty("correct", covered || powerupTile);
+                e.addProperty("powerupState", s.powerupState);
                 HxEvents.custom("experiment.click", player, e);
+                if (powerupTile) {
+                    // First click shows the tile, a second one arms it; neither opens a pair.
+                    String[] pf = s.faces.get(idx);
+                    if (s.powerupState == 0) {
+                        menu.items().setItem(slot, HxMenus.named(server, pf[0], pf[1], pf[2]));
+                        s.matched[slot] = true;
+                        s.powerupState = 1;
+                    } else {
+                        s.powerupState = 2;
+                        for (int t : s.tiles) {
+                            s.cover(server, menu, t);
+                        }
+                    }
+                    s.remainingClicks--;
+                    menu.items().setItem(4, HxMenus.named(server, "minecraft:book", "Remaining Clicks: " + s.remainingClicks));
+                    if (s.remainingClicks <= 0) {
+                        over(server, menu, player, s, "out of clicks");
+                    }
+                    return;
+                }
                 if (!covered || s.recoverAt > 0) {
                     return;
+                }
+                if (powerupTurn && s.powerupState == 2) {
+                    // Armed: this tile and its partner are claimed at once.
+                    String[] f1 = s.faces.get(idx);
+                    int partner = -1;
+                    for (int i = 0; i < s.tiles.size(); i++) {
+                        String[] f2 = s.faces.get(i);
+                        if (i != idx && !s.matched[s.tiles.get(i)] && f2[0].equals(f1[0]) && f2[1].equals(f1[1])) {
+                            partner = s.tiles.get(i);
+                            break;
+                        }
+                    }
+                    if (partner >= 0) {
+                        menu.items().setItem(slot, HxMenus.named(server, f1[0], f1[1]));
+                        menu.items().setItem(partner, HxMenus.named(server, f1[0], f1[1]));
+                        s.matched[slot] = true;
+                        s.matched[partner] = true;
+                        s.pairsFound++;
+                        s.powerupState = 3;
+                        s.claim(slot, partner, f1[1], true, now);
+                        s.remainingClicks--;
+                        menu.items().setItem(4, HxMenus.named(server, "minecraft:book", "Remaining Clicks: " + s.remainingClicks));
+                        HxEvents.custom("experiment.pair", player, describe(s));
+                        for (int t : s.tiles) {
+                            s.cover(server, menu, t);
+                        }
+                        if (s.pairsFound * 2 == s.regularTiles()) {
+                            over(server, menu, player, s, "all pairs");
+                        } else if (s.remainingClicks <= 0) {
+                            over(server, menu, player, s, "out of clicks");
+                        }
+                        return;
+                    }
                 }
                 String[] face = s.faces.get(idx);
                 menu.items().setItem(slot, HxMenus.named(server, face[0], face[1]));
@@ -397,6 +499,7 @@ final class HxExperiments {
                         s.matched[slot] = true;
                         s.matched[s.firstOpen] = true;
                         s.pairsFound++;
+                        s.claim(s.firstOpen, slot, face[1], false, now);
                         s.firstOpen = -1;
                         s.secondOpen = -1;
                         HxEvents.custom("experiment.pair", player, describe(s));
@@ -407,7 +510,7 @@ final class HxExperiments {
                         s.recoverAt = now + 10;
                     }
                 }
-                if (s.pairsFound * 2 == s.tiles.size()) {
+                if (s.pairsFound * 2 == s.regularTiles()) {
                     over(server, menu, player, s, "all pairs");
                 } else if (s.remainingClicks <= 0) {
                     over(server, menu, player, s, "out of clicks");
