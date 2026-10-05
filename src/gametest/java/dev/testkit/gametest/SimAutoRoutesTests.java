@@ -74,7 +74,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
 
     // Order matters once: the editor's Go To is an Interactive Map warp, and after one only a START node may arm until
     // he has been through one (the map-arrival interlock), so the cases that arm non-start nodes run before it.
-    private static final String[] CASES = {"96-ar-add", "96-ar-play", "96-ar-breaker", "96-ar-pingpong", "96-ar-edit",
+    private static final String[] CASES = {"96-ar-add", "96-ar-play", "96-ar-breaker", "96-ar-pingpong", "96-ar-edit", "96-ar-mapopen",
             "96-ar-path", "96-ar-screen", "96-ar-rotate"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
@@ -206,6 +206,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-breaker" -> caseBreaker(ctx);
                         case "96-ar-pingpong" -> casePingPong(ctx);
                         case "96-ar-edit" -> caseEdit(ctx);
+                        case "96-ar-mapopen" -> caseMapOpen(ctx);
                         case "96-ar-screen" -> caseScreen(ctx);
                         case "96-ar-path" -> casePath(ctx);
                         case "96-ar-rotate" -> caseRotate(ctx);
@@ -578,6 +579,69 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
                 ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true);
             });
+        }
+    }
+
+    /**
+     * Run While Map Open: ON, a start node fires under the open Interactive Map screen; OFF, it does not; ON with a
+     * chest's screen open instead, it does not.
+     */
+    private void caseMapOpen(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        writeRoute(ctx, List.of(ew(6, 6, 14, 6, true)));
+        setBlocks(ctx, Map.of(new int[]{4, F, 8}, Blocks.CHEST.defaultBlockState()));
+        try {
+            for (int pass = 0; pass < 3; pass++) {
+                boolean on = pass != 1;
+                boolean chest = pass == 2;
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setRunWhileMapOpen", on));
+                tpRel(ctx, 4.5, 6.5, 0f, 0f);
+                ctx.waitTicks(10);
+                if (chest) {
+                    ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                    rightClick(ctx, 4, F, 8, Direction.UP);
+                } else {
+                    ctx.runOnClient(mc -> {
+                        try {
+                            McCompat.setScreen(mc, (Screen) Class.forName("com.killer560.hub.livemap.InteractiveMapScreen")
+                                    .getConstructor(boolean.class).newInstance(true));
+                        } catch (ReflectiveOperationException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+                }
+                ctx.waitTicks(5);
+                String screen = ctx.computeOnClient(mc -> String.valueOf(McCompat.screen(mc)));
+                check(!"null".equals(screen), "pass " + pass + ": no screen opened");
+                startSampling(ctx);
+                long m = LogTap.mark();
+                tpRel(ctx, 6.5, 6.5, -90f, 0f);
+                Vec3 landed = waitLanded(ctx, 14, 6, 60);
+                List<Sample> s = stopSampling(ctx);
+                String still = ctx.computeOnClient(mc -> String.valueOf(McCompat.screen(mc)));
+                println("map open, setting " + (on ? "ON" : "OFF") + (chest ? " (chest screen)" : "") + ": "
+                        + useTicks(s).size() + " warp(s), landed " + (landed != null) + ", screen " + still);
+                if (on && !chest) {
+                    check(landed != null && useTicks(s).size() == 1, "ON: the start node did not fire under the map");
+                    check(still.contains("InteractiveMapScreen"), "ON: the map screen closed: " + still);
+                } else {
+                    check(landed == null && useTicks(s).isEmpty(), (chest ? "a chest screen" : "the map with the setting OFF")
+                            + " did not hold the route back");
+                }
+                ctx.runOnClient(mc -> {
+                    if (mc.player.containerMenu != mc.player.inventoryMenu) {
+                        mc.player.closeContainer();
+                    }
+                    McCompat.setScreen(mc, null);
+                });
+                ctx.waitTicks(5);
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                        new Object[]{"test"}));
+            }
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setRunWhileMapOpen", false));
         }
     }
 
