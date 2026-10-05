@@ -19,9 +19,6 @@
   never causes. Fidelity, not a crash.
 - workaround in use: case 131 records the value instead of asserting on it.
 
-## suites.properties: a muted-by-default note is enough
-- nothing to change (master 4dd3082 already defaults the client to volume 0).
-
 ## mod: MagicFindTracker reads other players' chat
 - file(s): killer560s-mod src/main/java/com/killer560/hub/rngmeter/MagicFindTracker.java:19-20, :37-38
 - change: anchor MAGIC_FIND_PATTERN on the drop line's real start (or require the line not to carry a "Name: " chat
