@@ -315,7 +315,7 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   the sim plays Mage, whose left click is a beam along the look, which is the likely reason (not traced). A Hyperion
   `gameMode.useItem` (Wither Impact, radius 5) does kill it - use that to kill a sim mob as the player.
 
-- `menu.experiment` Superpairs takes `layout` (tiles from slot 9: `{item,name}` or `{powerup:true}`, no shuffle). The powerup models Instant Find: a click shows it, a second arms it, the next covered tile and its partner are claimed. The state lists every claimed pair (`claimed`), the server-side truth 229 asserts on.
+- `menu.experiment` Superpairs takes `layout` (tiles from slot 9: `{item,name}` or `{powerup:true}`, no shuffle). The powerup models Instant Find: a click shows it, a second arms it, the next covered tile and its partner are claimed. The state lists every claimed pair (`claimed`), the server-side truth 229 asserts on. `clicks` sets "Remaining Clicks" (the solver reads it since mod 5d579534); 280-283 play fixed boards with a tight budget and assert what was claimed and in which order (`ExperimentCases.play`). Main's solver before 5d579534 fails 229 and 280-283.
 - The sim's `/goto` (SimTeleportCommands.goTo) scans the ServerLevel from the RENDER thread; in the gametest lockstep a
   chunk load there deadlocks the client (99-sim-im, 2026-10-05, jstack). Place the player from `server.execute` instead
   (99-sim-im `standOn`). A sim scenario that reads the legend's Extra Info must turn Score Calculator on first - it is
