@@ -36,6 +36,191 @@ final class ExperimentCases {
         MenuSuite.test(s, "227-menu-exp-profit-tracker", ExperimentCases::profit);
         MenuSuite.test(s, "228-menu-exp-guardian-swap", ExperimentCases::guardianSwap);
         MenuSuite.test(s, "229-menu-exp-superpairs-skips", ExperimentCases::superpairsSkips);
+        MenuSuite.test(s, "280-menu-exp-superpairs-deduce-partner", ExperimentCases::deducePartner);
+        MenuSuite.test(s, "281-menu-exp-superpairs-deduce-powerup", ExperimentCases::deducePowerup);
+        MenuSuite.test(s, "282-menu-exp-superpairs-priority", ExperimentCases::priority);
+        MenuSuite.test(s, "283-menu-exp-superpairs-end-order", ExperimentCases::endOrder);
+    }
+
+    // ---- 280-283: Superpairs deductions and priority (mod branch etable-deduce) -------------------------------------
+
+    private static final String P6 = "Power VI";
+    private static final String S5 = "Sharpness V";
+    private static final String X100 = "100k Enchanting Exp";
+    private static final String X50 = "50k Enchanting Exp";
+
+    private static JsonObject book(String name) {
+        return tile("minecraft:enchanted_book", name);
+    }
+
+    private static JsonObject xp(String name) {
+        return tile("minecraft:lime_dye", name);
+    }
+
+    private static JsonObject grand() {
+        return tile("minecraft:experience_bottle", GRAND);
+    }
+
+    private static JsonObject powerup() {
+        JsonObject up = new JsonObject();
+        up.addProperty("powerup", true);
+        return up;
+    }
+
+    private static com.google.gson.JsonArray board(JsonObject... tiles) {
+        com.google.gson.JsonArray a = new com.google.gson.JsonArray();
+        for (JsonObject t : tiles) {
+            a.add(t);
+        }
+        return a;
+    }
+
+    /** One Superpairs board played by Auto E-Table to the server's end (or 1800 ticks). */
+    record Played(JsonObject end, List<String> claims, List<Integer> clicked, int used, String reason) {
+        /** Claimed reward names in claim order, colour codes stripped, "*" marking the Instant Find claim. */
+        List<String> names() {
+            List<String> out = new ArrayList<>();
+            for (String c : claims) {
+                out.add(c.substring(0, c.indexOf('@')));
+            }
+            return out;
+        }
+
+        String line() {
+            return claims + " with " + used + " click(s) used, game " + reason + ", clicked " + clicked;
+        }
+    }
+
+    static Played play(Session c, com.google.gson.JsonArray layout, int clicks, boolean valuableOnly, boolean skipGrand,
+            boolean skipGuardian) throws Exception {
+        MenuKit.reset(c);
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c); AutoCloseable armed = autoConfig(c, cfg)) {
+            cfg.set(CONFIG, "SuperpairsValuableOnly", valuableOnly).set(CONFIG, "SkipGrandExpBottles", skipGrand)
+                    .set(CONFIG, "SkipGuardianPets", skipGuardian);
+            boolean gotVo = c.onClient(mc -> (Boolean) Mod.get(CONFIG, "isSuperpairsValuableOnly"));
+            c.check(gotVo == valuableOnly, "SuperpairsValuableOnly read back " + gotVo);
+            int clicksBefore = c.events("container.click").size();
+            JsonObject args = new JsonObject();
+            args.addProperty("game", "SUPERPAIRS");
+            args.addProperty("clicks", clicks);
+            args.add("layout", layout);
+            JsonObject st = c.hx().call("menu.experiment", args).getAsJsonObject();
+            MenuKit.awaitScreen(c, st.get("title").getAsString(), 100);
+            int waited = 0;
+            while (waited < 1800 && !state(c).get("phase").getAsString().equals("OVER")) {
+                c.ctx().waitTicks(10);
+                waited += 10;
+            }
+            JsonObject end = state(c);
+            List<String> claims = new ArrayList<>();
+            for (var el : end.getAsJsonArray("claimed")) {
+                JsonObject cl = el.getAsJsonObject();
+                claims.add(plain(cl.get("name").getAsString()) + (cl.get("viaPowerup").getAsBoolean() ? "*" : "")
+                        + "@" + cl.get("a") + "+" + cl.get("b"));
+            }
+            List<JsonObject> evs = c.events("container.click");
+            List<Integer> clicked = new ArrayList<>();
+            evs.subList(clicksBefore, evs.size()).forEach(e -> clicked.add(e.get("slot").getAsInt()));
+            int used = clicks - end.get("remainingClicks").getAsInt();
+            String reason = end.get("phase").getAsString().equals("OVER") ? "over" : "still open after " + waited + " ticks";
+            for (JsonObject over : c.events("experiment.over")) {
+                reason = over.get("reason").getAsString();
+            }
+            return new Played(end, claims, clicked, used, reason);
+        } finally {
+            MenuKit.reset(c);
+        }
+    }
+
+    /**
+     * (a) The deduction "one unknown tile, one single: it is the single's partner", with Skip Plain XP on. Board XP,
+     * Power VI, XP, Power VI: after three reveals the XP partner is turned over, the Power VI partner is the one tile
+     * left and Power VI the only single, so no reveal can teach anything - the turn's forced second click takes the
+     * XP pair, and the last tile plus Power VI is a sure claim. Six clicks for both pairs; main's solver (2026-10-05,
+     * edcc9549) spent that second click revealing the last tile, and needed 8 (6 clicks: Power VI only).
+     */
+    static void deducePartner(Session c) throws Exception {
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto E-Table clicks nothing (223-225 cover the no-click check)");
+            return;
+        }
+        com.google.gson.JsonArray layout = board(xp(XP), book(P6), xp(XP), book(P6));
+        Played tight = play(c, layout, 6, true, false, false);
+        Played loose = play(c, layout, 20, true, false, false);
+        c.note("6 clicks: " + tight.line());
+        c.note("20 clicks: " + loose.line());
+        c.check(tight.names().containsAll(List.of(XP, P6)) && tight.claims().size() == 2,
+                "6 clicks: expected both pairs (Power VI and the XP) - got " + tight.line());
+        c.check(loose.used() == 6 && loose.claims().size() == 2, "20 clicks: expected both pairs in 6 clicks - got " + loose.line());
+    }
+
+    /**
+     * (b) "If everything is matched you know it is a powerup". Board 1 (Skip Plain XP): Power VI, Sharpness V, XP,
+     * Power VI, Sharpness V, XP, Instant Find. When the second XP turns over, every known tile is paired and one tile
+     * is left, so it can only be a powerup: no money can be under it, the XP pair is taken with that turn's second
+     * click instead of revealing it. 10 clicks are exactly enough (main: 12, and with 10 no XP).
+     * Board 2 (Skip Plain XP): XP25, XP50, XP25, XP50, Power VI, Power VI, Instant Find, 20 clicks. The two XP pairs are
+     * known, Power VI is matched by chance, and the last tile is deduced a powerup: it is turned over FIRST (it cannot
+     * cost an XP pair with 20 clicks), and its Instant Find claims the bigger XP (50k).
+     */
+    static void deducePowerup(Session c) throws Exception {
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto E-Table clicks nothing (223-225 cover the no-click check)");
+            return;
+        }
+        Played one = play(c, board(book(P6), book(S5), xp(XP), book(P6), book(S5), xp(XP), powerup()), 10, true, false, false);
+        c.note("board 1, 10 clicks: " + one.line());
+        c.check(one.claims().size() == 3 && one.reason().equals("all pairs"),
+                "board 1: expected all three pairs within 10 clicks - got " + one.line());
+        c.check(!one.clicked().contains(15), "board 1: the deduced powerup at slot 15 was clicked - " + one.line());
+        Played two = play(c, board(xp(XP), xp(X50), xp(XP), xp(X50), book(P6), book(P6), powerup()), 20, true, false, false);
+        c.note("board 2, 20 clicks: " + two.line());
+        c.check(two.claims().size() == 3, "board 2: expected all three pairs - got " + two.line());
+        c.check(two.claims().contains(X50 + "*@10+12"), "board 2: the Instant Find should claim the 50k XP at 10+12 - got "
+                + two.line());
+    }
+
+    /**
+     * (c) Priority with too few clicks ("prioritize money over xp", skipped kinds last but before XP): board XP100,
+     * Grand, Power VI, XP100, Sharpness V, Grand, Power VI, Sharpness V, Skip Grand on, "Every Pair" mode. With 10
+     * clicks both books and nothing else (main: the XP and one book); with 12, both books and the Grand, not the XP
+     * (main: XP and both books).
+     */
+    static void priority(Session c) throws Exception {
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto E-Table clicks nothing (223-225 cover the no-click check)");
+            return;
+        }
+        com.google.gson.JsonArray layout = board(xp(X100), grand(), book(P6), xp(X100), book(S5), grand(), book(P6), book(S5));
+        Played ten = play(c, layout, 10, false, true, false);
+        Played twelve = play(c, layout, 12, false, true, false);
+        c.note("10 clicks: " + ten.line());
+        c.note("12 clicks: " + twelve.line());
+        c.check(new java.util.HashSet<>(ten.names()).equals(java.util.Set.of(P6, S5)),
+                "10 clicks: expected exactly the two books - got " + ten.line());
+        c.check(new java.util.HashSet<>(twelve.names()).equals(java.util.Set.of(P6, S5, GRAND)),
+                "12 clicks: expected the two books and the Grand, no XP - got " + twelve.line());
+    }
+
+    /**
+     * (d) Clicks left at the end: the same board with 30 clicks claims everything, books first, then the skipped
+     * Grand, then the XP. And Grand, XP, Grand, Power VI, Power VI, XP with Skip Plain XP and Skip Grand on: Power VI,
+     * then the Grand, then the XP (main's solver started the Grand pair while a tile was turned over and never ended).
+     */
+    static void endOrder(Session c) throws Exception {
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto E-Table clicks nothing (223-225 cover the no-click check)");
+            return;
+        }
+        Played all = play(c, board(xp(X100), grand(), book(P6), xp(X100), book(S5), grand(), book(P6), book(S5)), 30, false, true, false);
+        c.note("board 1, 30 clicks: " + all.line());
+        List<String> n = all.names();
+        c.check(n.size() == 4 && n.indexOf(GRAND) > Math.max(n.indexOf(P6), n.indexOf(S5)) && n.indexOf(X100) > n.indexOf(GRAND),
+                "board 1: expected books, then Grand, then XP - got " + all.line());
+        Played two = play(c, board(grand(), xp(XP), grand(), book(P6), book(P6), xp(XP)), 20, true, true, false);
+        c.note("board 2, 20 clicks: " + two.line());
+        c.check(two.names().equals(List.of(P6, GRAND, XP)), "board 2: expected Power VI, Grand, XP in that order - got "
+                + two.line());
     }
 
     // ---- 229: Superpairs "Skip Grand XP Bottles" / "Skip Guardian Pets" -------------------------------------------
@@ -97,22 +282,22 @@ final class ExperimentCases {
         }
         List<String> problems = new ArrayList<>();
         List<String> notes = new ArrayList<>();
-        // grand, guardian, name the powerup's matched click must land on
+        // grand, guardian, name the powerup's matched click must land on, clicks. Skipped kinds are last priority, not
+        // forbidden (mod edcc9549, killer560: "if it reaches the end with clicks left then it can collect those"): with
+        // 80 clicks every pair is claimed and a skipped pair only after every money pair; with 14 the clicks run out
+        // first (the Instant Find's Titanic and Power VI), and no skipped pair is claimed.
         Object[][] runs = {
-                {false, false, GRAND}, {true, false, GUARDIAN}, {false, true, GRAND}, {true, true, TITANIC}};
+                {false, false, GRAND, 80}, {true, false, GUARDIAN, 80}, {false, true, GRAND, 80}, {true, true, TITANIC, 80},
+                {true, true, TITANIC, 14}};
         for (Object[] run : runs) {
             boolean skipGrand = (Boolean) run[0];
             boolean skipGuardian = (Boolean) run[1];
             String expectPowerup = (String) run[2];
-            String label = "grand=" + (skipGrand ? "skip" : "pair") + " guardian=" + (skipGuardian ? "skip" : "pair");
-            java.util.Set<String> expected = new java.util.TreeSet<>(List.of(GRAND, TITANIC, GUARDIAN, GUARDIAN_LVL, BOOK, XP));
-            if (skipGrand) {
-                expected.remove(GRAND);
-            }
-            if (skipGuardian) {
-                expected.remove(GUARDIAN);
-                expected.remove(GUARDIAN_LVL);
-            }
+            int clicksAllowed = (Integer) run[3];
+            String label = "grand=" + (skipGrand ? "skip" : "pair") + " guardian=" + (skipGuardian ? "skip" : "pair")
+                    + " clicks=" + clicksAllowed;
+            java.util.Set<String> expected = new java.util.TreeSet<>(clicksAllowed >= 80
+                    ? List.of(GRAND, TITANIC, GUARDIAN, GUARDIAN_LVL, BOOK, XP) : List.of(TITANIC, BOOK));
             MenuKit.reset(c);
             try (MenuKit.Cfg cfg = new MenuKit.Cfg(c); AutoCloseable armed = autoConfig(c, cfg)) {
                 cfg.set(CONFIG, "SkipGrandExpBottles", skipGrand).set(CONFIG, "SkipGuardianPets", skipGuardian);
@@ -123,14 +308,15 @@ final class ExperimentCases {
                 int clicksBefore = c.events("container.click").size();
                 JsonObject args = new JsonObject();
                 args.addProperty("game", "SUPERPAIRS");
-                args.addProperty("clicks", 80);
+                args.addProperty("clicks", clicksAllowed);
                 args.add("layout", skipsLayout());
                 JsonObject st = c.hx().call("menu.experiment", args).getAsJsonObject();
                 MenuKit.awaitScreen(c, st.get("title").getAsString(), 100);
                 // Wait for every pair that should be claimed, then give the solver time to do anything else it
                 // would do (a skipped tile claimed by a leftover path shows up in this window).
                 int waited = 0;
-                while (waited < 1800 && state(c).getAsJsonArray("claimed").size() < expected.size()) {
+                while (waited < 1800 && state(c).getAsJsonArray("claimed").size() < expected.size()
+                        && !state(c).get("phase").getAsString().equals("OVER")) {
                     c.ctx().waitTicks(10);
                     waited += 10;
                 }
@@ -184,7 +370,24 @@ final class ExperimentCases {
                 } else if (!expectPowerup.equals(powerupName)) {
                     problems.add(label + ": the powerup's matched click landed on " + powerupName + ", expected " + expectPowerup);
                 }
-                if (!untouched.isEmpty()) {
+                // A skipped kind is claimed only after every money pair (claim order is the server's).
+                int lastMoney = -1;
+                int firstSkipped = Integer.MAX_VALUE;
+                List<String> order = new ArrayList<>();
+                end.getAsJsonArray("claimed").forEach(el -> order.add(plain(el.getAsJsonObject().get("name").getAsString())));
+                for (int i = 0; i < order.size(); i++) {
+                    String n = order.get(i);
+                    boolean skipped = (skipGrand && n.equals(GRAND)) || (skipGuardian && n.contains("Guardian"));
+                    if (skipped) {
+                        firstSkipped = Math.min(firstSkipped, i);
+                    } else if (!n.equals(XP)) {
+                        lastMoney = i;
+                    }
+                }
+                if (firstSkipped < lastMoney) {
+                    problems.add(label + ": a skipped kind was claimed before a money pair " + claimedNames);
+                }
+                if (clicksAllowed >= 80 && !untouched.isEmpty()) {
                     problems.add(label + ": the solver never touched slots " + untouched + " (" + board
                             + "), so a skip could not have been exercised there");
                 }

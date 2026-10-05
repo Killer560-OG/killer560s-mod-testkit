@@ -22,6 +22,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *       bazaar dump, Chocolate Factory ({@link InventoryCases})</li>
  *   <li>260-279 items: rarity, enchant colours, master stars, dye, held item, tooltip scroll, theme, HUD, search,
  *       readers ({@link ItemCases})</li>
+ *   <li>280-289 more experiments: Superpairs deductions and reward priority ({@link ExperimentCases})</li>
  * </ul>
  */
 public class MenuSuite implements FabricClientGameTest {
