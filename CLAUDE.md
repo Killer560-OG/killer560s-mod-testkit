@@ -111,8 +111,8 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 - Features that click a dungeon secret keep a done-set and never click the same one twice, so one lever
   measures exactly one interaction. Use a row of them and strafe past, rather than writing yaw — a synthetic
   rotation from the harness would land in the packets being measured.
-- Upstream's `build.gradle` contains two deliberate NUL bytes (a NUL separator for packed launch args), so
-  `grep` calls it binary. That is not corruption.
+- `writeTestServerLaunch` joins launch args with NUL, written as the `\u0000` escape - build.gradle itself has
+  no NUL bytes any more (counted 2026-10-04), so grep reads it as text.
 - `ctx.runOnClient` WAITS for its task to finish, so a task that needs further client ticks to complete
   deadlocks the client. Opening a world from inside one killed the process outright (exit -805306369 /
   NTSTATUS 0xCFFFFFFF) rather than failing an assertion, and the frozen window had to be closed by hand.
