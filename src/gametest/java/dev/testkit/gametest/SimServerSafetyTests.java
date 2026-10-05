@@ -91,6 +91,7 @@ public class SimServerSafetyTests implements FabricClientGameTest {
                         ctx.waitTicks(10);
                     }
                     String before = fingerprint(ctx);
+                    String[] beforeBlocks = blocks(ctx);
 
                     for (String command : COMMANDS) {
                         // Straight into Fabric's CLIENT command dispatcher, by reflection - these are
@@ -132,9 +133,33 @@ public class SimServerSafetyTests implements FabricClientGameTest {
                     // Give anything that queued work a generous chance to run before looking.
                     ctx.waitTicks(60);
                     String after = fingerprint(ctx);
-                    if (!before.equals(after)) {
+                    String[] afterBlocks = blocks(ctx);
+                    // Compared POSITION by position, not by hash. The box holds the server's natural terrain
+                    // round the platform, and vanilla's random tick turns grass_block to dirt (and back) on its
+                    // own: on 2026-10-05 (nt-crash run B1) the one difference in 5,733 blocks was a single
+                    // grass_block that had become dirt, with no command anywhere near it. That is the server's
+                    // own tick, not a paste - a sim build changes thousands of blocks - so a grass/dirt swap at
+                    // one position is named in the log and not counted. Any other change still fails.
+                    List<String> changed = new ArrayList<>();
+                    List<String> natural = new ArrayList<>();
+                    for (int i = 0; i < Math.min(beforeBlocks.length, afterBlocks.length); i++) {
+                        if (beforeBlocks[i].equals(afterBlocks[i])) {
+                            continue;
+                        }
+                        String at = describe(i) + " " + beforeBlocks[i] + " -> " + afterBlocks[i];
+                        if (isGrassTick(beforeBlocks[i], afterBlocks[i])) {
+                            natural.add(at);
+                        } else {
+                            changed.add(at);
+                        }
+                    }
+                    if (!natural.isEmpty()) {
+                        scenario.log("ignored " + natural.size() + " grass/dirt random tick(s): " + natural);
+                    }
+                    if (beforeBlocks.length != afterBlocks.length || !changed.isEmpty()) {
                         problems.add("the world CHANGED around him - a sim command placed or removed blocks "
-                                + "on a server: before " + before + ", after " + after);
+                                + "on a server: " + changed.size() + " position(s) " + changed.subList(0,
+                                Math.min(10, changed.size())) + "; before " + before + ", after " + after);
                     }
 
                     boolean[] stillThere = new boolean[1];
@@ -156,6 +181,43 @@ public class SimServerSafetyTests implements FabricClientGameTest {
                     System.out.println("[" + name + "] PASS - every sim command refused, nothing was built, "
                             + "and he stayed on the server");
                 });
+    }
+
+    /** Grass dying to dirt under a block, or dirt greening next to grass: vanilla's random tick, both ways. */
+    private static boolean isGrassTick(String a, String b) {
+        return (a.equals("grass_block") && b.equals("dirt")) || (a.equals("dirt") && b.equals("grass_block"));
+    }
+
+    /** The x,y,z of index i in {@link #blocks}' order (x, then z, then y innermost). */
+    private static String describe(int i) {
+        int ys = 13;   // Y - 4 .. Y + 8
+        int zs = 21;   // Z0 - 10 .. Z0 + 10
+        int y = Y - 4 + i % ys;
+        int z = Z0 - 10 + (i / ys) % zs;
+        int x = X0 - 10 + i / (ys * zs);
+        return x + "," + y + "," + z;
+    }
+
+    /** Every block id in the box, in a fixed order, so two reads can be compared position by position. */
+    private static String[] blocks(ClientGameTestContext ctx) {
+        String[][] got = new String[1][];
+        ctx.runOnClient(mc -> {
+            List<String> out = new ArrayList<>();
+            if (mc.level != null) {
+                var pos = new net.minecraft.core.BlockPos.MutableBlockPos();
+                for (int x = X0 - 10; x <= X0 + 10; x++) {
+                    for (int z = Z0 - 10; z <= Z0 + 10; z++) {
+                        for (int y = Y - 4; y <= Y + 8; y++) {
+                            pos.set(x, y, z);
+                            out.add(net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                                    .getKey(mc.level.getBlockState(pos).getBlock()).getPath());
+                        }
+                    }
+                }
+            }
+            got[0] = out.toArray(new String[0]);
+        });
+        return got[0];
     }
 
     /**
