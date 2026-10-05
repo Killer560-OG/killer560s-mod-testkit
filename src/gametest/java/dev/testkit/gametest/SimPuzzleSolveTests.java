@@ -250,12 +250,39 @@ public final class SimPuzzleSolveTests {
             this.spec = spec;
         }
 
+        /**
+         * {@code -PsolveRepeat=N} plays the room N times in one client launch, each run named {@code <name>#k},
+         * and carries on past a failed run so one launch measures a flake rate. A summary line counts them.
+         */
         @Override
         public void runTest(ClientGameTestContext ctx) {
-            String name = spec.name();
-            if (Scenario.skip(name)) {
+            String base = spec.name();
+            if (Scenario.skip(base)) {
                 return;
             }
+            int reps = Math.max(1, Integer.getInteger("testkit.solveRepeat", 1));
+            if (reps == 1) {
+                runOnce(ctx, base);
+                return;
+            }
+            List<String> failed = new ArrayList<>();
+            for (int r = 1; r <= reps; r++) {
+                String name = base + "#" + r;
+                try {
+                    runOnce(ctx, name);
+                } catch (AssertionError | RuntimeException e) {
+                    failed.add(name);
+                }
+                System.out.println("[" + base + "] REPEAT " + r + "/" + reps + ": " + VERDICTS.get(name));
+            }
+            System.out.println("[" + base + "] REPEAT SUMMARY " + (reps - failed.size()) + " of " + reps
+                    + " passed" + (failed.isEmpty() ? "" : "; failed: " + failed));
+            if (!failed.isEmpty()) {
+                throw new AssertionError(base + ": " + failed.size() + " of " + reps + " runs failed " + failed);
+            }
+        }
+
+        private void runOnce(ClientGameTestContext ctx, String name) {
             SuiteVerdict.expect(name);
             ModUnderTest.require("killer560smod");
             LogTap.install();
@@ -518,6 +545,17 @@ public final class SimPuzzleSolveTests {
                 }
                 dumpEvidence(ctx, name, mark);
                 return "FAIL - no chest was opened in " + spec.seconds() + "s" + extra;
+            }
+            if (solvedAt > 0 && "SimBlazePuzzle".equals(spec.puzzle())) {
+                // A blaze pass only counts if the player shot: the chain must have died to his arrows.
+                int arrows = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(
+                        "com.killer560.hub.roomsim.SimTerminator", "arrowsFired"));
+                if (arrows == 0) {
+                    dumpEvidence(ctx, name, mark);
+                    return "FAIL - complete, but the Terminator fired no arrow" + extra;
+                }
+                return String.format("PASS - solved at %.1fs, %d Terminator arrows%s", solvedAt / 20.0, arrows,
+                        extra);
             }
             if (solvedAt > 0) {
                 return String.format("PASS - solved at %.1fs%s", solvedAt / 20.0, extra);

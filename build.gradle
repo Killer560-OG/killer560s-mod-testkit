@@ -464,6 +464,10 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	if (project.hasProperty("scenario")) {
 		systemProperty "testkit.scenario", project.property("scenario")
 	}
+	// Play each selected 93-solve room N times in one launch, to measure a flake rate:  -PsolveRepeat=N
+	if (project.hasProperty("solveRepeat")) {
+		systemProperty "testkit.solveRepeat", project.property("solveRepeat")
+	}
 	// Re-run only what failed last time:  -Pfailed
 	if (project.hasProperty("failed")) {
 		if (!failedFile.exists() || failedFile.text.trim().isEmpty()) {
