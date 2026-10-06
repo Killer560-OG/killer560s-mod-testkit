@@ -77,7 +77,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     // Order matters once: the editor's Go To is an Interactive Map warp, and after one only a START node may arm until
     // he has been through one (the map-arrival interlock), so the cases that arm non-start nodes run before it.
     private static final String[] CASES = {"96-ar-add", "96-ar-play", "96-ar-interact", "96-ar-await",
-            "96-ar-awaitskip", "96-ar-awaitkill", "96-ar-awaitbat", "96-ar-leverwp", "96-ar-complete", "96-ar-mimic",
+            "96-ar-awaitskip", "96-ar-leverwp", "96-ar-complete", "96-ar-mimic",
             "96-ar-crypt", "96-ar-breaker", "96-ar-pingpong", "96-ar-chain", "96-ar-stackorder", "96-ar-crypthold",
             "96-ar-edit", "96-ar-mapopen",
             "96-ar-path", "96-ar-screen", "96-ar-rotate"};
@@ -211,8 +211,6 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-interact" -> caseInteract(ctx);
                         case "96-ar-await" -> caseAwait(ctx);
                         case "96-ar-awaitskip" -> caseAwaitSkip(ctx);
-                        case "96-ar-awaitkill" -> caseAwaitKill(ctx);
-                        case "96-ar-awaitbat" -> caseAwaitBat(ctx);
                         case "96-ar-leverwp" -> caseLeverWaypoint(ctx);
                         case "96-ar-complete" -> caseComplete(ctx);
                         case "96-ar-mimic" -> caseMimic(ctx);
@@ -1577,259 +1575,6 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         check(wrong.isEmpty(), String.join("; ", wrong));
     }
 
-    private static final String SIM_ROOM_STATE = "com.killer560.hub.roomsim.SimRoomState";
-
-    /** Spawns the sim's starred zombie (its star name-tag stand included) at relative (x,F,z), holds it still and
-     *  returns its server UUID. */
-    private static java.util.UUID starredAt(ClientGameTestContext ctx, int x, int z) {
-        BlockPos p = realNow(ctx, x, F, z);
-        java.util.Set<java.util.UUID> before = java.util.concurrent.ConcurrentHashMap.newKeySet();
-        serverRun(ctx, (server, sp) -> server.overworld().getEntitiesOfClass(
-                net.minecraft.world.entity.monster.zombie.Zombie.class, new net.minecraft.world.phys.AABB(p).inflate(4))
-                .forEach(e -> before.add(e.getUUID())));
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOBS, "spawnStarred",
-                new Class<?>[]{Minecraft.class, BlockPos.class, enumClass(SIM_MOBS + "$Kind")},
-                new Object[]{mc, p, ModUnderTest.enumValue(SIM_MOBS + "$Kind", "ZOMBIE")}));
-        AtomicReference<java.util.UUID> id = new AtomicReference<>();
-        for (int i = 0; i < 60 && id.get() == null; i++) {
-            ctx.waitTicks(1);
-            serverRun(ctx, (server, sp) -> {
-                for (var e : server.overworld().getEntitiesOfClass(net.minecraft.world.entity.monster.zombie.Zombie.class,
-                        new net.minecraft.world.phys.AABB(p).inflate(4))) {
-                    if (!before.contains(e.getUUID())) {
-                        e.setNoAi(true);
-                        id.set(e.getUUID());
-                        return;
-                    }
-                }
-            });
-        }
-        check(id.get() != null, "the sim spawned no starred zombie at (" + x + "," + z + ")");
-        return id.get();
-    }
-
-    /** The first sim secret bat within 4 blocks of relative (x,y,z) on the server, or null. */
-    private static java.util.UUID batNear(ClientGameTestContext ctx, int x, int y, int z) {
-        BlockPos p = realNow(ctx, x, y, z);
-        AtomicReference<java.util.UUID> id = new AtomicReference<>();
-        serverRun(ctx, (server, sp) -> {
-            for (var e : server.overworld().getEntitiesOfClass(net.minecraft.world.entity.ambient.Bat.class,
-                    new net.minecraft.world.phys.AABB(p).inflate(4))) {
-                if (e.isAlive()) {
-                    id.set(e.getUUID());
-                    return;
-                }
-            }
-        });
-        return id.get();
-    }
-
-    private static boolean aliveOnServer(ClientGameTestContext ctx, java.util.UUID id) {
-        AtomicReference<Boolean> alive = new AtomicReference<>(false);
-        serverRun(ctx, (server, sp) -> {
-            var e = server.overworld().getEntity(id);
-            alive.set(e != null && e.isAlive());
-        });
-        return alive.get();
-    }
-
-    /** Kills one entity on the server as the player would (a 1000-damage player attack). */
-    private static void killOnServer(ClientGameTestContext ctx, java.util.UUID id) {
-        serverRun(ctx, (server, sp) -> {
-            var e = server.overworld().getEntity(id);
-            if (e instanceof net.minecraft.world.entity.LivingEntity le) {
-                le.hurtServer(server.overworld(), server.overworld().damageSources().playerAttack(sp), 1000f);
-            }
-        });
-    }
-
-    /** Kills every monster and bat already in the room (the capture's own mobs), so only the case's mobs count. */
-    private static int purgeRoomMobs(ClientGameTestContext ctx) {
-        BlockPos a = realNow(ctx, -2, F - 10, -2);
-        BlockPos b = realNow(ctx, 34, F + 20, 34);
-        var box = new net.minecraft.world.phys.AABB(Vec3.atLowerCornerOf(a), Vec3.atLowerCornerOf(b));
-        AtomicReference<Integer> n = new AtomicReference<>(0);
-        serverRun(ctx, (server, sp) -> {
-            int k = 0;
-            for (var e : server.overworld().getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, box)) {
-                if (e instanceof net.minecraft.world.entity.monster.Monster
-                        || e instanceof net.minecraft.world.entity.ambient.Bat) {
-                    e.hurtServer(server.overworld(), server.overworld().damageSources().playerAttack(sp), 1000f);
-                    k++;
-                }
-            }
-            n.set(k);
-        });
-        ctx.waitTicks(30);
-        return n.get();
-    }
-
-    /** Puts the room back to "not cleared" in the sim's own map state (it clears it when its starred mobs all die). */
-    private static void unclearRoom(ClientGameTestContext ctx) {
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_ROOM_STATE, "clearRoom", new Class<?>[]{String.class},
-                new Object[]{room}));
-        ctx.waitTicks(3);
-    }
-
-    private static boolean roomCleared(ClientGameTestContext ctx) {
-        return ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_ROOM_STATE, "isCleared",
-                new Class<?>[]{String.class}, new Object[]{room}));
-    }
-
-    /**
-     * {@code await:kill} (killer560, 2026-10-06): waits until every mob the room's clear counts is dead - the starred
-     * mobs Auto Clear kills - or the map shows the room cleared. (1) {@code /ar add ew start await:kill} with two still
-     * starred zombies alive: nothing for 40 ticks, still nothing with one dead, the warp once both are dead (asserted
-     * dead on the server). (2) One alive and the room marked cleared on the map: the map alone meets it, the mob still
-     * alive. (3) One alive: his left click skips it, the mob still alive.
-     */
-    private void caseAwaitKill(ClientGameTestContext ctx) {
-        resetRoutes(ctx);
-        arena(ctx, false);
-        giveHotbar(ctx);
-        int purged = purgeRoomMobs(ctx);
-        println("awaitkill: killed " + purged + " mob(s) the room already had");
-        try {
-            // ---- (1) the mobs actually die ----
-            java.util.UUID a = starredAt(ctx, 22, 22);
-            java.util.UUID b = starredAt(ctx, 24, 18);
-            ctx.waitTicks(20);
-            unclearRoom(ctx);
-            check(!roomCleared(ctx), "the room still reads cleared with two starred mobs alive");
-            check(aliveOnServer(ctx, a) && aliveOnServer(ctx, b), "a starred zombie died before the case began");
-            tpRel(ctx, 6.5, 6.5, relYawTo(6, 6, 14, 6), pitchTo(6, 6, 14, 6));
-            long m = LogTap.mark();
-            cmd(ctx, "/ar add ew start await:kill");
-            ctx.waitTicks(40);
-            JsonArray nodes = fileNodes(ctx);
-            check(nodes.size() == 1 && "KILL".equals(nodes.get(0).getAsJsonObject().get("await").getAsString()),
-                    "/ar add ew start await:kill did not save a KILL await: " + nodes);
-            check(logHas(m, "await kill - 2 counted mob(s) alive"), "the kill await did not see the two starred mobs");
-            check(waitLanded(ctx, 14, 6, 1) == null && !logHas(m, "await kill met"),
-                    "the kill await was met with two starred mobs alive");
-            killOnServer(ctx, a);
-            ctx.waitTicks(30);
-            check(!aliveOnServer(ctx, a), "the first starred zombie did not die");
-            check(logHas(m, "await kill - 1 counted mob(s) alive"), "the kill await did not see the first death");
-            check(waitLanded(ctx, 14, 6, 1) == null && !logHas(m, "await kill met"),
-                    "the kill await was met with one starred mob still alive");
-            killOnServer(ctx, b);
-            Vec3 landed = waitLanded(ctx, 14, 6, 80);
-            check(!aliveOnServer(ctx, b), "the second starred zombie did not die");
-            println("awaitkill (deaths): " + String.join(" | ", LogTap.since(m).stream()
-                    .filter(l -> l.contains("await kill")).map(l -> l.replaceAll("^.*\\[AutoRoutes\\] ", "")).toList()));
-            check(logHas(m, "await kill met"), "the kill await was not met after every starred mob died");
-            check(landed != null, "the etherwarp did not fire after the kills (at " + relPos(ctx) + ")");
-            stopRoute(ctx);
-
-            // ---- (2) the map shows the room cleared while a mob still lives ----
-            java.util.UUID c = starredAt(ctx, 22, 22);
-            ctx.waitTicks(20);
-            unclearRoom(ctx);
-            JsonObject w = ew(6, 6, 14, 6, true);
-            w.addProperty("awaitEnabled", true);
-            w.addProperty("await", "KILL");
-            writeRoute(ctx, List.of(w));
-            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
-            check(arm(ctx, 6, 6, relYawTo(6, 6, 14, 6), 80f), "the kill-await route did not start");
-            long m2 = LogTap.mark();
-            ctx.waitTicks(30);
-            check(waitLanded(ctx, 14, 6, 1) == null, "the kill await fired with a starred mob alive (map case)");
-            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_ROOM_STATE, "markCleared", new Class<?>[]{String.class},
-                    new Object[]{room}));
-            Vec3 landed2 = waitLanded(ctx, 14, 6, 60);
-            check(logHas(m2, "await kill met - the map shows"), "the map's cleared room did not meet the kill await");
-            check(landed2 != null, "the warp did not fire once the map showed the room cleared");
-            check(aliveOnServer(ctx, c), "the starred zombie died - the map case proves nothing");
-            stopRoute(ctx);
-
-            // ---- (3) his left click skips it, the mob alive ----
-            unclearRoom(ctx);
-            check(aliveOnServer(ctx, c), "the skip case's starred zombie is not alive");
-            check(arm(ctx, 6, 6, relYawTo(6, 6, 14, 6), 80f), "the kill-await route did not start (skip)");
-            long m3 = LogTap.mark();
-            ctx.waitTicks(20);
-            check(waitLanded(ctx, 14, 6, 1) == null, "the kill await fired before the click (skip case)");
-            leftClick(ctx, 3);
-            Vec3 landed3 = waitLanded(ctx, 14, 6, 60);
-            check(logHas(m3, "left click skipped the await (await kill)"), "the left click did not skip the kill await");
-            check(landed3 != null, "the skip did not fire the warp");
-            check(aliveOnServer(ctx, c), "the skipped kill await's mob died - the skip proves nothing");
-            killOnServer(ctx, c);
-        } finally {
-            stopRoute(ctx);
-            purgeRoomMobs(ctx);
-        }
-    }
-
-    /**
-     * {@code await:bat}: met when a secret bat it saw appear near him DIES - not when it appears, as a secret await's
-     * bat is. A sim secret bat appears 4 blocks away: nothing for 40 ticks; it is killed on the server (asserted dead):
-     * the warp fires. Then a second bat, and his left click skips the wait with the bat alive.
-     */
-    private void caseAwaitBat(ClientGameTestContext ctx) {
-        resetRoutes(ctx);
-        arena(ctx, false);
-        giveHotbar(ctx);
-        purgeRoomMobs(ctx);
-        try {
-            tpRel(ctx, 6.5, 6.5, relYawTo(6, 6, 14, 6), pitchTo(6, 6, 14, 6));
-            long m = LogTap.mark();
-            cmd(ctx, "/ar add ew start await:bat");
-            ctx.waitTicks(10);
-            JsonArray nodes = fileNodes(ctx);
-            check(nodes.size() == 1 && "BAT".equals(nodes.get(0).getAsJsonObject().get("await").getAsString()),
-                    "/ar add ew start await:bat did not save a BAT await: " + nodes);
-            spawnBatAt(ctx, 9, F - 1, 9);
-            java.util.UUID bat = null;
-            for (int i = 0; i < 40 && bat == null; i++) {
-                ctx.waitTicks(1);
-                bat = batNear(ctx, 9, F, 9);
-            }
-            check(bat != null, "the sim spawned no bat");
-            ctx.waitTicks(40);
-            check(logHas(m, "bat spawned at"), "the bat's appearance was not seen - the case proves nothing");
-            check(aliveOnServer(ctx, bat), "the bat died on its own");
-            check(waitLanded(ctx, 14, 6, 1) == null && !logHas(m, "await bat met"),
-                    "the bat await was met by the bat merely appearing");
-            killOnServer(ctx, bat);
-            Vec3 landed = waitLanded(ctx, 14, 6, 80);
-            check(!aliveOnServer(ctx, bat), "the bat did not die");
-            println("awaitbat: " + String.join(" | ", LogTap.since(m).stream()
-                    .filter(l -> l.contains("bat")).map(l -> l.replaceAll("^.*\\[AutoRoutes\\] ", "")).toList()));
-            check(logHas(m, "await bat kill 1"), "the bat's death was not counted");
-            check(logHas(m, "await bat met"), "the bat await was not met after the bat died");
-            check(landed != null, "the warp did not fire after the bat died (at " + relPos(ctx) + ")");
-            stopRoute(ctx);
-
-            // ---- his left click skips it, the bat alive ----
-            JsonObject w = ew(6, 6, 14, 6, true);
-            w.addProperty("awaitEnabled", true);
-            w.addProperty("await", "BAT");
-            writeRoute(ctx, List.of(w));
-            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
-            check(arm(ctx, 6, 6, relYawTo(6, 6, 14, 6), 80f), "the bat-await route did not start");
-            long m2 = LogTap.mark();
-            spawnBatAt(ctx, 9, F - 1, 9);
-            java.util.UUID bat2 = null;
-            for (int i = 0; i < 40 && bat2 == null; i++) {
-                ctx.waitTicks(1);
-                bat2 = batNear(ctx, 9, F, 9);
-            }
-            check(bat2 != null, "the sim spawned no second bat");
-            ctx.waitTicks(20);
-            check(waitLanded(ctx, 14, 6, 1) == null, "the bat await fired before the click");
-            leftClick(ctx, 3);
-            Vec3 landed2 = waitLanded(ctx, 14, 6, 60);
-            check(logHas(m2, "left click skipped the await (await bat)"), "the left click did not skip the bat await");
-            check(landed2 != null, "the skip did not fire the warp");
-            check(aliveOnServer(ctx, bat2), "the skipped bat await's bat died - the skip proves nothing");
-        } finally {
-            stopRoute(ctx);
-            purgeRoomMobs(ctx);
-        }
-    }
-
     /** A real left click through the game's input (Fabric TestInput -> MouseHandler -> the attack KeyMapping), held
      *  {@code ticks} ticks, as his mouse sends it. */
     private static void leftClick(ClientGameTestContext ctx, int ticks) {
@@ -2083,14 +1828,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         List<String> alias = ctx.computeOnClient(mc -> suggest(mc, "autoroutes add path start "));
         println("complete: 'ar add ew ' -> " + afterType + ", 'ar add ew aw' -> " + partial
                 + ", 'autoroutes add path start ' -> " + alias);
-        List<String> awaits = List.of("await:", "await:bat", "await:kill");
-        check(afterType.containsAll(awaits) && afterType.contains("start"), "after the type: " + afterType);
-        check(new java.util.HashSet<>(partial).equals(new java.util.HashSet<>(awaits)), "'aw' completes to " + partial
-                + ", expected exactly " + awaits);
-        check(new java.util.HashSet<>(alias).equals(new java.util.HashSet<>(awaits)), "after start, /autoroutes offers "
-                + alias + ", expected " + awaits);
-        List<String> afterAwait = ctx.computeOnClient(mc -> suggest(mc, "ar add ew await:kill "));
-        check(afterAwait.equals(List.of("start")), "after an await, only start is offered: " + afterAwait);
+        check(afterType.contains("await:") && afterType.contains("start"), "after the type: " + afterType);
+        check(partial.equals(List.of("await:")), "'aw' completes to " + partial + ", expected exactly [await:]");
+        check(alias.equals(List.of("await:")), "after start, /autoroutes offers " + alias + ", expected [await:]");
         for (List<String> l : List.of(afterType, partial, alias)) {
             for (String x : l) {
                 check(!x.contains("await:x"), "a placeholder is still offered: " + l);

@@ -175,7 +175,6 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-use", GrimAutoRoutesTests::caseUse);
             s.test("62-argrim-play", GrimAutoRoutesTests::casePlay);
             s.test("62-argrim-awaitskip", GrimAutoRoutesTests::caseAwaitSkip);
-            s.test("62-argrim-awaitkill", GrimAutoRoutesTests::caseAwaitKill);
             s.test("62-argrim-pingpong", GrimAutoRoutesTests::casePingPong);
             s.test("62-argrim-chain", GrimAutoRoutesTests::caseChain);
             s.test("62-argrim-path", GrimAutoRoutesTests::casePath);
@@ -693,104 +692,6 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 + "; crypt kill wait skipped by a left click, 0 player_action");
         List<Sample> all = new ArrayList<>(s);
         all.addAll(cs);
-        noteFlags(c, all);
-    }
-
-    /** A still starred zombie and its star stand ({@code dungeon.starred}) at relative (x, F, z). */
-    private static JsonObject starredRel(Session c, double x, double z) {
-        Vec3 at = c.ctx().computeOnClient(mc -> {
-            Object frame = ModUnderTest.staticCall(FRAME, "current");
-            return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
-                    double.class, double.class}, new Object[]{frame, x, (double) F, z});
-        });
-        return c.hx().call("dungeon.starred", "x", at.x, "y", at.y, "z", at.z).getAsJsonObject();
-    }
-
-    /** "alive", "dead" or "missing" on the server; a mob no longer alive loses its star stand, as on Hypixel. */
-    private static String mobState(Session c, JsonObject mob) {
-        return c.hx().call("dungeon.alive", "id", mob.get("mob").getAsString(), "stand",
-                mob.get("stand").getAsString()).getAsString();
-    }
-
-    /**
-     * {@code await:kill} on GrimAC (killer560, 2026-10-06: awaits should cover "kills of all mobs"): an await:kill
-     * etherwarp start node with two starred zombies in the room waits while either lives (no use, no landing), still
-     * waits with one killed, and warps once the second is killed - each death asserted on the server. Then a third mob
-     * and his left click: the skip fires the warp with the mob still alive, nothing but the use sent. GrimAC silent.
-     */
-    private static void caseAwaitKill(Session c) {
-        ClientGameTestContext ctx = c.ctx();
-        resetRoutes(ctx);
-        arena(ctx, false);
-        JsonObject a = starredRel(c, 22.5, 22.5);
-        JsonObject b = starredRel(c, 24.5, 18.5);
-        ctx.waitTicks(20);
-        int seen = ctx.computeOnClient(mc -> ((List<?>) ModUnderTest.staticCall("com.killer560.hub.mobesp.MobEspFeature",
-                "starredMobs", new Class<?>[]{net.minecraft.client.Minecraft.class}, new Object[]{mc})).size());
-        check(seen >= 2, "the client resolved " + seen + " starred mob(s) - the kill await would have nothing to wait for");
-        JsonObject w = ew(6, 6, 14, 6, true);
-        w.addProperty("awaitEnabled", true);
-        w.addProperty("await", "KILL");
-        writeRoute(ctx, List.of(w));
-        long m = LogTap.mark();
-        JsonObject before = stats();
-        startSampling(ctx);
-        warpOnto(ctx, 6.5, 10.5, 6, 6);
-        check(waitFor(ctx, 60, () -> logHas(m, "Node #1 ETHERWARP begins")), "the kill-await node never began");
-        ctx.waitTicks(40);
-        check(logHas(m, "await kill - 2 counted mob(s) alive"), "the kill await did not see the two starred mobs");
-        check(delta(before, "etherwarps") == 1 && !logHas(m, "await kill met"),
-                "the kill await fired with two starred mobs alive (server etherwarps " + delta(before, "etherwarps") + ")");
-        c.server().command("kill " + a.get("mob").getAsString());
-        ctx.waitTicks(5);
-        String aState = mobState(c, a);
-        ctx.waitTicks(30);
-        check(!"alive".equals(aState), "the first starred zombie did not die (" + aState + ")");
-        check(logHas(m, "await kill - 1 counted mob(s) alive"), "the kill await did not see the first death");
-        check(delta(before, "etherwarps") == 1 && !logHas(m, "await kill met"),
-                "the kill await fired with one starred mob still alive");
-        c.server().command("kill " + b.get("mob").getAsString());
-        ctx.waitTicks(5);
-        String bState = mobState(c, b);
-        Vec3 landed = waitLanded(ctx, 14, 6, 80);
-        List<Sample> s = stopSampling(ctx);
-        printTrace("awaitkill", s);
-        check(!"alive".equals(bState), "the second starred zombie did not die (" + bState + ")");
-        check(logHas(m, "await kill met"), "the kill await was not met after both starred mobs died");
-        check(landed != null, "the warp did not fire after the kills (at " + relPos(ctx) + ")");
-        check(delta(before, "etherwarps") == 2, "the server made " + delta(before, "etherwarps")
-                + " etherwarp(s), expected the hand warp onto the node and the node's own");
-
-        // ---- his left click skips it, the mob alive ----
-        JsonObject d = starredRel(c, 22.5, 22.5);
-        ctx.waitTicks(20);
-        long m2 = LogTap.mark();
-        startSampling(ctx);
-        warpOnto(ctx, 6.5, 10.5, 6, 6);
-        check(waitFor(ctx, 60, () -> logHas(m2, "Node #1 ETHERWARP begins")), "the kill-await node never began (skip)");
-        ctx.runOnClient(mc -> mc.player.setXRot(70f));
-        ctx.waitTicks(20);
-        check(!logHas(m2, "await kill met"), "the kill await was met with a starred mob alive (skip case)");
-        ctx.getInput().holdKey(o -> o.keyAttack);
-        ctx.waitTicks(3);
-        ctx.getInput().releaseKey(o -> o.keyAttack);
-        Vec3 landed2 = waitLanded(ctx, 14, 6, 60);
-        ctx.waitTicks(5);
-        List<Sample> s2 = stopSampling(ctx);
-        printTrace("awaitkill skip", s2);
-        String dState = mobState(c, d);
-        check(logHas(m2, "left click skipped the await (await kill)"), "the left click did not skip the kill await");
-        check(landed2 != null, "the skip did not fire the warp");
-        check("alive".equals(dState), "the skip case's mob is " + dState + " - the skip proves nothing");
-        check(count(s2, "player_action") == 0, "the swallowed left click sent " + count(s2, "player_action")
-                + " player_action packet(s)");
-        c.server().command("kill " + d.get("mob").getAsString());
-        ctx.waitTicks(5);
-        mobState(c, d);
-        c.note("awaitkill: waited with 2 then 1 starred alive, warped after both died (" + aState + ", " + bState
-                + "); left-click skip with one alive; GrimAC read for both");
-        List<Sample> all = new ArrayList<>(s);
-        all.addAll(s2);
         noteFlags(c, all);
     }
 

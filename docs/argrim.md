@@ -46,9 +46,3 @@ abilities are `hx/dungeon/HxAbilities` (etherwarp, Instant Transmission, Superbo
   still pig: a mod-style dig + swing + attack straight through the game mode must NOT skip, and his click with the pig
   under the crosshair must (no attack packet).
   96-ar also has `-leverwp` (Secret Waypoints hides a clicked lever, not its neighbour) and `-complete` (`await:`).
-- `62-argrim-awaitkill` / `96-ar-awaitkill` / `96-ar-awaitbat` (2026-10-06, mod ar-await-kill): `await:kill` waits while
-  starred mobs live in the room and fires once they are dead (each death asserted on the server); `await:bat` fires on
-  the bat's DEATH, not its appearance; a left click skips both with the mob/bat still alive. The sim marks a room
-  cleared the moment its last starred mob dies (`SimRoomState`), so in 96-ar the kill await is met by the MAP path;
-  only 62-argrim (no map) exercises the mob-count path. 96-ar puts the room back with `SimRoomState.clearRoom` after
-  spawning live mobs (before, the next tick re-marks it) and tests the map path on its own with `markCleared`.
