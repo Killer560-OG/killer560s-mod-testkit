@@ -88,7 +88,10 @@ public class SimRoomSpawnTests implements FabricClientGameTest {
                 singleRooms(ctx, failures);
             }
             if (only.isEmpty() || only.contains("goto")) {
-                gotoFloor(ctx, failures);
+                int floors = Integer.getInteger("testkit.roomspawnFloors", 1);
+                for (int f = 0; f < floors; f++) {
+                    gotoFloor(ctx, failures);
+                }
             }
             for (String e : LogTap.modErrorsSince(mark)) {
                 failures.add("mod ERROR: " + e);
@@ -249,6 +252,15 @@ public class SimRoomSpawnTests implements FabricClientGameTest {
             }
             return out;
         });
+        String below = belowRooms(ctx);
+        System.out.println("[" + NAME + "] blocks below the rooms' own captures on this floor: " + below);
+        // REPORTED, not failed (yet): on 2026-10-06 the first floor generated after the single-room sweep had a previous
+        // single room's lower blocks (y -63..-49, stone/slabs/terracotta) still standing under it, which is how the
+        // old trap-landing scan found a "floor" 47 blocks down. The landing no longer reads below the doorway band;
+        // the leftovers themselves are a separate, still-open clear bug.
+        if (!below.startsWith("none")) {
+            System.out.println("[" + NAME + "] WARNING leftover blocks under the floor (open bug, not judged here)");
+        }
         List<Landing> landings = new ArrayList<>();
         for (String name : rooms) {
             ctx.runOnClient(mc -> mc.player.connection.sendCommand("goto " + name));
@@ -261,6 +273,79 @@ public class SimRoomSpawnTests implements FabricClientGameTest {
             failures.add("only " + rooms.size() + " room(s) on the generated floor");
         }
         summarise("/goto", landings, failures);
+    }
+
+    /**
+     * Anything standing BELOW a placed room's own capture band, in its tiles' centre and wall-centre columns. The
+     * 2026-10-06 full check stood him 47 blocks under New Trap on a generated floor (y -56, its doorway at -9) on a
+     * block New Trap's capture (y 60..100, solid walls on three sides) cannot have put there; something else - an
+     * earlier floor's leftovers is the suspect - was in the column. "none ..." when every column is clean.
+     */
+    private static String belowRooms(ClientGameTestContext ctx) {
+        AtomicReference<String> out = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            int off = (Integer) ModUnderTest.staticCall(LAYOUT, "simYOffset");
+            List<int[]> cols = new ArrayList<>();   // {x, z, bandMinY}
+            List<String> names = new ArrayList<>();
+            for (Object p : (List<?>) ModUnderTest.staticCall(ROOM_INDEX, "placed")) {
+                String n = (String) ModUnderTest.call(p, "name", new Class<?>[]{}, new Object[]{});
+                Object room = ModUnderTest.staticCall(ROOM_LIBRARY, "get", new Class<?>[]{String.class},
+                        new Object[]{n});
+                if (room == null) {
+                    continue;
+                }
+                int minY;
+                try {
+                    minY = room.getClass().getField("minY").getInt(room) + off;
+                } catch (ReflectiveOperationException e) {
+                    continue;
+                }
+                for (int cell : (int[]) ModUnderTest.call(p, "cells", new Class<?>[]{}, new Object[]{})) {
+                    BlockPos c = (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter",
+                            new Class<?>[]{int.class}, new Object[]{cell});
+                    for (int[] d : new int[][]{{0, 0}, {15, 0}, {-15, 0}, {0, 15}, {0, -15}}) {
+                        cols.add(new int[]{c.getX() + d[0], c.getZ() + d[1], minY});
+                        names.add(n);
+                    }
+                }
+            }
+            if (server == null) {
+                out.set("none (no server)");
+                return;
+            }
+            server.execute(() -> {
+                ServerLevel level = server.overworld();
+                List<String> hits = new ArrayList<>();
+                for (int i = 0; i < cols.size(); i++) {
+                    int[] col = cols.get(i);
+                    int found = 0;
+                    int top = Integer.MIN_VALUE;
+                    int bottom = Integer.MIN_VALUE;
+                    String topId = "";
+                    for (int y = level.getMinY(); y < col[2]; y++) {
+                        var st = level.getBlockState(new BlockPos(col[0], y, col[1]));
+                        if (!st.isAir()) {
+                            found++;
+                            top = y;
+                            if (bottom == Integer.MIN_VALUE) {
+                                bottom = y;
+                            }
+                            topId = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(st.getBlock())
+                                    .getPath();
+                        }
+                    }
+                    if (found > 0) {
+                        hits.add(names.get(i) + "@" + col[0] + "," + col[1] + " " + found + " block(s) y" + bottom
+                                + ".." + top + " top " + topId + " (band from y" + col[2] + ")");
+                    }
+                }
+                out.set(hits.isEmpty() ? "none in " + cols.size() + " column(s)"
+                        : hits.size() + " column(s): " + (hits.size() > 8 ? hits.subList(0, 8) : hits));
+            });
+        });
+        ctx.waitFor(mc -> out.get() != null, 600);
+        return out.get();
     }
 
     // =========================================================================================== judging
