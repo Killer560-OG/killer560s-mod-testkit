@@ -204,6 +204,29 @@ public final class SimPuzzleSolveTests {
         }
     }
 
+    /**
+     * Boulder with Secret Aura ON but its Chests option OFF (killer560, 2026-10-06: "if I have chest aura off as well
+     * then it needs to go and press the buttons"): the aura would never open the chest, so the auto must play the
+     * room as with Secret Aura off - the stairs, the solver's buttons, the chest by looking at it, and out.
+     */
+    public static final class BoulderChestOff extends Base {
+        public BoulderChestOff() {
+            super(new Spec("boulder-chestoff", "Boulder", "setAutoBoulderEnabled", "isAutoBoulderEnabled",
+                    "BoulderSolverConfig", "SimBoulderPuzzle", AOTV_SLOT, true, 90, Approach.NONE,
+                    "BoulderSolverFeature.getNextClick", "BoulderSolverFeature.getRemainingClicks"));
+        }
+
+        @Override
+        boolean secretAura() {
+            return true;
+        }
+
+        @Override
+        boolean auraChests() {
+            return false;
+        }
+    }
+
     public static final class ThreeWeirdos extends Base {
         public ThreeWeirdos() {
             super(new Spec("threeweirdos", "Three Weirdos", "setAutoWeirdosEnabled", "isAutoWeirdosEnabled",
@@ -276,6 +299,16 @@ public final class SimPuzzleSolveTests {
         /** Boulder only: whether Secret Aura is switched on for the run (Auto Boulder picks its mode from it). */
         boolean secretAura() {
             return false;
+        }
+
+        /** Boulder only: Secret Aura's Chests option for the run. */
+        boolean auraChests() {
+            return true;
+        }
+
+        /** Boulder only: whether Secret Aura will actually open the chest - the auto's run-along-the-roof mode. */
+        private boolean auraTakesChest() {
+            return secretAura() && auraChests();
         }
 
         private boolean boulder() {
@@ -701,7 +734,7 @@ public final class SimPuzzleSolveTests {
             }
             if (spec.chestIsVerdict()) {
                 if (chestAt > 0 && bw != null) {
-                    String problem = bw.verdict(ctx, secretAura(), complete(ctx));
+                    String problem = bw.verdict(ctx, auraTakesChest(), complete(ctx));
                     println(name, "boulder: " + bw.summary());
                     if (problem != null) {
                         dumpEvidence(ctx, name, mark);
@@ -898,9 +931,11 @@ public final class SimPuzzleSolveTests {
             ModUnderTest.set(map, "setEnabled", true);
             ModUnderTest.set(map, "setInteractiveMapEnabled", true);
             if (boulder()) {
-                // Auto Boulder's two modes hang on this one switch; nothing is trusted from a default.
+                // Auto Boulder's two modes hang on whether Secret Aura will take the chest; nothing is trusted from a
+                // default.
                 Object cheat = ModUnderTest.config(CHEAT_CONFIG);
                 ModUnderTest.set(cheat, "setSecretAuraEnabled", secretAura());
+                ModUnderTest.set(cheat, "setAuraChests", auraChests());
                 if (secretAura()) {
                     ModUnderTest.call(cheat, "setAuraRange", new Class<?>[]{double.class}, new Object[]{4.5});
                 }
@@ -1569,6 +1604,20 @@ public final class SimPuzzleSolveTests {
         private String firstNotSprinting = null;
         private boolean forwardBefore = false;
 
+        // ---- smoothness (killer560, 2026-10-06: "The boulder turning is really choppy") ----
+        /** A real mouse at the auto's 28 degree-per-tick cap turns 560 degrees a second; a per-tick snap seen between
+         *  two frames a few ms apart reads several thousand. */
+        static final double MAX_RATE = 900.0;
+        static final double MAX_FRAME_60 = 12.5;
+        static final double MAX_FRAME_144 = 5.5;
+        /** {nanoTime, yaw, pitch} of every RENDER FRAME while recording, read after the mod's own frame step. */
+        private static final List<double[]> FRAMES = java.util.Collections.synchronizedList(new ArrayList<>());
+        private static volatile boolean recording = false;
+        private static boolean hooked = false;
+        /** The auto's per-tick steps {fromYaw, fromPitch, toYaw, toPitch, startNanos, drawNanos}, one per tick. */
+        private final List<double[]> steps = new ArrayList<>();
+        private boolean stepApi = true;
+
         BoulderWatch(ClientGameTestContext ctx, String name, long mark) {
             this.name = name;
             this.mark = mark;
@@ -1577,6 +1626,83 @@ public final class SimPuzzleSolveTests {
             this.door = ctx.computeOnClient(mc -> rel(mc, 15, 69, 0));
             println(name, String.format("boulder heights: roof feet y %.0f, floor feet y %.0f, doorway %s", roofY,
                     floorY, door.toShortString()));
+            ctx.runOnClient(mc -> {
+                if (!hooked) {
+                    hooked = true;
+                    // Registered after the mod's own level-render hook, so each sample is what that frame drew.
+                    net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents.AFTER_TRANSLUCENT_FEATURES
+                            .register(c -> {
+                                Minecraft m = Minecraft.getInstance();
+                                if (recording && m.player != null) {
+                                    FRAMES.add(new double[]{System.nanoTime(), m.player.getYRot(), m.player.getXRot()});
+                                }
+                            });
+                }
+            });
+            FRAMES.clear();
+        }
+
+        /** Every render frame's rotation step, and the per-tick steps resampled at 60 and 144 fps. Null on a pass. */
+        private String smoothness() {
+            recording = false;
+            List<double[]> f;
+            synchronized (FRAMES) {
+                f = new ArrayList<>(FRAMES);
+            }
+            double maxRate = 0;
+            double maxDelta = 0;
+            String at = "";
+            int moving = 0;
+            for (int i = 1; i < f.size(); i++) {
+                double dt = (f.get(i)[0] - f.get(i - 1)[0]) / 1e9;
+                double d = Math.max(Math.abs(f.get(i)[1] - f.get(i - 1)[1]), Math.abs(f.get(i)[2] - f.get(i - 1)[2]));
+                if (d > 0.01) {
+                    moving++;
+                }
+                maxDelta = Math.max(maxDelta, d);
+                if (dt >= 0.002 && d / dt > maxRate) {
+                    maxRate = d / dt;
+                    at = String.format("%.2f deg in %.1f ms", d, dt * 1000);
+                }
+            }
+            double sim60 = 0;
+            double sim144 = 0;
+            for (double[] s : steps) {
+                double step = Math.max(Math.abs(s[2] - s[0]), Math.abs(s[3] - s[1]));
+                // At the game's 20 ticks a second (a step drawn over 80% of 50 ms); the gametest's own ticks run
+                // irregularly and would measure the harness, not the mod.
+                double tick = 0.040;
+                sim60 = Math.max(sim60, step * Math.min(1.0, (1.0 / 60) / tick));
+                sim144 = Math.max(sim144, step * Math.min(1.0, (1.0 / 144) / tick));
+            }
+            long partial = -1;
+            try {
+                partial = (Long) ModUnderTest.staticCall("com.killer560.hub.autopuzzles.AutoBoulder", "partialFrames");
+            } catch (Throwable t) {
+                // an older jar: no frame step at all
+            }
+            println(name, String.format("boulder: smoothness - %d render frame(s), %d with the rotation moving, biggest "
+                            + "frame-to-frame turn %.2f deg, fastest %.0f deg/s (%s); %d per-tick step(s) resampled: "
+                            + "biggest frame step %.2f deg at 60 fps, %.2f at 144 fps; mod frames drawn mid-step %s",
+                    f.size(), moving, maxDelta, maxRate, at, steps.size(), sim60, sim144,
+                    partial < 0 ? "n/a (no frame step in this jar)" : String.valueOf(partial)));
+            List<String> bad = new ArrayList<>();
+            if (moving < 10) {
+                bad.add("only " + moving + " frame(s) with the rotation moving - the smoothness check measured nothing");
+            }
+            if (maxRate > MAX_RATE) {
+                bad.add(String.format("a camera jump: %s (%.0f deg/s, limit %.0f)", at, maxRate, MAX_RATE));
+            }
+            if (!stepApi || steps.isEmpty()) {
+                bad.add("no per-tick rotation steps from the mod (AutoBoulder.currentStep)");
+            } else if (sim60 > MAX_FRAME_60 || sim144 > MAX_FRAME_144) {
+                bad.add(String.format("resampled frame steps %.2f at 60 fps / %.2f at 144 fps (limits %.1f / %.1f)",
+                        sim60, sim144, MAX_FRAME_60, MAX_FRAME_144));
+            }
+            if (partial == 0) {
+                bad.add("the mod never drew a frame part-way through a step");
+            }
+            return bad.isEmpty() ? null : String.join("; ", bad);
         }
 
         void tick(ClientGameTestContext ctx, int t) {
@@ -1585,6 +1711,18 @@ public final class SimPuzzleSolveTests {
                     ModUnderTest.staticCall(SOLVERS + "BoulderSolverFeature", "getRemainingClicks")});
             if (s == null) {
                 return;
+            }
+            recording = !finished;
+            if (stepApi && !finished) {
+                try {
+                    double[] st = ctx.computeOnClient(mc -> (double[]) ModUnderTest.staticCall(
+                            "com.killer560.hub.autopuzzles.AutoBoulder", "currentStep"));
+                    if (st != null && (steps.isEmpty() || steps.get(steps.size() - 1)[4] != st[4])) {
+                        steps.add(st);
+                    }
+                } catch (Throwable e) {
+                    stepApi = false; // an older jar
+                }
             }
             double y = (Double) s[1];
             boolean ground = (Boolean) s[3];
@@ -1744,8 +1882,31 @@ public final class SimPuzzleSolveTests {
             if ("Boulder".equals(room)) {
                 bad.add("still in Boulder at the end - the live map files him there, so etherwarp is still refused");
             }
-            if (maxYawStep > MAX_TURN || maxPitchStep > MAX_TURN) {
-                bad.add(String.format("a snap turn: %.1f yaw / %.1f pitch in one tick", maxYawStep, maxPitchStep));
+            String jerky = smoothness();
+            if (jerky != null) {
+                bad.add(jerky);
+            }
+            if (!aura) {
+                // Which mode the auto chose, in its own words (the chest-off case must name the Chests option).
+                for (String l : LogTap.since(mark)) {
+                    if (l.contains("NEED_CHEST -> ")) {
+                        println(name, "boulder: mode - " + l.substring(l.indexOf("NEED_CHEST")));
+                        if (l.contains("-> RUN_TO_BARS")) {
+                            bad.add("ran along the roof although Secret Aura would not take the chest");
+                        }
+                    }
+                }
+            }
+            // The rotation each tick SENDS is the mod's step (from -> to); the per-tick samples above are taken
+            // mid-step now that frames draw the turn, so a pair of them can span parts of two steps.
+            double maxSent = 0;
+            for (double[] st : steps) {
+                maxSent = Math.max(maxSent, Math.max(Math.abs(st[2] - st[0]), Math.abs(st[3] - st[1])));
+            }
+            println(name, String.format("boulder: biggest rotation change between two sent ticks %.2f deg (sampled per test tick: "
+                    + "yaw %.1f pitch %.1f)", maxSent, maxYawStep, maxPitchStep));
+            if (stepApi && !steps.isEmpty() ? maxSent > MAX_TURN : (maxYawStep > MAX_TURN || maxPitchStep > MAX_TURN)) {
+                bad.add(String.format("a snap turn: %.1f deg sent in one tick (sampled yaw %.1f / pitch %.1f)", maxSent, maxYawStep, maxPitchStep));
             }
             if (finishedLine != null) {
                 println(name, "boulder: " + finishedLine.substring(finishedLine.indexOf("Boulder:")));

@@ -65,6 +65,7 @@
 			"dev.testkit.gametest.SimPuzzleSolveTests$CreeperBeams",
 			"dev.testkit.gametest.SimPuzzleSolveTests$Boulder",
 			"dev.testkit.gametest.SimPuzzleSolveTests$BoulderAura",
+			"dev.testkit.gametest.SimPuzzleSolveTests$BoulderChestOff",
 			"dev.testkit.gametest.SimPuzzleSolveTests$ThreeWeirdos",
 			"dev.testkit.gametest.SimPuzzleSolveTests$WaterBoard",
 			"dev.testkit.gametest.SimPuzzleSolveTests$TeleportMaze",

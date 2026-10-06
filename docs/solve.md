@@ -43,15 +43,23 @@ Teleport Maze is walked onto the start pad with the forward key.
 
 ## Boulder (93-solve-boulder, 93-solve-boulder-aura)
 
-Two scenarios, one per Auto Boulder mode, picked by Secret Aura (`CheatUtilsConfig.setSecretAuraEnabled`, set every
-run). `-Pscenario=93-solve-boulder` runs both. `BoulderWatch` reads the client every tick and the sim's log, never the
+Three scenarios, one per Auto Boulder mode, picked by whether Secret Aura will take the chest
+(`setSecretAuraEnabled` and `setAuraChests`, set every run): `-aura` (both on), plain (aura off) and `-chestoff`
+(aura on, Chests off - must play it as aura off, and fails if the auto logs `-> RUN_TO_BARS`).
+`-Pscenario=93-solve-boulder` runs all three. `BoulderWatch` reads the client every tick and the sim's log, never the
 auto's state. **Aura on** (`-aura`): he is placed outside the doorway and walks in with the forward key himself; then
 no button press, feet never below the roof, and `isSprinting` on every tick the forward key is held after the first.
 **Aura off**: the sim solved, presses equal to the most clicks the solver named, the floor reached, no landing more than
 2.0 blocks below where he left the ground (a stair top to the next stair's lower half is 1.5; the roof hole is 5), and
 every sim press had `mc.hitResult` on a stone button in the three ticks before it. **Both**: the auto logs
 "finished", he ends at roof height within 4 blocks of the doorway and the live map no longer says Boulder, and no
-body turn over 40 degrees in a tick.
+rotation change over 40 degrees between two SENT ticks (the mod's own steps, `AutoBoulder.currentStep`).
+
+Smoothness ("the boulder turning is really choppy", 2026-10-06): a level-render hook registered after the mod's records
+every frame's rotation; any frame-to-frame turn faster than 900 deg/s (frames >= 2 ms apart) fails - a 28-degree
+per-tick snap reads ~2900 (the merged 6afb1c6e jar failed with 28.2 deg in 9.7 ms). The mod's per-tick steps are also
+resampled at 60 and 144 fps at 20 TPS (limits 12.5 / 5.5 deg per frame), and `AutoBoulder.partialFrames` must be
+non-zero. The gametest renders irregularly (240 to 1900 frames a run), so read the rate, not the frame count.
 
 A single built Boulder seals its doorway (relative z -1) with diamond blocks and has nothing outside, so a walk out
 could never leave the room. The scenario clears that gap and lays stone at relative y 68, x 12..18, z -7..-1 first,
