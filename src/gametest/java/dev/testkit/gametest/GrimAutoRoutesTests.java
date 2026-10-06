@@ -178,6 +178,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-hand", GrimAutoRoutesTests::caseHand);
             s.test("62-argrim-crypt", GrimAutoRoutesTests::caseCrypt);
             s.test("62-argrim-mimic", GrimAutoRoutesTests::caseMimic);
+            s.test("62-argrim-autoclear", GrimAutoRoutesTests::caseAutoClear);
             // The Interactive Map's own executor (livemap/autoclear/ClearExecutor), last: a map warp or a Go To sets the
             // map-arrival interlock (only a START node arms afterwards) and Go To leaves edit mode on.
             s.test("62-argrim-imwarp", c -> caseMapWarp(c, false));
@@ -964,6 +965,99 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     new Class<?>[]{enumClass("KillMimic")}, new Object[]{ModUnderTest.enumValue(AR_CONFIG + "$KillMimic",
                             "OFF")}));
         }
+    }
+
+    /**
+     * Auto Clear (mod 2026-10-06) on GrimAC: three starred mobs ({@code dungeon.starred}: a zombie and its marker star
+     * stand, as Hypixel shows one) in the arena with its middle wall up - one in the open 7 blocks away, one standing
+     * INSIDE the middle wall, one behind it - and {@code AutoClearFeature.clearRoom(room)} with the Hyperion. The server
+     * emulates Wither Impact ({@code HxAbilities.witherImpact}: 10-block dash, 6-block blast). All three must die to the
+     * blasts (no entity packet at all), clearRoom must call onDone (no dungeon map here, so the room is done once no
+     * starred mob is left in sight), and GrimAC is read for the whole stretch.
+     */
+    private static void caseAutoClear(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, true);
+        String auto = "com.killer560.hub.autoclear.AutoClearFeature";
+        String autoCfg = "com.killer560.hub.autoclear.AutoClearConfig";
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(autoCfg);
+            ModUnderTest.set(cfg, "setEnabled", true);
+            ModUnderTest.set(cfg, "setHyperionHops", true);
+            ModUnderTest.call(cfg, "setWeapon", new Class<?>[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")
+                    .getClass()}, new Object[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")});
+        });
+        tpRel(ctx, 5.5, 15.5, -90f, 0f);
+        ctx.waitTicks(10);
+        double[][] spots = {{12.5, 15.5}, {15.5, 21.5}, {22.5, 9.5}};
+        String[] what = {"in the open, 7 blocks away", "inside the middle wall", "behind the middle wall"};
+        List<JsonObject> mobs = new ArrayList<>();
+        for (double[] sp : spots) {
+            Vec3 at = ctx.computeOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                        double.class, double.class}, new Object[]{frame, sp[0], (double) F, sp[1]});
+            });
+            mobs.add(c.hx().call("dungeon.starred", "x", at.x, "y", at.y, "z", at.z).getAsJsonObject());
+        }
+        ctx.waitTicks(20);
+        int seen = ctx.computeOnClient(mc -> ((List<?>) ModUnderTest.staticCall("com.killer560.hub.mobesp.MobEspFeature",
+                "starredMobs", new Class<?>[]{net.minecraft.client.Minecraft.class}, new Object[]{mc})).size());
+        println("autoclear: " + mobs.size() + " starred mob(s) placed, " + seen + " resolved by the client: " + mobs);
+        JsonObject before = stats();
+        java.util.concurrent.atomic.AtomicReference<String> done = new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<String> gaveUp = new java.util.concurrent.atomic.AtomicReference<>();
+        long m = LogTap.mark();
+        Vec3 start = ctx.computeOnClient(mc -> mc.player.position());
+        startSampling(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class, Runnable.class,
+                java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> done.set("done"),
+                (java.util.function.Consumer<String>) gaveUp::set}));
+        boolean finished = waitFor(ctx, 900, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto,
+                "isBusy")));
+        if (!finished) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "cancel"));
+        }
+        ctx.waitTicks(5);
+        List<Sample> s = stopSampling(ctx);
+        Vec3 end = ctx.computeOnClient(mc -> mc.player.position());
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(autoCfg), "setEnabled", false));
+        List<String> states = new ArrayList<>();
+        for (JsonObject mob : mobs) {
+            states.add(c.hx().call("dungeon.alive", "id", mob.get("mob").getAsString(), "stand",
+                    mob.get("stand").getAsString()).getAsString());
+        }
+        int interacts = 0;
+        for (Sample x : s) {
+            interacts += (int) x.out().stream().filter(p -> p.contains("interact")).count();
+        }
+        for (String l : LogTap.since(m)) {
+            if (l.contains("[AutoClear]")) {
+                println("  " + l.replaceAll("^.*?\\[AutoClear\\]", "[AutoClear]"));
+            }
+        }
+        printTrace("autoclear", s);
+        println("autoclear: " + (finished ? "finished" : "STILL RUNNING") + ", onDone=" + done.get() + " onGiveUp="
+                + gaveUp.get() + ", mobs " + states + ", Wither Impacts " + delta(before, "witherImpacts") + " (hits "
+                + delta(before, "witherHits") + "), etherwarps " + delta(before, "etherwarps") + ", use_item "
+                + count(s, "use_item") + ", entity packets " + interacts + String.format(Locale.ROOT,
+                ", moved %.1f blocks", start.distanceTo(end)));
+        for (int i = 0; i < mobs.size(); i++) {
+            check(!"alive".equals(states.get(i)), "the starred mob " + what[i] + " is still alive");
+        }
+        check(seen >= 3, "the client resolved only " + seen + " of the 3 starred mobs - nothing to clear");
+        check(interacts == 0, interacts + " entity packet(s): a melee hit or an entity click");
+        check(delta(before, "witherImpacts") > 0, "the server saw no Wither Impact");
+        boolean hopped = logHas(m, "[AutoClear] hop toward");
+        boolean hopLanded = hopped && !logHas(m, "never landed");
+        println("autoclear: Hyperion hop tried " + hopped + ", every hop landed " + hopLanded);
+        check(hopLanded, "no Hyperion hop, or one that never landed (the server's dash did not move him)");
+        check(finished && done.get() != null && gaveUp.get() == null, "clearRoom ended onDone=" + done.get()
+                + " onGiveUp=" + gaveUp.get());
+        c.note("autoclear: 3 starred mobs (open, in a wall, behind a wall) killed by " + delta(before, "witherImpacts")
+                + " Wither Impact(s) and " + delta(before, "etherwarps") + " etherwarp(s), no entity packet");
+        noteFlags(c, s);
     }
 
     // ============================================================================================ Interactive Map

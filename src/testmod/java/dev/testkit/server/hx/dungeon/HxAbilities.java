@@ -118,6 +118,8 @@ public final class HxAbilities {
         o.addProperty("transmissions", transmissions);
         o.addProperty("superbooms", superbooms);
         o.addProperty("boomBlocks", boomBlocks);
+        o.addProperty("witherImpacts", witherImpacts);
+        o.addProperty("witherHits", witherHits);
         if (lastLanding != null) {
             JsonArray l = new JsonArray();
             l.add(lastLanding.x);
@@ -134,6 +136,8 @@ public final class HxAbilities {
         transmissions = 0;
         superbooms = 0;
         boomBlocks = 0;
+        witherImpacts = 0;
+        witherHits = 0;
         lastLanding = null;
     }
 
@@ -152,6 +156,10 @@ public final class HxAbilities {
     private static InteractionResult onUse(ServerPlayer sp, InteractionHand hand) {
         ItemStack held = sp.getItemInHand(hand);
         String id = skyblockId(held);
+        if ("HYPERION".equals(id)) {
+            witherImpact(sp);
+            return InteractionResult.SUCCESS;
+        }
         boolean aspect = "ASPECT_OF_THE_VOID".equals(id) || "ASPECT_OF_THE_END".equals(id);
         boolean conduit = "ETHERWARP_CONDUIT".equals(id);
         if (!aspect && !conduit) {
@@ -282,6 +290,82 @@ public final class HxAbilities {
             transmissions++;
         }
     }
+
+    /**
+     * Wither Impact (hypixelskyblock.minecraft.wiki: "Teleports 10 blocks ahead of you dealing 10,000 Damage damage to
+     * nearby enemies within a 6 block radius"): the Instant Transmission walk 10 blocks along the use's look, then a
+     * 6-block blast at where he stands (his centre to each mob's box) - the mod's sim model, SimAbilities.witherImpact.
+     * Straight down it goes nowhere and still blasts. Added 2026-10-06 for Auto Clear (62-argrim-autoclear).
+     */
+    private static void witherImpact(ServerPlayer sp) {
+        witherDash(sp, 10.0);
+        ServerLevel level = (ServerLevel) sp.level();
+        Vec3 centre = sp.position().add(0, sp.getBbHeight() / 2.0, 0);
+        double r = 6.0;
+        int hit = 0;
+        for (var target : level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class,
+                AABB.ofSize(centre, r * 2, r * 2, r * 2), e -> e.isAlive() && e != sp
+                        && !(e instanceof net.minecraft.world.entity.decoration.ArmorStand))) {
+            if (target.getBoundingBox().distanceToSqr(centre) > r * r) {
+                continue;
+            }
+            target.hurtServer(level, level.damageSources().playerAttack(sp), 10_000f);
+            hit++;
+        }
+        witherImpacts++;
+        witherHits += hit;
+    }
+
+    /**
+     * The Wither Impact dash with the one refinement of {@code SimAbilities.dashTarget} that matters for a look a little
+     * below level (measured on Hypixel: 35 degrees down moved him 1.6 blocks at the SAME height): once the look drives
+     * him into the floor he settles at his own height and carries on along the look, as far as the eye's own look
+     * reaches. {@link #transmission} stops dead there instead, which left every slightly-downward hop in place.
+     */
+    private static void witherDash(ServerPlayer sp, double range) {
+        Level level = sp.level();
+        Vec3 dir = look(sp.getYRot(), sp.getXRot());
+        Vec3 from = sp.position();
+        AABB box = sp.getBoundingBox();
+        Vec3 eye = sp.getEyePosition();
+        var eyeHit = level.clip(new net.minecraft.world.level.ClipContext(eye, eye.add(dir.scale(range)),
+                net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, sp));
+        double settledLimit = eyeHit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
+                ? eyeHit.getLocation().distanceTo(eye) : range;
+        Vec3 best = null;
+        Double lockedY = null;
+        for (double d = 0.25; d <= range + 1.0e-6; d += 0.25) {
+            if (lockedY != null && d > settledLimit + 1.0e-6) {
+                break;
+            }
+            Vec3 full = from.add(dir.scale(d));
+            Vec3 candidate = new Vec3(Math.floor(full.x) + 0.5, lockedY == null ? Math.floor(full.y) : lockedY,
+                    Math.floor(full.z) + 0.5);
+            if (candidate.equals(best)) {
+                continue;
+            }
+            if (level.noCollision(sp, box.move(candidate.subtract(from)))) {
+                best = candidate;
+                continue;
+            }
+            if (lockedY == null) {
+                Vec3 level0 = new Vec3(candidate.x, Math.floor(from.y), candidate.z);
+                if (level.noCollision(sp, box.move(level0.subtract(from)))) {
+                    lockedY = level0.y;
+                    best = level0;
+                    continue;
+                }
+            }
+            break;
+        }
+        if (best != null && best.distanceToSqr(from) > 0.01) {
+            teleport(sp, best.x, best.y, best.z);
+            transmissions++;
+        }
+    }
+
+    private static int witherImpacts;
+    private static int witherHits;
 
     private static void superboom(ServerPlayer sp, BlockPos target) {
         ServerLevel level = (ServerLevel) sp.level();

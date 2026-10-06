@@ -28,3 +28,7 @@ abilities are `hx/dungeon/HxAbilities` (etherwarp, Instant Transmission, Superbo
 - Since 2026-10-06 (ar-warprate) the chain runs at Etherwarps Per Second 20, 10 and 4 (96-ar-chain adds 3, the
   fractional pace) and asserts the average spacing: Grim 1.00 / 2.00 / 5.00 ticks per warp, clean; sim 2.00 / 2.00 / 5.00
   / 6.73 (gaps 7, 7, 6). Pacing never sends a warp before the previous landing's teleport accept.
+- `62-argrim-autoclear` (2026-10-06): Auto Clear's clearRoom with the Hyperion on three `dungeon.starred` mobs (open, inside the
+  middle wall, behind it); the server emulates Wither Impact (`HxAbilities.witherImpact`: 10-block dash that settles at his
+  height on a slightly-downward look, as the sim and Hypixel do - the plain transmission walk stopped dead there and every
+  hop "never landed" - then a 6-block blast). Requires every mob dead, a landed hop, no entity packet. Clean on mod 27c52408.
