@@ -79,7 +79,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     private static final String[] CASES = {"96-ar-add", "96-ar-play", "96-ar-interact", "96-ar-await",
             "96-ar-awaitskip", "96-ar-leverwp", "96-ar-complete", "96-ar-mimic",
             "96-ar-crypt", "96-ar-breaker", "96-ar-pingpong", "96-ar-chain", "96-ar-stackorder", "96-ar-crypthold",
-            "96-ar-edit", "96-ar-mapopen",
+            "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen",
             "96-ar-path", "96-ar-screen", "96-ar-rotate"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
@@ -221,6 +221,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-stackorder" -> caseStackOrder(ctx);
                         case "96-ar-crypthold" -> caseCryptHold(ctx);
                         case "96-ar-edit" -> caseEdit(ctx);
+                        case "96-ar-dbedit" -> caseDbEdit(ctx);
                         case "96-ar-mapopen" -> caseMapOpen(ctx);
                         case "96-ar-screen" -> caseScreen(ctx);
                         case "96-ar-path" -> casePath(ctx);
@@ -1002,6 +1003,166 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         String yawText = last.get("yaw").getAsString();
         check(yawText.contains(".") && yawText.substring(yawText.indexOf('.') + 1).length() <= 6,
                 "the saved yaw has more than six decimals: " + yawText);
+    }
+
+    private static final String EDIT_INPUT = "com.killer560.hub.autoroutes.AutoRoutesEditInput";
+    private static final String AR_RENDERER = "com.killer560.hub.autoroutes.AutoRoutesRenderer";
+    private static final String DX_ENUMS = "com.killer560.hub.dungeonextras.DungeonExtrasConfig";
+
+    /**
+     * Breaker edit mode (killer560, 2026-10-06: "when in edit mode it shouldnt be able to break blocks if i right click a
+     * block it adds it if i shift right click it removes it have an option under auto routes for it to be waypoints or
+     * highlights"). /ar add dungeonbreaker makes a DUNGEON_BREAKER node and is offered in completion. Control: with the
+     * Dungeon Breaker in hand and edit mode off, a real left click on stone sends a swing/dig. In edit mode the same
+     * click, and a held one, sends neither and the block stays; right click adds, shift-right-click removes, and the
+     * saved blocks follow. Every Breaker Block Display x Style combination is drawn by its own path. After edit mode,
+     * a left click swings again.
+     */
+    private void caseDbEdit(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        // ---- /ar add dungeonbreaker: offered in completion, and the node it makes is a DUNGEON_BREAKER ----
+        List<String> typeWords = ctx.computeOnClient(mc -> suggest(mc, "ar add "));
+        List<String> partial = ctx.computeOnClient(mc -> suggest(mc, "ar add dungeon"));
+        println("dbedit complete: 'ar add ' -> " + typeWords + ", 'ar add dungeon' -> " + partial);
+        check(typeWords.contains("dungeonbreaker") && typeWords.contains("breaker"),
+                "'ar add ' does not offer both breaker and dungeonbreaker: " + typeWords);
+        check(partial.contains("dungeonbreaker"), "'ar add dungeon' does not complete dungeonbreaker: " + partial);
+        setBlocks(ctx, Map.of(new int[]{22, F, 10}, Blocks.STONE.defaultBlockState(),
+                new int[]{22, F + 1, 10}, Blocks.STONE.defaultBlockState(),
+                new int[]{22, F + 1, 14}, Blocks.STONE.defaultBlockState()));
+        tpRel(ctx, 20.5, 10.5, -90f, 0f);
+        ctx.waitTicks(5);
+        cmd(ctx, "/ar add dungeonbreaker");
+        ctx.waitTicks(10);
+        JsonArray nodes = fileNodes(ctx);
+        check(nodes.size() == 1 && "DUNGEON_BREAKER".equals(nodes.get(0).getAsJsonObject().get("type").getAsString()),
+                "/ar add dungeonbreaker did not make one DUNGEON_BREAKER node: " + nodes);
+        cmd(ctx, "/ar add breaker");
+        ctx.waitTicks(10);
+        nodes = fileNodes(ctx);
+        check(nodes.size() == 2 && "DUNGEON_BREAKER".equals(nodes.get(1).getAsJsonObject().get("type").getAsString()),
+                "/ar add breaker did not make the same node type as dungeonbreaker: " + nodes);
+        cmd(ctx, "/ar delete 2");
+        ctx.waitTicks(3);
+        check(fileNodes(ctx).size() == 1, "/ar delete 2 left " + fileNodes(ctx).size() + " node(s)");
+
+        // ---- control: edit mode off, Dungeon Breaker in hand, a real left click on stone at (22,F+1,14) ----
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(2));
+        tpRel(ctx, 20.5, 14.5, -90f, 0f);
+        ctx.waitTicks(5);
+        check(aimedAt(ctx, 22, F + 1, 14), "the control is not aimed at its stone");
+        startSampling(ctx);
+        leftClick(ctx, 3);
+        ctx.waitTicks(5);
+        List<Sample> s = stopSampling(ctx);
+        int ctrlSwing = countOut(s, "swing");
+        int ctrlDig = countOut(s, "player_action");
+        println("dbedit control (edit mode off): " + ctrlSwing + " swing, " + ctrlDig + " player_action");
+        check(ctrlSwing + ctrlDig >= 1, "the control left click sent nothing - the edit-mode check below would prove nothing");
+
+        // ---- edit mode on: the same click, and a held one, on a stone that is NOT picked ----
+        long m = LogTap.mark();
+        cmd(ctx, "/ar edit db");
+        ctx.waitTicks(3);
+        check(ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(FEATURE, "isEditMode")),
+                "/ar edit db did not turn edit mode on");
+        tpRel(ctx, 20.5, 10.5, -90f, 0f);
+        ctx.waitTicks(5);
+        check(aimedAt(ctx, 22, F + 1, 10), "edit mode's left click is not aimed at its stone");
+        int swallowedBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EDIT_INPUT, "swallowedLeftClicks"));
+        startSampling(ctx);
+        leftClick(ctx, 2);
+        ctx.waitTicks(5);
+        leftClick(ctx, 20);
+        ctx.waitTicks(5);
+        s = stopSampling(ctx);
+        int swallowed = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EDIT_INPUT, "swallowedLeftClicks"))
+                - swallowedBefore;
+        StringBuilder trace = new StringBuilder();
+        for (Sample x : s) {
+            if (!x.out().isEmpty()) {
+                trace.append(String.format(" | t%d %s", x.tick(), x.out()));
+            }
+        }
+        println("dbedit edit-mode window: " + s.size() + " ticks sampled, " + swallowed + " click(s) swallowed:" + trace);
+        check(s.size() >= 30, "only " + s.size() + " tick(s) were sampled in the edit-mode window");
+        check(swallowed == 2, "edit mode swallowed " + swallowed + " left click(s), expected 2 (a tap and a hold)");
+        check(logHas(m, "edit mode swallowed a left click"), "no 'edit mode swallowed a left click' log line");
+        check(countOut(s, "swing") == 0, "a left click in edit mode still swung:" + trace);
+        check(countOut(s, "player_action") == 0, "a left click in edit mode still sent a dig:" + trace);
+        check(!blockAir(ctx, 22, F + 1, 10), "a left click in edit mode broke the block");
+
+        // ---- right click adds, shift-right-click removes ----
+        rightClick(ctx, 22, F, 10, Direction.WEST);
+        ctx.waitTicks(3);
+        rightClick(ctx, 22, F + 1, 10, Direction.WEST);
+        ctx.waitTicks(5);
+        JsonArray two = fileNodes(ctx).get(0).getAsJsonObject().getAsJsonArray("blocks");
+        println("dbedit after two right clicks: " + two);
+        check(two != null && two.size() == 2, "two right clicks saved " + two + ", expected 2 blocks");
+        ctx.getInput().holdKey(options -> options.keyShift);
+        boolean sneaking = waitFor(ctx, 20, () -> ctx.computeOnClient(mc -> mc.player.isShiftKeyDown()));
+        rightClick(ctx, 22, F + 1, 10, Direction.WEST);
+        ctx.waitTicks(3);
+        ctx.getInput().releaseKey(options -> options.keyShift);
+        ctx.waitTicks(5);
+        check(sneaking, "shift never registered on the player - the remove check would prove nothing");
+        JsonArray one = fileNodes(ctx).get(0).getAsJsonObject().getAsJsonArray("blocks");
+        println("dbedit after shift-right-click: " + one);
+        check(one != null && one.size() == 1 && one.get(0).equals(two.get(0)),
+                "shift-right-click left " + one + ", expected only the first pick " + two.get(0));
+        check(!blockAir(ctx, 22, F, 10) && !blockAir(ctx, 22, F + 1, 10), "edit mode broke a picked block");
+
+        // ---- Breaker Block Display x Style: each combination takes its own draw path ----
+        try {
+            for (String display : new String[]{"HIGHLIGHT", "WAYPOINT"}) {
+                for (String style : new String[]{"OUTLINE", "FILL", "FILLED_OUTLINE"}) {
+                    setBreakerDisplay(ctx, display, style);
+                    String want = display.toLowerCase(java.util.Locale.ROOT) + "/" + style + " 1 drawn";
+                    boolean drew = waitFor(ctx, 40, () -> want.equals(ctx.computeOnClient(mc ->
+                            (String) ModUnderTest.staticCall(AR_RENDERER, "lastBreakerDraw"))));
+                    String got = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(AR_RENDERER, "lastBreakerDraw"));
+                    println("dbedit draw " + display + "/" + style + ": " + got);
+                    check(drew, "Breaker Block Display " + display + " / " + style + " drew '" + got + "', expected '"
+                            + want + "'");
+                }
+            }
+        } finally {
+            setBreakerDisplay(ctx, "HIGHLIGHT", "FILLED_OUTLINE");
+        }
+
+        // ---- edit mode off: left click swings again (the key was let go, not left stuck) ----
+        cmd(ctx, "/ar edit db");
+        ctx.waitTicks(3);
+        check(!ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(FEATURE, "isEditMode")),
+                "edit mode did not turn off");
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+        tpRel(ctx, 20.5, 14.5, -90f, 0f);
+        ctx.waitTicks(5);
+        startSampling(ctx);
+        leftClick(ctx, 3);
+        ctx.waitTicks(5);
+        s = stopSampling(ctx);
+        println("dbedit after edit mode: " + countOut(s, "swing") + " swing, " + countOut(s, "player_action")
+                + " player_action");
+        check(countOut(s, "swing") + countOut(s, "player_action") >= 1, "a left click after edit mode sent nothing");
+    }
+
+    private static boolean aimedAt(ClientGameTestContext ctx, int x, int y, int z) {
+        return ctx.computeOnClient(mc -> mc.hitResult instanceof BlockHitResult b
+                && b.getBlockPos().equals(real(ModUnderTest.staticCall(FRAME, "current"), x, y, z)));
+    }
+
+    private static void setBreakerDisplay(ClientGameTestContext ctx, String display, String style) {
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(AR_CONFIG);
+            ModUnderTest.call(cfg, "setBreakerDisplay", new Class<?>[]{enumClass(DX_ENUMS + "$BreakerDisplay")},
+                    new Object[]{ModUnderTest.enumValue(DX_ENUMS + "$BreakerDisplay", display)});
+            ModUnderTest.call(cfg, "setBreakerStyle", new Class<?>[]{enumClass(DX_ENUMS + "$BreakerStyle")},
+                    new Object[]{ModUnderTest.enumValue(DX_ENUMS + "$BreakerStyle", style)});
+        });
     }
 
     /** Every node of the room, as the exact bits of x, y, z, yaw, pitch and landing. Client thread. */

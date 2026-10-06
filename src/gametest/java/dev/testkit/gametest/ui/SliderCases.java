@@ -311,7 +311,22 @@ final class SliderCases {
             c.problem("overlapping rows: " + f);
         }
         c.check(n[0] > 100, "only " + n[0] + " layouts checked - the sweep did not reach the menu");
+        if (Mod.isCheat()) {
+            // Auto Routes' Breaker Block Display / Style (mod ar-db-edit): the sweep must actually have laid them out,
+            // or "0 overlapping" says nothing about them.
+            for (String want : new String[]{"Auto Routes|Breaker Block Display:", "Auto Routes|Breaker Block Style:"}) {
+                String[] p = want.split("\\|");
+                List<String> where = SEEN.stream().filter(x -> x.contains("|" + p[1])).map(x -> x.substring(0, x.indexOf('|')))
+                        .distinct().toList();
+                boolean seen = where.stream().anyMatch(x -> x.contains(p[0]));
+                c.note("swept " + p[1] + " on " + p[0] + ": " + seen + " (laid out in " + where + ")");
+                c.check(seen, "the sweep never laid out '" + p[1] + "' on the " + p[0] + " tab");
+            }
+        }
     }
+
+    /** "where|label" of every widget the sweep laid out. */
+    private static final Set<String> SEEN = new LinkedHashSet<>();
 
     private static void sweepSection(ModScreenDriver d, String where, Deny deny, Set<String> found, int[] n)
             throws Throwable {
@@ -394,6 +409,9 @@ final class SliderCases {
     /** Every pair of visible content rows whose rectangles intersect (positive area). */
     private static void check(ModScreenDriver d, String where, String state, Set<String> found) {
         List<AbstractWidget> ws = d.content();
+        for (AbstractWidget w : ws) {
+            SEEN.add(where + "|" + ModScreenDriver.label(w));
+        }
         for (int a = 0; a < ws.size(); a++) {
             AbstractWidget p = ws.get(a);
             if (!p.visible || p.getWidth() <= 0 || p.getHeight() <= 0) {
