@@ -40,6 +40,10 @@ Set `smoke,-ui-,93-solve,96-ar` (43 names: 30 PASS + 13 RAN in every run):
   (226 s plus a client start) because it is one unit. 2.1x faster end to end.
 - `-Shards 3 -SplitLarge` (96-ar cut in two): 290 s, no better - a chunk pays the class setup again and three
   clients at once run each slower. Left off by default.
+- Where 96-ar's time goes (2026-10-06, 26.1.2, one client, 13/13 PASS, 283 s for the run): client start to room picked
+  24 s, its one room build 42 s, the 13 cases 183 s (await 34 s, crypt 18 s, path 18 s, the rest 6-14 s each). A
+  `-SplitLarge` chunk pays the client start and the 42 s build again, and the build cannot be shared between clients
+  (each has its own world), so splitting saves at most ~90 s of cases per extra client. Not pursued further.
 - `-Minecraft both -Shards 2` on `smoke,proof`: both versions at once, 8 PASS/FLAGGED rows each, exit 0.
 
 ## Where the time goes (server restarts)
