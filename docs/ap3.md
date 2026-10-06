@@ -12,8 +12,11 @@ real W press and lets go inside it - AP3 carries him from there.
   packet between), carry the node's angle, and be followed by a movement packet reporting the same angle (BadPacketsJ);
   with a swap, one slot packet right before it. `PacketTrace.tap` hands the probe every serverbound packet object.
 - `hold-<type>`: does a RUN keep going 15 ticks after a node of that type? Walk/run/stop/aligns end or replace it.
-  BLOCK and BOOM draw Post + BadPacketsA (pre-existing; they still send from END_CLIENT_TICK), so the hold cases are
-  `testExpectingFlags`.
+  Every hold case must be Grim-clean.
+- `block-walk`, `boom-walk`, `block-rep-2..5`: Block / Boom on the wire - one slot change right before the place / dig,
+  that the next thing after the entering movement packet, a Block's swap back sent once. On mod ec838c10 and earlier
+  they drew Post (held item change, block placement, digging) and BadPacketsA; clean from 0b6107fc. One RotationPlace
+  "post-flying" was seen once on 26.2 (1 of 15 places that night, not reproduced) - read the rep cases as a rate.
 - `stopwatch-hud`, `cmdtree`, `corrections-off/on`: see the case code.
 
 Traps found writing it:
