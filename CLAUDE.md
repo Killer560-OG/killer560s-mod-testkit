@@ -79,6 +79,8 @@ picks-only since mod 9e83c4fc, so 50-52 pick the whole corridor and 53-56 cover 
 Triggerbot, 99-sim-essence-aura (Secret Aura on a sim wither essence holding AOTV / Hyperion, first world and after a
 rebuild; server-side click record, collection and Auto Routes' await; only when named, captures from "Map Logger" unless
 `TESTKIT_SIM_INSTANCE` says otherwise),
+143-sim-key-look (pictures of a dropped sim Wither Key and Blood Key, front-on and from above, plus their stand's
+flags on the client; only when named, `TESTKIT_SIM_INSTANCE=Map Logger`),
 110-sim-puzzle-reset (player reset rules of mod 35a663ba: only failed puzzles, never Water Board, Boulder when built, a draft kept when nothing resets),
 64-correction-alarm (the mod's `killer560smod:correction_alarm` is known to the sound manager, its .ogg is in the resources,
 `ModSounds.playCorrectionAlarm` plays once and rate-limits the second; run it with `-Minecraft 26.2` too).
@@ -303,6 +305,10 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   "behind a closed door". 102-sim-autosecret makes one: it sets the live map's `grid` tile to DOOR_WITHER by reflection
   and puts coal on `DungeonLayout.doorBlock`, which is what the layout reads as locked.
 
+- A screenshot camera must not be a spectator: spectators draw invisible entities as translucent ghosts, so 143-sim-key-look's
+  first pictures showed the key's armour stand under its head (2026-10-06). Use survival with `mayfly`/`flying`, and set
+  `flying` again on the client after each teleport - survival flight drops the moment he touches ground. A roofed sim room
+  stays dark at noon and full gamma; 143 switches the mod's Fullbright on for its shots and restores it.
 - 141-sim-autopilot re-shuts the sim blood door by putting its blocks back (`SimDoors` keeps a door registered once open);
   142-sim-autopilot2 wants `TESTKIT_SIM_INSTANCE=Map Logger` and drops keys 25-100 blocks off (further is off the client).
 
