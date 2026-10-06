@@ -14,6 +14,14 @@ the sim's own `Sim*Puzzle.isComplete()`, failed if `SimRoomState.isFailed` ever 
 chest opening plus `BoulderWatch` (below). Status lines every 5 s
 carry the solver's own state (`probes`), and a failure prints the last 60 mod/chat log lines (`LogTap`).
 
+Higher and Lower Blaze also check the free camera (mod dc5b4803, killer560 2026-10-06: "it just snaps my camera
+around everywhere"). `CameraWatch` records every render frame from before the auto is switched on until 10 ticks after
+it is switched off: `getViewYRot/XRot`, the body's rotation, `ViewFreeze.isHeld`, `SimTerminator.arrowsFired` and the
+solver's blaze count. From the first held frame the view may not move more than 0.5 degrees (yaw compared modulo 360:
+the hand-back keeps the body on its running yaw, a whole turn from the held number, same picture). It refuses to pass
+unless arrows were fired and blazes died inside that window and the body turned more than 5 degrees. Main before the fix
+(fe713ba7) failed it, the view moving 127 and 151 degrees with the lease lapsing onto the body; the fixed jar's line reads e.g. "30 arrow(s) and 10 blaze kill(s) ... view moved at most 0.000 deg".
+
 Water Board checks more than the solve (mod 5cd5b881): before the auto starts, exactly three colour layers of the
 walkway under the glass are fully out (x 14..16 at y 56, x 14/16 at y 57, 5 of 5 cells) and no reward chest exists;
 after the solve, a chest at room-relative (15, 56, 22) equal to `SimWaterPuzzle.rewardChestPos()`, all five layers
