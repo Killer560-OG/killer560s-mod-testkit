@@ -301,5 +301,9 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   over stone and its second counted peach sunrise sky uncovered by a 1 px edge shift. Diff each frame against a no-draw
   frame of the same scene and classify only changed pixels (`ui/BreakerDisplayCases.countOrange`), and look at the PNGs.
 
+- From the MAIN MENU (the map designer, any sim screen opened before a world) `ModChat.send` shows nothing: it drops the line
+  while `client.player` is null, so a chat assertion there can never pass. Assert the screen's status text or the mod's log
+  line through `LogTap` instead (75-sim-map-editor-filters, 2026-10-06).
+
 Auto Routes on GrimAC (62-argrim): how to run it and its traps are in [docs/argrim.md](docs/argrim.md).
 AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatch HUD): [docs/ap3.md](docs/ap3.md).
