@@ -50,6 +50,7 @@
 			"dev.testkit.gametest.SimRoomFloorTests",
 			"dev.testkit.gametest.SimRoomPickTests",
 			"dev.testkit.gametest.SimLeaveLoopTests",
+			"dev.testkit.gametest.SimThreadTests",
 			"dev.testkit.gametest.SimEssenceAuraTests",
 			"dev.testkit.gametest.InventorySorterTests",
 			"dev.testkit.gametest.SimPuzzleSolveTests$TicTacToe",
