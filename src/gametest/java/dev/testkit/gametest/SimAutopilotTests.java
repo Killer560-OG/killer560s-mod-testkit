@@ -74,7 +74,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
     private static final int CASE_TICKS = 20 * 240;
 
     /** "pick CLEAR Mushroom 4.67/9.0s=0.519" and each "; "-separated ranked entry. */
-    private static final Pattern CAND = Pattern.compile("(SECRET|CLEAR|PUZZLE|EXPLORE) (.+?) (-?[\\d.]+)/([\\d.]+)s=(-?[\\d.]+)( \\(teammate\\))?$");
+    private static final Pattern CAND = Pattern.compile("(SECRET|CLEAR|PUZZLE|EXPLORE|KEY) (.+?) (-?[\\d.]+)/([\\d.]+)s=(-?[\\d.]+)( \\(teammate\\))?$");
 
     private record Room(String name, String type, boolean mob, boolean cleared, boolean rush, int x, int z) {
         static Room parse(String line) {
@@ -593,6 +593,18 @@ public class SimAutopilotTests implements FabricClientGameTest {
             check(problems, "300 reached", String.valueOf(score("reached300", state("F7", 28, 28, 100, 90, 5, 0, 0, 100, 300))),
                     "true");
             check(problems, "250 not reached", String.valueOf(score("reached300", f7)), "false");
+            // autopilot2: crypt nodes (5 cap, less what is blown) and keys in Party's first tier.
+            Object c2 = state("F7", 28, 10, 100, 50, 5, 0, 0, 100, 250, 2);
+            check(problems, "crypt gain: 4 nodes, 2 blown -> 3", String.format(Locale.US, "%.1f", (Double) cryptGain(c2, 4)),
+                    "3.0");
+            check(problems, "crypt gain: 1 node, 2 blown -> 1", String.format(Locale.US, "%.1f", (Double) cryptGain(c2, 1)),
+                    "1.0");
+            Object c5 = state("F7", 28, 10, 100, 50, 5, 0, 0, 100, 250, 5);
+            check(problems, "crypt gain: 5 blown -> 0", String.format(Locale.US, "%.1f", (Double) cryptGain(c5, 3)), "0.0");
+            Object key = cand("KEY", "Wither Key#7", 10.0, 3.0, false, -1);
+            check(problems, "party: a key beside a slower route", pickOf(choose(true, slow, key, a)), "KEY Wither Key#7");
+            check(problems, "party: a key before a clear when no route", pickOf(choose(true, key, aMate, a)),
+                    "KEY Wither Key#7");
         });
         for (String p : problems) {
             System.out.println("[" + LOGIC + "] FAIL: " + p);
@@ -641,12 +653,22 @@ public class SimAutopilotTests implements FabricClientGameTest {
 
     private static Object state(String floor, int totalRooms, int completed, int totalSecrets, int found, int bonus,
                                 int deathPenalty, int failed, int speed, int total) {
+        return state(floor, totalRooms, completed, totalSecrets, found, bonus, deathPenalty, failed, speed, total, 0);
+    }
+
+    private static Object cryptGain(Object state, int nodes) {
+        return ModUnderTest.staticCall(SCORE, "cryptGain", new Class<?>[]{state.getClass(), int.class},
+                new Object[]{state, nodes});
+    }
+
+    private static Object state(String floor, int totalRooms, int completed, int totalSecrets, int found, int bonus,
+                                int deathPenalty, int failed, int speed, int total, int crypts) {
         try {
             Class<?> c = Class.forName(SCORE + "$State");
             Class<?>[] t = {String.class, int.class, int.class, int.class, int.class, int.class, int.class, int.class,
-                    int.class, int.class};
+                    int.class, int.class, int.class};
             return c.getConstructor(t).newInstance(floor, totalRooms, completed, totalSecrets, found, bonus, deathPenalty,
-                    failed, speed, total);
+                    failed, speed, total, crypts);
         } catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
         }

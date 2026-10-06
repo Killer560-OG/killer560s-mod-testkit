@@ -1245,7 +1245,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     println("  " + l.replaceAll("^.*?\\[AutoSecret\\]", "[AutoSecret]"));
                 }
             }
-            int planned = plannedWarps(m);
+            // The autopilot plans more trips after the route (it explores the arena's empty cells), so its START-node trip
+            // is the FIRST plan, not the last.
+            int planned = pilot ? firstPlannedWarps(m) : plannedWarps(m);
             List<Sample> uses = useTicks(s);
             check(logHas(m, "[AutoSecret] target " + room), "Auto Secret did not target " + room);
             if (pilot) {
@@ -1263,11 +1265,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                         + " map warp(s) + 1 route warp - fewer than the route needed");
                 c.note("autopilot explored " + LogTap.since(m).stream().filter(l -> l.contains("| pick EXPLORE")).count()
                         + " unidentified cell(s) after the route");
+                // Those cells are empty arena: the harness's ability server leaves some warps toward them unanswered
+                // (2026-10-06, "warp 1 never landed"), so here only the route's own warps must all have been server warps.
+                check(delta(before, "etherwarps") >= planned + 1, "the server made " + delta(before, "etherwarps")
+                        + " etherwarp(s), fewer than the " + (planned + 1) + " the trip and the route needed");
             } else {
                 check(uses.size() == planned + 1, "sent " + uses.size() + " use(s) for " + planned + " map warp(s) + 1 route warp");
+                check(delta(before, "etherwarps") == uses.size(), "client sent " + uses.size() + " use(s), the server made "
+                        + delta(before, "etherwarps") + " etherwarp(s)");
             }
-            check(delta(before, "etherwarps") == uses.size(), "client sent " + uses.size() + " use(s), the server made "
-                    + delta(before, "etherwarps") + " etherwarp(s)");
             for (Sample x : uses) {
                 check(x.shift(), "a warp's use went out on tick " + x.tick() + " without the server having the sneak");
             }
@@ -1333,6 +1339,16 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             writeRoute(ctx, null);
         }
         noteFlags(c, s);
+    }
+
+    private static int firstPlannedWarps(long mark) {
+        for (String l : LogTap.since(mark)) {
+            java.util.regex.Matcher mm = RUNNING.matcher(l);
+            if (mm.find()) {
+                return Integer.parseInt(mm.group(1));
+            }
+        }
+        return -1;
     }
 
     private static int plannedWarps(long mark) {
