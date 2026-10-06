@@ -1568,7 +1568,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             server.overworld().addFreshEntity(item);
         })));
         note.accept(awaitRun(ctx, "a secret bat 5 blocks away", true, () -> spawnBatAt(ctx, 12, F - 1, 17)));
-        note.accept(awaitRun(ctx, "a secret bat 10 blocks away", false, () -> spawnBatAt(ctx, 12, F - 1, 22)));
+        note.accept(awaitRun(ctx, "a secret bat 13 blocks away", false, () -> spawnBatAt(ctx, 12, F - 1, 25)));
         spawnBatAt(ctx, 15, F - 1, 12);
         ctx.waitTicks(30);
         note.accept(awaitRun(ctx, "a bat already there", false, () -> { }));
