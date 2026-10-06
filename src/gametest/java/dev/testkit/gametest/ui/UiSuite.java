@@ -20,7 +20,8 @@ import java.util.List;
  *                320 profiles save/export/import/apply, 380 Auto Scale (window sizes, drawn size, clicks)
  * singleplayer:  301 every ModScreen tab, 302 search, 303 toggles, 304 HUD editor, 305 every mod Screen,
  *                306 client commands, 350 termism, 360 client visuals, 307 /profit hub and trackers,
- *                385 Interactive Map input/panel, 386 mod-menu sliders driven by real input + no overlapping rows
+ *                385 Interactive Map input/panel, 386 mod-menu sliders driven by real input + no overlapping rows,
+ *                387 AP3 node editor (type dropdown, per-type fields saved, hotbar item pick, no overlaps)
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -33,7 +34,8 @@ public class UiSuite implements FabricClientGameTest {
             "311-ui-config-setters", "320-ui-profiles", "380-ui-autoscale"};
     static final String[] WORLD_CASES = {"301-ui-smoke-tabs", "302-ui-smoke-search", "303-ui-smoke-toggles",
             "304-ui-smoke-hud-editor", "305-ui-smoke-screens", "306-ui-smoke-commands", "350-ui-termism",
-            "360-ui-visuals", "365-ui-overlay-draws", "307-ui-profit", "385-ui-interactive-map", "386-ui-sliders"};
+            "360-ui-visuals", "365-ui-overlay-draws", "307-ui-profit", "385-ui-interactive-map", "386-ui-sliders",
+            "387-ui-ap3-edit"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -97,6 +99,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "307-ui-profit", ProfitCases::profit);
                     UiCase.run(ctx, "385-ui-interactive-map", InteractiveMapCases::run);
                     UiCase.run(ctx, "386-ui-sliders", c -> SliderCases.run(c, deny));
+                    UiCase.run(ctx, "387-ui-ap3-edit", Ap3EditCases::run);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
