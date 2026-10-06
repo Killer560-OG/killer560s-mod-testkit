@@ -49,6 +49,10 @@ public final class PacketTrace {
 
     private static volatile boolean recording;
 
+    /** Every serverbound packet object, as it is handed to the connection (null = none). For a scenario that must
+     *  read a packet's FIELDS (a use packet's rotation, a move packet's position), which the name trace drops. */
+    public static volatile java.util.function.Consumer<Packet<?>> tap;
+
     private static boolean hooked;
 
     private PacketTrace() {
@@ -93,6 +97,10 @@ public final class PacketTrace {
 
     /** From the connection, for every packet it is asked to send. */
     public static void onSent(Packet<?> packet) {
+        java.util.function.Consumer<Packet<?>> t = tap;
+        if (t != null && packet.type().flow() == PacketFlow.SERVERBOUND) {
+            t.accept(packet);
+        }
         // Only what the client sends. An integrated server in the same JVM has connections too, and what they
         // send is clientbound.
         if (recording && packet.type().flow() == PacketFlow.SERVERBOUND) {

@@ -38,6 +38,7 @@
 			"dev.testkit.gametest.SimInteractiveMapTests",
 			"dev.testkit.gametest.SimAutoRoutesTests",
 			"dev.testkit.gametest.GrimAutoRoutesTests",
+			"dev.testkit.gametest.Ap3RuntimeTests",
 			"dev.testkit.gametest.SimPlayableTests",
 			"dev.testkit.gametest.SimPlayTests",
 			"dev.testkit.gametest.SimSecretRotationTests",
