@@ -754,7 +754,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             ctx.waitTicks(6);
             double before = onClient(ctx, mc -> mc.player.getX());
             // A small server-side move while AP3 is carrying him - what a correction looks like to the client.
-            c.server().command("tp @p ~0.3 ~ ~");
+            c.server().command("execute as @p at @s run tp @s ~0.3 ~ ~"); // relative to HIM, not the console
             ctx.waitTicks(15);
             double after = onClient(ctx, mc -> mc.player.getX());
             boolean running = onClient(ctx, mc -> (Boolean) ModUnderTest.staticCall(EXEC, "isRunning"));
