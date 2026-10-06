@@ -589,7 +589,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         Object stop = node("STOP", LANE_X0 + 22.0, z, -90f, 0f, 2.0, 3.0);
         startProbe(ctx);
         walkIntoRun(c, z, run, n, stop);
-        ctx.waitTicks(30);
+        ctx.waitTicks(60); // the box is ~10 blocks in: entered around trace tick 50, then 12 more to measure
         List<Ev> evs = stopProbe(ctx);
         Ev entry = firstInside(ctx, evs, n);
         if (entry == null) {
