@@ -29,6 +29,7 @@
     {"class": "roomsim.SimItemsScreen", "args": ["null"], "source": "roomsim/SimItemsScreen.java"},
     {"class": "roomsim.SimLoadingScreen", "args": ["str:testkit"], "source": "roomsim/SimLoadingScreen.java"},
     {"class": "roomsim.SimMapEditorScreen", "args": ["null"], "source": "roomsim/SimMapEditorScreen.java"},
+    {"class": "roomsim.SimRoomFilterScreen", "args": ["null"], "source": "roomsim/SimRoomFilterScreen.java - the designer's Filters popup"},
     {"class": "roomsim.SimMenuScreen", "args": ["null"], "source": "roomsim/SimMenuScreen.java - render only; its buttons open sim worlds"},
     {"class": "scoreboard.ScoreboardEditorScreen", "args": ["null"], "source": "scoreboard/ScoreboardEditorScreen.java"},
     {"class": "termism.TermismMenuScreen", "args": ["null"], "source": "termism/TermismMenuScreen.java"},

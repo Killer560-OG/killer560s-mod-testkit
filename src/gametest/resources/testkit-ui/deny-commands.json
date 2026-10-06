@@ -29,6 +29,8 @@
     {"root": "simbuild", "why": "sim only: builds a floor (roomsim/SimBuilder.java:57)"},
     {"root": "summon", "why": "sim only: spawns sim mobs (roomsim/SimMobs.java:692)"},
     {"root": "goto", "why": "sim only: teleports (roomsim/SimTeleportCommands)"},
+    {"root": "next", "why": "sim only: loads the next room of the All Rooms set (roomsim/SimRoomCycle)"},
+    {"root": "back", "why": "sim only: loads the previous room of the All Rooms set (roomsim/SimRoomCycle)"},
     {"root": "tpto", "why": "sim only: teleports (roomsim/SimTeleportCommands)"},
     {"root": "k560path", "why": "pathfinding walks the player (pathfinding/PathfindingFeature.java:129)"},
     {"root": "ar", "why": "Auto Routes editing and automation (autoroutes/AutoRoutesCommands)"},
