@@ -46,6 +46,8 @@ param(
     [int]$TimeoutSeconds = 0,               # per shard; 0 = from the estimate (2.5x + 600 s, at least 900)
     [string]$WorktreeRoot = "C:/Users/Hunter/killer560s-mod-testkit-shards",
     [string]$OutDir = "",
+    [string]$SeedDurations = "",            # a summary.json (e.g. an unsharded run's report) to take measured seconds from
+    [switch]$SplitLarge,                    # also split a plain-scenario unit bigger than a fair share (see below)
     [switch]$PlanOnly
 )
 
@@ -179,6 +181,18 @@ if (Test-Path $durFile) {
     foreach ($pr in $o.PSObject.Properties) { $dur[$pr.Name] = [double]$pr.Value }
 }
 
+# Seconds per name from report rows. A RAN row is closed when its test CLASS ends, so every RAN row of one class
+# carries the class's whole duration; rows of one class with identical seconds share it instead.
+function Add-Durations($cases) {
+    $cases = @($cases)
+    foreach ($c in $cases) {
+        if ($c.status -ne 'RAN' -and $c.seconds -gt 0 -and $c.status -ne 'FAIL') { $dur[$c.name] = [double]$c.seconds }
+    }
+    foreach ($grp in ($cases | Where-Object { $_.status -eq 'RAN' -and $_.seconds -gt 0 } | Group-Object { [Math]::Round([double]$_.seconds, 1) })) {
+        foreach ($c in $grp.Group) { $dur[$c.name] = [double]$c.seconds / $grp.Count }
+    }
+}
+
 function Default-Seconds([string]$name) {
     if ($name -match '-ui-') { return 20 }
     if ($name -match '-logic-') { return 5 }
@@ -190,6 +204,12 @@ function Seconds-Of([string]$name, [double]$fallback) {
     if ($dur.ContainsKey($name) -and $dur[$name] -gt 0) { return $dur[$name] }
     if ($fallback -gt 0) { return $fallback }
     return (Default-Seconds $name)
+}
+
+if ($SeedDurations -ne "") {
+    $so = (Get-Content -Encoding UTF8 $SeedDurations | Out-String) | ConvertFrom-Json
+    Add-Durations $so.cases
+    Say "seeded durations from $SeedDurations"
 }
 
 function Read-List([string]$file) {
@@ -251,6 +271,28 @@ foreach ($v in $versions) {
             }
         }
         $units += [pscustomobject]@{ Id = [int]$g.Name; Frag = $frag; Est = $est; Names = $names }
+    }
+
+    # -SplitLarge: one class of independent-by-name scenarios (96-ar) bigger than a fair share would set the wall time
+    # alone. Cut it into contiguous chunks (order kept); each chunk pays the class's setup again (~40 s). Never a
+    # Session or the UI group's world cases: only units made of plain scenario rows with no session in them.
+    if ($SplitLarge -and $units.Count -gt 0) {
+        $total = 0.0; foreach ($u in $units) { $total += $u.Est }
+        $target = $total / $Shards
+        $split = @()
+        foreach ($u in $units) {
+            $plain = (@($rows | Where-Object { $_.Unit -eq $u.Id -and $_.State -ne 'no' -and $_.Kind -ne 'scenario' }).Count -eq 0)
+            if ($plain -and $u.Names.Count -gt 1 -and $u.Est -gt $target * 1.15 -and $u.Id -ne -1 -and -not ($u.Frag -match '-ui-')) {
+                $c = [Math]::Min($Shards, [Math]::Min($u.Names.Count, [int][Math]::Ceiling($u.Est / $target)))
+                $per = [int][Math]::Ceiling($u.Names.Count / $c)
+                for ($i = 0; $i -lt $u.Names.Count; $i += $per) {
+                    $sub = @($u.Names[$i..([Math]::Min($i + $per, $u.Names.Count) - 1)])
+                    $split += [pscustomobject]@{ Id = $u.Id; Frag = $sub; Names = $sub; Est = ($u.Est * $sub.Count / $u.Names.Count + 40) }
+                }
+                Say "split unit $($u.Id) ($($u.Names[0])...) of $($u.Names.Count) names, est $([int]$u.Est) s, into $c chunks"
+            } else { $split += $u }
+        }
+        $units = $split
     }
 
     # Longest first onto the least loaded shard.
@@ -384,8 +426,8 @@ foreach ($j in $jobs) {
         foreach ($c in @($o.cases)) {
             $allRows[$j.Version] += [pscustomobject]@{ Name = $c.name; Status = $c.status; Seconds = [double]$c.seconds
                 Shard = $j.K; Detail = [string]$c.detail }
-            if ($c.seconds -gt 0 -and $c.status -ne 'FAIL') { $dur[$c.name] = [double]$c.seconds }
         }
+        Add-Durations $o.cases
     }
 }
 $jsonDur = New-Object System.Collections.Specialized.OrderedDictionary
