@@ -307,5 +307,10 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   over stone and its second counted peach sunrise sky uncovered by a 1 px edge shift. Diff each frame against a no-draw
   frame of the same scene and classify only changed pixels (`ui/BreakerDisplayCases.countOrange`), and look at the PNGs.
 
+- Fabric API 0.155 has NO `net.fabricmc.fabric.api.client.command.v2.ClientCommandManager` (ClassNotFoundException,
+  97-sim-roomcycle, 2026-10-06); the client dispatcher is `net.fabricmc.fabric.impl.command.client.ClientCommandInternals
+  .getActiveDispatcher()`, and `mc.player.connection.sendCommand(...)` runs a client command as typed. A reflective lookup
+  that swallows the exception never runs anything (SimServerSafetyTests does this; flagged).
+
 Auto Routes on GrimAC (62-argrim): how to run it and its traps are in [docs/argrim.md](docs/argrim.md).
 AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatch HUD): [docs/ap3.md](docs/ap3.md).
