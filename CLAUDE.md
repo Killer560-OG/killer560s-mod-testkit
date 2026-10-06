@@ -147,8 +147,6 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 - Features that click a dungeon secret keep a done-set and never click the same one twice, so one lever
   measures exactly one interaction. Use a row of them and strafe past, rather than writing yaw — a synthetic
   rotation from the harness would land in the packets being measured.
-- `writeTestServerLaunch` joins launch args with NUL, written as the `\u0000` escape - build.gradle itself has
-  no NUL bytes any more (counted 2026-10-04), so grep reads it as text.
 - `ctx.runOnClient` WAITS for its task to finish, so a task that needs further client ticks to complete
   deadlocks the client. Opening a world from inside one killed the process outright (exit -805306369 /
   NTSTATUS 0xCFFFFFFF) rather than failing an assertion, and the frozen window had to be closed by hand.
@@ -159,18 +157,11 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   runs again. A thread dump shows the pair immediately — `jstack` the frozen client rather than guessing, and
   note the dump PowerShell writes is UTF-16. Use `server.execute(...)` into an `AtomicReference` and
   `ctx.waitFor` on it.
-- Scenario 71 froze for an hour looking like a mod bug. It was not: the client log showed the sim had built
-  the room perfectly ("Sim build finished: 77850 blocks") before the freeze. Read the client's own log first —
-  this is the second time a "the sim freezes" hunt has ended at something that was not the sim.
 - The auction-house scan (about 43,000 listings across 44 pages, each decoded to an ItemStack) starts as soon
   as a player exists and is heavy enough to matter in a gametest client. Every sim scenario turns it off with
   `ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled")`; nothing here tests it.
-- These scenarios open a REAL Minecraft window on killer560's desktop for a couple of minutes. A hung one is
-  his problem to close, so a scenario that can hang is worse than no scenario - give anything that waits an
-  explicit bound, and tell him before starting a run.
-- Upstream scenarios 40, 41, 42 report "built 0 block(s)", fall to the catch floor and pass as clean, and 34
-  reports "naked 0, diamond-armoured 0" — four tests that go green while proving nothing. Worth telling
-  SicoKaleb; his movement example guards against it with a `travelled < 20` check.
+- Scenarios open a REAL Minecraft window on his desktop: bound every wait, and tell him before a run.
+- Upstream scenarios 40, 41, 42 ("built 0 block(s)") and 34 ("naked 0, diamond-armoured 0") go green proving nothing.
 - **The instrument is broken more often than the feature.** Three times on 2026-09-29: scenario 76 reported
   20 of 29 secret chests missing because it scanned only chunks that `hasChunk` said were loaded, and the
   player stands in one corner of a six-room-wide floor (use `getChunk`, which loads it); scenario 78 reported
@@ -185,8 +176,6 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   up. Scenario 81 reported "a player cannot pass this doorway" twice while the player had moved 0.00 blocks,
   and once more after walking 16.2 blocks into a wall because it aimed him from the cell centre rather than
   from where he stood. Place him square on to the thing under test and measure the crossing axis only.
-- A scenario that throws leaves the sim world open and the client hangs until the deadline watcher shoots it -
-  a frozen Minecraft window on his desktop. Put the teardown in a `finally`.
 - Name the block that stopped the player. "3 of 8 doorways impassable" reads as a floor-generation bug when a
   shut wither door (coal block) and a blood door (red terracotta) are solid on purpose.
 - An overlap assertion must be a real RECTANGLE INTERSECTION, not "is A below B". Scenario 83 compared the
@@ -304,6 +293,11 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 - A generated sim floor has NO wither doors (SimWitherDoors only draws theoretical ones), so nothing on it is ever
   "behind a closed door". 102-sim-autosecret makes one: it sets the live map's `grid` tile to DOOR_WITHER by reflection
   and puts coal on `DungeonLayout.doorBlock`, which is what the layout reads as locked.
+
+- 62-argrim: the autopilot case walks him on to the arena's other (unidentified) map cells and stops there, where
+  `RouteCoords.Frame.current()` is null, so every later case died "frame is null" (imwarp, imwarp-run, goto; old mod code
+  too - 2026-10-06). A real player in an unidentified room has no frame either, so not a mod bug. `resetRoutes` now calls
+  `ensureInRoom` (server `tp` back to the pad, wait for the frame). Setup also failed once to identify any of 8 rooms; a rerun passed.
 
 - A screenshot camera must not be a spectator: spectators draw invisible entities as translucent ghosts, so 143-sim-key-look's
   first pictures showed the key's armour stand under its head (2026-10-06). Use survival with `mayfly`/`flying`, and set

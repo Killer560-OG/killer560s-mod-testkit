@@ -1687,6 +1687,31 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         return null;
     }
 
+    /**
+     * Puts him back in the pasted room if an earlier case left him elsewhere. The Dungeon Autopilot case walks him on
+     * to explore the arena's other (unidentified) map cells and stops there, where {@code RouteCoords.Frame.current()}
+     * is null (no room under his feet), so every later case that needs the frame threw "frame is null". A real player
+     * standing in an unidentified room has no frame either, so this is the harness's state, not the mod's.
+     */
+    private static void ensureInRoom(ClientGameTestContext ctx) {
+        if (frameIsRoom(ctx)) {
+            return;
+        }
+        println("a case before this one left him outside " + room + " (frame " + frameString(ctx) + "): placing him back");
+        session.hx().call("dungeon.tp", "x", CENTRE + 0.5, "y", (double) F, "z", CENTRE + 3.5, "yaw", 0f, "pitch", 0f);
+        if (!waitFor(ctx, 300, () -> frameIsRoom(ctx))) {
+            throw new AssertionError("could not put him back in " + room + ": frame " + frameString(ctx));
+        }
+        ctx.waitTicks(5);
+    }
+
+    private static boolean frameIsRoom(ClientGameTestContext ctx) {
+        return room.equals(ctx.computeOnClient(mc -> {
+            Object f = ModUnderTest.staticCall(FRAME, "current");
+            return f == null ? null : (String) ModUnderTest.call(f, "roomName", new Class<?>[]{}, new Object[]{});
+        }));
+    }
+
     private static String frameString(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(FRAME, "current")));
     }
@@ -1749,6 +1774,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     }
 
     private static void resetRoutes(ClientGameTestContext ctx) {
+        ensureInRoom(ctx);
         ctx.runOnClient(mc -> {
             McCompat.setScreen(mc, null);
             ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test reset"});
