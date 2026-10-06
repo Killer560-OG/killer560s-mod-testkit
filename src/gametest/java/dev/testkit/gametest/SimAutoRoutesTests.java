@@ -382,6 +382,19 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         cmd(ctx, "/ar add jump");
         ctx.waitTicks(5);
         check(fileNodes(ctx).size() == 5, "a refused /ar add still added a node");
+        // A bare "await:" (what tab completion leaves) means await:1 (killer560, 2026-10-06). The node waits for its
+        // secret, so adding it does not warp.
+        cmd(ctx, "/ar add ew await:");
+        ctx.waitTicks(5);
+        nodes = fileNodes(ctx);
+        check(nodes.size() == 6, "/ar add ew await: added no node (file has " + nodes.size() + ")");
+        if (nodes.size() == 6) {
+            JsonObject bare = nodes.get(5).getAsJsonObject();
+            check(bare.has("awaitEnabled") && bare.get("awaitEnabled").getAsBoolean()
+                    && bare.has("amount") && bare.get("amount").getAsInt() == 1,
+                    "/ar add ew await: saved " + bare + ", expected await enabled with amount 1");
+        }
+        cmd(ctx, "/ar stop");
     }
 
     /**
