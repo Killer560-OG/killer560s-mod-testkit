@@ -81,6 +81,10 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             s.test("63-ap3-use-on-block", c -> caseUse(c, "63-ap3-use-on-block", false, true));
             s.test("63-ap3-block-walk", c -> caseInteract(c, "BLOCK"));
             s.test("63-ap3-boom-walk", c -> caseInteract(c, "BOOM"));
+            // RotationPlace is judged per place, so one clean place is a sample, not a rate: four more.
+            for (int i = 2; i <= 5; i++) {
+                s.test("63-ap3-block-rep-" + i, c -> caseInteract(c, "BLOCK"));
+            }
             for (String type : new String[]{"LOOK", "USE", "STOPWATCH", "JUMP", "EDGE", "BLOCK", "BOOM", "TERMINAL",
                     "LEAP_COUNTER", "TERM_AURA", "STOP", "ALIGN", "AXIS_ALIGN", "FAST_ALIGN", "WALK"}) {
                 String name = "63-ap3-hold-" + type.toLowerCase(Locale.ROOT).replace('_', '-');
