@@ -52,6 +52,7 @@
 			"dev.testkit.gametest.SimRoomFloorTests",
 			"dev.testkit.gametest.SimRoomPickTests",
 			"dev.testkit.gametest.SimRoomCycleTests",
+			"dev.testkit.gametest.SimRoomSpawnTests",
 			"dev.testkit.gametest.SimLeaveLoopTests",
 			"dev.testkit.gametest.SimThreadTests",
 			"dev.testkit.gametest.SimEssenceAuraTests",
