@@ -63,6 +63,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     private static final String FRAME = "com.killer560.hub.autoroutes.RouteCoords$Frame";
     private static final String FEATURE = "com.killer560.hub.autoroutes.AutoRoutesFeature";
     private static final String EXECUTOR = "com.killer560.hub.autoroutes.RouteExecutor";
+    private static final String SOUNDS = "com.killer560.hub.util.ModSounds";
+    private static final String CORRECTIONS = "com.killer560.hub.util.ServerCorrections";
     private static final String PLANNER = "com.killer560.hub.autoroutes.RoutePathPlanner";
     private static final String AR_CONFIG = "com.killer560.hub.autoroutes.AutoRoutesConfig";
     private static final String DX_CONFIG = "com.killer560.hub.dungeonextras.DungeonExtrasConfig";
@@ -167,6 +169,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             session = s;
             s.test("62-argrim-ew-add", GrimAutoRoutesTests::caseEwAdd);
             s.test("62-argrim-walk", GrimAutoRoutesTests::caseWalk);
+            s.testExpectingFlags("62-argrim-correction", GrimAutoRoutesTests::caseCorrection);
             s.test("62-argrim-boom", GrimAutoRoutesTests::caseBoom);
             s.test("62-argrim-breaker", GrimAutoRoutesTests::caseBreaker);
             s.test("62-argrim-use", GrimAutoRoutesTests::caseUse);
@@ -416,6 +419,59 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         check(s.stream().anyMatch(Sample::sprint), "the walk never sprinted");
         check(s.stream().noneMatch(Sample::shift), "the walk sent shift down");
         c.note(String.format(Locale.ROOT, "walk: %.2f blocks along +z, sprinting", after.z - from.z));
+        noteFlags(c, s);
+    }
+
+    /**
+     * Mod rule (killer560, 2026-10-06): a server correction never stops a route - chat line, the correction alarm, and the
+     * route carries on from where the server put him. Two setbacks (a server {@code tp} a block back, the same position
+     * packet a setback is) 8 ticks apart while {@code /ar add walk} sprints him along +z: the route must still be running
+     * after both, he must still get down the arena, and each must be reported. Expecting flags: the tp itself is the
+     * server's doing, and GrimAC may well have an opinion on a sprint that was moved under it.
+     */
+    private static void caseCorrection(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        tpRel(ctx, 14.5, 6.5, 0f, 0f);
+        ctx.waitTicks(5);
+        Vec3 from = relPos(ctx);
+        long mark = LogTap.mark();
+        int alarmsBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SOUNDS, "correctionAlarmsPlayed"));
+        int reportsBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(CORRECTIONS, "reports"));
+        startSampling(ctx);
+        cmd(ctx, "/ar add walk");
+        ctx.waitTicks(8);
+        Vec3 beforeFirst = relPos(ctx);
+        c.server().command("execute as @p at @s run tp @s ~ ~ ~-1");
+        ctx.waitTicks(8);
+        boolean runningBetween = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+        c.server().command("execute as @p at @s run tp @s ~ ~ ~-1");
+        ctx.waitTicks(6);
+        boolean runningAfter = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+        ctx.waitTicks(60);
+        List<Sample> s = stopSampling(ctx);
+        Vec3 after = relPos(ctx);
+        int alarms = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SOUNDS, "correctionAlarmsPlayed"))
+                - alarmsBefore;
+        int reports = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(CORRECTIONS, "reports")) - reportsBefore;
+        long reportLines = LogTap.since(mark).stream().filter(l -> l.contains("[Correction] Auto Routes:")).count();
+        boolean chatLine = logHasAll(mark, "[CHAT]", "Server correction:");
+        // "Stopped: null" is the walk completing at the far wall; any other reason is a real stop.
+        boolean stopLine = LogTap.since(mark).stream().anyMatch(l -> l.contains("[AutoRoutes] Stopped: ")
+                && !l.contains("[AutoRoutes] Stopped: null"));
+        c.note(String.format(Locale.ROOT, "two setbacks: z %.2f at the first, %.2f -> %.2f overall; running between=%s,"
+                        + " after=%s; reports %d (%d log line(s)), chat line=%s, alarms %d, stop line=%s",
+                beforeFirst.z, from.z, after.z, runningBetween, runningAfter, reports, reportLines, chatLine, alarms,
+                stopLine));
+        check(beforeFirst.z - from.z > 1.0, "the walk never moved him before the first setback - the case proves nothing");
+        check(runningBetween && runningAfter, "a correction stopped the route (running between=" + runningBetween
+                + ", after=" + runningAfter + ")");
+        check(!stopLine, "the route logged a stop (other than completing) after the setbacks");
+        check(after.z - from.z > 12, "the walk did not carry on after the setbacks (from " + from + " to " + after + ")");
+        check(reports >= 2 && reportLines >= 2 && chatLine, "each correction must be reported with a chat line (reports "
+                + reports + ", log lines " + reportLines + ", chat line " + chatLine + ")");
+        check(alarms >= 1, "the correction alarm never played");
         noteFlags(c, s);
     }
 

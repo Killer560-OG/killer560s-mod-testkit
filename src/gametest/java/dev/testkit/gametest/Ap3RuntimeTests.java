@@ -39,7 +39,7 @@ import java.util.Locale;
  *       {@code 63-ap3-hold-<type>}: a RUN carries him into one node of each type; does the run go on?</li>
  *   <li>The stopwatch HUD hides 10 s after the stopwatch stopped ({@code 63-ap3-stopwatch-hud}).</li>
  *   <li>Two switches shipped without tests: /ap3 and /ar tab-complete when switched on after joining
- *       ({@code 63-ap3-cmdtree}), and Stop On Server Corrections ({@code 63-ap3-corrections-*}).</li>
+ *       ({@code 63-ap3-cmdtree}), and server corrections ({@code 63-ap3-corrections}: chat line + alarm, never a stop).</li>
  * </ul>
  * Everything is driven the way he drives it: a real W press walks him into a RUN node's box, he lets go inside it,
  * and AP3 carries him from there. The harness never writes his position or rotation; a lane is changed with a
@@ -92,8 +92,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             }
             s.test("63-ap3-hold-boom-then-stop", Ap3RuntimeTests::caseBoomThenStop);
             s.test("63-ap3-stopwatch-hud", Ap3RuntimeTests::caseStopwatchHud);
-            s.testExpectingFlags("63-ap3-corrections-off", c -> caseCorrection(c, false));
-            s.testExpectingFlags("63-ap3-corrections-on", c -> caseCorrection(c, true));
+            s.testExpectingFlags("63-ap3-corrections", Ap3RuntimeTests::caseCorrection);
             onClient(ctx, mc -> {
                 PacketTrace.tap = null;
                 return null;
@@ -127,7 +126,6 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             Object cfg = ModUnderTest.config(CONFIG);
             ModUnderTest.set(cfg, "setEnabled", true);
             ModUnderTest.set(cfg, "setChatFeedback", true);
-            ModUnderTest.set(cfg, "setStopOnCorrections", true);
             installProbe();
         });
     }
@@ -889,42 +887,65 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
 
     // ------------------------------------------------------------------------------------------------- corrections
 
-    private static void caseCorrection(Session c, boolean stopOn) {
+    private static final String SOUNDS = "com.killer560.hub.util.ModSounds";
+    private static final String CORRECTIONS = "com.killer560.hub.util.ServerCorrections";
+
+    /**
+     * Mod rule (killer560, 2026-10-06): a server correction never stops AP3 - it posts a chat line, plays the correction
+     * alarm, and AP3 carries on. Two corrections 10 ticks apart: under the old rule the first stopped AP3 and the pair
+     * (two inside 10 s) switched it off, so this is also the circuit breaker's case. The move is a server {@code tp}
+     * relative to him, which reaches the client as the same position packet a setback does.
+     */
+    private static void caseCorrection(Session c) {
         ClientGameTestContext ctx = c.ctx();
-        onClient(ctx, mc -> {
-            ModUnderTest.set(ModUnderTest.config(CONFIG), "setStopOnCorrections", stopOn);
-            return null;
-        });
         try {
             double z = lane();
             long mark = LogTap.mark();
+            int alarmsBefore = onClient(ctx, mc -> (Integer) ModUnderTest.staticCall(SOUNDS, "correctionAlarmsPlayed"));
+            int reportsBefore = onClient(ctx, mc -> (Integer) ModUnderTest.staticCall(CORRECTIONS, "reports"));
             walkIntoRun(c, z, runNode(z));
             ctx.waitTicks(6);
             double before = onClient(ctx, mc -> mc.player.getX());
-            // A small server-side move while AP3 is carrying him - what a correction looks like to the client.
             c.server().command("execute as @p at @s run tp @s ~0.3 ~ ~"); // relative to HIM, not the console
+            ctx.waitTicks(10);
+            boolean runningBetween = onClient(ctx, mc -> (Boolean) ModUnderTest.staticCall(EXEC, "isRunning"));
+            c.server().command("execute as @p at @s run tp @s ~0.3 ~ ~");
             ctx.waitTicks(15);
             double after = onClient(ctx, mc -> mc.player.getX());
             boolean running = onClient(ctx, mc -> (Boolean) ModUnderTest.staticCall(EXEC, "isRunning"));
+            boolean enabled = onClient(ctx, mc -> ModUnderTest.getBoolean(ModUnderTest.config(CONFIG), "isEnabledRaw"));
+            int alarms = onClient(ctx, mc -> (Integer) ModUnderTest.staticCall(SOUNDS, "correctionAlarmsPlayed"))
+                    - alarmsBefore;
+            int reports = onClient(ctx, mc -> (Integer) ModUnderTest.staticCall(CORRECTIONS, "reports")) - reportsBefore;
             List<String> log = LogTap.since(mark);
-            boolean line = log.stream().anyMatch(s -> s.contains("Server corrected your position"));
-            boolean stopped = log.stream().anyMatch(s -> s.contains("server corrected your position - stopped"));
-            boolean seen = log.stream().anyMatch(s -> s.contains("Server correction #"));
-            c.note(String.format(Locale.ROOT, "stopOnCorrections=%s: moved %.2f in 15 ticks after the correction, running=%s,"
-                    + " carry-on line=%s, stop line=%s, correction logged=%s", stopOn, after - before, running, line, stopped, seen));
-            if (!seen) {
-                throw new AssertionError("AP3 never saw the server move him - the case proves nothing");
+            long seen = log.stream().filter(s -> s.contains("Server correction #")).count();
+            long reportLines = log.stream().filter(s -> s.contains("[Correction] AP3:")).count();
+            boolean chatLine = log.stream().anyMatch(s -> s.contains("[CHAT]") && s.contains("Server correction:"));
+            boolean stopped = log.stream().anyMatch(s -> s.contains("stopped to avoid flags") || s.contains("AP3 is OFF"));
+            c.note(String.format(Locale.ROOT, "two corrections: AP3 saw %d, reports %d (%d log line(s)), alarms %d, chat"
+                            + " line=%s, moved %.2f in the 25 ticks after the first, running between=%s after=%s, enabled=%s,"
+                            + " stop/disable line=%s", seen, reports, reportLines, alarms, chatLine, after - before,
+                    runningBetween, running, enabled, stopped));
+            if (seen < 2) {
+                throw new AssertionError("AP3 saw " + seen + " of the 2 server moves - the case proves nothing");
             }
-            if (stopOn) {
-                if (running || !stopped || after - before > 2.0) {
-                    throw new AssertionError("switch ON: a correction must stop AP3 as before");
-                }
-            } else if (!running || stopped || !line || after - before < 2.0) {
-                throw new AssertionError("switch OFF: a correction must only post the chat line and carry on");
+            if (!runningBetween || !running || !enabled || stopped) {
+                throw new AssertionError("a correction stopped or disabled AP3 (running between=" + runningBetween
+                        + ", after=" + running + ", enabled=" + enabled + ", stop line=" + stopped + ")");
+            }
+            if (after - before < 2.0) {
+                throw new AssertionError(String.format(Locale.ROOT, "AP3 did not carry on: moved only %.2f",
+                        after - before));
+            }
+            if (reports < 2 || reportLines < 2 || !chatLine) {
+                throw new AssertionError("each correction must be reported, with a chat line (reports " + reports
+                        + ", log lines " + reportLines + ", chat line " + chatLine + ")");
+            }
+            if (alarms < 1) {
+                throw new AssertionError("the correction alarm never played");
             }
         } finally {
             onClient(ctx, mc -> {
-                ModUnderTest.set(ModUnderTest.config(CONFIG), "setStopOnCorrections", true);
                 ModUnderTest.staticCall(EXEC, "stop", new Class<?>[]{String.class}, new Object[]{"test end"});
                 return null;
             });

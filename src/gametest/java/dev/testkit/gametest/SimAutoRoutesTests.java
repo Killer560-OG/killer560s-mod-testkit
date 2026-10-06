@@ -286,6 +286,11 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         check(after.z > 20, "/ar add walk did not sprint him toward +z (he is at " + after + ")");
         check(sprinted, "the walk never sprinted");
         check(s.stream().noneMatch(Sample::shift), "the walk sent shift down");
+        // The walk may still be held against the wall. Until mod no-stop-corrections the placing tp below stopped it
+        // ("you moved the camera"); a server move never stops a route now, so the held walk turned him back to its yaw
+        // after the tp and the boom was recorded facing the wall. End it the way he would.
+        cmd(ctx, "/ar stop");
+        ctx.waitTicks(2);
 
         // ---- boom at (20,20) facing +X at cracked bricks at (22,F..F+1,20) ----
         setBlocks(ctx, Map.of(new int[]{22, F, 20}, Blocks.CRACKED_STONE_BRICKS.defaultBlockState(),

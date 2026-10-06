@@ -17,7 +17,7 @@ real W press and lets go inside it - AP3 carries him from there.
   that the next thing after the entering movement packet, a Block's swap back sent once. On mod ec838c10 and earlier
   they drew Post (held item change, block placement, digging) and BadPacketsA; clean from 0b6107fc. One RotationPlace
   "post-flying" was seen once on 26.2 (1 of 15 places that night, not reproduced) - read the rep cases as a rate.
-- `stopwatch-hud`, `cmdtree`, `corrections-off/on`: see the case code.
+- `stopwatch-hud`, `cmdtree`: see the case code. `corrections`: two server moves 10 ticks apart while a RUN carries him - AP3 must keep running and enabled, report each (chat line, `[Correction] AP3:` log line) and play the alarm (`ModSounds.correctionAlarmsPlayed`); mod rule 2026-10-06, a correction never stops anything.
 
 Traps found writing it:
 - A server-console `tp @p ~0.3 ~ ~` is relative to the CONSOLE (world spawn), not the player: it moved him 176
