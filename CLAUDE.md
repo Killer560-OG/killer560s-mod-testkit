@@ -301,5 +301,9 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   over stone and its second counted peach sunrise sky uncovered by a 1 px edge shift. Diff each frame against a no-draw
   frame of the same scene and classify only changed pixels (`ui/BreakerDisplayCases.countOrange`), and look at the PNGs.
 
+- Both terminal layouts (SkyBlock 0.27.2): `menu.terminal` takes `bandRows` (Melody, 4 or 3) and `count` (Numbers, 14 or
+  10); cases 207-210, 219, 290, 291. The P3 Simon Says device is `boss.ss.*` (hx/boss/HxSimonSays, rounds 4 or 5), cases
+  501-503 in `500-boss-session`; click its buttons after turning to them, or GrimAC cancels the use (RotationPlace).
+
 Auto Routes on GrimAC (62-argrim): how to run it and its traps are in [docs/argrim.md](docs/argrim.md).
 AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatch HUD): [docs/ap3.md](docs/ap3.md).
