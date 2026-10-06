@@ -119,7 +119,7 @@ rebuild; server-side click record, collection and Auto Routes' await; only when 
 
 ## Auto puzzle suite (93-solve-*)
 
-Moved to [docs/solve.md](docs/solve.md): how the puzzle suite runs, its flags (-PsolveRepeat, -PicefillControl, stall injection) and its traps.
+Moved to [docs/solve.md](docs/solve.md): how the puzzle suite runs, its flags and its traps.
 
 ## What a clean run means
 
