@@ -306,3 +306,4 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   on (56) it has been clean - read 55 as a rate over several runs, not one verdict.
 
 Auto Routes on GrimAC (62-argrim): how to run it and its traps are in [docs/argrim.md](docs/argrim.md).
+AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatch HUD): [docs/ap3.md](docs/ap3.md).
