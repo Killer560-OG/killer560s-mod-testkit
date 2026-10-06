@@ -319,5 +319,9 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   while `client.player` is null, so a chat assertion there can never pass. Assert the screen's status text or the mod's log
   line through `LogTap` instead (75-sim-map-editor-filters, 2026-10-06).
 
+- Both terminal layouts (SkyBlock 0.27.2): `menu.terminal` takes `bandRows` (Melody, 4 or 3) and `count` (Numbers, 14 or
+  10); cases 207-210, 219, 290, 291. The P3 Simon Says device is `boss.ss.*` (hx/boss/HxSimonSays, rounds 4 or 5), cases
+  501-503 in `500-boss-session`; click its buttons after turning to them, or GrimAC cancels the use (RotationPlace).
+
 Auto Routes on GrimAC (62-argrim): how to run it and its traps are in [docs/argrim.md](docs/argrim.md).
 AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatch HUD): [docs/ap3.md](docs/ap3.md).

@@ -43,6 +43,10 @@ import java.util.Random;
  *   <li>filler: a black pane with an empty name, {@code experiments/ExperimentSolver.java:566};</li>
  *   <li>Melody's slot model: buttons 16/25/34/43 ({@code TerminalSolverFeature.java:215}), marker row = slot/9 - 1.</li>
  * </ul>
+ * Both layouts of Hypixel's 2026-10-06 update (killer560: Melody 3 rows instead of 4, "Click in order!" 10 numbers
+ * instead of 14): {@code bandRows} (Melody, default 4) and {@code count} (Numbers, default 14). The NEW boards' exact
+ * shape is not known yet - this builds a 3-row Melody as the same board one band row shorter (a 5-row chest, buttons
+ * 16/25/34, markers in rows 0 and 4) and 10 numbers as a centred 2x5. Change them here once the real ones are seen.
  * Where the grid sits inside the chest (one border row/column of filler) is the testkit's choice - nothing in the mod
  * pins it, and the mod's solver is position-independent (it reads every slot but the player's 36).
  */
@@ -109,6 +113,8 @@ final class HxTerminals {
         final Map<Long, Integer> perTick = new LinkedHashMap<>();
         // Melody (TermismPracticeScreen.java:270-330)
         int melodyRow = 1;
+        /** Melody's band rows: 4 (old) or 3 (2026-10-06 update); the chest is bandRows + 2 rows. */
+        int melodyBandRows = 4;
         int melodyTarget;
         int melodyLime = 1;
         int melodyDir = 1;
@@ -150,14 +156,14 @@ final class HxTerminals {
         }
 
         void drawMelody(MinecraftServer server, HxChestMenu menu) {
-            for (int i = 0; i < 54; i++) {
+            for (int i = 0; i < rows * 9; i++) {
                 menu.items().setItem(i, melodyItem(server, i % 9, i / 9));
             }
         }
 
         /** TermismPracticeScreen.java:289-313, melodyItemFor. */
         ItemStack melodyItem(MinecraftServer server, int col, int row) {
-            boolean inBand = row >= 1 && row < 5;
+            boolean inBand = row >= 1 && row <= melodyBandRows;
             if (col == melodyTarget && !inBand) {
                 return HxMenus.stack(server, "minecraft:magenta_stained_glass_pane", 1);
             }
@@ -253,6 +259,9 @@ final class HxTerminals {
             o.addProperty("title", title);
             o.addProperty("containerId", containerId);
             o.addProperty("rows", rows);
+            if (type == Type.MELODY) {
+                o.addProperty("bandRows", melodyBandRows);
+            }
             o.addProperty("solved", solved);
             o.addProperty("clicks", clicks);
             o.addProperty("wrong", wrong);
@@ -340,10 +349,16 @@ final class HxTerminals {
                 }
             }
             case NUMBERS -> {
-                t = new Terminal(type, seed, "Click in order!", 4, gridOf(1, 2, 1, 7), close, interval);
+                // 14 numbers (old, 2x7) or 10 (2026-10-06 update; 2x5 is a guess at the shape), centred in row 1-2.
+                int count = a.has("count") ? a.get("count").getAsInt() : 14;
+                if (count < 2 || count > 14 || count % 2 != 0) {
+                    throw new IllegalArgumentException("Numbers count must be even, 2-14, got " + count);
+                }
+                int cols = count / 2;
+                t = new Terminal(type, seed, "Click in order!", 4, gridOf(1, 2, (9 - cols) / 2, cols), close, interval);
                 items = HxMenus.filled(server, t.rows);
-                List<Integer> order = shuffled(14, rng);
-                for (int i = 0; i < 14; i++) {
+                List<Integer> order = shuffled(count, rng);
+                for (int i = 0; i < count; i++) {
                     items.set(t.grid[i], HxMenus.stack(server, "minecraft:red_stained_glass_pane", order.get(i) + 1));
                 }
             }
@@ -389,13 +404,22 @@ final class HxTerminals {
                 }
             }
             case MELODY -> {
-                t = new Terminal(type, seed, "Click the button on time!", 6, new int[]{16, 25, 34, 43}, close, interval);
+                int bandRows = a.has("bandRows") ? a.get("bandRows").getAsInt() : 4;
+                if (bandRows < 1 || bandRows > 4) {
+                    throw new IllegalArgumentException("Melody bandRows must be 1-4, got " + bandRows);
+                }
+                int[] buttons = new int[bandRows];
+                for (int r = 0; r < bandRows; r++) {
+                    buttons[r] = 16 + r * 9;
+                }
+                t = new Terminal(type, seed, "Click the button on time!", bandRows + 2, buttons, close, interval);
+                t.melodyBandRows = bandRows;
                 t.melodyTarget = a.has("target") ? a.get("target").getAsInt() : 1 + rng.nextInt(5);
                 t.melodyKeepDone = a.has("keepDone") && a.get("keepDone").getAsBoolean();
                 t.melodyFrozen = a.has("freeze") && a.get("freeze").getAsBoolean();
                 t.melodyLastMove = server.getTickCount();
                 items = new ArrayList<>();
-                for (int i = 0; i < 54; i++) {
+                for (int i = 0; i < t.rows * 9; i++) {
                     items.add(t.melodyItem(server, i % 9, i / 9));
                 }
             }
@@ -432,8 +456,9 @@ final class HxTerminals {
         }
         int row = a.get("row").getAsInt();
         int lime = a.get("lime").getAsInt();
-        if (row < 1 || row > 4 || lime < 1 || lime > 5) {
-            throw new IllegalArgumentException("row must be 1-4 and lime 1-5, got row " + row + " lime " + lime);
+        if (row < 1 || row > t.melodyBandRows || lime < 1 || lime > 5) {
+            throw new IllegalArgumentException("row must be 1-" + t.melodyBandRows + " and lime 1-5, got row " + row
+                    + " lime " + lime);
         }
         for (int r = t.melodyRow; r < row; r++) {
             t.melodyDoneCol.put(r, t.melodyTarget);
@@ -461,7 +486,7 @@ final class HxTerminals {
             }
             case "reopen" -> {
                 List<ItemStack> items = new ArrayList<>();
-                for (int i = 0; i < 54; i++) {
+                for (int i = 0; i < t.rows * 9; i++) {
                     items.add(t.melodyItem(server, i % 9, i / 9));
                 }
                 menu = HxMenus.open(player, t.rows, Component.literal(t.title), items, SCRIPT, t);
@@ -584,7 +609,7 @@ final class HxTerminals {
                         t.melodyTarget = 1 + t.rng.nextInt(5);
                         t.melodyRow++;
                         correct = true;
-                        if (t.melodyRow < 5) {
+                        if (t.melodyRow <= t.melodyBandRows) {
                             t.drawMelody(server, menu);
                         }
                     }
@@ -624,7 +649,7 @@ final class HxTerminals {
 
     private static boolean isSolved(Terminal t, HxChestMenu menu) {
         return switch (t.type) {
-            case MELODY -> t.melodyRow >= 5;
+            case MELODY -> t.melodyRow > t.melodyBandRows;
             case RUBIX -> {
                 String first = null;
                 for (int g : t.grid) {
