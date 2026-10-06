@@ -28,3 +28,8 @@ abilities are `hx/dungeon/HxAbilities` (etherwarp, Instant Transmission, Superbo
 - Since 2026-10-06 (ar-warprate) the chain runs at Etherwarps Per Second 20, 10 and 4 (96-ar-chain adds 3, the
   fractional pace) and asserts the average spacing: Grim 1.00 / 2.00 / 5.00 ticks per warp, clean; sim 2.00 / 2.00 / 5.00
   / 6.73 (gaps 7, 7, 6). Pacing never sends a warp before the previous landing's teleport accept.
+- `62-argrim-correction` (2026-10-06, mod rule "a correction never stops anything"): `/ar add walk` sprints along +z and the
+  server moves him a block back twice, 8 ticks apart (`execute as @p at @s run tp @s ~ ~ ~-1`, the same position packet a
+  setback is). The route must keep running, finish the walk, log `[Correction] Auto Routes:` per move, show a chat line and
+  play the alarm (`ModSounds.correctionAlarmsPlayed`). The rest of the suite must report NO correction: a report during
+  pingpong/chain/path/imwarp would be the route mistaking its own landing for one (mod no-stop-corrections: none).

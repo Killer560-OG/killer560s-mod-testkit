@@ -79,7 +79,9 @@ picks-only since mod 9e83c4fc, so 50-52 pick the whole corridor and 53-56 cover 
 Triggerbot, 99-sim-essence-aura (Secret Aura on a sim wither essence holding AOTV / Hyperion, first world and after a
 rebuild; server-side click record, collection and Auto Routes' await; only when named, captures from "Map Logger" unless
 `TESTKIT_SIM_INSTANCE` says otherwise),
-110-sim-puzzle-reset (player reset rules of mod 35a663ba: only failed puzzles, never Water Board, Boulder when built, a draft kept when nothing resets).
+110-sim-puzzle-reset (player reset rules of mod 35a663ba: only failed puzzles, never Water Board, Boulder when built, a draft kept when nothing resets),
+64-correction-alarm (the mod's `killer560smod:correction_alarm` is known to the sound manager, its .ogg is in the resources,
+`ModSounds.playCorrectionAlarm` plays once and rate-limits the second; run it with `-Minecraft 26.2` too).
 
 ## Auto puzzle suite (93-solve-*)
 
