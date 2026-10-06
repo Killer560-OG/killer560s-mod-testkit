@@ -242,7 +242,7 @@
     "payload": "§7[VIP] HxEvil§f: SS 99999999999/5",
     "source": {
       "file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java",
-      "line": 80
+      "line": 81
     },
     "mustNotMatch": [
       "simonsays.SimonSaysFeature#PROGRESS_PATTERN"

@@ -224,7 +224,7 @@
     "payload": "[BOSS] Goldor: Who dares trespass into my domain?",
     "source": {
       "file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java",
-      "line": 88
+      "line": 89
     },
     "matches": [
       "simonsays.SimonSaysFeature#AUTO_START_TRIGGER_PATTERN"
@@ -378,7 +378,7 @@
     "payload": "Party > [MVP+] Killer560: SS 3/5",
     "source": {
       "file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java",
-      "line": 81
+      "line": 82
     },
     "matches": [
       "simonsays.SimonSaysFeature#PROGRESS_PATTERN_SIMPLE",
