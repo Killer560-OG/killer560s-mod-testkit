@@ -37,6 +37,7 @@
 			"dev.testkit.gametest.SimPuzzleResetTests",
 			"dev.testkit.gametest.SimMapTests",
 			"dev.testkit.gametest.SimMapWarpTests",
+			"dev.testkit.gametest.SimAutoSecretTests",
 			"dev.testkit.gametest.SimIcePathShoveTests",
 			"dev.testkit.gametest.SimInteractiveMapTests",
 			"dev.testkit.gametest.SimAutoRoutesTests",

@@ -297,6 +297,9 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   insta-clear rule, so room states are FORCED through `InstaClearTracker.testForceMapState` - it measures the recorder,
   never Hypixel. Read results per room (`testLastFor`), not `testLast`: other rooms' observations close on their own
   window in between. A room the test forces after he is already standing in it (the spawn) is recorded too.
+- A generated sim floor has NO wither doors (SimWitherDoors only draws theoretical ones), so nothing on it is ever
+  "behind a closed door". 102-sim-autosecret makes one: it sets the live map's `grid` tile to DOOR_WITHER by reflection
+  and puts coal on `DungeonLayout.doorBlock`, which is what the layout reads as locked.
 
 Auto Routes on GrimAC (62-argrim): how to run it and its traps are in [docs/argrim.md](docs/argrim.md).
 AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatch HUD): [docs/ap3.md](docs/ap3.md).
