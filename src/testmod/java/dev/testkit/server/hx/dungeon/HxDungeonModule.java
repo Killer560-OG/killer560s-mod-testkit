@@ -73,8 +73,8 @@ public final class HxDungeonModule implements HxModule {
         double x = a.get("x").getAsDouble();
         double y = a.get("y").getAsDouble();
         double z = a.get("z").getAsDouble();
-        var zombieType = net.minecraft.world.entity.EntityType.byString("minecraft:zombie").orElseThrow();
-        var standType = net.minecraft.world.entity.EntityType.byString("minecraft:armor_stand").orElseThrow();
+        var zombieType = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(net.minecraft.resources.Identifier.parse("minecraft:zombie"));
+        var standType = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(net.minecraft.resources.Identifier.parse("minecraft:armor_stand"));
         var mob = (net.minecraft.world.entity.Mob) zombieType.create(level,
                 net.minecraft.world.entity.EntitySpawnReason.COMMAND);
         var stand = (net.minecraft.world.entity.decoration.ArmorStand) standType.create(level,

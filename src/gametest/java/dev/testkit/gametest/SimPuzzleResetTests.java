@@ -122,7 +122,21 @@ public class SimPuzzleResetTests implements FabricClientGameTest {
         // 5. Boulder resets whenever it is built, failed or not.
         clean(ctx);
         buildBoulder(ctx);
+        int wiped = disturbBoulder(ctx);
+        ctx.waitTicks(20);
+        int idle = restoredCount(ctx);
         check("Boulder built, not failed", ctx, resetForPlayer(ctx), 1);
+        ctx.waitTicks(20);
+        int back = restoredCount(ctx);
+        System.out.println("[" + NAME + "] Boulder: disturbed " + wiped + " block(s), " + idle
+                + " back with no reset (control), " + back + " back after the reset");
+        if (wiped <= 0) {
+            failures.add("Boulder: the test could not disturb any block, so its restore cannot be shown");
+        } else if (idle != 0) {
+            failures.add("Boulder: " + idle + " block(s) came back with no reset, so the restore proves nothing");
+        } else if (back <= 0) {
+            failures.add("Boulder: reset reported 1 but none of the " + wiped + " disturbed block(s) came back");
+        }
 
         // 6. A mix: Quiz + Water Board failed, Boulder built -> Quiz and Boulder only.
         clean(ctx);
@@ -197,6 +211,72 @@ public class SimPuzzleResetTests implements FabricClientGameTest {
         if (got != want) {
             failures.add(what + ": reset " + got + " puzzle(s), expected " + want);
         }
+    }
+
+    private final java.util.Map<BlockPos, net.minecraft.world.level.block.state.BlockState> wipedBlocks =
+            new java.util.HashMap<>();
+
+    /**
+     * Wipes (server side) every block near the player that is not the most common block around (the flat floor),
+     * remembering each, and returns how many it wiped. {@link #restoredCount} then says how many came back. Only
+     * boxes and buttons are laid by a reset, so the case asserts "some, and none without a reset", not "all".
+     */
+    private int disturbBoulder(ClientGameTestContext ctx) {
+        AtomicReference<Integer> n = new AtomicReference<>();
+        wipedBlocks.clear();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            BlockPos c = mc.player.blockPosition();
+            server.execute(() -> {
+                var level = server.overworld();
+                java.util.Map<BlockPos, net.minecraft.world.level.block.state.BlockState> all = new java.util.HashMap<>();
+                java.util.Map<net.minecraft.world.level.block.state.BlockState, Integer> freq = new java.util.HashMap<>();
+                for (int dx = -30; dx <= 30; dx++) {
+                    for (int dz = -30; dz <= 30; dz++) {
+                        for (int y = c.getY() - 3; y <= c.getY() + 12; y++) {
+                            BlockPos p = new BlockPos(c.getX() + dx, y, c.getZ() + dz);
+                            var st = level.getBlockState(p);
+                            if (!st.isAir()) {
+                                all.put(p, st);
+                                freq.merge(st, 1, Integer::sum);
+                            }
+                        }
+                    }
+                }
+                var common = freq.entrySet().stream().max(java.util.Map.Entry.comparingByValue())
+                        .map(java.util.Map.Entry::getKey).orElse(null);
+                int count = 0;
+                for (var e : all.entrySet()) {
+                    if (!e.getValue().equals(common)) {
+                        wipedBlocks.put(e.getKey(), e.getValue());
+                        level.setBlock(e.getKey(), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+                        count++;
+                    }
+                }
+                n.set(count);
+            });
+        });
+        ctx.waitFor(mc -> n.get() != null);
+        return n.get();
+    }
+
+    private int restoredCount(ClientGameTestContext ctx) {
+        AtomicReference<Integer> n = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            server.execute(() -> {
+                var level = server.overworld();
+                int count = 0;
+                for (var e : wipedBlocks.entrySet()) {
+                    if (level.getBlockState(e.getKey()).equals(e.getValue())) {
+                        count++;
+                    }
+                }
+                n.set(count);
+            });
+        });
+        ctx.waitFor(mc -> n.get() != null);
+        return n.get();
     }
 
     /** Builds Boulder and proves it is up, so the "Boulder resets" cases cannot pass on an arena that never was. */
