@@ -37,3 +37,12 @@ abilities are `hx/dungeon/HxAbilities` (etherwarp, Instant Transmission, Superbo
   middle wall, behind it); the server emulates Wither Impact (`HxAbilities.witherImpact`: 10-block dash that settles at his
   height on a slightly-downward look, as the sim and Hypixel do - the plain transmission walk stopped dead there and every
   hop "never landed" - then a 6-block blast). Requires every mob dead, a landed hop, no entity packet. Clean on mod 27c52408.
+- `62-argrim-awaitskip` / `96-ar-awaitskip` (2026-10-06, mod ar-await-skip): a real left click (TestInput through
+  `keyAttack`) while an await:1 etherwarp waits with no secret must fire the warp - one use, the server's etherwarp
+  count +1 - with no swing and no player_action in the window, GrimAC silent. A control click with no route first must
+  show a swing (3-tick hold: 4 swing + 4 player_action), so a clean window means the click was swallowed, not lost.
+  A use that succeeds client-side swings the hand in its own tick, so a swing beside a use_item is the warp's; only extra
+  swings count against the skip. Both cases also skip a crypt node's kill wait (no player_action). 96-ar-awaitskip adds a
+  still pig: a mod-style dig + swing + attack straight through the game mode must NOT skip, and his click with the pig
+  under the crosshair must (no attack packet).
+  96-ar also has `-leverwp` (Secret Waypoints hides a clicked lever, not its neighbour) and `-complete` (`await:`).

@@ -174,6 +174,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-breaker", GrimAutoRoutesTests::caseBreaker);
             s.test("62-argrim-use", GrimAutoRoutesTests::caseUse);
             s.test("62-argrim-play", GrimAutoRoutesTests::casePlay);
+            s.test("62-argrim-awaitskip", GrimAutoRoutesTests::caseAwaitSkip);
             s.test("62-argrim-pingpong", GrimAutoRoutesTests::casePingPong);
             s.test("62-argrim-chain", GrimAutoRoutesTests::caseChain);
             s.test("62-argrim-path", GrimAutoRoutesTests::casePath);
@@ -586,6 +587,114 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * the sneak held from #1 into #3 (0-tick warp); T --ew--> U; walk at U sprints; an await:1 etherwarp waits for a
      * chest secret (sneak released, screen does not stop it), then warps; a use node uses with shift up.
      */
+    /**
+     * killer560, 2026-10-06: a LEFT click while a node waits on its await fires the node now, and the click is swallowed.
+     * Control: the same real left click (Fabric TestInput through the attack key) with no route running sends a swing,
+     * so the counter can see one. Then an await:1 etherwarp start node, reached by a hand etherwarp, waits with no
+     * secret; he looks down at the floor (where a vanilla left click would swing and start a dig) and left-clicks: the
+     * warp must go, the server must make exactly one etherwarp, nothing but the use may go out for that click (no swing,
+     * no player_action before or after it), and GrimAC must stay silent.
+     */
+    private static void caseAwaitSkip(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        // ---- control: a vanilla left click, no route ----
+        tpRel(ctx, 10.5, 10.5, 0f, 70f);
+        ctx.waitTicks(5);
+        startSampling(ctx);
+        ctx.getInput().holdKey(o -> o.keyAttack);
+        ctx.waitTicks(3);
+        ctx.getInput().releaseKey(o -> o.keyAttack);
+        ctx.waitTicks(5);
+        List<Sample> control = stopSampling(ctx);
+        printTrace("awaitskip control", control);
+        check(count(control, "swing") >= 1, "the control left click sent no swing - the click never reached the game, so a "
+                + "clean window below would prove nothing");
+
+        JsonObject w = ew(6, 6, 14, 6, true);
+        w.addProperty("awaitEnabled", true);
+        w.addProperty("await", "SECRET");
+        w.addProperty("amount", 1);
+        writeRoute(ctx, List.of(w));
+        long mark = LogTap.mark();
+        warpOnto(ctx, 6.5, 10.5, 6, 6);
+        check(waitFor(ctx, 60, () -> logHas(mark, "Node #1 ETHERWARP begins")), "the await node never began (at "
+                + relPos(ctx) + ")");
+        // His own mouse turn down at the floor while it waits (the route never stops for a turn during an await).
+        ctx.runOnClient(mc -> mc.player.setXRot(70f));
+        ctx.waitTicks(20);
+        check(ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning")),
+                "the route is not running while it waits on its await");
+        check(!logHas(mark, "secrets met"), "the await was met with no secret");
+        JsonObject before = stats();
+        startSampling(ctx);
+        ctx.getInput().holdKey(o -> o.keyAttack);
+        ctx.waitTicks(3);
+        ctx.getInput().releaseKey(o -> o.keyAttack);
+        Vec3 landed = waitLanded(ctx, 14, 6, 60);
+        ctx.waitTicks(5);
+        List<Sample> s = stopSampling(ctx);
+        printTrace("awaitskip", s);
+        check(logHas(mark, "left click skipped the await"), "the left click did not skip the await (log)");
+        check(landed != null, "the left click did not fire the etherwarp (at " + relPos(ctx) + ")");
+        check(useTicks(s).size() == 1, "the skip sent " + useTicks(s).size() + " use_item packet(s), expected 1");
+        check(delta(before, "etherwarps") == 1, "the server made " + delta(before, "etherwarps") + " etherwarp(s)");
+        // A use that succeeds client-side swings the hand in its own tick; any other swing is the click getting through.
+        int stray = 0;
+        for (Sample x : s) {
+            stray += (int) Math.max(0, x.out().stream().filter("swing"::equals).count()
+                    - x.out().stream().filter("use_item"::equals).count());
+        }
+        check(stray == 0, "the swallowed left click still sent " + stray + " swing(s) of its own");
+        check(count(s, "player_action") == 0, "the swallowed left click still sent " + count(s, "player_action")
+                + " player_action packet(s)");
+        // ---- a crypt node's wait for its kill: his left click ends it (killer560, 2026-10-06) ----
+        Object arCfg = ctx.computeOnClient(mc -> ModUnderTest.config(AR_CONFIG));
+        int ticksBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.call(arCfg, "getCryptAttackTicks",
+                new Class<?>[]{}, new Object[]{}));
+        ctx.runOnClient(mc -> {
+            ModUnderTest.call(arCfg, "setCryptWeapon", new Class<?>[]{enumClass("CryptWeapon")},
+                    new Object[]{ModUnderTest.enumValue(AR_CONFIG + "$CryptWeapon", "HYPERION")});
+            ModUnderTest.call(arCfg, "setCryptAttackTicks", new Class<?>[]{int.class}, new Object[]{200});
+        });
+        List<Sample> cs;
+        try {
+            resetRoutes(ctx);
+            JsonObject crypt = node("CRYPT", 20, 14, 0f, 10f);
+            crypt.addProperty("start", true);
+            writeRoute(ctx, List.of(crypt));
+            long cm = LogTap.mark();
+            startSampling(ctx);
+            walkOnto(ctx, 20.5, 11.5, 20, 14);
+            check(waitFor(ctx, 60, () -> logHas(cm, "holding use")), "the crypt node never started holding use");
+            ctx.waitTicks(12);
+            ctx.getInput().holdKey(o -> o.keyAttack);
+            ctx.waitTicks(3);
+            ctx.getInput().releaseKey(o -> o.keyAttack);
+            boolean skipped = waitFor(ctx, 10, () -> logHas(cm, "left click skipped the kill wait"));
+            ctx.waitTicks(10);
+            cs = stopSampling(ctx);
+            printTrace("awaitskip crypt", cs);
+            check(skipped, "his left click did not end the crypt node's wait for a kill");
+            check(!logHas(cm, "up, moving on"), "the crypt node ran out its attack time instead of being skipped");
+            check(ctx.computeOnClient(mc -> !mc.options.keyUse.isDown()), "the use key was left held after the skip");
+            check(count(cs, "player_action") == 0, "the crypt skip sent " + count(cs, "player_action")
+                    + " player_action packet(s) - the swallowed click dug");
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.call(arCfg, "setCryptAttackTicks", new Class<?>[]{int.class},
+                    new Object[]{ticksBefore}));
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                    new Object[]{"test"}));
+        }
+        c.note("awaitskip: control click " + count(control, "swing") + " swing / " + count(control, "player_action")
+                + " player_action; await skipped by a left click, 1 use, 0 stray swing, 0 player_action, landed " + landed
+                + "; crypt kill wait skipped by a left click, 0 player_action");
+        List<Sample> all = new ArrayList<>(s);
+        all.addAll(cs);
+        noteFlags(c, all);
+    }
+
     private static void casePlay(Session c) {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
