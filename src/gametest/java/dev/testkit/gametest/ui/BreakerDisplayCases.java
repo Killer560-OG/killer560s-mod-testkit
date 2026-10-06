@@ -273,21 +273,18 @@ final class BreakerDisplayCases {
         c.ctx().waitFor(mc -> done.get(), 200);
     }
 
-    // Options.hideGui exists on 26.1.2 but not on 26.2 (javap, 2026-10-06), so it is reached by reflection and is a
-    // no-op where absent - the pixel counts compare against a no-picks frame either way.
+    // F1 through McCompat: Options.hideGui on 26.1.2, Hud.isHidden/toggle on 26.2. Until 2026-10-06 this reached
+    // Options.hideGui by reflection and silently did nothing on 26.2, so the HUD stayed up and a chat line fading
+    // ("[AP3] ..." in orange) between the no-picks frame and the hidden-only frame read as 149 px of Highlight drawn
+    // through the wall. Chat and toasts are not hidden by F1 at all, so they are cleared as well.
     private static boolean hideGui(net.minecraft.client.Minecraft mc) {
-        try {
-            return mc.options.getClass().getField("hideGui").getBoolean(mc.options);
-        } catch (ReflectiveOperationException e) {
-            return false;
-        }
+        return dev.testkit.compat.McCompat.hudHidden(mc);
     }
 
     private static void setHideGui(net.minecraft.client.Minecraft mc, boolean v) {
-        try {
-            mc.options.getClass().getField("hideGui").setBoolean(mc.options, v);
-        } catch (ReflectiveOperationException ignored) {
-            // 26.2: no such option
+        dev.testkit.compat.McCompat.setHudHidden(mc, v);
+        if (v) {
+            dev.testkit.compat.McCompat.clearChatAndToasts(mc);
         }
     }
 }

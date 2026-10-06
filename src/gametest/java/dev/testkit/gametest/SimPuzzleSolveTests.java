@@ -1634,7 +1634,23 @@ public final class SimPuzzleSolveTests {
                             .register(c -> {
                                 Minecraft m = Minecraft.getInstance();
                                 if (recording && m.player != null) {
-                                    FRAMES.add(new double[]{System.nanoTime(), m.player.getYRot(), m.player.getXRot()});
+                                    // The step this frame was drawn in (its start nanos), -1 between steps, NaN on
+                                    // a jar without AutoBoulder.currentStep - see smoothness().
+                                    double key;
+                                    double[] st = null;
+                                    try {
+                                        st = (double[]) ModUnderTest.staticCall(
+                                                "com.killer560.hub.autopuzzles.AutoBoulder", "currentStep");
+                                        key = st == null ? -1 : st[4];
+                                    } catch (Throwable t) {
+                                        key = Double.NaN;
+                                    }
+                                    // {nanos, yaw, pitch, key, fromYaw, fromPitch, toYaw, toPitch, drawNanos}
+                                    FRAMES.add(st == null
+                                            ? new double[]{System.nanoTime(), m.player.getYRot(), m.player.getXRot(),
+                                                    key}
+                                            : new double[]{System.nanoTime(), m.player.getYRot(), m.player.getXRot(),
+                                                    key, st[0], st[1], st[2], st[3], st[5]});
                                 }
                             });
                 }
@@ -1653,6 +1669,9 @@ public final class SimPuzzleSolveTests {
             double maxDelta = 0;
             String at = "";
             int moving = 0;
+            int crossing = 0;
+            int within = 0;
+            int withinMoving = 0;
             for (int i = 1; i < f.size(); i++) {
                 double dt = (f.get(i)[0] - f.get(i - 1)[0]) / 1e9;
                 double d = Math.max(Math.abs(f.get(i)[1] - f.get(i - 1)[1]), Math.abs(f.get(i)[2] - f.get(i - 1)[2]));
@@ -1660,6 +1679,24 @@ public final class SimPuzzleSolveTests {
                     moving++;
                 }
                 maxDelta = Math.max(maxDelta, d);
+                // The rate is judged only between two frames of the SAME step (or both outside any step). A pair
+                // that straddles a tick's step boundary holds the rest of one step plus the start of the next, and
+                // when the gametest renders about one frame per tick that is a whole step whatever the mod does:
+                // 26.2, 2026-10-06, 379 frames for 315 steps, the worst pair 28.07 deg in 28.3 ms (993 deg/s) where
+                // one capped step is 28.2 deg - while a run at 1,107 frames for 311 steps peaked at 705 deg/s. So
+                // the wall-clock gap between two lockstep frames measured the harness, not the camera.
+                double ka = f.get(i - 1)[3];
+                double kb = f.get(i)[3];
+                if (!Double.isNaN(ka) && !Double.isNaN(kb) && ka != kb) {
+                    crossing++;
+                    continue;
+                }
+                if (!Double.isNaN(ka) && ka >= 0) {
+                    within++;
+                    if (d > 0.01) {
+                        withinMoving++;
+                    }
+                }
                 if (dt >= 0.002 && d / dt > maxRate) {
                     maxRate = d / dt;
                     at = String.format("%.2f deg in %.1f ms", d, dt * 1000);
@@ -1686,7 +1723,51 @@ public final class SimPuzzleSolveTests {
                             + "biggest frame step %.2f deg at 60 fps, %.2f at 144 fps; mod frames drawn mid-step %s",
                     f.size(), moving, maxDelta, maxRate, at, steps.size(), sim60, sim144,
                     partial < 0 ? "n/a (no frame step in this jar)" : String.valueOf(partial)));
+            println(name, String.format("boulder: frame pairs - %d across a step boundary (not rate-judged), %d inside "
+                    + "one step, %d of those turning", crossing, within, withinMoving));
+            // Frame rate does not matter for this one: every frame drawn inside a step must not be further along
+            // that step than the time since the step began allows. A per-tick snap draws the step's END on a frame
+            // early in the step. Progress q is read on the step's larger axis; the 0.25 margin covers the hook
+            // running a moment after the mod's own frame step (which can only make q SMALLER than p).
+            int timed = 0;
+            int ahead = 0;
+            String worstAhead = "";
+            double worstGap = 0;
+            for (double[] fr : f) {
+                if (fr.length < 9) {
+                    continue;
+                }
+                double dy = fr[6] - fr[4];
+                double dp = fr[7] - fr[5];
+                boolean yawAxis = Math.abs(dy) >= Math.abs(dp);
+                double span = yawAxis ? dy : dp;
+                if (Math.abs(span) < 2.0 || fr[8] <= 0) {
+                    continue;
+                }
+                timed++;
+                double p = Math.max(0, Math.min(1, (fr[0] - fr[3]) / fr[8]));
+                double q = ((yawAxis ? fr[1] : fr[2]) - (yawAxis ? fr[4] : fr[5])) / span;
+                if (q - p > 0.25) {
+                    ahead++;
+                    if (q - p > worstGap) {
+                        worstGap = q - p;
+                        worstAhead = String.format("%.0f%% of a %.1f deg step drawn %.0f%% of the way into it",
+                                q * 100, Math.abs(span), p * 100);
+                    }
+                }
+            }
+            println(name, String.format("boulder: %d frame(s) timed against their step, %d drawn ahead of time%s",
+                    timed, ahead, ahead > 0 ? " (worst: " + worstAhead + ")" : ""));
             List<String> bad = new ArrayList<>();
+            if (stepApi && timed < 10) {
+                bad.add("only " + timed + " frame(s) inside a step of 2+ deg - the snap check measured nothing");
+            }
+            if (ahead > 0) {
+                bad.add(ahead + " frame(s) drew a step ahead of time - a snap (worst: " + worstAhead + ")");
+            }
+            if (within >= 20 && withinMoving == 0) {
+                bad.add(within + " frame pairs inside one step and none turned - the mod's frame step is not drawing");
+            }
             if (moving < 10) {
                 bad.add("only " + moving + " frame(s) with the rotation moving - the smoothness check measured nothing");
             }

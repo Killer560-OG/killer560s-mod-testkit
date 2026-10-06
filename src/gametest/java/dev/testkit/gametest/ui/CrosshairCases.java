@@ -57,6 +57,10 @@ final class CrosshairCases {
         try {
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
+                // The HUD stays up (the crosshair is part of it), so chat lines from earlier cases fading out
+                // and toasts cycling would be counted as crosshair pixels: 26.2's first run had 8,616 "other"
+                // pixels, all of them two "[AP3] ..." chat lines inside the 240 px window (2026-10-06).
+                McCompat.clearChatAndToasts(mc);
                 mc.player.setXRot(90f);
                 mc.player.setYRot(0f);
                 Mod.call(cfg, "resetLook");

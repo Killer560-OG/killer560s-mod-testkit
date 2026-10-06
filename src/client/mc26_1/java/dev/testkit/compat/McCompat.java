@@ -30,4 +30,24 @@ public final class McCompat {
     public static void setScreen(Minecraft mc, Screen screen) {
         mc.setScreen(screen);
     }
+
+    /** Whether the HUD is hidden (F1). 26.1: {@code Options.hideGui}. */
+    public static boolean hudHidden(Minecraft mc) {
+        return mc.options.hideGui;
+    }
+
+    /** Hides or shows the HUD (F1). 26.1: {@code Options.hideGui}. */
+    public static void setHudHidden(Minecraft mc, boolean hidden) {
+        mc.options.hideGui = hidden;
+    }
+
+    /**
+     * Empties the chat window and drops every toast, so a screenshot diff does not count a chat line fading or a
+     * toast icon cycling as something the mod drew. Neither is hidden by F1. 26.1: {@code Gui.getChat()},
+     * {@code Minecraft.getToastManager()}.
+     */
+    public static void clearChatAndToasts(Minecraft mc) {
+        mc.gui.getChat().clearMessages(false);
+        mc.getToastManager().clear();
+    }
 }

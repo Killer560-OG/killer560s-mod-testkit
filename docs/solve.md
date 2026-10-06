@@ -60,6 +60,12 @@ every frame's rotation; any frame-to-frame turn faster than 900 deg/s (frames >=
 per-tick snap reads ~2900 (the merged 6afb1c6e jar failed with 28.2 deg in 9.7 ms). The mod's per-tick steps are also
 resampled at 60 and 144 fps at 20 TPS (limits 12.5 / 5.5 deg per frame), and `AutoBoulder.partialFrames` must be
 non-zero. The gametest renders irregularly (240 to 1900 frames a run), so read the rate, not the frame count.
+Since 2026-10-06 the rate is judged only between two frames of the SAME step: at about one frame per tick (two clients
+at once, or a run after 76) every pair straddles a step boundary and is a whole capped step whatever the mod does - 26.2
+failed at 28.07 deg in 28.3 ms (993 deg/s) with 379 frames for 315 steps, and passed the same jar alone at 1,893 frames.
+The fps-proof check is the other one: each frame drawn inside a step of 2+ deg must not be more than 25% further along it
+than the time since the step began (`currentStep`'s start and draw time) allows - a snap draws the end early. It timed
+196 to 1,166 frames per run on both versions with 0 ahead; it has not been seen to fire on a broken jar (no such jar kept).
 
 A single built Boulder seals its doorway (relative z -1) with diamond blocks and has nothing outside, so a walk out
 could never leave the room. The scenario clears that gap and lays stone at relative y 68, x 12..18, z -7..-1 first,

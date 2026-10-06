@@ -30,4 +30,25 @@ public final class McCompat {
     public static void setScreen(Minecraft mc, Screen screen) {
         mc.gui.setScreen(screen);
     }
+
+    /** Whether the HUD is hidden (F1). 26.2: {@code Options.hideGui} is gone; {@code Hud.isHidden()}. */
+    public static boolean hudHidden(Minecraft mc) {
+        return mc.gui.hud.isHidden();
+    }
+
+    /** Hides or shows the HUD (F1). 26.2 has no setter, only {@code Hud.toggle()} (javap 26.2). */
+    public static void setHudHidden(Minecraft mc, boolean hidden) {
+        if (mc.gui.hud.isHidden() != hidden) {
+            mc.gui.hud.toggle();
+        }
+    }
+
+    /**
+     * Empties the chat window and drops every toast (see the 26.1 copy). 26.2: {@code Hud.getChat()},
+     * {@code Gui.toastManager()} (javap 26.2).
+     */
+    public static void clearChatAndToasts(Minecraft mc) {
+        mc.gui.hud.getChat().clearMessages(false);
+        mc.gui.toastManager().clear();
+    }
 }

@@ -159,9 +159,9 @@ public class SimPuzzleTests implements FabricClientGameTest {
             int addedEntities = after.get()[1] - before.get()[1];
             int leftBehind = cleared.get()[0] - before.get()[0];
             System.out.println(String.format(
-                    "[78-sim-puzzles]   %-13s blocks %d -> %d (%+d); arena after reset %d (%+d)",
+                    "[78-sim-puzzles]   %-13s blocks %d -> %d (%+d); arena after reset %d (%+d); origin %s",
                     puzzle, before.get()[0], after.get()[0], addedBlocks,
-                    cleared.get()[0], leftBehind));
+                    cleared.get()[0], leftBehind, where.get().toShortString()));
             if ("blaze".equals(puzzle)) {
                 // The blaze arena is mobs, not blocks, and the world query above reads zero for everything -
                 // so this one is checked against what the puzzle itself reports having spawned, which only

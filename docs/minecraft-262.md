@@ -24,6 +24,11 @@ that fails instantly (26.2 only: the client dials the moment the restarted serve
 Not yet run on 26.2: everything else (sim, puzzles, menus, the 40-90 scenarios). `run/testserver` is shared by both
 versions; scenarios delete the world, but a hand-played `grimServer` world opened on 26.2 cannot go back.
 
+F1 on 26.2 is `Hud.isHidden()`/`toggle()` (no `Options.hideGui`); use `McCompat.hudHidden/setHudHidden`. Reflection on
+`Options.hideGui` was a silent no-op there, and with the HUD up a fading chat line read as 149 px of Breaker Highlight
+through a wall (388) and 8,616 stray crosshair pixels (389) on 2026-10-06 - the mod was right both times. Chat and toasts
+are not hidden by F1 on either version; a screenshot diff calls `McCompat.clearChatAndToasts` first.
+
 Version-specific API goes in `dev.testkit.compat` (`McCompat.screen/setScreen`, `McItems`, `McEntities`) under
 `src/client/mc26_1/java` and `src/client/mc26_2/java`, one of which build.gradle puts on the client source path.
 Both copies keep identical public signatures. Nothing in `src/*/java` may use `mc.screen`, `mc.setScreen`, a
