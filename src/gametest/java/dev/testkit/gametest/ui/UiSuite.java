@@ -20,7 +20,8 @@ import java.util.List;
  *                320 profiles save/export/import/apply, 380 Auto Scale (window sizes, drawn size, clicks)
  * singleplayer:  301 every ModScreen tab, 302 search, 303 toggles, 304 HUD editor, 305 every mod Screen,
  *                306 client commands, 350 termism, 360 client visuals, 307 /profit hub and trackers,
- *                385 Interactive Map input/panel, 386 mod-menu sliders driven by real input + no overlapping rows,
+ *                385 Interactive Map input/panel, 386 mod-menu sliders driven by real input + no overlapping rows
+ *                (and the sim room Filters panel: chips wrap, no overlap, all reachable),
  *                387 AP3 node editor (type dropdown, per-type fields saved, hotbar item pick, no overlaps),
  *                388 Breaker Aura Display x Box Style each draw (screenshot pixel counts, a pick behind a wall),
  *                389 Custom Crosshair replaces vanilla's and draws exactly the pixels it is set to, editor preview

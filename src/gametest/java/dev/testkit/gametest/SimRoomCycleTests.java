@@ -47,6 +47,13 @@ import java.util.function.Predicate;
  * <p>For each step it requires: a build actually ran (or, at an end, did NOT), the sim reports exactly ONE placed
  * room and it is the expected one, the chat line "Room i/n: name (N secrets, routes: yes/no)" was shown with the
  * database's secret count, and the blocks in the room's cell changed (read on the server thread).
+ *
+ * <p>Since mod sim-filters (killer560, 2026-10-07): in All Rooms the raw-polled Next Room key steps (the positive
+ * control) and the pause menu has "Next room (All Rooms)"; after a room loaded BY ITSELF, /next, /back, /simbuild
+ * noroutes and the key build nothing, the room and its blocks stay the same, the commands say "/next and /back only
+ * work in All Rooms" and the key says nothing, and the pause menu has no next-room button. Then a Size 1x1 filter,
+ * chosen on the real Filters panel opened from the All Rooms page, must make the set exactly the oracle's 1x1 eligible
+ * rooms (fewer than all of them), and /next must walk only those.
  */
 public class SimRoomCycleTests implements FabricClientGameTest {
 
@@ -61,6 +68,13 @@ public class SimRoomCycleTests implements FabricClientGameTest {
     private static final String KEY_UTIL = "com.killer560.hub.util.KeyUtil";
     private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
     private static final String HOME_LABEL = "All Rooms (route practice)";
+    private static final String FILTERS = "com.killer560.hub.roomsim.SimRoomFilters";
+    private static final String FILTER_SCREEN = "com.killer560.hub.roomsim.SimRoomFilterScreen";
+    private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
+    private static final String ONLY_LINE = "/next and /back only work in All Rooms";
+    private static final String PAUSE_NEXT = "Next room (All Rooms)";
+    /** GLFW_KEY_KP_7: bound to nothing in vanilla or the mod, so a press reaches only the room cycle's poll. */
+    private static final int KEY = 327;
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -116,6 +130,16 @@ public class SimRoomCycleTests implements FabricClientGameTest {
         List<String> expectHas = new ArrayList<>(routed);
         List<String> expectNone = new ArrayList<>(eligible);
         expectNone.removeAll(routed);
+
+        // All Rooms' own filter starts empty, so the three sets are exactly the oracle's eligible rooms.
+        ctx.runOnClient(mc -> ModUnderTest.call(cycleFilter(), "clear", new Class<?>[]{}, new Object[]{}));
+        List<String> oneByOne = new ArrayList<>();
+        for (String n : eligible) {
+            JsonObject o = db.get(n);
+            if (o != null && o.has("shape") && "1x1".equals(o.get("shape").getAsString())) {
+                oneByOne.add(n);
+            }
+        }
 
         List<String> failures = new ArrayList<>();
         long mark = LogTap.mark();
@@ -178,6 +202,20 @@ public class SimRoomCycleTests implements FabricClientGameTest {
             checkSet(ctx, failures, "ALL", eligible, db);
             walk(ctx, failures, db, eligible, routed, new int[]{1, 1}, 0);
 
+            // ---- in All Rooms: the key steps (the positive control for the single-room half) and the pause menu
+            // ---- has its next-room button
+            check(failures, isActive(ctx), "All Rooms is running but SimRoomCycle.isActive() is false");
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(CYCLE, "setNextKey", new Class<?>[]{int.class},
+                    new Object[]{KEY}));
+            keyPress(ctx, failures, "All Rooms", eligible.get(2), eligible.get(3));
+            pauseMenu(ctx, failures, "All Rooms", true);
+
+            // ---- a room loaded by itself: /next, /back, the key, /simbuild noroutes and the pause button do nothing
+            singleRoom(ctx, failures, eligible.get(6));
+
+            // ---- All Rooms with a Size filter of 1x1 only, set through the real Filters panel
+            filteredCycle(ctx, failures, db, eligible, oneByOne, routed);
+
             for (String e : LogTap.modErrorsSince(mark)) {
                 failures.add("mod ERROR: " + e);
             }
@@ -185,11 +223,13 @@ public class SimRoomCycleTests implements FabricClientGameTest {
                 throw new AssertionError(failures.size() + " problem(s): " + failures);
             }
             System.out.println("[" + NAME + "] PASS - three sets, exclusions and route filter right, one room at a "
-                    + "time, /next and /back step and stop at the ends");
+                    + "time, /next and /back step and stop at the ends; on a room loaded by itself /next, /back, the key, "
+                    + "/simbuild noroutes and the pause button do nothing; a Size 1x1 filter steps only 1x1 rooms");
         } finally {
             ctx.runOnClient(mc -> {
                 try {
                     ModUnderTest.staticCall(CYCLE, "setNextKey", new Class<?>[]{int.class}, new Object[]{-1});
+                    ModUnderTest.call(cycleFilter(), "clear", new Class<?>[]{}, new Object[]{});
                 } catch (Throwable ignored) {
                     // cleanup never replaces the verdict
                 }
@@ -197,6 +237,165 @@ public class SimRoomCycleTests implements FabricClientGameTest {
             writeRoutes(ctx, List.of());
             teardown(ctx);
         }
+    }
+
+    // =========================================================================================== only in All Rooms
+
+    /** Presses the Next Room key (held 3 ticks, read by the mod's raw poll) and checks the room did or did not move. */
+    private static void keyPress(ClientGameTestContext ctx, List<String> failures, String where, String from,
+                                 String expected) {
+        ctx.waitFor(mc -> McCompat.screen(mc) == null, 200);
+        long builds = Scenario.simBuildCount(ctx);
+        long fpBefore = fingerprint(ctx);
+        long mark = LogTap.mark();
+        ctx.getInput().holdKeyFor(KEY, 3);
+        if (expected.equals(from)) {
+            ctx.waitTicks(40);
+        } else {
+            Scenario.awaitSimBuild(ctx, builds);
+            awaitLoaded(ctx, expected);
+        }
+        long after = Scenario.simBuildCount(ctx);
+        String now = soloRoom(ctx);
+        long fpAfter = fingerprint(ctx);
+        boolean said = chatSince(mark).stream().anyMatch(l -> l.contains(ONLY_LINE));
+        System.out.println("[" + NAME + "] " + where + ": Next Room key: " + from + " -> " + now + " (expected "
+                + expected + "), builds " + builds + " -> " + after + ", cell blocks " + fpBefore + " -> " + fpAfter
+                + ", 'only in All Rooms' said " + said);
+        check(failures, expected.equals(now), where + ": the key left " + now + ", expected " + expected);
+        if (expected.equals(from)) {
+            check(failures, after == builds && fpAfter == fpBefore, where + ": the key built something (builds "
+                    + builds + " -> " + after + ", blocks " + fpBefore + " -> " + fpAfter + ")");
+            check(failures, !said, where + ": the key printed the chat line - keys should do nothing at all");
+        } else {
+            check(failures, after > builds && fpAfter != fpBefore, where + ": the key did not build the next room "
+                    + "(builds " + builds + " -> " + after + ", blocks " + fpBefore + " -> " + fpAfter + ")");
+        }
+    }
+
+    /** Opens the pause menu and checks Change Room is there and the next-room button is (or is not). */
+    private static void pauseMenu(ClientGameTestContext ctx, List<String> failures, String where, boolean want) {
+        ctx.runOnClient(mc -> mc.execute(() -> McCompat.setScreen(mc,
+                new net.minecraft.client.gui.screens.PauseScreen(true))));
+        ctx.waitFor(mc -> McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.PauseScreen, 200);
+        ctx.waitTicks(3);
+        List<String> labels = buttonLabels(ctx);
+        boolean has = labels.stream().anyMatch(l -> l.startsWith("Next room"));
+        System.out.println("[" + NAME + "] " + where + ": pause menu " + labels);
+        check(failures, labels.contains("Change Room"), where + ": no Change Room on the pause menu: " + labels);
+        check(failures, has == want, where + ": the pause menu " + (want ? "has no" : "still has a")
+                + " next-room button: " + labels);
+        if (want) {
+            check(failures, labels.contains(PAUSE_NEXT), where + ": the next-room button is not '" + PAUSE_NEXT
+                    + "': " + labels);
+        }
+        ctx.runOnClient(mc -> mc.execute(() -> McCompat.setScreen(mc, null)));
+        ctx.waitFor(mc -> McCompat.screen(mc) == null, 200);
+        ctx.waitTicks(3);
+    }
+
+    /**
+     * killer560 (2026-10-07): "If i load a single room by itself without doing the one that goes through all rooms
+     * [...] then it shouldnt have the next room [...] work or the menu thing for it." Loaded through the picker's own
+     * call ({@code SimBuilder.buildSingleRoom}, what a Load a Room click runs).
+     */
+    private static void singleRoom(ClientGameTestContext ctx, List<String> failures, String room) {
+        long before = Scenario.simBuildCount(ctx);
+        ctx.runOnClient(mc -> mc.execute(() -> ModUnderTest.staticCall(BUILDER, "buildSingleRoom",
+                new Class<?>[]{net.minecraft.client.Minecraft.class, String.class}, new Object[]{mc, room})));
+        Scenario.awaitSimBuild(ctx, before);
+        awaitLoaded(ctx, room);
+        String loaded = soloRoom(ctx);
+        boolean active = isActive(ctx);
+        System.out.println("[" + NAME + "] single room loaded: " + loaded + " (wanted " + room + "), All Rooms active "
+                + active);
+        check(failures, room.equals(loaded), "the single room load left " + loaded + ", expected " + room);
+        check(failures, !active, "a room loaded by itself still counts as All Rooms");
+        for (String cmd : new String[]{"next", "back", "simbuild noroutes"}) {
+            long builds = Scenario.simBuildCount(ctx);
+            long fpBefore = fingerprint(ctx);
+            long mark = LogTap.mark();
+            ctx.runOnClient(mc -> mc.player.connection.sendCommand(cmd));
+            ctx.waitTicks(40);
+            long after = Scenario.simBuildCount(ctx);
+            String still = soloRoom(ctx);
+            long fpAfter = fingerprint(ctx);
+            boolean said = chatSince(mark).stream().anyMatch(l -> l.contains(ONLY_LINE));
+            System.out.println("[" + NAME + "] single room: /" + cmd + ": builds " + builds + " -> " + after + ", room "
+                    + room + " -> " + still + ", cell blocks " + fpBefore + " -> " + fpAfter + ", said '" + ONLY_LINE
+                    + "' " + said);
+            check(failures, after == builds, "single room: /" + cmd + " started a build (" + builds + " -> " + after + ")");
+            check(failures, room.equals(still), "single room: /" + cmd + " changed the room to " + still);
+            check(failures, fpAfter == fpBefore && fpAfter != 0, "single room: /" + cmd + " changed the room's blocks ("
+                    + fpBefore + " -> " + fpAfter + ")");
+            check(failures, said, "single room: /" + cmd + " did not say '" + ONLY_LINE + "'");
+        }
+        keyPress(ctx, failures, "single room", room, room);
+        pauseMenu(ctx, failures, "single room", false);
+    }
+
+    /** All Rooms with Size 1x1 chosen on the Filters panel opened from its own page, by real widget presses. */
+    private static void filteredCycle(ClientGameTestContext ctx, List<String> failures, Map<String, JsonObject> db,
+                                      List<String> eligible, List<String> oneByOne, List<String> routed) {
+        check(failures, oneByOne.size() >= 5 && oneByOne.size() < eligible.size(), "the oracle's 1x1 set ("
+                + oneByOne.size() + " of " + eligible.size() + ") cannot show a filter acting");
+        openCycleMenu(ctx);
+        press(ctx, l -> l.startsWith("Filters"), "Filters");
+        ctx.waitFor(mc -> McCompat.screen(mc) != null
+                && McCompat.screen(mc).getClass().getName().equals(FILTER_SCREEN), 200);
+        ctx.waitTicks(3);
+        press(ctx, l -> l.equals("1x1"), "1x1");
+        boolean chosen = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.call(cycleFilter(), "hasSize",
+                new Class<?>[]{String.class}, new Object[]{"1x1"}));
+        String counted = ctx.computeOnClient(mc -> {
+            Object s = McCompat.screen(mc);
+            try {
+                var f1 = s.getClass().getDeclaredField("shown");
+                var f2 = s.getClass().getDeclaredField("total");
+                f1.setAccessible(true);
+                f2.setAccessible(true);
+                return f1.get(s) + " of " + f2.get(s);
+            } catch (ReflectiveOperationException e) {
+                return "?";
+            }
+        });
+        System.out.println("[" + NAME + "] Filters panel from the All Rooms page: 1x1 chosen " + chosen
+                + ", panel counts " + counted + " rooms");
+        check(failures, chosen, "pressing the 1x1 chip did not choose it on All Rooms' filter");
+        press(ctx, l -> l.equals("Done"), "Done");
+        ctx.waitFor(mc -> McCompat.screen(mc) != null && McCompat.screen(mc).getClass().getName().equals(MENU), 200);
+        ctx.waitTicks(3);
+        Integer all = null;
+        for (String l : buttonLabels(ctx)) {
+            if (l.startsWith("All Rooms (") && Character.isDigit(l.charAt("All Rooms (".length()))) {
+                all = Integer.parseInt(l.substring("All Rooms (".length(), l.length() - 1));
+            }
+        }
+        System.out.println("[" + NAME + "] All Rooms page with the filter: " + buttonLabels(ctx));
+        check(failures, Integer.valueOf(oneByOne.size()).equals(all), "All Rooms count with Size 1x1 is " + all
+                + ", oracle " + oneByOne.size());
+        check(failures, buttonLabels(ctx).contains("Filters (1)"), "the Filters button does not show one filter on: "
+                + buttonLabels(ctx));
+        choose(ctx, "All Rooms");
+        awaitLoaded(ctx, oneByOne.get(0));
+        checkSet(ctx, failures, "ALL", oneByOne, db);
+        walk(ctx, failures, db, oneByOne, routed, new int[]{1, 1, 1, -1}, 0);
+        String end = soloRoom(ctx);
+        JsonObject o = db.get(end);
+        check(failures, o != null && "1x1".equals(o.get("shape").getAsString()), "the filtered walk ended in " + end
+                + ", shape " + (o == null ? "?" : o.get("shape")));
+    }
+
+    private static Object cycleFilter() {
+        try {
+            return Class.forName(FILTERS).getField("CYCLE").get(null);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("no SimRoomFilters.CYCLE in the mod under test: " + e);
+        }
+    }
+
+    private static boolean isActive(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(CYCLE, "isActive"));
     }
 
     // =========================================================================================== steps

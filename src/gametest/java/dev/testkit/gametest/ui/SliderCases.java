@@ -33,6 +33,9 @@ import java.util.Set;
  *   <li>OVERLAP SWEEP (both jars): every section of every tab, as built and with each two-state toggle pressed once
  *       (gated rows appear) - plus, under each, every toggle that flip revealed (nested gates) - checked for any two
  *       content rows whose rectangles intersect.</li>
+ *   <li>FILTER PANEL (both jars, {@link FilterPanelCases}): the sim's room Filters panel on each of its three
+ *       filters at four window sizes, every scroll position checked for overlaps, unreachable chips and labels under
+ *       chips, a row proved to wrap at GUI scale 4, and a real-input click on a chip.</li>
  * </ul>
  */
 final class SliderCases {
@@ -45,6 +48,8 @@ final class SliderCases {
 
     static void run(UiCase c, Deny deny) throws Exception {
         overlaps(c, deny);
+        // The sim's shared room Filters panel (mod sim-filters): chips wrap, never overlap, all reachable.
+        FilterPanelCases.run(c);
         if (!Mod.isCheat()) {
             c.note("legit jar: Breaker Aura is cheat-only, real-input half skipped");
             return;
