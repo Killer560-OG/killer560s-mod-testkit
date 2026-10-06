@@ -19,6 +19,9 @@ import java.util.Set;
  * 75-sim-map-editor-filters: the map designer's room filters (killer560, 2026-10-06: "in the generate a map thing
  * have a filter section where i can filter based on things like puzzles, room size, secrets in a room, etc.").
  *
+ * <p>Since mod sim-filters (2026-10-07) the popup is the shared chip panel: a chip CHOOSES (an empty row means any),
+ * so "1x1 only" is the 1x1 chip, three puzzles are three puzzle chips, and "no Normal rooms" is every other Kind chip.
+ *
  * <p>Runs with {@code -Pscenario=75-sim-map-editor} (the name contains it). Every filter change is made with the
  * REAL mouse - cursor moved and button pressed in window coordinates, so Auto Scale's transform is in the path - on
  * the real screens. What it asserts, each against the mod's own state rather than its say-so:
@@ -30,7 +33,7 @@ import java.util.Set;
  *       Fairy and a trap still on it and nothing missed;</li>
  *   <li>one allowed puzzle against a slider of three: one puzzle placed and the note says so;</li>
  *   <li>an impossible filter (no Normal rooms): the floor falls back to every room, is still whole, and says so;</li>
- *   <li>the filters survive a re-read from disk, and Reset filters puts the count back;</li>
+ *   <li>the filters survive a re-read from disk, and Clear all puts the count back;</li>
  *   <li>no two controls overlap, on either screen, at four window sizes (Auto Scale on and off), and nothing is
  *       drawn on the list or grid; screenshots of both screens.</li>
  * </ol>
@@ -88,24 +91,21 @@ public class SimMapFilterTests implements FabricClientGameTest {
         if (!isFilterScreen(ctx)) {
             return;
         }
+        click(ctx, "1x1");
+        check(has(ctx, "hasSize", "1x1"), "clicking the 1x1 chip did not choose it");
         for (String shape : new String[]{"1x2", "1x3", "1x4", "2x2", "L"}) {
-            click(ctx, shape);
+            check(!has(ctx, "hasSize", shape), shape + " is chosen though only 1x1 was clicked");
         }
-        for (String shape : new String[]{"1x2", "1x3", "1x4", "2x2", "L"}) {
-            check(!(Boolean) ctx.computeOnClient(mc -> ModUnderTest.staticCall(FILTERS, "isShapeShown",
-                    new Class<?>[]{String.class}, new Object[]{shape})), "clicking " + shape + " did not hide it");
-        }
-        // ---- puzzles: None, then three named ones ---------------------------------------------------------------
+        // ---- puzzles: three named ones ---------------------------------------------------------------------------
         @SuppressWarnings("unchecked")
         List<String> puzzles = (List<String>) ctx.computeOnClient(mc -> ModUnderTest.staticCall(FILTERS, "puzzleNames"));
         check(puzzles.size() >= 4, "only " + puzzles.size() + " puzzle rooms in the library");
-        click(ctx, "None");
         List<String> allowed = new ArrayList<>(puzzles.subList(0, Math.min(3, puzzles.size())));
         for (String p : allowed) {
             click(ctx, p);
         }
         int allowedCount = (Integer) ctx.computeOnClient(mc -> ModUnderTest.staticCall(FILTERS, "allowedPuzzleCount"));
-        check(allowedCount == allowed.size(), "after None + " + allowed + " the filter allows " + allowedCount
+        check(allowedCount == allowed.size(), "after choosing " + allowed + " the filter allows " + allowedCount
                 + " puzzles");
         Path filterShot = shot(ctx, "filter-screen");
         println("filter screen screenshot " + filterShot);
@@ -163,8 +163,8 @@ public class SimMapFilterTests implements FabricClientGameTest {
 
         // ---- 3. fewer puzzles allowed than the slider asks --------------------------------------------------------
         click(ctx, "Filters");
-        click(ctx, "None");
-        click(ctx, allowed.get(0));
+        click(ctx, allowed.get(1));
+        click(ctx, allowed.get(2));
         click(ctx, "Done");
         click(ctx, "Generate");
         plan = generated(ctx);
@@ -192,10 +192,11 @@ public class SimMapFilterTests implements FabricClientGameTest {
 
         // ---- 4. impossible: no Normal rooms ------------------------------------------------------------------------
         click(ctx, "Filters");
-        click(ctx, "Normal");
-        boolean normalShown = (Boolean) ctx.computeOnClient(mc -> ModUnderTest.staticCall(FILTERS, "isTypeShown",
-                new Class<?>[]{String.class}, new Object[]{"NORMAL"}));
-        check(!normalShown, "clicking Normal did not hide normal rooms");
+        for (String kind : new String[]{"Puzzle", "Trap", "Champion", "Blood", "Entrance", "Fairy"}) {
+            click(ctx, kind);
+        }
+        check(!has(ctx, "hasKind", "NORMAL") && has(ctx, "hasKind", "TRAP"), "the Kind chips other than Normal are not "
+                + "the chosen kinds");
         click(ctx, "Done");
         long chatMark = LogTap.mark();
         click(ctx, "Generate");
@@ -240,29 +241,33 @@ public class SimMapFilterTests implements FabricClientGameTest {
         ctx.waitTicks(3);
         openEditor(ctx);
         int afterReload = listed(ctx).size();
-        boolean stillHidden = !(Boolean) ctx.computeOnClient(mc -> ModUnderTest.staticCall(FILTERS, "isTypeShown",
-                new Class<?>[]{String.class}, new Object[]{"NORMAL"}))
-                && !(Boolean) ctx.computeOnClient(mc -> ModUnderTest.staticCall(FILTERS, "isShapeShown",
-                new Class<?>[]{String.class}, new Object[]{"2x2"}));
+        boolean stillHidden = has(ctx, "hasKind", "TRAP") && !has(ctx, "hasKind", "NORMAL")
+                && has(ctx, "hasSize", "1x1");
         println("re-read from disk and reopened: " + afterReload + " listed (was " + beforeReload + "), filters kept "
                 + stillHidden);
         check(stillHidden && afterReload == beforeReload, "the filters did not survive a re-read and reopen ("
                 + afterReload + " vs " + beforeReload + ")");
         click(ctx, "Filters");
-        click(ctx, "Reset filters");
+        click(ctx, "Clear all");
         int active = (Integer) ctx.computeOnClient(mc -> ModUnderTest.staticCall(FILTERS, "activeCount"));
-        check(active == 0, "Reset filters left " + active + " active");
+        check(active == 0, "Clear all left " + active + " active");
         click(ctx, "Done");
         int afterReset = listed(ctx).size();
-        println("after Reset filters: " + afterReset + " of " + total);
-        check(afterReset == total, "after Reset filters the list shows " + afterReset + " of " + total);
+        println("after Clear all: " + afterReset + " of " + total);
+        check(afterReset == total, "after Clear all the list shows " + afterReset + " of " + total);
 
         // ---- 6. overlap sweep at four window sizes ----------------------------------------------------------------
         // With filters set, so the Filters button carries its "(n)" and the list is narrowed.
         ctx.runOnClient(mc -> {
-            ModUnderTest.staticCall(FILTERS, "setShapeShown", new Class<?>[]{String.class, boolean.class},
-                    new Object[]{"L", false});
-            ModUnderTest.staticCall(FILTERS, "setSecrets", new Class<?>[]{int.class, int.class}, new Object[]{2, 8});
+            Object d = designer();
+            ModUnderTest.call(d, "toggleSize", new Class<?>[]{String.class}, new Object[]{"L"});
+            try {
+                Class<?> count = Class.forName("com.killer560.hub.roomsim.SimRoomFilter$Count");
+                ModUnderTest.call(d, "setSecrets", new Class<?>[]{count}, new Object[]{
+                        ModUnderTest.enumValue("com.killer560.hub.roomsim.SimRoomFilter$Count", "FEW")});
+            } catch (ClassNotFoundException e) {
+                throw new AssertionError(e);
+            }
         });
         overlapSweep(ctx);
     }
@@ -404,17 +409,15 @@ public class SimMapFilterTests implements FabricClientGameTest {
             if (s == null) {
                 return null;
             }
-            AbstractWidget best = null;
-            for (var ch : s.children()) {
-                if (ch instanceof AbstractWidget w && w.visible && w.active) {
-                    String l = label(w);
-                    if (l.equals(text)) {
-                        best = w;
-                        break;
-                    }
-                    if (best == null && l.startsWith(text)) {
-                        best = w;
-                    }
+            AbstractWidget best = find(s, text, true);
+            if (best == null && find(s, text, false) != null) {
+                // A chip scrolled out of the Filters panel's band: to the top, then down until it shows, through the
+                // screen's own wheel handler (which rebuilds nothing, so the widget stays the same object).
+                for (int i = 0; i < 60; i++) {
+                    s.mouseScrolled(s.width / 2.0, s.height / 2.0, 0, 1);
+                }
+                for (int i = 0; i < 60 && (best = find(s, text, true)) == null; i++) {
+                    s.mouseScrolled(s.width / 2.0, s.height / 2.0, 0, -1);
                 }
             }
             if (best == null) {
@@ -436,6 +439,37 @@ public class SimMapFilterTests implements FabricClientGameTest {
         ctx.waitTicks(2);
         ctx.getInput().pressMouse(0);
         ctx.waitTicks(4);
+    }
+
+    /** The control labelled exactly {@code text} (else the first starting with it); visible ones only if asked. */
+    private static AbstractWidget find(Screen s, String text, boolean visibleOnly) {
+        AbstractWidget best = null;
+        for (var ch : s.children()) {
+            if (ch instanceof AbstractWidget w && w.active && (w.visible || !visibleOnly)) {
+                String l = label(w);
+                if (l.equals(text)) {
+                    return w;
+                }
+                if (best == null && l.startsWith(text)) {
+                    best = w;
+                }
+            }
+        }
+        return best;
+    }
+
+    private static Object designer() {
+        try {
+            return Class.forName(FILTERS).getField("DESIGNER").get(null);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("no SimRoomFilters.DESIGNER in the mod under test: " + e);
+        }
+    }
+
+    /** The designer filter's {@code hasSize}/{@code hasKind} for one value. */
+    private static boolean has(ClientGameTestContext ctx, String method, String value) {
+        return ctx.computeOnClient(mc -> (Boolean) ModUnderTest.call(designer(), method,
+                new Class<?>[]{String.class}, new Object[]{value}));
     }
 
     private static String label(AbstractWidget w) {

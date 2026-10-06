@@ -29,7 +29,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * 97: the sim room picker's Routes filter, and the pause menu's "Next room with no routes".
+ * 97: the sim room picker's filters (Your routes, Size), and that a room loaded by itself has no next-room action.
  *
  * <p>killer560 (2026-10-05): "I would like a way to sort maps based off of if they have secret routes in them or
  * not, and while in a solo map an option that says something like go to a new room with 0 routes in it [...] You
@@ -43,6 +43,13 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>Seeded: routes on the 2nd and 3rd eligible rooms in list order, and on one PUZZLE room - so the filter has a
  * route-bearing room it must still hide, and the walk from the 1st eligible room has to skip two routed rooms.
  * Every press goes through the real widget at its drawn centre, via the screen's own mouseClicked.
+ *
+ * <p>Since mod sim-filters (killer560, 2026-10-07: "the single room should have the same filter option"), the
+ * picker's Routes, shape and Puzzles buttons are rows of the shared Filters panel on the picker's own filter
+ * ({@code SimRoomFilters.PICKER}). The routes views are now chosen on that panel's "Your routes" row, and a Size 1x1
+ * chip must leave exactly the rooms whose shape is 1x1. And the pause menu's "Next room with no routes" on a room
+ * loaded by itself is GONE ("If i load a single room by itself [...] it shouldnt have the next room [...] work or
+ * the menu thing for it"): its button must not be there and {@code /simbuild noroutes} must load nothing.
  */
 public class SimRoomPickTests implements FabricClientGameTest {
 
@@ -53,7 +60,8 @@ public class SimRoomPickTests implements FabricClientGameTest {
     private static final String MENU = "com.killer560.hub.roomsim.SimMenuScreen";
     private static final String ROUTES = "com.killer560.hub.roomsim.SimRoomRoutes";
     private static final String STORE = "com.killer560.hub.autoroutes.RouteStore";
-    private static final String NEXT_LABEL = "Next room with no routes";
+    private static final String FILTERS = "com.killer560.hub.roomsim.SimRoomFilters";
+    private static final String FILTER_SCREEN = "com.killer560.hub.roomsim.SimRoomFilterScreen";
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -61,6 +69,7 @@ public class SimRoomPickTests implements FabricClientGameTest {
             return;
         }
         ModUnderTest.require("killer560smod");
+        LogTap.install();
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
@@ -112,14 +121,12 @@ public class SimRoomPickTests implements FabricClientGameTest {
         try {
             pickerPart(ctx, library, eligible, excluded, routed, puzzle);
             soloPart(ctx, library, eligible, routed, start);
-            System.out.println("[" + NAME + "] PASS - the Routes filter shows exactly the right rooms and the pause "
-                    + "menu walks eligible rooms with no routes");
+            System.out.println("[" + NAME + "] PASS - the picker's Your routes and Size filters show exactly the "
+                    + "right rooms, and a room loaded by itself has no next-room button or command");
         } finally {
             ctx.runOnClient(mc -> {
                 try {
-                    ModUnderTest.staticCall(ROUTES, "setFilter",
-                            new Class<?>[]{ModUnderTest.enumValue(ROUTES + "$Filter", "ALL").getClass()},
-                            new Object[]{ModUnderTest.enumValue(ROUTES + "$Filter", "ALL")});
+                    ModUnderTest.call(pickerFilter(), "clear", new Class<?>[]{}, new Object[]{});
                 } catch (Throwable ignored) {
                     // cleanup never replaces the verdict
                 }
@@ -133,6 +140,7 @@ public class SimRoomPickTests implements FabricClientGameTest {
 
     private void pickerPart(ClientGameTestContext ctx, List<String> library, List<String> eligible,
                             List<String> excluded, Set<String> routed, String puzzle) {
+        ctx.runOnClient(mc -> ModUnderTest.call(pickerFilter(), "clear", new Class<?>[]{}, new Object[]{}));
         ctx.runOnClient(mc -> mc.execute(() -> {
             try {
                 Screen s = (Screen) Class.forName(MENU).getMethod("roomPicker", Screen.class).invoke(null,
@@ -146,24 +154,19 @@ public class SimRoomPickTests implements FabricClientGameTest {
         ctx.waitTicks(5);
 
         Map<String, List<String>> seen = new HashMap<>();
-        for (int press = 0; press < 3; press++) {
-            String label = routesButtonLabel(ctx);
-            List<String> listed = listed(ctx);
-            seen.put(label, listed);
-            System.out.println("[" + NAME + "] picker \"" + label + "\": " + listed.size() + " room(s)"
-                    + (listed.size() <= 6 ? " " + listed : ""));
-            pressButtonStartingWith(ctx, label);
-            ctx.waitTicks(3);
+        seen.put("Any", listed(ctx));
+        for (String choice : new String[]{"No routes", "Has routes", "Any"}) {
+            setOnPanel(ctx, "Your routes", choice);
+            seen.put(choice, listed(ctx));
+            System.out.println("[" + NAME + "] picker, Your routes = " + choice + ": " + seen.get(choice).size()
+                    + " room(s)" + (seen.get(choice).size() <= 6 ? " " + seen.get(choice) : "") + "; buttons "
+                    + buttonLabels(ctx));
         }
-        List<String> all = seen.get("Routes: All");
+        List<String> all = seen.get("Any");
         List<String> none = seen.get("No routes");
         List<String> has = seen.get("Has routes");
-        if (all == null || none == null || has == null) {
-            throw new AssertionError("pressing the Routes button three times did not show all three views: "
-                    + seen.keySet());
-        }
         if (all.size() != library.size()) {
-            throw new AssertionError("\"Routes: All\" lists " + all.size() + " of the library's " + library.size());
+            throw new AssertionError("Your routes = Any lists " + all.size() + " of the library's " + library.size());
         }
         List<String> expectNone = new ArrayList<>(eligible);
         expectNone.removeAll(routed);
@@ -184,22 +187,85 @@ public class SimRoomPickTests implements FabricClientGameTest {
             }
         }
 
-        // Saved: put it on Has routes, then make the mod forget and re-read the file.
-        while (!routesButtonLabel(ctx).equals("Has routes")) {
-            pressButtonStartingWith(ctx, routesButtonLabel(ctx));
-            ctx.waitTicks(2);
+        // Size 1x1: exactly the rooms the mod's own shape answer (the database's shape) calls 1x1, and fewer than all.
+        setOnPanel(ctx, "Size", "1x1");
+        List<String> small = listed(ctx);
+        List<String> expectSmall = new ArrayList<>();
+        for (String n : library) {
+            String shape = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(FILTERS, "shapeKey",
+                    new Class<?>[]{String.class}, new Object[]{n}));
+            if ("1x1".equals(shape)) {
+                expectSmall.add(n);
+            }
         }
+        System.out.println("[" + NAME + "] picker, Size 1x1: " + small.size() + " room(s), expected "
+                + expectSmall.size() + " of " + library.size());
+        if (!small.equals(expectSmall) || small.size() >= library.size() || small.isEmpty()) {
+            throw new AssertionError("Size 1x1 lists " + small.size() + ", expected " + expectSmall.size() + " of "
+                    + library.size() + "; extra " + minus(small, expectSmall) + ", missing " + minus(expectSmall, small));
+        }
+        boolean labelled = buttonLabels(ctx).contains("Filters (1)");
+        if (!labelled) {
+            throw new AssertionError("the picker's Filters button does not show one filter: " + buttonLabels(ctx));
+        }
+
+        // Saved: Your routes on Has routes, then make the mod forget and re-read the file.
+        setOnPanel(ctx, "Your routes", "Has routes");
         String saved = ctx.computeOnClient(mc -> {
-            ModUnderTest.staticCall(ROUTES, "load");
-            return String.valueOf(ModUnderTest.staticCall(ROUTES, "getFilter"));
+            Object f = pickerFilter();
+            ModUnderTest.call(f, "load", new Class<?>[]{}, new Object[]{});
+            return ModUnderTest.call(f, "routes", new Class<?>[]{}, new Object[]{}) + " / 1x1 "
+                    + ModUnderTest.call(f, "hasSize", new Class<?>[]{String.class}, new Object[]{"1x1"});
         });
-        System.out.println("[" + NAME + "] filter after a reload from disk: " + saved);
-        if (!"HAS".equals(saved)) {
-            throw new AssertionError("the Routes filter did not survive a reload from its file: " + saved);
+        System.out.println("[" + NAME + "] picker filter after a reload from disk: " + saved);
+        if (!"HAS / 1x1 true".equals(saved)) {
+            throw new AssertionError("the picker's filter did not survive a reload from its file: " + saved);
         }
+        ctx.runOnClient(mc -> ModUnderTest.call(pickerFilter(), "clear", new Class<?>[]{}, new Object[]{}));
         ctx.runOnClient(mc -> mc.execute(() -> McCompat.setScreen(mc, null)));
         ctx.waitFor(mc -> McCompat.screen(mc) == null || McCompat.screen(mc) instanceof
                 net.minecraft.client.gui.screens.TitleScreen, 200);
+    }
+
+    /**
+     * Opens the picker's Filters panel with its button, presses the chip {@code label} in {@code row} at its drawn
+     * centre, and comes back with Done. The chip is found by its row, since "Any" is in several.
+     */
+    private static void setOnPanel(ClientGameTestContext ctx, String row, String label) {
+        pressButtonStartingWith(ctx, "Filters");
+        ctx.waitFor(mc -> McCompat.screen(mc) != null
+                && McCompat.screen(mc).getClass().getName().equals(FILTER_SCREEN), 200);
+        ctx.waitTicks(3);
+        String result = ctx.computeOnClient(mc -> {
+            Screen s = McCompat.screen(mc);
+            for (var child : s.children()) {
+                if (child instanceof AbstractWidget w && w.getClass().getName().endsWith("$Chip")
+                        && row.equals(ModUnderTest.call(w, "row", new Class<?>[]{}, new Object[]{}))
+                        && label.equals(strip(w.getMessage().getString())) && w.visible) {
+                    double x = w.getX() + w.getWidth() / 2.0;
+                    double y = w.getY() + w.getHeight() / 2.0;
+                    boolean took = s.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)), false);
+                    s.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)));
+                    return took ? "ok" : "click at " + x + "," + y + " was not taken";
+                }
+            }
+            return "no visible chip " + row + "/" + label;
+        });
+        if (!"ok".equals(result)) {
+            throw new AssertionError(result + " on " + buttonLabels(ctx));
+        }
+        ctx.waitTicks(3);
+        pressButtonStartingWith(ctx, "Done");
+        ctx.waitFor(mc -> McCompat.screen(mc) != null && McCompat.screen(mc).getClass().getName().equals(MENU), 200);
+        ctx.waitTicks(3);
+    }
+
+    private static Object pickerFilter() {
+        try {
+            return Class.forName(FILTERS).getField("PICKER").get(null);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("no SimRoomFilters.PICKER in the mod under test: " + e);
+        }
     }
 
     // =========================================================================================== solo room
@@ -219,81 +285,33 @@ public class SimRoomPickTests implements FabricClientGameTest {
             throw new AssertionError("loaded " + start + " but the sim reports " + current);
         }
 
-        List<String> walked = new ArrayList<>();
-        for (int i = 0; i < 4; i++) {
-            String expected = oracleNext(library, eligible, routed, current);
-            openPause(ctx);
-            long b = Scenario.simBuildCount(ctx);
-            pressButtonStartingWith(ctx, NEXT_LABEL);
-            Scenario.awaitSimBuild(ctx, b);
-            ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
-            ctx.waitTicks(20);
-            String now = soloRoom(ctx);
-            int nodes = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(ROUTES, "routeNodes",
-                    new Class<?>[]{String.class}, new Object[]{now}));
-            System.out.println("[" + NAME + "] press " + (i + 1) + ": " + current + " -> " + now + " (expected "
-                    + expected + ", " + nodes + " route node(s))");
-            if (now == null || now.equals(current)) {
-                throw new AssertionError("press " + (i + 1) + " did not change the room (" + current + " -> " + now
-                        + ")");
-            }
-            if (!eligible.contains(now) || routed.contains(now) || nodes != 0) {
-                throw new AssertionError("press " + (i + 1) + " loaded " + now + ", which is not an eligible room "
-                        + "with no routes");
-            }
-            if (!now.equals(expected)) {
-                throw new AssertionError("press " + (i + 1) + " loaded " + now + "; list order after " + current
-                        + " is " + expected);
-            }
-            walked.add(now);
-            current = now;
-        }
-        if (walked.containsAll(routed) || walked.stream().anyMatch(routed::contains)) {
-            throw new AssertionError("the walk entered a routed room: " + walked);
-        }
-
-        // ---- none left: route every eligible room but the one standing --------------------------------
-        Set<String> everyOther = new LinkedHashSet<>(eligible);
-        everyOther.remove(current);
-        writeRoutes(ctx, everyOther);
-        openPause(ctx);
-        long b = Scenario.simBuildCount(ctx);
-        pressButtonStartingWith(ctx, NEXT_LABEL);
-        ctx.waitTicks(40);
-        String label = buttonLabels(ctx).stream().filter(l -> l.startsWith("No other room")).findFirst()
-                .orElse(null);
-        long after = Scenario.simBuildCount(ctx);
-        String still = soloRoom(ctx);
-        System.out.println("[" + NAME + "] with every other room routed: button now \"" + label + "\", builds "
-                + b + " -> " + after + ", still in " + still);
-        if (label == null || after != b || !current.equals(still)) {
-            throw new AssertionError("with no room left the button should say so and load nothing; label=" + label
-                    + ", builds " + b + " -> " + after + ", room " + current + " -> " + still);
-        }
-        ctx.runOnClient(mc -> mc.execute(() -> McCompat.setScreen(mc, null)));
-    }
-
-    private static String oracleNext(List<String> library, List<String> eligible, Set<String> routed,
-                                     String current) {
-        int at = library.indexOf(current);
-        for (int k = 1; k <= library.size(); k++) {
-            String n = library.get((at + k) % library.size());
-            if (!n.equals(current) && eligible.contains(n) && !routed.contains(n)) {
-                return n;
-            }
-        }
-        return null;
-    }
-
-    private static void openPause(ClientGameTestContext ctx) {
+        // The pause menu: Change Room, and no next-room button of any kind.
         ctx.runOnClient(mc -> mc.execute(() -> McCompat.setScreen(mc,
                 new net.minecraft.client.gui.screens.PauseScreen(true))));
         ctx.waitFor(mc -> McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.PauseScreen, 200);
         ctx.waitTicks(3);
         List<String> labels = buttonLabels(ctx);
-        if (labels.stream().noneMatch(l -> l.equals(NEXT_LABEL)) || !labels.contains("Change Room")) {
-            throw new AssertionError("the pause menu in a solo room has no \"" + NEXT_LABEL + "\" beside Change Room: "
-                    + labels);
+        System.out.println("[" + NAME + "] pause menu on a room loaded by itself: " + labels);
+        if (!labels.contains("Change Room") || labels.stream().anyMatch(l -> l.startsWith("Next room"))) {
+            throw new AssertionError("the pause menu on a room loaded by itself should have Change Room and no "
+                    + "next-room button: " + labels);
+        }
+        ctx.runOnClient(mc -> mc.execute(() -> McCompat.setScreen(mc, null)));
+        ctx.waitFor(mc -> McCompat.screen(mc) == null, 200);
+
+        // /simbuild noroutes, the old button's command: loads nothing here and says why.
+        long b = Scenario.simBuildCount(ctx);
+        long mark = LogTap.mark();
+        ctx.runOnClient(mc -> mc.player.connection.sendCommand("simbuild noroutes"));
+        ctx.waitTicks(40);
+        long after = Scenario.simBuildCount(ctx);
+        String still = soloRoom(ctx);
+        boolean said = LogTap.since(mark).stream().anyMatch(l -> l.contains("only work in All Rooms"));
+        System.out.println("[" + NAME + "] /simbuild noroutes on a room loaded by itself: builds " + b + " -> " + after
+                + ", room " + current + " -> " + still + ", said why " + said);
+        if (after != b || !current.equals(still) || !said) {
+            throw new AssertionError("/simbuild noroutes on a room loaded by itself should load nothing and say so: "
+                    + "builds " + b + " -> " + after + ", room " + current + " -> " + still + ", said " + said);
         }
     }
 
@@ -316,15 +334,6 @@ public class SimRoomPickTests implements FabricClientGameTest {
             }
             return out;
         });
-    }
-
-    private static String routesButtonLabel(ClientGameTestContext ctx) {
-        for (String l : buttonLabels(ctx)) {
-            if (l.equals("Routes: All") || l.equals("No routes") || l.equals("Has routes")) {
-                return l;
-            }
-        }
-        throw new AssertionError("no Routes button on the room picker: " + buttonLabels(ctx));
     }
 
     /**
