@@ -180,6 +180,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-mimic", GrimAutoRoutesTests::caseMimic);
             // The Interactive Map's own executor (livemap/autoclear/ClearExecutor), last: a map warp or a Go To sets the
             // map-arrival interlock (only a START node arms afterwards) and Go To leaves edit mode on.
+            // Auto Secret (mod auto-secret): drives the same map warp and route; before imwarp, after the AR cases.
+            s.test("62-argrim-autosecret", GrimAutoRoutesTests::caseAutoSecret);
             s.test("62-argrim-imwarp", c -> caseMapWarp(c, false));
             s.test("62-argrim-imwarp-run", c -> caseMapWarp(c, true));
             s.test("62-argrim-goto", GrimAutoRoutesTests::caseGoTo);
@@ -1044,6 +1046,68 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             writeRoute(ctx, null);
             ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setRunWhileMapOpen", false));
             ctx.runOnClient(mc -> McCompat.setScreen(mc, null));
+            ctx.waitTicks(3);
+        }
+        noteFlags(c, s);
+    }
+
+    /**
+     * Auto Secret on the one pasted room: it must pick the room (it has secrets and a route), warp across the wall to the
+     * route's START node with the map's executor, let the route's etherwarp fire, see the route finish, and - nothing
+     * else being left - stop and hand back. Judged on where he went, the uses against the server's etherwarps, and
+     * GrimAC.
+     */
+    private static void caseAutoSecret(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        String as = "com.killer560.hub.autosecret.AutoSecretFeature";
+        resetRoutes(ctx);
+        arena(ctx, true);
+        writeRoute(ctx, List.of(ew(24, 10, 24, 22, true)));
+        List<Sample> s = List.of();
+        try {
+            tpRel(ctx, 6.5, 20.5, 0f, 0f);
+            ctx.waitTicks(5);
+            JsonObject before = stats();
+            long m = LogTap.mark();
+            startSampling(ctx);
+            Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as, "start"));
+            check(Boolean.TRUE.equals(started), "Auto Secret refused to start");
+            Vec3 atStart = waitLanded(ctx, 24, 10, 300);
+            Vec3 atEnd = waitLanded(ctx, 24, 22, 200);
+            boolean stopped = waitFor(ctx, 200, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as,
+                    "isRunning")));
+            ctx.waitTicks(10);
+            s = stopSampling(ctx);
+            printTrace("autosecret", s);
+            for (String l : LogTap.since(m)) {
+                if (l.contains("[AutoSecret]")) {
+                    println("  " + l.replaceAll("^.*?\\[AutoSecret\\]", "[AutoSecret]"));
+                }
+            }
+            int planned = plannedWarps(m);
+            List<Sample> uses = useTicks(s);
+            check(logHas(m, "[AutoSecret] target " + room), "Auto Secret did not target " + room);
+            check(atStart != null, "Auto Secret's map warp did not bring him to the start node (24,10) - at " + relPos(ctx));
+            check(atEnd != null, "the route's etherwarp did not land on (24,22) - at " + relPos(ctx));
+            check(logHas(m, "[AutoSecret] route " + room + " finished"), "Auto Secret never saw the route finish");
+            check(stopped, "Auto Secret was still running with nothing left to do");
+            check(planned >= 2, "the map planned " + planned + " warp(s) across the wall, expected 2 or more");
+            check(uses.size() == planned + 1, "sent " + uses.size() + " use(s) for " + planned + " map warp(s) + 1 route warp");
+            check(delta(before, "etherwarps") == uses.size(), "client sent " + uses.size() + " use(s), the server made "
+                    + delta(before, "etherwarps") + " etherwarp(s)");
+            for (Sample x : uses) {
+                check(x.shift(), "a warp's use went out on tick " + x.tick() + " without the server having the sneak");
+            }
+            c.note("auto secret: " + planned + " map warp(s) + route warp, " + uses.size() + " use(s), server etherwarps +"
+                    + delta(before, "etherwarps") + ", landed " + atStart + " then " + atEnd);
+        } finally {
+            ctx.runOnClient(mc -> {
+                if ((Boolean) ModUnderTest.staticCall(as, "isRunning")) {
+                    ModUnderTest.staticCall(as, "stop", new Class<?>[]{String.class, boolean.class},
+                            new Object[]{"test over", true});
+                }
+            });
+            writeRoute(ctx, null);
             ctx.waitTicks(3);
         }
         noteFlags(c, s);
