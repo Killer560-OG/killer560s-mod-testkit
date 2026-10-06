@@ -71,6 +71,12 @@ public final class SuiteVerdict {
         if (current != null) {
             ranRow(current);
         }
+        // Every name the class selected, not only the last: a class that selects thirteen cases up front (96-ar)
+        // otherwise gave all of them the time until the END OF THE RUN, which run-sharded.ps1 balanced on (499 s
+        // reported for a class that took 226 s).
+        for (String name : startedNames) {
+            ranRow(name);
+        }
         current = null;
     }
 
