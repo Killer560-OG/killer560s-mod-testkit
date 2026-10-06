@@ -477,7 +477,7 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	// or the client connection's netty loop instead:  -PnetStallMs=120
 	// and/or Ice Fill's negative control before the auto plays, plus a mistake forced mid-section while it plays
 	// (sections 1 and 2 by default, or -PicefillBreaks=2):  -PicefillControl=true
-	["serverStallMs", "serverStallEvery", "netStallMs", "icefillControl", "icefillBreaks"].each { p ->
+	["serverStallMs", "serverStallEvery", "netStallMs", "icefillControl", "icefillBreaks", "floorRepeat"].each { p ->
 		if (project.hasProperty(p)) {
 			systemProperty "testkit.${p}", project.property(p)
 		}

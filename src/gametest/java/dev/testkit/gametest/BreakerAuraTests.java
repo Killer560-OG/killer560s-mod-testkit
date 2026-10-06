@@ -85,14 +85,25 @@ public class BreakerAuraTests implements FabricClientGameTest {
         highSpeedDesync(ctx);
         // Picked blocks beside him break; unpicked ones, even in his way or under his feet, never do.
         pickedSideAndFloor(ctx);
-        // A picked block under his feet: as shipped, and with Zero Ping. Measured (see pickedFloor).
-        pickedFloor(ctx, "55-breaker-aura-picked-floor", 30, false, 0f);
-        pickedFloor(ctx, "56-breaker-aura-picked-floor-zeroping", -30, true, 0f);
-        // The same two looking straight DOWN at it, as the hand control does: does the look direction matter?
-        pickedFloor(ctx, "58-breaker-aura-picked-floor-lookdown", 50, false, 90f);
-        pickedFloor(ctx, "59-breaker-aura-picked-floor-zeroping-lookdown", -50, true, 90f);
-        // ...and the same moment by HAND, which is what tells a Grim quirk from something the aura does.
-        floorByHand(ctx);
+        // The floor cases repeat -PfloorRepeat=N times (default 1): the GroundSpoof they chase was intermittent,
+        // so one verdict is not a measurement. Repeats are named "#k" so the filter still selects them.
+        int repeat = Integer.getInteger("testkit.floorRepeat", 1);
+        for (int k = 1; k <= repeat; k++) {
+            String r = k == 1 ? "" : "#" + k;
+            // A picked block under his feet: as shipped, and with Zero Ping. Measured (see pickedFloor).
+            pickedFloor(ctx, "55-breaker-aura-picked-floor" + r, 30, false, 0f, false);
+            pickedFloor(ctx, "56-breaker-aura-picked-floor-zeroping" + r, -30, true, 0f, false);
+            // The same two looking straight DOWN at it, as the hand control does: does the look direction matter?
+            pickedFloor(ctx, "58-breaker-aura-picked-floor-lookdown" + r, 50, false, 90f, false);
+            pickedFloor(ctx, "59-breaker-aura-picked-floor-zeroping-lookdown" + r, -50, true, 90f, false);
+            // TURNING while it breaks: every tick then sends a movement packet, so a packet always goes out between
+            // the dig and the server's block update. That window is what made 55 intermittent (2026-10-06).
+            pickedFloor(ctx, "60-breaker-aura-picked-floor-turning" + r, 70, false, 0f, true);
+            pickedFloor(ctx, "61-breaker-aura-picked-floor-zeroping-turning" + r, -70, true, 0f, true);
+            // ...and the same moment by HAND, which is what tells a Grim quirk from something the aura does.
+            floorByHand(ctx, "57-breaker-floor-by-hand" + r, 0, false);
+            floorByHand(ctx, "62-breaker-floor-by-hand-turning" + r, 12, true);
+        }
         // Picked blocks BEHIND him and behind another block: measured, not asserted clean.
         pickedBehindAndOccluded(ctx);
     }
@@ -737,7 +748,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
      * client drops the block the moment it sends. Both record what Grim said; neither fails on a flag. The
      * assertions are that it happened at all.
      */
-    private void pickedFloor(ClientGameTestContext ctx, String name, int cz, boolean zeroPing, float pitch) {
+    private void pickedFloor(ClientGameTestContext ctx, String name, int cz, boolean zeroPing, float pitch,
+                             boolean turn) {
         if (Scenario.skip(name)) {
             return;
         }
@@ -766,12 +778,24 @@ public class BreakerAuraTests implements FabricClientGameTest {
                     }
                     double[] pos = scenario.playerPosition();
                     PacketWatch.start(); // before the aura goes live, see 53
-                    configure(ctx, scenario, true, List.of(under));
+                    // Zero Ping BEFORE the aura goes live, and the pick only once it is running. Until 2026-10-06 Zero
+                    // Ping was set after configure(), whose 5-tick wait already broke the block - so 56 and 59 broke it
+                    // with Zero Ping OFF and never measured Zero Ping at all.
                     ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CONFIG), "setBreakerAuraZeroPing",
                             zeroPing));
+                    configure(ctx, scenario, true, List.of());
                     try {
                         for (int i = 0; i < 30; i++) {
                             stampBreaker(ctx);
+                            final int tick = i;
+                            ctx.runOnClient(mc -> {
+                                if (turn) {
+                                    mc.player.setYRot(mc.player.getYRot() + 3f);
+                                }
+                                if (tick == 3) {
+                                    setPicks(List.of(under));
+                                }
+                            });
                             ctx.waitTicks(1);
                         }
                         PacketWatch.stop();
@@ -784,6 +808,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                 dug.stream().map(BreakerAuraTests::xyz).toList(), pos[1], after[1], flags.size(),
                                 flags.isEmpty() ? "" : ": " + flags));
                         logDigShape(scenario);
+                        scenario.log(name + " timeline: " + PacketWatch.digTimeline());
                         if (dug.isEmpty()) {
                             throw new AssertionError("no dig went out - nothing was measured");
                         }
@@ -813,14 +838,12 @@ public class BreakerAuraTests implements FabricClientGameTest {
      * dig of the same block does the same, that is GrimAC's handling of a floor vanishing under a player, not
      * something the aura adds. Measured, not asserted clean; the assertion is that the block went and he dropped.
      */
-    private void floorByHand(ClientGameTestContext ctx) {
-        String name = "57-breaker-floor-by-hand";
+    private void floorByHand(ClientGameTestContext ctx, String name, int cz, boolean turn) {
         if (Scenario.skip(name)) {
             return;
         }
         int fy = SURFACE_Y - 1;
         int cx = -30;
-        int cz = 0;
         BlockPos under = new BlockPos(cx, fy, cz);
         Scenario.runExpectingFlags(ctx, name,
                 (server, scenario) -> TestMap.on(server)
@@ -843,11 +866,29 @@ public class BreakerAuraTests implements FabricClientGameTest {
                     }
                     double[] pos = scenario.playerPosition();
                     PacketWatch.start();
+                    if (turn) {
+                        // Turning sideways only (yaw), so he keeps looking straight down at the block.
+                        for (int i = 0; i < 4; i++) {
+                            ctx.runOnClient(mc -> mc.player.setYRot(mc.player.getYRot() + 3f));
+                            ctx.waitTicks(1);
+                        }
+                    }
                     ctx.getInput().holdKey(options -> options.keyAttack);
-                    ctx.waitTicks(3);
+                    for (int i = 0; i < 3; i++) {
+                        if (turn) {
+                            ctx.runOnClient(mc -> mc.player.setYRot(mc.player.getYRot() + 3f));
+                        }
+                        ctx.waitTicks(1);
+                    }
                     ctx.getInput().releaseKey(options -> options.keyAttack);
-                    ctx.waitTicks(30);
+                    for (int i = 0; i < 30; i++) {
+                        if (turn) {
+                            ctx.runOnClient(mc -> mc.player.setYRot(mc.player.getYRot() + 3f));
+                        }
+                        ctx.waitTicks(1);
+                    }
                     PacketWatch.stop();
+                    scenario.log(name + " timeline: " + PacketWatch.digTimeline());
                     double[] after = scenario.playerPosition();
                     List<String> flags = scenario.flags();
                     scenario.log(String.format(Locale.ROOT, "%s: by hand, %d dig(s) %s, feet y %.2f -> %.2f; GrimAC said "

@@ -291,9 +291,11 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   off in a fresh config, and the section only draws with a live estimate.
 
 - Start `PacketWatch` BEFORE switching the feature on: BreakerAuraTests' `configure` waits 5 ticks with the aura live, and
-  53's first run saw every pick broken in that wait with 0 digs counted (2026-10-05). Breaking the block the player stands
-  on (55, Zero Ping off) draws GroundSpoof "claimed true" + Simulation 0.0784 on some runs and not others; with Zero Ping
-  on (56) it has been clean - read 55 as a rate over several runs, not one verdict.
+  53's first run saw every pick broken in that wait with 0 digs counted (2026-10-05). The same wait made 56/59 break the
+  floor with Zero Ping still OFF until 2026-10-06 (set a setting BEFORE `configure`, add the pick afterwards). The floor
+  flag (GroundSpoof/NoFall) needs a movement packet between the dig and the server's update, which a still player sends
+  only on the 20-tick reminder - hence "some runs"; 60 turns the player so it is deterministic. Read
+  `PacketWatch.digTimeline()` for which packet claimed ground over the dug block.
 
 Auto Routes on GrimAC (62-argrim): how to run it and its traps are in [docs/argrim.md](docs/argrim.md).
 AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatch HUD): [docs/ap3.md](docs/ap3.md).
