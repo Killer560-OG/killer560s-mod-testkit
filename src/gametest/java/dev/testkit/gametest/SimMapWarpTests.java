@@ -75,7 +75,8 @@ public class SimMapWarpTests implements FabricClientGameTest {
             ModUnderTest.set(auto, "setAutoPuzzlesMasterEnabled", false);
             Object map = ModUnderTest.config(LIVE_MAP_CONFIG);
             ModUnderTest.set(map, "setEnabled", true);
-            ModUnderTest.set(map, "setInteractiveMapEnabled", true);
+            // OFF until the floor is on the client - see warmQuickOnly below.
+            ModUnderTest.set(map, "setInteractiveMapEnabled", false);
         });
 
         // The test client runs at render distance 5, so a far room's chunks never reach it and the map press
@@ -96,6 +97,15 @@ public class SimMapWarpTests implements FabricClientGameTest {
         ctx.waitFor(mc -> mc.level != null);
         Scenario.awaitSimBuild(ctx, before);
         ctx.waitTicks(80);
+        // The early press below must be planned on a warm QUICK graph of the whole floor while the FULL graph is
+        // still cold - that is the floor's first warm-up. Both warm whenever the Interactive Map is on in a dungeon
+        // (ClearExecutor -> EtherwarpPathfinder.tickWarm), so with it on from the start the premise was a race
+        // (2026-10-05/06): the full graph (~5-9 s) sometimes finished during the run's 5 s countdown, and on a
+        // loaded machine the quick graph first warmed on the ~120 landings present before the floor's chunks
+        // arrived, so at GO the press had to re-warm it inside its 600 ms and fell to room by room. Now the map
+        // stays off until every chunk of the floor is on the client, is switched on until the quick graph reports
+        // warm on the floor, and is switched off again (pausing the full graph) until the early press resumes it.
+        warmQuickOnly(ctx);
 
         List<String> failures = new ArrayList<>();
         try {
@@ -180,7 +190,15 @@ public class SimMapWarpTests implements FabricClientGameTest {
         String early = null;
         int[] far = targets.isEmpty() ? null : farthest(ctx, targets);
         if (far != null) {
-            early = press(ctx, far[0], far[1], "press during the first warm-up", failures);
+            if (QUICK_NOT_WARM[0]) {
+                failures.add("the quick floor graph never reported warm on the whole floor before the run started -"
+                        + " the early press cannot test the first warm-up");
+            }
+            if (FULL_WARM_BEFORE_PAUSE[0]) {
+                failures.add("the full floor graph was warm before the warm-up could be paused - the early press"
+                        + " cannot test the first warm-up");
+            }
+            early = press(ctx, far[0], far[1], "press during the first warm-up", failures, true);
             // He is in that room now; a later press on it would be "already there" and move nothing.
             targets.remove(far);
             if (early == null) {
@@ -192,7 +210,7 @@ public class SimMapWarpTests implements FabricClientGameTest {
             // The full graph must not have been warm when it was planned: its warm line comes after the press's.
             boolean warmFirst = false;
             boolean pressSeen = false;
-            for (String l : LogTap.since(markGo)) {
+            for (String l : LogTap.since(mark0)) {
                 Matcher m = WARM_NODES.matcher(l);
                 if (!pressSeen && m.find() && Integer.parseInt(m.group(1)) >= 3000) {
                     warmFirst = true;
@@ -230,7 +248,7 @@ public class SimMapWarpTests implements FabricClientGameTest {
         int moved = 0;
         for (int p = 0; p < targets.size(); p++) {
             int[] t = targets.get(p);
-            String r = press(ctx, t[0], t[1], "press " + (p + 1), failures);
+            String r = press(ctx, t[0], t[1], "press " + (p + 1), failures, false);
             moved += r != null ? 1 : 0;
         }
 
@@ -265,14 +283,14 @@ public class SimMapWarpTests implements FabricClientGameTest {
         println("change: " + placed.get());
         if (!targets.isEmpty()) {
             int[] t = targets.get(0);
-            press(ctx, t[0], t[1], "press after a change", failures);
+            press(ctx, t[0], t[1], "press after a change", failures, false);
         }
 
         // ---- the early press's trip again, on the warm graph: back to the entrance, then the same room ----
         if (early != null && entrance[0] >= 0) {
-            String back = press(ctx, entrance[0], entrance[1], "back to the entrance", failures);
+            String back = press(ctx, entrance[0], entrance[1], "back to the entrance", failures, false);
             if (back != null) {
-                String again = press(ctx, far[0], far[1], "the first-warm-up press's trip, warm", failures);
+                String again = press(ctx, far[0], far[1], "the first-warm-up press's trip, warm", failures, false);
                 println("FIRST WARM-UP vs WARM, same trip: " + EARLY_STATS[0] + " vs " + LAST_STATS[0]);
                 if (again == null) {
                     failures.add("the repeat of the early press's trip on the warm graph did not get there");
@@ -287,7 +305,8 @@ public class SimMapWarpTests implements FabricClientGameTest {
     }
 
     /** One map press; returns a summary, or null if he did not get there. */
-    private static String press(ClientGameTestContext ctx, int tileIdx, int room, String label, List<String> failures) {
+    private static String press(ClientGameTestContext ctx, int tileIdx, int room, String label, List<String> failures,
+                                boolean mapOnFirst) {
         for (int i = 0; i < 100 && !ctx.computeOnClient(mc -> mc.player.onGround()); i++) {
             ctx.waitTicks(1);
         }
@@ -295,6 +314,10 @@ public class SimMapWarpTests implements FabricClientGameTest {
         Vec3 from = ctx.computeOnClient(mc -> mc.player.position());
         int seq0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "arrivalSeq"));
         Boolean ok = ctx.computeOnClient(mc -> {
+            if (mapOnFirst) {
+                // Resume the paused warm-up in the same client task as the press, so no warm-up slice runs between.
+                ModUnderTest.set(ModUnderTest.config(LIVE_MAP_CONFIG), "setInteractiveMapEnabled", true);
+            }
             Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
             Class<?> layoutClass = layout.getClass();
             return (Boolean) ModUnderTest.staticCall(CLEAR_UTILS, "pathToRoom",
@@ -396,6 +419,70 @@ public class SimMapWarpTests implements FabricClientGameTest {
         return summary;
     }
 
+    /**
+     * Waits (at most 90 s) for every chunk of the floor on the client, turns the Interactive Map on, waits (at most
+     * 60 s) for the quick graph to report warm on 3,000+ nodes, then turns the map off again, which stops the
+     * background warm-up (ClearExecutor only calls tickWarm with it on). Records whether the quick graph never got
+     * warm or the full graph got warm too, either of which would make the early press meaningless.
+     */
+    private static void warmQuickOnly(ClientGameTestContext ctx) {
+        FULL_WARM_BEFORE_PAUSE[0] = false;
+        // Every chunk under the floor's 6 x 6 tiles on the client (render distance 16 covers a floor from any tile).
+        int missing = -1;
+        int waited = 0;
+        for (; waited < 1800; waited += 10) {
+            missing = ctx.computeOnClient(mc -> {
+                BlockPos first = (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class},
+                        new Object[]{0});
+                BlockPos last = (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class},
+                        new Object[]{GRID * GRID - 1});
+                int n = 0;
+                for (int cx = (first.getX() - 16) >> 4; cx <= (last.getX() + 16) >> 4; cx++) {
+                    for (int cz = (first.getZ() - 16) >> 4; cz <= (last.getZ() + 16) >> 4; cz++) {
+                        if (!mc.level.hasChunk(cx, cz)) {
+                            n++;
+                        }
+                    }
+                }
+                return n;
+            });
+            if (missing == 0) {
+                break;
+            }
+            ctx.waitTicks(10);
+        }
+        println("floor chunks on the client: " + (missing == 0 ? "all, after " + waited / 20.0 + " s"
+                : missing + " still missing after 90 s"));
+        long mark = LogTap.mark();
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(LIVE_MAP_CONFIG), "setInteractiveMapEnabled", true));
+        String quickLine = null;
+        for (int i = 0; i < 1200 && quickLine == null; i++) {
+            for (String l : LogTap.since(mark)) {
+                Matcher m = QUICK_WARM.matcher(l);
+                if (m.find() && Integer.parseInt(m.group(1)) >= 3000) {
+                    quickLine = l;
+                }
+            }
+            if (quickLine == null) {
+                ctx.waitTicks(1);
+            }
+        }
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(LIVE_MAP_CONFIG), "setInteractiveMapEnabled", false));
+        QUICK_NOT_WARM[0] = quickLine == null;
+        for (String l : LogTap.since(mark)) {
+            Matcher m = WARM_NODES.matcher(l);
+            if (m.find() && Integer.parseInt(m.group(1)) >= 3000) {
+                FULL_WARM_BEFORE_PAUSE[0] = true;
+            }
+        }
+        println("warm-up paused: " + (quickLine == null ? "the quick graph never reported warm on 3,000+ nodes in 60 s"
+                : quickLine.replaceAll("^.*\\[Path\\]", "[Path]")) + (FULL_WARM_BEFORE_PAUSE[0]
+                ? " - BUT the full graph was already warm" : "; full graph not warm"));
+    }
+
+    private static final boolean[] FULL_WARM_BEFORE_PAUSE = {false};
+    private static final boolean[] QUICK_NOT_WARM = {false};
+    private static final Pattern QUICK_WARM = Pattern.compile("\\[Path\\] quick floor graph warm: (\\d+) node");
     private static final int[] UNREACHABLE = {0};
     private static final String[] LAST_GRAPH = {""};
     private static final String[] LAST_STATS = {""};

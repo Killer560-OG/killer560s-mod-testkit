@@ -99,12 +99,19 @@ public class SimStarredMobTests implements FabricClientGameTest {
         // is put on it. That second half is what the pig and zombie controls below establish, and they run
         // before any verdict is reached, so loosening this gate cannot hide a mob falling into the void.
         //
-        // The client's answer is still printed beside the server's. If they ever disagree for long, that is a
-        // finding about chunk delivery worth having - it just is not this scenario's finding.
+        // 2026-10-06: "server has the block" was still not enough. Every skip on record (the sim suite after
+        // 88, and every 26.2 run) read "server sees it: true, client sees it: false", and then the pig added on
+        // the server was not readable by UUID: a chunk the server has loaded for BLOCKS is not yet one whose
+        // entities it tracks - ServerLevel.getEntity(UUID) and getAllEntities only see entities in sections that
+        // are entity-ticking, which is the gate SimIcePathPuzzle uses for the same reason. The wait is now for
+        // all three - the server's block, the server ticking entities there, and the client's own block - for up
+        // to 90 s (a fresh sim world has taken ~27 s to bring its chunks up).
         boolean[] ready = new boolean[1];
         boolean[] clientSees = new boolean[1];
+        boolean[] entityTicking = new boolean[1];
         double[] probeAt = new double[3];
-        for (int i = 0; i < 40 && !ready[0]; i++) {
+        int polls = 0;
+        for (int i = 0; i < 180 && !ready[0]; i++, polls++) {
             java.util.concurrent.atomic.AtomicReference<Boolean> serverSees =
                     new java.util.concurrent.atomic.AtomicReference<>();
             ctx.runOnClient(mc -> {
@@ -122,18 +129,20 @@ public class SimStarredMobTests implements FabricClientGameTest {
                 sp0.execute(() -> {
                     var level = sp0.overworld();
                     var below = BlockPos.containing(probeAt[0], probeAt[1] - 1, probeAt[2]);
+                    entityTicking[0] = level.isPositionEntityTicking(below.above());
                     serverSees.set(level.hasChunkAt(below) && !level.getBlockState(below).isAir());
                 });
             });
             ctx.waitFor(mc -> serverSees.get() != null);
-            ready[0] = serverSees.get();
+            ready[0] = serverSees.get() && entityTicking[0] && clientSees[0];
             if (!ready[0]) {
                 ctx.waitTicks(10);
             }
         }
         System.out.println(String.format(
-                "[89-sim-starred-mobs] floor under the player at %.1f, %.1f, %.1f - server sees it: %s, "
-                        + "client sees it: %s", probeAt[0], probeAt[1], probeAt[2], ready[0], clientSees[0]));
+                "[89-sim-starred-mobs] floor under the player at %.1f, %.1f, %.1f - ready: %s (server entity-ticking"
+                        + " there: %s, client sees it: %s) after %.1f s", probeAt[0], probeAt[1], probeAt[2], ready[0],
+                entityTicking[0], clientSees[0], polls * 0.5));
         try {
             if (!ready[0]) {
                 // SKIP, not fail, and INSIDE the try so the finally below still tears the world down - an
@@ -150,10 +159,9 @@ public class SimStarredMobTests implements FabricClientGameTest {
                 // The vanilla pig control is not enough on its own: it PASSED that run. A pig added right
                 // beside the player reads back fine while the floor around it is still missing, so the floor
                 // being visible is the precondition that actually matters here.
-                System.out.println("[89-sim-starred-mobs] SKIPPED - the SERVER has no floor under the spawn "
-                        + "point, so anything spawned there falls into the void and nothing below would be "
-                        + "measuring the mod.");
-                return;
+                throw new AssertionError("the floor under the spawn point never became ready in 90 s (server "
+                        + "block, server entity-ticking and client block) - entities could not be read back, so "
+                        + "nothing here measured the mod");
             }
             // Spawn one of each mob kind that is meant to be starred, next to the player.
             List<String> problemsEarly = new ArrayList<>();

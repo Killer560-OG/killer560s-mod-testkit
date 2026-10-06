@@ -1274,7 +1274,7 @@ public final class SimPuzzleSolveTests {
         System.out.println("[" + name + "] " + line);
     }
 
-    private static boolean seedRooms(ClientGameTestContext ctx) {
+    static boolean seedRooms(ClientGameTestContext ctx) {
         if (copyDir(SOURCE_ROOMS, "killer560smod-rooms", ".json") < 20
                 || copyDir(Path.of(SOURCE_ROOMS).resolveSibling("killer560smod-roomdata").toString(),
                         "killer560smod-roomdata", "") == 0) {
@@ -1289,7 +1289,7 @@ public final class SimPuzzleSolveTests {
         return true;
     }
 
-    private static void teardown(ClientGameTestContext ctx) {
+    static void teardown(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> {
             try {
                 ModUnderTest.staticCall(SIM_STATE, "leave", new Class<?>[]{}, new Object[]{});
