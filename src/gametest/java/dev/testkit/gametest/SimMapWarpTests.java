@@ -193,7 +193,7 @@ public class SimMapWarpTests implements FabricClientGameTest {
         int[] far = targets.isEmpty() ? null : farthest(ctx, targets);
         if (far != null) {
             if (QUICK_NOT_WARM[0]) {
-                failures.add("the quick floor graph never reported warm on the whole floor before the run started -"
+                failures.add("the quick floor graph never reported warm on the whole floor after the gate opened -"
                         + " the early press cannot test the first warm-up");
             }
             if (FULL_WARM_BEFORE_PAUSE[0]) {
@@ -203,6 +203,18 @@ public class SimMapWarpTests implements FabricClientGameTest {
             early = press(ctx, far[0], far[1], "press during the first warm-up", failures, true);
             // He is in that room now; a later press on it would be "already there" and move nothing.
             targets.remove(far);
+            UNREACHABLE[0] -= LAST_UNREACHABLE[0] ? 1 : 0;   // out of targets, so not counted against them
+            // The farthest room can be behind a locked door (wither/blood): no planner can get there and press()
+            // counts it as unreachable. Pause the warm-up again at once (that press ran it for well under a second
+            // of the full graph's 5-9 s) and take the next farthest, at most twice more.
+            for (int retry = 0; early == null && LAST_UNREACHABLE[0] && retry < 2 && !targets.isEmpty(); retry++) {
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(LIVE_MAP_CONFIG),
+                        "setInteractiveMapEnabled", false));
+                far = farthest(ctx, targets);
+                early = press(ctx, far[0], far[1], "press during the first warm-up (next farthest)", failures, true);
+                targets.remove(far);
+                UNREACHABLE[0] -= LAST_UNREACHABLE[0] ? 1 : 0;   // out of targets, so not counted against them
+            }
             if (early == null) {
                 failures.add("the press during the first warm-up did not get him into the room");
             } else if (!LAST_GRAPH[0].startsWith("quick")) {
@@ -312,6 +324,7 @@ public class SimMapWarpTests implements FabricClientGameTest {
         for (int i = 0; i < 100 && !ctx.computeOnClient(mc -> mc.player.onGround()); i++) {
             ctx.waitTicks(1);
         }
+        LAST_UNREACHABLE[0] = false;
         long mark = LogTap.mark();
         Vec3 from = ctx.computeOnClient(mc -> mc.player.position());
         int seq0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "arrivalSeq"));
@@ -409,6 +422,7 @@ public class SimMapWarpTests implements FabricClientGameTest {
             // so. Not a planner failure; counted apart.
             println("  " + label + ": unreachable from here (a locked door) - not counted");
             UNREACHABLE[0]++;
+            LAST_UNREACHABLE[0] = true;
             return null;
         }
         if (roomByRoom) {
@@ -490,6 +504,7 @@ public class SimMapWarpTests implements FabricClientGameTest {
     private static final boolean[] QUICK_NOT_WARM = {false};
     private static final Pattern QUICK_WARM = Pattern.compile("\\[Path\\] quick floor graph warm: (\\d+) node");
     private static final int[] UNREACHABLE = {0};
+    private static final boolean[] LAST_UNREACHABLE = {false};
     private static final String[] LAST_GRAPH = {""};
     private static final String[] LAST_STATS = {""};
     private static final String[] EARLY_STATS = {""};
