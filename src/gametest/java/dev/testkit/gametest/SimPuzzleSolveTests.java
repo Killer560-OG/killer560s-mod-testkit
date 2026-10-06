@@ -64,6 +64,7 @@ public final class SimPuzzleSolveTests {
     private static final String LIVE_MAP = "com.killer560.hub.livemap.LiveMapFeature";
     private static final String LIVE_MAP_CONFIG = "com.killer560.hub.livemap.LiveMapConfig";
     private static final String AUTO_CONFIG = "com.killer560.hub.autopuzzles.AutoPuzzlesConfig";
+    private static final String CHEAT_CONFIG = "com.killer560.hub.cheatutils.CheatUtilsConfig";
     private static final String SOLVERS = "com.killer560.hub.puzzlesolvers.";
     private static final String PUZZLES = "com.killer560.hub.roomsim.puzzles.";
 
@@ -174,11 +175,32 @@ public final class SimPuzzleSolveTests {
         }
     }
 
+    /**
+     * Boulder with Secret Aura OFF (killer560, 2026-10-06): the auto must walk down the stairs, press exactly the
+     * solver's buttons, open the chest looking at it, then walk back out to the doorway. See {@link BoulderWatch}.
+     */
     public static final class Boulder extends Base {
         public Boulder() {
             super(new Spec("boulder", "Boulder", "setAutoBoulderEnabled", "isAutoBoulderEnabled",
+                    "BoulderSolverConfig", "SimBoulderPuzzle", AOTV_SLOT, true, 90, Approach.NONE,
+                    "BoulderSolverFeature.getNextClick", "BoulderSolverFeature.getRemainingClicks"));
+        }
+    }
+
+    /**
+     * Boulder with Secret Aura ON: the auto must run along the barrier roof to the iron bars and let Secret Aura take
+     * the chest - no button pressed, never off the roof - then walk back out to the doorway.
+     */
+    public static final class BoulderAura extends Base {
+        public BoulderAura() {
+            super(new Spec("boulder-aura", "Boulder", "setAutoBoulderEnabled", "isAutoBoulderEnabled",
                     "BoulderSolverConfig", "SimBoulderPuzzle", AOTV_SLOT, true, 60, Approach.NONE,
                     "BoulderSolverFeature.getNextClick", "BoulderSolverFeature.getRemainingClicks"));
+        }
+
+        @Override
+        boolean secretAura() {
+            return true;
         }
     }
 
@@ -249,6 +271,15 @@ public final class SimPuzzleSolveTests {
 
         Base(Spec spec) {
             this.spec = spec;
+        }
+
+        /** Boulder only: whether Secret Aura is switched on for the run (Auto Boulder picks its mode from it). */
+        boolean secretAura() {
+            return false;
+        }
+
+        private boolean boulder() {
+            return "Boulder".equals(spec.room());
         }
 
         /**
@@ -438,8 +469,39 @@ public final class SimPuzzleSolveTests {
                 iceBreaks = new IceBreaks(name);
             }
 
+            // Measured while he is still inside: the room-relative heights need the live map to name the room.
+            BoulderWatch bw = boulder() ? new BoulderWatch(ctx, name, mark) : null;
+            // ---- Boulder: a floor outside the doorway, and (aura) a walk in from it ---------------------------
+            double[] outside = boulder() ? boulderOutside(ctx, name) : null;
+            float inYaw = 0f;
+            if (outside != null && secretAura()) {
+                inYaw = (float) outside[3];
+                teleport(ctx, name, outside, "outside the doorway, on the test floor (relative 15, 69, -4)");
+                final float yaw = inYaw;
+                ctx.runOnClient(mc -> {
+                    mc.player.setYRot(yaw);
+                    mc.player.setXRot(0f);
+                });
+                ctx.waitTicks(5);
+                println(name, "outside: live map room " + ctx.computeOnClient(SimPuzzleSolveTests::liveRoom));
+            }
+
             // ---- switch it on ---------------------------------------------------------------------------
             ctx.runOnClient(mc -> configure(true, true));
+            if (outside != null && secretAura()) {
+                // He walks in himself; the auto must take over the moment the live map says Boulder.
+                ctx.getInput().holdKey(o -> o.keyUp);
+                int t = 0;
+                try {
+                    for (; t < 80 && !"Boulder".equals(ctx.computeOnClient(SimPuzzleSolveTests::liveRoom)); t++) {
+                        ctx.waitTicks(1);
+                    }
+                } finally {
+                    ctx.getInput().releaseKey(o -> o.keyUp);
+                }
+                println(name, String.format("walked in with the forward key: in Boulder after %.1fs, now %s", t / 20.0,
+                        ctx.computeOnClient(SimPuzzleSolveTests::where)));
+            }
             ctx.waitTicks(2);
             boolean effective = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.call(
                     ModUnderTest.config(AUTO_CONFIG), spec.autoGetter(), new Class<?>[]{}, new Object[]{}));
@@ -508,6 +570,9 @@ public final class SimPuzzleSolveTests {
             }
             for (int t = 1; t <= limit; t++) {
                 ctx.waitTicks(1);
+                if (bw != null) {
+                    bw.tick(ctx, t);
+                }
                 if (stallMs > 0 && t % stallEvery == 0) {
                     ctx.runOnClient(mc -> mc.getSingleplayerServer().execute(() -> {
                         try {
@@ -572,6 +637,10 @@ public final class SimPuzzleSolveTests {
                     println(name, String.format("t=%.1fs %s.isComplete() = true", t / 20.0, spec.puzzle()));
                 }
                 boolean done = spec.chestIsVerdict() ? chestAt > 0 : solvedAt > 0;
+                if (done && bw != null && !bw.autoFinished() && t < chestAt + 25 * 20) {
+                    // Boulder: the chest is half of it - the walk back out to the doorway is the other half.
+                    done = false;
+                }
                 if (done) {
                     // A few ticks more, so a fail painted right after the last move is still seen.
                     ctx.waitTicks(20);
@@ -603,6 +672,16 @@ public final class SimPuzzleSolveTests {
                 return String.format("FAIL - the sim marked the room FAILED at %.1fs%s", failedAt / 20.0, extra);
             }
             if (spec.chestIsVerdict()) {
+                if (chestAt > 0 && bw != null) {
+                    String problem = bw.verdict(ctx, secretAura(), complete(ctx));
+                    println(name, "boulder: " + bw.summary());
+                    if (problem != null) {
+                        dumpEvidence(ctx, name, mark);
+                        return "FAIL - " + problem + extra;
+                    }
+                    return String.format("PASS - reward chest opened at %.1fs, %s%s", chestAt / 20.0, bw.summary(),
+                            extra);
+                }
                 if (chestAt > 0) {
                     return String.format("PASS - reward chest opened at %.1fs%s", chestAt / 20.0, extra);
                 }
@@ -783,6 +862,14 @@ public final class SimPuzzleSolveTests {
             Object map = ModUnderTest.config(LIVE_MAP_CONFIG);
             ModUnderTest.set(map, "setEnabled", true);
             ModUnderTest.set(map, "setInteractiveMapEnabled", true);
+            if (boulder()) {
+                // Auto Boulder's two modes hang on this one switch; nothing is trusted from a default.
+                Object cheat = ModUnderTest.config(CHEAT_CONFIG);
+                ModUnderTest.set(cheat, "setSecretAuraEnabled", secretAura());
+                if (secretAura()) {
+                    ModUnderTest.call(cheat, "setAuraRange", new Class<?>[]{double.class}, new Object[]{4.5});
+                }
+            }
             if (on) {
                 ModUnderTest.set(auto, spec.autoSetter(), true);
             }
@@ -1244,6 +1331,306 @@ public final class SimPuzzleSolveTests {
         String summary() {
             return results.size() + " forced break(s) recovered";
         }
+    }
+
+    /**
+     * What Auto Boulder must have DONE, beyond a chest opening (killer560, 2026-10-06). Read every tick from the client
+     * (position, ground, body rotation) and from the sim's own log lines, never from the auto's state:
+     *
+     * <ul>
+     *   <li>Secret Aura on: no button pressed (the sim logs every press), feet never below the roof, so it ran along
+     *       the barrier roof as asked.</li>
+     *   <li>Secret Aura off: the sim's puzzle solved, presses equal to the most clicks the solver ever named (only the
+     *       buttons it needed), the floor reached, and no landing more than 2.0 blocks below where he left the ground -
+     *       the stairs (a stair top to the next stair's lower half is 1.5), not a hole in the roof (5).</li>
+     *   <li>Both: after the chest the auto says it finished walking out, and he ends at roof height within four
+     *       blocks of the doorway (relative 15, 69, 0) - where an etherwarp can start again.</li>
+     *   <li>Both: no body turn bigger than {@link #MAX_TURN} degrees in one tick (a snap).</li>
+     * </ul>
+     */
+    static final class BoulderWatch {
+        static final float MAX_TURN = 40f;
+        private final String name;
+        private final long mark;
+        private final double roofY;
+        private final double floorY;
+        private final net.minecraft.core.BlockPos door;
+        private double minY = Double.MAX_VALUE;
+        private double maxDrop = 0;
+        private String maxDropAt = "";
+        private double leftGroundY = Double.NaN;
+        private boolean wasOnGround = true;
+        private float lastYaw = Float.NaN;
+        private float lastPitch = Float.NaN;
+        private float maxYawStep = 0;
+        private float maxPitchStep = 0;
+        private int maxRemaining = 0;
+        private boolean finished = false;
+        private String finishedLine = null;
+        private String stoppedLine = null;
+        private double[] end = null;
+        /** The client's own crosshair block ({@code mc.hitResult}) over the last three ticks, newest last. */
+        private final java.util.ArrayDeque<String> crosshair = new java.util.ArrayDeque<>();
+        private long pressCount = 0;
+        private final List<String> pressChecks = new ArrayList<>();
+        private int pressesOffButton = 0;
+        /** Ticks the forward key was held (after the first of each hold), and how many of them he was not sprinting. */
+        private int forwardTicks = 0;
+        private int notSprinting = 0;
+        private String firstNotSprinting = null;
+        private boolean forwardBefore = false;
+
+        BoulderWatch(ClientGameTestContext ctx, String name, long mark) {
+            this.name = name;
+            this.mark = mark;
+            this.roofY = ctx.computeOnClient(mc -> (double) rel(mc, 15, 69, 0).getY());
+            this.floorY = ctx.computeOnClient(mc -> (double) rel(mc, 15, 64, 15).getY());
+            this.door = ctx.computeOnClient(mc -> rel(mc, 15, 69, 0));
+            println(name, String.format("boulder heights: roof feet y %.0f, floor feet y %.0f, doorway %s", roofY,
+                    floorY, door.toShortString()));
+        }
+
+        void tick(ClientGameTestContext ctx, int t) {
+            Object[] s = ctx.computeOnClient(mc -> mc.player == null ? null : new Object[]{mc.player.getX(),
+                    mc.player.getY(), mc.player.getZ(), mc.player.onGround(), mc.player.getYRot(), mc.player.getXRot(),
+                    ModUnderTest.staticCall(SOLVERS + "BoulderSolverFeature", "getRemainingClicks")});
+            if (s == null) {
+                return;
+            }
+            double y = (Double) s[1];
+            boolean ground = (Boolean) s[3];
+            float yaw = (Float) s[4];
+            float pitch = (Float) s[5];
+            maxRemaining = Math.max(maxRemaining, (Integer) s[6]);
+            if (ground) {
+                minY = Math.min(minY, y);
+                if (!wasOnGround && !Double.isNaN(leftGroundY) && leftGroundY - y > maxDrop) {
+                    maxDrop = leftGroundY - y;
+                    maxDropAt = String.format("t=%.1fs landing at y %.2f from %.2f", t / 20.0, y, leftGroundY);
+                }
+                leftGroundY = y;
+            }
+            wasOnGround = ground;
+            if (!Float.isNaN(lastYaw)) {
+                maxYawStep = Math.max(maxYawStep, Math.abs(yaw - lastYaw));
+                maxPitchStep = Math.max(maxPitchStep, Math.abs(pitch - lastPitch));
+            }
+            lastYaw = yaw;
+            lastPitch = pitch;
+            end = new double[]{(Double) s[0], y, (Double) s[2]};
+            // Each press the SIM records must have had his real crosshair on a button within the ticks just before
+            // it (the press is sent at the start of a tick, the sim logs it when the server handles it).
+            String hit = ctx.computeOnClient(mc -> mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult bh
+                    && bh.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
+                    ? bh.getBlockPos().toShortString() + " " + mc.level.getBlockState(bh.getBlockPos()).getBlock()
+                    .getName().getString() : "none");
+            long n = presses();
+            if (n > pressCount) {
+                String onButton = null;
+                for (String c : crosshair) {
+                    if (c.endsWith("Button")) {
+                        onButton = c;
+                    }
+                }
+                for (long k = pressCount + 1; k <= n; k++) {
+                    pressChecks.add(String.format("press %d at t=%.1fs: crosshair %s", k, t / 20.0,
+                            onButton != null ? "on " + onButton : "NOT on a button (" + crosshair + ")"));
+                    if (onButton == null) {
+                        pressesOffButton++;
+                    }
+                }
+                pressCount = n;
+            }
+            boolean[] ks = ctx.computeOnClient(mc -> new boolean[]{mc.options.keyUp.isDown(), mc.player.isSprinting()});
+            if (ks[0] && forwardBefore) {
+                forwardTicks++;
+                if (!ks[1]) {
+                    notSprinting++;
+                    if (firstNotSprinting == null) {
+                        firstNotSprinting = String.format("t=%.1fs at (%.2f, %.2f, %.2f)", t / 20.0, end[0], end[1],
+                                end[2]);
+                    }
+                }
+            }
+            forwardBefore = ks[0];
+            crosshair.addLast(hit);
+            while (crosshair.size() > 3) {
+                crosshair.removeFirst();
+            }
+            if (t % 10 == 0 && !finished) {
+                for (String l : LogTap.since(mark)) {
+                    if (l.contains("[AutoPuzzles] Boulder: finished")) {
+                        finished = true;
+                        finishedLine = l;
+                    } else if (l.contains("[AutoPuzzles] Boulder: stopped for this room")) {
+                        stoppedLine = l;
+                        finished = true;
+                    }
+                }
+            }
+        }
+
+        boolean autoFinished() {
+            return finished;
+        }
+
+        private long presses() {
+            return LogTap.since(mark).stream().filter(l -> l.contains("Sim boulder: button pressed")).count();
+        }
+
+        String summary() {
+            return String.format("%d press(es) (solver named up to %d), lowest feet y %.2f (roof %.0f, floor %.0f), "
+                            + "biggest landing drop %.2f%s, biggest body turn per tick yaw %.1f pitch %.1f, ended at "
+                            + "%s, %.1f from the doorway",
+                    presses(), maxRemaining, minY, roofY, floorY, maxDrop, maxDropAt.isEmpty() ? "" : " (" + maxDropAt
+                            + ")", maxYawStep, maxPitchStep,
+                    end == null ? "?" : String.format("(%.2f, %.2f, %.2f)", end[0], end[1], end[2]), doorDistance());
+        }
+
+        private double doorDistance() {
+            return end == null ? Double.MAX_VALUE
+                    : Math.hypot(end[0] - (door.getX() + 0.5), end[2] - (door.getZ() + 0.5));
+        }
+
+        /** Null on a pass, else what went wrong. */
+        String verdict(ClientGameTestContext ctx, boolean aura, boolean simComplete) {
+            List<String> bad = new ArrayList<>();
+            boolean opened = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                    PUZZLES + "SimBoulderPuzzle", "isRewardChestOpened"));
+            if (!opened) {
+                bad.add("the sim never recorded the reward chest being opened");
+            }
+            long presses = presses();
+            if (aura) {
+                if (presses != 0) {
+                    bad.add(presses + " button(s) pressed with Secret Aura on");
+                }
+                println(name, String.format("boulder: sprint check - %d tick(s) with forward held, %d not sprinting%s",
+                        forwardTicks, notSprinting, firstNotSprinting == null ? "" : " (first " + firstNotSprinting + ")"));
+                if (forwardTicks < 20) {
+                    bad.add("forward held for only " + forwardTicks + " tick(s) - the run was not measured");
+                }
+                if (notSprinting > 0) {
+                    bad.add(notSprinting + " tick(s) walking without sprinting (first " + firstNotSprinting + ")");
+                }
+                if (minY < roofY - 0.6) {
+                    bad.add(String.format("left the roof (feet y %.2f, roof %.0f)", minY, roofY));
+                }
+            } else {
+                if (!simComplete) {
+                    bad.add("the sim's puzzle is not solved");
+                }
+                if (presses == 0 || presses != maxRemaining) {
+                    bad.add(presses + " press(es) where the solver named " + maxRemaining);
+                }
+                if (minY > floorY + 0.3) {
+                    bad.add(String.format("never reached the floor (lowest feet y %.2f, floor %.0f)", minY, floorY));
+                }
+                for (String c : pressChecks) {
+                    println(name, "boulder: " + c);
+                }
+                for (String l : LogTap.since(mark)) {
+                    if (l.contains("Boulder: click on") || l.contains("solve time")) {
+                        println(name, "boulder: mod says " + l.substring(l.indexOf("Boulder:") + 9));
+                    }
+                }
+                if (pressesOffButton > 0) {
+                    bad.add(pressesOffButton + " press(es) without his crosshair on a button");
+                }
+                if (maxDrop > 2.0) {
+                    bad.add(String.format("dropped %.2f blocks in one fall (%s) - not the stairs", maxDrop, maxDropAt));
+                }
+            }
+            if (stoppedLine != null) {
+                bad.add("the auto gave up: " + stoppedLine.substring(stoppedLine.indexOf("Boulder:")));
+            } else if (finishedLine == null) {
+                bad.add("the auto never said it finished walking out");
+            }
+            if (end == null || end[1] < roofY - 0.6 || doorDistance() > 4.0) {
+                bad.add(String.format("did not end at the doorway (%.1f from it, feet y %s)", doorDistance(),
+                        end == null ? "?" : String.format("%.2f", end[1])));
+            }
+            String room = ctx.computeOnClient(SimPuzzleSolveTests::liveRoom);
+            println(name, "boulder: live map room at the end: " + room);
+            if ("Boulder".equals(room)) {
+                bad.add("still in Boulder at the end - the live map files him there, so etherwarp is still refused");
+            }
+            if (maxYawStep > MAX_TURN || maxPitchStep > MAX_TURN) {
+                bad.add(String.format("a snap turn: %.1f yaw / %.1f pitch in one tick", maxYawStep, maxPitchStep));
+            }
+            if (finishedLine != null) {
+                println(name, "boulder: " + finishedLine.substring(finishedLine.indexOf("Boulder:")));
+            }
+            return bad.isEmpty() ? null : String.join("; ", bad);
+        }
+    }
+
+    /**
+     * A single-room sim Boulder has nothing past its doorway, so a walk out could only reach the doorway itself, which
+     * the live map still files under Boulder (where etherwarp is refused) - the half of the feature that matters was
+     * untestable. On Hypixel the doorway leads on into the next room. So this lays a stone floor at the doorway's
+     * height, relative x 12..18 by z -1..-7 (only into air, under two air blocks), on the server, and returns
+     * {x, feet y, z, yaw into the room} for relative (15, 69, -4). A test fixture, said so in the log.
+     */
+    private static double[] boulderOutside(ClientGameTestContext ctx, String name) {
+        List<net.minecraft.core.BlockPos> floor = ctx.computeOnClient(mc -> {
+            List<net.minecraft.core.BlockPos> out = new ArrayList<>();
+            for (int x = 12; x <= 18; x++) {
+                for (int z = -7; z <= -1; z++) {
+                    out.add(rel(mc, x, 68, z));
+                }
+            }
+            return out;
+        });
+        double[] spot = ctx.computeOnClient(mc -> {
+            var s = rel(mc, 15, 69, -4);
+            var in = rel(mc, 15, 69, 5);
+            double yaw = Math.toDegrees(Math.atan2(-(in.getX() - s.getX()), in.getZ() - s.getZ()));
+            return new double[]{s.getX() + 0.5, s.getY(), s.getZ() + 0.5, yaw};
+        });
+        // The doorway gap itself (relative z -1, x 14..16, feet height and the two blocks over it): a single built room
+        // has it walled, since there is no room next door. What is there is printed, then cleared.
+        List<net.minecraft.core.BlockPos> gap = ctx.computeOnClient(mc -> {
+            List<net.minecraft.core.BlockPos> out = new ArrayList<>();
+            for (int x = 14; x <= 16; x++) {
+                for (int y = 69; y <= 71; y++) {
+                    out.add(rel(mc, x, y, -1));
+                }
+            }
+            return out;
+        });
+        AtomicReference<String> gapWas = new AtomicReference<>();
+        AtomicReference<Integer> laid = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            server.execute(() -> {
+                var level = server.overworld();
+                StringBuilder was = new StringBuilder();
+                for (var p : gap) {
+                    var st = level.getBlockState(p);
+                    if (!st.isAir()) {
+                        was.append(p.toShortString()).append('=').append(st.getBlock().getName().getString())
+                                .append(' ');
+                        level.setBlockAndUpdate(p, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+                    }
+                }
+                gapWas.set(was.length() == 0 ? "nothing" : was.toString().trim());
+                int n = 0;
+                for (var p : floor) {
+                    if (level.getBlockState(p).isAir() && level.getBlockState(p.above()).isAir()
+                            && level.getBlockState(p.above(2)).isAir()) {
+                        level.setBlockAndUpdate(p, net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+                        n++;
+                    }
+                }
+                laid.set(n);
+            });
+        });
+        ctx.waitFor(mc -> laid.get() != null, 200);
+        ctx.waitTicks(10);
+        println(name, "test fixture: laid " + laid.get() + " stone block(s) outside the doorway (relative y 68, x 12..18, "
+                + "z -7..-1) so there is somewhere to walk out to; cleared from the doorway gap: " + gapWas.get());
+        return spot;
     }
 
     /** A server teleport, which is where the client is told to be - the sim's own /goto does the same. */
