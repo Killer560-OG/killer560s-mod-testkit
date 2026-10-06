@@ -172,6 +172,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-use", GrimAutoRoutesTests::caseUse);
             s.test("62-argrim-play", GrimAutoRoutesTests::casePlay);
             s.test("62-argrim-pingpong", GrimAutoRoutesTests::casePingPong);
+            s.test("62-argrim-chain", GrimAutoRoutesTests::caseChain);
             s.test("62-argrim-path", GrimAutoRoutesTests::casePath);
             s.test("62-argrim-legit", GrimAutoRoutesTests::caseLegit);
             s.test("62-argrim-hand", GrimAutoRoutesTests::caseHand);
@@ -669,6 +670,55 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         noteFlags(c, s);
     }
 
+    /**
+     * A long unconditional etherwarp chain under GrimAC: twelve warps round the arena (96-ar-chain's), reached by a hand
+     * etherwarp onto the first. Ticks per warp, every use after the previous landing's teleport accept, the server's
+     * etherwarp count, and what GrimAC says about warping as fast as the server answers.
+     */
+    private static void caseChain(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        int[][] pts = ArChainMeasure.CHAIN;
+        int[] end = ArChainMeasure.END;
+        List<JsonObject> n = new ArrayList<>();
+        for (int i = 0; i < pts.length; i++) {
+            int[] to = i + 1 < pts.length ? pts[i + 1] : end;
+            n.add(ew(pts[i][0], pts[i][1], to[0], to[1], i == 0));
+        }
+        writeRoute(ctx, n);
+        JsonObject before = stats();
+        long m = LogTap.mark();
+        startSampling(ctx);
+        warpOnto(ctx, 6.5, 10.5, 6, 6);
+        Vec3 landed = waitLanded(ctx, end[0], end[1], 300);
+        ctx.waitTicks(10);
+        List<Sample> s = stopSampling(ctx);
+        // The first use is his own hand etherwarp onto the start node.
+        ArChainMeasure.Chain chain = ArChainMeasure.chain(1);
+        List<String> lines = PacketTrace.lines();
+        for (String l : lines.subList(0, Math.min(lines.size(), 60))) {
+            println("  chain trace " + l);
+        }
+        int acted = 0;
+        for (String l : LogTap.since(m)) {
+            acted += l.contains("ETHERWARP acted") ? 1 : 0;
+        }
+        int serverWarps = delta(before, "etherwarps");
+        c.note("chain: " + chain.describe() + "; server made " + serverWarps + " etherwarp(s) incl. the hand one");
+        check(landed != null, "the chain did not reach its end at " + end[0] + "," + end[1] + " (at " + relPos(ctx) + ")");
+        check(acted == pts.length && chain.warps() == pts.length, "expected " + pts.length + " route etherwarps, the log "
+                + "says " + acted + " acted and the trace has " + chain.warps());
+        check(serverWarps == pts.length + 1, "the server made " + serverWarps + " etherwarps, expected " + (pts.length + 1));
+        check(chain.usesBeforeLanding() == 0, chain.usesBeforeLanding() + " warp(s) went out before the previous landing "
+                + "was accepted");
+        check(chain.firesOnLanding(), "a warp waited after its landing arrived: ticks from each landing to the next use "
+                + chain.landingToUse());
+        check(chain.ticksPerWarp() <= 1.5, String.format(Locale.ROOT, "%.2f ticks per warp on an unconditional chain "
+                + "(gaps %s) - expected about one", chain.ticksPerWarp(), chain.gaps()));
+        noteFlags(c, s);
+    }
+
     /** Path nodes across a wall: planned once by the floor planner, the saved warps flown twice. */
     private static void casePath(Session c) {
         ClientGameTestContext ctx = c.ctx();
@@ -801,7 +851,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         noteFlags(c, s2);
     }
 
-    /** A crypt node: the Crypt Weapon (Hyperion) used along the node's look until a prince/crypt kill is counted. */
+    /**
+     * A crypt node: the Crypt Weapon (Hyperion) used straight down until a prince/crypt kill is counted. It HOLDS the use
+     * key (killer560, 2026-10-06: "hold right click ... do not have it spam click"), so its uses must come at the cadence
+     * of a held right click, packet for packet: the control first holds the real use key with the Hyperion, looking
+     * straight down, and the node's use ticks are compared with it.
+     */
     private static void caseCrypt(Session c) {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
@@ -809,6 +864,20 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setCryptWeapon",
                 new Class<?>[]{enumClass("CryptWeapon")}, new Object[]{ModUnderTest.enumValue(AR_CONFIG + "$CryptWeapon",
                         "HYPERION")}));
+        // ---- control: vanilla's held right click, Hyperion, straight down ----
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(4));
+        tpRel(ctx, 20.5, 20.5, 0f, 90f);
+        ctx.waitTicks(10);
+        startSampling(ctx);
+        ctx.getInput().holdKey(o -> o.keyUse);
+        ctx.waitTicks(30);
+        ctx.getInput().releaseKey(o -> o.keyUse);
+        ctx.waitTicks(3);
+        stopSampling(ctx);
+        ArChainMeasure.Held control = ArChainMeasure.held(0);
+        println("crypt: vanilla held-use control: " + control.describe());
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+
         JsonObject crypt = node("CRYPT", 14, 14, 0f, 10f);
         crypt.addProperty("start", true);
         writeRoute(ctx, List.of(crypt));
@@ -816,19 +885,25 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         startSampling(ctx);
         walkOnto(ctx, 14.5, 11.5, 14, 14);
         boolean acted = waitFor(ctx, 40, () -> logHas(m, "CRYPT acted"));
-        ctx.waitTicks(8);   // a few uses, the interact delay apart
+        ctx.waitTicks(24);   // several held uses
         // Hypixel's line for a prince kill - one of the crypt await's two readers (a crypt raises the tab's Crypts).
         c.hx().chat("A Prince falls. +1 Bonus Score");
         boolean done = waitFor(ctx, 40, () -> logHas(m, "CRYPT: 1 kill(s)"));
-        ctx.waitTicks(5);
+        ctx.waitTicks(20);
         List<Sample> s = stopSampling(ctx);
+        ArChainMeasure.Held node = ArChainMeasure.held(0);
+        boolean keyUp = ctx.computeOnClient(mc -> !mc.options.keyUse.isDown());
         printTrace("crypt", s);
         check(acted, "the crypt node never used its weapon");
         check(done, "the crypt node did not finish on the prince kill");
-        int uses = count(s, "use_item");
-        check(uses >= 2, "the crypt node used its weapon " + uses + " time(s)");
-        c.note("crypt: " + uses + " Hyperion use(s) along the node's look until the prince kill (the server emulates no "
-                + "Wither Impact - only the client's packets are under test)");
+        check(control.every(4), "the vanilla control did not use every 4 ticks: " + control.describe());
+        check(node.ticks().size() >= 4, "the crypt node used its weapon on " + node.ticks().size() + " tick(s)");
+        check(node.every(4), "the crypt node's uses are not a held right click's cadence: " + node.describe());
+        check(node.perUse().stream().distinct().toList().equals(control.perUse().stream().distinct().toList()),
+                "the crypt node's packets per use " + node.perUse() + " differ from the held key's " + control.perUse());
+        check(keyUp, "the use key was left held after the crypt node");
+        c.note("crypt: held use, " + node.describe() + " - vanilla control " + control.describe()
+                + " (the server emulates no Wither Impact - only the client's packets are under test)");
         noteFlags(c, s);
     }
 

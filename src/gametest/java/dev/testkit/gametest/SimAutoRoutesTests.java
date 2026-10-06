@@ -77,7 +77,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     // Order matters once: the editor's Go To is an Interactive Map warp, and after one only a START node may arm until
     // he has been through one (the map-arrival interlock), so the cases that arm non-start nodes run before it.
     private static final String[] CASES = {"96-ar-add", "96-ar-play", "96-ar-interact", "96-ar-await", "96-ar-mimic",
-            "96-ar-crypt", "96-ar-breaker", "96-ar-pingpong", "96-ar-edit", "96-ar-mapopen",
+            "96-ar-crypt", "96-ar-breaker", "96-ar-pingpong", "96-ar-chain", "96-ar-stackorder", "96-ar-crypthold",
+            "96-ar-edit", "96-ar-mapopen",
             "96-ar-path", "96-ar-screen", "96-ar-rotate"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
@@ -212,6 +213,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-crypt" -> caseCrypt(ctx);
                         case "96-ar-breaker" -> caseBreaker(ctx);
                         case "96-ar-pingpong" -> casePingPong(ctx);
+                        case "96-ar-chain" -> caseChain(ctx);
+                        case "96-ar-stackorder" -> caseStackOrder(ctx);
+                        case "96-ar-crypthold" -> caseCryptHold(ctx);
                         case "96-ar-edit" -> caseEdit(ctx);
                         case "96-ar-mapopen" -> caseMapOpen(ctx);
                         case "96-ar-screen" -> caseScreen(ctx);
@@ -732,6 +736,167 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         Vec3 l = waitLanded(ctx, 14, 14, 60);
         check(l != null, "the warp did not happen once the block was back (at " + relPos(ctx) + ")");
         check(useTicks(stopSampling(ctx)).size() == 1, "not exactly one warp once the block came back");
+    }
+
+    /**
+     * A long unconditional etherwarp chain (killer560, 2026-10-06: "in theory I should be able to teleport 20 times a
+     * second if there is no waiting"): twelve etherwarps round the arena, each landing in the next node, the last on no
+     * node. Measures ticks per warp, and that every use went out only after the previous landing's teleport accept (the
+     * server had moved him before the next warp aimed). One warp per tick is the target at the sim's zero ping.
+     */
+    private void caseChain(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        int[][] pts = ArChainMeasure.CHAIN;
+        int[] end = ArChainMeasure.END;
+        List<JsonObject> n = new ArrayList<>();
+        for (int i = 0; i < pts.length; i++) {
+            int[] to = i + 1 < pts.length ? pts[i + 1] : end;
+            n.add(ew(pts[i][0], pts[i][1], to[0], to[1], i == 0));
+        }
+        writeRoute(ctx, n);
+        tpRel(ctx, 4.5, 6.5, 0f, 0f);
+        ctx.waitTicks(10);
+        long mark = LogTap.mark();
+        startSampling(ctx);
+        tpRel(ctx, 6.5, 6.5, -90f, 0f);
+        Vec3 landed = waitLanded(ctx, end[0], end[1], 300);
+        ctx.waitTicks(10);
+        stopSampling(ctx);
+        ArChainMeasure.Chain chain = ArChainMeasure.chain(0);
+        println("chain: " + chain.describe());
+        int acted = 0;
+        for (String l : LogTap.since(mark)) {
+            acted += l.contains("ETHERWARP acted") ? 1 : 0;
+        }
+        List<String> lines = PacketTrace.lines();
+        for (String l : lines.subList(0, Math.min(lines.size(), 40))) {
+            println("  chain trace " + l);
+        }
+        check(landed != null, "the chain did not reach its end at " + end[0] + "," + end[1] + " (at " + relPos(ctx) + ")");
+        check(acted == pts.length && chain.warps() == pts.length, "expected " + pts.length + " etherwarps, the log says "
+                + acted + " acted and the trace has " + chain.warps() + " use(s)");
+        check(chain.usesBeforeLanding() == 0, chain.usesBeforeLanding() + " warp(s) went out before the previous landing "
+                + "was accepted");
+        // The sim's integrated server answers a use a tick later than the dedicated server does (its position packet
+        // lands two client ticks after the use: measured 2026-10-06), so here the round trip is the floor: every warp
+        // must go out on the very tick its landing arrived, and that makes two ticks per warp.
+        check(chain.firesOnLanding(), "a warp waited after its landing arrived: ticks from each landing to the next use "
+                + chain.landingToUse());
+        check(chain.ticksPerWarp() <= 2.0, String.format(Locale.ROOT, "%.2f ticks per warp on an unconditional chain "
+                + "(gaps %s) - expected the sim's round trip, two", chain.ticksPerWarp(), chain.gaps()));
+    }
+
+    /**
+     * Stacked nodes of the same type keep the order they were added (killer560, 2026-10-06: "if i make a boom a crypt
+     * then a boom, it should do the first boom then the second then the crypt"): #1 boom, #2 crypt, #3 boom on one tile
+     * fire #1, #3, #2 - with the start flag on #1, and on #3 (which used to put #3 first).
+     */
+    private void caseStackOrder(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        giveSlot(ctx, 4, "HYPERION");
+        setArEnum(ctx, "setCryptWeapon", "CryptWeapon", "HYPERION");
+        ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setCryptAttackTicks",
+                new Class<?>[]{int.class}, new Object[]{10}));
+        try {
+            for (int startOn : new int[]{1, 3}) {
+                BlockState cracked = Blocks.CRACKED_STONE_BRICKS.defaultBlockState();
+                setBlocks(ctx, Map.of(new int[]{12, F, 14}, cracked, new int[]{12, F + 1, 14}, cracked,
+                        new int[]{17, F, 14}, cracked, new int[]{17, F + 1, 14}, cracked));
+                JsonObject b1 = node("BOOM", 14, 14, 90f, 0f);
+                JsonObject cr = cryptNode(14, 14, 0f, 0f, false, 0);
+                JsonObject b3 = node("BOOM", 14, 14, -90f, 0f);
+                (startOn == 1 ? b1 : b3).addProperty("start", true);
+                writeRoute(ctx, List.of(b1, cr, b3));
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                tpRel(ctx, 14.5, 10.5, 0f, 0f);
+                ctx.waitTicks(10);
+                long m = LogTap.mark();
+                tpRel(ctx, 14.5, 14.5, 0f, 0f);
+                boolean done = waitFor(ctx, 160, () -> logHas(m, "complete") || logHas(m, "Stopped"));
+                int i1 = logIndex(m, "Node #1 BOOM acted");
+                int i3 = logIndex(m, "Node #3 BOOM acted");
+                int i2 = logIndex(m, "Node #2 CRYPT acted");
+                String order = "";
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("firing in order")) {
+                        order = l.substring(l.indexOf("firing in order"));
+                    }
+                }
+                println("stack order, start on #" + startOn + ": " + order + " (acted at log lines #1 boom " + i1
+                        + ", #3 boom " + i3 + ", #2 crypt " + i2 + ")");
+                check(done && logHas(m, "complete"), "start on #" + startOn + ": the stack did not complete");
+                check(i1 >= 0 && i3 > i1 && i2 > i3, "start on #" + startOn + ": fired #1 boom@" + i1 + ", #3 boom@" + i3
+                        + ", #2 crypt@" + i2 + " - expected #1, #3, #2");
+                check(blockAir(ctx, 12, F + 1, 14) && blockAir(ctx, 17, F + 1, 14), "start on #" + startOn
+                        + ": a boom broke nothing");
+                stopRoute(ctx);
+                tpRel(ctx, 14.5, 10.5, 0f, 0f);
+                ctx.waitTicks(5);
+            }
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setCryptAttackTicks",
+                    new Class<?>[]{int.class}, new Object[]{100}));
+        }
+    }
+
+    /**
+     * The crypt node HOLDS right click (killer560, 2026-10-06: "only have the crypt node hold right click for its
+     * equivalent of attacking do not have it spam click"). Control first: the harness holds the real use key with a
+     * Hyperion, looking straight down - vanilla's held cadence. Then a crypt node with nothing to kill holds it for its
+     * Crypt Attack Time: the use ticks must be the control's cadence, packet for packet, and stop when it lets go.
+     */
+    private void caseCryptHold(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        giveSlot(ctx, 4, "HYPERION");
+        setArEnum(ctx, "setCryptWeapon", "CryptWeapon", "HYPERION");
+        try {
+            // ---- control: vanilla, the use key held by the harness ----
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(4));
+            tpRel(ctx, 20.5, 20.5, 0f, 90f);
+            ctx.waitTicks(10);
+            startSampling(ctx);
+            ctx.getInput().holdKey(o -> o.keyUse);
+            ctx.waitTicks(30);
+            ctx.getInput().releaseKey(o -> o.keyUse);
+            ctx.waitTicks(3);
+            stopSampling(ctx);
+            ArChainMeasure.Held control = ArChainMeasure.held(0);
+            println("crypt hold, vanilla control: " + control.describe());
+
+            // ---- the crypt node, 30 ticks of Crypt Attack Time, nothing to kill ----
+            ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setCryptAttackTicks",
+                    new Class<?>[]{int.class}, new Object[]{30}));
+            writeRoute(ctx, List.of(cryptNode(10, 10, 0f, 0f, true, 0)));
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            tpRel(ctx, 10.5, 6.5, 0f, 0f);
+            ctx.waitTicks(10);
+            long m = LogTap.mark();
+            startSampling(ctx);
+            tpRel(ctx, 10.5, 10.5, 0f, 0f);
+            boolean movedOn = waitFor(ctx, 100, () -> logHas(m, "up, moving on"));
+            ctx.waitTicks(20);
+            stopSampling(ctx);
+            ArChainMeasure.Held node = ArChainMeasure.held(0);
+            boolean keyUp = ctx.computeOnClient(mc -> !mc.options.keyUse.isDown());
+            println("crypt hold, crypt node: " + node.describe() + ", use key up after: " + keyUp);
+            check(control.every(4), "the vanilla control did not use every 4 ticks: " + control.describe());
+            check(movedOn, "the crypt node did not hold for its attack time and move on");
+            check(logHas(m, "holding use"), "the crypt node did not say it was holding use");
+            check(node.ticks().size() >= 6, "the crypt node used " + node.ticks().size() + " time(s) in 30 ticks");
+            check(node.every(4), "the crypt node's uses are not vanilla's held cadence: " + node.describe());
+            check(node.perUse().stream().distinct().toList().equals(control.perUse().stream().distinct().toList()),
+                    "the crypt node's packets per use " + node.perUse() + " differ from the held key's " + control.perUse());
+            check(keyUp, "the use key was left held after the crypt node");
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setCryptAttackTicks",
+                    new Class<?>[]{int.class}, new Object[]{100}));
+        }
     }
 
     /** delete / remove / undo / redo / clear over many steps, through both /ar and /autoroutes, checked on disk. */

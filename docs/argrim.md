@@ -1,7 +1,7 @@
 # Auto Routes on GrimAC (62-argrim)
 
 `./run-scenario.ps1 -Scenario 62-argrim -Port 25751 -ModUnderTest <cheat jar> -Extra "-PtestVolume=0"` (add
-`-Minecraft 26.2`), about 2 minutes. One Session, 12 cases, positive control before and after. The room is one of his
+`-Minecraft 26.2`), about 2 minutes. One Session, 16 cases, positive control before and after. The room is one of his
 captured rooms sent through Hx `dungeon.paste` to grid cell (4,4) and identified by the mod's REAL world scan; the
 abilities are `hx/dungeon/HxAbilities` (etherwarp, Instant Transmission, Superboom), off unless `dungeon.abilities`.
 - Put the Catacombs sidebar up only once he stands in the room: the world spawn is inside F7's boss box and a dungeon
@@ -18,3 +18,10 @@ abilities are `hx/dungeon/HxAbilities` (etherwarp, Instant Transmission, Superbo
   warp and BadPacketsA (a swap's slot sent twice); clean from mod 09e2c304.
 - Grim's check classes are in its jar under `common-*.jar` (nested twice); javap them from a SHORT path - the
   scratchpad path is too long for javap on Windows.
+- `62-argrim-chain` (2026-10-06): twelve etherwarps round the arena, each landing in the next node (`ArChainMeasure.CHAIN`,
+  shared with `96-ar-chain`). It reports ticks per warp from the use buckets and proves each use followed the previous
+  landing: an `accept_teleportation` (sent by vanilla's position-packet handler) must sit between two uses, in the same
+  bucket. Main 8957d449: 4.00 ticks per warp; ar-chain: 1.00, GrimAC silent. The sim's integrated server answers a tick
+  later, so 96-ar-chain's floor is 2.00 (main: 5.00).
+- `62-argrim-crypt` first holds the real use key through the harness (Hyperion, straight down) as the vanilla control, then
+  requires the crypt node's use ticks to match it: every 4 ticks, the same packets per use.
