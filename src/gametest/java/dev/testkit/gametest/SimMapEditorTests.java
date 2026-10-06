@@ -259,6 +259,23 @@ public class SimMapEditorTests implements FabricClientGameTest {
             throw new AssertionError("the map editor screen closed itself while rendering");
         }
         System.out.println("[75-sim-map-editor] the editor screen opened and rendered for 60 ticks");
+        // 7. A generated floor on the grid, screenshotted: the wither and blood doors are drawn, and the room
+        // names are drawn over them (killer560, 2026-10-06). Look at the PNG; nothing here can read pixels back.
+        Scenario.ensureRoomDatabase(ctx);
+        ctx.runOnClient(mc -> mc.execute(() -> {
+            try {
+                Object screen = McCompat.screen(mc);
+                java.lang.reflect.Method preview = screen.getClass().getDeclaredMethod("preview");
+                preview.setAccessible(true);
+                preview.invoke(screen);
+            } catch (Exception e) {
+                throw new RuntimeException("could not generate a preview on the editor grid", e);
+            }
+        }));
+        ctx.waitTicks(30);
+        Path doorShot = ctx.takeScreenshot(dev.testkit.harness.Report.fileName("75-sim-map-editor-doors"));
+        dev.testkit.harness.Report.screenshot("75-sim-map-editor-doors", doorShot);
+        System.out.println("[75-sim-map-editor] doors screenshot " + doorShot);
         ctx.runOnClient(mc -> mc.execute(() -> McCompat.setScreen(mc, null)));
         ctx.waitTicks(10);
 
