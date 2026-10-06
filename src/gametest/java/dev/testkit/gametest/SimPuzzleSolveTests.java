@@ -538,6 +538,9 @@ public final class SimPuzzleSolveTests {
                 println(name, "outside: live map room " + ctx.computeOnClient(SimPuzzleSolveTests::liveRoom));
             }
 
+            // ---- Blaze: the free camera, recorded every render frame from before the auto is switched on ----
+            CameraWatch cw = "SimBlazePuzzle".equals(spec.puzzle()) ? new CameraWatch(ctx, name) : null;
+
             // ---- switch it on ---------------------------------------------------------------------------
             ctx.runOnClient(mc -> configure(true, true));
             if (outside != null && secretAura()) {
@@ -711,6 +714,14 @@ public final class SimPuzzleSolveTests {
             // Before the autos go off: Auto Water's last act is the warp onto its chest spot.
             String waterReward = water && solvedAt > 0 && failedAt < 0 ? waterReward(ctx, name) : null;
             ctx.runOnClient(mc -> configure(true, false));
+            String camera = null;
+            if (cw != null) {
+                // The auto is off now, so it has handed the camera back: a few more frames show whether that hand-back
+                // moved the view.
+                ctx.waitTicks(10);
+                camera = cw.verdict();
+                println(name, "camera: " + cw.summary());
+            }
             if (waterReward != null && !waterReward.startsWith("FAIL")) {
                 // With the auto off, so nothing solves the board again under the check.
                 waterReward = waterReward + "; " + waterReset(ctx, name);
@@ -757,8 +768,13 @@ public final class SimPuzzleSolveTests {
                     dumpEvidence(ctx, name, mark);
                     return "FAIL - complete, but the Terminator fired no arrow" + extra;
                 }
-                return String.format("PASS - solved at %.1fs, %d Terminator arrows%s", solvedAt / 20.0, arrows,
-                        extra);
+                if (camera != null) {
+                    dumpEvidence(ctx, name, mark);
+                    return String.format("FAIL - solved at %.1fs with %d arrows, but the free camera: %s%s",
+                            solvedAt / 20.0, arrows, camera, extra);
+                }
+                return String.format("PASS - solved at %.1fs, %d Terminator arrows, camera %s%s", solvedAt / 20.0,
+                        arrows, cw == null ? "not watched" : cw.summary(), extra);
             }
             if (iceBreaks != null) {
                 String broke = iceBreaks.verdict();
@@ -1572,6 +1588,177 @@ public final class SimPuzzleSolveTests {
      *   <li>Both: no body turn bigger than {@link #MAX_TURN} degrees in one tick (a snap).</li>
      * </ul>
      */
+    /**
+     * Auto Blaze's free camera - killer560, 2026-10-06: "make higher lower blaze enter a free cam state right now it
+     * just snaps my camera around everywhere. It should be the same state used for ap3."
+     *
+     * <p>Every RENDER frame, read after the mod's own hooks: what the camera is drawn from ({@code getViewYRot} /
+     * {@code getViewXRot}, which is all {@code Camera} reads), the real body rotation the shots use, whether the mod's
+     * {@code ViewFreeze} is held, the sim Terminator's arrow count and the solver's blaze count. The scenario touches
+     * no mouse, so once the camera is taken the view must not move AT ALL until the auto has handed it back - and
+     * after, since the hand-back turns the body under the view. Per frame and not per tick, because the old lease
+     * lapsed on the wall clock between ticks and showed the body for a frame or two before the next tick re-took it.
+     *
+     * <p>Proof it acted, before any "no snap" is believed: arrows fired inside the window, blazes died inside it, and
+     * the body's yaw or pitch moved more than {@link #MIN_TURN} while the view did not.
+     */
+    static final class CameraWatch {
+        /** Degrees the view may drift: none is expected, this is float noise. */
+        static final double EPS = 0.5;
+        /** The body must turn at least this far inside the window, or the window proved nothing. */
+        static final double MIN_TURN = 5.0;
+        /** {nanos, viewYaw, viewPitch, yaw, pitch, held (1/0, NaN unknown), arrows, blazes} per frame. */
+        private static final List<double[]> FRAMES = java.util.Collections.synchronizedList(new ArrayList<>());
+        private static volatile boolean recording = false;
+        private static boolean hooked = false;
+        private String summary = "not evaluated";
+
+        CameraWatch(ClientGameTestContext ctx, String name) {
+            println(name, "camera: recording every render frame (view, body, ViewFreeze.isHeld, arrows, blazes)");
+            ctx.runOnClient(mc -> {
+                if (!hooked) {
+                    hooked = true;
+                    net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents.AFTER_TRANSLUCENT_FEATURES
+                            .register(c -> {
+                                if (recording) {
+                                    sample(Minecraft.getInstance());
+                                }
+                            });
+                }
+            });
+            FRAMES.clear();
+            recording = true;
+        }
+
+        private static void sample(Minecraft m) {
+            if (m.player == null) {
+                return;
+            }
+            double held;
+            double arrows;
+            double blazes;
+            try {
+                held = (Boolean) ModUnderTest.staticCall("com.killer560.hub.util.ViewFreeze", "isHeld") ? 1 : 0;
+            } catch (Throwable t) {
+                held = Double.NaN;
+            }
+            try {
+                arrows = (Integer) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimTerminator", "arrowsFired");
+            } catch (Throwable t) {
+                arrows = Double.NaN;
+            }
+            try {
+                blazes = ((List<?>) ModUnderTest.staticCall(SOLVERS + "BlazeSolverFeature", "getOrderedBlazes")).size();
+            } catch (Throwable t) {
+                blazes = Double.NaN;
+            }
+            FRAMES.add(new double[]{System.nanoTime(), m.player.getViewYRot(1f), m.player.getViewXRot(1f),
+                    m.player.getYRot(), m.player.getXRot(), held, arrows, blazes});
+        }
+
+        String summary() {
+            return summary;
+        }
+
+        private static double wrap(double d) {
+            d %= 360.0;
+            return d >= 180.0 ? d - 360.0 : d < -180.0 ? d + 360.0 : d;
+        }
+
+        /** Null on a pass, else what moved. Stops recording. */
+        String verdict() {
+            recording = false;
+            List<double[]> f;
+            synchronized (FRAMES) {
+                f = new ArrayList<>(FRAMES);
+            }
+            if (f.isEmpty()) {
+                summary = "no render frame was recorded";
+                return summary;
+            }
+            int start = -1;
+            for (int i = 0; i < f.size() && start < 0; i++) {
+                if (f.get(i)[5] == 1) {
+                    start = i;
+                }
+            }
+            if (start < 0) {
+                summary = String.format("the mod never held the camera in %d frames (ViewFreeze.isHeld %s)", f.size(),
+                        Double.isNaN(f.get(0)[5]) ? "unreadable" : "always false");
+                return summary;
+            }
+            int lastShot = -1;
+            int shots = 0;
+            int kills = 0;
+            for (int i = start + 1; i < f.size(); i++) {
+                if (f.get(i)[6] > f.get(i - 1)[6]) {
+                    shots += (int) (f.get(i)[6] - f.get(i - 1)[6]);
+                    lastShot = i;
+                }
+                if (f.get(i)[7] < f.get(i - 1)[7]) {
+                    kills += (int) (f.get(i - 1)[7] - f.get(i)[7]);
+                }
+            }
+            double[] s = f.get(start);
+            double maxView = 0;
+            int firstMove = -1;
+            double minYaw = s[3], maxYaw = s[3], minPitch = s[4], maxPitch = s[4];
+            double maxGap = 0;
+            int gaps = 0;
+            List<String> gapAt = new ArrayList<>();
+            for (int i = start; i < f.size(); i++) {
+                double[] r = f.get(i);
+                // Modulo a whole turn: a view 360 degrees off draws the same picture (the body keeps its own running
+                // yaw, so the hand-back can land a whole turn away from the held view's number).
+                double dv = Math.max(Math.abs(wrap(r[1] - s[1])), Math.abs(r[2] - s[2]));
+                if (dv > maxView) {
+                    maxView = dv;
+                }
+                if (dv > EPS && firstMove < 0) {
+                    firstMove = i;
+                }
+                minYaw = Math.min(minYaw, r[3]);
+                maxYaw = Math.max(maxYaw, r[3]);
+                minPitch = Math.min(minPitch, r[4]);
+                maxPitch = Math.max(maxPitch, r[4]);
+                maxGap = Math.max(maxGap, Math.max(Math.abs(wrap(r[3] - r[1])), Math.abs(r[4] - r[2])));
+                if (i <= lastShot && r[5] == 0) {
+                    gaps++;
+                    if (gapAt.size() < 6) {
+                        gapAt.add(String.format(java.util.Locale.ROOT, "%.2fs view %.1f/%.1f body %.1f/%.1f",
+                                (r[0] - s[0]) / 1e9, r[1], r[2], r[3], r[4]));
+                    }
+                }
+            }
+            double ms = (f.get(f.size() - 1)[0] - s[0]) / 1e6;
+            summary = String.format(java.util.Locale.ROOT,
+                    "%d frames over %.1fs from the first hold; %d arrow(s) and %d blaze kill(s) in it; view moved at most "
+                            + "%.3f deg (limit %.1f); body yaw range %.1f, pitch range %.1f; body-to-camera gap up to %.1f "
+                            + "deg; %d frame(s) up to the last shot with the camera NOT held",
+                    f.size() - start, ms / 1000.0, shots, kills, maxView, EPS, maxYaw - minYaw, maxPitch - minPitch,
+                    maxGap, gaps) + (gapAt.isEmpty() ? "" : " " + gapAt);
+            if (shots == 0) {
+                return "no arrow was fired after the camera was taken - nothing measured (" + summary + ")";
+            }
+            if (kills == 0) {
+                return "no blaze died after the camera was taken - nothing measured (" + summary + ")";
+            }
+            if (maxYaw - minYaw < MIN_TURN && maxPitch - minPitch < MIN_TURN) {
+                return "the body never turned more than " + MIN_TURN + " deg, so a still view proves nothing ("
+                        + summary + ")";
+            }
+            if (firstMove >= 0) {
+                double[] r = f.get(firstMove);
+                return String.format(java.util.Locale.ROOT,
+                        "the VIEW moved %.1f s after it was taken: view %.1f/%.1f against the held %.1f/%.1f, body %.1f/%.1f, "
+                                + "held=%s, arrows so far %d (%s)",
+                        (r[0] - s[0]) / 1e9, r[1], r[2], s[1], s[2], r[3], r[4], r[5] == 1 ? "yes" : "NO",
+                        (int) (r[6] - s[6]), summary);
+            }
+            return null;
+        }
+    }
+
     static final class BoulderWatch {
         static final float MAX_TURN = 40f;
         private final String name;
