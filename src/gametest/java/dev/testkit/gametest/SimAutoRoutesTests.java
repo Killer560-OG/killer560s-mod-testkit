@@ -756,36 +756,49 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             n.add(ew(pts[i][0], pts[i][1], to[0], to[1], i == 0));
         }
         writeRoute(ctx, n);
-        tpRel(ctx, 4.5, 6.5, 0f, 0f);
-        ctx.waitTicks(10);
-        long mark = LogTap.mark();
-        startSampling(ctx);
-        tpRel(ctx, 6.5, 6.5, -90f, 0f);
-        Vec3 landed = waitLanded(ctx, end[0], end[1], 300);
-        ctx.waitTicks(10);
-        stopSampling(ctx);
-        ArChainMeasure.Chain chain = ArChainMeasure.chain(0);
-        println("chain: " + chain.describe());
-        int acted = 0;
-        for (String l : LogTap.since(mark)) {
-            acted += l.contains("ETHERWARP acted") ? 1 : 0;
+        List<String> results = new ArrayList<>();
+        try {
+            // Etherwarps Per Second (killer560, 2026-10-06): a pace of 20/rate ticks between warps, never ahead of the
+            // landing. 20 is the sim's round trip (two ticks: its server answers a tick later than the dedicated one).
+            // 3/s is the fractional pace: 6.67 ticks on average, the fraction carried (7, 7, 6).
+            for (int rate : new int[]{20, 10, 4, 3}) {
+                ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setEtherwarpsPerSecond",
+                        new Class<?>[]{int.class}, new Object[]{rate}));
+                stopRoute(ctx);
+                tpRel(ctx, 4.5, 6.5, 0f, 0f);
+                ctx.waitTicks(10);
+                long mark = LogTap.mark();
+                startSampling(ctx);
+                tpRel(ctx, 6.5, 6.5, -90f, 0f);
+                Vec3 landed = waitLanded(ctx, end[0], end[1], 400);
+                ctx.waitTicks(10);
+                stopSampling(ctx);
+                ArChainMeasure.Chain chain = ArChainMeasure.chain(0);
+                println("chain at " + rate + "/s: " + chain.describe());
+                results.add(String.format(Locale.ROOT, "%d/s: %.2f", rate, chain.ticksPerWarp()));
+                int acted = 0;
+                for (String l : LogTap.since(mark)) {
+                    acted += l.contains("ETHERWARP acted") ? 1 : 0;
+                }
+                check(landed != null, rate + "/s: the chain did not reach its end at " + end[0] + "," + end[1] + " (at "
+                        + relPos(ctx) + ")");
+                check(acted == pts.length && chain.warps() == pts.length, rate + "/s: expected " + pts.length
+                        + " etherwarps, the log says " + acted + " acted and the trace has " + chain.warps() + " use(s)");
+                check(chain.usesBeforeLanding() == 0, rate + "/s: " + chain.usesBeforeLanding() + " warp(s) went out "
+                        + "before the previous landing was accepted");
+                double want = Math.max(2.0, 20.0 / rate);
+                if (rate == 20) {
+                    check(chain.firesOnLanding(), "20/s: a warp waited after its landing arrived: ticks from each landing "
+                            + "to the next use " + chain.landingToUse());
+                }
+                check(Math.abs(chain.ticksPerWarp() - want) <= 0.3, String.format(Locale.ROOT, "%d/s: %.2f ticks per "
+                        + "warp (gaps %s), expected %.2f", rate, chain.ticksPerWarp(), chain.gaps(), want));
+            }
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setEtherwarpsPerSecond",
+                    new Class<?>[]{int.class}, new Object[]{20}));
+            println("chain ticks per warp: " + results);
         }
-        List<String> lines = PacketTrace.lines();
-        for (String l : lines.subList(0, Math.min(lines.size(), 40))) {
-            println("  chain trace " + l);
-        }
-        check(landed != null, "the chain did not reach its end at " + end[0] + "," + end[1] + " (at " + relPos(ctx) + ")");
-        check(acted == pts.length && chain.warps() == pts.length, "expected " + pts.length + " etherwarps, the log says "
-                + acted + " acted and the trace has " + chain.warps() + " use(s)");
-        check(chain.usesBeforeLanding() == 0, chain.usesBeforeLanding() + " warp(s) went out before the previous landing "
-                + "was accepted");
-        // The sim's integrated server answers a use a tick later than the dedicated server does (its position packet
-        // lands two client ticks after the use: measured 2026-10-06), so here the round trip is the floor: every warp
-        // must go out on the very tick its landing arrived, and that makes two ticks per warp.
-        check(chain.firesOnLanding(), "a warp waited after its landing arrived: ticks from each landing to the next use "
-                + chain.landingToUse());
-        check(chain.ticksPerWarp() <= 2.0, String.format(Locale.ROOT, "%.2f ticks per warp on an unconditional chain "
-                + "(gaps %s) - expected the sim's round trip, two", chain.ticksPerWarp(), chain.gaps()));
     }
 
     /**

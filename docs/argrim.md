@@ -25,3 +25,6 @@ abilities are `hx/dungeon/HxAbilities` (etherwarp, Instant Transmission, Superbo
   later, so 96-ar-chain's floor is 2.00 (main: 5.00).
 - `62-argrim-crypt` first holds the real use key through the harness (Hyperion, straight down) as the vanilla control, then
   requires the crypt node's use ticks to match it: every 4 ticks, the same packets per use.
+- Since 2026-10-06 (ar-warprate) the chain runs at Etherwarps Per Second 20, 10 and 4 (96-ar-chain adds 3, the
+  fractional pace) and asserts the average spacing: Grim 1.00 / 2.00 / 5.00 ticks per warp, clean; sim 2.00 / 2.00 / 5.00
+  / 6.73 (gaps 7, 7, 6). Pacing never sends a warp before the previous landing's teleport accept.
