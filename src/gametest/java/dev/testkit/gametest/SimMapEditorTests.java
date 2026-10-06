@@ -273,9 +273,64 @@ public class SimMapEditorTests implements FabricClientGameTest {
             }
         }));
         ctx.waitTicks(30);
+        // 7b. The room labels follow the live map's Room Labels setting (killer560, 2026-10-06: the designer
+        // should show the secrets under the name when his normal map does). The screen records what it wrote on
+        // the last frame, so this reads that back rather than guessing from pixels. Name only first, then
+        // name + secrets; the screenshot below is taken with name + secrets.
+        final String liveCfg = "com.killer560.hub.livemap.LiveMapConfig";
+        final String editorScreen = "com.killer560.hub.roomsim.SimMapEditorScreen";
+        final int[] oldStyle = new int[1];
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.staticCall(liveCfg, "getInstance");
+            oldStyle[0] = (Integer) ModUnderTest.call(cfg, "getRoomLabels", new Class<?>[]{}, new Object[]{});
+        });
+        try {
+            String[] shown = new String[2];
+            int[] styles = {3, 4};
+            for (int i = 0; i < 2; i++) {
+                final int style = styles[i];
+                ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.staticCall(liveCfg, "getInstance"),
+                        "setRoomLabels", new Class<?>[]{int.class}, new Object[]{style}));
+                ctx.waitTicks(10);
+                ctx.runOnClient(mc -> {
+                    shown[0] = (String) ModUnderTest.staticCall(editorScreen, "labelsDrawn");
+                });
+                String drawnNow = shown[0];
+                int rooms = drawnNow.isEmpty() ? 0 : drawnNow.split(";").length;
+                int secretLines = 0;
+                for (String room : drawnNow.split(";")) {
+                    for (String line : room.split("\\|")) {
+                        if (line.matches("\\d+/\\d+")) {
+                            secretLines++;
+                        }
+                    }
+                }
+                System.out.println("[75-sim-map-editor] labels at Room Labels style " + style + ": " + rooms
+                        + " room(s) labelled, " + secretLines + " secrets line(s): " + drawnNow);
+                if (rooms < 5) {
+                    throw new AssertionError("the designer labelled only " + rooms
+                            + " room(s) at style " + style + " - the labels did not run");
+                }
+                if (style == 3 && secretLines != 0) {
+                    throw new AssertionError("Room Name drew " + secretLines + " secrets line(s) on the designer");
+                }
+                if (style == 4 && secretLines == 0) {
+                    throw new AssertionError("Room Name + Secrets drew no secrets line on the designer");
+                }
+                shown[1] = drawnNow;
+            }
+        } catch (Throwable t) {
+            ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.staticCall(liveCfg, "getInstance"),
+                    "setRoomLabels", new Class<?>[]{int.class}, new Object[]{oldStyle[0]}));
+            throw t;
+        }
+        // Style 4 is still set here, for the picture; restored after it.
+        ctx.waitTicks(10);
         Path doorShot = ctx.takeScreenshot(dev.testkit.harness.Report.fileName("75-sim-map-editor-doors"));
         dev.testkit.harness.Report.screenshot("75-sim-map-editor-doors", doorShot);
         System.out.println("[75-sim-map-editor] doors screenshot " + doorShot);
+        ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.staticCall(liveCfg, "getInstance"),
+                "setRoomLabels", new Class<?>[]{int.class}, new Object[]{oldStyle[0]}));
         ctx.runOnClient(mc -> mc.execute(() -> McCompat.setScreen(mc, null)));
         ctx.waitTicks(10);
 
