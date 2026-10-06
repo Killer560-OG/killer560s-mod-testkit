@@ -33,3 +33,7 @@ abilities are `hx/dungeon/HxAbilities` (etherwarp, Instant Transmission, Superbo
   setback is). The route must keep running, finish the walk, log `[Correction] Auto Routes:` per move, show a chat line and
   play the alarm (`ModSounds.correctionAlarmsPlayed`). The rest of the suite must report NO correction: a report during
   pingpong/chain/path/imwarp would be the route mistaking its own landing for one (mod no-stop-corrections: none).
+- `62-argrim-autoclear` (2026-10-06): Auto Clear's clearRoom with the Hyperion on three `dungeon.starred` mobs (open, inside the
+  middle wall, behind it); the server emulates Wither Impact (`HxAbilities.witherImpact`: 10-block dash that settles at his
+  height on a slightly-downward look, as the sim and Hypixel do - the plain transmission walk stopped dead there and every
+  hop "never landed" - then a 6-block blast). Requires every mob dead, a landed hop, no entity packet. Clean on mod 27c52408.

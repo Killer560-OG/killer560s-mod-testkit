@@ -59,6 +59,60 @@ public final class HxDungeonModule implements HxModule {
         HxBridge.register("dungeon.paste", HxDungeonModule::paste);
         HxBridge.register("dungeon.blocks", HxDungeonModule::blocks);
         HxBridge.register("dungeon.tp", HxDungeonModule::tp);
+        HxBridge.register("dungeon.starred", HxDungeonModule::starred);
+        HxBridge.register("dungeon.alive", HxDungeonModule::alive);
+    }
+
+    /**
+     * A Catacombs starred mob as Hypixel shows it: a zombie (no AI, persistent) and, built right after it so its entity
+     * id is the zombie's plus one, an invisible marker armour stand over it named " (star) Zombie 20(heart)" - what Mob
+     * ESP (and so Auto Clear) resolves. Args x, y, z (the zombie's feet). Returns the two UUIDs and entity ids.
+     */
+    private static JsonElement starred(MinecraftServer server, JsonObject a) {
+        ServerLevel level = server.overworld();
+        double x = a.get("x").getAsDouble();
+        double y = a.get("y").getAsDouble();
+        double z = a.get("z").getAsDouble();
+        var zombieType = net.minecraft.world.entity.EntityType.byString("minecraft:zombie").orElseThrow();
+        var standType = net.minecraft.world.entity.EntityType.byString("minecraft:armor_stand").orElseThrow();
+        var mob = (net.minecraft.world.entity.Mob) zombieType.create(level,
+                net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        var stand = (net.minecraft.world.entity.decoration.ArmorStand) standType.create(level,
+                net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        mob.setNoAi(true);
+        mob.setPersistenceRequired();
+        mob.setPos(x, y, z);
+        stand.snapTo(x, y + mob.getBbHeight() + 0.1, z, 0f, 0f);
+        stand.setInvisible(true);
+        stand.setNoGravity(true);
+        stand.setInvulnerable(true);
+        byte flags = stand.getEntityData().get(net.minecraft.world.entity.decoration.ArmorStand.DATA_CLIENT_FLAGS);
+        stand.getEntityData().set(net.minecraft.world.entity.decoration.ArmorStand.DATA_CLIENT_FLAGS,
+                (byte) (flags | net.minecraft.world.entity.decoration.ArmorStand.CLIENT_FLAG_MARKER));
+        stand.setCustomName(net.minecraft.network.chat.Component.literal(" ✯ Zombie 20❤"));
+        stand.setCustomNameVisible(true);
+        level.addFreshEntity(mob);
+        level.addFreshEntity(stand);
+        JsonObject out = new JsonObject();
+        out.addProperty("mob", mob.getUUID().toString());
+        out.addProperty("stand", stand.getUUID().toString());
+        out.addProperty("mobId", mob.getId());
+        out.addProperty("standId", stand.getId());
+        return out;
+    }
+
+    /** "alive", "dead" or "missing" for arg {@code id}; a mob no longer alive loses its star stand (arg {@code stand}). */
+    private static JsonElement alive(MinecraftServer server, JsonObject a) {
+        ServerLevel level = server.overworld();
+        var e = level.getEntity(java.util.UUID.fromString(a.get("id").getAsString()));
+        String state = e == null ? "missing" : e.isAlive() ? "alive" : "dead";
+        if (!"alive".equals(state) && a.has("stand")) {
+            var s = level.getEntity(java.util.UUID.fromString(a.get("stand").getAsString()));
+            if (s != null) {
+                s.discard();
+            }
+        }
+        return new JsonPrimitive(state);
     }
 
     /** A server teleport to x, y, z with an absolute yaw/pitch - what {@code /tp} does, but answered synchronously. */
