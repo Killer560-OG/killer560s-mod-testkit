@@ -102,10 +102,11 @@ public class SimMapWarpTests implements FabricClientGameTest {
         // (ClearExecutor -> EtherwarpPathfinder.tickWarm), so with it on from the start the premise was a race
         // (2026-10-05/06): the full graph (~5-9 s) sometimes finished during the run's 5 s countdown, and on a
         // loaded machine the quick graph first warmed on the ~120 landings present before the floor's chunks
-        // arrived, so at GO the press had to re-warm it inside its 600 ms and fell to room by room. Now the map
-        // stays off until every chunk of the floor is on the client, is switched on until the quick graph reports
-        // warm on the floor, and is switched off again (pausing the full graph) until the early press resumes it.
-        warmQuickOnly(ctx);
+        // arrived (behind the sealed entrance a warm-up sees only the entrance), so at GO the press had to warm it
+        // inside its 600 ms and, on a loaded machine, fell to room by room. Now the map stays off until every chunk
+        // of the floor is on the client and the gate is open, is switched on until the quick graph reports warm on
+        // the floor, and is switched off again (pausing the full graph) until the early press resumes it.
+        awaitFloorChunks(ctx);
 
         List<String> failures = new ArrayList<>();
         try {
@@ -182,6 +183,7 @@ public class SimMapWarpTests implements FabricClientGameTest {
             ctx.waitTicks(1);
         }
         ctx.waitTicks(3);   // the gate's block updates reach the client
+        warmQuickOnly(ctx);
 
         // ---- a press during the floor's FIRST warm-up (the gate just opened the whole floor) -------------
         // Before 2026-10-05 this got 40 ms on the half-built graph and then the room-by-room planner (about twice
@@ -419,14 +421,8 @@ public class SimMapWarpTests implements FabricClientGameTest {
         return summary;
     }
 
-    /**
-     * Waits (at most 90 s) for every chunk of the floor on the client, turns the Interactive Map on, waits (at most
-     * 60 s) for the quick graph to report warm on 3,000+ nodes, then turns the map off again, which stops the
-     * background warm-up (ClearExecutor only calls tickWarm with it on). Records whether the quick graph never got
-     * warm or the full graph got warm too, either of which would make the early press meaningless.
-     */
-    private static void warmQuickOnly(ClientGameTestContext ctx) {
-        FULL_WARM_BEFORE_PAUSE[0] = false;
+    /** Waits (at most 90 s) for every chunk under the floor's tiles to be on the client. */
+    private static void awaitFloorChunks(ClientGameTestContext ctx) {
         // Every chunk under the floor's 6 x 6 tiles on the client (render distance 16 covers a floor from any tile).
         int missing = -1;
         int waited = 0;
@@ -453,6 +449,16 @@ public class SimMapWarpTests implements FabricClientGameTest {
         }
         println("floor chunks on the client: " + (missing == 0 ? "all, after " + waited / 20.0 + " s"
                 : missing + " still missing after 90 s"));
+    }
+
+    /**
+     * Turns the Interactive Map on (the floor's chunks are on the client and the gate is open), waits (at most
+     * 60 s) for the quick graph to report warm on 3,000+ nodes, then turns the map off again, which stops the
+     * background warm-up (ClearExecutor only calls tickWarm with it on). Records whether the quick graph never got
+     * warm or the full graph got warm too, either of which would make the early press meaningless.
+     */
+    private static void warmQuickOnly(ClientGameTestContext ctx) {
+        FULL_WARM_BEFORE_PAUSE[0] = false;
         long mark = LogTap.mark();
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(LIVE_MAP_CONFIG), "setInteractiveMapEnabled", true));
         String quickLine = null;
