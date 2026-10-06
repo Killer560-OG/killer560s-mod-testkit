@@ -71,7 +71,7 @@ final class BreakerDisplayCases {
             }
         }
         double[] startPos = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
-        boolean hideGuiWas = c.onClient(mc -> mc.options.hideGui);
+        boolean hideGuiWas = c.onClient(mc -> hideGui(mc));
         c.note("scene at " + bx + "," + gy + "," + bz + ": pick A " + a.toShortString() + " (in sight, in reach), wall x="
                 + (bx + 7) + ", pick B " + b.toShortString() + " (behind it), pick C " + far.toShortString()
                 + " (40 out)");
@@ -95,7 +95,7 @@ final class BreakerDisplayCases {
                 });
                 mc.player.setYRot(-90f);
                 mc.player.setXRot(0f);
-                mc.options.hideGui = true;
+                setHideGui(mc, true);
                 return null;
             });
             c.ctx().waitFor(mc -> Math.abs(mc.player.getX() - (bx + 0.5)) < 0.01
@@ -167,7 +167,7 @@ final class BreakerDisplayCases {
                     if (off && (Boolean) Mod.staticCall("secrets.DungeonState", "isInDungeon")) {
                         Mod.staticCall("secrets.DungeonState", "toggleSimOverride");
                     }
-                    mc.options.hideGui = hideGuiWas;
+                    setHideGui(mc, hideGuiWas);
                     var server = mc.getSingleplayerServer();
                     var uuid = mc.player.getUUID();
                     server.execute(() -> {
@@ -271,5 +271,23 @@ final class BreakerDisplayCases {
             return null;
         });
         c.ctx().waitFor(mc -> done.get(), 200);
+    }
+
+    // Options.hideGui exists on 26.1.2 but not on 26.2 (javap, 2026-10-06), so it is reached by reflection and is a
+    // no-op where absent - the pixel counts compare against a no-picks frame either way.
+    private static boolean hideGui(net.minecraft.client.Minecraft mc) {
+        try {
+            return mc.options.getClass().getField("hideGui").getBoolean(mc.options);
+        } catch (ReflectiveOperationException e) {
+            return false;
+        }
+    }
+
+    private static void setHideGui(net.minecraft.client.Minecraft mc, boolean v) {
+        try {
+            mc.options.getClass().getField("hideGui").setBoolean(mc.options, v);
+        } catch (ReflectiveOperationException ignored) {
+            // 26.2: no such option
+        }
     }
 }
