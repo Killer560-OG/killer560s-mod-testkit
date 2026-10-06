@@ -79,12 +79,14 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             s.test("63-ap3-use-walk", c -> caseUse(c, "63-ap3-use-walk", false, false));
             s.test("63-ap3-use-swap", c -> caseUse(c, "63-ap3-use-swap", true, false));
             s.test("63-ap3-use-on-block", c -> caseUse(c, "63-ap3-use-on-block", false, true));
+            s.test("63-ap3-block-walk", c -> caseInteract(c, "BLOCK"));
+            s.test("63-ap3-boom-walk", c -> caseInteract(c, "BOOM"));
             for (String type : new String[]{"LOOK", "USE", "STOPWATCH", "JUMP", "EDGE", "BLOCK", "BOOM", "TERMINAL",
                     "LEAP_COUNTER", "TERM_AURA", "STOP", "ALIGN", "AXIS_ALIGN", "FAST_ALIGN", "WALK"}) {
                 String name = "63-ap3-hold-" + type.toLowerCase(Locale.ROOT).replace('_', '-');
-                s.testExpectingFlags(name, c -> caseHold(c, name, type));
+                s.test(name, c -> caseHold(c, name, type));
             }
-            s.testExpectingFlags("63-ap3-hold-boom-then-stop", Ap3RuntimeTests::caseBoomThenStop);
+            s.test("63-ap3-hold-boom-then-stop", Ap3RuntimeTests::caseBoomThenStop);
             s.test("63-ap3-stopwatch-hud", Ap3RuntimeTests::caseStopwatchHud);
             s.testExpectingFlags("63-ap3-corrections-off", c -> caseCorrection(c, false));
             s.testExpectingFlags("63-ap3-corrections-on", c -> caseCorrection(c, true));
@@ -560,6 +562,115 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         c.note(String.format(Locale.ROOT, "travelled %.2f blocks in the 12 ticks after the USE", carried));
         if (carried < 1.5) {
             problems.add(String.format(Locale.ROOT, "the USE ended the run (%.2f blocks in 12 ticks)", carried));
+        }
+        if (!problems.isEmpty()) {
+            throw new AssertionError(String.join("; ", problems));
+        }
+    }
+
+    // ------------------------------------------------------------------------------------------------- BLOCK / BOOM
+
+    /**
+     * RUN, then a BLOCK (a slab placed on the floor beside the lane, swapped to from slot 6 and back to slot 1) or a
+     * BOOM (a Superboom tap on the floor ahead, swapped to slot 7). On the wire: one hotbar change right before the
+     * place / dig with no movement packet between, the place / dig the next thing after the movement packet that
+     * entered the box, a Block's swap back sent once, and the run still going. GrimAC judges the rest (Post,
+     * BadPacketsA, RotationPlace) because the case is a plain test.
+     */
+    private static void caseInteract(Session c, String type) {
+        ClientGameTestContext ctx = c.ctx();
+        ctx.getInput().pressKey(options -> options.keyHotbarSlots[0]);
+        ctx.waitTicks(3);
+        double z = lane();
+        boolean block = type.equals("BLOCK");
+        int itemSlot = block ? 5 : 6;
+        Object run = runNode(z);
+        Object n = node(type, LANE_X0 + 10.0, z, block ? 0f : -90f, 60f, 1.0, 3.0);
+        Object stop = node("STOP", LANE_X0 + 22.0, z, -90f, 0f, 2.0, 3.0);
+        startProbe(ctx);
+        walkIntoRun(c, z, run, n, stop);
+        ctx.waitTicks(30);
+        List<Ev> evs = stopProbe(ctx);
+        Ev entry = firstInside(ctx, evs, n);
+        if (entry == null) {
+            throw new AssertionError("never entered the " + type + " box");
+        }
+        dump(c, evs, entry.tick() - 1, entry.tick() + 4);
+        int act = -1;
+        int acts = 0;
+        for (int i = 0; i < evs.size(); i++) {
+            Ev e = evs.get(i);
+            boolean hit = block ? e.kind().equals("useon")
+                    : e.kind().equals("action") && e.extra().equals("START_DESTROY_BLOCK");
+            if (hit) {
+                acts++;
+                if (act < 0) {
+                    act = i;
+                }
+            }
+        }
+        if (acts != 1) {
+            throw new AssertionError("expected exactly one " + (block ? "block place" : "Superboom dig") + ", saw " + acts);
+        }
+        int entryMove = -1;
+        for (int i = 0; i < evs.size() && entryMove < 0; i++) {
+            Ev e = evs.get(i);
+            if (e.kind().equals("move") && !Double.isNaN(e.x())) {
+                boolean in = onClient(ctx, mc -> contains(n, new Vec3(e.x(), e.y(), e.z())));
+                if (in) {
+                    entryMove = i;
+                }
+            }
+        }
+        List<String> problems = new ArrayList<>();
+        if (entryMove < 0 || act < entryMove) {
+            problems.add("the " + type + " went out before any movement packet put him in its box");
+        } else {
+            int between = 0;
+            for (int i = entryMove + 1; i < act; i++) {
+                if (evs.get(i).kind().equals("move")) {
+                    between++;
+                }
+            }
+            c.note("movement packets between the one that entered the box and the " + type + ": " + between);
+            if (between != 0) {
+                problems.add(between + " movement packet(s) between entering the box and the " + type);
+            }
+        }
+        int to = 0, back = 0, lastTo = -1;
+        for (int i = 0; i < evs.size(); i++) {
+            Ev e = evs.get(i);
+            if (e.kind().equals("carry")) {
+                if (e.slot() == itemSlot) {
+                    to++;
+                    lastTo = i;
+                } else if (e.slot() == 0 && i > act) {
+                    back++;
+                }
+            }
+        }
+        c.note("hotbar changes: to slot " + (itemSlot + 1) + " x" + to + ", back to slot 1 x" + back);
+        if (to != 1) {
+            problems.add("the change to slot " + (itemSlot + 1) + " was sent " + to + " times");
+        } else {
+            if (lastTo > act) {
+                problems.add("the hotbar change went out after the " + type);
+            }
+            for (int i = lastTo + 1; i < act; i++) {
+                if (evs.get(i).kind().equals("move")) {
+                    problems.add("a movement packet went out between the hotbar change and the " + type);
+                    break;
+                }
+            }
+        }
+        if (block && back != 1) {
+            problems.add("the swap back to slot 1 was sent " + back + " times");
+        }
+        Ev later = endAt(evs, entry.tick() + 12);
+        double carried = later == null ? 0 : later.x() - entry.x();
+        c.note(String.format(Locale.ROOT, "travelled %.2f blocks in the 12 ticks after the %s", carried, type));
+        if (carried < 1.5) {
+            problems.add(String.format(Locale.ROOT, "the %s ended the run (%.2f blocks in 12 ticks)", type, carried));
         }
         if (!problems.isEmpty()) {
             throw new AssertionError(String.join("; ", problems));
