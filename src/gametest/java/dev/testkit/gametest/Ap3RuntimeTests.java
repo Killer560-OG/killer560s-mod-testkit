@@ -3,6 +3,7 @@ package dev.testkit.gametest;
 import dev.testkit.compat.McCompat;
 import dev.testkit.gametest.hx.Session;
 import dev.testkit.harness.PacketTrace;
+import dev.testkit.harness.Report;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
@@ -639,7 +640,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         Object stop = node("STOP", LANE_X0 + 14.0, z, -90f, 0f, 1.0, 3.0);
         startProbe(ctx);
         walkIntoRun(c, z, run, boom, stop);
-        ctx.waitTicks(40);
+        ctx.waitTicks(80); // ~12 blocks to the STOP at sprint speed is ~45 ticks
         List<Ev> evs = stopProbe(ctx);
         Ev atStop = firstInside(ctx, evs, stop);
         if (atStop == null) {
@@ -710,13 +711,45 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
                 return null;
             });
             ctx.waitTicks(5);
-            long inEditor = msSinceHud(ctx);
+            // HudSeen does not stamp while the editor is open (markDrawn returns early there), so the preview is read
+            // off the screen: the stopped time is drawn in GOOD green (0x55FF55), which nothing else here uses.
+            String editorState = onClient(ctx, mc -> {
+                Screen sc = McCompat.screen(mc);
+                List<String> ids = new ArrayList<>();
+                try {
+                    Field f = sc.getClass().getDeclaredField("shown");
+                    f.setAccessible(true);
+                    for (Object el : (java.util.Collection<?>) f.get(sc)) {
+                        ids.add(String.valueOf(ModUnderTest.call(el, "id", new Class<?>[]{}, new Object[]{})));
+                    }
+                } catch (ReflectiveOperationException | RuntimeException e) {
+                    ids.add(e.toString());
+                }
+                return (sc == null ? "no screen" : sc.getClass().getSimpleName()) + " " + ids;
+            });
+            java.nio.file.Path shot = ctx.takeScreenshot(Report.fileName(c.name() + "-editor"));
+            Report.screenshot(c.name(), shot);
+            int green = 0;
+            try {
+                java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(shot.toFile());
+                for (int y = 0; y < img.getHeight(); y++) {
+                    for (int x = 0; x < img.getWidth(); x++) {
+                        int rgb = img.getRGB(x, y);
+                        int r = (rgb >> 16) & 0xFF, g = (rgb >> 8) & 0xFF, b = rgb & 0xFF;
+                        if (g > 230 && r < 110 && b < 110) {
+                            green++;
+                        }
+                    }
+                }
+            } catch (java.io.IOException e) {
+                throw new AssertionError("could not read the editor screenshot", e);
+            }
             onClient(ctx, mc -> {
                 McCompat.setScreen(mc, null);
                 return null;
             });
-            c.note("in the HUD editor: drawn " + inEditor + " ms ago");
-            if (inEditor > 500) {
+            c.note("HUD editor ~12 s after the stop: " + editorState + ", " + green + " green preview pixel(s)");
+            if (!editorState.contains("ap3_stopwatch") || green < 10) {
                 throw new AssertionError("the HUD editor no longer previews the stopwatch");
             }
             // And a new start shows it again.
