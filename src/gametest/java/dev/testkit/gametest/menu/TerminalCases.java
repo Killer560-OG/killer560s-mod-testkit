@@ -37,6 +37,12 @@ final class TerminalCases {
             new Spec("SELECT", new Object[]{"seed", 15, "color", "RED", "count", 6}, "AutoSelectEnabled"),
             new Spec("MELODY", new Object[]{"seed", 16, "interval", 10}, "AutoMelodyEnabled"));
 
+    /** The NEW layouts of Hypixel's 2026-10-06 update (killer560): "Click in order!" with 10 numbers, Melody with 3
+     *  rows. HxTerminals' shapes for them are a guess until the real boards are seen (see its class doc). */
+    static final Spec NUMBERS_10 = new Spec("NUMBERS", new Object[]{"seed", 23, "count", 10}, "AutoNumbersEnabled");
+    static final Spec MELODY_3 = new Spec("MELODY", new Object[]{"seed", 26, "interval", 10, "bandRows", 3}, "AutoMelodyEnabled");
+    static final String LAYOUTS = "terminals.TerminalLayouts";
+
     private TerminalCases() {
     }
 
@@ -52,7 +58,51 @@ final class TerminalCases {
             MenuSuite.test(s, name, c -> autoCase(c, spec, false));
         }
         MenuSuite.test(s, "217-menu-term-auto-zero-delay", c -> autoCase(c, SPECS.get(2), true));
-        MenuSuite.test(s, "218-menu-term-melody-jump", TerminalCases::melodyJump);
+        MenuSuite.test(s, "218-menu-term-melody-jump", c -> melodyJump(c, 4));
+        // The 2026-10-06 layouts, beside the old ones above.
+        MenuSuite.test(s, "207-menu-term-solver-numbers10", c -> layoutCase(c, NUMBERS_10, () -> solverCase(c, NUMBERS_10)));
+        MenuSuite.test(s, "208-menu-term-solver-melody3", c -> layoutCase(c, MELODY_3, () -> solverCase(c, MELODY_3)));
+        MenuSuite.test(s, "209-menu-term-auto-numbers10", c -> layoutCase(c, NUMBERS_10, () -> autoCase(c, NUMBERS_10, false)));
+        MenuSuite.test(s, "210-menu-term-auto-melody3", c -> layoutCase(c, MELODY_3, () -> autoCase(c, MELODY_3, false)));
+        MenuSuite.test(s, "219-menu-term-melody-jump3", c -> layoutCase(c, MELODY_3, () -> melodyJump(c, 3)));
+        // (220-229 are the experiment cases.)
+        MenuSuite.test(s, "290-menu-term-melody-keys3", c -> layoutCase(c, MELODY_3, () -> melodyKeys(c)));
+        MenuSuite.test(s, "291-menu-term-melody3-skip-all", TerminalCases::melodySkipAll);
+    }
+
+    interface Body {
+        void run() throws Exception;
+    }
+
+    /**
+     * Runs a new-layout case and then checks the mod RECORDED the layout it was shown (TerminalLayouts, mod
+     * e5fd5db1+): Melody's row count, or the number count of "Click in order!". The record is cleared first, so
+     * an old board earlier in the session cannot satisfy it. A jar without TerminalLayouts (main before the
+     * 2026-10-06 work) only gets the case itself.
+     */
+    static void layoutCase(Session c, Spec spec, Body body) throws Exception {
+        boolean has = c.onClient(mc -> {
+            try {
+                Mod.staticCall(LAYOUTS, "resetSeen");
+                return true;
+            } catch (AssertionError e) {
+                return false;
+            }
+        });
+        body.run();
+        if (!has) {
+            c.note("jar has no " + LAYOUTS + "; layout detection not checked");
+            return;
+        }
+        if (spec.type().equals("MELODY")) {
+            int rows = c.onClient(mc -> (Integer) Mod.staticCall(LAYOUTS, "melodyRows"));
+            c.check(rows == 3, "TerminalLayouts.melodyRows() is " + rows + " after a 3-row Melody board");
+            c.note("layout detected: Melody " + rows + " rows");
+        } else {
+            int count = c.onClient(mc -> (Integer) Mod.staticCall(LAYOUTS, "numbersCount"));
+            c.check(count == 10, "TerminalLayouts.numbersCount() is " + count + " after a 10-number board");
+            c.note("layout detected: Click in order " + count + " numbers");
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -146,7 +196,10 @@ final class TerminalCases {
     /** TerminalSolverFeature's private CELL_SIZE / SLOT_SIZE (Custom GUI cell pitch and filled square). */
     static final int CELL = 18;
     static final int SQUARE = 16;
-    static final int MELODY_STEPS = 16;
+    /** Steps measured per run of {@link #melodyJump}: 8 per layout pass on the 4-row board, 7 on the 3-row one. */
+    static int melodySteps(int bandRows) {
+        return 2 * (bandRows >= 4 ? 8 : 7);
+    }
 
     /**
      * killer560, 2026-10-05: with NoammAddons' auto terms skipping several Melody rows at once, the Terminal Solver's
@@ -159,7 +212,8 @@ final class TerminalCases {
      * MelodySim), once with finished rows keeping their lime pane and lime terracotta (the board Odin's MelodyHandler
      * reads with indexOfLast). Every step is reported before the verdict, so a failing jar shows which steps lost it.
      */
-    static void melodyJump(Session c) throws Exception {
+    static void melodyJump(Session c, int bandRows) throws Exception {
+        final int MELODY_STEPS = melodySteps(bandRows);
         MenuKit.reset(c);
         Object cfgObj = c.onClient(mc -> Mod.cfg(CONFIG));
         Object movingKey = Mod.enumValue("terminals.TerminalSolverConfig$OverlayColor", "MELODY_MOVING");
@@ -174,24 +228,31 @@ final class TerminalCases {
                 String layout = keepDone ? "keepDone" : "redraw";
                 // Phase A: slot updates. Open, move the marker, advance one row, then jump two rows in one tick.
                 JsonObject t = c.hx().call("menu.terminal", "type", "MELODY", "seed", 18, "target", 3, "freeze", true,
-                        "keepDone", keepDone).getAsJsonObject();
+                        "keepDone", keepDone, "bandRows", bandRows).getAsJsonObject();
                 MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
                 c.waitUntil("TerminalSolverFeature.currentType == MELODY", mc -> "MELODY".equals(currentType()), 100);
                 steps += melodyStep(c, layout + " open row1", 10, failures);
                 steps += melodyStep(c, layout + " marker move", melody(c, 1, 3, "slots"), failures);
-                steps += melodyStep(c, layout + " +1 row (slots)", melody(c, 2, 1, "slots"), failures);
-                steps += melodyStep(c, layout + " +2 rows (slots, one tick)", melody(c, 4, 2, "slots"), failures);
+                if (bandRows >= 4) {
+                    steps += melodyStep(c, layout + " +1 row (slots)", melody(c, 2, 1, "slots"), failures);
+                    steps += melodyStep(c, layout + " +2 rows (slots, one tick)", melody(c, 4, 2, "slots"), failures);
+                } else {
+                    // 3 rows: the only two-row jump there is, row 1 to the last row.
+                    steps += melodyStep(c, layout + " +2 rows to last (slots, one tick)", melody(c, 3, 2, "slots"), failures);
+                }
                 MenuKit.reset(c);
                 // Phase B: whole-window sends. Fresh terminal, jump two rows as one ContainerSetContent, resend, reopen.
                 t = c.hx().call("menu.terminal", "type", "MELODY", "seed", 19, "target", 1, "freeze", true,
-                        "keepDone", keepDone).getAsJsonObject();
+                        "keepDone", keepDone, "bandRows", bandRows).getAsJsonObject();
                 MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
                 c.waitUntil("TerminalSolverFeature.currentType == MELODY", mc -> "MELODY".equals(currentType()), 100);
                 steps += melodyStep(c, layout + " open row1 (B)", 10, failures);
-                steps += melodyStep(c, layout + " +2 rows (content)", melody(c, 3, 4, "content"), failures);
-                steps += melodyStep(c, layout + " full resend", melody(c, 3, 5, "resend"), failures);
+                // 4 rows: jump to row 3, reopen on row 4. 3 rows: one row to row 2, reopen on row 3 (the last).
+                int jumpTo = bandRows >= 4 ? 3 : 2;
+                steps += melodyStep(c, layout + " +" + (jumpTo - 1) + " row(s) (content)", melody(c, jumpTo, 4, "content"), failures);
+                steps += melodyStep(c, layout + " full resend", melody(c, jumpTo, 5, "resend"), failures);
                 int idBefore = c.onClient(MenuKit::containerId);
-                int expect = melody(c, 4, 3, "reopen");
+                int expect = melody(c, jumpTo + 1, 3, "reopen");
                 c.waitUntil("the reopened Melody's new container id", mc -> MenuKit.containerId(mc) != idBefore
                         && MenuKit.containerId(mc) >= 0, 100);
                 steps += melodyStep(c, layout + " reopen new id (+1 row)", expect, failures);
@@ -336,6 +397,85 @@ final class TerminalCases {
             MenuKit.reset(c);
             System.out.println("[menu] " + c.name() + " events since " + head + ": " + c.events("terminal.click").size()
                     + " terminal clicks");
+        }
+    }
+
+    // ---- 291 Auto Melody skip mode ALL on a 3-row board ---------------------------------------------------------
+
+    /**
+     * Skip mode ALL bursts every remaining row after a match (TerminalSolverConfig.MelodySkipMode). On a 3-row board
+     * there are three buttons, 16/25/34; the pre-update code bursted up to a 4th "row", slot 43, which on that board
+     * is the bottom marker row. Hx re-rolls the target after every correct click, so burst clicks can be wrong here
+     * (that gamble is the feature) - this case judges only WHERE the clicks went, from the server's record.
+     */
+    static void melodySkipAll(Session c) throws Exception {
+        MenuKit.reset(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto Melody is cheat-only; nothing to burst");
+            return;
+        }
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutoTerminalsEnabled", true).set(CONFIG, "AutoMelodyEnabled", true)
+                    .set(CONFIG, "MelodySkipMode", Mod.enumValue(CONFIG + "$MelodySkipMode", "ALL"));
+            JsonObject t = open(c, MELODY_3);
+            MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
+            JsonObject solved = MenuKit.awaitEvent(c, "terminal.solved", 900);
+            MenuKit.awaitNoScreen(c, 40);
+            Set<Integer> slots = new java.util.TreeSet<>();
+            for (JsonObject e : c.events("terminal.click")) {
+                slots.add(e.get("slot").getAsInt());
+            }
+            c.check(Set.of(16, 25, 34).containsAll(slots), "skip-all clicked outside the 3-row board's buttons: " + slots);
+            c.check(solved.get("maxClicksPerTick").getAsInt() <= 1, "more than one terminal click in a server tick: "
+                    + solved.get("maxClicksPerTick"));
+            c.note("3-row Melody, skip ALL: solved with " + solved.get("clicks") + " clicks (" + solved.get("wrong")
+                    + " wrong - burst gambles), all on slots " + slots);
+        } finally {
+            MenuKit.reset(c);
+        }
+    }
+
+    // ---- 290 Melody Keys on a 3-row board ------------------------------------------------------------------------
+
+    static final String QOL = "terminals.TerminalQolFeature";
+    static final String QOL_CONFIG = "terminals.TerminalQolConfig";
+
+    /**
+     * Melody Keys (TerminalQolFeature, legit) on the 3-row board: key 4 has no button to press and must click nothing
+     * (the pre-update code pressed slot 43, which on a 3-row board is the bottom marker row), and key 1 with the
+     * marker on the target must land the row's real button. Judged by the SERVER's click record.
+     */
+    static void melodyKeys(Session c) throws Exception {
+        MenuKit.reset(c);
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutoTerminalsEnabled", false)
+                    .set(QOL_CONFIG, "MelodyKeysEnabled", true);
+            boolean on = c.onClient(mc -> (Boolean) Mod.get(QOL_CONFIG, "isMelodyKeysEnabled"));
+            c.check(on, "Melody Keys did not switch on (isMelodyKeysEnabled false - Skyblock gate?)");
+            JsonObject t = c.hx().call("menu.terminal", "type", "MELODY", "seed", 27, "target", 2, "freeze", true,
+                    "bandRows", 3).getAsJsonObject();
+            MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
+            c.waitUntil("TerminalSolverFeature.currentType == MELODY", mc -> "MELODY".equals(currentType()), 100);
+            boolean consumed4 = c.onClient(mc -> (Boolean) Mod.staticCall(QOL, "handleMelodyKey",
+                    dev.testkit.compat.McCompat.screen(mc), org.lwjgl.glfw.GLFW.GLFW_KEY_4));
+            c.ctx().waitTicks(10);
+            // The board is frozen and nothing else clicks in this case, so any click since it started is key 4's.
+            List<JsonObject> after4 = c.events("terminal.click");
+            c.check(after4.isEmpty(), "key 4 on a 3-row Melody clicked something: " + after4);
+            // Marker onto the target column (2), then key 1: row 1's button, slot 16.
+            melody(c, 1, 2, "slots");
+            c.waitUntil("slot 11 to hold the lime marker", mc -> mc.player != null
+                    && net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(
+                    mc.player.containerMenu.slots.get(11).getItem().getItem()).getPath().equals("lime_stained_glass_pane"), 100);
+            boolean consumed1 = c.onClient(mc -> (Boolean) Mod.staticCall(QOL, "handleMelodyKey",
+                    dev.testkit.compat.McCompat.screen(mc), org.lwjgl.glfw.GLFW.GLFW_KEY_1));
+            JsonObject click = MenuKit.awaitEvent(c, "terminal.click", 40);
+            c.check(click.get("slot").getAsInt() == 16 && click.get("correct").getAsBoolean(),
+                    "key 1 should press row 1's button (slot 16) on time, server saw " + click);
+            c.note("3-row Melody: key 4 consumed=" + consumed4 + " and clicked nothing; key 1 consumed=" + consumed1
+                    + " pressed slot " + click.get("slot") + " (correct=" + click.get("correct") + ")");
+        } finally {
+            MenuKit.reset(c);
         }
     }
 }
