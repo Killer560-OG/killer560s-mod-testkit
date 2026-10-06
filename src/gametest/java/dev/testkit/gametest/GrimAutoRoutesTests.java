@@ -687,36 +687,56 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             n.add(ew(pts[i][0], pts[i][1], to[0], to[1], i == 0));
         }
         writeRoute(ctx, n);
-        JsonObject before = stats();
-        long m = LogTap.mark();
-        startSampling(ctx);
-        warpOnto(ctx, 6.5, 10.5, 6, 6);
-        Vec3 landed = waitLanded(ctx, end[0], end[1], 300);
-        ctx.waitTicks(10);
-        List<Sample> s = stopSampling(ctx);
-        // The first use is his own hand etherwarp onto the start node.
-        ArChainMeasure.Chain chain = ArChainMeasure.chain(1);
-        List<String> lines = PacketTrace.lines();
-        for (String l : lines.subList(0, Math.min(lines.size(), 60))) {
-            println("  chain trace " + l);
+        List<Sample> all = new ArrayList<>();
+        StringBuilder notes = new StringBuilder();
+        try {
+            // Etherwarps Per Second (killer560, 2026-10-06): a pace of 20/rate ticks between warps, never ahead of the
+            // landing - 20/s is the server's round trip here (one tick), 10/s two ticks, 4/s five.
+            for (int rate : new int[]{20, 10, 4}) {
+                ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setEtherwarpsPerSecond",
+                        new Class<?>[]{int.class}, new Object[]{rate}));
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                        new Object[]{"test"}));
+                JsonObject before = stats();
+                long m = LogTap.mark();
+                startSampling(ctx);
+                warpOnto(ctx, 6.5, 10.5, 6, 6);
+                Vec3 landed = waitLanded(ctx, end[0], end[1], 400);
+                ctx.waitTicks(10);
+                List<Sample> s = stopSampling(ctx);
+                all.addAll(s);
+                // The first use is his own hand etherwarp onto the start node.
+                ArChainMeasure.Chain chain = ArChainMeasure.chain(1);
+                int acted = 0;
+                for (String l : LogTap.since(m)) {
+                    acted += l.contains("ETHERWARP acted") ? 1 : 0;
+                }
+                int serverWarps = delta(before, "etherwarps");
+                println("chain at " + rate + "/s: " + chain.describe() + "; server made " + serverWarps + " etherwarp(s)");
+                notes.append(String.format(Locale.ROOT, "%d/s %.2f ticks/warp (gaps %s); ", rate, chain.ticksPerWarp(),
+                        chain.gaps()));
+                check(landed != null, rate + "/s: the chain did not reach its end at " + end[0] + "," + end[1] + " (at "
+                        + relPos(ctx) + ")");
+                check(acted == pts.length && chain.warps() == pts.length, rate + "/s: expected " + pts.length
+                        + " route etherwarps, the log says " + acted + " acted and the trace has " + chain.warps());
+                check(serverWarps == pts.length + 1, rate + "/s: the server made " + serverWarps + " etherwarps, expected "
+                        + (pts.length + 1));
+                check(chain.usesBeforeLanding() == 0, rate + "/s: " + chain.usesBeforeLanding() + " warp(s) went out "
+                        + "before the previous landing was accepted");
+                if (rate == 20) {
+                    check(chain.firesOnLanding(), "20/s: a warp waited after its landing arrived: ticks from each landing "
+                            + "to the next use " + chain.landingToUse());
+                }
+                double want = 20.0 / rate;
+                check(Math.abs(chain.ticksPerWarp() - want) <= 0.3, String.format(Locale.ROOT, "%d/s: %.2f ticks per "
+                        + "warp (gaps %s), expected %.2f", rate, chain.ticksPerWarp(), chain.gaps(), want));
+            }
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setEtherwarpsPerSecond",
+                    new Class<?>[]{int.class}, new Object[]{20}));
         }
-        int acted = 0;
-        for (String l : LogTap.since(m)) {
-            acted += l.contains("ETHERWARP acted") ? 1 : 0;
-        }
-        int serverWarps = delta(before, "etherwarps");
-        c.note("chain: " + chain.describe() + "; server made " + serverWarps + " etherwarp(s) incl. the hand one");
-        check(landed != null, "the chain did not reach its end at " + end[0] + "," + end[1] + " (at " + relPos(ctx) + ")");
-        check(acted == pts.length && chain.warps() == pts.length, "expected " + pts.length + " route etherwarps, the log "
-                + "says " + acted + " acted and the trace has " + chain.warps());
-        check(serverWarps == pts.length + 1, "the server made " + serverWarps + " etherwarps, expected " + (pts.length + 1));
-        check(chain.usesBeforeLanding() == 0, chain.usesBeforeLanding() + " warp(s) went out before the previous landing "
-                + "was accepted");
-        check(chain.firesOnLanding(), "a warp waited after its landing arrived: ticks from each landing to the next use "
-                + chain.landingToUse());
-        check(chain.ticksPerWarp() <= 1.5, String.format(Locale.ROOT, "%.2f ticks per warp on an unconditional chain "
-                + "(gaps %s) - expected about one", chain.ticksPerWarp(), chain.gaps()));
-        noteFlags(c, s);
+        c.note("chain: " + notes);
+        noteFlags(c, all);
     }
 
     /** Path nodes across a wall: planned once by the floor planner, the saved warps flown twice. */
