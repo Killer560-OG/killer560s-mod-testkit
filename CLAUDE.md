@@ -306,6 +306,9 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 - A screenshot pixel count with a FIXED colour window is fragile: 388's first window missed a translucent fill blended
   over stone and its second counted peach sunrise sky uncovered by a 1 px edge shift. Diff each frame against a no-draw
   frame of the same scene and classify only changed pixels (`ui/BreakerDisplayCases.countOrange`), and look at the PNGs.
+  An EXACT compare against that frame fails too: the superflat grass brightens a few levels between shots as the day
+  runs, and 389-ui-crosshair's first run counted 5,000 "changed" pixels for an 80-pixel cross. Count a pixel as changed only
+  above a summed RGB delta (389 uses > 30), then the exact counts hold (80, 112 outline, 240, 36).
 
 - Fabric API 0.155 has NO `net.fabricmc.fabric.api.client.command.v2.ClientCommandManager` (ClassNotFoundException,
   97-sim-roomcycle, 2026-10-06); the client dispatcher is `net.fabricmc.fabric.impl.command.client.ClientCommandInternals
