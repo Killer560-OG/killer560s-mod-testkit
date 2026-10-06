@@ -139,6 +139,12 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   sees only the entrance, so 95's "press during the first warm-up" raced both ways (full graph warm by GO, or the quick
   graph missing its 600 ms at GO under load). 95 keeps the map off until the floor's chunks are in and the gate is
   open, on until the quick graph is warm on 3,000+ nodes, then off until the press. Toggle the map to hold a graph cold.
+- 95's press line used to quote the LAST plan of a press, so a 21-warp trip refused at its last hop and re-planned twice
+  read as "1 warp for 175 blocks" (2026-10-06). It now lists every plan, fails on any "[Sim] no etherwarp target there"
+  (a planned hop the server refused - knife-edge aims, fixed in mod im-quickgraph) and on N warps covering more than
+  N x 61 + 30 blocks, and asserts a tile press uses exactly the warps of the mod's own [check] plan without the
+  centre preference (build.gradle sets `killer560.test.checkFewest`), printing landing depth before vs after.
+  Floors are random per run and the refusals depend on the floor: judge 95 over 8+ runs, not one.
 - The mod arrives via Fabric Loader's `fabric.addMods` (`-PmodUnderTest`). `modLocalRuntime` does not exist
   in this Loom version, and a jar dropped in the run directory's `mods/` is deleted because the client
   gametest API rebuilds that directory every run.

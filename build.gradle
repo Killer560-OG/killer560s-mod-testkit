@@ -540,6 +540,8 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 		systemProperty "killer560.test.noExternalOpen", "true"
 	}
 	systemProperty "testkit.quiet", noQuiet ? "false" : "true"
+	// Interactive Map tile clicks also plan without the centre preference and log it (95 asserts the warps match).
+	systemProperty "killer560.test.checkFewest", "true"
 	if (project.hasProperty("netOverride")) {
 		project.property("netOverride").toString().split(";").each { pair ->
 			def eq = pair.indexOf('=')

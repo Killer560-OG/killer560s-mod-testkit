@@ -135,6 +135,7 @@ public class SimMapWarpTests implements FabricClientGameTest {
     }
 
     private static void body(ClientGameTestContext ctx, long mark0, List<String> failures) {
+        DEPTHS.clear();
         // ---- the Aspect of the Void in hand -------------------------------------------------------------
         AtomicReference<Boolean> given = new AtomicReference<>();
         ctx.runOnClient(mc -> {
@@ -313,6 +314,7 @@ public class SimMapWarpTests implements FabricClientGameTest {
         }
         println(moved + " of " + targets.size() + " press(es) got him there; " + UNREACHABLE[0]
                 + " room(s) behind a locked door");
+        println("arrival depth (blocks from the clicked tile's centre, tile presses): " + DEPTHS);
         if (moved < Math.min(4, targets.size() - UNREACHABLE[0])) {
             failures.add("only " + moved + " press(es) got him into the room");
         }
@@ -382,19 +384,61 @@ public class SimMapWarpTests implements FabricClientGameTest {
         boolean noRoomRoute = false;
         boolean offPlan = false;
         String running = null;
+        // Every plan of this press, first one first: a press that went off the plan and was planned again has
+        // several, and the last one alone ("1 warp" from wherever it stopped) reads like the whole trip.
+        List<String> plans = new ArrayList<>();
+        int refused = 0;
+        String depthNote = null;
+        int checkWarps = -1;
+        int checkDepth = -1;
         for (String l : LogTap.since(mark)) {
             Matcher m = PLANNED.matcher(l);
             if (m.find()) {
-                warps = m.group(1);
-                kind = m.group(2);
-                ms = m.group(3);
+                if (warps.equals("?")) {
+                    warps = m.group(1);
+                    kind = m.group(2);
+                    ms = m.group(3);
+                    Matcher d = LANDING_DEPTH.matcher(l);
+                    depthNote = d.find() ? d.group(1) : null;
+                    Matcher c = CHECK_FEWEST.matcher(l);
+                    if (c.find()) {
+                        checkWarps = Integer.parseInt(c.group(1));
+                        checkDepth = Integer.parseInt(c.group(2));
+                    }
+                }
             }
             roomByRoom |= l.contains("room by room:") || l.contains("- room by room instead");
             offPlan |= l.contains("[Path] off the plan");
             noRoomRoute |= l.contains("No ROOM route") || l.contains("no way to");
+            refused += l.contains("no etherwarp target there") ? 1 : 0;
+            if (l.contains("[Path] refused an impossible plan")) {
+                failures.add(label + ": the mod refused an impossible plan - " + l.replaceAll("^.*\\[Path\\] ", ""));
+            }
             if (l.contains("[Path] running")) {
                 running = l.replaceAll("^.*\\[Path\\]", "[Path]");
+                plans.add(running);
+                // An impossible plan, caught before it runs: N warps cannot cover more than N hop ranges (61 at
+                // most, a fully tuned item) plus the half tile between the tile's block and any landing in it.
+                Matcher r = RUNNING.matcher(l);
+                if (r.find()) {
+                    int n = Integer.parseInt(r.group(1));
+                    double dx = Double.parseDouble(r.group(2)) - Integer.parseInt(r.group(5));
+                    double dy = Double.parseDouble(r.group(3)) - Integer.parseInt(r.group(6));
+                    double dz = Double.parseDouble(r.group(4)) - Integer.parseInt(r.group(7));
+                    double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                    if (dist > n * 61.0 + 30.0) {
+                        failures.add(String.format("%s: an impossible plan ran - %d warp(s) for %.1f blocks (%s)",
+                                label, n, dist, running));
+                    }
+                }
             }
+        }
+        if (plans.size() > 1) {
+            println("  " + label + ": planned " + plans.size() + " times: " + String.join(" | ", plans));
+        }
+        if (refused > 0) {
+            // A planned hop the server would not perform: the plan and the server disagree about the world.
+            failures.add(label + ": the server refused " + refused + " planned warp(s) (\"no etherwarp target there\")");
         }
         String graph = "?";
         for (String l : LogTap.since(mark)) {
@@ -416,6 +460,27 @@ public class SimMapWarpTests implements FabricClientGameTest {
         println(summary);
         if (running != null) {
             println("  " + running);
+        }
+        // How far into the room he ended (killer560, 2026-10-06: "it takes me essentially still in the hallway to
+        // that room" and "as central and far into the square as possible with the exact same etherwarps"): the
+        // larger of his x and z offsets from the clicked tile's centre (a tile is 31 across, its doorways on the seam
+        // 16 out). The mod, with killer560.test.checkFewest, plans the same click once more without the centre
+        // preference: that is the fewest warps and the landing it would have had before. The press must use exactly
+        // that many warps. A recorded spot (an exact goal) is where he asked to go and is not judged.
+        if (travelled >= 1 && inTile && kind.equals("tile")) {
+            double depth = Math.max(Math.abs(to.x - (centre.getX() + 0.5)), Math.abs(to.z - (centre.getZ() + 0.5)));
+            DEPTHS.add(String.format("%.0f (was %s)", depth, checkDepth < 0 ? "?" : String.valueOf(checkDepth)));
+            println(String.format("  %s: ended %.1f blocks from the tile centre (planner: %s; without the preference:"
+                            + " %s warp(s), %s block(s) from the centre)", label, depth,
+                    depthNote == null ? "no landing line" : depthNote, checkWarps < 0 ? "?" : checkWarps,
+                    checkDepth < 0 ? "?" : checkDepth));
+            if (depthNote == null || checkWarps < 0) {
+                failures.add(label + ": the plan line does not say how far into the tile it lands, or has no"
+                        + " [check] plan (killer560.test.checkFewest)");
+            } else if (!warps.equals(String.valueOf(checkWarps))) {
+                failures.add(label + ": " + warps + " warp(s), but the fewest without the centre preference is "
+                        + checkWarps + " - landing nearer the centre must never cost a warp");
+            }
         }
         if (noRoomRoute && travelled < 1) {
             // A locked door (blood, wither) between him and the room: nothing can get there, and both planners say
@@ -500,6 +565,15 @@ public class SimMapWarpTests implements FabricClientGameTest {
                 ? " - BUT the full graph was already warm" : "; full graph not warm"));
     }
 
+    /** The planner's landing note on a tile plan line (mod im-quickgraph and later). */
+    private static final Pattern LANDING_DEPTH = Pattern.compile("; landing (\\d+ block\\(s\\) from the tile centre[^;]*)");
+    /** ClearExecutor's "[Path] running N warp(s) from (x, y, z) to BlockPos{x=.., y=.., z=..}". */
+    private static final Pattern RUNNING = Pattern.compile("\\[Path\\] running (\\d+) warp\\(s\\) from \\((-?[0-9.]+),"
+            + " (-?[0-9.]+), (-?[0-9.]+)\\) to BlockPos\\{x=(-?\\d+), y=(-?\\d+), z=(-?\\d+)\\}");
+    /** The mod's [check] plan of the same click without the centre preference (killer560.test.checkFewest). */
+    private static final Pattern CHECK_FEWEST = Pattern.compile("\\[check\\] without the centre preference: (\\d+)"
+            + " warp\\(s\\), landing (\\d+) block");
+    private static final List<String> DEPTHS = new ArrayList<>();
     private static final boolean[] FULL_WARM_BEFORE_PAUSE = {false};
     private static final boolean[] QUICK_NOT_WARM = {false};
     private static final Pattern QUICK_WARM = Pattern.compile("\\[Path\\] quick floor graph warm: (\\d+) node");
