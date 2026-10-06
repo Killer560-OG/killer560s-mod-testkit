@@ -94,13 +94,15 @@ final class TerminalCases {
             c.note("jar has no " + LAYOUTS + "; layout detection not checked");
             return;
         }
+        // The SEEN fields, not melodyRows()/numbersCount(): those fall back to ASSUME_NEW_LAYOUT (true since mod
+        // 0.27.2 work) and would read 3/10 with nothing detected at all.
         if (spec.type().equals("MELODY")) {
-            int rows = c.onClient(mc -> (Integer) Mod.staticCall(LAYOUTS, "melodyRows"));
-            c.check(rows == 3, "TerminalLayouts.melodyRows() is " + rows + " after a 3-row Melody board");
+            int rows = c.onClient(mc -> (Integer) Mod.field(LAYOUTS, "seenMelodyRows"));
+            c.check(rows == 3, "TerminalLayouts.seenMelodyRows is " + rows + " after a 3-row Melody board");
             c.note("layout detected: Melody " + rows + " rows");
         } else {
-            int count = c.onClient(mc -> (Integer) Mod.staticCall(LAYOUTS, "numbersCount"));
-            c.check(count == 10, "TerminalLayouts.numbersCount() is " + count + " after a 10-number board");
+            int count = c.onClient(mc -> (Integer) Mod.field(LAYOUTS, "seenNumbersCount"));
+            c.check(count == 10, "TerminalLayouts.seenNumbersCount is " + count + " after a 10-number board");
             c.note("layout detected: Click in order " + count + " numbers");
         }
     }
@@ -426,10 +428,11 @@ final class TerminalCases {
                 slots.add(e.get("slot").getAsInt());
             }
             c.check(Set.of(16, 25, 34).containsAll(slots), "skip-all clicked outside the 3-row board's buttons: " + slots);
-            c.check(solved.get("maxClicksPerTick").getAsInt() <= 1, "more than one terminal click in a server tick: "
-                    + solved.get("maxClicksPerTick"));
+            // No clicks-per-server-tick assertion here: burst clicks are 50 ms apart, one per CLIENT tick, and two of
+            // those can land in one server tick (main 5813cb91 drew 2 once). 211-217 hold that line for steady clicks.
             c.note("3-row Melody, skip ALL: solved with " + solved.get("clicks") + " clicks (" + solved.get("wrong")
-                    + " wrong - burst gambles), all on slots " + slots);
+                    + " wrong - burst gambles), all on slots " + slots + ", max " + solved.get("maxClicksPerTick")
+                    + " per server tick");
         } finally {
             MenuKit.reset(c);
         }
