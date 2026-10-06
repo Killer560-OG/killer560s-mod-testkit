@@ -76,7 +76,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
 
     // Order matters once: the editor's Go To is an Interactive Map warp, and after one only a START node may arm until
     // he has been through one (the map-arrival interlock), so the cases that arm non-start nodes run before it.
-    private static final String[] CASES = {"96-ar-add", "96-ar-play", "96-ar-interact", "96-ar-await", "96-ar-mimic",
+    private static final String[] CASES = {"96-ar-add", "96-ar-play", "96-ar-interact", "96-ar-await",
+            "96-ar-awaitskip", "96-ar-leverwp", "96-ar-complete", "96-ar-mimic",
             "96-ar-crypt", "96-ar-breaker", "96-ar-pingpong", "96-ar-chain", "96-ar-stackorder", "96-ar-crypthold",
             "96-ar-edit", "96-ar-mapopen",
             "96-ar-path", "96-ar-screen", "96-ar-rotate"};
@@ -209,6 +210,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-play" -> casePlay(ctx);
                         case "96-ar-interact" -> caseInteract(ctx);
                         case "96-ar-await" -> caseAwait(ctx);
+                        case "96-ar-awaitskip" -> caseAwaitSkip(ctx);
+                        case "96-ar-leverwp" -> caseLeverWaypoint(ctx);
+                        case "96-ar-complete" -> caseComplete(ctx);
                         case "96-ar-mimic" -> caseMimic(ctx);
                         case "96-ar-crypt" -> caseCrypt(ctx);
                         case "96-ar-breaker" -> caseBreaker(ctx);
@@ -1569,6 +1573,282 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         ctx.waitTicks(30);
         note.accept(awaitRun(ctx, "a bat already there", false, () -> { }));
         check(wrong.isEmpty(), String.join("; ", wrong));
+    }
+
+    /** A real left click through the game's input (Fabric TestInput -> MouseHandler -> the attack KeyMapping), held
+     *  {@code ticks} ticks, as his mouse sends it. */
+    private static void leftClick(ClientGameTestContext ctx, int ticks) {
+        ctx.getInput().holdKey(options -> options.keyAttack);
+        ctx.waitTicks(ticks);
+        ctx.getInput().releaseKey(options -> options.keyAttack);
+    }
+
+    /**
+     * killer560, 2026-10-06: "if I left click while on an await node then it should perform the teleport even if it
+     * didn't grab a secret yet". Control first: with no route running the same real left click on the floor sends a
+     * swing (so the counter can see one). Then an await:1 etherwarp start node waits with no secret - nothing goes
+     * out - and a real left click fires its warp: exactly one use, no swing and no dig anywhere in the window, and the
+     * log says the click (not a secret) met the await.
+     */
+    private void caseAwaitSkip(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        // ---- control: no route, the same click is a vanilla left click ----
+        tpRel(ctx, 10.5, 10.5, 0f, 80f);
+        ctx.waitTicks(5);
+        startSampling(ctx);
+        leftClick(ctx, 3);
+        ctx.waitTicks(5);
+        List<Sample> control = stopSampling(ctx);
+        int ctlSwing = countOut(control, "swing");
+        int ctlDig = countOut(control, "player_action");
+        println("awaitskip control: a left click with no route sent " + ctlSwing + " swing, " + ctlDig + " player_action");
+        check(ctlSwing >= 1, "the control left click sent no swing - the click never reached the game, so a clean "
+                + "window below would prove nothing");
+
+        // ---- the await node ----
+        JsonObject w = ew(6, 6, 14, 6, true);
+        w.addProperty("awaitEnabled", true);
+        w.addProperty("await", "SECRET");
+        w.addProperty("amount", 1);
+        writeRoute(ctx, List.of(w));
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+        // He looks down at the floor, so a vanilla left click would hit a block (swing + START_DESTROY_BLOCK).
+        check(arm(ctx, 6, 6, relYawTo(6, 6, 14, 6), 80f), "the await route did not start");
+        long m = LogTap.mark();
+        startSampling(ctx);
+        ctx.waitTicks(30);
+        check(running(ctx), "the route is not running while it waits on its await");
+        check(useTicks(stopSampling(ctx)).isEmpty(), "a use went out while the node waited on its await (no secret yet)");
+        check(waitLanded(ctx, 14, 6, 1) == null, "he warped before any secret or click");
+        check(!logHas(m, "secrets met"), "the await was met with no secret");
+
+        // ---- attacks and digs the MOD sends are not his clicks: they must not skip it ----
+        // A still pig 2 blocks to his side (a vanilla mob: no secret, no bat), then a dig, a swing and an attack on the
+        // pig made the way Breaker Aura / Secret Aura / Auto Clear make them - straight through the game mode.
+        BlockPos pigAt = realNow(ctx, 6, F, 8);
+        AtomicReference<java.util.UUID> pigId = new AtomicReference<>();
+        serverRun(ctx, (server, sp) -> {
+            var pig = dev.testkit.compat.McEntities.PIG.create(server.overworld(),
+                    net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+            pig.setPos(pigAt.getX() + 0.5, pigAt.getY(), pigAt.getZ() + 0.5);
+            pig.setNoAi(true);
+            pig.setInvulnerable(true);
+            server.overworld().addFreshEntity(pig);
+            pigId.set(pig.getUUID());
+        });
+        check(waitFor(ctx, 100, () -> ctx.computeOnClient(mc -> pigOnClient(mc, pigId.get()) != null)),
+                "the pig never reached the client - the mob cases below would prove nothing");
+        BlockPos floorAhead = realNow(ctx, 7, F - 1, 6);
+        startSampling(ctx);
+        ctx.runOnClient(mc -> {
+            mc.gameMode.startDestroyBlock(floorAhead, Direction.UP);
+            mc.gameMode.stopDestroyBlock();
+            mc.player.swing(InteractionHand.MAIN_HAND);
+            mc.gameMode.attack(mc.player, pigOnClient(mc, pigId.get()));
+        });
+        ctx.waitTicks(20);
+        List<Sample> modSent = stopSampling(ctx);
+        println("awaitskip mod-sent: " + countOut(modSent, "player_action") + " player_action, "
+                + countOut(modSent, "swing") + " swing, " + countOut(modSent, "attack") + " attack");
+        check(countOut(modSent, "attack") >= 1 && countOut(modSent, "swing") >= 1,
+                "the mod-style attack sent nothing - 'it did not skip' below would prove nothing");
+        check(!logHas(m, "left click skipped"), "an attack the mod sent (not his click) skipped the await");
+        check(useTicks(modSent).isEmpty() && waitLanded(ctx, 14, 6, 1) == null,
+                "the node fired after a mod-sent attack, with no click of his");
+
+        // ---- his click with the pig under the crosshair still skips ----
+        ctx.runOnClient(mc -> {
+            var pig = pigOnClient(mc, pigId.get());
+            Vec3 eye = mc.player.getEyePosition();
+            Vec3 d = pig.getBoundingBox().getCenter().subtract(eye);
+            mc.player.setYRot((float) Math.toDegrees(Math.atan2(-d.x, d.z)));
+            mc.player.setXRot((float) Math.toDegrees(Math.atan2(-d.y, Math.hypot(d.x, d.z))));
+        });
+        ctx.waitTicks(3);
+        boolean onPig = ctx.computeOnClient(mc -> mc.hitResult instanceof net.minecraft.world.phys.EntityHitResult e
+                && e.getEntity().getUUID().equals(pigId.get()));
+        check(onPig, "the pig is not under the crosshair - the mob case would prove nothing");
+
+        startSampling(ctx);
+        leftClick(ctx, 3);
+        Vec3 landed = waitLanded(ctx, 14, 6, 60);
+        ctx.waitTicks(5);
+        List<Sample> s = stopSampling(ctx);
+        StringBuilder trace = new StringBuilder();
+        for (Sample x : s) {
+            if (!x.out().isEmpty()) {
+                trace.append(String.format(" | t%d %s", x.tick(), x.out()));
+            }
+        }
+        println("awaitskip window:" + trace);
+        check(logHas(m, "left click skipped the await"), "the left click did not skip the await (log)");
+        check(landed != null, "the left click did not fire the etherwarp (at " + relPos(ctx) + ")");
+        check(useTicks(s).size() == 1, "the skip sent " + useTicks(s).size() + " use_item packet(s), expected 1");
+        // The etherwarp's own use swings the hand (a use that succeeds client-side does, here the sim's ability hook), in
+        // the use's tick. Any other swing is the left click getting through.
+        check(strayClickSwings(s) == 0, "the swallowed left click still sent " + strayClickSwings(s)
+                + " swing(s) of its own:" + trace);
+        check(countOut(s, "player_action") == 0, "the swallowed left click still sent " + countOut(s, "player_action")
+                + " player_action (dig) packet(s):" + trace);
+        check(countOut(s, "attack") == 0 && countOut(s, "interact") == 0, "the swallowed left click still hit the pig:"
+                + trace);
+        check(logHas(m, "(0/1 secrets)"), "the skip line does not say no secret was got");
+        stopRoute(ctx);
+        serverRun(ctx, (server, sp) -> {
+            var e = server.overworld().getEntity(pigId.get());
+            if (e != null) {
+                e.discard();
+            }
+        });
+
+        // ---- a crypt node's wait for its kill: his left click ends it too ----
+        giveSlot(ctx, 4, "HYPERION");
+        setArEnum(ctx, "setCryptWeapon", "CryptWeapon", "HYPERION");
+        ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setCryptAttackTicks",
+                new Class<?>[]{int.class}, new Object[]{200}));
+        try {
+            writeRoute(ctx, List.of(cryptNode(10, 20, 0f, 0f, true, 0)));
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            tpRel(ctx, 10.5, 16.5, 0f, 0f);
+            ctx.waitTicks(10);
+            long mc0 = LogTap.mark();
+            tpRel(ctx, 10.5, 20.5, 0f, 0f);
+            check(waitFor(ctx, 60, () -> logHas(mc0, "holding use")), "the crypt node never started holding use");
+            ctx.waitTicks(10);
+            check(!logHas(mc0, "moving on"), "the crypt node moved on before the click");
+            leftClick(ctx, 3);
+            boolean skipped = waitFor(ctx, 10, () -> logHas(mc0, "left click skipped the kill wait"));
+            ctx.waitTicks(3);
+            boolean useUp = ctx.computeOnClient(mc -> !mc.options.keyUse.isDown());
+            println("awaitskip crypt: skipped=" + skipped + ", use key up=" + useUp);
+            check(skipped, "his left click did not end the crypt node's wait for a kill");
+            check(useUp, "the crypt node left the use key held after the skip");
+            check(!logHas(mc0, "up, moving on"), "the crypt node ran out its attack time instead of being skipped");
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setCryptAttackTicks",
+                    new Class<?>[]{int.class}, new Object[]{100}));
+            stopRoute(ctx);
+        }
+    }
+
+    /** Swings beyond one per use_item in the same tick: a use that succeeds client-side swings the hand itself. */
+    private static int strayClickSwings(List<Sample> s) {
+        int stray = 0;
+        for (Sample x : s) {
+            long swings = x.out().stream().filter("swing"::equals).count();
+            long uses = x.out().stream().filter("use_item"::equals).count();
+            stray += (int) Math.max(0, swings - uses);
+        }
+        return stray;
+    }
+
+    private static net.minecraft.world.entity.Entity pigOnClient(Minecraft mc, java.util.UUID id) {
+        if (id == null || mc.level == null) {
+            return null;
+        }
+        for (var e : mc.level.entitiesForRendering()) {
+            if (id.equals(e.getUUID())) {
+                return e;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Secret Waypoints, killer560 2026-10-06: "clicking levers doesn't hide them from secret waypoints". Two floor
+     * levers in the room are lever waypoints; his click on one hides that one (and keeps it hidden across rebuilds),
+     * and leaves the other lever and every other waypoint alone.
+     */
+    private void caseLeverWaypoint(ClientGameTestContext ctx) {
+        String swCfg = "com.killer560.hub.secretwaypoints.SecretWaypointsConfig";
+        String sw = "com.killer560.hub.secretwaypoints.SecretWaypointsFeature";
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        Object cfg = ctx.computeOnClient(mc -> ModUnderTest.config(swCfg));
+        boolean wasOn = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.call(cfg, "isEnabled", new Class<?>[]{},
+                new Object[]{}));
+        try {
+            ctx.runOnClient(mc -> ModUnderTest.set(cfg, "setEnabled", true));
+            setBlocks(ctx, Map.of(new int[]{18, F, 14}, floorLever(), new int[]{18, F, 18}, floorLever()));
+            BlockPos a = realNow(ctx, 18, F, 14);
+            BlockPos b = realNow(ctx, 18, F, 18);
+            tpRel(ctx, 18.5, 12.5, 0f, 40f);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(sw, "invalidateCache"));
+            ctx.waitTicks(10);
+            List<BlockPos> before = leverWaypoints(ctx, sw);
+            int othersBefore = otherWaypoints(ctx, sw);
+            println("leverwp before: levers " + before + ", other waypoints " + othersBefore);
+            check(before.contains(a) && before.contains(b), "the two levers are not lever waypoints before any click "
+                    + "(found " + before + ", wanted " + a + " and " + b + ") - nothing below would mean anything");
+            rightClick(ctx, 18, F, 14, Direction.UP);
+            check(leverOn(ctx, 18, F, 14), "the click did not flip lever A - it never reached the game");
+            // Past the 1 s cache life, so the lever scan has rebuilt at least once since the click.
+            ctx.waitTicks(30);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(sw, "invalidateCache"));
+            ctx.waitTicks(5);
+            List<BlockPos> after = leverWaypoints(ctx, sw);
+            int othersAfter = otherWaypoints(ctx, sw);
+            println("leverwp after clicking A: levers " + after + ", other waypoints " + othersAfter);
+            check(!after.contains(a), "the clicked lever's waypoint is still drawn: " + after);
+            check(after.contains(b), "clicking lever A hid lever B's waypoint: " + after);
+            check(othersAfter == othersBefore, "clicking a lever changed the other waypoints: " + othersBefore + " -> "
+                    + othersAfter);
+            // Clicking it back off is still the same lever: it stays hidden.
+            rightClick(ctx, 18, F, 14, Direction.UP);
+            ctx.waitTicks(30);
+            check(!leverWaypoints(ctx, sw).contains(a), "lever A's waypoint came back after a second click");
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.set(cfg, "setEnabled", wasOn));
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<BlockPos> leverWaypoints(ClientGameTestContext ctx, String sw) {
+        return ctx.computeOnClient(mc -> new ArrayList<>((List<BlockPos>) ModUnderTest.staticCall(sw, "cachedPositions",
+                new Class<?>[]{String.class}, new Object[]{"LEVER"})));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static int otherWaypoints(ClientGameTestContext ctx, String sw) {
+        int n = 0;
+        for (String k : new String[]{"CHEST", "ITEM", "WITHER", "BAT"}) {
+            n += ctx.computeOnClient(mc -> ((List<BlockPos>) ModUnderTest.staticCall(sw, "cachedPositions",
+                    new Class<?>[]{String.class}, new Object[]{k})).size());
+        }
+        return n;
+    }
+
+    /** /ar add's modifier completion fills "await:" with nothing after the colon (killer560, 2026-10-06). */
+    private void caseComplete(ClientGameTestContext ctx) {
+        List<String> afterType = ctx.computeOnClient(mc -> suggest(mc, "ar add ew "));
+        List<String> partial = ctx.computeOnClient(mc -> suggest(mc, "ar add ew aw"));
+        List<String> alias = ctx.computeOnClient(mc -> suggest(mc, "autoroutes add path start "));
+        println("complete: 'ar add ew ' -> " + afterType + ", 'ar add ew aw' -> " + partial
+                + ", 'autoroutes add path start ' -> " + alias);
+        check(afterType.contains("await:") && afterType.contains("start"), "after the type: " + afterType);
+        check(partial.equals(List.of("await:")), "'aw' completes to " + partial + ", expected exactly [await:]");
+        check(alias.equals(List.of("await:")), "after start, /autoroutes offers " + alias + ", expected [await:]");
+        for (List<String> l : List.of(afterType, partial, alias)) {
+            for (String x : l) {
+                check(!x.contains("await:x"), "a placeholder is still offered: " + l);
+            }
+        }
+    }
+
+    private static List<String> suggest(net.minecraft.client.Minecraft mc, String input) {
+        var dispatcher = mc.getConnection().getCommands();
+        var parse = dispatcher.parse(input, mc.getConnection().getSuggestionsProvider());
+        try {
+            var s = dispatcher.getCompletionSuggestions(parse).get(5, java.util.concurrent.TimeUnit.SECONDS);
+            List<String> out = new ArrayList<>();
+            s.getList().forEach(x -> out.add(x.getText()));
+            return out;
+        } catch (Exception e) {
+            return List.of("<error " + e + ">");
+        }
     }
 
     /** Places a trapped chest at relative (x,F,z) and makes it the sim's mimic (not yet opened). */
