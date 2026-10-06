@@ -310,3 +310,6 @@ Auto Routes on GrimAC (62-argrim): how to run it and its traps are in [docs/argr
 AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatch HUD): [docs/ap3.md](docs/ap3.md).
 - In the logic suite's throwaway world, a block 66 blocks from spawn can read `void_air` for the first seconds even after
   `mc.level.hasChunkAt` says yes (362, 2026-10-06). Wait until the block itself stops reading `Blocks.VOID_AIR`.
+- 386's overlap sweep builds each tab as the fresh config has it, so rows behind an OFF master switch (all of Auto Routes)
+  exist only in the "toggle flipped" layouts. 386 now records every label it checked and requires Auto Routes' Breaker
+  Block Display/Style among them (cheat jar); a new-widget check must read those layouts too (2026-10-06).
