@@ -477,7 +477,7 @@ public class SimMapWarpTests implements FabricClientGameTest {
             if (depthNote == null || checkWarps < 0) {
                 failures.add(label + ": the plan line does not say how far into the tile it lands, or has no"
                         + " [check] plan (killer560.test.checkFewest)");
-            } else if (!warps.trim().matches("\d+") || Integer.parseInt(warps.trim()) > checkWarps) {
+            } else if (!warps.trim().matches("\\d+") || Integer.parseInt(warps.trim()) > checkWarps) {
                 // More warps than the no-preference plan is the bug; FEWER (13 vs 14 on 26.2, 2026-10-06) only means the
                 // no-preference search is not perfectly minimal itself, and the centred plan is fine.
                 failures.add(label + ": " + warps + " warp(s), but the fewest without the centre preference is "
