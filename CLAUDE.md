@@ -69,14 +69,10 @@ GrimAC: the same pin, `2.3.74-8eb5f28` (its only per-version module is `grimac-f
 smoke's positive control and proof's 46 verbose lines both came back on 2026-10-04.
 
 Status 2026-10-04, first runs: `smoke,proof,02-seed` and the UI world group (301-306, 365) pass on 26.2 with the
-26.2 cheat jar. What it took:
-- `menu/*` used `mc.screen` directly; it goes through `McCompat.screen/setScreen` like everything else now.
-- `HxMenus` used `ChatFormatting.isColor()`, which 26.2 removed; colours are the first 16 ordinals.
-- The MOD's 26.2 jar crashed at startup (seven `Gui.extractRenderState` mixins with the 26.1.2 signature). That was
-  the mod, fixed there in b0ae44cb; `365-ui-overlay-draws` now proves an overlay reaches the screen.
-- On 26.2 every join after the first failed instantly ("Failed to connect to the server", no connection) because the
-  client dials the moment the restarted server prints Done. `Scenario.connect` retries that case up to 5 times, 2 s
-  apart, and says which screen it is stuck on if a join still times out. 26.1.2 never needed the retry.
+26.2 cheat jar. What it took: `menu/*` goes through `McCompat.screen/setScreen`; `HxMenus` reads colours as the first
+16 `ChatFormatting` ordinals (26.2 removed `isColor()`); the mod's own 26.2 startup crash (seven `Gui.extractRenderState`
+mixins, fixed there in b0ae44cb; `365-ui-overlay-draws` proves an overlay draws); and `Scenario.connect` retries a join
+that fails instantly (26.2 only: the client dials the moment the restarted server prints Done) up to 5 times, 2 s apart.
 
 Not yet run on 26.2: everything else (sim, puzzles, menus, the 40-90 scenarios). `run/testserver` is shared by both
 versions; scenarios delete the world, but a hand-played `grimServer` world opened on 26.2 cannot go back.
@@ -139,6 +135,10 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   press on them says "Couldn't find goal position" and a client-side scan finds air. Scenario 95-sim-map-warp sets
   `mc.options.renderDistance()` to 16 for its run and puts it back. A sim floor's entrance is also sealed until
   `SimRun.begin` opens the gate (see 81/95), so nothing outside it is reachable before that.
+- The etherwarp graphs warm whenever the Interactive Map is on in a dungeon, and behind the sealed entrance a warm-up
+  sees only the entrance, so 95's "press during the first warm-up" raced both ways (full graph warm by GO, or the quick
+  graph missing its 600 ms at GO under load). 95 keeps the map off until the floor's chunks are in and the gate is
+  open, on until the quick graph is warm on 3,000+ nodes, then off until the press. Toggle the map to hold a graph cold.
 - The mod arrives via Fabric Loader's `fabric.addMods` (`-PmodUnderTest`). `modLocalRuntime` does not exist
   in this Loom version, and a jar dropped in the run directory's `mods/` is deleted because the client
   gametest API rebuilds that directory every run.
@@ -165,10 +165,8 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   one question the mod asks of it. Placed at 0.1 resolution the boundary is exact: **3.00 clean, 3.10 flagged**,
   so `MEASURED_MAX_ENTITY_REACH = 3.0` is correct and sits right on the edge. A coarse probe is not a
   measurement, it is a range that happens to contain the answer.
-- The gametest client is **java.exe**, not javaw.exe. `run-scenario.ps1` matched javaw only, so its freeze
-  watcher and its deadline cleanup both operated on an empty set while reporting success - which is why
-  "it doesn't close on freeze" survived two rounds of fixes to the watching logic. It now matches both names,
-  still discriminating on the testkit path plus `fabric.addMods`.
+- The gametest client is **java.exe**, not javaw.exe; matching javaw only left the freeze watcher and deadline cleanup
+  working on an empty set while reporting success. The scripts match both, on the testkit path (see checkout markers).
 - Features that click a dungeon secret keep a done-set and never click the same one twice, so one lever
   measures exactly one interaction. Use a row of them and strafe past, rather than writing yaw — a synthetic
   rotation from the harness would land in the packets being measured.
@@ -223,20 +221,12 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   tall, far smaller than his, so layout that is fine on his monitor can overlap there - which is how the map
   designer's `Math.max(14, ...)` cell floor was found. That small window is a feature, not noise: it is the
   cheapest way to test a layout at its limits.
-- **Entities cannot be READ BACK at all in a gametest client.** Not `getEntitiesOfClass`, not
-  `getAllEntities()`, and not `ServerLevel.getEntity(UUID)` - and the writes are fine: a vanilla pig added on
-  the server thread returns `addFreshEntity=true`, `isRemoved=false`, in a chunk `hasChunkAt` calls loaded, and
-  is still invisible to all three (measured 2026-09-29, scenario 89). So a scenario that counts entities is
-  measuring the harness, not the mod. Expose a count from the mod instead - and if a scenario genuinely needs
-  to inspect an entity, add a vanilla POSITIVE CONTROL first and SKIP with that explanation when the control
-  cannot be read back, because otherwise the blind spot reads as a defect in whatever is under test. Scenario
-  89 spent six runs "finding" that sim starred mobs never spawn; the mod's own counters said it had spawned
-  five entities the whole time. **Corrected 2026-09-30:** the readback is NOT the blanket blind spot this
-  entry first claimed - once the build wait was real (see "Not busy" below) 89 read a vanilla pig by UUID and
-  counted every entity type on the floor. What it depends on is the world existing yet: in a fresh client, or
-  before the build has finished, the chunk under the player has not arrived (the server has it, `hasChunkAt`
-  true, the client shows `void_air`) and nothing resolves. The control is still what matters, because it is
-  what tells those two apart.
+- **An entity reads back only from a section the server ticks entities in.** `ServerLevel.getEntity(UUID)` and
+  `getAllEntities` do not see an entity added to a chunk the server has for BLOCKS only: right after a sim floor opens
+  (client still on `void_air`) a vanilla pig added beside the player is not readable. Every 89 skip on record had that
+  shape (after 88 in the sim suite, and on 26.2; the old code skipped once in two on 26.2 on 2026-10-06), never a harness
+  limit. 89 now waits for `level.isPositionEntityTicking` AND the client's own block (up to 90 s; once 24.5 s on 26.2)
+  and passes. Keep a vanilla positive control in any entity scenario, so a not-ready world never reads as a mod defect.
 - **"Not busy" is not "finished".** Eleven sim scenarios waited on `!SimBuildQueue.isBusy()` immediately
   after asking for a floor, which is true before the build starts as much as after it ends - `generate()`
   returns while the world is still opening and the rooms are queued from a later server task. So they all
