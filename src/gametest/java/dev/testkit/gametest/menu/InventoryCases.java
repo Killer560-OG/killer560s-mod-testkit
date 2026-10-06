@@ -54,6 +54,9 @@ final class InventoryCases {
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set("autosell.AutoSellConfig", "Enabled", true);
             c.ctx().runOnClient(mc -> Mod.call(cfgObj, "addSellIdentity", "ENCHANTED_DIAMOND"));
+            // The default sell-screen pattern: an earlier scenario in the same client (InventoryAutomationTests)
+            // points it at a plain chest and leaves it there, which made this refuse the Hypixel "Sell" menu.
+            c.ctx().runOnClient(mc -> Mod.call(cfgObj, "setScreenTitlePattern", "(?i).*sell.*"));
             c.hx().call("give", "slot", 0, "stack", MenuKit.item("items.enchanted-diamond"), "count", 16);
             c.hx().call("give", "slot", 1, "stack", "minecraft:stone", "count", 3);
             MenuKit.show(c, MenuKit.menu("menus.sell"));
