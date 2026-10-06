@@ -195,7 +195,7 @@ public class SimPuzzleTests implements FabricClientGameTest {
         System.out.println("[78-sim-puzzles] PASS - every puzzle builds");
     }
 
-    private static int copyRoomData() {
+    static int copyRoomData() {
         try {
             java.nio.file.Path source = java.nio.file.Path.of(
                     ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"

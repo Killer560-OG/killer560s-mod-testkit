@@ -51,54 +51,20 @@ and 25700-25850), at most `-Max` (3) clients at once, clients stay muted. Units 
 group, 96-ar) are never split unless `-SplitLarge`. Merged report in `build/sharded-<timestamp>/summary.md`. Measured
 2026-10-05 on `smoke,-ui-,93-solve,96-ar` (26.1.2): serial 538 s, `-Shards 3` 272 s end to end. Details: [docs/sharding.md](docs/sharding.md).
 
-## Minecraft 26.2 (runs: smoke, proof, seed and the UI group pass)
+## Minecraft 26.2
 
-`-Pminecraft_version=26.2` switches the whole build, as in killer560s-mod. `versionsByMinecraft` in build.gradle
-then supplies Fabric API `0.160.0+26.2`, loader `0.19.5` (his "26.2 mod only" Prism instance) and cloud-fabric
-`2.0.0-beta.17`, unless those are passed with -P too; 26.1.2 with no flag is unchanged (dependency trees diffed
-identical against master, 2026-10-04). Scripts take `-Minecraft 26.2`, which passes the flag and picks the
-snapshot's `killer560smod-*-26.2-cheat.jar` (a jar named for the other version is refused):
-
-```
-./run-scenario.ps1 -Scenario "smoke,proof,02-seed" -Minecraft 26.2
-./gradlew runClientGameTest -Pminecraft_version=26.2 -Pscenario=smoke -PmodUnderTest=<...-26.2-cheat.jar>
-./gradlew grimServer -Pminecraft_version=26.2
-```
-
-GrimAC: the same pin, `2.3.74-8eb5f28` (its only per-version module is `grimac-fabric-mc261`). It DOES detect on 26.2:
-smoke's positive control and proof's 46 verbose lines both came back on 2026-10-04.
-
-Status 2026-10-04, first runs: `smoke,proof,02-seed` and the UI world group (301-306, 365) pass on 26.2 with the
-26.2 cheat jar. What it took: `menu/*` goes through `McCompat.screen/setScreen`; `HxMenus` reads colours as the first
-16 `ChatFormatting` ordinals (26.2 removed `isColor()`); the mod's own 26.2 startup crash (seven `Gui.extractRenderState`
-mixins, fixed there in b0ae44cb; `365-ui-overlay-draws` proves an overlay draws); and `Scenario.connect` retries a join
-that fails instantly (26.2 only: the client dials the moment the restarted server prints Done) up to 5 times, 2 s apart.
-
-Not yet run on 26.2: everything else (sim, puzzles, menus, the 40-90 scenarios). `run/testserver` is shared by both
-versions; scenarios delete the world, but a hand-played `grimServer` world opened on 26.2 cannot go back.
-
-Version-specific API goes in `dev.testkit.compat` (`McCompat.screen/setScreen`, `McItems`, `McEntities`) under
-`src/client/mc26_1/java` and `src/client/mc26_2/java`, one of which build.gradle puts on the client source path.
-Both copies keep identical public signatures. Nothing in `src/*/java` may use `mc.screen`, `mc.setScreen`, a
-colour-variant `Items.RED_...` constant or `EntityType.<CONSTANT>`: those are gone on 26.2 (the screen moved to
-`Minecraft.gui`, colours to `ColorCollection.pick(DyeColor)`, entity constants to `EntityTypes`), and
-`BlockPos.getCenter()` is gone too (use `Vec3.atCenterOf`). Before merging a branch, compile it with
-`-Pminecraft_version=26.2` as well, or new code quietly breaks the 26.2 build.
+`-Pminecraft_version=26.2` switches the whole build (`versionsByMinecraft` in build.gradle supplies Fabric API
+`0.160.0+26.2`, loader `0.19.5`, cloud-fabric `2.0.0-beta.17`); scripts take `-Minecraft 26.2` and pick the snapshot's
+`killer560smod-*-26.2-cheat.jar`. GrimAC is the same pin and detects on 26.2. Version-specific API goes in
+`dev.testkit.compat` (`src/client/mc26_1/java` vs `mc26_2/java`, identical public signatures); nothing in `src/*/java`
+may use `mc.screen`, `mc.setScreen`, colour-variant `Items.RED_...`, `EntityType.<CONSTANT>` or `BlockPos.getCenter()`.
+Compile with `-Pminecraft_version=26.2` before merging a branch. Run status, what it took, and the full rules:
+[docs/minecraft-262.md](docs/minecraft-262.md).
 
 ## FPS bench (95-fps-bench)
 
-```
-./gradlew runClientGameTest -Pscenario=95-fps -Pport=<port> -PtestVolume=0 -PmodUnderTest=<cheat jar>
-python tools/fps-jfr.py build/testkit-report/fps-on.jfr        # where the render thread's time went
-python tools/fps-jfr-children.py <jfr> "HudInGameRenderer.draw" 2   # one entry point broken down by callee
-```
-
-`perf/FpsBenchTest`, about 10 minutes, only when named. Generates a sim F7, then alternates ON (defaults plus 56
-HUD/ESP/map/solver switches, no automation) and OFF (every config with isEnabled/setEnabled off) for 3 x 1200 ticks.
-`harness/FrameClock` (mixins on `Minecraft.tick` and `GameRenderer.extract/render`) times CPU only, swap and vsync
-excluded. Results in `build/testkit-report/fps-bench.txt`, plus `fps-on.jfr`/`fps-off.jfr`. Read the ON-OFF DELTA
-from one run: identical runs drifted ~0.06 ms in absolute terms (2026-10-05). The gametest loop renders ~1.5 frames
-per tick and every frame here is CPU-light (~0.8 ms), so tick costs weigh far more than at his real frame rate.
+`perf/FpsBenchTest`, about 10 minutes, only when named (`-Pscenario=95-fps`). Commands, method and how to read the
+ON-OFF delta: [docs/fps-bench.md](docs/fps-bench.md).
 
 ## Layout
 
@@ -112,7 +78,8 @@ Scenarios so far: 62-argrim (Auto Routes on GrimAC, see below), 48-56 Breaker Au
 picks-only since mod 9e83c4fc, so 50-52 pick the whole corridor and 53-56 cover side, floor, behind and through-wall picks), 60 Secret
 Triggerbot, 99-sim-essence-aura (Secret Aura on a sim wither essence holding AOTV / Hyperion, first world and after a
 rebuild; server-side click record, collection and Auto Routes' await; only when named, captures from "Map Logger" unless
-`TESTKIT_SIM_INSTANCE` says otherwise).
+`TESTKIT_SIM_INSTANCE` says otherwise),
+110-sim-puzzle-reset (player reset rules of mod 35a663ba: only failed puzzles, never Water Board, Boulder when built, a draft kept when nothing resets).
 
 ## Auto puzzle suite (93-solve-*)
 
@@ -312,8 +279,10 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 
 - Fabric API 0.155 has NO `net.fabricmc.fabric.api.client.command.v2.ClientCommandManager` (ClassNotFoundException,
   97-sim-roomcycle, 2026-10-06); the client dispatcher is `net.fabricmc.fabric.impl.command.client.ClientCommandInternals
-  .getActiveDispatcher()`, and `mc.player.connection.sendCommand(...)` runs a client command as typed. A reflective lookup
-  that swallows the exception never runs anything (SimServerSafetyTests does this; flagged).
+  .getActiveDispatcher()`, and `mc.player.connection.sendCommand(...)` runs a client command as typed.
+  SimServerSafetyTests used the missing class inside a catch that treated any exception as a pass, so it typed
+  nothing for weeks; it now checks every command is registered on the real dispatcher (a missing class or command
+  throws), types them with `sendCommand`, and fails if no command produced a chat line.
 
 - From the MAIN MENU (the map designer, any sim screen opened before a world) `ModChat.send` shows nothing: it drops the line
   while `client.player` is null, so a chat assertion there can never pass. Assert the screen's status text or the mod's log

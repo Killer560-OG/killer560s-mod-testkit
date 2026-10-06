@@ -93,28 +93,49 @@ public class SimServerSafetyTests implements FabricClientGameTest {
                     String before = fingerprint(ctx);
                     String[] beforeBlocks = blocks(ctx);
 
+                    // Every command must be REGISTERED on Fabric's client dispatcher, or this scenario would
+                    // "pass" without having typed anything. Fabric API 0.155 has no api ClientCommandManager;
+                    // the dispatcher comes from ClientCommandInternals (see CLAUDE.md). A missing class or a
+                    // missing command is a FAILURE here, never a pass.
                     for (String command : COMMANDS) {
-                        // Straight into Fabric's CLIENT command dispatcher, by reflection - these are
-                        // client-side commands the mod registers itself, so sending them as chat would only
-                        // test that the server does not know what /simbuild is. The command API is not on
-                        // this module's compile classpath; it arrives at runtime with the mod.
+                        String root = command.split(" ")[0];
+                        String[] registered = new String[1];
                         ctx.runOnClient(mc -> {
                             try {
-                                Class<?> ccm = Class.forName(
-                                        "net.fabricmc.fabric.api.client.command.v2.ClientCommandManager");
-                                Object dispatcher = ccm.getMethod("getActiveDispatcher").invoke(null);
-                                if (dispatcher == null || mc.player == null) {
-                                    return;
-                                }
-                                dispatcher.getClass().getMethod("execute", String.class, Object.class)
-                                        .invoke(dispatcher, command,
-                                                mc.player.connection.getSuggestionsProvider());
+                                Class<?> internals = Class.forName(
+                                        "net.fabricmc.fabric.impl.command.client.ClientCommandInternals");
+                                com.mojang.brigadier.CommandDispatcher<?> d =
+                                        (com.mojang.brigadier.CommandDispatcher<?>) internals
+                                                .getMethod("getActiveDispatcher").invoke(null);
+                                registered[0] = d == null ? "no active dispatcher"
+                                        : d.getRoot().getChild(root) == null ? "not registered" : "ok";
                             } catch (ReflectiveOperationException | RuntimeException e) {
-                                // A command refusing loudly is a PASS here, not a failure: the point is that
-                                // it does not ACT. Only a state change matters, and that is checked below.
+                                registered[0] = "dispatcher lookup failed: " + e;
                             }
                         });
+                        if (!"ok".equals(registered[0])) {
+                            throw new AssertionError("/" + root + " cannot be typed (" + registered[0]
+                                    + "), so this scenario would prove nothing about it");
+                        }
+                    }
+                    long chatMark = LogTap.mark();
+                    int[] chatLines = new int[1];
+                    for (String command : COMMANDS) {
+                        long commandMark = LogTap.mark();
+                        // Typed as he would type it: sendCommand is intercepted by Fabric's client command API,
+                        // which runs the mod's client command (sending it as chat would only test that the
+                        // server does not know what /simbuild is).
+                        ctx.runOnClient(mc -> mc.player.connection.sendCommand(command));
                         ctx.waitTicks(25);
+                        List<String> said = new ArrayList<>();
+                        for (String line : LogTap.since(commandMark)) {
+                            if (line.contains("[CHAT]")) {
+                                said.add(line);
+                            }
+                        }
+                        chatLines[0] += said.size();
+                        System.out.println("[" + name + "] /" + command + " ran; the client said "
+                                + said.size() + " line(s): " + (said.isEmpty() ? "-" : said.get(0)));
 
                         boolean[] state = new boolean[2];
                         ctx.runOnClient(mc -> {
@@ -169,6 +190,10 @@ public class SimServerSafetyTests implements FabricClientGameTest {
                         problems.add("he is no longer connected to the server after running the sim commands");
                     }
 
+                    if (chatLines[0] == 0) {
+                        problems.add("no command produced a single chat line, so none of them can be shown to "
+                                + "have run (" + LogTap.since(chatMark).size() + " log line(s) captured)");
+                    }
                     scenario.log("ran " + COMMANDS.length + " sim command(s) on a real server; "
                             + problems.size() + " problem(s)");
                     if (!problems.isEmpty()) {
