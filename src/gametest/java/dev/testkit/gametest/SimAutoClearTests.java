@@ -407,6 +407,113 @@ public class SimAutoClearTests implements FabricClientGameTest {
         if (p5.isEmpty() || !"dead".equals(after5.get(mob5))) {
             failures.add("correction: the zombie is " + (p5.isEmpty() ? "not placed" : after5.get(mob5)));
         }
+
+        // ==== case 6: order - rooms off the blood rush before the rooms on it ====
+        // killer560 (2026-10-06): "prioritize moving away from blood rush and taking whatever the longest split is ...
+        // then, once it eventually needs to go down the blood split ..." The rush room and an off-path room are both
+        // un-cleared with a zombie each; Any Mob Room must take the off-path one first.
+        Room offRoom = off.get(0);
+        List<Placed> p6 = new ArrayList<>();
+        for (Room r : List.of(rush, offRoom)) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_ROOM_STATE, "clearRoom", new Class<?>[]{String.class},
+                    new Object[]{r.name()}));
+            p6.addAll(spawnIn(ctx, r, 1, false));
+        }
+        ctx.waitTicks(30);
+        setMode(ctx, "ANY_MOB_ROOM", "HYPERION");
+        long mark6 = LogTap.mark();
+        Result r6 = runCase(ctx, "order", () -> ModUnderTest.staticCall(AUTO, "start"));
+        Map<UUID, String> after6 = aliveReport(ctx, p6);
+        List<String> picks = new ArrayList<>();
+        for (String l : LogTap.since(mark6)) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\[AutoClear\\] next room (.+?) \\((on|off) the blood rush\\)")
+                    .matcher(l);
+            if (m.find()) {
+                picks.add(m.group(1) + "/" + m.group(2));
+            }
+        }
+        println("order: " + r6 + "; picks " + picks + "; mobs " + after6);
+        check(failures, "order", r6, p6, after6, floor(ctx), List.of(rush.name(), offRoom.name()), List.of());
+        int offAt = picks.indexOf(offRoom.name() + "/off");
+        int rushAt = picks.indexOf(rush.name() + "/on");
+        if (offAt < 0 || rushAt < 0 || offAt > rushAt) {
+            failures.add("order: the off-path room " + offRoom.name() + " was not taken before the blood-rush room "
+                    + rush.name() + " (picks " + picks + ")");
+        }
+
+        // ==== case 7: a room only reachable through a wither door ====
+        // Every door of the other off-path room becomes a shut wither door (SimDoors.witherDoorsAround: coal in the world,
+        // a wither door on the map). With no key it must go to the door and WAIT (not stop, not give up); given a key it
+        // must click the door open, go in and clear the room.
+        Room locked = off.get(1);
+        String standingIn = ctx.computeOnClient(mc -> {
+            Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+            int cur = (Integer) ModUnderTest.call(layout, "currentRoom", new Class<?>[]{}, new Object[]{});
+            return (String) ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{cur});
+        });
+        if (locked.name().equals(standingIn)) {
+            locked = offRoom;
+        }
+        Room lockedRoom = locked;
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_ROOM_STATE, "clearRoom", new Class<?>[]{String.class},
+                new Object[]{lockedRoom.name()}));
+        List<Placed> p7 = spawnIn(ctx, lockedRoom, 1, false);
+        int doors = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimDoors",
+                "witherDoorsAround", new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, lockedRoom.name()}));
+        ctx.waitTicks(40);
+        println("door: " + doors + " wither door(s) put round " + lockedRoom.name() + " (he is in " + standingIn + ")");
+        if (doors <= 0) {
+            failures.add("door: could not put wither doors round " + lockedRoom.name() + " (" + doors + ")");
+            return;
+        }
+        long mark7 = LogTap.mark();
+        PacketWatch.start();
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "start"));
+        boolean waiting = false;
+        for (int t = 0; t < 600 && !waiting; t++) {
+            ctx.waitTicks(1);
+            for (String l : LogTap.since(mark7)) {
+                waiting |= l.contains("with no key - waiting");
+            }
+        }
+        ctx.waitTicks(40);
+        boolean busyWithoutKey = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AUTO, "isBusy"));
+        println("door: waiting without a key: " + waiting + ", still running 2 s later: " + busyWithoutKey + " - "
+                + ctx.computeOnClient(mc -> ModUnderTest.staticCall(AUTO, "status")));
+        if (!waiting || !busyWithoutKey) {
+            failures.add("door: without a key it did not wait at the door (waiting " + waiting + ", running "
+                    + busyWithoutKey + ")");
+        }
+        AtomicReference<Boolean> keyGiven = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            UUID me = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(me);
+                if (sp != null) {
+                    sp.getInventory().setItem(3, (ItemStack) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimDoors",
+                            "createWitherKey"));
+                }
+                keyGiven.set(sp != null);
+            });
+        });
+        ctx.waitFor(mc -> keyGiven.get() != null, 100);
+        Result r7 = runCase(ctx, "door", () -> { });
+        Map<UUID, String> after7 = aliveReport(ctx, p7);
+        boolean clicked = false;
+        for (String l : LogTap.since(mark7)) {
+            clicked |= l.contains("clicked wither door");
+        }
+        int keysLeft = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimDoors",
+                "keysHeld"));
+        println("door: " + r7 + "; clicked " + clicked + ", keys left " + keysLeft + "; mob " + after7);
+        if (!clicked) {
+            failures.add("door: never clicked the wither door with the key");
+        }
+        if (keysLeft != 0) {
+            failures.add("door: the key was not used (" + keysLeft + " left) - the door never opened");
+        }
+        check(failures, "door", r7, p7, after7, floor(ctx), List.of(lockedRoom.name()), List.of());
     }
 
     /**
