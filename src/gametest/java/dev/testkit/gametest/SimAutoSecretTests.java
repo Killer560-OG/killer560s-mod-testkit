@@ -327,7 +327,8 @@ public class SimAutoSecretTests implements FabricClientGameTest {
                     finished.add(m.group(1));
                 }
             }
-            if (phase.equals("IDLE") || phase.equals("WAITING") && finished.size() >= routed.size()) {
+            if (phase.equals("IDLE") || (phase.equals("WAITING") || phase.equals("DOOR"))
+                    && finished.size() >= routed.size() && ticks > 200) {
                 break;
             }
         }
@@ -450,23 +451,56 @@ public class SimAutoSecretTests implements FabricClientGameTest {
                 failures.add(b.name() + " is behind a closed door and was a target");
             }
         }
-        // ---- the door opens (a teammate): the room behind it is taken -----------------------------------------
+        // ---- the wither door: the only thing left, so it goes there; no key = it waits saying so; with a key it
+        // opens it itself (killer560, 2026-10-06), and then takes the room behind it --------------------------------
         if (closedDoor != null && blockedRouted != null && routes.containsKey(blockedRouted.name())) {
-            boolean waited = log.stream().anyMatch(l -> l.contains("[AutoSecret] waiting:") && l.contains(blockedRouted.name()));
-            println("waiting for the door, naming " + blockedRouted.name() + ": " + waited + " (phase " + phaseAtEnd + ")");
-            if (!waited || !phaseAtEnd.equals("WAITING")) {
-                failures.add("with " + blockedRouted.name() + " behind a closed door it did not wait for it (phase "
-                        + phaseAtEnd + ", waiting line " + waited + ")");
+            String doorWait = null;
+            for (String l : log) {
+                if (l.contains("[AutoSecret] waiting at the wither door at cell") && l.contains("no wither key")) {
+                    doorWait = l;
+                }
+            }
+            boolean wentToDoor = log.stream().anyMatch(l -> l.contains("[AutoSecret] wither door at cell")
+                    && l.contains("the only way on"));
+            BlockPos doorAt = closedDoor;
+            double fromDoor = ctx.computeOnClient(mc -> Math.sqrt(mc.player.blockPosition().distSqr(doorAt)));
+            String status = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(AS, "statusText"));
+            println("at the door: chosen " + wentToDoor + ", no-key wait " + (doorWait != null) + ", phase " + phaseAtEnd
+                    + ", " + String.format(Locale.US, "%.1f", fromDoor) + " blocks from the lock block, status \""
+                    + status + "\"");
+            if (!wentToDoor || doorWait == null || !phaseAtEnd.equals("DOOR") || fromDoor > 5) {
+                failures.add("with nothing left but the closed door it did not go and wait at it without a key (chosen "
+                        + wentToDoor + ", no-key line " + (doorWait != null) + ", phase " + phaseAtEnd + ", "
+                        + String.format(Locale.US, "%.1f", fromDoor) + " blocks away)");
             } else {
+                // The sim opens a door it knows about for a wither key in hand: register this one, give the key.
+                ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimDoors", "addDoor",
+                        new Class<?>[]{BlockPos.class}, new Object[]{doorAt}));
                 long markDoor = LogTap.mark();
-                setBlock(ctx, closedDoor, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+                giveWitherKey(ctx);
+                boolean clicked = false;
+                boolean opened = false;
                 boolean took = false;
                 for (int i = 0; i < 20 * 60 && !took; i += 10) {
                     ctx.waitTicks(10);
-                    took = LogTap.since(markDoor).stream().anyMatch(l -> l.contains("[AutoSecret] route "
-                            + blockedRouted.name() + " finished"));
+                    List<String> since = LogTap.since(markDoor);
+                    clicked |= since.stream().anyMatch(l -> l.contains("[AutoSecret] right-clicked the wither door"));
+                    opened |= since.stream().anyMatch(l -> l.contains("[AutoSecret] the wither door at cell")
+                            && l.contains("is open"));
+                    took = since.stream().anyMatch(l -> l.contains("[AutoSecret] route " + blockedRouted.name() + " finished"));
                 }
-                println("door opened: the route in " + blockedRouted.name() + (took ? " ran" : " NEVER ran"));
+                boolean air = ctx.computeOnClient(mc -> mc.level.getBlockState(doorAt).isAir());
+                println("key given: clicked " + clicked + ", door open " + opened + " (lock block air " + air
+                        + "), the route in " + blockedRouted.name() + (took ? " ran" : " NEVER ran"));
+                for (String l : LogTap.since(markDoor)) {
+                    if (l.contains("[AutoSecret]")) {
+                        println("  " + l.replaceAll("^.*?\\[AutoSecret\\]", "[AutoSecret]"));
+                    }
+                }
+                if (!clicked || !opened || !air) {
+                    failures.add("with a wither key it did not open the door itself (clicked " + clicked + ", open "
+                            + opened + ", air " + air + ")");
+                }
                 if (!took) {
                     failures.add("after the door opened the route in " + blockedRouted.name() + " never ran");
                 }
@@ -686,6 +720,27 @@ public class SimAutoSecretTests implements FabricClientGameTest {
             ctx.waitTicks(1);
         }
         ctx.waitTicks(2);
+    }
+
+    /** A sim Wither Key into hotbar slot 5, on the server (the sim's own key item, SimDoors.createWitherKey). */
+    private static void giveWitherKey(ClientGameTestContext ctx) {
+        AtomicReference<Boolean> given = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            var uuid = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(uuid);
+                if (sp == null) {
+                    given.set(false);
+                    return;
+                }
+                sp.getInventory().setItem(5, (ItemStack) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimDoors",
+                        "createWitherKey"));
+                given.set(true);
+            });
+        });
+        ctx.waitFor(mc -> given.get() != null, 200);
+        ctx.waitTicks(5);
     }
 
     private static void giveAotv(ClientGameTestContext ctx) {
