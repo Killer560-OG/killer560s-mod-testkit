@@ -438,6 +438,25 @@ public final class SimPuzzleSolveTests {
                 iceBreaks = new IceBreaks(name);
             }
 
+            // ---- Water Board: the bottom path starts with three WHOLE layers out, and no reward chest -----------
+            boolean water = "SimWaterPuzzle".equals(spec.puzzle());
+            if (water) {
+                String layers = ctx.computeOnClient(SimPuzzleSolveTests::waterLayers);
+                println(name, "bottom path before (cells filled of 5 per layer, z 15..19): " + layers);
+                String bad = waterLayersStart(layers);
+                if (bad != null) {
+                    throw new AssertionError("bottom path at the start: " + bad + " (" + layers + ")");
+                }
+                Object pos = ctx.computeOnClient(mc -> ModUnderTest.staticCall(PUZZLES + "SimWaterPuzzle",
+                        "rewardChestPos", new Class<?>[]{}, new Object[]{}));
+                boolean chestThere = ctx.computeOnClient(mc -> mc.level.getBlockState(rel(mc, 15, 56, 22))
+                        .is(net.minecraft.world.level.block.Blocks.CHEST));
+                if (pos != null || chestThere) {
+                    throw new AssertionError("a reward chest is there before the board is solved (" + pos + ", "
+                            + chestThere + ")");
+                }
+            }
+
             // ---- switch it on ---------------------------------------------------------------------------
             ctx.runOnClient(mc -> configure(true, true));
             ctx.waitTicks(2);
@@ -587,7 +606,16 @@ public final class SimPuzzleSolveTests {
                             failed(ctx), probe(ctx)));
                 }
             }
+            // Before the autos go off: Auto Water's last act is the warp onto its chest spot.
+            String waterReward = water && solvedAt > 0 && failedAt < 0 ? waterReward(ctx, name) : null;
             ctx.runOnClient(mc -> configure(true, false));
+            if (waterReward != null && !waterReward.startsWith("FAIL")) {
+                // With the auto off, so nothing solves the board again under the check.
+                waterReward = waterReward + "; " + waterReset(ctx, name);
+                if (waterReward.contains("FAIL")) {
+                    waterReward = "FAIL - " + waterReward;
+                }
+            }
 
             List<String> tail = relevant(LogTap.since(mark));
             println(name, "last auto/sim lines:");
@@ -628,6 +656,13 @@ public final class SimPuzzleSolveTests {
                             + extra;
                 }
                 extra = ", " + iceBreaks.summary() + extra;
+            }
+            if (solvedAt > 0 && waterReward != null) {
+                if (waterReward.startsWith("FAIL")) {
+                    dumpEvidence(ctx, name, mark);
+                    return waterReward + " (solved at " + String.format("%.1fs", solvedAt / 20.0) + ")" + extra;
+                }
+                return String.format("PASS - solved at %.1fs, %s%s", solvedAt / 20.0, waterReward, extra);
             }
             if (solvedAt > 0) {
                 return String.format("PASS - solved at %.1fs%s", solvedAt / 20.0, extra);
@@ -894,6 +929,160 @@ public final class SimPuzzleSolveTests {
                 new Object[]{});
         return (net.minecraft.core.BlockPos) ModUnderTest.staticCall(SOLVERS + "PuzzleCoords", "real",
                 new Class<?>[]{int.class, int.class, int.class, int[].class}, new Object[]{x, y, z, cr});
+    }
+
+    // ------------------------------------------------------------------ Water Board: bottom path and reward chest
+    //
+    // killer560 (2026-10-06): a colour that is out fills its whole layer of the walkway under the glass, not just the
+    // middle block, and solving the board spawns a chest "in between those carpets down low but closer to the exit".
+    // Everything here is read off the CLIENT's world through PuzzleCoords - the solver's coordinate path, not the
+    // sim's own anchor - so a sim that put either in the wrong place cannot agree with itself and pass.
+
+    private static final String WATER = PUZZLES + "SimWaterPuzzle";
+    /** The walkway cells a colour layer fills when out: x 14..16 at y 56, and x 14 and 16 at y 57. */
+    private static final int[][] LAYER_CELLS = {{14, 56}, {15, 56}, {16, 56}, {14, 57}, {16, 57}};
+
+    /** Per colour layer z 15..19, how many of its five walkway cells hold wool, e.g. "0,5,5,0,5". */
+    private static String waterLayers(Minecraft mc) {
+        StringBuilder sb = new StringBuilder();
+        for (int z = 15; z <= 19; z++) {
+            int n = 0;
+            for (int[] c : LAYER_CELLS) {
+                // Block.toString is "Block{minecraft:red_wool}" - no registry or version-specific API needed.
+                if (mc.level.getBlockState(rel(mc, c[0], c[1], z)).getBlock().toString().endsWith("_wool}")) {
+                    n++;
+                }
+            }
+            sb.append(z == 15 ? "" : ",").append(n);
+        }
+        return sb.toString();
+    }
+
+    /** null when exactly three layers are fully out and the other two fully in, else what is wrong. */
+    private static String waterLayersStart(String layers) {
+        int full = 0;
+        for (String s : layers.split(",")) {
+            if (s.equals("5")) {
+                full++;
+            } else if (!s.equals("0")) {
+                return "a layer is only partly out";
+            }
+        }
+        return full == 3 ? null : full + " layer(s) out, expected 3";
+    }
+
+    /**
+     * After the board is solved, with the auto still on: the chest appears at relative (15, 56, 22), every layer is
+     * down, Secret Aura opens it, and opening it does not count a secret (the room has none).
+     */
+    private static String waterReward(ClientGameTestContext ctx, String name) {
+        net.minecraft.core.BlockPos expect = ctx.computeOnClient(mc -> rel(mc, 15, 56, 22));
+        int t = 0;
+        for (; t < 100; t++) {
+            if (ctx.computeOnClient(mc -> mc.level.getBlockState(expect)
+                    .is(net.minecraft.world.level.block.Blocks.CHEST))) {
+                break;
+            }
+            ctx.waitTicks(1);
+        }
+        net.minecraft.core.BlockPos sim = ctx.computeOnClient(mc -> (net.minecraft.core.BlockPos)
+                ModUnderTest.staticCall(WATER, "rewardChestPos", new Class<?>[]{}, new Object[]{}));
+        String around = ctx.computeOnClient(mc -> {
+            StringBuilder sb = new StringBuilder();
+            for (int[] d : new int[][]{{14, 22}, {16, 22}, {15, 23}, {15, 24}}) {
+                sb.append(String.format("(%d,56,%d)=%s ", d[0], d[1], mc.level.getBlockState(rel(mc, d[0], 56, d[1]))
+                        .getBlock().getName().getString()));
+            }
+            return sb.toString().trim();
+        });
+        println(name, String.format("reward chest: client chest at relative (15,56,22) = world %s after %.1fs: %s;"
+                + " the sim says %s; around it: %s", expect.toShortString(), t / 20.0, t < 100,
+                sim == null ? "none" : sim.toShortString(), around));
+        if (t >= 100) {
+            return "FAIL - water reward: no chest at relative (15,56,22) " + expect.toShortString() + " 5 s after"
+                    + " the solve (the sim's own: " + sim + ")";
+        }
+        if (!expect.equals(sim)) {
+            return "FAIL - water reward: the sim's chest " + sim + " is not relative (15,56,22) " + expect;
+        }
+        String layers = ctx.computeOnClient(SimPuzzleSolveTests::waterLayers);
+        println(name, "bottom path after the solve: " + layers);
+        if (!layers.equals("0,0,0,0,0")) {
+            return "FAIL - water reward: the bottom path is not clear after the solve (" + layers + ")";
+        }
+
+        // Opened by Secret Aura, the way he collects it: Auto Water ends on the glass right above it.
+        int secretsBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(
+                "com.killer560.hub.roomsim.SimScore", "secretsFound", new Class<?>[]{}, new Object[]{}));
+        String aura = "com.killer560.hub.cheatutils.CheatUtilsConfig";
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(aura);
+            ModUnderTest.set(cfg, "setAuraChests", true);
+            ModUnderTest.set(cfg, "setSecretAuraEnabled", true);
+        });
+        int opened = -1;
+        String screen = null;
+        try {
+            for (int k = 0; k < 300; k++) {
+                ctx.waitTicks(1);
+                String s = ctx.computeOnClient(mc -> {
+                    if (mc.player.containerMenu != mc.player.inventoryMenu) {
+                        String what = mc.player.containerMenu.getClass().getSimpleName();
+                        mc.player.closeContainer();
+                        return what;
+                    }
+                    return null;
+                });
+                if (s != null && screen == null) {
+                    screen = s;
+                }
+                if (ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(WATER, "isRewardChestOpened",
+                        new Class<?>[]{}, new Object[]{}))) {
+                    opened = k;
+                    break;
+                }
+            }
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(aura), "setSecretAuraEnabled", false));
+        }
+        ctx.waitTicks(10);
+        ctx.runOnClient(mc -> {
+            if (mc.player.containerMenu != mc.player.inventoryMenu) {
+                mc.player.closeContainer();
+            }
+        });
+        int secretsAfter = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(
+                "com.killer560.hub.roomsim.SimScore", "secretsFound", new Class<?>[]{}, new Object[]{}));
+        String from = ctx.computeOnClient(SimPuzzleSolveTests::where);
+        println(name, String.format("reward chest opened by Secret Aura: %s%s, from %s; container %s;"
+                        + " secrets %d -> %d", opened >= 0, opened >= 0 ? String.format(" after %.1fs", opened / 20.0)
+                        : "", from, screen, secretsBefore, secretsAfter));
+        if (opened < 0) {
+            return "FAIL - water reward: Secret Aura did not open the chest in 15 s (standing at " + from + ")";
+        }
+        if (secretsAfter != secretsBefore) {
+            return "FAIL - water reward: opening the reward chest counted " + (secretsAfter - secretsBefore)
+                    + " secret(s); Water Board has none";
+        }
+        return String.format("reward chest at relative (15,56,22) %s, path clear, opened by Secret Aura after %.1fs"
+                + " (container %s), secrets unchanged", expect.toShortString(), opened / 20.0, screen);
+    }
+
+    /** A puzzle reset takes the chest away and puts the three layers back. */
+    private static String waterReset(ClientGameTestContext ctx, String name) {
+        net.minecraft.core.BlockPos expect = ctx.computeOnClient(mc -> rel(mc, 15, 56, 22));
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(WATER, "reset", new Class<?>[]{}, new Object[]{}));
+        ctx.waitTicks(40);
+        boolean chest = ctx.computeOnClient(mc -> mc.level.getBlockState(expect)
+                .is(net.minecraft.world.level.block.Blocks.CHEST));
+        Object sim = ctx.computeOnClient(mc -> ModUnderTest.staticCall(WATER, "rewardChestPos", new Class<?>[]{},
+                new Object[]{}));
+        String layers = ctx.computeOnClient(SimPuzzleSolveTests::waterLayers);
+        println(name, "after a puzzle reset: chest still there " + chest + ", the sim's " + sim + ", bottom path "
+                + layers);
+        String bad = chest || sim != null ? "the chest survived the reset" : waterLayersStart(layers);
+        return bad == null ? "reset took the chest away and put 3 layers back (" + layers + ")"
+                : "FAIL - water reset: " + bad + " (" + layers + ")";
     }
 
     /** Feet position on the first solid block at or below {@code from} with two blocks of air over it. */

@@ -14,6 +14,13 @@ the sim's own `Sim*Puzzle.isComplete()`, failed if `SimRoomState.isFailed` ever 
 container opened", because Auto Boulder auras the reward chest instead of pushing boxes. Status lines every 5 s
 carry the solver's own state (`probes`), and a failure prints the last 60 mod/chat log lines (`LogTap`).
 
+Water Board checks more than the solve (mod 5cd5b881): before the auto starts, exactly three colour layers of the
+walkway under the glass are fully out (x 14..16 at y 56, x 14/16 at y 57, 5 of 5 cells) and no reward chest exists;
+after the solve, a chest at room-relative (15, 56, 22) equal to `SimWaterPuzzle.rewardChestPos()`, all five layers
+clear, Secret Aura opening it within 15 s with `SimScore.secretsFound` unchanged, then (auto off)
+`SimWaterPuzzle.reset()` removes it and refills the three layers. Positions go through `PuzzleCoords`, not the sim's
+anchor. A jar before 5cd5b881 fails at the start check ("0,0,1,1,1": middle block only).
+
 `-PsolveRepeat=N` plays each selected room N times in one launch. `-PnetStallMs=120` holds the client
 connection's netty loop for that long every 13 ticks (`-PserverStallEvery`), so several packets land in one client
 tick - the lag a loaded machine produces; it turned Ice Fill's one-in-dozens flake into 6/6 on 2026-10-05.
