@@ -303,5 +303,8 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   "behind a closed door". 102-sim-autosecret makes one: it sets the live map's `grid` tile to DOOR_WITHER by reflection
   and puts coal on `DungeonLayout.doorBlock`, which is what the layout reads as locked.
 
+- 141-sim-autopilot re-shuts the sim blood door by putting its blocks back (`SimDoors` keeps a door registered once open);
+  rooms named Maze/Boulder/Trap are never picked - the mod's map will not path out of them (`AutoClearUtils.canPath`).
+
 Auto Routes on GrimAC (62-argrim): how to run it and its traps are in [docs/argrim.md](docs/argrim.md).
 AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatch HUD): [docs/ap3.md](docs/ap3.md).
