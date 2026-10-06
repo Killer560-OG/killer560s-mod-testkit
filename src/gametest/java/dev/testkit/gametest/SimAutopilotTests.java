@@ -605,6 +605,13 @@ public class SimAutopilotTests implements FabricClientGameTest {
             check(problems, "party: a key beside a slower route", pickOf(choose(true, slow, key, a)), "KEY Wither Key#7");
             check(problems, "party: a key before a clear when no route", pickOf(choose(true, key, aMate, a)),
                     "KEY Wither Key#7");
+            // keys-range: base x3 (Magnetic Talisman) + 5 (0.27.2).
+            check(problems, "key range 1.0 + talisman", String.format(Locale.US, "%.1f", (Double) ModUnderTest.staticCall(
+                    "com.killer560.hub.doorkeys.DungeonKeys", "pickupRange", new Class<?>[]{double.class, boolean.class},
+                    new Object[]{1.0, true})), "8.0");
+            check(problems, "key range 1.0 no talisman", String.format(Locale.US, "%.1f", (Double) ModUnderTest.staticCall(
+                    "com.killer560.hub.doorkeys.DungeonKeys", "pickupRange", new Class<?>[]{double.class, boolean.class},
+                    new Object[]{1.0, false})), "6.0");
         });
         for (String p : problems) {
             System.out.println("[" + LOGIC + "] FAIL: " + p);
