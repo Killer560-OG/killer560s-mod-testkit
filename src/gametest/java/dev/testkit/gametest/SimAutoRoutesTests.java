@@ -52,7 +52,8 @@ import java.util.function.Supplier;
  *
  * <p>Cases (each selectable: -Pscenario=96-ar-play etc.; -Pscenario=96-ar runs all):
  * add, play, interact (empty-hand use nodes), await (what counts as YOUR secret), mimic (Kill Mimic), crypt (crypt
- * nodes and the two await counters), breaker, pingpong, edit, mapopen, path, screen, rotate. GrimAC does not apply
+ * nodes and the two await counters), breaker, pingpong, charges (a secret gives the sim breaker 2 charges), museum (his
+ * exact Museum route: stacked booms into a crypt node), edit, mapopen, path, screen, rotate. GrimAC does not apply
  * here: the sim is an integrated server.
  */
 public class SimAutoRoutesTests implements FabricClientGameTest {
@@ -79,6 +80,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     private static final String[] CASES = {"96-ar-add", "96-ar-play", "96-ar-interact", "96-ar-await",
             "96-ar-awaitskip", "96-ar-leverwp", "96-ar-complete", "96-ar-mimic",
             "96-ar-crypt", "96-ar-breaker", "96-ar-pingpong", "96-ar-chain", "96-ar-stackorder", "96-ar-crypthold",
+            "96-ar-charges", "96-ar-museum",
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen",
             "96-ar-path", "96-ar-screen", "96-ar-rotate"};
 
@@ -220,6 +222,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-chain" -> caseChain(ctx);
                         case "96-ar-stackorder" -> caseStackOrder(ctx);
                         case "96-ar-crypthold" -> caseCryptHold(ctx);
+                        case "96-ar-charges" -> caseCharges(ctx);
+                        case "96-ar-museum" -> caseMuseum(ctx);
                         case "96-ar-edit" -> caseEdit(ctx);
                         case "96-ar-dbedit" -> caseDbEdit(ctx);
                         case "96-ar-mapopen" -> caseMapOpen(ctx);
@@ -876,6 +880,299 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         } finally {
             ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setCryptAttackTicks",
                     new Class<?>[]{int.class}, new Object[]{100}));
+        }
+    }
+
+    // ============================================================================================ breaker charges
+
+    private static int simCharges(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBreakerState",
+                "charges"));
+    }
+
+    private static int simSecrets(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound"));
+    }
+
+    /** The "Charges: N/M" line of the breaker in hotbar slot 2 as the CLIENT has it (what the mod reads), or -1. */
+    private static int loreCharges(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            var lore = mc.player.getInventory().getItem(2).get(net.minecraft.core.component.DataComponents.LORE);
+            if (lore == null) {
+                return -1;
+            }
+            for (var line : lore.lines()) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("Charges: (\\d+)/(\\d+)").matcher(line.getString());
+                if (m.find()) {
+                    return Integer.parseInt(m.group(1));
+                }
+            }
+            return -1;
+        });
+    }
+
+    /**
+     * killer560 (2026-10-06): "on gaining any secret you gain 2 breaker charges back". In the sim: at the cap a secret
+     * changes nothing; after eight real breaker digs (each a START packet the sim's server pays a charge for) a chest
+     * secret gives exactly 2 back, the server says so, and the item's lore on the client follows.
+     */
+    private void caseCharges(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        BlockState chest = Blocks.CHEST.defaultBlockState();
+        setBlocks(ctx, Map.of(new int[]{6, F, 12}, chest, new int[]{6, F, 15}, chest));
+        tpRel(ctx, 4.5, 8.5, 90f, 0f);
+        boolean full = waitFor(ctx, 400, () -> simCharges(ctx) == 20);
+        check(full, "the sim breaker never refilled to 20 (at " + simCharges(ctx) + ")");
+
+        // ---- at the cap: the secret counts, the charges stay 20 ----
+        int s0 = simSecrets(ctx);
+        long mCap = LogTap.mark();
+        rightClick(ctx, 6, F, 12, Direction.UP);
+        ctx.runOnClient(mc -> mc.player.closeContainer());
+        ctx.waitTicks(3);
+        int cCap = simCharges(ctx);
+        int s1 = simSecrets(ctx);
+        println("charges at the cap: secrets " + s0 + " -> " + s1 + ", charges " + cCap);
+        check(s1 == s0 + 1, "the first chest was not counted as a secret (" + s0 + " -> " + s1 + ")");
+        check(cCap == 20, "a secret at the cap left " + cCap + " charges");
+        check(!logHas(mCap, "secret found, charges"), "a secret at the cap reported a charge change");
+
+        // ---- spend eight with real digs ----
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(2));
+        ctx.waitTicks(3);
+        int[][] wall = new int[8][];
+        for (int i = 0; i < 8; i++) {
+            wall[i] = new int[]{3, F + (i / 4), 5 + (i % 4)};
+        }
+        startSampling(ctx);
+        for (int[] b : wall) {
+            ctx.runOnClient(mc -> {
+                BlockPos pos = real(ModUnderTest.staticCall(FRAME, "current"), b[0], b[1], b[2]);
+                mc.gameMode.startDestroyBlock(pos, Direction.EAST);
+                mc.gameMode.stopDestroyBlock();
+            });
+            ctx.waitTicks(1);
+        }
+        ctx.waitTicks(2);
+        List<Sample> digs = stopSampling(ctx);
+        int digPackets = 0;
+        for (Sample x : digs) {
+            digPackets += (int) x.out().stream().filter("player_action"::equals).count();
+        }
+        int broken = 0;
+        for (int[] b : wall) {
+            if (blockAir(ctx, b[0], b[1], b[2])) {
+                broken++;
+            }
+        }
+        int c1 = simCharges(ctx);
+        println("spent: " + digPackets + " dig packet(s), " + broken + " of 8 wall blocks broken, charges 20 -> " + c1);
+        check(broken == 8, "only " + broken + " of the 8 blocks broke");
+        check(c1 <= 14, "eight breaks left " + c1 + " charges - the breaker did not spend");
+
+        // ---- a secret: +2 ----
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+        ctx.waitTicks(1);
+        int cBefore = simCharges(ctx);
+        long m = LogTap.mark();
+        rightClick(ctx, 6, F, 15, Direction.UP);
+        ctx.runOnClient(mc -> mc.player.closeContainer());
+        ctx.waitTicks(2);
+        int c2 = simCharges(ctx);
+        int from = -1;
+        int to = -1;
+        java.util.regex.Pattern p = java.util.regex.Pattern.compile("secret found, charges (\\d+) -> (\\d+)");
+        for (String l : LogTap.since(m)) {
+            java.util.regex.Matcher mm = p.matcher(l);
+            if (mm.find()) {
+                from = Integer.parseInt(mm.group(1));
+                to = Integer.parseInt(mm.group(2));
+            }
+        }
+        int target = c2;
+        waitFor(ctx, 40, () -> loreCharges(ctx) >= target);
+        int lore = loreCharges(ctx);
+        println("secret: server " + from + " -> " + to + ", charges read " + cBefore + " -> " + c2 + ", client lore " + lore
+                + ", secrets " + simSecrets(ctx));
+        check(from >= 0, "no charge restore on the second chest");
+        check(to == from + 2, "a secret restored " + (to - from) + " charges, not 2");
+        check(c2 >= cBefore + 2, "charges went " + cBefore + " -> " + c2 + " over a secret");
+        check(lore >= c2, "the client's breaker lore says " + lore + " after the server had " + c2);
+    }
+
+    /** His Museum route exactly as his Map Logger instance had it on 2026-10-06 (killer560smod-autoroutes.json). */
+    private static final String MUSEUM_ROUTE = """
+            [
+            {"type":"ETHERWARP","x":31.5,"y":69.0,"z":56.5,"yaw":-122.669197,"pitch":-48.907085,"at":0,"start":true,"awaitEnabled":true,"await":"SECRET","amount":1,"landing":"39.500000 82.050000 51.500000"},
+            {"type":"ETHERWARP","x":39.5,"y":82.0,"z":51.5,"yaw":-96.989906,"pitch":-59.229813,"at":0,"landing":"44.500000 93.050000 50.500000"},
+            {"type":"ETHERWARP","x":44.5,"y":93.0,"z":50.5,"yaw":159.467621,"pitch":65.926178,"at":0,"awaitEnabled":true,"await":"SECRET","amount":1,"landing":"42.500000 82.050000 45.500000"},
+            {"type":"ETHERWARP","x":42.5,"y":82.0,"z":45.5,"yaw":157.720352,"pitch":2.248079,"at":0,"landing":"30.500000 82.050000 15.500000"},
+            {"type":"DUNGEON_BREAKER","x":30.5,"y":82.0,"z":15.5,"yaw":157.332077,"pitch":2.118652,"at":0,"blocks":["30 83 14","29 83 14","28 83 14","29 83 13","28 83 12","28 83 13","33 84 12","33 83 12","32 83 12","32 84 12","31 84 12","30 84 12","28 83 11","28 84 11","29 84 11","29 83 11","29 83 12","29 84 12","31 83 12","30 83 12"]},
+            {"type":"ETHERWARP","x":30.5,"y":82.0,"z":15.5,"yaw":140.424835,"pitch":3.21848,"at":0,"landing":"27.500000 83.050000 11.500000"},
+            {"type":"ETHERWARP","x":27.5,"y":83.0,"z":11.5,"yaw":-78.251343,"pitch":10.466819,"at":0,"awaitEnabled":true,"await":"SECRET","amount":1,"landing":"34.500000 83.050000 12.500000"},
+            {"type":"DUNGEON_BREAKER","x":34.5,"y":83.0,"z":12.5,"yaw":78.483276,"pitch":74.015701,"at":0,"blocks":["33 82 12","33 81 12"]},
+            {"type":"ETHERWARP","x":34.5,"y":83.0,"z":12.5,"yaw":108.252403,"pitch":66.509209,"at":0,"awaitEnabled":true,"await":"SECRET","amount":1,"landing":"28.500000 69.050000 10.500000"},
+            {"type":"ETHERWARP","x":28.5,"y":69.0,"z":10.5,"yaw":-150.342102,"pitch":12.861895,"at":0,"landing":"31.500000 69.050000 5.500000"},
+            {"type":"BOOM","x":31.5,"y":69.0,"z":5.5,"yaw":88.836853,"pitch":26.840017,"at":0},
+            {"type":"BOOM","x":31.5,"y":69.0,"z":5.5,"yaw":-89.771271,"pitch":28.004892,"at":0},
+            {"type":"CRYPT","x":31.5,"y":69.0,"z":5.5,"yaw":-80.972778,"pitch":25.027544,"at":0,"awaitEnabled":true,"await":"SECRET","amount":2},
+            {"type":"ETHERWARP","x":31.5,"y":69.0,"z":5.5,"yaw":-82.851318,"pitch":8.849249,"at":0,"landing":"39.500000 69.050000 6.500000"},
+            {"type":"DUNGEON_BREAKER","x":39.5,"y":69.0,"z":6.5,"yaw":-96.437561,"pitch":60.490627,"at":0,"blocks":["40 69 6","40 68 6","41 68 6","41 67 6","41 66 6","43 68 8"]},
+            {"type":"ETHERWARP","x":39.5,"y":69.0,"z":6.5,"yaw":-88.535522,"pitch":53.340508,"at":0,"landing":"46.500000 61.050000 6.500000"},
+            {"type":"ETHERWARP","x":46.5,"y":61.0,"z":6.5,"yaw":54.934692,"pitch":-53.372124,"at":0,"awaitEnabled":true,"await":"SECRET","amount":1}
+            ]
+            """;
+
+    /** Server teleport to relative feet (x, y, z) - {@link #tpRel} at a height of the caller's choosing. */
+    private static void tpRelY(ClientGameTestContext ctx, double x, double y, double z, float relYaw, float pitch) {
+        AtomicReference<Boolean> done = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            Object frame = ModUnderTest.staticCall(FRAME, "current");
+            Vec3 p = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                    double.class, double.class}, new Object[]{frame, x, y, z});
+            float yaw = (Float) ModUnderTest.staticCall(COORDS, "toRealYaw", new Class<?>[]{frame.getClass(), float.class},
+                    new Object[]{frame, relYaw});
+            var server = mc.getSingleplayerServer();
+            var uuid = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(uuid);
+                sp.teleportTo(server.overworld(), p.x, p.y, p.z, java.util.Set.<net.minecraft.world.entity.Relative>of(),
+                        yaw, pitch, false);
+                done.set(true);
+            });
+            mc.player.setYRot(yaw);
+            mc.player.setXRot(pitch);
+        });
+        ctx.waitFor(mc -> done.get() != null, 100);
+        ctx.waitTicks(2);
+    }
+
+    /**
+     * killer560 (2026-10-06): "having those multiple boom nodes on the same spot are not working to then go into the
+     * crypt killer". His Museum route, exact, in the sim's Museum: armed on node #10 (the etherwarp onto the stack
+     * tile), so the stack #11 BOOM, #12 BOOM, #13 CRYPT (await 2), #14 ETHERWARP fires as it does for him. Each boom
+     * must act and complete (blew something, or nothing left to blow), the crypt node must then hold use with his
+     * Spirit Sceptre, a crypt undead must die, and the route must carry on to #14. On main before the fix the first
+     * boom opened its crypt (the sim broke 30 blocks) but watched only the hit block and its six neighbours, saw no
+     * change, and stopped the route with "superboom didn't break anything".
+     */
+    private void caseMuseum(ClientGameTestContext ctx) {
+        String saved = room;
+        resetRoutes(ctx);
+        room = "Museum";
+        try {
+            buildRoom(ctx, 0);
+            giveHotbar(ctx);
+            giveSlot(ctx, 4, "BAT_WAND");   // the Spirit Sceptre's SkyBlock id
+            setArEnum(ctx, "setCryptWeapon", "CryptWeapon", "SPIRIT_SCEPTRE");
+            ctx.runOnClient(mc -> {
+                Object ar = ModUnderTest.config(AR_CONFIG);
+                ModUnderTest.set(ar, "setStartFromStartNodeOnly", false);
+                ModUnderTest.call(ar, "setCryptAttackTicks", new Class<?>[]{int.class}, new Object[]{100});
+            });
+            List<JsonObject> nodes = new ArrayList<>();
+            for (JsonElement e : JsonParser.parseString(MUSEUM_ROUTE).getAsJsonArray()) {
+                nodes.add(e.getAsJsonObject());
+            }
+            writeRoute(ctx, nodes);
+            int c0 = cryptsBlown(ctx);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            long m = LogTap.mark();
+            startSampling(ctx);
+            // Onto node #10, his etherwarp that lands on the stack tile.
+            tpRelY(ctx, 28.5, 69.0, 10.5, -150.342102f, 12.861895f);
+            boolean ended = waitFor(ctx, 400, () -> logHas(m, "Node #14 ETHERWARP acted") || logHas(m, "Stopped"));
+            ctx.waitTicks(10);
+            List<Sample> s = stopSampling(ctx);
+            Map<String, Integer> packets = new java.util.TreeMap<>();
+            for (Sample x : s) {
+                for (String pk : x.out()) {
+                    packets.merge(pk, 1, Integer::sum);
+                }
+            }
+            int c1 = cryptsBlown(ctx);
+            List<String> log = LogTap.since(m);
+            int booms = 0;
+            String cryptLine = null;
+            for (String l : log) {
+                if (l.contains("Sim superboom at") || l.contains("Boom: ") || l.contains("BOOM acted")
+                        || l.contains("CRYPT") || l.contains("Stack of") || l.contains("Stopped")
+                        || l.contains("ETHERWARP acted")) {
+                    println("museum log: " + l);
+                }
+                if (l.contains("Boom: blocks changed") || l.contains("nothing left to blow")) {
+                    booms++;
+                }
+                if (l.contains("CRYPT: ") && l.contains("kill(s)")) {
+                    cryptLine = l;
+                }
+            }
+            int i11 = logIndex(m, "Node #11 BOOM acted");
+            int i12 = logIndex(m, "Node #12 BOOM acted");
+            int i13 = logIndex(m, "Node #13 CRYPT acted");
+            int i14 = logIndex(m, "Node #14 ETHERWARP acted");
+            println("museum: ended " + ended + ", boom #11@" + i11 + " #12@" + i12 + " crypt #13@" + i13 + " ew #14@" + i14
+                    + ", booms completed " + booms + ", crypt undead dead " + c0 + " -> " + c1 + ", packets " + packets);
+            check(!logHas(m, "superboom didn't break anything"), "a boom stopped the route: superboom didn't break anything");
+            check(i11 >= 0, "boom #11 never acted");
+            check(i12 > i11, "boom #12 did not act after #11 (" + i11 + ", " + i12 + ")");
+            check(booms >= 2, "only " + booms + " boom(s) completed");
+            check(i13 > i12, "the crypt node did not fire after the booms (" + i12 + ", " + i13 + ")");
+            check(logHas(m, "holding use"), "the crypt node did not hold use");
+            check(c1 > c0, "no crypt undead died (" + c0 + " -> " + c1 + ")");
+            check(cryptLine != null, "the crypt node never reported its kills");
+            check(i14 > i13, "the route did not carry on to #14 after the crypt node (" + i13 + ", " + i14 + ")");
+
+            // ---- again on the same tile: both crypts are already open, so both booms have nothing left to blow ----
+            // Auto Routes off while he is moved: stopped where he stands (on #15's tile) it re-arms at once.
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", false));
+            stopRoute(ctx);
+            ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setCryptAttackTicks",
+                    new Class<?>[]{int.class}, new Object[]{20}));
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            tpRelY(ctx, 31.5, 69.0, 5.5, -82.851318f, 8.849249f);
+            ctx.waitTicks(10);
+            long m2 = LogTap.mark();
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", true));
+            boolean ended2 = waitFor(ctx, 200, () -> logHas(m2, "Node #14 ETHERWARP acted") || logHas(m2, "Stopped"));
+            int nothing = 0;
+            for (String l : LogTap.since(m2)) {
+                if (l.contains("Sim superboom at") || l.contains("Boom: ") || l.contains("CRYPT") || l.contains("Stopped")
+                        || l.contains("Node #14")) {
+                    println("museum again log: " + l);
+                }
+                if (l.contains("nothing left to blow")) {
+                    nothing++;
+                }
+            }
+            int j11 = logIndex(m2, "Node #11 BOOM acted");
+            int j12 = logIndex(m2, "Node #12 BOOM acted");
+            int j13 = logIndex(m2, "Node #13 CRYPT acted");
+            int j14 = logIndex(m2, "Node #14 ETHERWARP acted");
+            println("museum again: ended " + ended2 + ", boom #11@" + j11 + " #12@" + j12 + " crypt #13@" + j13 + " ew #14@"
+                    + j14 + ", nothing-left booms " + nothing);
+            check(!logHas(m2, "superboom didn't break anything"), "again: a boom with nothing left to blow stopped the route");
+            check(j11 >= 0 && j12 > j11 && nothing >= 2, "again: the booms did not both complete with nothing left to blow ("
+                    + j11 + ", " + j12 + ", " + nothing + ")");
+            check(j13 > j12 && j14 > j13, "again: the crypt node and #14 did not follow the empty booms (" + j13 + ", " + j14
+                    + ")");
+        } finally {
+            try {
+                stopRoute(ctx);
+            } catch (Throwable ignored) {
+                // the rebuild below matters more
+            }
+            setArEnum(ctx, "setCryptWeapon", "CryptWeapon", "HYPERION");
+            ctx.runOnClient(mc -> {
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true);
+                ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setCryptAttackTicks", new Class<?>[]{int.class},
+                        new Object[]{100});
+            });
+            resetRoutes(ctx);
+            room = saved;
+            buildRoom(ctx, 0);
         }
     }
 
@@ -2347,9 +2644,26 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         int idx = 4 * 11 + 4;
         int[] cellRoom = new int[cells];
         java.util.Arrays.fill(cellRoom, -1);
-        cellRoom[idx] = 0;
         int[] cellDoor = new int[cells];
         int[] cellRotation = new int[cells];
+        // A room bigger than 1x1 (Museum is 2x2) needs all its cells, the connecting ones included, or half of it is
+        // pasted outside its own cells and the live map never identifies it.
+        int[] span = ctx.computeOnClient(mc -> {
+            Object r = ModUnderTest.staticCall(ROOM_LIBRARY, "get", new Class<?>[]{String.class}, new Object[]{room});
+            try {
+                return new int[]{Math.max(1, (int) Math.round(r.getClass().getField("sizeX").getInt(r) / 32.0)),
+                        Math.max(1, (int) Math.round(r.getClass().getField("sizeZ").getInt(r) / 32.0))};
+            } catch (ReflectiveOperationException e) {
+                return new int[]{1, 1};
+            }
+        });
+        for (int gz = 4; gz <= 4 + 2 * (span[1] - 1); gz++) {
+            for (int gx = 4; gx <= 4 + 2 * (span[0] - 1); gx++) {
+                cellRoom[gz * 11 + gx] = 0;
+                cellRotation[gz * 11 + gx] = rotation;
+            }
+        }
+        cellRoom[idx] = 0;
         cellRotation[idx] = rotation;
         String code = ctx.computeOnClient(mc -> {
             try {
