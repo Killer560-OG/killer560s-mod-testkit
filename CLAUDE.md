@@ -308,3 +308,5 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 
 Auto Routes on GrimAC (62-argrim): how to run it and its traps are in [docs/argrim.md](docs/argrim.md).
 AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatch HUD): [docs/ap3.md](docs/ap3.md).
+- In the logic suite's throwaway world, a block 66 blocks from spawn can read `void_air` for the first seconds even after
+  `mc.level.hasChunkAt` says yes (362, 2026-10-06). Wait until the block itself stops reading `Blocks.VOID_AIR`.
