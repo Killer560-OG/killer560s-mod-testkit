@@ -12,9 +12,14 @@ import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
 import net.minecraft.network.protocol.game.ServerboundSwingPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -76,6 +81,12 @@ public final class PacketWatch {
     private static String farthestEntity = "none";
     private static float maxUseRotationJump;
     private static String biggestJump = "none";
+    /** Every block a START_DESTROY_BLOCK named, in send order (so a scenario can say WHICH blocks were dug). */
+    private static final List<BlockPos> digPositions = new ArrayList<>();
+    /** Digs whose eye-to-centre line hit a DIFFERENT block first (client's view of the world at send time). */
+    private static int occludedDigs;
+    /** Largest angle, degrees, between where the player was looking and the block a dig named. */
+    private static double maxDigLookAngle;
 
     private PacketWatch() {
     }
@@ -125,6 +136,9 @@ public final class PacketWatch {
         farthestEntity = "none";
         maxUseRotationJump = 0;
         biggestJump = "none";
+        digPositions.clear();
+        occludedDigs = 0;
+        maxDigLookAngle = 0;
     }
 
     /** Called from a {@code Minecraft#tick} hook: closes the tick just counted. */
@@ -188,6 +202,7 @@ public final class PacketWatch {
                     breaksAfterMove++;
                 }
                 measureReach(action.getPos());
+                measureDig(action.getPos());
             }
         } else if (packet instanceof ServerboundUseItemPacket use) {
             // A use-item packet carries its OWN yaw and pitch, which is how this mod's puzzle solvers aim
@@ -300,6 +315,44 @@ public final class PacketWatch {
         double dy = Math.max(0, Math.max(box.minY - eye.y, eye.y - box.maxY));
         double dz = Math.max(0, Math.max(box.minZ - eye.z, eye.z - box.maxZ));
         maxBoxReach = Math.max(maxBoxReach, Math.sqrt(dx * dx + dy * dy + dz * dz));
+    }
+
+    /**
+     * What a dig looks like from the player's own eyes at the moment it is sent: whether anything else stands
+     * between the eye and the block (a server checking line of sight would see a dig through a wall), and how far
+     * off the player's view the block is (a dig behind or beside him while looking ahead is not something a hand
+     * does). Neither is something GrimAC 2.3.74 is known to object to; both are things another anticheat could.
+     */
+    private static void measureDig(BlockPos pos) {
+        digPositions.add(pos.immutable());
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null) {
+            return;
+        }
+        Vec3 eye = mc.player.getEyePosition();
+        Vec3 centre = Vec3.atCenterOf(pos);
+        Vec3 to = centre.subtract(eye).normalize();
+        Vec3 look = mc.player.getViewVector(1f).normalize();
+        double cos = Math.max(-1.0, Math.min(1.0, look.dot(to)));
+        maxDigLookAngle = Math.max(maxDigLookAngle, Math.toDegrees(Math.acos(cos)));
+        HitResult hit = mc.level.clip(new ClipContext(eye, centre, ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE, mc.player));
+        if (hit instanceof BlockHitResult b && hit.getType() == HitResult.Type.BLOCK && !b.getBlockPos().equals(pos)) {
+            occludedDigs++;
+        }
+    }
+
+    /** Every block a dig named since {@link #start}, in order. */
+    public static synchronized List<BlockPos> digPositions() {
+        return new ArrayList<>(digPositions);
+    }
+
+    public static synchronized int occludedDigs() {
+        return occludedDigs;
+    }
+
+    public static synchronized double maxDigLookAngle() {
+        return maxDigLookAngle;
     }
 
     public static synchronized int maxBreaksOnOneTick() {

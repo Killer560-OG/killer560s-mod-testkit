@@ -112,7 +112,8 @@ a sweep wants. `TestMap` builds the arena. `TestServer` launches the dedicated s
 reaches into the mod by reflection. `src/client/java/dev/testkit/harness/PacketWatch` counts outbound
 packets per tick, fed by mixins on `ClientCommonPacketListenerImpl#send` and `Minecraft#tick`.
 
-Scenarios so far: 62-argrim (Auto Routes on GrimAC, see below), 48-52 Breaker Aura (with a by-hand control and an open-ground speed control), 60 Secret
+Scenarios so far: 62-argrim (Auto Routes on GrimAC, see below), 48-56 Breaker Aura (with a by-hand control and an open-ground speed control;
+picks-only since mod 9e83c4fc, so 50-52 pick the whole corridor and 53-56 cover side, floor, behind and through-wall picks), 60 Secret
 Triggerbot, 99-sim-essence-aura (Secret Aura on a sim wither essence holding AOTV / Hyperion, first world and after a
 rebuild; server-side click record, collection and Auto Routes' await; only when named, captures from "Map Logger" unless
 `TESTKIT_SIM_INSTANCE` says otherwise).
@@ -298,5 +299,10 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   chunk load there deadlocks the client (99-sim-im, 2026-10-05, jstack). Place the player from `server.execute` instead
   (99-sim-im `standOn`). A sim scenario that reads the legend's Extra Info must turn Score Calculator on first - it is
   off in a fresh config, and the section only draws with a live estimate.
+
+- Start `PacketWatch` BEFORE switching the feature on: BreakerAuraTests' `configure` waits 5 ticks with the aura live, and
+  53's first run saw every pick broken in that wait with 0 digs counted (2026-10-05). Breaking the block the player stands
+  on (55, Zero Ping off) draws GroundSpoof "claimed true" + Simulation 0.0784 on some runs and not others; with Zero Ping
+  on (56) it has been clean - read 55 as a rate over several runs, not one verdict.
 
 Auto Routes on GrimAC (62-argrim): how to run it and its traps are in [docs/argrim.md](docs/argrim.md).

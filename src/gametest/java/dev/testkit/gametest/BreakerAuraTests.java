@@ -58,19 +58,43 @@ public class BreakerAuraTests implements FabricClientGameTest {
     private static final int WALL_Z2 = 2;
     private static final int SURFACE_Y = 151;
 
-    /** Side Reach the aura scenarios run with: wide enough that the higher rates have a queue to spend. */
-    private static final double SIDE_REACH = 1.6;
+    /**
+     * Since mod 2026-10-05 Breaker Aura breaks ONLY picked blocks (killer560: "the aura shouldn't randomly grab
+     * blocks, only ones I have selected"); the path sweep, Side Reach and Only Picked Blocks are gone. So the wall
+     * scenarios pick the whole corridor first, which is exactly what he does with a wall in a dungeon, and on an
+     * older jar they also switch Only Picked Blocks on (and Side Reach off) so both jars run the same behaviour.
+     */
+    private static final String STORE = "com.killer560.hub.dungeonextras.BreakerAuraStore";
+
+    /** 53/54's arenas: their own coordinates, clear of the corridor (z -6..6) and inside the catch floor. */
+    private static final int SIDE_CX = 30;
+    private static final int SIDE_CZ = 30;
+    private static final int BEHIND_CX = 30;
+    private static final int BEHIND_CZ = -30;
+    private static final int FLOOR_CX = -30;
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
         speedControl(ctx);
         vanillaControl(ctx);
-        // Sprint speed, shipped rate: the clean baseline the packet-ordering fix is proven against.
-        breakerAura(ctx, "50-breaker-aura-default", false, SIDE_REACH, false);
+        // Sprint speed, one a tick: the clean baseline the packet-ordering fix is proven against.
+        breakerAura(ctx, "50-breaker-aura-default", false, false);
         // Speed V and the full rate: the configuration that keeps up with the wall.
-        breakerAura(ctx, "51-breaker-aura-multi", true, SIDE_REACH, true);
-        // Speed V against the shipped defaults, which cannot keep up. Documented, not asserted clean.
+        breakerAura(ctx, "51-breaker-aura-multi", true, true);
+        // Speed V at one a tick, which cannot keep up. Documented, not asserted clean.
         highSpeedDesync(ctx);
+        // Picked blocks beside him break; unpicked ones, even in his way or under his feet, never do.
+        pickedSideAndFloor(ctx);
+        // A picked block under his feet: as shipped, and with Zero Ping. Measured (see pickedFloor).
+        pickedFloor(ctx, "55-breaker-aura-picked-floor", 30, false, 0f);
+        pickedFloor(ctx, "56-breaker-aura-picked-floor-zeroping", -30, true, 0f);
+        // The same two looking straight DOWN at it, as the hand control does: does the look direction matter?
+        pickedFloor(ctx, "58-breaker-aura-picked-floor-lookdown", 50, false, 90f);
+        pickedFloor(ctx, "59-breaker-aura-picked-floor-zeroping-lookdown", -50, true, 90f);
+        // ...and the same moment by HAND, which is what tells a Grim quirk from something the aura does.
+        floorByHand(ctx);
+        // Picked blocks BEHIND him and behind another block: measured, not asserted clean.
+        pickedBehindAndOccluded(ctx);
     }
 
     /**
@@ -178,8 +202,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                 });
     }
 
-    private void breakerAura(ClientGameTestContext ctx, String name, boolean multiBreak, double sideReach,
-                             boolean speedPotion) {
+    private void breakerAura(ClientGameTestContext ctx, String name, boolean multiBreak, boolean speedPotion) {
         if (Scenario.skip(name)) {
             return;
         }
@@ -228,7 +251,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                 + " blocks) - this scenario would have measured nothing");
                     }
 
-                    configure(ctx, scenario, multiBreak, sideReach);
+                    configure(ctx, scenario, multiBreak, corridorPicks());
+                    try {
 
                     PacketWatch.start();
                     double[] start = scenario.playerPosition();
@@ -336,6 +360,10 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                 + "block box; vanilla's own limit is 4.5 and a server may measure it the "
                                 + "same way.", PacketWatch.maxBoxReach()));
                     }
+                    logDigShape(scenario);
+                    } finally {
+                        unconfigure(ctx);
+                    }
                 });
     }
 
@@ -344,7 +372,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
      *
      * <p>Every other scenario here comes back clean, and that made this easy to miss. The anticheat's
      * movement prediction objects, with sub-half-block offsets, once the player is fast enough that the wall
-     * is not cleared ahead of them. At Blocks Per Cycle 1 with Side Reach off - exactly what ships - most
+     * is not cleared ahead of them. At one block a tick (Multi Break off) most
      * ticks are spent walking into a block being removed on that same tick, and client and server briefly
      * disagree about whether it was still there. Turn the rate up so the path is already clear on arrival and
      * the flags vanish: the faster configuration is the cleaner one, which is the opposite of the guess.
@@ -374,7 +402,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         .build(),
                 (server, scenario) -> {
                     scenario.assertDetectorWorks();
-                    configure(ctx, scenario, false, 0.0);
+                    configure(ctx, scenario, false, corridorPicks());
+                    try {
                     PacketWatch.start();
                     ctx.getInput().holdKey(options -> options.keyUp);
                     ctx.getInput().holdKey(options -> options.keySprint);
@@ -403,25 +432,28 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                 + "been fixed or this arena no longer provokes it. Worth re-checking before "
                                 + "quoting the finding.");
                     }
+                    } finally {
+                        unconfigure(ctx);
+                    }
                 });
     }
 
     /** Turn the module on exactly the way his own menu does, and nothing else. */
     private void configure(ClientGameTestContext ctx, Scenario scenario, boolean multiBreak,
-                           double sideReach) {
+                           List<BlockPos> picks) {
         ctx.runOnClient(mc -> {
             Object cfg = ModUnderTest.config(CONFIG);
             ModUnderTest.set(cfg, "setBreakerAuraEnabled", true);
-            // His saved default is "selected blocks only", which needs picks placed by hand. Path mode is
-            // the one that runs itself, and the one he was complaining about walking into.
-            ModUnderTest.set(cfg, "setBreakerAuraSelectedOnly", false);
+            // An older jar still has the path sweep behind "Only Picked Blocks" and a Side Reach slider. Put it
+            // in picked-only mode with no side corridor, which is the only behaviour the current jar has, so the
+            // two jars run the same thing. On a current jar these setters do not exist and nothing happens.
+            boolean legacyPicked = setIfPresent(cfg, "setBreakerAuraSelectedOnly", boolean.class, true);
+            boolean legacySide = setIfPresent(cfg, "setBreakerAuraSideReach", double.class, 0.0);
+            scenario.log("jar has Only Picked Blocks: " + legacyPicked + ", Side Reach: " + legacySide
+                    + (legacyPicked || legacySide ? " (older jar, forced to picked-only)" : " (picked-only build)"));
             ModUnderTest.set(cfg, "setBreakerAuraAutoSwap", false);
             ModUnderTest.set(cfg, "setBreakerAuraMultiBreak", multiBreak);
-            // killer560 (2026-09-27): "allow it to break snow to the side of it as well so that way it can
-            // break way more than 1 per second if it is working right." Ships at 0.0, so the scenario turns
-            // it up: without it the higher Blocks Per Cycle settings have nothing queued to spend and both
-            // rates measure the same thing.
-            ModUnderTest.set(cfg, "setBreakerAuraSideReach", sideReach);
+            setPicks(picks);
             // Everything else is left at whatever ships, so what gets measured is the shipped behaviour.
             if (ModUnderTest.getBoolean(cfg, "isBreakerAuraMultiBreak") != multiBreak) {
                 throw new AssertionError("Multi Break did not take the value it was set to, so this scenario "
@@ -444,8 +476,469 @@ public class BreakerAuraTests implements FabricClientGameTest {
                     + "the gates it AND-s in (cheat build, Skyblock Only) is shut. A legit-build jar "
                     + "cannot run this scenario; build with -PcheatBuild=true.");
         }
-        scenario.log("Breaker Aura on, path mode, Multi Break " + (multiBreak ? "ON" : "off")
-                + ", Side Reach " + sideReach + ", dungeon override forced");
+        int picked = ctx.computeOnClient(mc -> pickCount());
+        if (picked != picks.size()) {
+            throw new AssertionError("asked for " + picks.size() + " picks and the store holds " + picked
+                    + " - the scenario would not be testing the blocks it names");
+        }
+        scenario.log("Breaker Aura on, " + picked + " block(s) picked, Multi Break " + (multiBreak ? "ON" : "off")
+                + ", dungeon override forced");
+    }
+
+    /** Leave the mod as found: no picks (they live in a file that outlives the scenario) and the aura off. */
+    private void unconfigure(ClientGameTestContext ctx) {
+        try {
+            ctx.runOnClient(mc -> {
+                setPicks(List.of());
+                ModUnderTest.turnOff(CONFIG, "setBreakerAuraEnabled");
+            });
+        } catch (Throwable ignored) {
+            // cleanup must not become the failure
+        }
+    }
+
+    /** Replaces the active Breaker Aura config's picks with exactly these (client thread). */
+    private static void setPicks(List<BlockPos> picks) {
+        Object store = ModUnderTest.staticCall(STORE, "getInstance");
+        ModUnderTest.call(store, "clear", new Class<?>[0], new Object[0]);
+        for (BlockPos p : picks) {
+            ModUnderTest.call(store, "addPick", new Class<?>[]{String.class},
+                    new Object[]{p.getX() + "," + p.getY() + "," + p.getZ()});
+        }
+        ModUnderTest.call(store, "save", new Class<?>[0], new Object[0]);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static int pickCount() {
+        Object store = ModUnderTest.staticCall(STORE, "getInstance");
+        return ((java.util.Set<String>) ModUnderTest.call(store, "pickedKeys", new Class<?>[0], new Object[0])).size();
+    }
+
+    private static boolean setIfPresent(Object cfg, String setter, Class<?> type, Object value) {
+        try {
+            cfg.getClass().getMethod(setter, type).invoke(cfg, value);
+            return true;
+        } catch (NoSuchMethodException e) {
+            return false;
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("could not call " + setter, e);
+        }
+    }
+
+    /** The whole snow corridor of 49-52, both layers - what he would pick to tunnel through that wall. */
+    private static List<BlockPos> corridorPicks() {
+        List<BlockPos> out = new java.util.ArrayList<>();
+        for (int x = WALL_FROM_X; x <= WALL_TO_X; x++) {
+            for (int y = SURFACE_Y; y <= SURFACE_Y + 1; y++) {
+                for (int z = WALL_Z1; z <= WALL_Z2; z++) {
+                    out.add(new BlockPos(x, y, z));
+                }
+            }
+        }
+        return out;
+    }
+
+    /** The shape of the digs from his own eyes, which GrimAC may not check and another anticheat could. */
+    private static void logDigShape(Scenario scenario) {
+        scenario.log(String.format(Locale.ROOT,
+                "dig shape: %d dig(s), up to %d on one tick, %d whose eye-to-centre line crossed another block "
+                        + "first (dug through something), widest angle off his view %.1f deg, furthest %.2f to box",
+                PacketWatch.totalBreaks(), PacketWatch.maxBreaksOnOneTick(), PacketWatch.occludedDigs(),
+                PacketWatch.maxDigLookAngle(), PacketWatch.maxBoxReach()));
+    }
+
+    private static boolean isAir(ClientGameTestContext ctx, BlockPos pos) {
+        return ctx.computeOnClient(mc -> mc.level.getBlockState(pos).isAir());
+    }
+
+    private static String xyz(BlockPos p) {
+        return p.getX() + "," + p.getY() + "," + p.getZ();
+    }
+
+    /**
+     * 53: PICKED blocks beside him break; UNPICKED blocks, even the wall he walks into and the floor he stands on,
+     * never do. (A picked block under his feet is 55/56.)
+     *
+     * <p>killer560, 2026-10-05: "the aura shouldn't randomly grab blocks, only ones I have selected". Two phases on
+     * one small pad:
+     * <ol>
+     *   <li>Standing still facing +x: five picked snow blocks to his left and right at body height (one near the edge
+     *       of reach) and one picked block OUT of reach. The five must go, the far one must stay, and so must the
+     *       unpicked snow right beside them and the unpicked snow floor he stands on.</li>
+     *   <li>He walks into a wall of UNPICKED snow for 20 ticks. It must stop him and stay standing.</li>
+     * </ol>
+     * Every dig the aura sends must name a picked block. Multi Break ON (the shipped default), so the side picks go
+     * out together on one tick, at right angles to where he is looking - the shape worth having Grim look at.
+     */
+    private void pickedSideAndFloor(ClientGameTestContext ctx) {
+        String name = "53-breaker-aura-picked-side";
+        if (Scenario.skip(name)) {
+            return;
+        }
+        ModUnderTest.require(MOD_ID);
+        int fy = SURFACE_Y - 1; // floor layer; he stands at SURFACE_Y
+        BlockPos underSpawn = new BlockPos(SIDE_CX, fy, SIDE_CZ);
+        List<BlockPos> sidePicks = List.of(
+                new BlockPos(SIDE_CX, SURFACE_Y, SIDE_CZ + 2), new BlockPos(SIDE_CX, SURFACE_Y + 1, SIDE_CZ + 2),
+                new BlockPos(SIDE_CX + 1, SURFACE_Y, SIDE_CZ - 2), new BlockPos(SIDE_CX + 1, SURFACE_Y + 1, SIDE_CZ - 2),
+                new BlockPos(SIDE_CX - 1, SURFACE_Y, SIDE_CZ + 4)); // ~3.6 from his eye: near the edge of 4.5
+        BlockPos farPick = new BlockPos(SIDE_CX, SURFACE_Y, SIDE_CZ + 6); // 5.5 away: out of reach
+        List<BlockPos> unpickedBeside = List.of(new BlockPos(SIDE_CX - 1, SURFACE_Y, SIDE_CZ + 2),
+                new BlockPos(SIDE_CX - 1, SURFACE_Y + 1, SIDE_CZ - 2));
+        List<BlockPos> unpickedWall = List.of(new BlockPos(SIDE_CX + 2, SURFACE_Y, SIDE_CZ),
+                new BlockPos(SIDE_CX + 2, SURFACE_Y + 1, SIDE_CZ));
+        Scenario.run(ctx, name,
+                (server, scenario) -> {
+                    TestMap map = TestMap.on(server)
+                            .platform(SIDE_CX, fy, SIDE_CZ, 6)
+                            .catchFloor(120)
+                            .survival()
+                            .clearInventory()
+                            .give("diamond_shovel", 1)
+                            .command("enchant @p minecraft:efficiency 5")
+                            .command("effect give @p minecraft:haste 99999 4 true")
+                            .command("effect clear @p minecraft:speed")
+                            // Snow floor from his spawn to the wall (instant-break, so a dig on it would show),
+                            // stone a block below so a broken floor drops him one block, not thirty.
+                            .fill(SIDE_CX, fy - 1, SIDE_CZ, SIDE_CX + 1, fy - 1, SIDE_CZ, "stone")
+                            .fill(SIDE_CX, fy, SIDE_CZ, SIDE_CX + 1, fy, SIDE_CZ, "snow_block");
+                    for (BlockPos p : sidePicks) {
+                        map.fill(p.getX(), p.getY(), p.getZ(), p.getX(), p.getY(), p.getZ(), "snow_block");
+                    }
+                    for (BlockPos p : unpickedBeside) {
+                        map.fill(p.getX(), p.getY(), p.getZ(), p.getX(), p.getY(), p.getZ(), "snow_block");
+                    }
+                    for (BlockPos p : unpickedWall) {
+                        map.fill(p.getX(), p.getY(), p.getZ(), p.getX(), p.getY(), p.getZ(), "snow_block");
+                    }
+                    map.fill(farPick.getX(), farPick.getY(), farPick.getZ(), farPick.getX(), farPick.getY(),
+                                    farPick.getZ(), "snow_block")
+                            .spawn(SIDE_CX + 0.5, SIDE_CZ + 0.5, -90f)
+                            .build();
+                },
+                (server, scenario) -> {
+                    scenario.assertDetectorWorks();
+                    List<BlockPos> all = new java.util.ArrayList<>(sidePicks);
+                    all.add(farPick);
+                    all.add(underSpawn);
+                    all.addAll(unpickedBeside);
+                    all.addAll(unpickedWall);
+                    for (BlockPos p : all) {
+                        if (isAir(ctx, p)) {
+                            throw new AssertionError("block " + xyz(p) + " was never built - the scenario would "
+                                    + "measure nothing");
+                        }
+                    }
+                    List<BlockPos> picks = new java.util.ArrayList<>(sidePicks);
+                    picks.add(farPick);
+                    // Watching BEFORE the aura is switched on: configure() waits a few ticks with it live, and
+                    // the first run of this scenario saw all five picks go during that wait, uncounted.
+                    PacketWatch.start();
+                    configure(ctx, scenario, true, picks);
+                    try {
+                        // ---- 1: standing still, picks to either side
+                        for (int i = 0; i < 40; i++) {
+                            stampBreaker(ctx);
+                            ctx.waitTicks(1);
+                        }
+                        PacketWatch.stop();
+                        scenario.log("phase 1 (standing): " + PacketWatch.summary());
+                        logDigShape(scenario);
+                        List<BlockPos> dug1 = PacketWatch.digPositions();
+                        int sideGone = 0;
+                        StringBuilder standing = new StringBuilder();
+                        for (BlockPos p : sidePicks) {
+                            if (isAir(ctx, p)) {
+                                sideGone++;
+                            } else {
+                                standing.append(' ').append(xyz(p));
+                            }
+                        }
+                        scenario.log("phase 1: " + sideGone + " of " + sidePicks.size() + " side picks broken"
+                                + (standing.length() > 0 ? ", still standing:" + standing : "")
+                                + "; digs named " + dug1.size() + " block(s): " + dug1.stream().map(BreakerAuraTests::xyz).toList());
+                        if (PacketWatch.totalBreaks() == 0) {
+                            throw new AssertionError("no dig went out at all - Breaker Aura never acted, so a clean "
+                                    + "anticheat result here means nothing");
+                        }
+                        if (sideGone != sidePicks.size()) {
+                            throw new AssertionError("picked blocks beside him within reach were not all broken:"
+                                    + standing);
+                        }
+                        if (isAir(ctx, farPick) || dug1.contains(farPick)) {
+                            throw new AssertionError("the pick at " + xyz(farPick) + " is 5.5 blocks away, past "
+                                    + "Reach, and was dug anyway");
+                        }
+                        // ---- 2: walk into a wall nobody picked
+                        PacketWatch.start();
+                        ctx.getInput().holdKey(options -> options.keyUp);
+                        for (int i = 0; i < 20; i++) {
+                            stampBreaker(ctx);
+                            ctx.waitTicks(1);
+                        }
+                        ctx.getInput().releaseKey(options -> options.keyUp);
+                        for (int i = 0; i < 5; i++) {
+                            stampBreaker(ctx);
+                            ctx.waitTicks(1);
+                        }
+                        PacketWatch.stop();
+                        int bumps = PacketWatch.collisionTicks();
+                        List<BlockPos> dug2 = PacketWatch.digPositions();
+                        double[] pos = scenario.playerPosition();
+                        scenario.log(String.format(Locale.ROOT, "phase 2 (walking into unpicked snow): %d dig(s), "
+                                + "collided on %d of %d movement packets, stopped at x %.2f", dug2.size(), bumps,
+                                PacketWatch.moveCount(), pos[0]));
+                        if (bumps == 0) {
+                            throw new AssertionError("he never touched the unpicked wall, so phase 2 proves nothing "
+                                    + "about it being left alone");
+                        }
+                        // ---- nothing unpicked, ever
+                        java.util.Set<BlockPos> allowed = new java.util.HashSet<>(picks);
+                        List<BlockPos> stray = new java.util.ArrayList<>();
+                        for (List<BlockPos> dug : List.of(dug1, dug2)) {
+                            for (BlockPos p : dug) {
+                                if (!allowed.contains(p)) {
+                                    stray.add(p);
+                                }
+                            }
+                        }
+                        List<BlockPos> lost = new java.util.ArrayList<>();
+                        for (List<BlockPos> group : List.of(unpickedBeside, unpickedWall, List.of(underSpawn,
+                                underSpawn.east()))) {
+                            for (BlockPos p : group) {
+                                if (isAir(ctx, p)) {
+                                    lost.add(p);
+                                }
+                            }
+                        }
+                        if (!stray.isEmpty() || !lost.isEmpty()) {
+                            throw new AssertionError("Breaker Aura touched UNPICKED blocks: dug "
+                                    + stray.stream().map(BreakerAuraTests::xyz).toList() + ", gone "
+                                    + lost.stream().map(BreakerAuraTests::xyz).toList());
+                        }
+                        scenario.log("53 PASS: " + sidePicks.size() + " side picks broken, the out-of-reach pick and "
+                                + "every unpicked block (wall walked into, the snow floor under him, neighbours) left "
+                                + "alone, every dig named a picked block");
+                    } finally {
+                        unconfigure(ctx);
+                    }
+                });
+    }
+
+    /**
+     * 55 / 56: a PICKED block under his feet breaks and he drops; the UNPICKED snow beside it stays. Measured, not
+     * asserted clean.
+     *
+     * <p>killer560, 2026-10-05: "If it is selected for breaker aura it should break." Split out of 53 because GrimAC
+     * flagged this one moment intermittently (GroundSpoof "claimed true" plus a 0.0784 Simulation offset, which is
+     * exactly one tick of gravity: the client still stood on a block the server had already removed) - 1 in 2 runs
+     * on the old jar and 1 in 5 on the new one, with the same code path in both. 55 runs it as shipped (Zero Ping
+     * off: the client keeps the block until the server says otherwise); 56 runs it with Zero Ping on, where the
+     * client drops the block the moment it sends. Both record what Grim said; neither fails on a flag. The
+     * assertions are that it happened at all.
+     */
+    private void pickedFloor(ClientGameTestContext ctx, String name, int cz, boolean zeroPing, float pitch) {
+        if (Scenario.skip(name)) {
+            return;
+        }
+        ModUnderTest.require(MOD_ID);
+        int fy = SURFACE_Y - 1;
+        BlockPos under = new BlockPos(FLOOR_CX, fy, cz);
+        BlockPos beside = under.east();
+        Scenario.runExpectingFlags(ctx, name,
+                (server, scenario) -> TestMap.on(server)
+                        .platform(FLOOR_CX, fy, cz, 3)
+                        .catchFloor(120)
+                        .survival()
+                        .clearInventory()
+                        .give("diamond_shovel", 1)
+                        .command("enchant @p minecraft:efficiency 5")
+                        .command("effect give @p minecraft:haste 99999 4 true")
+                        .command("effect clear @p minecraft:speed")
+                        .fill(FLOOR_CX, fy - 1, cz, FLOOR_CX + 1, fy - 1, cz, "stone")
+                        .fill(FLOOR_CX, fy, cz, FLOOR_CX + 1, fy, cz, "snow_block")
+                        .spawn(FLOOR_CX + 0.5, cz + 0.5, -90f, pitch)
+                        .build(),
+                (server, scenario) -> {
+                    scenario.assertDetectorWorks();
+                    if (isAir(ctx, under) || isAir(ctx, beside)) {
+                        throw new AssertionError("the snow floor was never built");
+                    }
+                    double[] pos = scenario.playerPosition();
+                    PacketWatch.start(); // before the aura goes live, see 53
+                    configure(ctx, scenario, true, List.of(under));
+                    ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CONFIG), "setBreakerAuraZeroPing",
+                            zeroPing));
+                    try {
+                        for (int i = 0; i < 30; i++) {
+                            stampBreaker(ctx);
+                            ctx.waitTicks(1);
+                        }
+                        PacketWatch.stop();
+                        ctx.waitTicks(20);
+                        List<BlockPos> dug = PacketWatch.digPositions();
+                        double[] after = scenario.playerPosition();
+                        List<String> flags = scenario.flags();
+                        scenario.log(String.format(Locale.ROOT, "%s: Zero Ping %s, pitch %.0f, %d dig(s) %s, feet y %.2f -> %.2f; "
+                                        + "GrimAC said %d line(s)%s", name, zeroPing ? "ON" : "off", pitch, dug.size(),
+                                dug.stream().map(BreakerAuraTests::xyz).toList(), pos[1], after[1], flags.size(),
+                                flags.isEmpty() ? "" : ": " + flags));
+                        logDigShape(scenario);
+                        if (dug.isEmpty()) {
+                            throw new AssertionError("no dig went out - nothing was measured");
+                        }
+                        if (!isAir(ctx, under) || !dug.contains(under)) {
+                            throw new AssertionError("the PICKED block under his feet (" + xyz(under) + ") was not "
+                                    + "broken - killer560: \"If it is selected for breaker aura it should break.\"");
+                        }
+                        if (pos[1] - after[1] < 0.9) {
+                            throw new AssertionError("the block under him is gone but he did not drop ("
+                                    + pos[1] + " -> " + after[1] + ")");
+                        }
+                        if (isAir(ctx, beside) || dug.contains(beside)) {
+                            throw new AssertionError("the UNPICKED snow beside it (" + xyz(beside) + ") was dug");
+                        }
+                    } finally {
+                        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CONFIG), "setBreakerAuraZeroPing",
+                                false));
+                        unconfigure(ctx);
+                    }
+                });
+    }
+
+    /**
+     * 57: THE CONTROL for 55/56 - the block under his feet broken by HAND (look straight down, hold attack), aura off.
+     *
+     * <p>55 and 56 draw GroundSpoof + a one-tick-of-gravity Simulation offset on some runs and not others. If a vanilla
+     * dig of the same block does the same, that is GrimAC's handling of a floor vanishing under a player, not
+     * something the aura adds. Measured, not asserted clean; the assertion is that the block went and he dropped.
+     */
+    private void floorByHand(ClientGameTestContext ctx) {
+        String name = "57-breaker-floor-by-hand";
+        if (Scenario.skip(name)) {
+            return;
+        }
+        int fy = SURFACE_Y - 1;
+        int cx = -30;
+        int cz = 0;
+        BlockPos under = new BlockPos(cx, fy, cz);
+        Scenario.runExpectingFlags(ctx, name,
+                (server, scenario) -> TestMap.on(server)
+                        .platform(cx, fy, cz, 3)
+                        .catchFloor(120)
+                        .survival()
+                        .clearInventory()
+                        .give("diamond_shovel", 1)
+                        .command("enchant @p minecraft:efficiency 5")
+                        .command("effect give @p minecraft:haste 99999 4 true")
+                        .command("effect clear @p minecraft:speed")
+                        .fill(cx, fy - 1, cz, cx, fy - 1, cz, "stone")
+                        .fill(cx, fy, cz, cx, fy, cz, "snow_block")
+                        .spawn(cx + 0.5, cz + 0.5, -90f, 90f)
+                        .build(),
+                (server, scenario) -> {
+                    scenario.assertDetectorWorks();
+                    if (isAir(ctx, under)) {
+                        throw new AssertionError("the snow floor was never built");
+                    }
+                    double[] pos = scenario.playerPosition();
+                    PacketWatch.start();
+                    ctx.getInput().holdKey(options -> options.keyAttack);
+                    ctx.waitTicks(3);
+                    ctx.getInput().releaseKey(options -> options.keyAttack);
+                    ctx.waitTicks(30);
+                    PacketWatch.stop();
+                    double[] after = scenario.playerPosition();
+                    List<String> flags = scenario.flags();
+                    scenario.log(String.format(Locale.ROOT, "%s: by hand, %d dig(s) %s, feet y %.2f -> %.2f; GrimAC said "
+                                    + "%d line(s)%s", name, PacketWatch.totalBreaks(),
+                            PacketWatch.digPositions().stream().map(BreakerAuraTests::xyz).toList(), pos[1], after[1],
+                            flags.size(), flags.isEmpty() ? "" : ": " + flags));
+                    if (!isAir(ctx, under) || pos[1] - after[1] < 0.9) {
+                        throw new AssertionError("the hand did not break the block under him and drop him ("
+                                + pos[1] + " -> " + after[1] + ") - the control measured nothing");
+                    }
+                });
+    }
+
+    /**
+     * 54: picks BEHIND him and picks hidden BEHIND another block. Measured, not asserted clean.
+     *
+     * <p>He picks a block by looking at it, but a pick list outlives that moment: walk past a picked wall and it is
+     * behind you; pick two layers of a wall and the back layer is dug through the front one. The aura does not turn
+     * him or check line of sight (it never has: the face comes from clipping the block's own shape), so both go out
+     * as they are. GrimAC's verdict on that shape is recorded here, with the numbers, for the risk write-up.
+     */
+    private void pickedBehindAndOccluded(ClientGameTestContext ctx) {
+        String name = "54-breaker-aura-picked-behind-occluded";
+        if (Scenario.skip(name)) {
+            return;
+        }
+        ModUnderTest.require(MOD_ID);
+        int fy = SURFACE_Y - 1;
+        List<BlockPos> behind = List.of(new BlockPos(BEHIND_CX - 2, SURFACE_Y, BEHIND_CZ),
+                new BlockPos(BEHIND_CX - 2, SURFACE_Y + 1, BEHIND_CZ));
+        // Two-layer wall ahead: the FRONT layer is unpicked, the BACK layer is picked and in reach through it.
+        List<BlockPos> front = List.of(new BlockPos(BEHIND_CX + 2, SURFACE_Y, BEHIND_CZ),
+                new BlockPos(BEHIND_CX + 2, SURFACE_Y + 1, BEHIND_CZ));
+        List<BlockPos> hidden = List.of(new BlockPos(BEHIND_CX + 3, SURFACE_Y, BEHIND_CZ),
+                new BlockPos(BEHIND_CX + 3, SURFACE_Y + 1, BEHIND_CZ));
+        Scenario.runExpectingFlags(ctx, name,
+                (server, scenario) -> TestMap.on(server)
+                        .platform(BEHIND_CX, fy, BEHIND_CZ, 6)
+                        .catchFloor(120)
+                        .survival()
+                        .clearInventory()
+                        .give("diamond_shovel", 1)
+                        .command("enchant @p minecraft:efficiency 5")
+                        .command("effect give @p minecraft:haste 99999 4 true")
+                        .command("effect clear @p minecraft:speed")
+                        .fill(BEHIND_CX - 2, SURFACE_Y, BEHIND_CZ, BEHIND_CX - 2, SURFACE_Y + 1, BEHIND_CZ, "snow_block")
+                        .fill(BEHIND_CX + 2, SURFACE_Y, BEHIND_CZ, BEHIND_CX + 3, SURFACE_Y + 1, BEHIND_CZ, "snow_block")
+                        .spawn(BEHIND_CX + 0.5, BEHIND_CZ + 0.5, -90f)
+                        .build(),
+                (server, scenario) -> {
+                    scenario.assertDetectorWorks();
+                    List<BlockPos> picks = new java.util.ArrayList<>(behind);
+                    picks.addAll(hidden);
+                    for (BlockPos p : picks) {
+                        if (isAir(ctx, p)) {
+                            throw new AssertionError("block " + xyz(p) + " was never built");
+                        }
+                    }
+                    PacketWatch.start(); // before the aura goes live, see 53
+                    configure(ctx, scenario, true, picks);
+                    try {
+                        for (int i = 0; i < 40; i++) {
+                            stampBreaker(ctx);
+                            ctx.waitTicks(1);
+                        }
+                        PacketWatch.stop();
+                        ctx.waitTicks(20);
+                        scenario.log(PacketWatch.summary());
+                        logDigShape(scenario);
+                        int gone = 0;
+                        for (BlockPos p : picks) {
+                            gone += isAir(ctx, p) ? 1 : 0;
+                        }
+                        int frontGone = 0;
+                        for (BlockPos p : front) {
+                            frontGone += isAir(ctx, p) ? 1 : 0;
+                        }
+                        List<String> flags = scenario.flags();
+                        scenario.log("54: " + gone + " of " + picks.size() + " picks broken (2 behind him, 2 through "
+                                + "an unpicked wall), unpicked front layer broken: " + frontGone + "; GrimAC said "
+                                + flags.size() + " line(s)" + (flags.isEmpty() ? "" : ": " + flags));
+                        if (PacketWatch.totalBreaks() == 0) {
+                            throw new AssertionError("no dig went out - nothing was measured");
+                        }
+                        if (frontGone > 0) {
+                            throw new AssertionError("the UNPICKED front layer was broken");
+                        }
+                    } finally {
+                        unconfigure(ctx);
+                    }
+                });
     }
 
     /**

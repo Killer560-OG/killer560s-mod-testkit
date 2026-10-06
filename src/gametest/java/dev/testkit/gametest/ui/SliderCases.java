@@ -19,16 +19,17 @@ import java.util.Set;
  * 386: mod-menu sliders are reachable, and no two rows of a tab share space.
  *
  * <p>killer560, 2026-10-05: "for breaker I cannot slide the cooldown bar." Breaker Aura's Cooldown slider was built
- * on exactly the same rectangle as its Side Reach slider (BreakerAuraTab's {@code y += 20 ... y -= 20} pair put
- * Side Reach on the row Cooldown then took). ModScreen's content pane draws children in order, so Cooldown was drawn
- * on top, and routes a press to the FIRST child under the cursor, so every press and drag moved Side Reach.
+ * on exactly the same rectangle as its (since removed) Side Reach slider (BreakerAuraTab's {@code y += 20 ... y -= 20}
+ * pair put Side Reach on the row Cooldown then took). ModScreen's content pane draws children in order, so Cooldown was
+ * drawn on top, and routes a press to the FIRST child under the cursor, so every press and drag moved Side Reach.
  *
  * <ul>
  *   <li>REAL INPUT (cheat jar): with Breaker Aura on, the real ModScreen on the Breaker Aura tab; the cursor is
  *       moved and the left button held in WINDOW coordinates (Auto Scale's transform in the path). For Cooldown and,
  *       as the control, Reach: drag from the centre past the left end (must read its minimum), past the right end
- *       (its maximum), and a plain click a quarter of the way along (about a quarter of the range). Side Reach is
- *       read after every move, so a press that lands on the wrong slider is named.</li>
+ *       (its maximum), and a plain click a quarter of the way along (about a quarter of the range). The OTHER
+ *       slider's value is read after every move (Cooldown while Reach is driven and the reverse), so a press that
+ *       lands on the wrong slider is named.</li>
  *   <li>OVERLAP SWEEP (both jars): every section of every tab, as built and with each two-state toggle pressed once
  *       (gated rows appear) - plus, under each, every toggle that flip revealed (nested gates) - checked for any two
  *       content rows whose rectangles intersect.</li>
@@ -57,14 +58,12 @@ final class SliderCases {
         Object cfg = Mod.cfg(CFG);
         boolean oldEnabled = (Boolean) Mod.call(cfg, "isBreakerAuraEnabledRaw");
         double oldReach = (Double) Mod.call(cfg, "getBreakerAuraReach");
-        double oldSide = (Double) Mod.call(cfg, "getBreakerAuraSideReach");
         int oldCooldown = (Integer) Mod.call(cfg, "getBreakerAuraCooldownTicks");
         double maxReach = ((Number) Mod.field("cheatutils.CheatUtilsConfig", "MEASURED_MAX_REACH")).doubleValue();
         try {
             c.onClient(mc -> {
                 Mod.call(cfg, "setBreakerAuraEnabled", true);
                 Mod.call(cfg, "setBreakerAuraReach", 3.0);
-                Mod.call(cfg, "setBreakerAuraSideReach", 1.0);
                 Mod.call(cfg, "setBreakerAuraCooldownTicks", 10);
                 return null;
             });
@@ -72,16 +71,17 @@ final class SliderCases {
 
             // Control first: Reach, the slider right above.
             int[] reachProblems = {c.problemCount()};
-            drive(c, screen, cfg, "Reach:", "getBreakerAuraReach", 1.0, maxReach, 0.15);
+            drive(c, screen, cfg, "Reach:", "getBreakerAuraReach", 1.0, maxReach, 0.15,
+                    "Cooldown", "getBreakerAuraCooldownTicks");
             c.note("Reach (control) " + (c.problemCount() == reachProblems[0] ? "moved across its range" : "FAILED"));
 
-            drive(c, screen, cfg, "Cooldown:", "getBreakerAuraCooldownTicks", 0, 20, 1.0);
+            drive(c, screen, cfg, "Cooldown:", "getBreakerAuraCooldownTicks", 0, 20, 1.0,
+                    "Reach", "getBreakerAuraReach");
         } finally {
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
                 Mod.call(cfg, "setBreakerAuraEnabled", oldEnabled);
                 Mod.call(cfg, "setBreakerAuraReach", oldReach);
-                Mod.call(cfg, "setBreakerAuraSideReach", oldSide);
                 Mod.call(cfg, "setBreakerAuraCooldownTicks", oldCooldown);
                 Mod.call(cfg, "save");
                 return null;
@@ -170,54 +170,51 @@ final class SliderCases {
     }
 
     private static void drive(UiCase c, Screen s, Object cfg, String prefix, String getter, double min, double max,
-                              double tolerance) {
+                              double tolerance, String witness, String witnessGetter) {
         double[] b = slider(c, s, prefix);
         String where = String.format(Locale.ROOT, "%s slider at %.0f,%.0f %.0fx%.0f", prefix, b[0], b[1], b[2], b[3]);
         c.note(where);
         double cx = b[0] + b[2] / 2;
         double cy = b[1] + b[3] / 2;
 
-        double side0 = side(cfg);
+        double side0 = value(cfg, witnessGetter);
         double v0 = value(cfg, getter);
         drag(c, s, cx, cy, b[0] - 30);
         double vLeft = value(cfg, getter);
-        double side1 = side(cfg);
+        double side1 = value(cfg, witnessGetter);
 
         b = slider(c, s, prefix);
         drag(c, s, b[0] + b[2] / 2, cy, b[0] + b[2] + 30);
         double vRight = value(cfg, getter);
-        double side2 = side(cfg);
+        double side2 = value(cfg, witnessGetter);
 
         b = slider(c, s, prefix);
         double quarterX = b[0] + 4 + (b[2] - 8) * 0.25;
         click(c, s, quarterX, b[1] + b[3] / 2);
         double vQuarter = value(cfg, getter);
-        double side3 = side(cfg);
+        double side3 = value(cfg, witnessGetter);
         double wantQuarter = min + (max - min) * 0.25;
 
         c.note(String.format(Locale.ROOT, "%s start %s; drag past left -> %s; drag past right -> %s; click at 1/4 -> %s"
-                        + " (want ~%s); Side Reach along the way %s, %s, %s, %s", prefix, num(v0), num(vLeft),
-                num(vRight), num(vQuarter), num(wantQuarter), num(side0), num(side1), num(side2), num(side3)));
+                        + " (want ~%s); %s along the way %s, %s, %s, %s", prefix, num(v0), num(vLeft),
+                num(vRight), num(vQuarter), num(wantQuarter), witness, num(side0), num(side1), num(side2), num(side3)));
         if (Math.abs(vLeft - min) > 1e-6) {
             c.problem(prefix + " dragged past its left end reads " + num(vLeft) + ", its minimum is " + num(min)
-                    + (side1 != side0 ? " - and the drag moved Side Reach " + num(side0) + " -> " + num(side1) : ""));
+                    + (side1 != side0 ? " - and the drag moved " + witness + " " + num(side0) + " -> " + num(side1) : ""));
         }
         if (Math.abs(vRight - max) > 1e-6) {
             c.problem(prefix + " dragged past its right end reads " + num(vRight) + ", its maximum is " + num(max)
-                    + (side2 != side1 ? " - and the drag moved Side Reach " + num(side1) + " -> " + num(side2) : ""));
+                    + (side2 != side1 ? " - and the drag moved " + witness + " " + num(side1) + " -> " + num(side2) : ""));
         }
         if (Math.abs(vQuarter - wantQuarter) > tolerance) {
             c.problem(prefix + " clicked a quarter along reads " + num(vQuarter) + ", expected about "
-                    + num(wantQuarter));
+                    + num(wantQuarter) + (side3 != side2 ? " - and the click moved " + witness + " " + num(side2)
+                    + " -> " + num(side3) : ""));
         }
     }
 
     private static double value(Object cfg, String getter) {
         return ((Number) Mod.call(cfg, getter)).doubleValue();
-    }
-
-    private static double side(Object cfg) {
-        return value(cfg, "getBreakerAuraSideReach");
     }
 
     private static String num(double v) {
