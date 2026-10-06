@@ -105,8 +105,9 @@ public class SimThreadTests implements FabricClientGameTest {
                 String name = (String) ModUnderTest.call(p, "name", new Class<?>[]{}, new Object[]{});
                 int gx = (Integer) ModUnderTest.call(p, "gridX", new Class<?>[]{}, new Object[]{});
                 int gz = (Integer) ModUnderTest.call(p, "gridZ", new Class<?>[]{}, new Object[]{});
+                int[] cells = (int[]) ModUnderTest.call(p, "cells", new Class<?>[]{}, new Object[]{});
                 if (name != null && !name.isBlank() && out.stream().noneMatch(o -> o[0].equals(name))) {
-                    out.add(new Object[]{name, gx, gz});
+                    out.add(new Object[]{name, gx, gz, cells});
                 }
             }
             return out;
@@ -131,11 +132,18 @@ public class SimThreadTests implements FabricClientGameTest {
                     new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, name})));
             BlockPos c = ctx.computeOnClient(mc -> (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter",
                     new Class<?>[]{int.class}, new Object[]{gz * GRID + gx}));
+            // ANY tile of the room. Since mod sim-roomcycle2 (2026-10-06) /goto lands by a doorway on the room's
+            // main floor, which for a multi-tile room is often not the top-left tile this used to require.
+            List<BlockPos> tiles = new ArrayList<>();
+            for (int cell : (int[]) room[3]) {
+                tiles.add(ctx.computeOnClient(mc -> (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter",
+                        new Class<?>[]{int.class}, new Object[]{cell})));
+            }
             boolean in = false;
             for (int t = 0; t < 100 && !in; t++) {
                 ctx.waitTicks(1);
-                in = ctx.computeOnClient(mc -> Math.abs(mc.player.getX() - c.getX()) <= 18
-                        && Math.abs(mc.player.getZ() - c.getZ()) <= 18);
+                in = ctx.computeOnClient(mc -> tiles.stream().anyMatch(tc ->
+                        Math.abs(mc.player.getX() - tc.getX()) <= 18 && Math.abs(mc.player.getZ() - tc.getZ()) <= 18));
             }
             double[] to = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
             travelled += Math.hypot(to[0] - from[0], to[2] - from[2]);
