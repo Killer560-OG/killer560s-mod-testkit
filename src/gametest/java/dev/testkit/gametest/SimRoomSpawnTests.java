@@ -253,13 +253,16 @@ public class SimRoomSpawnTests implements FabricClientGameTest {
             return out;
         });
         String below = belowRooms(ctx);
-        System.out.println("[" + NAME + "] blocks below the rooms' own captures on this floor: " + below);
-        // REPORTED, not failed (yet): on 2026-10-06 the first floor generated after the single-room sweep had a previous
-        // single room's lower blocks (y -63..-49, stone/slabs/terracotta) still standing under it, which is how the
-        // old trap-landing scan found a "floor" 47 blocks down. The landing no longer reads below the doorway band;
-        // the leftovers themselves are a separate, still-open clear bug.
-        if (!below.startsWith("none")) {
-            System.out.println("[" + NAME + "] WARNING leftover blocks under the floor (open bug, not judged here)");
+        System.out.println("[" + NAME + "] blocks below/above the rooms' own captures on this floor: " + below);
+        // A FAILURE since 2026-10-06. The first floor generated after the single-room sweep stood on a previous single
+        // room's blocks (y -63..20 under a top-aligned floor), which is how the old trap-landing scan found a "floor"
+        // 47 blocks down. Cause: SimBuildQueue.touchedBounds returned only the chunks the last room's SECRETS went into
+        // (written after the build had finished), so the wipe cleared those and nothing else; and the clear's y band
+        // was the previous offset's, so an older build's blocks under a top-aligned floor were out of reach.
+        if (below.startsWith("none in 0 ") || below.startsWith("none (")) {
+            failures.add("the leftover-block scan looked at nothing: " + below);
+        } else if (!below.startsWith("none")) {
+            failures.add("leftover blocks outside the rooms' capture bands on a generated floor: " + below);
         }
         List<Landing> landings = new ArrayList<>();
         for (String name : rooms) {
@@ -286,7 +289,7 @@ public class SimRoomSpawnTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
             int off = (Integer) ModUnderTest.staticCall(LAYOUT, "simYOffset");
-            List<int[]> cols = new ArrayList<>();   // {x, z, bandMinY}
+            List<int[]> cols = new ArrayList<>();   // {x, z, bandMinY, bandMaxY}
             List<String> names = new ArrayList<>();
             for (Object p : (List<?>) ModUnderTest.staticCall(ROOM_INDEX, "placed")) {
                 String n = (String) ModUnderTest.call(p, "name", new Class<?>[]{}, new Object[]{});
@@ -296,8 +299,10 @@ public class SimRoomSpawnTests implements FabricClientGameTest {
                     continue;
                 }
                 int minY;
+                int maxY;
                 try {
                     minY = room.getClass().getField("minY").getInt(room) + off;
+                    maxY = room.getClass().getField("maxY").getInt(room) + off;
                 } catch (ReflectiveOperationException e) {
                     continue;
                 }
@@ -305,7 +310,7 @@ public class SimRoomSpawnTests implements FabricClientGameTest {
                     BlockPos c = (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter",
                             new Class<?>[]{int.class}, new Object[]{cell});
                     for (int[] d : new int[][]{{0, 0}, {15, 0}, {-15, 0}, {0, 15}, {0, -15}}) {
-                        cols.add(new int[]{c.getX() + d[0], c.getZ() + d[1], minY});
+                        cols.add(new int[]{c.getX() + d[0], c.getZ() + d[1], minY, maxY});
                         names.add(n);
                     }
                 }
@@ -323,7 +328,10 @@ public class SimRoomSpawnTests implements FabricClientGameTest {
                     int top = Integer.MIN_VALUE;
                     int bottom = Integer.MIN_VALUE;
                     String topId = "";
-                    for (int y = level.getMinY(); y < col[2]; y++) {
+                    for (int y = level.getMinY(); y <= level.getMaxY(); y++) {
+                        if (y >= col[2] && y <= col[3]) {
+                            continue;   // the room's own capture band
+                        }
                         var st = level.getBlockState(new BlockPos(col[0], y, col[1]));
                         if (!st.isAir()) {
                             found++;
@@ -337,7 +345,7 @@ public class SimRoomSpawnTests implements FabricClientGameTest {
                     }
                     if (found > 0) {
                         hits.add(names.get(i) + "@" + col[0] + "," + col[1] + " " + found + " block(s) y" + bottom
-                                + ".." + top + " top " + topId + " (band from y" + col[2] + ")");
+                                + ".." + top + " top " + topId + " (band y" + col[2] + ".." + col[3] + ")");
                     }
                 }
                 out.set(hits.isEmpty() ? "none in " + cols.size() + " column(s)"
