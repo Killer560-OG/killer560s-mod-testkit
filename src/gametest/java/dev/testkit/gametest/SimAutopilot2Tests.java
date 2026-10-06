@@ -554,6 +554,25 @@ public class SimAutopilot2Tests implements FabricClientGameTest {
         if (!clicked || !open) {
             failures.add("key: it did not open the door with the team's key (clicked " + clicked + ", open " + open + ")");
         }
+        // keys-range: the pickup range (0.27.2 +5, Magnetic Talisman x3 on the base) - it must have been picked up from
+        // further than the old 3-block guess, i.e. it stopped in range instead of warping onto the key.
+        double range = ctx.computeOnClient(mc -> (Double) ModUnderTest.staticCall(SIM_KEYS, "pickupRange"));
+        double at = -1;
+        try {
+            at = Double.parseDouble(pickup.substring(pickup.indexOf('|') + 1));
+        } catch (RuntimeException e) {
+            // no pickup recorded
+        }
+        boolean noWarpLine = r.log.stream().anyMatch(l -> l.contains("inside the") && l.contains("pickup range"));
+        println(String.format(Locale.US, "key: pickup range %.1f; picked up from %.2f blocks%s", range, at,
+                noWarpLine ? " (already in range - no warp)" : ""));
+        if (at <= 3.0) {
+            failures.add(String.format(Locale.US, "key: picked up from %.2f blocks - not beyond 3, so the longer range was"
+                    + " not used", at));
+        }
+        if (at > range + 0.01) {
+            failures.add(String.format(Locale.US, "key: the sim picked it up from %.2f, beyond its own %.1f range", at, range));
+        }
         if (!ran) {
             failures.add("key: the route behind the door never ran");
         }
