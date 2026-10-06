@@ -83,6 +83,13 @@ public final class PacketWatch {
     private static String biggestJump = "none";
     /** Every block a START_DESTROY_BLOCK named, in send order (so a scenario can say WHICH blocks were dug). */
     private static final List<BlockPos> digPositions = new ArrayList<>();
+    /**
+     * From the FIRST dig on: the dig, then each movement packet with what it claimed (y, onGround) and whether the
+     * client's own world still held the dug block when it went out. A packet claiming onGround while the client still
+     * stands on a block the anticheat already counts as broken is the GroundSpoof shape (breaker-floor, 2026-10-06).
+     */
+    private static final List<String> digTimeline = new ArrayList<>();
+    private static BlockPos firstDig;
     /** Digs whose eye-to-centre line hit a DIFFERENT block first (client's view of the world at send time). */
     private static int occludedDigs;
     /** Largest angle, degrees, between where the player was looking and the block a dig named. */
@@ -137,6 +144,8 @@ public final class PacketWatch {
         maxUseRotationJump = 0;
         biggestJump = "none";
         digPositions.clear();
+        digTimeline.clear();
+        firstDig = null;
         occludedDigs = 0;
         maxDigLookAngle = 0;
     }
@@ -203,6 +212,10 @@ public final class PacketWatch {
                 }
                 measureReach(action.getPos());
                 measureDig(action.getPos());
+                if (firstDig == null) {
+                    firstDig = action.getPos().immutable();
+                    digTimeline.add("t" + ticksObserved + " dig " + action.getDirection() + clientState(firstDig));
+                }
             }
         } else if (packet instanceof ServerboundUseItemPacket use) {
             // A use-item packet carries its OWN yaw and pitch, which is how this mod's puzzle solvers aim
@@ -281,6 +294,11 @@ public final class PacketWatch {
             if (move.horizontalCollision()) {
                 collisionTicks++;
             }
+            if (firstDig != null && digTimeline.size() < 12) {
+                digTimeline.add(String.format(Locale.ROOT, "t%d move%s ground=%b%s", ticksObserved,
+                        move.hasPosition() ? String.format(Locale.ROOT, " y=%.4f", move.getY(0)) : " (no pos)",
+                        move.isOnGround(), clientState(firstDig)));
+            }
             if (!move.hasRotation()) {
                 return;
             }
@@ -340,6 +358,19 @@ public final class PacketWatch {
         if (hit instanceof BlockHitResult b && hit.getType() == HitResult.Type.BLOCK && !b.getBlockPos().equals(pos)) {
             occludedDigs++;
         }
+    }
+
+    private static String clientState(BlockPos pos) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null) {
+            return "";
+        }
+        return mc.level.getBlockState(pos).isAir() ? " [client: air]" : " [client: block]";
+    }
+
+    /** The first dig and the movement packets after it, see {@link #digTimeline}. */
+    public static synchronized List<String> digTimeline() {
+        return new ArrayList<>(digTimeline);
     }
 
     /** Every block a dig named since {@link #start}, in order. */
