@@ -49,6 +49,7 @@
 			"dev.testkit.gametest.SimFloorSizeTests",
 			"dev.testkit.gametest.SimServerSafetyTests",
 			"dev.testkit.gametest.SimStarredMobTests",
+			"dev.testkit.gametest.InstaClearTests",
 			"dev.testkit.gametest.SimMapGroupTests",
 			"dev.testkit.gametest.SimSingleRoomTests",
 			"dev.testkit.gametest.SimRoomFloorTests",

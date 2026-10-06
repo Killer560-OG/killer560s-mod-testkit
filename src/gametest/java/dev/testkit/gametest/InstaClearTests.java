@@ -1,0 +1,748 @@
+package dev.testkit.gametest;
+
+import dev.testkit.compat.McCompat;
+
+import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
+import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
+
+/**
+ * Auto Secret's insta-clear recorder ({@code com.killer560.hub.autosecret.InstaClearTracker}).
+ *
+ * <p>Two cases, both selected by {@code -Pscenario=insta-clear}:
+ * <ul>
+ *   <li><b>361-logic-insta-clear</b> - the "known" rule and the evidence file, fed fake observations: N successes and
+ *       no failure, a single failure disqualifying, not-counted outcomes ignored, the threshold, persistence across a
+ *       reload, the readout, and an unreadable file never being overwritten.</li>
+ *   <li><b>98-sim-insta-clear</b> - the recorder on a real sim floor: walk into one room and teleport into others that
+ *       hold real sim starred mobs, then check each entry was recorded with a sane key and the right outcome, and was
+ *       persisted. The sim has NO dungeon map item and does not implement Hypixel's insta-clear rule, so the map
+ *       state is forced through the recorder's test hook - this measures the recorder (entry detection, keys,
+ *       starred-stand counting, kill counting, outcome rules, file), never whether Hypixel clears a room.</li>
+ * </ul>
+ */
+public class InstaClearTests implements FabricClientGameTest {
+
+    private static final String TRACKER = "com.killer560.hub.autosecret.InstaClearTracker";
+    private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
+    private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
+    private static final String SIM_MOBS = "com.killer560.hub.roomsim.SimMobs";
+    private static final String SOURCE_ROOMS =
+            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
+                    + "/minecraft/config", "killer560smod-rooms");
+
+    // DungeonMapScanner's states, mirrored as LiveMapFeature.MAP_*.
+    private static final int MAP_CLEARED = 1;
+    private static final int MAP_DISCOVERED = 2;
+    private static final int MAP_UNOPENED = 4;
+    private static final int GRID = 11;
+
+    @Override
+    public void runTest(ClientGameTestContext ctx) {
+        boolean logic = !Scenario.skip("361-logic-insta-clear");
+        if (logic) {
+            ModUnderTest.require("killer560smod");
+            logicCase(ctx);
+        }
+        if (!Scenario.skip("98-sim-insta-clear")) {
+            ModUnderTest.require("killer560smod");
+            simCase(ctx);
+        }
+    }
+
+    // ================================================================================================ logic
+
+    private static void logicCase(ClientGameTestContext ctx) {
+        List<String> problems = new ArrayList<>();
+        Path dir;
+        try {
+            dir = Files.createTempDirectory("insta-clear-logic");
+        } catch (Exception e) {
+            throw new AssertionError("no temp dir", e);
+        }
+        String file = dir.resolve("insta-clear.json").toString();
+        try {
+            ctx.runOnClient(mc -> {
+                call("testUseFile", new Class<?>[]{String.class}, file);
+                call("testClearAll", new Class<?>[]{});
+                call("testSetMinSuccesses", new Class<?>[]{int.class}, 2);
+            });
+            String r = "Logic Room";
+            String k1 = "from=-1,0;land=10,70,12";
+            String k2 = "from=0,-1;land=5,70,5";
+            String k3 = "from=-2,0;land=7,71,3";
+            check(problems, "default threshold is 2", minSuccesses(ctx) == 2);
+            ctx.runOnClient(mc -> add(r, k1, "INSTA", 400));
+            check(problems, "1 success is not known", !known(ctx, r, k1));
+            ctx.runOnClient(mc -> add(r, k1, "INSTA", 600));
+            check(problems, "2 successes, 0 failures is known", known(ctx, r, k1));
+            check(problems, "knownEntries lists it", knownEntries(ctx, r).contains(k1));
+            ctx.runOnClient(mc -> {
+                add(r, k1, "NO_STARS", -1);
+                add(r, k1, "NO_MAP", -1);
+                add(r, k1, "UNOBSERVED", 900);
+            });
+            check(problems, "not-counted outcomes do not disqualify", known(ctx, r, k1));
+            int[] c1 = counts(ctx, r, k1);
+            check(problems, "counts 2/0/3 for k1 (got " + c1[0] + "/" + c1[1] + "/" + c1[2] + ")",
+                    c1[0] == 2 && c1[1] == 0 && c1[2] == 3);
+            ctx.runOnClient(mc -> {
+                for (int i = 0; i < 3; i++) {
+                    add(r, k2, "INSTA", 500);
+                }
+                add(r, k2, "KILLED", 3000);
+                add(r, k3, "NO_CLEAR", -1);
+                for (int i = 0; i < 5; i++) {
+                    add(r, k3, "INSTA", 500);
+                }
+            });
+            check(problems, "3 successes + 1 KILLED is not known", !known(ctx, r, k2));
+            check(problems, "1 NO_CLEAR + 5 successes is not known", !known(ctx, r, k3));
+            check(problems, "knownEntries holds only k1", knownEntries(ctx, r).equals(List.of(k1)));
+            ctx.runOnClient(mc -> call("testSetMinSuccesses", new Class<?>[]{int.class}, 3));
+            check(problems, "threshold 3: 2 successes no longer known", !known(ctx, r, k1));
+            ctx.runOnClient(mc -> call("testSetMinSuccesses", new Class<?>[]{int.class}, 2));
+            check(problems, "unknown room is not known", !known(ctx, "No Such Room", k1));
+            check(problems, "null key is not known", !known(ctx, r, null));
+            check(problems, "unknown room has no entries", knownEntries(ctx, "No Such Room").isEmpty());
+
+            // A room whose only successes are k-alone: median of 400 and 600.
+            String r2 = "Median Room";
+            ctx.runOnClient(mc -> {
+                add(r2, k1, "INSTA", 400);
+                add(r2, k1, "INSTA", 600);
+                add(r2, k2, "KILLED", 9000);
+            });
+            List<String> lines = summary(ctx);
+            for (String line : lines) {
+                System.out.println("[361-logic-insta-clear] readout: " + line);
+            }
+            check(problems, "readout has a line for Median Room with 2 insta / 1 fail and median 500 ms",
+                    lines.stream().anyMatch(l -> l.startsWith("Median Room:") && l.contains("2 insta / 1 fail")
+                            && l.contains("median 500 ms") && l.contains("known 1")));
+
+            // Persistence: the file holds it, and a reload (a restart) gives back the same answers.
+            ctx.runOnClient(mc -> call("testSetMinSuccesses", new Class<?>[]{int.class}, 4));
+            int sizeBefore = size(ctx);
+            ctx.runOnClient(mc -> call("testReload", new Class<?>[]{}));
+            check(problems, "reload keeps every observation (" + sizeBefore + " -> " + size(ctx) + ")",
+                    size(ctx) == sizeBefore && sizeBefore == 18);
+            check(problems, "reload keeps the threshold 4", minSuccesses(ctx) == 4);
+            ctx.runOnClient(mc -> call("testSetMinSuccesses", new Class<?>[]{int.class}, 2));
+            ctx.runOnClient(mc -> call("testReload", new Class<?>[]{}));
+            check(problems, "after reload k1 is known again at threshold 2", known(ctx, r, k1));
+            String text = Files.readString(Path.of(file));
+            check(problems, "file is JSON with rooms and settings", text.contains("\"rooms\"")
+                    && text.contains("\"minSuccesses\": 2") && text.contains(k1));
+
+            // An unreadable file is never overwritten.
+            Path bad = dir.resolve("bad.json");
+            Files.writeString(bad, "{ this is not json");
+            ctx.runOnClient(mc -> call("testUseFile", new Class<?>[]{String.class}, bad.toString()));
+            check(problems, "unreadable file loads as empty", size(ctx) == 0);
+            ctx.runOnClient(mc -> add(r, k1, "INSTA", 100));
+            check(problems, "unreadable file left untouched after a write",
+                    Files.readString(bad).equals("{ this is not json"));
+            String redirected = ctx.computeOnClient(mc -> (String) call("testFilePath", new Class<?>[]{}));
+            check(problems, "writes went to a sibling (" + redirected + ")",
+                    redirected.contains("insta-clear.unreadable-") && Files.exists(Path.of(redirected)));
+
+            // No dungeon, no key.
+            String noKey = ctx.computeOnClient(mc -> (String) call("entryKeyFor",
+                    new Class<?>[]{String.class, BlockPos.class, String.class}, r, BlockPos.ZERO, "Other"));
+            check(problems, "entryKeyFor outside a dungeon is null (got " + noKey + ")", noKey == null);
+        } catch (java.io.IOException e) {
+            throw new AssertionError(e);
+        } finally {
+            ctx.runOnClient(mc -> call("testUseFile", new Class<?>[]{String.class}, (Object) null));
+        }
+        if (!problems.isEmpty()) {
+            throw new AssertionError("insta-clear logic:\n    " + String.join("\n    ", problems));
+        }
+        System.out.println("[361-logic-insta-clear] PASS - rule, threshold, readout, persistence and bad-file safety");
+    }
+
+    // ================================================================================================ sim
+
+    private static void simCase(ClientGameTestContext ctx) {
+        String name = "98-sim-insta-clear";
+        List<String> problems = new ArrayList<>();
+        ctx.waitTicks(40);
+        ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
+        copyDir(Path.of(SOURCE_ROOMS).resolveSibling("killer560smod-roomdata").toString(), "killer560smod-roomdata");
+        Scenario.ensureRoomDatabase(ctx);
+        Path dir;
+        try {
+            dir = Files.createTempDirectory("insta-clear-sim");
+        } catch (Exception e) {
+            throw new AssertionError("no temp dir", e);
+        }
+        String file = dir.resolve("insta-clear.json").toString();
+        int renderBefore = ctx.computeOnClient(mc -> mc.options.renderDistance().get());
+        ctx.runOnClient(mc -> {
+            mc.options.renderDistance().set(16);
+            call("testUseFile", new Class<?>[]{String.class}, file);
+            call("testClearAll", new Class<?>[]{});
+            call("testClearForcedStates", new Class<?>[]{});
+            call("testSetMinSuccesses", new Class<?>[]{int.class}, 2);
+            call("testSetWindowSeconds", new Class<?>[]{int.class}, 6);
+            ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class}, new Object[]{"gametest"});
+        });
+        long before = Scenario.simBuildCount(ctx);
+        ctx.runOnClient(mc -> mc.execute(() -> {
+            Object floor = ModUnderTest.enumValue("com.killer560.hub.roomsim.SimFloorGen$Floor", "F7");
+            ModUnderTest.staticCall("com.killer560.hub.roomsim.SimFloorGen", "generate",
+                    new Class<?>[]{Minecraft.class, floor.getClass(), int.class, int.class},
+                    new Object[]{mc, floor, 3, 4});
+        }));
+        ctx.waitFor(mc -> mc.level != null);
+        try {
+            Scenario.awaitSimBuild(ctx, before);
+            ctx.waitTicks(60);
+            waitForFloor(ctx, name);
+
+            // ---- pick rooms off the mod's own published layout
+            List<Room> rooms = ctx.computeOnClient(mc -> rooms());
+            System.out.println("[" + name + "] " + rooms.size() + " identified room(s) on the floor");
+            if (rooms.size() < 5) {
+                throw new AssertionError("fewer than 5 identified rooms - nothing below would mean anything");
+            }
+            // A and B share a normal door (walk case); C, D are other rooms; E is two tiles or more from A.
+            Room a = null;
+            Room b = null;
+            int door = -1;
+            outer:
+            for (Room x : rooms) {
+                for (Room y : rooms) {
+                    if (x == y) {
+                        continue;
+                    }
+                    int d = ctx.computeOnClient(mc -> normalDoorBetween(x, y));
+                    if (d >= 0) {
+                        a = x;
+                        b = y;
+                        door = d;
+                        break outer;
+                    }
+                }
+            }
+            if (a == null) {
+                throw new AssertionError("no two rooms share a normal door");
+            }
+            final Room ra = a;
+            final Room rb = b;
+            List<Room> others = new ArrayList<>();
+            Room farRoom = null;
+            for (Room x : rooms) {
+                if (x == ra || x == rb) {
+                    continue;
+                }
+                if (farRoom == null && tileGap(ra, x) >= 2) {
+                    farRoom = x;
+                } else if (others.size() < 2) {
+                    others.add(x);
+                }
+            }
+            final Room re = farRoom;
+            if (re == null || others.size() < 2) {
+                throw new AssertionError("could not pick rooms C, D and a far room E");
+            }
+            Room rc = others.get(0);
+            Room rd = others.get(1);
+            System.out.println("[" + name + "] A=" + ra.name + " B=" + rb.name + " (door cell " + door + ") C=" + rc.name
+                    + " D=" + rd.name + " E=" + re.name + " (gap " + tileGap(ra, re) + " tiles from A)");
+
+            // ---- real sim starred mobs in B, C, D, E (two each, off the landing column)
+            for (Room x : new Room[]{rb, rc, rd, re}) {
+                int n = 0;
+                for (int[] off : new int[][]{{5, 0}, {-5, 0}, {0, 5}, {0, -5}}) {
+                    if (n >= 2) {
+                        break;
+                    }
+                    BlockPos stand = standable(ctx, x.tiles[0], off[0], off[1]);
+                    if (stand != null) {
+                        ctx.runOnClient(mc -> {
+                            Object k = ModUnderTest.enumValue(SIM_MOBS + "$Kind", "ZOMBIE");
+                            ModUnderTest.staticCall(SIM_MOBS, "spawnStarred",
+                                    new Class<?>[]{Minecraft.class, BlockPos.class, k.getClass()},
+                                    new Object[]{mc, stand, k});
+                        });
+                        n++;
+                    }
+                }
+                System.out.println("[" + name + "] spawned " + n + " starred zombie(s) in " + x.name);
+            }
+            ctx.waitTicks(40);
+            ctx.runOnClient(mc -> {
+                force(ra.name, MAP_DISCOVERED);
+                for (Room x : new Room[]{rb, rc, rd, re}) {
+                    force(x.name, MAP_UNOPENED);
+                }
+            });
+
+            // ---- 1. WALK from A into B through their door; B flips while its stars stand -> INSTA
+            Vec3 doorAt = ctx.computeOnClient(mc -> (Vec3) ModUnderTest.staticCall(LAYOUT, "doorCentre",
+                    new Class<?>[]{int.class}, new Object[]{doorOf(ra, rb)}));
+            // Unit step from A's tile towards B's tile.
+            int[] ta = ra.tileFacing(rb);
+            int[] tb = rb.tileFacing(ra);
+            int sx = Integer.signum(tb[0] - ta[0]);
+            int sz = Integer.signum(tb[1] - ta[1]);
+            BlockPos startCol = BlockPos.containing(doorAt.x - sx * 6, doorAt.y, doorAt.z - sz * 6);
+            String placed = placeAt(ctx, startCol.getX(), startCol.getZ());
+            System.out.println("[" + name + "] walk start, door at " + doorAt + ": " + placed);
+            ctx.waitTicks(20);
+            String inA = ctx.computeOnClient(InstaClearTests::roomUnderPlayer);
+            check(problems, "standing in A before the walk (in " + inA + ")", ra.name.equals(inA));
+            float yaw = sx > 0 ? -90f : sx < 0 ? 90f : sz > 0 ? 0f : 180f;
+            ctx.runOnClient(mc -> {
+                mc.player.setYRot(yaw);
+                mc.player.setXRot(0f);
+            });
+            Vec3 walkFrom = ctx.computeOnClient(mc -> mc.player.position());
+            ctx.getInput().holdKey(options -> options.keyUp);
+            String inB = null;
+            for (int i = 0; i < 80; i++) {
+                ctx.waitTick();
+                inB = ctx.computeOnClient(InstaClearTests::roomUnderPlayer);
+                if (rb.name.equals(inB)) {
+                    break;
+                }
+            }
+            ctx.waitTicks(6);
+            ctx.getInput().releaseKey(options -> options.keyUp);
+            double walked = ctx.computeOnClient(mc -> mc.player.position().distanceTo(walkFrom));
+            System.out.println("[" + name + "] walked " + String.format("%.1f", walked) + " blocks, now in " + inB);
+            ctx.waitTicks(10);
+            List<String> pending = pending(ctx);
+            System.out.println("[" + name + "] open after the walk: " + pending);
+            String bLine = pending.stream().filter(p -> p.startsWith(rb.name + "|")).findFirst().orElse(null);
+            if (walked < 3) {
+                problems.add("the walk moved only " + String.format("%.1f", walked) + " blocks - the harness never "
+                        + "walked, so the walk case measured nothing");
+            } else if (!rb.name.equals(inB)) {
+                problems.add("walked " + String.format("%.1f", walked) + " blocks but never reached B (" + inB + ")");
+            } else if (bLine == null) {
+                problems.add("walking into B opened no observation");
+            } else {
+                String[] f = bLine.split("\\|");
+                check(problems, "walk key is from=<fx>,<fz>;land=walk (got " + f[1] + ")",
+                        f[1].matches("from=-?\\d+,-?\\d+;land=walk"));
+                check(problems, "walk method is walk (got " + f[2] + ")", f[2].equals("walk"));
+                check(problems, "B's starred stands were seen (got " + f[3] + ")", Integer.parseInt(f[3]) >= 1);
+            }
+            ctx.runOnClient(mc -> force(rb.name, MAP_CLEARED));
+            ctx.waitTicks(10);
+            String lastB = lastFor(ctx, rb.name);
+            System.out.println("[" + name + "] B closed: " + lastB);
+            check(problems, "B closed as INSTA with stars alive at the flip",
+                    lastB != null && lastB.startsWith(rb.name + "|") && lastB.contains("\"outcome\":\"INSTA\"")
+                            && !lastB.contains("\"aliveAtFlip\":0") && !lastB.contains("\"aliveAtFlip\":-1")
+                            && lastB.contains("\"method\":\"walk\"") && lastB.contains("\"from\":\"" + ra.name + "\"")
+                            && lastB.contains("\"skip\":0"));
+
+            // ---- 2. TELEPORT A -> C twice onto the same block: two INSTA on one key -> known; key round-trips
+            String keyC1 = null;
+            for (int run = 1; run <= 2; run++) {
+                placeAt(ctx, centreX(ra), centreZ(ra));
+                ctx.waitTicks(10);
+                ctx.runOnClient(mc -> force(rc.name, MAP_UNOPENED));
+                String landedC = placeAt(ctx, centreX(rc) + 2, centreZ(rc) + 2);
+                ctx.waitTicks(10);
+                String bp = ctx.computeOnClient(mc -> mc.player.blockPosition().below().toShortString());
+                String cLine = pending(ctx).stream().filter(p -> p.startsWith(rc.name + "|")).findFirst().orElse(null);
+                System.out.println("[" + name + "] C run " + run + ": " + landedC + ", open " + cLine);
+                if (cLine == null) {
+                    problems.add("teleport into C (run " + run + ") opened no observation");
+                    continue;
+                }
+                String key = cLine.split("\\|")[1];
+                check(problems, "C key is from=<adjacent or skip>;land=x,y,z (" + key + ")",
+                        key.matches("from=-?\\d+,-?\\d+;land=-?\\d+,-?\\d+,-?\\d+"));
+                check(problems, "C method is teleport (" + cLine.split("\\|")[2] + ")",
+                        cLine.split("\\|")[2].equals("teleport"));
+                String back = ctx.computeOnClient(mc -> {
+                    BlockPos p = (BlockPos) call("realLandingFor", new Class<?>[]{String.class, String.class},
+                            rc.name, key);
+                    return p == null ? "null" : p.toShortString();
+                });
+                check(problems, "realLandingFor(C, key) = the block he stands on (" + back + " vs " + bp + ")",
+                        back.equals(bp));
+                String recomputed = ctx.computeOnClient(mc -> (String) call("entryKeyFor",
+                        new Class<?>[]{String.class, BlockPos.class, String.class}, rc.name,
+                        mc.player.blockPosition().below(), ra.name));
+                check(problems, "entryKeyFor(C, landing, A) equals the recorded key (" + recomputed + ")",
+                        key.equals(recomputed));
+                if (run == 1) {
+                    keyC1 = key;
+                } else {
+                    check(problems, "the second entry on the same block has the same key", key.equals(keyC1));
+                }
+                ctx.runOnClient(mc -> force(rc.name, MAP_CLEARED));
+                ctx.waitTicks(10);
+                String lc = lastFor(ctx, rc.name);
+                check(problems, "C run " + run + " closed INSTA (" + lc + ")",
+                        lc != null && lc.startsWith(rc.name + "|") && lc.contains("\"outcome\":\"INSTA\""));
+                // Out of C so the next run is a fresh entry.
+                placeAt(ctx, centreX(ra), centreZ(ra));
+                ctx.waitTicks(10);
+            }
+            final String kc = keyC1;
+            boolean knownC = ctx.computeOnClient(mc -> (Boolean) call("knownToInstaClear",
+                    new Class<?>[]{String.class, String.class}, rc.name, kc));
+            check(problems, "two real INSTA entries on one key make C known", knownC);
+            @SuppressWarnings("unchecked")
+            List<String> knownList = ctx.computeOnClient(mc -> (List<String>) call("knownEntries",
+                    new Class<?>[]{String.class}, rc.name));
+            check(problems, "knownEntries(C) = [that key] (" + knownList + ")", knownList.equals(List.of(kc)));
+
+            // ---- 3. TELEPORT into D, kill its stars, THEN flip -> KILLED (a real clear, a failure)
+            ctx.runOnClient(mc -> force(rd.name, MAP_UNOPENED));
+            placeAt(ctx, centreX(rd) + 1, centreZ(rd) + 1);
+            ctx.waitTicks(20);
+            String dLine = pending(ctx).stream().filter(p -> p.startsWith(rd.name + "|")).findFirst().orElse(null);
+            System.out.println("[" + name + "] D open: " + dLine);
+            int killed = killStarredNear(ctx, rd);
+            System.out.println("[" + name + "] discarded " + killed + " starred pair(s) in D");
+            ctx.waitTicks(20);
+            ctx.runOnClient(mc -> force(rd.name, MAP_CLEARED));
+            ctx.waitTicks(10);
+            String ld = lastFor(ctx, rd.name);
+            System.out.println("[" + name + "] D closed: " + ld);
+            check(problems, "D: stars killed before the flip closes KILLED with kills > 0",
+                    killed > 0 && ld != null && ld.startsWith(rd.name + "|") && ld.contains("\"outcome\":\"KILLED\"")
+                            && !ld.contains("\"kills\":0") && ld.contains("\"aliveAtFlip\":0"));
+
+            // ---- 4. TELEPORT A -> E (a room or more skipped), never flips -> NO_CLEAR after the 6 s window
+            placeAt(ctx, centreX(ra), centreZ(ra));
+            ctx.waitTicks(10);
+            placeAt(ctx, centreX(re) - 2, centreZ(re) - 2);
+            ctx.waitTicks(10);
+            String eLine = pending(ctx).stream().filter(p -> p.startsWith(re.name + "|")).findFirst().orElse(null);
+            System.out.println("[" + name + "] E open: " + eLine);
+            check(problems, "E opened an observation: " + eLine, eLine != null);
+            ctx.waitTicks(150);
+            String le = lastFor(ctx, re.name);
+            System.out.println("[" + name + "] E closed: " + le);
+            check(problems, "E closed NO_CLEAR after the window with skip >= 1",
+                    le != null && le.startsWith(re.name + "|") && le.contains("\"outcome\":\"NO_CLEAR\"")
+                            && !le.contains("\"skip\":0") && !le.contains("\"skip\":-1"));
+
+            // ---- 5. Persisted: reload from disk and the evidence is all there.
+            int size = ctx.computeOnClient(mc -> (Integer) call("testSize", new Class<?>[]{}));
+            ctx.runOnClient(mc -> call("testReload", new Class<?>[]{}));
+            int reloaded = ctx.computeOnClient(mc -> (Integer) call("testSize", new Class<?>[]{}));
+            String text = Files.readString(Path.of(file));
+            System.out.println("[" + name + "] file " + file + ": " + text.length() + " chars, " + reloaded
+                    + " observation(s) after reload (" + size + " before)");
+            check(problems, "reload gives back every observation (" + size + " -> " + reloaded + ")",
+                    reloaded == size && size >= 5);
+            check(problems, "file names B, C, D and E", text.contains(rb.name) && text.contains(rc.name)
+                    && text.contains(rd.name) && text.contains(re.name));
+            boolean knownAfter = ctx.computeOnClient(mc -> (Boolean) call("knownToInstaClear",
+                    new Class<?>[]{String.class, String.class}, rc.name, kc));
+            check(problems, "C still known after the reload", knownAfter);
+            for (String l : summary(ctx)) {
+                System.out.println("[" + name + "] readout: " + l);
+            }
+        } catch (java.io.IOException e) {
+            throw new AssertionError(e);
+        } finally {
+            ctx.getInput().releaseKey(options -> options.keyUp);
+            ctx.runOnClient(mc -> {
+                call("testClearForcedStates", new Class<?>[]{});
+                call("testUseFile", new Class<?>[]{String.class}, (Object) null);
+                mc.options.renderDistance().set(renderBefore);
+            });
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave"));
+            ctx.runOnClient(mc -> mc.execute(() -> {
+                if (mc.level != null) {
+                    mc.level.disconnect(net.minecraft.network.chat.Component.literal("scenario over"));
+                    mc.disconnectWithSavingScreen();
+                }
+            }));
+            ctx.waitFor(mc -> mc.level == null && mc.getSingleplayerServer() == null);
+            ctx.waitTicks(40);
+            ctx.runOnClient(mc -> mc.execute(() ->
+                    McCompat.setScreen(mc, new net.minecraft.client.gui.screens.TitleScreen())));
+            ctx.waitFor(mc -> McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.TitleScreen);
+        }
+        if (!problems.isEmpty()) {
+            throw new AssertionError("insta-clear sim:\n    " + String.join("\n    ", problems));
+        }
+        System.out.println("[" + name + "] PASS - walk and teleport entries recorded with sane keys, outcomes INSTA /"
+                + " KILLED / NO_CLEAR as the rules say, known after two real successes, persisted");
+    }
+
+    // ================================================================================================ helpers
+
+    /** A room of the published layout: name and its even tiles. */
+    private record Room(String name, int[] tiles) {
+        /** This room's tile nearest to {@code other}'s tiles, as {@code {gx, gz}}. */
+        int[] tileFacing(Room other) {
+            int[] best = null;
+            int bestD = Integer.MAX_VALUE;
+            for (int a : tiles) {
+                for (int b : other.tiles) {
+                    int dx = a % GRID - b % GRID;
+                    int dz = a / GRID - b / GRID;
+                    if (dx * dx + dz * dz < bestD) {
+                        bestD = dx * dx + dz * dz;
+                        best = new int[]{a % GRID, a / GRID};
+                    }
+                }
+            }
+            return best;
+        }
+    }
+
+    private static int tileGap(Room a, Room b) {
+        int[] ta = a.tileFacing(b);
+        int[] tb = b.tileFacing(a);
+        return (Math.abs(ta[0] - tb[0]) + Math.abs(ta[1] - tb[1])) / 2;
+    }
+
+    private static int doorOf(Room a, Room b) {
+        int[] ta = a.tileFacing(b);
+        int[] tb = b.tileFacing(a);
+        return ((ta[1] + tb[1]) / 2) * GRID + (ta[0] + tb[0]) / 2;
+    }
+
+    private static List<Room> rooms() {
+        Object layout = ModUnderTest.staticCall(LAYOUT, "current");
+        int n = (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[]{}, new Object[]{});
+        List<Room> out = new ArrayList<>();
+        for (int r = 0; r < n; r++) {
+            String nm = (String) ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{r});
+            Object cr = ModUnderTest.call(layout, "clayRotation", new Class<?>[]{int.class}, new Object[]{r});
+            int[] tiles = (int[]) ModUnderTest.call(layout, "tiles", new Class<?>[]{int.class}, new Object[]{r});
+            if (nm != null && !nm.equals("Unknown") && cr != null && tiles.length > 0) {
+                out.add(new Room(nm, tiles));
+            }
+        }
+        return out;
+    }
+
+    /** The door cell between two adjacent rooms if it is a NORMAL door, else -1. */
+    private static int normalDoorBetween(Room a, Room b) {
+        if (tileGap(a, b) != 1) {
+            return -1;
+        }
+        int door = doorOf(a, b);
+        Object layout = ModUnderTest.staticCall(LAYOUT, "current");
+        int type = (Integer) ModUnderTest.call(layout, "doorType", new Class<?>[]{int.class}, new Object[]{door});
+        return type == 1 ? door : -1;
+    }
+
+    private static String roomUnderPlayer(Minecraft mc) {
+        Object layout = ModUnderTest.staticCall(LAYOUT, "current");
+        int r = (Integer) ModUnderTest.call(layout, "roomAtWorld", new Class<?>[]{double.class, double.class},
+                new Object[]{mc.player.getX(), mc.player.getZ()});
+        return r < 0 ? null : (String) ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{r});
+    }
+
+    private static int centreX(Room r) {
+        return -185 + (r.tiles[0] % GRID) * 16;
+    }
+
+    private static int centreZ(Room r) {
+        return -185 + (r.tiles[0] / GRID) * 16;
+    }
+
+    /** First standable spot (solid, two air) in the column at the tile centre + (dx, dz), found on the server. */
+    private static BlockPos standable(ClientGameTestContext ctx, int tile, int dx, int dz) {
+        AtomicReference<BlockPos> out = new AtomicReference<>();
+        AtomicReference<Boolean> done = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            int x = -185 + (tile % GRID) * 16 + dx;
+            int z = -185 + (tile / GRID) * 16 + dz;
+            var server = mc.getSingleplayerServer();
+            server.execute(() -> {
+                var level = server.overworld();
+                for (int y = level.getMinY(); y < level.getMaxY() - 2; y++) {
+                    BlockPos b = new BlockPos(x, y, z);
+                    if (!level.getBlockState(b).isAir() && level.getBlockState(b.above()).isAir()
+                            && level.getBlockState(b.above(2)).isAir()) {
+                        out.set(b.above());
+                        break;
+                    }
+                }
+                done.set(true);
+            });
+        });
+        ctx.waitFor(mc -> done.get() != null, 200);
+        return out.get();
+    }
+
+    /** Teleports him (on the server, so a real position packet) onto the first standable block in the column. */
+    private static String placeAt(ClientGameTestContext ctx, int x, int z) {
+        AtomicReference<String> done = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            UUID uuid = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(uuid);
+                if (sp == null) {
+                    done.set("no server player");
+                    return;
+                }
+                var level = sp.level();
+                for (int y = level.getMinY(); y < level.getMaxY() - 2; y++) {
+                    BlockPos b = new BlockPos(x, y, z);
+                    if (!level.getBlockState(b).isAir() && level.getBlockState(b.above()).isAir()
+                            && level.getBlockState(b.above(2)).isAir()) {
+                        sp.teleportTo(x + 0.5, y + 1, z + 0.5);
+                        done.set("placed at " + x + "," + (y + 1) + "," + z);
+                        return;
+                    }
+                }
+                done.set("no standable block at " + x + "," + z);
+            });
+        });
+        ctx.waitFor(mc -> done.get() != null, 200);
+        ctx.waitTicks(4);
+        for (int i = 0; i < 60 && !ctx.computeOnClient(mc -> mc.player.onGround()); i++) {
+            ctx.waitTicks(1);
+        }
+        return done.get();
+    }
+
+    /** Discards every recorded sim starred pair standing in the room (mob and stand), on the server. */
+    private static int killStarredNear(ClientGameTestContext ctx, Room room) {
+        AtomicReference<Integer> out = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            @SuppressWarnings("unchecked")
+            List<UUID[]> pairs = (List<UUID[]>) ModUnderTest.staticCall(SIM_MOBS, "starredPairs");
+            var server = mc.getSingleplayerServer();
+            server.execute(() -> {
+                var level = server.overworld();
+                int n = 0;
+                for (UUID[] pair : pairs) {
+                    var mob = level.getEntity(pair[0]);
+                    var tag = level.getEntity(pair[1]);
+                    if (mob == null || tag == null) {
+                        continue;
+                    }
+                    boolean inside = false;
+                    for (int t : room.tiles) {
+                        int cx = -185 + (t % GRID) * 16;
+                        int cz = -185 + (t / GRID) * 16;
+                        if (Math.abs(tag.getX() - cx) <= 16 && Math.abs(tag.getZ() - cz) <= 16) {
+                            inside = true;
+                        }
+                    }
+                    if (inside) {
+                        mob.discard();
+                        tag.discard();
+                        n++;
+                    }
+                }
+                out.set(n);
+            });
+        });
+        ctx.waitFor(mc -> out.get() != null, 200);
+        return out.get();
+    }
+
+    private static void waitForFloor(ClientGameTestContext ctx, String name) {
+        boolean ready = false;
+        for (int i = 0; i < 180 && !ready; i++) {
+            ready = ctx.computeOnClient(mc -> mc.level != null && mc.player != null
+                    && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir());
+            if (!ready) {
+                ctx.waitTicks(10);
+            }
+        }
+        System.out.println("[" + name + "] client floor ready: " + ready);
+        if (!ready) {
+            throw new AssertionError("the client never got the floor under the spawn point in 90 s");
+        }
+    }
+
+    private static Object call(String method, Class<?>[] types, Object... args) {
+        return ModUnderTest.staticCall(TRACKER, method, types, args);
+    }
+
+    private static void add(String room, String key, String outcome, long flipMs) {
+        call("testAdd", new Class<?>[]{String.class, String.class, String.class, long.class}, room, key, outcome,
+                flipMs);
+    }
+
+    private static void force(String room, int state) {
+        call("testForceMapState", new Class<?>[]{String.class, Integer.class}, room, state);
+    }
+
+    private static boolean known(ClientGameTestContext ctx, String room, String key) {
+        return ctx.computeOnClient(mc -> (Boolean) call("knownToInstaClear",
+                new Class<?>[]{String.class, String.class}, room, key));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> knownEntries(ClientGameTestContext ctx, String room) {
+        return ctx.computeOnClient(mc -> (List<String>) call("knownEntries", new Class<?>[]{String.class}, room));
+    }
+
+    private static int[] counts(ClientGameTestContext ctx, String room, String key) {
+        return ctx.computeOnClient(mc -> (int[]) call("testCounts", new Class<?>[]{String.class, String.class},
+                room, key));
+    }
+
+    private static int minSuccesses(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Integer) call("minSuccesses", new Class<?>[]{}));
+    }
+
+    private static int size(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Integer) call("testSize", new Class<?>[]{}));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> summary(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (List<String>) call("testSummaryLines", new Class<?>[]{}));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> pending(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (List<String>) call("testPending", new Class<?>[]{}));
+    }
+
+    private static String lastFor(ClientGameTestContext ctx, String room) {
+        return ctx.computeOnClient(mc -> (String) call("testLastFor", new Class<?>[]{String.class}, room));
+    }
+
+    private static void check(List<String> problems, String what, boolean ok) {
+        System.out.println("    " + (ok ? "ok   " : "FAIL ") + what);
+        if (!ok) {
+            problems.add(what);
+        }
+    }
+
+    private static void copyDir(String from, String into) {
+        try {
+            Path source = Path.of(from);
+            if (!Files.isDirectory(source)) {
+                return;
+            }
+            Path target = ModUnderTest.modConfig(into);
+            Files.createDirectories(target);
+            try (var s = Files.list(source)) {
+                for (Path f : s.toList()) {
+                    if (Files.isRegularFile(f)) {
+                        Files.copy(f, target.resolve(f.getFileName()), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // the room database download still covers a fresh client
+        }
+    }
+}
