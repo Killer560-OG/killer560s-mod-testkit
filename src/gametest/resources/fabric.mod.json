@@ -32,6 +32,7 @@
 			"dev.testkit.gametest.SimMapEditorTests",
 			"dev.testkit.gametest.SimMapFilterTests",
 			"dev.testkit.gametest.HostileChatTests",
+			"dev.testkit.gametest.ChatTidyTests",
 			"dev.testkit.gametest.SimSecretsTests",
 			"dev.testkit.gametest.LeverScanTests",
 			"dev.testkit.gametest.SimCryptWaypointTests",
