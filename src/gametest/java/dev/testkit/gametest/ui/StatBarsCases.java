@@ -349,7 +349,7 @@ final class StatBarsCases {
 
     /** Rows our tab built (scoped to it by FolderTab), in build order. */
     @SuppressWarnings("unchecked")
-    private static List<AbstractWidget> ours(ModScreenDriver d) {
+    static List<AbstractWidget> ours(ModScreenDriver d) {
         Map<AbstractWidget, String> scopes = (Map<AbstractWidget, String>) R.getStatic(R.cls("gui.SettingTooltips"),
                 "SCOPES");
         List<AbstractWidget> out = new ArrayList<>();
@@ -370,7 +370,7 @@ final class StatBarsCases {
     }
 
     /** "▶ Classic Display" -> "Classic Display", "Bar Width: 100" -> "Bar Width". */
-    private static String key(String label) {
+    static String key(String label) {
         String s = label;
         if (s.startsWith("▶ ") || s.startsWith("▼ ")) {
             s = s.substring(2);
@@ -404,7 +404,7 @@ final class StatBarsCases {
     }
 
     /** Press the row whose label key is {@code row} (real click on the widget) and rebuild. */
-    private static void press(UiCase c, ModScreenDriver d, String row) throws Throwable {
+    static void press(UiCase c, ModScreenDriver d, String row) throws Throwable {
         for (AbstractWidget w : ours(d)) {
             if (key(ModScreenDriver.label(w)).equals(row)) {
                 ModScreenDriver.press(w);
@@ -551,7 +551,7 @@ final class StatBarsCases {
     }
 
     /** The tab's own session-only section flags, back to closed (whichever exist in this jar). */
-    private static void closeSections(UiCase c) {
+    static void closeSections(UiCase c) {
         c.onClient(mc -> {
             Class<?> tab = R.cls(TAB_CLASS);
             for (String f : new String[]{"hideOpen", "barsOpen", "textOpen", "classicOpen"}) {
@@ -565,7 +565,7 @@ final class StatBarsCases {
         });
     }
 
-    private static ModScreenDriver open(UiCase c) {
+    static ModScreenDriver open(UiCase c) {
         ModScreenDriver d = c.onClient(mc -> {
             try {
                 ModScreenDriver drv = new ModScreenDriver(mc);

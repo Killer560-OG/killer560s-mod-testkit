@@ -92,6 +92,8 @@ HUD hidden in the boss and back on a new run - all fail on mod 0b492828), 394-ui
 what it draws, slack 3 units, centred elements judged on their other axis),
 399-ui-hud-editor-resize / 399-ui-hud-editor-snap / 399-ui-stat-bars-vitality-xp (HUD editor resize handles, cursors and
 snapping by real mouse drags at Auto Scale 0.5 and 1; Vitality and XP readouts; Classic Display migration; all fail on mod 6f3515ba),
+407-ui-stat-bars-layout (Health and Mana Bars Layout: Predefined areas measured on screenshots at Auto Scale 0.5 and 1,
+real-mouse drags between areas and onto Hidden, Custom positions untouched, old configs stay put; fails on mod a411e650),
 64-correction-alarm (the mod's `killer560smod:correction_alarm` is known to the sound manager, its .ogg is in the resources,
 `ModSounds.playCorrectionAlarm` plays once and rate-limits the second; run it with `-Minecraft 26.2` too),
 65-join-fingerprint (every serverbound byte from handshake to play plus a sign translation probe; needs a `run-scenario.ps1 -NoMod`

@@ -642,6 +642,13 @@ final class HudEditorCases {
         c.onClient(mc -> {
             Object ps = Mod.cfg(PS);
             Mod.call(ps, "setEnabled", true);
+            // Free placement is the Custom layout (mod bars-anchors): a fresh config is Predefined there, where the
+            // area decides position and length and there are no resize handles (407 covers that).
+            try {
+                Mod.call(ps, "setPredefinedLayout", false);
+            } catch (RuntimeException | AssertionError e) {
+                // a jar before the Layout setting: always custom
+            }
             for (String r : new String[]{"HEALTH_BAR", "MANA_BAR", "HEALTH_TEXT"}) {
                 Mod.call(ps, "setReadoutOn", Mod.enumValue(READOUT, r), true);
             }
@@ -697,7 +704,7 @@ final class HudEditorCases {
         return s;
     }
 
-    private static void closeEditor(UiCase c) {
+    static void closeEditor(UiCase c) {
         c.onClient(mc -> {
             McCompat.setScreen(mc, null);
             return null;
@@ -812,7 +819,7 @@ final class HudEditorCases {
 
     /** Real mouse: to (gx, gy), hold the left button, move to (gx+dx, gy+dy) in 6 steps, optionally photograph while
      *  still held (guides), release. GUI coordinates of the editor (which is not auto-scaled). */
-    private static void drag(UiCase c, Screen s, int gx, int gy, int dx, int dy, String shotName) {
+    static void drag(UiCase c, Screen s, int gx, int gy, int dx, int dy, String shotName) {
         cursorTo(c, s, gx, gy);
         c.ctx().getInput().holdMouse(0);
         c.ticks(2);
@@ -827,11 +834,11 @@ final class HudEditorCases {
         c.ticks(3);
     }
 
-    private static void cursorTo(UiCase c, Screen s, double gx, double gy) {
+    static void cursorTo(UiCase c, Screen s, double gx, double gy) {
         cursorTo(c, s, gx, gy, 2);
     }
 
-    private static void cursorTo(UiCase c, Screen s, double gx, double gy, int ticks) {
+    static void cursorTo(UiCase c, Screen s, double gx, double gy, int ticks) {
         double[] w = c.onClient(mc -> {
             Window win = mc.getWindow();
             return new double[]{gx * win.getScreenWidth() / (double) win.getGuiScaledWidth(),
@@ -847,24 +854,24 @@ final class HudEditorCases {
         screenshot(c, name);
     }
 
-    private static void screenshot(UiCase c, String suffix) {
+    static void screenshot(UiCase c, String suffix) {
         String name = c.name() + "-" + suffix;
         Path taken = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(name));
         Path kept = dev.testkit.harness.Report.screenshot(name, taken);
         c.note("picture " + name + " -> " + (kept != null ? kept : taken));
     }
 
-    private static String str(int[] b) {
+    static String str(int[] b) {
         return b[0] + "," + b[1] + ".." + b[2] + "," + b[3];
     }
 
     // ---- window ----------------------------------------------------------------------------------------------------
 
-    private static int[] windowSize(UiCase c) {
+    static int[] windowSize(UiCase c) {
         return c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight()});
     }
 
-    private static void setWindow(UiCase c, int w, int h, int gui) {
+    static void setWindow(UiCase c, int w, int h, int gui) {
         closeEditor(c);
         c.ctx().getInput().resizeWindow(w, h);
         c.ticks(3);
@@ -876,7 +883,7 @@ final class HudEditorCases {
         c.ticks(3);
     }
 
-    private static void restoreWindow(UiCase c, int[] window, int gui) {
+    static void restoreWindow(UiCase c, int[] window, int gui) {
         try {
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
@@ -897,7 +904,7 @@ final class HudEditorCases {
 
     // ---- config snapshot -------------------------------------------------------------------------------------------
 
-    private static Map<Path, byte[]> snapshot(UiCase c) {
+    static Map<Path, byte[]> snapshot(UiCase c) {
         Map<Path, byte[]> out = new LinkedHashMap<>();
         for (String cls : new String[]{PS, HUD}) {
             Path p = c.onClient(mc -> (Path) R.getStatic(R.cls(cls), "CONFIG_PATH"));
@@ -910,7 +917,7 @@ final class HudEditorCases {
         return out;
     }
 
-    private static void restore(UiCase c, Map<Path, byte[]> saved) {
+    static void restore(UiCase c, Map<Path, byte[]> saved) {
         try {
             c.onClient(mc -> {
                 try {
