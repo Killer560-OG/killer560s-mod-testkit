@@ -117,6 +117,12 @@ public class FpsBenchTest implements FabricClientGameTest {
         }
         ctx.runOnClient(mc -> ModUnderTest.staticCall(ROOM_LIBRARY, "forceReload"));
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isReady"), 6000);
+        // Since mod 0ad55108 the sim plans no floor until the room DATABASE has loaded too, and offline it never does
+        // unless his copy is put in place: without this the generate below is refused and the bench waited forever on
+        // a build that never started (2026-10-07).
+        if (Scenario.ensureRoomDatabase(ctx) == 0) {
+            throw new AssertionError("[" + NAME + "] needs his room database (killer560smod-roomdata) to build a floor");
+        }
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter",
                 new Class<?>[]{String.class}, new Object[]{"gametest"}));
         // The same floor every run. The generator's RNGs are unseeded statics, and a different floor is a different
@@ -282,7 +288,7 @@ public class FpsBenchTest implements FabricClientGameTest {
 
     // ---- phases -------------------------------------------------------------------------------------------------
 
-    private static long[][] phase(ClientGameTestContext ctx, int frames) {
+    static long[][] phase(ClientGameTestContext ctx, int frames) {
         ctx.runOnClient(mc -> FrameClock.start(frames * 3));
         ctx.waitTicks(frames);
         return ctx.computeOnClient(mc -> {
@@ -294,7 +300,7 @@ public class FpsBenchTest implements FabricClientGameTest {
         });
     }
 
-    private static void jfrPhase(ClientGameTestContext ctx, int frames, Path file) {
+    static void jfrPhase(ClientGameTestContext ctx, int frames, Path file) {
         try {
             Files.createDirectories(file.getParent());
             Recording rec = new Recording(Configuration.getConfiguration("profile"));
@@ -309,7 +315,7 @@ public class FpsBenchTest implements FabricClientGameTest {
         }
     }
 
-    private static void applyOn(ClientGameTestContext ctx, Map<String, Boolean> onBefore,
+    static void applyOn(ClientGameTestContext ctx, Map<String, Boolean> onBefore,
                                 Map<Object[], Boolean> offBefore, boolean on) {
         ctx.runOnClient(mc -> {
             if (on) {
@@ -329,7 +335,7 @@ public class FpsBenchTest implements FabricClientGameTest {
 
     // ---- the OFF set: every config in the jar with getInstance + isEnabled + setEnabled(boolean) ----------------
 
-    private static List<Object[]> offTargets() {
+    static List<Object[]> offTargets() {
         List<Object[]> out = new ArrayList<>();
         for (String fq : JarIndex.classNames(s -> s.endsWith("Config"))) {
             if (fq.contains(".mixin.")) {
@@ -354,7 +360,7 @@ public class FpsBenchTest implements FabricClientGameTest {
         return out;
     }
 
-    private static boolean invokeIs(Object[] t) {
+    static boolean invokeIs(Object[] t) {
         try {
             return (Boolean) ((Method) t[1]).invoke(t[0]);
         } catch (ReflectiveOperationException e) {
@@ -362,7 +368,7 @@ public class FpsBenchTest implements FabricClientGameTest {
         }
     }
 
-    private static void invokeSet(Object[] t, Boolean v) {
+    static void invokeSet(Object[] t, Boolean v) {
         try {
             ((Method) t[2]).invoke(t[0], v);
         } catch (ReflectiveOperationException e) {
@@ -370,7 +376,7 @@ public class FpsBenchTest implements FabricClientGameTest {
         }
     }
 
-    private static long[] concat(long[][] parts) {
+    static long[] concat(long[][] parts) {
         int n = 0;
         for (long[] p : parts) {
             n += p.length;
