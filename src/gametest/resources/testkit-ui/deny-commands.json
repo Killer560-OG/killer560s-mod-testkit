@@ -35,6 +35,8 @@
     {"root": "k560path", "why": "pathfinding walks the player (pathfinding/PathfindingFeature.java:129)"},
     {"root": "ar", "why": "Auto Routes editing and automation (autoroutes/AutoRoutesCommands)"},
     {"root": "autoroutes", "why": "Auto Routes editing and automation (autoroutes/AutoRoutesCommands)"},
+    {"root": "autoclear", "why": "Auto Clear automation (autoclear/AutoClearFeature.java:170)"},
+    {"root": "autosecret", "why": "insta-clear tracker data commands (autosecret/InstaClearTracker.java:159)"},
     {"root": "k560search", "why": "executed only bare (see execute); 'k560search <text>' is parse-only"},
     {"root": "search", "why": "same command as k560search (storagesearch/StorageSearchFeature.java:105)"},
     {"root": "pv", "why": "Profile Viewer fetches over the network (profileviewer/ProfileViewerFeature.java:72)"},
