@@ -385,6 +385,18 @@ final class SliderCases {
                 c.check(seen, "the sweep never laid out '" + p[1] + "' on the " + p[0] + " tab");
             }
         }
+        boolean hasHeads = false;
+        for (java.lang.reflect.Method m : Mod.cfg("livemap.LiveMapConfig").getClass().getMethods()) {
+            hasHeads |= m.getName().equals("setPlayerHeads");
+        }
+        if (hasHeads) {
+            // The Dungeon Map's Player Heads row (mod map-heads, both jars), behind the map's master switch.
+            List<String> where = SEEN.stream().filter(x -> x.contains("|Player Heads:"))
+                    .map(x -> x.substring(0, x.indexOf('|'))).distinct().toList();
+            boolean seen = where.stream().anyMatch(x -> x.contains("Dungeon Map"));
+            c.note("swept Player Heads on Dungeon Map: " + seen + " (laid out in " + where + ")");
+            c.check(seen, "the sweep never laid out 'Player Heads:' on the Dungeon Map tab");
+        }
     }
 
     /** "where|label" of every widget the sweep laid out. */
