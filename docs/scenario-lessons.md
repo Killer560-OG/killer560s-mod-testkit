@@ -140,4 +140,11 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   default-on element elsewhere cannot be what a box snaps to. The cursor is read twice: `pendingCursor` of a frame extracted
   with the mouse at a handle, and the window's private `currentCursor` after real frames. An action bar reaches the mod's
   MODIFY_GAME through the real packet with `ServerPlayer.sendSystemMessage(Component, true)` on the integrated server.
-
+- 96-ar-398-* (mod ar-node-proc, killer560's 2026-10-07 Museum log): `-offnode` stands him in #10's ring at spots the
+  recorded look misses #11 from, one where the mod's etherwarp aim finds a ray and one where none exists, standing and
+  dropped in from 0.6 up; `-regrow` loads Museum his way (`SimBuilder.buildSingleRoom`), breaks, rebuilds and breaks again so
+  a DELAY await on #7 fires after the first run's 10 s regrow is due (route of 3 nodes, so #7 logs as "Node #3"); `-startawait`
+  presses Go + Secret from his own spot with Secret Aura and Auto Close Chest on. All three fail on mod 6f3515ba. Two traps
+  found writing them: the sim's first aura click on a chest right after a map warp does not always open it, and the aura's
+  retry a second later is counted, so "await met" alone passed on the old jar - assert it was met within 10 ticks of the
+  start. And wait for the node's own "acted" line, not any landing line: the previous sub-check's stack can still log one.
