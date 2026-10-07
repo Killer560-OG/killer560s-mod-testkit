@@ -78,3 +78,20 @@ than the time since the step began (`currentStep`'s start and draw time) allows 
 A single built Boulder seals its doorway (relative z -1) with diamond blocks and has nothing outside, so a walk out
 could never leave the room. The scenario clears that gap and lays stone at relative y 68, x 12..18, z -7..-1 first,
 and prints what it cleared - a test fixture standing in for the next room on Hypixel.
+
+## Autopilot-shaped cases (93-solve-boulder-mapdoor, 93-solve-teleportmaze-budget)
+
+Added 2026-10-06 for the two faults 142-sim-autopilot2 turned up; run them with `TESTKIT_SIM_INSTANCE=Map Logger` (what 142
+uses) and `-PsolveRepeat=N` (each Teleport Maze run draws a new maze).
+
+`-mapdoor` is Boulder with Secret Aura off, started the way the autopilot starts it: placed on the Interactive Map's spot for
+the room (relative 15, 68, -2, which the live map files under no room) and an Interactive Map arrival FAKED there by setting
+`ClearExecutor.arrivalSeq/arrivalMs/arrivalPos` by reflection (a single built room has no room next door for a real path). It
+fails if Auto Boulder does not log "started - the Interactive Map", then judges like the plain Boulder case. Mod 264ea8c1:
+0 of 4 ("the solver read no known arrangement in 4000 ms", then "no walk to the reward chest").
+
+`-budget` is Teleport Maze with the autopilot's 30 s instead of 60, plus `ExitWatch`: after every maze teleport (from before
+the start-pad walk) the sim's exit pad (`SimTeleportMazePuzzle.boundPads[exitPad]`, x/z) must be among
+`TeleportMazeSolverFeature.getCorrectPortals()` until it has been stepped on. Mod 264ea8c1: 1 of 4 (exit lost after the first
+teleport with 0-2 candidates left, one run not solved in 30 s). The watch is seeded with the solver's teleport count at the
+start - it survives from the run before, and an unseeded watch judged a stale count at t=0.1s.

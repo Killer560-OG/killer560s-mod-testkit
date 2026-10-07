@@ -227,6 +227,41 @@ public final class SimPuzzleSolveTests {
         }
     }
 
+    /**
+     * Boulder with Secret Aura OFF, started the way the Dungeon Autopilot starts it (142-sim-autopilot2, 2026-10-06): the
+     * Interactive Map lands him on Boulder's doorway spot (relative 15, 68, -2), which the live map files under the tile
+     * next door, and its arrival starts Auto Boulder there. Mod 264ea8c1 waited 4 s for a solver that only reads from
+     * inside the room and gave up "no walkable spot has the reward chest in reach and in sight". The arrival is FAKED
+     * (ClearExecutor's arrival fields set by reflection, with him placed on that spot): a single-room build has no room
+     * next door for a real map path to come from. Said so in the log.
+     */
+    public static final class BoulderMapDoor extends Base {
+        public BoulderMapDoor() {
+            super(new Spec("boulder-mapdoor", "Boulder", "setAutoBoulderEnabled", "isAutoBoulderEnabled",
+                    "BoulderSolverConfig", "SimBoulderPuzzle", AOTV_SLOT, true, 90, Approach.NONE,
+                    "BoulderSolverFeature.getNextClick", "BoulderSolverFeature.getRemainingClicks"));
+        }
+
+        @Override
+        boolean mapDoor() {
+            return true;
+        }
+    }
+
+    /**
+     * Teleport Maze inside the Dungeon Autopilot's budget for a puzzle (30 s; 142-sim-autopilot2 saw Auto Teleport Maze
+     * walk back through the maze "taking the diagonal again" until that ran out, on two floors of three). Each run draws
+     * a new maze, so {@code -PsolveRepeat=N} plays N mazes. Also fails on the start pad's "no pad to walk to".
+     */
+    public static final class TeleportMazeBudget extends Base {
+        public TeleportMazeBudget() {
+            super(new Spec("teleportmaze-budget", "Teleport Maze", "setAutoTeleportMazeEnabled",
+                    "isAutoTeleportMazeEnabled", "TeleportMazeSolverConfig", "SimTeleportMazePuzzle", AOTV_SLOT,
+                    false, 30, Approach.WALK_ONTO_START_PAD, "TeleportMazeSolverFeature.getVisited",
+                    "TeleportMazeSolverFeature.getTeleportSeq", "TeleportMazeSolverFeature.getBest"));
+        }
+    }
+
     public static final class ThreeWeirdos extends Base {
         public ThreeWeirdos() {
             super(new Spec("threeweirdos", "Three Weirdos", "setAutoWeirdosEnabled", "isAutoWeirdosEnabled",
@@ -298,6 +333,11 @@ public final class SimPuzzleSolveTests {
 
         /** Boulder only: whether Secret Aura is switched on for the run (Auto Boulder picks its mode from it). */
         boolean secretAura() {
+            return false;
+        }
+
+        /** Boulder only: started by a (faked) Interactive Map arrival on the doorway spot, as the autopilot starts it. */
+        boolean mapDoor() {
             return false;
         }
 
@@ -537,12 +577,61 @@ public final class SimPuzzleSolveTests {
                 ctx.waitTicks(5);
                 println(name, "outside: live map room " + ctx.computeOnClient(SimPuzzleSolveTests::liveRoom));
             }
+            boolean atMapDoor = false;
+            if (outside != null && mapDoor()) {
+                double[] door = ctx.computeOnClient(mc -> {
+                    var s = rel(mc, 15, 69, -2);
+                    return new double[]{s.getX() + 0.5, s.getY(), s.getZ() + 0.5};
+                });
+                teleport(ctx, name, door, "on the Interactive Map's spot for Boulder (standing on relative 15, 68, -2)");
+                String doorRoom = ctx.computeOnClient(SimPuzzleSolveTests::liveRoom);
+                atMapDoor = true;
+                println(name, "on the doorway spot: live map room " + doorRoom);
+                if ("Boulder".equals(doorRoom)) {
+                    throw new AssertionError("the live map files the doorway spot under Boulder here - the case this "
+                            + "scenario is about (started outside the room) cannot happen");
+                }
+            }
 
             // ---- Blaze: the free camera, recorded every render frame from before the auto is switched on ----
             CameraWatch cw = "SimBlazePuzzle".equals(spec.puzzle()) ? new CameraWatch(ctx, name) : null;
 
             // ---- switch it on ---------------------------------------------------------------------------
             ctx.runOnClient(mc -> configure(true, true));
+            if (atMapDoor) {
+                // Stands in for the Interactive Map's path ending here: ClearExecutor moves these three when a path ends
+                // where it planned, and Auto Boulder's map trigger reads them (fixture, see BoulderMapDoor).
+                String fake = ctx.computeOnClient(mc -> {
+                    try {
+                        Class<?> ex = Class.forName("com.killer560.hub.livemap.autoclear.ClearExecutor");
+                        var seq = ex.getDeclaredField("arrivalSeq");
+                        var ms = ex.getDeclaredField("arrivalMs");
+                        var pos = ex.getDeclaredField("arrivalPos");
+                        seq.setAccessible(true);
+                        ms.setAccessible(true);
+                        pos.setAccessible(true);
+                        seq.setInt(null, seq.getInt(null) + 1);
+                        ms.setLong(null, System.currentTimeMillis());
+                        pos.set(null, mc.player.position());
+                        return "arrivalSeq now " + seq.getInt(null) + " at " + where(mc);
+                    } catch (ReflectiveOperationException e) {
+                        throw new AssertionError("could not fake the Interactive Map arrival", e);
+                    }
+                });
+                println(name, "test fixture: faked an Interactive Map arrival on the doorway spot (" + fake + ")");
+                int t = 0;
+                boolean started = false;
+                for (; t < 60 && !started; t++) {
+                    ctx.waitTicks(1);
+                    started = LogTap.since(mark).stream().anyMatch(l -> l.contains("Boulder: started - the Interactive Map"));
+                }
+                println(name, started ? String.format("Auto Boulder started from the map arrival after %.1fs", t / 20.0)
+                        : "Auto Boulder did NOT start from the map arrival in 3 s");
+                if (!started) {
+                    throw new AssertionError("Auto Boulder never started from the Interactive Map arrival on its doorway "
+                            + "spot - nothing below would be testing that start");
+                }
+            }
             if (outside != null && secretAura()) {
                 // He walks in himself; the auto must take over the moment the live map says Boulder.
                 ctx.getInput().holdKey(o -> o.keyUp);
@@ -572,6 +661,8 @@ public final class SimPuzzleSolveTests {
             // The human part, ONLY if the auto does not do it itself. A newer auto may walk to the NPCs or onto
             // the start pad on its own (the mod's HEAD added a maze start walk after this jar was built), so it
             // gets ten seconds to show it does before the scenario steps in - and the line says which it was.
+            // Before the approach, so the start pad's own teleport is judged too.
+            ExitWatch exitWatch = "teleportmaze-budget".equals(spec.slug()) ? new ExitWatch(name, mazeSeq(ctx)) : null;
             if (spec.approach() != Approach.NONE) {
                 double[] p0 = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(),
                         mc.player.getZ()});
@@ -683,6 +774,9 @@ public final class SimPuzzleSolveTests {
                 if (iceBreaks != null) {
                     iceBreaks.tick(ctx, t);
                 }
+                if (exitWatch != null) {
+                    exitWatch.tick(ctx, t);
+                }
                 if (failedAt < 0 && failed(ctx)) {
                     failedAt = t;
                     println(name, String.format("t=%.1fs the sim marked %s FAILED", t / 20.0, spec.room()));
@@ -791,6 +885,16 @@ public final class SimPuzzleSolveTests {
                     return waterReward + " (solved at " + String.format("%.1fs", solvedAt / 20.0) + ")" + extra;
                 }
                 return String.format("PASS - solved at %.1fs, %s%s", solvedAt / 20.0, waterReward, extra);
+            }
+            if (exitWatch != null) {
+                println(name, "exit watch: " + exitWatch.summary());
+                if (exitWatch.dropped != null) {
+                    dumpEvidence(ctx, name, mark);
+                    return "FAIL - the solver lost the exit pad: " + exitWatch.dropped
+                            + (solvedAt > 0 ? String.format(" (solved anyway at %.1fs)", solvedAt / 20.0) : " (not solved)")
+                            + extra;
+                }
+                extra = ", " + exitWatch.summary() + extra;
             }
             if (solvedAt > 0) {
                 return String.format("PASS - solved at %.1fs%s", solvedAt / 20.0, extra);
@@ -959,6 +1063,83 @@ public final class SimPuzzleSolveTests {
             if (on) {
                 ModUnderTest.set(auto, spec.autoSetter(), true);
             }
+        }
+    }
+
+    /**
+     * Teleport Maze: after every maze teleport, is the sim's exit pad still among the solver's exit candidates (until he
+     * has stepped on it)? The sim turns him to face the exit on every landing, so a correct XZ ray test never drops it.
+     * Mod 264ea8c1 did: the ray was 32 blocks along his LOOK, pitch included, and he lands looking down at the pad he
+     * walked onto. The exit is read off {@code SimTeleportMazePuzzle} (boundPads[exitPad]), x/z only.
+     */
+    static final class ExitWatch {
+        private final String name;
+        private int lastSeq = -1;
+        int teleports = 0;
+        int withExitNamed = 0;
+        String dropped = null;
+
+        /** @param seq the solver's teleport count before the watch, which survives from earlier runs */
+        ExitWatch(String name, int seq) {
+            this.name = name;
+            this.lastSeq = seq;
+        }
+
+        void tick(ClientGameTestContext ctx, int t) {
+            Object[] r = ctx.computeOnClient(mc -> {
+                int seq = (Integer) ModUnderTest.staticCall(SOLVERS + "TeleportMazeSolverFeature", "getTeleportSeq");
+                if (seq == lastSeq) {
+                    return null;
+                }
+                try {
+                    Class<?> sim = Class.forName(PUZZLES + "SimTeleportMazePuzzle");
+                    var padsF = sim.getDeclaredField("boundPads");
+                    var exitF = sim.getDeclaredField("exitPad");
+                    padsF.setAccessible(true);
+                    exitF.setAccessible(true);
+                    net.minecraft.core.BlockPos[] pads = (net.minecraft.core.BlockPos[]) padsF.get(null);
+                    int exit = exitF.getInt(null);
+                    if (exit < 0 || exit >= pads.length) {
+                        return new Object[]{seq, "no exit pad bound", null, null};
+                    }
+                    var e = pads[exit];
+                    @SuppressWarnings("unchecked")
+                    java.util.Set<net.minecraft.core.BlockPos> cand = (java.util.Set<net.minecraft.core.BlockPos>)
+                            ModUnderTest.staticCall(SOLVERS + "TeleportMazeSolverFeature", "getCorrectPortals");
+                    @SuppressWarnings("unchecked")
+                    java.util.Set<net.minecraft.core.BlockPos> vis = (java.util.Set<net.minecraft.core.BlockPos>)
+                            ModUnderTest.staticCall(SOLVERS + "TeleportMazeSolverFeature", "getVisited");
+                    boolean named = cand.stream().anyMatch(p -> p.getX() == e.getX() && p.getZ() == e.getZ());
+                    boolean stepped = vis.stream().anyMatch(p -> p.getX() == e.getX() && p.getZ() == e.getZ());
+                    return new Object[]{seq, e.toShortString(), named, stepped, cand.size()};
+                } catch (ReflectiveOperationException ex) {
+                    throw new AssertionError("exit watch: SimTeleportMazePuzzle fields", ex);
+                }
+            });
+            if (r == null) {
+                return;
+            }
+            lastSeq = (Integer) r[0];
+            if (r[2] == null) {
+                return;
+            }
+            boolean named = (Boolean) r[2];
+            boolean stepped = (Boolean) r[3];
+            if (stepped) {
+                return;
+            }
+            teleports++;
+            if (named) {
+                withExitNamed++;
+            } else if (dropped == null) {
+                dropped = String.format("after teleport %d (t=%.1fs) the exit pad %s is not among the solver's %d candidate(s)",
+                        lastSeq, t / 20.0, r[1], (Integer) r[4]);
+                println(name, "exit watch: " + dropped);
+            }
+        }
+
+        String summary() {
+            return "exit pad named after " + withExitNamed + " of " + teleports + " maze teleport(s)";
         }
     }
 
