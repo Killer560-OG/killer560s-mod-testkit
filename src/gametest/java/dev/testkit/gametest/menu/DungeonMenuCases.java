@@ -23,6 +23,7 @@ final class DungeonMenuCases {
         MenuSuite.test(s, "233-menu-fastleap-leap", DungeonMenuCases::fastLeap);
         MenuSuite.test(s, "234-menu-dungeonclass-select", DungeonMenuCases::classSelect);
         MenuSuite.test(s, "235-menu-partyfinder", DungeonMenuCases::partyFinder);
+        MenuSuite.test(s, "236-menu-partyfinder-style", PartyFinderStyleCases::style);
     }
 
     static void inDungeon(Session c) {

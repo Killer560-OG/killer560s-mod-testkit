@@ -95,3 +95,5 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   advance on every text HUD element (6 on one), so 394-ui-hud-boxes' first run read every correctly sized text box as
   spilling (2026-10-07). Measure text with `TextRuns.box` (advance width x line height through the pose); its fields are
   private on 26.2, so `TextRuns` reads them by name.
+
+- 236-menu-partyfinder-style (`PartyFinderStyleCases`): for each Party Finder style it compares the REAL tooltip (`getTooltipFromContainerItem`, through the mod's mixin) with the settings preview (`renderPreviewLines`) colour run by colour run, after putting the preview's own stats into `PartyFinderStatsApi.CACHE`; and, with no stats (offline = what Hypixel's stats service gives on 2026-10-07), that every member line is still styled and draws 0x555555 brackets. Highlight is judged by pure green/red pixels per slot against a highlight-off frame. Fails on mod 0b492828, passes on pf-overlay 2aecfd9a.
