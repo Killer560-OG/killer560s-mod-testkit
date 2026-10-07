@@ -115,6 +115,15 @@ final class PartyFinderStyleCases {
         MenuKit.reset(c);
         List<String> failures = new ArrayList<>();
         Map<String, Object> cache = null;
+        // The selected dungeon class is session state: 234-menu-dungeonclass-select leaves it on MAGE, and slot 10's
+        // roster has a Mage, so the mod rightly marks it DUPE_CLASS (red). This case is about styles, with no class
+        // selected; clear it for the case and put it back after.
+        Object roleWas = c.onClient(mc -> Mod.field("partyfinder.PartyFinderOverlay", "currentRole"));
+        c.onClient(mc -> {
+            Mod.setField("partyfinder.PartyFinderOverlay", "currentRole", null);
+            return null;
+        });
+        System.out.println("[236-menu-partyfinder-style] selected class before the case: " + roleWas + " (cleared)");
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set(CFG, "Enabled", true).set(CFG, "Tooltip", true).set(CFG, "Highlight", true)
                     .set(CFG, "MemberCount", true).set(CFG, "ShowMissing", true).set(CFG, "RankNameColors", false)
@@ -249,6 +258,10 @@ final class PartyFinderStyleCases {
             }
             parkCursor(c);
             MenuKit.reset(c);
+            c.onClient(mc -> {
+                Mod.setField("partyfinder.PartyFinderOverlay", "currentRole", roleWas);
+                return null;
+            });
         }
         System.out.println("[236-menu-partyfinder-style] " + (failures.isEmpty() ? "PASS" : "FAIL " + failures));
         c.check(failures.isEmpty(), "Party Finder overlay vs preview: " + failures);

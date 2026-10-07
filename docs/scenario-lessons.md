@@ -69,7 +69,9 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   of `ClientCommonPacketListenerImpl` by reflection to a "mc.hypixel.net" ServerData (same name on 26.1.2 and 26.2) plus
   `DungeonState.setRoomSim(true)` (in a dungeon, not the boss), and puts both back. Its first run teleported a player who
   was not flying and photographed the door's underside while passing; set flying before the teleport and assert the eye
-  height at every shot (2026-10-07).
+  height at every shot (2026-10-07). That eye check then failed 2 of 3 ui suites the same day (eye y 68.92 / 68.36, not
+  70.62, the same at every shot): he lost flight during the up-to-400-tick wait for the door's blocks, dropped, and the
+  `flying = true` after the wait left him hovering lower. 390 now sets mayfly too and places him again after that wait.
 - `menu.anvil` (hx/menu/HxAnvil) is Hypixel's Anvil from the wiki's Anvil/UI template: inputs 29/33, Combine Items 22, result 13.
   It combines ANY two items and records each as `anvil.combine {left,right,result}` (books merge enchant by enchant, equal
   levels +1, no cap), so a wrong pair the mod sends shows up server-side instead of being refused. `claim:"direct"` puts the
@@ -97,6 +99,9 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   private on 26.2, so `TextRuns` reads them by name.
 
 - 236-menu-partyfinder-style (`PartyFinderStyleCases`): for each Party Finder style it compares the REAL tooltip (`getTooltipFromContainerItem`, through the mod's mixin) with the settings preview (`renderPreviewLines`) colour run by colour run, after putting the preview's own stats into `PartyFinderStatsApi.CACHE`; and, with no stats (offline = what Hypixel's stats service gives on 2026-10-07), that every member line is still styled and draws 0x555555 brackets. Highlight is judged by pure green/red pixels per slot against a highlight-off frame. Fails on mod 0b492828, passes on pf-overlay 2aecfd9a.
+  The selected dungeon class (`PartyFinderOverlay.currentRole`) is session state: 234-menu-dungeonclass-select leaves it
+  on MAGE, slot 10's roster has a Mage, and the mod rightly marks it DUPE_CLASS - so in the full menu suite slot 10 drew
+  red (2026-10-07 sharded run). 236 now clears it for the case and restores it.
 
 - 397-menu-petwheel-instant times /pets against `FrameClock.tickCount()/frameCount()` (always-on counters, added for it) read
   just before a `TestInput` release; in the lockstep nothing ticks or renders between that read and the input task, so 0 ticks
@@ -117,6 +122,12 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   nearly equilateral and easy to misread by eye: its point is the vertex opposite the SHORTEST side. Measure the
   heading rather than eyeballing a screenshot. The single-sim-room part publishes `FlatTestRoom` through `SimBuilder.publishSingleRoomMap` with
   `SimState.active` set by reflection, then resets the grid; it fails on mod 6f3515ba (fit 7.25, a 145-unit cell).
+  Two isolation traps (2026-10-07 sharded run, where `100-hx-session` ran before the ui suite in one client): the party
+  tracker kept HxMateA/HxMateB from the hx cases, so the map (correctly) drew only those and none of the case's
+  RemotePlayers - 395 now empties `PartyTracker.MEMBERS` for the case and restores it. And with `SimState.active` set,
+  `SimSidebar` writes its "SKYBLOCK" objective `k560sim` into the UI world; switching the flag off by reflection skips
+  the sim's teardown, so `SkyblockGate` read the UI world as Skyblock and 401 (next in the suite) drew the LIVE board.
+  395 now removes the objective and its `k560t*` teams on the server and puts the gate's verdict back.
 - 400-menu-partyfinder-stats (`PartyFinderStatsCases`): the Party Finder's member stats from a loopback HTTP fake that
   the case starts on server port + 6 (`testkit.fakeHttp.port`). build.gradle points the mod's `pv-backend`, `minecraftservices`
   and `mojang` services at it on every offline run (under `/pv`, `/mcs`, `/mojang`) unless `-PnetOverride` names them;
@@ -132,7 +143,11 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   a wheel turn only while it can still move, so a test that wheels "plenty" also scrolls the page under the list; wheel one
   notch at a time until it reports its end. Cross-jar migration: `TESTKIT_SCOREBOARD_EXPORT=<dir>` on the old jar writes
   the old jar's own save plus the lines it draws; `-Extra @('-PseedConfig=<dir>')` on the new jar compares line for line.
-  The drawn board is `CustomScoreboardFeature.drawBoard` over `previewLines()` (the UI world is not Skyblock).
+  The drawn board is `CustomScoreboardFeature.drawBoard` over `previewLines()` (the UI world is not Skyblock). That
+  holds only while `SkyblockGate.isOnSkyblock()` is false: on Skyblock `previewLines()` is the live board, which in the
+  UI world shows only the title, footer and whatever extra data is cached (the "Cookie Buff" line). 395's leftover sim
+  sidebar did exactly that in the full ui suite (2026-10-07); 401 now names the sidebar and stops if the world reads
+  as Skyblock before it starts.
 - 399-ui-hud-editor-resize / -snap / 399-ui-stat-bars-vitality-xp (`HudEditorCases`, mod hud-editor-bars): real drags are
   `setCursorPos` (GUI x * screenWidth / guiScaledWidth - the HUD editor is not auto-scaled) + `holdMouse(0)` + six moves +
   `releaseMouse`. `TestInput.holdAlt()` is seen by `InputConstants.isKeyDown(LEFT_ALT)` (the mod's Alt free-drag passed with

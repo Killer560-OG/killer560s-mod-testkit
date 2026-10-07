@@ -101,23 +101,13 @@ final class WitherDoorFillCases {
             });
             // Flying BEFORE the teleport and again after it: the first run of this case teleported a player who was not
             // flying, he dropped below the door before the shots, and the pictures were of its underside.
-            c.onClient(mc -> {
-                mc.player.getAbilities().flying = true;
-                var server = mc.getSingleplayerServer();
-                var uuid = mc.player.getUUID();
-                server.execute(() -> {
-                    var sp = server.getPlayerList().getPlayer(uuid);
-                    sp.getAbilities().flying = true;
-                    sp.onUpdateAbilities();
-                    sp.teleportTo(server.overworld(), camX, camY, camZ,
-                            java.util.Set.<net.minecraft.world.entity.Relative>of(), -90f, 0f, false);
-                });
-                return null;
-            });
-            c.ctx().waitFor(mc -> Math.abs(mc.player.getX() - camX) < 0.01 && Math.abs(mc.player.getZ() - camZ) < 0.01
-                    && Math.abs(mc.player.getY() - camY) < 0.01, 200);
+            placeCamera(c, camX, camY, camZ);
             c.ctx().waitFor(mc -> mc.level.getBlockState(new BlockPos(DX, 69, DZ)).is(Blocks.COAL_BLOCK)
                     && mc.level.getBlockState(new BlockPos(DX, 73, DZ)).is(Blocks.STONE), 400);
+            // Twice: under load the wait for the door's blocks ran long enough for him to drop out of the shot (2 of 3
+            // ui suites on 2026-10-07 measured eye y 68.92 / 68.36 instead of 70.62, falling). Place him again once
+            // the scene is there; with mayfly set (as 395 does) flight is not dropped.
+            placeCamera(c, camX, camY, camZ);
             labelled = c.onClient(mc -> {
                 setServerData(mc, new ServerData("testkit", "mc.hypixel.net", ServerData.Type.OTHER));
                 Mod.staticCall("secrets.DungeonState", "setRoomSim", true);
@@ -481,6 +471,31 @@ final class WitherDoorFillCases {
     }
 
     /** Run on the integrated server and wait for it (never join() from here - see the testkit CLAUDE.md). */
+    /** Flying (mayfly too) on both sides, teleported to the camera spot facing +x, and waited for on the client. */
+    private static void placeCamera(UiCase c, double camX, double camY, double camZ) {
+        c.onClient(mc -> {
+            mc.player.getAbilities().mayfly = true;
+            mc.player.getAbilities().flying = true;
+            var server = mc.getSingleplayerServer();
+            var uuid = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(uuid);
+                sp.getAbilities().mayfly = true;
+                sp.getAbilities().flying = true;
+                sp.onUpdateAbilities();
+                sp.teleportTo(server.overworld(), camX, camY, camZ,
+                        java.util.Set.<net.minecraft.world.entity.Relative>of(), -90f, 0f, false);
+            });
+            return null;
+        });
+        c.ctx().waitFor(mc -> Math.abs(mc.player.getX() - camX) < 0.01 && Math.abs(mc.player.getZ() - camZ) < 0.01
+                && Math.abs(mc.player.getY() - camY) < 0.01, 200);
+        c.onClient(mc -> {
+            mc.player.getAbilities().flying = true;
+            return null;
+        });
+    }
+
     private static void server(UiCase c, LevelJob job) {
         AtomicBoolean done = new AtomicBoolean();
         c.onClient(mc -> {
