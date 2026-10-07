@@ -85,7 +85,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-crypt", "96-ar-breaker", "96-ar-breakerwait", "96-ar-pingpong", "96-ar-chain", "96-ar-stackorder", "96-ar-crypthold",
             "96-ar-charges", "96-ar-museum", "96-ar-398-offnode", "96-ar-398-regrow",
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim", "96-ar-398-startawait",
-            "96-ar-path", "96-ar-screen", "96-ar-rotate"};
+            "96-ar-405-crypt-mapopen", "96-ar-405-startwarp", "96-ar-path", "96-ar-screen", "96-ar-rotate"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -231,6 +231,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-398-offnode" -> caseOffNode(ctx);
                         case "96-ar-398-regrow" -> caseRegrow(ctx);
                         case "96-ar-398-startawait" -> caseStartAwait(ctx);
+                        case "96-ar-405-crypt-mapopen" -> caseCryptMapOpen(ctx);
+                        case "96-ar-405-startwarp" -> caseStartWarp(ctx);
                         case "96-ar-edit" -> caseEdit(ctx);
                         case "96-ar-dbedit" -> caseDbEdit(ctx);
                         case "96-ar-mapopen" -> caseMapOpen(ctx);
@@ -1737,6 +1739,447 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             room = saved;
             buildRoom(ctx, 0);
         }
+    }
+
+    /**
+     * 96-ar-405-crypt-mapopen (killer560, 2026-10-07: "the crypt node is not working while I have the interactive map
+     * menu open"). His Museum route from #10, so #11 BOOM, #12 BOOM, #13 CRYPT (await 2, Spirit Sceptre), #14 fire as
+     * one stack, twice: with no screen (the control) and with the Interactive Map's screen open for the whole run, Run
+     * While Map Open on (his setting). The crypt node holds the use key, and vanilla turns a held key into a use only in
+     * {@code handleKeybinds}, which {@code Minecraft.tick} skips while any screen is open (javap 26.1.2 and 26.2). Both
+     * passes must get the two kills, the map pass within one held-use period (4 ticks) of the control, with uses every
+     * 4 ticks, and the map must still be open at the end.
+     */
+    private void caseCryptMapOpen(ClientGameTestContext ctx) {
+        String saved = room;
+        resetRoutes(ctx);
+        room = "Museum";
+        List<String> failures = new ArrayList<>();
+        try {
+            ctx.runOnClient(mc -> {
+                Object ar = ModUnderTest.config(AR_CONFIG);
+                ModUnderTest.set(ar, "setStartFromStartNodeOnly", false);
+                ModUnderTest.set(ar, "setRunWhileMapOpen", true);
+                ModUnderTest.call(ar, "setCryptAttackTicks", new Class<?>[]{int.class}, new Object[]{100});
+            });
+            setArEnum(ctx, "setCryptWeapon", "CryptWeapon", "SPIRIT_SCEPTRE");
+            List<JsonObject> nodes = museumNodes();
+            // #10 is where the run starts; a start node, so the map-arrival guard of the cases before cannot hold it.
+            nodes.get(9).addProperty("start", true);
+            int[] held = new int[2];
+            for (int pass = 0; pass < 2; pass++) {
+                boolean map = pass == 1;
+                String label = map ? "map open" : "no screen (control)";
+                buildRoom(ctx, 0);
+                giveHotbar(ctx);
+                giveSlot(ctx, 4, "BAT_WAND");
+                writeRoute(ctx, nodes);
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                if (map) {
+                    ctx.runOnClient(mc -> {
+                        try {
+                            McCompat.setScreen(mc, (Screen) Class.forName("com.killer560.hub.livemap.InteractiveMapScreen")
+                                    .getConstructor(boolean.class).newInstance(true));
+                        } catch (ReflectiveOperationException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+                    ctx.waitTicks(5);
+                    String screen = ctx.computeOnClient(mc -> String.valueOf(McCompat.screen(mc)));
+                    check(screen.contains("InteractiveMapScreen"), "the map screen did not open: " + screen);
+                }
+                int c0 = cryptsBlown(ctx);
+                long m = LogTap.mark();
+                startSampling(ctx);
+                tpRelY(ctx, 28.5, 69.0, 10.5, -150.342102f, 12.861895f);
+                boolean acted = waitFor(ctx, 200, () -> logHas(m, "Node #13 CRYPT acted") || logHas(m, "Stopped"));
+                int cryptTick = ctx.computeOnClient(mc -> PacketTrace.tickCount());
+                boolean ended = waitFor(ctx, 160, () -> logHas(m, "CRYPT: 2 kill(s)") || logHas(m, "up, moving on")
+                        || logHas(m, "skipped the kill wait") || logHas(m, "Stopped"));
+                ctx.waitTicks(2);
+                List<Sample> s = stopSampling(ctx);
+                ArChainMeasure.Held uses = ArChainMeasure.held(Math.max(0, cryptTick - 2));
+                String still = ctx.computeOnClient(mc -> String.valueOf(McCompat.screen(mc)));
+                int c1 = cryptsBlown(ctx);
+                String line = null;
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("CRYPT") || l.contains("BOOM acted") || l.contains("Stopped") || l.contains("Crypt Undead")) {
+                        println("crypt-mapopen " + label + " log: " + l);
+                    }
+                    if (l.contains("CRYPT: ") && l.contains("after holding use")) {
+                        line = l;
+                    }
+                }
+                int ticks = -1;
+                if (line != null) {
+                    java.util.regex.Matcher mt = java.util.regex.Pattern.compile("holding use (\\d+) tick").matcher(line);
+                    if (mt.find()) {
+                        ticks = Integer.parseInt(mt.group(1));
+                    }
+                }
+                held[pass] = ticks;
+                boolean killed = logHas(m, "CRYPT: 2 kill(s) after");
+                println(String.format(Locale.US, "crypt-mapopen %s: crypt acted %s, ended %s, 2 kills %s after holding use %d "
+                                + "tick(s), crypt undead dead %d -> %d, uses from the crypt node on: %s, screen at the end %s",
+                        label, acted, ended, killed, ticks, c0, c1, uses.describe(), still));
+                if (!acted || !logHas(m, "holding use")) {
+                    failures.add(label + ": the crypt node never held use");
+                } else if (!killed) {
+                    failures.add(label + ": the crypt node got no 2 kills (" + (line == null ? "no kill line" : line) + ")");
+                }
+                // The first use tick is #10's etherwarp, landed a few ticks before the stack; the crypt's held uses follow.
+                List<Integer> cryptGaps = uses.gaps().size() > 1 ? uses.gaps().subList(1, uses.gaps().size()) : List.of();
+                if (cryptGaps.stream().anyMatch(g -> g != 4)) {
+                    failures.add(label + ": the crypt node's uses are not 4 ticks apart: " + uses.describe());
+                }
+                if (map && !still.contains("InteractiveMapScreen")) {
+                    failures.add(label + ": the map screen closed during the run: " + still);
+                }
+                ctx.runOnClient(mc -> McCompat.setScreen(mc, null));
+                stopRoute(ctx);
+                ctx.waitTicks(5);
+            }
+            println("crypt-mapopen: held use " + held[0] + " tick(s) with no screen, " + held[1] + " with the map open");
+            if (held[0] >= 0 && held[1] >= 0 && held[1] > held[0] + 4) {
+                failures.add("the map-open crypt node took " + held[1] + " ticks to its kills against " + held[0]
+                        + " with no screen");
+            }
+        } finally {
+            try {
+                stopRoute(ctx);
+            } catch (Throwable ignored) {
+                // the rebuild below matters more
+            }
+            setArEnum(ctx, "setCryptWeapon", "CryptWeapon", "HYPERION");
+            ctx.runOnClient(mc -> {
+                Object ar = ModUnderTest.config(AR_CONFIG);
+                ModUnderTest.set(ar, "setStartFromStartNodeOnly", true);
+                ModUnderTest.set(ar, "setRunWhileMapOpen", false);
+            });
+            resetRoutes(ctx);
+            room = saved;
+            buildRoom(ctx, 0);
+        }
+        check(failures.isEmpty(), String.join("; ", failures));
+    }
+
+    /**
+     * 96-ar-405-startwarp (killer560, 2026-10-07: "I had 1 test out of about 5 where the interactive map was off when it
+     * tried to take me to the start node"). His Museum with his route, Kill Mimic on the Spirit Sceptre, Secret Aura and
+     * Auto Close Chest on, and the mimic in the trapped chest beside #1 where his was (real -134, -51, -105 in his frame).
+     * Ten times from where he stood: Go + Secret on the map (the warp to the start node), and each time he must land on
+     * #1's exact block, #1 must arm and act, and he must land in #2 - the route may not stall on #1. Between tries the
+     * route is stopped after #2 has begun, as his third run was stopped mid-route, so the next try starts with an old
+     * warp's landing still in the executor. Every server-side move of him after the arming is printed with the tick.
+     */
+    private void caseStartWarp(ClientGameTestContext ctx) {
+        String saved = room;
+        resetRoutes(ctx);
+        room = "Museum";
+        List<String> failures = new ArrayList<>();
+        int tries = Integer.getInteger("testkit.startwarpTries", 10);
+        try {
+            buildRoom(ctx, 0);
+            giveHotbar(ctx);
+            giveSlot(ctx, 2, "BAT_WAND");   // his slot 3 ("Spirit Sceptre from slot 3")
+            setArEnum(ctx, "setKillMimic", "KillMimic", "SPIRIT_SCEPTRE");
+            // His sim speed (killer560smod-sim-speed.txt: 600; "[Sim] Speed set to 600" in his log).
+            simSpeed(ctx, 600);
+            ctx.runOnClient(mc -> {
+                Object ar = ModUnderTest.config(AR_CONFIG);
+                ModUnderTest.set(ar, "setRunWhileMapOpen", true);   // his setting
+                ModUnderTest.set(ar, "setStartFromStartNodeOnly", false);   // his setting; the map warp guards anyway
+                Object cfg = ModUnderTest.config(CHEAT_CFG);
+                ModUnderTest.set(cfg, "setSecretAuraEnabled", true);
+                ModUnderTest.set(cfg, "setAuraChests", true);
+                ModUnderTest.set(cfg, "setAuraLevers", true);
+                ModUnderTest.set(cfg, "setAuraEssence", true);
+                ModUnderTest.set(cfg, "setAuraPauseWhileSneaking", true);
+                ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"),
+                        "setEnabled", true);
+            });
+            writeRoute(ctx, museumNodes());
+            // His frame (clay -74,-136, rotation 90): where he pressed from, and his mimic chest.
+            Vec3[] his = ctx.computeOnClient(mc -> {
+                try {
+                    Object hisFrame = Class.forName(FRAME).getConstructor(String.class, int.class, int.class, int.class)
+                            .newInstance("Museum", -74, -136, 90);
+                    Class<?>[] sig = {hisFrame.getClass(), Vec3.class};
+                    return new Vec3[]{
+                            (Vec3) ModUnderTest.staticCall(COORDS, "toRelative", sig, new Object[]{hisFrame,
+                                    new Vec3(-120.5, -52.0, -133.5)}),
+                            (Vec3) ModUnderTest.staticCall(COORDS, "toRelative", sig, new Object[]{hisFrame,
+                                    new Vec3(-133.5, -51.0, -104.5)})};
+                } catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            int mx = (int) Math.floor(his[1].x);
+            int mz = (int) Math.floor(his[1].z);
+            println(String.format(Locale.US, "startwarp: his press spot relative (%.2f, %.2f), his mimic chest relative (%d, 70, %d)",
+                    his[0].x, his[0].z, mx, mz));
+            BlockPos nodeBlock = realNow(ctx, 31, 68, 56);
+            tpRelY(ctx, his[0].x, 69.0, his[0].z, 0f, 0f);
+            ctx.waitTicks(120);   // the full floor graph, as his was
+            int good = 0;
+            for (int t = 0; t < 2 * tries; t++) {
+                // The first half with no screen, the second with the Interactive Map open from before the press to the
+                // end, as he plays (Run While Map Open on; his Go + Secret is pressed on the open map).
+                boolean map = t >= tries;
+                // Auto Routes off while he is put back: stopped on #2 he would re-arm there at once.
+                ctx.runOnClient(mc -> {
+                    McCompat.setScreen(mc, null);
+                    ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"});
+                    ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", false);
+                });
+                ctx.waitTicks(3);
+                // The mimic back in its chest, and Secret Aura's memory of the room cleared, as a rebuild would.
+                setBlocks(ctx, Map.of(new int[]{mx, 70, mz}, Blocks.TRAPPED_CHEST.defaultBlockState()));
+                BlockPos chest = realNow(ctx, mx, 70, mz);
+                ctx.runOnClient(mc -> {
+                    try {
+                        Class<?> c = Class.forName(SIM_MIMIC);
+                        var f = c.getDeclaredField("mimic");
+                        f.setAccessible(true);
+                        f.set(null, chest);
+                        var found = c.getDeclaredField("found");
+                        found.setAccessible(true);
+                        found.set(null, false);
+                        Class<?> aura = Class.forName("com.killer560.hub.cheatutils.SecretAuraFeature");
+                        for (String fn : new String[]{"firstSeenMs", "attempts", "done"}) {
+                            java.lang.reflect.Field af = aura.getDeclaredField(fn);
+                            af.setAccessible(true);
+                            Object o = af.get(null);
+                            if (o instanceof java.util.Map<?, ?> mm) {
+                                mm.clear();
+                            } else if (o instanceof java.util.Collection<?> cc) {
+                                cc.clear();
+                            }
+                        }
+                    } catch (ReflectiveOperationException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+                tpRelY(ctx, his[0].x, 69.0, his[0].z, 0f, 0f);
+                ctx.waitTicks(20);
+                ctx.runOnClient(mc -> {
+                    ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", true);
+                    mc.player.getInventory().setSelectedSlot(3);
+                });
+                if (map) {
+                    ctx.runOnClient(mc -> {
+                        try {
+                            McCompat.setScreen(mc, (Screen) Class.forName("com.killer560.hub.livemap.InteractiveMapScreen")
+                                    .getConstructor(boolean.class).newInstance(true));
+                        } catch (ReflectiveOperationException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+                }
+                ctx.waitTicks(5);
+                long m = LogTap.mark();
+                ctx.runOnClient(mc -> {
+                    try {
+                        java.lang.reflect.Method press = Class.forName("com.killer560.hub.livemap.InteractiveMapFeature")
+                                .getDeclaredMethod("onMapSecretPress", int.class);
+                        press.setAccessible(true);
+                        press.invoke(null, -1);
+                    } catch (ReflectiveOperationException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+                int armed = -1;
+                long mArm = Long.MAX_VALUE;
+                Vec3 armedAt = null;
+                int acted = -1;
+                int landed2 = -1;
+                Vec3 lastServer = null;
+                List<String> moves = new ArrayList<>();
+                for (int i = 0; i < 400; i++) {
+                    Vec3[] pos = ctx.computeOnClient(mc -> {
+                        var sp = mc.getSingleplayerServer().getPlayerList().getPlayer(mc.player.getUUID());
+                        return new Vec3[]{mc.player.position(), sp == null ? null : sp.position()};
+                    });
+                    if (armed < 0 && logHas(m, "armed node #1")) {
+                        armed = i;
+                        armedAt = pos[0];
+                        mArm = LogTap.mark();
+                    }
+                    if (armed >= 0 && pos[1] != null && lastServer != null && pos[1].distanceTo(lastServer) >= 0.3
+                            && acted < 0) {
+                        moves.add(String.format(Locale.US, "+%d server (%.2f, %.2f, %.2f) -> (%.2f, %.2f, %.2f) client "
+                                        + "(%.2f, %.2f, %.2f)", i - armed, lastServer.x, lastServer.y, lastServer.z, pos[1].x,
+                                pos[1].y, pos[1].z, pos[0].x, pos[0].y, pos[0].z));
+                    }
+                    lastServer = pos[1];
+                    if (acted < 0 && logHas(m, "Node #1 ETHERWARP acted")) {
+                        acted = i;
+                    }
+                    if (logHas(m, "Landed in node #2")) {
+                        landed2 = i;
+                        break;
+                    }
+                    if ((armed >= 0 && logHas(mArm, "Stopped")) || (armed >= 0 && i - armed > 200)
+                            || (armed < 0 && i > 300)) {
+                        break;
+                    }
+                    ctx.waitTicks(1);
+                }
+                String still = ctx.computeOnClient(mc -> String.valueOf(McCompat.screen(mc)));
+                boolean exact = armedAt != null && BlockPos.containing(armedAt.x, armedAt.y - 0.5, armedAt.z).equals(nodeBlock);
+                boolean letGo = logHas(m, "carrying on from here");
+                List<String> lines = new ArrayList<>();
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("[Path] running") || l.contains("Arming: armed") || l.contains("Node #1 ")
+                            || l.contains("Kill Mimic") || l.contains("Correction") || l.contains("Mimic of")
+                            || l.contains("no ray from") || l.contains("Landed in node #2") || l.contains("Stopped")
+                            || l.contains("await secret")) {
+                        lines.add(strip(l));
+                    }
+                }
+                boolean screenOk = !map || still.contains("InteractiveMapScreen");
+                boolean ok = armed >= 0 && exact && acted >= 0 && landed2 >= 0 && screenOk;
+                if (ok) {
+                    good++;
+                }
+                String label = "try " + (t + 1) + (map ? " (map open)" : " (no screen)");
+                println(String.format(Locale.US, "startwarp %s: armed %s at %s (on #1's block %s), #1 acted %s, landed in #2 "
+                                + "%s, let go after a correction %s, screen %s -> %s", label, armed >= 0, armedAt == null ? "-"
+                                : String.format(Locale.US, "(%.2f, %.2f, %.2f)", armedAt.x, armedAt.y, armedAt.z), exact,
+                        acted >= 0 ? "+" + (acted - armed) : "never", landed2 >= 0 ? "+" + (landed2 - armed) : "never", letGo,
+                        still, ok ? "OK" : "BAD"));
+                for (String mv : moves) {
+                    println("startwarp " + label + " move: " + mv);
+                }
+                if (!ok || !moves.isEmpty()) {
+                    for (String l : lines) {
+                        println("startwarp " + label + " log: " + l);
+                    }
+                }
+                if (!ok) {
+                    failures.add(label + ": " + (armed < 0 ? "#1 never armed" : !exact ? "armed off #1's block at "
+                            + armedAt : acted < 0 ? "#1 never acted (the route stalled on the start node)"
+                            : landed2 < 0 ? "never landed in #2" : "the map screen closed: " + still));
+                }
+            }
+            println("startwarp: " + good + " of " + 2 * tries + " tries landed on #1, armed it and went on to #2");
+
+            // ---- his shift, made deterministic ----
+            // In his log a server packet moved him 1.00 block (+z) while #1 waited on its await, and with a warp of an
+            // earlier, stopped run still in the executor (his #6, 47.4 blocks off) the route let #1 go and stood there.
+            // The sim does not make that move by itself (the tries above), so the server makes it here: #1's await is
+            // a 600 ms DELAY, and 3 ticks after the arming he is moved one block, as his was. #1 must still warp him to
+            // #2 (from where he is, or after stepping back onto its spot), and nothing may let it go.
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+            List<JsonObject> delayed = museumNodes();
+            delayed.get(0).addProperty("await", "DELAY");
+            delayed.get(0).addProperty("amount", 600);
+            writeRoute(ctx, delayed);
+            int shiftedGood = 0;
+            int shifted = Math.max(4, tries / 2);
+            for (int t = 0; t < 2 * shifted; t++) {
+                boolean map = t >= shifted;
+                String label = "shifted try " + (t + 1) + (map ? " (map open)" : " (no screen)");
+                ctx.runOnClient(mc -> {
+                    McCompat.setScreen(mc, null);
+                    ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"});
+                    ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", false);
+                });
+                ctx.waitTicks(3);
+                tpRelY(ctx, his[0].x, 69.0, his[0].z, 0f, 0f);
+                ctx.waitTicks(20);
+                ctx.runOnClient(mc -> {
+                    ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", true);
+                    mc.player.getInventory().setSelectedSlot(3);
+                });
+                if (map) {
+                    ctx.runOnClient(mc -> {
+                        try {
+                            McCompat.setScreen(mc, (Screen) Class.forName("com.killer560.hub.livemap.InteractiveMapScreen")
+                                    .getConstructor(boolean.class).newInstance(true));
+                        } catch (ReflectiveOperationException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+                }
+                ctx.waitTicks(5);
+                long m = LogTap.mark();
+                ctx.runOnClient(mc -> {
+                    try {
+                        java.lang.reflect.Method press = Class.forName("com.killer560.hub.livemap.InteractiveMapFeature")
+                                .getDeclaredMethod("onMapSecretPress", int.class);
+                        press.setAccessible(true);
+                        press.invoke(null, -1);
+                    } catch (ReflectiveOperationException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+                boolean armedOk = waitFor(ctx, 300, () -> logHas(m, "armed node #1"));
+                ctx.waitTicks(3);
+                boolean waiting = logHas(m, "Node #1 ETHERWARP begins") && !logHas(m, "Node #1 ETHERWARP acted");
+                Vec3 before = ctx.computeOnClient(mc -> mc.player.position());
+                serverRun(ctx, (server, sp) -> sp.teleportTo(server.overworld(), before.x, before.y, before.z + 1.0,
+                        java.util.Set.<net.minecraft.world.entity.Relative>of(), sp.getYRot(), sp.getXRot(), false));
+                boolean landed = waitFor(ctx, 120, () -> logHas(m, "Landed in node #2") || logHas(m, "carrying on from here")
+                        || logHas(m, "Stopped"));
+                boolean ok = armedOk && waiting && logHas(m, "Landed in node #2") && !logHas(m, "carrying on from here");
+                if (ok) {
+                    shiftedGood++;
+                }
+                println(String.format(Locale.US, "startwarp %s: armed %s, #1 still waiting when moved %s, moved from (%.2f, %.2f, "
+                                + "%.2f), landed in #2 %s, let go after a correction %s -> %s", label, armedOk, waiting,
+                        before.x, before.y, before.z, logHas(m, "Landed in node #2"), logHas(m, "carrying on from here"),
+                        ok ? "OK" : "BAD"));
+                if (!ok) {
+                    for (String l : LogTap.since(m)) {
+                        if (l.contains("Node #1 ") || l.contains("Correction") || l.contains("no ray from")
+                                || l.contains("Landed in") || l.contains("Stopped") || l.contains("Arming: armed")) {
+                            println("startwarp " + label + " log: " + strip(l));
+                        }
+                    }
+                    failures.add(label + ": " + (!armedOk ? "#1 never armed" : !waiting ? "setup: #1 was not waiting on its "
+                            + "await when he was moved" : logHas(m, "carrying on from here") ? "a move during #1's await let #1 "
+                            + "go and the route stood on the start node" : "#1 never got him to #2 after the move"));
+                }
+            }
+            println("startwarp: " + shiftedGood + " of " + 2 * shifted + " shifted tries went on to #2");
+        } finally {
+            ctx.runOnClient(mc -> {
+                McCompat.setScreen(mc, null);
+                ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled");
+                ModUnderTest.turnOff("com.killer560.hub.autoclosechest.AutoCloseChestConfig", "setEnabled");
+                Object ar = ModUnderTest.config(AR_CONFIG);
+                ModUnderTest.set(ar, "setEnabled", true);
+                ModUnderTest.set(ar, "setStartFromStartNodeOnly", true);
+                ModUnderTest.set(ar, "setRunWhileMapOpen", false);
+            });
+            setArEnum(ctx, "setKillMimic", "KillMimic", "OFF");
+            simSpeed(ctx, 100);
+            try {
+                stopRoute(ctx);
+            } catch (Throwable ignored) {
+                // the rebuild below matters more
+            }
+            resetRoutes(ctx);
+            room = saved;
+            buildRoom(ctx, 0);
+        }
+        check(failures.isEmpty(), String.join("; ", failures));
+    }
+
+    /** The sim's /speed (SimSpeed.set: the server player's movement speed, Hypixel units; 100 is a walk). */
+    private static void simSpeed(ClientGameTestContext ctx, int speed) {
+        ctx.runOnClient(mc -> {
+            try {
+                java.lang.reflect.Method set = Class.forName("com.killer560.hub.roomsim.SimSpeed")
+                        .getDeclaredMethod("set", Minecraft.class, int.class);
+                set.setAccessible(true);
+                set.invoke(null, mc, speed);
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        ctx.waitTicks(3);
     }
 
     /** Secret Aura's view of one secret: its own gate inputs and what it remembers about the block. */
