@@ -11,6 +11,9 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   land in that case's line of fire (96-ar-breakerwait's first etherwarp hit 96-ar-breaker's regrown row); and a drained
   breaker's lore reaches the client a tick after `SimBreakerState` changes, so wait for `loreCharges` before stepping on.
   Breaker edit mode picks only with the Dungeon Breaker held (mod ar-breaker-wait): select slot 2 before `rightClick`.
+  A turn is judged on the CAMERA, `getViewYRot(1f)`, sampled every tick: obvious mode turns only the body and holds the
+  camera (ViewFreeze), so `getYRot` reads a turn he never sees; and `tpRel` already waits 2 ticks, by which time a legit
+  turn is mostly done, so a "before" read after it measured 22 degrees of a 180 (96-ar-mapopen-aim, 2026-10-07).
 - `gameMode.attack` on a 1-HP sim zombie next to the player did not kill it (96-ar-crypt, 2026-10-05: crypts stayed put);
   the sim plays Mage, whose left click is a beam along the look, which is the likely reason (not traced). A Hyperion
   `gameMode.useItem` (Wither Impact, radius 5) does kill it - use that to kill a sim mob as the player.

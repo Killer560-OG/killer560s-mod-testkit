@@ -53,7 +53,8 @@ import java.util.function.Supplier;
  * <p>Cases (each selectable: -Pscenario=96-ar-play etc.; -Pscenario=96-ar runs all):
  * add, play, interact (empty-hand use nodes), await (what counts as YOUR secret), mimic (Kill Mimic), crypt (crypt
  * nodes and the two await counters), breaker, breakerwait (a node short of charges waits, then one burst), pingpong, charges (a secret gives the sim breaker 2 charges), museum (his
- * exact Museum route: stacked booms into a crypt node), edit, mapopen, path, screen, rotate. GrimAC does not apply
+ * exact Museum route: stacked booms into a crypt node), edit, mapopen, mapopen-aim (aim and land with the map open,
+ * on the node and after Go + Secret, legit and obvious), path, screen, rotate. GrimAC does not apply
  * here: the sim is an integrated server.
  */
 public class SimAutoRoutesTests implements FabricClientGameTest {
@@ -81,7 +82,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-awaitskip", "96-ar-leverwp", "96-ar-complete", "96-ar-mimic",
             "96-ar-crypt", "96-ar-breaker", "96-ar-breakerwait", "96-ar-pingpong", "96-ar-chain", "96-ar-stackorder", "96-ar-crypthold",
             "96-ar-charges", "96-ar-museum",
-            "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen",
+            "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim",
             "96-ar-path", "96-ar-screen", "96-ar-rotate"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
@@ -228,6 +229,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-edit" -> caseEdit(ctx);
                         case "96-ar-dbedit" -> caseDbEdit(ctx);
                         case "96-ar-mapopen" -> caseMapOpen(ctx);
+                        case "96-ar-mapopen-aim" -> caseMapOpenAim(ctx);
                         case "96-ar-screen" -> caseScreen(ctx);
                         case "96-ar-path" -> casePath(ctx);
                         case "96-ar-rotate" -> caseRotate(ctx);
@@ -875,6 +877,129 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         }
     }
 
+    /**
+     * killer560, 2026-10-07: "for auto routes if i have interactive map open it doesnt seem to adjust my angle". Run While
+     * Map Open ON (his setting), the Interactive Map's screen open exactly as his open key opens it
+     * ({@code new InteractiveMapScreen(true)}) for the whole run, and a route of two etherwarps: (6,6) start to (14,6),
+     * then (14,6) to (6,22) - each one a turn from where he looks.
+     * <p>
+     * Flows: "tp" stands him on the start node facing away (looking up), "go" is his Go + Secret press on the open map
+     * ({@code InteractiveMapFeature.onMapSecretPress}, the map's own warp to the start node) from across the arena.
+     * Legit mode with no screen is the control. Judged on the server's answer (he stands on (6,22): both warps landed,
+     * which a warp sent along his own look cannot do) and, in legit mode, on the CAMERA - the view yaw he sees,
+     * {@code getViewYRot} - ending on the last warp's direction, which is what "adjust my angle" means to him.
+     */
+    private void caseMapOpenAim(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        writeRoute(ctx, List.of(ew(6, 6, 14, 6, true), ew(14, 6, 6, 22, false)));
+        float lastRel = relYawTo(14, 6, 6, 22);
+        float awayRel = relYawTo(6, 6, 14, 6) + 180f;
+        // {legit, map, go}
+        boolean[][] passes = {
+                {true, false, false}, {true, true, false}, {false, false, false}, {false, true, false},
+                {true, false, true}, {true, true, true}, {false, false, true}, {false, true, true}};
+        List<String> failures = new ArrayList<>();
+        try {
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setRunWhileMapOpen", true));
+            for (boolean[] p : passes) {
+                boolean legit = p[0];
+                boolean map = p[1];
+                boolean go = p[2];
+                String label = (go ? "Go + Secret" : "on the node") + ", " + (legit ? "legit" : "obvious")
+                        + (map ? ", map open" : ", no screen (control)");
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setLegitMode", legit));
+                // Off any node first: from (20,14) looking up and away, the Go + Secret press has a warp to make.
+                tpRel(ctx, go ? 20.5 : 4.5, go ? 14.5 : 6.5, awayRel, -20f);
+                ctx.waitTicks(10);
+                if (map) {
+                    ctx.runOnClient(mc -> {
+                        try {
+                            McCompat.setScreen(mc, (Screen) Class.forName("com.killer560.hub.livemap.InteractiveMapScreen")
+                                    .getConstructor(boolean.class).newInstance(true));
+                        } catch (ReflectiveOperationException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+                    ctx.waitTicks(5);
+                    String screen = ctx.computeOnClient(mc -> String.valueOf(McCompat.screen(mc)));
+                    check(screen.contains("InteractiveMapScreen"), label + ": the map screen did not open: " + screen);
+                }
+                long m = LogTap.mark();
+                float view0 = ctx.computeOnClient(mc -> mc.player.getViewYRot(1f));
+                if (go) {
+                    ctx.runOnClient(mc -> {
+                        try {
+                            java.lang.reflect.Method press = Class.forName("com.killer560.hub.livemap.InteractiveMapFeature")
+                                    .getDeclaredMethod("onMapSecretPress", int.class);
+                            press.setAccessible(true);
+                            press.invoke(null, -1);
+                        } catch (ReflectiveOperationException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+                } else {
+                    tpRel(ctx, 6.5, 6.5, awayRel, -20f);
+                }
+                // Every tick: where he stands and the camera he sees, so a turn that happened and was undone shows.
+                Vec3 landed = null;
+                float maxSwing = 0f;
+                for (int i = 0; i < 300 && landed == null; i++) {
+                    float v = ctx.computeOnClient(mc -> mc.player.getViewYRot(1f));
+                    maxSwing = Math.max(maxSwing, Math.abs(net.minecraft.util.Mth.wrapDegrees(v - view0)));
+                    Vec3 at = relPos(ctx);
+                    if (Math.abs(at.x - 6.5) < 1.6 && Math.abs(at.z - 22.5) < 1.6 && Math.abs(at.y - F) < 0.2) {
+                        landed = at;
+                    } else {
+                        ctx.waitTicks(1);
+                    }
+                }
+                ctx.waitTicks(10);
+                float view1 = ctx.computeOnClient(mc -> mc.player.getViewYRot(1f));
+                float body1 = ctx.computeOnClient(mc -> mc.player.getYRot());
+                float lastYaw = ctx.computeOnClient(mc -> {
+                    Object frame = ModUnderTest.staticCall(FRAME, "current");
+                    return (Float) ModUnderTest.staticCall(COORDS, "toRealYaw", new Class<?>[]{frame.getClass(),
+                            float.class}, new Object[]{frame, lastRel});
+                });
+                float viewOff = Math.abs(net.minecraft.util.Mth.wrapDegrees(view1 - lastYaw));
+                String still = ctx.computeOnClient(mc -> String.valueOf(McCompat.screen(mc)));
+                boolean started = logHas(m, "Started \"");
+                int acted = 0;
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("ETHERWARP acted")) {
+                        acted++;
+                    }
+                }
+                println("map-open aim, " + label + ": started " + started + ", " + acted + " etherwarp(s) acted, landed on"
+                        + " (6,22) " + (landed != null) + ", view yaw " + view0 + " -> " + view1 + " (body " + body1
+                        + "), " + viewOff + " off the last warp's direction, camera swung up to " + maxSwing + ", screen " + still);
+                if (landed == null) {
+                    failures.add(label + ": the route did not land him within a block of (6,22) - he is at " + relPos(ctx) + ", "
+                            + acted + " etherwarp(s) acted");
+                }
+                if (legit && viewOff > 10f) {
+                    failures.add(label + ": the camera did not turn - view yaw " + view1 + " is " + viewOff
+                            + " degrees off the last warp's direction");
+                }
+                if (map && !still.contains("InteractiveMapScreen")) {
+                    failures.add(label + ": the map screen closed during the run: " + still);
+                }
+                ctx.runOnClient(mc -> {
+                    McCompat.setScreen(mc, null);
+                    ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"});
+                });
+                ctx.waitTicks(10);
+            }
+        } finally {
+            ctx.runOnClient(mc -> {
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setRunWhileMapOpen", false);
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setLegitMode", false);
+            });
+        }
+        check(failures.isEmpty(), String.join("; ", failures));
+    }
     /** Two etherwarps aimed at each other bounce until /ar stop, sneak held throughout; then the missing-block wait. */
     private void casePingPong(ClientGameTestContext ctx) {
         resetRoutes(ctx);
