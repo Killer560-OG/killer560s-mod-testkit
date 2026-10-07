@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-07T02:44:58",
- "modSource": "C:/Users/Hunter/killer560s-mod",
- "modGitSha": "4774ebd860d119de62d6202bb5367eea1ea11554",
+ "generatedAt": "2026-10-07T08:02:08",
+ "modSource": "C:/Users/Hunter/killer560s-mod/.claude/worktrees/fps-sweep",
+ "modGitSha": "20a79df41fdc59b7bd4cf163451221171c27c786",
  "modSourceDirty": false,
  "count": 416,
  "byKind": {
@@ -4459,7 +4459,7 @@
    "field": "KEYS_LINE",
    "index": null,
    "file": "src/main/java/com/killer560/hub/secrets/DungeonState.java",
-   "line": 262,
+   "line": 275,
    "regex": "^Keys: \\S ([✗✓]) \\S (\\d{1,2})x$",
    "flags": null,
    "kind": "field",
