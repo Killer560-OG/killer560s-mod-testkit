@@ -216,3 +216,11 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   roof: "no way" is right there, and 131's `pickCorrection` already avoids them. `-gaps` and `-sweep` share the pinned
   F7; `-cracks` builds its own floor and must be named alone - a second floor built into the open sim world never
   warmed its graph (quick and full graph silent for 90 s).
+
+- 407-ui-stat-bars-layout (`StatBarsLayoutCases`, mod bars-anchors): Health and Mana Bars' Layout. Geometry is measured on
+  screenshots by exact colour (each bar its own opaque colour, Show Value and text shadow off) in SURVIVAL with XP level 5,
+  so the hearts/hunger/XP rows really draw; the case puts the suite's creative world back with `SafeWorld.apply`. A real
+  press in the mod menu (`ModScreenDriver.press`) must run inside ONE `c.onClient` task, as 393 does: from the gametest
+  thread it reaches `Minecraft.getInstance()` and throws. Cross-jar old config: `TESTKIT_BARSLAYOUT_EXPORT=<dir>` on the old
+  jar, then `-Extra @('-PseedConfig=<dir>')` on the new one (the case deletes the props file once it has compared). Since
+  that mod branch a fresh config is Predefined, so 399's resize/snap cases switch to Custom before placing bars.
