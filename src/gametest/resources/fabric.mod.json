@@ -71,6 +71,8 @@
 			"dev.testkit.gametest.SimPuzzleSolveTests$IceFill",
 			"dev.testkit.gametest.SimPuzzleSolveTests$HigherBlaze",
 			"dev.testkit.gametest.SimPuzzleSolveTests$LowerBlaze",
+			"dev.testkit.gametest.SimPuzzleSolveTests$BlazeMissHigher",
+			"dev.testkit.gametest.SimPuzzleSolveTests$BlazeMissLower",
 			"dev.testkit.gametest.SimPuzzleSolveTests$CreeperBeams",
 			"dev.testkit.gametest.SimPuzzleSolveTests$Boulder",
 			"dev.testkit.gametest.SimPuzzleSolveTests$BoulderAura",
