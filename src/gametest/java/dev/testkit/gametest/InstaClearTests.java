@@ -68,6 +68,12 @@ public class InstaClearTests implements FabricClientGameTest {
             return;
         }
         ModUnderTest.require("killer560smod");
+        // InstaClearTracker does nothing at all in a legit jar (every entry point checks CHEAT_FEATURES_ENABLED), so
+        // nothing here can pass there; both 361 cases failed on every legit jar until 2026-10-07.
+        if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+            Scenario.skipped(name, "insta-clear tracking is cheat-build only");
+            return;
+        }
         // The sim cases plan floors, which the mod refuses before its room database has loaded; offline, the copy
         // from roomsInstance is the only way it gets one.
         if (name.startsWith("98-sim") && !Files.isDirectory(Path.of(SOURCE_ROOMS).resolveSibling("killer560smod-roomdata"))) {

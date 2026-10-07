@@ -100,11 +100,14 @@ function Get-TestkitConfig([string]$root) {
 }
 
 # The newest snapshot jar for one Minecraft version: <jarsDir>/<folder>/<modJarPattern with {mc}>. $null when none.
+# Never a private testing build (killer560smod-...-cheat-testing.jar / -legit-testing.jar, mod -PtestingBuild): those
+# are only ever named with -ModUnderTest, so a broad modJarPattern cannot make one the default.
 function Find-TestkitSnapshotJar($cfg, [string]$mc) {
     $pattern = $cfg.modJarPattern.Replace("{mc}", $mc)
     $hit = Get-ChildItem -LiteralPath $cfg.jarsDir -Directory -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTime -Descending |
         ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -Filter $pattern -ErrorAction SilentlyContinue } |
+        Where-Object { $_.Name -notlike "*-testing.jar" } |
         Select-Object -First 1
     if ($hit) { return $hit.FullName.Replace('\', '/') }
     return $null

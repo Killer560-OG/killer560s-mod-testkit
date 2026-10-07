@@ -148,9 +148,11 @@ final class HxHudCases {
     }
 
     // ---- 139 mining (Crystal Nucleus run tracker) -------------------------------------------------------------------
+    // SHELVED until after 2.0 with the mod's mining features (mod shelved/mining/README.md): the tracker is not in the
+    // jar, so the case is a SKIP row. Its fixtures are in shelved/mining/fixtures/; put them back before un-shelving.
 
     private static void nucleus(Session s) {
-        s.test("139-hx-mining-nucleus-runs", c -> {
+        s.shelved("139-hx-mining-nucleus-runs", "shelved until after 2.0 (mining is not in the jar)", c -> {
             try (Settings set = new Settings(c).with("mining.nucleus.NucleusRunProfitConfig", "Enabled", true)) {
                 sidebar(c, "template", "crystal_hollows");
                 tab(c, "template", "area", "area", "Crystal Hollows");
