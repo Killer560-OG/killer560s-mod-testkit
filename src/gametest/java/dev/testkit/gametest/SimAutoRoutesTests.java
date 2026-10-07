@@ -912,17 +912,41 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     }
 
     /**
-     * killer560 (2026-10-06): "on gaining any secret you gain 2 breaker charges back". In the sim: at the cap a secret
-     * changes nothing; after eight real breaker digs (each a START packet the sim's server pays a charge for) a chest
-     * secret gives exactly 2 back, the server says so, and the item's lore on the client follows.
+     * killer560 (2026-10-06): "on gaining any secret you gain 2 breaker charges back", then "the regaining charges should
+     * be an optional slider or setting" - the Wither Essence Shop perk Echoes of the Lost, a Sim Settings level 0-5.
+     * In the sim: at the cap a secret changes nothing; after eight real breaker digs a chest secret gives exactly the
+     * configured number back (default 5), the server says so and the item's lore on the client follows; at setting 0 a
+     * secret gives nothing; at setting 3, exactly 3; and the total never passes 20.
      */
     private void caseCharges(ClientGameTestContext ctx) {
         resetRoutes(ctx);
         arena(ctx, false);
         giveHotbar(ctx);
         BlockState chest = Blocks.CHEST.defaultBlockState();
-        setBlocks(ctx, Map.of(new int[]{6, F, 12}, chest, new int[]{6, F, 15}, chest));
+        setBlocks(ctx, Map.of(new int[]{6, F, 12}, chest, new int[]{6, F, 15}, chest, new int[]{4, F, 12}, chest,
+                new int[]{4, F, 15}, chest));
         tpRel(ctx, 4.5, 8.5, 90f, 0f);
+        // The per-secret restore is the Dungeon Sim setting "Echoes of the Lost" (Wither Essence Shop, levels 1-5 = 1-5
+        // charges, 0 = off); the test config is fresh, so what it reads here is the shipped default - the maxed perk.
+        int original = secretSetting(ctx);
+        check(original == 5, "the default Echoes of the Lost level is " + original + ", expected 5 (the wiki's maximum)");
+        try {
+            caseChargesBody(ctx);
+        } finally {
+            setSecretSetting(ctx, original);
+        }
+    }
+
+    private static int secretSetting(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBreakerState", "secretCharges"));
+    }
+
+    private static void setSecretSetting(ClientGameTestContext ctx, int level) {
+        ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBreakerState", "setSecretCharges", new Class<?>[]{int.class},
+                new Object[]{level}));
+    }
+
+    private void caseChargesBody(ClientGameTestContext ctx) {
         boolean full = waitFor(ctx, 400, () -> simCharges(ctx) == 20);
         check(full, "the sim breaker never refilled to 20 (at " + simCharges(ctx) + ")");
 
@@ -972,7 +996,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         check(broken == 8, "only " + broken + " of the 8 blocks broke");
         check(c1 <= 14, "eight breaks left " + c1 + " charges - the breaker did not spend");
 
-        // ---- a secret: +2 ----
+        // ---- a secret at the default level (5): +5 ----
         ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
         ctx.waitTicks(1);
         int cBefore = simCharges(ctx);
@@ -981,25 +1005,77 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> mc.player.closeContainer());
         ctx.waitTicks(2);
         int c2 = simCharges(ctx);
+        int[] ft = restoreFromLog(m);
+        int from = ft[0];
+        int to = ft[1];
+        int target = c2;
+        waitFor(ctx, 40, () -> loreCharges(ctx) >= target);
+        int lore = loreCharges(ctx);
+        println("secret at the default: server " + from + " -> " + to + ", charges read " + cBefore + " -> " + c2
+                + ", client lore " + lore + ", secrets " + simSecrets(ctx));
+        check(from >= 0, "no charge restore on the second chest");
+        check(to == from + 5, "a secret at the default level restored " + (to - from) + " charges, not 5");
+        check(c2 >= cBefore + 5, "charges went " + cBefore + " -> " + c2 + " over a secret");
+        check(lore >= c2, "the client's breaker lore says " + lore + " after the server had " + c2);
+
+        // ---- setting 0 (perk off): the secret counts, no charge comes back ----
+        setSecretSetting(ctx, 0);
+        int sOff0 = simSecrets(ctx);
+        int cOff0 = simCharges(ctx);
+        long mOff = LogTap.mark();
+        rightClick(ctx, 4, F, 12, Direction.UP);
+        ctx.runOnClient(mc -> mc.player.closeContainer());
+        ctx.waitTicks(2);
+        int sOff1 = simSecrets(ctx);
+        int cOff1 = simCharges(ctx);
+        println("setting 0: secrets " + sOff0 + " -> " + sOff1 + ", charges " + cOff0 + " -> " + cOff1);
+        check(sOff1 == sOff0 + 1, "the chest at setting 0 was not counted as a secret (" + sOff0 + " -> " + sOff1 + ")");
+        check(!logHas(mOff, "secret found, charges"), "a secret at setting 0 restored charges");
+        check(cOff1 <= cOff0 + 1, "setting 0: charges went " + cOff0 + " -> " + cOff1 + " over a secret (2 ticks of regen is 1)");
+
+        // ---- setting 3: exactly 3 ----
+        // Make room under the cap first (the earlier steps left it at 18), so the restore is not clamped.
+        ctx.runOnClient(mc -> {
+            for (int i = 0; i < 8; i++) {
+                ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBreakerState", "trySpend");
+            }
+        });
+        setSecretSetting(ctx, 3);
+        long m3 = LogTap.mark();
+        rightClick(ctx, 4, F, 15, Direction.UP);
+        ctx.runOnClient(mc -> mc.player.closeContainer());
+        ctx.waitTicks(2);
+        int[] f3 = restoreFromLog(m3);
+        println("setting 3: server " + f3[0] + " -> " + f3[1]);
+        check(f3[0] >= 0, "no charge restore at setting 3");
+        check(f3[1] == f3[0] + 3, "a secret at setting 3 restored " + (f3[1] - f3[0]) + " charges, not 3");
+
+        // ---- the cap: at level 5 and 18 charges a secret leaves 20, not 23 ----
+        setSecretSetting(ctx, 5);
+        waitFor(ctx, 400, () -> simCharges(ctx) == 20);
+        ctx.runOnClient(mc -> {
+            ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBreakerState", "trySpend");
+            ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBreakerState", "trySpend");
+            ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBreakerState", "secretFound");
+        });
+        int capped = simCharges(ctx);
+        println("cap: 18 charges plus a level-5 secret read " + capped);
+        check(capped == 20, "a level-5 secret at 18 charges left " + capped + ", the cap is 20");
+    }
+
+    /** The last "secret found, charges A -> B" line since {@code mark}, as {A, B}; {-1, -1} when there is none. */
+    private static int[] restoreFromLog(long mark) {
         int from = -1;
         int to = -1;
         java.util.regex.Pattern p = java.util.regex.Pattern.compile("secret found, charges (\\d+) -> (\\d+)");
-        for (String l : LogTap.since(m)) {
+        for (String l : LogTap.since(mark)) {
             java.util.regex.Matcher mm = p.matcher(l);
             if (mm.find()) {
                 from = Integer.parseInt(mm.group(1));
                 to = Integer.parseInt(mm.group(2));
             }
         }
-        int target = c2;
-        waitFor(ctx, 40, () -> loreCharges(ctx) >= target);
-        int lore = loreCharges(ctx);
-        println("secret: server " + from + " -> " + to + ", charges read " + cBefore + " -> " + c2 + ", client lore " + lore
-                + ", secrets " + simSecrets(ctx));
-        check(from >= 0, "no charge restore on the second chest");
-        check(to == from + 2, "a secret restored " + (to - from) + " charges, not 2");
-        check(c2 >= cBefore + 2, "charges went " + cBefore + " -> " + c2 + " over a secret");
-        check(lore >= c2, "the client's breaker lore says " + lore + " after the server had " + c2);
+        return new int[]{from, to};
     }
 
     /** His Museum route exactly as his Map Logger instance had it on 2026-10-06 (killer560smod-autoroutes.json). */

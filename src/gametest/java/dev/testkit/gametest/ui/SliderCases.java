@@ -42,12 +42,16 @@ final class SliderCases {
 
     private static final String CFG = "dungeonextras.DungeonExtrasConfig";
     private static final String TAB = "Breaker Aura";
+    /** The tab the helpers below currently drive; {@link #TAB} unless {@link #echoesSlider} switched it. */
+    private static String tab = TAB;
+    private static final String SIM_BREAKER = "roomsim.SimBreakerState";
 
     private SliderCases() {
     }
 
     static void run(UiCase c, Deny deny) throws Exception {
         overlaps(c, deny);
+        echoesSlider(c);
         // The sim's shared room Filters panel (mod sim-filters): chips wrap, never overlap, all reachable.
         FilterPanelCases.run(c);
         if (!Mod.isCheat()) {
@@ -72,16 +76,18 @@ final class SliderCases {
                 Mod.call(cfg, "setBreakerAuraCooldownTicks", 10);
                 return null;
             });
+            tab = TAB;
             Screen screen = open(c);
 
             // Control first: Reach, the slider right above.
             int[] reachProblems = {c.problemCount()};
-            drive(c, screen, cfg, "Reach:", "getBreakerAuraReach", 1.0, maxReach, 0.15,
-                    "Cooldown", "getBreakerAuraCooldownTicks");
+            tab = TAB;
+            drive(c, screen, () -> value(cfg, "getBreakerAuraReach"), 1.0, maxReach, 0.15,
+                    "Reach:", "Cooldown", () -> value(cfg, "getBreakerAuraCooldownTicks"));
             c.note("Reach (control) " + (c.problemCount() == reachProblems[0] ? "moved across its range" : "FAILED"));
 
-            drive(c, screen, cfg, "Cooldown:", "getBreakerAuraCooldownTicks", 0, 20, 1.0,
-                    "Reach", "getBreakerAuraReach");
+            drive(c, screen, () -> value(cfg, "getBreakerAuraCooldownTicks"), 0, 20, 1.0,
+                    "Cooldown:", "Reach", () -> value(cfg, "getBreakerAuraReach"));
         } finally {
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
@@ -89,6 +95,29 @@ final class SliderCases {
                 Mod.call(cfg, "setBreakerAuraReach", oldReach);
                 Mod.call(cfg, "setBreakerAuraCooldownTicks", oldCooldown);
                 Mod.call(cfg, "save");
+                return null;
+            });
+        }
+    }
+
+    /**
+     * The Dungeon Sim's "Echoes of the Lost" slider (Sim Settings tab, both jars): dragged past each end it must read
+     * 0 and 5, a click a quarter along reads about 1, and a value it was left on survives a screen rebuild. The value
+     * is read from the sim's own setting, not from the label.
+     */
+    private static void echoesSlider(UiCase c) throws Exception {
+        int old = c.onClient(mc -> ((Number) Mod.staticCall(SIM_BREAKER, "secretCharges")).intValue());
+        try {
+            tab = "Sim Settings";
+            Screen screen = open(c);
+            drive(c, screen, () -> ((Number) c.onClient(mc -> Mod.staticCall(SIM_BREAKER, "secretCharges"))).doubleValue(),
+                    0, 5, 0.5, "Echoes of the Lost:", "none", () -> 0);
+            c.note("Echoes of the Lost slider moved across 0..5");
+        } finally {
+            tab = TAB;
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                Mod.staticCall(SIM_BREAKER, "setSecretCharges", old);
                 return null;
             });
         }
@@ -116,14 +145,14 @@ final class SliderCases {
                 throw new AssertionError("could not open gui.ModScreen: " + UiCase.describe(t), t);
             }
         });
-        c.check(s != null, "no '" + TAB + "' tab in the mod menu");
+        c.check(s != null, "no '" + tab + "' tab in the mod menu");
         c.ticks(5);
         return s;
     }
 
     /** True if {@code tab} is, or contains, the target; {@code chain} gets (folder, section index) pairs. */
     private static boolean find(ModScreenDriver d, Object tab, List<Object[]> chain) {
-        if (TAB.equals(R.get(tab, "name"))) {
+        if (SliderCases.tab.equals(R.get(tab, "name"))) {
             return true;
         }
         if (!d.isFolder(tab)) {
@@ -165,7 +194,7 @@ final class SliderCases {
                 throw new AssertionError(UiCase.describe(t), t);
             }
         });
-        c.check(box != null, "no visible slider labelled '" + prefix + "...' on the " + TAB + " tab");
+        c.check(box != null, "no visible slider labelled '" + prefix + "...' on the " + tab + " tab");
         return box;
     }
 
@@ -174,30 +203,30 @@ final class SliderCases {
         return pane == null ? List.of() : new ArrayList<>((java.util.Collection<AbstractWidget>) R.get(pane, "children"));
     }
 
-    private static void drive(UiCase c, Screen s, Object cfg, String prefix, String getter, double min, double max,
-                              double tolerance, String witness, String witnessGetter) {
+    private static void drive(UiCase c, Screen s, java.util.function.DoubleSupplier read, double min, double max,
+                              double tolerance, String prefix, String witness, java.util.function.DoubleSupplier witnessRead) {
         double[] b = slider(c, s, prefix);
         String where = String.format(Locale.ROOT, "%s slider at %.0f,%.0f %.0fx%.0f", prefix, b[0], b[1], b[2], b[3]);
         c.note(where);
         double cx = b[0] + b[2] / 2;
         double cy = b[1] + b[3] / 2;
 
-        double side0 = value(cfg, witnessGetter);
-        double v0 = value(cfg, getter);
+        double side0 = witnessRead.getAsDouble();
+        double v0 = read.getAsDouble();
         drag(c, s, cx, cy, b[0] - 30);
-        double vLeft = value(cfg, getter);
-        double side1 = value(cfg, witnessGetter);
+        double vLeft = read.getAsDouble();
+        double side1 = witnessRead.getAsDouble();
 
         b = slider(c, s, prefix);
         drag(c, s, b[0] + b[2] / 2, cy, b[0] + b[2] + 30);
-        double vRight = value(cfg, getter);
-        double side2 = value(cfg, witnessGetter);
+        double vRight = read.getAsDouble();
+        double side2 = witnessRead.getAsDouble();
 
         b = slider(c, s, prefix);
         double quarterX = b[0] + 4 + (b[2] - 8) * 0.25;
         click(c, s, quarterX, b[1] + b[3] / 2);
-        double vQuarter = value(cfg, getter);
-        double side3 = value(cfg, witnessGetter);
+        double vQuarter = read.getAsDouble();
+        double side3 = witnessRead.getAsDouble();
         double wantQuarter = min + (max - min) * 0.25;
 
         c.note(String.format(Locale.ROOT, "%s start %s; drag past left -> %s; drag past right -> %s; click at 1/4 -> %s"
