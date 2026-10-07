@@ -255,6 +255,12 @@ public class SimRoomPickTests implements FabricClientGameTest {
             throw new AssertionError(result + " on " + buttonLabels(ctx));
         }
         ctx.waitTicks(3);
+        if ("Size".equals(row)) {
+            // Load a Room's panel with a chip chosen, for comparing its look against Design a Map's.
+            java.nio.file.Path p = ctx.takeScreenshot(dev.testkit.harness.Report.fileName(NAME + "-filter-panel"));
+            dev.testkit.harness.Report.screenshot(NAME, p);
+            System.out.println("[" + NAME + "] filter panel screenshot " + p);
+        }
         pressButtonStartingWith(ctx, "Done");
         ctx.waitFor(mc -> McCompat.screen(mc) != null && McCompat.screen(mc).getClass().getName().equals(MENU), 200);
         ctx.waitTicks(3);
