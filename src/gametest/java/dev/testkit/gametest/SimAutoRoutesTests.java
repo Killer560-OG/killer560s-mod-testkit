@@ -54,7 +54,9 @@ import java.util.function.Supplier;
  * add, play, interact (empty-hand use nodes), await (what counts as YOUR secret), mimic (Kill Mimic), crypt (crypt
  * nodes and the two await counters), breaker, breakerwait (a node short of charges waits, then one burst), pingpong, charges (a secret gives the sim breaker 2 charges), museum (his
  * exact Museum route: stacked booms into a crypt node), edit, mapopen, mapopen-aim (aim and land with the map open,
- * on the node and after Go + Secret, legit and obvious), path, screen, rotate. GrimAC does not apply
+ * on the node and after Go + Secret, legit and obvious), 398-offnode / 398-regrow / 398-startawait (his 2026-10-07
+ * Museum log: off-centre warps, a rebuilt room's stale regrow, the start await after a map warp), path, screen, rotate.
+ * GrimAC does not apply
  * here: the sim is an integrated server.
  */
 public class SimAutoRoutesTests implements FabricClientGameTest {
@@ -81,8 +83,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     private static final String[] CASES = {"96-ar-add", "96-ar-play", "96-ar-interact", "96-ar-await",
             "96-ar-awaitskip", "96-ar-leverwp", "96-ar-complete", "96-ar-mimic",
             "96-ar-crypt", "96-ar-breaker", "96-ar-breakerwait", "96-ar-pingpong", "96-ar-chain", "96-ar-stackorder", "96-ar-crypthold",
-            "96-ar-charges", "96-ar-museum",
-            "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim",
+            "96-ar-charges", "96-ar-museum", "96-ar-398-offnode", "96-ar-398-regrow",
+            "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim", "96-ar-398-startawait",
             "96-ar-path", "96-ar-screen", "96-ar-rotate"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
@@ -226,6 +228,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-crypthold" -> caseCryptHold(ctx);
                         case "96-ar-charges" -> caseCharges(ctx);
                         case "96-ar-museum" -> caseMuseum(ctx);
+                        case "96-ar-398-offnode" -> caseOffNode(ctx);
+                        case "96-ar-398-regrow" -> caseRegrow(ctx);
+                        case "96-ar-398-startawait" -> caseStartAwait(ctx);
                         case "96-ar-edit" -> caseEdit(ctx);
                         case "96-ar-dbedit" -> caseDbEdit(ctx);
                         case "96-ar-mapopen" -> caseMapOpen(ctx);
@@ -1359,6 +1364,573 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             }
         }
         return new int[]{from, to};
+    }
+
+    // ============================================================================================ 398: node proc
+
+    /*
+     * killer560, 2026-10-07 ~01:17, his own sim on Map Logger, his Museum route: "on occasion it wouldn't proc nodes
+     * properly, some just wouldn't proc at all or only partway". Three things in his log, one case each:
+     *  - 96-ar-398-offnode: #10 armed with him 0.6 off its centre and 0.27 up (mid-jump), fired the RECORDED look, landed a
+     *    block wide of #11 and the route stood still. The look must be worked out from where he really is.
+     *  - 96-ar-398-startawait: after the Interactive Map took him to the start node, #1's await (the chest beside it) sat
+     *    at 0/1 until he skipped it, three runs of four. Secret Aura and Auto Routes are let go on the same tick after a
+     *    map warp, and the aura's click landed one tick before the route's first window opened.
+     *  - 96-ar-398-regrow: the room rebuilt (his single-room load) 6 s after a run, and on the next run the wall #5's
+     *    breaker had just opened was put back by the PREVIOUS run's 10-second regrow: #7's etherwarp refused four times.
+     */
+
+    private static List<JsonObject> museumNodes() {
+        List<JsonObject> nodes = new ArrayList<>();
+        for (JsonElement e : JsonParser.parseString(MUSEUM_ROUTE).getAsJsonArray()) {
+            nodes.add(e.getAsJsonObject());
+        }
+        return nodes;
+    }
+
+    private static final String TELEPORT_UTILS = "com.killer560.hub.livemap.autoclear.TeleportUtils";
+    private static final String CHEAT_CFG = "com.killer560.hub.cheatutils.CheatUtilsConfig";
+
+    /** The block an etherwarp from relative feet (x, y, z) along the relative look would stop at (a sneaking eye, a
+     *  61-block client clip on colliders), relative; null when the ray hits nothing. */
+    private static BlockPos warpHit(ClientGameTestContext ctx, double x, double y, double z, float relYaw, float pitch) {
+        return ctx.computeOnClient(mc -> {
+            Object frame = ModUnderTest.staticCall(FRAME, "current");
+            Vec3 feet = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                    double.class, double.class}, new Object[]{frame, x, y, z});
+            float yaw = (Float) ModUnderTest.staticCall(COORDS, "toRealYaw", new Class<?>[]{frame.getClass(), float.class},
+                    new Object[]{frame, relYaw});
+            Vec3 look = (Vec3) ModUnderTest.staticCall(TELEPORT_UTILS, "getLook", new Class<?>[]{float.class, float.class},
+                    new Object[]{yaw, pitch});
+            Vec3 eye = feet.add(0, 1.27, 0);
+            var hit = mc.level.clip(new net.minecraft.world.level.ClipContext(eye, eye.add(look.scale(61.0)),
+                    net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                    net.minecraft.world.level.ClipContext.Fluid.NONE, mc.player));
+            if (hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) {
+                return null;
+            }
+            return (BlockPos) ModUnderTest.staticCall(COORDS, "toRelativeBlock", new Class<?>[]{frame.getClass(),
+                    BlockPos.class}, new Object[]{frame, ((BlockHitResult) hit).getBlockPos()});
+        });
+    }
+
+    /** Whether the mod's own etherwarp aim ({@code TeleportUtils.getEtherwarpDirection}, the Interactive Map's) finds a
+     *  ray from a sneaking eye over relative feet (x, y, z) that lands on relative block {@code b}. */
+    private static boolean modRay(ClientGameTestContext ctx, double x, double y, double z, BlockPos b) {
+        return ctx.computeOnClient(mc -> {
+            Object frame = ModUnderTest.staticCall(FRAME, "current");
+            Vec3 feet = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                    double.class, double.class}, new Object[]{frame, x, y, z});
+            double range = (Double) ModUnderTest.staticCall(CLEAR, "hopRange") + 1.0;
+            return ModUnderTest.staticCall(TELEPORT_UTILS, "getEtherwarpDirection", new Class<?>[]{Vec3.class,
+                    BlockPos.class, double.class}, new Object[]{feet.add(0, 1.27, 0), real(frame, b.getX(), b.getY(), b.getZ()),
+                    range}) != null;
+        });
+    }
+
+    /** Whether a sneaking eye over relative feet (x, y, z) has a clear line to a point on the top of relative block
+     *  {@code b} (centre or 0.3 in from a corner), by a client clip on colliders. */
+    private static boolean visible(ClientGameTestContext ctx, double x, double y, double z, BlockPos b) {
+        return ctx.computeOnClient(mc -> {
+            Object frame = ModUnderTest.staticCall(FRAME, "current");
+            Vec3 feet = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                    double.class, double.class}, new Object[]{frame, x, y, z});
+            BlockPos real = real(frame, b.getX(), b.getY(), b.getZ());
+            Vec3 eye = feet.add(0, 1.27, 0);
+            double[][] pts = {{0.5, 0.5}, {0.2, 0.2}, {0.8, 0.2}, {0.2, 0.8}, {0.8, 0.8}};
+            for (double[] p : pts) {
+                Vec3 to = new Vec3(real.getX() + p[0], real.getY() + 0.97, real.getZ() + p[1]);
+                var hit = mc.level.clip(new net.minecraft.world.level.ClipContext(eye, to,
+                        net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                        net.minecraft.world.level.ClipContext.Fluid.NONE, mc.player));
+                if (hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
+                        && real.equals(((BlockHitResult) hit).getBlockPos())) {
+                    return true;
+                }
+            }
+            return false;
+        });
+    }
+
+    /** Waits for one of the texts in the log since {@code mark}; the index of the one seen, or -1. */
+    private static int waitLog(ClientGameTestContext ctx, long mark, int ticks, String... texts) {
+        for (int i = 0; i <= ticks; i++) {
+            for (int k = 0; k < texts.length; k++) {
+                if (logHas(mark, texts[k])) {
+                    return k;
+                }
+            }
+            ctx.waitTicks(1);
+        }
+        return -1;
+    }
+
+    private static long serverTime(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> mc.getSingleplayerServer().overworld().getGameTime());
+    }
+
+    /**
+     * 96-ar-398-offnode. His Museum #10 (28.5, 69, 10.5) etherwarps onto #11 (31.5, 69.05, 5.5). He is put inside #10's
+     * ring but OFF its centre, at a spot from which the recorded look - checked here with a client clip first - does
+     * NOT stop on #11's block, so firing it from there misses (the premise, asserted). Twice: standing still there,
+     * and dropped in from 0.6 above it, still falling when it fires (his 01:16:43, y 0.27 over the node). Each time the
+     * warp must land on #11.
+     */
+    private void caseOffNode(ClientGameTestContext ctx) {
+        String saved = room;
+        resetRoutes(ctx);
+        room = "Museum";
+        try {
+            buildRoom(ctx, 0);
+            giveHotbar(ctx);
+            giveSlot(ctx, 4, "BAT_WAND");
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", false));
+            List<JsonObject> nodes = museumNodes();
+            writeRoute(ctx, nodes);
+            JsonObject n10 = nodes.get(9);
+            float yaw = n10.get("yaw").getAsFloat();
+            float pitch = n10.get("pitch").getAsFloat();
+            BlockPos target = new BlockPos(31, 68, 5);
+            BlockPos fromCentre = warpHit(ctx, 28.5, 69.0, 10.5, yaw, pitch);
+            println("offnode: the recorded look from #10's centre stops at " + fromCentre + " (#11 stands on " + target + ")");
+            check(target.equals(fromCentre), "premise: #10's recorded look does not even land on #11 from its own centre ("
+                    + fromCentre + ")");
+            // Spots in #10's ring from which the recorded look MISSES #11's block, nearest his own 01:16:43 offset
+            // (0.47, 0.41) first: one from which a ray to the block exists (the mod's etherwarp aim finds one - the
+            // re-aim), and one from which none does (a pillar hides it - he must step back onto the node first).
+            double[] withRay = null;
+            double[] noRay = null;
+            List<double[]> spots = new ArrayList<>();
+            double[] steps = {0.75, -0.75, 0.6, -0.6, 0.45, -0.45, 0.3, -0.3, 0.15, -0.15, 0.0};
+            for (double dx : steps) {
+                for (double dz : steps) {
+                    if (dx != 0.0 || dz != 0.0) {
+                        spots.add(new double[]{dx, dz});
+                    }
+                }
+            }
+            spots.sort(java.util.Comparator.comparingDouble(s -> Math.hypot(Math.abs(s[0]) - 0.47, Math.abs(s[1]) - 0.41)));
+            for (double[] s : spots) {
+                BlockPos hit = warpHit(ctx, 28.5 + s[0], 69.0, 10.5 + s[1], yaw, pitch);
+                if (target.equals(hit)) {
+                    continue;
+                }
+                boolean ray = modRay(ctx, 28.5 + s[0], 69.0, 10.5 + s[1], target);
+                if (ray && withRay == null) {
+                    withRay = s;
+                    println(String.format(Locale.US, "offnode: from (%+.2f, %+.2f) the recorded look stops at %s; a ray to #11's"
+                            + " block exists", s[0], s[1], hit));
+                } else if (!ray && noRay == null) {
+                    noRay = s;
+                    println(String.format(Locale.US, "offnode: from (%+.2f, %+.2f) the recorded look stops at %s; NO ray reaches"
+                            + " #11's block", s[0], s[1], hit));
+                }
+            }
+            check(withRay != null || noRay != null, "premise: no spot in #10's ring where the recorded look misses #11");
+            List<double[]> runs = new ArrayList<>();   // {dx, dz, up}
+            if (withRay != null) {
+                runs.add(new double[]{withRay[0], withRay[1], 0.0});
+                runs.add(new double[]{withRay[0], withRay[1], 0.6});
+            }
+            if (noRay != null) {
+                runs.add(new double[]{noRay[0], noRay[1], 0.0});
+                runs.add(new double[]{noRay[0], noRay[1], 0.6});
+            }
+            List<String> failures = new ArrayList<>();
+            for (double[] run : runs) {
+                double up = run[2];
+                String label = String.format(Locale.US, "%s at (%+.2f, %+.2f)%s", up == 0.0 ? "standing" : "falling in",
+                        run[0], run[1], (withRay != null && run[0] == withRay[0] && run[1] == withRay[1]) ? " (ray)" : " (no ray)");
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", false));
+                stopRoute(ctx);
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                long m = LogTap.mark();
+                double fx = 28.5 + run[0];
+                double fz = 10.5 + run[1];
+                // Off every node first with Auto Routes on, so the last run's latch on #10 is let go.
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", true));
+                tpRelY(ctx, 7.67, 69.0, 47.46, 0f, 0f);
+                ctx.waitTicks(10);
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", false));
+                if (up == 0.0) {
+                    tpRelY(ctx, fx, 69.0, fz, 0f, 0f);
+                    ctx.waitTicks(5);
+                    ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", true));
+                } else {
+                    tpRelY(ctx, fx, 69.0 + up, fz, 0f, 0f);
+                    ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", true));
+                }
+                // #10's use, then the landing (a round trip in the sim); booms on #11 do not move him.
+                int seen = waitLog(ctx, m, 160, "Node #10 ETHERWARP acted");
+                ctx.waitTicks(8);
+                Vec3 at = relPos(ctx);
+                String begins = null;
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("Node #10 ETHERWARP") || l.contains("Etherwarp") || l.contains("re-aimed")
+                            || l.contains("[Sim] etherwarp")) {
+                        println("offnode " + label + " log: " + l);
+                        if (begins == null && l.contains("Node #10 ETHERWARP begins")) {
+                            begins = l;
+                        }
+                    }
+                }
+                boolean onEleven = Math.abs(at.x - 31.5) < 0.35 && Math.abs(at.z - 5.5) < 0.35 && Math.abs(at.y - 69.0) < 0.2;
+                println(String.format(Locale.US, "offnode %s: #10 fired %s, he ended at (%.2f, %.2f, %.2f), on #11 %s",
+                        label, begins == null ? "NEVER" : "yes", at.x, at.y, at.z, onEleven));
+                if (begins == null) {
+                    failures.add(label + ": #10 never fired");
+                } else if (!onEleven) {
+                    failures.add(String.format(Locale.US, "%s: the warp from #10 left him at (%.2f, %.2f, %.2f), not on #11"
+                            + " (31.5, 69, 5.5)%s", label, at.x, at.y, at.z, seen < 0 ? " (nothing logged)" : ""));
+                }
+            }
+            check(failures.isEmpty(), String.join("; ", failures));
+        } finally {
+            try {
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", false));
+                stopRoute(ctx);
+            } catch (Throwable ignored) {
+                // the rebuild below matters more
+            }
+            ctx.runOnClient(mc -> {
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", true);
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true);
+            });
+            resetRoutes(ctx);
+            room = saved;
+            buildRoom(ctx, 0);
+        }
+    }
+
+    /**
+     * 96-ar-398-startawait. His settings: Secret Aura on (chests, range 4.5, pause while sneaking), Auto Close Chest on.
+     * Museum's #1 awaits one secret, the chest beside it. He stands where he stood at 01:16:30 and presses Go + Secret
+     * (the Interactive Map's warp to the start node). The aura must open that chest (the premise: its done-set says so),
+     * and #1's await must count it: "await 1/1 secrets met", not a wait that only his left click ends.
+     */
+    private void caseStartAwait(ClientGameTestContext ctx) {
+        String saved = room;
+        resetRoutes(ctx);
+        room = "Museum";
+        BlockPos chest = null;
+        try {
+            for (int attempt = 0; attempt < 6 && chest == null; attempt++) {
+                buildRoom(ctx, 0);
+                // #1's chest: the chest within the aura's reach of #1's eye. A TRAPPED chest is the mimic (its click
+                // is not the secret, its death is), so the floor is rebuilt until it is a plain one.
+                BlockPos found = ctx.computeOnClient(mc -> {
+                    Object frame = ModUnderTest.staticCall(FRAME, "current");
+                    Vec3 feet = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(),
+                            double.class, double.class, double.class}, new Object[]{frame, 31.5, 69.0, 56.5});
+                    Vec3 eye = feet.add(0, 1.62, 0);
+                    BlockPos best = null;
+                    for (BlockPos p : BlockPos.betweenClosed(BlockPos.containing(eye).offset(-5, -3, -5),
+                            BlockPos.containing(eye).offset(5, 3, 5))) {
+                        var st = mc.level.getBlockState(p);
+                        if ((st.is(Blocks.CHEST) || st.is(Blocks.TRAPPED_CHEST)) && Vec3.atCenterOf(p).distanceTo(eye) <= 4.6) {
+                            best = st.is(Blocks.CHEST) ? p.immutable() : new BlockPos(0, -1000, 0);
+                        }
+                    }
+                    return best;
+                });
+                println("startawait build " + (attempt + 1) + ": chest beside #1: " + found);
+                if (found != null && found.getY() != -1000) {
+                    chest = found;
+                }
+            }
+            check(chest != null, "premise: no plain chest within reach of #1 in six builds of Museum");
+            final BlockPos chestPos = chest;
+            giveHotbar(ctx);
+            ctx.runOnClient(mc -> {
+                Object ar = ModUnderTest.config(AR_CONFIG);
+                ModUnderTest.set(ar, "setEnabled", true);
+                ModUnderTest.set(ar, "setStartFromStartNodeOnly", false);   // his setting; the map warp guards anyway
+                Object cfg = ModUnderTest.config(CHEAT_CFG);
+                ModUnderTest.set(cfg, "setSecretAuraEnabled", true);
+                ModUnderTest.set(cfg, "setAuraChests", true);
+                ModUnderTest.set(cfg, "setAuraLevers", true);
+                ModUnderTest.set(cfg, "setAuraEssence", true);
+                ModUnderTest.set(cfg, "setAuraPauseWhileSneaking", true);
+                ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"),
+                        "setEnabled", true);
+            });
+            writeRoute(ctx, museumNodes());
+            // Where he stood before his 01:16:30 press: real (-120.46, -128.33) in his frame (clay -74,-136, rotation 90).
+            Vec3 his = ctx.computeOnClient(mc -> {
+                try {
+                    Object hisFrame = Class.forName(FRAME).getConstructor(String.class, int.class, int.class, int.class)
+                            .newInstance("Museum", -74, -136, 90);
+                    return (Vec3) ModUnderTest.staticCall(COORDS, "toRelative", new Class<?>[]{hisFrame.getClass(),
+                            Vec3.class}, new Object[]{hisFrame, new Vec3(-120.46, -52.0, -128.33)});
+                } catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            println(String.format(Locale.US, "startawait: his 01:16:30 spot is relative (%.2f, %.2f)", his.x, his.z));
+            tpRelY(ctx, his.x, 69.0, his.z, 0f, 0f);
+            ctx.waitTicks(20);
+            // The full floor graph, as his was ("floor graph warm" 9 s before his press).
+            ctx.waitTicks(100);
+            long m = LogTap.mark();
+            ctx.runOnClient(mc -> {
+                try {
+                    java.lang.reflect.Method press = Class.forName("com.killer560.hub.livemap.InteractiveMapFeature")
+                            .getDeclaredMethod("onMapSecretPress", int.class);
+                    press.setAccessible(true);
+                    press.invoke(null, -1);
+                } catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            // Every tick from the press: what Secret Aura's own gates read, printed when it changes.
+            String lastState = "";
+            int started = -1;
+            int met = -1;
+            for (int i = 0; i < 380 && met < 0; i++) {
+                String st = auraState(ctx, chestPos);
+                if (!st.equals(lastState)) {
+                    println("startawait tick " + i + ": " + st);
+                    lastState = st;
+                }
+                if (started < 0 && logHas(m, "Started \"Museum\"")) {
+                    started = i;
+                }
+                if (logHas(m, "Node #1 ETHERWARP: await 1/1 secrets met")) {
+                    met = i;
+                }
+                if (started >= 0 && i - started > 80) {
+                    break;
+                }
+                ctx.waitTicks(1);
+            }
+            boolean clicked = logHasAll(m, "chest at " + chestPos.toShortString(), "clicked by you")
+                    || ctx.computeOnClient(mc -> auraTouched(chestPos));
+            for (String l : LogTap.since(m)) {
+                if (l.contains("Warping") || l.contains("Found path") || l.contains("Arming") || l.contains("Started")
+                        || l.contains("Node #1 ") || l.contains("await") || l.contains("Stopped")) {
+                    println("startawait log: " + l);
+                }
+            }
+            println("startawait: route started " + (started >= 0) + ", Secret Aura opened the chest at " + chestPos.toShortString()
+                    + " " + clicked + ", #1's await met " + (met >= 0));
+            check(started >= 0, "the Go + Secret press never started the route on #1");
+            check(clicked, "premise: Secret Aura never opened #1's chest at " + chestPos.toShortString());
+            check(met >= 0, "#1's await never counted the chest Secret Aura opened beside it (0/1 - he had to skip it)");
+            // Secret Aura's FIRST click on the chest comes the tick the map warp lets go, one tick before the route starts.
+            // In his game that click opened the chest and there was nothing left to click: 0/1 for good. In the sim the
+            // first click does not always open it, and the aura's retry a second later (RETRY_AFTER_MS) is counted - which
+            // is luck, not the fix. So the await must be met by the first click: within half a second of the start.
+            check(met - started <= 10, "#1's await was met only " + (met - started) + " ticks after the route started - by "
+                    + "Secret Aura's retry, not its first click on the chest (which came before the start and was not counted)");
+        } finally {
+            ctx.runOnClient(mc -> {
+                ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled");
+                ModUnderTest.turnOff("com.killer560.hub.autoclosechest.AutoCloseChestConfig", "setEnabled");
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true);
+            });
+            try {
+                stopRoute(ctx);
+            } catch (Throwable ignored) {
+                // the rebuild below matters more
+            }
+            resetRoutes(ctx);
+            room = saved;
+            buildRoom(ctx, 0);
+        }
+    }
+
+    /** Secret Aura's view of one secret: its own gate inputs and what it remembers about the block. */
+    private static String auraState(ClientGameTestContext ctx, BlockPos pos) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                Class<?> aura = Class.forName("com.killer560.hub.cheatutils.SecretAuraFeature");
+                long key = pos.asLong();
+                java.lang.reflect.Field fs = aura.getDeclaredField("firstSeenMs");
+                java.lang.reflect.Field at = aura.getDeclaredField("attempts");
+                java.lang.reflect.Field dn = aura.getDeclaredField("done");
+                fs.setAccessible(true);
+                at.setAccessible(true);
+                dn.setAccessible(true);
+                boolean busy = (Boolean) ModUnderTest.staticCall(CLEAR, "isBusy");
+                boolean gateScreen = (Boolean) ModUnderTest.staticCall("com.killer560.hub.util.ActionGate",
+                        "containerScreenOpen", new Class<?>[]{Minecraft.class}, new Object[]{mc});
+                double d = Math.sqrt((Double) ModUnderTest.staticCall("com.killer560.hub.util.BlockHits", "boxDistanceSq",
+                        new Class<?>[]{Vec3.class, BlockPos.class}, new Object[]{mc.player.getEyePosition(), pos}));
+                return String.format(Locale.US, "mapBusy=%s shift=%s sentShift=%s containerScreen=%s screen=%s box=%.2f "
+                                + "firstSeen=%s attempt=%s done=%s block=%s", busy, mc.player.isShiftKeyDown(),
+                        mc.player.getLastSentInput().shift(), gateScreen, McCompat.screen(mc) != null, d,
+                        ((java.util.Map<?, ?>) fs.get(null)).containsKey(key), ((java.util.Map<?, ?>) at.get(null)).get(key),
+                        ((java.util.Set<?>) dn.get(null)).contains(key), mc.level.getBlockState(pos).getBlock().getName().getString());
+            } catch (ReflectiveOperationException e) {
+                return "unreadable: " + e;
+            }
+        });
+    }
+
+    private static boolean auraTouched(BlockPos pos) {
+        try {
+            Class<?> aura = Class.forName("com.killer560.hub.cheatutils.SecretAuraFeature");
+            java.lang.reflect.Field at = aura.getDeclaredField("attempts");
+            at.setAccessible(true);
+            return ((java.util.Map<?, ?>) at.get(null)).containsKey(pos.asLong())
+                    || (Boolean) ModUnderTest.staticCall("com.killer560.hub.cheatutils.SecretAuraFeature", "isDone",
+                    new Class<?>[]{BlockPos.class}, new Object[]{pos});
+        } catch (ReflectiveOperationException e) {
+            return false;
+        }
+    }
+
+    /** {@code SimBuilder.buildSingleRoom} - his way of loading Museum (the menu's room picker, "Built Museum"). */
+    private static void buildSingleMuseum(ClientGameTestContext ctx) {
+        long before = Scenario.simBuildCount(ctx);
+        ctx.runOnClient(mc -> mc.execute(() -> ModUnderTest.staticCall(BUILDER, "buildSingleRoom",
+                new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, "Museum"})));
+        Scenario.awaitSimBuild(ctx, before);
+        ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
+        ctx.waitFor(mc -> {
+            Object f = ModUnderTest.staticCall(FRAME, "current");
+            return f != null && String.valueOf(f).contains("Museum") && mc.player.onGround();
+        }, 1200);
+    }
+
+    /**
+     * 96-ar-398-regrow. Museum loaded his way (single room). A route of his #5 breaker (only the blocks #6's and #7's
+     * warps fly through, so the charges never decide the timing), #6 and #7. Run 1 breaks them and lands on #7's
+     * landing (the control). The room is rebuilt. Run 2 breaks the same blocks again some seconds later, and #7 waits
+     * (a DELAY await) until well past ten seconds after RUN 1's break - the moment run 1's regrow is due - before it
+     * warps through the hole. It must land: run 1's regrow belongs to a room that has since been rebuilt.
+     */
+    private void caseRegrow(ClientGameTestContext ctx) {
+        String saved = room;
+        resetRoutes(ctx);
+        room = "Museum";
+        try {
+            buildSingleMuseum(ctx);
+            giveHotbar(ctx);
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", false));
+            List<JsonObject> all = museumNodes();
+            JsonObject n5 = all.get(4);
+            JsonObject n6 = all.get(5);
+            JsonObject n7 = all.get(6);
+            // The breaker's blocks that #6's or #7's warp ray passes through, sampled every 0.05 from a sneaking eye.
+            java.util.Set<String> listed = new java.util.LinkedHashSet<>();
+            for (JsonElement e : n5.getAsJsonArray("blocks")) {
+                listed.add(e.getAsString());
+            }
+            java.util.Set<String> crossed = new java.util.LinkedHashSet<>();
+            for (JsonObject w : List.of(n6, n7)) {
+                double x0 = w.get("x").getAsDouble();
+                double y0 = w.get("y").getAsDouble() + 1.27;
+                double z0 = w.get("z").getAsDouble();
+                double yr = Math.toRadians(w.get("yaw").getAsDouble());
+                double pr = Math.toRadians(w.get("pitch").getAsDouble());
+                double dx = -Math.sin(yr) * Math.cos(pr);
+                double dy = -Math.sin(pr);
+                double dz = Math.cos(yr) * Math.cos(pr);
+                String[] land = w.get("landing").getAsString().split(" ");
+                double lx = Double.parseDouble(land[0]) - x0;
+                double ly = Double.parseDouble(land[1]) - y0;
+                double lz = Double.parseDouble(land[2]) - z0;
+                double len = Math.sqrt(lx * lx + ly * ly + lz * lz) + 2.0;
+                for (double t = 0; t <= len; t += 0.05) {
+                    String b = (int) Math.floor(x0 + dx * t) + " " + (int) Math.floor(y0 + dy * t) + " "
+                            + (int) Math.floor(z0 + dz * t);
+                    if (listed.contains(b)) {
+                        crossed.add(b);
+                    }
+                }
+            }
+            println("regrow: #5's blocks on #6's and #7's rays: " + crossed);
+            check(!crossed.isEmpty(), "premise: no breaker block lies on #6's or #7's ray");
+            JsonObject br = n5.deepCopy();
+            JsonArray blocks = new JsonArray();
+            crossed.forEach(blocks::add);
+            br.add("blocks", blocks);
+            br.addProperty("start", true);
+            JsonObject w7 = n7.deepCopy();
+            w7.remove("awaitEnabled");
+            w7.remove("await");
+            w7.remove("amount");
+            writeRoute(ctx, List.of(br, n6.deepCopy(), w7));
+
+            // ---- run 1: the control ----
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            long m1 = LogTap.mark();
+            tpRelY(ctx, 30.5, 82.0, 15.5, 0f, 0f);
+            int broke1 = waitLog(ctx, m1, 100, "Breaker: all ");
+            long t1 = serverTime(ctx);
+            int done1 = waitLog(ctx, m1, 200, "Route \"Museum\" complete", "Stopped");
+            Vec3 at1 = relPos(ctx);
+            boolean landed1 = Math.abs(at1.x - 34.5) < 0.35 && Math.abs(at1.z - 12.5) < 0.35;
+            println(String.format(Locale.US, "regrow run 1: broke %s at server tick %d, route %s, he ended at (%.2f, %.2f, %.2f)"
+                    + " - on #7's landing %s", broke1 >= 0, t1, done1 == 0 ? "complete" : done1 == 1 ? "stopped" : "still going",
+                    at1.x, at1.y, at1.z, landed1));
+            check(broke1 >= 0 && landed1, "control: run 1 did not break #5's blocks and land on #7's landing");
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", false));
+            stopRoute(ctx);
+
+            // ---- the rebuild, his way ----
+            buildSingleMuseum(ctx);
+            giveHotbar(ctx);
+            long rebuilt = serverTime(ctx) - t1;
+            println("regrow: rebuilt " + rebuilt + " server tick(s) after run 1's break");
+            check(rebuilt < 170, "setup: the rebuild took until " + rebuilt + " ticks after run 1's break - too late to break"
+                    + " again before run 1's regrow is due at 200");
+            // Run 2 breaks at ~t1+breakAt; #7 then waits until ~45 ticks past t1+200.
+            long breakAt = Math.max(rebuilt + 10, 120);
+            long waitMs = (200 + 45 - breakAt) * 50;
+            w7.addProperty("awaitEnabled", true);
+            w7.addProperty("await", "DELAY");
+            w7.addProperty("amount", (int) waitMs);
+            writeRoute(ctx, List.of(br, n6.deepCopy(), w7));
+            while (serverTime(ctx) - t1 < breakAt) {
+                ctx.waitTicks(1);
+            }
+
+            // ---- run 2 ----
+            ctx.runOnClient(mc -> {
+                mc.player.getInventory().setSelectedSlot(3);
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", true);
+            });
+            long m2 = LogTap.mark();
+            tpRelY(ctx, 30.5, 82.0, 15.5, 0f, 0f);
+            int broke2 = waitLog(ctx, m2, 100, "Breaker: all ");
+            long t2 = serverTime(ctx);
+            int fired7 = waitLog(ctx, m2, 300, "Node #3 ETHERWARP acted");
+            long t7 = serverTime(ctx);
+            int end2 = waitLog(ctx, m2, 80, "Route \"Museum\" complete", "Etherwarp: no landing", "Stopped");
+            Vec3 at2 = relPos(ctx);
+            boolean landed2 = Math.abs(at2.x - 34.5) < 0.35 && Math.abs(at2.z - 12.5) < 0.35;
+            boolean refused = logHas(m2, "[Sim] etherwarp refused");
+            for (String l : LogTap.since(m2)) {
+                if (l.contains("Breaker") || l.contains("Node #3") || l.contains("[Sim] etherwarp") || l.contains("Etherwarp:")
+                        || l.contains("Correction")) {
+                    println("regrow run 2 log: " + l);
+                }
+            }
+            println(String.format(Locale.US, "regrow run 2: broke %s at +%d, #7 fired %s at +%d (run 1's regrow due at +200),"
+                    + " sim refused it %s, end %d, he ended at (%.2f, %.2f, %.2f) - on #7's landing %s", broke2 >= 0, t2 - t1,
+                    fired7 >= 0, t7 - t1, refused, end2, at2.x, at2.y, at2.z, landed2));
+            check(broke2 >= 0 && fired7 >= 0, "run 2 did not break and fire #7");
+            check(t2 - t1 < 200 && t7 - t1 > 200, "setup: run 2 broke at +" + (t2 - t1) + " and fired #7 at +" + (t7 - t1)
+                    + " - not either side of run 1's regrow at +200");
+            check(landed2 && !refused, "#7's etherwarp through the hole #5 had just opened " + (refused
+                    ? "was refused by the sim" : "did not land") + " - run 1's regrow put the block back after the rebuild");
+        } finally {
+            try {
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", false));
+                stopRoute(ctx);
+            } catch (Throwable ignored) {
+                // the rebuild below matters more
+            }
+            ctx.runOnClient(mc -> {
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", true);
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true);
+            });
+            resetRoutes(ctx);
+            room = saved;
+            buildRoom(ctx, 0);
+        }
     }
 
     /** His Museum route exactly as his Map Logger instance had it on 2026-10-06 (killer560smod-autoroutes.json). */
