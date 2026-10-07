@@ -305,8 +305,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   10); cases 207-210, 219, 290, 291. The P3 Simon Says device is `boss.ss.*` (hx/boss/HxSimonSays, rounds 4 or 5), cases
   501-503 in `500-boss-session`; click its buttons after turning to them, or GrimAC cancels the use (RotationPlace).
   A P3 terminal stand is `boss.term.*` (hx/boss/HxTerminalStand: pillar + command block + non-marker "Inactive Terminal"
-  stand, opens "Click in order!" only for an eye at or above the stand's feet); case 409-boss-termlog drives the mod's
-  Terminal Open Logger with it. Spawn the stand (`boss.term.spawn`) only once the player is there, and turn him through the
+  stand, opens "Click in order!" only for an eye at or above the stand's feet); case 409-boss-termaura drives the mod's
+  Terminal Aura with it (the Terminal Open Logger it used to drive was removed 2026-10-07). Spawn the stand (`boss.term.spawn`) only once the player is there, and turn him through the
   `dungeon.tp` itself: a client turn made before the teleport lands is reset to the teleport's yaw/pitch (409's first runs).
 
 - In the logic suite's throwaway world, a block 66 blocks from spawn can read `void_air` for the first seconds even after
