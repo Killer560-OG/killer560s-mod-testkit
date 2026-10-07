@@ -352,6 +352,18 @@ final class SliderCases {
                 c.check(seen, "the sweep never laid out '" + p[1] + "' on the " + p[0] + " tab");
             }
         }
+        if (Mod.has("witherdoors.WitherDoorsConfig$Style")) {
+            // Wither Doors' fill rows (mod door-fill), both jars: they sit behind the tab's master switch.
+            for (String want : new String[]{"Wither Doors|Style:", "Wither Doors|Fill Opacity:",
+                    "Wither Doors|Fill Color:", "Wither Doors|Custom Fill Color:"}) {
+                String[] p = want.split("\\|");
+                List<String> where = SEEN.stream().filter(x -> x.contains("|" + p[1])).map(x -> x.substring(0, x.indexOf('|')))
+                        .distinct().toList();
+                boolean seen = where.stream().anyMatch(x -> x.contains(p[0]));
+                c.note("swept " + p[1] + " on " + p[0] + ": " + seen);
+                c.check(seen, "the sweep never laid out '" + p[1] + "' on the " + p[0] + " tab");
+            }
+        }
     }
 
     /** "where|label" of every widget the sweep laid out. */

@@ -24,7 +24,8 @@ import java.util.List;
  *                (and the sim room Filters panel: chips wrap, no overlap, all reachable),
  *                387 AP3 node editor (type dropdown, per-type fields saved, hotbar item pick, no overlaps),
  *                388 Breaker Aura Display x Box Style each draw (screenshot pixel counts, a pick behind a wall),
- *                389 Custom Crosshair replaces vanilla's and draws exactly the pixels it is set to, editor preview
+ *                389 Custom Crosshair replaces vanilla's and draws exactly the pixels it is set to, editor preview,
+ *                390 Wither Doors Style / Fill Opacity / Fill Color draw (screenshot pixels, alpha, through walls, reload)
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -38,7 +39,8 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] WORLD_CASES = {"301-ui-smoke-tabs", "302-ui-smoke-search", "303-ui-smoke-toggles",
             "304-ui-smoke-hud-editor", "305-ui-smoke-screens", "306-ui-smoke-commands", "350-ui-termism",
             "360-ui-visuals", "365-ui-overlay-draws", "307-ui-profit", "385-ui-interactive-map", "386-ui-sliders",
-            "387-ui-ap3-edit", "388-ui-breaker-display", "389-ui-crosshair"};
+            "387-ui-ap3-edit", "388-ui-breaker-display", "389-ui-crosshair",
+            "390-ui-wither-doors-fill"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -105,6 +107,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "387-ui-ap3-edit", Ap3EditCases::run);
                     UiCase.run(ctx, "388-ui-breaker-display", BreakerDisplayCases::run);
                     UiCase.run(ctx, "389-ui-crosshair", CrosshairCases::run);
+                    UiCase.run(ctx, "390-ui-wither-doors-fill", WitherDoorFillCases::run);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

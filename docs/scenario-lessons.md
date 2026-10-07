@@ -63,3 +63,9 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   GrimAutoRoutesTests require the mod before filtering - read the scenario's own PASS line. Grim's transaction pings arrive
   as ~15 `minecraft:pong` a second, counted not listed. On 26.2 the gametest API adds `fabric-client-gametest-api-v1:gametest_sync`
   to the register lists; it is the harness, not the mod, and is in both runs.
+- Features gated on `CheatUtils.isOnDungeonServer` (Wither Doors and the like) never run in the UI suite's singleplayer world:
+  `getCurrentServer()` is the connection's `serverData`, null there. 390-ui-wither-doors-fill sets that protected final field
+  of `ClientCommonPacketListenerImpl` by reflection to a "mc.hypixel.net" ServerData (same name on 26.1.2 and 26.2) plus
+  `DungeonState.setRoomSim(true)` (in a dungeon, not the boss), and puts both back. Its first run teleported a player who
+  was not flying and photographed the door's underside while passing; set flying before the teleport and assert the eye
+  height at every shot (2026-10-07).
