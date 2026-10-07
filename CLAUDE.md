@@ -299,6 +299,13 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   insta-clear rule, so room states are FORCED through `InstaClearTracker.testForceMapState` - it measures the recorder,
   never Hypixel. Read results per room (`testLastFor`), not `testLast`: other rooms' observations close on their own
   window in between. A room the test forces after he is already standing in it (the spawn) is recorded too.
+  361-logic-insta-clear-v2 (v1 file migration, PASS_THROUGH) and 98-sim-insta-clear-live (his 2026-10-06 live F7 cases: a
+  flip before the mobs are seen, real Interactive Map paths through rooms, Entrance) came with mod branch instaclear-live;
+  each case runs even if an earlier one failed, so an old jar shows which ones the fix is for. The sim rooms hold NO starred
+  mobs until a test spawns them, which is how "not seen yet" is made: flip first, spawn after.
+- `ModUnderTest.staticCall` reports a missing method as an AssertionError, not a RuntimeException: a `catch
+  (RuntimeException)` around an optional hook let an old jar's run die at setup, so its "fail on main" said nothing
+  (98-sim-insta-clear-live, 2026-10-06). Catch `RuntimeException | AssertionError`.
 - A generated sim floor has NO wither doors (SimWitherDoors only draws theoretical ones), so nothing on it is ever
   "behind a closed door". 102-sim-autosecret makes one: it sets the live map's `grid` tile to DOOR_WITHER by reflection
   and puts coal on `DungeonLayout.doorBlock`, which is what the layout reads as locked.
