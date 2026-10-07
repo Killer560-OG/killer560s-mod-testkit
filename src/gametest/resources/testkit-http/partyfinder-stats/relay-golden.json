@@ -1,0 +1,2015 @@
+{
+ "antsrng": {
+  "status": "ok",
+  "uuid": "014fd28253f5474f9d79110e408e5a7c",
+  "stats": {
+   "cata": 40.81374433333333,
+   "cataXp": 63765805,
+   "secrets": 7502,
+   "avgSecrets": 7.457256461232604,
+   "runs": 1006,
+   "pb": {
+    "normal": {
+     "floor_1": {
+      "splus": 138594,
+      "s": 135574
+     },
+     "floor_2": {
+      "splus": 267337,
+      "s": 390965
+     },
+     "floor_3": {
+      "splus": 198756,
+      "s": 230080
+     },
+     "floor_4": {
+      "splus": 269624,
+      "s": 290400
+     },
+     "floor_5": {
+      "splus": 186958,
+      "s": 160695
+     },
+     "floor_6": {
+      "splus": 181290,
+      "s": 233760
+     },
+     "floor_7": {
+      "splus": 237216,
+      "s": 263003
+     }
+    },
+    "master": {
+     "floor_1": {
+      "splus": 176835,
+      "s": 141674
+     },
+     "floor_2": {
+      "s": 271835
+     },
+     "floor_3": {
+      "splus": 142338,
+      "s": 129636
+     },
+     "floor_4": {
+      "splus": 237443,
+      "s": 231267
+     },
+     "floor_5": {
+      "splus": 115577,
+      "s": 113721
+     },
+     "floor_6": {
+      "splus": 181921,
+      "s": 249251
+     },
+     "floor_7": {
+      "splus": 407872,
+      "s": 374042
+     }
+    }
+   },
+   "selectedClass": "berserk",
+   "classLevels": {
+    "healer": 36.038544464285714,
+    "mage": 34.20279575757576,
+    "berserk": 39.1479825,
+    "archer": 34.70605,
+    "tank": 34.26210696969697
+   },
+   "profile": "Grapes",
+   "profileRule": "selected",
+   "profiles": 2
+  }
+ },
+ "celybispuppy": {
+  "status": "ok",
+  "uuid": "057bfad588de414b871e7e9bf36aa6ef",
+  "stats": {
+   "cata": 43.16858843333333,
+   "cataXp": 114617293,
+   "secrets": 19640,
+   "avgSecrets": 11.512309495896835,
+   "runs": 1706,
+   "pb": {
+    "normal": {
+     "floor_1": {
+      "splus": 171994,
+      "s": 135293
+     },
+     "floor_2": {
+      "splus": 222885,
+      "s": 259261
+     },
+     "floor_3": {
+      "splus": 232156,
+      "s": 193776
+     },
+     "floor_4": {
+      "splus": 215877,
+      "s": 204109
+     },
+     "floor_5": {
+      "splus": 183294,
+      "s": 383203
+     },
+     "floor_6": {
+      "splus": 186792,
+      "s": 241277
+     },
+     "floor_7": {
+      "splus": 218406,
+      "s": 241454
+     }
+    },
+    "master": {
+     "floor_1": {
+      "s": 115998
+     },
+     "floor_2": {
+      "s": 574390
+     },
+     "floor_3": {
+      "splus": 134122,
+      "s": 121234
+     },
+     "floor_4": {
+      "splus": 317318
+     },
+     "floor_5": {
+      "splus": 122236,
+      "s": 173610
+     },
+     "floor_6": {
+      "splus": 175646,
+      "s": 307418
+     },
+     "floor_7": {
+      "splus": 339539,
+      "s": 368223
+     }
+    }
+   },
+   "selectedClass": "healer",
+   "classLevels": {
+    "healer": 41.26259936842105,
+    "mage": 36.53778928571428,
+    "berserk": 38.09253434782609,
+    "archer": 36.57089,
+    "tank": 36.42736107142857
+   },
+   "profile": "Raspberry",
+   "profileRule": "selected",
+   "profiles": 3
+  }
+ },
+ "elysianz1": {
+  "status": "ok",
+  "uuid": "2900631614ae42e5a82e7b2eff5a35d4",
+  "stats": {
+   "cata": 43.48259096666666,
+   "cataXp": 124037369,
+   "secrets": 27589,
+   "avgSecrets": 12.73142593447162,
+   "runs": 2167,
+   "pb": {
+    "normal": {
+     "floor_1": {
+      "splus": 143449,
+      "s": 130315
+     },
+     "floor_2": {
+      "splus": 147547,
+      "s": 163258
+     },
+     "floor_3": {
+      "splus": 423014,
+      "s": 210932
+     },
+     "floor_4": {
+      "splus": 355092,
+      "s": 300829
+     },
+     "floor_5": {
+      "splus": 177170,
+      "s": 194148
+     },
+     "floor_6": {
+      "splus": 163768,
+      "s": 292983
+     },
+     "floor_7": {
+      "splus": 215911,
+      "s": 258662
+     }
+    },
+    "master": {
+     "floor_1": {
+      "splus": 535980
+     },
+     "floor_2": {
+      "s": 660221
+     },
+     "floor_3": {
+      "splus": 143030,
+      "s": 131336
+     },
+     "floor_4": {
+      "splus": 145166,
+      "s": 204309
+     },
+     "floor_5": {
+      "splus": 105865,
+      "s": 172417
+     },
+     "floor_6": {
+      "splus": 147185,
+      "s": 210845
+     },
+     "floor_7": {
+      "splus": 361098,
+      "s": 390340
+     }
+    }
+   },
+   "selectedClass": "berserk",
+   "classLevels": {
+    "healer": 37.28357388888889,
+    "mage": 37.09566125,
+    "berserk": 41.514072842105264,
+    "archer": 37.49647958333333,
+    "tank": 37.75583236111111
+   },
+   "profile": "Orange",
+   "profileRule": "selected",
+   "profiles": 2
+  }
+ },
+ "bubbleh": {
+  "status": "ok",
+  "uuid": "885a5460f2e0444dae2c255c7e539be0",
+  "stats": {
+   "cata": 50,
+   "cataXp": 674077760,
+   "secrets": 47444,
+   "avgSecrets": 13.019758507135016,
+   "runs": 3644,
+   "pb": {
+    "normal": {
+     "floor_0": {
+      "s": 429669,
+      "any": 97245
+     },
+     "floor_1": {
+      "s": 250805,
+      "any": 209894
+     },
+     "floor_2": {
+      "splus": 191620,
+      "s": 190238,
+      "any": 164358
+     },
+     "floor_3": {
+      "splus": 177774,
+      "s": 164745,
+      "any": 164745
+     },
+     "floor_4": {
+      "splus": 304997,
+      "s": 189645,
+      "any": 189645
+     },
+     "floor_5": {
+      "splus": 137458,
+      "s": 360752,
+      "any": 137458
+     },
+     "floor_6": {
+      "splus": 166013,
+      "s": 253126,
+      "any": 166013
+     },
+     "floor_7": {
+      "splus": 223391,
+      "s": 243101,
+      "any": 223391
+     }
+    },
+    "master": {
+     "floor_1": {
+      "s": 168682,
+      "any": 116560
+     },
+     "floor_2": {
+      "splus": 240212,
+      "any": 133827
+     },
+     "floor_3": {
+      "splus": 228527,
+      "s": 138407,
+      "any": 138407
+     },
+     "floor_4": {
+      "splus": 265441,
+      "s": 204882,
+      "any": 204882
+     },
+     "floor_5": {
+      "splus": 104488,
+      "s": 118558,
+      "any": 104488
+     },
+     "floor_6": {
+      "splus": 148052,
+      "s": 180442,
+      "any": 148052
+     },
+     "floor_7": {
+      "splus": 290244,
+      "s": 304752,
+      "any": 290244
+     }
+    }
+   },
+   "selectedClass": "healer",
+   "classLevels": {
+    "healer": 47.49708904,
+    "mage": 43.6680702,
+    "berserk": 46.446869666666665,
+    "archer": 44.1514532631579,
+    "tank": 43.88746666666667
+   },
+   "profile": "Pear",
+   "profileRule": "selected",
+   "profiles": 3
+  }
+ },
+ "corpral": {
+  "status": "ok",
+  "uuid": "ff017bc7b9b54732bc4160838e8c8008",
+  "stats": {
+   "cata": 50,
+   "cataXp": 2786086997,
+   "secrets": 51630,
+   "avgSecrets": 7.3254824063564135,
+   "runs": 7048,
+   "pb": {
+    "normal": {
+     "floor_0": {
+      "any": 52501
+     },
+     "floor_1": {
+      "splus": 86206,
+      "s": 158034,
+      "any": 86206
+     },
+     "floor_2": {
+      "s": 185891,
+      "any": 165697
+     },
+     "floor_3": {
+      "splus": 208626,
+      "s": 220553,
+      "any": 153217
+     },
+     "floor_4": {
+      "splus": 184604,
+      "s": 196411,
+      "any": 163001
+     },
+     "floor_5": {
+      "splus": 159361,
+      "s": 137224,
+      "any": 116007
+     },
+     "floor_6": {
+      "splus": 187264,
+      "s": 186015,
+      "any": 166175
+     },
+     "floor_7": {
+      "splus": 223044,
+      "s": 242139,
+      "any": 223044
+     }
+    },
+    "master": {
+     "floor_1": {
+      "splus": 81019,
+      "s": 76114,
+      "any": 69593
+     },
+     "floor_2": {
+      "splus": 139970,
+      "s": 112367,
+      "any": 111339
+     },
+     "floor_3": {
+      "splus": 122344,
+      "s": 117483,
+      "any": 117483
+     },
+     "floor_4": {
+      "splus": 142731,
+      "s": 177390,
+      "any": 142731
+     },
+     "floor_5": {
+      "splus": 95354,
+      "s": 99705,
+      "any": 95354
+     },
+     "floor_6": {
+      "splus": 146696,
+      "s": 173599,
+      "any": 146696
+     },
+     "floor_7": {
+      "splus": 235696,
+      "s": 272399,
+      "any": 235696
+     }
+    }
+   },
+   "selectedClass": "berserk",
+   "classLevels": {
+    "healer": 50,
+    "mage": 50,
+    "berserk": 50,
+    "archer": 50,
+    "tank": 50
+   },
+   "profile": "Cucumber",
+   "profileRule": "selected",
+   "profiles": 2
+  }
+ },
+ "dmif": {
+  "status": "ok",
+  "uuid": "56f54c25766c45f0b4371d70a04ba5ac",
+  "stats": {
+   "cata": 50,
+   "cataXp": 1115743073,
+   "secrets": 101679,
+   "avgSecrets": 10.962695417789757,
+   "runs": 9275,
+   "pb": {
+    "normal": {
+     "floor_0": {
+      "any": 64410
+     },
+     "floor_1": {
+      "splus": 192824,
+      "s": 163167,
+      "any": 89299
+     },
+     "floor_2": {
+      "splus": 136752,
+      "s": 180000,
+      "any": 136752
+     },
+     "floor_3": {
+      "splus": 115870,
+      "s": 199932,
+      "any": 115870
+     },
+     "floor_4": {
+      "splus": 288978,
+      "s": 331758,
+      "any": 197071
+     },
+     "floor_5": {
+      "splus": 160363,
+      "s": 174148,
+      "any": 160363
+     },
+     "floor_6": {
+      "splus": 142371,
+      "s": 211634,
+      "any": 142371
+     },
+     "floor_7": {
+      "splus": 201588,
+      "s": 223602,
+      "any": 201588
+     }
+    },
+    "master": {
+     "floor_1": {
+      "splus": 79861,
+      "s": 174683,
+      "any": 79861
+     },
+     "floor_2": {
+      "splus": 96631,
+      "s": 95150,
+      "any": 95150
+     },
+     "floor_3": {
+      "splus": 113581,
+      "s": 130102,
+      "any": 113581
+     },
+     "floor_4": {
+      "splus": 133925,
+      "s": 163515,
+      "any": 133925
+     },
+     "floor_5": {
+      "splus": 94127,
+      "s": 94654,
+      "any": 94127
+     },
+     "floor_6": {
+      "splus": 129636,
+      "s": 162081,
+      "any": 129636
+     },
+     "floor_7": {
+      "splus": 285025,
+      "s": 306872,
+      "any": 285025
+     }
+    }
+   },
+   "selectedClass": "tank",
+   "classLevels": {
+    "healer": 45.89985183333334,
+    "mage": 45.41713422916666,
+    "berserk": 46.3041718,
+    "archer": 46.229130966666666,
+    "tank": 50
+   },
+   "profile": "Pomegranate",
+   "profileRule": "selected",
+   "profiles": 4
+  }
+ },
+ "einfxchdavid": {
+  "status": "ok",
+  "uuid": "2c439658cc9c4fe1b3f450f610f6ef3b",
+  "stats": {
+   "cata": 50,
+   "cataXp": 6914336557,
+   "secrets": 140860,
+   "avgSecrets": 9.100658999870785,
+   "runs": 15478,
+   "pb": {
+    "normal": {
+     "floor_0": {
+      "any": 119434
+     },
+     "floor_1": {
+      "splus": 178716,
+      "s": 239106,
+      "any": 125295
+     },
+     "floor_2": {
+      "s": 196332,
+      "any": 196332
+     },
+     "floor_3": {
+      "splus": 628184,
+      "s": 320363,
+      "any": 144566
+     },
+     "floor_4": {
+      "splus": 341848,
+      "s": 249560,
+      "any": 178363
+     },
+     "floor_5": {
+      "splus": 131693,
+      "s": 209181,
+      "any": 131693
+     },
+     "floor_6": {
+      "splus": 175727,
+      "s": 317003,
+      "any": 173669
+     },
+     "floor_7": {
+      "splus": 201588,
+      "s": 226531,
+      "any": 201588
+     }
+    },
+    "master": {
+     "floor_1": {
+      "splus": 85777,
+      "s": 100331,
+      "any": 85777
+     },
+     "floor_2": {
+      "splus": 109247,
+      "s": 118360,
+      "any": 109247
+     },
+     "floor_3": {
+      "splus": 116888,
+      "s": 126615,
+      "any": 116888
+     },
+     "floor_4": {
+      "splus": 150064,
+      "s": 189529,
+      "any": 150064
+     },
+     "floor_5": {
+      "splus": 98211,
+      "s": 115573,
+      "any": 98211
+     },
+     "floor_6": {
+      "splus": 136011,
+      "s": 177764,
+      "any": 136011
+     },
+     "floor_7": {
+      "splus": 232203,
+      "s": 229280,
+      "any": 229280
+     }
+    }
+   },
+   "selectedClass": "tank",
+   "classLevels": {
+    "healer": 50,
+    "mage": 50,
+    "berserk": 50,
+    "archer": 50,
+    "tank": 50
+   },
+   "profile": "Lemon",
+   "profileRule": "selected",
+   "profiles": 2
+  }
+ },
+ "julienspieltz": {
+  "status": "ok",
+  "uuid": "3eb6fd767cb84384b9c64bb81019f366",
+  "stats": {
+   "cata": 50,
+   "cataXp": 2694706907,
+   "secrets": 103422,
+   "avgSecrets": 10.99298469387755,
+   "runs": 9408,
+   "pb": {
+    "normal": {
+     "floor_0": {
+      "any": 84866
+     },
+     "floor_1": {
+      "splus": 103582,
+      "s": 164940,
+      "any": 103582
+     },
+     "floor_2": {
+      "splus": 180765,
+      "s": 166776,
+      "any": 124030
+     },
+     "floor_3": {
+      "splus": 159741,
+      "s": 153865,
+      "any": 153865
+     },
+     "floor_4": {
+      "splus": 214763,
+      "s": 276967,
+      "any": 214763
+     },
+     "floor_5": {
+      "splus": 157979,
+      "s": 242160,
+      "any": 139070
+     },
+     "floor_6": {
+      "splus": 156391,
+      "s": 213399,
+      "any": 156391
+     },
+     "floor_7": {
+      "splus": 201588,
+      "s": 230664,
+      "any": 201588
+     }
+    },
+    "master": {
+     "floor_1": {
+      "splus": 85777,
+      "s": 94319,
+      "any": 85777
+     },
+     "floor_2": {
+      "splus": 109247,
+      "s": 109337,
+      "any": 109247
+     },
+     "floor_3": {
+      "splus": 116888,
+      "s": 125445,
+      "any": 116888
+     },
+     "floor_4": {
+      "splus": 147419,
+      "s": 154670,
+      "any": 147419
+     },
+     "floor_5": {
+      "splus": 92158,
+      "s": 126595,
+      "any": 92158
+     },
+     "floor_6": {
+      "splus": 139384,
+      "s": 169687,
+      "any": 139384
+     },
+     "floor_7": {
+      "splus": 232203,
+      "s": 229280,
+      "any": 229280
+     }
+    }
+   },
+   "selectedClass": "tank",
+   "classLevels": {
+    "healer": 50,
+    "mage": 50,
+    "berserk": 50,
+    "archer": 50,
+    "tank": 50
+   },
+   "profile": "Lemon",
+   "profileRule": "selected",
+   "profiles": 4
+  }
+ },
+ "kittycatlizzy": {
+  "status": "ok",
+  "uuid": "dc0bddb23dde4fe9917e2d253fcd941d",
+  "stats": {
+   "cata": 50,
+   "cataXp": 892160661,
+   "secrets": 75498,
+   "avgSecrets": 12.671701913393756,
+   "runs": 5958,
+   "pb": {
+    "normal": {
+     "floor_0": {
+      "any": 54670
+     },
+     "floor_1": {
+      "splus": 109890,
+      "s": 115433,
+      "any": 109890
+     },
+     "floor_2": {
+      "splus": 152217,
+      "s": 129235,
+      "any": 125354
+     },
+     "floor_3": {
+      "splus": 161932,
+      "s": 144991,
+      "any": 144991
+     },
+     "floor_4": {
+      "splus": 154632,
+      "s": 152079,
+      "any": 152079
+     },
+     "floor_5": {
+      "splus": 94947,
+      "s": 132327,
+      "any": 94947
+     },
+     "floor_6": {
+      "splus": 151570,
+      "s": 163767,
+      "any": 151570
+     },
+     "floor_7": {
+      "splus": 217853,
+      "s": 250132,
+      "any": 217853
+     }
+    },
+    "master": {
+     "floor_1": {
+      "splus": 97134,
+      "s": 92631,
+      "any": 92631
+     },
+     "floor_2": {
+      "splus": 141594,
+      "s": 128260,
+      "any": 128260
+     },
+     "floor_3": {
+      "splus": 126949,
+      "s": 126502,
+      "any": 126502
+     },
+     "floor_4": {
+      "splus": 134793,
+      "s": 150917,
+      "any": 134793
+     },
+     "floor_5": {
+      "splus": 105673,
+      "s": 122995,
+      "any": 105673
+     },
+     "floor_6": {
+      "splus": 153476,
+      "s": 174291,
+      "any": 153476
+     },
+     "floor_7": {
+      "splus": 283011,
+      "s": 298089,
+      "any": 283011
+     }
+    }
+   },
+   "selectedClass": "mage",
+   "classLevels": {
+    "healer": 48.07414017204301,
+    "mage": 45.7723150625,
+    "berserk": 45.8409116875,
+    "archer": 44.35599423684211,
+    "tank": 46.41249861666667
+   },
+   "profile": "Grapes",
+   "profileRule": "selected",
+   "profiles": 2
+  }
+ },
+ "kwyt": {
+  "status": "ok",
+  "uuid": "c3946f9e0fe843b08953064a6aeeac8c",
+  "stats": {
+   "cata": 48.44724794623656,
+   "cataXp": 402153699,
+   "secrets": 30772,
+   "avgSecrets": 6.303154444899631,
+   "runs": 4882,
+   "pb": {
+    "normal": {
+     "floor_0": {
+      "any": 101822
+     },
+     "floor_1": {
+      "s": 154508,
+      "any": 119250
+     },
+     "floor_2": {
+      "splus": 155728,
+      "s": 256016,
+      "any": 155728
+     },
+     "floor_3": {
+      "s": 296580,
+      "any": 153385
+     },
+     "floor_4": {
+      "splus": 141047,
+      "s": 153317,
+      "any": 141047
+     },
+     "floor_5": {
+      "splus": 120670,
+      "s": 163664,
+      "any": 120670
+     },
+     "floor_6": {
+      "splus": 138947,
+      "s": 165761,
+      "any": 138947
+     },
+     "floor_7": {
+      "splus": 180865,
+      "s": 191410,
+      "any": 180865
+     }
+    },
+    "master": {
+     "floor_1": {
+      "splus": 103973,
+      "s": 194744,
+      "any": 103973
+     },
+     "floor_2": {
+      "splus": 134980,
+      "s": 185583,
+      "any": 134980
+     },
+     "floor_3": {
+      "splus": 319723,
+      "s": 130606,
+      "any": 130606
+     },
+     "floor_4": {
+      "splus": 160058,
+      "s": 333500,
+      "any": 160058
+     },
+     "floor_5": {
+      "splus": 87245,
+      "s": 127036,
+      "any": 87245
+     },
+     "floor_6": {
+      "splus": 152566,
+      "s": 185454,
+      "any": 152566
+     },
+     "floor_7": {
+      "splus": 298456,
+      "s": 308572,
+      "any": 298456
+     }
+    }
+   },
+   "selectedClass": "mage",
+   "classLevels": {
+    "healer": 41.49790147368421,
+    "mage": 47.02079429333333,
+    "berserk": 42.44014175,
+    "archer": 41.79830552631579,
+    "tank": 41.642237421052634
+   },
+   "profile": "Lemon",
+   "profileRule": "selected",
+   "profiles": 3
+  }
+ },
+ "lividlaughs": {
+  "status": "ok",
+  "uuid": "9c27dfa3624347598a6b0705944587a9",
+  "stats": {
+   "cata": 50,
+   "cataXp": 2013179558,
+   "secrets": 97468,
+   "avgSecrets": 11.89794921875,
+   "runs": 8192,
+   "pb": {
+    "normal": {
+     "floor_0": {
+      "any": 159863
+     },
+     "floor_1": {
+      "splus": 84220,
+      "s": 419175,
+      "any": 84220
+     },
+     "floor_2": {
+      "splus": 103086,
+      "s": 241545,
+      "any": 103086
+     },
+     "floor_3": {
+      "splus": 113662,
+      "s": 314738,
+      "any": 113662
+     },
+     "floor_4": {
+      "splus": 141047,
+      "s": 153317,
+      "any": 141047
+     },
+     "floor_5": {
+      "splus": 107611,
+      "s": 119301,
+      "any": 107611
+     },
+     "floor_6": {
+      "splus": 154789,
+      "s": 255473,
+      "any": 154789
+     },
+     "floor_7": {
+      "splus": 226642,
+      "s": 243354,
+      "any": 226642
+     }
+    },
+    "master": {
+     "floor_1": {
+      "splus": 136001,
+      "s": 116949,
+      "any": 116949
+     },
+     "floor_2": {
+      "s": 303013,
+      "any": 240186
+     },
+     "floor_3": {
+      "s": 140056,
+      "any": 140056
+     },
+     "floor_4": {
+      "splus": 168310,
+      "s": 227977,
+      "any": 168310
+     },
+     "floor_5": {
+      "splus": 107377,
+      "s": 121324,
+      "any": 107377
+     },
+     "floor_6": {
+      "splus": 152085,
+      "s": 170359,
+      "any": 152085
+     },
+     "floor_7": {
+      "splus": 265094,
+      "s": 254946,
+      "any": 254946
+     }
+    }
+   },
+   "selectedClass": "berserk",
+   "classLevels": {
+    "healer": 50,
+    "mage": 47.666398013333335,
+    "berserk": 50,
+    "archer": 48.36653452688172,
+    "tank": 50
+   },
+   "profile": "Lemon",
+   "profileRule": "selected",
+   "profiles": 3
+  }
+ },
+ "lovepeaceunity": {
+  "status": "ok",
+  "uuid": "4ac1e9dab6c14aca9c7f5319cf54d1a1",
+  "stats": {
+   "cata": 47.26038690666667,
+   "cataXp": 305088658,
+   "secrets": 50969,
+   "avgSecrets": 11.922573099415205,
+   "runs": 4275,
+   "pb": {
+    "normal": {
+     "floor_0": {
+      "any": 77368
+     },
+     "floor_1": {
+      "splus": 114931,
+      "s": 217408,
+      "any": 114931
+     },
+     "floor_2": {
+      "splus": 266949,
+      "s": 128764,
+      "any": 128764
+     },
+     "floor_3": {
+      "splus": 150238,
+      "s": 659703,
+      "any": 150238
+     },
+     "floor_4": {
+      "splus": 563816,
+      "s": 400070,
+      "any": 279247
+     },
+     "floor_5": {
+      "splus": 124585,
+      "s": 155522,
+      "any": 124585
+     },
+     "floor_6": {
+      "splus": 140986,
+      "s": 165761,
+      "any": 140986
+     },
+     "floor_7": {
+      "splus": 195082,
+      "s": 191410,
+      "any": 191410
+     }
+    },
+    "master": {
+     "floor_1": {
+      "s": 140973,
+      "any": 140973
+     },
+     "floor_2": {
+      "s": 172816,
+      "any": 172816
+     },
+     "floor_3": {
+      "any": 164099
+     },
+     "floor_4": {
+      "splus": 181946,
+      "s": 256044,
+      "any": 181946
+     },
+     "floor_5": {
+      "splus": 104742,
+      "s": 134991,
+      "any": 104742
+     },
+     "floor_6": {
+      "splus": 139160,
+      "s": 176544,
+      "any": 139160
+     },
+     "floor_7": {
+      "splus": 305038,
+      "s": 326135,
+      "any": 305038
+     }
+    }
+   },
+   "selectedClass": "mage",
+   "classLevels": {
+    "healer": 42.46724341666667,
+    "mage": 40.7672182,
+    "berserk": 42.148255,
+    "archer": 41.61746884210526,
+    "tank": 42.265937875
+   },
+   "profile": "Banana",
+   "profileRule": "selected",
+   "profiles": 2
+  }
+ },
+ "manilike5": {
+  "status": "ok",
+  "uuid": "75c0a076d6d44509aac5c2255d0f0777",
+  "stats": {
+   "cata": 44.466340263157896,
+   "cataXp": 157280570,
+   "secrets": 32460,
+   "avgSecrets": 11.235721703011423,
+   "runs": 2889,
+   "pb": {
+    "normal": {
+     "floor_0": {
+      "any": 70104
+     },
+     "floor_1": {
+      "splus": 211986,
+      "s": 180198,
+      "any": 81475
+     },
+     "floor_2": {
+      "splus": 361114,
+      "s": 170438,
+      "any": 170438
+     },
+     "floor_3": {
+      "splus": 151822,
+      "s": 154565,
+      "any": 151822
+     },
+     "floor_4": {
+      "splus": 321146,
+      "s": 206583,
+      "any": 165760
+     },
+     "floor_5": {
+      "splus": 210879,
+      "s": 219882,
+      "any": 210879
+     },
+     "floor_6": {
+      "splus": 199821,
+      "s": 180816,
+      "any": 157512
+     },
+     "floor_7": {
+      "splus": 198904,
+      "s": 205449,
+      "any": 198904
+     }
+    },
+    "master": {
+     "floor_1": {
+      "s": 120332,
+      "any": 114488
+     },
+     "floor_2": {
+      "splus": 187602,
+      "s": 151154,
+      "any": 151154
+     },
+     "floor_3": {
+      "splus": 156140,
+      "s": 140161,
+      "any": 140161
+     },
+     "floor_4": {
+      "splus": 144059,
+      "s": 158016,
+      "any": 144059
+     },
+     "floor_5": {
+      "splus": 112407,
+      "s": 135889,
+      "any": 112407
+     },
+     "floor_6": {
+      "splus": 198786,
+      "s": 537658,
+      "any": 198786
+     },
+     "floor_7": {
+      "splus": 735486,
+      "s": 622025,
+      "any": 622025
+     }
+    }
+   },
+   "selectedClass": "berserk",
+   "classLevels": {
+    "healer": 39.28872925,
+    "mage": 37.62880208333333,
+    "berserk": 38.075531847826085,
+    "archer": 38.60201391304348,
+    "tank": 42.70491575
+   },
+   "profile": "Lime",
+   "profileRule": "selected",
+   "profiles": 3
+  }
+ },
+ "meowinging": {
+  "status": "missing",
+  "uuid": "df90f38fcc6648829070ac46b232d4ba",
+  "reason": "SkyBlockPV backend: no Catacombs data on any of 2 profile(s)"
+ },
+ "noselectedplr": {
+  "status": "ok",
+  "uuid": "40000000000040000000000000000406",
+  "stats": {
+   "cata": 48.71393278494624,
+   "cataXp": 426955389,
+   "secrets": 85655,
+   "avgSecrets": 15.570805308125795,
+   "runs": 5501,
+   "pb": {
+    "normal": {
+     "floor_0": {
+      "any": 70232
+     },
+     "floor_1": {
+      "splus": 114931,
+      "s": 278565,
+      "any": 114931
+     },
+     "floor_2": {
+      "splus": 142636,
+      "s": 128764,
+      "any": 128764
+     },
+     "floor_3": {
+      "splus": 141549,
+      "s": 187418,
+      "any": 141549
+     },
+     "floor_4": {
+      "splus": 157992,
+      "s": 185401,
+      "any": 157992
+     },
+     "floor_5": {
+      "splus": 124542,
+      "s": 163664,
+      "any": 124542
+     },
+     "floor_6": {
+      "splus": 149619,
+      "s": 187765,
+      "any": 149619
+     },
+     "floor_7": {
+      "splus": 189832,
+      "s": 205449,
+      "any": 189832
+     }
+    },
+    "master": {
+     "floor_1": {
+      "splus": 103973,
+      "s": 103816,
+      "any": 103816
+     },
+     "floor_2": {
+      "splus": 171970,
+      "s": 179449,
+      "any": 171970
+     },
+     "floor_3": {
+      "splus": 131652,
+      "s": 127238,
+      "any": 127238
+     },
+     "floor_4": {
+      "splus": 256363,
+      "s": 479360,
+      "any": 256363
+     },
+     "floor_5": {
+      "splus": 110110,
+      "s": 113721,
+      "any": 110110
+     },
+     "floor_6": {
+      "splus": 153233,
+      "s": 186005,
+      "any": 153233
+     },
+     "floor_7": {
+      "splus": 299005,
+      "s": 306589,
+      "any": 299005
+     }
+    }
+   },
+   "selectedClass": "tank",
+   "classLevels": {
+    "healer": 44.41311413157895,
+    "mage": 41.560612842105265,
+    "berserk": 42.44733108333333,
+    "archer": 44.01638452631579,
+    "tank": 44.25042105263158
+   },
+   "profile": "Strawberry",
+   "profileRule": "most",
+   "profiles": 4
+  }
+ },
+ "nym_xoxo": {
+  "status": "ok",
+  "uuid": "e467295f2b8940958b18dfff347ea285",
+  "stats": {
+   "cata": 42.55441925,
+   "cataXp": 98865702,
+   "secrets": 35159,
+   "avgSecrets": 12.701950867052023,
+   "runs": 2768,
+   "pb": {
+    "normal": {
+     "floor_0": {
+      "any": 59015
+     },
+     "floor_1": {
+      "splus": 622256,
+      "s": 288884,
+      "any": 120837
+     },
+     "floor_2": {
+      "splus": 167981,
+      "s": 289313,
+      "any": 167981
+     },
+     "floor_3": {
+      "splus": 202280,
+      "s": 333085,
+      "any": 202280
+     },
+     "floor_4": {
+      "splus": 204314,
+      "s": 197824,
+      "any": 197824
+     },
+     "floor_5": {
+      "splus": 180754,
+      "s": 199158,
+      "any": 180754
+     },
+     "floor_6": {
+      "splus": 150185,
+      "s": 426238,
+      "any": 150185
+     },
+     "floor_7": {
+      "splus": 214605,
+      "s": 212750,
+      "any": 212750
+     }
+    },
+    "master": {
+     "floor_1": {
+      "s": 509168,
+      "any": 509168
+     },
+     "floor_2": {
+      "any": 222334
+     },
+     "floor_3": {
+      "any": 218608
+     }
+    }
+   },
+   "selectedClass": "tank",
+   "classLevels": {
+    "healer": 36.858054464285715,
+    "mage": 35.77329674418605,
+    "berserk": 38.47868043478261,
+    "archer": 37.36979763888889,
+    "tank": 37.50736930555556
+   },
+   "profile": "Blueberry",
+   "profileRule": "selected",
+   "profiles": 2
+  }
+ },
+ "sideprofileplr": {
+  "status": "ok",
+  "uuid": "40000000000040000000000000000407",
+  "stats": {
+   "cata": 50,
+   "cataXp": 2752153839,
+   "secrets": 338395,
+   "avgSecrets": 23.849108464303335,
+   "runs": 14189,
+   "pb": {
+    "normal": {
+     "floor_0": {
+      "any": 56583
+     },
+     "floor_1": {
+      "splus": 88875,
+      "s": 142168,
+      "any": 88875
+     },
+     "floor_2": {
+      "splus": 130896,
+      "s": 153559,
+      "any": 130896
+     },
+     "floor_3": {
+      "splus": 129810,
+      "s": 189529,
+      "any": 129810
+     },
+     "floor_4": {
+      "splus": 158729,
+      "s": 207057,
+      "any": 158729
+     },
+     "floor_5": {
+      "splus": 127539,
+      "s": 182220,
+      "any": 127539
+     },
+     "floor_6": {
+      "splus": 153435,
+      "s": 188629,
+      "any": 153435
+     },
+     "floor_7": {
+      "splus": 189832,
+      "s": 205449,
+      "any": 189832
+     }
+    },
+    "master": {
+     "floor_1": {
+      "splus": 87129,
+      "s": 90798,
+      "any": 87129
+     },
+     "floor_2": {
+      "splus": 110514,
+      "s": 115169,
+      "any": 110514
+     },
+     "floor_3": {
+      "splus": 114125,
+      "s": 112280,
+      "any": 112280
+     },
+     "floor_4": {
+      "splus": 134789,
+      "s": 145118,
+      "any": 134789
+     },
+     "floor_5": {
+      "splus": 104063,
+      "s": 120145,
+      "any": 104063
+     },
+     "floor_6": {
+      "splus": 132184,
+      "s": 165530,
+      "any": 132184
+     },
+     "floor_7": {
+      "splus": 293059,
+      "s": 300458,
+      "any": 293059
+     }
+    }
+   },
+   "selectedClass": "archer",
+   "classLevels": {
+    "healer": 50,
+    "mage": 50,
+    "berserk": 50,
+    "archer": 50,
+    "tank": 50
+   },
+   "profile": "Lime",
+   "profileRule": "most",
+   "profiles": 4
+  }
+ },
+ "smallbaldingg": {
+  "status": "ok",
+  "uuid": "073f4dda72e2471088f54f1bb280a016",
+  "stats": {
+   "cata": 49.0015759655914,
+   "cataXp": 453742846,
+   "secrets": 12949,
+   "avgSecrets": 12.511111111111111,
+   "runs": 1035,
+   "pb": {
+    "normal": {
+     "floor_0": {
+      "any": 197595
+     },
+     "floor_1": {
+      "s": 254723,
+      "any": 254723
+     },
+     "floor_2": {
+      "splus": 299523,
+      "any": 299523
+     },
+     "floor_3": {
+      "splus": 324032,
+      "any": 324032
+     },
+     "floor_4": {
+      "splus": 227858,
+      "any": 227858
+     },
+     "floor_5": {
+      "splus": 144268,
+      "any": 144268
+     },
+     "floor_6": {
+      "splus": 148497,
+      "s": 190134,
+      "any": 148497
+     },
+     "floor_7": {
+      "splus": 220404,
+      "s": 240336,
+      "any": 220404
+     }
+    },
+    "master": {
+     "floor_1": {
+      "splus": 128133,
+      "any": 128133
+     },
+     "floor_2": {
+      "splus": 152227,
+      "any": 152227
+     },
+     "floor_3": {
+      "splus": 122067,
+      "s": 142164,
+      "any": 122067
+     },
+     "floor_4": {
+      "splus": 165689,
+      "s": 167645,
+      "any": 165689
+     },
+     "floor_5": {
+      "splus": 112402,
+      "s": 157458,
+      "any": 112402
+     },
+     "floor_6": {
+      "splus": 144592,
+      "any": 144592
+     },
+     "floor_7": {
+      "splus": 235696,
+      "s": 236586,
+      "any": 235696
+     }
+    }
+   },
+   "selectedClass": "mage",
+   "classLevels": {
+    "healer": 44.034214,
+    "mage": 42.92869983333333,
+    "berserk": 45.493269291666664,
+    "archer": 42.009295208333334,
+    "tank": 43.5630568
+   },
+   "profile": "Pineapple",
+   "profileRule": "selected",
+   "profiles": 2
+  }
+ },
+ "smhauto": {
+  "status": "ok",
+  "uuid": "d5ca5bb9ed6c4f0f91bc34214437752b",
+  "stats": {
+   "cata": 50,
+   "cataXp": 758903747,
+   "secrets": 49358,
+   "avgSecrets": 14.893783946891974,
+   "runs": 3314,
+   "pb": {
+    "normal": {
+     "floor_0": {
+      "any": 100197
+     },
+     "floor_1": {
+      "splus": 198559,
+      "s": 267345,
+      "any": 124555
+     },
+     "floor_2": {
+      "splus": 341493,
+      "any": 181718
+     },
+     "floor_3": {
+      "splus": 214165,
+      "s": 417370,
+      "any": 172094
+     },
+     "floor_4": {
+      "splus": 238963,
+      "s": 156885,
+      "any": 156885
+     },
+     "floor_5": {
+      "splus": 214263,
+      "s": 337921,
+      "any": 214263
+     },
+     "floor_6": {
+      "splus": 178575,
+      "s": 174983,
+      "any": 174983
+     },
+     "floor_7": {
+      "splus": 209793,
+      "s": 252403,
+      "any": 209793
+     }
+    },
+    "master": {
+     "floor_1": {
+      "splus": 126404,
+      "s": 108796,
+      "any": 108796
+     },
+     "floor_2": {
+      "s": 120686,
+      "any": 120686
+     },
+     "floor_3": {
+      "splus": 372116,
+      "s": 130510,
+      "any": 130510
+     },
+     "floor_4": {
+      "splus": 160080,
+      "s": 198086,
+      "any": 160080
+     },
+     "floor_5": {
+      "splus": 111564,
+      "s": 141551,
+      "any": 111564
+     },
+     "floor_6": {
+      "splus": 156020,
+      "s": 187067,
+      "any": 156020
+     },
+     "floor_7": {
+      "splus": 263243,
+      "s": 286467,
+      "any": 263243
+     }
+    }
+   },
+   "selectedClass": "archer",
+   "classLevels": {
+    "healer": 48.13090807526882,
+    "mage": 44.33479905263158,
+    "berserk": 46.87670671666667,
+    "archer": 44.46476892105263,
+    "tank": 46.013669666666665
+   },
+   "profile": "Pineapple",
+   "profileRule": "selected",
+   "profiles": 5
+  }
+ },
+ "theadmin987": {
+  "status": "ok",
+  "uuid": "42699e8135a1492d93a5d9fc55ce4a0f",
+  "stats": {
+   "cata": 38.111960108695655,
+   "cataXp": 31389673,
+   "secrets": 29048,
+   "avgSecrets": 42.84365781710915,
+   "runs": 678,
+   "pb": {
+    "normal": {
+     "floor_0": {
+      "any": 92222
+     },
+     "floor_1": {
+      "splus": 130038,
+      "s": 122072,
+      "any": 122072
+     },
+     "floor_2": {
+      "splus": 171446,
+      "s": 183582,
+      "any": 171446
+     },
+     "floor_3": {
+      "s": 174058,
+      "any": 174058
+     },
+     "floor_4": {
+      "splus": 174004,
+      "s": 215585,
+      "any": 174004
+     },
+     "floor_5": {
+      "splus": 131129,
+      "s": 143860,
+      "any": 131129
+     },
+     "floor_6": {
+      "splus": 150185,
+      "s": 158780,
+      "any": 150185
+     },
+     "floor_7": {
+      "splus": 233686,
+      "s": 250474,
+      "any": 233686
+     }
+    },
+    "master": {
+     "floor_1": {
+      "splus": 189603,
+      "s": 152822,
+      "any": 152822
+     },
+     "floor_2": {
+      "splus": 142159,
+      "s": 133007,
+      "any": 133007
+     },
+     "floor_3": {
+      "splus": 197145,
+      "s": 191495,
+      "any": 191495
+     },
+     "floor_4": {
+      "splus": 290879,
+      "s": 500104,
+      "any": 290879
+     },
+     "floor_5": {
+      "splus": 111440,
+      "s": 158333,
+      "any": 111440
+     },
+     "floor_6": {
+      "splus": 183608,
+      "any": 183608
+     }
+    }
+   },
+   "selectedClass": "tank",
+   "classLevels": {
+    "healer": 34.11144787878788,
+    "mage": 31.284843971631204,
+    "berserk": 32.904886315789476,
+    "archer": 32.02480263157895,
+    "tank": 34.80587
+   },
+   "profile": "Papaya",
+   "profileRule": "selected",
+   "profiles": 4
+  }
+ },
+ "tvue": {
+  "status": "ok",
+  "uuid": "24325a5e18084674ab4a1d41c43315e0",
+  "stats": {
+   "cata": 50,
+   "cataXp": 683208597,
+   "secrets": 212955,
+   "avgSecrets": 25.891185410334348,
+   "runs": 8225,
+   "pb": {
+    "normal": {
+     "floor_0": {
+      "any": 64472
+     },
+     "floor_1": {
+      "splus": 118684,
+      "s": 215077,
+      "any": 85447
+     },
+     "floor_2": {
+      "splus": 145235,
+      "s": 228747,
+      "any": 145235
+     },
+     "floor_3": {
+      "splus": 115870,
+      "s": 205886,
+      "any": 115870
+     },
+     "floor_4": {
+      "splus": 137618,
+      "s": 165280,
+      "any": 137618
+     },
+     "floor_5": {
+      "splus": 117703,
+      "s": 135508,
+      "any": 117703
+     },
+     "floor_6": {
+      "splus": 133569,
+      "s": 148645,
+      "any": 133569
+     },
+     "floor_7": {
+      "splus": 185173,
+      "s": 218655,
+      "any": 185173
+     }
+    },
+    "master": {
+     "floor_1": {
+      "splus": 113616,
+      "s": 135264,
+      "any": 113616
+     },
+     "floor_2": {
+      "splus": 99323,
+      "s": 284045,
+      "any": 99323
+     },
+     "floor_3": {
+      "splus": 121899,
+      "s": 126024,
+      "any": 121899
+     },
+     "floor_4": {
+      "splus": 127374,
+      "s": 158152,
+      "any": 127374
+     },
+     "floor_5": {
+      "splus": 103823,
+      "s": 117812,
+      "any": 103823
+     },
+     "floor_6": {
+      "splus": 179209,
+      "any": 179209
+     },
+     "floor_7": {
+      "splus": 275242,
+      "s": 279159,
+      "any": 275242
+     }
+    }
+   },
+   "selectedClass": "mage",
+   "classLevels": {
+    "healer": 46.18742041666667,
+    "mage": 43.80066386666667,
+    "berserk": 46.69816013333333,
+    "archer": 45.413443541666666,
+    "tank": 44.28304360526316
+   },
+   "profile": "Lime",
+   "profileRule": "selected",
+   "profiles": 4
+  }
+ },
+ "zwiebler3000": {
+  "status": "ok",
+  "uuid": "d2c8570a0571405787a478f079a4df8e",
+  "stats": {
+   "cata": 50,
+   "cataXp": 1422681371,
+   "secrets": 47375,
+   "avgSecrets": 4.413956955184943,
+   "runs": 10733,
+   "pb": {
+    "normal": {
+     "floor_0": {
+      "any": 70607
+     },
+     "floor_1": {
+      "splus": 123614,
+      "s": 129481,
+      "any": 96128
+     },
+     "floor_2": {
+      "splus": 158792,
+      "s": 181535,
+      "any": 138134
+     },
+     "floor_3": {
+      "splus": 133219,
+      "s": 208663,
+      "any": 112107
+     },
+     "floor_4": {
+      "splus": 256816,
+      "s": 258661,
+      "any": 181948
+     },
+     "floor_5": {
+      "splus": 193540,
+      "s": 256362,
+      "any": 123925
+     },
+     "floor_6": {
+      "splus": 199491,
+      "s": 240499,
+      "any": 155538
+     },
+     "floor_7": {
+      "splus": 199674,
+      "s": 206123,
+      "any": 199674
+     }
+    },
+    "master": {
+     "floor_1": {
+      "splus": 110505,
+      "s": 97306,
+      "any": 97306
+     },
+     "floor_2": {
+      "splus": 112313,
+      "s": 111814,
+      "any": 111814
+     },
+     "floor_3": {
+      "splus": 164573,
+      "s": 124290,
+      "any": 124290
+     },
+     "floor_4": {
+      "splus": 208991,
+      "s": 246584,
+      "any": 208991
+     },
+     "floor_5": {
+      "splus": 111013,
+      "s": 129782,
+      "any": 111013
+     },
+     "floor_6": {
+      "splus": 150525,
+      "s": 165674,
+      "any": 150525
+     },
+     "floor_7": {
+      "splus": 314425,
+      "s": 322274,
+      "any": 314425
+     }
+    }
+   },
+   "selectedClass": "mage",
+   "classLevels": {
+    "healer": 46.67909838333333,
+    "mage": 50,
+    "berserk": 46.70546323333333,
+    "archer": 46.99120308333333,
+    "tank": 46.6068977
+   },
+   "profile": "Blueberry",
+   "profileRule": "selected",
+   "profiles": 3
+  }
+ }
+}

@@ -627,13 +627,14 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 		}
 	}
 	// The in-client HTTP fake (menu/PartyFinderStatsCases, server port + 6), used by 400-menu-partyfinder-stats to
-	// serve the Party Finder's player stats: the SkyBlockPV backend and the two Mojang name lookups point at it unless
+	// serve the Party Finder's player stats: the SkyBlockPV backend, the two Mojang name lookups and the relay's
+	// /pf/stats (pf-relay, 410-menu-partyfinder-relay; 400/406 answer it 404, so the mod falls back) point at it unless
 	// -PnetOverride names them. Offline runs only. Nothing listens there outside a case that starts the fake, so every
 	// other case's call to these services fails with the same ConnectException the offline switch gives.
 	def fakeHttpPort = serverPort + 6
 	systemProperty "testkit.fakeHttp.port", fakeHttpPort.toString()
 	if (!noQuiet && !project.hasProperty("netOnline")) {
-		["pv-backend": "pv", "minecraftservices": "mcs", "mojang": "mojang"].each { svc, prefix ->
+		["pv-backend": "pv", "minecraftservices": "mcs", "mojang": "mojang", "pf-relay": "pfrelay"].each { svc, prefix ->
 			if (!overridden.contains(svc)) {
 				systemProperty "killer560.net.${svc}", "http://127.0.0.1:${fakeHttpPort}/${prefix}"
 			}

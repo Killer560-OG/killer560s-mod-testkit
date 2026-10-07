@@ -224,6 +224,12 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   empty-selected-profile shape, meowinging (no dungeon data), an Entrance party and an M3 party with any-score-only
   times. It reads the mod's outcome log lines through `LogTap`; an old jar logged one PF line per SESSION, so after 400 it
   shows 0. Fails on 799c5c2f and a411e650 (2 of 19 players with stats), passes on pf-stats-2.
+- 410-menu-partyfinder-relay (`PartyFinderRelayCases`, mod pf-relay): the relay path (`POST /pf/stats` on the fake's
+  `/pfrelay`). The fake serves `relay-golden.json`, the RELAY'S extraction of the 22 fixture players (relay repo
+  `scripts/pf-golden.mjs`; regenerate it when a fixture changes), so the relay-down step comparing the direct path's
+  numbers with it field by field is the parity check between the relay's TypeScript port and the mod's Java. Count
+  direct work with the mod's `LOOKUPS_STARTED`, not the fake's hits: the Profile Viewer keeps fetched profiles 5 minutes,
+  so after 400/406 a direct lookup often never reaches the fake. 400/406 answer `/pf/stats` 404, which is their fallback.
   408-menu-partyfinder-stats-live runs a 25-player menu against the REAL backend: only with `TESTKIT_PF_LIVE=1` and
   `-Extra @("-PnetOnline")`; it prints coverage at 30/60/120/180 s and asserts nothing.
 
