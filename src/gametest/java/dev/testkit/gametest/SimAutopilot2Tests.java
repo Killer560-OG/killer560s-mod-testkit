@@ -70,6 +70,8 @@ public class SimAutopilot2Tests implements FabricClientGameTest {
     private static final String AUTO_CLEAR_CONFIG = "com.killer560.hub.autoclear.AutoClearConfig";
     private static final String AUTO_CLEAR = "com.killer560.hub.autoclear.AutoClearFeature";
     private static final String SCORE_CONFIG = "com.killer560.hub.scorecalc.ScoreCalculatorConfig";
+    /** Score Calculator as this case found it; put back in the finally, so later cases see a fresh config. */
+    private static boolean scoreWasOn;
     private static final String PUZZLES = "com.killer560.hub.autopuzzles.AutoPuzzlesConfig";
     private static final String SOLVERS = "com.killer560.hub.puzzlesolvers.";
     private static final int GRID = 11;
@@ -114,6 +116,7 @@ public class SimAutopilot2Tests implements FabricClientGameTest {
             ModUnderTest.set(ar, "setLegitMode", false);
             ModUnderTest.set(ar, "setStartFromStartNodeOnly", true);
             ModUnderTest.call(ar, "setHeight", new Class<?>[]{float.class}, new Object[]{1.0f});
+            scoreWasOn = ModUnderTest.getBoolean(ModUnderTest.config(SCORE_CONFIG), "isEnabled");
             ModUnderTest.set(ModUnderTest.config(SCORE_CONFIG), "setEnabled", true);
             ModUnderTest.set(ModUnderTest.config(AUTO_CLEAR_CONFIG), "setEnabled", false);
             Object as = ModUnderTest.config(AS_CONFIG);
@@ -142,6 +145,7 @@ public class SimAutopilot2Tests implements FabricClientGameTest {
                             new Object[]{"test over", true});
                 }
                 puzzles(false);
+                ModUnderTest.set(ModUnderTest.config(SCORE_CONFIG), "setEnabled", scoreWasOn);
             });
             writeRoutes(ctx, Map.of());
             ctx.runOnClient(mc -> mc.options.renderDistance().set(renderBefore));

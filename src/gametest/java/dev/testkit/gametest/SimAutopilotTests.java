@@ -70,6 +70,8 @@ public class SimAutopilotTests implements FabricClientGameTest {
     private static final String AUTO_CLEAR = "com.killer560.hub.autoclear.AutoClearFeature";
     private static final String AUTO_CLEAR_CONFIG = "com.killer560.hub.autoclear.AutoClearConfig";
     private static final String SCORE_CONFIG = "com.killer560.hub.scorecalc.ScoreCalculatorConfig";
+    /** Score Calculator as this case found it; put back in the finally, so later cases see a fresh config. */
+    private static boolean scoreWasOn;
     private static final int GRID = 11;
     private static final int CASE_TICKS = 20 * 240;
 
@@ -143,6 +145,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
             ModUnderTest.set(ar, "setLegitMode", false);
             ModUnderTest.set(ar, "setStartFromStartNodeOnly", true);
             ModUnderTest.call(ar, "setHeight", new Class<?>[]{float.class}, new Object[]{1.0f});
+            scoreWasOn = ModUnderTest.getBoolean(ModUnderTest.config(SCORE_CONFIG), "isEnabled");
             ModUnderTest.set(ModUnderTest.config(SCORE_CONFIG), "setEnabled", true);
             Object as = ModUnderTest.config(AS_CONFIG);
             ModUnderTest.set(as, "setChatFeedback", true);
@@ -172,6 +175,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
                         new Object[]{null});
                 ModUnderTest.staticCall(AUTO_CLEAR, "cancel");
                 ModUnderTest.set(ModUnderTest.config(AUTO_CLEAR_CONFIG), "setEnabled", false);
+                ModUnderTest.set(ModUnderTest.config(SCORE_CONFIG), "setEnabled", scoreWasOn);
             });
             writeRoutes(ctx, Map.of());
             ctx.runOnClient(mc -> mc.options.renderDistance().set(renderBefore));
