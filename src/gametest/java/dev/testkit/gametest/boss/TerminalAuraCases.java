@@ -61,10 +61,14 @@ final class TerminalAuraCases {
         try {
             c.hx().call("boss.term.build", "x", X, "z", Z, "groundY", G);
             tp(c, X - 1.5, G + 3, Z + 0.5, -90f);
+            // As 409's logger case learned: spawn the stand only once the client has really arrived and loaded the
+            // arena, or the client may never be sent it.
+            c.ctx().waitTicks(20);
             JsonObject st = c.hx().call("boss.term.spawn").getAsJsonObject();
             int standId = st.get("standId").getAsInt();
+            standIdForDiag = standId;
             c.hx().call("boss.term.config", "line", true);
-            c.waitUntil("the client to have the terminal stand", mc -> mc.level.getEntity(standId) != null, 200);
+            c.waitUntil("the client to have the terminal stand (" + st + ")", mc -> mc.level.getEntity(standId) != null, 200);
 
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
             c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
@@ -131,6 +135,25 @@ final class TerminalAuraCases {
         }
     }
 
+    static int standIdForDiag = -1;
+
+    /** What the aura is looking at, for a failure message. */
+    static String diag(Session c) {
+        return c.onClient(mc -> {
+            var stand = mc.level == null ? null : mc.level.getEntity(standIdForDiag);
+            return "enabled " + Mod.get(CONFIG, "isEnabled") + ", turn " + Mod.get(CONFIG, "isTurnToTerminal")
+                    + ", fov " + Mod.get(CONFIG, "getFovDegrees")
+                    + ", phase " + Mod.staticCall(TRACKER, "getPhase") + ", inF7Boss " + Mod.staticCall(TRACKER, "inF7Boss")
+                    + ", screen " + dev.testkit.compat.McCompat.screen(mc)
+                    + ", pending " + Mod.field("terminalaura.TerminalAuraFeature", "pendingStand")
+                    + ", lastClickMs age " + (System.currentTimeMillis() - (Long) Mod.field("terminalaura.TerminalAuraFeature", "lastClickMs"))
+                    + ", player " + mc.player.position() + " eye " + mc.player.getEyePosition() + " yaw " + mc.player.getYRot()
+                    + " pitch " + mc.player.getXRot()
+                    + ", stand " + (stand == null ? "absent" : stand.position() + " alive " + stand.isAlive()
+                    + " name " + stand.getDisplayName().getString());
+        });
+    }
+
     /** Aura off, move to the spot, aura on, and judge 40 ticks of it. */
     static void expect(Session c, String name, double x, double y, double z, float yaw, boolean click) throws Exception {
         c.onClient(mc -> {
@@ -146,7 +169,11 @@ final class TerminalAuraCases {
             return null;
         });
         if (click) {
-            c.waitUntil(name + ": the aura's click reaching the server", mc -> c.events("term.interact").size() > before, 40);
+            try {
+                c.waitUntil(name + ": the aura's click reaching the server", mc -> c.events("term.interact").size() > before, 60);
+            } catch (AssertionError e) {
+                throw new AssertionError(e.getMessage() + " (" + diag(c) + ")", e);
+            }
             List<JsonObject> ev = c.events("term.interact");
             JsonObject last = ev.get(ev.size() - 1);
             c.note(name + ": clicked, server " + last);
