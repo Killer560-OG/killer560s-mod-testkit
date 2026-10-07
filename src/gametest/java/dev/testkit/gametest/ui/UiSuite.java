@@ -40,7 +40,10 @@ import java.util.List;
  *                Stat Bars Vitality + XP readouts and Classic Display migration ({@link HudEditorCases}),
  *                407 Health and Mana Bars Layout: Predefined areas round the hotbar measured on screenshots at Auto
  *                Scale 0.5 and 1 (shared width, clear of the vanilla rows), real-mouse drags between areas and onto
- *                Hidden, Custom positions untouched, old configs stay Custom ({@link StatBarsLayoutCases})
+ *                Hidden, Custom positions untouched, old configs stay Custom ({@link StatBarsLayoutCases}),
+ *                424 Bazaar browser: every product parsed, six views at four window/GUI scales with no text or widget
+ *                overlapping or leaving its box, the /bz button's command, screenshots at GUI 2 and 4; 425 every
+ *                Bazaar product's icon source and the paper fallbacks named ({@link BazaarBrowserCases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -60,7 +63,8 @@ public class UiSuite implements FabricClientGameTest {
             "394-ui-hud-boxes", "395-ui-map-heads",
             "399-ui-hud-editor-resize", "399-ui-hud-editor-snap",
             "399-ui-stat-bars-vitality-xp", "407-ui-stat-bars-layout", "401-ui-scoreboard-editor",
-            "411-ui-mining-shelved", "412-ui-no-new-tab", "413-ui-testing-variant"};
+            "411-ui-mining-shelved", "412-ui-no-new-tab", "413-ui-testing-variant",
+            "424-ui-bazaar-browser", "425-ui-bazaar-icons"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -142,6 +146,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "411-ui-mining-shelved", MiningShelvedCases::run);
                     UiCase.run(ctx, "412-ui-no-new-tab", c -> NoNewTabCases.run(c, deny));
                     UiCase.run(ctx, "413-ui-testing-variant", TestingVariantCases::run);
+                    UiCase.run(ctx, "424-ui-bazaar-browser", BazaarBrowserCases::browser);
+                    UiCase.run(ctx, "425-ui-bazaar-icons", BazaarBrowserCases::icons);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

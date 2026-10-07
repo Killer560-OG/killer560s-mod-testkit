@@ -342,3 +342,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   -play: the triggerbot clicked each lever as the legit route turned the crosshair onto it (two use_item_on in one tick, the
   lever back off). Same on the old jar, so not a mod regression (2026-10-07). A shard reorders the k560 list: any scenario
   that switches a clicking feature on must switch it off, and a session that judges clicks switches the others off itself.
+- 424-ui-bazaar-browser / 425-ui-bazaar-icons (`BazaarBrowserCases`, mod bazaar-ui) and 426-menu-bazaar-orders
+  (`BazaarOrderCases`): 424 feeds a synthetic bazaar answer for every id in the mod's bundled table through
+  `BazaarApi.applyResponseForTest`, then reads the screen's own `layoutReport()` (every region, text and widget box of
+  the last frame) in six views at four window/GUI scales; the screen records its texts, so a rectangle check needs no
+  pixel work. 425 counts `BazaarIcons` sources (no Hypixel pack in a test client: 47 paper fallbacks on 2026-10-07).
+  426 shows Hypixel's Manage Orders (`menus.bazaar-orders`, formats from SkyHanni/Skyblocker, not a live capture) and
+  waits for the mod's TICK reader to store the orders; it also requires zero container clicks.

@@ -40,6 +40,7 @@ final class InventoryCases {
         MenuSuite.test(s, "249-menu-bazaarflip-menu-dump", InventoryCases::bazaarDump);
         MenuSuite.test(s, "250-menu-chocolate-factory", InventoryCases::chocolate);
         PetWheelInstantCases.register(s);
+        BazaarOrderCases.register(s);
     }
 
     static void clearInv(Session c) {
