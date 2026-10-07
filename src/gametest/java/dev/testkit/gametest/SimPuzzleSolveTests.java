@@ -2773,8 +2773,7 @@ public final class SimPuzzleSolveTests {
                         "killer560smod-roomdata", "") == 0) {
             return false;
         }
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(
-                "com.killer560.hub.roomdatabase.RoomDatabase", "ensureLoading"));
+        ctx.runOnClient(mc -> Scenario.loadRoomDatabaseNow());
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(
                 "com.killer560.hub.roomdatabase.RoomDatabase", "isReady"), 2400);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(ROOM_LIBRARY, "forceReload"));

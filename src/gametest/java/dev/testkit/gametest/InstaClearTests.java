@@ -417,7 +417,10 @@ public class InstaClearTests implements FabricClientGameTest {
             int sx = Integer.signum(tb[0] - ta[0]);
             int sz = Integer.signum(tb[1] - ta[1]);
             BlockPos startCol = BlockPos.containing(doorAt.x - sx * 6, doorAt.y, doorAt.z - sz * 6);
-            String placed = placeAt(ctx, startCol.getX(), startCol.getZ());
+            // At the DOOR'S level, not the column's lowest standable block: a room with a lower level under that
+            // spot put him 9 blocks below the doorway (Black Flag, sim y offset +185, 2026-10-07) and 52 below
+            // (Lower Blaze, 2026-10-06), and the walk then went 0.2 blocks into a wall.
+            String placed = placeNear(ctx, startCol.getX(), (int) Math.floor(doorAt.y), startCol.getZ());
             System.out.println("[" + name + "] walk start, door at " + doorAt + ": " + placed);
             ctx.waitTicks(20);
             String inA = ctx.computeOnClient(InstaClearTests::roomUnderPlayer);
@@ -1257,6 +1260,46 @@ public class InstaClearTests implements FabricClientGameTest {
         });
         ctx.waitFor(mc -> done.get() != null, 200);
         return out.get();
+    }
+
+    /**
+     * Like {@link #placeAt}, but onto the first standable block going DOWN from {@code fromY + 1} (at most 12 blocks),
+     * so he lands on the floor at that level rather than on a lower level of the same room. Falls back to
+     * {@link #placeAt} when that band has nowhere to stand.
+     */
+    private static String placeNear(ClientGameTestContext ctx, int x, int fromY, int z) {
+        AtomicReference<String> done = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            UUID uuid = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(uuid);
+                if (sp == null) {
+                    done.set("no server player");
+                    return;
+                }
+                var level = sp.level();
+                for (int y = fromY + 1; y >= fromY - 12 && y > level.getMinY(); y--) {
+                    BlockPos b = new BlockPos(x, y, z);
+                    if (!level.getBlockState(b).isAir() && level.getBlockState(b.above()).isAir()
+                            && level.getBlockState(b.above(2)).isAir()) {
+                        sp.teleportTo(x + 0.5, y + 1, z + 0.5);
+                        done.set("placed at " + x + "," + (y + 1) + "," + z + " (door level " + fromY + ")");
+                        return;
+                    }
+                }
+                done.set("");
+            });
+        });
+        ctx.waitFor(mc -> done.get() != null, 200);
+        if (done.get().isEmpty()) {
+            return placeAt(ctx, x, z) + " (nothing standable within 12 below door level " + fromY + ")";
+        }
+        ctx.waitTicks(4);
+        for (int i = 0; i < 60 && !ctx.computeOnClient(mc -> mc.player.onGround()); i++) {
+            ctx.waitTicks(1);
+        }
+        return done.get();
     }
 
     /** Teleports him (on the server, so a real position packet) onto the first standable block in the column. */

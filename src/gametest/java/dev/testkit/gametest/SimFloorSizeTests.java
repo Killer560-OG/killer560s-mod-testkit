@@ -66,8 +66,7 @@ public class SimFloorSizeTests implements FabricClientGameTest {
             System.out.println("[84-sim-floor-sizes] SKIPPED - needs his room database");
             return;
         }
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(
-                "com.killer560.hub.roomdatabase.RoomDatabase", "ensureLoading"));
+        ctx.runOnClient(mc -> Scenario.loadRoomDatabaseNow());
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(
                 "com.killer560.hub.roomdatabase.RoomDatabase", "isReady"));
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isReady"));

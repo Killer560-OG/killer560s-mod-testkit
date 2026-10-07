@@ -170,3 +170,18 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
 - Mod.field on a field the mod deleted throws inside waitUntil, and the case reports a TIMEOUT with the real "[mod] no field" only as a Caused by. 099/135 waited on
   PlayerStatsFeature.health, a String that went with Classic Display (mod a302cab2); read player stats through
   HxKit.playerStat, which formats the numeric healthCur/healthMax/manaCur/manaMax/defenceValue the bars use.
+
+- Sim scenarios after real-server ones (2026-10-07): 60/62/81-83 run the live map in a dungeon sidebar with no room database
+  copied, and offline each failed load doubles the backoff (30, 60, 120 s); 77 and 110 then copied the files and timed out
+  waiting on a load the mod would not try for two minutes. Reproduce with `60-secret-triggerbot,62-full-block-reach,
+  81-reach-at-5-blocks,82-reach-at-6-blocks,83-reach-at-7-blocks,77-lever-scan,110-sim-puzzle-reset` (fails on 0b492828 and
+  4774ebd8 with the old testkit). Start the load with `Scenario.loadRoomDatabaseNow()`, once, after copying.
+- 98-sim-insta-clear's walk placed him on the column's LOWEST standable block, a lower level of room A on some floors (9 and
+  52 blocks under the doorway), and the walk went 0.2 blocks into a wall. `placeNear` searches down from the door's height.
+- 98-sim-insta-clear-live builds its pinned floor by reopening the same sim world, and until mod fix-sim the previous case's
+  starred zombies came back from disk into rooms of the new floor (U and Z read 2 stars). A U/Z failure with "stars":2 is that.
+- 89's "1 spawned, 5 starred" was 96-ar-mimic's five mimics surviving into a later floor: 96-ar called `SimState.leave()` right
+  after the world closed, before the mod's own deferred unload reset (likely; it now waits for `isActive` to go false), and the
+  mod's builds kept the starred set until fix-sim. Reproduce with the shard's order `70-sim-flat-room,73-sim-floor-shape,74-sim-run,
+  76-sim-secrets,79-sim-map,143-sim-key-look,96-ar,63-ap3-session,80-sim-playable,84-sim-floor-sizes,88-sim-server-safety,
+  89-sim-starred-mobs`; `96-ar-mimic,89`, `96-ar,89` and `96-ar,88,89` (once each) did not reproduce it.

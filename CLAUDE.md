@@ -253,7 +253,7 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   "other") when its class ends. RAN is not PASS: read its `[name] PASS` line in the log.
 - The sim plans no floor before the mod's room database has loaded (mod 0ad55108); room types come from it, and without
   it floors had no blood room. Call `Scenario.ensureRoomDatabase(ctx)` before any `plan`/`generate`. Offline, an earlier
-  failed attempt backs off 30 s, which is why it waits up to 1000 ticks.
+  failed attempt backs off 30, 60, 120 s...; after copying, `Scenario.loadRoomDatabaseNow()` clears that backoff (77/110, 2026-10-07).
 - `build/run/clientGameTest` (crash reports included) is rebuilt by the next run. Copy `crash-reports/` out first.
 - `PacketTrace` opens a tick's bucket from its own START_CLIENT_TICK hook, registered after the mod's, so a packet a mod sends
   at START_CLIENT_TICK lands in the PREVIOUS bucket - right after that bucket's input packet, which is exactly the sneak
