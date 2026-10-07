@@ -37,6 +37,7 @@ param(
     [int]$Shards = 3,
     [string]$Minecraft = "26.1.2",          # 26.1.2 | 26.2 | both
     [string]$ModUnderTest = "",             # one version only; for both use -Jar261 / -Jar262
+    [switch]$NoMod,                         # run without any mod (e.g. -Suite generic as a baseline)
     [string]$Jar261 = "",
     [string]$Jar262 = "",
     [string]$JarsDir = "",                  # default: jarsDir from testkit.properties
@@ -125,6 +126,7 @@ function Resolve-Jar([string]$ver) {
 }
 $jars = @{}
 foreach ($v in $versions) {
+    if ($NoMod) { $jars[$v] = ""; continue }
     $jars[$v] = Resolve-Jar $v
     # killer560s-mod jars carry the version in their name; any other mod is checked by its fabric.mod.json range.
     $leaf = Split-Path $jars[$v] -Leaf
@@ -142,7 +144,7 @@ $dirty = & git -C $here status --porcelain --untracked-files=no
 if ($dirty) { Say "NOTE: this checkout has uncommitted changes; worktrees run the COMMITTED HEAD $head only" }
 Say "filter: $filter"
 Say "shards per version: $Shards, versions: $($versions -join ', '), max clients at once: $Max, base port $BasePort, out $OutDir"
-foreach ($v in $versions) { Say "mod jar $($v): $($jars[$v])" }
+foreach ($v in $versions) { if ($NoMod) { Say "mod jar $($v): none (-NoMod)" } else { Say "mod jar $($v): $($jars[$v])" } }
 
 # ---- worktrees ---------------------------------------------------------------------------------------------------
 
@@ -165,10 +167,12 @@ $q = { param($v) "'" + ([string]$v).Replace("'", "''") + "'" }
 # only the first element of a string[] (see CLAUDE.md).
 function Start-Run([string]$wt, [string]$ver, [string]$flt, [string]$jar, [int]$port, [string]$window,
                    [int]$timeout, [string[]]$extraArgs, [string]$log) {
-    $cmd = "& " + (& $q "$wt/run-scenario.ps1") + " -Scenario " + (& $q $flt) + " -ModUnderTest " + (& $q $jar) +
+    $cmd = "& " + (& $q "$wt/run-scenario.ps1") + " -Scenario " + (& $q $flt) +
            " -TimeoutSeconds $timeout -Window " + (& $q $window)
+    if ($jar -eq "") { $cmd += " -NoMod" } else { $cmd += " -ModUnderTest " + (& $q $jar) }
     if ($port -gt 0) { $cmd += " -Port $port" }
-    if ($ver -ne "26.1.2") { $cmd += " -Minecraft " + (& $q $ver) }
+    # Always named: run-scenario would otherwise read it from the jar, and the shard's version is already decided.
+    $cmd += " -Minecraft " + (& $q $ver)
     if ($extraArgs.Count -gt 0) { $cmd += " -Extra " + (($extraArgs | ForEach-Object { & $q $_ }) -join ",") }
     $cmd += "; exit `$LASTEXITCODE"
     New-Item -ItemType Directory -Force -Path (Split-Path $log -Parent) | Out-Null
