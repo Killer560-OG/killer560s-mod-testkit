@@ -260,7 +260,9 @@ public class SimAutoSecretTests implements FabricClientGameTest {
         Room noRoute = eligible.get(0);
         List<Room> routed = new ArrayList<>();
         for (int i = 1; i < eligible.size() && routed.size() < ROUTED; i++) {
-            routed.add(eligible.get(i));
+            if (pathsOut(eligible.get(i))) {
+                routed.add(eligible.get(i));
+            }
         }
         Room blockedRouted = blocked.isEmpty() ? null : blocked.get(0);
         Map<String, JsonObject> routes = new HashMap<>();
@@ -290,7 +292,7 @@ public class SimAutoSecretTests implements FabricClientGameTest {
         String instaFrom = null;
         for (int i = eligible.size() - 1; i >= 1 && insta == null; i--) {
             Room r = eligible.get(i);
-            if (routes.containsKey(r.name())) {
+            if (routes.containsKey(r.name()) || !pathsOut(r)) {
                 continue;
             }
             String[] seeded = ctx.computeOnClient(mc -> seedInsta(r));
@@ -304,6 +306,7 @@ public class SimAutoSecretTests implements FabricClientGameTest {
                 : "known insta entry: " + insta.name() + " from " + instaFrom + " key " + instaKey);
 
         // ---- run ----------------------------------------------------------------------------------------------
+        boolean doorCase = closedDoor != null && blockedRouted != null && routes.containsKey(blockedRouted.name());
         long mark = LogTap.mark();
         Vec3 from = ctx.computeOnClient(mc -> mc.player.position());
         int seq0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "arrivalSeq"));
@@ -313,6 +316,7 @@ public class SimAutoSecretTests implements FabricClientGameTest {
             return;
         }
         double maxTravel = 0;
+        int unarmedSeen = 0;
         Set<String> finished = new HashSet<>();
         int ticks = 0;
         for (; ticks < 20 * 180; ticks += 10) {
@@ -321,14 +325,28 @@ public class SimAutoSecretTests implements FabricClientGameTest {
             maxTravel = Math.max(maxTravel, at.distanceTo(from));
             String phase = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(AS, "phaseName"));
             finished.clear();
+            int unarmed = 0;
             for (String l : LogTap.since(mark)) {
                 Matcher m = FINISHED.matcher(l);
                 if (m.find()) {
                     finished.add(m.group(1));
                 }
+                if (l.contains("start node did not arm")) {
+                    unarmed++;
+                }
             }
-            if (phase.equals("IDLE") || (phase.equals("WAITING") || phase.equals("DOOR"))
-                    && finished.size() >= routed.size() && ticks > 200) {
+            if (unarmed > unarmedSeen) {
+                unarmedSeen = unarmed;
+                println("a start node did not arm: " + ctx.computeOnClient(SimAutoSecretTests::whereNow));
+            }
+            // With a closed door to judge, "at the door" is its no-key line, not the DOOR phase: the phase starts while
+            // he is still on his way to the door (2026-10-07: the run ended 2.0 blocks short, before the line).
+            boolean doorWaitSaid = false;
+            for (String l : LogTap.since(mark)) {
+                doorWaitSaid |= l.contains("[AutoSecret] waiting at the wither door at cell") && l.contains("no wither key");
+            }
+            boolean settled = doorCase ? doorWaitSaid : phase.equals("WAITING") || phase.equals("DOOR");
+            if (phase.equals("IDLE") || settled && finished.size() >= routed.size() && ticks > 200) {
                 break;
             }
         }
@@ -488,6 +506,10 @@ public class SimAutoSecretTests implements FabricClientGameTest {
                     opened |= since.stream().anyMatch(l -> l.contains("[AutoSecret] the wither door at cell")
                             && l.contains("is open"));
                     took = since.stream().anyMatch(l -> l.contains("[AutoSecret] route " + blockedRouted.name() + " finished"));
+                    if (!took && since.stream().anyMatch(l -> l.contains("start node did not arm"))) {
+                        println("a start node did not arm after the door: " + ctx.computeOnClient(SimAutoSecretTests::whereNow));
+                        break;
+                    }
                 }
                 boolean air = ctx.computeOnClient(mc -> mc.level.getBlockState(doorAt).isAir());
                 println("key given: clicked " + clicked + ", door open " + opened + " (lock block air " + air
@@ -548,6 +570,23 @@ public class SimAutoSecretTests implements FabricClientGameTest {
     }
 
     // ================================================================================================ helpers
+
+    /**
+     * Whether a map path can start again once he stands in the room: the mod starts none from inside a room named
+     * Maze or Boulder (until done) or Trap past its start (AutoClearUtils.canPath, killer560's rule), so a one-node
+     * route or an insta-clear landing there leaves Auto Secret waiting for him to walk out, which the run never does
+     * (2026-10-07: an insta clear into Arrow Trap, then "can't path from here" for the rest of the run).
+     */
+    private static boolean pathsOut(Room r) {
+        return !r.name().contains("Maze") && !r.name().contains("Boulder") && !r.name().contains("Trap");
+    }
+
+    /** Where he stands and where the last map warp put him (ClearExecutor.arrivalPos). Client thread. */
+    private static String whereNow(Minecraft mc) {
+        Vec3 at = mc.player.position();
+        Object arrival = ModUnderTest.staticCall(EXECUTOR, "arrivalPos");
+        return String.format(Locale.US, "he stands at %.2f %.2f %.2f; last map arrival %s", at.x, at.y, at.z, arrival);
+    }
 
     /** Every room the mod's RoomStatus lists, with reachability from where he stands. Client thread. */
     private static List<Room> readRooms(Minecraft mc) {

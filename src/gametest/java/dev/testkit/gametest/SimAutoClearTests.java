@@ -301,12 +301,17 @@ public class SimAutoClearTests implements FabricClientGameTest {
         // He stands in the room case 3 cleared. A new starred zombie 9-16 blocks away with a clear line from his eye,
         // the room un-cleared (SimRoomState.clearRoom - the sim re-clears it when that zombie dies), then clearRoom.
         String here = off.get(1).name();
-        Vec3 eye = ctx.computeOnClient(mc -> mc.player.getEyePosition());
-        AtomicReference<BlockPos> near = new AtomicReference<>(nearSpotInRoom(ctx, eye, here));
+        // He must stand on a FULL block: from a carpet, slab or stair top the mod's dash model (SimAbilities.dashTarget,
+        // the sim server's too) finds no landing at all, so neither the sim nor Auto Clear's planner has a hop from there
+        // (2026-10-07: case 3's etherwarp left him on a brown carpet in Three Floors, "straight dash lands null", hops
+        // -1). And the room must have an open floor spot 9-16 blocks from him (Silver Sword had none from where case 3
+        // left him). Both are set up before the case, by moving him within the room if need be - not during it.
+        AtomicReference<BlockPos> near = new AtomicReference<>(placeForHop(ctx, here));
         if (near.get().equals(BlockPos.ZERO)) {
-            failures.add("hop: no open floor spot 9-16 blocks from him in " + here + " to put a mob on");
+            failures.add("hop: no full block of " + here + " with an open floor spot 9-16 blocks from it to put a mob on");
             return;
         }
+        Vec3 eye = ctx.computeOnClient(mc -> mc.player.getEyePosition());
         int before = starredPairCount(ctx);
         ctx.runOnClient(mc -> {
             Object k = ModUnderTest.enumValue(SIM_MOBS + "$Kind", "ZOMBIE");
@@ -321,6 +326,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
         List<Placed> hopPlaced = hopMob == null ? List.of() : List.of(new Placed(here, false, hopMob, near.get()));
         println("hop: a zombie at " + near.get().toShortString() + String.format(java.util.Locale.US,
                 " (%.1f blocks from his eye)", eye.distanceTo(Vec3.atCenterOf(near.get()))));
+        println("hop: before the start - " + hopDiagnosis(ctx, near.get()));
         AtomicReference<String> done4 = new AtomicReference<>();
         AtomicReference<String> gaveUp4 = new AtomicReference<>();
         Result r4 = runCase(ctx, "hop", () -> ModUnderTest.staticCall(AUTO, "clearRoom",
@@ -346,67 +352,19 @@ public class SimAutoClearTests implements FabricClientGameTest {
         }
 
         // ==== case 5: a server correction mid-clear - a chat line and the alarm, then it carries on ====
-        // Another near zombie in the same room, then two ticks after the start the SERVER moves him three or four
-        // blocks sideways (a real teleport, as a correction is). It must count the correction, not stop, and still
-        // kill the zombie (killer560, 2026-10-06: "Nothing in this mod should stop from server corrections ever").
-        Vec3 eye5 = ctx.computeOnClient(mc -> mc.player.getEyePosition());
-        AtomicReference<BlockPos> near5 = new AtomicReference<>(nearSpotInRoom(ctx, eye5, here));
-        AtomicReference<BlockPos> side = new AtomicReference<>();
-        ctx.runOnClient(mc -> {
-            var server = mc.getSingleplayerServer();
-            BlockPos mobAt = near5.get();
-            server.execute(() -> side.set(sideSpot(server.overworld(), eye5, mobAt)));
-        });
-        ctx.waitFor(mc -> side.get() != null, 200);
-        if (near5.get().equals(BlockPos.ZERO) || side.get().equals(BlockPos.ZERO)) {
-            failures.add("correction: no spot for the zombie (" + near5.get() + ") or the sideways move (" + side.get() + ")");
-            return;
-        }
-        int before5 = starredPairCount(ctx);
-        ctx.runOnClient(mc -> {
-            Object k = ModUnderTest.enumValue(SIM_MOBS + "$Kind", "ZOMBIE");
-            ModUnderTest.staticCall(SIM_MOBS, "spawnStarred", new Class<?>[]{Minecraft.class, BlockPos.class,
-                    k.getClass()}, new Object[]{mc, near5.get(), k});
-        });
-        ctx.waitTicks(3);
-        UUID mob5 = newestStarred(ctx, before5);
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_ROOM_STATE, "clearRoom", new Class<?>[]{String.class},
-                new Object[]{here}));
-        ctx.waitTicks(30);
-        AtomicReference<String> done5 = new AtomicReference<>();
-        AtomicReference<String> gaveUp5 = new AtomicReference<>();
-        Result r5 = runCase(ctx, "correction", () -> {
-            ModUnderTest.staticCall(AUTO, "clearRoom", new Class<?>[]{String.class, Runnable.class, Consumer.class},
-                    new Object[]{here, (Runnable) () -> done5.set("done"), (Consumer<String>) gaveUp5::set});
-            Minecraft mc = Minecraft.getInstance();
-            var server = mc.getSingleplayerServer();
-            UUID me = mc.player.getUUID();
-            BlockPos to = side.get();
-            // Two server ticks later, so it lands while the clear is already deciding/aiming.
-            server.execute(() -> server.execute(() -> {
-                var sp = server.getPlayerList().getPlayer(me);
-                if (sp != null) {
-                    sp.teleportTo(server.overworld(), to.getX() + 0.5, to.getY(), to.getZ() + 0.5,
-                            java.util.Set.of(net.minecraft.world.entity.Relative.Y_ROT,
-                                    net.minecraft.world.entity.Relative.X_ROT), 0f, 0f, false);
-                }
-            }));
-        });
-        List<Placed> p5 = mob5 == null ? List.of() : List.of(new Placed(here, false, mob5, near5.get()));
-        Map<UUID, String> after5 = aliveReport(ctx, p5);
-        println("correction: " + r5 + "; onDone=" + done5.get() + " onGiveUp=" + gaveUp5.get() + "; mob " + after5
-                + "; moved sideways to " + side.get().toShortString());
-        if (r5.corrections < 1) {
-            failures.add("correction: the server's teleport was not taken as a correction (no '[AutoClear] server "
-                    + "correction' line)");
-        }
-        if (done5.get() == null || gaveUp5.get() != null) {
-            failures.add("correction: clearRoom called onDone=" + done5.get() + " onGiveUp=" + gaveUp5.get()
-                    + " - it must carry on after a correction");
-        }
-        if (p5.isEmpty() || !"dead".equals(after5.get(mob5))) {
-            failures.add("correction: the zombie is " + (p5.isEmpty() ? "not placed" : after5.get(mob5)));
-        }
+        // Another near zombie in the same room, then the SERVER moves him three to five blocks BEHIND him (away from
+        // the zombie: a real teleport, as a correction is, and one no Wither Impact hop toward the zombie can land on).
+        // It must count the correction, not stop, and still kill the zombie (killer560, 2026-10-06: "Nothing in this
+        // mod should stop from server corrections ever"). Twice: (a) a tick after the start, while Auto Clear itself
+        // decides, aims or hops - its own check; (b) with hops off, once its etherwarp trip is under way - the
+        // Interactive Map runner's check, which Auto Clear must count too. (b) is what failed on 2026-10-07: the move
+        // landed while the trip was being planned and nothing called it a correction.
+        correctionCase(ctx, failures, "correction", here, true, false);
+        correctionCase(ctx, failures, "correction-trip", here, false, false);
+        // (c) hops off, the teleport asked for in the same task as the start - the timing of the 2026-10-07 failure,
+        // which lands it while the trip is being planned or just after.
+        correctionCase(ctx, failures, "correction-plan", here, false, true);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setHyperionHops", true));
 
         // ==== case 6: order - rooms off the blood rush before the rooms on it ====
         // killer560 (2026-10-06): "prioritize moving away from blood rush and taking whatever the longest split is ...
@@ -445,14 +403,37 @@ public class SimAutoClearTests implements FabricClientGameTest {
         // Every door of the other off-path room becomes a shut wither door (SimDoors.witherDoorsAround: coal in the world,
         // a wither door on the map). With no key it must go to the door and WAIT (not stop, not give up); given a key it
         // must click the door open, go in and clear the room.
-        Room locked = off.get(1);
+        // The room: one whose every door to another room is an ordinary door (so all of them become wither doors and
+        // it is really shut off). A room reached only through the Entrance's own door, or with a blood door, has no
+        // ordinary door to turn (2026-10-06: Carpets, filled in "through Entrance", got 0 wither doors).
         String standingIn = ctx.computeOnClient(mc -> {
             Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
             int cur = (Integer) ModUnderTest.call(layout, "currentRoom", new Class<?>[]{}, new Object[]{});
             return (String) ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{cur});
         });
-        if (locked.name().equals(standingIn)) {
-            locked = offRoom;
+        List<Room> lockCandidates = new ArrayList<>(List.of(off.get(1), offRoom));
+        for (Room r : rooms) {
+            if (r.mob() && !lockCandidates.contains(r) && !r.name().equals(rush.name())) {
+                lockCandidates.add(r);
+            }
+        }
+        lockCandidates.add(rush);
+        Room locked = null;
+        List<String> refused = new ArrayList<>();
+        for (Room r : lockCandidates) {
+            if (r.name().equals(standingIn)) {
+                continue;
+            }
+            String doorsOf = ctx.computeOnClient(mc -> roomDoors(r.name()));
+            if (doorsOf.startsWith("ok")) {
+                locked = r;
+                break;
+            }
+            refused.add(r.name() + " (" + doorsOf + ")");
+        }
+        if (locked == null) {
+            failures.add("door: no mob room on this floor has only ordinary doors to lock - refused " + refused);
+            return;
         }
         Room lockedRoom = locked;
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_ROOM_STATE, "clearRoom", new Class<?>[]{String.class},
@@ -461,9 +442,24 @@ public class SimAutoClearTests implements FabricClientGameTest {
         int doors = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimDoors",
                 "witherDoorsAround", new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, lockedRoom.name()}));
         ctx.waitTicks(40);
-        println("door: " + doors + " wither door(s) put round " + lockedRoom.name() + " (he is in " + standingIn + ")");
-        if (doors <= 0) {
-            failures.add("door: could not put wither doors round " + lockedRoom.name() + " (" + doors + ")");
+        boolean shutOff = ctx.computeOnClient(mc -> {
+            Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+            int cur = (Integer) ModUnderTest.call(layout, "currentRoom", new Class<?>[]{}, new Object[]{});
+            int target = -1;
+            for (int i = 0; i < (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[]{}, new Object[]{}); i++) {
+                if (lockedRoom.name().equals(ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{i}))) {
+                    target = i;
+                }
+            }
+            return target >= 0 && ModUnderTest.staticCall("com.killer560.hub.livemap.autoclear.DungeonMapPathfinder",
+                    "findPath", new Class<?>[]{layout.getClass(), int.class, int.class, boolean.class},
+                    new Object[]{layout, cur, target, false}) == null;
+        });
+        println("door: " + doors + " wither door(s) put round " + lockedRoom.name() + " (he is in " + standingIn
+                + "; refused first " + refused + "); shut off from him on the map: " + shutOff);
+        if (doors <= 0 || !shutOff) {
+            failures.add("door: could not shut " + lockedRoom.name() + " off with wither doors (" + doors + " door(s), shut off "
+                    + shutOff + ")");
             return;
         }
         long mark7 = LogTap.mark();
@@ -517,38 +513,512 @@ public class SimAutoClearTests implements FabricClientGameTest {
     }
 
     /**
-     * A standable floor spot 3-4 blocks from {@code eye}'s feet, as square-on to the line toward {@code mob} as there
-     * is - so the move cannot be mistaken for a Wither Impact hop toward the mob landing. ZERO if none.
+     * A spot for case 4's zombie: an open floor spot of {@code room} 9-16 blocks from him with a clear line from his eye
+     * ({@link #openSpots}), while he stands on a full block of the room. Where he stands first; failing that the nearest
+     * full block of the room (within 20 blocks) that has one, where he is then put by a server teleport, waiting until
+     * the client stands there on the ground. ZERO if none.
      */
-    private static BlockPos sideSpot(ServerLevel level, Vec3 eye, BlockPos mob) {
+    private static BlockPos placeForHop(ClientGameTestContext ctx, String room) {
+        Vec3 feet = ctx.computeOnClient(mc -> mc.player.position());
+        boolean onFull = ctx.computeOnClient(mc -> {
+            BlockPos under = BlockPos.containing(mc.player.getX(), mc.player.getY() - 0.01, mc.player.getZ());
+            return mc.player.onGround() && mc.player.getY() == Math.floor(mc.player.getY())
+                    && mc.level.getBlockState(under).isCollisionShapeFullBlock(mc.level, under);
+        });
+        if (onFull) {
+            BlockPos here = nearSpotInRoom(ctx, ctx.computeOnClient(mc -> mc.player.getEyePosition()), room);
+            if (!here.equals(BlockPos.ZERO)) {
+                return here;
+            }
+        }
+        // Standing spots on full blocks round him, nearest first, each with its open spots (server thread).
+        AtomicReference<List<BlockPos[]>> found = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            UUID me = mc.player.getUUID();
+            server.execute(() -> {
+                ServerLevel level = server.overworld();
+                var viewer = server.getPlayerList().getPlayer(me);
+                List<double[]> scored = new ArrayList<>();
+                int fx = (int) Math.floor(feet.x);
+                int fy = (int) Math.floor(feet.y);
+                int fz = (int) Math.floor(feet.z);
+                for (int dx = -20; dx <= 20; dx++) {
+                    for (int dz = -20; dz <= 20; dz++) {
+                        for (int dy = -3; dy <= 3; dy++) {
+                            BlockPos at = new BlockPos(fx + dx, fy + dy, fz + dz);
+                            if (fullBlock(level, at.below()) && !solid(level, at) && !solid(level, at.above())
+                                    && !solid(level, at.above(2))) {
+                                scored.add(new double[]{dx * dx + dz * dz + dy * dy, at.getX(), at.getY(), at.getZ()});
+                            }
+                        }
+                    }
+                }
+                scored.sort((a, b) -> Double.compare(a[0], b[0]));
+                List<BlockPos[]> out = new ArrayList<>();
+                for (int i = 0; i < scored.size() && out.size() < 40; i += 3) {   // every third: spread, and bounded
+                    double[] d = scored.get(i);
+                    BlockPos at = new BlockPos((int) d[1], (int) d[2], (int) d[3]);
+                    List<BlockPos> open = openSpots(level, new Vec3(at.getX() + 0.5, at.getY() + 1.62, at.getZ() + 0.5),
+                            viewer);
+                    List<BlockPos> row = new ArrayList<>();
+                    row.add(at);
+                    row.addAll(open);
+                    out.add(row.toArray(new BlockPos[0]));
+                }
+                found.set(out);
+            });
+        });
+        ctx.waitFor(mc -> found.get() != null, 400);
+        BlockPos[] pick = ctx.computeOnClient(mc -> {
+            Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+            java.util.function.Predicate<BlockPos> inRoom = p -> room.equals(ModUnderTest.call(layout, "name",
+                    new Class<?>[]{int.class}, new Object[]{ModUnderTest.call(layout, "roomAtWorld",
+                            new Class<?>[]{double.class, double.class}, new Object[]{p.getX() + 0.5, p.getZ() + 0.5})}));
+            for (BlockPos[] row : found.get()) {
+                if (!inRoom.test(row[0])) {
+                    continue;
+                }
+                for (int i = 1; i < row.length; i++) {
+                    if (inRoom.test(row[i])) {
+                        return new BlockPos[]{row[0], row[i]};
+                    }
+                }
+            }
+            return null;
+        });
+        if (pick == null) {
+            return BlockPos.ZERO;
+        }
+        Vec3 target = new Vec3(pick[0].getX() + 0.5, pick[0].getY(), pick[0].getZ() + 0.5);
+        String was = ctx.computeOnClient(mc -> {
+            BlockPos under = BlockPos.containing(mc.player.getX(), mc.player.getY() - 0.01, mc.player.getZ());
+            return String.format(java.util.Locale.US, "%.2f %.2f %.2f on %s", mc.player.getX(), mc.player.getY(),
+                    mc.player.getZ(), mc.level.getBlockState(under).getBlock().getDescriptionId());
+        });
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            UUID me = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(me);
+                if (sp != null) {
+                    sp.teleportTo(server.overworld(), target.x, target.y, target.z,
+                            java.util.Set.of(net.minecraft.world.entity.Relative.Y_ROT,
+                                    net.minecraft.world.entity.Relative.X_ROT), 0f, 0f, false);
+                }
+            });
+        });
+        for (int i = 0; i < 100 && !ctx.computeOnClient(mc -> mc.player.onGround()
+                && mc.player.position().distanceTo(target) < 0.1); i++) {
+            ctx.waitTicks(1);
+        }
+        ctx.waitTicks(5);
+        boolean there = ctx.computeOnClient(mc -> mc.player.onGround() && mc.player.position().distanceTo(target) < 0.1);
+        println("hop: he stood at " + was + " - put on the full block under " + pick[0].toShortString()
+                + (there ? "" : " (NOT there)"));
+        return there ? pick[1] : BlockPos.ZERO;
+    }
+
+    private static boolean fullBlock(ServerLevel level, BlockPos p) {
+        return level.getBlockState(p).isCollisionShapeFullBlock(level, p);
+    }
+
+    /**
+     * "ok N" when every door of {@code roomName} to another room is an ordinary door (N of them, N >= 1), otherwise why
+     * not - the same cells {@code SimDoors.witherDoorsAround} turns. Client thread.
+     */
+    private static String roomDoors(String roomName) {
+        Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+        int count = (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[]{}, new Object[]{});
+        int room = -1;
+        for (int i = 0; i < count; i++) {
+            if (roomName.equals(ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{i}))) {
+                room = i;
+            }
+        }
+        if (room < 0) {
+            return "not on the map";
+        }
+        int normal = 0;
+        List<String> other = new ArrayList<>();
+        int[][] dirs = {{0, -1}, {0, 1}, {1, 0}, {-1, 0}};
+        for (int tile : (int[]) ModUnderTest.call(layout, "tiles", new Class<?>[]{int.class}, new Object[]{room})) {
+            int x = tile % GRID;
+            int z = tile / GRID;
+            for (int[] d : dirs) {
+                int nx = x + d[0] * 2;
+                int nz = z + d[1] * 2;
+                if (nx < 0 || nx >= GRID || nz < 0 || nz >= GRID) {
+                    continue;
+                }
+                int idx = (z + d[1]) * GRID + (x + d[0]);
+                int next = (Integer) ModUnderTest.call(layout, "roomOfCell", new Class<?>[]{int.class},
+                        new Object[]{nz * GRID + nx});
+                int type = (Integer) ModUnderTest.call(layout, "doorType", new Class<?>[]{int.class}, new Object[]{idx});
+                if (next < 0 || next == room || type == 0) {
+                    continue;
+                }
+                if (type == 1) {
+                    normal++;
+                } else {
+                    other.add("door type " + type + " at cell " + idx);
+                }
+            }
+        }
+        return !other.isEmpty() ? String.join(", ", other) : normal == 0 ? "no door" : "ok " + normal;
+    }
+
+    /**
+     * What he stands on and what lies between his feet and the mob, block by block, plus the mod's own hop plan for it
+     * ({@code WeaponReach.hyperionHopsNeeded}, -1 = no hop) and where its straight dash would land. Client thread.
+     */
+    private static String hopDiagnosis(ClientGameTestContext ctx, BlockPos mobFeet) {
+        return ctx.computeOnClient(mc -> {
+            var level = mc.level;
+            var player = mc.player;
+            Vec3 feet = player.position();
+            BlockPos under = BlockPos.containing(feet.x, feet.y - 0.01, feet.z);
+            StringBuilder sb = new StringBuilder(String.format(java.util.Locale.US,
+                    "feet %.2f %.2f %.2f on %s (%s), onGround %s; mob feet %s", feet.x, feet.y, feet.z,
+                    under.toShortString(), level.getBlockState(under).getBlock().getDescriptionId(), player.onGround(),
+                    mobFeet.toShortString()));
+            List<String> solidOnLine = new ArrayList<>();
+            Vec3 to = new Vec3(mobFeet.getX() + 0.5, mobFeet.getY(), mobFeet.getZ() + 0.5);
+            int steps = (int) Math.ceil(feet.distanceTo(to) / 0.2);
+            java.util.Set<BlockPos> seen = new java.util.HashSet<>();
+            for (int i = 0; i <= steps; i++) {
+                Vec3 p = feet.lerp(to, i / (double) steps);
+                for (int up = 0; up <= 1; up++) {
+                    BlockPos b = BlockPos.containing(p.x, p.y + 0.01 + up, p.z);
+                    if (seen.add(b) && !level.getBlockState(b).getCollisionShape(level, b).isEmpty()) {
+                        solidOnLine.add(b.toShortString() + "=" + level.getBlockState(b).getBlock().getDescriptionId());
+                    }
+                }
+            }
+            sb.append("; solid on the feet line ").append(solidOnLine.isEmpty() ? "none" : solidOnLine);
+            net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(mobFeet.getX() + 0.2, mobFeet.getY(),
+                    mobFeet.getZ() + 0.2, mobFeet.getX() + 0.8, mobFeet.getY() + 1.95, mobFeet.getZ() + 0.8);
+            try {
+                Object hops = ModUnderTest.staticCall("com.killer560.hub.autoclear.WeaponReach", "hyperionHopsNeeded",
+                        new Class<?>[]{net.minecraft.world.level.Level.class, net.minecraft.world.entity.player.Player.class,
+                                Vec3.class, net.minecraft.world.phys.AABB.class, int.class},
+                        new Object[]{level, player, feet, box, 4});
+                Vec3 eyeNow = player.getEyePosition();
+                Vec3 look = box.getCenter().subtract(eyeNow).normalize();
+                Object land = ModUnderTest.staticCall("com.killer560.hub.roomsim.SimAbilities", "dashTarget",
+                        new Class<?>[]{net.minecraft.world.level.Level.class, net.minecraft.world.entity.player.Player.class,
+                                Vec3.class, Vec3.class, double.class},
+                        new Object[]{level, player, feet, look, 10.0});
+                sb.append("; mod's hop plan ").append(hops).append(" hop(s), straight dash lands ").append(land);
+            } catch (RuntimeException | AssertionError e) {
+                sb.append("; mod's hop plan unreadable: ").append(e);
+            }
+            return sb.toString();
+        });
+    }
+
+    /**
+     * One correction case: a starred zombie 9-16 blocks off in {@code here}, clearRoom on it, and a server teleport
+     * 3-5 blocks BEHIND him - (hops) a tick after the start, or (no hops: an etherwarp trip) on the first tick the
+     * Interactive Map runner is busy with the trip. The teleport must arrive while Auto Clear runs, be counted as a
+     * correction, and the zombie must still die with onDone.
+     */
+    private static void correctionCase(ClientGameTestContext ctx, List<String> failures, String label, String here,
+                                       boolean hops, boolean withStart) {
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setHyperionHops", hops));
+        // A zombie spot in this room with a floor spot behind him to be moved to (pickCorrection). Where he stands, or,
+        // when he stands at the room's edge with nothing of the room behind him (2026-10-07, Scaffolding: 789 pairs,
+        // none in the room), from the middle of the room, where he is first put - before the case, not during it.
+        BlockPos[] pick = pickCorrection(ctx, here);
+        if (pick == null) {
+            String moved = toRoomMiddle(ctx, here);
+            println(label + ": nothing to pick from where he stands - " + (moved == null ? "put in the middle of " + here
+                    : moved));
+            pick = moved == null ? pickCorrection(ctx, here) : null;
+        }
+        if (pick == null) {
+            failures.add(label + ": no zombie spot 9-16 blocks off in " + here + " with a floor spot of the room behind him"
+                    + " the map can plan from, from where he stood or from the middle of the room");
+            return;
+        }
+        BlockPos mobAt = pick[0];
+        BlockPos to = pick[1];
+        int before = starredPairCount(ctx);
+        ctx.runOnClient(mc -> {
+            Object k = ModUnderTest.enumValue(SIM_MOBS + "$Kind", "ZOMBIE");
+            ModUnderTest.staticCall(SIM_MOBS, "spawnStarred", new Class<?>[]{Minecraft.class, BlockPos.class,
+                    k.getClass()}, new Object[]{mc, mobAt, k});
+        });
+        ctx.waitTicks(3);
+        UUID mob = newestStarred(ctx, before);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_ROOM_STATE, "clearRoom", new Class<?>[]{String.class},
+                new Object[]{here}));
+        ctx.waitTicks(30);
+        AtomicReference<String> done = new AtomicReference<>();
+        AtomicReference<String> gaveUp = new AtomicReference<>();
+        AtomicReference<Boolean> applied = new AtomicReference<>();
+        int[] sentAt = {-1};
+        int[] arrivedAt = {-1};
+        boolean[] runningAtArrival = {false};
+        Vec3 target = new Vec3(to.getX() + 0.5, to.getY(), to.getZ() + 0.5);
+        Runnable teleport = () -> {
+            Minecraft mc = Minecraft.getInstance();
+            var server = mc.getSingleplayerServer();
+            UUID me = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(me);
+                if (sp != null) {
+                    sp.teleportTo(server.overworld(), target.x, target.y, target.z,
+                            java.util.Set.of(net.minecraft.world.entity.Relative.Y_ROT,
+                                    net.minecraft.world.entity.Relative.X_ROT), 0f, 0f, false);
+                }
+                applied.set(sp != null);
+            });
+        };
+        long mark = LogTap.mark();
+        Result r = runCase(ctx, label, () -> {
+            ModUnderTest.staticCall(AUTO, "clearRoom", new Class<?>[]{String.class, Runnable.class, Consumer.class},
+                    new Object[]{here, (Runnable) () -> done.set("done"), (Consumer<String>) gaveUp::set});
+            if (withStart) {
+                sentAt[0] = 0;
+                teleport.run();
+            }
+        }, t -> {
+            if (sentAt[0] < 0 && (hops ? t >= 1 : ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                    "com.killer560.hub.livemap.autoclear.ClearExecutor", "isBusy")))) {
+                sentAt[0] = t;
+                ctx.runOnClient(mc -> teleport.run());
+            }
+            if (sentAt[0] >= 0 && arrivedAt[0] < 0 && Boolean.TRUE.equals(applied.get())
+                    && ctx.computeOnClient(mc -> mc.player.position().distanceTo(target) < 0.5)) {
+                arrivedAt[0] = t;
+                runningAtArrival[0] = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AUTO, "isBusy"));
+            }
+        });
+        List<Placed> p = mob == null ? List.of() : List.of(new Placed(here, false, mob, mobAt));
+        Map<UUID, String> after = aliveReport(ctx, p);
+        String caughtBy = "nothing";
+        for (String l : LogTap.since(mark)) {
+            if (l.contains("[AutoClear] server correction") && l.contains("during the trip")) {
+                caughtBy = "the Interactive Map runner";
+            } else if (l.contains("[AutoClear] server correction")) {
+                caughtBy = "Auto Clear itself";
+            }
+            if (l.contains("[Path] the server moved you") || l.contains("[Path] off the plan")) {
+                println(label + ": runner said " + l.replaceAll("^.*?\\[Path\\]", "[Path]"));
+            }
+        }
+        println(label + ": the correction was caught by " + caughtBy);
+        println(label + ": " + r + "; onDone=" + done.get() + " onGiveUp=" + gaveUp.get() + "; mob " + after
+                + "; zombie at " + mobAt.toShortString() + ", moved behind him to " + to.toShortString()
+                + " - sent on tick " + sentAt[0] + ", seen on the client on tick " + arrivedAt[0]
+                + (arrivedAt[0] >= 0 ? (runningAtArrival[0] ? " with Auto Clear running" : " AFTER Auto Clear ended") : ""));
+        if (sentAt[0] < 0 || !Boolean.TRUE.equals(applied.get())) {
+            failures.add(label + ": the server's teleport was never made (sent on tick " + sentAt[0] + ", applied "
+                    + applied.get() + ") - nothing here measured a correction");
+            return;
+        }
+        if (arrivedAt[0] >= 0 && !runningAtArrival[0]) {
+            failures.add(label + ": the teleport reached the client only after Auto Clear had ended - nothing here measured"
+                    + " a correction");
+            return;
+        }
+        if (r.corrections < 1) {
+            failures.add(label + ": the server's teleport was not taken as a correction (no '[AutoClear] server "
+                    + "correction' line)");
+        }
+        if (done.get() == null || gaveUp.get() != null) {
+            failures.add(label + ": clearRoom called onDone=" + done.get() + " onGiveUp=" + gaveUp.get()
+                    + " - it must carry on after a correction");
+        }
+        if (p.isEmpty() || !"dead".equals(after.get(mob))) {
+            failures.add(label + ": the zombie is " + (p.isEmpty() ? "not placed" : after.get(mob)));
+        }
+    }
+
+    /**
+     * For a correction case, from where he stands: {zombie spot, spot to move him to}, or null. The zombie on an open
+     * floor spot of {@code room} 9-16 blocks off ({@link #spotsInRoom}); the move onto a floor spot of the same room
+     * beside or behind him ({@link #behindSpots}) - his own floor height first: a spot in a doorway or on a ledge can be
+     * one no map path starts from (2026-10-07: moved onto a spot by a door, every later trip found "no way" and the run
+     * stalled) - and one the map can plan the trip to the zombie from ({@link #mapCanPlan}): a correction puts him back
+     * where he has been, and the case is about what Auto Clear does with one, not about the planner's reach (twice on
+     * 2026-10-07 a spot by a wall had "no way" to a zombie 13 blocks off in the same room).
+     */
+    private static BlockPos[] pickCorrection(ClientGameTestContext ctx, String room) {
+        Vec3 eye = ctx.computeOnClient(mc -> mc.player.getEyePosition());
+        AtomicReference<List<BlockPos[]>> pairs = new AtomicReference<>();
+        List<BlockPos> spots = spotsInRoom(ctx, eye, room);
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            server.execute(() -> {
+                List<BlockPos[]> out = new ArrayList<>();
+                for (BlockPos mob : spots) {
+                    for (BlockPos behind : behindSpots(server.overworld(), eye, mob)) {
+                        out.add(new BlockPos[]{mob, behind});
+                    }
+                }
+                pairs.set(out);
+            });
+        });
+        ctx.waitFor(mc -> pairs.get() != null, 200);
+        List<BlockPos[]> inRoom = ctx.computeOnClient(mc -> {
+            Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+            List<BlockPos[]> out = new ArrayList<>();
+            for (BlockPos[] pr : pairs.get()) {
+                int r = (Integer) ModUnderTest.call(layout, "roomAtWorld", new Class<?>[]{double.class, double.class},
+                        new Object[]{pr[1].getX() + 0.5, pr[1].getZ() + 0.5});
+                if (room.equals(ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{r}))) {
+                    out.add(pr);
+                }
+            }
+            return out;
+        });
+        int asked = 0;
+        for (BlockPos[] pr : inRoom) {
+            if (asked++ >= 12) {
+                break;
+            }
+            if (mapCanPlan(ctx, new Vec3(pr[1].getX() + 0.5, pr[1].getY(), pr[1].getZ() + 0.5), pr[0])) {
+                return pr;
+            }
+        }
+        println("  (correction spots from " + String.format(java.util.Locale.US, "%.1f %.1f %.1f", eye.x, eye.y, eye.z)
+                + ": " + spots.size() + " zombie spot(s), " + pairs.get().size() + " pair(s), " + inRoom.size()
+                + " in the room, " + Math.min(asked, 12) + " asked the planner)");
+        return null;
+    }
+
+    /**
+     * Puts him (server teleport, then waits until the client stands there on the ground) on the block the mod's own
+     * {@code TeleportUtils.etherwarpableInTile} picks nearest the centre of {@code room}'s first map tile.
+     * @return null when he stands there, else why not
+     */
+    private static String toRoomMiddle(ClientGameTestContext ctx, String room) {
+        BlockPos stand = ctx.computeOnClient(mc -> {
+            Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+            int count = (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[]{}, new Object[]{});
+            for (int i = 0; i < count; i++) {
+                if (room.equals(ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{i}))) {
+                    int tile = ((int[]) ModUnderTest.call(layout, "tiles", new Class<?>[]{int.class}, new Object[]{i}))[0];
+                    BlockPos centre = (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class},
+                            new Object[]{tile});
+                    return (BlockPos) ModUnderTest.staticCall("com.killer560.hub.livemap.autoclear.TeleportUtils",
+                            "etherwarpableInTile", new Class<?>[]{BlockPos.class, Vec3.class},
+                            new Object[]{centre, Vec3.atCenterOf(centre)});
+                }
+            }
+            return null;
+        });
+        if (stand == null) {
+            return "no standable block in the middle of " + room;
+        }
+        Vec3 target = new Vec3(stand.getX() + 0.5, stand.getY() + 1, stand.getZ() + 0.5);
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            UUID me = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(me);
+                if (sp != null) {
+                    sp.teleportTo(server.overworld(), target.x, target.y, target.z,
+                            java.util.Set.of(net.minecraft.world.entity.Relative.Y_ROT,
+                                    net.minecraft.world.entity.Relative.X_ROT), 0f, 0f, false);
+                }
+            });
+        });
+        for (int i = 0; i < 100 && !ctx.computeOnClient(mc -> mc.player.onGround()
+                && mc.player.position().distanceTo(target) < 0.1); i++) {
+            ctx.waitTicks(1);
+        }
+        ctx.waitTicks(5);
+        return ctx.computeOnClient(mc -> mc.player.onGround() && mc.player.position().distanceTo(target) < 0.1)
+                ? null : "could not put him on " + stand.toShortString();
+    }
+
+    /**
+     * Whether the Interactive Map's planner (on its own thread, as every map path is planned) finds a path from
+     * {@code feet} to the block Auto Clear would etherwarp onto for a zombie standing at {@code mob}.
+     */
+    private static boolean mapCanPlan(ClientGameTestContext ctx, Vec3 feet, BlockPos mob) {
+        AtomicReference<String> result = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(mob.getX() + 0.2, mob.getY(),
+                    mob.getZ() + 0.2, mob.getX() + 0.8, mob.getY() + 1.95, mob.getZ() + 0.8);
+            Object weapon = ModUnderTest.enumValue(AUTO_CONFIG + "$Weapon", "HYPERION");
+            BlockPos stand = (BlockPos) ModUnderTest.staticCall("com.killer560.hub.autoclear.WeaponReach", "standSpot",
+                    new Class<?>[]{net.minecraft.world.level.Level.class, net.minecraft.world.entity.player.Player.class,
+                            net.minecraft.world.phys.AABB.class, weapon.getClass()},
+                    new Object[]{mc.level, mc.player, box, weapon});
+            if (stand == null) {
+                result.set("no stand spot");
+                return;
+            }
+            String exec = "com.killer560.hub.livemap.autoclear.ClearExecutor";
+            Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+            Object cfg = ModUnderTest.staticCall(exec, "pathConfig");
+            double range = (Double) ModUnderTest.staticCall(exec, "hopRange");
+            Runnable task = () -> {
+                try {
+                    Object path = ModUnderTest.staticCall("com.killer560.hub.livemap.autoclear.EtherwarpPathfinder",
+                            "findDungeonPath", new Class<?>[]{Vec3.class, BlockPos.class, cfg.getClass(), double.class,
+                                    layout.getClass()}, new Object[]{feet, stand, cfg, range, layout});
+                    result.set(path != null ? "ok" : "none");
+                } catch (RuntimeException | AssertionError e) {
+                    result.set("threw " + e);
+                }
+            };
+            ModUnderTest.staticCall(exec, "onPlanner", new Class<?>[]{Runnable.class}, new Object[]{task});
+        });
+        for (int i = 0; i < 400 && result.get() == null; i++) {
+            ctx.waitTicks(1);
+        }
+        if (!"ok".equals(result.get())) {
+            println("  (no map path from " + String.format(java.util.Locale.US, "%.1f %.1f %.1f", feet.x, feet.y, feet.z)
+                    + " for a zombie at " + mob.toShortString() + ": " + result.get() + ")");
+        }
+        return "ok".equals(result.get());
+    }
+
+    /**
+     * Standable floor spots 3-5 blocks from {@code eye}'s feet and at least 90 degrees round from the direction of
+     * {@code mob}: beside or behind him. A Wither Impact hop toward the mob looks within 40 degrees of it, so such a spot
+     * is at least 50 degrees off any hop's look and 3+ blocks out, over 2.3 blocks from its line - outside Auto Clear's
+     * own-landing band (1.6 blocks). His own floor height first, then a block up or down; the most directly behind first.
+     */
+    private static List<BlockPos> behindSpots(ServerLevel level, Vec3 eye, BlockPos mob) {
         int ex = (int) Math.floor(eye.x);
         int ez = (int) Math.floor(eye.z);
         int fy = (int) Math.floor(eye.y - 1.62);
         double mx = mob.getX() + 0.5 - eye.x;
         double mz = mob.getZ() + 0.5 - eye.z;
         double ml = Math.max(1e-6, Math.sqrt(mx * mx + mz * mz));
-        BlockPos best = BlockPos.ZERO;
-        double bestDot = Double.MAX_VALUE;
-        for (int dx = -4; dx <= 4; dx++) {
-            for (int dz = -4; dz <= 4; dz++) {
+        List<double[]> scored = new ArrayList<>();
+        for (int dx = -5; dx <= 5; dx++) {
+            for (int dz = -5; dz <= 5; dz++) {
                 double r = Math.sqrt(dx * dx + dz * dz);
-                if (r < 3 || r > 4.5) {
+                if (r < 3 || r > 5) {
                     continue;
                 }
-                for (int dy = -1; dy <= 1; dy++) {
+                double dot = (dx * mx + dz * mz) / (r * ml);
+                if (dot > 0.0) {   // 90 degrees round or more
+                    continue;
+                }
+                for (int dy : new int[]{0, -1, 1}) {
                     BlockPos feet = new BlockPos(ex + dx, fy + dy, ez + dz);
-                    if (solid(level, feet.below()) && !solid(level, feet) && !solid(level, feet.above())) {
-                        double dot = Math.abs((dx * mx + dz * mz) / (r * ml));
-                        if (dot < bestDot) {
-                            bestDot = dot;
-                            best = feet;
-                        }
+                    if (solid(level, feet.below()) && !solid(level, feet) && !solid(level, feet.above())
+                            && !solid(level, feet.above(2))) {
+                        scored.add(new double[]{Math.abs(dy) * 10 + dot, feet.getX(), feet.getY(), feet.getZ()});
                         break;
                     }
                 }
             }
         }
-        return best;
+        scored.sort((a, b) -> Double.compare(a[0], b[0]));
+        List<BlockPos> out = new ArrayList<>();
+        for (double[] d : scored) {
+            out.add(new BlockPos((int) d[1], (int) d[2], (int) d[3]));
+        }
+        return out;
     }
 
     /**
@@ -556,6 +1026,12 @@ public class SimAutoClearTests implements FabricClientGameTest {
      * be in the next room, whose mob would never clear this one (2026-10-06's first correction run: "already cleared").
      */
     private static BlockPos nearSpotInRoom(ClientGameTestContext ctx, Vec3 eye, String room) {
+        List<BlockPos> in = spotsInRoom(ctx, eye, room);
+        return in.isEmpty() ? BlockPos.ZERO : in.get(0);
+    }
+
+    /** Every {@link #openSpots} spot the live map puts in {@code room}, nearest 12 blocks first. */
+    private static List<BlockPos> spotsInRoom(ClientGameTestContext ctx, Vec3 eye, String room) {
         AtomicReference<List<BlockPos>> spots = new AtomicReference<>();
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
@@ -565,15 +1041,16 @@ public class SimAutoClearTests implements FabricClientGameTest {
         ctx.waitFor(mc -> spots.get() != null, 200);
         return ctx.computeOnClient(mc -> {
             Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+            List<BlockPos> in = new ArrayList<>();
             for (BlockPos p : spots.get()) {
                 int r = (Integer) ModUnderTest.call(layout, "roomAtWorld", new Class<?>[]{double.class, double.class},
                         new Object[]{p.getX() + 0.5, p.getZ() + 0.5});
                 String name = (String) ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{r});
                 if (room.equals(name)) {
-                    return p;
+                    in.add(p);
                 }
             }
-            return BlockPos.ZERO;
+            return in;
         });
     }
 
@@ -638,6 +1115,12 @@ public class SimAutoClearTests implements FabricClientGameTest {
     }
 
     private static Result runCase(ClientGameTestContext ctx, String label, Runnable start) {
+        return runCase(ctx, label, start, null);
+    }
+
+    /** @param perTick called on the test thread after each tick, before the "still running?" check, with the tick. */
+    private static Result runCase(ClientGameTestContext ctx, String label, Runnable start,
+                                  java.util.function.IntConsumer perTick) {
         Result r = new Result();
         long mark = LogTap.mark();
         PacketWatch.start();
@@ -649,6 +1132,9 @@ public class SimAutoClearTests implements FabricClientGameTest {
             r.travelled += now.distanceTo(last);
             last = now;
             r.ticks = t + 1;
+            if (perTick != null) {
+                perTick.accept(t + 1);
+            }
             if (!(Boolean) ctx.computeOnClient(mc -> ModUnderTest.staticCall(AUTO, "isBusy"))) {
                 r.finished = true;
                 break;
