@@ -343,11 +343,19 @@ final class SliderCases {
         // Health and Mana Bars (mod bars-tab, 2026-10-07): its rows sit behind Stat Bars and behind each bar's own
         // toggle, so they exist only in the flipped layouts - require the sweep to have laid them out. Classic
         // Display's rows are behind a section header the sweep does not open; 393-ui-stat-bars checks those.
-        if (SEEN.stream().anyMatch(x -> x.contains("Health and Mana Bars|Hide Hypixel Stat Text:"))) {
+        // Mod hud-editor-bars renamed "Hide Hypixel Stat Text" to "Hypixel Stat Text" (under Hide) and added the Vitality
+        // and XP readouts plus Hide Vanilla XP Bar (behind an XP readout).
+        boolean hudEditorBars = SEEN.stream().anyMatch(x -> x.contains("Health and Mana Bars|Vitality Bar:"));
+        if (hudEditorBars || SEEN.stream().anyMatch(x -> x.contains("Health and Mana Bars|Hide Hypixel Stat Text:"))) {
             List<String> missed = new ArrayList<>();
-            for (String want : new String[]{"Stat Bars:", "Health Bar:", "Health Text:", "Colour:", "Bar Width:",
-                    "Bar Height:", "Show Value:", "Background:", "Absorption Colour:", "Hearts:", "Unhide Hearts In Rift:",
-                    "Health:", "XP Bar And Level:", "Text Shadow:"}) {
+            List<String> wants = new ArrayList<>(List.of("Stat Bars:", "Health Bar:", "Health Text:", "Colour:",
+                    "Bar Width:", "Bar Height:", "Show Value:", "Background:", "Absorption Colour:", "Hearts:",
+                    "Unhide Hearts In Rift:", "Health:", "XP Bar And Level:", "Text Shadow:"));
+            if (hudEditorBars) {
+                wants.addAll(List.of("Vitality Bar:", "XP Bar:", "Vitality Text:", "XP Text:", "Hypixel Stat Text:",
+                        "Hide Vanilla XP Bar:"));
+            }
+            for (String want : wants) {
                 if (SEEN.stream().noneMatch(x -> x.contains("Health and Mana Bars|" + want))) {
                     missed.add(want);
                 }

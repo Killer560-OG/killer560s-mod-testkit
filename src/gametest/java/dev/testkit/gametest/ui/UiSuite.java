@@ -35,7 +35,9 @@ import java.util.List;
  *                heading ticks, Interactive Map too) and the outlined arrow on a green and a brown room, reload,
  *                401 Custom Scoreboard lists: drag / trash / Add by real mouse input change the saved and DRAWN
  *                order, auto-scroll, per-line options, reload, old toggle saves migrate to the same drawn board
- *                (TESTKIT_SCOREBOARD_EXPORT on the old jar, -PseedConfig on the new), no overlaps
+ *                (TESTKIT_SCOREBOARD_EXPORT on the old jar, -PseedConfig on the new), no overlaps,
+ *                399 HUD editor resize handles / cursors / snapping (real mouse drags, Auto Scale 0.5 and 1) and the
+ *                Stat Bars Vitality + XP readouts and Classic Display migration ({@link HudEditorCases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -52,7 +54,8 @@ public class UiSuite implements FabricClientGameTest {
             "387-ui-ap3-edit", "388-ui-breaker-display", "389-ui-crosshair",
             "390-ui-wither-doors-fill", "391-ui-cheat-tabs", "392-ui-blood-camp", "393-ui-stat-bars",
             "394-ui-hud-boxes", "395-ui-map-heads",
-            "401-ui-scoreboard-editor"};
+            "399-ui-hud-editor-resize", "399-ui-hud-editor-snap",
+            "399-ui-stat-bars-vitality-xp", "401-ui-scoreboard-editor"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -124,6 +127,9 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "392-ui-blood-camp", CheatTabsCases::bloodCamp);
                     UiCase.run(ctx, "393-ui-stat-bars", c -> StatBarsCases.run(c, deny));
                     UiCase.run(ctx, "394-ui-hud-boxes", HudBoxCases::run);
+                    UiCase.run(ctx, "399-ui-hud-editor-resize", HudEditorCases::resize);
+                    UiCase.run(ctx, "399-ui-hud-editor-snap", HudEditorCases::snap);
+                    UiCase.run(ctx, "399-ui-stat-bars-vitality-xp", HudEditorCases::vitalityXp);
                     UiCase.run(ctx, "395-ui-map-heads", MapHeadCases::run);
                     UiCase.run(ctx, "401-ui-scoreboard-editor", ScoreboardEditorCases::run);
                 }

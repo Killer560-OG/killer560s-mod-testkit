@@ -133,3 +133,11 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   notch at a time until it reports its end. Cross-jar migration: `TESTKIT_SCOREBOARD_EXPORT=<dir>` on the old jar writes
   the old jar's own save plus the lines it draws; `-Extra @('-PseedConfig=<dir>')` on the new jar compares line for line.
   The drawn board is `CustomScoreboardFeature.drawBoard` over `previewLines()` (the UI world is not Skyblock).
+- 399-ui-hud-editor-resize / -snap / 399-ui-stat-bars-vitality-xp (`HudEditorCases`, mod hud-editor-bars): real drags are
+  `setCursorPos` (GUI x * screenWidth / guiScaledWidth - the HUD editor is not auto-scaled) + `holdMouse(0)` + six moves +
+  `releaseMouse`. `TestInput.holdAlt()` is seen by `InputConstants.isKeyDown(LEFT_ALT)` (the mod's Alt free-drag passed with
+  it), although `pressMouse` events carry no modifiers. Only the case's own elements are kept in the editor's `shown`, so a
+  default-on element elsewhere cannot be what a box snaps to. The cursor is read twice: `pendingCursor` of a frame extracted
+  with the mouse at a handle, and the window's private `currentCursor` after real frames. An action bar reaches the mod's
+  MODIFY_GAME through the real packet with `ServerPlayer.sendSystemMessage(Component, true)` on the integrated server.
+
