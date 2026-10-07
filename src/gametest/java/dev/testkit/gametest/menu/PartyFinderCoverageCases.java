@@ -475,7 +475,7 @@ final class PartyFinderCoverageCases {
     // ---- 407: the same menu shape against the REAL backend (opt-in) --------------------------------------------------
 
     /**
-     * 407-menu-partyfinder-stats-live: a full 25-player menu against the real SkyBlockPV backend and Mojang, to measure
+     * 408-menu-partyfinder-stats-live: a full 25-player menu against the real SkyBlockPV backend and Mojang, to measure
      * coverage before and after. Runs only with {@code TESTKIT_PF_LIVE=1} and {@code -PnetOnline}; it makes about 25
      * real profile requests. Prints how many players have stats and a PB after 30, 60, 120 and 180 s.
      */
@@ -536,13 +536,13 @@ final class PartyFinderCoverageCases {
                         reasons.add(n + ": " + c.onClient(mc -> Mod.staticCall(API, "failureReason", n)));
                     }
                 }
-                System.out.println(String.format("[407-menu-partyfinder-stats-live] after %d s: %d of %d players with stats, %d with a PB, %d failed %s",
+                System.out.println(String.format("[408-menu-partyfinder-stats-live] after %d s: %d of %d players with stats, %d with a PB, %d failed %s",
                         checkpoint, stats, LIVE.size(), pb, failed, reasons));
                 c.note("after " + checkpoint + " s: stats " + stats + ", PB " + pb + ", failed " + failed);
             }
             for (int s = 10; s < 10 + (LIVE.size() + 4) / 5; s++) {
                 for (String line : PartyFinderStatsCases.tooltipText(c, s)) {
-                    System.out.println("[407-menu-partyfinder-stats-live]   " + line);
+                    System.out.println("[408-menu-partyfinder-stats-live]   " + line);
                 }
             }
         } finally {

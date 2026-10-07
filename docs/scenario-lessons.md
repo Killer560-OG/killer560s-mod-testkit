@@ -224,5 +224,5 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   empty-selected-profile shape, meowinging (no dungeon data), an Entrance party and an M3 party with any-score-only
   times. It reads the mod's outcome log lines through `LogTap`; an old jar logged one PF line per SESSION, so after 400 it
   shows 0. Fails on 799c5c2f and a411e650 (2 of 19 players with stats), passes on pf-stats-2.
-  407-menu-partyfinder-stats-live runs a 25-player menu against the REAL backend: only with `TESTKIT_PF_LIVE=1` and
+  408-menu-partyfinder-stats-live runs a 25-player menu against the REAL backend: only with `TESTKIT_PF_LIVE=1` and
   `-Extra @("-PnetOnline")`; it prints coverage at 30/60/120/180 s and asserts nothing.

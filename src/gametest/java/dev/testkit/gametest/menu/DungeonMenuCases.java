@@ -28,7 +28,7 @@ final class DungeonMenuCases {
         MenuSuite.test(s, "406-menu-partyfinder-stats-coverage", PartyFinderCoverageCases::coverage);
         // Real backend, about 25 real requests: only with TESTKIT_PF_LIVE=1 and -PnetOnline.
         if ("1".equals(System.getenv("TESTKIT_PF_LIVE"))) {
-            MenuSuite.test(s, "407-menu-partyfinder-stats-live", PartyFinderCoverageCases::live);
+            MenuSuite.test(s, "408-menu-partyfinder-stats-live", PartyFinderCoverageCases::live);
         }
     }
 
