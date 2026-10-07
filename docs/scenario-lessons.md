@@ -97,3 +97,10 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   private on 26.2, so `TextRuns` reads them by name.
 
 - 236-menu-partyfinder-style (`PartyFinderStyleCases`): for each Party Finder style it compares the REAL tooltip (`getTooltipFromContainerItem`, through the mod's mixin) with the settings preview (`renderPreviewLines`) colour run by colour run, after putting the preview's own stats into `PartyFinderStatsApi.CACHE`; and, with no stats (offline = what Hypixel's stats service gives on 2026-10-07), that every member line is still styled and draws 0x555555 brackets. Highlight is judged by pure green/red pixels per slot against a highlight-off frame. Fails on mod 0b492828, passes on pf-overlay 2aecfd9a.
+
+- 396-sim-smooth-tp (`SimSmoothTeleportTests`, mod smooth-tp): anything timed in WALL time (the camera glide) needs the test
+  thread to sleep between `waitTicks(1)` calls - in the gametest lockstep the client renders one frame per tick as fast as it
+  can, so a 400 ms glide otherwise spans an arbitrary number of frames. It sleeps 20 ms a tick (about 30 frames per 400 ms)
+  and samples `Camera.position()` in `LevelRenderEvents.AFTER_TRANSLUCENT_FEATURES` (the accessor is `getMainCamera` on
+  26.1.2, `mainCamera` on 26.2, so by reflection). `chunk_batch_received` differs between lanes with chunk loading; leave it
+  out of any packet-equality check. Fails on mod batch-1007 (no config class, camera jumps 12 of 12 blocks in one frame).

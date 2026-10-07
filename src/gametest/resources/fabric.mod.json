@@ -45,6 +45,7 @@
 			"dev.testkit.gametest.SimAutopilot2Tests",
 			"dev.testkit.gametest.SimKeyLookTests",
 			"dev.testkit.gametest.SimIcePathShoveTests",
+			"dev.testkit.gametest.SimSmoothTeleportTests",
 			"dev.testkit.gametest.SimInteractiveMapTests",
 			"dev.testkit.gametest.SimMapHudTests",
 			"dev.testkit.gametest.SimAutoRoutesTests",
