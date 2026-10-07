@@ -218,20 +218,20 @@ public class SimMapHudTests implements FabricClientGameTest {
             screen.extractRenderStateWithTooltipAndSubtitles(g, -1, -1, 0f);
             int[] panel = (int[]) Mod.call(screen, "panel");
             List<int[]> fills = new ArrayList<>();
-            state.forEachElement(el -> {
-                ScreenRectangle b = el.bounds();
-                if (b == null || !el.getClass().getSimpleName().contains("ColoredRectangle") || transparent(el)) {
-                    return;
+            for (Object el : fillElements(state)) {
+                ScreenRectangle b = ((net.minecraft.client.renderer.state.gui.ScreenArea) el).bounds();
+                if (b == null || transparent(el)) {
+                    continue;
                 }
                 int[] r = {b.left(), b.top(), b.right(), b.bottom()};
                 int w = r[2] - r[0];
                 int h = r[3] - r[1];
                 if (r[0] < panel[0] || r[1] < panel[1] || r[2] > panel[2] || r[3] > panel[3]
                         || w >= panel[2] - panel[0] - 4 || h >= panel[3] - panel[1] - 4) {
-                    return;
+                    continue;
                 }
                 fills.add(r);
-            }, GuiRenderState.TraverseRange.ALL);
+            }
             int side = 0;
             for (int[] r : fills) {
                 if (Math.abs((r[2] - r[0]) - (r[3] - r[1])) <= 2) {
@@ -440,15 +440,41 @@ public class SimMapHudTests implements FabricClientGameTest {
             g.pose().popMatrix();
         }
         List<int[]> fills = new ArrayList<>();
-        state.forEachElement(el -> {
-            ScreenRectangle b = el.bounds();
-            if (b != null && el.getClass().getSimpleName().contains("ColoredRectangle") && !transparent(el)) {
+        for (Object el : fillElements(state)) {
+            ScreenRectangle b = ((net.minecraft.client.renderer.state.gui.ScreenArea) el).bounds();
+            if (b != null && !transparent(el)) {
                 fills.add(new int[]{b.left(), b.top(), b.right(), b.bottom()});
             }
-        }, GuiRenderState.TraverseRange.ALL);
+        }
         List<String> texts = new ArrayList<>();
         state.forEachText(t -> texts.add(TextRuns.string(t)));
         return new Frame(new int[]{X0, Y0, X0 + Math.round(w * S), Y0 + Math.round(h * S)}, fills, texts);
+    }
+
+    /**
+     * Every solid fill in the render state, in order: each {@code ColoredRectangleRenderState}, and the parts of each
+     * batch the mod submits through {@code hud/GuiRects} (mod fps-sweep, 2026-10-07: the Dungeon Map's rooms and doors
+     * are one element each, made of the same ColoredRectangleRenderStates the fills used to be). Reading only the
+     * top-level elements saw the map's batches as no fills at all and measured an 11-unit floor in a 116-unit frame.
+     */
+    private static List<Object> fillElements(GuiRenderState state) {
+        List<Object> out = new ArrayList<>();
+        state.forEachElement(el -> {
+            if (el.getClass().getSimpleName().contains("ColoredRectangle")) {
+                out.add(el);
+                return;
+            }
+            if (el.getClass().getName().equals("com.killer560.hub.hud.GuiRects$Batch")) {
+                try {
+                    java.lang.reflect.Method parts = el.getClass().getDeclaredMethod("parts");
+                    parts.setAccessible(true);
+                    out.addAll(java.util.Arrays.asList((Object[]) parts.invoke(el)));
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError("cannot read the parts of a GuiRects batch", e);
+                }
+            }
+        }, GuiRenderState.TraverseRange.ALL);
+        return out;
     }
 
     private static boolean transparent(Object el) {

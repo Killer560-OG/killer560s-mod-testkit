@@ -64,7 +64,10 @@ Compile with `-Pminecraft_version=26.2` before merging a branch. Run status, wha
 ## FPS bench (95-fps-bench)
 
 `perf/FpsBenchTest`, about 10 minutes, only when named (`-Pscenario=95-fps`). Commands, method and how to read the
-ON-OFF delta: [docs/fps-bench.md](docs/fps-bench.md).
+ON-OFF delta: [docs/fps-bench.md](docs/fps-bench.md). `403-perf-hub` (`perf/HubPerfBenchTest`, ~18 min, only when named)
+is the hub counterpart: tab list, entities, chat, an open chest and an Ender Chest page; read its TICK and `menu` numbers
+(frame counts differ between ON and OFF, see the doc). 95 needs `Scenario.ensureRoomDatabase` like every sim floor since
+mod 0ad55108 - without it the generate was refused and the bench hung on a build that never started (fixed 2026-10-07).
 
 ## Layout
 

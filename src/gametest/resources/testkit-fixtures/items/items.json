@@ -111,10 +111,10 @@
     },
     "source": {
       "file": "src/main/java/com/killer560/hub/itemprotect/ItemProtect.java",
-      "line": 68
+      "line": 67
     },
     "verifiedBy": "regex",
-    "notes": "Item Protect keys a stack by custom_data.uuid (:66-69), falling back to id (:72-75)."
+    "notes": "Item Protect keys a stack by custom_data.uuid (:65-68), falling back to id (:71-74)."
   },
   {
     "id": "items.master-pip-only-name",
