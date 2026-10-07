@@ -22,6 +22,16 @@ the hand-back keeps the body on its running yaw, a whole turn from the held numb
 unless arrows were fired and blazes died inside that window and the body turned more than 5 degrees. Main before the fix
 (fe713ba7) failed it, the view moving 127 and 151 degrees with the lease lapsing onto the body; the fixed jar's line reads e.g. "30 arrow(s) and 10 blaze kill(s) ... view moved at most 0.000 deg".
 
+Since 2026-10-06 both blaze rooms play with Auto Blaze's Auto Secret ON and judge the secret trip on the mod's own clock
+(`AutoBlaze.testProbe`: ticks, final release, walk start, aura click, resume shot): the walk must start 1-2 ticks after
+the volley at the last blaze leaves the bow and before the sim calls the chain complete, `SimScore.secretsFound` must
+rise (the chest's screen is not a usable signal: the per-tick container check missed it in 3 of 4 runs), and the aura click must come from within 4.5 blocks of the chest's box, not standing on
+it. The camera check is judged per hold (the hand-back the tick after the final volley must not move the view; the walk
+after it may). `93-solve-blazemiss-higher` / `-lower` refuse every hit on the last blaze for 10 server ticks from the
+first and remove the arrow (`BlazeMiss`), and require the order secret taken, then a resume shot, then the chain
+complete. A jar without `testProbe` prints the timings only ("secret timeline: last blaze dead at ..., chest opened at
+...") - that is how main's wait-then-walk was compared.
+
 Water Board checks more than the solve (mod 5cd5b881): before the auto starts, exactly three colour layers of the
 walkway under the glass are fully out (x 14..16 at y 56, x 14/16 at y 57, 5 of 5 cells) and no reward chest exists;
 after the solve, a chest at room-relative (15, 56, 22) equal to `SimWaterPuzzle.rewardChestPos()`, all five layers

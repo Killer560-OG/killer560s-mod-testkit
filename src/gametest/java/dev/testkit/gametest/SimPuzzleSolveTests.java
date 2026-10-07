@@ -167,6 +167,39 @@ public final class SimPuzzleSolveTests {
         }
     }
 
+    /**
+     * Higher Blaze with the final volley forced to miss (killer560, 2026-10-06: "If while it goes to get the secret it
+     * realizes it missed a blaze then it can get it again after getting the secret"). Every hit on the last blaze is
+     * refused for {@link BlazeMiss#WINDOW} server ticks from the first one and the arrow removed, as if the volley
+     * went wide. The order must then be: secret taken, shooting resumed, last blaze dead.
+     */
+    public static final class BlazeMissHigher extends Base {
+        public BlazeMissHigher() {
+            super(new Spec("blazemiss-higher", "Higher Blaze", "setAutoBlazeEnabled", "isAutoBlazeEnabled",
+                    "BlazeSolverConfig", "SimBlazePuzzle", TERM_SLOT, false, 75, Approach.NONE,
+                    "BlazeSolverFeature.getOrderedBlazes"));
+        }
+
+        @Override
+        boolean forceMiss() {
+            return true;
+        }
+    }
+
+    /** {@link BlazeMissHigher} in Lower Blaze. */
+    public static final class BlazeMissLower extends Base {
+        public BlazeMissLower() {
+            super(new Spec("blazemiss-lower", "Lower Blaze", "setAutoBlazeEnabled", "isAutoBlazeEnabled",
+                    "BlazeSolverConfig", "SimBlazePuzzle", TERM_SLOT, false, 75, Approach.NONE,
+                    "BlazeSolverFeature.getOrderedBlazes"));
+        }
+
+        @Override
+        boolean forceMiss() {
+            return true;
+        }
+    }
+
     public static final class CreeperBeams extends Base {
         public CreeperBeams() {
             super(new Spec("creeperbeams", "Creeper Beams", "setAutoBeamsEnabled", "isAutoBeamsEnabled",
@@ -306,6 +339,16 @@ public final class SimPuzzleSolveTests {
             return true;
         }
 
+        /** Blaze only: refuse the final volley's hits on the last blaze, so it survives the first try. */
+        boolean forceMiss() {
+            return false;
+        }
+
+        /** Higher and Lower Blaze play with Auto Blaze's Auto Secret on (killer560, 2026-10-06). */
+        private boolean blaze() {
+            return "SimBlazePuzzle".equals(spec.puzzle());
+        }
+
         /** Boulder only: whether Secret Aura will actually open the chest - the auto's run-along-the-roof mode. */
         private boolean auraTakesChest() {
             return secretAura() && auraChests();
@@ -383,6 +426,7 @@ public final class SimPuzzleSolveTests {
                 System.out.println("[" + name + "] " + verdict);
                 throw e;
             } finally {
+                BlazeMiss.disarm();
                 allAutosOff(ctx);
                 teardown(ctx);
             }
@@ -540,6 +584,7 @@ public final class SimPuzzleSolveTests {
 
             // ---- Blaze: the free camera, recorded every render frame from before the auto is switched on ----
             CameraWatch cw = "SimBlazePuzzle".equals(spec.puzzle()) ? new CameraWatch(ctx, name) : null;
+            BlazeTrip trip = blaze() ? new BlazeTrip(ctx, name, forceMiss()) : null;
 
             // ---- switch it on ---------------------------------------------------------------------------
             ctx.runOnClient(mc -> configure(true, true));
@@ -687,11 +732,20 @@ public final class SimPuzzleSolveTests {
                     failedAt = t;
                     println(name, String.format("t=%.1fs the sim marked %s FAILED", t / 20.0, spec.room()));
                 }
+                boolean solvedNow = false;
                 if (solvedAt < 0 && complete(ctx)) {
                     solvedAt = t;
+                    solvedNow = true;
                     println(name, String.format("t=%.1fs %s.isComplete() = true", t / 20.0, spec.puzzle()));
                 }
+                if (trip != null) {
+                    trip.tick(ctx, t, solvedNow);
+                }
                 boolean done = spec.chestIsVerdict() ? chestAt > 0 : solvedAt > 0;
+                if (done && trip != null && !trip.secretTaken() && t < solvedAt + 25 * 20) {
+                    // Auto Secret: the chest is half of it. 25 s after the solve is far past any walk.
+                    done = false;
+                }
                 if (done && bw != null && !bw.autoFinished() && t < chestAt + 25 * 20) {
                     // Boulder: the chest is half of it - the walk back out to the doorway is the other half.
                     done = false;
@@ -714,6 +768,9 @@ public final class SimPuzzleSolveTests {
             // Before the autos go off: Auto Water's last act is the warp onto its chest spot.
             String waterReward = water && solvedAt > 0 && failedAt < 0 ? waterReward(ctx, name) : null;
             ctx.runOnClient(mc -> configure(true, false));
+            if (trip != null) {
+                BlazeMiss.disarm();
+            }
             String camera = null;
             if (cw != null) {
                 // The auto is off now, so it has handed the camera back: a few more frames show whether that hand-back
@@ -773,8 +830,17 @@ public final class SimPuzzleSolveTests {
                     return String.format("FAIL - solved at %.1fs with %d arrows, but the free camera: %s%s",
                             solvedAt / 20.0, arrows, camera, extra);
                 }
-                return String.format("PASS - solved at %.1fs, %d Terminator arrows, camera %s%s", solvedAt / 20.0,
-                        arrows, cw == null ? "not watched" : cw.summary(), extra);
+                String secret = trip == null ? null : trip.verdict(ctx, solvedAt, chestAt);
+                if (trip != null) {
+                    println(name, "secret: " + trip.summary());
+                }
+                if (secret != null) {
+                    dumpEvidence(ctx, name, mark);
+                    return "FAIL - solved, but Auto Secret: " + secret + extra;
+                }
+                return String.format("PASS - solved at %.1fs, %d Terminator arrows, %scamera %s%s", solvedAt / 20.0,
+                        arrows, trip == null ? "" : trip.summary() + "; ", cw == null ? "not watched" : cw.summary(),
+                        extra);
             }
             if (iceBreaks != null) {
                 String broke = iceBreaks.verdict();
@@ -928,7 +994,7 @@ public final class SimPuzzleSolveTests {
             ModUnderTest.set(auto, "setEtherwarpReposition", true);
             ModUnderTest.set(auto, "setAutoPuzzlePathingEnabled", true);
             ModUnderTest.set(auto, "setShootCooldownMs", 500);
-            ModUnderTest.set(auto, "setAutoBlazeSecretEnabled", false);
+            ModUnderTest.set(auto, "setAutoBlazeSecretEnabled", blaze());
             ModUnderTest.set(auto, "setTicTacToeAuraChestEnabled", false);
             ModUnderTest.set(auto, "setTicTacToeWalkOutEnabled", false);
             ModUnderTest.set(auto, "setIceFillAdaptive", false);
@@ -1706,11 +1772,28 @@ public final class SimPuzzleSolveTests {
             double maxGap = 0;
             int gaps = 0;
             List<String> gapAt = new ArrayList<>();
+            // Judged per HOLD: with Auto Secret on, the camera is handed back the tick after the final volley and the
+            // walk to the secret then turns his view the way any walk does, and a missed blaze takes the camera again
+            // afterwards. So each hold is measured against its own first frame, and the first frame after a hold
+            // ends against that hold's view (the hand-back must not move the picture); frames between holds are not.
+            double[] seg = s;
+            boolean prevHeld = true;
+            int segments = 1;
             for (int i = start; i < f.size(); i++) {
                 double[] r = f.get(i);
+                boolean held = r[5] == 1;
+                if (held && !prevHeld) {
+                    seg = r;
+                    segments++;
+                }
+                boolean judged = held || prevHeld;
+                prevHeld = held;
+                if (!judged) {
+                    continue;
+                }
                 // Modulo a whole turn: a view 360 degrees off draws the same picture (the body keeps its own running
                 // yaw, so the hand-back can land a whole turn away from the held view's number).
-                double dv = Math.max(Math.abs(wrap(r[1] - s[1])), Math.abs(r[2] - s[2]));
+                double dv = Math.max(Math.abs(wrap(r[1] - seg[1])), Math.abs(r[2] - seg[2]));
                 if (dv > maxView) {
                     maxView = dv;
                 }
@@ -1734,9 +1817,9 @@ public final class SimPuzzleSolveTests {
             summary = String.format(java.util.Locale.ROOT,
                     "%d frames over %.1fs from the first hold; %d arrow(s) and %d blaze kill(s) in it; view moved at most "
                             + "%.3f deg (limit %.1f); body yaw range %.1f, pitch range %.1f; body-to-camera gap up to %.1f "
-                            + "deg; %d frame(s) up to the last shot with the camera NOT held",
+                            + "deg; %d frame(s) up to the last shot with the camera NOT held; %d hold(s)",
                     f.size() - start, ms / 1000.0, shots, kills, maxView, EPS, maxYaw - minYaw, maxPitch - minPitch,
-                    maxGap, gaps) + (gapAt.isEmpty() ? "" : " " + gapAt);
+                    maxGap, gaps, segments) + (gapAt.isEmpty() ? "" : " " + gapAt);
             if (shots == 0) {
                 return "no arrow was fired after the camera was taken - nothing measured (" + summary + ")";
             }
@@ -1756,6 +1839,230 @@ public final class SimPuzzleSolveTests {
                         (int) (r[6] - s[6]), summary);
             }
             return null;
+        }
+    }
+
+    /**
+     * Auto Blaze's Auto Secret (killer560, 2026-10-06): the secret trip starts the moment the volley at the last blaze
+     * leaves the bow, walks to a block within aura reach of the chest (not onto it), and a miss is shot again only
+     * after the secret is taken. Reads the mod's own clock ({@code AutoBlaze.testProbe}: ticks, final release, walk
+     * start, aura click, resume shot) so every tick compared is on one clock, and records the tick of that clock at
+     * which the sim called the chain complete.
+     */
+    static final class BlazeTrip {
+        private static final String AUTO_BLAZE = "com.killer560.hub.autopuzzles.AutoBlaze";
+        private static final double REACH = 4.5; // CheatUtilsConfig.MEASURED_MAX_REACH, what Auto Blaze clicks with
+        private final String name;
+        private final boolean miss;
+        private final int secretsBefore;
+        private int[] probe;
+        private int solvedTick = -1;
+        private int auraT = -1;
+        /** Scenario tick at which the sim first counted a secret - server truth, and readable on any jar. */
+        private int foundT = -1;
+        private String stoodAt = "never";
+        private double eyeToChest = Double.NaN;
+        private boolean onChest;
+        private String summary = "not evaluated";
+
+        BlazeTrip(ClientGameTestContext ctx, String name, boolean miss) {
+            this.name = name;
+            this.miss = miss;
+            this.secretsBefore = secretsFound(ctx);
+            if (miss) {
+                BlazeMiss.arm(ctx);
+                println(name, "forced miss armed: hits on the last blaze are refused for " + BlazeMiss.WINDOW
+                        + " server ticks from the first");
+            }
+        }
+
+        private static int secretsFound(ClientGameTestContext ctx) {
+            return ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimScore",
+                    "secretsFound"));
+        }
+
+        private static int[] readProbe(ClientGameTestContext ctx) {
+            return ctx.computeOnClient(mc -> {
+                try {
+                    // The four-argument form: it sets accessible, and AutoBlaze is package-private.
+                    return (int[]) ModUnderTest.staticCall(AUTO_BLAZE, "testProbe", new Class<?>[]{}, new Object[]{});
+                } catch (Throwable t) {
+                    return null; // a jar before the early secret: timings only
+                }
+            });
+        }
+
+        boolean secretTaken() {
+            return foundT >= 0;
+        }
+
+        void tick(ClientGameTestContext ctx, int t, boolean solvedNow) {
+            if (foundT < 0 && secretsFound(ctx) > secretsBefore) {
+                foundT = t;
+                println(name, String.format("t=%.2fs the sim counted the secret", t / 20.0));
+            }
+            int[] p = readProbe(ctx);
+            if (p == null) {
+                return;
+            }
+            probe = p;
+            if (solvedNow) {
+                solvedTick = p[0];
+            }
+            if (auraT < 0 && p[3] >= 0) {
+                auraT = t;
+                Object[] at = ctx.computeOnClient(mc -> {
+                    var pos = (net.minecraft.core.BlockPos[]) ModUnderTest.staticCall(AUTO_BLAZE, "testSecretPos",
+                            new Class<?>[]{}, new Object[]{});
+                    var chest = pos[0];
+                    var eye = mc.player.getEyePosition();
+                    double dx = Math.max(0, Math.max(chest.getX() - eye.x, eye.x - (chest.getX() + 1)));
+                    double dy = Math.max(0, Math.max(chest.getY() - eye.y, eye.y - (chest.getY() + 1)));
+                    double dz = Math.max(0, Math.max(chest.getZ() - eye.z, eye.z - (chest.getZ() + 1)));
+                    var floor = net.minecraft.core.BlockPos.containing(mc.player.getX(),
+                            Math.ceil(mc.player.getY() - 1.0), mc.player.getZ());
+                    return new Object[]{String.format(java.util.Locale.ROOT, "%.2f,%.2f,%.2f (stand %s, planned %s, chest %s)",
+                            mc.player.getX(), mc.player.getY(), mc.player.getZ(), floor.toShortString(),
+                            pos[1] == null ? "-" : pos[1].toShortString(), chest.toShortString()),
+                            Math.sqrt(dx * dx + dy * dy + dz * dz), floor.equals(chest)};
+                });
+                stoodAt = (String) at[0];
+                eyeToChest = (Double) at[1];
+                onChest = (Boolean) at[2];
+                println(name, String.format("t=%.1fs Auto Blaze aura'd the secret from %s, eye %.2f from the chest box",
+                        t / 20.0, stoodAt, eyeToChest));
+            }
+        }
+
+        String summary() {
+            return summary;
+        }
+
+        /** Null on a pass. {@code solvedAt}/{@code chestAt} are the scenario's own ticks since the auto went on. */
+        String verdict(ClientGameTestContext ctx, int solvedAt, int chestAt) {
+            int found = secretsFound(ctx) - secretsBefore;
+            // The secret's time is when the SIM counted it: the chest's screen is not always seen by the scenario's
+            // per-tick container check (it opened and was gone between two of its reads in 3 of 4 runs).
+            String timing = String.format(java.util.Locale.ROOT, "last blaze dead at %.2fs, secret counted at %s",
+                    solvedAt / 20.0, foundT >= 0 ? String.format(java.util.Locale.ROOT, "%.2fs (%+.2fs after the kill)",
+                            foundT / 20.0, (foundT - solvedAt) / 20.0) : "never");
+            if (probe == null) {
+                summary = timing + "; no AutoBlaze.testProbe in this jar";
+                println(name, "secret timeline: " + summary);
+                return found > 0 ? null : "the secret was not taken (" + summary + ")";
+            }
+            int release = probe[1], walk = probe[2], aura = probe[3], resume = probe[4];
+            summary = String.format(java.util.Locale.ROOT,
+                    "%s; mod ticks: final release %d, walk %d (+%d), aura %d, resume shot %d, chain complete %d; "
+                            + "%d secret(s) counted; stood %s, eye %.2f from the chest%s",
+                    timing, release, walk, walk - release, aura, resume, solvedTick, found, stoodAt, eyeToChest,
+                    miss ? String.format(", %d hit(s) refused", BlazeMiss.denied) : "");
+            println(name, "secret timeline: " + summary);
+            if (found < 1 || aura < 0) {
+                return "the secret was not taken (" + summary + ")";
+            }
+            if (onChest) {
+                return "he stood ON the chest to take it (" + summary + ")";
+            }
+            if (!(eyeToChest <= REACH + 1e-6)) {
+                return "he aura'd from outside the " + REACH + "-block reach (" + summary + ")";
+            }
+            if (release < 0 || walk < 0) {
+                return "no early secret walk was recorded (" + summary + ")";
+            }
+            if (walk - release < 1 || walk - release > 2) {
+                return "the walk started " + (walk - release) + " tick(s) after the final release, not 1-2 ("
+                        + summary + ")";
+            }
+            if (solvedTick < 0 || walk >= solvedTick) {
+                return "the walk did not start before the last blaze died (" + summary + ")";
+            }
+            if (miss) {
+                if (BlazeMiss.denied == 0) {
+                    return "the forced miss never refused a hit, so nothing was missed (" + summary + ")";
+                }
+                if (resume < 0) {
+                    return "no shot after the secret trip - the miss was never picked up (" + summary + ")";
+                }
+                if (!(aura < resume && resume < solvedTick)) {
+                    return "the order was not secret, resume, kill (" + summary + ")";
+                }
+            } else if (resume >= 0) {
+                return "a resume shot was fired with no forced miss (" + summary + ")";
+            }
+            return null;
+        }
+    }
+
+    /**
+     * The forced miss: on the integrated server, refuses every hit on the LAST blaze of the sim chain for
+     * {@link #WINDOW} server ticks from the first one and removes the arrow, as if the volley had gone wide. Later
+     * volleys hit normally.
+     */
+    static final class BlazeMiss {
+        static final int WINDOW = 10;
+        static volatile boolean armed = false;
+        static volatile int denied = 0;
+        private static volatile int firstTick = -1;
+        private static volatile java.util.UUID victim = null;
+        private static boolean hooked = false;
+
+        static void arm(ClientGameTestContext ctx) {
+            ctx.runOnClient(mc -> {
+                if (!hooked) {
+                    hooked = true;
+                    net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.ALLOW_DAMAGE.register(
+                            (entity, source, amount) -> {
+                                if (!armed || !(entity instanceof net.minecraft.world.entity.monster.Blaze)) {
+                                    return true;
+                                }
+                                int now = ((net.minecraft.server.level.ServerLevel) entity.level()).getServer()
+                                        .getTickCount();
+                                if (firstTick < 0) {
+                                    if (!lastDue(entity)) {
+                                        return true;
+                                    }
+                                    firstTick = now;
+                                    victim = entity.getUUID();
+                                }
+                                if (now - firstTick > WINDOW) {
+                                    armed = false;
+                                    return true;
+                                }
+                                if (!entity.getUUID().equals(victim)) {
+                                    return true;
+                                }
+                                denied++;
+                                if (source.getDirectEntity() != null) {
+                                    source.getDirectEntity().discard();
+                                }
+                                return false;
+                            });
+                }
+            });
+            denied = 0;
+            firstTick = -1;
+            victim = null;
+            armed = true;
+        }
+
+        static void disarm() {
+            armed = false;
+        }
+
+        /** Whether this is the chain's last blaze and the one now due. */
+        @SuppressWarnings("unchecked")
+        private static boolean lastDue(net.minecraft.world.entity.Entity e) {
+            try {
+                Class<?> c = Class.forName(PUZZLES + "SimBlazePuzzle");
+                var f = c.getDeclaredField("spawnedIds");
+                f.setAccessible(true);
+                List<java.util.UUID> ids = (List<java.util.UUID>) f.get(null);
+                int killed = (Integer) c.getMethod("killedInOrder").invoke(null);
+                return !ids.isEmpty() && killed == ids.size() - 1 && ids.get(killed).equals(e.getUUID());
+            } catch (ReflectiveOperationException ex) {
+                return false;
+            }
         }
     }
 
