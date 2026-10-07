@@ -1,0 +1,196 @@
+{
+ "success": true,
+ "profiles": [
+  {
+   "profile_id": "5a49b814-4838-4c5d-98ee-7f47ebbe5c0d",
+   "cute_name": "Pomegranate",
+   "selected": false,
+   "members": {
+    "885a5460f2e0444dae2c255c7e539be0": {
+     "player_id": "885a5460f2e0444dae2c255c7e539be0",
+     "dungeons": {
+      "player_classes": {
+       "healer": {
+        "experience": 0
+       },
+       "mage": {
+        "experience": 0
+       },
+       "berserk": {
+        "experience": 0
+       },
+       "archer": {
+        "experience": 0
+       },
+       "tank": {
+        "experience": 0
+       }
+      },
+      "dungeon_types": {
+       "catacombs": {
+        "tier_completions": {},
+        "fastest_time": {},
+        "fastest_time_s": {},
+        "fastest_time_s_plus": {},
+        "best_score": {}
+       },
+       "master_catacombs": {
+        "tier_completions": {}
+       }
+      }
+     }
+    }
+   },
+   "game_mode": "island"
+  },
+  {
+   "profile_id": "af22fc7d-a2c8-449f-b73a-d3192afae5d9",
+   "cute_name": "Pear",
+   "selected": true,
+   "members": {
+    "885a5460f2e0444dae2c255c7e539be0": {
+     "player_id": "885a5460f2e0444dae2c255c7e539be0",
+     "dungeons": {
+      "secrets": 47444,
+      "selected_dungeon_class": "healer",
+      "player_classes": {
+       "healer": {
+        "experience": 322841318.4601376
+       },
+       "mage": {
+        "experience": 129601746.84416816
+       },
+       "berserk": {
+        "experience": 252371820.4181554
+       },
+       "archer": {
+        "experience": 145314864.6644855
+       },
+       "tank": {
+        "experience": 136183640.85263574
+       }
+      },
+      "dungeon_types": {
+       "catacombs": {
+        "experience": 674077760.952576,
+        "tier_completions": {
+         "0": 7.0,
+         "1": 60.0,
+         "2": 54.0,
+         "3": 100.0,
+         "4": 28.0,
+         "5": 37.0,
+         "total": 2155.0,
+         "6": 127.0,
+         "7": 1976.0
+        },
+        "fastest_time": {
+         "0": 97245.0,
+         "1": 209894.0,
+         "2": 164358.0,
+         "3": 164745.0,
+         "4": 189645.0,
+         "5": 137458.0,
+         "best": 97245.0,
+         "6": 166013.0,
+         "7": 223391.0
+        },
+        "fastest_time_s": {
+         "1": 250805.0,
+         "0": 429669.0,
+         "3": 164745.0,
+         "2": 190238.0,
+         "4": 189645.0,
+         "5": 360752.0,
+         "best": 164745.0,
+         "6": 253126.0,
+         "7": 243101.0
+        },
+        "fastest_time_s_plus": {
+         "3": 177774.0,
+         "2": 191620.0,
+         "4": 304997.0,
+         "6": 166013.0,
+         "best": 137458.0,
+         "7": 223391.0,
+         "5": 137458.0
+        },
+        "best_score": {
+         "0": 274.0,
+         "1": 295.0,
+         "2": 306.0,
+         "3": 306.0,
+         "4": 312.0,
+         "5": 312.0,
+         "6": 317.0,
+         "best": 320.0,
+         "7": 320.0
+        }
+       },
+       "master_catacombs": {
+        "tier_completions": {
+         "1": 4.0,
+         "total": 1255.0,
+         "2": 3.0,
+         "3": 34.0,
+         "4": 20.0,
+         "5": 253.0,
+         "6": 84.0,
+         "7": 857.0
+        },
+        "fastest_time": {
+         "best": 104488.0,
+         "1": 116560.0,
+         "2": 133827.0,
+         "3": 138407.0,
+         "4": 204882.0,
+         "5": 104488.0,
+         "6": 148052.0,
+         "7": 290244.0
+        },
+        "fastest_time_s": {
+         "best": 118558.0,
+         "1": 168682.0,
+         "3": 138407.0,
+         "4": 204882.0,
+         "5": 118558.0,
+         "6": 180442.0,
+         "7": 304752.0
+        },
+        "fastest_time_s_plus": {
+         "best": 104488.0,
+         "2": 240212.0,
+         "3": 228527.0,
+         "4": 265441.0,
+         "5": 104488.0,
+         "6": 148052.0,
+         "7": 290244.0
+        },
+        "best_score": {
+         "best": 321.0,
+         "1": 284.0,
+         "2": 301.0,
+         "3": 303.0,
+         "4": 305.0,
+         "5": 314.0,
+         "6": 312.0,
+         "7": 321.0
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "profile_id": "ad8c3eb1-4e03-40cd-a45f-b6f10b809732",
+   "cute_name": "Strawberry",
+   "selected": false,
+   "members": {
+    "885a5460f2e0444dae2c255c7e539be0": {
+     "player_id": "885a5460f2e0444dae2c255c7e539be0"
+    }
+   }
+  }
+ ]
+}
