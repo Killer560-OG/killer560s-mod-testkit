@@ -23,9 +23,11 @@ import java.util.List;
  *   <li>below it (eye 1.38 under the stand's feet, still 2.2 blocks from its box): no click in 40 ticks;</li>
  *   <li>level, facing AWAY, Aura FOV 90: no click.</li>
  * </ol>
- * 414 (cheat jar only, EXPECTING flags): level, facing away, Aura FOV Any (the default, and QUOI's): it clicks and the
- * terminal opens, and GrimAC flags {@code Hitboxes type=armor_stand} - the aura does not rotate, so a terminal behind
- * you is clicked with a look ray that misses it (first seen 2026-10-07; the facing click in 409 is clean).
+ * 414 (cheat jar only): level, facing away, Aura FOV Any (the default, and QUOI's), Turn To Terminal on (the default):
+ * it clicks, the terminal opens, GrimAC stays clean, and afterwards the player's rotation is back where it was - the
+ * body was turned for the click, never the camera.
+ * 415 (cheat jar only, EXPECTING flags): the same with Turn To Terminal off - the click goes out with a look ray that
+ * misses the stand, and GrimAC flags {@code Hitboxes type=armor_stand} (seen 2026-10-07, before the turn existed).
  * The aura is switched off while the player is moved, so a click can only come from the spot being judged.
  */
 final class TerminalAuraCases {
@@ -43,13 +45,15 @@ final class TerminalAuraCases {
     }
 
     static void register(Session s) {
-        s.test("409-boss-termaura", c -> run(c, false));
+        s.test("409-boss-termaura", c -> run(c, 0));
         if (Mod.isCheat()) {
-            s.testExpectingFlags("414-boss-termaura-behind", c -> run(c, true));
+            s.test("414-boss-termaura-behind", c -> run(c, 1));
+            s.testExpectingFlags("415-boss-termaura-behind-noturn", c -> run(c, 2));
         }
     }
 
-    static void run(Session c, boolean behind) throws Exception {
+    /** mode 0: 409; 1: 414, behind with the turn; 2: 415, behind without it. */
+    static void run(Session c, int mode) throws Exception {
         if (!Mod.isCheat()) {
             c.note("legit jar: Terminal Aura is compiled out; checking only that it never clicks");
         }
@@ -81,9 +85,19 @@ final class TerminalAuraCases {
             undo.add(c.onClient(mc -> Mod.with(CONFIG, "FovDegrees", 360)));
             undo.add(c.onClient(mc -> Mod.with(CONFIG, "Enabled", false)));
 
-            if (behind) {
-                // ---- 414: facing away at FOV Any clicks (and Grim flags Hitboxes) ----
-                expect(c, "away-any", X - 1.5, G + 3, Z + 0.5, 90f, true);
+            if (mode != 0) {
+                boolean turn = mode == 1;
+                undo.add(c.onClient(mc -> Mod.with(CONFIG, "TurnToTerminal", turn)));
+                expect(c, turn ? "away-any-turn" : "away-any-noturn", X - 1.5, G + 3, Z + 0.5, 90f, true);
+                if (turn) {
+                    closeScreen(c);
+                    c.ctx().waitTicks(5);
+                    float yaw = c.onClient(mc -> net.minecraft.util.Mth.wrapDegrees(mc.player.getYRot()));
+                    float pitch = c.onClient(mc -> mc.player.getXRot());
+                    c.note("rotation after the click: yaw " + yaw + ", pitch " + pitch + " (was 90, 0)");
+                    c.check(Math.abs(net.minecraft.util.Mth.wrapDegrees(yaw - 90f)) < 0.5f && Math.abs(pitch) < 0.5f,
+                            "the body was not given back to the view: yaw " + yaw + " pitch " + pitch);
+                }
                 return;
             }
 

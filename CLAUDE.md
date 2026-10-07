@@ -41,6 +41,8 @@ moves under a run). `-Minecraft` follows the jar's `fabric.mod.json` when not gi
 to "Done"; a scenario's join, arm and settle add ~15 s); `hx/Session` runs many cases on one start. `-Pport=N` patches
 run/testserver/server.properties (sticks for the checkout) and puts the Hx bridge on N+5 and an HTTP fake on N+6;
 concurrency needs separate checkouts (Gradle locks the project dir). `-Psuite=<name>` reads `suites.properties`.
+Never start two `run-sharded.ps1` at once: both use the same shard worktrees (`<shardsDir>/<mc>-1`...), and two started
+in the same second share one `build/sharded-<timestamp>` folder - on 2026-10-07 the menu run quietly died under the ui run.
 `-PseedConfig=<dir>` copies into the client's config after the wipe. Every run points `prismaccountswitcher.accountsFile`
 at an empty fixture and passes `killer560.net.offline=true` and `killer560.test.noExternalOpen=true` (opt out:
 `-PnetOnline`, `-PallowExternalOpen`, or `-PnoQuiet` for all, which also stops Session applying `mod/Quiet`).
