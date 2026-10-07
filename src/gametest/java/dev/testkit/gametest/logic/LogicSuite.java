@@ -25,6 +25,7 @@ import net.minecraft.world.level.block.Blocks;
  * 358-logic-mapcode-floorlayout MapCode round trip/fuzz, SimFloorLayout helpers and seeded determinism
  * 359-logic-bazaar-party       Bazaar flip sizing/book direction/ranking, party-command authorisation
  * 362-logic-boss-timers        0.27.2 pacing (NoammAddons 1.2.9): Tick Timers, Blood Camp kill, Auto i4 prediction re-roll
+ * 363-logic-roof-cover         Interactive Map landings outside the sim: an open roof refused, under a ceiling accepted
  * </pre>
  *
  * The catalog comes from {@code python tools/extract-patterns.py -PmodSource=<mod checkout>}; the mod source is read
@@ -46,7 +47,7 @@ public class LogicSuite implements FabricClientGameTest {
         // ItemStacks need item components, which are bound only once a world's registries load ("Components not
         // bound yet" at the title screen). The two cases that build stacks run in a throwaway singleplayer world.
         if (!Scenario.skip("354-logic-terminals") || !Scenario.skip("357-logic-items-ap3-routes")
-                || !Scenario.skip("362-logic-boss-timers")) {
+                || !Scenario.skip("362-logic-boss-timers") || !Scenario.skip("363-logic-roof-cover")) {
             try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
                 LogicCase.run(ctx, "354-logic-terminals", SolverCases::terminals);
                 LogicCase.run(ctx, "357-logic-items-ap3-routes", DomainCases::itemsAp3Routes);
@@ -64,6 +65,7 @@ public class LogicSuite implements FabricClientGameTest {
                     }
                 }
                 LogicCase.run(ctx, "362-logic-boss-timers", BossTimerCases::bossTimers);
+                LogicCase.run(ctx, "363-logic-roof-cover", RoofCoverCases::roofCover);
             }
         }
         double s = (System.nanoTime() - t0) / 1e9;
