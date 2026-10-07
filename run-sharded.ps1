@@ -67,7 +67,17 @@ $runLog = "$OutDir/run-sharded.log"
 function Say([string]$text) {
     $line = "[sharded " + (Get-Date -Format "HH:mm:ss") + "] " + $text
     Write-Host $line
-    Add-Content -Path $runLog -Value $line -Encoding UTF8
+    # Anything reading the log at that instant (a grep in a wait loop, an editor) makes Add-Content throw a sharing
+    # violation, and with ErrorActionPreference Stop that ended the whole run and killed its shards (2026-10-07). A log
+    # line is never worth that: retry briefly, then drop it (it was already written to the console).
+    for ($try = 0; $try -lt 10; $try++) {
+        try {
+            Add-Content -Path $runLog -Value $line -Encoding UTF8 -ErrorAction Stop
+            break
+        } catch {
+            Start-Sleep -Milliseconds 200
+        }
+    }
 }
 
 # ---- inputs ------------------------------------------------------------------------------------------------------
