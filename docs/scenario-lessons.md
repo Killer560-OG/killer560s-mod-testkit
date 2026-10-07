@@ -338,3 +338,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   415's Hitboxes flag. 421 Lever Aura (S2 section lever at its real coordinates, `forceload` first - a fill into an unloaded
   chunk silently does nothing and he fell 75 blocks), 422/423 Simon Says Auto Solve No Rotate facing away / facing the
   device (the server's ss.completed is the proof). `BehindAuraTests` 419/420: Secret Aura, lever behind / in front.
+- 62-full-block-reach left Secret Triggerbot ON, and a sharded run that put it first in a shard failed 62-argrim-hand/-legit/
+  -play: the triggerbot clicked each lever as the legit route turned the crosshair onto it (two use_item_on in one tick, the
+  lever back off). Same on the old jar, so not a mod regression (2026-10-07). A shard reorders the k560 list: any scenario
+  that switches a clicking feature on must switch it off, and a session that judges clicks switches the others off itself.
