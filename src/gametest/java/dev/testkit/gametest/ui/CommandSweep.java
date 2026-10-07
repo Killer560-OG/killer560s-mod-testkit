@@ -89,6 +89,19 @@ final class CommandSweep {
                 roots.add(root.getName());
                 walk(c, d, src, root, "", 0, inputs, pending);
             }
+            // Hypixel commands the mod shadows must still take Hypixel's arguments: "/bz rec" failed on the client
+            // with "Incorrect argument for command at position 3" and never reached Hypixel (killer560, 2026-10-06).
+            for (String line : List.of("bz rec", "bz Recombobulator 3000", "ah Technoblade", "hypixelbz rec",
+                    "hypixelah Technoblade")) {
+                if (d.getRoot().getChild(line.substring(0, line.indexOf(' '))) == null) {
+                    continue;   // not registered by this jar (legit builds may lack a root)
+                }
+                com.mojang.brigadier.ParseResults<Object> p = d.parse(line, src);
+                c.check(!p.getReader().canRead() && p.getContext().getCommand() != null
+                                && p.getExceptions().isEmpty(),
+                        "'/" + line + "' does not parse to a command (stops at " + p.getReader().getCursor()
+                                + ": the client would reject it instead of forwarding it to Hypixel)");
+            }
             return null;
         });
         int suggested = 0;
