@@ -69,7 +69,9 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   of `ClientCommonPacketListenerImpl` by reflection to a "mc.hypixel.net" ServerData (same name on 26.1.2 and 26.2) plus
   `DungeonState.setRoomSim(true)` (in a dungeon, not the boss), and puts both back. Its first run teleported a player who
   was not flying and photographed the door's underside while passing; set flying before the teleport and assert the eye
-  height at every shot (2026-10-07).
+  height at every shot (2026-10-07). That eye check then failed 2 of 3 ui suites the same day (eye y 68.92 / 68.36, not
+  70.62, the same at every shot): he lost flight during the up-to-400-tick wait for the door's blocks, dropped, and the
+  `flying = true` after the wait left him hovering lower. 390 now sets mayfly too and places him again after that wait.
 - `menu.anvil` (hx/menu/HxAnvil) is Hypixel's Anvil from the wiki's Anvil/UI template: inputs 29/33, Combine Items 22, result 13.
   It combines ANY two items and records each as `anvil.combine {left,right,result}` (books merge enchant by enchant, equal
   levels +1, no cap), so a wrong pair the mod sends shows up server-side instead of being refused. `claim:"direct"` puts the
