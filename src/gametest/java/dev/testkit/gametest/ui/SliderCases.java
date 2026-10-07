@@ -340,6 +340,25 @@ final class SliderCases {
             c.problem("overlapping rows: " + f);
         }
         c.check(n[0] > 100, "only " + n[0] + " layouts checked - the sweep did not reach the menu");
+        // Health and Mana Bars (mod bars-tab, 2026-10-07): its rows sit behind Stat Bars and behind each bar's own
+        // toggle, so they exist only in the flipped layouts - require the sweep to have laid them out. Classic
+        // Display's rows are behind a section header the sweep does not open; 393-ui-stat-bars checks those.
+        if (SEEN.stream().anyMatch(x -> x.contains("Health and Mana Bars|Hide Hypixel Stat Text:"))) {
+            List<String> missed = new ArrayList<>();
+            for (String want : new String[]{"Stat Bars:", "Health Bar:", "Health Text:", "Colour:", "Bar Width:",
+                    "Bar Height:", "Show Value:", "Background:", "Absorption Colour:", "Hearts:", "Unhide Hearts In Rift:",
+                    "Health:", "XP Bar And Level:", "Text Shadow:"}) {
+                if (SEEN.stream().noneMatch(x -> x.contains("Health and Mana Bars|" + want))) {
+                    missed.add(want);
+                }
+            }
+            c.note("swept Health and Mana Bars rows; never laid out: " + missed);
+            if (!missed.isEmpty()) {
+                c.problem("the sweep never laid out these Health and Mana Bars rows: " + missed);
+            }
+        } else {
+            c.note("Health and Mana Bars: old layout (before mod bars-tab), its rows are not required");
+        }
         if (Mod.isCheat()) {
             // Auto Routes' Breaker Block Display / Style (mod ar-db-edit): the sweep must actually have laid them out,
             // or "0 overlapping" says nothing about them.

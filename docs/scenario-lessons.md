@@ -83,3 +83,10 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
 - 87-chat-tidy reads the chat WINDOW (mod `ChatTidy.testChatLines`), and offline runs drop the mod's "[ModChat] Relay unavailable"
   notice into it at random moments: the first run failed "newest line is the /say" on that notice (2026-10-07). Filter `[ModChat]`
   lines before asserting which line is newest. Lines are sent with `tellraw @a {"text":...,"color":...}`, the system-chat path.
+
+- 393-ui-stat-bars (Health and Mana Bars tab, mod bars-tab): its "no Scale control" check first passed on the OLD jar too,
+  because the old tab kept its Scale sliders inside closed dropdowns and only under readouts that were on (2026-10-07).
+  A "this control is gone" check must read a layout where it would exist: every readout on from the config, every section
+  header opened. Old-save size check: `TESTKIT_BARS_EXPORT=<dir>` on the old jar writes its config and the measured bar
+  (`bars-tab-export.properties`); `-Extra @('-PseedConfig=<dir>')` on the new jar compares pixel for pixel. Run it alone,
+  since earlier ui cases (310, 320, 330) rewrite config.
