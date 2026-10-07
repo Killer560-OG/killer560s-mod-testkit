@@ -11,7 +11,8 @@
 		"MixinConnection",
 		"MixinFrameClockGameRenderer",
 		"MixinFrameClockMinecraft",
-		"MixinOutboundPackets"
+		"MixinOutboundPackets",
+		"MixinPacketEncoder"
 	],
 	"injectors": {
 		"defaultRequire": 1

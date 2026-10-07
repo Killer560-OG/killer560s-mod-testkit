@@ -21,6 +21,7 @@
 #                        for -Minecraft), falling back to the mod's own build/libs. Pass it explicitly when it matters.
 #   -Minecraft <ver>     26.1.2 (default) or 26.2. Passes -Pminecraft_version and picks that version's jar; a jar
 #                        named for the other version is refused, because loader would only refuse it later.
+#   -NoMod               run WITHOUT the mod (no -PmodUnderTest): a baseline, e.g. for 65-join-fingerprint.
 
 param(
     [string]$Scenario = "",
@@ -30,12 +31,15 @@ param(
     [string[]]$Extra = @(),
     [string]$ModUnderTest = "",
     [string]$Minecraft = "26.1.2",
-    [int]$TimeoutSeconds = 240
+    [int]$TimeoutSeconds = 240,
+    [switch]$NoMod
 )
 
 $here = $PSScriptRoot
 
-if ($ModUnderTest -eq "") {
+if ($NoMod) {
+    $ModUnderTest = ""
+} elseif ($ModUnderTest -eq "") {
     # The old default named a jar in the mod's build/libs, which the mod's own builds overwrite mid-run and which
     # does not exist at all while the mod is being rebuilt. Snapshots under killer560s-mod-testkit-jars do not move.
     $snap = Get-ChildItem -Path "C:/Users/Hunter/killer560s-mod-testkit-jars" -Directory -ErrorAction SilentlyContinue |
@@ -48,13 +52,14 @@ if ($ModUnderTest -eq "") {
         $ModUnderTest = "C:/Users/Hunter/killer560s-mod/build/libs/killer560smod-1.1.0-$Minecraft-cheat.jar"
     }
 }
-if (-not (Test-Path $ModUnderTest)) {
+if ((-not $NoMod) -and (-not (Test-Path $ModUnderTest))) {
     Write-Host "Mod under test not found: $ModUnderTest"
     exit 4
 }
 # The mod's jars carry their Minecraft version in the classifier (-26.1.2-cheat / -26.2-legit) and their
 # fabric.mod.json ranges are mutually exclusive, so a mismatch is a client that refuses to start.
-$leaf = Split-Path $ModUnderTest -Leaf
+$leaf = ""
+if (-not $NoMod) { $leaf = Split-Path $ModUnderTest -Leaf }
 if (($leaf -match '-(\d+\.\d+(?:\.\d+)?)-(cheat|legit)\.jar$') -and ($Matches[1] -ne $Minecraft)) {
     Write-Host "Mod under test $leaf is built for Minecraft $($Matches[1]), but this run is -Minecraft $Minecraft"
     exit 4
@@ -94,7 +99,8 @@ foreach ($p in $stale) {
 }
 
 # Not $args - that is an automatic variable in PowerShell and assigning to it is a parse-time surprise.
-$gradleArgs = @("runClientGameTest", "-PmodUnderTest=$ModUnderTest", "--console=plain")
+$gradleArgs = @("runClientGameTest", "--console=plain")
+if (-not $NoMod) { $gradleArgs += "-PmodUnderTest=$ModUnderTest" }
 # Only passed when it is not the default, so a 26.1.2 run's command line is exactly what it always was.
 if ($Minecraft -ne "26.1.2") { $gradleArgs += "-Pminecraft_version=$Minecraft" }
 if ($Scenario -ne "") { $gradleArgs += "-Pscenario=$Scenario" }
