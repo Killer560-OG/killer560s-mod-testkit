@@ -25,6 +25,7 @@ import net.minecraft.core.BlockPos;
  * game directory every run, so there is no room library on disk, and the flat room goes down the identical
  * queue-then-build path. The thing under test is the plumbing, not the block data.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimLoadTests implements FabricClientGameTest {
 
     private static final String SIM_BUILDER = "com.killer560.hub.roomsim.SimBuilder";

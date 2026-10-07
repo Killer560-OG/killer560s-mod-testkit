@@ -30,6 +30,7 @@ import java.util.Locale;
  * setting. Pointing that regex at a plain chest is configuration, not a workaround, and it means no scoreboard,
  * no server label and no item NBT are involved.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class InventoryAutomationTests implements FabricClientGameTest {
 
     private static final String MOD_ID = "killer560smod";

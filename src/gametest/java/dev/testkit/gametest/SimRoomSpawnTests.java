@@ -41,6 +41,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * Rooms whose doorway cannot be measured (Blood, Higher Blaze: no opening cut through the perimeter) are reported and
  * not judged. Also counts, per single room, the labelled map groups (must be 1) and the sidebar room.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimRoomSpawnTests implements FabricClientGameTest {
 
     private static final String NAME = "97-sim-roomspawn";
@@ -70,7 +71,7 @@ public class SimRoomSpawnTests implements FabricClientGameTest {
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            System.out.println("[" + NAME + "] SKIPPED - needs his real rooms and room database");
+            Scenario.skipped(NAME, "needs real room captures and room database");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);

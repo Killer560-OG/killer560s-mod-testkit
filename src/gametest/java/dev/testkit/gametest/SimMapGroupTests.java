@@ -32,6 +32,7 @@ import java.util.Set;
  * even cells are compared - an odd connector is a room's interior on one floor and a door gap on the next, so
  * it cannot settle anything either way.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimMapGroupTests implements FabricClientGameTest {
 
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
@@ -40,8 +41,7 @@ public class SimMapGroupTests implements FabricClientGameTest {
     private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
 
     private static final String SOURCE_ROOMS =
-            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
-                    + "/minecraft/config", "killer560smod-rooms");
+            ModUnderTest.instanceConfig(Machine.roomsConfigDir(), "killer560smod-rooms");
 
     private static final int GRID = 11;
 
@@ -67,7 +67,7 @@ public class SimMapGroupTests implements FabricClientGameTest {
         if (copyDir(SOURCE_ROOMS, "killer560smod-rooms", ".json") < 20
                 || copyDir(Path.of(SOURCE_ROOMS).resolveSibling("killer560smod-roomdata").toString(),
                         "killer560smod-roomdata", "") == 0) {
-            System.out.println("[90-sim-group] SKIPPED - needs his real rooms and room database");
+            Scenario.skipped("90-sim-group", "needs real room captures and room database");
             return;
         }
         ctx.runOnClient(mc -> Scenario.loadRoomDatabaseNow());

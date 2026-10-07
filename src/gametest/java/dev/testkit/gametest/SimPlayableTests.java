@@ -36,6 +36,7 @@ import java.util.List;
  *       for more than five ticks, so this puts the player next to one and waits.</li>
  * </ul>
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimPlayableTests implements FabricClientGameTest {
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
@@ -50,8 +51,7 @@ public class SimPlayableTests implements FabricClientGameTest {
     private static final String BUILD_AUDIT = "com.killer560.hub.roomsim.SimBuildAudit";
 
     private static final String SOURCE_ROOMS =
-            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
-                    + "/minecraft/config", "killer560smod-rooms");
+            ModUnderTest.instanceConfig(Machine.roomsConfigDir(), "killer560smod-rooms");
 
     private static final int GRID = 11;
     private static final int START_X = -185;
@@ -71,7 +71,7 @@ public class SimPlayableTests implements FabricClientGameTest {
         if (copyDir(SOURCE_ROOMS, "killer560smod-rooms", ".json") < 20
                 || copyDir(Path.of(SOURCE_ROOMS).resolveSibling("killer560smod-roomdata").toString(),
                         "killer560smod-roomdata", "") == 0) {
-            System.out.println("[80-sim-playable] SKIPPED - needs his rooms and room database");
+            Scenario.skipped("80-sim-playable", "needs room captures and room database");
             return;
         }
         ctx.runOnClient(mc -> Scenario.loadRoomDatabaseNow());

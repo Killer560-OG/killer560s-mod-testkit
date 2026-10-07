@@ -7,11 +7,14 @@
 # It identifies the right window by the PROCESS COMMAND LINE containing this project's directory, not by
 # window title: the title is the same "Minecraft*" as any other instance, and moving the wrong one would
 # drag a real game off-screen.
+#
+# Without -X/-Y/-Width/-Height it takes the whole screen named by windowScreen in testkit.properties ("auto": the first
+# monitor that is not the primary one, else the primary one) - see tools/testkit-config.ps1.
 param(
-  [int]$X = -1920,
-  [int]$Y = 361,
-  [int]$Width = 1920,
-  [int]$Height = 1080,
+  [int]$X = 0,
+  [int]$Y = 0,
+  [int]$Width = 0,
+  [int]$Height = 0,
   # build.gradle passes this checkout's root; it is anchored with a TRAILING SLASH below. The old default, the
   # bare word 'killer560s-mod-testkit', matched every sibling checkout too, so starting a run in one checkout
   # "cleared the leftover client" of another one mid-run and moved its window (pzB moved pzA's pid 54312,
@@ -31,6 +34,13 @@ public class WinPlace {
   public struct RECT { public int Left, Top, Right, Bottom; }
 }
 '@
+
+if (-not $PSBoundParameters.ContainsKey('X') -or $Width -le 0 -or $Height -le 0) {
+  . (Join-Path $PSScriptRoot 'tools/testkit-config.ps1')
+  $screen = Resolve-TestkitScreen (Get-TestkitConfig $PSScriptRoot).windowScreen
+  if ($null -eq $screen) { exit 0 }   # windowScreen=off
+  $X = $screen.X; $Y = $screen.Y; $Width = $screen.W; $Height = $screen.H
+}
 
 # Logged to a file, because this runs detached and its console output goes nowhere - and "the placer ran"
 # is not the same claim as "the window moved".

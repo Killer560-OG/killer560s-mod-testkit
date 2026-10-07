@@ -35,6 +35,7 @@ import java.util.Map;
  * is the smallest input that forces at least one real swap - the executor only clicks when a target slot is
  * provably wrong.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class InventorySorterTests implements FabricClientGameTest {
 
     private static final String MOD_ID = "killer560smod";

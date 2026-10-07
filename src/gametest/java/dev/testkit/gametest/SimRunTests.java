@@ -19,6 +19,7 @@ import net.minecraft.client.Minecraft;
  * there looks identical, from chat, to one where begin() was never called at all - and the difference is
  * exactly which half is broken.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimRunTests implements FabricClientGameTest {
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
@@ -49,7 +50,7 @@ public class SimRunTests implements FabricClientGameTest {
         // offline, so seed both, as 95 and the puzzle suite do. Unseeded, this also pushed RoomDatabase into retry
         // backoff and the next scenarios timed out too (2026-10-05).
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            System.out.println("[74-sim-run] SKIPPED - needs his real rooms and room database");
+            Scenario.skipped("74-sim-run", "needs real room captures and room database");
             return;
         }
         // Room types come from the room database; the sim will not plan a floor without it (mod, 2026-10-05).

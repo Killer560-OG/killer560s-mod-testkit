@@ -37,14 +37,15 @@ param(
     [int]$Shards = 3,
     [string]$Minecraft = "26.1.2",          # 26.1.2 | 26.2 | both
     [string]$ModUnderTest = "",             # one version only; for both use -Jar261 / -Jar262
+    [switch]$NoMod,                         # run without any mod (e.g. -Suite generic as a baseline)
     [string]$Jar261 = "",
     [string]$Jar262 = "",
-    [string]$JarsDir = "C:/Users/Hunter/killer560s-mod-testkit-jars",
+    [string]$JarsDir = "",                  # default: jarsDir from testkit.properties
     [int]$Max = 3,
     [int]$BasePort = 25900,
     [string[]]$Extra = @(),
     [int]$TimeoutSeconds = 0,               # per shard; 0 = from the estimate (2.5x + 600 s, at least 900)
-    [string]$WorktreeRoot = "C:/Users/Hunter/killer560s-mod-testkit-shards",
+    [string]$WorktreeRoot = "",             # default: shardsDir from testkit.properties
     [string]$OutDir = "",
     [string]$SeedDurations = "",            # a summary.json (e.g. an unsharded run's report) to take measured seconds from
     [switch]$SplitLarge,                    # also split a plain-scenario unit bigger than a fair share (see below)
@@ -53,6 +54,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 $here = $PSScriptRoot
+. (Join-Path $here "tools/testkit-config.ps1")
+$cfg = Get-TestkitConfig $here
+if ($JarsDir -eq "") { $JarsDir = $cfg.jarsDir }
+if ($WorktreeRoot -eq "") { $WorktreeRoot = $cfg.shardsDir }
 $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 if ($OutDir -eq "") { $OutDir = (Join-Path $here "build/sharded-$stamp") }
 $OutDir = $OutDir.Replace('\', '/')
@@ -62,7 +67,17 @@ $runLog = "$OutDir/run-sharded.log"
 function Say([string]$text) {
     $line = "[sharded " + (Get-Date -Format "HH:mm:ss") + "] " + $text
     Write-Host $line
-    Add-Content -Path $runLog -Value $line -Encoding UTF8
+    # Anything reading the log at that instant (a grep in a wait loop, an editor) makes Add-Content throw a sharing
+    # violation, and with ErrorActionPreference Stop that ended the whole run and killed its shards (2026-10-07). A log
+    # line is never worth that: retry briefly, then drop it (it was already written to the console).
+    for ($try = 0; $try -lt 10; $try++) {
+        try {
+            Add-Content -Path $runLog -Value $line -Encoding UTF8 -ErrorAction Stop
+            break
+        } catch {
+            Start-Sleep -Milliseconds 200
+        }
+    }
 }
 
 # ---- inputs ------------------------------------------------------------------------------------------------------
@@ -110,22 +125,31 @@ function Resolve-Jar([string]$ver) {
     elseif ($ver -eq "26.1.2") { $given = $Jar261 }
     else { $given = $Jar262 }
     if ($given -ne "") {
-        if (-not (Test-Path $given)) { throw "mod jar not found: $given" }
-        return (Get-Item $given).FullName.Replace('\', '/')
+        # One jar or a comma list (a mod and its libraries); each must exist.
+        $parts = @($given -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
+        foreach ($p in $parts) { if (-not (Test-Path $p)) { throw "mod jar not found: $p" } }
+        return (($parts | ForEach-Object { (Get-Item $_).FullName.Replace('\', '/') }) -join ',')
     }
-    # Newest snapshot holding that version's cheat jar, resolved ONCE so every shard tests the same file.
-    $snap = Get-ChildItem -Path $JarsDir -Directory -ErrorAction SilentlyContinue |
-        Sort-Object LastWriteTime -Descending |
-        ForEach-Object { Get-ChildItem -Path $_.FullName -Filter "killer560smod-*-$ver-cheat.jar" -ErrorAction SilentlyContinue } |
-        Select-Object -First 1
-    if (-not $snap) { throw "no killer560smod-*-$ver-cheat.jar under $JarsDir; pass -Jar261/-Jar262/-ModUnderTest" }
-    return $snap.FullName.Replace('\', '/')
+    # Newest snapshot holding that version's jar (modJarPattern), resolved ONCE so every shard tests the same file.
+    $c = $cfg.Clone(); $c.jarsDir = $JarsDir
+    $snap = Find-TestkitSnapshotJar $c $ver
+    if (-not $snap) { throw ("no " + $cfg.modJarPattern.Replace("{mc}", $ver) + " under $JarsDir; run ./get-mod.ps1 or pass -Jar261/-Jar262/-ModUnderTest") }
+    return $snap
 }
 $jars = @{}
 foreach ($v in $versions) {
+    if ($NoMod) { $jars[$v] = ""; continue }
     $jars[$v] = Resolve-Jar $v
-    if ($jars[$v] -notmatch ("-" + [regex]::Escape($v) + "-(cheat|legit)\.jar$")) {
-        throw ("jar " + $jars[$v] + " is not named for Minecraft $v")
+    # killer560s-mod jars carry the version in their name; any other mod is checked by its fabric.mod.json range.
+    foreach ($one in ($jars[$v] -split ',')) {
+        $leaf = Split-Path $one -Leaf
+        if (($leaf -match '-(cheat|legit)\.jar$') -and ($leaf -notmatch ("-" + [regex]::Escape($v) + "-(cheat|legit)\.jar$"))) {
+            throw ("jar " + $one + " is not named for Minecraft $v")
+        }
+        $info = Get-ModJarInfo $one
+        if ($info -and (Test-McRange $info.Minecraft $v) -eq $false) {
+            throw ("jar " + $one + " (" + $info.Id + ") declares minecraft '" + $info.Minecraft + "', which excludes $v")
+        }
     }
 }
 
@@ -134,7 +158,7 @@ $dirty = & git -C $here status --porcelain --untracked-files=no
 if ($dirty) { Say "NOTE: this checkout has uncommitted changes; worktrees run the COMMITTED HEAD $head only" }
 Say "filter: $filter"
 Say "shards per version: $Shards, versions: $($versions -join ', '), max clients at once: $Max, base port $BasePort, out $OutDir"
-foreach ($v in $versions) { Say "mod jar $($v): $($jars[$v])" }
+foreach ($v in $versions) { if ($NoMod) { Say "mod jar $($v): none (-NoMod)" } else { Say "mod jar $($v): $($jars[$v])" } }
 
 # ---- worktrees ---------------------------------------------------------------------------------------------------
 
@@ -157,10 +181,12 @@ $q = { param($v) "'" + ([string]$v).Replace("'", "''") + "'" }
 # only the first element of a string[] (see CLAUDE.md).
 function Start-Run([string]$wt, [string]$ver, [string]$flt, [string]$jar, [int]$port, [string]$window,
                    [int]$timeout, [string[]]$extraArgs, [string]$log) {
-    $cmd = "& " + (& $q "$wt/run-scenario.ps1") + " -Scenario " + (& $q $flt) + " -ModUnderTest " + (& $q $jar) +
+    $cmd = "& " + (& $q "$wt/run-scenario.ps1") + " -Scenario " + (& $q $flt) +
            " -TimeoutSeconds $timeout -Window " + (& $q $window)
+    if ($jar -eq "") { $cmd += " -NoMod" } else { $cmd += " -ModUnderTest " + (& $q $jar) }
     if ($port -gt 0) { $cmd += " -Port $port" }
-    if ($ver -ne "26.1.2") { $cmd += " -Minecraft " + (& $q $ver) }
+    # Always named: run-scenario would otherwise read it from the jar, and the shard's version is already decided.
+    $cmd += " -Minecraft " + (& $q $ver)
     if ($extraArgs.Count -gt 0) { $cmd += " -Extra " + (($extraArgs | ForEach-Object { & $q $_ }) -join ",") }
     $cmd += "; exit `$LASTEXITCODE"
     New-Item -ItemType Directory -Force -Path (Split-Path $log -Parent) | Out-Null

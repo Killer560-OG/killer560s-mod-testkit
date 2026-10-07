@@ -55,6 +55,7 @@ import java.util.function.Predicate;
  * chosen on the real Filters panel opened from the All Rooms page, must make the set exactly the oracle's 1x1 eligible
  * rooms (fewer than all of them), and /next must walk only those.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimRoomCycleTests implements FabricClientGameTest {
 
     private static final String NAME = "97-sim-roomcycle";
@@ -86,7 +87,7 @@ public class SimRoomCycleTests implements FabricClientGameTest {
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            System.out.println("[" + NAME + "] SKIPPED - needs his real rooms and room database");
+            Scenario.skipped(NAME, "needs real room captures and room database");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);

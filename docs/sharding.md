@@ -8,7 +8,7 @@
 
 One Minecraft client is on one server, so a faster run = N clients, each with its own dedicated server and Hx bridge
 port, each in its own git worktree (Gradle locks a project dir; `run/testserver` and `build/` are per checkout). Shard
-k of a version lives in `C:/Users/Hunter/killer560s-mod-testkit-shards/<mc>-<k>` (made from THIS checkout's committed
+k of a version lives in `<shardsDir>/<mc>-<k>` (made from THIS checkout's committed
 HEAD; uncommitted changes are not in them), ports `-BasePort` (25900) `+ 10g` for global shard number g, Hx `+5`. Keep
 `-BasePort` clear of 25565-25599 and 25700-25850 (other checkouts and parallel-suite). `-Max` caps clients running at once
 (machine guidance: 3; `-Minecraft both` queues both versions' shards under that cap, longest first). Nothing passes

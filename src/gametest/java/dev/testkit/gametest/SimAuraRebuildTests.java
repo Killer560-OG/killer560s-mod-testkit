@@ -39,6 +39,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * asserted on every build - the same chest and the same lever back on the same blocks, the client having them - so a
  * build that put nothing there cannot read as "the aura clicked nothing wrong".
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimAuraRebuildTests implements FabricClientGameTest {
 
     private static final String NAME = "99-sim-aura-rebuild";
@@ -52,8 +53,7 @@ public class SimAuraRebuildTests implements FabricClientGameTest {
     private static final String CHEAT_CFG = "com.killer560.hub.cheatutils.CheatUtilsConfig";
 
     private static final String SOURCE_ROOMS =
-            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/"
-                    + SimEssenceAuraTests.ROOM_INSTANCE + "/minecraft/config", "killer560smod-rooms");
+            ModUnderTest.instanceConfig(Machine.instanceConfigDir(SimEssenceAuraTests.ROOM_INSTANCE), "killer560smod-rooms");
 
     /** Every right click the integrated server handled, as "x,y,z" - fed by a server-side UseBlockCallback. */
     private static final Set<String> SERVER_USES = ConcurrentHashMap.newKeySet();
@@ -75,7 +75,7 @@ public class SimAuraRebuildTests implements FabricClientGameTest {
         if (copyDir(SOURCE_ROOMS, "killer560smod-rooms", ".json") < 20
                 || copyDir(Path.of(SOURCE_ROOMS).resolveSibling("killer560smod-roomdata").toString(),
                         "killer560smod-roomdata", "") == 0) {
-            println("SKIPPED - needs his room captures and room database (" + SimEssenceAuraTests.ROOM_INSTANCE + ")");
+            Scenario.skipped(NAME, "needs room captures and room database (" + SimEssenceAuraTests.ROOM_INSTANCE + ")");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);

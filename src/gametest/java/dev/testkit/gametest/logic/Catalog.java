@@ -58,7 +58,7 @@ final class Catalog {
         Path p = resources().resolve("testkit-logic").resolve("pattern-catalog.json");
         if (!Files.isRegularFile(p)) {
             throw new AssertionError("[logic] no pattern catalog at " + p
-                    + " - run: python tools/extract-patterns.py -PmodSource=C:/Users/Hunter/killer560s-mod");
+                    + " - run: python tools/extract-patterns.py -PmodSource=<killer560s-mod checkout>");
         }
         JsonObject root;
         try {
@@ -76,16 +76,12 @@ final class Catalog {
         return new Catalog(p, str(root, "modGitSha"), str(root, "generatedAt"), out);
     }
 
-    /** The mod checkout: -Dtestkit.modSource, $TESTKIT_MOD_SOURCE, else C:/Users/Hunter/killer560s-mod. */
+    /**
+     * The killer560s-mod checkout (modSource in testkit.properties, -Dtestkit.modSource or $TESTKIT_MOD_SOURCE), or null
+     * when none is configured or it is not there - the cases that read the source then SKIP that part.
+     */
     static Path modSource() {
-        String p = System.getProperty("testkit.modSource");
-        if (p == null || p.isBlank()) {
-            p = System.getenv("TESTKIT_MOD_SOURCE");
-        }
-        if (p == null || p.isBlank()) {
-            p = "C:/Users/Hunter/killer560s-mod";
-        }
-        return Path.of(p);
+        return dev.testkit.gametest.Machine.modSource();
     }
 
     /** The 7-hex commit in the mod jar's path (".../main-8c43a6d/..."), or null. */

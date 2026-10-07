@@ -10,6 +10,7 @@ import dev.testkit.gametest.mod.Mod;
 import dev.testkit.gametest.mod.Quiet;
 import dev.testkit.harness.Coverage;
 import dev.testkit.harness.Report;
+import dev.testkit.harness.ModGate;
 import dev.testkit.harness.ScenarioList;
 import dev.testkit.harness.SuiteVerdict;
 
@@ -102,6 +103,8 @@ public final class Session {
     private boolean proveDetector = true;
     /** List mode: runCase records names and runs nothing. */
     private boolean listing;
+    /** The required mod is not loaded: runCase records a SKIP row and runs nothing. */
+    private boolean gated;
     private int listed;
     private String currentCase;
     private long caseEventHead;
@@ -131,6 +134,19 @@ public final class Session {
         }
         if (ScenarioList.active()) {
             list(ctx, name, whole, body);
+            return;
+        }
+        if (ModGate.missing() != null) {
+            // A @RequiresMod class whose mod is not loaded: the session and every case it would run become SKIP rows.
+            // The body only registers cases here (runCase records the skip); one that needs a live world stops early.
+            ModGate.skip(name);
+            Session gated = new Session(ctx, name, whole);
+            gated.gated = true;
+            try {
+                body.run(gated);
+            } catch (Throwable t) {
+                System.out.println("[" + name + "] gated body stopped after registering its cases: " + t);
+            }
             return;
         }
         SuiteVerdict.expect(name);
@@ -221,6 +237,12 @@ public final class Session {
     }
 
     private void runCase(String caseName, Case body, boolean expectFlags) {
+        if (gated) {
+            if (caseSelected(caseName)) {
+                ModGate.skip(caseName);
+            }
+            return;
+        }
         if (listing) {
             ScenarioList.record(caseName, caseSelected(caseName) ? "all" : "no", "case", name);
             listed++;

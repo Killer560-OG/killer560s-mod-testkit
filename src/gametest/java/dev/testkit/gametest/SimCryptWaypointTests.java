@@ -35,6 +35,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *       in it goes after the grace. The prince is opened and cleared the same way.</li>
  * </ol>
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimCryptWaypointTests implements FabricClientGameTest {
 
     private static final String NAME = "98-crypt-waypoints";
@@ -54,7 +55,7 @@ public class SimCryptWaypointTests implements FabricClientGameTest {
     private static final int PRINCE_ARGB = 0xFF00FFFF;
 
     private static final String SOURCE_ROOMS = ModUnderTest.instanceConfig(
-            "C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)/minecraft/config",
+            Machine.roomsConfigDir(),
             "killer560smod-rooms");
 
     @Override
@@ -66,7 +67,7 @@ public class SimCryptWaypointTests implements FabricClientGameTest {
         ctx.waitTicks(20);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (copyDir(SOURCE_ROOMS, "killer560smod-rooms", ".json") < 20 || Scenario.ensureRoomDatabase(ctx) == 0) {
-            System.out.println("[" + NAME + "] SKIPPED - needs his real rooms and room database");
+            Scenario.skipped(NAME, "needs real room captures and room database");
             return;
         }
         ctx.runOnClient(mc -> ModUnderTest.staticCall(ROOM_LIBRARY, "forceReload"));

@@ -31,6 +31,7 @@ import java.util.Locale;
  * the features actually read and the one thing they have no override for. Neither changes a byte of what the
  * server receives.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class AuraSweepTests implements FabricClientGameTest {
 
     private static final String MOD_ID = "killer560smod";

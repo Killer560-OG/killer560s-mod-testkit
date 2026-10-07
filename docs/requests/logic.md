@@ -4,7 +4,7 @@
 - file(s): build.gradle
 - change: `if (project.hasProperty("modSource")) systemProperty "testkit.modSource", project.property("modSource")` on runClientGameTest
 - why: 351 checks every fixture's source file:line in the mod checkout; LogicSuite reads `testkit.modSource`
-- workaround in use: `$TESTKIT_MOD_SOURCE`, else the default `C:/Users/Hunter/killer560s-mod`
+- workaround in use: `$TESTKIT_MOD_SOURCE`, else the default `<modSource>`
 
 ## Fixtures: list-element refs
 - file(s): src/gametest/java/dev/testkit/gametest/Fixtures.java, testkit-fixtures/SCHEMA.md

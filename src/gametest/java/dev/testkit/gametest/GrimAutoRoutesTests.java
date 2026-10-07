@@ -54,6 +54,7 @@ import java.util.function.Supplier;
  * <p>His settings as in his instances: obvious mode (one legit-mode case), start node only, node height 1.0, interact
  * delay 2, Breaker Aura's Multi Break on.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class GrimAutoRoutesTests implements FabricClientGameTest {
 
     private static final String SESSION = "62-argrim-session";

@@ -1,42 +1,59 @@
 # killer560s-mod-testkit
 
-Runs killer560s-mod against a real anticheat (GrimAC) on a real dedicated server, and reports what its
-automation actually sends, per client tick, in the units a server-side check is built from.
+Runs a Fabric client mod (killer560s-mod, any other mod, or none) against a real anticheat (GrimAC) on a real
+dedicated server, and reports what the client actually sends, per client tick, in the units a server-side check is
+built from. Forked from [SicoKaleb/Automative](https://github.com/SicoKaleb/Automative) (CC0); the harness - test server
+launcher, arena builder, flag reader, and the positive control that refuses to call a run clean until it has proved the
+anticheat can still see a violation - is his.
 
-Forked from [SicoKaleb/Automative](https://github.com/SicoKaleb/Automative) (CC0). The harness is his: the
-test server launcher, the arena builder, the flag reader, and the positive control that refuses to call a
-run clean until it has proved the anticheat can still see a violation. `origin` is killer560's GitHub fork
-(github.com/Killer560-OG/killer560s-mod-testkit), `upstream` is SicoKaleb/Automative. Work happens on branches in
-worktrees; the coordinator merges a round of work into master and pushes master to origin when it lands. Never
-push to upstream.
+This file is for any agent working in this repo, on any machine. **If `CLAUDE.local.md` exists, read it too** - in this
+checkout, or, when this is a git worktree, in the main checkout (the parent of `git rev-parse --path-format=absolute
+--git-common-dir`). It is gitignored and holds the machine owner's own rules, paths and workflow; where it is stricter
+than this file, it wins. Read [AGENTS.md](AGENTS.md) before writing a scenario or quoting a result.
 
-## Run
+## Setting up and running
 
-Every test client must start MUTED (killer560, 2026-10-04: "have all those test instances you open have the
-audio muted"). build.gradle writes every soundCategory to 0 before each run; never raise the default, and pass
--PtestVolume only when he asks to hear one. An old checkout or worktree still on a commit before this plays at 3% -
-update it to master or pass -PtestVolume=0.
+A new machine: follow README.md "Quick start" (`doctor.ps1`, `get-mod.ps1`, warm build, smoke). No configuration is
+required. Machine-specific values (jar snapshots, the mod checkout, Prism room captures, the monitor test windows go on,
+worktree roots) come from `testkit.properties` (committed, portable defaults) overridden by `testkit.local.properties`
+(gitignored, also read from the main checkout by a worktree) and `TESTKIT_*` variables; `doctor.ps1` prints the
+resolved values. **Never write a machine path into a tracked file**: scripts ask `tools/testkit-config.ps1`, the build
+asks its machine-config block, scenarios ask `dev.testkit.gametest.Machine`.
+
+Every test client starts MUTED: build.gradle writes every soundCategory to 0 before each run. Never raise the default,
+and pass -PtestVolume only when the user asks to hear one. Scenarios open a REAL Minecraft window on the user's desktop:
+bound every wait, say before a run that windows will open, and kill only processes you started (the scripts match
+clients by this checkout's path).
 
 ```
-./run-suite.ps1 -Suite harness -Port 25565 -ModUnderTest <jar>          # named suite + freeze watcher + report
-./run-scenario.ps1 -Scenario 60-secret -ModUnderTest <jar>              # one scenario, same watcher
-./parallel-suite.ps1 -Suites hx,menu -Max 2                             # worktrees -wt/<n>, ports 25700+10n
+./doctor.ps1 [-Port N]                                                  # prerequisites, config, ports, monitors
+./get-mod.ps1 [-Minecraft both]                                         # clone + build killer560s-mod into jarsDir
+./run-scenario.ps1 -Scenario 60-secret [-ModUnderTest <jar> | -NoMod]   # one filter + freeze watcher + window slot
+./run-suite.ps1 -Suite generic -Port 25565 [-ModUnderTest <jar>]        # named suite, prints the totals
+./parallel-suite.ps1 -Suites hx,menu -Max 2                             # worktrees <worktreesDir>/<n>, ports 25700+10n
 ./run-sharded.ps1 -Scenario "smoke,-ui-,93-solve,96-ar" -Shards 3      # ONE filter across 3 clients, see "Sharding"
 ./gradlew runClientGameTest -Pscenario=60-secret -PmodUnderTest=<jar>   # no watcher
-./gradlew runClientGameTest -Psuite=demo -Pport=25575 -PmodUnderTest=<jar>
 ./gradlew runClientGameTest -Pnogrim -PmodUnderTest=<jar>               # anticheat removed
 ```
 
-Use the snapshotted jars in `C:/Users/Hunter/killer560s-mod-testkit-jars/<mod-sha>/`, never the mod's build/libs
-(it moves under a run); run-scenario.ps1 defaults to the newest snapshot. A server start is about 7 s here (measured 2026-10-05: launch to "Done"; a scenario's join, arm and settle add ~15 s);
-`hx/Session` runs many cases on one start. `-Pport=N` patches run/testserver/server.properties (sticks for the
-checkout) and puts the Hx bridge on N+5; concurrency needs separate checkouts (Gradle locks the project dir).
-`-Psuite=<name>` reads `suites.properties`. `-PseedConfig=<dir>` copies into the client's config after the wipe.
-Every run points `prismaccountswitcher.accountsFile` at an empty fixture and passes `killer560.net.offline=true`
-and `killer560.test.noExternalOpen=true` (opt out: `-PnetOnline`, `-PallowExternalOpen`, or `-PnoQuiet` for all,
-which also stops Session applying `mod/Quiet`). `-PnetOverride=svc=url;...` points mod services at fakes. Reports
-land in `build/testkit-report/` (summary.md/json, cases/, screens/, coverage.md). WP1 foundation and every API is
-described in `docs/wp/wp1-foundation.md`; change requests to frozen files go in `docs/requests/`.
+The default mod jar is the newest snapshot under `jarsDir` matching `modJarPattern`, never the mod's build/libs (it
+moves under a run). `-Minecraft` follows the jar's `fabric.mod.json` when not given. A server start is about 7 s (launch
+to "Done"; a scenario's join, arm and settle add ~15 s); `hx/Session` runs many cases on one start. `-Pport=N` patches
+run/testserver/server.properties (sticks for the checkout) and puts the Hx bridge on N+5 and an HTTP fake on N+6;
+concurrency needs separate checkouts (Gradle locks the project dir). `-Psuite=<name>` reads `suites.properties`.
+`-PseedConfig=<dir>` copies into the client's config after the wipe. Every run points `prismaccountswitcher.accountsFile`
+at an empty fixture and passes `killer560.net.offline=true` and `killer560.test.noExternalOpen=true` (opt out:
+`-PnetOnline`, `-PallowExternalOpen`, or `-PnoQuiet` for all, which also stops Session applying `mod/Quiet`).
+`-PnetOverride=svc=url;...` points mod services at fakes. Reports land in `build/testkit-report/` (summary.md/json,
+cases/, screens/, coverage.md). WP1 foundation and every API: `docs/wp/wp1-foundation.md`; change requests to frozen
+files go in `docs/requests/`.
+
+**Any mod, or none.** A scenario class that drives killer560s-mod (reflection, its commands, its behaviour) carries
+`@RequiresMod("killer560smod")`; without that mod loaded its scenarios and Session cases become `SKIP - needs
+killer560smod` rows (`harness/ModGate`), never failures. A class without the annotation is generic and must pass with
+`-NoMod` and with someone else's mod (suite `generic`; `k560` is the rest). A scenario that cannot run for lack of
+machine data (room captures, the mod checkout) calls `Scenario.skipped(name, why)` and returns: a SKIP row with the
+reason, not a RAN row whose reason is only in the log.
 
 Versions from `gradle.properties`: Minecraft 26.1.2, GrimAC pinned to `2.3.74-8eb5f28` downloaded from
 Modrinth once into the Gradle user home (`caches/testkit-grim/`, shared by every checkout and worktree),
@@ -46,7 +63,7 @@ Modrinth once into the Gradle user home (`caches/testkit-grim/`, shared by every
 
 `./run-sharded.ps1 -Scenario "smoke,-ui-,93-solve,96-ar" -Shards 3 [-Minecraft 26.1.2|26.2|both] [-Max 3] [-PlanOnly]`
 splits ONE filter across N clients, each with its own dedicated server and Hx port in its own worktree
-(`C:/Users/Hunter/killer560s-mod-testkit-shards/<mc>-<k>`, ports `-BasePort` 25900 + 10g, Hx +5; keep clear of 25565-25599
+(`<shardsDir>/<mc>-<k>`, ports `-BasePort` 25900 + 10g, Hx +5; keep clear of 25565-25599
 and 25700-25850), at most `-Max` (3) clients at once, clients stay muted. Units that share a world (a Session, the UI
 group, 96-ar) are never split unless `-SplitLarge`. Merged report in `build/sharded-<timestamp>/summary.md`. Measured
 2026-10-05 on `smoke,-ui-,93-solve,96-ar` (26.1.2): serial 538 s, `-Shards 3` 272 s end to end. Details: [docs/sharding.md](docs/sharding.md).
@@ -63,11 +80,8 @@ Compile with `-Pminecraft_version=26.2` before merging a branch. Run status, wha
 
 ## FPS bench (95-fps-bench)
 
-`perf/FpsBenchTest`, about 10 minutes, only when named (`-Pscenario=95-fps`). Commands, method and how to read the
-ON-OFF delta: [docs/fps-bench.md](docs/fps-bench.md). `403-perf-hub` (`perf/HubPerfBenchTest`, ~18 min, only when named)
-is the hub counterpart: tab list, entities, chat, an open chest and an Ender Chest page; read its TICK and `menu` numbers
-(frame counts differ between ON and OFF, see the doc). 95 needs `Scenario.ensureRoomDatabase` like every sim floor since
-mod 0ad55108 - without it the generate was refused and the bench hung on a build that never started (fixed 2026-10-07).
+`perf/FpsBenchTest` (~10 min) and `perf/HubPerfBenchTest` (~18 min), only when named: [docs/fps-bench.md](docs/fps-bench.md); notes in
+[docs/scenario-lessons.md](docs/scenario-lessons.md).
 
 ## Layout
 
@@ -77,27 +91,7 @@ a sweep wants. `TestMap` builds the arena. `TestServer` launches the dedicated s
 reaches into the mod by reflection. `src/client/java/dev/testkit/harness/PacketWatch` counts outbound
 packets per tick, fed by mixins on `ClientCommonPacketListenerImpl#send` and `Minecraft#tick`.
 
-Scenarios so far: 62-argrim (Auto Routes on GrimAC, see below), 48-56 Breaker Aura (with a by-hand control and an open-ground speed control;
-picks-only since mod 9e83c4fc, so 50-52 pick the whole corridor and 53-56 cover side, floor, behind and through-wall picks), 60 Secret
-Triggerbot, 99-sim-essence-aura (Secret Aura on a sim wither essence holding AOTV / Hyperion, first world and after a
-rebuild; server-side click record, collection and Auto Routes' await; only when named, captures from "Map Logger" unless
-`TESTKIT_SIM_INSTANCE` says otherwise), 99-sim-aura-rebuild (Secret Aura on the same chest and lever of Museum over three
-builds of the room in one sim world; server-side click record; fails on mod 5008e4d6, only when named),
-143-sim-key-look (pictures of a dropped sim Wither Key and Blood Key, front-on and from above, plus their stand's
-flags on the client; only when named, `TESTKIT_SIM_INSTANCE=Map Logger`),
-110-sim-puzzle-reset (player reset rules of mod 35a663ba: only failed puzzles, never Water Board, Boulder when built, a draft kept when nothing resets),
-99-sim-map-fit / 99-sim-extra-info / 99-sim-secrets-boss (`SimMapHudTests`: the Dungeon Map fills its frame on 4x5, 5x5,
-6x6 and offset sim floors and Interactive Map presses hit the drawn room; Extra Info with Score Calculator off; Secrets
-HUD hidden in the boss and back on a new run - all fail on mod 0b492828), 394-ui-hud-boxes (every HUD element's box vs
-what it draws, slack 3 units, centred elements judged on their other axis),
-399-ui-hud-editor-resize / 399-ui-hud-editor-snap / 399-ui-stat-bars-vitality-xp (HUD editor resize handles, cursors and
-snapping by real mouse drags at Auto Scale 0.5 and 1; Vitality and XP readouts; Classic Display migration; all fail on mod 6f3515ba),
-407-ui-stat-bars-layout (Health and Mana Bars Layout: Predefined areas measured on screenshots at Auto Scale 0.5 and 1,
-real-mouse drags between areas and onto Hidden, Custom positions untouched, old configs stay put; fails on mod a411e650),
-64-correction-alarm (the mod's `killer560smod:correction_alarm` is known to the sound manager, its .ogg is in the resources,
-`ModSounds.playCorrectionAlarm` plays once and rate-limits the second; run it with `-Minecraft 26.2` too),
-65-join-fingerprint (every serverbound byte from handshake to play plus a sign translation probe; needs a `run-scenario.ps1 -NoMod`
-baseline per Minecraft version first, see docs/scenario-lessons.md).
+The scenarios added after the upstream set, one line each: [docs/scenario-lessons.md](docs/scenario-lessons.md).
 
 ## Auto puzzle suite (93-solve-*)
 
@@ -113,11 +107,6 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 
 The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [docs/scenario-lessons.md](docs/scenario-lessons.md).
 
-- The mod's Auto Scale (ON by default since 2026-10-05) scales its HUD and its own screens by
-  `3 * min(W/2560, H/1440) / guiScale`. The default gametest window (854x480, GUI 2) is factor 0.5: mod screens are laid
-  out at `guiSize / 0.5` and saved HUD positions are baseline units drawn at `saved * 0.5`, so compare a dragged element
-  with `HudElementRegistry.resolvePosition`, never with `HudConfig.getPosition`. `380-ui-autoscale` resizes the window
-  (`TestInput.resizeWindow`, then `options.guiScale().set(3)` + `mc.resizeGui()` - the resize alone keeps the old scale).
 - The mod arrives via Fabric Loader's `fabric.addMods` (`-PmodUnderTest`). `modLocalRuntime` does not exist
   in this Loom version, and a jar dropped in the run directory's `mods/` is deleted because the client
   gametest API rebuilds that directory every run.
@@ -163,7 +152,10 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
 - The auction-house scan (about 43,000 listings across 44 pages, each decoded to an ItemStack) starts as soon
   as a player exists and is heavy enough to matter in a gametest client. Every sim scenario turns it off with
   `ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled")`; nothing here tests it.
-- Scenarios open a REAL Minecraft window on his desktop: bound every wait, and tell him before a run.
+- Machine data is never assumed: a scenario that needs room captures or the mod checkout asks `Machine` and SKIPs with
+  `Scenario.skipped` when it is missing. Before 2026-10-07 ~40 files named one machine's Prism folder and the mod
+  checkout outright, so on any other machine a sim scenario either failed for want of data or ended as a RAN row whose
+  "SKIPPED" was only in the log.
 - Upstream scenarios 40, 41, 42 ("built 0 block(s)") and 34 ("naked 0, diamond-armoured 0") go green proving nothing.
 - **The instrument is broken more often than the feature.** Three times on 2026-09-29: scenario 76 reported
   20 of 29 secret chests missing because it scanned only chunks that `hasChunk` said were loaded, and the
@@ -187,7 +179,7 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   actually wrong at that window size, the GRID running into the settings row, because it never looked at the
   grid. Check every drawn box against every control's box.
 - Run a screen scenario and read the NUMBERS, not the verdict. The gametest window is about 240 GUI units
-  tall, far smaller than his, so layout that is fine on his monitor can overlap there - which is how the map
+  tall, far smaller than a real one, so layout that is fine on a real monitor can overlap there - which is how the map
   designer's `Math.max(14, ...)` cell floor was found. That small window is a feature, not noise: it is the
   cheapest way to test a layout at its limits.
 - **An entity reads back only from a section the server ticks entities in.** `ServerLevel.getEntity(UUID)` and
@@ -221,7 +213,7 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   vanilla logs every shown line as `[System] [CHAT] ...` - note the prefix, a `startsWith("[CHAT]")` filter
   silently matched nothing. `LogTap` captures them together with the mod's own logger lines.
 - **Checkout markers need a trailing slash.** The scripts found "our" client by the path prefix
-  `C:/Users/Hunter/killer560s-mod-testkit`, which is also the start of every sibling checkout (-pzA, -pzB, -wt/N),
+  `.../killer560s-mod-testkit`, which is also the start of every sibling checkout (-pzA, -pzB, -wt/N),
   so one checkout's run moved or killed another's client (pzB's placer moved pzA's window, 2026-10-04). Both scripts
   now anchor the root with `/` and require `fabric.dli.env=client`. Older checkouts still carry the old placer.
 - `powershell -File script.ps1 -Extra a b` binds only `a` to a `string[]` parameter; parallel-suite.ps1 launches its
@@ -231,9 +223,12 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
 
 - `run-sharded.ps1 ... | Out-File x.txt` leaves x.txt EMPTY: the script prints with Write-Host, which a pipeline does
   not carry. An `until grep -q "merged report" x.txt` wait then never ends; eight such loops were found still running
-  on 2026-10-06. Read `build/sharded-<timestamp>/summary.md`, or the background task's own output file.
-- **Port 26905 is taken by Medal.exe** (his clip recorder) on this machine: `-Port 26900` puts the Hx bridge on it and the
-  menu session dies with MalformedJsonException at Hx.connect (2026-10-07). Use another block (26950 is free).
+  on 2026-10-06. Read `build/sharded-<timestamp>/summary.md`, or the background task's own output file. Do not poll
+  `run-sharded.log` either: a grep holding it open made the script's log write throw and the run killed its own shards
+  (2026-10-07; the write now retries, but wait on the background task instead).
+- **A port someone else holds** (a clip recorder, another server) on N, N+5 or N+6 kills that run in odd places: on one
+  machine `-Port 26900` put the Hx bridge on a recorder's 26905 and the menu session died with MalformedJsonException at
+  Hx.connect. `doctor.ps1 -Port N` lists every listener between 25500 and 27000 with its process.
 - **Pass `-PmodUnderTest` a literal `C:/...` path.** In Git Bash, `$(cygpath -m "$(ls ...)")` around a long scratchpad
   path came back empty twice (2026-10-04, 2026-10-05) and the run died at configuration with "modUnderTest not found: \\",
   before any test ran. Write the path out.
@@ -241,7 +236,7 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
 - `pattern-catalog.json` is generated, and goes stale with every mod commit that adds or moves a `Pattern.compile`:
   350/351 failed on 2026-10-05 for that alone. Regenerate it (`python -X utf8 tools/extract-patterns.py --mod-source
   <mod checkout>`) before reading a logic failure as a mod bug, and point `TESTKIT_MOD_SOURCE` at the checkout the jar
-  came from - the default is `C:/Users/Hunter/killer560s-mod`, which may be on another commit.
+  came from - the default is `<modSource>`, which may be on another commit.
 - One Session case: `-Pscenario=200-menu-session:,226-menu` - a part that CONTAINS the session's name selects the
   session without selecting all of its cases, then the other parts pick cases.
 - A scenario that only calls `Scenario.skip` writes no report row of its own; `SuiteVerdict` gives it a RAN row (under
@@ -279,21 +274,9 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   while `client.player` is null, so a chat assertion there can never pass. Assert the screen's status text or the mod's log
   line through `LogTap` instead (75-sim-map-editor-filters, 2026-10-06).
 
-- Both terminal layouts (SkyBlock 0.27.2): `menu.terminal` takes `bandRows` (Melody, 4 or 3) and `count` (Numbers, 14 or
-  10); cases 207-210, 219, 290, 291. The P3 Simon Says device is `boss.ss.*` (hx/boss/HxSimonSays, rounds 4 or 5), cases
-  501-503 in `500-boss-session`; click its buttons after turning to them, or GrimAC cancels the use (RotationPlace).
-  A P3 terminal stand is `boss.term.*` (hx/boss/HxTerminalStand: pillar + command block + non-marker "Inactive Terminal"
-  stand, opens "Click in order!" only for an eye at or above the stand's feet); case 409-boss-termlog drives the mod's
-  Terminal Open Logger with it. Spawn the stand (`boss.term.spawn`) only once the player is there, and turn him through the
-  `dungeon.tp` itself: a client turn made before the teleport lands is reset to the teleport's yaw/pitch (409's first runs).
-
 Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosecret wither doors, 62-argrim frames,
-143 camera, 141/142 autopilot): [docs/scenario-lessons.md](docs/scenario-lessons.md).
+143 camera, 141/142 autopilot, the mod's Auto Scale, terminal layouts, the logic world, 386's sweep):
+[docs/scenario-lessons.md](docs/scenario-lessons.md).
 
 Auto Routes on GrimAC (62-argrim): how to run it and its traps are in [docs/argrim.md](docs/argrim.md).
 AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatch HUD): [docs/ap3.md](docs/ap3.md).
-- In the logic suite's throwaway world, a block 66 blocks from spawn can read `void_air` for the first seconds even after
-  `mc.level.hasChunkAt` says yes (362, 2026-10-06). Wait until the block itself stops reading `Blocks.VOID_AIR`.
-- 386's overlap sweep builds each tab as the fresh config has it, so rows behind an OFF master switch (all of Auto Routes)
-  exist only in the "toggle flipped" layouts. 386 now records every label it checked and requires Auto Routes' Breaker
-  Block Display/Style among them (cheat jar); a new-widget check must read those layouts too (2026-10-06).

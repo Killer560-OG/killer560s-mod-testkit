@@ -37,6 +37,7 @@ import java.util.List;
  * spawning mobs [...] it will be something that is done basically on your end only and that the user should
  * never have to do."
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimStarredMobTests implements FabricClientGameTest {
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
@@ -45,8 +46,7 @@ public class SimStarredMobTests implements FabricClientGameTest {
     private static final String BUILD_QUEUE = "com.killer560.hub.roomsim.SimBuildQueue";
 
     private static final String SOURCE_ROOMS =
-            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
-                    + "/minecraft/config", "killer560smod-rooms");
+            ModUnderTest.instanceConfig(Machine.roomsConfigDir(), "killer560smod-rooms");
 
     private static final String STAR = "\u272f";
     private static final String HEART = "\u2764";

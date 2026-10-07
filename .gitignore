@@ -4,3 +4,7 @@ run/
 *.log
 .idea/
 *.iml
+
+# Per-machine configuration and agent notes (see testkit.properties and CLAUDE.md)
+testkit.local.properties
+CLAUDE.local.md

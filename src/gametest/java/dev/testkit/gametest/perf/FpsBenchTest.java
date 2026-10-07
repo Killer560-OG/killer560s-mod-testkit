@@ -1,5 +1,6 @@
 package dev.testkit.gametest.perf;
 
+import dev.testkit.gametest.Machine;
 import dev.testkit.compat.McCompat;
 import dev.testkit.gametest.ModUnderTest;
 import dev.testkit.gametest.Scenario;
@@ -50,6 +51,7 @@ import java.util.Map;
  * <p>Only runs when named ({@code -Pscenario=95-fps}); it takes several minutes and measures, it does not test.
  * Frames per phase: {@code -Dtestkit.bench.frames} (default 1200), rounds: {@code testkit.bench.rounds} (3).
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class FpsBenchTest implements FabricClientGameTest {
 
     private static final String NAME = "95-fps-bench";
@@ -391,7 +393,7 @@ public class FpsBenchTest implements FabricClientGameTest {
     }
 
     private static final String SOURCE_ROOMS = ModUnderTest.instanceConfig(
-            "C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)/minecraft/config",
+            Machine.roomsConfigDir(),
             "killer560smod-rooms");
 
     private static int copyRealRooms() {

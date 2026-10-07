@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * receive); the same text inside a party message, with extra text after it, or from {@code /say} is shown; with the
  * toggle off, or a family switched off, nothing of it is hidden.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class ChatTidyTests implements FabricClientGameTest {
 
     private static final String NAME = "87-chat-tidy";

@@ -4,7 +4,7 @@
 #   ./parallel-suite.ps1 -Suites harness -BasePort 25565          # one worktree on 25575
 #
 # Why worktrees: Gradle locks the project directory, so two runs need two checkouts. Worktree n lives at
-# C:/Users/Hunter/killer560s-mod-testkit-wt/<n> (n = 1, 2, ...), created with `git worktree add --detach` from THIS
+# <worktreesDir>/<n> (n = 1, 2, ...; worktreesDir from testkit.properties), created with `git worktree add --detach` from THIS
 # checkout's HEAD (committed work only - uncommitted changes here are NOT in the worktrees; the script says so), and
 # moved to HEAD again on later runs. Each one has its own build/, run/testserver/ and .gradle/; the GrimAC jar is
 # shared through the Gradle user home.
@@ -14,7 +14,7 @@
 # plan's 25565+10n formula would put worktree 1's server on WP2's Hx port. Ports in use by other checkouts right now
 # (e.g. 25591/25601) are not checked - pick a BasePort that avoids them.
 #
-# Windows: tiled in quarters of the left monitor (960x540 each) so concurrent clients do not stack.
+# Windows: tiled in quarters of the configured screen (windowScreen in testkit.properties) so concurrent clients do not stack.
 # -Max caps concurrent runs (machine-wide guidance: at most 3 clients at once, fewer when others are running).
 #
 # Output: each suite's log at <worktree>/build/parallel-suite.log, its report at <worktree>/build/testkit-report/,
@@ -28,10 +28,13 @@ param(
     [string]$Minecraft = "26.1.2",
     [string[]]$Extra = @(),
     [int]$TimeoutSeconds = 1800,
-    [string]$WorktreeRoot = "C:/Users/Hunter/killer560s-mod-testkit-wt"
+    [string]$WorktreeRoot = ""             # default: worktreesDir from testkit.properties
 )
 
 $here = $PSScriptRoot
+. (Join-Path $here "tools/testkit-config.ps1")
+$cfg = Get-TestkitConfig $here
+if ($WorktreeRoot -eq "") { $WorktreeRoot = $cfg.worktreesDir }
 $Suites = @($Suites | ForEach-Object { $_ -split ',' } | Where-Object { $_ -ne '' })
 $head = (& git -C $here rev-parse HEAD).Trim()
 $dirty = & git -C $here status --porcelain --untracked-files=no
@@ -39,7 +42,14 @@ if ($dirty) {
     Write-Host "[parallel] NOTE: this checkout has uncommitted changes; worktrees run the COMMITTED HEAD $head only"
 }
 
-$tiles = @("-1920,361,960,540", "-960,361,960,540", "-1920,901,960,540", "-960,901,960,540")
+# Quarters of the screen in reading order (on a 1920x1080 monitor at -1920,361: -1920,361 / -960,361 / -1920,901 / -960,901).
+$scr = Resolve-TestkitScreen $cfg.windowScreen
+$tiles = @("off")
+if ($scr) {
+    $hw = [int]($scr.W / 2); $hh = [int]($scr.H / 2)
+    $tiles = @("$($scr.X),$($scr.Y),$hw,$hh", "$($scr.X + $hw),$($scr.Y),$hw,$hh",
+               "$($scr.X),$($scr.Y + $hh),$hw,$hh", "$($scr.X + $hw),$($scr.Y + $hh),$hw,$hh")
+}
 
 function Prepare-Worktree([int]$n) {
     $path = "$WorktreeRoot/$n"

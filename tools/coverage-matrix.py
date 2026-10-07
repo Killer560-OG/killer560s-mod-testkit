@@ -111,6 +111,36 @@ def touched_from_report(report):
     return touched, cases
 
 
+def default_mod_source():
+    """modSource as tools/testkit-config.ps1 resolves it: TESTKIT_MOD_SOURCE, testkit.local.properties (this checkout,
+    then the main checkout of a worktree), testkit.properties, else killer560s-mod beside the main checkout."""
+    if os.environ.get('TESTKIT_MOD_SOURCE'):
+        return os.environ['TESTKIT_MOD_SOURCE']
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    main = repo
+    git = os.path.join(repo, '.git')
+    if os.path.isfile(git):
+        with open(git, encoding='utf-8') as fh:
+            line = fh.readline().strip()
+        if line.startswith('gitdir:'):
+            gd = line[7:].strip()
+            gd = gd if os.path.isabs(gd) else os.path.join(repo, gd)
+            cd = os.path.join(gd, 'commondir')
+            if os.path.isfile(cd):
+                with open(cd, encoding='utf-8') as fh:
+                    main = os.path.dirname(os.path.normpath(os.path.join(gd, fh.read().strip())))
+    for f in (os.path.join(repo, 'testkit.local.properties'), os.path.join(main, 'testkit.local.properties'),
+              os.path.join(repo, 'testkit.properties')):
+        if os.path.isfile(f):
+            with open(f, encoding='utf-8') as fh:
+                for raw in fh:
+                    t = raw.strip()
+                    if t.startswith('modSource=') and t[len('modSource='):].strip():
+                        v = t[len('modSource='):].strip()
+                        return v if os.path.isabs(v) else os.path.join(main, v)
+    return os.path.join(os.path.dirname(main), 'killer560s-mod')
+
+
 def main(argv):
     pre = []
     for a in argv:
@@ -119,7 +149,7 @@ def main(argv):
     ap.add_argument('--catalog', default=CATALOG)
     ap.add_argument('--worktrees', action='store_true')
     ap.add_argument('--report', default=os.path.join(HERE, 'build', 'testkit-report'))
-    ap.add_argument('--mod-source', default=os.environ.get('TESTKIT_MOD_SOURCE', 'C:/Users/Hunter/killer560s-mod'))
+    ap.add_argument('--mod-source', default=default_mod_source())
     ap.add_argument('--out', default=os.path.join(HERE, 'build', 'coverage-matrix.md'))
     args = ap.parse_args(pre)
 

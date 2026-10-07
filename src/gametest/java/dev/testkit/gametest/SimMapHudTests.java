@@ -40,6 +40,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *       its sample; after a new floor is built (a fresh run's clear) it draws again.</li>
  * </ul>
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimMapHudTests implements FabricClientGameTest {
 
     private static final String FIT = "99-sim-map-fit";
@@ -69,7 +70,7 @@ public class SimMapHudTests implements FabricClientGameTest {
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            System.out.println("[" + FIT + "] SKIPPED - needs his real rooms and room database");
+            Scenario.skipped(FIT, "needs real room captures and room database");
             return;
         }
         ctx.runOnClient(mc -> Scenario.loadRoomDatabaseNow());

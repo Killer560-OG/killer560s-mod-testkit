@@ -1,8 +1,8 @@
 # WP6 - Full SIM on the dedicated server
 
-Plan: `C:/Users/Hunter/killer560s-mod-logs/TESTKIT-COVERAGE-PLAN.md` section 2 (WP6). Foundation and APIs: `docs/wp/wp1-foundation.md`.
+Plan: the maintainer's coverage plan (TESTKIT-COVERAGE-PLAN.md, not in this repo) section 2 (WP6). Foundation and APIs: `docs/wp/wp1-foundation.md`.
 
-- Worktree: `git worktree add C:/Users/Hunter/killer560s-mod-testkit-wt/dsim -b wp/dsim master` (from the main checkout)
+- Worktree: `git worktree add <worktreesDir>/dsim -b wp/dsim master` (from the main checkout)
 - Port: 25610 (Hx bridge 25615)
 - Scenario names: `4NN-dsim-*`; suite: `-Psuite=dsim` (`./run-suite.ps1 -Suite dsim -Port 25610`)
 - Entry point (pre-registered stub): `dev.testkit.gametest.dsim.DungeonServerSuite`

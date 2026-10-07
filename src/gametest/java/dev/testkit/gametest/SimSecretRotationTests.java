@@ -37,6 +37,7 @@ import java.nio.file.Path;
  * rooms have captures of the wrong size, and Hypixel's data is not perfect either. It asserts a MAJORITY,
  * which is a threshold the broken version fails outright and a working one clears comfortably.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimSecretRotationTests implements FabricClientGameTest {
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
@@ -46,8 +47,7 @@ public class SimSecretRotationTests implements FabricClientGameTest {
     private static final String SECRETS = "com.killer560.hub.roomsim.SimSecrets";
 
     private static final String SOURCE_ROOMS =
-            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
-                    + "/minecraft/config", "killer560smod-rooms");
+            ModUnderTest.instanceConfig(Machine.roomsConfigDir(), "killer560smod-rooms");
 
     /**
      * The bar.
@@ -73,7 +73,7 @@ public class SimSecretRotationTests implements FabricClientGameTest {
         if (copyDir(SOURCE_ROOMS, "killer560smod-rooms", ".json") < 20
                 || copyDir(Path.of(SOURCE_ROOMS).resolveSibling("killer560smod-roomdata").toString(),
                         "killer560smod-roomdata", "") == 0) {
-            System.out.println("[82-sim-secret-rotation] SKIPPED - needs his rooms and room database");
+            Scenario.skipped("82-sim-secret-rotation", "needs room captures and room database");
             return;
         }
         ctx.runOnClient(mc -> Scenario.loadRoomDatabaseNow());

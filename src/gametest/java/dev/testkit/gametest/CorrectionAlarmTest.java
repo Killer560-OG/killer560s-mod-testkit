@@ -17,6 +17,7 @@ import java.util.List;
  * and a second call inside 3 s is rate-limited. (Vanilla's "unknown soundEvent" warning is not on a logger LogTap reads,
  * so the known-event check above stands in for it.) The client is muted, so the counter and the log are the proof.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class CorrectionAlarmTest implements FabricClientGameTest {
 
     private static final String SOUNDS = "com.killer560.hub.util.ModSounds";

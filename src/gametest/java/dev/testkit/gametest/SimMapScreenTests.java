@@ -28,14 +28,14 @@ import java.nio.file.Path;
  *       of the change is that it previews rather than builds.</li>
  * </ul>
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimMapScreenTests implements FabricClientGameTest {
 
     private static final String EDITOR = "com.killer560.hub.roomsim.SimMapEditorScreen";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
 
     private static final String SOURCE_ROOMS =
-            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
-                    + "/minecraft/config", "killer560smod-rooms");
+            ModUnderTest.instanceConfig(Machine.roomsConfigDir(), "killer560smod-rooms");
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -56,7 +56,7 @@ public class SimMapScreenTests implements FabricClientGameTest {
         // The room DATABASE is a different dataset and is not shipped, so that one is still copied.
         if (copyDir(Path.of(SOURCE_ROOMS).resolveSibling("killer560smod-roomdata").toString(),
                 "killer560smod-roomdata", "") == 0) {
-            System.out.println("[83-sim-map-screen] SKIPPED - needs his room database");
+            Scenario.skipped("83-sim-map-screen", "needs the room database");
             return;
         }
         ctx.runOnClient(mc -> ModUnderTest.staticCall(ROOM_LIBRARY, "forceReload"));

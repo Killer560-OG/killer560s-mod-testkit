@@ -35,6 +35,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * invisible, has no base plate, is not small or a marker, and wears a player head with a profile carrying textures.
  * The pictures themselves are for a person to look at ({@code build/testkit-report/screens/143-sim-key-look-*}).
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimKeyLookTests implements FabricClientGameTest {
 
     private static final String NAME = "143-sim-key-look";
@@ -55,7 +56,7 @@ public class SimKeyLookTests implements FabricClientGameTest {
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            println("SKIPPED - needs his real rooms and room database");
+            Scenario.skipped(NAME, "needs real room captures and room database");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);

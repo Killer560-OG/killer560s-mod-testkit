@@ -38,6 +38,7 @@ import java.util.regex.Pattern;
  * (seams included) to that room's centre block, one line per spot so two jars compare line by line, judges every "no
  * way" against the ground truth (fails on any the ground truth reaches) and runs a sample of the found plans.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimPlannerGapsTests implements FabricClientGameTest {
 
     private static final String GAPS = "404-sim-planner-gaps";
@@ -124,7 +125,7 @@ public class SimPlannerGapsTests implements FabricClientGameTest {
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            System.out.println("[" + GAPS + "] SKIPPED - needs his real rooms and room database");
+            Scenario.skipped(GAPS, "needs real room captures and room database");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);

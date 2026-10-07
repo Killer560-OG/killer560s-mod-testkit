@@ -20,6 +20,7 @@ import java.nio.file.Path;
  * visit from TESTKIT_LEAVE_LOOP_RD (default 0 = leave the gametest's 5 alone). Each visit tours the floor's corners in
  * spectator, as a run moves through rooms, so chunks fall out of vanilla's view ring into the mod's Chunk Cache.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimLeaveLoopTests implements FabricClientGameTest {
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
@@ -27,8 +28,7 @@ public class SimLeaveLoopTests implements FabricClientGameTest {
     private static final String FLOOR_GEN = "com.killer560.hub.roomsim.SimFloorGen";
 
     private static final String SOURCE_ROOMS =
-            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
-                    + "/minecraft/config", "killer560smod-rooms");
+            ModUnderTest.instanceConfig(Machine.roomsConfigDir(), "killer560smod-rooms");
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -45,7 +45,7 @@ public class SimLeaveLoopTests implements FabricClientGameTest {
                 "com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (copyDir(Path.of(SOURCE_ROOMS).resolveSibling("killer560smod-roomdata").toString(),
                 "killer560smod-roomdata") == 0) {
-            System.out.println("[97-leave-loop] SKIPPED - needs his room database");
+            Scenario.skipped("97-leave-loop", "needs the room database");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);

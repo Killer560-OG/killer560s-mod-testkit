@@ -13,4 +13,4 @@ does NOT edit it. It appends to `docs/requests/<wp>.md` (hx, menu, ui, logic, ds
 ```
 
 Mod-side needs (a hook, a counter, a getter) go in the same file under `## mod:` - testkit agents never edit
-`C:\Users\Hunter\killer560s-mod`; the integrator does, and records the new hook in the mod's docs/TESTING-HOOKS.md.
+the killer560s-mod checkout (`modSource`); the integrator does, and records the new hook in the mod's docs/TESTING-HOOKS.md.

@@ -134,11 +134,15 @@ public final class Report {
         int pass = 0;
         int fail = 0;
         int other = 0;
+        int skipped = 0;
         for (Row r : ROWS) {
             switch (r.status()) {
                 case "PASS", "FLAGGED" -> pass++;
                 case "FAIL" -> fail++;
                 default -> other++;
+            }
+            if (r.status().equals("SKIP")) {
+                skipped++;
             }
         }
         String suite = System.getProperty("testkit.suite", "");
@@ -153,7 +157,7 @@ public final class Report {
         md.append("- anticheat: ").append(Boolean.getBoolean("testkit.nogrim") ? "REMOVED (-Pnogrim)" : "GrimAC")
                 .append('\n');
         md.append("- totals: ").append(pass).append(" passed, ").append(fail).append(" failed, ").append(other)
-                .append(" other\n\n");
+                .append(" other").append(skipped > 0 ? " (" + skipped + " skipped)" : "").append("\n\n");
         md.append("| case | status | s | anticheat | detail |\n|---|---|---|---|---|\n");
         for (Row r : ROWS) {
             md.append("| [").append(r.name()).append("](cases/").append(fileName(r.name())).append(".log) | ")

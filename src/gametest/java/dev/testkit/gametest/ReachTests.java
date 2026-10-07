@@ -29,6 +29,7 @@ import java.util.Locale;
  * - it survives the world being rebuilt between scenarios in the same client. Every rung therefore gets its own
  * lever at its own coordinates, so no rung can be skipped because an earlier one poisoned the set.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class ReachTests implements FabricClientGameTest {
 
     private static final String MOD_ID = "killer560smod";

@@ -29,6 +29,7 @@ import java.util.List;
  * from outside, and fails on the WORST tick rather than on the average - an average hides exactly the stall
  * being hunted.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimStallTests implements FabricClientGameTest {
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
@@ -38,7 +39,7 @@ public class SimStallTests implements FabricClientGameTest {
 
     /** Where his real rooms live. */
     private static final String SOURCE_ROOMS =
-            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)/minecraft/config", "killer560smod-rooms");
+            ModUnderTest.instanceConfig(Machine.roomsConfigDir(), "killer560smod-rooms");
 
     /**
      * The longest a single client tick may take.

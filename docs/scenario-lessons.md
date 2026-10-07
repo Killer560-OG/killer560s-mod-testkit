@@ -260,3 +260,58 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   N x 61 + 30 blocks, and asserts a tile press uses exactly the warps of the mod's own [check] plan without the
   centre preference (build.gradle sets `killer560.test.checkFewest`), printing landing depth before vs after.
   Floors are random per run and the refusals depend on the floor: judge 95 over 8+ runs, not one.
+
+## Moved from CLAUDE.md (2026-10-07, when it became a guide for any machine)
+
+## FPS benches (95-fps-bench, 403-perf-hub)
+
+`perf/FpsBenchTest`, about 10 minutes, only when named (`-Pscenario=95-fps`). Commands, method and how to read the
+ON-OFF delta: [docs/fps-bench.md](docs/fps-bench.md). `403-perf-hub` (`perf/HubPerfBenchTest`, ~18 min, only when named)
+is the hub counterpart: tab list, entities, chat, an open chest and an Ender Chest page; read its TICK and `menu` numbers
+(frame counts differ between ON and OFF, see the doc). 95 needs `Scenario.ensureRoomDatabase` like every sim floor since
+mod 0ad55108 - without it the generate was refused and the bench hung on a build that never started (fixed 2026-10-07).
+
+## Scenarios added after the upstream set
+
+Scenarios so far: 62-argrim (Auto Routes on GrimAC, see below), 48-56 Breaker Aura (with a by-hand control and an open-ground speed control;
+picks-only since mod 9e83c4fc, so 50-52 pick the whole corridor and 53-56 cover side, floor, behind and through-wall picks), 60 Secret
+Triggerbot, 99-sim-essence-aura (Secret Aura on a sim wither essence holding AOTV / Hyperion, first world and after a
+rebuild; server-side click record, collection and Auto Routes' await; only when named, captures from "Map Logger" unless
+`TESTKIT_SIM_INSTANCE` says otherwise), 99-sim-aura-rebuild (Secret Aura on the same chest and lever of Museum over three
+builds of the room in one sim world; server-side click record; fails on mod 5008e4d6, only when named),
+143-sim-key-look (pictures of a dropped sim Wither Key and Blood Key, front-on and from above, plus their stand's
+flags on the client; only when named, `TESTKIT_SIM_INSTANCE=Map Logger`),
+110-sim-puzzle-reset (player reset rules of mod 35a663ba: only failed puzzles, never Water Board, Boulder when built, a draft kept when nothing resets),
+99-sim-map-fit / 99-sim-extra-info / 99-sim-secrets-boss (`SimMapHudTests`: the Dungeon Map fills its frame on 4x5, 5x5,
+6x6 and offset sim floors and Interactive Map presses hit the drawn room; Extra Info with Score Calculator off; Secrets
+HUD hidden in the boss and back on a new run - all fail on mod 0b492828), 394-ui-hud-boxes (every HUD element's box vs
+what it draws, slack 3 units, centred elements judged on their other axis),
+399-ui-hud-editor-resize / 399-ui-hud-editor-snap / 399-ui-stat-bars-vitality-xp (HUD editor resize handles, cursors and
+snapping by real mouse drags at Auto Scale 0.5 and 1; Vitality and XP readouts; Classic Display migration; all fail on mod 6f3515ba),
+407-ui-stat-bars-layout (Health and Mana Bars Layout: Predefined areas measured on screenshots at Auto Scale 0.5 and 1,
+real-mouse drags between areas and onto Hidden, Custom positions untouched, old configs stay put; fails on mod a411e650),
+64-correction-alarm (the mod's `killer560smod:correction_alarm` is known to the sound manager, its .ogg is in the resources,
+`ModSounds.playCorrectionAlarm` plays once and rate-limits the second; run it with `-Minecraft 26.2` too),
+65-join-fingerprint (every serverbound byte from handshake to play plus a sign translation probe; needs a `run-scenario.ps1 -NoMod`
+baseline per Minecraft version first, see docs/scenario-lessons.md).
+
+- The mod's Auto Scale (ON by default since 2026-10-05) scales its HUD and its own screens by
+  `3 * min(W/2560, H/1440) / guiScale`. The default gametest window (854x480, GUI 2) is factor 0.5: mod screens are laid
+  out at `guiSize / 0.5` and saved HUD positions are baseline units drawn at `saved * 0.5`, so compare a dragged element
+  with `HudElementRegistry.resolvePosition`, never with `HudConfig.getPosition`. `380-ui-autoscale` resizes the window
+  (`TestInput.resizeWindow`, then `options.guiScale().set(3)` + `mc.resizeGui()` - the resize alone keeps the old scale).
+
+- Both terminal layouts (SkyBlock 0.27.2): `menu.terminal` takes `bandRows` (Melody, 4 or 3) and `count` (Numbers, 14 or
+  10); cases 207-210, 219, 290, 291. The P3 Simon Says device is `boss.ss.*` (hx/boss/HxSimonSays, rounds 4 or 5), cases
+  501-503 in `500-boss-session`; click its buttons after turning to them, or GrimAC cancels the use (RotationPlace).
+  A P3 terminal stand is `boss.term.*` (hx/boss/HxTerminalStand: pillar + command block + non-marker "Inactive Terminal"
+  stand, opens "Click in order!" only for an eye at or above the stand's feet); case 409-boss-termlog drives the mod's
+  Terminal Open Logger with it. Spawn the stand (`boss.term.spawn`) only once the player is there, and turn him through the
+  `dungeon.tp` itself: a client turn made before the teleport lands is reset to the teleport's yaw/pitch (409's first runs).
+
+- In the logic suite's throwaway world, a block 66 blocks from spawn can read `void_air` for the first seconds even after
+  `mc.level.hasChunkAt` says yes (362, 2026-10-06). Wait until the block itself stops reading `Blocks.VOID_AIR`.
+
+- 386's overlap sweep builds each tab as the fresh config has it, so rows behind an OFF master switch (all of Auto Routes)
+  exist only in the "toggle flipped" layouts. 386 now records every label it checked and requires Auto Routes' Breaker
+  Block Display/Style among them (cheat jar); a new-widget check must read those layouts too (2026-10-06).

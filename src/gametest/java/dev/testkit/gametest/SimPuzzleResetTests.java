@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * asserts: it is one per puzzle reset, so 0 means nothing was reset. Every case first proves its precondition (the
  * failed list reads as set, Boulder is or is not built), so a green run means the rule was exercised.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimPuzzleResetTests implements FabricClientGameTest {
 
     private static final String NAME = "110-sim-puzzle-reset";

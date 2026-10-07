@@ -25,13 +25,14 @@ import java.util.Map;
  * cell he put it, covering exactly its own footprint and no more. A map editor that quietly moves or resizes a
  * room is worse than no map editor.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimMapEditorTests implements FabricClientGameTest {
 
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
     private static final String FLOOR_GEN = "com.killer560.hub.roomsim.SimFloorGen";
 
     private static final String SOURCE_ROOMS =
-            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)/minecraft/config", "killer560smod-rooms");
+            ModUnderTest.instanceConfig(Machine.roomsConfigDir(), "killer560smod-rooms");
 
     private static final int GRID = 11;
     private static final int ROOM_GRID = 6;
@@ -53,7 +54,7 @@ public class SimMapEditorTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ModUnderTest.turnOff(
                 "com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (copyRealRooms() < 20) {
-            System.out.println("[75-sim-map-editor] SKIPPED - needs his real rooms");
+            Scenario.skipped("75-sim-map-editor", "needs real room captures");
             return;
         }
         ctx.runOnClient(mc -> ModUnderTest.staticCall(ROOM_LIBRARY, "forceReload"));

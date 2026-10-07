@@ -1,8 +1,8 @@
 # WP2 - Hx fidelity: chat + HUD
 
-Plan: `C:/Users/Hunter/killer560s-mod-logs/TESTKIT-COVERAGE-PLAN.md` section 2 (WP2). Foundation and APIs: `docs/wp/wp1-foundation.md`.
+Plan: the maintainer's coverage plan (TESTKIT-COVERAGE-PLAN.md, not in this repo) section 2 (WP2). Foundation and APIs: `docs/wp/wp1-foundation.md`.
 
-- Worktree: `git worktree add C:/Users/Hunter/killer560s-mod-testkit-wt/hx -b wp/hx master` (from the main checkout)
+- Worktree: `git worktree add <worktreesDir>/hx -b wp/hx master` (from the main checkout)
 - Port: 25570 (Hx bridge 25575)
 - Scenario names: `1NN-hx-*`; suite: `-Psuite=hx` (`./run-suite.ps1 -Suite hx -Port 25570`)
 - Entry point (pre-registered stub): `dev.testkit.gametest.hx.HxSuite`
