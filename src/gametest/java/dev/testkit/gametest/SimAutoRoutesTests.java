@@ -52,7 +52,7 @@ import java.util.function.Supplier;
  *
  * <p>Cases (each selectable: -Pscenario=96-ar-play etc.; -Pscenario=96-ar runs all):
  * add, play, interact (empty-hand use nodes), await (what counts as YOUR secret), mimic (Kill Mimic), crypt (crypt
- * nodes and the two await counters), breaker, pingpong, charges (a secret gives the sim breaker 2 charges), museum (his
+ * nodes and the two await counters), breaker, breakerwait (a node short of charges waits, then one burst), pingpong, charges (a secret gives the sim breaker 2 charges), museum (his
  * exact Museum route: stacked booms into a crypt node), edit, mapopen, path, screen, rotate. GrimAC does not apply
  * here: the sim is an integrated server.
  */
@@ -79,7 +79,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     // he has been through one (the map-arrival interlock), so the cases that arm non-start nodes run before it.
     private static final String[] CASES = {"96-ar-add", "96-ar-play", "96-ar-interact", "96-ar-await",
             "96-ar-awaitskip", "96-ar-leverwp", "96-ar-complete", "96-ar-mimic",
-            "96-ar-crypt", "96-ar-breaker", "96-ar-pingpong", "96-ar-chain", "96-ar-stackorder", "96-ar-crypthold",
+            "96-ar-crypt", "96-ar-breaker", "96-ar-breakerwait", "96-ar-pingpong", "96-ar-chain", "96-ar-stackorder", "96-ar-crypthold",
             "96-ar-charges", "96-ar-museum",
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen",
             "96-ar-path", "96-ar-screen", "96-ar-rotate"};
@@ -218,6 +218,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-mimic" -> caseMimic(ctx);
                         case "96-ar-crypt" -> caseCrypt(ctx);
                         case "96-ar-breaker" -> caseBreaker(ctx);
+                        case "96-ar-breakerwait" -> caseBreakerWait(ctx);
                         case "96-ar-pingpong" -> casePingPong(ctx);
                         case "96-ar-chain" -> caseChain(ctx);
                         case "96-ar-stackorder" -> caseStackOrder(ctx);
@@ -324,6 +325,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 "the breaker node did not fire on add");
         cmd(ctx, "/ar edit db");
         ctx.waitTicks(3);
+        // Edit mode picks only with the Dungeon Breaker in hand (mod ar-breaker-wait); any other item clicks normally.
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(2));
+        ctx.waitTicks(2);
         rightClick(ctx, 22, F, 10, Direction.WEST);
         ctx.waitTicks(3);
         rightClick(ctx, 22, F + 1, 10, Direction.WEST);
@@ -542,7 +546,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
 
     /**
      * A breaker node of six blocks: with Breaker Aura's Multi Break on every START_DESTROY_BLOCK goes on the firing
-     * tick; off, one per interact-delay tick; and with fewer charges than blocks only that many are sent.
+     * tick; off, one per interact-delay tick; and with fewer charges than blocks (after a real 17-block node) it waits
+     * and sends all six in one burst.
      */
     private void caseBreaker(ClientGameTestContext ctx) {
         resetRoutes(ctx);
@@ -623,11 +628,23 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(4);
             startSampling(ctx);
             tpRel(ctx, 13.5, 10.5, 0f, 0f);
-            ctx.waitTicks(30);
+            // Since mod ar-breaker-wait a node short of charges waits for them (2 a second) and then breaks all six
+            // at once - never a partial burst. 96-ar-breakerwait measures the wait itself.
+            waitFor(ctx, 160, () -> {
+                for (int[] b : six) {
+                    if (!blockAir(ctx, b[0], F + b[1], 12)) {
+                        return false;
+                    }
+                }
+                return true;
+            });
             List<Sample> s = stopSampling(ctx);
             int total = 0;
+            int most = 0;
             for (Sample x : s) {
-                total += (int) x.out().stream().filter("player_action"::equals).count();
+                int c = (int) x.out().stream().filter("player_action"::equals).count();
+                total += c;
+                most = Math.max(most, c);
             }
             int charges = -1;
             java.util.regex.Pattern cp = java.util.regex.Pattern.compile("Breaker: 6 block\\(s\\) queued, (\\d+) charge");
@@ -637,14 +654,13 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     charges = Integer.parseInt(mm.group(1));
                 }
             }
-            println("drained breaker: " + charges + " charge(s) read, " + total + " dig(s) sent for 6 blocks");
-            check(charges >= 0 || logHas(m, "has no charges"), "the second breaker node never fired");
-            if (charges > 0 && charges < 6) {
-                check(total == charges, "with " + charges + " charges it sent " + total + " digs");
-                check(logHas(m, "out of charges"), "no out-of-charges line");
-            } else {
-                println("drained breaker: charges were " + charges + " - the partial case was not reached this run");
-                check(charges <= 0 ? total == 0 : total == 6, "charges " + charges + ": " + total + " digs");
+            println("drained breaker: " + charges + " charge(s) read, " + total + " dig(s) sent for 6 blocks, at most "
+                    + most + " on one tick");
+            check(charges >= 0, "the second breaker node never fired");
+            check(total == 6 && most == 6, "charges " + charges + ": " + total + " digs, " + most
+                    + " on one tick - expected the six in one burst");
+            if (charges < 6) {
+                check(logHas(m, "breaker charges (have"), "with " + charges + " charges there was no wait line");
             }
         } finally {
             ctx.runOnClient(mc -> {
@@ -652,6 +668,148 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true);
             });
         }
+    }
+
+    /** Spends sim breaker charges on the server until {@code left} remain, and returns the count it read after. */
+    private static int drainCharges(ClientGameTestContext ctx, int left) {
+        AtomicReference<Integer> after = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            server.execute(() -> {
+                String st = "com.killer560.hub.roomsim.SimBreakerState";
+                while ((Integer) ModUnderTest.staticCall(st, "charges") > left) {
+                    ModUnderTest.staticCall(st, "trySpend");
+                }
+                after.set((Integer) ModUnderTest.staticCall(st, "charges"));
+            });
+        });
+        ctx.waitFor(mc -> after.get() != null, 100);
+        return after.get();
+    }
+
+    /**
+     * killer560 (2026-10-06): "if it steps on an ar breaker node and it doesn't have enough charges then it should wait
+     * to break until it does." A start breaker node of eight picked blocks, six standing and two already air (air needs no
+     * charge), with an etherwarp stacked on its tile. The sim breaker is drained to 0 just before he steps on; the sim,
+     * like Hypixel, gives back 2 a second. While short: no dig packet, one chat line, the route still running. Once the
+     * item shows 6: all six digs on ONE tick, every block broken, and the stacked etherwarp goes after it (the route
+     * carries on). Second pass: drained again, a fresh strafe key while it waits stops the route with nothing sent.
+     */
+    private void caseBreakerWait(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+        int[][] six = {{12, 0}, {13, 0}, {14, 0}, {12, 1}, {13, 1}, {14, 1}};
+        Map<int[], BlockState> put = new HashMap<>();
+        JsonArray blocks = new JsonArray();
+        for (int[] b : six) {
+            put.put(new int[]{b[0], F + b[1], 22}, Blocks.STONE.defaultBlockState());
+            blocks.add(b[0] + " " + (F + b[1]) + " 22");
+        }
+        blocks.add("12 " + (F + 2) + " 22");   // picked, but air: needs no charge
+        blocks.add("13 " + (F + 2) + " 22");
+        setBlocks(ctx, put);
+        JsonObject br = node("DUNGEON_BREAKER", 13, 20, 0f, 0f);
+        br.add("blocks", blocks);
+        br.addProperty("start", true);
+        // West along z 20: 96-ar-breaker's broken rows at z 12 and z 18 regrow 10 s later (SimBreakerState), straight
+        // across a warp to the south (the first full run's etherwarp hit the z 18 row and landed 6.3 short).
+        JsonObject warp = ew(13, 20, 6, 20, false);
+        writeRoute(ctx, List.of(br, warp));
+        Supplier<Boolean> allGone = () -> {
+            for (int[] b : six) {
+                if (!blockAir(ctx, b[0], F + b[1], 22)) {
+                    return false;
+                }
+            }
+            return true;
+        };
+
+        // ---- pass 1: short of charges, waits, then one burst and the route carries on ----
+        tpRel(ctx, 13.5, 17.5, 0f, 0f);
+        check(waitFor(ctx, 400, () -> simCharges(ctx) == 20), "the sim breaker never refilled (at " + simCharges(ctx) + ")");
+        long m = LogTap.mark();
+        startSampling(ctx);
+        int drained = drainCharges(ctx, 0);
+        // The client's lore is what the node reads, and it follows the server a tick later: step on only once the item
+        // in his hand says so (the first run stepped on a tick early, read 20 and the server refused all six).
+        int loreDrained = waitFor(ctx, 20, () -> loreCharges(ctx) >= 0 && loreCharges(ctx) <= 1) ? loreCharges(ctx) : -1;
+        tpRel(ctx, 13.5, 20.5, 0f, 0f);
+        boolean gone = waitFor(ctx, 200, allGone);
+        Vec3 landed = waitLanded(ctx, 6, 20, 60);
+        ctx.waitTicks(3);
+        List<Sample> s = stopSampling(ctx);
+        int firstDig = -1;
+        int digsOnFirst = 0;
+        int total = 0;
+        int firstUse = -1;
+        for (int i = 0; i < s.size(); i++) {
+            int c = (int) s.get(i).out().stream().filter("player_action"::equals).count();
+            if (c > 0 && firstDig < 0) {
+                firstDig = i;
+                digsOnFirst = c;
+            }
+            if (firstUse < 0 && s.get(i).out().contains("use_item")) {
+                firstUse = i;
+            }
+            total += c;
+        }
+        int fired = logIndex(m, "Breaker: 8 block(s) queued");
+        int waitLine = logIndex(m, "breaker charges (have");
+        int readyLine = logIndex(m, "after waiting");
+        String ready = readyLine >= 0 ? LogTap.since(m).get(readyLine) : "none";
+        println("breaker wait: drained to " + drained + ", " + s.size() + " tick(s) sampled, first dig on sample "
+                + firstDig + " (" + digsOnFirst + " dig(s) that tick, " + total + " in all), etherwarp use on sample "
+                + firstUse + ", all six gone " + gone + ", landed " + landed);
+        println("breaker wait: ready line: " + ready);
+        println("breaker wait: client lore read " + loreDrained + " when he stepped on");
+        check(drained == 0 && loreDrained >= 0, "could not drain the sim breaker (server " + drained + ", lore "
+                + loreDrained + ")");
+        check(waitLine >= 0, "no 'waiting for N breaker charges (have M)' chat line");
+        check(logHas(m, "6 block(s) standing in reach"), "the wait did not count six standing blocks (two picks are air)");
+        // Draining to 0 and stepping on, 6 charges need ~60 ticks at 2 a second: a node that waited sent nothing for
+        // most of that. Main sent what it had at once (or stopped at 0) - both fail here.
+        check(firstDig >= 30, "the first dig went out on sample " + firstDig + " - it did not wait for charges");
+        check(digsOnFirst == 6 && total == 6, digsOnFirst + " dig(s) on the burst tick, " + total
+                + " in all - expected all six on one tick and nothing else");
+        check(gone, "not all six blocks broke after the burst");
+        java.util.regex.Matcher rm = java.util.regex.Pattern.compile("Breaker: (\\d+) charge\\(s\\) after waiting").matcher(ready);
+        check(rm.find() && Integer.parseInt(rm.group(1)) >= 6, "the burst went before the item showed 6 charges: " + ready);
+        check(firstUse > firstDig && landed != null, "the stacked etherwarp did not follow the burst (use on sample "
+                + firstUse + ", landed " + landed + ")");
+        check(fired >= 0 && waitLine > fired && readyLine > waitLine, "log order: fired " + fired + ", wait line "
+                + waitLine + ", ready line " + readyLine);
+        check(!logHas(m, "out of charges"), "the two air picks were reported as blocks not sent for want of charges");
+
+        // ---- pass 2: a fresh movement key while it waits stops the route, nothing sent ----
+        resetRoutes(ctx);
+        setBlocks(ctx, put);
+        writeRoute(ctx, List.of(br));
+        tpRel(ctx, 13.5, 17.5, 0f, 0f);
+        ctx.waitTicks(5);
+        long m2 = LogTap.mark();
+        startSampling(ctx);
+        drainCharges(ctx, 0);
+        waitFor(ctx, 20, () -> loreCharges(ctx) >= 0 && loreCharges(ctx) <= 1);
+        tpRel(ctx, 13.5, 20.5, 0f, 0f);
+        ctx.waitTicks(10);
+        boolean waiting = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+        ctx.getInput().holdKey(options -> options.keyLeft);
+        ctx.waitTicks(3);
+        ctx.getInput().releaseKey(options -> options.keyLeft);
+        ctx.waitTicks(3);
+        boolean stillRunning = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+        List<Sample> s2 = stopSampling(ctx);
+        int digs2 = 0;
+        for (Sample x : s2) {
+            digs2 += (int) x.out().stream().filter("player_action"::equals).count();
+        }
+        println("breaker wait, movement key: running while short " + waiting + ", after the key " + stillRunning
+                + ", digs " + digs2);
+        check(waiting && logHas(m2, "breaker charges (have"), "pass 2: the node was not waiting for charges");
+        check(!stillRunning && logHas(m2, "you moved"), "a movement key did not end the breaker's wait");
+        check(digs2 == 0, digs2 + " dig(s) went out in pass 2");
     }
 
     /**
@@ -1424,6 +1582,61 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         check(one != null && one.size() == 1 && one.get(0).equals(two.get(0)),
                 "shift-right-click left " + one + ", expected only the first pick " + two.get(0));
         check(!blockAir(ctx, 22, F, 10) && !blockAir(ctx, 22, F + 1, 10), "edit mode broke a picked block");
+
+        // ---- edit mode, AOTV in hand (killer560, 2026-10-06): a real sneaking right click on the floor three blocks
+        // away is a normal etherwarp - use_item goes out, the server moves him, and nothing is picked ----
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+        tpRel(ctx, 20.5, 14.5, relYawTo(20, 14, 17, 14), pitchTo(20, 14, 17, 14));
+        ctx.waitTicks(5);
+        int swallowedAotv = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EDIT_INPUT, "swallowedLeftClicks"));
+        long mA = LogTap.mark();
+        startSampling(ctx);
+        ctx.getInput().holdKey(options -> options.keyShift);
+        boolean aotvSneak = waitFor(ctx, 20, () -> ctx.computeOnClient(mc -> mc.player.getLastSentInput().shift()));
+        boolean aimsBlock = ctx.computeOnClient(mc -> mc.hitResult instanceof BlockHitResult b
+                && b.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK);
+        ctx.getInput().holdKey(options -> options.keyUse);
+        ctx.waitTicks(2);
+        ctx.getInput().releaseKey(options -> options.keyUse);
+        Vec3 warped = waitLanded(ctx, 17, 14, 40);
+        ctx.getInput().releaseKey(options -> options.keyShift);
+        ctx.waitTicks(3);
+        s = stopSampling(ctx);
+        JsonArray afterAotv = fileNodes(ctx).get(0).getAsJsonObject().getAsJsonArray("blocks");
+        println("dbedit AOTV in edit mode: sneak " + aotvSneak + ", crosshair on a block " + aimsBlock + ", "
+                + countOut(s, "use_item") + " use_item, " + countOut(s, "use_item_on") + " use_item_on, landed " + warped
+                + ", blocks " + afterAotv);
+        check(aotvSneak, "shift never reached the server - the etherwarp check would prove nothing");
+        check(aimsBlock, "the AOTV click was not aimed at a block in reach - it would not pass edit mode's block hook");
+        // Aimed at a block in reach the click goes out as use_item_on (the sim etherwarps on it, as Hypixel does) and/or
+        // use_item; before this change edit mode's block hook answered FAIL and neither left the client.
+        check(countOut(s, "use_item") + countOut(s, "use_item_on") >= 1,
+                "edit mode swallowed the AOTV right click (no use_item / use_item_on)");
+        check(warped != null, "the AOTV right click in edit mode did not etherwarp him to (17,14) (at " + relPos(ctx) + ")");
+        check(afterAotv != null && afterAotv.size() == 1, "the AOTV right click picked a block: " + afterAotv);
+        check(!logHas(mA, "edit mode swallowed"), "edit mode swallowed a click with the AOTV in hand");
+
+        // ---- edit mode, Hyperion in hand: a left click is a normal left click (swings) ----
+        giveSlot(ctx, 4, "HYPERION");
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(4));
+        // The control's breaker click above broke this stone (the sim puts it back only after 10 s).
+        setBlocks(ctx, Map.of(new int[]{22, F + 1, 14}, Blocks.STONE.defaultBlockState()));
+        tpRel(ctx, 20.5, 14.5, -90f, 0f);
+        ctx.waitTicks(5);
+        check(aimedAt(ctx, 22, F + 1, 14), "the Hyperion left click is not aimed at its stone");
+        startSampling(ctx);
+        leftClick(ctx, 3);
+        ctx.waitTicks(5);
+        s = stopSampling(ctx);
+        int swallowedHype = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EDIT_INPUT, "swallowedLeftClicks"))
+                - swallowedAotv;
+        println("dbedit Hyperion in edit mode: " + countOut(s, "swing") + " swing, " + countOut(s, "player_action")
+                + " player_action, " + swallowedHype + " swallowed");
+        check(countOut(s, "swing") >= 1, "a Hyperion left click in edit mode did not swing");
+        check(swallowedHype == 0, "edit mode swallowed " + swallowedHype + " left click(s) with a Hyperion in hand");
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(2));
+        tpRel(ctx, 20.5, 10.5, -90f, 0f);
+        ctx.waitTicks(5);
 
         // ---- Breaker Block Display x Style: each combination takes its own draw path ----
         try {
