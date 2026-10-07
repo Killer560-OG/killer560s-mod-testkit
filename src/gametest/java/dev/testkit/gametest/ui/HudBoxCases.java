@@ -29,6 +29,9 @@ import java.util.Locale;
  * than the drawn content on any side, or the content spills more than {@link #SPILL} unit past it. Split Timers,
  * the Secrets HUD and Mask Invincibility Timers (his three) are switched on for the run and must draw something, so
  * the check on them is never vacuous. An element that draws nothing is listed, not judged.
+ *
+ * <p>Every Health and Mana Bars readout is switched on too (mod hud-editor-bars added Vitality and XP bars and texts),
+ * and the four new ones are required to draw when the jar has them.
  */
 final class HudBoxCases {
 
@@ -97,6 +100,7 @@ final class HudBoxCases {
         List<Measured> all;
         try {
             c.onClient(mc -> {
+                readoutsOn(c, restore);
                 for (Object[] on : SWITCH_ON) {
                     try {
                         restore.add(0, Mod.with((String) on[0], (String) on[1], on[2]));
@@ -167,9 +171,34 @@ final class HudBoxCases {
                 c.problem(id + " drew nothing in the HUD editor with its setting on - its box check would be vacuous");
             }
         }
+        boolean newReadouts = all.stream().anyMatch(x -> x.id().equals("statbar_vitality"));
+        c.note("Vitality / XP readouts in this jar: " + newReadouts);
+        if (newReadouts) {
+            for (String id : new String[]{"statbar_vitality", "statbar_xp", "stattext_vitality", "stattext_xp"}) {
+                Measured m = all.stream().filter(x -> x.id().equals(id)).findFirst().orElse(null);
+                if (m == null || m.drawn() == null || !m.listed()) {
+                    c.problem(id + " was not listed or drew nothing with its readout on - its box check would be vacuous");
+                }
+            }
+        }
         c.note("judged " + judged + " listed element(s) that drew; slack " + SLACK + " units a side, spill " + SPILL);
         System.out.println("[394-ui-hud-boxes] " + (c.problemCount() == 0 ? "PASS" : "FAIL") + " (" + judged
                 + " judged, " + c.problemCount() + " problem(s))");
+    }
+
+    /** Every Stat Bars readout on (Stat Bars itself is in {@link #SWITCH_ON}), each put back after. */
+    private static void readoutsOn(UiCase c, List<AutoCloseable> restore) {
+        try {
+            Object ps = Mod.cfg("playerstats.PlayerStatsConfig");
+            Class<?> readout = R.cls("playerstats.StatElements$Readout");
+            for (Object r : readout.getEnumConstants()) {
+                boolean was = (Boolean) Mod.call(ps, "isReadoutOn", r);
+                Mod.call(ps, "setReadoutOn", r, true);
+                restore.add(0, () -> Mod.call(ps, "setReadoutOn", r, was));
+            }
+        } catch (RuntimeException | AssertionError e) {
+            c.note("could not switch the Stat Bars readouts on: " + UiCase.describe(e));
+        }
     }
 
     @SuppressWarnings("unchecked")

@@ -97,3 +97,12 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   private on 26.2, so `TextRuns` reads them by name.
 
 - 236-menu-partyfinder-style (`PartyFinderStyleCases`): for each Party Finder style it compares the REAL tooltip (`getTooltipFromContainerItem`, through the mod's mixin) with the settings preview (`renderPreviewLines`) colour run by colour run, after putting the preview's own stats into `PartyFinderStatsApi.CACHE`; and, with no stats (offline = what Hypixel's stats service gives on 2026-10-07), that every member line is still styled and draws 0x555555 brackets. Highlight is judged by pure green/red pixels per slot against a highlight-off frame. Fails on mod 0b492828, passes on pf-overlay 2aecfd9a.
+
+- 399-ui-hud-editor-resize / -snap / 399-ui-stat-bars-vitality-xp (`HudEditorCases`, mod hud-editor-bars): real drags are
+  `setCursorPos` (GUI x * screenWidth / guiScaledWidth - the HUD editor is not auto-scaled) + `holdMouse(0)` + six moves +
+  `releaseMouse`. `TestInput.holdAlt()` is seen by `InputConstants.isKeyDown(LEFT_ALT)` (the mod's Alt free-drag passed with
+  it), although `pressMouse` events carry no modifiers. Only the case's own elements are kept in the editor's `shown`, so a
+  default-on element elsewhere cannot be what a box snaps to. The cursor is read twice: `pendingCursor` of a frame extracted
+  with the mouse at a handle, and the window's private `currentCursor` after real frames. An action bar reaches the mod's
+  MODIFY_GAME through the real packet with `ServerPlayer.sendSystemMessage(Component, true)` on the integrated server.
+

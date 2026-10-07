@@ -30,7 +30,9 @@ import java.util.List;
  *                392 Blood Camp look against NoammAddons, line start, predicted spot, countdown sounds,
  *                393 Health and Mana Bars tab: no scale control, every row reachable behind its parent, wired,
  *                tooltipped; an old jar's save draws the bar at the same pixel size (TESTKIT_BARS_EXPORT / seedConfig),
- *                394 every HUD element's editor box against the bounds of what it draws (slack 3 units a side)
+ *                394 every HUD element's editor box against the bounds of what it draws (slack 3 units a side),
+ *                399 HUD editor resize handles / cursors / snapping (real mouse drags, Auto Scale 0.5 and 1) and the
+ *                Stat Bars Vitality + XP readouts and Classic Display migration ({@link HudEditorCases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -46,7 +48,7 @@ public class UiSuite implements FabricClientGameTest {
             "360-ui-visuals", "365-ui-overlay-draws", "307-ui-profit", "385-ui-interactive-map", "386-ui-sliders",
             "387-ui-ap3-edit", "388-ui-breaker-display", "389-ui-crosshair",
             "390-ui-wither-doors-fill", "391-ui-cheat-tabs", "392-ui-blood-camp", "393-ui-stat-bars",
-            "394-ui-hud-boxes"};
+            "394-ui-hud-boxes", "399-ui-hud-editor-resize", "399-ui-hud-editor-snap", "399-ui-stat-bars-vitality-xp"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -118,6 +120,9 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "392-ui-blood-camp", CheatTabsCases::bloodCamp);
                     UiCase.run(ctx, "393-ui-stat-bars", c -> StatBarsCases.run(c, deny));
                     UiCase.run(ctx, "394-ui-hud-boxes", HudBoxCases::run);
+                    UiCase.run(ctx, "399-ui-hud-editor-resize", HudEditorCases::resize);
+                    UiCase.run(ctx, "399-ui-hud-editor-snap", HudEditorCases::snap);
+                    UiCase.run(ctx, "399-ui-stat-bars-vitality-xp", HudEditorCases::vitalityXp);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

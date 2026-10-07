@@ -27,8 +27,12 @@ import java.util.Set;
  *
  * <ul>
  *   <li>NO SCALE: no row of the tab, in any layout the case builds, mentions a scale.</li>
- *   <li>REACHABLE: from everything off, each parent is pressed for real (Stat Bars, a bar, a text, Hearts, the Classic
- *       Display header) and its children must appear, and with everything on every expected row is there.</li>
+ *   <li>REACHABLE: from everything off, each parent is pressed for real (Stat Bars, a bar, a text, Hearts, an XP
+ *       readout) and its children must appear, and with everything on every expected row is there.</li>
+ *   <li>GROUPED (mod hud-editor-bars, killer560: "Make the menu have text next to text and bars next to bars"): every
+ *       bar readout sits above every text readout, and each grid row holds two of the same kind.</li>
+ *   <li>NO CLASSIC DISPLAY (same branch: "remove the classic display option, that is not needed"): no layout shows
+ *       Classic Display or any of its five rows.</li>
  *   <li>WIRED: every toggle, pressed, flips the config field it always wrote (and is pressed back).</li>
  *   <li>TOOLTIPS: every button and slider of the tab has a non-empty {@code SettingTooltips} description under the
  *       tab's own scope; no two rows overlap with everything open.</li>
@@ -65,7 +69,8 @@ final class StatBarsCases {
                 {"Other Resource Bar", "OTHER_BAR"}, {"Health Text", "HEALTH_TEXT"}, {"Mana Text", "MANA_TEXT"},
                 {"Overflow Mana Text", "OVERFLOW_TEXT"}, {"Intelligence Text", "INTELLIGENCE_TEXT"},
                 {"Defence Text", "DEFENCE_TEXT"}, {"Effective Health Text", "EFFECTIVE_HEALTH_TEXT"},
-                {"Other Resource Text", "OTHER_TEXT"}};
+                {"Other Resource Text", "OTHER_TEXT"}, {"Vitality Bar", "VITALITY_BAR"}, {"XP Bar", "XP_BAR"},
+                {"Vitality Text", "VITALITY_TEXT"}, {"XP Text", "XP_TEXT"}};
         for (String[] p : r) {
             READOUTS.put(p[0], p[1]);
         }
@@ -76,22 +81,38 @@ final class StatBarsCases {
                 {"Absorption", OH, "getHideAbsorptionHeartsRaw"}, {"Mount Health", OH, "getHideMountHealthBarRaw"},
                 {"Regeneration Bounce", OH, "getHideRegenBounceRaw"}, {"Armour", OH, "getHideArmorBarRaw"},
                 {"Hunger", OH, "getHideHungerBarRaw"}, {"XP Bar And Level", PS, "isHideXpBar"},
-                {"Hide Hypixel Stat Text", PS, "isHideHypixelStatText"}, {"Text Shadow", PS, "isTextShadow"},
-                {"Show Health", PS, "isShowHealth"}, {"Show Mana", PS, "isShowMana"},
-                {"Show Defense", PS, "isShowDefense"}, {"Show Text", PS, "isShowText"}, {"Show Bar", PS, "isShowBar"}};
+                {"Hypixel Stat Text", PS, "isHideHypixelStatText"}, {"Text Shadow", PS, "isTextShadow"},
+                {"Hide Vanilla XP Bar", PS, "isHideXpBar"}};
         for (String[] p : t) {
             TOGGLES.put(p[0], new String[]{p[1], p[2]});
         }
     }
 
     /** Every row the tab must be able to show (label before any ':'), besides the readouts and their colours. */
-    private static final String[] OTHER_ROWS = {"Bar Width", "Bar Height", "Background", "Absorption Colour",
-            "Classic Display"};
+    private static final String[] OTHER_ROWS = {"Bar Width", "Bar Height", "Background", "Absorption Colour"};
+    /** Classic Display and its rows: gone from every layout since mod hud-editor-bars. */
+    private static final String[] CLASSIC = {"Classic Display", "Show Health", "Show Mana", "Show Defense", "Show Text",
+            "Show Bar"};
 
     private StatBarsCases() {
     }
 
     static void run(UiCase c, Deny deny) throws Exception {
+        // A jar before mod hud-editor-bars has no Vitality / XP readouts: judge (and photograph) what it has, and say so.
+        List<String> missing = new ArrayList<>();
+        Object[] constants = R.cls(READOUT).getEnumConstants();
+        READOUTS.entrySet().removeIf(e -> {
+            for (Object k : constants) {
+                if (((Enum<?>) k).name().equals(e.getValue())) {
+                    return false;
+                }
+            }
+            missing.add(e.getKey());
+            return true;
+        });
+        if (!missing.isEmpty()) {
+            c.problem("this jar has no readout for: " + missing);
+        }
         Path configDir = c.onClient(mc -> mc.gameDirectory.toPath().resolve("config"));
         Map<Path, byte[]> saved = snapshot(c);
         int[] window = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight()});
@@ -146,12 +167,12 @@ final class StatBarsCases {
                 for (String r : READOUTS.keySet()) {
                     absent(c, l, r, "Stat Bars is OFF");
                 }
-                for (String s : new String[]{"Hearts", "Text Shadow", "Classic Display", "Bar Width", "Colour"}) {
+                for (String s : new String[]{"Hearts", "Text Shadow", "Bar Width", "Colour", "Hide Vanilla XP Bar"}) {
                     absent(c, l, s, "Stat Bars is OFF");
                 }
                 // Independent of Stat Bars: they must stay reachable with it off.
                 for (String s : new String[]{"Health", "Absorption", "Mount Health", "Regeneration Bounce", "Armour",
-                        "Hunger", "XP Bar And Level", "Hide Hypixel Stat Text"}) {
+                        "Hunger", "XP Bar And Level", "Hypixel Stat Text"}) {
                     present(c, l, s, "Stat Bars is OFF (it never depended on Stat Bars)");
                 }
 
@@ -162,14 +183,14 @@ final class StatBarsCases {
                 for (String r : READOUTS.keySet()) {
                     present(c, l, r, "Stat Bars is ON");
                 }
-                for (String s : new String[]{"Hearts", "Hunger Bar", "Armour Bar", "Air Bar", "Text Shadow",
-                        "Classic Display"}) {
+                for (String s : new String[]{"Hearts", "Hunger Bar", "Armour Bar", "Air Bar", "Text Shadow"}) {
                     present(c, l, s, "Stat Bars is ON");
                 }
                 for (String s : new String[]{"Bar Width", "Bar Height", "Show Value", "Background", "Colour",
-                        "Absorption Colour", "Unhide Hearts In Rift", "Show Health"}) {
-                    absent(c, l, s, "no bar on, Hearts off, Classic Display closed");
+                        "Absorption Colour", "Unhide Hearts In Rift", "Hide Vanilla XP Bar"}) {
+                    absent(c, l, s, "no bar on, Hearts off, no XP readout on");
                 }
+                grouped(c, ws);
 
                 press(c, d, "Health Bar");
                 ws = ours(d);
@@ -206,13 +227,17 @@ final class StatBarsCases {
                 l = labels(ours(d));
                 present(c, l, "Unhide Hearts In Rift", "Hearts is ON");
 
-                press(c, d, "Classic Display");
-                ws = ours(d);
-                record(ws, everSeen, old);
-                l = labels(ws);
-                for (String s : new String[]{"Show Health", "Show Mana", "Show Defense", "Show Text", "Show Bar"}) {
-                    present(c, l, s, "Classic Display is open");
-                }
+                // Every text readout is on by now, XP Text with them; the XP Bar is off.
+                l = labels(ours(d));
+                present(c, l, "Hide Vanilla XP Bar", "XP Text is ON");
+                press(c, d, "XP Text");
+                l = labels(ours(d));
+                absent(c, l, "Hide Vanilla XP Bar", "no XP readout is on");
+                press(c, d, "XP Bar");
+                l = labels(ours(d));
+                present(c, l, "Hide Vanilla XP Bar", "XP Bar is ON");
+                press(c, d, "XP Bar");
+                press(c, d, "XP Text");
 
                 // Everything on: every row.
                 for (String r : READOUTS.keySet()) {
@@ -237,6 +262,7 @@ final class StatBarsCases {
                     c.problem("rows missing with everything on: " + missing);
                 }
                 expectColours(c, ws, READOUTS.size(), "every readout ON");
+                grouped(c, ws);
                 tooltips(c, ws);
                 overlaps(c, ws);
                 wiring(c, d);
@@ -261,7 +287,54 @@ final class StatBarsCases {
             c.problem("the tab still has scale control(s): " + scale);
         }
         c.note("this tab " + (old[0] ? "HAS" : "has no") + " Scale slider (" + (old[0] ? "old" : "new") + " layout)");
+        List<String> classic = new ArrayList<>();
+        for (String s : everSeen) {
+            if (List.of(CLASSIC).contains(key(s))) {
+                classic.add(s);
+            }
+        }
+        if (!classic.isEmpty()) {
+            c.problem("Classic Display is still in the tab: " + classic);
+        }
         closeSections(c);
+    }
+
+    /** Bars next to bars, text next to text: every bar readout row is above every text readout row, and a row (same
+     *  y) of readouts never mixes the two kinds. */
+    private static void grouped(UiCase c, List<AbstractWidget> ws) {
+        int lowestBar = Integer.MIN_VALUE;
+        int highestText = Integer.MAX_VALUE;
+        Map<Integer, Set<Boolean>> kinds = new LinkedHashMap<>();
+        int n = 0;
+        for (AbstractWidget w : ws) {
+            String k = key(ModScreenDriver.label(w));
+            if (!READOUTS.containsKey(k)) {
+                continue;
+            }
+            n++;
+            boolean bar = k.endsWith("Bar");
+            if (bar) {
+                lowestBar = Math.max(lowestBar, w.getY());
+            } else {
+                highestText = Math.min(highestText, w.getY());
+            }
+            kinds.computeIfAbsent(w.getY(), y -> new LinkedHashSet<>()).add(bar);
+        }
+        List<Integer> mixed = new ArrayList<>();
+        for (Map.Entry<Integer, Set<Boolean>> e : kinds.entrySet()) {
+            if (e.getValue().size() > 1) {
+                mixed.add(e.getKey());
+            }
+        }
+        c.note("grouping: " + n + " readout rows, last bar at y " + lowestBar + ", first text at y " + highestText
+                + ", rows mixing bar and text: " + mixed);
+        if (lowestBar >= highestText) {
+            c.problem("a bar readout (y " + lowestBar + ") sits at or below a text readout (y " + highestText
+                    + ") - bars and texts are not grouped");
+        }
+        if (!mixed.isEmpty()) {
+            c.problem("rows putting a bar beside a text (y " + mixed + ")");
+        }
     }
 
     private static void record(List<AbstractWidget> ws, Set<String> seen, boolean[] old) {
