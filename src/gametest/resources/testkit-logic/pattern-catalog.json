@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-07T10:42:05",
- "modSource": "C:/Users/Hunter/killer560s-mod/.claude/worktrees/pf-stats-2",
- "modGitSha": "0d9fc3b91b84027fca3fc6ccd610507035e41456",
+ "generatedAt": "2026-10-07T11:23:18",
+ "modSource": "C:/Users/Hunter/killer560s-mod",
+ "modGitSha": "5f09c9d60fb1e5e349ebf9857690761192d2009e",
  "modSourceDirty": false,
  "count": 416,
  "byKind": {
