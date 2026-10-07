@@ -148,3 +148,10 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   found writing them: the sim's first aura click on a chest right after a map warp does not always open it, and the aura's
   retry a second later is counted, so "await met" alone passed on the old jar - assert it was met within 10 ticks of the
   start. And wait for the node's own "acted" line, not any landing line: the previous sub-check's stack can still log one.
+- 310-ui-config-file-roundtrip flips EVERY boolean, one-shot markers included, so a flipped `legacyAlertsMigrated`
+  re-runs Score Calculator's migration; it is order dependent because it starts from whatever earlier cases left in
+  memory (141/142 turn Score Calculator on and never restore it). Reproduce it alone with
+  `-Extra "-PseedConfig=<dir>"` holding a killer560smod-scorecalc.json of enabled=true (fails on mod bb103351).
+- Mod.field on a field the mod deleted throws inside waitUntil, and the case reports a TIMEOUT with the real "[mod] no field" only as a Caused by. 099/135 waited on
+  PlayerStatsFeature.health, a String that went with Classic Display (mod a302cab2); read player stats through
+  HxKit.playerStat, which formats the numeric healthCur/healthMax/manaCur/manaMax/defenceValue the bars use.

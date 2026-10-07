@@ -4,6 +4,7 @@ import dev.testkit.compat.McCompat;
 
 import com.google.gson.JsonObject;
 
+import dev.testkit.gametest.hx.HxKit;
 import dev.testkit.gametest.hx.Session;
 import dev.testkit.gametest.mod.Mod;
 import dev.testkit.gametest.mod.Quiet;
@@ -106,17 +107,17 @@ public class SessionDemoTest implements FabricClientGameTest {
                             // Premise: a value that is not the one we will send.
                             c.hx().overlay("§c1/1❤");
                             c.waitUntil("health == 1/1 (reset)",
-                                    mc -> "1/1".equals(Mod.field("playerstats.PlayerStatsFeature", "health")), 60);
+                                    mc -> "1/1".equals(HxKit.playerStat("health")), 60);
                             c.hx().call("chat", "text", f.payload().getAsString(), "overlay", true);
                             c.waitUntil("PlayerStatsFeature.health == 1234/2345 from overlay chat",
-                                    mc -> "1234/2345".equals(Mod.field("playerstats.PlayerStatsFeature", "health")), 60);
-                            Object mana = c.onClient(mc -> Mod.field("playerstats.PlayerStatsFeature", "mana"));
-                            Object def = c.onClient(mc -> Mod.field("playerstats.PlayerStatsFeature", "defense"));
+                                    mc -> "1234/2345".equals(HxKit.playerStat("health")), 60);
+                            Object mana = c.onClient(mc -> HxKit.playerStat("mana"));
+                            Object def = c.onClient(mc -> HxKit.playerStat("defense"));
                             c.check("890/900".equals(mana) && "567".equals(def), "mana/defense " + mana + "/" + def);
                             // Informational: does the separate SetActionBarText PACKET reach the same parser?
                             c.hx().actionBarPacket("§c4321/4321❤");
                             c.ctx().waitTicks(20);
-                            Object after = c.onClient(mc -> Mod.field("playerstats.PlayerStatsFeature", "health"));
+                            Object after = c.onClient(mc -> HxKit.playerStat("health"));
                             c.note("overlay chat -> health 1234/2345, mana " + mana + ", defense " + def
                                     + "; set-action-bar PACKET -> health " + after
                                     + ("4321/4321".equals(after) ? " (the packet ALSO reaches it)"
