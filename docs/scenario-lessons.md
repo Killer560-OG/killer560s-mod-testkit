@@ -125,3 +125,11 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   `src/gametest/resources/testkit-http/` - not `testkit-fixtures/`, whose files must follow SCHEMA.md. The mod's
   `LOOKUPS_STARTED` counter spans the session (236 starts lookups too): measure a delta. 236 skips the "? = no stats for
   <name>" footer when collecting member lines. Fails on mod 6f3515ba (all ?), passes on pf-stats a6e69519.
+- 401-ui-scoreboard-editor (`ScoreboardEditorCases`, Custom Scoreboard lists, mod scoreboard-editor): real mouse input on
+  the mod menu needs the target ON SCREEN first. Custom Scoreboard is many sections down the New folder, so the first run
+  pressed at y 1524 of a 480-unit screen and the list never saw it; `open` now scrolls the menu until the tab's switch is at
+  the top of the pane and `listVisible` fails the case if the list is outside the visible band (2026-10-07). The list keeps
+  a wheel turn only while it can still move, so a test that wheels "plenty" also scrolls the page under the list; wheel one
+  notch at a time until it reports its end. Cross-jar migration: `TESTKIT_SCOREBOARD_EXPORT=<dir>` on the old jar writes
+  the old jar's own save plus the lines it draws; `-Extra @('-PseedConfig=<dir>')` on the new jar compares line for line.
+  The drawn board is `CustomScoreboardFeature.drawBoard` over `previewLines()` (the UI world is not Skyblock).

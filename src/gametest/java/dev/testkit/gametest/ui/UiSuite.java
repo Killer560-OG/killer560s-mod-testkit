@@ -32,7 +32,10 @@ import java.util.List;
  *                tooltipped; an old jar's save draws the bar at the same pixel size (TESTKIT_BARS_EXPORT / seedConfig),
  *                394 every HUD element's editor box against the bounds of what it draws (slack 3 units a side),
  *                395 Dungeon Map Player Heads (his and a teammate's skin face, no-skin teammate keeps the arrow,
- *                heading ticks, Interactive Map too) and the outlined arrow on a green and a brown room, reload
+ *                heading ticks, Interactive Map too) and the outlined arrow on a green and a brown room, reload,
+ *                401 Custom Scoreboard lists: drag / trash / Add by real mouse input change the saved and DRAWN
+ *                order, auto-scroll, per-line options, reload, old toggle saves migrate to the same drawn board
+ *                (TESTKIT_SCOREBOARD_EXPORT on the old jar, -PseedConfig on the new), no overlaps
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -48,7 +51,8 @@ public class UiSuite implements FabricClientGameTest {
             "360-ui-visuals", "365-ui-overlay-draws", "307-ui-profit", "385-ui-interactive-map", "386-ui-sliders",
             "387-ui-ap3-edit", "388-ui-breaker-display", "389-ui-crosshair",
             "390-ui-wither-doors-fill", "391-ui-cheat-tabs", "392-ui-blood-camp", "393-ui-stat-bars",
-            "394-ui-hud-boxes", "395-ui-map-heads"};
+            "394-ui-hud-boxes", "395-ui-map-heads",
+            "401-ui-scoreboard-editor"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -121,6 +125,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "393-ui-stat-bars", c -> StatBarsCases.run(c, deny));
                     UiCase.run(ctx, "394-ui-hud-boxes", HudBoxCases::run);
                     UiCase.run(ctx, "395-ui-map-heads", MapHeadCases::run);
+                    UiCase.run(ctx, "401-ui-scoreboard-editor", ScoreboardEditorCases::run);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

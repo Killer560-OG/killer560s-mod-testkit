@@ -373,6 +373,17 @@ final class SliderCases {
                 c.check(seen, "the sweep never laid out '" + p[1] + "' on the " + p[0] + " tab");
             }
         }
+        if (Mod.has("gui.DragListWidget")) {
+            // Custom Scoreboard's list editor (mod scoreboard-editor), both jars: behind the tab's OFF master switch,
+            // on the Lines page it opens on. 401-ui-scoreboard-editor checks the dropdown and the per-line options.
+            for (String want : new String[]{"Custom Scoreboard|Scoreboard Lines", "Custom Scoreboard|Add Line:",
+                    "Custom Scoreboard|Reset Order", "Custom Scoreboard|Open Visual Editor"}) {
+                String[] p = want.split("\\|");
+                boolean seen = SEEN.stream().anyMatch(x -> x.contains(p[0] + "|" + p[1]));
+                c.note("swept " + p[1] + " on " + p[0] + ": " + seen);
+                c.check(seen, "the sweep never laid out '" + p[1] + "' on the " + p[0] + " tab");
+            }
+        }
         if (Mod.has("witherdoors.WitherDoorsConfig$Style")) {
             // Wither Doors' fill rows (mod door-fill), both jars: they sit behind the tab's master switch.
             for (String want : new String[]{"Wither Doors|Style:", "Wither Doors|Fill Opacity:",
