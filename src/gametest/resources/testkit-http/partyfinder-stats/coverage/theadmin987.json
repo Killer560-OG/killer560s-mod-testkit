@@ -1,0 +1,203 @@
+{
+ "success": true,
+ "profiles": [
+  {
+   "profile_id": "c0390ad1-b67a-49a8-91ee-1ee9773a04d0",
+   "cute_name": "Grapes",
+   "selected": false,
+   "members": {
+    "42699e8135a1492d93a5d9fc55ce4a0f": {
+     "player_id": "42699e8135a1492d93a5d9fc55ce4a0f"
+    }
+   },
+   "game_mode": "bingo"
+  },
+  {
+   "profile_id": "4f499199-da4d-4598-a0f4-f5d2c71bbe50",
+   "cute_name": "Blueberry",
+   "selected": false,
+   "members": {
+    "42699e8135a1492d93a5d9fc55ce4a0f": {
+     "player_id": "42699e8135a1492d93a5d9fc55ce4a0f",
+     "dungeons": {
+      "player_classes": {
+       "healer": {
+        "experience": 0
+       },
+       "mage": {
+        "experience": 0
+       },
+       "berserk": {
+        "experience": 0
+       },
+       "archer": {
+        "experience": 0
+       },
+       "tank": {
+        "experience": 0
+       }
+      },
+      "dungeon_types": {
+       "catacombs": {
+        "tier_completions": {},
+        "fastest_time": {},
+        "fastest_time_s": {},
+        "fastest_time_s_plus": {},
+        "best_score": {}
+       },
+       "master_catacombs": {
+        "tier_completions": {}
+       }
+      }
+     }
+    }
+   },
+   "game_mode": "island"
+  },
+  {
+   "profile_id": "ab9e1c93-0e68-4370-8661-48539b11a37d",
+   "cute_name": "Kiwi",
+   "selected": false,
+   "members": {
+    "42699e8135a1492d93a5d9fc55ce4a0f": {
+     "player_id": "42699e8135a1492d93a5d9fc55ce4a0f"
+    }
+   },
+   "game_mode": "ironman"
+  },
+  {
+   "profile_id": "e51dbf03-5142-4bda-b55d-ddb66ec4d7f5",
+   "cute_name": "Papaya",
+   "selected": true,
+   "members": {
+    "42699e8135a1492d93a5d9fc55ce4a0f": {
+     "player_id": "42699e8135a1492d93a5d9fc55ce4a0f",
+     "dungeons": {
+      "secrets": 29048,
+      "selected_dungeon_class": "tank",
+      "player_classes": {
+       "healer": {
+        "experience": 10327418.343587989
+       },
+       "mage": {
+        "experience": 4551270.638333325
+       },
+       "berserk": {
+        "experience": 7278924.132680373
+       },
+       "archer": {
+        "experience": 5606765.372487742
+       },
+       "tank": {
+        "experience": 12619011.12262858
+       }
+      },
+      "dungeon_types": {
+       "catacombs": {
+        "experience": 31389673.757432714,
+        "tier_completions": {
+         "0": 4.0,
+         "1": 21.0,
+         "2": 6.0,
+         "3": 15.0,
+         "total": 558.0,
+         "4": 20.0,
+         "5": 116.0,
+         "6": 71.0,
+         "7": 323.0
+        },
+        "fastest_time": {
+         "0": 92222.0,
+         "1": 122072.0,
+         "2": 171446.0,
+         "3": 174058.0,
+         "best": 92222.0,
+         "4": 174004.0,
+         "5": 131129.0,
+         "6": 150185.0,
+         "7": 233686.0
+        },
+        "fastest_time_s": {
+         "1": 122072.0,
+         "best": 122072.0,
+         "2": 183582.0,
+         "3": 174058.0,
+         "4": 215585.0,
+         "5": 143860.0,
+         "7": 250474.0,
+         "6": 158780.0
+        },
+        "fastest_time_s_plus": {
+         "4": 174004.0,
+         "best": 130038.0,
+         "5": 131129.0,
+         "6": 150185.0,
+         "7": 233686.0,
+         "1": 130038.0,
+         "2": 171446.0
+        },
+        "best_score": {
+         "0": 204.0,
+         "1": 317.0,
+         "2": 300.0,
+         "3": 299.0,
+         "4": 314.0,
+         "best": 317.0,
+         "5": 315.0,
+         "6": 311.0,
+         "7": 317.0
+        }
+       },
+       "master_catacombs": {
+        "tier_completions": {
+         "1": 4.0,
+         "total": 102.0,
+         "2": 9.0,
+         "3": 11.0,
+         "4": 2.0,
+         "5": 75.0,
+         "6": 1.0
+        },
+        "fastest_time": {
+         "best": 111440.0,
+         "1": 152822.0,
+         "2": 133007.0,
+         "3": 191495.0,
+         "4": 290879.0,
+         "5": 111440.0,
+         "6": 183608.0
+        },
+        "fastest_time_s": {
+         "best": 133007.0,
+         "1": 152822.0,
+         "2": 133007.0,
+         "3": 191495.0,
+         "4": 500104.0,
+         "5": 158333.0
+        },
+        "fastest_time_s_plus": {
+         "best": 111440.0,
+         "3": 197145.0,
+         "1": 189603.0,
+         "2": 142159.0,
+         "4": 290879.0,
+         "5": 111440.0,
+         "6": 183608.0
+        },
+        "best_score": {
+         "best": 312.0,
+         "1": 307.0,
+         "2": 312.0,
+         "3": 302.0,
+         "4": 301.0,
+         "5": 306.0,
+         "6": 300.0
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ ]
+}

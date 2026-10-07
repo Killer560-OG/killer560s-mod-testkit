@@ -1,0 +1,254 @@
+{
+ "success": true,
+ "profiles": [
+  {
+   "profile_id": "5550128c-e1e5-480d-8303-a0bca0673924",
+   "cute_name": "Pineapple",
+   "selected": true,
+   "members": {
+    "d5ca5bb9ed6c4f0f91bc34214437752b": {
+     "player_id": "d5ca5bb9ed6c4f0f91bc34214437752b",
+     "dungeons": {
+      "secrets": 49245,
+      "selected_dungeon_class": "archer",
+      "player_classes": {
+       "healer": {
+        "experience": 372734091.444642
+       },
+       "mage": {
+        "experience": 152282004.8234146
+       },
+       "berserk": {
+        "experience": 278162043.1728013
+       },
+       "archer": {
+        "experience": 157220859.42392847
+       },
+       "tank": {
+        "experience": 226379820.565087
+       }
+      },
+      "dungeon_types": {
+       "catacombs": {
+        "experience": 758903747.2208432,
+        "tier_completions": {
+         "0": 3.0,
+         "total": 1717.0,
+         "1": 9.0,
+         "2": 3.0,
+         "3": 6.0,
+         "4": 10.0,
+         "5": 25.0,
+         "6": 73.0,
+         "7": 1588.0
+        },
+        "fastest_time": {
+         "best": 100197.0,
+         "0": 100197.0,
+         "1": 124555.0,
+         "2": 181718.0,
+         "3": 172094.0,
+         "4": 156885.0,
+         "5": 214263.0,
+         "6": 174983.0,
+         "7": 209793.0
+        },
+        "fastest_time_s": {
+         "best": 156885.0,
+         "1": 267345.0,
+         "4": 156885.0,
+         "3": 417370.0,
+         "5": 337921.0,
+         "6": 174983.0,
+         "7": 252403.0
+        },
+        "fastest_time_s_plus": {
+         "best": 178575.0,
+         "2": 341493.0,
+         "3": 214165.0,
+         "5": 214263.0,
+         "6": 178575.0,
+         "7": 209793.0,
+         "4": 238963.0,
+         "1": 198559.0
+        },
+        "best_score": {
+         "best": 318.0,
+         "0": 150.0,
+         "1": 302.0,
+         "2": 310.0,
+         "3": 303.0,
+         "4": 315.0,
+         "5": 315.0,
+         "6": 317.0,
+         "7": 318.0
+        }
+       },
+       "master_catacombs": {
+        "tier_completions": {
+         "1": 30.0,
+         "total": 1572.0,
+         "2": 8.0,
+         "3": 27.0,
+         "4": 90.0,
+         "5": 276.0,
+         "6": 81.0,
+         "7": 1060.0
+        },
+        "fastest_time": {
+         "best": 108796.0,
+         "1": 108796.0,
+         "2": 120686.0,
+         "3": 130510.0,
+         "4": 160080.0,
+         "5": 111564.0,
+         "6": 156020.0,
+         "7": 263243.0
+        },
+        "fastest_time_s": {
+         "best": 108796.0,
+         "1": 108796.0,
+         "3": 130510.0,
+         "4": 198086.0,
+         "5": 141551.0,
+         "6": 187067.0,
+         "7": 286467.0,
+         "2": 120686.0
+        },
+        "fastest_time_s_plus": {
+         "best": 111564.0,
+         "4": 160080.0,
+         "5": 111564.0,
+         "6": 156020.0,
+         "7": 263243.0,
+         "3": 372116.0,
+         "1": 126404.0
+        },
+        "best_score": {
+         "best": 314.0,
+         "1": 301.0,
+         "2": 291.0,
+         "3": 301.0,
+         "4": 306.0,
+         "5": 314.0,
+         "6": 307.0,
+         "7": 314.0
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "profile_id": "6523bbce-80e4-4dc7-abb0-80dd26659b0e",
+   "cute_name": "Banana",
+   "selected": false,
+   "members": {
+    "d5ca5bb9ed6c4f0f91bc34214437752b": {
+     "player_id": "d5ca5bb9ed6c4f0f91bc34214437752b"
+    }
+   },
+   "game_mode": "ironman"
+  },
+  {
+   "profile_id": "dae0cc48-0dcb-4b14-9f4b-549f48c8e3f0",
+   "cute_name": "Peach",
+   "selected": false,
+   "members": {
+    "d5ca5bb9ed6c4f0f91bc34214437752b": {
+     "player_id": "d5ca5bb9ed6c4f0f91bc34214437752b"
+    }
+   }
+  },
+  {
+   "profile_id": "e2982c93-bef9-4325-895a-e3574388e56e",
+   "cute_name": "Tomato",
+   "selected": false,
+   "members": {
+    "d5ca5bb9ed6c4f0f91bc34214437752b": {
+     "player_id": "d5ca5bb9ed6c4f0f91bc34214437752b",
+     "dungeons": {
+      "secrets": 113,
+      "selected_dungeon_class": "mage",
+      "player_classes": {
+       "healer": {
+        "experience": 4815.05738060055
+       },
+       "mage": {
+        "experience": 52798.33134105452
+       },
+       "berserk": {
+        "experience": 12027.463668596964
+       },
+       "archer": {
+        "experience": 9584.843181971057
+       },
+       "tank": {
+        "experience": 680.892
+       }
+      },
+      "dungeon_types": {
+       "catacombs": {
+        "experience": 54110.59509875069,
+        "tier_completions": {
+         "0": 1.0,
+         "total": 25.0,
+         "1": 10.0,
+         "2": 2.0,
+         "3": 1.0,
+         "4": 5.0,
+         "5": 6.0
+        },
+        "fastest_time": {
+         "best": 167634.0,
+         "0": 167634.0,
+         "1": 200445.0,
+         "2": 346582.0,
+         "3": 1139998.0,
+         "4": 322035.0,
+         "5": 312017.0
+        },
+        "fastest_time_s": {
+         "best": 227350.0,
+         "1": 227350.0,
+         "2": 346582.0,
+         "4": 550972.0,
+         "5": 312017.0
+        },
+        "fastest_time_s_plus": {
+         "best": 200445.0,
+         "1": 200445.0,
+         "2": 448656.0
+        },
+        "best_score": {
+         "best": 301.0,
+         "0": 182.0,
+         "1": 301.0,
+         "2": 300.0,
+         "3": 225.0,
+         "4": 284.0,
+         "5": 297.0
+        }
+       },
+       "master_catacombs": {
+        "tier_completions": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "profile_id": "6143bd0c-7c4d-4867-b293-ce1f6502eb04",
+   "cute_name": "Orange",
+   "selected": false,
+   "members": {
+    "d5ca5bb9ed6c4f0f91bc34214437752b": {
+     "player_id": "d5ca5bb9ed6c4f0f91bc34214437752b"
+    }
+   },
+   "game_mode": "bingo"
+  }
+ ]
+}

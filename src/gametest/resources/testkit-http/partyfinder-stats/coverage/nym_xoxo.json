@@ -1,0 +1,155 @@
+{
+ "success": true,
+ "profiles": [
+  {
+   "profile_id": "17dd58e3-1dae-41ae-ae45-b9b98b005f77",
+   "cute_name": "Coconut",
+   "selected": false,
+   "members": {
+    "e467295f2b8940958b18dfff347ea285": {
+     "player_id": "e467295f2b8940958b18dfff347ea285",
+     "dungeons": {
+      "player_classes": {
+       "healer": {
+        "experience": 0
+       },
+       "mage": {
+        "experience": 0
+       },
+       "berserk": {
+        "experience": 0
+       },
+       "archer": {
+        "experience": 0
+       },
+       "tank": {
+        "experience": 0
+       }
+      },
+      "dungeon_types": {
+       "catacombs": {
+        "tier_completions": {},
+        "fastest_time": {},
+        "fastest_time_s": {},
+        "fastest_time_s_plus": {},
+        "best_score": {}
+       }
+      }
+     }
+    }
+   },
+   "game_mode": "island"
+  },
+  {
+   "profile_id": "ffcdf80e-d167-4411-81aa-d04a8553cc5d",
+   "cute_name": "Blueberry",
+   "selected": true,
+   "members": {
+    "e467295f2b8940958b18dfff347ea285": {
+     "player_id": "e467295f2b8940958b18dfff347ea285",
+     "dungeons": {
+      "secrets": 35159,
+      "selected_dungeon_class": "tank",
+      "player_classes": {
+       "healer": {
+        "experience": 22364745.035716828
+       },
+       "mage": {
+        "experience": 16584816.364425091
+       },
+       "berserk": {
+        "experience": 34763500.73407161
+       },
+       "archer": {
+        "experience": 25822183.207800277
+       },
+       "tank": {
+        "experience": 26812699.435661923
+       }
+      },
+      "dungeon_types": {
+       "catacombs": {
+        "experience": 98865702.7657049,
+        "tier_completions": {
+         "0": 18.0,
+         "1": 281.0,
+         "2": 81.0,
+         "3": 27.0,
+         "4": 152.0,
+         "5": 317.0,
+         "6": 88.0,
+         "7": 1801.0,
+         "total": 1776.0
+        },
+        "fastest_time": {
+         "0": 59015.0,
+         "1": 120837.0,
+         "2": 167981.0,
+         "3": 202280.0,
+         "4": 197824.0,
+         "5": 180754.0,
+         "6": 150185.0,
+         "7": 212750.0,
+         "best": 59015.0
+        },
+        "fastest_time_s": {
+         "1": 288884.0,
+         "2": 289313.0,
+         "4": 197824.0,
+         "5": 199158.0,
+         "3": 333085.0,
+         "6": 426238.0,
+         "7": 212750.0,
+         "best": 197824.0
+        },
+        "fastest_time_s_plus": {
+         "1": 622256.0,
+         "2": 167981.0,
+         "4": 204314.0,
+         "5": 180754.0,
+         "6": 150185.0,
+         "7": 214605.0,
+         "3": 202280.0,
+         "best": 150185.0
+        },
+        "best_score": {
+         "1": 303.0,
+         "0": 201.0,
+         "2": 305.0,
+         "3": 300.0,
+         "4": 305.0,
+         "5": 315.0,
+         "6": 317.0,
+         "7": 317.0,
+         "best": 316.0
+        }
+       },
+       "master_catacombs": {
+        "tier_completions": {
+         "1": 1.0,
+         "2": 1.0,
+         "3": 1.0
+        },
+        "fastest_time": {
+         "1": 509168.0,
+         "2": 222334.0,
+         "3": 218608.0
+        },
+        "fastest_time_s": {
+         "1": 509168.0
+        },
+        "fastest_time_s_plus": {},
+        "best_score": {
+         "1": 297.0,
+         "2": 176.0,
+         "3": 261.0,
+         "4": 191.0
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ ]
+}

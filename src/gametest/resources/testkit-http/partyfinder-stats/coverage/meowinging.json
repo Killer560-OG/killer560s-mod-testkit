@@ -1,0 +1,27 @@
+{
+ "success": true,
+ "profiles": [
+  {
+   "profile_id": "9ba9c7c0-6916-483c-ae3a-a597b42d866a",
+   "cute_name": "Lemon",
+   "selected": false,
+   "members": {
+    "df90f38fcc6648829070ac46b232d4ba": {
+     "player_id": "df90f38fcc6648829070ac46b232d4ba"
+    }
+   },
+   "game_mode": "bingo"
+  },
+  {
+   "profile_id": "ab9e1c93-0e68-4370-8661-48539b11a37d",
+   "cute_name": "Peach",
+   "selected": false,
+   "members": {
+    "df90f38fcc6648829070ac46b232d4ba": {
+     "player_id": "df90f38fcc6648829070ac46b232d4ba"
+    }
+   },
+   "game_mode": "ironman"
+  }
+ ]
+}
