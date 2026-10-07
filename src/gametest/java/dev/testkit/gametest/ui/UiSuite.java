@@ -29,7 +29,8 @@ import java.util.List;
  *                391 Auto Close Chest / Auto Blood Camp cheat-only tabs, rows, tooltips, legit jar without the code,
  *                392 Blood Camp look against NoammAddons, line start, predicted spot, countdown sounds,
  *                393 Health and Mana Bars tab: no scale control, every row reachable behind its parent, wired,
- *                tooltipped; an old jar's save draws the bar at the same pixel size (TESTKIT_BARS_EXPORT / seedConfig)
+ *                tooltipped; an old jar's save draws the bar at the same pixel size (TESTKIT_BARS_EXPORT / seedConfig),
+ *                394 every HUD element's editor box against the bounds of what it draws (slack 3 units a side)
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -44,7 +45,8 @@ public class UiSuite implements FabricClientGameTest {
             "304-ui-smoke-hud-editor", "305-ui-smoke-screens", "306-ui-smoke-commands", "350-ui-termism",
             "360-ui-visuals", "365-ui-overlay-draws", "307-ui-profit", "385-ui-interactive-map", "386-ui-sliders",
             "387-ui-ap3-edit", "388-ui-breaker-display", "389-ui-crosshair",
-            "390-ui-wither-doors-fill", "391-ui-cheat-tabs", "392-ui-blood-camp", "393-ui-stat-bars"};
+            "390-ui-wither-doors-fill", "391-ui-cheat-tabs", "392-ui-blood-camp", "393-ui-stat-bars",
+            "394-ui-hud-boxes"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -115,6 +117,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "391-ui-cheat-tabs", CheatTabsCases::cheatTabs);
                     UiCase.run(ctx, "392-ui-blood-camp", CheatTabsCases::bloodCamp);
                     UiCase.run(ctx, "393-ui-stat-bars", c -> StatBarsCases.run(c, deny));
+                    UiCase.run(ctx, "394-ui-hud-boxes", HudBoxCases::run);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

@@ -21,8 +21,9 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
 - `menu.experiment` Superpairs takes `layout` (tiles from slot 9: `{item,name}`, `{powerup:true}` for Instant Find or `{powerup:"clicks",amount:N}`, no shuffle). Powerups behave as killer560 described Hypixel's (2026-10-05): turning one over costs a click and never touches the turn (the open tile stays up); an Instant Find arms the next click, and they stack (`armed` in the state); an armed click claims that tile and its partner, closing the turn if the partner is the open tile. Cases 284-287 cover those rules. The state lists every claimed pair (`claimed`), the server-side truth 229 asserts on. `clicks` sets "Remaining Clicks" (the solver reads it since mod 5d579534); 280-283 play fixed boards with a tight budget and assert what was claimed and in which order (`ExperimentCases.play`). Main's solver before 5d579534 fails 229 and 280-283.
 - The sim's `/goto` (SimTeleportCommands.goTo) scanned the ServerLevel from the RENDER thread; in the gametest lockstep a
   chunk load there deadlocked the client (99-sim-im, 2026-10-05, jstack). Fixed in mod b5eee0d6 (server.execute);
-  `97-sim-goto-loop` freezes on any jar before it. 99-sim-im still places the player itself (`standOn`). A sim scenario that reads the legend's Extra Info must turn Score Calculator on first - it is
-  off in a fresh config, and the section only draws with a live estimate.
+  `97-sim-goto-loop` freezes on any jar before it. 99-sim-im still places the player itself (`standOn`). A sim scenario that reads the legend's Extra Info on a jar before mod hud-fixes must turn Score Calculator on
+  first - it is off in a fresh config, and the section only drew with its estimate. From hud-fixes the estimate is
+  tracked whenever either map's Extra Info is on; 99-sim-extra-info checks exactly that with Score Calculator off.
 
 - `InstaClearTests` (`-Pscenario=insta-clear`): 361-logic-insta-clear feeds fake outcomes to the mod's insta-clear rule;
   98-sim-insta-clear walks/teleports into sim rooms holding real starred mobs. The sim has no dungeon map item and no
@@ -90,3 +91,7 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   header opened. Old-save size check: `TESTKIT_BARS_EXPORT=<dir>` on the old jar writes its config and the measured bar
   (`bars-tab-export.properties`); `-Extra @('-PseedConfig=<dir>')` on the new jar compares pixel for pixel. Run it alone,
   since earlier ui cases (310, 320, 330) rewrite config.
+- A text run's `GuiTextRenderState.bounds()` is its glyph QUADS, which overhang the drawn pixels: 2-3 units right of the
+  advance on every text HUD element (6 on one), so 394-ui-hud-boxes' first run read every correctly sized text box as
+  spilling (2026-10-07). Measure text with `TextRuns.box` (advance width x line height through the pose); its fields are
+  private on 26.2, so `TextRuns` reads them by name.

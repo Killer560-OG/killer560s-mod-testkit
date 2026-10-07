@@ -83,6 +83,10 @@ builds of the room in one sim world; server-side click record; fails on mod 5008
 143-sim-key-look (pictures of a dropped sim Wither Key and Blood Key, front-on and from above, plus their stand's
 flags on the client; only when named, `TESTKIT_SIM_INSTANCE=Map Logger`),
 110-sim-puzzle-reset (player reset rules of mod 35a663ba: only failed puzzles, never Water Board, Boulder when built, a draft kept when nothing resets),
+99-sim-map-fit / 99-sim-extra-info / 99-sim-secrets-boss (`SimMapHudTests`: the Dungeon Map fills its frame on 4x5, 5x5,
+6x6 and offset sim floors and Interactive Map presses hit the drawn room; Extra Info with Score Calculator off; Secrets
+HUD hidden in the boss and back on a new run - all fail on mod 0b492828), 394-ui-hud-boxes (every HUD element's box vs
+what it draws, slack 3 units, centred elements judged on their other axis),
 64-correction-alarm (the mod's `killer560smod:correction_alarm` is known to the sound manager, its .ogg is in the resources,
 `ModSounds.playCorrectionAlarm` plays once and rate-limits the second; run it with `-Minecraft 26.2` too),
 65-join-fingerprint (every serverbound byte from handshake to play plus a sign translation probe; needs a `run-scenario.ps1 -NoMod`
