@@ -21,6 +21,7 @@
     {"input": "k560search", "expect": "ok","source": "storagesearch/StorageSearchFeature.java:110 (opens Storage Search only when its setting is on; otherwise a chat line)"}
   ],
   "parseOnly": [
+    {"root": "k560tested", "why": "testing jars only (mod -PtestingBuild, testing/TestingCommands.java): prints the marks; 413 runs it and checks its output"},
     {"root": "simwhere", "why": "sim only: .requires the sim, so outside it the command is not even visible (roomsim/SimWhere.java:54)"},
     {"root": "simscore", "why": "sim only (roomsim/SimScoreCommand.java:23)"},
     {"root": "start", "why": "sim only: starts a sim run (roomsim/SimRun.java:58)"},

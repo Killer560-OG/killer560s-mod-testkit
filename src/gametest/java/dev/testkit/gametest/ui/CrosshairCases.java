@@ -260,6 +260,14 @@ final class CrosshairCases {
         });
         Screen s = c.onClient(mc -> {
             try {
+                if (JarIndex.peek(JarIndex.ROOT + "testing.TestedFeatures") != null) {
+                    // A testing jar (mod -PtestingBuild) keeps Crosshair in its Untested folder until it is marked
+                    // tested; mark it (413 starts from a clean marks file) so this case measures the real tab.
+                    Object tab = R.cls("gui.tab.CrosshairTab").getConstructor().newInstance();
+                    R.cls("testing.TestedFeatures").getMethod("mark", R.cls("gui.tab.BaseTab"), boolean.class)
+                            .invoke(null, tab, true);
+                    R.setStatic(R.cls(ModScreenDriver.MOD_SCREEN), "tabs", null);
+                }
                 ModScreenDriver d = new ModScreenDriver(mc);
                 List<Object> tops = d.topTabs();
                 for (int i = 0; i < tops.size(); i++) {

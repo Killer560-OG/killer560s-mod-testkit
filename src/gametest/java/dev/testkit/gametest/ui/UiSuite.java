@@ -60,7 +60,7 @@ public class UiSuite implements FabricClientGameTest {
             "394-ui-hud-boxes", "395-ui-map-heads",
             "399-ui-hud-editor-resize", "399-ui-hud-editor-snap",
             "399-ui-stat-bars-vitality-xp", "407-ui-stat-bars-layout", "401-ui-scoreboard-editor",
-            "411-ui-mining-shelved"};
+            "411-ui-mining-shelved", "412-ui-no-new-tab", "413-ui-testing-variant"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -140,6 +140,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "395-ui-map-heads", MapHeadCases::run);
                     UiCase.run(ctx, "401-ui-scoreboard-editor", ScoreboardEditorCases::run);
                     UiCase.run(ctx, "411-ui-mining-shelved", MiningShelvedCases::run);
+                    UiCase.run(ctx, "412-ui-no-new-tab", c -> NoNewTabCases.run(c, deny));
+                    UiCase.run(ctx, "413-ui-testing-variant", TestingVariantCases::run);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

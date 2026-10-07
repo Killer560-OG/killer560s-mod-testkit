@@ -251,7 +251,8 @@ final class AutoScaleCases {
     /** Row {@code i} of the sidebar: x = panelX+8, y = panelY+40+24i, 94x20 (gui/ModScreen.rebuild). */
     private static void clickRows(UiCase c, Screen menu, int panelX, int panelY, float f, boolean baseline) {
         Class<?> cls = R.cls(ModScreenDriver.MOD_SCREEN);
-        int target = 2;
+        // Row 2, or the last row when there are fewer (a testing jar shows only Home and Untested at first).
+        int target = Math.min(2, ((java.util.List<?>) R.getStatic(cls, "tabs")).size() - 1);
         double cx = panelX + 8 + 47;
         double cy = panelY + 40 + 24 * target + 10;
         int got = clickAt(c, cls, cx * f, cy * f);

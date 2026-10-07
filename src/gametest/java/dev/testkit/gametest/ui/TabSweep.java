@@ -23,10 +23,14 @@ final class TabSweep {
     /**
      * Floors, the tab tree as ModScreen builds it, counting folders and leaves. Set at the measured value, so losing
      * even one tab fails - a floor a broken menu can clear is not one. Re-measured on mod aa09fd82 (mining shelved until
-     * after 2.0, which took the Mining (WIP) folder and its four sections out): cheat 173, legit 138.
+     * after 2.0, which took the Mining (WIP) folder and its four sections out): cheat 173, legit 138. Then on mod
+     * 1a64e3dd (New category gone; Social, Items and two Dungeon folders added): cheat 176, legit 141.
      */
-    static final int CHEAT_TAB_FLOOR = 173;
-    static final int LEGIT_TAB_FLOOR = 138;
+    static final int CHEAT_TAB_FLOOR = 176;
+    static final int LEGIT_TAB_FLOOR = 141;
+    /** Leaf tabs alone on the same build (cheat 162, legit 128), for testing jars - see tabs(). */
+    static final int CHEAT_LEAF_FLOOR = 162;
+    static final int LEGIT_LEAF_FLOOR = 128;
 
     /** A two-state toggle as the mod labels them: "Name: ON" / "Name: OFF" (section signs stripped). */
     static final Pattern TOGGLE = Pattern.compile("^(.+): (ON|OFF)$");
@@ -75,10 +79,15 @@ final class TabSweep {
         boolean cheat = Mod.isCheat();
         c.note("tab tree: " + stats.get("top") + " top-level, " + total + " in all (" + stats.get("folders")
                 + " folders, " + stats.get("leaves") + " leaves), " + (cheat ? "cheat" : "legit") + " jar");
-        int floor = cheat ? CHEAT_TAB_FLOOR : LEGIT_TAB_FLOOR;
-        if (total < floor) {
-            c.problem("only " + total + " tabs in the tree; the floor for the " + (cheat ? "cheat" : "legit")
-                    + " jar is " + floor + " (measured on 8c43a6d) - tabs went missing");
+        // A testing jar (mod -PtestingBuild) moves untested tabs into one Untested folder and drops emptied
+        // categories, so only its LEAF count is comparable: every feature tab is still there, just elsewhere.
+        boolean testing = JarIndex.peek(JarIndex.ROOT + "testing.TestedFeatures") != null;
+        int floor = testing ? (cheat ? CHEAT_LEAF_FLOOR : LEGIT_LEAF_FLOOR) : (cheat ? CHEAT_TAB_FLOOR : LEGIT_TAB_FLOOR);
+        int measured = testing ? (Integer) stats.get("leaves") : total;
+        if (measured < floor) {
+            c.problem("only " + measured + (testing ? " leaf tabs" : " tabs") + " in the tree; the floor for the "
+                    + (cheat ? "cheat" : "legit") + (testing ? " testing" : "") + " jar is " + floor
+                    + " - tabs went missing");
         }
 
         // Every leaf, built on its own: attributes a throw to ONE tab, which the screen-level sweep cannot.
