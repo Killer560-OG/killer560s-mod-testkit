@@ -223,7 +223,9 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
 
 - `run-sharded.ps1 ... | Out-File x.txt` leaves x.txt EMPTY: the script prints with Write-Host, which a pipeline does
   not carry. An `until grep -q "merged report" x.txt` wait then never ends; eight such loops were found still running
-  on 2026-10-06. Read `build/sharded-<timestamp>/summary.md`, or the background task's own output file.
+  on 2026-10-06. Read `build/sharded-<timestamp>/summary.md`, or the background task's own output file. Do not poll
+  `run-sharded.log` either: a grep holding it open made the script's log write throw and the run killed its own shards
+  (2026-10-07; the write now retries, but wait on the background task instead).
 - **A port someone else holds** (a clip recorder, another server) on N, N+5 or N+6 kills that run in odd places: on one
   machine `-Port 26900` put the Hx bridge on a recorder's 26905 and the menu session died with MalformedJsonException at
   Hx.connect. `doctor.ps1 -Port N` lists every listener between 25500 and 27000 with its process.

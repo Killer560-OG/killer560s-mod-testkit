@@ -52,17 +52,18 @@ killed automatically, and only clients whose command line contains this checkout
 ### Suites and how long they take
 
 Named filters live in [`suites.properties`](suites.properties); `-Scenario a,b` selects every scenario whose name
-contains `a` or `b`. Times are one client on the maintainer's machine, build already warm.
+contains `a` or `b`. Times are one client on the maintainer's machine with the build warm: measured end to end where
+marked *, otherwise the sum of the scenarios' own seconds from the sharder's `durations.json` (add ~30 s of client start).
 
 | suite / filter | what | mod | time |
 | --- | --- | --- | --- |
 | `harness` | smoke, the positive control, saving and loading a seeded world | any / none | ~2 min |
-| `generic` | anticheat sweeps (movement, combat, placement, speed), the join-fingerprint leak check (reads the mod id from your jar), hostile chat, entity reach | any / none | ~15 min |
-| `k560` | everything that drives killer560s-mod (sim, Auto Routes, AP3, solvers, UI, Hx, menus, logic, boss) | killer560smod | hours; shard it |
-| `ui` (`-ui-`) | the mod's screens, tabs, HUD editor in one singleplayer world | killer560smod | ~6 min |
-| `hx`, `menu`, `boss` | Hypixel-shaped server fakes driving the mod's features | killer560smod | 3-10 min each |
-| `logic` | pattern catalog, fixtures, pure logic (source checks SKIP without a mod checkout) | killer560smod | ~3 min |
-| `solve` | the 11 auto-puzzle rooms in the sim (needs room captures) | killer560smod | ~15 min |
+| `generic` | anticheat sweeps (movement, combat, placement, speed), the join-fingerprint leak check (reads the mod id from your jar), hostile chat, entity reach | any / none | 16 min *; 8 min with `run-sharded.ps1 -Shards 2` |
+| `k560` | everything that drives killer560s-mod (sim, Auto Routes, AP3, solvers, UI, Hx, menus, logic, boss) | killer560smod | 2-3 hours serial; shard it |
+| `ui` (`-ui-`) | the mod's screens, tabs, HUD editor in one singleplayer world | killer560smod | 3-4 min * |
+| `hx`, `menu`, `boss` | Hypixel-shaped server fakes driving the mod's features | killer560smod | ~2, ~6, ~2 min |
+| `logic` | pattern catalog, fixtures, pure logic (source checks SKIP without a mod checkout) | killer560smod | ~4 min |
+| `solve` | the 11 auto-puzzle rooms in the sim (needs room captures) | killer560smod | ~7 min |
 
 Without killer560smod loaded, every killer560smod scenario is a `SKIP` row reading `needs killer560smod`, never a
 failure. Sharding a long filter over several clients: `.\run-sharded.ps1 -Suite k560 -Shards 3` (see below; it takes
