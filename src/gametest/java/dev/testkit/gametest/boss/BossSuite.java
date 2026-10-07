@@ -33,6 +33,7 @@ public class BossSuite implements FabricClientGameTest {
                     ModUnderTest.require("killer560smod");
                     SimonSaysCases.register(s);
                     TerminalAuraCases.register(s);
+                    Ap3TermAuraCases.register(s);
                 });
     }
 }
