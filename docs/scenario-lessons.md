@@ -321,3 +321,13 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 386's overlap sweep builds each tab as the fresh config has it, so rows behind an OFF master switch (all of Auto Routes)
   exist only in the "toggle flipped" layouts. 386 now records every label it checked and requires Auto Routes' Breaker
   Block Display/Style among them (cheat jar); a new-widget check must read those layouts too (2026-10-06).
+
+- 411-ui-mining-shelved (`MiningShelvedCases`, mod shelve-mining): mining is shelved until after 2.0. The jar has no
+  `com/killer560/hub/mining/` class, the menu tree no mining tab, `/profit` only the two non-mining cards. Fails on b7528f86.
+- 412-ui-no-new-tab (`NoNewTabCases`): the New category is gone. `testkit-ui/new-tab-tooltips-<variant>.json` was recorded
+  by 412 itself from b7528f86 (a jar that still has New writes the file to the report folder and fails); on a newer jar every
+  former New tab must be in the tree and every row must show the same tooltip. Re-keying "new/..." tooltips is what it checks.
+- 413-ui-testing-variant (`TestingVariantCases`): the mod's -PtestingBuild jars put every non-Home feature tab in an Untested
+  folder; 413 presses the real "Mark tested" button, checks the tab lands in its category, survives a re-read of the marks
+  file and is listed by `/k560tested list`. On a normal jar it checks none of that ships. 301, 380 and 389 know a testing
+  jar's menu is different (leaf floor, fewer sidebar rows, Crosshair marked tested first).

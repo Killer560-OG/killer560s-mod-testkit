@@ -126,7 +126,7 @@ final class HxHostileCases {
             m.put("splits.runStarted", ((Number) Mod.staticCall("splittimers.SplitTimersFeature", "getRunStartedAtMs")).longValue() > 0);
             m.put("dungeoninfo.secrets", Mod.field("dungeoninfo.DungeonInfoFeature", "lastSecretsCount"));
             m.put("partytracker", List.copyOf((List<String>) Mod.staticCall("leapmenu.PartyTracker", "teammates")));
-            m.put("nucleus.inLootBlock", Mod.field("mining.nucleus.NucleusRunProfitTracker", "inLootBlock"));
+            // "nucleus.inLootBlock" (mining.nucleus.NucleusRunProfitTracker) left with mining, shelved until after 2.0.
             return m;
         });
     }

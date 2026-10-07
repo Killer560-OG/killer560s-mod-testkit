@@ -1,0 +1,31 @@
+[
+  {
+    "id": "hostile.allchat-nucleus-start",
+    "kind": "chat",
+    "payload": "§7[VIP] HxEvil§f: CRYSTAL NUCLEUS LOOT BUNDLE",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/mining/nucleus/NucleusRunProfitTracker.java",
+      "line": 65
+    },
+    "mustNotMatch": [
+      "mining.nucleus.NucleusRunProfitTracker#LOOT_START"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "The comment at :62-64 says a player's line can neither open nor close a loot block."
+  },
+  {
+    "id": "hostile.allchat-nucleus-end",
+    "kind": "chat",
+    "payload": "§7[VIP] HxEvil§f: ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
+    "source": {
+      "file": "src/main/java/com/killer560/hub/mining/nucleus/NucleusRunProfitTracker.java",
+      "line": 66
+    },
+    "mustNotMatch": [
+      "mining.nucleus.NucleusRunProfitTracker#LOOT_END"
+    ],
+    "mode": "matches",
+    "verifiedBy": "regex"
+  }
+]

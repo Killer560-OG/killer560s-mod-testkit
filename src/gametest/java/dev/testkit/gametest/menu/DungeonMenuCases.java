@@ -91,6 +91,17 @@ final class DungeonMenuCases {
             inDungeon(c);
             long before = c.events("container.close").size();
             int id = MenuKit.show(c, MenuKit.menu("menus.dungeon-secret-chest"));
+            if (!Mod.isCheat()) {
+                // Auto Close Chest is cheat-build only (mod, 2026-10-07): in a legit jar the saved setting forced ON
+                // must still leave the chest open and send no close. (391 also checks its code is not in the jar.)
+                MenuKit.awaitScreen(c, "Chest", 100);
+                c.ctx().waitTicks(20);
+                long closes = c.events("container.close").stream()
+                        .filter(e -> e.get("containerId").getAsInt() == id).count();
+                c.check(closes == 0, "a legit jar closed the secret chest (" + closes + " close event(s))");
+                c.note("legit jar: in F7 the 'Chest' opened and stayed open with Auto Close Chest forced ON");
+                return;
+            }
             c.waitUntil("the server to get a close for container " + id, mc -> c.events("container.close").stream()
                     .anyMatch(e -> e.get("containerId").getAsInt() == id), 60);
             boolean everShown = c.onClient(mc -> "Chest".equals(MenuKit.screenTitle(mc)));

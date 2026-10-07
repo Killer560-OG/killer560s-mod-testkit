@@ -412,7 +412,9 @@ final class SliderCases {
             // The Dungeon Map's Player Heads row (mod map-heads, both jars), behind the map's master switch.
             List<String> where = SEEN.stream().filter(x -> x.contains("|Player Heads:"))
                     .map(x -> x.substring(0, x.indexOf('|'))).distinct().toList();
-            boolean seen = where.stream().anyMatch(x -> x.contains("Dungeon Map"));
+            // The sweep names a section by its top-level path; since the New category went (mod 2026-10-07) the Dungeon
+            // Map lives in the Dungeon > Map, Leap & Party folder, where it is the only tab with a Player Heads row.
+            boolean seen = where.stream().anyMatch(x -> x.contains("Dungeon Map") || x.endsWith("Map, Leap & Party"));
             c.note("swept Player Heads on Dungeon Map: " + seen + " (laid out in " + where + ")");
             c.check(seen, "the sweep never laid out 'Player Heads:' on the Dungeon Map tab");
         }

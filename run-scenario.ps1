@@ -51,6 +51,7 @@ if ($NoMod) {
     $ModUnderTest = Find-TestkitSnapshotJar $cfg $Minecraft
     if (-not $ModUnderTest) {
         $built = Get-ChildItem -Path "$($cfg.modSource)/build/libs" -Filter ($cfg.modJarPattern.Replace("{mc}", $Minecraft)) -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -notlike "*-testing.jar" } |
             Sort-Object LastWriteTime -Descending | Select-Object -First 1
         if ($built) { $ModUnderTest = $built.FullName.Replace('\', '/') }
     }

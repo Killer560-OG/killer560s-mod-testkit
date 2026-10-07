@@ -231,6 +231,31 @@ public final class Session {
         runCase(caseName, body, true);
     }
 
+    /**
+     * A case whose feature is shelved in the mod (not in the jar): when selected it is a SKIP row giving {@code why},
+     * and {@code body} never runs. The body is kept so the case can be restored by changing the call back to test.
+     */
+    public void shelved(String caseName, String why, Case body) {
+        if (listing) {
+            ScenarioList.record(caseName, caseSelected(caseName) ? "all" : "no", "case", name);
+            listed++;
+            return;
+        }
+        if (gated) {
+            if (caseSelected(caseName)) {
+                ModGate.skip(caseName);
+            }
+            return;
+        }
+        if (!caseSelected(caseName)) {
+            return;
+        }
+        SuiteVerdict.started(caseName);
+        SuiteVerdict.finished(caseName);
+        System.out.println("[" + caseName + "] SKIPPED - " + why);
+        Report.caseFinished(caseName, "SKIP", "", why, java.util.List.of(), java.util.List.of());
+    }
+
     /** Do not run the anticheat positive control at the end (only for a session that never quotes a clean verdict). */
     public void skipDetectorProof() {
         proveDetector = false;

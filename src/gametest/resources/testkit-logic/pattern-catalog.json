@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-07T11:23:18",
- "modSource": "killer560s-mod",
- "modGitSha": "5f09c9d60fb1e5e349ebf9857690761192d2009e",
+ "generatedAt": "2026-10-07T13:27:33",
+ "modSource": "shelve-mining",
+ "modGitSha": "aa09fd82e9d96678aa00e3ed18b18b269ed42307",
  "modSourceDirty": false,
- "count": 416,
+ "count": 410,
  "byKind": {
   "dynamic": 7,
   "element": 43,
-  "field": 351,
+  "field": 345,
   "local": 15
  },
  "unresolved": 8,
@@ -2184,78 +2184,6 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^(\\\\d)/(\\\\d) Energy Crystals are now active!$\""
-  },
-  {
-   "id": "mining.metaldetector.MetalDetectorData#TREASURE",
-   "cls": "mining.metaldetector.MetalDetectorData",
-   "field": "TREASURE",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/mining/metaldetector/MetalDetectorData.java",
-   "line": 37,
-   "regex": "(§3§lTREASURE: §b)(\\d+\\.?\\d?)m",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"(§3§lTREASURE: §b)(\\\\d+\\\\.?\\\\d?)m\""
-  },
-  {
-   "id": "mining.metaldetector.MetalDetectorData#KEEPER",
-   "cls": "mining.metaldetector.MetalDetectorData",
-   "field": "KEEPER",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/mining/metaldetector/MetalDetectorData.java",
-   "line": 40,
-   "regex": "Keeper of (\\w+)",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"Keeper of (\\\\w+)\""
-  },
-  {
-   "id": "mining.nucleus.NucleusRunProfitTracker#LOOT_START",
-   "cls": "mining.nucleus.NucleusRunProfitTracker",
-   "field": "LOOT_START",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/mining/nucleus/NucleusRunProfitTracker.java",
-   "line": 65,
-   "regex": "^\\s{0,64}CRYSTAL NUCLEUS LOOT BUNDLE\\s{0,64}$",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"^\\\\s{0,64}CRYSTAL NUCLEUS LOOT BUNDLE\\\\s{0,64}$\""
-  },
-  {
-   "id": "mining.nucleus.NucleusRunProfitTracker#LOOT_END",
-   "cls": "mining.nucleus.NucleusRunProfitTracker",
-   "field": "LOOT_END",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/mining/nucleus/NucleusRunProfitTracker.java",
-   "line": 66,
-   "regex": "^\\s{0,64}▬{20,128}\\s{0,64}$",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"^\\\\s{0,64}▬{20,128}\\\\s{0,64}$\""
-  },
-  {
-   "id": "mining.nucleus.NucleusRunProfitTracker#COUNT_PREFIX",
-   "cls": "mining.nucleus.NucleusRunProfitTracker",
-   "field": "COUNT_PREFIX",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/mining/nucleus/NucleusRunProfitTracker.java",
-   "line": 67,
-   "regex": "^(\\d{1,6})x\\s+(.+)$",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"^(\\\\d{1,6})x\\\\s+(.+)$\""
-  },
-  {
-   "id": "mining.nucleus.NucleusRunProfitTracker#COUNT_SUFFIX",
-   "cls": "mining.nucleus.NucleusRunProfitTracker",
-   "field": "COUNT_SUFFIX",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/mining/nucleus/NucleusRunProfitTracker.java",
-   "line": 68,
-   "regex": "^(.+?)\\s+x(\\d{1,6})$",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"^(.+?)\\\\s+x(\\\\d{1,6})$\""
   },
   {
    "id": "namechanger.IdentityCommandFeature#PARTY_EXPLICIT_INVITE",
