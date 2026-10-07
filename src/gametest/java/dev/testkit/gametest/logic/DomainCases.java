@@ -211,6 +211,49 @@ final class DomainCases {
                     + " id " + ItemIdentityId(s)), distinct == 1, seen.toString());
         }
 
+        // Since the FPS sweep (mod fps-sweep, 2026-10-07) several readers look at the stack's LIVE custom-data tag
+        // (util/ItemNbt.view) instead of a deep copy. Same answers, and nothing may write to the stack.
+        CompoundTag bookTag = new CompoundTag();
+        bookTag.putString("id", "ENCHANTED_BOOK");
+        CompoundTag ench = new CompoundTag();
+        ench.putInt("ultimate_wise", 5);
+        bookTag.put("enchantments", ench);
+        ItemStack book = SolverCases.stack(Items.PAPER, 1, "Enchanted Book", false);
+        book.set(DataComponents.CUSTOM_DATA, CustomData.of(bookTag));
+        CompoundTag petTag = new CompoundTag();
+        petTag.putString("id", "PET");
+        petTag.putString("petInfo", "{\"type\":\"BLAZE\",\"tier\":\"LEGENDARY\"}");
+        ItemStack pet = SolverCases.stack(Items.PAPER, 1, "Blaze", false);
+        pet.set(DataComponents.CUSTOM_DATA, CustomData.of(petTag));
+        String SIV = "itembrowser.SkyblockItemValue";
+        c.eq("item value id: starred", "HYPERION", Mod.staticCall(SIV, "extractId", starred));
+        c.eq("item value id: one-enchant book", "ENCHANTMENT_ULTIMATE_WISE_5", Mod.staticCall(SIV, "extractId", book));
+        c.eq("item value id: pet", "PET_BLAZE", Mod.staticCall(SIV, "extractId", pet));
+        c.eq("item value id: no custom data", null, Mod.staticCall(SIV, "extractId", noData));
+        c.eq("item value id: blank id", null, Mod.staticCall(SIV, "extractId", blankId));
+        c.eq("etherwarp item: plain sword", false, Mod.staticCall(II, "isEtherwarpItem", starred));
+        CompoundTag merged = new CompoundTag();
+        merged.putString("id", "ASPECT_OF_THE_VOID");
+        merged.putInt("ethermerge", 1);
+        ItemStack aotv = SolverCases.stack(Items.DIAMOND_SHOVEL, 1, "Aspect of the Void", false);
+        aotv.set(DataComponents.CUSTOM_DATA, CustomData.of(merged));
+        c.eq("etherwarp item: ethermerged AOTV", true, Mod.staticCall(II, "isEtherwarpItem", aotv));
+        for (ItemStack s : List.of(starred, astraea, book, pet, aotv)) {
+            CompoundTag before = s.get(DataComponents.CUSTOM_DATA).copyTag();
+            for (String r : readers) {
+                try {
+                    Mod.staticCall(r, "skyblockId", s);
+                } catch (AssertionError ignored) {
+                    // a reader without skyblockId(ItemStack) was already reported above
+                }
+            }
+            Mod.staticCall(SIV, "extractId", s);
+            Mod.staticCall(II, "isEtherwarpItem", s);
+            Mod.staticCall("itemprotect.ItemProtect", "isProtectedItem", s);
+            c.check("readers leave " + s.getHoverName().getString() + "'s tag untouched",
+                    before.equals(s.get(DataComponents.CUSTOM_DATA).copyTag()), before.toString());
+        }
+
         // AP3 push sizes (docs/AP3.md: "All eighteen real key combinations produce just five sizes").
         Object model = R.construct("ap3.Ap3DiscretePlanner$Model");
         R.set(model, "baseSpeedAttr", 0.1365);
