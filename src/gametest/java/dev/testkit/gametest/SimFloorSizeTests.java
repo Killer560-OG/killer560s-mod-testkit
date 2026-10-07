@@ -28,6 +28,7 @@ import java.util.List;
  * bug that shipped this morning, where a negative-y sentinel made {@code snapPlayerTo} fall back to the build
  * limit and drop him onto the entrance's roof.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimFloorSizeTests implements FabricClientGameTest {
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
@@ -38,8 +39,7 @@ public class SimFloorSizeTests implements FabricClientGameTest {
     private static final String LIVE_MAP = "com.killer560.hub.livemap.LiveMapFeature";
 
     private static final String SOURCE_ROOMS =
-            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
-                    + "/minecraft/config", "killer560smod-rooms");
+            ModUnderTest.instanceConfig(Machine.roomsConfigDir(), "killer560smod-rooms");
 
     /**
      * Which sizes to actually build.
@@ -63,7 +63,7 @@ public class SimFloorSizeTests implements FabricClientGameTest {
         // The room library ships in the jar now, so nothing needs copying in. The room DATABASE does not.
         if (copyDir(Path.of(SOURCE_ROOMS).resolveSibling("killer560smod-roomdata").toString(),
                 "killer560smod-roomdata", "") == 0) {
-            System.out.println("[84-sim-floor-sizes] SKIPPED - needs his room database");
+            Scenario.skipped("84-sim-floor-sizes", "needs the room database");
             return;
         }
         ctx.runOnClient(mc -> Scenario.loadRoomDatabaseNow());

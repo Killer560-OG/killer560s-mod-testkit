@@ -37,6 +37,7 @@ import java.util.function.Consumer;
  * Every other mob room is marked cleared first ({@code SimRoomState.markCleared}, what the map would show), so the
  * mode's choice is between exactly the rooms set up here. Sim mobs have 1 HP and never move.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimAutoClearTests implements FabricClientGameTest {
 
     private static final String NAME = "131-sim-auto-clear";
@@ -77,7 +78,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            System.out.println("[" + NAME + "] SKIPPED - needs his real rooms and room database");
+            Scenario.skipped(NAME, "needs real room captures and room database");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);

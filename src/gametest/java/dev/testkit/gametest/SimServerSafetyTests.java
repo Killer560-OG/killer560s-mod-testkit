@@ -24,6 +24,7 @@ import java.util.List;
  * nothing may set the sim active, and nothing may change a block. The arena is checked block for block before
  * and after, because "it did not crash" is not the claim being made.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimServerSafetyTests implements FabricClientGameTest {
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";

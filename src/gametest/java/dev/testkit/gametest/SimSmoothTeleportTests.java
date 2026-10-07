@@ -48,6 +48,7 @@ import java.util.TreeMap;
  * </ul>
  * Fails on a jar without the feature (no config class, and the camera jumps in one frame).
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimSmoothTeleportTests implements FabricClientGameTest {
 
     private static final String NAME = "396-sim-smooth-tp";

@@ -1,8 +1,8 @@
 # WP5 - Logic + fixture integrity + coverage tooling
 
-Plan: `C:/Users/Hunter/killer560s-mod-logs/TESTKIT-COVERAGE-PLAN.md` section 2 (WP5). Foundation and APIs: `docs/wp/wp1-foundation.md`.
+Plan: the maintainer's coverage plan (TESTKIT-COVERAGE-PLAN.md, not in this repo) section 2 (WP5). Foundation and APIs: `docs/wp/wp1-foundation.md`.
 
-- Worktree: `git worktree add C:/Users/Hunter/killer560s-mod-testkit-wt/logic -b wp/logic master` (from the main checkout)
+- Worktree: `git worktree add <worktreesDir>/logic -b wp/logic master` (from the main checkout)
 - Port: none (no server)
 - Scenario names: `35N-logic-*`; suite: `-Psuite=logic` (`./run-suite.ps1 -Suite logic`)
 - Entry point (pre-registered stub): `dev.testkit.gametest.logic.LogicSuite`
@@ -15,15 +15,15 @@ Record what was VERIFIED here, problem then fix, one or two lines each. Never a 
 ## How to run
 
 ```
-python tools/extract-patterns.py -PmodSource=C:/Users/Hunter/killer560s-mod   # catalog -> src/gametest/resources/testkit-logic/
-./run-suite.ps1 -Suite logic -Port 25640 -ModUnderTest C:/Users/Hunter/killer560s-mod-testkit-jars/main-f40ec89/killer560smod-1.1.0-26.1.2-cheat.jar
+python tools/extract-patterns.py -PmodSource=<modSource>   # catalog -> src/gametest/resources/testkit-logic/
+./run-suite.ps1 -Suite logic -Port 25640 -ModUnderTest <jarsDir>/main-f40ec89/killer560smod-1.1.0-26.1.2-cheat.jar
 python tools/coverage-matrix.py --worktrees --report build/testkit-report     # build/coverage-matrix.md|json
 ```
 
 Re-extract the catalog whenever the mod jar under test moves: 350 compares every catalogued regex with the jar's
 live Pattern and fails on drift. The suite takes about 6 s (budget 60 s); 352 also writes
 `build/testkit-report/pattern-coverage.md`. The mod source is read from `-Dtestkit.modSource`, `$TESTKIT_MOD_SOURCE`,
-else `C:/Users/Hunter/killer560s-mod` (see docs/requests/logic.md for the gradle property).
+else `<modSource>` (see docs/requests/logic.md for the gradle property).
 
 `testkit-fixtures/logic/action-gating.json` extends the schema with fields Fixtures ignores: `gates` (refs including
 `Class#FIELD[i]` list elements), `sender`, `senderGroup` (the group holding the sender: a forged line may match only

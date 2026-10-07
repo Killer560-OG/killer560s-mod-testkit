@@ -26,6 +26,7 @@ import java.util.List;
  * room, because the database's own coordinates are the authority for that and this harness has no independent
  * copy. What it can prove is the failure the audit describes - markers landing outside every room.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimSecretsTests implements FabricClientGameTest {
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
@@ -36,7 +37,7 @@ public class SimSecretsTests implements FabricClientGameTest {
     private static final String MAP_CODE = "com.killer560.hub.roomsim.MapCode";
 
     private static final String SOURCE_ROOMS =
-            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)/minecraft/config", "killer560smod-rooms");
+            ModUnderTest.instanceConfig(Machine.roomsConfigDir(), "killer560smod-rooms");
 
     private static final int GRID = 11;
     private static final int HALF_ROOM = 16;
@@ -73,7 +74,7 @@ public class SimSecretsTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ModUnderTest.turnOff(
                 "com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (copyRealRooms() < 20) {
-            System.out.println("[76-sim-secrets] SKIPPED - needs his real rooms");
+            Scenario.skipped("76-sim-secrets", "needs real room captures");
             return;
         }
         // The room DATABASE as well as the room library. Without it RoomDatabase.lookupByName returns null for
@@ -83,7 +84,7 @@ public class SimSecretsTests implements FabricClientGameTest {
         int db = copyRoomDatabase();
         System.out.println("[76-sim-secrets] copied " + db + " room-database file(s)");
         if (db == 0) {
-            System.out.println("[76-sim-secrets] SKIPPED - no room database to place secrets from");
+            Scenario.skipped("76-sim-secrets", "no room database to place secrets from");
             return;
         }
         // An earlier scenario in this client may already have asked for the database before the files above

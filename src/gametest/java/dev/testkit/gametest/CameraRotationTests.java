@@ -24,6 +24,7 @@ import java.util.Locale;
  * is what a mouse actually looks like, so a difference between them is attributable to the snap rather than to
  * the turning.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class CameraRotationTests implements FabricClientGameTest {
 
     private static final String MOD_ID = "killer560smod";

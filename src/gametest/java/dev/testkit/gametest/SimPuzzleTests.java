@@ -32,6 +32,7 @@ import java.util.List;
  * required the blocks to be gone was about to have three working puzzles "fixed" to match it. The blocks are
  * cleared when the floor is rebuilt, by {@code SimBuilder.wipeWholeGrid}, which is where that belongs.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimPuzzleTests implements FabricClientGameTest {
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
@@ -74,7 +75,7 @@ public class SimPuzzleTests implements FabricClientGameTest {
         int data = copyRoomData();
         System.out.println("[78-sim-puzzles] copied " + data + " room-data file(s)");
         if (data == 0) {
-            System.out.println("[78-sim-puzzles] SKIPPED - the puzzle solution files are not on this machine");
+            Scenario.skipped("78-sim-puzzles", "the puzzle solution files are not on this machine");
             return;
         }
         ctx.runOnClient(mc -> Scenario.loadRoomDatabaseNow());
@@ -197,8 +198,7 @@ public class SimPuzzleTests implements FabricClientGameTest {
     static int copyRoomData() {
         try {
             java.nio.file.Path source = java.nio.file.Path.of(
-                    ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
-                            + "/minecraft/config", "killer560smod-roomdata"));
+                    ModUnderTest.instanceConfig(Machine.roomsConfigDir(), "killer560smod-roomdata"));
             if (!java.nio.file.Files.isDirectory(source)) {
                 return 0;
             }

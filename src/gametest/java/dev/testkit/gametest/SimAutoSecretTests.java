@@ -47,6 +47,7 @@ import java.util.regex.Pattern;
  * </ul>
  * Only when named (it takes a couple of minutes).
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimAutoSecretTests implements FabricClientGameTest {
 
     private static final String NAME = "102-sim-autosecret";
@@ -91,7 +92,7 @@ public class SimAutoSecretTests implements FabricClientGameTest {
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            System.out.println("[" + NAME + "] SKIPPED - needs his real rooms and room database");
+            Scenario.skipped(NAME, "needs real room captures and room database");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);

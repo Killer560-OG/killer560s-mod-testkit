@@ -28,7 +28,9 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 /**
- * 65-join-fingerprint: can a server tell this client has killer560smod loaded?
+ * 65-join-fingerprint: can a server tell this client has the mod under test loaded? Works for ANY mod: the mod id
+ * (the byte needle) and the probed translation/keybind keys are read from the jar's own fabric.mod.json and en_us.json;
+ * for killer560smod (and for a -NoMod baseline) the needle is "killer560" and the probes are its fixed list.
  *
  * <p>Two halves, both read off the wire (the encoder's output, {@link WireCapture}), from the handshake to the end of
  * the body:
@@ -53,7 +55,8 @@ import java.util.TreeSet;
 public class JoinFingerprintTest implements FabricClientGameTest {
 
     private static final String NAME = "65-join-fingerprint";
-    private static final String NEEDLE = "killer560";
+    /** What the byte scan looks for: the mod under test's id, or "killer560" for killer560smod and a -NoMod run. */
+    private static String needle;
     private static final String FALLBACK = "ABSENT";
 
     /** Signs: a row at z = -663 facing south, the player 2.5 blocks south of them. Own coordinates. */
@@ -81,17 +84,45 @@ public class JoinFingerprintTest implements FabricClientGameTest {
                 "testkit.no.such.key", Kind.NEGATIVE));
         p.add(new Probe("keybind key.testkit.nosuch (negative control)", keybind("key.testkit.nosuch"),
                 "key.testkit.nosuch", Kind.NEGATIVE));
-        for (String k : List.of("killer560smod", "killer560smod.name", "killer560smod.title", "killer560smod.config.title",
-                "killer560smod.correction_alarm", "subtitles.killer560smod.correction_alarm", "category.killer560smod",
-                "key.categories.killer560smod", "key.category.killer560smod", "key.category.killer560smod.main",
-                "key.killer560smod.open", "key.killer560smod.settings", "key.killer560smod.gui",
-                "itemGroup.killer560smod", "modmenu.nameTranslation.killer560smod",
-                "modmenu.descriptionTranslation.killer560smod", "modmenu.summaryTranslation.killer560smod")) {
-            p.add(new Probe("translate " + k, translate(k), k, Kind.MOD));
-        }
-        for (String k : List.of("key.killer560smod.open", "key.killer560smod.settings", "key.killer560smod.gui",
-                "key.killer560smod.menu")) {
-            p.add(new Probe("keybind " + k, keybind(k), k, Kind.MOD));
+        List<ModUnderTest.JarMod> mods = ModUnderTest.jarMods();
+        ModUnderTest.JarMod mod = mods.isEmpty() ? null : mods.get(0);
+        if (mod == null || mod.id().equals("killer560smod")) {
+            needle = "killer560";
+            for (String k : List.of("killer560smod", "killer560smod.name", "killer560smod.title", "killer560smod.config.title",
+                    "killer560smod.correction_alarm", "subtitles.killer560smod.correction_alarm", "category.killer560smod",
+                    "key.categories.killer560smod", "key.category.killer560smod", "key.category.killer560smod.main",
+                    "key.killer560smod.open", "key.killer560smod.settings", "key.killer560smod.gui",
+                    "itemGroup.killer560smod", "modmenu.nameTranslation.killer560smod",
+                    "modmenu.descriptionTranslation.killer560smod", "modmenu.summaryTranslation.killer560smod")) {
+                p.add(new Probe("translate " + k, translate(k), k, Kind.MOD));
+            }
+            for (String k : List.of("key.killer560smod.open", "key.killer560smod.settings", "key.killer560smod.gui",
+                    "key.killer560smod.menu")) {
+                p.add(new Probe("keybind " + k, keybind(k), k, Kind.MOD));
+            }
+        } else {
+            // Any other mod: its id is the needle, and its own lang keys are what a probing server would ask about.
+            String id = mod.id();
+            needle = id.toLowerCase(Locale.ROOT);
+            List<String> lang = mod.langKeys();
+            List<String> translate = new ArrayList<>();
+            lang.stream().filter(k -> k.startsWith("key.")).limit(6).forEach(translate::add);
+            lang.stream().filter(k -> !k.startsWith("key.")).limit(14 - translate.size()).forEach(translate::add);
+            for (String k : List.of(id, "modmenu.nameTranslation." + id, "itemGroup." + id, "key.categories." + id)) {
+                if (!translate.contains(k)) {
+                    translate.add(k);
+                }
+            }
+            for (String k : translate) {
+                p.add(new Probe("translate " + k, translate(k), k, Kind.MOD));
+            }
+            List<String> keybinds = new ArrayList<>();
+            lang.stream().filter(k -> k.startsWith("key.") && !k.startsWith("key.categor")).limit(3).forEach(keybinds::add);
+            // Never bound, so it always comes back raw - with the needle in it, which is the byte scanner's control.
+            keybinds.add("key." + id + ".testkit_probe");
+            for (String k : keybinds) {
+                p.add(new Probe("keybind " + k, keybind(k), k, Kind.MOD));
+            }
         }
         while (p.size() % 4 != 0) {
             p.add(new Probe("(padding)", "{text:\"\"}", "", Kind.NEGATIVE));
@@ -141,12 +172,15 @@ public class JoinFingerprintTest implements FabricClientGameTest {
 
     private static void body(ClientGameTestContext ctx, TestServer server, Scenario scenario, List<Probe> probes,
                              int signs) {
-        boolean modLoaded = FabricLoader.getInstance().isModLoaded("killer560smod");
+        List<ModUnderTest.JarMod> mods = ModUnderTest.jarMods();
+        boolean modLoaded = !mods.isEmpty() && mods.stream().allMatch(ModUnderTest.JarMod::loaded);
         String mc = FabricLoader.getInstance().getModContainer("minecraft").orElseThrow().getMetadata().getVersion()
                 .getFriendlyString();
         String addMods = System.getProperty("fabric.addMods", "");
         String jar = addMods.isBlank() ? "none" : Path.of(addMods.split(java.io.File.pathSeparator)[0]).getFileName().toString();
-        scenario.log("Minecraft " + mc + ", killer560smod loaded: " + modLoaded + " (fabric.addMods jar: " + jar + ")");
+        scenario.log("Minecraft " + mc + ", mod under test " + (mods.isEmpty() ? "none"
+                : mods.stream().map(m -> m.id() + " " + m.version()).toList()) + ", loaded: " + modLoaded
+                + " (fabric.addMods jar: " + jar + "), byte needle \"" + needle + "\"");
         scenario.log("player name: " + ctx.computeOnClient(m -> m.player.getGameProfile().name()));
 
         // ~15 s after the first play-phase packet, so anything the mod sends shortly after a join is on the record.
@@ -203,7 +237,7 @@ public class JoinFingerprintTest implements FabricClientGameTest {
         Set<String> fingerprint = new TreeSet<>();
         Set<String> typesSent = new TreeSet<>();
         List<String> needleHits = new ArrayList<>();
-        // The scanner's own positive control: the probe's keybind lines come back as the raw "key.killer560smod.*"
+        // The scanner's own positive control: the probe's keybind lines come back as the raw "key.<mod id>.*"
         // name, so the same byte scan must find the needle in those sign_update packets.
         int scannerControl = 0;
         String brand = null;
@@ -215,7 +249,7 @@ public class JoinFingerprintTest implements FabricClientGameTest {
             perPhase.merge(s.phase(), 1, Integer::sum);
             typesSent.add("type " + s.phase() + " " + s.type());
             String lower = new String(s.bytes(), StandardCharsets.ISO_8859_1).toLowerCase(Locale.ROOT);
-            if (lower.contains(NEEDLE)) {
+            if (lower.contains(needle)) {
                 if (s.type().equals("minecraft:sign_update")) {
                     scannerControl++;
                 } else {
@@ -346,10 +380,10 @@ public class JoinFingerprintTest implements FabricClientGameTest {
         if (answered.size() != signs) {
             failures.add("only " + answered.size() + " of " + signs + " signs answered");
         }
-        scenario.log("byte scanner control: \"" + NEEDLE + "\" found in " + scannerControl
+        scenario.log("byte scanner control: \"" + needle + "\" found in " + scannerControl
                 + " sign_update packet(s) (the probe's own echoes; must be > 0)");
         if (scannerControl == 0) {
-            failures.add("the byte scanner did not find \"" + NEEDLE + "\" even in the probe's echoes - it is blind");
+            failures.add("the byte scanner did not find \"" + needle + "\" even in the probe's echoes - it is blind");
         }
         if (modLoaded && modProbes == 0) {
             failures.add("no mod probe was judged");
@@ -357,7 +391,7 @@ public class JoinFingerprintTest implements FabricClientGameTest {
         failures.addAll(probeFailures);
         if (!needleHits.isEmpty()) {
             for (String hit : needleHits) {
-                failures.add("\"" + NEEDLE + "\" on the wire: " + clip(hit, 300));
+                failures.add("\"" + needle + "\" on the wire: " + clip(hit, 300));
             }
         }
         if (modLoaded) {
@@ -402,7 +436,7 @@ public class JoinFingerprintTest implements FabricClientGameTest {
             throw new AssertionError(m.toString());
         }
         scenario.log("PASS: " + all.size() + " packets captured across " + perPhase.keySet() + ", brand \"" + brand
-                + "\", controls resolved, " + modProbes + " mod probes unresolved, no \"" + NEEDLE + "\" on the wire"
+                + "\", controls resolved, " + modProbes + " mod probes unresolved, no \"" + needle + "\" on the wire"
                 + (modLoaded ? ", fingerprint identical to the no-mod baseline" : " (baseline written)"));
     }
 

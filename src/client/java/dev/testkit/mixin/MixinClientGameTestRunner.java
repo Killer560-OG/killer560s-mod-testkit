@@ -3,6 +3,7 @@ package dev.testkit.mixin;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 
+import dev.testkit.harness.ModGate;
 import dev.testkit.harness.SuiteVerdict;
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
@@ -40,13 +41,19 @@ public class MixinClientGameTestRunner {
     private static void testkit$keepGoing(FabricClientGameTest test, ClientGameTestContext context,
                                           Operation<Void> original) {
         SuiteVerdict.beginTest();
+        // A @RequiresMod class whose mod is absent runs with the gate shut: its scenarios become SKIP rows.
+        ModGate.begin(test.getClass());
         try {
             original.call(test, context);
         } catch (Throwable failure) {
             if (failure instanceof VirtualMachineError fatal) {
                 throw fatal;
             }
-            SuiteVerdict.fail(test.getClass().getSimpleName(), failure);
+            if (ModGate.missing() != null) {
+                ModGate.skipThrown(failure);
+            } else {
+                SuiteVerdict.fail(test.getClass().getSimpleName(), failure);
+            }
             // A scenario's own finally has usually disconnected already; this covers a test that threw without
             // leaving its world.
             context.runOnClient(mc -> {
@@ -57,6 +64,8 @@ public class MixinClientGameTestRunner {
             context.waitFor(mc -> mc.level == null, 600);
             context.setScreen(TitleScreen::new);
             context.waitTicks(10);
+        } finally {
+            ModGate.end();
         }
     }
 

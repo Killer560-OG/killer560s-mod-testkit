@@ -46,6 +46,7 @@ import java.util.Map;
  * <p>Fixtures replayed here are in {@code testkit-fixtures/core/demo.json}; each case also checks them against the
  * mod's own Pattern constants with {@link Fixtures#checkPatterns}.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SessionDemoTest implements FabricClientGameTest {
 
     static final String SESSION = "099-session-demo";

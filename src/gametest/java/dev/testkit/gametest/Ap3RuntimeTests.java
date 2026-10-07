@@ -46,6 +46,7 @@ import java.util.Locale;
  * server {@code tp}. Every case first proves the thing under test actually happened (the box was entered, the
  * packet was sent, distance was covered) before it judges anything.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class Ap3RuntimeTests implements FabricClientGameTest {
 
     static final String SESSION = "63-ap3-session";

@@ -29,6 +29,7 @@ import java.util.Locale;
  * <p>All coordinates below are re-derived from the same constants the mod uses, not copied from a successful
  * run: a test that hardcodes the numbers a buggy build produced will happily confirm the bug forever.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimTests implements FabricClientGameTest {
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";

@@ -16,13 +16,16 @@
 #   -Suite <name>        a named filter from suites.properties instead of -Scenario
 #   -Port <n>            this checkout's server port (Hx bridge on n+5); sticks for later runs of this checkout
 #   -Window <x,y,w,h>    where to put the client window, "off", or "auto"/empty (the default): claim a screen slot -
-#                        a quadrant of the left monitor, or a finer grid while more than 4 runs are live
+#                        a quadrant of the configured screen (windowScreen in testkit.properties: auto = the second
+#                        monitor, else the primary one), or a finer grid while more than 4 runs are live
 #   -Extra <args>        anything else for gradle, e.g. -Extra "-Pnogrim","-PseedConfig=C:/x"
-#   -ModUnderTest <jar>  default: the newest snapshot in C:/Users/Hunter/killer560s-mod-testkit-jars/*/ (cheat,
-#                        for -Minecraft), falling back to the mod's own build/libs. Pass it explicitly when it matters.
-#   -Minecraft <ver>     26.1.2 (default) or 26.2. Passes -Pminecraft_version and picks that version's jar; a jar
-#                        named for the other version is refused, because loader would only refuse it later.
-#   -NoMod               run WITHOUT the mod (no -PmodUnderTest): a baseline, e.g. for 65-join-fingerprint.
+#   -ModUnderTest <jar>  any Fabric mod jar. Default: the newest snapshot folder under jarsDir holding a jar that
+#                        matches modJarPattern (testkit.properties; get-mod.ps1 fills it), falling back to the
+#                        modSource checkout's build/libs. Pass it explicitly when it matters.
+#   -Minecraft <ver>     26.1.2 (default) or 26.2. Passes -Pminecraft_version and picks that version's jar. When it is
+#                        not given and -ModUnderTest is, it is read from the jar's fabric.mod.json (depends.minecraft);
+#                        a jar whose range excludes the run's version is refused, because loader would only refuse it later.
+#   -NoMod               run WITHOUT any mod (no -PmodUnderTest): a baseline, e.g. for 65-join-fingerprint.
 
 param(
     [string]$Scenario = "",
@@ -37,27 +40,50 @@ param(
 )
 
 $here = $PSScriptRoot
+. (Join-Path $here "tools/testkit-config.ps1")
+$cfg = Get-TestkitConfig $here
 
 if ($NoMod) {
     $ModUnderTest = ""
 } elseif ($ModUnderTest -eq "") {
     # The old default named a jar in the mod's build/libs, which the mod's own builds overwrite mid-run and which
-    # does not exist at all while the mod is being rebuilt. Snapshots under killer560s-mod-testkit-jars do not move.
-    $snap = Get-ChildItem -Path "C:/Users/Hunter/killer560s-mod-testkit-jars" -Directory -ErrorAction SilentlyContinue |
-        Sort-Object LastWriteTime -Descending |
-        ForEach-Object { Get-ChildItem -Path $_.FullName -Filter "killer560smod-*-$Minecraft-cheat.jar" -ErrorAction SilentlyContinue } |
-        Select-Object -First 1
-    if ($snap) {
-        $ModUnderTest = $snap.FullName.Replace('\', '/')
-    } else {
-        $ModUnderTest = "C:/Users/Hunter/killer560s-mod/build/libs/killer560smod-1.1.0-$Minecraft-cheat.jar"
+    # does not exist at all while the mod is being rebuilt. Snapshots under jarsDir do not move.
+    $ModUnderTest = Find-TestkitSnapshotJar $cfg $Minecraft
+    if (-not $ModUnderTest) {
+        $built = Get-ChildItem -Path "$($cfg.modSource)/build/libs" -Filter ($cfg.modJarPattern.Replace("{mc}", $Minecraft)) -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($built) { $ModUnderTest = $built.FullName.Replace('\', '/') }
+    }
+    if (-not $ModUnderTest) {
+        Write-Host ("No mod jar for Minecraft $Minecraft : nothing matching " + $cfg.modJarPattern.Replace("{mc}", $Minecraft) +
+            " under $($cfg.jarsDir)/*/ or $($cfg.modSource)/build/libs.")
+        Write-Host "Run ./get-mod.ps1 to build killer560s-mod into jarsDir, pass -ModUnderTest <your jar>, or -NoMod."
+        exit 4
     }
 }
 if ((-not $NoMod) -and (-not (Test-Path $ModUnderTest))) {
     Write-Host "Mod under test not found: $ModUnderTest"
     exit 4
 }
-# The mod's jars carry their Minecraft version in the classifier (-26.1.2-cheat / -26.2-legit) and their
+$modInfo = $null
+if (-not $NoMod) {
+    $modInfo = Get-ModJarInfo $ModUnderTest
+    if (-not $modInfo) {
+        Write-Host "Mod under test $ModUnderTest has no readable fabric.mod.json - is it a Fabric mod jar?"
+        exit 4
+    }
+    # Any mod: the Minecraft version follows the jar unless -Minecraft was given. Both versions in range (">=26.1")
+    # keeps the default.
+    if (-not $PSBoundParameters.ContainsKey('Minecraft')) {
+        $fits = @(@("26.1.2", "26.2") | Where-Object { (Test-McRange $modInfo.Minecraft $_) -eq $true })
+        if ($fits.Count -eq 1) { $Minecraft = $fits[0] }
+    }
+    if ((Test-McRange $modInfo.Minecraft $Minecraft) -eq $false) {
+        Write-Host "Mod under test $($modInfo.Id) declares minecraft '$($modInfo.Minecraft)', which excludes this run's -Minecraft $Minecraft"
+        exit 4
+    }
+}
+# killer560s-mod's jars carry their Minecraft version in the classifier (-26.1.2-cheat / -26.2-legit) and their
 # fabric.mod.json ranges are mutually exclusive, so a mismatch is a client that refuses to start.
 $leaf = ""
 if (-not $NoMod) { $leaf = Split-Path $ModUnderTest -Leaf }
@@ -69,7 +95,7 @@ if ($Scenario -ne "" -and $Suite -ne "") {
     Write-Host "Give -Scenario or -Suite, not both"
     exit 4
 }
-# With a TRAILING SLASH. Without it C:/Users/Hunter/killer560s-mod-testkit is a prefix of the sibling checkouts
+# With a TRAILING SLASH. Without it a checkout path like .../killer560s-mod-testkit is a prefix of the sibling checkouts
 # (-pzA, -pzB, -wt/1, ...), so this script's freeze watcher and deadline cleanup also matched - and killed - other
 # checkouts' clients mid-run. Found 2026-10-04 with three checkouts running at once.
 $marker = $here.Replace('\', '/').TrimEnd('/') + '/'
@@ -95,11 +121,13 @@ function Get-TestClients {
 # Screen slots. killer560 (2026-10-07): "I really like how it is split into those 4 quadrants with one test in each
 # quadrant so I can see all of them at once. If you are ever running more than 4 at once then resize them."
 # Every run without an explicit -Window claims a slot file in one directory shared by every checkout and worktree
-# (the file holds this script's pid; a dead pid's slot is free again). Up to 4 live runs use the left monitor's
-# quarters by slot number; more than that, every live run moves to a grid that fits them all, and back as they end.
-$slotDir = "C:/Users/Hunter/killer560s-mod-testkit-jars/.window-slots"
+# (the file holds this script's pid; a dead pid's slot is free again). Up to 4 live runs use the screen's quarters
+# by slot number; more than that, every live run moves to a grid that fits them all, and back as they end.
+# The directory and the screen come from testkit.properties (windowSlotsDir, windowScreen).
+$slotDir = $cfg.windowSlotsDir
 $mySlot = -1
-$screen = @{ X = -1920; Y = 361; W = 1920; H = 1080 }   # the left monitor, as place-test-window.ps1's default
+$screen = Resolve-TestkitScreen $cfg.windowScreen
+if ($null -eq $screen -and ($Window -eq "" -or $Window -eq "auto")) { $Window = "off" }
 
 function Get-LiveSlots {
     $live = @()
@@ -217,7 +245,9 @@ $gradleArgs += $Extra
 $what = $Scenario
 if ($Suite -ne "") { $what = "suite $Suite" }
 if ($what -eq "") { $what = "all scenarios" }
-Write-Host "Running $what with a $TimeoutSeconds s deadline in $here (mod: $ModUnderTest)"
+$modLabel = "none (-NoMod)"
+if ($modInfo) { $modLabel = "$($modInfo.Id) $($modInfo.Version) from $ModUnderTest" }
+Write-Host "Running $what on Minecraft $Minecraft with a $TimeoutSeconds s deadline in $here (mod: $modLabel)"
 $proc = Start-Process -FilePath "$here\gradlew.bat" -ArgumentList $gradleArgs -WorkingDirectory $here -PassThru -NoNewWindow
 # Touch the handle now: without it PowerShell 5.1 reports ExitCode as empty once the process has gone, and a caller
 # (run-suite, parallel-suite) cannot tell a failed run from a passed one.

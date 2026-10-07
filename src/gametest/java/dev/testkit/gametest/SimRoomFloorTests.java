@@ -32,6 +32,7 @@ import java.util.TreeMap;
  * and a scenario that went red over his captures would stay red until he rescanned - which is a worse signal
  * than a list he can act on.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimRoomFloorTests implements FabricClientGameTest {
 
     private static final String LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";

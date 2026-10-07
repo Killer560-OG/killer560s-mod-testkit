@@ -42,6 +42,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *       and switching the ONE Room Labels setting (the Dungeon Map's) changes what the Interactive Map draws.</li>
  * </ol>
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimInteractiveMapTests implements FabricClientGameTest {
 
     private static final String NAME = "99-sim-im";
@@ -71,7 +72,7 @@ public class SimInteractiveMapTests implements FabricClientGameTest {
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            System.out.println("[" + NAME + "] SKIPPED - needs his real rooms and room database");
+            Scenario.skipped(NAME, "needs real room captures and room database");
             return;
         }
         ctx.runOnClient(mc -> Scenario.loadRoomDatabaseNow());

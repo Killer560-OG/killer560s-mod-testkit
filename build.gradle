@@ -39,6 +39,68 @@ def cloudVersion = pickVersion("cloud_version")
 logger.lifecycle("Minecraft ${project.minecraft_version}: compatibility layer ${mcBranch}, Fabric API "
 		+ "${fabricApiVersion}, loader ${loaderVersion}, cloud-fabric ${cloudVersion}")
 
+// --- machine configuration ---------------------------------------------------------------------------------
+//
+// The same lookup as tools/testkit-config.ps1 (keep the two in step): environment variable TESTKIT_<KEY>, then
+// testkit.local.properties in this checkout, then in the MAIN checkout when this is a git worktree (shard and suite
+// worktrees have no untracked files), then the committed testkit.properties, then the default here. Only the keys the
+// gametest client or the window placer need are resolved here; see testkit.properties for all of them.
+def mainCheckout = {
+	def git = file("${rootDir}/.git")
+	if (git.isFile()) {
+		def line = git.readLines().find { it.startsWith("gitdir:") }
+		if (line != null) {
+			def gd = new File(line.substring(7).trim())
+			if (!gd.isAbsolute()) {
+				gd = new File(rootDir, gd.path)
+			}
+			def common = new File(gd, "commondir")
+			if (common.isFile()) {
+				return new File(gd, common.text.trim()).canonicalFile.parentFile
+			}
+		}
+	}
+	return rootDir
+}()
+def readProps = { File f ->
+	def p = new Properties()
+	if (f.isFile()) {
+		f.withReader("UTF-8") { p.load(it) }
+	}
+	p
+}
+def configLayers = [readProps(file("testkit.local.properties"))]
+if (mainCheckout.canonicalPath != rootDir.canonicalPath) {
+	configLayers << readProps(new File(mainCheckout, "testkit.local.properties"))
+}
+configLayers << readProps(file("testkit.properties"))
+def testkitConfig = { String key, String fallback ->
+	def env = System.getenv("TESTKIT_" + key.replaceAll(/([a-z0-9])([A-Z])/, '$1_$2').toUpperCase(Locale.ROOT))
+	if (env != null && !env.trim().isEmpty()) {
+		return env.trim()
+	}
+	for (Properties layer : configLayers) {
+		def v = layer.getProperty(key)
+		if (v != null && !v.trim().isEmpty()) {
+			return v.trim()
+		}
+	}
+	return fallback
+}
+def configPath = { String key, String fallback ->
+	def v = testkitConfig(key, fallback)
+	if (v == null || v.isEmpty()) {
+		return ""
+	}
+	def f = new File(v)
+	(f.isAbsolute() ? f : new File(mainCheckout, v)).canonicalPath.replace('\\', '/')
+}
+def machineModSource = configPath("modSource", new File(mainCheckout.parentFile, "killer560s-mod").path)
+def machinePrismInstances = configPath("prismInstances", "")
+def machineRoomsInstance = testkitConfig("roomsInstance", "26.1.2 (Mod Only Test)")
+def machineSimInstance = testkitConfig("simInstance", "Map Logger")
+def machineWindowScreen = testkitConfig("windowScreen", "auto")
+
 repositories {
 	// Cloud command framework — GrimAC's Fabric build expects it as a separate mod rather than bundling it.
 	mavenCentral()
@@ -422,17 +484,20 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	}
 
 	doFirst {
-		def where = project.findProperty("testWindow") ?: "-1920,361,1920,1080"  // left monitor, borderless
+		// Default: windowScreen from the machine configuration ("auto" lets the placer pick the monitor itself).
+		def where = (project.findProperty("testWindow") ?: machineWindowScreen).toString().trim()
 		if (where != "off") {
-			def p = where.toString().split(",")
+			def p = where.split(",")
 			def script = file("place-test-window.ps1")
-			if (script.exists() && p.length == 4) {
-				new ProcessBuilder("powershell", "-NoProfile", "-WindowStyle", "Hidden", "-File",
-						script.absolutePath, "-X", p[0], "-Y", p[1], "-Width", p[2], "-Height", p[3],
-						// This checkout's root; the script anchors it with a trailing slash so a sibling
-						// checkout's client is never "a leftover" of this one.
-						"-Marker", rootDir.absolutePath.replace('\\', '/'))
-						.directory(script.parentFile).start()
+			if (script.exists() && (p.length == 4 || where == "auto")) {
+				def cmd = ["powershell", "-NoProfile", "-WindowStyle", "Hidden", "-File", script.absolutePath]
+				if (p.length == 4) {
+					cmd += ["-X", p[0], "-Y", p[1], "-Width", p[2], "-Height", p[3]]
+				}
+				// This checkout's root; the script anchors it with a trailing slash so a sibling
+				// checkout's client is never "a leftover" of this one.
+				cmd += ["-Marker", rootDir.absolutePath.replace('\\', '/')]
+				new ProcessBuilder(cmd).directory(script.parentFile).start()
 				logger.lifecycle("Test window will be moved to ${where}")
 			}
 		}
@@ -505,6 +570,12 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	//
 	// This checkout's root, so scripts and the harness can tell its client from a sibling checkout's.
 	systemProperty "testkit.checkout", rootDir.absolutePath.replace('\\', '/')
+	// Machine configuration the scenarios read (dev.testkit.gametest.Machine): where a killer560s-mod checkout and the
+	// Prism instances with room captures are. Empty or missing ones make the scenarios that need them SKIP.
+	systemProperty "testkit.modSource", machineModSource
+	systemProperty "testkit.prismInstances", machinePrismInstances
+	systemProperty "testkit.roomsInstance", machineRoomsInstance
+	systemProperty "testkit.simInstance", machineSimInstance
 	// The Hx RPC bridge port (server port + 5). The server gets the same number through the launch spec.
 	systemProperty "testkit.hx.port", hxPort.toString()
 

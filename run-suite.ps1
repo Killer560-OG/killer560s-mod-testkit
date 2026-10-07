@@ -2,7 +2,7 @@
 # then prints where the report is and its totals.
 #
 #   ./run-suite.ps1 -Suite harness
-#   ./run-suite.ps1 -Suite hx -Port 25570 -Window "-1920,361,960,540"
+#   ./run-suite.ps1 -Suite hx -Port 25570 -Window "0,0,960,540"
 #   ./run-suite.ps1 -Suite demo -Extra "-PnetOnline"
 #   ./run-suite.ps1 -Suite harness -Minecraft 26.2                 # 26.2 build and the 26.2 mod jar
 #

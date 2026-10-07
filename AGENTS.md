@@ -92,6 +92,10 @@ When a run fails, the answer is usually already written down:
 - Build maps with `TestMap`, not raw `/fill`. Vanilla fill skips unloaded chunks and says so in a line
   nobody reads.
 - New scenario classes must be registered in `src/gametest/resources/fabric.mod.json`.
+- A class that needs one particular mod carries `@RequiresMod("<mod id>")`: without that mod its scenarios become SKIP
+  rows, never failures. A class without it must pass with `-NoMod` and with any other mod (suite `generic`).
+- Never name a path on one machine. Data a scenario needs from the machine (room captures, a mod checkout) comes from
+  `Machine`; when it is missing, `Scenario.skipped(name, why)` and return.
 
 ## 7. When you change the harness
 

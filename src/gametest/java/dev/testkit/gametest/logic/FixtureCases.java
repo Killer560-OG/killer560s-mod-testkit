@@ -89,8 +89,15 @@ final class FixtureCases {
     /** Schema, unique ids, source file+line exist in the mod, matches/mustNotMatch/gates agree with the jar. */
     static void integrity(LogicCase c) {
         Path mod = Catalog.modSource();
-        c.check("mod source at " + mod, Files.isDirectory(mod.resolve("src/main/java/com/killer560/hub")),
-                "set -Dtestkit.modSource or TESTKIT_MOD_SOURCE");
+        if (mod == null) {
+            // Not a failure: the fixtures are still checked against the JAR below; only "does the cited source line
+            // exist and say this" needs the checkout.
+            c.skip("fixture source file/line checks", "no killer560s-mod checkout - set modSource in "
+                    + "testkit.local.properties (or TESTKIT_MOD_SOURCE) to the checkout the jar was built from");
+        } else {
+            c.check("mod source at " + mod, Files.isDirectory(mod.resolve("src/main/java/com/killer560/hub")),
+                    "modSource (testkit.local.properties / TESTKIT_MOD_SOURCE) is not a killer560s-mod checkout");
+        }
         List<Fixtures.Fixture> all = Fixtures.all();
         c.check("fixtures found under " + Fixtures.root(), all.size() >= 20, all.size() + " fixture(s)");
         Map<String, Integer> perFile = new TreeMap<>();
@@ -125,7 +132,7 @@ final class FixtureCases {
         String id = f.id() == null ? f.file().getFileName() + "(no id)" : f.id();
         List<String> schema = Fixtures.validate(f);
         c.check("schema " + id, schema.isEmpty(), String.join("; ", schema));
-        if (f.sourceFile() != null) {
+        if (f.sourceFile() != null && mod != null) {
             boolean exists = Fixtures.sourceExists(f, mod);
             c.check("source exists " + id, exists, f.sourceFile());
             if (exists) {

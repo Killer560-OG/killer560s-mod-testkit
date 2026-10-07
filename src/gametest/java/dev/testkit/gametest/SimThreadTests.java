@@ -29,6 +29,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * Records which thread DISCONNECT fired on (this scenario's own listener), the mod's "[SimPhase] world unloaded" line
  * when the jar has one (which thread handled it), the sim flag and build queue after each leave, and every mod ERROR.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimThreadTests implements FabricClientGameTest {
 
     private static final String GOTO = "97-sim-goto-loop";
@@ -56,7 +57,7 @@ public class SimThreadTests implements FabricClientGameTest {
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            System.out.println("[97-sim-threads] SKIPPED - needs his real rooms and room database");
+            Scenario.skipped("97-sim-threads", "needs real room captures and room database");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);

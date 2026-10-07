@@ -44,6 +44,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * Only when named. Boulder arms only with Map Logger's capture (docs/solve.md): run with
  * {@code $env:TESTKIT_SIM_INSTANCE = "Map Logger"}.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimAutopilot2Tests implements FabricClientGameTest {
 
     private static final String NAME = "142-sim-autopilot2";
@@ -100,7 +101,7 @@ public class SimAutopilot2Tests implements FabricClientGameTest {
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            println("SKIPPED - needs his real rooms and room database");
+            Scenario.skipped(NAME, "needs real room captures and room database");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);

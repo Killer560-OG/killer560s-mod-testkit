@@ -34,6 +34,7 @@ import java.util.regex.Pattern;
  * Then one more press right after a block is placed in the world (a change under the warm graph, the case that fell
  * back to room by room with 39-40 warps in his 2026-10-04 log): it must plan on the graph, not room by room.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimMapWarpTests implements FabricClientGameTest {
 
     private static final String NAME = "95-sim-map-warp";
@@ -62,7 +63,7 @@ public class SimMapWarpTests implements FabricClientGameTest {
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            System.out.println("[" + NAME + "] SKIPPED - needs his real rooms and room database");
+            Scenario.skipped(NAME, "needs real room captures and room database");
             return;
         }
         ctx.runOnClient(mc -> Scenario.loadRoomDatabaseNow());

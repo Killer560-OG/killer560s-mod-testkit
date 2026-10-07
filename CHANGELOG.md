@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-10-07
+
+### Portable: any machine, any mod
+
+- **One machine configuration**: committed `testkit.properties` (portable defaults) + gitignored
+  `testkit.local.properties` (also read from the main checkout by a worktree) + `TESTKIT_*` variables, read by every
+  script (`tools/testkit-config.ps1`), by build.gradle and by the scenarios (`Machine`). No tracked file names a path on
+  one machine any more; missing room captures or mod checkout make the scenarios that need them SKIP with the reason.
+- **`doctor.ps1`**: Windows/PowerShell, JDK 25+ on JAVA_HOME, git, python, the resolved config, the mod jar and its
+  Minecraft range, monitors, busy ports with their process, disk; each problem with its fix.
+- **`get-mod.ps1`**: clones killer560s-mod beside the testkit (never touches a checkout it did not clone unless
+  `-BuildExisting`) and builds cheat + legit (`-Minecraft both` for 26.2) into `<jarsDir>/<branch>-<sha>/`, checking each
+  jar's variant with `javap -constants`.
+- **Any mod, or none**: `@RequiresMod("killer560smod")` on every scenario class that drives killer560s-mod; without the
+  mod each of its scenarios and Session cases is a `SKIP - needs killer560smod` row (`harness/ModGate`). Suites
+  `generic` (passes with -NoMod or any mod) and `k560`. run-scenario reads the jar's `fabric.mod.json` (id, version,
+  `depends.minecraft` picks -Minecraft when not given). `65-join-fingerprint` takes its byte needle and its probed keys
+  from the jar under test.
+- Window placement: `windowScreen` (auto = the first non-primary monitor, else the primary one); the report's totals
+  count SKIP rows.
+- README "Quick start on a new machine" and "Testing your own mod"; CLAUDE.md is a guide for any agent, with the
+  machine owner's rules in a gitignored `CLAUDE.local.md`.
+
 ## 2026-10-04
 
 ### Minecraft 26.2 runs

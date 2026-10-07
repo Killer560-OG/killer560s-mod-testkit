@@ -36,6 +36,7 @@ import java.util.Map;
  * report ({@code hub-<phase>-on.jfr}) for {@code tools/fps-jfr.py}. Only when named ({@code -Pscenario=403}); it measures,
  * it does not test, except that every phase must have recorded frames and the scene must exist on the client.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class HubPerfBenchTest implements FabricClientGameTest {
 
     static final String NAME = "403-perf-hub";

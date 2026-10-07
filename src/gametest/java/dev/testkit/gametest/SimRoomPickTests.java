@@ -51,6 +51,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * loaded by itself is GONE ("If i load a single room by itself [...] it shouldnt have the next room [...] work or
  * the menu thing for it"): its button must not be there and {@code /simbuild noroutes} must load nothing.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimRoomPickTests implements FabricClientGameTest {
 
     private static final String NAME = "97-sim-roompick";
@@ -73,7 +74,7 @@ public class SimRoomPickTests implements FabricClientGameTest {
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            System.out.println("[" + NAME + "] SKIPPED - needs his real rooms and room database");
+            Scenario.skipped(NAME, "needs real room captures and room database");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);

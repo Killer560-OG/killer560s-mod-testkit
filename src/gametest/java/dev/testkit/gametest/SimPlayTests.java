@@ -37,6 +37,7 @@ import java.util.List;
  *       secret counter going up.</li>
  * </ul>
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimPlayTests implements FabricClientGameTest {
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
@@ -51,8 +52,7 @@ public class SimPlayTests implements FabricClientGameTest {
     private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
 
     private static final String SOURCE_ROOMS =
-            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
-                    + "/minecraft/config", "killer560smod-rooms");
+            ModUnderTest.instanceConfig(Machine.roomsConfigDir(), "killer560smod-rooms");
 
     private static final int GRID = 11;
 
@@ -80,7 +80,7 @@ public class SimPlayTests implements FabricClientGameTest {
         if (copyDir(SOURCE_ROOMS, "killer560smod-rooms", ".json") < 20
                 || copyDir(Path.of(SOURCE_ROOMS).resolveSibling("killer560smod-roomdata").toString(),
                         "killer560smod-roomdata", "") == 0) {
-            System.out.println("[81-sim-play] SKIPPED - needs his rooms and room database");
+            Scenario.skipped("81-sim-play", "needs room captures and room database");
             return;
         }
         ctx.runOnClient(mc -> Scenario.loadRoomDatabaseNow());

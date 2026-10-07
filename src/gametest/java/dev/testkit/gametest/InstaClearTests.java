@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *       starred-stand counting, kill counting, outcome rules, file), never whether Hypixel clears a room.</li>
  * </ul>
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class InstaClearTests implements FabricClientGameTest {
 
     private static final String TRACKER = "com.killer560.hub.autosecret.InstaClearTracker";
@@ -38,8 +39,7 @@ public class InstaClearTests implements FabricClientGameTest {
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String SIM_MOBS = "com.killer560.hub.roomsim.SimMobs";
     private static final String SOURCE_ROOMS =
-            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
-                    + "/minecraft/config", "killer560smod-rooms");
+            ModUnderTest.instanceConfig(Machine.roomsConfigDir(), "killer560smod-rooms");
 
     // DungeonMapScanner's states, mirrored as LiveMapFeature.MAP_*.
     private static final int MAP_CLEARED = 1;
@@ -68,6 +68,12 @@ public class InstaClearTests implements FabricClientGameTest {
             return;
         }
         ModUnderTest.require("killer560smod");
+        // The sim cases plan floors, which the mod refuses before its room database has loaded; offline, the copy
+        // from roomsInstance is the only way it gets one.
+        if (name.startsWith("98-sim") && !Files.isDirectory(Path.of(SOURCE_ROOMS).resolveSibling("killer560smod-roomdata"))) {
+            Scenario.skipped(name, "needs the room database (killer560smod-roomdata in " + Machine.roomsInstance() + ")");
+            return;
+        }
         try {
             body.accept(ctx);
         } catch (Throwable t) {

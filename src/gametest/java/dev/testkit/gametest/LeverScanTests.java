@@ -26,6 +26,7 @@ import java.util.List;
  * captured rooms rather than a synthetic arena, because the thing being trusted is that real dungeon
  * geometry puts levers where the palette check still finds them.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class LeverScanTests implements FabricClientGameTest {
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
@@ -34,7 +35,7 @@ public class LeverScanTests implements FabricClientGameTest {
     private static final String BUILD_QUEUE = "com.killer560.hub.roomsim.SimBuildQueue";
 
     private static final String SOURCE_ROOMS =
-            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)/minecraft/config", "killer560smod-rooms");
+            ModUnderTest.instanceConfig(Machine.roomsConfigDir(), "killer560smod-rooms");
 
     /**
      * The y band the rooms sit in, BEFORE the floor's own shift is added.
@@ -57,7 +58,7 @@ public class LeverScanTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ModUnderTest.turnOff(
                 "com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (copyRealRooms() < 20) {
-            System.out.println("[77-lever-scan] SKIPPED - needs his real rooms");
+            Scenario.skipped("77-lever-scan", "needs real room captures");
             return;
         }
         // Room types come from the room database; the sim will not plan a floor without it (mod, 2026-10-05).

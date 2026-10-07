@@ -18,6 +18,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  * <p>The player stands on a platform at (-420, 150, -420): negative x/z keep ScoreCalculator's and LiveMap's
  * coordinate boss checks (F7 boss = x > -7 and z > -7) false, so "in a dungeon" means the clear.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class HxSuite implements FabricClientGameTest {
 
     public static final String SESSION = "100-hx-session";

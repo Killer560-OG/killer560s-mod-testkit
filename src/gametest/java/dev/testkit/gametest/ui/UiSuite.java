@@ -47,6 +47,7 @@ import java.util.List;
  * Before any case: the QUIET profile (network features off) and SkyblockGate off, so nothing is refused for not
  * being on Skyblock. The whole run is watched for child processes (ProcWatch).
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class UiSuite implements FabricClientGameTest {
 
     static final String[] TITLE_CASES = {"340-ui-mainmenu", "330-ui-migrate", "310-ui-config-file-roundtrip",
@@ -63,7 +64,8 @@ public class UiSuite implements FabricClientGameTest {
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
-        if (dev.testkit.harness.ScenarioList.active()) {
+        if (dev.testkit.harness.ScenarioList.active() || dev.testkit.harness.ModGate.missing() != null) {
+            // ...and with killer560smod not loaded, the same loop gives every selected case its SKIP row.
             // List mode (-PlistScenarios): name the cases, open no world.
             for (String n : TITLE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);

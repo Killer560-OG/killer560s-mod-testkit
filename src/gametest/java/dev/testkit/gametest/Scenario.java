@@ -3,6 +3,7 @@ package dev.testkit.gametest;
 import dev.testkit.harness.ChatWatch;
 import dev.testkit.harness.Coverage;
 import dev.testkit.harness.Disconnects;
+import dev.testkit.harness.ModGate;
 import dev.testkit.harness.Report;
 import dev.testkit.harness.ScenarioList;
 import dev.testkit.harness.PacketTrace;
@@ -141,7 +142,7 @@ public final class Scenario {
         int copied = 0;
         try {
             java.nio.file.Path source = java.nio.file.Path.of(ModUnderTest.instanceConfig(
-                    "C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)/minecraft/config",
+                    Machine.roomsConfigDir(),
                     "killer560smod-roomdata"));
             if (java.nio.file.Files.isDirectory(source)) {
                 java.nio.file.Path target = ModUnderTest.modConfig("killer560smod-roomdata");
@@ -231,6 +232,20 @@ public final class Scenario {
         ctx.waitFor(mc -> !(Boolean) ModUnderTest.staticCall(BUILD_QUEUE, "isBusy"), 1200);
     }
 
+    /**
+     * A selected scenario that cannot run on this machine (no room captures, no mod checkout...): one SKIPPED line and a
+     * SKIP row in the report saying why, instead of a RAN row whose reason is only in the log. Call it and return.
+     */
+    public static void skipped(String name, String why) {
+        String reason = why;
+        if (Machine.prismInstances() == null && why.contains("room")) {
+            reason = why + " - " + Machine.CAPTURES_HINT;
+        }
+        System.out.println("[" + name + "] SKIPPED - " + reason);
+        SuiteVerdict.finished(name);
+        Report.caseFinished(name, "SKIP", "", reason, List.of(), List.of());
+    }
+
     public static boolean skip(String name) {
         String filter = System.getProperty("testkit.scenario", "");
         if (ScenarioList.active()) {
@@ -244,19 +259,24 @@ public final class Scenario {
             ScenarioList.record(name, selected ? "all" : "no", "scenario");
             return true;
         }
-        if (filter.isBlank()) {
-            SuiteVerdict.started(name);
-            return false;
-        }
+        boolean selected = filter.isBlank();
         for (String part : filter.split(",")) {
             if (!part.isBlank() && name.contains(part.trim())) {
-                // Remembered so a failure from here on is filed under this name, which is what -Pfailed
-                // feeds back in as the filter.
-                SuiteVerdict.started(name);
-                return false;
+                selected = true;
             }
         }
-        return true;
+        if (!selected) {
+            return true;
+        }
+        // A @RequiresMod class whose mod is not loaded: a SKIP row with the reason, and nothing run.
+        if (ModGate.missing() != null) {
+            ModGate.skip(name);
+            return true;
+        }
+        // Remembered so a failure from here on is filed under this name, which is what -Pfailed feeds back in as
+        // the filter.
+        SuiteVerdict.started(name);
+        return false;
     }
 
     /**

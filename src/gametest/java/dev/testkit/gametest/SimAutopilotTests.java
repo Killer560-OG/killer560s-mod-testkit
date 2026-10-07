@@ -48,6 +48,7 @@ import java.util.regex.Pattern;
  * </ol>
  * Each run must have moved him and ended by itself. Only when named (several minutes).
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimAutopilotTests implements FabricClientGameTest {
 
     private static final String NAME = "141-sim-autopilot";
@@ -128,7 +129,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            println("SKIPPED - needs his real rooms and room database");
+            Scenario.skipped(NAME, "needs real room captures and room database");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);

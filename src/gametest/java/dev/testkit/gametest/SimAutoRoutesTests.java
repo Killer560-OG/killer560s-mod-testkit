@@ -59,6 +59,7 @@ import java.util.function.Supplier;
  * GrimAC does not apply
  * here: the sim is an integrated server.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimAutoRoutesTests implements FabricClientGameTest {
 
     private static final String NAME = "96-ar";
@@ -180,7 +181,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            System.out.println("[" + NAME + "] SKIPPED - needs his real rooms and room database");
+            Scenario.skipped(NAME, "needs real room captures and room database");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);

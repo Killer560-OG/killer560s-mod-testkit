@@ -54,6 +54,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * puzzle must not already be complete before the auto starts. A failure prints the last log lines of the mod and
  * every chat line, the player's position and held item, so the run explains itself.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public final class SimPuzzleSolveTests {
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
@@ -75,11 +76,10 @@ public final class SimPuzzleSolveTests {
      * play its captures; the name is printed with every verdict.
      */
     static final String ROOM_INSTANCE = System.getenv().getOrDefault("TESTKIT_SIM_INSTANCE",
-            "26.1.2 (Mod Only Test)");
+            Machine.roomsInstance());
 
     private static final String SOURCE_ROOMS =
-            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/" + ROOM_INSTANCE
-                    + "/minecraft/config", "killer560smod-rooms");
+            ModUnderTest.instanceConfig(Machine.instanceConfigDir(ROOM_INSTANCE), "killer560smod-rooms");
 
     private static final String AOTV = "ASPECT_OF_THE_VOID";
     private static final String TERMINATOR = "TERMINATOR";
@@ -444,8 +444,8 @@ public final class SimPuzzleSolveTests {
                         + "one open, so this would not be loading the room the way he does");
             }
             if (!seedRooms(ctx)) {
-                VERDICTS.put(name, "SKIPPED - his room captures / room database are not on this machine");
-                System.out.println("[" + name + "] SKIPPED - needs his real rooms and room database");
+                VERDICTS.put(name, "SKIPPED - room captures / room database are not on this machine (" + Machine.CAPTURES_HINT + ")");
+                System.out.println("[" + name + "] SKIPPED - needs real room captures and room database");
                 Report.caseFinished(name, "SKIP", "n/a (singleplayer)", VERDICTS.get(name), List.of(), List.of());
                 SuiteVerdict.finished(name);
                 return;

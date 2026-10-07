@@ -27,6 +27,7 @@ import java.util.Set;
  * that flaps is worse than no test, because it teaches you to ignore it. {@code SimFloorGen.plan} exists so
  * this can lay out a hundred floors in a second without touching the world.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimFloorShapeTests implements FabricClientGameTest {
 
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
@@ -34,7 +35,7 @@ public class SimFloorShapeTests implements FabricClientGameTest {
     private static final String ROOM_DOORS = "com.killer560.hub.roomsim.RoomDoors";
 
     private static final String SOURCE_ROOMS =
-            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)/minecraft/config", "killer560smod-rooms");
+            ModUnderTest.instanceConfig(Machine.roomsConfigDir(), "killer560smod-rooms");
 
     private static final int GRID = 11;
     private static final int FLOORS = 120;
@@ -57,7 +58,7 @@ public class SimFloorShapeTests implements FabricClientGameTest {
                 "com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
 
         if (copyRealRooms() < 20) {
-            System.out.println("[73-sim-floor-shape] SKIPPED - needs his real rooms to generate a real floor");
+            Scenario.skipped("73-sim-floor-shape", "needs real room captures to generate a real floor");
             return;
         }
         // Room types come from the room database; the sim will not plan a floor without it (mod, 2026-10-05).

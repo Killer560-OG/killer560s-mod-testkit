@@ -38,6 +38,7 @@ import java.util.Set;
  *       drawn on the list or grid; screenshots of both screens.</li>
  * </ol>
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimMapFilterTests implements FabricClientGameTest {
 
     private static final String NAME = "75-sim-map-editor-filters";

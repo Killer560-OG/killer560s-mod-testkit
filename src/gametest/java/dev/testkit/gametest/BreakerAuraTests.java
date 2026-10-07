@@ -42,6 +42,7 @@ import java.util.Locale;
  * server: with a block that takes many ticks the module sends one packet, waits, and the per-tick rate this
  * is built to measure never happens.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class BreakerAuraTests implements FabricClientGameTest {
 
     private static final String MOD_ID = "killer560smod";

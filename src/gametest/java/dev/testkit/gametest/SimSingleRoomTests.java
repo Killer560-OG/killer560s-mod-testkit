@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * check works the same way - a block is found standing at the far corner of the floor first, and only then
  * is it required to be gone.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimSingleRoomTests implements FabricClientGameTest {
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
@@ -39,8 +40,7 @@ public class SimSingleRoomTests implements FabricClientGameTest {
     private static final String SCEPTRE = "com.killer560.hub.roomsim.SimSpiritSceptre";
 
     private static final String SOURCE_ROOMS =
-            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
-                    + "/minecraft/config", "killer560smod-rooms");
+            ModUnderTest.instanceConfig(Machine.roomsConfigDir(), "killer560smod-rooms");
 
     /** The room he loaded when he reported this. 2x2, so it also exercises a multi-tile single-room map. */
     private static final String ROOM = "Supertall";
@@ -61,7 +61,7 @@ public class SimSingleRoomTests implements FabricClientGameTest {
         if (copyDir(SOURCE_ROOMS, "killer560smod-rooms", ".json") < 20
                 || copyDir(Path.of(SOURCE_ROOMS).resolveSibling("killer560smod-roomdata").toString(),
                         "killer560smod-roomdata", "") == 0) {
-            System.out.println("[91-sim-single] SKIPPED - needs his real rooms and room database");
+            Scenario.skipped("91-sim-single", "needs real room captures and room database");
             return;
         }
         ctx.runOnClient(mc -> Scenario.loadRoomDatabaseNow());

@@ -14,6 +14,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  * {@link SimonSaysCases}. The device is server side ({@code hx/boss/HxSimonSays}) at the real coordinates
  * (x 110-111, y 120-123, z 91-95); the session's spawn platform is elsewhere and each case teleports to it.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class BossSuite implements FabricClientGameTest {
 
     public static final String SESSION = "500-boss-session";

@@ -1,6 +1,6 @@
 # WP1 - Foundation (done 2026-10-04)
 
-Everything WP2-WP7 build on. The plan is `C:/Users/Hunter/killer560s-mod-logs/TESTKIT-COVERAGE-PLAN.md`.
+Everything WP2-WP7 build on. The plan is the maintainer's coverage plan (TESTKIT-COVERAGE-PLAN.md, not in this repo).
 
 ## Frozen files
 
@@ -15,10 +15,10 @@ README.md. Also treat Hx.java, Session.java, Mod.java, Quiet.java, Fixtures.java
 ```
 ./run-suite.ps1 -Suite <name> -Port <port> [-Window x,y,w,h|off] [-ModUnderTest <jar>] [-Extra "-Pnogrim",...]
 ./gradlew runClientGameTest -Psuite=<name> -Pport=<port> -PmodUnderTest=<jar> --no-daemon     # same, no watcher
-./parallel-suite.ps1 -Suites a,b -Max 2 [-BasePort 25700]        # worktrees C:/Users/Hunter/killer560s-mod-testkit-wt/<n>
+./parallel-suite.ps1 -Suites a,b -Max 2 [-BasePort 25700]        # worktrees <worktreesDir>/<n>
 ```
 
-Snapshotted jars: `C:/Users/Hunter/killer560s-mod-testkit-jars/main-8c43a6d/` (mod HEAD 8c43a6d with the test hooks):
+Snapshotted jars: `<jarsDir>/main-8c43a6d/` (mod HEAD 8c43a6d with the test hooks):
 `killer560smod-1.1.0-26.1.2-cheat.jar` (BuildVariant md5 c7d5d8f5, cheat+dev) and `...-26.1.2-legit.jar` (1d821df5).
 Use them, never the mod's build/libs, which moves under you.
 
@@ -75,7 +75,7 @@ mod ignores X", run `-Psuite=demo` first: it separates a broken primitive from a
 
 ## Lessons
 
-- The old scripts matched clients by the bare path prefix `C:/Users/Hunter/killer560s-mod-testkit`, which is a prefix
+- The old scripts matched clients by the bare path prefix `<checkout>/killer560s-mod-testkit`, which is a prefix
   of every sibling checkout; place-test-window.ps1 in pzB moved pzA's client window (2026-10-04). Both now anchor the
   checkout root with a trailing slash and require `fabric.dli.env=client`. Checkouts still on older commits (pzA, pzB,
   boot at f7d4fd3/496ca50) keep the old placer and can still close a newer checkout's client when THEY start a run.

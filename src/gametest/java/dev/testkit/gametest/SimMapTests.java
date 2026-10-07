@@ -28,6 +28,7 @@ import java.util.List;
  * rooms, named, with doors between them, and with the room the player is standing in identified - because a
  * map that draws rooms but cannot say which one you are in is a map the interactive map cannot act on.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimMapTests implements FabricClientGameTest {
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
@@ -39,8 +40,7 @@ public class SimMapTests implements FabricClientGameTest {
     private static final String MAP_CODE = "com.killer560.hub.roomsim.MapCode";
 
     private static final String SOURCE_ROOMS =
-            ModUnderTest.instanceConfig("C:/Users/Hunter/AppData/Roaming/PrismLauncher/instances/26.1.2 (Mod Only Test)"
-                    + "/minecraft/config", "killer560smod-rooms");
+            ModUnderTest.instanceConfig(Machine.roomsConfigDir(), "killer560smod-rooms");
 
     private static final int GRID = 11;
 
@@ -55,7 +55,7 @@ public class SimMapTests implements FabricClientGameTest {
                 "com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
 
         if (copyRooms() < 20 || copyRoomData() == 0) {
-            System.out.println("[79-sim-map] SKIPPED - needs his real rooms and room database");
+            Scenario.skipped("79-sim-map", "needs real room captures and room database");
             return;
         }
         ctx.runOnClient(mc -> Scenario.loadRoomDatabaseNow());

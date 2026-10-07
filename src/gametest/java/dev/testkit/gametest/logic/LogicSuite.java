@@ -30,8 +30,9 @@ import net.minecraft.world.level.block.Blocks;
  * </pre>
  *
  * The catalog comes from {@code python tools/extract-patterns.py -PmodSource=<mod checkout>}; the mod source is read
- * from {@code -Dtestkit.modSource}, {@code $TESTKIT_MOD_SOURCE} or {@code C:/Users/Hunter/killer560s-mod}.
+ * from modSource in testkit.properties ({@code -Dtestkit.modSource}, {@code $TESTKIT_MOD_SOURCE}); without one the source checks SKIP.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class LogicSuite implements FabricClientGameTest {
 
     @Override

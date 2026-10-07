@@ -22,6 +22,63 @@ public final class ModUnderTest {
     private ModUnderTest() {
     }
 
+    /** One jar passed with -PmodUnderTest, read from its own fabric.mod.json - whatever mod it is. */
+    public record JarMod(String id, String version, java.nio.file.Path jar) {
+
+        public boolean loaded() {
+            return FabricLoader.getInstance().isModLoaded(id);
+        }
+
+        /** Keys of the jar's assets/&lt;id&gt;/lang/en_us.json, sorted; empty when it has none. */
+        public java.util.List<String> langKeys() {
+            try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(jar.toFile())) {
+                java.util.zip.ZipEntry e = zip.getEntry("assets/" + id + "/lang/en_us.json");
+                if (e == null) {
+                    return java.util.List.of();
+                }
+                try (java.io.Reader r = new java.io.InputStreamReader(zip.getInputStream(e),
+                        java.nio.charset.StandardCharsets.UTF_8)) {
+                    com.google.gson.JsonElement el = com.google.gson.JsonParser.parseReader(r);
+                    if (!el.isJsonObject()) {
+                        return java.util.List.of();
+                    }
+                    return new java.util.TreeSet<>(el.getAsJsonObject().keySet()).stream().toList();
+                }
+            } catch (Exception ex) {
+                return java.util.List.of();
+            }
+        }
+    }
+
+    /**
+     * The mods under test: one per jar in {@code fabric.addMods} (what -PmodUnderTest passes), read from each jar's
+     * fabric.mod.json. Empty for a -NoMod run. Nothing here assumes which mod it is.
+     */
+    public static java.util.List<JarMod> jarMods() {
+        java.util.List<JarMod> out = new java.util.ArrayList<>();
+        for (String part : System.getProperty("fabric.addMods", "").split(java.io.File.pathSeparator)) {
+            if (part.isBlank()) {
+                continue;
+            }
+            java.nio.file.Path jar = java.nio.file.Path.of(part.trim());
+            try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(jar.toFile())) {
+                java.util.zip.ZipEntry e = zip.getEntry("fabric.mod.json");
+                if (e == null) {
+                    continue;
+                }
+                try (java.io.Reader r = new java.io.InputStreamReader(zip.getInputStream(e),
+                        java.nio.charset.StandardCharsets.UTF_8)) {
+                    com.google.gson.JsonObject o = com.google.gson.JsonParser.parseReader(r).getAsJsonObject();
+                    out.add(new JarMod(o.get("id").getAsString(),
+                            o.has("version") ? o.get("version").getAsString() : "?", jar));
+                }
+            } catch (Exception ex) {
+                System.out.println("[mod-under-test] could not read " + jar + ": " + ex);
+            }
+        }
+        return out;
+    }
+
     private static final String MOD_PATHS = "com.killer560.hub.util.ModPaths";
 
     /**
@@ -65,6 +122,10 @@ public final class ModUnderTest {
     }
 
     public static void require(String modId) {
+        if (!loaded(modId) && modId.equals(dev.testkit.harness.ModGate.missing())) {
+            // The gate already turns every scenario of this class into a SKIP row; let the class reach them.
+            return;
+        }
         if (!loaded(modId)) {
             throw new AssertionError("Mod '" + modId + "' is not loaded. Pass it with "
                     + "-PmodUnderTest=C:/path/to/the.jar - without it this scenario would test nothing "

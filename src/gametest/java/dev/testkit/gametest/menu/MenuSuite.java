@@ -27,6 +27,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *       delivery, preview mismatch, close, off/legit ({@link AnvilCases})</li>
  * </ul>
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class MenuSuite implements FabricClientGameTest {
 
     static final String SESSION = "200-menu-session";

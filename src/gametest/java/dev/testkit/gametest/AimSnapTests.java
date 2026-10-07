@@ -29,6 +29,7 @@ import java.util.Locale;
  * <p>Two sizes, because the interesting question is whether there is a threshold: a small correction of the
  * kind a real shot needs, and a deliberate 150-degree snap.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class AimSnapTests implements FabricClientGameTest {
 
     private static final String MOD_ID = "killer560smod";

@@ -39,12 +39,12 @@ param(
     [string]$ModUnderTest = "",             # one version only; for both use -Jar261 / -Jar262
     [string]$Jar261 = "",
     [string]$Jar262 = "",
-    [string]$JarsDir = "C:/Users/Hunter/killer560s-mod-testkit-jars",
+    [string]$JarsDir = "",                  # default: jarsDir from testkit.properties
     [int]$Max = 3,
     [int]$BasePort = 25900,
     [string[]]$Extra = @(),
     [int]$TimeoutSeconds = 0,               # per shard; 0 = from the estimate (2.5x + 600 s, at least 900)
-    [string]$WorktreeRoot = "C:/Users/Hunter/killer560s-mod-testkit-shards",
+    [string]$WorktreeRoot = "",             # default: shardsDir from testkit.properties
     [string]$OutDir = "",
     [string]$SeedDurations = "",            # a summary.json (e.g. an unsharded run's report) to take measured seconds from
     [switch]$SplitLarge,                    # also split a plain-scenario unit bigger than a fair share (see below)
@@ -53,6 +53,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 $here = $PSScriptRoot
+. (Join-Path $here "tools/testkit-config.ps1")
+$cfg = Get-TestkitConfig $here
+if ($JarsDir -eq "") { $JarsDir = $cfg.jarsDir }
+if ($WorktreeRoot -eq "") { $WorktreeRoot = $cfg.shardsDir }
 $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 if ($OutDir -eq "") { $OutDir = (Join-Path $here "build/sharded-$stamp") }
 $OutDir = $OutDir.Replace('\', '/')
@@ -113,19 +117,23 @@ function Resolve-Jar([string]$ver) {
         if (-not (Test-Path $given)) { throw "mod jar not found: $given" }
         return (Get-Item $given).FullName.Replace('\', '/')
     }
-    # Newest snapshot holding that version's cheat jar, resolved ONCE so every shard tests the same file.
-    $snap = Get-ChildItem -Path $JarsDir -Directory -ErrorAction SilentlyContinue |
-        Sort-Object LastWriteTime -Descending |
-        ForEach-Object { Get-ChildItem -Path $_.FullName -Filter "killer560smod-*-$ver-cheat.jar" -ErrorAction SilentlyContinue } |
-        Select-Object -First 1
-    if (-not $snap) { throw "no killer560smod-*-$ver-cheat.jar under $JarsDir; pass -Jar261/-Jar262/-ModUnderTest" }
-    return $snap.FullName.Replace('\', '/')
+    # Newest snapshot holding that version's jar (modJarPattern), resolved ONCE so every shard tests the same file.
+    $c = $cfg.Clone(); $c.jarsDir = $JarsDir
+    $snap = Find-TestkitSnapshotJar $c $ver
+    if (-not $snap) { throw ("no " + $cfg.modJarPattern.Replace("{mc}", $ver) + " under $JarsDir; run ./get-mod.ps1 or pass -Jar261/-Jar262/-ModUnderTest") }
+    return $snap
 }
 $jars = @{}
 foreach ($v in $versions) {
     $jars[$v] = Resolve-Jar $v
-    if ($jars[$v] -notmatch ("-" + [regex]::Escape($v) + "-(cheat|legit)\.jar$")) {
+    # killer560s-mod jars carry the version in their name; any other mod is checked by its fabric.mod.json range.
+    $leaf = Split-Path $jars[$v] -Leaf
+    if (($leaf -match '-(cheat|legit)\.jar$') -and ($leaf -notmatch ("-" + [regex]::Escape($v) + "-(cheat|legit)\.jar$"))) {
         throw ("jar " + $jars[$v] + " is not named for Minecraft $v")
+    }
+    $info = Get-ModJarInfo $jars[$v]
+    if ($info -and (Test-McRange $info.Minecraft $v) -eq $false) {
+        throw ("jar " + $jars[$v] + " (" + $info.Id + ") declares minecraft '" + $info.Minecraft + "', which excludes $v")
     }
 }
 

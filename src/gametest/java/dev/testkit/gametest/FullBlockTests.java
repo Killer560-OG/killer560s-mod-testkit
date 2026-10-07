@@ -28,6 +28,7 @@ import java.util.Locale;
  * tests the feature - anything else measures an ordinary click. If no such aim exists it says so and fails,
  * rather than clicking a lever normally and reporting a clean result.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class FullBlockTests implements FabricClientGameTest {
 
     private static final String MOD_ID = "killer560smod";

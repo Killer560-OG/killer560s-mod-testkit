@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>Fish found on the SERVER ({@code getEntitiesOfClass} around him, once the client stands on the room), so the
  * readings are the sim's own state, and the attack goes to the client's copy by the same entity id.
  */
+@dev.testkit.harness.RequiresMod("killer560smod")
 public class SimIcePathShoveTests implements FabricClientGameTest {
 
     private static final String NAME = "94-sim-icepath-shove";
@@ -53,7 +54,7 @@ public class SimIcePathShoveTests implements FabricClientGameTest {
         ctx.waitTicks(20);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (!SimPuzzleSolveTests.seedRooms(ctx)) {
-            System.out.println("[" + NAME + "] SKIPPED - needs his real rooms and room database");
+            Scenario.skipped(NAME, "needs real room captures and room database");
             return;
         }
         // Nothing automatic may shove the fish: Auto Ice Path off.
