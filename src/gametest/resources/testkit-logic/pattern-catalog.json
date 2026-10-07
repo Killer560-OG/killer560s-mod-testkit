@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-07T08:02:08",
- "modSource": "C:/Users/Hunter/killer560s-mod/.claude/worktrees/fps-sweep",
- "modGitSha": "20a79df41fdc59b7bd4cf163451221171c27c786",
+ "generatedAt": "2026-10-07T09:30:00",
+ "modSource": "C:/Users/Hunter/killer560s-mod",
+ "modGitSha": "a411e650260b09c499b2de61f491bd988c2ed4ce",
  "modSourceDirty": false,
  "count": 416,
  "byKind": {
