@@ -69,3 +69,9 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   `DungeonState.setRoomSim(true)` (in a dungeon, not the boss), and puts both back. Its first run teleported a player who
   was not flying and photographed the door's underside while passing; set flying before the teleport and assert the eye
   height at every shot (2026-10-07).
+- `menu.anvil` (hx/menu/HxAnvil) is Hypixel's Anvil from the wiki's Anvil/UI template: inputs 29/33, Combine Items 22, result 13.
+  It combines ANY two items and records each as `anvil.combine {left,right,result}` (books merge enchant by enchant, equal
+  levels +1, no cap), so a wrong pair the mod sends shows up server-side instead of being refused. `claim:"direct"` puts the
+  result straight into the inventory, `preview:false` hides the slot-13 preview, `previewOverride` fakes a wrong one; whether
+  real Hypixel previews or how it hands the result over is NOT verified. Cases 292-297 (`AnvilCases`), selected with
+  `-Scenario "200-menu-session:,-menu-anvil-"`.

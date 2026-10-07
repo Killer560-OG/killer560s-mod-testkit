@@ -343,7 +343,9 @@ final class SliderCases {
         if (Mod.isCheat()) {
             // Auto Routes' Breaker Block Display / Style (mod ar-db-edit): the sweep must actually have laid them out,
             // or "0 overlapping" says nothing about them.
-            for (String want : new String[]{"Auto Routes|Breaker Block Display:", "Auto Routes|Breaker Block Style:"}) {
+            // Auto Anvil's side-by-side Min/Max Delay (mod auto-anvil), behind its OFF master switch.
+            for (String want : new String[]{"Auto Routes|Breaker Block Display:", "Auto Routes|Breaker Block Style:",
+                    "Auto Anvil|Min Delay:", "Auto Anvil|Max Delay:"}) {
                 String[] p = want.split("\\|");
                 List<String> where = SEEN.stream().filter(x -> x.contains("|" + p[1])).map(x -> x.substring(0, x.indexOf('|')))
                         .distinct().toList();

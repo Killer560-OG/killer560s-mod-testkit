@@ -40,12 +40,14 @@ import java.util.concurrent.ConcurrentHashMap;
  * menu.set {slot, stack|{item,...}}    replace one slot of the open Hx menu
  * menu.close                           close the player's open container server-side
  * menu.current                         -&gt; {containerId, title, hx}
+ * menu.anvil {preview=true, claim=slot|direct, previewOverride?}  Hypixel's Anvil (HxAnvil)
+ * menu.anvil.state                     -&gt; the last anvil: combines [{left,right,result}], inserts, claims
  * menu.onUse {id, menu}                using an item whose custom_data.id is {@code id} opens {@code menu} (a
  *                                      menu.show spec) - e.g. a Spirit Leap. {id:null} clears it.
  * menu.onCommand {name, menu}          /name (with any args) opens {@code menu}; the command is still recorded
  * </pre>
  * Events added to the stream: menu.opened, terminal.opened/click/solved, experiment.opened/click/round/pair/over,
- * menu.action, sell.sold, menu.use.
+ * menu.action, sell.sold, menu.use, anvil.insert/combine/claim.
  */
 public final class HxMenuModule implements HxModule {
 
@@ -62,6 +64,7 @@ public final class HxMenuModule implements HxModule {
         HxTerminals.register();
         HxExperiments.register();
         HxMenuSpec.register();
+        HxAnvil.register();
         ServerTickEvents.END_SERVER_TICK.register(HxMenus::tick);
         UseItemCallback.EVENT.register((player, level, hand) -> {
             if (player instanceof ServerPlayer sp && !level.isClientSide()) {
@@ -86,6 +89,8 @@ public final class HxMenuModule implements HxModule {
         HxBridge.register("menu.experiment", HxExperiments::open);
         HxBridge.register("menu.experiment.state", HxExperiments::state);
         HxBridge.register("menu.show", HxMenuSpec::show);
+        HxBridge.register("menu.anvil", HxAnvil::open);
+        HxBridge.register("menu.anvil.state", HxAnvil::state);
         HxBridge.register("menu.set", (s, a) -> {
             ServerPlayer p = HxPrimitives.player(s, a);
             HxChestMenu m = HxMenus.current(p);
