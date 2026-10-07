@@ -331,3 +331,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   folder; 413 presses the real "Mark tested" button, checks the tab lands in its category, survives a re-read of the marks
   file and is listed by `/k560tested list`. On a normal jar it checks none of that ships. 301, 380 and 389 know a testing
   jar's menu is different (leaf floor, fewer sidebar rows, Crosshair marked tested first).
+- 416-418 (boss): AP3's Term Aura node with the Terminal Aura setting off - TERM_AURA + TERMINAL on one spot, terminal behind
+  (416, must be clean, chain must reach the TERMINAL node and finish on the completion line, camera never moves) or in front
+  (417), and behind without the turn (418, flags recorded). The case taps `PacketTrace` and notes the wire order; a turned
+  interact sent before any movement packet reported the turn passed alone but never reached the server straight after
+  415's Hitboxes flag. 421 Lever Aura (S2 section lever at its real coordinates, `forceload` first - a fill into an unloaded
+  chunk silently does nothing and he fell 75 blocks), 422/423 Simon Says Auto Solve No Rotate facing away / facing the
+  device (the server's ss.completed is the proof). `BehindAuraTests` 419/420: Secret Aura, lever behind / in front.

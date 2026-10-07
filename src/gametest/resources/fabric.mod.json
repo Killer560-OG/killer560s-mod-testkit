@@ -22,6 +22,7 @@
 			"dev.testkit.gametest.AimSnapTests",
 			"dev.testkit.gametest.CameraRotationTests",
 			"dev.testkit.gametest.ReachTests",
+			"dev.testkit.gametest.BehindAuraTests",
 			"dev.testkit.gametest.EntityReachTests",
 			"dev.testkit.gametest.SpeedTests",
 			"dev.testkit.gametest.SimTests",

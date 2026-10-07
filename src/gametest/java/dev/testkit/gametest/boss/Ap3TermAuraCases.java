@@ -95,6 +95,21 @@ final class Ap3TermAuraCases {
             Object termAura = node("TERM_AURA", px, G + 3, pz);
             Object terminal = node("TERMINAL", px, G + 3, pz);
             float[] camera = {Float.NaN, Float.NaN, 0f}; // start yaw, start pitch, worst deviation seen
+            List<String> wire = java.util.Collections.synchronizedList(new ArrayList<>());
+            dev.testkit.harness.PacketTrace.tap = p -> {
+                if (p instanceof net.minecraft.network.protocol.game.ServerboundMovePlayerPacket m) {
+                    if (m.hasRotation()) {
+                        wire.add(String.format(java.util.Locale.ROOT, "move rot %.1f/%.1f", m.getYRot(0f), m.getXRot(0f)));
+                    }
+                } else if (!(p instanceof net.minecraft.network.protocol.common.ServerboundKeepAlivePacket)
+                        && !(p instanceof net.minecraft.network.protocol.game.ServerboundClientTickEndPacket)) {
+                    wire.add(p.getClass().getSimpleName());
+                }
+            };
+            undo.add(() -> {
+                dev.testkit.harness.PacketTrace.tap = null;
+                c.note(mode + ": on the wire " + wire);
+            });
             c.onClient(mc -> {
                 camera[0] = mc.player.getViewYRot(1f);
                 camera[1] = mc.player.getViewXRot(1f);
@@ -109,10 +124,21 @@ final class Ap3TermAuraCases {
                         + ", AP3 stop reason '" + c.onClient(mc -> String.valueOf(Mod.staticCall(EXEC, "stopReason"))) + "'");
                 return;
             }
-            c.waitUntil("the node's click reaching the server", mc -> {
-                trackCamera(mc, camera);
-                return c.events("term.interact").size() > before;
-            }, 40);
+            try {
+                c.waitUntil("the node's click reaching the server", mc -> {
+                    trackCamera(mc, camera);
+                    return c.events("term.interact").size() > before;
+                }, 40);
+            } catch (AssertionError e) {
+                c.note(mode + ": no click - AP3 armed=" + c.onClient(mc -> Mod.staticCall(EXEC, "isArmed"))
+                        + " running=" + c.onClient(mc -> Mod.staticCall(EXEC, "isRunning"))
+                        + " active=" + c.onClient(mc -> activeType())
+                        + " live=" + c.onClient(mc -> Mod.staticCall(FEATURE, "isBossLive"))
+                        + " pos=" + c.onClient(mc -> mc.player.position())
+                        + " inBox=" + c.onClient(mc -> Mod.call(termAura, "contains", mc.player.position()))
+                        + " stop='" + c.onClient(mc -> String.valueOf(Mod.staticCall(EXEC, "stopReason"))) + "'");
+                throw e;
+            }
             List<JsonObject> ev = c.events("term.interact");
             c.check(ev.size() - before == 1, "expected exactly one interact from the node, the server saw " + (ev.size() - before));
             JsonObject last = ev.get(ev.size() - 1);

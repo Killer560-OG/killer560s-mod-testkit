@@ -34,6 +34,7 @@ public class BossSuite implements FabricClientGameTest {
                     SimonSaysCases.register(s);
                     TerminalAuraCases.register(s);
                     Ap3TermAuraCases.register(s);
+                    BossAuraTurnCases.register(s);
                 });
     }
 }
