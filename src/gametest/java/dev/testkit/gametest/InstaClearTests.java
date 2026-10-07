@@ -607,8 +607,22 @@ public class InstaClearTests implements FabricClientGameTest {
     private static final String LIVE_MAP_CONFIG = "com.killer560.hub.livemap.LiveMapConfig";
     private static final String CLEAR_UTILS = "com.killer560.hub.livemap.autoclear.AutoClearUtils";
     private static final String EXECUTOR = "com.killer560.hub.livemap.autoclear.ClearExecutor";
+    /** The FULL graph, not the quick one: a press while the full warm-up runs plans room by room, which varies. */
     private static final java.util.regex.Pattern WARM =
-            java.util.regex.Pattern.compile("\\[Path\\] (?:quick )?floor graph warm: (\\d+) node");
+            java.util.regex.Pattern.compile("\\[Path\\] floor graph warm: (\\d+) node");
+    /**
+     * The F7 this case runs on (98-sim-insta-clear-live), pinned 2026-10-06 from a passing run: map path S=End -> T=Dome,
+     * 9 tiles apart, and both paths land in 4+ rooms on the way. null plans a random one. See liveCase.
+     */
+    private static final String LIVE_FLOOR_CODE =
+            "MC2:CxUIRW50cmFuY2UJV2F0ZXJmYWxsBUZsYWdzBUZhaXJ5BU1pbmVzBUF0bGFzBUJsb29kBU1vc3N5CVF1YWQgTGF2YQRRdWl6"
+            + "CEljZSBQYXRoDkRvdWJsZSBEaWFtb25kC1dhdGVyIEJvYXJkCE5ldyBUcmFwDFJlZHN0b25lIEtleQNFbmQJT3Zlcmdyb3duA0Rp"
+            + "cAtQcmlzb24gQ2VsbAREb21lDlJhcmUgT3Zlcmdyb3duABEDAQAAABAAAQAAAAICAAICAAICAAICAAICAAICAAICAAAAAAAAAAAA"
+            + "AAAAAQAAAAAAAAAAAAAAAAAAAAAABAAAAA4DAAAAABMAAQAAAAMDAAMDAAMDAQAAAAQAAAAAAAEDAQAAAAAAAAAAAAAAAAMDAAMD"
+            + "AAMDAAAAAQAAAAAAAAAAAAwAAQAAAAgBAAAAAAMDAAMDAAMDAAAAAAUAAAUAAAUAAAAAAAAAAAgBAAAAAAAAAAAAAAAAAAAAAAUA"
+            + "AAUAAAUAAA0CAQAAAAgBAQAAAAYBAAYBAAYBAQAAAAUAAAUAAAUAAAAAAAAAAAgBAAAAAAYBAAYBAAYBAAAAAAAAAAAAAAAAAAsD"
+            + "AQAAAAgBAAAAAAYBAAYBAAYBAwAAAAcAAAAAABUBAAAAAAAAAAgBAAAAAAAAAAAAAQAAAAAAAAAAAAAAAQAAABIBAQAAAAgBAAAA"
+            + "AAoDAQAAAAkCAQAAAA8CAQAAABQB";
 
     /**
      * His live F7 runs of 2026-10-06, travelling only with the Interactive Map, rebuilt on a sim floor (map states
@@ -667,12 +681,34 @@ public class InstaClearTests implements FabricClientGameTest {
             ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class}, new Object[]{"gametest"});
         });
         System.out.println("[" + name + "] verify-window hook present: " + verifyHook[0]);
+        // A fixed floor, not a random one: on a random floor the map path S -> T sometimes has no warp chain at
+        // all (2026-10-06: Silver Sword -> Bridges, "no way to tile"), and then every map case measured nothing.
+        // TESTKIT_INSTA_LIVE_CODE overrides it; "random" plans a fresh F7 and prints its code for pinning.
+        String override = System.getenv("TESTKIT_INSTA_LIVE_CODE");
+        String code = override == null || override.isBlank() ? LIVE_FLOOR_CODE
+                : override.equalsIgnoreCase("random") ? null : override.trim();
+        if (code == null) {
+            Object floor = ModUnderTest.enumValue("com.killer560.hub.roomsim.SimFloorGen$Floor", "F7");
+            Object planned = ctx.computeOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimFloorGen",
+                    "plan", new Class<?>[]{floor.getClass(), int.class, int.class}, new Object[]{floor, 3, 4}));
+            if (planned == null) {
+                throw new AssertionError("SimFloorGen.plan laid out no F7");
+            }
+            code = (String) ModUnderTest.call(planned, "code", new Class<?>[]{}, new Object[]{});
+        }
+        final String floorCode = code;
+        System.out.println("[" + name + "] floor code: " + floorCode
+                + (floorCode.equals(LIVE_FLOOR_CODE) ? " (pinned)" : " (not pinned)"));
         long before = Scenario.simBuildCount(ctx);
         ctx.runOnClient(mc -> mc.execute(() -> {
-            Object floor = ModUnderTest.enumValue("com.killer560.hub.roomsim.SimFloorGen$Floor", "F7");
-            ModUnderTest.staticCall("com.killer560.hub.roomsim.SimFloorGen", "generate",
-                    new Class<?>[]{Minecraft.class, floor.getClass(), int.class, int.class},
-                    new Object[]{mc, floor, 3, 4});
+            // What SimFloorGen.generate does with a planned floor, minus the planning.
+            ModUnderTest.staticCall(SIM_STATE, "setFloorLabel", new Class<?>[]{String.class}, new Object[]{"F7"});
+            java.util.function.Consumer<Minecraft> build = c -> ModUnderTest.staticCall(
+                    "com.killer560.hub.roomsim.SimBuilder", "build", new Class<?>[]{Minecraft.class, String.class},
+                    new Object[]{c, floorCode});
+            ModUnderTest.staticCall("com.killer560.hub.roomsim.SimWorld", "open",
+                    new Class<?>[]{Minecraft.class, String.class, java.util.function.Consumer.class, String.class},
+                    new Object[]{mc, floorCode, build, "Generating Floor 7"});
         }));
         ctx.waitFor(mc -> mc.level != null);
         try {
