@@ -271,7 +271,8 @@ final class PartyFinderStyleCases {
         for (Component l : tip) {
             String s = l.getString();
             for (String n : NAMES) {
-                if (s.contains(n) && !s.contains("'s Party")) {
+                // Not the item name, and not the "? = no stats for <name> - <source>: <why>" footer (mod pf-stats).
+                if (s.contains(n) && !s.contains("'s Party") && !strip(s).startsWith("? = ")) {
                     out.add(l);
                     break;
                 }

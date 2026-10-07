@@ -117,3 +117,11 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   nearly equilateral and easy to misread by eye: its point is the vertex opposite the SHORTEST side. Measure the
   heading rather than eyeballing a screenshot. The single-sim-room part publishes `FlatTestRoom` through `SimBuilder.publishSingleRoomMap` with
   `SimState.active` set by reflection, then resets the grid; it fails on mod 6f3515ba (fit 7.25, a 145-unit cell).
+- 400-menu-partyfinder-stats (`PartyFinderStatsCases`): the Party Finder's member stats from a loopback HTTP fake that
+  the case starts on server port + 6 (`testkit.fakeHttp.port`). build.gradle points the mod's `pv-backend`, `minecraftservices`
+  and `mojang` services at it on every offline run (under `/pv`, `/mcs`, `/mojang`) unless `-PnetOverride` names them;
+  nothing listens there outside the case, so other cases see the same ConnectException as offline. Fixtures are REAL
+  SkyBlockPV-backend answers (AntsRNG, celybispuppy, Elysianz1, 2026-10-07) trimmed to the dungeon fields, in
+  `src/gametest/resources/testkit-http/` - not `testkit-fixtures/`, whose files must follow SCHEMA.md. The mod's
+  `LOOKUPS_STARTED` counter spans the session (236 starts lookups too): measure a delta. 236 skips the "? = no stats for
+  <name>" footer when collecting member lines. Fails on mod 6f3515ba (all ?), passes on pf-stats a6e69519.
