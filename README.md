@@ -31,7 +31,8 @@ execution policy refuses it. No configuration file is needed for any of it.
 5. **Warm the build once** (downloads Minecraft, Fabric and GrimAC, stages the server; several minutes the first
    time, and the run scripts' deadline would otherwise count it): `.\gradlew.bat compileGametestJava writeTestServerLaunch`
 6. **Prove the harness**: `.\run-scenario.ps1 -Scenario smoke`. Expect `[00-smoke] harness OK - anticheat is live and
-   detecting`, `anticheat clean` and `Run finished with exit code 0` (about a minute). Smoke cheats on purpose and
+   detecting`, `anticheat clean` and `Run finished with exit code 0` (about a minute; with killer560s-mod the filter
+   also selects its six `30x-ui-smoke-*` cases, which run in a singleplayer world). Smoke cheats on purpose and
    **fails if the anticheat stays quiet** - a missing anticheat does not error, it looks exactly like a clean run.
 7. **Read the report**: `build\testkit-report\summary.md` - one row per scenario (PASS, FAIL, FLAGGED, SKIP with its
    reason, RAN), and `cases\<name>.log` with the server console and client log of each.
@@ -64,7 +65,8 @@ contains `a` or `b`. Times are one client on the maintainer's machine, build alr
 | `solve` | the 11 auto-puzzle rooms in the sim (needs room captures) | killer560smod | ~15 min |
 
 Without killer560smod loaded, every killer560smod scenario is a `SKIP` row reading `needs killer560smod`, never a
-failure. Sharding a long filter over several clients: `.\run-sharded.ps1 -Suite k560 -Shards 3` (see below).
+failure. Sharding a long filter over several clients: `.\run-sharded.ps1 -Suite k560 -Shards 3` (see below; it takes
+`-ModUnderTest <jar>` or `-NoMod` like run-scenario, and `-BasePort` to move its ports).
 
 ## Configuration
 
