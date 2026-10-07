@@ -63,3 +63,10 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   GrimAutoRoutesTests require the mod before filtering - read the scenario's own PASS line. Grim's transaction pings arrive
   as ~15 `minecraft:pong` a second, counted not listed. On 26.2 the gametest API adds `fabric-client-gametest-api-v1:gametest_sync`
   to the register lists; it is the harness, not the mod, and is in both runs.
+
+- 390-ui-stat-bars (Health and Mana Bars tab, mod bars-tab): its "no Scale control" check first passed on the OLD jar too,
+  because the old tab kept its Scale sliders inside closed dropdowns and only under readouts that were on (2026-10-07).
+  A "this control is gone" check must read a layout where it would exist: every readout on from the config, every section
+  header opened. Old-save size check: `TESTKIT_BARS_EXPORT=<dir>` on the old jar writes its config and the measured bar
+  (`bars-tab-export.properties`); `-Extra @('-PseedConfig=<dir>')` on the new jar compares pixel for pixel. Run it alone,
+  since earlier ui cases (310, 320, 330) rewrite config.
