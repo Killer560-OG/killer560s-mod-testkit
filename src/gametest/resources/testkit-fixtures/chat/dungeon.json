@@ -12,7 +12,7 @@
     "id": "chat.prince-killed",
     "kind": "chat",
     "payload": "A Prince falls. +1 Bonus Score",
-    "source": {"file": "src/main/java/com/killer560/hub/scorecalc/ScoreCalculatorFeature.java", "line": 100},
+    "source": {"file": "src/main/java/com/killer560/hub/scorecalc/ScoreCalculatorFeature.java", "line": 103},
     "matches": ["scorecalc.ScoreCalculatorFeature#PRINCE_KILLED"],
     "mode": "matches",
     "verifiedBy": "regex"
