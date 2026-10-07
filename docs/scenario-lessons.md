@@ -207,3 +207,12 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   his way; the no-key line came after (2.0 blocks short). It now waits for that line. Rooms named Maze, Boulder or Trap
   are never routed or used as the insta-clear landing: the mod starts no path from inside one past its start
   (`AutoClearUtils.canPath`), so Auto Secret waited there for the rest of the run (Arrow Trap, about one run in three).
+
+- 404-sim-planner-* (`SimPlannerGapsTests`, mod planner-gaps): judge a planner "no way" against a ground truth before
+  calling it a bug - breadth-first over real etherwarps cast on the SERVER's level with `TeleportUtils.traverseVoxels`,
+  landings kept to the mod's own rules (cover, `LevelEtherGrid.blackListed`, no warp on from a trap, maze or Boulder).
+  Without those rules the first sweep read 87 "reachable" no-ways; 83 were New Trap (no etherwarp from a trap). The two
+  131 dead spots of 2026-10-07 are a one-block floor in the open seam between two rooms' walls, sealed except to the
+  roof: "no way" is right there, and 131's `pickCorrection` already avoids them. `-gaps` and `-sweep` share the pinned
+  F7; `-cracks` builds its own floor and must be named alone - a second floor built into the open sim world never
+  warmed its graph (quick and full graph silent for 90 s).
