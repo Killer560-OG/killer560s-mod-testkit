@@ -51,3 +51,9 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   stays dark at noon and full gamma; 143 switches the mod's Fullbright on for its shots and restores it.
 - 141-sim-autopilot re-shuts the sim blood door by putting its blocks back (`SimDoors` keeps a door registered once open);
   142-sim-autopilot2 wants `TESTKIT_SIM_INSTANCE=Map Logger` and drops keys 25-100 blocks off (further is off the client).
+
+- 392-ui-blood-camp drives Blood Camp with REAL move packets: armour stands wearing a blood-mob skull (`summon ... equipment:
+  {head:{... "minecraft:profile":{properties:[{name:"textures",value:...}]}}}`) moved by server-side `setPos` beside a zombie
+  wearing a Watcher skull. Difficulty must be EASY for the run (peaceful discards the zombie). The tag accessor on 26.1.2 is
+  `Entity.entityTags()`, not `getTags()`. A muted client reports no played sounds to `SoundEventListener`s, so the sounds are
+  counted by the mod (`BloodCampFeature.countdownStartSoundsPlayed/killSoundsPlayed`), like 64's alarm.
