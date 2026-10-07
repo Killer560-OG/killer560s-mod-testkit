@@ -103,8 +103,22 @@ final class MapHeadCases {
                 dev.testkit.compat.McCompat.clearChatAndToasts(mc);
                 return null;
             });
+            // The party tracker is session state: an hx session earlier in the same client (111's party chat, 100's
+            // tab list) leaves HxMateA/HxMateB in it, and then the map rightly draws only those two - never this
+            // case's RemotePlayers. Empty it for the case (every real player is then a teammate) and restore it.
             List<?> party = c.onClient(mc -> (List<?>) Mod.staticCall("leapmenu.PartyTracker", "teammates"));
-            c.note("party tracker teammates before the case: " + party + " (empty = every real player is a teammate)");
+            c.note("party tracker teammates before the case: " + party + " (cleared for the case)");
+            c.onClient(mc -> {
+                @SuppressWarnings("unchecked")
+                java.util.Set<String> members = (java.util.Set<String>) Mod.field("leapmenu.PartyTracker", "MEMBERS");
+                List<String> was = new ArrayList<>(members);
+                members.clear();
+                restore.add(0, () -> {
+                    members.clear();
+                    members.addAll(was);
+                });
+                return null;
+            });
 
             // ---- the frames on the green room ----
             Shot greenBase = baseShot(c, "green-base", GREEN_ROOM, away);
@@ -413,6 +427,7 @@ final class MapHeadCases {
         teleport(c, away[0], away[1], SELF_YAW);
         Shot base = shot(c, "sim-room-base");
         int[] frame = frameBox(base.img, GREEN_ROOM);
+        boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isOnSkyblock"));
         try {
             c.onClient(mc -> {
                 Mod.setField("roomsim.SimState", "active", true);
@@ -458,7 +473,49 @@ final class MapHeadCases {
                 return null;
             });
             c.ticks(2);
+            removeSimSidebar(c, gateWas);
         }
+    }
+
+    /**
+     * While {@code SimState.active} is set, the sim's {@code SimSidebar} writes its "SKYBLOCK" objective
+     * ({@code k560sim}) into THIS world's scoreboard - in the sim that is the sim's own world, here it is the UI
+     * suite's. Flipping the flag back by reflection skips the sim's teardown, so the objective stayed on the sidebar,
+     * {@code SkyblockGate} read the UI world as Skyblock, and 401-ui-scoreboard-editor (next in the suite) drew the
+     * live Skyblock board instead of its preview (2026-10-07). Take the objective and its teams off on the server,
+     * forget the sidebar's state, and put the gate's verdict back - it would otherwise hold "Skyblock" for 10 s.
+     */
+    private static void removeSimSidebar(UiCase c, boolean gateWas) {
+        java.util.concurrent.atomic.AtomicBoolean done = new java.util.concurrent.atomic.AtomicBoolean();
+        c.onClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            server.execute(() -> {
+                var board = server.getScoreboard();
+                var objective = board.getObjective("k560sim");
+                if (objective != null) {
+                    board.removeObjective(objective);
+                }
+                for (int i = 0; i < 16; i++) {
+                    var team = board.getPlayerTeam("k560t" + i);
+                    if (team != null) {
+                        board.removePlayerTeam(team);
+                    }
+                }
+                done.set(true);
+            });
+            return null;
+        });
+        c.ctx().waitFor(mc -> done.get(), 100);
+        c.ctx().waitFor(mc -> mc.level.getScoreboard().getObjective("k560sim") == null, 100);
+        c.onClient(mc -> {
+            Mod.staticCall("roomsim.SimSidebar", "reset");
+            Mod.setField("util.SkyblockGate", "onSkyblock", gateWas);
+            return null;
+        });
+        c.ticks(2);
+        boolean sb = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isOnSkyblock"));
+        c.note("sim sidebar removed; SkyblockGate.isOnSkyblock " + sb + " (was " + gateWas + " before the sim room)");
+        c.check(sb == gateWas, "the sim room's sidebar still makes the UI world read as Skyblock");
     }
 
     // ---- the Interactive Map ------------------------------------------------------------------------------------

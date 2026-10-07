@@ -97,6 +97,20 @@ final class ScoreboardEditorCases {
         boolean newJar = c.onClient(mc -> Mod.has(LIST_CLASS) && Mod.has("scoreboard.EntryOrder"));
         c.note("this jar " + (newJar ? "has" : "has NO") + " the add/trash list editor (gui.DragListWidget, "
                 + "scoreboard.EntryOrder); config " + cfgPath);
+        // The drawn board is the PREVIEW only off Skyblock: on Skyblock previewLines() is the live board. A case before
+        // this one that leaves a "SKYBLOCK" sidebar in the UI world (395's sim room did, 2026-10-07) makes every check
+        // below read the live board. Say which sidebar it is rather than failing on the symptom.
+        String sidebar = c.onClient(mc -> {
+            var o = mc.level.getScoreboard().getDisplayObjective(net.minecraft.world.scores.DisplaySlot.SIDEBAR);
+            return o == null ? "none" : o.getName() + " \"" + o.getDisplayName().getString() + "\"";
+        });
+        boolean onSkyblock = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isOnSkyblock"));
+        c.note("before the case: sidebar " + sidebar + ", SkyblockGate.isOnSkyblock " + onSkyblock);
+        if (onSkyblock) {
+            c.problem("the UI world reads as Skyblock (sidebar " + sidebar + ") - an earlier case left its sidebar; "
+                    + "the board would be the live one, not the editor's preview");
+            return;
+        }
         try {
             Path seeded = configDir.resolve(EXPORT_PROPS);
             if (Files.exists(seeded)) {
