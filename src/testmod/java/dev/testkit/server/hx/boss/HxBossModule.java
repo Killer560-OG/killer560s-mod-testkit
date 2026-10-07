@@ -28,5 +28,11 @@ public final class HxBossModule implements HxModule {
         HxBridge.register("boss.ss.state", (server, args) -> HxSimonSays.describe());
         HxBridge.register("boss.ss.clear", HxSimonSays::clear);
         ServerTickEvents.END_SERVER_TICK.register(HxSimonSays::tick);
+        HxBridge.register("boss.term.build", HxTerminalStand::build);
+        HxBridge.register("boss.term.spawn", HxTerminalStand::spawn);
+        HxBridge.register("boss.term.config", HxTerminalStand::config);
+        HxBridge.register("boss.term.state", (server, args) -> HxTerminalStand.describe());
+        HxBridge.register("boss.term.clear", HxTerminalStand::clear);
+        HxTerminalStand.register();
     }
 }
