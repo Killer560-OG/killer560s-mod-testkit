@@ -143,6 +143,13 @@ public class FullBlockTests implements FabricClientGameTest {
                     });
                     ctx.waitTicks(80);
                     PacketWatch.stop();
+                    // OFF again before anything below can throw. Left on, it clicked whatever a later scenario's
+                    // crosshair crossed: in the 2026-10-07 sharded run 62-full-block-reach ran first in the shard and
+                    // its triggerbot flipped 62-argrim's levers back alongside Auto Routes' own use (two use_item_on in
+                    // one tick), failing 62-argrim-hand/-legit/-play on old and new jars alike.
+                    ctx.runOnClient(mc -> ModUnderTest.set(
+                            ModUnderTest.config("com.killer560.hub.secrettrigger.SecretTriggerbotConfig"),
+                            "setEnabled", false));
 
                     boolean flippedAfter = powered(ctx);
                     long post = scenario.flags().stream()

@@ -221,6 +221,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     "setAutoPuzzlesMasterEnabled", false);
             ModUnderTest.set(ModUnderTest.config("com.killer560.hub.cheatutils.CheatUtilsConfig"),
                     "setSecretAuraEnabled", false);
+            // Every other feature that clicks a secret on its own, whatever an earlier scenario in this client left on:
+            // a Secret Triggerbot left on by 62-full-block-reach clicked these cases' levers as the legit route turned
+            // the crosshair onto them, so each lever was flipped twice (sharded run, 2026-10-07).
+            ModUnderTest.set(ModUnderTest.config("com.killer560.hub.secrettrigger.SecretTriggerbotConfig"),
+                    "setEnabled", false);
+            ModUnderTest.set(ModUnderTest.config("com.killer560.hub.leveraura.LeverAuraConfig"), "setEnabled", false);
             Object map = ModUnderTest.config("com.killer560.hub.livemap.LiveMapConfig");
             ModUnderTest.set(map, "setEnabled", true);
             ModUnderTest.set(map, "setInteractiveMapEnabled", true);
