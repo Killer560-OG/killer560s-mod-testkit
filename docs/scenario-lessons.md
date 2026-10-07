@@ -97,3 +97,10 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   private on 26.2, so `TextRuns` reads them by name.
 
 - 236-menu-partyfinder-style (`PartyFinderStyleCases`): for each Party Finder style it compares the REAL tooltip (`getTooltipFromContainerItem`, through the mod's mixin) with the settings preview (`renderPreviewLines`) colour run by colour run, after putting the preview's own stats into `PartyFinderStatsApi.CACHE`; and, with no stats (offline = what Hypixel's stats service gives on 2026-10-07), that every member line is still styled and draws 0x555555 brackets. Highlight is judged by pure green/red pixels per slot against a highlight-off frame. Fails on mod 0b492828, passes on pf-overlay 2aecfd9a.
+
+- 397-menu-petwheel-instant times /pets against `FrameClock.tickCount()/frameCount()` (always-on counters, added for it) read
+  just before a `TestInput` release; in the lockstep nothing ticks or renders between that read and the input task, so 0 ticks
+  and "sent inside the input task" means the release itself sent it. `TestInput` fakes `InputConstants.isKeyDown` only, NOT
+  `glfwGetMouseButton`, so a raw-polled bind under test must be a keyboard key. Wait a tick after `setCursorPos` before a
+  release: a screen that resolves the hover from its last DRAWN cursor otherwise reads the stale centre (the old jar picked
+  nothing on the first run, 2026-10-07).
