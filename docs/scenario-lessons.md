@@ -185,3 +185,25 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   mod's builds kept the starred set until fix-sim. Reproduce with the shard's order `70-sim-flat-room,73-sim-floor-shape,74-sim-run,
   76-sim-secrets,79-sim-map,143-sim-key-look,96-ar,63-ap3-session,80-sim-playable,84-sim-floor-sizes,88-sim-server-safety,
   89-sim-starred-mobs`; `96-ar-mimic,89`, `96-ar,89` and `96-ar,88,89` (once each) did not reproduce it.
+
+- 131-sim-auto-clear (`SimAutoClearTests`, 2026-10-07 flaky-autos). The "correction" case teleported him two nested
+  `server.execute`s after the start, which lands anywhere from Auto Clear's own decide tick to the middle of its etherwarp
+  trip; in the trip it was the Interactive Map runner's to judge, and Auto Clear neither counted it nor, when it landed
+  while the trip was being PLANNED, did the runner call it a correction (mod fix, see the mod's LESSONS-AUTOMATION). Now
+  three sub-cases: `correction` (a tick after the start, hops on), `correction-trip` (hops off, once the runner is busy)
+  and `correction-plan` (hops off, sent with the start - the failing timing; fails on 799c5c2f). Each move goes beside
+  or behind him (90+ degrees from the zombie: over 2.3 blocks from any hop's line, outside Auto Clear's own-landing band),
+  inside the same room, onto a spot the map's planner can path from (twice a spot by a wall had "no way" to a zombie 13
+  blocks off and the rest of the run stalled), and must reach the client while Auto Clear still runs; at a room's edge
+  with nothing of the room behind him, he is first put in its middle. The log says which check caught it.
+- 131 "hop": from a carpet, slab or stair top the mod's dash model (`SimAbilities.dashTarget`, the sim server's too)
+  finds no landing at all, so Auto Clear rightly plans no hop (diagnosis line: "straight dash lands null"); case 3's
+  etherwarp had left him on a brown carpet. The case now puts him on a full block of the room first, one with an open
+  floor spot 9-16 blocks off (Silver Sword had none from where case 3 left him). Whether Hypixel dashes from a part
+  block is not measured.
+- 131 "door": a room filled in "through Entrance" has no ordinary door, so `SimDoors.witherDoorsAround` turned none
+  (Carpets, 0). The case now takes the first mob room whose every door is ordinary and checks it is shut off on the map.
+- 102-sim-autosecret: the main run stopped as soon as Auto Secret's phase read DOOR, which starts while he is still on
+  his way; the no-key line came after (2.0 blocks short). It now waits for that line. Rooms named Maze, Boulder or Trap
+  are never routed or used as the insta-clear landing: the mod starts no path from inside one past its start
+  (`AutoClearUtils.canPath`), so Auto Secret waited there for the rest of the run (Arrow Trap, about one run in three).
