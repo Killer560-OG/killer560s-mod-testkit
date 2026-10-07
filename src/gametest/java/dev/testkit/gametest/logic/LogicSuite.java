@@ -25,6 +25,7 @@ import net.minecraft.world.level.block.Blocks;
  * 358-logic-mapcode-floorlayout MapCode round trip/fuzz, SimFloorLayout helpers and seeded determinism
  * 359-logic-bazaar-party       Bazaar flip sizing/book direction/ranking, party-command authorisation
  * 362-logic-boss-timers        0.27.2 pacing (NoammAddons 1.2.9): Tick Timers, Blood Camp kill, Auto i4 prediction re-roll
+ * 402-logic-autokick-units     Auto Kick populate: fastest_time_s is milliseconds (real AntsRNG profile, 263003 -> 264 s)
  * 363-logic-roof-cover         Interactive Map landings outside the sim: an open roof refused, under a ceiling accepted
  * </pre>
  *
@@ -44,6 +45,7 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "356-logic-score-blessings", DomainCases::scoreAndBlessings);
         LogicCase.run(ctx, "358-logic-mapcode-floorlayout", DomainCases::mapCodeAndLayout);
         LogicCase.run(ctx, "359-logic-bazaar-party", DomainCases::bazaarAndParty);
+        LogicCase.run(ctx, "402-logic-autokick-units", AutoKickCases::units);
         // ItemStacks need item components, which are bound only once a world's registries load ("Components not
         // bound yet" at the title screen). The two cases that build stacks run in a throwaway singleplayer world.
         if (!Scenario.skip("354-logic-terminals") || !Scenario.skip("357-logic-items-ap3-routes")
