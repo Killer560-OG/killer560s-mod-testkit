@@ -228,6 +228,9 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   better: it arrives as one string, so the volume flag is lost and the client played sound (2026-10-06). Call the script
   from PowerShell itself with `-Extra @("-PtestVolume=0", ...)`, and check the run prints "Test client volume set to 0".
 
+- `run-sharded.ps1 ... | Out-File x.txt` leaves x.txt EMPTY: the script prints with Write-Host, which a pipeline does
+  not carry. An `until grep -q "merged report" x.txt` wait then never ends; eight such loops were found still running
+  on 2026-10-06. Read `build/sharded-<timestamp>/summary.md`, or the background task's own output file.
 - **Pass `-PmodUnderTest` a literal `C:/...` path.** In Git Bash, `$(cygpath -m "$(ls ...)")` around a long scratchpad
   path came back empty twice (2026-10-04, 2026-10-05) and the run died at configuration with "modUnderTest not found: \\",
   before any test ran. Write the path out.
