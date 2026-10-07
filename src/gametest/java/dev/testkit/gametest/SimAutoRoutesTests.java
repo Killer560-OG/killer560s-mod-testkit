@@ -4151,6 +4151,15 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             }
         }));
         ctx.waitFor(mc -> mc.level == null && mc.getSingleplayerServer() == null, 1200);
+        // Let the mod's own unload handler (deferred to a client tick) run first: it resets the per-map state only
+        // while the sim is still active, so calling leave() before it ran skips that reset. The likely way 96-ar-mimic's
+        // five starred mimics reached a later floor (89 read "1 spawned, 5 starred", 2026-10-06 and 2026-10-07; the
+        // mod's builds now forget them either way).
+        try {
+            ctx.waitFor(mc -> !(Boolean) ModUnderTest.staticCall(SIM_STATE, "isActive"), 200);
+        } catch (RuntimeException | AssertionError ignored) {
+            // the leave() below still turns it off; never replaces the verdict
+        }
         ctx.runOnClient(mc -> {
             try {
                 ModUnderTest.staticCall(SIM_STATE, "leave");
