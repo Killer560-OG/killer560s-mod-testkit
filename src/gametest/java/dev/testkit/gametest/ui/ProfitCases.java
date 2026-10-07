@@ -41,12 +41,13 @@ final class ProfitCases {
 
     private static final List<Exp> TRACKERS = List.of(
             new Exp("croesus", "Dungeon Profit", "croesus.CroesusTrackerScreen"),
-            new Exp("etable", "Experimentation Table", "gui.profit.ExperimentsProfitScreen"),
-            new Exp("mining", "Mining Profit", "gui.profit.MiningProfitScreen"),
-            new Exp("nucleus", "Nucleus Runs", "gui.profit.NucleusProfitScreen"));
+            new Exp("etable", "Experimentation Table", "gui.profit.ExperimentsProfitScreen"));
+    // Mining Profit (/profit mining, gui.profit.MiningProfitScreen) and Nucleus Runs (/profit nucleus,
+    // gui.profit.NucleusProfitScreen) are shelved until after 2.0 with the rest of mining (mod shelved/mining/;
+    // 411-ui-mining-shelved checks they are gone). Put both rows back here, in WORDS and in direct() on restore.
 
-    /** Every word the command accepts: the four names above plus their aliases. */
-    private static final List<String> WORDS = List.of("croesus", "dungeon", "etable", "experiments", "mining", "nucleus");
+    /** Every word the command accepts: the names above plus their aliases. */
+    private static final List<String> WORDS = List.of("croesus", "dungeon", "etable", "experiments");
 
     private ProfitCases() {
     }
@@ -171,16 +172,14 @@ final class ProfitCases {
                 {"profit croesus", "croesus.CroesusTrackerScreen"}, {"profit dungeon", "croesus.CroesusTrackerScreen"},
                 {"profit etable", "gui.profit.ExperimentsProfitScreen"},
                 {"profit experiments", "gui.profit.ExperimentsProfitScreen"},
-                {"profit ETABLE", "gui.profit.ExperimentsProfitScreen"},
-                {"profit mining", "gui.profit.MiningProfitScreen"},
-                {"profit nucleus", "gui.profit.NucleusProfitScreen"}};
+                {"profit ETABLE", "gui.profit.ExperimentsProfitScreen"}};
         for (String[] t : cases) {
             run(c, t[0]);
             Screen s = expectScreen(c, t[1], "/" + t[0]);
             Frames.Drawn drawn = c.onClient(mc -> Frames.extract(mc, s, -1, -1));
             c.check(drawn.total() > 0, "/" + t[0] + " opened " + t[1] + " but it drew nothing");
             c.check(widget(s, "< Back") == null, "/" + t[0] + " opened directly but shows a Back button (nowhere to go)");
-            if (t[0].equals("profit etable") || t[0].equals("profit mining")) {
+            if (t[0].equals("profit etable")) {
                 Path shot = c.ctx().takeScreenshot(Report.fileName(c.name() + "-direct-" + t[0].substring(7)));
                 Report.screenshot(c.name(), shot);
             }
@@ -223,11 +222,11 @@ final class ProfitCases {
         c.note("completions after '/profit e': " + e);
         c.check(new java.util.TreeSet<>(e).equals(new java.util.TreeSet<>(List.of("etable", "experiments"))),
                 "'/profit e' offers " + e);
-        List<String> n = suggest(c, "profit n");
-        c.check(n.equals(List.of("nucleus")), "'/profit n' offers " + n);
+        List<String> n = suggest(c, "profit d");
+        c.check(n.equals(List.of("dungeon")), "'/profit d' offers " + n);
         List<String> none = suggest(c, "profit zzz");
         c.check(none.isEmpty(), "'/profit zzz' offers " + none);
-        c.note("'/profit n' -> " + n + ", '/profit zzz' -> " + none);
+        c.note("'/profit d' -> " + n + ", '/profit zzz' -> " + none);
     }
 
     /** /croesus profit is kept as an alias: it still opens the dungeon tracker (with no parent). */

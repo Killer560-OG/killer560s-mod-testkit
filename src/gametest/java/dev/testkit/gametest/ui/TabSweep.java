@@ -21,11 +21,12 @@ import java.util.regex.Pattern;
 final class TabSweep {
 
     /**
-     * Floors, measured on mod f40ec89 (cheat 168 = 10 top-level, 11 folders, 157 leaves; legit 140 = 10, 10, 130): the tab tree as ModScreen builds it, counting folders and
-     * leaves. Set at the measured value, so losing even one tab fails - a floor a broken menu can clear is not one.
+     * Floors, the tab tree as ModScreen builds it, counting folders and leaves. Set at the measured value, so losing
+     * even one tab fails - a floor a broken menu can clear is not one. Re-measured on mod aa09fd82 (mining shelved until
+     * after 2.0, which took the Mining (WIP) folder and its four sections out): cheat 173, legit 138.
      */
-    static final int CHEAT_TAB_FLOOR = 168;
-    static final int LEGIT_TAB_FLOOR = 140;
+    static final int CHEAT_TAB_FLOOR = 173;
+    static final int LEGIT_TAB_FLOOR = 138;
 
     /** A two-state toggle as the mod labels them: "Name: ON" / "Name: OFF" (section signs stripped). */
     static final Pattern TOGGLE = Pattern.compile("^(.+): (ON|OFF)$");
