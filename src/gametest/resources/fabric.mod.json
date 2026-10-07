@@ -44,6 +44,7 @@
 			"dev.testkit.gametest.SimKeyLookTests",
 			"dev.testkit.gametest.SimIcePathShoveTests",
 			"dev.testkit.gametest.SimInteractiveMapTests",
+			"dev.testkit.gametest.SimMapHudTests",
 			"dev.testkit.gametest.SimAutoRoutesTests",
 			"dev.testkit.gametest.GrimAutoRoutesTests",
 			"dev.testkit.gametest.Ap3RuntimeTests",
