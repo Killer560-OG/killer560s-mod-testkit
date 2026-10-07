@@ -78,7 +78,8 @@ Scenarios so far: 62-argrim (Auto Routes on GrimAC, see below), 48-56 Breaker Au
 picks-only since mod 9e83c4fc, so 50-52 pick the whole corridor and 53-56 cover side, floor, behind and through-wall picks), 60 Secret
 Triggerbot, 99-sim-essence-aura (Secret Aura on a sim wither essence holding AOTV / Hyperion, first world and after a
 rebuild; server-side click record, collection and Auto Routes' await; only when named, captures from "Map Logger" unless
-`TESTKIT_SIM_INSTANCE` says otherwise),
+`TESTKIT_SIM_INSTANCE` says otherwise), 99-sim-aura-rebuild (Secret Aura on the same chest and lever of Museum over three
+builds of the room in one sim world; server-side click record; fails on mod 5008e4d6, only when named),
 143-sim-key-look (pictures of a dropped sim Wither Key and Blood Key, front-on and from above, plus their stand's
 flags on the client; only when named, `TESTKIT_SIM_INSTANCE=Map Logger`),
 110-sim-puzzle-reset (player reset rules of mod 35a663ba: only failed puzzles, never Water Board, Boulder when built, a draft kept when nothing resets),
@@ -133,7 +134,8 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   a real scoreboard sidebar rather than the mod's sim override, which forces boss phase on.
 - Give every scenario its **own coordinates**. The done-set below is static and survives the world being
   rebuilt between scenarios in one client, so two scenarios sharing an arena means the second silently finds
-  nothing to do and reports "nothing was sent". This has now cost three scenarios.
+  nothing to do and reports "nothing was sent". This has now cost three scenarios. (Since mod aura-rebuild Secret
+  Aura's and the Triggerbot's sets also clear on a live map reset - any sim build - but not on a TestMap rebuild.)
 - A probe's own mistakes look exactly like findings. The entity-reach probe drew `Hitboxes` violations because
   it passed an entity's feet as the hit vector; the mod's own features aim at a point on the box and were never
   at fault. Separate the two halves in the scenario's own output, or a later reader will quote both.
