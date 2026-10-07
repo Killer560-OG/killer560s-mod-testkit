@@ -234,3 +234,12 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   thread it reaches `Minecraft.getInstance()` and throws. Cross-jar old config: `TESTKIT_BARSLAYOUT_EXPORT=<dir>` on the old
   jar, then `-Extra @('-PseedConfig=<dir>')` on the new one (the case deletes the props file once it has compared). Since
   that mod branch a fresh config is Predefined, so 399's resize/snap cases switch to Custom before placing bars.
+
+- 96-ar-405-* (mod ar-crypt-mapopen, killer560's 2026-10-07 Map Logger log). `-crypt-mapopen` plays his Museum stack from #10
+  twice, no screen and with `InteractiveMapScreen(true)` open throughout, and compares the crypt node's hold (ticks, use
+  ticks, gaps); on 799c5c2f the map pass sent 0 uses in 101 ticks. `-startwarp` does 20 Go + Secret warps to #1 from his
+  spot (his mimic chest, Secret Aura, sceptre in slot 3, `/speed` 600 via `SimSpeed.set`, half with the map open): all 20
+  pass on the old jar too - the sim never made his 1-block move - so 10 more tries make that move with a server `tp`
+  during #1's await (rewritten as a 600 ms DELAY). The route must be stopped with Auto Routes OFF before he is put back:
+  stopped on #2 it re-arms there at once, and the next press then logs "Stopped: Interactive Map" (count "Stopped" only
+  after the arming).
