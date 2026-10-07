@@ -104,3 +104,9 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   `glfwGetMouseButton`, so a raw-polled bind under test must be a keyboard key. Wait a tick after `setCursorPos` before a
   release: a screen that resolves the hover from its last DRAWN cursor otherwise reads the stale centre (the old jar picked
   nothing on the first run, 2026-10-07).
+- 396-sim-smooth-tp (`SimSmoothTeleportTests`, mod smooth-tp): anything timed in WALL time (the camera glide) needs the test
+  thread to sleep between `waitTicks(1)` calls - in the gametest lockstep the client renders one frame per tick as fast as it
+  can, so a 400 ms glide otherwise spans an arbitrary number of frames. It sleeps 20 ms a tick (about 30 frames per 400 ms)
+  and samples `Camera.position()` in `LevelRenderEvents.AFTER_TRANSLUCENT_FEATURES` (the accessor is `getMainCamera` on
+  26.1.2, `mainCamera` on 26.2, so by reflection). `chunk_batch_received` differs between lanes with chunk loading; leave it
+  out of any packet-equality check. Fails on mod batch-1007 (no config class, camera jumps 12 of 12 blocks in one frame).
