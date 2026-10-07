@@ -111,25 +111,13 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 
 ## Quirks and lessons
 
+The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [docs/scenario-lessons.md](docs/scenario-lessons.md).
+
 - The mod's Auto Scale (ON by default since 2026-10-05) scales its HUD and its own screens by
   `3 * min(W/2560, H/1440) / guiScale`. The default gametest window (854x480, GUI 2) is factor 0.5: mod screens are laid
   out at `guiSize / 0.5` and saved HUD positions are baseline units drawn at `saved * 0.5`, so compare a dragged element
   with `HudElementRegistry.resolvePosition`, never with `HudConfig.getPosition`. `380-ui-autoscale` resizes the window
   (`TestInput.resizeWindow`, then `options.guiScale().set(3)` + `mc.resizeGui()` - the resize alone keeps the old scale).
-- The gametest client runs at render distance 5, so on a whole sim floor the far rooms' chunks never reach it: a map
-  press on them says "Couldn't find goal position" and a client-side scan finds air. Scenario 95-sim-map-warp sets
-  `mc.options.renderDistance()` to 16 for its run and puts it back. A sim floor's entrance is also sealed until
-  `SimRun.begin` opens the gate (see 81/95), so nothing outside it is reachable before that.
-- The etherwarp graphs warm whenever the Interactive Map is on in a dungeon, and behind the sealed entrance a warm-up
-  sees only the entrance, so 95's "press during the first warm-up" raced both ways (full graph warm by GO, or the quick
-  graph missing its 600 ms at GO under load). 95 keeps the map off until the floor's chunks are in and the gate is
-  open, on until the quick graph is warm on 3,000+ nodes, then off until the press. Toggle the map to hold a graph cold.
-- 95's press line used to quote the LAST plan of a press, so a 21-warp trip refused at its last hop and re-planned twice
-  read as "1 warp for 175 blocks" (2026-10-06). It now lists every plan, fails on any "[Sim] no etherwarp target there"
-  (a planned hop the server refused - knife-edge aims, fixed in mod im-quickgraph) and on N warps covering more than
-  N x 61 + 30 blocks, and asserts a tile press uses exactly the warps of the mod's own [check] plan without the
-  centre preference (build.gradle sets `killer560.test.checkFewest`), printing landing depth before vs after.
-  Floors are random per run and the refusals depend on the floor: judge 95 over 8+ runs, not one.
 - The mod arrives via Fabric Loader's `fabric.addMods` (`-PmodUnderTest`). `modLocalRuntime` does not exist
   in this Loom version, and a jar dropped in the run directory's `mods/` is deleted because the client
   gametest API rebuilds that directory every run.
@@ -244,6 +232,8 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 - `run-sharded.ps1 ... | Out-File x.txt` leaves x.txt EMPTY: the script prints with Write-Host, which a pipeline does
   not carry. An `until grep -q "merged report" x.txt` wait then never ends; eight such loops were found still running
   on 2026-10-06. Read `build/sharded-<timestamp>/summary.md`, or the background task's own output file.
+- **Port 26905 is taken by Medal.exe** (his clip recorder) on this machine: `-Port 26900` puts the Hx bridge on it and the
+  menu session dies with MalformedJsonException at Hx.connect (2026-10-07). Use another block (26950 is free).
 - **Pass `-PmodUnderTest` a literal `C:/...` path.** In Git Bash, `$(cygpath -m "$(ls ...)")` around a long scratchpad
   path came back empty twice (2026-10-04, 2026-10-05) and the run died at configuration with "modUnderTest not found: \\",
   before any test ran. Write the path out.
