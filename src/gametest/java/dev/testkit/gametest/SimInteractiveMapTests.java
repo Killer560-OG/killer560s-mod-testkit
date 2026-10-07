@@ -74,7 +74,7 @@ public class SimInteractiveMapTests implements FabricClientGameTest {
             System.out.println("[" + NAME + "] SKIPPED - needs his real rooms and room database");
             return;
         }
-        ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomdatabase.RoomDatabase", "ensureLoading"));
+        ctx.runOnClient(mc -> Scenario.loadRoomDatabaseNow());
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomdatabase.RoomDatabase", "isReady"),
                 1000);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(ROOM_LIBRARY, "forceReload"));

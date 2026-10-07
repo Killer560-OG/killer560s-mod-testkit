@@ -74,8 +74,7 @@ public class SimPlayableTests implements FabricClientGameTest {
             System.out.println("[80-sim-playable] SKIPPED - needs his rooms and room database");
             return;
         }
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(
-                "com.killer560.hub.roomdatabase.RoomDatabase", "ensureLoading"));
+        ctx.runOnClient(mc -> Scenario.loadRoomDatabaseNow());
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(
                 "com.killer560.hub.roomdatabase.RoomDatabase", "isReady"));
         // Room types come from the room database; the sim will not plan a floor without it (mod, 2026-10-05).

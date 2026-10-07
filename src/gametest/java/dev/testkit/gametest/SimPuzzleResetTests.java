@@ -52,8 +52,7 @@ public class SimPuzzleResetTests implements FabricClientGameTest {
             throw new AssertionError("the puzzle solution files are not on this machine, so Boulder cannot be "
                     + "built and the Boulder rules cannot be tested");
         }
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(
-                "com.killer560.hub.roomdatabase.RoomDatabase", "ensureLoading"));
+        ctx.runOnClient(mc -> Scenario.loadRoomDatabaseNow());
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(
                 "com.killer560.hub.roomdatabase.RoomDatabase", "isReady"));
 

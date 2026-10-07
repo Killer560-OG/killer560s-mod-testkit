@@ -77,8 +77,7 @@ public class SimPuzzleTests implements FabricClientGameTest {
             System.out.println("[78-sim-puzzles] SKIPPED - the puzzle solution files are not on this machine");
             return;
         }
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(
-                "com.killer560.hub.roomdatabase.RoomDatabase", "ensureLoading"));
+        ctx.runOnClient(mc -> Scenario.loadRoomDatabaseNow());
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(
                 "com.killer560.hub.roomdatabase.RoomDatabase", "isReady"));
 

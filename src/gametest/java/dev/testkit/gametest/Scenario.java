@@ -162,11 +162,37 @@ public final class Scenario {
         if (copied == 0) {
             return 0;
         }
+        ctx.runOnClient(mc -> loadRoomDatabaseNow());
         ctx.waitFor(mc -> {
             ModUnderTest.staticCall("com.killer560.hub.roomdatabase.RoomDatabase", "ensureLoading");
             return (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomdatabase.RoomDatabase", "isReady");
         }, 1000);
         return copied;
+    }
+
+    /**
+     * Starts a room-database load NOW: clears the mod's failed-load backoff, then calls {@code ensureLoading}.
+     *
+     * <p>Any scenario on the test server with a dungeon sidebar runs the live map, which asks for the database,
+     * and offline with no copy of it each failure backs off further (30, 60, 120 s ... up to 10 min). In a full
+     * run 60/62/81-83 ran first and left it at 120 s, so the next sim scenario copied the files and then waited
+     * 50 s on a load that would not even be tried for two minutes - 77 and 110 failed "Timed out waiting for
+     * predicate" in ensureRoomDatabase (2026-10-07). The files this scenario just copied are the precondition
+     * the backoff was waiting for, so the wait is over. Call once, on the client thread, after copying; calling it
+     * every tick would defeat the backoff for a load that genuinely fails.
+     */
+    public static void loadRoomDatabaseNow() {
+        String db = "com.killer560.hub.roomdatabase.RoomDatabase";
+        if (!(Boolean) ModUnderTest.staticCall(db, "isReady")) {
+            try {
+                java.lang.reflect.Field next = Class.forName(db).getDeclaredField("nextAttemptAtMs");
+                next.setAccessible(true);
+                next.setLong(null, 0L);
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError("could not clear the room database's retry backoff", e);
+            }
+        }
+        ModUnderTest.staticCall(db, "ensureLoading");
     }
 
     /**
