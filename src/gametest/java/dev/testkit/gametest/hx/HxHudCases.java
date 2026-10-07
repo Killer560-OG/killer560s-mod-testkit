@@ -47,20 +47,20 @@ final class HxHudCases {
                             () -> Mod.call(abilityCfg, "setAbilityEnabled", impact, shown))) {
                 run(c, () -> Mod.staticCall("abilitycooldown.AbilityCooldownState", "reset"));
                 c.hx().overlay("§c1/1❤");
-                c.waitUntil("health reset to 1/1", mc -> "1/1".equals(Mod.field("playerstats.PlayerStatsFeature", "health")), 40);
+                c.waitUntil("health reset to 1/1", mc -> "1/1".equals(playerStat("health")), 40);
                 // Forged: the same stats as normal chat from another player (not the action bar).
                 c.hx().chat("§7[VIP] HxEvil§f: §c9999/9999❤ §b-50 Mana (§6Ender Warp§b)");
                 c.ctx().waitTicks(10);
-                c.check("1/1".equals(c.onClient(mc -> Mod.field("playerstats.PlayerStatsFeature", "health"))),
+                c.check("1/1".equals(c.onClient(mc -> playerStat("health"))),
                         "chat (not the action bar) changed PlayerStats health");
                 c.check(!c.onClient(mc -> (Boolean) Mod.staticCall("abilitycooldown.AbilityCooldownState", "isOnCooldown", impact)),
                         "chat (not the action bar) started Ender Warp's cooldown");
                 send(c, "overlay.ability-ender-warp");
                 c.waitUntil("PlayerStatsFeature.health == 1500/1500",
-                        mc -> "1500/1500".equals(Mod.field("playerstats.PlayerStatsFeature", "health")), 40);
+                        mc -> "1500/1500".equals(playerStat("health")), 40);
                 c.waitUntil("AbilityCooldownState.isOnCooldown(ENDER_BOW) from the SAME action bar line",
                         mc -> (Boolean) Mod.staticCall("abilitycooldown.AbilityCooldownState", "isOnCooldown", impact), 40);
-                Object mana = c.onClient(mc -> Mod.field("playerstats.PlayerStatsFeature", "mana"));
+                Object mana = c.onClient(mc -> playerStat("mana"));
                 c.check("900/1000".equals(mana), "mana " + mana);
                 c.note("chat-borne stats ignored; one overlay line -> health 1500/1500, mana " + mana
                         + " AND the Ender Warp cooldown (both readers saw it)");

@@ -23,6 +23,25 @@ public final class HxKit {
     private HxKit() {
     }
 
+    // ---- player stats -----------------------------------------------------------------------------------------
+
+    /**
+     * What Stat Bars last read off the action bar, as "cur/max" (or "value" for defence), null before the first read.
+     * The mod's String fields {@code health}/{@code mana}/{@code defense} fed only the Classic Display and went with it
+     * (mod a302cab2, hud-editor-bars, 2026-10-07); the bars and readouts read the numeric copies used here.
+     * {@code stat} is "health", "mana" or "defense".
+     */
+    public static String playerStat(String stat) {
+        String k = "playerstats.PlayerStatsFeature";
+        if ("defense".equals(stat)) {
+            long v = ((Number) Mod.field(k, "defenceValue")).longValue();
+            return v < 0 ? null : Long.toString(v);
+        }
+        long cur = ((Number) Mod.field(k, stat + "Cur")).longValue();
+        long max = ((Number) Mod.field(k, stat + "Max")).longValue();
+        return cur < 0 || max < 0 ? null : cur + "/" + max;
+    }
+
     // ---- fixtures ---------------------------------------------------------------------------------------------
 
     /** A fixture by id, after checking it against the LOADED mod's patterns (a disagreement fails the case). */
