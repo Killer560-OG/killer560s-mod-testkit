@@ -96,7 +96,8 @@
 			"dev.testkit.gametest.logic.LogicSuite",
 			"dev.testkit.gametest.dsim.DungeonServerSuite",
 			"dev.testkit.gametest.boss.BossSuite",
-			"dev.testkit.gametest.perf.FpsBenchTest"
+			"dev.testkit.gametest.perf.FpsBenchTest",
+			"dev.testkit.gametest.perf.HubPerfBenchTest"
 		]
 	},
 	"depends": {
