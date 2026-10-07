@@ -128,6 +128,14 @@ public class TestKitServer implements DedicatedServerModInitializer {
                             return say(context, "unprotected");
                         }))
                         .then(Commands.literal("sweep").executes(TestKitServer::sweep))
+                        // Send ClientboundOpenSignEditorPacket for a sign to every real player, the way an anticheat's
+                        // translation probe does. Vanilla's own right-click path refuses to open the editor for a sign
+                        // whose lines are not plain text (SignBlock.hasEditableText), the client handler does not.
+                        .then(Commands.literal("opensign")
+                                .then(Commands.argument("x", IntegerArgumentType.integer())
+                                        .then(Commands.argument("y", IntegerArgumentType.integer())
+                                                .then(Commands.argument("z", IntegerArgumentType.integer())
+                                                        .executes(TestKitServer::openSign)))))
                         .then(Commands.literal("report").executes(TestKitServer::report))
                         .then(Commands.literal("clear")
                                 .executes(context -> {
@@ -453,6 +461,17 @@ public class TestKitServer implements DedicatedServerModInitializer {
         }
         action.accept(player);
         return say(context, "ok");
+    }
+
+    private static int openSign(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context) {
+        BlockPos pos = new BlockPos(IntegerArgumentType.getInteger(context, "x"),
+                IntegerArgumentType.getInteger(context, "y"), IntegerArgumentType.getInteger(context, "z"));
+        int sent = 0;
+        for (net.minecraft.server.level.ServerPlayer player : context.getSource().getServer().getPlayerList().getPlayers()) {
+            player.connection.send(new net.minecraft.network.protocol.game.ClientboundOpenSignEditorPacket(pos, true));
+            sent++;
+        }
+        return say(context, "opensign " + pos.toShortString() + " sent to " + sent);
     }
 
     private static int say(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context, String message) {

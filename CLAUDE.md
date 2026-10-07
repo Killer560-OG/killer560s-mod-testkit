@@ -84,7 +84,9 @@ builds of the room in one sim world; server-side click record; fails on mod 5008
 flags on the client; only when named, `TESTKIT_SIM_INSTANCE=Map Logger`),
 110-sim-puzzle-reset (player reset rules of mod 35a663ba: only failed puzzles, never Water Board, Boulder when built, a draft kept when nothing resets),
 64-correction-alarm (the mod's `killer560smod:correction_alarm` is known to the sound manager, its .ogg is in the resources,
-`ModSounds.playCorrectionAlarm` plays once and rate-limits the second; run it with `-Minecraft 26.2` too).
+`ModSounds.playCorrectionAlarm` plays once and rate-limits the second; run it with `-Minecraft 26.2` too),
+65-join-fingerprint (every serverbound byte from handshake to play plus a sign translation probe; needs a `run-scenario.ps1 -NoMod`
+baseline per Minecraft version first, see docs/scenario-lessons.md).
 
 ## Auto puzzle suite (93-solve-*)
 

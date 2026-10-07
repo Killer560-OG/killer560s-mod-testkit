@@ -51,3 +51,12 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   stays dark at noon and full gamma; 143 switches the mod's Fullbright on for its shots and restores it.
 - 141-sim-autopilot re-shuts the sim blood door by putting its blocks back (`SimDoors` keeps a door registered once open);
   142-sim-autopilot2 wants `TESTKIT_SIM_INSTANCE=Map Logger` and drops keys 25-100 blocks off (further is off the client).
+
+- 65-join-fingerprint: vanilla's server opens a sign editor only when every line is plain text (`SignBlock.hasEditableText`),
+  so a right-click on a translate/keybind sign never opens it; the client's `handleOpenSignEditor` has no such gate, which is
+  what anticheat probes rely on. The scenario sends the packet with the testmod's `testkit opensign x y z`. `WireCapture`
+  (mixin on `PacketEncoder.encode` TAIL) is the only hook that sees handshake and login packets too. Run `-NoMod` first per
+  Minecraft version (writes `build/join-fingerprint/nomod-<mc>.txt`); a -NoMod run exits 1 because Ap3RuntimeTests and
+  GrimAutoRoutesTests require the mod before filtering - read the scenario's own PASS line. Grim's transaction pings arrive
+  as ~15 `minecraft:pong` a second, counted not listed. On 26.2 the gametest API adds `fabric-client-gametest-api-v1:gametest_sync`
+  to the register lists; it is the harness, not the mod, and is in both runs.
