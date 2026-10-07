@@ -115,8 +115,10 @@ function Resolve-Jar([string]$ver) {
     elseif ($ver -eq "26.1.2") { $given = $Jar261 }
     else { $given = $Jar262 }
     if ($given -ne "") {
-        if (-not (Test-Path $given)) { throw "mod jar not found: $given" }
-        return (Get-Item $given).FullName.Replace('\', '/')
+        # One jar or a comma list (a mod and its libraries); each must exist.
+        $parts = @($given -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
+        foreach ($p in $parts) { if (-not (Test-Path $p)) { throw "mod jar not found: $p" } }
+        return (($parts | ForEach-Object { (Get-Item $_).FullName.Replace('\', '/') }) -join ',')
     }
     # Newest snapshot holding that version's jar (modJarPattern), resolved ONCE so every shard tests the same file.
     $c = $cfg.Clone(); $c.jarsDir = $JarsDir
@@ -129,13 +131,15 @@ foreach ($v in $versions) {
     if ($NoMod) { $jars[$v] = ""; continue }
     $jars[$v] = Resolve-Jar $v
     # killer560s-mod jars carry the version in their name; any other mod is checked by its fabric.mod.json range.
-    $leaf = Split-Path $jars[$v] -Leaf
-    if (($leaf -match '-(cheat|legit)\.jar$') -and ($leaf -notmatch ("-" + [regex]::Escape($v) + "-(cheat|legit)\.jar$"))) {
-        throw ("jar " + $jars[$v] + " is not named for Minecraft $v")
-    }
-    $info = Get-ModJarInfo $jars[$v]
-    if ($info -and (Test-McRange $info.Minecraft $v) -eq $false) {
-        throw ("jar " + $jars[$v] + " (" + $info.Id + ") declares minecraft '" + $info.Minecraft + "', which excludes $v")
+    foreach ($one in ($jars[$v] -split ',')) {
+        $leaf = Split-Path $one -Leaf
+        if (($leaf -match '-(cheat|legit)\.jar$') -and ($leaf -notmatch ("-" + [regex]::Escape($v) + "-(cheat|legit)\.jar$"))) {
+            throw ("jar " + $one + " is not named for Minecraft $v")
+        }
+        $info = Get-ModJarInfo $one
+        if ($info -and (Test-McRange $info.Minecraft $v) -eq $false) {
+            throw ("jar " + $one + " (" + $info.Id + ") declares minecraft '" + $info.Minecraft + "', which excludes $v")
+        }
     }
 }
 

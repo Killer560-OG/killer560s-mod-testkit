@@ -61,32 +61,44 @@ if ($NoMod) {
         exit 4
     }
 }
-if ((-not $NoMod) -and (-not (Test-Path $ModUnderTest))) {
-    Write-Host "Mod under test not found: $ModUnderTest"
-    exit 4
-}
-$modInfo = $null
-if (-not $NoMod) {
-    $modInfo = Get-ModJarInfo $ModUnderTest
-    if (-not $modInfo) {
-        Write-Host "Mod under test $ModUnderTest has no readable fabric.mod.json - is it a Fabric mod jar?"
+# One jar, or several as a comma list (a mod and the libraries it needs); the first is "the" mod under test.
+$jarList = @()
+if (-not $NoMod) { $jarList = @($ModUnderTest -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }) }
+foreach ($j in $jarList) {
+    if (-not (Test-Path $j)) {
+        Write-Host "Mod under test not found: $j"
         exit 4
     }
+}
+$modInfo = $null
+$infos = @()
+foreach ($j in $jarList) {
+    $info = Get-ModJarInfo $j
+    if (-not $info) {
+        Write-Host "Mod under test $j has no readable fabric.mod.json - is it a Fabric mod jar?"
+        exit 4
+    }
+    $infos += $info
+}
+if ($infos.Count -gt 0) {
+    $modInfo = $infos[0]
     # Any mod: the Minecraft version follows the jar unless -Minecraft was given. Both versions in range (">=26.1")
     # keeps the default.
     if (-not $PSBoundParameters.ContainsKey('Minecraft')) {
         $fits = @(@("26.1.2", "26.2") | Where-Object { (Test-McRange $modInfo.Minecraft $_) -eq $true })
         if ($fits.Count -eq 1) { $Minecraft = $fits[0] }
     }
-    if ((Test-McRange $modInfo.Minecraft $Minecraft) -eq $false) {
-        Write-Host "Mod under test $($modInfo.Id) declares minecraft '$($modInfo.Minecraft)', which excludes this run's -Minecraft $Minecraft"
-        exit 4
+    foreach ($info in $infos) {
+        if ((Test-McRange $info.Minecraft $Minecraft) -eq $false) {
+            Write-Host "Mod under test $($info.Id) declares minecraft '$($info.Minecraft)', which excludes this run's -Minecraft $Minecraft"
+            exit 4
+        }
     }
 }
 # killer560s-mod's jars carry their Minecraft version in the classifier (-26.1.2-cheat / -26.2-legit) and their
 # fabric.mod.json ranges are mutually exclusive, so a mismatch is a client that refuses to start.
 $leaf = ""
-if (-not $NoMod) { $leaf = Split-Path $ModUnderTest -Leaf }
+if (-not $NoMod) { $leaf = Split-Path $jarList[0] -Leaf }
 if (($leaf -match '-(\d+\.\d+(?:\.\d+)?)-(cheat|legit)\.jar$') -and ($Matches[1] -ne $Minecraft)) {
     Write-Host "Mod under test $leaf is built for Minecraft $($Matches[1]), but this run is -Minecraft $Minecraft"
     exit 4
@@ -246,7 +258,7 @@ $what = $Scenario
 if ($Suite -ne "") { $what = "suite $Suite" }
 if ($what -eq "") { $what = "all scenarios" }
 $modLabel = "none (-NoMod)"
-if ($modInfo) { $modLabel = "$($modInfo.Id) $($modInfo.Version) from $ModUnderTest" }
+if ($modInfo) { $modLabel = (($infos | ForEach-Object { "$($_.Id) $($_.Version)" }) -join ", ") + " from $ModUnderTest" }
 Write-Host "Running $what on Minecraft $Minecraft with a $TimeoutSeconds s deadline in $here (mod: $modLabel)"
 $proc = Start-Process -FilePath "$here\gradlew.bat" -ArgumentList $gradleArgs -WorkingDirectory $here -PassThru -NoNewWindow
 # Touch the handle now: without it PowerShell 5.1 reports ExitCode as empty once the process has gone, and a caller
