@@ -544,13 +544,28 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	systemProperty "testkit.quiet", noQuiet ? "false" : "true"
 	// Interactive Map tile clicks also plan without the centre preference and log it (95 asserts the warps match).
 	systemProperty "killer560.test.checkFewest", "true"
+	def overridden = [] as Set
 	if (project.hasProperty("netOverride")) {
 		project.property("netOverride").toString().split(";").each { pair ->
 			def eq = pair.indexOf('=')
 			if (eq <= 0) {
 				throw new GradleException("-PnetOverride: expected service=url, got '${pair}'")
 			}
+			overridden << pair.substring(0, eq).trim()
 			systemProperty "killer560.net.${pair.substring(0, eq).trim()}", pair.substring(eq + 1).trim()
+		}
+	}
+	// The in-client HTTP fake (menu/PartyFinderStatsCases, server port + 6), used by 400-menu-partyfinder-stats to
+	// serve the Party Finder's player stats: the SkyBlockPV backend and the two Mojang name lookups point at it unless
+	// -PnetOverride names them. Offline runs only. Nothing listens there outside a case that starts the fake, so every
+	// other case's call to these services fails with the same ConnectException the offline switch gives.
+	def fakeHttpPort = serverPort + 6
+	systemProperty "testkit.fakeHttp.port", fakeHttpPort.toString()
+	if (!noQuiet && !project.hasProperty("netOnline")) {
+		["pv-backend": "pv", "minecraftservices": "mcs", "mojang": "mojang"].each { svc, prefix ->
+			if (!overridden.contains(svc)) {
+				systemProperty "killer560.net.${svc}", "http://127.0.0.1:${fakeHttpPort}/${prefix}"
+			}
 		}
 	}
 

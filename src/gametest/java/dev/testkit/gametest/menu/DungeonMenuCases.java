@@ -24,6 +24,7 @@ final class DungeonMenuCases {
         MenuSuite.test(s, "234-menu-dungeonclass-select", DungeonMenuCases::classSelect);
         MenuSuite.test(s, "235-menu-partyfinder", DungeonMenuCases::partyFinder);
         MenuSuite.test(s, "236-menu-partyfinder-style", PartyFinderStyleCases::style);
+        MenuSuite.test(s, "400-menu-partyfinder-stats", PartyFinderStatsCases::stats);
     }
 
     static void inDungeon(Session c) {
