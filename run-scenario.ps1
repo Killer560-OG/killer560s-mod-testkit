@@ -15,7 +15,8 @@
 # Parameters beyond the scenario filter (all optional):
 #   -Suite <name>        a named filter from suites.properties instead of -Scenario
 #   -Port <n>            this checkout's server port (Hx bridge on n+5); sticks for later runs of this checkout
-#   -Window <x,y,w,h>    where to put the client window, or "off"
+#   -Window <x,y,w,h>    where to put the client window, "off", or "auto"/empty (the default): claim a screen slot -
+#                        a quadrant of the left monitor, or a finer grid while more than 4 runs are live
 #   -Extra <args>        anything else for gradle, e.g. -Extra "-Pnogrim","-PseedConfig=C:/x"
 #   -ModUnderTest <jar>  default: the newest snapshot in C:/Users/Hunter/killer560s-mod-testkit-jars/*/ (cheat,
 #                        for -Minecraft), falling back to the mod's own build/libs. Pass it explicitly when it matters.
@@ -91,6 +92,109 @@ function Get-TestClients {
     }
 }
 
+# Screen slots. killer560 (2026-10-07): "I really like how it is split into those 4 quadrants with one test in each
+# quadrant so I can see all of them at once. If you are ever running more than 4 at once then resize them."
+# Every run without an explicit -Window claims a slot file in one directory shared by every checkout and worktree
+# (the file holds this script's pid; a dead pid's slot is free again). Up to 4 live runs use the left monitor's
+# quarters by slot number; more than that, every live run moves to a grid that fits them all, and back as they end.
+$slotDir = "C:/Users/Hunter/killer560s-mod-testkit-jars/.window-slots"
+$mySlot = -1
+$screen = @{ X = -1920; Y = 361; W = 1920; H = 1080 }   # the left monitor, as place-test-window.ps1's default
+
+function Get-LiveSlots {
+    $live = @()
+    foreach ($f in Get-ChildItem -Path $slotDir -Filter "slot-*.txt" -ErrorAction SilentlyContinue) {
+        $owner = 0
+        try { $owner = [int]((Get-Content -Path $f.FullName -ErrorAction Stop | Select-Object -First 1)) } catch {}
+        if ($owner -gt 0 -and (Get-Process -Id $owner -ErrorAction SilentlyContinue)) {
+            $live += [int]($f.BaseName.Substring(5))
+        }
+    }
+    return @($live | Sort-Object)
+}
+
+function Get-SlotTile([int]$slot) {
+    $live = @(Get-LiveSlots)
+    if ($live -notcontains $slot) { $live = @($live + $slot | Sort-Object) }
+    $n = $live.Count
+    if ($n -le 4 -and ($live | Measure-Object -Maximum).Maximum -lt 4) {
+        $col = $slot % 2
+        $row = [math]::Floor($slot / 2)
+        $w = [int]($screen.W / 2)
+        $h = [int]($screen.H / 2)
+    } else {
+        $cols = [int][math]::Ceiling([math]::Sqrt($n))
+        $rows = [int][math]::Ceiling($n / $cols)
+        $idx = [array]::IndexOf($live, $slot)
+        $col = $idx % $cols
+        $row = [math]::Floor($idx / $cols)
+        $w = [int]($screen.W / $cols)
+        $h = [int]($screen.H / $rows)
+    }
+    return "$($screen.X + $col * $w),$($screen.Y + $row * $h),$w,$h"
+}
+
+if ($Window -eq "" -or $Window -eq "auto") {
+    New-Item -ItemType Directory -Force -Path $slotDir | Out-Null
+    for ($i = 0; $i -lt 16 -and $mySlot -lt 0; $i++) {
+        $f = "$slotDir/slot-$i.txt"
+        if (Test-Path $f) {
+            if (@(Get-LiveSlots) -contains $i) { continue }
+            Remove-Item -Path $f -Force -ErrorAction SilentlyContinue
+        }
+        try {
+            # CreateNew is atomic: two runs starting together cannot both take the same slot.
+            $fs = [System.IO.File]::Open($f, 'CreateNew', 'Write')
+            $bytes = [System.Text.Encoding]::ASCII.GetBytes("$PID")
+            $fs.Write($bytes, 0, $bytes.Length)
+            $fs.Close()
+            $mySlot = $i
+        } catch {}
+    }
+    if ($mySlot -ge 0) {
+        $Window = Get-SlotTile $mySlot
+        Write-Host "Window slot $mySlot -> $Window"
+    } else {
+        $Window = ""
+    }
+}
+
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public class WinSlot {
+  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+  public struct RECT { public int Left, Top, Right, Bottom; }
+}
+'@
+
+# Keeps this run's client on its tile as other runs start and finish: compares the window's real rectangle with the
+# tile this slot should have now, and moves it when they differ (no focus change, no raise).
+function Sync-SlotWindow {
+    if ($mySlot -lt 0) { return }
+    $t = (Get-SlotTile $mySlot).Split(",") | ForEach-Object { [int]$_ }
+    foreach ($c in Get-TestClients) {
+        $p = Get-Process -Id $c.ProcessId -ErrorAction SilentlyContinue
+        if (-not $p -or $p.MainWindowHandle -eq 0) { continue }
+        $r = New-Object WinSlot+RECT
+        [WinSlot]::GetWindowRect($p.MainWindowHandle, [ref]$r) | Out-Null
+        if ([math]::Abs($r.Left - $t[0]) -gt 2 -or [math]::Abs($r.Top - $t[1]) -gt 2 -or
+                [math]::Abs(($r.Right - $r.Left) - $t[2]) -gt 2 -or [math]::Abs(($r.Bottom - $r.Top) - $t[3]) -gt 2) {
+            # SWP_NOZORDER | SWP_NOACTIVATE
+            [WinSlot]::SetWindowPos($p.MainWindowHandle, [IntPtr]::Zero, $t[0], $t[1], $t[2], $t[3], 0x14) | Out-Null
+        }
+    }
+}
+
+function Release-Slot {
+    if ($mySlot -lt 0) { return }
+    $f = "$slotDir/slot-$mySlot.txt"
+    $owner = ""
+    try { $owner = (Get-Content -Path $f -ErrorAction Stop | Select-Object -First 1) } catch {}
+    if ($owner -eq "$PID") { Remove-Item -Path $f -Force -ErrorAction SilentlyContinue }
+}
+
 # Anything left over from a previous run goes first, or it holds file handles the next run needs.
 $stale = Get-TestClients
 foreach ($p in $stale) {
@@ -139,6 +243,7 @@ $killedHung = $false
 # everything running - "automatic" cleanup that cleaned up nothing.
 while ((-not $proc.HasExited -or (Get-TestClients)) -and (Get-Date) -lt $deadline) {
     Start-Sleep -Seconds 2
+    Sync-SlotWindow
     $frozen = $false
     foreach ($c in Get-TestClients) {
         $p = Get-Process -Id $c.ProcessId -ErrorAction SilentlyContinue
@@ -166,6 +271,7 @@ if ($killedHung) {
     Start-Sleep -Seconds 5
     if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
     Write-Host "FROZEN - the client was closed automatically"
+    Release-Slot
     exit 3
 }
 
@@ -186,6 +292,7 @@ if ((Get-Date) -ge $deadline) {
     Start-Sleep -Seconds 2
     if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
     Write-Host "TIMED OUT after $TimeoutSeconds s"
+    Release-Slot
     exit 2
 }
 
@@ -195,4 +302,5 @@ foreach ($p in Get-TestClients) {
     Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
 }
 Write-Host "Run finished with exit code $($proc.ExitCode)"
+Release-Slot
 exit $proc.ExitCode

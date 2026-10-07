@@ -1,0 +1,26 @@
+brand configuration fabric
+channel configuration c:register
+channel configuration c:version
+channel configuration fabric:accepted_attachments_v1
+channel configuration fabric:custom_ingredient_sync
+channel configuration minecraft:brand
+channel configuration minecraft:register
+channel play minecraft:register
+info configuration minecraft:client_information ServerboundClientInformationPacket[information=ClientInformation[language=en_us, viewDistance=5, chatVisibility=FULL, chatColors=true, modelCustomisation=127, mainHand=RIGHT, textFilteringEnabled=false, allowsListing=true, particleStatus=ALL]]
+info configuration minecraft:select_known_packs ServerboundSelectKnownPacks[knownPacks=[minecraft:core:26.1.2, vanilla:fabric-convention-tags-v2:4.6.2+4f11f7994c, vanilla:fabric-gametest-api-v1:4.0.17+867b87624c]]
+info play minecraft:client_information ServerboundClientInformationPacket[information=ClientInformation[language=en_us, viewDistance=5, chatVisibility=FULL, chatColors=true, modelCustomisation=127, mainHand=RIGHT, textFilteringEnabled=false, allowsListing=true, particleStatus=ALL]]
+payload configuration c:version 0101
+payload configuration fabric:accepted_attachments_v1 00
+payload configuration fabric:custom_ingredient_sync 01050a6661627269633a616c6c116661627269633a636f6d706f6e656e7473126661627269633a637573746f6d5f64617461116661627269633a646966666572...
+register configuration c:register [v1 play] fabric-menu-api-v1:open_screen
+register configuration c:register [v1 play] fabric:attachment_sync_v1
+register configuration c:register [v1 play] fabric:recipe_sync
+register configuration minecraft:register c:register
+register configuration minecraft:register c:version
+register configuration minecraft:register fabric:accepted_attachments_v1
+register configuration minecraft:register fabric:custom_ingredient_sync
+register configuration minecraft:register fabric:extended_block_particle_option_sync
+register configuration minecraft:register fabric:registry/sync
+register play minecraft:register fabric-menu-api-v1:open_screen
+register play minecraft:register fabric:attachment_sync_v1
+register play minecraft:register fabric:recipe_sync

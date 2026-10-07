@@ -361,9 +361,14 @@ public class JoinFingerprintTest implements FabricClientGameTest {
             }
         }
         if (modLoaded) {
-            Path base = dir.resolve("nomod-" + mc + ".txt");
+            // The committed baseline first (baselines/join-fingerprint/, copied from a -NoMod run), so a shard
+            // worktree or a fresh checkout compares without a -NoMod run of its own; this checkout's build output
+            // only when nothing is committed for this version.
+            Path committed = Path.of(System.getProperty("testkit.checkout", "."), "baselines", "join-fingerprint");
+            Path baseDir = Files.exists(committed.resolve("nomod-" + mc + ".txt")) ? committed : dir;
+            Path base = baseDir.resolve("nomod-" + mc + ".txt");
             if (!Files.exists(base)) {
-                failures.add("no baseline at " + base + " - run this scenario once with run-scenario.ps1 -NoMod first");
+                failures.add("no baseline at " + base + " - run this scenario once with run-scenario.ps1 -NoMod and copy build/join-fingerprint/nomod-*.txt into baselines/join-fingerprint/");
             } else {
                 try {
                     Set<String> baseline = new TreeSet<>(Files.readAllLines(base, StandardCharsets.UTF_8));
@@ -375,7 +380,7 @@ public class JoinFingerprintTest implements FabricClientGameTest {
                             + " lines): " + added.size() + " added, " + missing.size() + " missing ====");
                     added.forEach(a -> failures.add("only WITH the mod: " + clip(a, 300)));
                     missing.forEach(m -> failures.add("only WITHOUT the mod: " + clip(m, 300)));
-                    Path baseTypes = dir.resolve("nomod-" + mc + "-types.txt");
+                    Path baseTypes = baseDir.resolve("nomod-" + mc + "-types.txt");
                     if (Files.exists(baseTypes)) {
                         Set<String> bt = new TreeSet<>(Files.readAllLines(baseTypes, StandardCharsets.UTF_8));
                         Set<String> extra = new TreeSet<>(typesSent);

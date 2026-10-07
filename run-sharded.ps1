@@ -27,7 +27,7 @@
 #   -Max caps clients running at once (machine guidance: at most 3, fewer if anything else is running). -Minecraft
 #   both queues both versions' shards under that cap, longest first. Shard g (1-based, across versions) gets server
 #   port BasePort + 10g and Hx port + 5; the default BasePort 25900 stays clear of 25565-25599 and 25700-25850.
-#   Windows tile in quarters of the left monitor like parallel-suite.ps1. Test clients stay muted: nothing here
+#   Each client claims a screen slot through run-scenario.ps1 (a quadrant, or a finer grid past 4 live runs). Test clients stay muted: nothing here
 #   passes -PtestVolume (build.gradle defaults to 0).
 #   First use of a worktree builds it (a few minutes, once). Run with -PlanOnly after a first sharded run to warm them.
 
@@ -152,7 +152,6 @@ function Prepare-Worktree([string]$path) {
 }
 
 $q = { param($v) "'" + ([string]$v).Replace("'", "''") + "'" }
-$tiles = @("-1920,361,960,540", "-960,361,960,540", "-1920,901,960,540", "-960,901,960,540")
 
 # One run-scenario.ps1 in a worktree, hidden, output to a log. -Command with single-quoted values: -File would bind
 # only the first element of a string[] (see CLAUDE.md).
@@ -371,7 +370,7 @@ try {
             if ($to -le 0) { $to = [Math]::Max(900, [int](2.5 * $j.Est + 600)) }
             $log = "$($j.Worktree)/build/parallel-suite.log"
             Remove-Item -Force -ErrorAction SilentlyContinue "$($j.Worktree)/build/testkit-report/summary.json"
-            $p = Start-Run $j.Worktree $j.Version $j.Filter $jars[$j.Version] $j.Port $tiles[$slot % $tiles.Count] $to $Extra $log
+            $p = Start-Run $j.Worktree $j.Version $j.Filter $jars[$j.Version] $j.Port "auto" $to $Extra $log
             $j | Add-Member -NotePropertyName Proc -NotePropertyValue $p -Force
             $j | Add-Member -NotePropertyName Slot -NotePropertyValue $slot -Force
             $j | Add-Member -NotePropertyName Started -NotePropertyValue (Get-Date) -Force
