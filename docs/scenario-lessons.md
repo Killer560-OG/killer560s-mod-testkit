@@ -338,3 +338,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   415's Hitboxes flag. 421 Lever Aura (S2 section lever at its real coordinates, `forceload` first - a fill into an unloaded
   chunk silently does nothing and he fell 75 blocks), 422/423 Simon Says Auto Solve No Rotate facing away / facing the
   device (the server's ss.completed is the proof). `BehindAuraTests` 419/420: Secret Aura, lever behind / in front.
+- 424-ui-bazaar-browser / 425-ui-bazaar-icons (`BazaarBrowserCases`, mod bazaar-ui) and 426-menu-bazaar-orders
+  (`BazaarOrderCases`): 424 feeds a synthetic bazaar answer for every id in the mod's bundled table through
+  `BazaarApi.applyResponseForTest`, then reads the screen's own `layoutReport()` (every region, text and widget box of
+  the last frame) in six views at four window/GUI scales; the screen records its texts, so a rectangle check needs no
+  pixel work. 425 counts `BazaarIcons` sources (no Hypixel pack in a test client: 47 paper fallbacks on 2026-10-07).
+  426 shows Hypixel's Manage Orders (`menus.bazaar-orders`, formats from SkyHanni/Skyblocker, not a live capture) and
+  waits for the mod's TICK reader to store the orders; it also requires zero container clicks.

@@ -1,0 +1,103 @@
+[
+  {
+    "id": "menus.bazaar-orders",
+    "kind": "menu",
+    "payload": {
+      "title": "Your Bazaar Orders",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "10": {
+          "item": "minecraft:diamond",
+          "name": "§a§lBUY §aEnchanted Diamond",
+          "lore": [
+            "§8Worth 204k coins",
+            "",
+            "§7Order amount: §a160§7x",
+            "§7Filled: §664§7/160 §a(40%)",
+            "",
+            "§7Price per unit: §61,275.3 coins",
+            "",
+            "§7You have §a64 items §7to claim!",
+            "",
+            "§eClick to claim!"
+          ]
+        },
+        "11": {
+          "item": "minecraft:wheat",
+          "name": "§a§lBUY §fWheat",
+          "lore": [
+            "§8Worth 4.2k coins",
+            "",
+            "§7Order amount: §a2,000§7x",
+            "",
+            "§7Price per unit: §62.1 coins",
+            "",
+            "§7Expires in §e6d 23h"
+          ]
+        },
+        "12": {
+          "item": "minecraft:player_head",
+          "name": "§6§lSELL §dWither Essence",
+          "lore": [
+            "§8Worth 4.1M coins",
+            "",
+            "§7Offer amount: §a1,000§7x",
+            "§7Filled: §61k§7/1k §a§l100%!",
+            "",
+            "§7Price per unit: §64,100.5 coins",
+            "",
+            "§eClick to claim!"
+          ]
+        },
+        "13": {
+          "item": "minecraft:paper",
+          "name": "§6§lSELL §fRough Ruby Gemstone",
+          "lore": [
+            "",
+            "§7Offer amount: §a640§7x",
+            "§7Filled: §634§7/640 §a(5.3%)",
+            "",
+            "§7Price per unit: §699,999.0 coins",
+            "",
+            "§cExpired!"
+          ]
+        },
+        "14": {
+          "item": "minecraft:gold_ingot",
+          "name": "§a§lBUY §aEnchanted Gold Ingot",
+          "lore": [
+            "",
+            "§7Order amount: §a1,024§7x",
+            "§7Filled: §6819§7/1k §a(80%)",
+            "",
+            "§7Price per unit: §6802.4 coins",
+            "",
+            "§7By: §b[MVP§c+§b] CoopFriend"
+          ]
+        },
+        "15": {
+          "item": "minecraft:paper",
+          "name": "§a§lBUY §fHostile Lore",
+          "lore": [
+            "§7Order amount: §a99999999999999999999999§7x",
+            "§7Price per unit: §61e400 coins"
+          ]
+        },
+        "31": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To Bazaar"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/BazaarOrderParser.java",
+      "line": 50
+    },
+    "verifiedBy": "regex",
+    "notes": "Hypixel's Manage Orders menu. Title from SkyHanni features/inventory/bazaar/BazaarApi.kt ('Your Bazaar Orders' / 'Co-op Bazaar Orders') and Skyblocker skyblock/bazaar/BazaarHelper.java. Item names ('§a§lBUY §fWheat', '§6§lSELL ...') and the lore lines Order/Offer amount, Filled: 26/50 (52%) / 1.9k/1.9k 100%!, You have N items to claim!, Price per unit: 2,082.3 coins, By: [MVP+] name are SkyHanni BazaarOrderApi.kt's REGEX-TEST examples (beta, read 2026-10-07); 'Click to claim!', 'Expired!' and 'Expires in ...' are Skyblocker BazaarHelper.java's. The 'Worth' first line, the colours inside each line, the slot positions and the item types are testkit placeholders (the parser strips colours and ignores Worth). Slot 15 is hostile: an unbounded amount and an unparseable price must be skipped, never thrown. NOT verified against a live Hypixel menu."
+  }
+]
