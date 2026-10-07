@@ -407,7 +407,8 @@ final class PartyFinderCoverageCases {
             // 5. One log line per outcome, nothing per tick.
             List<String> pf = new ArrayList<>();
             for (String line : LogTap.since(mark)) {
-                if (line.contains("[PartyFinder]")) {
+                // The relay's own lines (its fallback notice, here: this fake answers /pf/stats 404) are case 410's.
+                if (line.contains("[PartyFinder]") && !line.contains("relay")) {
                     pf.add(line);
                 }
             }
