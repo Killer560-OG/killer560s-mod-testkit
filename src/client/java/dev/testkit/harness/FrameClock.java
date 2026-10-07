@@ -29,7 +29,22 @@ public final class FrameClock {
     private static long extractNs;
     private static long renderStart;
 
+    /** Always-on counters (not tied to {@link #start}): client ticks begun and frames rendered since launch. A
+     *  scenario reads them to tell "the same frame" from "a later tick" (397-menu-petwheel-instant). */
+    private static volatile long tickCount;
+    private static volatile long frameCount;
+
     private FrameClock() {
+    }
+
+    /** Client ticks begun since launch, counted at HEAD of {@code Minecraft.tick}. */
+    public static long tickCount() {
+        return tickCount;
+    }
+
+    /** Frames rendered since launch, counted at RETURN of {@code GameRenderer.render}. */
+    public static long frameCount() {
+        return frameCount;
     }
 
     /** Begin a fresh recording with room for {@code capacity} frames and as many ticks. */
@@ -58,6 +73,7 @@ public final class FrameClock {
     // ---- fed by the mixins -------------------------------------------------------------------------------------
 
     public static void tickHead() {
+        tickCount++;
         if (recording) {
             tickStart = System.nanoTime();
         }
@@ -92,6 +108,7 @@ public final class FrameClock {
     }
 
     public static void renderReturn() {
+        frameCount++;
         if (recording && renderStart != 0) {
             long ns = System.nanoTime() - renderStart + extractNs;
             renderStart = 0;
