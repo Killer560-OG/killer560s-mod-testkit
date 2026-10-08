@@ -45,21 +45,19 @@ final class HxSocialCases {
 
     // ---- 120 chatcommands ---------------------------------------------------------------------------------------
 
-    @SuppressWarnings("unchecked")
     private static void chatCommands(Session s) {
+        // The informational replies are Party Commands' since mod modchat-party (2026-10-08): one config, one list.
         s.test("120-hx-chatcommands-coords", c -> {
-            Object coords = c.onClient(mc -> Mod.enumValue("chatcommands.ChatCommandsConfig$InfoCommand", "COORDS"));
-            Object cfg = c.onClient(mc -> Mod.cfg("chatcommands.ChatCommandsConfig"));
+            Object coords = c.onClient(mc -> Mod.enumValue("partycommands.PartyCommandsConfig$Command", "COORDS"));
+            Object partyCh = c.onClient(mc -> Mod.enumValue("partycommands.PartyCommandsConfig$Channel", "PARTY"));
+            Object cfg = c.onClient(mc -> Mod.cfg("partycommands.PartyCommandsConfig"));
             boolean wasOn = c.onClient(mc -> (Boolean) Mod.call(cfg, "isOn", coords));
-            try (Settings set = new Settings(c).with("chatcommands.ChatCommandsConfig", "Enabled", true)
-                    .with("chatcommands.ChatCommandsConfig", "PartyEnabled", true)
+            boolean wasCh = c.onClient(mc -> (Boolean) Mod.call(cfg, "isChannelOn", partyCh));
+            try (Settings set = new Settings(c).with("partycommands.PartyCommandsConfig", "Enabled", true)
+                    .custom(() -> Mod.call(cfg, "setChannelOn", partyCh, true), () -> Mod.call(cfg, "setChannelOn", partyCh, wasCh))
                     .custom(() -> Mod.call(cfg, "setOn", coords, true), () -> Mod.call(cfg, "setOn", coords, wasOn))) {
                 dungeon(c);
-                run(c, () -> {
-                    Mod.setField("chatcommands.ChatCommandsFeature", "lastReplyAtMs", 0L);
-                    ((Map<String, Long>) Mod.field("chatcommands.ChatCommandsFeature", "LAST_REPLY_BY_SENDER")).clear();
-                    ((java.util.Collection<Long>) Mod.field("chatcommands.ChatCommandsFeature", "REPLY_TIMES")).clear();
-                });
+                run(c, HxSocialCases::resetPartyCommandLimits);
                 send(c, "hostile.allchat-party-warp");
                 c.hx().chat("§7[VIP] HxEvil§f: Party > HxMateA: !coords");
                 assertNoCommand(c, 30, "pc ");
@@ -73,17 +71,29 @@ final class HxSocialCases {
         });
     }
 
+    /** Party Commands' rate limiter (2 s between any two commands, per-sender and per-minute caps) outlives cases. */
+    @SuppressWarnings("unchecked")
+    static void resetPartyCommandLimits() {
+        String pc = "partycommands.PartyCommandsFeature";
+        Mod.setField(pc, "lastGlobalAtMs", 0L);
+        ((java.util.Collection<Long>) Mod.field(pc, "GLOBAL_TIMES")).clear();
+        ((Map<String, ?>) Mod.field(pc, "SENDER_TIMES")).clear();
+    }
+
     // ---- 121 partycommands -------------------------------------------------------------------------------------
 
     private static void partyCommands(Session s) {
         s.test("121-hx-partycommands-warp", c -> {
             Object warp = c.onClient(mc -> Mod.enumValue("partycommands.PartyCommandsConfig$Command", "WARP"));
+            Object partyCh = c.onClient(mc -> Mod.enumValue("partycommands.PartyCommandsConfig$Channel", "PARTY"));
             Object cfg = c.onClient(mc -> Mod.cfg("partycommands.PartyCommandsConfig"));
             boolean wasOn = c.onClient(mc -> (Boolean) Mod.call(cfg, "isOn", warp));
+            boolean wasCh = c.onClient(mc -> (Boolean) Mod.call(cfg, "isChannelOn", partyCh));
             try (Settings set = new Settings(c).with("partycommands.PartyCommandsConfig", "Enabled", true)
-                    .with("partycommands.PartyCommandsConfig", "AllowDestructive", true)
+                    .custom(() -> Mod.call(cfg, "setChannelOn", partyCh, true), () -> Mod.call(cfg, "setChannelOn", partyCh, wasCh))
                     .custom(() -> Mod.call(cfg, "setOn", warp, true), () -> Mod.call(cfg, "setOn", warp, wasOn))) {
                 dungeon(c);
+                run(c, HxSocialCases::resetPartyCommandLimits);
                 c.check(c.onClient(mc -> Mod.staticCall("partycommands.PartyLeaderTracker", "get")) == null,
                         "premise: a party leader is already known");
                 send(c, "hostile.allchat-party-warp");

@@ -8,16 +8,16 @@
       "line": 107
     },
     "matches": [
-      "chatcommands.ChatCommandsFeature#PARTY_REGEX",
+      "partycommands.CommandChatListener#PARTY_REGEX",
       "leapmenu.PartyTracker#PARTY_CHAT",
       "fastleap.PosmsgTargets#PARTY_LINE",
       "interop.InteropChatParser#PARTY_LINE",
       "fastleap.I4LeapFeature#MELODY_PARTY_LINE"
     ],
     "mustNotMatch": [
-      "chatcommands.ChatCommandsFeature#GUILD_REGEX",
-      "chatcommands.ChatCommandsFeature#PRIVATE_REGEX",
-      "chatcommands.ChatCommandsFeature#COOP_REGEX"
+      "partycommands.CommandChatListener#GUILD_REGEX",
+      "partycommands.CommandChatListener#PRIVATE_REGEX",
+      "partycommands.CommandChatListener#COOP_REGEX"
     ],
     "mode": "matches",
     "verifiedBy": "regex",
@@ -57,11 +57,11 @@
       "line": 107
     },
     "matches": [
-      "chatcommands.ChatCommandsFeature#GUILD_REGEX"
+      "partycommands.CommandChatListener#GUILD_REGEX"
     ],
     "mustNotMatch": [
-      "chatcommands.ChatCommandsFeature#PARTY_REGEX",
-      "chatcommands.ChatCommandsFeature#PRIVATE_REGEX",
+      "partycommands.CommandChatListener#PARTY_REGEX",
+      "partycommands.CommandChatListener#PRIVATE_REGEX",
       "leapmenu.PartyTracker#PARTY_CHAT"
     ],
     "mode": "matches",
@@ -79,11 +79,14 @@
       "file": "src/main/java/com/killer560/hub/automeow/AutoMeowFeature.java",
       "line": 107
     },
+    "matches": [
+      "partycommands.CommandChatListener#ALL_REGEX"
+    ],
     "mustNotMatch": [
-      "chatcommands.ChatCommandsFeature#PARTY_REGEX",
-      "chatcommands.ChatCommandsFeature#GUILD_REGEX",
-      "chatcommands.ChatCommandsFeature#PRIVATE_REGEX",
-      "chatcommands.ChatCommandsFeature#COOP_REGEX",
+      "partycommands.CommandChatListener#PARTY_REGEX",
+      "partycommands.CommandChatListener#GUILD_REGEX",
+      "partycommands.CommandChatListener#PRIVATE_REGEX",
+      "partycommands.CommandChatListener#COOP_REGEX",
       "leapmenu.PartyTracker#PARTY_CHAT",
       "fastleap.PosmsgTargets#PARTY_LINE",
       "interop.InteropChatParser#PARTY_LINE",
@@ -331,7 +334,7 @@
     "payload": "> EXTRA STATS <",
     "source": {
       "file": "src/main/java/com/killer560/hub/partycommands/PartyCommandsFeature.java",
-      "line": 86
+      "line": 71
     },
     "matches": [
       "partycommands.PartyCommandsFeature#END_OF_RUN"

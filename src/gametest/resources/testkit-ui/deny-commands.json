@@ -80,6 +80,7 @@
     {"root": "breakeraura", "why": "new/delete/select edit Breaker Aura sets; only 'breakeraura list' is executed"},
     {"root": "c", "why": "sim teleport command (SimTeleportCommands.java:82)"},
     {"root": "cringe", "why": "sends a chat line to a real channel (Killer560ModClient.java:701)"},
+    {"root": "kc", "why": "Mod Chat: '/kc <message>' sends to the relay and bare '/kc' switches typed chat into Mod Chat for the rest of the connection (modchat/ModChatChannel); 573 runs it"},
     {"root": "ew", "why": "adds/removes saved etherwarp waypoints (Killer560ModClient.java:386)"},
     {"root": "fl", "why": "forwards to Hypixel's /fl (social/FriendsListCommands.java:122)"},
     {"root": "flcustom", "why": "edits the custom friends list (social/FriendsListCommands.java:44)"},

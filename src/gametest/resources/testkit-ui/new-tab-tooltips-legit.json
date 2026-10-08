@@ -114,7 +114,7 @@
       "leap counter": "Counts how many teammates leap to you in F7/M7 Phase 3 and alerts when all have arrived.",
       "loadout keybinds": "Lets keys click loadout slots and change pages on the Loadout screen.",
       "maxor's crystals": "Phase 1 crystal helpers: timers, an unplaced-crystal warning, a counter and crystal boxes.",
-      "mod chat": "Run /killer560 chat <message> to send a tagged message other mod users see as an overlay.",
+      "mod chat": "A private chat with other mod users: /kc <message> sends one line, /chat k makes your typed chat go there.",
       "nickhider": "",
       "p3 nav": "Phase 3 navigation: boxes the next section gate and the terminals and devices you have left.",
       "p4 platform highlight": "F7/M7 only: boxes the platform you mine through to reach Necron.",
@@ -441,7 +441,7 @@
       "unplaced crystal alert": "Warns you while you are carrying a crystal you have not placed."
     },
     "Mod Chat": {
-      "mod chat": "A private chat with other mod users; send with /killer560 chat <message>."
+      "mod chat": "A private chat with other mod users: /kc <message> sends one line, /chat k makes your typed chat go there."
     },
     "Name Changer": {
       "name changer": "Changes how player names look on your screen, client-side only."

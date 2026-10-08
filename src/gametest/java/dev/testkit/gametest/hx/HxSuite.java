@@ -38,6 +38,9 @@ public class HxSuite implements FabricClientGameTest {
                     HxDungeonCases.register(s);
                     HxSocialCases.register(s);
                     HxHudCases.register(s);
+                    // Mod Chat + Party Commands (571-580, branch nt-modchat-party), before the hostile case that
+                    // deliberately pollutes party state.
+                    HxModChatPartyCases.register(s);
                     HxHostileCases.register(s);
                 });
     }

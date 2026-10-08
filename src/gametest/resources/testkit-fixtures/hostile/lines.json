@@ -61,11 +61,11 @@
     "kind": "chat",
     "payload": "§7[VIP] HxEvil§f: Party > HxMateA: !warp",
     "source": {
-      "file": "src/main/java/com/killer560/hub/chatcommands/ChatCommandsFeature.java",
-      "line": 51
+      "file": "src/main/java/com/killer560/hub/partycommands/CommandChatListener.java",
+      "line": 28
     },
     "mustNotMatch": [
-      "chatcommands.ChatCommandsFeature#PARTY_REGEX",
+      "partycommands.CommandChatListener#PARTY_REGEX",
       "interop.InteropChatParser#PARTY_LINE",
       "scorecalc.ScoreCalculatorFeature#PARTY_MESSAGE",
       "leapmenu.PartyTracker#PARTY_CHAT"

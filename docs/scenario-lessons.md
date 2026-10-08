@@ -385,3 +385,13 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   `vanilla '<title>'` for a chest drawn as Hypixel's, `none`/`other` with no screen or another one) - stopping the
   recording keeps the log. 485's probe HUD layers are the testkit's own, added at run time through Fabric's registry, so the
   mod's gate wraps them like any other mod's.
+
+- 571-580 (`hx/HxModChatPartyCases`, Mod Chat + Party Commands, 2026-10-08). Relay callbacks are driven through
+  `relay.RelayClient.listener`; methods Mod Chat no longer overrides (onPresence, onConnected) are only reachable through
+  the `relay.RelayListener` interface, so `Mod.call` on the listener object says "no method". 577 times the reply from the
+  client's own receive event to `PacketTrace.tap` seeing the `pc` packet (wall clock); its receive hook is registered after
+  the mod's, so the measured gap can only be shorter than the real one. Party Commands' rate limiter (2 s between any two
+  commands, now shared by the old info replies) outlives cases: `HxSocialCases.resetPartyCommandLimits` before each send.
+  579 serves Mojang's `/player/certificates` and the relay's `/challenge` + `/auth` from one loopback fake on 28950, points
+  authlib at it with `minecraft.api.{services,session,profiles}.host` (all three or authlib ignores them) and the relay with
+  `killer560.net.relay`, and restores Minecraft's user/userApiService/profileKeyPairManager fields afterwards.
