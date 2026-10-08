@@ -87,6 +87,9 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-07 22:08 polish report ({@link PolishCases}); 472 is in the menu suite. Own block for merges. */
     static final String[] POLISH_CASES = {"471-ui-held-item-name", "473-ui-inventory-line-pixels",
             "474-ui-inventory-shared-lines", "475-ui-inventory-armour-model", "476-ui-bars-text-centred"};
+    /** killer560's 2026-10-08 chat batch, the menu half ({@link ChatBatchUiCases}; the chat half is
+     *  {@code chat/ChatBatchSuite}, 560-chat-session). Own block for merges. */
+    static final String[] CHAT_CASES = {"565-ui-chat-voice-widget", "569-ui-chat-hider-tab"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -103,11 +106,14 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : POLISH_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : CHAT_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
-        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES);
+        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(CHAT_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -195,6 +201,9 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "474-ui-inventory-shared-lines", PolishCases::sharedLines);
                     UiCase.run(ctx, "475-ui-inventory-armour-model", PolishCases::armourModel);
                     UiCase.run(ctx, "476-ui-bars-text-centred", PolishCases::barTextCentred);
+                    // ---- chat batch (565, 569) ----
+                    UiCase.run(ctx, "565-ui-chat-voice-widget", ChatBatchUiCases::voiceWidget);
+                    UiCase.run(ctx, "569-ui-chat-hider-tab", ChatBatchUiCases::hiderTab);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
