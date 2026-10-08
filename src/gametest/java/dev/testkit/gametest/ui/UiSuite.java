@@ -41,9 +41,8 @@ import java.util.List;
  *                407 Health and Mana Bars Layout: Predefined areas round the hotbar measured on screenshots at Auto
  *                Scale 0.5 and 1 (shared width, clear of the vanilla rows), real-mouse drags between areas and onto
  *                Hidden, Custom positions untouched, old configs stay Custom ({@link StatBarsLayoutCases}),
- *                424 Bazaar browser: every product parsed, six views at four window/GUI scales with no text or widget
- *                overlapping or leaving its box, the /bz button's command, screenshots at GUI 2 and 4; 425 every
- *                Bazaar product's icon source and the paper fallbacks named ({@link BazaarBrowserCases}),
+ *                425 every Bazaar product's icon source and the paper fallbacks named ({@link BazaarBrowserCases};
+ *                424, the old browser's layout, retired 2026-10-07 for menu 481),
  *                427-432 Pack Disabler: models through vanilla's resolver ON/OFF, the pack push left to vanilla, the
  *                missing-texture command, a chest at GUI 2, a player's resource pack beating both vanilla-look and our
  *                textures, Bazaar icons from the same table ({@link PackDisablerCases}),
@@ -78,7 +77,7 @@ public class UiSuite implements FabricClientGameTest {
             "399-ui-hud-editor-resize", "399-ui-hud-editor-snap",
             "399-ui-stat-bars-vitality-xp", "407-ui-stat-bars-layout", "401-ui-scoreboard-editor",
             "411-ui-mining-shelved", "412-ui-no-new-tab", "413-ui-testing-variant",
-            "424-ui-bazaar-browser", "425-ui-bazaar-icons", "427-ui-pack-disabler-models",
+            "425-ui-bazaar-icons", "427-ui-pack-disabler-models",
             "428-ui-pack-disabler-pack-push", "429-ui-pack-disabler-missing", "430-ui-pack-disabler-screens",
             "431-ui-pack-disabler-user-pack", "432-ui-pack-disabler-bazaar",
             "451-ui-hotbar-theme", "452-ui-inventory-theme-settings", "453-ui-storage-overlay-centre",
@@ -172,7 +171,6 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "411-ui-mining-shelved", MiningShelvedCases::run);
                     UiCase.run(ctx, "412-ui-no-new-tab", c -> NoNewTabCases.run(c, deny));
                     UiCase.run(ctx, "413-ui-testing-variant", TestingVariantCases::run);
-                    UiCase.run(ctx, "424-ui-bazaar-browser", BazaarBrowserCases::browser);
                     UiCase.run(ctx, "425-ui-bazaar-icons", BazaarBrowserCases::icons);
                     UiCase.run(ctx, "427-ui-pack-disabler-models", PackDisablerCases::models);
                     UiCase.run(ctx, "428-ui-pack-disabler-pack-push", PackDisablerCases::packPush);

@@ -215,7 +215,7 @@
       }
     },
     "source": {
-      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
       "line": 93
     },
     "verifiedBy": "regex",
@@ -354,7 +354,7 @@
       }
     },
     "source": {
-      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
       "line": 96
     },
     "verifiedBy": "regex",
@@ -473,7 +473,7 @@
       }
     },
     "source": {
-      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
       "line": 96
     },
     "verifiedBy": "regex",
@@ -549,7 +549,7 @@
       }
     },
     "source": {
-      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
       "line": 97
     },
     "verifiedBy": "regex",
@@ -620,7 +620,7 @@
       }
     },
     "source": {
-      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
       "line": 255
     },
     "verifiedBy": "regex",
@@ -705,7 +705,7 @@
       }
     },
     "source": {
-      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
       "line": 258
     },
     "verifiedBy": "regex",
@@ -749,7 +749,7 @@
       }
     },
     "source": {
-      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
       "line": 264
     },
     "verifiedBy": "regex",
@@ -827,7 +827,7 @@
       }
     },
     "source": {
-      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
       "line": 261
     },
     "verifiedBy": "regex",
@@ -872,7 +872,7 @@
       }
     },
     "source": {
-      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
       "line": 266
     },
     "verifiedBy": "regex",
@@ -904,7 +904,7 @@
       }
     },
     "source": {
-      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
       "line": 268
     },
     "verifiedBy": "regex",
@@ -938,7 +938,7 @@
       }
     },
     "source": {
-      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
       "line": 124
     },
     "verifiedBy": "regex",
@@ -980,7 +980,7 @@
       }
     },
     "source": {
-      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
       "line": 94
     },
     "verifiedBy": "regex",
@@ -1011,7 +1011,7 @@
       }
     },
     "source": {
-      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
       "line": 36
     },
     "verifiedBy": "regex",
@@ -1053,7 +1053,7 @@
       }
     },
     "source": {
-      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
       "line": 96
     },
     "verifiedBy": "regex",
@@ -1265,7 +1265,7 @@
       }
     },
     "source": {
-      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
       "line": 93
     },
     "verifiedBy": "regex",
