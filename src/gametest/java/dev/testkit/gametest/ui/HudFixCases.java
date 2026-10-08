@@ -1073,6 +1073,12 @@ final class HudFixCases {
     }
 
     private static BufferedImage shot(UiCase c, String suffix) throws Exception {
+        // Earlier cases' chat lines draw over the HUD (over the vanilla hotbar too): on 26.2 the smoke cases' lines
+        // covered 441's bar. Clear them so the picture is the HUD under test.
+        c.onClient(mc -> {
+            McCompat.clearChatAndToasts(mc);
+            return null;
+        });
         c.ticks(2);
         String name = c.name() + "-" + suffix;
         Path taken = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(name));
