@@ -1,0 +1,1982 @@
+[
+  {
+    "id": "menus.ah-main",
+    "kind": "menu",
+    "payload": {
+      "title": "Auction House",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "11": {
+          "item": "minecraft:gold_block",
+          "name": "§6Auctions Browser",
+          "lore": [
+            "§7Find items for sale by players",
+            "§7across Hypixel SkyBlock!",
+            "",
+            "§eClick to browse!"
+          ]
+        },
+        "13": {
+          "item": "minecraft:golden_carrot",
+          "name": "§eView Bids",
+          "lore": [
+            "§7You have §a3 §7active bids.",
+            "",
+            "§eClick to view!"
+          ]
+        },
+        "15": {
+          "item": "minecraft:golden_horse_armor",
+          "name": "§aManage Auctions",
+          "lore": [
+            "§7You own §e5 §7auctions.",
+            "",
+            "§eClick to manage!"
+          ]
+        },
+        "31": {
+          "item": "minecraft:barrier",
+          "name": "§cClose",
+          "lore": []
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/ah/AhPages.java",
+      "line": 97
+    },
+    "verifiedBy": "regex",
+    "notes": "Titles and slots: Skyblocker MenuScreensConstructorMixin / AuctionBrowserScreen / AuctionViewScreen, SkyHanni AuctionsHighlighter / AuctionHouseCopyUnderbidPrice, hypixelskyblock.minecraft.wiki Auction House (read 2026-10-07). Lore wording beyond those sources is illustrative, NOT a capture. Mapped: MAIN."
+  },
+  {
+    "id": "menus.ah-browser",
+    "kind": "menu",
+    "payload": {
+      "title": "Auctions Browser",
+      "rows": 6,
+      "fill": true,
+      "slots": {
+        "0": {
+          "item": "minecraft:golden_sword",
+          "name": "§6Weapons",
+          "lore": [
+            "§8Category",
+            "",
+            "§aCurrently browsing!"
+          ]
+        },
+        "9": {
+          "item": "minecraft:diamond_chestplate",
+          "name": "§bArmor",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view items!"
+          ]
+        },
+        "18": {
+          "item": "minecraft:emerald",
+          "name": "§2Accessories",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view items!"
+          ]
+        },
+        "27": {
+          "item": "minecraft:apple",
+          "name": "§cConsumables",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view items!"
+          ]
+        },
+        "36": {
+          "item": "minecraft:cobblestone",
+          "name": "§7Blocks",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view items!"
+          ]
+        },
+        "45": {
+          "item": "minecraft:stick",
+          "name": "§dTools & Misc",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view items!"
+          ]
+        },
+        "11": {
+          "item": "minecraft:iron_sword[custom_data={id:\"HYPERION\"}]",
+          "name": "§dHeroic Hyperion §6✪✪✪✪✪",
+          "lore": [
+            "§7Damage: §c+200",
+            "",
+            "§d§lMYTHIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Technoblade",
+            "§7Buy it now: §61,259,999 coins",
+            "",
+            "§7Ends in: §e0d 5h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "12": {
+          "item": "minecraft:golden_sword[custom_data={id:\"MIDAS_SWORD\"}]",
+          "name": "§6Midas' Sword",
+          "lore": [
+            "§7Damage: §c+207",
+            "",
+            "§6§lLEGENDARY SWORD",
+            "§8§m-----------------",
+            "§7Seller: §a[VIP] Seller2",
+            "§7Buy it now: §62,509,999 coins",
+            "",
+            "§7Ends in: §e1d 6h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "13": {
+          "item": "minecraft:bow[custom_data={id:\"TERMINATOR\"}]",
+          "name": "§6Precise Terminator",
+          "lore": [
+            "§7Damage: §c+214",
+            "",
+            "§6§lLEGENDARY DUNGEON BOW",
+            "§8§m-----------------",
+            "§7Seller: §7Nobody3",
+            "§7Bids: §a3 bids",
+            "",
+            "§7Top bid: §62,700,000 coins",
+            "",
+            "§7Ends in: §e2d 7h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "14": {
+          "item": "minecraft:stone_sword[custom_data={id:\"FROZEN_SCYTHE\"}]",
+          "name": "§9Frozen Scythe",
+          "lore": [
+            "§7Damage: §c+221",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Seller: §6[MVP§1++§6] Rich",
+            "§7Starting bid: §62,000,000 coins",
+            "",
+            "§7Ends in: §e0d 8h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "15": {
+          "item": "minecraft:wooden_sword[custom_data={id:\"ASPECT_OF_THE_END\"}]",
+          "name": "§9Aspect of the End",
+          "lore": [
+            "§7Damage: §c+228",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Flipper",
+            "§7Buy it now: §66,259,999 coins",
+            "",
+            "§7Ends in: §e1d 9h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "16": {
+          "item": "minecraft:golden_shovel[custom_data={id:\"SHADOW_FURY\"}]",
+          "name": "§5Shadow Fury",
+          "lore": [
+            "§7Damage: §c+235",
+            "",
+            "§5§lEPIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Technoblade",
+            "§7Buy it now: §67,509,999 coins",
+            "",
+            "§7Ends in: §e2d 10h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "20": {
+          "item": "minecraft:iron_sword[custom_data={id:\"HYPERION\"}]",
+          "name": "§dHeroic Hyperion §6✪✪✪✪✪",
+          "lore": [
+            "§7Damage: §c+242",
+            "",
+            "§d§lMYTHIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §a[VIP] Seller2",
+            "§7Bids: §a3 bids",
+            "",
+            "§7Top bid: §66,300,000 coins",
+            "",
+            "§7Ends in: §e0d 11h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "21": {
+          "item": "minecraft:golden_sword[custom_data={id:\"MIDAS_SWORD\"}]",
+          "name": "§6Midas' Sword",
+          "lore": [
+            "§7Damage: §c+249",
+            "",
+            "§6§lLEGENDARY SWORD",
+            "§8§m-----------------",
+            "§7Seller: §7Nobody3",
+            "§7Starting bid: §64,000,000 coins",
+            "",
+            "§7Ends in: §e1d 12h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "22": {
+          "item": "minecraft:bow[custom_data={id:\"TERMINATOR\"}]",
+          "name": "§6Precise Terminator",
+          "lore": [
+            "§7Damage: §c+256",
+            "",
+            "§6§lLEGENDARY DUNGEON BOW",
+            "§8§m-----------------",
+            "§7Seller: §6[MVP§1++§6] Rich",
+            "§7Buy it now: §611,259,999 coins",
+            "",
+            "§7Ends in: §e2d 13h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "23": {
+          "item": "minecraft:stone_sword[custom_data={id:\"FROZEN_SCYTHE\"}]",
+          "name": "§9Frozen Scythe",
+          "lore": [
+            "§7Damage: §c+263",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Flipper",
+            "§7Buy it now: §612,509,999 coins",
+            "",
+            "§7Ends in: §e0d 14h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "24": {
+          "item": "minecraft:wooden_sword[custom_data={id:\"ASPECT_OF_THE_END\"}]",
+          "name": "§9Aspect of the End",
+          "lore": [
+            "§7Damage: §c+270",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Technoblade",
+            "§7Bids: §a3 bids",
+            "",
+            "§7Top bid: §69,900,000 coins",
+            "",
+            "§7Ends in: §e1d 15h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "25": {
+          "item": "minecraft:golden_shovel[custom_data={id:\"SHADOW_FURY\"}]",
+          "name": "§5Shadow Fury",
+          "lore": [
+            "§7Damage: §c+277",
+            "",
+            "§5§lEPIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §a[VIP] Seller2",
+            "§7Starting bid: §66,000,000 coins",
+            "",
+            "§7Ends in: §e2d 16h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "29": {
+          "item": "minecraft:iron_sword[custom_data={id:\"HYPERION\"}]",
+          "name": "§dHeroic Hyperion §6✪✪✪✪✪",
+          "lore": [
+            "§7Damage: §c+284",
+            "",
+            "§d§lMYTHIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §7Nobody3",
+            "§7Buy it now: §616,259,999 coins",
+            "",
+            "§7Ends in: §e0d 17h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "30": {
+          "item": "minecraft:golden_sword[custom_data={id:\"MIDAS_SWORD\"}]",
+          "name": "§6Midas' Sword",
+          "lore": [
+            "§7Damage: §c+291",
+            "",
+            "§6§lLEGENDARY SWORD",
+            "§8§m-----------------",
+            "§7Seller: §6[MVP§1++§6] Rich",
+            "§7Buy it now: §617,509,999 coins",
+            "",
+            "§7Ends in: §e1d 18h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "31": {
+          "item": "minecraft:bow[custom_data={id:\"TERMINATOR\"}]",
+          "name": "§6Precise Terminator",
+          "lore": [
+            "§7Damage: §c+298",
+            "",
+            "§6§lLEGENDARY DUNGEON BOW",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Flipper",
+            "§7Bids: §a3 bids",
+            "",
+            "§7Top bid: §613,500,000 coins",
+            "",
+            "§7Ends in: §e2d 19h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "32": {
+          "item": "minecraft:stone_sword[custom_data={id:\"FROZEN_SCYTHE\"}]",
+          "name": "§9Frozen Scythe",
+          "lore": [
+            "§7Damage: §c+305",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Technoblade",
+            "§7Starting bid: §68,000,000 coins",
+            "",
+            "§7Ends in: §e0d 20h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "33": {
+          "item": "minecraft:wooden_sword[custom_data={id:\"ASPECT_OF_THE_END\"}]",
+          "name": "§9Aspect of the End",
+          "lore": [
+            "§7Damage: §c+312",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Seller: §a[VIP] Seller2",
+            "§7Buy it now: §621,259,999 coins",
+            "",
+            "§7Ends in: §e1d 21h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "34": {
+          "item": "minecraft:golden_shovel[custom_data={id:\"SHADOW_FURY\"}]",
+          "name": "§5Shadow Fury",
+          "lore": [
+            "§7Damage: §c+319",
+            "",
+            "§5§lEPIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §7Nobody3",
+            "§7Buy it now: §622,509,999 coins",
+            "",
+            "§7Ends in: §e2d 22h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "46": {
+          "item": "minecraft:arrow",
+          "name": "§aPrevious Page",
+          "lore": [
+            "§e(1/12)"
+          ]
+        },
+        "53": {
+          "item": "minecraft:arrow",
+          "name": "§aNext Page",
+          "lore": [
+            "§e(3/12)"
+          ]
+        },
+        "47": {
+          "item": "minecraft:anvil",
+          "name": "§aReset Settings",
+          "lore": [
+            "§7Clears your auction house search",
+            "§7settings.",
+            "",
+            "§eClick to reset!"
+          ]
+        },
+        "48": {
+          "item": "minecraft:oak_sign",
+          "name": "§aSearch",
+          "lore": [
+            "§7Find items by name, type, lore or",
+            "§7enchants.",
+            "",
+            "§eClick to search!"
+          ]
+        },
+        "49": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To Auction House"
+          ]
+        },
+        "50": {
+          "item": "minecraft:hopper",
+          "name": "§aSort",
+          "lore": [
+            "",
+            "§7  Highest Bid",
+            "§b▶ Lowest Price",
+            "§7  Ending Soon",
+            "§7  Most Bids",
+            "",
+            "§bRight-Click to go backwards!",
+            "§eClick to switch sort!"
+          ]
+        },
+        "51": {
+          "item": "minecraft:ender_eye",
+          "name": "§aItem Tier",
+          "lore": [
+            "",
+            "§b▶ No filter",
+            "§f  Common",
+            "§a  Uncommon",
+            "§9  Rare",
+            "§5  Epic",
+            "§6  Legendary",
+            "",
+            "§eClick to switch filter!"
+          ]
+        },
+        "52": {
+          "item": "minecraft:gold_block",
+          "name": "§aBIN Filter",
+          "lore": [
+            "",
+            "§b▶ Show All",
+            "§7  BIN Only",
+            "§7  Auctions Only",
+            "",
+            "§eClick to switch filter!"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/ah/AhPages.java",
+      "line": 98
+    },
+    "verifiedBy": "regex",
+    "notes": "Titles and slots: Skyblocker MenuScreensConstructorMixin / AuctionBrowserScreen / AuctionViewScreen, SkyHanni AuctionsHighlighter / AuctionHouseCopyUnderbidPrice, hypixelskyblock.minecraft.wiki Auction House (read 2026-10-07). Lore wording beyond those sources is illustrative, NOT a capture. Mapped: BROWSER; slots per Skyblocker AuctionBrowserScreen."
+  },
+  {
+    "id": "menus.ah-search",
+    "kind": "menu",
+    "payload": {
+      "title": "Auctions: \"hyperion\"",
+      "rows": 6,
+      "fill": true,
+      "slots": {
+        "0": {
+          "item": "minecraft:golden_sword",
+          "name": "§6Weapons",
+          "lore": [
+            "§8Category",
+            "",
+            "§aCurrently browsing!"
+          ]
+        },
+        "9": {
+          "item": "minecraft:diamond_chestplate",
+          "name": "§bArmor",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view items!"
+          ]
+        },
+        "18": {
+          "item": "minecraft:emerald",
+          "name": "§2Accessories",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view items!"
+          ]
+        },
+        "27": {
+          "item": "minecraft:apple",
+          "name": "§cConsumables",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view items!"
+          ]
+        },
+        "36": {
+          "item": "minecraft:cobblestone",
+          "name": "§7Blocks",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view items!"
+          ]
+        },
+        "45": {
+          "item": "minecraft:stick",
+          "name": "§dTools & Misc",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view items!"
+          ]
+        },
+        "11": {
+          "item": "minecraft:iron_sword[custom_data={id:\"HYPERION\"}]",
+          "name": "§dHeroic Hyperion §6✪✪✪✪✪",
+          "lore": [
+            "§7Damage: §c+200",
+            "",
+            "§d§lMYTHIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Technoblade",
+            "§7Buy it now: §61,259,999 coins",
+            "",
+            "§7Ends in: §e0d 5h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "12": {
+          "item": "minecraft:golden_sword[custom_data={id:\"MIDAS_SWORD\"}]",
+          "name": "§6Midas' Sword",
+          "lore": [
+            "§7Damage: §c+207",
+            "",
+            "§6§lLEGENDARY SWORD",
+            "§8§m-----------------",
+            "§7Seller: §a[VIP] Seller2",
+            "§7Buy it now: §62,509,999 coins",
+            "",
+            "§7Ends in: §e1d 6h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "13": {
+          "item": "minecraft:bow[custom_data={id:\"TERMINATOR\"}]",
+          "name": "§6Precise Terminator",
+          "lore": [
+            "§7Damage: §c+214",
+            "",
+            "§6§lLEGENDARY DUNGEON BOW",
+            "§8§m-----------------",
+            "§7Seller: §7Nobody3",
+            "§7Bids: §a3 bids",
+            "",
+            "§7Top bid: §62,700,000 coins",
+            "",
+            "§7Ends in: §e2d 7h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "14": {
+          "item": "minecraft:stone_sword[custom_data={id:\"FROZEN_SCYTHE\"}]",
+          "name": "§9Frozen Scythe",
+          "lore": [
+            "§7Damage: §c+221",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Seller: §6[MVP§1++§6] Rich",
+            "§7Starting bid: §62,000,000 coins",
+            "",
+            "§7Ends in: §e0d 8h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "15": {
+          "item": "minecraft:wooden_sword[custom_data={id:\"ASPECT_OF_THE_END\"}]",
+          "name": "§9Aspect of the End",
+          "lore": [
+            "§7Damage: §c+228",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Flipper",
+            "§7Buy it now: §66,259,999 coins",
+            "",
+            "§7Ends in: §e1d 9h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "16": {
+          "item": "minecraft:golden_shovel[custom_data={id:\"SHADOW_FURY\"}]",
+          "name": "§5Shadow Fury",
+          "lore": [
+            "§7Damage: §c+235",
+            "",
+            "§5§lEPIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Technoblade",
+            "§7Buy it now: §67,509,999 coins",
+            "",
+            "§7Ends in: §e2d 10h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "20": {
+          "item": "minecraft:iron_sword[custom_data={id:\"HYPERION\"}]",
+          "name": "§dHeroic Hyperion §6✪✪✪✪✪",
+          "lore": [
+            "§7Damage: §c+242",
+            "",
+            "§d§lMYTHIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §a[VIP] Seller2",
+            "§7Bids: §a3 bids",
+            "",
+            "§7Top bid: §66,300,000 coins",
+            "",
+            "§7Ends in: §e0d 11h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "21": {
+          "item": "minecraft:golden_sword[custom_data={id:\"MIDAS_SWORD\"}]",
+          "name": "§6Midas' Sword",
+          "lore": [
+            "§7Damage: §c+249",
+            "",
+            "§6§lLEGENDARY SWORD",
+            "§8§m-----------------",
+            "§7Seller: §7Nobody3",
+            "§7Starting bid: §64,000,000 coins",
+            "",
+            "§7Ends in: §e1d 12h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "22": {
+          "item": "minecraft:bow[custom_data={id:\"TERMINATOR\"}]",
+          "name": "§6Precise Terminator",
+          "lore": [
+            "§7Damage: §c+256",
+            "",
+            "§6§lLEGENDARY DUNGEON BOW",
+            "§8§m-----------------",
+            "§7Seller: §6[MVP§1++§6] Rich",
+            "§7Buy it now: §611,259,999 coins",
+            "",
+            "§7Ends in: §e2d 13h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "23": {
+          "item": "minecraft:stone_sword[custom_data={id:\"FROZEN_SCYTHE\"}]",
+          "name": "§9Frozen Scythe",
+          "lore": [
+            "§7Damage: §c+263",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Flipper",
+            "§7Buy it now: §612,509,999 coins",
+            "",
+            "§7Ends in: §e0d 14h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "24": {
+          "item": "minecraft:wooden_sword[custom_data={id:\"ASPECT_OF_THE_END\"}]",
+          "name": "§9Aspect of the End",
+          "lore": [
+            "§7Damage: §c+270",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Technoblade",
+            "§7Bids: §a3 bids",
+            "",
+            "§7Top bid: §69,900,000 coins",
+            "",
+            "§7Ends in: §e1d 15h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "25": {
+          "item": "minecraft:golden_shovel[custom_data={id:\"SHADOW_FURY\"}]",
+          "name": "§5Shadow Fury",
+          "lore": [
+            "§7Damage: §c+277",
+            "",
+            "§5§lEPIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §a[VIP] Seller2",
+            "§7Starting bid: §66,000,000 coins",
+            "",
+            "§7Ends in: §e2d 16h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "29": {
+          "item": "minecraft:iron_sword[custom_data={id:\"HYPERION\"}]",
+          "name": "§dHeroic Hyperion §6✪✪✪✪✪",
+          "lore": [
+            "§7Damage: §c+284",
+            "",
+            "§d§lMYTHIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §7Nobody3",
+            "§7Buy it now: §616,259,999 coins",
+            "",
+            "§7Ends in: §e0d 17h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "30": {
+          "item": "minecraft:golden_sword[custom_data={id:\"MIDAS_SWORD\"}]",
+          "name": "§6Midas' Sword",
+          "lore": [
+            "§7Damage: §c+291",
+            "",
+            "§6§lLEGENDARY SWORD",
+            "§8§m-----------------",
+            "§7Seller: §6[MVP§1++§6] Rich",
+            "§7Buy it now: §617,509,999 coins",
+            "",
+            "§7Ends in: §e1d 18h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "31": {
+          "item": "minecraft:bow[custom_data={id:\"TERMINATOR\"}]",
+          "name": "§6Precise Terminator",
+          "lore": [
+            "§7Damage: §c+298",
+            "",
+            "§6§lLEGENDARY DUNGEON BOW",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Flipper",
+            "§7Bids: §a3 bids",
+            "",
+            "§7Top bid: §613,500,000 coins",
+            "",
+            "§7Ends in: §e2d 19h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "32": {
+          "item": "minecraft:stone_sword[custom_data={id:\"FROZEN_SCYTHE\"}]",
+          "name": "§9Frozen Scythe",
+          "lore": [
+            "§7Damage: §c+305",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Technoblade",
+            "§7Starting bid: §68,000,000 coins",
+            "",
+            "§7Ends in: §e0d 20h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "33": {
+          "item": "minecraft:wooden_sword[custom_data={id:\"ASPECT_OF_THE_END\"}]",
+          "name": "§9Aspect of the End",
+          "lore": [
+            "§7Damage: §c+312",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Seller: §a[VIP] Seller2",
+            "§7Buy it now: §621,259,999 coins",
+            "",
+            "§7Ends in: §e1d 21h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "34": {
+          "item": "minecraft:golden_shovel[custom_data={id:\"SHADOW_FURY\"}]",
+          "name": "§5Shadow Fury",
+          "lore": [
+            "§7Damage: §c+319",
+            "",
+            "§5§lEPIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §7Nobody3",
+            "§7Buy it now: §622,509,999 coins",
+            "",
+            "§7Ends in: §e2d 22h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "46": {
+          "item": "minecraft:arrow",
+          "name": "§aPrevious Page",
+          "lore": [
+            "§e(1/12)"
+          ]
+        },
+        "53": {
+          "item": "minecraft:arrow",
+          "name": "§aNext Page",
+          "lore": [
+            "§e(3/12)"
+          ]
+        },
+        "47": {
+          "item": "minecraft:anvil",
+          "name": "§aReset Settings",
+          "lore": [
+            "§7Clears your auction house search",
+            "§7settings.",
+            "",
+            "§eClick to reset!"
+          ]
+        },
+        "48": {
+          "item": "minecraft:oak_sign",
+          "name": "§aSearch",
+          "lore": [
+            "§7Find items by name, type, lore or",
+            "§7enchants.",
+            "",
+            "§7Filtered: §ehyperion",
+            "",
+            "§eClick to search!"
+          ]
+        },
+        "49": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To Auction House"
+          ]
+        },
+        "50": {
+          "item": "minecraft:hopper",
+          "name": "§aSort",
+          "lore": [
+            "",
+            "§7  Highest Bid",
+            "§b▶ Lowest Price",
+            "§7  Ending Soon",
+            "§7  Most Bids",
+            "",
+            "§bRight-Click to go backwards!",
+            "§eClick to switch sort!"
+          ]
+        },
+        "51": {
+          "item": "minecraft:ender_eye",
+          "name": "§aItem Tier",
+          "lore": [
+            "",
+            "§b▶ No filter",
+            "§f  Common",
+            "§a  Uncommon",
+            "§9  Rare",
+            "§5  Epic",
+            "§6  Legendary",
+            "",
+            "§eClick to switch filter!"
+          ]
+        },
+        "52": {
+          "item": "minecraft:gold_block",
+          "name": "§aBIN Filter",
+          "lore": [
+            "",
+            "§b▶ Show All",
+            "§7  BIN Only",
+            "§7  Auctions Only",
+            "",
+            "§eClick to switch filter!"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/ah/AhPages.java",
+      "line": 78
+    },
+    "verifiedBy": "regex",
+    "notes": "Titles and slots: Skyblocker MenuScreensConstructorMixin / AuctionBrowserScreen / AuctionViewScreen, SkyHanni AuctionsHighlighter / AuctionHouseCopyUnderbidPrice, hypixelskyblock.minecraft.wiki Auction House (read 2026-10-07). Lore wording beyond those sources is illustrative, NOT a capture. Mapped: BROWSER (search title)."
+  },
+  {
+    "id": "menus.ah-view-bin",
+    "kind": "menu",
+    "payload": {
+      "title": "BIN Auction View",
+      "rows": 6,
+      "fill": true,
+      "slots": {
+        "13": {
+          "item": "minecraft:iron_sword[custom_data={id:\"HYPERION\"}]",
+          "name": "§dHeroic Hyperion §6✪✪✪✪✪",
+          "lore": [
+            "§7Damage: §c+200",
+            "",
+            "§d§lMYTHIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Technoblade",
+            "§7Buy it now: §61,259,999 coins",
+            "",
+            "§7Ends in: §e0d 5h",
+            ""
+          ]
+        },
+        "49": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To Auctions Browser"
+          ]
+        },
+        "31": {
+          "item": "minecraft:gold_nugget",
+          "name": "§6Buy Item Right Now",
+          "lore": [
+            "",
+            "§7Price: §61,259,999 coins",
+            "",
+            "§eClick to purchase!"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/ah/AhPages.java",
+      "line": 99
+    },
+    "verifiedBy": "regex",
+    "notes": "Titles and slots: Skyblocker MenuScreensConstructorMixin / AuctionBrowserScreen / AuctionViewScreen, SkyHanni AuctionsHighlighter / AuctionHouseCopyUnderbidPrice, hypixelskyblock.minecraft.wiki Auction House (read 2026-10-07). Lore wording beyond those sources is illustrative, NOT a capture. Mapped: VIEW (BIN)."
+  },
+  {
+    "id": "menus.ah-view-auction",
+    "kind": "menu",
+    "payload": {
+      "title": "Auction View",
+      "rows": 6,
+      "fill": true,
+      "slots": {
+        "13": {
+          "item": "minecraft:iron_sword[custom_data={id:\"HYPERION\"}]",
+          "name": "§dHeroic Hyperion §6✪✪✪✪✪",
+          "lore": [
+            "§7Damage: §c+200",
+            "",
+            "§d§lMYTHIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Technoblade",
+            "§7Bids: §a1 bids",
+            "",
+            "§7Top bid: §6900,000 coins",
+            "",
+            "§7Ends in: §e0d 5h",
+            ""
+          ]
+        },
+        "49": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To Auctions Browser"
+          ]
+        },
+        "29": {
+          "item": "minecraft:gold_nugget",
+          "name": "§6Submit Bid",
+          "lore": [
+            "",
+            "§7New bid: §6990,000 coins",
+            "§7Minimum bid: §6945,000 coins",
+            "",
+            "§eClick to bid!"
+          ]
+        },
+        "31": {
+          "item": "minecraft:gold_ingot",
+          "name": "§6Bid Amount: §e990,000",
+          "lore": [
+            "",
+            "§7You need to bid at least §6945,000",
+            "§6coins §7to hold the top bid.",
+            "",
+            "§eClick to edit amount!"
+          ]
+        },
+        "33": {
+          "item": "minecraft:filled_map",
+          "name": "§fBid History",
+          "lore": [
+            "§7Total bids: §a3 bids",
+            "",
+            "§8Top bid: §6900,000 coins"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/ah/AhPages.java",
+      "line": 99
+    },
+    "verifiedBy": "regex",
+    "notes": "Titles and slots: Skyblocker MenuScreensConstructorMixin / AuctionBrowserScreen / AuctionViewScreen, SkyHanni AuctionsHighlighter / AuctionHouseCopyUnderbidPrice, hypixelskyblock.minecraft.wiki Auction House (read 2026-10-07). Lore wording beyond those sources is illustrative, NOT a capture. Mapped: VIEW (bid auction)."
+  },
+  {
+    "id": "menus.ah-confirm-purchase",
+    "kind": "menu",
+    "payload": {
+      "title": "Confirm Purchase",
+      "rows": 3,
+      "fill": true,
+      "slots": {
+        "11": {
+          "item": "minecraft:lime_terracotta",
+          "name": "§aConfirm",
+          "lore": [
+            "§7Purchasing: §dHeroic Hyperion",
+            "§7Cost: §61,259,999 coins"
+          ]
+        },
+        "13": {
+          "item": "minecraft:iron_sword[custom_data={id:\"HYPERION\"}]",
+          "name": "§dHeroic Hyperion §6✪✪✪✪✪",
+          "lore": [
+            "§7Damage: §c+200",
+            "",
+            "§d§lMYTHIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Technoblade",
+            "§7Buy it now: §61,259,999 coins",
+            "",
+            "§7Ends in: §e0d 5h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "15": {
+          "item": "minecraft:red_terracotta",
+          "name": "§cCancel",
+          "lore": []
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/ah/AhPages.java",
+      "line": 100
+    },
+    "verifiedBy": "regex",
+    "notes": "Titles and slots: Skyblocker MenuScreensConstructorMixin / AuctionBrowserScreen / AuctionViewScreen, SkyHanni AuctionsHighlighter / AuctionHouseCopyUnderbidPrice, hypixelskyblock.minecraft.wiki Auction House (read 2026-10-07). Lore wording beyond those sources is illustrative, NOT a capture. Mapped: CONFIRM; confirm 11, cancel 15 per Skyblocker."
+  },
+  {
+    "id": "menus.ah-confirm-bid",
+    "kind": "menu",
+    "payload": {
+      "title": "Confirm Bid",
+      "rows": 3,
+      "fill": true,
+      "slots": {
+        "11": {
+          "item": "minecraft:lime_terracotta",
+          "name": "§aConfirm",
+          "lore": [
+            "§7Bidding on: §dHeroic Hyperion",
+            "§7Cost: §61,259,999 coins"
+          ]
+        },
+        "13": {
+          "item": "minecraft:iron_sword[custom_data={id:\"HYPERION\"}]",
+          "name": "§dHeroic Hyperion §6✪✪✪✪✪",
+          "lore": [
+            "§7Damage: §c+200",
+            "",
+            "§d§lMYTHIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Technoblade",
+            "§7Buy it now: §61,259,999 coins",
+            "",
+            "§7Ends in: §e0d 5h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "15": {
+          "item": "minecraft:red_terracotta",
+          "name": "§cCancel",
+          "lore": []
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/ah/AhPages.java",
+      "line": 100
+    },
+    "verifiedBy": "regex",
+    "notes": "Titles and slots: Skyblocker MenuScreensConstructorMixin / AuctionBrowserScreen / AuctionViewScreen, SkyHanni AuctionsHighlighter / AuctionHouseCopyUnderbidPrice, hypixelskyblock.minecraft.wiki Auction House (read 2026-10-07). Lore wording beyond those sources is illustrative, NOT a capture. Mapped: CONFIRM."
+  },
+  {
+    "id": "menus.ah-manage",
+    "kind": "menu",
+    "payload": {
+      "title": "Manage Auctions",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "10": {
+          "item": "minecraft:iron_sword[custom_data={id:\"HYPERION\"}]",
+          "name": "§dHeroic Hyperion §6✪✪✪✪✪",
+          "lore": [
+            "§7Damage: §c+200",
+            "",
+            "§d§lMYTHIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Buy it now: §61,259,999 coins",
+            "",
+            "§7Ends in: §e0d 5h",
+            "",
+            "§7Status: §aSold!",
+            "§eClick to inspect!"
+          ]
+        },
+        "11": {
+          "item": "minecraft:golden_sword[custom_data={id:\"MIDAS_SWORD\"}]",
+          "name": "§6Midas' Sword",
+          "lore": [
+            "§7Damage: §c+207",
+            "",
+            "§6§lLEGENDARY SWORD",
+            "§8§m-----------------",
+            "§7Bids: §a2 bids",
+            "",
+            "§7Top bid: §61,800,000 coins",
+            "",
+            "§7Ends in: §e1d 6h",
+            "",
+            "§7Status: §cExpired!",
+            "§eClick to inspect!"
+          ]
+        },
+        "12": {
+          "item": "minecraft:bow[custom_data={id:\"TERMINATOR\"}]",
+          "name": "§6Precise Terminator",
+          "lore": [
+            "§7Damage: §c+214",
+            "",
+            "§6§lLEGENDARY DUNGEON BOW",
+            "§8§m-----------------",
+            "§7Buy it now: §63,759,999 coins",
+            "",
+            "§7Ends in: §e2d 7h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "13": {
+          "item": "minecraft:stone_sword[custom_data={id:\"FROZEN_SCYTHE\"}]",
+          "name": "§9Frozen Scythe",
+          "lore": [
+            "§7Damage: §c+221",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Bids: §a4 bids",
+            "",
+            "§7Top bid: §63,600,000 coins",
+            "",
+            "§7Ends in: §e0d 8h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "14": {
+          "item": "minecraft:wooden_sword[custom_data={id:\"ASPECT_OF_THE_END\"}]",
+          "name": "§9Aspect of the End",
+          "lore": [
+            "§7Damage: §c+228",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Buy it now: §66,259,999 coins",
+            "",
+            "§7Ends in: §e1d 9h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "30": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To Auction House"
+          ]
+        },
+        "31": {
+          "item": "minecraft:hopper",
+          "name": "§aSort",
+          "lore": [
+            "",
+            "§b▶ Recently Updated",
+            "§7  Highest Price",
+            "",
+            "§eClick to switch!"
+          ]
+        },
+        "32": {
+          "item": "minecraft:golden_horse_armor",
+          "name": "§aCreate Auction",
+          "lore": [
+            "§7Set your own items on auction for",
+            "§7other players to purchase.",
+            "",
+            "§eClick to become rich!"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/ah/AhPages.java",
+      "line": 101
+    },
+    "verifiedBy": "regex",
+    "notes": "Titles and slots: Skyblocker MenuScreensConstructorMixin / AuctionBrowserScreen / AuctionViewScreen, SkyHanni AuctionsHighlighter / AuctionHouseCopyUnderbidPrice, hypixelskyblock.minecraft.wiki Auction House (read 2026-10-07). Lore wording beyond those sources is illustrative, NOT a capture. Mapped: MANAGE; Status lines per SkyHanni AuctionsHighlighter."
+  },
+  {
+    "id": "menus.ah-bids",
+    "kind": "menu",
+    "payload": {
+      "title": "Your Bids",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "10": {
+          "item": "minecraft:bow[custom_data={id:\"TERMINATOR\"}]",
+          "name": "§6Precise Terminator",
+          "lore": [
+            "§7Damage: §c+214",
+            "",
+            "§6§lLEGENDARY DUNGEON BOW",
+            "§8§m-----------------",
+            "§7Seller: §7Nobody3",
+            "§7Bids: §a3 bids",
+            "",
+            "§7Top bid: §62,700,000 coins",
+            "",
+            "§7Ends in: §e2d 7h",
+            "",
+            "§eClick to inspect!",
+            "§7Bidder: §aYou"
+          ]
+        },
+        "11": {
+          "item": "minecraft:stone_sword[custom_data={id:\"FROZEN_SCYTHE\"}]",
+          "name": "§9Frozen Scythe",
+          "lore": [
+            "§7Damage: §c+221",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Seller: §6[MVP§1++§6] Rich",
+            "§7Bids: §a4 bids",
+            "",
+            "§7Top bid: §63,600,000 coins",
+            "",
+            "§7Ends in: §e0d 8h",
+            "",
+            "§eClick to inspect!",
+            "§7Bidder: §aYou"
+          ]
+        },
+        "12": {
+          "item": "minecraft:wooden_sword[custom_data={id:\"ASPECT_OF_THE_END\"}]",
+          "name": "§9Aspect of the End",
+          "lore": [
+            "§7Damage: §c+228",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Flipper",
+            "§7Bids: §a1 bids",
+            "",
+            "§7Top bid: §64,500,000 coins",
+            "",
+            "§7Ends in: §e1d 9h",
+            "",
+            "§eClick to inspect!",
+            "§7Bidder: §aYou"
+          ]
+        },
+        "31": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To Auction House"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/ah/AhPages.java",
+      "line": 102
+    },
+    "verifiedBy": "regex",
+    "notes": "Titles and slots: Skyblocker MenuScreensConstructorMixin / AuctionBrowserScreen / AuctionViewScreen, SkyHanni AuctionsHighlighter / AuctionHouseCopyUnderbidPrice, hypixelskyblock.minecraft.wiki Auction House (read 2026-10-07). Lore wording beyond those sources is illustrative, NOT a capture. Mapped: BIDS."
+  },
+  {
+    "id": "menus.ah-create-bin",
+    "kind": "menu",
+    "payload": {
+      "title": "Create BIN Auction",
+      "rows": 6,
+      "fill": true,
+      "slots": {
+        "13": {
+          "item": "minecraft:stone_button",
+          "name": "§eClick an item in your inventory!",
+          "lore": [
+            "§7Selects it for auction"
+          ]
+        },
+        "29": {
+          "item": "minecraft:red_terracotta",
+          "name": "§cCreate BIN Auction",
+          "lore": [
+            "§7No item selected!",
+            "",
+            "§7Click an item in your inventory",
+            "§7to select it for this auction."
+          ]
+        },
+        "31": {
+          "item": "minecraft:gold_ingot",
+          "name": "§fItem price: §6500 coins",
+          "lore": [
+            "§7The price at which you want to",
+            "§7sell this item.",
+            "",
+            "§eClick to edit!"
+          ]
+        },
+        "33": {
+          "item": "minecraft:clock",
+          "name": "§fDuration: §e6 Hours",
+          "lore": [
+            "§7How long the item will be up for",
+            "§7sale.",
+            "",
+            "§eClick to edit!"
+          ]
+        },
+        "48": {
+          "item": "minecraft:gold_ingot",
+          "name": "§aSwitch to Auction",
+          "lore": [
+            "§eClick to switch!"
+          ]
+        },
+        "49": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To Auction House"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/ah/AhPages.java",
+      "line": 103
+    },
+    "verifiedBy": "regex",
+    "notes": "Titles and slots: Skyblocker MenuScreensConstructorMixin / AuctionBrowserScreen / AuctionViewScreen, SkyHanni AuctionsHighlighter / AuctionHouseCopyUnderbidPrice, hypixelskyblock.minecraft.wiki Auction House (read 2026-10-07). Lore wording beyond those sources is illustrative, NOT a capture. Mapped: CREATE (his inventory is drawn clickable)."
+  },
+  {
+    "id": "menus.ah-duration",
+    "kind": "menu",
+    "payload": {
+      "title": "Auction Duration",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "10": {
+          "item": "minecraft:red_terracotta",
+          "name": "§a1 Hour",
+          "lore": [
+            "§7Extra fee: §6+20 coins",
+            "",
+            "§eClick to pick!"
+          ]
+        },
+        "11": {
+          "item": "minecraft:clock",
+          "name": "§a6 Hours",
+          "lore": [
+            "§7Extra fee: §6+40 coins",
+            "",
+            "§eClick to pick!"
+          ]
+        },
+        "12": {
+          "item": "minecraft:clock",
+          "name": "§a12 Hours",
+          "lore": [
+            "§7Extra fee: §6+60 coins",
+            "",
+            "§eClick to pick!"
+          ]
+        },
+        "13": {
+          "item": "minecraft:clock",
+          "name": "§a24 Hours",
+          "lore": [
+            "§7Extra fee: §6+80 coins",
+            "",
+            "§eClick to pick!"
+          ]
+        },
+        "14": {
+          "item": "minecraft:clock",
+          "name": "§a2 Days",
+          "lore": [
+            "§7Extra fee: §6+100 coins",
+            "",
+            "§eClick to pick!"
+          ]
+        },
+        "31": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To Create BIN Auction"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/ah/AhPages.java",
+      "line": 104
+    },
+    "verifiedBy": "regex",
+    "notes": "Titles and slots: Skyblocker MenuScreensConstructorMixin / AuctionBrowserScreen / AuctionViewScreen, SkyHanni AuctionsHighlighter / AuctionHouseCopyUnderbidPrice, hypixelskyblock.minecraft.wiki Auction House (read 2026-10-07). Lore wording beyond those sources is illustrative, NOT a capture. Mapped: DURATION."
+  },
+  {
+    "id": "menus.ah-stats",
+    "kind": "menu",
+    "payload": {
+      "title": "Auction Stats",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "13": {
+          "item": "minecraft:paper",
+          "name": "§aAuction Stats",
+          "lore": [
+            "§7Auctions created: §a12"
+          ]
+        },
+        "31": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To Auction House"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/ah/AhPages.java",
+      "line": 104
+    },
+    "verifiedBy": "regex",
+    "notes": "Titles and slots: Skyblocker MenuScreensConstructorMixin / AuctionBrowserScreen / AuctionViewScreen, SkyHanni AuctionsHighlighter / AuctionHouseCopyUnderbidPrice, hypixelskyblock.minecraft.wiki Auction House (read 2026-10-07). Lore wording beyond those sources is illustrative, NOT a capture. NOT mapped (Auction Stats is not in AhPages): must stay Hypixel's GUI."
+  },
+  {
+    "id": "menus.ah-browser-broken",
+    "kind": "menu",
+    "payload": {
+      "title": "Auctions Browser",
+      "rows": 6,
+      "fill": true,
+      "slots": {
+        "0": {
+          "item": "minecraft:golden_sword",
+          "name": "§6Weapons",
+          "lore": [
+            "§8Category",
+            "",
+            "§aCurrently browsing!"
+          ]
+        },
+        "9": {
+          "item": "minecraft:diamond_chestplate",
+          "name": "§bArmor",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view items!"
+          ]
+        },
+        "18": {
+          "item": "minecraft:emerald",
+          "name": "§2Accessories",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view items!"
+          ]
+        },
+        "27": {
+          "item": "minecraft:apple",
+          "name": "§cConsumables",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view items!"
+          ]
+        },
+        "36": {
+          "item": "minecraft:cobblestone",
+          "name": "§7Blocks",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view items!"
+          ]
+        },
+        "45": {
+          "item": "minecraft:stick",
+          "name": "§dTools & Misc",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view items!"
+          ]
+        },
+        "11": {
+          "item": "minecraft:iron_sword[custom_data={id:\"HYPERION\"}]",
+          "name": "§dHeroic Hyperion §6✪✪✪✪✪",
+          "lore": [
+            "§7Damage: §c+200",
+            "",
+            "§d§lMYTHIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Technoblade",
+            "§7Buy it now: §61,259,999 coins",
+            "",
+            "§7Ends in: §e0d 5h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "12": {
+          "item": "minecraft:golden_sword[custom_data={id:\"MIDAS_SWORD\"}]",
+          "name": "§6Midas' Sword",
+          "lore": [
+            "§7Damage: §c+207",
+            "",
+            "§6§lLEGENDARY SWORD",
+            "§8§m-----------------",
+            "§7Seller: §a[VIP] Seller2",
+            "§7Buy it now: §62,509,999 coins",
+            "",
+            "§7Ends in: §e1d 6h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "13": {
+          "item": "minecraft:bow[custom_data={id:\"TERMINATOR\"}]",
+          "name": "§6Precise Terminator",
+          "lore": [
+            "§7Damage: §c+214",
+            "",
+            "§6§lLEGENDARY DUNGEON BOW",
+            "§8§m-----------------",
+            "§7Seller: §7Nobody3",
+            "§7Bids: §a3 bids",
+            "",
+            "§7Top bid: §62,700,000 coins",
+            "",
+            "§7Ends in: §e2d 7h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "14": {
+          "item": "minecraft:stone_sword[custom_data={id:\"FROZEN_SCYTHE\"}]",
+          "name": "§9Frozen Scythe",
+          "lore": [
+            "§7Damage: §c+221",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Seller: §6[MVP§1++§6] Rich",
+            "§7Starting bid: §62,000,000 coins",
+            "",
+            "§7Ends in: §e0d 8h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "15": {
+          "item": "minecraft:wooden_sword[custom_data={id:\"ASPECT_OF_THE_END\"}]",
+          "name": "§9Aspect of the End",
+          "lore": [
+            "§7Damage: §c+228",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Flipper",
+            "§7Buy it now: §66,259,999 coins",
+            "",
+            "§7Ends in: §e1d 9h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "16": {
+          "item": "minecraft:golden_shovel[custom_data={id:\"SHADOW_FURY\"}]",
+          "name": "§5Shadow Fury",
+          "lore": [
+            "§7Damage: §c+235",
+            "",
+            "§5§lEPIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Technoblade",
+            "§7Buy it now: §67,509,999 coins",
+            "",
+            "§7Ends in: §e2d 10h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "20": {
+          "item": "minecraft:iron_sword[custom_data={id:\"HYPERION\"}]",
+          "name": "§dHeroic Hyperion §6✪✪✪✪✪",
+          "lore": [
+            "§7Damage: §c+242",
+            "",
+            "§d§lMYTHIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §a[VIP] Seller2",
+            "§7Bids: §a3 bids",
+            "",
+            "§7Top bid: §66,300,000 coins",
+            "",
+            "§7Ends in: §e0d 11h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "21": {
+          "item": "minecraft:golden_sword[custom_data={id:\"MIDAS_SWORD\"}]",
+          "name": "§6Midas' Sword",
+          "lore": [
+            "§7Damage: §c+249",
+            "",
+            "§6§lLEGENDARY SWORD",
+            "§8§m-----------------",
+            "§7Seller: §7Nobody3",
+            "§7Starting bid: §64,000,000 coins",
+            "",
+            "§7Ends in: §e1d 12h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "22": {
+          "item": "minecraft:bow[custom_data={id:\"TERMINATOR\"}]",
+          "name": "§6Precise Terminator",
+          "lore": [
+            "§7Damage: §c+256",
+            "",
+            "§6§lLEGENDARY DUNGEON BOW",
+            "§8§m-----------------",
+            "§7Seller: §6[MVP§1++§6] Rich",
+            "§7Buy it now: §611,259,999 coins",
+            "",
+            "§7Ends in: §e2d 13h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "23": {
+          "item": "minecraft:stone_sword[custom_data={id:\"FROZEN_SCYTHE\"}]",
+          "name": "§9Frozen Scythe",
+          "lore": [
+            "§7Damage: §c+263",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Flipper",
+            "§7Buy it now: §612,509,999 coins",
+            "",
+            "§7Ends in: §e0d 14h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "24": {
+          "item": "minecraft:wooden_sword[custom_data={id:\"ASPECT_OF_THE_END\"}]",
+          "name": "§9Aspect of the End",
+          "lore": [
+            "§7Damage: §c+270",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Technoblade",
+            "§7Bids: §a3 bids",
+            "",
+            "§7Top bid: §69,900,000 coins",
+            "",
+            "§7Ends in: §e1d 15h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "25": {
+          "item": "minecraft:golden_shovel[custom_data={id:\"SHADOW_FURY\"}]",
+          "name": "§5Shadow Fury",
+          "lore": [
+            "§7Damage: §c+277",
+            "",
+            "§5§lEPIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §a[VIP] Seller2",
+            "§7Starting bid: §66,000,000 coins",
+            "",
+            "§7Ends in: §e2d 16h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "29": {
+          "item": "minecraft:iron_sword[custom_data={id:\"HYPERION\"}]",
+          "name": "§dHeroic Hyperion §6✪✪✪✪✪",
+          "lore": [
+            "§7Damage: §c+284",
+            "",
+            "§d§lMYTHIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §7Nobody3",
+            "§7Buy it now: §616,259,999 coins",
+            "",
+            "§7Ends in: §e0d 17h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "30": {
+          "item": "minecraft:golden_sword[custom_data={id:\"MIDAS_SWORD\"}]",
+          "name": "§6Midas' Sword",
+          "lore": [
+            "§7Damage: §c+291",
+            "",
+            "§6§lLEGENDARY SWORD",
+            "§8§m-----------------",
+            "§7Seller: §6[MVP§1++§6] Rich",
+            "§7Buy it now: §617,509,999 coins",
+            "",
+            "§7Ends in: §e1d 18h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "31": {
+          "item": "minecraft:bow[custom_data={id:\"TERMINATOR\"}]",
+          "name": "§6Precise Terminator",
+          "lore": [
+            "§7Damage: §c+298",
+            "",
+            "§6§lLEGENDARY DUNGEON BOW",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Flipper",
+            "§7Bids: §a3 bids",
+            "",
+            "§7Top bid: §613,500,000 coins",
+            "",
+            "§7Ends in: §e2d 19h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "32": {
+          "item": "minecraft:stone_sword[custom_data={id:\"FROZEN_SCYTHE\"}]",
+          "name": "§9Frozen Scythe",
+          "lore": [
+            "§7Damage: §c+305",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Seller: §b[MVP§c+§b] Technoblade",
+            "§7Starting bid: §68,000,000 coins",
+            "",
+            "§7Ends in: §e0d 20h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "33": {
+          "item": "minecraft:wooden_sword[custom_data={id:\"ASPECT_OF_THE_END\"}]",
+          "name": "§9Aspect of the End",
+          "lore": [
+            "§7Damage: §c+312",
+            "",
+            "§9§lRARE SWORD",
+            "§8§m-----------------",
+            "§7Seller: §a[VIP] Seller2",
+            "§7Buy it now: §621,259,999 coins",
+            "",
+            "§7Ends in: §e1d 21h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "34": {
+          "item": "minecraft:golden_shovel[custom_data={id:\"SHADOW_FURY\"}]",
+          "name": "§5Shadow Fury",
+          "lore": [
+            "§7Damage: §c+319",
+            "",
+            "§5§lEPIC DUNGEON SWORD",
+            "§8§m-----------------",
+            "§7Seller: §7Nobody3",
+            "§7Buy it now: §622,509,999 coins",
+            "",
+            "§7Ends in: §e2d 22h",
+            "",
+            "§eClick to inspect!"
+          ]
+        },
+        "46": {
+          "item": "minecraft:arrow",
+          "name": "§aPrevious Page",
+          "lore": [
+            "§e(1/12)"
+          ]
+        },
+        "53": {
+          "item": "minecraft:arrow",
+          "name": "§aNext Page",
+          "lore": [
+            "§e(3/12)"
+          ]
+        },
+        "47": {
+          "item": "minecraft:anvil",
+          "name": "§aReset Settings",
+          "lore": [
+            "§7Clears your auction house search",
+            "§7settings.",
+            "",
+            "§eClick to reset!"
+          ]
+        },
+        "48": {
+          "item": "minecraft:oak_sign",
+          "name": "§aSearch",
+          "lore": [
+            "§7Find items by name, type, lore or",
+            "§7enchants.",
+            "",
+            "§eClick to search!"
+          ]
+        },
+        "50": {
+          "item": "minecraft:hopper",
+          "name": "§aSort",
+          "lore": [
+            "",
+            "§7  Highest Bid",
+            "§b▶ Lowest Price",
+            "§7  Ending Soon",
+            "§7  Most Bids",
+            "",
+            "§bRight-Click to go backwards!",
+            "§eClick to switch sort!"
+          ]
+        },
+        "51": {
+          "item": "minecraft:ender_eye",
+          "name": "§aItem Tier",
+          "lore": [
+            "",
+            "§b▶ No filter",
+            "§f  Common",
+            "§a  Uncommon",
+            "§9  Rare",
+            "§5  Epic",
+            "§6  Legendary",
+            "",
+            "§eClick to switch filter!"
+          ]
+        },
+        "52": {
+          "item": "minecraft:gold_block",
+          "name": "§aBIN Filter",
+          "lore": [
+            "",
+            "§b▶ Show All",
+            "§7  BIN Only",
+            "§7  Auctions Only",
+            "",
+            "§eClick to switch filter!"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/ah/AhPages.java",
+      "line": 148
+    },
+    "verifiedBy": "regex",
+    "notes": "Titles and slots: Skyblocker MenuScreensConstructorMixin / AuctionBrowserScreen / AuctionViewScreen, SkyHanni AuctionsHighlighter / AuctionHouseCopyUnderbidPrice, hypixelskyblock.minecraft.wiki Auction House (read 2026-10-07). Lore wording beyond those sources is illustrative, NOT a capture. Auctions Browser without its Go Back (49): AhPages refuses it, so it must stay Hypixel's GUI."
+  }
+]
