@@ -133,9 +133,18 @@ final class CommandSweep {
         for (JsonElement e : deny.commands.getAsJsonArray("parseOnly")) {
             listed.add(e.getAsJsonObject().get("root").getAsString());
         }
+        // Custom Command Shortcuts (mod cmd-shortcuts, 2026-10-07) are roots the PLAYER names in the settings tab: his
+        // data, not the jar's, so no list can name them. The mod reports which roots are his
+        // (CommandShortcutsFeature.customRoots) and they are left out here; 545-ui-cmd-shortcuts-sweep runs this sweep
+        // with two of them registered. A jar without the feature reports none.
+        Set<String> custom = c.onClient(mc -> customRoots());
+        if (!custom.isEmpty()) {
+            c.note(custom.size() + " custom command shortcut root(s) left out of the list coverage (his own names): "
+                    + custom);
+        }
         List<String> unlisted = new ArrayList<>();
         for (String r : roots) {
-            if (!listed.contains(r)) {
+            if (!listed.contains(r) && !custom.contains(r)) {
                 unlisted.add(r);
             }
         }
@@ -200,6 +209,18 @@ final class CommandSweep {
         }
         c.note("executed " + executed + " allowlisted command(s)");
         c.check(executed >= 10, "only " + executed + " allowlisted commands executed");
+    }
+
+    /** The custom shortcut roots the mod registered for the player, or none on a jar without them. */
+    @SuppressWarnings("unchecked")
+    static Set<String> customRoots() {
+        String feature = "commandshortcuts.CommandShortcutsFeature";
+        try {
+            Mod.cls(feature).getMethod("customRoots");
+        } catch (NoSuchMethodException | AssertionError e) {
+            return Set.of();
+        }
+        return new LinkedHashSet<>((Set<String>) Mod.staticCall(feature, "customRoots"));
     }
 
     /** Execute one command as typed (without the slash) on the client thread; returns the error, or null. */

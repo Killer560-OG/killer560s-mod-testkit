@@ -58,6 +58,10 @@ import java.util.List;
  *                Line Width in screen pixels at GUI 2 and 3 (and old unit widths converted), one shared line between
  *                touching slots (chest, inventory, hotbar), the armour column against the model frame, the bar number
  *                centred to the pixel ({@link PolishCases})
+ *                541-545 Command Shortcuts: built-in rows show only name + ON/OFF (no text beside or under them, no
+ *                overlap, expansions in the tooltip), the Custom section's add/edit/rename/off/delete through the tab
+ *                with live registration and reload, refused names, and the 306 sweep with custom roots present
+ *                ({@link CmdShortcutsCases}; 544 sends, in the Hx session)
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -88,6 +92,9 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-07 22:08 polish report ({@link PolishCases}); 472 is in the menu suite. Own block for merges. */
     static final String[] POLISH_CASES = {"471-ui-held-item-name", "473-ui-inventory-line-pixels",
             "474-ui-inventory-shared-lines", "475-ui-inventory-armour-model", "476-ui-bars-text-centred"};
+    /** killer560's 2026-10-07 Command Shortcuts requests ({@link CmdShortcutsCases}); 544 is in the Hx session. Own block. */
+    static final String[] CMD_SHORTCUTS_CASES = {"541-ui-cmd-shortcuts-builtin-rows", "542-ui-cmd-shortcuts-custom-edit",
+            "543-ui-cmd-shortcuts-refused-names", "545-ui-cmd-shortcuts-sweep"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -104,11 +111,14 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : POLISH_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : CMD_SHORTCUTS_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
-        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES);
+        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(CMD_SHORTCUTS_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -197,6 +207,11 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "474-ui-inventory-shared-lines", PolishCases::sharedLines);
                     UiCase.run(ctx, "475-ui-inventory-armour-model", PolishCases::armourModel);
                     UiCase.run(ctx, "476-ui-bars-text-centred", PolishCases::barTextCentred);
+                    // ---- command shortcuts (541-545) ----
+                    UiCase.run(ctx, "541-ui-cmd-shortcuts-builtin-rows", CmdShortcutsCases::builtinRows);
+                    UiCase.run(ctx, "542-ui-cmd-shortcuts-custom-edit", CmdShortcutsCases::customEdit);
+                    UiCase.run(ctx, "543-ui-cmd-shortcuts-refused-names", CmdShortcutsCases::refusals);
+                    UiCase.run(ctx, "545-ui-cmd-shortcuts-sweep", c -> CmdShortcutsCases.sweepWithCustoms(c, deny));
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

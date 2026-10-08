@@ -1,5 +1,5 @@
 {
-  "_doc": "Client commands (Fabric ClientCommandManager.getActiveDispatcher, read in a singleplayer world). EVERY root is parsed and asked for suggestions along every literal path; only the 'execute' entries are executed, each with what it must visibly do. Every root the jar registers must be in 'execute' (by its first word) or 'parseOnly', or 306 fails. Sources are mod 8c43a6d.",
+  "_doc": "Client commands (Fabric ClientCommandManager.getActiveDispatcher, read in a singleplayer world). EVERY root is parsed and asked for suggestions along every literal path; only the 'execute' entries are executed, each with what it must visibly do. Every root the jar registers must be in 'execute' (by its first word) or 'parseOnly', or 306 fails. Exception: custom Command Shortcuts are roots the PLAYER names in the settings tab (his data, not the jar's), so 306 leaves out whatever CommandShortcutsFeature.customRoots() reports and 545-ui-cmd-shortcuts-sweep runs the sweep with two of them present. Sources are mod 8c43a6d.",
   "execute": [
     {"input": "killer560", "expect": "screen:gui.ModScreen", "source": "Killer560ModClient.java:423"},
     {"input": "killer560 leaporder", "expect": "screen:leapmenu.LeapOrderScreen", "source": "Killer560ModClient.java (leaporder)"},

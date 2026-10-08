@@ -39,6 +39,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxSocialCases.register(s);
                     HxHudCases.register(s);
                     HxHostileCases.register(s);
+                    // Command Shortcuts' custom rows (544), own block.
+                    HxCmdShortcutsCases.register(s);
                 });
     }
 }
