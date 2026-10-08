@@ -41,7 +41,8 @@ import java.util.Map;
  *       slots there is one line of Line Width pixels, not two, across and down, in a chest, the player inventory (main
  *       grid, its hotbar row, the crafting grid) and the in-game hotbar; each group keeps its outer line.</li>
  *   <li>475-ui-inventory-armour-model: "make the player's model box just a hair larger so they are even". The armour
- *       column's outline and the player-model frame start and end on the same pixel rows, at GUI 2 and 3, lines 1 and 3.</li>
+ *       column's outline and the player-model frame start and end on the same pixel rows, at GUI 2 and 3, lines 1 and 3,
+ *       with iron armour worn and with nothing worn (empty armour slots draw only their outline icon).</li>
  *   <li>476-ui-bars-text-centred: "center the text for my custom health bars". The number's white pixels centred in its
  *       bar within one pixel across and down (the digit body - the comma's tail is not the number's height), at GUI 2
  *       and 4, Predefined and Custom, with and without the absorption segment.</li>
@@ -683,24 +684,33 @@ final class PolishCases {
                 survival(c);
                 int[] g = gui(c);
                 int gs = g[0];
-                for (int w : new int[]{1, 3}) {
+                for (int k = 0; k < 4; k++) {
+                    int w = k < 2 ? 1 : 3;
+                    boolean worn = k % 2 == 1;
                     theme(c, w);
                     c.onClient(mc -> {
+                        // Iron armour worn (his screenshot) or nothing worn (empty slots draw only their outline icon).
+                        var in = mc.player.getInventory();
+                        in.setItem(39, worn ? new ItemStack(Items.IRON_HELMET) : ItemStack.EMPTY);
+                        in.setItem(38, worn ? new ItemStack(Items.IRON_CHESTPLATE) : ItemStack.EMPTY);
+                        in.setItem(37, worn ? new ItemStack(Items.IRON_LEGGINGS) : ItemStack.EMPTY);
+                        in.setItem(36, worn ? new ItemStack(Items.IRON_BOOTS) : ItemStack.EMPTY);
                         McCompat.setScreen(mc, new InventoryScreen(mc.player));
                         return null;
                     });
                     c.ticks(6);
                     int left = (g[1] - 176) / 2;
                     int top = (g[2] - 166) / 2;
-                    BufferedImage img = shot(c, "gui" + gs + "-line" + w);
+                    BufferedImage img = shot(c, "gui" + gs + "-line" + w + (worn ? "-armour" : "-empty"));
                     // Between the panel's top border and the main grid's first line (row 84, its square from 83).
                     int y0 = (top + 3) * gs;
                     int y1 = (top + 82) * gs;
                     int[] armour = span(img, (left + 16) * gs, y0, y1);
                     int[] model = span(img, (left + 50) * gs, y0, y1);
                     int[] modelRight = span(img, (left + 74) * gs, y0, y1);
-                    String line = String.format(Locale.ROOT, "GUI %d line %d: armour column rows %s, model frame rows %s "
-                                    + "(and %s near its right side)", gs, w, show(armour), show(model), show(modelRight));
+                    String line = String.format(Locale.ROOT, "GUI %d line %d %s: armour column rows %s, model frame rows %s "
+                                    + "(and %s near its right side)", gs, w, worn ? "armour worn" : "nothing worn",
+                            show(armour), show(model), show(modelRight));
                     c.note(line);
                     if (armour == null || model == null) {
                         c.problem("no outline found (" + line + ") - nothing to compare");
