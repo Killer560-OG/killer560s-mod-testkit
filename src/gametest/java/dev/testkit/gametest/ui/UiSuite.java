@@ -94,6 +94,9 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] CHAT_CASES = {"565-ui-chat-voice-widget", "569-ui-chat-hider-tab"};
     /** Player Heads turned to the heading, arrow mode unchanged (mod map-heads, {@link MapHeadTurnCases}). Own block. */
     static final String[] MAPHEAD_CASES = {"600-ui-map-head-turn", "601-ui-map-arrow-turn"};
+    /** killer560's 2026-10-08 dungeon list ({@link DungeonFixCases}): splits layout, Blood Camp stall, p3sim etherwarp.
+     *  Own block for merges. */
+    static final String[] DUNGEON_FIX_CASES = {"551-ui-splits-layout", "552-ui-blood-camp-stall", "553-ui-etherwarp-p3sim"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -119,11 +122,14 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : MAPHEAD_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : DUNGEON_FIX_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
-        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES);
+        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES) || any(DUNGEON_FIX_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -219,6 +225,10 @@ public class UiSuite implements FabricClientGameTest {
                     // ---- map head turn (600-601) ----
                     UiCase.run(ctx, "600-ui-map-head-turn", MapHeadTurnCases::heads);
                     UiCase.run(ctx, "601-ui-map-arrow-turn", MapHeadTurnCases::arrows);
+                    // ---- dungeon-fixes (551-553) ----
+                    UiCase.run(ctx, "551-ui-splits-layout", DungeonFixCases::splitsLayout);
+                    UiCase.run(ctx, "552-ui-blood-camp-stall", DungeonFixCases::bloodCampStall);
+                    UiCase.run(ctx, "553-ui-etherwarp-p3sim", DungeonFixCases::etherwarpP3sim);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

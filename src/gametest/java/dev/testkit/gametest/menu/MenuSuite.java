@@ -100,6 +100,8 @@ public class MenuSuite implements FabricClientGameTest {
                     BazaarV3Cases.register(s);
                     // ---- 591-596 social (Best Friends, Friends List), killer560 2026-10-08 ----
                     SocialCases.register(s);
+                    // 554-555: dungeon-fixes (2026-10-08), terminals behind a decorated title.
+                    DungeonFixTerminalCases.register(s);
                 });
     }
 }
