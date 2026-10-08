@@ -1,6 +1,6 @@
 [
   {
-    "id": "menus.bazaar-category",
+    "id": "menus.reskin-bazaar-category",
     "kind": "menu",
     "payload": {
       "title": "Bazaar ➜ Farming",
@@ -222,7 +222,7 @@
     "notes": "Bazaar category page, layout and names from hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07); title 'Bazaar ➜ .*' from SkyHanni BazaarApi.kt. Mapped: CATEGORY."
   },
   {
-    "id": "menus.bazaar-group",
+    "id": "menus.reskin-bazaar-group",
     "kind": "menu",
     "payload": {
       "title": "Farming ➜ Wheat & Seeds",
@@ -361,7 +361,7 @@
     "notes": "Group page 'Farming ➜ Wheat & Seeds', products with 'Buy price: # coins' lore, hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07). Prices are made up. Mapped: GROUP."
   },
   {
-    "id": "menus.bazaar-product",
+    "id": "menus.reskin-bazaar-product",
     "kind": "menu",
     "payload": {
       "title": "Wheat & Seeds ➜ Wheat",
@@ -480,7 +480,7 @@
     "notes": "Product page, slots 10/11/13/15/16 and the bottom row from hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07); slot 10 'Buy Instantly' (SkyHanni), product at 13 (Skyblocker BazaarOrderTracker). The real title is unverified (the wiki shows '<Category> ➜ <Item>'). Mapped: PRODUCT."
   },
   {
-    "id": "menus.bazaar-instant-buy",
+    "id": "menus.reskin-bazaar-instant-buy",
     "kind": "menu",
     "payload": {
       "title": "Wheat ➜ Instant Buy",
@@ -556,7 +556,7 @@
     "notes": "'<Item> ➜ Instant Buy' from hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07) (not in SkyHanni's list). Mapped: INSTANT_BUY."
   },
   {
-    "id": "menus.bazaar-order-amount",
+    "id": "menus.reskin-bazaar-order-amount",
     "kind": "menu",
     "payload": {
       "title": "How many do you want?",
@@ -627,7 +627,7 @@
     "notes": "Buy order amount step, hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07); title in SkyHanni BazaarApi.kt. Item types are guesses. Mapped: ORDER_AMOUNT."
   },
   {
-    "id": "menus.bazaar-order-price",
+    "id": "menus.reskin-bazaar-order-price",
     "kind": "menu",
     "payload": {
       "title": "How much do you want to pay?",
@@ -712,7 +712,7 @@
     "notes": "Buy order price step, hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07); title in SkyHanni BazaarApi.kt. Mapped: ORDER_PRICE."
   },
   {
-    "id": "menus.bazaar-confirm-buy",
+    "id": "menus.reskin-bazaar-confirm-buy",
     "kind": "menu",
     "payload": {
       "title": "Confirm Buy Order",
@@ -756,7 +756,7 @@
     "notes": "Confirm Buy Order, hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07). Mapped: CONFIRM_BUY."
   },
   {
-    "id": "menus.bazaar-offer-price",
+    "id": "menus.reskin-bazaar-offer-price",
     "kind": "menu",
     "payload": {
       "title": "At what price are you selling?",
@@ -834,7 +834,7 @@
     "notes": "Sell offer price step, hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07). Mapped: OFFER_PRICE."
   },
   {
-    "id": "menus.bazaar-confirm-sell",
+    "id": "menus.reskin-bazaar-confirm-sell",
     "kind": "menu",
     "payload": {
       "title": "Confirm Sell Offer",
@@ -879,7 +879,7 @@
     "notes": "Confirm Sell Offer, hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07). Mapped: CONFIRM_SELL."
   },
   {
-    "id": "menus.bazaar-sell-inventory",
+    "id": "menus.reskin-bazaar-sell-inventory",
     "kind": "menu",
     "payload": {
       "title": "Are you sure?",
@@ -911,7 +911,7 @@
     "notes": "Sell Inventory Now's 'Are you sure?' (3 rows, 11 hopper 'Selling whole inventory', 15 'Cancel'), hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07). Mapped: CONFIRM_SELL_INVENTORY."
   },
   {
-    "id": "menus.bazaar-order-options",
+    "id": "menus.reskin-bazaar-order-options",
     "kind": "menu",
     "payload": {
       "title": "Order options",
@@ -945,7 +945,7 @@
     "notes": "Order options: only the cancel item is sourced (SkyHanni: slot 11 name contains 'Cancel Order'; lore '... missing items.'); the rest of the layout is unverified. Mapped: ORDER_OPTIONS."
   },
   {
-    "id": "menus.bazaar-settings",
+    "id": "menus.reskin-bazaar-settings",
     "kind": "menu",
     "payload": {
       "title": "Bazaar ➜ Settings",
@@ -987,7 +987,7 @@
     "notes": "'Bazaar ➜ Settings' from hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07): a Bazaar title with no priced products, so it must stay Hypixel's GUI."
   },
   {
-    "id": "menus.bazaar-confirm-instant",
+    "id": "menus.reskin-bazaar-confirm-instant",
     "kind": "menu",
     "payload": {
       "title": "Confirm Instant Buy",
@@ -1018,7 +1018,7 @@
     "notes": "'Confirm Instant Buy' (title from SkyHanni/NEU); its layout is in no source, so it must stay Hypixel's GUI. Items invented."
   },
   {
-    "id": "menus.bazaar-other-arrow",
+    "id": "menus.reskin-bazaar-other-arrow",
     "kind": "menu",
     "payload": {
       "title": "Your Skills ➜ Farming",
@@ -1060,7 +1060,7 @@
     "notes": "A non-Bazaar 'A ➜ B' menu (invented): no product actions or prices, so it must stay Hypixel's GUI."
   },
   {
-    "id": "menus.bazaar-category-no-manage",
+    "id": "menus.reskin-bazaar-category-no-manage",
     "kind": "menu",
     "payload": {
       "title": "Bazaar ➜ Farming",

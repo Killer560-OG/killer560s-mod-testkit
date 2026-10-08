@@ -70,17 +70,17 @@ final class BazaarReskinCases {
 
     /** {fixture id, expected kind}. */
     private static final String[][] MAPPED = {
-            {"menus.bazaar-category", "CATEGORY"},
-            {"menus.bazaar-group", "GROUP"},
-            {"menus.bazaar-product", "PRODUCT"},
-            {"menus.bazaar-instant-buy", "INSTANT_BUY"},
-            {"menus.bazaar-order-amount", "ORDER_AMOUNT"},
-            {"menus.bazaar-order-price", "ORDER_PRICE"},
-            {"menus.bazaar-confirm-buy", "CONFIRM_BUY"},
-            {"menus.bazaar-offer-price", "OFFER_PRICE"},
-            {"menus.bazaar-confirm-sell", "CONFIRM_SELL"},
-            {"menus.bazaar-sell-inventory", "CONFIRM_SELL_INVENTORY"},
-            {"menus.bazaar-order-options", "ORDER_OPTIONS"},
+            {"menus.reskin-bazaar-category", "CATEGORY"},
+            {"menus.reskin-bazaar-group", "GROUP"},
+            {"menus.reskin-bazaar-product", "PRODUCT"},
+            {"menus.reskin-bazaar-instant-buy", "INSTANT_BUY"},
+            {"menus.reskin-bazaar-order-amount", "ORDER_AMOUNT"},
+            {"menus.reskin-bazaar-order-price", "ORDER_PRICE"},
+            {"menus.reskin-bazaar-confirm-buy", "CONFIRM_BUY"},
+            {"menus.reskin-bazaar-offer-price", "OFFER_PRICE"},
+            {"menus.reskin-bazaar-confirm-sell", "CONFIRM_SELL"},
+            {"menus.reskin-bazaar-sell-inventory", "CONFIRM_SELL_INVENTORY"},
+            {"menus.reskin-bazaar-order-options", "ORDER_OPTIONS"},
             {"menus.bazaar-orders", "ORDERS"},
     };
 
@@ -413,8 +413,8 @@ final class BazaarReskinCases {
         MenuKit.reset(c);
         boolean gate = gateOff(c);
         try (MenuKit.Cfg cfg = setup(c)) {
-            JsonObject product = MenuKit.menu("menus.bazaar-product");
-            JsonObject amount = MenuKit.menu("menus.bazaar-order-amount");
+            JsonObject product = MenuKit.menu("menus.reskin-bazaar-product");
+            JsonObject amount = MenuKit.menu("menus.reskin-bazaar-order-amount");
             // Create Buy Order (15) opens the amount step; the amount step's Go Back (31) opens the product again.
             JsonObject amountOn = new JsonObject();
             JsonObject back = new JsonObject();
@@ -512,8 +512,8 @@ final class BazaarReskinCases {
         MenuKit.reset(c);
         boolean gate = gateOff(c);
         try (MenuKit.Cfg cfg = setup(c)) {
-            String[] unmapped = {"menus.bazaar-settings", "menus.bazaar-confirm-instant", "menus.bazaar-other-arrow",
-                    "menus.bazaar-category-no-manage"};
+            String[] unmapped = {"menus.reskin-bazaar-settings", "menus.reskin-bazaar-confirm-instant", "menus.reskin-bazaar-other-arrow",
+                    "menus.reskin-bazaar-category-no-manage"};
             for (String id : unmapped) {
                 MenuKit.reset(c);
                 JsonObject spec = MenuKit.menu(id);
@@ -527,7 +527,7 @@ final class BazaarReskinCases {
             // A mapped page with the toggle off.
             MenuKit.reset(c);
             c.ctx().runOnClient(mc -> Mod.set("auction.AuctionConfig", "setReskinRealBazaar", false));
-            JsonObject spec = MenuKit.menu("menus.bazaar-product");
+            JsonObject spec = MenuKit.menu("menus.reskin-bazaar-product");
             MenuKit.show(c, spec);
             MenuKit.awaitScreen(c, plainTitle(spec), 100);
             c.ctx().waitTicks(20);
@@ -569,7 +569,7 @@ final class BazaarReskinCases {
         MenuKit.reset(c);
         boolean gate = gateOff(c);
         try (MenuKit.Cfg cfg = setup(c)) {
-            JsonObject spec = open(c, "menus.bazaar-product", "PRODUCT");
+            JsonObject spec = open(c, "menus.reskin-bazaar-product", "PRODUCT");
             c.ctx().getInput().holdAlt(); // Fabric TestInput: the left Alt key
             try {
                 c.waitUntil("Hypixel's GUI while Left Alt is held", mc -> "NONE".equals(Mod.staticCall(RESKIN, "kindForTest")), 20);
@@ -666,7 +666,7 @@ final class BazaarReskinCases {
         MenuKit.reset(c);
         boolean gate = gateOff(c);
         try (MenuKit.Cfg cfg = setup(c)) {
-            open(c, "menus.bazaar-product", "PRODUCT");
+            open(c, "menus.reskin-bazaar-product", "PRODUCT");
             cursorTo(c, hotspot(layout(c), "10"));
             int base = clicks(c);
             for (int i = 0; i < 12; i++) {
