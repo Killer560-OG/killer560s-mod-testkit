@@ -46,7 +46,10 @@ import java.util.List;
  *                Bazaar product's icon source and the paper fallbacks named ({@link BazaarBrowserCases}),
  *                427-432 Pack Disabler: models through vanilla's resolver ON/OFF, the pack push left to vanilla, the
  *                missing-texture command, a chest at GUI 2, a player's resource pack beating both vanilla-look and our
- *                textures, Bazaar icons from the same table ({@link PackDisablerCases})
+ *                textures, Bazaar icons from the same table ({@link PackDisablerCases}),
+ *                451-454 Inventory Theme on the hotbar (vanilla overlays kept, line width, colours, scale), its
+ *                settings round trip, the Storage Overlay centred at six window/GUI sizes, and the Amber / Dark /
+ *                Light themes measured on screenshots ({@link InvStorageCases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -69,7 +72,9 @@ public class UiSuite implements FabricClientGameTest {
             "411-ui-mining-shelved", "412-ui-no-new-tab", "413-ui-testing-variant",
             "424-ui-bazaar-browser", "425-ui-bazaar-icons", "427-ui-pack-disabler-models",
             "428-ui-pack-disabler-pack-push", "429-ui-pack-disabler-missing", "430-ui-pack-disabler-screens",
-            "431-ui-pack-disabler-user-pack", "432-ui-pack-disabler-bazaar"};
+            "431-ui-pack-disabler-user-pack", "432-ui-pack-disabler-bazaar",
+            "451-ui-hotbar-theme", "452-ui-inventory-theme-settings", "453-ui-storage-overlay-centre",
+            "454-ui-storage-overlay-themes"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -159,6 +164,10 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "430-ui-pack-disabler-screens", PackDisablerCases::screens);
                     UiCase.run(ctx, "431-ui-pack-disabler-user-pack", PackDisablerCases::userPack);
                     UiCase.run(ctx, "432-ui-pack-disabler-bazaar", PackDisablerCases::bazaar);
+                    UiCase.run(ctx, "451-ui-hotbar-theme", InvStorageCases::hotbar);
+                    UiCase.run(ctx, "452-ui-inventory-theme-settings", InvStorageCases::settings);
+                    UiCase.run(ctx, "453-ui-storage-overlay-centre", InvStorageCases::storageCentre);
+                    UiCase.run(ctx, "454-ui-storage-overlay-themes", InvStorageCases::storageThemes);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

@@ -60,7 +60,7 @@
     },
     "source": {
       "file": "src/main/java/com/killer560/hub/storageoverlay/StorageOverlayFeature.java",
-      "line": 52
+      "line": 53
     },
     "verifiedBy": "regex",
     "notes": "ENDER_CHEST_TITLE (:52); a page is saved once some slot 0-8 holds an item (:284-319), contents are slots 9 .. size-36."
@@ -163,5 +163,175 @@
     },
     "verifiedBy": "regex",
     "notes": "The flipper looks for 'instant buy'/'buy instantly' by NAME in any container (:474) and dumps menus with BazaarFlipMenus.describe (bazaarflip/BazaarFlipMenus.java:129). The TITLE is a testkit placeholder: the flipper accepts whatever container /bz opens."
+  },
+  {
+    "id": "menus.storage-overview-locked-empty",
+    "kind": "menu",
+    "payload": {
+      "title": "Storage",
+      "rows": 6,
+      "fill": true,
+      "slots": {
+        "9": {
+          "item": "minecraft:ender_chest",
+          "name": "\u00a7aEnder Chest Page 1",
+          "count": 1
+        },
+        "10": {
+          "item": "minecraft:ender_chest",
+          "name": "\u00a7aEnder Chest Page 2",
+          "count": 2
+        },
+        "11": {
+          "item": "minecraft:ender_chest",
+          "name": "\u00a7aEnder Chest Page 3",
+          "count": 3
+        },
+        "12": {
+          "item": "minecraft:barrier",
+          "name": "\u00a7cLocked Page",
+          "lore": [
+            "\u00a77Unlock more Ender Chest pages in",
+            "\u00a77the community shop!"
+          ]
+        },
+        "13": {
+          "item": "minecraft:barrier",
+          "name": "\u00a7cLocked Page",
+          "lore": [
+            "\u00a77Unlock more Ender Chest pages in",
+            "\u00a77the community shop!"
+          ]
+        },
+        "14": {
+          "item": "minecraft:barrier",
+          "name": "\u00a7cLocked Page",
+          "lore": [
+            "\u00a77Unlock more Ender Chest pages in",
+            "\u00a77the community shop!"
+          ]
+        },
+        "15": {
+          "item": "minecraft:barrier",
+          "name": "\u00a7cLocked Page",
+          "lore": [
+            "\u00a77Unlock more Ender Chest pages in",
+            "\u00a77the community shop!"
+          ]
+        },
+        "16": {
+          "item": "minecraft:barrier",
+          "name": "\u00a7cLocked Page",
+          "lore": [
+            "\u00a77Unlock more Ender Chest pages in",
+            "\u00a77the community shop!"
+          ]
+        },
+        "17": {
+          "item": "minecraft:barrier",
+          "name": "\u00a7cLocked Page",
+          "lore": [
+            "\u00a77Unlock more Ender Chest pages in",
+            "\u00a77the community shop!"
+          ]
+        },
+        "27": {
+          "item": "minecraft:chest",
+          "name": "\u00a76Jumbo Backpack",
+          "count": 1,
+          "lore": [
+            "\u00a77Slot 1"
+          ]
+        },
+        "28": {
+          "item": "minecraft:chest",
+          "name": "\u00a76Jumbo Backpack",
+          "count": 2,
+          "lore": [
+            "\u00a77Slot 2"
+          ]
+        },
+        "29": {
+          "item": "minecraft:chest",
+          "name": "\u00a76Jumbo Backpack",
+          "count": 3,
+          "lore": [
+            "\u00a77Slot 3"
+          ]
+        },
+        "30": {
+          "item": "minecraft:chest",
+          "name": "\u00a76Jumbo Backpack",
+          "count": 4,
+          "lore": [
+            "\u00a77Slot 4"
+          ]
+        },
+        "31": {
+          "item": "minecraft:chest",
+          "name": "\u00a76Locked & Loaded Backpack",
+          "count": 5
+        },
+        "32": {
+          "item": "minecraft:glass_pane",
+          "name": "\u00a7eEmpty Backpack Slot 6",
+          "lore": [
+            "\u00a77Left-click a backpack item on this",
+            "\u00a77slot to place it!"
+          ]
+        },
+        "33": {
+          "item": "minecraft:glass_pane",
+          "name": "\u00a7eEmpty Backpack Slot 7",
+          "lore": [
+            "\u00a77Left-click a backpack item on this",
+            "\u00a77slot to place it!"
+          ]
+        },
+        "34": {
+          "item": "minecraft:glass_pane",
+          "name": "\u00a7eEmpty Backpack Slot 8",
+          "lore": [
+            "\u00a77Left-click a backpack item on this",
+            "\u00a77slot to place it!"
+          ]
+        },
+        "35": {
+          "item": "minecraft:glass_pane",
+          "name": "\u00a7eEmpty Backpack Slot 9",
+          "lore": [
+            "\u00a77Left-click a backpack item on this",
+            "\u00a77slot to place it!"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/storageoverlay/StoragePageSlots.java",
+      "line": 35
+    },
+    "verifiedBy": "capture:killer560s-mod-logs/user-shots-1007/storage-locked-page.webp + storage-empty-backpack.webp (2026-10-07)",
+    "notes": "Hypixel's Storage menu as killer560's screenshots show it: Ender Chest pages 1-3 owned (slots 9-11), 4-9 'Locked Page' (12-17, lore wrapped over two lines as in the menu); backpacks 1-5 real (27-31; 5's name starts 'Locked & Loaded' as a control for the anchored LOCKED_NAME at :35), 6-9 'Empty Backpack Slot N' (32-35, EMPTY_NAME :39); 36-44 Hypixel's blank filler. Item types are testkit placeholders: the classifier reads only name and lore. Scan All must visit enderchest 1-3 and backpack 1-5 and nothing else."
+  },
+  {
+    "id": "menus.storage-backpack-page",
+    "kind": "menu",
+    "payload": {
+      "title": "Jumbo Backpack (Slot #1)",
+      "rows": 6,
+      "slots": {
+        "0": "minecraft:barrier",
+        "9": {
+          "item": "minecraft:gold_ingot",
+          "count": 3
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/storageoverlay/StorageOverlayFeature.java",
+      "line": 54
+    },
+    "verifiedBy": "regex",
+    "notes": "BACKPACK_TITLE (:54) - what a /backpack visit opens during Scan All in case 455."
   }
 ]
