@@ -198,10 +198,23 @@ final class PolishMenuCases {
         }, 600);
     }
 
-    /** A real left click in the middle of the button the overlay last drew. */
+    /**
+     * A real left click in the middle of the button the overlay last drew. The Storage Overlay decorates Hypixel's
+     * vanilla container screen, so its boxes are plain GUI units (Auto Scale's {@code scalesScreen} is false for it):
+     * window pixel = GUI unit x GUI scale. {@link BazaarReskinCases#pressAt} also multiplies by Auto Scale's factor,
+     * which is right for the Bazaar canvas but 0.5 in the 854x480 test window, and put this press on the Search button
+     * above (it closed the Storage menu and opened the item search; 2026-10-08, after the bazaar-v3 helper change).
+     */
     private static void press(Session c) {
         int[] b = c.onClient(mc -> ((int[]) Mod.field(SFEAT, "lastScanButton")).clone());
-        BazaarReskinCases.pressAt(c, b, 0);
+        double[] at = c.onClient(mc -> {
+            double g = mc.getWindow().getGuiScale();
+            return new double[]{(b[0] + b[2] / 2.0) * g, (b[1] + b[3] / 2.0) * g};
+        });
+        c.ctx().getInput().setCursorPos(at[0], at[1]);
+        c.ctx().waitTicks(2);
+        c.ctx().getInput().pressMouse(0);
+        c.ctx().waitTicks(3);
     }
 
     private static String box(Session c) {

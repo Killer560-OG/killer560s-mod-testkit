@@ -275,6 +275,10 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
 - From the MAIN MENU (the map designer, any sim screen opened before a world) `ModChat.send` shows nothing: it drops the line
   while `client.player` is null, so a chat assertion there can never pass. Assert the screen's status text or the mod's log
   line through `LogTap` instead (75-sim-map-editor-filters, 2026-10-06).
+- `BazaarReskinCases.pressAt`/`toWindow` multiply by the mod's Auto Scale factor (0.5 in the 854x480 GUI-2 window), which
+  is right only for something drawn on Auto Scale's canvas (the Bazaar/AH reskins, the mod's own screens). A box an overlay
+  draws on a vanilla container is plain GUI units: 472 pressed Search instead of Scan All once bazaar-v3 changed the helper
+  (2026-10-08). Convert those with the GUI scale alone.
 
 Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosecret wither doors, 62-argrim frames,
 143 camera, 141/142 autopilot, the mod's Auto Scale, terminal layouts, the logic world, 386's sweep):
