@@ -17,7 +17,11 @@ import java.util.concurrent.atomic.AtomicReference;
  * colour, separators and blank lines do not stack; with the setting off nothing stacks. Hider: one real line of every
  * family collected from his Dungeons log is hidden AND still reached the mod's ChatObserver (hidden at display, not at
  * receive); the same text inside a party message, with extra text after it, or from {@code /say} is shown; with the
- * toggle off, or a family switched off, nothing of it is hidden.
+ * toggle off nothing of it is hidden.
+ *
+ * <p>Since mod chat-batch (2026-10-08) these settings sit under Chat Hider's master switch ({@code setEnabled}, turned
+ * on here and off at the end), and Hide Damage Messages hides both families with no per-family switch (the old
+ * {@code setHideAbilityDamage}/{@code setHideIncomingHits} are checked to be gone). Interleaved stacking is 568.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class ChatTidyTests implements FabricClientGameTest {
@@ -80,13 +84,7 @@ public class ChatTidyTests implements FabricClientGameTest {
                     } finally {
                         ModUnderTest.turnOff(CFG, "setStackDuplicates");
                         ModUnderTest.turnOff(CFG, "setHideDamageMessages");
-                        try {
-                            Object cfg = ModUnderTest.config(CFG);
-                            ModUnderTest.set(cfg, "setHideAbilityDamage", true);
-                            ModUnderTest.set(cfg, "setHideIncomingHits", true);
-                        } catch (Throwable ignored) {
-                            // cleanup must not become the failure
-                        }
+                        ModUnderTest.turnOff(CFG, "setEnabled");
                     }
                 });
     }
@@ -95,6 +93,7 @@ public class ChatTidyTests implements FabricClientGameTest {
         ctx.waitTicks(40);
         Object cfg = ModUnderTest.config(CFG);
         long failuresBefore = num("testFailures");
+        ModUnderTest.set(cfg, "setEnabled", true); // Chat Hider's master switch
 
         // ---------------- stacking ----------------
         ModUnderTest.set(cfg, "setStackDuplicates", true);
@@ -148,8 +147,6 @@ public class ChatTidyTests implements FabricClientGameTest {
 
         // ---------------- hider ----------------
         ModUnderTest.set(cfg, "setHideDamageMessages", true);
-        ModUnderTest.set(cfg, "setHideAbilityDamage", true);
-        ModUnderTest.set(cfg, "setHideIncomingHits", true);
         long hiddenBefore = num("testHidden");
         List<String> hide = new ArrayList<>(ABILITY);
         hide.addAll(INCOMING);
@@ -184,14 +181,14 @@ public class ChatTidyTests implements FabricClientGameTest {
         expect(lines.get(0).contains("Your Implosion hit 2 enemies for 1,000 damage."), "a /say of the line is kept", lines);
         scenario.log("PASS player-shaped and extended lines kept (" + (KEEP.size() + 1) + "), newest: " + lines.get(0));
 
-        ModUnderTest.set(cfg, "setHideIncomingHits", false);
-        send(ctx, server, INCOMING.get(0), "gray");
-        send(ctx, server, ABILITY.get(0), "gray");
-        lines = chat(ctx, 2);
-        expect(lines.get(0).equals(INCOMING.get(0)) && !lines.contains(ABILITY.get(0)),
-                "Incoming Hit Lines off: the hit is shown, ability damage still hidden", lines);
-        scenario.log("PASS family toggle: incoming shown, ability hidden");
-        ModUnderTest.set(cfg, "setHideIncomingHits", true);
+        for (String gone : List.of("setHideAbilityDamage", "setHideIncomingHits")) {
+            boolean present = false;
+            for (java.lang.reflect.Method m : cfg.getClass().getMethods()) {
+                present |= m.getName().equals(gone);
+            }
+            expect(!present, "the per-family switch " + gone + " is gone (Hide Damage Messages covers both)", gone);
+        }
+        scenario.log("PASS one switch: no per-family setters left; both families were hidden above by Hide Damage Messages alone");
 
         ModUnderTest.set(cfg, "setHideDamageMessages", false);
         hiddenBefore = num("testHidden");
