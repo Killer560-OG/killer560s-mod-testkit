@@ -64,6 +64,9 @@ import java.util.List;
  *                overlap, expansions in the tooltip), the Custom section's add/edit/rename/off/delete through the tab
  *                with live registration and reload, refused names, and the 306 sweep with custom roots present
  *                ({@link CmdShortcutsCases}; 544 sends, in the Hx session)
+ *                511-514 killer560's 2026-10-07 menu layout report: Crosshair in General, no combined folders, every tab
+ *                once, cheat-only tabs and sections after every legit one, tooltips unchanged, screenshots at GUI 2
+ *                ({@link MenuLayoutCases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -94,6 +97,10 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-07 22:08 polish report ({@link PolishCases}); 472 is in the menu suite. Own block for merges. */
     static final String[] POLISH_CASES = {"471-ui-held-item-name", "473-ui-inventory-line-pixels",
             "474-ui-inventory-shared-lines", "475-ui-inventory-armour-model", "476-ui-bars-text-centred"};
+    /** killer560's 2026-10-07 menu layout report ({@link MenuLayoutCases}): structure, cheat order, tooltips, screenshots.
+     *  Own block for merges. */
+    static final String[] MENU_LAYOUT_CASES = {"511-ui-menu-layout", "512-ui-menu-cheat-order", "513-ui-menu-tooltips",
+            "514-ui-menu-shots"};
     /** Map Extra Info in two rows with M/P/B (mod map-info-bat, {@link MapInfoBatCases}). Own block for merges. */
     static final String[] MAPINFO_CASES = {"524-ui-map-info-rows"};
     /** killer560's 2026-10-08 chat batch, the menu half ({@link ChatBatchUiCases}; the chat half is
@@ -126,6 +133,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : POLISH_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : MENU_LAYOUT_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : MAPINFO_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -148,8 +158,7 @@ public class UiSuite implements FabricClientGameTest {
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
-        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES) || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES)
-                || any(CMD_SHORTCUTS_CASES);
+        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES) || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -237,6 +246,11 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "474-ui-inventory-shared-lines", PolishCases::sharedLines);
                     UiCase.run(ctx, "475-ui-inventory-armour-model", PolishCases::armourModel);
                     UiCase.run(ctx, "476-ui-bars-text-centred", PolishCases::barTextCentred);
+                    // ---- menu layout (511-514) ----
+                    UiCase.run(ctx, "511-ui-menu-layout", MenuLayoutCases::structure);
+                    UiCase.run(ctx, "512-ui-menu-cheat-order", c -> MenuLayoutCases.cheatOrder(c, deny));
+                    UiCase.run(ctx, "513-ui-menu-tooltips", c -> MenuLayoutCases.tooltips(c, deny));
+                    UiCase.run(ctx, "514-ui-menu-shots", MenuLayoutCases::screenshots);
                     // ---- map info rows (524) ----
                     UiCase.run(ctx, "524-ui-map-info-rows", MapInfoBatCases::rows);
                     // ---- chat batch (565, 569) ----

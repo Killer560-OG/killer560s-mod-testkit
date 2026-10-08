@@ -1,0 +1,1268 @@
+{
+  "_doc": "Recorded by 511-ui-menu-layout from the menu before killer560's 2026-10-07 layout report (Crosshair still top level): every node name, every leaf tab (class -> path) and the tooltip each row showed (owner sub-tab -> label key -> tooltip). Variant legit. Updated 2026-10-08 for tooltip text main changed after the recording (Bazaar v3, map-info-bat, social-batch): Bazaar/hypixel menu key, Bazaar/reskin real bazaar, Dungeon Map/extra info overlay, Friends List/use our /fl.",
+  "names": [
+    "Ability Cooldowns",
+    "Ability Keybinds",
+    "Ability Timers",
+    "Advanced Position",
+    "Architect's First Draft",
+    "Armor Recolour",
+    "Arrow Align",
+    "Auction House",
+    "Auto Correct",
+    "Auto Kick",
+    "Auto Meow",
+    "Bazaar",
+    "Best Friends",
+    "Blaze Solver",
+    "Blessings",
+    "Blood Camp",
+    "Boulder Solver",
+    "Chat",
+    "Chat Emotes",
+    "Chat Keybinds",
+    "Chat Tidy",
+    "Chunk Cache",
+    "Class Colors",
+    "Class Overrides",
+    "Click Translate",
+    "Command Shortcuts",
+    "Copy Chat",
+    "Cosmetics",
+    "Creeper Beams Solver",
+    "Cringe",
+    "Croesus / Chest Profit",
+    "Crosshair",
+    "Custom Mage Beam",
+    "Custom Scoreboard",
+    "DVD",
+    "Discord Rich Presence",
+    "Display",
+    "Display Options",
+    "Door Keys",
+    "Dungeon",
+    "Dungeon Alerts",
+    "Dungeon Map",
+    "Dungeon Queue",
+    "Enchant Colours",
+    "Etherwarp Overlay",
+    "Etherwarp Waypoints",
+    "Experiments",
+    "F7 Spots",
+    "Fairy Souls",
+    "Friends List",
+    "GIF Player",
+    "General",
+    "Health and Mana Bars",
+    "Helpers",
+    "Hide Chat Messages",
+    "Hide Players",
+    "Home",
+    "Hud Elements",
+    "Ice Fill Solver",
+    "Ice Path Solver",
+    "Inventory HUD",
+    "Inventory Search",
+    "Inventory Theme",
+    "Item Browser",
+    "Item Protection",
+    "Item Rarity Backgrounds",
+    "Items",
+    "Leap Counter",
+    "Leap Menu",
+    "Livid Solver",
+    "Loadout Keybinds",
+    "Map, Leap & Party",
+    "Mask Invincibility",
+    "Maxor's Crystals",
+    "Mod & HUD",
+    "Mod Chat",
+    "Motion Blur",
+    "Nickhider",
+    "Object Hider",
+    "P3 Nav",
+    "P4 Platform Highlight",
+    "Party Commands",
+    "Party Interop",
+    "Performance HUD",
+    "Pet Wheel",
+    "Posmsg",
+    "Profile Viewer",
+    "Profiles",
+    "Puzzle Solvers",
+    "Quiver Display",
+    "Quiz Solver",
+    "RNG Meter Overlay",
+    "Rag Axe",
+    "Real Time",
+    "Revert Master Stars",
+    "Run Stats",
+    "Run Summary",
+    "Score Calculator",
+    "Screenshot Copy",
+    "Scrollable Tooltips",
+    "Secret Sound",
+    "Secret Waypoints",
+    "Secrets",
+    "Secrets HUD",
+    "Sharp Shooter (i4)",
+    "Sim Keybinds",
+    "Sim Settings",
+    "Simon Says",
+    "Slot Binds",
+    "Smooth Teleport",
+    "Social",
+    "Solver Highlights",
+    "Split Timers",
+    "Spotify Mod",
+    "Spring Boots",
+    "Starred Mob Hitboxes",
+    "Storage Overlay",
+    "Storage Search",
+    "Team Melody",
+    "Teammate Highlight",
+    "Teleport Maze Solver",
+    "Terminal Solver",
+    "Terminal Timers",
+    "Termism",
+    "Terracotta Timer",
+    "Thorn (F4)",
+    "Tic Tac Toe Solver",
+    "Tick Timers",
+    "Timers, Score & Boss",
+    "Trail",
+    "Trajectories",
+    "Translate",
+    "Video Browser",
+    "Voice To Text",
+    "Water Board Solver",
+    "Waypoint Routes",
+    "Weirdos Solver",
+    "Window Layout",
+    "Wither Doors",
+    "Wither Dragons"
+  ],
+  "leaves": {
+    "gui.tab.AbilityCooldownTab": "Hud Elements > Ability Cooldowns",
+    "gui.tab.AbilityKeybindsTab": "Helpers > Ability Keybinds",
+    "gui.tab.AbilityTimersTab": "Hud Elements > Ability Timers",
+    "gui.tab.ArchitectDraftTab": "Dungeon > Architect's First Draft",
+    "gui.tab.ArmourDyeTab": "Items > Armor Recolour",
+    "gui.tab.ArrowAlignTab": "Dungeon > Arrow Align",
+    "gui.tab.AuctionHouseTab": "Items > Auction House",
+    "gui.tab.AutoCorrectTab": "Chat > Auto Correct",
+    "gui.tab.AutoKickTab": "Dungeon > Map, Leap & Party > Auto Kick",
+    "gui.tab.AutoMeowTab": "Chat > Auto Meow",
+    "gui.tab.BazaarTab": "Items > Bazaar",
+    "gui.tab.BeamsSolverTab": "Dungeon > Puzzle Solvers > Creeper Beams Solver",
+    "gui.tab.BestFriendsTab": "Social > Best Friends",
+    "gui.tab.BlazeSolverTab": "Dungeon > Puzzle Solvers > Blaze Solver",
+    "gui.tab.BlessingsTab": "Dungeon > Timers, Score & Boss > Blessings",
+    "gui.tab.BloodCampTab": "Dungeon > Timers, Score & Boss > Blood Camp",
+    "gui.tab.BoulderSolverTab": "Dungeon > Puzzle Solvers > Boulder Solver",
+    "gui.tab.ChatEmotesTab": "Chat > Chat Emotes",
+    "gui.tab.ChatTidyTab": "Chat > Chat Tidy",
+    "gui.tab.ChunkCacheTab": "Dungeon > Map, Leap & Party > Chunk Cache",
+    "gui.tab.ClassColorsTab": "Dungeon > Map, Leap & Party > Class Colors",
+    "gui.tab.ClassOverridesTab": "Dungeon > Class Overrides",
+    "gui.tab.ClickTranslateTab": "Chat > Click Translate",
+    "gui.tab.CommandKeybindsTab": "Chat > Chat Keybinds",
+    "gui.tab.CommandShortcutsTab": "Chat > Command Shortcuts",
+    "gui.tab.CopyChatTab": "Chat > Copy Chat",
+    "gui.tab.CosmeticsTab": "Social > Cosmetics",
+    "gui.tab.CringeTab": "Chat > Cringe",
+    "gui.tab.CroesusTab": "Dungeon > Timers, Score & Boss > Croesus / Chest Profit",
+    "gui.tab.CrosshairTab": "Crosshair",
+    "gui.tab.CustomMageBeamTab": "Dungeon > Timers, Score & Boss > Custom Mage Beam",
+    "gui.tab.CustomScoreboardTab": "Hud Elements > Custom Scoreboard",
+    "gui.tab.DiscordRpcTab": "Home > Discord Rich Presence",
+    "gui.tab.DisplayOptionsTab": "Display > Display Options",
+    "gui.tab.DoorKeysTab": "Dungeon > Door Keys",
+    "gui.tab.DungeonAlertsTab": "Dungeon > Timers, Score & Boss > Dungeon Alerts",
+    "gui.tab.DungeonInfoTab": "Dungeon > Secrets HUD",
+    "gui.tab.DungeonQueueTab": "Dungeon > Map, Leap & Party > Dungeon Queue",
+    "gui.tab.DvdTab": "Hud Elements > DVD",
+    "gui.tab.EnchantColorsTab": "Items > Enchant Colours",
+    "gui.tab.EtherwarpOverlayTab": "General > Etherwarp Overlay",
+    "gui.tab.EtherwarpTab": "Dungeon > Secrets > Etherwarp Waypoints",
+    "gui.tab.ExperimentsTab": "Helpers > Experiments",
+    "gui.tab.F7SpotsTab": "Dungeon > Timers, Score & Boss > F7 Spots",
+    "gui.tab.FriendsListTab": "Social > Friends List",
+    "gui.tab.GeneralMainTab": "General > General",
+    "gui.tab.GifPlayerTab": "Hud Elements > GIF Player",
+    "gui.tab.HealthAndManaBarsTab": "Hud Elements > Health and Mana Bars",
+    "gui.tab.HideChatMessagesTab": "Chat > Hide Chat Messages",
+    "gui.tab.HidePlayersTab": "Hud Elements > Hide Players",
+    "gui.tab.HomeMainTab": "Home > Mod & HUD",
+    "gui.tab.I4SensorsTab": "Dungeon > Timers, Score & Boss > Sharp Shooter (i4)",
+    "gui.tab.IceFillSolverTab": "Dungeon > Puzzle Solvers > Ice Fill Solver",
+    "gui.tab.IcePathSolverTab": "Dungeon > Puzzle Solvers > Ice Path Solver",
+    "gui.tab.InteropTab": "Dungeon > Map, Leap & Party > Party Interop",
+    "gui.tab.InventoryHudTab": "Items > Inventory HUD",
+    "gui.tab.InventorySearchTab": "Items > Inventory Search",
+    "gui.tab.InventoryThemeTab": "Items > Inventory Theme",
+    "gui.tab.ItemBrowserTab": "Items > Item Browser",
+    "gui.tab.ItemProtectTab": "Items > Item Protection",
+    "gui.tab.ItemRarityTab": "Display > Item Rarity Backgrounds",
+    "gui.tab.LagDisplayTab": "Hud Elements > Performance HUD",
+    "gui.tab.LeapCounterTab": "Dungeon > Map, Leap & Party > Leap Counter",
+    "gui.tab.LeapMenuTab": "Dungeon > Leap Menu",
+    "gui.tab.LiveMapTab": "Dungeon > Map, Leap & Party > Dungeon Map",
+    "gui.tab.LividSolverTab": "Dungeon > Livid Solver",
+    "gui.tab.LoadoutKeybindsTab": "Items > Loadout Keybinds",
+    "gui.tab.MaskInvincibilityTab": "Dungeon > Mask Invincibility",
+    "gui.tab.MaxorTab": "Dungeon > Timers, Score & Boss > Maxor's Crystals",
+    "gui.tab.MobEspTab": "Dungeon > Timers, Score & Boss > Starred Mob Hitboxes",
+    "gui.tab.ModChatTab": "Chat > Mod Chat",
+    "gui.tab.MotionBlurTab": "Display > Motion Blur",
+    "gui.tab.NickhiderTab": "Social > Nickhider",
+    "gui.tab.ObjectHiderTab": "Hud Elements > Object Hider",
+    "gui.tab.P3NavTab": "Dungeon > Timers, Score & Boss > P3 Nav",
+    "gui.tab.P4PlatformHighlightTab": "Dungeon > Timers, Score & Boss > P4 Platform Highlight",
+    "gui.tab.PartyCommandsTab": "Chat > Party Commands",
+    "gui.tab.PathfindingTab": "Helpers > Fairy Souls",
+    "gui.tab.PetWheelTab": "Items > Pet Wheel",
+    "gui.tab.PositionTab": "Hud Elements > Advanced Position",
+    "gui.tab.PosmsgTab": "Dungeon > Posmsg",
+    "gui.tab.ProfileViewerTab": "Social > Profile Viewer",
+    "gui.tab.ProfilesTab": "Profiles",
+    "gui.tab.QuiverDisplayTab": "Hud Elements > Quiver Display",
+    "gui.tab.QuizSolverTab": "Dungeon > Puzzle Solvers > Quiz Solver",
+    "gui.tab.RagAxeTab": "Dungeon > Timers, Score & Boss > Rag Axe",
+    "gui.tab.RealTimeTab": "Display > Real Time",
+    "gui.tab.RevertMasterStarsTab": "Items > Revert Master Stars",
+    "gui.tab.RngMeterTab": "Dungeon > RNG Meter Overlay",
+    "gui.tab.RunStatsTab": "Dungeon > Timers, Score & Boss > Run Stats",
+    "gui.tab.RunSummaryTab": "Dungeon > Timers, Score & Boss > Run Summary",
+    "gui.tab.ScoreCalculatorTab": "Dungeon > Timers, Score & Boss > Score Calculator",
+    "gui.tab.ScreenshotCopyTab": "Chat > Screenshot Copy",
+    "gui.tab.SecretSoundTab": "Dungeon > Secrets > Secret Sound",
+    "gui.tab.SecretWaypointsTab": "Dungeon > Secrets > Secret Waypoints",
+    "gui.tab.ShortsTab": "Display > Video Browser",
+    "gui.tab.SimKeybindsTab": "Dungeon > Sim Keybinds",
+    "gui.tab.SimSettingsTab": "Dungeon > Sim Settings",
+    "gui.tab.SimonSaysTab": "Dungeon > Simon Says",
+    "gui.tab.SlotBindsTab": "Items > Slot Binds",
+    "gui.tab.SmoothTeleportTab": "General > Smooth Teleport",
+    "gui.tab.SolverHighlightsTab": "Dungeon > Puzzle Solvers > Solver Highlights",
+    "gui.tab.SplitTimersTab": "Dungeon > Timers, Score & Boss > Split Timers",
+    "gui.tab.SpotifyTab": "Chat > Spotify Mod",
+    "gui.tab.SpringBootsTab": "Hud Elements > Spring Boots",
+    "gui.tab.StorageOverlayTab": "Hud Elements > Storage Overlay",
+    "gui.tab.StorageSearchTab": "Items > Storage Search",
+    "gui.tab.TeamMelodyTab": "Dungeon > Map, Leap & Party > Team Melody",
+    "gui.tab.TeammatesTab": "Dungeon > Map, Leap & Party > Teammate Highlight",
+    "gui.tab.TeleportMazeSolverTab": "Dungeon > Puzzle Solvers > Teleport Maze Solver",
+    "gui.tab.TerminalSolverTab": "Dungeon > Terminal Solver",
+    "gui.tab.TerminalTimersTab": "Dungeon > Timers, Score & Boss > Terminal Timers",
+    "gui.tab.TermismTab": "Dungeon > Termism",
+    "gui.tab.TerracottaTimerTab": "Dungeon > Timers, Score & Boss > Terracotta Timer",
+    "gui.tab.ThornTab": "Dungeon > Timers, Score & Boss > Thorn (F4)",
+    "gui.tab.TicTacToeSolverTab": "Dungeon > Puzzle Solvers > Tic Tac Toe Solver",
+    "gui.tab.TickTimersTab": "Dungeon > Timers, Score & Boss > Tick Timers",
+    "gui.tab.TooltipScrollTab": "Items > Scrollable Tooltips",
+    "gui.tab.TrailTab": "Hud Elements > Trail",
+    "gui.tab.TrajectoriesTab": "Helpers > Trajectories",
+    "gui.tab.TranslateTab": "Chat > Translate",
+    "gui.tab.VoiceToTextTab": "Chat > Voice To Text",
+    "gui.tab.WaterSolverTab": "Dungeon > Puzzle Solvers > Water Board Solver",
+    "gui.tab.WaypointRoutesTab": "Helpers > Waypoint Routes",
+    "gui.tab.WeirdosSolverTab": "Dungeon > Puzzle Solvers > Weirdos Solver",
+    "gui.tab.WindowLayoutTab": "Display > Window Layout",
+    "gui.tab.WitherDoorsTab": "Dungeon > Wither Doors",
+    "gui.tab.WitherDragonsTab": "Dungeon > Timers, Score & Boss > Wither Dragons"
+  },
+  "rows": {
+    "(unscoped)": {
+      "ability cooldowns": "Detects the abilities you use and counts down their real cooldowns.",
+      "ability keybinds": "Custom keys for your dungeon class Ability and Ultimate.",
+      "ability timers": "Bound keys start countdowns, and running timers show on the Ability Timers HUD.",
+      "active profile": "Shows which saved settings profile is loaded right now.",
+      "advanced position": "",
+      "architect's first draft": "",
+      "armor recolour": "Changes the colour, skin and trim of your armor, only on your screen.",
+      "arrow align": "Shows how many clicks each Arrow Align frame still needs and can block clicks that overshoot.",
+      "attack indicator": "Shows vanilla's attack cooldown under the crosshair (when vanilla's Attack Indicator option is set to Crosshair).",
+      "auction house": "",
+      "auto correct": "Fixes common typing mistakes in the chat messages you send.",
+      "auto meow": "Replies with a random cat line when a chat message says meow, purr, nya or mew.",
+      "bazaar": "",
+      "best friends": "",
+      "bottom arm": "Shows the bottom line of the cross.",
+      "center dot": "Adds a dot in the middle of any style.",
+      "chat emotes": "Replaces Hypixel's emote shortcuts in your messages with the real emote text.",
+      "chat keybinds": "Keys or mouse buttons that send a command or chat message you set.",
+      "chat tidy": "",
+      "chroma": "Cycles the main colour through the rainbow (keeps its transparency).",
+      "circle dot": "",
+      "class overrides": "Sets a player's class by hand for every feature in the mod.",
+      "classic": "",
+      "click translate": "Adds a click action to chat messages that translates them into your chosen language.",
+      "color": "Main crosshair colour, with transparency.",
+      "color on block": "Changes colour while you are aiming at a block in reach.",
+      "color on entity": "Changes colour while you are aiming at an entity in reach.",
+      "colour": "The one colour every node marker uses while Uniform Colour is on.",
+      "command shortcuts": "",
+      "copy chat": "Shift+Left-Click a chat message to copy its text; Shift+Right-Click copies just that line.",
+      "copy code": "Copies a short code for this crosshair to the clipboard, to share.",
+      "cosmetics": "",
+      "cringe": "Run /cringe to send a random line from cringe-lines.txt, which you can edit.",
+      "crosshair": "",
+      "crosshair preview": "Your crosshair at its real in-game size. Click for another background, right click to go back; the strip below previews movement spread, recoil and target colours.",
+      "custom crosshair": "Replaces the vanilla crosshair with the one you design here (both builds).",
+      "custom scoreboard": "Replaces the sidebar with a custom styled scoreboard.",
+      "display options": "Borderless fullscreen, fullbright, Pack Disabler and the Amber main menu theme.",
+      "door keys": "Outlines dropped Wither and Blood Keys in dungeon rooms.",
+      "dot": "",
+      "dvd": "",
+      "dynamic": "",
+      "enchant colours": "Recolours enchantment names in Hypixel item lore by tier, like SkyHanni.",
+      "etherwarp overlay": "Highlights the block you would land on while holding an etherwarp item.",
+      "experiments": "",
+      "fairy souls": "Tracks which Fairy Souls you have found and guides you to the missing ones.",
+      "friends list": "",
+      "gap": "Space between the centre and each line; negative makes the lines overlap through the middle.",
+      "gif player": "",
+      "green pro": "",
+      "health and mana bars": "",
+      "hide chat messages": "",
+      "hide in menus": "Hides the crosshair while a menu is open (chat does not count).",
+      "hide players": "",
+      "import profile (open folder)": "Opens the import folder. Drop a profile .zip in and it is imported within a couple of seconds, named after the file.",
+      "inventory hud": "Shows your main inventory as a HUD panel.",
+      "inventory search": "Press Ctrl+F in any inventory to search; matching items get a red outline.",
+      "inventory theme": "",
+      "invert blend": "Inverts whatever is behind the crosshair, like vanilla's. Use white for a full inversion.",
+      "item browser": "Shows a panel listing every Skyblock item beside your inventory.",
+      "item protection": "Turns on the guards that stop you losing your own gear.",
+      "item rarity backgrounds": "Draws a rarity-coloured square, circle or outline behind Skyblock items.",
+      "leap menu": "Spirit Leap settings: the custom leap menu, its Leap Order editor, and the party message sent after you leap.",
+      "left arm": "Shows the left line of the cross.",
+      "length": "How long each line is.",
+      "livid solver": "Outlines the real Livid on F5/M5.",
+      "loadout keybinds": "Lets keys click loadout slots and change pages on the Loadout screen.",
+      "map, leap & party": "The dungeon map, leap helpers, Dungeon Queue, Auto Kick and party sharing.",
+      "mask invincibility": "HUD timers for Spirit Mask, Bonzo's Mask and Phoenix pet invincibility and cooldowns.",
+      "mod chat": "Run /killer560 chat <message> to send a tagged message other mod users see as an overlay.",
+      "motion blur": "Blends each frame with the previous ones for a motion blur effect.",
+      "nickhider": "",
+      "no saved profiles yet.": "",
+      "object hider": "Hides clutter such as fairies, support orbs, particles and dying dragons.",
+      "outline": "Draws a border around every part of the crosshair.",
+      "outline color": "Colour of the outline.",
+      "outline thickness": "How thick the outline is.",
+      "party commands": "",
+      "paste code": "Applies a crosshair code from the clipboard.",
+      "performance hud": "Shows TPS, ping, FPS and a click counter in one movable HUD element.",
+      "pet wheel": "",
+      "posmsg": "Each waypoint draws a ring and sends its own line to party chat when you walk into it (F7/M7 boss).",
+      "preset name": "",
+      "presets": "",
+      "profile name": "Name for a new settings profile.",
+      "profile viewer": "Run /pv <name> to open any player's Skyblock profile in game.",
+      "puzzle solvers": "",
+      "quiver display": "Shows how many arrows you have left in a HUD line.",
+      "real time": "Shows a HUD clock with your real-world time.",
+      "recoil on attack": "Kicks the crosshair outward each time you swing.",
+      "reset to default": "Puts every crosshair setting back to the default look (keeps it on or off).",
+      "revert master stars": "Turns the Master Star number on item names back into that many red stars.",
+      "right arm": "Shows the right line of the cross.",
+      "rng meter overlay": "Ranks RNG Meter rewards by coins per meter point.",
+      "rotation": "Turns the whole crosshair. Multiples of 90 stay pixel-perfect.",
+      "save current as new": "Saves your current mod settings as a new profile.",
+      "save preset": "Saves the current look under the typed name, in the config folder.",
+      "scale": "Multiplies every size at once.",
+      "screenshot copy": "Copies each F2 screenshot to your clipboard (Windows only).",
+      "scrollable tooltips": "Lets the mouse wheel scroll or nudge an item tooltip in inventories and menus.",
+      "secrets": "",
+      "secrets hud": "Shows secrets found in your current room out of its total.",
+      "shape": "",
+      "show in third person": "Keeps the crosshair in third person, where vanilla hides it.",
+      "sim keybinds": "",
+      "sim settings": "",
+      "simon says": "Highlights the Simon Says buttons you need to press.",
+      "size mode": "GUI Scale: sizes follow your GUI Scale, and your monitor too while Auto Scale is on. Screen Pixels: one unit is one screen pixel on any monitor.",
+      "slot binds": "Links two inventory slots so shift-clicking one swaps them.",
+      "smooth teleport": "Glides your camera to where a teleport ability lands you instead of snapping. Visual only: you are already there, and what you aim at is where you landed.",
+      "spotify mod": "",
+      "spread when jumping": "Opens the gap by the Spread Amount while you are in the air.",
+      "spread when moving": "Opens the gap by half the Spread Amount while you walk.",
+      "spread when sprinting": "Opens the gap by the Spread Amount while you sprint.",
+      "spring boots": "",
+      "storage overlay": "",
+      "storage search": "Searches your cached Ender Chests and Backpacks from one screen; also opens with /k560search.",
+      "style": "Cross, T-Shape (no top arm), X (the cross turned 45 degrees), Dot, Circle, or Cross + Circle. Right click goes back.",
+      "t-shape": "",
+      "terminal solver": "Highlights the correct slots to click in F7/M7 terminals.",
+      "termism": "Opens fake F7/M7 terminals to practice on anywhere; /termism opens it too.",
+      "thickness": "How thick each line is. Sizes are rounded to whole screen pixels so lines stay sharp.",
+      "timers, score & boss": "Run timers, score, run summaries, Blood Camp, chest profit and the boss helpers.",
+      "top arm": "Shows the top line of the cross.",
+      "trail": "",
+      "trajectories": "Draws the flight path and landing spot of your bow shot or Ender Pearl.",
+      "translate": "Run /translate to change the language, or pick it below; all your messages are then sent in that language.",
+      "valorant": "",
+      "vanilla": "",
+      "video browser": "Shows YouTube Shorts in a small window pinned over Minecraft (Windows only).",
+      "visibility": "",
+      "voice to text": "Turns your speech into text and sends it to party or guild chat, by Push To Talk or Open Mic.",
+      "waypoint routes": "Shows ordered waypoint routes for the current Skyblock area.",
+      "window layout": "",
+      "wither doors": "",
+      "x": ""
+    },
+    "Ability Cooldowns": {
+      "ability cooldowns": "Detects the abilities you use and counts down their real cooldowns."
+    },
+    "Ability Keybinds": {
+      "ability keybinds": "Custom keys for your dungeon class Ability and Ultimate."
+    },
+    "Ability Timers": {
+      "+ add timer": "Adds a new countdown timer to the list.",
+      "ability timers": "Bound keys start countdowns, and running timers show on the Ability Timers HUD.",
+      "color": "Colour of this timer's line on the Ability Timers HUD.",
+      "delete": "Removes this entry from the list.",
+      "duration": "How long the countdown runs once started.",
+      "enabled": "Turns just this one timer on or off.",
+      "key": "Press this key when you use the real ability to start or restart the countdown.",
+      "name": "What this timer is called on the HUD, e.g. Bonzo Mask.",
+      "test start": "Starts this timer now so you can see it on the HUD."
+    },
+    "Advanced Position": {
+      "advanced position": "Shows your exact X, Y and Z as a small movable HUD."
+    },
+    "Architect's First Draft": {
+      "click message on puzzle fail": "Posts a clickable chat line to get an Architect's First Draft from your sack when a puzzle fails."
+    },
+    "Armor Recolour": {
+      "add a piece": "Add a piece with the buttons to use what you're wearing, or press the capture key while hovering a piece in any menu.",
+      "add boots": "Adds the boots you are wearing to the list.",
+      "add chest": "Adds the chestplate you are wearing to the list.",
+      "add helmet": "Adds the helmet you are wearing to the list.",
+      "add legs": "Adds the leggings you are wearing to the list.",
+      "armor recolour": "Changes the colour, skin and trim of your armor, only on your screen.",
+      "capture key": "Press this while hovering an armor piece in any inventory to add it to the list.",
+      "no pieces yet - add one above.": "",
+      "pieces (0)": "",
+      "skin inventory icons": "Also swaps a skinned piece's inventory icon to match its skin."
+    },
+    "Arrow Align": {
+      "prevent misclicks": "Blocks right-clicks on an Arrow Align frame that already points the right way.",
+      "solve time": "Posts how long Arrow Align took in chat when you finish.",
+      "solver": "Shows the solution for this puzzle or device."
+    },
+    "Auction House": {
+      "auction house browser": "Turns on the custom Auction House browser, opened with /killer560 ah or a keybind."
+    },
+    "Auto Correct": {
+      "auto correct enabled": "Fixes common typos in the chat you send, like teh to the.",
+      "correct commands": "Also fixes typos in command names you type, like /wardorbe to /wardrobe."
+    },
+    "Auto Kick": {
+      "auto kick": "Warns or kicks when your run takes longer than the target time set for its floor.",
+      "kicks (or warns) once a floor's target time is missed - off until every per-floor target below is set.": ""
+    },
+    "Auto Meow": {
+      "auto meow enabled": "Replies with a random cat line when a chat message says meow, purr, nya or mew.",
+      "play cat noises": "Plays a cat sound each time Auto Meow replies.",
+      "set": "Applies the percent typed in the box as the cat sound volume.",
+      "volume": "Loudness of the Auto Meow cat sound, 0-200%."
+    },
+    "Bazaar": {
+      "bazaar browser": "Turns on the custom Bazaar browser, opened with /killer560bz or a keybind. Like Hypixel's remote Bazaar, it only opens while your Booster Cookie is active.",
+      "hypixel menu key": "Hold this key while a Bazaar menu is open to see and use Hypixel's own menu instead.",
+      "reskin real bazaar": "Opens Hypixel's real Bazaar (the NPC, or /bz) as the Bazaar screen: categories as tabs, search, your recent products, and Hypixel's own product, order and Manage Orders pages. Every click on one of Hypixel's buttons is the same click on the same slot; pages it does not know stay Hypixel's own."
+    },
+    "Best Friends": {
+      "party time tracker": "Tracks time partied and dungeon runs cleared with each player; open it with /bestfriends."
+    },
+    "Blaze Solver": {
+      "blaze solver": "Outlines blazes in kill order: red, orange, yellow, then white."
+    },
+    "Blessings": {
+      "blessings hud": "Draws one line per blessing you have picked up while inside a dungeon.",
+      "colors": "Text colour of each blessing's HUD line.",
+      "life": "Show Blessing of Life.",
+      "life color": "Colour of the Life line on the Blessings HUD.",
+      "power": "Show Blessing of Power.",
+      "power color": "Colour of the Power line on the Blessings HUD.",
+      "roman numerals": "Writes blessing levels as V instead of 5.",
+      "shown blessings": "Which blessings may appear on the HUD.",
+      "stone": "Show Blessing of Stone.",
+      "stone color": "Colour of the Stone line on the Blessings HUD.",
+      "time": "Show Blessing of Time.",
+      "time color": "Colour of the Time line on the Blessings HUD.",
+      "wisdom": "Show Blessing of Wisdom.",
+      "wisdom color": "Colour of the Wisdom line on the Blessings HUD."
+    },
+    "Blood Camp": {
+      "blood camp": "Tracks the Watcher's blood mobs and predicts where each will land."
+    },
+    "Boulder Solver": {
+      "boulder solver": "Outlines the stone button to press next in the Boulder puzzle."
+    },
+    "Chat Emotes": {
+      "chat emotes enabled": "Turns Hypixel emote codes like <3 or :shrug: into the real emote text, no MVP++ rank needed."
+    },
+    "Chat Keybinds": {
+      "chat keybinds": "Keys or mouse buttons that send a command or chat message you set."
+    },
+    "Chat Tidy": {
+      "ability damage lines": "With Hide Damage Messages on: hides lines like 'Your Implosion hit 2 enemies for 14,736,463.2 damage.' (any ability).",
+      "hide damage messages": "Hides Hypixel's combat spam from the chat window: your ability damage lines and the hits you take. Other features still read them, and the log keeps them.",
+      "incoming hit lines": "With Hide Damage Messages on: hides 'A Crypt Wither Skull exploded, hitting you for 23,760 damage.', 'Maxor's Frenzy hit you for...', '... struck you for...', 'The Lost Adventurer used Dragon's Breath on you!' and bone plating lines.",
+      "stack duplicate messages": "When a chat line repeats the newest one exactly (same text and colours), the newest copy is replaced by one line ending in a grey (x2), (x3)... Blank lines and separators never stack."
+    },
+    "Chunk Cache": {
+      "cached": "",
+      "chunk cache": "Keeps chunks you've loaded readable in memory so the map, waypoints and solvers still see rooms you left.",
+      "clear cache": "Throws away every chunk cached for the current world.",
+      "max cached chunks": "How many chunks to keep in memory, 500-20000.",
+      "memory": "How much of the chunk cache may stay in RAM."
+    },
+    "Class Colors": {
+      "class colors": "Colors dungeon teammates by their class in the tab list and on nametags."
+    },
+    "Class Overrides": {
+      "add by name": "Type an IGN and pick a class to override someone not in the party.",
+      "add override": "Saves the typed IGN with the chosen class.",
+      "class selection overlay": "Pick a player in the bar, then a class box, to assign their class on the class-selection screen.",
+      "current party": "Lists your party and their classes; click Override to set a different class.",
+      "ign": "The player's exact in-game name; case doesn't matter.",
+      "none.": "",
+      "other overrides": "Overrides for players who aren't in your current party.",
+      "override": "Click to cycle this player's class override.",
+      "override class": "Click to cycle the class given to the typed IGN.",
+      "player0 (detected": "",
+      "remove override": "Removes this player's override."
+    },
+    "Click Translate": {
+      "click translate enabled": "Left-click any chat message to translate it.",
+      "translate to": "The language clicked chat messages are translated into."
+    },
+    "Command Shortcuts": {
+      "/basic (kuudra_normal)": "",
+      "/burning (kuudra_burning)": "",
+      "/f0 (catacombs_floor_entrance)": "",
+      "/f1, /m1 (catacombs_floor_one, master_catacombs_floor_one)": "",
+      "/f2, /m2 (catacombs_floor_two, master_catacombs_floor_two)": "",
+      "/f3, /m3 (catacombs_floor_three, master_catacombs_floor_three)": "",
+      "/f4, /m4 (catacombs_floor_four, master_catacombs_floor_four)": "",
+      "/f5, /m5 (catacombs_floor_five, master_catacombs_floor_five)": "",
+      "/f6, /m6 (catacombs_floor_six, master_catacombs_floor_six)": "",
+      "/f7, /m7 (catacombs_floor_seven, master_catacombs_floor_seven)": "",
+      "/fiery (kuudra_fiery)": "",
+      "/hot (kuudra_hot)": "",
+      "/infernal (kuudra_infernal)": "",
+      "basic": "Adds a shortcut that queues the Basic Kuudra tier.",
+      "burning": "Adds a shortcut that queues the Burning Kuudra tier.",
+      "catacombs / master mode": "",
+      "command shortcuts": "Turns on every Catacombs, Master Mode and Kuudra command shortcut below.",
+      "each one re-sends the real hypixel command(s) below it. takes effect next time you join a world.": "",
+      "f0": "Adds /f0 to queue the Catacombs entrance.",
+      "f1 & m1": "Adds /f1 and /m1 to queue Catacombs floor 1 and Master Mode floor 1.",
+      "f2 & m2": "Adds /f2 and /m2 to queue Catacombs floor 2 and Master Mode floor 2.",
+      "f3 & m3": "Adds /f3 and /m3 to queue Catacombs floor 3 and Master Mode floor 3.",
+      "f4 & m4": "Adds /f4 and /m4 to queue Catacombs floor 4 and Master Mode floor 4.",
+      "f5 & m5": "Adds /f5 and /m5 to queue Catacombs floor 5 and Master Mode floor 5.",
+      "f6 & m6": "Adds /f6 and /m6 to queue Catacombs floor 6 and Master Mode floor 6.",
+      "f7 & m7": "Adds /f7 and /m7 to queue Catacombs floor 7 and Master Mode floor 7.",
+      "fiery": "Adds a shortcut that queues the Fiery Kuudra tier.",
+      "hot": "Adds a shortcut that queues the Hot Kuudra tier.",
+      "infernal": "Adds a shortcut that queues the Infernal Kuudra tier.",
+      "kuudra": ""
+    },
+    "Copy Chat": {
+      "copy chat": "Shift+Left-Click a chat message to copy its text; Shift+Right-Click copies just that line."
+    },
+    "Cosmetics": {
+      "checking supporter status...": "",
+      "copy settings for global cosmetics": "Copies your name and scale to your clipboard so staff can apply them for you.",
+      "custom names": "Opens the Name Changer: your own display name, its colours, and renames for other players.",
+      "height": "Stretches your own player model up and down (0.5x-2x), in your own F5 view only.",
+      "held item": "Opens Held Item Transform: the size, position and rotation of your first-person held item.",
+      "my size": "Your own player model's size (0.05x-2x); shared with other supporters while Share if Supporter is on.",
+      "others' size": "Resizes every other player's model on your screen (0.05x-2x); never shared.",
+      "player size": "Opens the player size settings: your own size, everyone else's, and your model's shape.",
+      "reset": "Puts the size slider beside it back to 1.00x.",
+      "reset cosmetics": "Puts your display name, colours, fade, both player sizes and model shape back to default.",
+      "share if supporter": "Automatically shares your display name and your own player size with other players who have this mod.",
+      "supporter names": "",
+      "supporter sizes": "",
+      "thickness": "Stretches your own player model front to back (0.5x-2x), in your own F5 view only.",
+      "visual only - never touches hitboxes. width/height/thickness are never shared.": "",
+      "width": "Stretches your own player model side to side (0.5x-2x), in your own F5 view only."
+    },
+    "Creeper Beams Solver": {
+      "creeper beams solver": "Outlines each connected Sea Lantern pair in the Creeper Beams puzzle."
+    },
+    "Cringe": {
+      "open cringe lines folder": "Opens the folder with cringe-lines.txt, the lines /cringe picks from.",
+      "reload lines": "Reloads cringe-lines.txt so your edits apply to /cringe."
+    },
+    "Croesus / Chest Profit": {
+      "0 claims logged - /croesus": "",
+      "chat summary": "Posts a chat line with the profit and totals after each logged claim.",
+      "chest profit": "Shows value, cost and profit next to dungeon reward chests and in Croesus.",
+      "croesus profit logger": "Logs every chest you claim and keeps session and all-time profit totals.",
+      "highlight best": "Highlights the most profitable unopened chest in green in Croesus.",
+      "highlight runs": "Outlines Croesus runs green if unclaimed and red if already claimed.",
+      "include essence": "Counts essence rewards toward a chest's value.",
+      "open profit tracker": "Opens the /croesus tracker with your profit totals and big drops.",
+      "second best with key": "Also highlights the second-best chest if it still profits after paying for a Chest Key."
+    },
+    "Custom Mage Beam": {
+      "custom mage beam": "In dungeons, redraws every Mage beam as one clean coloured line."
+    },
+    "Custom Scoreboard": {
+      "custom scoreboard": "Replaces the sidebar with a custom styled scoreboard."
+    },
+    "DVD": {
+      "+ add new dvd": "Adds a new bouncing DVD-screensaver box and opens its setup.",
+      "no dvds yet - add one above.": ""
+    },
+    "Discord Rich Presence": {
+      "discord rich presence": "Shows Killer560's Mod on your Discord profile while the game is open."
+    },
+    "Display Options": {
+      "borderless fullscreen": "Stretches the window over the whole monitor without borders.",
+      "fullbright": "Renders the world at full brightness in any light.",
+      "pack disabler": "Draws every SkyBlock item the way it looked before Hypixel's resource pack: its old item or head, through your own resource packs. Items that never had an old look get the mod's own textures. Hypixel's pack still loads (SkyBlock requires it); only item looks change.",
+      "themed main menu": "Gives the game's menus the mod's black and orange theme."
+    },
+    "Door Keys": {
+      "door keys": "Outlines dropped Wither and Blood Keys in dungeon rooms."
+    },
+    "Dungeon Alerts": {
+      "room alerts": "Plays a sound when a dungeon room is cleared or all its secrets are found.",
+      "shadow assassin alert": "Shows a title and plays a sound when a Shadow Assassin teleports behind you."
+    },
+    "Dungeon Map": {
+      "blood": "",
+      "border colour": "Outline colour around the HUD map; set alpha to 0 for no border.",
+      "checkmark sprites": "Draws the real map's check, cross and question mark instead of text characters.",
+      "colour rooms by type": "Paints each room its real colour by type; off uses the Normal colour for every room.",
+      "darken unexplored": "How much dimmer rooms you have not opened are drawn, 0 to 0.9.",
+      "dungeon map": "Draws the real dungeon map as a HUD overlay, showing only what your hotbar map has revealed.",
+      "entrance": "",
+      "extra info overlay": "Shows two rows under the Dungeon Map: score, secrets for S+ and crypts, then deaths and the bonus kills - M Mimic, P Prince, B Murkbat bat. Works with Score Calculator off.",
+      "fairy": "",
+      "font scale": "Size of the text drawn on the Interactive Map, 0.5x to 3x.",
+      "funny map": "Placeholder: saved, but does nothing yet (needs map pixel data first).",
+      "icon scale": "Size of the player markers on the Interactive Map, 0.5x to 3x.",
+      "map appearance": "",
+      "map background": "Colour behind the map; the alpha slider sets how see-through it is.",
+      "map extras": "",
+      "map theme": "",
+      "mimic room show/hide": "Placeholder: saved, but does nothing yet (needs map pixel data first).",
+      "miniboss": "",
+      "normal": "",
+      "player-head class recolor": "Placeholder: saved, but does nothing yet (needs map pixel data first).",
+      "puzzle": "",
+      "rare": "",
+      "recolouring": "",
+      "reset room colours": "Puts every room and door colour back to the real dungeon map's colours.",
+      "room colours": "Shows a colour picker for every room and door type.",
+      "save theme": "",
+      "text shadow": "Draws a drop shadow behind the text.",
+      "trap": "",
+      "unexplored": "",
+      "wither door": ""
+    },
+    "Dungeon Queue": {
+      "auto requeue": "Sends /instancerequeue automatically when a dungeon run ends.",
+      "party finder overlay": "Adds join highlights, member counts and player stats to the Party Finder."
+    },
+    "Enchant Colours": {
+      "enchant colours": "Recolours enchantment names in Hypixel item lore by tier, like SkyHanni."
+    },
+    "Etherwarp Overlay": {
+      "etherwarp overlay": "Highlights the block you would land on while holding an etherwarp item."
+    },
+    "Etherwarp Waypoints": {
+      "/ew waypoint add [name] | remove | undo | clear": "",
+      "color": "Colour used for this element.",
+      "etherwarp waypoints": "Use /ew waypoint add [name] to mark the block you stand on with a box.",
+      "no waypoints saved for the room you're standing in.": "",
+      "style": "How Simon Says highlights are drawn: filled, outline, or both.",
+      "through walls": "Cheat build: draws starred mob and bat boxes through blocks."
+    },
+    "Experiments": {
+      "click protection": "Blocks clicks on the wrong Chronomatron or Ultrasequencer slot; hold Shift to click anyway.",
+      "experiment solver enabled": "Turns on the Experimentation Table solver for Chronomatron, Ultrasequencer and Superpairs.",
+      "notify max clicks reached": "Sends a chat message and sound when you hit the max Superpairs click bonus or run out of clicks.",
+      "open /profit": "",
+      "profit tracker": "Tracks the rewards you claim from the Experimentation Table: coins, Enchanting XP and Bits spent.",
+      "reset profit totals": "Clears the Profit Tracker totals; click twice within 3 seconds to confirm.",
+      "reward value": "Total Bazaar value of your tracked wins, plus XP and bits spent.",
+      "sessions": "How many Experimentation Table sessions you have tracked, by game."
+    },
+    "F7 Spots": {
+      "add aim spot here": "Saves the point your crosshair is on as an aim spot.",
+      "add waypoint here": "Saves the block you're standing on as a waypoint.",
+      "aim spot color": "Colour of the aim-spot crosshair markers.",
+      "aim spot distance": "Shows the distance to each aim spot in its label.",
+      "aim spot labels": "Shows each aim spot's name next to its marker.",
+      "aim spot size": "Size of the aim-spot crosshair marker, 0.1-2.0 blocks.",
+      "aim spots": "Draws crosshair markers at your saved Last Breath aim spots; press Add Aim Spot Here to save one.",
+      "arrow stack spots": "Adds NoammAddons' arrow-stack aim points for the five P5 dragons (needs Aim Spots on).",
+      "current phase only": "Only shows waypoints for the boss phase you're in.",
+      "devonian lb spots": "Adds Devonian's five Last Breath spots for the P5 dragons (needs Aim Spots on).",
+      "last breath aim spots": "Shows saved aim points for Last Breath, based on your class.",
+      "new aim class": "Which class the next added aim spot is tagged for; Auto uses your class.",
+      "new aim situation": "Which dragon or phase the next added aim spot is tagged with; Auto uses where you are.",
+      "new waypoint floor": "Which floor the next added waypoint is tagged with; Auto uses your current floor.",
+      "new waypoint phase": "Which phase the next added waypoint is tagged with; Auto uses your current phase.",
+      "remove last aim spot": "Deletes the most recently added aim spot.",
+      "remove last waypoint": "Deletes the most recently added waypoint.",
+      "show all classes": "Shows every aim spot instead of only the ones for your class.",
+      "show all situations": "Shows every aim spot whatever phase or dragon it is for.",
+      "walk waypoints": "Draws your saved F7/M7 walk-to spots in the boss arena; press Add Waypoint Here to save one.",
+      "walk-to waypoints": "Draws your saved standing spots for F7/M7 in the world.",
+      "waypoint beam": "Height of the light column above each waypoint, 0-40; 0 turns it off.",
+      "waypoint color": "Colour of walk-to waypoints that have no colour of their own.",
+      "waypoint distance": "Shows the distance to each waypoint in its label.",
+      "waypoint labels": "Shows each waypoint's name above its box."
+    },
+    "Fairy Souls": {
+      "pathfinding": "Shows the fastest walking route to anywhere on the island."
+    },
+    "Friends List": {
+      "/fl passes straight through to hypixel. use /flcustom for ours.": "",
+      "0 friends on your list.": "",
+      "open friends list (/flcustom)": "",
+      "use our /fl": "Makes /fl open this mod's Friends List instead of Hypixel's. /flcustom always opens ours and /flhypixel always opens Hypixel's."
+    },
+    "GIF Player": {
+      "[off] dancing cat girl (built-in)": "",
+      "audio": "Loops the audio files toggled on below.",
+      "audio (wav/aiff/au native, .mp3 auto-converted)": "",
+      "gifs": "Shows the GIFs toggled on below as looping HUD overlays.",
+      "gifs (toggle which ones show at once)": "",
+      "no audio files found.": "",
+      "open gif folder": "Opens the folder where you drop .gif and audio files.",
+      "rescan folder": "Reloads the GIF folder so new or removed files show in the lists.",
+      "set": "Applies the number typed in the box to its left.",
+      "speed": "GIF playback speed, 0.25x-4x (1 = normal).",
+      "volume": "Loudness of the GIF Player audio, 0-100%."
+    },
+    "General": {
+      "auto join skyblock": "Runs /skyblock whenever you first join the server."
+    },
+    "Health and Mana Bars": {
+      "absorption": "Always hides the golden absorption hearts from the vanilla heart bar.",
+      "always": "",
+      "armour": "Always hides the vanilla armour points bar, whether Stat Bars is on or not.",
+      "health": "Always hides the vanilla heart bar, whether Stat Bars is on or not.",
+      "held item name": "The item name vanilla shows over the hotbar when you switch slot. Hidden Over Bars: hidden only where it would cover one of these bars or texts. Hidden: always hidden. Shown: always shown.",
+      "hide": "",
+      "hunger": "Always hides the vanilla hunger bar, whether Stat Bars is on or not.",
+      "hypixel stat text": "Takes Hypixel's own health, defence and mana numbers (and the other stat segments) out of the action bar, leaving anything else on that line.",
+      "mount health": "Always hides the health bar of the horse or other mount you ride.",
+      "regeneration bounce": "Stops the vanilla hearts bobbing up and down while you regenerate.",
+      "stat bars": "Reads health, mana, defence and vitality from Hypixel's action bar; needed by every bar and text below.",
+      "xp bar and level": "Hides the vanilla experience bar and the level number above it (also the locator and mount jump bars that share its slot)."
+    },
+    "Held Item Transform": {
+      "held item transform": "Resizes, moves and rotates your held item in first person."
+    },
+    "Hide Chat Messages": {
+      "hide actionbar": "",
+      "hide discord warnings": "",
+      "hide empty chat messages": "",
+      "hide microsoft warnings": "",
+      "hide non-rank invites": "",
+      "hide useless messages": ""
+    },
+    "Hide Players": {
+      "hide players": ""
+    },
+    "Ice Fill Solver": {
+      "ice fill solver": "Draws a safe walking line across the Ice Fill floors."
+    },
+    "Ice Path Solver": {
+      "ice path solver": "Draws the shortest path for pushing the silverfish to the exit."
+    },
+    "Inventory HUD": {
+      "inventory hud": "Shows your main inventory as a HUD panel."
+    },
+    "Inventory Search": {
+      "inventory search": "Press Ctrl+F in any inventory to search; matching items get a red outline."
+    },
+    "Inventory Theme": {
+      "hide potion effects": "Hides the potion effects panel beside the inventory and chest screens.",
+      "inventory theme": "Re-skins the chest and inventory screens, and the hotbar, in this mod's look."
+    },
+    "Item Browser": {
+      "item browser": "Shows a panel listing every Skyblock item beside your inventory."
+    },
+    "Item Protection": {
+      "item protection": "Turns on the guards that stop you losing your own gear."
+    },
+    "Item Rarity Backgrounds": {
+      "item rarity backgrounds": "Draws a rarity-coloured square, circle or outline behind Skyblock items."
+    },
+    "Leap Counter": {
+      "alert": "What happens when the expected number of teammates have leaped to you.",
+      "alert text": "",
+      "alert text (& colour codes)": "The title text; & colour codes work.",
+      "core leaps": "Teammates expected to leap to you once inside the core. 0 turns it off.",
+      "counter hud": "Shows how many teammates have leaped to you, like 1/4.",
+      "detection": "Counts a teammate as leaping to you when they cover the Jump Distance quickly and land within the Leap Radius.",
+      "expected leaps": "How many teammates should leap to you in each Phase 3 section.",
+      "jump distance": "Blocks a teammate must travel quickly for the arrival to count as a leap (3-20).",
+      "leap alert sound": "Plays a sound with the title.",
+      "leap alert title": "Shows a screen title when everyone has leaped to you.",
+      "leap counter": "Counts how many teammates leap to you in F7/M7 Phase 3 and alerts when all have arrived.",
+      "leap hud": "Shows the leap count on screen while you are on a countable section.",
+      "leap radius": "How close to you, in blocks, a teammate must land to count (1-8).",
+      "relic leaps": "Teammates expected to leap to you in Phase 5. 0 turns it off.",
+      "s1 leaps": "Teammates expected to leap to you in section 1. 0 turns it off.",
+      "s2 leaps": "Teammates expected to leap to you in section 2. 0 turns it off.",
+      "s3 leaps": "Teammates expected to leap to you in section 3. 0 turns it off.",
+      "s4 leaps": "Teammates expected to leap to you in section 4. 0 turns it off.",
+      "show at zero": "Shows the count at 0 before the first teammate has leaped to you."
+    },
+    "Leap Menu": {
+      "\"leaping to\" message": "Sends your own Leaping To line to party chat after each Spirit Leap.",
+      "cringe message": "Sends a random cringe line to party chat after each Spirit Leap.",
+      "custom leap menu": "Replaces Hypixel's Spirit Leap menu with 4 big teammate boxes; click one or press 1-4 to leap.",
+      "leap message": "Chat messages sent when you leap to someone.",
+      "leap message enabled": "Sends the messages below to party chat after you leap to someone.",
+      "leaping to message": "The party message sent after a leap; {name} becomes the player you leapt to.",
+      "open leap order": "Opens the Leap Order editor to set which teammate goes in each of the 4 spots.",
+      "set": "Saves the leap message typed in the box to the left.",
+      "{name} becomes the ign you leapt to": ""
+    },
+    "Livid Solver": {
+      "livid solver": "Outlines the real Livid on F5/M5."
+    },
+    "Loadout Keybinds": {
+      "loadout keybinds": "Lets keys click loadout slots and change pages on the Loadout screen."
+    },
+    "Map, Leap & Party": {
+      "auto kick": "Warns or kicks when your run takes longer than the target time set for its floor.",
+      "chunk cache": "Keeps chunks you've loaded readable in memory so the map, waypoints and solvers still see rooms you left.",
+      "class colors": "Colors dungeon teammates by their class in the tab list and on nametags.",
+      "dungeon map": "Draws the real dungeon map as a HUD overlay, showing only what your hotbar map has revealed.",
+      "dungeon queue": "",
+      "leap counter": "Counts how many teammates leap to you in F7/M7 Phase 3 and alerts when all have arrived.",
+      "party interop": "",
+      "team melody": "",
+      "teammate highlight": "Draws a box around each party member, coloured by their dungeon class."
+    },
+    "Mask Invincibility": {
+      "mask invincibility": "HUD timers for Spirit Mask, Bonzo's Mask and Phoenix pet invincibility and cooldowns."
+    },
+    "Maxor's Crystals": {
+      "active crystal counter": "Shows how many of the five crystals are currently active.",
+      "crystal highlight": "",
+      "crystal timers (p1)": "",
+      "filled boxes": "Also fills the crystal boxes instead of drawing only the outline.",
+      "highlight color": "Colour of the crystal boxes.",
+      "highlight crystals": "Boxes the real crystals in the arena.",
+      "place timer": "Times how long you take to place a crystal and remembers your best.",
+      "reset best place time": "Shows your fastest crystal placement. Click twice to reset it.",
+      "respawn timer": "Shows a countdown to the next crystal spawning.",
+      "unplaced crystal alert": "Warns you while you are carrying a crystal you have not placed."
+    },
+    "Mod & HUD": {
+      "auto scale (monitor)": "Keeps every HUD element and menu of this mod the same size relative to your window on any monitor and at any GUI Scale, using a 2560x1440 screen at GUI Scale 3 as the reference (unchanged there). HUD Scale multiplies on top. ON by default; saved with profiles.",
+      "check for updates": "Checks GitHub for a newer release; click again to open its download page.",
+      "edit hud keybind": "Key that opens the HUD editor in game.",
+      "edit hud positions": "Opens the HUD editor to drag and resize on-screen elements.",
+      "hud": "Options for what the Score Calculator HUD shows.",
+      "hud scale": "Scales every HUD element of this mod at once, 5% to 300%. Multiplies each element's own size, so per-element sizes are kept. Saved with profiles.",
+      "join discord": "Opens the mod's Discord server invite in your browser.",
+      "mod": "",
+      "notify me of updates": "Tells you when you join a world if a newer release of the mod exists.",
+      "skyblock only": "Pauses every feature while you're not on Hypixel Skyblock or p3sim."
+    },
+    "Mod Chat": {
+      "mod chat": "A private chat with other mod users; send with /killer560 chat <message>."
+    },
+    "Motion Blur": {
+      "motion blur": "Blends each frame with the previous ones for a motion blur effect."
+    },
+    "Name Changer": {
+      "name changer": "Changes how player names look on your screen, client-side only."
+    },
+    "Nickhider": {
+      "randomize others": "Gives every other player a fake name for this session; works without the Name Changer toggle."
+    },
+    "Object Hider": {
+      "archer passive": "Hides the spinning bone meal items the archer passive drops.",
+      "blindness effect": "Removes the blindness effect so P3 blind doesn't black out your screen.",
+      "block break particles": "Hides the block-crack particles from breaking or hitting blocks.",
+      "boss damage splash": "Hides the floating damage numbers in the boss room.",
+      "cancel vanilla nametags": "",
+      "clean end": "Hides every mob, player and particle after the boss dies until the chests spawn.",
+      "container text shadow": "",
+      "death animations": "Hides mobs the moment they die instead of playing the death animation.",
+      "disable fog": "",
+      "disable item cooldowns": "",
+      "disable text shadow": "",
+      "dungeon clutter": "",
+      "dying dragons": "Hides M7 dragons once they start dying so P5 stays readable.",
+      "end of run": "",
+      "explosions (wither impact)": "",
+      "fix crimson isle fog": "",
+      "grounded arrows": "Stops arrows stuck in blocks from rendering.",
+      "healer fairy": "Stops the healer's floating fairy model from rendering.",
+      "hide falling blocks": "",
+      "hide lightning": "",
+      "hide recipe book button": "",
+      "item animations": "",
+      "m7 boss": "",
+      "name tags": "",
+      "no eat animation": "",
+      "no fire overlay": "Hides the full-screen fire effect while you are burning.",
+      "no shortbow swing": "",
+      "power orbs": "Stops dungeon support orbs from rendering.",
+      "render optimiser": "",
+      "screen": "",
+      "sheep": "Hides sheep inside dungeons.",
+      "smoke particles": "Hides vanilla smoke particles.",
+      "soulweaver skulls": "Stops the skulls spawned by Soulweaver Gloves from rendering.",
+      "tweaks": "",
+      "wither cloak creepers": "Hides the invisible charged creepers Wither Cloak spawns.",
+      "wither king model": "Hides the Wither King's model and witch particles in the M7 arena.",
+      "wither shield hearts": "Hides the heart particles from Wither Shield healing.",
+      "world": ""
+    },
+    "P3 Nav": {
+      "color": "Colour of the boxes on this row.",
+      "current section only": "ON only boxes your current section; OFF boxes everything left in Phase 3.",
+      "device highlight": "Outlines P3 devices you have not done yet.",
+      "gate highlight": "Boxes the Phase 3 gate you're heading for.",
+      "gate line width": "Thickness of the gate box outline.",
+      "gate style": "Outline, Fill, or both, for the gate box.",
+      "hide once destroyed": "ON hides the gate box once the gate is broken; OFF keeps it drawn.",
+      "highlight style": "How the highlight is drawn: outline, filled, or both.",
+      "terminal / device highlight": "",
+      "terminal highlight": "Outlines P3 terminals you have not done yet."
+    },
+    "P4 Platform Highlight": {
+      "p4 platform highlight": "F7/M7 only: boxes the platform you mine through to reach Necron."
+    },
+    "Party Commands": {
+      "party commands": "Turns on the Party Commands tab; each command still needs its own toggle."
+    },
+    "Party Interop": {
+      "cross-mod bridge": "Shares dungeon data both ways with users of Devonian, NoammAddons and Odin.",
+      "local mod bridge": "Reads dungeon info from NoammAddons and Odin if you have them installed.",
+      "log pickups": "Prints each piece of party info into chat as it is picked up.",
+      "party interop": "Shares and receives dungeon run info with your party; turn off to stop both.",
+      "read party chat": "Reads the announcements other dungeon mods make in party chat.",
+      "share dungeon data with party": "Shares your dungeon info (rooms, secrets, mimic, dragons) with your party over the mod relay.",
+      "use mod relay": "Accepts dungeon info from other players running this mod.",
+      "work it out myself": "Works out dungeon run info on its own from what Hypixel already sends you."
+    },
+    "Performance HUD": {
+      "performance hud": "Shows TPS, ping, FPS and a click counter in one movable HUD element."
+    },
+    "Pet Wheel": {
+      "pet wheel": "Turns on the Pet Wheel for quickly summoning pets."
+    },
+    "Posmsg": {
+      "+ add custom waypoint": "Adds a custom waypoint; type its message, then stand on the spot and press Set To My Position.",
+      "ee2 (high - lever device) - 61, 132, 139": "",
+      "ee3 (low) - 3, 109, 106": "",
+      "enabled": "Turns this entry on or off.",
+      "necron's platform - 55, 65, 77": "",
+      "outcore - 55, 115, 51": "",
+      "p5 - 55, 5, 77": "",
+      "posmsg": "Each waypoint draws a ring and sends its own line to party chat when you walk into it (F7/M7 boss).",
+      "recore - 55, 115, 59": "",
+      "simon says - 108, 120, 94": ""
+    },
+    "Profile Viewer": {
+      "clear": "Deletes the saved Hypixel API key.",
+      "hypixel api key": "Optional. Paste your own Hypixel API key for faster lookups.",
+      "open key": "Key that opens this feature's screen.",
+      "open my profile": "Opens the profile viewer on your own Skyblock profile.",
+      "remember last page": "Reopens the profile viewer on the page you last used.",
+      "show skin": "Shows the player's 3D skin on the profile viewer's main page.",
+      "source": "Where profile data comes from: your Hypixel API key, SkyBlockPV, or Auto."
+    },
+    "Puzzle Solvers": {
+      "blaze solver": "Outlines blazes in kill order: red, orange, yellow, then white.",
+      "boulder solver": "Outlines the stone button to press next in the Boulder puzzle.",
+      "creeper beams solver": "Outlines each connected Sea Lantern pair in the Creeper Beams puzzle.",
+      "ice fill solver": "Draws a safe walking line across the Ice Fill floors.",
+      "ice path solver": "Draws the shortest path for pushing the silverfish to the exit.",
+      "quiz solver": "Highlights the floor spot of the correct answer in the Quiz puzzle.",
+      "solver highlights": "",
+      "teleport maze solver": "Colours the Teleport Maze pads to show which are used and which are likely exits.",
+      "tic tac toe solver": "Outlines the best Tic Tac Toe square in green on your turn.",
+      "water board solver": "Shows a countdown above each Water Board lever for when to flip it.",
+      "weirdos solver": "Outlines the correct chest in the Three Weirdos puzzle once an NPC reveals the answer."
+    },
+    "Quiver Display": {
+      "quiver display": "Shows how many arrows you have left in a HUD line."
+    },
+    "Quiz Solver": {
+      "quiz solver": "Highlights the floor spot of the correct answer in the Quiz puzzle."
+    },
+    "RNG Meter Overlay": {
+      "bazaar pricing": "Chooses whether RNG Meter rewards use Bazaar Instant Buy or Instant Sell prices.",
+      "last refresh error": "",
+      "minutes": "Minutes to wait between automatic Bazaar and AH price refreshes (minimum 1).",
+      "refresh now": "Fetches fresh Bazaar and AH lowest-BIN prices right away.",
+      "rng meter overlay enabled": "Shows a coins-per-meter-point ranking next to Hypixel's RNG Meter menus.",
+      "save": "Saves the refresh interval typed in the Minutes box."
+    },
+    "Rag Axe": {
+      "rag axe": "Ragnarock Axe helper with cast detection, timers and rag now prompts."
+    },
+    "Real Time": {
+      "real time": "Shows a HUD clock with your real-world time."
+    },
+    "Revert Master Stars": {
+      "revert master stars": "Turns the Master Star number on item names back into that many red stars."
+    },
+    "Run Stats": {
+      "run stats": "Prints a per-player summary in chat after each dungeon run: rooms cleared, secrets and deaths."
+    },
+    "Run Summary": {
+      "run summary": "Records a summary of each finished dungeon run (splits, secrets, deaths, score) that you can reopen later."
+    },
+    "Score Calculator": {
+      "estimates the dungeon score from the tab list and sidebar. move it with the hud editor.": "",
+      "score calculator": "Shows a live estimate of your dungeon score on a movable HUD."
+    },
+    "Screenshot Copy": {
+      "copy screenshots to clipboard": "Copies each screenshot you take to the clipboard so you can paste it with Ctrl+V."
+    },
+    "Scrollable Tooltips": {
+      "scrollable tooltips": "Lets the mouse wheel scroll or nudge an item tooltip in inventories and menus."
+    },
+    "Secret Sound": {
+      "secret sound": "Plays a sound when you collect a dungeon secret."
+    },
+    "Secret Waypoints": {
+      "secret waypoints": "Draws a coloured box on every secret in rooms the mod has recognised."
+    },
+    "Secrets": {
+      "etherwarp waypoints": "",
+      "secret sound": "Plays a sound when you collect a dungeon secret.",
+      "secret waypoints": "Draws a coloured box on every secret in rooms the mod has recognised."
+    },
+    "Secrets HUD": {
+      "secrets hud": "Shows the secrets found in your current dungeon room over its total, as a small movable HUD."
+    },
+    "Sharp Shooter (i4)": {
+      "aim marker color": "Colour of the i4 Solver's aim dots.",
+      "solver": "Highlights the i4 targets you still need to hit and draws dots showing where to aim."
+    },
+    "Sim Keybinds": {
+      "dungeon sim only. pick a set in dungeon sim > all rooms (route practice).": "",
+      "next room key": "",
+      "previous room key": ""
+    },
+    "Sim Settings": {
+      "echoes of the lost": "Dungeon Sim only: Dungeon Breaker charges each secret gives back. This is the Wither Essence Shop perk Echoes of the Lost (levels 1-5 restore 1-5 charges); 0 is off. Defaults to the maxed perk. The breaker still holds 20 and regenerates 2 a second."
+    },
+    "Simon Says": {
+      "simon says": "Highlights the Simon Says buttons you need to press."
+    },
+    "Slot Binds": {
+      "slot binds": "Links two inventory slots so shift-clicking one swaps them."
+    },
+    "Smooth Teleport": {
+      "smooth teleport": "Glides your camera to where a teleport ability lands you instead of snapping. Visual only: you are already there, and what you aim at is where you landed."
+    },
+    "Solver Highlights": {
+      "through walls": "Draws every solver highlight through blocks so you can see answers early.",
+      "waypoint style": "Draws puzzle solver waypoints as an outline or a see-through full block."
+    },
+    "Split Timers": {
+      "split timers": "Shows a HUD timing each part of a dungeon run."
+    },
+    "Spotify Mod": {
+      "chat destination": "Which chat the lyrics are sent to: Party, All, Guild, or Co-op / Plain.",
+      "lyrics mode": "Sends every lyric line, or only announces the song when it changes.",
+      "mod enabled": "Sends the song you are playing on Spotify to chat as messages other players can see.",
+      "profanity filter": "Stars out swear words in the lyrics you send.",
+      "spotify is not running on this pc": ""
+    },
+    "Spring Boots": {
+      "spring boots overlay": "Shows how many blocks high your Spring Boots jump is charged to."
+    },
+    "Starred Mob Hitboxes": {
+      "bats": "Highlights secret bats during dungeon clear.",
+      "color": "Colour of the boxes or glow for this row's target.",
+      "line width": "Thickness of the drawn lines and box outlines.",
+      "range": "How far away a starred mob or bat can be, in blocks, and still be boxed.",
+      "room scoped": "Boxes every starred mob and bat in the room you are in, however far away.",
+      "starred mob hitboxes": "Boxes starred mobs and secret bats, and highlights the F7/M7 wither boss.",
+      "starred mobs": "Highlights starred mobs and minibosses during dungeon clear.",
+      "style": "How starred mobs and bats are highlighted: Outline Box, Filled Box, or Glow.",
+      "wither highlight": "Highlights the F7/M7 wither bosses at any range while you can see them.",
+      "wither style": "Picks how the wither highlight is drawn: Glow Hitbox or Hitbox Fill."
+    },
+    "Storage Overlay": {
+      "columns": "How many storage panels sit side by side.",
+      "overlay theme": "Amber (the original dark look), Dark (neutral greys) or Light, for the grid and the relocated inventory.",
+      "scale": "Resizes the whole storage overlay, grid and inventory panel together.",
+      "storage overlay enabled": "Shows all your Ender Chest pages and backpacks in a grid beside the menu."
+    },
+    "Storage Search": {
+      "storage search": "Run /search to find items across all your cached storages, chests and menus."
+    },
+    "Team Melody": {
+      "team melody hud": "Shows each teammate's Melody terminal progress during Phase 3."
+    },
+    "Teammate Highlight": {
+      "teammate highlight": "Draws a box around each party member, coloured by their dungeon class."
+    },
+    "Teleport Maze Solver": {
+      "teleport maze solver": "Colours the Teleport Maze pads to show which are used and which are likely exits."
+    },
+    "Terminal Solver": {
+      "custom gui": "Replaces the terminal window with a bigger centered panel showing only the slots you need.",
+      "hide completion chat": "Hides the terminal completion lines in chat, including Terminal Timers' split times.",
+      "hide completion titles": "Hides the terminal completion title and subtitle on screen.",
+      "highlight scale": "Size of the terminal solver visuals, 50-500%.",
+      "label text colour": "Colour of the small label drawn on highlighted slots.",
+      "melody": "Detects the Melody terminal so Custom GUI and Auto Terminals can handle it.",
+      "melody button colour": "Colour of the real buttons you click in Melody's Custom GUI.",
+      "melody endpoint colour": "Colour of Melody's two fixed track endpoint panes in Custom GUI.",
+      "melody keys": "Press 1-3 (1-4 on an old 4-row board) to click Melody's row buttons instead of using the mouse.",
+      "melody moving piece colour": "Colour of Melody's moving marker pane in Custom GUI.",
+      "melody scale": "A separate GUI scale for Melody, which has a much wider board.",
+      "melody track colour": "Colour of Melody's static track background in Custom GUI.",
+      "numbers": "Highlights the next two panes to click in the 'Click in order!' terminal.",
+      "numbers 3-tier reveal": "Also highlights the 3rd upcoming click in the Numbers terminal, not just the next two.",
+      "numbers 3rd colour": "Colour of the 3rd upcoming click in the Numbers terminal.",
+      "numbers after next colour": "Colour of the slot after the next one in the Numbers terminal.",
+      "numbers next colour": "Colour of the slot you need to click next in the Numbers terminal.",
+      "overlay colours": "Colours the terminal solver uses for its highlights.",
+      "panel background colour": "Background colour of the Custom GUI panel, always fully opaque.",
+      "panel border colour": "Outline around the Custom GUI panel.",
+      "panes": "Highlights the red panes to click in the panes terminal.",
+      "panes colour": "Highlight colour for the Correct all the panes terminal.",
+      "reset colours": "Puts every terminal overlay colour back to the default orange.",
+      "rubix": "Shows which panes to click, and how many times, in the same-color terminal.",
+      "rubix count text colour": "Colour of the click-count number in each Rubix cell.",
+      "rubix left click colour": "Colour of Rubix panes you should left click.",
+      "rubix right click colour": "Colour of Rubix panes you should right click.",
+      "select": "Highlights every item of the requested color in the Select All terminal.",
+      "select all colour": "Highlight colour for matching items in the Select all the [color] items terminal.",
+      "send mel coords on open": "Sends your block position to party chat when a Melody terminal opens (F7/M7 boss).",
+      "send melody progress": "Posts \"Melody 1/3 - 33%\" style progress to party chat as you finish each Melody row (F7/M7 boss only).",
+      "starts with": "Highlights every item starting with the requested letter in the What Starts With terminal.",
+      "starts with colour": "Highlight colour for matching items in the What starts with terminal.",
+      "terminal drop key": "Stops Q from throwing your weapon while a terminal is open.",
+      "terminal protection": "Blocks your first click right after a terminal opens so it can't hit the wrong slot.",
+      "terminal qol": "",
+      "terminal scale": "GUI scale used while a terminal is open. Auto keeps your normal scale.",
+      "terminal solver": "Highlights the correct slots to click in F7/M7 terminals.",
+      "terminals to solve": "Chooses which of the six F7 terminal types get highlighted.",
+      "works with the solver above on or off.": ""
+    },
+    "Terminal Timers": {
+      "terminal timers": "Shows terminal solve times and section splits in your own chat during F7/M7 P3."
+    },
+    "Termism": {
+      "open termism": "Opens Termism, a practice screen with fake F7 terminals; same as /termism."
+    },
+    "Terracotta Timer": {
+      "terracotta timer": "Shows a respawn countdown over each broken terracotta in the F6/M6 boss."
+    },
+    "Thorn (F4)": {
+      "add stun spot here": "Saves a stun spot on the block you're standing on.",
+      "overkill chat": "Posts each Spirit Bear's overkill count in chat when its ring resets.",
+      "overkill to party": "Also sends each Spirit Bear's overkill count to party chat (/pc).",
+      "remove last stun spot": "Deletes the most recently added stun spot.",
+      "show overkill": "Adds an Overkill line under the Spirit Bear HUD for wasted spirit kills.",
+      "spirit bear color": "Opens a color picker for the Spirit Bear highlight.",
+      "spirit bear counter": "Shows how many Spirit Bears are left on your HUD.",
+      "spirit bear highlight": "Highlights the Spirit Bear during the Thorn fight.",
+      "spirit bear hud": "Shows Spirit Bear kills and a spawn countdown in F4/M4.",
+      "spirit bow color": "Opens a color picker for the Spirit Bow highlight.",
+      "spirit bow highlight": "Highlights the Spirit Bow that drops when the Spirit Bear dies.",
+      "spirit mob color": "Opens a color picker for the spirit mob highlight.",
+      "spirit mob highlight": "Highlights the spirit animals in the Thorn fight.",
+      "stun spot color": "Opens a color picker for stun-spot waypoints.",
+      "stun spot labels": "Shows each stun spot's name above its box.",
+      "stun spot waypoints": "Draws your saved stun spot waypoints during the F4/M4 boss.",
+      "stun spots": "Shows saved spots in the world where you stand to stun Thorn.",
+      "thorn color": "Opens a color picker for the Thorn highlight.",
+      "thorn esp line width": "Outline thickness for the Thorn highlight boxes, 1-10.",
+      "thorn esp style": "How Thorn highlights are drawn: Outline Box, Filled Box or Glow; click to cycle.",
+      "thorn highlight": "Highlights Thorn during the F4/M4 fight.",
+      "thorn highlights": "Coloured boxes or a glow on Thorn-fight targets during the F4/M4 boss."
+    },
+    "Tic Tac Toe Solver": {
+      "tic tac toe solver": "Outlines the best Tic Tac Toe square in green on your turn."
+    },
+    "Tick Timers": {
+      "tick timers": "Shows a countdown HUD for the F7/M7 boss phases."
+    },
+    "Timers, Score & Boss": {
+      "blessings": "Shows your five dungeon blessing levels on a HUD and can announce each level up.",
+      "blood camp": "Tracks the Watcher's blood mobs and predicts where each will land.",
+      "croesus / chest profit": "Shows what each dungeon reward chest is worth, logs your claims, and (cheat build) claims the best chest.",
+      "custom mage beam": "In dungeons, redraws every Mage beam as one clean coloured line.",
+      "dungeon alerts": "",
+      "f7 spots": "",
+      "maxor's crystals": "Phase 1 crystal helpers: timers, an unplaced-crystal warning, a counter and crystal boxes.",
+      "p3 nav": "Phase 3 navigation: boxes the next section gate and the terminals and devices you have left.",
+      "p4 platform highlight": "F7/M7 only: boxes the platform you mine through to reach Necron.",
+      "rag axe": "Ragnarock Axe helper with cast detection, timers and rag now prompts.",
+      "run stats": "Prints a per-player summary in chat after each dungeon run: rooms cleared, secrets and deaths.",
+      "run summary": "Records a summary of each finished dungeon run (splits, secrets, deaths, score) that you can reopen later.",
+      "score calculator": "Shows a live estimate of your dungeon score on a movable HUD.",
+      "sharp shooter (i4)": "",
+      "split timers": "Shows a HUD timing each part of a dungeon run.",
+      "starred mob hitboxes": "Boxes starred mobs and secret bats, and highlights the F7/M7 wither boss.",
+      "terminal timers": "Shows terminal solve times and section splits in your own chat during F7/M7 P3.",
+      "terracotta timer": "Shows a respawn countdown over each broken terracotta in the F6/M6 boss.",
+      "thorn (f4)": "Helpers for the F4/M4 boss Thorn: Spirit Bear kill counter, highlights and stun-spot waypoints.",
+      "tick timers": "Shows a countdown HUD for the F7/M7 boss phases.",
+      "wither dragons": "Tracks the five M7 Phase 5 dragons with spawn timers, health and which one your class should take."
+    },
+    "Trail": {
+      "trail": "Draws a cosmetic trail of squares at your feet as you move."
+    },
+    "Trajectories": {
+      "trajectories": "Draws the flight path and landing spot of your bow shot or Ender Pearl."
+    },
+    "Translate": {
+      "chat translate enabled": "Run /translate to change the language, or pick it below; all your messages are then sent in that language.",
+      "language": "The language your chat is translated into; /language opens this picker."
+    },
+    "Video Browser": {
+      "video browser": "Shows YouTube Shorts in a small window pinned over Minecraft (Windows only)."
+    },
+    "Voice To Text": {
+      "voice to text": "Turns your speech into text and sends it to party or guild chat, by Push To Talk or Open Mic."
+    },
+    "Water Board Solver": {
+      "water board solver": "Shows a countdown above each Water Board lever for when to flip it."
+    },
+    "Waypoint Routes": {
+      "waypoint routes": "Shows ordered waypoint routes for the current Skyblock area."
+    },
+    "Weirdos Solver": {
+      "weirdos solver": "Outlines the correct chest in the Three Weirdos puzzle once an NPC reveals the answer."
+    },
+    "Window Layout": {
+      "full monitor borderless": "Puts the window in borderless fullscreen on the monitor when using Full Monitor.",
+      "gap": "Empty space in pixels (0-20) around the edges and between window slots.",
+      "monitor": "Which monitor the picker tiles onto; Auto uses the monitor this window is on.",
+      "open layout picker": "Opens a monitor preview; click a cell to move and resize this window into it.",
+      "respect taskbar": "Keeps windows inside the monitor's work area so they do not cover the taskbar.",
+      "restore on launch": "Moves this window back into the last slot you picked when the game starts.",
+      "windows per monitor": "How many equal slots (1-9) the picker splits the monitor into."
+    },
+    "Wither Doors": {
+      "wither doors": ""
+    },
+    "Wither Dragons": {
+      "king relics": "Helpers for the M7 Phase 5 relics: spawn countdown, cauldron highlight and placement times.",
+      "wither dragons": "Tracks the five M7 Phase 5 dragons with spawn timers, health and which one your class should take."
+    }
+  }
+}

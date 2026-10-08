@@ -27,7 +27,7 @@ import java.util.Locale;
  *   <li>Red: the same 80 pixels, red, none green. Bigger (length 20, thickness 3): 240 pixels, a 51 x 51 box.</li>
  *   <li>T-Shape: nothing above the centre; rotated 90: nothing right of it. Dot 6: 36 pixels. Circle: a ring with an
  *       untouched centre. Colour On Block (looking at the ground): the cross turns blue.</li>
- *   <li>The editor: the Crosshair tab opens and its live preview draws the crosshair.</li>
+ *   <li>The editor: General's Custom Crosshair section opens and its live preview draws the crosshair.</li>
  * </ul>
  */
 final class CrosshairCases {
@@ -245,8 +245,9 @@ final class CrosshairCases {
         }
     }
 
-    /** The Crosshair tab in the real ModScreen: it opens with every optional row showing and none overlapping, and its
-     *  preview draws the crosshair. */
+    /** The Custom Crosshair section of General in the real ModScreen (its own top-level "Crosshair" tab until mod
+     *  menu-layout, 2026-10-07: killer560 "put it in General"): it opens with every optional row showing and none
+     *  overlapping, and its preview draws the crosshair. */
     private static void editor(UiCase c, Object cfg) {
         c.onClient(mc -> {
             Mod.call(cfg, "resetLook");
@@ -262,7 +263,7 @@ final class CrosshairCases {
             try {
                 if (JarIndex.peek(JarIndex.ROOT + "testing.TestedFeatures") != null) {
                     // A testing jar (mod -PtestingBuild) keeps Crosshair in its Untested folder until it is marked
-                    // tested; mark it (413 starts from a clean marks file) so this case measures the real tab.
+                    // tested; mark it (413 starts from a clean marks file) so this case measures it in General.
                     Object tab = R.cls("gui.tab.CrosshairTab").getConstructor().newInstance();
                     R.cls("testing.TestedFeatures").getMethod("mark", R.cls("gui.tab.BaseTab"), boolean.class)
                             .invoke(null, tab, true);
@@ -271,10 +272,17 @@ final class CrosshairCases {
                 ModScreenDriver d = new ModScreenDriver(mc);
                 List<Object> tops = d.topTabs();
                 for (int i = 0; i < tops.size(); i++) {
-                    if ("Crosshair".equals(R.get(tops.get(i), "name"))) {
-                        d.select(i);
-                        McCompat.setScreen(mc, d.screen);
-                        return d.screen;
+                    if (!"General".equals(R.get(tops.get(i), "name"))) {
+                        continue;
+                    }
+                    List<Object> subs = d.subTabs(tops.get(i));
+                    for (int j = 0; j < subs.size(); j++) {
+                        if ("Custom Crosshair".equals(R.get(subs.get(j), "name"))) {
+                            d.select(i);
+                            d.expanded(tops.get(i)).add(j);
+                            McCompat.setScreen(mc, d.screen);
+                            return d.screen;
+                        }
                     }
                 }
                 return null;
@@ -282,7 +290,7 @@ final class CrosshairCases {
                 throw new AssertionError("could not open gui.ModScreen: " + UiCase.describe(t), t);
             }
         });
-        c.check(s != null, "no 'Crosshair' tab in the mod menu");
+        c.check(s != null, "no 'Custom Crosshair' section in the mod menu's General tab");
         List<String> overlaps = new java.util.ArrayList<>();
         int rows = c.onClient(mc -> {
             Object pane = R.get(s, "contentPane");
@@ -304,10 +312,10 @@ final class CrosshairCases {
         });
         c.note("editor with every optional row showing: " + rows + " rows, " + overlaps.size() + " overlapping pair(s)");
         if (rows < 50) {
-            c.problem("the Crosshair tab built only " + rows + " rows with every option on");
+            c.problem("General with the Custom Crosshair section open built only " + rows + " rows with every option on");
         }
         for (String o : overlaps) {
-            c.problem("Crosshair tab rows overlap: " + o);
+            c.problem("General / Custom Crosshair rows overlap: " + o);
         }
         c.onClient(mc -> {
             Mod.setField("crosshair.CrosshairRenderer", "lastFillCount", 0);
@@ -320,9 +328,9 @@ final class CrosshairCases {
         int fills = ((Number) Mod.field("crosshair.CrosshairRenderer", "lastFillCount")).intValue();
         boolean open = c.onClient(mc -> McCompat.screen(mc) == s);
         c.note("editor: preview drew " + fills + " fill(s); screenshot " + (kept != null ? kept : taken));
-        c.check(open, "the mod menu did not stay open on the Crosshair tab");
+        c.check(open, "the mod menu did not stay open on General's Custom Crosshair section");
         if (fills <= 0) {
-            c.problem("the Crosshair tab's live preview drew nothing");
+            c.problem("the Custom Crosshair section's live preview drew nothing");
         }
     }
 

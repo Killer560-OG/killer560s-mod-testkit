@@ -25,11 +25,13 @@ final class TabSweep {
      * even one tab fails - a floor a broken menu can clear is not one. Re-measured on mod aa09fd82 (mining shelved until
      * after 2.0, which took the Mining (WIP) folder and its four sections out): cheat 173, legit 138. Then on mod
      * 1a64e3dd (New category gone; Social, Items and two Dungeon folders added): cheat 176, legit 141. Then on mod
-     * chat-batch a64924b9 (Hide Chat Messages and Chat Tidy merged into one Chat Hider tab): cheat 175, legit 140.
+     * chat-batch a64924b9 (Hide Chat Messages and Chat Tidy merged into one Chat Hider tab): cheat 175, legit 140;
+     * menu-layout (the two Dungeon folders dissolved, Crosshair moved into General, Home's cheat Correction Alarm its
+     * own section): cheat 175, legit 139. Both merged on 2026-10-08: the floors are the lower of the two.
      */
     static final int CHEAT_TAB_FLOOR = 175;
-    static final int LEGIT_TAB_FLOOR = 140;
-    /** Leaf tabs alone on the same build (cheat 161, legit 127 since chat-batch), for testing jars - see tabs(). */
+    static final int LEGIT_TAB_FLOOR = 139;
+    /** Leaf tabs alone (chat-batch cheat 161 / legit 127, menu-layout 163 / 128), for testing jars - see tabs(). */
     static final int CHEAT_LEAF_FLOOR = 161;
     static final int LEGIT_LEAF_FLOOR = 127;
 
