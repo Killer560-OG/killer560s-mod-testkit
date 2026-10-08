@@ -150,8 +150,11 @@ final class ScreenSweep {
                             "resolvePosition", dragged);
                     out.put("drag", id + " from " + p[0] + "," + p[1] + " -> HudConfig " + saved[0] + "," + saved[1]
                             + " (expected " + want[0] + "," + want[1] + "), drawn back at " + back[0] + "," + back[1]);
+                    // The Storage Overlay is always horizontally centred (mod inv-storage, 2026-10-07: its x is a
+                    // layoutPosition, only its height is dragged), so a drag moves it down but not across.
+                    boolean pinnedX = "storage_overlay".equals(id) && back[0] == p[0];
                     out.put("dragOk", saved[0] == want[0] && saved[1] == want[1]
-                            && Math.abs(back[0] - (p[0] + 10)) <= 1 && Math.abs(back[1] - (p[1] + 6)) <= 1);
+                            && (Math.abs(back[0] - (p[0] + 10)) <= 1 || pinnedX) && Math.abs(back[1] - (p[1] + 6)) <= 1);
                 }
                 McCompat.setScreen(mc, on);
             } catch (Throwable t) {

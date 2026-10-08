@@ -396,7 +396,7 @@
     },
     "Inventory Theme": {
       "hide potion effects": "Hides the potion effects panel beside the inventory and chest screens.",
-      "inventory theme": "Re-skins the chest and inventory screens to match this mod's Amber theme."
+      "inventory theme": "Re-skins the chest and inventory screens, and the hotbar, in this mod's look."
     },
     "Item Browser": {
       "item browser": "Shows a panel listing every Skyblock item beside your inventory."

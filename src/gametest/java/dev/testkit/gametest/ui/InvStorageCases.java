@@ -56,7 +56,33 @@ final class InvStorageCases {
 
     // ==== shared ======================================================================================================
 
+    /**
+     * Waits out a resource reload's loading overlay (the Pack Disabler cases before these reload resources; the first
+     * suite run took every 451 picture through the red Mojang fade and read none of the accent). 26.1.2 has
+     * {@code Minecraft.getOverlay()}; 26.2 has no such method (javap), so there only the settle applies.
+     */
+    static void awaitNoLoadingOverlay(UiCase c) {
+        java.lang.reflect.Method m;
+        try {
+            m = Minecraft.class.getMethod("getOverlay");
+        } catch (NoSuchMethodException e) {
+            m = null;
+        }
+        if (m != null) {
+            java.lang.reflect.Method getter = m;
+            c.ctx().waitFor(mc -> {
+                try {
+                    return getter.invoke(mc) == null;
+                } catch (ReflectiveOperationException e) {
+                    return true;
+                }
+            }, 1200);
+        }
+        c.ticks(20);
+    }
+
     private static boolean modHasThemes(UiCase c) {
+        awaitNoLoadingOverlay(c);
         if (!Mod.has(THEME) || !Mod.has(HOTBAR)) {
             c.problem("this jar has no gui.PanelTheme / inventorytheme.HotbarTheme (a jar from before inv-storage)");
             return false;
@@ -525,7 +551,9 @@ final class InvStorageCases {
                     {"{\"enabled\":true,\"darkMode\":false,\"scale\":1.0,\"columns\":3}", "LIGHT"},
                     {"{\"enabled\":true,\"scale\":1.0,\"columns\":3}", "AMBER"},
                     {"{\"enabled\":true,\"darkMode\":true,\"theme\":\"DARK\"}", "DARK"},
-                    {"{\"enabled\":true,\"darkMode\":false,\"theme\":\"nonsense\"}", "LIGHT"}};
+                    {"{\"enabled\":true,\"darkMode\":false,\"theme\":\"nonsense\"}", "LIGHT"},
+                    // An older jar flipped darkMode after this one wrote AMBER: its choice wins.
+                    {"{\"enabled\":true,\"darkMode\":false,\"theme\":\"AMBER\"}", "LIGHT"}};
             for (String[] f : files) {
                 Files.writeString(storageFile, f[0], StandardCharsets.UTF_8);
                 String got = c.onClient(mc -> {
@@ -661,6 +689,7 @@ final class InvStorageCases {
     }
 
     static void storageCentre(UiCase c) throws Exception {
+        awaitNoLoadingOverlay(c);
         Object scfg = Mod.cfg(SCFG);
         Object hud = Mod.staticCall("hud.HudConfig", "getInstance");
         boolean oldEnabled = c.onClient(mc -> (Boolean) Mod.call(scfg, "isEnabled"));
