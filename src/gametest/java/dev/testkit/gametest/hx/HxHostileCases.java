@@ -44,7 +44,6 @@ final class HxHostileCases {
                     .with("abilitycooldown.AbilityCooldownConfig", "Enabled", true)
                     .with("abilitycooldown.AbilityCooldownConfig", "DungeonOnly", false)
                     .with("leapmessage.LeapMessageConfig", "Enabled", true)
-                    .with("chatcommands.ChatCommandsConfig", "Enabled", true)
                     .with("partycommands.PartyCommandsConfig", "Enabled", true)
                     .with("playerstats.PlayerStatsConfig", "Enabled", true)) {
                 dungeon(c, "secrets", 3);

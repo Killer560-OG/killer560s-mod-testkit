@@ -39,6 +39,9 @@ public class HxSuite implements FabricClientGameTest {
                     HxSocialCases.register(s);
                     HxHudCases.register(s);
                     HxBatCases.register(s); // 521-523, the Murkbat bat bonus (own block)
+                    // Mod Chat + Party Commands (571-580, branch nt-modchat-party), before the hostile case that
+                    // deliberately pollutes party state.
+                    HxModChatPartyCases.register(s);
                     HxHostileCases.register(s);
                 });
     }

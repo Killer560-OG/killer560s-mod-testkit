@@ -540,18 +540,21 @@ final class DomainCases {
                 Mod.enumValue("bazaarflip.BazaarFlipConfig$RankingMode", "PERCENTAGE_MARGIN")));
         c.eq("rank by margin: best margin first", "S", Mod.call(list.get(0), "productId"));
 
-        // Party-command authorisation (PartyCommandsFeature.handle :170, isTeammate :326).
+        // Party-command authorisation (PartyCommandsFeature.handle, isTeammate). Since mod modchat-party (2026-10-08)
+        // the chat a command came from no longer picks the command: commandFor takes the word alone, the chat is a
+        // per-channel toggle, and the teammate gate covers every party-changing command from any chat.
         String pc = "partycommands.PartyCommandsFeature";
-        Object party = Mod.enumValue("chatcommands.ChatCommandsFeature$Channel", "PARTY");
-        Object guild = Mod.enumValue("chatcommands.ChatCommandsFeature$Channel", "GUILD");
-        Object dm = Mod.enumValue("chatcommands.ChatCommandsFeature$Channel", "PRIVATE");
-        c.eq("!warp in party", "WARP", name(Mod.staticCall(pc, "commandFor", "warp", party)));
-        c.eq("!warp in guild is no command", null, Mod.staticCall(pc, "commandFor", "warp", guild));
-        c.eq("!kick in a DM is no command", null, Mod.staticCall(pc, "commandFor", "kick", dm));
-        c.eq("!inv in a DM invites", "INVITE", name(Mod.staticCall(pc, "commandFor", "inv", dm)));
-        c.eq("!boop in guild", "BOOP", name(Mod.staticCall(pc, "commandFor", "boop", guild)));
-        c.eq("!m7 queues", "QUEUE_INSTANCE", name(Mod.staticCall(pc, "commandFor", "m7", party)));
-        c.eq("!t6 is not a floor", null, Mod.staticCall(pc, "commandFor", "t6", party));
+        String ch = "partycommands.PartyCommandsConfig$Channel";
+        Object party = Mod.enumValue(ch, "PARTY");
+        Object guild = Mod.enumValue(ch, "GUILD");
+        Object all = Mod.enumValue(ch, "ALL");
+        c.eq("!warp", "WARP", name(Mod.staticCall(pc, "commandFor", "warp")));
+        c.eq("!inv invites", "INVITE", name(Mod.staticCall(pc, "commandFor", "inv")));
+        c.eq("!boop", "BOOP", name(Mod.staticCall(pc, "commandFor", "boop")));
+        c.eq("!co is the coords reply", "COORDS", name(Mod.staticCall(pc, "commandFor", "co")));
+        c.eq("!racism is gone", null, Mod.staticCall(pc, "commandFor", "racism"));
+        c.eq("!m7 queues", "QUEUE_INSTANCE", name(Mod.staticCall(pc, "commandFor", "m7")));
+        c.eq("!t6 is not a floor", null, Mod.staticCall(pc, "commandFor", "t6"));
         c.eq("f7 instance", "catacombs_floor_seven", Mod.staticCall(pc, "instanceFor", "f7"));
         c.eq("m1 instance", "master_catacombs_floor_one", Mod.staticCall(pc, "instanceFor", "m1"));
         c.noThrow("instanceFor on 20 digits", () -> Mod.staticCall(pc, "instanceFor", "f99999999999999999999"));
@@ -567,7 +570,14 @@ final class DomainCases {
         Object savedGate = R.get("util.SkyblockGate", "onSkyblock");
         Object cfg = Mod.cfg("partycommands.PartyCommandsConfig");
         boolean savedEnabled = (Boolean) Mod.call(cfg, "isEnabledRaw");
+        boolean savedGuild = (Boolean) Mod.call(cfg, "isChannelOn", guild);
+        boolean savedAll = (Boolean) Mod.call(cfg, "isChannelOn", all);
+        boolean savedParty = (Boolean) Mod.call(cfg, "isChannelOn", party);
+        Object warpCmd = Mod.enumValue("partycommands.PartyCommandsConfig$Command", "WARP");
+        boolean savedWarp = (Boolean) Mod.call(cfg, "isOn", warpCmd);
         try {
+            Mod.call(cfg, "setChannelOn", party, true);
+            Mod.call(cfg, "setOn", warpCmd, true);
             members.clear();
             members.add("Killer560");
             c.eq("teammate exact", true, Mod.staticCall(pc, "isTeammate", "Killer560"));
@@ -585,13 +595,24 @@ final class DomainCases {
             boolean refusedAtGate = LogTap.since(mark).stream().anyMatch(l -> l.contains("not a party/dungeon teammate"));
             c.eq("stranger's !warp not handled", false, handled);
             c.check("stranger's !warp refused at the teammate gate", refusedAtGate, "no 'not a party/dungeon teammate' log line");
-            Object guildCmd = Mod.staticCall(pc, "handle", "Eve", "warp", guild);
-            c.eq("guild !warp not handled", false, guildCmd);
+            // The same stranger from guild and all chat, both channels ON: still refused at the teammate gate.
+            Mod.call(cfg, "setChannelOn", guild, true);
+            Mod.call(cfg, "setChannelOn", all, true);
+            mark = LogTap.mark();
+            c.eq("guild !warp not handled", false, Mod.staticCall(pc, "handle", "Eve", "warp", guild));
+            c.eq("all-chat !warp not handled", false, Mod.staticCall(pc, "handle", "Eve", "warp", all));
+            long gateLines = LogTap.since(mark).stream().filter(l -> l.contains("not a party/dungeon teammate")).count();
+            c.check("guild and all-chat !warp both refused at the teammate gate", gateLines == 2,
+                    gateLines + " 'not a party/dungeon teammate' line(s), want 2");
         } finally {
+            Mod.call(cfg, "setChannelOn", guild, savedGuild);
+            Mod.call(cfg, "setChannelOn", all, savedAll);
             members.clear();
             members.addAll(savedMembers);
             R.set("util.SkyblockGate", "onSkyblock", savedGate);
             Mod.call(cfg, "setEnabled", savedEnabled);
+            Mod.call(cfg, "setChannelOn", party, savedParty);
+            Mod.call(cfg, "setOn", warpCmd, savedWarp);
         }
     }
 

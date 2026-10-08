@@ -400,3 +400,13 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   and keys at the screen's Auto Scale factor. 585 reads the sorter's clicks server-side: a hotbar destination is ONE `SWAP`
   (button = hotbar index), others `PICKUP`; gaps are server ticks, so allow +-1 per gap. Set `TESTKIT_INVBATCH_SHOTS` to copy
   the GUI 2 screenshots out. 472-menu-storage-scanall-button fails on main be6452a6 too (not this branch).
+
+- 571-580 (`hx/HxModChatPartyCases`, Mod Chat + Party Commands, 2026-10-08). Relay callbacks are driven through
+  `relay.RelayClient.listener`; methods Mod Chat no longer overrides (onPresence, onConnected) are only reachable through
+  the `relay.RelayListener` interface, so `Mod.call` on the listener object says "no method". 577 times the reply from the
+  client's own receive event to `PacketTrace.tap` seeing the `pc` packet (wall clock); its receive hook is registered after
+  the mod's, so the measured gap can only be shorter than the real one. Party Commands' rate limiter (2 s between any two
+  commands, now shared by the old info replies) outlives cases: `HxSocialCases.resetPartyCommandLimits` before each send.
+  579 serves Mojang's `/player/certificates` and the relay's `/challenge` + `/auth` from one loopback fake on 28950, points
+  authlib at it with `minecraft.api.{services,session,profiles}.host` (all three or authlib ignores them) and the relay with
+  `killer560.net.relay`, and restores Minecraft's user/userApiService/profileKeyPairManager fields afterwards.

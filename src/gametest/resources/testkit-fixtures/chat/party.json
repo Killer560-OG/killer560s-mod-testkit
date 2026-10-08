@@ -3,21 +3,21 @@
     "id": "chat.party-coords",
     "kind": "chat",
     "payload": "§9Party §8> §b[MVP§c+§b] HxMateA§f: !coords",
-    "source": {"file": "src/main/java/com/killer560/hub/chatcommands/ChatCommandsFeature.java", "line": 51},
-    "matches": ["chatcommands.ChatCommandsFeature#PARTY_REGEX", "interop.InteropChatParser#PARTY_LINE"],
+    "source": {"file": "src/main/java/com/killer560/hub/partycommands/CommandChatListener.java", "line": 28},
+    "matches": ["partycommands.CommandChatListener#PARTY_REGEX", "interop.InteropChatParser#PARTY_LINE"],
     "mode": "matches",
     "verifiedBy": "regex",
-    "notes": "!coords is InfoCommand COORDS; the reply goes out as /pc <x>, <y>, <z> (ChatCommandsFeature :306)."
+    "notes": "!coords is Party Commands' COORDS; the reply goes out as /pc <x>, <y>, <z> after the reply delay (PartyCommandsFeature.reply)."
   },
   {
     "id": "chat.party-warp",
     "kind": "chat",
     "payload": "§9Party §8> §b[MVP§c+§b] HxMateA§f: !warp",
-    "source": {"file": "src/main/java/com/killer560/hub/chatcommands/ChatCommandsFeature.java", "line": 51},
-    "matches": ["chatcommands.ChatCommandsFeature#PARTY_REGEX"],
+    "source": {"file": "src/main/java/com/killer560/hub/partycommands/CommandChatListener.java", "line": 28},
+    "matches": ["partycommands.CommandChatListener#PARTY_REGEX"],
     "mode": "matches",
     "verifiedBy": "regex",
-    "notes": "PartyCommandsFeature WARP -> /p warp (:249), only for a teammate (:187)."
+    "notes": "PartyCommandsFeature WARP -> /p warp, only for a teammate (handle's teammate gate)."
   },
   {
     "id": "chat.party-mimic",
