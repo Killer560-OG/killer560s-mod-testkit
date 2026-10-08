@@ -109,6 +109,13 @@ final class NoNewTabCases {
             String cls = e.getKey();
             String was = e.getValue().getAsString();
             String path = now.leaves().get(cls);
+            if (path == null && MenuLayoutCases.MERGED.containsKey(cls)) {
+                // A tab merged into another (Command Shortcuts into Chat Keybinds, 2026-10-08): its rows are there.
+                path = now.leaves().get(MenuLayoutCases.MERGED.get(cls));
+                if (path != null) {
+                    path = "merged into " + path;
+                }
+            }
             if (path == null) {
                 c.problem("'" + was + "' (" + cls + ") is no longer anywhere in the menu");
                 continue;
@@ -143,7 +150,8 @@ final class NoNewTabCases {
                         }
                     }
                 } else {
-                    Map<String, String> m = now.rows().get(owner);
+                    // Command Shortcuts' rows are built by Chat Keybinds since the 2026-10-08 merge.
+                    Map<String, String> m = now.rows().get(owner.equals("Command Shortcuts") ? "Chat Keybinds" : owner);
                     got = m == null ? null : m.get(key);
                 }
                 if (!was.equals(got)) {

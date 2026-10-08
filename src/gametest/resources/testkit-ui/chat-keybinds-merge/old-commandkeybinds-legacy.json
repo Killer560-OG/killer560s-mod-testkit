@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "petsKey": 80,
+  "storageKey": -1,
+  "armorKey": -1,
+  "equipmentKey": -1,
+  "loadoutsKey": -1,
+  "statsKey": -1,
+  "dungeonHubKey": 82,
+  "potionBagKey": -1
+}

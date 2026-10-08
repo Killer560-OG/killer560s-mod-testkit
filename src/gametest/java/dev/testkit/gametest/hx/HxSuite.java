@@ -45,6 +45,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxHostileCases.register(s);
                     // Command Shortcuts' custom rows (544), own block.
                     HxCmdShortcutsCases.register(s);
+                    // Chat Keybinds with Command Shortcuts merged in (623-625), own block.
+                    HxChatKeybindsCases.register(s);
                 });
     }
 }
