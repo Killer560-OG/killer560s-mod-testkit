@@ -331,7 +331,7 @@
       "auto ult": "Uses your class Ultimate on chosen F7/M7 boss lines (cheat build only)."
     },
     "Bazaar": {
-      "bazaar browser": "Turns on the custom Bazaar browser, opened with /killer560bz or a keybind."
+      "bazaar browser": "Turns on the custom Bazaar browser, opened with /killer560bz or a keybind. Like Hypixel's remote Bazaar, it only opens while your Booster Cookie is active."
     },
     "Bazaar Flipper": {
       "bazaar flipper": "Buys items from the Bazaar and sells them to the /trades NPC.",
