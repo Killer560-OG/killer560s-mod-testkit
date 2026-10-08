@@ -34,6 +34,8 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *   <li>481-489 the unified Bazaar screen: render at six sizes, recents, tabs and search, the three-button bottom bar,
  *       HUDs hidden, seamless page switches (frame log), product clicks with and without a Booster Cookie, the follow-up
  *       click's rules, themes ({@link BazaarV3Cases})</li>
+ *   <li>583, 585 the 2026-10-08 inventory batch: Item Protect blocks each action Slot Lock blocked (with a control that
+ *       gets through), the sorter's SWAP/PICKUP clicks and tick pacing ({@link InvBatchMenuCases})</li>
  * </ul>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -94,6 +96,7 @@ public class MenuSuite implements FabricClientGameTest {
                     // 491-499: the unified Auction House (API browser + reskinned real AH menus).
                     AuctionHouseCases.register(s);
                     BazaarV3Cases.register(s);
+                    InvBatchMenuCases.register(s); // 583, 585: inventory batch 2026-10-08
                 });
     }
 }

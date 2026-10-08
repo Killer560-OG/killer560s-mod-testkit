@@ -16,6 +16,8 @@
     {"class": "livemap.InteractiveMapScreen", "args": ["bool:false"], "source": "livemap/InteractiveMapScreen.java"},
     {"class": "social.FriendsListScreen", "args": ["null"], "source": "social/FriendsListScreen.java"},
     {"class": "social.BestFriendsScreen", "args": ["null"], "source": "social/BestFriendsScreen.java"},
+    {"class": "invsort.InventorySorterScreen", "args": ["null"], "source": "invsort/InventorySorterScreen.java (mod inv-batch; a copy of the inventory, clicks nothing)"},
+    {"class": "armourdye.CustomItemsScreen", "args": ["null"], "source": "armourdye/CustomItemsScreen.java (mod inv-batch; client-side looks only)"},
     {"class": "windowlayout.WindowLayoutScreen", "args": ["null"], "source": "windowlayout/WindowLayoutScreen.java:33 - constructed and rendered only; a cell click moves the real window and is never made"},
     {"class": "leapmenu.LeapOrderScreen", "args": ["null"], "source": "leapmenu/LeapOrderScreen.java"},
     {"class": "petwheel.PetWheelScreen", "factory": "forEdit", "args": ["null"], "source": "petwheel/PetWheelScreen.java:117 (what the Pet Wheel tab's Edit Pets opens, gui/tab/PetWheelTab.java:160)"},

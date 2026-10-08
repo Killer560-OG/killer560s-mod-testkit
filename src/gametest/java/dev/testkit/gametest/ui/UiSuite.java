@@ -57,6 +57,9 @@ import java.util.List;
  *                Line Width in screen pixels at GUI 2 and 3 (and old unit widths converted), one shared line between
  *                touching slots (chest, inventory, hotbar), the armour column against the model frame, the bar number
  *                centred to the pixel ({@link PolishCases})
+ *                581-587 killer560's 2026-10-08 inventory batch: Item Protect's star (pixels) and Slot Lock's removal +
+ *                migration, the Inventory Sorter's layouts menu by real input, Custom Items by real clicks, the Cosmetics
+ *                category ({@link InvBatchCases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -87,6 +90,9 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-07 22:08 polish report ({@link PolishCases}); 472 is in the menu suite. Own block for merges. */
     static final String[] POLISH_CASES = {"471-ui-held-item-name", "473-ui-inventory-line-pixels",
             "474-ui-inventory-shared-lines", "475-ui-inventory-armour-model", "476-ui-bars-text-centred"};
+    /** killer560's 2026-10-08 inventory batch ({@link InvBatchCases}); 583/585 are in the menu suite. Own block for merges. */
+    static final String[] INV_BATCH_CASES = {"581-ui-itemprotect-star", "582-ui-slotlock-migration",
+            "584-ui-invsort-editor", "586-ui-custom-items", "587-ui-cosmetics-category"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -103,11 +109,14 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : POLISH_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : INV_BATCH_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
-        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES);
+        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(INV_BATCH_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -195,6 +204,12 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "474-ui-inventory-shared-lines", PolishCases::sharedLines);
                     UiCase.run(ctx, "475-ui-inventory-armour-model", PolishCases::armourModel);
                     UiCase.run(ctx, "476-ui-bars-text-centred", PolishCases::barTextCentred);
+                    // ---- inventory batch (581-587) ----
+                    UiCase.run(ctx, "581-ui-itemprotect-star", InvBatchCases::star);
+                    UiCase.run(ctx, "582-ui-slotlock-migration", InvBatchCases::slotLockGone);
+                    UiCase.run(ctx, "584-ui-invsort-editor", InvBatchCases::invsortEditor);
+                    UiCase.run(ctx, "586-ui-custom-items", InvBatchCases::customItems);
+                    UiCase.run(ctx, "587-ui-cosmetics-category", InvBatchCases::cosmeticsCategory);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
