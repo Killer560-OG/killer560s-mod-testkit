@@ -92,6 +92,8 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-08 chat batch, the menu half ({@link ChatBatchUiCases}; the chat half is
      *  {@code chat/ChatBatchSuite}, 560-chat-session). Own block for merges. */
     static final String[] CHAT_CASES = {"565-ui-chat-voice-widget", "569-ui-chat-hider-tab"};
+    /** Player Heads turned to the heading, arrow mode unchanged (mod map-heads, {@link MapHeadTurnCases}). Own block. */
+    static final String[] MAPHEAD_CASES = {"600-ui-map-head-turn", "601-ui-map-arrow-turn"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -114,11 +116,14 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : CHAT_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : MAPHEAD_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
-        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES);
+        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -211,6 +216,9 @@ public class UiSuite implements FabricClientGameTest {
                     // ---- chat batch (565, 569) ----
                     UiCase.run(ctx, "565-ui-chat-voice-widget", ChatBatchUiCases::voiceWidget);
                     UiCase.run(ctx, "569-ui-chat-hider-tab", ChatBatchUiCases::hiderTab);
+                    // ---- map head turn (600-601) ----
+                    UiCase.run(ctx, "600-ui-map-head-turn", MapHeadTurnCases::heads);
+                    UiCase.run(ctx, "601-ui-map-arrow-turn", MapHeadTurnCases::arrows);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
