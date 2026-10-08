@@ -25,6 +25,8 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *   <li>280-289 more experiments: Superpairs deductions and reward priority ({@link ExperimentCases})</li>
  *   <li>292-297 Auto Anvil in Hypixel's Anvil ({@code menu.anvil}): only exact book pairs combined, cascade, direct
  *       delivery, preview mismatch, close, off/legit ({@link AnvilCases})</li>
+ *   <li>491-499 the unified Auction House: the API-drawn browser, Hypixel's AH menus reskinned with one press = one
+ *       slot click, /viewauction hand-off, hidden HUDs, seamless page changes, fallback ({@link AuctionHouseCases})</li>
  *   <li>461-466 Reskin Real Bazaar: every mapped Bazaar menu reskinned, one press = one real slot click, unmapped menus
  *       left to Hypixel's GUI, the hold-key escape, live Manage Orders, the Booster Cookie gate ({@link BazaarReskinCases})</li>
  * </ul>
@@ -83,6 +85,8 @@ public class MenuSuite implements FabricClientGameTest {
                     ItemCases.register(s);
                     AnvilCases.register(s);
                     BazaarReskinCases.register(s);
+                    // 491-499: the unified Auction House (API browser + reskinned real AH menus).
+                    AuctionHouseCases.register(s);
                 });
     }
 }

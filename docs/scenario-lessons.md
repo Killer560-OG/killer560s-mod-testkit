@@ -367,3 +367,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   vignette shifts a HUD colour by 1-2 levels in survival, so exact-colour boxes are for creative frames. Map Extra Info
   text is read inside its opaque panel only: the map's player arrow and a wandering mob beside it changed between frames.
   446 injects a finished F7 run into `SplitTimersFeature.run` and sets `SplitLagClock.pingClockSeen`.
+
+- 491-499 `-menu-ah-` (`menu/AuctionHouseCases`, mod ah-v2): the unified Auction House. The API data is real
+  (`testkit-ah/`: 223 auctions trimmed from `/v2/skyblock/auctions` pages 0-1 and one `/v2/skyblock/auctions_ended`
+  answer, curl 2026-10-07); `feedApi` moves every `end`/`start` to the same distance from now, or the mod's decode drops
+  them as expired the day after capture. The AH menus (`menus/auction-house.json`) are NOT captures. 497/499 hold a page
+  in its loading state by opening a container with NO items (the reskin never settles an all-empty menu), which is the
+  only way to screenshot the carried/opening frame: a real page settles in ~110 ms. Browser listings sit in rows 1-4 x
+  columns 2-7, so the first listing is slot 11, not 10.
