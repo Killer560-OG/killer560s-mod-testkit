@@ -342,8 +342,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   -play: the triggerbot clicked each lever as the legit route turned the crosshair onto it (two use_item_on in one tick, the
   lever back off). Same on the old jar, so not a mod regression (2026-10-07). A shard reorders the k560 list: any scenario
   that switches a clicking feature on must switch it off, and a session that judges clicks switches the others off itself.
-- 424-ui-bazaar-browser / 425-ui-bazaar-icons (`BazaarBrowserCases`, mod bazaar-ui) and 426-menu-bazaar-orders
-  (`BazaarOrderCases`): 424 feeds a synthetic bazaar answer for every id in the mod's bundled table through
+- 425-ui-bazaar-icons (`BazaarBrowserCases`, mod bazaar-ui) and 426-menu-bazaar-orders (`BazaarOrderCases`; 424, the old
+  browser screen's layout, was retired with that screen on 2026-10-07 - 481 replaced it): 424 fed a synthetic bazaar answer for every id in the mod's bundled table through
   `BazaarApi.applyResponseForTest`, then reads the screen's own `layoutReport()` (every region, text and widget box of
   the last frame) in six views at four window/GUI scales; the screen records its texts, so a rectangle check needs no
   pixel work. 425 counts `BazaarIcons` sources (no Hypixel pack in a test client: 47 paper fallbacks on 2026-10-07).
@@ -367,3 +367,14 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   vignette shifts a HUD colour by 1-2 levels in survival, so exact-colour boxes are for creative frames. Map Extra Info
   text is read inside its opaque panel only: the map's player arrow and a wandering mob beside it changed between frames.
   446 injects a finished F7 run into `SplitTimersFeature.run` and sets `SplitLagClock.pingClockSeen`.
+
+- 481-489-menu-bazaar-v3 (`BazaarV3Cases`, mod bazaar-v3): the unified Bazaar screen. Its layout report
+  (`bazaar.BazaarView.layoutReportForTest`) keys every hotspot - `hotspot <slot> x y w h <key> <name>` for a real slot,
+  `hotspot <key> x y w h <label>` for an action (`tab:Woods_&_Fishes`, `product:WHEAT`, `recent:WHEAT`, `bottom:Manage_Orders`,
+  `back`, `hypixel-menu`, `search`, `sort:BUY_PRICE_HIGH`; spaces become `_`). The layout is in Auto Scale's canvas units,
+  for the reskin too, so a press converts with GUI scale x `hud.AutoScale.current()` (`BazaarReskinCases.toWindow`); 462,
+  464, 465 and 467 pressed beside every hotspot until it did, because 462 leaves Auto Scale on. 486 judges a page switch
+  from `bazaar.BazaarHud`'s frame log (one line per drawn frame: `screen|reskin <mode> <content> [frozen] items=N`,
+  `vanilla '<title>'` for a chest drawn as Hypixel's, `none`/`other` with no screen or another one) - stopping the
+  recording keeps the log. 485's probe HUD layers are the testkit's own, added at run time through Fabric's registry, so the
+  mod's gate wraps them like any other mod's.

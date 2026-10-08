@@ -50,7 +50,7 @@ import java.util.List;
  */
 final class BazaarReskinCases {
 
-    private static final String RESKIN = "auction.screen.BazaarReskin";
+    private static final String RESKIN = "bazaar.BazaarReskin";
     /** The vanilla chest panel's grey (198,198,198): thousands of pixels when Hypixel's GUI shows, none under the reskin. */
     private static final int CHEST_GREY = 0xC6C6C6;
     private static final int LEFT_ALT = 342;
@@ -143,10 +143,11 @@ final class BazaarReskinCases {
         return null;
     }
 
-    /** Window pixel position of a GUI point. */
+    /** Window pixel position of a point of the Bazaar's layout report. The Bazaar draws on Auto Scale's canvas (the mod's
+     *  own screens' factor, which the reskin applies too), so a layout point is GUI point x factor. */
     static double[] toWindow(Session c, double gx, double gy) {
         return c.onClient(mc -> {
-            double scale = mc.getWindow().getGuiScale();
+            double scale = mc.getWindow().getGuiScale() * ((Number) Mod.staticCall("hud.AutoScale", "current")).doubleValue();
             return new double[]{gx * scale, gy * scale};
         });
     }
@@ -173,6 +174,33 @@ final class BazaarReskinCases {
             Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(0, 1), 0);
         });
         c.ctx().waitTicks(3);
+    }
+
+    /** Hypixel's bottom-row buttons the Bazaar screen leaves out on purpose (killer560, 2026-10-07: "we don't need the
+     *  other ones in our custom inventory"): Escape closes, the search box searches, the rest are behind Left Alt. */
+    static final java.util.Set<String> DROPPED = java.util.Set.of("Close", "Search", "Bazaar History", "Bazaar Settings",
+            "View Graphs", "Direct Mode", "Advanced Mode", "Instasell Ignore");
+
+    /**
+     * Slots that must have an element in the Bazaar screen: every non-filler slot except the dropped buttons; on the
+     * main (category) page, which is drawn from the live data, only the three bottom-bar buttons.
+     */
+    static List<String> expectedSlots(JsonObject spec, String kind) {
+        List<String> out = new ArrayList<>();
+        for (var e : spec.getAsJsonObject("slots").entrySet()) {
+            if (!e.getValue().isJsonObject() || !e.getValue().getAsJsonObject().has("name")) {
+                continue;
+            }
+            String name = e.getValue().getAsJsonObject().get("name").getAsString().replaceAll("§.", "").trim();
+            if (DROPPED.contains(name)) {
+                continue;
+            }
+            if (kind.equals("CATEGORY") && !List.of("Sell Inventory Now", "Sell Sacks Now", "Manage Orders").contains(name)) {
+                continue;
+            }
+            out.add(e.getKey());
+        }
+        return out;
     }
 
     /** Slots of a fixture that are not the black filler (every one must have an element in the reskin). */
@@ -314,7 +342,7 @@ final class BazaarReskinCases {
                         int texts = (int) layout.stream().filter(l -> l.startsWith("text ")).count();
                         c.check(texts >= 6, size + " " + m[1] + ": only " + texts + " texts drawn - did the reskin draw?");
                         List<String> missing = new ArrayList<>();
-                        for (String slot : realSlots(spec)) {
+                        for (String slot : expectedSlots(spec, m[1])) {
                             if (hotspot(layout, slot) == null) {
                                 missing.add(slot);
                             }
@@ -323,11 +351,11 @@ final class BazaarReskinCases {
                         List<String> problems = layoutProblems(layout, gui[0], gui[1]);
                         c.check(problems.isEmpty(), size + " " + m[1] + ": " + problems.size() + " layout problem(s): "
                                 + String.join(" | ", problems.subList(0, Math.min(6, problems.size()))));
-                        String line = size + " " + m[1] + ": " + texts + " texts, " + realSlots(spec).size()
+                        String line = size + " " + m[1] + ": " + texts + " texts, " + expectedSlots(spec, m[1]).size()
                                 + " slots all clickable";
                         if (big && m[1].equals("PRODUCT")) {
-                            c.check(layout.stream().anyMatch(l -> l.startsWith("text product ") && l.contains("Instant buy")),
-                                    "PRODUCT with live data: no 'Instant buy' line in the product header");
+                            c.check(layout.stream().anyMatch(l -> l.startsWith("text product ") && l.contains("Margin")),
+                                    "PRODUCT with live data: no live price line in the product header");
                         }
                         if (big && m[1].equals("GROUP")) {
                             long vols = layout.stream().filter(l -> l.startsWith("text list ") && l.matches(".* [\\d.,]+[kM]?$")
@@ -456,7 +484,7 @@ final class BazaarReskinCases {
             // A press on the panel where nothing is drawn: nothing sent.
             int[] panel = null;
             for (String line : layout) {
-                if (line.startsWith("region main ")) {
+                if (line.startsWith("region content ")) {
                     String[] p = line.split(" ");
                     panel = new int[]{Integer.parseInt(p[2]), Integer.parseInt(p[3]), Integer.parseInt(p[4]), Integer.parseInt(p[5])};
                 }
@@ -581,7 +609,7 @@ final class BazaarReskinCases {
             c.note("Left Alt released: reskin back (PRODUCT)");
 
             c.ctx().waitTicks(3);
-            int[] button = hotspot(layout(c), "action");
+            int[] button = hotspot(layout(c), "hypixel-menu");
             c.check(button != null, "no Hypixel menu button in the header");
             int before = clicks(c);
             pressAt(c, button, 0);
@@ -715,7 +743,7 @@ final class BazaarReskinCases {
         c.ctx().runOnClient(mc -> mc.player.connection.sendCommand("killer560bz"));
         c.ctx().waitTicks(10);
         boolean open = c.onClient(mc -> McCompat.screen(mc) != null
-                && McCompat.screen(mc).getClass().getName().endsWith("auction.screen.BazaarScreen"));
+                && McCompat.screen(mc).getClass().getName().endsWith("bazaar.BazaarScreen"));
         c.check(open == opens, what + ": /killer560bz " + (open ? "opened" : "did not open") + " the browser");
         if (chat != null) {
             boolean said = false;
