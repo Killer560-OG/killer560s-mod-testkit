@@ -385,3 +385,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   `vanilla '<title>'` for a chest drawn as Hypixel's, `none`/`other` with no screen or another one) - stopping the
   recording keeps the log. 485's probe HUD layers are the testkit's own, added at run time through Fabric's registry, so the
   mod's gate wraps them like any other mod's.
+- 531-538 sim-fairy-door (Wither Doors' Fairy Door): a no-draw frame must be taken at the SAME moment as the frame it is
+  compared with. 535 first diffed against 533's older off frame, whose chat lines had since faded and uncovered the Fairy
+  room's own pink: 128 "magenta" pixels with nothing drawn (2026-10-08). Each comparison now takes its own off frame.
+  When the room after Fairy is the one the Blood door opens from, the mod says "already at the blood door", not "avoids".
