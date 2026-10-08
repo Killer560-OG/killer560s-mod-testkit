@@ -35,6 +35,8 @@ public class BossSuite implements FabricClientGameTest {
                     TerminalAuraCases.register(s);
                     Ap3TermAuraCases.register(s);
                     BossAuraTurnCases.register(s);
+                    // 556-557: dungeon-fixes (2026-10-08), P3 without Goldor's line, P5 on the Wither King's.
+                    DungeonFixBossCases.register(s);
                 });
     }
 }

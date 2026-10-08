@@ -43,7 +43,8 @@ public class HubPerfBenchTest implements FabricClientGameTest {
 
     /** Off by default, commonly switched on away from dungeons. Missing ones are reported, not fatal. */
     static final String[][] HUB_EXTRA = {
-            {"chattidy.ChatTidyConfig", "setStackDuplicates"}, {"chattidy.ChatTidyConfig", "setHideAbilityDamage"},
+            {"chattidy.ChatTidyConfig", "setEnabled"}, // Chat Hider's master (mod chat-batch, 2026-10-08)
+            {"chattidy.ChatTidyConfig", "setStackDuplicates"}, {"chattidy.ChatTidyConfig", "setHideDamageMessages"},
             {"partyfinder.PartyFinderOverlayConfig", "setEnabled"},
             {"smoothtp.SmoothTeleportConfig", "setEnabled"}, {"inventorytheme.InventoryThemeConfig", "setEnabled"},
             {"inventorysearch.InventorySearchConfig", "setEnabled"}, {"itemprotect.ItemProtectConfig", "setEnabled"},

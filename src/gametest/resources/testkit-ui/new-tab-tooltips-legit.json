@@ -1,11 +1,11 @@
 {
-  "_doc": "Recorded by 412-ui-no-new-tab from a jar that still had the New category: every leaf tab under New (class -> path) and the tooltip each row showed there (owner sub-tab -> label key -> tooltip). Variant legit.",
+  "_doc": "Recorded by 412-ui-no-new-tab from a jar that still had the New category: every leaf tab under New (class -> path) and the tooltip each row showed there (owner sub-tab -> label key -> tooltip). Variant legit. Edited 2026-10-08 (mod inv-batch, killer560's request): Armor Recolour became Custom Items (tab, rows and tooltips replaced), Cosmetics became Player Cosmetics, and the Inventory Sorter's master tooltip changed with the rebuilt feature.",
   "leaves": {
     "gui.tab.AbilityCooldownTab": "New > Ability Cooldowns",
     "gui.tab.AbilityKeybindsTab": "New > Ability Keybinds",
     "gui.tab.AbilityTimersTab": "New > Ability Timers",
     "gui.tab.ArchitectDraftTab": "New > Architect's First Draft",
-    "gui.tab.ArmourDyeTab": "New > Armor Recolour",
+    "gui.tab.CustomItemsTab": "New > Armor Recolour",
     "gui.tab.ArrowAlignTab": "New > Arrow Align",
     "gui.tab.AuctionHouseTab": "New > Auction House",
     "gui.tab.AutoKickTab": "New > Auto Kick",
@@ -82,7 +82,7 @@
       "ability timers": "Bound keys start countdowns, and running timers show on the Ability Timers HUD.",
       "advanced position": "",
       "architect's first draft": "",
-      "armor recolour": "Changes the colour, skin and trim of your armor, only on your screen.",
+      "custom items": "Recolours and reskins items on your screen only; nothing is sent to the server.",
       "arrow align": "Shows how many clicks each Arrow Align frame still needs and can block clicks that overshoot.",
       "auction house": "",
       "auto kick": "Warns or kicks when your run takes longer than the target time set for its floor.",
@@ -174,17 +174,10 @@
     "Architect's First Draft": {
       "click message on puzzle fail": "Posts a clickable chat line to get an Architect's First Draft from your sack when a puzzle fails."
     },
-    "Armor Recolour": {
-      "add a piece": "Add a piece with the buttons to use what you're wearing, or press the capture key while hovering a piece in any menu.",
-      "add boots": "Adds the boots you are wearing to the list.",
-      "add chest": "Adds the chestplate you are wearing to the list.",
-      "add helmet": "Adds the helmet you are wearing to the list.",
-      "add legs": "Adds the leggings you are wearing to the list.",
-      "armor recolour": "Changes the colour, skin and trim of your armor, only on your screen.",
-      "capture key": "Press this while hovering an armor piece in any inventory to add it to the list.",
-      "no pieces yet - add one above.": "",
-      "pieces (0)": "",
-      "skin inventory icons": "Also swaps a skinned piece's inventory icon to match its skin."
+    "Custom Items": {
+      "custom items": "Recolours and reskins items on your screen only; nothing is sent to the server.",
+      "open custom items": "Opens the Custom Items menu (/customitems): pick an item, then set its colour, skin or look.",
+      "reset all": "Removes every saved look; press twice."
     },
     "Arrow Align": {
       "prevent misclicks": "Blocks right-clicks on an Arrow Align frame that already points the right way.",
@@ -268,7 +261,7 @@
       "infernal": "Adds a shortcut that queues the Infernal Kuudra tier. /infernal sends /joininstance kuudra_infernal.",
       "kuudra": ""
     },
-    "Cosmetics": {
+    "Player Cosmetics": {
       "checking supporter status...": "",
       "copy settings for global cosmetics": "Copies your name and scale to your clipboard so staff can apply them for you.",
       "custom names": "Opens the Name Changer: your own display name, its colours, and renames for other players.",
@@ -383,7 +376,7 @@
       "/fl passes straight through to hypixel. use /flcustom for ours.": "",
       "0 friends on your list.": "",
       "open friends list (/flcustom)": "",
-      "use our /fl": "Makes /fl open this mod's Friends List instead of Hypixel's; /flhypixel still opens Hypixel's."
+      "use our /fl": "Makes /fl open this mod's Friends List instead of Hypixel's. /flcustom always opens ours and /flhypixel always opens Hypixel's."
     },
     "Held Item Transform": {
       "held item transform": "Resizes, moves and rotates your held item in first person."

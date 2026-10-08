@@ -389,3 +389,14 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   compared with. 535 first diffed against 533's older off frame, whose chat lines had since faded and uncovered the Fairy
   room's own pink: 128 "magenta" pixels with nothing drawn (2026-10-08). Each comparison now takes its own off frame.
   When the room after Fairy is the one the Blood door opens from, the mod says "already at the blood door", not "avoids".
+
+- 581-587 `-ui-` (`ui/InvBatchCases`) and 583/585 `-menu-` (`menu/InvBatchMenuCases`), mod inv-batch (2026-10-08). 581 counts the
+  Item Protect star's exact colour pixels in a protected slot's top-right corner, cell by cell against `ItemProtectFeature.STAR`,
+  and 0 on a starred-only item (Auto-Protect Starred on, so the "no marker" is not vacuous). 582: Slot Lock gone from the API,
+  tab and tooltips; an old file's locked slots become protected UUIDs on the next tick (a slot without a UUID is named, not
+  carried). 583 runs every action Slot Lock blocked against the menu server and counts `container.click`s, each with an
+  unprotected control that does arrive; give the server ~20 ticks to apply a control drop before `give` puts the item back,
+  or the give lands first and the drop empties the slot again. 584/586 drive the layouts menu and Custom Items with real mouse
+  and keys at the screen's Auto Scale factor. 585 reads the sorter's clicks server-side: a hotbar destination is ONE `SWAP`
+  (button = hotbar index), others `PICKUP`; gaps are server ticks, so allow +-1 per gap. Set `TESTKIT_INVBATCH_SHOTS` to copy
+  the GUI 2 screenshots out. 472-menu-storage-scanall-button fails on main be6452a6 too (not this branch).

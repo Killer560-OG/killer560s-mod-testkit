@@ -57,6 +57,9 @@ import java.util.List;
  *                Line Width in screen pixels at GUI 2 and 3 (and old unit widths converted), one shared line between
  *                touching slots (chest, inventory, hotbar), the armour column against the model frame, the bar number
  *                centred to the pixel ({@link PolishCases})
+ *                581-587 killer560's 2026-10-08 inventory batch: Item Protect's star (pixels) and Slot Lock's removal +
+ *                migration, the Inventory Sorter's layouts menu by real input, Custom Items by real clicks, the Cosmetics
+ *                category ({@link InvBatchCases})
  *                541-545 Command Shortcuts: built-in rows show only name + ON/OFF (no text beside or under them, no
  *                overlap, expansions in the tooltip), the Custom section's add/edit/rename/off/delete through the tab
  *                with live registration and reload, refused names, and the 306 sweep with custom roots present
@@ -93,6 +96,17 @@ public class UiSuite implements FabricClientGameTest {
             "474-ui-inventory-shared-lines", "475-ui-inventory-armour-model", "476-ui-bars-text-centred"};
     /** Map Extra Info in two rows with M/P/B (mod map-info-bat, {@link MapInfoBatCases}). Own block for merges. */
     static final String[] MAPINFO_CASES = {"524-ui-map-info-rows"};
+    /** killer560's 2026-10-08 chat batch, the menu half ({@link ChatBatchUiCases}; the chat half is
+     *  {@code chat/ChatBatchSuite}, 560-chat-session). Own block for merges. */
+    static final String[] CHAT_CASES = {"565-ui-chat-voice-widget", "569-ui-chat-hider-tab"};
+    /** Player Heads turned to the heading, arrow mode unchanged (mod map-heads, {@link MapHeadTurnCases}). Own block. */
+    static final String[] MAPHEAD_CASES = {"600-ui-map-head-turn", "601-ui-map-arrow-turn"};
+    /** killer560's 2026-10-08 dungeon list ({@link DungeonFixCases}): splits layout, Blood Camp stall, p3sim etherwarp.
+     *  Own block for merges. */
+    static final String[] DUNGEON_FIX_CASES = {"551-ui-splits-layout", "552-ui-blood-camp-stall", "553-ui-etherwarp-p3sim"};
+    /** killer560's 2026-10-08 inventory batch ({@link InvBatchCases}); 583/585 are in the menu suite. Own block for merges. */
+    static final String[] INV_BATCH_CASES = {"581-ui-itemprotect-star", "582-ui-slotlock-migration",
+            "584-ui-invsort-editor", "586-ui-custom-items", "587-ui-cosmetics-category"};
     /** killer560's 2026-10-07 Command Shortcuts requests ({@link CmdShortcutsCases}); 544 is in the Hx session. Own block. */
     static final String[] CMD_SHORTCUTS_CASES = {"541-ui-cmd-shortcuts-builtin-rows", "542-ui-cmd-shortcuts-custom-edit",
             "543-ui-cmd-shortcuts-refused-names", "545-ui-cmd-shortcuts-sweep"};
@@ -115,6 +129,18 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : MAPINFO_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : CHAT_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            for (String n : MAPHEAD_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            for (String n : DUNGEON_FIX_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            for (String n : INV_BATCH_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : CMD_SHORTCUTS_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -122,7 +148,7 @@ public class UiSuite implements FabricClientGameTest {
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
-        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES)
+        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES) || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES)
                 || any(CMD_SHORTCUTS_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
@@ -213,6 +239,22 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "476-ui-bars-text-centred", PolishCases::barTextCentred);
                     // ---- map info rows (524) ----
                     UiCase.run(ctx, "524-ui-map-info-rows", MapInfoBatCases::rows);
+                    // ---- chat batch (565, 569) ----
+                    UiCase.run(ctx, "565-ui-chat-voice-widget", ChatBatchUiCases::voiceWidget);
+                    UiCase.run(ctx, "569-ui-chat-hider-tab", ChatBatchUiCases::hiderTab);
+                    // ---- map head turn (600-601) ----
+                    UiCase.run(ctx, "600-ui-map-head-turn", MapHeadTurnCases::heads);
+                    UiCase.run(ctx, "601-ui-map-arrow-turn", MapHeadTurnCases::arrows);
+                    // ---- dungeon-fixes (551-553) ----
+                    UiCase.run(ctx, "551-ui-splits-layout", DungeonFixCases::splitsLayout);
+                    UiCase.run(ctx, "552-ui-blood-camp-stall", DungeonFixCases::bloodCampStall);
+                    UiCase.run(ctx, "553-ui-etherwarp-p3sim", DungeonFixCases::etherwarpP3sim);
+                    // ---- inventory batch (581-587) ----
+                    UiCase.run(ctx, "581-ui-itemprotect-star", InvBatchCases::star);
+                    UiCase.run(ctx, "582-ui-slotlock-migration", InvBatchCases::slotLockGone);
+                    UiCase.run(ctx, "584-ui-invsort-editor", InvBatchCases::invsortEditor);
+                    UiCase.run(ctx, "586-ui-custom-items", InvBatchCases::customItems);
+                    UiCase.run(ctx, "587-ui-cosmetics-category", InvBatchCases::cosmeticsCategory);
                     // ---- command shortcuts (541-545) ----
                     UiCase.run(ctx, "541-ui-cmd-shortcuts-builtin-rows", CmdShortcutsCases::builtinRows);
                     UiCase.run(ctx, "542-ui-cmd-shortcuts-custom-edit", CmdShortcutsCases::customEdit);

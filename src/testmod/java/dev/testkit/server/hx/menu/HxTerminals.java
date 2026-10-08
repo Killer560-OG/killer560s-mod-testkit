@@ -98,6 +98,9 @@ final class HxTerminals {
         final int[] grid;
         final Random rng;
         final String title;
+        /** What the window is opened with: {@link #title}, or it wrapped in {@code titlePrefix}/{@code titleSuffix} (a
+         *  resource-pack GUI title carries private-use glyphs and colour codes round the text). */
+        String displayTitle;
         final boolean closeOnSolve;
         final int melodyInterval;
         String letter;
@@ -131,6 +134,7 @@ final class HxTerminals {
             this.type = type;
             this.rng = new Random(seed);
             this.title = title;
+            this.displayTitle = title;
             this.rows = rows;
             this.grid = grid;
             this.closeOnSolve = closeOnSolve;
@@ -256,7 +260,8 @@ final class HxTerminals {
         JsonObject describe(HxChestMenu menu) {
             JsonObject o = new JsonObject();
             o.addProperty("terminal", type.name());   // not "type": HxEvents.custom would overwrite the event type
-            o.addProperty("title", title);
+            o.addProperty("title", displayTitle);
+            o.addProperty("plainTitle", title);
             o.addProperty("containerId", containerId);
             o.addProperty("rows", rows);
             if (type == Type.MELODY) {
@@ -314,7 +319,8 @@ final class HxTerminals {
         return g;
     }
 
-    /** menu.terminal {type, seed=1, count?, letter?, color?, interval=10, closeOnSolve=true, wrongFirst?} */
+    /** menu.terminal {type, seed=1, count?, letter?, color?, interval=10, closeOnSolve=true, wrongFirst?, titlePrefix?,
+     *  titleSuffix?} */
     static JsonElement open(MinecraftServer server, JsonObject a) {
         ServerPlayer player = HxPrimitives.player(server, a);
         Type type = Type.valueOf(a.get("type").getAsString().toUpperCase(Locale.ROOT));
@@ -426,7 +432,9 @@ final class HxTerminals {
             default -> throw new IllegalArgumentException("unknown terminal type " + type);
         }
         t.openedTick = server.getTickCount();
-        HxChestMenu menu = HxMenus.open(player, t.rows, Component.literal(t.title), items, SCRIPT, t);
+        t.displayTitle = (a.has("titlePrefix") ? a.get("titlePrefix").getAsString() : "") + t.title
+                + (a.has("titleSuffix") ? a.get("titleSuffix").getAsString() : "");
+        HxChestMenu menu = HxMenus.open(player, t.rows, Component.literal(t.displayTitle), items, SCRIPT, t);
         t.containerId = menu.containerId;
         last = t;
         lastMenu = menu;
@@ -489,7 +497,7 @@ final class HxTerminals {
                 for (int i = 0; i < t.rows * 9; i++) {
                     items.add(t.melodyItem(server, i % 9, i / 9));
                 }
-                menu = HxMenus.open(player, t.rows, Component.literal(t.title), items, SCRIPT, t);
+                menu = HxMenus.open(player, t.rows, Component.literal(t.displayTitle), items, SCRIPT, t);
                 t.containerId = menu.containerId;
                 lastMenu = menu;
             }
