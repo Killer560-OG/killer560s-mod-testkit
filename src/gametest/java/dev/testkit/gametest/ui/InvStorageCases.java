@@ -28,9 +28,9 @@ import java.util.function.IntPredicate;
  * mod's own frame counters, so a pass means the thing was drawn - not that a setter returned.
  *
  * <ul>
- *   <li>451-ui-hotbar-theme: vanilla vs themed hotbar (exact accent pixels, the dark panel between slots), vanilla's own
+ *   <li>451-ui-hotbar-theme: vanilla vs themed hotbar (exact accent pixels, one separator line between slots), vanilla's own
  *       overlays still drawn through the theme (stack count, durability bar, offhand item, cooldown, hotbar attack
- *       indicator - each measured as a pixel change), Line Width 0/1/3 as the border's pixel thickness, a custom accent
+ *       indicator - each measured as a pixel change), Line Width 0/1/3 as the border's thickness in screen pixels, a custom accent
  *       and slot colour, and Hotbar Scale 50/100/200% as the bar's drawn top and right edge.</li>
  *   <li>452-ui-inventory-theme-settings: every new setting saved, reloaded from disk and read back; the setters' clamps
  *       equal the sliders' MIN/MAX; the Storage Overlay's old {@code darkMode} migrates (true to Amber, false to Light);
@@ -337,15 +337,22 @@ final class InvStorageCases {
                 c.problem("the themed hotbar does not draw the theme's accent: " + accAmb + " px themed, " + accVan
                         + " vanilla");
             }
-            // Between slot 0 and 1 (GUI x cx-70), mid height: vanilla's grey sprite, or the theme's near-black panel.
+            // Between slot 0 and 1 (GUI x cx-70, vanilla's cell boundary), mid height: vanilla's grey sprite, or - since
+            // the polish branch (2026-10-07: touching slots share ONE line) - the theme's separator line in the accent,
+            // with the dark slot cell one unit to its right.
             int gx = b.px(b.cx() - 70);
             int gy = b.px(b.gh() - 11);
             int gapVan = van.getRGB(gx, gy) & 0xFFFFFF;
             int gapAmb = amb.getRGB(gx, gy) & 0xFFFFFF;
-            c.note(String.format(Locale.ROOT, "between slots 0 and 1: vanilla #%06X, themed #%06X", gapVan, gapAmb));
-            if (((gapAmb >> 16) & 0xFF) > 50 || ((gapAmb >> 8) & 0xFF) > 50 || (gapAmb & 0xFF) > 50) {
-                c.problem(String.format(Locale.ROOT, "the themed panel is not dark between the slots (#%06X) - the "
-                        + "vanilla hotbar sprite is still drawn", gapAmb));
+            int cellAmb = amb.getRGB(gx + b.px(1), gy) & 0xFFFFFF;
+            c.note(String.format(Locale.ROOT, "between slots 0 and 1: vanilla #%06X, themed #%06X (cell beside it #%06X)",
+                    gapVan, gapAmb, cellAmb));
+            if (((cellAmb >> 16) & 0xFF) > 50 || ((cellAmb >> 8) & 0xFF) > 50 || (cellAmb & 0xFF) > 50) {
+                c.problem(String.format(Locale.ROOT, "the themed hotbar is not dark beside the separator (#%06X) - the "
+                        + "vanilla hotbar sprite is still drawn", cellAmb));
+            }
+            if (gapAmb != AMBER_ACCENT) {
+                c.problem(String.format(Locale.ROOT, "no separator line between slots 0 and 1 (#%06X)", gapAmb));
             }
             if (gapVan == gapAmb) {
                 c.problem("the pixel between slots is identical with the theme on and off");
@@ -405,18 +412,19 @@ final class InvStorageCases {
                 c.problem("the hotbar attack indicator is not drawn through the theme (" + attack + " px changed)");
             }
 
-            // -- Line Width: the panel's top border down the column between slots 0 and 1 --
+            // -- Line Width: the panel's top border down the middle of slot 0's cell (not a separator). Since the polish
+            // branch Line Width is in screen PIXELS: 1/3/0 draws 1/3/0 pixels at any GUI scale. --
             int top = r[1];
-            int run1 = runDown(amb, gx, top, AMBER_ACCENT);
+            int lx = b.px(b.cx() - 80);
+            int run1 = runDown(amb, lx, top, AMBER_ACCENT);
             set(c, cfg, "setLineWidth", 3);
             BufferedImage l3 = shot(c, "amber-line3", 4);
-            int run3 = runDown(l3, gx, top, AMBER_ACCENT);
+            int run3 = runDown(l3, lx, top, AMBER_ACCENT);
             set(c, cfg, "setLineWidth", 0);
             BufferedImage l0 = shot(c, "amber-line0", 4);
-            int run0 = runDown(l0, gx, top, AMBER_ACCENT);
-            c.note("top border thickness at line width 1/3/0: " + run1 + "/" + run3 + "/" + run0 + " px (want "
-                    + b.px(1) + "/" + b.px(3) + "/0)");
-            if (run1 != b.px(1) || run3 != b.px(3) || run0 != 0) {
+            int run0 = runDown(l0, lx, top, AMBER_ACCENT);
+            c.note("top border thickness at line width 1/3/0: " + run1 + "/" + run3 + "/" + run0 + " px (want 1/3/0)");
+            if (run1 != 1 || run3 != 3 || run0 != 0) {
                 c.problem("Line Width does not set the border thickness: " + run1 + "/" + run3 + "/" + run0 + " px");
             }
             set(c, cfg, "setLineWidth", 1);
@@ -611,7 +619,8 @@ final class InvStorageCases {
             }
             c.note(String.format(Locale.ROOT, "chest slot 0 top line at width 1/3/0: %d/%d/%d px; slot centre #%06X",
                     runs[0], runs[1], runs[2], slotPx[0]));
-            if (runs[0] != b.px(1) || runs[1] != b.px(3) || runs[2] != 0) {
+            // Screen pixels since the polish branch (Line Width 1 was one GUI unit, 2 px at GUI 2, before it).
+            if (runs[0] != 1 || runs[1] != 3 || runs[2] != 0) {
                 c.problem("Line Width does not set the chest's slot lines: " + runs[0] + "/" + runs[1] + "/" + runs[2]);
             }
             if (slotPx[0] != 0x0000FF) {
@@ -736,9 +745,10 @@ final class InvStorageCases {
                     if (pass == 0 && sz[0] == 1280 && sz[2] == 2) {
                         // On the picture: the outer border pixels of the panels' top row.
                         BufferedImage img = shot(c, "overlay-gui2", 4);
-                        // 30 units into the grid: below the Search button beside it (16 tall, same top), through the
-                        // left and right borders of the first row of panels (each at least 70 tall).
-                        int y = b.px(box[4] + 30);
+                        // 44 units into the grid: below the Search (0..16) and Scan All (20..36) buttons beside it,
+                        // whose outlines are the panels' border colour, through the left and right borders of the first
+                        // row of panels (each at least 70 tall).
+                        int y = b.px(box[4] + 44);
                         // A jar from before the themes (the "before" run) draws the old dark colours.
                         int border = Mod.has(THEME)
                                 ? c.onClient(mc -> (Integer) themeField(Mod.call(scfg, "getTheme"), "border")) : 0xFF553311;

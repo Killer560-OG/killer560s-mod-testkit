@@ -54,6 +54,10 @@ import java.util.List;
  *                absorption segment and Hypixel's gold health text, one scale in Predefined, room round a bar's number
  *                at GUI 2 and 4, the map's Extra Info text size and the Split Timers kept off the map, "Total: X (Y)",
  *                the dungeon board's Solo/Keys lines and the quiet unknown-line notice ({@link HudFixCases})
+ *                471-476 killer560's 2026-10-07 22:08 polish report: held-item name Shown / Hidden Over Bars / Hidden,
+ *                Line Width in screen pixels at GUI 2 and 3 (and old unit widths converted), one shared line between
+ *                touching slots (chest, inventory, hotbar), the armour column against the model frame, the bar number
+ *                centred to the pixel ({@link PolishCases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -81,6 +85,9 @@ public class UiSuite implements FabricClientGameTest {
             "454-ui-storage-overlay-themes",
             "441-ui-bars-under-screens", "442-ui-bars-absorption", "443-ui-bars-predefined-scale", "444-ui-bars-padding",
             "445-ui-map-info", "446-ui-split-format", "447-ui-scoreboard-solo"};
+    /** killer560's 2026-10-07 22:08 polish report ({@link PolishCases}); 472 is in the menu suite. Own block for merges. */
+    static final String[] POLISH_CASES = {"471-ui-held-item-name", "473-ui-inventory-line-pixels",
+            "474-ui-inventory-shared-lines", "475-ui-inventory-armour-model", "476-ui-bars-text-centred"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -94,11 +101,14 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : WORLD_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : POLISH_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
-        boolean anyWorld = any(WORLD_CASES);
+        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -181,6 +191,12 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "445-ui-map-info", HudFixCases::mapInfo);
                     UiCase.run(ctx, "446-ui-split-format", HudFixCases::splitFormat);
                     UiCase.run(ctx, "447-ui-scoreboard-solo", HudFixCases::scoreboardSolo);
+                    // ---- polish (471-476) ----
+                    UiCase.run(ctx, "471-ui-held-item-name", PolishCases::heldItemName);
+                    UiCase.run(ctx, "473-ui-inventory-line-pixels", PolishCases::linePixels);
+                    UiCase.run(ctx, "474-ui-inventory-shared-lines", PolishCases::sharedLines);
+                    UiCase.run(ctx, "475-ui-inventory-armour-model", PolishCases::armourModel);
+                    UiCase.run(ctx, "476-ui-bars-text-centred", PolishCases::barTextCentred);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

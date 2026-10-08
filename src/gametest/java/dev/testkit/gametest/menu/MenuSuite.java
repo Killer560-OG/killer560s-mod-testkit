@@ -25,6 +25,8 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *   <li>280-289 more experiments: Superpairs deductions and reward priority ({@link ExperimentCases})</li>
  *   <li>292-297 Auto Anvil in Hypixel's Anvil ({@code menu.anvil}): only exact book pairs combined, cascade, direct
  *       delivery, preview mismatch, close, off/legit ({@link AnvilCases})</li>
+ *   <li>472 the Storage Overlay's Scan All button: real presses start / stop it, Escape stops it, a full run skips
+ *       locked pages and empty slots ({@link PolishMenuCases})</li>
  *   <li>461-466 Reskin Real Bazaar: every mapped Bazaar menu reskinned, one press = one real slot click, unmapped menus
  *       left to Hypixel's GUI, the hold-key escape, live Manage Orders, the Booster Cookie gate ({@link BazaarReskinCases})</li>
  * </ul>
@@ -83,6 +85,7 @@ public class MenuSuite implements FabricClientGameTest {
                     ItemCases.register(s);
                     AnvilCases.register(s);
                     BazaarReskinCases.register(s);
+                    PolishMenuCases.register(s); // 472, polish
                 });
     }
 }
