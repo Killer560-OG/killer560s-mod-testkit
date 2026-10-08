@@ -94,6 +94,8 @@ public class MenuSuite implements FabricClientGameTest {
                     // 491-499: the unified Auction House (API browser + reskinned real AH menus).
                     AuctionHouseCases.register(s);
                     BazaarV3Cases.register(s);
+                    // 554-555: dungeon-fixes (2026-10-08), terminals behind a decorated title.
+                    DungeonFixTerminalCases.register(s);
                 });
     }
 }

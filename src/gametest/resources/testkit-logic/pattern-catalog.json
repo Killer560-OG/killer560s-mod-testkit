@@ -1,9 +1,9 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-08T01:27:12",
- "modSource": "killer560s-mod",
+ "generatedAt": "2026-10-08T01:51:54",
+ "modSource": "dungeon-fixes",
  "modGitSha": "be6452a641fd85bba6368df8d00b2307796d9779",
- "modSourceDirty": false,
+ "modSourceDirty": true,
  "count": 452,
  "byKind": {
   "dynamic": 7,
@@ -2054,6 +2054,18 @@
    "expr": "\"^([A-Za-z0-9_]{1,16}) (activated|completed) a (terminal|lever|device)! \\\\((\\\\d)/(\\\\d)\\\\)(?:\\\\s.*)?$\""
   },
   {
+   "id": "fastleap.Floor7Tracker#P5_START",
+   "cls": "fastleap.Floor7Tracker",
+   "field": "P5_START",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/fastleap/Floor7Tracker.java",
+   "line": 212,
+   "regex": "^(?:\\[BOSS\\] Necron: All this, for nothing\\.\\.\\.|\\[BOSS\\] (?:The )?Wither King: .{1,160})$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(?:\\\\[BOSS\\\\] Necron: All this, for nothing\\\\.\\\\.\\\\.|\\\\[BOSS\\\\] (?:The )?Wither King: .{1,160})$\""
+  },
+  {
    "id": "fastleap.I4LeapFeature#MELODY_PARTY_LINE",
    "cls": "fastleap.I4LeapFeature",
    "field": "MELODY_PARTY_LINE",
@@ -2808,18 +2820,6 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^\\\\[BOSS] Goldor: Who dares trespass into my domain\\\\?$\""
-  },
-  {
-   "id": "p4platform.P4PlatformHighlightFeature#NECRON_P5_REGEX",
-   "cls": "p4platform.P4PlatformHighlightFeature",
-   "field": "NECRON_P5_REGEX",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/p4platform/P4PlatformHighlightFeature.java",
-   "line": 47,
-   "regex": "^\\[BOSS] Necron: All this, for nothing\\.\\.\\.$",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"^\\\\[BOSS] Necron: All this, for nothing\\\\.\\\\.\\\\.$\""
   },
   {
    "id": "partycommands.PartyCommandsFeature#NAME_PATTERN",
@@ -4970,12 +4970,24 @@
    "expr": "\"([A-Za-z0-9_]{1,16})\\\\s*$\""
   },
   {
-   "id": "splittimers.SplitTimersFeature@164",
+   "id": "splittimers.SplitTimersFeature#WATCHER_FIGHT",
+   "cls": "splittimers.SplitTimersFeature",
+   "field": "WATCHER_FIGHT",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/splittimers/SplitTimersFeature.java",
+   "line": 78,
+   "regex": "^\\[BOSS\\] The Watcher: Let's see how you can handle this\\.$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^\\\\[BOSS\\\\] The Watcher: Let's see how you can handle this\\\\.$\""
+  },
+  {
+   "id": "splittimers.SplitTimersFeature@108",
    "cls": "splittimers.SplitTimersFeature",
    "field": null,
    "index": null,
    "file": "src/main/java/com/killer560/hub/splittimers/SplitTimersFeature.java",
-   "line": 164,
+   "line": 108,
    "regex": null,
    "flags": null,
    "kind": "dynamic",
@@ -5174,12 +5186,12 @@
    "expr": "\"^(\\\\w{1,16}) (?:activated a (?:terminal|lever)|completed a device)! \\\\(\\\\d+/\\\\d+\\\\)(?:\\\\s.*)?$\""
   },
   {
-   "id": "terminals.TerminalType@24",
+   "id": "terminals.TerminalType@29",
    "cls": "terminals.TerminalType",
    "field": null,
    "index": null,
    "file": "src/main/java/com/killer560/hub/terminals/TerminalType.java",
-   "line": 24,
+   "line": 29,
    "regex": null,
    "flags": null,
    "kind": "dynamic",
@@ -5378,24 +5390,12 @@
    "expr": "\"^The BLOOD DOOR has been opened!?$\""
   },
   {
-   "id": "witherdragons.KingRelicsFeature#NECRON_END",
-   "cls": "witherdragons.KingRelicsFeature",
-   "field": "NECRON_END",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/witherdragons/KingRelicsFeature.java",
-   "line": 71,
-   "regex": "^\\[BOSS] Necron: All this, for nothing\\.\\.\\.$",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"^\\\\[BOSS] Necron: All this, for nothing\\\\.\\\\.\\\\.$\""
-  },
-  {
    "id": "witherdragons.KingRelicsFeature#PICKUP",
    "cls": "witherdragons.KingRelicsFeature",
    "field": "PICKUP",
    "index": null,
    "file": "src/main/java/com/killer560/hub/witherdragons/KingRelicsFeature.java",
-   "line": 73,
+   "line": 74,
    "regex": "^(\\w{3,16}) picked the Corrupted (\\w{3,6}) Relic!$",
    "flags": null,
    "kind": "field",

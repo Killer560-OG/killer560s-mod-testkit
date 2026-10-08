@@ -636,9 +636,10 @@ final class HudFixCases {
                 Object st = Mod.cfg(SPLITS);
                 Mod.call(st, "setEnabled", true);
                 Mod.call(st, "setLaglessTimes", true);
-                Mod.call(st, "setTotalWithLag", true);
-                Mod.call(st, "setTotalWithoutLag", true);
-                Mod.call(st, "setLagLostLine", true);
+                // Gone since mod dungeon-fixes (2026-10-08): the layout is fixed and always draws Total and Lag.
+                trySet(st, "setTotalWithLag", true);
+                trySet(st, "setTotalWithoutLag", true);
+                trySet(st, "setLagLostLine", true);
                 Object hud = Mod.cfg(HUD);
                 Mod.call(hud, "setScale", "split_timers", 1.0f);
                 Mod.call(hud, "setPosition", "split_timers", 12, 10 + mapPx + 4);
@@ -703,11 +704,12 @@ final class HudFixCases {
                 Object st = Mod.cfg(SPLITS);
                 Mod.call(st, "setEnabled", true);
                 Mod.call(st, "setLaglessTimes", true);
-                Mod.call(st, "setTotalWithLag", true);
-                Mod.call(st, "setTotalWithoutLag", true);
-                Mod.call(st, "setLagLostLine", true);
+                trySet(st, "setTotalWithLag", true);
+                trySet(st, "setTotalWithoutLag", true);
+                trySet(st, "setLagLostLine", true);
                 return null;
             });
+            boolean totalToggles = c.onClient(mc -> hasMethod(Mod.cfg(SPLITS).getClass(), "setTotalWithLag"));
             int n = injectRun(c);
             List<String> lines = drawn(c);
             c.note("injected an F7 run of " + n + " splits, 10 s apart, 0.7 s of lag in each; the HUD draws:");
@@ -733,6 +735,10 @@ final class HudFixCases {
             }
             check(c, rows >= 3, "only " + rows + " split row(s) drawn");
 
+            if (!totalToggles) {
+                // mod dungeon-fixes (2026-10-08): Total and Lag are part of the fixed layout, no toggles left to try.
+                c.note("jar has no Total With/Without Lag toggles (fixed split layout); the toggle checks are skipped");
+            } else {
             c.onClient(mc -> {
                 Mod.call(Mod.cfg(SPLITS), "setTotalWithLag", false);
                 return null;
@@ -749,6 +755,7 @@ final class HudFixCases {
                     "with only Total Without Lag on the line is not \"Total: (Y)\": " + onlyLagless);
             check(c, onlyReal != null && onlyReal.matches("Total: (" + t + ")"),
                     "with only Total With Lag on the line is not \"Total: X\": " + onlyReal);
+            }
 
             String suffix;
             try {
@@ -802,9 +809,17 @@ final class HudFixCases {
                 Constructor<?> ctor = rs.getDeclaredConstructor();
                 ctor.setAccessible(true);
                 Object run = ctor.newInstance();
-                Method floor = f.getDeclaredMethod("splitsForFloor", String.class, boolean.class);
-                floor.setAccessible(true);
-                List<?> splits = (List<?>) floor.invoke(null, "F7", false);
+                List<?> splits;
+                try {
+                    // mod dungeon-fixes (2026-10-08): one layout, no Clear Splits flag.
+                    Method floor = f.getDeclaredMethod("splitsForFloor", String.class);
+                    floor.setAccessible(true);
+                    splits = (List<?>) floor.invoke(null, "F7");
+                } catch (NoSuchMethodException old) {
+                    Method floor = f.getDeclaredMethod("splitsForFloor", String.class, boolean.class);
+                    floor.setAccessible(true);
+                    splits = (List<?>) floor.invoke(null, "F7", false);
+                }
                 int n = splits.size();
                 long base = System.currentTimeMillis() - (n + 1) * 10_000L;
                 long[] time = new long[n];
@@ -1198,6 +1213,13 @@ final class HudFixCases {
             c.ticks(2);
         } catch (Throwable t) {
             c.note("config restore: " + UiCase.describe(t));
+        }
+    }
+
+    /** A setter an older or newer jar may not have. */
+    private static void trySet(Object cfg, String setter, Object value) {
+        if (hasMethod(cfg.getClass(), setter)) {
+            Mod.call(cfg, setter, value);
         }
     }
 
