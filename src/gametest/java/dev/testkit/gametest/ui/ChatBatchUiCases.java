@@ -74,6 +74,7 @@ final class ChatBatchUiCases {
             c.note(String.format(Locale.ROOT, "Open Mic: Send to %dx%d at %d,%d - full width (Microphone %d, master %d)",
                     send.getWidth(), send.getHeight(), send.getX(), send.getY(), mic.getWidth(), master.getWidth()));
             overlaps(c, rows);
+            scrollTop(c, s, "Voice To Text:"); // the section at the top of the picture
             shot(c, "open-mic");
 
             // the slider by real mouse input
@@ -115,6 +116,7 @@ final class ChatBatchUiCases {
             c.check(send.getWidth() == mic.getWidth(), "Push To Talk: Send to " + send.getWidth() + " wide, Microphone "
                     + mic.getWidth());
             overlaps(c, rows);
+            scrollTop(c, s, "Voice To Text:");
             shot(c, "push-to-talk");
         } finally {
             c.onClient(mc -> {
@@ -231,6 +233,7 @@ final class ChatBatchUiCases {
             c.check(json.contains("\"enabled\": " + after), "the press was not saved: " + json);
             c.note("master switch " + before + " -> " + after + " by a real press, saved");
             overlaps(c, rows(c, s));
+            scrollTop(c, s, "Chat Hider:");
             shot(c, "tab");
         } finally {
             c.onClient(mc -> {
@@ -348,6 +351,28 @@ final class ChatBatchUiCases {
                 }
             }
         }
+    }
+
+    /** Scrolls the menu so the row starting {@code prefix} sits at the top of the content pane. */
+    @SuppressWarnings("unchecked")
+    static void scrollTop(UiCase c, Screen s, String prefix) {
+        c.onClient(mc -> {
+            try {
+                R.call0(s, "rebuild");
+                AbstractWidget pane = (AbstractWidget) R.get(s, "contentPane");
+                for (AbstractWidget w : new ArrayList<>((java.util.Collection<AbstractWidget>) R.get(pane, "children"))) {
+                    if (ModScreenDriver.label(w).startsWith(prefix)) {
+                        int offset = (Integer) R.getStatic(s.getClass(), "scrollOffset");
+                        R.setStatic(s.getClass(), "scrollOffset", Math.max(0, offset + w.getY() - pane.getY() - 30));
+                        R.call0(s, "rebuild");
+                        break;
+                    }
+                }
+                return null;
+            } catch (Throwable t) {
+                throw new AssertionError(UiCase.describe(t), t);
+            }
+        });
     }
 
     /** {x, y, w, h} of the row starting {@code prefix}, scrolled into the visible band. */
