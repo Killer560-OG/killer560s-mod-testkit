@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-07T23:02:18",
+ "generatedAt": "2026-10-07T23:11:24",
  "modSource": "bazaar-v3",
- "modGitSha": "8c50f4ccbbca4c0498a6c539b0f4e39f9d3a2801",
+ "modGitSha": "7c295b5a765f71525269e1ff89a0833bed942289",
  "modSourceDirty": false,
  "count": 440,
  "byKind": {

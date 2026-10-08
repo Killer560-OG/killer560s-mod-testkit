@@ -61,6 +61,12 @@ import java.util.concurrent.atomic.AtomicInteger;
  *   <li>489-menu-bazaar-v3-themes: Amber, Dark and Light (the Inventory Theme setting) on the browse view and a
  *       reskinned product page, at GUI 2 and the small window: no layout problems, the panel drawn in that theme's
  *       colour; screenshots of each.</li>
+ *   <li>490-menu-bazaar-v3-inventory: his inventory in the screen (killer560: "it needs a way for me to click on items in
+ *       my inventory as well so I can list them"). Over Hypixel's main page the panel shows the menu's own 36 player
+ *       slots (each mapped to its container slot index), Bazaar items live, the rest dimmed: presses on a non-Bazaar item
+ *       (a Terminator, a plain stick) send nothing, a shift-press on Enchanted Diamond sends ONE QUICK_MOVE on its slot, a
+ *       press on Wheat ONE PICKUP on its slot - and the product page the server opens for it arrives reskinned. With no
+ *       menu open (the menu-less screen) the same press sends {@code /bz Wheat} and the bow still does nothing.</li>
  * </ul>
  * Retired: 424-ui-bazaar-browser (the old browser screen, replaced by 481). Updated for the new design: 461 (the main
  * page is drawn from the live data, Close/Search/History/Settings/Graphs/mode buttons are left out on purpose), 462
@@ -92,6 +98,7 @@ final class BazaarV3Cases {
         MenuSuite.test(s, "487-menu-bazaar-v3-product-click", BazaarV3Cases::productClick);
         MenuSuite.test(s, "488-menu-bazaar-v3-followup", BazaarV3Cases::followUp);
         MenuSuite.test(s, "489-menu-bazaar-v3-themes", BazaarV3Cases::themes);
+        MenuSuite.test(s, "490-menu-bazaar-v3-inventory", BazaarV3Cases::inventory);
     }
 
     // ---- environment ----------------------------------------------------------------------------------------------
@@ -1142,6 +1149,110 @@ final class BazaarV3Cases {
                 }
             } finally {
                 c.ctx().runOnClient(mc -> Mod.set("inventorytheme.InventoryThemeConfig", "setTheme", old));
+            }
+        }
+    }
+
+    // ---- 490 ------------------------------------------------------------------------------------------------------
+
+    /** "inv" lines of a frame: index -> {x, y, w, h, containerSlot}; {@code ids} gets index -> product id / none / empty. */
+    static Map<Integer, int[]> invBoxes(List<String> layout, Map<Integer, String> ids) {
+        Map<Integer, int[]> out = new HashMap<>();
+        for (String line : layout) {
+            String[] p = line.split(" ");
+            if (p[0].equals("inv")) {
+                int i = Integer.parseInt(p[1]);
+                out.put(i, new int[]{Integer.parseInt(p[2]), Integer.parseInt(p[3]), Integer.parseInt(p[4]),
+                        Integer.parseInt(p[5]), Integer.parseInt(p[6])});
+                ids.put(i, p[7]);
+            }
+        }
+        return out;
+    }
+
+    static int[] box4(int[] b) {
+        return new int[]{b[0], b[1], b[2], b[3]};
+    }
+
+    static void inventory(Session c) throws Exception {
+        try (Env env = new Env(c)) {
+            feedAll(c);
+            setWindow(c, 1920, 1080, 2);
+            c.hx().call("give", "slot", 9, "count", 64, "stack", "minecraft:wheat[custom_data={id:\"WHEAT\"}]");
+            c.hx().call("give", "slot", 10, "count", 3, "stack", "minecraft:diamond[custom_data={id:\"ENCHANTED_DIAMOND\"}]");
+            c.hx().call("give", "slot", 11, "count", 1, "stack", "minecraft:stick");
+            c.hx().call("give", "slot", 0, "count", 1, "stack", "minecraft:bow[custom_data={id:\"TERMINATOR\"}]");
+            c.ctx().waitTicks(5);
+            try {
+                // Hypixel's main page (6 rows: his slots are 54..89); a click on Wheat (54) opens its product page.
+                JsonObject main = on(MenuKit.menu("menus.reskin-bazaar-category"), 54, MenuKit.menu("menus.reskin-bazaar-product"));
+                BazaarReskinCases.open(c, main, "CATEGORY");
+                List<String> layout = layout(c);
+                Map<Integer, String> ids = new HashMap<>();
+                Map<Integer, int[]> inv = invBoxes(layout, ids);
+                c.check(inv.size() == 36, "the inventory panel drew " + inv.size() + " slots, not 36");
+                c.check(inv.get(0)[4] == 54 && "WHEAT".equals(ids.get(0)), "slot 9 (Wheat) -> " + inv.get(0)[4] + " " + ids.get(0));
+                c.check(inv.get(1)[4] == 55 && "ENCHANTED_DIAMOND".equals(ids.get(1)), "slot 10 -> " + inv.get(1)[4] + " "
+                        + ids.get(1));
+                c.check(inv.get(2)[4] == 56 && "none".equals(ids.get(2)), "the stick -> " + inv.get(2)[4] + " " + ids.get(2));
+                c.check(inv.get(27)[4] == 81 && "none".equals(ids.get(27)), "the hotbar bow -> " + inv.get(27)[4] + " "
+                        + ids.get(27));
+                c.check(hot(layout, "54") != null && hot(layout, "55") != null, "no hotspot on the Bazaar items");
+                c.check(hot(layout, "56") == null && hot(layout, "81") == null, "a non-Bazaar item has a hotspot");
+                c.note("panel: 36 slots; Wheat -> container slot 54, Enchanted Diamond -> 55, stick 56 and Terminator 81 dimmed");
+                shot(c, "v3-inventory-main-page");
+
+                int base = clicks(c);
+                BazaarReskinCases.pressAt(c, box4(inv.get(2)), 0);
+                BazaarReskinCases.pressAt(c, box4(inv.get(27)), 0);
+                c.ctx().waitTicks(10);
+                c.check(clicks(c) == base, "presses on the stick and the Terminator sent " + (clicks(c) - base) + " clicks");
+                c.note("presses on the dimmed stick and Terminator: 0 clicks");
+
+                BazaarReskinCases.shiftPressAt(c, box4(inv.get(1)));
+                c.waitUntil("a click from the shift press", mc -> clicks(c) > base, 40);
+                c.ctx().waitTicks(4);
+                JsonObject k = lastClick(c);
+                c.check(clicks(c) == base + 1 && k.get("slot").getAsInt() == 55 && "QUICK_MOVE".equals(k.get("input")
+                        .getAsString()), "shift press on Enchanted Diamond: " + (clicks(c) - base) + " clicks, last " + k);
+                c.note("shift press on Enchanted Diamond -> one QUICK_MOVE on slot 55");
+
+                int[] w = invBoxes(layout(c), new HashMap<>()).get(0);
+                BazaarReskinCases.pressAt(c, box4(w), 0);
+                c.waitUntil("the product page", mc -> "PRODUCT".equals(Mod.staticCall(RESKIN, "kindForTest")), 60);
+                c.ctx().waitTicks(4);
+                JsonObject k2 = lastClick(c);
+                c.check(clicks(c) == base + 2 && k2.get("slot").getAsInt() == 54 && "PICKUP".equals(k2.get("input")
+                        .getAsString()), "press on Wheat: " + (clicks(c) - base) + " clicks, last " + k2);
+                c.check(summary(c).contains("CONTAINER PRODUCT") && !summary(c).contains("frozen"), "after Wheat: " + summary(c));
+                shot(c, "v3-inventory-product-page");
+                c.note("press on Wheat -> one PICKUP on slot 54; the server's product page is reskinned (" + summary(c) + ")");
+
+                // No menu open: the menu-less screen.
+                MenuKit.reset(c);
+                cookie(c, true);
+                openScreen(c);
+                List<String> api = layout(c);
+                Map<Integer, String> apiIds = new HashMap<>();
+                Map<Integer, int[]> apiInv = invBoxes(api, apiIds);
+                c.check(apiInv.size() == 36 && apiInv.get(0)[4] == -1 && "WHEAT".equals(apiIds.get(0)),
+                        "menu-less panel: " + apiInv.size() + " slots, Wheat " + apiIds.get(0));
+                int cmds = c.commands().size();
+                BazaarReskinCases.pressAt(c, box4(apiInv.get(27)), 0);
+                c.ctx().waitTicks(10);
+                c.check(c.commands().size() == cmds, "a press on the Terminator sent " + c.commands().subList(cmds,
+                        c.commands().size()));
+                press(c, api, "inv:0");
+                c.waitUntil("/bz Wheat", mc -> c.commands().size() > cmds, 40);
+                String cmd = c.commands().get(c.commands().size() - 1);
+                c.check(cmd.equals("bz Wheat") && mode(c).contains("|WHEAT|"), "menu-less Wheat press: '" + cmd + "' "
+                        + mode(c));
+                c.check(clicks(c) == base + 2, "the menu-less screen clicked " + (clicks(c) - base - 2));
+                c.note("menu-less screen: Terminator press -> nothing; Wheat press -> '" + cmd + "', product shown");
+            } finally {
+                for (int slot : new int[]{9, 10, 11, 0}) {
+                    c.hx().call("give", "slot", slot, "stack", "minecraft:air");
+                }
             }
         }
     }
