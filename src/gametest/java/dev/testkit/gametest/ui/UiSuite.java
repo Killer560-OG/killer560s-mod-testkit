@@ -87,6 +87,8 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-07 22:08 polish report ({@link PolishCases}); 472 is in the menu suite. Own block for merges. */
     static final String[] POLISH_CASES = {"471-ui-held-item-name", "473-ui-inventory-line-pixels",
             "474-ui-inventory-shared-lines", "475-ui-inventory-armour-model", "476-ui-bars-text-centred"};
+    /** Map Extra Info in two rows with M/P/B (mod map-info-bat, {@link MapInfoBatCases}). Own block for merges. */
+    static final String[] MAPINFO_CASES = {"524-ui-map-info-rows"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -103,11 +105,14 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : POLISH_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : MAPINFO_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
-        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES);
+        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -195,6 +200,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "474-ui-inventory-shared-lines", PolishCases::sharedLines);
                     UiCase.run(ctx, "475-ui-inventory-armour-model", PolishCases::armourModel);
                     UiCase.run(ctx, "476-ui-bars-text-centred", PolishCases::barTextCentred);
+                    // ---- map info rows (524) ----
+                    UiCase.run(ctx, "524-ui-map-info-rows", MapInfoBatCases::rows);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
