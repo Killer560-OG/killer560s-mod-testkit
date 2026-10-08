@@ -46,8 +46,9 @@ import java.util.regex.Pattern;
  *       scrolling one in the HUD editor scales them all.</li>
  *   <li>444-ui-bars-padding: "that text almost feels trapped by the boxes." The number's pixels against its bar's, in
  *       GUI units, at GUI scale 2 and 4, in both layouts: at least 1.5 above and below, 3 at each end.</li>
- *   <li>445-ui-map-info: the Dungeon Map's Extra Info lines are smaller (text rows at most 7 units tall), inside the
- *       map's width, one row each; and Split Timers saved on top of them is drawn clear of the map's box.</li>
+ *   <li>445-ui-map-info: the Dungeon Map's Extra Info is exactly two rows of small text (each at most 5 units tall since
+ *       mod map-info-bat; 7 before), inside the map's width, two separate bands; and Split Timers saved on top of
+ *       them is drawn clear of the map's box. 521-525 ({@link MapInfoBatCases}) measure it filled in, at GUI 2 and 4.</li>
  *   <li>446-ui-split-format: "have the no lag in parentheses to the right of the total." Total reads "Total: X (Y)",
  *       no "No Lag" line, every split row "X (Y)", the Lag line under its toggle; the chat suffix the same.</li>
  *   <li>447-ui-scoreboard-solo: "Solo" (in any colour-code form) and the "Keys:" line are known dungeon lines; an
@@ -627,8 +628,11 @@ final class HudFixCases {
                     "Extra Info text runs outside the map's width (%.1f..%.1f, map 10..%d)", leftU, rightU, 10 + mapPx));
             check(c, bands.size() == lines.size(), "Extra Info drew " + bands.size() + " separate text rows for "
                     + lines.size() + " lines - rows touch or overlap");
-            check(c, tallest <= 7.0, String.format(Locale.ROOT, "an Extra Info row is %.1f units tall, want at most 7"
-                    + " (smaller than the font's 9)", tallest));
+            // Mod map-info-bat (2026-10-07, "Try to make it smaller and only take up 2 rows"): two rows at half the
+            // font, so a row's ink is at most 5 units (it was 7 at three quarters of the font, four rows).
+            check(c, lines.size() == 2, "Extra Info has " + lines.size() + " lines, want exactly 2: " + lines);
+            check(c, tallest <= 5.0, String.format(Locale.ROOT, "an Extra Info row is %.1f units tall, want at most 5"
+                    + " (half the font's 9, plus its shadow)", tallest));
 
             // ---- Split Timers saved on top of the Extra Info lines --------------------------------------------------
             c.onClient(mc -> {
@@ -685,7 +689,7 @@ final class HudFixCases {
         }
     }
 
-    private static int[] drawnBox(Object e) {
+    static int[] drawnBox(Object e) {
         int[] p = (int[]) Mod.staticCall("hud.HudElementRegistry", "resolvePosition", e);
         float s = ((Number) Mod.staticCall("hud.HudElementRegistry", "resolveScale", e)).floatValue();
         return new int[]{p[0], p[1], p[0] + Math.round((Integer) Mod.call(e, "width") * s),
@@ -794,7 +798,7 @@ final class HudFixCases {
 
     /** A finished F7 run in Split Timers' run state: every split 10 s after the last, 0.7 s of lag in each, and the lag
      *  clock marked as having seen real server ticks. Returns the split count. */
-    private static int injectRun(UiCase c) {
+    static int injectRun(UiCase c) {
         return c.onClient(mc -> {
             try {
                 Class<?> f = R.cls("splittimers.SplitTimersFeature");
@@ -825,7 +829,7 @@ final class HudFixCases {
         });
     }
 
-    private static void clearRun(UiCase c) {
+    static void clearRun(UiCase c) {
         try {
             c.onClient(mc -> {
                 try {
@@ -1072,7 +1076,7 @@ final class HudFixCases {
         }
     }
 
-    private static BufferedImage shot(UiCase c, String suffix) throws Exception {
+    static BufferedImage shot(UiCase c, String suffix) throws Exception {
         // Earlier cases' chat lines draw over the HUD (over the vanilla hotbar too): on 26.2 the smoke cases' lines
         // covered 441's bar. Clear them so the picture is the HUD under test.
         c.onClient(mc -> {
@@ -1158,7 +1162,7 @@ final class HudFixCases {
         return bx1 < 0 ? null : new int[]{bx0, by0, bx1, by1};
     }
 
-    private static Map<Path, byte[]> snapshot(UiCase c, String... classes) {
+    static Map<Path, byte[]> snapshot(UiCase c, String... classes) {
         Map<Path, byte[]> out = new LinkedHashMap<>();
         for (String cls : classes) {
             Path p = c.onClient(mc -> (Path) R.getStatic(R.cls(cls), "CONFIG_PATH"));
@@ -1171,7 +1175,7 @@ final class HudFixCases {
         return out;
     }
 
-    private static void restore(UiCase c, Map<Path, byte[]> saved) {
+    static void restore(UiCase c, Map<Path, byte[]> saved) {
         try {
             c.onClient(mc -> {
                 try {
@@ -1214,7 +1218,7 @@ final class HudFixCases {
         return false;
     }
 
-    private static void check(UiCase c, boolean ok, String what) {
+    static void check(UiCase c, boolean ok, String what) {
         if (!ok) {
             c.problem(what);
         }

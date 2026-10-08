@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-07T23:24:15",
- "modSource": "killer560s-mod",
- "modGitSha": "ea605f22e4ff1f072038548e77c882711e16c246",
+ "generatedAt": "2026-10-08T01:26:21",
+ "modSource": "map-info-bat",
+ "modGitSha": "f4f44b9dc4cfdb6a011e4b8bf5f98b22e3761bd3",
  "modSourceDirty": false,
- "count": 452,
+ "count": 451,
  "byKind": {
   "dynamic": 7,
   "element": 43,
-  "field": 387,
+  "field": 386,
   "local": 15
  },
  "unresolved": 8,
@@ -2210,30 +2210,6 @@
    "expr": "\"^(\\\\w{1,16}) (activated|completed) a (lever|device|terminal)! \\\\((\\\\d{1,3})/(\\\\d{1,3})\\\\)(?:\\\\s.*)?$\""
   },
   {
-   "id": "interop.SelfDerivation#PRINCE_KILLED",
-   "cls": "interop.SelfDerivation",
-   "field": "PRINCE_KILLED",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/interop/SelfDerivation.java",
-   "line": 42,
-   "regex": "^A Prince falls\\. \\+1 Bonus Score$",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"^A Prince falls\\\\. \\\\+1 Bonus Score$\""
-  },
-  {
-   "id": "interop.SelfDerivation#BAT_KILLED",
-   "cls": "interop.SelfDerivation",
-   "field": "BAT_KILLED",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/interop/SelfDerivation.java",
-   "line": 43,
-   "regex": "^A Bat has been slain\\. \\+1 Bonus Score$",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"^A Bat has been slain\\\\. \\\\+1 Bonus Score$\""
-  },
-  {
    "id": "interop.SelfDerivation#WATCHER_DONE",
    "cls": "interop.SelfDerivation",
    "field": "WATCHER_DONE",
@@ -2551,7 +2527,7 @@
    "field": "LOADOUT_TITLE",
    "index": null,
    "file": "src/main/java/com/killer560/hub/loadoutkeybinds/LoadoutKeybindsFeature.java",
-   "line": 24,
+   "line": 25,
    "regex": "\\((\\d)/(\\d)\\) Loadout",
    "flags": null,
    "kind": "field",
@@ -4812,6 +4788,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^\\\\s*Team Score: (\\\\d+) \\\\(([A-DS+]+)\\\\)\""
+  },
+  {
+   "id": "scorecalc.ScoreCalculatorFeature#PARTY_SENDER",
+   "cls": "scorecalc.ScoreCalculatorFeature",
+   "field": "PARTY_SENDER",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/scorecalc/ScoreCalculatorFeature.java",
+   "line": 120,
+   "regex": "^Party > (?:\\[[^\\]]{1,24}] )?([A-Za-z0-9_]{1,16}): (.{1,256})$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^Party > (?:\\\\[[^\\\\]]{1,24}] )?([A-Za-z0-9_]{1,16}): (.{1,256})$\""
   },
   {
    "id": "secrets.DungeonState#CATACOMBS_FLOOR_PATTERN",
