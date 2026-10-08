@@ -41,9 +41,8 @@ import java.util.List;
  *                407 Health and Mana Bars Layout: Predefined areas round the hotbar measured on screenshots at Auto
  *                Scale 0.5 and 1 (shared width, clear of the vanilla rows), real-mouse drags between areas and onto
  *                Hidden, Custom positions untouched, old configs stay Custom ({@link StatBarsLayoutCases}),
- *                424 Bazaar browser: every product parsed, six views at four window/GUI scales with no text or widget
- *                overlapping or leaving its box, the /bz button's command, screenshots at GUI 2 and 4; 425 every
- *                Bazaar product's icon source and the paper fallbacks named ({@link BazaarBrowserCases}),
+ *                425 every Bazaar product's icon source and the paper fallbacks named ({@link BazaarBrowserCases};
+ *                424, the old browser's layout, retired 2026-10-07 for menu 481),
  *                427-432 Pack Disabler: models through vanilla's resolver ON/OFF, the pack push left to vanilla, the
  *                missing-texture command, a chest at GUI 2, a player's resource pack beating both vanilla-look and our
  *                textures, Bazaar icons from the same table ({@link PackDisablerCases}),
@@ -82,7 +81,7 @@ public class UiSuite implements FabricClientGameTest {
             "399-ui-hud-editor-resize", "399-ui-hud-editor-snap",
             "399-ui-stat-bars-vitality-xp", "407-ui-stat-bars-layout", "401-ui-scoreboard-editor",
             "411-ui-mining-shelved", "412-ui-no-new-tab", "413-ui-testing-variant",
-            "424-ui-bazaar-browser", "425-ui-bazaar-icons", "427-ui-pack-disabler-models",
+            "425-ui-bazaar-icons", "427-ui-pack-disabler-models",
             "428-ui-pack-disabler-pack-push", "429-ui-pack-disabler-missing", "430-ui-pack-disabler-screens",
             "431-ui-pack-disabler-user-pack", "432-ui-pack-disabler-bazaar",
             "451-ui-hotbar-theme", "452-ui-inventory-theme-settings", "453-ui-storage-overlay-centre",
@@ -92,6 +91,8 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-07 22:08 polish report ({@link PolishCases}); 472 is in the menu suite. Own block for merges. */
     static final String[] POLISH_CASES = {"471-ui-held-item-name", "473-ui-inventory-line-pixels",
             "474-ui-inventory-shared-lines", "475-ui-inventory-armour-model", "476-ui-bars-text-centred"};
+    /** Map Extra Info in two rows with M/P/B (mod map-info-bat, {@link MapInfoBatCases}). Own block for merges. */
+    static final String[] MAPINFO_CASES = {"524-ui-map-info-rows"};
     /** killer560's 2026-10-07 Command Shortcuts requests ({@link CmdShortcutsCases}); 544 is in the Hx session. Own block. */
     static final String[] CMD_SHORTCUTS_CASES = {"541-ui-cmd-shortcuts-builtin-rows", "542-ui-cmd-shortcuts-custom-edit",
             "543-ui-cmd-shortcuts-refused-names", "545-ui-cmd-shortcuts-sweep"};
@@ -111,6 +112,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : POLISH_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : MAPINFO_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : CMD_SHORTCUTS_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -118,7 +122,8 @@ public class UiSuite implements FabricClientGameTest {
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
-        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(CMD_SHORTCUTS_CASES);
+        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES)
+                || any(CMD_SHORTCUTS_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -182,7 +187,6 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "411-ui-mining-shelved", MiningShelvedCases::run);
                     UiCase.run(ctx, "412-ui-no-new-tab", c -> NoNewTabCases.run(c, deny));
                     UiCase.run(ctx, "413-ui-testing-variant", TestingVariantCases::run);
-                    UiCase.run(ctx, "424-ui-bazaar-browser", BazaarBrowserCases::browser);
                     UiCase.run(ctx, "425-ui-bazaar-icons", BazaarBrowserCases::icons);
                     UiCase.run(ctx, "427-ui-pack-disabler-models", PackDisablerCases::models);
                     UiCase.run(ctx, "428-ui-pack-disabler-pack-push", PackDisablerCases::packPush);
@@ -207,6 +211,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "474-ui-inventory-shared-lines", PolishCases::sharedLines);
                     UiCase.run(ctx, "475-ui-inventory-armour-model", PolishCases::armourModel);
                     UiCase.run(ctx, "476-ui-bars-text-centred", PolishCases::barTextCentred);
+                    // ---- map info rows (524) ----
+                    UiCase.run(ctx, "524-ui-map-info-rows", MapInfoBatCases::rows);
                     // ---- command shortcuts (541-545) ----
                     UiCase.run(ctx, "541-ui-cmd-shortcuts-builtin-rows", CmdShortcutsCases::builtinRows);
                     UiCase.run(ctx, "542-ui-cmd-shortcuts-custom-edit", CmdShortcutsCases::customEdit);

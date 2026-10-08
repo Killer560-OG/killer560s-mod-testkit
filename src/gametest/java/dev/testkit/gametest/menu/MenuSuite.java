@@ -31,6 +31,9 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *       slot click, /viewauction hand-off, hidden HUDs, seamless page changes, fallback ({@link AuctionHouseCases})</li>
  *   <li>461-466 Reskin Real Bazaar: every mapped Bazaar menu reskinned, one press = one real slot click, unmapped menus
  *       left to Hypixel's GUI, the hold-key escape, live Manage Orders, the Booster Cookie gate ({@link BazaarReskinCases})</li>
+ *   <li>481-489 the unified Bazaar screen: render at six sizes, recents, tabs and search, the three-button bottom bar,
+ *       HUDs hidden, seamless page switches (frame log), product clicks with and without a Booster Cookie, the follow-up
+ *       click's rules, themes ({@link BazaarV3Cases})</li>
  * </ul>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -90,6 +93,7 @@ public class MenuSuite implements FabricClientGameTest {
                     PolishMenuCases.register(s); // 472, polish
                     // 491-499: the unified Auction House (API browser + reskinned real AH menus).
                     AuctionHouseCases.register(s);
+                    BazaarV3Cases.register(s);
                 });
     }
 }

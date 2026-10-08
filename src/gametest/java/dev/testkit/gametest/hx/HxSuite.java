@@ -12,7 +12,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  * packet, command responders) and asserting the mod's own state or a command the server received.
  *
  * <p>Case groups: {@link HxDungeonCases} (101-119), {@link HxSocialCases} (120-134), {@link HxHudCases} (135-140),
- * {@link HxHostileCases} (150, last: it deliberately pollutes party state). Every package gets at least one positive
+ * {@link HxBatCases} (521-523), {@link HxHostileCases} (150, last: it deliberately pollutes party state). Every package gets at least one positive
  * case and one forged/hostile case. Fixtures: {@code testkit-fixtures/{chat,sidebar,tab,hostile}/}.
  *
  * <p>The player stands on a platform at (-420, 150, -420): negative x/z keep ScoreCalculator's and LiveMap's
@@ -38,6 +38,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxDungeonCases.register(s);
                     HxSocialCases.register(s);
                     HxHudCases.register(s);
+                    HxBatCases.register(s); // 521-523, the Murkbat bat bonus (own block)
                     HxHostileCases.register(s);
                     // Command Shortcuts' custom rows (544), own block.
                     HxCmdShortcutsCases.register(s);

@@ -133,7 +133,11 @@ final class HxMenuSpec {
                     HxEvents.custom("sell.sold", player, e);
                 }
             }
-            return;
+            // A player-inventory slot may carry an action too (Hypixel's Bazaar opens the product of an item clicked in
+            // his inventory: testkit 490); otherwise nothing happens, as before.
+            if (!spec.has("on") || !spec.getAsJsonObject("on").has(String.valueOf(slot))) {
+                return;
+            }
         }
         if (!spec.has("on") || !spec.getAsJsonObject("on").has(String.valueOf(slot))) {
             return;
