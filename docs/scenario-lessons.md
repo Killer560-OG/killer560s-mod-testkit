@@ -410,3 +410,15 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   579 serves Mojang's `/player/certificates` and the relay's `/challenge` + `/auth` from one loopback fake on 28950, points
   authlib at it with `minecraft.api.{services,session,profiles}.host` (all three or authlib ignores them) and the relay with
   `killer560.net.relay`, and restores Minecraft's user/userApiService/profileKeyPairManager fields afterwards.
+
+- Integration of 2026-10-08 (mod 3744aa32, testkit integ-fix). 511/513 judge the menu against the 6a61dfa8 fixtures plus
+  `testkit-ui/menu-layout-merged.json`, which lists what the branches merged beside menu-layout changed on purpose (tabs
+  gone/added with their path, tooltips changed/moved/removed, each with its commit); a listed change that no longer differs
+  fails as stale. When a branch renames a tab or rewrites a tooltip, add it there, not to the 6a61dfa8 fixtures. 569/587 wrap
+  their walk in `MenuLayoutCases.allTested` like 511-514, or a -PtestingBuild jar shows their tabs only under Untested.
+  553: every ui case starts creative and FLYING (SafeWorld), and a flying player put on a floor with no fall speed is never
+  onGround; with 565-601 ahead of it he hovered at y 100.000 and the wait timed out. It turns flight off and drops him half
+  a block. 578 after 122: Party Commands' leader tracker reads lines only while the feature is ON, and 122 sent its closing
+  "You left the party." after Settings had switched it back OFF, so HxLead stayed leader and 578's teammate !warp was refused
+  "you are not the party leader" (reproduced with `100-hx-session:,122-hx-party-list-responder,578-hx-mcp-party-channels`).
+  122 now leaves while it is on and asserts the tracker is empty; 578 clears `PartyLeaderTracker.leader` itself.

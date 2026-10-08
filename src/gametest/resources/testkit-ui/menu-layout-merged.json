@@ -1,0 +1,187 @@
+{
+  "_doc": "What the branches merged with menu-layout on 2026-10-08 (mod 3744aa32) changed on purpose, on top of the menu-layout-<variant>.json fixtures (recorded from 6a61dfa8). 511: goneLeaves must be absent, newLeaves must be at exactly that path once. 513: a fixture row listed in tooltips must now show \"text\" (under \"to\" when it moved sub-tab) or be gone everywhere (\"gone\"); an entry that no longer differs from the fixture is stale and fails.",
+  "goneLeaves": {
+    "gui.tab.ArmourDyeTab": "inv-batch 701742c2: Armor Recolour became Custom Items (Cosmetics > Custom Items)",
+    "gui.tab.ChatTidyTab": "chat-batch a64924b9: merged into Chat Hider",
+    "gui.tab.HideChatMessagesTab": "chat-batch a64924b9: merged into Chat Hider"
+  },
+  "newLeaves": {
+    "gui.tab.ChatHiderTab": "Chat > Chat Hider",
+    "gui.tab.CustomItemsTab": "Cosmetics > Custom Items"
+  },
+  "tooltips": [
+    {
+      "owner": "(unscoped)",
+      "key": "copy chat",
+      "text": "With chat open: Shift or Ctrl + Left-Click a message copies the whole message (every wrapped line); Shift or Ctrl + Right-Click copies only the line you clicked. Copied without colour codes. A plain click does what it always did.",
+      "why": "chat-batch a64924b9: Copy Chat takes Shift or Ctrl and copies whole messages"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "mod chat",
+      "text": "A private chat with other mod users: /kc <message> sends one line, /chat k makes your typed chat go there.",
+      "why": "modchat-party 76cf2846: /killer560 chat removed, /kc and /chat k"
+    },
+    {
+      "owner": "Armor Recolour",
+      "key": "add a piece",
+      "gone": "inv-batch 701742c2: Armor Recolour became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
+    },
+    {
+      "owner": "Armor Recolour",
+      "key": "add boots",
+      "gone": "inv-batch 701742c2: Armor Recolour became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
+    },
+    {
+      "owner": "Armor Recolour",
+      "key": "add chest",
+      "gone": "inv-batch 701742c2: Armor Recolour became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
+    },
+    {
+      "owner": "Armor Recolour",
+      "key": "add helmet",
+      "gone": "inv-batch 701742c2: Armor Recolour became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
+    },
+    {
+      "owner": "Armor Recolour",
+      "key": "add legs",
+      "gone": "inv-batch 701742c2: Armor Recolour became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
+    },
+    {
+      "owner": "Armor Recolour",
+      "key": "capture key",
+      "gone": "inv-batch 701742c2: Armor Recolour became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
+    },
+    {
+      "owner": "Armor Recolour",
+      "key": "skin inventory icons",
+      "gone": "inv-batch 701742c2: Armor Recolour became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
+    },
+    {
+      "owner": "Chat Tidy",
+      "key": "ability damage lines",
+      "gone": "chat-batch a64924b9: Chat Tidy and Hide Chat Messages became Chat Hider; both damage families are one Hide Damage Messages switch"
+    },
+    {
+      "owner": "Chat Tidy",
+      "key": "hide damage messages",
+      "to": "Chat Hider",
+      "text": "Hides Hypixel's combat spam from the chat window: your ability damage lines ('Your Implosion hit 2 enemies for ...') and the hits you take ('A Crypt Wither Skull exploded, hitting you for ...', '... hit you for ...', '... struck you for ...'). Other features still read them, and the log keeps them.",
+      "why": "chat-batch a64924b9: Chat Tidy and Hide Chat Messages became Chat Hider"
+    },
+    {
+      "owner": "Chat Tidy",
+      "key": "incoming hit lines",
+      "gone": "chat-batch a64924b9: Chat Tidy and Hide Chat Messages became Chat Hider; both damage families are one Hide Damage Messages switch"
+    },
+    {
+      "owner": "Chat Tidy",
+      "key": "stack duplicate messages",
+      "to": "Chat Hider",
+      "text": "A line that repeats one of the last 50 chat messages from the last 60 seconds replaces it: the earlier copy goes, and one line ending in a grey (x2), (x3)... is added at the bottom, even with other messages in between. Blank lines and separators never stack.",
+      "why": "chat-batch a64924b9: Chat Tidy and Hide Chat Messages became Chat Hider"
+    },
+    {
+      "owner": "Command Shortcuts",
+      "key": "basic",
+      "text": "Adds a shortcut that queues the Basic Kuudra tier. /basic sends /joininstance kuudra_normal.",
+      "why": "cmd-shortcuts: every built-in row names the command it sends; the master covers your own shortcuts"
+    },
+    {
+      "owner": "Command Shortcuts",
+      "key": "burning",
+      "text": "Adds a shortcut that queues the Burning Kuudra tier. /burning sends /joininstance kuudra_burning.",
+      "why": "cmd-shortcuts: every built-in row names the command it sends; the master covers your own shortcuts"
+    },
+    {
+      "owner": "Command Shortcuts",
+      "key": "command shortcuts",
+      "text": "Turns on every command shortcut below: Catacombs, Master Mode, Kuudra and your own.",
+      "why": "cmd-shortcuts: every built-in row names the command it sends; the master covers your own shortcuts"
+    },
+    {
+      "owner": "Command Shortcuts",
+      "key": "f0",
+      "text": "Adds /f0 to queue the Catacombs entrance. /f0 sends /joininstance catacombs_floor_entrance.",
+      "why": "cmd-shortcuts: every built-in row names the command it sends; the master covers your own shortcuts"
+    },
+    {
+      "owner": "Command Shortcuts",
+      "key": "f1 & m1",
+      "text": "Adds /f1 and /m1 to queue Catacombs floor 1 and Master Mode floor 1. /f1 sends /joininstance catacombs_floor_one. /m1 sends /joininstance master_catacombs_floor_one.",
+      "why": "cmd-shortcuts: every built-in row names the command it sends; the master covers your own shortcuts"
+    },
+    {
+      "owner": "Command Shortcuts",
+      "key": "f2 & m2",
+      "text": "Adds /f2 and /m2 to queue Catacombs floor 2 and Master Mode floor 2. /f2 sends /joininstance catacombs_floor_two. /m2 sends /joininstance master_catacombs_floor_two.",
+      "why": "cmd-shortcuts: every built-in row names the command it sends; the master covers your own shortcuts"
+    },
+    {
+      "owner": "Command Shortcuts",
+      "key": "f3 & m3",
+      "text": "Adds /f3 and /m3 to queue Catacombs floor 3 and Master Mode floor 3. /f3 sends /joininstance catacombs_floor_three. /m3 sends /joininstance master_catacombs_floor_three.",
+      "why": "cmd-shortcuts: every built-in row names the command it sends; the master covers your own shortcuts"
+    },
+    {
+      "owner": "Command Shortcuts",
+      "key": "f4 & m4",
+      "text": "Adds /f4 and /m4 to queue Catacombs floor 4 and Master Mode floor 4. /f4 sends /joininstance catacombs_floor_four. /m4 sends /joininstance master_catacombs_floor_four.",
+      "why": "cmd-shortcuts: every built-in row names the command it sends; the master covers your own shortcuts"
+    },
+    {
+      "owner": "Command Shortcuts",
+      "key": "f5 & m5",
+      "text": "Adds /f5 and /m5 to queue Catacombs floor 5 and Master Mode floor 5. /f5 sends /joininstance catacombs_floor_five. /m5 sends /joininstance master_catacombs_floor_five.",
+      "why": "cmd-shortcuts: every built-in row names the command it sends; the master covers your own shortcuts"
+    },
+    {
+      "owner": "Command Shortcuts",
+      "key": "f6 & m6",
+      "text": "Adds /f6 and /m6 to queue Catacombs floor 6 and Master Mode floor 6. /f6 sends /joininstance catacombs_floor_six. /m6 sends /joininstance master_catacombs_floor_six.",
+      "why": "cmd-shortcuts: every built-in row names the command it sends; the master covers your own shortcuts"
+    },
+    {
+      "owner": "Command Shortcuts",
+      "key": "f7 & m7",
+      "text": "Adds /f7 and /m7 to queue Catacombs floor 7 and Master Mode floor 7. /f7 sends /joininstance catacombs_floor_seven. /m7 sends /joininstance master_catacombs_floor_seven.",
+      "why": "cmd-shortcuts: every built-in row names the command it sends; the master covers your own shortcuts"
+    },
+    {
+      "owner": "Command Shortcuts",
+      "key": "fiery",
+      "text": "Adds a shortcut that queues the Fiery Kuudra tier. /fiery sends /joininstance kuudra_fiery.",
+      "why": "cmd-shortcuts: every built-in row names the command it sends; the master covers your own shortcuts"
+    },
+    {
+      "owner": "Command Shortcuts",
+      "key": "hot",
+      "text": "Adds a shortcut that queues the Hot Kuudra tier. /hot sends /joininstance kuudra_hot.",
+      "why": "cmd-shortcuts: every built-in row names the command it sends; the master covers your own shortcuts"
+    },
+    {
+      "owner": "Command Shortcuts",
+      "key": "infernal",
+      "text": "Adds a shortcut that queues the Infernal Kuudra tier. /infernal sends /joininstance kuudra_infernal.",
+      "why": "cmd-shortcuts: every built-in row names the command it sends; the master covers your own shortcuts"
+    },
+    {
+      "owner": "Copy Chat",
+      "key": "copy chat",
+      "text": "With chat open: Shift or Ctrl + Left-Click a message copies the whole message (every wrapped line); Shift or Ctrl + Right-Click copies only the line you clicked. Copied without colour codes. A plain click does what it always did.",
+      "why": "chat-batch a64924b9: Copy Chat takes Shift or Ctrl and copies whole messages"
+    },
+    {
+      "owner": "Inventory Sorter",
+      "key": "auto inventory sorter",
+      "text": "Re-arranges your inventory into a saved layout, by key or /invsort apply <name>.",
+      "why": "inv-batch 701742c2: Inventory Sorter menu, applied by key or /invsort apply"
+    },
+    {
+      "owner": "Mod Chat",
+      "key": "mod chat",
+      "text": "A private chat with other mod users: /kc <message> sends one line, /chat k makes your typed chat go there.",
+      "why": "modchat-party 76cf2846: /killer560 chat removed, /kc and /chat k"
+    }
+  ]
+}

@@ -144,6 +144,14 @@ final class ChatBatchUiCases {
             "Hide Actionbar", "Hide Non-Rank Invites");
 
     static void hiderTab(UiCase c) throws Exception {
+        // A -PtestingBuild jar keeps every untested tab in its Untested category; count them all tested meanwhile so
+        // the Chat folder is the one a normal jar shows (the Untested category itself is 413's).
+        try (AutoCloseable all = MenuLayoutCases.allTested(c)) {
+            hiderTabBody(c);
+        }
+    }
+
+    private static void hiderTabBody(UiCase c) throws Exception {
         int oldGui = c.onClient(mc -> mc.options.guiScale().get());
         boolean wasOn = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(HIDER), "getEnabledRaw"));
         try {

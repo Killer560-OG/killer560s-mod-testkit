@@ -111,6 +111,7 @@ final class HxSocialCases {
     private static void partyList(Session s) {
         s.test("122-hx-party-list-responder", c -> {
             try (Settings set = new Settings(c).with("partycommands.PartyCommandsConfig", "Enabled", true)) {
+              try {
                 hub(c);
                 c.hx().call("tab.clear");
                 c.hx().chat("§eYou left the party.");
@@ -133,10 +134,16 @@ final class HxSocialCases {
                 c.check("HxLead".equals(leader), "PartyLeaderTracker leader " + leader);
                 c.note("/p list answered by the responder -> teammates " + mates + ", leader " + leader
                         + "; all-chat quote ignored");
-            } finally {
+              } finally {
+                // Leave while Party Commands is still ON: its leader tracker only reads lines while the feature is
+                // enabled, so a leave sent after Settings put it back OFF left "HxLead" as the known leader for the
+                // rest of the session, and 578's teammate !warp was refused "you are not the party leader".
                 c.hx().call("surface.respond.clear", "root", "p");
                 c.hx().chat("§eYou left the party.");
                 c.ctx().waitTicks(6);
+              }
+              Object left = c.onClient(mc -> Mod.staticCall("partycommands.PartyLeaderTracker", "get"));
+              c.check(left == null, "PartyLeaderTracker still names " + left + " after 'You left the party.'");
             }
         });
     }

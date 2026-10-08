@@ -935,6 +935,14 @@ final class InvBatchCases {
     // ==== 587 the Cosmetics category ===================================================================================
 
     static void cosmeticsCategory(UiCase c) throws Exception {
+        // A -PtestingBuild jar keeps every untested tab in its Untested category; count them all tested meanwhile so
+        // the category tree is the one a normal jar shows (the Untested category itself is 413's).
+        try (AutoCloseable all = MenuLayoutCases.allTested(c)) {
+            cosmeticsCategoryBody(c);
+        }
+    }
+
+    private static void cosmeticsCategoryBody(UiCase c) throws Exception {
         c.onClient(mc -> {
             McCompat.setScreen(mc, (Screen) Mod.staticCall("gui.ModScreen", "atTab", null, "Cosmetics"));
             return null;

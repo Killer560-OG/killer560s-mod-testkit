@@ -590,14 +590,31 @@ final class DungeonFixCases {
         c.ticks(20);
         command(c, "fill 196 99 196 230 99 206 minecraft:stone");
         command(c, "fill 196 100 196 230 106 206 minecraft:air");
-        command(c, "tp @a 200.5 100 201.5 -90 " + pitch);
-        c.ctx().waitFor(mc -> mc.player != null && Math.abs(mc.player.getY() - 100.0) < 1e-6 && mc.player.onGround(), 100);
+        // Every ui case starts creative and FLYING (SafeWorld). A flying player put on a floor with no fall speed is
+        // never onGround: after 565-601 joined the suite ahead of this case it hovered at y 100.000 with onGround
+        // false and the wait below timed out (2026-10-08). Stop flying first, so he stands on the stone.
+        c.onClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            var uuid = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(uuid);
+                if (sp != null) {
+                    sp.getAbilities().flying = false;
+                    sp.onUpdateAbilities();
+                }
+            });
+            return null;
+        });
+        await(c, "flight off", mc -> mc.player != null && !mc.player.getAbilities().flying, 40);
+        command(c, "tp @a 200.5 100.5 201.5 -90 " + pitch);
+        await(c, "standing on the floor at y 100", mc -> mc.player != null && Math.abs(mc.player.getY() - 100.0) < 1e-6
+                && mc.player.onGround(), 100);
         try {
             c.onClient(mc -> {
                 mc.options.keyShift.setDown(true);
                 return null;
             });
-            c.ctx().waitFor(mc -> mc.player != null && mc.player.isCrouching(), 100);
+            await(c, "crouching", mc -> mc.player != null && mc.player.isCrouching(), 100);
             c.onClient(mc -> {
                 mc.player.setYRot(-90f);
                 mc.player.setXRot((float) pitch);
@@ -642,6 +659,24 @@ final class DungeonFixCases {
             });
             command(c, "fill 196 99 196 230 106 206 minecraft:air");
         }
+    }
+
+    /** waitFor that names what it waited for and the player's state when it gives up. */
+    private static void await(UiCase c, String what, java.util.function.Predicate<Minecraft> p, int ticks) {
+        for (int i = 0; i < ticks; i++) {
+            if (c.onClient(p::test)) {
+                return;
+            }
+            c.ticks(1);
+        }
+        String state = c.onClient(mc -> mc.player == null ? "no player" : String.format(Locale.ROOT,
+                "pos %.3f,%.3f,%.3f onGround %s flying %s mayfly %s crouching %s shiftDown %s screen %s gamemode %s"
+                        + " vehicle %s", mc.player.getX(), mc.player.getY(), mc.player.getZ(), mc.player.onGround(),
+                mc.player.getAbilities().flying, mc.player.getAbilities().mayfly, mc.player.isCrouching(),
+                mc.options.keyShift.isDown(), McCompat.screen(mc), mc.gameMode == null ? null
+                        : mc.gameMode.getPlayerMode(), mc.player.getVehicle()));
+        throw new AssertionError("[" + c.name() + "] timed out after " + ticks + " ticks waiting for: " + what
+                + " (" + state + ")");
     }
 
     /** [cast start y, target x (MIN_VALUE: none), isOnP3Sim 1/0, TeleportUtils sneak eye, feet x, feet y, stand eye]

@@ -38,7 +38,8 @@ import java.util.regex.Pattern;
  *   <li>511 structure: (a) no top-level Crosshair tab, the Custom Crosshair section is in General and its rows build
  *       there; (b) no combined "X, Y &amp; Z" folder, no folder inside a category but Secrets / Puzzle Solvers, no
  *       folder holding a lone tab; (d) every tab of the menu before the change ({@code menu-layout-<variant>.json}) is
- *       in the menu exactly once, and nothing is new but the Correction Alarm section.</li>
+ *       in the menu exactly once, and nothing is new but the Correction Alarm section - except what the branches
+ *       merged with this one changed on purpose, listed with its commit in {@code menu-layout-merged.json}.</li>
  *   <li>512 cheat order: (c) in every category, folder and tab, every cheat-only entry comes after every legit one - the
  *       red cheat-only tabs after every orange tab, and inside a tab every red section header after every orange one,
  *       in the default layout AND with each toggle flipped (a cheat section behind a master switch only shows then).
@@ -46,7 +47,8 @@ import java.util.regex.Pattern;
  *       row the legit jar builds there, red header or not. A legit jar has no cheat-only tab and no red header at all,
  *       and no header with nothing under it. On the pre-change cheat jar (mod 6a61dfa8) it fails with 145 findings.</li>
  *   <li>513 tooltips: (e) every row with a tooltip before the change shows the same text now (the Crosshair rows under
- *       their new sub-tab name), and no scoped tooltip key in gui.SettingTooltipsData names a tab that no longer
+ *       their new sub-tab name) or exactly the text {@code menu-layout-merged.json} gives it, and no scoped tooltip key
+ *       in gui.SettingTooltipsData names a tab that no longer
  *       exists (a renamed sub-tab orphans its "name/label" keys silently).</li>
  *   <li>514 screenshots: every category's tab list at GUI 2 (1920x1080, Auto Scale off), every page of it, with the
  *       menu asserted on screen first.</li>
@@ -69,6 +71,12 @@ final class MenuLayoutCases {
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     private static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair");
     private static final Pattern COMBINED = Pattern.compile(".*(, | & ).*");
+    /**
+     * What the branches merged with this change (mod 3744aa32, 2026-10-08: chat-batch, inv-batch, modchat-party,
+     * cmd-shortcuts) changed on purpose, on top of the 6a61dfa8 fixtures: tabs removed and added, and tooltips
+     * changed, moved or removed, each with the commit that did it. 511 and 513 read it; a stale entry fails.
+     */
+    private static final String MERGED = "menu-layout-merged.json";
 
     private MenuLayoutCases() {
     }
@@ -162,9 +170,24 @@ final class MenuLayoutCases {
                 c.check(n.children().size() >= 2, "folder " + n.path() + " holds " + n.children().size() + " tab(s)");
             }
 
-            // (d) every tab exactly once, against the menu before the change.
+            // (d) every tab exactly once, against the menu before the change plus what the branches merged with it
+            // changed on purpose (menu-layout-merged.json: tabs those branches removed, tabs they added and where).
             JsonObject fixture = Deny.read("menu-layout-" + variant + ".json");
-            Set<String> before = fixture.getAsJsonObject("leaves").keySet();
+            JsonObject merged = Deny.read(MERGED);
+            JsonObject goneLeaves = merged.getAsJsonObject("goneLeaves");
+            JsonObject newLeaves = merged.getAsJsonObject("newLeaves");
+            Set<String> before = new TreeSet<>(fixture.getAsJsonObject("leaves").keySet());
+            int retired = 0;
+            for (String cls : goneLeaves.keySet()) {
+                if (before.remove(cls)) {
+                    retired++;
+                    c.check(!leaves.containsKey(cls), cls + " was removed by a merged branch ("
+                            + goneLeaves.get(cls).getAsString() + ") but is in the menu at " + leaves.get(cls));
+                    c.note("removed on purpose: " + cls + " - " + goneLeaves.get(cls).getAsString());
+                }
+            }
+            c.check(retired == goneLeaves.size(), "only " + retired + " of " + goneLeaves.size()
+                    + " goneLeaves were in the " + variant + " fixture - menu-layout-merged.json is stale");
             int kept = 0;
             for (String cls : before) {
                 List<String> at = leaves.get(cls);
@@ -184,9 +207,19 @@ final class MenuLayoutCases {
             for (Map.Entry<String, List<String>> e : leaves.entrySet()) {
                 if (!before.contains(e.getKey())) {
                     c.note("new tab " + e.getKey() + " at " + e.getValue());
-                    c.check(NEW_LEAVES.contains(e.getKey()), "unexpected new tab " + e.getKey() + " at " + e.getValue());
                     c.check(e.getValue().size() == 1, e.getKey() + " is in the menu " + e.getValue().size() + " times");
+                    if (newLeaves.has(e.getKey())) {
+                        String want = newLeaves.get(e.getKey()).getAsString();
+                        c.check(want.equals(e.getValue().get(0)), e.getKey() + " is at " + e.getValue().get(0)
+                                + ", a merged branch put it at " + want);
+                    } else {
+                        c.check(NEW_LEAVES.contains(e.getKey()), "unexpected new tab " + e.getKey() + " at " + e.getValue());
+                    }
                 }
+            }
+            for (String cls : newLeaves.keySet()) {
+                c.check(leaves.containsKey(cls), cls + " (added by a merged branch at "
+                        + newLeaves.get(cls).getAsString() + ") is not in the menu");
             }
             c.note("tabs from before the change found exactly once: " + kept + " of " + before.size());
             c.check(kept == before.size() && kept > 100, "only " + kept + " of " + before.size() + " tabs found once");
@@ -407,6 +440,14 @@ final class MenuLayoutCases {
                     gone.add(n);
                 }
             }
+            // Tooltips the merged branches changed on purpose: "owner\0key" -> {text, to?, why} or {gone}.
+            Map<String, JsonObject> intended = new LinkedHashMap<>();
+            for (JsonElement e : Deny.read(MERGED).getAsJsonArray("tooltips")) {
+                JsonObject o = e.getAsJsonObject();
+                intended.put(o.get("owner").getAsString() + "\0" + o.get("key").getAsString(), o);
+            }
+            Set<String> applicable = new LinkedHashSet<>();
+            Set<String> used = new HashSet<>();
             int compared = 0;
             int moved = 0;
             for (Map.Entry<String, JsonElement> o : fixture.getAsJsonObject("rows").entrySet()) {
@@ -420,7 +461,37 @@ final class MenuLayoutCases {
                     compared++;
                     Map<String, String> m = now.get(owner);
                     String got = m == null ? null : m.get(key);
+                    JsonObject change = intended.get(o.getKey() + "\0" + key);
+                    if (change != null) {
+                        applicable.add(o.getKey() + "\0" + key);
+                    }
                     if (was.equals(got)) {
+                        continue;
+                    }
+                    if (change != null) {
+                        used.add(o.getKey() + "\0" + key);
+                        if (change.has("gone")) {
+                            // Removed with its setting: its sub-tab no longer builds the row.
+                            if (got != null) {
+                                c.problem("'" + owner + "' row '" + key + "' was removed on purpose ("
+                                        + change.get("gone").getAsString() + ") but still shows \"" + got + "\"");
+                            } else {
+                                c.note("row '" + owner + "/" + key + "' removed on purpose: " + change.get("gone").getAsString());
+                            }
+                            continue;
+                        }
+                        String to = change.has("to") ? change.get("to").getAsString() : owner;
+                        String want = change.get("text").getAsString();
+                        Map<String, String> there = now.get(to);
+                        String gotThere = there == null ? null : there.get(key);
+                        if (want.equals(gotThere)) {
+                            c.note("row '" + owner + "/" + key + "' changed on purpose" + (to.equals(owner) ? "" : " (now in '"
+                                    + to + "')") + ": " + change.get("why").getAsString());
+                        } else {
+                            c.problem("tooltip for '" + owner + "' row '" + key + "' should now be (in '" + to + "') \""
+                                    + want + "\" (" + change.get("why").getAsString() + "), shows "
+                                    + (gotThere == null ? "none (row not built there)" : "\"" + gotThere + "\""));
+                        }
                         continue;
                     }
                     if (got == null && gone.contains(key)) {
@@ -447,6 +518,15 @@ final class MenuLayoutCases {
                             + (got == null ? "none (row not built there)" : "\"" + got + "\""));
                 }
             }
+            for (String k : applicable) {
+                if (!used.contains(k)) {
+                    c.problem("menu-layout-merged.json lists '" + k.replace('\0', '/') + "' as changed, but it shows the "
+                            + "fixture's text: the entry is stale");
+                }
+            }
+            c.note("intended tooltip changes from merged branches: " + used.size() + " of " + intended.size()
+                    + " listed (the rest are rows this variant never had)");
+            c.check(!used.isEmpty(), "no intended tooltip change applied - menu-layout-merged.json was not read");
             c.note("rows with a tooltip compared: " + compared + " (" + moved + " moved to another sub-tab)");
             c.check(compared > 500, "only " + compared + " tooltips compared - the walk is broken");
 
@@ -585,7 +665,7 @@ final class MenuLayoutCases {
      * tab tested (TestedFeatures' repo list, in memory only) so the normal menu is what is walked. A no-op otherwise.
      */
     @SuppressWarnings("unchecked")
-    private static AutoCloseable allTested(UiCase c) {
+    static AutoCloseable allTested(UiCase c) {
         if (JarIndex.peek(JarIndex.ROOT + "testing.TestedFeatures") == null) {
             return () -> { };
         }
