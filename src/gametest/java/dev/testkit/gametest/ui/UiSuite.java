@@ -58,6 +58,9 @@ import java.util.List;
  *                Line Width in screen pixels at GUI 2 and 3 (and old unit widths converted), one shared line between
  *                touching slots (chest, inventory, hotbar), the armour column against the model frame, the bar number
  *                centred to the pixel ({@link PolishCases})
+ *                511-514 killer560's 2026-10-07 menu layout report: Crosshair in General, no combined folders, every tab
+ *                once, cheat-only tabs and sections after every legit one, tooltips unchanged, screenshots at GUI 2
+ *                ({@link MenuLayoutCases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -88,6 +91,10 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-07 22:08 polish report ({@link PolishCases}); 472 is in the menu suite. Own block for merges. */
     static final String[] POLISH_CASES = {"471-ui-held-item-name", "473-ui-inventory-line-pixels",
             "474-ui-inventory-shared-lines", "475-ui-inventory-armour-model", "476-ui-bars-text-centred"};
+    /** killer560's 2026-10-07 menu layout report ({@link MenuLayoutCases}): structure, cheat order, tooltips, screenshots.
+     *  Own block for merges. */
+    static final String[] MENU_LAYOUT_CASES = {"511-ui-menu-layout", "512-ui-menu-cheat-order", "513-ui-menu-tooltips",
+            "514-ui-menu-shots"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -104,11 +111,14 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : POLISH_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : MENU_LAYOUT_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
-        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES);
+        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MENU_LAYOUT_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -197,6 +207,11 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "474-ui-inventory-shared-lines", PolishCases::sharedLines);
                     UiCase.run(ctx, "475-ui-inventory-armour-model", PolishCases::armourModel);
                     UiCase.run(ctx, "476-ui-bars-text-centred", PolishCases::barTextCentred);
+                    // ---- menu layout (511-514) ----
+                    UiCase.run(ctx, "511-ui-menu-layout", MenuLayoutCases::structure);
+                    UiCase.run(ctx, "512-ui-menu-cheat-order", c -> MenuLayoutCases.cheatOrder(c, deny));
+                    UiCase.run(ctx, "513-ui-menu-tooltips", c -> MenuLayoutCases.tooltips(c, deny));
+                    UiCase.run(ctx, "514-ui-menu-shots", MenuLayoutCases::screenshots);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

@@ -24,12 +24,14 @@ final class TabSweep {
      * Floors, the tab tree as ModScreen builds it, counting folders and leaves. Set at the measured value, so losing
      * even one tab fails - a floor a broken menu can clear is not one. Re-measured on mod aa09fd82 (mining shelved until
      * after 2.0, which took the Mining (WIP) folder and its four sections out): cheat 173, legit 138. Then on mod
-     * 1a64e3dd (New category gone; Social, Items and two Dungeon folders added): cheat 176, legit 141.
+     * 1a64e3dd (New category gone; Social, Items and two Dungeon folders added): cheat 176, legit 141. Then on mod
+     * menu-layout (killer560's 2026-10-07 layout report: the two Dungeon folders dissolved, Crosshair moved into General,
+     * Home's cheat Correction Alarm its own section): cheat 175, legit 139.
      */
-    static final int CHEAT_TAB_FLOOR = 176;
-    static final int LEGIT_TAB_FLOOR = 141;
-    /** Leaf tabs alone on the same build (cheat 162, legit 128), for testing jars - see tabs(). */
-    static final int CHEAT_LEAF_FLOOR = 162;
+    static final int CHEAT_TAB_FLOOR = 175;
+    static final int LEGIT_TAB_FLOOR = 139;
+    /** Leaf tabs alone on the same build (cheat 163, legit 128), for testing jars - see tabs(). */
+    static final int CHEAT_LEAF_FLOOR = 163;
     static final int LEGIT_LEAF_FLOOR = 128;
 
     /** A two-state toggle as the mod labels them: "Name: ON" / "Name: OFF" (section signs stripped). */
