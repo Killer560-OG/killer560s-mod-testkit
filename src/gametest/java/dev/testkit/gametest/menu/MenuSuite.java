@@ -34,6 +34,10 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *   <li>481-489 the unified Bazaar screen: render at six sizes, recents, tabs and search, the three-button bottom bar,
  *       HUDs hidden, seamless page switches (frame log), product clicks with and without a Booster Cookie, the follow-up
  *       click's rules, themes ({@link BazaarV3Cases})</li>
+ *   <li>591-596 social: Best Friends' Sort/filter labels inside their buttons at six sizes, compact and to-the-second
+ *       times counting up live, party time against two minutes of wall clock across a save/reload; the Friends List
+ *       tab's removed lines, "Syncing... page X/Y" while a 3-page /fl walks, the status line clear of the list
+ *       ({@link SocialCases})</li>
  * </ul>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -94,6 +98,8 @@ public class MenuSuite implements FabricClientGameTest {
                     // 491-499: the unified Auction House (API browser + reskinned real AH menus).
                     AuctionHouseCases.register(s);
                     BazaarV3Cases.register(s);
+                    // ---- 591-596 social (Best Friends, Friends List), killer560 2026-10-08 ----
+                    SocialCases.register(s);
                 });
     }
 }
