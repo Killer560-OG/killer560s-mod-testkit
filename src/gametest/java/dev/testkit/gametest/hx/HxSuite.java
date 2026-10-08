@@ -43,6 +43,8 @@ public class HxSuite implements FabricClientGameTest {
                     // deliberately pollutes party state.
                     HxModChatPartyCases.register(s);
                     HxHostileCases.register(s);
+                    // Command Shortcuts' custom rows (544), own block.
+                    HxCmdShortcutsCases.register(s);
                 });
     }
 }

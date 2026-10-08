@@ -60,6 +60,10 @@ import java.util.List;
  *                581-587 killer560's 2026-10-08 inventory batch: Item Protect's star (pixels) and Slot Lock's removal +
  *                migration, the Inventory Sorter's layouts menu by real input, Custom Items by real clicks, the Cosmetics
  *                category ({@link InvBatchCases})
+ *                541-545 Command Shortcuts: built-in rows show only name + ON/OFF (no text beside or under them, no
+ *                overlap, expansions in the tooltip), the Custom section's add/edit/rename/off/delete through the tab
+ *                with live registration and reload, refused names, and the 306 sweep with custom roots present
+ *                ({@link CmdShortcutsCases}; 544 sends, in the Hx session)
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -103,6 +107,9 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-08 inventory batch ({@link InvBatchCases}); 583/585 are in the menu suite. Own block for merges. */
     static final String[] INV_BATCH_CASES = {"581-ui-itemprotect-star", "582-ui-slotlock-migration",
             "584-ui-invsort-editor", "586-ui-custom-items", "587-ui-cosmetics-category"};
+    /** killer560's 2026-10-07 Command Shortcuts requests ({@link CmdShortcutsCases}); 544 is in the Hx session. Own block. */
+    static final String[] CMD_SHORTCUTS_CASES = {"541-ui-cmd-shortcuts-builtin-rows", "542-ui-cmd-shortcuts-custom-edit",
+            "543-ui-cmd-shortcuts-refused-names", "545-ui-cmd-shortcuts-sweep"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -134,11 +141,15 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : INV_BATCH_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : CMD_SHORTCUTS_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
-        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES) || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES);
+        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES) || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES)
+                || any(CMD_SHORTCUTS_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -244,6 +255,11 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "584-ui-invsort-editor", InvBatchCases::invsortEditor);
                     UiCase.run(ctx, "586-ui-custom-items", InvBatchCases::customItems);
                     UiCase.run(ctx, "587-ui-cosmetics-category", InvBatchCases::cosmeticsCategory);
+                    // ---- command shortcuts (541-545) ----
+                    UiCase.run(ctx, "541-ui-cmd-shortcuts-builtin-rows", CmdShortcutsCases::builtinRows);
+                    UiCase.run(ctx, "542-ui-cmd-shortcuts-custom-edit", CmdShortcutsCases::customEdit);
+                    UiCase.run(ctx, "543-ui-cmd-shortcuts-refused-names", CmdShortcutsCases::refusals);
+                    UiCase.run(ctx, "545-ui-cmd-shortcuts-sweep", c -> CmdShortcutsCases.sweepWithCustoms(c, deny));
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
