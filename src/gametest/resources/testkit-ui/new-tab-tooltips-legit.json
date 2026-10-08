@@ -318,7 +318,7 @@
       "darken unexplored": "How much dimmer rooms you have not opened are drawn, 0 to 0.9.",
       "dungeon map": "Draws the real dungeon map as a HUD overlay, showing only what your hotbar map has revealed.",
       "entrance": "",
-      "extra info overlay": "Shows score, secrets for S+, crypts, deaths and bonus kills under the Dungeon Map. Works with Score Calculator off.",
+      "extra info overlay": "Shows two rows under the Dungeon Map: score, secrets for S+ and crypts, then deaths and the bonus kills - M Mimic, P Prince, B Murkbat bat. Works with Score Calculator off.",
       "fairy": "",
       "font scale": "Size of the text drawn on the Interactive Map, 0.5x to 3x.",
       "funny map": "Placeholder: saved, but does nothing yet (needs map pixel data first).",
@@ -383,7 +383,7 @@
       "/fl passes straight through to hypixel. use /flcustom for ours.": "",
       "0 friends on your list.": "",
       "open friends list (/flcustom)": "",
-      "use our /fl": "Makes /fl open this mod's Friends List instead of Hypixel's; /flhypixel still opens Hypixel's."
+      "use our /fl": "Makes /fl open this mod's Friends List instead of Hypixel's. /flcustom always opens ours and /flhypixel always opens Hypixel's."
     },
     "Held Item Transform": {
       "held item transform": "Resizes, moves and rotates your held item in first person."

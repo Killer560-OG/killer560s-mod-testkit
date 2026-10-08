@@ -22,9 +22,9 @@
       "line": 103
     },
     "mustNotMatch": [
-      "scorecalc.ScoreCalculatorFeature#PRINCE_KILLED",
-      "interop.SelfDerivation#PRINCE_KILLED"
+      "scorecalc.ScoreCalculatorFeature#PRINCE_KILLED"
     ],
+    "notes": "interop.SelfDerivation matches this line with ScoreCalculatorFeature#PRINCE_KILLED itself since mod map-info-bat (it had its own copy).",
     "mode": "matches",
     "verifiedBy": "regex"
   },

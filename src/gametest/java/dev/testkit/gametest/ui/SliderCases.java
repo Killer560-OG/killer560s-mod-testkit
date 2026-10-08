@@ -404,6 +404,19 @@ final class SliderCases {
                 c.check(seen, "the sweep never laid out '" + p[1] + "' on the " + p[0] + " tab");
             }
         }
+        // Wither Doors' Fairy Door rows (mod fairy-door, 2026-10-07): cheat jar only, under the tab's Cheat Build header,
+        // each with its "wither doors/..." tooltip. Own block for merges; 531-538 test what the option draws.
+        if (Mod.has("witherdoors.FairyDoor")) {
+            for (String want : new String[]{"Fairy Door:", "Fairy Door Color"}) {
+                boolean seen = SEEN.stream().filter(x -> x.contains("|" + want))
+                        .anyMatch(x -> x.substring(0, x.indexOf('|')).contains("Wither Doors"));
+                c.note("swept " + want + " on Wither Doors: " + seen + " (" + (Mod.isCheat() ? "cheat" : "legit") + " jar)");
+                c.check(seen == Mod.isCheat(), (Mod.isCheat() ? "cheat jar: the sweep never laid out '"
+                        : "legit jar: the sweep laid out '") + want + "' on the Wither Doors tab");
+                Object tip = Mod.staticCall("gui.SettingTooltips", "describe", "Wither Doors", want);
+                c.check(tip != null && !tip.toString().isBlank(), "no wither doors/ tooltip for '" + want + "'");
+            }
+        }
         boolean hasHeads = false;
         for (java.lang.reflect.Method m : Mod.cfg("livemap.LiveMapConfig").getClass().getMethods()) {
             hasHeads |= m.getName().equals("setPlayerHeads");

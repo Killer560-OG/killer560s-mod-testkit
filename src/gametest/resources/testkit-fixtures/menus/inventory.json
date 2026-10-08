@@ -98,10 +98,10 @@
     },
     "source": {
       "file": "src/main/java/com/killer560/hub/loadoutkeybinds/LoadoutKeybindsFeature.java",
-      "line": 24
+      "line": 25
     },
     "verifiedBy": "regex",
-    "notes": "LOADOUT_TITLE (:24); loadout slots 14,15,16,23,... (:25-30), next page 44 / previous 17 (:58, :63)."
+    "notes": "LOADOUT_TITLE (:25); loadout slots 14,15,16,23,... (:26-31), next page 44 / previous 17 (:71, :76)."
   },
   {
     "id": "menus.chocolate-factory",
