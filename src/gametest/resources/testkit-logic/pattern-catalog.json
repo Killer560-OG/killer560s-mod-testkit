@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-08T01:51:54",
+ "generatedAt": "2026-10-08T02:35:58",
  "modSource": "dungeon-fixes",
- "modGitSha": "be6452a641fd85bba6368df8d00b2307796d9779",
+ "modGitSha": "cff1389cb147898dfd5ed2577b0c89ab29298caf",
  "modSourceDirty": true,
  "count": 452,
  "byKind": {
@@ -5395,7 +5395,7 @@
    "field": "PICKUP",
    "index": null,
    "file": "src/main/java/com/killer560/hub/witherdragons/KingRelicsFeature.java",
-   "line": 74,
+   "line": 72,
    "regex": "^(\\w{3,16}) picked the Corrupted (\\w{3,6}) Relic!$",
    "flags": null,
    "kind": "field",
