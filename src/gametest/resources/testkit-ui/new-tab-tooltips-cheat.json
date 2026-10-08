@@ -569,7 +569,7 @@
       "/fl passes straight through to hypixel. use /flcustom for ours.": "",
       "0 friends on your list.": "",
       "open friends list (/flcustom)": "",
-      "use our /fl": "Makes /fl open this mod's Friends List instead of Hypixel's; /flhypixel still opens Hypixel's."
+      "use our /fl": "Makes /fl open this mod's Friends List instead of Hypixel's. /flcustom always opens ours and /flhypixel always opens Hypixel's."
     },
     "Goldor Triggerbot": {
       "goldor triggerbot": "Cheat build: in F7/M7 P3, clicks Goldor while your crosshair is on him."

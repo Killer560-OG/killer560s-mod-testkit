@@ -383,7 +383,7 @@
       "/fl passes straight through to hypixel. use /flcustom for ours.": "",
       "0 friends on your list.": "",
       "open friends list (/flcustom)": "",
-      "use our /fl": "Makes /fl open this mod's Friends List instead of Hypixel's; /flhypixel still opens Hypixel's."
+      "use our /fl": "Makes /fl open this mod's Friends List instead of Hypixel's. /flcustom always opens ours and /flhypixel always opens Hypixel's."
     },
     "Held Item Transform": {
       "held item transform": "Resizes, moves and rotates your held item in first person."
