@@ -7,7 +7,7 @@
     {"class": "ap3.Ap3ConfigScreen", "args": ["null"], "source": "ap3/Ap3ConfigScreen.java"},
     {"class": "ap3.Ap3EditScreen", "args": ["null", "int:0"], "source": "ap3/Ap3EditScreen.java:65 (index 0 with no nodes: node() returns null, line 74)"},
     {"class": "accounts.gui.AccountSwitcherScreen", "args": ["null"], "source": "accounts/gui/AccountSwitcherScreen.java (reads the empty Prism accounts fixture)"},
-    {"class": "auction.screen.BazaarScreen", "args": ["null"], "source": "auction/screen/BazaarScreen.java (offline: no data)"},
+    {"class": "bazaar.BazaarScreen", "args": ["null"], "source": "bazaar/BazaarScreen.java (offline: no data)"},
     {"class": "auction.screen.AuctionHouseScreen", "args": ["null"], "source": "auction/screen/AuctionHouseScreen.java (offline: no data)"},
     {"class": "croesus.CroesusTrackerScreen", "args": ["null", "enum:*"], "source": "croesus/CroesusTrackerScreen.java:36 View"},
     {"class": "gui.profit.ProfitHubScreen", "args": ["null"], "source": "gui/profit/ProfitHubScreen.java (/profit)"},
