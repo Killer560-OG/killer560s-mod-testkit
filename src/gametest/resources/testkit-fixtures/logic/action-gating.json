@@ -94,7 +94,9 @@
     ],
     "mode": "matches",
     "verifiedBy": "regex",
-    "notes": "All-chat (lobby) shape with a Skyblock level from AutoMeowFeature's comment: a stranger's line must not be taken for party, guild, DM or co-op chat."
+    "sender": "Killer560",
+    "senderGroup": 1,
+    "notes": "All-chat (lobby) shape with a Skyblock level from AutoMeowFeature's comment: a stranger's line must not be taken for party, guild, DM or co-op chat. ALL_REGEX (Party Commands' all-chat intake) matches it with the sender in group 1, so a quoted all-chat line is attributed to whoever quoted it."
   },
   {
     "id": "logic.puzzle-fail",
