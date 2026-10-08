@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-08T01:51:03",
- "modSource": "killer560s-mod",
- "modGitSha": "3a4b09171d65764264efe8a548cc144e54663559",
+ "generatedAt": "2026-10-08T02:17:20",
+ "modSource": "menu-layout",
+ "modGitSha": "b840e5ab27fe4fbb1de2444cb8caeefd8f96c511",
  "modSourceDirty": false,
  "count": 451,
  "byKind": {
@@ -4939,7 +4939,7 @@
    "field": "VALID_NAME",
    "index": null,
    "file": "src/main/java/com/killer560/hub/social/FriendsListSync.java",
-   "line": 380,
+   "line": 391,
    "regex": "^[A-Za-z0-9_]{1,16}$",
    "flags": null,
    "kind": "field",
