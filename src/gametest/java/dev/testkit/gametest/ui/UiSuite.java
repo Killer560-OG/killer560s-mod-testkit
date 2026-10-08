@@ -43,7 +43,10 @@ import java.util.List;
  *                Hidden, Custom positions untouched, old configs stay Custom ({@link StatBarsLayoutCases}),
  *                424 Bazaar browser: every product parsed, six views at four window/GUI scales with no text or widget
  *                overlapping or leaving its box, the /bz button's command, screenshots at GUI 2 and 4; 425 every
- *                Bazaar product's icon source and the paper fallbacks named ({@link BazaarBrowserCases})
+ *                Bazaar product's icon source and the paper fallbacks named ({@link BazaarBrowserCases}),
+ *                427-432 Pack Disabler: models through vanilla's resolver ON/OFF, the pack push left to vanilla, the
+ *                missing-texture command, a chest at GUI 2, a player's resource pack beating both vanilla-look and our
+ *                textures, Bazaar icons from the same table ({@link PackDisablerCases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -64,7 +67,9 @@ public class UiSuite implements FabricClientGameTest {
             "399-ui-hud-editor-resize", "399-ui-hud-editor-snap",
             "399-ui-stat-bars-vitality-xp", "407-ui-stat-bars-layout", "401-ui-scoreboard-editor",
             "411-ui-mining-shelved", "412-ui-no-new-tab", "413-ui-testing-variant",
-            "424-ui-bazaar-browser", "425-ui-bazaar-icons"};
+            "424-ui-bazaar-browser", "425-ui-bazaar-icons", "427-ui-pack-disabler-models",
+            "428-ui-pack-disabler-pack-push", "429-ui-pack-disabler-missing", "430-ui-pack-disabler-screens",
+            "431-ui-pack-disabler-user-pack", "432-ui-pack-disabler-bazaar"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -148,6 +153,12 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "413-ui-testing-variant", TestingVariantCases::run);
                     UiCase.run(ctx, "424-ui-bazaar-browser", BazaarBrowserCases::browser);
                     UiCase.run(ctx, "425-ui-bazaar-icons", BazaarBrowserCases::icons);
+                    UiCase.run(ctx, "427-ui-pack-disabler-models", PackDisablerCases::models);
+                    UiCase.run(ctx, "428-ui-pack-disabler-pack-push", PackDisablerCases::packPush);
+                    UiCase.run(ctx, "429-ui-pack-disabler-missing", PackDisablerCases::missing);
+                    UiCase.run(ctx, "430-ui-pack-disabler-screens", PackDisablerCases::screens);
+                    UiCase.run(ctx, "431-ui-pack-disabler-user-pack", PackDisablerCases::userPack);
+                    UiCase.run(ctx, "432-ui-pack-disabler-bazaar", PackDisablerCases::bazaar);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

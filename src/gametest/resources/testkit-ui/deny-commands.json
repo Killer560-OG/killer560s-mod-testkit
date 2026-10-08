@@ -16,6 +16,7 @@
     {"input": "bestfriends", "expect": "screen:social.BestFriendsScreen", "source": "social/BestFriendsCommands.java:18"},
     {"input": "autosell list", "expect": "ok", "source": "autosell/AutoSellCommands.java:46 (prints to chat)"},
     {"input": "invsort list", "expect": "ok", "source": "invsort/InventorySorterCommands.java:69 (prints to chat)"},
+    {"input": "k560textures missing", "expect": "ok", "source": "packdisabler/PackDisabler.java (dev tools only: chats the list, writes config/killer560/interface/packdisabler/killer560smod-packdisabler-missing.txt; 429 checks the file)"},
     {"input": "breakeraura config list", "expect": "ok", "source": "dungeonextras/BreakerAuraCommands.java:82 (prints to chat; list is under config)"},
     {"input": "k560search", "expect": "ok","source": "storagesearch/StorageSearchFeature.java:110 (opens Storage Search only when its setting is on; otherwise a chat line)"}
   ],

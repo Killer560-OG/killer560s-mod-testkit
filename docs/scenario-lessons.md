@@ -349,3 +349,13 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   pixel work. 425 counts `BazaarIcons` sources (no Hypixel pack in a test client: 47 paper fallbacks on 2026-10-07).
   426 shows Hypixel's Manage Orders (`menus.bazaar-orders`, formats from SkyHanni/Skyblocker, not a live capture) and
   waits for the mod's TICK reader to store the orders; it also requires zero container clicks.
+- 427-432-ui-pack-disabler (`PackDisablerCases`, mod pack-disabler): judge an item's look by what vanilla's own
+  `ItemModelResolver.updateForTopItem` puts in an `ItemStackRenderState` - `pickParticleMaterial(...).sprite()
+  .contents().name()` for the texture, and for a head the layer's private `argumentForSpecialRendering` (a
+  `PlayerSkinRenderCache$RenderInfo`) for the skin hash. A test client has no Hypixel pack, so a Hypixel model reads
+  `minecraft:missingno`: that is the "unchanged" control for OFF. To prove a player's resource pack wins, write a pack
+  into `getResourcePackDirectory()` with solid magenta/green PNGs (same int in ARGB and ABGR) and read the sprite's
+  `originalImage` pixels after `reloadResourcePacks()`; its pack.mcmeta format comes from the client's own version.json.
+  428 sends the pack push through `handleResourcePackPush` on the render thread (no ServerData in singleplayer, so
+  vanilla shows `PackConfirmScreen`), not over a socket. A new mod command root must go in deny-commands.json or 306
+  fails; a new config class missing from `ProfileManager.reloadAllConfigs` fails 320 (both caught here, 2026-10-07).

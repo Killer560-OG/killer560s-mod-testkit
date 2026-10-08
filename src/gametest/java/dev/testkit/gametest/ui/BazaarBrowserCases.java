@@ -375,8 +375,8 @@ final class BazaarBrowserCases {
         c.note("icons for " + ids.size() + " products by source: " + bySource);
         c.note("still the paper fallback (" + fallbacks.size() + "): " + String.join(", ", fallbacks));
         c.check(ids.size() > 2000, "bundled table has " + ids.size() + " products");
-        c.check(fallbacks.size() <= 60, fallbacks.size() + " products still fall back to paper (expected 47 without "
-                + "Hypixel's pack)");
+        c.check(fallbacks.size() <= 60, fallbacks.size() + " products still fall back to paper (47 before the shared "
+                + "item table and Pack Disabler's own textures, 0 since)");
         for (String id : HIS_PAPER) {
             String src = c.onClient(mc -> String.valueOf(Mod.staticCall("auction.BazaarIcons", "source", id)));
             String item = c.onClient(mc -> {
