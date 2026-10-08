@@ -359,3 +359,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   428 sends the pack push through `handleResourcePackPush` on the render thread (no ServerData in singleplayer, so
   vanilla shows `PackConfirmScreen`), not over a socket. A new mod command root must go in deny-commands.json or 306
   fails; a new config class missing from `ProfileManager.reloadAllConfigs` fails 320 (both caught here, 2026-10-07).
+- 441-447 (`HudFixCases`, mod hud-fixes): killer560's 2026-10-07 HUD report, each measured on a GUI-2/4 screenshot or the
+  element's own text runs, with Auto Scale off so a unit is exactly guiScale px. With a screen open, judge "behind the
+  screen" by the bar's RAW colour beside the panel (0 px) and by the ON/OFF diff under it, not by "changed" alone: a bar on
+  Fabric's addLast layer is drawn past the dim (vanilla defers SUBTITLES and what follows into extractBackground) and still
+  reads "changed". The survival inventory's player model idles between frames (~350 px of diff elsewhere), and the vanilla
+  vignette shifts a HUD colour by 1-2 levels in survival, so exact-colour boxes are for creative frames. Map Extra Info
+  text is read inside its opaque panel only: the map's player arrow and a wandering mob beside it changed between frames.
+  446 injects a finished F7 run into `SplitTimersFeature.run` and sets `SplitLagClock.pingClockSeen`.

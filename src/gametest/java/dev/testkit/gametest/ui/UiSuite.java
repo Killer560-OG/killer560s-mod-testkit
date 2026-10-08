@@ -50,6 +50,10 @@ import java.util.List;
  *                451-454 Inventory Theme on the hotbar (vanilla overlays kept, line width, colours, scale), its
  *                settings round trip, the Storage Overlay centred at six window/GUI sizes, and the Amber / Dark /
  *                Light themes measured on screenshots ({@link InvStorageCases})
+ *                441-447 killer560's 2026-10-07 HUD report: Health and Mana Bars behind an open inventory, the
+ *                absorption segment and Hypixel's gold health text, one scale in Predefined, room round a bar's number
+ *                at GUI 2 and 4, the map's Extra Info text size and the Split Timers kept off the map, "Total: X (Y)",
+ *                the dungeon board's Solo/Keys lines and the quiet unknown-line notice ({@link HudFixCases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -74,7 +78,9 @@ public class UiSuite implements FabricClientGameTest {
             "428-ui-pack-disabler-pack-push", "429-ui-pack-disabler-missing", "430-ui-pack-disabler-screens",
             "431-ui-pack-disabler-user-pack", "432-ui-pack-disabler-bazaar",
             "451-ui-hotbar-theme", "452-ui-inventory-theme-settings", "453-ui-storage-overlay-centre",
-            "454-ui-storage-overlay-themes"};
+            "454-ui-storage-overlay-themes",
+            "441-ui-bars-under-screens", "442-ui-bars-absorption", "443-ui-bars-predefined-scale", "444-ui-bars-padding",
+            "445-ui-map-info", "446-ui-split-format", "447-ui-scoreboard-solo"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -168,6 +174,13 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "452-ui-inventory-theme-settings", InvStorageCases::settings);
                     UiCase.run(ctx, "453-ui-storage-overlay-centre", InvStorageCases::storageCentre);
                     UiCase.run(ctx, "454-ui-storage-overlay-themes", InvStorageCases::storageThemes);
+                    UiCase.run(ctx, "441-ui-bars-under-screens", HudFixCases::underScreens);
+                    UiCase.run(ctx, "442-ui-bars-absorption", HudFixCases::absorption);
+                    UiCase.run(ctx, "443-ui-bars-predefined-scale", HudFixCases::predefinedScale);
+                    UiCase.run(ctx, "444-ui-bars-padding", HudFixCases::padding);
+                    UiCase.run(ctx, "445-ui-map-info", HudFixCases::mapInfo);
+                    UiCase.run(ctx, "446-ui-split-format", HudFixCases::splitFormat);
+                    UiCase.run(ctx, "447-ui-scoreboard-solo", HudFixCases::scoreboardSolo);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
