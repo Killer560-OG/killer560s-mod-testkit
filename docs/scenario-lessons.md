@@ -375,3 +375,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   in its loading state by opening a container with NO items (the reskin never settles an all-empty menu), which is the
   only way to screenshot the carried/opening frame: a real page settles in ~110 ms. Browser listings sit in rows 1-4 x
   columns 2-7, so the first listing is slot 11, not 10.
+- 531-538 sim-fairy-door (Wither Doors' Fairy Door): a no-draw frame must be taken at the SAME moment as the frame it is
+  compared with. 535 first diffed against 533's older off frame, whose chat lines had since faded and uncovered the Fairy
+  room's own pink: 128 "magenta" pixels with nothing drawn (2026-10-08). Each comparison now takes its own off frame.
+  When the room after Fairy is the one the Blood door opens from, the mod says "already at the blood door", not "avoids".

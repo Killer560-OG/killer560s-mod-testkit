@@ -191,7 +191,11 @@ public class SimFairyDoorTests implements FabricClientGameTest {
         Scenario.awaitSimBuild(ctx, before);
         String beforeDetail = noLayoutTicks + " tick(s) with the Fairy Door ticking and no rooms on the layout, "
                 + violations + " with a door or a box; statuses seen " + statuses;
-        if (noLayoutTicks == 0) {
+        if (!cheat) {
+            // Legit jar: the Fairy Door is cheat-only, so it must never have ticked at all.
+            row(R_BEFORE, noLayoutTicks == 0 && violations == 0 && statuses.equals(java.util.Set.of("idle")),
+                    "legit jar: " + beforeDetail);
+        } else if (noLayoutTicks == 0) {
             row(R_BEFORE, false, "premise: the Fairy Door never ticked before the layout existed - " + beforeDetail);
         } else {
             row(R_BEFORE, violations == 0, beforeDetail + (firstViolation == null ? "" : "; first " + firstViolation));
@@ -266,7 +270,9 @@ public class SimFairyDoorTests implements FabricClientGameTest {
         ctx.waitTicks(30);
         int doorBack = ctx.computeOnClient(mc -> fairyDoor());
         if (cheat) {
-            row(R_AVOIDS, doorAfter == -1 && boxAfter == null && statusAfter.contains("avoids") && doorBack == f.entryDoor,
+            // "already at the blood door" when the room after Fairy is the one the Blood door opens from.
+            boolean noFairy = statusAfter.contains("avoids") || statusAfter.contains("already at the blood door");
+            row(R_AVOIDS, doorAfter == -1 && boxAfter == null && noFairy && doorBack == f.entryDoor,
                     "in " + f.afterRoomName + ": door " + doorAfter + ", status '" + statusAfter + "', box " + fmt(boxAfter)
                             + "; back before Fairy: door " + doorBack);
         } else {
@@ -290,7 +296,13 @@ public class SimFairyDoorTests implements FabricClientGameTest {
         double[] boxMate = ctx.computeOnClient(mc -> fairyBox(f));
         ctx.waitTicks(15);
         Path mateShot = shot(ctx, "teammate-entered");
-        int[] pxMate = magenta(mateShot, off);
+        // Against a Fairy-Door-off frame of this same moment: an older one differed by chat lines that had faded since,
+        // uncovering the Fairy room's own pink behind them (128 px on the first merged run).
+        setFairyDoor(ctx, false);
+        ctx.waitTicks(15);
+        Path mateOff = shot(ctx, "teammate-entered-off");
+        setFairyDoor(ctx, true);
+        int[] pxMate = magenta(mateShot, mateOff);
         if (cheat) {
             row(R_MATE, !clearedByNeighbour && doorWithNeighbour == f.entryDoor && mateCleared
                             && mateStatus.contains(MATE_NAME) && boxMate == null && pxMate[0] < 30,
