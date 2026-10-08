@@ -89,6 +89,8 @@ public class UiSuite implements FabricClientGameTest {
             "474-ui-inventory-shared-lines", "475-ui-inventory-armour-model", "476-ui-bars-text-centred"};
     /** Map Extra Info in two rows with M/P/B (mod map-info-bat, {@link MapInfoBatCases}). Own block for merges. */
     static final String[] MAPINFO_CASES = {"524-ui-map-info-rows"};
+    /** Player Heads turned to the heading, arrow mode unchanged (mod map-heads, {@link MapHeadTurnCases}). Own block. */
+    static final String[] MAPHEAD_CASES = {"600-ui-map-head-turn", "601-ui-map-arrow-turn"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -108,11 +110,14 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : MAPINFO_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : MAPHEAD_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
-        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES);
+        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(MAPHEAD_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -202,6 +207,9 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "476-ui-bars-text-centred", PolishCases::barTextCentred);
                     // ---- map info rows (524) ----
                     UiCase.run(ctx, "524-ui-map-info-rows", MapInfoBatCases::rows);
+                    // ---- map head turn (600-601) ----
+                    UiCase.run(ctx, "600-ui-map-head-turn", MapHeadTurnCases::heads);
+                    UiCase.run(ctx, "601-ui-map-arrow-turn", MapHeadTurnCases::arrows);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

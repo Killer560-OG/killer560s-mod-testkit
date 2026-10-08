@@ -42,33 +42,34 @@ import java.util.UUID;
  *
  * <p>Every frame is diffed against a no-marker frame of the same map (him placed where his marker lands outside the
  * map's frame, teammates hidden); a pixel counts above a summed RGB delta of 30. The changed pixels inside the frame
- * fall into one cluster per marker. A HEAD is proven by finding, in the cluster, an 8x8 grid whose cell centres match
+ * fall into one cluster per marker. A HEAD is proven by finding, in the cluster, an 8x8 grid (at any turn, since mod
+ * map-heads 2026-10-08 turns the head to the heading: {@link #findRotated}) whose cell centres match
  * that player's skin face (face layer with the hat layer over it, read from the skin texture the client holds for
  * them) on at least 56 of 64 cells. An arrow's OUTLINE is measured on its boundary pixels (cluster pixels touching an
  * unchanged map pixel): the share that are the outline colour, and the WCAG contrast of the boundary against the room.
  */
 final class MapHeadCases {
 
-    private static final String CFG = "livemap.LiveMapConfig";
-    private static final int GREEN_ROOM = 0xFF00FF00;
-    private static final int BROWN_ROOM = 0xFF724318;
-    private static final int SELF_GREEN = 0x55FF55;
-    private static final double START = -185;
-    private static final double FLY_Y = 100;
-    private static final float SELF_YAW = 30f;
-    private static final float HEAD_YAW = 90f;
-    private static final float ARROW_YAW = 180f;
-    private static final UUID HEAD_ID = UUID.fromString("5f1c0a2e-3b4d-4c6e-8f10-395000000001");
-    private static final UUID ARROW_ID = UUID.fromString("5f1c0a2e-3b4d-4c6e-8f10-395000000002");
-    private static final String HEAD_NAME = "MapHeadMate";
-    private static final String ARROW_NAME = "MapArrowMate";
-    private static final int HEAD_ENTITY = -395001;
-    private static final int ARROW_ENTITY = -395002;
+    static final String CFG = "livemap.LiveMapConfig";
+    static final int GREEN_ROOM = 0xFF00FF00;
+    static final int BROWN_ROOM = 0xFF724318;
+    static final int SELF_GREEN = 0x55FF55;
+    static final double START = -185;
+    static final double FLY_Y = 100;
+    static final float SELF_YAW = 30f;
+    static final float HEAD_YAW = 90f;
+    static final float ARROW_YAW = 180f;
+    static final UUID HEAD_ID = UUID.fromString("5f1c0a2e-3b4d-4c6e-8f10-395000000001");
+    static final UUID ARROW_ID = UUID.fromString("5f1c0a2e-3b4d-4c6e-8f10-395000000002");
+    static final String HEAD_NAME = "MapHeadMate";
+    static final String ARROW_NAME = "MapArrowMate";
+    static final int HEAD_ENTITY = -395001;
+    static final int ARROW_ENTITY = -395002;
     /** Cells of 64 that must match the skin's face for a head to count as drawn. */
-    private static final int FACE_CELLS = 56;
+    static final int FACE_CELLS = 56;
     /** Boundary share in the outline colour, and contrast against the room, an outlined marker must reach. */
-    private static final double MIN_COVERAGE = 0.85;
-    private static final double MIN_CONTRAST = 4.5;
+    static final double MIN_COVERAGE = 0.85;
+    static final double MIN_CONTRAST = 4.5;
 
     private MapHeadCases() {
     }
@@ -151,7 +152,7 @@ final class MapHeadCases {
                 for (int i = 0; i < 3; i++) {
                     int[] want = i == 0 ? selfFace : i == 1 ? headFace : null;
                     if (want != null) {
-                        Face f = findFace(greenOff.img, offM[i], want);
+                        RotFace f = findRotated(greenOff.img, offM[i], want);
                         if (f.score >= FACE_CELLS) {
                             c.problem("heads OFF but marker " + i + " draws a face (" + f.score + "/64)");
                         }
@@ -165,11 +166,13 @@ final class MapHeadCases {
                 requireOutline(c, "a teammate's arrow on the green room", bo, true);
             }
 
-            // Heads on: his face, MapHeadMate's face, MapArrowMate still an arrow; heading ticks point the right way.
+            // Heads on: his face, MapHeadMate's face, each TURNED so the top of the head is the heading (mod map-heads
+            // 2026-10-08, "it should just rotate their head ... with the top of their head being their facing
+            // direction"; before, an upright face with a heading tick); MapArrowMate still an arrow.
             if (onM != null) {
-                Face fs = findFace(greenOn.img, onM[0], selfFace);
-                Face fh = findFace(greenOn.img, onM[1], headFace);
-                Face fa = findFace(greenOn.img, onM[2], headFace);
+                RotFace fs = findRotated(greenOn.img, onM[0], selfFace);
+                RotFace fh = findRotated(greenOn.img, onM[1], headFace);
+                RotFace fa = findRotated(greenOn.img, onM[2], headFace);
                 c.note("heads on: his face " + fs + "; MapHeadMate's face " + fh + "; MapArrowMate (no skin) best "
                         + fa.score + "/64");
                 if (fs.score < FACE_CELLS) {
@@ -186,10 +189,10 @@ final class MapHeadCases {
                             + onM[2].size() + " px, " + ao + ")");
                 }
                 if (fs.score >= FACE_CELLS) {
-                    tick(c, "his", greenOn.img, onM[0], fs, SELF_GREEN, SELF_YAW);
+                    headTurn(c, "his", fs, onM[0], SELF_YAW);
                 }
                 if (fh.score >= FACE_CELLS) {
-                    tick(c, "MapHeadMate's", greenOn.img, onM[1], fh, 0xFFFFFF, HEAD_YAW);
+                    headTurn(c, "MapHeadMate's", fh, onM[1], HEAD_YAW);
                 }
             }
 
@@ -285,11 +288,11 @@ final class MapHeadCases {
     // ---- scene ------------------------------------------------------------------------------------------------
 
     /** World x/z of map room slot (col, row): {@code LiveMapFeature.START_X} plus 32 a slot. */
-    private static double[] room(int col, int row) {
+    static double[] room(int col, int row) {
         return new double[]{START + 32 * col, START + 32 * row};
     }
 
-    private static void setHeads(UiCase c, boolean hasSetting, boolean on) {
+    static void setHeads(UiCase c, boolean hasSetting, boolean on) {
         if (!hasSetting) {
             return;
         }
@@ -300,7 +303,7 @@ final class MapHeadCases {
     }
 
     /** The no-marker frame: map background {@code room}, teammates hidden, him where his marker is off the frame. */
-    private static Shot baseShot(UiCase c, String label, int room, double[] away) {
+    static Shot baseShot(UiCase c, String label, int room, double[] away) {
         c.onClient(mc -> {
             Mod.call(Mod.cfg(CFG), "setMapBackground", room);
             Mod.call(Mod.cfg(CFG), "setShowTeammates", false);
@@ -311,7 +314,7 @@ final class MapHeadCases {
     }
 
     /** Him at {@code self}, teammates shown and (re)added at their rooms. */
-    private static void placeMarkers(UiCase c, double[] self, double[] mateHead, double[] mateArrow) {
+    static void placeMarkers(UiCase c, double[] self, double[] mateHead, double[] mateArrow) {
         teleport(c, self[0], self[1], SELF_YAW);
         c.onClient(mc -> {
             Mod.call(Mod.cfg(CFG), "setShowTeammates", true);
@@ -330,7 +333,7 @@ final class MapHeadCases {
         c.note("players in the client level: " + seen);
     }
 
-    private static void teleport(UiCase c, double x, double z, float yaw) {
+    static void teleport(UiCase c, double x, double z, float yaw) {
         c.onClient(mc -> {
             mc.player.getAbilities().flying = true;
             var server = mc.getSingleplayerServer();
@@ -356,7 +359,7 @@ final class MapHeadCases {
     }
 
     /** MapHeadMate gets a PlayerInfo the way a server sends one; MapArrowMate gets none. Both are client entities. */
-    private static void addTeammates(Minecraft mc, double[] head, double[] arrow) {
+    static void addTeammates(Minecraft mc, double[] head, double[] arrow) {
         if (mc.getConnection().getPlayerInfo(HEAD_ID) == null) {
             GameProfile profile = new GameProfile(HEAD_ID, HEAD_NAME);
             ClientboundPlayerInfoUpdatePacket.Entry entry = new ClientboundPlayerInfoUpdatePacket.Entry(HEAD_ID,
@@ -379,7 +382,7 @@ final class MapHeadCases {
         spawn(mc, ARROW_ENTITY, new GameProfile(ARROW_ID, ARROW_NAME), arrow, ARROW_YAW);
     }
 
-    private static void spawn(Minecraft mc, int id, GameProfile profile, double[] at, float yaw) {
+    static void spawn(Minecraft mc, int id, GameProfile profile, double[] at, float yaw) {
         Entity existing = mc.level.getEntity(id);
         if (existing != null) {
             existing.setPos(at[0], FLY_Y, at[1]);
@@ -394,7 +397,7 @@ final class MapHeadCases {
         mc.level.addEntity(p);
     }
 
-    private static void removeTeammates(Minecraft mc) {
+    static void removeTeammates(Minecraft mc) {
         for (int id : new int[]{HEAD_ENTITY, ARROW_ENTITY}) {
             if (mc.level != null && mc.level.getEntity(id) != null) {
                 mc.level.removeEntity(id, Entity.RemovalReason.DISCARDED);
@@ -414,7 +417,7 @@ final class MapHeadCases {
      * with the sim flagged active so the map fits the way it does in the sim. The map's fit scale must be the 6x6
      * floor's (1.0, a room 16 units), and the room's fill on screen must measure the 6x6 cell size within one unit.
      */
-    private static void singleSimRoom(UiCase c, double[] away) {
+    static void singleSimRoom(UiCase c, double[] away) {
         if (!Mod.has("roomsim.FlatTestRoom") || !Mod.has("roomsim.SimBuilder")) {
             c.note("single sim room: this jar has no sim - skipped");
             return;
@@ -485,7 +488,7 @@ final class MapHeadCases {
      * live Skyblock board instead of its preview (2026-10-07). Take the objective and its teams off on the server,
      * forget the sidebar's state, and put the gate's verdict back - it would otherwise hold "Skyblock" for 10 s.
      */
-    private static void removeSimSidebar(UiCase c, boolean gateWas) {
+    static void removeSimSidebar(UiCase c, boolean gateWas) {
         java.util.concurrent.atomic.AtomicBoolean done = new java.util.concurrent.atomic.AtomicBoolean();
         c.onClient(mc -> {
             var server = mc.getSingleplayerServer();
@@ -520,7 +523,7 @@ final class MapHeadCases {
 
     // ---- the Interactive Map ------------------------------------------------------------------------------------
 
-    private static void interactiveMap(UiCase c, int[] selfFace, int[] headFace) {
+    static void interactiveMap(UiCase c, int[] selfFace, int[] headFace) {
         c.onClient(mc -> {
             Mod.call(Mod.cfg(CFG), "setEnabled", false); // the HUD map must not change under the screen
             Mod.call(Mod.cfg(CFG), "setPlayerHeads", false);
@@ -546,12 +549,12 @@ final class MapHeadCases {
         int bestSelf = 0;
         int bestHead = 0;
         for (Cluster cl : diff) {
-            bestSelf = Math.max(bestSelf, findFace(imOn.img, cl, selfFace).score);
-            bestHead = Math.max(bestHead, findFace(imOn.img, cl, headFace).score);
+            bestSelf = Math.max(bestSelf, findRotated(imOn.img, cl, selfFace).score);
+            bestHead = Math.max(bestHead, findRotated(imOn.img, cl, headFace).score);
         }
         int bestOffSelf = 0;
         for (Cluster cl : diff) {
-            bestOffSelf = Math.max(bestOffSelf, findFace(imOff.img, cl, selfFace).score);
+            bestOffSelf = Math.max(bestOffSelf, findRotated(imOff.img, cl, selfFace).score);
         }
         c.note("Interactive Map: " + diff.size() + " changed region(s) heads off -> on; his face " + bestSelf
                 + "/64, MapHeadMate's " + bestHead + "/64; heads off his face " + bestOffSelf + "/64");
@@ -575,7 +578,7 @@ final class MapHeadCases {
 
     /** The 8x8 face (face layer, hat layer alpha-blended over it) of the skin the client holds for a player, as
      *  64 RGB values; {@code self} reads his own PlayerInfo. */
-    private static int[] expectedFace(UiCase c, UUID id, boolean self) {
+    static int[] expectedFace(UiCase c, UUID id, boolean self) {
         return c.onClient(mc -> {
             PlayerInfo info = self ? mc.getConnection().getPlayerInfo(mc.player.getUUID())
                     : mc.getConnection().getPlayerInfo(id);
@@ -607,7 +610,7 @@ final class MapHeadCases {
         });
     }
 
-    private record Face(int score, int x0, int y0, int side) {
+    record Face(int score, int x0, int y0, int side) {
         @Override
         public String toString() {
             return score + "/64 cells at " + x0 + "," + y0 + " side " + side + " px";
@@ -615,7 +618,7 @@ final class MapHeadCases {
     }
 
     /** The best 8x8 grid (any square inside the cluster's box, padded 2 px) against a skin face. */
-    private static Face findFace(BufferedImage img, Cluster cl, int[] face) {
+    static Face findFace(BufferedImage img, Cluster cl, int[] face) {
         if (face == null) {
             return new Face(0, 0, 0, 0);
         }
@@ -643,41 +646,97 @@ final class MapHeadCases {
         return best;
     }
 
-    /** The heading tick: pixels of the marker's colour outside the face (and its frame), whose centroid must lie in
-     *  the player's heading from the face's centre. */
-    private static void tick(UiCase c, String who, BufferedImage img, Cluster cl, Face f, int color, float yaw) {
-        int unit = Math.max(1, f.side / 8);
-        int fx0 = f.x0 - 2 * unit, fy0 = f.y0 - 2 * unit, fx1 = f.x0 + f.side + 2 * unit, fy1 = f.y0 + f.side + 2 * unit;
-        double sx = 0, sy = 0;
-        int n = 0;
+    /** A face found at any turn: cells matched, the turn (degrees clockwise on screen, 0 = upright), its centre and
+     *  side in screen pixels. */
+    record RotFace(int score, int angle, double cx, double cy, double side) {
+        @Override
+        public String toString() {
+            return String.format(Locale.ROOT, "%d/64 cells, turned %d deg, centre %.1f,%.1f, side %.1f px", score, angle,
+                    cx, cy, side);
+        }
+    }
+
+    /**
+     * The best 8x8 grid against a skin face at any turn: every 5 degrees, every side from 8 px to the cluster's
+     * narrower box side, the centre within 8 px of the cluster box's centre. A cell is sampled at its centre turned
+     * about the grid's centre (screen y down, so a positive angle is clockwise, as the mod's pose rotate draws it).
+     */
+    static RotFace findRotated(BufferedImage img, Cluster cl, int[] face) {
+        if (face == null) {
+            return new RotFace(0, 0, 0, 0, 0);
+        }
+        // The cluster's box, padded, as an array: millions of samples, getRGB is too slow for them.
+        int bx0 = Math.max(0, cl.x0 - 4), by0 = Math.max(0, cl.y0 - 4);
+        int bx1 = Math.min(img.getWidth() - 1, cl.x1 + 4), by1 = Math.min(img.getHeight() - 1, cl.y1 + 4);
+        int bw = bx1 - bx0 + 1, bh = by1 - by0 + 1;
+        int[] px = img.getRGB(bx0, by0, bw, bh, null, 0, bw);
+        int maxSide = Math.min(cl.x1 - cl.x0 + 1, cl.y1 - cl.y0 + 1) + 2;
+        // The head is most of the marker, but an upright head with a heading tick (mod before map-heads) puts the box
+        // centre off the face's: look up to 8 px either way.
+        double bcx = (cl.x0 + cl.x1 + 1) / 2.0, bcy = (cl.y0 + cl.y1 + 1) / 2.0;
+        RotFace best = new RotFace(0, 0, 0, 0, 0);
+        for (int deg = 0; deg < 360; deg += 5) {
+            double cos = Math.cos(Math.toRadians(deg)), sin = Math.sin(Math.toRadians(deg));
+            for (int side = Math.max(8, maxSide / 2); side <= maxSide; side++) {
+                for (int ox = -8; ox <= 8; ox++) {
+                    for (int oy = -8; oy <= 8; oy++) {
+                        double cx = bcx + ox, cy = bcy + oy;
+                        int score = 0;
+                        for (int k = 0; k < 64 && score + (64 - k) > best.score; k++) {
+                            double u = ((k % 8) + 0.5) / 8.0 * side - side / 2.0;
+                            double v = ((k / 8) + 0.5) / 8.0 * side - side / 2.0;
+                            int x = (int) Math.floor(cx + u * cos - v * sin) - bx0;
+                            int y = (int) Math.floor(cy + u * sin + v * cos) - by0;
+                            if (x >= 0 && y >= 0 && x < bw && y < bh && delta(px[y * bw + x], face[k]) <= 60) {
+                                score++;
+                            }
+                        }
+                        if (score > best.score) {
+                            best = new RotFace(score, deg, cx, cy, side);
+                        }
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
+    /** The turn the mod gives a head for this yaw: the arrow's, {@code 180 + yaw}, on the north-up map. */
+    static int expectedTurn(float yaw) {
+        return (int) Math.floorMod(Math.round(180 + yaw), 360);
+    }
+
+    static int angleOff(int a, int b) {
+        int d = Math.floorMod(a - b, 360);
+        return Math.min(d, 360 - d);
+    }
+
+    /** The head's top points along the heading, and nothing (no arrow, no tick) reaches past the framed head. */
+    static void headTurn(UiCase c, String who, RotFace f, Cluster cl, float yaw) {
+        int want = expectedTurn(yaw);
+        int off = angleOff(f.angle(), want);
+        // The framed head's half-diagonal (face side + a frame unit each side) plus 2 px of edge blending.
+        double reach = (f.side() / 2.0 + f.side() / 8.0) * Math.sqrt(2) + 2;
+        int beyond = 0;
         for (int[] p : cl.pixels) {
-            if (p[0] >= fx0 && p[0] <= fx1 && p[1] >= fy0 && p[1] <= fy1) {
-                continue;
-            }
-            if (delta(img.getRGB(p[0], p[1]), color) <= 60) {
-                sx += p[0];
-                sy += p[1];
-                n++;
+            if (Math.hypot(p[0] + 0.5 - f.cx(), p[1] + 0.5 - f.cy()) > reach) {
+                beyond++;
             }
         }
-        double cx = f.x0 + f.side / 2.0, cy = f.y0 + f.side / 2.0;
-        double want = Math.toDegrees(Math.atan2(Math.cos(Math.toRadians(yaw)), -Math.sin(Math.toRadians(yaw))));
-        if (n < 4) {
-            c.problem(who + " head has no heading tick (" + n + " tick px outside the face)");
-            return;
+        c.note(String.format(Locale.ROOT, "%s head: %s; yaw %.0f wants a %d deg turn, off by %d; %d px beyond the"
+                + " framed head (reach %.1f px)", who, f, yaw, want, off, beyond, reach));
+        if (off > 10) {
+            c.problem(String.format(Locale.ROOT, "%s head is turned %d deg, the heading (yaw %.0f) wants %d", who,
+                    f.angle(), yaw, want));
         }
-        double got = Math.toDegrees(Math.atan2(sy / n - cy, sx / n - cx));
-        double diff = Math.abs(((got - want) % 360 + 540) % 360 - 180);
-        c.note(String.format(Locale.ROOT, "%s heading tick: %d px, at %.0f deg from the face centre (yaw %.0f wants "
-                + "%.0f deg), off by %.0f", who, n, got, yaw, want, diff));
-        if (diff > 30) {
-            c.problem(String.format(Locale.ROOT, "%s heading tick points %.0f deg off the heading", who, diff));
+        if (beyond > 0) {
+            c.problem(who + " head has " + beyond + " px drawn beyond the framed head - an arrow or tick is still drawn");
         }
     }
 
     // ---- outline ------------------------------------------------------------------------------------------------
 
-    private record Outline(int boundary, int inOutline, double coverage, double contrast, double fillContrast) {
+    record Outline(int boundary, int inOutline, double coverage, double contrast, double fillContrast) {
         @Override
         public String toString() {
             return String.format(Locale.ROOT, "%d boundary px, %d in the outline colour (%.0f%%), boundary contrast "
@@ -691,7 +750,7 @@ final class MapHeadCases {
      * black / white is further from the fill; coverage is the boundary's share within 90 summed RGB of it. Contrast is
      * WCAG's, the mean boundary colour against the room.
      */
-    private static Outline outline(BufferedImage img, BufferedImage base, Cluster cl, int room, int fill) {
+    static Outline outline(BufferedImage img, BufferedImage base, Cluster cl, int room, int fill) {
         double fillLuma = luminance(fill);
         int outlineColor = fillLuma > 0.18 ? 0x000000 : 0xFFFFFF;
         java.util.Set<Long> in = new java.util.HashSet<>();
@@ -731,7 +790,7 @@ final class MapHeadCases {
         return new Outline(boundary, dark, dark / (double) boundary, contrast(mean, room), contrast(fill, room));
     }
 
-    private static void requireOutline(UiCase c, String what, Outline o, boolean outlineMustContrast) {
+    static void requireOutline(UiCase c, String what, Outline o, boolean outlineMustContrast) {
         if (o.boundary < 10) {
             c.problem(what + ": no marker found (" + o + ")");
             return;
@@ -747,7 +806,7 @@ final class MapHeadCases {
         }
     }
 
-    private static double luminance(int rgb) {
+    static double luminance(int rgb) {
         double[] ch = {((rgb >> 16) & 0xFF) / 255.0, ((rgb >> 8) & 0xFF) / 255.0, (rgb & 0xFF) / 255.0};
         for (int i = 0; i < 3; i++) {
             ch[i] = ch[i] <= 0.03928 ? ch[i] / 12.92 : Math.pow((ch[i] + 0.055) / 1.055, 2.4);
@@ -755,17 +814,17 @@ final class MapHeadCases {
         return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
     }
 
-    private static double contrast(int a, int b) {
+    static double contrast(int a, int b) {
         double la = luminance(a), lb = luminance(b);
         return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
     }
 
     // ---- pixels -------------------------------------------------------------------------------------------------
 
-    private record Shot(BufferedImage img) {
+    record Shot(BufferedImage img) {
     }
 
-    private static Shot shot(UiCase c, String label) {
+    static Shot shot(UiCase c, String label) {
         c.onClient(mc -> {
             dev.testkit.compat.McCompat.clearChatAndToasts(mc);
             return null;
@@ -790,17 +849,17 @@ final class MapHeadCases {
         }
     }
 
-    private static int delta(int a, int b) {
+    static int delta(int a, int b) {
         return Math.abs(((a >> 16) & 0xFF) - ((b >> 16) & 0xFF)) + Math.abs(((a >> 8) & 0xFF) - ((b >> 8) & 0xFF))
                 + Math.abs((a & 0xFF) - (b & 0xFF));
     }
 
-    private static boolean changed(int a, int b) {
+    static boolean changed(int a, int b) {
         return delta(a, b) > 30;
     }
 
     /** Bounding box of the pixels within 8 of the room colour - the map's interior. */
-    private static int[] frameBox(BufferedImage img, int room) {
+    static int[] frameBox(BufferedImage img, int room) {
         int x0 = Integer.MAX_VALUE, y0 = Integer.MAX_VALUE, x1 = -1, y1 = -1;
         int n = 0;
         for (int y = 0; y < img.getHeight(); y++) {
@@ -817,7 +876,7 @@ final class MapHeadCases {
         return n < 400 ? null : new int[]{x0, y0, x1, y1};
     }
 
-    private static final class Cluster {
+    static final class Cluster {
         final List<int[]> pixels = new ArrayList<>();
         int x0 = Integer.MAX_VALUE, y0 = Integer.MAX_VALUE, x1 = -1, y1 = -1;
 
@@ -848,7 +907,7 @@ final class MapHeadCases {
     }
 
     /** Changed pixels inside {@code box}, grouped by 8-connectivity with a 2 px reach; groups under 15 px dropped. */
-    private static List<Cluster> clusters(BufferedImage base, BufferedImage img, int[] box) {
+    static List<Cluster> clusters(BufferedImage base, BufferedImage img, int[] box) {
         int w = img.getWidth(), h = img.getHeight();
         boolean[] ch = new boolean[w * h];
         for (int y = Math.max(0, box[1]); y <= Math.min(h - 1, box[3]); y++) {
@@ -892,7 +951,7 @@ final class MapHeadCases {
     }
 
     /** {self, MapHeadMate, MapArrowMate} by layout: him top-left, MapHeadMate to his right, MapArrowMate below. */
-    private static Cluster[] assign(UiCase c, String what, List<Cluster> found) {
+    static Cluster[] assign(UiCase c, String what, List<Cluster> found) {
         c.note(what + ": " + found.size() + " marker region(s): " + found);
         if (found.size() != 3) {
             c.problem(what + ": expected 3 marker regions on the map, found " + found.size() + " " + found);
@@ -917,7 +976,7 @@ final class MapHeadCases {
         return new Cluster[]{self, right, below};
     }
 
-    private static boolean hasMethod(Object target, String name) {
+    static boolean hasMethod(Object target, String name) {
         for (java.lang.reflect.Method m : target.getClass().getMethods()) {
             if (m.getName().equals(name)) {
                 return true;
