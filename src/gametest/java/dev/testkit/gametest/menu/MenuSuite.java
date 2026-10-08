@@ -27,6 +27,8 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *       delivery, preview mismatch, close, off/legit ({@link AnvilCases})</li>
  *   <li>472 the Storage Overlay's Scan All button: real presses start / stop it, Escape stops it, a full run skips
  *       locked pages and empty slots ({@link PolishMenuCases})</li>
+ *   <li>491-499 the unified Auction House: the API-drawn browser, Hypixel's AH menus reskinned with one press = one
+ *       slot click, /viewauction hand-off, hidden HUDs, seamless page changes, fallback ({@link AuctionHouseCases})</li>
  *   <li>461-466 Reskin Real Bazaar: every mapped Bazaar menu reskinned, one press = one real slot click, unmapped menus
  *       left to Hypixel's GUI, the hold-key escape, live Manage Orders, the Booster Cookie gate ({@link BazaarReskinCases})</li>
  * </ul>
@@ -86,6 +88,8 @@ public class MenuSuite implements FabricClientGameTest {
                     AnvilCases.register(s);
                     BazaarReskinCases.register(s);
                     PolishMenuCases.register(s); // 472, polish
+                    // 491-499: the unified Auction House (API browser + reskinned real AH menus).
+                    AuctionHouseCases.register(s);
                 });
     }
 }
