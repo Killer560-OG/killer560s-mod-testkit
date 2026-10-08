@@ -121,6 +121,14 @@ final class MapHeadCases {
                 return null;
             });
 
+            // An earlier case's map (a door cell left in the grid by the sim / interactive map cases) changes colour
+            // between frames and reads as a fourth marker in a full ui run (2026-10-08): start from an empty grid.
+            c.onClient(mc -> {
+                Mod.staticCall("livemap.LiveMapFeature", "resetGrid", "395-ui-map-heads start");
+                return null;
+            });
+            c.ticks(2);
+
             // ---- the frames on the green room ----
             Shot greenBase = baseShot(c, "green-base", GREEN_ROOM, away);
             int[] frame = frameBox(greenBase.img, GREEN_ROOM);
