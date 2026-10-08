@@ -1,0 +1,1274 @@
+[
+  {
+    "id": "menus.reskin-bazaar-category",
+    "kind": "menu",
+    "payload": {
+      "title": "Bazaar ➜ Farming",
+      "rows": 6,
+      "fill": true,
+      "slots": {
+        "0": {
+          "item": "minecraft:golden_hoe",
+          "name": "§eFarming",
+          "lore": [
+            "§8Category",
+            "",
+            "§aCurrently viewing!"
+          ]
+        },
+        "9": {
+          "item": "minecraft:diamond_pickaxe",
+          "name": "§bMining",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view!"
+          ]
+        },
+        "18": {
+          "item": "minecraft:iron_sword",
+          "name": "§cCombat",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view!"
+          ]
+        },
+        "27": {
+          "item": "minecraft:fishing_rod",
+          "name": "§6Woods & Fishes",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view!"
+          ]
+        },
+        "36": {
+          "item": "minecraft:enchanting_table",
+          "name": "§dOddities",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view!"
+          ]
+        },
+        "11": {
+          "item": "minecraft:wheat",
+          "name": "§eWheat & Seeds",
+          "lore": [
+            "§87 products",
+            "",
+            "§f▶ §7Wheat",
+            "§f▶ §7Seeds",
+            "§a▶ §7Enchanted Wheat",
+            "§9▶ §7Enchanted Hay Bale",
+            "§a▶ §7Enchanted Seeds",
+            "§f▶ §7Hay Bale",
+            "§9▶ §7Tightly-Tied Hay Bale",
+            "",
+            "§eClick to view products!"
+          ]
+        },
+        "12": {
+          "item": "minecraft:carrot",
+          "name": "§eCarrot",
+          "lore": [
+            "§83 products",
+            "",
+            "§f▶ §7Carrot",
+            "§a▶ §7Enchanted Carrot",
+            "§9▶ §7Enchanted Golden Carrot",
+            "",
+            "§eClick to view products!"
+          ]
+        },
+        "13": {
+          "item": "minecraft:potato",
+          "name": "§ePotato",
+          "lore": [
+            "§83 products",
+            "",
+            "§eClick to view products!"
+          ]
+        },
+        "14": {
+          "item": "minecraft:pumpkin",
+          "name": "§ePumpkin",
+          "lore": [
+            "§83 products",
+            "",
+            "§eClick to view products!"
+          ]
+        },
+        "15": {
+          "item": "minecraft:melon_slice",
+          "name": "§eMelon",
+          "lore": [
+            "§84 products",
+            "",
+            "§eClick to view products!"
+          ]
+        },
+        "16": {
+          "item": "minecraft:red_mushroom",
+          "name": "§eMushrooms",
+          "lore": [
+            "§89 products",
+            "",
+            "§eClick to view products!"
+          ]
+        },
+        "20": {
+          "item": "minecraft:cocoa_beans",
+          "name": "§eCocoa Beans",
+          "lore": [
+            "§83 products",
+            "",
+            "§eClick to view products!"
+          ]
+        },
+        "21": {
+          "item": "minecraft:cactus",
+          "name": "§eCactus",
+          "lore": [
+            "§83 products",
+            "",
+            "§eClick to view products!"
+          ]
+        },
+        "22": {
+          "item": "minecraft:sugar_cane",
+          "name": "§eSugar Cane",
+          "lore": [
+            "§84 products",
+            "",
+            "§eClick to view products!"
+          ]
+        },
+        "45": {
+          "item": "minecraft:oak_sign",
+          "name": "§aSearch",
+          "lore": [
+            "§7Find products by name!",
+            "",
+            "§eClick to search!"
+          ]
+        },
+        "47": {
+          "item": "minecraft:chest",
+          "name": "§aSell Inventory Now",
+          "lore": [
+            "§7Instantly sell anything in your",
+            "§7inventory that can be sold",
+            "§7on the Bazaar.",
+            "",
+            "§cYou don't have anything to",
+            "§csell!"
+          ]
+        },
+        "48": {
+          "item": "minecraft:cauldron",
+          "name": "§bSell Sacks Now",
+          "lore": [
+            "§7Instantly sell everything in your",
+            "§7sacks on the Bazaar.",
+            "",
+            "§7You earn: §60 coins",
+            "",
+            "§eClick to sell!"
+          ]
+        },
+        "49": {
+          "item": "minecraft:barrier",
+          "name": "§cClose"
+        },
+        "50": {
+          "item": "minecraft:book",
+          "name": "§aManage Orders",
+          "lore": [
+            "§7You don't have any ongoing",
+            "§7orders.",
+            "",
+            "§eClick to manage!"
+          ]
+        },
+        "51": {
+          "item": "minecraft:writable_book",
+          "name": "§aBazaar History",
+          "lore": [
+            "§7View your recent Bazaar",
+            "§7transactions.",
+            "",
+            "§eClick to view!"
+          ]
+        },
+        "52": {
+          "item": "minecraft:redstone_torch",
+          "name": "§aBazaar Settings",
+          "lore": [
+            "§7View and edit your Bazaar",
+            "§7settings.",
+            "",
+            "§eClick to open!"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "line": 93
+    },
+    "verifiedBy": "regex",
+    "notes": "Bazaar category page, layout and names from hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07); title 'Bazaar ➜ .*' from SkyHanni BazaarApi.kt. Mapped: CATEGORY."
+  },
+  {
+    "id": "menus.reskin-bazaar-group",
+    "kind": "menu",
+    "payload": {
+      "title": "Farming ➜ Wheat & Seeds",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "10": {
+          "item": "minecraft:wheat",
+          "name": "§fWheat",
+          "lore": [
+            "§8Common commodity",
+            "",
+            "§7Buy price: §64.8 coins",
+            "§7Sell price: §64.3 coins",
+            "",
+            "§eClick to view details!"
+          ]
+        },
+        "11": {
+          "item": "minecraft:wheat_seeds",
+          "name": "§fSeeds",
+          "lore": [
+            "§8Common commodity",
+            "",
+            "§7Buy price: §61.2 coins",
+            "§7Sell price: §60.9 coins",
+            "",
+            "§eClick to view details!"
+          ]
+        },
+        "12": {
+          "item": "minecraft:wheat",
+          "name": "§aEnchanted Wheat",
+          "lore": [
+            "§8Uncommon commodity",
+            "",
+            "§7Buy price: §6802.5 coins",
+            "§7Sell price: §6760.1 coins",
+            "",
+            "§eClick to view details!"
+          ]
+        },
+        "13": {
+          "item": "minecraft:hay_block",
+          "name": "§9Enchanted Hay Bale",
+          "lore": [
+            "§8Rare commodity",
+            "",
+            "§7Buy price: §6131,204.7 coins",
+            "§7Sell price: §6125,880.0 coins",
+            "",
+            "§eClick to view details!"
+          ]
+        },
+        "14": {
+          "item": "minecraft:wheat_seeds",
+          "name": "§aEnchanted Seeds",
+          "lore": [
+            "§8Uncommon commodity",
+            "",
+            "§7Buy price: §6214.4 coins",
+            "§7Sell price: §6180.0 coins",
+            "",
+            "§eClick to view details!"
+          ]
+        },
+        "15": {
+          "item": "minecraft:hay_block",
+          "name": "§fHay Bale",
+          "lore": [
+            "§8Common commodity",
+            "",
+            "§7Buy price: §643.9 coins",
+            "§7Sell price: §638.6 coins",
+            "",
+            "§eClick to view details!"
+          ]
+        },
+        "16": {
+          "item": "minecraft:hay_block",
+          "name": "§9Tightly-Tied Hay Bale",
+          "lore": [
+            "§8Rare commodity",
+            "",
+            "§7Buy price: §620,410,333.1 coins",
+            "§7Sell price: §619,880,002.0 coins",
+            "",
+            "§eClick to view details!"
+          ]
+        },
+        "29": {
+          "item": "minecraft:chest",
+          "name": "§aSell Inventory Now",
+          "lore": [
+            "§7Instantly sell all Wheat & Seeds",
+            "§7derivatives in your inventory."
+          ]
+        },
+        "30": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To Bazaar"
+          ]
+        },
+        "31": {
+          "item": "minecraft:barrier",
+          "name": "§cClose"
+        },
+        "32": {
+          "item": "minecraft:book",
+          "name": "§aManage Orders",
+          "lore": [
+            "§7You don't have any ongoing",
+            "§7orders for these products.",
+            "",
+            "§eClick to manage!"
+          ]
+        },
+        "34": {
+          "item": "minecraft:comparator",
+          "name": "§aDirect Mode",
+          "lore": [
+            "§8Bazaar View",
+            "",
+            "§eClick to toggle view!"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "line": 96
+    },
+    "verifiedBy": "regex",
+    "notes": "Group page 'Farming ➜ Wheat & Seeds', products with 'Buy price: # coins' lore, hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07). Prices are made up. Mapped: GROUP."
+  },
+  {
+    "id": "menus.reskin-bazaar-product",
+    "kind": "menu",
+    "payload": {
+      "title": "Wheat & Seeds ➜ Wheat",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "10": {
+          "item": "minecraft:golden_horse_armor",
+          "name": "§aBuy Instantly",
+          "lore": [
+            "§8Wheat",
+            "",
+            "§7Price per unit: §64.8 coins",
+            "§7Stack price: §6307.2 coins",
+            "",
+            "§eClick to pick amount!"
+          ]
+        },
+        "11": {
+          "item": "minecraft:hopper",
+          "name": "§6Sell Instantly",
+          "lore": [
+            "§8Wheat",
+            "",
+            "§7Inventory: §a0 items",
+            "",
+            "§7Amount: §a0§7x",
+            "§7Total: §60 coins",
+            "§8Current tax: 1.1%",
+            "",
+            "§bRight-Click to pick amount!",
+            "§eClick to sell inventory"
+          ]
+        },
+        "13": {
+          "item": "minecraft:wheat",
+          "name": "§fWheat",
+          "lore": [
+            "§7The item you have chosen."
+          ]
+        },
+        "15": {
+          "item": "minecraft:filled_map",
+          "name": "§aCreate Buy Order",
+          "lore": [
+            "§8Wheat",
+            "",
+            "§aTop Orders:",
+            "§8- §64.3 coins §7each | §a12,345§7x §7from §f3 §7offers",
+            "§8- §64.2 coins §7each | §a640§7x §7from §f1 §7offer",
+            "",
+            "§eClick to setup buy order!"
+          ]
+        },
+        "16": {
+          "item": "minecraft:map",
+          "name": "§6Create Sell Offer",
+          "lore": [
+            "§8Wheat",
+            "",
+            "§6Top Offers:",
+            "§8- §64.8 coins §7each | §a2,304§7x §7in §f2 §7offers",
+            "",
+            "§8None in inventory!"
+          ]
+        },
+        "30": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To Wheat & Seeds"
+          ]
+        },
+        "31": {
+          "item": "minecraft:player_head",
+          "name": "§6Go Back",
+          "lore": [
+            "§7To Bazaar"
+          ]
+        },
+        "32": {
+          "item": "minecraft:book",
+          "name": "§aManage Orders",
+          "lore": [
+            "§7You don't have any ongoing",
+            "§7orders for this product.",
+            "",
+            "§eClick to manage!"
+          ]
+        },
+        "33": {
+          "item": "minecraft:paper",
+          "name": "§aView Graphs",
+          "lore": [
+            "§8Advanced Mode",
+            "",
+            "§eClick to view!"
+          ]
+        },
+        "34": {
+          "item": "minecraft:red_dye",
+          "name": "§aInstasell Ignore",
+          "lore": [
+            "§7Instasell will not sell Wheat.",
+            "",
+            "§eClick to toggle!"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "line": 96
+    },
+    "verifiedBy": "regex",
+    "notes": "Product page, slots 10/11/13/15/16 and the bottom row from hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07); slot 10 'Buy Instantly' (SkyHanni), product at 13 (Skyblocker BazaarOrderTracker). The real title is unverified (the wiki shows '<Category> ➜ <Item>'). Mapped: PRODUCT."
+  },
+  {
+    "id": "menus.reskin-bazaar-instant-buy",
+    "kind": "menu",
+    "payload": {
+      "title": "Wheat ➜ Instant Buy",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "10": {
+          "item": "minecraft:golden_horse_armor",
+          "name": "§aBuy only §eone§a!",
+          "lore": [
+            "§8Wheat",
+            "",
+            "§7Amount: §a1§7x",
+            "",
+            "§7Price: §64.8 coins",
+            "",
+            "§eClick to buy now!"
+          ]
+        },
+        "12": {
+          "item": "minecraft:golden_horse_armor",
+          "name": "§aBuy a stack!",
+          "lore": [
+            "§8Wheat",
+            "",
+            "§7Amount: §a64§7x",
+            "§7Per unit: §64.8 coins",
+            "",
+            "§7Price: §6307.2 coins",
+            "",
+            "§eClick to buy now!"
+          ]
+        },
+        "14": {
+          "item": "minecraft:chest",
+          "name": "§aFill my inventory!",
+          "lore": [
+            "§8Wheat",
+            "",
+            "§7Amount: §a2,304§7x",
+            "§7Per unit: §64.8 coins",
+            "",
+            "§7Price: §611,059.2 coins",
+            "",
+            "§eClick to buy now!"
+          ]
+        },
+        "16": {
+          "item": "minecraft:oak_sign",
+          "name": "§aCustom Amount",
+          "lore": [
+            "§8Instant Buy Quantity",
+            "",
+            "§7Buy up to §a71,680§7x§7.",
+            "",
+            "§eClick to specify!"
+          ]
+        },
+        "31": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To Wheat"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "line": 97
+    },
+    "verifiedBy": "regex",
+    "notes": "'<Item> ➜ Instant Buy' from hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07) (not in SkyHanni's list). Mapped: INSTANT_BUY."
+  },
+  {
+    "id": "menus.reskin-bazaar-order-amount",
+    "kind": "menu",
+    "payload": {
+      "title": "How many do you want?",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "10": {
+          "item": "minecraft:wheat",
+          "name": "§aGet me a stack!",
+          "lore": [
+            "§8Buy Order Setup",
+            "",
+            "§7Amount: §a64§7x",
+            "",
+            "§eClick to proceed!"
+          ],
+          "count": 64
+        },
+        "12": {
+          "item": "minecraft:wheat",
+          "name": "§aA big stack!",
+          "lore": [
+            "§8Buy Order Setup",
+            "",
+            "§7Amount: §a160§7x",
+            "",
+            "§eClick to proceed!"
+          ],
+          "count": 64
+        },
+        "14": {
+          "item": "minecraft:hay_block",
+          "name": "§aOne thousand!",
+          "lore": [
+            "§8Buy Order Setup",
+            "",
+            "§7Amount: §a1,024§7x",
+            "",
+            "§eClick to proceed!"
+          ],
+          "count": 64
+        },
+        "16": {
+          "item": "minecraft:oak_sign",
+          "name": "§aCustom Amount",
+          "lore": [
+            "§8Buy Order Quantity",
+            "",
+            "§7Order up to §a71,680§7x§7.",
+            "",
+            "§eClick to specify!"
+          ]
+        },
+        "31": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To Wheat"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "line": 255
+    },
+    "verifiedBy": "regex",
+    "notes": "Buy order amount step, hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07); title in SkyHanni BazaarApi.kt. Item types are guesses. Mapped: ORDER_AMOUNT."
+  },
+  {
+    "id": "menus.reskin-bazaar-order-price",
+    "kind": "menu",
+    "payload": {
+      "title": "How much do you want to pay?",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "10": {
+          "item": "minecraft:gold_nugget",
+          "name": "§6Same as Top Order",
+          "lore": [
+            "§8Buy Order Setup",
+            "",
+            "§7Ordering: §a64§7x",
+            "§7Unit price: §64.3 coins",
+            "§7Total: §6275.2 coins",
+            "",
+            "§eClick to proceed!"
+          ]
+        },
+        "12": {
+          "item": "minecraft:gold_nugget",
+          "name": "§6Top Order +0.1",
+          "lore": [
+            "§8Buy Order Setup",
+            "",
+            "§7Ordering: §a64§7x",
+            "§7Unit price: §64.4 coins",
+            "§7Total: §6281.6 coins",
+            "",
+            "§eClick to proceed!"
+          ]
+        },
+        "14": {
+          "item": "minecraft:golden_horse_armor",
+          "name": "§65% of Spread",
+          "lore": [
+            "§8Buy Order Setup",
+            "",
+            "§7Lowest sell price: §64.8 coins",
+            "§7Highest buy price: §64.3 coins",
+            "§7Spread: §60.5 coins",
+            "",
+            "§7Ordering: §a64§7x",
+            "§7Unit price: §64.3 coins",
+            "§7Total: §6275.2 coins",
+            "",
+            "§eClick to proceed!"
+          ]
+        },
+        "16": {
+          "item": "minecraft:oak_sign",
+          "name": "§6Custom Price",
+          "lore": [
+            "§8Buy Order Setup",
+            "",
+            "§7Ordering: §a64§7x",
+            "",
+            "§aTop Orders:",
+            "§8- §64.3 coins §7each | §a12,345§7x §7in §f3 §7orders",
+            "",
+            "§eClick to specify!"
+          ]
+        },
+        "30": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To picking quantity."
+          ]
+        },
+        "31": {
+          "item": "minecraft:barrier",
+          "name": "§cCancel Buy Order"
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "line": 258
+    },
+    "verifiedBy": "regex",
+    "notes": "Buy order price step, hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07); title in SkyHanni BazaarApi.kt. Mapped: ORDER_PRICE."
+  },
+  {
+    "id": "menus.reskin-bazaar-confirm-buy",
+    "kind": "menu",
+    "payload": {
+      "title": "Confirm Buy Order",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "13": {
+          "item": "minecraft:filled_map",
+          "name": "§aBuy Order",
+          "lore": [
+            "§8Bazaar",
+            "",
+            "§7Price per unit: §64.4 coins",
+            "",
+            "§7Order: §a64§7x §fWheat",
+            "§7Total price: §6281.6 coins",
+            "",
+            "§bOrders are shared by co-op!",
+            "",
+            "§eClick to submit order!"
+          ]
+        },
+        "30": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To picking price."
+          ]
+        },
+        "31": {
+          "item": "minecraft:barrier",
+          "name": "§cCancel Buy Order"
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "line": 264
+    },
+    "verifiedBy": "regex",
+    "notes": "Confirm Buy Order, hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07). Mapped: CONFIRM_BUY."
+  },
+  {
+    "id": "menus.reskin-bazaar-offer-price",
+    "kind": "menu",
+    "payload": {
+      "title": "At what price are you selling?",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "10": {
+          "item": "minecraft:gold_nugget",
+          "name": "§6Same as Best Offer",
+          "lore": [
+            "§8Sell Offer Setup",
+            "",
+            "§7Selling: §a640§7x",
+            "§7Unit price: §64.8 coins",
+            "§7Total: §63,072 coins",
+            "",
+            "§eClick to proceed!"
+          ]
+        },
+        "12": {
+          "item": "minecraft:gold_nugget",
+          "name": "§6Best Offer -0.1",
+          "lore": [
+            "§8Sell Offer Setup",
+            "",
+            "§7Selling: §a640§7x",
+            "§7Unit price: §64.7 coins",
+            "§7Total: §63,008 coins",
+            "",
+            "§eClick to proceed!"
+          ]
+        },
+        "14": {
+          "item": "minecraft:golden_horse_armor",
+          "name": "§610% of Spread",
+          "lore": [
+            "§8Sell Offer Setup",
+            "",
+            "§7Selling: §a640§7x",
+            "§7Unit price: §64.75 coins",
+            "§7Total: §63,040 coins",
+            "",
+            "§eClick to proceed!"
+          ]
+        },
+        "16": {
+          "item": "minecraft:oak_sign",
+          "name": "§6Custom Price",
+          "lore": [
+            "§8Sell Offer Setup",
+            "",
+            "§7Selling: §a640§7x",
+            "",
+            "§eClick to specify!"
+          ]
+        },
+        "30": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To Wheat"
+          ]
+        },
+        "31": {
+          "item": "minecraft:barrier",
+          "name": "§cCancel Sell Offer"
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "line": 261
+    },
+    "verifiedBy": "regex",
+    "notes": "Sell offer price step, hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07). Mapped: OFFER_PRICE."
+  },
+  {
+    "id": "menus.reskin-bazaar-confirm-sell",
+    "kind": "menu",
+    "payload": {
+      "title": "Confirm Sell Offer",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "13": {
+          "item": "minecraft:map",
+          "name": "§6Sell Offer",
+          "lore": [
+            "§8Bazaar",
+            "",
+            "§7Price per unit: §64.7 coins",
+            "",
+            "§7Selling: §a640§7x §fWheat",
+            "§7You earn: §63,008 coins",
+            "",
+            "§bOrders are shared by co-op!",
+            "§8Current tax: 1.1%",
+            "",
+            "§eClick to submit order!"
+          ]
+        },
+        "30": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To picking price."
+          ]
+        },
+        "31": {
+          "item": "minecraft:barrier",
+          "name": "§cCancel Sell Offer"
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "line": 266
+    },
+    "verifiedBy": "regex",
+    "notes": "Confirm Sell Offer, hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07). Mapped: CONFIRM_SELL."
+  },
+  {
+    "id": "menus.reskin-bazaar-sell-inventory",
+    "kind": "menu",
+    "payload": {
+      "title": "Are you sure?",
+      "rows": 3,
+      "fill": true,
+      "slots": {
+        "11": {
+          "item": "minecraft:hopper",
+          "name": "§6Selling whole inventory",
+          "lore": [
+            "§7You sell: §a128§7x §7various items",
+            "",
+            "§7You earn: §6614.4 coins",
+            "",
+            "§eClick to confirm!"
+          ]
+        },
+        "15": {
+          "item": "minecraft:red_terracotta",
+          "name": "§cCancel"
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "line": 268
+    },
+    "verifiedBy": "regex",
+    "notes": "Sell Inventory Now's 'Are you sure?' (3 rows, 11 hopper 'Selling whole inventory', 15 'Cancel'), hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07). Mapped: CONFIRM_SELL_INVENTORY."
+  },
+  {
+    "id": "menus.reskin-bazaar-order-options",
+    "kind": "menu",
+    "payload": {
+      "title": "Order options",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "11": {
+          "item": "minecraft:green_terracotta",
+          "name": "§aCancel Order",
+          "lore": [
+            "§7You will be refunded §6275.2 coins",
+            "§7from §a64§7x missing items.",
+            "",
+            "§eClick to cancel!"
+          ]
+        },
+        "31": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To Your Bazaar Orders"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "line": 124
+    },
+    "verifiedBy": "regex",
+    "notes": "Order options: only the cancel item is sourced (SkyHanni: slot 11 name contains 'Cancel Order'; lore '... missing items.'); the rest of the layout is unverified. Mapped: ORDER_OPTIONS."
+  },
+  {
+    "id": "menus.reskin-bazaar-settings",
+    "kind": "menu",
+    "payload": {
+      "title": "Bazaar ➜ Settings",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "12": {
+          "item": "minecraft:redstone_torch",
+          "name": "§aInstasell Ignore List",
+          "lore": [
+            "§7Products Instasell skips.",
+            "",
+            "§eClick to view!"
+          ]
+        },
+        "16": {
+          "item": "minecraft:comparator",
+          "name": "§aDirect Mode",
+          "lore": [
+            "§8Bazaar View",
+            "",
+            "§eClick to toggle view!"
+          ]
+        },
+        "31": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To Bazaar"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "line": 94
+    },
+    "verifiedBy": "regex",
+    "notes": "'Bazaar ➜ Settings' from hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07): a Bazaar title with no priced products, so it must stay Hypixel's GUI."
+  },
+  {
+    "id": "menus.reskin-bazaar-confirm-instant",
+    "kind": "menu",
+    "payload": {
+      "title": "Confirm Instant Buy",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "13": {
+          "item": "minecraft:golden_horse_armor",
+          "name": "§aConfirm",
+          "lore": [
+            "§7Amount: §a500§7x",
+            "§7Price: §62,400 coins",
+            "",
+            "§eClick to buy!"
+          ]
+        },
+        "31": {
+          "item": "minecraft:barrier",
+          "name": "§cCancel"
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "line": 36
+    },
+    "verifiedBy": "regex",
+    "notes": "'Confirm Instant Buy' (title from SkyHanni/NEU); its layout is in no source, so it must stay Hypixel's GUI. Items invented."
+  },
+  {
+    "id": "menus.reskin-bazaar-other-arrow",
+    "kind": "menu",
+    "payload": {
+      "title": "Your Skills ➜ Farming",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "11": {
+          "item": "minecraft:wheat",
+          "name": "§aFarming Skill",
+          "lore": [
+            "§7Your Farming level.",
+            "",
+            "§eClick to view!"
+          ]
+        },
+        "13": {
+          "item": "minecraft:golden_hoe",
+          "name": "§aCollections",
+          "lore": [
+            "§7View your collections.",
+            "",
+            "§eClick to view!"
+          ]
+        },
+        "31": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To SkyBlock Menu"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "line": 96
+    },
+    "verifiedBy": "regex",
+    "notes": "A non-Bazaar 'A ➜ B' menu (invented): no product actions or prices, so it must stay Hypixel's GUI."
+  },
+  {
+    "id": "menus.reskin-bazaar-category-no-manage",
+    "kind": "menu",
+    "payload": {
+      "title": "Bazaar ➜ Farming",
+      "rows": 6,
+      "fill": true,
+      "slots": {
+        "0": {
+          "item": "minecraft:golden_hoe",
+          "name": "§eFarming",
+          "lore": [
+            "§8Category",
+            "",
+            "§aCurrently viewing!"
+          ]
+        },
+        "9": {
+          "item": "minecraft:diamond_pickaxe",
+          "name": "§bMining",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view!"
+          ]
+        },
+        "18": {
+          "item": "minecraft:iron_sword",
+          "name": "§cCombat",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view!"
+          ]
+        },
+        "27": {
+          "item": "minecraft:fishing_rod",
+          "name": "§6Woods & Fishes",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view!"
+          ]
+        },
+        "36": {
+          "item": "minecraft:enchanting_table",
+          "name": "§dOddities",
+          "lore": [
+            "§8Category",
+            "",
+            "§eClick to view!"
+          ]
+        },
+        "11": {
+          "item": "minecraft:wheat",
+          "name": "§eWheat & Seeds",
+          "lore": [
+            "§87 products",
+            "",
+            "§f▶ §7Wheat",
+            "§f▶ §7Seeds",
+            "§a▶ §7Enchanted Wheat",
+            "§9▶ §7Enchanted Hay Bale",
+            "§a▶ §7Enchanted Seeds",
+            "§f▶ §7Hay Bale",
+            "§9▶ §7Tightly-Tied Hay Bale",
+            "",
+            "§eClick to view products!"
+          ]
+        },
+        "12": {
+          "item": "minecraft:carrot",
+          "name": "§eCarrot",
+          "lore": [
+            "§83 products",
+            "",
+            "§f▶ §7Carrot",
+            "§a▶ §7Enchanted Carrot",
+            "§9▶ §7Enchanted Golden Carrot",
+            "",
+            "§eClick to view products!"
+          ]
+        },
+        "13": {
+          "item": "minecraft:potato",
+          "name": "§ePotato",
+          "lore": [
+            "§83 products",
+            "",
+            "§eClick to view products!"
+          ]
+        },
+        "14": {
+          "item": "minecraft:pumpkin",
+          "name": "§ePumpkin",
+          "lore": [
+            "§83 products",
+            "",
+            "§eClick to view products!"
+          ]
+        },
+        "15": {
+          "item": "minecraft:melon_slice",
+          "name": "§eMelon",
+          "lore": [
+            "§84 products",
+            "",
+            "§eClick to view products!"
+          ]
+        },
+        "16": {
+          "item": "minecraft:red_mushroom",
+          "name": "§eMushrooms",
+          "lore": [
+            "§89 products",
+            "",
+            "§eClick to view products!"
+          ]
+        },
+        "20": {
+          "item": "minecraft:cocoa_beans",
+          "name": "§eCocoa Beans",
+          "lore": [
+            "§83 products",
+            "",
+            "§eClick to view products!"
+          ]
+        },
+        "21": {
+          "item": "minecraft:cactus",
+          "name": "§eCactus",
+          "lore": [
+            "§83 products",
+            "",
+            "§eClick to view products!"
+          ]
+        },
+        "22": {
+          "item": "minecraft:sugar_cane",
+          "name": "§eSugar Cane",
+          "lore": [
+            "§84 products",
+            "",
+            "§eClick to view products!"
+          ]
+        },
+        "45": {
+          "item": "minecraft:oak_sign",
+          "name": "§aSearch",
+          "lore": [
+            "§7Find products by name!",
+            "",
+            "§eClick to search!"
+          ]
+        },
+        "47": {
+          "item": "minecraft:chest",
+          "name": "§aSell Inventory Now",
+          "lore": [
+            "§7Instantly sell anything in your",
+            "§7inventory that can be sold",
+            "§7on the Bazaar.",
+            "",
+            "§cYou don't have anything to",
+            "§csell!"
+          ]
+        },
+        "48": {
+          "item": "minecraft:cauldron",
+          "name": "§bSell Sacks Now",
+          "lore": [
+            "§7Instantly sell everything in your",
+            "§7sacks on the Bazaar.",
+            "",
+            "§7You earn: §60 coins",
+            "",
+            "§eClick to sell!"
+          ]
+        },
+        "49": {
+          "item": "minecraft:barrier",
+          "name": "§cClose"
+        },
+        "51": {
+          "item": "minecraft:writable_book",
+          "name": "§aBazaar History",
+          "lore": [
+            "§7View your recent Bazaar",
+            "§7transactions.",
+            "",
+            "§eClick to view!"
+          ]
+        },
+        "52": {
+          "item": "minecraft:redstone_torch",
+          "name": "§aBazaar Settings",
+          "lore": [
+            "§7View and edit your Bazaar",
+            "§7settings.",
+            "",
+            "§eClick to open!"
+          ]
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/auction/BazaarPages.java",
+      "line": 93
+    },
+    "verifiedBy": "regex",
+    "notes": "The category page without its Manage Orders button: the signature item is missing, so it must stay Hypixel's GUI."
+  }
+]

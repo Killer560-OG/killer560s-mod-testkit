@@ -199,7 +199,7 @@
       "kicks (or warns) once a floor's target time is missed - off until every per-floor target below is set.": ""
     },
     "Bazaar": {
-      "bazaar browser": "Turns on the custom Bazaar browser, opened with /killer560bz or a keybind."
+      "bazaar browser": "Turns on the custom Bazaar browser, opened with /killer560bz or a keybind. Like Hypixel's remote Bazaar, it only opens while your Booster Cookie is active."
     },
     "Best Friends": {
       "party time tracker": "Tracks time partied and dungeon runs cleared with each player; open it with /bestfriends."
