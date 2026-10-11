@@ -69,7 +69,9 @@ final class MenuLayoutCases {
     /** Sections added by this change (cheat build): Home's Correction Alarm, out of the middle of Mod & HUD. */
     private static final Set<String> NEW_LEAVES = Set.of("gui.tab.CorrectionAlarmTab",
             // Held Item Outline (mod held-outline, killer560 2026-10-09): its own tab in Cosmetics.
-            "gui.tab.HeldOutlineTab");
+            "gui.tab.HeldOutlineTab",
+            // Auto Update (mod auto-update, killer560 2026-10-11): its own tab in Home, legit in both builds.
+            "gui.tab.AutoUpdateTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     private static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.

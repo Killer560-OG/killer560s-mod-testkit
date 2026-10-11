@@ -436,3 +436,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   straight-down Hyperion from an off-centre spot, Big Red Flag's and Leaves' princes, and four lever doors flicked as the
   player. 645-650 screenshot at GUI 2 into the report's screens. 96-ar-644-mimic-warp (in `SimAutoRoutesTests`) plays the
   mimic route in eight variants and prints every non-movement packet per tick.
+- 776-785 `-logic-autoupdate-` (`logic/AutoUpdateCases`, mod auto-update 2026-10-11): Auto Update against an in-process fake
+  GitHub on the first free port in 32100-32299 (mod services `github-api` and `github-download` set at run time and
+  restored). Every case counts the fake's requests, so "Off/testing/marker do nothing" means zero requests next to a
+  control that stages on the same fake. 784/785 run the mod's real installer process (`AutoUpdateFeature.spawnHelper`)
+  in a temp folder against a dummy parent (this JVM's java running a one-line Sleeper.java). They run on the TEST
+  thread (`LogicCase.runOffClient`) and wait with `ctx.waitTicks`: a plain `Thread.sleep`/`Future.get` there made the
+  window "Not Responding" and both installer cases time out at 60 s (first run, 2026-10-11).
