@@ -89,6 +89,21 @@ final class DungeonB2Cases {
         Difficulty[] oldDifficulty = new Difficulty[1];
         boolean cheat = Mod.isCheat();
         try {
+            // A container an earlier case left open (player.containerMenu not the inventory) makes ActionGate hold every
+            // world action back - correctly - and in the full suite after the 2026-10-11 merge one was (case 686's first
+            // suite run: "BLOOD_CAMP held back: a headless container is open"). Close it; this case is about Blood Camp.
+            String leftOpen = c.onClient(mc -> {
+                if (mc.player.containerMenu != mc.player.inventoryMenu) {
+                    String what = mc.player.containerMenu.getClass().getSimpleName();
+                    mc.player.closeContainer();
+                    return what;
+                }
+                return null;
+            });
+            if (leftOpen != null) {
+                c.note("closed a container an earlier case left open: " + leftOpen);
+                c.ticks(2);
+            }
             c.onClient(mc -> {
                 Mod.call(cfg, "setEnabled", true);
                 Mod.call(cfg, "setShowOverlay", true);
