@@ -76,11 +76,11 @@ final class MenuLayoutCases {
     static final Map<String, String> MERGED = Map.of("gui.tab.CommandShortcutsTab", "gui.tab.CommandKeybindsTab");
     private static final Pattern COMBINED = Pattern.compile(".*(, | & ).*");
     /**
-     * What the branches merged with this change (mod 3744aa32, 2026-10-08: chat-batch, inv-batch, modchat-party,
-     * cmd-shortcuts) changed on purpose, on top of the 6a61dfa8 fixtures: tabs removed and added, and tooltips
+     * What the branches merged with this change (mod 3744aa32, 2026-10-08: chat-batch, inv-batch, modchat-party)
+     * changed on purpose, on top of the 6a61dfa8 fixtures: tabs removed and added, and tooltips
      * changed, moved or removed, each with the commit that did it. 511 and 513 read it; a stale entry fails.
      */
-    private static final String MERGED = "menu-layout-merged.json";
+    private static final String MERGED_FILE = "menu-layout-merged.json";
 
     private MenuLayoutCases() {
     }
@@ -177,7 +177,7 @@ final class MenuLayoutCases {
             // (d) every tab exactly once, against the menu before the change plus what the branches merged with it
             // changed on purpose (menu-layout-merged.json: tabs those branches removed, tabs they added and where).
             JsonObject fixture = Deny.read("menu-layout-" + variant + ".json");
-            JsonObject merged = Deny.read(MERGED);
+            JsonObject merged = Deny.read(MERGED_FILE);
             JsonObject goneLeaves = merged.getAsJsonObject("goneLeaves");
             JsonObject newLeaves = merged.getAsJsonObject("newLeaves");
             Set<String> before = new TreeSet<>(fixture.getAsJsonObject("leaves").keySet());
@@ -452,7 +452,7 @@ final class MenuLayoutCases {
             }
             // Tooltips the merged branches changed on purpose: "owner\0key" -> {text, to?, why} or {gone}.
             Map<String, JsonObject> intended = new LinkedHashMap<>();
-            for (JsonElement e : Deny.read(MERGED).getAsJsonArray("tooltips")) {
+            for (JsonElement e : Deny.read(MERGED_FILE).getAsJsonArray("tooltips")) {
                 JsonObject o = e.getAsJsonObject();
                 intended.put(o.get("owner").getAsString() + "\0" + o.get("key").getAsString(), o);
             }
