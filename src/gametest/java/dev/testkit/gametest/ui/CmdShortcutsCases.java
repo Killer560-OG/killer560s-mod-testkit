@@ -37,14 +37,22 @@ import java.util.Set;
  *       passes - custom roots are his data, which {@link CommandSweep} leaves out of the deny-list coverage.</li>
  * </ul>
  * Sending is 544, in the Hx session (the testkit server records what the client sends).
+ * <p>
+ * Since mod chat-keybinds-merge (killer560, 2026-10-08: "Chat keybinds and command shortcuts should be combined into just
+ * chat keybinds.") these rows live in the Chat Keybinds tab, under its one master switch, below its Key Binds section;
+ * the cases drive that tab (no Command Shortcuts tab exists any more - 621 checks) and clear the key binds in
+ * {@link #reset} so the only ON/OFF buttons are the custom rows'. 621-622 are {@link ChatKeybindsMergeCases}.
  */
 final class CmdShortcutsCases {
 
-    static final String TAB = "Command Shortcuts";
+    static final String TAB = "Chat Keybinds";
+    static final String KB = "commandkeybinds.CommandKeybindsConfig";
     static final String FEAT = "commandshortcuts.CommandShortcutsFeature";
     static final String CFG = "commandshortcuts.CommandShortcutsConfig";
     static final String GROUP = "commandshortcuts.CommandShortcutsFeature$Group";
-    static final Set<String> HEADERS = Set.of("Catacombs / Master Mode", "Kuudra", "Custom");
+    static final Set<String> HEADERS = Set.of("Key Binds", "Catacombs / Master Mode", "Kuudra", "Custom Shortcuts");
+    /** The Key Binds section's line while it has no rows (reset() clears them). */
+    static final String NO_BINDS = "No binds yet - hit \"+ Add Bind\".";
     private static final int REFUSED = 0xFFFF5555;
     private static final int TEXT = 0xFFE0E0E0;
 
@@ -75,7 +83,7 @@ final class CmdShortcutsCases {
                 String l = ModScreenDriver.label(w);
                 if (w instanceof StringWidget) {
                     texts.add(l);
-                } else if (l.startsWith("Command Shortcuts: ")) {
+                } else if (l.startsWith(TAB + ": ")) {
                     master = l;
                     masterW = w;
                 } else {
@@ -86,13 +94,13 @@ final class CmdShortcutsCases {
                     }
                 }
             }
-            c.check(masterW != null, "no 'Command Shortcuts: ON' master row; rows: " + labels(ws));
+            c.check(masterW != null, "no '" + TAB + ": ON' master row; rows: " + labels(ws));
             c.check(groupButtons.size() == groupLabels.size(), groupButtons.size() + " built-in rows for "
                     + groupLabels.size() + " groups " + groupLabels + "; rows: " + labels(ws));
             // The removed text: nothing but the section headers and the (empty) Custom status line.
             List<String> extra = new ArrayList<>();
             for (String t : texts) {
-                if (!HEADERS.contains(t) && !t.isEmpty()) {
+                if (!HEADERS.contains(t) && !t.isEmpty() && !NO_BINDS.equals(t)) {
                     extra.add(t);
                 }
             }
@@ -187,12 +195,20 @@ final class CmdShortcutsCases {
             });
             c.ticks(3);
             if (hasCustomNow(c)) {
-                // One custom row in the picture, so the Custom section is seen with content.
+                // One custom row (with a key) and one key bind in the picture, so every section is seen with content.
                 c.onClient(mc -> {
                     Object cfg = Mod.cfg(CFG);
                     Object row = Mod.call(cfg, "addCustom");
                     Mod.call(cfg, "setCustomName", row, "k5warp");
                     Mod.call(cfg, "setCustomCommand", row, "/warp dh");
+                    if (hasMerge()) {
+                        Mod.call(cfg, "setCustomKey", row, 327);
+                        Object kb = Mod.cfg(KB);
+                        Mod.call(kb, "addBind");
+                        @SuppressWarnings("unchecked")
+                        List<Object> binds = (List<Object>) Mod.call(kb, "binds");
+                        setBind(binds.get(binds.size() - 1), 80, "/pets");
+                    }
                     return null;
                 });
             }
@@ -200,7 +216,7 @@ final class CmdShortcutsCases {
             int[] scroll = c.onClient(mc -> new int[]{d.maxScroll(), d.visibleContentHeight()});
             int step = Math.max(40, scroll[1] - 30);
             int n = 0;
-            Path shots = Report.dir().resolve("cmd-shortcuts-shots");
+            Path shots = Report.dir().resolve("chat-keybinds-merge-shots");
             Files.createDirectories(shots);
             for (int off = 0; ; off += step) {
                 int at = Math.min(off, scroll[0]);
@@ -277,7 +293,7 @@ final class CmdShortcutsCases {
             c.check(canUse(c, "k5renamed"), "/k5renamed does not parse after switching back on");
 
             // Persist: file, then a reload of the config.
-            Path file = c.onClient(mc -> (Path) R.getStatic(R.cls(CFG), "CONFIG_PATH"));
+            Path file = c.onClient(mc -> (Path) R.getStatic(R.cls(hasMerge() ? KB : CFG), "CONFIG_PATH"));
             String json = Files.readString(file, StandardCharsets.UTF_8);
             c.check(json.contains("\"custom\"") && json.contains("k5renamed") && json.contains("is hub"),
                     "the config file does not hold the row: " + json);
@@ -436,6 +452,26 @@ final class CmdShortcutsCases {
         }
     }
 
+    /** A jar where Command Shortcuts is part of Chat Keybinds (custom rows carry a key). */
+    static boolean hasMerge() {
+        try {
+            Mod.cls(CFG).getMethod("setCustomKey", Mod.cls(CFG + "$CustomShortcut"), int.class);
+            return true;
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
+    }
+
+    /** Sets a Chat Keybinds bind's public fields (key, text, on). */
+    static void setBind(Object bind, int key, String text) {
+        try {
+            bind.getClass().getField("key").setInt(bind, key);
+            bind.getClass().getField("text").set(bind, text);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Bind fields: " + e, e);
+        }
+    }
+
     private static boolean hasCustomNow(UiCase c) {
         return c.onClient(mc -> hasCustom());
     }
@@ -444,9 +480,14 @@ final class CmdShortcutsCases {
         c.check(hasCustomNow(c), "this jar has no custom command shortcuts (CommandShortcutsConfig.customs)");
     }
 
-    /** Master on, every built-in group on, no custom rows. */
+    /** Master on, every built-in group on, no custom rows (and, on a merged jar, no key binds). */
     static void reset(UiCase c) {
         c.onClient(mc -> {
+            if (hasMerge()) {
+                @SuppressWarnings("unchecked")
+                List<Object> binds = (List<Object>) Mod.call(Mod.cfg(KB), "binds");
+                binds.clear();
+            }
             Object cfg = Mod.cfg(CFG);
             Mod.call(cfg, "setEnabled", true);
             for (Object g : Mod.cls(GROUP).getEnumConstants()) {
@@ -465,7 +506,7 @@ final class CmdShortcutsCases {
     }
 
     @SuppressWarnings("unchecked")
-    private static List<Object> customs(UiCase c) {
+    static List<Object> customs(UiCase c) {
         return c.onClient(mc -> new ArrayList<>((List<Object>) Mod.call(Mod.cfg(CFG), "customs")));
     }
 
@@ -486,7 +527,7 @@ final class CmdShortcutsCases {
     }
 
     /** Wait (bounded) until {@code root} is in the live dispatcher and parses for the player, as typing would. */
-    private static void awaitRoot(UiCase c, String root, boolean usable) {
+    static void awaitRoot(UiCase c, String root, boolean usable) {
         for (int i = 0; i < 60; i++) {
             if (canUse(c, root) == usable) {
                 return;
@@ -497,7 +538,7 @@ final class CmdShortcutsCases {
                 + " (custom roots " + c.onClient(mc -> Mod.staticCall(FEAT, "customRoots")) + ")");
     }
 
-    private static boolean canUse(UiCase c, String root) {
+    static boolean canUse(UiCase c, String root) {
         return c.onClient(mc -> {
             CommandNode<Object> n = CommandSweep.dispatcher().getRoot().getChild(root);
             return n != null && n.canUse(CommandSweep.source(mc));
@@ -560,7 +601,7 @@ final class CmdShortcutsCases {
         return false;
     }
 
-    private static void close(UiCase c) {
+    static void close(UiCase c) {
         c.onClient(mc -> {
             McCompat.setScreen(mc, null);
             return null;
@@ -568,7 +609,7 @@ final class CmdShortcutsCases {
         c.ticks(1);
     }
 
-    private static void rebuild(ModScreenDriver d) {
+    static void rebuild(ModScreenDriver d) {
         try {
             d.rebuild();
         } catch (Throwable t) {
@@ -577,7 +618,7 @@ final class CmdShortcutsCases {
     }
 
     /** What the tab built, below the folder's own accordion rows (only this tab's sub-tab is open). */
-    private static List<AbstractWidget> content(UiCase c, ModScreenDriver d) {
+    static List<AbstractWidget> content(UiCase c, ModScreenDriver d) {
         return c.onClient(mc -> {
             rebuild(d);
             List<AbstractWidget> out = new ArrayList<>();
@@ -593,7 +634,7 @@ final class CmdShortcutsCases {
         });
     }
 
-    private static List<String> labels(List<AbstractWidget> ws) {
+    static List<String> labels(List<AbstractWidget> ws) {
         List<String> out = new ArrayList<>();
         for (AbstractWidget w : ws) {
             out.add(ModScreenDriver.label(w));
@@ -622,7 +663,7 @@ final class CmdShortcutsCases {
     }
 
     /** Press the first of this tab's buttons whose label is {@code label}, then rebuild like the tab does. */
-    private static void press(UiCase c, ModScreenDriver d, String label) {
+    static void press(UiCase c, ModScreenDriver d, String label) {
         boolean pressed = c.onClient(mc -> {
             rebuild(d);
             for (AbstractWidget w : contentNow(d)) {

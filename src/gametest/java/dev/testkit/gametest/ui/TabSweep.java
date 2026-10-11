@@ -27,13 +27,15 @@ final class TabSweep {
      * 1a64e3dd (New category gone; Social, Items and two Dungeon folders added): cheat 176, legit 141. Then on mod
      * chat-batch a64924b9 (Hide Chat Messages and Chat Tidy merged into one Chat Hider tab): cheat 175, legit 140;
      * menu-layout (the two Dungeon folders dissolved, Crosshair moved into General, Home's cheat Correction Alarm its
-     * own section): cheat 175, legit 139. Both merged on 2026-10-08: the floors are the lower of the two.
+     * own section): cheat 175, legit 139. Both merged on 2026-10-08: the floors are the lower of the two. Then mod
+     * chat-keybinds-merge (Command Shortcuts merged into Chat Keybinds, one leaf fewer): cheat 174 (measured), legit 138.
      */
-    static final int CHEAT_TAB_FLOOR = 175;
-    static final int LEGIT_TAB_FLOOR = 139;
-    /** Leaf tabs alone (chat-batch cheat 161 / legit 127, menu-layout 163 / 128), for testing jars - see tabs(). */
-    static final int CHEAT_LEAF_FLOOR = 161;
-    static final int LEGIT_LEAF_FLOOR = 127;
+    static final int CHEAT_TAB_FLOOR = 174;
+    static final int LEGIT_TAB_FLOOR = 138;
+    /** Leaf tabs alone (chat-batch cheat 161 / legit 127, menu-layout 163 / 128; chat-keybinds-merge one fewer), for
+     *  testing jars - see tabs(). */
+    static final int CHEAT_LEAF_FLOOR = 160;
+    static final int LEGIT_LEAF_FLOOR = 126;
 
     /** A two-state toggle as the mod labels them: "Name: ON" / "Name: OFF" (section signs stripped). */
     static final Pattern TOGGLE = Pattern.compile("^(.+): (ON|OFF)$");

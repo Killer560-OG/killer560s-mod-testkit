@@ -69,7 +69,11 @@ final class MenuLayoutCases {
     /** Sections added by this change (cheat build): Home's Correction Alarm, out of the middle of Mod & HUD. */
     private static final Set<String> NEW_LEAVES = Set.of("gui.tab.CorrectionAlarmTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
-    private static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair");
+    private static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
+            // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.
+            "Command Shortcuts", "Chat Keybinds");
+    /** Tabs merged into another since the fixture: old leaf class -> the class that now holds its rows. */
+    static final Map<String, String> MERGED = Map.of("gui.tab.CommandShortcutsTab", "gui.tab.CommandKeybindsTab");
     private static final Pattern COMBINED = Pattern.compile(".*(, | & ).*");
     /**
      * What the branches merged with this change (mod 3744aa32, 2026-10-08: chat-batch, inv-batch, modchat-party,
@@ -191,7 +195,11 @@ final class MenuLayoutCases {
             int kept = 0;
             for (String cls : before) {
                 List<String> at = leaves.get(cls);
-                if (at == null) {
+                if (at == null && MERGED.containsKey(cls) && leaves.containsKey(MERGED.get(cls))) {
+                    kept++;
+                    c.note("merged: " + fixture.getAsJsonObject("leaves").get(cls).getAsString() + "  ->  "
+                            + leaves.get(MERGED.get(cls)));
+                } else if (at == null) {
                     c.problem(cls + " (was " + fixture.getAsJsonObject("leaves").get(cls).getAsString()
                             + ") is no longer in the menu");
                 } else if (at.size() != 1) {
@@ -239,7 +247,9 @@ final class MenuLayoutCases {
         Map<String, Set<String>> cheatRows = new LinkedHashMap<>();
         if (cheat) {
             for (Map.Entry<String, JsonElement> o : Deny.read("menu-layout-legit.json").getAsJsonObject("rows").entrySet()) {
-                legitRows.put(RENAMED.getOrDefault(o.getKey(), o.getKey()), o.getValue().getAsJsonObject().keySet());
+                // Union, not put: two old scopes can map to one (Command Shortcuts into Chat Keybinds).
+                legitRows.computeIfAbsent(RENAMED.getOrDefault(o.getKey(), o.getKey()), x -> new HashSet<>())
+                        .addAll(o.getValue().getAsJsonObject().keySet());
             }
             for (Map.Entry<String, JsonElement> o : Deny.read("menu-layout-cheat.json").getAsJsonObject("rows").entrySet()) {
                 Set<String> only = new HashSet<>(o.getValue().getAsJsonObject().keySet());
