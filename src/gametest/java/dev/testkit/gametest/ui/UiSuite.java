@@ -67,6 +67,8 @@ import java.util.List;
  *                511-514 killer560's 2026-10-07 menu layout report: Crosshair in General, no combined folders, every tab
  *                once, cheat-only tabs and sections after every legit one, tooltips unchanged, screenshots at GUI 2
  *                ({@link MenuLayoutCases})
+ *                671-675 Held Item Outline: off controls, styles/colours/width/alpha from screenshots, hands, hotbar and
+ *                third person untouched, settings ({@link HeldOutlineCases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -120,6 +122,9 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-08 Chat Keybinds + Command Shortcuts merge ({@link ChatKeybindsMergeCases}); 623-625 are in the
      *  Hx session. Own block for merges. */
     static final String[] CHAT_KEYBINDS_MERGE_CASES = {"621-ui-chat-keybinds-merged-tab", "622-ui-chat-keybinds-migration"};
+    /** killer560's 2026-10-09 Held Item Outline ({@link HeldOutlineCases}). Own block for merges. */
+    static final String[] HELD_OUTLINE_CASES = {"671-ui-held-outline-off", "672-ui-held-outline-styles",
+            "673-ui-held-outline-hands", "674-ui-held-outline-hud", "675-ui-held-outline-settings"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -160,12 +165,15 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : CHAT_KEYBINDS_MERGE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : HELD_OUTLINE_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
         boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES) || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
-                || any(CHAT_KEYBINDS_MERGE_CASES);
+                || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -284,6 +292,12 @@ public class UiSuite implements FabricClientGameTest {
                     // ---- chat keybinds merge (621-622) ----
                     UiCase.run(ctx, "621-ui-chat-keybinds-merged-tab", ChatKeybindsMergeCases::mergedTab);
                     UiCase.run(ctx, "622-ui-chat-keybinds-migration", ChatKeybindsMergeCases::migration);
+                    // ---- held item outline (671-675) ----
+                    UiCase.run(ctx, "671-ui-held-outline-off", HeldOutlineCases::controls);
+                    UiCase.run(ctx, "672-ui-held-outline-styles", HeldOutlineCases::styles);
+                    UiCase.run(ctx, "673-ui-held-outline-hands", HeldOutlineCases::hands);
+                    UiCase.run(ctx, "674-ui-held-outline-hud", HeldOutlineCases::hudAndCamera);
+                    UiCase.run(ctx, "675-ui-held-outline-settings", HeldOutlineCases::settings);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

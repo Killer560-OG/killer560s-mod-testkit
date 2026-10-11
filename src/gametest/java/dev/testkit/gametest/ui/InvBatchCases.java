@@ -958,7 +958,7 @@ final class InvBatchCases {
         });
         c.note("top-level tabs: " + tree);
         c.check(tree.containsKey("Cosmetics"), "no Cosmetics category");
-        c.check(tree.get("Cosmetics").equals(List.of("Player Cosmetics", "Custom Items", "Nickhider", "Trail")),
+        c.check(tree.get("Cosmetics").equals(List.of("Player Cosmetics", "Custom Items", "Held Item Outline", "Nickhider", "Trail")),
                 "Cosmetics holds " + tree.get("Cosmetics"));
         for (Map.Entry<String, List<String>> e : tree.entrySet()) {
             if (e.getKey().equals("Cosmetics")) {
