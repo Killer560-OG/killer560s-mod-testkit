@@ -98,6 +98,21 @@
       "key": "mod chat",
       "text": "A private chat with other mod users: /kc <message> sends one line, /chat k makes your typed chat go there.",
       "why": "modchat-party 76cf2846: /killer560 chat removed, /kc and /chat k"
+    },
+    {
+      "owner": "Experiments",
+      "key": "reset profit totals",
+      "gone": "trackers: Experiments tab keeps Profit Tracker + Open /profit; totals and the reset moved to /profit (killer560 2026-10-11)"
+    },
+    {
+      "owner": "Experiments",
+      "key": "reward value",
+      "gone": "trackers: Experiments tab keeps Profit Tracker + Open /profit; totals and the reset moved to /profit (killer560 2026-10-11)"
+    },
+    {
+      "owner": "Experiments",
+      "key": "sessions",
+      "gone": "trackers: Experiments tab keeps Profit Tracker + Open /profit; totals and the reset moved to /profit (killer560 2026-10-11)"
     }
   ]
 }

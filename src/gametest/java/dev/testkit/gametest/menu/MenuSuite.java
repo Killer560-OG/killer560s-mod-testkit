@@ -107,6 +107,8 @@ public class MenuSuite implements FabricClientGameTest {
                     DungeonFixTerminalCases.register(s);
                     InvBatchMenuCases.register(s); // 583, 585: inventory batch 2026-10-08
                     LeapOrderMenuCases.register(s); // 670: leap menu follows the Leap Order defaults/pins, 2026-10-09
+                    // ---- 731-736 trackers (profit scopes, red reset, Experiments tab, Superpairs Escape, RNG), 2026-10-11 ----
+                    TrackerCases.register(s);
                 });
     }
 }
