@@ -97,7 +97,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // path-wait (2026-10-11): legit warps land exactly where obvious ones do
             "96-ar-639-legit-warp-exact",
             // hype-down (2026-10-11)
-            "96-ar-653-crypt-straight-down"};
+            "96-ar-653-crypt-straight-down",
+            // ar-obvious-only (2026-10-11): legit mode exists only in -PtestingBuild jars
+            "96-ar-786-obvious-only"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -261,8 +263,15 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-651-mimic-legit-pitch" -> caseMimicWarp(ctx, LEGIT_AURA_HYPE);
                         case "96-ar-639-legit-warp-exact" -> caseLegitWarpExact(ctx);
                         case "96-ar-653-crypt-straight-down" -> caseCryptStraightDown(ctx);
+                        case "96-ar-786-obvious-only" -> caseObviousOnly(ctx);
                         default -> {
                         }
+                    }
+                    if (caseSkip != null) {
+                        RESULTS.add(c + " SKIP - " + caseSkip);
+                        System.out.println("[" + c + "] SKIP - " + caseSkip);
+                        caseSkip = null;
+                        continue;
                     }
                     RESULTS.add(c + " PASS");
                     System.out.println("[" + c + "] PASS");
@@ -939,6 +948,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 boolean go = p[2];
                 String label = (go ? "Go + Secret" : "on the node") + ", " + (legit ? "legit" : "obvious")
                         + (map ? ", map open" : ", no screen (control)");
+                if (legit && !legitSelectable()) {
+                    println("map-open aim, " + label + ": not run - " + LEGIT_ONLY_TESTING);
+                    continue;
+                }
                 ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setLegitMode", legit));
                 // Off any node first: from (20,14) looking up and away, the Go + Secret press has a warp to make.
                 tpRel(ctx, go ? 20.5 : 4.5, go ? 14.5 : 6.5, awayRel, -20f);
@@ -5076,6 +5089,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      * landed about one run in three a block short, on (14,6).
      */
     private void caseLegitWarpExact(ClientGameTestContext ctx) {
+        if (!legitSelectable()) {
+            caseSkip = LEGIT_ONLY_TESTING;
+            return;
+        }
         resetRoutes(ctx);
         arena(ctx, false);
         giveHotbar(ctx);
@@ -5127,6 +5144,141 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         check(failures.isEmpty() && runs == 20, String.join("; ", failures));
     }
 
+    // ============================================================================================ ar-obvious-only (2026-10-11)
+
+    /** Set by a case that cannot run on this jar; the session loop records it as a SKIP row instead of a PASS. */
+    private static String caseSkip;
+
+    static final String LEGIT_ONLY_TESTING = "Auto Routes legit mode exists only in -PtestingBuild jars (mod ar-obvious-only)";
+
+    /**
+     * Whether this jar lets Auto Routes run in legit mode: since mod ar-obvious-only only a {@code -PtestingBuild} jar
+     * does ({@code AutoRoutesConfig.legitModeSelectable()}). A jar from before that method always did.
+     */
+    static boolean legitSelectable() {
+        try {
+            return (Boolean) Class.forName(AR_CONFIG).getMethod("legitModeSelectable").invoke(null);
+        } catch (NoSuchMethodException | ClassNotFoundException e) {
+            // An older jar (legit always selectable), or no killer560smod at all (its cases are SKIP rows anyway).
+            return true;
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("could not ask " + AR_CONFIG + ".legitModeSelectable", e);
+        }
+    }
+
+    /**
+     * 96-ar-786-obvious-only (killer560, 2026-10-11: "remove the mode as an option and only have obvious"). The config
+     * FILE is written with {@code legitMode: true} and reloaded from disk. On a normal jar: {@code isLegitMode()} reads
+     * false, the Auto Routes tab builds no "Mode:" row (Start From Start Node Only still there, so the tab did build), and
+     * an etherwarp start node, armed while looking 40 degrees away and down, logs "obvious mode", lands on (14,5), and
+     * leaves the camera where it was. On a {@code -PtestingBuild} jar the same file reads legit, the Mode row is there,
+     * the warp logs "legit mode", lands, and the camera turned to it.
+     */
+    private void caseObviousOnly(ClientGameTestContext ctx) {
+        boolean testing = legitSelectable();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        stopRoute(ctx);
+        Path file = ModUnderTest.modConfig("killer560smod-autoroutes-settings.json");
+        try {
+            ctx.runOnClient(mc -> {
+                Object ar = ModUnderTest.config(AR_CONFIG);
+                ModUnderTest.set(ar, "setLegitMode", true);
+                ModUnderTest.call(ar, "save", new Class<?>[0], new Object[0]);
+                ModUnderTest.staticCall(AR_CONFIG, "load", new Class<?>[0], new Object[0]);
+            });
+            String json;
+            try {
+                json = Files.readString(file, StandardCharsets.UTF_8);
+            } catch (java.io.IOException e) {
+                throw new AssertionError("could not read " + file, e);
+            }
+            check(json.replaceAll("\\s", "").contains("\"legitMode\":true"),
+                    "the reloaded config file does not say legitMode true: " + json);
+            boolean legitNow = ctx.computeOnClient(mc ->
+                    ModUnderTest.getBoolean(ModUnderTest.config(AR_CONFIG), "isLegitMode"));
+            List<String> labels = ctx.computeOnClient(mc -> {
+                try {
+                    Object tab = Class.forName("com.killer560.hub.gui.tab.AutoRoutesTab").getConstructor().newInstance();
+                    java.lang.reflect.Method build = tab.getClass().getMethod("buildWidgets", int.class, int.class,
+                            int.class, Runnable.class);
+                    List<String> out = new ArrayList<>();
+                    for (Object w : (List<?>) build.invoke(tab, 0, 0, 300, (Runnable) () -> {
+                    })) {
+                        out.add(strip(((AbstractWidget) w).getMessage().getString()));
+                    }
+                    return out;
+                } catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            boolean modeRow = labels.stream().anyMatch(l -> l.startsWith("Mode:"));
+            boolean startOnlyRow = labels.stream().anyMatch(l -> l.startsWith("Start From Start Node Only"));
+            println("786: " + (testing ? "testing" : "normal") + " jar, config file legitMode true, isLegitMode() "
+                    + legitNow + ", Mode row " + modeRow + ", tab rows " + labels);
+            check(startOnlyRow, "the Auto Routes tab built no Start From Start Node Only row: " + labels);
+            check(legitNow == testing, (testing ? "a testing" : "a normal") + " jar reads isLegitMode() " + legitNow
+                    + " from a config file saying legitMode true");
+            check(modeRow == testing, (testing ? "a testing jar has no" : "a normal jar still shows the")
+                    + " Auto Routes Mode row: " + labels);
+
+            // The route itself: arm the warp looking well away and down, as 639 does.
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            writeRoute(ctx, List.of(ew(14, 12, 14, 5, true)));
+            float away = relYawTo(14, 12, 14, 5) + 40f;
+            long m = LogTap.mark();
+            check(arm(ctx, 14, 12, away, 50f), "the etherwarp start node at (14,12) did not arm");
+            float view0 = ctx.computeOnClient(mc -> mc.player.getViewYRot(1f));
+            Vec3 p = null;
+            boolean landed = false;
+            for (int i = 0; i < 200 && !landed; i++) {
+                ctx.waitTicks(1);
+                p = relPos(ctx);
+                landed = Math.abs(p.z - 12.5) > 2 && Math.abs(p.y - F) < 0.2 && ctx.computeOnClient(mc ->
+                        mc.player.onGround());
+            }
+            ctx.waitTicks(5);
+            p = relPos(ctx);
+            float view1 = ctx.computeOnClient(mc -> mc.player.getViewYRot(1f));
+            float turned = Math.abs(net.minecraft.util.Mth.wrapDegrees(view1 - view0));
+            float warpRel = relYawTo(14, 12, 14, 5);
+            float warpYaw = ctx.computeOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                return (Float) ModUnderTest.staticCall(COORDS, "toRealYaw", new Class<?>[]{frame.getClass(),
+                        float.class}, new Object[]{frame, warpRel});
+            });
+            float offWarp = Math.abs(net.minecraft.util.Mth.wrapDegrees(view1 - warpYaw));
+            String begins = null;
+            for (String l : LogTap.since(m)) {
+                if (l.contains("ETHERWARP begins")) {
+                    begins = l;
+                    break;
+                }
+            }
+            boolean onTarget = Math.floor(p.x) == 14 && Math.floor(p.z) == 5 && Math.abs(p.y - F) < 0.2;
+            println(String.format(Locale.US, "786: landed at (%.2f, %.2f, %.2f) %s, camera moved %.1f degrees after arming and ends %.1f off the warp's yaw, log: %s",
+                    p.x, p.y, p.z, onTarget ? "on (14,5)" : "NOT on (14,5)", turned, offWarp, begins));
+            String want = testing ? "legit mode" : "obvious mode";
+            check(begins != null && begins.contains(want), "the etherwarp did not run in " + want + ": " + begins);
+            check(onTarget, String.format(Locale.US, "the warp landed at (%.2f, %.2f), not on (14,5)", p.x, p.z));
+            if (testing) {
+                check(offWarp < 5f, "legit mode on a testing jar did not turn the camera to the warp (" + offWarp
+                        + " degrees off)");
+            } else {
+                check(turned < 1f && offWarp > 30f, "obvious mode turned the camera: moved " + turned
+                        + " degrees, ends " + offWarp + " off the warp's yaw");
+            }
+        } finally {
+            stopRoute(ctx);
+            ctx.runOnClient(mc -> {
+                Object ar = ModUnderTest.config(AR_CONFIG);
+                ModUnderTest.set(ar, "setLegitMode", false);
+                ModUnderTest.call(ar, "save", new Class<?>[0], new Object[0]);
+            });
+        }
+    }
+
     // ============================================================================================ sim-world (2026-10-11)
 
     /**
@@ -5173,6 +5325,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     }
 
     private void caseMimicWarp(ClientGameTestContext ctx, String[][] modes) {
+        if (modes == LEGIT_AURA_HYPE && !legitSelectable()) {
+            caseSkip = LEGIT_ONLY_TESTING;
+            return;
+        }
         resetRoutes(ctx);
         arena(ctx, false);
         giveHotbar(ctx);
@@ -5184,6 +5340,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 boolean aura = mode.length > 2;
                 String label = mode[0] + "/" + mode[1] + (aura ? "/aura" : "");
                 boolean legit = "legit".equals(mode[1]);
+                if (legit && !legitSelectable()) {
+                    println("mimic warp " + label + ": not run - " + LEGIT_ONLY_TESTING);
+                    continue;
+                }
                 stopRoute(ctx);
                 ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setLegitMode", legit));
                 setArEnum(ctx, "setKillMimic", "KillMimic", mode[0]);
@@ -5343,6 +5503,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 int nodeX = nx;
                 String label = v[0] + "/" + v[1];
                 boolean legit = "legit".equals(v[1]);
+                if (legit && !legitSelectable()) {
+                    println("653 " + label + ": not run - " + LEGIT_ONLY_TESTING);
+                    continue;
+                }
                 stopRoute(ctx);
                 ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setLegitMode", legit));
                 setArEnum(ctx, "setCryptWeapon", "CryptWeapon", v[0]);

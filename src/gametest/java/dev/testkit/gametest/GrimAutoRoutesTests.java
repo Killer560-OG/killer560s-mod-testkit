@@ -179,7 +179,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-pingpong", GrimAutoRoutesTests::casePingPong);
             s.test("62-argrim-chain", GrimAutoRoutesTests::caseChain);
             s.test("62-argrim-path", GrimAutoRoutesTests::casePath);
-            s.test("62-argrim-legit", GrimAutoRoutesTests::caseLegit);
+            // mod ar-obvious-only (2026-10-11): legit mode exists only in -PtestingBuild jars.
+            if (SimAutoRoutesTests.legitSelectable()) {
+                s.test("62-argrim-legit", GrimAutoRoutesTests::caseLegit);
+            } else {
+                s.shelved("62-argrim-legit", SimAutoRoutesTests.LEGIT_ONLY_TESTING, GrimAutoRoutesTests::caseLegit);
+            }
             s.test("62-argrim-hand", GrimAutoRoutesTests::caseHand);
             s.test("62-argrim-crypt", GrimAutoRoutesTests::caseCrypt);
             s.test("62-argrim-mimic", GrimAutoRoutesTests::caseMimic);
