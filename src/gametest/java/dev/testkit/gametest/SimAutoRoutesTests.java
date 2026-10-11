@@ -85,6 +85,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-awaitskip", "96-ar-leverwp", "96-ar-complete", "96-ar-mimic",
             "96-ar-crypt", "96-ar-breaker", "96-ar-breakerwait", "96-ar-pingpong", "96-ar-chain", "96-ar-stackorder", "96-ar-crypthold",
             "96-ar-charges", "96-ar-museum", "96-ar-398-offnode", "96-ar-398-regrow",
+            // ar-nodes block (mod ar-nodes, 2026-10-11): run before 96-ar-edit's Go To, like the cases above.
+            "96-ar-656-dbaddbreak", "96-ar-657-dbeditattack", "96-ar-658-dbreach", "96-ar-659-ewblockwait",
+            "96-ar-662-jump",
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim", "96-ar-398-startawait",
             "96-ar-405-crypt-mapopen", "96-ar-405-startwarp", "96-ar-path", "96-ar-screen", "96-ar-rotate"};
 
@@ -235,6 +238,11 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-405-crypt-mapopen" -> caseCryptMapOpen(ctx);
                         case "96-ar-405-startwarp" -> caseStartWarp(ctx);
                         case "96-ar-edit" -> caseEdit(ctx);
+                        case "96-ar-656-dbaddbreak" -> ArNodesCases.addBreak(ctx);
+                        case "96-ar-657-dbeditattack" -> ArNodesCases.editAttack(ctx);
+                        case "96-ar-658-dbreach" -> ArNodesCases.reach(ctx);
+                        case "96-ar-659-ewblockwait" -> ArNodesCases.ewBlockWait(ctx);
+                        case "96-ar-662-jump" -> ArNodesCases.jump(ctx);
                         case "96-ar-dbedit" -> caseDbEdit(ctx);
                         case "96-ar-mapopen" -> caseMapOpen(ctx);
                         case "96-ar-mapopen-aim" -> caseMapOpenAim(ctx);
@@ -348,7 +356,11 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         JsonObject br = nodes.get(3).getAsJsonObject();
         check("DUNGEON_BREAKER".equals(br.get("type").getAsString()) && br.has("blocks")
                 && br.getAsJsonArray("blocks").size() == 2, "the breaker did not save its two picked blocks: " + br);
-        check(!blockAir(ctx, 22, F, 10), "edit mode broke a block it should only have picked");
+        // Since mod ar-nodes an added block is broken once on add (killer560, 2026-10-09; 96-ar-656-dbaddbreak).
+        check(blockAir(ctx, 22, F, 10) && blockAir(ctx, 22, F + 1, 10), "the two picked blocks were not broken on add");
+        // Put them back (the sim regrows them only after 10 s) for the node's own break below.
+        setBlocks(ctx, Map.of(new int[]{22, F, 10}, Blocks.STONE.defaultBlockState(),
+                new int[]{22, F + 1, 10}, Blocks.STONE.defaultBlockState()));
         // Step off and back on: the start node arms and breaks both.
         tpRel(ctx, 20.5, 14.5, -90f, 0f);
         ctx.waitTicks(10);
@@ -397,7 +409,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         check(nodes.get(4).getAsJsonObject().has("item"), "the use node saved no item");
         // Refusals: await:x and an unknown type add nothing.
         cmd(ctx, "/ar add ew await:x");
-        cmd(ctx, "/ar add jump");
+        // "jump" was the unknown word here until mod ar-nodes made it a node type (96-ar-662-jump).
+        cmd(ctx, "/ar add hop");
         ctx.waitTicks(5);
         check(fileNodes(ctx).size() == 5, "a refused /ar add still added a node");
         // A bare "await:" (what tab completion leaves) means await:1 (killer560, 2026-10-06). The node waits for its
@@ -2699,8 +2712,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      * block it adds it if i shift right click it removes it have an option under auto routes for it to be waypoints or
      * highlights"). /ar add dungeonbreaker makes a DUNGEON_BREAKER node and is offered in completion. Control: with the
      * Dungeon Breaker in hand and edit mode off, a real left click on stone sends a swing/dig. In edit mode the same
-     * click, and a held one, sends neither and the block stays; right click adds, shift-right-click removes, and the
-     * saved blocks follow. Every Breaker Block Display x Style combination is drawn by its own path. After edit mode,
+     * click breaks the stone too (killer560, 2026-10-09 - it was swallowed from 2026-10-06 until mod ar-nodes); right
+     * click adds (and breaks the block once), shift-right-click removes, and the saved blocks follow. Every Breaker Block Display x Style combination is drawn by its own path. After edit mode,
      * a left click swings again.
      */
     private void caseDbEdit(ClientGameTestContext ctx) {
@@ -2747,7 +2760,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         println("dbedit control (edit mode off): " + ctrlSwing + " swing, " + ctrlDig + " player_action");
         check(ctrlSwing + ctrlDig >= 1, "the control left click sent nothing - the edit-mode check below would prove nothing");
 
-        // ---- edit mode on: the same click, and a held one, on a stone that is NOT picked ----
+        // ---- edit mode on: since mod ar-nodes (killer560, 2026-10-09: "I cannot break blocks while in the edit breaker
+        // mode") his left click with the breaker in hand is a normal left click again - it swings, digs and breaks.
+        // Item 1b's own case is 96-ar-657-dbeditattack; this keeps the old window's shape as its control. ----
         long m = LogTap.mark();
         cmd(ctx, "/ar edit db");
         ctx.waitTicks(3);
@@ -2756,28 +2771,16 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         tpRel(ctx, 20.5, 10.5, -90f, 0f);
         ctx.waitTicks(5);
         check(aimedAt(ctx, 22, F + 1, 10), "edit mode's left click is not aimed at its stone");
-        int swallowedBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EDIT_INPUT, "swallowedLeftClicks"));
         startSampling(ctx);
         leftClick(ctx, 2);
         ctx.waitTicks(5);
-        leftClick(ctx, 20);
-        ctx.waitTicks(5);
         s = stopSampling(ctx);
-        int swallowed = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EDIT_INPUT, "swallowedLeftClicks"))
-                - swallowedBefore;
-        StringBuilder trace = new StringBuilder();
-        for (Sample x : s) {
-            if (!x.out().isEmpty()) {
-                trace.append(String.format(" | t%d %s", x.tick(), x.out()));
-            }
-        }
-        println("dbedit edit-mode window: " + s.size() + " ticks sampled, " + swallowed + " click(s) swallowed:" + trace);
-        check(s.size() >= 30, "only " + s.size() + " tick(s) were sampled in the edit-mode window");
-        check(swallowed == 2, "edit mode swallowed " + swallowed + " left click(s), expected 2 (a tap and a hold)");
-        check(logHas(m, "edit mode swallowed a left click"), "no 'edit mode swallowed a left click' log line");
-        check(countOut(s, "swing") == 0, "a left click in edit mode still swung:" + trace);
-        check(countOut(s, "player_action") == 0, "a left click in edit mode still sent a dig:" + trace);
-        check(!blockAir(ctx, 22, F + 1, 10), "a left click in edit mode broke the block");
+        println("dbedit edit-mode left click: " + countOut(s, "swing") + " swing, " + countOut(s, "player_action")
+                + " player_action, stone broken " + blockAir(ctx, 22, F + 1, 10));
+        check(countOut(s, "swing") >= 1 && countOut(s, "player_action") >= 1, "a left click in edit mode sent no swing/dig");
+        check(blockAir(ctx, 22, F + 1, 10), "a left click in edit mode did not break the stone");
+        // The sim regrows it in 10 s; put it back now for the picks below.
+        setBlocks(ctx, Map.of(new int[]{22, F + 1, 10}, Blocks.STONE.defaultBlockState()));
 
         // ---- right click adds, shift-right-click removes ----
         rightClick(ctx, 22, F, 10, Direction.WEST);
@@ -2798,14 +2801,14 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         println("dbedit after shift-right-click: " + one);
         check(one != null && one.size() == 1 && one.get(0).equals(two.get(0)),
                 "shift-right-click left " + one + ", expected only the first pick " + two.get(0));
-        check(!blockAir(ctx, 22, F, 10) && !blockAir(ctx, 22, F + 1, 10), "edit mode broke a picked block");
+        // Since mod ar-nodes each ADD breaks its block once (96-ar-656-dbaddbreak); a remove breaks nothing.
+        check(blockAir(ctx, 22, F, 10) && blockAir(ctx, 22, F + 1, 10), "the two added blocks were not broken on add");
 
         // ---- edit mode, AOTV in hand (killer560, 2026-10-06): a real sneaking right click on the floor three blocks
         // away is a normal etherwarp - use_item goes out, the server moves him, and nothing is picked ----
         ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
         tpRel(ctx, 20.5, 14.5, relYawTo(20, 14, 17, 14), pitchTo(20, 14, 17, 14));
         ctx.waitTicks(5);
-        int swallowedAotv = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EDIT_INPUT, "swallowedLeftClicks"));
         long mA = LogTap.mark();
         startSampling(ctx);
         ctx.getInput().holdKey(options -> options.keyShift);
@@ -2831,7 +2834,6 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 "edit mode swallowed the AOTV right click (no use_item / use_item_on)");
         check(warped != null, "the AOTV right click in edit mode did not etherwarp him to (17,14) (at " + relPos(ctx) + ")");
         check(afterAotv != null && afterAotv.size() == 1, "the AOTV right click picked a block: " + afterAotv);
-        check(!logHas(mA, "edit mode swallowed"), "edit mode swallowed a click with the AOTV in hand");
 
         // ---- edit mode, Hyperion in hand: a left click is a normal left click (swings) ----
         giveSlot(ctx, 4, "HYPERION");
@@ -2845,12 +2847,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         leftClick(ctx, 3);
         ctx.waitTicks(5);
         s = stopSampling(ctx);
-        int swallowedHype = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EDIT_INPUT, "swallowedLeftClicks"))
-                - swallowedAotv;
         println("dbedit Hyperion in edit mode: " + countOut(s, "swing") + " swing, " + countOut(s, "player_action")
-                + " player_action, " + swallowedHype + " swallowed");
+                + " player_action");
         check(countOut(s, "swing") >= 1, "a Hyperion left click in edit mode did not swing");
-        check(swallowedHype == 0, "edit mode swallowed " + swallowedHype + " left click(s) with a Hyperion in hand");
         ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(2));
         tpRel(ctx, 20.5, 10.5, -90f, 0f);
         ctx.waitTicks(5);
@@ -4615,5 +4614,392 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> mc.execute(() ->
                 McCompat.setScreen(mc, new net.minecraft.client.gui.screens.TitleScreen())));
         ctx.waitFor(mc -> McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.TitleScreen, 400);
+    }
+
+    // ============================================================================================ ar-nodes (656-662)
+
+    /**
+     * killer560's Auto Routes items of 2026-10-09 (mod ar-nodes). Nested so they share this suite's world, sampler and
+     * helpers; kept in one block because this file is merged a lot.
+     */
+    static final class ArNodesCases {
+        private ArNodesCases() {
+        }
+
+        private static final List<double[]> JUMP_SAMPLES = new ArrayList<>();
+        private static volatile boolean jumpSampling;
+        private static boolean jumpHooked;
+
+        private static int executorInt(ClientGameTestContext ctx, String method) {
+            return ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, method));
+        }
+
+        /** The block as the integrated SERVER has it (relative coordinates). */
+        private static BlockState serverState(ClientGameTestContext ctx, int x, int y, int z) {
+            AtomicReference<BlockState> got = new AtomicReference<>();
+            ctx.runOnClient(mc -> {
+                BlockPos pos = real(ModUnderTest.staticCall(FRAME, "current"), x, y, z);
+                var server = mc.getSingleplayerServer();
+                server.execute(() -> got.set(server.overworld().getBlockState(pos)));
+            });
+            ctx.waitFor(mc -> got.get() != null, 100);
+            return got.get();
+        }
+
+        private static JsonArray breakerBlocks(ClientGameTestContext ctx) {
+            for (JsonElement e : fileNodes(ctx)) {
+                JsonObject n = e.getAsJsonObject();
+                if ("DUNGEON_BREAKER".equals(n.get("type").getAsString())) {
+                    JsonArray b = n.getAsJsonArray("blocks");
+                    return b == null ? new JsonArray() : b;
+                }
+            }
+            return null;
+        }
+
+        private static void editMode(ClientGameTestContext ctx, boolean on) {
+            boolean now = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(FEATURE, "isEditMode"));
+            if (now != on) {
+                cmd(ctx, "/ar edit db");
+                ctx.waitTicks(3);
+            }
+            check(ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(FEATURE, "isEditMode")) == on,
+                    "edit mode did not turn " + (on ? "on" : "off"));
+        }
+
+        /** A breaker node far from where he picks (the old code measured from it), Dungeon Breaker in hand, charges full. */
+        private static void breakerSetup(ClientGameTestContext ctx) {
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            writeRoute(ctx, List.of(node("DUNGEON_BREAKER", 6, 24, 0f, 0f)));
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(2));
+            ctx.waitTicks(40); // charges back to full
+        }
+
+        private static double eyeToBox(ClientGameTestContext ctx, int x, int y, int z) {
+            return ctx.computeOnClient(mc -> {
+                BlockPos p = real(ModUnderTest.staticCall(FRAME, "current"), x, y, z);
+                return Math.sqrt(new net.minecraft.world.phys.AABB(p).distanceToSqr(mc.player.getEyePosition()));
+            });
+        }
+
+        /**
+         * 656, item 1a: "Whenever I add a block to breaker block to a breaker node it should break it instantly once."
+         * A right click in edit mode adds the stone and exactly ONE dig goes out for it; the SERVER has it as air. Adding
+         * it again (already picked) and shift-removing it send nothing.
+         */
+        static void addBreak(ClientGameTestContext ctx) {
+            breakerSetup(ctx);
+            try {
+                setBlocks(ctx, Map.of(new int[]{22, F + 1, 6}, Blocks.STONE.defaultBlockState()));
+                tpRel(ctx, 20.5, 6.5, -90f, 0f);
+                ctx.waitTicks(5);
+                editMode(ctx, true);
+                check(serverState(ctx, 22, F + 1, 6).is(Blocks.STONE), "the stone is not there on the server to begin with");
+                int before = executorInt(ctx, "editorBreaks");
+                long m = LogTap.mark();
+                startSampling(ctx);
+                rightClick(ctx, 22, F + 1, 6, Direction.WEST);
+                ctx.waitTicks(20);
+                List<Sample> s = stopSampling(ctx);
+                int digs = countOut(s, "player_action");
+                boolean serverAir = serverState(ctx, 22, F + 1, 6).isAir();
+                int breaks = executorInt(ctx, "editorBreaks") - before;
+                JsonArray picked = breakerBlocks(ctx);
+                println("656 add: " + digs + " dig(s), " + countOut(s, "swing") + " swing, editor breaks " + breaks
+                        + ", server air " + serverAir + ", picked " + picked);
+                check(picked != null && picked.size() == 1, "the right click did not add the stone: " + picked);
+                check(digs == 1, "adding a block sent " + digs + " dig(s), expected exactly 1");
+                check(breaks == 1, "editorBreaks moved by " + breaks + ", expected 1");
+                check(serverAir, "the server still has the added stone - it was not broken");
+                check(logHas(m, "Editor break: dig sent"), "no 'Editor break: dig sent' log line");
+
+                // Already picked: no second add, no second dig.
+                startSampling(ctx);
+                rightClick(ctx, 22, F + 1, 6, Direction.WEST);
+                ctx.waitTicks(10);
+                s = stopSampling(ctx);
+                println("656 re-add: " + countOut(s, "player_action") + " dig(s), picked " + breakerBlocks(ctx));
+                check(countOut(s, "player_action") == 0, "re-adding a picked block sent a dig");
+                check(breakerBlocks(ctx).size() == 1, "re-adding a picked block changed the list");
+
+                // Shift-remove: nothing broken.
+                ctx.getInput().holdKey(options -> options.keyShift);
+                waitFor(ctx, 20, () -> ctx.computeOnClient(mc -> mc.player.isShiftKeyDown()));
+                startSampling(ctx);
+                rightClick(ctx, 22, F + 1, 6, Direction.WEST);
+                ctx.waitTicks(10);
+                s = stopSampling(ctx);
+                ctx.getInput().releaseKey(options -> options.keyShift);
+                ctx.waitTicks(3);
+                println("656 remove: " + countOut(s, "player_action") + " dig(s), picked " + breakerBlocks(ctx));
+                check(countOut(s, "player_action") == 0, "a shift-right-click remove sent a dig");
+                check(breakerBlocks(ctx).isEmpty(), "shift-right-click did not remove the block");
+            } finally {
+                ctx.getInput().releaseKey(options -> options.keyShift);
+                editMode(ctx, false);
+            }
+        }
+
+        /** 657, item 1b: in edit mode with the Dungeon Breaker held, his own left click swings, digs and breaks. */
+        static void editAttack(ClientGameTestContext ctx) {
+            breakerSetup(ctx);
+            try {
+                setBlocks(ctx, Map.of(new int[]{22, F + 1, 8}, Blocks.STONE.defaultBlockState()));
+                tpRel(ctx, 20.5, 8.5, -90f, 0f);
+                ctx.waitTicks(5);
+                editMode(ctx, true);
+                check(aimedAt(ctx, 22, F + 1, 8), "the left click is not aimed at its stone");
+                int before = executorInt(ctx, "editorBreaks");
+                startSampling(ctx);
+                leftClick(ctx, 2);
+                ctx.waitTicks(10);
+                List<Sample> s = stopSampling(ctx);
+                boolean serverAir = serverState(ctx, 22, F + 1, 8).isAir();
+                println("657 edit-mode left click: " + countOut(s, "swing") + " swing, " + countOut(s, "player_action")
+                        + " dig(s), server air " + serverAir + ", picked " + breakerBlocks(ctx));
+                check(countOut(s, "swing") >= 1, "the left click in edit mode did not swing");
+                check(countOut(s, "player_action") >= 1, "the left click in edit mode sent no dig");
+                check(serverAir, "the left click in edit mode did not break the stone on the server");
+                check(executorInt(ctx, "editorBreaks") == before, "a left click counted as an editor add-break");
+                check(breakerBlocks(ctx).isEmpty(), "a left click picked a block");
+            } finally {
+                editMode(ctx, false);
+            }
+        }
+
+        /**
+         * 658, item 1c: "I can manually click on blocks but it says they are too far for my breaker." Reach is from his
+         * eye to the block's box, at 4.5 (a plain dig; the wiki gives the Dungeon Breaker no range of its own). The node
+         * stands at (6,24), far from both picks - the old measure, from the node, refused both. 4.45 is accepted (and
+         * broken once), 4.55 is refused with nothing sent.
+         */
+        static void reach(ClientGameTestContext ctx) {
+            breakerSetup(ctx);
+            try {
+                setBlocks(ctx, Map.of(new int[]{24, F + 1, 12}, Blocks.STONE.defaultBlockState(),
+                        new int[]{24, F + 1, 16}, Blocks.STONE.defaultBlockState()));
+                editMode(ctx, true);
+                // Eye at x 19.55, block face at x 24, eye height inside the block's y span: box distance 4.45.
+                tpRel(ctx, 19.55, 12.5, -90f, 0f);
+                ctx.waitTicks(5);
+                double dIn = eyeToBox(ctx, 24, F + 1, 12);
+                long m = LogTap.mark();
+                startSampling(ctx);
+                rightClick(ctx, 24, F + 1, 12, Direction.WEST);
+                ctx.waitTicks(15);
+                List<Sample> s = stopSampling(ctx);
+                JsonArray after1 = breakerBlocks(ctx);
+                println(String.format(Locale.US, "658 at %.3f: picked %s, %d dig(s), server air %s", dIn, after1,
+                        countOut(s, "player_action"), serverState(ctx, 24, F + 1, 12).isAir()));
+                check(Math.abs(dIn - 4.45) < 0.02, String.format(Locale.US, "the in-reach pick was measured at %.3f, not 4.45", dIn));
+                check(after1 != null && after1.size() == 1, "a block 4.45 from his eye was refused: " + after1);
+                check(!logHas(m, "out of your reach"), "a block 4.45 from his eye was called out of reach");
+                check(countOut(s, "player_action") == 1, "the accepted pick sent " + countOut(s, "player_action") + " digs");
+
+                tpRel(ctx, 19.45, 16.5, -90f, 0f);
+                ctx.waitTicks(5);
+                double dOut = eyeToBox(ctx, 24, F + 1, 16);
+                m = LogTap.mark();
+                startSampling(ctx);
+                rightClick(ctx, 24, F + 1, 16, Direction.WEST);
+                ctx.waitTicks(15);
+                s = stopSampling(ctx);
+                JsonArray after2 = breakerBlocks(ctx);
+                println(String.format(Locale.US, "658 at %.3f: picked %s, %d dig(s)", dOut, after2,
+                        countOut(s, "player_action")));
+                check(Math.abs(dOut - 4.55) < 0.02, String.format(Locale.US, "the out-of-reach pick was measured at %.3f", dOut));
+                check(after2 != null && after2.size() == 1, "a block 4.55 from his eye was accepted: " + after2);
+                check(logHas(m, "out of your reach"), "no 'out of your reach' line for the 4.55 pick");
+                check(countOut(s, "player_action") == 0, "the refused pick still sent a dig");
+            } finally {
+                editMode(ctx, false);
+            }
+        }
+
+        private static JsonObject ewPlaced(int fx, int fz, int tx, int tz) {
+            JsonObject o = ew(fx, fz, tx, tz, true);
+            o.addProperty("placeEye", String.format(Locale.US, "%.3f %.3f %.3f", fx + 0.5, F + 1.27, fz + 0.5));
+            return o;
+        }
+
+        private static void setServerBlock(ClientGameTestContext ctx, int x, int y, int z, BlockState state) {
+            ctx.runOnClient(mc -> {
+                BlockPos pos = real(ModUnderTest.staticCall(FRAME, "current"), x, y, z);
+                var server = mc.getSingleplayerServer();
+                server.execute(() -> server.overworld().setBlockAndUpdate(pos, state));
+            });
+        }
+
+        /**
+         * 659, item 2: "if it needs to etherwarp somewhere but a block is in the way, have it just wait until that block
+         * moves, if it is part of a route where the block wasn't there when the node was placed." A start ew node
+         * (8,10) -> (16,10) placed along a clear line; a stone at (12,F,10) put in that line afterwards. Standing on the
+         * node: no use for 40 ticks, the route still running, he has not moved. The stone removed on the server: the use
+         * goes on the first tick the client sees it gone (at most one tick later) and he lands on (16,10). Controls: a
+         * node /ar add-ed with the stone ALREADY there lands on the stone as before (no wait); a node from before
+         * placeEye existed warps straight away.
+         */
+        static void ewBlockWait(ClientGameTestContext ctx) {
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            float yaw = relYawTo(8, 10, 16, 10);
+            float pitch = pitchTo(8, 10, 16, 10);
+            try {
+                // ---- a block that was NOT there at placement: wait, then warp ----
+                writeRoute(ctx, List.of(ewPlaced(8, 10, 16, 10)));
+                setBlocks(ctx, Map.of(new int[]{12, F, 10}, Blocks.STONE.defaultBlockState()));
+                tpRel(ctx, 8.5, 6.5, yaw, pitch);
+                ctx.waitTicks(5);
+                int waitBefore = executorInt(ctx, "lineWaitTicksTotal");
+                long m = LogTap.mark();
+                startSampling(ctx);
+                tpRel(ctx, 8.5, 10.5, yaw, pitch);
+                ctx.waitTicks(40);
+                List<Sample> s = stopSampling(ctx);
+                boolean running = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+                Vec3 at = relPos(ctx);
+                int waited = executorInt(ctx, "lineWaitTicksTotal") - waitBefore;
+                println(String.format(Locale.US, "659 blocked: %d use_item, running %s, at (%.2f, %.2f), waited %d tick(s)",
+                        countOut(s, "use_item"), running, at.x, at.z, waited));
+                check(logHas(m, "was not there when the node was placed"), "the node never said it was waiting on the block");
+                check(countOut(s, "use_item") == 0, "the etherwarp went out with a new block in its line");
+                check(running, "the route stopped instead of waiting");
+                check(Math.floor(at.x) == 8 && Math.floor(at.z) == 10, "he moved off the node while it waited: " + at);
+                check(waited >= 30, "only " + waited + " tick(s) of waiting were counted in 40");
+
+                // Remove it: the warp goes within a tick of the client seeing it gone.
+                long m2 = LogTap.mark();
+                setServerBlock(ctx, 12, F, 10, Blocks.AIR.defaultBlockState());
+                int seenAir = -1;
+                int warped = -1;
+                for (int t = 0; t < 40 && warped < 0; t++) {
+                    if (seenAir < 0 && blockAir(ctx, 12, F, 10)) {
+                        seenAir = t;
+                    }
+                    if (logHas(m2, "is clear again after")) {
+                        warped = t;
+                    }
+                    ctx.waitTicks(1);
+                }
+                Vec3 landed = waitLanded(ctx, 16, 10, 40);
+                println("659 removed: client saw air at t" + seenAir + ", warp at t" + warped + ", landed " + landed);
+                check(seenAir >= 0 && warped >= 0, "no warp after the block went (air seen t" + seenAir + ")");
+                check(warped - seenAir <= 1, "the warp went " + (warped - seenAir) + " tick(s) after the block was gone");
+                check(landed != null, "he did not land on (16,10) after the line cleared (at " + relPos(ctx) + ")");
+                stopRoute(ctx);
+
+                // ---- control: the block WAS there when the node was placed - /ar add lands on it, no wait ----
+                resetRoutes(ctx);
+                setBlocks(ctx, Map.of(new int[]{12, F, 10}, Blocks.STONE.defaultBlockState()));
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", false));
+                tpRel(ctx, 8.5, 10.5, yaw, pitch);
+                ctx.waitTicks(5);
+                waitBefore = executorInt(ctx, "lineWaitTicksTotal");
+                cmd(ctx, "/ar add ew");
+                boolean onStone = waitFor(ctx, 40, () -> {
+                    Vec3 p = relPos(ctx);
+                    return Math.floor(p.x) == 12 && Math.floor(p.z) == 10 && Math.abs(p.y - (F + 1)) < 0.2;
+                });
+                JsonArray nodes = fileNodes(ctx);
+                println("659 placed with the block there: on the stone " + onStone + ", node " + nodes + ", waited "
+                        + (executorInt(ctx, "lineWaitTicksTotal") - waitBefore));
+                check(nodes.size() == 1 && nodes.get(0).getAsJsonObject().has("placeEye"), "/ar add ew saved no placeEye");
+                check(onStone, "the node placed with the block there did not warp onto it as before (at " + relPos(ctx) + ")");
+                check(executorInt(ctx, "lineWaitTicksTotal") == waitBefore, "a block that was there at placement was waited on");
+                stopRoute(ctx);
+
+                // ---- control: a node saved before placeEye existed warps as before, block in its line or not ----
+                resetRoutes(ctx);
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true));
+                writeRoute(ctx, List.of(ew(8, 10, 16, 10, true)));
+                tpRel(ctx, 8.5, 6.5, yaw, pitch);
+                ctx.waitTicks(5);
+                waitBefore = executorInt(ctx, "lineWaitTicksTotal");
+                startSampling(ctx);
+                tpRel(ctx, 8.5, 10.5, yaw, pitch);
+                ctx.waitTicks(15);
+                s = stopSampling(ctx);
+                println("659 legacy node: " + countOut(s, "use_item") + " use_item in 15 ticks, waited "
+                        + (executorInt(ctx, "lineWaitTicksTotal") - waitBefore));
+                check(countOut(s, "use_item") >= 1, "a node without placeEye did not warp as before");
+                check(executorInt(ctx, "lineWaitTicksTotal") == waitBefore, "a node without placeEye waited");
+            } finally {
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true));
+                stopRoute(ctx);
+                setServerBlock(ctx, 12, F, 10, Blocks.AIR.defaultBlockState());
+                ctx.waitTicks(3);
+            }
+        }
+
+        /**
+         * 662, item 3: "Add a jump node to auto routes where it just jumps once." /ar add jump is offered and makes a JUMP
+         * node, which fires on add: exactly one jump in the input packets (one rising edge), he leaves the ground once and
+         * rises over half a block.
+         */
+        static void jump(ClientGameTestContext ctx) {
+            resetRoutes(ctx);
+            arena(ctx, false);
+            List<String> words = ctx.computeOnClient(mc -> suggest(mc, "ar add "));
+            check(words.contains("jump"), "'ar add ' does not offer jump: " + words);
+            tpRel(ctx, 10.5, 20.5, 0f, 0f);
+            ctx.waitTicks(10);
+            int pressesBefore = executorInt(ctx, "jumpPresses");
+            // Every client tick's END: the input packet's jump and the ground flag, so a press that rises and falls
+            // inside cmd()'s own waits is still seen.
+            ctx.runOnClient(mc -> {
+                if (!jumpHooked) {
+                    jumpHooked = true;
+                    ClientTickEvents.END_CLIENT_TICK.register(c -> {
+                        if (jumpSampling && c.player != null) {
+                            synchronized (JUMP_SAMPLES) {
+                                JUMP_SAMPLES.add(new double[]{c.player.getLastSentInput().jump() ? 1 : 0,
+                                        c.player.onGround() ? 1 : 0, c.player.getY()});
+                            }
+                        }
+                    });
+                }
+                synchronized (JUMP_SAMPLES) {
+                    JUMP_SAMPLES.clear();
+                }
+                jumpSampling = true;
+            });
+            ctx.waitTicks(2);
+            cmd(ctx, "/ar add jump");
+            ctx.waitTicks(40);
+            ctx.runOnClient(mc -> jumpSampling = false);
+            int rises = 0;
+            int takeoffs = 0;
+            double y0 = Double.NaN;
+            double maxY = Double.NEGATIVE_INFINITY;
+            synchronized (JUMP_SAMPLES) {
+                for (int i = 1; i < JUMP_SAMPLES.size(); i++) {
+                    double[] p = JUMP_SAMPLES.get(i - 1);
+                    double[] c = JUMP_SAMPLES.get(i);
+                    if (c[0] == 1 && p[0] == 0) {
+                        rises++;
+                    }
+                    if (p[1] == 1 && c[1] == 0) {
+                        takeoffs++;
+                    }
+                    maxY = Math.max(maxY, c[2]);
+                }
+                y0 = JUMP_SAMPLES.isEmpty() ? Double.NaN : JUMP_SAMPLES.get(0)[2];
+            }
+            check(JUMP_SAMPLES.size() >= 40, "only " + JUMP_SAMPLES.size() + " tick(s) sampled");
+            double rose = maxY - y0;
+            JsonArray nodes = fileNodes(ctx);
+            int presses = executorInt(ctx, "jumpPresses") - pressesBefore;
+            println(String.format(Locale.US, "662 jump: %d jump input(s), %d take-off(s), rose %.2f, presses %d, nodes %s",
+                    rises, takeoffs, rose, presses, nodes));
+            check(nodes.size() == 1 && "JUMP".equals(nodes.get(0).getAsJsonObject().get("type").getAsString()),
+                    "/ar add jump did not make one JUMP node: " + nodes);
+            check(presses == 1, "the jump node pressed " + presses + " time(s)");
+            check(rises == 1, rises + " jump input(s) went to the server, expected exactly 1");
+            check(takeoffs == 1, "he left the ground " + takeoffs + " time(s), expected once");
+            check(rose > 0.5, String.format(Locale.US, "he rose only %.2f", rose));
+        }
     }
 }
