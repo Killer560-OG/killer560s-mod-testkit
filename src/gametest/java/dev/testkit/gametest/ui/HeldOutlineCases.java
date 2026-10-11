@@ -20,7 +20,8 @@ import java.util.Locale;
  * {@code CrosshairCases} rule), plus the renderer's own counters so a frame that never ran the pass cannot read as
  * "nothing changed".
  * <ul>
- *   <li>671 controls: OFF draws nothing and runs nothing; two OFF frames agree (the diff can be trusted).</li>
+ *   <li>671 controls: OFF draws nothing and runs nothing; two OFF frames agree (the diff can be trusted); with Skyblock
+ *       Only ON outside Skyblock it still draws (killer560, 2026-10-11).</li>
  *   <li>672 styles: opaque blue Fill is the item's silhouette S (no change outside it); red Outline lies outside S, next
  *       to it, within the width, and leaves the item itself untouched; width 1 vs 6; Filled Outline draws both colours;
  *       a half-alpha fill blends instead of painting.</li>
@@ -360,6 +361,35 @@ final class HeldOutlineCases {
             }
             if (back > 0 || f4 != f3) {
                 c.problem("switching OFF left " + back + " changed px and " + (f4 - f3) + " pass run(s)");
+            }
+
+            // killer560 (2026-10-11): "It should ALWAYS show when it's on" - Skyblock Only ON, in this singleplayer
+            // world (not Skyblock), must not hide it. The gate is proved to be refusing first, or the check is vacuous.
+            c.onClient(mc -> {
+                Mod.staticCall("util.SkyblockGate", "setEnabled", true);
+                return null;
+            });
+            try {
+                boolean gateAllows = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "allows"));
+                configure(c, true, "FILLED_OUTLINE", 0xFFFF0000, 0xFF0000FF, 3f);
+                long g0 = frames();
+                BufferedImage gated = shot(c, "skyblock-only-on");
+                long g1 = frames();
+                int gatedChanged = count(changed(base, gated));
+                c.note("Skyblock Only ON outside Skyblock: SkyblockGate.allows() = " + gateAllows + "; " + gatedChanged
+                        + " changed px, pass ran " + (g1 - g0) + "x");
+                if (gateAllows) {
+                    c.problem("SkyblockGate allows this world with Skyblock Only ON, so the check proves nothing");
+                }
+                if (g1 <= g0 || gatedChanged < 300) {
+                    c.problem("with Skyblock Only ON outside Skyblock the outline did not draw (" + gatedChanged + " px, "
+                            + (g1 - g0) + " pass runs)");
+                }
+            } finally {
+                c.onClient(mc -> {
+                    Mod.staticCall("util.SkyblockGate", "setEnabled", false);
+                    return null;
+                });
             }
         } finally {
             restore(c);
