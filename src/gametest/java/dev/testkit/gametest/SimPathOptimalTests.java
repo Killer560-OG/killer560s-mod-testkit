@@ -71,7 +71,11 @@ public class SimPathOptimalTests implements FabricClientGameTest {
     static final String SWEEP = "634-sim-pathopt-sweep";
     static final String REPLAN = "635-sim-pathopt-replan";
     static final String MAP_SLAB = "636-sim-pathopt-mapslab";
-    private static final String[] CASES = {LIP, SLAB, SLAB_NODE, MAP_SLAB, REPLAN, SWEEP};
+    static final String BREAKER = "637-sim-pathopt-breaker";
+    static final String CHEST = "638-sim-pathopt-chest";
+    // The map trip (636) goes after every path-pair flight: after a map warp only a START node may arm until he has
+    // been through one (the map-arrival interlock), and these pairs have none.
+    private static final String[] CASES = {LIP, SLAB, SLAB_NODE, CHEST, BREAKER, MAP_SLAB, REPLAN, SWEEP};
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
@@ -158,6 +162,8 @@ public class SimPathOptimalTests implements FabricClientGameTest {
                         case SLAB -> caseSlab(ctx, f);
                         case SLAB_NODE -> caseSlabNode(ctx, f);
                         case MAP_SLAB -> caseMapSlab(ctx, f);
+                        case CHEST -> caseChest(ctx, f);
+                        case BREAKER -> caseBreaker(ctx, f);
                         case REPLAN -> caseReplan(ctx, f);
                         case SWEEP -> caseSweep(ctx, f);
                         default -> { }
@@ -373,12 +379,23 @@ public class SimPathOptimalTests implements FabricClientGameTest {
         place(ctx, s);
         long mark = LogTap.mark();
         List<Vec3> seen = new ArrayList<>();
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(CLEAR, "etherPathExact", new Class<?>[]{BlockPos.class,
-                Runnable.class}, new Object[]{goal, (Runnable) () -> { }}));
+        long[] pressed = new long[1];
+        ctx.runOnClient(mc -> {
+            pressed[0] = System.nanoTime();
+            ModUnderTest.staticCall(CLEAR, "etherPathExact", new Class<?>[]{BlockPos.class,
+                    Runnable.class}, new Object[]{goal, (Runnable) () -> { }});
+        });
         boolean busySeen = false;
+        long firstMove = -1;
+        int firstMoveTick = -1;
         for (int i = 0; i < 300; i++) {
             ctx.waitTicks(1);
-            seen.add(ctx.computeOnClient(mc -> mc.player.position()));
+            Vec3 now = ctx.computeOnClient(mc -> mc.player.position());
+            if (firstMove < 0 && now.distanceTo(s) > 1.0) {
+                firstMove = System.nanoTime();
+                firstMoveTick = i + 1;
+            }
+            seen.add(now);
             boolean busy = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(CLEAR, "isBusy"));
             busySeen |= busy;
             if (busySeen && !busy) {
@@ -395,11 +412,174 @@ public class SimPathOptimalTests implements FabricClientGameTest {
         boolean onSlab = seen.stream().anyMatch(v -> Math.abs(v.x - slabTop.x) < 0.7 && Math.abs(v.z - slabTop.z) < 0.7
                 && Math.abs(v.y - slabTop.y) < 0.8);
         println(MAP_SLAB, "map trip: busy seen " + busySeen + ", ended " + fmt(end) + ", on the slab: " + onSlab);
+        String turn = "?";
+        for (String l : LogTap.since(mark)) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("- ([0-9.]+) ms from the press to the first"
+                    + " warp's turn").matcher(l);
+            if (m.find()) {
+                turn = m.group(1);
+            }
+        }
+        println(MAP_SLAB, String.format(Locale.US, "click to first warp: planned and queued %s ms after the press;"
+                        + " he had moved by client tick %d (%.0f ms after the press, ticks are 50 ms)", turn,
+                firstMoveTick, firstMove < 0 ? -1.0 : (firstMove - pressed[0]) / 1e6));
+        // The plan is ready in milliseconds; the rest is the warp itself (sneak to the server, the use, the server's
+        // teleport back), the same few ticks it always took.
+        if (firstMoveTick < 0 || firstMoveTick > 6) {
+            f.add("the map trip did not start moving within 6 client ticks of the press (" + firstMoveTick + ")");
+        }
+        if (!"?".equals(turn) && Double.parseDouble(turn) > 50) {
+            f.add("the press took " + turn + " ms to plan - not an instant start");
+        }
         if (!busySeen || end.distanceTo(g) > 0.7) {
             f.add("the map trip did not arrive on the goal (ended " + fmt(end) + ")");
         }
         if (onSlab) {
             f.add("the map trip stood on the bottom slab");
+        }
+    }
+
+    // ============================================================================================ 638 chest
+
+    /**
+     * The slab arena with a CHEST where the slab was (killer560, 2026-10-11: only blocks with a completely flat, full
+     * top face; a chest's top is 7/8 of a block): the planner must go round (3 warps), and a path node placed ON the
+     * chest is still reached in one.
+     */
+    private static void caseChest(ClientGameTestContext ctx, List<String> f) {
+        slabArena(ctx);
+        setBlocks(ctx, Map.of(new int[]{18, F + 5, 15}, Blocks.CHEST.defaultBlockState()));
+        settle(ctx);
+        Vec3 s = rel(ctx, 6.5, F, 15.5);
+        BlockPos chest = relBlock(ctx, 18, F + 5, 15);
+        BlockPos goal = relBlock(ctx, 24, F - 1, 15);
+        String truth = onServer(ctx, (mc, level) -> {
+            float[] a = oracleDirect(level, s, chest);
+            Vec3 onChest = new Vec3(chest.getX() + 0.5, chest.getY() + 0.875, chest.getZ() + 0.5);
+            float[] b = oracleDirect(level, onChest, goal);
+            return level.getBlockState(chest).getBlock() + ": S->C " + (a != null) + ", C->G " + (b != null)
+                    + "; without it: " + noRouteOfTwo(level, s, goal, arenaBox(mc), 32);
+        });
+        println(CHEST, "ground truth: " + truth);
+        if (!truth.contains("S->C true, C->G true; without it: none")) {
+            f.add("the arena is not what this case needs (" + truth + ")");
+            return;
+        }
+        Plan p = plan(ctx, s, goal);
+        println(CHEST, "planner, to the goal: " + p);
+        if (p.warps != 3) {
+            f.add("the planner took " + p.warps + " warp(s); without the chest the fewest is 3");
+        }
+        for (double[] h : p.hops) {
+            if (BlockPos.containing(h[0], h[1] - 0.5, h[2]).equals(chest)) {
+                f.add("a planned warp starts on the chest");
+            }
+        }
+        String replay = onServer(ctx, (mc, level) -> replay(level, s, p.hops, goal));
+        if (replay != null) {
+            f.add("the plan does not replay on the server: " + replay);
+        }
+        Plan q = plan(ctx, s, chest);
+        println(CHEST, "planner, onto the chest itself (a node placed on it): " + q);
+        if (q.warps != 1) {
+            f.add("the planner took " + q.warps + " warp(s) onto the chest node; one does it");
+        }
+    }
+
+    // ============================================================================================ 637 breaker
+
+    /**
+     * A wall across the arena (x 15, 10 high, capped) whose only gap a direct warp could use is three stone blocks at
+     * z 15, y F..F+2 that are Breaker Aura picks; the way round is the far doorway (z 25..26). With the aura on, the path
+     * pair plans as if the picks were gone: ONE warp straight through to the goal (24, F-1, 15), where the ground truth
+     * with them standing has no route of 2 or fewer. Flown while they stand, the warp cannot land and he does not get
+     * through (honoured, not fought); flown once they are broken, it lands.
+     */
+    private static void caseBreaker(ClientGameTestContext ctx, List<String> f) {
+        clearArena(ctx, 12);
+        Map<int[], BlockState> b = new LinkedHashMap<>();
+        for (int z = 4; z <= 26; z++) {
+            for (int y = F; y <= F + 9; y++) {
+                boolean door = z >= 25 && y <= F + 2;
+                if (!door) {
+                    b.put(new int[]{15, y, z}, y == F + 9 ? Blocks.COBBLESTONE_WALL.defaultBlockState()
+                            : Blocks.STONE.defaultBlockState());
+                }
+            }
+        }
+        setBlocks(ctx, b);
+        settle(ctx);
+        Vec3 s = rel(ctx, 6.5, F, 15.5);
+        BlockPos goal = relBlock(ctx, 24, F - 1, 15);
+        Vec3 g = rel(ctx, 24.5, F, 15.5);
+        List<BlockPos> picks = List.of(relBlock(ctx, 15, F, 15), relBlock(ctx, 15, F + 1, 15),
+                relBlock(ctx, 15, F + 2, 15));
+        String truth = onServer(ctx, (mc, level) -> {
+            float[] d = oracleDirect(level, s, goal);
+            return (d == null ? "no single warp" : "ONE warp lands") + "; 2 or fewer: "
+                    + noRouteOfTwo(level, s, goal, arenaBox(mc), 32);
+        });
+        println(BREAKER, "ground truth with the picks standing: " + truth);
+        // Breaker Aura on, the three blocks picked (its own store), no Dungeon Breaker in hand so it breaks nothing.
+        ctx.runOnClient(mc -> {
+            Object store = ModUnderTest.staticCall("com.killer560.hub.dungeonextras.BreakerAuraStore", "getInstance");
+            for (BlockPos p : picks) {
+                ModUnderTest.call(store, "addPick", new Class<?>[]{String.class},
+                        new Object[]{p.getX() + "," + p.getY() + "," + p.getZ()});
+            }
+            ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraEnabled", true);
+        });
+        ctx.waitTicks(5);
+        try {
+            long planMark = LogTap.mark();
+            int hops = pathPair(ctx, f, s, g);
+            boolean said = false;
+            for (String l : LogTap.since(planMark)) {
+                said |= l.contains("3 Breaker Aura block(s) planned as broken");
+            }
+            println(BREAKER, "path pair through the picks: " + hops + " warp(s) saved; planner said it planned 3"
+                    + " picks as broken: " + said);
+            if (hops != 1) {
+                f.add("the path pair saved " + hops + " warp(s); through the Breaker Aura picks one does it");
+            }
+            if (!said) {
+                f.add("the planner did not plan the three picks as broken");
+            }
+            if (!truth.startsWith("no single warp")) {
+                f.add("with the picks standing one warp already lands (" + truth + ") - the case does not show the"
+                        + " picks mattered");
+            }
+            // Flown with the picks standing: the warp cannot land; the route must stop, not fight.
+            Vec3 early = fly(ctx, s, g, 80);
+            boolean stopped = !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+            println(BREAKER, "flown with the picks standing: ended " + fmt(early) + ", route stopped: " + stopped);
+            if (early.distanceTo(g) < 0.7) {
+                f.add("he reached the goal through blocks that were still standing");
+            }
+            // (Whether it stopped or is still waiting for the landing is reported, not judged: either honours it.)
+            // Broken (as the aura does as he goes by): now it flies.
+            Map<int[], BlockState> air = new LinkedHashMap<>();
+            for (int y = F; y <= F + 2; y++) {
+                air.put(new int[]{15, y, 15}, Blocks.AIR.defaultBlockState());
+            }
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                    new Object[]{"test reset"}));
+            setBlocks(ctx, air);
+            settle(ctx);
+            Vec3 end = fly(ctx, s, g, 200);
+            println(BREAKER, "flown with the picks broken: ended " + fmt(end));
+            if (end.distanceTo(g) > 0.7) {
+                f.add("with the picks broken the saved warp did not land on the goal (ended " + fmt(end) + ")");
+            }
+        } finally {
+            ctx.runOnClient(mc -> {
+                Object store = ModUnderTest.staticCall("com.killer560.hub.dungeonextras.BreakerAuraStore", "getInstance");
+                for (BlockPos p : picks) {
+                    ModUnderTest.call(store, "removePick", new Class<?>[]{String.class},
+                            new Object[]{p.getX() + "," + p.getY() + "," + p.getZ()});
+                }
+                ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraEnabled", false);
+            });
         }
     }
 
@@ -697,6 +877,19 @@ public class SimPathOptimalTests implements FabricClientGameTest {
                             p.graphMs = (Double) ModUnderTest.call(info, "graphMs", new Class<?>[]{}, new Object[]{});
                             p.why = (String) ModUnderTest.call(info, "why", new Class<?>[]{}, new Object[]{});
                         }
+                        Object prover = field(PATHFINDER, "lastProver");
+                        if (prover != null) {
+                            // Not proved in its planner-thread turn: the proof carries on with no deadline (as
+                            // RoutePathPlanner runs it on its own thread) - run it here and take its answer.
+                            List<?> shorter = (List<?>) ModUnderTest.call(prover, "run", new Class<?>[]{},
+                                    new Object[]{});
+                            p.proven = (Boolean) ModUnderTest.call(prover, "proven", new Class<?>[]{}, new Object[]{});
+                            p.why = "proved in the background";
+                            if (shorter != null) {
+                                path = shorter;
+                            }
+                            p.totalMs = (System.nanoTime() - t0) / 1e6;
+                        }
                         if (path != null) {
                             p.warps = path.size();
                             for (Object n : path) {
@@ -971,15 +1164,16 @@ public class SimPathOptimalTests implements FabricClientGameTest {
     }
 
     /**
-     * The landing rule on the way, as killer560 set it: not a bottom slab or any block whose top is under three quarters
-     * of a block, not a carpet / wall / fence / gate / hopper / cauldron / banner, and above the dungeon floor + 6 only
-     * under cover (the sim's roof rule).
+     * The landing rule on the way, as killer560 set it (2026-10-11): only a block whose collision shape has a completely
+     * flat, full top face, not a carpet / wall / fence / gate / hopper / cauldron / banner, and above the dungeon floor
+     * + 6 only under cover (the sim's roof rule).
      */
     private static boolean allowedLanding(ServerLevel level, BlockPos p) {
         BlockState s = level.getBlockState(p);
         var block = s.getBlock();
-        double top = s.getCollisionShape(level, p).isEmpty() ? 0 : s.getCollisionShape(level, p).max(Direction.Axis.Y);
-        if (top < 0.75 || block instanceof net.minecraft.world.level.block.CarpetBlock
+        var shape = s.getCollisionShape(level, p);
+        boolean fullTop = !shape.isEmpty() && net.minecraft.world.level.block.Block.isFaceFull(shape, Direction.UP);
+        if (!fullTop || block instanceof net.minecraft.world.level.block.CarpetBlock
                 || block instanceof net.minecraft.world.level.block.WallBlock
                 || block instanceof net.minecraft.world.level.block.FenceBlock
                 || block instanceof net.minecraft.world.level.block.FenceGateBlock
