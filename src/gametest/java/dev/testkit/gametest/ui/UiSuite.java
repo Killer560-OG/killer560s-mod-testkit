@@ -120,6 +120,10 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-08 Chat Keybinds + Command Shortcuts merge ({@link ChatKeybindsMergeCases}); 623-625 are in the
      *  Hx session. Own block for merges. */
     static final String[] CHAT_KEYBINDS_MERGE_CASES = {"621-ui-chat-keybinds-merged-tab", "622-ui-chat-keybinds-migration"};
+    /** killer560's 2026-10-09 Leap Order default orders + pins ({@link LeapOrderCases}); 670 is in the menu suite.
+     *  Own block for merges. */
+    static final String[] LEAPORDER_CASES = {"666-ui-leaporder-defaults", "667-ui-leaporder-pins",
+            "668-ui-leaporder-reset", "669-ui-leaporder-shots"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -160,12 +164,16 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : CHAT_KEYBINDS_MERGE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : LEAPORDER_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
         boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES) || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
-                || any(CHAT_KEYBINDS_MERGE_CASES);
+                || any(CHAT_KEYBINDS_MERGE_CASES)
+                || any(LEAPORDER_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -284,6 +292,11 @@ public class UiSuite implements FabricClientGameTest {
                     // ---- chat keybinds merge (621-622) ----
                     UiCase.run(ctx, "621-ui-chat-keybinds-merged-tab", ChatKeybindsMergeCases::mergedTab);
                     UiCase.run(ctx, "622-ui-chat-keybinds-migration", ChatKeybindsMergeCases::migration);
+                    // ---- leap order (666-669) ----
+                    UiCase.run(ctx, "666-ui-leaporder-defaults", LeapOrderCases::defaults);
+                    UiCase.run(ctx, "667-ui-leaporder-pins", LeapOrderCases::pinCase);
+                    UiCase.run(ctx, "668-ui-leaporder-reset", LeapOrderCases::reset);
+                    UiCase.run(ctx, "669-ui-leaporder-shots", LeapOrderCases::shots);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

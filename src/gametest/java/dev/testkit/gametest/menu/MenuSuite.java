@@ -40,6 +40,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *       ({@link SocialCases})</li>
  *   <li>583, 585 the 2026-10-08 inventory batch: Item Protect blocks each action Slot Lock blocked (with a control that
  *       gets through), the sorter's SWAP/PICKUP clicks and tick pacing ({@link InvBatchMenuCases})</li>
+ *   <li>670 the custom leap menu follows the Leap Order's default order and pins ({@link LeapOrderMenuCases})</li>
  * </ul>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -105,6 +106,7 @@ public class MenuSuite implements FabricClientGameTest {
                     // 554-555: dungeon-fixes (2026-10-08), terminals behind a decorated title.
                     DungeonFixTerminalCases.register(s);
                     InvBatchMenuCases.register(s); // 583, 585: inventory batch 2026-10-08
+                    LeapOrderMenuCases.register(s); // 670: leap menu follows the Leap Order defaults/pins, 2026-10-09
                 });
     }
 }
