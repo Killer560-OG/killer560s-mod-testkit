@@ -436,3 +436,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   straight-down Hyperion from an off-centre spot, Big Red Flag's and Leaves' princes, and four lever doors flicked as the
   player. 645-650 screenshot at GUI 2 into the report's screens. 96-ar-644-mimic-warp (in `SimAutoRoutesTests`) plays the
   mimic route in eight variants and prints every non-movement packet per tick.
+- **746-750 Auto Fairy Souls (`FairySoulTests`), 754-755 Chocolate Factory (`menu/ChocolateCases`).** Each fairy case
+  writes its own SkyHanni-format HUB graph into `GraphRepository.dataDir()`, drops `HUB` from its `LOADED`/`NEXT_ATTEMPT`
+  maps, labels the island through the tab list (`Area: Hub`), and answers each soul stand the server sees used with
+  Hypixel's SOUL line; proof is the server's use_entity events, distance travelled and take-offs counted from the client's
+  motion. On a legit jar 746 checks nothing walks and 747-750 SKIP. 754 lays the current factory out with traps on the old
+  reader's slots (39 Shrine, 42 a menu button).
