@@ -1,15 +1,15 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-11T18:17:01",
+ "generatedAt": "2026-10-11T18:22:22",
  "modSource": "killer560s-mod",
- "modGitSha": "acf4ad4714d645b2c8a1e45bd3ef815f5173234b",
+ "modGitSha": "4a40d159a5223e5dc4d1717258d1c3db1ad6d069",
  "modSourceDirty": false,
- "count": 455,
+ "count": 458,
  "byKind": {
   "dynamic": 7,
   "element": 43,
-  "field": 390,
-  "local": 15
+  "field": 392,
+  "local": 16
  },
  "unresolved": 8,
  "patterns": [
@@ -2208,6 +2208,30 @@
    "flags": null,
    "kind": "field",
    "expr": "\"[A-Za-z0-9 _\\\\-.]+\""
+  },
+  {
+   "id": "itembrowser.ItemBrowserFeature#MINION_ID",
+   "cls": "itembrowser.ItemBrowserFeature",
+   "field": "MINION_ID",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/itembrowser/ItemBrowserFeature.java",
+   "line": 85,
+   "regex": "^([A-Z0-9_]{1,40})_GENERATOR_(\\d{1,2})$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^([A-Z0-9_]{1,40})_GENERATOR_(\\\\d{1,2})$\""
+  },
+  {
+   "id": "itembrowser.ItemBrowserFeature@281",
+   "cls": "itembrowser.ItemBrowserFeature",
+   "field": null,
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/itembrowser/ItemBrowserFeature.java",
+   "line": 281,
+   "regex": "\\s([IVXLC]{1,8})$",
+   "flags": null,
+   "kind": "local",
+   "expr": "\"\\\\s([IVXLC]{1,8})$\""
   },
   {
    "id": "itembrowser.SkyblockItemRepository#DESCRIPTION_TOKEN",
@@ -5196,6 +5220,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^(?:Your Equipment and Stats|Equipment)$\""
+  },
+  {
+   "id": "storagesearch.StorageSearchFeature#EQUIPMENT_SETS_TITLE",
+   "cls": "storagesearch.StorageSearchFeature",
+   "field": "EQUIPMENT_SETS_TITLE",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/storagesearch/StorageSearchFeature.java",
+   "line": 73,
+   "regex": "^Equipment Sets(?: ✦)?(?: \\((\\d{1,2})/(\\d{1,2})\\))?$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^Equipment Sets(?: ✦)?(?: \\\\((\\\\d{1,2})/(\\\\d{1,2})\\\\))?$\""
   },
   {
    "id": "supporters.SupportersChatRewriter#SENDER",

@@ -42,6 +42,7 @@ final class InventoryCases {
         PetWheelInstantCases.register(s);
         BazaarOrderCases.register(s);
         InvStorageMenuCases.register(s);
+        ItemUiMenuCases.register(s);
     }
 
     static void clearInv(Session c) {
