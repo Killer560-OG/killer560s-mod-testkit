@@ -1,0 +1,28 @@
+{
+  "enabled": true,
+  "group.cata_f0": true,
+  "group.cata_f1": true,
+  "group.cata_f2": true,
+  "group.cata_f3": false,
+  "group.cata_f4": true,
+  "group.cata_f5": true,
+  "group.cata_f6": true,
+  "group.cata_f7": true,
+  "group.kuudra_basic": true,
+  "group.kuudra_hot": false,
+  "group.kuudra_burning": true,
+  "group.kuudra_fiery": true,
+  "group.kuudra_infernal": true,
+  "custom": [
+    {
+      "name": "k5mig",
+      "command": "/warp dh",
+      "enabled": true
+    },
+    {
+      "name": "k5off",
+      "command": "is hub",
+      "enabled": false
+    }
+  ]
+}

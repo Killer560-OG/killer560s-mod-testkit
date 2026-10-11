@@ -124,6 +124,9 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] HUD_MENU_PROFILES_CASES = {"611-ui-hud-key-screens", "612-ui-hud-editor-clean",
             "613-ui-hud-editor-settings", "614-ui-bars-editor", "615-ui-menu-hud-scale", "616-ui-menu-factor-math",
             "617-ui-profile-blank", "618-ui-profile-share"};
+    /** killer560's 2026-10-08 Chat Keybinds + Command Shortcuts merge ({@link ChatKeybindsMergeCases}); 623-625 are in the
+     *  Hx session. Own block for merges. */
+    static final String[] CHAT_KEYBINDS_MERGE_CASES = {"621-ui-chat-keybinds-merged-tab", "622-ui-chat-keybinds-migration"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -164,12 +167,15 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : HUD_MENU_PROFILES_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : CHAT_KEYBINDS_MERGE_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
         boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES) || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
-                || any(HUD_MENU_PROFILES_CASES);
+                || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -294,6 +300,9 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "616-ui-menu-factor-math", HudMenuProfilesCases::menuFactorMath);
                     UiCase.run(ctx, "617-ui-profile-blank", HudMenuProfilesCases::blankProfile);
                     UiCase.run(ctx, "618-ui-profile-share", HudMenuProfilesCases::shareProfile);
+                    // ---- chat keybinds merge (621-622) ----
+                    UiCase.run(ctx, "621-ui-chat-keybinds-merged-tab", ChatKeybindsMergeCases::mergedTab);
+                    UiCase.run(ctx, "622-ui-chat-keybinds-migration", ChatKeybindsMergeCases::migration);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

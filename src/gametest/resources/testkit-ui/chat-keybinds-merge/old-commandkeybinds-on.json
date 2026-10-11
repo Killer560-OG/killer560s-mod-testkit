@@ -1,0 +1,17 @@
+{
+  "enabled": true,
+  "binds": [
+    {
+      "key": 80,
+      "text": "/pets"
+    },
+    {
+      "key": -102,
+      "text": "gg"
+    },
+    {
+      "key": -1,
+      "text": "/warp dh"
+    }
+  ]
+}
