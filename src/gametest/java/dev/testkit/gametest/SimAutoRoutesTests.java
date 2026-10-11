@@ -95,7 +95,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // mimic-fix (2026-10-11)
             "96-ar-651-mimic-legit-pitch",
             // path-wait (2026-10-11): legit warps land exactly where obvious ones do
-            "96-ar-639-legit-warp-exact"};
+            "96-ar-639-legit-warp-exact",
+            // hype-down (2026-10-11)
+            "96-ar-653-crypt-straight-down"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -258,6 +260,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-644-mimic-warp" -> caseMimicWarp(ctx, MIMIC_MODES);
                         case "96-ar-651-mimic-legit-pitch" -> caseMimicWarp(ctx, LEGIT_AURA_HYPE);
                         case "96-ar-639-legit-warp-exact" -> caseLegitWarpExact(ctx);
+                        case "96-ar-653-crypt-straight-down" -> caseCryptStraightDown(ctx);
                         default -> {
                         }
                     }
@@ -5142,13 +5145,32 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             {"HYPERION", "obvious", "aura"}, {"HYPERION", "obvious", "aura"}};
 
     /**
-     * 96-ar-651-mimic-legit-pitch: the 644 fault, on its own and repeated. Legit mode, Secret Aura clicking the chest,
-     * Kill Mimic on the Hyperion: on main 2c1065dc the AIM timeout fired the Hyperion at pitch 50.9 (the aura's turn and
-     * hand-back fought the camera approach). Every Wither Impact the server logs must be at pitch 80 or steeper, and
-     * the mimic must still die. (644 makes the same pitch check on every variant.)
+     * 96-ar-651-mimic-legit-pitch: legit mode with Secret Aura clicking the chest, both Kill Mimic items. On main 2c1065dc
+     * the AIM timeout fired the Hyperion at 46.7-62.3 (the aura's turn and hand-back fought the camera approach); since
+     * hype-down every use the server takes must be at pitch exactly 90.0 (644 checks the same on every variant), and the
+     * mimic must still die.
      */
     private static final String[][] LEGIT_AURA_HYPE = {{"HYPERION", "legit", "aura"}, {"HYPERION", "legit", "aura"},
-            {"HYPERION", "legit", "aura"}, {"HYPERION", "legit", "aura"}, {"HYPERION", "legit"}};
+            {"SPIRIT_SCEPTRE", "legit", "aura"}, {"SPIRIT_SCEPTRE", "legit", "aura"}, {"HYPERION", "legit"},
+            {"SPIRIT_SCEPTRE", "legit"}, {"HYPERION", "obvious"}, {"SPIRIT_SCEPTRE", "obvious"}};
+
+    /** The exact pitch (Float.toString) of every Hyperion / Spirit Sceptre use the sim's server logged since {@code mark}
+     *  - its own log lines only, not this class's reprints of them. */
+    private static List<String> serverUsePitches(long mark) {
+        List<String> out = new ArrayList<>();
+        java.util.regex.Pattern pat = java.util.regex.Pattern.compile(
+                "\\[Sim\\] (?:Wither Impact|Spirit Sceptre) at [^(]*\\(pitch ([^)]+)\\)");
+        for (String l : LogTap.since(mark)) {
+            if (l.contains("[STDOUT]")) {
+                continue;
+            }
+            java.util.regex.Matcher pm = pat.matcher(l);
+            if (pm.find()) {
+                out.add(pm.group(1));
+            }
+        }
+        return out;
+    }
 
     private void caseMimicWarp(ClientGameTestContext ctx, String[][] modes) {
         resetRoutes(ctx);
@@ -5257,17 +5279,16 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         println("644 " + label + " log: " + strip(l));
                     }
                 }
-                // Every Wither Impact the sim's server logged, with the pitch it went off at: anything shallower than
-                // 80 is a teleport along the look (MimicKiller.MIN_HYPERION_PITCH).
-                for (String l : LogTap.since(m)) {
-                    java.util.regex.Matcher wm = java.util.regex.Pattern
-                            .compile("Wither Impact at [^(]*\\(pitch (-?[0-9.]+)\\)").matcher(l);
-                    if (wm.find()) {
-                        double pitch = Double.parseDouble(wm.group(1));
-                        println(String.format(Locale.US, "644 %s Wither Impact pitch %.1f", label, pitch));
-                        if (pitch < 80.0) {
-                            failures.add(String.format(Locale.US, "%s: the Hyperion went off at pitch %.1f", label, pitch));
-                        }
+                // Every Hyperion / Spirit Sceptre use the sim's server took, with the exact pitch it arrived at: Kill
+                // Mimic fires straight down only, 90.0 exactly (killer560, 2026-10-11), with either item, in either mode.
+                List<String> pitches = serverUsePitches(m);
+                println("644 " + label + " server use pitches " + pitches);
+                if (pitches.isEmpty()) {
+                    failures.add(label + ": the server took no Hyperion / Spirit Sceptre use - nothing was measured");
+                }
+                for (String pt : pitches) {
+                    if (!"90.0".equals(pt)) {
+                        failures.add(label + ": a Kill Mimic use went out at pitch " + pt + ", not 90.0");
                     }
                 }
                 if (!killed) {
@@ -5289,6 +5310,99 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             stopRoute(ctx);
             ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setLegitMode", false));
             setArEnum(ctx, "setKillMimic", "KillMimic", "OFF");
+        }
+        check(failures.isEmpty(), String.join("; ", failures));
+    }
+
+    // ============================================================================================ hype-down (2026-10-11)
+
+    /**
+     * 96-ar-653-crypt-straight-down (killer560, 2026-10-11: "those nodes shouldn't matter my facing angle they should
+     * always be straight down for crypt"). A lone crypt node RECORDED at a shallow look (yaw 0, pitch 30) armed while he
+     * faces yaw 120, nothing to kill, so it holds use for the Crypt Attack Time: every use the sim's server takes must be
+     * at pitch exactly 90.0 - Hyperion and Spirit Sceptre, legit and obvious - and in legit mode his camera yaw must not
+     * have been turned (the node used to turn him to its recorded yaw).
+     */
+    private void caseCryptStraightDown(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        giveSlot(ctx, 4, "HYPERION");
+        giveSlot(ctx, 5, "BAT_WAND");
+        int attack0 = ctx.computeOnClient(mc -> ModUnderTest.getInt(ModUnderTest.config(AR_CONFIG), "getCryptAttackTicks"));
+        List<String> failures = new ArrayList<>();
+        try {
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setCryptAttackTicks", 40));
+            String[][] variants = {{"HYPERION", "obvious"}, {"SPIRIT_SCEPTRE", "obvious"}, {"HYPERION", "legit"},
+                    {"SPIRIT_SCEPTRE", "legit"}};
+            int nx = 4;
+            for (String[] v : variants) {
+                // Each variant on its own node spot: a route latches on the node it last ran, and re-arming there
+                // raced the test's own teleports (which set the server's rotation to the armed 30).
+                nx += 4;
+                int nodeX = nx;
+                String label = v[0] + "/" + v[1];
+                boolean legit = "legit".equals(v[1]);
+                stopRoute(ctx);
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setLegitMode", legit));
+                setArEnum(ctx, "setCryptWeapon", "CryptWeapon", v[0]);
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                writeRoute(ctx, List.of(cryptNode(nodeX, 12, 0f, 30f, true, 0)));
+                waitFor(ctx, 40, () -> !running(ctx));
+                long m = LogTap.mark();
+                if (!arm(ctx, nodeX, 12, 120f, 30f)) {
+                    failures.add(label + ": the crypt node did not start");
+                    continue;
+                }
+                float yaw0 = ctx.computeOnClient(mc -> mc.player.getYRot());
+                startSampling(ctx);
+                List<String> bodyPitch = new ArrayList<>();
+                boolean over = false;
+                for (int t = 0; t < 160 && !over; t++) {
+                    bodyPitch.add(ctx.computeOnClient(mc -> Float.toString(mc.player.getXRot())));
+                    over = logHas(m, "up, moving on") || logHas(m, "gave up aiming down");
+                    ctx.waitTicks(1);
+                }
+                List<Sample> smp = stopSampling(ctx);
+                StringBuilder pk = new StringBuilder();
+                for (Sample x : smp) {
+                    List<String> shown = new ArrayList<>();
+                    for (String o : x.out()) {
+                        if (o.startsWith("use") || o.contains("carried") || o.startsWith("player_action")) {
+                            shown.add(o);
+                        }
+                    }
+                    if (!shown.isEmpty()) {
+                        pk.append(" t").append(x.tick()).append(shown);
+                    }
+                }
+                println("653 " + label + " packets:" + pk);
+                println("653 " + label + " client pitch per tick: " + bodyPitch.subList(0, Math.min(40, bodyPitch.size())));
+                float yaw1 = ctx.computeOnClient(mc -> mc.player.getYRot());
+                List<String> pitches = serverUsePitches(m);
+                println(String.format(Locale.US, "653 %s: node done %s, server use pitches %s, camera yaw %.3f -> %.3f",
+                        label, over, pitches, yaw0, yaw1));
+                if (pitches.isEmpty()) {
+                    failures.add(label + ": the server took no use - nothing was measured");
+                }
+                for (String pt : pitches) {
+                    if (!"90.0".equals(pt)) {
+                        failures.add(label + ": a crypt-node use went out at pitch " + pt + ", not 90.0");
+                    }
+                }
+                if (legit && Math.abs(yaw1 - yaw0) > 0.5f) {
+                    failures.add(String.format(Locale.US, "%s: the crypt node turned his yaw %.3f -> %.3f", label, yaw0, yaw1));
+                }
+                if (logHas(m, "gave up aiming down")) {
+                    failures.add(label + ": the crypt node gave up aiming down");
+                }
+            }
+        } finally {
+            stopRoute(ctx);
+            ctx.runOnClient(mc -> {
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setCryptAttackTicks", attack0);
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setLegitMode", false);
+            });
         }
         check(failures.isEmpty(), String.join("; ", failures));
     }
