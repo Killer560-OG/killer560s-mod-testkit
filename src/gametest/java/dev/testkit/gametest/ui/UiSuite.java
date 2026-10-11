@@ -67,6 +67,9 @@ import java.util.List;
  *                511-514 killer560's 2026-10-07 menu layout report: Crosshair in General, no combined folders, every tab
  *                once, cheat-only tabs and sections after every legit one, tooltips unchanged, screenshots at GUI 2
  *                ({@link MenuLayoutCases})
+ *                611-618 killer560's 2026-10-08 HUD / menu / profiles list: the Edit HUD key only with no screen,
+ *                Edit HUD without its panels and their settings in Home, Edit Bars, HUD Scale sizing the mod menu,
+ *                the blank profile and the share folder ({@link HudMenuProfilesCases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -117,6 +120,10 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-07 Command Shortcuts requests ({@link CmdShortcutsCases}); 544 is in the Hx session. Own block. */
     static final String[] CMD_SHORTCUTS_CASES = {"541-ui-cmd-shortcuts-builtin-rows", "542-ui-cmd-shortcuts-custom-edit",
             "543-ui-cmd-shortcuts-refused-names", "545-ui-cmd-shortcuts-sweep"};
+    /** killer560's 2026-10-08 HUD / menu / profiles list ({@link HudMenuProfilesCases}). Own block for merges. */
+    static final String[] HUD_MENU_PROFILES_CASES = {"611-ui-hud-key-screens", "612-ui-hud-editor-clean",
+            "613-ui-hud-editor-settings", "614-ui-bars-editor", "615-ui-menu-hud-scale", "616-ui-menu-factor-math",
+            "617-ui-profile-blank", "618-ui-profile-share"};
     /** killer560's 2026-10-08 Chat Keybinds + Command Shortcuts merge ({@link ChatKeybindsMergeCases}); 623-625 are in the
      *  Hx session. Own block for merges. */
     static final String[] CHAT_KEYBINDS_MERGE_CASES = {"621-ui-chat-keybinds-merged-tab", "622-ui-chat-keybinds-migration"};
@@ -157,6 +164,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : CMD_SHORTCUTS_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : HUD_MENU_PROFILES_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : CHAT_KEYBINDS_MERGE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -165,7 +175,7 @@ public class UiSuite implements FabricClientGameTest {
         }
         boolean anyTitle = any(TITLE_CASES);
         boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES) || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
-                || any(CHAT_KEYBINDS_MERGE_CASES);
+                || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -281,6 +291,15 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "542-ui-cmd-shortcuts-custom-edit", CmdShortcutsCases::customEdit);
                     UiCase.run(ctx, "543-ui-cmd-shortcuts-refused-names", CmdShortcutsCases::refusals);
                     UiCase.run(ctx, "545-ui-cmd-shortcuts-sweep", c -> CmdShortcutsCases.sweepWithCustoms(c, deny));
+                    // ---- HUD / menu / profiles (611-618) ----
+                    UiCase.run(ctx, "611-ui-hud-key-screens", HudMenuProfilesCases::keyScreens);
+                    UiCase.run(ctx, "612-ui-hud-editor-clean", HudMenuProfilesCases::editorClean);
+                    UiCase.run(ctx, "613-ui-hud-editor-settings", HudMenuProfilesCases::editorSettings);
+                    UiCase.run(ctx, "614-ui-bars-editor", HudMenuProfilesCases::barsEditor);
+                    UiCase.run(ctx, "615-ui-menu-hud-scale", HudMenuProfilesCases::menuScale);
+                    UiCase.run(ctx, "616-ui-menu-factor-math", HudMenuProfilesCases::menuFactorMath);
+                    UiCase.run(ctx, "617-ui-profile-blank", HudMenuProfilesCases::blankProfile);
+                    UiCase.run(ctx, "618-ui-profile-share", HudMenuProfilesCases::shareProfile);
                     // ---- chat keybinds merge (621-622) ----
                     UiCase.run(ctx, "621-ui-chat-keybinds-merged-tab", ChatKeybindsMergeCases::mergedTab);
                     UiCase.run(ctx, "622-ui-chat-keybinds-migration", ChatKeybindsMergeCases::migration);

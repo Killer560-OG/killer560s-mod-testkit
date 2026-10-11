@@ -34,8 +34,8 @@ final class ScreenSweep {
     // ---- 304 ------------------------------------------------------------------------------------------------
 
     /**
-     * HudEditorScreen with Show Unseen ON must list exactly the elements whose own setting is on
-     * (hud/HudEditorScreen.java:104-113), and with it OFF no more than that. Every registered element's own render()
+     * HudEditorScreen with Show Unseen ON must list exactly the elements whose own setting is on, Health and Mana Bars'
+     * readouts excepted (those are Edit Bars', 616-ui-bars-editor), and with it OFF no more than that. Every registered element's own render()
      * is called off screen too: the editor calls it for every listed element whether or not it has anything to show,
      * so a throw there is reachable for an enabled element. Then one real drag, which must land in HudConfig.
      */
@@ -54,7 +54,9 @@ final class ScreenSweep {
                 for (Object e : all) {
                     boolean on = (Boolean) reg.getMethod("isEnabledInSettings", R.cls("hud.HudElement")).invoke(null, e);
                     String id = (String) dev.testkit.gametest.mod.Mod.call(e, "id");
-                    if (on) {
+                    // Health and Mana Bars' readouts are Edit Bars' only since mod hud-menu-profiles (2026-10-08):
+                    // Edit HUD never lists them, so they are not part of the set it must list.
+                    if (on && !id.startsWith("statbar_") && !id.startsWith("stattext_")) {
                         enabled++;
                         enabledIds.add(id);
                     }

@@ -684,8 +684,8 @@ final class HudEditorCases {
         Screen s = c.onClient(mc -> {
             Mod.call(Mod.cfg(HUD), "setEditorShowAll", true);
             try {
-                Screen editor = (Screen) R.cls("hud.HudEditorScreen").getConstructor(Screen.class)
-                        .newInstance((Object) null);
+                Screen editor = (Screen) R.cls("hud.HudEditorScreen").getMethod("forBars", Screen.class)
+                        .invoke(null, (Object) null); // Edit Bars: the stat readouts are only there (2026-10-08)
                 McCompat.setScreen(mc, editor);
                 return editor;
             } catch (ReflectiveOperationException e) {

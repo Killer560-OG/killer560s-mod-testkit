@@ -74,7 +74,8 @@ final class MiscCases {
                 }
                 out.put("export", resultText(Mod.staticCall("profiles.ProfileManager", "exportProfile", a)));
                 Path dir = (Path) R.getStatic(pm, "PROFILES_DIR");
-                Path zip = dir.resolve(a + ".zip");
+                // Export writes into the share folder since mod hud-menu-profiles (2026-10-08).
+                Path zip = ((Path) Mod.staticCall("profiles.ProfileManager", "shareFolder")).resolve(a + ".zip");
                 out.put("zipBytes", Files.isRegularFile(zip) ? Files.size(zip) : -1L);
                 out.put("import", resultText(Mod.staticCall("profiles.ProfileManager", "importProfile",
                         zip.toString(), b)));
@@ -124,7 +125,7 @@ final class MiscCases {
                 Mod.staticCall("profiles.ProfileManager", "deleteProfile", a);
                 Mod.staticCall("profiles.ProfileManager", "deleteProfile", b);
                 try {
-                    Files.deleteIfExists(((Path) R.getStatic(pm, "PROFILES_DIR")).resolve(a + ".zip"));
+                    Files.deleteIfExists(((Path) Mod.staticCall("profiles.ProfileManager", "shareFolder")).resolve(a + ".zip"));
                 } catch (Exception ignored) {
                     // a leftover zip in a wiped run dir
                 }
