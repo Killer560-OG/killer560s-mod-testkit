@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-11T14:42:21",
- "modSource": "killer560s-mod",
- "modGitSha": "2c1065dcbe44f39423c8f67c0702976f1375cfaf",
+ "generatedAt": "2026-10-11T18:27:35",
+ "modSource": "gui-hud",
+ "modGitSha": "805ca6335ec5fbc20edf17894fc51744703f9ea2",
  "modSourceDirty": false,
  "count": 455,
  "byKind": {
@@ -3739,7 +3739,7 @@
    "field": "ARROWS_REMAINING",
    "index": null,
    "file": "src/main/java/com/killer560/hub/quiver/QuiverDisplayFeature.java",
-   "line": 31,
+   "line": 34,
    "regex": "^Arrows Remaining: ([\\d,]+)$",
    "flags": null,
    "kind": "field",

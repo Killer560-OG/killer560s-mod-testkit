@@ -3,7 +3,8 @@
   "goneLeaves": {
     "gui.tab.ArmourDyeTab": "inv-batch 701742c2: Armor Recolour became Custom Items (Cosmetics > Custom Items)",
     "gui.tab.ChatTidyTab": "chat-batch a64924b9: merged into Chat Hider",
-    "gui.tab.HideChatMessagesTab": "chat-batch a64924b9: merged into Chat Hider"
+    "gui.tab.HideChatMessagesTab": "chat-batch a64924b9: merged into Chat Hider",
+    "gui.tab.AbilityTimersTab": "gui-hud 805ca633: Ability Timers removed (killer560: \"Remove the ability timers setting that is unneeded.\")"
   },
   "newLeaves": {
     "gui.tab.ChatHiderTab": "Chat > Chat Hider",
@@ -98,6 +99,66 @@
       "key": "mod chat",
       "text": "A private chat with other mod users: /kc <message> sends one line, /chat k makes your typed chat go there.",
       "why": "modchat-party 76cf2846: /killer560 chat removed, /kc and /chat k"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "ability timers",
+      "gone": "gui-hud 805ca633: Ability Timers removed"
+    },
+    {
+      "owner": "Ability Timers",
+      "key": "+ add timer",
+      "gone": "gui-hud 805ca633: Ability Timers removed"
+    },
+    {
+      "owner": "Ability Timers",
+      "key": "ability timers",
+      "gone": "gui-hud 805ca633: Ability Timers removed"
+    },
+    {
+      "owner": "Ability Timers",
+      "key": "color",
+      "gone": "gui-hud 805ca633: Ability Timers removed"
+    },
+    {
+      "owner": "Ability Timers",
+      "key": "delete",
+      "gone": "gui-hud 805ca633: Ability Timers removed"
+    },
+    {
+      "owner": "Ability Timers",
+      "key": "duration",
+      "gone": "gui-hud 805ca633: Ability Timers removed"
+    },
+    {
+      "owner": "Ability Timers",
+      "key": "enabled",
+      "gone": "gui-hud 805ca633: Ability Timers removed"
+    },
+    {
+      "owner": "Ability Timers",
+      "key": "key",
+      "gone": "gui-hud 805ca633: Ability Timers removed"
+    },
+    {
+      "owner": "Ability Timers",
+      "key": "name",
+      "gone": "gui-hud 805ca633: Ability Timers removed"
+    },
+    {
+      "owner": "Ability Timers",
+      "key": "test start",
+      "gone": "gui-hud 805ca633: Ability Timers removed"
+    },
+    {
+      "owner": "GIF Player",
+      "key": "open gif folder",
+      "gone": "gui-hud 805ca633: renamed Open GIF / Audio Folder"
+    },
+    {
+      "owner": "GIF Player",
+      "key": "[off] dancing cat girl (built-in)",
+      "gone": "gui-hud 805ca633: the built-in GIF is listed as Dancing Cat Girl, without (built-in)"
     }
   ]
 }

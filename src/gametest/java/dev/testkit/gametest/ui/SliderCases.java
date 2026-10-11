@@ -384,8 +384,23 @@ final class SliderCases {
         if (Mod.has("gui.DragListWidget")) {
             // Custom Scoreboard's list editor (mod scoreboard-editor), both jars: behind the tab's OFF master switch,
             // on the Lines page it opens on. 401-ui-scoreboard-editor checks the dropdown and the per-line options.
-            for (String want : new String[]{"Custom Scoreboard|Scoreboard Lines", "Custom Scoreboard|Add Line:",
-                    "Custom Scoreboard|Reset Order", "Custom Scoreboard|Open Visual Editor"}) {
+            // Since mod gui-hud (2026-10-11) the tab is only the switch and Open Visual Editor; 716-720 test the editor.
+            boolean boardEditor = Mod.has("util.PingTracker");
+            String[] wants = boardEditor ? new String[]{"Custom Scoreboard|Open Visual Editor"}
+                    : new String[]{"Custom Scoreboard|Scoreboard Lines", "Custom Scoreboard|Add Line:",
+                    "Custom Scoreboard|Reset Order", "Custom Scoreboard|Open Visual Editor"};
+            for (String want : wants) {
+                String[] p = want.split("\\|");
+                boolean seen = SEEN.stream().anyMatch(x -> x.contains(p[0] + "|" + p[1]));
+                c.note("swept " + p[1] + " on " + p[0] + ": " + seen);
+                c.check(seen, "the sweep never laid out '" + p[1] + "' on the " + p[0] + " tab");
+            }
+        }
+        // Quiver Display's colour and Low Arrow Alert, Spring Boots' box colour and style (mod gui-hud, 2026-10-11),
+        // both jars, behind their tabs' OFF switches. Own block for merges; 721-724 test what they do.
+        if (Mod.has("util.PingTracker")) {
+            for (String want : new String[]{"Quiver Display|Quiver Text Color", "Quiver Display|Low Arrow Alert:",
+                    "Quiver Display|Low Arrow Threshold:", "Spring Boots|Height Box Color", "Spring Boots|Height Box Style:"}) {
                 String[] p = want.split("\\|");
                 boolean seen = SEEN.stream().anyMatch(x -> x.contains(p[0] + "|" + p[1]));
                 c.note("swept " + p[1] + " on " + p[0] + ": " + seen);
