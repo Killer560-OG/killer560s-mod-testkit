@@ -8,7 +8,8 @@
   },
   "newLeaves": {
     "gui.tab.ChatHiderTab": "Chat > Chat Hider",
-    "gui.tab.CustomItemsTab": "Cosmetics > Custom Items"
+    "gui.tab.CustomItemsTab": "Cosmetics > Custom Items",
+    "gui.tab.ChocolateFactoryTab": "Helpers > Chocolate Factory"
   },
   "tooltips": [
     {
