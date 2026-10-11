@@ -75,6 +75,7 @@
 			"dev.testkit.gametest.SimThreadTests",
 			"dev.testkit.gametest.SimEssenceAuraTests",
 			"dev.testkit.gametest.SimAuraRebuildTests",
+			"dev.testkit.gametest.SimWorldTests",
 			"dev.testkit.gametest.InventorySorterTests",
 			"dev.testkit.gametest.SimPuzzleSolveTests$TicTacToe",
 			"dev.testkit.gametest.SimPuzzleSolveTests$IcePath",

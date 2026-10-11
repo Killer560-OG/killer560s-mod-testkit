@@ -288,6 +288,10 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   And `new InventoryScreen(player)` in a creative world becomes the creative inventory in its init: compare against the
   screen that is up afterwards, not the object you passed.
 
+- After `getInput().resizeWindow(1600, 900)` + GUI 2 the window reported an 800-wide GUI while the screen was laid out
+  854 wide (and the PNG was 1600 px), so a screenshot's pixels-per-GUI-unit from `getGuiScaledWidth` landed every rect
+  below its target and 695 read 0 changed pixels (2026-10-11). Take the scale from the open screen's own `width`.
+
 Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosecret wither doors, 62-argrim frames,
 143 camera, 141/142 autopilot, the mod's Auto Scale, terminal layouts, the logic world, 386's sweep):
 [docs/scenario-lessons.md](docs/scenario-lessons.md).

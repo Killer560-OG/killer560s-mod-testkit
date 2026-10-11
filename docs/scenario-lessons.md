@@ -429,3 +429,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   edge of its TOP is above the sight line - measure at the far edge, not the near one (632's first ring was a block too
   high and hid the goal from the slab as well). Wall tops above floor + 6 ARE landings where the room has a roof somewhere over them (the cover rule): cap an arena's high walls with a cobblestone wall (blacklisted). Arena cases share one built 1x1 room; 634 builds Slabs, Three Floors,
   Museum and Scaffolding one after another (-Dtestkit.pathopt.pairs, .threechecks).
+- 641-650 (`SimWorldTests`, sim-world 2026-10-11): each item of his 2026-10-09 sim list read back from the integrated
+  server's own level - pickup reach measured at 0.1-block steps, one Superboom against two lids + a crypt wall in reach and
+  a lid + decorative brick out of it, a secret bat far then near (with an await window opened by `AwaitEvents.begin` then
+  `window`: begin also replays his own pickups from just before, here 641's dirt, which read as 9 bat secrets), a
+  straight-down Hyperion from an off-centre spot, Big Red Flag's and Leaves' princes, and four lever doors flicked as the
+  player. 645-650 screenshot at GUI 2 into the report's screens. 96-ar-644-mimic-warp (in `SimAutoRoutesTests`) plays the
+  mimic route in eight variants and prints every non-movement packet per tick.

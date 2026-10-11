@@ -1,0 +1,752 @@
+package dev.testkit.gametest;
+
+import dev.testkit.compat.McCompat;
+import dev.testkit.harness.SuiteVerdict;
+
+import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
+import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.ambient.Bat;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.monster.zombie.Zombie;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.SlabBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.SlabType;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
+
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
+
+/**
+ * 641-650: killer560's sim-world list (2026-10-09), each proven on the integrated server - what the sim's SERVER did,
+ * read back from the server's own level, never from the mod's own counters alone.
+ *
+ * <ul>
+ *   <li><b>641-sim-pickup</b>: the Magnetic Talisman's 3x pickup range. Dirt is dropped beside him at 0.1-block steps
+ *       from 1.0 to 4.0 blocks; the farthest one taken and the nearest one left are printed, and must bracket vanilla's
+ *       reach x3 (box inflated 3.0 instead of 1.0: taken up to ~3.4, vanilla's ~1.4). The taken ones must be in his
+ *       inventory.</li>
+ *   <li><b>642-sim-boom-crypts</b>: ONE Superboom aimed at plain stone between two slab crypts opens both, and a cracked
+ *       brick sealing a crypt chamber 3 blocks away; a third slab crypt 6 blocks away and a decorative cracked brick with
+ *       no chamber stay; three crypt undead appear.</li>
+ *   <li><b>643-sim-bat</b>: a secret bat does not exist while he is far from it, appears (Skyblock health 100) when he
+ *       comes near, Auto Routes' await counts that appearance, and killing it counts one secret for the run, the bats
+ *       and its room.</li>
+ *   <li><b>645-sim-prince-brf</b>: Big Red Flag's tomb is a prince; one Superboom opens it as a prince (no crypt), takes
+ *       its lid, slab ring and the course under it, and nothing below that.</li>
+ *   <li><b>646-sim-prince-head</b>: Leaves' prince takes its player head and the stair layer under it.</li>
+ *   <li><b>647-650-sim-lever-*</b>: Bridges, Raccoon, Logs and Arrow Trap - the lever is there (Logs and Arrow Trap's
+ *       placed by the sim) and flicking it as the player takes the whole door away.</li>
+ * </ul>
+ * The mimic route (644) is {@code SimAutoRoutesTests}' 96-ar-644-mimic-warp, where the route machinery lives.
+ * Screenshots of 645-650 go to the report's screens at GUI scale 2.
+ */
+@dev.testkit.harness.RequiresMod("killer560smod")
+public class SimWorldTests implements FabricClientGameTest {
+
+    private static final String NAME = "64x-sim-world";
+    private static final String[] CASES = {"641-sim-pickup", "642-sim-boom-crypts", "643-sim-bat",
+            "644-sim-hype-down", "645-sim-prince-brf", "646-sim-prince-head", "647-sim-lever-bridges", "648-sim-lever-raccoon",
+            "649-sim-lever-logs", "650-sim-lever-arrowtrap"};
+
+    private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
+    private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
+    private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
+    private static final String SIM_ITEMS = "com.killer560.hub.roomsim.SimItems";
+    private static final String SIM_PRINCE = "com.killer560.hub.roomsim.SimPrince";
+    private static final String SIM_LEVERS = "com.killer560.hub.roomsim.SimRoomLevers";
+    private static final String SIM_SECRET_ITEMS = "com.killer560.hub.roomsim.SimSecretItems";
+    private static final String SIM_MOBS = "com.killer560.hub.roomsim.SimMobs";
+    private static final String SIM_SCORE = "com.killer560.hub.roomsim.SimScore";
+    private static final String AWAIT = "com.killer560.hub.autoroutes.AwaitEvents";
+    private static final String AR_CONFIG = "com.killer560.hub.autoroutes.AutoRoutesConfig";
+
+    private static UUID playerId;
+    private static String builtRoom;
+    private static final List<String> RESULTS = new ArrayList<>();
+
+    @Override
+    public void runTest(ClientGameTestContext ctx) {
+        List<String> selected = new ArrayList<>();
+        for (String c : CASES) {
+            if (!Scenario.skip(c)) {
+                selected.add(c);
+            }
+        }
+        if (selected.isEmpty()) {
+            return;
+        }
+        ModUnderTest.require("killer560smod");
+        LogTap.install();
+        ctx.waitTicks(20);
+        ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
+        SimMapTests.copyRoomsForOthers();
+        Scenario.ensureRoomDatabase(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(ROOM_LIBRARY, "forceReload"));
+        ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isReady"), 2400);
+        ctx.runOnClient(mc -> mc.options.guiScale().set(2));
+        try {
+            for (String c : selected) {
+                long mark = LogTap.mark();
+                try {
+                    say("---- " + c + " ----");
+                    switch (c) {
+                        case "641-sim-pickup" -> casePickup(ctx);
+                        case "642-sim-boom-crypts" -> caseBoomCrypts(ctx);
+                        case "643-sim-bat" -> caseBat(ctx);
+                        case "644-sim-hype-down" -> caseHypeDown(ctx);
+                        case "645-sim-prince-brf" -> casePrinceBrf(ctx);
+                        case "646-sim-prince-head" -> casePrinceHead(ctx);
+                        case "647-sim-lever-bridges" -> caseLever(ctx, c, "Bridges", new int[]{55, 59, 29},
+                                new int[]{10, 81, 15}, new int[]{10, 86, 17}, false, new int[]{13, 16}, new int[]{52, 29});
+                        case "648-sim-lever-raccoon" -> caseLever(ctx, c, "Raccoon", new int[]{25, 70, 29},
+                                new int[]{24, 69, 19}, new int[]{26, 72, 19}, false, new int[]{25, 23}, new int[]{25, 26});
+                        case "649-sim-lever-logs" -> caseLever(ctx, c, "Logs", new int[]{29, 84, 6},
+                                new int[]{20, 69, 23}, new int[]{21, 72, 26}, true, new int[]{25, 24}, new int[]{29, 9});
+                        case "650-sim-lever-arrowtrap" -> caseLever(ctx, c, "Arrow Trap", new int[]{16, 70, 24},
+                                new int[]{14, 69, 8}, new int[]{18, 73, 8}, true, new int[]{16, 12}, new int[]{16, 21});
+                        default -> {
+                        }
+                    }
+                    RESULTS.add(c + " PASS");
+                    System.out.println("[" + c + "] PASS");
+                } catch (Throwable t) {
+                    RESULTS.add(c + " FAIL: " + t.getMessage());
+                    System.out.println("[" + c + "] FAIL: " + t);
+                    List<String> since = LogTap.since(mark);
+                    for (String l : since.subList(Math.max(0, since.size() - 40), since.size())) {
+                        System.out.println("[" + c + "]   log: " + l);
+                    }
+                    SuiteVerdict.failCase(c, t);
+                    if (ctx.computeOnClient(mc -> mc.level == null)) {
+                        break;
+                    }
+                }
+            }
+        } finally {
+            teardown(ctx);
+        }
+        System.out.println("[" + NAME + "] SUMMARY");
+        for (String r : RESULTS) {
+            System.out.println("[" + NAME + "]   " + r);
+        }
+    }
+
+    // ============================================================================================ 641
+
+    private void casePickup(ClientGameTestContext ctx) {
+        build(ctx, "Mossy");
+        BlockPos feet = arena(ctx);
+        double px = feet.getX() + 0.5;
+        double py = feet.getY();
+        double pz = feet.getZ() + 0.5;
+        double lastTaken = -1;
+        double firstLeft = -1;
+        int taken = 0;
+        StringBuilder row = new StringBuilder();
+        int dirtBefore = onServer(ctx, (level, sp) -> sp.getInventory().countItem(Items.DIRT));
+        for (int i = 10; i <= 40; i++) {
+            double d = i / 10.0;
+            // Along +x, at his own height: one drop at a time, so each answer is about that distance only.
+            AtomicReference<UUID> id = new AtomicReference<>();
+            onServer(ctx, (level, sp) -> {
+                ItemEntity e = new ItemEntity(level, px + d, py + 0.3, pz, new ItemStack(Items.DIRT));
+                e.setNoGravity(true);
+                e.setDeltaMovement(Vec3.ZERO);
+                e.setPickUpDelay(0);
+                level.addFreshEntity(e);
+                id.set(e.getUUID());
+                return null;
+            });
+            ctx.waitTicks(4);
+            boolean gone = onServer(ctx, (level, sp) -> {
+                var e = level.getEntity(id.get());
+                boolean removed = e == null || e.isRemoved();
+                if (!removed) {
+                    e.discard();
+                }
+                return removed;
+            });
+            row.append(String.format(Locale.US, " %.1f:%s", d, gone ? "T" : "-"));
+            if (gone) {
+                taken++;
+                lastTaken = d;
+            } else if (firstLeft < 0) {
+                firstLeft = d;
+            }
+        }
+        int dirtAfter = onServer(ctx, (level, sp) -> sp.getInventory().countItem(Items.DIRT));
+        say(String.format(Locale.US, "641 pickup by distance (T taken):%s", row));
+        say(String.format(Locale.US, "641 farthest taken %.1f, nearest left %.1f, %d taken, dirt in inventory %d -> %d",
+                lastTaken, firstLeft, taken, dirtBefore, dirtAfter));
+        check(dirtAfter - dirtBefore == taken, "taken drops did not reach his inventory (" + taken + " taken, "
+                + (dirtAfter - dirtBefore) + " in it)");
+        // Vanilla: the player box (0.3 half width) inflated 1.0 touches an item box (0.125 half width) up to 1.425 out.
+        // Three times the range: inflated 3.0, so up to 3.425.
+        check(lastTaken >= 3.3 && lastTaken <= 3.5, "the farthest drop taken was at " + lastTaken + ", expected 3.3-3.4");
+        check(firstLeft >= 3.4 && firstLeft <= 3.5, "the nearest drop left was at " + firstLeft + ", expected 3.4-3.5");
+        check(taken == (int) Math.round((lastTaken - 1.0) * 10) + 1, "the pickup was not every drop up to "
+                + lastTaken + " (" + taken + " taken)");
+    }
+
+    // ============================================================================================ 642
+
+    private void caseBoomCrypts(ClientGameTestContext ctx) {
+        build(ctx, "Mossy");
+        BlockPos feet = arena(ctx);
+        int fy = feet.getY() - 1;
+        BlockPos t = new BlockPos(feet.getX(), fy, feet.getZ() + 6);
+        List<BlockPos> lidA = lid(t.getX() - 3, fy, t.getZ());
+        List<BlockPos> lidB = lid(t.getX() + 2, fy, t.getZ());
+        List<BlockPos> lidC = lid(t.getX() + 6, fy, t.getZ());
+        BlockPos wall = new BlockPos(t.getX(), fy, t.getZ() + 3);
+        BlockPos deco = new BlockPos(t.getX(), fy, t.getZ() - 2);
+        onServer(ctx, (level, sp) -> {
+            BlockState slab = Blocks.SMOOTH_STONE_SLAB.defaultBlockState().setValue(SlabBlock.TYPE, SlabType.BOTTOM);
+            for (List<BlockPos> lid : List.of(lidA, lidB, lidC)) {
+                for (BlockPos p : lid) {
+                    level.setBlockAndUpdate(p, slab);
+                    level.setBlockAndUpdate(p.below(), Blocks.AIR.defaultBlockState());   // the chamber
+                }
+            }
+            level.setBlockAndUpdate(wall, Blocks.CRACKED_STONE_BRICKS.defaultBlockState());
+            level.setBlockAndUpdate(wall.below(), Blocks.AIR.defaultBlockState());          // a one-block chamber
+            level.setBlockAndUpdate(deco, Blocks.CRACKED_STONE_BRICKS.defaultBlockState()); // stone under it
+            return null;
+        });
+        ctx.waitTicks(5);
+        int zombiesBefore = zombies(ctx, t, 10);
+        long m = LogTap.mark();
+        onServer(ctx, (level, sp) -> ModUnderTest.staticCall(SIM_ITEMS, "superboom",
+                new Class<?>[]{ServerPlayer.class, BlockPos.class, Direction.class}, new Object[]{sp, t, Direction.UP}));
+        ctx.waitTicks(10);
+        int a = countIs(ctx, lidA, Blocks.SMOOTH_STONE_SLAB);
+        int b = countIs(ctx, lidB, Blocks.SMOOTH_STONE_SLAB);
+        int c = countIs(ctx, lidC, Blocks.SMOOTH_STONE_SLAB);
+        boolean wallGone = onServer(ctx, (level, sp) -> level.getBlockState(wall).isAir());
+        boolean decoStays = onServer(ctx, (level, sp) -> level.getBlockState(deco).is(Blocks.CRACKED_STONE_BRICKS));
+        int zombiesAfter = zombies(ctx, t, 10);
+        say(String.format(Locale.US, "642 one superboom at %s: slabs left A %d/6, B %d/6 (both 3 away), C %d/6 (6 away); "
+                        + "crypt wall 3 away gone %s; decorative cracked brick stays %s; crypt undead %d -> %d",
+                t.toShortString(), a, b, c, wallGone, decoStays, zombiesBefore, zombiesAfter));
+        for (String l : LogTap.since(m)) {
+            if (l.contains("Sim superboom")) {
+                say("642 log: " + l);
+            }
+        }
+        check(a == 0 && b == 0, "one superboom did not open BOTH crypts in reach (A " + a + ", B " + b + " slabs left)");
+        check(c == 6, "the crypt 6 blocks away lost " + (6 - c) + " slab(s) - the reach is not bounded");
+        check(wallGone, "the cracked brick sealing a crypt chamber 3 blocks away was not broken");
+        check(decoStays, "a decorative cracked brick (no chamber) in reach was broken");
+        check(zombiesAfter - zombiesBefore == 3, "expected 3 crypt undead (A, B, the wall), got "
+                + (zombiesAfter - zombiesBefore));
+    }
+
+    private static List<BlockPos> lid(int x0, int y, int zc) {
+        List<BlockPos> out = new ArrayList<>();
+        for (int x = x0; x <= x0 + 1; x++) {
+            for (int z = zc - 1; z <= zc + 1; z++) {
+                out.add(new BlockPos(x, y, z));
+            }
+        }
+        return out;
+    }
+
+    private static int zombies(ClientGameTestContext ctx, BlockPos at, int r) {
+        return onServer(ctx, (level, sp) -> level.getEntitiesOfClass(Zombie.class, new AABB(at).inflate(r)).size());
+    }
+
+    // ============================================================================================ 643
+
+    private void caseBat(ClientGameTestContext ctx) {
+        build(ctx, "Mossy");
+        BlockPos feet = arena(ctx);
+        BlockPos spot = feet.offset(0, 2, 7);
+        String room = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(SIM_SCORE, "roomAt",
+                new Class<?>[]{BlockPos.class}, new Object[]{spot}));
+        check(room != null, "no room at the bat's spot " + spot.toShortString());
+        // Far away first: 9 blocks back, 16 from the spot.
+        tp(ctx, feet.getX() + 0.5, feet.getY(), feet.getZ() - 8.5, 0f, 0f);
+        onServer(ctx, (level, sp) -> ModUnderTest.staticCall(SIM_SECRET_ITEMS, "registerBat",
+                new Class<?>[]{BlockPos.class}, new Object[]{spot}));
+        ctx.waitTicks(20);
+        int aliveFar = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_MOBS, "secretBatsAlive"));
+        int batsNear = onServer(ctx, (level, sp) -> level.getEntitiesOfClass(Bat.class, new AABB(spot).inflate(3)).size());
+        say("643 far (16 blocks): secret bats alive " + aliveFar + ", bats at the spot " + batsNear);
+        check(aliveFar == 0 && batsNear == 0, "the secret bat existed while he was 16 blocks from it");
+
+        // An await is open (as a running route's would be), then he walks in.
+        ctx.runOnClient(mc -> {
+            ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", true);
+            ModUnderTest.staticCall(AWAIT, "begin", new Class<?>[]{Minecraft.class}, new Object[]{mc});
+            // A fresh window: begin() also counts his own secrets from just before it (here, 641's dirt), which is not
+            // what this case measures.
+            ModUnderTest.staticCall(AWAIT, "window", new Class<?>[]{Minecraft.class}, new Object[]{mc});
+        });
+        int found0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound"));
+        int bats0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "batsKilled"));
+        int inRoom0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "foundInRoom",
+                new Class<?>[]{String.class}, new Object[]{room}));
+        long m = LogTap.mark();
+        tp(ctx, feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5, 0f, 0f);
+        boolean appeared = false;
+        for (int i = 0; i < 40 && !appeared; i++) {
+            ctx.waitTicks(1);
+            appeared = ctx.computeOnClient(mc -> {
+                for (var e : mc.level.entitiesForRendering()) {
+                    if (e instanceof Bat bat && bat.getMaxHealth() == 100f && bat.blockPosition().closerThan(spot, 2)) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+        }
+        ctx.waitTicks(5);
+        int awaitSecrets = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(AWAIT, "secrets", new Class<?>[]{}, new Object[]{}));
+        boolean awaitLine = false;
+        for (String l : LogTap.since(m)) {
+            awaitLine |= l.contains("bat spawned at");
+        }
+        say("643 near (7 blocks): the client sees a bat with Skyblock health 100 at the spot " + appeared
+                + "; await secrets counted " + awaitSecrets);
+        check(appeared, "no secret bat (max health 100) appeared on the client when he came within 7 blocks");
+        // Auto Routes is a cheat-build feature: in a legit jar nothing ticks its await, so only the sim half is asserted.
+        boolean cheat;
+        try {
+            cheat = Class.forName("com.killer560.hub.BuildVariant").getField("CHEAT_FEATURES_ENABLED").getBoolean(null);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+        if (cheat) {
+            check(awaitSecrets == 1, "Auto Routes' await counted " + awaitSecrets + " secret(s) for the bat, expected 1");
+        } else {
+            say("643: legit jar - Auto Routes' await not asserted (cheat-only feature)");
+        }
+
+        // Killed by him: one secret, for the run, the bats and the room.
+        onServer(ctx, (level, sp) -> {
+            for (Bat bat : level.getEntitiesOfClass(Bat.class, new AABB(spot).inflate(3))) {
+                bat.hurtServer(level, level.damageSources().playerAttack(sp), 1000f);
+            }
+            return null;
+        });
+        ctx.waitTicks(10);
+        int found1 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound"));
+        int bats1 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "batsKilled"));
+        int inRoom1 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "foundInRoom",
+                new Class<?>[]{String.class}, new Object[]{room}));
+        say(String.format(Locale.US, "643 killed: run secrets %d -> %d, bats %d -> %d, %s's secrets %d -> %d", found0,
+                found1, bats0, bats1, room, inRoom0, inRoom1));
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(AWAIT, "end", new Class<?>[]{}, new Object[]{}));
+        check(found1 - found0 == 1, "the bat's death did not count one secret for the run");
+        check(bats1 - bats0 == 1, "the bat's death did not count as a bat");
+        check(inRoom1 - inRoom0 == 1, "the bat's death did not count for its room (the x/y Secrets line)");
+    }
+
+    // ============================================================================================ 644
+
+    /**
+     * Kill Mimic's Hyperion straight down, by the real use packet, from an OFF-CENTRE spot: the blast kills a mob two
+     * blocks away and he does not move. Before the fix the sim's dash "settled" on his own block and snapped him to its
+     * centre (up to 0.7 blocks sideways), which then moved Auto Routes' next etherwarp origin.
+     */
+    private void caseHypeDown(ClientGameTestContext ctx) {
+        build(ctx, "Mossy");
+        BlockPos feet = arena(ctx);
+        onServer(ctx, (level, sp) -> {
+            sp.getInventory().setItem(0, (ItemStack) ModUnderTest.staticCall(SIM_ITEMS, "build",
+                    new Class<?>[]{String.class}, new Object[]{"HYPERION"}));
+            return null;
+        });
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+        tp(ctx, feet.getX() + 0.2, feet.getY(), feet.getZ() + 0.8, 0f, 90f);
+        BlockPos mob = feet.offset(2, 0, 0);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOBS, "spawn",
+                new Class<?>[]{Minecraft.class, BlockPos.class, enumClass(SIM_MOBS + "$Kind")},
+                new Object[]{mc, mob, ModUnderTest.enumValue(SIM_MOBS + "$Kind", "ZOMBIE")}));
+        ctx.waitTicks(20);
+        int before = zombies(ctx, mob, 2);
+        Vec3 from = onServer(ctx, (level, sp) -> sp.position());
+        ctx.runOnClient(mc -> {
+            mc.player.setXRot(90f);
+            mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
+        });
+        ctx.waitTicks(20);
+        Vec3 to = onServer(ctx, (level, sp) -> sp.position());
+        int alive = onServer(ctx, (level, sp) -> {
+            int n = 0;
+            for (Zombie z : level.getEntitiesOfClass(Zombie.class, new AABB(mob).inflate(2))) {
+                if (z.isAlive()) {
+                    n++;
+                }
+            }
+            return n;
+        });
+        say(String.format(Locale.US, "644 hype straight down from (%.2f, %.2f, %.2f): now (%.2f, %.2f, %.2f), moved %.3f; "
+                + "zombies 2 away %d -> %d alive", from.x, from.y, from.z, to.x, to.y, to.z, from.distanceTo(to), before, alive));
+        check(before >= 1, "no zombie to blast - the case proves nothing");
+        check(alive == 0, "the straight-down Wither Impact did not kill the mob 2 blocks away");
+        check(from.distanceTo(to) < 0.05, String.format(Locale.US,
+                "a straight-down Hyperion moved him %.3f blocks (to his block's centre)", from.distanceTo(to)));
+    }
+
+    private static Class<?> enumClass(String name) {
+        try {
+            return Class.forName(name);
+        } catch (ClassNotFoundException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    // ============================================================================================ 645 / 646
+
+    private void casePrinceBrf(ClientGameTestContext ctx) {
+        String room = "Big Red Flag";
+        build(ctx, room);
+        BlockPos lid = capW(ctx, room, 14, 72, 24);
+        int princes = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_PRINCE, "count"));
+        boolean part = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_PRINCE, "isPart",
+                new Class<?>[]{BlockPos.class}, new Object[]{lid}));
+        say("645 " + room + ": " + princes + " prince(s); the tomb's lid at " + lid.toShortString() + " is one " + part
+                + " (" + blockName(ctx, lid) + ")");
+        check(princes == 1 && part, "Big Red Flag's tomb is not the floor's prince");
+        stand(ctx, room, 14, 18, 70, new double[]{14.5, 72, 24.5});
+        shot(ctx, "645-brf-prince-before");
+        List<BlockPos> lidAndRing = new ArrayList<>();
+        List<BlockPos> under = new ArrayList<>();
+        for (int x = 13; x <= 16; x++) {
+            for (int z = 22; z <= 26; z++) {
+                // The lid (x 14-15, z 23-25) and its whole slab ring round it, corners included.
+                lidAndRing.add(capW(ctx, room, x, 72, z));
+                under.add(capW(ctx, room, x, 71, z));
+            }
+        }
+        BlockPos below = capW(ctx, room, 13, 70, 23);
+        BlockPos overhang = capW(ctx, room, 12, 71, 24);
+        String belowBefore = blockName(ctx, below);
+        String overhangBefore = blockName(ctx, overhang);
+        long m = LogTap.mark();
+        onServer(ctx, (level, sp) -> ModUnderTest.staticCall(SIM_ITEMS, "superboom",
+                new Class<?>[]{ServerPlayer.class, BlockPos.class, Direction.class}, new Object[]{sp, lid, Direction.UP}));
+        ctx.waitTicks(10);
+        int lidLeft = countNotAir(ctx, lidAndRing);
+        int underLeft = countNotAir(ctx, under);
+        String belowAfter = blockName(ctx, below);
+        String overhangAfter = blockName(ctx, overhang);
+        int undead = zombies(ctx, lid, 3);
+        String boomLine = "";
+        for (String l : LogTap.since(m)) {
+            if (l.contains("Sim superboom")) {
+                boomLine = l;
+            }
+        }
+        shot(ctx, "645-brf-prince-after");
+        say(String.format(Locale.US, "645 after one superboom: lid+ring left %d/%d, layer under left %d/%d, below that %s -> %s, "
+                        + "overhang outside %s -> %s, undead by it %d; %s", lidLeft, lidAndRing.size(), underLeft, under.size(),
+                belowBefore, belowAfter, overhangBefore, overhangAfter, undead, boomLine));
+        check(lidLeft == 0, lidLeft + " block(s) of the prince's lid/ring survived");
+        check(underLeft == 0, underLeft + " block(s) of the layer under the prince survived");
+        check(belowAfter.equals(belowBefore) && !"air".equals(belowAfter), "the blast went past the one layer under it");
+        check(overhangAfter.equals(overhangBefore), "the blast took the eave slab outside the prince's footprint");
+        check(boomLine.contains("prince=true") && boomLine.contains("crypts opened=0"),
+                "the tomb opened as something other than a prince alone: " + boomLine);
+        check(undead >= 1, "no undead appeared in the opened prince");
+    }
+
+    private void casePrinceHead(ClientGameTestContext ctx) {
+        String room = "Leaves";
+        build(ctx, room);
+        BlockPos lantern = capW(ctx, room, 9, 82, 15);
+        BlockPos head = capW(ctx, room, 11, 82, 15);
+        BlockPos aim = capW(ctx, room, 10, 82, 15);
+        BlockPos below = capW(ctx, room, 9, 80, 15);
+        say("646 " + room + ": lantern " + blockName(ctx, lantern) + ", head " + blockName(ctx, head) + ", prince "
+                + ctx.computeOnClient(mc -> ModUnderTest.staticCall(SIM_PRINCE, "isPart", new Class<?>[]{BlockPos.class},
+                new Object[]{lantern})));
+        check(blockName(ctx, head).contains("head"), "Leaves has no player head beside its prince at capture (11,82,15)");
+        stand(ctx, room, 14, 15, 82, new double[]{9.5, 82.5, 15.5});
+        shot(ctx, "646-leaves-prince-before");
+        List<BlockPos> under = new ArrayList<>();
+        for (int x = 8; x <= 10; x++) {
+            for (int z = 14; z <= 16; z++) {
+                under.add(capW(ctx, room, x, 81, z));
+            }
+        }
+        String belowBefore = blockName(ctx, below);
+        onServer(ctx, (level, sp) -> ModUnderTest.staticCall(SIM_ITEMS, "superboom",
+                new Class<?>[]{ServerPlayer.class, BlockPos.class, Direction.class}, new Object[]{sp, aim, Direction.EAST}));
+        ctx.waitTicks(10);
+        shot(ctx, "646-leaves-prince-after");
+        int underLeft = countNotAir(ctx, under);
+        String headAfter = blockName(ctx, head);
+        String lanternAfter = blockName(ctx, lantern);
+        String belowAfter = blockName(ctx, below);
+        say("646 after: lantern " + lanternAfter + ", head " + headAfter + ", stair layer left " + underLeft + "/9, below "
+                + belowBefore + " -> " + belowAfter);
+        check("air".equals(lanternAfter), "the prince itself survived");
+        check("air".equals(headAfter), "the prince's player head survived");
+        check(underLeft == 0, underLeft + " block(s) of the stair layer under the prince survived");
+        check(belowAfter.equals(belowBefore), "the blast went below the stair layer");
+    }
+
+    // ============================================================================================ 647-650
+
+    private void caseLever(ClientGameTestContext ctx, String c, String room, int[] lever, int[] from, int[] to,
+                           boolean placed, int[] doorView, int[] leverView) {
+        build(ctx, room);
+        BlockPos leverPos = capW(ctx, room, lever[0], lever[1], lever[2]);
+        String leverBlock = blockName(ctx, leverPos);
+        int armed = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_LEVERS, "armedCount"));
+        List<BlockPos> door = new ArrayList<>();
+        for (int x = from[0]; x <= to[0]; x++) {
+            for (int y = from[1]; y <= to[1]; y++) {
+                for (int z = from[2]; z <= to[2]; z++) {
+                    door.add(capW(ctx, room, x, y, z));
+                }
+            }
+        }
+        int solidBefore = countNotAir(ctx, door);
+        say(c + " " + room + ": lever " + leverBlock + " at " + leverPos.toShortString() + (placed ? " (placed by the sim)" : "")
+                + ", " + armed + " lever(s) armed, door " + solidBefore + "/" + door.size() + " solid");
+        check(leverBlock.equals("lever"), "no lever at capture " + lever[0] + "," + lever[1] + "," + lever[2]);
+        check(solidBefore == door.size(), "the door is not whole before the lever (" + solidBefore + "/" + door.size() + ")");
+        double[] doorCentre = {(from[0] + to[0]) / 2.0 + 0.5, (from[1] + to[1]) / 2.0 + 0.5, (from[2] + to[2]) / 2.0 + 0.5};
+        stand(ctx, room, doorView[0], doorView[1], from[1] + 1, doorCentre);
+        shot(ctx, c + "-door-before");
+        stand(ctx, room, leverView[0], leverView[1], lever[1], new double[]{lever[0] + 0.5, lever[1] + 0.3, lever[2] + 0.5});
+        shot(ctx, c + "-lever");
+        long m = LogTap.mark();
+        ctx.runOnClient(mc -> mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
+                new BlockHitResult(Vec3.atCenterOf(leverPos), Direction.UP, leverPos, false)));
+        ctx.waitTicks(15);
+        int solidAfter = countNotAir(ctx, door);
+        boolean chat = false;
+        for (String l : LogTap.since(m)) {
+            chat |= l.contains("the lever takes the way through down");
+        }
+        stand(ctx, room, doorView[0], doorView[1], from[1] + 1, doorCentre);
+        shot(ctx, c + "-door-after");
+        say(c + " after the flick: door " + solidAfter + "/" + door.size() + " solid, chat line " + chat);
+        check(solidAfter == 0, solidAfter + " door block(s) still standing after the lever");
+    }
+
+    // ============================================================================================ helpers
+
+    /** Builds one room on its own (from the title screen or in the open sim) and waits until he stands in it. */
+    private static void build(ClientGameTestContext ctx, String room) {
+        long before = Scenario.simBuildCount(ctx);
+        ctx.runOnClient(mc -> mc.execute(() -> ModUnderTest.staticCall(BUILDER, "buildSingleRoom",
+                new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, room})));
+        ctx.waitFor(mc -> mc.level != null && mc.player != null, 2400);
+        Scenario.awaitSimBuild(ctx, before);
+        ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
+        int landed = -1;
+        for (int t = 0; t < 1800; t++) {
+            boolean ok = ctx.computeOnClient(mc -> mc.player != null && mc.player.onGround()
+                    && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir());
+            if (ok) {
+                landed = t;
+                break;
+            }
+            ctx.waitTicks(1);
+        }
+        check(landed >= 0, "the client never stood in " + room);
+        ctx.waitTicks(20);
+        playerId = ctx.computeOnClient(mc -> mc.player.getUUID());
+        builtRoom = room;
+        say("built " + room + " (stood after " + landed + " ticks)");
+    }
+
+    /**
+     * A clear 21 x 21 stone-floored box round where he stands (floor and 3 below stone, 6 above air), and him on its
+     * centre facing +z. Returns his feet block.
+     */
+    private static BlockPos arena(ClientGameTestContext ctx) {
+        // At the room's middle column (capture 16, 16) and his own height, so everything in the box is in the room.
+        BlockPos mid = capW(ctx, builtRoom, 16, 0, 16);
+        BlockPos feet = onServer(ctx, (level, sp) -> {
+            BlockPos f = new BlockPos(mid.getX(), sp.blockPosition().getY(), mid.getZ());
+            for (int x = -10; x <= 10; x++) {
+                for (int z = -10; z <= 10; z++) {
+                    for (int y = -4; y <= 6; y++) {
+                        level.setBlock(f.offset(x, y, z), y < 0 ? Blocks.STONE.defaultBlockState()
+                                : Blocks.AIR.defaultBlockState(), 3);
+                    }
+                }
+            }
+            return f;
+        });
+        ctx.waitTicks(10);
+        tp(ctx, feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5, 0f, 0f);
+        ctx.waitTicks(10);
+        return feet;
+    }
+
+    /** Server teleport to world feet (x, y, z) with this yaw/pitch, the client turned the same way. */
+    private static void tp(ClientGameTestContext ctx, double x, double y, double z, float yaw, float pitch) {
+        onServer(ctx, (level, sp) -> {
+            sp.teleportTo(level, x, y, z, java.util.Set.<net.minecraft.world.entity.Relative>of(), yaw, pitch, false);
+            return null;
+        });
+        ctx.runOnClient(mc -> {
+            mc.player.setYRot(yaw);
+            mc.player.setXRot(pitch);
+        });
+        ctx.waitTicks(5);
+    }
+
+    /**
+     * Stands him on the first spot near capture column (cx, cz) - scanning down from yHint + 4 - with a solid block
+     * under his feet and air for both, trying the column and then its neighbours, and turns him to look at the capture
+     * point {@code look}.
+     */
+    private static void stand(ClientGameTestContext ctx, String room, int cx, int cz, int yHint, double[] look) {
+        BlockPos spot = null;
+        int[][] tries = {{0, 0}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}, {2, 0}, {-2, 0}, {0, 2}, {0, -2}};
+        for (int[] d : tries) {
+            for (int y = yHint + 4; y >= yHint - 6 && spot == null; y--) {
+                BlockPos feet = capW(ctx, room, cx + d[0], y, cz + d[1]);
+                boolean ok = onServer(ctx, (level, sp) -> level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()
+                        && level.getBlockState(feet.above()).getCollisionShape(level, feet.above()).isEmpty()
+                        && !level.getBlockState(feet.below()).getCollisionShape(level, feet.below()).isEmpty());
+                if (ok) {
+                    spot = feet;
+                }
+            }
+            if (spot != null) {
+                break;
+            }
+        }
+        check(spot != null, "no standing spot near capture " + cx + "," + cz + " in " + room);
+        BlockPos at = spot;
+        // The look point's block through the same transform, aimed at its centre (the room may be turned, so the
+        // fraction of x/z inside the block is not carried over - y is never turned).
+        BlockPos lookBlock = capW(ctx, room, (int) Math.floor(look[0]), (int) Math.floor(look[1]), (int) Math.floor(look[2]));
+        double wx = lookBlock.getX() + 0.5;
+        double wz = lookBlock.getZ() + 0.5;
+        double wy = lookBlock.getY() + (look[1] - Math.floor(look[1]));
+        double ex = at.getX() + 0.5;
+        double ey = at.getY() + 1.62;
+        double ez = at.getZ() + 0.5;
+        double dx = wx - ex;
+        double dy = wy - ey;
+        double dz = wz - ez;
+        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+        tp(ctx, at.getX() + 0.5, at.getY(), at.getZ() + 0.5, yaw, pitch);
+        ctx.waitTicks(15);
+    }
+
+    /** World position of a capture-local block of the built room (SimRoomLevers.capturedWorld, the rules' transform). */
+    private static BlockPos capW(ClientGameTestContext ctx, String room, int x, int y, int z) {
+        BlockPos p = ctx.computeOnClient(mc -> (BlockPos) ModUnderTest.staticCall(SIM_LEVERS, "capturedWorld",
+                new Class<?>[]{String.class, int.class, int.class, int.class}, new Object[]{room, x, y, z}));
+        check(p != null, room + " is not placed");
+        return p;
+    }
+
+    private static String blockName(ClientGameTestContext ctx, BlockPos p) {
+        return onServer(ctx, (level, sp) -> net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                .getKey(level.getBlockState(p).getBlock()).getPath());
+    }
+
+    private static int countNotAir(ClientGameTestContext ctx, List<BlockPos> ps) {
+        return onServer(ctx, (level, sp) -> {
+            int n = 0;
+            for (BlockPos p : ps) {
+                if (!level.getBlockState(p).isAir()) {
+                    n++;
+                }
+            }
+            return n;
+        });
+    }
+
+    private static int countIs(ClientGameTestContext ctx, List<BlockPos> ps, net.minecraft.world.level.block.Block b) {
+        return onServer(ctx, (level, sp) -> {
+            int n = 0;
+            for (BlockPos p : ps) {
+                if (level.getBlockState(p).is(b)) {
+                    n++;
+                }
+            }
+            return n;
+        });
+    }
+
+    private static void shot(ClientGameTestContext ctx, String name) {
+        Path taken = ctx.takeScreenshot(dev.testkit.harness.Report.fileName(name));
+        Path kept = dev.testkit.harness.Report.screenshot(name, taken);
+        say("screenshot " + name + ": " + kept);
+    }
+
+    /** Runs on the integrated server thread (never a join from here - see the testkit's deadlock note) and returns. */
+    @SuppressWarnings("unchecked")
+    private static <T> T onServer(ClientGameTestContext ctx, java.util.function.BiFunction<ServerLevel, ServerPlayer, T> f) {
+        AtomicReference<Object[]> box = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            UUID id = playerId != null ? playerId : mc.player.getUUID();
+            server.execute(() -> {
+                try {
+                    box.set(new Object[]{f.apply(server.overworld(), server.getPlayerList().getPlayer(id)), null});
+                } catch (Throwable t) {
+                    box.set(new Object[]{null, t});
+                }
+            });
+        });
+        ctx.waitFor(mc -> box.get() != null, 400);
+        if (box.get()[1] != null) {
+            throw new AssertionError("server task threw", (Throwable) box.get()[1]);
+        }
+        return (T) box.get()[0];
+    }
+
+    private static void teardown(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> {
+            try {
+                ModUnderTest.staticCall(AWAIT, "end", new Class<?>[]{}, new Object[]{});
+                ModUnderTest.staticCall(SIM_STATE, "leave", new Class<?>[]{}, new Object[]{});
+            } catch (Throwable ignored) {
+                // never let cleanup replace the verdict
+            }
+        });
+        ctx.runOnClient(mc -> mc.execute(() -> {
+            if (mc.level != null) {
+                mc.level.disconnect(net.minecraft.network.chat.Component.literal("scenario over"));
+                mc.disconnectWithSavingScreen();
+            }
+        }));
+        ctx.waitFor(mc -> mc.level == null && mc.getSingleplayerServer() == null, 1200);
+        ctx.waitTicks(40);
+        ctx.runOnClient(mc -> mc.execute(() ->
+                McCompat.setScreen(mc, new net.minecraft.client.gui.screens.TitleScreen())));
+        ctx.waitFor(mc -> McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.TitleScreen, 400);
+    }
+
+    private static void check(boolean ok, String what) {
+        if (!ok) {
+            throw new AssertionError(what);
+        }
+    }
+
+    private static void say(String s) {
+        System.out.println("[" + NAME + "] " + s);
+    }
+}

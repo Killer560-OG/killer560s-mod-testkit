@@ -67,7 +67,9 @@ final class MenuLayoutCases {
     /** The only folders a category may hold: each was asked for as one tab (killer560, 2026-09-20). */
     private static final Set<String> NESTED_OK = Set.of("Secrets", "Puzzle Solvers");
     /** Sections added by this change (cheat build): Home's Correction Alarm, out of the middle of Mod & HUD. */
-    private static final Set<String> NEW_LEAVES = Set.of("gui.tab.CorrectionAlarmTab");
+    private static final Set<String> NEW_LEAVES = Set.of("gui.tab.CorrectionAlarmTab",
+            // Held Item Outline (mod held-outline, killer560 2026-10-09): its own tab in Cosmetics.
+            "gui.tab.HeldOutlineTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     private static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.

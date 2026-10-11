@@ -70,6 +70,9 @@ import java.util.List;
  *                611-618 killer560's 2026-10-08 HUD / menu / profiles list: the Edit HUD key only with no screen,
  *                Edit HUD without its panels and their settings in Home, Edit Bars, HUD Scale sizing the mod menu,
  *                the blank profile and the share folder ({@link HudMenuProfilesCases})
+ *                671-675 Held Item Outline: off controls, styles/colours/width/alpha from screenshots, hands, hotbar and
+ *                third person untouched, settings; 676 Outline Side near/far/both, 677 one screenshot per setting
+ *                ({@link HeldOutlineCases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -127,6 +130,14 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-08 Chat Keybinds + Command Shortcuts merge ({@link ChatKeybindsMergeCases}); 623-625 are in the
      *  Hx session. Own block for merges. */
     static final String[] CHAT_KEYBINDS_MERGE_CASES = {"621-ui-chat-keybinds-merged-tab", "622-ui-chat-keybinds-migration"};
+    /** killer560's 2026-10-09 Held Item Outline ({@link HeldOutlineCases}). Own block for merges. */
+    static final String[] HELD_OUTLINE_CASES = {"671-ui-held-outline-off", "672-ui-held-outline-styles",
+            "673-ui-held-outline-hands", "674-ui-held-outline-hud", "675-ui-held-outline-settings",
+            "676-ui-held-outline-sides", "677-ui-held-outline-gallery"};
+    /** killer560's 2026-10-09 Leap Order default orders + pins ({@link LeapOrderCases}); 670 is in the menu suite.
+     *  Own block for merges. */
+    static final String[] LEAPORDER_CASES = {"666-ui-leaporder-defaults", "667-ui-leaporder-pins",
+            "668-ui-leaporder-reset", "669-ui-leaporder-shots"};
     /** killer560's 2026-10-11 item / inventory UI list ({@link ItemUiCases}); 708 is in the menu suite. Own block. */
     static final String[] ITEM_UI_CASES = {"701-ui-invsearch-red-fill", "702-ui-invsearch-calculator",
             "703-ui-slotbinds-key-toggle", "704-ui-petwheel-no-slices-text-scale", "705-ui-itemprotect-hover-star-drops",
@@ -175,6 +186,12 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : CHAT_KEYBINDS_MERGE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : HELD_OUTLINE_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            for (String n : LEAPORDER_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : ITEM_UI_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -183,7 +200,8 @@ public class UiSuite implements FabricClientGameTest {
         }
         boolean anyTitle = any(TITLE_CASES);
         boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES) || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
-                || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(ITEM_UI_CASES);
+                || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES)
+                || any(LEAPORDER_CASES) || any(ITEM_UI_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -311,6 +329,19 @@ public class UiSuite implements FabricClientGameTest {
                     // ---- chat keybinds merge (621-622) ----
                     UiCase.run(ctx, "621-ui-chat-keybinds-merged-tab", ChatKeybindsMergeCases::mergedTab);
                     UiCase.run(ctx, "622-ui-chat-keybinds-migration", ChatKeybindsMergeCases::migration);
+                    // ---- held item outline (671-675) ----
+                    UiCase.run(ctx, "671-ui-held-outline-off", HeldOutlineCases::controls);
+                    UiCase.run(ctx, "672-ui-held-outline-styles", HeldOutlineCases::styles);
+                    UiCase.run(ctx, "673-ui-held-outline-hands", HeldOutlineCases::hands);
+                    UiCase.run(ctx, "674-ui-held-outline-hud", HeldOutlineCases::hudAndCamera);
+                    UiCase.run(ctx, "675-ui-held-outline-settings", HeldOutlineCases::settings);
+                    UiCase.run(ctx, "676-ui-held-outline-sides", HeldOutlineCases::sides);
+                    UiCase.run(ctx, "677-ui-held-outline-gallery", HeldOutlineCases::gallery);
+                    // ---- leap order (666-669) ----
+                    UiCase.run(ctx, "666-ui-leaporder-defaults", LeapOrderCases::defaults);
+                    UiCase.run(ctx, "667-ui-leaporder-pins", LeapOrderCases::pinCase);
+                    UiCase.run(ctx, "668-ui-leaporder-reset", LeapOrderCases::reset);
+                    UiCase.run(ctx, "669-ui-leaporder-shots", LeapOrderCases::shots);
                     // ---- item / inventory UI (701-712; 708 is in the menu suite) ----
                     UiCase.run(ctx, "701-ui-invsearch-red-fill", ItemUiCases::redFill);
                     UiCase.run(ctx, "702-ui-invsearch-calculator", ItemUiCases::calculator);
