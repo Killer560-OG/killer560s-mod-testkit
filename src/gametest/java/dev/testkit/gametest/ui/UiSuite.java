@@ -132,6 +132,10 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-09 Held Item Outline ({@link HeldOutlineCases}). Own block for merges. */
     static final String[] HELD_OUTLINE_CASES = {"671-ui-held-outline-off", "672-ui-held-outline-styles",
             "673-ui-held-outline-hands", "674-ui-held-outline-hud", "675-ui-held-outline-settings"};
+    /** killer560's 2026-10-09 Leap Order default orders + pins ({@link LeapOrderCases}); 670 is in the menu suite.
+     *  Own block for merges. */
+    static final String[] LEAPORDER_CASES = {"666-ui-leaporder-defaults", "667-ui-leaporder-pins",
+            "668-ui-leaporder-reset", "669-ui-leaporder-shots"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -178,12 +182,16 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : HELD_OUTLINE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : LEAPORDER_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
         boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES) || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
-                || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES);
+                || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES)
+                || any(LEAPORDER_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -317,6 +325,11 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "673-ui-held-outline-hands", HeldOutlineCases::hands);
                     UiCase.run(ctx, "674-ui-held-outline-hud", HeldOutlineCases::hudAndCamera);
                     UiCase.run(ctx, "675-ui-held-outline-settings", HeldOutlineCases::settings);
+                    // ---- leap order (666-669) ----
+                    UiCase.run(ctx, "666-ui-leaporder-defaults", LeapOrderCases::defaults);
+                    UiCase.run(ctx, "667-ui-leaporder-pins", LeapOrderCases::pinCase);
+                    UiCase.run(ctx, "668-ui-leaporder-reset", LeapOrderCases::reset);
+                    UiCase.run(ctx, "669-ui-leaporder-shots", LeapOrderCases::shots);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
