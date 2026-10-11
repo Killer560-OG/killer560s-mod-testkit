@@ -1,5 +1,5 @@
 {
-  "_doc": "Recorded by 511-ui-menu-layout from the menu before killer560's 2026-10-07 layout report (Crosshair still top level): every node name, every leaf tab (class -> path) and the tooltip each row showed (owner sub-tab -> label key -> tooltip). Variant legit. Updated 2026-10-08 for tooltip text main changed after the recording (Bazaar v3, map-info-bat, social-batch): Bazaar/hypixel menu key, Bazaar/reskin real bazaar, Dungeon Map/extra info overlay, Friends List/use our /fl. Edited 2026-10-08 (mod chat-keybinds-merge, killer560's request): Command Shortcuts was merged into Chat Keybinds - its leaf is MERGED in MenuLayoutCases and its rows are judged under Chat Keybinds; the Chat Keybinds tooltips (unscoped and master) changed, the old 'command shortcuts' master row is gone, and the built-in rows' tooltips carry the '/fN sends /joininstance ...' text they have had since cmd-shortcuts.",
+  "_doc": "Recorded by 511-ui-menu-layout from the menu before killer560's 2026-10-07 layout report (Crosshair still top level): every node name, every leaf tab (class -> path) and the tooltip each row showed (owner sub-tab -> label key -> tooltip). Variant legit. Updated 2026-10-08 for tooltip text main changed after the recording (Bazaar v3, map-info-bat, social-batch): Bazaar/hypixel menu key, Bazaar/reskin real bazaar, Dungeon Map/extra info overlay, Friends List/use our /fl. Edited 2026-10-08 (mod chat-keybinds-merge, killer560's request): Command Shortcuts was merged into Chat Keybinds - its leaf is MERGED in MenuLayoutCases and its rows are judged under Chat Keybinds; the Chat Keybinds tooltips (unscoped and master) changed, the old 'command shortcuts' master row is gone, and the built-in rows' tooltips carry the '/fN sends /joininstance ...' text they have had since cmd-shortcuts. Edited 2026-10-11 (mod dungeon-b2, killer560's 2026-10-09 list): Door Keys and Auto Kick tooltips rewritten for the key circle and the Party Finder Auto Kick; Dungeon ESP's Through Walls / Wither Bosses rows replaced by one ESP switch (Tracer only built under it); Wither Highlight renamed Wither Boss Highlight.",
   "names": [
     "Ability Cooldowns",
     "Ability Keybinds",
@@ -312,7 +312,7 @@
       "custom crosshair": "Replaces the vanilla crosshair with the one you design here (both builds).",
       "custom scoreboard": "Replaces the sidebar with a custom styled scoreboard.",
       "display options": "Borderless fullscreen, fullbright, Pack Disabler and the Amber main menu theme.",
-      "door keys": "Outlines dropped Wither and Blood Keys in dungeon rooms.",
+      "door keys": "Circles the ground a dropped Wither or Blood Key can be picked up from (its 0.27.2 range).",
       "dot": "",
       "dvd": "",
       "dynamic": "",
@@ -459,7 +459,7 @@
       "correct commands": "Also fixes typos in command names you type, like /wardorbe to /wardrobe."
     },
     "Auto Kick": {
-      "auto kick": "Warns or kicks when your run takes longer than the target time set for its floor.",
+      "auto kick": "While you queue in Party Finder, warns about or kicks a joiner whose S+ time on the floor is slower than its limit.",
       "kicks (or warns) once a floor's target time is missed - off until every per-floor target below is set.": ""
     },
     "Auto Meow": {
@@ -630,7 +630,7 @@
       "themed main menu": "Gives the game's menus the mod's black and orange theme."
     },
     "Door Keys": {
-      "door keys": "Outlines dropped Wither and Blood Keys in dungeon rooms."
+      "door keys": "Circles the ground a dropped Wither or Blood Key can be picked up from (its 0.27.2 range)."
     },
     "Dungeon Alerts": {
       "room alerts": "Plays a sound when a dungeon room is cleared or all its secrets are found.",
@@ -840,7 +840,6 @@
       "loadout keybinds": "Lets keys click loadout slots and change pages on the Loadout screen."
     },
     "Map, Leap & Party": {
-      "auto kick": "Warns or kicks when your run takes longer than the target time set for its floor.",
       "chunk cache": "Keeps chunks you've loaded readable in memory so the map, waypoints and solvers still see rooms you left.",
       "class colors": "Colors dungeon teammates by their class in the tab list and on nametags.",
       "dungeon map": "Draws the real dungeon map as a HUD overlay, showing only what your hotbar map has revealed.",
@@ -1097,8 +1096,8 @@
       "starred mob hitboxes": "Boxes starred mobs and secret bats, and highlights the F7/M7 wither boss.",
       "starred mobs": "Highlights starred mobs and minibosses during dungeon clear.",
       "style": "How starred mobs and bats are highlighted: Outline Box, Filled Box, or Glow.",
-      "wither highlight": "Highlights the F7/M7 wither bosses at any range while you can see them.",
-      "wither style": "Picks how the wither highlight is drawn: Glow Hitbox or Hitbox Fill."
+      "wither style": "Picks how the wither highlight is drawn: Glow Hitbox or Hitbox Fill.",
+      "wither boss highlight": "Highlights the F7/M7 wither bosses at any range while you can see them."
     },
     "Storage Overlay": {
       "columns": "How many storage panels sit side by side.",

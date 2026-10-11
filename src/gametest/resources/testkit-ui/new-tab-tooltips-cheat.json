@@ -1,5 +1,5 @@
 {
-  "_doc": "Recorded by 412-ui-no-new-tab from a jar that still had the New category: every leaf tab under New (class -> path) and the tooltip each row showed there (owner sub-tab -> label key -> tooltip). Variant cheat. Edited 2026-10-08 (mod inv-batch, killer560's request): Armor Recolour became Custom Items (tab, rows and tooltips replaced), Cosmetics became Player Cosmetics, and the Inventory Sorter's master tooltip changed with the rebuilt feature. Edited 2026-10-08 (mod chat-keybinds-merge, killer560's request): Command Shortcuts was merged into Chat Keybinds - its leaf is MERGED in MenuLayoutCases and its rows are judged under Chat Keybinds; the Chat Keybinds tooltips (unscoped and master) changed, the old 'command shortcuts' master row is gone, and the built-in rows' tooltips carry the '/fN sends /joininstance ...' text they have had since cmd-shortcuts.",
+  "_doc": "Recorded by 412-ui-no-new-tab from a jar that still had the New category: every leaf tab under New (class -> path) and the tooltip each row showed there (owner sub-tab -> label key -> tooltip). Variant cheat. Edited 2026-10-08 (mod inv-batch, killer560's request): Armor Recolour became Custom Items (tab, rows and tooltips replaced), Cosmetics became Player Cosmetics, and the Inventory Sorter's master tooltip changed with the rebuilt feature. Edited 2026-10-08 (mod chat-keybinds-merge, killer560's request): Command Shortcuts was merged into Chat Keybinds - its leaf is MERGED in MenuLayoutCases and its rows are judged under Chat Keybinds; the Chat Keybinds tooltips (unscoped and master) changed, the old 'command shortcuts' master row is gone, and the built-in rows' tooltips carry the '/fN sends /joininstance ...' text they have had since cmd-shortcuts. Edited 2026-10-11 (mod dungeon-b2, killer560's 2026-10-09 list): Door Keys and Auto Kick tooltips rewritten for the key circle and the Party Finder Auto Kick; Dungeon ESP's Through Walls / Wither Bosses rows replaced by one ESP switch (Tracer only built under it); Wither Highlight renamed Wither Boss Highlight.",
   "leaves": {
     "gui.tab.AbilityCooldownTab": "New > Ability Cooldowns",
     "gui.tab.AbilityKeybindsTab": "New > Ability Keybinds",
@@ -120,7 +120,6 @@
       "auto door opener": "Cheat build: right-clicks a locked Wither or Blood door once when you or a teammate picks up its key.",
       "auto fairy souls": "Cheat build: walks the island route and clicks each Fairy Soul for you.",
       "auto gfs": "Runs /gfs to refill dungeon items from your sacks when you run low (cheat build only).",
-      "auto kick": "Warns or kicks when your run takes longer than the target time set for its floor.",
       "auto routes": "Cheat build: records what you do in a dungeon room and replays it when you land on its start node.",
       "auto sell": "Sells items on your sell list automatically while a sell screen is open; start it with /autosell start.",
       "auto trap": "",
@@ -139,7 +138,6 @@
       "croesus / chest profit": "Shows what each dungeon reward chest is worth, logs your claims, and (cheat build) claims the best chest.",
       "custom mage beam": "In dungeons, redraws every Mage beam as one clean coloured line.",
       "custom scoreboard": "Replaces the sidebar with a custom styled scoreboard.",
-      "door keys": "Outlines dropped Wither and Blood Keys in dungeon rooms.",
       "dungeon alerts": "",
       "dungeon breaker": "",
       "dungeon esp": "Boxes starred mobs, secret bats and the F7/M7 wither bosses.",
@@ -299,7 +297,7 @@
       "auto gfs": "Runs /gfs to refill dungeon items from your sacks when you run low (cheat build only)."
     },
     "Auto Kick": {
-      "auto kick": "Warns or kicks when your run takes longer than the target time set for its floor.",
+      "auto kick": "While you queue in Party Finder, warns about or kicks a joiner whose S+ time on the floor is slower than its limit.",
       "kicks (or warns) once a floor's target time is missed - off until every per-floor target below is set.": ""
     },
     "Auto Routes": {
@@ -442,7 +440,7 @@
       "custom scoreboard": "Replaces the sidebar with a custom styled scoreboard."
     },
     "Door Keys": {
-      "door keys": "Outlines dropped Wither and Blood Keys in dungeon rooms."
+      "door keys": "Circles the ground a dropped Wither or Blood Key can be picked up from (its 0.27.2 range)."
     },
     "Dungeon Alerts": {
       "room alerts": "Plays a sound when a dungeon room is cleared or all its secrets are found.",
@@ -461,12 +459,9 @@
       "starred mob hitboxes": "Boxes starred mobs and secret bats, and highlights the F7/M7 wither boss.",
       "starred mobs": "Highlights starred mobs and minibosses during dungeon clear.",
       "style": "How starred mobs and bats are highlighted: Outline Box, Filled Box, or Glow.",
-      "through walls": "Cheat build: draws starred mob and bat boxes through blocks.",
-      "tracer": "Cheat build: draws a line from you to each wither the Wither ESP highlights.",
-      "wither bosses": "Cheat build: highlights the F7/M7 wither bosses through walls.",
       "wither esp": "",
-      "wither highlight": "Highlights the F7/M7 wither bosses at any range while you can see them.",
-      "wither style": "How the wither highlight is drawn: Glow Hitbox or Hitbox Fill."
+      "wither style": "How the wither highlight is drawn: Glow Hitbox or Hitbox Fill.",
+      "wither boss highlight": "Highlights the F7/M7 wither bosses at any range while you can see them."
     },
     "Dungeon Map": {
       "blood": "",

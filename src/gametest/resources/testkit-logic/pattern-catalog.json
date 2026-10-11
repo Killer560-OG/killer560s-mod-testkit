@@ -1,15 +1,15 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-08T06:23:21",
- "modSource": "killer560s-mod",
- "modGitSha": "3744aa32c1cd55d4d8ea081d9d70cb49483f7328",
- "modSourceDirty": false,
- "count": 454,
+ "generatedAt": "2026-10-11T14:24:44",
+ "modSource": "dungeon-b2",
+ "modGitSha": "265eb12b9fb54944ff02e869abb688551c4ae22a",
+ "modSourceDirty": true,
+ "count": 456,
  "byKind": {
   "dynamic": 7,
   "element": 43,
-  "field": 389,
-  "local": 15
+  "field": 390,
+  "local": 16
  },
  "unresolved": 8,
  "patterns": [
@@ -446,16 +446,40 @@
    "expr": "\"[A-Za-z']+\""
   },
   {
-   "id": "autokick.AutoKickFeature#NAME_PATTERN",
+   "id": "autokick.AutoKickFeature#PF_JOINED",
    "cls": "autokick.AutoKickFeature",
-   "field": "NAME_PATTERN",
+   "field": "PF_JOINED",
    "index": null,
    "file": "src/main/java/com/killer560/hub/autokick/AutoKickFeature.java",
-   "line": 92,
-   "regex": "^[A-Za-z0-9_]{1,16}$",
+   "line": 49,
+   "regex": "^Party Finder > ([A-Za-z0-9_]{1,16}) joined the dungeon group! \\((\\w+) Level \\d+\\)$",
    "flags": null,
    "kind": "field",
-   "expr": "\"^[A-Za-z0-9_]{1,16}$\""
+   "expr": "\"^Party Finder > ([A-Za-z0-9_]{1,16}) joined the dungeon group! \\\\((\\\\w+) Level \\\\d+\\\\)$\""
+  },
+  {
+   "id": "autokick.AutoKickFeature#MM_SS",
+   "cls": "autokick.AutoKickFeature",
+   "field": "MM_SS",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/autokick/AutoKickFeature.java",
+   "line": 53,
+   "regex": "^(\\d{1,3}):(\\d{2})$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(\\\\d{1,3}):(\\\\d{2})$\""
+  },
+  {
+   "id": "autokick.AutoKickFeature@190",
+   "cls": "autokick.AutoKickFeature",
+   "field": null,
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/autokick/AutoKickFeature.java",
+   "line": 190,
+   "regex": "^(\\d{1,3}):(\\d{2})$",
+   "flags": null,
+   "kind": "local",
+   "expr": "\"^(\\\\d{1,3}):(\\\\d{2})$\""
   },
   {
    "id": "automeow.AutoMeowFeature#TRIGGER",
@@ -535,7 +559,7 @@
    "field": "AWAIT_ARG",
    "index": null,
    "file": "src/main/java/com/killer560/hub/autoroutes/AutoRoutesCommands.java",
-   "line": 157,
+   "line": 160,
    "regex": "await:(\\d{1,3})",
    "flags": null,
    "kind": "field",
@@ -547,7 +571,7 @@
    "field": "CHARGES",
    "index": null,
    "file": "src/main/java/com/killer560/hub/autoroutes/RouteExecutor.java",
-   "line": 118,
+   "line": 119,
    "regex": "Charges: (\\d+)/(\\d+)",
    "flags": null,
    "kind": "field",
@@ -1123,7 +1147,7 @@
    "field": "CUSTOM_NAME",
    "index": null,
    "file": "src/main/java/com/killer560/hub/commandshortcuts/CommandShortcutsConfig.java",
-   "line": 55,
+   "line": 36,
    "regex": "[A-Za-z0-9_]{1,32}",
    "flags": null,
    "kind": "field",

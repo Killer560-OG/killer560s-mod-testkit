@@ -422,3 +422,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   "You left the party." after Settings had switched it back OFF, so HxLead stayed leader and 578's teammate !warp was refused
   "you are not the party leader" (reproduced with `100-hx-session:,122-hx-party-list-responder,578-hx-mcp-party-channels`).
   122 now leaves while it is on and asserts the tracker is empty; 578 clears `PartyLeaderTracker.leader` itself.
+- An entity attack is protocol id `attack` on 26.1.2, not `interact`: 676's first run counted 0 "interact" packets while
+  the zombie it hit lost 3 health on the server (2026-10-11). Count both (`PacketTrace.sent("interact") + sent("attack")`).
+- A freshly loaded chunk section can render as sky for a second after a teleport or a setblock: 677 and 679's first
+  pictures showed no floor and no board while every number passed. Wait ~60 ticks before a world screenshot, and look.

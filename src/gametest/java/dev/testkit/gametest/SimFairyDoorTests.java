@@ -54,6 +54,11 @@ import java.util.concurrent.atomic.AtomicReference;
  * <li>537 self: he flies into Fairy; it clears.</li>
  * <li>538 wither doors unchanged: wither doors made round the room after Fairy ({@code SimDoors.witherDoorsAround});
  *     the wither boxes are the same with the Fairy Door on and off, and the nearest sits at the door block's height.</li>
+ * <li>678 (dungeon-b2) the map calls the Fairy door a WITHER door and the world has no coal in it - killer560's
+ *     2026-10-08_15.48.34 F1, where the vanilla map draws the door into the unexplored Fairy room black while Hypixel
+ *     puts nothing in the doorway. The dungeon map item's door byte for that cell is set to WITHER (the sim sends no map
+ *     item), the doorway stays air: the Fairy Door must still mark it, from the grid. Coal put in the doorway (a real
+ *     shut wither door): the Fairy Door steps aside and the normal wither highlight draws it, once.</li>
  * </ul>
  * The legit jar has no Fairy Door (cheat build only): there 533-537 assert that nothing is drawn and the state stays
  * empty. Between 535, 536 and 537 the run latch is reset by setting {@code FairyDoor.generation} back, which is the
@@ -71,6 +76,10 @@ public class SimFairyDoorTests implements FabricClientGameTest {
     private static final String R_OPENED = "536-sim-fairy-door-door-opened";
     private static final String R_SELF = "537-sim-fairy-door-self-enters";
     private static final String R_WITHER = "538-sim-fairy-door-wither-unchanged";
+    /** dungeon-b2 (2026-10-09): the map says WITHER, the world has no coal - his 2026-10-08_15.48.34 F1 floor. */
+    private static final String R_MAP_WITHER = "678-sim-fairy-door-map-wither-no-coal";
+    private static final Path B2_SHOTS = Path.of("C:/Users/Hunter/killer560s-mod-logs/dungeon-b2-shots");
+    private static final String MAP_SCANNER = "com.killer560.hub.livemap.DungeonMapScanner";
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
@@ -376,6 +385,95 @@ public class SimFairyDoorTests implements FabricClientGameTest {
         row(R_WITHER, made > 0 && same && heightOk, made + " wither door(s) made round " + f.afterRoomName
                 + "; wither boxes with the Fairy Door on " + describe(withFairy) + ", off " + describe(withoutFairy)
                 + " (door block y " + f.doorY + ")");
+
+        // ---- 678: the map says wither, the doorway is air ---------------------------------------------------------
+        Report.caseStarted(R_MAP_WITHER);
+        BlockPos door678 = f.doorBlock;
+        try {
+            place(ctx, view, f.doorCentre);
+            ctx.runOnClient(mc -> mapDoorWither(f.entryDoor, true));
+            resetRun(ctx);
+            resetScanner(ctx);
+            ctx.waitTicks(40);
+            int type = ctx.computeOnClient(mc -> (Integer) inv(ModUnderTest.staticCall(LAYOUT, "current"), "doorType",
+                    f.entryDoor));
+            boolean air = ctx.computeOnClient(mc -> mc.level.getBlockState(door678).isAir());
+            int doorMap = ctx.computeOnClient(mc -> fairyDoor());
+            String statusMap = ctx.computeOnClient(mc -> fairyStatus());
+            double[] boxMap = ctx.computeOnClient(mc -> fairyBox(f));
+            Path mapShot = shot(ctx, "map-wither-no-coal");
+            try {
+                Files.createDirectories(B2_SHOTS);
+                Files.copy(mapShot, B2_SHOTS.resolve("678-fairy-door-map-wither-no-coal-" + jarTag + ".png"),
+                        StandardCopyOption.REPLACE_EXISTING);
+            } catch (Exception e) {
+                println("could not copy the 678 picture: " + e);
+            }
+            // Coal in the doorway: a real shut wither door.
+            AtomicReference<BlockState> was678 = new AtomicReference<>();
+            server(ctx, level -> {
+                was678.set(level.getBlockState(door678));
+                level.setBlock(door678, Blocks.COAL_BLOCK.defaultBlockState(), 3);
+            });
+            ctx.waitFor(mc -> mc.level.getBlockState(door678).is(Blocks.COAL_BLOCK), 200);
+            resetRun(ctx);
+            resetScanner(ctx);
+            ctx.waitTicks(40);
+            int doorCoal = ctx.computeOnClient(mc -> fairyDoor());
+            String statusCoal = ctx.computeOnClient(mc -> fairyStatus());
+            List<double[]> withersCoal = ctx.computeOnClient(mc -> allBoxesAt(f));
+            server(ctx, level -> level.setBlock(door678, was678.get(), 3));
+            String detail = "map door type " + type + " (2 = wither), doorway air " + air + "; Fairy Door " + doorMap
+                    + ", status '" + statusMap + "', box " + fmt(boxMap) + "; with coal in the doorway: Fairy Door "
+                    + doorCoal + ", status '" + statusCoal + "', boxes on that cell " + describe(withersCoal);
+            if (cheat) {
+                row(R_MAP_WITHER, type == 2 && air && doorMap == f.entryDoor && boxMap != null && doorCoal == -1
+                        && statusCoal.contains("shut wither door") && withersCoal.size() == 1, detail);
+            } else {
+                row(R_MAP_WITHER, doorMap == -1 && boxMap == null, "legit jar: " + detail);
+            }
+        } finally {
+            ctx.runOnClient(mc -> mapDoorWither(f.entryDoor, false));
+        }
+    }
+
+    /** Every drawn box on the Fairy door's cell (the wither highlight's and the Fairy Door's alike). */
+    private static List<double[]> allBoxesAt(Floor f) {
+        List<double[]> out = new ArrayList<>();
+        for (Object o : (List<?>) ModUnderTest.staticCall(FEATURE, "cachedBoxes")) {
+            double[] b = (double[]) o;
+            if (Math.abs((b[0] + b[3]) / 2 - f.doorCentre[0]) < 0.6 && Math.abs((b[2] + b[5]) / 2 - f.doorCentre[2]) < 0.6) {
+                out.add(b);
+            }
+        }
+        return out;
+    }
+
+    /** The dungeon map item's reading of door cell {@code idx} as a WITHER door (on), or the scanner's reset (off). */
+    private static void mapDoorWither(int idx, boolean on) {
+        try {
+            Class<?> k = Class.forName(MAP_SCANNER);
+            if (!on) {
+                java.lang.reflect.Method reset = k.getDeclaredMethod("reset");
+                reset.setAccessible(true);
+                reset.invoke(null);
+                return;
+            }
+            Field kinds = k.getDeclaredField("kinds");
+            kinds.setAccessible(true);
+            Field kindDoor = k.getDeclaredField("KIND_DOOR");
+            kindDoor.setAccessible(true);
+            ((int[]) kinds.get(null))[idx] = kindDoor.getInt(null);
+            Field tiles = k.getDeclaredField("doorTiles");
+            tiles.setAccessible(true);
+            Object[] arr = (Object[]) tiles.get(null);
+            arr[idx] = ModUnderTest.enumValue("com.killer560.hub.livemap.LiveMapFeature$Tile", "DOOR_WITHER");
+            Field cal = k.getDeclaredField("calibrated");
+            cal.setAccessible(true);
+            cal.setBoolean(null, true);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("could not set the map's door reading", e);
+        }
     }
 
     // ------------------------------------------------------------------------------------------------- reading
