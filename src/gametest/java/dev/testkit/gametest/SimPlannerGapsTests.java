@@ -690,7 +690,10 @@ public class SimPlannerGapsTests implements FabricClientGameTest {
                     continue;
                 }
                 BlockPos b = (BlockPos) posM.invoke(r);
-                if (blackListed(level.getBlockState(b))) {
+                var st = level.getBlockState(b);
+                // LevelEtherGrid.lowTop (mod path-optimal): a top under 0.75 of a block is no landing either.
+                if (blackListed(st) || st.getCollisionShape(level, b).isEmpty()
+                        || st.getCollisionShape(level, b).max(Direction.Axis.Y) < 0.75) {
                     continue;
                 }
                 if (b.getY() > floor + 6) {

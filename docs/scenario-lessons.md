@@ -410,3 +410,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   579 serves Mojang's `/player/certificates` and the relay's `/challenge` + `/auth` from one loopback fake on 28950, points
   authlib at it with `minecraft.api.{services,session,profiles}.host` (all three or authlib ignores them) and the relay with
   `killer560.net.relay`, and restores Minecraft's user/userApiService/profileKeyPairManager fields afterwards.
+- 631-636 *-sim-pathopt-* (`SimPathOptimalTests`, mod path-optimal): the exact fewest-warps planner and the bottom-slab
+  rule, each answer judged on the SERVER's level (real `traverseVoxels` at 32 x 32 points a face, kept only if it holds at
+  +-0.01 degrees). An etherwarp onto a bottom slab teleports to slab + 1.05 and he DROPS to its top: judge a warp from a
+  slab from the top (+0.5), and a "stand on it" check at +0.5. A ring wall hides its inside from an eye only if the far
+  edge of its TOP is above the sight line - measure at the far edge, not the near one (632's first ring was a block too
+  high and hid the goal from the slab as well). Wall tops above floor + 6 ARE landings where the room has a roof somewhere over them (the cover rule): cap an arena's high walls with a cobblestone wall (blacklisted). Arena cases share one built 1x1 room; 634 builds Slabs, Three Floors,
+  Museum and Scaffolding one after another (-Dtestkit.pathopt.pairs, .threechecks).

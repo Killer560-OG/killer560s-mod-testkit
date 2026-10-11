@@ -64,6 +64,7 @@
 			"dev.testkit.gametest.InstaClearTests",
 			"dev.testkit.gametest.SimAutoClearTests",
 			"dev.testkit.gametest.SimPlannerGapsTests",
+			"dev.testkit.gametest.SimPathOptimalTests",
 			"dev.testkit.gametest.SimMapGroupTests",
 			"dev.testkit.gametest.SimSingleRoomTests",
 			"dev.testkit.gametest.SimRoomFloorTests",
