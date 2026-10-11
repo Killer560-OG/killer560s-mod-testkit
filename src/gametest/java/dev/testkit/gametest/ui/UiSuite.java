@@ -127,6 +127,11 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-08 Chat Keybinds + Command Shortcuts merge ({@link ChatKeybindsMergeCases}); 623-625 are in the
      *  Hx session. Own block for merges. */
     static final String[] CHAT_KEYBINDS_MERGE_CASES = {"621-ui-chat-keybinds-merged-tab", "622-ui-chat-keybinds-migration"};
+    /** killer560's 2026-10-11 item / inventory UI list ({@link ItemUiCases}); 708 is in the menu suite. Own block. */
+    static final String[] ITEM_UI_CASES = {"701-ui-invsearch-red-fill", "702-ui-invsearch-calculator",
+            "703-ui-slotbinds-key-toggle", "704-ui-petwheel-no-slices-text-scale", "705-ui-itemprotect-hover-star-drops",
+            "706-ui-gif-dvd-hidden-in-containers", "707-ui-storagesearch-equipment-wardrobe", "709-ui-itembrowser-tooltip",
+            "710-ui-itembrowser-minion-tiers", "711-ui-itembrowser-neu-recipe", "712-ui-itembrowser-sort-and-bar"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -170,12 +175,15 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : CHAT_KEYBINDS_MERGE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : ITEM_UI_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
         boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES) || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
-                || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES);
+                || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(ITEM_UI_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -303,6 +311,18 @@ public class UiSuite implements FabricClientGameTest {
                     // ---- chat keybinds merge (621-622) ----
                     UiCase.run(ctx, "621-ui-chat-keybinds-merged-tab", ChatKeybindsMergeCases::mergedTab);
                     UiCase.run(ctx, "622-ui-chat-keybinds-migration", ChatKeybindsMergeCases::migration);
+                    // ---- item / inventory UI (701-712; 708 is in the menu suite) ----
+                    UiCase.run(ctx, "701-ui-invsearch-red-fill", ItemUiCases::redFill);
+                    UiCase.run(ctx, "702-ui-invsearch-calculator", ItemUiCases::calculator);
+                    UiCase.run(ctx, "703-ui-slotbinds-key-toggle", ItemUiCases::slotBindsKey);
+                    UiCase.run(ctx, "704-ui-petwheel-no-slices-text-scale", ItemUiCases::petWheel);
+                    UiCase.run(ctx, "705-ui-itemprotect-hover-star-drops", ItemUiCases::protectHoverAndDrops);
+                    UiCase.run(ctx, "706-ui-gif-dvd-hidden-in-containers", ItemUiCases::overlaysHidden);
+                    UiCase.run(ctx, "707-ui-storagesearch-equipment-wardrobe", ItemUiCases::equipmentWardrobeIndex);
+                    UiCase.run(ctx, "709-ui-itembrowser-tooltip", ItemUiCases::browserTooltip);
+                    UiCase.run(ctx, "710-ui-itembrowser-minion-tiers", ItemUiCases::browserMinions);
+                    UiCase.run(ctx, "711-ui-itembrowser-neu-recipe", ItemUiCases::browserRecipe);
+                    UiCase.run(ctx, "712-ui-itembrowser-sort-and-bar", ItemUiCases::browserSortAndBar);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
