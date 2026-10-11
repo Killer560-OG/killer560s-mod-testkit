@@ -159,6 +159,23 @@
       "owner": "GIF Player",
       "key": "[off] dancing cat girl (built-in)",
       "gone": "gui-hud 805ca633: the built-in GIF is listed as Dancing Cat Girl, without (built-in)"
+    },
+    {
+      "owner": "Auto Fairy Souls",
+      "key": "start auto fairy souls",
+      "gone": "fairy-choc (killer560 2026-10-11): \"remove the start auto fairy souls button from the menu\""
+    },
+    {
+      "owner": "Auto Fairy Souls",
+      "key": "start/stop key",
+      "text": "Starts or stops Auto Fairy Souls (it has no button; /k560path souls auto starts it too).",
+      "why": "fairy-choc (killer560 2026-10-11): the Start button is gone, the key and command start it"
+    },
+    {
+      "owner": "Auto Fairy Souls",
+      "key": "turn speed",
+      "text": "Top speed the camera turns while auto walking, in degrees per tick; it eases smoothly every frame below that.",
+      "why": "fairy-choc (killer560 2026-10-11): the walker's camera eases per frame"
     }
   ]
 }

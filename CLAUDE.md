@@ -292,6 +292,10 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   854 wide (and the PNG was 1600 px), so a screenshot's pixels-per-GUI-unit from `getGuiScaledWidth` landed every rect
   below its target and 695 read 0 changed pixels (2026-10-11). Take the scale from the open screen's own `width`.
 
+- `testkit fill` takes a bare block id: `Identifier.parse("minecraft:ladder[facing=east]")` placed nothing, so 747's ladder
+  and 746's slabs were missing on the first run (2026-10-11). Use `TestMap.command("fill ... block[state]")` for states. A
+  console `tp @p ~ ~ ~` is relative to the CONSOLE (world spawn), not the player: `execute as @p at @s run tp @s ~ ~ ~`.
+
 Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosecret wither doors, 62-argrim frames,
 143 camera, 141/142 autopilot, the mod's Auto Scale, terminal layouts, the logic world, 386's sweep):
 [docs/scenario-lessons.md](docs/scenario-lessons.md).
