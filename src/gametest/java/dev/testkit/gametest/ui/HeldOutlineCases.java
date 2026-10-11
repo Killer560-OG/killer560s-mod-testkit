@@ -38,6 +38,7 @@ final class HeldOutlineCases {
     private static final String CFG = "heldoutline.HeldOutlineConfig";
     private static final String STYLE = "heldoutline.HeldOutlineConfig$Style";
     private static final String RENDERER = "heldoutline.HeldOutlineRenderer";
+    private static final String SIDE = "heldoutline.HeldOutlineConfig$Side";
 
     private HeldOutlineCases() {
     }
@@ -79,6 +80,10 @@ final class HeldOutlineCases {
             Mod.call(cfg, "setMainHand", true);
             Mod.call(cfg, "setOffHand", false);
             Mod.call(cfg, "setWidth", 3f);
+            // 671-675 judge the original look (the outline around the whole item); 676 judges the sides.
+            if (Mod.has(SIDE)) {
+                Mod.call(cfg, "setSide", Mod.enumValue(SIDE, "FAR"));
+            }
             return null;
         });
         setHands(c, main, off);
@@ -119,6 +124,9 @@ final class HeldOutlineCases {
         c.onClient(mc -> {
             Object cfg = Mod.cfg(CFG);
             Mod.call(cfg, "setEnabled", false);
+            if (Mod.has(SIDE)) {
+                Mod.call(cfg, "setSide", Mod.enumValue(SIDE, "NEAR"));
+            }
             Mod.call(cfg, "save");
             mc.options.setCameraType(CameraType.FIRST_PERSON);
             if (savedInv != null) {
@@ -754,6 +762,207 @@ final class HeldOutlineCases {
                 Mod.call(now, "save");
                 return null;
             });
+        }
+    }
+
+    // ---- 676 ------------------------------------------------------------------------------------------------------
+
+    private static void side(UiCase c, String side) {
+        c.onClient(mc -> {
+            Mod.call(Mod.cfg(CFG), "setSide", Mod.enumValue(SIDE, side));
+            return null;
+        });
+    }
+
+    private static boolean facesFound() {
+        return (Boolean) Mod.staticCall(RENDERER, "lastFacesFound");
+    }
+
+    private static int segmentsDrawn() {
+        return ((Number) Mod.staticCall(RENDERER, "lastSegmentCount")).intValue();
+    }
+
+    private static boolean[][] minus(boolean[][] a, boolean[][] b) {
+        boolean[][] m = new boolean[a.length][a[0].length];
+        for (int y = 0; y < a.length; y++) {
+            for (int x = 0; x < a[y].length; x++) {
+                m[y][x] = a[y][x] && !b[y][x];
+            }
+        }
+        return m;
+    }
+
+    /**
+     * killer560 (2026-10-11): "the outline is kind of on the far side of the item. Can I have an option for close side
+     * far side or both with lines between the two at points". A red width-3 outline on the sword in each Outline Side,
+     * against the item's silhouette S (an opaque blue fill): Far stays entirely outside S (the original look); Near
+     * follows the near face, so it covers some of the item's thin side walls inside S and is a different ring; Both
+     * adds the far face's ring and the corner lines (the renderer reports how many), so it draws more than Near, more of
+     * it on the walls. A bow (also a flat item) finds its faces; a shield (a special model, no flat faces) falls back to
+     * Far pixel for pixel. Each mode's sword frame is also kept under sides/.
+     */
+    static void sides(UiCase c) {
+        if (!ready(c)) {
+            return;
+        }
+        if (!Mod.has(SIDE)) {
+            c.problem("this jar has no Outline Side (mod before held-outline-2)");
+            return;
+        }
+        try {
+            scene(c, new ItemStack(Items.DIAMOND_SWORD), ItemStack.EMPTY);
+            BufferedImage base = shot(c, "off");
+            boolean[][] s = silhouette(c, base, "fill-blue");
+            int[] found = new int[3];
+            int[] segs = new int[3];
+            boolean[][][] red = new boolean[3][][];
+            String[] modes = {"FAR", "NEAR", "BOTH"};
+            for (int i = 0; i < 3; i++) {
+                configure(c, true, "OUTLINE", 0xFFFF0000, 0xFF0000FF, 3f);
+                side(c, modes[i]);
+                BufferedImage img = shot(c, "sword-" + modes[i].toLowerCase(java.util.Locale.ROOT));
+                red[i] = colour(base, img, 0);
+                found[i] = facesFound() ? 1 : 0;
+                segs[i] = segmentsDrawn();
+                c.note(modes[i] + ": " + count(red[i]) + " red px (box " + box(red[i]) + "), " + overlap(red[i], s)
+                        + " of them on the item; faces found " + (found[i] == 1) + ", corner lines " + segs[i]);
+            }
+            int farOn = overlap(red[0], s), nearOn = overlap(red[1], s), bothOn = overlap(red[2], s);
+            int nearOnly = count(minus(red[1], red[0]));
+            int farOnly = count(minus(red[0], red[1]));
+            c.note("Near vs Far: " + nearOnly + " px only in Near, " + farOnly + " px only in Far; Both adds "
+                    + count(minus(red[2], red[1])) + " px to Near");
+            if (count(red[0]) < 150 || farOn > 0) {
+                c.problem("Far: " + count(red[0]) + " red px, " + farOn + " on the item (the original look draws none on it)");
+            }
+            if (found[1] != 1 || found[2] != 1) {
+                c.problem("the sword's near and far faces were not found (Near " + (found[1] == 1) + ", Both "
+                        + (found[2] == 1) + ") - Near/Both fell back to Far");
+            }
+            if (count(red[1]) < 150 || nearOn < 20) {
+                c.problem("Near: " + count(red[1]) + " red px, " + nearOn + " on the item's side walls (want >= 20)");
+            }
+            if (nearOnly < 50 || farOnly < 50) {
+                c.problem("Near and Far are not different rings: " + nearOnly + " px only in Near, " + farOnly
+                        + " only in Far");
+            }
+            if (segs[2] < 4 || count(minus(red[2], red[1])) < 50 || bothOn <= nearOn) {
+                c.problem("Both: " + segs[2] + " corner lines, " + count(minus(red[2], red[1])) + " px beyond Near, "
+                        + bothOn + " on the item vs Near's " + nearOn);
+            }
+            if (segs[0] != 0 || segs[1] != 0) {
+                c.problem("corner lines drawn outside Both: Far " + segs[0] + ", Near " + segs[1]);
+            }
+
+            // A bow is a flat item too.
+            setHands(c, new ItemStack(Items.BOW), ItemStack.EMPTY);
+            side(c, "BOTH");
+            shot(c, "bow-both");
+            boolean bowFaces = facesFound();
+            int bowSegs = segmentsDrawn();
+            c.note("bow, Both: faces found " + bowFaces + ", corner lines " + bowSegs);
+            if (!bowFaces || bowSegs < 4) {
+                c.problem("bow: faces found " + bowFaces + ", corner lines " + bowSegs);
+            }
+
+            // A shield is a special model: no flat faces, so every side draws the Far ring.
+            setHands(c, new ItemStack(Items.SHIELD), ItemStack.EMPTY);
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(CFG), "setEnabled", false);
+                return null;
+            });
+            BufferedImage shieldOff = shot(c, "shield-off");
+            configure(c, true, "OUTLINE", 0xFFFF0000, 0xFF0000FF, 3f);
+            side(c, "FAR");
+            BufferedImage shieldFar = shot(c, "shield-far");
+            side(c, "NEAR");
+            BufferedImage shieldNear = shot(c, "shield-near");
+            boolean shieldFaces = facesFound();
+            int diff = count(changed(shieldFar, shieldNear));
+            int shieldRing = count(colour(shieldOff, shieldFar, 0));
+            c.note("shield: Far ring " + shieldRing + " red px; Near vs Far differ in " + diff + " px, faces found "
+                    + shieldFaces);
+            if (shieldRing < 150) {
+                c.problem("shield: the Far ring drew only " + shieldRing + " red px, so Near = Far proves nothing");
+            }
+            if (shieldFaces || diff > 0) {
+                c.problem("shield: faces found " + shieldFaces + ", Near differs from Far in " + diff + " px");
+            }
+        } finally {
+            restore(c);
+        }
+    }
+
+    // ---- 677 ------------------------------------------------------------------------------------------------------
+
+    /** One clearly named screenshot per Held Item Outline setting (killer560, 2026-10-11), sword at the test window's
+     *  GUI scale; bow and shield for the sides. No assertions beyond "the pass ran" for each ON frame. */
+    static void gallery(UiCase c) {
+        if (!ready(c) || !Mod.has(SIDE)) {
+            c.problem("this jar has no Outline Side (mod before held-outline-2)");
+            return;
+        }
+        try {
+            scene(c, new ItemStack(Items.DIAMOND_SWORD), new ItemStack(Items.APPLE));
+            int gui = c.onClient(mc -> (int) mc.getWindow().getGuiScale());
+            c.note("GUI scale " + gui);
+            shot(c, "off");
+            String[][] frames = {
+                    // name, style, side, outline ARGB, fill ARGB, width, main, off
+                    {"style-outline", "OUTLINE", "NEAR", "FFFF8C1A", "55FF8C1A", "3", "1", "0"},
+                    {"style-fill", "FILL", "NEAR", "FFFF8C1A", "55FF8C1A", "3", "1", "0"},
+                    {"style-filled-outline", "FILLED_OUTLINE", "NEAR", "FFFF8C1A", "55FF8C1A", "3", "1", "0"},
+                    {"side-near", "OUTLINE", "NEAR", "FFFF8C1A", "55FF8C1A", "3", "1", "0"},
+                    {"side-far", "OUTLINE", "FAR", "FFFF8C1A", "55FF8C1A", "3", "1", "0"},
+                    {"side-both", "OUTLINE", "BOTH", "FFFF8C1A", "55FF8C1A", "3", "1", "0"},
+                    {"width-1", "OUTLINE", "NEAR", "FFFF8C1A", "55FF8C1A", "1", "1", "0"},
+                    {"width-3", "OUTLINE", "NEAR", "FFFF8C1A", "55FF8C1A", "3", "1", "0"},
+                    {"width-6", "OUTLINE", "NEAR", "FFFF8C1A", "55FF8C1A", "6", "1", "0"},
+                    {"colour-outline-cyan", "OUTLINE", "NEAR", "FF00E5FF", "55FF8C1A", "3", "1", "0"},
+                    {"colour-fill-green", "FILL", "NEAR", "FFFF8C1A", "FF33CC33", "3", "1", "0"},
+                    {"colour-fill-translucent-magenta", "FILLED_OUTLINE", "NEAR", "FFFFFFFF", "66FF00FF", "3", "1", "0"},
+                    {"hands-main-only", "FILLED_OUTLINE", "NEAR", "FFFF8C1A", "55FF8C1A", "3", "1", "0"},
+                    {"hands-off-only", "FILLED_OUTLINE", "NEAR", "FFFF8C1A", "55FF8C1A", "3", "0", "1"},
+                    {"hands-both", "FILLED_OUTLINE", "NEAR", "FFFF8C1A", "55FF8C1A", "3", "1", "1"},
+            };
+            for (String[] f : frames) {
+                c.onClient(mc -> {
+                    Object cfg = Mod.cfg(CFG);
+                    Mod.call(cfg, "setEnabled", true);
+                    Mod.call(cfg, "setStyle", Mod.enumValue(STYLE, f[1]));
+                    Mod.call(cfg, "setSide", Mod.enumValue(SIDE, f[2]));
+                    Mod.call(cfg, "setOutlineColor", (int) Long.parseLong(f[3], 16));
+                    Mod.call(cfg, "setFillColor", (int) Long.parseLong(f[4], 16));
+                    Mod.call(cfg, "setWidth", Float.parseFloat(f[5]));
+                    Mod.call(cfg, "setMainHand", f[6].equals("1"));
+                    Mod.call(cfg, "setOffHand", f[7].equals("1"));
+                    return null;
+                });
+                long before = frames();
+                shot(c, f[0]);
+                if (frames() <= before) {
+                    c.problem(f[0] + ": the pass did not run");
+                }
+            }
+            for (String item : new String[]{"bow", "shield"}) {
+                setHands(c, new ItemStack(item.equals("bow") ? Items.BOW : Items.SHIELD), ItemStack.EMPTY);
+                for (String sd : new String[]{"NEAR", "FAR", "BOTH"}) {
+                    c.onClient(mc -> {
+                        Object cfg = Mod.cfg(CFG);
+                        Mod.call(cfg, "setEnabled", true);
+                        Mod.call(cfg, "setStyle", Mod.enumValue(STYLE, "OUTLINE"));
+                        Mod.call(cfg, "setSide", Mod.enumValue(SIDE, sd));
+                        Mod.call(cfg, "setOutlineColor", 0xFFFF8C1A);
+                        Mod.call(cfg, "setWidth", 3f);
+                        Mod.call(cfg, "setMainHand", true);
+                        Mod.call(cfg, "setOffHand", false);
+                        return null;
+                    });
+                    shot(c, item + "-side-" + sd.toLowerCase(java.util.Locale.ROOT));
+                }
+            }
+        } finally {
+            restore(c);
         }
     }
 }

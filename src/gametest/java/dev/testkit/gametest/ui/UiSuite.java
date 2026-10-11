@@ -71,7 +71,8 @@ import java.util.List;
  *                Edit HUD without its panels and their settings in Home, Edit Bars, HUD Scale sizing the mod menu,
  *                the blank profile and the share folder ({@link HudMenuProfilesCases})
  *                671-675 Held Item Outline: off controls, styles/colours/width/alpha from screenshots, hands, hotbar and
- *                third person untouched, settings ({@link HeldOutlineCases})
+ *                third person untouched, settings; 676 Outline Side near/far/both, 677 one screenshot per setting
+ *                ({@link HeldOutlineCases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -131,7 +132,8 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] CHAT_KEYBINDS_MERGE_CASES = {"621-ui-chat-keybinds-merged-tab", "622-ui-chat-keybinds-migration"};
     /** killer560's 2026-10-09 Held Item Outline ({@link HeldOutlineCases}). Own block for merges. */
     static final String[] HELD_OUTLINE_CASES = {"671-ui-held-outline-off", "672-ui-held-outline-styles",
-            "673-ui-held-outline-hands", "674-ui-held-outline-hud", "675-ui-held-outline-settings"};
+            "673-ui-held-outline-hands", "674-ui-held-outline-hud", "675-ui-held-outline-settings",
+            "676-ui-held-outline-sides", "677-ui-held-outline-gallery"};
     /** killer560's 2026-10-09 Leap Order default orders + pins ({@link LeapOrderCases}); 670 is in the menu suite.
      *  Own block for merges. */
     static final String[] LEAPORDER_CASES = {"666-ui-leaporder-defaults", "667-ui-leaporder-pins",
@@ -325,6 +327,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "673-ui-held-outline-hands", HeldOutlineCases::hands);
                     UiCase.run(ctx, "674-ui-held-outline-hud", HeldOutlineCases::hudAndCamera);
                     UiCase.run(ctx, "675-ui-held-outline-settings", HeldOutlineCases::settings);
+                    UiCase.run(ctx, "676-ui-held-outline-sides", HeldOutlineCases::sides);
+                    UiCase.run(ctx, "677-ui-held-outline-gallery", HeldOutlineCases::gallery);
                     // ---- leap order (666-669) ----
                     UiCase.run(ctx, "666-ui-leaporder-defaults", LeapOrderCases::defaults);
                     UiCase.run(ctx, "667-ui-leaporder-pins", LeapOrderCases::pinCase);
