@@ -93,7 +93,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // sim-world (2026-10-11)
             "96-ar-644-mimic-warp",
             // mimic-fix (2026-10-11)
-            "96-ar-651-mimic-legit-pitch"};
+            "96-ar-651-mimic-legit-pitch",
+            // path-wait (2026-10-11): legit warps land exactly where obvious ones do
+            "96-ar-639-legit-warp-exact"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -255,6 +257,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-rotate" -> caseRotate(ctx);
                         case "96-ar-644-mimic-warp" -> caseMimicWarp(ctx, MIMIC_MODES);
                         case "96-ar-651-mimic-legit-pitch" -> caseMimicWarp(ctx, LEGIT_AURA_HYPE);
+                        case "96-ar-639-legit-warp-exact" -> caseLegitWarpExact(ctx);
                         default -> {
                         }
                     }
@@ -5060,6 +5063,67 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         }
     }
 
+    // ============================================================================================ path-wait (2026-10-11)
+
+    /**
+     * 96-ar-639-legit-warp-exact: 644/651's warp - an etherwarp start node at (14,12) aimed at the top centre of the
+     * floor block at (14,5), 0.7 degrees of margin - fired 20 times in LEGIT mode, each from a fresh look turned away and
+     * down (50-86 degrees, as after Kill Mimic's Wither Impact), so every run is a real turn up to the warp's pitch. Every one must land on (14,5), as the same node does in obvious
+     * mode (run once first as the control). The jar before path-wait clicked once the camera was within 1 degree and
+     * landed about one run in three a block short, on (14,6).
+     */
+    private void caseLegitWarpExact(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        List<String> failures = new ArrayList<>();
+        int exact = 0;
+        int runs = 0;
+        try {
+            for (int run = 0; run <= 20; run++) {
+                boolean legit = run > 0;
+                stopRoute(ctx);
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setLegitMode", legit));
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                writeRoute(ctx, List.of(ew(14, 12, 14, 5, true)));
+                // Arrive looking well away and DOWN (a different way each run), as 644/651 do after Kill Mimic's
+                // straight-down Wither Impact: the turn comes up to the warp's pitch from below it, so a click before it
+                // has settled aims short.
+                float away = relYawTo(14, 12, 14, 5) + 40f + 13f * run;
+                if (!arm(ctx, 14, 12, away, 50f + (run % 5) * 9f)) {
+                    failures.add("run " + run + ": #1 did not arm");
+                    continue;
+                }
+                Vec3 p = null;
+                boolean landed = false;
+                for (int t = 0; t < 200 && !landed; t++) {
+                    ctx.waitTicks(1);
+                    p = relPos(ctx);
+                    landed = Math.abs(p.z - 12.5) > 2 && Math.abs(p.y - F) < 0.2 && ctx.computeOnClient(mc ->
+                            mc.player.onGround());
+                }
+                ctx.waitTicks(5);
+                p = relPos(ctx);
+                boolean onTarget = Math.floor(p.x) == 14 && Math.floor(p.z) == 5 && Math.abs(p.y - F) < 0.2;
+                println(String.format(Locale.US, "639 run %d (%s): landed at (%.2f, %.2f, %.2f) - %s", run,
+                        legit ? "legit" : "obvious control", p.x, p.y, p.z, onTarget ? "on (14,5)" : "NOT on (14,5)"));
+                if (!onTarget) {
+                    failures.add(String.format(Locale.US, "run %d (%s) landed at (%.2f, %.2f), not on (14,5)", run,
+                            legit ? "legit" : "obvious", p.x, p.z));
+                }
+                if (legit) {
+                    runs++;
+                    exact += onTarget ? 1 : 0;
+                }
+            }
+        } finally {
+            stopRoute(ctx);
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setLegitMode", false));
+        }
+        println("639: " + exact + " of " + runs + " legit warps landed exactly on (14,5)");
+        check(failures.isEmpty() && runs == 20, String.join("; ", failures));
+    }
+
     // ============================================================================================ sim-world (2026-10-11)
 
     /**
@@ -5161,12 +5225,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     }
                     last = p;
                     maxZ = Math.max(maxZ, p.z);
-                    // Legit mode aims with the camera, and this test route's aim (the floor block's top centre, 7 out)
-                    // leaves 0.7 degrees of margin: about one legit warp in three lands a block short, on (14,6), on
-                    // the jar before mimic-fix too. What this case is about is the warp going AWAY from the mimic, so
-                    // in legit mode the block short counts as landed (reported to the Auto Routes agent).
-                    landed = Math.floor(p.x) == 14 && (Math.floor(p.z) == 5 || legit && Math.floor(p.z) == 6)
-                            && Math.abs(p.y - F) < 0.2;
+                    // Exactly (14,5) in legit mode too: since mod path-wait a legit warp settles the camera to within
+                    // 0.01 degrees before it clicks (it used to go at 1 degree, and this route has 0.7 of margin, so
+                    // about one legit warp in three landed a block short; 96-ar-639 repeats it 20 times).
+                    landed = Math.floor(p.x) == 14 && Math.floor(p.z) == 5 && Math.abs(p.y - F) < 0.2;
                     ctx.waitTicks(1);
                 }
                 ctx.waitTicks(10);
