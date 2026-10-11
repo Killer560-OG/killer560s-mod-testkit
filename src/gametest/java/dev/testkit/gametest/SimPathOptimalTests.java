@@ -549,27 +549,69 @@ public class SimPathOptimalTests implements FabricClientGameTest {
                 f.add("with the picks standing one warp already lands (" + truth + ") - the case does not show the"
                         + " picks mattered");
             }
-            // Flown with the picks standing: the warp cannot land; the route must stop, not fight.
-            Vec3 early = fly(ctx, s, g, 80);
-            boolean stopped = !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
-            println(BREAKER, "flown with the picks standing: ended " + fmt(early) + ", route stopped: " + stopped);
-            if (early.distanceTo(g) < 0.7) {
-                f.add("he reached the goal through blocks that were still standing");
+            // Flown with the picks standing (killer560, 2026-10-11: "Have it wait on the path"): the hop waits with
+            // sneak held and sends nothing until the picks are gone, then warps without being fired again.
+            Vec3 off = rel(ctx, 4.5, F, 4.5);
+            place(ctx, off);
+            ctx.waitTicks(10);
+            int waitedBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "pickWaitTicksTotal"));
+            long flyMark = LogTap.mark();
+            ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.start());
+            ctx.runOnClient(mc -> {
+                var server = mc.getSingleplayerServer();
+                java.util.UUID me = mc.player.getUUID();
+                server.execute(() -> {
+                    var sp = server.getPlayerList().getPlayer(me);
+                    if (sp != null) {
+                        sp.teleportTo(server.overworld(), s.x, s.y, s.z,
+                                java.util.Set.of(net.minecraft.world.entity.Relative.Y_ROT,
+                                        net.minecraft.world.entity.Relative.X_ROT), 0f, 0f, false);
+                    }
+                });
+            });
+            ctx.waitTicks(60);
+            Vec3 held = ctx.computeOnClient(mc -> mc.player.position());
+            boolean sneaking = ctx.computeOnClient(mc -> mc.player.getLastSentInput().shift());
+            boolean running = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+            int usesWaiting = ctx.computeOnClient(mc -> dev.testkit.harness.PacketTrace.sent("use_item"));
+            int waited = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "pickWaitTicksTotal"))
+                    - waitedBefore;
+            int named = 0;
+            for (String l : LogTap.since(flyMark)) {
+                named += l.contains("[CHAT]") && l.contains("Waiting for Breaker Aura to break") ? 1 : 0;
             }
-            // (Whether it stopped or is still waiting for the landing is reported, not judged: either honours it.)
-            // Broken (as the aura does as he goes by): now it flies.
+            println(BREAKER, String.format(Locale.US, "picks standing, 60 ticks on node #1: at %s (%.2f from the start),"
+                            + " route running %s, sneak held %s, %d use packet(s), %d tick(s) waited on a pick, chat"
+                            + " line(s) naming it: %d", fmt(held), held.distanceTo(s), running, sneaking, usesWaiting,
+                    waited, named));
+            if (held.distanceTo(s) > 0.5 || !running || !sneaking || usesWaiting != 0 || waited < 40 || named != 1) {
+                f.add("while the picks stood the hop did not wait as it should (moved " + String.format(Locale.US,
+                        "%.2f", held.distanceTo(s)) + ", running " + running + ", sneak " + sneaking + ", " + usesWaiting
+                        + " use(s), waited " + waited + " tick(s), " + named + " chat line(s))");
+            }
+            // Broken (as the aura does as he goes by), with the route left as it is: it warps on its own.
             Map<int[], BlockState> air = new LinkedHashMap<>();
             for (int y = F; y <= F + 2; y++) {
                 air.put(new int[]{15, y, 15}, Blocks.AIR.defaultBlockState());
             }
-            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
-                    new Object[]{"test reset"}));
             setBlocks(ctx, air);
-            settle(ctx);
-            Vec3 end = fly(ctx, s, g, 200);
-            println(BREAKER, "flown with the picks broken: ended " + fmt(end));
-            if (end.distanceTo(g) > 0.7) {
-                f.add("with the picks broken the saved warp did not land on the goal (ended " + fmt(end) + ")");
+            Vec3 end = null;
+            for (int i = 0; i < 100; i++) {
+                ctx.waitTicks(1);
+                end = ctx.computeOnClient(mc -> mc.player.position());
+                if (end.distanceTo(g) < 0.3) {
+                    break;
+                }
+            }
+            ctx.waitTicks(5);
+            int usesTotal = ctx.computeOnClient(mc -> dev.testkit.harness.PacketTrace.sent("use_item"));
+            ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.stop());
+            println(BREAKER, "picks broken: ended " + fmt(end) + ", " + usesTotal + " use packet(s) in all");
+            if (end == null || end.distanceTo(g) > 0.7) {
+                f.add("once the picks broke the waiting hop did not land on the goal (ended " + fmt(end) + ")");
+            }
+            if (usesTotal != 1) {
+                f.add("the hop sent " + usesTotal + " use packet(s); one warp was due");
             }
         } finally {
             ctx.runOnClient(mc -> {
