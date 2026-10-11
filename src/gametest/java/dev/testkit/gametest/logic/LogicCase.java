@@ -55,6 +55,19 @@ final class LogicCase {
      * and passed, false when it failed, null when the filter left it out.
      */
     static Boolean run(ClientGameTestContext ctx, String name, Body body) {
+        return run(ctx, name, body, false);
+    }
+
+    /**
+     * {@link #run} with the body on the TEST thread instead of the client thread: for a case that waits seconds on
+     * another process or a socket (the auto-update cases), which on the client thread would freeze the window and
+     * invite the freeze watcher. The body must touch only thread-safe mod code, or hop to the client itself.
+     */
+    static Boolean runOffClient(ClientGameTestContext ctx, String name, Body body) {
+        return run(ctx, name, body, true);
+    }
+
+    private static Boolean run(ClientGameTestContext ctx, String name, Body body, boolean offClient) {
         if (Scenario.skip(name)) {
             return null;
         }
@@ -65,7 +78,7 @@ final class LogicCase {
         LogicCase c = new LogicCase(name, false);
         Throwable thrown;
         try {
-            thrown = ctx.computeOnClient(mc -> {
+            java.util.function.Supplier<Throwable> work = () -> {
                 try {
                     Mod.Mark health = ModUnderTest.loaded("killer560smod") ? Mod.mark() : null;
                     body.run(c);
@@ -76,7 +89,8 @@ final class LogicCase {
                 } catch (Throwable t) {
                     return t;
                 }
-            });
+            };
+            thrown = offClient ? work.get() : ctx.computeOnClient(mc -> work.get());
         } catch (Throwable t) {
             thrown = t;
         }

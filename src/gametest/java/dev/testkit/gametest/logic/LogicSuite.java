@@ -27,6 +27,8 @@ import net.minecraft.world.level.block.Blocks;
  * 362-logic-boss-timers        0.27.2 pacing (NoammAddons 1.2.9): Tick Timers, Blood Camp kill, Auto i4 prediction re-roll
  * 402-logic-autokick-units     Auto Kick populate: fastest_time_s is milliseconds (real AntsRNG profile, 263003 -> 264 s)
  * 363-logic-roof-cover         Interactive Map landings outside the sim: an open roof refused, under a ceiling accepted
+ * 776..785-logic-autoupdate-*  Auto Update against a fake GitHub (asset choice, checksum, same hash, gates, installer):
+ *                              AutoUpdateCases; they run on the TEST thread (the installer cases wait seconds)
  * </pre>
  *
  * The catalog comes from {@code python tools/extract-patterns.py -PmodSource=<mod checkout>}; the mod source is read
@@ -47,6 +49,19 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "358-logic-mapcode-floorlayout", DomainCases::mapCodeAndLayout);
         LogicCase.run(ctx, "359-logic-bazaar-party", DomainCases::bazaarAndParty);
         LogicCase.run(ctx, "402-logic-autokick-units", AutoKickCases::units);
+        // ---- Auto Update (nt-auto-update, 2026-10-11) - own block
+        AutoUpdateCases.ctx = ctx;
+        LogicCase.runOffClient(ctx, "776-logic-autoupdate-asset", AutoUpdateCases::asset);
+        LogicCase.runOffClient(ctx, "777-logic-autoupdate-channel", AutoUpdateCases::channel);
+        LogicCase.runOffClient(ctx, "778-logic-autoupdate-checksum", AutoUpdateCases::checksum);
+        LogicCase.runOffClient(ctx, "779-logic-autoupdate-same-hash", AutoUpdateCases::sameHash);
+        LogicCase.runOffClient(ctx, "780-logic-autoupdate-staged", AutoUpdateCases::staged);
+        LogicCase.runOffClient(ctx, "781-logic-autoupdate-off", AutoUpdateCases::off);
+        LogicCase.runOffClient(ctx, "782-logic-autoupdate-gates", AutoUpdateCases::gates);
+        LogicCase.runOffClient(ctx, "783-logic-autoupdate-source", AutoUpdateCases::source);
+        LogicCase.runOffClient(ctx, "784-logic-autoupdate-helper", AutoUpdateCases::helper);
+        LogicCase.runOffClient(ctx, "785-logic-autoupdate-helper-refuse", AutoUpdateCases::helperRefuse);
+        // ---- end Auto Update
         // ItemStacks need item components, which are bound only once a world's registries load ("Components not
         // bound yet" at the title screen). The two cases that build stacks run in a throwaway singleplayer world.
         if (!Scenario.skip("354-logic-terminals") || !Scenario.skip("357-logic-items-ap3-routes")
