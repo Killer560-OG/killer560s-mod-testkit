@@ -1291,6 +1291,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         check(c1 <= 14, "eight breaks left " + c1 + " charges - the breaker did not spend");
 
         // ---- a secret at the default level (5): +5 ----
+        // Within reach of the last three chests: the sim counts a chest when the SERVER accepts the click (since
+        // sim-world, 2026-10-11), and (6,15) / (4,15) are 7 blocks from (4.5, 8.5) - a click Hypixel refuses too.
+        tpRel(ctx, 5.5, 13.5, 90f, 0f);
         ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
         ctx.waitTicks(1);
         int cBefore = simCharges(ctx);
@@ -4736,7 +4739,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 }
                 for (String l : LogTap.since(m)) {
                     if (l.contains("Kill Mimic") || l.contains("Node #1") || l.contains("Mimic of") || l.contains("Stopped")
-                            || l.contains("await secret") || l.contains("[Sim]") || l.contains("Landed")) {
+                            || l.contains("await secret") || l.contains("[Sim]") || l.contains("Landed") || l.contains("Sim mimic")) {
                         println("644 " + label + " log: " + strip(l));
                     }
                 }

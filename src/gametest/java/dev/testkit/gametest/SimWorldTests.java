@@ -326,7 +326,18 @@ public class SimWorldTests implements FabricClientGameTest {
         say("643 near (7 blocks): the client sees a bat with Skyblock health 100 at the spot " + appeared
                 + "; await secrets counted " + awaitSecrets);
         check(appeared, "no secret bat (max health 100) appeared on the client when he came within 7 blocks");
-        check(awaitSecrets == 1, "Auto Routes' await counted " + awaitSecrets + " secret(s) for the bat, expected 1");
+        // Auto Routes is a cheat-build feature: in a legit jar nothing ticks its await, so only the sim half is asserted.
+        boolean cheat;
+        try {
+            cheat = Class.forName("com.killer560.hub.BuildVariant").getField("CHEAT_FEATURES_ENABLED").getBoolean(null);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+        if (cheat) {
+            check(awaitSecrets == 1, "Auto Routes' await counted " + awaitSecrets + " secret(s) for the bat, expected 1");
+        } else {
+            say("643: legit jar - Auto Routes' await not asserted (cheat-only feature)");
+        }
 
         // Killed by him: one secret, for the run, the bats and the room.
         onServer(ctx, (level, sp) -> {
