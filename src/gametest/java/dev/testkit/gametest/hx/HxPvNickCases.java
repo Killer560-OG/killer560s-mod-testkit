@@ -36,7 +36,8 @@ import static dev.testkit.gametest.hx.HxKit.*;
 /**
  * Profile Viewer and Nickhider changes (killer560's BUGS AND CHANGES, 2026-10-08; mod branch pv-nick), 691-698:
  * <ul>
- *   <li>691: the bracketed skill level is the level with NO cap - past the table's 60, at the table's last step each.</li>
+ *   <li>691: the bracketed skill level is the level with NO cap - past 60 on SkyHanni's curve, checked against a
+ *       hand-worked value (200M XP = 68) and the reference loop written out here.</li>
  *   <li>692: Nickhider "Randomized Name": a typed base name plus a number, unique per player and stable for the session
  *       (and kept when the base changes); painted through the real NameReplacer for a real tab-list player. The tab
  *       shows no explanatory text.</li>
@@ -78,26 +79,65 @@ final class HxPvNickCases {
 
     // ---- 691 ------------------------------------------------------------------------------------------------------
 
+    /** SkyHanni's level past 60, written out here independently of the mod (SkyHanni SkillUtil.calculateSkillLevel,
+     *  commit 88c8bf2f566f42150e869fe9cc7b78dff05dc086): 61 costs 7,600,000, +600,000 a level, the step doubling at
+     *  every multiple of ten. {@code xp60} is the total XP for level 60 (111,672,425). */
+    static int referenceLevel(long xp, long xp60) {
+        if (xp < xp60) {
+            return -1;
+        }
+        long rem = xp - xp60;
+        int level = 60;
+        long slope = 600_000L;
+        long next = 7_000_000L + slope;
+        while (rem >= next) {
+            level++;
+            rem -= next;
+            next += slope;
+            if (level % 10 == 0) {
+                slope *= 2;
+            }
+        }
+        return level;
+    }
+
+    private static int uncappedOf(Session c, String skill, long xp) {
+        return c.onClient(mc -> (Integer) Mod.staticCall("profileviewer.data.LevelTables", "uncappedSkillLevel", skill, xp));
+    }
+
     private static void uncapped(Session c) {
         long[] t = c.onClient(mc -> {
             Mod.staticCall("profileviewer.data.LevelTables", "ensureLoaded");
             Object skill = Mod.staticCall("profileviewer.data.LevelTables", "skill", "FARMING");
             return skill == null ? null : (long[]) Mod.call(skill, "totalXp");
         });
-        c.check(t != null && t.length >= 50, "Farming's XP table did not load (" + (t == null ? "null" : t.length) + ")");
-        long last = t[t.length - 1];
-        long step = last - t[t.length - 2];
-        int at30 = c.onClient(mc -> (Integer) Mod.staticCall("profileviewer.data.LevelTables", "uncappedSkillLevel", "FARMING", t[29]));
-        int past3 = c.onClient(mc -> (Integer) Mod.staticCall("profileviewer.data.LevelTables", "uncappedSkillLevel", "FARMING", last + 3 * step + 5));
-        int justUnder = c.onClient(mc -> (Integer) Mod.staticCall("profileviewer.data.LevelTables", "uncappedSkillLevel", "FARMING", last + step - 1));
-        c.note("table " + t.length + " levels, last step " + step + "; level-30 XP -> " + at30 + ", +3 steps -> " + past3
-                + ", one step minus 1 -> " + justUnder);
-        c.check(at30 == 30, "XP for exactly level 30 read as " + at30);
-        c.check(past3 == t.length + 3, "three steps past the table read as " + past3 + ", expected " + (t.length + 3));
-        c.check(justUnder == t.length, "one coin short of a step past the table read as " + justUnder);
-        // The capped level stays the cap: the old bracket was the table's max, which is what this replaces.
+        c.check(t != null && t.length == 60, "Farming's XP table did not load as 60 levels (" + (t == null ? "null" : t.length) + ")");
+        long xp60 = t[59];
+        c.check(xp60 == 111_672_425L, "level 60 total is " + xp60 + ", SkyHanni's XP_NEEDED_FOR_60 is 111,672,425");
+        // The known value, worked by hand: 200,000,000 is 88,327,575 past 60; levels 61..68 cost 7.6, 8.2, ... 11.8M
+        // (77,600,000 in all) and 69 would need 12.4M more than the 10,727,575 left - so 68.
+        int known = uncappedOf(c, "FARMING", 200_000_000L);
+        c.note("200,000,000 Farming XP -> " + known + " (hand-worked 68, reference " + referenceLevel(200_000_000L, xp60) + ")");
+        c.check(known == 68 && referenceLevel(200_000_000L, xp60) == 68, "200M Farming XP read as " + known + ", expected 68");
+        // Exact boundaries, and across the slope doublings at 70 and 80, against the reference loop.
+        long exact62 = xp60 + 7_600_000L + 8_200_000L;
+        c.check(uncappedOf(c, "FARMING", exact62) == 62 && uncappedOf(c, "FARMING", exact62 - 1) == 61,
+                "the 61/62 boundary is off: " + uncappedOf(c, "FARMING", exact62 - 1) + " / " + uncappedOf(c, "FARMING", exact62));
+        List<String> mismatches = new ArrayList<>();
+        for (long xp : new long[]{xp60, 150_000_000L, 300_000_000L, 500_000_000L, 1_000_000_000L, 3_000_000_000L}) {
+            int mod = uncappedOf(c, "FARMING", xp);
+            int ref = referenceLevel(xp, xp60);
+            int combat = uncappedOf(c, "COMBAT", xp);
+            int alchemy = uncappedOf(c, "ALCHEMY", xp);
+            c.note(xp + " XP -> mod " + mod + " (Combat " + combat + ", Alchemy " + alchemy + "), reference " + ref);
+            if (mod != ref || combat != ref || alchemy != ref) {
+                mismatches.add(xp + ": farming " + mod + " combat " + combat + " alchemy " + alchemy + " vs " + ref);
+            }
+        }
+        c.check(mismatches.isEmpty(), "the mod disagrees with the reference formula: " + mismatches);
+        c.check(uncappedOf(c, "FARMING", t[29]) == 30, "XP for exactly level 30 read as " + uncappedOf(c, "FARMING", t[29]));
         int capped = c.onClient(mc -> (Integer) Mod.call(Mod.staticCall("profileviewer.data.LevelTables", "skillLevel",
-                "FARMING", last + 3 * step + 5, 52), "level"));
+                "FARMING", 200_000_000L, 52), "level"));
         c.check(capped == 52, "capped Farming level read as " + capped);
     }
 
