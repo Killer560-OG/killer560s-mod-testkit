@@ -356,11 +356,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         JsonObject br = nodes.get(3).getAsJsonObject();
         check("DUNGEON_BREAKER".equals(br.get("type").getAsString()) && br.has("blocks")
                 && br.getAsJsonArray("blocks").size() == 2, "the breaker did not save its two picked blocks: " + br);
-        // Since mod ar-nodes an added block is broken once on add (killer560, 2026-10-09; 96-ar-656-dbaddbreak).
-        check(blockAir(ctx, 22, F, 10) && blockAir(ctx, 22, F + 1, 10), "the two picked blocks were not broken on add");
-        // Put them back (the sim regrows them only after 10 s) for the node's own break below.
-        setBlocks(ctx, Map.of(new int[]{22, F, 10}, Blocks.STONE.defaultBlockState(),
-                new int[]{22, F + 1, 10}, Blocks.STONE.defaultBlockState()));
+        // Picking breaks nothing (killer560, 2026-10-11; 96-ar-656-dbaddbreak).
+        check(!blockAir(ctx, 22, F, 10) && !blockAir(ctx, 22, F + 1, 10), "edit mode broke a block it should only have picked");
         // Step off and back on: the start node arms and breaks both.
         tpRel(ctx, 20.5, 14.5, -90f, 0f);
         ctx.waitTicks(10);
@@ -2801,8 +2798,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         println("dbedit after shift-right-click: " + one);
         check(one != null && one.size() == 1 && one.get(0).equals(two.get(0)),
                 "shift-right-click left " + one + ", expected only the first pick " + two.get(0));
-        // Since mod ar-nodes each ADD breaks its block once (96-ar-656-dbaddbreak); a remove breaks nothing.
-        check(blockAir(ctx, 22, F, 10) && blockAir(ctx, 22, F + 1, 10), "the two added blocks were not broken on add");
+        // Picking and removing break nothing (killer560, 2026-10-11; 96-ar-656-dbaddbreak).
+        check(!blockAir(ctx, 22, F, 10) && !blockAir(ctx, 22, F + 1, 10), "edit mode broke a picked block");
 
         // ---- edit mode, AOTV in hand (killer560, 2026-10-06): a real sneaking right click on the floor three blocks
         // away is a normal etherwarp - use_item goes out, the server moves him, and nothing is picked ----
@@ -4685,46 +4682,97 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         }
 
         /**
-         * 656, item 1a: "Whenever I add a block to breaker block to a breaker node it should break it instantly once."
-         * A right click in edit mode adds the stone and exactly ONE dig goes out for it; the SERVER has it as air. Adding
-         * it again (already picked) and shift-removing it send nothing.
+         * 656 (killer560, 2026-10-11: "in edit mode the node should not break blocks but I should be able to"). A right
+         * click in /ar edit db picks the stone and the mod sends NO dig for it - the stone stands on the server. His own
+         * left click then breaks it (his dig, no route acting). With the stone back and edit mode still open, stepping
+         * onto the start breaker node that holds it fires nothing for 40 ticks. Control: edit mode off, the same step
+         * fires the node and it breaks the stone. Re-adding and shift-removing send nothing.
          */
         static void addBreak(ClientGameTestContext ctx) {
-            breakerSetup(ctx);
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            JsonObject br = node("DUNGEON_BREAKER", 20, 6, 0f, 0f);
+            br.addProperty("start", true);
+            writeRoute(ctx, List.of(br));
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(2));
+            setBlocks(ctx, Map.of(new int[]{22, F + 1, 6}, Blocks.STONE.defaultBlockState()));
+            tpRel(ctx, 20.5, 9.5, -90f, 0f);
+            ctx.waitTicks(40); // charges back to full
             try {
-                setBlocks(ctx, Map.of(new int[]{22, F + 1, 6}, Blocks.STONE.defaultBlockState()));
+                editMode(ctx, true);
                 tpRel(ctx, 20.5, 6.5, -90f, 0f);
                 ctx.waitTicks(5);
-                editMode(ctx, true);
                 check(serverState(ctx, 22, F + 1, 6).is(Blocks.STONE), "the stone is not there on the server to begin with");
-                int before = executorInt(ctx, "editorBreaks");
+                // ---- the pick: no dig from the mod ----
                 long m = LogTap.mark();
                 startSampling(ctx);
                 rightClick(ctx, 22, F + 1, 6, Direction.WEST);
                 ctx.waitTicks(20);
                 List<Sample> s = stopSampling(ctx);
-                int digs = countOut(s, "player_action");
-                boolean serverAir = serverState(ctx, 22, F + 1, 6).isAir();
-                int breaks = executorInt(ctx, "editorBreaks") - before;
                 JsonArray picked = breakerBlocks(ctx);
-                println("656 add: " + digs + " dig(s), " + countOut(s, "swing") + " swing, editor breaks " + breaks
-                        + ", server air " + serverAir + ", picked " + picked);
-                check(picked != null && picked.size() == 1, "the right click did not add the stone: " + picked);
-                check(digs == 1, "adding a block sent " + digs + " dig(s), expected exactly 1");
-                check(breaks == 1, "editorBreaks moved by " + breaks + ", expected 1");
-                check(serverAir, "the server still has the added stone - it was not broken");
-                check(logHas(m, "Editor break: dig sent"), "no 'Editor break: dig sent' log line");
+                boolean standing = serverState(ctx, 22, F + 1, 6).is(Blocks.STONE);
+                println("656 pick: " + countOut(s, "player_action") + " dig(s), " + countOut(s, "swing")
+                        + " swing, server stone " + standing + ", picked " + picked);
+                check(picked != null && picked.size() == 1, "the right click did not pick the stone: " + picked);
+                check(countOut(s, "player_action") == 0, "picking a block made the mod send " + countOut(s, "player_action")
+                        + " dig(s)");
+                check(standing, "picking a block broke it");
 
-                // Already picked: no second add, no second dig.
+                // ---- his own left click breaks it; the route does nothing ----
+                check(aimedAt(ctx, 22, F + 1, 6), "his left click is not aimed at the picked stone");
+                startSampling(ctx);
+                leftClick(ctx, 2);
+                ctx.waitTicks(10);
+                s = stopSampling(ctx);
+                boolean air = serverState(ctx, 22, F + 1, 6).isAir();
+                println("656 his left click: " + countOut(s, "swing") + " swing, " + countOut(s, "player_action")
+                        + " dig(s), server air " + air);
+                check(countOut(s, "player_action") >= 1 && air, "his own left click did not break the picked stone");
+                check(!logHas(m, "DUNGEON_BREAKER acted"), "a breaker node acted while edit mode was open");
+
+                // ---- the stone back; standing on its breaker node with edit mode open fires nothing ----
+                setBlocks(ctx, Map.of(new int[]{22, F + 1, 6}, Blocks.STONE.defaultBlockState()));
+                tpRel(ctx, 20.5, 9.5, -90f, 0f);
+                ctx.waitTicks(10);
+                long m2 = LogTap.mark();
+                startSampling(ctx);
+                tpRel(ctx, 20.5, 6.5, -90f, 0f);
+                ctx.waitTicks(40);
+                s = stopSampling(ctx);
+                boolean running = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+                standing = serverState(ctx, 22, F + 1, 6).is(Blocks.STONE);
+                println("656 node in edit mode: " + countOut(s, "player_action") + " dig(s) in 40 ticks, running "
+                        + running + ", stone standing " + standing);
+                check(countOut(s, "player_action") == 0, "a breaker node sent digs while edit mode was open");
+                check(!running && !logHas(m2, "DUNGEON_BREAKER acted"), "a breaker node fired while edit mode was open");
+                check(standing, "the picked stone broke while edit mode was open");
+
+                // Already picked: no second add, no dig.
                 startSampling(ctx);
                 rightClick(ctx, 22, F + 1, 6, Direction.WEST);
                 ctx.waitTicks(10);
                 s = stopSampling(ctx);
-                println("656 re-add: " + countOut(s, "player_action") + " dig(s), picked " + breakerBlocks(ctx));
                 check(countOut(s, "player_action") == 0, "re-adding a picked block sent a dig");
                 check(breakerBlocks(ctx).size() == 1, "re-adding a picked block changed the list");
 
-                // Shift-remove: nothing broken.
+                // ---- control: edit mode off, the same step fires the node and it breaks the stone ----
+                editMode(ctx, false);
+                tpRel(ctx, 20.5, 9.5, -90f, 0f);
+                ctx.waitTicks(10);
+                long m3 = LogTap.mark();
+                tpRel(ctx, 20.5, 6.5, -90f, 0f);
+                boolean broke = waitFor(ctx, 40, () -> serverState(ctx, 22, F + 1, 6).isAir());
+                println("656 control (edit mode off): node broke the stone " + broke + ", acted "
+                        + logHas(m3, "DUNGEON_BREAKER acted"));
+                check(broke && logHas(m3, "DUNGEON_BREAKER acted"),
+                        "the control breaker node did not break the stone - the edit-mode check proves nothing");
+                stopRoute(ctx);
+
+                // Shift-remove in edit mode: nothing broken.
+                setBlocks(ctx, Map.of(new int[]{22, F + 1, 6}, Blocks.STONE.defaultBlockState()));
+                tpRel(ctx, 20.5, 9.5, -90f, 0f);
+                editMode(ctx, true);
                 ctx.getInput().holdKey(options -> options.keyShift);
                 waitFor(ctx, 20, () -> ctx.computeOnClient(mc -> mc.player.isShiftKeyDown()));
                 startSampling(ctx);
@@ -4739,6 +4787,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             } finally {
                 ctx.getInput().releaseKey(options -> options.keyShift);
                 editMode(ctx, false);
+                stopRoute(ctx);
             }
         }
 
@@ -4751,7 +4800,6 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 ctx.waitTicks(5);
                 editMode(ctx, true);
                 check(aimedAt(ctx, 22, F + 1, 8), "the left click is not aimed at its stone");
-                int before = executorInt(ctx, "editorBreaks");
                 startSampling(ctx);
                 leftClick(ctx, 2);
                 ctx.waitTicks(10);
@@ -4762,7 +4810,6 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 check(countOut(s, "swing") >= 1, "the left click in edit mode did not swing");
                 check(countOut(s, "player_action") >= 1, "the left click in edit mode sent no dig");
                 check(serverAir, "the left click in edit mode did not break the stone on the server");
-                check(executorInt(ctx, "editorBreaks") == before, "a left click counted as an editor add-break");
                 check(breakerBlocks(ctx).isEmpty(), "a left click picked a block");
             } finally {
                 editMode(ctx, false);
@@ -4772,8 +4819,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         /**
          * 658, item 1c: "I can manually click on blocks but it says they are too far for my breaker." Reach is from his
          * eye to the block's box, at 4.5 (a plain dig; the wiki gives the Dungeon Breaker no range of its own). The node
-         * stands at (6,24), far from both picks - the old measure, from the node, refused both. 4.45 is accepted (and
-         * broken once), 4.55 is refused with nothing sent.
+         * stands at (6,24), far from both picks - the old measure, from the node, refused both. 4.45 is accepted (the mod
+         * sends no dig for a pick), 4.55 is refused.
          */
         static void reach(ClientGameTestContext ctx) {
             breakerSetup(ctx);
@@ -4796,7 +4843,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 check(Math.abs(dIn - 4.45) < 0.02, String.format(Locale.US, "the in-reach pick was measured at %.3f, not 4.45", dIn));
                 check(after1 != null && after1.size() == 1, "a block 4.45 from his eye was refused: " + after1);
                 check(!logHas(m, "out of your reach"), "a block 4.45 from his eye was called out of reach");
-                check(countOut(s, "player_action") == 1, "the accepted pick sent " + countOut(s, "player_action") + " digs");
+                check(countOut(s, "player_action") == 0, "the accepted pick made the mod send " + countOut(s, "player_action")
+                        + " digs");
 
                 tpRel(ctx, 19.45, 16.5, -90f, 0f);
                 ctx.waitTicks(5);
