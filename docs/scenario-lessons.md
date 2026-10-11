@@ -422,7 +422,21 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   "You left the party." after Settings had switched it back OFF, so HxLead stayed leader and 578's teammate !warp was refused
   "you are not the party leader" (reproduced with `100-hx-session:,122-hx-party-list-responder,578-hx-mcp-party-channels`).
   122 now leaves while it is on and asserts the tracker is empty; 578 clears `PartyLeaderTracker.leader` itself.
-- An entity attack is protocol id `attack` on 26.1.2, not `interact`: 676's first run counted 0 "interact" packets while
+- An entity attack is protocol id `attack` on 26.1.2, not `interact`: 686's (then 676) first run counted 0 "interact" packets while
   the zombie it hit lost 3 health on the server (2026-10-11). Count both (`PacketTrace.sent("interact") + sent("attack")`).
-- A freshly loaded chunk section can render as sky for a second after a teleport or a setblock: 677 and 679's first
+- A freshly loaded chunk section can render as sky for a second after a teleport or a setblock: 687 (then 677) and 679's first
   pictures showed no floor and no board while every number passed. Wait ~60 ticks before a world screenshot, and look.
+- 631-636 *-sim-pathopt-* (`SimPathOptimalTests`, mod path-optimal): the exact fewest-warps planner and the bottom-slab
+  rule, each answer judged on the SERVER's level (real `traverseVoxels` at 32 x 32 points a face, kept only if it holds at
+  +-0.01 degrees). An etherwarp onto a bottom slab teleports to slab + 1.05 and he DROPS to its top: judge a warp from a
+  slab from the top (+0.5), and a "stand on it" check at +0.5. A ring wall hides its inside from an eye only if the far
+  edge of its TOP is above the sight line - measure at the far edge, not the near one (632's first ring was a block too
+  high and hid the goal from the slab as well). Wall tops above floor + 6 ARE landings where the room has a roof somewhere over them (the cover rule): cap an arena's high walls with a cobblestone wall (blacklisted). Arena cases share one built 1x1 room; 634 builds Slabs, Three Floors,
+  Museum and Scaffolding one after another (-Dtestkit.pathopt.pairs, .threechecks).
+- 641-650 (`SimWorldTests`, sim-world 2026-10-11): each item of his 2026-10-09 sim list read back from the integrated
+  server's own level - pickup reach measured at 0.1-block steps, one Superboom against two lids + a crypt wall in reach and
+  a lid + decorative brick out of it, a secret bat far then near (with an await window opened by `AwaitEvents.begin` then
+  `window`: begin also replays his own pickups from just before, here 641's dirt, which read as 9 bat secrets), a
+  straight-down Hyperion from an off-centre spot, Big Red Flag's and Leaves' princes, and four lever doors flicked as the
+  player. 645-650 screenshot at GUI 2 into the report's screens. 96-ar-644-mimic-warp (in `SimAutoRoutesTests`) plays the
+  mimic route in eight variants and prints every non-movement packet per tick.

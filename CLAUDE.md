@@ -280,6 +280,18 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   draws on a vanilla container is plain GUI units: 472 pressed Search instead of Scan All once bazaar-v3 changed the helper
   (2026-10-08). Convert those with the GUI scale alone.
 
+- A HUD editor box is drawn at the element's `resolveScale` (HUD Scale x Auto Scale, 0.5 in the GUI-2 test window), so a
+  press at `pos + width/2` of the UNSCALED size lands on the box's corner handle and RESIZES it: 613's first drop "never
+  moved" (2026-10-08). Press at `pos + width * resolveScale / 2`, and assert `draggingId` and `resizeEdges == 0` first.
+- `mod/Quiet` leaves some configs changed only in memory (AuctionConfig, BridgeConfig, ClickTranslate, ModChat, PartyData,
+  Supporters: 617's first run, 2026-10-08), so anything that reloads configs from disk (a profile load) flips them back.
+  And `new InventoryScreen(player)` in a creative world becomes the creative inventory in its init: compare against the
+  screen that is up afterwards, not the object you passed.
+
+- After `getInput().resizeWindow(1600, 900)` + GUI 2 the window reported an 800-wide GUI while the screen was laid out
+  854 wide (and the PNG was 1600 px), so a screenshot's pixels-per-GUI-unit from `getGuiScaledWidth` landed every rect
+  below its target and 695 read 0 changed pixels (2026-10-11). Take the scale from the open screen's own `width`.
+
 Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosecret wither doors, 62-argrim frames,
 143 camera, 141/142 autopilot, the mod's Auto Scale, terminal layouts, the logic world, 386's sweep):
 [docs/scenario-lessons.md](docs/scenario-lessons.md).

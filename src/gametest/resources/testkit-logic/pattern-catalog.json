@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-11T14:24:44",
+ "generatedAt": "2026-10-11T18:14:13",
  "modSource": "dungeon-b2",
- "modGitSha": "265eb12b9fb54944ff02e869abb688551c4ae22a",
- "modSourceDirty": true,
- "count": 456,
+ "modGitSha": "56862907863427b5f43d15f3f6b4d9b7d845921d",
+ "modSourceDirty": false,
+ "count": 457,
  "byKind": {
   "dynamic": 7,
   "element": 43,
-  "field": 390,
+  "field": 391,
   "local": 16
  },
  "unresolved": 8,
@@ -3468,6 +3468,18 @@
    "flags": null,
    "kind": "local",
    "expr": "CODES + \"[\\\\d,]+/[\\\\d,]+\" + CODES + \"[^\\\\x00-\\\\x7F\\u00A7]\""
+  },
+  {
+   "id": "profiles.BlankProfile#STATE_FIELD",
+   "cls": "profiles.BlankProfile",
+   "field": "STATE_FIELD",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/profiles/BlankProfile.java",
+   "line": 46,
+   "regex": "(?i).*(migrat|defaulted|seeded).*",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"(?i).*(migrat|defaulted|seeded).*\""
   },
   {
    "id": "profileviewer.api.ProfileViewerApi#NAME",

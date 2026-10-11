@@ -690,7 +690,11 @@ public class SimPlannerGapsTests implements FabricClientGameTest {
                     continue;
                 }
                 BlockPos b = (BlockPos) posM.invoke(r);
-                if (blackListed(level.getBlockState(b))) {
+                var st = level.getBlockState(b);
+                // LevelEtherGrid.fullTop (mod path-breaker): only a completely flat, full top face is a landing.
+                if (blackListed(st) || st.getCollisionShape(level, b).isEmpty()
+                        || !net.minecraft.world.level.block.Block.isFaceFull(st.getCollisionShape(level, b),
+                        Direction.UP)) {
                     continue;
                 }
                 if (b.getY() > floor + 6) {

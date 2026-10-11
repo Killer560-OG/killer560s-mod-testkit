@@ -67,6 +67,12 @@ import java.util.List;
  *                511-514 killer560's 2026-10-07 menu layout report: Crosshair in General, no combined folders, every tab
  *                once, cheat-only tabs and sections after every legit one, tooltips unchanged, screenshots at GUI 2
  *                ({@link MenuLayoutCases})
+ *                611-618 killer560's 2026-10-08 HUD / menu / profiles list: the Edit HUD key only with no screen,
+ *                Edit HUD without its panels and their settings in Home, Edit Bars, HUD Scale sizing the mod menu,
+ *                the blank profile and the share folder ({@link HudMenuProfilesCases})
+ *                671-675 Held Item Outline: off controls, styles/colours/width/alpha from screenshots, hands, hotbar and
+ *                third person untouched, settings; 676 Outline Side near/far/both, 677 one screenshot per setting
+ *                ({@link HeldOutlineCases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -117,10 +123,22 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-07 Command Shortcuts requests ({@link CmdShortcutsCases}); 544 is in the Hx session. Own block. */
     static final String[] CMD_SHORTCUTS_CASES = {"541-ui-cmd-shortcuts-builtin-rows", "542-ui-cmd-shortcuts-custom-edit",
             "543-ui-cmd-shortcuts-refused-names", "545-ui-cmd-shortcuts-sweep"};
+    /** killer560's 2026-10-08 HUD / menu / profiles list ({@link HudMenuProfilesCases}). Own block for merges. */
+    static final String[] HUD_MENU_PROFILES_CASES = {"611-ui-hud-key-screens", "612-ui-hud-editor-clean",
+            "613-ui-hud-editor-settings", "614-ui-bars-editor", "615-ui-menu-hud-scale", "616-ui-menu-factor-math",
+            "617-ui-profile-blank", "618-ui-profile-share"};
     /** killer560's 2026-10-08 Chat Keybinds + Command Shortcuts merge ({@link ChatKeybindsMergeCases}); 623-625 are in the
      *  Hx session. Own block for merges. */
     static final String[] CHAT_KEYBINDS_MERGE_CASES = {"621-ui-chat-keybinds-merged-tab", "622-ui-chat-keybinds-migration"};
-    static final String[] DUNGEON_B2_CASES = {"676-ui-blood-trigger", "677-ui-door-key-circle",
+    /** killer560's 2026-10-09 Held Item Outline ({@link HeldOutlineCases}). Own block for merges. */
+    static final String[] HELD_OUTLINE_CASES = {"671-ui-held-outline-off", "672-ui-held-outline-styles",
+            "673-ui-held-outline-hands", "674-ui-held-outline-hud", "675-ui-held-outline-settings",
+            "676-ui-held-outline-sides", "677-ui-held-outline-gallery"};
+    /** killer560's 2026-10-09 Leap Order default orders + pins ({@link LeapOrderCases}); 670 is in the menu suite.
+     *  Own block for merges. */
+    static final String[] LEAPORDER_CASES = {"666-ui-leaporder-defaults", "667-ui-leaporder-pins",
+            "668-ui-leaporder-reset", "669-ui-leaporder-shots"};
+    static final String[] DUNGEON_B2_CASES = {"686-ui-blood-trigger", "687-ui-door-key-circle",
             "679-ui-ttt-prediction-misclicks", "680-ui-imap-binds-ticks", "681-ui-auto-kick-pf", "682-ui-dungeon-esp-switch"};
     static final String DENY_CASE = "370-ui-deny";
 
@@ -159,7 +177,16 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : CMD_SHORTCUTS_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : HUD_MENU_PROFILES_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : CHAT_KEYBINDS_MERGE_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            for (String n : HELD_OUTLINE_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            for (String n : LEAPORDER_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
             for (String n : DUNGEON_B2_CASES) {
@@ -170,7 +197,8 @@ public class UiSuite implements FabricClientGameTest {
         }
         boolean anyTitle = any(TITLE_CASES);
         boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES) || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
-                || any(CHAT_KEYBINDS_MERGE_CASES) || any(DUNGEON_B2_CASES);
+                || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES)
+                || any(LEAPORDER_CASES) || any(DUNGEON_B2_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -286,12 +314,34 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "542-ui-cmd-shortcuts-custom-edit", CmdShortcutsCases::customEdit);
                     UiCase.run(ctx, "543-ui-cmd-shortcuts-refused-names", CmdShortcutsCases::refusals);
                     UiCase.run(ctx, "545-ui-cmd-shortcuts-sweep", c -> CmdShortcutsCases.sweepWithCustoms(c, deny));
+                    // ---- HUD / menu / profiles (611-618) ----
+                    UiCase.run(ctx, "611-ui-hud-key-screens", HudMenuProfilesCases::keyScreens);
+                    UiCase.run(ctx, "612-ui-hud-editor-clean", HudMenuProfilesCases::editorClean);
+                    UiCase.run(ctx, "613-ui-hud-editor-settings", HudMenuProfilesCases::editorSettings);
+                    UiCase.run(ctx, "614-ui-bars-editor", HudMenuProfilesCases::barsEditor);
+                    UiCase.run(ctx, "615-ui-menu-hud-scale", HudMenuProfilesCases::menuScale);
+                    UiCase.run(ctx, "616-ui-menu-factor-math", HudMenuProfilesCases::menuFactorMath);
+                    UiCase.run(ctx, "617-ui-profile-blank", HudMenuProfilesCases::blankProfile);
+                    UiCase.run(ctx, "618-ui-profile-share", HudMenuProfilesCases::shareProfile);
                     // ---- chat keybinds merge (621-622) ----
                     UiCase.run(ctx, "621-ui-chat-keybinds-merged-tab", ChatKeybindsMergeCases::mergedTab);
                     UiCase.run(ctx, "622-ui-chat-keybinds-migration", ChatKeybindsMergeCases::migration);
-                    // ---- dungeon-b2 (676-682) ----
-                    UiCase.run(ctx, "676-ui-blood-trigger", DungeonB2Cases::bloodTrigger);
-                    UiCase.run(ctx, "677-ui-door-key-circle", DungeonB2Cases::doorKeyRing);
+                    // ---- held item outline (671-675) ----
+                    UiCase.run(ctx, "671-ui-held-outline-off", HeldOutlineCases::controls);
+                    UiCase.run(ctx, "672-ui-held-outline-styles", HeldOutlineCases::styles);
+                    UiCase.run(ctx, "673-ui-held-outline-hands", HeldOutlineCases::hands);
+                    UiCase.run(ctx, "674-ui-held-outline-hud", HeldOutlineCases::hudAndCamera);
+                    UiCase.run(ctx, "675-ui-held-outline-settings", HeldOutlineCases::settings);
+                    UiCase.run(ctx, "676-ui-held-outline-sides", HeldOutlineCases::sides);
+                    UiCase.run(ctx, "677-ui-held-outline-gallery", HeldOutlineCases::gallery);
+                    // ---- leap order (666-669) ----
+                    UiCase.run(ctx, "666-ui-leaporder-defaults", LeapOrderCases::defaults);
+                    UiCase.run(ctx, "667-ui-leaporder-pins", LeapOrderCases::pinCase);
+                    UiCase.run(ctx, "668-ui-leaporder-reset", LeapOrderCases::reset);
+                    UiCase.run(ctx, "669-ui-leaporder-shots", LeapOrderCases::shots);
+                    // ---- dungeon-b2 (679-682, 686-687) ----
+                    UiCase.run(ctx, "686-ui-blood-trigger", DungeonB2Cases::bloodTrigger);
+                    UiCase.run(ctx, "687-ui-door-key-circle", DungeonB2Cases::doorKeyRing);
                     UiCase.run(ctx, "679-ui-ttt-prediction-misclicks", DungeonB2Cases::ticTacToe);
                     UiCase.run(ctx, "680-ui-imap-binds-ticks", DungeonB2Cases::interactiveMapBinds);
                     UiCase.run(ctx, "681-ui-auto-kick-pf", DungeonB2Cases::autoKick);

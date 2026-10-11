@@ -89,7 +89,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-656-dbaddbreak", "96-ar-657-dbeditattack", "96-ar-658-dbreach", "96-ar-659-ewblockwait",
             "96-ar-662-jump",
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim", "96-ar-398-startawait",
-            "96-ar-405-crypt-mapopen", "96-ar-405-startwarp", "96-ar-path", "96-ar-screen", "96-ar-rotate"};
+            "96-ar-405-crypt-mapopen", "96-ar-405-startwarp", "96-ar-path", "96-ar-screen", "96-ar-rotate",
+            // sim-world (2026-10-11)
+            "96-ar-644-mimic-warp"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -249,6 +251,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-screen" -> caseScreen(ctx);
                         case "96-ar-path" -> casePath(ctx);
                         case "96-ar-rotate" -> caseRotate(ctx);
+                        case "96-ar-644-mimic-warp" -> caseMimicWarp(ctx);
                         default -> {
                         }
                     }
@@ -356,11 +359,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         JsonObject br = nodes.get(3).getAsJsonObject();
         check("DUNGEON_BREAKER".equals(br.get("type").getAsString()) && br.has("blocks")
                 && br.getAsJsonArray("blocks").size() == 2, "the breaker did not save its two picked blocks: " + br);
-        // Since mod ar-nodes an added block is broken once on add (killer560, 2026-10-09; 96-ar-656-dbaddbreak).
-        check(blockAir(ctx, 22, F, 10) && blockAir(ctx, 22, F + 1, 10), "the two picked blocks were not broken on add");
-        // Put them back (the sim regrows them only after 10 s) for the node's own break below.
-        setBlocks(ctx, Map.of(new int[]{22, F, 10}, Blocks.STONE.defaultBlockState(),
-                new int[]{22, F + 1, 10}, Blocks.STONE.defaultBlockState()));
+        // Picking breaks nothing (killer560, 2026-10-11; 96-ar-656-dbaddbreak).
+        check(!blockAir(ctx, 22, F, 10) && !blockAir(ctx, 22, F + 1, 10), "edit mode broke a block it should only have picked");
         // Step off and back on: the start node arms and breaks both.
         tpRel(ctx, 20.5, 14.5, -90f, 0f);
         ctx.waitTicks(10);
@@ -1301,6 +1301,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         check(c1 <= 14, "eight breaks left " + c1 + " charges - the breaker did not spend");
 
         // ---- a secret at the default level (5): +5 ----
+        // Within reach of the last three chests: the sim counts a chest when the SERVER accepts the click (since
+        // sim-world, 2026-10-11), and (6,15) / (4,15) are 7 blocks from (4.5, 8.5) - a click Hypixel refuses too.
+        tpRel(ctx, 5.5, 13.5, 90f, 0f);
         ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
         ctx.waitTicks(1);
         int cBefore = simCharges(ctx);
@@ -2801,8 +2804,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         println("dbedit after shift-right-click: " + one);
         check(one != null && one.size() == 1 && one.get(0).equals(two.get(0)),
                 "shift-right-click left " + one + ", expected only the first pick " + two.get(0));
-        // Since mod ar-nodes each ADD breaks its block once (96-ar-656-dbaddbreak); a remove breaks nothing.
-        check(blockAir(ctx, 22, F, 10) && blockAir(ctx, 22, F + 1, 10), "the two added blocks were not broken on add");
+        // Picking and removing break nothing (killer560, 2026-10-11; 96-ar-656-dbaddbreak).
+        check(!blockAir(ctx, 22, F, 10) && !blockAir(ctx, 22, F + 1, 10), "edit mode broke a picked block");
 
         // ---- edit mode, AOTV in hand (killer560, 2026-10-06): a real sneaking right click on the floor three blocks
         // away is a normal etherwarp - use_item goes out, the server moves him, and nothing is picked ----
@@ -4685,46 +4688,97 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         }
 
         /**
-         * 656, item 1a: "Whenever I add a block to breaker block to a breaker node it should break it instantly once."
-         * A right click in edit mode adds the stone and exactly ONE dig goes out for it; the SERVER has it as air. Adding
-         * it again (already picked) and shift-removing it send nothing.
+         * 656 (killer560, 2026-10-11: "in edit mode the node should not break blocks but I should be able to"). A right
+         * click in /ar edit db picks the stone and the mod sends NO dig for it - the stone stands on the server. His own
+         * left click then breaks it (his dig, no route acting). With the stone back and edit mode still open, stepping
+         * onto the start breaker node that holds it fires nothing for 40 ticks. Control: edit mode off, the same step
+         * fires the node and it breaks the stone. Re-adding and shift-removing send nothing.
          */
         static void addBreak(ClientGameTestContext ctx) {
-            breakerSetup(ctx);
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            JsonObject br = node("DUNGEON_BREAKER", 20, 6, 0f, 0f);
+            br.addProperty("start", true);
+            writeRoute(ctx, List.of(br));
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(2));
+            setBlocks(ctx, Map.of(new int[]{22, F + 1, 6}, Blocks.STONE.defaultBlockState()));
+            tpRel(ctx, 20.5, 9.5, -90f, 0f);
+            ctx.waitTicks(40); // charges back to full
             try {
-                setBlocks(ctx, Map.of(new int[]{22, F + 1, 6}, Blocks.STONE.defaultBlockState()));
+                editMode(ctx, true);
                 tpRel(ctx, 20.5, 6.5, -90f, 0f);
                 ctx.waitTicks(5);
-                editMode(ctx, true);
                 check(serverState(ctx, 22, F + 1, 6).is(Blocks.STONE), "the stone is not there on the server to begin with");
-                int before = executorInt(ctx, "editorBreaks");
+                // ---- the pick: no dig from the mod ----
                 long m = LogTap.mark();
                 startSampling(ctx);
                 rightClick(ctx, 22, F + 1, 6, Direction.WEST);
                 ctx.waitTicks(20);
                 List<Sample> s = stopSampling(ctx);
-                int digs = countOut(s, "player_action");
-                boolean serverAir = serverState(ctx, 22, F + 1, 6).isAir();
-                int breaks = executorInt(ctx, "editorBreaks") - before;
                 JsonArray picked = breakerBlocks(ctx);
-                println("656 add: " + digs + " dig(s), " + countOut(s, "swing") + " swing, editor breaks " + breaks
-                        + ", server air " + serverAir + ", picked " + picked);
-                check(picked != null && picked.size() == 1, "the right click did not add the stone: " + picked);
-                check(digs == 1, "adding a block sent " + digs + " dig(s), expected exactly 1");
-                check(breaks == 1, "editorBreaks moved by " + breaks + ", expected 1");
-                check(serverAir, "the server still has the added stone - it was not broken");
-                check(logHas(m, "Editor break: dig sent"), "no 'Editor break: dig sent' log line");
+                boolean standing = serverState(ctx, 22, F + 1, 6).is(Blocks.STONE);
+                println("656 pick: " + countOut(s, "player_action") + " dig(s), " + countOut(s, "swing")
+                        + " swing, server stone " + standing + ", picked " + picked);
+                check(picked != null && picked.size() == 1, "the right click did not pick the stone: " + picked);
+                check(countOut(s, "player_action") == 0, "picking a block made the mod send " + countOut(s, "player_action")
+                        + " dig(s)");
+                check(standing, "picking a block broke it");
 
-                // Already picked: no second add, no second dig.
+                // ---- his own left click breaks it; the route does nothing ----
+                check(aimedAt(ctx, 22, F + 1, 6), "his left click is not aimed at the picked stone");
+                startSampling(ctx);
+                leftClick(ctx, 2);
+                ctx.waitTicks(10);
+                s = stopSampling(ctx);
+                boolean air = serverState(ctx, 22, F + 1, 6).isAir();
+                println("656 his left click: " + countOut(s, "swing") + " swing, " + countOut(s, "player_action")
+                        + " dig(s), server air " + air);
+                check(countOut(s, "player_action") >= 1 && air, "his own left click did not break the picked stone");
+                check(!logHas(m, "DUNGEON_BREAKER acted"), "a breaker node acted while edit mode was open");
+
+                // ---- the stone back; standing on its breaker node with edit mode open fires nothing ----
+                setBlocks(ctx, Map.of(new int[]{22, F + 1, 6}, Blocks.STONE.defaultBlockState()));
+                tpRel(ctx, 20.5, 9.5, -90f, 0f);
+                ctx.waitTicks(10);
+                long m2 = LogTap.mark();
+                startSampling(ctx);
+                tpRel(ctx, 20.5, 6.5, -90f, 0f);
+                ctx.waitTicks(40);
+                s = stopSampling(ctx);
+                boolean running = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+                standing = serverState(ctx, 22, F + 1, 6).is(Blocks.STONE);
+                println("656 node in edit mode: " + countOut(s, "player_action") + " dig(s) in 40 ticks, running "
+                        + running + ", stone standing " + standing);
+                check(countOut(s, "player_action") == 0, "a breaker node sent digs while edit mode was open");
+                check(!running && !logHas(m2, "DUNGEON_BREAKER acted"), "a breaker node fired while edit mode was open");
+                check(standing, "the picked stone broke while edit mode was open");
+
+                // Already picked: no second add, no dig.
                 startSampling(ctx);
                 rightClick(ctx, 22, F + 1, 6, Direction.WEST);
                 ctx.waitTicks(10);
                 s = stopSampling(ctx);
-                println("656 re-add: " + countOut(s, "player_action") + " dig(s), picked " + breakerBlocks(ctx));
                 check(countOut(s, "player_action") == 0, "re-adding a picked block sent a dig");
                 check(breakerBlocks(ctx).size() == 1, "re-adding a picked block changed the list");
 
-                // Shift-remove: nothing broken.
+                // ---- control: edit mode off, the same step fires the node and it breaks the stone ----
+                editMode(ctx, false);
+                tpRel(ctx, 20.5, 9.5, -90f, 0f);
+                ctx.waitTicks(10);
+                long m3 = LogTap.mark();
+                tpRel(ctx, 20.5, 6.5, -90f, 0f);
+                boolean broke = waitFor(ctx, 40, () -> serverState(ctx, 22, F + 1, 6).isAir());
+                println("656 control (edit mode off): node broke the stone " + broke + ", acted "
+                        + logHas(m3, "DUNGEON_BREAKER acted"));
+                check(broke && logHas(m3, "DUNGEON_BREAKER acted"),
+                        "the control breaker node did not break the stone - the edit-mode check proves nothing");
+                stopRoute(ctx);
+
+                // Shift-remove in edit mode: nothing broken.
+                setBlocks(ctx, Map.of(new int[]{22, F + 1, 6}, Blocks.STONE.defaultBlockState()));
+                tpRel(ctx, 20.5, 9.5, -90f, 0f);
+                editMode(ctx, true);
                 ctx.getInput().holdKey(options -> options.keyShift);
                 waitFor(ctx, 20, () -> ctx.computeOnClient(mc -> mc.player.isShiftKeyDown()));
                 startSampling(ctx);
@@ -4739,6 +4793,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             } finally {
                 ctx.getInput().releaseKey(options -> options.keyShift);
                 editMode(ctx, false);
+                stopRoute(ctx);
             }
         }
 
@@ -4751,7 +4806,6 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 ctx.waitTicks(5);
                 editMode(ctx, true);
                 check(aimedAt(ctx, 22, F + 1, 8), "the left click is not aimed at its stone");
-                int before = executorInt(ctx, "editorBreaks");
                 startSampling(ctx);
                 leftClick(ctx, 2);
                 ctx.waitTicks(10);
@@ -4762,7 +4816,6 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 check(countOut(s, "swing") >= 1, "the left click in edit mode did not swing");
                 check(countOut(s, "player_action") >= 1, "the left click in edit mode sent no dig");
                 check(serverAir, "the left click in edit mode did not break the stone on the server");
-                check(executorInt(ctx, "editorBreaks") == before, "a left click counted as an editor add-break");
                 check(breakerBlocks(ctx).isEmpty(), "a left click picked a block");
             } finally {
                 editMode(ctx, false);
@@ -4772,8 +4825,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         /**
          * 658, item 1c: "I can manually click on blocks but it says they are too far for my breaker." Reach is from his
          * eye to the block's box, at 4.5 (a plain dig; the wiki gives the Dungeon Breaker no range of its own). The node
-         * stands at (6,24), far from both picks - the old measure, from the node, refused both. 4.45 is accepted (and
-         * broken once), 4.55 is refused with nothing sent.
+         * stands at (6,24), far from both picks - the old measure, from the node, refused both. 4.45 is accepted (the mod
+         * sends no dig for a pick), 4.55 is refused.
          */
         static void reach(ClientGameTestContext ctx) {
             breakerSetup(ctx);
@@ -4796,7 +4849,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 check(Math.abs(dIn - 4.45) < 0.02, String.format(Locale.US, "the in-reach pick was measured at %.3f, not 4.45", dIn));
                 check(after1 != null && after1.size() == 1, "a block 4.45 from his eye was refused: " + after1);
                 check(!logHas(m, "out of your reach"), "a block 4.45 from his eye was called out of reach");
-                check(countOut(s, "player_action") == 1, "the accepted pick sent " + countOut(s, "player_action") + " digs");
+                check(countOut(s, "player_action") == 0, "the accepted pick made the mod send " + countOut(s, "player_action")
+                        + " digs");
 
                 tpRel(ctx, 19.45, 16.5, -90f, 0f);
                 ctx.waitTicks(5);
@@ -5001,5 +5055,148 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             check(takeoffs == 1, "he left the ground " + takeoffs + " time(s), expected once");
             check(rose > 0.5, String.format(Locale.US, "he rose only %.2f", rose));
         }
+    }
+
+    // ============================================================================================ sim-world (2026-10-11)
+
+    /**
+     * 96-ar-644-mimic-warp (killer560, 2026-10-09: "if a chest is a mimic then the auto routes kill the mimic then teleport
+     * in the direction of the mimic"). Node #1 is an etherwarp start node with await secret 1, aimed AWAY from the mimic's
+     * trapped chest (#1 at (14,12), its warp to (14,5), the chest at (14,14)). He turns to the chest and clicks it, Kill
+     * Mimic kills the mimic, the kill meets the await and #1 warps. Every tick his relative position is read: he must end
+     * on (14,5) and never go more than half a block towards the chest (+z) on the way. Once per Kill Mimic item and mode
+     * (Spirit Sceptre / Hyperion, obvious / legit); every use packet is printed with the sneak the server had for it and
+     * every server-side move with its tick, so a failure names the packet that moved him.
+     */
+    private void caseMimicWarp(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        giveSlot(ctx, 4, "HYPERION");
+        giveSlot(ctx, 5, "BAT_WAND");
+        // "aura": Secret Aura clicks the chest (his setup) instead of his hand.
+        String[][] modes = {{"SPIRIT_SCEPTRE", "obvious"}, {"HYPERION", "obvious"}, {"SPIRIT_SCEPTRE", "legit"},
+                {"HYPERION", "legit"}, {"SPIRIT_SCEPTRE", "obvious", "aura"}, {"HYPERION", "obvious", "aura"},
+                {"SPIRIT_SCEPTRE", "legit", "aura"}, {"HYPERION", "legit", "aura"}, {"HYPERION", "obvious", "aura"},
+                {"HYPERION", "obvious", "aura"}};
+        List<String> failures = new ArrayList<>();
+        try {
+            for (String[] mode : modes) {
+                boolean aura = mode.length > 2;
+                String label = mode[0] + "/" + mode[1] + (aura ? "/aura" : "");
+                boolean legit = "legit".equals(mode[1]);
+                stopRoute(ctx);
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setLegitMode", legit));
+                setArEnum(ctx, "setKillMimic", "KillMimic", mode[0]);
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                JsonObject n1 = ew(14, 12, 14, 5, true);
+                n1.addProperty("awaitEnabled", true);
+                n1.addProperty("await", "SECRET");
+                n1.addProperty("amount", 1);
+                writeRoute(ctx, List.of(n1));
+                makeMimic(ctx, 14, 14);
+                if (!arm(ctx, 14, 12, relYawTo(14, 12, 14, 5), pitchTo(14, 12, 14, 5))) {
+                    failures.add(label + ": #1 did not arm");
+                    continue;
+                }
+                ctx.waitTicks(5);
+                // He turns to the chest (the camera only - a node waiting on its await lets him) and clicks it.
+                if (!aura) ctx.runOnClient(mc -> {
+                    Object frame = ModUnderTest.staticCall(FRAME, "current");
+                    float yaw = (Float) ModUnderTest.staticCall(COORDS, "toRealYaw",
+                            new Class<?>[]{frame.getClass(), float.class}, new Object[]{frame, 0f});
+                    mc.player.setYRot(yaw);
+                    mc.player.setXRot(35f);
+                });
+                ctx.waitTicks(3);
+                Vec3 before = relPos(ctx);
+                long m = LogTap.mark();
+                startSampling(ctx);
+                if (aura) {
+                    ctx.runOnClient(mc -> {
+                        try {
+                            Class<?> a = Class.forName("com.killer560.hub.cheatutils.SecretAuraFeature");
+                            for (String fn : new String[]{"firstSeenMs", "attempts", "done"}) {
+                                java.lang.reflect.Field af = a.getDeclaredField(fn);
+                                af.setAccessible(true);
+                                Object o = af.get(null);
+                                if (o instanceof java.util.Map<?, ?> mm) {
+                                    mm.clear();
+                                } else if (o instanceof java.util.Collection<?> cc) {
+                                    cc.clear();
+                                }
+                            }
+                        } catch (ReflectiveOperationException e) {
+                            throw new RuntimeException(e);
+                        }
+                        Object cfg = ModUnderTest.config(CHEAT_CFG);
+                        ModUnderTest.set(cfg, "setAuraChests", true);
+                        ModUnderTest.set(cfg, "setSecretAuraEnabled", true);
+                    });
+                } else {
+                    rightClick(ctx, 14, F, 14, Direction.NORTH);
+                }
+                double maxZ = before.z;
+                Vec3 last = before;
+                List<String> moves = new ArrayList<>();
+                boolean landed = false;
+                for (int t = 0; t < 240 && !landed; t++) {
+                    Vec3 p = relPos(ctx);
+                    if (p.distanceTo(last) >= 0.3) {
+                        moves.add(String.format(Locale.US, "+%d (%.2f, %.2f, %.2f) -> (%.2f, %.2f, %.2f)", t, last.x,
+                                last.y, last.z, p.x, p.y, p.z));
+                    }
+                    last = p;
+                    maxZ = Math.max(maxZ, p.z);
+                    landed = Math.floor(p.x) == 14 && Math.floor(p.z) == 5 && Math.abs(p.y - F) < 0.2;
+                    ctx.waitTicks(1);
+                }
+                ctx.waitTicks(10);
+                List<Sample> s = stopSampling(ctx);
+                boolean killed = logHas(m, "Mimic of the trapped chest");
+                println(String.format(Locale.US, "644 %s: mimic killed %s, landed on (14,5) %s, from (%.2f, %.2f), furthest "
+                        + "+z %.2f (%.2f towards the chest), now %s", label, killed, landed, before.x, before.z, maxZ,
+                        maxZ - before.z, relPos(ctx)));
+                for (String mv : moves) {
+                    println("644 " + label + " move: " + mv);
+                }
+                for (Sample x : s) {
+                    List<String> shown = new ArrayList<>();
+                    for (String o : x.out()) {
+                        if (!o.startsWith("move_player") && !o.equals("client_tick_end") && !o.equals("player_input")) {
+                            shown.add(o);
+                        }
+                    }
+                    if (!shown.isEmpty()) {
+                        println("644 " + label + " tick " + x.tick() + " sneak " + x.shift() + ": " + shown);
+                    }
+                }
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("Kill Mimic") || l.contains("Node #1") || l.contains("Mimic of") || l.contains("Stopped")
+                            || l.contains("await secret") || l.contains("[Sim]") || l.contains("Landed") || l.contains("Sim mimic")) {
+                        println("644 " + label + " log: " + strip(l));
+                    }
+                }
+                if (!killed) {
+                    failures.add(label + ": the mimic was not killed");
+                }
+                if (maxZ - before.z > 0.5) {
+                    failures.add(String.format(Locale.US, "%s: he moved %.2f towards the mimic", label, maxZ - before.z));
+                }
+                if (!landed) {
+                    failures.add(label + ": #1 never warped him to (14,5) - he is at " + relPos(ctx));
+                }
+                ctx.runOnClient(mc -> {
+                    McCompat.setScreen(mc, null);
+                    ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled");
+                });
+            }
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+            stopRoute(ctx);
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setLegitMode", false));
+            setArEnum(ctx, "setKillMimic", "KillMimic", "OFF");
+        }
+        check(failures.isEmpty(), String.join("; ", failures));
     }
 }

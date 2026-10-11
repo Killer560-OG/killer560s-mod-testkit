@@ -38,7 +38,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * killer560's 2026-10-08/09 dungeon list, second batch (mod branch dungeon-b2), the parts a singleplayer world proves.
  *
- * <p>676 Blood Camp Trigger Bot ("I tried doing it on F1 with triggerbot and it didn't work"): a Watcher and a blood
+ * <p>686 Blood Camp Trigger Bot ("I tried doing it on F1 with triggerbot and it didn't work"): a Watcher and a blood
  * mob's skull stand are summoned and the stand is moved along a real trip. (A) He stands 14 blocks from where it lands,
  * aimed at the landing box: the Trigger Bot must click once, after the kill moment, a swing (nothing in melee reach) -
  * before the fix it needed the landing spot inside 3 blocks and sent nothing at all. (B) He stands 2 blocks from it and a
@@ -46,7 +46,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * lose health on the server. Plus: a player-model NPC (version-2 UUID) counts as a mob to hit, a real player (v4) does not.
  * The legit jar must click nothing.
  *
- * <p>677 Door Keys circle: a "Wither Key" stand over a stone floor; the circle the mod draws is centred under it, on the
+ * <p>687 Door Keys circle: a "Wither Key" stand over a stone floor; the circle the mod draws is centred under it, on the
  * floor, with radius = the 0.27.2 key pickup range ({@code AutoSecretConfig.keyPickupRange}, 1 + 5 by default); a
  * "Blood Key" picture at GUI 2 against a Door-Keys-off frame of the same view.
  *
@@ -80,7 +80,7 @@ final class DungeonB2Cases {
     }
 
     // =================================================================================================================
-    // 676 Blood Camp Trigger Bot
+    // 686 Blood Camp Trigger Bot
     // =================================================================================================================
 
     static void bloodTrigger(UiCase c) throws Exception {
@@ -312,7 +312,7 @@ final class DungeonB2Cases {
     }
 
     // =================================================================================================================
-    // 677 Door Keys circle
+    // 687 Door Keys circle
     // =================================================================================================================
 
     static void doorKeyRing(UiCase c) throws Exception {

@@ -519,7 +519,9 @@ public class SimTests implements FabricClientGameTest {
                     ModUnderTest.staticCall(SIM_SCORE, "cryptBlown", new Class<?>[]{}, new Object[]{});
                 }
                 ModUnderTest.staticCall(SIM_SCORE, "mimicKilled", new Class<?>[]{}, new Object[]{});
-                ModUnderTest.staticCall(SIM_SCORE, "batKilled", new Class<?>[]{}, new Object[]{});
+                // batKilled(BlockPos) since sim-world (2026-10-11): a bat counts for its room too; null = no room.
+                ModUnderTest.staticCall(SIM_SCORE, "batKilled", new Class<?>[]{net.minecraft.core.BlockPos.class},
+                        new Object[]{null});
             });
             int fullBonus = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(
                     SIM_SCORE, "bonusScore", new Class<?>[]{}, new Object[]{}));
