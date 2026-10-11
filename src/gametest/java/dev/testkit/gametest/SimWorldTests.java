@@ -63,7 +63,9 @@ public class SimWorldTests implements FabricClientGameTest {
     private static final String NAME = "64x-sim-world";
     private static final String[] CASES = {"641-sim-pickup", "642-sim-boom-crypts", "643-sim-bat",
             "644-sim-hype-down", "645-sim-prince-brf", "646-sim-prince-head", "647-sim-lever-bridges", "648-sim-lever-raccoon",
-            "649-sim-lever-logs", "650-sim-lever-arrowtrap"};
+            "649-sim-lever-logs", "650-sim-lever-arrowtrap",
+            // mimic-fix (2026-10-11)
+            "652-sim-prince-waypoint-brf"};
 
     private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
@@ -121,6 +123,7 @@ public class SimWorldTests implements FabricClientGameTest {
                                 new int[]{20, 69, 23}, new int[]{21, 72, 26}, true, new int[]{25, 24}, new int[]{29, 9});
                         case "650-sim-lever-arrowtrap" -> caseLever(ctx, c, "Arrow Trap", new int[]{16, 70, 24},
                                 new int[]{14, 69, 8}, new int[]{18, 73, 8}, true, new int[]{16, 12}, new int[]{16, 21});
+                        case "652-sim-prince-waypoint-brf" -> casePrinceWaypoint(ctx);
                         default -> {
                         }
                     }
@@ -503,6 +506,58 @@ public class SimWorldTests implements FabricClientGameTest {
         check("air".equals(headAfter), "the prince's player head survived");
         check(underLeft == 0, underLeft + " block(s) of the stair layer under the prince survived");
         check(belowAfter.equals(belowBefore), "the blast went below the stair layer");
+    }
+
+    // ============================================================================================ 652
+
+    /**
+     * Secret Waypoints' Show Princes in Big Red Flag: its tomb (the smooth stone lid ringed by slabs, SimPrince's third
+     * shape) is ONE prince waypoint whose box holds the lid, and no crypt waypoint - the room database gives Big Red Flag
+     * one crypt, which is this prince. One answer for the sim and the waypoints: CryptScanner.lidPrince is the rule both
+     * ask. Before mimic-fix CryptScanner knew only the gold and sea lantern shapes, so it showed nothing here.
+     */
+    private void casePrinceWaypoint(ClientGameTestContext ctx) {
+        String room = "Big Red Flag";
+        String cfgClass = "com.killer560.hub.secretwaypoints.SecretWaypointsConfig";
+        String feature = "com.killer560.hub.secretwaypoints.SecretWaypointsFeature";
+        build(ctx, room);
+        BlockPos lid = capW(ctx, room, 14, 72, 24);
+        Object cfg = ModUnderTest.config(cfgClass);
+        boolean was = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.call(cfg, "isEnabled", new Class<?>[]{},
+                new Object[]{}));
+        try {
+            ctx.runOnClient(mc -> {
+                ModUnderTest.set(cfg, "setEnabled", true);
+                ModUnderTest.set(cfg, "setShowCrypts", true);
+                ModUnderTest.set(cfg, "setShowPrinces", true);
+                ModUnderTest.staticCall(feature, "invalidateCache");
+            });
+            ctx.waitTicks(40);
+            @SuppressWarnings("unchecked")
+            List<double[]> princes = ctx.computeOnClient(mc -> new ArrayList<>((List<double[]>) ModUnderTest.staticCall(
+                    feature, "cachedBoxes", new Class<?>[]{String.class}, new Object[]{"PRINCE"})));
+            @SuppressWarnings("unchecked")
+            List<BlockPos> crypts = ctx.computeOnClient(mc -> new ArrayList<>((List<BlockPos>) ModUnderTest.staticCall(
+                    feature, "cachedPositions", new Class<?>[]{String.class}, new Object[]{"CRYPT"})));
+            boolean holdsLid = false;
+            StringBuilder boxes = new StringBuilder();
+            for (double[] b : princes) {
+                boxes.append(String.format(Locale.US, " [%.0f,%.0f,%.0f..%.0f,%.0f,%.0f]", b[0], b[1], b[2], b[3], b[4], b[5]));
+                holdsLid |= lid.getX() + 0.5 >= b[0] && lid.getX() + 0.5 <= b[3] && lid.getY() + 0.5 >= b[1]
+                        && lid.getY() + 0.5 <= b[4] && lid.getZ() + 0.5 >= b[2] && lid.getZ() + 0.5 <= b[5];
+            }
+            say("652 " + room + ": prince waypoint(s) " + princes.size() + boxes + ", lid " + lid.toShortString()
+                    + " inside one " + holdsLid + ", crypt waypoint(s) " + crypts);
+            check(princes.size() == 1 && holdsLid, "Big Red Flag's tomb is not one prince waypoint (" + princes.size()
+                    + " prince box(es), lid inside one: " + holdsLid + ")");
+            check(crypts.isEmpty(), "Big Red Flag shows crypt waypoint(s) " + crypts + " - its one crypt is the prince");
+        } finally {
+            ctx.runOnClient(mc -> {
+                ModUnderTest.set(cfg, "setShowCrypts", false);
+                ModUnderTest.set(cfg, "setShowPrinces", false);
+                ModUnderTest.set(cfg, "setEnabled", was);
+            });
+        }
     }
 
     // ============================================================================================ 647-650

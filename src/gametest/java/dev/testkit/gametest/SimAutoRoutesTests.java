@@ -91,7 +91,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim", "96-ar-398-startawait",
             "96-ar-405-crypt-mapopen", "96-ar-405-startwarp", "96-ar-path", "96-ar-screen", "96-ar-rotate",
             // sim-world (2026-10-11)
-            "96-ar-644-mimic-warp"};
+            "96-ar-644-mimic-warp",
+            // mimic-fix (2026-10-11)
+            "96-ar-651-mimic-legit-pitch"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -251,7 +253,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-screen" -> caseScreen(ctx);
                         case "96-ar-path" -> casePath(ctx);
                         case "96-ar-rotate" -> caseRotate(ctx);
-                        case "96-ar-644-mimic-warp" -> caseMimicWarp(ctx);
+                        case "96-ar-644-mimic-warp" -> caseMimicWarp(ctx, MIMIC_MODES);
+                        case "96-ar-651-mimic-legit-pitch" -> caseMimicWarp(ctx, LEGIT_AURA_HYPE);
                         default -> {
                         }
                     }
@@ -5068,17 +5071,27 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      * (Spirit Sceptre / Hyperion, obvious / legit); every use packet is printed with the sneak the server had for it and
      * every server-side move with its tick, so a failure names the packet that moved him.
      */
-    private void caseMimicWarp(ClientGameTestContext ctx) {
+    // "aura": Secret Aura clicks the chest (his setup) instead of his hand.
+    private static final String[][] MIMIC_MODES = {{"SPIRIT_SCEPTRE", "obvious"}, {"HYPERION", "obvious"},
+            {"SPIRIT_SCEPTRE", "legit"}, {"HYPERION", "legit"}, {"SPIRIT_SCEPTRE", "obvious", "aura"},
+            {"HYPERION", "obvious", "aura"}, {"SPIRIT_SCEPTRE", "legit", "aura"}, {"HYPERION", "legit", "aura"},
+            {"HYPERION", "obvious", "aura"}, {"HYPERION", "obvious", "aura"}};
+
+    /**
+     * 96-ar-651-mimic-legit-pitch: the 644 fault, on its own and repeated. Legit mode, Secret Aura clicking the chest,
+     * Kill Mimic on the Hyperion: on main 2c1065dc the AIM timeout fired the Hyperion at pitch 50.9 (the aura's turn and
+     * hand-back fought the camera approach). Every Wither Impact the server logs must be at pitch 80 or steeper, and
+     * the mimic must still die. (644 makes the same pitch check on every variant.)
+     */
+    private static final String[][] LEGIT_AURA_HYPE = {{"HYPERION", "legit", "aura"}, {"HYPERION", "legit", "aura"},
+            {"HYPERION", "legit", "aura"}, {"HYPERION", "legit", "aura"}, {"HYPERION", "legit"}};
+
+    private void caseMimicWarp(ClientGameTestContext ctx, String[][] modes) {
         resetRoutes(ctx);
         arena(ctx, false);
         giveHotbar(ctx);
         giveSlot(ctx, 4, "HYPERION");
         giveSlot(ctx, 5, "BAT_WAND");
-        // "aura": Secret Aura clicks the chest (his setup) instead of his hand.
-        String[][] modes = {{"SPIRIT_SCEPTRE", "obvious"}, {"HYPERION", "obvious"}, {"SPIRIT_SCEPTRE", "legit"},
-                {"HYPERION", "legit"}, {"SPIRIT_SCEPTRE", "obvious", "aura"}, {"HYPERION", "obvious", "aura"},
-                {"SPIRIT_SCEPTRE", "legit", "aura"}, {"HYPERION", "legit", "aura"}, {"HYPERION", "obvious", "aura"},
-                {"HYPERION", "obvious", "aura"}};
         List<String> failures = new ArrayList<>();
         try {
             for (String[] mode : modes) {
@@ -5148,7 +5161,12 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     }
                     last = p;
                     maxZ = Math.max(maxZ, p.z);
-                    landed = Math.floor(p.x) == 14 && Math.floor(p.z) == 5 && Math.abs(p.y - F) < 0.2;
+                    // Legit mode aims with the camera, and this test route's aim (the floor block's top centre, 7 out)
+                    // leaves 0.7 degrees of margin: about one legit warp in three lands a block short, on (14,6), on
+                    // the jar before mimic-fix too. What this case is about is the warp going AWAY from the mimic, so
+                    // in legit mode the block short counts as landed (reported to the Auto Routes agent).
+                    landed = Math.floor(p.x) == 14 && (Math.floor(p.z) == 5 || legit && Math.floor(p.z) == 6)
+                            && Math.abs(p.y - F) < 0.2;
                     ctx.waitTicks(1);
                 }
                 ctx.waitTicks(10);
@@ -5175,6 +5193,19 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     if (l.contains("Kill Mimic") || l.contains("Node #1") || l.contains("Mimic of") || l.contains("Stopped")
                             || l.contains("await secret") || l.contains("[Sim]") || l.contains("Landed") || l.contains("Sim mimic")) {
                         println("644 " + label + " log: " + strip(l));
+                    }
+                }
+                // Every Wither Impact the sim's server logged, with the pitch it went off at: anything shallower than
+                // 80 is a teleport along the look (MimicKiller.MIN_HYPERION_PITCH).
+                for (String l : LogTap.since(m)) {
+                    java.util.regex.Matcher wm = java.util.regex.Pattern
+                            .compile("Wither Impact at [^(]*\\(pitch (-?[0-9.]+)\\)").matcher(l);
+                    if (wm.find()) {
+                        double pitch = Double.parseDouble(wm.group(1));
+                        println(String.format(Locale.US, "644 %s Wither Impact pitch %.1f", label, pitch));
+                        if (pitch < 80.0) {
+                            failures.add(String.format(Locale.US, "%s: the Hyperion went off at pitch %.1f", label, pitch));
+                        }
                     }
                 }
                 if (!killed) {
