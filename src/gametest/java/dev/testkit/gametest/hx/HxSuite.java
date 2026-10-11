@@ -49,6 +49,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxChatKeybindsCases.register(s);
                     // Profile Viewer + Nickhider changes (691-698, branch nt-pv-nick), own block.
                     HxPvNickCases.register(s);
+                    // GUI/HUD items of 2026-10-11 (716-726, branch nt-gui-hud), own block.
+                    HxGuiHudCases.register(s);
                 });
     }
 }

@@ -87,6 +87,9 @@ final class ScoreboardEditorCases {
 
     private static final List<String> START = List.of("TITLE", "DATE", "ISLAND", "PURSE", "MAYOR", "FOOTER");
 
+    /** Set by {@link #run}: this jar edits the board only in the visual editor (mod gui-hud). */
+    private static boolean BOARD_EDITOR;
+
     private ScoreboardEditorCases() {
     }
 
@@ -111,6 +114,12 @@ final class ScoreboardEditorCases {
                     + "the board would be the live one, not the editor's preview");
             return;
         }
+        // Mod gui-hud (2026-10-11): the tab is only the switch and Open Visual Editor, and the board is dragged inside
+        // the editor. The tab-list parts of this case (drag, trash/add, auto-scroll, per-line options, layout, the tab's
+        // rows after a reload) have nothing to drive there; 716-720 test the editor that replaced them.
+        boolean boardEditor = c.onClient(mc -> Mod.has("util.PingTracker"));
+        c.note("this jar " + (boardEditor ? "edits the board in the visual editor only (716-720 cover it)" : "has the tab list"));
+        BOARD_EDITOR = boardEditor;
         try {
             Path seeded = configDir.resolve(EXPORT_PROPS);
             if (Files.exists(seeded)) {
@@ -120,24 +129,32 @@ final class ScoreboardEditorCases {
             if (export != null && !export.isBlank()) {
                 exportOld(c, configDir, cfgPath, Path.of(export));
             }
-            pictures(c, newJar);
+            if (!boardEditor) {
+                pictures(c, newJar);
+            }
             if (!newJar) {
                 c.problem("no draggable list in this jar: the Custom Scoreboard still has its per-line on/off toggles "
                         + "and arrow buttons (no gui.DragListWidget / scoreboard.EntryOrder)");
                 return;
             }
-            dragTrashAdd(c, cfgPath);
-            autoScroll(c);
-            options(c);
-            layout(c);
+            if (!boardEditor) {
+                dragTrashAdd(c, cfgPath);
+                autoScroll(c);
+                options(c);
+                layout(c);
+            }
             reload(c, cfgPath);
             migrationInline(c, cfgPath);
-            visualEditor(c);
+            if (!boardEditor) {
+                visualEditor(c);
+            }
         } finally {
-            try {
-                open(c, "LINES"); // the tab's page is the tab's own state: leave it on Lines, where it opens
-            } catch (Throwable t) {
-                c.note("page restore: " + UiCase.describe(t));
+            if (!boardEditor) {
+                try {
+                    open(c, "LINES"); // the tab's page is the tab's own state: leave it on Lines, where it opens
+                } catch (Throwable t) {
+                    c.note("page restore: " + UiCase.describe(t));
+                }
             }
             restore(c, cfgPath, saved);
         }
@@ -772,6 +789,9 @@ final class ScoreboardEditorCases {
         }
         if (!from.startsWith("current")) {
             c.problem("the reload read the lines from '" + from + "', not the new lineOrder key");
+        }
+        if (BOARD_EDITOR) {
+            return; // no list on the tab any more
         }
         ModScreenDriver d = open(c, "LINES");
         List<String> rows = c.onClient(mc -> {
