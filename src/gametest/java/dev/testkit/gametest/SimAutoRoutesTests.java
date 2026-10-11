@@ -86,7 +86,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-crypt", "96-ar-breaker", "96-ar-breakerwait", "96-ar-pingpong", "96-ar-chain", "96-ar-stackorder", "96-ar-crypthold",
             "96-ar-charges", "96-ar-museum", "96-ar-398-offnode", "96-ar-398-regrow",
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim", "96-ar-398-startawait",
-            "96-ar-405-crypt-mapopen", "96-ar-405-startwarp", "96-ar-path", "96-ar-screen", "96-ar-rotate"};
+            "96-ar-405-crypt-mapopen", "96-ar-405-startwarp", "96-ar-path", "96-ar-screen", "96-ar-rotate",
+            // sim-world (2026-10-11)
+            "96-ar-644-mimic-warp"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -241,6 +243,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-screen" -> caseScreen(ctx);
                         case "96-ar-path" -> casePath(ctx);
                         case "96-ar-rotate" -> caseRotate(ctx);
+                        case "96-ar-644-mimic-warp" -> caseMimicWarp(ctx);
                         default -> {
                         }
                     }
@@ -4615,5 +4618,148 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> mc.execute(() ->
                 McCompat.setScreen(mc, new net.minecraft.client.gui.screens.TitleScreen())));
         ctx.waitFor(mc -> McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.TitleScreen, 400);
+    }
+
+    // ============================================================================================ sim-world (2026-10-11)
+
+    /**
+     * 96-ar-644-mimic-warp (killer560, 2026-10-09: "if a chest is a mimic then the auto routes kill the mimic then teleport
+     * in the direction of the mimic"). Node #1 is an etherwarp start node with await secret 1, aimed AWAY from the mimic's
+     * trapped chest (#1 at (14,12), its warp to (14,5), the chest at (14,14)). He turns to the chest and clicks it, Kill
+     * Mimic kills the mimic, the kill meets the await and #1 warps. Every tick his relative position is read: he must end
+     * on (14,5) and never go more than half a block towards the chest (+z) on the way. Once per Kill Mimic item and mode
+     * (Spirit Sceptre / Hyperion, obvious / legit); every use packet is printed with the sneak the server had for it and
+     * every server-side move with its tick, so a failure names the packet that moved him.
+     */
+    private void caseMimicWarp(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        giveSlot(ctx, 4, "HYPERION");
+        giveSlot(ctx, 5, "BAT_WAND");
+        // "aura": Secret Aura clicks the chest (his setup) instead of his hand.
+        String[][] modes = {{"SPIRIT_SCEPTRE", "obvious"}, {"HYPERION", "obvious"}, {"SPIRIT_SCEPTRE", "legit"},
+                {"HYPERION", "legit"}, {"SPIRIT_SCEPTRE", "obvious", "aura"}, {"HYPERION", "obvious", "aura"},
+                {"SPIRIT_SCEPTRE", "legit", "aura"}, {"HYPERION", "legit", "aura"}, {"HYPERION", "obvious", "aura"},
+                {"HYPERION", "obvious", "aura"}};
+        List<String> failures = new ArrayList<>();
+        try {
+            for (String[] mode : modes) {
+                boolean aura = mode.length > 2;
+                String label = mode[0] + "/" + mode[1] + (aura ? "/aura" : "");
+                boolean legit = "legit".equals(mode[1]);
+                stopRoute(ctx);
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setLegitMode", legit));
+                setArEnum(ctx, "setKillMimic", "KillMimic", mode[0]);
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                JsonObject n1 = ew(14, 12, 14, 5, true);
+                n1.addProperty("awaitEnabled", true);
+                n1.addProperty("await", "SECRET");
+                n1.addProperty("amount", 1);
+                writeRoute(ctx, List.of(n1));
+                makeMimic(ctx, 14, 14);
+                if (!arm(ctx, 14, 12, relYawTo(14, 12, 14, 5), pitchTo(14, 12, 14, 5))) {
+                    failures.add(label + ": #1 did not arm");
+                    continue;
+                }
+                ctx.waitTicks(5);
+                // He turns to the chest (the camera only - a node waiting on its await lets him) and clicks it.
+                if (!aura) ctx.runOnClient(mc -> {
+                    Object frame = ModUnderTest.staticCall(FRAME, "current");
+                    float yaw = (Float) ModUnderTest.staticCall(COORDS, "toRealYaw",
+                            new Class<?>[]{frame.getClass(), float.class}, new Object[]{frame, 0f});
+                    mc.player.setYRot(yaw);
+                    mc.player.setXRot(35f);
+                });
+                ctx.waitTicks(3);
+                Vec3 before = relPos(ctx);
+                long m = LogTap.mark();
+                startSampling(ctx);
+                if (aura) {
+                    ctx.runOnClient(mc -> {
+                        try {
+                            Class<?> a = Class.forName("com.killer560.hub.cheatutils.SecretAuraFeature");
+                            for (String fn : new String[]{"firstSeenMs", "attempts", "done"}) {
+                                java.lang.reflect.Field af = a.getDeclaredField(fn);
+                                af.setAccessible(true);
+                                Object o = af.get(null);
+                                if (o instanceof java.util.Map<?, ?> mm) {
+                                    mm.clear();
+                                } else if (o instanceof java.util.Collection<?> cc) {
+                                    cc.clear();
+                                }
+                            }
+                        } catch (ReflectiveOperationException e) {
+                            throw new RuntimeException(e);
+                        }
+                        Object cfg = ModUnderTest.config(CHEAT_CFG);
+                        ModUnderTest.set(cfg, "setAuraChests", true);
+                        ModUnderTest.set(cfg, "setSecretAuraEnabled", true);
+                    });
+                } else {
+                    rightClick(ctx, 14, F, 14, Direction.NORTH);
+                }
+                double maxZ = before.z;
+                Vec3 last = before;
+                List<String> moves = new ArrayList<>();
+                boolean landed = false;
+                for (int t = 0; t < 240 && !landed; t++) {
+                    Vec3 p = relPos(ctx);
+                    if (p.distanceTo(last) >= 0.3) {
+                        moves.add(String.format(Locale.US, "+%d (%.2f, %.2f, %.2f) -> (%.2f, %.2f, %.2f)", t, last.x,
+                                last.y, last.z, p.x, p.y, p.z));
+                    }
+                    last = p;
+                    maxZ = Math.max(maxZ, p.z);
+                    landed = Math.floor(p.x) == 14 && Math.floor(p.z) == 5 && Math.abs(p.y - F) < 0.2;
+                    ctx.waitTicks(1);
+                }
+                ctx.waitTicks(10);
+                List<Sample> s = stopSampling(ctx);
+                boolean killed = logHas(m, "Mimic of the trapped chest");
+                println(String.format(Locale.US, "644 %s: mimic killed %s, landed on (14,5) %s, from (%.2f, %.2f), furthest "
+                        + "+z %.2f (%.2f towards the chest), now %s", label, killed, landed, before.x, before.z, maxZ,
+                        maxZ - before.z, relPos(ctx)));
+                for (String mv : moves) {
+                    println("644 " + label + " move: " + mv);
+                }
+                for (Sample x : s) {
+                    List<String> shown = new ArrayList<>();
+                    for (String o : x.out()) {
+                        if (!o.startsWith("move_player") && !o.equals("client_tick_end") && !o.equals("player_input")) {
+                            shown.add(o);
+                        }
+                    }
+                    if (!shown.isEmpty()) {
+                        println("644 " + label + " tick " + x.tick() + " sneak " + x.shift() + ": " + shown);
+                    }
+                }
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("Kill Mimic") || l.contains("Node #1") || l.contains("Mimic of") || l.contains("Stopped")
+                            || l.contains("await secret") || l.contains("[Sim]") || l.contains("Landed")) {
+                        println("644 " + label + " log: " + strip(l));
+                    }
+                }
+                if (!killed) {
+                    failures.add(label + ": the mimic was not killed");
+                }
+                if (maxZ - before.z > 0.5) {
+                    failures.add(String.format(Locale.US, "%s: he moved %.2f towards the mimic", label, maxZ - before.z));
+                }
+                if (!landed) {
+                    failures.add(label + ": #1 never warped him to (14,5) - he is at " + relPos(ctx));
+                }
+                ctx.runOnClient(mc -> {
+                    McCompat.setScreen(mc, null);
+                    ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled");
+                });
+            }
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+            stopRoute(ctx);
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setLegitMode", false));
+            setArEnum(ctx, "setKillMimic", "KillMimic", "OFF");
+        }
+        check(failures.isEmpty(), String.join("; ", failures));
     }
 }

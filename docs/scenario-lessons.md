@@ -410,3 +410,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   579 serves Mojang's `/player/certificates` and the relay's `/challenge` + `/auth` from one loopback fake on 28950, points
   authlib at it with `minecraft.api.{services,session,profiles}.host` (all three or authlib ignores them) and the relay with
   `killer560.net.relay`, and restores Minecraft's user/userApiService/profileKeyPairManager fields afterwards.
+- 641-650 (`SimWorldTests`, sim-world 2026-10-11): each item of his 2026-10-09 sim list read back from the integrated
+  server's own level - pickup reach measured at 0.1-block steps, one Superboom against two lids + a crypt wall in reach and
+  a lid + decorative brick out of it, a secret bat far then near (with an await window opened by `AwaitEvents.begin` then
+  `window`: begin also replays his own pickups from just before, here 641's dirt, which read as 9 bat secrets), a
+  straight-down Hyperion from an off-centre spot, Big Red Flag's and Leaves' princes, and four lever doors flicked as the
+  player. 645-650 screenshot at GUI 2 into the report's screens. 96-ar-644-mimic-warp (in `SimAutoRoutesTests`) plays the
+  mimic route in eight variants and prints every non-movement packet per tick.
