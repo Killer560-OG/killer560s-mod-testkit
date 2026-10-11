@@ -47,6 +47,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxCmdShortcutsCases.register(s);
                     // Chat Keybinds with Command Shortcuts merged in (623-625), own block.
                     HxChatKeybindsCases.register(s);
+                    // Profile Viewer + Nickhider changes (691-698, branch nt-pv-nick), own block.
+                    HxPvNickCases.register(s);
                 });
     }
 }
