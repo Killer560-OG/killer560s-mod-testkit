@@ -422,3 +422,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   "You left the party." after Settings had switched it back OFF, so HxLead stayed leader and 578's teammate !warp was refused
   "you are not the party leader" (reproduced with `100-hx-session:,122-hx-party-list-responder,578-hx-mcp-party-channels`).
   122 now leaves while it is on and asserts the tracker is empty; 578 clears `PartyLeaderTracker.leader` itself.
+- 631-636 *-sim-pathopt-* (`SimPathOptimalTests`, mod path-optimal): the exact fewest-warps planner and the bottom-slab
+  rule, each answer judged on the SERVER's level (real `traverseVoxels` at 32 x 32 points a face, kept only if it holds at
+  +-0.01 degrees). An etherwarp onto a bottom slab teleports to slab + 1.05 and he DROPS to its top: judge a warp from a
+  slab from the top (+0.5), and a "stand on it" check at +0.5. A ring wall hides its inside from an eye only if the far
+  edge of its TOP is above the sight line - measure at the far edge, not the near one (632's first ring was a block too
+  high and hid the goal from the slab as well). Wall tops above floor + 6 ARE landings where the room has a roof somewhere over them (the cover rule): cap an arena's high walls with a cobblestone wall (blacklisted). Arena cases share one built 1x1 room; 634 builds Slabs, Three Floors,
+  Museum and Scaffolding one after another (-Dtestkit.pathopt.pairs, .threechecks).
