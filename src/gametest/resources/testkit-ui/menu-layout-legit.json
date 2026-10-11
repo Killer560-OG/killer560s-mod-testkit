@@ -869,10 +869,10 @@
     "Mod & HUD": {
       "auto scale (monitor)": "Keeps every HUD element and menu of this mod the same size relative to your window on any monitor and at any GUI Scale, using a 2560x1440 screen at GUI Scale 3 as the reference (unchanged there). HUD Scale multiplies on top. ON by default; saved with profiles.",
       "check for updates": "Checks GitHub for a newer release; click again to open its download page.",
-      "edit hud keybind": "Key that opens the HUD editor in game.",
+      "edit hud keybind": "Key that opens the HUD editor in game. It does nothing while any screen is open (chat, an inventory, a menu - this one or another mod's).",
       "edit hud positions": "Opens the HUD editor to drag and resize on-screen elements.",
       "hud": "Options for what the Score Calculator HUD shows.",
-      "hud scale": "Scales every HUD element of this mod at once, 5% to 300%. Multiplies each element's own size, so per-element sizes are kept. Saved with profiles.",
+      "hud scale": "Scales everything this mod draws at once, 5% to 300%: every HUD element (multiplying its own size, so per-element sizes are kept), this menu and the mod's other screens, its reskinned menus and its popups. Menus follow it between 50% and 300% and never grow past what fits the window. Saved with profiles.",
       "join discord": "Opens the mod's Discord server invite in your browser.",
       "mod": "",
       "notify me of updates": "Tells you when you join a world if a newer release of the mod exists.",
