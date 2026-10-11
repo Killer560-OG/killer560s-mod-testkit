@@ -422,6 +422,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   "You left the party." after Settings had switched it back OFF, so HxLead stayed leader and 578's teammate !warp was refused
   "you are not the party leader" (reproduced with `100-hx-session:,122-hx-party-list-responder,578-hx-mcp-party-channels`).
   122 now leaves while it is on and asserts the tracker is empty; 578 clears `PartyLeaderTracker.leader` itself.
+- An entity attack is protocol id `attack` on 26.1.2, not `interact`: 686's (then 676) first run counted 0 "interact" packets while
+  the zombie it hit lost 3 health on the server (2026-10-11). Count both (`PacketTrace.sent("interact") + sent("attack")`).
+- A freshly loaded chunk section can render as sky for a second after a teleport or a setblock: 687 (then 677) and 679's first
+  pictures showed no floor and no board while every number passed. Wait ~60 ticks before a world screenshot, and look.
 - 631-636 *-sim-pathopt-* (`SimPathOptimalTests`, mod path-optimal): the exact fewest-warps planner and the bottom-slab
   rule, each answer judged on the SERVER's level (real `traverseVoxels` at 32 x 32 points a face, kept only if it holds at
   +-0.01 degrees). An etherwarp onto a bottom slab teleports to slab + 1.05 and he DROPS to its top: judge a warp from a

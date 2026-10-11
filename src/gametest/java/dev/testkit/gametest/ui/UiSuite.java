@@ -143,6 +143,8 @@ public class UiSuite implements FabricClientGameTest {
             "703-ui-slotbinds-key-toggle", "704-ui-petwheel-no-slices-text-scale", "705-ui-itemprotect-hover-star-drops",
             "706-ui-gif-dvd-hidden-in-containers", "707-ui-storagesearch-equipment-wardrobe", "709-ui-itembrowser-tooltip",
             "710-ui-itembrowser-minion-tiers", "711-ui-itembrowser-neu-recipe", "712-ui-itembrowser-sort-and-bar"};
+    static final String[] DUNGEON_B2_CASES = {"686-ui-blood-trigger", "687-ui-door-key-circle",
+            "679-ui-ttt-prediction-misclicks", "680-ui-imap-binds-ticks", "681-ui-auto-kick-pf", "682-ui-dungeon-esp-switch"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -195,13 +197,16 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : ITEM_UI_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : DUNGEON_B2_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
         boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES) || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
                 || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES)
-                || any(LEAPORDER_CASES) || any(ITEM_UI_CASES);
+                || any(LEAPORDER_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -354,6 +359,13 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "710-ui-itembrowser-minion-tiers", ItemUiCases::browserMinions);
                     UiCase.run(ctx, "711-ui-itembrowser-neu-recipe", ItemUiCases::browserRecipe);
                     UiCase.run(ctx, "712-ui-itembrowser-sort-and-bar", ItemUiCases::browserSortAndBar);
+                    // ---- dungeon-b2 (679-682, 686-687) ----
+                    UiCase.run(ctx, "686-ui-blood-trigger", DungeonB2Cases::bloodTrigger);
+                    UiCase.run(ctx, "687-ui-door-key-circle", DungeonB2Cases::doorKeyRing);
+                    UiCase.run(ctx, "679-ui-ttt-prediction-misclicks", DungeonB2Cases::ticTacToe);
+                    UiCase.run(ctx, "680-ui-imap-binds-ticks", DungeonB2Cases::interactiveMapBinds);
+                    UiCase.run(ctx, "681-ui-auto-kick-pf", DungeonB2Cases::autoKick);
+                    UiCase.run(ctx, "682-ui-dungeon-esp-switch", DungeonB2Cases::dungeonEsp);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
