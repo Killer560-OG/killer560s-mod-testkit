@@ -34,7 +34,7 @@ import java.util.List;
  *       opens "How many do you want?" and it is reskinned) and the bottom bar's Go Back navigates back.</li>
  *   <li>463-menu-bazaar-reskin-fallback: Bazaar Settings, Confirm Instant Buy, a non-Bazaar "A ➜ B" menu and a category
  *       page missing its Manage Orders button stay Hypixel's GUI (chest pixels drawn, a press on a slot is vanilla's own
- *       click); a mapped page with Reskin Real Bazaar off stays Hypixel's too.</li>
+ *       click); a mapped page with the Bazaar switched off stays Hypixel's too.</li>
  *   <li>464-menu-bazaar-reskin-escape: holding the Hypixel Menu key (Left Alt) shows Hypixel's GUI, whose slot click
  *       goes through as vanilla's; releasing it brings the reskin back; the header's "Hypixel menu" button switches that
  *       menu to Hypixel's GUI without sending anything.</li>
@@ -89,7 +89,7 @@ final class BazaarReskinCases {
     /** Reskin on, Skyblock gate off (the test server is not Hypixel), Hypixel Menu key = Left Alt. */
     private static MenuKit.Cfg setup(Session c) {
         MenuKit.Cfg cfg = new MenuKit.Cfg(c);
-        cfg.set("auction.AuctionConfig", "ReskinRealBazaar", true);
+        cfg.set("auction.AuctionConfig", "BazaarEnabled", true); // one switch: browser and reskin (2026-10-11)
         cfg.set("auction.AuctionConfig", "BazaarVanillaKeyCode", LEFT_ALT);
         return cfg;
     }
@@ -554,12 +554,12 @@ final class BazaarReskinCases {
             }
             // A mapped page with the toggle off.
             MenuKit.reset(c);
-            c.ctx().runOnClient(mc -> Mod.set("auction.AuctionConfig", "setReskinRealBazaar", false));
+            c.ctx().runOnClient(mc -> Mod.set("auction.AuctionConfig", "setBazaarEnabled", false));
             JsonObject spec = MenuKit.menu("menus.reskin-bazaar-product");
             MenuKit.show(c, spec);
             MenuKit.awaitScreen(c, plainTitle(spec), 100);
             c.ctx().waitTicks(20);
-            c.check("NONE".equals(kind(c)), "Reskin Real Bazaar off: reskin shows " + kind(c));
+            c.check("NONE".equals(kind(c)), "Bazaar off: reskin shows " + kind(c));
             vanillaClick(c, spec, "product with the reskin off");
         } finally {
             MenuKit.reset(c);

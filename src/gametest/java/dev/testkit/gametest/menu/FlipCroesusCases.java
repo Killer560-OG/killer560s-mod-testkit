@@ -163,8 +163,8 @@ final class FlipCroesusCases {
                 .set("bazaarflip.BazaarFlipConfig", "Speed", 10)
                 .set("bazaarflip.BazaarFlipConfig", "MinProfitPerRun", 0L)
                 .set("bazaarflip.BazaarFlipConfig", "TargetPurse", 0L)
-                .set("auction.AuctionConfig", "BazaarEnabled", true)
-                .set("auction.AuctionConfig", "ReskinRealBazaar", reskin);
+                // One switch since 2026-10-11: the Bazaar feature is the browser AND the reskin.
+                .set("auction.AuctionConfig", "BazaarEnabled", reskin);
         c.ctx().runOnClient(mc -> {
             Mod.staticCall("util.SkyblockGate", "setEnabled", false);
             Mod.staticCall("bazaarflip.BazaarFlipScanner", "setTestCandidateForTest", "LUMP_OF_MAGMA", "Lump of Magma",
@@ -209,10 +209,12 @@ final class FlipCroesusCases {
             }
             c.check(refusal == null, "start refused: " + refusal);
             boolean[] reskinHid = {false};
+            java.util.Set<String> drawn = new java.util.LinkedHashSet<>();
             c.waitUntil("the flipper to finish one cycle", mc -> {
                 if (McCompat.screen(mc) instanceof AbstractContainerScreen<?> s
                         && (Boolean) Mod.staticCall("bazaar.BazaarReskin", "isHiding", s)) {
                     reskinHid[0] = true;
+                    drawn.add(String.valueOf(Mod.staticCall("bazaar.BazaarReskin", "kindForTest")));
                 }
                 return ((Number) Mod.staticCall("bazaarflip.BazaarFlipFeature", "getCycles")).intValue() >= 1;
             }, 600);
@@ -235,17 +237,18 @@ final class FlipCroesusCases {
                     .filter(e -> e.get("title").getAsString().equals("Trades"))
                     .filter(e -> !e.get("input").getAsString().equals("QUICK_MOVE")).count();
             c.check(tradesClicks == 0, "non-shift clicks in Trades: " + allClicks(c));
-            c.check(!reskinHid[0], "the Bazaar reskin hid a menu while the flipper ran");
-            String control = "";
+            String control;
             if (reskin) {
-                // Control: the reskin really was on - with the flipper stopped, the same search page is reskinned.
-                MenuKit.reset(c);
-                c.hx().call("menu.show", bazaar(35.0));
-                c.waitUntil("the reskin to take the search page", mc -> McCompat.screen(mc) instanceof AbstractContainerScreen<?> s
-                        && (Boolean) Mod.staticCall("bazaar.BazaarReskin", "isHiding", s), 100);
-                control = "; control: with the flipper stopped the reskin took the same page";
+                // killer560, 2026-10-11: "have reskin work at the same time" - the reskin draws every Bazaar page the
+                // flipper walks through while the clicks above still reach the real menu.
+                c.check(drawn.containsAll(List.of("SEARCH", "PRODUCT", "INSTANT_BUY")),
+                        "the reskin drew only " + drawn + " while the flipper ran");
+                control = "; the reskin drew " + drawn + " during the run";
+            } else {
+                c.check(!reskinHid[0], "the Bazaar is off but its reskin drew " + drawn);
+                control = "; Bazaar off: Hypixel's menus throughout";
             }
-            c.note("reskin " + (reskin ? "ON" : "OFF") + ": server got " + allClicks(c) + " delivered " + given
+            c.note("Bazaar " + (reskin ? "ON" : "OFF") + ": server got " + allClicks(c) + " delivered " + given
                     + ", sold " + soldUnits + " in " + sold.size() + " shift-clicks, commands " + cmds + control);
         }
     }

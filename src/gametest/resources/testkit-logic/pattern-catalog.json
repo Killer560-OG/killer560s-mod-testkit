@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-11T19:25:22",
+ "generatedAt": "2026-10-11T19:27:08",
  "modSource": "killer560s-mod",
- "modGitSha": "771f6da7e7f5369e19bdda9841822267557a774a",
+ "modGitSha": "64e88bbd4ed033b2d28fbb171f81e017a2440b72",
  "modSourceDirty": false,
  "count": 469,
  "byKind": {
@@ -823,7 +823,7 @@
    "field": "TRADES_TITLE",
    "index": null,
    "file": "src/main/java/com/killer560/hub/bazaarflip/BazaarFlipFeature.java",
-   "line": 92,
+   "line": 93,
    "regex": "(?i)^.{0,24}\\btrades?\\b.{0,24}$",
    "flags": null,
    "kind": "field",
@@ -835,7 +835,7 @@
    "field": "CANNOT_AFFORD",
    "index": null,
    "file": "src/main/java/com/killer560/hub/bazaarflip/BazaarFlipFeature.java",
-   "line": 93,
+   "line": 94,
    "regex": "^\\[Bazaar\\] You cannot afford this!$",
    "flags": null,
    "kind": "field",

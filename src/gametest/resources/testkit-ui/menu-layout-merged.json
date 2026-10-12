@@ -216,6 +216,28 @@
       "key": "item browser",
       "text": "Shows a panel listing every Skyblock item beside your inventory. It filters by the Inventory Search bar at the bottom middle of the screen.",
       "why": "item-ui 882f7d02: red slot fill, calculator, item browser uses the bottom search bar (killer560 2026-10-11)"
+    },
+    {
+      "owner": "Bazaar",
+      "key": "bazaar browser",
+      "text": "One switch for the whole Bazaar: the custom Bazaar browser (/killer560bz or a keybind; like Hypixel's remote Bazaar, only while your Booster Cookie is active), and Hypixel's real Bazaar (the NPC, or /bz) opened as the same screen - every click on one of Hypixel's buttons is the same click on the same slot, and pages it does not know stay Hypixel's own.",
+      "why": "bz-reskin c13a41e8: one switch for the Bazaar / Auction House browser and its reskin (killer560, 2026-10-11)"
+    },
+    {
+      "owner": "Bazaar",
+      "key": "reskin real bazaar",
+      "gone": "bz-reskin c13a41e8: one switch for the Bazaar / Auction House browser and its reskin (killer560, 2026-10-11); the Reskin Real Bazaar toggle is removed"
+    },
+    {
+      "owner": "Auction House",
+      "key": "auction house browser",
+      "text": "One switch for the whole Auction House: the custom browser (/killer560 ah or a keybind) and Hypixel's real Auction House menus drawn in its look, where every click is the same single click on Hypixel's menu.",
+      "why": "bz-reskin c13a41e8: one switch for the Bazaar / Auction House browser and its reskin (killer560, 2026-10-11)"
+    },
+    {
+      "owner": "Bazaar",
+      "key": "hypixel menu key",
+      "gone": "bz-reskin c13a41e8: the Hypixel Menu key row sat beside Reskin Real Bazaar and showed with the Bazaar off; with one switch it shows only while the Bazaar is on (the walk has it off)"
     }
   ]
 }
