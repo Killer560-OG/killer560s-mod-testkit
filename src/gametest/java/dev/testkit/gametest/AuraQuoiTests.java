@@ -36,11 +36,16 @@ public class AuraQuoiTests implements FabricClientGameTest {
     private static final int BASE_Z = -300;
     /** Hypixel's Wither Essence skull profile id 2865274b-3097-394e-8149-ec629c72d850 as an int array. */
     private static final String ESSENCE_ID = "[I;677717835,815216974,-2125861790,-1670195120]";
+    /** The Redstone Key skin's profile id fed95410-aba1-39df-9b95-1d4f361eb66e as an int array. */
+    private static final String REDSTONE_KEY_ID = "[I;-19311600,-1415497249,-1684726449,907982446]";
+    /** A decorative head: any other profile (11111111-2222-3333-4444-555555555555). */
+    private static final String DECOR_ID = "[I;286331153,572666675,1145328981,1431655765]";
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
         worldChange(ctx);
         skullRange(ctx);
+        redstoneKey(ctx);
     }
 
     private static boolean cheat() {
@@ -320,6 +325,107 @@ public class AuraQuoiTests implements FabricClientGameTest {
                     }
                     if (uses[1] == 0) {
                         throw new AssertionError("the skull 4.6 from the eye was never clicked");
+                    }
+                });
+    }
+
+    // ---- 847 ----
+
+    /**
+     * 847-aura-redstone-key (mod aura-2): Secret Aura picks up a Redstone Key skull 4.6 from the eye to its centre, and the
+     * key is gone afterwards - the test server takes it away on the click as Hypixel does (testmod RedstoneKeyPickup). A
+     * decorative head (another profile) at the same 4.6 is never clicked. Essence is switched OFF, so only the key option
+     * can click it. GrimAC clean.
+     */
+    private void redstoneKey(ClientGameTestContext ctx) {
+        String name = "847-aura-redstone-key";
+        if (Scenario.skip(name)) {
+            return;
+        }
+        ModUnderTest.require(MOD_ID);
+        final int dx = -720;
+        final int kx = -710;
+        final int sz = BASE_Z + 6;
+        BlockPos decor = new BlockPos(dx, SURFACE_Y + 1, sz);
+        BlockPos key = new BlockPos(kx, SURFACE_Y + 1, sz);
+        Scenario.labelServerAs(DUNGEON_LABEL);
+        Scenario.run(ctx, name,
+                (server, scenario) -> TestMap.on(server)
+                        .floor(dx - 4, SURFACE_Y - 1, sz - 9, kx + 4, sz + 3)
+                        .catchFloor(120)
+                        .survival()
+                        .clearInventory()
+                        .skyblockSidebar("F7")
+                        .command("setblock " + dx + " " + (SURFACE_Y + 1) + " " + sz
+                                + " minecraft:player_head[rotation=8]{profile:{id:" + DECOR_ID + ",name:\"Decoration\"}}")
+                        .command("setblock " + kx + " " + (SURFACE_Y + 1) + " " + sz
+                                + " minecraft:player_head[rotation=8]{profile:{id:" + REDSTONE_KEY_ID + ",name:\"RedstoneKey\"}}")
+                        .spawn(dx + 0.5, sz - 5.5, 0f)
+                        .build(),
+                (server, scenario) -> {
+                    scenario.assertDetectorWorks();
+                    ctx.waitTicks(30);
+                    boolean[] kinds = ctx.computeOnClient(mc -> {
+                        try {
+                            var m = Class.forName("com.killer560.hub.secrets.SecretsFeature")
+                                    .getMethod("isRedstoneKey", net.minecraft.world.level.BlockGetter.class, BlockPos.class);
+                            return new boolean[]{(Boolean) m.invoke(null, mc.level, key), (Boolean) m.invoke(null, mc.level, decor)};
+                        } catch (ReflectiveOperationException e) {
+                            throw new AssertionError(e);
+                        }
+                    });
+                    if (!kinds[0] || kinds[1]) {
+                        throw new AssertionError("premise - the client reads key=" + kinds[0] + " decoration=" + kinds[1]);
+                    }
+                    List<String> facts = new ArrayList<>();
+                    int[] uses = new int[2];
+                    BlockPos[] heads = {decor, key};
+                    PacketWatch.start();
+                    for (int i = 0; i < 2; i++) {
+                        BlockPos head = heads[i];
+                        double h = Math.sqrt(4.6 * 4.6 - 0.12 * 0.12);
+                        double z = sz + 0.5 - h;
+                        ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+                        server.command(String.format(Locale.ROOT, "tp @p %.4f %d %.4f 0 0", head.getX() + 0.5, SURFACE_Y, z));
+                        ctx.waitFor(mc -> Math.abs(mc.player.getZ() - z) < 0.01 && Math.abs(mc.player.getX() - (head.getX() + 0.5)) < 0.01
+                                && mc.player.onGround(), 200);
+                        ctx.waitTicks(10);
+                        double centre = ctx.computeOnClient(mc -> mc.player.getEyePosition().distanceTo(Vec3.atCenterOf(head)));
+                        int before = PacketWatch.totalUses();
+                        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CHEAT_CFG), "setAuraRedstoneKey", true));
+                        auraOn(ctx, false, false);
+                        ctx.waitTicks(60);
+                        uses[i] = PacketWatch.totalUses() - before;
+                        String what = i == 0 ? "decorative head" : "redstone key";
+                        boolean gone = ctx.computeOnClient(mc -> mc.level.getBlockState(head).isAir());
+                        facts.add(String.format(Locale.ROOT, "%s at %.3f from the eye to its centre: %d use(s) in 60 ticks, "
+                                + "block %s afterwards", what, centre, uses[i], gone ? "GONE" : "still there"));
+                        if (Math.abs(centre - 4.6) > 0.02) {
+                            throw new AssertionError("premise - stood " + centre + " from the " + what + "'s centre");
+                        }
+                    }
+                    PacketWatch.stop();
+                    ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+                    boolean serverSaw = server.logged("redstone key at " + kx + "," + (SURFACE_Y + 1) + "," + sz + " picked up");
+                    boolean keyGone = ctx.computeOnClient(mc -> mc.level.getBlockState(key).isAir());
+                    boolean decorThere = ctx.computeOnClient(mc -> !mc.level.getBlockState(decor).isAir());
+                    facts.add("server logged the pickup: " + serverSaw);
+                    for (String f : facts) {
+                        scenario.log("RESULT " + f);
+                    }
+                    scenario.log(PacketWatch.summary());
+                    if (!cheat()) {
+                        if (PacketWatch.totalUses() != 0) {
+                            throw new AssertionError("a legit jar clicked a head by itself");
+                        }
+                        return;
+                    }
+                    if (uses[0] != 0 || !decorThere) {
+                        throw new AssertionError("the decorative head was clicked (" + uses[0] + " use(s))");
+                    }
+                    if (uses[1] == 0 || !serverSaw || !keyGone) {
+                        throw new AssertionError("the redstone key was not picked up: " + uses[1] + " use(s), server pickup "
+                                + serverSaw + ", gone on the client " + keyGone);
                     }
                 });
     }

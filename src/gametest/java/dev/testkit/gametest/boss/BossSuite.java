@@ -41,6 +41,8 @@ public class BossSuite implements FabricClientGameTest {
                     BossTriggerDelayCases.register(s);
                     // Frame-to-tick clicks proven clean on GrimAC (831-835, branch nt-grim-post), own block.
                     GrimTickCases.register(s);
+                    // Lever Aura CPS (846, branch nt-aura-2), own block.
+                    LeverAuraCpsCases.register(s);
                 });
     }
 }

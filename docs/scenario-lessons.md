@@ -488,3 +488,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   Hypixel's essence skull with `player_head{profile:{id:[I;...],name:...}}` and stands at 4.8 / 4.6 eye-to-centre (0 / 2 uses).
   843 puts a server chest in the sim's Water Board (none mid-solve, clicked once `SimRoomState.markCleared`). The three ran
   past run-scenario's default 240 s deadline together with 81-83/419/420/99-sim-*: pass `-TimeoutSeconds`.
+- 846-847 (LeverAuraCpsCases in the boss session, AuraQuoiTests; nt-aura-2, 2026-10-12). 846 builds the six S2 Lights
+  levers at z 142 and reads the rate off each use packet's client tick over 3 rounds (Goldor's line + unpowered levers
+  start a round): 5 -> 5.17, 10 -> 10.00, 20 -> 10.00 - six different levers each need a body-turn tick, so 20 cannot be
+  reached there. On the mod before aura-2's fix the turn tick was added to every gap (4.48 and 7.89). 847: the testmod
+  now removes a Redstone Key head (profile fed95410-...) on a right click, as Hypixel does (`RedstoneKeyPickup`), and
+  logs "redstone key at x,y,z picked up"; a decorative head is left alone. 421 sets Lever Aura `Cps` (Min/Max Delay are gone).
