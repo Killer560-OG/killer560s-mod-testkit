@@ -482,3 +482,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - A pixel compare of a screen drawn over the WORLD is only as still as the world behind it: 824's legit run counted
   2474 changed pixels at the cursor with no carried item anywhere, because the camera view moved between frames
   (2026-10-12). Look straight up at the sky first and take two clean frames to prove the noise floor is 0.
+- 841-843 (AuraQuoiTests, SimAuraSkipTests, nt-aura-quoi, 2026-10-12): Secret Aura's QUOI items. 841 changes world with
+  `execute in minecraft:the_nether run tp` and back (the nether pad needs `forceload add` first) and times the first use from
+  the tick the client's level object is replaced: 21 ticks, against 4-5 beside a lever and 7 after a same-world tp. 842 places
+  Hypixel's essence skull with `player_head{profile:{id:[I;...],name:...}}` and stands at 4.8 / 4.6 eye-to-centre (0 / 2 uses).
+  843 puts a server chest in the sim's Water Board (none mid-solve, clicked once `SimRoomState.markCleared`). The three ran
+  past run-scenario's default 240 s deadline together with 81-83/419/420/99-sim-*: pass `-TimeoutSeconds`.
