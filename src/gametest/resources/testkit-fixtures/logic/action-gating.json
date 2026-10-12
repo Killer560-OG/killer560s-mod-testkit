@@ -5,26 +5,31 @@
     "payload": "Party > [MVP+] Killer560: meow",
     "source": {
       "file": "src/main/java/com/killer560/hub/automeow/AutoMeowFeature.java",
-      "line": 107
+      "line": 45
     },
     "matches": [
       "partycommands.CommandChatListener#PARTY_REGEX",
       "leapmenu.PartyTracker#PARTY_CHAT",
       "fastleap.PosmsgTargets#PARTY_LINE",
       "interop.InteropChatParser#PARTY_LINE",
-      "fastleap.I4LeapFeature#MELODY_PARTY_LINE"
+      "fastleap.I4LeapFeature#MELODY_PARTY_LINE",
+      "automeow.AutoMeowFeature#PARTY_LINE"
     ],
     "mustNotMatch": [
       "partycommands.CommandChatListener#GUILD_REGEX",
       "partycommands.CommandChatListener#PRIVATE_REGEX",
-      "partycommands.CommandChatListener#COOP_REGEX"
+      "partycommands.CommandChatListener#COOP_REGEX",
+      "automeow.AutoMeowFeature#GUILD_LINE",
+      "automeow.AutoMeowFeature#WHISPER_LINE",
+      "automeow.AutoMeowFeature#COOP_LINE",
+      "automeow.AutoMeowFeature#ALL_LINE"
     ],
     "mode": "matches",
     "verifiedBy": "regex",
     "sender": "Killer560",
     "senderGroup": 1,
     "channel": "Party > ",
-    "notes": "Party chat shape quoted in AutoMeowFeature's comment. Every listed pattern is called with matches() (checked in the mod source). PARTY_REGEX feeds Party Commands (sends /p warp, /p kick ...), PARTY_CHAT adds the sender as a teammate, PosmsgTargets/Interop/I4Leap read party messages. senderGroup 1 is the sender for all of them, so a forged line may match only when it captures the forger."
+    "notes": "Party chat shape quoted in AutoMeowFeature's comment. Every listed pattern is called with matches() (checked in the mod source). PARTY_REGEX feeds Party Commands (sends /p warp, /p kick ...), PARTY_CHAT adds the sender as a teammate, PosmsgTargets/Interop/I4Leap read party messages, AutoMeowFeature#PARTY_LINE picks /pc for the reply. senderGroup 1 is the sender for all of them, so a forged line may match only when it captures the forger."
   },
   {
     "id": "logic.party-chat-prefix",
@@ -32,10 +37,9 @@
     "payload": "Party > [MVP+] Killer560: meow",
     "source": {
       "file": "src/main/java/com/killer560/hub/automeow/AutoMeowFeature.java",
-      "line": 107
+      "line": 38
     },
     "matches": [
-      "automeow.AutoMeowFeature#PARTY_PREFIX",
       "automeow.AutoMeowFeature#TRIGGER"
     ],
     "mode": "find",
@@ -46,7 +50,7 @@
     "hostileExempt": {
       "automeow.AutoMeowFeature#TRIGGER": "Auto Meow answers a meow from anyone in any channel by design; TRIGGER is a word match, not a sender check"
     },
-    "notes": "AutoMeow picks the reply channel with find() on these prefixes (AutoMeowFeature.java:126-135)."
+    "notes": "Auto Meow's trigger word, searched with find() in the BODY group of the channel line (AutoMeowFeature.reply); the channel itself comes from the anchored *_LINE patterns (logic.party-chat-ranked, logic.guild-chat, logic.all-chat)."
   },
   {
     "id": "logic.guild-chat",
@@ -54,15 +58,18 @@
     "payload": "Guild > Killer560 [Member]: meow",
     "source": {
       "file": "src/main/java/com/killer560/hub/automeow/AutoMeowFeature.java",
-      "line": 107
+      "line": 46
     },
     "matches": [
-      "partycommands.CommandChatListener#GUILD_REGEX"
+      "partycommands.CommandChatListener#GUILD_REGEX",
+      "automeow.AutoMeowFeature#GUILD_LINE"
     ],
     "mustNotMatch": [
       "partycommands.CommandChatListener#PARTY_REGEX",
       "partycommands.CommandChatListener#PRIVATE_REGEX",
-      "leapmenu.PartyTracker#PARTY_CHAT"
+      "leapmenu.PartyTracker#PARTY_CHAT",
+      "automeow.AutoMeowFeature#PARTY_LINE",
+      "automeow.AutoMeowFeature#ALL_LINE"
     ],
     "mode": "matches",
     "verifiedBy": "regex",
@@ -77,10 +84,11 @@
     "payload": "[312] [MVP+] Killer560: meow",
     "source": {
       "file": "src/main/java/com/killer560/hub/automeow/AutoMeowFeature.java",
-      "line": 107
+      "line": 56
     },
     "matches": [
-      "partycommands.CommandChatListener#ALL_REGEX"
+      "partycommands.CommandChatListener#ALL_REGEX",
+      "automeow.AutoMeowFeature#ALL_LINE"
     ],
     "mustNotMatch": [
       "partycommands.CommandChatListener#PARTY_REGEX",
@@ -90,7 +98,12 @@
       "leapmenu.PartyTracker#PARTY_CHAT",
       "fastleap.PosmsgTargets#PARTY_LINE",
       "interop.InteropChatParser#PARTY_LINE",
-      "fastleap.I4LeapFeature#MELODY_PARTY_LINE"
+      "fastleap.I4LeapFeature#MELODY_PARTY_LINE",
+      "automeow.AutoMeowFeature#PARTY_LINE",
+      "automeow.AutoMeowFeature#GUILD_LINE",
+      "automeow.AutoMeowFeature#OFFICER_LINE",
+      "automeow.AutoMeowFeature#COOP_LINE",
+      "automeow.AutoMeowFeature#WHISPER_LINE"
     ],
     "mode": "matches",
     "verifiedBy": "regex",

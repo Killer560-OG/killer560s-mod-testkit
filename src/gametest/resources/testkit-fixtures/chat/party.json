@@ -33,8 +33,8 @@
     "id": "chat.party-meow",
     "kind": "chat",
     "payload": "§9Party §8> §b[MVP§c+§b] HxMateA§f: meow",
-    "source": {"file": "src/main/java/com/killer560/hub/automeow/AutoMeowFeature.java", "line": 32},
-    "matches": ["automeow.AutoMeowFeature#TRIGGER", "automeow.AutoMeowFeature#PARTY_PREFIX"],
+    "source": {"file": "src/main/java/com/killer560/hub/automeow/AutoMeowFeature.java", "line": 45},
+    "matches": ["automeow.AutoMeowFeature#TRIGGER"],
     "verifiedBy": "regex"
   },
   {

@@ -58,6 +58,9 @@ public class HxSuite implements FabricClientGameTest {
                     // Player Cosmetics names: fade, tab, nametag height, own name in F5 (811-818, branch
                     // nt-cosmetic-names), own block.
                     HxCosmeticNameCases.register(s);
+                    // Auto Meow replies in the trigger's channel, and Mod Chat sends (874, branch
+                    // nt-automeow-channel), own block.
+                    HxAutoMeowChannelCases.register(s);
                 });
     }
 }
