@@ -302,7 +302,7 @@
     {
       "owner": "Inventory Theme",
       "key": "inventory theme",
-      "text": null,
+      "text": "Re-skins the chest and inventory screens, and the hotbar: vanilla's own shapes (bevelled panel, sunken slots) in the colours of the Preset.",
       "why": "inv-theme-reskin 8ef13dd9: vanilla-shaped reskin with presets (killer560 2026-10-13)"
     }
   ]
