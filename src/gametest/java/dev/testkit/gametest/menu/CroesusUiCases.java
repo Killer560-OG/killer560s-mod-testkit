@@ -262,17 +262,20 @@ final class CroesusUiCases {
                 }
             }
             c.check(tip > 2000, "hovering the hidden run changed only " + tip + " px - no tooltip");
+            // The number key first: after a click the client briefly carries the clicked item, and a number key
+            // pressed while carrying does nothing (26.2 run, 2026-10-12).
             int before = c.events("menu.click").size();
-            c.ctx().getInput().pressMouse(0);
-            c.waitUntil("the click on the hidden run at the server", mc -> c.events("menu.click").size() > before, 40);
-            JsonObject e = c.events("menu.click").get(before);
-            c.check(e.get("slot").getAsInt() == 12, "the click on the hidden run landed on " + e);
-            int afterClick = c.events("menu.click").size();
             c.ctx().getInput().pressKey(options -> options.keyHotbarSlots[0]);
-            c.waitUntil("the number key on the hidden run at the server", mc -> c.events("menu.click").size() > afterClick, 40);
-            JsonObject k = c.events("menu.click").get(afterClick);
+            c.waitUntil("the number key on the hidden run at the server", mc -> c.events("menu.click").size() > before, 40);
+            JsonObject k = c.events("menu.click").get(before);
             c.check(k.get("slot").getAsInt() == 12 && k.get("input").getAsString().equals("SWAP"),
                     "the number key on the hidden run reached the server as " + k);
+            c.ctx().waitTicks(10);
+            int afterKey = c.events("menu.click").size();
+            c.ctx().getInput().pressMouse(0);
+            c.waitUntil("the click on the hidden run at the server", mc -> c.events("menu.click").size() > afterKey, 40);
+            JsonObject e = c.events("menu.click").get(afterKey);
+            c.check(e.get("slot").getAsInt() == 12, "the click on the hidden run landed on " + e);
             // Off again: the claimed run is drawn.
             c.ctx().runOnClient(mc -> Mod.set("croesus.CroesusConfig", "setHideOpenedRuns", false));
             c.ctx().getInput().setCursorPos(2, 2);
