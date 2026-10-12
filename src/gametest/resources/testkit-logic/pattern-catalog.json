@@ -1,9 +1,9 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-11T19:32:02",
- "modSource": "autokick-3",
- "modGitSha": "64e88bbd4ed033b2d28fbb171f81e017a2440b72",
- "modSourceDirty": true,
+ "generatedAt": "2026-10-11T19:36:07",
+ "modSource": "killer560s-mod",
+ "modGitSha": "0e7ec31bc5befbb58ddfb586217c2025197b33ec",
+ "modSourceDirty": false,
  "count": 468,
  "byKind": {
   "dynamic": 7,
@@ -3307,7 +3307,7 @@
    "field": "HYPIXEL_DEATH",
    "index": null,
    "file": "src/main/java/com/killer560/hub/pathfinding/AutoWalker.java",
-   "line": 229,
+   "line": 230,
    "regex": "^\\s?☠ You [A-Za-z0-9 ',.()-]{1,80}$",
    "flags": null,
    "kind": "field",
