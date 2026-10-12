@@ -40,8 +40,9 @@ import java.util.Map;
  *   <li>749 corrections: mid-walk the server moves him a block, then turns his camera 90 degrees without moving him. The
  *       run is still active after each, both are reported, and the soul at the end is still collected.</li>
  *   <li>750 damage (killer560 2026-10-11: "if you take damage with no knockback it should just continue ... shellwise
- *       shard"): plain damage every 10 ticks for 5 s mid-route; every hit registers, no failsafe fires, the run never
- *       stops, both souls are collected.</li>
+ *       shard"): plain damage every 12 ticks, ten times, mid-route; the walker sees every hit the server says it
+ *       applied ("Applied 0.5 damage" on its console), no failsafe fires, the run never stops, both souls are
+ *       collected. (At a 10-tick spacing vanilla's invulnerability frames swallowed some hits: 7 of 10, 2026-10-11.)</li>
  *   <li>756 knockback (killer560 2026-10-11, "have it keep working if it gets knocked back, it just needs to
  *       repathfind"): a mob's hit mid-route knocks him back; the walker counts a knockback, is still active 20 ticks
  *       later, no failsafe fired, both souls are collected.</li>
@@ -267,25 +268,34 @@ public class FairySoulTests implements FabricClientGameTest {
                             new Node(2, -846, 151, 1180, false, 1, 3),
                             new Node(3, -830, 151, 1180, true, 2));
                     int hitsBefore = walkerInt(ctx, "damageHits");
+                    long appliedBefore = applied(server);
                     int fsBefore = walkerInt(ctx, "failsafes");
                     int[] inactiveTicks = new int[1];
                     Result r = runSouls(ctx, scenario, g, 700, tick -> {
-                        // Shellwise-style: 0.5 damage, no attacker (so no knockback), every 10 ticks for 5 s.
-                        if (tick >= 10 && tick < 110 && tick % 10 == 0) {
+                        // Shellwise-style: 0.5 damage, no attacker (so no knockback), ten hits 12 ticks apart - past the
+                        // 10 ticks of vanilla invulnerability, so each one lands.
+                        if (tick >= 12 && tick <= 120 && tick % 12 == 0) {
                             server.command("damage @p 0.5 minecraft:generic");
                         }
-                        if (tick >= 10 && tick < 120 && !isActive(ctx)) {
+                        if (tick >= 12 && tick < 130 && !isActive(ctx)) {
                             inactiveTicks[0]++;
                         }
                     });
                     int hits = walkerInt(ctx, "damageHits") - hitsBefore;
                     int fs = walkerInt(ctx, "failsafes") - fsBefore;
-                    scenario.log(r.summary() + String.format(", damage hits seen %d, failsafes %d, inactive ticks during "
-                            + "the damage %d", hits, fs, inactiveTicks[0]));
-                    check(hits >= 8, "only " + hits + " of the 10 hits registered");
+                    long serverApplied = applied(server) - appliedBefore;
+                    scenario.log(r.summary() + String.format(", damage applied by the server %d, hits the walker saw %d, "
+                            + "failsafes %d, inactive ticks during the damage %d", serverApplied, hits, fs, inactiveTicks[0]));
+                    check(serverApplied >= 5, "the server applied only " + serverApplied + " hit(s) - the premise failed");
+                    check(hits == serverApplied, "the walker saw " + hits + " of the " + serverApplied + " hits the server applied");
                     check(fs == 0 && inactiveTicks[0] == 0, "damage stopped the run (failsafes " + fs + ")");
                     check(r.soulsUsed >= 2 && r.soulsLogged >= 2, "souls through the damage: " + r.summary());
                 });
+    }
+
+    /** "Applied ... damage to" lines on the server console so far (vanilla /damage's success message). */
+    private static long applied(TestServer server) {
+        return server.tail(5000).lines().filter(l -> l.contains("Applied 0.5 damage to")).count();
     }
 
     private static int walkerInt(ClientGameTestContext ctx, String getter) {
