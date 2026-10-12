@@ -274,6 +274,24 @@
       "key": "breaker aura",
       "text": "Cheat build: in a boss fight only, breaks the blocks you have picked (Pick Block Key) once they are in reach, while you hold a charged Dungeon Breaker. Nothing unpicked is broken. During clear it does nothing - use an Auto Routes breaker node.",
       "why": "path-db 73c5b0e4: Breaker Aura works only in boss (killer560 2026-10-12)"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "auto meow",
+      "text": "Replies with a random cat line when another player says meow, purr, nya or mew, in the same chat it came from: party, guild, officer, co-op, a private message (back to that player), all chat or Mod Chat.",
+      "why": "automeow-channel de1edf77: Auto Meow replies in the source channel; Spotify/Voice To Text gain a Mod Chat destination (killer560 2026-10-13)"
+    },
+    {
+      "owner": "Auto Meow",
+      "key": "auto meow enabled",
+      "text": "Replies with a random cat line when another player says meow, purr, nya or mew, in the same chat it came from: party, guild, officer, co-op, a private message (back to that player), all chat or Mod Chat.",
+      "why": "automeow-channel de1edf77: Auto Meow replies in the source channel; Spotify/Voice To Text gain a Mod Chat destination (killer560 2026-10-13)"
+    },
+    {
+      "owner": "Spotify Mod",
+      "key": "chat destination",
+      "text": "Which chat the lyrics are sent to: Party, All, Guild, Co-op / Plain, or Mod Chat.",
+      "why": "automeow-channel de1edf77: Auto Meow replies in the source channel; Spotify/Voice To Text gain a Mod Chat destination (killer560 2026-10-13)"
     }
   ]
 }
