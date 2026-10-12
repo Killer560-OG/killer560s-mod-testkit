@@ -22,9 +22,9 @@ import java.util.Map;
  *   <li>875 Highlight Runs redesigned: with the cursor on a run (tooltip up), the highlight changes pixels only INSIDE
  *       run slots' 16x16 squares (no lines in the gaps), and none inside the tooltip's box - it is drawn behind the items,
  *       under the tooltip. The shots are in the report's screens/.</li>
- *   <li>876 Hide Opened Runs: a claimed run's slot draws exactly like an empty slot, hovering it shows no tooltip and no
- *       hover highlight, a click and a number key on it reach the server as nothing - and a click on an unclaimed run
- *       still does (control).</li>
+ *   <li>876 Hide Opened Runs: a finished run's slot draws exactly like an empty slot, yet hovering it shows its tooltip
+ *       and a click and a number key on it reach the server at that slot (killer560, 2026-10-12: "just the texture is
+ *       missing").</li>
  *   <li>877 Auto Croesus still goes back into a claimed run for the keyed chest with Hide Opened Runs on (766's flow).</li>
  *   <li>878 "Unclaimed runs X / 60" and "Already claimed" across all three pages: partial ("+", pages seen) until every
  *       page was read, exact after.</li>
@@ -51,8 +51,13 @@ final class CroesusUiCases {
             28, 29, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41, 42, 43};
 
     static JsonObject head(boolean claimed) {
+        return head(claimed ? "§7Opened Chest: §5Obsidian" : "§cNo chests opened yet!");
+    }
+
+    /** A run head whose state line is {@code stateLine} (e.g. "§aNo more chests to open!" once a key was used). */
+    static JsonObject head(String stateLine) {
         return FlipCroesusCases.item("minecraft:player_head", "§cMaster Mode The Catacombs", "§7Floor IV", "",
-                "§7Players:", " §aPlayer0§f: §eMage (39)", "", claimed ? "§7Opened Chest: §5Obsidian" : "§cNo chests opened yet!",
+                "§7Players:", " §aPlayer0§f: §eMage (39)", "", stateLine,
                 "§8Chests expire in 1d 12h!", "", "§eClick to view chests!");
     }
 
@@ -228,7 +233,11 @@ final class CroesusUiCases {
 
     static void hide(Session c) throws Exception {
         try (AutoCloseable w = cfg(c, false, true)) {
-            MenuKit.show(c, page("(1/3) Croesus", 2, 2)); // 10, 11 unclaimed; 12, 13 claimed; 14 empty
+            // 10, 11 unclaimed; 12, 13 done with a key (hidden since croesus-key: a run with nothing left); 14 empty
+            JsonObject menu = page("(1/3) Croesus", 2, 2);
+            menu.getAsJsonObject("slots").add("12", head("§aNo more chests to open!"));
+            menu.getAsJsonObject("slots").add("13", head("§aNo more chests to open!"));
+            MenuKit.show(c, menu);
             MenuKit.awaitScreen(c, "(1/3) Croesus", 100);
             c.ctx().waitTicks(10);
             c.ctx().getInput().setCursorPos(2, 2);
@@ -240,7 +249,8 @@ final class CroesusUiCases {
             int diffShown = squareDiff(c, img, px, g, 10, 14);
             c.check(diffShown > 50, "control: an unclaimed run's square looks empty too (" + diffShown + " px differ)");
             c.check(diffHidden == 0, "the claimed run's square differs from an empty slot by " + diffHidden + " px");
-            // Hover the hidden run: nothing appears.
+            // killer560, 2026-10-12: "I should still be able to click where there is no run to open it, just the texture
+            // is missing" - hovering shows the run's tooltip, and a click and a number key reach the server at that slot.
             hover(c, 12);
             BufferedImage hovered = shot(c, "hidden-hover");
             int tip = 0;
@@ -251,21 +261,18 @@ final class CroesusUiCases {
                     }
                 }
             }
-            c.check(tip == 0, "hovering the hidden run changed " + tip + " px (tooltip or hover highlight)");
-            // A click and a number key on it: the server hears nothing. Then a click on an unclaimed run (control).
+            c.check(tip > 2000, "hovering the hidden run changed only " + tip + " px - no tooltip");
             int before = c.events("menu.click").size();
             c.ctx().getInput().pressMouse(0);
-            c.ctx().waitTicks(4);
+            c.waitUntil("the click on the hidden run at the server", mc -> c.events("menu.click").size() > before, 40);
+            JsonObject e = c.events("menu.click").get(before);
+            c.check(e.get("slot").getAsInt() == 12, "the click on the hidden run landed on " + e);
+            int afterClick = c.events("menu.click").size();
             c.ctx().getInput().pressKey(options -> options.keyHotbarSlots[0]);
-            c.ctx().waitTicks(10);
-            int afterHidden = c.events("menu.click").size();
-            c.check(afterHidden == before, "a click/number key on the hidden run reached the server: "
-                    + c.events("menu.click").subList(before, afterHidden));
-            hover(c, 10);
-            c.ctx().getInput().pressMouse(0);
-            c.waitUntil("the control click on an unclaimed run", mc -> c.events("menu.click").size() > afterHidden, 40);
-            JsonObject e = c.events("menu.click").get(c.events("menu.click").size() - 1);
-            c.check(e.get("slot").getAsInt() == 10, "control click landed on " + e);
+            c.waitUntil("the number key on the hidden run at the server", mc -> c.events("menu.click").size() > afterClick, 40);
+            JsonObject k = c.events("menu.click").get(afterClick);
+            c.check(k.get("slot").getAsInt() == 12 && k.get("input").getAsString().equals("SWAP"),
+                    "the number key on the hidden run reached the server as " + k);
             // Off again: the claimed run is drawn.
             c.ctx().runOnClient(mc -> Mod.set("croesus.CroesusConfig", "setHideOpenedRuns", false));
             c.ctx().getInput().setCursorPos(2, 2);
@@ -275,7 +282,7 @@ final class CroesusUiCases {
             c.check(diffOff > 50, "with Hide Opened Runs off the claimed run still looks empty (" + diffOff + " px)");
             c.note("hidden run square vs empty slot: " + diffHidden + " px differ (unclaimed run: " + diffShown
                     + ", claimed with the option off: " + diffOff + "); hover changed " + tip
-                    + " px; 0 clicks from a click + number key on it; control click reached slot 10");
+                    + " px (its tooltip); a click and a number key on it reached the server at slot 12");
         }
     }
 
