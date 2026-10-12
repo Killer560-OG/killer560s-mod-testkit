@@ -20,11 +20,11 @@ import java.util.Map;
 
 /**
  * 891-896: Health and Mana Bars' styles (mod branch bars-style, killer560 2026-10-12: "work on the custom bars more. Look
- * at how skyblocker does theirs ... make your own type of style of it"). Classic is the flat bar as before; Sleek and
- * Bold are {@code playerstats.BarPainter}. Every case sets its style explicitly: the testkit's default style for a fresh
- * config is Classic ({@code -Dkiller560.test.barStyle=classic}), which keeps the older pixel-exact bar cases on the look
- * they measure. The painter records what each draw measured ({@code BarPainter.lastTrack/lastFill/lastOverflow/
- * lastGhost}, bar units); every case also proves on a screenshot that those pixels changed.
+ * at how skyblocker does theirs ... make your own type of style of it"): Sleek and Bold, drawn by
+ * {@code playerstats.BarPainter}. Classic was removed in mod bars-2 (killer560: "Please remove the classic option have the
+ * default of it be bold"), which also outlined the number, added Text Size, a deeper overflow mana default and one Beside
+ * width per column. The painter records what each draw measured ({@code BarPainter.lastTrack/lastFill/lastOverflow/
+ * lastGhost/lastInset*}, bar units); every case also proves on a screenshot that those pixels changed.
  *
  * <ul>
  *   <li>891-ui-bars-style-fill: each style at 100/50/10/0%: fill = round(track * value / max), the screenshot's changed
@@ -32,13 +32,17 @@ import java.util.Map;
  *   <li>892-ui-bars-style-overflow: absorption on health and overflow mana on mana appear exactly when there is some, at
  *       their share of max, ending at the bar's end; nothing changes on screen for overflow -1 against 0.</li>
  *   <li>893-ui-bars-style-settings: every new setting saved, reloaded from disk and by a profile reload; the tab's rows
- *       (with tooltips), hidden under Classic, Bar Style cycling both ways by real presses.</li>
+ *       (with tooltips), Bar Style only Sleek/Bold and cycling both ways by real presses, a saved "classic" loading
+ *       as Bold, Bold for a fresh config, the old pale overflow mana default replaced by the deep blue one.</li>
  *   <li>894-ui-bars-style-ghost: smooth easing passes through values in between; after a drop the ghost marks the old
  *       value, holds, then drains to the new one; with Damage Ghost off there is none. Picture mid-drain.</li>
- *   <li>895-ui-bars-style-shots: a picture of each style at full, half, low, with absorption and overflow mana, Beside
- *       and square variants (copied to {@code TESTKIT_BARS_SHOTS} when set).</li>
- *   <li>896-ui-bars-style-editor: Bold with icons and the number Beside: everything drawn inside the element's box, and
- *       in Edit Bars a real drag moves and saves the bar and an edge drag resizes and saves it.</li>
+ *   <li>895-ui-bars-style-shots: Bold and Sleek at full, half and low at both text sizes, with overflow, and a Beside
+ *       column, in the default colours (copied to {@code TESTKIT_BARS_SHOTS} as v2-*.png when set); on every picture
+ *       each white pixel of a number touches only outline-dark pixels (contrast against white measured, at least 7:1),
+ *       on red health, blue mana, green defence and the overflow mana layer.</li>
+ *   <li>896-ui-bars-style-editor: Bold with icons and the number Beside: everything drawn inside the element's box; bars
+ *       stacked in one column share one Beside width (the same track) and a bar elsewhere keeps its own; in Edit Bars a
+ *       real drag moves and saves the bar and an edge drag resizes and saves it.</li>
  * </ul>
  */
 final class BarStyleCases {
@@ -48,6 +52,7 @@ final class BarStyleCases {
     private static final String READOUT = "playerstats.StatElements$Readout";
     private static final String STYLE = "playerstats.PlayerStatsConfig$BarStyle";
     private static final String POSITION = "playerstats.PlayerStatsConfig$ValuePosition";
+    private static final String SIZE = "playerstats.PlayerStatsConfig$TextSize";
     private static final String FEATURE = "playerstats.PlayerStatsFeature";
     private static final String PAINTER = "playerstats.BarPainter";
     private static final String TAB = "Health and Mana Bars";
@@ -58,6 +63,8 @@ final class BarStyleCases {
     static final int ABSORB = 0xFFFFC020;
     static final int OVERFLOW = 0xFF9FE6FF;
     static final int BG = 0xAA000000;
+    /** Bold's orange rim (BarPainter), opaque. */
+    static final int RIM = 0xFFB85C0A;
 
     private static final int BX = 100;
     private static final int BY = 100;
@@ -89,7 +96,7 @@ final class BarStyleCases {
         try {
             HudEditorCases.setWindow(c, 854, 480, 2);
             int gs = c.onClient(mc -> mc.getWindow().getGuiScale());
-            for (String style : new String[]{"CLASSIC", "SLEEK", "BOLD"}) {
+            for (String style : new String[]{"SLEEK", "BOLD"}) {
                 setup(c, style, new String[]{"HEALTH_BAR"}, false, false, false);
                 place(c, "statbar_health", BX, BY);
                 long[][] cases = {{1000, 1000}, {500, 1000}, {100, 1000}, {0, 1000}, {333, 1000}};
@@ -111,9 +118,6 @@ final class BarStyleCases {
                 BufferedImage b = HudFixCases.shot(c, style.toLowerCase(Locale.ROOT) + "-empty");
                 int[] cols = changedColumns(a, b, BX * gs, BY * gs, (BX + BW) * gs, (BY + BH) * gs);
                 int trackX0 = BX + (BW - half[0] - iconRoom(c, BW, BH, style)) / 2 + iconRoom(c, BW, BH, style);
-                if (style.equals("CLASSIC")) {
-                    trackX0 = BX;
-                }
                 c.note(String.format(Locale.ROOT, "%s screenshot: half vs empty changes columns %s (px), want %d..%d",
                         style, cols == null ? "none" : cols[0] + ".." + cols[1], trackX0 * gs,
                         (trackX0 + half[1]) * gs - 1));
@@ -338,7 +342,7 @@ final class BarStyleCases {
             });
             ModScreenDriver d = HudMenuProfilesCases.tabByClass(c, "HealthAndManaBarsTab");
             String[] rows = {"Bar Style", "Corners", "Icons", "Value Position", "Smooth Fill", "Damage Ghost",
-                    "Overflow Mana Colour", "Absorption Colour"};
+                    "Text Size", "Overflow Mana Colour", "Absorption Colour"};
             List<String> labels = c.onClient(mc -> labels(d));
             c.note("rows: " + labels);
             for (String row : rows) {
@@ -356,6 +360,7 @@ final class BarStyleCases {
                     return "no Bar Style row";
                 }
                 w.mouseClicked(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)), false);
+                w.mouseReleased(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)));
                 return String.valueOf(Mod.call(Mod.cfg(PS), "getBarStyle"));
             });
             c.ticks(2);
@@ -367,6 +372,7 @@ final class BarStyleCases {
                     return "no Bar Style row";
                 }
                 w.mouseClicked(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(1, 0)), false);
+                w.mouseReleased(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(1, 0)));
                 return String.valueOf(Mod.call(Mod.cfg(PS), "getBarStyle"));
             });
             c.ticks(2);
@@ -377,21 +383,75 @@ final class BarStyleCases {
                 return String.valueOf(Mod.call(Mod.cfg(PS), "getBarStyle"));
             });
             c.check(onDisk.equals("SLEEK"), "the pressed style was not saved (" + onDisk + " on disk)");
-            c.onClient(mc -> {
-                Mod.call(Mod.cfg(PS), "setBarStyle", Mod.enumValue(STYLE, "CLASSIC"));
+            // Classic is gone: two styles, a left click from Bold wraps to Sleek.
+            String styles = c.onClient(mc -> java.util.Arrays.toString(R.cls(STYLE).getEnumConstants()));
+            c.check(styles.equals("[SLEEK, BOLD]"), "Bar Style offers " + styles + ", want [SLEEK, BOLD]");
+            String wrap = c.onClient(mc -> {
+                Mod.call(Mod.cfg(PS), "setBarStyle", Mod.enumValue(STYLE, "BOLD"));
+                // The load above made a new config object; the tab's buttons act on the one they were built with.
                 try {
                     d.rebuild();
                 } catch (Throwable t) {
                     throw new AssertionError(t);
                 }
-                return null;
+                AbstractWidget w = widget(d, "Bar Style");
+                if (w == null) {
+                    return "no Bar Style row";
+                }
+                w.mouseClicked(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)), false);
+                w.mouseReleased(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)));
+                return String.valueOf(Mod.call(Mod.cfg(PS), "getBarStyle"));
             });
-            List<String> classic = c.onClient(mc -> labels(d));
-            for (String row : new String[]{"Corners", "Icons", "Value Position", "Smooth Fill", "Damage Ghost",
-                    "Overflow Mana Colour"}) {
-                c.check(find(classic, row) == null, "Classic still shows " + row);
-            }
-            c.check(find(classic, "Bar Style") != null, "Classic has no Bar Style row to leave it");
+            c.check(wrap.equals("SLEEK"), "a left click on Bar Style (Bold) gave " + wrap + ", want SLEEK");
+            String textSize = c.onClient(mc -> {
+                try {
+                    d.rebuild();
+                } catch (Throwable t) {
+                    throw new AssertionError(t);
+                }
+                AbstractWidget w = widget(d, "Text Size");
+                if (w == null) {
+                    return "no Text Size row";
+                }
+                Object before = Mod.call(Mod.cfg(PS), "getBarTextSize");
+                w.mouseClicked(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)), false);
+                w.mouseReleased(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)));
+                Mod.staticCall(PS, "load");
+                return before + "->" + Mod.call(Mod.cfg(PS), "getBarTextSize");
+            });
+            c.note("Text Size by a left click, saved: " + textSize);
+            c.check(textSize.equals("NORMAL->SMALL") || textSize.equals("SMALL->NORMAL"),
+                    "the Text Size row did not change and save the size: " + textSize);
+
+            // Old files: a saved "classic" loads Bold; no style saved loads Bold; the first overflow mana default (pale
+            // cyan, never chosen by anyone) loads as the deep blue one, a chosen colour stays.
+            String old = c.onClient(mc -> {
+                try {
+                    Path f = (Path) R.getStatic(R.cls(PS), "CONFIG_PATH");
+                    String json = Files.readString(f);
+                    StringBuilder out = new StringBuilder();
+                    String[][] variants = {{"\"barStyle\": \"classic\"", "\"overflowManaColor\": " + 0xFF9FE6FF},
+                            {"\"barStyleGone\": 0", "\"overflowManaColor\": " + 0xFF123456}};
+                    for (String[] v : variants) {
+                        String edited = json.replaceAll("\"barStyle\": \"[a-z]+\"", v[0])
+                                .replaceAll("\"overflowManaColor\": -?\\d+", v[1]);
+                        Files.writeString(f, edited);
+                        Mod.staticCall(PS, "load");
+                        Object ps = Mod.cfg(PS);
+                        out.append(Mod.call(ps, "getBarStyle")).append(',')
+                                .append(Integer.toHexString((Integer) Mod.call(ps, "getOverflowManaColor"))).append(';');
+                    }
+                    Files.writeString(f, json);
+                    Mod.staticCall(PS, "load");
+                    return out.toString();
+                } catch (java.io.IOException e) {
+                    return "io: " + e;
+                }
+            });
+            c.note("old files: classic + old overflow default -> " + old.split(";")[0] + "; no style + chosen colour -> "
+                    + (old.contains(";") ? old.split(";")[1] : "?"));
+            c.check(old.equals("BOLD,ff2050c8;BOLD,ff123456;"), "old files load as " + old
+                    + ", want BOLD with the new overflow default, then BOLD keeping a chosen colour");
         } finally {
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
@@ -561,13 +621,25 @@ final class BarStyleCases {
         try {
             HudEditorCases.setWindow(c, 854, 480, 2);
             int gs = c.onClient(mc -> mc.getWindow().getGuiScale());
-            String[][] variants = {{"CLASSIC", "round", "INSIDE"}, {"SLEEK", "round", "INSIDE"},
-                    {"BOLD", "round", "INSIDE"}, {"SLEEK", "square", "BESIDE"}, {"BOLD", "square", "BESIDE"}};
+            String[][] variants = {{"BOLD", "NORMAL", "INSIDE"}, {"BOLD", "SMALL", "INSIDE"},
+                    {"SLEEK", "NORMAL", "INSIDE"}, {"SLEEK", "SMALL", "INSIDE"}, {"BOLD", "NORMAL", "BESIDE"},
+                    {"SLEEK", "SMALL", "BESIDE"}};
+            String[][] states = {{"full", "1000", "1000", "-1", "1000"}, {"half", "500", "1000", "-1", "500"},
+                    {"low", "120", "1000", "-1", "60"}, {"overflow", "1250", "1000", "400", "500"}};
+            double worst = 99;
             for (String[] v : variants) {
                 setup(c, v[0], new String[]{"HEALTH_BAR", "MANA_BAR", "DEFENCE_BAR"}, true, false, false);
                 c.onClient(mc -> {
                     Object ps = Mod.cfg(PS);
-                    Mod.call(ps, "setBarRounded", v[1].equals("round"));
+                    // His colours: the defaults, not the cases' test colours.
+                    for (Object rr : R.cls(READOUT).getEnumConstants()) {
+                        Mod.call(ps, "setReadoutColor", rr, (Integer) R.get(rr, "defaultColor"));
+                    }
+                    Mod.call(ps, "setAbsorptionColor", (Integer) R.getStatic(R.cls(PS), "DEFAULT_ABSORPTION_COLOR"));
+                    Mod.call(ps, "setOverflowManaColor", (Integer) R.getStatic(R.cls(PS),
+                            "DEFAULT_OVERFLOW_MANA_COLOR"));
+                    Mod.call(ps, "setBarBackground", (Integer) R.getStatic(R.cls(PS), "DEFAULT_BAR_BACKGROUND"));
+                    Mod.call(ps, "setBarTextSize", Mod.enumValue(SIZE, v[1]));
                     Mod.call(ps, "setBarValuePosition", Mod.enumValue(POSITION, v[2]));
                     Mod.call(ps, "setBarWidth", 150);
                     Mod.call(ps, "save");
@@ -581,28 +653,128 @@ final class BarStyleCases {
                 place(c, "statbar_health", 20, 20);
                 place(c, "statbar_mana", 20, 50);
                 place(c, "statbar_defence", 20, 80);
-                String[][] states = {{"full", "1000", "1000", "-1", "1000"}, {"half", "500", "1000", "-1", "500"},
-                        {"low", "120", "1000", "-1", "60"}, {"overflow", "1250", "1000", "400", "250"}};
-                for (String[] s : states) {
-                    health(c, Long.parseLong(s[1]), Long.parseLong(s[2]));
-                    mana(c, Long.parseLong(s[4]), 1000, Long.parseLong(s[3]));
-                    setStatic(c, "defenceValue", s[0].equals("low") ? 50L : 900L);
+                for (String[] st : states) {
+                    if (v[2].equals("BESIDE") && !st[0].equals("full") && !st[0].equals("low")) {
+                        continue;
+                    }
+                    health(c, Long.parseLong(st[1]), Long.parseLong(st[2]));
+                    mana(c, Long.parseLong(st[4]), 1000, Long.parseLong(st[3]));
+                    setStatic(c, "defenceValue", st[0].equals("low") ? 50L : 900L);
                     c.ticks(3);
-                    String name = v[0].toLowerCase(Locale.ROOT) + "-" + v[1] + "-" + v[2].toLowerCase(Locale.ROOT)
-                            + "-" + s[0];
+                    String name = "v2-" + v[0].toLowerCase(Locale.ROOT) + "-" + v[1].toLowerCase(Locale.ROOT)
+                            + (v[2].equals("BESIDE") ? "-beside" : "") + "-" + st[0];
                     BufferedImage img = HudFixCases.shot(c, name);
                     if (copyShot(c, name, img, gs, false)) {
                         taken++;
                     }
                     int[] h = measured(c, "HEALTH_BAR");
                     c.check(h[0] > 0, name + ": the health bar did not draw");
+                    if (v[2].equals("INSIDE")) {
+                        int icon = iconRoom(c, 150, BH, v[0]);
+                        String[] bars = {"health", "mana", "defence"};
+                        int[] ys = {20, 50, 80};
+                        StringBuilder line = new StringBuilder(name + " number contrast against white, worst neighbour:");
+                        for (int k = 0; k < 3; k++) {
+                            // From past the icon: the iron chestplate has white highlights beside light grey.
+                            double[] cr = contrast(img, (int) ((20 + icon * 1.5) * gs), ys[k] * gs,
+                                    (int) ((20 + 150 * 1.5) * gs),
+                                    (int) ((ys[k] + BH * 1.5) * gs));
+                            line.append(String.format(Locale.ROOT, " %s %.1f:1 (%d white px)", bars[k], cr[0],
+                                    (int) cr[1]));
+                            c.check(cr[1] >= 20, name + " " + bars[k] + ": only " + (int) cr[1]
+                                    + " white number pixels - the contrast check would be vacuous");
+                            c.check(cr[0] >= 7.0, name + " " + bars[k] + String.format(Locale.ROOT,
+                                    ": a white number pixel touches a pixel only %.1f:1 against it - the outline does"
+                                    + " not hold", cr[0]));
+                            worst = Math.min(worst, cr[0]);
+                        }
+                        c.note(line.toString());
+                    }
                 }
             }
+            String fills = c.onClient(mc -> {
+                StringBuilder b = new StringBuilder("white straight on each fill colour (no outline):");
+                Object ps = Mod.cfg(PS);
+                for (String n : new String[]{"HEALTH_BAR", "MANA_BAR", "DEFENCE_BAR"}) {
+                    int col = (Integer) Mod.call(ps, "getReadoutColor", r(n));
+                    b.append(String.format(Locale.ROOT, " %s #%06X %.1f:1", n, col & 0xFFFFFF, ratio(0xFFFFFF, col)));
+                }
+                int ov = (Integer) Mod.call(ps, "getOverflowManaColor");
+                b.append(String.format(Locale.ROOT, " overflow mana #%06X %.1f:1", ov & 0xFFFFFF, ratio(0xFFFFFF, ov)));
+                return b.toString();
+            });
+            c.note(fills);
+            c.note(String.format(Locale.ROOT, "worst contrast next to a white number pixel on any picture: %.1f:1",
+                    worst));
             c.note(taken + " picture(s) copied to TESTKIT_BARS_SHOTS");
         } finally {
             reset(c);
             HudEditorCases.restoreWindow(c, window, gui);
             HudFixCases.restore(c, saved);
+        }
+    }
+
+    /** {lowest contrast ratio between a white (#FFFFFF) pixel and any non-white pixel of its eight neighbours, white
+     *  pixels counted} in the region. */
+    private static double[] contrast(BufferedImage img, int x0, int y0, int x1, int y1) {
+        double worst = 21;
+        int whites = 0;
+        for (int y = Math.max(1, y0); y < Math.min(img.getHeight() - 1, y1); y++) {
+            for (int x = Math.max(1, x0); x < Math.min(img.getWidth() - 1, x1); x++) {
+                if ((img.getRGB(x, y) & 0xFFFFFF) != 0xFFFFFF) {
+                    continue;
+                }
+                whites++;
+                for (int dy = -1; dy <= 1; dy++) {
+                    for (int dx = -1; dx <= 1; dx++) {
+                        int n = img.getRGB(x + dx, y + dy) & 0xFFFFFF;
+                        if (n != 0xFFFFFF) {
+                            worst = Math.min(worst, ratio(0xFFFFFF, n));
+                        }
+                    }
+                }
+            }
+        }
+        return new double[]{worst, whites};
+    }
+
+    /** WCAG contrast ratio of two sRGB colours. */
+    static double ratio(int a, int b) {
+        double la = luminance(a);
+        double lb = luminance(b);
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+    }
+
+    private static double luminance(int rgb) {
+        double r = lin(((rgb >> 16) & 0xFF) / 255.0);
+        double g = lin(((rgb >> 8) & 0xFF) / 255.0);
+        double b = lin((rgb & 0xFF) / 255.0);
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
+
+    private static double lin(double v) {
+        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    }
+
+    /** Writes the GUI-unit rectangle {@code (x0, y0)..(x1, y1)} of {@code img} to TESTKIT_BARS_SHOTS. */
+    private static void copyCrop(UiCase c, String name, BufferedImage img, int gs, int x0, int y0, int x1, int y1) {
+        String dir = System.getenv("TESTKIT_BARS_SHOTS");
+        if (dir == null || dir.isBlank()) {
+            return;
+        }
+        try {
+            int px0 = Math.max(0, x0 * gs);
+            int py0 = Math.max(0, y0 * gs);
+            BufferedImage crop = img.getSubimage(px0, py0, Math.min(img.getWidth(), x1 * gs) - px0,
+                    Math.min(img.getHeight(), y1 * gs) - py0);
+            String jar = Mod.isCheat() ? "cheat" : "legit";
+            String mcv = net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("minecraft").orElseThrow()
+                    .getMetadata().getVersion().getFriendlyString();
+            Path out = Path.of(dir).resolve(name + "-" + mcv + "-" + jar + ".png");
+            Files.createDirectories(out.getParent());
+            javax.imageio.ImageIO.write(crop, "png", out.toFile());
+        } catch (Exception | Error e) {
+            c.note("could not copy " + name + ": " + e);
         }
     }
 
@@ -615,7 +787,7 @@ final class BarStyleCases {
         try {
             int x0 = ghostArea ? (BX - 6) * gs : 8 * gs;
             int y0 = ghostArea ? (BY - 6) * gs : 12 * gs;
-            int x1 = Math.min(img.getWidth(), ghostArea ? (BX + BW + 6) * gs : 300 * gs);
+            int x1 = Math.min(img.getWidth(), ghostArea ? (BX + BW + 6) * gs : 262 * gs);
             int y1 = Math.min(img.getHeight(), ghostArea ? (BY + BH + 6) * gs : 112 * gs);
             BufferedImage crop = img.getSubimage(x0, y0, x1 - x0, y1 - y0);
             String jar = Mod.isCheat() ? "cheat" : "legit";
@@ -680,6 +852,53 @@ final class BarStyleCases {
             int[] ink = inkColumns(img, (BX + width) * gs, BY * gs, (BX + width + 60) * gs, (BY + BH) * gs);
             c.check(ink == null, "the bar draws past its box's right end (columns " + (ink == null ? "" : ink[0] + ".."
                     + ink[1]) + ")");
+
+            // One Beside width per column: Health and Defence stacked at one x take the wider of their numbers ("1,000/1,000"
+            // against "50 (33.3%)"), so their tracks match; Mana elsewhere ("50/100") keeps its own, longer, track.
+            c.onClient(mc -> {
+                Object ps = Mod.cfg(PS);
+                Mod.call(ps, "setReadoutOn", r("DEFENCE_BAR"), true);
+                Mod.call(ps, "setReadoutOn", r("MANA_BAR"), true);
+                Mod.call(ps, "save");
+                return null;
+            });
+            place(c, "statbar_health", BX, BY);
+            place(c, "statbar_defence", BX, BY + 22);
+            place(c, "statbar_mana", 20, BY + 60);
+            health(c, 1000, 1000);
+            mana(c, 50, 100, -1);
+            setStatic(c, "defenceValue", 50L);
+            c.ticks(6);
+            int[] hT = measured(c, "HEALTH_BAR");
+            int[] dT = measured(c, "DEFENCE_BAR");
+            int[] mT = measured(c, "MANA_BAR");
+            String own = c.onClient(mc -> {
+                var font = mc.font;
+                return font.width("1,000/1,000") + "," + font.width("50 (33.3%)") + "," + font.width("50/100");
+            });
+            c.note("Beside column: tracks Health " + hT[0] + ", Defence " + dT[0] + " (stacked), Mana " + mT[0]
+                    + " (elsewhere); number widths " + own);
+            c.check(hT[0] == dT[0], "stacked Beside bars end at different lengths: Health track " + hT[0]
+                    + ", Defence " + dT[0]);
+            c.check(mT[0] > hT[0], "the Mana Bar in another column took the column's wider number room (track " + mT[0]
+                    + " vs " + hT[0] + ")");
+            int gsCol = c.onClient(mc -> mc.getWindow().getGuiScale());
+            BufferedImage colImg = HudFixCases.shot(c, "beside-column");
+            copyCrop(c, "v2-beside-column", colImg, gsCol, 14, BY - 6, BX + BW + 6, BY + 66);
+            // Bold's orange rim marks each track's right end on screen.
+            int hr = rightmost(colImg, RIM, BY * gsCol, (BY + BH) * gsCol);
+            int dr = rightmost(colImg, RIM, (BY + 22) * gsCol, (BY + 22 + BH) * gsCol);
+            c.note("Beside column on screen: the rims end at px " + hr + " (Health) and " + dr + " (Defence)");
+            c.check(hr > 0 && hr == dr, "on screen the stacked bars end at px " + hr + " and " + dr);
+            c.onClient(mc -> {
+                Object ps = Mod.cfg(PS);
+                Mod.call(ps, "setReadoutOn", r("DEFENCE_BAR"), false);
+                Mod.call(ps, "setReadoutOn", r("MANA_BAR"), false);
+                Mod.call(ps, "save");
+                return null;
+            });
+            place(c, "statbar_health", BX, BY);
+            health(c, 600, 1000);
 
             // Edit Bars: a real drag, saved.
             Screen ed = c.onClient(mc -> {
@@ -895,9 +1114,6 @@ final class BarStyleCases {
     }
 
     private static int iconRoom(UiCase c, int w, int h, String style) {
-        if (style.equals("CLASSIC")) {
-            return 0;
-        }
         return c.onClient(mc -> (Integer) Mod.staticCall(PAINTER, "iconRoom", Mod.cfg(PS), w, h));
     }
 
@@ -925,6 +1141,19 @@ final class BarStyleCases {
             }
         }
         return first < 0 ? null : new int[]{first, last};
+    }
+
+    /** The rightmost pixel column holding exactly {@code colour} in rows {@code y0..y1}; -1 when none. */
+    private static int rightmost(BufferedImage img, int colour, int y0, int y1) {
+        int best = -1;
+        for (int y = Math.max(0, y0); y < Math.min(img.getHeight(), y1); y++) {
+            for (int x = 0; x < img.getWidth(); x++) {
+                if ((img.getRGB(x, y) & 0xFFFFFF) == (colour & 0xFFFFFF)) {
+                    best = Math.max(best, x);
+                }
+            }
+        }
+        return best;
     }
 
     private static int changedCount(BufferedImage a, BufferedImage b, int x0, int y0, int x1, int y1) {

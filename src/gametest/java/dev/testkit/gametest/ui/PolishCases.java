@@ -445,6 +445,7 @@ final class PolishCases {
             Mod.call(ps, "setBarBackground", HudFixCases.BACKGROUND);
             Mod.call(ps, "setAbsorptionColor", HudFixCases.ABSORB);
             Mod.call(ps, "setBarShowValue", true);
+            BarPixels.plain(ps);
             Mod.call(ps, "setTextShadow", true);
             Mod.call(ps, "setBarWidth", 100);
             Mod.call(ps, "setBarHeight", 14);
@@ -826,16 +827,27 @@ final class PolishCases {
     }
 
     /**
-     * The bar's box (its fill colour, and the absorption colour on the same rows) against the WHITE pixels of its number:
+     * The bar's box (its fill colour's tint, and the absorption colour's on the same rows - a gradient since mod bars-2,
+     * centred inside the frame the number is centred on) against the WHITE pixels of its number:
      * the gap left of the leftmost white pixel against the gap right of the rightmost, and the gap above the digits'
      * top row against the gap below their bottom row. The digits' rows are those holding at least a quarter of the
      * busiest row's white pixels, so a comma's one-unit tail is not counted as the number's height.
      */
     private static void centred(UiCase c, String tag, BufferedImage img, int gs, int fill, int absorb) {
         int bx0 = Integer.MAX_VALUE, by0 = Integer.MAX_VALUE, bx1 = -1, by1 = -1;
-        for (int y = 0; y < img.getHeight(); y++) {
+        // Since mod bars-2 the bar is Bold: its element box from the fill's tint and the painter's insets (BarPixels),
+        // which already spans the absorption segment; the number is centred on that box (icons are off here).
+        double[] bb = BarPixels.elementBox(img, fill, gs, BarPixels.scene(c));
+        if (bb != null) {
+            bx0 = (int) bb[0];
+            by0 = (int) bb[1];
+            bx1 = (int) bb[2];
+            by1 = (int) bb[3];
+            absorb = -2;
+        }
+        for (int y = 0; bb == null && y < img.getHeight(); y++) {
             for (int x = 0; x < img.getWidth(); x++) {
-                if (rgb(img, x, y) == fill) {
+                if (BarPixels.sameTint(rgb(img, x, y), fill)) {
                     bx0 = Math.min(bx0, x);
                     by0 = Math.min(by0, y);
                     bx1 = Math.max(bx1, x);
@@ -851,7 +863,7 @@ final class PolishCases {
         if (absorb != -2) {
             for (int y = by0; y <= by1; y++) {
                 for (int x = Math.max(0, bx0 - 400); x < Math.min(img.getWidth(), bx1 + 400); x++) {
-                    if (rgb(img, x, y) == absorb) {
+                    if (BarPixels.sameTint(rgb(img, x, y), absorb)) {
                         bx0 = Math.min(bx0, x);
                         bx1 = Math.max(bx1, x);
                     }

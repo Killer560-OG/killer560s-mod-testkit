@@ -259,6 +259,7 @@ final class StatBarsLayoutCases {
             Mod.call(ps, "setReadoutColor", r("MANA_TEXT"), MANA_TEXT);
             Mod.call(ps, "setBarBackground", BACKGROUND);
             Mod.call(ps, "setBarShowValue", false);
+            BarPixels.plain(ps);
             Mod.call(ps, "setTextShadow", false);
             Mod.call(ps, "setBarWidth", 100);
             Mod.call(ps, "setBarHeight", 6);
@@ -829,6 +830,7 @@ final class StatBarsLayoutCases {
             return null;
         });
         c.ticks(4);
+        BarPixels.settle(c);
         int gs = c.onClient(mc -> mc.getWindow().getGuiScale());
         String name = c.name() + "-" + shot;
         Path taken = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(name));
@@ -836,26 +838,16 @@ final class StatBarsLayoutCases {
         c.note("picture " + name + " -> " + (kept != null ? kept : taken));
         BufferedImage img = javax.imageio.ImageIO.read(taken.toFile());
         Map<Integer, double[]> out = new LinkedHashMap<>();
+        // A bar colour is found by its tint and mapped to its element's box (BarPixels: Bold/Sleek since mod bars-2);
+        // a text colour by exact match, as before.
+        BarPixels.Scene scene = BarPixels.scene(c);
         for (int col : colours) {
-            int want = col & 0xFFFFFF;
-            int x0 = Integer.MAX_VALUE, y0 = Integer.MAX_VALUE, x1 = -1, y1 = -1, n = 0;
-            for (int y = 0; y < img.getHeight(); y++) {
-                for (int x = 0; x < img.getWidth(); x++) {
-                    if ((img.getRGB(x, y) & 0xFFFFFF) == want) {
-                        n++;
-                        x0 = Math.min(x0, x);
-                        y0 = Math.min(y0, y);
-                        x1 = Math.max(x1, x);
-                        y1 = Math.max(y1, y);
-                    }
-                }
-            }
-            if (n == 0) {
+            double[] b = BarPixels.box(img, col, gs, scene);
+            if (b == null) {
                 continue;
             }
-            boolean solid = n == (x1 - x0 + 1) * (y1 - y0 + 1);
-            out.put(col, new double[]{x0 / (double) gs, y0 / (double) gs, (x1 + 1) / (double) gs, (y1 + 1) / (double) gs,
-                    solid ? 1 : 0, x0, y0, x1, y1});
+            double x0 = b[0], y0 = b[1], x1 = b[2], y1 = b[3];
+            out.put(col, new double[]{x0 / gs, y0 / gs, (x1 + 1) / gs, (y1 + 1) / gs, b[4], x0, y0, x1, y1});
         }
         return out;
     }

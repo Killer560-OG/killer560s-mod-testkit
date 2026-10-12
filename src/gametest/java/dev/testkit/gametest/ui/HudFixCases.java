@@ -126,8 +126,11 @@ final class HudFixCases {
             });
             c.ticks(4);
             BufferedImage plainShot = shot(c, "no-screen");
-            int[] hb = near(plainShot, HEALTH & 0xFFFFFF, 12);
-            c.note("no screen: Health Bar px " + (hb == null ? "none" : hb[0] + "," + hb[1] + ".." + hb[2] + "," + hb[3]));
+            // The bar's box from its fill's tint and the painter's insets (BarPixels; Bold since mod bars-2).
+            BarPixels.Scene scene = BarPixels.scene(c);
+            double[] hb = BarPixels.box(plainShot, HEALTH, gs, scene);
+            c.note("no screen: Health Bar px " + (hb == null ? "none" : (int) hb[0] + "," + (int) hb[1] + ".."
+                    + (int) hb[2] + "," + (int) hb[3]));
             check(c, hb != null && hb[0] == bx * gs && hb[2] == (bx + 100) * gs - 1,
                     "with no screen open the Health Bar did not draw at " + bx + ".." + (bx + 100));
 
@@ -165,21 +168,19 @@ final class HudFixCases {
                     + " (" + outside + " of " + outsideArea + " px changed) - the bars still hide behind screens");
             check(c, under <= underArea * 0.02, "the Health Bar shows through the inventory panel (" + under + " of "
                     + underArea + " px changed) - it must draw under the screen, not over it");
-            // Behind the screen means behind its dimmed background too, as the vanilla hotbar is: not one pixel of the
-            // bar's own colour (hud-fixes-2 drew it from Fabric's addLast layer, which vanilla defers past the dim).
-            int raw = 0;
-            for (int y = y0; y < y1; y++) {
-                for (int x = outX0; x < outX1; x++) {
-                    if ((on.getRGB(x, y) & 0xFFFFFF) == (HEALTH & 0xFFFFFF)) {
-                        raw++;
-                    }
-                }
-            }
+            // Behind the screen means behind its dimmed background too, as the vanilla hotbar is (hud-fixes-2 drew it from
+            // Fabric's addLast layer, which vanilla defers past the dim). The fill is a gradient (Bold, mod bars-2), so
+            // there is no one raw colour to look for: its brightest pixel beside the panel, against the same place with no
+            // screen open, must be dimmed - and never as bright as undimmed.
+            int litOn = brightest(on, HEALTH, outX0, y0, outX1, y1);
+            int litPlain = brightest(plainShot, HEALTH, outX0, y0, outX1, y1);
             int sample = on.getRGB((outX0 + outX1) / 2, (y0 + y1) / 2) & 0xFFFFFF;
-            c.note(String.format(Locale.ROOT, "beside the panel the bar reads #%06X (its colour #%06X), %d px undimmed",
-                    sample, HEALTH & 0xFFFFFF, raw));
-            check(c, outside == 0 || raw == 0, "the Health Bar draws over the screen's dimmed background (" + raw
-                    + " px in its raw colour) - vanilla's hotbar is dimmed there");
+            c.note(String.format(Locale.ROOT, "beside the panel the bar reads #%06X; its brightest fill pixel %d with the"
+                    + " inventory open, %d with no screen", sample, litOn, litPlain));
+            check(c, litPlain > 0, "no pixel of the Health Bar's fill beside the panel with no screen - the dim check"
+                    + " would be vacuous");
+            check(c, outside == 0 || litOn <= litPlain * 0.85, "the Health Bar draws over the screen's dimmed background"
+                    + " (brightest " + litOn + " against " + litPlain + " undimmed) - vanilla's hotbar is dimmed there");
             // The inventory's player model idles between the two pictures (46 px on main 81c894ef with no bar at all).
             check(c, elsewhere <= 400, elsewhere + " px changed away from the bar - something else drew with it");
         } finally {
@@ -307,6 +308,7 @@ final class HudFixCases {
                 Mod.call(ps, "setReadoutColor", r("DEFENCE_BAR"), DEFENCE);
                 Mod.call(ps, "setBarBackground", BACKGROUND);
                 Mod.call(ps, "setBarShowValue", false);
+                BarPixels.plain(ps);
                 Mod.call(ps, "setBarWidth", 100);
                 Mod.call(ps, "setBarHeight", 6);
                 // Each bar its own thickness and its own HUD-editor scale, as a Custom setup can leave behind.
@@ -477,9 +479,11 @@ final class HudFixCases {
         }
     }
 
-    /** The bar's box (its colour's bounding box) against the number's pixels (white and its shadow) near it. */
+    /** The bar's box (BarPixels: its fill's tint and the painter's insets) against the number's pixels (white, and its
+     *  shadow on a jar before the outline) near it. */
     private static void pad(UiCase c, String tag, BufferedImage img, int colour, int gs) {
-        int[] box = bbox(img, colour & 0xFFFFFF, 0, 0, img.getWidth(), img.getHeight());
+        double[] bb = BarPixels.box(img, colour, gs, BarPixels.scene(c));
+        int[] box = bb == null ? null : new int[]{(int) bb[0], (int) bb[1], (int) bb[2], (int) bb[3]};
         if (box == null) {
             c.problem(tag + ": the bar drew no pixel");
             return;
@@ -992,6 +996,7 @@ final class HudFixCases {
             Mod.call(ps, "setReadoutColor", r("DEFENCE_BAR"), DEFENCE);
             Mod.call(ps, "setBarBackground", BACKGROUND);
             Mod.call(ps, "setBarShowValue", showValue);
+            BarPixels.plain(ps);
             Mod.call(ps, "setTextShadow", true);
             Mod.call(ps, "setBarWidth", 100);
             Mod.call(ps, "setBarHeight", thickness);
@@ -1099,6 +1104,7 @@ final class HudFixCases {
             return null;
         });
         c.ticks(2);
+        BarPixels.settle(c);
         String name = c.name() + "-" + suffix;
         Path taken = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(name));
         Path kept = dev.testkit.harness.Report.screenshot(name, taken);
@@ -1145,36 +1151,18 @@ final class HudFixCases {
                 + Math.abs((a & 0xFF) - (b & 0xFF));
     }
 
-    /** {x0, y0, x1, y1} (inclusive) of the pixels within {@code tol} (summed RGB) of {@code rgb}, or null. */
-    private static int[] near(BufferedImage img, int rgb, int tol) {
-        int bx0 = Integer.MAX_VALUE, by0 = Integer.MAX_VALUE, bx1 = -1, by1 = -1;
-        for (int y = 0; y < img.getHeight(); y++) {
-            for (int x = 0; x < img.getWidth(); x++) {
-                if (delta(img.getRGB(x, y), rgb) <= tol) {
-                    bx0 = Math.min(bx0, x);
-                    by0 = Math.min(by0, y);
-                    bx1 = Math.max(bx1, x);
-                    by1 = Math.max(by1, y);
+    /** Brightest (summed RGB) pixel of {@code colour}'s tint in the region; 0 when none. */
+    private static int brightest(BufferedImage img, int colour, int x0, int y0, int x1, int y1) {
+        int best = 0;
+        for (int y = Math.max(0, y0); y < Math.min(img.getHeight(), y1); y++) {
+            for (int x = Math.max(0, x0); x < Math.min(img.getWidth(), x1); x++) {
+                int p = img.getRGB(x, y) & 0xFFFFFF;
+                if (BarPixels.sameTint(p, colour & 0xFFFFFF)) {
+                    best = Math.max(best, ((p >> 16) & 0xFF) + ((p >> 8) & 0xFF) + (p & 0xFF));
                 }
             }
         }
-        return bx1 < 0 ? null : new int[]{bx0, by0, bx1, by1};
-    }
-
-    /** {x0, y0, x1, y1} (inclusive) of {@code rgb} in the region, or null. */
-    private static int[] bbox(BufferedImage img, int rgb, int x0, int y0, int x1, int y1) {
-        int bx0 = Integer.MAX_VALUE, by0 = Integer.MAX_VALUE, bx1 = -1, by1 = -1;
-        for (int y = y0; y < y1; y++) {
-            for (int x = x0; x < x1; x++) {
-                if ((img.getRGB(x, y) & 0xFFFFFF) == rgb) {
-                    bx0 = Math.min(bx0, x);
-                    by0 = Math.min(by0, y);
-                    bx1 = Math.max(bx1, x);
-                    by1 = Math.max(by1, y);
-                }
-            }
-        }
-        return bx1 < 0 ? null : new int[]{bx0, by0, bx1, by1};
+        return best;
     }
 
     static Map<Path, byte[]> snapshot(UiCase c, String... classes) {
