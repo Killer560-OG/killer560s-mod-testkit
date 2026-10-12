@@ -489,6 +489,28 @@ final class HudKey2Cases {
                 c.check(tips.get(k) != null && !tips.get(k).isBlank(), "no tooltip for Auto Croesus's " + k);
             }
             c.check(tips.get("Min Delay").contains("Auto Croesus"), "Min Delay shows another tab's tooltip: " + tips.get("Min Delay"));
+            // killer560 2026-10-13: Auto Croesus has Price Mode too, linked to the Croesus tab's (one CroesusConfig field).
+            Object before = Mod.call(Mod.cfg("croesus.CroesusConfig"), "getPriceMode");
+            String[] pm = c.onClient(mc -> {
+                for (AbstractWidget w : d.content()) {
+                    String label = ModScreenDriver.label(w);
+                    if (d.isSettingsButton(w) && label.startsWith("Price Mode")) {
+                        String tip = (String) Mod.staticCall("gui.SettingTooltips", "describe", "Dungeon", w, label);
+                        ModScreenDriver.press(w);
+                        return new String[]{label, ModScreenDriver.label(w), tip};
+                    }
+                }
+                return null;
+            });
+            c.check(pm != null, "Auto Croesus has no Price Mode button");
+            if (pm != null) {
+                Object after = Mod.call(Mod.cfg("croesus.CroesusConfig"), "getPriceMode");
+                c.note("Auto Croesus Price Mode: '" + pm[0] + "' -> '" + pm[1] + "', config " + before + " -> " + after
+                        + "; tooltip: " + pm[2]);
+                c.check(!before.equals(after), "Auto Croesus's Price Mode did not change the shared CroesusConfig price mode");
+                c.check(pm[2] != null && pm[2].contains("same setting"), "Auto Croesus Price Mode tooltip does not say it is linked");
+                Mod.call(Mod.cfg("croesus.CroesusConfig"), "setPriceMode", before);
+            }
         } finally {
             c.onClient(mc -> {
                 Mod.call(Mod.cfg("croesus.CroesusConfig"), "setAutoCroesusEnabled", was);
