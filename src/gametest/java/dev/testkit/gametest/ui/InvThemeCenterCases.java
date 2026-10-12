@@ -188,6 +188,13 @@ final class InvThemeCenterCases {
      *  inside's edge rows and columns showing. */
     private static int measure(String label, BufferedImage full, BufferedImage rarity, List<int[]> slots, int gs, Pal p,
                                List<String> problems, UiCase c) {
+        return measure(label, null, full, rarity, slots, gs, p, problems, c);
+    }
+
+    /** With {@code empty} (a frame with no items) the inside may be translucent: it is judged as "what the item frame
+     *  shows where the item is not", the item as "what changed", instead of against the palette's fill colour. */
+    private static int measure(String label, BufferedImage empty, BufferedImage full, BufferedImage rarity, List<int[]> slots,
+                               int gs, Pal p, List<String> problems, UiCase c) {
         int checked = 0;
         int worstOff = 0;
         String first = "";
@@ -203,7 +210,9 @@ final class InvThemeCenterCases {
             int[][] inside = {{bx0, cy}, {bx1, cy}, {cx, by0}, {cx, by1}};
             int notFill = 0;
             for (int[] e : inside) {
-                if (rgb(full, e[0], e[1]) != p.slotFill()) {
+                boolean frame = rgb(full, e[0], e[1]) == p.slotDark() || rgb(full, e[0], e[1]) == p.slotLight();
+                if (empty != null ? frame || rgb(full, e[0], e[1]) != rgb(empty, e[0], e[1])
+                        : rgb(full, e[0], e[1]) != p.slotFill()) {
                     notFill++;
                 }
             }
@@ -224,7 +233,7 @@ final class InvThemeCenterCases {
             int y1 = -1;
             for (int y = by0; y <= by1; y++) {
                 for (int x = bx0; x <= bx1; x++) {
-                    if (rgb(full, x, y) != p.slotFill()) {
+                    if (empty != null ? differs(empty, full, x, y) : rgb(full, x, y) != p.slotFill()) {
                         x0 = Math.min(x0, x);
                         y0 = Math.min(y0, y);
                         x1 = Math.max(x1, x);
@@ -296,6 +305,11 @@ final class InvThemeCenterCases {
         c.ticks(3);
         int[] g = c.onClient(mc -> new int[]{mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(),
                 mc.getWindow().getHeight()});
+        // Default (killer560, 2026-10-12: Default is "the normal" vanilla look) draws vanilla's own hotbar: dark #5D5D5D
+        // above and left of each inside, light #7E7E7E right and below, a black outline, translucent insides.
+        boolean vanillaBar = label.startsWith("default-");
+        Pal hp = vanillaBar ? new Pal(0x000000, 0x5D5D5D, 0x939393, 0x5D5D5D, -1, 0x5D5D5D, 0x7E7E7E) : p;
+        BufferedImage emptyBar = vanillaBar ? shot(c, label + "-empty", tag) : null;
         List<int[]> slots = new ArrayList<>();
         // Slots 2-8: slot 0 is selected, and its 24-unit frame overlaps slot 1's left edge by a unit, as vanilla's does.
         for (int i = 2; i < 9; i++) {
@@ -315,13 +329,13 @@ final class InvThemeCenterCases {
         BufferedImage rarity = shot(c, label + "-rarity", tag);
         // The bar's outline along the very bottom of the window, under the middle of slot 4.
         int midX = (g[0] / 2 - 91 + 3 + 20 * 4 + 8) * gs;
-        int bottomRun = run(full, midX, full.getHeight() - 1, 0, -1, p.border());
+        int bottomRun = run(full, midX, full.getHeight() - 1, 0, -1, hp.border());
         c.note(label + ": GUI height " + g[1] + " x " + gs + " = " + g[1] * gs + " px for a " + g[2] + " px window; "
                 + "outline rows at the bottom of the window: " + bottomRun);
         if (bottomRun != gs) {
             problems.add(label + ": the hotbar's bottom outline is " + bottomRun + " px, want " + gs);
         }
-        int n = measure(label, full, rarity, slots, gs, p, problems, c);
+        int n = measure(label, emptyBar, full, rarity, slots, gs, hp, problems, c);
         if (n != 7) {
             problems.add(label + ": measured " + n + " hotbar slots, want 7");
         }

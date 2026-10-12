@@ -430,7 +430,8 @@ final class InvStorageCases {
             if (reskin) {
                 // -- Preset: the panel between slots 0 and 1 in each preset's panel shade --
                 StringBuilder seen = new StringBuilder();
-                String[][] presets = {{"DEFAULT", "C6C6C6"}, {"DARK", "2E2E30"}, {"MOD_THEME", "161616"}};
+                // Default draws vanilla's own hotbar (inv-theme-hotbar): x0 + 21 is its light #7E7E7E frame column.
+                String[][] presets = {{"DEFAULT", "7E7E7E"}, {"DARK", "2E2E30"}, {"MOD_THEME", "161616"}};
                 set(c, cfg, "setBackgroundOpacity", 1.0f);
                 for (String[] pr : presets) {
                     set(c, cfg, "setPreset", Mod.enumValue(ICFG + "$Preset", pr[0]));
