@@ -237,20 +237,21 @@ final class CroesusColorCases {
         byte[] was = Files.exists(file) ? Files.readAllBytes(file) : null;
         try {
             Files.createDirectories(file.getParent());
-            Files.writeString(file, "{\"runKeyColor\": " + 0xFFD000 + ", \"runOpenedColor\": " + 0x2F6FD0 + "}",
+            Files.writeString(file, "{\"runKeyColor\": " + 0xFFD000 + ", \"runOpenedColor\": " + 0x578DD9 + ", \"runUnknownColor\": " + 0x7DF9FF + "}",
                     StandardCharsets.UTF_8);
             c.ctx().runOnClient(mc -> Mod.staticCall("croesus.CroesusConfig", "load"));
             int moved = c.onClient(mc -> (Integer) Mod.call(Mod.cfg("croesus.CroesusConfig"), "getRunKeyColor"));
             int movedOpen = c.onClient(mc -> (Integer) Mod.call(Mod.cfg("croesus.CroesusConfig"), "getRunOpenedColor"));
+            int movedLook = c.onClient(mc -> (Integer) Mod.call(Mod.cfg("croesus.CroesusConfig"), "getRunUnknownColor"));
             Files.writeString(file, "{\"runKeyColor\": " + 0x123456 + ", \"runOpenedColor\": " + 0x654321 + "}",
                     StandardCharsets.UTF_8);
             c.ctx().runOnClient(mc -> Mod.staticCall("croesus.CroesusConfig", "load"));
             int kept = c.onClient(mc -> (Integer) Mod.call(Mod.cfg("croesus.CroesusConfig"), "getRunKeyColor"));
             int keptOpen = c.onClient(mc -> (Integer) Mod.call(Mod.cfg("croesus.CroesusConfig"), "getRunOpenedColor"));
-            String said = String.format("old defaults key FFD000 -> %06X, opened 2F6FD0 -> %06X; picked 123456 -> %06X,"
-                    + " 654321 -> %06X", moved, movedOpen, kept, keptOpen);
-            c.check(moved == 0x9B00B2 && movedOpen == 0x578DD9 && kept == 0x123456 && keptOpen == 0x654321,
-                    said + " (want 9B00B2, 578DD9, kept, kept)");
+            String said = String.format("old defaults key FFD000 -> %06X, opened 578DD9 -> %06X, not looked at 7DF9FF -> %06X;"
+                    + " picked 123456 -> %06X, 654321 -> %06X", moved, movedOpen, movedLook, kept, keptOpen);
+            c.check(moved == 0x9B00B2 && movedOpen == 0x798FAD && movedLook == 0x728F8D && kept == 0x123456 && keptOpen == 0x654321,
+                    said + " (want 9B00B2, 798FAD, 728F8D, kept, kept)");
             return said;
         } finally {
             if (was == null) {
