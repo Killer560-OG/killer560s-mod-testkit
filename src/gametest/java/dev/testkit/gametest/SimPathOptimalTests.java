@@ -73,10 +73,11 @@ public class SimPathOptimalTests implements FabricClientGameTest {
     static final String MAP_SLAB = "636-sim-pathopt-mapslab";
     static final String BREAKER = "637-sim-pathopt-breaker";
     static final String RW = "871-sim-pathopt-dbwarrior";
+    static final String REFIRE = "873-sim-pathopt-dbrefire";
     static final String CHEST = "638-sim-pathopt-chest";
     // The map trip (636) goes after every path-pair flight: after a map warp only a START node may arm until he has
     // been through one (the map-arrival interlock), and these pairs have none.
-    private static final String[] CASES = {LIP, SLAB, SLAB_NODE, CHEST, BREAKER, RW, MAP_SLAB, REPLAN, SWEEP};
+    private static final String[] CASES = {LIP, SLAB, SLAB_NODE, CHEST, BREAKER, RW, REFIRE, MAP_SLAB, REPLAN, SWEEP};
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
@@ -166,6 +167,7 @@ public class SimPathOptimalTests implements FabricClientGameTest {
                         case CHEST -> caseChest(ctx, f);
                         case BREAKER -> caseBreaker(ctx, f);
                         case RW -> caseRedstoneWarrior(ctx, f);
+                        case REFIRE -> caseRefire(ctx, f);
                         case REPLAN -> caseReplan(ctx, f);
                         case SWEEP -> caseSweep(ctx, f);
                         default -> { }
@@ -691,14 +693,18 @@ public class SimPathOptimalTests implements FabricClientGameTest {
 
     /** The route file with one DUNGEON_BREAKER node (out of the way, at 8.5 F 8.5) whose blocks are the gap. */
     private static void writeBreakerNode(ClientGameTestContext ctx) {
+        writeBreakerNode(ctx, 8.5, 8.5);
+    }
+
+    private static void writeBreakerNode(ClientGameTestContext ctx, double nx, double nz) {
         ctx.runOnClient(mc -> {
             try {
                 Path file = (Path) ModUnderTest.staticCall(STORE, "routesFile");
                 JsonObject n = new JsonObject();
                 n.addProperty("type", "DUNGEON_BREAKER");
-                n.addProperty("x", 8.5);
+                n.addProperty("x", nx);
                 n.addProperty("y", (double) F);
-                n.addProperty("z", 8.5);
+                n.addProperty("z", nz);
                 n.addProperty("yaw", 0f);
                 n.addProperty("pitch", 0f);
                 JsonArray blocks = new JsonArray();
@@ -755,6 +761,87 @@ public class SimPathOptimalTests implements FabricClientGameTest {
                 }
             });
         });
+    }
+
+    // ============================================================================================ 873 breaker re-fire
+
+    /**
+     * killer560 (2026-10-12), blocks a breaker node broke growing back: "Only if I am on the node and there are blocks
+     * to be broke then it should break them." 637's wall gap, a breaker node at (13.5, F, 15.5) in reach of its three
+     * blocks, a Dungeon Breaker in hand. He steps on: the node fires and breaks them. Then, still standing there:
+     * (1) the blocks grow back - the node fires again and breaks each once (3 dig packets); (2) all gone - nothing
+     * fires in 40 ticks; (3) off the node with the blocks back - nothing fires, they stay.
+     */
+    private static void caseRefire(ClientGameTestContext ctx, List<String> f) {
+        wallArena(ctx);
+        resetRoutes(ctx);
+        writeBreakerNode(ctx, 13.5, 15.5);
+        giveBreaker(ctx);
+        Vec3 node = rel(ctx, 13.5, F, 15.5);
+        List<BlockPos> gap = List.of(relBlock(ctx, 15, F, 15), relBlock(ctx, 15, F + 1, 15), relBlock(ctx, 15, F + 2, 15));
+        Supplier<Integer> standing = () -> onServer(ctx, (mc, level) -> {
+            int n = 0;
+            for (BlockPos p : gap) {
+                n += level.getBlockState(p).isAir() ? 0 : 1;
+            }
+            return n;
+        });
+        place(ctx, rel(ctx, 6.5, F, 6.5));
+        ctx.waitTicks(10);
+        place(ctx, node);
+        boolean first = waitFor(ctx, 100, () -> standing.get() == 0);
+        println(REFIRE, "stepping on the breaker node: blocks broken " + first);
+        if (!first) {
+            f.add("the breaker node did not break its blocks when he stepped on it");
+            return;
+        }
+        ctx.waitTicks(20);
+        // (1) grown back while he stands on it
+        long m1 = LogTap.mark();
+        ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.start());
+        setBlocks(ctx, gapBlocks(Blocks.STONE.defaultBlockState()));
+        boolean again = waitFor(ctx, 100, () -> standing.get() == 0);
+        ctx.waitTicks(20);
+        int digs1 = ctx.computeOnClient(mc -> dev.testkit.harness.PacketTrace.sent("player_action"));
+        ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.stop());
+        boolean said = logHas(m1, "of its 3 block(s) standing while he is on it");
+        println(REFIRE, "(1) on the node, blocks grown back: broken again " + again + ", re-fire logged " + said + ", "
+                + digs1 + " dig packet(s)");
+        if (!again || !said) {
+            f.add("standing on the node with its blocks back, it did not re-fire and break them");
+        }
+        if (digs1 != 3) {
+            f.add("the re-fire sent " + digs1 + " dig packet(s) for 3 standing blocks");
+        }
+        // (2) all gone, still on it
+        long m2 = LogTap.mark();
+        ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.start());
+        ctx.waitTicks(40);
+        int digs2 = ctx.computeOnClient(mc -> dev.testkit.harness.PacketTrace.sent("player_action"));
+        ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.stop());
+        boolean fired2 = logHas(m2, "standing while he is on it") || logHas(m2, "Started \"");
+        println(REFIRE, "(2) on the node, all blocks gone, 40 ticks: fired " + fired2 + ", " + digs2 + " dig packet(s)");
+        if (fired2 || digs2 != 0) {
+            f.add("standing on the node with every block gone, something fired (" + digs2 + " dig packet(s))");
+        }
+        // (3) off the node, blocks back
+        place(ctx, rel(ctx, 6.5, F, 6.5));
+        ctx.waitTicks(10);
+        long m3 = LogTap.mark();
+        ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.start());
+        setBlocks(ctx, gapBlocks(Blocks.STONE.defaultBlockState()));
+        ctx.waitTicks(40);
+        int digs3 = ctx.computeOnClient(mc -> dev.testkit.harness.PacketTrace.sent("player_action"));
+        ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.stop());
+        int left = standing.get();
+        boolean fired3 = logHas(m3, "standing while he is on it") || logHas(m3, "Started \"");
+        println(REFIRE, "(3) off the node, blocks back, 40 ticks: fired " + fired3 + ", " + digs3 + " dig packet(s), "
+                + left + " of 3 standing");
+        if (fired3 || digs3 != 0 || left != 3) {
+            f.add("off the node something fired or broke (" + digs3 + " dig packet(s), " + left + " of 3 standing)");
+        }
+        resetRoutes(ctx);
+        giveAotv(ctx);
     }
 
     // ============================================================================================ 871 Redstone Warrior
