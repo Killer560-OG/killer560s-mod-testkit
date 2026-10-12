@@ -3,7 +3,6 @@
   "leaves": {
     "gui.tab.AbilityCooldownTab": "New > Ability Cooldowns",
     "gui.tab.AbilityKeybindsTab": "New > Ability Keybinds",
-    "gui.tab.AbilityTimersTab": "New > Ability Timers",
     "gui.tab.ArchitectDraftTab": "New > Architect's First Draft",
     "gui.tab.CustomItemsTab": "New > Armor Recolour",
     "gui.tab.ArrowAlignTab": "New > Arrow Align",
@@ -79,7 +78,6 @@
     "(unscoped)": {
       "ability cooldowns": "Detects the abilities you use and counts down their real cooldowns.",
       "ability keybinds": "Custom keys for your dungeon class Ability and Ultimate.",
-      "ability timers": "Bound keys start countdowns, and running timers show on the Ability Timers HUD.",
       "advanced position": "",
       "architect's first draft": "",
       "custom items": "Recolours and reskins items on your screen only; nothing is sent to the server.",
@@ -105,9 +103,9 @@
       "fairy souls": "Tracks which Fairy Souls you have found and guides you to the missing ones.",
       "friends list": "",
       "inventory hud": "Shows your main inventory as a HUD panel.",
-      "inventory search": "Press Ctrl+F in any inventory to search; matching items get a red outline.",
+      "inventory search": "Press Ctrl+F in any inventory to search; matching slots are filled red. Type a sum (5k*3, 2s+10) to use it as a calculator.",
       "inventory theme": "",
-      "item browser": "Shows a panel listing every Skyblock item beside your inventory.",
+      "item browser": "Shows a panel listing every Skyblock item beside your inventory. It filters by the Inventory Search bar at the bottom middle of the screen.",
       "item protection": "Turns on the guards that stop you losing your own gear.",
       "leap counter": "Counts how many teammates leap to you in F7/M7 Phase 3 and alerts when all have arrived.",
       "loadout keybinds": "Lets keys click loadout slots and change pages on the Loadout screen.",
@@ -155,17 +153,6 @@
     "Ability Keybinds": {
       "ability keybinds": "Custom keys for your dungeon class Ability and Ultimate."
     },
-    "Ability Timers": {
-      "+ add timer": "Adds a new countdown timer to the list.",
-      "ability timers": "Bound keys start countdowns, and running timers show on the Ability Timers HUD.",
-      "color": "Colour of this timer's line on the Ability Timers HUD.",
-      "delete": "Removes this entry from the list.",
-      "duration": "How long the countdown runs once started.",
-      "enabled": "Turns just this one timer on or off.",
-      "key": "Press this key when you use the real ability to start or restart the countdown.",
-      "name": "What this timer is called on the HUD, e.g. Bonzo Mask.",
-      "test start": "Starts this timer now so you can see it on the HUD."
-    },
     "Advanced Position": {
       "advanced position": "Shows your exact X, Y and Z as a small movable HUD."
     },
@@ -183,14 +170,14 @@
       "solver": "Shows the solution for this puzzle or device."
     },
     "Auction House": {
-      "auction house browser": "Turns on the custom Auction House browser, opened with /killer560 ah or a keybind."
+      "auction house browser": "One switch for the whole Auction House: the custom browser (/killer560 ah or a keybind) and Hypixel's real Auction House menus drawn in its look, where every click is the same single click on Hypixel's menu."
     },
     "Auto Kick": {
       "auto kick": "While you queue in Party Finder, warns about or kicks a joiner whose S+ time on the floor is slower than its limit.",
       "kicks (or warns) once a floor's target time is missed - off until every per-floor target below is set.": ""
     },
     "Bazaar": {
-      "bazaar browser": "Turns on the custom Bazaar browser, opened with /killer560bz or a keybind. Like Hypixel's remote Bazaar, it only opens while your Booster Cookie is active."
+      "bazaar browser": "One switch for the whole Bazaar: the custom Bazaar browser (/killer560bz or a keybind; like Hypixel's remote Bazaar, only while your Booster Cookie is active), and Hypixel's real Bazaar (the NPC, or /bz) opened as the same screen - every click on one of Hypixel's buttons is the same click on the same slot, and pages it does not know stay Hypixel's own."
     },
     "Best Friends": {
       "party time tracker": "Tracks time partied and dungeon runs cleared with each player; open it with /bestfriends."
@@ -382,14 +369,14 @@
       "inventory hud": "Shows your main inventory as a HUD panel."
     },
     "Inventory Search": {
-      "inventory search": "Press Ctrl+F in any inventory to search; matching items get a red outline."
+      "inventory search": "Press Ctrl+F in any inventory to search; matching slots are filled red. Type a sum (5k*3, 2s+10) to use it as a calculator."
     },
     "Inventory Theme": {
       "hide potion effects": "Hides the potion effects panel beside the inventory and chest screens.",
       "inventory theme": "Re-skins the chest and inventory screens, and the hotbar, in this mod's look."
     },
     "Item Browser": {
-      "item browser": "Shows a panel listing every Skyblock item beside your inventory."
+      "item browser": "Shows a panel listing every Skyblock item beside your inventory. It filters by the Inventory Search bar at the bottom middle of the screen."
     },
     "Item Protection": {
       "item protection": "Turns on the guards that stop you losing your own gear."
@@ -575,7 +562,7 @@
       "stun spots": "Shows saved spots in the world where you stand to stun Thorn.",
       "thorn color": "Opens a color picker for the Thorn highlight.",
       "thorn esp line width": "Outline thickness for the Thorn highlight boxes, 1-10.",
-      "thorn esp style": "How Thorn highlights are drawn: Outline Box, Filled Box or Glow; click to cycle.",
+      "thorn esp style": "How Thorn highlights are drawn: Outline Box, Filled Box or Glow; left click cycles forward, right click back.",
       "thorn highlight": "Highlights Thorn during the F4/M4 fight.",
       "thorn highlights": "Coloured boxes or a glow on Thorn-fight targets during the F4/M4 boss."
     },

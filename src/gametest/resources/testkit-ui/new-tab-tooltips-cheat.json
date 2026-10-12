@@ -3,7 +3,6 @@
   "leaves": {
     "gui.tab.AbilityCooldownTab": "New > Ability Cooldowns",
     "gui.tab.AbilityKeybindsTab": "New > Ability Keybinds",
-    "gui.tab.AbilityTimersTab": "New > Ability Timers",
     "gui.tab.Ap3Tab": "New > AP3",
     "gui.tab.ArchitectDraftTab": "New > Architect's First Draft",
     "gui.tab.CustomItemsTab": "New > Armor Recolour",
@@ -104,7 +103,6 @@
     "(unscoped)": {
       "ability cooldowns": "Detects the abilities you use and counts down their real cooldowns.",
       "ability keybinds": "Custom keys for your dungeon class Ability and Ultimate.",
-      "ability timers": "Bound keys start countdowns, and running timers show on the Ability Timers HUD.",
       "advanced position": "",
       "ap3": "Cheat build: walks a hand-placed node chain through each F7/M7 boss phase.",
       "architect's first draft": "",
@@ -153,10 +151,10 @@
       "i hate diorite": "Turns Storm's diorite pillars into see-through glass in F7/M7 (cheat build only).",
       "interactive map": "Cheat build: full-screen dungeon map; click a room to etherwarp to it or start its secret route.",
       "inventory hud": "Shows your main inventory as a HUD panel.",
-      "inventory search": "Press Ctrl+F in any inventory to search; matching items get a red outline.",
+      "inventory search": "Press Ctrl+F in any inventory to search; matching slots are filled red. Type a sum (5k*3, 2s+10) to use it as a calculator.",
       "inventory sorter": "",
       "inventory theme": "",
-      "item browser": "Shows a panel listing every Skyblock item beside your inventory.",
+      "item browser": "Shows a panel listing every Skyblock item beside your inventory. It filters by the Inventory Search bar at the bottom middle of the screen.",
       "item protection": "Turns on the guards that stop you losing your own gear.",
       "leap counter": "Counts how many teammates leap to you in F7/M7 Phase 3 and alerts when all have arrived.",
       "loadout keybinds": "Lets keys click loadout slots and change pages on the Loadout screen.",
@@ -208,17 +206,6 @@
     "Ability Keybinds": {
       "ability keybinds": "Custom keys for your dungeon class Ability and Ultimate."
     },
-    "Ability Timers": {
-      "+ add timer": "Adds a new countdown timer to the list.",
-      "ability timers": "Bound keys start countdowns, and running timers show on the Ability Timers HUD.",
-      "color": "Colour of this timer's line on the Ability Timers HUD.",
-      "delete": "Removes this entry from the list.",
-      "duration": "How long the countdown runs once started.",
-      "enabled": "Turns just this one timer on or off.",
-      "key": "Press this key when you use the real ability to start or restart the countdown.",
-      "name": "What this timer is called on the HUD, e.g. Bonzo Mask.",
-      "test start": "Starts this timer now so you can see it on the HUD."
-    },
     "Advanced Position": {
       "advanced position": "Shows your exact X, Y and Z as a small movable HUD."
     },
@@ -240,7 +227,7 @@
       "trigger bot": "Clicks blood mobs and Arrow Align frames for you once your crosshair is on them (cheat build only)."
     },
     "Auction House": {
-      "auction house browser": "Turns on the custom Auction House browser, opened with /killer560 ah or a keybind."
+      "auction house browser": "One switch for the whole Auction House: the custom browser (/killer560 ah or a keybind) and Hypixel's real Auction House menus drawn in its look, where every click is the same single click on Hypixel's menu."
     },
     "Auto Anvil": {
       "auto anvil": "In Hypixel's Anvil, combines two identical single-enchant books into the next level, where the anvil can make it (cheat build only)."
@@ -288,10 +275,9 @@
       "auto mode": "How it crosses gaps it can't walk: Walk, Etherwarp, Fast Etherwarp or Pearls Only.",
       "auto walk path": "Turns on the walking engine Auto Fairy Souls needs to move you.",
       "sprint": "Sprints on long straight stretches.",
-      "start auto fairy souls": "Starts the automatic run now.",
-      "start/stop key": "Starts or stops Auto Fairy Souls.",
+      "start/stop key": "Starts or stops Auto Fairy Souls (it has no button; /k560path souls auto starts it too).",
       "turn on fairy souls in the pathfinding tab first.": "",
-      "turn speed": "How fast the camera turns while auto walking, in degrees per tick."
+      "turn speed": "Top speed the camera turns while auto walking, in degrees per tick; it eases smoothly every frame below that."
     },
     "Auto GFS": {
       "auto gfs": "Runs /gfs to refill dungeon items from your sacks when you run low (cheat build only)."
@@ -322,7 +308,7 @@
       "auto ult": "Uses your class Ultimate on chosen F7/M7 boss lines (cheat build only)."
     },
     "Bazaar": {
-      "bazaar browser": "Turns on the custom Bazaar browser, opened with /killer560bz or a keybind. Like Hypixel's remote Bazaar, it only opens while your Booster Cookie is active."
+      "bazaar browser": "One switch for the whole Bazaar: the custom Bazaar browser (/killer560bz or a keybind; like Hypixel's remote Bazaar, only while your Booster Cookie is active), and Hypixel's real Bazaar (the NPC, or /bz) opened as the same screen - every click on one of Hypixel's buttons is the same click on the same slot, and pages it does not know stay Hypixel's own."
     },
     "Bazaar Flipper": {
       "bazaar flipper": "Buys items from the Bazaar and sells them to the /trades NPC.",
@@ -575,7 +561,7 @@
       "inventory hud": "Shows your main inventory as a HUD panel."
     },
     "Inventory Search": {
-      "inventory search": "Press Ctrl+F in any inventory to search; matching items get a red outline."
+      "inventory search": "Press Ctrl+F in any inventory to search; matching slots are filled red. Type a sum (5k*3, 2s+10) to use it as a calculator."
     },
     "Inventory Sorter": {
       "auto inventory sorter": "Re-arranges your inventory into a saved layout, by key or /invsort apply <name>."
@@ -585,7 +571,7 @@
       "inventory theme": "Re-skins the chest and inventory screens, and the hotbar, in this mod's look."
     },
     "Item Browser": {
-      "item browser": "Shows a panel listing every Skyblock item beside your inventory."
+      "item browser": "Shows a panel listing every Skyblock item beside your inventory. It filters by the Inventory Search bar at the bottom middle of the screen."
     },
     "Item Protection": {
       "item protection": "Turns on the guards that stop you losing your own gear."
@@ -770,7 +756,7 @@
       "stun spots": "Shows saved spots in the world where you stand to stun Thorn.",
       "thorn color": "Opens a color picker for the Thorn highlight.",
       "thorn esp line width": "Outline thickness for the Thorn highlight boxes, 1-10.",
-      "thorn esp style": "How Thorn highlights are drawn: Outline Box, Filled Box or Glow; click to cycle.",
+      "thorn esp style": "How Thorn highlights are drawn: Outline Box, Filled Box or Glow; left click cycles forward, right click back.",
       "thorn esp through walls": "Thorn highlights also show targets behind walls (cheat build only).",
       "thorn highlight": "Highlights Thorn during the F4/M4 fight.",
       "thorn highlights": "Coloured boxes or a glow on Thorn-fight targets during the F4/M4 boss."
