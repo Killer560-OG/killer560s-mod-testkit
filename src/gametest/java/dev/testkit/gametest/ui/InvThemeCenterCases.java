@@ -65,7 +65,9 @@ final class InvThemeCenterCases {
             Mod.call(cfg, "setPreset", Mod.enumValue(ICFG + "$Preset", preset));
             Mod.call(cfg, "setUseCustomAccent", false);
             Mod.call(cfg, "setUseCustomSlotColor", false);
-            Mod.call(cfg, "setBackgroundOpacity", 1.0f);
+            // 0.3: since mod inv-theme-ring2 everything is opaque whatever this says (killer560, 2026-10-12: "make the
+            // inventories not transparent"), so every exact palette colour this case reads proves the pixel opaque.
+            Mod.call(cfg, "setBackgroundOpacity", 0.3f);
             Mod.call(cfg, "setThemeHotbar", true);
             Mod.call(cfg, "setHotbarScale", 1.0f);
             Object rc = Mod.cfg(RCFG);
@@ -310,6 +312,23 @@ final class InvThemeCenterCases {
         boolean vanillaBar = label.startsWith("default-");
         Pal hp = vanillaBar ? new Pal(0x000000, 0x5D5D5D, 0x939393, 0x5D5D5D, -1, 0x5D5D5D, 0x7E7E7E) : p;
         BufferedImage emptyBar = vanillaBar ? shot(c, label + "-empty", tag) : null;
+        if (vanillaBar) {
+            int inside = c.onClient(mc -> ((Number) Mod.field("inventorytheme.HotbarTheme", "V_INSIDE")).intValue()) & 0xFFFFFF;
+            int edge = c.onClient(mc -> ((Number) Mod.field("inventorytheme.HotbarTheme", "V_INSIDE_EDGE")).intValue()) & 0xFFFFFF;
+            int wrong = 0;
+            for (int i = 2; i < 9; i++) {
+                int bx = (g[0] / 2 - 91 + 3 + 20 * i) * gs;
+                int by = (g[1] - 19) * gs;
+                wrong += rgb(emptyBar, bx + 8 * gs, by + 8 * gs) == inside ? 0 : 1;
+                wrong += rgb(emptyBar, bx, by + 8 * gs) == edge ? 0 : 1;
+                wrong += rgb(emptyBar, bx + 8 * gs, by) == edge ? 0 : 1;
+            }
+            c.note(String.format(Locale.ROOT, "%s: Default hotbar insides opaque #%06X with #%06X top/left edge: %d of 21 "
+                    + "sampled pixels wrong", label, inside, edge, wrong));
+            if (wrong > 0) {
+                problems.add(label + ": " + wrong + " Default hotbar inside pixels are not their opaque colour (see-through?)");
+            }
+        }
         List<int[]> slots = new ArrayList<>();
         // Slots 2-8: slot 0 is selected, and its 24-unit frame overlaps slot 1's left edge by a unit, as vanilla's does.
         for (int i = 2; i < 9; i++) {
@@ -449,9 +468,9 @@ final class InvThemeCenterCases {
                 theme(c, preset);
             }
             String tag = preset.toLowerCase(Locale.ROOT);
-            BufferedImage s0 = hotbarWith(c, 0, "hotbar-sel-" + tag + "-slot0");
-            BufferedImage s4 = hotbarWith(c, 4, "hotbar-sel-" + tag + "-slot4");
-            hotbarWith(c, 8, "hotbar-sel-" + tag + "-slot8");
+            BufferedImage s0 = hotbarWith(c, 0, "ring2-hotbar-" + tag + "-slot0");
+            BufferedImage s4 = hotbarWith(c, 4, "ring2-hotbar-" + tag + "-slot4");
+            hotbarWith(c, 8, "ring2-hotbar-" + tag + "-slot8");
             int[] box = changedBox(s0, s4, rx0, ry0, rx1, ry1);
             int insideChanged = 0;
             for (int y = inside[1]; y < inside[3]; y++) {
@@ -487,10 +506,38 @@ final class InvThemeCenterCases {
             if (insideChanged > 0) {
                 problems.add(preset + ": the ring changes " + insideChanged + " px inside the slot's 16-unit inside");
             }
+            // Vanilla's band structure, mirrored: from the outline inward on the left light > mid > faint; on the right the
+            // reverse (faint by the outline, light by the slot). The outline's top row is the bar's own edge colour.
+            int sxp = (x0 - 1 + 80) * gs + gs / 2;
+            int my = (g[1] - 10) * gs + gs / 2;
+            int[] left = {rgb(s4, sxp + gs, my), rgb(s4, sxp + 2 * gs, my), rgb(s4, sxp + 3 * gs, my)};
+            int[] right = {rgb(s4, sxp + 22 * gs, my), rgb(s4, sxp + 21 * gs, my), rgb(s4, sxp + 20 * gs, my)};
+            int topRow = rgb(s4, sxp + 12 * gs, (g[1] - 23) * gs + gs / 2);
+            int sideCol = rgb(s4, sxp, my);
+            boolean fades = lum(left[0]) > lum(left[1]) && lum(left[1]) > lum(left[2])
+                    && lum(right[2]) > lum(right[1]) && lum(right[1]) > lum(right[0]);
+            c.note(String.format(Locale.ROOT, "%s ring: outline top #%06X side #%06X; left bands #%06X #%06X #%06X, right bands "
+                    + "(outside in) #%06X #%06X #%06X", preset, topRow, sideCol, left[0], left[1], left[2], right[0], right[1],
+                    right[2]));
+            if (!fades) {
+                problems.add(preset + ": the ring's bands do not fade like vanilla's (light-mid-faint inward on the left, "
+                        + "faint-mid-light on the right)");
+            }
+            if (!preset.equals("VANILLA")) {
+                int border = preset.equals("DEFAULT") ? 0x000000 : palette(c).border();
+                if (topRow != border || (sideCol != border && sideCol != 0x2B2B2B)) {
+                    problems.add(String.format(Locale.ROOT, "%s: the ring's outline (top #%06X, side #%06X) is not the bar's edge "
+                            + "colour #%06X", preset, topRow, sideCol, border));
+                }
+            }
             if (preset.equals("DARK") && bright > 0xA0) {
                 problems.add("DARK: the ring is too bright (channel " + bright + ", cap 160)");
             }
         }
+    }
+
+    private static int lum(int rgb) {
+        return ((rgb >> 16) & 0xFF) * 3 + ((rgb >> 8) & 0xFF) * 6 + (rgb & 0xFF);
     }
 
     /** A screenshot saved as {@code inv-theme-shots/<name>.png} exactly (no tag or version suffix). */
