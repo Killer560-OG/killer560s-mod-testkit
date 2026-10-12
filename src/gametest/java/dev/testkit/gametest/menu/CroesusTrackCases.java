@@ -5,6 +5,11 @@ import com.google.gson.JsonObject;
 import dev.testkit.gametest.hx.Session;
 import dev.testkit.gametest.mod.Mod;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,7 +26,10 @@ import java.util.Map;
  *       a key, one not, and a key-used run: each keeps its state in its new slot from the first frame.</li>
  *   <li>889: two Bravo runs with the very same "expire in 2d 3h" stay distinct, before and after the shift.</li>
  *   <li>890: after looking at the runs, the memory is reloaded from disk (a restart) and the shifted list still reads
- *       needs-a-key / opened; the file holds the two runs.</li>
+ *       needs-a-key / opened; the file holds the two runs. Then (croesus-outline, 2026-10-13, "make it save across
+ *       reloading my instance") his real run file, names anonymised (testkit-fixtures/croesus-runs-real-2026-10-12.json,
+ *       59 runs over three pages): every page read, a restart, page 1 alone - the same states and the same totals, with
+ *       no "+" and no "Pages seen".</li>
  * </ul>
  */
 final class CroesusTrackCases {
@@ -32,7 +40,10 @@ final class CroesusTrackCases {
     static void register(Session s) {
         MenuSuite.test(s, "888-menu-croesus-track-shift", c -> shift(c, false, "1d 20h!"));
         MenuSuite.test(s, "889-menu-croesus-track-same-expiry", c -> shift(c, false, "2d 3h!"));
-        MenuSuite.test(s, "890-menu-croesus-track-restart", c -> shift(c, true, "1d 20h!"));
+        MenuSuite.test(s, "890-menu-croesus-track-restart", c -> {
+            shift(c, true, "1d 20h!");
+            real(c);
+        });
     }
 
     static JsonObject head(String player, String stateLine, String expiry) {
@@ -86,6 +97,172 @@ final class CroesusTrackCases {
                             + " (want 2 3 4, hidden -HH, from the first frame)");
             c.note("before: " + CroesusStableCases.log(pre) + "; after the shift" + (restart ? " + reload from disk" : "")
                     + ": " + CroesusStableCases.log(post) + (restart ? "; file " + file.replaceAll("\\s+", " ") : ""));
+        }
+    }
+
+    static final int[] HEAD_SLOTS = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25,
+            28, 29, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41, 42, 43};
+    static final long HOUR = 3_600_000L;
+    static final long DAY = 24 * HOUR;
+
+    /** "Chests expire in" as Hypixel words it, hours rounded down (the real files all carry an hour tolerance). */
+    static String expiry(long rem) {
+        long d = rem / DAY;
+        long h = rem % DAY / HOUR;
+        long m = rem % HOUR / 60_000L;
+        return d > 0 ? (h > 0 ? d + "d " + h + "h!" : d + "d!") : h > 0 ? h + "h!" : m + "m!";
+    }
+
+    static JsonObject realHead(String sig, String stateLine, String expiry) {
+        String[] part = sig.split("\\|");
+        String[] lore = new String[part.length - 2 + 9];
+        int k = 0;
+        lore[k++] = "§7" + part[1];
+        lore[k++] = "";
+        lore[k++] = "§7Players:";
+        for (int i = 2; i < part.length; i++) {
+            lore[k++] = " §a" + part[i];
+        }
+        lore[k++] = "";
+        lore[k++] = stateLine;
+        lore[k++] = "§8Chests expire in " + expiry;
+        lore[k++] = "";
+        lore[k++] = "§eClick to view chests!";
+        lore[k] = "";
+        return FlipCroesusCases.item("minecraft:player_head", "§c" + part[0], java.util.Arrays.copyOf(lore, k));
+    }
+
+    /** His real file, every time moved to now; a restart in between; the list's states and totals must carry over. */
+    static void real(Session c) throws Exception {
+        JsonObject fx;
+        try (InputStream in = CroesusTrackCases.class.getResourceAsStream("/testkit-fixtures/croesus-runs-real-2026-10-12.json")) {
+            fx = JsonParser.parseString(new String(in.readAllBytes(), StandardCharsets.UTF_8)).getAsJsonObject();
+        }
+        long now = System.currentTimeMillis();
+        long dt = now - fx.get("ref").getAsLong();
+        JsonArray runs = fx.getAsJsonArray("runs");
+        Map<Integer, JsonObject> byOrder = new java.util.TreeMap<>();
+        for (JsonElement el : runs) {
+            JsonObject r = el.getAsJsonObject();
+            r.addProperty("expiresAt", r.get("expiresAt").getAsLong() + dt);
+            if (r.has("claimAt")) {
+                r.addProperty("claimAt", r.get("claimAt").getAsLong() + dt);
+            }
+            byOrder.put(r.get("order").getAsInt(), r);
+        }
+        int max = ((java.util.TreeMap<Integer, JsonObject>) byOrder).lastKey();
+        int pages = max / HEAD_SLOTS.length + 1;
+        try (AutoCloseable w = CroesusStableCases.world(c)) {
+            Path p = c.onClient(mc -> (Path) Mod.staticCall("util.ModPaths", "config", "killer560smod-croesus-runs.json"));
+            JsonObject file = new JsonObject();
+            file.add("runs", runs);
+            Files.createDirectories(p.getParent());
+            Files.writeString(p, file.toString(), StandardCharsets.UTF_8);
+            c.ctx().runOnClient(mc -> Mod.staticCall("croesus.ChestProfitFeature", "reloadRunMemoryForTest"));
+            // The heads: each remembered run where its order puts it (its real expiry 20 minutes into the hour its
+            // estimate covers); an order nothing was remembered for gets an unclaimed run of its own.
+            List<JsonObject> lists = new java.util.ArrayList<>();
+            Map<Integer, Byte> want = new java.util.HashMap<>();
+            for (int pg = 0; pg < pages; pg++) {
+                Map<Integer, JsonObject> heads = new LinkedHashMap<>();
+                for (int i = 0; i < HEAD_SLOTS.length; i++) {
+                    int order = pg * HEAD_SLOTS.length + i;
+                    if (order > max) {
+                        break;
+                    }
+                    JsonObject r = byOrder.get(order);
+                    if (r == null) {
+                        heads.put(HEAD_SLOTS[i], realHead("The Catacombs|Floor VII|Filler" + order + ": Mage (40)",
+                                "§cNo chests opened yet!", expiry(DAY + order * 60_000L)));
+                        want.put(order, (byte) 1);
+                        continue;
+                    }
+                    long rem = r.get("expiresAt").getAsLong() + 20 * 60_000L - now;
+                    String claim = r.has("claimType") ? r.get("claimType").getAsString() : null;
+                    String line = claim == null ? "§cNo chests opened yet!"
+                            : "§7Opened Chest: §4" + claim.charAt(0) + claim.substring(1).toLowerCase(java.util.Locale.ROOT);
+                    heads.put(HEAD_SLOTS[i], realHead(r.get("sig").getAsString(), line, expiry(rem)));
+                    byte st = 1;
+                    if (claim != null) {
+                        st = 3;
+                        for (Map.Entry<String, JsonElement> ch : r.getAsJsonObject("chests").entrySet()) {
+                            if (!ch.getKey().equals(claim) && ch.getValue().getAsLong() >= 500_000L) {
+                                st = 2;
+                            }
+                        }
+                    }
+                    want.put(order, st);
+                }
+                Map<Integer, JsonObject> slots = new LinkedHashMap<>(heads);
+                slots.put(49, FlipCroesusCases.item("minecraft:barrier", "§cClose"));
+                Map<Integer, JsonObject> on = new LinkedHashMap<>();
+                heads.keySet().forEach(k -> on.put(k, new JsonObject()));
+                JsonObject m = FlipCroesusCases.menu("(" + (pg + 1) + "/" + pages + ") Croesus", 6, slots, on);
+                m.addProperty("fill", false);
+                lists.add(m);
+            }
+            int[] matched = new int[2];
+            int claimedRuns = (int) want.entrySet().stream().filter(e -> byOrder.containsKey(e.getKey()) && e.getValue() != 1).count();
+            StringBuilder bad = new StringBuilder();
+            for (int pass = 0; pass < 2; pass++) {
+                int upTo = pass == 0 ? pages : 1; // after the restart: page 1 only
+                for (int pg = 0; pg < upTo; pg++) {
+                    MenuKit.show(c, lists.get(pg));
+                    MenuKit.awaitScreen(c, "(" + (pg + 1) + "/" + pages + ") Croesus", 100);
+                    c.ctx().getInput().setCursorPos(2, 2);
+                    c.ctx().waitTicks(8);
+                    byte[] st = c.onClient(mc -> (byte[]) Mod.staticCall("croesus.ChestProfitFeature", "runStatesForTest"));
+                    for (int i = 0; i < HEAD_SLOTS.length; i++) {
+                        int order = pg * HEAD_SLOTS.length + i;
+                        if (!want.containsKey(order)) {
+                            continue;
+                        }
+                        byte got = HEAD_SLOTS[i] < st.length ? st[HEAD_SLOTS[i]] : -1;
+                        if (got == want.get(order)) {
+                            if (want.get(order) != 1) {
+                                matched[pass]++;
+                            }
+                        } else if (bad.length() < 600) {
+                            bad.append(pass == 0 ? "first" : "after restart").append(" order ").append(order)
+                                    .append(" state ").append(got).append(" want ").append(want.get(order)).append("; ");
+                        }
+                    }
+                }
+                if (pass == 0) {
+                    int[] before = c.onClient(mc -> (int[]) Mod.staticCall("croesus.ChestProfitFeature", "runTotals"));
+                    c.ctx().runOnClient(mc -> {
+                        Mod.staticCall("croesus.ChestProfitFeature", "reloadRunMemoryForTest");
+                        // A restart wipes every static: jars before croesus-outline kept the page counts in
+                        // ChestProfitFeature.PAGE_COUNTS, which the reload above does not touch.
+                        try {
+                            Object counts = Mod.field("croesus.ChestProfitFeature", "PAGE_COUNTS");
+                            if (counts instanceof Map<?, ?> m) {
+                                m.clear();
+                            }
+                        } catch (Throwable ignored) {
+                            // this jar keeps them with the run memory
+                        }
+                    });
+                    MenuKit.reset(c);
+                    fx.addProperty("before", java.util.Arrays.toString(before));
+                }
+            }
+            int[] after = c.onClient(mc -> (int[]) Mod.staticCall("croesus.ChestProfitFeature", "runTotals"));
+            List<String> panel = CroesusUiCases.panel(c);
+            String before = fx.get("before").getAsString();
+            int claimedPage1 = (int) want.entrySet().stream().filter(e -> e.getKey() < HEAD_SLOTS.length
+                    && byOrder.containsKey(e.getKey()) && e.getValue() != 1).count();
+            c.note(String.format("his file: %d runs, %d claimed ones on the list; matched %d/%d on the first read, %d/%d on"
+                    + " page 1 after the restart; totals {unclaimed, claimed, pages current, pages, key, not looked at} %s"
+                    + " before, %s after; panel %s", runs.size(), claimedRuns, matched[0], claimedRuns, matched[1],
+                    claimedPage1, before, java.util.Arrays.toString(after), panel));
+            c.check(bad.length() == 0, "states: " + bad);
+            c.check(matched[0] == claimedRuns && matched[1] == claimedPage1, "matched " + matched[0] + "/" + claimedRuns
+                    + " then " + matched[1] + "/" + claimedPage1);
+            c.check(before.equals(java.util.Arrays.toString(after)) && after[2] == pages && after[3] == pages,
+                    "totals before the restart " + before + ", after it with page 1 alone " + java.util.Arrays.toString(after));
+            c.check(panel.stream().noneMatch(l -> l.startsWith("Pages seen") || l.contains("+")),
+                    "the info box after the restart is partial: " + panel);
         }
     }
 }

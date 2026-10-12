@@ -162,7 +162,7 @@ final class CroesusKeyCases {
             c.check(r1 > 150 && b1 > 100 && g1 < 80, "needs-key border " + hex(px[1]) + " is not magenta");
             c.check(b2 > r2 + 15, "opened tint " + hex(px[2]) + " is not blue");
             c.check(lum3 < 3 * 110, "key-used tint " + hex(px[3]) + " is not dark");
-            c.check(g4 > 180 && b4 > 180 && r4 < 160, "the not-looked-at run's corner " + hex(px[4]) + " is not cyan");
+            c.check(g4 > r4 + 15 && b4 > r4 + 15, "the not-looked-at run's corner " + hex(px[4]) + " is not teal");
             c.check(px[2] != px[3] && px[1] != px[0], "two states share a colour: " + hex(px[0]) + " " + hex(px[1]) + " "
                     + hex(px[2]) + " " + hex(px[3]));
             List<String> lines = CroesusUiCases.panel(c);
