@@ -30,7 +30,7 @@ import java.util.function.Function;
  *   <li>667: a real click-click swap pins both names (and only them); assigning a class to someone else afterwards
  *       moves only the unpinned; pins, default and classes survive a reload from disk; an old-format file loads with no
  *       pins and keeps its spots under {@code legacyClassOrders}.</li>
- *   <li>668: shift-click unpins one teammate (he returns to his default spot); Reset to Default unpins all.</li>
+ *   <li>668: shift-click unpins one teammate (he returns to his default spot); Reset Positions (Reset to Default until mod leap-4) unpins all.</li>
  *   <li>669: screenshots at GUI 2 (default layout, after a swap with "pinned" drawn); copied to
  *       {@code TESTKIT_LEAPORDER_SHOTS} when set.</li>
  * </ul>
@@ -487,10 +487,10 @@ final class LeapOrderCases {
             c.check(half.equals(wantHalf), "after unpinning spots 0 and 3 " + half + ", want " + wantHalf);
             c.check(half.get(0).equals(def.get(0)) && half.get(3).equals(def.get(3)),
                     "unpinned teammates did not go back to their default spots: " + half);
-            // Reset to Default: everything back.
-            InvBatchCases.clickWidget(c, s, InvBatchCases.widget(c, s, "Reset to Default"));
+            // Reset Positions: everything back.
+            InvBatchCases.clickWidget(c, s, InvBatchCases.widget(c, s, "Reset Positions"));
             List<String> back = shown(c, s);
-            c.check(back.equals(def), "after Reset to Default " + back + ", want " + def);
+            c.check(back.equals(def), "after Reset Positions " + back + ", want " + def);
             c.check(pins(c).stream().allMatch(String::isEmpty), "pins left after Reset " + pins(c));
             c.note("A-Z " + def + " -> swapped " + moved + " -> shift-click x2 " + half + " -> Reset " + back);
         } finally {

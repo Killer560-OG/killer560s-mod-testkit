@@ -23,7 +23,8 @@ import java.util.Map;
  *       Archer starts it on LoAnna; her Class button steps forward with a left click and back with a right click; LoBen
  *       is set with a class button; LoCara's page is pre-filled Healer (no override written); Back goes back a page;
  *       Finish shows the editor laid out by the Default Order (Odin) from those classes. With every class known, picking
- *       Archer goes straight to the editor, and Set Classes starts the wizard again.</li>
+ *       Archer goes straight to the editor; there is no Set Classes button, and after Reset Classes picking the class starts
+ *       the wizard again.</li>
  *   <li>827: the two new Leap Menu settings: Show Player Heads and Leap Style rows in the tab, left click forward, right
  *       click back, saved to the file and read back by a reload, each with a tooltip.</li>
  *   <li>828: pictures at GUI 2 of a wizard page and the editor after it (to {@code TESTKIT_LEAP2_SHOTS}).</li>
@@ -155,19 +156,25 @@ final class LeapWizardCases {
             c.check(shown.equals(want), "after Finish the editor shows " + shown + ", want Odin's " + want);
             trail.add("LoDev: Berserker; Finish -> editor " + shown);
 
-            // Everyone known: page 1 goes straight to the editor; Set Classes starts the wizard again.
+            // Everyone known: page 1 goes straight to the editor. Since mod leap-4 there is no Set Classes button; the
+            // way back into the wizard is the automatic one: Reset Classes leaves classes unknown, and picking the class
+            // again starts it.
             press(c, s, "Back");
             c.check(c.onClient(mc -> Mod.field(s, "editing")) == null, "Back did not return to page 1");
             clickArcher(c, s);
             c.check(wizard(c, s) == null, "with every class known the wizard started anyway");
-            press(c, s, "Set Classes");
+            c.check(InvBatchCases.widget(c, s, "Set Classes") == null, "the editor still has a Set Classes button");
+            press(c, s, "Reset Classes");
+            press(c, s, "Back");
+            clickArcher(c, s);
             List<String> again = wizard(c, s);
-            c.check(PARTY.equals(again), "Set Classes started " + again);
+            c.check(PARTY.equals(again), "after Reset Classes, picking Archer started " + again);
             String annaAgain = ModScreenDriver.label(InvBatchCases.widget(c, s, "Class:"));
-            c.check(annaAgain.contains("Mage"), "Set Classes shows LoAnna as " + annaAgain);
+            c.check(annaAgain.contains("?"), "after Reset Classes LoAnna shows " + annaAgain);
             press(c, s, "Skip");
             c.check(wizard(c, s) == null, "Skip left the wizard running");
-            trail.add("all known: straight to the editor; Set Classes -> wizard (LoAnna '" + annaAgain + "'); Skip");
+            trail.add("all known: straight to the editor, no Set Classes; Reset Classes + Archer -> wizard again (LoAnna '"
+                    + annaAgain + "'); Skip");
             c.note(String.join("; ", trail));
         } finally {
             detect(c, "LoCara", null);
