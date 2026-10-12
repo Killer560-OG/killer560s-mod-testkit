@@ -292,6 +292,12 @@
       "key": "chat destination",
       "text": "Which chat the lyrics are sent to: Party, All, Guild, Co-op / Plain, or Mod Chat.",
       "why": "automeow-channel de1edf77: Auto Meow replies in the source channel; Spotify/Voice To Text gain a Mod Chat destination (killer560 2026-10-13)"
+    },
+    {
+      "owner": "Croesus / Chest Profit",
+      "key": "highlight runs",
+      "text": "In the Croesus menu, tints each run you have not claimed from yet with a thin border, and darkens the ones you already claimed. Drawn behind the items, under their tooltips.",
+      "why": "croesus-ui 79dd7ecc: Highlight Runs redrawn behind the items (killer560, 2026-10-12)"
     }
   ]
 }

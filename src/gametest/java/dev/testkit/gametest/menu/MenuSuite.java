@@ -29,6 +29,8 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *       locked pages and empty slots ({@link PolishMenuCases})</li>
  *   <li>491-499 the unified Auction House: the API-drawn browser, Hypixel's AH menus reskinned with one press = one
  *       slot click, /viewauction hand-off, hidden HUDs, seamless page changes, fallback ({@link AuctionHouseCases})</li>
+ *   <li>875-878 the Croesus menu: Highlight Runs behind the items and under the tooltip, Hide Opened Runs (empty, no
+ *       tooltip, no click; Auto Croesus unaffected), unclaimed/claimed totals across all pages ({@link CroesusUiCases})</li>
  *   <li>773-776 Croesus valuation of killer560's M4 chest in both Price Modes (run view, chest screen, Auto Croesus's
  *       decision) and the Price Mode setting ({@link CroesusPriceCases})</li>
  *   <li>768-769 the reskin drawing while the flipper runs (a key stops it), the one Bazaar/AH switch's config
@@ -129,6 +131,8 @@ public class MenuSuite implements FabricClientGameTest {
                     ReskinSwitchCases.register(s);
                     // ---- 773-776 croesus-price (2026-10-11): M4 chest valuation, Croesus Price Mode ----
                     CroesusPriceCases.register(s);
+                    // ---- 875-878 croesus-ui (2026-10-12): run highlight under the tooltip, Hide Opened Runs, totals ----
+                    CroesusUiCases.register(s);
                 });
     }
 }
