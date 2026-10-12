@@ -81,8 +81,7 @@ final class StatBarsCases {
                 {"Absorption", OH, "getHideAbsorptionHeartsRaw"}, {"Mount Health", OH, "getHideMountHealthBarRaw"},
                 {"Regeneration Bounce", OH, "getHideRegenBounceRaw"}, {"Armour", OH, "getHideArmorBarRaw"},
                 {"Hunger", OH, "getHideHungerBarRaw"}, {"XP Bar And Level", PS, "isHideXpBar"},
-                {"Hypixel Stat Text", PS, "isHideHypixelStatText"}, {"Text Shadow", PS, "isTextShadow"},
-                {"Hide Vanilla XP Bar", PS, "isHideXpBar"}};
+                {"Hypixel Stat Text", PS, "isHideHypixelStatText"}, {"Text Shadow", PS, "isTextShadow"}};
         for (String[] p : t) {
             TOGGLES.put(p[0], new String[]{p[1], p[2]});
         }
@@ -186,9 +185,14 @@ final class StatBarsCases {
                 for (String s : new String[]{"Hearts", "Hunger Bar", "Armour Bar", "Air Bar", "Text Shadow"}) {
                     present(c, l, s, "Stat Bars is ON");
                 }
-                for (String s : new String[]{"Bar Width", "Bar Height", "Show Value", "Background", "Colour",
-                        "Absorption Colour", "Unhide Hearts In Rift", "Hide Vanilla XP Bar"}) {
-                    absent(c, l, s, "no bar on, Hearts off, no XP readout on");
+                // Since mod bars-menu the bar look rows are in Advanced whenever Stat Bars is on; colours only for
+                // what is on.
+                for (String s : new String[]{"Bar Width", "Bar Height", "Show Value"}) {
+                    present(c, l, s, "Stat Bars is ON (Advanced open)");
+                }
+                for (String s : new String[]{"Colour", "Health Colour", "Absorption Colour", "Unhide Hearts In Rift",
+                        "Hide Vanilla XP Bar"}) {
+                    absent(c, l, s, "no bar on, Hearts off");
                 }
                 grouped(c, ws);
 
@@ -227,17 +231,15 @@ final class StatBarsCases {
                 l = labels(ours(d));
                 present(c, l, "Unhide Hearts In Rift", "Hearts is ON");
 
-                // Every text readout is on by now, XP Text with them; the XP Bar is off.
+                // "Hide Vanilla XP Bar" was a second copy of Hide's "XP Bar And Level"; since mod bars-menu only the
+                // one row is left, with an XP readout on or not.
                 l = labels(ours(d));
-                present(c, l, "Hide Vanilla XP Bar", "XP Text is ON");
-                press(c, d, "XP Text");
-                l = labels(ours(d));
-                absent(c, l, "Hide Vanilla XP Bar", "no XP readout is on");
+                absent(c, l, "Hide Vanilla XP Bar", "XP Text is ON (the duplicate row is gone)");
+                present(c, l, "XP Bar And Level", "XP Text is ON");
                 press(c, d, "XP Bar");
                 l = labels(ours(d));
-                present(c, l, "Hide Vanilla XP Bar", "XP Bar is ON");
+                absent(c, l, "Hide Vanilla XP Bar", "XP Bar is ON (the duplicate row is gone)");
                 press(c, d, "XP Bar");
-                press(c, d, "XP Text");
 
                 // Everything on: every row.
                 for (String r : READOUTS.keySet()) {
@@ -391,10 +393,15 @@ final class StatBarsCases {
         }
     }
 
+    private static final Set<String> BAR_COLOURS = Set.of("Health Colour", "Mana Colour", "Defence Colour",
+            "Vitality Colour", "Other Colour", "XP Colour");
+
     private static void expectColours(UiCase c, List<AbstractWidget> ws, int want, String when) {
         int n = 0;
         for (AbstractWidget w : ws) {
-            if (key(ModScreenDriver.label(w)).equals("Colour")) {
+            String k = key(ModScreenDriver.label(w));
+            // A text readout's swatch is "Colour"; a bar's is in the Colours grid as "<Bar> Colour" (mod bars-menu).
+            if (k.equals("Colour") || BAR_COLOURS.contains(k)) {
                 n++;
             }
         }
@@ -632,6 +639,12 @@ final class StatBarsCases {
                 Mod.call(ps, "setReadoutOn", Mod.enumValue(READOUT, r), false);
             }
             Mod.call(ps, "setHideVanillaHearts", false);
+            // The walk is of the whole tab: Advanced open (898 checks the closed main view).
+            for (var m : ps.getClass().getMethods()) {
+                if (m.getName().equals("setMenuAdvancedOpen")) {
+                    Mod.call(ps, "setMenuAdvancedOpen", true);
+                }
+            }
             closeSectionsNow();
             return null;
         });

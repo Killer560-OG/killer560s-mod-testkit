@@ -171,6 +171,12 @@ final class StatBarsLayoutCases {
     private static void tab(UiCase c) throws Throwable {
         c.onClient(mc -> {
             Mod.call(Mod.cfg(PS), "setEnabled", false);
+            // Layout is in the Advanced section since mod bars-menu: open it.
+            for (var m : Mod.cfg(PS).getClass().getMethods()) {
+                if (m.getName().equals("setMenuAdvancedOpen")) {
+                    Mod.call(Mod.cfg(PS), "setMenuAdvancedOpen", true);
+                }
+            }
             return null;
         });
         ModScreenDriver d = StatBarsCases.open(c);

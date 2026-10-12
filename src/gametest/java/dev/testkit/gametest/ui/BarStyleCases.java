@@ -56,6 +56,8 @@ final class BarStyleCases {
     private static final String FEATURE = "playerstats.PlayerStatsFeature";
     private static final String PAINTER = "playerstats.BarPainter";
     private static final String TAB = "Health and Mana Bars";
+    /** The style row's label: "Style" since mod bars-menu (was "Bar Style"). */
+    private static final String STYLE_ROW = "Style:";
 
     static final int HEALTH = 0xFFE03030;
     static final int MANA = 0xFF3070F0;
@@ -337,13 +339,15 @@ final class BarStyleCases {
                 Object ps = Mod.cfg(PS);
                 Mod.call(ps, "setBarStyle", Mod.enumValue(STYLE, "SLEEK"));
                 Mod.call(ps, "setBarShowValue", true);
+                // Since mod bars-menu everything but Style and Text Size is under the Advanced section.
+                trySet(ps, "setMenuAdvancedOpen", true);
                 Mod.call(ps, "save");
                 return null;
             });
             ModScreenDriver d = HudMenuProfilesCases.tabByClass(c, "HealthAndManaBarsTab");
-            String[] rows = {"Bar Style", "Corners", "Icons", "Value Position", "Smooth Fill", "Damage Ghost",
+            String[] rows = {STYLE_ROW, "Corners", "Icons", "Value Position", "Smooth Fill", "Damage Ghost",
                     "Text Size", "Overflow Mana Colour", "Absorption Colour"};
-            List<String> labels = c.onClient(mc -> labels(d));
+            List<String> labels = c.onClient(mc -> barTabLabels(d));
             c.note("rows: " + labels);
             for (String row : rows) {
                 String label = find(labels, row);
@@ -355,9 +359,9 @@ final class BarStyleCases {
             }
             // Bar Style by real presses: left forward, right back (SettingsButtonWidget.cycling).
             String forward = c.onClient(mc -> {
-                AbstractWidget w = widget(d, "Bar Style");
+                AbstractWidget w = barWidget(d, STYLE_ROW);
                 if (w == null) {
-                    return "no Bar Style row";
+                    return "no Style row";
                 }
                 w.mouseClicked(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)), false);
                 w.mouseReleased(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)));
@@ -367,9 +371,9 @@ final class BarStyleCases {
             c.note("Bar Style after a left click from Sleek: " + forward);
             c.check(forward.equals("BOLD"), "a left click on Bar Style (Sleek) gave " + forward + ", want BOLD");
             String backward = c.onClient(mc -> {
-                AbstractWidget w = widget(d, "Bar Style");
+                AbstractWidget w = barWidget(d, STYLE_ROW);
                 if (w == null) {
-                    return "no Bar Style row";
+                    return "no Style row";
                 }
                 w.mouseClicked(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(1, 0)), false);
                 w.mouseReleased(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(1, 0)));
@@ -394,9 +398,9 @@ final class BarStyleCases {
                 } catch (Throwable t) {
                     throw new AssertionError(t);
                 }
-                AbstractWidget w = widget(d, "Bar Style");
+                AbstractWidget w = barWidget(d, STYLE_ROW);
                 if (w == null) {
-                    return "no Bar Style row";
+                    return "no Style row";
                 }
                 w.mouseClicked(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)), false);
                 w.mouseReleased(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)));
@@ -409,7 +413,7 @@ final class BarStyleCases {
                 } catch (Throwable t) {
                     throw new AssertionError(t);
                 }
-                AbstractWidget w = widget(d, "Text Size");
+                AbstractWidget w = barWidget(d, "Text Size");
                 if (w == null) {
                     return "no Text Size row";
                 }
@@ -460,6 +464,333 @@ final class BarStyleCases {
             reset(c);
             HudFixCases.restore(c, saved);
         }
+    }
+
+    private static void trySet(Object cfg, String setter, Object value) {
+        for (var m : cfg.getClass().getMethods()) {
+            if (m.getName().equals(setter)) {
+                Mod.call(cfg, setter, value);
+                return;
+            }
+        }
+    }
+
+    // ================================================================================================================
+    // 898 the simplified tab (mod bars-menu)
+    // ================================================================================================================
+
+    /** Labels the main view may show with Stat Bars on and Advanced closed (killer560, 2026-10-12: "simplify the health
+     *  and mana bar menu"): the switch, Edit Bars, one on/off per bar, Style, Text Size and the Advanced header. */
+    private static final String[] MAIN_ROWS = {"Stat Bars", "Edit Bars", "Health Bar", "Mana Bar", "Defence Bar",
+            "Vitality Bar", "Other Resource Bar", "XP Bar", "Style", "Text Size", "▶ Advanced"};
+
+    static void menu(UiCase c) throws Exception {
+        boolean has = c.onClient(mc -> {
+            for (var m : Mod.cfg(PS).getClass().getMethods()) {
+                if (m.getName().equals("isMenuAdvancedOpen")) {
+                    return true;
+                }
+            }
+            return false;
+        });
+        if (!has) {
+            c.problem("this jar has no Advanced section on the Health and Mana Bars tab (PlayerStatsConfig"
+                    + ".isMenuAdvancedOpen) - the simplified menu is missing");
+            return;
+        }
+        Map<Path, byte[]> saved = HudFixCases.snapshot(c, PS, HUD);
+        int[] window = HudEditorCases.windowSize(c);
+        int gui = c.onClient(mc -> mc.options.guiScale().get());
+        try {
+            HudEditorCases.setWindow(c, 1920, 1080, 2);
+            c.onClient(mc -> {
+                Object ps = Mod.cfg(PS);
+                Mod.call(ps, "setEnabled", true);
+                Mod.call(ps, "setMenuAdvancedOpen", false);
+                Mod.call(ps, "setReadoutOn", r("HEALTH_BAR"), true);
+                Mod.call(ps, "setReadoutOn", r("MANA_BAR"), true);
+                Mod.call(ps, "save");
+                Mod.call(Mod.cfg(HUD), "setAutoScale", false);
+                return null;
+            });
+            // Only this tab's section open (393's helper), so the pictures show it.
+            ModScreenDriver d = StatBarsCases.open(c);
+            c.ticks(2);
+            List<String> main = c.onClient(mc -> barTabLabels(d));
+            c.note("main view (" + main.size() + " rows): " + main);
+            c.check(main.size() == MAIN_ROWS.length, "the main view has " + main.size() + " rows, want "
+                    + MAIN_ROWS.length + ": " + main);
+            for (String want : MAIN_ROWS) {
+                c.check(find(main, want) != null, "the main view has no " + want + " row");
+            }
+            for (String hidden : new String[]{"Corners", "Icons", "Smooth Fill", "Damage Ghost", "Layout", "Bar Width",
+                    "Health Colour", "Overflow Mana Colour", "Health Text", "Hearts"}) {
+                c.check(find(main, hidden) == null, "the main view still shows " + hidden + " (it belongs in Advanced)");
+            }
+            copyScreen(c, "menu-collapsed");
+
+            // Stat Bars off: the switch and Advanced only.
+            List<String> off = c.onClient(mc -> {
+                Mod.call(Mod.cfg(PS), "setEnabled", false);
+                rebuildQuiet(d);
+                return barTabLabels(d);
+            });
+            c.note("with Stat Bars off: " + off);
+            c.check(off.size() == 2 && find(off, "Stat Bars") != null && find(off, "▶ Advanced") != null,
+                    "with Stat Bars off the main view is " + off + ", want Stat Bars and Advanced");
+
+            // Search finds a setting inside the closed section, and leaves it closed.
+            String search = c.onClient(mc -> {
+                Object tab = null;
+                for (Object t : allTabs(d)) {
+                    if (t.getClass().getSimpleName().equals("HealthAndManaBarsTab")) {
+                        tab = t;
+                    }
+                }
+                if (tab == null) {
+                    return "no tab";
+                }
+                boolean ghost = (Boolean) Mod.call(tab, "matchesSearch", "Damage Ghost");
+                boolean corner = (Boolean) Mod.call(tab, "matchesSearch", "corners");
+                boolean nothing = (Boolean) Mod.call(tab, "matchesSearch", "zzqqxx");
+                // The menu's search lists top-level tabs; the one holding this tab must stay listed.
+                Object top = null;
+                List<ModScreenDriver.Node> tree = d.tree();
+                for (int i = 0; i < tree.size(); i++) {
+                    List<ModScreenDriver.Node> sub = new ArrayList<>();
+                    ModScreenDriver.flatten(List.of(tree.get(i)), sub);
+                    for (ModScreenDriver.Node n : sub) {
+                        if (n.tab() == tab) {
+                            top = d.topTabs().get(i);
+                        }
+                    }
+                }
+                d.search("Damage Ghost");
+                boolean listed = false;
+                try {
+                    for (Object t : d.visibleTabs()) {
+                        listed |= t == top;
+                    }
+                } catch (Throwable e) {
+                    return "visibleTabs threw " + e;
+                }
+                d.search("");
+                boolean stillClosed = !(Boolean) Mod.call(Mod.cfg(PS), "isMenuAdvancedOpen");
+                return ghost + "," + corner + "," + nothing + "," + listed + "," + stillClosed;
+            });
+            c.note("search (Advanced closed, Stat Bars off): 'Damage Ghost', 'corners', 'zzqqxx' match, tab listed for"
+                    + " 'Damage Ghost', Advanced still closed -> " + search);
+            c.check(search.equals("true,true,false,true,true"), "search over the closed Advanced section: " + search
+                    + ", want true,true,false,true,true");
+
+            // Advanced by a real press: opens, stays open on disk, holds the rest. The search closed the tab's section, so
+            // it is opened again; the header is matched exactly ("Advanced Position" is another tab in this category).
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(PS), "setEnabled", true);
+                return null;
+            });
+            ModScreenDriver d2 = StatBarsCases.open(c);
+            String opened = c.onClient(mc -> {
+                AbstractWidget h = null;
+                for (AbstractWidget w : d2.content()) {
+                    if (ModScreenDriver.label(w).equals("▶ Advanced")) {
+                        h = w;
+                    }
+                }
+                if (h == null) {
+                    return "no Advanced header";
+                }
+                ModScreenDriver.press(h);
+                rebuildQuiet(d2);
+                Mod.staticCall(PS, "load");
+                return String.valueOf(Mod.call(Mod.cfg(PS), "isMenuAdvancedOpen"));
+            });
+            c.check(opened.equals("true"), "pressing Advanced did not open it and save that (" + opened + ")");
+            List<String> open = c.onClient(mc -> {
+                rebuildQuiet(d2);
+                return barTabLabels(d2);
+            });
+            c.note("Advanced open (" + open.size() + " rows): " + open);
+            for (String want : new String[]{"▼ Advanced", "Layout", "Corners", "Icons", "Show Value", "Smooth Fill",
+                    "Damage Ghost", "Bar Width", "Bar Height", "Health Colour", "Mana Colour", "Absorption Colour",
+                    "Overflow Mana Colour", "Background", "Health Text", "Text Shadow", "Hearts", "XP Bar And Level",
+                    "Held Item Name"}) {
+                c.check(find(open, want) != null, "Advanced has no " + want + " row");
+            }
+            c.check(find(open, "Hide Vanilla XP Bar") == null, "the duplicate Hide Vanilla XP Bar row is back");
+            for (String l : open) {
+                String key = l.contains(":") ? l.substring(0, l.indexOf(':')) : l;
+                if (key.isBlank() || key.endsWith("is on") || key.equals("Always") || key.equals("Look")
+                        || key.equals("Colours") || key.equals("Text readouts") || key.equals("Hide")) {
+                    continue;
+                }
+                String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", TAB, l));
+                c.check(tip != null && !tip.isBlank(), "row '" + l + "' has no tooltip");
+            }
+            copyScreen(c, "menu-expanded-top");
+            c.onClient(mc -> {
+                d2.scrollTo(d2.maxScroll() / 2);
+                rebuildQuiet(d2);
+                return null;
+            });
+            c.ticks(2);
+            copyScreen(c, "menu-expanded-middle");
+            c.onClient(mc -> {
+                d2.scrollTo(d2.maxScroll());
+                rebuildQuiet(d2);
+                return null;
+            });
+            c.ticks(2);
+            copyScreen(c, "menu-expanded-bottom");
+            c.onClient(mc -> {
+                d2.scrollTo(0);
+                McCompat.setScreen(mc, null);
+                return null;
+            });
+            v3Shots(c);
+        } finally {
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                return null;
+            });
+            reset(c);
+            HudEditorCases.restoreWindow(c, window, gui);
+            HudFixCases.restore(c, saved);
+        }
+    }
+
+    /** v3 pictures: Bold and Sleek with the rounder corners, the Vitality Bar with its symbol, a damage ghost and an
+     *  overflow layer, so the rounded fill, ghost and overflow ends show. */
+    private static void v3Shots(UiCase c) throws Exception {
+        HudEditorCases.setWindow(c, 854, 480, 2);
+        int gs = c.onClient(mc -> mc.getWindow().getGuiScale());
+        for (String style : new String[]{"BOLD", "SLEEK"}) {
+            setup(c, style, new String[]{"HEALTH_BAR", "MANA_BAR", "VITALITY_BAR", "DEFENCE_BAR", "XP_BAR",
+                    "OTHER_BAR"}, true, false, false);
+            c.onClient(mc -> {
+                Object ps = Mod.cfg(PS);
+                for (Object rr : R.cls(READOUT).getEnumConstants()) {
+                    Mod.call(ps, "setReadoutColor", rr, (Integer) R.get(rr, "defaultColor"));
+                }
+                Mod.call(ps, "setAbsorptionColor", (Integer) R.getStatic(R.cls(PS), "DEFAULT_ABSORPTION_COLOR"));
+                Mod.call(ps, "setOverflowManaColor", (Integer) R.getStatic(R.cls(PS), "DEFAULT_OVERFLOW_MANA_COLOR"));
+                Mod.call(ps, "setBarBackground", (Integer) R.getStatic(R.cls(PS), "DEFAULT_BAR_BACKGROUND"));
+                Mod.call(ps, "setBarWidth", 150);
+                Mod.call(ps, "save");
+                Object hud = Mod.cfg(HUD);
+                String[] ids = {"statbar_health", "statbar_mana", "statbar_vitality", "statbar_defence", "statbar_xp",
+                        "statbar_other"};
+                for (int i = 0; i < ids.length; i++) {
+                    Mod.call(hud, "setScale", ids[i], 1.5f);
+                    Mod.call(hud, "setPosition", ids[i], 20, 12 + i * 26);
+                }
+                Mod.call(hud, "save");
+                Class<?> f = R.cls(FEATURE);
+                R.setStatic(f, "healthCur", 1250L);
+                R.setStatic(f, "healthMax", 1000L);
+                R.setStatic(f, "manaCur", 700L);
+                R.setStatic(f, "manaMax", 1000L);
+                R.setStatic(f, "overflowMana", 300L);
+                R.setStatic(f, "vitalityCur", 117L);
+                R.setStatic(f, "vitalityMax", 117L);
+                R.setStatic(f, "defenceValue", 900L);
+                R.setStatic(f, "otherCur", 40L);
+                R.setStatic(f, "otherMax", 100L);
+                return null;
+            });
+            c.ticks(4);
+            String name = "v3-" + style.toLowerCase(Locale.ROOT);
+            BufferedImage img = HudFixCases.shot(c, name);
+            copyCrop(c, name, img, gs, 8, 6, 262, 12 + 6 * 26);
+            int[] v = measured(c, "VITALITY_BAR");
+            c.check(v[0] > 0, name + ": the Vitality Bar did not draw");
+        }
+        // The damage ghost with the rounded corners, mid-drain.
+        setup(c, "BOLD", new String[]{"HEALTH_BAR"}, true, true, true);
+        place(c, "statbar_health", BX, BY);
+        c.onClient(mc -> {
+            Mod.call(Mod.cfg(PS), "setReadoutColor", r("HEALTH_BAR"), (Integer) R.get(r("HEALTH_BAR"), "defaultColor"));
+            return null;
+        });
+        health(c, 1000, 1000);
+        c.ticks(20);
+        c.onClient(mc -> {
+            R.setStatic(R.cls(FEATURE), "healthCur", 250L);
+            return null;
+        });
+        for (int i = 0; i < 400; i++) {
+            c.ticks(1);
+            int[] m = c.onClient(mc -> measuredNow("HEALTH_BAR"));
+            if (m[3] > 8 && m[3] < m[0] - m[1] - 8 && m[1] == Math.round(m[0] * 0.25f)) {
+                BufferedImage img = HudFixCases.shot(c, "v3-ghost");
+                copyCrop(c, "v3-ghost", img, gs, BX - 6, BY - 6, BX + BW + 6, BY + BH + 6);
+                break;
+            }
+        }
+    }
+
+    /** Every top-level tab and every sub-tab of the menu. */
+    private static List<Object> allTabs(ModScreenDriver d) {
+        List<Object> out = new ArrayList<>();
+        List<ModScreenDriver.Node> flat = new ArrayList<>();
+        ModScreenDriver.flatten(d.tree(), flat);
+        for (ModScreenDriver.Node n : flat) {
+            out.add(n.tab());
+        }
+        return out;
+    }
+
+    /** The labels the Health and Mana Bars tab built (its rows only, not another expanded section's). */
+    private static List<String> barTabLabels(ModScreenDriver d) {
+        List<String> out = new ArrayList<>();
+        boolean in = false;
+        for (AbstractWidget w : d.content()) {
+            String l = ModScreenDriver.label(w);
+            if (l.startsWith("Stat Bars")) {
+                in = true;
+            } else if (in && (l.startsWith("▼ ") || l.startsWith("▶ ")) && !l.contains("Advanced")) {
+                break;
+            }
+            if (in) {
+                out.add(l);
+            }
+        }
+        return out;
+    }
+
+    /** The first row of the Health and Mana Bars tab whose label starts with {@code prefix}. */
+    private static AbstractWidget barWidget(ModScreenDriver d, String prefix) {
+        boolean in = false;
+        for (AbstractWidget w : d.content()) {
+            String l = ModScreenDriver.label(w);
+            if (l.startsWith("Stat Bars")) {
+                in = true;
+            }
+            if (in && l.startsWith(prefix)) {
+                return w;
+            }
+        }
+        return null;
+    }
+
+    private static void rebuildQuiet(ModScreenDriver d) {
+        try {
+            d.rebuild();
+        } catch (Throwable t) {
+            throw new AssertionError(t);
+        }
+    }
+
+    /** A screenshot of the menu as it is, into TESTKIT_BARS_SHOTS as {@code name}-<mc>-<jar>.png. */
+    private static void copyScreen(UiCase c, String name) throws Exception {
+        // The cursor off the menu, so no row's tooltip covers the picture.
+        c.ctx().getInput().setCursorPos(2, 2);
+        c.ticks(2);
+        Path taken = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(c.name() + "-" + name));
+        dev.testkit.harness.Report.screenshot(c.name() + "-" + name, taken);
+        BufferedImage img = javax.imageio.ImageIO.read(taken.toFile());
+        int gs = c.onClient(mc -> mc.getWindow().getGuiScale());
+        copyCrop(c, name, img, gs, 0, 0, img.getWidth() / gs, img.getHeight() / gs);
     }
 
     private static String readBack() {

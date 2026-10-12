@@ -161,7 +161,10 @@ final class BarPixels {
         double x1 = bl + (b[2] + 1 - tl) * sx - 1;
         double y0 = bt + (b[1] - tt) * sy;
         double y1 = bt + (b[3] + 1 - tt) * sy - 1;
-        return new double[]{Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), b[4], b[5]};
+        // "Solid" leaves out one unit at each corner of the fill: rounded bars (mod bars-menu) paint the track's corner
+        // unit in the frame colour, over the fill.
+        double solid = solidBut(img, rgb, b, (int) Math.ceil(unit - 1e-3), scene.exclude()) ? 1 : 0;
+        return new double[]{Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), solid, b[5]};
     }
 
     /** The fill area on screen in pixels: the painter's box less its insets (frame, icon, Beside number), so neither the
@@ -192,6 +195,25 @@ final class BarPixels {
         double y0 = t[1] - info.top() * unit;
         double y1 = t[3] + info.bottom() * unit;
         return new double[]{Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1)};
+    }
+
+    /** Whether every pixel of box {@code b} is {@code rgb}'s tint, except a {@code corner}-pixel square at each corner. */
+    private static boolean solidBut(BufferedImage img, int rgb, double[] b, int corner, Set<Integer> exclude) {
+        int x0 = (int) b[0], y0 = (int) b[1], x1 = (int) b[2], y1 = (int) b[3];
+        for (int y = y0; y <= y1; y++) {
+            for (int x = x0; x <= x1; x++) {
+                boolean cx = x < x0 + corner || x > x1 - corner;
+                boolean cy = y < y0 + corner || y > y1 - corner;
+                if (cx && cy) {
+                    continue;
+                }
+                int p = img.getRGB(x, y) & 0xFFFFFF;
+                if (exclude.contains(p) || !sameTint(p, rgb)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private static double[] raw(BufferedImage img, int rgb, boolean tint, Set<Integer> exclude, int[] win) {

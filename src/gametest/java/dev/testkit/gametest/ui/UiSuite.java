@@ -161,7 +161,7 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-12 Health and Mana Bars styles ({@link BarStyleCases}). Own block for merges. */
     static final String[] BAR_STYLE_CASES = {"891-ui-bars-style-fill", "892-ui-bars-style-overflow",
             "893-ui-bars-style-settings", "894-ui-bars-style-ghost", "895-ui-bars-style-shots",
-            "896-ui-bars-style-editor"};
+            "896-ui-bars-style-editor", "898-ui-bars-menu"};
     /** Inventory Theme: every item centred in its slot frame (mod inv-theme-fix, {@link InvThemeCenterCases}). Own block. */
     static final String[] INV_THEME_CENTRE_CASES = {"897-ui-inventory-theme-item-centred"};
     static final String DENY_CASE = "370-ui-deny";
@@ -435,6 +435,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "894-ui-bars-style-ghost", BarStyleCases::ghost);
                     UiCase.run(ctx, "895-ui-bars-style-shots", BarStyleCases::shots);
                     UiCase.run(ctx, "896-ui-bars-style-editor", BarStyleCases::editor);
+                    UiCase.run(ctx, "898-ui-bars-menu", BarStyleCases::menu);
                     // ---- Inventory Theme item centring (897) ----
                     UiCase.run(ctx, "897-ui-inventory-theme-item-centred", InvThemeCenterCases::centred);
                 }

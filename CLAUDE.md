@@ -307,6 +307,9 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   search finds nothing. Use `ui/BarPixels`: the fill by its TINT, searched only inside the painter's fill area (the
   superflat ground's olive is 0.09 from yellow's tint and came in through a rounded corner), mapped back to the element
   box by the painter's insets. 407/441-444/476/393/399 use it.
+- Typing in (or clearing) the mod menu's search collapses the open folder sections, and Hud Elements holds a tab named
+  "Advanced Position": after a search, reopen the tab before pressing, and match a "▶ Advanced" header exactly (898's
+  first run pressed the other one, 2026-10-12).
 
 Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosecret wither doors, 62-argrim frames,
 143 camera, 141/142 autopilot, the mod's Auto Scale, terminal layouts, the logic world, 386's sweep):
