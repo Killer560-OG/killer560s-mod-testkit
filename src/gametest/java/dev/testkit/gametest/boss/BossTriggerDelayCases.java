@@ -22,15 +22,16 @@ import net.minecraft.world.phys.Vec3;
  *   <li>799 Terminal Triggerbot ({@code Delay}): a terminal stand (hx/boss/HxTerminalStand), F7 sidebar and Goldor's P3
  *   line; 0 vs 400 ms, the server's {@code term.interact}.</li>
  *   <li>786 Simon Says Trigger Bot ({@code Trigger Bot Delay}): the device (hx/boss/HxSimonSays) started by hand, round
- *   1 revealed, crosshair onto its button; 0 vs 300 ms, {@code use_block} on that button. Run expecting flags: the
- *   frame-driven click draws GrimAC Post.</li>
+ *   1 revealed, crosshair onto its button; 0 vs 300 ms, {@code use_block} on that button. GrimAC must be silent: the
+ *   click drew Post while it went out from the render frame (mod grim-post moved it to the tick, 2026-10-11).</li>
  *   <li>787 Goldor Triggerbot ({@code Aim Delay}): a real (visible, no 800-tick invulnerability) NoAI wither in the boss
- *   area, Attack mode, in melee reach; 0 vs 400 ms to the FIRST {@code attack_entity}. Run expecting flags: the
- *   frame-driven attack draws GrimAC Post.</li>
+ *   area, Attack mode, in melee reach; 0 vs 400 ms to the FIRST {@code attack_entity}. GrimAC must be silent (it said
+ *   Post on every attack from the render frame, before mod grim-post).</li>
  *   <li>788 Arrow Align Trigger Bot ({@code Trigger Bot Delay}): arrow item frames on the device grid (x -2, y 120-124,
  *   z 75-79) in layout 7 of the mod's solutions, each needing one click; 0 vs 300 ms, {@code use_entity} on the
- *   frame. Run expecting flags: the frame-driven click draws GrimAC Post.</li>
+ *   frame. GrimAC must be silent (Post on every click from the render frame, before mod grim-post).</li>
  * </ul>
+ * Delays are whole ticks since mod grim-post, rounded up (300 ms = 6, 400 ms = 8), which the +-1.5 band holds.
  * Legit jar: none of these trigger bots exists, so each case checks nothing is clicked.
  */
 final class BossTriggerDelayCases {
@@ -40,15 +41,11 @@ final class BossTriggerDelayCases {
 
     static void register(Session s) {
         s.test("799-boss-trigger-delay-terminal", BossTriggerDelayCases::terminal);
-        // Expecting flags: the Simon Says Trigger Bot clicks from the render-frame hook, so its use packet can follow
-        // the tick's movement packet and GrimAC says Post (2 on the first run, one per click, 2026-10-11) - the
-        // feature's own behaviour, not this case's; recorded, not hidden.
-        s.testExpectingFlags("786-boss-trigger-delay-simonsays", BossTriggerDelayCases::simonSays);
-        // Expecting flags too: Goldor Triggerbot also clicks from the render-frame hook (GrimAC Post "attack").
-        s.testExpectingFlags("787-boss-trigger-delay-goldor", BossTriggerDelayCases::goldor);
-        // Expecting flags for the same reason as 786: the Trigger Bot clicks from the render-frame hook (GrimAC Post,
-        // "interact entity", one per click on the first run).
-        s.testExpectingFlags("788-boss-trigger-delay-arrowalign", BossTriggerDelayCases::arrowAlign);
+        // 786-788 recorded GrimAC Post (one per click) while these trigger bots clicked from the render frame; since mod
+        // grim-post they click at the start of the tick and must be clean.
+        s.test("786-boss-trigger-delay-simonsays", BossTriggerDelayCases::simonSays);
+        s.test("787-boss-trigger-delay-goldor", BossTriggerDelayCases::goldor);
+        s.test("788-boss-trigger-delay-arrowalign", BossTriggerDelayCases::arrowAlign);
     }
 
     private static HxKit.Settings gateOff(Session c) {
