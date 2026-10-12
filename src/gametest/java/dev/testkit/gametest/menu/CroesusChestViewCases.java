@@ -26,6 +26,8 @@ import java.util.Map;
  *   says "needs a key" before and after the view.</li>
  *   <li>905: after a key (Obsidian bought too, "No more chests to open!"): nothing highlighted; the list says key used.</li>
  * </ul>
+ * 903 also opens an all-loss run (every chest below its cost): no green - the free claim is only green when it makes
+ * money - and no orange; the first run then still shows its green and orange.
  * Each step reads the marks the mod draws ({@code chestMarksForTest}) AND the drawn pixels of the shot.
  */
 final class CroesusChestViewCases {
@@ -50,6 +52,16 @@ final class CroesusChestViewCases {
 
     /** step 1: nothing claimed; 2: Bedrock claimed, the rest need a key; 3: Bedrock and Obsidian opened. */
     static JsonObject view(int step) {
+        if (step == 0) {
+            // The all-loss run (croesus-green, 2026-10-13): every chest costs more than its Bead (100k) is worth.
+            Map<Integer, JsonObject> slots = new LinkedHashMap<>();
+            slots.put(BEDROCK, chest("minecraft:chest", "§4Bedrock Chest", "Testkit Bead", "1,000,000", null));
+            slots.put(OBSIDIAN, chest("minecraft:chest", "§5Obsidian Chest", "Testkit Bead", "500,000", null));
+            slots.put(EMERALD, chest("minecraft:chest", "§2Emerald Chest", "Testkit Bead", "300,000", null));
+            slots.put(DIAMOND, chest("minecraft:chest", "§bDiamond Chest", "Testkit Bead", "200,000", null));
+            slots.put(49, FlipCroesusCases.item("minecraft:arrow", "§aGo Back"));
+            return FlipCroesusCases.menu(CroesusKeyCases.RUN, 6, slots, Map.of());
+        }
         String opened = "§cAlready opened!";
         String key = "§9Dungeon Chest Key";
         Map<Integer, JsonObject> slots = new LinkedHashMap<>();
@@ -63,9 +75,10 @@ final class CroesusChestViewCases {
     }
 
     static JsonObject list(int step) {
-        String line = step == 1 ? "§cNo chests opened yet!" : step == 2 ? "§7Opened Chest: §4Bedrock" : "§aNo more chests to open!";
+        String line = step <= 1 ? "§cNo chests opened yet!" : step == 2 ? "§7Opened Chest: §4Bedrock" : "§aNo more chests to open!";
         Map<Integer, JsonObject> heads = new LinkedHashMap<>();
-        heads.put(RUN_SLOT, CroesusColorCases.head("minecraft:player_head", "Viewer", line, "1d 12h!"));
+        heads.put(RUN_SLOT, CroesusColorCases.head("minecraft:player_head", step == 0 ? "Loser" : "Viewer", line,
+                step == 0 ? "1d 6h!" : "1d 12h!"));
         return CroesusStableCases.list(heads, Map.of(RUN_SLOT, FlipCroesusCases.open(view(step))));
     }
 
@@ -110,7 +123,7 @@ final class CroesusChestViewCases {
         for (byte m : got) {
             orange |= m == 2;
         }
-        c.check(step == 1 || orange == (after == 2), "step " + step + ": the list's needs-a-key (" + (after == 2)
+        c.check(step <= 1 || orange == (after == 2), "step " + step + ": the list's needs-a-key (" + (after == 2)
                 + ") disagrees with the view's orange (" + orange + ")");
         return "step " + step + ": list " + before + " -> " + after + ", marks " + Arrays.toString(got)
                 + (pixels.isEmpty() ? "" : ", pixels " + pixels);
@@ -169,6 +182,10 @@ final class CroesusChestViewCases {
                     note.append("; ").append(visit(c, 3, (byte) 4, new byte[]{0, 0, 0, 0}, "chestview-key-used"));
                 }
                 if (upTo == 1) {
+                    // An all-loss run: the best chest loses money, so no green (killer560, 2026-10-13); nothing clears
+                    // the key floor, so no orange either. Then the first run again: its green and orange are unchanged.
+                    note.append("; all-loss ").append(visit(c, 0, (byte) 1, new byte[]{0, 0, 0, 0}, "chestview-all-loss"));
+                    note.append("; again ").append(visit(c, 1, (byte) 1, new byte[]{1, 2, 0, 0}, null));
                     note.append("; ").append(migration(c));
                 }
                 c.note(note.toString());
