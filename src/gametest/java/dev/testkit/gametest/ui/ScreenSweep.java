@@ -86,6 +86,29 @@ final class ScreenSweep {
                 on.init(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
                 List<?> shownOn = (List<?>) R.get(on, "shown");
                 out.put("shownUnseenOn", shownOn.size());
+                // The set it must list: every enabled element, except a container-only overlay (the Croesus panel, the
+                // Chocolate line, the Start buttons) that did not draw within the grace window - the editor's own
+                // predicate, HudSeen.drawnWithinGrace(id, the editor's asOfMs) (mod hud-key-3, 2026-10-12: "Only if it
+                // falls in that last 10s"). Every ordinary element stays strict.
+                long asOf = (Long) R.get(on, "asOfMs");
+                Method grace = R.cls("hud.HudSeen").getMethod("drawnWithinGrace", String.class, long.class);
+                Method containerOnly = R.cls("hud.HudElementRegistry").getMethod("isContainerOnly", String.class);
+                List<String> expectedIds = new ArrayList<>();
+                List<String> hiddenOverlays = new ArrayList<>();
+                for (String id : enabledIds) {
+                    if ((Boolean) containerOnly.invoke(null, id) && !(Boolean) grace.invoke(null, id, asOf)) {
+                        hiddenOverlays.add(id);
+                    } else {
+                        expectedIds.add(id);
+                    }
+                }
+                List<String> listedIds = new ArrayList<>();
+                for (Object el : shownOn) {
+                    listedIds.add((String) dev.testkit.gametest.mod.Mod.call(el, "id"));
+                }
+                out.put("expectedIds", expectedIds);
+                out.put("listedIds", listedIds);
+                out.put("hiddenOverlays", hiddenOverlays);
                 out.put("drawnOn", Frames.extractFrames(mc, on, 5).total());
 
                 dev.testkit.gametest.mod.Mod.call(hudCfg, "setEditorShowAll", false);
@@ -196,9 +219,20 @@ final class ScreenSweep {
         if (registered < HUD_ELEMENT_FLOOR) {
             c.problem("only " + registered + " HUD elements registered; floor " + HUD_ELEMENT_FLOOR);
         }
-        if ((Integer) r.get("shownUnseenOn") != enabled) {
-            c.problem("Show Unseen ON lists " + r.get("shownUnseenOn") + " elements but " + enabled
-                    + " have their setting on (hud/HudEditorScreen.java:104-113 says those are the same set)");
+        @SuppressWarnings("unchecked")
+        List<String> expectedIds = (List<String>) r.get("expectedIds");
+        @SuppressWarnings("unchecked")
+        List<String> listedIds = (List<String>) r.get("listedIds");
+        c.note("Show Unseen ON: expected " + expectedIds + "; container overlays not drawn in the last 10 s (hidden on "
+                + "purpose): " + r.get("hiddenOverlays"));
+        List<String> missing = new ArrayList<>(expectedIds);
+        missing.removeAll(listedIds);
+        List<String> extra = new ArrayList<>(listedIds);
+        extra.removeAll(expectedIds);
+        if (!missing.isEmpty() || !extra.isEmpty()) {
+            c.problem("Show Unseen ON lists " + listedIds.size() + " elements, expected " + expectedIds.size()
+                    + " (every enabled element; a container overlay only when drawn within the grace window - the class "
+                    + "doc of hud/HudEditorScreen): missing " + missing + ", extra " + extra);
         }
         if ((Integer) r.get("shownUnseenOff") > enabled) {
             c.problem("Show Unseen OFF lists more elements than are enabled");
