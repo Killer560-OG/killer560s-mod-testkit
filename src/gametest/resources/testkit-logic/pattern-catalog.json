@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-12T01:02:09",
- "modSource": "killer560s-mod",
+ "generatedAt": "2026-10-12T01:18:37",
+ "modSource": "leap-3",
  "modGitSha": "5a0efc69bc4359c82bd2fc6024d530f81d91ddd4",
- "modSourceDirty": false,
- "count": 468,
+ "modSourceDirty": true,
+ "count": 469,
  "byKind": {
   "dynamic": 7,
   "element": 43,
-  "field": 402,
+  "field": 403,
   "local": 16
  },
  "unresolved": 8,
@@ -2376,6 +2376,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^You have teleported to \\\\w{1,16}!$\""
+  },
+  {
+   "id": "leapmenu.LeapRunMemory#RUN_START",
+   "cls": "leapmenu.LeapRunMemory",
+   "field": "RUN_START",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/leapmenu/LeapRunMemory.java",
+   "line": 47,
+   "regex": "^\\[NPC\\] Mort: (?:Here, I found this map when I first entered the dungeon\\.|Right-click the Orb for spells, and Left-click \\(or Drop\\) to use your Ultimate!)$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^\\\\[NPC\\\\] Mort: (?:Here, I found this map when I first entered the dungeon\\\\.|Right-click the Orb for spells, and Left-click \\\\(or Drop\\\\) to use your Ultimate!)$\""
   },
   {
    "id": "leapmenu.PartyTracker#NAME_ONLY",
