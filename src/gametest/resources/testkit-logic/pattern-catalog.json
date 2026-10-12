@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-12T12:15:07",
+ "generatedAt": "2026-10-12T12:59:15",
  "modSource": "killer560s-mod",
- "modGitSha": "79dd7ecc1b8483937e9f95e90d8a5625f1ebf631",
+ "modGitSha": "ed4310702e01af9230d04811e4f9d83909c5e2a0",
  "modSourceDirty": false,
- "count": 471,
+ "count": 472,
  "byKind": {
   "dynamic": 7,
   "element": 43,
-  "field": 405,
+  "field": 406,
   "local": 16
  },
  "unresolved": 8,
@@ -1262,12 +1262,24 @@
    "expr": "\"^\\\\((\\\\d+)/(\\\\d+)\\\\) Croesus$\""
   },
   {
+   "id": "croesus.ChestProfitFeature#OPENED_CHEST",
+   "cls": "croesus.ChestProfitFeature",
+   "field": "OPENED_CHEST",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/croesus/ChestProfitFeature.java",
+   "line": 89,
+   "regex": "^Opened [cC]hests?: (.{1,24})$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^Opened [cC]hests?: (.{1,24})$\""
+  },
+  {
    "id": "croesus.ChestProfitFeature#MENU_PAGE",
    "cls": "croesus.ChestProfitFeature",
    "field": "MENU_PAGE",
    "index": null,
    "file": "src/main/java/com/killer560/hub/croesus/ChestProfitFeature.java",
-   "line": 72,
+   "line": 95,
    "regex": "^\\((\\d{1,2})/(\\d{1,2})\\) Croesus$",
    "flags": null,
    "kind": "field",
