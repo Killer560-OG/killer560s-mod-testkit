@@ -40,9 +40,10 @@ final class CycleButtonCases {
     /**
      * Cyclers whose LABEL hits the deny list but whose click only changes a setting: Auto Update's channel ("update":
      * the deny is for the Check button), Blood Camp's Start Sound Type ("start "), Video Browser's Site (its label names
-     * YouTube Shorts; the browser only launches from the Open button). Read in the mod at cycle-back 357cee13.
+     * YouTube Shorts; the browser only launches from the Open button), RNG Meter's Bazaar Pricing ("bazaar": it flips
+     * one saved boolean and polls nothing). Read in the mod at cycle-back 357cee13 and its follow-up.
      */
-    private static final Set<String> ALLOWED = Set.of("Auto Update", "Start Sound Type", "Site");
+    private static final Set<String> ALLOWED = Set.of("Auto Update", "Start Sound Type", "Site", "Bazaar Pricing");
     private static final Pattern VALUE_LABEL = Pattern.compile("^([^:]{2,40}): (.+)$");
 
     /** One cycling button found in a layout. {@code absY} is its content y with the scroll added back. */
