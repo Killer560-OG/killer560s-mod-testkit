@@ -46,6 +46,7 @@ public class AuraQuoiTests implements FabricClientGameTest {
         worldChange(ctx);
         skullRange(ctx);
         redstoneKey(ctx);
+        keyPlace(ctx);
     }
 
     private static boolean cheat() {
@@ -426,6 +427,122 @@ public class AuraQuoiTests implements FabricClientGameTest {
                     if (uses[1] == 0 || !serverSaw || !keyGone) {
                         throw new AssertionError("the redstone key was not picked up: " + uses[1] + " use(s), server pickup "
                                 + serverSaw + ", gone on the client " + keyGone);
+                    }
+                });
+    }
+
+    // ---- 848 ----
+
+    /**
+     * 848-aura-redstone-key-place (mod key-place): Secret Aura picks up a Redstone Key (4.6 from the eye to its centre) and
+     * puts it on the room's redstone block (2.8 from the eye), end to end on the test server, which handles both as
+     * Hypixel does (testmod RedstoneKeyPickup: the head goes, the key is found; a click on a redstone block with a key
+     * found sets the key's head on it). Three phases, each judged by the client's use packets and the server's log:
+     * Place Redstone Key ON before any key is found - nothing clicked; key pickup ON, Place OFF - the key is picked up and
+     * the block never clicked (0 placements); Place ON - exactly one more use, the server places the key, then nothing.
+     * GrimAC clean.
+     */
+    private void keyPlace(ClientGameTestContext ctx) {
+        String name = "848-aura-redstone-key-place";
+        if (Scenario.skip(name)) {
+            return;
+        }
+        ModUnderTest.require(MOD_ID);
+        final int kx = -760;
+        final int sz = BASE_Z + 6;
+        BlockPos key = new BlockPos(kx, SURFACE_Y + 1, sz);
+        BlockPos node = new BlockPos(kx + 1, SURFACE_Y + 1, sz - 2);
+        Scenario.labelServerAs(DUNGEON_LABEL);
+        Scenario.run(ctx, name,
+                (server, scenario) -> TestMap.on(server)
+                        .floor(kx - 4, SURFACE_Y - 1, sz - 9, kx + 4, sz + 3)
+                        .catchFloor(120)
+                        .survival()
+                        .clearInventory()
+                        .skyblockSidebar("F7")
+                        .command("setblock " + kx + " " + (SURFACE_Y + 1) + " " + sz
+                                + " minecraft:player_head[rotation=8]{profile:{id:" + REDSTONE_KEY_ID + ",name:\"RedstoneKey\"}}")
+                        .command("setblock " + node.getX() + " " + node.getY() + " " + node.getZ() + " minecraft:redstone_block")
+                        .spawn(kx + 0.5, sz - 5.5, 0f)
+                        .build(),
+                (server, scenario) -> {
+                    scenario.assertDetectorWorks();
+                    double h = Math.sqrt(4.6 * 4.6 - 0.12 * 0.12);
+                    double z = sz + 0.5 - h;
+                    server.command(String.format(Locale.ROOT, "tp @p %.4f %d %.4f 0 0", kx + 0.5, SURFACE_Y, z));
+                    ctx.waitFor(mc -> Math.abs(mc.player.getZ() - z) < 0.01 && mc.player.onGround(), 200);
+                    ctx.waitTicks(20);
+                    double[] d = ctx.computeOnClient(mc -> new double[]{
+                            mc.player.getEyePosition().distanceTo(Vec3.atCenterOf(key)),
+                            mc.player.getEyePosition().distanceTo(Vec3.atCenterOf(node))});
+                    List<String> facts = new ArrayList<>();
+                    facts.add(String.format(Locale.ROOT, "eye to centre: key %.3f, redstone block %.3f", d[0], d[1]));
+                    String placedLine = "redstone key placed at " + node.getX() + "," + node.getY() + "," + node.getZ();
+                    String pickupLine = "redstone key at " + kx + "," + key.getY() + "," + sz + " picked up";
+                    PacketWatch.start();
+
+                    // 1. Place ON, no key found yet (key pickup OFF): the redstone block is not touched.
+                    ctx.runOnClient(mc -> {
+                        Object cfg = ModUnderTest.config(CHEAT_CFG);
+                        ModUnderTest.set(cfg, "setAuraRedstoneKey", false);
+                        ModUnderTest.set(cfg, "setAuraPlaceRedstoneKey", true);
+                    });
+                    auraOn(ctx, false, false);
+                    ctx.waitTicks(40);
+                    int beforeKey = PacketWatch.totalUses();
+                    facts.add("1 (Place on, no key found): " + beforeKey + " use(s) in 40 ticks");
+
+                    // 2. Key pickup ON, Place OFF: the key is picked up, the block never clicked.
+                    ctx.runOnClient(mc -> {
+                        Object cfg = ModUnderTest.config(CHEAT_CFG);
+                        ModUnderTest.set(cfg, "setAuraPlaceRedstoneKey", false);
+                        ModUnderTest.set(cfg, "setAuraRedstoneKey", true);
+                    });
+                    ctx.waitTicks(80);
+                    int afterPickup = PacketWatch.totalUses() - beforeKey;
+                    boolean keyGone = ctx.computeOnClient(mc -> mc.level.getBlockState(key).isAir());
+                    boolean pickedUp = server.logged(pickupLine);
+                    boolean placedEarly = server.logged(placedLine);
+                    facts.add("2 (Place off): " + afterPickup + " use(s) in 80 ticks, key gone " + keyGone
+                            + ", server pickup " + pickedUp + ", placed " + placedEarly);
+
+                    // 3. Place ON: one more use, the key goes on the block, then nothing.
+                    ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CHEAT_CFG), "setAuraPlaceRedstoneKey", true));
+                    int before3 = PacketWatch.totalUses();
+                    int waited = 0;
+                    for (; waited < 60 && !server.logged(placedLine); waited += 5) {
+                        ctx.waitTicks(5);
+                    }
+                    ctx.waitTicks(40);
+                    int placeUses = PacketWatch.totalUses() - before3;
+                    boolean placed = server.logged(placedLine);
+                    boolean headOnNode = ctx.computeOnClient(mc -> mc.level.getBlockState(node.above()).getBlock()
+                            instanceof net.minecraft.world.level.block.AbstractSkullBlock);
+                    facts.add("3 (Place on): " + placeUses + " use(s), server placed " + placed + " after ~" + waited
+                            + " ticks, key head on the block " + headOnNode);
+                    PacketWatch.stop();
+                    ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+                    for (String f : facts) {
+                        scenario.log("RESULT " + f);
+                    }
+                    scenario.log(PacketWatch.summary());
+                    if (!cheat()) {
+                        if (PacketWatch.totalUses() != 0) {
+                            throw new AssertionError("a legit jar clicked by itself");
+                        }
+                        return;
+                    }
+                    if (Math.abs(d[0] - 4.6) > 0.02) {
+                        throw new AssertionError("premise - stood " + d[0] + " from the key's centre");
+                    }
+                    if (beforeKey != 0) {
+                        throw new AssertionError("the redstone block was clicked before any key was found");
+                    }
+                    if (afterPickup != 1 || !keyGone || !pickedUp || placedEarly) {
+                        throw new AssertionError("phase 2 wanted exactly the pickup and no placement: " + facts.get(2));
+                    }
+                    if (placeUses != 1 || !placed || !headOnNode) {
+                        throw new AssertionError("phase 3 wanted exactly one placement: " + facts.get(3));
                     }
                 });
     }

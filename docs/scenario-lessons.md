@@ -494,3 +494,6 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   reached there. On the mod before aura-2's fix the turn tick was added to every gap (4.48 and 7.89). 847: the testmod
   now removes a Redstone Key head (profile fed95410-...) on a right click, as Hypixel does (`RedstoneKeyPickup`), and
   logs "redstone key at x,y,z picked up"; a decorative head is left alone. 421 sets Lever Aura `Cps` (Min/Max Delay are gone).
+- 848 (AuraQuoiTests, nt-key-place, 2026-10-12): the testmod's `RedstoneKeyPickup` sets the key's head ON TOP of the
+  redstone block it is placed on - which is itself a redstone key skull, so the aura's first version picked it straight
+  back up (2 uses, nothing on the block). Count uses per phase, and check the head is still there afterwards.
