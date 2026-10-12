@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-12T11:46:24",
+ "generatedAt": "2026-10-12T12:15:07",
  "modSource": "killer560s-mod",
- "modGitSha": "de1edf77e28dca4b22b4e71d4780c6e76dc6fcc3",
+ "modGitSha": "79dd7ecc1b8483937e9f95e90d8a5625f1ebf631",
  "modSourceDirty": false,
- "count": 470,
+ "count": 471,
  "byKind": {
   "dynamic": 7,
   "element": 43,
-  "field": 404,
+  "field": 405,
   "local": 16
  },
  "unresolved": 8,
@@ -1260,6 +1260,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^\\\\((\\\\d+)/(\\\\d+)\\\\) Croesus$\""
+  },
+  {
+   "id": "croesus.ChestProfitFeature#MENU_PAGE",
+   "cls": "croesus.ChestProfitFeature",
+   "field": "MENU_PAGE",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/croesus/ChestProfitFeature.java",
+   "line": 72,
+   "regex": "^\\((\\d{1,2})/(\\d{1,2})\\) Croesus$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^\\\\((\\\\d{1,2})/(\\\\d{1,2})\\\\) Croesus$\""
   },
   {
    "id": "croesus.DungeonChestValuer#CROESUS_MENU_TITLE",
