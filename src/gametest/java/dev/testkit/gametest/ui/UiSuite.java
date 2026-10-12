@@ -147,7 +147,7 @@ public class UiSuite implements FabricClientGameTest {
             "679-ui-ttt-prediction-misclicks", "680-ui-imap-binds-ticks", "681-ui-auto-kick-pf", "682-ui-dungeon-esp-switch"};
     /** killer560's 2026-10-11 Auto Kick Judge By + Detect Queued Floor ({@link AutoKick2Cases}). Own block for merges. */
     static final String[] AUTOKICK2_CASES = {"801-ui-autokick-judge-by", "802-ui-autokick-detect-pf",
-            "803-ui-autokick-detect-joininstance", "804-ui-autokick-forged-queue", "805-ui-autokick-floor-source"};
+            "803-ui-autokick-joininstance-ignored", "804-ui-autokick-forged-queue", "805-ui-autokick-floor-source"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -376,7 +376,7 @@ public class UiSuite implements FabricClientGameTest {
                     // ---- autokick-2 (801-805) ----
                     UiCase.run(ctx, "801-ui-autokick-judge-by", AutoKick2Cases::timeMode);
                     UiCase.run(ctx, "802-ui-autokick-detect-pf", AutoKick2Cases::detectPartyFinder);
-                    UiCase.run(ctx, "803-ui-autokick-detect-joininstance", AutoKick2Cases::detectJoinInstance);
+                    UiCase.run(ctx, "803-ui-autokick-joininstance-ignored", AutoKick2Cases::joinInstanceIgnored);
                     UiCase.run(ctx, "804-ui-autokick-forged-queue", AutoKick2Cases::forgery);
                     UiCase.run(ctx, "805-ui-autokick-floor-source", AutoKick2Cases::floorSourceSettings);
                 }

@@ -24,13 +24,14 @@ import java.util.Map;
 /**
  * killer560's 2026-10-11 Auto Kick follow-up (mod branch autokick-2):
  * <p>801 Judge By: S+, S and S+ else S each judge the time they name (S+ else S falls to S only with no S+).
- * <p>802 Detect Queued, Party Finder: a real (client-side) "Group Builder" container is read for Dungeon/Floor, and the
- * pick becomes the floor only when "Party Finder > Your party has been queued in the dungeon finder!" arrives through
- * the real chat hook; a joiner is then judged on it.
- * <p>803 Detect Queued, /joininstance: a command sent through the real connection (Fabric's COMMAND event - the path
- * /f7 and /m7 use), the raw-packet path custom shortcuts use, and the Entrance (no floor).
- * <p>804 Forgery: another player's chat line carrying the queued text (all, party, guild, with a suffix), a builder that
- * lists several floors, and a queued line with no builder pick all leave the floor alone.
+ * <p>802 Detect Queued (Party Finder only): a client-side "Group Builder" with his screenshot's exact items ("Select
+ * Dungeon Type" / "Select Floor", "Currently Selected: ...") is read by item name, and the pick becomes the floor only
+ * when "Party Finder > Your party has been queued in the dungeon finder!" arrives through the real chat hook; a joiner is
+ * then judged on it. Normal mode, other slots and colour codes too.
+ * <p>803 /joininstance is NOT a source: after a Party Finder F5 queue, a sendCommand /joininstance, the /m6 shortcut
+ * and the ServerCommands packet path all leave F5.
+ * <p>804 Forgery: another player's chat line carrying the queued text (all, party, guild, private, with a suffix), a
+ * "Currently Selected" line on another item, and a queued line with no builder pick all leave the floor alone.
  * <p>805 Floor Source settings: Last Run / Fixed / Detect (and Detect's Last Run fallback), save/load, old-file
  * migration, a profile reload, tooltips and the tab rows.
  */
@@ -132,41 +133,35 @@ final class AutoKick2Cases {
                 return null;
             });
             String before = floor(c);
-            // The Group Builder, as the server would send it: the Dungeon and Floor items with the listing's lore shape.
-            Screen s = c.onClient(mc -> {
-                SimpleContainer box = new SimpleContainer(54);
-                box.setItem(12, item(Items.NETHER_STAR, "Select Dungeon Type", "Dungeon: Master Mode The Catacombs",
-                        "", "Click to change!"));
-                box.setItem(14, item(Items.STONE_BRICKS, "Select Floor", "Floor: Floor IV", "", "Click to change!"));
-                box.setItem(31, item(Items.REDSTONE_BLOCK, "Confirm Group", "Class Level: 0", "Note: s+ only"));
-                ContainerScreen screen = new ContainerScreen(ChestMenu.sixRows(0, mc.player.getInventory(), box),
-                        mc.player.getInventory(), Component.literal("Group Builder"));
-                McCompat.setScreen(mc, screen);
-                return screen;
-            });
-            c.ticks(5);
+            // His screenshot: Party Finder's "Start a New Queue" opens the Group Builder, row 2 holding "Select Dungeon
+            // Type" and "Select Floor" (red blocks), the green confirm further down.
+            openBuilder(c, 10, "Master Mode The Catacombs", 11, "Floor IV", true);
             String pick = pick(c);
             String beforeQueue = floor(c);
-            c.onClient(mc -> {
-                McCompat.setScreen(mc, null);
-                return null;
-            });
+            close(c);
             chat(c, QUEUED);
             String after = floor(c);
-            String source = c.onClient(mc -> (String) Mod.staticCall(DET, "detectedSource"));
             int d0 = decisions(c).size();
             chat(c, "Party Finder > MmJoiner joined the dungeon group! (Archer Level 45)");
             c.ticks(5);
             List<String> all = decisions(c);
-            List<String> mine = all.subList(Math.min(d0, all.size()), all.size());
+            List<String> mine = new ArrayList<>(all.subList(Math.min(d0, all.size()), all.size()));
+            // Normal mode, the items in other slots (found by NAME), colour codes on the lines.
+            openBuilder(c, 12, "§aThe Catacombs", 30, "§aFloor VI", false);
+            String pick2 = pick(c);
+            close(c);
+            chat(c, QUEUED);
+            String after2 = floor(c);
             c.note("before: " + before + "; Group Builder pick " + pick + " (floor still " + beforeQueue
-                    + "); after the queued line: " + after + " from " + source + "; joiner: " + mine);
+                    + "); after the queued line: " + after + "; joiner: " + mine + "; normal-mode builder in other slots "
+                    + "with colour codes: pick " + pick2 + " -> " + after2);
             c.check("F7".equals(before), "Detect did not fall back to the last run (F7) with nothing queued");
             c.check("M4".equals(pick), "the Group Builder's Master Mode / Floor IV was not read (" + pick + ")");
             c.check("F7".equals(beforeQueue), "the builder pick became the floor before the party was queued");
-            c.check("M4".equals(after) && "party finder".equals(source), "the queued line did not commit M4");
+            c.check("M4".equals(after), "the queued line did not commit M4");
             c.check(mine.equals(List.of("MmJoiner M4 S+ 3:50 limit 3:20 -> warn")),
                     "the joiner was not judged on M4 (his F7 time would have passed): " + mine);
+            c.check("F6".equals(pick2) && "F6".equals(after2), "the normal-mode Floor VI builder (other slots) was not read");
         } finally {
             close(c);
             DungeonB2Cases.restoreConfig(c, saved, AK_CFG);
@@ -175,7 +170,7 @@ final class AutoKick2Cases {
 
     // ---- 803 ------------------------------------------------------------------------------------------------------
 
-    static void detectJoinInstance(UiCase c) throws Exception {
+    static void joinInstanceIgnored(UiCase c) throws Exception {
         Map<Path, byte[]> saved = DungeonB2Cases.snapshotConfig(c, AK_CFG);
         try {
             setup(c, null, 0);
@@ -184,14 +179,20 @@ final class AutoKick2Cases {
                 Mod.staticCall(DET, "reset");
                 return null;
             });
-            // 1. Through the real connection: Fabric's COMMAND event, the exact call /f7 and /m7 make.
+            // Queue F5 in Party Finder first (control: detection works in this client).
+            openBuilder(c, 10, "The Catacombs", 11, "Floor V", true);
+            close(c);
+            chat(c, QUEUED);
+            String queued = floor(c);
+            List<String> sent = new ArrayList<>();
+            // 1. Through the real connection (Fabric's COMMAND event), the exact call /f7 and /m7 make.
             c.onClient(mc -> {
-                mc.player.connection.sendCommand("joininstance catacombs_floor_three");
+                mc.player.connection.sendCommand("joininstance master_catacombs_floor_seven");
                 return null;
             });
             c.ticks(3);
-            String viaEvent = floor(c);
-            // 2. The mod's own /m6 shortcut, when the shortcut is registered on this client.
+            sent.add("sendCommand joininstance master_catacombs_floor_seven -> " + floor(c));
+            // 2. The mod's own /m6 shortcut, when registered on this client.
             boolean m6 = c.onClient(mc -> {
                 Object d = Mod.staticCall("net.fabricmc.fabric.impl.command.client.ClientCommandInternals",
                         "getActiveDispatcher");
@@ -202,46 +203,22 @@ final class AutoKick2Cases {
                 return has;
             });
             c.ticks(3);
-            String viaShortcut = floor(c);
-            // 3. The raw packet path custom shortcuts use (ServerCommands.toServer).
+            sent.add("/m6 (registered " + m6 + ") -> " + floor(c));
+            // 3. The raw packet path custom shortcuts use.
             c.onClient(mc -> {
-                Mod.staticCall("util.ServerCommands", "toServer", "joininstance master_catacombs_floor_two");
+                Mod.staticCall("util.ServerCommands", "toServer", "joininstance catacombs_floor_two");
                 return null;
             });
             c.ticks(3);
-            String viaPacket = floor(c);
-            // 4. The Entrance: no Auto Kick floor, so nobody is judged.
-            c.onClient(mc -> {
-                mc.player.connection.sendCommand("joininstance catacombs_floor_entrance");
-                stats("EntGuy", "1:00", "1:00");
-                return null;
-            });
-            c.ticks(3);
-            String entrance = floor(c);
-            int d0 = decisions(c).size();
-            chat(c, "Party Finder > EntGuy joined the dungeon group! (Tank Level 20)");
-            List<String> all = decisions(c);
-            List<String> mine = all.subList(Math.min(d0, all.size()), all.size());
-            // 5. Not a dungeon instance: nothing changes.
-            c.onClient(mc -> {
-                mc.player.connection.sendCommand("joininstance kuudra_normal");
-                return null;
-            });
-            c.ticks(3);
-            boolean stillEntrance = c.onClient(mc -> (Boolean) Mod.staticCall(DET, "hasDetection"))
-                    && "null".equals(floor(c));
-            c.note("sendCommand joininstance catacombs_floor_three -> " + viaEvent + "; /m6 registered " + m6 + " -> "
-                    + viaShortcut + "; ServerCommands.toServer master_catacombs_floor_two -> " + viaPacket
-                    + "; entrance -> " + entrance + ", joiner " + mine + "; kuudra left it at the entrance " + stillEntrance);
-            c.check("F3".equals(viaEvent), "a /joininstance sent through the connection did not set F3");
-            if (m6) {
-                c.check("M6".equals(viaShortcut), "the /m6 shortcut did not set M6");
+            sent.add("ServerCommands.toServer joininstance catacombs_floor_two -> " + floor(c));
+            c.note("after the Party Finder queue: " + queued + "; " + sent);
+            c.check("F5".equals(queued), "the Party Finder queue did not set F5 (control)");
+            c.check(m6, "the /m6 shortcut is not registered, so the shortcut path was not exercised");
+            for (String s : sent) {
+                c.check(s.endsWith("-> F5"), "a /joininstance changed the floor: " + s);
             }
-            c.check("M2".equals(viaPacket), "the custom-shortcut packet path did not set M2");
-            c.check("null".equals(entrance), "the Entrance left a floor behind (" + entrance + ")");
-            c.check(mine.equals(List.of("EntGuy no floor -> none")), "a joiner was judged after queuing the Entrance");
-            c.check(stillEntrance, "a non-dungeon /joininstance changed the floor");
         } finally {
+            close(c);
             DungeonB2Cases.restoreConfig(c, saved, AK_CFG);
         }
     }
@@ -255,12 +232,15 @@ final class AutoKick2Cases {
             c.onClient(mc -> {
                 Mod.call(Mod.cfg(AK_CFG), "setFloorSource", Mod.enumValue(AK_CFG + "$FloorSource", "DETECT"));
                 Mod.staticCall(DET, "reset");
-                mc.player.connection.sendCommand("joininstance catacombs_floor_three");
                 return null;
             });
-            c.ticks(3);
-            // A builder pick of F5 waits for the queued line; none of the forgeries below may commit it.
-            builder(c, List.of("Floor: Floor V"));
+            openBuilder(c, 10, "The Catacombs", 11, "Floor III", true);
+            close(c);
+            chat(c, QUEUED);
+            String start = floor(c);
+            // A Group Builder pick of M5 waits for the queued line; none of the forgeries below may commit it.
+            openBuilder(c, 10, "Master Mode The Catacombs", 11, "Floor V", true);
+            close(c);
             String pick = pick(c);
             String[] forged = {
                     "[MVP+] Bob: " + QUEUED,
@@ -274,30 +254,36 @@ final class AutoKick2Cases {
                 chat(c, f);
             }
             String afterForged = floor(c);
-            // A builder showing several floors (a picker) is not a choice: the F5 pick stays.
-            builder(c, List.of("Floor I", "Floor II", "Floor III", "Floor IV", "Floor V", "Floor VI", "Floor VII"));
-            String pickAfterPicker = pick(c);
-            // A forged /joininstance-shaped CHAT line is chat, not a command: nothing.
-            chat(c, "[MVP+] Bob: /joininstance master_catacombs_floor_seven");
-            String afterChatCmd = floor(c);
-            // The real line commits F5.
+            // "Currently Selected:" on an item that is NOT "Select Floor"/"Select Dungeon Type" is not read.
+            c.onClient(mc -> {
+                SimpleContainer box = new SimpleContainer(54);
+                box.setItem(10, item(Items.REDSTONE_BLOCK, "Select Dungeon Type", "Currently Selected: The Catacombs"));
+                box.setItem(11, item(Items.PAPER, "Dungeon Classes", "Currently Selected: Floor VII"));
+                box.setItem(12, item(Items.REDSTONE_BLOCK, "Select Floor", "Click to change!"));
+                show(mc, box);
+                return null;
+            });
+            c.ticks(5);
+            close(c);
+            String pickAfterDecoy = pick(c);
+            // The real line commits M5.
             chat(c, QUEUED);
             String real = floor(c);
-            // A queued line with no new builder pick re-commits the same pick, never anything else.
+            // A queued line with no Group Builder seen detects nothing.
             c.onClient(mc -> {
                 Mod.staticCall(DET, "reset");
                 return null;
             });
             chat(c, QUEUED);
             boolean noPickNoDetect = !c.onClient(mc -> (Boolean) Mod.staticCall(DET, "hasDetection"));
-            c.note("pick " + pick + "; after " + forged.length + " forged lines floor " + afterForged + "; after a picker "
-                    + "screen pick " + pickAfterPicker + "; after a chat /joininstance " + afterChatCmd + "; real line -> "
-                    + real + "; queued with no pick detected nothing " + noPickNoDetect);
-            c.check("F5".equals(pick), "the builder pick F5 was not read");
+            c.note("start " + start + "; pick " + pick + "; after " + forged.length + " forged lines floor " + afterForged
+                    + "; after a decoy item pick " + pickAfterDecoy + "; real line -> " + real
+                    + "; queued with no pick detected nothing " + noPickNoDetect);
+            c.check("F3".equals(start), "the first Party Finder queue did not set F3 (control)");
+            c.check("M5".equals(pick), "the builder pick M5 was not read");
             c.check("F3".equals(afterForged), "a forged queued line changed the floor to " + afterForged);
-            c.check("F5".equals(pickAfterPicker), "a several-floor menu changed the pick to " + pickAfterPicker);
-            c.check("F3".equals(afterChatCmd), "a /joininstance typed in someone's chat changed the floor");
-            c.check("F5".equals(real), "the real queued line did not commit F5 (control)");
+            c.check("M5".equals(pickAfterDecoy), "a decoy item's 'Currently Selected' changed the pick to " + pickAfterDecoy);
+            c.check("M5".equals(real), "the real queued line did not commit M5 (control)");
             c.check(noPickNoDetect, "a queued line with no Group Builder pick detected a floor");
         } finally {
             close(c);
@@ -317,7 +303,9 @@ final class AutoKick2Cases {
                 Mod.setField(Mod.ROOT + AK, "lastRunFloor", Mod.enumValue(AK_CFG + "$Floor", "F6"));
                 Mod.call(k, "setFloorSource", Mod.enumValue(AK_CFG + "$FloorSource", "DETECT"));
                 String detectNone = String.valueOf(Mod.staticCall(AK, "queueFloor"));
-                Mod.staticCall(DET, "onCommand", "joininstance master_catacombs_floor_five");
+                Mod.staticCall(DET, "onBuilderItems", List.of("Currently Selected: Master Mode The Catacombs"),
+                        List.of("Currently Selected: Floor V"));
+                Mod.staticCall("util.ChatObserver", "onChatComponentAdd", Component.literal(QUEUED));
                 String detect = String.valueOf(Mod.staticCall(AK, "queueFloor"));
                 Mod.call(k, "setFloorSource", Mod.enumValue(AK_CFG + "$FloorSource", "LAST_RUN"));
                 String last = String.valueOf(Mod.staticCall(AK, "queueFloor"));
@@ -326,7 +314,7 @@ final class AutoKick2Cases {
                 String src = Mod.call(k, "getFloorSource").toString();
                 return new String[]{detectNone, detect, last, fixed, src};
             });
-            c.note("Detect with nothing queued " + r[0] + ", after /joininstance M5 " + r[1] + "; Last Run " + r[2]
+            c.note("Detect with nothing queued " + r[0] + ", after a Party Finder M5 queue " + r[1] + "; Last Run " + r[2]
                     + "; Fixed F2 " + r[3] + " (source " + r[4] + ")");
             c.check("F6".equals(r[0]), "Detect did not fall back to the last run");
             c.check("M5".equals(r[1]), "Detect did not use the queued M5");
@@ -439,17 +427,32 @@ final class AutoKick2Cases {
         c.ticks(2);
     }
 
-    /** Opens a client-side Group Builder whose first item carries {@code lore}, lets the detector read it, closes. */
-    private static void builder(UiCase c, List<String> lore) {
+    /**
+     * Opens a client-side "Group Builder" as his screenshot shows it: "Select Dungeon Type" and "Select Floor" red blocks
+     * carrying "Currently Selected: ..." lines, plus (when {@code confirm}) a green block further down. Lets the detector
+     * read it for a few ticks; the caller closes it.
+     */
+    private static void openBuilder(UiCase c, int typeSlot, String type, int floorSlot, String floor, boolean confirm) {
         c.onClient(mc -> {
             SimpleContainer box = new SimpleContainer(54);
-            box.setItem(14, item(Items.STONE_BRICKS, "Select Floor", lore.toArray(new String[0])));
-            McCompat.setScreen(mc, new ContainerScreen(ChestMenu.sixRows(0, mc.player.getInventory(), box),
-                    mc.player.getInventory(), Component.literal("Group Builder")));
+            box.setItem(typeSlot, item(Items.REDSTONE_BLOCK, "Select Dungeon Type",
+                    "Allows you to change your selected dungeon type.", "", "Currently Selected: " + type, "",
+                    "Click to change!"));
+            box.setItem(floorSlot, item(Items.REDSTONE_BLOCK, "Select Floor",
+                    "Allows you to change your selected floor number.", "", "Currently Selected: " + floor, "",
+                    "Click to change!"));
+            if (confirm) {
+                box.setItem(40, item(Items.EMERALD_BLOCK, "Confirm Group", "Click to confirm!"));
+            }
+            show(mc, box);
             return null;
         });
         c.ticks(5);
-        close(c);
+    }
+
+    private static void show(net.minecraft.client.Minecraft mc, SimpleContainer box) {
+        McCompat.setScreen(mc, new ContainerScreen(ChestMenu.sixRows(0, mc.player.getInventory(), box),
+                mc.player.getInventory(), Component.literal("Group Builder")));
     }
 
     private static void close(UiCase c) {
