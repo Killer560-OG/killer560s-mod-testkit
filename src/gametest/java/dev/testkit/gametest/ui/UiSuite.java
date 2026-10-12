@@ -150,6 +150,9 @@ public class UiSuite implements FabricClientGameTest {
             "803-ui-autokick-joininstance-ignored", "804-ui-autokick-forged-queue", "805-ui-autokick-floor-source"};
     /** killer560's 2026-10-11 "left click forward, right click backward" for every cycling setting ({@link CycleButtonCases}). Own block. */
     static final String[] CYCLE_BACK_CASES = {"806-ui-cycle-buttons-both-ways"};
+    /** killer560's 2026-10-11 leap-menu batch, the editor half ({@link LeapWizardCases}); 821-825 are in the menu
+     *  suite. Own block for merges. */
+    static final String[] LEAP2_CASES = {"826-ui-leap-wizard", "827-ui-leap-settings", "828-ui-leap-shots"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -199,6 +202,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : LEAPORDER_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : LEAP2_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : ITEM_UI_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -217,7 +223,7 @@ public class UiSuite implements FabricClientGameTest {
         boolean anyTitle = any(TITLE_CASES);
         boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES) || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
                 || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES)
-                || any(LEAPORDER_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES)
+                || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES)
                 || any(AUTOKICK2_CASES)
                 || any(CYCLE_BACK_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
@@ -360,6 +366,10 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "667-ui-leaporder-pins", LeapOrderCases::pinCase);
                     UiCase.run(ctx, "668-ui-leaporder-reset", LeapOrderCases::reset);
                     UiCase.run(ctx, "669-ui-leaporder-shots", LeapOrderCases::shots);
+                    // ---- leap-menu batch, editor half (826-828) ----
+                    UiCase.run(ctx, "826-ui-leap-wizard", LeapWizardCases::wizardCase);
+                    UiCase.run(ctx, "827-ui-leap-settings", LeapWizardCases::settings);
+                    UiCase.run(ctx, "828-ui-leap-shots", LeapWizardCases::shots);
                     // ---- item / inventory UI (701-712; 708 is in the menu suite) ----
                     UiCase.run(ctx, "701-ui-invsearch-red-fill", ItemUiCases::redFill);
                     UiCase.run(ctx, "702-ui-invsearch-calculator", ItemUiCases::calculator);

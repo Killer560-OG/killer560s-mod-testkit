@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-11T23:58:30",
+ "generatedAt": "2026-10-12T00:28:08",
  "modSource": "killer560s-mod",
- "modGitSha": "d251227518e8dd11212bea55234298b7e94f867f",
+ "modGitSha": "ebf1f037cf8234b45449852943dda6ceb43be3be",
  "modSourceDirty": false,
  "count": 468,
  "byKind": {
@@ -5143,7 +5143,7 @@
    "field": "IGN",
    "index": null,
    "file": "src/main/java/com/killer560/hub/spiritleap/SpiritLeapOverlayFeature.java",
-   "line": 40,
+   "line": 45,
    "regex": "([A-Za-z0-9_]{1,16})\\s*$",
    "flags": null,
    "kind": "field",

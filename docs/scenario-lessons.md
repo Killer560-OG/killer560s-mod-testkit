@@ -479,3 +479,6 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   832 since aura-cps (2026-10-12) also times the Aura CPS setting on a frame under the crosshair needing 7 clicks (Hx
   `frame` with `rotation` 2): 20.0 at 20, 5.2 at 5. A console `kill` of old frames right before Hx spawned new ones
   killed the NEW ones (console commands and Hx calls are not ordered) - remove Hx frames with `removeStands` only.
+- A pixel compare of a screen drawn over the WORLD is only as still as the world behind it: 824's legit run counted
+  2474 changed pixels at the cursor with no carried item anywhere, because the camera view moved between frames
+  (2026-10-12). Look straight up at the sky first and take two clean frames to prove the noise floor is 0.

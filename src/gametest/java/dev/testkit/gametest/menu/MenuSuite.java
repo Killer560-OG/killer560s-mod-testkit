@@ -45,6 +45,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *   <li>583, 585 the 2026-10-08 inventory batch: Item Protect blocks each action Slot Lock blocked (with a control that
  *       gets through), the sorter's SWAP/PICKUP clicks and tick pacing ({@link InvBatchMenuCases})</li>
  *   <li>670 the custom leap menu follows the Leap Order's default order and pins ({@link LeapOrderMenuCases})</li>
+ *   <li>821-825 the 2026-10-11 leap-menu batch: faces, map in clear, open delay, no carried head, frozen layout ({@link LeapBatchMenuCases})</li>
  *   <li>754-755 the Chocolate Factory on its current layout: Auto Chocolate Factory's clicks, the legit helper's
  *       reading and alerts ({@link ChocolateCases})</li>
  *   <li>761-767 the Bazaar flipper's full buy/sell cycle with the reskin off and on, its Cookie and price guards, and
@@ -115,6 +116,7 @@ public class MenuSuite implements FabricClientGameTest {
                     DungeonFixTerminalCases.register(s);
                     InvBatchMenuCases.register(s); // 583, 585: inventory batch 2026-10-08
                     LeapOrderMenuCases.register(s); // 670: leap menu follows the Leap Order defaults/pins, 2026-10-09
+                    LeapBatchMenuCases.register(s); // 821-825: leap-menu batch 2026-10-11 (heads, map, delay, carried, freeze)
                     // ---- 754-755 Chocolate Factory on the current layout: the auto and the legit helper (fairy-choc, 2026-10-11) ----
                     ChocolateCases.register(s);
                     // ---- 731-736 trackers (profit scopes, red reset, Experiments tab, Superpairs Escape, RNG), 2026-10-11 ----
