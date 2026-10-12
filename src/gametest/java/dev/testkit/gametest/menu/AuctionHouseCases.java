@@ -63,7 +63,7 @@ import java.util.Set;
  *       menu's items are missing the previous page stays drawn (screenshot: no chest grey, the old page's texts), and the
  *       mod's frame counters stay at 0 chest/0 blank.</li>
  *   <li>498-menu-ah-fallback: Auction Stats and a malformed Auctions Browser stay Hypixel's GUI (chest pixels, vanilla
- *       click); Reskin Real Auction House off likewise; Left Alt shows Hypixel's GUI and releasing brings the reskin
+ *       click); the Auction House switched off likewise; Left Alt shows Hypixel's GUI and releasing brings the reskin
  *       back; the header's "Hypixel menu" button switches to Hypixel's GUI sending nothing.</li>
  *   <li>499-menu-ah-handoff: from the browser to Hypixel and back: the listing's API data is drawn while its Auction View
  *       loads (no chest, no blank), the real view then shows reskinned and lands in Recently viewed; a header tab on the
@@ -110,7 +110,6 @@ final class AuctionHouseCases {
             c.ctx().runOnClient(mc -> Mod.staticCall("util.SkyblockGate", "setEnabled", false));
             cfg = new MenuKit.Cfg(c);
             cfg.set("auction.AuctionConfig", "AhEnabled", true);
-            cfg.set("auction.AuctionHouseConfig", "ReskinRealAh", true);
             cfg.set("auction.AuctionHouseConfig", "VanillaKeyCode", LEFT_ALT);
             Object hud = Mod.cfg("hud.HudConfig");
             autoScale = (Boolean) Mod.call(hud, "isAutoScale");
@@ -929,14 +928,14 @@ final class AuctionHouseCases {
                 vanillaClick(c, spec, id);
             }
             MenuKit.reset(c);
-            c.ctx().runOnClient(mc -> Mod.set("auction.AuctionHouseConfig", "setReskinRealAh", false));
+            c.ctx().runOnClient(mc -> Mod.set("auction.AuctionConfig", "setAhEnabled", false));
             JsonObject spec = MenuKit.menu("menus.ah-browser");
             MenuKit.show(c, spec);
             MenuKit.awaitScreen(c, plainTitle(spec), 100);
             c.ctx().waitTicks(20);
-            c.check("NONE".equals(kind(c)), "Reskin Real Auction House off: reskin shows " + kind(c));
+            c.check("NONE".equals(kind(c)), "Auction House off: reskin shows " + kind(c));
             vanillaClick(c, spec, "browser with the reskin off");
-            c.ctx().runOnClient(mc -> Mod.set("auction.AuctionHouseConfig", "setReskinRealAh", true));
+            c.ctx().runOnClient(mc -> Mod.set("auction.AuctionConfig", "setAhEnabled", true));
 
             MenuKit.reset(c);
             JsonObject view = show(c, "menus.ah-view-bin", "VIEW");

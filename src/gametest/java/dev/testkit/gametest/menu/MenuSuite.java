@@ -29,7 +29,9 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *       locked pages and empty slots ({@link PolishMenuCases})</li>
  *   <li>491-499 the unified Auction House: the API-drawn browser, Hypixel's AH menus reskinned with one press = one
  *       slot click, /viewauction hand-off, hidden HUDs, seamless page changes, fallback ({@link AuctionHouseCases})</li>
- *   <li>461-466 Reskin Real Bazaar: every mapped Bazaar menu reskinned, one press = one real slot click, unmapped menus
+ *   <li>768-769 the reskin drawing while the flipper runs (a key stops it), the one Bazaar/AH switch's config
+ *       migration ({@link ReskinSwitchCases})</li>
+ *   <li>461-466 the Bazaar reskin: every mapped Bazaar menu reskinned, one press = one real slot click, unmapped menus
  *       left to Hypixel's GUI, the hold-key escape, live Manage Orders, the Booster Cookie gate ({@link BazaarReskinCases})</li>
  *   <li>481-489 the unified Bazaar screen: render at six sizes, recents, tabs and search, the three-button bottom bar,
  *       HUDs hidden, seamless page switches (frame log), product clicks with and without a Booster Cookie, the follow-up
@@ -117,6 +119,8 @@ public class MenuSuite implements FabricClientGameTest {
                     TrackerCases.register(s);
                     // ---- 761-767 bz-croesus (2026-10-11): Bazaar flipper cycle, Auto Croesus key revisit ----
                     FlipCroesusCases.register(s);
+                    // ---- 768-769 bz-reskin (2026-10-11): reskin during the flipper, one Bazaar/AH switch ----
+                    ReskinSwitchCases.register(s);
                 });
     }
 }

@@ -116,7 +116,6 @@ final class BazaarV3Cases {
             this.c = c;
             MenuKit.reset(c);
             cfg = new MenuKit.Cfg(c);
-            cfg.set("auction.AuctionConfig", "ReskinRealBazaar", true);
             cfg.set("auction.AuctionConfig", "BazaarEnabled", true);
             cfg.set("auction.AuctionConfig", "BazaarVanillaKeyCode", 342);
             cfg.set("bazaar.BazaarConfig", "FollowUpClick", true);
