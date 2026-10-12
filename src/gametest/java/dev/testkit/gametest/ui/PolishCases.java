@@ -642,7 +642,13 @@ final class PolishCases {
                 int y = (g[2] - 11) * gs;
                 int sep = rowCount(hb, y, (cx - 88 + 16) * gs, (cx - 68) * gs, AMBER);
                 int sep7 = rowCount(hb, y, (cx - 88 + 7 * 20 + 16) * gs, (cx - 88 + 8 * 20) * gs, AMBER);
-                int edge = runRight(hb, (cx - 91) * gs, y, AMBER);
+                // The bar's left line: the first accent run from just outside vanilla's sprite edge (since mod inv-theme-fix2
+                // the end lines sit on the cell boundary x0 + 1 like the separators, so it starts a unit further in).
+                int ex = (cx - 92) * gs;
+                while (ex < (cx - 88) * gs && rgb(hb, ex, y) != AMBER) {
+                    ex++;
+                }
+                int edge = runRight(hb, ex, y, AMBER);
                 c.note(String.format(Locale.ROOT, "line %d px: hotbar between items 0|1 %d accent px, 7|8 %d, left border %d",
                         t, sep, sep7, edge));
                 c.check(sep == t && sep7 == t, "the hotbar draws " + sep + " / " + sep7 + " px of line between two slots, "

@@ -475,9 +475,13 @@ final class InvStorageCases {
                 }
                 int wantTop = b.px(b.gh() - 22 * scale);
                 int wantRight = b.px(b.cx() + 91 * scale) - 1;
-                c.note(String.format(Locale.ROOT, "scale %.0f%%: bar top %d (want %d), right edge %d (want %d)",
-                        scale * 100, topY, wantTop, rightX, wantRight));
-                if (Math.abs(topY - wantTop) > 2 || Math.abs(rightX - wantRight) > 2) {
+                // Since mod inv-theme-fix2 the bar's end lines sit on the cell boundary x0 + 181 (centred end slots), so its
+                // last pixel is lineWidth/2 past that boundary: accept that edge too.
+                int lw = ((Number) c.onClient(mc -> Mod.call(cfg, "getLineWidth"))).intValue();
+                int wantRight2 = b.px(b.cx() + 90 * scale) + lw / 2 - 1;
+                c.note(String.format(Locale.ROOT, "scale %.0f%%: bar top %d (want %d), right edge %d (want %d or %d)",
+                        scale * 100, topY, wantTop, rightX, wantRight, wantRight2));
+                if (Math.abs(topY - wantTop) > 2 || (Math.abs(rightX - wantRight) > 2 && Math.abs(rightX - wantRight2) > 2)) {
                     c.problem(String.format(Locale.ROOT, "Hotbar Scale %.0f%% draws the bar top %d / right %d, want %d / %d",
                             scale * 100, topY, rightX, wantTop, wantRight));
                 }
