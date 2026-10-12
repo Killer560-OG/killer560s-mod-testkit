@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-11T19:03:56",
- "modSource": "killer560s-mod",
- "modGitSha": "38b884ae1439324c101659d3644aca4eaa42cb2f",
+ "generatedAt": "2026-10-11T19:16:43",
+ "modSource": "fairy-2",
+ "modGitSha": "2cb60c2a6073a0797619e2089fc503bda7be7e1c",
  "modSourceDirty": false,
- "count": 465,
+ "count": 466,
  "byKind": {
   "dynamic": 7,
   "element": 43,
-  "field": 398,
+  "field": 399,
   "local": 17
  },
  "unresolved": 8,
@@ -3276,6 +3276,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"[A-Za-z0-9_]{1,16}\""
+  },
+  {
+   "id": "pathfinding.AutoWalker#HYPIXEL_DEATH",
+   "cls": "pathfinding.AutoWalker",
+   "field": "HYPIXEL_DEATH",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/pathfinding/AutoWalker.java",
+   "line": 229,
+   "regex": "^\\s?☠ You [A-Za-z0-9 ',.()-]{1,80}$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^\\\\s?\\u2620 You [A-Za-z0-9 ',.()-]{1,80}$\""
   },
   {
    "id": "pathfinding.FairySoulMenu#LORE_COUNT",
