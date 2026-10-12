@@ -114,10 +114,35 @@ final class HudMenuProfilesCases {
                 Screen open = c.onClient(McCompat::screen);
                 c.check(open != null, "could not open " + k.getKey());
                 String after = pressKeyAndSee(c);
-                boolean same = c.onClient(mc -> McCompat.screen(mc) == open);
                 c.note(k.getKey() + " open (" + open.getClass().getName() + "): after the key the screen is " + after);
-                if (!same) {
-                    c.problem("the Edit HUD key changed the screen while " + k.getKey() + " was open: now " + after);
+                // Since mod hud-key-2 (killer560 2026-10-12) the key opens Edit HUD over any screen except while he is
+                // typing (chat here; every typing context is 862) or over the editor itself; Esc goes back.
+                boolean blocked = k.getKey().equals("chat") || k.getKey().equals("the HUD editor itself");
+                if (blocked) {
+                    boolean same = c.onClient(mc -> McCompat.screen(mc) == open);
+                    if (!same) {
+                        c.problem("the Edit HUD key changed the screen while " + k.getKey() + " was open: now " + after);
+                    }
+                } else {
+                    Object parent = c.onClient(mc -> {
+                        Screen s = McCompat.screen(mc);
+                        return s != null && s.getClass().getName().equals(Mod.ROOT + EDITOR)
+                                ? Mod.call(s, "parentScreen") : "not the editor";
+                    });
+                    if (parent != open) {
+                        c.problem("over " + k.getKey() + " the key opened " + after + " with parent " + parent);
+                    } else {
+                        c.onClient(mc -> {
+                            McCompat.screen(mc).onClose();
+                            return null;
+                        });
+                        c.ticks(2);
+                        boolean back = c.onClient(mc -> McCompat.screen(mc) == open);
+                        c.note(k.getKey() + ": Esc from the editor went back to it: " + back);
+                        if (!back) {
+                            c.problem("closing the editor opened over " + k.getKey() + " did not return to it");
+                        }
+                    }
                 }
                 c.onClient(mc -> {
                     McCompat.setScreen(mc, null);

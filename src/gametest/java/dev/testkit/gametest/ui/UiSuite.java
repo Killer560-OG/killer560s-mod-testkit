@@ -150,6 +150,9 @@ public class UiSuite implements FabricClientGameTest {
             "803-ui-autokick-joininstance-ignored", "804-ui-autokick-forged-queue", "805-ui-autokick-floor-source"};
     /** killer560's 2026-10-11 "left click forward, right click backward" for every cycling setting ({@link CycleButtonCases}). Own block. */
     static final String[] CYCLE_BACK_CASES = {"806-ui-cycle-buttons-both-ways"};
+    /** killer560's 2026-10-12 Edit HUD key / Croesus batch ({@link HudKey2Cases}). Own block for merges. */
+    static final String[] HUD_KEY2_CASES = {"862-ui-hud-key-typing", "863-ui-hud-key-over-container",
+            "864-ui-croesus-split", "865-ui-container-overlays"};
     /** killer560's 2026-10-11 leap-menu batch, the editor half ({@link LeapWizardCases}); 821-825 are in the menu
      *  suite. Own block for merges. */
     static final String[] LEAP2_CASES = {"826-ui-leap-wizard", "827-ui-leap-settings", "828-ui-leap-shots"};
@@ -217,6 +220,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : CYCLE_BACK_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : HUD_KEY2_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -225,7 +231,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES)
                 || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES)
                 || any(AUTOKICK2_CASES)
-                || any(CYCLE_BACK_CASES);
+                || any(CYCLE_BACK_CASES) || any(HUD_KEY2_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -397,6 +403,11 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "805-ui-autokick-floor-source", AutoKick2Cases::floorSourceSettings);
                     // ---- cycle-back (806) ----
                     UiCase.run(ctx, "806-ui-cycle-buttons-both-ways", c -> CycleButtonCases.cycleButtons(c, deny));
+                    // ---- Edit HUD key / Croesus (862-865) ----
+                    UiCase.run(ctx, "862-ui-hud-key-typing", HudKey2Cases::typing);
+                    UiCase.run(ctx, "863-ui-hud-key-over-container", HudKey2Cases::overContainer);
+                    UiCase.run(ctx, "864-ui-croesus-split", HudKey2Cases::croesusSplit);
+                    UiCase.run(ctx, "865-ui-container-overlays", HudKey2Cases::overlays);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

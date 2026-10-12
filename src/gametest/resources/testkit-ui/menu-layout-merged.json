@@ -256,6 +256,12 @@
       "key": "thorn esp style",
       "text": "How Thorn highlights are drawn: Outline Box, Filled Box or Glow; left click cycles forward, right click back.",
       "why": "cycle-back 357cee13: every cycling setting steps back on a right click (killer560, 2026-10-11)"
+    },
+    {
+      "owner": "Mod & HUD",
+      "key": "edit hud keybind",
+      "text": "Key that opens the HUD editor, over any screen (a chest, Croesus, this menu) so its overlays can be placed where they sit. It does nothing while you are typing: chat, a rename, a sign or book, any search box.",
+      "why": "hud-key-2: the Edit HUD key works over menus and is held back only while typing (killer560 2026-10-12)"
     }
   ]
 }

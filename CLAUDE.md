@@ -296,6 +296,10 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   and 746's slabs were missing on the first run (2026-10-11). Use `TestMap.command("fill ... block[state]")` for states. A
   console `tp @p ~ ~ ~` is relative to the CONSOLE (world spawn), not the player: `execute as @p at @s run tp @s ~ ~ ~`.
 
+- A `SignEditScreen` built in a test needs a sign entity with `setLevel(mc.level)` and `setAllowedPlayerEditor(player
+  uuid)` at his feet: its `tick()` asks the entity whether he is too far away, which NPEs with no level and crashed the
+  client ("Ticking screen", 862's first run, 2026-10-12).
+
 Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosecret wither doors, 62-argrim frames,
 143 camera, 141/142 autopilot, the mod's Auto Scale, terminal layouts, the logic world, 386's sweep):
 [docs/scenario-lessons.md](docs/scenario-lessons.md).

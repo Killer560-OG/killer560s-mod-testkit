@@ -71,11 +71,16 @@ final class MenuLayoutCases {
             // Held Item Outline (mod held-outline, killer560 2026-10-09): its own tab in Cosmetics.
             "gui.tab.HeldOutlineTab",
             // Auto Update (mod auto-update, killer560 2026-10-11): its own tab in Home, legit in both builds.
-            "gui.tab.AutoUpdateTab");
+            "gui.tab.AutoUpdateTab",
+            // Auto Croesus (mod hud-key-2, killer560 2026-10-12): out of the Croesus tab into its own, in Dungeon's cheat
+            // block; cheat jar only.
+            "gui.tab.AutoCroesusTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     private static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.
-            "Command Shortcuts", "Chat Keybinds");
+            "Command Shortcuts", "Chat Keybinds",
+            // Croesus / Chest Profit is "Croesus" since mod hud-key-2 (2026-10-12); its Auto rows are in Auto Croesus.
+            "Croesus / Chest Profit", "Croesus");
     /** Tabs merged into another since the fixture: old leaf class -> the class that now holds its rows. */
     static final Map<String, String> MERGED = Map.of("gui.tab.CommandShortcutsTab", "gui.tab.CommandKeybindsTab");
     private static final Pattern COMBINED = Pattern.compile(".*(, | & ).*");
