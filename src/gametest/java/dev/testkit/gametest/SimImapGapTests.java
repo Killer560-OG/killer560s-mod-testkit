@@ -272,9 +272,124 @@ public class SimImapGapTests implements FabricClientGameTest {
         if (!sawWaterfall) {
             f.add("no strip of Waterfall on this floor - the case does not cover the screenshot");
         }
+        hoverShots(ctx, f, groups);
         if (points == 0) {
             f.add("no multi-tile room strips found");
         }
+    }
+
+    /** Where 851/852's screenshots go (killer560s-mod-logs/imap-gap-shots), named before/after by the jar. */
+    private static final java.nio.file.Path SHOTS = java.nio.file.Path.of(System.getProperty("user.home"),
+            "killer560s-mod-logs", "imap-gap-shots");
+
+    /** "after" on a jar whose map presses a room's strip as a spot (mod imap-gap-2), "before" otherwise. */
+    private static String jarTag() {
+        try {
+            Class.forName(LIVE).getDeclaredMethod("onRoomStrip", double.class, double.class);
+            return "after";
+        } catch (ReflectiveOperationException e) {
+            return "before";
+        }
+    }
+
+    /**
+     * 851's pictures (killer560, 2026-10-12: "since there is a room there that is actual tangible space that should also
+     * be highlighted"): the cursor on a Waterfall tile that has another of its tiles to the east, then on the strip
+     * between them, each screenshot read back. The half of the strip on the hovered tile's side must be lit like the
+     * tile (no unlit line between the room's tiles), and with the cursor on the strip the spot under it must be lit.
+     */
+    private static void hoverShots(ClientGameTestContext ctx, List<String> f, List<Group> groups) {
+        Group wf = null;
+        for (Group g : groups) {
+            if ("Waterfall".equals(g.name())) {
+                wf = g;
+            }
+        }
+        if (wf == null) {
+            return;
+        }
+        int tile = -1;
+        for (int t : wf.tiles()) {
+            if (contains(wf.tiles(), t + 2) && contains(wf.cells(), t + 1)) {
+                tile = t;
+                break;
+            }
+        }
+        if (tile < 0) {
+            f.add("Waterfall has no tile with another of its tiles to the east");
+            return;
+        }
+        int tx = tile % GRID;
+        int tz = tile / GRID;
+        double tileMidX = cellPos(tx) + cellSize(tx) / 2.0;
+        double midZ = cellPos(tz) + cellSize(tz) / 2.0;
+        double stripX0 = cellPos(tx + 1);
+        double stripW = cellSize(tx + 1);
+        String tag = jarTag();
+        try {
+            java.nio.file.Files.createDirectories(SHOTS);
+        } catch (java.io.IOException e) {
+            throw new RuntimeException(e);
+        }
+        // (1) the cursor on the tile, (2) on the strip a quarter in from the tile's side.
+        double[][] at = {{tileMidX, midZ}, {stripX0 + stripW * 0.25, midZ}};
+        String[] what = {"tile", "strip"};
+        for (int k = 0; k < 2; k++) {
+            double cux = at[k][0];
+            double cuz = at[k][1];
+            double[] px = ctx.computeOnClient(mc -> {
+                Object screen = McCompat.screen(mc);
+                float ox = (Float) ModUnderTest.call(screen, "originX", new Class<?>[]{}, new Object[]{});
+                float oy = (Float) ModUnderTest.call(screen, "originY", new Class<?>[]{}, new Object[]{});
+                float ppu = (Float) ModUnderTest.call(screen, "ppu", new Class<?>[]{}, new Object[]{});
+                // Window pixels per unit of the SCREEN's own layout (its width, as it was laid out) - not the window's
+                // current GUI scale, which this test client can report differently from what the open screen used.
+                double scale = mc.getWindow().getWidth() / (double) ((net.minecraft.client.gui.screens.Screen) screen).width;
+                return new double[]{ox, oy, ppu, scale};
+            });
+            ctx.getInput().setCursorPos((px[0] + cux * px[2]) * px[3], (px[1] + cuz * px[2]) * px[3]);
+            ctx.waitTicks(4);
+            java.nio.file.Path shot = ctx.takeScreenshot(dev.testkit.harness.Report.fileName(HOVER + "-" + what[k]));
+            java.awt.image.BufferedImage img;
+            try {
+                java.nio.file.Files.copy(shot, SHOTS.resolve("851-hover-" + what[k] + "-" + tag + ".png"),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                img = javax.imageio.ImageIO.read(shot.toFile());
+            } catch (java.io.IOException e) {
+                throw new RuntimeException(e);
+            }
+            // Pixels: the hovered tile's inside (lit), the strip's near half (must be lit the same), the next tile's
+            // inside (not hovered - the room's plain colour).
+            double sx = img.getWidth() / (double) ctx.computeOnClient(mc -> mc.getWindow().getWidth());
+            java.util.function.BiFunction<Double, Double, Integer> pix = (ux, uz) -> {
+                int x = (int) Math.round((px[0] + ux * px[2]) * px[3] * sx);
+                int y = (int) Math.round((px[1] + uz * px[2]) * px[3] * sx);
+                return img.getRGB(Math.max(0, Math.min(img.getWidth() - 1, x)), Math.max(0, Math.min(img.getHeight() - 1, y)));
+            };
+            double offZ = -cellSize(tz) * 0.32;   // near the room's top edge, off the label in its middle
+            int lit = pix.apply(stripX0 - cellSize(tx) * 0.12, midZ + offZ);
+            int nearHalf = pix.apply(stripX0 + stripW * 0.25, midZ + offZ);
+            int farTile = pix.apply(cellPos(tx + 2) + cellSize(tx + 2) * 0.7, midZ + offZ);
+            boolean nearLit = close(nearHalf, lit);
+            boolean differs = !close(lit, farTile);
+            System.out.println(String.format(Locale.US, "[%s] screenshot (%s, cursor on the %s): hovered tile %06X, the"
+                            + " strip's near half %06X, the next tile %06X - strip lit like the tile: %s; hover visible: %s",
+                    HOVER, tag, what[k], lit & 0xFFFFFF, nearHalf & 0xFFFFFF, farTile & 0xFFFFFF, nearLit, differs));
+            if (!differs) {
+                f.add("cursor on the " + what[k] + ": the hovered tile is not lit differently from the next one");
+            } else if (!nearLit) {
+                f.add("cursor on the " + what[k] + ": the strip beside the hovered tile is not lit (an unlit line between"
+                        + " the room's tiles)");
+            }
+        }
+        ctx.getInput().setCursorPos(2, 2);
+    }
+
+    private static boolean close(int a, int b) {
+        int dr = Math.abs(((a >> 16) & 0xFF) - ((b >> 16) & 0xFF));
+        int dg = Math.abs(((a >> 8) & 0xFF) - ((b >> 8) & 0xFF));
+        int db = Math.abs((a & 0xFF) - (b & 0xFF));
+        return dr + dg + db <= 12;
     }
 
     // ============================================================================================ 852 click
@@ -312,8 +427,8 @@ public class SimImapGapTests implements FabricClientGameTest {
         }
         int sx = strip % GRID;
         int sz = strip / GRID;
-        double ux = cellPos(sx) + cellSize(sx) * 0.75;
-        double uz = cellPos(sz) + cellSize(sz) * 0.5;
+        double ux = cellPos(sx) + cellSize(sx) * 0.5;
+        double uz = cellPos(sz) + cellSize(sz) * 0.3;
         int target = side;
         // Start in another room: Atlas's centre tile area.
         Vec3 start = ctx.computeOnClient(mc -> mc.player.position());
@@ -322,10 +437,28 @@ public class SimImapGapTests implements FabricClientGameTest {
         System.out.println(String.format(Locale.US, "[%s] press on Waterfall's strip %d at (%.1f, %.1f): the map took cell"
                 + " %d (the tile beside it is %d, the main tile %d)", CLICK, strip, ux, uz, cell, target, wf.main()));
         long mark = LogTap.mark();
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(FEATURE, "onMapPress", new Class<?>[]{int.class},
-                new Object[]{cell}));
+        boolean spotPress = "after".equals(jarTag());
+        // The press the screen makes for a point (mod imap-gap-2: a point on a strip is a spot); the jar before had only
+        // the cell press, which is what its screen sent.
+        ctx.runOnClient(mc -> {
+            if (spotPress) {
+                ModUnderTest.staticCall(FEATURE, "onMapPressAt", new Class<?>[]{double.class, double.class,
+                        boolean.class}, new Object[]{ux, uz, false});
+            } else {
+                ModUnderTest.staticCall(FEATURE, "onMapPress", new Class<?>[]{int.class}, new Object[]{cell});
+            }
+        });
         closeMap(ctx);
         Vec3 end = waitTrip(ctx, mark);
+        // The strip's own blocks: the gap block column between the two tiles (world), a block either way of it.
+        BlockPos gap = cellCentre(ctx, strip);
+        double fromStrip = Math.abs(end.x - (gap.getX() + 0.5));
+        System.out.println(String.format(Locale.US, "[%s] the press was on the strip's middle; he ended %.1f block(s) from"
+                + " the strip's centre line (x %d)", CLICK, fromStrip, gap.getX()));
+        if (fromStrip > 2.5) {
+            f.add(String.format(Locale.US, "a press in the strip ended %.1f blocks from the strip (at %s), not in it",
+                    fromStrip, fmt(end)));
+        }
         BlockPos centre = ctx.computeOnClient(mc -> (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter",
                 new Class<?>[]{int.class}, new Object[]{target}));
         int mainIdx = wf.main();
@@ -338,9 +471,7 @@ public class SimImapGapTests implements FabricClientGameTest {
         if (end.distanceTo(start) < 5) {
             f.add("no trip happened (moved " + String.format(Locale.US, "%.1f", end.distanceTo(start)) + ")");
         }
-        if (!inTile) {
-            f.add("the press on the strip beside tile " + target + " ended at " + fmt(end) + ", not in that tile");
-        }
+        // (The tile check of imap-gap-1 is gone: a press on the strip now goes to the strip itself.)
     }
 
     // ============================================================================================ 853 door
