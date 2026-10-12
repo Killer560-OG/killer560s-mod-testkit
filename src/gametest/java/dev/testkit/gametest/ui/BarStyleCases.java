@@ -793,6 +793,148 @@ final class BarStyleCases {
         copyCrop(c, name, img, gs, 0, 0, img.getWidth() / gs, img.getHeight() / gs);
     }
 
+    // ================================================================================================================
+    // 899 his bars config: every visible bar has its icon (mod bars-icon)
+    // ================================================================================================================
+
+    /** killer560, 2026-10-13: "the vitality symbol still doesn't show" - his Vitality Bar is 50 units wide in the
+     *  right-of-hotbar column, under the old full-size icon rule (width at least 3 x thickness + 20). His config files
+     *  (bars and the bars' HUD entries, copied from the Mod Only Test instance) are loaded as they are, the bars given
+     *  the values his screenshot shows, at two window sizes. */
+    static void hisIcons(UiCase c) throws Exception {
+        if (!supported(c)) {
+            return;
+        }
+        boolean has = c.onClient(mc -> {
+            try {
+                R.cls(PAINTER).getField("lastIcon");
+                return true;
+            } catch (NoSuchFieldException e) {
+                return false;
+            }
+        });
+        if (!has) {
+            c.problem("this jar records no icon per bar (BarPainter.lastIcon) - before mod bars-icon");
+            return;
+        }
+        Map<Path, byte[]> saved = HudFixCases.snapshot(c, PS, HUD);
+        int[] window = HudEditorCases.windowSize(c);
+        int gui = c.onClient(mc -> mc.options.guiScale().get());
+        try {
+            int[][] windows = {{1920, 1080, 2}, {2560, 1440, 3}};
+            for (int[] win : windows) {
+                HudEditorCases.setWindow(c, win[0], win[1], win[2]);
+                // His files, as they are.
+                c.onClient(mc -> {
+                    try {
+                        Files.writeString((Path) R.getStatic(R.cls(PS), "CONFIG_PATH"),
+                                resource("bars-his-1013/killer560smod-playerstats.json"));
+                        Path hudPath = (Path) R.getStatic(R.cls(HUD), "CONFIG_PATH");
+                        Files.writeString(hudPath, resource("bars-his-1013/killer560smod-hud.json"));
+                    } catch (java.io.IOException e) {
+                        throw new AssertionError(e);
+                    }
+                    Mod.staticCall(HUD, "load");
+                    Mod.staticCall(PS, "load");
+                    McCompat.setScreen(mc, null);
+                    McCompat.clearChatAndToasts(mc);
+                    Class<?> f = R.cls(FEATURE);
+                    R.setStatic(f, "healthCur", 3448L);
+                    R.setStatic(f, "healthMax", 3073L);
+                    R.setStatic(f, "manaCur", 2344L);
+                    R.setStatic(f, "manaMax", 2344L);
+                    R.setStatic(f, "vitalityCur", 117L);
+                    R.setStatic(f, "vitalityMax", 117L);
+                    R.setStatic(f, "otherCur", 40L);
+                    R.setStatic(f, "otherMax", 100L);
+                    return null;
+                });
+                c.ticks(10);
+                BarPixels.settle(c);
+                String tag = "gui" + win[2];
+                int gs = c.onClient(mc -> mc.getWindow().getGuiScale());
+                BufferedImage on = HudFixCases.shot(c, "his-" + tag);
+                int gw = on.getWidth() / gs;
+                int gh = on.getHeight() / gs;
+                copyCrop(c, "icons-his-" + tag, on, gs, gw / 2 - 200, gh - 80, gw / 2 + 200, gh);
+                String[] bars = {"HEALTH_BAR", "MANA_BAR", "VITALITY_BAR", "XP_BAR", "OTHER_BAR"};
+                // Per bar: {drawn, icon units, box x0, y0, x1, y1 (GUI), scale}.
+                List<double[]> info = new ArrayList<>();
+                for (String b : bars) {
+                    info.add(c.onClient(mc -> {
+                        Class<?> p = R.cls(PAINTER);
+                        int i = ordinal(b);
+                        long drawn = ((long[]) R.getStatic(p, "lastDrawNanos"))[i];
+                        boolean fresh = drawn > 0 && System.nanoTime() - drawn < 500_000_000L;
+                        float[] sb = (float[]) R.getStatic(p, "lastScreenBox");
+                        Object e = Mod.staticCall("hud.HudElementRegistry", "byId", (String) R.get(r(b), "hudId"));
+                        float s = ((Number) Mod.staticCall("hud.HudElementRegistry", "resolveScale", e)).floatValue();
+                        return new double[]{fresh ? 1 : 0, ((int[]) R.getStatic(p, "lastIcon"))[i], sb[i * 4],
+                                sb[i * 4 + 1], sb[i * 4 + 2], sb[i * 4 + 3], s};
+                    }));
+                }
+                // The same scene with every bar off: what the icon squares show without the bars.
+                c.onClient(mc -> {
+                    Object ps = Mod.cfg(PS);
+                    for (String b : bars) {
+                        Mod.call(ps, "setReadoutOn", r(b), false);
+                    }
+                    return null;
+                });
+                c.ticks(4);
+                BufferedImage off = HudFixCases.shot(c, "his-" + tag + "-none");
+                int drawnBars = 0;
+                for (int k = 0; k < bars.length; k++) {
+                    double[] v = info.get(k);
+                    if (v[0] < 1) {
+                        c.note(tag + " " + bars[k] + ": not drawn (his config has it "
+                                + (bars[k].equals("OTHER_BAR") ? "on, " : "") + "off or with no value)");
+                        continue;
+                    }
+                    drawnBars++;
+                    double w = v[4] - v[2];
+                    double h = v[5] - v[3];
+                    int icon = (int) v[1];
+                    // The icon square, centred on the bar's height at its left.
+                    int x0 = (int) Math.floor(v[2] * gs);
+                    int x1 = (int) Math.ceil((v[2] + icon * v[6]) * gs);
+                    int y0 = (int) Math.floor((v[3] + (h - icon * v[6]) / 2) * gs);
+                    int y1 = (int) Math.ceil((v[3] + (h + icon * v[6]) / 2) * gs);
+                    int changed = changedCount(on, off, x0, y0, x1, y1);
+                    c.note(String.format(Locale.ROOT, "%s %s: box %.1fx%.1f GUI, icon %d units, %d px of its square"
+                            + " drawn", tag, bars[k], w, h, icon, changed));
+                    c.check(icon > 0, tag + " " + bars[k] + " (" + Math.round(w) + "x" + Math.round(h) + " GUI) draws no"
+                            + " icon");
+                    c.check(icon == 0 || changed >= icon * v[6] * gs, tag + " " + bars[k] + ": its icon square changed"
+                            + " only " + changed + " px against the bar turned off - nothing was drawn there");
+                }
+                c.check(drawnBars >= 4, tag + ": only " + drawnBars + " of his bars drew (want Health, Mana, Vitality,"
+                        + " XP and Other)");
+                c.onClient(mc -> {
+                    Class<?> f = R.cls(FEATURE);
+                    for (String n : new String[]{"healthCur", "healthMax", "manaCur", "manaMax", "vitalityCur",
+                            "vitalityMax", "otherCur", "otherMax"}) {
+                        R.setStatic(f, n, -1L);
+                    }
+                    return null;
+                });
+            }
+        } finally {
+            reset(c);
+            HudEditorCases.restoreWindow(c, window, gui);
+            HudFixCases.restore(c, saved);
+        }
+    }
+
+    private static String resource(String name) throws java.io.IOException {
+        try (var in = BarStyleCases.class.getResourceAsStream("/testkit-ui/" + name)) {
+            if (in == null) {
+                throw new java.io.IOException("missing resource " + name);
+            }
+            return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+    }
+
     private static String readBack() {
         Object ps = Mod.cfg(PS);
         return Mod.call(ps, "getBarStyle") + "," + Mod.call(ps, "isBarRounded") + "," + Mod.call(ps, "isBarIcons")

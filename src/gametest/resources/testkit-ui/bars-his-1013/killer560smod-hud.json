@@ -1,0 +1,34 @@
+{
+  "globalScale": 1.0,
+  "autoScale": true,
+  "positions": {
+    "statbar_mana": {
+      "x": 431,
+      "y": 441,
+      "scale": 1.0
+    },
+    "statbar_vitality": {
+      "x": 641,
+      "y": 335,
+      "scale": 1.0
+    },
+    "statbar_other": {
+      "x": 393,
+      "y": 386,
+      "scale": 1.0
+    },
+    "statbar_xp": {
+      "x": 67,
+      "y": 211,
+      "scale": 1.0
+    },
+    "statbar_health": {
+      "x": 301,
+      "y": 414,
+      "scale": 1.0
+    },
+    "statbar_defence": {
+      "scale": 1.0
+    }
+  }
+}
