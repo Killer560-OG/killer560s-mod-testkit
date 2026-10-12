@@ -177,6 +177,21 @@
       "key": "turn speed",
       "text": "Top speed the camera turns while auto walking, in degrees per tick; it eases smoothly every frame below that.",
       "why": "fairy-choc (killer560 2026-10-11): the walker's camera eases per frame"
+    },
+    {
+      "owner": "Experiments",
+      "key": "reset profit totals",
+      "gone": "trackers: Experiments tab keeps Profit Tracker + Open /profit; totals and the reset moved to /profit (killer560 2026-10-11)"
+    },
+    {
+      "owner": "Experiments",
+      "key": "reward value",
+      "gone": "trackers: Experiments tab keeps Profit Tracker + Open /profit; totals and the reset moved to /profit (killer560 2026-10-11)"
+    },
+    {
+      "owner": "Experiments",
+      "key": "sessions",
+      "gone": "trackers: Experiments tab keeps Profit Tracker + Open /profit; totals and the reset moved to /profit (killer560 2026-10-11)"
     }
   ]
 }

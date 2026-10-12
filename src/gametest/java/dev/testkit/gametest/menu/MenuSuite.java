@@ -111,6 +111,8 @@ public class MenuSuite implements FabricClientGameTest {
                     LeapOrderMenuCases.register(s); // 670: leap menu follows the Leap Order defaults/pins, 2026-10-09
                     // ---- 754-755 Chocolate Factory on the current layout: the auto and the legit helper (fairy-choc, 2026-10-11) ----
                     ChocolateCases.register(s);
+                    // ---- 731-736 trackers (profit scopes, red reset, Experiments tab, Superpairs Escape, RNG), 2026-10-11 ----
+                    TrackerCases.register(s);
                 });
     }
 }

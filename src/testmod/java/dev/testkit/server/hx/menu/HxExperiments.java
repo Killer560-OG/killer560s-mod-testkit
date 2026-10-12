@@ -83,6 +83,9 @@ final class HxExperiments {
         int secondOpen = -1;
         long recoverAt = -1;
         int remainingClicks;
+        /** {@code holdOnOut}: when the clicks run out the board stays open, as on Hypixel (killer560, 2026-10-11:
+         *  Escape then takes you to the claim menu), instead of closing or jumping to the rewards. */
+        boolean holdOnOut;
         int pairsFound;
         // Superpairs powerups, only on a board given a "layout": {"powerup":true} (or "find") is Instant Find,
         // {"powerup":"clicks","amount":N} is "Gained +N Clicks". As on Hypixel (killer560, 2026-10-05): "if a powerup
@@ -331,6 +334,7 @@ final class HxExperiments {
         List<ItemStack> items = HxMenus.filled(server, 6);
         HxChestMenu menu = HxMenus.open(player, 6, Component.literal(s.title()), items, SCRIPT, s);
         last = s;
+        s.holdOnOut = a.has("holdOnOut") && a.get("holdOnOut").getAsBoolean();
         if (game == Game.SUPERPAIRS) {
             s.setupSuperpairs(server, menu, a.has("pairs") ? a.get("pairs").getAsInt() : 3,
                     a.has("clicks") ? a.get("clicks").getAsInt() : 20,
@@ -385,6 +389,9 @@ final class HxExperiments {
         HxEvents.custom("experiment.over", player, e);
         System.out.println("[hx] experiment " + s.game + " over (" + why + ") after round " + s.round + ", "
                 + s.clicks + " click(s)");
+        if (s.holdOnOut && why.equals("out of clicks")) {
+            return; // the board stays up until the player closes it
+        }
         if (s.rewards != null) {
             HxMenus.later(() -> HxMenuSpec.open(server, player, s.rewards));
         } else {
