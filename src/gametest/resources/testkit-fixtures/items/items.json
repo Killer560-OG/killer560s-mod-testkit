@@ -124,10 +124,10 @@
     },
     "source": {
       "file": "src/main/java/com/killer560/hub/itemprotect/ItemProtect.java",
-      "line": 114
+      "line": 117
     },
     "verifiedBy": "regex",
-    "notes": "Name fallback of ItemProtect.isStarred: the comment (:114) says the master pips \u278a-\u278e count; the code (:115-117) checks \u2780-\u2784. A name with only a real pip shows which one ran."
+    "notes": "Name fallback of ItemProtect.isStarred: the comment (:116) says the master pips \u278a-\u278e count and the code (:117-120) now checks exactly those (it used to check \u2780-\u2784, so this stack read as not starred; fixed in the mod). A name with only a real pip shows which one ran."
   },
   {
     "id": "items.spirit-leap",
@@ -163,9 +163,9 @@
     },
     "source": {
       "file": "src/main/java/com/killer560/hub/inventorysearch/InventorySearchFeature.java",
-      "line": 299
+      "line": 346
     },
     "verifiedBy": "regex",
-    "notes": "Inventory search matches the hover name and, with searchLore, each lore line (:299-320)."
+    "notes": "Inventory search matches the hover name and, with searchLore, each lore line (matches(), :335-353; the lore loop starts at :346)."
   }
 ]

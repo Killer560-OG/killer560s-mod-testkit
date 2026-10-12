@@ -278,15 +278,15 @@ final class ItemCases {
         }
     }
 
-    /** ItemProtect.isStarred's NAME fallback: its comment (ItemProtect.java:114) promises the master pips. */
+    /** ItemProtect.isStarred's NAME fallback: its comment (ItemProtect.java:116) promises the master pips. */
     static void starredName(Session c) throws Exception {
         try {
             ItemStack pip = give(c, 0, "items.master-pip-only-name");
             boolean starred = c.onClient(mc -> (Boolean) Mod.staticCall("itemprotect.ItemProtect", "isStarred", pip));
             String name = c.onClient(mc -> pip.getHoverName().getString());
-            c.note("isStarred('" + name + "') = " + starred + " (comment: master pips ➊-➎ count; code checks ➀-➄)");
-            c.check(starred, "ItemProtect.isStarred('" + name + "') is false: the name fallback checks ➀-➄ "
-                    + "(U+2780-2784), not the master pips ➊-➎ (U+278A-278E) its comment and RevertMasterStarsFeature use");
+            c.note("isStarred('" + name + "') = " + starred + " (comment and code: master pips ➊-➎ count)");
+            c.check(starred, "ItemProtect.isStarred('" + name + "') is false: the name fallback must count the master pips "
+                    + "➊-➎ (U+278A-278E) its comment and RevertMasterStarsFeature use, not ➀-➄ (U+2780-2784)");
         } finally {
             clear(c, 0);
         }
