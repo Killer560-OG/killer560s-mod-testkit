@@ -47,6 +47,10 @@ import static dev.testkit.gametest.hx.HxKit.*;
  *   <li>817: My Name in F5 - the own tag in third person back and front only with the setting on, never in first
  *       person (screenshot diff on vs off, and the render state's nameTag).</li>
  *   <li>818: My Name in F5 is saved, loaded, restored by a profile reload, tooltipped and in the tab.</li>
+ *   <li>819: a supporter's shared fade - the relay's {@code GET /supporters} body with a per-letter {@code colors}
+ *       list, read by the mod's own parser - paints green to blue on that player's nametag and in the tab list
+ *       (screenshots); an old entry with no {@code colors} and one with a wrong-length list keep their single colour;
+ *       the cache keeps the list; and your own fade is what Share if Supporter would send.</li>
  * </ul>
  */
 final class HxCosmeticNameCases {
@@ -71,6 +75,8 @@ final class HxCosmeticNameCases {
         s.test("816-hx-cosmetic-nametag-scale", HxCosmeticNameCases::nametagScale);
         s.test("817-hx-cosmetic-f5-own-name", HxCosmeticNameCases::f5OwnName);
         s.test("818-hx-cosmetic-f5-setting-saved", HxCosmeticNameCases::f5Saved);
+        // Fade share (mod branch fade-share, relay branch fade-share), own block.
+        s.test("819-hx-cosmetic-fade-share", HxCosmeticNameCases::fadeShare);
     }
 
     // ---- shared -----------------------------------------------------------------------------------------------------
@@ -264,7 +270,10 @@ final class HxCosmeticNameCases {
                     acc[0] += b / (double) (g + b);
                     acc[1]++;
                 } else if (changed(img, base, ox + xx, oy + yy) && bright(p) && !neutral(p)
-                        && (base == null || !overlay(p, base.getRGB(ox + xx, oy + yy)))) {
+                        && (base == null || !overlay(p, base.getRGB(ox + xx, oy + yy)))
+                        // where the base frame had white text (the real name the styled one replaced), what shows
+                        // through now is background, not a foreign colour of the name
+                        && (base == null || !(neutral(base.getRGB(ox + xx, oy + yy)) && bright(base.getRGB(ox + xx, oy + yy))))) {
                     foreign++;
                 }
             }
@@ -856,6 +865,138 @@ final class HxCosmeticNameCases {
                 Mod.staticCall(SC, "load");
                 return null;
             });
+        }
+    }
+
+    // ---- 819 fade share ---------------------------------------------------------------------------------------------
+
+    /** The relay's GET /supporters body for three entries (shape from the relay's own discord-smoke run). */
+    private static String relayBody(UUID styled, UUID old, UUID bad) {
+        StringBuilder colors = new StringBuilder();
+        for (int i = 0; i < FADE_NAME.length(); i++) {
+            int g = Math.round(255 - 255f * i / (FADE_NAME.length() - 1));
+            colors.append(i == 0 ? "" : ",").append((g << 8) | (255 - g));
+        }
+        return "{\"version\":7,\"supporters\":["
+                + "{\"uuid\":\"" + styled + "\",\"name\":\"&a" + FADE_NAME + "\",\"scale\":1,\"colors\":[" + colors + "]},"
+                + "{\"uuid\":\"" + old + "\",\"name\":\"&dOldEntry\",\"scale\":1},"
+                + "{\"uuid\":\"" + bad + "\",\"name\":\"&bBadList\",\"scale\":1,\"colors\":[65280,255]}]}";
+    }
+
+    private static void fadeShare(Session c) throws Exception {
+        String self = self(c);
+        double[] at = c.scenario().playerPosition();
+        camera(c, CameraType.FIRST_PERSON);
+        TestEnemy bot = TestEnemy.named("Ct", "F").at(at[0], at[1], at[2] + 5).frozen(true).spawn(c.ctx(), c.server());
+        Object savedMap = c.onClient(mc -> Mod.field(SF, "byUuid"));
+        try (Settings s = new Settings(c).with(SC, "ShowSupporterNames", false).with(NC, "RandomizeOthers", false)) {
+            String botName = bot.name();
+            UUID botId = c.onClient(mc -> {
+                for (Player p : mc.level.players()) {
+                    if (p.getGameProfile().name().equals(botName)) {
+                        return p.getUUID();
+                    }
+                }
+                return null;
+            });
+            c.check(botId != null, "the bot " + botName + " is not in the client's world (premise)");
+            UUID oldId = UUID.fromString("0f0e0d0c-0b0a-4908-8706-050403020100");
+            UUID badId = UUID.fromString("1f1e1d1c-1b1a-4918-9716-151413121110");
+            String body = relayBody(botId, oldId, badId);
+            c.note("relay body: " + body);
+            c.onClient(mc -> {
+                Mod.staticCall("players.PlayerNames", "noteKnown", botId, botName);
+                Object list = Mod.staticCall("supporters.SupportersFetcher", "parseSupporters",
+                        com.google.gson.JsonParser.parseString(body).getAsJsonObject().get("supporters"));
+                Mod.staticCall(SF, "apply", 7, list, false);
+                return null;
+            });
+            String[] shown = c.onClient(mc -> {
+                Mod.set(SC, "setShowSupporterNames", true);
+                Map<?, ?> m = (Map<?, ?>) Mod.field(SF, "byUuid");
+                String[] out = new String[3];
+                UUID[] ids = {botId, oldId, badId};
+                for (int i = 0; i < 3; i++) {
+                    out[i] = (String) Mod.call(m.get(ids[i]), "displayText");
+                }
+                return out;
+            });
+            c.note("painted: styled '" + shown[0] + "', old '" + shown[1] + "', bad list '" + shown[2] + "'");
+            c.check("§dOldEntry".equals(shown[1]), "an entry without colors is not its single colour: " + shown[1]);
+            c.check("§bBadList".equals(shown[2]), "a wrong-length colors list was not dropped: " + shown[2]);
+            List<Integer> painted = c.onClient(mc -> colours(((Component) Mod.staticCall(SF, "displayNameFor", botId))
+                    .getVisualOrderText()));
+            c.note("nametag component colours: " + hexList(painted));
+            c.check(painted.size() == FADE_NAME.length() && painted.get(0) == 0x00FF00
+                    && painted.get(painted.size() - 1) == 0x0000FF, "the shared fade is not 00ff00..0000ff: " + hexList(painted));
+
+            // The cache keeps the list across a restart.
+            boolean cached = c.onClient(mc -> {
+                Object loaded = Mod.staticCall("supporters.SupportersCache", "load");
+                List<?> entries = (List<?>) Mod.call(loaded, "entries");
+                Object before = Mod.staticCall("supporters.SupportersFetcher", "parseSupporters",
+                        com.google.gson.JsonParser.parseString(body).getAsJsonObject().get("supporters"));
+                Mod.staticCall("supporters.SupportersCache", "save", 7, before);
+                Object again = Mod.call(Mod.staticCall("supporters.SupportersCache", "load"), "entries");
+                boolean ok = false;
+                for (Object e : (List<?>) again) {
+                    if (botId.equals(Mod.call(e, "uuid"))) {
+                        int[] col = (int[]) Mod.call(e, "colors");
+                        ok = col != null && col.length == FADE_NAME.length();
+                    }
+                }
+                Mod.staticCall("supporters.SupportersCache", "save", (Integer) Mod.call(loaded, "version"), entries);
+                return ok;
+            });
+            c.check(cached, "the supporters cache lost the colors list");
+
+            // Upload side: your own fade is what Share if Supporter sends.
+            try (Settings f = fade(c)) {
+                int[] mine = c.onClient(mc -> (int[]) Mod.staticCall(NF, "ownShareColours"));
+                List<Integer> l = new ArrayList<>();
+                if (mine != null) {
+                    for (int v : mine) {
+                        l.add(v);
+                    }
+                }
+                c.note("own share colours: " + hexList(l));
+                c.check(mine != null && mine.length == FADE_NAME.length() && mine[0] == 0x00FF00
+                        && mine[mine.length - 1] == 0x0000FF, "own fade is not shared as 00ff00..0000ff: " + hexList(l));
+            }
+
+            // Screens: the bot's nametag (vs supporter names off) and the tab list.
+            look(c, 0f, 0f);
+            clearChat(c);
+            BufferedImage off;
+            try (Settings o = new Settings(c).with(SC, "ShowSupporterNames", false)) {
+                off = shot(c, "nametag-off");
+            }
+            BufferedImage on = shot(c, "nametag-on");
+            Fade tag = fadeOf(on, off, 0, 0, on.getWidth(), on.getHeight());
+            c.note("nametag: " + tag);
+            c.check(tag.ok(), "the supporter's nametag is not a clean green->blue fade: " + tag);
+
+            tab(c, "template", "dungeon", "players", List.of(player(botName, "Mage", null), player(self, "Archer", null)));
+            c.waitUntil("the text row shows " + FADE_NAME, mc -> {
+                PlayerInfo info = textRowFor(mc, botName);
+                return info != null && nameForDisplay(mc, info).getString().contains(FADE_NAME);
+            }, 60);
+            look(c, 0f, -30f);
+            clearChat(c);
+            BufferedImage closed = shot(c, "tab-closed");
+            tabDown(c, true);
+            BufferedImage open = shot(c, "tab-open");
+            Fade tabFade = fadeOf(open, closed, 0, 0, open.getWidth(), open.getHeight() / 2);
+            c.note("tab: " + tabFade);
+            c.check(tabFade.ok(), "the supporter's name in the tab list is not a clean green->blue fade: " + tabFade);
+        } finally {
+            tabDown(c, false);
+            c.onClient(mc -> {
+                Mod.setField(SF, "byUuid", savedMap);
+                return null;
+            });
+            bot.remove();
+            hub(c);
         }
     }
 }
