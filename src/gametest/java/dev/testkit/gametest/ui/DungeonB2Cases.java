@@ -804,7 +804,7 @@ final class DungeonB2Cases {
             c.note("Auto Kick tab rows: " + labels);
             c.check(!all.contains("remove real") && !all.contains("0 = disabled") && !all.contains("ships")
                     && !all.contains("disabled"), "a removed note is still on the tab");
-            c.check(all.contains("queue floor"), "no Queue Floor row");
+            c.check(all.contains("floor source") && all.contains("judge by"), "no Floor Source / Judge By row");
             String[][] ends = {{"Floor 1:", "0:30", "4:00"}, {"Floor 7:", "0:30", "6:00"}, {"Master 7:", "0:30", "7:00"}};
             for (String[] e : ends) {
                 double[] b = slider(c, s, e[0]);
@@ -1016,7 +1016,7 @@ final class DungeonB2Cases {
         return pane == null ? List.of() : new ArrayList<>((Collection<AbstractWidget>) R.get(pane, "children"));
     }
 
-    private static List<String> labels(UiCase c, Screen s) {
+    static List<String> labels(UiCase c, Screen s) {
         return c.onClient(mc -> {
             try {
                 R.call0(s, "rebuild");
@@ -1178,7 +1178,7 @@ final class DungeonB2Cases {
         return sb.append(")").toString();
     }
 
-    private static Map<Path, byte[]> snapshotConfig(UiCase c, String cls) {
+    static Map<Path, byte[]> snapshotConfig(UiCase c, String cls) {
         Map<Path, byte[]> out = new java.util.LinkedHashMap<>();
         Path p = c.onClient(mc -> (Path) R.getStatic(R.cls(cls), "CONFIG_PATH"));
         try {
@@ -1189,7 +1189,7 @@ final class DungeonB2Cases {
         return out;
     }
 
-    private static void restoreConfig(UiCase c, Map<Path, byte[]> saved, String cls) {
+    static void restoreConfig(UiCase c, Map<Path, byte[]> saved, String cls) {
         try {
             for (Map.Entry<Path, byte[]> e : saved.entrySet()) {
                 if (e.getValue() == null) {

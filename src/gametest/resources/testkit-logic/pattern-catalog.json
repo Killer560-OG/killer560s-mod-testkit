@@ -1,15 +1,15 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-11T19:18:22",
+ "generatedAt": "2026-10-11T19:19:30",
  "modSource": "killer560s-mod",
- "modGitSha": "2cb60c2a6073a0797619e2089fc503bda7be7e1c",
+ "modGitSha": "9cbf36b5369f6c71a23494903e5a398328b91d70",
  "modSourceDirty": false,
- "count": 466,
+ "count": 469,
  "byKind": {
   "dynamic": 7,
   "element": 43,
-  "field": 399,
-  "local": 17
+  "field": 403,
+  "local": 16
  },
  "unresolved": 8,
  "patterns": [
@@ -451,7 +451,7 @@
    "field": "PF_JOINED",
    "index": null,
    "file": "src/main/java/com/killer560/hub/autokick/AutoKickFeature.java",
-   "line": 49,
+   "line": 53,
    "regex": "^Party Finder > ([A-Za-z0-9_]{1,16}) joined the dungeon group! \\((\\w+) Level \\d+\\)$",
    "flags": null,
    "kind": "field",
@@ -463,23 +463,59 @@
    "field": "MM_SS",
    "index": null,
    "file": "src/main/java/com/killer560/hub/autokick/AutoKickFeature.java",
-   "line": 53,
+   "line": 57,
    "regex": "^(\\d{1,3}):(\\d{2})$",
    "flags": null,
    "kind": "field",
    "expr": "\"^(\\\\d{1,3}):(\\\\d{2})$\""
   },
   {
-   "id": "autokick.AutoKickFeature@190",
-   "cls": "autokick.AutoKickFeature",
-   "field": null,
+   "id": "autokick.QueuedFloorDetector#QUEUED",
+   "cls": "autokick.QueuedFloorDetector",
+   "field": "QUEUED",
    "index": null,
-   "file": "src/main/java/com/killer560/hub/autokick/AutoKickFeature.java",
-   "line": 190,
-   "regex": "^(\\d{1,3}):(\\d{2})$",
+   "file": "src/main/java/com/killer560/hub/autokick/QueuedFloorDetector.java",
+   "line": 45,
+   "regex": "^Party Finder > Your party has been queued in the dungeon finder!$",
    "flags": null,
-   "kind": "local",
-   "expr": "\"^(\\\\d{1,3}):(\\\\d{2})$\""
+   "kind": "field",
+   "expr": "\"^Party Finder > Your party has been queued in the dungeon finder!$\""
+  },
+  {
+   "id": "autokick.QueuedFloorDetector#BUILDER_FLOOR",
+   "cls": "autokick.QueuedFloorDetector",
+   "field": "BUILDER_FLOOR",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/autokick/QueuedFloorDetector.java",
+   "line": 49,
+   "regex": "^(?:[A-Za-z ]{1,24}: )?(?:Floor ([IV]{1,3})|(?:The Catacombs - )?(Entrance))$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(?:[A-Za-z ]{1,24}: )?(?:Floor ([IV]{1,3})|(?:The Catacombs - )?(Entrance))$\""
+  },
+  {
+   "id": "autokick.QueuedFloorDetector#BUILDER_TYPE",
+   "cls": "autokick.QueuedFloorDetector",
+   "field": "BUILDER_TYPE",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/autokick/QueuedFloorDetector.java",
+   "line": 52,
+   "regex": "^(?:[A-Za-z ]{1,24}: )?(Master Mode |MM )?The Catacombs$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(?:[A-Za-z ]{1,24}: )?(Master Mode |MM )?The Catacombs$\""
+  },
+  {
+   "id": "autokick.QueuedFloorDetector#JOIN_INSTANCE",
+   "cls": "autokick.QueuedFloorDetector",
+   "field": "JOIN_INSTANCE",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/autokick/QueuedFloorDetector.java",
+   "line": 54,
+   "regex": "^/?joininstance (master_)?catacombs_floor_(entrance|one|two|three|four|five|six|seven)$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^/?joininstance (master_)?catacombs_floor_(entrance|one|two|three|four|five|six|seven)$\""
   },
   {
    "id": "automeow.AutoMeowFeature#TRIGGER",
