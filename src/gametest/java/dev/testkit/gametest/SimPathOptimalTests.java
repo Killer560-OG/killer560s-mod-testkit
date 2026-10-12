@@ -72,10 +72,11 @@ public class SimPathOptimalTests implements FabricClientGameTest {
     static final String REPLAN = "635-sim-pathopt-replan";
     static final String MAP_SLAB = "636-sim-pathopt-mapslab";
     static final String BREAKER = "637-sim-pathopt-breaker";
+    static final String RW = "871-sim-pathopt-dbwarrior";
     static final String CHEST = "638-sim-pathopt-chest";
     // The map trip (636) goes after every path-pair flight: after a map warp only a START node may arm until he has
     // been through one (the map-arrival interlock), and these pairs have none.
-    private static final String[] CASES = {LIP, SLAB, SLAB_NODE, CHEST, BREAKER, MAP_SLAB, REPLAN, SWEEP};
+    private static final String[] CASES = {LIP, SLAB, SLAB_NODE, CHEST, BREAKER, RW, MAP_SLAB, REPLAN, SWEEP};
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
@@ -164,6 +165,7 @@ public class SimPathOptimalTests implements FabricClientGameTest {
                         case MAP_SLAB -> caseMapSlab(ctx, f);
                         case CHEST -> caseChest(ctx, f);
                         case BREAKER -> caseBreaker(ctx, f);
+                        case RW -> caseRedstoneWarrior(ctx, f);
                         case REPLAN -> caseReplan(ctx, f);
                         case SWEEP -> caseSweep(ctx, f);
                         default -> { }
@@ -489,13 +491,181 @@ public class SimPathOptimalTests implements FabricClientGameTest {
     // ============================================================================================ 637 breaker
 
     /**
-     * A wall across the arena (x 15, 10 high, capped) whose only gap a direct warp could use is three stone blocks at
-     * z 15, y F..F+2 that are Breaker Aura picks; the way round is the far doorway (z 25..26). With the aura on, the path
-     * pair plans as if the picks were gone: ONE warp straight through to the goal (24, F-1, 15), where the ground truth
-     * with them standing has no route of 2 or fewer. Flown while they stand, the warp cannot land and he does not get
-     * through (honoured, not fought); flown once they are broken, it lands.
+     * killer560 (2026-10-12): "the path node isn't planning like there aren't any blocks blocking it for dungeon breaker
+     * stuff" and "breaker aura should only work in boss phase [...] During clear the only way to auto break blocks is
+     * through the breaker node." A wall across the arena (x 15, 10 high, capped) whose only straight gap is three stone
+     * blocks at z 15, y F..F+2; the way round is the far doorway (z 25..26).
+     * <ol>
+     *   <li>Breaker node source: a DUNGEON_BREAKER node (#1, out of the way) breaks those three blocks; the path pair
+     *       #2 -> #3 after it plans them as gone - ONE warp through the gap (no single warp with them standing, ground
+     *       truth). Fired while they stand it waits (sneak held, 0 use packets, one chat line naming the block); once
+     *       they are broken it warps on its own and lands.</li>
+     *   <li>Breaker Aura in clear: the same three blocks picked, the aura on, a Dungeon Breaker in hand - nothing is
+     *       broken in 60 ticks, and a pair planned with no breaker node does NOT go through them.</li>
+     *   <li>Breaker Aura in boss (/killer560 sim's override): it breaks a pick.</li>
+     * </ol>
      */
     private static void caseBreaker(ClientGameTestContext ctx, List<String> f) {
+        wallArena(ctx);
+        Vec3 s = rel(ctx, 6.5, F, 15.5);
+        BlockPos goal = relBlock(ctx, 24, F - 1, 15);
+        Vec3 g = rel(ctx, 24.5, F, 15.5);
+        String truth = onServer(ctx, (mc, level) -> {
+            float[] d = oracleDirect(level, s, goal);
+            return (d == null ? "no single warp" : "ONE warp lands") + "; 2 or fewer: "
+                    + noRouteOfTwo(level, s, goal, arenaBox(mc), 32);
+        });
+        println(BREAKER, "ground truth with the wall's gap blocks standing: " + truth);
+        if (!truth.startsWith("no single warp")) {
+            f.add("with the gap blocks standing one warp already lands (" + truth + ")");
+        }
+        // ---- 1. the breaker node source ----
+        writeBreakerNode(ctx);
+        long planMark = LogTap.mark();
+        int hops = pathPair(ctx, f, s, g, false);
+        boolean said = false;
+        for (String l : LogTap.since(planMark)) {
+            said |= l.contains("3 breaker node block(s) planned as broken");
+        }
+        println(BREAKER, "path pair after the breaker node: " + hops + " warp(s) saved; planner said it planned the 3"
+                + " breaker node blocks as broken: " + said);
+        if (hops != 1) {
+            f.add("the path pair saved " + hops + " warp(s); through the breaker node's blocks one does it");
+        }
+        if (!said) {
+            f.add("the planner did not plan the breaker node's blocks as broken");
+        }
+        Vec3 off = rel(ctx, 4.5, F, 4.5);
+        place(ctx, off);
+        ctx.waitTicks(10);
+        int waitedBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "pickWaitTicksTotal"));
+        long flyMark = LogTap.mark();
+        ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.start());
+        tpNoWait(ctx, s);
+        ctx.waitTicks(60);
+        Vec3 held = ctx.computeOnClient(mc -> mc.player.position());
+        boolean sneaking = ctx.computeOnClient(mc -> mc.player.getLastSentInput().shift());
+        boolean running = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+        int usesWaiting = ctx.computeOnClient(mc -> dev.testkit.harness.PacketTrace.sent("use_item"));
+        int waited = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "pickWaitTicksTotal"))
+                - waitedBefore;
+        int named = 0;
+        for (String l : LogTap.since(flyMark)) {
+            named += l.contains("[CHAT]") && l.contains("Waiting for the breaker block at") ? 1 : 0;
+        }
+        println(BREAKER, String.format(Locale.US, "blocks standing, 60 ticks on #2: at %s (%.2f from the start), route"
+                        + " running %s, sneak held %s, %d use packet(s), %d tick(s) waited, chat line(s) naming it: %d",
+                fmt(held), held.distanceTo(s), running, sneaking, usesWaiting, waited, named));
+        if (held.distanceTo(s) > 0.5 || !running || !sneaking || usesWaiting != 0 || waited < 40 || named != 1) {
+            f.add("while the breaker blocks stood the hop did not wait as it should (moved " + String.format(Locale.US,
+                    "%.2f", held.distanceTo(s)) + ", running " + running + ", sneak " + sneaking + ", " + usesWaiting
+                    + " use(s), waited " + waited + " tick(s), " + named + " chat line(s))");
+        }
+        setBlocks(ctx, gapBlocks(Blocks.AIR.defaultBlockState()));
+        Vec3 end = null;
+        for (int i = 0; i < 100; i++) {
+            ctx.waitTicks(1);
+            end = ctx.computeOnClient(mc -> mc.player.position());
+            if (end.distanceTo(g) < 0.3) {
+                break;
+            }
+        }
+        ctx.waitTicks(5);
+        int usesTotal = ctx.computeOnClient(mc -> dev.testkit.harness.PacketTrace.sent("use_item"));
+        ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.stop());
+        println(BREAKER, "blocks broken: ended " + fmt(end) + ", " + usesTotal + " use packet(s) in all");
+        if (end == null || end.distanceTo(g) > 0.7) {
+            f.add("once the breaker blocks broke the waiting hop did not land on the goal (ended " + fmt(end) + ")");
+        }
+        if (usesTotal != 1) {
+            f.add("the hop sent " + usesTotal + " use packet(s); one warp was due");
+        }
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                new Object[]{"test reset"}));
+        // ---- 2. Breaker Aura in clear: breaks nothing, plans nothing ----
+        setBlocks(ctx, gapBlocks(Blocks.STONE.defaultBlockState()));
+        settle(ctx);
+        List<BlockPos> picks = List.of(relBlock(ctx, 15, F, 15), relBlock(ctx, 15, F + 1, 15), relBlock(ctx, 15, F + 2, 15));
+        giveBreaker(ctx);
+        ctx.runOnClient(mc -> {
+            Object store = ModUnderTest.staticCall("com.killer560.hub.dungeonextras.BreakerAuraStore", "getInstance");
+            for (BlockPos p : picks) {
+                ModUnderTest.call(store, "addPick", new Class<?>[]{String.class},
+                        new Object[]{p.getX() + "," + p.getY() + "," + p.getZ()});
+            }
+            ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraEnabled", true);
+        });
+        try {
+            place(ctx, rel(ctx, 13.5, F, 15.5));   // in reach of the picks, Dungeon Breaker in hand
+            ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.start());
+            ctx.waitTicks(60);
+            int digs = ctx.computeOnClient(mc -> dev.testkit.harness.PacketTrace.sent("player_action"));
+            ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.stop());
+            int standing = onServer(ctx, (mc, level) -> {
+                int n = 0;
+                for (BlockPos p : picks) {
+                    n += level.getBlockState(p).isAir() ? 0 : 1;
+                }
+                return n;
+            });
+            println(BREAKER, "Breaker Aura on in clear, 60 ticks in reach with a Dungeon Breaker: " + standing
+                    + " of 3 picks still standing, " + digs + " dig packet(s)");
+            if (standing != 3 || digs != 0) {
+                f.add("Breaker Aura acted during clear (" + (3 - standing) + " broken, " + digs + " dig packet(s))");
+            }
+            // A pair with no breaker node before it: the aura's picks are not planned as gone.
+            resetRoutes(ctx);
+            giveAotv(ctx);
+            long m2 = LogTap.mark();
+            int noNode = pathPair(ctx, f, s, g, false);
+            boolean airSaid = false;
+            for (String l : LogTap.since(m2)) {
+                airSaid |= l.contains("planned as broken");
+            }
+            println(BREAKER, "path pair with only Breaker Aura's picks: " + noNode + " warp(s), planned anything as"
+                    + " broken: " + airSaid);
+            if (noNode <= 1 || airSaid) {
+                f.add("the planner counted Breaker Aura's picks as broken during clear (" + noNode + " warp(s))");
+            }
+            // ---- 3. Breaker Aura in boss: it breaks ----
+            giveBreaker(ctx);
+            place(ctx, rel(ctx, 13.5, F, 15.5));
+            ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.secrets.DungeonState", "toggleSimOverride"));
+            int broke = 0;
+            try {
+                for (int i = 0; i < 100 && broke == 0; i++) {
+                    ctx.waitTicks(1);
+                    broke = onServer(ctx, (mc, level) -> {
+                        int n = 0;
+                        for (BlockPos p : picks) {
+                            n += level.getBlockState(p).isAir() ? 1 : 0;
+                        }
+                        return n;
+                    });
+                }
+            } finally {
+                ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.secrets.DungeonState",
+                        "toggleSimOverride"));
+            }
+            println(BREAKER, "Breaker Aura in the boss phase (sim override): " + broke + " pick(s) broken");
+            if (broke == 0) {
+                f.add("Breaker Aura broke nothing in the boss phase");
+            }
+        } finally {
+            ctx.runOnClient(mc -> {
+                Object store = ModUnderTest.staticCall("com.killer560.hub.dungeonextras.BreakerAuraStore", "getInstance");
+                for (BlockPos p : picks) {
+                    ModUnderTest.call(store, "removePick", new Class<?>[]{String.class},
+                            new Object[]{p.getX() + "," + p.getY() + "," + p.getZ()});
+                }
+                ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraEnabled", false);
+            });
+            giveAotv(ctx);
+        }
+    }
+
+    /** 637's arena: the wall at x 15 with the far doorway and its three-block gap at z 15 filled with stone. */
+    private static void wallArena(ClientGameTestContext ctx) {
         clearArena(ctx, 12);
         Map<int[], BlockState> b = new LinkedHashMap<>();
         for (int z = 4; z <= 26; z++) {
@@ -509,120 +679,217 @@ public class SimPathOptimalTests implements FabricClientGameTest {
         }
         setBlocks(ctx, b);
         settle(ctx);
-        Vec3 s = rel(ctx, 6.5, F, 15.5);
-        BlockPos goal = relBlock(ctx, 24, F - 1, 15);
-        Vec3 g = rel(ctx, 24.5, F, 15.5);
-        List<BlockPos> picks = List.of(relBlock(ctx, 15, F, 15), relBlock(ctx, 15, F + 1, 15),
-                relBlock(ctx, 15, F + 2, 15));
-        String truth = onServer(ctx, (mc, level) -> {
-            float[] d = oracleDirect(level, s, goal);
-            return (d == null ? "no single warp" : "ONE warp lands") + "; 2 or fewer: "
-                    + noRouteOfTwo(level, s, goal, arenaBox(mc), 32);
-        });
-        println(BREAKER, "ground truth with the picks standing: " + truth);
-        // Breaker Aura on, the three blocks picked (its own store), no Dungeon Breaker in hand so it breaks nothing.
+    }
+
+    private static Map<int[], BlockState> gapBlocks(BlockState state) {
+        Map<int[], BlockState> m = new LinkedHashMap<>();
+        for (int y = F; y <= F + 2; y++) {
+            m.put(new int[]{15, y, 15}, state);
+        }
+        return m;
+    }
+
+    /** The route file with one DUNGEON_BREAKER node (out of the way, at 8.5 F 8.5) whose blocks are the gap. */
+    private static void writeBreakerNode(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> {
-            Object store = ModUnderTest.staticCall("com.killer560.hub.dungeonextras.BreakerAuraStore", "getInstance");
-            for (BlockPos p : picks) {
-                ModUnderTest.call(store, "addPick", new Class<?>[]{String.class},
-                        new Object[]{p.getX() + "," + p.getY() + "," + p.getZ()});
+            try {
+                Path file = (Path) ModUnderTest.staticCall(STORE, "routesFile");
+                JsonObject n = new JsonObject();
+                n.addProperty("type", "DUNGEON_BREAKER");
+                n.addProperty("x", 8.5);
+                n.addProperty("y", (double) F);
+                n.addProperty("z", 8.5);
+                n.addProperty("yaw", 0f);
+                n.addProperty("pitch", 0f);
+                JsonArray blocks = new JsonArray();
+                for (int y = F; y <= F + 2; y++) {
+                    blocks.add("15 " + y + " 15");
+                }
+                n.add("blocks", blocks);
+                JsonArray nodes = new JsonArray();
+                nodes.add(n);
+                JsonObject r = new JsonObject();
+                r.add("nodes", nodes);
+                JsonObject routes = new JsonObject();
+                routes.add(room, r);
+                JsonObject root = new JsonObject();
+                root.addProperty("version", 1);
+                root.add("routes", routes);
+                Files.writeString(file, root.toString(), StandardCharsets.UTF_8);
+                ModUnderTest.staticCall(STORE, "reload");
+            } catch (Exception e) {
+                throw new RuntimeException(e);
             }
-            ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraEnabled", true);
         });
+        ctx.waitTicks(3);
+    }
+
+    private static void giveBreaker(ClientGameTestContext ctx) {
+        AtomicReference<Boolean> given = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            UUID uuid = mc.player.getUUID();
+            server.execute(() -> {
+                var inv = server.getPlayerList().getPlayer(uuid).getInventory();
+                inv.setItem(0, (ItemStack) ModUnderTest.staticCall(SIM_ITEMS, "build", new Class<?>[]{String.class},
+                        new Object[]{"DUNGEONBREAKER"}));
+                given.set(true);
+            });
+        });
+        ctx.waitFor(mc -> given.get() != null, 200);
         ctx.waitTicks(5);
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+        ctx.waitTicks(3);
+    }
+
+    private static void tpNoWait(ClientGameTestContext ctx, Vec3 to) {
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            UUID me = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(me);
+                if (sp != null) {
+                    sp.teleportTo(server.overworld(), to.x, to.y, to.z,
+                            java.util.Set.of(net.minecraft.world.entity.Relative.Y_ROT,
+                                    net.minecraft.world.entity.Relative.X_ROT), 0f, 0f, false);
+                }
+            });
+        });
+    }
+
+    // ============================================================================================ 871 Redstone Warrior
+
+    /** His own route for Redstone Warrior (26.1.2 Mod Only Test, 2026-10-12), plans stripped so every pair plans fresh. */
+    private static final String RW_ROUTE = "{\"nodes\":["
+            + "{\"type\":\"PATH\",\"x\":6.5,\"y\":58.0,\"z\":15.5,\"yaw\":-87.9,\"pitch\":-4.6,\"start\":true},"
+            + "{\"type\":\"PATH\",\"x\":27.5,\"y\":58.0,\"z\":15.5,\"yaw\":-93.5,\"pitch\":-34.2},"
+            + "{\"type\":\"PATH\",\"x\":27.5,\"y\":58.0,\"z\":15.5,\"yaw\":-93.5,\"pitch\":-34.2},"
+            + "{\"type\":\"PATH\",\"x\":54.5,\"y\":77.0,\"z\":27.5,\"yaw\":-84.6,\"pitch\":6.7},"
+            + "{\"type\":\"DUNGEON_BREAKER\",\"x\":54.5,\"y\":77.0,\"z\":27.5,\"yaw\":-84.6,\"pitch\":6.7,"
+            + "\"blocks\":[\"55 78 27\",\"55 77 27\"]},"
+            + "{\"type\":\"ETHERWARP\",\"x\":54.5,\"y\":77.0,\"z\":27.5,\"yaw\":-89.193604,\"pitch\":17.877462,"
+            + "\"landing\":\"58.500000 77.050000 27.500000\"},"
+            + "{\"type\":\"PATH\",\"x\":58.5,\"y\":77.0,\"z\":27.5,\"yaw\":80.6,\"pitch\":26.6},"
+            + "{\"type\":\"PATH\",\"x\":34.5,\"y\":79.0,\"z\":29.5,\"yaw\":-12.1,\"pitch\":35.8}]}";
+
+    /**
+     * killer560's own test (2026-10-12, "I just tested in redstone warrior"): his Redstone Warrior route rebuilt in the
+     * sim, the room alone at rotation 0 as his frame had it. Every pair is planned with /ar replan; the log must say which
+     * breaker node blocks each pair planned as broken (pair #7 -> #8 comes after the breaker node #5, whose two blocks
+     * 55 77..78 27 are in the wall between). Reported: each pair's saved warps, and whether #7's first warp lands with
+     * the two blocks broken (server) - and with them standing does not.
+     */
+    private static void caseRedstoneWarrior(ClientGameTestContext ctx, List<String> f) {
+        List<String> names = ctx.computeOnClient(mc -> new ArrayList<>((List<String>) ModUnderTest.staticCall(
+                ROOM_LIBRARY, "names")));
+        if (!names.contains("Redstone Warrior")) {
+            f.add("Redstone Warrior is not in the room library");
+            return;
+        }
+        String keep = room;
+        int keepF = F;
+        buildRoom(ctx, "Redstone Warrior");
+        giveAotv(ctx);
         try {
-            long planMark = LogTap.mark();
-            int hops = pathPair(ctx, f, s, g);
+            ctx.runOnClient(mc -> {
+                try {
+                    Path file = (Path) ModUnderTest.staticCall(STORE, "routesFile");
+                    JsonObject routes = new JsonObject();
+                    routes.add("Redstone Warrior", JsonParser.parseString(RW_ROUTE));
+                    JsonObject root = new JsonObject();
+                    root.addProperty("version", 1);
+                    root.add("routes", routes);
+                    Files.writeString(file, root.toString(), StandardCharsets.UTF_8);
+                    ModUnderTest.staticCall(STORE, "reload");
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            ctx.waitTicks(5);
+            long mark = LogTap.mark();
+            cmd(ctx, "/ar replan");
+            waitFor(ctx, 1200, () -> {
+                int done = 0;
+                for (String l : LogTap.since(mark)) {
+                    done += l.contains("planned by the floor planner") || l.contains("not planned") ? 1 : 0;
+                }
+                return done >= 3;
+            });
             boolean said = false;
-            for (String l : LogTap.since(planMark)) {
-                said |= l.contains("3 Breaker Aura block(s) planned as broken");
-            }
-            println(BREAKER, "path pair through the picks: " + hops + " warp(s) saved; planner said it planned 3"
-                    + " picks as broken: " + said);
-            if (hops != 1) {
-                f.add("the path pair saved " + hops + " warp(s); through the Breaker Aura picks one does it");
+            for (String l : LogTap.since(mark)) {
+                if (l.contains("[AutoRoutes] Path #")) {
+                    println(RW, "  " + l.replaceAll("^.*?\\[AutoRoutes\\]", "[AutoRoutes]"));
+                }
+                said |= l.contains("Path #7 -> #8") && l.contains("2 breaker node block(s) planned as broken");
             }
             if (!said) {
-                f.add("the planner did not plan the three picks as broken");
+                f.add("pair #7 -> #8 (after breaker node #5) was not planned with its 2 breaker blocks as broken");
             }
-            if (!truth.startsWith("no single warp")) {
-                f.add("with the picks standing one warp already lands (" + truth + ") - the case does not show the"
-                        + " picks mattered");
-            }
-            // Flown with the picks standing (killer560, 2026-10-11: "Have it wait on the path"): the hop waits with
-            // sneak held and sends nothing until the picks are gone, then warps without being fired again.
-            Vec3 off = rel(ctx, 4.5, F, 4.5);
-            place(ctx, off);
-            ctx.waitTicks(10);
-            int waitedBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "pickWaitTicksTotal"));
-            long flyMark = LogTap.mark();
-            ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.start());
-            ctx.runOnClient(mc -> {
-                var server = mc.getSingleplayerServer();
-                java.util.UUID me = mc.player.getUUID();
-                server.execute(() -> {
-                    var sp = server.getPlayerList().getPlayer(me);
-                    if (sp != null) {
-                        sp.teleportTo(server.overworld(), s.x, s.y, s.z,
-                                java.util.Set.of(net.minecraft.world.entity.Relative.Y_ROT,
-                                        net.minecraft.world.entity.Relative.X_ROT), 0f, 0f, false);
-                    }
+            // Pair #7's saved warps, replayed on the server with the two blocks standing and broken.
+            JsonArray hops7 = savedHopsOf(ctx, "Redstone Warrior", 6);
+            println(RW, "pair #7 -> #8 saved " + hops7.size() + " warp(s): " + hops7);
+            BlockPos b1 = relBlock(ctx, 55, 78, 27);
+            BlockPos b2 = relBlock(ctx, 55, 77, 27);
+            boolean throughWall = false;
+            if (hops7.size() > 0) {
+                String[] h = hops7.get(0).getAsString().split(" ");
+                Vec3 o = rel(ctx, Double.parseDouble(h[0]), Double.parseDouble(h[1]), Double.parseDouble(h[2]));
+                float yaw = ctx.computeOnClient(mc -> (Float) ModUnderTest.staticCall(COORDS, "toRealYaw",
+                        new Class<?>[]{ModUnderTest.staticCall(FRAME, "current").getClass(), float.class},
+                        new Object[]{ModUnderTest.staticCall(FRAME, "current"), Float.parseFloat(h[3])}));
+                float pitch = Float.parseFloat(h[4]);
+                BlockPos target = relBlock(ctx, Integer.parseInt(h[5]), Integer.parseInt(h[6]), Integer.parseInt(h[7]));
+                String standing = onServer(ctx, (mc, level) -> {
+                    BlockPos land = cast(level, o.x, o.y + 1.27, o.z, yaw, pitch, range());
+                    return String.valueOf(land);
                 });
-            });
-            ctx.waitTicks(60);
-            Vec3 held = ctx.computeOnClient(mc -> mc.player.position());
-            boolean sneaking = ctx.computeOnClient(mc -> mc.player.getLastSentInput().shift());
-            boolean running = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
-            int usesWaiting = ctx.computeOnClient(mc -> dev.testkit.harness.PacketTrace.sent("use_item"));
-            int waited = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "pickWaitTicksTotal"))
-                    - waitedBefore;
-            int named = 0;
-            for (String l : LogTap.since(flyMark)) {
-                named += l.contains("[CHAT]") && l.contains("Waiting for Breaker Aura to break") ? 1 : 0;
+                setRealBlocks(ctx, List.of(b1, b2), Blocks.AIR.defaultBlockState());
+                String broken = onServer(ctx, (mc, level) -> {
+                    BlockPos land = cast(level, o.x, o.y + 1.27, o.z, yaw, pitch, range());
+                    return String.valueOf(land);
+                });
+                throughWall = broken.equals(String.valueOf(target)) && !standing.equals(String.valueOf(target));
+                println(RW, "pair #7's first warp lands on " + standing + " with the breaker blocks standing, on " + broken
+                        + " with them broken (planned " + target.toShortString() + "): goes through the broken blocks "
+                        + throughWall);
             }
-            println(BREAKER, String.format(Locale.US, "picks standing, 60 ticks on node #1: at %s (%.2f from the start),"
-                            + " route running %s, sneak held %s, %d use packet(s), %d tick(s) waited on a pick, chat"
-                            + " line(s) naming it: %d", fmt(held), held.distanceTo(s), running, sneaking, usesWaiting,
-                    waited, named));
-            if (held.distanceTo(s) > 0.5 || !running || !sneaking || usesWaiting != 0 || waited < 40 || named != 1) {
-                f.add("while the picks stood the hop did not wait as it should (moved " + String.format(Locale.US,
-                        "%.2f", held.distanceTo(s)) + ", running " + running + ", sneak " + sneaking + ", " + usesWaiting
-                        + " use(s), waited " + waited + " tick(s), " + named + " chat line(s))");
-            }
-            // Broken (as the aura does as he goes by), with the route left as it is: it warps on its own.
-            Map<int[], BlockState> air = new LinkedHashMap<>();
-            for (int y = F; y <= F + 2; y++) {
-                air.put(new int[]{15, y, 15}, Blocks.AIR.defaultBlockState());
-            }
-            setBlocks(ctx, air);
-            Vec3 end = null;
-            for (int i = 0; i < 100; i++) {
-                ctx.waitTicks(1);
-                end = ctx.computeOnClient(mc -> mc.player.position());
-                if (end.distanceTo(g) < 0.3) {
-                    break;
-                }
-            }
-            ctx.waitTicks(5);
-            int usesTotal = ctx.computeOnClient(mc -> dev.testkit.harness.PacketTrace.sent("use_item"));
-            ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.stop());
-            println(BREAKER, "picks broken: ended " + fmt(end) + ", " + usesTotal + " use packet(s) in all");
-            if (end == null || end.distanceTo(g) > 0.7) {
-                f.add("once the picks broke the waiting hop did not land on the goal (ended " + fmt(end) + ")");
-            }
-            if (usesTotal != 1) {
-                f.add("the hop sent " + usesTotal + " use packet(s); one warp was due");
+            if (!throughWall) {
+                println(RW, "pair #7's plan does not depend on the breaker blocks here (reported, not judged)");
             }
         } finally {
-            ctx.runOnClient(mc -> {
-                Object store = ModUnderTest.staticCall("com.killer560.hub.dungeonextras.BreakerAuraStore", "getInstance");
-                for (BlockPos p : picks) {
-                    ModUnderTest.call(store, "removePick", new Class<?>[]{String.class},
-                            new Object[]{p.getX() + "," + p.getY() + "," + p.getZ()});
-                }
-                ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraEnabled", false);
-            });
+            buildRoom(ctx, keep);
+            F = keepF;
+            giveAotv(ctx);
         }
+    }
+
+    private static JsonArray savedHopsOf(ClientGameTestContext ctx, String roomName, int index) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                Path file = (Path) ModUnderTest.staticCall(STORE, "routesFile");
+                JsonObject routes = JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8))
+                        .getAsJsonObject().getAsJsonObject("routes");
+                JsonObject n = routes.getAsJsonObject(roomName).getAsJsonArray("nodes").get(index).getAsJsonObject();
+                return n.has("hops") ? n.getAsJsonArray("hops") : new JsonArray();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    private static void setRealBlocks(ClientGameTestContext ctx, List<BlockPos> blocks, BlockState state) {
+        AtomicReference<Boolean> done = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            server.execute(() -> {
+                for (BlockPos p : blocks) {
+                    server.overworld().setBlockAndUpdate(p, state);
+                }
+                done.set(true);
+            });
+        });
+        ctx.waitFor(mc -> done.get() != null, 200);
+        ctx.waitTicks(5);
     }
 
     // ============================================================================================ 635 replan
@@ -966,7 +1233,14 @@ public class SimPathOptimalTests implements FabricClientGameTest {
      * again - and waits for the plan. Returns the saved warps (or -1).
      */
     private static int pathPair(ClientGameTestContext ctx, List<String> f, Vec3 a, Vec3 b) {
-        resetRoutes(ctx);
+        return pathPair(ctx, f, a, b, true);
+    }
+
+    /** {@code reset} false keeps the route file as it is (637's breaker node stays node #1). */
+    private static int pathPair(ClientGameTestContext ctx, List<String> f, Vec3 a, Vec3 b, boolean reset) {
+        if (reset) {
+            resetRoutes(ctx);
+        }
         place(ctx, a);
         cmd(ctx, "/ar add path");
         place(ctx, b);
