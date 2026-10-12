@@ -232,7 +232,7 @@ public class SimPlannerGapsTests implements FabricClientGameTest {
      * puts the Aspect of the Void in his hand, starts the run (the entrance gate opens) and switches the Interactive
      * Map on until the full floor graph reports warm.
      */
-    private static void buildFloor(ClientGameTestContext ctx, String name, String code) {
+    static void buildFloor(ClientGameTestContext ctx, String name, String code) {
         long before = Scenario.simBuildCount(ctx);
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(LIVE_MAP_CONFIG), "setInteractiveMapEnabled", false));
         boolean open = ctx.computeOnClient(mc -> mc.getSingleplayerServer() != null);
@@ -713,7 +713,7 @@ public class SimPlannerGapsTests implements FabricClientGameTest {
     }
 
     /** Server teleport onto {@code feet}, then waits until the client stands there on the ground. */
-    private static boolean place(ClientGameTestContext ctx, Vec3 feet) {
+    static boolean place(ClientGameTestContext ctx, Vec3 feet) {
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
             UUID me = mc.player.getUUID();
