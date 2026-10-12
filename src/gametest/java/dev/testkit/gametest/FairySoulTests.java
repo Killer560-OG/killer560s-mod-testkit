@@ -39,8 +39,9 @@ import java.util.Map;
  *       top is collected, Grim clean.</li>
  *   <li>749 corrections: mid-walk the server moves him a block, then turns his camera 90 degrees without moving him. The
  *       run is still active after each, both are reported, and the soul at the end is still collected.</li>
- *   <li>750 failsafes: damage with no knockback stops it as a failsafe (death and knockback no longer stop it:
- *       756-757).</li>
+ *   <li>750 damage (killer560 2026-10-11: "if you take damage with no knockback it should just continue ... shellwise
+ *       shard"): plain damage every 10 ticks for 5 s mid-route; every hit registers, no failsafe fires, the run never
+ *       stops, both souls are collected.</li>
  *   <li>756 knockback (killer560 2026-10-11, "have it keep working if it gets knocked back, it just needs to
  *       repathfind"): a mob's hit mid-route knocks him back; the walker counts a knockback, is still active 20 ticks
  *       later, no failsafe fired, both souls are collected.</li>
@@ -262,22 +263,28 @@ public class FairySoulTests implements FabricClientGameTest {
                 (server, scenario) -> {
                     List<Node> g = List.of(
                             new Node(0, -870, 151, 1180, false, 1),
-                            new Node(1, -850, 151, 1180, false, 0, 2),
-                            new Node(2, -830, 151, 1180, true, 1));
-                    String seen;
-                    try (Hx hx = Hx.connect()) {
-                        setup(ctx, hx, g);
-                        startRun(ctx);
-                        ctx.waitTicks(30);
-                        check(isActive(ctx), "the run never started");
-                        // No attacker, so no knockback: plain damage, still a failsafe stop.
-                        server.command("damage @p 1 minecraft:generic");
-                        ctx.waitTicks(10);
-                        seen = ctx.computeOnClient(mc -> Mod.staticCall(WALKER, "lastFailsafe") + " active="
-                                + Mod.staticCall(RUNNER, "isActive"));
-                    }
-                    scenario.log("after damage: " + seen);
-                    check(seen.contains("you took damage") && seen.endsWith("active=false"), "damage: " + seen);
+                            new Node(1, -858, 151, 1180, true, 0, 2),
+                            new Node(2, -846, 151, 1180, false, 1, 3),
+                            new Node(3, -830, 151, 1180, true, 2));
+                    int hitsBefore = walkerInt(ctx, "damageHits");
+                    int fsBefore = walkerInt(ctx, "failsafes");
+                    int[] inactiveTicks = new int[1];
+                    Result r = runSouls(ctx, scenario, g, 700, tick -> {
+                        // Shellwise-style: 0.5 damage, no attacker (so no knockback), every 10 ticks for 5 s.
+                        if (tick >= 10 && tick < 110 && tick % 10 == 0) {
+                            server.command("damage @p 0.5 minecraft:generic");
+                        }
+                        if (tick >= 10 && tick < 120 && !isActive(ctx)) {
+                            inactiveTicks[0]++;
+                        }
+                    });
+                    int hits = walkerInt(ctx, "damageHits") - hitsBefore;
+                    int fs = walkerInt(ctx, "failsafes") - fsBefore;
+                    scenario.log(r.summary() + String.format(", damage hits seen %d, failsafes %d, inactive ticks during "
+                            + "the damage %d", hits, fs, inactiveTicks[0]));
+                    check(hits >= 8, "only " + hits + " of the 10 hits registered");
+                    check(fs == 0 && inactiveTicks[0] == 0, "damage stopped the run (failsafes " + fs + ")");
+                    check(r.soulsUsed >= 2 && r.soulsLogged >= 2, "souls through the damage: " + r.summary());
                 });
     }
 
