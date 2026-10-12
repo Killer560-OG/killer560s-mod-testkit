@@ -470,3 +470,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   base frame before classifying. ModScreen's content widgets sit in a PRIVATE nested pane: reach them through
   `ContainerEventHandler.children()`, not reflection on the pane's class (IllegalAccessException, silently no widgets).
   A literal carrying legacy codes keeps the `§` characters in `getString()`, so match with `contains`, not `startsWith`.
+  drew GrimAC Post on every click; since mod grim-post they click on the tick and 786-788 require clean.
+- 831-835 (GrimTickCases, nt-grim-post, 2026-10-11): the other frame-driven clicks, moved to the tick - Simon Says Rotate
+  Auto Solve, Arrow Align Aura, Auto i4 Rotate / No Rotate, Goldor's CPS kept on the tick (15.9 of 16). Traps: with Rotate
+  on, Simon Says' idle look turns the camera off the start button during the test's own press (RotationPlace) - switch
+  Auto Solve on after the start; a tp above an unbuilt platform and a wait had him falling as it appeared (AntiKB +
+  Simulation) - forceload, build, then tp; an empty hand's use_item is not recorded - hold something.

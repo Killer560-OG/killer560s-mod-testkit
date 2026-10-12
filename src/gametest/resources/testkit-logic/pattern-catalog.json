@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-11T23:52:28",
+ "generatedAt": "2026-10-11T23:58:30",
  "modSource": "killer560s-mod",
- "modGitSha": "c4681a83412b02adbf6f5410dcb3288020022f07",
+ "modGitSha": "d251227518e8dd11212bea55234298b7e94f867f",
  "modSourceDirty": false,
  "count": 468,
  "byKind": {
@@ -2191,7 +2191,7 @@
    "field": "DEVICE_DONE",
    "index": null,
    "file": "src/main/java/com/killer560/hub/i4sensors/AutoI4Feature.java",
-   "line": 71,
+   "line": 70,
    "regex": "^(\\w{3,16}) completed a device! \\(\\d/\\d\\)",
    "flags": null,
    "kind": "field",
@@ -2203,7 +2203,7 @@
    "field": "ABILITY_ON_COOLDOWN",
    "index": null,
    "file": "src/main/java/com/killer560/hub/i4sensors/AutoI4Feature.java",
-   "line": 89,
+   "line": 88,
    "regex": "^This ability is on cooldown for \\d+s",
    "flags": null,
    "kind": "field",
