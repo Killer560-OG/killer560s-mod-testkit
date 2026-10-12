@@ -458,3 +458,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   Terminal Protection's window from a server-opened "Click in order!" menu, the rest from their timing functions). A pong
   injected into `PingTracker.onPong` must be stamped with `Util.getMillis()` (called through `Mod.staticCall`), not
   `System.nanoTime()/1e6`: the first run's 2000 ms spike was silently rejected as an out-of-range round trip.
+- **786-788, 797-799 (trigger-bot delays)**: `hx/TriggerTiming` turns the view onto the target and reads the click on the
+  server's clock (Hx `server.tick` against the event's tick); each case compares delay 0 with a longer one. Traps met on
+  2026-10-11: a console `fill` silently does nothing in an unloaded area (`forceload add` first, or be there); the Hx world
+  has terrain at (-169, -185), so clear above a built structure; a second `dungeon.tp` to the SAME spot passes a
+  position wait before it lands and then resets the look; `summon item_frame {Facing:5b}` did not stick (Hx `frame` op);
+  a wither summoned into a dying one is shoved away. The frame-driven trigger bots (Simon Says, Arrow Align, Goldor)
+  draw GrimAC Post on every click, so those three run expecting flags.

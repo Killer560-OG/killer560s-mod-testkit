@@ -53,6 +53,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxGuiHudCases.register(s);
                     // Automation timed by the measured ping (791-796, branch nt-ping-automation), own block.
                     HxPingAutomationCases.register(s);
+                    // Per-trigger-bot delays (797-798, branch nt-trigger-delays), own block.
+                    HxTriggerDelayCases.register(s);
                 });
     }
 }

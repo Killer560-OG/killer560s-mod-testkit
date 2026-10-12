@@ -27,8 +27,8 @@ import java.util.Map;
  *   the case knows. The moment the box turns green / the kill sound is due (ping &gt; time left) comes one measured
  *   round trip earlier with +200 ms. The Trigger Bot's attack on a husk on the landing spot reaches the server 3 ticks
  *   (+-1; 2.8 is the countdown's x.8 grid point nearest, see SERVER_LEAD) before the mob is due, both locally and with
- *   +200 ms (killer560 2026-10-11: a fixed 3-tick server-side lead,
- *   ping added on the client), read off the server's own attack_entity tick (cheat jar).</li>
+ *   +200 ms (Hit Lead 3, the default; ping added on the client), read off the server's own attack_entity tick; and
+ *   Hit Lead 6 brings that hit 3 ticks (+-1) earlier (cheat jar).</li>
  *   <li>793 Auto Debuff (cheat): the spray lead {@code leadOffset} grows by round(ping / 50) ticks; Ping Compensation off,
  *   it does not.</li>
  *   <li>794 Auto Routes (cheat): a boom that changed nothing waits {@code 4 + ceil(ping / 50)} ticks: 5 locally, 8-9
@@ -356,7 +356,7 @@ final class HxPingAutomationCases {
                     .with(BC_CFG, "KillSound", false)
                     .with(BC_CFG, "AuraEnabled", false)
                     .with(BC_CFG, "AutoDetectLag", true)
-                    .with(BC_CFG, "ManualTickOffset", 0);
+                    .with(BC_CFG, "HitLeadTicks", 3);
             if (cheat) {
                 on.with(BC_CFG, "TriggerBotEnabled", true);
             }
@@ -380,6 +380,16 @@ final class HxPingAutomationCases {
                     c.note("+" + LAG_MS + " ms (" + lagged + " ms): " + fmt(b));
                 } finally {
                     lagOff(c);
+                }
+                // Hit Lead (2026-10-11, its own setting): 6 instead of 3 must bring the server-side hit 3 ticks earlier.
+                Trip h = null;
+                if (cheat) {
+                    c.onClient(mc -> {
+                        Mod.call(Mod.cfg(BC_CFG), "setHitLeadTicks", 6);
+                        return null;
+                    });
+                    h = trip(c, mobTex);
+                    c.note("local, Hit Lead 6: " + fmt(h));
                 }
                 c.check(a.tracked && b.tracked, "a trip was never tracked - nothing to measure");
                 // The box / kill sound: unchanged, Noamm's ping > time left.
@@ -405,6 +415,10 @@ final class HxPingAutomationCases {
                             fireShift, LAG_MS, lagged / 50.0));
                     c.check(Math.abs(fireShift - lagged / 50.0) <= 1.0, "the client's click moved " + fireShift
                             + " ticks with " + lagged + " ms");
+                    c.check(h.serverLead != null && a.serverLead != null
+                                    && Math.abs((h.serverLead - a.serverLead) - 3.0) <= 1.0 + 1e-6,
+                            "Hit Lead 6 against 3 moved the server-side hit " + (h.serverLead == null || a.serverLead == null
+                                    ? "?" : String.valueOf(h.serverLead - a.serverLead)) + " ticks, want 3 (+-1)");
                 } else {
                     c.check(a.clicks == 0 && b.clicks == 0 && a.serverLead == null && b.serverLead == null,
                             "legit jar: the Trigger Bot attacked");
