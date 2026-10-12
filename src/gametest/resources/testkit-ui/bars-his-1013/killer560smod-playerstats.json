@@ -1,0 +1,124 @@
+{
+  "enabled": true,
+  "hideVanillaHearts": true,
+  "hideVanillaHunger": true,
+  "hideVanillaArmour": true,
+  "hideVanillaAir": true,
+  "showHeartsInRift": true,
+  "hideHypixelStatText": true,
+  "hideXpBar": true,
+  "heldItemName": "overBars",
+  "readouts": {
+    "health_bar": {
+      "on": true,
+      "color": -43691,
+      "width": 117,
+      "area": "above_hotbar_2",
+      "order": 1
+    },
+    "mana_bar": {
+      "on": true,
+      "color": -11162881,
+      "width": 113,
+      "area": "above_hotbar_2",
+      "order": 3
+    },
+    "defence_bar": {
+      "on": false,
+      "color": -11141291,
+      "area": "above_hotbar_2",
+      "order": 0
+    },
+    "other_bar": {
+      "on": true,
+      "color": -9043968,
+      "area": "above_hotbar_2",
+      "order": 2
+    },
+    "health_text": {
+      "on": false,
+      "color": -43691,
+      "area": "left_of_hotbar",
+      "order": 0
+    },
+    "mana_text": {
+      "on": false,
+      "color": -11141121,
+      "area": "right_of_hotbar",
+      "order": 0
+    },
+    "overflow_text": {
+      "on": false,
+      "color": -16733526,
+      "area": "right_of_hotbar",
+      "order": 1
+    },
+    "intelligence_text": {
+      "on": false,
+      "color": -11141121,
+      "area": "right_of_hotbar",
+      "order": 2
+    },
+    "defence_text": {
+      "on": false,
+      "color": -11141291,
+      "area": "left_of_hotbar",
+      "order": 1
+    },
+    "ehp_text": {
+      "on": false,
+      "color": -16733696,
+      "area": "left_of_hotbar",
+      "order": 2
+    },
+    "other_text": {
+      "on": false,
+      "color": -5614081,
+      "area": "right_of_hotbar",
+      "order": 3
+    },
+    "vitality_bar": {
+      "on": true,
+      "color": -2080678,
+      "width": 50,
+      "area": "right_of_hotbar",
+      "order": 5
+    },
+    "xp_bar": {
+      "on": true,
+      "color": -8323296,
+      "width": 234,
+      "area": "above_hotbar",
+      "order": 0
+    },
+    "vitality_text": {
+      "on": false,
+      "color": -2080678,
+      "area": "left_of_hotbar",
+      "order": 3
+    },
+    "xp_text": {
+      "on": false,
+      "color": -8323296,
+      "area": "right_of_hotbar",
+      "order": 4
+    }
+  },
+  "layout": "predefined",
+  "barWidth": 100,
+  "barHeight": 10,
+  "barShowValue": true,
+  "absorptionColor": -22016,
+  "barBackground": -1442840576,
+  "textShadow": true,
+  "barStyle": "sleek",
+  "barTextSize": "small",
+  "menuAdvancedOpen": false,
+  "barRounded": true,
+  "barIcons": true,
+  "barValuePosition": "inside",
+  "barSmooth": true,
+  "barDamageGhost": true,
+  "overflowManaColor": -14659384,
+  "predefinedScale": 1.0
+}
