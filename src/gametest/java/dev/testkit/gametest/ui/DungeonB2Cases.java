@@ -112,7 +112,7 @@ final class DungeonB2Cases {
                 Mod.call(cfg, "setTriggerBotEnabled", true);
                 Mod.call(cfg, "setAuraEnabled", false);
                 Mod.call(cfg, "setAutoDetectLag", false);
-                Mod.call(cfg, "setManualTickOffset", 0);
+                Mod.call(cfg, "setHitLeadTicks", 3);
                 Mod.staticCall("secrets.DungeonState", "setRoomSim", true);
                 oldDifficulty[0] = mc.getSingleplayerServer().getWorldData().getDifficulty();
                 return null;

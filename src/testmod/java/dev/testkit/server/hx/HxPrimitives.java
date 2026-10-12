@@ -101,6 +101,9 @@ import java.util.UUID;
  *                                          -&gt; {uuid, id}
  * entity.remove {uuid} | {all: true}       stands spawned through Hx
  * entity.move {uuid, x, y, z}              setPos on a stand spawned through Hx (the tracker sends a move packet)
+ * frame {x, y, z, facing="east", item, rotation=0}   an invulnerable item frame on block x/y/z (removed by
+ *                                          entity.remove all) -&gt; {uuid, id}
+ * server.tick                              -&gt; the server's tick count now (the same clock events carry)
  * entity.nudge {uuid, dx, dy=0, dz=0}      a relative move packet for an Hx stand, sent to the player NOW (the server's
  *                                          entity stays put) -&gt; the server tick it went out on
  * menu.open {title, rows=6, slots: {"13": "stack", ...}, script?}   -&gt; {containerId}
@@ -180,6 +183,8 @@ public final class HxPrimitives implements HxModule {
         HxBridge.register("entity.remove", HxPrimitives::entityRemove);
         HxBridge.register("entity.move", HxPrimitives::entityMove);
         HxBridge.register("entity.nudge", HxPrimitives::entityNudge);
+        HxBridge.register("server.tick", (srv, args) -> new JsonPrimitive(srv.getTickCount()));
+        HxBridge.register("frame", HxPrimitives::frame);
         HxBridge.register("menu.open", HxPrimitives::menuOpen);
         HxBridge.register("kick", (s, a) -> {
             ServerPlayer p = player(s, a);
@@ -466,6 +471,29 @@ public final class HxPrimitives implements HxModule {
         p.connection.send(new ClientboundMoveEntityPacket.Pos(e.getId(), (short) Math.round(number(a, "dx", 0) * 4096),
                 (short) Math.round(number(a, "dy", 0) * 4096), (short) Math.round(number(a, "dz", 0) * 4096), false));
         return new JsonPrimitive(s.getTickCount());
+    }
+
+    /** An item frame built the way a placed one is (the summon command's Facing did not stick, 2026-10-11). */
+    private static JsonElement frame(MinecraftServer s, JsonObject a) throws Exception {
+        ServerPlayer p = player(s, a);
+        ServerLevel level = (ServerLevel) p.level();
+        net.minecraft.core.BlockPos pos = net.minecraft.core.BlockPos.containing(number(a, "x", 0), number(a, "y", 0),
+                number(a, "z", 0));
+        net.minecraft.core.Direction facing = net.minecraft.core.Direction.byName(
+                a.has("facing") ? a.get("facing").getAsString() : "east");
+        net.minecraft.world.entity.decoration.ItemFrame frame =
+                new net.minecraft.world.entity.decoration.ItemFrame(level, pos, facing);
+        frame.setItem(stack(s, a.get("item").getAsString(), 1), false);
+        frame.setRotation((int) number(a, "rotation", 0));
+        frame.setInvulnerable(true);
+        if (!level.addFreshEntity(frame)) {
+            throw new IllegalStateException("the level refused the item frame");
+        }
+        STANDS.put(frame.getUUID(), frame);
+        JsonObject out = new JsonObject();
+        out.addProperty("uuid", frame.getUUID().toString());
+        out.addProperty("id", frame.getId());
+        return out;
     }
 
     private static JsonElement menuOpen(MinecraftServer s, JsonObject a) throws Exception {
