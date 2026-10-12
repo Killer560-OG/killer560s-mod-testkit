@@ -152,23 +152,26 @@ final class GrimTickCases {
                      .with(AA_CFG, "AuraMinDelayMs", 60).with(AA_CFG, "AuraMaxDelayMs", 60)) {
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
             c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
-            c.hx().call("dungeon.tp", "x", 0.5, "y", 130.0, "z", 77.5, "yaw", 90f, "pitch", 0f);
-            c.ctx().waitTicks(20);
+            // Built before he is put there: a tp above it and a wait had him falling as the floor appeared, and GrimAC
+            // said Simulation twice when this case ran first in a session (nt-arrow-aura, 2026-10-12).
+            c.server().command("forceload add -3 72 3 82");
+            c.server().sync(20);
             c.server().command("fill -1 119 72 3 119 82 stone");
             c.server().command("fill -3 119 74 -3 125 80 stone");
-            c.waitUntil("the client to have the wall", mc -> mc.level.getBlockState(new BlockPos(-3, 122, 77))
-                    .is(net.minecraft.world.level.block.Blocks.STONE), 200);
+            // Close enough that every frame's box is inside 3.0 of the eye (the top row is 2.86 from here).
+            c.hx().call("dungeon.tp", "x", -0.7, "y", 120.0, "z", 77.5, "yaw", 90f, "pitch", 0f);
+            c.waitUntil("standing by the wall", mc -> mc.player.onGround() && Math.abs(mc.player.getY() - 120.0) < 0.01
+                    && mc.level.getBlockState(new BlockPos(-3, 122, 77)).is(net.minecraft.world.level.block.Blocks.STONE), 200);
             for (int idx : LAYOUT) {
                 c.hx().call("frame", "x", -2, "y", 120 + idx % 5, "z", 75 + idx / 5, "facing", "east", "item", "arrow");
             }
-            // Close enough that every frame's box is inside 3.0 of the eye (the top row is 2.86 from here).
-            c.hx().call("dungeon.tp", "x", -0.7, "y", 120.0, "z", 77.5, "yaw", 90f, "pitch", 0f);
             AABB grid = new AABB(-4, 118, 73, 0, 126, 81);
             c.waitUntil("the client to have the frames", mc -> mc.level.getEntitiesOfClass(
                     net.minecraft.world.entity.decoration.ItemFrame.class, grid).size() == LAYOUT.length, 200);
             c.waitUntil("Arrow Align to read a solution", mc -> Mod.field(Mod.ROOT + "arrowalign.ArrowAlignFeature",
                     "solution") != null, 100);
             long since = c.hx().head();
+            c.note("Aura on (anticheat lines so far: " + c.scenario().flags().size() + ")");
             c.onClient(mc -> {
                 Mod.set(AA_CFG, "setAuraEnabled", true);
                 return null;
@@ -190,6 +193,7 @@ final class GrimTickCases {
             c.hx().removeStands();
             c.server().command("kill @e[type=item_frame,x=-2,y=122,z=77,distance=..6]");
             c.server().command("fill -3 119 72 3 125 82 air");
+            c.server().command("forceload remove -3 72 3 82");
             home(c);
         }
     }
