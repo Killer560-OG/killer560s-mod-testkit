@@ -90,6 +90,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-662-jump",
             // ar-jump-n (2026-10-12)
             "96-ar-870-jumpn",
+            // ar-jump-key (2026-10-12)
+            "96-ar-872-jumpkey",
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim", "96-ar-398-startawait",
             "96-ar-405-crypt-mapopen", "96-ar-405-startwarp", "96-ar-path", "96-ar-screen", "96-ar-rotate",
             // sim-world (2026-10-11)
@@ -256,6 +258,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-659-ewblockwait" -> ArNodesCases.ewBlockWait(ctx);
                         case "96-ar-662-jump" -> ArNodesCases.jump(ctx);
                         case "96-ar-870-jumpn" -> ArNodesCases.jumpCount(ctx);
+                        case "96-ar-872-jumpkey" -> ArNodesCases.jumpKey(ctx);
                         case "96-ar-dbedit" -> caseDbEdit(ctx);
                         case "96-ar-mapopen" -> caseMapOpen(ctx);
                         case "96-ar-mapopen-aim" -> caseMapOpenAim(ctx);
@@ -5010,6 +5013,84 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 stopRoute(ctx);
                 setServerBlock(ctx, 12, F, 10, Blocks.AIR.defaultBlockState());
                 ctx.waitTicks(3);
+            }
+        }
+
+        /** GLFW keypad 8: bound to Add Jump Node for 872 only (no character, nothing else uses it). */
+        private static final int JUMP_KEY = 328;
+
+        private static net.minecraft.client.gui.components.EditBox chatInput(net.minecraft.client.gui.screens.ChatScreen cs) {
+            try {
+                java.lang.reflect.Field f = net.minecraft.client.gui.screens.ChatScreen.class.getDeclaredField("input");
+                f.setAccessible(true);
+                return (net.minecraft.client.gui.components.EditBox) f.get(cs);
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        private static int chatPackets(List<Sample> s) {
+            int n = 0;
+            for (Sample x : s) {
+                n += (int) x.out().stream().filter(o -> o.contains("chat")).count();
+            }
+            return n;
+        }
+
+        /**
+         * 872 (killer560, 2026-10-12: "Type the command out with the player ready to type in the number of jumps"). The
+         * Add Jump Node key, pressed for real (bound to keypad 8, read by the mod's raw poll), opens chat holding exactly
+         * "/ar add jump " with the cursor at the end, and for 20 ticks nothing is sent (no chat or command packet, no node).
+         * Typing 2 and pressing Enter then sends it and adds a jump node of 2.
+         */
+        static void jumpKey(ClientGameTestContext ctx) {
+            resetRoutes(ctx);
+            arena(ctx, false);
+            tpRel(ctx, 10.5, 20.5, 0f, 0f);
+            ctx.waitTicks(10);
+            ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setKeybind",
+                    new Class<?>[]{String.class, int.class}, new Object[]{"add_jump", JUMP_KEY}));
+            try {
+                startSampling(ctx);
+                ctx.getInput().holdKeyFor(JUMP_KEY, 3);
+                boolean opened = waitFor(ctx, 20, () -> ctx.computeOnClient(mc ->
+                        McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.ChatScreen));
+                check(opened, "the Add Jump Node key did not open chat (screen "
+                        + ctx.computeOnClient(mc -> String.valueOf(McCompat.screen(mc))) + ")");
+                String text = ctx.computeOnClient(mc -> chatInput((net.minecraft.client.gui.screens.ChatScreen) McCompat.screen(mc)).getValue());
+                int cursor = ctx.computeOnClient(mc -> chatInput((net.minecraft.client.gui.screens.ChatScreen) McCompat.screen(mc)).getCursorPosition());
+                ctx.waitTicks(20);
+                List<Sample> s = stopSampling(ctx);
+                boolean stillOpen = ctx.computeOnClient(mc ->
+                        McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.ChatScreen);
+                println("872 key: chat '" + text + "' cursor " + cursor + "/" + text.length() + ", still open " + stillOpen
+                        + ", chat packets " + chatPackets(s) + ", nodes " + fileNodes(ctx).size());
+                check("/ar add jump ".equals(text), "chat holds '" + text + "', expected '/ar add jump '");
+                check(cursor == text.length(), "the cursor is at " + cursor + ", not the end (" + text.length() + ")");
+                check(stillOpen, "the chat closed by itself");
+                check(chatPackets(s) == 0, "something was sent before Enter: " + chatPackets(s) + " chat packet(s)");
+                check(fileNodes(ctx).isEmpty(), "a node was added before Enter");
+
+                // He types the number and presses Enter: now it goes.
+                ctx.getInput().typeChars("2");
+                ctx.waitTicks(2);
+                ctx.getInput().pressKey(257); // GLFW_KEY_ENTER
+                boolean added = waitFor(ctx, 40, () -> !fileNodes(ctx).isEmpty());
+                JsonArray nodes = fileNodes(ctx);
+                println("872 after '2' + Enter: nodes " + nodes);
+                check(added && nodes.size() == 1 && "JUMP".equals(nodes.get(0).getAsJsonObject().get("type").getAsString())
+                        && nodes.get(0).getAsJsonObject().get("jumps").getAsInt() == 2, "Enter did not add a jump 2 node: " + nodes);
+            } finally {
+                ctx.runOnClient(mc -> {
+                    ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setKeybind",
+                            new Class<?>[]{String.class, int.class}, new Object[]{"add_jump", -1});
+                    if (McCompat.screen(mc) != null) {
+                        McCompat.setScreen(mc, null);
+                    }
+                });
+                stopRoute(ctx);
+                ctx.waitTicks(40);
+                resetRoutes(ctx);
             }
         }
 
