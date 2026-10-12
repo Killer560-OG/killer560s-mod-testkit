@@ -55,6 +55,9 @@ public class HxSuite implements FabricClientGameTest {
                     HxPingAutomationCases.register(s);
                     // Per-trigger-bot delays (797-798, branch nt-trigger-delays), own block.
                     HxTriggerDelayCases.register(s);
+                    // Player Cosmetics names: fade, tab, nametag height, own name in F5 (811-818, branch
+                    // nt-cosmetic-names), own block.
+                    HxCosmeticNameCases.register(s);
                 });
     }
 }
