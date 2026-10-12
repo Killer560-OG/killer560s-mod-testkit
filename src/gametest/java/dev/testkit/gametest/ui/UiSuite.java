@@ -145,6 +145,9 @@ public class UiSuite implements FabricClientGameTest {
             "710-ui-itembrowser-minion-tiers", "711-ui-itembrowser-neu-recipe", "712-ui-itembrowser-sort-and-bar"};
     static final String[] DUNGEON_B2_CASES = {"686-ui-blood-trigger", "687-ui-door-key-circle",
             "679-ui-ttt-prediction-misclicks", "680-ui-imap-binds-ticks", "681-ui-auto-kick-pf", "682-ui-dungeon-esp-switch"};
+    /** killer560's 2026-10-11 Auto Kick Judge By + Detect Queued Floor ({@link AutoKick2Cases}). Own block for merges. */
+    static final String[] AUTOKICK2_CASES = {"801-ui-autokick-judge-by", "802-ui-autokick-detect-pf",
+            "803-ui-autokick-detect-joininstance", "804-ui-autokick-forged-queue", "805-ui-autokick-floor-source"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -200,13 +203,17 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : DUNGEON_B2_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : AUTOKICK2_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
         boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES) || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
                 || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES)
-                || any(LEAPORDER_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES);
+                || any(LEAPORDER_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES)
+                || any(AUTOKICK2_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -366,6 +373,12 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "680-ui-imap-binds-ticks", DungeonB2Cases::interactiveMapBinds);
                     UiCase.run(ctx, "681-ui-auto-kick-pf", DungeonB2Cases::autoKick);
                     UiCase.run(ctx, "682-ui-dungeon-esp-switch", DungeonB2Cases::dungeonEsp);
+                    // ---- autokick-2 (801-805) ----
+                    UiCase.run(ctx, "801-ui-autokick-judge-by", AutoKick2Cases::timeMode);
+                    UiCase.run(ctx, "802-ui-autokick-detect-pf", AutoKick2Cases::detectPartyFinder);
+                    UiCase.run(ctx, "803-ui-autokick-detect-joininstance", AutoKick2Cases::detectJoinInstance);
+                    UiCase.run(ctx, "804-ui-autokick-forged-queue", AutoKick2Cases::forgery);
+                    UiCase.run(ctx, "805-ui-autokick-floor-source", AutoKick2Cases::floorSourceSettings);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
