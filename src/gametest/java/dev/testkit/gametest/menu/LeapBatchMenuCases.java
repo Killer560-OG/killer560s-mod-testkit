@@ -470,6 +470,12 @@ final class LeapBatchMenuCases {
             // The picture's background must hold still: on the legit run of 2026-10-12 the world behind the menu moved
             // between the two frames (trees, 2474 "changed" pixels with no head anywhere). Look straight up at the sky.
             float pitchWas = c.onClient(mc -> mc.player.getXRot());
+            double[] posWas = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ(),
+                    mc.player.getYRot()});
+            // Up at y 300 nothing but sky is above him (the 2026-10-12 legit run stood under a jungle canopy, and looking
+            // up there still moved 2131 pixels between two clean frames).
+            c.hx().call("dungeon.tp", "x", posWas[0], "y", 300.0, "z", posWas[2], "yaw", (float) posWas[3], "pitch", -90f);
+            c.ctx().waitTicks(5);
             c.onClient(mc -> {
                 mc.player.setXRot(-90f);
                 return null;
@@ -505,10 +511,8 @@ final class LeapBatchMenuCases {
                 });
                 MenuKit.reset(c);
             }
-            c.onClient(mc -> {
-                mc.player.setXRot(pitchWas);
-                return null;
-            });
+            c.hx().call("dungeon.tp", "x", posWas[0], "y", posWas[1], "z", posWas[2], "yaw", (float) posWas[3],
+                    "pitch", pitchWas);
             c.check(noise[0] <= 5 && noise[1] <= 5, "the background moved between two clean frames (" + noise[0] + ", "
                     + noise[1] + " pixel(s)) - the comparison means nothing");
             c.check(counts[1] > 50, "control: a plain chest with a carried head changed only " + counts[1]
