@@ -29,6 +29,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *       locked pages and empty slots ({@link PolishMenuCases})</li>
  *   <li>491-499 the unified Auction House: the API-drawn browser, Hypixel's AH menus reskinned with one press = one
  *       slot click, /viewauction hand-off, hidden HUDs, seamless page changes, fallback ({@link AuctionHouseCases})</li>
+ *   <li>883 opening the Croesus menu never draws a frame of stale or unhidden runs ({@link CroesusFlashCases})</li>
  *   <li>879-882 Croesus run states (unclaimed / needs a key / opened / key used / not looked at), their colours, Hide
  *       Opened Runs never hiding a run that needs a key, the live key floor ({@link CroesusKeyCases})</li>
  *   <li>875-878 the Croesus menu: Highlight Runs behind the items and under the tooltip, Hide Opened Runs (empty, no
@@ -137,6 +138,8 @@ public class MenuSuite implements FabricClientGameTest {
                     CroesusUiCases.register(s);
                     // ---- 879-882 croesus-key (2026-10-12): run states by chest key, Hide keeps "needs a key" ----
                     CroesusKeyCases.register(s);
+                    // ---- 883 croesus-flash (2026-10-12): no stale run state on open ----
+                    CroesusFlashCases.register(s);
                 });
     }
 }
