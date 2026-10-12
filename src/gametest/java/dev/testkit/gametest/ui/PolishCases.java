@@ -496,8 +496,11 @@ final class PolishCases {
                     BufferedImage img = shot(c, "chest-gui" + gs + "-line" + w);
                     // Slot 0's top line, down its centre column; its left line along its centre row; the panel's top
                     // border down the panel's middle.
-                    int slotTop = InvStorageCases.runDown(img, (left + 16) * gs, (top + 17) * gs, AMBER);
-                    int slotLeft = runRight(img, (left + 7) * gs, (top + 26) * gs, AMBER);
+                    // Since mod inv-theme-fix every slot-grid line sits lineShift(w) pixels up and left of the unit edge,
+                    // straddling the gap between two items (897); an older jar has no lineShift and no shift.
+                    int d = lineShift(c, w);
+                    int slotTop = InvStorageCases.runDown(img, (left + 16) * gs, (top + 17) * gs - d, AMBER);
+                    int slotLeft = runRight(img, (left + 7) * gs - d, (top + 26) * gs, AMBER);
                     int panelTop = InvStorageCases.runDown(img, (left + 88) * gs, top * gs, AMBER);
                     c.onClient(mc -> {
                         McCompat.setScreen(mc, null);
@@ -553,6 +556,17 @@ final class PolishCases {
             HudEditorCases.restoreWindow(c, window, oldGui);
             restore(c, saved, ICFG);
         }
+    }
+
+    private static int lineShift(UiCase c, int w) {
+        return c.onClient(mc -> {
+            for (java.lang.reflect.Method m : R.cls("inventorytheme.InventoryThemeFeature").getDeclaredMethods()) {
+                if (m.getName().equals("lineShift")) {
+                    return ((Number) Mod.staticCall("inventorytheme.InventoryThemeFeature", "lineShift", w)).intValue();
+                }
+            }
+            return 0;
+        });
     }
 
     private static int runRight(BufferedImage img, int x, int y, int colour) {

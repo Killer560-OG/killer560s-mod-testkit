@@ -610,7 +610,16 @@ final class InvStorageCases {
                     return screen;
                 });
                 BufferedImage img = shot(c, "chest-line" + w, 8);
-                runs[i] = runDown(img, colX, rowY, AMBER_ACCENT);
+                // Since mod inv-theme-fix a line sits lineShift(w) px above the unit edge (897); older jars: no method, 0.
+                int d = c.onClient(mc -> {
+                    for (java.lang.reflect.Method m : R.cls("inventorytheme.InventoryThemeFeature").getDeclaredMethods()) {
+                        if (m.getName().equals("lineShift")) {
+                            return ((Number) Mod.staticCall("inventorytheme.InventoryThemeFeature", "lineShift", w)).intValue();
+                        }
+                    }
+                    return 0;
+                });
+                runs[i] = runDown(img, colX, rowY - d, AMBER_ACCENT);
                 slotPx[i] = img.getRGB(colX, b.px(topPos + 17 + 9)) & 0xFFFFFF;
                 c.onClient(mc -> {
                     McCompat.setScreen(mc, null);

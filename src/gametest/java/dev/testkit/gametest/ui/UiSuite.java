@@ -162,6 +162,8 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] BAR_STYLE_CASES = {"891-ui-bars-style-fill", "892-ui-bars-style-overflow",
             "893-ui-bars-style-settings", "894-ui-bars-style-ghost", "895-ui-bars-style-shots",
             "896-ui-bars-style-editor"};
+    /** Inventory Theme: every item centred in its slot frame (mod inv-theme-fix, {@link InvThemeCenterCases}). Own block. */
+    static final String[] INV_THEME_CENTRE_CASES = {"897-ui-inventory-theme-item-centred"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -235,6 +237,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : BAR_STYLE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : INV_THEME_CENTRE_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -244,7 +249,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES)
                 || any(AUTOKICK2_CASES)
                 || any(CYCLE_BACK_CASES) || any(HUD_KEY2_CASES) || any(HUD_KEY3_CASES)
-                || any(BAR_STYLE_CASES);
+                || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -430,6 +435,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "894-ui-bars-style-ghost", BarStyleCases::ghost);
                     UiCase.run(ctx, "895-ui-bars-style-shots", BarStyleCases::shots);
                     UiCase.run(ctx, "896-ui-bars-style-editor", BarStyleCases::editor);
+                    // ---- Inventory Theme item centring (897) ----
+                    UiCase.run(ctx, "897-ui-inventory-theme-item-centred", InvThemeCenterCases::centred);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
