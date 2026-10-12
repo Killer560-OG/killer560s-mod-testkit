@@ -39,7 +39,16 @@ import java.util.Map;
  *       top is collected, Grim clean.</li>
  *   <li>749 corrections: mid-walk the server moves him a block, then turns his camera 90 degrees without moving him. The
  *       run is still active after each, both are reported, and the soul at the end is still collected.</li>
- *   <li>750 failsafes: damage stops it as a failsafe; restarted, death stops it as a failsafe.</li>
+ *   <li>750 failsafes: damage with no knockback stops it as a failsafe (death and knockback no longer stop it:
+ *       756-757).</li>
+ *   <li>756 knockback (killer560 2026-10-11, "have it keep working if it gets knocked back, it just needs to
+ *       repathfind"): a mob's hit mid-route knocks him back; the walker counts a knockback, is still active 20 ticks
+ *       later, no failsafe fired, both souls are collected.</li>
+ *   <li>757 death ("if I die ... it will still work and not think it is a staff check"): killed mid-route, he
+ *       respawns at a set spawn point (the test presses Respawn on the death screen, as a player does on vanilla); no
+ *       correction or staff-check report and no alarm from the death on, the run stays active, and the soul is
+ *       collected from the respawn point.</li>
+ *   <li>758 control: a server rotation on its own still reports and plays the alarm, and the run carries on.</li>
  * </ul>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -58,7 +67,8 @@ public class FairySoulTests implements FabricClientGameTest {
     public void runTest(ClientGameTestContext ctx) {
         if (!Mod.isCheat()) {
             legit(ctx);
-            for (String n : List.of("747-fairy-ladder", "748-fairy-godpot", "749-fairy-corrections", "750-fairy-failsafes")) {
+            for (String n : List.of("747-fairy-ladder", "748-fairy-godpot", "749-fairy-corrections", "750-fairy-failsafes",
+                    "756-fairy-knockback", "757-fairy-death", "758-fairy-rotation")) {
                 if (!Scenario.skip(n)) {
                     Scenario.skipped(n, "Auto Fairy Souls is cheat build only (746 checks the legit jar does not walk)");
                 }
@@ -69,7 +79,8 @@ public class FairySoulTests implements FabricClientGameTest {
         AssertionError first = null;
         for (java.util.function.Consumer<ClientGameTestContext> c : List.<java.util.function.Consumer<ClientGameTestContext>>of(
                 FairySoulTests::walk, FairySoulTests::ladder, FairySoulTests::godPotion, FairySoulTests::corrections,
-                FairySoulTests::failsafes)) {
+                FairySoulTests::failsafes, FairySoulTests::knockback, FairySoulTests::death,
+                FairySoulTests::rotationControl)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -253,33 +264,168 @@ public class FairySoulTests implements FabricClientGameTest {
                             new Node(0, -870, 151, 1180, false, 1),
                             new Node(1, -850, 151, 1180, false, 0, 2),
                             new Node(2, -830, 151, 1180, true, 1));
-                    String[] seen = new String[2];
+                    String seen;
                     try (Hx hx = Hx.connect()) {
                         setup(ctx, hx, g);
                         startRun(ctx);
                         ctx.waitTicks(30);
                         check(isActive(ctx), "the run never started");
+                        // No attacker, so no knockback: plain damage, still a failsafe stop.
                         server.command("damage @p 1 minecraft:generic");
                         ctx.waitTicks(10);
-                        seen[0] = ctx.computeOnClient(mc -> Mod.staticCall(WALKER, "lastFailsafe") + " active="
+                        seen = ctx.computeOnClient(mc -> Mod.staticCall(WALKER, "lastFailsafe") + " active="
                                 + Mod.staticCall(RUNNER, "isActive"));
-                        startRun(ctx);
-                        ctx.waitTicks(30);
-                        check(isActive(ctx), "the run did not restart");
-                        server.command("kill @p");
-                        ctx.waitTicks(10);
-                        seen[1] = ctx.computeOnClient(mc -> Mod.staticCall(WALKER, "lastFailsafe") + " active="
-                                + Mod.staticCall(RUNNER, "isActive"));
-                        ctx.runOnClient(mc -> {
-                            if (mc.player != null) {
-                                mc.player.respawn();
-                            }
-                        });
-                        ctx.waitTicks(20);
                     }
-                    scenario.log("after damage: " + seen[0] + "; after death: " + seen[1]);
-                    check(seen[0].contains("you took damage") && seen[0].endsWith("active=false"), "damage: " + seen[0]);
-                    check(seen[1].contains("you died") && seen[1].endsWith("active=false"), "death: " + seen[1]);
+                    scenario.log("after damage: " + seen);
+                    check(seen.contains("you took damage") && seen.endsWith("active=false"), "damage: " + seen);
+                });
+    }
+
+    private static int walkerInt(ClientGameTestContext ctx, String getter) {
+        return ctx.computeOnClient(mc -> (Integer) Mod.staticCall(WALKER, getter));
+    }
+
+    private static int alarms(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Integer) Mod.staticCall("util.ModSounds", "correctionAlarmsPlayed")
+                + (Integer) Mod.staticCall("util.ModSounds", "correctionAlarmsSuppressed"));
+    }
+
+    private static void knockback(ClientGameTestContext ctx) {
+        Scenario.run(ctx, "756-fairy-knockback",
+                (server, scenario) -> TestMap.on(server)
+                        .platform(-850, 150, 1240, 24)
+                        .catchFloor(140)
+                        .survival()
+                        .spawn(-870.5, 1240.5, -90f)
+                        .build(),
+                (server, scenario) -> {
+                    List<Node> g = List.of(
+                            new Node(0, -870, 151, 1240, false, 1),
+                            new Node(1, -858, 151, 1240, true, 0, 2),
+                            new Node(2, -846, 151, 1240, false, 1, 3),
+                            new Node(3, -834, 151, 1240, true, 2));
+                    int kbBefore = walkerInt(ctx, "knockbacks");
+                    int fsBefore = walkerInt(ctx, "failsafes");
+                    boolean[] activeAfter = new boolean[1];
+                    Result r = runSouls(ctx, scenario, g, 700, tick -> {
+                        if (tick == 30) {
+                            // A mob's hit: damage WITH knockback, pushing him back along -x.
+                            server.command("execute as @p at @s run summon minecraft:zombie ~2 ~ ~ "
+                                    + "{NoAI:1b,Silent:1b,Tags:[\"tkkb\"]}");
+                        } else if (tick == 32) {
+                            server.command("damage @p 1 minecraft:mob_attack by @e[tag=tkkb,limit=1]");
+                        } else if (tick == 34) {
+                            server.command("kill @e[tag=tkkb]");
+                        } else if (tick == 55) {
+                            activeAfter[0] = isActive(ctx);
+                        }
+                    });
+                    int kb = walkerInt(ctx, "knockbacks") - kbBefore;
+                    int fs = walkerInt(ctx, "failsafes") - fsBefore;
+                    scenario.log(r.summary() + String.format(", knockbacks %d, failsafes %d, active after %s", kb, fs,
+                            activeAfter[0]));
+                    check(kb >= 1, "no knockback was seen (" + kb + ")");
+                    check(activeAfter[0] && fs == 0, "the knockback stopped the run (failsafes " + fs + ")");
+                    check(r.soulsUsed >= 2 && r.soulsLogged >= 2, "souls after the knockback: " + r.summary());
+                });
+    }
+
+    private static void death(ClientGameTestContext ctx) {
+        Scenario.run(ctx, "757-fairy-death",
+                (server, scenario) -> TestMap.on(server)
+                        .platform(-850, 150, 1300, 24)
+                        .catchFloor(140)
+                        .survival()
+                        .spawn(-870.5, 1300.5, -90f)
+                        .command("spawnpoint @p -866 151 1296")
+                        .build(),
+                (server, scenario) -> {
+                    List<Node> g = List.of(
+                            new Node(0, -870, 151, 1300, false, 1),
+                            new Node(1, -850, 151, 1300, false, 0, 2),
+                            new Node(2, -834, 151, 1300, true, 1));
+                    int deathsBefore = walkerInt(ctx, "deaths");
+                    int fsBefore = walkerInt(ctx, "failsafes");
+                    int[] alarmsAtDeath = new int[1];
+                    int[] reportsAtDeath = new int[1];
+                    long[] logAtDeath = new long[1];
+                    boolean[] activeWhileDead = new boolean[1];
+                    Result r = runSouls(ctx, scenario, g, 900, tick -> {
+                        if (tick == 40) {
+                            alarmsAtDeath[0] = alarms(ctx);
+                            reportsAtDeath[0] = ctx.computeOnClient(mc -> (Integer) Mod.staticCall("util.ServerCorrections", "reports"));
+                            logAtDeath[0] = LogTap.mark();
+                            server.command("kill @p");
+                        } else if (tick == 45) {
+                            activeWhileDead[0] = isActive(ctx);
+                        }
+                        if (tick > 40) {
+                            ctx.runOnClient(mc -> {
+                                if (mc.player != null && mc.player.isDeadOrDying()
+                                        && dev.testkit.compat.McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.DeathScreen) {
+                                    mc.player.respawn();
+                                }
+                            });
+                        }
+                    });
+                    int deaths = walkerInt(ctx, "deaths") - deathsBefore;
+                    int fs = walkerInt(ctx, "failsafes") - fsBefore;
+                    int alarmDelta = alarms(ctx) - alarmsAtDeath[0];
+                    int reportDelta = ctx.computeOnClient(mc -> (Integer) Mod.staticCall("util.ServerCorrections", "reports")) - reportsAtDeath[0];
+                    List<String> log = LogTap.since(logAtDeath[0]);
+                    boolean staffOrCorrection = log.stream().anyMatch(l -> l.contains("Server correction")
+                            || l.contains("turned your camera") || l.contains("[Correction] Auto Fairy Souls: server moved"));
+                    boolean respawned = log.stream().anyMatch(l -> l.contains("[AutoWalker] respawned"));
+                    scenario.log(r.summary() + String.format(", deaths %d, failsafes %d, active while dead %s, respawned "
+                                    + "line %s, alarms since death %d, correction reports since death %d, correction/staff "
+                                    + "line %s", deaths, fs, activeWhileDead[0], respawned, alarmDelta, reportDelta,
+                            staffOrCorrection));
+                    check(deaths == 1, deaths + " death(s) seen, expected 1");
+                    check(activeWhileDead[0] && fs == 0, "the death stopped the run");
+                    check(respawned, "no respawn re-path was logged");
+                    check(alarmDelta == 0 && reportDelta == 0 && !staffOrCorrection,
+                            "the death or respawn was taken for a correction / staff check");
+                    check(r.soulsUsed >= 1 && r.soulsLogged >= 1, "soul after the respawn: " + r.summary());
+                });
+    }
+
+    private static void rotationControl(ClientGameTestContext ctx) {
+        Scenario.run(ctx, "758-fairy-rotation",
+                (server, scenario) -> TestMap.on(server)
+                        .platform(-850, 150, 1360, 24)
+                        .catchFloor(140)
+                        .survival()
+                        .spawn(-870.5, 1360.5, -90f)
+                        .build(),
+                (server, scenario) -> {
+                    List<Node> g = List.of(
+                            new Node(0, -870, 151, 1360, false, 1),
+                            new Node(1, -850, 151, 1360, false, 0, 2),
+                            new Node(2, -834, 151, 1360, true, 1));
+                    int[] alarmsBefore = new int[1];
+                    int[] reportsBefore = new int[1];
+                    long[] mark = new long[1];
+                    boolean[] activeAfter = new boolean[1];
+                    Result r = runSouls(ctx, scenario, g, 700, tick -> {
+                        if (tick == 40) {
+                            alarmsBefore[0] = alarms(ctx);
+                            reportsBefore[0] = ctx.computeOnClient(mc -> (Integer) Mod.staticCall("util.ServerCorrections", "reports"));
+                            mark[0] = LogTap.mark();
+                            server.command("execute as @p at @s run tp @s ~ ~ ~ ~90 ~");
+                        } else if (tick == 55) {
+                            activeAfter[0] = isActive(ctx);
+                        }
+                    });
+                    int alarmDelta = alarms(ctx) - alarmsBefore[0];
+                    int reportDelta = ctx.computeOnClient(mc -> (Integer) Mod.staticCall("util.ServerCorrections", "reports")) - reportsBefore[0];
+                    boolean said = LogTap.since(mark[0]).stream().anyMatch(l -> l.contains("turned your camera"));
+                    // The report is what plays the alarm (ServerCorrections.say); the alarm counter moves only while
+                    // the Correction Alarm is switched on with a volume, so it is logged, the report is asserted.
+                    scenario.log(r.summary() + String.format(", reports %d, alarms played/suppressed %d, staff-check line %s, "
+                            + "active after %s", reportDelta, alarmDelta, said, activeAfter[0]));
+                    check(reportDelta >= 1 && said, "a server rotation alone was not reported");
+                    check(activeAfter[0], "the rotation stopped the run");
+                    check(r.soulsUsed >= 1, "soul after the rotation: " + r.summary());
                 });
     }
 
