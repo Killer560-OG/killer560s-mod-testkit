@@ -18,11 +18,12 @@ import java.util.UUID;
  *       fed95410-aba1-39df-9b95-1d4f361eb66e, the id killer560s-mod, QUOI, Odin and RSM identify it by) takes it away and
  *       says "You found a Secret Redstone Key!" (the line QUOI's chat filter lists). Any other head is left alone.</li>
  *   <li>Placement: since SkyBlock 0.18.4 the key is no longer an item - once found, any player may put it on the room's
- *       redstone node (hypixelskyblock.minecraft.wiki, Redstone Key). The node is a REDSTONE_BLOCK (QUOI's Secret Aura
- *       clicks one once the key skull has gone, and counts the node done on the block update that follows); placing it
- *       opens a redstone door, which RSM detects by the piston sound. So: a right click on a redstone block while a key
- *       is found sets the key's head on top of the block, plays a piston extend there, and uses the key up. NOT
- *       verified against Hypixel: exactly what the node turns into, and any chat line on placement (none is sent).</li>
+ *       redstone node (hypixelskyblock.minecraft.wiki, Redstone Key). The node is a REDSTONE_BLOCK (QUOI and RSA
+ *       click one once the key skull has gone); placing it opens a redstone door, which RSM detects by the piston sound;
+ *       the key then sits on TOP of the block (killer560, 2026-10-12; Skyblocker files the key's secret at the redstone
+ *       block's pos.above()). So: a right click on a redstone block, on a face whose neighbour is AIR, while a key is
+ *       found, sets the key's head on top, plays a piston extend there and uses the key up. A covered face does
+ *       nothing. Every use on a redstone block is logged with its face. Any placement chat line is not known.</li>
  * </ul>
  */
 final class RedstoneKeyPickup {
@@ -38,6 +39,7 @@ final class RedstoneKeyPickup {
     }
 
     static void register() {
+        registerCommand();
         net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register((player, level, hand, hit) -> {
             if (level.isClientSide() || !(player instanceof ServerPlayer) || hit == null
                     || !(level instanceof ServerLevel serverLevel)) {
@@ -54,7 +56,16 @@ final class RedstoneKeyPickup {
                         + " picked up");
                 return InteractionResult.SUCCESS;
             }
-            if (keysFound > 0 && level.getBlockState(pos).is(Blocks.REDSTONE_BLOCK) && level.getBlockState(pos.above()).isAir()) {
+            if (level.getBlockState(pos).is(Blocks.REDSTONE_BLOCK)) {
+                // Only a face open to AIR takes the key (killer560, 2026-10-12: "it has to be on a side hitting air");
+                // every use on a node is logged with its face, so a scenario can prove a covered face was never tried.
+                boolean exposed = level.getBlockState(pos.relative(hit.getDirection())).isAir();
+                System.out.println("[testkit] redstone block used at " + pos.getX() + "," + pos.getY() + "," + pos.getZ()
+                        + " face " + hit.getDirection().getName() + (exposed ? " exposed" : " covered")
+                        + ", keys found " + keysFound);
+                if (keysFound <= 0 || !exposed || !level.getBlockState(pos.above()).isAir()) {
+                    return InteractionResult.PASS;
+                }
                 keysFound--;
                 MinecraftServer server = serverLevel.getServer();
                 run(server, String.format(Locale.ROOT, "setblock %d %d %d minecraft:player_head{profile:{id:%s,name:\"RedstoneKey\"}}",
@@ -66,6 +77,17 @@ final class RedstoneKeyPickup {
             }
             return InteractionResult.PASS;
         });
+    }
+
+    /** {@code testkitkey found}: a key picked up by someone else (a teammate), so the server knows one is found. */
+    static void registerCommand() {
+        net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback.EVENT.register((dispatcher, registry, environment) ->
+                dispatcher.register(net.minecraft.commands.Commands.literal("testkitkey")
+                        .then(net.minecraft.commands.Commands.literal("found").executes(context -> {
+                            keysFound++;
+                            System.out.println("[testkit] redstone key found by someone else (" + keysFound + ")");
+                            return 1;
+                        }))));
     }
 
     private static void run(MinecraftServer server, String cmd) {
