@@ -1,0 +1,926 @@
+{
+ "_doc": "killer560's real killer560smod-croesus-runs.json (26.1.2 (Dungeons), last written 2026-10-12 16:43), player names replaced by P01.., times as written; 'ref' is the file's write time, the test moves every time by (now - ref). Testkit 890.",
+ "ref": 1791848392188,
+ "runs": [
+  {
+   "id": "run-00",
+   "sig": "The Catacombs|Floor VII|P01: Mage (50)|P02: Archer (39)|P03: Berserk (40)|P04: Healer (47)|P05: Tank (49)",
+   "expiresAt": 1792096838156,
+   "tolMs": 3600000,
+   "order": 0,
+   "chests": {
+    "WOOD": -149402,
+    "GOLD": -189178,
+    "OBSIDIAN": -471202,
+    "EMERALD": -1583379,
+    "BEDROCK": -189413,
+    "DIAMOND": -208962
+   },
+   "claimType": "WOOD",
+   "claimKeyed": false,
+   "claimAt": 1791841252252
+  },
+  {
+   "id": "run-01",
+   "sig": "The Catacombs|Floor VII|P01: Mage (50)|P02: Archer (39)|P03: Berserk (40)|P04: Healer (47)|P05: Tank (49)",
+   "expiresAt": 1792096841772,
+   "tolMs": 3600000,
+   "order": 1,
+   "chests": {
+    "WOOD": -160637,
+    "GOLD": -212443,
+    "OBSIDIAN": -830267,
+    "EMERALD": -465453,
+    "BEDROCK": -796364,
+    "DIAMOND": -212432
+   },
+   "claimType": "WOOD",
+   "claimKeyed": false,
+   "claimAt": 1791841255455
+  },
+  {
+   "id": "run-02",
+   "sig": "The Catacombs|Floor VII|P01: Mage (50)|P02: Archer (39)|P03: Berserk (40)|P04: Healer (47)|P05: Tank (49)",
+   "expiresAt": 1792096842859,
+   "tolMs": 3600000,
+   "order": 2,
+   "chests": {
+    "WOOD": -164789,
+    "DIAMOND": -244483,
+    "EMERALD": -394277,
+    "OBSIDIAN": -41453,
+    "GOLD": -126259
+   },
+   "claimType": "OBSIDIAN",
+   "claimKeyed": false,
+   "claimAt": 1791841258204
+  },
+  {
+   "id": "run-03",
+   "sig": "The Catacombs|Floor VII|P01: Mage (50)|P02: Archer (39)|P03: Berserk (40)|P04: Healer (47)|P05: Tank (49)",
+   "expiresAt": 1792096844397,
+   "tolMs": 3600000,
+   "order": 3,
+   "chests": {
+    "WOOD": -160637,
+    "GOLD": -198643,
+    "OBSIDIAN": -741630,
+    "EMERALD": 224975,
+    "BEDROCK": -176031,
+    "DIAMOND": -230714
+   },
+   "claimType": "EMERALD",
+   "claimKeyed": false,
+   "claimAt": 1791841260706
+  },
+  {
+   "id": "run-04",
+   "sig": "The Catacombs|Floor VII|P01: Mage (50)|P02: Archer (39)|P03: Berserk (40)|P04: Mage (45)|P05: Tank (49)",
+   "expiresAt": 1792096845929,
+   "tolMs": 3600000,
+   "order": 4,
+   "chests": {
+    "WOOD": -160637,
+    "GOLD": -198643,
+    "OBSIDIAN": -1568530,
+    "EMERALD": -120859,
+    "BEDROCK": -1207822,
+    "DIAMOND": -306410
+   },
+   "claimType": "EMERALD",
+   "claimKeyed": false,
+   "claimAt": 1791841263555
+  },
+  {
+   "id": "run-05",
+   "sig": "The Catacombs|Floor VII|P01: Mage (50)|P02: Archer (39)|P03: Berserk (40)|P04: Healer (47)|P05: Tank (49)",
+   "expiresAt": 1792096847364,
+   "tolMs": 3600000,
+   "order": 5,
+   "chests": {
+    "WOOD": -142502,
+    "GOLD": -189178,
+    "OBSIDIAN": -564365,
+    "EMERALD": -1596868,
+    "BEDROCK": -777793,
+    "DIAMOND": -315875
+   },
+   "claimType": "WOOD",
+   "claimKeyed": false,
+   "claimAt": 1791841266307
+  },
+  {
+   "id": "run-06",
+   "sig": "The Catacombs|Floor VII|P06: Mage (42)|P07: Healer (50)|P02: Archer (39)|P04: Berserk (48)|P08: Tank (50)",
+   "expiresAt": 1792096848648,
+   "tolMs": 3600000,
+   "order": 6,
+   "chests": {
+    "WOOD": -149402,
+    "GOLD": -104665,
+    "OBSIDIAN": -439985,
+    "EMERALD": -385799,
+    "BEDROCK": -856616,
+    "DIAMOND": -302629
+   },
+   "claimType": "GOLD",
+   "claimKeyed": false,
+   "claimAt": 1791841269151
+  },
+  {
+   "id": "run-23",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (32)|P02: Mage (39)|P10: Archer (36)|P11: Healer (42)|P12: Tank (45)",
+   "expiresAt": 1791956470294,
+   "tolMs": 3600000,
+   "order": 23,
+   "chests": {
+    "WOOD": -124051,
+    "DIAMOND": -155648,
+    "EMERALD": -135771,
+    "OBSIDIAN": 610272,
+    "GOLD": -133958
+   },
+   "claimType": "OBSIDIAN",
+   "claimKeyed": false,
+   "claimAt": 1791841272007
+  },
+  {
+   "id": "run-24",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (32)|P02: Mage (39)|P10: Archer (36)|P11: Healer (42)|P12: Tank (45)",
+   "expiresAt": 1791956473218,
+   "tolMs": 3600000,
+   "order": 24,
+   "chests": {
+    "GOLD": -133958,
+    "WOOD": -124051,
+    "DIAMOND": -155648,
+    "EMERALD": -135771
+   },
+   "claimType": "GOLD",
+   "claimKeyed": false,
+   "claimAt": 1791841274805
+  },
+  {
+   "id": "run-26",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (32)|P02: Mage (39)|P11: Healer (42)|P13: Archer (39)|P12: Tank (45)",
+   "expiresAt": 1791956475974,
+   "tolMs": 3600000,
+   "order": 26,
+   "chests": {
+    "WOOD": -124051,
+    "DIAMOND": -178913,
+    "EMERALD": -221988,
+    "OBSIDIAN": -481252,
+    "GOLD": -170712
+   },
+   "claimType": "WOOD",
+   "claimKeyed": false,
+   "claimAt": 1791841277953
+  },
+  {
+   "id": "run-28",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (32)|P02: Mage (39)|P14: Healer (35)|P13: Archer (39)|P12: Tank (45)",
+   "expiresAt": 1791956479638,
+   "tolMs": 3600000,
+   "order": 28,
+   "chests": {
+    "WOOD": -112816,
+    "DIAMOND": -228562,
+    "EMERALD": -129953,
+    "OBSIDIAN": 1070511,
+    "GOLD": -133958
+   },
+   "claimType": "OBSIDIAN",
+   "claimKeyed": false,
+   "claimAt": 1791841281604
+  },
+  {
+   "id": "run-29",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (32)|P02: Mage (39)|P14: Healer (35)|P13: Archer (39)|P12: Tank (45)",
+   "expiresAt": 1791956483444,
+   "tolMs": 3600000,
+   "order": 29,
+   "chests": {
+    "WOOD": -133516,
+    "DIAMOND": -187473,
+    "EMERALD": -235814,
+    "OBSIDIAN": -355427,
+    "GOLD": -227263
+   },
+   "claimType": "WOOD",
+   "claimKeyed": false,
+   "claimAt": 1791841285552
+  },
+  {
+   "id": "run-30",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (32)|P02: Mage (39)|P14: Healer (35)|P13: Archer (39)|P12: Mage (46)",
+   "expiresAt": 1791952887415,
+   "tolMs": 3600000,
+   "order": 30,
+   "chests": {
+    "WOOD": -124051,
+    "DIAMOND": -191808,
+    "EMERALD": -43710,
+    "OBSIDIAN": 5047111,
+    "GOLD": -56345
+   },
+   "claimType": "OBSIDIAN",
+   "claimKeyed": false,
+   "claimAt": 1791841289449
+  },
+  {
+   "id": "run-31",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (32)|P02: Mage (39)|P14: Healer (35)|P13: Archer (39)|P12: Tank (45)",
+   "expiresAt": 1791952891296,
+   "tolMs": 3600000,
+   "order": 31,
+   "chests": {
+    "WOOD": -124051,
+    "DIAMOND": -205297,
+    "EMERALD": -101058,
+    "OBSIDIAN": -459470,
+    "GOLD": -49445
+   },
+   "claimType": "GOLD",
+   "claimKeyed": false,
+   "claimAt": 1791841293401
+  },
+  {
+   "id": "run-32",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (32)|P15: Healer (29)|P02: Mage (39)|P16: Archer (40)|P12: Tank (45)",
+   "expiresAt": 1791952895317,
+   "tolMs": 3600000,
+   "order": 32,
+   "chests": {
+    "WOOD": -124051,
+    "DIAMOND": -219097,
+    "EMERALD": -228914,
+    "OBSIDIAN": -365492,
+    "GOLD": -163812
+   },
+   "claimType": "WOOD",
+   "claimKeyed": false,
+   "claimAt": 1791841297300
+  },
+  {
+   "id": "run-33",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (32)|P15: Healer (29)|P02: Mage (39)|P16: Archer (40)|P12: Tank (45)",
+   "expiresAt": 1791952899087,
+   "tolMs": 3600000,
+   "order": 33,
+   "chests": {
+    "WOOD": -133516,
+    "DIAMOND": -129601,
+    "EMERALD": -150653,
+    "OBSIDIAN": 5074400,
+    "GOLD": -56345
+   },
+   "claimType": "OBSIDIAN",
+   "claimKeyed": false,
+   "claimAt": 1791841300853
+  },
+  {
+   "id": "run-34",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (32)|P15: Healer (29)|P17: Tank (34)|P02: Mage (39)|P16: Archer (40)",
+   "expiresAt": 1791952902877,
+   "tolMs": 3600000,
+   "order": 34,
+   "chests": {
+    "WOOD": -112816,
+    "DIAMOND": -219097,
+    "EMERALD": -121447,
+    "OBSIDIAN": -545713,
+    "GOLD": -163812
+   },
+   "claimType": "WOOD",
+   "claimKeyed": false,
+   "claimAt": 1791841305053
+  },
+  {
+   "id": "run-35",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (32)|P15: Healer (29)|P17: Tank (34)|P02: Mage (38)|P16: Archer (40)",
+   "expiresAt": 1791952907114,
+   "tolMs": 3600000,
+   "order": 35,
+   "chests": {
+    "WOOD": -133516,
+    "DIAMOND": -212197,
+    "EMERALD": -21378,
+    "OBSIDIAN": 5140254,
+    "GOLD": -143423
+   },
+   "claimType": "OBSIDIAN",
+   "claimKeyed": false,
+   "claimAt": 1791841308752
+  },
+  {
+   "id": "run-36",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (32)|P15: Healer (29)|P17: Tank (34)|P02: Mage (38)|P16: Archer (40)",
+   "expiresAt": 1791952910463,
+   "tolMs": 3600000,
+   "order": 36,
+   "chests": {
+    "WOOD": -124051,
+    "DIAMOND": -155648,
+    "EMERALD": -94158,
+    "OBSIDIAN": 1156754,
+    "GOLD": -99351
+   },
+   "claimType": "OBSIDIAN",
+   "claimKeyed": false,
+   "claimAt": 1791841312222
+  },
+  {
+   "id": "run-37",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (32)|P15: Healer (29)|P17: Tank (34)|P02: Mage (38)|P16: Archer (40)",
+   "expiresAt": 1791952914095,
+   "tolMs": 3600000,
+   "order": 37,
+   "chests": {
+    "WOOD": -133516,
+    "DIAMOND": -205297,
+    "EMERALD": -129953,
+    "OBSIDIAN": -479902,
+    "GOLD": -175047
+   },
+   "claimType": "WOOD",
+   "claimKeyed": false,
+   "claimAt": 1791841317529
+  },
+  {
+   "id": "run-38",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (32)|P15: Healer (29)|P17: Tank (34)|P02: Mage (38)|P16: Archer (40)",
+   "expiresAt": 1791952919466,
+   "tolMs": 3600000,
+   "order": 38,
+   "chests": {
+    "WOOD": -133516,
+    "DIAMOND": -207862,
+    "EMERALD": -21378,
+    "OBSIDIAN": 1090900,
+    "GOLD": -170712
+   },
+   "claimType": "OBSIDIAN",
+   "claimKeyed": false,
+   "claimAt": 1791841321230
+  },
+  {
+   "id": "run-39",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (32)|P15: Healer (29)|P17: Tank (34)|P02: Mage (38)|P16: Archer (40)",
+   "expiresAt": 1791952923568,
+   "tolMs": 3600000,
+   "order": 39,
+   "chests": {
+    "WOOD": -124051,
+    "DIAMOND": -219097,
+    "EMERALD": 1007699,
+    "OBSIDIAN": -359985,
+    "GOLD": -39980
+   },
+   "claimType": "EMERALD",
+   "claimKeyed": false,
+   "claimAt": 1791841325101
+  },
+  {
+   "id": "run-40",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (32)|P15: Healer (29)|P17: Tank (34)|P02: Mage (38)",
+   "expiresAt": 1791949327176,
+   "tolMs": 3600000,
+   "order": 40,
+   "chests": {
+    "WOOD": -133516,
+    "DIAMOND": -201273,
+    "EMERALD": -150653,
+    "OBSIDIAN": 104590,
+    "GOLD": -175047
+   },
+   "claimType": "OBSIDIAN",
+   "claimKeyed": false,
+   "claimAt": 1791841329409
+  },
+  {
+   "id": "run-41",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (31)|P15: Healer (28)|P17: Tank (34)|P02: Mage (38)|P18: Archer (40)",
+   "expiresAt": 1791949331583,
+   "tolMs": 3600000,
+   "order": 41,
+   "chests": {
+    "WOOD": -124051,
+    "DIAMOND": -200612,
+    "EMERALD": 177099,
+    "OBSIDIAN": -469794,
+    "GOLD": -39980
+   },
+   "claimType": "EMERALD",
+   "claimKeyed": false,
+   "claimAt": 1791841333279
+  },
+  {
+   "id": "run-42",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (31)|P15: Healer (28)|P17: Tank (34)|P02: Mage (38)|P18: Archer (40)",
+   "expiresAt": 1791949335352,
+   "tolMs": 3600000,
+   "order": 42,
+   "chests": {
+    "WOOD": -124051,
+    "DIAMOND": -219097,
+    "EMERALD": 177099,
+    "OBSIDIAN": -462626,
+    "GOLD": -89886
+   },
+   "claimType": "EMERALD",
+   "claimKeyed": false,
+   "claimAt": 1791841337351
+  },
+  {
+   "id": "run-43",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (31)|P15: Healer (28)|P17: Tank (34)|P02: Mage (38)",
+   "expiresAt": 1791949339126,
+   "tolMs": 3600000,
+   "order": 43,
+   "chests": {
+    "WOOD": -124051,
+    "DIAMOND": -107295,
+    "EMERALD": -150653,
+    "OBSIDIAN": -372703,
+    "GOLD": -157223
+   },
+   "claimType": "DIAMOND",
+   "claimKeyed": false,
+   "claimAt": 1791841341323
+  },
+  {
+   "id": "run-44",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (31)|P15: Healer (28)|P17: Tank (34)|P02: Mage (38)|P19: Archer (42)",
+   "expiresAt": 1791949343198,
+   "tolMs": 3600000,
+   "order": 44,
+   "chests": {
+    "WOOD": -133516,
+    "DIAMOND": -191808,
+    "EMERALD": -129182,
+    "OBSIDIAN": 576600,
+    "GOLD": -166027
+   },
+   "claimType": "OBSIDIAN",
+   "claimKeyed": false,
+   "claimAt": 1791841345027
+  },
+  {
+   "id": "run-45",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (31)|P15: Healer (28)|P17: Tank (34)|P02: Mage (38)|P19: Archer (42)",
+   "expiresAt": 1791949346767,
+   "tolMs": 3600000,
+   "order": 45,
+   "chests": {
+    "WOOD": -124051,
+    "DIAMOND": -104730,
+    "EMERALD": -136853,
+    "OBSIDIAN": 5074400,
+    "GOLD": -56345
+   },
+   "claimType": "OBSIDIAN",
+   "claimKeyed": false,
+   "claimAt": 1791841348761
+  },
+  {
+   "id": "run-46",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (31)|P15: Healer (28)|P20: Archer (48)|P17: Tank (34)|P02: Mage (38)",
+   "expiresAt": 1791949350399,
+   "tolMs": 3600000,
+   "order": 46,
+   "chests": {
+    "WOOD": -124051,
+    "DIAMOND": -97830,
+    "EMERALD": -208525,
+    "OBSIDIAN": -441670,
+    "GOLD": -152227
+   },
+   "claimType": "DIAMOND",
+   "claimKeyed": false,
+   "claimAt": 1791841352231
+  },
+  {
+   "id": "run-47",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (31)|P21: Healer (34)|P22: Archer (38)|P02: Mage (38)|P23: Tank (43)",
+   "expiresAt": 1791949353837,
+   "tolMs": 3600000,
+   "order": 47,
+   "chests": {
+    "WOOD": -133516,
+    "DIAMOND": -191808,
+    "EMERALD": -107621,
+    "OBSIDIAN": -431346,
+    "GOLD": -35956
+   },
+   "claimType": "GOLD",
+   "claimKeyed": false,
+   "claimAt": 1791841355668
+  },
+  {
+   "id": "run-48",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (31)|P21: Healer (34)|P22: Archer (38)|P02: Mage (38)|P24: Tank (43)",
+   "expiresAt": 1791945757542,
+   "tolMs": 3600000,
+   "order": 48,
+   "chests": {
+    "WOOD": -133516,
+    "DIAMOND": -219097,
+    "EMERALD": -122282,
+    "OBSIDIAN": -375816,
+    "GOLD": -175047
+   },
+   "claimType": "WOOD",
+   "claimKeyed": false,
+   "claimAt": 1791841360573
+  },
+  {
+   "id": "run-49",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (31)|P25: Archer (36)|P26: Tank (36)|P02: Mage (38)|P27: Healer (47)",
+   "expiresAt": 1791945762834,
+   "tolMs": 3600000,
+   "order": 49,
+   "chests": {
+    "WOOD": -124051,
+    "DIAMOND": -93495,
+    "EMERALD": -129953,
+    "OBSIDIAN": -469794,
+    "GOLD": -39980
+   },
+   "claimType": "GOLD",
+   "claimKeyed": false,
+   "claimAt": 1791841364628
+  },
+  {
+   "id": "run-10",
+   "sig": "The Catacombs|Floor VII|P28: Healer (40)|P02: Mage (39)|P29: Tank (43)|P30: Archer (35)|P31: Berserk (38)",
+   "expiresAt": 1792032169953,
+   "tolMs": 3600000,
+   "order": 10,
+   "chests": {
+    "BEDROCK": -929908,
+    "DIAMOND": -236179,
+    "EMERALD": -482418,
+    "OBSIDIAN": -1585806,
+    "GOLD": -270017
+   }
+  },
+  {
+   "id": "run-12",
+   "sig": "The Catacombs|Floor VII|P28: Healer (40)|P02: Mage (39)|P32: Berserk (47)|P29: Tank (43)|P30: Archer (35)",
+   "expiresAt": 1792032171736,
+   "tolMs": 3600000,
+   "order": 12,
+   "chests": {
+    "WOOD": -160637,
+    "DIAMOND": -336264,
+    "EMERALD": -468929,
+    "OBSIDIAN": -833380,
+    "GOLD": -212132
+   }
+  },
+  {
+   "id": "run-14",
+   "sig": "The Catacombs|Floor VII|P28: Healer (40)|P02: Mage (39)|P32: Berserk (47)|P29: Tank (43)|P30: Archer (35)",
+   "expiresAt": 1792032172820,
+   "tolMs": 3600000,
+   "order": 14,
+   "chests": {
+    "GOLD": -214890,
+    "WOOD": -164789,
+    "DIAMOND": -303439,
+    "EMERALD": -394277
+   }
+  },
+  {
+   "id": "run-16",
+   "sig": "The Catacombs|Floor VII|P28: Healer (40)|P02: Mage (39)|P32: Berserk (47)|P29: Tank (43)|P30: Archer (35)",
+   "expiresAt": 1792032173429,
+   "tolMs": 3600000,
+   "order": 16,
+   "chests": {
+    "BEDROCK": -1309909,
+    "DIAMOND": -302629,
+    "EMERALD": -478942,
+    "OBSIDIAN": -1361007,
+    "GOLD": -212443
+   }
+  },
+  {
+   "id": "run-09",
+   "sig": "The Catacombs|Floor VII|P28: Healer (40)|P02: Mage (39)|P29: Tank (43)|P30: Archer (35)|P31: Berserk (38)",
+   "expiresAt": 1792032174190,
+   "tolMs": 3600000,
+   "order": 9,
+   "chests": {
+    "WOOD": -170102,
+    "BEDROCK": -1098341,
+    "DIAMOND": -234738,
+    "OBSIDIAN": -768919,
+    "GOLD": -219032
+   }
+  },
+  {
+   "id": "run-13",
+   "sig": "The Catacombs|Floor VII|P28: Healer (40)|P02: Mage (39)|P32: Berserk (47)|P29: Tank (43)|P30: Archer (35)",
+   "expiresAt": 1792032175309,
+   "tolMs": 3600000,
+   "order": 13,
+   "chests": {
+    "WOOD": -160637,
+    "BEDROCK": -2172369,
+    "DIAMOND": -326799,
+    "EMERALD": -206503,
+    "GOLD": -212443
+   }
+  },
+  {
+   "id": "run-20",
+   "sig": "The Catacombs|Floor VII|P28: Healer (40)|P02: Mage (39)|P33: Berserk (42)|P29: Tank (43)|P30: Archer (35)",
+   "expiresAt": 1792028576625,
+   "tolMs": 3600000,
+   "order": 20,
+   "chests": {
+    "WOOD": -160637,
+    "BEDROCK": -1466494,
+    "DIAMOND": -128712,
+    "EMERALD": -203027,
+    "GOLD": -202667
+   }
+  },
+  {
+   "id": "run-21",
+   "sig": "The Catacombs|Floor VII|P28: Healer (40)|P02: Mage (39)|P33: Berserk (42)|P29: Tank (43)|P30: Archer (35)",
+   "expiresAt": 1792028577736,
+   "tolMs": 3600000,
+   "order": 21,
+   "chests": {
+    "WOOD": -160637,
+    "BEDROCK": -810399,
+    "DIAMOND": -132182,
+    "OBSIDIAN": -495398,
+    "GOLD": -209567
+   }
+  },
+  {
+   "id": "run-07",
+   "sig": "The Catacombs|Floor VII|P34: Mage (50)|P02: Mage (39)|P35: Mage (41)|P36: Mage (43)|P37: Archer (31)",
+   "expiresAt": 1792082579621,
+   "tolMs": 3600000,
+   "order": 7,
+   "chests": {
+    "BEDROCK": -1277237,
+    "DIAMOND": -312094,
+    "EMERALD": -472042,
+    "OBSIDIAN": -275343,
+    "GOLD": -219032
+   }
+  },
+  {
+   "id": "run-08",
+   "sig": "The Catacombs|Floor VII|P28: Berserk (36)|P02: Mage (39)|P29: Tank (43)|P31: Healer (39)",
+   "expiresAt": 1792032180386,
+   "tolMs": 3600000,
+   "order": 8,
+   "chests": {
+    "GOLD": -211771,
+    "WOOD": -150084,
+    "EMERALD": -366988,
+    "OBSIDIAN": -1365139
+   }
+  },
+  {
+   "id": "run-15",
+   "sig": "The Catacombs|Floor VII|P28: Healer (40)|P02: Mage (39)|P32: Berserk (47)|P29: Tank (43)|P30: Archer (35)",
+   "expiresAt": 1792032181231,
+   "tolMs": 3600000,
+   "order": 15,
+   "chests": {
+    "WOOD": -160637,
+    "BEDROCK": -2172369,
+    "DIAMOND": -326799,
+    "EMERALD": -206503,
+    "GOLD": -212443
+   }
+  },
+  {
+   "id": "run-22",
+   "sig": "The Catacombs|Floor VII|P28: Healer (40)|P02: Mage (39)|P33: Berserk (42)|P29: Tank (43)|P30: Archer (35)",
+   "expiresAt": 1792028582129,
+   "tolMs": 3600000,
+   "order": 22,
+   "chests": {
+    "WOOD": -160637,
+    "BEDROCK": -1466494,
+    "DIAMOND": -128712,
+    "EMERALD": -203027,
+    "GOLD": -202667
+   }
+  },
+  {
+   "id": "run-17",
+   "sig": "The Catacombs|Floor VII|P28: Healer (40)|P02: Mage (39)|P32: Berserk (47)|P29: Tank (43)|P30: Archer (35)",
+   "expiresAt": 1792032184147,
+   "tolMs": 3600000,
+   "order": 17,
+   "chests": {
+    "WOOD": -170102,
+    "BEDROCK": -1868671,
+    "DIAMOND": -329364,
+    "EMERALD": -482418,
+    "GOLD": -216467
+   }
+  },
+  {
+   "id": "run-18",
+   "sig": "The Catacombs|Floor VII|P28: Healer (40)|P02: Mage (39)|P32: Berserk (47)|P29: Tank (43)|P30: Archer (35)",
+   "expiresAt": 1792028585946,
+   "tolMs": 3600000,
+   "order": 18,
+   "chests": {
+    "WOOD": -170102,
+    "BEDROCK": -462810,
+    "DIAMOND": -212432,
+    "OBSIDIAN": -559089,
+    "GOLD": -202667
+   }
+  },
+  {
+   "id": "run-25",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (32)|P02: Mage (39)|P10: Archer (36)|P11: Healer (42)|P12: Tank (45)",
+   "expiresAt": 1791956587113,
+   "tolMs": 3600000,
+   "order": 25,
+   "chests": {
+    "WOOD": -124051,
+    "DIAMOND": -228562,
+    "EMERALD": -87232,
+    "OBSIDIAN": -469794
+   }
+  },
+  {
+   "id": "run-19",
+   "sig": "The Catacombs|Floor VII|P28: Healer (40)|P02: Mage (39)|P29: Tank (43)|P30: Archer (35)",
+   "expiresAt": 1792028588175,
+   "tolMs": 3600000,
+   "order": 19,
+   "chests": {
+    "WOOD": -160637,
+    "BEDROCK": -584405,
+    "DIAMOND": -315564,
+    "EMERALD": -374951,
+    "GOLD": -198643
+   }
+  },
+  {
+   "id": "run-11",
+   "sig": "The Catacombs|Floor VII|P28: Healer (40)|P02: Mage (39)|P29: Tank (43)|P30: Archer (35)|P31: Berserk (38)",
+   "expiresAt": 1792032189295,
+   "tolMs": 3600000,
+   "order": 11,
+   "chests": {
+    "BEDROCK": -929908,
+    "DIAMOND": -236179,
+    "EMERALD": -482418,
+    "OBSIDIAN": -1585806,
+    "GOLD": -270017
+   }
+  },
+  {
+   "id": "run-27",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (32)|P02: Mage (39)|P11: Healer (42)|P13: Archer (39)|P12: Tank (45)",
+   "expiresAt": 1791956590226,
+   "tolMs": 3600000,
+   "order": 27,
+   "chests": {
+    "GOLD": -170712,
+    "DIAMOND": -178913,
+    "EMERALD": -221988,
+    "OBSIDIAN": -481252
+   }
+  },
+  {
+   "id": "run-50",
+   "sig": "Master Mode The Catacombs|Floor IV|P09: Berserk (31)|P38: Archer (34)|P26: Tank (36)|P02: Mage (38)|P27: Healer (47)",
+   "expiresAt": 1791945794919,
+   "tolMs": 3600000,
+   "order": 50,
+   "chests": {
+    "GOLD": -49445,
+    "DIAMOND": -97830,
+    "WOOD": -124051,
+    "EMERALD": -235814
+   }
+  },
+  {
+   "id": "run-51",
+   "sig": "The Catacombs|Floor VII|P39: Tank (37)|P02: Archer (39)|P40: Mage (39)|P31: Healer (39)|P12: Berserk (45)",
+   "expiresAt": 1791942197039,
+   "tolMs": 3600000,
+   "order": 51,
+   "chests": {
+    "BEDROCK": -1511457,
+    "DIAMOND": -212432,
+    "EMERALD": -2383392,
+    "OBSIDIAN": -564365,
+    "GOLD": -202667
+   }
+  },
+  {
+   "id": "run-52",
+   "sig": "The Catacombs|Floor VII|P39: Tank (37)|P02: Archer (39)|P40: Mage (39)|P31: Healer (39)|P12: Berserk (45)",
+   "expiresAt": 1791942198662,
+   "tolMs": 3600000,
+   "order": 52,
+   "chests": {
+    "BEDROCK": -369001,
+    "DIAMOND": -326799,
+    "EMERALD": -399599,
+    "OBSIDIAN": -653067,
+    "GOLD": -209567
+   }
+  },
+  {
+   "id": "run-53",
+   "sig": "The Catacombs|Floor VII|P39: Tank (37)|P02: Archer (39)|P40: Mage (39)|P31: Healer (39)|P12: Berserk (45)",
+   "expiresAt": 1791942200174,
+   "tolMs": 3600000,
+   "order": 53,
+   "chests": {
+    "BEDROCK": -2179269,
+    "DIAMOND": -326799,
+    "EMERALD": -317914,
+    "OBSIDIAN": -2355106,
+    "GOLD": -209567
+   }
+  },
+  {
+   "id": "run-56",
+   "sig": "The Catacombs|Floor VII|P39: Tank (37)|P02: Archer (39)|P40: Mage (39)|P31: Healer (39)|P12: Berserk (45)",
+   "expiresAt": 1791942201868,
+   "tolMs": 3600000,
+   "order": 56,
+   "chests": {
+    "WOOD": -170102,
+    "BEDROCK": -693252,
+    "DIAMOND": -336264,
+    "EMERALD": -371475,
+    "GOLD": -219032
+   }
+  },
+  {
+   "id": "run-54",
+   "sig": "The Catacombs|Floor VII|P39: Tank (37)|P02: Archer (39)|P40: Mage (39)|P31: Healer (39)|P12: Berserk (45)",
+   "expiresAt": 1791942203803,
+   "tolMs": 3600000,
+   "order": 54,
+   "chests": {
+    "BEDROCK": -1309843,
+    "DIAMOND": -306410,
+    "EMERALD": -482729,
+    "OBSIDIAN": -765806,
+    "GOLD": -216467
+   }
+  },
+  {
+   "id": "run-57",
+   "sig": "The Catacombs|Floor VII|P41: Mage (41)|P02: Archer (39)|P42: Healer (34)|P43: Berserk (40)",
+   "expiresAt": 1791942208766,
+   "tolMs": 3600000,
+   "order": 57,
+   "chests": {
+    "WOOD": -143184,
+    "DIAMOND": -316928,
+    "EMERALD": -484468,
+    "OBSIDIAN": -741256
+   }
+  },
+  {
+   "id": "run-58",
+   "sig": "The Catacombs|Floor VII|P02: Tank (39)|P44: Mage (50)|P45: Berserk (46)|P46: Archer (50)|P47: Healer (33)",
+   "expiresAt": 1791938610813,
+   "tolMs": 3600000,
+   "order": 58,
+   "chests": {
+    "WOOD": -170102,
+    "BEDROCK": -1099943,
+    "EMERALD": -478942,
+    "OBSIDIAN": -719848,
+    "GOLD": -118465
+   }
+  },
+  {
+   "id": "run-59",
+   "sig": "The Catacombs|Floor VII|P02: Tank (39)|P44: Mage (50)|P45: Berserk (46)|P46: Archer (50)|P47: Healer (33)",
+   "expiresAt": 1791938612688,
+   "tolMs": 3600000,
+   "order": 59,
+   "chests": {
+    "GOLD": -228690,
+    "DIAMOND": -311244,
+    "EMERALD": -1384495,
+    "OBSIDIAN": -572038
+   }
+  }
+ ]
+}

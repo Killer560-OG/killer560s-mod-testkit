@@ -23,7 +23,7 @@ import java.util.Map;
  * a pixel of the mark's plate, the middle of the left edge); two states differ by the largest CIEDE2000 deltaE of the
  * four, normal and after a protanopia and a deuteranopia simulation (Machado et al. 2009, severity 1). A pair with an
  * action state in it needs {@link #MIN_DE} / {@link #MIN_DE_CVD}; two quiet states need only {@link #MIN_DE_QUIET} /
- * {@link #MIN_DE_QUIET_CVD}. Salience: over the slot's outer two-pixel frame (where the head does not reach), the mean
+ * {@link #MIN_DE_QUIET_CVD}. Salience: over every pixel of the slot the head does not cover, the mean
  * CIEDE2000 shift from the same page with Highlight Runs off, and the mean CIELAB chroma; the weaker action state must
  * beat the strongest quiet one by {@link #SALIENCE_RATIO} on both. Also: the legend has no "?", old defaults migrate,
  * and a shot of his layout (mostly not looked at, a few unclaimed, one needs a key).
@@ -104,6 +104,7 @@ final class CroesusColorCases {
 
             StringBuilder report = new StringBuilder();
             List<String> failures = new java.util.ArrayList<>();
+            List<String> salience = new java.util.ArrayList<>(); // checked last, so every other check still reports
             String[] bg = {"green", "red"};
             for (int r = 0; r < 2; r++) {
                 int[][] samples = new int[5][];
@@ -116,14 +117,13 @@ final class CroesusColorCases {
                             img.getRGB((int) (sx + 13.5 * px), (int) (sy + 2.5 * px)) & 0xFFFFFF,
                             img.getRGB((int) (sx + 10.5 * px), (int) (sy + 5.5 * px)) & 0xFFFFFF,
                             img.getRGB((int) (sx + px / 2), (int) (sy + 8.5 * px)) & 0xFFFFFF};
-                    // Salience: the slot's outer two-pixel frame, where the head does not reach (the reference shot
-                    // shows plain slot grey there): how far the highlight moves it (CIEDE2000) and how colourful it is.
+                    // Salience: every pixel of the slot the head does not cover (the reference shot shows plain slot grey
+                    // there): how far the highlight moves it (CIEDE2000) and how colourful it is. The whole slot, not
+                    // just its frame, since croesus-outline (2026-10-13): the quiet states are full outlines now, as loud
+                    // as a border, and what keeps the action states louder is their fill.
                     int n = 0;
                     for (int gy = 0; gy < 16; gy++) {
                         for (int gx = 0; gx < 16; gx++) {
-                            if (gx > 1 && gx < 14 && gy > 1 && gy < 14) {
-                                continue;
-                            }
                             int ix = (int) (sx + (gx + 0.5) * px), iy = (int) (sy + (gy + 0.5) * px);
                             int was = off.getRGB(ix, iy) & 0xFFFFFF;
                             if (!near(was, 0x8B8B8B)) {
@@ -175,7 +175,7 @@ final class CroesusColorCases {
                 double actC = Math.min(contrast[0], contrast[1]), quietC = Math.max(contrast[2], Math.max(contrast[3], contrast[4]));
                 double actS = Math.min(chroma[0], chroma[1]), quietS = Math.max(chroma[2], Math.max(chroma[3], chroma[4]));
                 if (actC < SALIENCE_RATIO * quietC || actS < SALIENCE_RATIO * quietS) {
-                    failures.add(String.format("%s heads: action states not salient enough - contrast %.1f vs quiet %.1f,"
+                    salience.add(String.format("%s heads: action states not salient enough - contrast %.1f vs quiet %.1f,"
                             + " chroma %.1f vs quiet %.1f (need %.1fx)", bg[r], actC, quietC, actS, quietS, SALIENCE_RATIO));
                 }
                 StringBuilder sal = new StringBuilder();
@@ -199,6 +199,7 @@ final class CroesusColorCases {
             // The old gold default moves to the new one; a picked colour stays.
             String migrate = migration(c);
             c.note("legend " + legend + "; " + migrate);
+            c.check(salience.isEmpty(), String.join("; ", salience));
         }
     }
 
