@@ -20,10 +20,10 @@
     },
     "source": {
       "file": "src/main/java/com/killer560/hub/itemprotect/ItemProtect.java",
-      "line": 241
+      "line": 268
     },
     "verifiedBy": "regex",
-    "notes": "An NPC Sell menu as the mod recognises it: ItemProtect's SELL detection reads slot 49's first lore line (:241); Auto Sell's default title pattern is '(?i).*sell.*' (autosell/AutoSellConfig.java:38), so the title is 'Sell'. Real shops are titled by NPC; any title containing 'sell' is the same to the mod. Shift-clicking an inventory stack sells it (server event sell.sold). The second lore line is a placeholder."
+    "notes": "An NPC Sell menu as the mod recognises it: ItemProtect's SELL detection reads slot 49's first lore line (:268); Auto Sell's default title pattern is '(?i).*sell.*' (autosell/AutoSellConfig.java:38), so the title is 'Sell'. Real shops are titled by NPC; any title containing 'sell' is the same to the mod. Shift-clicking an inventory stack sells it (server event sell.sold). The second lore line is a placeholder."
   },
   {
     "id": "menus.create-bin-auction",

@@ -208,7 +208,7 @@
     "payload": "Killer560 completed a device! (3/7)",
     "source": {
       "file": "src/main/java/com/killer560/hub/i4sensors/AutoI4Feature.java",
-      "line": 71
+      "line": 70
     },
     "matches": [
       "i4sensors.AutoI4Feature#DEVICE_DONE"
@@ -216,7 +216,7 @@
     "mode": "find",
     "verifiedBy": "regex",
     "sender": "Killer560",
-    "notes": "AutoI4Feature reads it with find() (AutoI4Feature.java:194)."
+    "notes": "AutoI4Feature reads it with find() (AutoI4Feature.java:201)."
   },
   {
     "id": "logic.leap-teleported",

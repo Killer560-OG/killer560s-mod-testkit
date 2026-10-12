@@ -22,8 +22,8 @@
     "id": "item.quiver-feather",
     "kind": "item",
     "payload": {"stack": "minecraft:feather[custom_name='Quiver',lore=['Arrows Remaining: 1,234']]"},
-    "source": {"file": "src/main/java/com/killer560/hub/quiver/QuiverDisplayFeature.java", "line": 31},
+    "source": {"file": "src/main/java/com/killer560/hub/quiver/QuiverDisplayFeature.java", "line": 34},
     "verifiedBy": "regex",
-    "notes": "QuiverDisplayFeature finds a FEATHER/ARROW (:81) and matches ARROWS_REMAINING (:31) against each lore line."
+    "notes": "QuiverDisplayFeature finds a FEATHER/ARROW (isQuiverItem, :124) and matches ARROWS_REMAINING (:34, applied at :133) against each lore line."
   }
 ]
