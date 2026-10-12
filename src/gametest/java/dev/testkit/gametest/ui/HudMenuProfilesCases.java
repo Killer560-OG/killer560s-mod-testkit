@@ -1116,7 +1116,7 @@ final class HudMenuProfilesCases {
     }
 
     /** The real ModScreen on the category holding the tab of class {@code simpleName}, every section open. */
-    private static ModScreenDriver tabByClass(UiCase c, String simpleName) {
+    static ModScreenDriver tabByClass(UiCase c, String simpleName) {
         ModScreenDriver d = c.onClient(mc -> {
             try {
                 ModScreenDriver dr = new ModScreenDriver(mc);

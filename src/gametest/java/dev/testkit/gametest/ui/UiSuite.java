@@ -158,6 +158,10 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-11 leap-menu batch, the editor half ({@link LeapWizardCases}); 821-825 are in the menu
      *  suite. Own block for merges. */
     static final String[] LEAP2_CASES = {"826-ui-leap-wizard", "827-ui-leap-settings", "828-ui-leap-shots"};
+    /** killer560's 2026-10-12 Health and Mana Bars styles ({@link BarStyleCases}). Own block for merges. */
+    static final String[] BAR_STYLE_CASES = {"891-ui-bars-style-fill", "892-ui-bars-style-overflow",
+            "893-ui-bars-style-settings", "894-ui-bars-style-ghost", "895-ui-bars-style-shots",
+            "896-ui-bars-style-editor"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -228,6 +232,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : HUD_KEY3_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : BAR_STYLE_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -236,7 +243,8 @@ public class UiSuite implements FabricClientGameTest {
                 || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES)
                 || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES)
                 || any(AUTOKICK2_CASES)
-                || any(CYCLE_BACK_CASES) || any(HUD_KEY2_CASES) || any(HUD_KEY3_CASES);
+                || any(CYCLE_BACK_CASES) || any(HUD_KEY2_CASES) || any(HUD_KEY3_CASES)
+                || any(BAR_STYLE_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -415,6 +423,13 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "865-ui-container-overlays", HudKey2Cases::overlays);
                     // ---- container overlays only within 10 s (866) ----
                     UiCase.run(ctx, "866-ui-container-overlay-grace", HudKey2Cases::containerGrace);
+                    // ---- Health and Mana Bars styles (891-896) ----
+                    UiCase.run(ctx, "891-ui-bars-style-fill", BarStyleCases::fill);
+                    UiCase.run(ctx, "892-ui-bars-style-overflow", BarStyleCases::overflow);
+                    UiCase.run(ctx, "893-ui-bars-style-settings", BarStyleCases::settings);
+                    UiCase.run(ctx, "894-ui-bars-style-ghost", BarStyleCases::ghost);
+                    UiCase.run(ctx, "895-ui-bars-style-shots", BarStyleCases::shots);
+                    UiCase.run(ctx, "896-ui-bars-style-editor", BarStyleCases::editor);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

@@ -615,6 +615,9 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	systemProperty "testkit.quiet", noQuiet ? "false" : "true"
 	// Interactive Map tile clicks also plan without the centre preference and log it (95 asserts the warps match).
 	systemProperty "killer560.test.checkFewest", "true"
+	// Health and Mana Bars draw Classic (the flat look) by default in a fresh test config, so the bar cases written for it
+	// (441-444, 399, 407, 471-476...) keep measuring it; 891-896 set Sleek/Bold themselves (mod bars-style).
+	systemProperty "killer560.test.barStyle", "classic"
 	def overridden = [] as Set
 	if (project.hasProperty("netOverride")) {
 		project.property("netOverride").toString().split(";").each { pair ->
