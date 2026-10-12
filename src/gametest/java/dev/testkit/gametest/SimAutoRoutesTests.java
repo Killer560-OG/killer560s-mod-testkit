@@ -88,6 +88,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // ar-nodes block (mod ar-nodes, 2026-10-11): run before 96-ar-edit's Go To, like the cases above.
             "96-ar-656-dbaddbreak", "96-ar-657-dbeditattack", "96-ar-658-dbreach", "96-ar-659-ewblockwait",
             "96-ar-662-jump",
+            // ar-jump-n (2026-10-12)
+            "96-ar-870-jumpn",
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim", "96-ar-398-startawait",
             "96-ar-405-crypt-mapopen", "96-ar-405-startwarp", "96-ar-path", "96-ar-screen", "96-ar-rotate",
             // sim-world (2026-10-11)
@@ -253,6 +255,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-658-dbreach" -> ArNodesCases.reach(ctx);
                         case "96-ar-659-ewblockwait" -> ArNodesCases.ewBlockWait(ctx);
                         case "96-ar-662-jump" -> ArNodesCases.jump(ctx);
+                        case "96-ar-870-jumpn" -> ArNodesCases.jumpCount(ctx);
                         case "96-ar-dbedit" -> caseDbEdit(ctx);
                         case "96-ar-mapopen" -> caseMapOpen(ctx);
                         case "96-ar-mapopen-aim" -> caseMapOpenAim(ctx);
@@ -5010,6 +5013,118 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             }
         }
 
+        /** Server-side (integrated server) on-ground flag of the player, read from the render thread (a plain field). */
+        private static boolean serverOnGround(ClientGameTestContext ctx) {
+            return ctx.computeOnClient(mc -> {
+                var sp = mc.getSingleplayerServer().getPlayerList().getPlayer(mc.player.getUUID());
+                return sp != null && sp.onGround();
+            });
+        }
+
+        /** Server-side take-offs (on ground -> off) over {@code ticks} ticks, polled each tick; a jump is ~12 ticks up. */
+        private static int serverTakeoffs(ClientGameTestContext ctx, int ticks, Runnable first) {
+            boolean last = serverOnGround(ctx);
+            if (first != null) {
+                first.run();
+            }
+            int n = 0;
+            for (int t = 0; t < ticks; t++) {
+                boolean g = serverOnGround(ctx);
+                if (last && !g) {
+                    n++;
+                }
+                last = g;
+                ctx.waitTicks(1);
+            }
+            return n;
+        }
+
+        /**
+         * 870 (killer560, 2026-10-12: "you have to type in jump _. That number is how many times it will jump ... If you do
+         * /ar add jump just like that then it should send a red message"). Bare, 0 and x add no node and give the red
+         * line. /ar add jump 3 saves jumps 3 and, fired on add, takes off 3 times on the SERVER, then the route completes.
+         * A written route of jump 2 (start) with a walk stacked on its tile: 2 take-offs, then the walk acts (the route
+         * carries on). A node written without a count loads as 1.
+         */
+        static void jumpCount(ClientGameTestContext ctx) {
+            resetRoutes(ctx);
+            arena(ctx, false);
+            tpRel(ctx, 10.5, 20.5, 0f, 0f);
+            ctx.waitTicks(10);
+            for (String bad : new String[]{"/ar add jump", "/ar add jump 0", "/ar add jump x", "/ar add jump 21"}) {
+                long m = LogTap.mark();
+                cmd(ctx, bad);
+                ctx.waitTicks(5);
+                boolean red = logHasAll(m, "[CHAT]", "Please add a number of jumps: /ar add jump <number>");
+                println("870 '" + bad + "': nodes " + fileNodes(ctx).size() + ", red line " + red);
+                check(fileNodes(ctx).isEmpty(), "'" + bad + "' added a node");
+                check(red, "'" + bad + "' did not say 'Please add a number of jumps'");
+            }
+
+            int pressesBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "jumpPresses"));
+            long m = LogTap.mark();
+            int offs = serverTakeoffs(ctx, 80, () -> cmd(ctx, "/ar add jump 3 await:1"));
+            JsonArray nodes = fileNodes(ctx);
+            int presses = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "jumpPresses")) - pressesBefore;
+            boolean running = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+            println("870 jump 3 await:1: nodes " + nodes + ", presses " + presses + ", server take-offs " + offs
+                    + ", running after " + running);
+            check(nodes.size() == 1 && "JUMP".equals(nodes.get(0).getAsJsonObject().get("type").getAsString())
+                    && nodes.get(0).getAsJsonObject().get("jumps").getAsInt() == 3
+                    && nodes.get(0).getAsJsonObject().has("awaitEnabled"), "/ar add jump 3 await:1 saved " + nodes);
+            stopRoute(ctx);
+
+            // Without the await, so it fires on add: exactly 3 presses, 3 server take-offs, then complete.
+            resetRoutes(ctx);
+            tpRel(ctx, 10.5, 20.5, 0f, 0f);
+            ctx.waitTicks(10);
+            pressesBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "jumpPresses"));
+            m = LogTap.mark();
+            offs = serverTakeoffs(ctx, 80, () -> cmd(ctx, "/ar add jump 3"));
+            nodes = fileNodes(ctx);
+            presses = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "jumpPresses")) - pressesBefore;
+            println("870 jump 3: nodes " + nodes + ", presses " + presses + ", server take-offs " + offs + ", complete "
+                    + logHas(m, "complete"));
+            check(nodes.size() == 1 && nodes.get(0).getAsJsonObject().get("jumps").getAsInt() == 3, "jump 3 saved " + nodes);
+            check(presses == 3, "jump 3 pressed " + presses + " time(s)");
+            check(offs == 3, "jump 3 took off " + offs + " time(s) on the server");
+            check(logHas(m, "JUMP: jump 3 of 3") && logHas(m, "complete"), "jump 3 did not finish its third jump and complete");
+
+            // The route carries on: jump 2 (start) with a walk stacked on its tile.
+            resetRoutes(ctx);
+            JsonObject j = node("JUMP", 10, 20, 0f, 0f);
+            j.addProperty("jumps", 2);
+            j.addProperty("start", true);
+            // Off the tile first: a route written under his feet arms at once.
+            tpRel(ctx, 10.5, 16.5, 0f, 0f);
+            ctx.waitTicks(10);
+            writeRoute(ctx, List.of(j, node("WALK", 10, 20, 0f, 0f)));
+            ctx.waitTicks(5);
+            m = LogTap.mark();
+            offs = serverTakeoffs(ctx, 60, () -> tpRel(ctx, 10.5, 20.5, 0f, 0f));
+            int iJump2 = logIndex(m, "JUMP: jump 2 of 2");
+            int iWalk = logIndex(m, "WALK acted");
+            println("870 jump 2 + walk: server take-offs " + offs + ", jump 2 at " + iJump2 + ", walk at " + iWalk);
+            check(offs >= 2, "the written jump 2 took off " + offs + " time(s)");
+            check(iJump2 >= 0 && iWalk > iJump2, "the walk did not act after the second jump (the route did not carry on)");
+            stopRoute(ctx);
+
+            // An old node with no count loads as 1.
+            resetRoutes(ctx);
+            writeRoute(ctx, List.of(node("JUMP", 10, 20, 0f, 0f)));
+            int loaded = ctx.computeOnClient(mc -> {
+                try {
+                    Object n = ((List<?>) ModUnderTest.staticCall(FEATURE, "currentRouteNodes")).get(0);
+                    return n.getClass().getField("jumpCount").getInt(n);
+                } catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            println("870 old node: jumpCount " + loaded);
+            check(loaded == 1, "a jump node without a count loaded as " + loaded);
+            resetRoutes(ctx);
+        }
+
         /**
          * 662, item 3: "Add a jump node to auto routes where it just jumps once." /ar add jump is offered and makes a JUMP
          * node, which fires on add: exactly one jump in the input packets (one rising edge), he leaves the ground once and
@@ -5043,7 +5158,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 jumpSampling = true;
             });
             ctx.waitTicks(2);
-            cmd(ctx, "/ar add jump");
+            cmd(ctx, "/ar add jump 1"); // the count is required since mod ar-jump-n
             ctx.waitTicks(40);
             ctx.runOnClient(mc -> jumpSampling = false);
             int rises = 0;

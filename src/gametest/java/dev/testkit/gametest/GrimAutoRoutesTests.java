@@ -170,6 +170,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             session = s;
             s.test("62-argrim-ew-add", GrimAutoRoutesTests::caseEwAdd);
             s.test("62-argrim-walk", GrimAutoRoutesTests::caseWalk);
+            s.test("62-argrim-870-jump", GrimAutoRoutesTests::caseJumpCount); // ar-jump-n (2026-10-12)
             s.testExpectingFlags("62-argrim-correction", GrimAutoRoutesTests::caseCorrection);
             s.test("62-argrim-boom", GrimAutoRoutesTests::caseBoom);
             s.test("62-argrim-breaker", GrimAutoRoutesTests::caseBreaker);
@@ -415,6 +416,38 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         check(nodes.size() == 1 && "ETHERWARP".equals(nodes.get(0).getAsJsonObject().get("type").getAsString()),
                 "the file does not hold one ETHERWARP node: " + nodes);
         c.note("fire-on-add etherwarp landed at " + landed + ", 1 use, server etherwarp count +1");
+        noteFlags(c, s);
+    }
+
+    /** 870 on GrimAC: /ar add jump 3 takes off three times, then the route is done; GrimAC says nothing. */
+    private static void caseJumpCount(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        tpRel(ctx, 14.5, 6.5, 0f, 0f);
+        ctx.waitTicks(10);
+        long m = LogTap.mark();
+        boolean last = ctx.computeOnClient(mc -> mc.player.onGround());
+        double y0 = relPos(ctx).y; // before the command: the first jump can start inside cmd's own wait
+        startSampling(ctx);
+        cmd(ctx, "/ar add jump 3");
+        int offs = 0;
+        double maxRise = 0;
+        for (int t = 0; t < 80; t++) {
+            boolean g = ctx.computeOnClient(mc -> mc.player.onGround());
+            if (last && !g) {
+                offs++;
+            }
+            last = g;
+            maxRise = Math.max(maxRise, relPos(ctx).y - y0);
+            ctx.waitTicks(1);
+        }
+        List<Sample> s = stopSampling(ctx);
+        boolean done = LogTap.since(m).stream().anyMatch(l -> l.contains("JUMP: jump 3 of 3"));
+        c.note(String.format(Locale.ROOT, "jump 3: %d take-off(s), rose %.2f, third jump logged %s", offs, maxRise, done));
+        check(offs == 3, "/ar add jump 3 took off " + offs + " time(s)");
+        check(maxRise > 1.0, "the jumps rose only " + maxRise);
+        check(done, "no third jump logged");
         noteFlags(c, s);
     }
 
