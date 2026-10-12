@@ -64,6 +64,9 @@ public class SimWorldTests implements FabricClientGameTest {
     private static final String[] CASES = {"641-sim-pickup", "642-sim-boom-crypts", "643-sim-bat",
             "644-sim-hype-down", "645-sim-prince-brf", "646-sim-prince-head", "647-sim-lever-bridges", "648-sim-lever-raccoon",
             "649-sim-lever-logs", "650-sim-lever-arrowtrap",
+            // sim-levers2 (2026-10-12): flicked as the player, every door block must go (no screenshots)
+            "856-sim-lever-redstone-warrior", "857-sim-lever-hallway", "858-sim-lever-knight", "859-sim-lever-atlas",
+            "860-sim-lever-long-hall",
             // mimic-fix (2026-10-11)
             "652-sim-prince-waypoint-brf"};
 
@@ -123,6 +126,16 @@ public class SimWorldTests implements FabricClientGameTest {
                                 new int[]{20, 69, 23}, new int[]{21, 72, 26}, true, new int[]{25, 24}, new int[]{29, 9});
                         case "650-sim-lever-arrowtrap" -> caseLever(ctx, c, "Arrow Trap", new int[]{16, 70, 24},
                                 new int[]{14, 69, 8}, new int[]{18, 73, 8}, true, new int[]{16, 12}, new int[]{16, 21});
+                        case "856-sim-lever-redstone-warrior" -> caseLever(ctx, c, "Redstone Warrior",
+                                new int[]{16, 62, 5}, new int[]{15, 58, 27}, new int[]{17, 62, 27}, false, null, null);
+                        case "857-sim-lever-hallway" -> caseLever(ctx, c, "Hallway",
+                                new int[]{11, 76, 93}, new int[]{28, 69, 73}, new int[]{29, 72, 74}, false, null, null);
+                        case "858-sim-lever-knight" -> caseLever(ctx, c, "Knight",
+                                new int[]{4, 70, 10}, new int[]{24, 69, 21}, new int[]{27, 72, 22}, false, null, null);
+                        case "859-sim-lever-atlas" -> caseLever(ctx, c, "Atlas",
+                                new int[]{54, 67, 32}, new int[]{7, 80, 25}, new int[]{9, 83, 26}, false, null, null);
+                        case "860-sim-lever-long-hall" -> caseLever(ctx, c, "Long Hall",
+                                new int[]{21, 70, 28}, new int[]{18, 82, 12}, new int[]{18, 82, 19}, false, null, null);
                         case "652-sim-prince-waypoint-brf" -> casePrinceWaypoint(ctx);
                         default -> {
                         }
@@ -582,10 +595,13 @@ public class SimWorldTests implements FabricClientGameTest {
         check(leverBlock.equals("lever"), "no lever at capture " + lever[0] + "," + lever[1] + "," + lever[2]);
         check(solidBefore == door.size(), "the door is not whole before the lever (" + solidBefore + "/" + door.size() + ")");
         double[] doorCentre = {(from[0] + to[0]) / 2.0 + 0.5, (from[1] + to[1]) / 2.0 + 0.5, (from[2] + to[2]) / 2.0 + 0.5};
-        stand(ctx, room, doorView[0], doorView[1], from[1] + 1, doorCentre);
-        shot(ctx, c + "-door-before");
-        stand(ctx, room, leverView[0], leverView[1], lever[1], new double[]{lever[0] + 0.5, lever[1] + 0.3, lever[2] + 0.5});
-        shot(ctx, c + "-lever");
+        if (doorView != null) {
+            stand(ctx, room, doorView[0], doorView[1], from[1] + 1, doorCentre);
+            shot(ctx, c + "-door-before");
+            stand(ctx, room, leverView[0], leverView[1], lever[1],
+                    new double[]{lever[0] + 0.5, lever[1] + 0.3, lever[2] + 0.5});
+            shot(ctx, c + "-lever");
+        }
         long m = LogTap.mark();
         ctx.runOnClient(mc -> mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
                 new BlockHitResult(Vec3.atCenterOf(leverPos), Direction.UP, leverPos, false)));
@@ -595,8 +611,10 @@ public class SimWorldTests implements FabricClientGameTest {
         for (String l : LogTap.since(m)) {
             chat |= l.contains("the lever takes the way through down");
         }
-        stand(ctx, room, doorView[0], doorView[1], from[1] + 1, doorCentre);
-        shot(ctx, c + "-door-after");
+        if (doorView != null) {
+            stand(ctx, room, doorView[0], doorView[1], from[1] + 1, doorCentre);
+            shot(ctx, c + "-door-after");
+        }
         say(c + " after the flick: door " + solidAfter + "/" + door.size() + " solid, chat line " + chat);
         check(solidAfter == 0, solidAfter + " door block(s) still standing after the lever");
     }

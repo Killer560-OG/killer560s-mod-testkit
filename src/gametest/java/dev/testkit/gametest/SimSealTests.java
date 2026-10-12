@@ -86,6 +86,11 @@ public class SimSealTests implements FabricClientGameTest {
                         println(floorName + " log: " + l);
                     }
                 }
+                println(floorName + ": " + r.openSeamCount + " open seam block(s) left (outside a real door's opening)"
+                        + (r.openSeams.isEmpty() ? "" : " - " + String.join("; ", r.openSeams)));
+                if (r.openSeamCount > 0) {
+                    failures.add(floorName + ": " + r.openSeamCount + " open seam block(s), " + r.openSeams.get(0));
+                }
                 if (r.starts < 1000) {
                     failures.add(floorName + ": only " + r.starts + " start spot(s) - the floor was not read");
                 } else if (!r.escapes.isEmpty()) {
@@ -107,7 +112,8 @@ public class SimSealTests implements FabricClientGameTest {
         }
     }
 
-    private record Result(int tiles, int starts, int reached, List<String> escapes) {
+    private record Result(int tiles, int starts, int reached, List<String> escapes, List<String> openSeams,
+                          int openSeamCount) {
     }
 
     /** The walk, on the server thread, over the server's own level. */
@@ -133,10 +139,18 @@ public class SimSealTests implements FabricClientGameTest {
             int floorY = ((BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class, int.class},
                     new Object[]{0, 0})).getY();
             int ftiles = tiles;
+            // The floor's own room ids and doors (MapCode.Decoded), for the seam scan.
+            Object decoded = ModUnderTest.staticCall("com.killer560.hub.roomsim.MapCode", "decode",
+                    new Class<?>[]{String.class}, new Object[]{ModUnderTest.staticCall(SIM_STATE, "mapCode")});
+            int[] cellRoom = (int[]) ModUnderTest.call(decoded, "cellRoom", new Class<?>[]{}, new Object[]{});
+            int[] cellDoor = (int[]) ModUnderTest.call(decoded, "cellDoor", new Class<?>[]{}, new Object[]{});
             var server = mc.getSingleplayerServer();
             server.execute(() -> {
                 try {
-                    out.set(walkOnServer(server.overworld(), c0, room, ftiles, floorY));
+                    Result w = walkOnServer(server.overworld(), c0, room, ftiles, floorY);
+                    List<String> open = new ArrayList<>();
+                    int n = openSeams(server.overworld(), c0, cellRoom, cellDoor, open);
+                    out.set(new Result(w.tiles(), w.starts(), w.reached(), w.escapes(), open, n));
                 } catch (Throwable t) {
                     out.set(t);
                 }
@@ -231,7 +245,98 @@ public class SimSealTests implements FabricClientGameTest {
                 }
             }
         }
-        return new Result(tiles, starts, reached, escapes);
+        return new Result(tiles, starts, reached, escapes, List.of(), 0);
+    }
+
+    /**
+     * The seams themselves (killer560, 2026-10-12: "the doors are better but still a small gap"): every block of every
+     * seam column a room shares with a different room or with nothing, between the lowest and highest block of the room
+     * columns beside it, must be solid - except a real door's opening, its three middle columns from the door's floor
+     * up four blocks (the carve). Counted by kind, with examples (seam position, t along the edge, y above the door
+     * floor where there is a door).
+     */
+    private static int openSeams(ServerLevel level, BlockPos c0, int[] cellRoom, int[] cellDoor, List<String> out) {
+        int grid = 11;
+        int[][] sides = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
+        int open = 0;
+        Map<String, Integer> kinds = new HashMap<>();
+        for (int gz = 0; gz < grid; gz += 2) {
+            for (int gx = 0; gx < grid; gx += 2) {
+                int here = cellRoom[gz * grid + gx];
+                if (here < 0) {
+                    continue;
+                }
+                for (int[] side : sides) {
+                    int nx = gx + 2 * side[0];
+                    int nz = gz + 2 * side[1];
+                    boolean nIn = nx >= 0 && nz >= 0 && nx < grid && nz < grid;
+                    int there = nIn ? cellRoom[nz * grid + nx] : -1;
+                    if (there == here || (there >= 0 && (side[0] < 0 || side[1] < 0))) {
+                        continue;
+                    }
+                    boolean door = there >= 0 && cellDoor[(gz + side[1]) * grid + (gx + side[0])] != 0;
+                    int cx = c0.getX() + gx * 16;
+                    int cz = c0.getZ() + gz * 16;
+                    for (int t = -16; t <= 16; t++) {
+                        int sx = side[0] != 0 ? cx + side[0] * 16 : cx + t;
+                        int sz = side[1] != 0 ? cz + side[1] * 16 : cz + t;
+                        int[] band = band(level, sx - side[0], sz - side[1],
+                                there >= 0 ? sx + side[0] : Integer.MIN_VALUE, sz + side[1]);
+                        if (band == null) {
+                            continue;
+                        }
+                        int doorFloor = Integer.MIN_VALUE;
+                        if (door && Math.abs(t) <= 1) {
+                            for (int y = band[0]; y <= band[1]; y++) {
+                                BlockPos p = new BlockPos(sx, y, sz);
+                                if (level.getBlockState(p).getCollisionShape(level, p).isEmpty()
+                                        && !level.getBlockState(p.below()).getCollisionShape(level, p.below()).isEmpty()) {
+                                    doorFloor = y;
+                                    break;
+                                }
+                            }
+                        }
+                        for (int y = band[0]; y <= band[1]; y++) {
+                            BlockPos p = new BlockPos(sx, y, sz);
+                            if (!level.getBlockState(p).getCollisionShape(level, p).isEmpty()) {
+                                continue;
+                            }
+                            if (doorFloor != Integer.MIN_VALUE && y >= doorFloor && y < doorFloor + 4) {
+                                continue;   // the door's own opening
+                            }
+                            String kind = door && Math.abs(t) <= 1
+                                    ? (doorFloor != Integer.MIN_VALUE && y >= doorFloor + 4 ? "above a door" : "door column")
+                                    : door && Math.abs(t) <= 3 ? "beside a door"
+                                    : there >= 0 ? "between rooms" : "floor edge";
+                            kinds.merge(kind, 1, Integer::sum);
+                            open++;
+                            if (out.size() < 8) {
+                                out.add(String.format(Locale.US, "%s at (%d, %d, %d) t=%d%s", kind, sx, y, sz, t,
+                                        doorFloor != Integer.MIN_VALUE ? " door+" + (y - doorFloor) : ""));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (!kinds.isEmpty()) {
+            out.add(0, "by kind " + kinds);
+        }
+        return open;
+    }
+
+    /** Lowest and highest non-air y of the inside column (and the far one, when there is a room there), or null. */
+    private static int[] band(ServerLevel level, int ix, int iz, int ox, int oz) {
+        int lo = Integer.MAX_VALUE;
+        int hi = Integer.MIN_VALUE;
+        for (int y = level.getMinY(); y < level.getMaxY(); y++) {
+            if (!level.getBlockState(new BlockPos(ix, y, iz)).isAir()
+                    || (ox != Integer.MIN_VALUE && !level.getBlockState(new BlockPos(ox, y, oz)).isAir())) {
+                lo = Math.min(lo, y);
+                hi = y;
+            }
+        }
+        return lo > hi ? null : new int[]{lo, hi};
     }
 
     /** By tile, as the sim's own SimState.roomNameAt does: a tile reaches 16 either side of its centre. */
