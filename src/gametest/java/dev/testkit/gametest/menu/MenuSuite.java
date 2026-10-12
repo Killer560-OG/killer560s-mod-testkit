@@ -29,6 +29,8 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *       locked pages and empty slots ({@link PolishMenuCases})</li>
  *   <li>491-499 the unified Auction House: the API-drawn browser, Hypixel's AH menus reskinned with one press = one
  *       slot click, /viewauction hand-off, hidden HUDs, seamless page changes, fallback ({@link AuctionHouseCases})</li>
+ *   <li>888-890 a Croesus run keeps its state when it moves a slot, between same-party runs, and across a restart
+ *       ({@link CroesusTrackCases})</li>
  *   <li>884-887 Croesus run states stay put: runs with the same party, list/run/list navigation, a head lagging a
  *       claim, refreshed lore; never a hidden slot in a run view or chest ({@link CroesusStableCases})</li>
  *   <li>883 opening the Croesus menu never draws a frame of stale or unhidden runs ({@link CroesusFlashCases})</li>
@@ -144,6 +146,8 @@ public class MenuSuite implements FabricClientGameTest {
                     CroesusFlashCases.register(s);
                     // ---- 884-887 croesus-stable (2026-10-12): same-party runs, lagging heads, no hide in views ----
                     CroesusStableCases.register(s);
+                    // ---- 888-890 croesus-track (2026-10-12): run state follows a run that moves, and restarts ----
+                    CroesusTrackCases.register(s);
                 });
     }
 }
