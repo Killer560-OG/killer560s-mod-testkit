@@ -152,7 +152,7 @@ final class CroesusKeyCases {
                 px[i] = borderPixel(c, img, 10 + i);
             }
             // Since 898 (2026-10-12): orange border, magenta border (R and B high, G low), blue border (B above R), dark
-            // tint, cyan corner mark (G and B high, R low). 898 measures how far apart they are; this only names them.
+            // tint, cyan corner mark (G and B high, R low). Since croesus-colors2 the quiet ones are light tints / a faint outline. 898 measures how far apart they are; this only names them.
             int r0 = px[0] >> 16 & 255, g0 = px[0] >> 8 & 255;
             int r1 = px[1] >> 16 & 255, g1 = px[1] >> 8 & 255, b1 = px[1] & 255;
             int r2 = px[2] >> 16 & 255, b2 = px[2] & 255;
@@ -160,8 +160,8 @@ final class CroesusKeyCases {
             int r4 = px[4] >> 16 & 255, g4 = px[4] >> 8 & 255, b4 = px[4] & 255;
             c.check(r0 > 200 && g0 > 100 && g0 < 180, "unclaimed border " + hex(px[0]) + " is not orange");
             c.check(r1 > 150 && b1 > 100 && g1 < 80, "needs-key border " + hex(px[1]) + " is not magenta");
-            c.check(b2 > r2 + 60, "opened border " + hex(px[2]) + " is not blue");
-            c.check(lum3 < 3 * 100, "key-used tint " + hex(px[3]) + " is not dark");
+            c.check(b2 > r2 + 15, "opened tint " + hex(px[2]) + " is not blue");
+            c.check(lum3 < 3 * 110, "key-used tint " + hex(px[3]) + " is not dark");
             c.check(g4 > 180 && b4 > 180 && r4 < 160, "the not-looked-at run's corner " + hex(px[4]) + " is not cyan");
             c.check(px[2] != px[3] && px[1] != px[0], "two states share a colour: " + hex(px[0]) + " " + hex(px[1]) + " "
                     + hex(px[2]) + " " + hex(px[3]));

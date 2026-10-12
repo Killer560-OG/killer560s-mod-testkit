@@ -296,14 +296,24 @@
     {
       "owner": "Croesus / Chest Profit",
       "key": "highlight runs",
-      "text": "In the Croesus menu, marks each run by what is left in it: unclaimed (orange border and tint), worth going back to with a Dungeon Chest Key (magenta, thick border and a key mark), not looked at yet this session (cyan corners and a ? mark), opened with nothing worth a key (blue border), or done with a key (dark). Drawn behind the items, under their tooltips; the marks sit over the item.",
-      "why": "croesus-ui 79dd7ecc / croesus-key: Highlight Runs behind the items, then by chest-key state (killer560, 2026-10-12); croesus-colors 2026-10-12: magenta / cyan / blue-border palette"
+      "text": "In the Croesus menu, marks each run by what is left in it. Runs that need you stand out: unclaimed (solid orange) and worth going back to with a Dungeon Chest Key (solid magenta with a key mark). Runs with nothing to do stay quiet: not looked at yet this session (a faint outline), opened with nothing worth a key (light blue tint) and done with a key (light dark tint). Drawn behind the items, under their tooltips; the key mark sits over the item.",
+      "why": "croesus-ui 79dd7ecc / croesus-key: Highlight Runs behind the items, then by chest-key state (killer560, 2026-10-12); croesus-colors 2026-10-12: magenta / cyan / blue-border palette; croesus-colors2 2026-10-13: action states solid, quiet states recede, no \"?\" mark"
     },
     {
       "owner": "Inventory Theme",
       "key": "inventory theme",
       "text": "Re-skins the chest and inventory screens, and the hotbar: vanilla's own shapes (bevelled panel, sunken slots) in the colours of the Preset.",
       "why": "inv-theme-reskin 8ef13dd9: vanilla-shaped reskin with presets (killer560 2026-10-13)"
+    },
+    {
+      "owner": "Croesus / Chest Profit",
+      "key": "highlight best",
+      "gone": "croesus-colors2 2026-10-13: Highlight Best and Second Best With Key became Highlight Free Chest (green) and Highlight Key Chest (orange) in the run chest view (killer560: \"in a chest menu if something is worth coming back and buying with a key, highlight it yellow or orange\")"
+    },
+    {
+      "owner": "Croesus / Chest Profit",
+      "key": "second best with key",
+      "gone": "croesus-colors2 2026-10-13: Highlight Best and Second Best With Key became Highlight Free Chest (green) and Highlight Key Chest (orange) in the run chest view (killer560: \"in a chest menu if something is worth coming back and buying with a key, highlight it yellow or orange\")"
     }
   ]
 }

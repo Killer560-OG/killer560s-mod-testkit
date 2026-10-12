@@ -29,8 +29,10 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *       locked pages and empty slots ({@link PolishMenuCases})</li>
  *   <li>491-499 the unified Auction House: the API-drawn browser, Hypixel's AH menus reskinned with one press = one
  *       slot click, /viewauction hand-off, hidden HUDs, seamless page changes, fallback ({@link AuctionHouseCases})</li>
- *   <li>898 every Croesus run state distinct over green and red heads, also for protanopia/deuteranopia
- *       ({@link CroesusColorCases})</li>
+ *   <li>898 every Croesus run state distinct over green and red heads, also for protanopia/deuteranopia, and the
+ *       states that need action far more salient than the quiet ones ({@link CroesusColorCases})</li>
+ *   <li>903-905 a run's chest view: the free claim green and one key chest orange, the same chest after a claim, nothing
+ *       after a key, always agreeing with the run list ({@link CroesusChestViewCases})</li>
  *   <li>888-890 a Croesus run keeps its state when it moves a slot, between same-party runs, and across a restart
  *       ({@link CroesusTrackCases})</li>
  *   <li>884-887 Croesus run states stay put: runs with the same party, list/run/list navigation, a head lagging a
@@ -154,6 +156,8 @@ public class MenuSuite implements FabricClientGameTest {
                     CroesusTrackCases.register(s);
                     // ---- 898 croesus-colors (2026-10-12): run states distinct by colour (deltaE, CVD) and marks ----
                     CroesusColorCases.register(s);
+                    // ---- 903-905 croesus-colors2 (2026-10-13): a run's chest view - free claim green, key chest orange ----
+                    CroesusChestViewCases.register(s);
                 });
     }
 }
