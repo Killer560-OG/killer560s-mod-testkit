@@ -44,6 +44,10 @@ final class ScreenSweep {
             Map<String, Object> out = new LinkedHashMap<>();
             Object hudCfg = dev.testkit.gametest.mod.Mod.cfg("hud.HudConfig");
             boolean before = (Boolean) dev.testkit.gametest.mod.Mod.call(hudCfg, "isEditorShowAll");
+            // A free drop: with Show Unseen every enabled element is listed, container overlays included (mod hud-key-2),
+            // and a neighbour's edge 4 px off snapped this drop (26.2, 2026-10-12). Snapping is 613's.
+            boolean snapBefore = (Boolean) dev.testkit.gametest.mod.Mod.call(hudCfg, "isEditorSnap");
+            dev.testkit.gametest.mod.Mod.call(hudCfg, "setEditorSnap", false);
             try {
                 Class<?> reg = R.cls("hud.HudElementRegistry");
                 @SuppressWarnings("unchecked")
@@ -165,6 +169,7 @@ final class ScreenSweep {
                 dev.testkit.gametest.mod.Mod.call(hudCfg, "setEditorShowAll", true);
             }
             out.put("restoreShowAll", before);
+            dev.testkit.gametest.mod.Mod.call(hudCfg, "setEditorSnap", snapBefore);
             return out;
         });
         c.ticks(5);
