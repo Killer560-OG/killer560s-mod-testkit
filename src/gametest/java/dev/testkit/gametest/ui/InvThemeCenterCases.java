@@ -22,16 +22,25 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * 897-ui-inventory-theme-item-centred (mod branch inv-theme-fix). killer560, 2026-10-12: "In my inventory hud
- * everything is shifted item texture wise to the left and maybe up a little bit as well."
+ * 897-ui-inventory-theme-item-centred, for the vanilla-shaped Inventory Theme (mod inv-theme-reskin; killer560,
+ * 2026-10-12: "change inventory up to essentially be a reskin of the original with its coloring", presets Default /
+ * Dark / Mod Theme).
  * <p>
- * For every themed container (the player inventory, chests of 1, 3 and 6 rows) at GUI 2, 3, 4 and Auto in a 2560x1440
- * window and GUI 3 and Auto at 1920x1080, with Line Width 2 (the default), 1 and 3: for every drawn slot, the frame's
- * inner area is read from a frame with NO items (scan out from the slot's centre to the first accent pixel each way),
- * and the item's opaque bounding box from the same frame WITH items (pixels that changed). The item must sit centred:
- * left margin == right margin and top == bottom, to the pixel for an even Line Width; an odd width leaves one odd
- * pixel of room and is allowed one pixel of difference. Not vacuous: every slot must have an item box and an inner
- * area, and the slot count per screen is checked. Pictures are copied to {@code inv-theme-shots/}.
+ * For every slot of the player inventory, chests of 1, 3 and 6 rows and the HUD hotbar (slots 1-8; 0 is selected), at
+ * GUI 2, 3, 4 and Auto in a 2560x1440 window, GUI 3 and Auto at 1920x1080, and windows whose height is not a multiple
+ * of the GUI scale (2560x1369 GUI 3 / Auto, 1920x1017 GUI 2 / 4), in the Default preset (Dark and Mod Theme at the 1440p
+ * GUI 3 and 1369 Auto sizes):
+ * <ul>
+ *   <li>the slot's inside (its fill colour, read out from the centre on a frame with no items) is exactly the 16-unit
+ *   item box, and the stone's opaque box sits in it with equal margins on both axes;</li>
+ *   <li>its sunken bevel is there: one GUI unit of the dark shade above and left of the inside, one of the light shade
+ *   below and right;</li>
+ *   <li>with a LEGENDARY item the Item Rarity Background reaches the inside's edge on all four sides and corners;</li>
+ *   <li>the panel's raised bevel (two units light at the top, two dark at the bottom) and, for the hotbar, its outline
+ *   along the very bottom of the window.</li>
+ * </ul>
+ * Not vacuous: the slot count per screen is checked and the test item is checked to have a rarity. Pictures (with the
+ * theme off for the side-by-side) are saved to {@code inv-theme-shots/}.
  */
 final class InvThemeCenterCases {
 
@@ -39,33 +48,42 @@ final class InvThemeCenterCases {
     private static final String RCFG = "itemrarity.ItemRarityConfig";
     /** Item Rarity Background colour of a LEGENDARY item (ItemRarity.LEGENDARY), drawn opaque in this case. */
     private static final int GOLD = 0xFFAA00;
-    private static final int AMBER = 0xCC6600;
     private static final Path SHOTS = Path.of("C:/Users/Hunter/killer560s-mod-logs/inv-theme-shots");
 
     private InvThemeCenterCases() {
     }
 
-    private static void theme(UiCase c, int line) {
+    /** The palette's colours (RGB, no alpha): border, panel, light, dark, slotFill, slotDark, slotLight. */
+    private record Pal(int border, int panel, int light, int dark, int slotFill, int slotDark, int slotLight) {
+    }
+
+    private static void theme(UiCase c, String preset) {
         c.onClient(mc -> {
             Object cfg = Mod.cfg(ICFG);
             Mod.call(cfg, "setEnabled", true);
             Mod.call(cfg, "setHypixelOnly", false);
-            Mod.call(cfg, "setLineWidth", line);
+            Mod.call(cfg, "setPreset", Mod.enumValue(ICFG + "$Preset", preset));
+            Mod.call(cfg, "setUseCustomAccent", false);
+            Mod.call(cfg, "setUseCustomSlotColor", false);
+            Mod.call(cfg, "setBackgroundOpacity", 1.0f);
             Mod.call(cfg, "setThemeHotbar", true);
+            Mod.call(cfg, "setHotbarScale", 1.0f);
             Object rc = Mod.cfg(RCFG);
             Mod.call(rc, "setEnabled", true);
             Mod.call(rc, "setStyle", Mod.enumValue(RCFG + "$Style", "SQUARE"));
             Mod.call(rc, "setOpacity", 100);
             Mod.call(rc, "setShowInHotbar", true);
             Mod.call(rc, "setSkyblockOnly", false);
-            Mod.call(cfg, "setHotbarScale", 1.0f);
-            if (Mod.has("gui.PanelTheme")) {
-                Mod.call(cfg, "setTheme", Mod.enumValue("gui.PanelTheme", "AMBER"));
-            }
-            Mod.call(cfg, "setUseCustomAccent", false);
-            Mod.call(cfg, "setUseCustomSlotColor", false);
-            Mod.call(cfg, "setBackgroundOpacity", 0.85f);
             return null;
+        });
+    }
+
+    private static Pal palette(UiCase c) {
+        return c.onClient(mc -> {
+            Object p = Mod.call(Mod.cfg(ICFG), "getPalette");
+            java.util.function.Function<String, Integer> f = n -> ((Number) Mod.call(p, n)).intValue() & 0xFFFFFF;
+            return new Pal(f.apply("border"), f.apply("panel"), f.apply("light"), f.apply("dark"), f.apply("slotFill"),
+                    f.apply("slotDark"), f.apply("slotLight"));
         });
     }
 
@@ -83,6 +101,15 @@ final class InvThemeCenterCases {
                 + Math.abs((p & 0xFF) - (q & 0xFF)) > 30;
     }
 
+    /** Pixels of {@code colour} from (x, y) stepping by (dx, dy). */
+    private static int run(BufferedImage img, int x, int y, int dx, int dy, int colour) {
+        int n = 0;
+        while (rgb(img, x + n * dx, y + n * dy) == colour) {
+            n++;
+        }
+        return n;
+    }
+
     private static BufferedImage shot(UiCase c, String label, String tag) {
         BufferedImage img = InvBatchCases.shot(c, label);
         try {
@@ -97,11 +124,24 @@ final class InvThemeCenterCases {
         return img;
     }
 
-    /** Opens the screen; returns its drawn slots as {screenX, screenY, menuIndex} in GUI units. */
-    private static List<int[]> open(UiCase c, String kind, boolean withItems) {
-        return open(c, kind, withItems ? new ItemStack(Items.STONE) : null);
+    /** A stone with a Skyblock id and a LEGENDARY rarity line, so the Item Rarity Background draws gold behind it. */
+    private static ItemStack legendary() {
+        ItemStack s = InvBatchCases.sb(Items.STONE, "IU_THEME_STONE", null, 0);
+        s.set(net.minecraft.core.component.DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(
+                List.of(Component.literal("LEGENDARY").withStyle(net.minecraft.ChatFormatting.GOLD,
+                        net.minecraft.ChatFormatting.BOLD))));
+        return s;
     }
 
+    private static void close(UiCase c) {
+        c.onClient(mc -> {
+            McCompat.setScreen(mc, null);
+            return null;
+        });
+    }
+
+    /** Opens the screen (chest slots filled with {@code fill} when given); returns its measured slots as
+     *  {screenX, screenY, menuIndex} in GUI units, plus the panel as the last element {leftPos, topPos, w, h}. */
     private static List<int[]> open(UiCase c, String kind, ItemStack fill) {
         c.onClient(mc -> {
             if (kind.equals("inventory")) {
@@ -138,130 +178,53 @@ final class InvThemeCenterCases {
                 }
                 out.add(new int[]{left + slot.x, top + slot.y, slot.index});
             }
+            out.add(new int[]{left, top, (Integer) Mod.field(s, "imageWidth"), (Integer) Mod.field(s, "imageHeight")});
             return out;
         });
     }
 
-    /** A stone with a Skyblock id and a LEGENDARY rarity line, so the Item Rarity Background draws gold behind it. */
-    private static ItemStack legendary() {
-        ItemStack s = InvBatchCases.sb(Items.STONE, "IU_THEME_STONE", null, 0);
-        s.set(net.minecraft.core.component.DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(
-                List.of(Component.literal("LEGENDARY").withStyle(net.minecraft.ChatFormatting.GOLD,
-                        net.minecraft.ChatFormatting.BOLD))));
-        return s;
-    }
-
-    /**
-     * killer560, 2026-10-12: "there shouldn't be that grey space around the outlines for the item rarity". From each of
-     * the frame's four lines inward (centre row / column), the first pixel must already be the rarity gold, and so must
-     * the inner area's four corners: zero pixels of anything else between the fill and the line.
-     */
-    private static void rarityGaps(String label, String tag, BufferedImage empty, BufferedImage rarity, List<int[]> slots,
-                                   int gs, List<String> problems, UiCase c) {
-        int worst = 0;
-        String worstAt = "";
-        int measured = 0;
-        for (int[] s : slots) {
-            int cx = s[0] * gs + 8 * gs;
-            int cy = s[1] * gs + 8 * gs;
-            int il = cx;
-            while (il > 0 && rgb(empty, il - 1, cy) != AMBER && cx - il < 20 * gs) {
-                il--;
-            }
-            int ir = cx;
-            while (ir < empty.getWidth() - 1 && rgb(empty, ir + 1, cy) != AMBER && ir - cx < 20 * gs) {
-                ir++;
-            }
-            int it = cy;
-            while (it > 0 && rgb(empty, cx, it - 1) != AMBER && cy - it < 20 * gs) {
-                it--;
-            }
-            int ib = cy;
-            while (ib < empty.getHeight() - 1 && rgb(empty, cx, ib + 1) != AMBER && ib - cy < 20 * gs) {
-                ib++;
-            }
-            int gl = 0;
-            while (il + gl < cx && rgb(rarity, il + gl, cy) != GOLD) {
-                gl++;
-            }
-            int gr = 0;
-            while (ir - gr > cx && rgb(rarity, ir - gr, cy) != GOLD) {
-                gr++;
-            }
-            int gt = 0;
-            while (it + gt < cy && rgb(rarity, cx, it + gt) != GOLD) {
-                gt++;
-            }
-            int gb = 0;
-            while (ib - gb > cy && rgb(rarity, cx, ib - gb) != GOLD) {
-                gb++;
-            }
-            int corners = (rgb(rarity, il, it) == GOLD ? 0 : 1) + (rgb(rarity, ir, it) == GOLD ? 0 : 1)
-                    + (rgb(rarity, il, ib) == GOLD ? 0 : 1) + (rgb(rarity, ir, ib) == GOLD ? 0 : 1);
-            int gap = Math.max(Math.max(gl, gr), Math.max(gt, gb));
-            if (gap > worst || (gap == worst && corners > 0 && worstAt.isEmpty())) {
-                worst = gap;
-                worstAt = "slot " + s[2] + " gaps L" + gl + " R" + gr + " T" + gt + " B" + gb + ", corners off " + corners;
-            }
-            if (gap > 0 || corners > 0) {
-                problems.add(label + " slot " + s[2] + ": rarity gap to the frame L" + gl + " R" + gr + " T" + gt + " B" + gb
-                        + ", corners not gold " + corners);
-            }
-            measured++;
-        }
-        c.note(String.format(Locale.ROOT, "%s (%s jar) rarity: %d slots, widest grey gap between fill and line %d px%s",
-                label, tag, measured, worst, worstAt.isEmpty() ? "" : " (" + worstAt + ")"));
-    }
-
-    /** Accent pixels from (x, y) stepping by (dx, dy). */
-    private static int run(BufferedImage img, int x, int y, int dx, int dy) {
-        int n = 0;
-        while (rgb(img, x + n * dx, y + n * dy) == AMBER) {
-            n++;
-        }
-        return n;
-    }
-
-    /**
-     * For each slot {gx, gy, id} (its 16-unit item box at GUI gx, gy): the frame's inner area on {@code empty}, the item's
-     * box on {@code full}, equal margins (odd widths: 1 px), and a full-width line on all four sides of the inner area -
-     * which for the outermost row and column is the grid's outer edge. Returns {checked}.
-     */
-    private static int[] measure(String label, String tag, BufferedImage empty, BufferedImage full, List<int[]> slots, int gs,
-                                 int line, List<String> problems, UiCase c) {
-        int worst = 0;
-        String worstAt = "";
-        int thinnest = Integer.MAX_VALUE;
-        String thinAt = "";
+    /** Checks every slot against the 16-unit item box vanilla draws at slot.x / slot.y; returns how many were measured.
+     *  Read from the frame WITH items (an empty armour slot shows vanilla's placeholder icon), where the stone leaves the
+     *  inside's edge rows and columns showing. */
+    private static int measure(String label, BufferedImage full, BufferedImage rarity, List<int[]> slots, int gs, Pal p,
+                               List<String> problems, UiCase c) {
         int checked = 0;
+        int worstOff = 0;
+        String first = "";
         for (int[] s : slots) {
             int bx0 = s[0] * gs;
             int by0 = s[1] * gs;
+            int bx1 = bx0 + 16 * gs - 1;
+            int by1 = by0 + 16 * gs - 1;
             int cx = bx0 + 8 * gs;
             int cy = by0 + 8 * gs;
-            int il = cx;
-            while (il > 0 && rgb(empty, il - 1, cy) != AMBER && cx - il < 20 * gs) {
-                il--;
+            List<String> bad = new ArrayList<>();
+            // The inside reaches the item box's four edges, and the bevel sits right outside them, one unit wide.
+            int[][] inside = {{bx0, cy}, {bx1, cy}, {cx, by0}, {cx, by1}};
+            int notFill = 0;
+            for (int[] e : inside) {
+                if (rgb(full, e[0], e[1]) != p.slotFill()) {
+                    notFill++;
+                }
             }
-            int ir = cx;
-            while (ir < empty.getWidth() - 1 && rgb(empty, ir + 1, cy) != AMBER && ir - cx < 20 * gs) {
-                ir++;
+            if (notFill > 0) {
+                bad.add(notFill + " of the item box's 4 edge midpoints are not the slot fill");
             }
-            int it = cy;
-            while (it > 0 && rgb(empty, cx, it - 1) != AMBER && cy - it < 20 * gs) {
-                it--;
+            int dl = run(full, bx0 - 1, cy, -1, 0, p.slotDark());
+            int dt = run(full, cx, by0 - 1, 0, -1, p.slotDark());
+            int lr = run(full, bx1 + 1, cy, 1, 0, p.slotLight());
+            int lb = run(full, cx, by1 + 1, 0, 1, p.slotLight());
+            if (dl != gs || dt != gs || lr != gs || lb != gs) {
+                bad.add("bevel dark L" + dl + " T" + dt + ", light R" + lr + " B" + lb + " px (want " + gs + " each)");
             }
-            int ib = cy;
-            while (ib < empty.getHeight() - 1 && rgb(empty, cx, ib + 1) != AMBER && ib - cy < 20 * gs) {
-                ib++;
-            }
+            // The stone: everything inside the box that is not the fill.
             int x0 = Integer.MAX_VALUE;
             int y0 = Integer.MAX_VALUE;
             int x1 = -1;
             int y1 = -1;
-            for (int y = it; y <= ib; y++) {
-                for (int x = il; x <= ir; x++) {
-                    if (differs(empty, full, x, y)) {
+            for (int y = by0; y <= by1; y++) {
+                for (int x = bx0; x <= bx1; x++) {
+                    if (rgb(full, x, y) != p.slotFill()) {
                         x0 = Math.min(x0, x);
                         y0 = Math.min(y0, y);
                         x1 = Math.max(x1, x);
@@ -269,46 +232,61 @@ final class InvThemeCenterCases {
                     }
                 }
             }
-            // The four lines round the inner area, each measured outward from it on the slot's centre row / column.
-            int lw = run(empty, il - 1, cy, -1, 0);
-            int rw = run(empty, ir + 1, cy, 1, 0);
-            int tw = run(empty, cx, it - 1, 0, -1);
-            int bw = run(empty, cx, ib + 1, 0, 1);
-            int thin = Math.min(Math.min(lw, rw), Math.min(tw, bw));
-            if (thin < thinnest) {
-                thinnest = thin;
-                thinAt = "slot " + s[2] + " lines L" + lw + " R" + rw + " T" + tw + " B" + bw;
+            if (x1 < 0) {
+                bad.add("no item drawn");
+            } else {
+                int dx = (x0 - bx0) - (bx1 - x1);
+                int dy = (y0 - by0) - (by1 - y1);
+                worstOff = Math.max(worstOff, Math.max(Math.abs(dx), Math.abs(dy)));
+                if (dx != 0 || dy != 0) {
+                    bad.add("item margins L" + (x0 - bx0) + " R" + (bx1 - x1) + " T" + (y0 - by0) + " B" + (by1 - y1));
+                }
             }
-            if (thin < line) {
-                problems.add(label + " slot " + s[2] + ": a frame line is short of " + line + " px: L" + lw + " R" + rw + " T"
-                        + tw + " B" + bw + (ib >= empty.getHeight() - 1 ? " (the frame runs off the bottom of the window)" : ""));
+            int[][] edge = {{bx0, cy}, {bx1, cy}, {cx, by0}, {cx, by1}, {bx0, by0}, {bx1, by0}, {bx0, by1}, {bx1, by1}};
+            int notGold = 0;
+            for (int[] e : edge) {
+                if (rgb(rarity, e[0], e[1]) != GOLD) {
+                    notGold++;
+                }
             }
-            if (x1 < 0 || cx - il >= 20 * gs || ir - cx >= 20 * gs) {
-                problems.add(label + " slot " + s[2] + ": no item box or no frame (inner " + il + ".." + ir + ")");
-                continue;
+            int goldOut = (rgb(rarity, bx0 - 1, cy) == GOLD ? 1 : 0) + (rgb(rarity, bx1 + 1, cy) == GOLD ? 1 : 0);
+            if (notGold > 0 || goldOut > 0) {
+                bad.add(notGold + " of the inside's edge midpoints / corners are not the rarity gold, " + goldOut
+                        + " gold pixel(s) over the bevel");
             }
-            int dx = (x0 - il) - (ir - x1);
-            int dy = (y0 - it) - (ib - y1);
-            int allowed = line % 2 == 0 ? 0 : 1;
-            int off = Math.max(Math.abs(dx), Math.abs(dy));
-            if (off > worst) {
-                worst = off;
-                worstAt = "slot " + s[2] + " margins L" + (x0 - il) + " R" + (ir - x1) + " T" + (y0 - it) + " B" + (ib - y1);
-            }
-            if (Math.abs(dx) > allowed || Math.abs(dy) > allowed) {
-                problems.add(label + " slot " + s[2] + ": margins L" + (x0 - il) + " R" + (ir - x1) + " T" + (y0 - it) + " B"
-                        + (ib - y1));
+            if (!bad.isEmpty()) {
+                problems.add(label + " slot " + s[2] + ": " + String.join("; ", bad));
+                if (first.isEmpty()) {
+                    first = "slot " + s[2] + ": " + String.join("; ", bad);
+                }
             }
             checked++;
         }
-        c.note(String.format(Locale.ROOT, "%s (%s jar): %d of %d slots measured, worst off-centre %d px%s; thinnest line %d px (%s)",
-                label, tag, checked, slots.size(), worst, worst == 0 ? "" : " at " + worstAt, thinnest, thinAt));
-        return new int[]{checked};
+        c.note(String.format(Locale.ROOT, "%s: %d slots measured, worst item off-centre %d px%s", label, checked, worstOff,
+                first.isEmpty() ? "; every inside, bevel and rarity edge as wanted" : "; first problem " + first));
+        return checked;
     }
 
-    /** The themed HUD hotbar (no screen open), slot 0 selected so slots 1-8 are measured like a container's. */
-    private static int hotbar(UiCase c, int[] sz, int gs, int line, String tag, List<String> problems) {
-        String label = "hotbar-" + sz[0] + "x" + sz[1] + "-gui" + (sz[2] == 0 ? "auto" + gs : String.valueOf(gs)) + "-line" + line;
+    /** The container panel's raised bevel down its middle column: border, two units light at the top, two dark at the
+     *  bottom, border. */
+    private static void panelBevel(String label, BufferedImage img, int[] panel, int gs, Pal p, List<String> problems,
+                                   UiCase c) {
+        int x = (panel[0] + panel[2] / 2) * gs;
+        int top = panel[1] * gs;
+        int bottom = (panel[1] + panel[3]) * gs - 1;
+        int b0 = run(img, x, top, 0, 1, p.border());
+        int lt = run(img, x, top + gs, 0, 1, p.light());
+        int b1 = run(img, x, bottom, 0, -1, p.border());
+        int dk = run(img, x, bottom - gs, 0, -1, p.dark());
+        c.note(label + ": panel top border " + b0 + " px, light bevel " + lt + " px; bottom border " + b1 + " px, dark bevel "
+                + dk + " px");
+        if (b0 != gs || lt != 2 * gs || b1 != gs || dk != 2 * gs) {
+            problems.add(label + ": the panel bevel is not vanilla's (top border " + b0 + ", light " + lt + ", bottom border "
+                    + b1 + ", dark " + dk + " px; want " + gs + "/" + 2 * gs + ")");
+        }
+    }
+
+    private static int hotbar(UiCase c, String label, int gs, Pal p, String tag, List<String> problems) {
         c.onClient(mc -> {
             McCompat.setScreen(mc, null);
             mc.player.getInventory().setSelectedSlot(0);
@@ -319,42 +297,36 @@ final class InvThemeCenterCases {
         int[] g = c.onClient(mc -> new int[]{mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(),
                 mc.getWindow().getHeight()});
         List<int[]> slots = new ArrayList<>();
-        for (int i = 1; i < 9; i++) {
+        // Slots 2-8: slot 0 is selected, and its 24-unit frame overlaps slot 1's left edge by a unit, as vanilla's does.
+        for (int i = 2; i < 9; i++) {
             slots.add(new int[]{g[0] / 2 - 91 + 3 + 20 * i, g[1] - 19, i});
         }
-        BufferedImage empty = shot(c, label + "-empty", tag);
         Map<Integer, ItemStack> items = new LinkedHashMap<>();
+        Map<Integer, ItemStack> rare = new LinkedHashMap<>();
         for (int i = 1; i < 9; i++) {
             items.put(i, new ItemStack(Items.STONE));
+            rare.put(i, legendary());
         }
         InvBatchCases.inventory(c, items);
         c.ticks(3);
         BufferedImage full = shot(c, label + "-items", tag);
-        // The bar's bottom edge itself, under the middle of slot 4: the accent rows at the very bottom of the window.
-        int midX = (g[0] / 2 - 91 + 3 + 20 * 4 + 8) * gs;
-        int bottomRun = 0;
-        for (int y = empty.getHeight() - 1; y >= 0 && rgb(empty, midX, y) == AMBER; y--) {
-            bottomRun++;
-        }
-        c.note(label + ": GUI height " + g[1] + " x " + gs + " = " + g[1] * gs + " px for a " + g[2] + " px window; "
-                + "accent rows at the bottom of the window under slot 4: " + bottomRun);
-        if (bottomRun < line) {
-            problems.add(label + ": the hotbar's bottom line is " + bottomRun + " px, want " + line);
-        }
-        int[] res = measure(label, tag, empty, full, slots, gs, line, problems, c);
-        Map<Integer, ItemStack> rare = new LinkedHashMap<>();
-        for (int i = 1; i < 9; i++) {
-            rare.put(i, legendary());
-        }
         InvBatchCases.inventory(c, rare);
         c.ticks(3);
         BufferedImage rarity = shot(c, label + "-rarity", tag);
-        rarityGaps(label, tag, empty, rarity, slots, gs, problems, c);
-        if (res[0] != 8) {
-            problems.add(label + ": measured " + res[0] + " hotbar slots, want 8");
+        // The bar's outline along the very bottom of the window, under the middle of slot 4.
+        int midX = (g[0] / 2 - 91 + 3 + 20 * 4 + 8) * gs;
+        int bottomRun = run(full, midX, full.getHeight() - 1, 0, -1, p.border());
+        c.note(label + ": GUI height " + g[1] + " x " + gs + " = " + g[1] * gs + " px for a " + g[2] + " px window; "
+                + "outline rows at the bottom of the window: " + bottomRun);
+        if (bottomRun != gs) {
+            problems.add(label + ": the hotbar's bottom outline is " + bottomRun + " px, want " + gs);
+        }
+        int n = measure(label, full, rarity, slots, gs, p, problems, c);
+        if (n != 7) {
+            problems.add(label + ": measured " + n + " hotbar slots, want 7");
         }
         InvBatchCases.inventory(c, Map.of());
-        return res[0];
+        return n;
     }
 
     static void centred(UiCase c) throws Exception {
@@ -364,99 +336,99 @@ final class InvThemeCenterCases {
         byte[] oldRarity = InvBatchCases.read(rarityPath);
         int[] window = HudEditorCases.windowSize(c);
         int oldGui = c.onClient(mc -> mc.options.guiScale().get());
-        boolean fixedJar = c.onClient(mc -> {
-            for (java.lang.reflect.Method m : Mod.cls("inventorytheme.InventoryThemeFeature").getDeclaredMethods()) {
-                if (m.getName().equals("lineShift")) {
-                    return true;
-                }
-            }
-            return false;
-        });
+        boolean reskin = c.onClient(mc -> Mod.has(ICFG + "$Preset"));
+        if (!reskin) {
+            dev.testkit.gametest.Scenario.skipped(c.name(), "this jar has the flat line theme, not the vanilla-shaped reskin "
+                    + "this case measures (mod inv-theme-reskin)");
+            return;
+        }
         String envTag = System.getenv("TESTKIT_SHOT_TAG");
-        String tag = envTag != null && !envTag.isBlank() ? envTag : fixedJar ? "after" : "before";
+        String tag = envTag != null && !envTag.isBlank() ? envTag : "reskin";
         List<String> problems = new ArrayList<>();
         int slotsChecked = 0;
         try {
             InvBatchCases.survival(c);
-            theme(c, 2);
+            theme(c, "DEFAULT");
             String probe = c.onClient(mc -> {
                 Object entry = Mod.staticCall("itemrarity.ItemRarityFeature", "lookup", legendary());
-                return "rarity enabled " + Mod.call(Mod.cfg(RCFG), "isEnabled") + ", legendary() reads as "
+                return "rarity enabled " + Mod.call(Mod.cfg(RCFG), "isEnabled") + ", the test item reads as "
                         + Mod.field(entry, "rarity");
             });
             c.note("Item Rarity Background probe: " + probe);
             c.check(probe.endsWith("LEGENDARY"), "the test item has no rarity, the rarity checks would be vacuous: " + probe);
-            // Also windows whose height is NOT a multiple of the GUI scale (a windowed 1440p screen loses some height to the
-            // title bar and taskbar): the GUI is then one row taller than the window and its last row hangs off it.
-            int[][] sizes = {{2560, 1440, 2}, {2560, 1440, 3}, {2560, 1440, 4}, {2560, 1440, 0}, {1920, 1080, 3}, {1920, 1080, 0},
-                    {2560, 1369, 3}, {2560, 1369, 0}, {1920, 1017, 2}, {1920, 1017, 4}};
+
+            int[][] sizes = {{2560, 1440, 3}, {2560, 1440, 2}, {2560, 1440, 4}, {2560, 1440, 0}, {1920, 1080, 3},
+                    {1920, 1080, 0}, {2560, 1369, 3}, {2560, 1369, 0}, {1920, 1017, 2}, {1920, 1017, 4}};
             String[] kinds = {"inventory", "chest1", "chest3", "chest6"};
-            for (int line : new int[]{2, 1, 3}) {
-                theme(c, line);
+            for (String preset : new String[]{"DEFAULT", "DARK", "MOD_THEME"}) {
                 for (int[] sz : sizes) {
-                    // Line Widths 1 and 3 only at the scales his 1440p screen uses, to keep the run short.
-                    if (line != 2 && !(sz[0] == 2560 && sz[1] == 1440 && (sz[2] == 3 || sz[2] == 0))) {
+                    if (!preset.equals("DEFAULT") && !(sz[0] == 2560 && ((sz[1] == 1440 && sz[2] == 3) || (sz[1] == 1369 && sz[2] == 0)))) {
                         continue;
                     }
                     HudEditorCases.setWindow(c, sz[0], sz[1], sz[2]);
                     int gs = c.onClient(mc -> mc.getWindow().getGuiScale());
-                    for (String kind : kinds) {
-                        String label = kind + "-" + sz[0] + "x" + sz[1] + "-gui" + (sz[2] == 0 ? "auto" + gs : String.valueOf(gs))
-                                + "-line" + line;
-                        InvBatchCases.inventory(c, Map.of());
-                        List<int[]> slots = open(c, kind, false);
-                        BufferedImage empty = shot(c, label + "-empty", tag);
+                    String size = sz[0] + "x" + sz[1] + "-gui" + (sz[2] == 0 ? "auto" + gs : String.valueOf(gs));
+                    boolean showcase = sz[0] == 2560 && sz[1] == 1440 && sz[2] == 3;
+                    if (showcase && preset.equals("DEFAULT")) {
+                        // Vanilla, for the side-by-side: the same screens with the theme off.
                         c.onClient(mc -> {
-                            McCompat.setScreen(mc, null);
+                            Mod.call(Mod.cfg(ICFG), "setEnabled", false);
                             return null;
                         });
-                        Map<Integer, ItemStack> items = new LinkedHashMap<>();
-                        for (int i = 0; i < 40; i++) {
-                            items.put(i, new ItemStack(Items.STONE));
-                        }
-                        InvBatchCases.inventory(c, items);
-                        open(c, kind, true);
-                        BufferedImage full = shot(c, label + "-items", tag);
-                        c.onClient(mc -> {
-                            McCompat.setScreen(mc, null);
-                            return null;
-                        });
-                        int[] res = measure(label, tag, empty, full, slots, gs, line, problems, c);
-                        int checked = res[0];
                         Map<Integer, ItemStack> rare = new LinkedHashMap<>();
                         for (int i = 0; i < 40; i++) {
                             rare.put(i, legendary());
                         }
                         InvBatchCases.inventory(c, rare);
+                        for (String kind : new String[]{"inventory", "chest6"}) {
+                            open(c, kind, legendary());
+                            shot(c, "vanilla-" + kind + "-" + size, tag);
+                            close(c);
+                        }
+                        c.ticks(3);
+                        shot(c, "vanilla-hotbar-" + size, tag);
+                        theme(c, preset);
+                    }
+                    theme(c, preset);
+                    Pal p = palette(c);
+                    for (String kind : kinds) {
+                        String label = preset.toLowerCase(Locale.ROOT) + "-" + kind + "-" + size;
+                        Map<Integer, ItemStack> items = new LinkedHashMap<>();
+                        Map<Integer, ItemStack> rare = new LinkedHashMap<>();
+                        for (int i = 0; i < 40; i++) {
+                            items.put(i, new ItemStack(Items.STONE));
+                            rare.put(i, legendary());
+                        }
+                        InvBatchCases.inventory(c, items);
+                        List<int[]> slots = open(c, kind, new ItemStack(Items.STONE));
+                        int[] panel = slots.remove(slots.size() - 1);
+                        BufferedImage full = shot(c, label + "-items", tag);
+                        close(c);
+                        InvBatchCases.inventory(c, rare);
                         open(c, kind, legendary());
                         BufferedImage rarity = shot(c, label + "-rarity", tag);
-                        c.onClient(mc -> {
-                            McCompat.setScreen(mc, null);
-                            return null;
-                        });
-                        rarityGaps(label, tag, empty, rarity, slots, gs, problems, c);
-                        slotsChecked += checked;
+                        close(c);
+                        panelBevel(label, full, panel, gs, p, problems, c);
+                        int n = measure(label, full, rarity, slots, gs, p, problems, c);
+                        slotsChecked += n;
                         int want = kind.equals("inventory") ? 40 : Integer.parseInt(kind.substring(5)) * 9 + 36;
-                        if (checked != want) {
-                            problems.add(label + ": measured " + checked + " slots, want " + want);
+                        if (n != want) {
+                            problems.add(label + ": measured " + n + " slots, want " + want);
                         }
                     }
-                    slotsChecked += hotbar(c, sz, gs, line, tag, problems);
+                    slotsChecked += hotbar(c, preset.toLowerCase(Locale.ROOT) + "-hotbar-" + size, gs, p, tag, problems);
                 }
             }
         } finally {
-            c.onClient(mc -> {
-                McCompat.setScreen(mc, null);
-                return null;
-            });
+            close(c);
             HudEditorCases.restoreWindow(c, window, oldGui);
             InvBatchCases.restoreConfig(c, ICFG, cfgPath, oldCfg);
             InvBatchCases.restoreConfig(c, RCFG, rarityPath, oldRarity);
             InvBatchCases.inventory(c, Map.of());
         }
-        c.note(slotsChecked + " slot(s) measured in all; " + problems.size() + " off centre"
+        c.note(slotsChecked + " slot(s) measured in all; " + problems.size() + " problem(s)"
                 + (problems.isEmpty() ? "" : ", first: " + problems.subList(0, Math.min(5, problems.size()))));
-        c.check(slotsChecked > 500, "too few slots measured: " + slotsChecked);
-        c.check(problems.isEmpty(), problems.size() + " slot(s) not centred: " + problems.subList(0, Math.min(8, problems.size())));
+        c.check(slotsChecked > 1000, "too few slots measured: " + slotsChecked);
+        c.check(problems.isEmpty(), problems.size() + " problem(s): " + problems.subList(0, Math.min(8, problems.size())));
     }
 }

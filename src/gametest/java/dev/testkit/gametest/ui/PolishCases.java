@@ -476,6 +476,11 @@ final class PolishCases {
     // ==== 473 line pixels ==============================================================================================
 
     static void linePixels(UiCase c) throws Exception {
+        if (InvStorageCases.reskin(c)) {
+            dev.testkit.gametest.Scenario.skipped(c.name(), "measures the flat line theme's grid lines; this jar draws the "
+                    + "vanilla-shaped reskin (bevels, no lines) - 897 measures that");
+            return;
+        }
         Map<Path, byte[]> saved = snapshot(c, ICFG);
         int[] window = HudEditorCases.windowSize(c);
         int oldGui = c.onClient(mc -> mc.options.guiScale().get());
@@ -590,6 +595,11 @@ final class PolishCases {
     // ==== 474 shared lines =============================================================================================
 
     static void sharedLines(UiCase c) throws Exception {
+        if (InvStorageCases.reskin(c)) {
+            dev.testkit.gametest.Scenario.skipped(c.name(), "measures the flat line theme's grid lines; this jar draws the "
+                    + "vanilla-shaped reskin (bevels, no lines) - 897 measures that");
+            return;
+        }
         Map<Path, byte[]> saved = snapshot(c, ICFG);
         int[] window = HudEditorCases.windowSize(c);
         int oldGui = c.onClient(mc -> mc.options.guiScale().get());
@@ -692,6 +702,11 @@ final class PolishCases {
     // ==== 475 armour column against the model frame ====================================================================
 
     static void armourModel(UiCase c) throws Exception {
+        if (InvStorageCases.reskin(c)) {
+            dev.testkit.gametest.Scenario.skipped(c.name(), "measures the flat line theme's grid lines; this jar draws the "
+                    + "vanilla-shaped reskin (bevels, no lines) - 897 measures that");
+            return;
+        }
         Map<Path, byte[]> saved = snapshot(c, ICFG);
         int[] window = HudEditorCases.windowSize(c);
         int oldGui = c.onClient(mc -> mc.options.guiScale().get());

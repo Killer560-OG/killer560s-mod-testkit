@@ -205,8 +205,16 @@ final class InvStorageCases {
             Mod.call(cfg, "setUseCustomAccent", false);
             Mod.call(cfg, "setUseCustomSlotColor", false);
             Mod.call(cfg, "setBackgroundOpacity", 0.85f);
+            if (Mod.has(ICFG + "$Preset")) {
+                Mod.call(cfg, "setPreset", Mod.enumValue(ICFG + "$Preset", "MOD_THEME"));
+            }
             return null;
         });
+    }
+
+    /** True for a jar with the vanilla-shaped reskin (mod inv-theme-reskin): presets, bevels, no grid lines. */
+    static boolean reskin(UiCase c) {
+        return c.onClient(mc -> Mod.has(ICFG + "$Preset"));
     }
 
     private static void set(UiCase c, Object cfg, String setter, Object value) {
@@ -345,6 +353,12 @@ final class InvStorageCases {
             int gapVan = van.getRGB(gx, gy) & 0xFFFFFF;
             int gapAmb = amb.getRGB(gx, gy) & 0xFFFFFF;
             int cellAmb = amb.getRGB(gx + b.px(1), gy) & 0xFFFFFF;
+            boolean reskin = reskin(c);
+            if (reskin) {
+                // The vanilla-shaped reskin has no separator line: slot 0's sunken square ends in its light (orange in Mod
+                // Theme) edge at x0 + 19 = cx - 72, then two units of panel, then slot 1's dark edge.
+                gapAmb = amb.getRGB(b.px(b.cx() - 72), gy) & 0xFFFFFF;
+            }
             c.note(String.format(Locale.ROOT, "between slots 0 and 1: vanilla #%06X, themed #%06X (cell beside it #%06X)",
                     gapVan, gapAmb, cellAmb));
             if (((cellAmb >> 16) & 0xFF) > 50 || ((cellAmb >> 8) & 0xFF) > 50 || (cellAmb & 0xFF) > 50) {
@@ -352,7 +366,8 @@ final class InvStorageCases {
                         + "vanilla hotbar sprite is still drawn", cellAmb));
             }
             if (gapAmb != AMBER_ACCENT) {
-                c.problem(String.format(Locale.ROOT, "no separator line between slots 0 and 1 (#%06X)", gapAmb));
+                c.problem(String.format(Locale.ROOT, reskin ? "slot 0's light bevel is not the accent (#%06X)"
+                        : "no separator line between slots 0 and 1 (#%06X)", gapAmb));
             }
             if (gapVan == gapAmb) {
                 c.problem("the pixel between slots is identical with the theme on and off");
@@ -412,22 +427,41 @@ final class InvStorageCases {
                 c.problem("the hotbar attack indicator is not drawn through the theme (" + attack + " px changed)");
             }
 
-            // -- Line Width: the panel's top border down the middle of slot 0's cell (not a separator). Since the polish
-            // branch Line Width is in screen PIXELS: 1/3/0 draws 1/3/0 pixels at any GUI scale. --
-            int top = r[1];
-            int lx = b.px(b.cx() - 80);
-            int run1 = runDown(amb, lx, top, AMBER_ACCENT);
-            set(c, cfg, "setLineWidth", 3);
-            BufferedImage l3 = shot(c, "amber-line3", 4);
-            int run3 = runDown(l3, lx, top, AMBER_ACCENT);
-            set(c, cfg, "setLineWidth", 0);
-            BufferedImage l0 = shot(c, "amber-line0", 4);
-            int run0 = runDown(l0, lx, top, AMBER_ACCENT);
-            c.note("top border thickness at line width 1/3/0: " + run1 + "/" + run3 + "/" + run0 + " px (want 1/3/0)");
-            if (run1 != 1 || run3 != 3 || run0 != 0) {
-                c.problem("Line Width does not set the border thickness: " + run1 + "/" + run3 + "/" + run0 + " px");
+            if (reskin) {
+                // -- Preset: the panel between slots 0 and 1 in each preset's panel shade --
+                StringBuilder seen = new StringBuilder();
+                String[][] presets = {{"DEFAULT", "C6C6C6"}, {"DARK", "2E2E30"}, {"MOD_THEME", "161616"}};
+                set(c, cfg, "setBackgroundOpacity", 1.0f);
+                for (String[] pr : presets) {
+                    set(c, cfg, "setPreset", Mod.enumValue(ICFG + "$Preset", pr[0]));
+                    BufferedImage pi = shot(c, "preset-" + pr[0].toLowerCase(Locale.ROOT), 4);
+                    int px = pi.getRGB(gx, gy) & 0xFFFFFF;
+                    seen.append(pr[0]).append(String.format(Locale.ROOT, " #%06X ", px));
+                    if (px != Integer.parseInt(pr[1], 16)) {
+                        c.problem(String.format(Locale.ROOT, "preset %s draws the hotbar panel #%06X, want #%s", pr[0], px, pr[1]));
+                    }
+                }
+                c.note("hotbar panel between slots 0 and 1 per preset: " + seen.toString().trim());
+                set(c, cfg, "setBackgroundOpacity", 0.85f);
+                set(c, cfg, "setPreset", Mod.enumValue(ICFG + "$Preset", "CUSTOM"));
+            } else {
+                // -- Line Width: the panel's top border down the middle of slot 0's cell (not a separator). Since the polish
+                // branch Line Width is in screen PIXELS: 1/3/0 draws 1/3/0 pixels at any GUI scale. --
+                int top = r[1];
+                int lx = b.px(b.cx() - 80);
+                int run1 = runDown(amb, lx, top, AMBER_ACCENT);
+                set(c, cfg, "setLineWidth", 3);
+                BufferedImage l3 = shot(c, "amber-line3", 4);
+                int run3 = runDown(l3, lx, top, AMBER_ACCENT);
+                set(c, cfg, "setLineWidth", 0);
+                BufferedImage l0 = shot(c, "amber-line0", 4);
+                int run0 = runDown(l0, lx, top, AMBER_ACCENT);
+                c.note("top border thickness at line width 1/3/0: " + run1 + "/" + run3 + "/" + run0 + " px (want 1/3/0)");
+                if (run1 != 1 || run3 != 3 || run0 != 0) {
+                    c.problem("Line Width does not set the border thickness: " + run1 + "/" + run3 + "/" + run0 + " px");
+                }
+                set(c, cfg, "setLineWidth", 1);
             }
-            set(c, cfg, "setLineWidth", 1);
 
             // -- custom colours --
             c.onClient(mc -> {
@@ -448,6 +482,9 @@ final class InvStorageCases {
             c.onClient(mc -> {
                 Mod.call(cfg, "setUseCustomAccent", false);
                 Mod.call(cfg, "setUseCustomSlotColor", false);
+                if (Mod.has(ICFG + "$Preset")) {
+                    Mod.call(cfg, "setPreset", Mod.enumValue(ICFG + "$Preset", "MOD_THEME"));
+                }
                 return null;
             });
 
@@ -465,16 +502,21 @@ final class InvStorageCases {
                         }
                     }
                 }
+                // Reskin: the rightmost accent is slot 8's light right edge, which stops 3 units above the bottom.
+                int ry0 = reskin ? b.px(b.gh() - 10 * scale) : b.px(b.gh() - 2);
+                int ry1 = reskin ? ry0 + 1 : img.getHeight();
                 for (int x = img.getWidth() - 1; x >= 0 && rightX < 0; x--) {
-                    for (int y = b.px(b.gh() - 2); y < img.getHeight(); y++) {
+                    for (int y = ry0; y < ry1; y++) {
                         if ((img.getRGB(x, y) & 0xFFFFFF) == AMBER_ACCENT) {
                             rightX = x;
                             break;
                         }
                     }
                 }
-                int wantTop = b.px(b.gh() - 22 * scale);
-                int wantRight = b.px(b.cx() + 91 * scale) - 1;
+                // Reskin: the topmost accent right of centre is a slot's light right edge (from 19 units up) and the
+                // rightmost is slot 8's (its last pixel 89 units right of centre).
+                int wantTop = reskin ? b.px(b.gh() - 19 * scale) : b.px(b.gh() - 22 * scale);
+                int wantRight = reskin ? b.px(b.cx() + 89 * scale) - 1 : b.px(b.cx() + 91 * scale) - 1;
                 // Since mod inv-theme-fix2 the bar's end lines sit on the cell boundary x0 + 181 (centred end slots), so its
                 // last pixel is lineWidth/2 past that boundary: accept that edge too.
                 int lw = ((Number) c.onClient(mc -> Mod.call(cfg, "getLineWidth"))).intValue();
@@ -519,16 +561,24 @@ final class InvStorageCases {
                 Mod.call(cfg0, "setLineWidth", 3);
                 Mod.call(cfg0, "setUseCustomSlotColor", true);
                 Mod.call(cfg0, "setCustomSlotColor", 0xFF123456);
+                if (Mod.has(ICFG + "$Preset")) {
+                    Mod.call(cfg0, "setPreset", Mod.enumValue(ICFG + "$Preset", "DARK"));
+                }
                 Mod.call(cfg0, "save");
                 Mod.staticCall(ICFG, "load");
                 return null;
             });
-            Object cfg = Mod.cfg(ICFG);
+            Object cfg = c.onClient(mc -> Mod.cfg(ICFG));
             String back = c.onClient(mc -> Mod.call(cfg, "getTheme") + " hotbar=" + Mod.call(cfg, "isThemeHotbar")
                     + " scale=" + Mod.call(cfg, "getHotbarScale") + " line=" + Mod.call(cfg, "getLineWidth")
                     + " slotCustom=" + Mod.call(cfg, "isUseCustomSlotColor") + " slot="
                     + Integer.toHexString((Integer) Mod.call(cfg, "getCustomSlotColor")));
             c.note("after save + load from disk: " + back);
+            if (reskin(c)) {
+                String preset = c.onClient(mc -> String.valueOf(Mod.call(cfg, "getPreset")));
+                c.note("preset after save + load: " + preset);
+                c.check(preset.equals("DARK"), "Preset did not survive a reload: " + preset);
+            }
             c.check(back.equals("LIGHT hotbar=false scale=1.37 line=3 slotCustom=true slot=ff123456"),
                     "settings did not survive a reload: " + back);
             c.check(cfg != cfg0, "load() did not replace the instance - the reload proved nothing");
@@ -597,6 +647,7 @@ final class InvStorageCases {
             int colX = b.px(left + 7 + 9);
             int rowY = b.px(topPos + 17);
             int[] runs = new int[3];
+            int[] bevels = new int[3];
             int[] slotPx = new int[3];
             int[] widths = {1, 3, 0};
             for (int i = 0; i < widths.length; i++) {
@@ -624,6 +675,9 @@ final class InvStorageCases {
                     return 0;
                 });
                 runs[i] = runDown(img, colX, rowY - d, AMBER_ACCENT);
+                int darkPx = c.onClient(mc -> Mod.has(ICFG + "$Preset")
+                        ? ((Number) Mod.call(Mod.call(Mod.cfg(ICFG), "getPalette"), "slotDark")).intValue() & 0xFFFFFF : -1);
+                bevels[i] = darkPx < 0 ? 0 : runDown(img, colX, rowY, darkPx);
                 slotPx[i] = img.getRGB(colX, b.px(topPos + 17 + 9)) & 0xFFFFFF;
                 c.onClient(mc -> {
                     McCompat.setScreen(mc, null);
@@ -632,12 +686,37 @@ final class InvStorageCases {
             }
             c.note(String.format(Locale.ROOT, "chest slot 0 top line at width 1/3/0: %d/%d/%d px; slot centre #%06X",
                     runs[0], runs[1], runs[2], slotPx[0]));
-            // Screen pixels since the polish branch (Line Width 1 was one GUI unit, 2 px at GUI 2, before it).
-            if (runs[0] != 1 || runs[1] != 3 || runs[2] != 0) {
+            // Screen pixels since the polish branch (Line Width 1 was one GUI unit, 2 px at GUI 2, before it). The
+            // vanilla-shaped reskin has no lines: slot 0's top edge is its one-unit dark bevel at every Line Width.
+            if (reskin(c)) {
+                int dark = c.onClient(mc -> ((Number) Mod.call(Mod.call(Mod.cfg(ICFG), "getPalette"), "slotDark")).intValue())
+                        & 0xFFFFFF;
+                boolean allBevel = true;
+                for (int i = 0; i < 3; i++) {
+                    allBevel &= bevels[i] == b.px(1);
+                }
+                c.note("reskin: slot 0's dark top bevel at Line Width 1/3/0: " + bevels[0] + "/" + bevels[1] + "/" + bevels[2]
+                        + String.format(Locale.ROOT, " px of #%06X", dark));
+                if (!allBevel) {
+                    c.problem("slot 0 has no one-unit dark bevel: " + bevels[0] + "/" + bevels[1] + "/" + bevels[2]);
+                }
+            } else if (runs[0] != 1 || runs[1] != 3 || runs[2] != 0) {
                 c.problem("Line Width does not set the chest's slot lines: " + runs[0] + "/" + runs[1] + "/" + runs[2]);
             }
             if (slotPx[0] != 0x0000FF) {
                 c.problem(String.format(Locale.ROOT, "Slot Color blue is not drawn in the chest (#%06X)", slotPx[0]));
+            }
+            if (reskin(c)) {
+                // Last, as it replaces the config instance the checks above hold.
+                // A file from before presets loads as Default (killer560: everyone starts on Default).
+                Path f = InvBatchCases.configPath(c, ICFG);
+                Files.writeString(f, "{\"enabled\":true,\"theme\":\"AMBER\",\"lineWidthPx\":2}", StandardCharsets.UTF_8);
+                String old = c.onClient(mc -> {
+                    Mod.staticCall(ICFG, "load");
+                    return String.valueOf(Mod.call(Mod.cfg(ICFG), "getPreset"));
+                });
+                c.note("a file from before presets loads as " + old);
+                c.check(old.equals("DEFAULT"), "a pre-preset file loads as " + old + ", want DEFAULT");
             }
         } finally {
             if (storageWas != null) {
