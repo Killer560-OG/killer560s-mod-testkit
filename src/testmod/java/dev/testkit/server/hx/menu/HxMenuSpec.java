@@ -29,7 +29,8 @@ import java.util.List;
  * STYLED components ({@link HxMenus#legacy}) so the mod's {@code getString()} sees plain text, as from Hypixel. {@code "fill": true} fills every unset slot with Hypixel's filler (black pane, empty name).
  *
  * <p>{@code on}: what a click on a top slot does, {@code {"13": {open: <spec>} | {close: true} | {chat: "..."} |
- * {set: {"13": <slot>}} | {experiment: <menu.experiment args>}}} (several keys may combine; chat is a system line sent after the click). A click on any slot
+ * {set: {"13": <slot>}} | {give: <slot> | [<slot>, ...]} | {experiment: <menu.experiment args>}}} (give puts stacks in the
+ * player's inventory and logs {@code menu.give}, a Bazaar instant buy delivering; several keys may combine; chat is a system line sent after the click). A click on any slot
  * is recorded by {@link HxChestMenu} as {@code menu.click}; the action table adds {@code menu.action}.
  *
  * <p>{@code sell: true}: a QUICK_MOVE (shift-click) on one of the player's own slots SELLS that stack - it leaves the
@@ -153,6 +154,26 @@ final class HxMenuSpec {
             for (var se : action.getAsJsonObject("set").entrySet()) {
                 menu.items().setItem(Integer.parseInt(se.getKey()), slot(server, se.getValue()));
             }
+        }
+        if (action.has("give")) {
+            // Items into the player's own inventory (a Bazaar instant buy delivering), one slot spec per stack.
+            JsonArray gives = action.get("give").isJsonArray() ? action.getAsJsonArray("give") : null;
+            List<JsonElement> list = new ArrayList<>();
+            if (gives != null) {
+                gives.forEach(list::add);
+            } else {
+                list.add(action.get("give"));
+            }
+            for (JsonElement g : list) {
+                ItemStack given = slot(server, g);
+                JsonObject ge = new JsonObject();
+                ge.addProperty("item", HxTerminals.id(given));
+                ge.addProperty("count", given.getCount());
+                player.getInventory().add(given);
+                HxEvents.custom("menu.give", player, ge);
+            }
+            player.inventoryMenu.broadcastChanges();
+            menu.broadcastChanges();
         }
         if (action.has("chat")) {
             JsonArray lines = action.get("chat").isJsonArray() ? action.getAsJsonArray("chat") : null;

@@ -13,7 +13,9 @@ import dev.testkit.server.hx.HxModule;
 import dev.testkit.server.hx.HxPrimitives;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
+import net.minecraft.world.InteractionHand;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -44,6 +46,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * menu.anvil.state                     -&gt; the last anvil: combines [{left,right,result}], inserts, claims
  * menu.onUse {id, menu}                using an item whose custom_data.id is {@code id} opens {@code menu} (a
  *                                      menu.show spec) - e.g. a Spirit Leap. {id:null} clears it.
+ * menu.onEntity {name, menu}           using an entity custom-named {@code name} opens {@code menu} (an NPC)
  * menu.onCommand {name, menu}          /name (with any args) opens {@code menu}; the command is still recorded
  * </pre>
  * Events added to the stream: menu.opened, terminal.opened/click/solved, experiment.opened/click/round/pair/over,
@@ -53,6 +56,8 @@ public final class HxMenuModule implements HxModule {
 
     private static final Map<String, JsonObject> ON_USE = new ConcurrentHashMap<>();
     private static final Map<String, JsonObject> ON_COMMAND = new ConcurrentHashMap<>();
+    private static final Map<String, JsonObject> ON_ENTITY = new ConcurrentHashMap<>();
+    private static final Map<java.util.UUID, Integer> LAST_ENTITY_OPEN = new ConcurrentHashMap<>();
 
     @Override
     public String name() {
@@ -80,6 +85,37 @@ public final class HxMenuModule implements HxModule {
                 }
             }
             return InteractionResult.PASS;
+        });
+
+        // menu.onEntity: using (right-clicking) an entity whose custom name is exactly {name} opens {menu} - a Croesus NPC.
+        UseEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
+            if (player instanceof ServerPlayer sp && !level.isClientSide() && hand == InteractionHand.MAIN_HAND
+                    && entity.getCustomName() != null) {
+                JsonObject spec = ON_ENTITY.get(entity.getCustomName().getString());
+                if (spec != null) {
+                    // One interact sends INTERACT_AT and INTERACT; open once per click.
+                    int tick = sp.level().getServer().getTickCount();
+                    Integer last = LAST_ENTITY_OPEN.put(sp.getUUID(), tick);
+                    if (last != null && tick - last < 5) {
+                        return InteractionResult.SUCCESS;
+                    }
+                    JsonObject e = new JsonObject();
+                    e.addProperty("name", entity.getCustomName().getString());
+                    HxEvents.custom("menu.entity", sp, e);
+                    HxMenus.later(() -> HxMenuSpec.open(sp.level().getServer(), sp, spec));
+                    return InteractionResult.SUCCESS;
+                }
+            }
+            return InteractionResult.PASS;
+        });
+        HxBridge.register("menu.onEntity", (s, a) -> {
+            String name = a.get("name").getAsString();
+            if (a.has("menu") && !a.get("menu").isJsonNull()) {
+                ON_ENTITY.put(name, a.getAsJsonObject("menu"));
+            } else {
+                ON_ENTITY.remove(name);
+            }
+            return new JsonPrimitive(ON_ENTITY.size());
         });
 
         HxBridge.register("menu.status", (s, a) -> new JsonPrimitive("wp3"));

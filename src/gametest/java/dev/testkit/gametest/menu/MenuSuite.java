@@ -43,6 +43,8 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *   <li>670 the custom leap menu follows the Leap Order's default order and pins ({@link LeapOrderMenuCases})</li>
  *   <li>754-755 the Chocolate Factory on its current layout: Auto Chocolate Factory's clicks, the legit helper's
  *       reading and alerts ({@link ChocolateCases})</li>
+ *   <li>761-767 the Bazaar flipper's full buy/sell cycle with the reskin off and on, its Cookie and price guards, and
+ *       Auto Croesus going back into a claimed run for a keyed chest ({@link FlipCroesusCases})</li>
  * </ul>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -113,6 +115,8 @@ public class MenuSuite implements FabricClientGameTest {
                     ChocolateCases.register(s);
                     // ---- 731-736 trackers (profit scopes, red reset, Experiments tab, Superpairs Escape, RNG), 2026-10-11 ----
                     TrackerCases.register(s);
+                    // ---- 761-767 bz-croesus (2026-10-11): Bazaar flipper cycle, Auto Croesus key revisit ----
+                    FlipCroesusCases.register(s);
                 });
     }
 }
