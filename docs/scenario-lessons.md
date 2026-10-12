@@ -465,3 +465,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   position wait before it lands and then resets the look; `summon item_frame {Facing:5b}` did not stick (Hx `frame` op);
   a wither summoned into a dying one is shoved away. The frame-driven trigger bots (Simon Says, Arrow Align, Goldor)
   draw GrimAC Post on every click, so those three run expecting flags.
+- 811-818 (cosmetic names): a translucent background (tab list, chat, nametag box) over sky is itself blue-ish and passed a
+  "green-blue text" colour test, so the whole tab read as one smeared run; drop pixels that are a uniform darkening of the
+  base frame before classifying. ModScreen's content widgets sit in a PRIVATE nested pane: reach them through
+  `ContainerEventHandler.children()`, not reflection on the pane's class (IllegalAccessException, silently no widgets).
+  A literal carrying legacy codes keeps the `§` characters in `getString()`, so match with `contains`, not `startsWith`.
