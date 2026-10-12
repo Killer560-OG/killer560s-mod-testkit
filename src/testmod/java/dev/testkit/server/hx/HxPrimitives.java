@@ -99,6 +99,7 @@ import java.util.UUID;
  * stand {x, y, z, name?, nameVisible=true, invisible=true, small=false, marker=true, helmet?}
  *                                          -&gt; {uuid, id}
  * entity.remove {uuid} | {all: true}       stands spawned through Hx
+ * entity.move {uuid, x, y, z}              setPos on a stand spawned through Hx (the tracker sends a move packet)
  * menu.open {title, rows=6, slots: {"13": "stack", ...}, script?}   -&gt; {containerId}
  * kick {reason}
  * cmd.stub {names[], reply?}               register commands that just answer (and are logged like any other)
@@ -174,6 +175,7 @@ public final class HxPrimitives implements HxModule {
         HxBridge.register("give", HxPrimitives::give);
         HxBridge.register("stand", HxPrimitives::stand);
         HxBridge.register("entity.remove", HxPrimitives::entityRemove);
+        HxBridge.register("entity.move", HxPrimitives::entityMove);
         HxBridge.register("menu.open", HxPrimitives::menuOpen);
         HxBridge.register("kick", (s, a) -> {
             ServerPlayer p = player(s, a);
@@ -438,6 +440,16 @@ public final class HxPrimitives implements HxModule {
             }
         }
         return new JsonPrimitive(removed);
+    }
+
+    /** A plain {@code setPos}, as a mob walking does: the entity tracker turns it into a relative move packet. */
+    private static JsonElement entityMove(MinecraftServer s, JsonObject a) {
+        Entity e = STANDS.get(UUID.fromString(a.get("uuid").getAsString()));
+        if (e == null) {
+            throw new IllegalArgumentException("no Hx stand " + a.get("uuid").getAsString());
+        }
+        e.setPos(number(a, "x", e.getX()), number(a, "y", e.getY()), number(a, "z", e.getZ()));
+        return new JsonPrimitive(true);
     }
 
     private static JsonElement menuOpen(MinecraftServer s, JsonObject a) throws Exception {

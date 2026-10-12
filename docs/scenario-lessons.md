@@ -453,3 +453,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   Hypixel's SOUL line; proof is the server's use_entity events, distance travelled and take-offs counted from the client's
   motion. On a legit jar 746 checks nothing walks and 747-750 SKIP. 754 lays the current factory out with traps on the old
   reader's slots (39 Shrine, 42 a menu button).
+- **791-796 (ping automation, Hx session)**: every case adds a real round trip with `harness/Latency` and reads the mod's own
+  timing (Blood Camp's killable/trigger moment from a real Watcher + skull stand moved through the new Hx op `entity.move`,
+  Terminal Protection's window from a server-opened "Click in order!" menu, the rest from their timing functions). A pong
+  injected into `PingTracker.onPong` must be stamped with `Util.getMillis()` (called through `Mod.staticCall`), not
+  `System.nanoTime()/1e6`: the first run's 2000 ms spike was silently rejected as an out-of-range round trip.

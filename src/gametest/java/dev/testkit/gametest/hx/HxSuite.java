@@ -51,6 +51,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxPvNickCases.register(s);
                     // GUI/HUD items of 2026-10-11 (716-726, branch nt-gui-hud), own block.
                     HxGuiHudCases.register(s);
+                    // Automation timed by the measured ping (791-796, branch nt-ping-automation), own block.
+                    HxPingAutomationCases.register(s);
                 });
     }
 }
