@@ -25,7 +25,8 @@ import java.util.Locale;
  *   tick. All four rounds to {@code ss.completed}.</li>
  *   <li>832 Arrow Align Aura: nine frames of layout 7, each one click from solved, at 16 CPS; every frame clicked once
  *   ({@code use_entity}). Then the Aura CPS setting (1-20, mod aura-cps) on a frame under the crosshair needing seven
- *   clicks, at 20 and 5 CPS: seven clicks each, at 17-24 and 4-6 CPS on the server's clock.</li>
+ *   clicks, at 20 and 5 CPS: seven clicks each, at 17-24 and 4-6 CPS on the server's clock. And the nine-frame sweep
+ *   (a body turn before every frame) at 5 and 10 CPS, each within 15% (mod arrow-turn).</li>
  *   <li>833 / 834 Auto i4, Rotate / No Rotate: a bow on the i4 platform, targets lit by the server one after another;
  *   shots ({@code use_item}) must reach the server.</li>
  *   <li>835 Goldor Triggerbot rate: Use (right click) mode at 16 CPS for 60 ticks on a wither; must come out at 13-19 CPS (a flat
@@ -177,6 +178,35 @@ final class GrimTickCases {
                     + "frame)", clicks.size(), cps(clicks)));
             c.check(clicks.size() == LAYOUT.length, "the Aura sent " + clicks.size() + " clicks for "
                     + LAYOUT.length + " frames that each needed one");
+
+            // The same sweep at 5 and 10 CPS (mod arrow-turn, 2026-10-12): a turn tick fits inside those gaps, so the rate
+            // must be the setting. Before the fix every turn tick was added to the gap (Lever Aura's 846 measured 4.48
+            // and 7.89 the same way); within 15% now, on the server's clock.
+            double[] sweepRate = new double[2];
+            int[] sweepWant = {5, 10};
+            for (int i = 0; i < sweepWant.length; i++) {
+                int want = sweepWant[i];
+                grid(c, -1);
+                c.onClient(mc -> {
+                    Mod.set(AA_CFG, "setAuraCps", want);
+                    return null;
+                });
+                long mark = c.hx().head();
+                aura(c, true);
+                c.waitUntil("every frame clicked once at " + want + " CPS",
+                        mc -> c.hx().events(mark, "use_entity").size() >= LAYOUT.length, 300);
+                c.ctx().waitTicks(20);
+                aura(c, false);
+                List<JsonObject> swept = c.hx().events(mark, "use_entity");
+                sweepRate[i] = cps(swept);
+                c.note(String.format(Locale.ROOT, "arrow aura sweep at %d CPS: %d use_entity, %.2f CPS (ticks %s)", want,
+                        swept.size(), sweepRate[i], swept.stream().map(e -> e.get("tick").getAsString()).toList()));
+                c.check(swept.size() == LAYOUT.length, "the sweep at " + want + " CPS sent " + swept.size() + " clicks");
+            }
+            for (int i = 0; i < sweepWant.length; i++) {
+                c.check(Math.abs(sweepRate[i] - sweepWant[i]) <= sweepWant[i] * 0.15, String.format(Locale.ROOT,
+                        "the sweep at %d CPS (a turn before every frame) came out at %.2f", sweepWant[i], sweepRate[i]));
+            }
 
             // On the look (killer560 2026-10-12, Aura CPS 1-20): the centre frame starts at rotation 2, so it needs seven
             // clicks, and he looks straight at it; the Aura takes it first with no turn. Its clicks alone are timed.
