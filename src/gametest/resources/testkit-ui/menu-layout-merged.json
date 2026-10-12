@@ -296,8 +296,8 @@
     {
       "owner": "Croesus / Chest Profit",
       "key": "highlight runs",
-      "text": "In the Croesus menu, marks each run by what is left in it: unclaimed (orange), worth going back to with a Dungeon Chest Key (gold; a gold border alone means its chests have not been looked at yet this session), opened with nothing worth a key (blue), or done with a key (dark). Drawn behind the items, under their tooltips.",
-      "why": "croesus-ui 79dd7ecc / croesus-key: Highlight Runs behind the items, then by chest-key state (killer560, 2026-10-12)"
+      "text": "In the Croesus menu, marks each run by what is left in it: unclaimed (orange border and tint), worth going back to with a Dungeon Chest Key (magenta, thick border and a key mark), not looked at yet this session (cyan corners and a ? mark), opened with nothing worth a key (blue border), or done with a key (dark). Drawn behind the items, under their tooltips; the marks sit over the item.",
+      "why": "croesus-ui 79dd7ecc / croesus-key: Highlight Runs behind the items, then by chest-key state (killer560, 2026-10-12); croesus-colors 2026-10-12: magenta / cyan / blue-border palette"
     }
   ]
 }
