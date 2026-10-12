@@ -298,6 +298,12 @@
       "key": "highlight runs",
       "text": "In the Croesus menu, marks each run by what is left in it: unclaimed (orange border and tint), worth going back to with a Dungeon Chest Key (magenta, thick border and a key mark), not looked at yet this session (cyan corners and a ? mark), opened with nothing worth a key (blue border), or done with a key (dark). Drawn behind the items, under their tooltips; the marks sit over the item.",
       "why": "croesus-ui 79dd7ecc / croesus-key: Highlight Runs behind the items, then by chest-key state (killer560, 2026-10-12); croesus-colors 2026-10-12: magenta / cyan / blue-border palette"
+    },
+    {
+      "owner": "Inventory Theme",
+      "key": "inventory theme",
+      "text": null,
+      "why": "inv-theme-reskin 8ef13dd9: vanilla-shaped reskin with presets (killer560 2026-10-13)"
     }
   ]
 }
