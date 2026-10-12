@@ -43,7 +43,8 @@ public class SimImapGapTests implements FabricClientGameTest {
     static final String CLICK = "852-sim-imapgap-click";
     static final String DOOR = "853-sim-imapgap-door";
     static final String POSITION = "854-sim-imapgap-position";
-    private static final String[] CASES = {HOVER, POSITION, CLICK, DOOR};
+    static final String DOOR_CAM = "857-sim-imapgap-doorcam";
+    private static final String[] CASES = {HOVER, POSITION, CLICK, DOOR, DOOR_CAM};
 
     private static final String LIVE = "com.killer560.hub.livemap.LiveMapFeature";
     private static final String FEATURE = "com.killer560.hub.livemap.InteractiveMapFeature";
@@ -102,10 +103,25 @@ public class SimImapGapTests implements FabricClientGameTest {
                         case POSITION -> casePosition(ctx, f);
                         case CLICK -> caseClick(ctx, f);
                         case DOOR -> caseDoor(ctx, f);
+                        case DOOR_CAM -> caseDoorCam(ctx, f);
                         default -> { }
                     }
                 } catch (Throwable t) {
                     f.add("threw " + t);
+                    t.printStackTrace(System.out);
+                } finally {
+                    closeMap(ctx);
+                }
+            }
+            if (selected.contains(HOVER)) {
+                // The inner corner needs an L-shaped room, which the pinned F7 has none of: one on its own floor.
+                List<String> f = failures.get(HOVER);
+                try {
+                    buildLRoom(ctx);
+                    openMap(ctx);
+                    innerCornerShot(ctx, f, groups(ctx));
+                } catch (Throwable t) {
+                    f.add("inner corner: threw " + t);
                     t.printStackTrace(System.out);
                 } finally {
                     closeMap(ctx);
@@ -385,6 +401,143 @@ public class SimImapGapTests implements FabricClientGameTest {
         ctx.getInput().setCursorPos(2, 2);
     }
 
+    /**
+     * 851's inner corner (killer560, 2026-10-12: "those inner corners of the room would be nice if those also have that
+     * white outline", "this is only for hovered squares"): the cursor on the corner tile of an L-shaped room, whose lit
+     * half strips leave a notch where the room's missing quarter is. The white hover edge must run along that notch too:
+     * the pixels just outside both notch edges must be the outline's white, not the map's background.
+     */
+    private static void innerCornerShot(ClientGameTestContext ctx, List<String> f, List<Group> groups) {
+        Group lg = null;
+        int corner = -1;
+        int dx = 0;
+        int dz = 0;
+        for (Group g : groups) {
+            if (g.tiles().length != 3) {
+                continue;
+            }
+            for (int t : g.tiles()) {
+                for (int sx : new int[]{-2, 2}) {
+                    for (int sz : new int[]{-2, 2}) {
+                        if (contains(g.tiles(), t + sx) && contains(g.tiles(), t + sz * GRID)
+                                && !contains(g.tiles(), t + sx + sz * GRID)) {
+                            lg = g;
+                            corner = t;
+                            dx = sx / 2;
+                            dz = sz / 2;
+                        }
+                    }
+                }
+            }
+            if (lg != null) {
+                break;
+            }
+        }
+        if (lg == null) {
+            System.out.println("[" + HOVER + "] no L-shaped room on this floor - inner corner not checked");
+            return;
+        }
+        int tx = corner % GRID;
+        int tz = corner / GRID;
+        double half = cellSize(1) / 2.0;
+        double ux0 = cellPos(tx);
+        double uz0 = cellPos(tz);
+        double ux1 = ux0 + cellSize(tx);
+        double uz1 = uz0 + cellSize(tz);
+        double[] px = ctx.computeOnClient(mc -> {
+            Object screen = McCompat.screen(mc);
+            float ox = (Float) ModUnderTest.call(screen, "originX", new Class<?>[]{}, new Object[]{});
+            float oy = (Float) ModUnderTest.call(screen, "originY", new Class<?>[]{}, new Object[]{});
+            float ppu = (Float) ModUnderTest.call(screen, "ppu", new Class<?>[]{}, new Object[]{});
+            double scale = mc.getWindow().getWidth() / (double) ((net.minecraft.client.gui.screens.Screen) screen).width;
+            return new double[]{ox, oy, ppu, scale};
+        });
+        // Cursor near the tile's middle, off the room's label.
+        double cux = (ux0 + ux1) / 2 - dx * cellSize(tx) * 0.25;
+        double cuz = (uz0 + uz1) / 2 - dz * cellSize(tz) * 0.25;
+        ctx.getInput().setCursorPos((px[0] + cux * px[2]) * px[3], (px[1] + cuz * px[2]) * px[3]);
+        ctx.waitTicks(4);
+        String tag;
+        try {
+            // mod imap-door-cam opened MapPainter.sameRoom to the hover's outline: "after" on that jar.
+            tag = java.lang.reflect.Modifier.isPrivate(Class.forName(PAINTER).getDeclaredMethod("sameRoom", int.class,
+                    int.class, int.class).getModifiers()) ? "before" : "after";
+        } catch (ReflectiveOperationException e) {
+            tag = "before";
+        }
+        java.nio.file.Path shot = ctx.takeScreenshot(dev.testkit.harness.Report.fileName(HOVER + "-inner-corner"));
+        java.awt.image.BufferedImage img;
+        try {
+            java.nio.file.Files.createDirectories(SHOTS);
+            java.nio.file.Files.copy(shot, SHOTS.resolve("inner-corner-" + tag + ".png"),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            img = javax.imageio.ImageIO.read(shot.toFile());
+        } catch (java.io.IOException e) {
+            throw new RuntimeException(e);
+        }
+        double sx = img.getWidth() / (double) ctx.computeOnClient(mc -> mc.getWindow().getWidth());
+        java.util.function.BiFunction<Double, Double, Integer> pix = (gx, gy) -> {
+            int x = (int) Math.floor(gx * px[3] * sx);
+            int y = (int) Math.floor(gy * px[3] * sx);
+            return img.getRGB(Math.max(0, Math.min(img.getWidth() - 1, x)), Math.max(0, Math.min(img.getHeight() - 1, y)));
+        };
+        // The notch's two edges, in GUI units, sampled half a GUI pixel outside the lit region.
+        double xExtMid = dx > 0 ? ux1 + half / 2 : ux0 - half / 2;
+        double zLine = dz > 0 ? uz1 : uz0;
+        double zExtMid = dz > 0 ? uz1 + half / 2 : uz0 - half / 2;
+        double xLine = dx > 0 ? ux1 : ux0;
+        // The edge line is one GUI pixel: the row (column) at the rounded edge on the outside (+) side, or the one just
+        // before it on the minus side - exactly as the map draws it.
+        double rowA = Math.round(px[1] + zLine * px[2]) + (dz > 0 ? 0.0 : -1.0) + 0.5;
+        double colB = Math.round(px[0] + xLine * px[2]) + (dx > 0 ? 0.0 : -1.0) + 0.5;
+        int a = pix.apply(px[0] + xExtMid * px[2], rowA - 0.5 / px[3]);
+        int b = pix.apply(colB - 0.5 / px[3], px[1] + zExtMid * px[2]);
+        boolean whiteA = bright(a);
+        boolean whiteB = bright(b);
+        System.out.println(String.format(Locale.US, "[%s] inner corner of %s (%s, cursor on tile %d): notch edge pixels %06X"
+                        + " and %06X - outlined: %s / %s", HOVER, lg.name(), tag, corner, a & 0xFFFFFF, b & 0xFFFFFF, whiteA,
+                whiteB));
+        if (!whiteA || !whiteB) {
+            f.add(lg.name() + "'s inner corner has no white hover outline (" + String.format("%06X / %06X", a & 0xFFFFFF,
+                    b & 0xFFFFFF) + ")");
+        }
+        ctx.getInput().setCursorPos(2, 2);
+    }
+
+    /** Market, an L-shaped room, alone on a floor: tiles (4,4), (6,4) and (4,6), joined by their strips. */
+    private static void buildLRoom(ClientGameTestContext ctx) {
+        int[] cellRoom = new int[GRID * GRID];
+        java.util.Arrays.fill(cellRoom, -1);
+        int[] cellDoor = new int[GRID * GRID];
+        int[] cellRotation = new int[GRID * GRID];
+        for (int c : new int[]{4 * GRID + 4, 4 * GRID + 5, 4 * GRID + 6, 5 * GRID + 4, 6 * GRID + 4}) {
+            cellRoom[c] = 0;
+        }
+        String code = ctx.computeOnClient(mc -> {
+            try {
+                Class<?> dec = Class.forName("com.killer560.hub.roomsim.MapCode$Decoded");
+                Object d = dec.getConstructor(String[].class, int[].class, int[].class, int[].class)
+                        .newInstance(new String[]{"Market"}, cellRoom, cellDoor, cellRotation);
+                return (String) ModUnderTest.staticCall("com.killer560.hub.roomsim.MapCode", "encodeDecoded",
+                        new Class<?>[]{dec}, new Object[]{d});
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        long before = Scenario.simBuildCount(ctx);
+        ctx.runOnClient(mc -> mc.execute(() -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBuilder", "build",
+                new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, code})));
+        ctx.waitFor(mc -> mc.level != null && mc.player != null, 2400);
+        Scenario.awaitSimBuild(ctx, before);
+        ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
+        ctx.waitTicks(60);
+    }
+
+    /** The hover outline's white, blended (0xB4 alpha) over whatever is under it: every channel well up. */
+    private static boolean bright(int rgb) {
+        return ((rgb >> 16) & 0xFF) > 170 && ((rgb >> 8) & 0xFF) > 170 && (rgb & 0xFF) > 170;
+    }
+
     private static boolean close(int a, int b) {
         int dr = Math.abs(((a >> 16) & 0xFF) - ((b >> 16) & 0xFF));
         int dg = Math.abs(((a >> 8) & 0xFF) - ((b >> 8) & 0xFF));
@@ -540,6 +693,120 @@ public class SimImapGapTests implements FabricClientGameTest {
         if (off > 3.5) {
             f.add(String.format(Locale.US, "ended %.1f blocks from the doorway, not in it", off));
         }
+    }
+
+    // ============================================================================================ 857 door camera
+
+    /**
+     * killer560 (2026-10-12): "if i teleport to a door that isnt a wither or blood door then it shouldnt snap my
+     * camera." With Face Door on Arrival ON, a map press on an ordinary open doorway must leave the camera exactly where
+     * it was before the press (within 0.1 degrees); a wither door, the control, still turns him to face it.
+     */
+    private static void caseDoorCam(ClientGameTestContext ctx, List<String> f) {
+        Object cfg = ctx.computeOnClient(mc -> ModUnderTest.config("com.killer560.hub.livemap.LiveMapConfig"));
+        boolean before = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.call(cfg, "isFaceDoorOnArrival",
+                new Class<?>[]{}, new Object[]{}));
+        ctx.runOnClient(mc -> ModUnderTest.set(cfg, "setFaceDoorOnArrival", true));
+        try {
+            // ---- an ordinary doorway ----
+            int normal = pickDoor(ctx, 1, false);
+            if (normal < 0) {
+                f.add("no ordinary open door 25-70 blocks away");
+            } else {
+                float[] cam = ctx.computeOnClient(mc -> {
+                    float yaw = mc.player.getYRot() + 37.3f;
+                    mc.player.setYRot(yaw);
+                    mc.player.setYHeadRot(yaw);
+                    mc.player.setXRot(12.5f);
+                    return new float[]{yaw, 12.5f};
+                });
+                ctx.waitTicks(3);
+                Vec3 from = ctx.computeOnClient(mc -> mc.player.position());
+                long mark = LogTap.mark();
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(FEATURE, "onMapPress", new Class<?>[]{int.class},
+                        new Object[]{normal}));
+                Vec3 end = waitTrip(ctx, mark);
+                float[] after = ctx.computeOnClient(mc -> new float[]{mc.player.getYRot(), mc.player.getXRot()});
+                double dYaw = Math.abs(net.minecraft.util.Mth.wrapDegrees(after[0] - cam[0]));
+                double dPitch = Math.abs(after[1] - cam[1]);
+                System.out.println(String.format(Locale.US, "[%s] ordinary door %d: travelled %.1f, camera before %.2f/%.2f,"
+                        + " after %.2f/%.2f (off by %.3f / %.3f)", DOOR_CAM, normal, end.distanceTo(from), cam[0], cam[1],
+                        after[0], after[1], dYaw, dPitch));
+                if (end.distanceTo(from) < 5) {
+                    f.add("no trip to the ordinary door happened");
+                }
+                if (dYaw > 0.1 || dPitch > 0.1) {
+                    f.add(String.format(Locale.US, "the camera moved on arriving at an ordinary door (%.2f / %.2f degrees)",
+                            dYaw, dPitch));
+                }
+            }
+            // ---- the control: a wither door still faces him to it ----
+            int wither = pickDoor(ctx, 2, true);
+            if (wither < 0) {
+                wither = pickDoor(ctx, 3, true);   // a blood door aims the same way
+            }
+            int control = wither;
+            if (control < 0) {
+                System.out.println("[" + DOOR_CAM + "] no wither or blood door on this floor - control not run");
+            } else {
+                ctx.runOnClient(mc -> {
+                    float yaw = mc.player.getYRot() + 120f;
+                    mc.player.setYRot(yaw);
+                    mc.player.setYHeadRot(yaw);
+                    mc.player.setXRot(-20f);
+                });
+                ctx.waitTicks(3);
+                Vec3 from = ctx.computeOnClient(mc -> mc.player.position());
+                long mark = LogTap.mark();
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(FEATURE, "onMapPress", new Class<?>[]{int.class},
+                        new Object[]{control}));
+                Vec3 end = waitTrip(ctx, mark);
+                double[] face = ctx.computeOnClient(mc -> {
+                    Vec3 c = (Vec3) ModUnderTest.staticCall(LAYOUT, "doorCentre", new Class<?>[]{int.class},
+                            new Object[]{control});
+                    Vec3 eye = mc.player.getEyePosition();
+                    double dx = c.x - eye.x;
+                    double dz = c.z - eye.z;
+                    double yaw = -Math.toDegrees(Math.atan2(dx, dz));
+                    return new double[]{Math.abs(net.minecraft.util.Mth.wrapDegrees((float) (yaw - mc.player.getYRot())))};
+                });
+                System.out.println(String.format(Locale.US, "[%s] wither door %d (control): travelled %.1f, camera %.1f degrees"
+                        + " of yaw from facing the door", DOOR_CAM, control, end.distanceTo(from), face[0]));
+                if (end.distanceTo(from) >= 2 && face[0] > 5) {
+                    f.add(String.format(Locale.US, "the wither door control did not face the door (%.1f degrees off)", face[0]));
+                }
+            }
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.set(cfg, "setFaceDoorOnArrival", before));
+        }
+    }
+
+    /** An open door (or a locked one) of {@code type} 25-70 blocks away, or -1. */
+    private static int pickDoor(ClientGameTestContext ctx, int type, boolean locked) {
+        Vec3 here = ctx.computeOnClient(mc -> mc.player.position());
+        return ctx.computeOnClient(mc -> {
+            Object layout = ModUnderTest.staticCall(LAYOUT, "capture", new Class<?>[]{}, new Object[]{});
+            int best = -1;
+            for (int i = 0; i < GRID * GRID; i++) {
+                int t = (Integer) ModUnderTest.call(layout, "doorType", new Class<?>[]{int.class}, new Object[]{i});
+                if (t != type) {
+                    continue;
+                }
+                boolean isLocked = (Boolean) ModUnderTest.call(layout, "isLocked", new Class<?>[]{int.class},
+                        new Object[]{i});
+                if (!locked && isLocked) {
+                    continue;
+                }
+                BlockPos b = (BlockPos) ModUnderTest.staticCall(LAYOUT, "doorBlock", new Class<?>[]{int.class},
+                        new Object[]{i});
+                double d = Math.hypot(b.getX() - here.x, b.getZ() - here.z);
+                if (type == 1 ? d > 25 && d < 70 : d > 5) {
+                    best = i;
+                    break;
+                }
+            }
+            return best;
+        });
     }
 
     // ============================================================================================ 854 position
