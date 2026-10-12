@@ -497,3 +497,5 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 848 (AuraQuoiTests, nt-key-place, 2026-10-12): the testmod's `RedstoneKeyPickup` sets the key's head ON TOP of the
   redstone block it is placed on - which is itself a redstone key skull, so the aura's first version picked it straight
   back up (2 uses, nothing on the block). Count uses per phase, and check the head is still there afterwards.
+  Since nt-key-place-2: the node only takes the key on an AIR-facing face and logs every use with its face; 848 covers
+  the eye-to-centre face with stone so the open-face rule is what is measured, and counts key detection at 9 vs 11.
