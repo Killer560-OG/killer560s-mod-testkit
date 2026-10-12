@@ -289,6 +289,20 @@ final class TabSweep {
                 }
                 Frames.Drawn drawn = Frames.extract(mc, d.screen, -1, -1);
                 n[2] = drawn.texts();
+                // killer560 2026-10-12: "etable", and any start of it, finds every Experimentation Table tab.
+                d.search("experiment");
+                List<Object> expTabs = d.visibleTabs();
+                if (expTabs.isEmpty()) {
+                    c.problem("search 'experiment' found no tab - the alias check below would be vacuous");
+                }
+                for (String alias : new String[] {"et", "eta", "etab", "etable", "ETABLE"}) {
+                    d.search(alias);
+                    List<Object> got = d.visibleTabs();
+                    if (!got.containsAll(expTabs)) {
+                        c.problem("search '" + alias + "' lists " + got.size() + " tab(s) but not every one 'experiment' finds ("
+                                + expTabs.size() + ")");
+                    }
+                }
             } catch (Throwable t) {
                 c.problem("search threw: " + UiCase.describe(t));
             } finally {
