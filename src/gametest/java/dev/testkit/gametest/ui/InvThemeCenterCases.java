@@ -343,6 +343,168 @@ final class InvThemeCenterCases {
         return n;
     }
 
+    /**
+     * The screen titles' colour per preset (killer560, 2026-10-12: "in dark mode make text pure white"): in a 2560x1440
+     * GUI 3 window, the title of the inventory ("Crafting") and of a 6-row chest is counted pixel by pixel in its label
+     * box. Dark must draw it #FFFFFF (and nothing of its old #D8D8DC), Default vanilla's #404040. Pictures of Dark go to
+     * {@code inv-theme-shots/dark-white-*.png}.
+     */
+    private static void titles(UiCase c, List<String> problems) {
+        HudEditorCases.setWindow(c, 2560, 1440, 3);
+        int gs = c.onClient(mc -> mc.getWindow().getGuiScale());
+        InvBatchCases.inventory(c, Map.of());
+        String[][] presets = {{"DARK", "FFFFFF"}, {"DEFAULT", "404040"}};
+        for (String[] pr : presets) {
+            theme(c, pr[0]);
+            int want = Integer.parseInt(pr[1], 16);
+            for (String kind : new String[]{"inventory", "chest6"}) {
+                open(c, kind, null);
+                int[] box = c.onClient(mc -> {
+                    AbstractContainerScreen<?> sc = (AbstractContainerScreen<?>) McCompat.screen(mc);
+                    int x = (Integer) Mod.field(sc, "leftPos") + (Integer) Mod.field(sc, "titleLabelX");
+                    int y = (Integer) Mod.field(sc, "topPos") + (Integer) Mod.field(sc, "titleLabelY");
+                    return new int[]{x, y, mc.font.width(sc.getTitle())};
+                });
+                BufferedImage img = pr[0].equals("DARK")
+                        ? shotTo(c, "dark-white-" + kind + "-2560x1440-gui3") : InvBatchCases.shot(c, "title-default-" + kind);
+                close(c);
+                int hit = 0;
+                int old = 0;
+                for (int y = box[1] * gs; y < (box[1] + 9) * gs; y++) {
+                    for (int x = box[0] * gs; x < (box[0] + box[2]) * gs; x++) {
+                        int px = rgb(img, x, y);
+                        if (px == want) {
+                            hit++;
+                        } else if (px == 0xD8D8DC) {
+                            old++;
+                        }
+                    }
+                }
+                c.note(String.format(Locale.ROOT, "%s %s title: %d px of #%06X in its label box (old Dark #D8D8DC: %d px)",
+                        pr[0], kind, hit, want, old));
+                if (hit < 100 || old > 0) {
+                    problems.add(pr[0] + " " + kind + " title: " + hit + " px of #" + pr[1] + ", " + old + " px of #D8D8DC");
+                }
+            }
+        }
+    }
+
+    /** Selects hotbar slot {@code sel} and takes a frame. */
+    private static BufferedImage hotbarWith(UiCase c, int sel, String name) {
+        c.onClient(mc -> {
+            McCompat.setScreen(mc, null);
+            mc.player.getInventory().setSelectedSlot(sel);
+            return null;
+        });
+        c.ticks(3);
+        return shotTo(c, name);
+    }
+
+    /** {x0, y0, x1, y1} (inclusive) of the pixels that differ between {@code a} and {@code b} inside a pixel rect, or null. */
+    private static int[] changedBox(BufferedImage a, BufferedImage b, int rx0, int ry0, int rx1, int ry1) {
+        int[] box = null;
+        for (int y = Math.max(0, ry0); y < Math.min(ry1, a.getHeight()); y++) {
+            for (int x = Math.max(0, rx0); x < Math.min(rx1, a.getWidth()); x++) {
+                if (differs(a, b, x, y)) {
+                    if (box == null) {
+                        box = new int[]{x, y, x, y};
+                    }
+                    box[0] = Math.min(box[0], x);
+                    box[1] = Math.min(box[1], y);
+                    box[2] = Math.max(box[2], x);
+                    box[3] = Math.max(box[3], y);
+                }
+            }
+        }
+        return box;
+    }
+
+    /**
+     * The selected-slot ring (killer560, 2026-10-12: "held items with my mods theme looks kind of off for the main bar.
+     * also dark is way too bright"). Empty hotbar, 2560x1440 GUI 3. For vanilla (theme off) and every preset, slot 4
+     * selected against slot 0 selected: the box of pixels the ring changes round slot 4 must be vanilla's exactly, none
+     * may change inside slot 4's 16-unit inside (the ring hides no more of the item or its rarity fill than vanilla's),
+     * and in Dark the brightest ring pixel stays under a cap. Pictures of slots 0, 4 and 8 selected per preset go to
+     * {@code inv-theme-shots/hotbar-sel-*.png}.
+     */
+    private static void selection(UiCase c, List<String> problems) {
+        HudEditorCases.setWindow(c, 2560, 1440, 3);
+        int gs = c.onClient(mc -> mc.getWindow().getGuiScale());
+        int[] g = c.onClient(mc -> new int[]{mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight()});
+        InvBatchCases.inventory(c, Map.of());
+        int x0 = g[0] / 2 - 91;
+        int rx0 = (x0 + 55) * gs;
+        int rx1 = (x0 + 107) * gs;
+        int ry0 = (g[1] - 30) * gs;
+        int ry1 = g[1] * gs;
+        int[] inside = {(x0 + 83) * gs, (g[1] - 19) * gs, (x0 + 99) * gs, (g[1] - 3) * gs};
+        int[] vanillaBox = null;
+        for (String preset : new String[]{"VANILLA", "DEFAULT", "DARK", "MOD_THEME"}) {
+            if (preset.equals("VANILLA")) {
+                c.onClient(mc -> {
+                    Mod.call(Mod.cfg(ICFG), "setEnabled", false);
+                    return null;
+                });
+            } else {
+                theme(c, preset);
+            }
+            String tag = preset.toLowerCase(Locale.ROOT);
+            BufferedImage s0 = hotbarWith(c, 0, "hotbar-sel-" + tag + "-slot0");
+            BufferedImage s4 = hotbarWith(c, 4, "hotbar-sel-" + tag + "-slot4");
+            hotbarWith(c, 8, "hotbar-sel-" + tag + "-slot8");
+            int[] box = changedBox(s0, s4, rx0, ry0, rx1, ry1);
+            int insideChanged = 0;
+            for (int y = inside[1]; y < inside[3]; y++) {
+                for (int x = inside[0]; x < inside[2]; x++) {
+                    if (differs(s0, s4, x, y)) {
+                        insideChanged++;
+                    }
+                }
+            }
+            int bright = 0;
+            if (box != null) {
+                for (int y = box[1]; y <= box[3]; y++) {
+                    for (int x = box[0]; x <= box[2]; x++) {
+                        if (differs(s0, s4, x, y)) {
+                            int p = rgb(s4, x, y);
+                            bright = Math.max(bright, Math.max((p >> 16) & 0xFF, Math.max((p >> 8) & 0xFF, p & 0xFF)));
+                        }
+                    }
+                }
+            }
+            c.note(String.format(Locale.ROOT, "%s: ring box %s, %d px changed inside slot 4, brightest ring channel %d", preset,
+                    box == null ? "none" : java.util.Arrays.toString(box), insideChanged, bright));
+            if (box == null) {
+                problems.add(preset + ": selecting slot 4 changed nothing round it");
+                continue;
+            }
+            if (preset.equals("VANILLA")) {
+                vanillaBox = box;
+            } else if (vanillaBox != null && !java.util.Arrays.equals(box, vanillaBox)) {
+                problems.add(preset + ": the ring covers " + java.util.Arrays.toString(box) + ", vanilla's "
+                        + java.util.Arrays.toString(vanillaBox));
+            }
+            if (insideChanged > 0) {
+                problems.add(preset + ": the ring changes " + insideChanged + " px inside the slot's 16-unit inside");
+            }
+            if (preset.equals("DARK") && bright > 0xA0) {
+                problems.add("DARK: the ring is too bright (channel " + bright + ", cap 160)");
+            }
+        }
+    }
+
+    /** A screenshot saved as {@code inv-theme-shots/<name>.png} exactly (no tag or version suffix). */
+    private static BufferedImage shotTo(UiCase c, String name) {
+        BufferedImage img = InvBatchCases.shot(c, name);
+        try {
+            Files.createDirectories(SHOTS);
+            javax.imageio.ImageIO.write(img, "png", SHOTS.resolve(name + ".png").toFile());
+        } catch (Exception e) {
+            c.note("could not save " + name + ": " + e);
+        }
+        return img;
+    }
+
     static void centred(UiCase c) throws Exception {
         Path cfgPath = InvBatchCases.configPath(c, ICFG);
         byte[] oldCfg = InvBatchCases.read(cfgPath);
@@ -370,6 +532,8 @@ final class InvThemeCenterCases {
             });
             c.note("Item Rarity Background probe: " + probe);
             c.check(probe.endsWith("LEGENDARY"), "the test item has no rarity, the rarity checks would be vacuous: " + probe);
+            titles(c, problems);
+            selection(c, problems);
 
             int[][] sizes = {{2560, 1440, 3}, {2560, 1440, 2}, {2560, 1440, 4}, {2560, 1440, 0}, {1920, 1080, 3},
                     {1920, 1080, 0}, {2560, 1369, 3}, {2560, 1369, 0}, {1920, 1017, 2}, {1920, 1017, 4}};
