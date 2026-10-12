@@ -40,7 +40,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * <p>686 Blood Camp Trigger Bot ("I tried doing it on F1 with triggerbot and it didn't work"): a Watcher and a blood
  * mob's skull stand are summoned and the stand is moved along a real trip. (A) He stands 14 blocks from where it lands,
- * aimed at the landing box: the Trigger Bot must click once, after the kill moment, a swing (nothing in melee reach) -
+ * aimed at the landing box: the Trigger Bot must click once, 3 (+-1) ticks before the kill moment, a swing (nothing in melee reach) -
  * before the fix it needed the landing spot inside 3 blocks and sent nothing at all. (B) He stands 2 blocks from it and a
  * zombie appears on the landing spot as the stand arrives: the click must be an attack on that zombie and the zombie must
  * lose health on the server. Plus: a player-model NPC (version-2 UUID) counts as a mob to hit, a real player (v4) does not.
@@ -156,8 +156,14 @@ final class DungeonB2Cases {
                         + " blocks the Trigger Bot clicked " + clicksA + " time(s), want exactly 1");
                 c.check(attacksA == 0 && a.interacts == 0, "(A) nothing is in melee reach, yet an attack went out");
                 c.check(a.swings >= 1, "(A) no swing packet went out");
-                c.check(a.clickAt != null && a.clickAt <= 0.0, "(A) the click went out before the kill moment ("
-                        + a.clickAt + ")");
+                // killer560 2026-10-11: a fixed lead - the attack reaches the server 3 ticks before the mob is due,
+                // ping added on top (Auto Detect Lag is off here and the integrated server has no round trip), so the
+                // client clicks on the countdown tick nearest 3 + the mod's 1-tick tick-boundary allowance = 3.8; 792
+                // measures the server's side.
+                // The mod's own record of the tick it clicked on (this case's clickAt is read a tick later).
+                double firedAt = c.onClient(mc -> (Double) Mod.staticCall(BC, "lastTriggerAt"));
+                c.check(firedAt >= 3.3 && firedAt <= 4.3, "(A) the click went out at " + firedAt
+                        + " ticks left, want 3.8: 3 before the kill moment plus 1 of tick boundaries");
             } else {
                 c.check(clicksA == 0 && a.swings == 0, "legit jar: the Trigger Bot clicked (" + clicksA + ")");
             }
@@ -240,7 +246,8 @@ final class DungeonB2Cases {
             if (i <= moveTicks) {
                 double f = i == moveTicks ? distance : step * i;
                 move(c, tag, start.add(f, 0, 0));
-                if (i == moveTicks && zombie) {
+                // Five ticks before the stand arrives: the click now comes 3 ticks before the countdown ends.
+                if (i == moveTicks - 5 && zombie) {
                     // A husk: a zombie burns in daylight, which took 2 health off it with no attack at all (legit run).
                     command(c, String.format(Locale.ROOT, "summon husk %.3f %.3f %.3f {Tags:[\"bcb2mob\"],NoAI:1b,"
                             + "Silent:1b,PersistenceRequired:1b,Health:20f}", end.x, end.y, end.z));

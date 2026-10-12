@@ -23,10 +23,12 @@ import java.util.Map;
  *   them together still one a second (legit jar: only Blood Camp and Terminal Protection exist to ask); the reading
  *   follows +200 ms; one 2 s pong moves the mean (HUD) but not the median (automation); before the first pong it is the
  *   tab-list value.</li>
- *   <li>792 Blood Camp: a Watcher and a blood mob's skull stand on the server, the stand moved by real move packets.
- *   The moment the box turns green / the kill sound is due (ping &gt; time left) comes one measured round trip earlier
- *   with +200 ms; the Trigger Bot with a -8 tick manual offset and Auto Detect Lag clicks one round trip earlier too, and
- *   with no manual offset it still never clicks before the kill moment (cheat jar).</li>
+ *   <li>792 Blood Camp: a Watcher and a blood mob's skull stand on the server, its move packets sent on server ticks
+ *   the case knows. The moment the box turns green / the kill sound is due (ping &gt; time left) comes one measured
+ *   round trip earlier with +200 ms. The Trigger Bot's attack on a husk on the landing spot reaches the server 3 ticks
+ *   (+-1; 2.8 is the countdown's x.8 grid point nearest, see SERVER_LEAD) before the mob is due, both locally and with
+ *   +200 ms (killer560 2026-10-11: a fixed 3-tick server-side lead,
+ *   ping added on the client), read off the server's own attack_entity tick (cheat jar).</li>
  *   <li>793 Auto Debuff (cheat): the spray lead {@code leadOffset} grows by round(ping / 50) ticks; Ping Compensation off,
  *   it does not.</li>
  *   <li>794 Auto Routes (cheat): a boom that changed nothing waits {@code 4 + ceil(ping / 50)} ticks: 5 locally, 8-9
@@ -221,7 +223,16 @@ final class HxPingAutomationCases {
 
     // ---- 792 --------------------------------------------------------------------------------------------------------
 
-    private record Trip(boolean tracked, double killAt, int killPing, double triggerAt, int clicks) {
+    /**
+     * Ticks before the countdown's end the Trigger Bot's attack should reach the server (killer560, 2026-10-11: 3), as
+     * the x.8 countdown grid allows it: the mod clicks on the tick nearest 3 + 1 (its mean tick-boundary allowance) +
+     * ping, which is 3.8 + ping, so the mean arrival is 2.8. Each end's tick boundary adds 0-1 tick in a phase the case
+     * cannot control, so a single trip lands 1.8-3.8 early - 2.8 +-1.
+     */
+    private static final double SERVER_LEAD = 2.8;
+
+    private record Trip(boolean tracked, double killAt, int killPing, double triggerAt, int clicks, int attacks,
+                        Double serverLead) {
     }
 
     private static String head(String texture) {
@@ -245,62 +256,90 @@ final class HxPingAutomationCases {
     }
 
     /**
-     * A blood mob trip: a skull stand from {@code x0} moved +x 0.4 a tick for nine ticks by real move packets (enough
-     * for the mod's path; its countdown runs from the first move), then watched until well past the kill moment while
-     * he looks at the predicted landing box.
+     * A blood mob trip timed on the SERVER's clock: three move packets for a skull stand, one a tick, each sent by the
+     * server on a tick it reports (Hx {@code entity.nudge}; the tracker's own cadence would hide which tick the trip
+     * began on). The mod's countdown starts at the first packet it receives, so the mob is due on server tick
+     * {@code first + (first wave ? 78.8 : 38.8)}. A husk stands on the predicted landing spot, he looks at it, and the
+     * server's own {@code attack_entity} tick gives how early the attack arrived.
      */
-    private static Trip trip(Session c, String mobTex, double x0) {
+    private static Trip trip(Session c, String mobTex) {
+        boolean firstWave = c.onClient(mc -> (Boolean) Mod.staticCall("bloodcamp.BloodCampMoveTimer", "isFirstSpawns"));
+        double scale = firstWave ? 16.1 : 11.9;
+        double due = (firstWave ? 40 : 0) + 38 + 0.8;
+        double y = 151.0;
+        double z = -417.5;
+        // The mod's start is the stand's spot + the packet's WHOLE blocks (Noamm's integer division): 1 for 1.2.
+        double x0 = -420.5 - scale - 1.0;
         c.onClient(mc -> {
             Mod.setField(BC, "lastKillableAt", Double.NaN);
             Mod.setField(BC, "lastTriggerAt", Double.NaN);
             return null;
         });
         int clicks0 = c.onClient(mc -> (Integer) Mod.staticCall(BC, "triggerClicks"));
-        double y = 151.0;
-        double z = -416.5;
+        int attacks0 = c.onClient(mc -> (Integer) Mod.staticCall(BC, "triggerAttacks"));
         String uuid = c.hx().stand(x0, y, z, null, "marker", false, "invisible", false, "helmet", head(mobTex));
         boolean tracked = false;
+        long firstTick = -1;
+        long since;
         try {
             c.ctx().waitTicks(10);
-            for (int i = 1; i <= 9; i++) {
-                c.hx().call("entity.move", "uuid", uuid, "x", x0 + 0.4 * i, "y", y, "z", z);
+            for (int i = 0; i < 3; i++) {
+                long t = c.hx().call("entity.nudge", "uuid", uuid, "dx", 1.2).getAsLong();
+                if (firstTick < 0) {
+                    firstTick = t;
+                }
                 c.ctx().waitTicks(1);
             }
+            c.waitUntil("the trip is tracked", mc -> endVector() != null, 100);
+            tracked = true;
+            Vec3 end = c.onClient(mc -> endVector());
+            c.server().command(String.format(Locale.ROOT, "summon husk %.3f %.3f %.3f {Tags:[\"pnghusk\"],NoAI:1b,"
+                    + "Silent:1b,Invulnerable:1b,PersistenceRequired:1b}", end.x, end.y, end.z));
+            since = c.hx().head();
             for (int i = 0; i < 160; i++) {
                 Boolean done = c.onClient(mc -> {
-                    Vec3 end = endVector();
-                    if (end == null) {
+                    Vec3 e = endVector();
+                    if (e == null) {
                         return false;
                     }
                     Vec3 eye = mc.player.getEyePosition();
-                    Vec3 d = end.add(0, 1.0, 0).subtract(eye);
+                    Vec3 d = e.add(0, 1.0, 0).subtract(eye);
                     mc.player.setYRot((float) Math.toDegrees(Math.atan2(-d.x, d.z)));
                     mc.player.setXRot((float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z))));
                     double killAt = (Double) Mod.staticCall(BC, "lastKillableAt");
                     double trig = (Double) Mod.staticCall(BC, "lastTriggerAt");
                     return !Double.isNaN(killAt) && (!Mod.isCheat() || !Double.isNaN(trig));
                 });
-                tracked |= c.onClient(mc -> endVector() != null);
                 if (done) {
                     break;
                 }
                 c.ctx().waitTicks(1);
             }
+            c.ctx().waitTicks(10); // the attack's packet reaches the server
         } finally {
             c.hx().call("entity.remove", "uuid", uuid);
+            c.server().command("kill @e[tag=pnghusk]");
             c.ctx().waitTicks(5);
+        }
+        Double serverLead = null;
+        for (com.google.gson.JsonObject e : c.hx().events(since, "attack_entity")) {
+            serverLead = firstTick + due - e.get("tick").getAsLong();
+            break;
         }
         double killAt = c.onClient(mc -> (Double) Mod.staticCall(BC, "lastKillableAt"));
         int killPing = c.onClient(mc -> (Integer) Mod.staticCall(BC, "lastKillablePingMs"));
         double trig = c.onClient(mc -> (Double) Mod.staticCall(BC, "lastTriggerAt"));
         int clicks = c.onClient(mc -> (Integer) Mod.staticCall(BC, "triggerClicks")) - clicks0;
-        return new Trip(tracked, killAt, killPing, trig, clicks);
+        int attacks = c.onClient(mc -> (Integer) Mod.staticCall(BC, "triggerAttacks")) - attacks0;
+        return new Trip(tracked, killAt, killPing, trig, clicks, attacks, serverLead);
     }
 
     private static String fmt(Trip t) {
-        return String.format(Locale.ROOT, "killable at %.1f ticks left (ping %d ms), trigger %s, %d click(s)", t.killAt,
-                t.killPing, Double.isNaN(t.triggerAt) ? "none" : String.format(Locale.ROOT, "at %.1f", t.triggerAt),
-                t.clicks);
+        return String.format(Locale.ROOT, "killable at %.1f ticks left (ping %d ms), trigger %s, %d click(s), %d attack(s),"
+                        + " attack reached the server %s", t.killAt, t.killPing,
+                Double.isNaN(t.triggerAt) ? "none" : String.format(Locale.ROOT, "at %.1f ticks left", t.triggerAt),
+                t.clicks, t.attacks, t.serverLead == null ? "never" : String.format(Locale.ROOT, "%.1f ticks early",
+                        t.serverLead));
     }
 
     private static void bloodCamp(Session c) {
@@ -317,7 +356,7 @@ final class HxPingAutomationCases {
                     .with(BC_CFG, "KillSound", false)
                     .with(BC_CFG, "AuraEnabled", false)
                     .with(BC_CFG, "AutoDetectLag", true)
-                    .with(BC_CFG, "ManualTickOffset", -8);
+                    .with(BC_CFG, "ManualTickOffset", 0);
             if (cheat) {
                 on.with(BC_CFG, "TriggerBotEnabled", true);
             }
@@ -330,47 +369,45 @@ final class HxPingAutomationCases {
                 c.waitUntil("Blood Camp sees the Watcher", mc -> Mod.field(Mod.ROOT + BC, "watcherEntityId") != null, 200);
 
                 int base = baseline(c);
-                Trip a = trip(c, mobTex, -432.5);
+                Trip a = trip(c, mobTex);
                 c.note("local (" + base + " ms): " + fmt(a));
                 lagOn(c);
                 Trip b;
-                Trip z;
                 int lagged;
                 try {
                     lagged = auto(c);
-                    b = trip(c, mobTex, -432.5);
+                    b = trip(c, mobTex);
                     c.note("+" + LAG_MS + " ms (" + lagged + " ms): " + fmt(b));
-                    c.onClient(mc -> {
-                        Mod.call(Mod.cfg(BC_CFG), "setManualTickOffset", 0);
-                        return null;
-                    });
-                    z = trip(c, mobTex, -432.5);
-                    c.note("+" + LAG_MS + " ms, manual offset 0: " + fmt(z));
                 } finally {
                     lagOff(c);
                 }
                 c.check(a.tracked && b.tracked, "a trip was never tracked - nothing to measure");
+                // The box / kill sound: unchanged, Noamm's ping > time left.
                 double want = (b.killPing - a.killPing) / 50.0;
                 double shift = b.killAt - a.killAt;
                 c.note(String.format(Locale.ROOT, "kill moment came %.1f ticks earlier; the ping difference is %.1f ticks",
                         shift, want));
                 c.check(!Double.isNaN(a.killAt) && a.killAt <= 0.05 && a.killAt > -1.05,
                         "locally the box turned green at " + a.killAt + " ticks left, want the kill moment (0)");
-                c.check(b.killPing >= LAG_MS * 9 / 10, "the kill moment was judged with " + b.killPing + " ms");
                 c.check(Math.abs(shift - want) <= 1.0 && shift >= 3.0, String.format(Locale.ROOT,
                         "with +%d ms the kill moment moved %.1f ticks, want about %.1f", LAG_MS, shift, want));
                 if (cheat) {
-                    double tshift = b.triggerAt - a.triggerAt;
-                    c.note(String.format(Locale.ROOT, "Trigger Bot (-8 ticks + lag) clicked %.1f ticks earlier", tshift));
-                    c.check(a.clicks == 1 && b.clicks == 1 && z.clicks == 1, "want one click per trip, got " + a.clicks
-                            + " / " + b.clicks + " / " + z.clicks);
-                    c.check(a.triggerAt <= -7.0, "locally the -8 tick offset clicked at " + a.triggerAt);
-                    c.check(Math.abs(tshift - lagged / 50.0) <= 1.0 && tshift >= 3.0, String.format(Locale.ROOT,
-                            "with +%d ms the Trigger Bot moved %.1f ticks, want about %.1f", LAG_MS, tshift, lagged / 50.0));
-                    c.check(z.triggerAt <= 0.0, "with real ping and no manual offset the Trigger Bot clicked BEFORE the"
-                            + " kill moment (" + z.triggerAt + " ticks left)");
+                    c.check(a.clicks == 1 && b.clicks == 1 && a.attacks == 1 && b.attacks == 1,
+                            "want one attack per trip, got clicks " + a.clicks + "/" + b.clicks + ", attacks " + a.attacks
+                                    + "/" + b.attacks);
+                    c.check(a.serverLead != null && Math.abs(a.serverLead - SERVER_LEAD) <= 1.0 + 1e-6, "at " + base
+                            + " ms the attack reached the server " + a.serverLead + " ticks early, want 2.8 (+-1)");
+                    c.check(b.serverLead != null && Math.abs(b.serverLead - SERVER_LEAD) <= 1.0 + 1e-6, "with +" + LAG_MS
+                            + " ms the attack reached the server " + b.serverLead + " ticks early, want 2.8 (+-1)");
+                    // The client fired one round trip earlier to get there.
+                    double fireShift = b.triggerAt - a.triggerAt;
+                    c.note(String.format(Locale.ROOT, "client fired %.1f ticks earlier with +%d ms (%.1f ticks of ping)",
+                            fireShift, LAG_MS, lagged / 50.0));
+                    c.check(Math.abs(fireShift - lagged / 50.0) <= 1.0, "the client's click moved " + fireShift
+                            + " ticks with " + lagged + " ms");
                 } else {
-                    c.check(a.clicks == 0 && b.clicks == 0 && z.clicks == 0, "legit jar: the Trigger Bot clicked");
+                    c.check(a.clicks == 0 && b.clicks == 0 && a.serverLead == null && b.serverLead == null,
+                            "legit jar: the Trigger Bot attacked");
                 }
             } finally {
                 c.hx().removeStands();

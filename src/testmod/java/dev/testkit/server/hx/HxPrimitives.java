@@ -21,6 +21,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundMoveEntityPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket;
@@ -100,6 +101,8 @@ import java.util.UUID;
  *                                          -&gt; {uuid, id}
  * entity.remove {uuid} | {all: true}       stands spawned through Hx
  * entity.move {uuid, x, y, z}              setPos on a stand spawned through Hx (the tracker sends a move packet)
+ * entity.nudge {uuid, dx, dy=0, dz=0}      a relative move packet for an Hx stand, sent to the player NOW (the server's
+ *                                          entity stays put) -&gt; the server tick it went out on
  * menu.open {title, rows=6, slots: {"13": "stack", ...}, script?}   -&gt; {containerId}
  * kick {reason}
  * cmd.stub {names[], reply?}               register commands that just answer (and are logged like any other)
@@ -176,6 +179,7 @@ public final class HxPrimitives implements HxModule {
         HxBridge.register("stand", HxPrimitives::stand);
         HxBridge.register("entity.remove", HxPrimitives::entityRemove);
         HxBridge.register("entity.move", HxPrimitives::entityMove);
+        HxBridge.register("entity.nudge", HxPrimitives::entityNudge);
         HxBridge.register("menu.open", HxPrimitives::menuOpen);
         HxBridge.register("kick", (s, a) -> {
             ServerPlayer p = player(s, a);
@@ -450,6 +454,18 @@ public final class HxPrimitives implements HxModule {
         }
         e.setPos(number(a, "x", e.getX()), number(a, "y", e.getY()), number(a, "z", e.getZ()));
         return new JsonPrimitive(true);
+    }
+
+    /** A move packet on a tick the caller knows: the tracker's own cadence (every few ticks for a stand) would hide it. */
+    private static JsonElement entityNudge(MinecraftServer s, JsonObject a) {
+        ServerPlayer p = player(s, a);
+        Entity e = STANDS.get(UUID.fromString(a.get("uuid").getAsString()));
+        if (e == null) {
+            throw new IllegalArgumentException("no Hx stand " + a.get("uuid").getAsString());
+        }
+        p.connection.send(new ClientboundMoveEntityPacket.Pos(e.getId(), (short) Math.round(number(a, "dx", 0) * 4096),
+                (short) Math.round(number(a, "dy", 0) * 4096), (short) Math.round(number(a, "dz", 0) * 4096), false));
+        return new JsonPrimitive(s.getTickCount());
     }
 
     private static JsonElement menuOpen(MinecraftServer s, JsonObject a) throws Exception {
