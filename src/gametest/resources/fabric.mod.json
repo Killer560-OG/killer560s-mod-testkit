@@ -78,6 +78,7 @@
 			"dev.testkit.gametest.SimThreadTests",
 			"dev.testkit.gametest.SimEssenceAuraTests",
 			"dev.testkit.gametest.SimAuraRebuildTests",
+			"dev.testkit.gametest.SimSealTests",
 			"dev.testkit.gametest.AuraQuoiTests",
 			"dev.testkit.gametest.SimAuraSkipTests",
 			"dev.testkit.gametest.SimWorldTests",
