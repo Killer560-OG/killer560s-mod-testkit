@@ -14,25 +14,33 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 898 (croesus-colors, 2026-10-12). killer560: "these colors are hard to actually tell if they are different" - the
- * not-looked-at gold border and the unclaimed orange one read the same over Hypixel's green and red run heads.
+ * 898 (croesus-colors, 2026-10-12; croesus-colors2, 2026-10-13). killer560: "these colors are hard to actually tell if
+ * they are different", then "it is really hard still to tell what needs opened now. And please remove that question
+ * mark symbol".
  * <p>
  * One page with every state twice, over a green head (row 2) and a red head (row 3): unclaimed, needs a key, not looked
- * at, opened, key used. Each state's look is four pixels of the shot: its top-left corner (border / corner mark / tint),
- * a pixel of the key and "?" marks, a pixel of the dark plate behind them, and the middle of the left edge (where the
- * key border runs and the corner marks do not). The centre is the head itself and tells nothing. Two states differ by the
- * largest CIEDE2000 deltaE of the four, so a treatment difference (a mark, a plate, a border) counts as well as hue -
- * magenta and blue are close hues to a protanope, and the key mark is what tells them apart there; every pair on the same head must differ by at least {@link #MIN_DE}, and still by
- * {@link #MIN_DE_CVD} after a protanopia and a deuteranopia simulation (Machado et al. 2009, severity 1). Also: a config
- * still on the old needs-a-key gold moves to the new default, a picked colour stays.
+ * at, opened, key used. Distinctness: each state's look is four pixels of the shot (top-left corner, a key-mark pixel,
+ * a pixel of the mark's plate, the middle of the left edge); two states differ by the largest CIEDE2000 deltaE of the
+ * four, normal and after a protanopia and a deuteranopia simulation (Machado et al. 2009, severity 1). A pair with an
+ * action state in it needs {@link #MIN_DE} / {@link #MIN_DE_CVD}; two quiet states need only {@link #MIN_DE_QUIET} /
+ * {@link #MIN_DE_QUIET_CVD}. Salience: over the slot's outer two-pixel frame (where the head does not reach), the mean
+ * CIEDE2000 shift from the same page with Highlight Runs off, and the mean CIELAB chroma; the weaker action state must
+ * beat the strongest quiet one by {@link #SALIENCE_RATIO} on both. Also: the legend has no "?", old defaults migrate,
+ * and a shot of his layout (mostly not looked at, a few unclaimed, one needs a key).
  */
 final class CroesusColorCases {
 
     private CroesusColorCases() {
     }
 
+    /** A pair with an action state in it (unclaimed, needs a key). */
     static final double MIN_DE = 30.0;
     static final double MIN_DE_CVD = 20.0;
+    /** A pair of quiet states (not looked at, opened, key used): told apart, but quietly. */
+    static final double MIN_DE_QUIET = 10.0;
+    static final double MIN_DE_QUIET_CVD = 8.0;
+    /** The weaker action state's frame contrast and chroma must each be this many times the strongest quiet state's. */
+    static final double SALIENCE_RATIO = 2.0;
     static final String[] NAMES = {"unclaimed", "needs-key", "not-looked-at", "opened", "key-used"};
 
     static void register(Session s) {
@@ -77,46 +85,105 @@ final class CroesusColorCases {
                             + ", want " + want[i] + " (" + NAMES[i] + ")");
                 }
             }
+            // Shots first (on, then the same page with Highlight Runs off as the reference, then his layout), verdicts
+            // after, so an older jar still leaves all three pictures behind.
             BufferedImage img = CroesusUiCases.shot(c, "colours");
+            c.ctx().runOnClient(mc -> Mod.set("croesus.CroesusConfig", "setHighlightRuns", false));
+            c.ctx().waitTicks(3);
+            BufferedImage off = CroesusUiCases.shot(c, "colours-off");
+            c.ctx().runOnClient(mc -> Mod.set("croesus.CroesusConfig", "setHighlightRuns", true));
+            c.ctx().waitTicks(3);
             double[] g = CroesusUiCases.geometry(c);
             double px = img.getWidth() / g[2];
+            int[][] xy = new int[45][];
+            for (int slot = 0; slot < 45; slot++) {
+                xy[slot] = CroesusUiCases.slotXY(c, slot);
+            }
+            layout(c);
+            List<String> panel = CroesusUiCases.panel(c);
+
             StringBuilder report = new StringBuilder();
             List<String> failures = new java.util.ArrayList<>();
             String[] bg = {"green", "red"};
             for (int r = 0; r < 2; r++) {
                 int[][] samples = new int[5][];
+                double[] contrast = new double[5];
+                double[] chroma = new double[5];
                 for (int i = 0; i < 5; i++) {
-                    int[] xy = CroesusUiCases.slotXY(c, rowStart[r] + i);
-                    double sx = (g[0] + xy[0]) * px;
-                    double sy = (g[1] + xy[1]) * px;
+                    double sx = (g[0] + xy[rowStart[r] + i][0]) * px;
+                    double sy = (g[1] + xy[rowStart[r] + i][1]) * px;
                     samples[i] = new int[]{img.getRGB((int) (sx + px / 2), (int) (sy + px / 2)) & 0xFFFFFF,
                             img.getRGB((int) (sx + 13.5 * px), (int) (sy + 2.5 * px)) & 0xFFFFFF,
                             img.getRGB((int) (sx + 10.5 * px), (int) (sy + 5.5 * px)) & 0xFFFFFF,
                             img.getRGB((int) (sx + px / 2), (int) (sy + 8.5 * px)) & 0xFFFFFF};
+                    // Salience: the slot's outer two-pixel frame, where the head does not reach (the reference shot
+                    // shows plain slot grey there): how far the highlight moves it (CIEDE2000) and how colourful it is.
+                    int n = 0;
+                    for (int gy = 0; gy < 16; gy++) {
+                        for (int gx = 0; gx < 16; gx++) {
+                            if (gx > 1 && gx < 14 && gy > 1 && gy < 14) {
+                                continue;
+                            }
+                            int ix = (int) (sx + (gx + 0.5) * px), iy = (int) (sy + (gy + 0.5) * px);
+                            int was = off.getRGB(ix, iy) & 0xFFFFFF;
+                            if (!near(was, 0x8B8B8B)) {
+                                continue;
+                            }
+                            int now = img.getRGB(ix, iy) & 0xFFFFFF;
+                            double[] l = lab(now);
+                            contrast[i] += deltaE(now, was);
+                            chroma[i] += Math.hypot(l[1], l[2]);
+                            n++;
+                        }
+                    }
+                    contrast[i] /= Math.max(1, n);
+                    chroma[i] /= Math.max(1, n);
                 }
                 for (String vision : new String[]{"normal", "protanopia", "deuteranopia"}) {
-                    double min = Double.MAX_VALUE;
-                    String worst = "";
+                    double minAct = Double.MAX_VALUE, minQuiet = Double.MAX_VALUE;
+                    String worstAct = "", worstQuiet = "";
                     for (int i = 0; i < 5; i++) {
                         for (int j = i + 1; j < 5; j++) {
                             double d = 0;
                             for (int k = 0; k < 4; k++) {
                                 d = Math.max(d, deltaE(sim(samples[i][k], vision), sim(samples[j][k], vision)));
                             }
-                            if (d < min) {
-                                min = d;
-                                worst = NAMES[i] + "/" + NAMES[j];
+                            boolean action = i < 2 || j < 2;
+                            if (action && d < minAct) {
+                                minAct = d;
+                                worstAct = NAMES[i] + "/" + NAMES[j];
+                            } else if (!action && d < minQuiet) {
+                                minQuiet = d;
+                                worstQuiet = NAMES[i] + "/" + NAMES[j];
                             }
                         }
                     }
-                    double need = vision.equals("normal") ? MIN_DE : MIN_DE_CVD;
-                    if (min < need) {
-                        failures.add(bg[r] + " heads, " + vision + ": " + worst + " differ by only deltaE "
-                                + String.format("%.1f", min) + " (need " + need + ")");
+                    boolean normal = vision.equals("normal");
+                    double needAct = normal ? MIN_DE : MIN_DE_CVD;
+                    double needQuiet = normal ? MIN_DE_QUIET : MIN_DE_QUIET_CVD;
+                    if (minAct < needAct) {
+                        failures.add(bg[r] + " heads, " + vision + ": " + worstAct + " differ by only deltaE "
+                                + String.format("%.1f", minAct) + " (need " + needAct + ")");
                     }
-                    report.append(bg[r]).append('/').append(vision).append(" min ").append(String.format("%.1f", min))
-                            .append(" (").append(worst).append("); ");
+                    if (minQuiet < needQuiet) {
+                        failures.add(bg[r] + " heads, " + vision + ": quiet pair " + worstQuiet + " differ by only deltaE "
+                                + String.format("%.1f", minQuiet) + " (need " + needQuiet + ")");
+                    }
+                    report.append(bg[r]).append('/').append(vision).append(String.format(" action-pair min %.1f (%s), quiet-pair min %.1f (%s); ",
+                            minAct, worstAct, minQuiet, worstQuiet));
                 }
+                double actC = Math.min(contrast[0], contrast[1]), quietC = Math.max(contrast[2], Math.max(contrast[3], contrast[4]));
+                double actS = Math.min(chroma[0], chroma[1]), quietS = Math.max(chroma[2], Math.max(chroma[3], chroma[4]));
+                if (actC < SALIENCE_RATIO * quietC || actS < SALIENCE_RATIO * quietS) {
+                    failures.add(String.format("%s heads: action states not salient enough - contrast %.1f vs quiet %.1f,"
+                            + " chroma %.1f vs quiet %.1f (need %.1fx)", bg[r], actC, quietC, actS, quietS, SALIENCE_RATIO));
+                }
+                StringBuilder sal = new StringBuilder();
+                for (int i = 0; i < 5; i++) {
+                    sal.append(String.format("%s %.1f/%.1f ", NAMES[i], contrast[i], chroma[i]));
+                }
+                report.append(bg[r]).append(String.format(" salience contrast/chroma: %s-> action min %.1f/%.1f, quiet max %.1f/%.1f"
+                        + " (ratio %.2f/%.2f); ", sal, actC, actS, quietC, quietS, actC / quietC, actS / quietS));
                 StringBuilder px3 = new StringBuilder();
                 for (int i = 0; i < 5; i++) {
                     px3.append(NAMES[i]).append('=').append(String.format("%06X/%06X/%06X/%06X", samples[i][0], samples[i][1], samples[i][2], samples[i][3])).append(' ');
@@ -126,14 +193,42 @@ final class CroesusColorCases {
             // Every vision and background is measured and noted before any verdict, so one run shows the whole table.
             c.note(report.toString());
             c.check(failures.isEmpty(), String.join("; ", failures));
-            List<String> panel = CroesusUiCases.panel(c);
-            boolean legend = panel.stream().anyMatch(l -> l.contains("new") && l.contains("key") && l.contains("look")
-                    && l.contains("done") && l.contains("used"));
-            c.check(legend, "no colour legend line in the info box: " + panel);
+            boolean legend = panel.stream().anyMatch(l -> l.contains("new") && l.contains("key") && l.contains("unchecked")
+                    && l.contains("done") && l.contains("used") && !l.contains("?"));
+            c.check(legend, "no colour legend line (new key unchecked done used, no \"?\") in the info box: " + panel);
             // The old gold default moves to the new one; a picked colour stays.
             String migrate = migration(c);
             c.note("legend " + legend + "; " + migrate);
         }
+    }
+
+    static boolean near(int a, int b) {
+        return Math.abs((a >> 16 & 255) - (b >> 16 & 255)) <= 4 && Math.abs((a >> 8 & 255) - (b >> 8 & 255)) <= 4
+                && Math.abs((a & 255) - (b & 255)) <= 4;
+    }
+
+    /**
+     * His page (screenshot croesus-colors2-1013): a full page of runs, mostly not looked at, a few unclaimed and one
+     * that needs a key (the "Gkey" run of the main page, the same head, so the memory knows it). Shot as "layout".
+     */
+    static void layout(Session c) {
+        Map<Integer, JsonObject> heads = new LinkedHashMap<>();
+        String it = "minecraft:cyan_concrete";
+        int n = 0;
+        for (int row = 1; row <= 4; row++) {
+            for (int col = 1; col <= 7; col++) {
+                int slot = row * 9 + col;
+                if (slot == 11) {
+                    heads.put(slot, head(it, "Gkey", "§7Opened Chest: §4Bedrock", "2d 2h!"));
+                } else if (slot == 10 || slot == 12 || slot == 13) {
+                    heads.put(slot, head(it, "Lnew" + slot, "§cNo chests opened yet!", "1d " + (slot % 24) + "h!"));
+                } else {
+                    heads.put(slot, head(it, "Llook" + slot, "§7Opened Chest: §4Bedrock", "1d " + (n++ % 24) + "h!"));
+                }
+            }
+        }
+        CroesusStableCases.showList(c, CroesusStableCases.list(heads, Map.of()), 15);
+        CroesusUiCases.shot(c, "layout");
     }
 
     static String migration(Session c) throws Exception {
@@ -153,8 +248,8 @@ final class CroesusColorCases {
             int keptOpen = c.onClient(mc -> (Integer) Mod.call(Mod.cfg("croesus.CroesusConfig"), "getRunOpenedColor"));
             String said = String.format("old defaults key FFD000 -> %06X, opened 2F6FD0 -> %06X; picked 123456 -> %06X,"
                     + " 654321 -> %06X", moved, movedOpen, kept, keptOpen);
-            c.check(moved == 0xCC0096 && movedOpen == 0x578DD9 && kept == 0x123456 && keptOpen == 0x654321,
-                    said + " (want CC0096, 578DD9, kept, kept)");
+            c.check(moved == 0x9B00B2 && movedOpen == 0x578DD9 && kept == 0x123456 && keptOpen == 0x654321,
+                    said + " (want 9B00B2, 578DD9, kept, kept)");
             return said;
         } finally {
             if (was == null) {
