@@ -465,3 +465,6 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   position wait before it lands and then resets the look; `summon item_frame {Facing:5b}` did not stick (Hx `frame` op);
   a wither summoned into a dying one is shoved away. The frame-driven trigger bots (Simon Says, Arrow Align, Goldor)
   draw GrimAC Post on every click, so those three run expecting flags.
+- A pixel compare of a screen drawn over the WORLD is only as still as the world behind it: 824's legit run counted
+  2474 changed pixels at the cursor with no carried item anywhere, because the camera view moved between frames
+  (2026-10-12). Look straight up at the sky first and take two clean frames to prove the noise floor is 0.

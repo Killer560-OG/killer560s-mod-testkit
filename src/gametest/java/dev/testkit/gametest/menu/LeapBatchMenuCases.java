@@ -467,8 +467,16 @@ final class LeapBatchMenuCases {
                 double f = mc.getWindow().getScreenWidth() / (double) mc.getWindow().getGuiScaledWidth();
                 return new int[]{0, 0, (int) ((cursor[0] + 24) * f), (int) ((cursor[1] + 24) * f)};
             });
+            // The picture's background must hold still: on the legit run of 2026-10-12 the world behind the menu moved
+            // between the two frames (trees, 2474 "changed" pixels with no head anywhere). Look straight up at the sky.
+            float pitchWas = c.onClient(mc -> mc.player.getXRot());
+            c.onClient(mc -> {
+                mc.player.setXRot(-90f);
+                return null;
+            });
             // (a) the leap menu, then (b) the same chest with the overlay off: the control that a carried head shows.
             int[] counts = new int[2];
+            int[] noise = new int[2];
             for (int pass = 0; pass < 2; pass++) {
                 boolean overlay = pass == 0;
                 c.onClient(mc -> {
@@ -480,6 +488,8 @@ final class LeapBatchMenuCases {
                 c.ctx().waitTicks(6);
                 cursorAt(c, cursor[0], cursor[1]);
                 BufferedImage clean = shot(c, (overlay ? "leap" : "chest") + "-no-carried");
+                // Two clean frames: how much the cursor area changes with nothing carried (the noise floor).
+                noise[pass] = diff(clean, shot(c, (overlay ? "leap" : "chest") + "-no-carried-2"), near);
                 c.onClient(mc -> {
                     ((AbstractContainerScreen<?>) McCompat.screen(mc)).getMenu().setCarried(new ItemStack(Items.PLAYER_HEAD));
                     return null;
@@ -495,10 +505,17 @@ final class LeapBatchMenuCases {
                 });
                 MenuKit.reset(c);
             }
+            c.onClient(mc -> {
+                mc.player.setXRot(pitchWas);
+                return null;
+            });
+            c.check(noise[0] <= 5 && noise[1] <= 5, "the background moved between two clean frames (" + noise[0] + ", "
+                    + noise[1] + " pixel(s)) - the comparison means nothing");
             c.check(counts[1] > 50, "control: a plain chest with a carried head changed only " + counts[1]
                     + " pixel(s) at the cursor - the picture cannot see a carried item");
             c.check(counts[0] <= 5, "the leap menu drew the carried head: " + counts[0] + " pixel(s) changed at the cursor");
-            c.note("carried head at the cursor: leap menu " + counts[0] + " changed pixel(s), plain chest " + counts[1]);
+            c.note("carried head at the cursor: leap menu " + counts[0] + " changed pixel(s), plain chest " + counts[1]
+                    + " (clean-frame noise " + noise[0] + "/" + noise[1] + ")");
         } finally {
             guiBack(c, gui);
             MenuKit.reset(c);
