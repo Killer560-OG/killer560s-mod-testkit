@@ -464,7 +464,12 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   has terrain at (-169, -185), so clear above a built structure; a second `dungeon.tp` to the SAME spot passes a
   position wait before it lands and then resets the look; `summon item_frame {Facing:5b}` did not stick (Hx `frame` op);
   a wither summoned into a dying one is shoved away. The frame-driven trigger bots (Simon Says, Arrow Align, Goldor)
-  draw GrimAC Post on every click, so those three run expecting flags.
+  drew GrimAC Post on every click; since mod grim-post they click on the tick and 786-788 require clean.
+- 831-835 (GrimTickCases, nt-grim-post, 2026-10-11): the other frame-driven clicks, moved to the tick - Simon Says Rotate
+  Auto Solve, Arrow Align Aura, Auto i4 Rotate / No Rotate, Goldor's CPS kept on the tick (15.9 of 16). Traps: with Rotate
+  on, Simon Says' idle look turns the camera off the start button during the test's own press (RotationPlace) - switch
+  Auto Solve on after the start; a tp above an unbuilt platform and a wait had him falling as it appeared (AntiKB +
+  Simulation) - forceload, build, then tp; an empty hand's use_item is not recorded - hold something.
 - 811-818 (cosmetic names): a translucent background (tab list, chat, nametag box) over sky is itself blue-ish and passed a
   "green-blue text" colour test, so the whole tab read as one smeared run; drop pixels that are a uniform darkening of the
   base frame before classifying. ModScreen's content widgets sit in a PRIVATE nested pane: reach them through
