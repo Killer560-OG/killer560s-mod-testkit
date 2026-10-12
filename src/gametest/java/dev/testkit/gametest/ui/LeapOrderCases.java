@@ -231,6 +231,18 @@ final class LeapOrderCases {
         InvBatchCases.clickWidget(c, s, archer);
         Object editing = c.onClient(mc -> Mod.field(s, "editing"));
         c.check(String.valueOf(editing).equals(PLAYING), "clicking Archer left the editor on " + editing);
+        // Since mod leap-2 (2026-10-11) unknown classes start the class wizard first; these cases test the layout
+        // editor behind it (826 tests the wizard), so skip it when it shows.
+        boolean wizard = c.onClient(mc -> {
+            try {
+                return Mod.field(s, "wizard") != null;
+            } catch (AssertionError e) {
+                return false;
+            }
+        });
+        if (wizard) {
+            InvBatchCases.clickWidget(c, s, InvBatchCases.widget(c, s, "Skip"));
+        }
         return s;
     }
 
