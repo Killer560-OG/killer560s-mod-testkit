@@ -151,6 +151,8 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-11 "left click forward, right click backward" for every cycling setting ({@link CycleButtonCases}). Own block. */
     static final String[] CYCLE_BACK_CASES = {"806-ui-cycle-buttons-both-ways"};
     /** killer560's 2026-10-12 Edit HUD key / Croesus batch ({@link HudKey2Cases}). Own block for merges. */
+    /** Container overlays in Edit HUD only within 10 s (mod hud-key-3, {@link HudKey2Cases#containerGrace}). Own block. */
+    static final String[] HUD_KEY3_CASES = {"866-ui-container-overlay-grace"};
     static final String[] HUD_KEY2_CASES = {"862-ui-hud-key-typing", "863-ui-hud-key-over-container",
             "864-ui-croesus-split", "865-ui-container-overlays"};
     /** killer560's 2026-10-11 leap-menu batch, the editor half ({@link LeapWizardCases}); 821-825 are in the menu
@@ -223,6 +225,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : HUD_KEY2_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : HUD_KEY3_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -231,7 +236,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES)
                 || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES)
                 || any(AUTOKICK2_CASES)
-                || any(CYCLE_BACK_CASES) || any(HUD_KEY2_CASES);
+                || any(CYCLE_BACK_CASES) || any(HUD_KEY2_CASES) || any(HUD_KEY3_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -408,6 +413,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "863-ui-hud-key-over-container", HudKey2Cases::overContainer);
                     UiCase.run(ctx, "864-ui-croesus-split", HudKey2Cases::croesusSplit);
                     UiCase.run(ctx, "865-ui-container-overlays", HudKey2Cases::overlays);
+                    // ---- container overlays only within 10 s (866) ----
+                    UiCase.run(ctx, "866-ui-container-overlay-grace", HudKey2Cases::containerGrace);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

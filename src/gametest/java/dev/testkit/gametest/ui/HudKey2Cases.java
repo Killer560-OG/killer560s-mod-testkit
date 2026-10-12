@@ -228,6 +228,9 @@ final class HudKey2Cases {
                 return null;
             });
             Screen chest = open(c, HudKey2Cases::chestScreen);
+            // The panel draws over its menu (its own draw call, as ChestProfitFeature makes it each frame): since mod
+            // hud-key-3 a container overlay is listed only when it drew in the last 10 s (866).
+            c.onClient(mc -> drawAt(mc, PANEL, 40, 50, 60, 30));
             String after = press(c);
             Screen ed = c.onClient(McCompat::screen);
             Object parent = ed != null && ed.getClass().getName().equals(Mod.ROOT + EDITOR) ? Mod.call(ed, "parentScreen") : null;
@@ -509,6 +512,119 @@ final class HudKey2Cases {
             if (scope.equals(s)) {
                 out.add(ModScreenDriver.label(w));
             }
+        }
+        return out;
+    }
+
+    // ---- 866 ------------------------------------------------------------------------------------------------------
+
+    /**
+     * 866 (mod hud-key-3, killer560 2026-10-12 "Only if it falls in that last 10s"): with no container open, Edit HUD lists
+     * a container-only overlay (the Croesus panel, Start Croesus on a cheat jar) only if it drew in the last 10 s - Show
+     * Unseen ON does not bring it back - and over its menu, where it has just drawn, it is always listed. The draw stamps
+     * are set on HudSeen's own clock (the HUD marked live now); normal elements are the control for Show Unseen.
+     */
+    static void containerGrace(UiCase c) {
+        Object hud = Mod.cfg(HUD);
+        Object croesus = Mod.cfg("croesus.CroesusConfig");
+        boolean oldShowAll = (Boolean) Mod.call(hud, "isEditorShowAll");
+        boolean oldProfit = (Boolean) Mod.call(croesus, "isChestProfitEnabled");
+        boolean oldAuto = (Boolean) Mod.call(croesus, "getAutoCroesusEnabledRaw");
+        int oldKey = (Integer) Mod.call(hud, "getEditKeyCode");
+        List<String> ids = new ArrayList<>(List.of(PANEL));
+        if (Mod.isCheat()) {
+            ids.add("croesus_start_button");
+        }
+        try {
+            c.onClient(mc -> {
+                Mod.call(hud, "setEditorShowAll", true);
+                Mod.call(hud, "setEditKeyCode", KEY);
+                Mod.call(croesus, "setChestProfitEnabled", true);
+                Mod.call(croesus, "setAutoCroesusEnabled", true);
+                McCompat.setScreen(mc, null);
+                return null;
+            });
+            for (String id : ids) {
+                boolean container = c.onClient(mc -> (Boolean) Mod.staticCall("hud.HudElementRegistry", "isContainerOnly", id));
+                c.check(container, id + " is not marked container-only");
+            }
+            List<String> at5 = listedAfterStamp(c, ids, 5_000);
+            List<String> at15 = listedAfterStamp(c, ids, 15_000);
+            c.note("Show Unseen ON, no container: drawn 5 s ago -> listed " + at5 + "; 15 s ago -> listed " + at15);
+            c.check(at15.stream().anyMatch(i -> !ids.contains(i)),
+                    "Show Unseen lists nothing else, so its being ignored for the overlays proves nothing");
+            for (String id : ids) {
+                c.check(at5.contains(id), id + " drawn 5 s ago is not listed");
+                c.check(!at15.contains(id), id + " drawn 15 s ago is still listed (Show Unseen must not bring it back)");
+            }
+            // Over its menu: an old stamp, then the menu draws it (the feature's own draw call), the key opens Edit HUD there.
+            stamp(c, ids, 60_000);
+            Screen chest = open(c, HudKey2Cases::chestScreen);
+            c.onClient(mc -> {
+                drawAt(mc, PANEL, 40, 50, 60, 30);
+                if (ids.contains("croesus_start_button")) {
+                    Mod.staticCall("hud.HudSeen", "markDrawn", "croesus_start_button");
+                }
+                return null;
+            });
+            String after = press(c);
+            List<String> over = c.onClient(mc -> listed(McCompat.screen(mc)));
+            Object parent = c.onClient(mc -> Mod.call(McCompat.screen(mc), "parentScreen"));
+            c.note("over the menu (after a stamp 60 s old, then its own draw): key opened " + after + ", lists " + over);
+            c.check(parent == chest, "the key did not open Edit HUD over the menu");
+            for (String id : ids) {
+                c.check(over.contains(id), id + " is not listed over its own menu");
+            }
+        } finally {
+            c.ctx().getInput().releaseKey(KEY);
+            c.onClient(mc -> {
+                Mod.call(hud, "setEditorShowAll", oldShowAll);
+                Mod.call(hud, "setEditKeyCode", oldKey);
+                Mod.call(hud, "save");
+                Mod.call(croesus, "setChestProfitEnabled", oldProfit);
+                Mod.call(croesus, "setAutoCroesusEnabled", oldAuto);
+                Mod.call(croesus, "save");
+                McCompat.setScreen(mc, null);
+                return null;
+            });
+        }
+    }
+
+    /** Sets each id's last draw to {@code agoMs} before now and marks the HUD live now (HudSeen's clock). */
+    @SuppressWarnings("unchecked")
+    private static void stamp(UiCase c, List<String> ids, long agoMs) {
+        c.onClient(mc -> {
+            Map<String, long[]> drawn = (Map<String, long[]>) R.getStatic(R.cls("hud.HudSeen"), "LAST_DRAWN");
+            long now = System.currentTimeMillis();
+            for (String id : ids) {
+                drawn.put(id, new long[]{now - agoMs});
+            }
+            Mod.staticCall("hud.HudSeen", "markHudFrame");
+            return null;
+        });
+    }
+
+    private static List<String> listedAfterStamp(UiCase c, List<String> ids, long agoMs) {
+        stamp(c, ids, agoMs);
+        return c.onClient(mc -> listed(editor(mc)));
+    }
+
+    /** A fresh Edit HUD (no parent), laid out, as the key or the menu button would open it. */
+    private static Screen editor(Minecraft mc) {
+        try {
+            Screen ed = (Screen) R.cls(EDITOR).getConstructor(Screen.class).newInstance((Object) null);
+            ed.init(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
+            return ed;
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> listed(Screen ed) {
+        List<String> out = new ArrayList<>();
+        for (Object e : (List<Object>) R.get(ed, "shown")) {
+            out.add((String) Mod.call(e, "id"));
         }
         return out;
     }
