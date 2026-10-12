@@ -391,6 +391,7 @@ final class HudEditorCases {
                 Object ps = Mod.cfg(PS);
                 Mod.call(ps, "setEnabled", true);
                 Mod.call(ps, "setBarShowValue", true);
+                BarPixels.plain(ps);
                 for (Object r : R.cls(READOUT).getEnumConstants()) {
                     Mod.call(ps, "setReadoutOn", r, true);
                 }
@@ -607,6 +608,19 @@ final class HudEditorCases {
             }
             GuiRenderState state = new GuiRenderState();
             render(mc, e, state);
+            if (Mod.has("playerstats.BarPainter")) {
+                // Since mod bars-style the fill is a gradient inside one batched element: the painter's measure of the
+                // render just made (891 checks those against the screen).
+                Class<?> p = R.cls("playerstats.BarPainter");
+                int i = -1;
+                for (Object r : R.cls(READOUT).getEnumConstants()) {
+                    if (id.equals(R.get(r, "hudId"))) {
+                        i = ((Enum<?>) r).ordinal();
+                    }
+                }
+                return i < 0 ? null : new int[]{((int[]) R.getStatic(p, "lastFill"))[i],
+                        ((int[]) R.getStatic(p, "lastTrack"))[i]};
+            }
             int[] w = {-1};
             state.forEachElement(el -> {
                 try {

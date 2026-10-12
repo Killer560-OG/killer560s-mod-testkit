@@ -664,6 +664,7 @@ final class StatBarsCases {
             Mod.call(ps, "setReadoutOn", Mod.enumValue(READOUT, "HEALTH_BAR"), true);
             Mod.call(ps, "setReadoutColor", Mod.enumValue(READOUT, "HEALTH_BAR"), MAGENTA);
             Mod.call(ps, "setBarShowValue", false);
+            BarPixels.plain(ps);
             Mod.call(ps, "save");
             Object hud = Mod.cfg(HUD);
             Mod.call(hud, "setPosition", HEALTH_BAR_ID, 200, 200);
@@ -771,23 +772,20 @@ final class StatBarsCases {
             return null;
         });
         c.ticks(6);
+        BarPixels.settle(c);
         String name = c.name() + "-bar-" + label;
         Path taken = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(name));
         Path kept = dev.testkit.harness.Report.screenshot(name, taken);
         BufferedImage img = javax.imageio.ImageIO.read(taken.toFile());
-        int x0 = Integer.MAX_VALUE, y0 = Integer.MAX_VALUE, x1 = -1, y1 = -1, n = 0;
-        for (int y = 0; y < img.getHeight(); y++) {
-            for (int x = 0; x < img.getWidth(); x++) {
-                int rgb = img.getRGB(x, y) & 0xFFFFFF;
-                if (rgb == (MAGENTA & 0xFFFFFF)) {
-                    n++;
-                    x0 = Math.min(x0, x);
-                    y0 = Math.min(y0, y);
-                    x1 = Math.max(x1, x);
-                    y1 = Math.max(y1, y);
-                }
-            }
-        }
+        // The bar's box from its fill's tint and the painter's insets (BarPixels; Bold/Sleek since mod bars-2). "Solid"
+        // is the fill: every pixel of its box is the bar's tint.
+        int gsNow = c.onClient(mc -> mc.getWindow().getGuiScale());
+        double[] bb = BarPixels.box(img, MAGENTA, gsNow, BarPixels.scene(c));
+        int x0 = bb == null ? Integer.MAX_VALUE : (int) bb[0];
+        int y0 = bb == null ? Integer.MAX_VALUE : (int) bb[1];
+        int x1 = bb == null ? -1 : (int) bb[2];
+        int y1 = bb == null ? -1 : (int) bb[3];
+        int n = bb == null ? 0 : (int) bb[5];
         c.onClient(mc -> {
             R.setStatic(feature, "healthCur", -1L);
             R.setStatic(feature, "healthMax", -1L);
@@ -797,8 +795,8 @@ final class StatBarsCases {
         int area = (x1 - x0 + 1) * (y1 - y0 + 1);
         c.note(String.format(Locale.ROOT, "%s: bar box %d,%d..%d,%d = %dx%d px, %d of %d box pixels magenta -> %s",
                 label, x0, y0, x1, y1, x1 - x0 + 1, y1 - y0 + 1, n, area, kept != null ? kept : taken));
-        if (n != area) {
-            c.problem(label + ": the magenta box is not solid (" + n + " of " + area + ") - something else is in it");
+        if (bb != null && bb[4] < 1) {
+            c.problem(label + ": the magenta fill is not solid (" + n + " px) - something else is in it");
         }
         return new int[]{x0, y0, x1, y1};
     }

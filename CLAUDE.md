@@ -303,6 +303,10 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
 - An enchanted item drawn on the HUD (the mana bar's enchanted book icon) changes between any two screenshots: its glint
   moves. 892's first run counted 192 "changed" px for overflow mana 0 against none, all in the icon (2026-10-12). Diff
   from past the icon.
+- Health and Mana Bars have no flat colour since mod bars-2 (Bold/Sleek gradients, frame, icon), so an exact-colour pixel
+  search finds nothing. Use `ui/BarPixels`: the fill by its TINT, searched only inside the painter's fill area (the
+  superflat ground's olive is 0.09 from yellow's tint and came in through a rounded corner), mapped back to the element
+  box by the painter's insets. 407/441-444/476/393/399 use it.
 
 Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosecret wither doors, 62-argrim frames,
 143 camera, 141/142 autopilot, the mod's Auto Scale, terminal layouts, the logic world, 386's sweep):
