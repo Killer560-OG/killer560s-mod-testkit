@@ -476,3 +476,6 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   on, Simon Says' idle look turns the camera off the start button during the test's own press (RotationPlace) - switch
   Auto Solve on after the start; a tp above an unbuilt platform and a wait had him falling as it appeared (AntiKB +
   Simulation) - forceload, build, then tp; an empty hand's use_item is not recorded - hold something.
+  832 since aura-cps (2026-10-12) also times the Aura CPS setting on a frame under the crosshair needing 7 clicks (Hx
+  `frame` with `rotation` 2): 20.0 at 20, 5.2 at 5. A console `kill` of old frames right before Hx spawned new ones
+  killed the NEW ones (console commands and Hx calls are not ordered) - remove Hx frames with `removeStands` only.

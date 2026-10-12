@@ -23,9 +23,9 @@ import java.util.Locale;
  * <ul>
  *   <li>831 Simon Says Auto Solve, ROTATE mode, facing the device: the camera turns every frame, the click waits for the
  *   tick. All four rounds to {@code ss.completed}.</li>
- *   <li>832 Arrow Align Aura: nine frames of layout 7, each one click from solved, Aura at 60 ms (16.7 CPS); every frame
- *   clicked once ({@code use_entity}), and the rate reported - the Aura's delay is scheduled from the previous click's
- *   due tick, so it must not fall to 10 CPS.</li>
+ *   <li>832 Arrow Align Aura: nine frames of layout 7, each one click from solved, at 16 CPS; every frame clicked once
+ *   ({@code use_entity}). Then the Aura CPS setting (1-20, mod aura-cps) on a frame under the crosshair needing seven
+ *   clicks, at 20 and 5 CPS: seven clicks each, at 17-24 and 4-6 CPS on the server's clock.</li>
  *   <li>833 / 834 Auto i4, Rotate / No Rotate: a bow on the i4 platform, targets lit by the server one after another;
  *   shots ({@code use_item}) must reach the server.</li>
  *   <li>835 Goldor Triggerbot rate: Use (right click) mode at 16 CPS for 60 ticks on a wither; must come out at 13-19 CPS (a flat
@@ -148,8 +148,7 @@ final class GrimTickCases {
         try (HxKit.Settings off = gateOff(c);
              HxKit.Settings on = new HxKit.Settings(c).with(AA_CFG, "SolverEnabled", true)
                      .with(AA_CFG, "PreventMisclicksEnabled", false).with(AA_CFG, "TriggerBotEnabled", false)
-                     .with(AA_CFG, "AuraEnabled", false).with(AA_CFG, "AuraRange", 3.0)
-                     .with(AA_CFG, "AuraMinDelayMs", 60).with(AA_CFG, "AuraMaxDelayMs", 60)) {
+                     .with(AA_CFG, "AuraEnabled", false).with(AA_CFG, "AuraRange", 3.0).with(AA_CFG, "AuraCps", 16)) {
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
             c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
             // Built before he is put there: a tp above it and a wait had him falling as the floor appeared, and GrimAC
@@ -162,33 +161,49 @@ final class GrimTickCases {
             c.hx().call("dungeon.tp", "x", -0.7, "y", 120.0, "z", 77.5, "yaw", 90f, "pitch", 0f);
             c.waitUntil("standing by the wall", mc -> mc.player.onGround() && Math.abs(mc.player.getY() - 120.0) < 0.01
                     && mc.level.getBlockState(new BlockPos(-3, 122, 77)).is(net.minecraft.world.level.block.Blocks.STONE), 200);
-            for (int idx : LAYOUT) {
-                c.hx().call("frame", "x", -2, "y", 120 + idx % 5, "z", 75 + idx / 5, "facing", "east", "item", "arrow");
-            }
-            AABB grid = new AABB(-4, 118, 73, 0, 126, 81);
-            c.waitUntil("the client to have the frames", mc -> mc.level.getEntitiesOfClass(
-                    net.minecraft.world.entity.decoration.ItemFrame.class, grid).size() == LAYOUT.length, 200);
-            c.waitUntil("Arrow Align to read a solution", mc -> Mod.field(Mod.ROOT + "arrowalign.ArrowAlignFeature",
-                    "solution") != null, 100);
+
+            // Sweep: nine frames, one click each, none on the look (facing level between rows), 16 CPS. Every click
+            // needs a body turn first, so the rate is bound by turn + click = 2 ticks, not by the setting.
+            grid(c, -1);
             long since = c.hx().head();
             c.note("Aura on (anticheat lines so far: " + c.scenario().flags().size() + ")");
-            c.onClient(mc -> {
-                Mod.set(AA_CFG, "setAuraEnabled", true);
-                return null;
-            });
+            aura(c, true);
             c.waitUntil("every frame clicked once (server use_entity)",
                     mc -> c.hx().events(since, "use_entity").size() >= LAYOUT.length, 200);
             c.ctx().waitTicks(20); // nothing more: each frame wanted exactly one click
-            c.onClient(mc -> {
-                Mod.set(AA_CFG, "setAuraEnabled", false);
-                return null;
-            });
+            aura(c, false);
             List<JsonObject> clicks = c.hx().events(since, "use_entity");
-            double rate = cps(clicks);
-            c.note(String.format(Locale.ROOT, "arrow aura: %d use_entity, %.1f CPS over the run (60 ms set = 16.7; "
-                    + "turns between frames add ticks)", clicks.size(), rate));
+            c.note(String.format(Locale.ROOT, "arrow aura sweep at 16 CPS: %d use_entity, %.1f CPS (a turn before every "
+                    + "frame)", clicks.size(), cps(clicks)));
             c.check(clicks.size() == LAYOUT.length, "the Aura sent " + clicks.size() + " clicks for "
                     + LAYOUT.length + " frames that each needed one");
+
+            // On the look (killer560 2026-10-12, Aura CPS 1-20): the centre frame starts at rotation 2, so it needs seven
+            // clicks, and he looks straight at it; the Aura takes it first with no turn. Its clicks alone are timed.
+            for (int want : new int[]{20, 5}) {
+                int centre = grid(c, 12)[0];
+                Vec3 at = new Vec3(-1.97, 122.5, 77.5);
+                TriggerTiming.look(c, at);
+                c.ctx().waitTicks(3);
+                c.onClient(mc -> {
+                    Mod.set(AA_CFG, "setAuraCps", want);
+                    return null;
+                });
+                long mark = c.hx().head();
+                aura(c, true);
+                c.waitUntil("seven clicks on the centre frame at " + want + " CPS", mc -> onFrame(c, mark, centre).size() >= 7,
+                        200);
+                aura(c, false);
+                List<JsonObject> mine = onFrame(c, mark, centre);
+                double rate = cps(mine);
+                c.note(String.format(Locale.ROOT, "arrow aura on the look at %d CPS: %d clicks on the centre frame, %.1f CPS "
+                        + "(ticks %s)", want, mine.size(), rate, mine.stream().map(e -> e.get("tick").getAsString()).toList()));
+                c.check(mine.size() == 7, "the centre frame got " + mine.size() + " clicks, it needed 7");
+                double lo = want == 20 ? 17.0 : want * 0.8;
+                double hi = want * 1.2;
+                c.check(rate >= lo && rate <= hi, String.format(Locale.ROOT,
+                        "Aura CPS %d came out at %.1f on a frame under the crosshair", want, rate));
+            }
         } finally {
             c.hx().removeStands();
             c.server().command("kill @e[type=item_frame,x=-2,y=122,z=77,distance=..6]");
@@ -196,6 +211,44 @@ final class GrimTickCases {
             c.server().command("forceload remove -3 72 3 82");
             home(c);
         }
+    }
+
+    private static void aura(Session c, boolean on) {
+        c.onClient(mc -> {
+            Mod.set(AA_CFG, "setAuraEnabled", on);
+            return null;
+        });
+    }
+
+    private static List<JsonObject> onFrame(Session c, long since, int frameId) {
+        return c.hx().events(since, "use_entity").stream().filter(e -> e.get("entityId").getAsInt() == frameId).toList();
+    }
+
+    /**
+     * Layout 7 afresh (old frames removed), each frame one click from solved; {@code seven} (a grid index, or -1) starts
+     * at rotation 2 instead, seven clicks from solved. Returns that frame's entity id (or -1) once the mod reads the grid.
+     */
+    private static int[] grid(Session c, int seven) {
+        // Hx removes its own frames; a console kill here could land AFTER the new frames were spawned and kill them
+        // (this case's first aura-cps run: "the client to have the frames" never came).
+        c.hx().removeStands();
+        AABB box = new AABB(-4, 118, 73, 0, 126, 81);
+        c.waitUntil("the old frames gone", mc -> mc.level.getEntitiesOfClass(
+                net.minecraft.world.entity.decoration.ItemFrame.class, box).isEmpty(), 100);
+        int id = -1;
+        for (int idx : LAYOUT) {
+            JsonObject f = c.hx().call("frame", "x", -2, "y", 120 + idx % 5, "z", 75 + idx / 5, "facing", "east",
+                    "item", "arrow", "rotation", idx == seven ? 2 : 0).getAsJsonObject();
+            if (idx == seven) {
+                id = f.get("id").getAsInt();
+            }
+        }
+        c.waitUntil("the client to have the frames", mc -> mc.level.getEntitiesOfClass(
+                net.minecraft.world.entity.decoration.ItemFrame.class, box).size() == LAYOUT.length, 200);
+        c.waitUntil("Arrow Align to read a solution", mc -> Mod.field(Mod.ROOT + "arrowalign.ArrowAlignFeature",
+                "solution") != null, 100);
+        c.ctx().waitTicks(3); // the frames' rotations read in
+        return new int[]{id};
     }
 
     // ---- 833 / 834 --------------------------------------------------------------------------------------------------
