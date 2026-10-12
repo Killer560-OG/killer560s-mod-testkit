@@ -262,6 +262,18 @@
       "key": "edit hud keybind",
       "text": "Key that opens the HUD editor, over any screen (a chest, Croesus, this menu) so its overlays can be placed where they sit. It does nothing while you are typing: chat, a rename, a sign or book, any search box.",
       "why": "hud-key-2: the Edit HUD key works over menus and is held back only while typing (killer560 2026-10-12)"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "breaker aura",
+      "text": "Cheat build: in a boss fight only, breaks the blocks you have picked (Pick Block Key) once they are in reach, while you hold a charged Dungeon Breaker. Nothing unpicked is broken. During clear it does nothing - use an Auto Routes breaker node.",
+      "why": "path-db 73c5b0e4: Breaker Aura works only in boss (killer560 2026-10-12)"
+    },
+    {
+      "owner": "Breaker Aura",
+      "key": "breaker aura",
+      "text": "Cheat build: in a boss fight only, breaks the blocks you have picked (Pick Block Key) once they are in reach, while you hold a charged Dungeon Breaker. Nothing unpicked is broken. During clear it does nothing - use an Auto Routes breaker node.",
+      "why": "path-db 73c5b0e4: Breaker Aura works only in boss (killer560 2026-10-12)"
     }
   ]
 }
