@@ -105,7 +105,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // ar-obvious-only (2026-10-11): legit mode exists only in -PtestingBuild jars
             "96-ar-786-obvious-only",
             // ar-startguard (2026-10-12): a map arrival's start-only hold on a route with no start node
-            "96-ar-920-nostart-mapwarp"};
+            "96-ar-920-nostart-mapwarp",
+            // ar-redo (2026-10-12): /ar redo restores deletes and clears
+            "96-ar-960-redo-restore"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -273,6 +275,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-653-crypt-straight-down" -> caseCryptStraightDown(ctx);
                         case "96-ar-786-obvious-only" -> caseObviousOnly(ctx);
                         case "96-ar-920-nostart-mapwarp" -> caseNoStartMapWarp(ctx);
+                        case "96-ar-960-redo-restore" -> caseRedoRestore(ctx);
                         default -> {
                         }
                     }
@@ -2953,6 +2956,100 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         String yawText = last.get("yaw").getAsString();
         check(yawText.contains(".") && yawText.substring(yawText.indexOf('.') + 1).length() <= 6,
                 "the saved yaw has more than six decimals: " + yawText);
+    }
+
+    // ============================================================================================ ar-redo (960)
+
+    /**
+     * killer560 (2026-10-12): "if i do /ar delete or /ar remove and then do /ar redo then it should bring them back. Same
+     * if i do /clear /ar redo should bring them all back." Four nodes; /ar delete 2 then /ar remove 2 (two deletes, one
+     * at a time); /ar redo twice brings both back at their old numbers, and the routes file is then the original one
+     * field for field. A third redo has nothing left. /ar undo after a restore deletes it again and /ar redo puts it back.
+     * /ar clear then /ar redo: the whole route back, identical; /ar undo clears it again. Undo/redo of an add is
+     * unchanged. Every step through a real ChatScreen, checked on disk.
+     */
+    private void caseRedoRestore(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        int[][] at = {{6, 22}, {10, 22}, {14, 22}, {18, 22}};
+        for (int[] p : at) {
+            tpRel(ctx, p[0] + 0.5, p[1] + 0.5, 0f, 0f);
+            ctx.waitTicks(4);
+            cmd(ctx, "/ar add breaker");
+            ctx.waitTicks(4);
+        }
+        tpRel(ctx, 22.5, 14.5, 0f, 0f);
+        ctx.waitTicks(4);
+        expectXs(ctx, "redo-restore: after four adds", 6, 10, 14, 18);
+        String original = fileNodes(ctx).toString();
+        // Reload: the four adds are no longer history, so nothing but the deletes below can be restored.
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(STORE, "reload"));
+
+        // ---- two deletes one by one, two redos ----
+        cmd(ctx, "/ar delete 2");
+        expectXs(ctx, "redo-restore: /ar delete 2", 6, 14, 18);
+        cmd(ctx, "/ar remove 2");
+        expectXs(ctx, "redo-restore: /ar remove 2", 6, 18);
+        long m = LogTap.mark();
+        cmd(ctx, "/ar redo");
+        expectXs(ctx, "redo-restore: first redo", 6, 14, 18);
+        check(logHas(m, "Restored #2"), "the first redo did not say it restored #2");
+        m = LogTap.mark();
+        cmd(ctx, "/ar redo");
+        expectXs(ctx, "redo-restore: second redo", 6, 10, 14, 18);
+        check(logHas(m, "Restored #2"), "the second redo did not say it restored #2");
+        String afterDeletes = fileNodes(ctx).toString();
+        check(afterDeletes.equals(original), "the restored route differs from the original: was " + original
+                + " now " + afterDeletes);
+        m = LogTap.mark();
+        cmd(ctx, "/ar redo");
+        expectXs(ctx, "redo-restore: third redo (nothing left)", 6, 10, 14, 18);
+        check(logHas(m, "Nothing to redo"), "a third redo did not say there was nothing to redo");
+
+        // ---- /ar undo after a restore deletes it again; /ar redo puts it back ----
+        cmd(ctx, "/ar undo");
+        expectXs(ctx, "redo-restore: undo of the newest restore", 6, 14, 18);
+        cmd(ctx, "/ar redo");
+        expectXs(ctx, "redo-restore: redo of that undo", 6, 10, 14, 18);
+        cmd(ctx, "/ar undo");
+        cmd(ctx, "/ar undo");
+        expectXs(ctx, "redo-restore: both restores undone", 6, 18);
+        cmd(ctx, "/ar redo");
+        cmd(ctx, "/ar redo");
+        expectXs(ctx, "redo-restore: both redone", 6, 10, 14, 18);
+
+        // ---- /ar clear, /ar redo: the whole route back ----
+        cmd(ctx, "/ar clear");
+        expectXs(ctx, "redo-restore: /ar clear");
+        m = LogTap.mark();
+        cmd(ctx, "/ar redo");
+        expectXs(ctx, "redo-restore: redo after the clear", 6, 10, 14, 18);
+        check(!logHas(m, "Nothing to redo"), "the redo after /ar clear said there was nothing to redo");
+        String afterClear = fileNodes(ctx).toString();
+        check(afterClear.equals(original), "the route restored after /ar clear differs from the original: was "
+                + original + " now " + afterClear);
+        cmd(ctx, "/ar undo");
+        expectXs(ctx, "redo-restore: undo of the restored clear");
+        cmd(ctx, "/ar redo");
+        expectXs(ctx, "redo-restore: redo of that undo", 6, 10, 14, 18);
+
+        // ---- unchanged: undo an add, redo it; a new change leaves nothing to restore ----
+        tpRel(ctx, 22.5, 22.5, 0f, 0f);
+        ctx.waitTicks(4);
+        cmd(ctx, "/ar add breaker");
+        ctx.waitTicks(4);
+        tpRel(ctx, 22.5, 14.5, 0f, 0f);
+        ctx.waitTicks(4);
+        expectXs(ctx, "redo-restore: a fifth add", 6, 10, 14, 18, 22);
+        cmd(ctx, "/ar undo");
+        expectXs(ctx, "redo-restore: undo of the add", 6, 10, 14, 18);
+        cmd(ctx, "/ar redo");
+        expectXs(ctx, "redo-restore: redo of the add", 6, 10, 14, 18, 22);
+        m = LogTap.mark();
+        cmd(ctx, "/ar redo");
+        expectXs(ctx, "redo-restore: redo with the add newest", 6, 10, 14, 18, 22);
+        check(logHas(m, "Nothing to redo"), "a redo with an add as the newest change did not say nothing to redo");
     }
 
     private static final String EDIT_INPUT = "com.killer560.hub.autoroutes.AutoRoutesEditInput";
