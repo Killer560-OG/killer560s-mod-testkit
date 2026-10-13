@@ -26,7 +26,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * the middle of their room; the case is about the live check, which is what Hypixel runs. Then: stand in the room, see the
  * tint, open the chest on the server (the packet path's own handler), kill the mimic, walk to the entrance, clear the
  * mimic room and three others, and sample the room's fill colour for six seconds (six map scans). Cheat: every sample
- * must be the tinted colour. Legit: the map has no mimic tint by design, so every sample must be the plain colour.
+ * must be the tinted colour. Legit (killer560, 2026-10-13): plain while the chest is shut and while the mimic is out
+ * alive (no advance warning), then tinted in every sample after HIS kill.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimMapMimicTests implements FabricClientGameTest {
@@ -188,6 +189,15 @@ public class SimMapMimicTests implements FabricClientGameTest {
             throw new AssertionError("opening the chest did not spring the mimic (opened=" + opened.get()
                     + ", mob=" + mob + ") - nothing below would mean anything");
         }
+        // Legit: the mimic is out but alive - still no tint (no advance warning, only after HIS kill).
+        if (!cheat) {
+            ctx.waitTicks(30);
+            int sprung = ctx.computeOnClient(mc -> roomFill(tile));
+            System.out.println(String.format("[%s] legit, mimic out and alive: #%08X", CASE, sprung));
+            if (sprung != plain) {
+                throw new AssertionError(String.format("legit tinted the room before the mimic died: #%08X", sprung));
+            }
+        }
         serverRun(ctx, (server, sp) -> {
             var e = server.overworld().getEntity((java.util.UUID) mob);
             if (e instanceof net.minecraft.world.entity.LivingEntity le) {
@@ -195,7 +205,11 @@ public class SimMapMimicTests implements FabricClientGameTest {
             }
         });
         ctx.waitFor(mc -> ModUnderTest.staticCall(SIM_MIMIC, "mimicMob") == null, 200);
-        ctx.waitTicks(10);
+        // The client's copy of the block can trail the server by more than a few ticks (26.2, 2026-10-13: still a chest
+        // 12 ticks after the server set air), so wait for it rather than read it once.
+        for (int i = 0; i < 100 && !ctx.computeOnClient(mc -> mc.level.getBlockState(chest).isAir()); i++) {
+            ctx.waitTicks(1);
+        }
         boolean air = ctx.computeOnClient(mc -> mc.level.getBlockState(chest).isAir());
         System.out.println("[" + CASE + "] mimic " + mob + " spawned and killed; chest block now air on the client: "
                 + air);
@@ -213,7 +227,7 @@ public class SimMapMimicTests implements FabricClientGameTest {
         }
         int clearedPlain = ctx.computeOnClient(mc -> colours(tile)[0]);
         int clearedTinted = ctx.computeOnClient(mc -> colours(tile)[1]);
-        int expectAfter = cheat ? clearedTinted : clearedPlain;
+        int expectAfter = clearedTinted;   // both builds: after his kill the room is red
         int bad = 0;
         StringBuilder samples = new StringBuilder();
         for (int i = 0; i < 6; i++) {
@@ -242,11 +256,11 @@ public class SimMapMimicTests implements FabricClientGameTest {
         }
         if (bad > 0) {
             throw new AssertionError(String.format("%d of 6 samples after the mimic died were not #%08X (%s):%s",
-                    bad, expectAfter, cheat ? "the room lost its mimic red" : "legit drew a mimic tint", samples));
+                    bad, expectAfter, "the room is not mimic red after his kill", samples));
         }
         System.out.println("[" + CASE + "] PASS - " + (cheat
                 ? "the mimic room stayed red through the kill, leaving it and four rooms clearing"
-                : "legit: no mimic tint before or after, by design; the mimic sprang and died"));
+                : "legit: plain until his kill, then red through leaving it and four rooms clearing"));
     }
 
     /** {chest, tile, room name, off-centre} or null. Client thread. */
