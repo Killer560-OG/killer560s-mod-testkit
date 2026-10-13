@@ -160,6 +160,11 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] MENU_A_CASES = {"940-ui-menu-a-shots", "941-ui-menu-a-cards", "942-ui-menu-a-drawer",
             "943-ui-menu-a-favourites", "944-ui-menu-a-search", "945-ui-menu-a-no-counts", "946-ui-menu-a-themes",
             "947-ui-menu-a-custom-colour"};
+    /** killer560's 2026-10-13 menu and settings list (mod doc-menu, {@link DocMenuCases}). Own block for merges. */
+    static final String[] DOC_MENU_CASES = {"980-ui-docmenu-home", "981-ui-docmenu-mod-hud", "982-ui-docmenu-auto-update",
+            "983-ui-docmenu-masters", "984-ui-docmenu-bold-name", "985-ui-docmenu-hud-scale-live",
+            "986-ui-docmenu-drawer-reopens", "987-ui-docmenu-cycle-halves", "988-ui-docmenu-calculator",
+            "989-ui-docmenu-saved-themes"};
     /** The Profiles page redesign (mod menu-profiles-ctrlf, {@link MenuProfilesCases}). Own block for merges. */
     static final String[] MENU_PROFILES_CASES = {"948-ui-menu-profiles-page"};
     /** killer560's 2026-10-12 Edit HUD key / Croesus batch ({@link HudKey2Cases}). Own block for merges. */
@@ -247,6 +252,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : MENU_PROFILES_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : DOC_MENU_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : HUD_KEY3_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -266,7 +274,8 @@ public class UiSuite implements FabricClientGameTest {
                 || any(AUTOKICK2_CASES)
                 || any(CYCLE_BACK_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES) || any(HUD_KEY3_CASES)
                 || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES)
-                || any(MENU_PROFILES_CASES);
+                || any(MENU_PROFILES_CASES)
+                || any(DOC_MENU_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -459,6 +468,22 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "947-ui-menu-a-custom-colour", MenuACases::customColour);
                     // ---- Profiles page (948) ----
                     UiCase.run(ctx, "948-ui-menu-profiles-page", MenuProfilesCases::page);
+                    // ---- killer560's 2026-10-13 menu list (980-989) ----
+                    UiCase.run(ctx, "980-ui-docmenu-home", DocMenuCases::home);
+                    UiCase.run(ctx, "981-ui-docmenu-mod-hud", DocMenuCases::modHud);
+                    UiCase.run(ctx, "982-ui-docmenu-auto-update", DocMenuCases::autoUpdate);
+                    UiCase.run(ctx, "983-ui-docmenu-masters", c -> {
+                        // a testing jar walks its normal menu (every tab counted tested for the case)
+                        try (AutoCloseable all = MenuLayoutCases.allTested(c)) {
+                            DocMenuCases.masters(c);
+                        }
+                    });
+                    UiCase.run(ctx, "984-ui-docmenu-bold-name", DocMenuCases::boldName);
+                    UiCase.run(ctx, "985-ui-docmenu-hud-scale-live", DocMenuCases::hudScaleLive);
+                    UiCase.run(ctx, "986-ui-docmenu-drawer-reopens", DocMenuCases::drawerReopens);
+                    UiCase.run(ctx, "987-ui-docmenu-cycle-halves", DocMenuCases::cycleHalves);
+                    UiCase.run(ctx, "988-ui-docmenu-calculator", DocMenuCases::calculator);
+                    UiCase.run(ctx, "989-ui-docmenu-saved-themes", DocMenuCases::savedThemes);
                     // ---- colour picker Copy / Paste / Recent (955) ----
                     UiCase.run(ctx, "955-ui-colour-copy-paste", ColourCopyCases::copyPaste);
                     // ---- Edit HUD key / Croesus (862-865) ----
