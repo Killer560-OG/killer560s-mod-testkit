@@ -506,3 +506,6 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   reaches the drawer opened last - a real-input case opens one feature with `d.open(leaf)` (or `openChain`). Tooltips are
   judged with `ModScreen.tooltipCategory(w)` (each tab's pre-regroup category), header rows by `ModScreen.cardTooltip`.
   A slider is clicked on its drawn track (`trackRange()`), not across the whole row.
+- The Hx test server SPENDS the `items.spirit-leap` fixture on every use (it is a plain item on a vanilla server), so a
+  second leap in one case finds nothing ("Could not find INFINITE_SPIRIT_LEAP, SPIRIT_LEAP"): give it again before each
+  leap, and zero `LeapManager.leapCdTicks` (983, 2026-10-13).

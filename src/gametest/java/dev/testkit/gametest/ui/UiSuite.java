@@ -177,6 +177,9 @@ public class UiSuite implements FabricClientGameTest {
             "899-ui-bars-his-icons"};
     /** Inventory Theme: every item centred in its slot frame (mod inv-theme-fix, {@link InvThemeCenterCases}). Own block. */
     static final String[] INV_THEME_CENTRE_CASES = {"897-ui-inventory-theme-item-centred"};
+    /** killer560's 2026-10-13 dungeon list (mod doc-dungeons, {@link DocDungeonsCases}). Own block. */
+    static final String[] DOC_DUNGEONS_CASES = {"981-ui-etherwarp-walk-in", "985-ui-leap-modes-targets",
+            "986-ui-croesus-key-settings", "987-ui-map-leap-names"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -253,6 +256,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : BAR_STYLE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : DOC_DUNGEONS_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : INV_THEME_CENTRE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -266,6 +272,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(AUTOKICK2_CASES)
                 || any(CYCLE_BACK_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES) || any(HUD_KEY3_CASES)
                 || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES)
+                || any(DOC_DUNGEONS_CASES)
                 || any(MENU_PROFILES_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
@@ -484,6 +491,11 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "899-ui-bars-his-icons", BarStyleCases::hisIcons);
                     // ---- Inventory Theme item centring (897) ----
                     UiCase.run(ctx, "897-ui-inventory-theme-item-centred", InvThemeCenterCases::centred);
+                    // ---- doc-dungeons, killer560's 2026-10-13 list (981-989) ----
+                    UiCase.run(ctx, "981-ui-etherwarp-walk-in", DocDungeonsCases::etherwarpWalkIn);
+                    UiCase.run(ctx, "985-ui-leap-modes-targets", DocDungeonsCases::leapSettings);
+                    UiCase.run(ctx, "986-ui-croesus-key-settings", DocDungeonsCases::croesusKeys);
+                    UiCase.run(ctx, "987-ui-map-leap-names", DocDungeonsCases::mapLeapNames);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
