@@ -200,6 +200,8 @@ public class NametagPerfBenchTest implements FabricClientGameTest {
             return m;
         });
         HxKit.sidebar(c, "template", "hub");
+        c.server().command("time set 6000");
+        c.server().command("weather clear");
         double overhead = c.onClient(mc -> {
             NameProbe.overheadNs();
             return NameProbe.overheadNs();
@@ -427,6 +429,17 @@ public class NametagPerfBenchTest implements FabricClientGameTest {
     private static void shots(Session c, String scene, boolean busy, String self, List<String> report) throws Exception {
         for (String cfg : CFGS) {
             apply(c, cfg);
+            // Supporter tab text re-reads its index at most once a second: let it.
+            c.ctx().waitTicks(30);
+            for (long t : new long[]{0L, 250L}) {
+                String text = glyphs(c, t);
+                report.add("glyphs " + scene + "-" + cfg + "-" + t + "ms: " + text.lines().count() + " line(s)");
+                if (!SHOTS.isEmpty()) {
+                    Path dir = Path.of(SHOTS);
+                    Files.createDirectories(dir);
+                    Files.writeString(dir.resolve("glyphs-" + scene + "-" + cfg + "-" + t + "ms.txt"), text);
+                }
+            }
             for (CameraType cam : CAMS) {
                 camera(c, cam);
                 long[] times = cfg.equals("wave") ? new long[]{0L, 250L} : new long[]{0L};
@@ -465,6 +478,85 @@ public class NametagPerfBenchTest implements FabricClientGameTest {
             Mod.staticCall(NA, "freezeClockForTest", -1L);
             return null;
         });
+    }
+
+    /**
+     * Every glyph the Font is handed for the texts on screen at the frozen time {@code ms}, as the mod's prepareText hook
+     * hands them on ({@code NameAnimation.animate(NameReplacer.replace(seq))}, the exact chain of
+     * {@code NameChangerFontMixin}), plus each text's {@code Font.width} (through the mod's width hooks): the tab list's
+     * names, the chat's lines, and every entity's nametag Component (the renderer's own {@code getNameTag}). Two jars
+     * writing the same file paint the same text.
+     */
+    private static String glyphs(Session c, long ms) {
+        return c.onClient(mc -> {
+            Mod.staticCall(NA, "freezeClockForTest", ms);
+            StringBuilder sb = new StringBuilder();
+            List<net.minecraft.client.multiplayer.PlayerInfo> infos = new ArrayList<>(mc.getConnection().getListedOnlinePlayers());
+            infos.sort(java.util.Comparator.comparing(i -> i.getProfile().name()));
+            for (var info : infos) {
+                net.minecraft.network.chat.Component comp = mc.gui.getTabList().getNameForDisplay(info);
+                dump(mc, sb, "tab " + info.getProfile().name(), comp);
+            }
+            try {
+                java.lang.reflect.Field f = net.minecraft.client.gui.components.ChatComponent.class.getDeclaredField("trimmedMessages");
+                f.setAccessible(true);
+                int i = 0;
+                for (Object line : (List<?>) f.get(mc.gui.getChat())) {
+                    java.lang.reflect.Method m = line.getClass().getMethod("content");
+                    m.setAccessible(true);
+                    dumpSeq(mc, sb, "chat " + (i++), (net.minecraft.util.FormattedCharSequence) m.invoke(line));
+                }
+            } catch (ReflectiveOperationException e) {
+                sb.append("chat unreadable: ").append(e).append('\n');
+            }
+            List<net.minecraft.world.entity.Entity> ents = new ArrayList<>();
+            for (var e : mc.level.entitiesForRendering()) {
+                ents.add(e);
+            }
+            ents.sort(java.util.Comparator.comparing((net.minecraft.world.entity.Entity e) -> e.getType().toString())
+                    .thenComparing(e -> e.getName().getString()).thenComparingDouble(e -> e.getX()).thenComparingDouble(e -> e.getZ()));
+            for (var e : ents) {
+                try {
+                    Object r = mc.getEntityRenderDispatcher().getRenderer(e);
+                    java.lang.reflect.Method m = net.minecraft.client.renderer.entity.EntityRenderer.class
+                            .getDeclaredMethod("getNameTag", net.minecraft.world.entity.Entity.class);
+                    m.setAccessible(true);
+                    net.minecraft.network.chat.Component tag = (net.minecraft.network.chat.Component) m.invoke(r, e);
+                    if (tag != null) {
+                        dump(mc, sb, "tag " + e.getType() + " " + e.getName().getString(), tag);
+                    }
+                } catch (ReflectiveOperationException ex) {
+                    sb.append("tag unreadable: ").append(ex).append('\n');
+                }
+            }
+            for (String str : new String[]{mc.player.getGameProfile().name(), "§a" + mc.player.getGameProfile().name() + " §7hi"}) {
+                Object replaced = Mod.staticCall("namechanger.NameReplacer", "replace", str);
+                StringBuilder g = new StringBuilder();
+                Mod.staticCall(NA, "iterate", replaced, net.minecraft.network.chat.Style.EMPTY,
+                        (net.minecraft.util.FormattedCharSink) (pos, st, cp) -> {
+                            g.append(Character.toString(cp)).append('[').append(st).append(']');
+                            return true;
+                        });
+                sb.append("string ").append(str).append(" width ").append(mc.font.width(str)).append(" -> ").append(g).append('\n');
+            }
+            return sb.toString();
+        });
+    }
+
+    private static void dump(net.minecraft.client.Minecraft mc, StringBuilder sb, String what, net.minecraft.network.chat.Component comp) {
+        sb.append(what).append(" width ").append(mc.font.width(comp)).append(' ');
+        dumpSeq(mc, sb, "", comp.getVisualOrderText());
+    }
+
+    private static void dumpSeq(net.minecraft.client.Minecraft mc, StringBuilder sb, String what, net.minecraft.util.FormattedCharSequence seq) {
+        net.minecraft.util.FormattedCharSequence out = (net.minecraft.util.FormattedCharSequence) Mod.staticCall(NA, "animate",
+                Mod.staticCall("namechanger.NameReplacer", "replace", seq));
+        sb.append(what).append(" seqwidth ").append(mc.font.width(seq)).append(" -> ");
+        out.accept((pos, st, cp) -> {
+            sb.append(Character.toString(cp)).append('[').append(st).append(']');
+            return true;
+        });
+        sb.append('\n');
     }
 
     private static FrameClock.Stats stats(long[][] parts) {
