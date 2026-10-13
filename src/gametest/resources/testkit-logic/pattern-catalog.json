@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-13T00:18:44",
+ "generatedAt": "2026-10-13T01:05:14",
  "modSource": "killer560s-mod",
- "modGitSha": "97ac934fa731e9f6c238565edb6cf38e0af293db",
+ "modGitSha": "beabd76d40fb3d54e102a64cb20a920f766d19f8",
  "modSourceDirty": false,
  "count": 479,
  "byKind": {
