@@ -244,8 +244,12 @@ final class ModScreenDriver {
     private void collectOpened(Object folder, List<Object> out) {
         List<Object> subs = subTabs(folder);
         java.util.TreeSet<Integer> open = new java.util.TreeSet<>(expanded(folder));
-        for (int i = 0; i < Math.min(pinned(folder), subs.size()); i++) {
-            open.add(i);
+        // Pinned sections (Home's) count only when nothing was asked for by name: a case that opens one section of
+        // Home gets that section's drawer alone, so a real click lands on it.
+        if (open.isEmpty()) {
+            for (int i = 0; i < Math.min(pinned(folder), subs.size()); i++) {
+                open.add(i);
+            }
         }
         for (int i : open) {
             if (i < 0 || i >= subs.size()) {
