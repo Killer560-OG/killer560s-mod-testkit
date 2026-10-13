@@ -158,6 +158,8 @@ public class MenuSuite implements FabricClientGameTest {
                     CroesusColorCases.register(s);
                     // ---- 903-905 croesus-colors2 (2026-10-13): a run's chest view - free claim green, key chest orange ----
                     CroesusChestViewCases.register(s);
+                    // ---- 950-957 sweep-a (2026-10-13): the mod's other screens in the menu theme, per-screen Theme ----
+                    ScreenSweepCases.register(s);
                 });
     }
 }

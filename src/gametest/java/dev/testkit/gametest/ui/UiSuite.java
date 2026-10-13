@@ -76,6 +76,8 @@ import java.util.List;
  *                940-947 the Option A mod menu: screenshots, card switches flip the config, a card opens its drawer,
  *                favourites survive a restart, Ctrl F search, no sidebar counts, colour presets and Custom colours
  *                ({@link MenuACases})
+ *                955 every colour picker's Copy / Paste / hex box / Ctrl+C / Ctrl+V / Recent row, between two different
+ *                settings, proven on disk and after a restart ({@link ColourCopyCases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -86,7 +88,9 @@ import java.util.List;
 public class UiSuite implements FabricClientGameTest {
 
     static final String[] TITLE_CASES = {"340-ui-mainmenu", "330-ui-migrate", "310-ui-config-file-roundtrip",
-            "311-ui-config-setters", "320-ui-profiles", "380-ui-autoscale"};
+            "311-ui-config-setters", "320-ui-profiles", "380-ui-autoscale",
+            // title-262 (2026-10-13)
+            "341-ui-title-widgets"};
     static final String[] WORLD_CASES = {"301-ui-smoke-tabs", "302-ui-smoke-search", "303-ui-smoke-toggles",
             "304-ui-smoke-hud-editor", "305-ui-smoke-screens", "306-ui-smoke-commands", "350-ui-termism",
             "360-ui-visuals", "365-ui-overlay-draws", "307-ui-profit", "385-ui-interactive-map", "386-ui-sliders",
@@ -160,6 +164,10 @@ public class UiSuite implements FabricClientGameTest {
             "947-ui-menu-a-custom-colour"};
     /** The Profiles page redesign (mod menu-profiles-ctrlf, {@link MenuProfilesCases}). Own block for merges. */
     static final String[] MENU_PROFILES_CASES = {"948-ui-menu-profiles-page"};
+    /** Profiles carry everything, across jars (mod profiles-all, {@link ProfileDataCases}). Own block for merges. */
+    static final String[] PROFILE_DATA_CASES = {"980-ui-profile-data-switch", "981-ui-profile-data-export",
+            "982-ui-profile-import-robust", "983-ui-profile-old-format", "984-ui-profile-xfer-export",
+            "985-ui-profile-xfer-import"};
     /** killer560's 2026-10-12 Edit HUD key / Croesus batch ({@link HudKey2Cases}). Own block for merges. */
     /** Container overlays in Edit HUD only within 10 s (mod hud-key-3, {@link HudKey2Cases#containerGrace}). Own block. */
     static final String[] HUD_KEY3_CASES = {"866-ui-container-overlay-grace"};
@@ -175,6 +183,11 @@ public class UiSuite implements FabricClientGameTest {
             "899-ui-bars-his-icons"};
     /** Inventory Theme: every item centred in its slot frame (mod inv-theme-fix, {@link InvThemeCenterCases}). Own block. */
     static final String[] INV_THEME_CENTRE_CASES = {"897-ui-inventory-theme-item-centred"};
+    /** The chroma waterfall (mod chroma-waterfall, {@link ChromaWaveCases}). Own block for merges. */
+    static final String[] CHROMA_WAVE_CASES = {"971-ui-chroma-enchant-waterfall", "972-ui-chroma-scoreboard-border",
+            "973-ui-chroma-crosshair"};
+    /** Item Protect's star on locked player heads (mod lockstar-heads, {@link LockStarHeadCases}). Own block. */
+    static final String[] LOCKSTAR_HEAD_CASES = {"961-ui-lockstar-heads"};
     /** The screen sweep, part C (mod sweep-c, {@link ScreenThemeCases}): every sweep-c screen in Amber and Light, and a
      *  screen's own Theme setting. Own block for merges. */
     static final String[] SCREEN_SWEEP_C_CASES = {"975-ui-screen-sweep-c-themes", "976-ui-screen-own-theme"};
@@ -248,6 +261,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : MENU_PROFILES_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : PROFILE_DATA_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : HUD_KEY3_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -255,6 +271,12 @@ public class UiSuite implements FabricClientGameTest {
                 dev.testkit.gametest.Scenario.skip(n);
             }
             for (String n : INV_THEME_CENTRE_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            for (String n : CHROMA_WAVE_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            for (String n : LOCKSTAR_HEAD_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
             for (String n : SCREEN_SWEEP_C_CASES) {
@@ -270,7 +292,9 @@ public class UiSuite implements FabricClientGameTest {
                 || any(AUTOKICK2_CASES)
                 || any(CYCLE_BACK_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES) || any(HUD_KEY3_CASES)
                 || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES)
-                || any(MENU_PROFILES_CASES)
+                || any(CHROMA_WAVE_CASES)
+                || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES)
+                || any(LOCKSTAR_HEAD_CASES)
                 || any(SCREEN_SWEEP_C_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
@@ -294,6 +318,8 @@ public class UiSuite implements FabricClientGameTest {
             UiCase.run(ctx, "311-ui-config-setters", ConfigSweep::setterLevel);
             UiCase.run(ctx, "320-ui-profiles", MiscCases::profiles);
             UiCase.run(ctx, "380-ui-autoscale", AutoScaleCases::autoScale);
+            // title-262 (2026-10-13): no stray widget on the themed title screen, none overlapping
+            UiCase.run(ctx, "341-ui-title-widgets", TitleWidgetCases::titleWidgets);
 
             if (anyWorld) {
                 long worldStart = System.nanoTime();
@@ -464,6 +490,17 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "947-ui-menu-a-custom-colour", MenuACases::customColour);
                     // ---- Profiles page (948) ----
                     UiCase.run(ctx, "948-ui-menu-profiles-page", MenuProfilesCases::page);
+                    // ---- colour picker Copy / Paste / Recent (955) ----
+                    UiCase.run(ctx, "955-ui-colour-copy-paste", ColourCopyCases::copyPaste);
+                    // ---- Item Protect star on player heads (961) ----
+                    UiCase.run(ctx, "961-ui-lockstar-heads", LockStarHeadCases::heads);
+                    // ---- profiles carry everything, across jars (980-985) ----
+                    UiCase.run(ctx, "980-ui-profile-data-switch", ProfileDataCases::switchAB);
+                    UiCase.run(ctx, "981-ui-profile-data-export", ProfileDataCases::exportImport);
+                    UiCase.run(ctx, "982-ui-profile-import-robust", ProfileDataCases::importRobust);
+                    UiCase.run(ctx, "983-ui-profile-old-format", ProfileDataCases::oldFormat);
+                    UiCase.run(ctx, "984-ui-profile-xfer-export", ProfileDataCases::xferExport);
+                    UiCase.run(ctx, "985-ui-profile-xfer-import", ProfileDataCases::xferImport);
                     // ---- Edit HUD key / Croesus (862-865) ----
                     UiCase.run(ctx, "862-ui-hud-key-typing", HudKey2Cases::typing);
                     UiCase.run(ctx, "863-ui-hud-key-over-container", HudKey2Cases::overContainer);
@@ -487,6 +524,10 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "899-ui-bars-his-icons", BarStyleCases::hisIcons);
                     // ---- Inventory Theme item centring (897) ----
                     UiCase.run(ctx, "897-ui-inventory-theme-item-centred", InvThemeCenterCases::centred);
+                    // ---- chroma waterfall (971-973) ----
+                    UiCase.run(ctx, "971-ui-chroma-enchant-waterfall", ChromaWaveCases::enchantTooltip);
+                    UiCase.run(ctx, "972-ui-chroma-scoreboard-border", ChromaWaveCases::scoreboardBorder);
+                    UiCase.run(ctx, "973-ui-chroma-crosshair", ChromaWaveCases::crosshair);
                     // ---- screen sweep, part C (975-976) ----
                     UiCase.run(ctx, "975-ui-screen-sweep-c-themes", ScreenThemeCases::sweep);
                     UiCase.run(ctx, "976-ui-screen-own-theme", ScreenThemeCases::ownTheme);

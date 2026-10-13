@@ -985,9 +985,11 @@ final class HudMenuProfilesCases {
                     + Files.isRegularFile(profilesDir.resolve(name + ".zip")));
             c.check(Files.isRegularFile(zip), "Export put no zip in the share folder " + share);
             c.check(!Files.isRegularFile(profilesDir.resolve(name + ".zip")), "Export still wrote into the profiles folder");
+            // Every FILE of the profile, recursively: since mod profiles-all a profile also holds profile.json and a
+            // data/ folder (GIFs, presets...), each of which is one zip entry.
             long files;
-            try (java.util.stream.Stream<Path> s = Files.list(profilesDir.resolve(name))) {
-                files = s.count();
+            try (java.util.stream.Stream<Path> s = Files.walk(profilesDir.resolve(name))) {
+                files = s.filter(Files::isRegularFile).count();
             }
             int entries;
             try (ZipFile z = new ZipFile(zip.toFile())) {

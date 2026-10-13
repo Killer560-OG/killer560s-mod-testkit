@@ -23,7 +23,7 @@ import java.util.function.Function;
  * <ul>
  *   <li>975 every sweep-c screen (the sim's five, AP3's two, the Auto Routes node editor, Breaker Aura's config picker,
  *       Leap Order, the Interactive Map, the HUD editor, the scoreboard editor, Termism's two) opened under Amber and
- *       under Light at 1920x1080 GUI 2: the panel pixel the mod names ({@code ToolScreenKit.probe}) is sampled from the
+ *       under Light at 1920x1080 GUI 2: the panel pixel the mod names (its themedPanelBounds) is sampled from the
  *       screenshot and must be the colour the theme puts there, and Amber's and Light's must differ; then the screen's
  *       main interaction still works (a list pick and a grid placement on Design a Map, a chip and Clear all on the
  *       Filters panel, Give me everything on Sim Items, Esc ignored by the loading screen, typing into a config name box, the
@@ -39,8 +39,12 @@ final class ScreenThemeCases {
     private ScreenThemeCases() {
     }
 
-    /** One screen of the sweep: its probe name, how to open it, and its interaction check (null = none here). */
-    private record Spec(String name, boolean cheatOnly, Function<Minecraft, Screen> open, Check check) {
+    /** One screen of the sweep: its name, how to open it, and its interaction check (null = none here). {@code card}: its
+     *  themedPanelBounds() is a card (the HUD editor's hint chip, the map legend), not the frame. */
+    private record Spec(String name, boolean cheatOnly, Function<Minecraft, Screen> open, Check check, boolean card) {
+        Spec(String name, boolean cheatOnly, Function<Minecraft, Screen> open, Check check) {
+            this(name, cheatOnly, open, check, name.equals("HudEditorScreen") || name.equals("InteractiveMapScreen"));
+        }
     }
 
     @FunctionalInterface
@@ -278,8 +282,13 @@ final class ScreenThemeCases {
         return MenuACases.lum(c);
     }
 
-    /** Screenshot of {@code s}; the probe pixel sampled. @return {sampled, expected, theme ordinal}; kept as label. */
-    static int[] shotAndSample(UiCase c, Screen s, String probeName, String label) throws Exception {
+    /**
+     * Screenshot of {@code s}, kept as {@code label}; one pixel of its themed panel (themedPanelBounds, just inside the
+     * bottom-left bevel where every screen leaves the panel bare) sampled, and the colour the open screen's palette puts
+     * there (MenuStyle's panel or card gradient at that row, read while the screen is up).
+     * @return {sampled, expected}
+     */
+    static int[] shotAndSample(UiCase c, Screen s, boolean card, String label) throws Exception {
         c.ticks(4);
         boolean up = c.onClient(mc -> McCompat.screen(mc) == s);
         check(c, up, label + ": the screen is not up (" + c.onClient(McCompat::screen) + ")");
@@ -287,11 +296,32 @@ final class ScreenThemeCases {
         Path taken = c.ctx().takeScreenshot(Report.fileName(shot));
         Report.screenshot(shot, taken);
         java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(taken.toFile());
-        int[] probe = c.onClient(mc -> (int[]) Mod.staticCall("gui.ToolScreenKit", "probe", probeName));
-        check(c, probe != null, label + ": " + probeName + " drew no themed panel");
+        int[] probe = c.onClient(mc -> {
+            int[] b = (int[]) Mod.call(s, "themedPanelBounds");
+            if (b == null || b[2] <= 0) {
+                return null;
+            }
+            int top = (Integer) Mod.field("gui.MenuStyle", card ? "CARD_TOP" : "PANEL_TOP");
+            int bottom = (Integer) Mod.field("gui.MenuStyle", card ? "CARD_BOTTOM" : "PANEL_BOTTOM");
+            int px = b[0] + 3;
+            int py = b[1] + b[3] - (card ? 3 : 4);
+            float t = (py + 0.5f - (b[1] + 1)) / Math.max(1f, b[3] - 2);
+            return new int[]{px, py, mix(top, bottom, t)};
+        });
+        check(c, probe != null, label + ": " + s.getClass().getSimpleName() + " reports no themed panel");
         double sc = img.getWidth() / (double) s.width;
         int px = img.getRGB((int) ((probe[0] + 0.5) * sc), (int) ((probe[1] + 0.5) * sc)) | 0xFF000000;
-        return new int[]{px, probe[2] | 0xFF000000, probe[3]};
+        return new int[]{px, probe[2] | 0xFF000000};
+    }
+
+    private static int mix(int a, int b, float t) {
+        int r = 0;
+        for (int sh = 0; sh < 32; sh += 8) {
+            int ca = (a >>> sh) & 0xFF;
+            int cb = (b >>> sh) & 0xFF;
+            r |= (Math.round(ca + (cb - ca) * t) & 0xFF) << sh;
+        }
+        return r;
     }
 
     private static boolean near(int a, int b) {
@@ -385,10 +415,10 @@ final class ScreenThemeCases {
                         return made;
                     });
                     String label = spec.name() + "-" + themes[t].toLowerCase(Locale.ROOT);
-                    int[] r = shotAndSample(c, s, spec.name(), label);
+                    int[] r = shotAndSample(c, s, spec.card(), label);
                     seen[t] = r;
-                    c.note(String.format(Locale.ROOT, "%s: probe %s, theme %s wants %s (theme ordinal %d)", label,
-                            MenuACases.hex(r[0]), themes[t], MenuACases.hex(r[1]), r[2]));
+                    c.note(String.format(Locale.ROOT, "%s: panel pixel %s, the %s palette puts %s there", label,
+                            MenuACases.hex(r[0]), themes[t], MenuACases.hex(r[1])));
                     if (!near(r[0], r[1])) {
                         c.problem(label + ": the panel reads " + MenuACases.hex(r[0]) + ", the " + themes[t] + " theme puts "
                                 + MenuACases.hex(r[1]) + " there - it does not follow the theme");
@@ -403,7 +433,7 @@ final class ScreenThemeCases {
                         // screen is still up.
                         Screen after = c.onClient(McCompat::screen);
                         if (after != null && after.getClass().getSimpleName().equals(spec.name())) {
-                            shotAndSample(c, after, spec.name(), label + "-after");
+                            shotAndSample(c, after, spec.card(), label + "-after");
                         }
                     }
                     c.onClient(mc -> {
@@ -440,13 +470,10 @@ final class ScreenThemeCases {
         return null;
     }
 
-    private static Object screenThemes() {
-        return Mod.staticCall("gui.ScreenThemeConfig", "getInstance");
-    }
+    private static final String THEMES = "gui.ScreenThemes";
 
     private static String termismTheme() {
-        Object t = Mod.call(screenThemes(), "get", "termism");
-        return t == null ? "DEFAULT" : ((Enum<?>) t).name();
+        return (String) Mod.staticCall(THEMES, "get", "termism");
     }
 
     static void ownTheme(UiCase c) throws Exception {
@@ -455,7 +482,7 @@ final class ScreenThemeCases {
                 setTheme(c, "AMBER");
                 Screen[] menu = new Screen[1];
                 c.onClient(mc -> {
-                    Mod.call(screenThemes(), "set", "termism", null);
+                    Mod.staticCall(THEMES, "set", "termism", "DEFAULT");
                     try {
                         menu[0] = MenuACases.open(mc);
                     } catch (Exception e) {
@@ -501,13 +528,11 @@ final class ScreenThemeCases {
                     McCompat.setScreen(mc, made);
                     return made;
                 });
-                int[] own = shotAndSample(c, s, "TermismMenuScreen", "termism-own-light");
-                int lightOrd = ((Enum<?>) Mod.enumValue("gui.MenuTheme", "LIGHT")).ordinal();
-                c.note("menu Amber, Termism set to Light: probe " + MenuACases.hex(own[0]) + " (wants " + MenuACases.hex(own[1])
-                        + ", theme ordinal " + own[2] + ")");
-                c.check(own[2] == lightOrd, "Termism drew in theme ordinal " + own[2] + ", not Light's " + lightOrd);
+                int[] own = shotAndSample(c, s, false, "termism-own-light");
+                c.note("menu Amber, Termism set to Light: panel pixel " + MenuACases.hex(own[0]) + " (its palette puts "
+                        + MenuACases.hex(own[1]) + " there)");
                 c.check(near(own[0], own[1]) && lum(own[0]) > 0.6f, "Termism's panel reads " + MenuACases.hex(own[0])
-                        + ", not Light's " + MenuACases.hex(own[1]));
+                        + " (palette " + MenuACases.hex(own[1]) + "), not a Light panel");
                 c.check("AMBER".equals(MenuACases.themeName()), "the menu theme moved to " + MenuACases.themeName());
                 int[] menuNow = MenuACases.sample(c, reopenMenu(c), "menu-still-amber");
                 c.check(lum(menuNow[1]) < 0.3f, "the mod menu's sidebar reads " + MenuACases.hex(menuNow[1])
@@ -517,7 +542,7 @@ final class ScreenThemeCases {
                 // Saved: a reload from disk (and a profile's reload) keeps it.
                 c.onClient(mc -> {
                     McCompat.setScreen(mc, null);
-                    Mod.staticCall("gui.ScreenThemeConfig", "load");
+                    Mod.staticCall(THEMES, "load");
                     return null;
                 });
                 c.check("LIGHT".equals(termismTheme()), "after a reload from disk Termism's theme is " + termismTheme());
@@ -541,16 +566,14 @@ final class ScreenThemeCases {
                     McCompat.setScreen(mc, made);
                     return made;
                 });
-                int[] def = shotAndSample(c, s2, "TermismMenuScreen", "termism-default-follows-amber");
-                int amberOrd = ((Enum<?>) Mod.enumValue("gui.MenuTheme", "AMBER")).ordinal();
-                c.check(def[2] == amberOrd && near(def[0], def[1]) && lum(def[0]) < 0.3f, "on Theme Default Termism reads "
-                        + MenuACases.hex(def[0]) + " in theme ordinal " + def[2] + ", not the menu's Amber");
+                int[] def = shotAndSample(c, s2, false, "termism-default-follows-amber");
+                c.check(near(def[0], def[1]) && lum(def[0]) < 0.3f, "on Theme Default Termism reads "
+                        + MenuACases.hex(def[0]) + " (palette " + MenuACases.hex(def[1]) + "), not the menu's Amber");
                 c.note("back on Theme Default Termism draws the menu's Amber (" + MenuACases.hex(def[0]) + ")");
             } finally {
                 c.onClient(mc -> {
-                    Object cfg = screenThemes();
-                    Mod.call(cfg, "set", "termism", null);
-                    Mod.call(cfg, "save");
+                    Mod.staticCall(THEMES, "set", "termism", "DEFAULT");
+                    Mod.staticCall(THEMES, "save");
                     return null;
                 });
             }
