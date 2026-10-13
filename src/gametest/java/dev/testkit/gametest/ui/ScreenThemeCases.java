@@ -508,7 +508,8 @@ final class ScreenThemeCases {
                 }
                 c.onClient(mc -> {
                     AbstractWidget row = themeRow(menu[0]);
-                    row.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(row.getX() + 4.0, row.getY() + 4.0,
+                    // on the value pill: since doc-menu a click on a cycling setting's label does nothing (987)
+                    row.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(row.getX() + row.getWidth() - 8.0, row.getY() + row.getHeight() / 2.0,
                             new net.minecraft.client.input.MouseButtonInfo(1, 0)), false);
                     return null;
                 });
