@@ -1,5 +1,5 @@
 {
-  "_doc": "What the branches merged with menu-layout on 2026-10-08 (mod 3744aa32) changed on purpose, on top of the menu-layout-<variant>.json fixtures (recorded from 6a61dfa8). 511: goneLeaves must be absent, newLeaves must be at exactly that path once. 513: a fixture row listed in tooltips must now show \"text\" (under \"to\" when it moved sub-tab) or be gone everywhere (\"gone\"); an entry that no longer differs from the fixture is stale and fails.",
+  "_doc": "newLeaves paths follow the Option A regroup (mod menu-a, 2026-10-12: Helpers became part of Misc). What the branches merged with menu-layout on 2026-10-08 (mod 3744aa32) changed on purpose, on top of the menu-layout-<variant>.json fixtures (recorded from 6a61dfa8). 511: goneLeaves must be absent, newLeaves must be at exactly that path once. 513: a fixture row listed in tooltips must now show \"text\" (under \"to\" when it moved sub-tab) or be gone everywhere (\"gone\"); an entry that no longer differs from the fixture is stale and fails.",
   "goneLeaves": {
     "gui.tab.ArmourDyeTab": "inv-batch 701742c2: Armor Recolour became Custom Items (Cosmetics > Custom Items)",
     "gui.tab.ChatTidyTab": "chat-batch a64924b9: merged into Chat Hider",
@@ -9,7 +9,7 @@
   "newLeaves": {
     "gui.tab.ChatHiderTab": "Chat > Chat Hider",
     "gui.tab.CustomItemsTab": "Cosmetics > Custom Items",
-    "gui.tab.ChocolateFactoryTab": "Helpers > Chocolate Factory"
+    "gui.tab.ChocolateFactoryTab": "Misc > Chocolate Factory"
   },
   "tooltips": [
     {
@@ -314,6 +314,12 @@
       "owner": "Croesus / Chest Profit",
       "key": "second best with key",
       "gone": "croesus-colors2 2026-10-13: Highlight Best and Second Best With Key became Highlight Free Chest (green) and Highlight Key Chest (orange) in the run chest view (killer560: \"in a chest menu if something is worth coming back and buying with a key, highlight it yellow or orange\")"
+    },
+    {
+      "owner": "Etherwarp Waypoints",
+      "key": "style",
+      "text": "How this highlight is drawn: filled, outline only, or both.",
+      "why": "menu-a (Option A menu, 2026-10-12): the category key dungeon/style (Simon Says' own text, which Simon Says also has as simon says/style) is gone, so Etherwarp Waypoints' Style row shows the generic style text instead of Simon Says'"
     }
   ]
 }

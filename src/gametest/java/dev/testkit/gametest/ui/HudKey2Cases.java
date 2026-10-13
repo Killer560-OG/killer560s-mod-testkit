@@ -387,7 +387,7 @@ final class HudKey2Cases {
             Object dungeon = null;
             int top = -1;
             for (int i = 0; i < d.topTabs().size(); i++) {
-                if ("Dungeon".equals(R.get(d.topTabs().get(i), "name"))) {
+                if ("Dungeons".equals(R.get(d.topTabs().get(i), "name"))) {
                     dungeon = d.topTabs().get(i);
                     top = i;
                 }

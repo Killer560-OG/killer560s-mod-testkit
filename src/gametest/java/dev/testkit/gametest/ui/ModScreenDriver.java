@@ -6,17 +6,29 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.input.MouseButtonInfo;
 
+import dev.testkit.gametest.mod.Mod;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
  * Drives the mod's real {@code gui.ModScreen} through its own private state: which top-level tab is selected
- * ({@code static selectedTab}), which accordion sections of each {@code FolderTab} are open ({@code expanded}), the
- * scroll offset, the search text - then calls the screen's own {@code rebuild()} and reads back what it built
- * ({@code contentPane.children}). Nothing here builds widgets itself; it only flips the switches a click would flip.
+ * ({@code static selectedTab}), which feature's drawer is open ({@code static openFeature}), the scroll offset, the
+ * search text - then calls the screen's own {@code rebuild()} and reads back what it built ({@code contentPane.children}).
+ * Nothing here builds widgets itself; it only flips the switches a click would flip.
+ *
+ * <p>Since the Option A menu (mod menu-a, 2026-10-12) a category is a grid of feature cards and a feature's settings
+ * are in its drawer, one feature at a time. The cases written for the accordion menu still say what they want opened
+ * the old way - a section index in the folder's {@code expanded} set, {@link #expandAll} for a group - and
+ * {@link #rebuild()} turns that into the new navigation: one opened feature is its real drawer; several (a whole
+ * folder, the Secrets group, Home's pinned sections) are each opened in their real drawer in turn and their rows
+ * stacked one after another into {@link #content()} (each re-scoped to its tab for tooltips), with the scroll applied
+ * across the stack. A row's own press works the same on any of them; a real-mouse press through the screen only reaches
+ * the drawer open last, so a real-input case opens one feature at a time ({@link #open}).
  *
  * <p>Source read for this (mod 8c43a6d): gui/ModScreen.java (tabs, selectedTab, searchQuery, scrollOffset, maxScroll,
  * visibleContentHeight, contentPane, rebuild, visibleTabs), gui/tab/FolderTab.java (subTabs, expanded, pinFirst),
@@ -50,6 +62,8 @@ final class ModScreenDriver {
         R.setStatic(screenCls, "searchQuery", "");
         R.setStatic(screenCls, "scrollOffset", 0);
         R.setStatic(screenCls, "selectedTab", 0);
+        R.setStatic(screenCls, "openFeature", null);
+        R.setStatic(screenCls, "favouritesSelected", false);
         screen = (Screen) screenCls.getConstructor(Screen.class).newInstance((Object) null);
         screen.init(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
     }
@@ -110,10 +124,15 @@ final class ModScreenDriver {
         }
     }
 
-    /** Select top-level tab {@code index}, scroll to the top, and close every section of every folder. */
+    /** Select top-level tab {@code index}, scroll to the top, close the drawer and every section of every folder. */
     void select(int index) {
         R.setStatic(screenCls, "selectedTab", index);
+        R.setStatic(screenCls, "favouritesSelected", false);
+        R.setStatic(screenCls, "openFeature", null);
         R.setStatic(screenCls, "scrollOffset", 0);
+        R.setStatic(screenCls, "gridScroll", 0);
+        merged = null;
+        keepDrawer = false;
         for (Object t : topTabs()) {
             collapseAll(t);
         }
@@ -139,8 +158,180 @@ final class ModScreenDriver {
         }
     }
 
+    /** Rows of several drawers stacked (see the class doc), or null when one drawer or a page is what is shown. */
+    private List<AbstractWidget> merged;
+    private int mergedMax;
+    private int mergedVisible;
+
+    /** Opens {@code leaf}'s drawer through the screen's own navigation (its category selected) and rebuilds. Later
+     *  {@link #rebuild()} calls keep it open until {@link #select} or another {@code open}. */
+    void open(Object leaf) {
+        for (Object t : topTabs()) {
+            collapseAll(t);
+        }
+        merged = null;
+        R.setStatic(screenCls, "scrollOffset", 0);
+        Mod.call(screen, "openFeature", leaf);
+        keepDrawer = true;
+    }
+
+    /** Opens the feature an old-style chain of (folder, section index) steps names - the last step's section - in its
+     *  drawer, so a screen put up next shows it (the Option A menu ignores the old {@code expanded} sets). */
+    void openChain(List<Object[]> chain) {
+        if (chain.isEmpty()) {
+            return;
+        }
+        Object[] last = chain.get(chain.size() - 1);
+        Object target = subTabs(last[0]).get((Integer) last[1]);
+        if (!isFolder(target)) {
+            open(target);
+        }
+    }
+
+    /** The menu's sidebar rows as laid out: {x, y, w, h, tab index (-1 = Favourites)} (gui/ModScreen.layout). */
+    static List<int[]> sideRows(net.minecraft.client.gui.screens.Screen s) {
+        List<int[]> out = new ArrayList<>();
+        for (Object e : (List<?>) R.get(s, "side")) {
+            out.add(new int[]{(Integer) Mod.call(e, "x"), (Integer) Mod.call(e, "y"), (Integer) Mod.call(e, "w"),
+                    (Integer) Mod.call(e, "h"), (Integer) Mod.call(e, "tab")});
+        }
+        return out;
+    }
+
+    /** The sidebar row of top-level tab {@code tab}, or null. */
+    static int[] sideRow(net.minecraft.client.gui.screens.Screen s, int tab) {
+        for (int[] r : sideRows(s)) {
+            if (r[4] == tab) {
+                return r;
+            }
+        }
+        return null;
+    }
+
+    /** Every feature tab of the menu (leaves of categories and groups, Home's sections, top-level pages). */
+    @SuppressWarnings("unchecked")
+    List<Object> leaves() {
+        return (List<Object>) Mod.staticCall("gui.ModScreen", "allLeaves");
+    }
+
+    /** The feature tab whose class is {@code simpleName}, or null. */
+    Object leaf(String simpleName) {
+        for (Object t : leaves()) {
+            if (t.getClass().getSimpleName().equals(simpleName)) {
+                return t;
+            }
+        }
+        return null;
+    }
+
+    private int pinned(Object folder) {
+        Object p = R.get(folder, "pinnedCount");
+        return p == null ? 0 : (Integer) p;
+    }
+
+    /** The features the old-style switches ask to see under the selected category, in order. */
+    List<Object> openedLeaves() {
+        int sel = (Integer) R.getStatic(screenCls, "selectedTab");
+        Object top = topTabs().get(sel);
+        List<Object> out = new ArrayList<>();
+        if (!isFolder(top)) {
+            return out;
+        }
+        collectOpened(top, out);
+        return out;
+    }
+
+    private void collectOpened(Object folder, List<Object> out) {
+        List<Object> subs = subTabs(folder);
+        java.util.TreeSet<Integer> open = new java.util.TreeSet<>(expanded(folder));
+        // Pinned sections (Home's) count only when nothing was asked for by name: a case that opens one section of
+        // Home gets that section's drawer alone, so a real click lands on it.
+        if (open.isEmpty()) {
+            for (int i = 0; i < Math.min(pinned(folder), subs.size()); i++) {
+                open.add(i);
+            }
+        }
+        for (int i : open) {
+            if (i < 0 || i >= subs.size()) {
+                continue;
+            }
+            Object sub = subs.get(i);
+            if (isFolder(sub)) {
+                collectOpened(sub, out);
+            } else {
+                out.add(sub);
+            }
+        }
+    }
+
+    /** Set by {@link #open}: rebuilds keep that drawer instead of reading the old-style switches. */
+    private boolean keepDrawer;
+
     void rebuild() throws Throwable {
-        R.call0(screen, "rebuild");
+        merged = null;
+        int sel = (Integer) R.getStatic(screenCls, "selectedTab");
+        Object top = topTabs().get(sel);
+        List<Object> opened = openedLeaves();
+        if (keepDrawer && opened.isEmpty()) {
+            R.call0(screen, "rebuild");
+            return;
+        }
+        keepDrawer = false;
+        R.setStatic(screenCls, "favouritesSelected", false);
+        if (!isFolder(top) || opened.isEmpty()) {
+            if (isFolder(top)) {
+                R.setStatic(screenCls, "openFeature", null);
+            }
+            R.call0(screen, "rebuild");
+            return;
+        }
+        if (opened.size() == 1) {
+            R.setStatic(screenCls, "openFeature", opened.get(0));
+            R.call0(screen, "rebuild");
+            return;
+        }
+        int scroll = (Integer) R.getStatic(screenCls, "scrollOffset");
+        List<AbstractWidget> all = new ArrayList<>();
+        java.util.Map<AbstractWidget, String> scopes = new java.util.IdentityHashMap<>();
+        int y = 0;
+        int top0 = -1;
+        for (Object leaf : opened) {
+            R.setStatic(screenCls, "openFeature", leaf);
+            R.setStatic(screenCls, "scrollOffset", 0);
+            R.call0(screen, "rebuild");
+            List<AbstractWidget> part = paneChildren();
+            if (part.isEmpty()) {
+                continue;
+            }
+            int contentY = (Integer) R.get(screen, "contentY");
+            if (top0 < 0) {
+                top0 = contentY;
+            }
+            int min = Integer.MAX_VALUE;
+            int max = Integer.MIN_VALUE;
+            for (AbstractWidget w : part) {
+                min = Math.min(min, w.getY());
+                max = Math.max(max, w.getY() + w.getHeight());
+            }
+            for (AbstractWidget w : part) {
+                w.setY(w.getY() - min + top0 + y);
+                scopes.put(w, (String) R.get(leaf, "name"));
+            }
+            y += (max - min) + 12;
+            all.addAll(part);
+        }
+        mergedVisible = (Integer) R.get(screen, "visibleContentHeight");
+        mergedMax = Math.max(0, y - mergedVisible);
+        scroll = Math.max(0, Math.min(scroll, mergedMax));
+        for (AbstractWidget w : all) {
+            w.setY(w.getY() - scroll);
+        }
+        // the screen's rebuilds cleared every scope but the last drawer's: put them back
+        for (java.util.Map.Entry<AbstractWidget, String> e : scopes.entrySet()) {
+            Mod.staticCall("gui.SettingTooltips", "scope", e.getKey(), e.getValue());
+        }
+        R.setStatic(screenCls, "scrollOffset", scroll);
+        merged = all;
     }
 
     void scrollTo(int offset) {
@@ -148,26 +339,52 @@ final class ModScreenDriver {
     }
 
     int maxScroll() {
-        return (Integer) R.get(screen, "maxScroll");
+        return merged != null ? mergedMax : (Integer) R.get(screen, "maxScroll");
     }
 
     int visibleContentHeight() {
-        return (Integer) R.get(screen, "visibleContentHeight");
+        return merged != null ? mergedVisible : (Integer) R.get(screen, "visibleContentHeight");
     }
 
-    /** What the selected tab built (the rows inside the scrolling pane); empty when nothing matched a search. */
     @SuppressWarnings("unchecked")
-    List<AbstractWidget> content() {
+    private List<AbstractWidget> paneChildren() {
         Object pane = R.get(screen, "contentPane");
         if (pane == null) {
-            return List.of();
+            return new ArrayList<>();
         }
         return new ArrayList<>((Collection<AbstractWidget>) R.get(pane, "children"));
+    }
+
+    /** What the open drawer (or page) built - or, for several opened features, all their rows stacked (class doc). */
+    List<AbstractWidget> content() {
+        if (merged != null) {
+            return new ArrayList<>(merged);
+        }
+        return paneChildren();
     }
 
     @SuppressWarnings("unchecked")
     List<Object> visibleTabs() throws Throwable {
         return (List<Object>) R.call0(screen, "visibleTabs");
+    }
+
+    /**
+     * The tooltips the old accordion's section header rows ("▶ Name", no sub-tab scope) carried, as the Option A menu
+     * shows them now: hovering each card (or group title) of {@code top} shows {@code gui.ModScreen.cardTooltip}.
+     * label key -> tooltip ("" = none), for the tooltip cases' "(unscoped)" rows.
+     */
+    Map<String, String> cardTips(Node top) {
+        Map<String, String> out = new java.util.TreeMap<>();
+        List<Node> flat = new ArrayList<>();
+        flatten(top.children(), flat);
+        for (Node n : flat) {
+            String k = (String) Mod.staticCall("gui.SettingTooltips", "key", n.name());
+            String tip = (String) Mod.staticCall("gui.ModScreen", "cardTooltip", n.tab());
+            if (!k.isEmpty()) {
+                out.putIfAbsent(k, tip == null ? "" : tip);
+            }
+        }
+        return out;
     }
 
     static String label(AbstractWidget w) {

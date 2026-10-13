@@ -619,6 +619,11 @@ final class HudMenuProfilesCases {
                     (Integer) R.get(s, "panelW"), (Integer) R.get(s, "panelH")});
             out.put("layout", new int[]{s.width, s.height});
             out.put("tabs", ((List<?>) R.getStatic(R.cls(ModScreenDriver.MOD_SCREEN), "tabs")).size());
+            int bottom = 0;
+            for (int[] row : ModScreenDriver.sideRows(s)) {
+                bottom = Math.max(bottom, row[1] + row[3]);
+            }
+            out.put("sideBottom", bottom);
             return out;
         });
         float f = (Float) r.get("applied");
@@ -638,9 +643,9 @@ final class HudMenuProfilesCases {
             c.check(f == (Float) r.get("auto"), "at HUD Scale 100% the menu factor " + f + " is not Auto Scale's "
                     + r.get("auto"));
         }
-        // The sidebar's last row (gui/ModScreen: rows from panelY+40, 24 apart, 20 tall) must end inside the panel.
+        // The sidebar's last row (gui/ModScreen.layout's side rows) must end inside the panel.
         int tabs = (Integer) r.get("tabs");
-        int lastRowBottom = p[1] + 40 + 24 * (tabs - 1) + 20;
+        int lastRowBottom = (Integer) r.get("sideBottom");
         if (lastRowBottom > p[1] + p[3]) {
             c.problem(String.format(Locale.ROOT, "HUD %.0f%%: the sidebar's %d rows run to %d, past the panel's bottom %d",
                     hudScale * 100, tabs, lastRowBottom, p[1] + p[3]));
@@ -655,12 +660,14 @@ final class HudMenuProfilesCases {
     /** A real click (TestInput, through the mouse funnel) at the DRAWN centre of sidebar row 1; it must select tab 1. */
     private static void clickSidebar(UiCase c, Class<?> cls, float f, String where) {
         Screen s = c.onClient(McCompat::screen);
-        int panelX = (Integer) R.get(s, "panelX");
-        int panelY = (Integer) R.get(s, "panelY");
         int target = 1;
-        double gx = (panelX + 8 + 47) * f;
-        double gy = (panelY + 40 + 24 * target + 10) * f;
+        int[] row = c.onClient(mc -> ModScreenDriver.sideRow(s, target));
+        double rx = row[0] + row[2] / 2.0;
+        double ry = row[1] + row[3] / 2.0;
+        double gx = rx * f;
+        double gy = ry * f;
         R.setStatic(cls, "selectedTab", 0);
+        R.setStatic(cls, "favouritesSelected", false);
         double[] win = c.onClient(mc -> {
             Window w = mc.getWindow();
             return new double[]{gx * w.getScreenWidth() / (double) w.getGuiScaledWidth(),
@@ -678,9 +685,10 @@ final class HudMenuProfilesCases {
         }
         // Control: the same row at its UNSCALED spot must miss it whenever the factor is far from 1.
         if (Math.abs(f - 1f) > 0.3f) {
-            double ux = panelX + 8 + 47;
-            double uy = panelY + 40 + 24 * target + 10;
+            double ux = rx;
+            double uy = ry;
             R.setStatic(cls, "selectedTab", 0);
+            R.setStatic(cls, "favouritesSelected", false);
             double[] uwin = c.onClient(mc -> {
                 Window w = mc.getWindow();
                 return new double[]{ux * w.getScreenWidth() / (double) w.getGuiScaledWidth(),

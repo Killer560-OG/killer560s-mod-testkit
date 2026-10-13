@@ -176,6 +176,7 @@ final class ScoreboardEditorCases {
                         for (Object[] step : chain) {
                             drv.expanded(step[0]).add((Integer) step[1]);
                         }
+                        drv.openChain(chain);
                         Object tab = found[0];
                         Class<?> pageCls = R.field(tab.getClass(), "page").getType();
                         for (Object p : pageCls.getEnumConstants()) {

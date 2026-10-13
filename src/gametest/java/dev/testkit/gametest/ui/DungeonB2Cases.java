@@ -983,6 +983,7 @@ final class DungeonB2Cases {
                         for (Object[] step : chain) {
                             d.expanded(step[0]).add((Integer) step[1]);
                         }
+                        d.openChain(chain);
                         McCompat.setScreen(mc, d.screen);
                         return d.screen;
                     }

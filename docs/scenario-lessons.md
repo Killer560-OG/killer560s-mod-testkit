@@ -499,3 +499,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   back up (2 uses, nothing on the block). Count uses per phase, and check the head is still there afterwards.
   Since nt-key-place-2: the node only takes the key on an AIR-facing face and logs every use with its face; 848 covers
   the eye-to-centre face with stone so the open-face rule is what is measured, and counts key detection at 9 vs 11.
+- 940-945 (mod menu-a, the Option A mod menu, 2026-10-12): a category is a grid of feature cards and a tab's rows live in
+  its drawer, one feature at a time. `ModScreenDriver.rebuild()` still honours the old way of asking (a section index in
+  the folder's `expanded`, `expandAll` on a group): one opened feature is its real drawer, several are opened in turn and
+  their rows stacked and re-scoped. A row's own press works on any of them, but a REAL-MOUSE press through the screen only
+  reaches the drawer opened last - a real-input case opens one feature with `d.open(leaf)` (or `openChain`). Tooltips are
+  judged with `ModScreen.tooltipCategory(w)` (each tab's pre-regroup category), header rows by `ModScreen.cardTooltip`.
+  A slider is clicked on its drawn track (`trackRange()`), not across the whole row.
