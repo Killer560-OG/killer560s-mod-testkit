@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-12T23:10:46",
+ "generatedAt": "2026-10-13T00:18:44",
  "modSource": "killer560s-mod",
- "modGitSha": "2ddf1612cc155683c162233466f6a65ae34884d8",
+ "modGitSha": "97ac934fa731e9f6c238565edb6cf38e0af293db",
  "modSourceDirty": false,
- "count": 475,
+ "count": 479,
  "byKind": {
   "dynamic": 7,
   "element": 43,
-  "field": 409,
+  "field": 413,
   "local": 16
  },
  "unresolved": 8,
@@ -2256,6 +2256,54 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^\\\\[\\\\d+] (?:\\\\[[^]]+] )*([A-Za-z0-9_]{1,16}) .*\\\\((\\\\w+)(?: (\\\\w+))?\\\\)$\""
+  },
+  {
+   "id": "gui.FeatureCards#SENTENCE_END",
+   "cls": "gui.FeatureCards",
+   "field": "SENTENCE_END",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/gui/FeatureCards.java",
+   "line": 127,
+   "regex": "[.!?](?=\\s+[A-Z(\"'0-9])",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"[.!?](?=\\\\s+[A-Z(\\\"'0-9])\""
+  },
+  {
+   "id": "gui.FeatureCards#CHEAT_PREFIX",
+   "cls": "gui.FeatureCards",
+   "field": "CHEAT_PREFIX",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/gui/FeatureCards.java",
+   "line": 128,
+   "regex": "^(?i)cheat build( only)?[:,.]?\\s*",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(?i)cheat build( only)?[:,.]?\\\\s*\""
+  },
+  {
+   "id": "gui.FeatureCards#CHEAT_TAG",
+   "cls": "gui.FeatureCards",
+   "field": "CHEAT_TAG",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/gui/FeatureCards.java",
+   "line": 129,
+   "regex": "\\s*\\((?i)cheat build[^)]*\\)",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"\\\\s*\\\\((?i)cheat build[^)]*\\\\)\""
+  },
+  {
+   "id": "gui.SettingsButtonWidget#SWITCH_TEXT",
+   "cls": "gui.SettingsButtonWidget",
+   "field": "SWITCH_TEXT",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/gui/SettingsButtonWidget.java",
+   "line": 194,
+   "regex": "^(.+?):\\s*(ON|OFF)(?:\\s+(.*))?$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(.+?):\\\\s*(ON|OFF)(?:\\\\s+(.*))?$\""
   },
   {
    "id": "i4sensors.AutoI4Feature#DEVICE_DONE",
