@@ -512,3 +512,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   by itself and re-exports it once as `<tag>__from__<source>.zip`, so a last 985 on the first jar proves the round trip. A jar
   tag is a PREFIX of another (`26.1.2-cheat` of `26.1.2-cheat-testing`): match `<tag>.zip` / `<tag>__` exactly, or the
   cheat run silently skips the testing jar's exports (it did once, 2026-10-13).
+
+- 1314 (Peek Chat): the held item on the right sways between two screenshots (2,053 changed px in one run), and the
+  chat sits wherever the window puts it (top-left at 854x480). Diff a strip LEFT of the hotbar and judge by share of
+  the area; find a chat line on the picture by its colour, not by a fixed y (2026-10-13).

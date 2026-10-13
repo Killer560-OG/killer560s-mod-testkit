@@ -193,6 +193,9 @@ public class UiSuite implements FabricClientGameTest {
             "973-ui-chroma-crosshair"};
     /** Item Protect's star on locked player heads (mod lockstar-heads, {@link LockStarHeadCases}). Own block. */
     static final String[] LOCKSTAR_HEAD_CASES = {"961-ui-lockstar-heads"};
+    /** killer560's 2026-10-13 doc list, misc items ({@link DocMiscCases}). Own block for merges. */
+    static final String[] DOC_MISC_CASES = {"1311-ui-scoreboard-numbers", "1312-ui-inventory-slot-outlines",
+            "1313-ui-bars-default-thinner", "1314-ui-peek-chat", "1315-ui-loadouts-button"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -280,6 +283,7 @@ public class UiSuite implements FabricClientGameTest {
                 dev.testkit.gametest.Scenario.skip(n);
             }
             for (String n : LOCKSTAR_HEAD_CASES) {
+            for (String n : DOC_MISC_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
@@ -297,6 +301,8 @@ public class UiSuite implements FabricClientGameTest {
                 || any(LOCKSTAR_HEAD_CASES);
                 || any(MENU_PROFILES_CASES)
                 || any(DOC_MENU_CASES);
+                || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(DOC_MISC_CASES)
+                || any(MENU_PROFILES_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -545,6 +551,12 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "971-ui-chroma-enchant-waterfall", ChromaWaveCases::enchantTooltip);
                     UiCase.run(ctx, "972-ui-chroma-scoreboard-border", ChromaWaveCases::scoreboardBorder);
                     UiCase.run(ctx, "973-ui-chroma-crosshair", ChromaWaveCases::crosshair);
+                    // ---- killer560's 2026-10-13 doc list, misc (1311-1315) ----
+                    UiCase.run(ctx, "1311-ui-scoreboard-numbers", DocMiscCases::scoreboardNumbers);
+                    UiCase.run(ctx, "1312-ui-inventory-slot-outlines", DocMiscCases::slotOutlines);
+                    UiCase.run(ctx, "1313-ui-bars-default-thinner", DocMiscCases::barsThinner);
+                    UiCase.run(ctx, "1314-ui-peek-chat", DocMiscCases::peekChat);
+                    UiCase.run(ctx, "1315-ui-loadouts-button", DocMiscCases::loadoutsButton);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
