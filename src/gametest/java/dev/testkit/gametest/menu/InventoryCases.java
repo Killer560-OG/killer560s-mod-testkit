@@ -43,6 +43,8 @@ final class InventoryCases {
         BazaarOrderCases.register(s);
         InvStorageMenuCases.register(s);
         ItemUiMenuCases.register(s);
+        // ---- 1361-1364 Loadout Keybinds per-key mode (loadout-modes, 2026-10-13) ----
+        LoadoutModeCases.register(s);
     }
 
     static void clearInv(Session c) {

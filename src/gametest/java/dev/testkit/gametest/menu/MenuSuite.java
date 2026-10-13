@@ -67,6 +67,8 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *       and targets (a Leap Order class pick), Storage Scan All's slower varied pace ({@link DocDungeonsMenuCases})</li>
  *   <li>1341-1342 Fast/Auto Leap v2: the Auto sequence (swap, use, click, Return To) one step a tick, Fast and Auto
  *       together, and each failure's chat line ({@link LeapV2MenuCases})</li>
+ *   <li>1361-1364 Loadout Keybinds' per-key mode: Only In Menu, Open Swap Close, its timeout, a wrong menu and chat
+ *       typing ({@link LoadoutModeCases})</li>
  *   <li>761-767 the Bazaar flipper's full buy/sell cycle with the reskin off and on, its Cookie and price guards, and
  *       Auto Croesus going back into a claimed run for a keyed chest ({@link FlipCroesusCases})</li>
  * </ul>
