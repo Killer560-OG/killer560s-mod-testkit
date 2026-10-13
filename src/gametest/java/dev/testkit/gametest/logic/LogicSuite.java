@@ -29,6 +29,7 @@ import net.minecraft.world.level.block.Blocks;
  * 363-logic-roof-cover         Interactive Map landings outside the sim: an open roof refused, under a ceiling accepted
  * 776..785-logic-autoupdate-*  Auto Update against a fake GitHub (asset choice, checksum, same hash, gates, installer):
  *                              AutoUpdateCases; they run on the TEST thread (the installer cases wait seconds)
+ * 991..993-logic-reboot-*     /reboot's launcher detection and its relauncher process (RebootCases), TEST thread
  * </pre>
  *
  * The catalog comes from {@code python tools/extract-patterns.py -PmodSource=<mod checkout>}; the mod source is read
@@ -62,6 +63,11 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.runOffClient(ctx, "784-logic-autoupdate-helper", AutoUpdateCases::helper);
         LogicCase.runOffClient(ctx, "785-logic-autoupdate-helper-refuse", AutoUpdateCases::helperRefuse);
         // ---- end Auto Update
+        // ---- /reboot (reboot-cmd, 2026-10-13) - own block
+        LogicCase.runOffClient(ctx, "991-logic-reboot-detect", RebootCases::detect);
+        LogicCase.runOffClient(ctx, "992-logic-reboot-helper", RebootCases::helper);
+        LogicCase.runOffClient(ctx, "993-logic-reboot-helper-timeout", RebootCases::timeout);
+        // ---- end /reboot
         // ItemStacks need item components, which are bound only once a world's registries load ("Components not
         // bound yet" at the title screen). The two cases that build stacks run in a throwaway singleplayer world.
         if (!Scenario.skip("354-logic-terminals") || !Scenario.skip("357-logic-items-ap3-routes")

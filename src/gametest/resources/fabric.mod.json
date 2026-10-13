@@ -106,6 +106,7 @@
 			"dev.testkit.gametest.menu.MenuSuite",
 			"dev.testkit.gametest.ui.UiSuite",
 			"dev.testkit.gametest.logic.LogicSuite",
+			"dev.testkit.gametest.ui.RebootCommandTest",
 			"dev.testkit.gametest.dsim.DungeonServerSuite",
 			"dev.testkit.gametest.boss.BossSuite",
 			"dev.testkit.gametest.perf.FpsBenchTest",
