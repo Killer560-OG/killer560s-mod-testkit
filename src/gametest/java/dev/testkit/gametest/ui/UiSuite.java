@@ -287,9 +287,8 @@ public class UiSuite implements FabricClientGameTest {
                 || any(CYCLE_BACK_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES) || any(HUD_KEY3_CASES)
                 || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES)
                 || any(CHROMA_WAVE_CASES)
-                || any(MENU_PROFILES_CASES)
+                || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES)
                 || any(LOCKSTAR_HEAD_CASES);
-                || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
