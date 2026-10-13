@@ -26,7 +26,7 @@ import java.util.ArrayDeque;
  *
  * <p>Recorded: player chat ({@code chat}), every command a player sends including ones nothing handles
  * ({@code cmd}, also printed as {@code [hx] cmd /<full>} to the console), container clicks and closes
- * ({@code container.click}, {@code container.close}), use/attack interactions ({@code use_item}, {@code use_block},
+ * ({@code container.click}, {@code container.close}), held-slot changes ({@code held}), use/attack interactions ({@code use_item}, {@code use_block},
  * {@code use_entity}, {@code attack_entity}, {@code attack_block}), and joins/disconnects. Each event is
  * {@code {seq, type, tick, player, ...}}; {@code events.poll {since}} returns those with a larger seq plus
  * {@code next} to pass as the following {@code since}. A ring of {@link #CAPACITY}: {@code dropped} says when a poll
@@ -128,6 +128,13 @@ public final class HxEvents {
     public static void containerClose(ServerPlayer player, int containerId) {
         JsonObject e = base("container.close", player);
         e.addProperty("containerId", containerId);
+        add(e);
+    }
+
+    /** From the packet-listener mixin: the client's held-item packet ({@code held}, hotbar slot 0-8). */
+    public static void held(ServerPlayer player, int slot) {
+        JsonObject e = base("held", player);
+        e.addProperty("slot", slot);
         add(e);
     }
 
