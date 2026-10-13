@@ -76,6 +76,8 @@ import java.util.List;
  *                940-947 the Option A mod menu: screenshots, card switches flip the config, a card opens its drawer,
  *                favourites survive a restart, Ctrl F search, no sidebar counts, colour presets and Custom colours
  *                ({@link MenuACases})
+ *                955 every colour picker's Copy / Paste / hex box / Ctrl+C / Ctrl+V / Recent row, between two different
+ *                settings, proven on disk and after a restart ({@link ColourCopyCases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -457,6 +459,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "947-ui-menu-a-custom-colour", MenuACases::customColour);
                     // ---- Profiles page (948) ----
                     UiCase.run(ctx, "948-ui-menu-profiles-page", MenuProfilesCases::page);
+                    // ---- colour picker Copy / Paste / Recent (955) ----
+                    UiCase.run(ctx, "955-ui-colour-copy-paste", ColourCopyCases::copyPaste);
                     // ---- Edit HUD key / Croesus (862-865) ----
                     UiCase.run(ctx, "862-ui-hud-key-typing", HudKey2Cases::typing);
                     UiCase.run(ctx, "863-ui-hud-key-over-container", HudKey2Cases::overContainer);
