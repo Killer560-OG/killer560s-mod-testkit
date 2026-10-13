@@ -494,14 +494,14 @@ public class NametagPerfBenchTest implements FabricClientGameTest {
             List<net.minecraft.client.multiplayer.PlayerInfo> infos = new ArrayList<>(mc.getConnection().getListedOnlinePlayers());
             infos.sort(java.util.Comparator.comparing(i -> i.getProfile().name()));
             for (var info : infos) {
-                net.minecraft.network.chat.Component comp = mc.gui.getTabList().getNameForDisplay(info);
+                net.minecraft.network.chat.Component comp = McCompat.tabList(mc).getNameForDisplay(info);
                 dump(mc, sb, "tab " + info.getProfile().name(), comp);
             }
             try {
                 java.lang.reflect.Field f = net.minecraft.client.gui.components.ChatComponent.class.getDeclaredField("trimmedMessages");
                 f.setAccessible(true);
                 int i = 0;
-                for (Object line : (List<?>) f.get(mc.gui.getChat())) {
+                for (Object line : (List<?>) f.get(McCompat.chat(mc))) {
                     java.lang.reflect.Method m = line.getClass().getMethod("content");
                     m.setAccessible(true);
                     dumpSeq(mc, sb, "chat " + (i++), (net.minecraft.util.FormattedCharSequence) m.invoke(line));

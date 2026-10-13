@@ -51,4 +51,14 @@ public final class McCompat {
         mc.gui.hud.getChat().clearMessages(false);
         mc.gui.toastManager().clear();
     }
+
+    /** The chat window ({@code mc.gui.hud.getChat()}). */
+    public static net.minecraft.client.gui.components.ChatComponent chat(Minecraft mc) {
+        return mc.gui.hud.getChat();
+    }
+
+    /** The player list overlay ({@code mc.gui.hud.getTabList()}). */
+    public static net.minecraft.client.gui.components.PlayerTabOverlay tabList(Minecraft mc) {
+        return mc.gui.hud.getTabList();
+    }
 }
