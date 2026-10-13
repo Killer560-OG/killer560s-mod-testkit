@@ -182,6 +182,8 @@ public class UiSuite implements FabricClientGameTest {
     /** The chroma waterfall (mod chroma-waterfall, {@link ChromaWaveCases}). Own block for merges. */
     static final String[] CHROMA_WAVE_CASES = {"971-ui-chroma-enchant-waterfall", "972-ui-chroma-scoreboard-border",
             "973-ui-chroma-crosshair"};
+    /** Item Protect's star on locked player heads (mod lockstar-heads, {@link LockStarHeadCases}). Own block. */
+    static final String[] LOCKSTAR_HEAD_CASES = {"961-ui-lockstar-heads"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -262,6 +264,7 @@ public class UiSuite implements FabricClientGameTest {
                 dev.testkit.gametest.Scenario.skip(n);
             }
             for (String n : CHROMA_WAVE_CASES) {
+            for (String n : LOCKSTAR_HEAD_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
@@ -276,6 +279,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES)
                 || any(CHROMA_WAVE_CASES)
                 || any(MENU_PROFILES_CASES);
+                || any(LOCKSTAR_HEAD_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -472,6 +476,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "948-ui-menu-profiles-page", MenuProfilesCases::page);
                     // ---- colour picker Copy / Paste / Recent (955) ----
                     UiCase.run(ctx, "955-ui-colour-copy-paste", ColourCopyCases::copyPaste);
+                    // ---- Item Protect star on player heads (961) ----
+                    UiCase.run(ctx, "961-ui-lockstar-heads", LockStarHeadCases::heads);
                     // ---- Edit HUD key / Croesus (862-865) ----
                     UiCase.run(ctx, "862-ui-hud-key-typing", HudKey2Cases::typing);
                     UiCase.run(ctx, "863-ui-hud-key-over-container", HudKey2Cases::overContainer);
