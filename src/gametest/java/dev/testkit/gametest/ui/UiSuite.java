@@ -205,6 +205,9 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-13 dungeon list (mod doc-dungeons, {@link DocDungeonsCases}). Own block. */
     static final String[] DOC_DUNGEONS_CASES = {"981-ui-etherwarp-walk-in", "985-ui-leap-modes-targets",
             "986-ui-croesus-key-settings", "987-ui-map-leap-names"};
+    /** The screen sweep, part C (mod sweep-c, {@link ScreenThemeCases}): every sweep-c screen in Amber and Light, and a
+     *  screen's own Theme setting. Own block for merges. */
+    static final String[] SCREEN_SWEEP_C_CASES = {"975-ui-screen-sweep-c-themes", "976-ui-screen-own-theme"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -308,6 +311,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : TURBO_CHROMA_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : SCREEN_SWEEP_C_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -320,7 +326,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(HUD_KEY3_CASES) || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(CHROMA_WAVE_CASES)
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
                 || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
-                || any(SWEEP_B_CASES);
+                || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -589,6 +595,9 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "987-ui-map-leap-names", DocDungeonsCases::mapLeapNames);
                     // ---- every Turbo-Crop VII is Perfect chroma (974) ----
                     UiCase.run(ctx, "974-ui-chroma-turbo-crops", ChromaWaveCases::turboCrops);
+                    // ---- screen sweep, part C (975-976) ----
+                    UiCase.run(ctx, "975-ui-screen-sweep-c-themes", ScreenThemeCases::sweep);
+                    UiCase.run(ctx, "976-ui-screen-own-theme", ScreenThemeCases::ownTheme);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
