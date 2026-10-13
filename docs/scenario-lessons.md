@@ -519,3 +519,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - The Hx test server SPENDS the `items.spirit-leap` fixture on every use (it is a plain item on a vanilla server), so a
   second leap in one case finds nothing ("Could not find INFINITE_SPIRIT_LEAP, SPIRIT_LEAP"): give it again before each
   leap, and zero `LeapManager.leapCdTicks` (983, 2026-10-13).
+- 1321-ui-etherwarp-box-faces samples each camera-facing face of the Etherwarp box where it projects (camera from
+  `Camera.position()/yRot()/xRot()`, vertical FOV from options with FOV effects 0), skipping samples a client raycast says
+  are occluded. Sodium (0.9.2-alpha.4, `-ModUnderTest "mod.jar,sodium.jar"`) breaks the gametest `takeScreenshot` with
+  "Global terrain uniforms have not been updated"; the case reads the main target back with `Screenshot.takeScreenshot`
+  then (26.1.2 only: 26.2's `Minecraft` has no `getMainRenderTarget`). A compile error in a -Minecraft 26.2 run makes
+  run-scenario exit 1 in seconds and leaves the PREVIOUS run's report in place: check the log's "Loading Minecraft" line.
