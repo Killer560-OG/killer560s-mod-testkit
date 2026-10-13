@@ -60,6 +60,10 @@ import java.util.function.Supplier;
  *       plans this room's again at once.</li>
  *   <li><b>941-sim-pathopt-altar</b>: his Altar route, pair #9 -> #10 from the breaker hole down to the room's lower
  *       level (25 below the dungeon floor): planned and flown, he ends on #10.</li>
+ *   <li><b>947-sim-pathopt-unreachable</b>: Scaffolding, a path node on a floor block that no etherwarp lands on from
+ *       any allowed landing of the room (ground truth, on the server). The planner must not plan the pair at all - it
+ *       used to hand back the floor graph's "near" landing, a stair 4 blocks up, and the pair flew there (634 #12, #17,
+ *       #36). Control: a pair of the same sample plans and replays onto its goal.</li>
  *   <li><b>636-sim-pathopt-mapslab</b>: the Interactive Map's own trip (ClearExecutor.etherPathExact) to the 632 goal:
  *       arrives, never on the slab.</li>
  * </ul>
@@ -79,10 +83,13 @@ public class SimPathOptimalTests implements FabricClientGameTest {
     static final String CHEST = "638-sim-pathopt-chest";
     // ar-path-altar (2026-10-12): his Altar pair #9 -> #10, down into the room's lower level.
     static final String ALTAR = "941-sim-pathopt-altar";
+    // path-scaffold (2026-10-12): a path node on a block no etherwarp lands on (Scaffolding's floor under the walkway).
+    static final String UNREACHABLE = "947-sim-pathopt-unreachable";
     // The map trip (636) goes after every path-pair flight: after a map warp only a START node may arm until he has
     // been through one (the map-arrival interlock), and these pairs have none.
     private static final String[] CASES = {LIP, SLAB, SLAB_NODE, CHEST, BREAKER, RW, REFIRE,
             ALTAR,
+            UNREACHABLE,
             MAP_SLAB, REPLAN, SWEEP};
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
@@ -175,6 +182,7 @@ public class SimPathOptimalTests implements FabricClientGameTest {
                         case RW -> caseRedstoneWarrior(ctx, f);
                         case REFIRE -> caseRefire(ctx, f);
                         case ALTAR -> caseAltar(ctx, f);
+                        case UNREACHABLE -> caseUnreachable(ctx, f);
                         case REPLAN -> caseReplan(ctx, f);
                         case SWEEP -> caseSweep(ctx, f);
                         default -> { }
@@ -1087,6 +1095,193 @@ public class SimPathOptimalTests implements FabricClientGameTest {
         }
     }
 
+    private static void caseUnreachable(ClientGameTestContext ctx, List<String> f) {
+        @SuppressWarnings("unchecked")
+        List<String> names = ctx.computeOnClient(mc -> new ArrayList<>((List<String>) ModUnderTest.staticCall(
+                ROOM_LIBRARY, "names")));
+        if (!names.contains("Scaffolding")) {
+            f.add("Scaffolding is not in the room library");
+            return;
+        }
+        String keep = room;
+        int keepF = F;
+        buildRoom(ctx, "Scaffolding");
+        room = "Scaffolding";
+        giveAotv(ctx);
+        try {
+            List<Vec3> spots = onServer(ctx, (mc, level) -> spotsInRoom(mc, level));
+            if (spots.size() < 4) {
+                f.add("Scaffolding did not build (" + spots.size() + " spot(s))");
+                return;
+            }
+            // 634's sample of this room (its #12 is such a pair): the first goal the planner cannot land on, then judged
+            // by the ground truth.
+            Random rng = new Random(560L + "Scaffolding".hashCode());
+            List<Vec3[]> sample = new ArrayList<>();
+            for (int guard = 0; sample.size() < 40 && guard < 2000; guard++) {
+                Vec3 a = spots.get(rng.nextInt(spots.size()));
+                Vec3 b = spots.get(rng.nextInt(spots.size()));
+                if (Math.hypot(a.x - b.x, a.z - b.z) >= 6) {
+                    sample.add(new Vec3[]{a, b});
+                }
+            }
+            List<Plan> plans = planMany(ctx, sample);
+            int pick = -1;
+            for (int i = 0; i < sample.size() && pick < 0; i++) {
+                Plan p = plans.get(i);
+                Vec3 a = sample.get(i)[0];
+                BlockPos g = BlockPos.containing(sample.get(i)[1].x, sample.get(i)[1].y - 0.5, sample.get(i)[1].z);
+                boolean refused = p.warps < 0 && p.why.contains("cannot be reached");
+                String rp = p.warps < 0 ? null : onServer(ctx, (mc, level) -> replay(level, a, p.hops, g));
+                if (refused || (rp != null && rp.startsWith("ends on"))) {
+                    pick = i;
+                }
+            }
+            if (pick < 0) {
+                f.add("no pair of the 40 has a goal the planner cannot land on - nothing to test (634 #12 was one)");
+                return;
+            }
+            Vec3 s0 = sample.get(pick)[0];
+            BlockPos g0 = BlockPos.containing(sample.get(pick)[1].x, sample.get(pick)[1].y - 0.5, sample.get(pick)[1].z);
+            Plan bad = plans.get(pick);
+            println(UNREACHABLE, "pair #" + pick + ": start " + fmt(s0) + ", goal " + g0.toShortString() + ": " + bad);
+            // Ground truth, on the server: every landing of the room (allowed on the way, and with the standing room the
+            // server's warp asks for) from which some chain of real warps ends on the goal - grown backward from the goal
+            // until nothing new reaches it. The goal is unreachable exactly when the start is not in it.
+            long t0 = System.nanoTime();
+            String truth = onServer(ctx, (mc, level) -> {
+                int[] box = roomBox(mc, level);
+                List<BlockPos> landings = new ArrayList<>();
+                for (int x = box[0]; x <= box[1]; x++) {
+                    for (int z = box[2]; z <= box[3]; z++) {
+                        for (int y = box[4]; y <= box[5]; y++) {
+                            BlockPos p = new BlockPos(x, y, z);
+                            if (!p.equals(g0) && standable(level, p) && allowedLanding(level, p) && warpRoom(level, p)) {
+                                landings.add(p);
+                            }
+                        }
+                    }
+                }
+                List<BlockPos> reach = new ArrayList<>();
+                List<BlockPos> frontier = new ArrayList<>(List.of(g0));
+                java.util.Set<BlockPos> in = new java.util.HashSet<>(frontier);
+                while (!frontier.isEmpty()) {
+                    if (frontier.stream().anyMatch(t -> oracleDirect(level, s0, t, 16) != null)) {
+                        return "the start reaches it, through " + reach;
+                    }
+                    List<BlockPos> next = new ArrayList<>();
+                    for (BlockPos l : landings) {
+                        if (in.contains(l)) {
+                            continue;
+                        }
+                        Vec3 feet = standOn(level, l);
+                        for (BlockPos t : frontier) {
+                            if (oracleDirect(level, feet, t, 16) != null) {
+                                next.add(l);
+                                in.add(l);
+                                break;
+                            }
+                        }
+                    }
+                    reach.addAll(next);
+                    frontier = next;
+                }
+                StringBuilder sb = new StringBuilder("none (" + landings.size() + " landing(s); the goal is "
+                        + level.getBlockState(g0).getBlock() + "; " + reach.size() + " landing(s) reach it, none reached"
+                        + " from the start:");
+                for (BlockPos r : reach) {
+                    sb.append(" ").append(r.toShortString()).append(" ").append(level.getBlockState(r).getBlock());
+                }
+                // What walls the pocket in: the blocks of its box grown by one, up to five over its floor.
+                int x0 = g0.getX(), x1 = g0.getX(), z0 = g0.getZ(), z1 = g0.getZ();
+                for (BlockPos r : reach) {
+                    x0 = Math.min(x0, r.getX());
+                    x1 = Math.max(x1, r.getX());
+                    z0 = Math.min(z0, r.getZ());
+                    z1 = Math.max(z1, r.getZ());
+                }
+                Map<String, Integer> shell = new java.util.TreeMap<>();
+                for (int x = x0 - 1; x <= x1 + 1; x++) {
+                    for (int z = z0 - 1; z <= z1 + 1; z++) {
+                        for (int y = g0.getY() + 1; y <= g0.getY() + 5; y++) {
+                            BlockState st = level.getBlockState(new BlockPos(x, y, z));
+                            if (!st.isAir()) {
+                                shell.merge(st.getBlock().getName().getString(), 1, Integer::sum);
+                            }
+                        }
+                    }
+                }
+                return sb.append("; around it, 1-5 over its floor: ").append(shell).append(")").toString();
+            });
+            println(UNREACHABLE, String.format(Locale.US, "ground truth, warps onto %s: %s (%.1f s)", g0.toShortString(),
+                    truth, (System.nanoTime() - t0) / 1e9));
+            if (!truth.startsWith("none")) {
+                f.add("the goal IS reachable (" + truth + ") - the planner refusing it is wrong");
+                return;
+            }
+            if (bad.warps >= 0) {
+                List<double[]> hops = bad.hops;
+                f.add("the planner returned " + bad.warps + " warp(s) for a block no warp lands on: "
+                        + onServer(ctx, (mc, level) -> replay(level, s0, hops, g0)));
+            }
+            // As he makes it: /ar add path on the start, then on the goal. Nothing may be saved, and he is told why.
+            long mark = LogTap.mark();
+            int hops = pathPair(ctx, f, s0, new Vec3(g0.getX() + 0.5, g0.getY() + 1.0, g0.getZ() + 0.5));
+            // The planner's own "[Path] ... not planned" line ends pathPair's wait; the chat reason follows on the client
+            // thread a tick or so later (26.2's first run read it too early).
+            boolean told = waitFor(ctx, 100, () -> logHas(mark, "no etherwarp path ends on"));
+            println(UNREACHABLE, "/ar add path pair: " + hops + " hop(s) saved, told why: " + told);
+            if (hops != 0) {
+                f.add("the path pair saved " + hops + " hop(s) for a block no warp lands on");
+            }
+            if (!told) {
+                f.add("he was not told the node's block cannot be reached");
+            }
+            // Control: the planner still plans pairs it can land, and they replay onto their goal.
+            boolean control = false;
+            for (int i = 0; i < sample.size() && !control; i++) {
+                Plan p = plans.get(i);
+                Vec3[] pr = sample.get(i);
+                BlockPos g = BlockPos.containing(pr[1].x, pr[1].y - 0.5, pr[1].z);
+                if (p.warps > 0 && onServer(ctx, (mc, level) -> replay(level, pr[0], p.hops, g)) == null) {
+                    control = true;
+                    println(UNREACHABLE, "control #" + i + " " + fmt(pr[0]) + " -> " + g.toShortString() + ": " + p
+                            + ", replays onto it");
+                }
+            }
+            if (!control) {
+                f.add("control: no pair of the 40 planned and replayed");
+            }
+        } finally {
+            buildRoom(ctx, keep);
+            room = keep;
+            F = keepF;
+            giveAotv(ctx);
+        }
+    }
+
+    private static Method flagsM;
+
+    /** Standing room as the server's warp asks for it ({@code TeleportUtils} flags over the collision top). */
+    private static boolean warpRoom(ServerLevel level, BlockPos p) {
+        try {
+            if (flagsM == null) {
+                flagsM = Class.forName(TELEPORT_UTILS).getDeclaredMethod("flagsOf", BlockState.class);
+                flagsM.setAccessible(true);
+            }
+            int base = (int) Math.round(standOn(level, p).y - 0.05);
+            for (int k = 0; k < 2; k++) {
+                int fl = (Integer) flagsM.invoke(null, level.getBlockState(new BlockPos(p.getX(), base + k, p.getZ())));
+                if ((fl & 1) == 0 || (fl & 2) != 0) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private static JsonArray savedHopsOf(ClientGameTestContext ctx, String roomName, int index) {
         return ctx.computeOnClient(mc -> {
             try {
@@ -1215,7 +1410,11 @@ public class SimPathOptimalTests implements FabricClientGameTest {
         List<String> timing = new ArrayList<>();
         List<String> names = ctx.computeOnClient(mc -> new ArrayList<>((List<String>) ModUnderTest.staticCall(
                 ROOM_LIBRARY, "names")));
+        String only = System.getProperty("testkit.pathoptRooms");
         for (String name : SWEEP_ROOMS) {
+            if (only != null && !List.of(only.split(",")).contains(name)) {
+                continue;
+            }
             if (!names.contains(name)) {
                 println(SWEEP, "room " + name + " is not in the library - skipped");
                 continue;
@@ -1273,6 +1472,10 @@ public class SimPathOptimalTests implements FabricClientGameTest {
                 String replay = onServer(ctx, (mc, level) -> replay(level, a, p.hops, goal));
                 if (replay != null) {
                     f.add(name + " #" + i + ": the plan does not replay: " + replay);
+                    println(SWEEP, "  " + name + " #" + i + " " + fmt(a) + " -> " + goal.toShortString() + ": " + p);
+                    for (String l : onServer(ctx, (mc, level) -> dumpPlan(mc, level, a, p.hops, goal))) {
+                        println(SWEEP, "    " + l);
+                    }
                     continue;
                 }
                 if (!p.proven) {
@@ -1732,6 +1935,85 @@ public class SimPathOptimalTests implements FabricClientGameTest {
             return false;
         }
         return true;
+    }
+
+    /**
+     * A failed replay, hop by hop: the planned aim, where the plan says it lands (the next hop's feet, or the goal), the
+     * server's real landing, and every non-air block the ray walks through up to it, as the server and the client hold
+     * it (the planner reads the client's world). Server thread.
+     */
+    private static List<String> dumpPlan(Minecraft mc, ServerLevel level, Vec3 start, List<double[]> hops,
+                                         BlockPos goal) {
+        List<String> out = new ArrayList<>();
+        try {
+            double range = range();
+            Vec3 at = start;
+            for (int i = 0; i < hops.size(); i++) {
+                double[] h = hops.get(i);
+                String planned = i + 1 < hops.size() ? "feet " + fmt(new Vec3(hops.get(i + 1)[0], hops.get(i + 1)[1],
+                        hops.get(i + 1)[2])) : "goal " + goal.toShortString();
+                BlockPos land = cast(level, at.x, at.y + 1.27, at.z, (float) h[3], (float) h[4], range);
+                out.add(String.format(Locale.US, "warp %d from %s (planned from %s) aim %.4f/%.4f: planned %s; server"
+                                + " lands %s", i + 1, fmt(at), fmt(new Vec3(h[0], h[1], h[2])), h[3], h[4], planned,
+                        land == null ? "nowhere" : land.toShortString() + " " + level.getBlockState(land)));
+                Vec3 look = (Vec3) lookM.invoke(null, (float) h[3], (float) h[4]);
+                double ex = at.x;
+                double ey = at.y + 1.27;
+                double ez = at.z;
+                double x1 = ex + look.x * range;
+                double y1 = ey + look.y * range;
+                double z1 = ez + look.z * range;
+                int x = (int) Math.floor(ex);
+                int y = (int) Math.floor(ey);
+                int z = (int) Math.floor(ez);
+                int sx = (int) Math.signum(x1 - ex);
+                int sy = (int) Math.signum(y1 - ey);
+                int sz = (int) Math.signum(z1 - ez);
+                double ix = x1 != ex ? 1.0 / (x1 - ex) : Double.MAX_VALUE;
+                double iy = y1 != ey ? 1.0 / (y1 - ey) : Double.MAX_VALUE;
+                double iz = z1 != ez ? 1.0 / (z1 - ez) : Double.MAX_VALUE;
+                double dX = Math.abs(ix * sx);
+                double dY = Math.abs(iy * sy);
+                double dZ = Math.abs(iz * sz);
+                double mX = Math.abs((x + Math.max(sx, 0) - ex) * ix);
+                double mY = Math.abs((y + Math.max(sy, 0) - ey) * iy);
+                double mZ = Math.abs((z + Math.max(sz, 0) - ez) * iz);
+                for (int it = 0; it < 1000; it++) {
+                    BlockPos p = new BlockPos(x, y, z);
+                    BlockState s = level.getBlockState(p);
+                    BlockState c = mc.level == null ? null : mc.level.getBlockState(p);
+                    if (!s.isAir() || (c != null && !c.isAir())) {
+                        var shape = s.getCollisionShape(level, p);
+                        out.add(String.format(Locale.US, "    %s server %s (shape %s) client %s",
+                                p.toShortString(), s, shape.isEmpty() ? "empty" : shape.bounds(), c));
+                    }
+                    if (p.equals(land) || (land == null && it > 200)) {
+                        for (int k = 1; k <= 2; k++) {
+                            out.add("      above+" + k + " server " + level.getBlockState(p.above(k)) + " client "
+                                    + (mc.level == null ? null : mc.level.getBlockState(p.above(k))));
+                        }
+                        break;
+                    }
+                    if (mX <= mY && mX <= mZ) {
+                        mX += dX;
+                        x += sx;
+                    } else if (mY <= mZ) {
+                        mY += dY;
+                        y += sy;
+                    } else {
+                        mZ += dZ;
+                        z += sz;
+                    }
+                }
+                if (land == null) {
+                    break;
+                }
+                at = standOn(level, land);
+            }
+        } catch (Exception e) {
+            out.add("dump threw " + e);
+        }
+        return out;
     }
 
     /** Replays a plan with real etherwarps: null when it lands hop by hop and ends on the goal, else why not. */
