@@ -264,6 +264,12 @@ final class EtherwarpFaceCases {
                 c.note(line);
                 frames++;
                 dev.testkit.harness.Report.screenshot(c.name() + "-" + label, TAKEN.get(c.name() + "-" + label));
+                // Pressed against it (gold fills the screen, no edge of it on screen): nothing may be drawn - no
+                // smaller outline, no shading (killer560, 2026-10-13: "I don't want some sort of smaller outline").
+                boolean filled = gold != null && gold[0] <= 2 && gold[2] >= w - 3 && gold[1] <= 2 && gold[3] >= img.getHeight() - 3;
+                if (filled && bb != null) {
+                    worst++;
+                }
                 if (worst > 0) {
                     bad.add(line);
                 }
@@ -446,17 +452,17 @@ final class EtherwarpFaceCases {
             line.append(String.format(Locale.ROOT, " %s filled %s outline %s (inside %s);", FACE_NAMES[f], frac(fs),
                     frac(os), frac(oi)));
             if (tintExpected) {
-                // Pressed against it (within the mod's NEAR_FACE_DISTANCE, inside its footprint): no shading any more -
-                // killer560 (2026-10-13, 26.2) "I do not want the etherwarp overlay to turn shaded red when I am close" -
-                // but a smaller outline on that face, so some of the screen changes and only a sliver of it.
+                // Pressed against it (within 0.85 of the face, inside its footprint): just the box's own edges, no
+                // shading and nothing extra. killer560 (2026-10-13): "I want the full outline and if you can't see an
+                // Edge then don't draw that part of it" (after first a red tint, then a smaller outline on the face).
                 tinted++;
                 tintedTotal++;
                 checked++;
                 int[] ch = changedPixels(outline, off);
                 double frac = ch[0] / (double) ch[1];
-                if (ch[0] < 200 || frac > 0.10) {
+                if (frac > 0.03) {
                     miss.add(label + " " + FACE_NAMES[f] + " outline: pressed against the face, " + ch[0] + " pixel(s) changed ("
-                            + String.format(Locale.ROOT, "%.1f%%", 100 * frac) + ") - want an outline (>= 200) and no shading (<= 10%)");
+                            + String.format(Locale.ROOT, "%.1f%%", 100 * frac) + ") - want only the box's own edges, no shading");
                 }
             } else if (clean[1] >= 4 && clean[0] > 0.05 * clean[1]) {
                 miss.add(label + " " + FACE_NAMES[f] + " outline: face tinted while not pressed against it "
@@ -497,7 +503,7 @@ final class EtherwarpFaceCases {
         return new int[]{changed, on.getWidth() * on.getHeight()};
     }
 
-    /** Mirrors the mod's rule: within NEAR_FACE_DISTANCE (0.85) of face f's plane, in front of it, inside its footprint. */
+    /** Pressed against face f: within 0.85 of its plane, in front of it, inside its footprint. */
     private static boolean pressedAgainst(Vec3 cam, int bx, int by, int bz, int f) {
         int[] n = FACES[f];
         double[] c = {cam.x - bx, cam.y - by, cam.z - bz};
