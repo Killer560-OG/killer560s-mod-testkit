@@ -63,6 +63,8 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *   <li>899-902 the Leap Order editor: Reset Classes, Reset Positions, a party refresh on opening, the removed button and hint ({@link LeapEditorCases})</li>
  *   <li>754-755 the Chocolate Factory on its current layout: Auto Chocolate Factory's clicks, the legit helper's
  *       reading and alerts ({@link ChocolateCases})</li>
+ *   <li>982-984 killer560's 2026-10-13 list: Auto E-Table stops on any input but a mouse move, Fast/Auto Leap modes
+ *       and targets (a Leap Order class pick), Storage Scan All's slower varied pace ({@link DocDungeonsMenuCases})</li>
  *   <li>761-767 the Bazaar flipper's full buy/sell cycle with the reskin off and on, its Cookie and price guards, and
  *       Auto Croesus going back into a claimed run for a keyed chest ({@link FlipCroesusCases})</li>
  * </ul>
@@ -160,6 +162,8 @@ public class MenuSuite implements FabricClientGameTest {
                     CroesusChestViewCases.register(s);
                     // ---- 950-957 sweep-a (2026-10-13): the mod's other screens in the menu theme, per-screen Theme ----
                     ScreenSweepCases.register(s);
+                    // ---- 982-984 doc-dungeons (2026-10-13): Auto E-Table stops on input, leap modes/targets, Scan All pace ----
+                    DocDungeonsMenuCases.register(s);
                 });
     }
 }

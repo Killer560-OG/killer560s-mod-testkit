@@ -516,3 +516,6 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 1314 (Peek Chat): the held item on the right sways between two screenshots (2,053 changed px in one run), and the
   chat sits wherever the window puts it (top-left at 854x480). Diff a strip LEFT of the hotbar and judge by share of
   the area; find a chat line on the picture by its colour, not by a fixed y (2026-10-13).
+- The Hx test server SPENDS the `items.spirit-leap` fixture on every use (it is a plain item on a vanilla server), so a
+  second leap in one case finds nothing ("Could not find INFINITE_SPIRIT_LEAP, SPIRIT_LEAP"): give it again before each
+  leap, and zero `LeapManager.leapCdTicks` (983, 2026-10-13).

@@ -196,6 +196,9 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-13 doc list, misc items ({@link DocMiscCases}). Own block for merges. */
     static final String[] DOC_MISC_CASES = {"1311-ui-scoreboard-numbers", "1312-ui-inventory-slot-outlines",
             "1313-ui-bars-default-thinner", "1314-ui-peek-chat", "1315-ui-loadouts-button"};
+    /** killer560's 2026-10-13 dungeon list (mod doc-dungeons, {@link DocDungeonsCases}). Own block. */
+    static final String[] DOC_DUNGEONS_CASES = {"981-ui-etherwarp-walk-in", "985-ui-leap-modes-targets",
+            "986-ui-croesus-key-settings", "987-ui-map-leap-names"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -278,6 +281,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : BAR_STYLE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : DOC_DUNGEONS_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : INV_THEME_CENTRE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -301,7 +307,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(AUTOKICK2_CASES) || any(CYCLE_BACK_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES)
                 || any(HUD_KEY3_CASES) || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(CHROMA_WAVE_CASES)
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
-                || any(DOC_MENU_CASES) || any(DOC_MISC_CASES);
+                || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -556,6 +562,11 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1313-ui-bars-default-thinner", DocMiscCases::barsThinner);
                     UiCase.run(ctx, "1314-ui-peek-chat", DocMiscCases::peekChat);
                     UiCase.run(ctx, "1315-ui-loadouts-button", DocMiscCases::loadoutsButton);
+                    // ---- doc-dungeons, killer560's 2026-10-13 list (981-989) ----
+                    UiCase.run(ctx, "981-ui-etherwarp-walk-in", DocDungeonsCases::etherwarpWalkIn);
+                    UiCase.run(ctx, "985-ui-leap-modes-targets", DocDungeonsCases::leapSettings);
+                    UiCase.run(ctx, "986-ui-croesus-key-settings", DocDungeonsCases::croesusKeys);
+                    UiCase.run(ctx, "987-ui-map-leap-names", DocDungeonsCases::mapLeapNames);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
