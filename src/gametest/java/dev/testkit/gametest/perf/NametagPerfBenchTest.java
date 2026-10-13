@@ -522,7 +522,10 @@ public class NametagPerfBenchTest implements FabricClientGameTest {
                             .getDeclaredMethod("getNameTag", net.minecraft.world.entity.Entity.class);
                     m.setAccessible(true);
                     net.minecraft.network.chat.Component tag = (net.minecraft.network.chat.Component) m.invoke(r, e);
-                    if (tag != null) {
+                    // Only what draws a tag here: players and named stands (falling blocks from the platform build
+                    // and other unnamed entities vary between runs and are never drawn with a tag).
+                    boolean shown = e instanceof Player || (e.hasCustomName() && e.isCustomNameVisible());
+                    if (tag != null && shown) {
                         dump(mc, sb, "tag " + e.getType() + " " + e.getName().getString(), tag);
                     }
                 } catch (ReflectiveOperationException ex) {
@@ -534,13 +537,21 @@ public class NametagPerfBenchTest implements FabricClientGameTest {
                 StringBuilder g = new StringBuilder();
                 Mod.staticCall(NA, "iterate", replaced, net.minecraft.network.chat.Style.EMPTY,
                         (net.minecraft.util.FormattedCharSink) (pos, st, cp) -> {
-                            g.append(Character.toString(cp)).append('[').append(st).append(']');
+                            g.append(Character.toString(cp)).append('[').append(look(st)).append(']');
                             return true;
                         });
                 sb.append("string ").append(str).append(" width ").append(mc.font.width(str)).append(" -> ").append(g).append('\n');
             }
             return sb.toString();
         });
+    }
+
+    /** What of a Style reaches the pixels: colour, the five formats, font, shadow colour (not click/hover/insertion). */
+    private static String look(net.minecraft.network.chat.Style st) {
+        net.minecraft.network.chat.TextColor col = st.getColor();
+        return (col == null ? "-" : String.format("%06x", col.getValue() & 0xFFFFFF)) + (st.isBold() ? "b" : "")
+                + (st.isItalic() ? "i" : "") + (st.isUnderlined() ? "u" : "") + (st.isStrikethrough() ? "s" : "")
+                + (st.isObfuscated() ? "o" : "") + " " + st.getFont() + " " + st.getShadowColor();
     }
 
     private static void dump(net.minecraft.client.Minecraft mc, StringBuilder sb, String what, net.minecraft.network.chat.Component comp) {
@@ -553,7 +564,7 @@ public class NametagPerfBenchTest implements FabricClientGameTest {
                 Mod.staticCall("namechanger.NameReplacer", "replace", seq));
         sb.append(what).append(" seqwidth ").append(mc.font.width(seq)).append(" -> ");
         out.accept((pos, st, cp) -> {
-            sb.append(Character.toString(cp)).append('[').append(st).append(']');
+            sb.append(Character.toString(cp)).append('[').append(look(st)).append(']');
             return true;
         });
         sb.append('\n');
