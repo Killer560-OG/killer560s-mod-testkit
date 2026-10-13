@@ -218,6 +218,142 @@ final class DocMiscCases {
         });
     }
 
+    // ---- Hypixel's real sidebar shape (scoreboard-digits, 2026-10-13) ----------------------------------------------
+    // From killer560's own client logs: Hypixel's line owner is ONE invalid format code ("§i", "§p", "§s"...), not a
+    // valid one, and the prefix holds the first 16 characters - "§ewww.hypixel.ne§gt", "§bKiller56§p0",
+    // "Starting in: §a0§i:04". stripFormatting leaves an invalid code in, so the mod kept the owner and it landed inside
+    // any number crossing character 16: a friend's ~114k Copper and his coins read a digit short.
+
+    private static final String[] HYPIXEL_VALUES = {"1,140", "14,000", "114,250", "1,140,250", "11,402,507", "114,025,073"};
+    /** Split offsets from just after the value's colour code: -2 (before the code), then 0..11 (every place in a
+     *  number up to 11 characters, and past it). */
+    private static final int[] HYPIXEL_OFFSETS = {-2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+    private static final int HYPIXEL_SPLITS = HYPIXEL_OFFSETS.length;
+    /** Invalid format codes, as Hypixel's owners use. */
+    private static final String INVALID_CODES = "ijpqstuvwxyzgh";
+
+    private static void boardHypixel(UiCase c, List<String> lines, int offset, boolean repeatColour) {
+        c.onClient(mc -> {
+            MinecraftServer server = mc.getSingleplayerServer();
+            server.execute(() -> {
+                ServerScoreboard sb = server.getScoreboard();
+                Objective old = sb.getObjective(TEAM);
+                if (old != null) {
+                    sb.removeObjective(old);
+                }
+                for (PlayerTeam t : new ArrayList<>(sb.getPlayerTeams())) {
+                    if (t.getName().startsWith(TEAM)) {
+                        sb.removePlayerTeam(t);
+                    }
+                }
+                Objective obj = sb.addObjective(TEAM, ObjectiveCriteria.DUMMY, Component.literal("SKYBLOCK"),
+                        ObjectiveCriteria.RenderType.INTEGER, false, null);
+                for (int i = 0; i < lines.size(); i++) {
+                    String line = lines.get(i);
+                    int valueAt = line.indexOf(": §") + 4; // just after the value's colour code
+                    int s = Math.max(0, Math.min(line.length(), valueAt + offset));
+                    if (s > 0 && line.charAt(s - 1) == '§') {
+                        s++; // a server never splits a code from its character
+                    }
+                    String pre = line.substring(0, s);
+                    String suf = line.substring(s);
+                    if (repeatColour) {
+                        int at = pre.lastIndexOf('§');
+                        if (at >= 0 && at + 1 < pre.length()) {
+                            suf = pre.substring(at, at + 2) + suf;
+                        }
+                    }
+                    String owner = "§" + INVALID_CODES.charAt(i);
+                    PlayerTeam team = sb.addPlayerTeam(TEAM + i);
+                    team.setPlayerPrefix(Component.literal(pre));
+                    team.setPlayerSuffix(Component.literal(suf));
+                    sb.addPlayerToTeam(owner, team);
+                    sb.getOrCreatePlayerScore(ScoreHolder.forNameOnly(owner), obj).set(lines.size() - i);
+                }
+                sb.setDisplayObjective(DisplaySlot.SIDEBAR, obj);
+            });
+            return null;
+        });
+        c.ticks(6);
+    }
+
+    /** The mod's Short format (ScoreboardLine.shortFormat), for the expected value. */
+    private static String shortOf(String commas) {
+        double v = Double.parseDouble(commas.replace(",", ""));
+        String suffix;
+        double div;
+        if (v >= 1e9) {
+            suffix = "B";
+            div = 1e9;
+        } else if (v >= 1e6) {
+            suffix = "M";
+            div = 1e6;
+        } else if (v >= 1e3) {
+            suffix = "k";
+            div = 1e3;
+        } else {
+            return String.valueOf((long) v);
+        }
+        String n = String.format(Locale.US, "%.1f", v / div);
+        return (n.endsWith(".0") ? n.substring(0, n.length() - 2) : n) + suffix;
+    }
+
+    /** Purse (with an earned "(+1,234)"), Bits, Motes, Copper (with a "(+1,234)") and Gems in Hypixel's line shape,
+     *  split at every offset, with and without the colour repeated; Long and Short. Returns the rounds run. */
+    @SuppressWarnings("unchecked")
+    private static int hypixelShapes(UiCase c) {
+        int rounds = 0;
+        int failures = 0;
+        String[] names = {"Purse", "Bits", "Motes", "Copper", "Gems"};
+        for (String v : HYPIXEL_VALUES) {
+            List<String> lines = List.of("Purse: §6" + v + " §e(+1,234)", "Bits: §b" + v, "Motes: §d" + v,
+                    "Copper: §c" + v + " §7(+1,234)", "Gems: §a" + v);
+            for (boolean repeat : new boolean[]{false, true}) {
+                for (int offset : HYPIXEL_OFFSETS) {
+                    boardHypixel(c, lines, offset, repeat);
+                    String label = v + " split +" + offset + (repeat ? " colour repeated" : "");
+                    List<String> sidebar = c.onClient(mc ->
+                            (List<String>) Mod.staticCall("scoreboard.ScoreboardData", "sidebarNow", mc));
+                    for (String line : lines) {
+                        if (!sidebar.contains(line)) {
+                            failures++;
+                            if (failures <= 40) {
+                                c.problem(label + ": the sidebar line '" + line + "' was read as one of " + sidebar);
+                            }
+                        }
+                    }
+                    for (String fmt : new String[]{"LONG", "SHORT"}) {
+                        c.onClient(mc -> {
+                            Mod.call(Mod.cfg(SB), "setNumberFormat", Mod.enumValue(SB + "$NumberFormat", fmt));
+                            return null;
+                        });
+                        List<String> got = entryLines(c, "PURSE", "BITS", "MOTES", "COPPER", "GEMS");
+                        String want = fmt.equals("LONG") ? v : shortOf(v);
+                        for (String name : names) {
+                            String line = got.stream().filter(l -> l.startsWith(name + ":")).findFirst().orElse(null);
+                            String num = line == null ? null : line.substring(name.length() + 1).trim().split("/")[0].trim();
+                            if (!want.equals(num)) {
+                                failures++;
+                                if (failures <= 40) {
+                                    c.problem(label + " " + fmt + ": " + name + " reads '" + num + "' (line " + line
+                                            + "), want " + want);
+                                }
+                            }
+                        }
+                    }
+                    rounds++;
+                    if (offset == 7 && !repeat) {
+                        c.note(label + ": sidebar " + sidebar);
+                    }
+                }
+            }
+        }
+        c.note("Hypixel shape: " + rounds + " boards (6 values of 4-9 digits x 13 split offsets x colour repeated or"
+                + " not, owner = one invalid code), each read in Long and Short; " + failures + " wrong reading(s)");
+        c.check(failures == 0, failures + " wrong reading(s) of Hypixel-shaped lines");
+        return rounds;
+    }
+
     static void scoreboardNumbers(UiCase c) throws Exception {
         Object oldFormat = c.onClient(mc -> Mod.call(Mod.cfg(SB), "getNumberFormat"));
         Object oldDisplay = c.onClient(mc -> Mod.call(Mod.cfg(SB), "getNumberDisplayFormat"));
@@ -276,6 +412,7 @@ final class DocMiscCases {
                     }
                 }
             }
+            int hypixelRounds = hypixelShapes(c);
             // ---- the board as drawn: the Custom Scoreboard on, over a 114,000 sidebar, a picture to look at ----
             board(c, List.of("§fPurse: §6114,000", "Bits: §b114,000", "§fMotes: §d114,000", "§fCopper: §c114,000"), 0, false);
             c.onClient(mc -> {
@@ -296,6 +433,8 @@ final class DocMiscCases {
             c.note("Custom Scoreboard drawn lines (Short): " + drawn);
             c.check(rounds == 48, "only " + rounds + " of 48 board/format rounds ran");
             c.note(rounds + " rounds: 4 values x 6 line splits x Long/Short, Purse/Bits/Motes/Copper read from a real sidebar");
+            c.check(hypixelRounds == HYPIXEL_VALUES.length * 2 * HYPIXEL_SPLITS, "only " + hypixelRounds
+                    + " Hypixel-shape rounds ran");
         } finally {
             clearBoard(c);
             c.onClient(mc -> {
