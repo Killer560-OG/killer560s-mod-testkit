@@ -211,6 +211,8 @@ public class UiSuite implements FabricClientGameTest {
     /** The Ribbon trail style (mod trail-ribbon, {@link TrailRibbonCases}). Own block for merges. */
     static final String[] TRAIL_RIBBON_CASES = {"1031-ui-trail-ribbon-line", "1032-ui-trail-ribbon-curve",
             "1033-ui-trail-ribbon-still", "1034-ui-trail-ribbon-settings", "1035-ui-trail-ribbon-gallery"};
+    /** Etherwarp Overlay box: every camera-facing face drawn (mod ew-nearface, {@link EtherwarpFaceCases}). Own block. */
+    static final String[] EW_NEARFACE_CASES = {"1321-ui-etherwarp-box-faces"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -320,6 +322,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : SCREEN_SWEEP_C_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : EW_NEARFACE_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -332,7 +337,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(HUD_KEY3_CASES) || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(CHROMA_WAVE_CASES)
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
                 || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
-                || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES);
+                || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -610,6 +615,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1033-ui-trail-ribbon-still", TrailRibbonCases::stillAndSwitch);
                     UiCase.run(ctx, "1034-ui-trail-ribbon-settings", TrailRibbonCases::settings);
                     UiCase.run(ctx, "1035-ui-trail-ribbon-gallery", TrailRibbonCases::gallery);
+                    // ---- Etherwarp Overlay box faces (1321) ----
+                    UiCase.run(ctx, "1321-ui-etherwarp-box-faces", EtherwarpFaceCases::run);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
