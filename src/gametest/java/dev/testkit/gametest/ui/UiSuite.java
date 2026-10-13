@@ -208,9 +208,10 @@ public class UiSuite implements FabricClientGameTest {
     /** The screen sweep, part C (mod sweep-c, {@link ScreenThemeCases}): every sweep-c screen in Amber and Light, and a
      *  screen's own Theme setting. Own block for merges. */
     static final String[] SCREEN_SWEEP_C_CASES = {"975-ui-screen-sweep-c-themes", "976-ui-screen-own-theme"};
-    /** The Ribbon trail style (mod trail-ribbon, {@link TrailRibbonCases}). Own block for merges. */
+    /** The Ribbon Trail (mod trail-ribbon, its own cosmetic since ribbon-cosmetic, {@link TrailRibbonCases}). Own block. */
     static final String[] TRAIL_RIBBON_CASES = {"1031-ui-trail-ribbon-line", "1032-ui-trail-ribbon-curve",
-            "1033-ui-trail-ribbon-still", "1034-ui-trail-ribbon-settings", "1035-ui-trail-ribbon-gallery"};
+            "1033-ui-trail-ribbon-still", "1034-ui-trail-ribbon-settings", "1035-ui-trail-ribbon-gallery",
+            "1040-ui-ribbon-cosmetic-tabs", "1041-ui-ribbon-camera-angles"};
     /** Etherwarp Overlay box: every camera-facing face drawn (mod ew-nearface, {@link EtherwarpFaceCases}). Own block. */
     static final String[] EW_NEARFACE_CASES = {"1321-ui-etherwarp-box-faces"};
     /** Shared trails (mod trail-share, {@link TrailShareCases}). Own block for merges. */
@@ -622,6 +623,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1033-ui-trail-ribbon-still", TrailRibbonCases::stillAndSwitch);
                     UiCase.run(ctx, "1034-ui-trail-ribbon-settings", TrailRibbonCases::settings);
                     UiCase.run(ctx, "1035-ui-trail-ribbon-gallery", TrailRibbonCases::gallery);
+                    UiCase.run(ctx, "1040-ui-ribbon-cosmetic-tabs", TrailRibbonCases::tabs);
+                    UiCase.run(ctx, "1041-ui-ribbon-camera-angles", TrailRibbonCases::cameraAngles);
                     // ---- Etherwarp Overlay box faces (1321) ----
                     UiCase.run(ctx, "1321-ui-etherwarp-box-faces", EtherwarpFaceCases::run);
                     // ---- Shared trails (1036-1039) ----
