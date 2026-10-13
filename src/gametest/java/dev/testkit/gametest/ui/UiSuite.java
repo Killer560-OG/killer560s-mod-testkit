@@ -391,7 +391,12 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "672-ui-held-outline-styles", HeldOutlineCases::styles);
                     UiCase.run(ctx, "673-ui-held-outline-hands", HeldOutlineCases::hands);
                     UiCase.run(ctx, "674-ui-held-outline-hud", HeldOutlineCases::hudAndCamera);
-                    UiCase.run(ctx, "675-ui-held-outline-settings", HeldOutlineCases::settings);
+                    UiCase.run(ctx, "675-ui-held-outline-settings", c -> {
+                        // a testing jar walks its normal menu (every tab counted tested for the case)
+                        try (AutoCloseable all = MenuLayoutCases.allTested(c)) {
+                            HeldOutlineCases.settings(c);
+                        }
+                    });
                     UiCase.run(ctx, "676-ui-held-outline-sides", HeldOutlineCases::sides);
                     UiCase.run(ctx, "677-ui-held-outline-gallery", HeldOutlineCases::gallery);
                     // ---- leap order (666-669) ----
@@ -436,13 +441,23 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "942-ui-menu-a-drawer", MenuACases::drawer);
                     UiCase.run(ctx, "943-ui-menu-a-favourites", MenuACases::favourites);
                     UiCase.run(ctx, "944-ui-menu-a-search", MenuACases::search);
-                    UiCase.run(ctx, "945-ui-menu-a-no-counts", MenuACases::noCounts);
+                    UiCase.run(ctx, "945-ui-menu-a-no-counts", c -> {
+                        // a testing jar walks its normal menu (every tab counted tested for the case)
+                        try (AutoCloseable all = MenuLayoutCases.allTested(c)) {
+                            MenuACases.noCounts(c);
+                        }
+                    });
                     UiCase.run(ctx, "946-ui-menu-a-themes", MenuACases::themes);
                     UiCase.run(ctx, "947-ui-menu-a-custom-colour", MenuACases::customColour);
                     // ---- Edit HUD key / Croesus (862-865) ----
                     UiCase.run(ctx, "862-ui-hud-key-typing", HudKey2Cases::typing);
                     UiCase.run(ctx, "863-ui-hud-key-over-container", HudKey2Cases::overContainer);
-                    UiCase.run(ctx, "864-ui-croesus-split", HudKey2Cases::croesusSplit);
+                    UiCase.run(ctx, "864-ui-croesus-split", c -> {
+                        // a testing jar walks its normal menu (every tab counted tested for the case)
+                        try (AutoCloseable all = MenuLayoutCases.allTested(c)) {
+                            HudKey2Cases.croesusSplit(c);
+                        }
+                    });
                     UiCase.run(ctx, "865-ui-container-overlays", HudKey2Cases::overlays);
                     // ---- container overlays only within 10 s (866) ----
                     UiCase.run(ctx, "866-ui-container-overlay-grace", HudKey2Cases::containerGrace);
