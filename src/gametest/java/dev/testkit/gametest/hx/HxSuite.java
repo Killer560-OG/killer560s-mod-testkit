@@ -61,6 +61,9 @@ public class HxSuite implements FabricClientGameTest {
                     // Auto Meow replies in the trigger's channel, and Mod Chat sends (874, branch
                     // nt-automeow-channel), own block.
                     HxAutoMeowChannelCases.register(s);
+                    // Name Animation: Wave / Pulse / Off on faded names, own and shared (960-965, branch
+                    // name-wave), own block.
+                    HxNameWaveCases.register(s);
                 });
     }
 }

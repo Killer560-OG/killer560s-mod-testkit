@@ -82,7 +82,7 @@ final class HxCosmeticNameCases {
     // ---- shared -----------------------------------------------------------------------------------------------------
 
     /** Own name changed to {@link #FADE_NAME}, faded {@link #FROM} -> {@link #TO}, no letter colours. */
-    private static Settings fade(Session c) {
+    static Settings fade(Session c) {
         c.onClient(mc -> {
             Mod.call(Mod.cfg(NC), "clearOwnCharColors");
             return null;
@@ -93,7 +93,7 @@ final class HxCosmeticNameCases {
                 .with(NC, "RandomizeOthers", false);
     }
 
-    private static void look(Session c, float yaw, float pitch) {
+    static void look(Session c, float yaw, float pitch) {
         c.onClient(mc -> {
             mc.player.setYRot(yaw);
             mc.player.setXRot(pitch);
@@ -103,28 +103,28 @@ final class HxCosmeticNameCases {
         });
     }
 
-    private static void camera(Session c, CameraType type) {
+    static void camera(Session c, CameraType type) {
         c.onClient(mc -> {
             mc.options.setCameraType(type);
             return null;
         });
     }
 
-    private static void clearChat(Session c) {
+    static void clearChat(Session c) {
         c.onClient(mc -> {
             McCompat.clearChatAndToasts(mc);
             return null;
         });
     }
 
-    private static BufferedImage shot(Session c, String tag) throws Exception {
+    static BufferedImage shot(Session c, String tag) throws Exception {
         c.ctx().waitTicks(4);
         Path p = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(c.name() + "-" + tag));
         System.out.println("[" + c.name() + "] screenshot " + tag + ": " + p);
         return javax.imageio.ImageIO.read(p.toFile());
     }
 
-    private static boolean onLine(int rgb) {
+    static boolean onLine(int rgb) {
         int r = (rgb >> 16) & 255, g = (rgb >> 8) & 255, b = rgb & 255;
         int sum = g + b;
         return r <= 70 && Math.max(g, b) >= 110 && sum >= 170 && sum <= 330;
@@ -293,7 +293,7 @@ final class HxCosmeticNameCases {
     }
 
     /** The per-glyph colours a sequence paints, in order. */
-    private static List<Integer> colours(FormattedCharSequence seq) {
+    static List<Integer> colours(FormattedCharSequence seq) {
         List<Integer> out = new ArrayList<>();
         seq.accept((pos, style, cp) -> {
             TextColor tc = style.getColor();
@@ -339,7 +339,7 @@ final class HxCosmeticNameCases {
         }
     }
 
-    private static String hexList(List<Integer> l) {
+    static String hexList(List<Integer> l) {
         StringBuilder sb = new StringBuilder();
         for (int v : l) {
             sb.append(sb.isEmpty() ? "" : " ").append(String.format("%06x", v & 0xFFFFFF));
@@ -349,7 +349,7 @@ final class HxCosmeticNameCases {
 
     // ---- 812 tab ----------------------------------------------------------------------------------------------------
 
-    private static void tabDown(Session c, boolean down) {
+    static void tabDown(Session c, boolean down) {
         c.onClient(mc -> {
             mc.options.keyPlayerList.setDown(down);
             return null;
@@ -402,7 +402,7 @@ final class HxCosmeticNameCases {
 
     /** The real ModScreen with Player Cosmetics' drawer open and Custom Names open in it. */
     @SuppressWarnings("unchecked")
-    private static Screen openCosmetics(Session c) {
+    static Screen openCosmetics(Session c) {
         Screen s = c.onClient(mc -> {
             try {
                 Class<?> cls = Mod.cls("gui.ModScreen");
@@ -443,7 +443,7 @@ final class HxCosmeticNameCases {
     }
 
     /** Every widget on the screen, the scrolling content pane's children included. */
-    private static List<AbstractWidget> widgets(Object parent) {
+    static List<AbstractWidget> widgets(Object parent) {
         List<AbstractWidget> out = new ArrayList<>();
         if (!(parent instanceof net.minecraft.client.gui.components.events.ContainerEventHandler h)) {
             return out;
@@ -506,7 +506,7 @@ final class HxCosmeticNameCases {
         return k.newInstance(id, raw, 1.0f);
     }
 
-    private static Component nameForDisplay(Minecraft mc, PlayerInfo info) {
+    static Component nameForDisplay(Minecraft mc, PlayerInfo info) {
         try {
             Object hud = McCompat.hud(mc);
             Object tabList = hud.getClass().getMethod("getTabList").invoke(hud);
@@ -516,7 +516,7 @@ final class HxCosmeticNameCases {
         }
     }
 
-    private static PlayerInfo textRowFor(Minecraft mc, String name) {
+    static PlayerInfo textRowFor(Minecraft mc, String name) {
         for (PlayerInfo info : mc.getConnection().getOnlinePlayers()) {
             Component d = info.getTabListDisplayName();
             if (d != null && d.getString().contains(name) && !name.equals(info.getProfile().name())) {
@@ -872,7 +872,7 @@ final class HxCosmeticNameCases {
     // ---- 819 fade share ---------------------------------------------------------------------------------------------
 
     /** The relay's GET /supporters body for three entries (shape from the relay's own discord-smoke run). */
-    private static String relayBody(UUID styled, UUID old, UUID bad) {
+    static String relayBody(UUID styled, UUID old, UUID bad) {
         StringBuilder colors = new StringBuilder();
         for (int i = 0; i < FADE_NAME.length(); i++) {
             int g = Math.round(255 - 255f * i / (FADE_NAME.length() - 1));
