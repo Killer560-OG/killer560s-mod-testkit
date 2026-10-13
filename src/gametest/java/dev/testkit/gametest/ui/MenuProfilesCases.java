@@ -169,22 +169,21 @@ final class MenuProfilesCases {
                 return null;
             });
             c.ticks(3);
-            // Home's Profiles button, a real click: it must reach the tab wherever it lives (in a testing build Profiles
-            // is in the Untested category, where the button used to do nothing).
+            // Profiles, wherever it lives (its own page; in a testing build a drawer in Untested). Home's Profiles button
+            // went on 2026-10-13 (mod doc-menu, killer560: the sidebar has Profiles), so the leaf is opened directly.
             String reached = c.onClient(mc -> {
-                int[] b = (int[]) Mod.call(s[0], "homeButtonBounds", "Profiles");
-                if (b == null) {
-                    return "Home has no Profiles button";
+                if (Mod.call(s[0], "homeButtonBounds", "Profiles") != null) {
+                    return "Home still has a Profiles button";
                 }
-                MenuACases.press(s[0], b[0] + b[2] / 2.0, b[1] + b[3] / 2.0);
+                Mod.call(s[0], "openFeature", MenuACases.leaf("ProfilesTab"));
                 Object open = Mod.call(s[0], "openFeature");
-                return row(s[0], "Profile name") != null ? null : "Home's Profiles button left the menu on "
+                return row(s[0], "Profile name") != null ? null : "opening the Profiles tab left the menu on "
                         + (open == null ? "no drawer" : open.getClass().getSimpleName()) + " with no Profile name box";
             });
             c.check(reached == null, reached);
             boolean drawer = c.onClient(mc -> Mod.call(s[0], "openFeature") != null);
-            c.note("Home's Profiles button opened the Profiles tab " + (drawer ? "in a drawer (testing build: Untested)"
-                    : "as its page"));
+            c.note("the Profiles tab opened " + (drawer ? "in a drawer (testing build: Untested)" : "as its page")
+                    + "; Home has no Profiles button");
 
             // Save Current As New: the name typed into the real box (a real click focuses it).
             String why = c.onClient(mc -> {

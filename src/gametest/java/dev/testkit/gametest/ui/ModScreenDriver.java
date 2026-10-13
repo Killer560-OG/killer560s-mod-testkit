@@ -436,9 +436,35 @@ final class ModScreenDriver {
     static boolean press(AbstractWidget w) {
         double x = w.getX() + w.getWidth() / 2.0;
         double y = w.getY() + Math.min(w.getHeight() / 2.0, 5);
+        int[] pill = forwardPill(w);
+        if (pill != null) {
+            // A cycling row in the mod menu steps only from its value pill (mod doc-menu, 2026-10-13): forward is the
+            // pill's right half.
+            x = pill[0] + pill[2] * 0.75;
+            y = pill[1] + pill[3] / 2.0;
+        }
         boolean took = w.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)), false);
         w.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)));
         return took;
+    }
+
+    /** The value pill {x, y, w, h} of a cycling SettingsButtonWidget drawn as a menu row, or null for anything else. */
+    static int[] forwardPill(AbstractWidget w) {
+        try {
+            var isCycling = w.getClass().getMethod("isCycling");
+            if (!Boolean.TRUE.equals(isCycling.invoke(w))) {
+                return null;
+            }
+            Object parts = w.getClass().getMethod("parts").invoke(w);
+            Object look = parts.getClass().getMethod("look").invoke(parts);
+            Object open = dev.testkit.compat.McCompat.screen(net.minecraft.client.Minecraft.getInstance());
+            if (!"PILL".equals(String.valueOf(look)) || open == null || !R.cls(MOD_SCREEN).isInstance(open)) {
+                return null;
+            }
+            return (int[]) w.getClass().getMethod("controlBounds").invoke(w);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return null;
+        }
     }
 
     /** Put the search text in the real search field (its responder rebuilds, exactly as typing does). */

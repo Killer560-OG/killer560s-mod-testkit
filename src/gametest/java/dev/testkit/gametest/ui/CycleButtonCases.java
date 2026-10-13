@@ -28,6 +28,12 @@ import java.util.regex.Pattern;
  * A right click must also leave the menu open (no other action took it). Every switch flipped is flipped back and
  * every cycler ends on the value it started on.
  *
+ * <p>Since mod doc-menu (killer560, 2026-10-13) a cycler in the menu steps only from its value pill: a left click on the
+ * pill's right half (›) goes forward, on its left half (‹) back, a right click on the pill back, and a click on the label
+ * changes nothing. So the ring is walked with left clicks on the right half, the real clicks are right / left-on-left /
+ * left-on-right / left-on-right (wanted: last, one before, last, start), and a fifth real left click on the label must
+ * leave the value where it is. Positions come from the row's own {@code controlBounds()}.
+ *
  * <p>Labels that look like "Name: value" with a value other than ON/OFF on a button that is NOT marked cycling are
  * listed as a note (keybinds and one-shot actions land there too), so a cycler that was missed shows up in the log.
  */
@@ -50,9 +56,12 @@ final class CycleButtonCases {
     private record Target(String key, String where, String label, int x, int absY, int width) {
     }
 
-    /** Where a target is right now: its label, its centre in GUI units and in window pixels. */
+    /** Where a target is right now: its label, the click point in GUI units and in window pixels. */
     private record Spot(String label, double gx, double gy, double wx, double wy) {
     }
+
+    /** Where on the row a click lands: the pill's right half (forward), its left half (back), or the label. */
+    private enum Side { RIGHT, LEFT, LABEL }
 
     static void cycleButtons(UiCase c, Deny deny) throws Exception {
         try (AutoCloseable all = MenuLayoutCases.allTested(c)) {
@@ -154,7 +163,7 @@ final class CycleButtonCases {
     }
 
     private static void testOne(UiCase c, ModScreenDriver d, Target t, int[] stats, List<String> couldNot) {
-        Spot s0 = c.onClient(mc -> locate(d, t, true));
+        Spot s0 = c.onClient(mc -> locate(d, t, true, Side.RIGHT));
         if (s0 == null) {
             couldNot.add(t.key() + " (could not scroll it into the pane)");
             return;
@@ -165,7 +174,7 @@ final class CycleButtonCases {
             List<String> seen = new ArrayList<>();
             seen.add(start);
             for (int k = 0; k < MAX_RING; k++) {
-                Spot s = locate(d, t, false);
+                Spot s = locate(d, t, false, Side.RIGHT);
                 if (s == null) {
                     seen.add(null);
                     return seen;
@@ -173,7 +182,7 @@ final class CycleButtonCases {
                 d.screen.mouseClicked(new MouseButtonEvent(s.gx(), s.gy(), new MouseButtonInfo(0, 0)), false);
                 d.screen.mouseReleased(new MouseButtonEvent(s.gx(), s.gy(), new MouseButtonInfo(0, 0)));
                 rebuild(d);
-                Spot after = locate(d, t, false);
+                Spot after = locate(d, t, false, Side.RIGHT);
                 if (after == null) {
                     seen.add(null);
                     return seen;
@@ -197,7 +206,7 @@ final class CycleButtonCases {
             // Walk back to the start before the real clicks: it is MAX_RING forward of it.
             String back = c.onClient(mc -> {
                 for (int k = 0; k < MAX_RING; k++) {
-                    Spot s = locate(d, t, false);
+                    Spot s = locate(d, t, false, Side.RIGHT);
                     if (s == null) {
                         return null;
                     }
@@ -205,7 +214,7 @@ final class CycleButtonCases {
                     d.screen.mouseReleased(new MouseButtonEvent(s.gx(), s.gy(), new MouseButtonInfo(1, 0)));
                     rebuild(d);
                 }
-                Spot s = locate(d, t, false);
+                Spot s = locate(d, t, false, Side.RIGHT);
                 return s == null ? null : s.label();
             });
             if (!start.equals(back)) {
@@ -214,18 +223,20 @@ final class CycleButtonCases {
                         + start + "', now '" + back + "')");
                 return;
             }
-            String r = realClick(c, d, t, 1);
-            String l = realClick(c, d, t, 0);
-            String l2 = realClick(c, d, t, 0);
-            String r2 = realClick(c, d, t, 1);
+            String r = realClick(c, d, t, 1, Side.RIGHT);
+            String l = realClick(c, d, t, 0, Side.RIGHT);
+            String l2 = realClick(c, d, t, 0, Side.LEFT);
+            String r2 = realClick(c, d, t, 0, Side.RIGHT);
+            String lbl = labelClick(c, d, t);
             boolean ok = r != null && !r.equals(start) && start.equals(l) && l2 != null && !l2.equals(start)
-                    && start.equals(r2);
+                    && start.equals(r2) && (lbl == null || start.equals(lbl));
             if (ok) {
                 stats[2]++;
             } else {
                 stats[4]++;
-                c.problem(t.key() + ": long ring, real clicks right/left/left/right read '" + r + "', '" + l + "', '"
-                        + l2 + "', '" + r2 + "' from '" + start + "'");
+                c.problem(t.key() + ": long ring, real clicks right / left-on-right / left-on-left / left-on-right / "
+                        + "left-on-label read '" + r + "', '" + l + "', '" + l2 + "', '" + r2 + "', '" + lbl + "' from '"
+                        + start + "'");
             }
             return;
         }
@@ -235,27 +246,41 @@ final class CycleButtonCases {
             couldNot.add(t.key() + " (single value '" + start + "', nothing to step)");
             return;
         }
-        String[] want = {ring.get(n - 1), ring.get(Math.floorMod(n - 2, n)), ring.get(n - 1), start};
-        int[] buttons = {1, 1, 0, 0};
-        String[] got = new String[4];
+        String[] want = {ring.get(n - 1), ring.get(Math.floorMod(n - 2, n)), ring.get(n - 1), start, start};
+        int[] buttons = {1, 0, 0, 0};
+        Side[] sides = {Side.RIGHT, Side.LEFT, Side.RIGHT, Side.RIGHT};
+        String[] got = new String[5];
         boolean ok = true;
         for (int k = 0; k < 4; k++) {
-            got[k] = realClick(c, d, t, buttons[k]);
+            got[k] = realClick(c, d, t, buttons[k], sides[k]);
             ok &= want[k].equals(got[k]);
         }
+        // A left click on the label must change nothing (null: the pill covers the whole row, no label to click).
+        got[4] = labelClick(c, d, t);
+        ok &= got[4] == null || start.equals(got[4]);
         if (ok) {
             stats[1]++;
             c.note(t.key() + ": ring of " + n + " ok");
         } else {
             stats[4]++;
-            c.problem(t.key() + ": ring " + ring + "; real right, right, left, left read " + java.util.Arrays.toString(got)
-                    + ", wanted " + java.util.Arrays.toString(want));
+            c.problem(t.key() + ": ring " + ring + "; real right, left-on-left, left-on-right, left-on-right, left-on-label read "
+                    + java.util.Arrays.toString(got) + ", wanted " + java.util.Arrays.toString(want));
         }
     }
 
-    /** A real press of {@code button} on the target through the window; the label it shows afterwards (null if lost). */
-    private static String realClick(UiCase c, ModScreenDriver d, Target t, int button) {
-        Spot s = c.onClient(mc -> locate(d, t, true));
+    /** A real left press on the target's label; what it shows afterwards, or null when the row has no label to click. */
+    private static String labelClick(UiCase c, ModScreenDriver d, Target t) {
+        Spot s = c.onClient(mc -> locate(d, t, true, Side.LABEL));
+        if (s == null) {
+            return null;
+        }
+        return realClick(c, d, t, 0, Side.LABEL);
+    }
+
+    /** A real press of {@code button} on the target's {@code side} through the window; the label it shows afterwards
+     *  (null if lost). */
+    private static String realClick(UiCase c, ModScreenDriver d, Target t, int button, Side side) {
+        Spot s = c.onClient(mc -> locate(d, t, true, side));
         if (s == null) {
             return null;
         }
@@ -268,7 +293,7 @@ final class CycleButtonCases {
                 return "<the menu closed or another screen opened>";
             }
             rebuild(d);
-            Spot after = locate(d, t, false);
+            Spot after = locate(d, t, false, Side.RIGHT);
             return after == null ? null : after.label();
         });
     }
@@ -277,7 +302,7 @@ final class CycleButtonCases {
      * Finds the target in the current content by its x, width and content y (scroll added back); with {@code scroll},
      * first scrolls it into the pane's visible rectangle. Null when it is not there.
      */
-    private static Spot locate(ModScreenDriver d, Target t, boolean scroll) {
+    private static Spot locate(ModScreenDriver d, Target t, boolean scroll, Side side) {
         AbstractWidget w = find(d, t);
         if (w == null) {
             return null;
@@ -300,6 +325,22 @@ final class CycleButtonCases {
         }
         double gx = w.getX() + w.getWidth() / 2.0;
         double gy = w.getY() + w.getHeight() / 2.0;
+        int[] pill = ModScreenDriver.forwardPill(w);
+        if (pill != null) {
+            gy = pill[1] + pill[3] / 2.0;
+            if (side == Side.RIGHT) {
+                gx = pill[0] + pill[2] * 0.75;
+            } else if (side == Side.LEFT) {
+                gx = pill[0] + pill[2] * 0.25;
+            } else {
+                if (pill[0] - w.getX() < 12) {
+                    return null; // the pill fills the row: there is no label to click
+                }
+                gx = w.getX() + Math.min(6, (pill[0] - w.getX()) / 2.0);
+            }
+        } else if (side == Side.LABEL) {
+            return null;
+        }
         Minecraft mc = Minecraft.getInstance();
         double factor = ((Number) Mod.staticCall("hud.AutoScale", "openScreenFactor")).doubleValue();
         double scale = mc.getWindow().getGuiScale() * factor;
