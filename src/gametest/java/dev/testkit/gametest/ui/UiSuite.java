@@ -173,6 +173,10 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] PROFILE_DATA_CASES = {"980-ui-profile-data-switch", "981-ui-profile-data-export",
             "982-ui-profile-import-robust", "983-ui-profile-old-format", "984-ui-profile-xfer-export",
             "985-ui-profile-xfer-import"};
+    /** Screen sweep B: standalone screens in the menu theme + Screen Theme (mod sweep-b, {@link ScreenSweepBCases}).
+     *  Own block for merges. */
+    static final String[] SWEEP_B_CASES = {"1020-ui-sweepb-profit", "1021-ui-sweepb-storage-search",
+            "1022-ui-sweepb-run-log", "1023-ui-sweepb-invsort", "1024-ui-sweepb-custom-items", "1025-ui-sweepb-screen-theme"};
     /** killer560's 2026-10-12 Edit HUD key / Croesus batch ({@link HudKey2Cases}). Own block for merges. */
     /** Container overlays in Edit HUD only within 10 s (mod hud-key-3, {@link HudKey2Cases#containerGrace}). Own block. */
     static final String[] HUD_KEY3_CASES = {"866-ui-container-overlay-grace"};
@@ -277,6 +281,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : DOC_MENU_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : SWEEP_B_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : HUD_KEY3_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -312,7 +319,8 @@ public class UiSuite implements FabricClientGameTest {
                 || any(AUTOKICK2_CASES) || any(CYCLE_BACK_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES)
                 || any(HUD_KEY3_CASES) || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(CHROMA_WAVE_CASES)
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
-                || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES);
+                || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
+                || any(SWEEP_B_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -534,6 +542,13 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "983-ui-profile-old-format", ProfileDataCases::oldFormat);
                     UiCase.run(ctx, "984-ui-profile-xfer-export", ProfileDataCases::xferExport);
                     UiCase.run(ctx, "985-ui-profile-xfer-import", ProfileDataCases::xferImport);
+                    // ---- screen sweep B (1020-1025) ----
+                    UiCase.run(ctx, "1020-ui-sweepb-profit", ScreenSweepBCases::profit);
+                    UiCase.run(ctx, "1021-ui-sweepb-storage-search", ScreenSweepBCases::storageSearch);
+                    UiCase.run(ctx, "1022-ui-sweepb-run-log", ScreenSweepBCases::runLog);
+                    UiCase.run(ctx, "1023-ui-sweepb-invsort", ScreenSweepBCases::invsort);
+                    UiCase.run(ctx, "1024-ui-sweepb-custom-items", ScreenSweepBCases::customItems);
+                    UiCase.run(ctx, "1025-ui-sweepb-screen-theme", ScreenSweepBCases::screenTheme);
                     // ---- Edit HUD key / Croesus (862-865) ----
                     UiCase.run(ctx, "862-ui-hud-key-typing", HudKey2Cases::typing);
                     UiCase.run(ctx, "863-ui-hud-key-over-container", HudKey2Cases::overContainer);

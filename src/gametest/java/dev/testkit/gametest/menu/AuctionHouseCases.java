@@ -404,15 +404,16 @@ final class AuctionHouseCases {
                         }
                     }
                 }
-                // The mod's theme setting (Inventory Theme: Amber, Dark, Light) drives the look; each must lay out cleanly.
+                // The mod menu's theme drives the look (sweep-b: the AH's Screen Theme defaults to the menu's); each must
+                // lay out cleanly.
                 Object hud = Mod.cfg("hud.HudConfig");
                 c.ctx().runOnClient(mc -> Mod.call(hud, "setAutoScale", false));
                 setWindow(c, 1920, 1080, 2);
-                Object theme = Mod.cfg("inventorytheme.InventoryThemeConfig");
+                Object theme = Mod.cfg("gui.MenuConfig");
                 Object oldTheme = c.onClient(mc -> Mod.call(theme, "getTheme"));
                 try {
                     for (String t : new String[]{"DARK", "LIGHT"}) {
-                        c.ctx().runOnClient(mc -> Mod.call(theme, "setTheme", Mod.enumValue("gui.PanelTheme", t)));
+                        c.ctx().runOnClient(mc -> Mod.call(theme, "setTheme", Mod.enumValue("gui.MenuTheme", t)));
                         Screen s = openBrowser(c);
                         c.ctx().runOnClient(mc -> Mod.call(s, "preset", "", "", false));
                         List<String> layout = browserLayout(c, s);

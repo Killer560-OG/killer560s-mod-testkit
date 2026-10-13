@@ -700,7 +700,7 @@ final class InvBatchCases {
         int[] window = HudEditorCases.windowSize(c);
         int oldGui = c.onClient(mc -> mc.options.guiScale().get());
         try {
-            // The tab: the switch, Open Custom Items, Reset All - nothing else.
+            // The tab: the switch, its Theme (sweep-b), Open Custom Items, Reset All - nothing else.
             c.onClient(mc -> {
                 Mod.call(Mod.cfg(ADC), "clear");
                 Mod.call(Mod.cfg(ADC), "setEnabled", true);
@@ -709,7 +709,8 @@ final class InvBatchCases {
             });
             List<String> labels = tabLabels(c, "gui.tab.CustomItemsTab");
             c.note("Custom Items rows: " + labels);
-            c.check(labels.equals(List.of("Custom Items: ON", "Open Custom Items", "Reset All")), "tab rows " + labels);
+            c.check(labels.equals(List.of("Custom Items: ON", "Theme: Theme Default", "Open Custom Items",
+                    "Reset All")), "tab rows " + labels);
 
             survival(c);
             Map<Integer, ItemStack> items = new LinkedHashMap<>();
