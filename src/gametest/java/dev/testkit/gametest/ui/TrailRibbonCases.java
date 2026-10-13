@@ -353,6 +353,19 @@ final class TrailRibbonCases {
                 seedRows, mean[0], mean[1], mean[2], mag[0], mag[1], mag[2]);
     }
 
+    /** Changed pixels within {@code half} px of the centre column (the player's body in F5). */
+    private static int overPlayer(BufferedImage off, BufferedImage on, int half) {
+        int n = 0, cx = on.getWidth() / 2;
+        for (int y = 0; y < on.getHeight(); y++) {
+            for (int x = cx - half; x <= cx + half; x++) {
+                if (delta(on.getRGB(x, y), off.getRGB(x, y)) > 30) {
+                    n++;
+                }
+            }
+        }
+        return n;
+    }
+
     /** Red-led: R rises well above G (the head is red, so the band's near end runs red into orange). */
     private static boolean reddish(double[] d) {
         return d[0] > 60 && d[0] - d[1] > 60;
@@ -407,6 +420,10 @@ final class TrailRibbonCases {
             c.check(headToTail(b), "the band does not run red at the player to blue at the end: " + b.describe());
             c.check(b.nearMag() > b.farMag() * 1.5, "the band does not fade toward the tail: " + b.describe());
             c.check(b.height() < b.thickness() * 1.6, "a straight walk drew a bent band: " + b.describe());
+            // The band starts behind him (against his movement), not inside his body: nothing drawn over him.
+            int overBody = overPlayer(off, on, 20);
+            c.note("changed pixels over the player's torso and legs (centre +-20 px): " + overBody);
+            c.check(overBody < 50, "the ribbon is drawn over the player (" + overBody + " px in front of his body)");
             // From behind: walking forward (south), the band streams back toward the camera and down the screen.
             place(c, origin[0], origin[2], 0f);
             c.ticks(40); // the side walk's band shrinks away (1.5 s)
