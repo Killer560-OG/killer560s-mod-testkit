@@ -175,6 +175,9 @@ public class UiSuite implements FabricClientGameTest {
             "899-ui-bars-his-icons"};
     /** Inventory Theme: every item centred in its slot frame (mod inv-theme-fix, {@link InvThemeCenterCases}). Own block. */
     static final String[] INV_THEME_CENTRE_CASES = {"897-ui-inventory-theme-item-centred"};
+    /** The chroma waterfall (mod chroma-waterfall, {@link ChromaWaveCases}). Own block for merges. */
+    static final String[] CHROMA_WAVE_CASES = {"971-ui-chroma-enchant-waterfall", "972-ui-chroma-scoreboard-border",
+            "973-ui-chroma-crosshair"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -254,6 +257,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : INV_THEME_CENTRE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : CHROMA_WAVE_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -264,6 +270,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(AUTOKICK2_CASES)
                 || any(CYCLE_BACK_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES) || any(HUD_KEY3_CASES)
                 || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES)
+                || any(CHROMA_WAVE_CASES)
                 || any(MENU_PROFILES_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
@@ -480,6 +487,10 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "899-ui-bars-his-icons", BarStyleCases::hisIcons);
                     // ---- Inventory Theme item centring (897) ----
                     UiCase.run(ctx, "897-ui-inventory-theme-item-centred", InvThemeCenterCases::centred);
+                    // ---- chroma waterfall (971-973) ----
+                    UiCase.run(ctx, "971-ui-chroma-enchant-waterfall", ChromaWaveCases::enchantTooltip);
+                    UiCase.run(ctx, "972-ui-chroma-scoreboard-border", ChromaWaveCases::scoreboardBorder);
+                    UiCase.run(ctx, "973-ui-chroma-crosshair", ChromaWaveCases::crosshair);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
