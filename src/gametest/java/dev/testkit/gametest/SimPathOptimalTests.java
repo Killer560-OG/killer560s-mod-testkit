@@ -58,6 +58,8 @@ import java.util.function.Supplier;
  *       graph's warps and time beside the exact planner's.</li>
  *   <li><b>635-sim-pathopt-replan</b>: {@code /ar replan} throws away every saved path plan (in two rooms' routes) and
  *       plans this room's again at once.</li>
+ *   <li><b>941-sim-pathopt-altar</b>: his Altar route, pair #9 -> #10 from the breaker hole down to the room's lower
+ *       level (25 below the dungeon floor): planned and flown, he ends on #10.</li>
  *   <li><b>636-sim-pathopt-mapslab</b>: the Interactive Map's own trip (ClearExecutor.etherPathExact) to the 632 goal:
  *       arrives, never on the slab.</li>
  * </ul>
@@ -75,9 +77,13 @@ public class SimPathOptimalTests implements FabricClientGameTest {
     static final String RW = "871-sim-pathopt-dbwarrior";
     static final String REFIRE = "873-sim-pathopt-dbrefire";
     static final String CHEST = "638-sim-pathopt-chest";
+    // ar-path-altar (2026-10-12): his Altar pair #9 -> #10, down into the room's lower level.
+    static final String ALTAR = "941-sim-pathopt-altar";
     // The map trip (636) goes after every path-pair flight: after a map warp only a START node may arm until he has
     // been through one (the map-arrival interlock), and these pairs have none.
-    private static final String[] CASES = {LIP, SLAB, SLAB_NODE, CHEST, BREAKER, RW, REFIRE, MAP_SLAB, REPLAN, SWEEP};
+    private static final String[] CASES = {LIP, SLAB, SLAB_NODE, CHEST, BREAKER, RW, REFIRE,
+            ALTAR,
+            MAP_SLAB, REPLAN, SWEEP};
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
@@ -168,6 +174,7 @@ public class SimPathOptimalTests implements FabricClientGameTest {
                         case BREAKER -> caseBreaker(ctx, f);
                         case RW -> caseRedstoneWarrior(ctx, f);
                         case REFIRE -> caseRefire(ctx, f);
+                        case ALTAR -> caseAltar(ctx, f);
                         case REPLAN -> caseReplan(ctx, f);
                         case SWEEP -> caseSweep(ctx, f);
                         default -> { }
@@ -944,6 +951,136 @@ public class SimPathOptimalTests implements FabricClientGameTest {
                 println(RW, "pair #7's plan does not depend on the breaker blocks here (reported, not judged)");
             }
         } finally {
+            buildRoom(ctx, keep);
+            F = keepF;
+            giveAotv(ctx);
+        }
+    }
+
+    // ============================================================================================ 941 Altar
+
+    /** His Altar route (2026-10-12 file), nodes #1-#10 as saved but no saved warps, #8's await off (he skipped it). */
+    private static final String ALTAR_ROUTE = "{\"nodes\":["
+            + "{\"type\":\"PATH\",\"x\":15.5,\"y\":71.813,\"z\":47.5,\"yaw\":-107.007233,\"pitch\":4.481466,\"at\":0,"
+            + "\"start\":true,\"awaitEnabled\":true,\"await\":\"SECRET\",\"amount\":1},"
+            + "{\"type\":\"PATH\",\"x\":51.5,\"y\":84.0,\"z\":49.5,\"yaw\":155.278824,\"pitch\":80.066437,\"at\":0,"
+            + "\"awaitEnabled\":true,\"await\":\"SECRET\",\"amount\":1},"
+            + "{\"type\":\"PATH\",\"x\":51.5,\"y\":84.0,\"z\":49.5,\"yaw\":114.185654,\"pitch\":79.742622,\"at\":0},"
+            + "{\"type\":\"PATH\",\"x\":28.5,\"y\":55.0,\"z\":39.5,\"yaw\":-109.529785,\"pitch\":10.501122,\"at\":0},"
+            + "{\"type\":\"DUNGEON_BREAKER\",\"x\":28.5,\"y\":55.0,\"z\":39.5,\"yaw\":-109.529785,\"pitch\":10.501122,"
+            + "\"at\":0,\"blocks\":[\"29 56 38\",\"29 55 38\",\"29 55 39\",\"30 55 37\",\"30 56 37\",\"31 56 37\"]},"
+            + "{\"type\":\"ETHERWARP\",\"x\":28.5,\"y\":55.0,\"z\":39.5,\"yaw\":-120.210144,\"pitch\":22.343706,\"at\":0,"
+            + "\"landing\":\"35.500000 53.050000 35.500000\"},"
+            + "{\"type\":\"DUNGEON_BREAKER\",\"x\":35.5,\"y\":53.0,\"z\":35.5,\"yaw\":96.771881,\"pitch\":82.720116,"
+            + "\"at\":0,\"blocks\":[\"34 52 36\",\"33 52 36\",\"34 52 35\",\"33 51 36\",\"34 51 36\",\"33 50 36\","
+            + "\"34 50 36\"]},"
+            + "{\"type\":\"USE_ITEM\",\"x\":35.5,\"y\":53.0,\"z\":35.5,\"yaw\":80.008026,\"pitch\":86.020653,\"at\":0,"
+            + "\"awaitEnabled\":false,\"await\":\"SECRET\",\"amount\":1,\"item\":\"BAT_WAND\"},"
+            + "{\"type\":\"PATH\",\"x\":35.5,\"y\":53.0,\"z\":35.5,\"yaw\":96.769135,\"pitch\":63.30603,\"at\":0},"
+            + "{\"type\":\"PATH\",\"x\":15.5,\"y\":44.0,\"z\":39.5,\"yaw\":92.898499,\"pitch\":88.576324,\"at\":0}]}";
+
+    /**
+     * killer560 (2026-10-12, "see why that path was failing to generate from the bat to the chest"): his Altar route in
+     * the room alone. He is put on node #7's tile (the breaker node, the bat wand and path #9 stacked there); the stack
+     * fires, node #7 breaks its seven blocks (the hole down), and path #9 must be PLANNED to #10 on the room's lower
+     * level (relative y 44, 25 below the dungeon floor) and FLOWN: he ends on node #10.
+     */
+    private static void caseAltar(ClientGameTestContext ctx, List<String> f) {
+        @SuppressWarnings("unchecked")
+        List<String> names = ctx.computeOnClient(mc -> new ArrayList<>((List<String>) ModUnderTest.staticCall(
+                ROOM_LIBRARY, "names")));
+        if (!names.contains("Altar")) {
+            f.add("Altar is not in the room library");
+            return;
+        }
+        String keep = room;
+        int keepF = F;
+        buildRoom(ctx, "Altar");
+        try {
+            ctx.runOnClient(mc -> {
+                try {
+                    Path file = (Path) ModUnderTest.staticCall(STORE, "routesFile");
+                    JsonObject routes = new JsonObject();
+                    routes.add("Altar", JsonParser.parseString(ALTAR_ROUTE));
+                    JsonObject root = new JsonObject();
+                    root.addProperty("version", 1);
+                    root.add("routes", routes);
+                    Files.writeString(file, root.toString(), StandardCharsets.UTF_8);
+                    ModUnderTest.staticCall(STORE, "reload");
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            AtomicReference<Boolean> given = new AtomicReference<>();
+            ctx.runOnClient(mc -> {
+                var server = mc.getSingleplayerServer();
+                UUID uuid = mc.player.getUUID();
+                server.execute(() -> {
+                    var inv = server.getPlayerList().getPlayer(uuid).getInventory();
+                    for (int i = 0; i < 36; i++) {
+                        inv.setItem(i, ItemStack.EMPTY);
+                    }
+                    String[] ids = {"ASPECT_OF_THE_VOID", "DUNGEONBREAKER", "BAT_WAND"};
+                    for (int i = 0; i < ids.length; i++) {
+                        inv.setItem(i, (ItemStack) ModUnderTest.staticCall(SIM_ITEMS, "build",
+                                new Class<?>[]{String.class}, new Object[]{ids[i]}));
+                    }
+                    given.set(true);
+                });
+            });
+            ctx.waitFor(mc -> given.get() != null, 200);
+            ctx.waitTicks(10);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+            Vec3 n7 = rel(ctx, 35.5, 53.0, 35.5);
+            Vec3 n10 = rel(ctx, 15.5, 44.0, 39.5);
+            BlockPos goal = relBlock(ctx, 15, 43, 39);
+            String goalBlocks = onServer(ctx, (mc, level) -> level.getBlockState(goal) + ", above "
+                    + level.getBlockState(goal.above()) + " / " + level.getBlockState(goal.above(2)));
+            println(ALTAR, "node #7 " + fmt(n7) + ", node #10 " + fmt(n10) + " on " + goal.toShortString() + " ("
+                    + goalBlocks + ")");
+            long mark = LogTap.mark();
+            tpNoWait(ctx, n7);
+            double travelled = 0;
+            Vec3 last = n7;
+            boolean arrived = false;
+            for (int i = 0; i < 600; i++) {
+                ctx.waitTicks(1);
+                Vec3 p = ctx.computeOnClient(mc -> mc.player.position());
+                if (i > 5) {
+                    travelled += p.distanceTo(last);
+                }
+                last = p;
+                if (p.distanceTo(n10) < 0.3) {
+                    arrived = true;
+                    ctx.waitTicks(5);
+                    break;
+                }
+                if (logHas(mark, "[AutoRoutes] Stopped")) {
+                    break;
+                }
+            }
+            for (String l : LogTap.since(mark)) {
+                if (l.contains("[Path]") || l.contains("Path #") || l.contains("Stopped") || l.contains("Breaker:")
+                        || l.contains("acted") || l.contains("Etherwarp: landed")) {
+                    println(ALTAR, "  " + l.replaceAll("^.*?\\[(AutoRoutes|Path)\\]", "[$1]"));
+                }
+            }
+            Vec3 end = ctx.computeOnClient(mc -> mc.player.position());
+            boolean planned = logHas(mark, "Path #9 -> #10 planned by the floor planner");
+            println(ALTAR, "planned " + planned + ", ended at " + fmt(end) + " (" + String.format(Locale.ROOT, "%.2f",
+                    end.distanceTo(n10)) + " from node #10), " + String.format(Locale.ROOT, "%.1f", travelled)
+                    + " block(s) travelled after the stack fired");
+            if (!planned) {
+                f.add("pair #9 -> #10 was not planned");
+            }
+            if (!arrived || travelled < 10) {
+                f.add("he did not fly to node #10 (ended " + fmt(end) + ", " + String.format(Locale.ROOT, "%.2f",
+                        end.distanceTo(n10)) + " from it, " + String.format(Locale.ROOT, "%.1f", travelled)
+                        + " travelled)");
+            }
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                    new Object[]{"941 over"}));
             buildRoom(ctx, keep);
             F = keepF;
             giveAotv(ctx);
