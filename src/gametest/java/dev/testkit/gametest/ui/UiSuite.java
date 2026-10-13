@@ -186,6 +186,8 @@ public class UiSuite implements FabricClientGameTest {
     /** The chroma waterfall (mod chroma-waterfall, {@link ChromaWaveCases}). Own block for merges. */
     static final String[] CHROMA_WAVE_CASES = {"971-ui-chroma-enchant-waterfall", "972-ui-chroma-scoreboard-border",
             "973-ui-chroma-crosshair"};
+    /** Every Turbo-Crop VII tiers as Perfect chroma (mod turbo-chroma, {@link ChromaWaveCases#turboCrops}). Own block. */
+    static final String[] TURBO_CHROMA_CASES = {"974-ui-chroma-turbo-crops"};
     /** Item Protect's star on locked player heads (mod lockstar-heads, {@link LockStarHeadCases}). Own block. */
     static final String[] LOCKSTAR_HEAD_CASES = {"961-ui-lockstar-heads"};
     static final String DENY_CASE = "370-ui-deny";
@@ -276,6 +278,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : LOCKSTAR_HEAD_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : TURBO_CHROMA_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -288,7 +293,8 @@ public class UiSuite implements FabricClientGameTest {
                 || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES)
                 || any(CHROMA_WAVE_CASES)
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES)
-                || any(LOCKSTAR_HEAD_CASES);
+                || any(LOCKSTAR_HEAD_CASES)
+                || any(TURBO_CHROMA_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -521,6 +527,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "971-ui-chroma-enchant-waterfall", ChromaWaveCases::enchantTooltip);
                     UiCase.run(ctx, "972-ui-chroma-scoreboard-border", ChromaWaveCases::scoreboardBorder);
                     UiCase.run(ctx, "973-ui-chroma-crosshair", ChromaWaveCases::crosshair);
+                    // ---- every Turbo-Crop VII is Perfect chroma (974) ----
+                    UiCase.run(ctx, "974-ui-chroma-turbo-crops", ChromaWaveCases::turboCrops);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
