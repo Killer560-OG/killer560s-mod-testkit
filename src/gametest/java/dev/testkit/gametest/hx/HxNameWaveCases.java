@@ -31,7 +31,8 @@ import static dev.testkit.gametest.hx.HxKit.*;
  * <ul>
  *   <li>960: Wave in chat - the glyph colours the Font hook paints at 250 ms are the 0 ms colours moved one letter to
  *       the right, and the SCREENSHOT agrees: each letter's measured colour (blue share) at 250 ms is the one its left
- *       neighbour had at 0 ms. Frames go to killer560s-mod-logs/name-wave-shots/.</li>
+ *       neighbour had at 0 ms. Frames are in the report's screens
+ *       ({@code -Dtestkit.nameWaveShots=<dir>} also copies them there by name).</li>
  *   <li>961: Pulse in chat - the same pixels are about 55% as bright at 1000 ms, with the same hue per letter.</li>
  *   <li>962: Off - glyph colours and pixels identical at two times.</li>
  *   <li>963: Wave everywhere else the name is drawn: the tab list, the own F5 nametag, and the Player Cosmetics preview
@@ -53,7 +54,8 @@ final class HxNameWaveCases {
     private static final String NAME = "Gradientname";
     private static final long T0 = 0L;
     private static final long WAVE_STEP = 250L;
-    private static final Path SHOTS = Path.of("C:/Users/Hunter/killer560s-mod-logs/name-wave-shots");
+    /** Optional {@code -Dtestkit.nameWaveShots=<dir>}: also copy the named frames there (never a path in this file). */
+    private static final String SHOTS = System.getProperty("testkit.nameWaveShots", "");
 
     private HxNameWaveCases() {
     }
@@ -204,9 +206,13 @@ final class HxNameWaveCases {
     }
 
     private static void save(Path shot, String name) {
+        if (SHOTS.isBlank()) {
+            return;
+        }
         try {
-            Files.createDirectories(SHOTS);
-            Files.copy(shot, SHOTS.resolve(name), StandardCopyOption.REPLACE_EXISTING);
+            Path dir = Path.of(SHOTS);
+            Files.createDirectories(dir);
+            Files.copy(shot, dir.resolve(name), StandardCopyOption.REPLACE_EXISTING);
         } catch (Exception e) {
             System.out.println("[name-wave] could not copy " + shot + ": " + e);
         }
