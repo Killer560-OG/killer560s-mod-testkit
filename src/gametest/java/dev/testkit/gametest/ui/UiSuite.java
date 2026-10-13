@@ -201,6 +201,8 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-13 dungeon list (mod doc-dungeons, {@link DocDungeonsCases}). Own block. */
     static final String[] DOC_DUNGEONS_CASES = {"981-ui-etherwarp-walk-in", "985-ui-leap-modes-targets",
             "986-ui-croesus-key-settings", "987-ui-map-leap-names"};
+    /** Etherwarp Overlay box: every camera-facing face drawn (mod ew-nearface, {@link EtherwarpFaceCases}). Own block. */
+    static final String[] EW_NEARFACE_CASES = {"1321-ui-etherwarp-box-faces"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -301,6 +303,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : TURBO_CHROMA_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : EW_NEARFACE_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -312,7 +317,8 @@ public class UiSuite implements FabricClientGameTest {
                 || any(AUTOKICK2_CASES) || any(CYCLE_BACK_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES)
                 || any(HUD_KEY3_CASES) || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(CHROMA_WAVE_CASES)
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
-                || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES);
+                || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
+                || any(EW_NEARFACE_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -574,6 +580,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "987-ui-map-leap-names", DocDungeonsCases::mapLeapNames);
                     // ---- every Turbo-Crop VII is Perfect chroma (974) ----
                     UiCase.run(ctx, "974-ui-chroma-turbo-crops", ChromaWaveCases::turboCrops);
+                    // ---- Etherwarp Overlay box faces (1321) ----
+                    UiCase.run(ctx, "1321-ui-etherwarp-box-faces", EtherwarpFaceCases::run);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
