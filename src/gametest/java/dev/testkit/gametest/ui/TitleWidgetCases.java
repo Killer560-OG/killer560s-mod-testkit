@@ -24,8 +24,9 @@ import java.util.List;
  * <p>For each Mod Menu style (classic and icon, set through ModMenuConfig.MODS_BUTTON_STYLE; his 26.2 instance is
  * icon, his 26.1.2 ones classic) and each window size: with the theme OFF the vanilla screen must show Mod Menu's
  * button (and on 26.2 the Friends icon) - the positive control that they exist to be hidden; with it ON, every
- * visible widget must be one of the intended set (Singleplayer, Multiplayer, Dungeon Sim, Mod Menu's classic Mods
- * row, Swap Accounts, Options, Quit, vanilla's copyright line) and no two may overlap. Run with Mod Menu passed in
+ * visible widget must be one of the intended set (Singleplayer, Multiplayer, Dungeon Sim, Swap Accounts, Options,
+ * Quit, vanilla's copyright line) and no two may overlap. Mod Menu's classic Mods row is hidden too (killer560,
+ * 2026-10-13: both versions show the same column). Run with Mod Menu passed in
  * -PmodUnderTest beside the mod jar; without it the Mod Menu half is noted as not run, not passed.
  */
 final class TitleWidgetCases {
@@ -103,11 +104,9 @@ final class TitleWidgetCases {
                     }
                     long columnRows = boxes.stream().filter(b -> b.w == 200).count();
                     c.check(columnRows >= 4, tag + ": only " + columnRows + " full-width column rows: " + boxes);
-                    if (style.equals("CLASSIC")) {
-                        c.check(boxes.stream().anyMatch(b -> b.what.startsWith("ModMenuButtonWidget")),
-                                tag + ": classic Mods row missing from the themed column");
-                    }
-                    if (size[0] == 1920 && !style.equals("CLASSIC")) {
+                    c.check(columnRows == 4, tag + ": " + columnRows + " full-width rows, expected exactly 4 "
+                            + "(Singleplayer, Multiplayer, Dungeon Sim, Swap Accounts)");
+                    if (size[0] == 1920) {
                         Path shot = c.ctx().takeScreenshot(Report.fileName(c.name() + "-" + style.toLowerCase()));
                         Report.screenshot(c.name(), shot);
                         c.note("screenshot " + shot);
@@ -165,8 +164,7 @@ final class TitleWidgetCases {
         return what.contains("[menu.singleplayer]") || what.contains("[menu.multiplayer]")
                 || what.contains("[menu.options]") || what.contains("[menu.quit]")
                 || what.startsWith("SwapAccountsButton[") || what.contains("[Dungeon Sim]")
-                || what.startsWith("PlainTextButton[")
-                || (style.equals("CLASSIC") && what.startsWith("ModMenuButtonWidget["));
+                || what.startsWith("PlainTextButton[");
     }
 
     // ---- Mod Menu's config, by reflection (no compile dependency) --------------------------------------------
