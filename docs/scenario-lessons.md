@@ -506,3 +506,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   reaches the drawer opened last - a real-input case opens one feature with `d.open(leaf)` (or `openChain`). Tooltips are
   judged with `ModScreen.tooltipCategory(w)` (each tab's pre-regroup category), header rows by `ModScreen.cardTooltip`.
   A slider is clicked on its drawn track (`trackRange()`), not across the whole row.
+- **980-985 profiles carry everything, across jars (mod profiles-all).** 983 and 984/985 hand files between runs of DIFFERENT
+  jars through `<checkout>/build/profile-xfer/` (outside the run dir the next run rebuilds): run 983 once on a jar from before
+  profiles-all (it saves `old-profile/`), 984 on the first jar, then 985 on each other jar - it imports every zip there not made
+  by itself and re-exports it once as `<tag>__from__<source>.zip`, so a last 985 on the first jar proves the round trip. A jar
+  tag is a PREFIX of another (`26.1.2-cheat` of `26.1.2-cheat-testing`): match `<tag>.zip` / `<tag>__` exactly, or the
+  cheat run silently skips the testing jar's exports (it did once, 2026-10-13).

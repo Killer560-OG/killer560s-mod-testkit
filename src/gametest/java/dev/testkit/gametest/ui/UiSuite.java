@@ -160,6 +160,10 @@ public class UiSuite implements FabricClientGameTest {
             "947-ui-menu-a-custom-colour"};
     /** The Profiles page redesign (mod menu-profiles-ctrlf, {@link MenuProfilesCases}). Own block for merges. */
     static final String[] MENU_PROFILES_CASES = {"948-ui-menu-profiles-page"};
+    /** Profiles carry everything, across jars (mod profiles-all, {@link ProfileDataCases}). Own block for merges. */
+    static final String[] PROFILE_DATA_CASES = {"980-ui-profile-data-switch", "981-ui-profile-data-export",
+            "982-ui-profile-import-robust", "983-ui-profile-old-format", "984-ui-profile-xfer-export",
+            "985-ui-profile-xfer-import"};
     /** killer560's 2026-10-12 Edit HUD key / Croesus batch ({@link HudKey2Cases}). Own block for merges. */
     /** Container overlays in Edit HUD only within 10 s (mod hud-key-3, {@link HudKey2Cases#containerGrace}). Own block. */
     static final String[] HUD_KEY3_CASES = {"866-ui-container-overlay-grace"};
@@ -245,6 +249,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : MENU_PROFILES_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : PROFILE_DATA_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : HUD_KEY3_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -264,7 +271,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(AUTOKICK2_CASES)
                 || any(CYCLE_BACK_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES) || any(HUD_KEY3_CASES)
                 || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES)
-                || any(MENU_PROFILES_CASES);
+                || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -457,6 +464,13 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "947-ui-menu-a-custom-colour", MenuACases::customColour);
                     // ---- Profiles page (948) ----
                     UiCase.run(ctx, "948-ui-menu-profiles-page", MenuProfilesCases::page);
+                    // ---- profiles carry everything, across jars (980-985) ----
+                    UiCase.run(ctx, "980-ui-profile-data-switch", ProfileDataCases::switchAB);
+                    UiCase.run(ctx, "981-ui-profile-data-export", ProfileDataCases::exportImport);
+                    UiCase.run(ctx, "982-ui-profile-import-robust", ProfileDataCases::importRobust);
+                    UiCase.run(ctx, "983-ui-profile-old-format", ProfileDataCases::oldFormat);
+                    UiCase.run(ctx, "984-ui-profile-xfer-export", ProfileDataCases::xferExport);
+                    UiCase.run(ctx, "985-ui-profile-xfer-import", ProfileDataCases::xferImport);
                     // ---- Edit HUD key / Croesus (862-865) ----
                     UiCase.run(ctx, "862-ui-hud-key-typing", HudKey2Cases::typing);
                     UiCase.run(ctx, "863-ui-hud-key-over-container", HudKey2Cases::overContainer);
