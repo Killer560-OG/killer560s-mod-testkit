@@ -17,7 +17,8 @@ import java.util.Locale;
  *
  * <pre>
  * 981 Etherwarp Overlay while sneaking and WALKING into the target block (a step, a wall, at speed), every tick drawn
- * 985 Fast/Auto Leap: Crystal (was P1), no Test leap, per-leap Mode and Target buttons pressed, old configs carried over
+ * 985 Fast/Auto Leap: Crystal (was P1), no Test leap, per-leap Fast and Auto toggles (both allowed; leap-v2 replaced the
+ *     Mode button) and Target buttons pressed, Return To, old configs carried over (an old Mode Fast/Auto and switch off)
  * 986 Auto Croesus: Chest Key Min Profit 0..2,000k in 20k steps, Key Buy-Offer default (+ migration), key settings order
  * 987 Dungeon Map Names Holding Leap: names only with a Spirit Leap / Infinileap in hand, measured on screenshots
  * </pre>
@@ -135,7 +136,7 @@ final class DocDungeonsCases {
     }
 
     // =================================================================================================================
-    // 985 Fast/Auto Leap: per-leap Mode and Target, Crystal, no Test leap, old configs carried over
+    // 985 Fast/Auto Leap: per-leap Fast/Auto toggles and Target, Return To, Crystal, no Test leap, old configs carried over
     // =================================================================================================================
 
     private static final String FLC = "fastleap.FastLeapConfig";
@@ -161,11 +162,14 @@ final class DocDungeonsCases {
             Files.createDirectories(file.getParent());
             Files.writeString(file, "{\"enabled\":true,\"targetMode\":\"CLASS\",\"testLeapClass\":\"MAGE\",\"groups\":{"
                     + "\"P1\":{\"enabled\":true,\"auto\":true},\"P3\":{\"enabled\":true,\"auto\":false},"
+                    + "\"P4\":{\"enabled\":false,\"auto\":true},\"MIDDLE\":{\"enabled\":false,\"auto\":false},"
                     + "\"TEST\":{\"enabled\":true,\"auto\":true}},\"targets\":{"
                     + "\"P1\":{\"name\":\"Bob\",\"class\":\"HEALER\",\"keywords\":\"p2, storm\"},"
                     + "\"S1\":{\"name\":\"\",\"class\":\"ARCHER\",\"keywords\":\"ee2\"}}}");
             Object p1 = Mod.enumValue(GROUP, "P1");
             Object p3 = Mod.enumValue(GROUP, "P3");
+            Object p4 = Mod.enumValue(GROUP, "P4");
+            Object mid = Mod.enumValue(GROUP, "MIDDLE");
             Object tP1 = Mod.enumValue(TARGET, "P1");
             Object tS1 = Mod.enumValue(TARGET, "S1");
             String[] old = c.onClient(mc -> {
@@ -176,20 +180,24 @@ final class DocDungeonsCases {
                     groups.add(((Enum<?>) g).name());
                 }
                 return new String[]{(String) Mod.field(p1, "label"), String.join(",", groups),
-                        "" + Mod.call(cfg, "isLeapEnabled", p1), "" + Mod.call(cfg, "isLeapAuto", p1),
-                        "" + Mod.call(cfg, "isLeapFast", p1), "" + Mod.call(cfg, "isLeapFast", p3),
+                        "" + Mod.call(cfg, "isLeapAuto", p1), "" + Mod.call(cfg, "isLeapFast", p1),
+                        Mod.call(cfg, "isLeapFast", p3) + "/" + Mod.call(cfg, "isLeapAuto", p3),
+                        Mod.call(cfg, "isLeapFast", p4) + "/" + Mod.call(cfg, "isLeapAuto", p4) + "/"
+                                + Mod.call(cfg, "isLeapFast", mid) + "/" + Mod.call(cfg, "isLeapAuto", mid),
                         "" + Mod.call(cfg, "getTargetMode"), "" + Mod.call(cfg, "isTargetByClass", tP1),
                         "" + Mod.call(cfg, "getTargetClass", tP1), "" + Mod.call(cfg, "isTargetByClass", tS1),
                         "" + Mod.call(cfg, "getTargetClass", tS1)};
             });
-            c.note("old Class-mode file: P1 label " + old[0] + "; groups " + old[1] + "; P1 on " + old[2] + " auto " + old[3]
-                    + " fast " + old[4] + "; P3 fast " + old[5] + "; mode " + old[6] + "; P1 by class " + old[7] + " "
+            c.note("old Class-mode file: P1 label " + old[0] + "; groups " + old[1] + "; P1 (on, Mode Auto) auto " + old[2]
+                    + " fast " + old[3] + "; P3 (on, Mode Fast) fast/auto " + old[4] + "; P4 (off, Mode Auto) and Middle (off,"
+                    + " Mode Fast) fast/auto " + old[5] + "; mode " + old[6] + "; P1 by class " + old[7] + " "
                     + old[8] + "; S1 by class " + old[9] + " " + old[10]);
             c.check("Crystal".equals(old[0]), "P1's leap is labelled " + old[0] + ", not Crystal");
             c.check(!old[1].contains("TEST"), "the Test leap is still a leap: " + old[1]);
-            c.check("true".equals(old[2]) && "true".equals(old[3]) && "false".equals(old[4]),
-                    "the old P1 (on + Auto) did not carry over to Crystal as an Auto leap");
-            c.check("true".equals(old[5]), "the old P3 (on, no Auto) is not a Fast leap");
+            c.check("true".equals(old[2]) && "false".equals(old[3]),
+                    "the old P1 (on, Mode Auto) did not carry over to Crystal as Auto on / Fast off");
+            c.check("true/false".equals(old[4]), "the old P3 (on, Mode Fast) is not Fast on / Auto off: " + old[4]);
+            c.check("false/false/false/false".equals(old[5]), "a leap that was switched off came back on: " + old[5]);
             c.check("PER_LEAP".equals(old[6]), "an old Class mode reads as " + old[6]);
             c.check("true".equals(old[7]) && "HEALER".equals(old[8]) && "true".equals(old[9]) && "ARCHER".equals(old[10]),
                     "an old Class mode's targets did not become class picks");
@@ -214,11 +222,11 @@ final class DocDungeonsCases {
             c.note("old Name file: P1 by class " + named[0] + " name " + named[1] + "; old Posmsg file: " + pos[0]
                     + ", P1 by class " + pos[1]);
 
-            // ---- the leap list: no Edit, no Test, Crystal, a Mode and a Target on every row ----
+            // ---- the leap list: no Edit, no Test, Crystal, Fast and Auto toggles and a Target on every row ----
             c.onClient(mc -> {
                 Mod.staticCall(FLC, "load");
                 Object cfg = Mod.staticCall(FLC, "getInstance");
-                Mod.call(cfg, "setLeapEnabled", p1, true);
+                Mod.call(cfg, "setLeapFast", p1, true);
                 Mod.call(cfg, "setLeapAuto", p1, false);
                 Mod.call(cfg, "setTargetPickClass", tP1, Mod.enumValue("dungeonclass.DungeonClass", "HEALER"));
                 members.clear();
@@ -230,34 +238,70 @@ final class DocDungeonsCases {
             List<String> labels = labels(ws);
             c.note("leap list (" + ws.size() + " widgets): " + labels);
             long modes = labels.stream().filter(l -> l.startsWith("Mode: ")).count();
+            long fasts = labels.stream().filter(l -> l.startsWith("Fast: ")).count();
+            long autos = labels.stream().filter(l -> l.startsWith("Auto: ")).count();
             long targets = labels.stream().filter(l -> l.startsWith("Target: ")).count();
             long sections = labels.stream().filter(l -> l.matches("S[1-4]: .*")).count();
             c.check(labels.stream().noneMatch(l -> l.equals("Edit") || l.startsWith("Edit")), "an Edit button is still there");
             c.check(labels.stream().noneMatch(l -> l.toLowerCase(Locale.ROOT).contains("test")), "a Test leap row is still there");
-            c.check(labels.contains("Crystal Leap: ON"), "no \"Crystal Leap: ON\" row");
+            c.check(labels.contains("Crystal Leap"), "no \"Crystal Leap\" row");
             c.check(labels.stream().noneMatch(l -> l.startsWith("P1 Leap")), "a \"P1 Leap\" row is still there");
-            c.check(modes == 12, modes + " Mode buttons, one per leap is 12");
+            c.check(modes == 0, modes + " Mode button(s) left, the Mode button is gone");
+            c.check(fasts == 12 && autos == 12, fasts + " Fast and " + autos + " Auto toggles, one each per leap is 12");
             c.check(targets == 10 && sections == 4, targets + " Target and " + sections + " S1-S4 buttons, want 10 and 4");
             c.check(labels.contains("After Blood Off: OFF") || labels.contains("After Blood Off: ON"), "Door Opener lost After Blood Off");
-            // Crystal's row: switch, Mode, Target in that order
-            int at = labels.indexOf("Crystal Leap: ON");
-            AbstractWidget mode = ws.get(at + 1);
-            AbstractWidget target = ws.get(at + 2);
-            c.check(labels.get(at + 1).equals("Mode: Fast"), "Crystal's Mode reads " + labels.get(at + 1));
-            c.check(labels.get(at + 2).equals("Target: Healer"), "Crystal's Target reads " + labels.get(at + 2));
-            // Mode: a press makes it Auto (and the click no longer fast-leaps), another makes it Fast again
-            c.onClient(mc -> Mod.call(mode, "press"));
-            boolean[] afterAuto = c.onClient(mc -> {
-                Object cfg = Mod.staticCall(FLC, "getInstance");
-                return new boolean[]{(Boolean) Mod.call(cfg, "isLeapAuto", p1), (Boolean) Mod.call(cfg, "isLeapFast", p1)};
-            });
-            String modeAuto = label(mode);
-            c.onClient(mc -> Mod.call(mode, "press"));
-            boolean fastAgain = c.onClient(mc -> (Boolean) Mod.call(Mod.staticCall(FLC, "getInstance"), "isLeapFast", p1));
-            c.note("Mode press: \"" + modeAuto + "\" auto " + afterAuto[0] + " fast " + afterAuto[1] + "; press again -> \""
-                    + label(mode) + "\" fast " + fastAgain);
-            c.check(afterAuto[0] && !afterAuto[1] && modeAuto.equals("Mode: Auto"), "Mode press did not make Crystal Auto");
-            c.check(fastAgain && label(mode).equals("Mode: Fast"), "a second Mode press did not make Crystal Fast");
+            // Crystal's row: its name, Fast, Auto, Target in that order
+            int at = labels.indexOf("Crystal Leap");
+            AbstractWidget fast = ws.get(at + 1);
+            AbstractWidget auto = ws.get(at + 2);
+            AbstractWidget target = ws.get(at + 3);
+            c.check(labels.get(at + 1).equals("Fast: ON") && labels.get(at + 2).equals("Auto: OFF"),
+                    "Crystal's toggles read " + labels.get(at + 1) + " / " + labels.get(at + 2));
+            c.check(labels.get(at + 3).equals("Target: Healer"), "Crystal's Target reads " + labels.get(at + 3));
+            // the two toggles are independent: Auto on keeps Fast on (both), then Fast off leaves Auto on alone
+            List<String> states = new ArrayList<>();
+            for (AbstractWidget press : List.of(auto, fast, auto, fast)) {
+                c.onClient(mc -> Mod.call(press, "press"));
+                boolean[] st = c.onClient(mc -> {
+                    Object cfg = Mod.staticCall(FLC, "getInstance");
+                    return new boolean[]{(Boolean) Mod.call(cfg, "isLeapFast", p1), (Boolean) Mod.call(cfg, "isLeapAuto", p1)};
+                });
+                states.add((st[0] ? "F" : "-") + (st[1] ? "A" : "-") + " " + label(fast) + "/" + label(auto));
+            }
+            c.note("Crystal toggles after Auto, Fast, Auto, Fast presses: " + states);
+            c.check(states.get(0).startsWith("FA Fast: ON/Auto: ON"), "Auto on did not leave both on: " + states.get(0));
+            c.check(states.get(1).startsWith("-A Fast: OFF/Auto: ON"), "Fast off did not leave Auto alone: " + states.get(1));
+            c.check(states.get(2).startsWith("-- Fast: OFF/Auto: OFF"), "Auto off did not leave both off: " + states.get(2));
+            c.check(states.get(3).startsWith("F- Fast: ON/Auto: OFF"), "Fast on did not leave Fast alone: " + states.get(3));
+            // Return To: replaces Swap Back; Previous Slot, Stay on Leap, then Slot 1 ... Slot 9, wrapping, saved
+            List<AbstractWidget> general = new ArrayList<>();
+            c.onClient(mc -> Mod.staticCall(FLS, "buildGeneral", general, 0, 0, 400, (Runnable) () -> { }));
+            List<String> gl = labels(general);
+            int ri = gl.indexOf("Return To: Previous Slot");
+            c.check(ri >= 0 && gl.stream().noneMatch(l -> l.startsWith("Swap Back")), "Click Behavior: " + gl);
+            if (ri >= 0) {
+                AbstractWidget ret = general.get(ri);
+                List<String> rwalk = new ArrayList<>();
+                for (int i = 0; i < 11; i++) {
+                    c.onClient(mc -> Mod.call(ret, "press"));
+                    rwalk.add(label(ret));
+                }
+                int saved = c.onClient(mc -> (Integer) Mod.call(Mod.staticCall(FLC, "getInstance"), "getReturnToSlot"));
+                c.note("Return To presses: " + rwalk + "; saved " + saved);
+                c.check(rwalk.get(0).equals("Return To: Stay on Leap") && rwalk.get(1).equals("Return To: Slot 1")
+                        && rwalk.get(9).equals("Return To: Slot 9") && rwalk.get(10).equals("Return To: Previous Slot"),
+                        "Return To walked " + rwalk);
+                // Stay on Leap is saved (read from the file: a load here would leave the built buttons on the old
+                // config object; the load at the end of the case reads Slot 3 back)
+                c.onClient(mc -> Mod.call(ret, "press"));
+                int stay = com.google.gson.JsonParser.parseString(Files.readString(file)).getAsJsonObject()
+                        .get("returnToSlot").getAsInt();
+                c.note("Stay on Leap in the saved file: " + stay);
+                c.check(stay == -2, "Stay on Leap read back as " + stay + ", want -2");
+                c.onClient(mc -> Mod.call(ret, "press"));
+                c.onClient(mc -> Mod.call(ret, "press"));
+                c.onClient(mc -> Mod.call(ret, "press")); // Slot 3
+            }
             // Target: presses walk Healer -> Archer (LeapMate has Archer by Leap Order's class pick) -> Berserker ->
             // LeapMate by name -> None -> Mage
             List<String> walk = new ArrayList<>();
@@ -286,6 +330,17 @@ final class DocDungeonsCases {
             });
             String text = Files.readString(file);
             boolean back = c.onClient(mc -> (Boolean) Mod.call(Mod.staticCall(FLC, "getInstance"), "isTargetByClass", tP1));
+            int retBack = c.onClient(mc -> (Integer) Mod.call(Mod.staticCall(FLC, "getInstance"), "getReturnToSlot"));
+            boolean[] togglesBack = c.onClient(mc -> {
+                Object cfg = Mod.staticCall(FLC, "getInstance");
+                return new boolean[]{(Boolean) Mod.call(cfg, "isLeapFast", p1), (Boolean) Mod.call(cfg, "isLeapAuto", p1)};
+            });
+            c.check(retBack == 2, "Return To Slot 3 read back as " + retBack);
+            c.check(togglesBack[0] && !togglesBack[1], "Crystal's Fast on / Auto off did not survive a save and load");
+            com.google.gson.JsonObject savedP1 = com.google.gson.JsonParser.parseString(text).getAsJsonObject()
+                    .getAsJsonObject("groups").getAsJsonObject("P1");
+            c.check(savedP1.has("fast") && savedP1.has("auto") && !savedP1.has("enabled") && !text.contains("swapBack"),
+                    "the saved file still uses the old per-leap keys or Swap Back: P1 " + savedP1);
             c.check(text.contains("\"byClass\"") && !text.contains("testLeapClass") && !text.contains("\"TEST\""),
                     "the saved file still has the Test leap, or no byClass");
             c.check(back, "the Mage class pick did not survive a save and load");

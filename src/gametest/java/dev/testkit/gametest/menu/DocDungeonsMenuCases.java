@@ -22,7 +22,7 @@ import java.util.Locale;
  * 982 Auto E-Table stops on any key, click or scroll and on another screen opening, never on a mouse move or on the
  *     Start ETable click that began it (a real click), names what stopped it, and sends nothing after
  * 983 Fast/Auto Leap: a class target goes to the teammate Leap Order's class pick gave it, a name target to that
- *     name; a Fast leap fires on his left click and not on its trigger, an Auto leap on its trigger and not on the click
+ *     name; Fast alone fires on his left click and not on its trigger, Auto alone on its trigger and not on the click
  * 984 Storage Scan All: every wait 1.1-1.4x the old one (mean 1.25), varied, measured on the wall clock
  * </pre>
  */
@@ -185,7 +185,7 @@ final class DocDungeonsMenuCases {
             c.ctx().runOnClient(mc -> {
                 mc.player.getInventory().setSelectedSlot(0);
                 Mod.call(cfgObj, "setTargetMode", Mod.enumValue(FLC + "$TargetMode", "PER_LEAP"));
-                Mod.call(cfgObj, "setLeapEnabled", p1, true);
+                Mod.call(cfgObj, "setLeapFast", p1, true);
                 Mod.call(cfgObj, "setLeapAuto", p1, false);
                 // Leap Order's class pick: Bob, a Healer on the tab list, is playing Tank
                 Mod.staticCall("dungeonclass.ClassOverrides", "set", "Bob", Mod.enumValue("dungeonclass.DungeonClass", "TANK"));
@@ -204,17 +204,20 @@ final class DocDungeonsMenuCases {
                     Mod.staticCall(FLF, "leapToConfigured", tP1)));
             c.check(slot == 15, "a name target Carol leapt to slot " + slot + ", Carol is 15");
 
-            // ---- Door Opener in Fast mode: the door opening does not leap, his left click does ----
+            // ---- Door Opener Fast on, Auto off: the door opening does not leap, his left click does ----
             c.ctx().runOnClient(mc -> {
-                Mod.call(cfgObj, "setLeapEnabled", door, true);
+                Mod.call(cfgObj, "setLeapFast", door, true);
                 Mod.call(cfgObj, "setLeapAuto", door, false);
             });
             int none = noLeapAfter(c, "Fast: Carol opens a door", () -> c.hx().chat("Carol opened a WITHER door!"));
             c.check(none == 0, "a Fast Door Opener leap fired on its trigger (" + none + " leap click(s))");
             slot = leapAndClick(c, "Fast: his left click", () -> c.ctx().getInput().pressMouse(0));
             c.check(slot == 15, "his left click with the Fast Door Opener leapt to slot " + slot + ", Carol (the opener) is 15");
-            // ---- Door Opener in Auto mode: the door opening leaps, his left click does not ----
-            c.ctx().runOnClient(mc -> Mod.call(cfgObj, "setLeapAuto", door, true));
+            // ---- Door Opener Auto on, Fast off: the door opening leaps, his left click does not ----
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfgObj, "setLeapFast", door, false);
+                Mod.call(cfgObj, "setLeapAuto", door, true);
+            });
             slot = leapAndClick(c, "Auto: Alice opens a door", () -> c.hx().chat("Alice opened a WITHER door!"));
             c.check(slot == 11, "an Auto Door Opener leap on Alice's door went to slot " + slot + ", Alice is 11");
             none = noLeapAfter(c, "Auto: his left click", () -> c.ctx().getInput().pressMouse(0));
