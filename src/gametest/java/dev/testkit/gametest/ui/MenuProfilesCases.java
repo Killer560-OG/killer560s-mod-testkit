@@ -73,9 +73,44 @@ final class MenuProfilesCases {
         return null;
     }
 
-    /** A real left click at the widget's centre, through the screen (as a mouse press arrives). */
+    /**
+     * A real left click at the widget's centre, through the screen (as a mouse press arrives). A widget outside the
+     * visible pane (the narrow drawer of a testing build's Untested category) is scrolled into view first, as he would.
+     */
     private static void click(Screen s, AbstractWidget w) {
+        int top = (Integer) Mod.field(s, "contentY");
+        int view = (Integer) Mod.field(s, "visibleContentHeight");
+        int scroll = (Integer) Mod.field(s, "scrollOffset");
+        int delta = 0;
+        if (w.getY() < top) {
+            delta = w.getY() - top - 4;
+        } else if (w.getY() + w.getHeight() > top + view) {
+            delta = w.getY() + w.getHeight() - (top + view) + 4;
+        }
+        if (delta != 0) {
+            String label = ModScreenDriver.label(w);
+            int x = w.getX();
+            int y = w.getY();
+            Mod.setField(Mod.ROOT + MenuACases.SCREEN, "scrollOffset", Math.max(0, scroll + delta));
+            Mod.call(s, "refresh");
+            int moved = scroll - (Integer) Mod.field(s, "scrollOffset");
+            AbstractWidget again = null;
+            for (AbstractWidget r : rows(s)) {
+                if (!isPanel(r) && ModScreenDriver.label(r).equals(label) && r.getX() == x && r.getY() == y + moved) {
+                    again = r;
+                }
+            }
+            if (again == null) {
+                throw new AssertionError("lost '" + label + "' scrolling it into view");
+            }
+            w = again;
+        }
         MenuACases.press(s, w.getX() + w.getWidth() / 2.0, w.getY() + w.getHeight() / 2.0);
+    }
+
+    /** Shows the Profiles tab wherever it lives (its page; a drawer in a testing build's Untested category). */
+    private static void showProfiles(Screen s) {
+        Mod.call(s, "openFeature", MenuACases.leaf("ProfilesTab"));
     }
 
     private static Path dir(String name) {
@@ -130,10 +165,26 @@ final class MenuProfilesCases {
                 } catch (Exception e) {
                     throw new AssertionError(e);
                 }
-                Mod.call(s[0], "selectCategory", "Profiles");
+                Mod.call(s[0], "selectCategory", "Home");
                 return null;
             });
             c.ticks(3);
+            // Home's Profiles button, a real click: it must reach the tab wherever it lives (in a testing build Profiles
+            // is in the Untested category, where the button used to do nothing).
+            String reached = c.onClient(mc -> {
+                int[] b = (int[]) Mod.call(s[0], "homeButtonBounds", "Profiles");
+                if (b == null) {
+                    return "Home has no Profiles button";
+                }
+                MenuACases.press(s[0], b[0] + b[2] / 2.0, b[1] + b[3] / 2.0);
+                Object open = Mod.call(s[0], "openFeature");
+                return row(s[0], "Profile name") != null ? null : "Home's Profiles button left the menu on "
+                        + (open == null ? "no drawer" : open.getClass().getSimpleName()) + " with no Profile name box";
+            });
+            c.check(reached == null, reached);
+            boolean drawer = c.onClient(mc -> Mod.call(s[0], "openFeature") != null);
+            c.note("Home's Profiles button opened the Profiles tab " + (drawer ? "in a drawer (testing build: Untested)"
+                    : "as its page"));
 
             // Save Current As New: the name typed into the real box (a real click focuses it).
             String why = c.onClient(mc -> {
@@ -236,7 +287,7 @@ final class MenuProfilesCases {
             c.note("after Load: the active marker on disk reads '" + now + "'");
             c.check(alpha.equals(now), "Load did not make " + alpha + " active on disk (marker '" + now + "')");
             why = c.onClient(mc -> {
-                Mod.call(s[0], "selectCategory", "Profiles");
+                showProfiles(s[0]);
                 AbstractWidget head = null;
                 for (AbstractWidget w : rows(s[0])) {
                     if (isPanel(w) && ModScreenDriver.label(w).startsWith("Active profile: ")) {
@@ -304,7 +355,7 @@ final class MenuProfilesCases {
                 c.onClient(mc -> {
                     // re-read: a profile Load replaces the config objects
                     Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", Mod.enumValue("gui.MenuTheme", theme));
-                    Mod.call(s[0], "selectCategory", "Profiles");
+                    showProfiles(s[0]);
                     return null;
                 });
                 shots.add(MenuACases.shot(c, s[0], "profiles-" + theme.toLowerCase(java.util.Locale.ROOT), null));
@@ -315,7 +366,7 @@ final class MenuProfilesCases {
                 for (int k = 0; k < slots.length; k++) {
                     Mod.call(Mod.cfg("gui.MenuConfig"), "setCustomColour", slots[k], customSet[k]);
                 }
-                Mod.call(s[0], "selectCategory", "Profiles");
+                showProfiles(s[0]);
                 return null;
             });
             shots.add(MenuACases.shot(c, s[0], "profiles-custom", null));
