@@ -21,11 +21,13 @@ import java.util.function.Consumer;
 /**
  * Shared trails (mod trail-share, relay trail-share; killer560 2026-10-13: "it should be toggleable to see in cosmetics
  * for whether it is shared or not and it can only be shared by a supporter"). The relay's supporter entry gained an
- * optional {@code trail}; Player Cosmetics gained Share Trail (supporters only) and Show Others' Trails.
+ * optional {@code trail}; Player Cosmetics gained Share Trail (supporters only) and Show Others' Trails. Since
+ * ribbon-cosmetic (killer560 2026-10-14: "The other trail option should not be shared even for the squares") only the
+ * Ribbon Trail is shared: the squares Trail never goes up, and a received squares entry draws nothing.
  * <ul>
  *   <li>1036 send: the share push ({@code SupportersSelfService.lastAttempt}, set before the network call, so it reads
- *       the same offline) carries the trail in the relay's exact shape only when linked AND Share if Supporter AND Share
- *       Trail AND the Trail are on; nothing at all is attempted for a non-supporter; with no display name the trail goes
+ *       the same offline) carries the Ribbon Trail in the relay's exact shape only when linked AND Share if Supporter AND
+ *       Share Trail AND the Ribbon Trail are on; the squares Trail never appears in it, even with everything on; nothing at all is attempted for a non-supporter; with no display name the trail goes
  *       up alone (name ""). The tab's Share Trail is greyed out with "Only supporters can share a trail." until linked,
  *       then live; both switches default ON, survive save + load and a profile reload, and have tooltips. The startup
  *       supporter check backs off (30 s doubling) offline without linking; a linked answer links and pushes at once.</li>
@@ -34,16 +36,16 @@ import java.util.function.Consumer;
  *       (against his walk), red at his end and leaning blue at the far end - the same renderer as your own.</li>
  *   <li>1038 hide: Show Others' Trails OFF drops every slot, draws nothing, and the frame matches one where he shares no
  *       trail at all; your own ribbon keeps drawing; ON brings his back.</li>
- *   <li>1039 limits: a squares entry lays squares behind him; a player who leaves loses his slot; 20 sharers keep only
+ *   <li>1039 limits: a squares entry (an older client's) is dropped by the parser and draws nothing; a player who leaves loses his slot; 20 sharers keep only
  *       16; a trail-only entry shows the real name with the trail and a staff-set name keeps showing beside one;
  *       bad trail values are dropped by the parser; the supporters cache keeps a trail.</li>
  * </ul>
  */
 final class TrailShareCases {
 
-    private static final String CFG = "trail.TrailConfig";
-    private static final String STYLE = "trail.TrailConfig$Style";
-    private static final String MODE = "trail.TrailConfig$ColorMode";
+    private static final String CFG = "trail.RibbonTrailConfig";
+    private static final String SQ = "trail.TrailConfig";
+    private static final String MODE = "trail.RibbonTrailConfig$ColorMode";
     private static final String SC = "supporters.SupportersConfig";
     private static final String SF = "supporters.SupportersFeature";
     private static final String SA = "supporters.SupportersAutoShare";
@@ -63,8 +65,8 @@ final class TrailShareCases {
     }
 
     private static boolean ready(UiCase c) {
-        if (!Mod.has(RT)) {
-            c.problem("this jar has no shared trails (mod before trail-share)");
+        if (!Mod.has(RT) || !Mod.has(CFG)) {
+            c.problem("this jar has no shared Ribbon Trail (mod before ribbon-cosmetic)");
             return false;
         }
         return true;
@@ -139,15 +141,20 @@ final class TrailShareCases {
             c.onClient(mc -> {
                 Object t = Mod.cfg(CFG);
                 Mod.call(t, "setEnabled", true);
-                Mod.call(t, "setStyle", Mod.enumValue(STYLE, "RIBBON"));
                 Mod.call(t, "setColorMode", Mod.enumValue(MODE, "GRADIENT"));
                 Mod.call(t, "setColorCount", 3);
                 Mod.call(t, "setHeadColor", 0xFFFF0000);
                 Mod.call(t, "setMidColor", 0xFFFFFF00);
                 Mod.call(t, "setTailColor", 0xFF0000FF);
-                Mod.call(t, "setRibbonWidth", 0.8f);
+                Mod.call(t, "setRibbonHeight", 0.8f);
                 Mod.call(t, "setRibbonSeconds", 1.5f);
                 Mod.call(t, "setOpacityPercent", 70);
+                // The squares Trail on too, with values that would be recognisable if they ever leaked into the push.
+                Object sq = Mod.cfg(SQ);
+                Mod.call(sq, "setEnabled", true);
+                Mod.call(sq, "setLength", 77);
+                Mod.call(sq, "setSquareSize", 0.45f);
+                Mod.call(sq, "setOpacityPercent", 33);
                 Mod.set(NC, "setOwnDisplayName", "TrailGuy");
                 Mod.set(NC, "setOwnColor", 0);
                 Mod.set(SC, "setShareIfSupporter", true);
@@ -210,6 +217,23 @@ final class TrailShareCases {
             c.note("supporter, everything on: " + on);
             c.check(on.startsWith("POST ") && on.contains("\"name\":\"TrailGuy\"") && on.endsWith(want + "}"),
                     "the push does not carry the trail in the relay's shape (want ..." + want + "}): " + on);
+            c.check(!on.contains("squares") && !on.contains("\"length\":77") && !on.contains("0.45")
+                            && !on.contains("\"opacity\":33"),
+                    "the squares Trail leaked into the push: " + on);
+
+            // The squares Trail alone (Ribbon Trail off) shares nothing.
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(CFG), "setEnabled", false);
+                return null;
+            });
+            String squaresOnly = push(c);
+            c.note("squares Trail on, Ribbon Trail off, everything else on: " + squaresOnly);
+            c.check(squaresOnly.startsWith("POST ") && !squaresOnly.contains("trail") && !squaresOnly.contains("squares"),
+                    "the squares Trail was shared: " + squaresOnly);
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(CFG), "setEnabled", true);
+                return null;
+            });
 
             c.onClient(mc -> {
                 Mod.set(SC, "setShareTrail", false);
@@ -225,8 +249,8 @@ final class TrailShareCases {
                 return null;
             });
             String trailOff = push(c);
-            c.note("Trail itself off: " + trailOff);
-            c.check(trailOff.startsWith("POST ") && !trailOff.contains("trail"), "a Trail that is off is still shared: " + trailOff);
+            c.note("Ribbon Trail itself off: " + trailOff);
+            c.check(trailOff.startsWith("POST ") && !trailOff.contains("trail"), "a Ribbon Trail that is off is still shared: " + trailOff);
 
             c.onClient(mc -> {
                 Mod.call(Mod.cfg(CFG), "setEnabled", true);
@@ -287,6 +311,27 @@ final class TrailShareCases {
             c.check(rowsNo.contains("Show Others' Trails: ON"), "Show Others' Trails is missing or not ON: " + rowsNo);
             c.check(rowsYes.contains("Share Trail: ON"), "Share Trail is not live for a supporter: " + rowsYes);
             c.check(rowsYes.stream().noneMatch(r -> r.startsWith("Only supporters")), "a supporter still sees the reason: " + rowsYes);
+            // The same two switches on the Ribbon Trail tab, greyed out the same way.
+            Object ribbonTab = c.onClient(mc -> {
+                Mod.staticCall(SA, "setLinked", false);
+                try {
+                    return Mod.cls("gui.tab.RibbonTrailTab").getDeclaredConstructor().newInstance();
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError("could not make a RibbonTrailTab: " + e, e);
+                }
+            });
+            List<String> ribbonNo = rows(c, ribbonTab);
+            c.onClient(mc -> {
+                Mod.staticCall(SA, "setLinked", true);
+                return null;
+            });
+            List<String> ribbonYes = rows(c, ribbonTab);
+            c.note("Ribbon Trail tab, not linked: " + ribbonNo);
+            c.note("Ribbon Trail tab, linked: " + ribbonYes);
+            c.check(ribbonNo.contains("Share Trail: OFF [inactive]") && ribbonNo.contains("Only supporters can share a trail."),
+                    "the Ribbon Trail tab's Share Trail is not greyed out with the reason: " + ribbonNo);
+            c.check(ribbonYes.contains("Share Trail: ON") && ribbonYes.contains("Show Others' Trails: ON"),
+                    "the Ribbon Trail tab's sharing switches are not live for a supporter: " + ribbonYes);
 
             // Saved, loaded, defaults, profile reload, tooltips.
             Object[] round = c.onClient(mc -> {
@@ -333,8 +378,13 @@ final class TrailShareCases {
                 unthrottle();
                 Object t = Mod.cfg(CFG);
                 Mod.call(t, "setEnabled", false);
-                Mod.call(t, "setStyle", Mod.enumValue(STYLE, "SQUARES"));
                 Mod.call(t, "save");
+                Object sq = Mod.cfg(SQ);
+                Mod.call(sq, "setEnabled", false);
+                Mod.call(sq, "setLength", 40);
+                Mod.call(sq, "setSquareSize", 0.3f);
+                Mod.call(sq, "setOpacityPercent", 60);
+                Mod.call(sq, "save");
                 return null;
             });
         }
@@ -379,6 +429,7 @@ final class TrailShareCases {
                 savedMap = Mod.field(SF, "byUuid");
             }
             Mod.call(Mod.cfg(CFG), "setEnabled", false);
+            Mod.call(Mod.cfg(SQ), "setEnabled", false);
             Mod.set(SC, "setShowOthersTrails", true);
             mc.player.getAbilities().flying = true;
             mc.player.setPos(origin[0], origin[1], origin[2]);
@@ -398,9 +449,7 @@ final class TrailShareCases {
                 savedMap = null;
             }
             Mod.set(SC, "setShowOthersTrails", true);
-            Object t = Mod.cfg(CFG);
-            Mod.call(t, "setEnabled", false);
-            Mod.call(t, "setStyle", Mod.enumValue(STYLE, "SQUARES"));
+            Mod.call(Mod.cfg(CFG), "setEnabled", false);
             McCompat.setHudHidden(mc, false);
             mc.options.setCameraType(CameraType.FIRST_PERSON);
             if (origin != null) {
@@ -556,6 +605,10 @@ final class TrailShareCases {
             c.check(drawn > 20, "his trail drew in only " + drawn + " frames during a 53-tick walk");
             c.check(st != null && st[0] > 10 && st[1] > 3.0, "his ribbon is not laid behind him: "
                     + (st == null ? "none" : st[0] + " points, " + st[1] + " blocks"));
+            // The same geometry as your own: a vertical strip, every point's bottom and top sharing x and z.
+            String vertical = TrailRibbonCases.verticalProblem(c.onClient(mc -> (float[]) rt("ribbonVertices", MATE)), 0.8f);
+            c.note("his band: " + (vertical == null ? "vertical, 0.8 tall at every point" : vertical));
+            c.check(vertical == null, "his shared ribbon is not a vertical strip: " + vertical);
             BufferedImage on = shot(c, "on", 2);
             c.onClient(mc -> {
                 Mod.set(SC, "setShowOthersTrails", false);
@@ -587,7 +640,6 @@ final class TrailShareCases {
             c.onClient(mc -> {
                 mateAt(mc, 0, origin[0] + 4, origin[2] + 8);
                 Object t = Mod.cfg(CFG);
-                Mod.call(t, "setStyle", Mod.enumValue(STYLE, "RIBBON"));
                 Mod.call(t, "setRibbonSeconds", 4.0f);
                 Mod.call(t, "setShowInFirstPerson", true);
                 Mod.call(t, "setEnabled", true);
@@ -657,19 +709,34 @@ final class TrailShareCases {
         }
         try {
             scene(c);
-            // Squares behind him.
+            // A squares trail (what a client before ribbon-cosmetic shares) is dropped: nothing tracked, nothing drawn,
+            // and the frame matches one where he shares no trail at all.
             c.onClient(mc -> {
                 mateAt(mc, 0, origin[0] + 4, origin[2] + 8);
                 return null;
             });
-            applyEntries(c, entry(MATE, "", SQUARES_TRAIL));
+            List<?> sqParsed = applyEntries(c, entry(MATE, "", SQUARES_TRAIL));
+            String sqSpec = c.onClient(mc -> String.valueOf(Mod.call(sqParsed.get(0), "trail")));
+            long sq0 = c.onClient(mc -> ((Number) rt("framesDrawn")).longValue());
             c.ticks(2);
             walkMate(c, 30);
-            int squares = c.onClient(mc -> ((Number) rt("squareCount", MATE)).intValue());
-            int drawnNow = c.onClient(mc -> ((Number) rt("lastDrawnTrails")).intValue());
-            c.note("squares: " + squares + " laid, trails drawn last frame " + drawnNow);
-            c.check(squares >= 25, "a squares trail laid only " + squares + " squares over a 30-tick walk");
-            c.check(drawnNow == 1, "his squares were not drawn last frame (" + drawnNow + ")");
+            int sqTracked = c.onClient(mc -> ((Number) rt("tracked")).intValue());
+            long sqDrawn = c.onClient(mc -> ((Number) rt("framesDrawn")).longValue()) - sq0;
+            BufferedImage sqShot = shot(c, "squares-entry", 2);
+            applyEntries(c, entry(MATE, "", null));
+            BufferedImage noShot = shot(c, "no-trail-entry", 4);
+            Diff sqDiff = diff(noShot, sqShot);
+            c.note("squares entry: parsed trail " + sqSpec + ", tracked " + sqTracked + ", frames drawn " + sqDrawn
+                    + "; against no trail: " + sqDiff.describe());
+            c.check("null".equals(sqSpec), "a squares trail was read as a trail: " + sqSpec);
+            c.check(sqTracked == 0 && sqDrawn == 0, "a squares entry is tracked or drawn (" + sqTracked + ", " + sqDrawn + ")");
+            c.check(sqDiff.changed() < 50, "a squares entry drew something: " + sqDiff.describe());
+
+            // His ribbon is tracked while he is here.
+            applyEntries(c, entry(MATE, "", RIBBON_TRAIL));
+            walkMate(c, 10);
+            int here = c.onClient(mc -> ((Number) rt("tracked")).intValue());
+            c.check(here == 1, "his ribbon is not tracked before he leaves (" + here + ")");
 
             // He leaves: his slot goes on the next tick.
             c.onClient(mc -> {
@@ -684,7 +751,7 @@ final class TrailShareCases {
             // Twenty sharers: only the nearest 16 are kept.
             String[] many = new String[20];
             for (int i = 0; i < 20; i++) {
-                many[i] = entry(mateId(i), "", SQUARES_TRAIL);
+                many[i] = entry(mateId(i), "", RIBBON_TRAIL);
             }
             c.onClient(mc -> {
                 for (int i = 0; i < 20; i++) {
@@ -730,6 +797,7 @@ final class TrailShareCases {
                     "{\"style\":\"ribbon\",\"mode\":\"gradient\",\"colors\":[1],\"width\":0.5,\"length\":1,\"opacity\":50}",
                     "{\"style\":\"ribbon\",\"mode\":\"gradient\",\"colors\":[1,2],\"width\":0.5,\"length\":1,\"opacity\":50,\"x\":1}",
                     "{\"style\":\"squares\",\"mode\":\"gradient\",\"colors\":[1,2],\"width\":0.5,\"length\":2.5,\"opacity\":50}",
+                    SQUARES_TRAIL,
                     "{\"style\":\"ribbon\",\"mode\":\"gradient\",\"colors\":[1,2],\"width\":0.5,\"length\":1,\"opacity\":500}",
                     "\"ribbon\""};
             String[] entries = new String[bad.length + 2];

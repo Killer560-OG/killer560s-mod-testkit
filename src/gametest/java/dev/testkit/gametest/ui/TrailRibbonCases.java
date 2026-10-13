@@ -15,9 +15,10 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * killer560's 2026-10-13 Ribbon trail (mod trail-ribbon): Trail's new Style "Ribbon", one smooth band streaming behind
- * the player from waist height, head colour at the body to tail colour at the end, fading to nothing there, shrinking
- * away when he stands still. Judged from F5 screenshots: each frame is diffed against a frame of the SAME scene with
+ * killer560's Ribbon Trail (mod trail-ribbon 2026-10-13, its own Cosmetics tab since ribbon-cosmetic 2026-10-14): one
+ * smooth band streaming behind the player, head colour at the body to tail colour at the end, fading to nothing there,
+ * shrinking away when he stands still. Since ribbon-cosmetic it is a WORLD-FIXED vertical band (killer560: "I want the
+ * ribbon to be vertical behind them, not horizontal or any angle"): every point's two vertices share x and z. Judged from F5 screenshots: each frame is diffed against a frame of the SAME scene with
  * the trail off (a pixel counts as changed above a summed RGB delta of 30, the {@code CrosshairCases} rule), and the
  * changed pixels' largest 8-connected component is the band. Distances along the band are a breadth-first walk from
  * its pixel nearest the player, so "near the player" and "further back" follow the band round a curve too. Colours are
@@ -30,19 +31,24 @@ import java.util.Locale;
  *   <li>1032 curve: a quarter-circle walk; still one band, red at the player and blue at the end, and it bends (its
  *       height on screen is several times its thickness, where the line's is not).</li>
  *   <li>1033 still and switch: standing still the band shrinks (half way through Ribbon Length it is shorter) and is
- *       gone after it; switching Style back to Squares removes it at once; Show In First Person OFF draws nothing in
- *       first person, ON draws.</li>
- *   <li>1034 settings: every ribbon field survives save + load, an old settings file loads as Squares, clamps, the file
- *       is in config/killer560/interface/trail/, the tab's rows, cycling buttons and tooltips.</li>
+ *       gone after it; turning the Ribbon Trail off removes it at once; it and the squares Trail draw together; Show In
+ *       First Person OFF draws nothing in first person, ON draws.</li>
+ *   <li>1034 settings: every ribbon field survives save + load in config/killer560/interface/ribbontrail/, an old Trail
+ *       file with Style Ribbon becomes the Ribbon Trail (on, its settings) with the squares off, Style Squares changes
+ *       nothing visible, clamps, the tab's rows, cycling buttons and tooltips.</li>
+ *   <li>1040 tabs: the Cosmetics category has a Ribbon Trail tab; the Trail tab has no Style, ribbon or share rows.</li>
+ *   <li>1041 camera: the band's world-space vertices are identical from six camera angles at one player position,
+ *       every point's bottom and top share x and z, and on screen it keeps a vertical extent from every angle.</li>
  *   <li>1035 gallery: the default red / orange / yellow from the side, from behind and round a curve, and Chroma.</li>
  * </ul>
  */
 final class TrailRibbonCases {
 
-    private static final String CFG = "trail.TrailConfig";
-    private static final String STYLE = "trail.TrailConfig$Style";
-    private static final String MODE = "trail.TrailConfig$ColorMode";
+    private static final String CFG = "trail.RibbonTrailConfig";
+    private static final String SQ = "trail.TrailConfig";
+    private static final String MODE = "trail.RibbonTrailConfig$ColorMode";
     private static final String RIBBON = "trail.RibbonTrail";
+    private static final float HEIGHT = 0.8f;
 
     private static final int RED = 0xFFFF0000;
     private static final int YELLOW = 0xFFFFFF00;
@@ -61,8 +67,8 @@ final class TrailRibbonCases {
     private static float savedPitch;
 
     private static boolean ready(UiCase c) {
-        if (!Mod.has(RIBBON)) {
-            c.problem("this jar has no Ribbon trail (mod before trail-ribbon)");
+        if (!Mod.has(CFG)) {
+            c.problem("this jar has no Ribbon Trail cosmetic (mod before ribbon-cosmetic)");
             return false;
         }
         return true;
@@ -81,8 +87,8 @@ final class TrailRibbonCases {
                 origin = new double[]{Math.floor(mc.player.getX()) + 0.5, Math.floor(mc.player.getY()) + 3,
                         Math.floor(mc.player.getZ()) + 0.5};
             }
-            Object cfg = Mod.cfg(CFG);
-            Mod.call(cfg, "setEnabled", false);
+            Mod.call(Mod.cfg(CFG), "setEnabled", false);
+            Mod.call(Mod.cfg(SQ), "setEnabled", false);
             return null;
         });
         place(c, origin[0], origin[2], 0f);
@@ -92,13 +98,12 @@ final class TrailRibbonCases {
     private static void configure(UiCase c, int head, int mid, int tail, int colors, float seconds) {
         c.onClient(mc -> {
             Object cfg = Mod.cfg(CFG);
-            Mod.call(cfg, "setStyle", Mod.enumValue(STYLE, "RIBBON"));
             Mod.call(cfg, "setColorMode", Mod.enumValue(MODE, "GRADIENT"));
             Mod.call(cfg, "setColorCount", colors);
             Mod.call(cfg, "setHeadColor", head);
             Mod.call(cfg, "setMidColor", mid);
             Mod.call(cfg, "setTailColor", tail);
-            Mod.call(cfg, "setRibbonWidth", 0.8f);
+            Mod.call(cfg, "setRibbonHeight", HEIGHT);
             Mod.call(cfg, "setRibbonSeconds", seconds);
             Mod.call(cfg, "setOpacityPercent", 100);
             Mod.call(cfg, "setShowInFirstPerson", true);
@@ -118,9 +123,10 @@ final class TrailRibbonCases {
         c.onClient(mc -> {
             Object cfg = Mod.cfg(CFG);
             Mod.call(cfg, "setEnabled", false);
-            Mod.call(cfg, "setStyle", Mod.enumValue(STYLE, "SQUARES"));
             Mod.call(cfg, "setColorMode", Mod.enumValue(MODE, "GRADIENT"));
             Mod.call(cfg, "save");
+            Mod.call(Mod.cfg(SQ), "setEnabled", false);
+            Mod.call(Mod.cfg(SQ), "save");
             McCompat.setHudHidden(mc, false);
             mc.options.setCameraType(CameraType.FIRST_PERSON);
             if (origin != null) {
@@ -167,6 +173,32 @@ final class TrailRibbonCases {
 
     private static int points() {
         return ((Number) Mod.staticCall(RIBBON, "lastPointCount")).intValue();
+    }
+
+    /** Squares the local squares Trail holds right now. */
+    private static int squareCount() {
+        return ((Number) Mod.call(Mod.field("trail.TrailFeature", "SQUARES"), "size")).intValue();
+    }
+
+    /**
+     * Null when {@code v} (x y z per vertex, bottom then top for each point) is a vertical strip {@code height} tall:
+     * every point's two vertices share x and z exactly and differ in y by the height; else what is wrong.
+     */
+    static String verticalProblem(float[] v, float height) {
+        if (v == null || v.length < 12) {
+            return "no vertices (" + (v == null ? "null" : v.length / 3 + " vertices") + ")";
+        }
+        for (int i = 0; i + 5 < v.length; i += 6) {
+            float bx = v[i], by = v[i + 1], bz = v[i + 2], tx = v[i + 3], ty = v[i + 4], tz = v[i + 5];
+            if (bx != tx || bz != tz) {
+                return String.format(Locale.ROOT, "point %d leans: bottom (%.4f, %.4f) top (%.4f, %.4f)", i / 6, bx, bz,
+                        tx, tz);
+            }
+            if (Math.abs((ty - by) - height) > 1e-3) {
+                return String.format(Locale.ROOT, "point %d is %.4f tall, not %.2f", i / 6, ty - by, height);
+            }
+        }
+        return null;
     }
 
     private static double length() {
@@ -402,6 +434,10 @@ final class TrailRibbonCases {
             long drawn = frames() - f0;
             double len = length();
             int pts = points();
+            String vertical = verticalProblem(c.onClient(mc -> (float[]) Mod.staticCall(RIBBON, "lastVertices")), HEIGHT);
+            c.note("vertical band check: " + (vertical == null ? "every point's bottom and top share x and z, "
+                    + HEIGHT + " apart" : vertical));
+            c.check(vertical == null, "the band is not a vertical strip: " + vertical);
             BufferedImage on = shot(c, "side-on", 2);
             enabled(c, false);
             BufferedImage off = shot(c, "side-off", 4);
@@ -424,11 +460,13 @@ final class TrailRibbonCases {
             int overBody = overPlayer(off, on, 20);
             c.note("changed pixels over the player's torso and legs (centre +-20 px): " + overBody);
             c.check(overBody < 50, "the ribbon is drawn over the player (" + overBody + " px in front of his body)");
-            // From behind: walking forward (south), the band streams back toward the camera and down the screen.
-            place(c, origin[0], origin[2], 0f);
+            // From behind: walking forward (south), the band streams back toward the camera and down the screen. A
+            // vertical band seen EXACTLY from behind a dead-straight walk is edge-on (the F5 camera sits in its plane),
+            // so the camera looks 30 degrees off the line of the walk, as it does whenever he turns or strafes.
+            place(c, origin[0], origin[2], 30f);
             c.ticks(40); // the side walk's band shrinks away (1.5 s)
             enabled(c, true);
-            walk(c, line(origin[0], origin[2], 0, 1, 30), 0f);
+            walk(c, line(origin[0], origin[2], 0, 1, 30), 30f);
             BufferedImage behindOn = shot(c, "behind-on", 2);
             enabled(c, false);
             BufferedImage behindOff = shot(c, "behind-off", 4);
@@ -516,34 +554,47 @@ final class TrailRibbonCases {
                     + pts3 + " points, " + b3.describe());
             c.check(frames() == fr3, "the ribbon drew while the trail was off");
 
-            // Switching back to Squares removes it at once.
+            // With the squares Trail on as well, both draw; turning the Ribbon Trail off removes the band at once and
+            // leaves the squares.
             place(c, origin[0], origin[2], 0f);
-            enabled(c, true);
-            walk(c, line(origin[0], origin[2], 1, 0, 40), 0f);
-            BufferedImage ribbon = shot(c, "switch-ribbon", 1);
             c.onClient(mc -> {
-                Mod.call(Mod.cfg(CFG), "setStyle", Mod.enumValue(STYLE, "SQUARES"));
+                Mod.call(Mod.cfg(SQ), "setEnabled", true);
                 return null;
             });
+            enabled(c, true);
+            long frB = frames();
+            walk(c, line(origin[0], origin[2], 1, 0, 40), 0f);
+            long bothRibbon = frames() - frB;
+            int bothSquares = squareCount();
+            BufferedImage ribbon = shot(c, "both-on", 1);
+            enabled(c, false);
             long frS = frames();
-            BufferedImage squares = shot(c, "switch-squares", 3);
+            BufferedImage squares = shot(c, "ribbon-off-squares-on", 3);
             long drawnAfter = frames() - frS;
             int ptsS = points();
-            enabled(c, false);
-            BufferedImage off2 = shot(c, "switch-off", 4);
+            int squaresAfter = squareCount();
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(SQ), "setEnabled", false);
+                return null;
+            });
+            BufferedImage off2 = shot(c, "both-off", 4);
             Band br = band(off2, ribbon, 50), bs = band(off2, squares, 50);
-            c.note("ribbon before switch: " + br.describe());
-            c.note("after switching to Squares: " + bs.describe() + "; ribbon frames since " + drawnAfter);
-            c.check(br.size() > 1500, "no band before switching: " + br.describe());
-            c.check(drawnAfter == 0 && bs.changed() < 30, "the ribbon is still drawn after switching to Squares: "
-                    + drawnAfter + " frames, " + bs.describe());
-            c.check(ptsS == 0 || drawnAfter == 0, "ribbon points kept after the switch: " + ptsS);
+            c.note("both on: ribbon frames " + bothRibbon + ", squares " + bothSquares + "; band " + br.describe());
+            c.note("Ribbon Trail off, squares on: " + bs.describe() + "; ribbon frames since " + drawnAfter
+                    + ", squares " + squaresAfter);
+            c.check(bothRibbon > 20 && bothSquares >= 25, "with both on they did not both draw: ribbon " + bothRibbon
+                    + " frames, " + bothSquares + " squares");
+            c.check(br.size() > 1500, "no band with both on: " + br.describe());
+            c.check(drawnAfter == 0 && ptsS == 0, "the ribbon is still drawn after turning it off: "
+                    + drawnAfter + " frames, " + ptsS + " points");
+            c.check(squaresAfter >= 25 && bs.changed() > 30 && bs.changed() < br.changed(),
+                    "turning the Ribbon Trail off took the squares with it (or left the band): " + squaresAfter
+                            + " squares, " + bs.describe());
 
             // Show In First Person.
             c.onClient(mc -> {
                 mc.options.setCameraType(CameraType.FIRST_PERSON);
                 Object cfg = Mod.cfg(CFG);
-                Mod.call(cfg, "setStyle", Mod.enumValue(STYLE, "RIBBON"));
                 Mod.call(cfg, "setShowInFirstPerson", false);
                 Mod.call(cfg, "setEnabled", true);
                 return null;
@@ -572,14 +623,19 @@ final class TrailRibbonCases {
         if (!ready(c)) {
             return;
         }
-        Path file = c.onClient(mc -> mc.gameDirectory.toPath().resolve("config/killer560/interface/trail/killer560smod-trail.json"));
+        Path file = c.onClient(mc -> mc.gameDirectory.toPath()
+                .resolve("config/killer560/interface/ribbontrail/killer560smod-ribbontrail.json"));
+        Path trailFile = c.onClient(mc -> mc.gameDirectory.toPath()
+                .resolve("config/killer560/interface/trail/killer560smod-trail.json"));
+        String savedTrail = Files.exists(trailFile) ? Files.readString(trailFile) : null;
+        String savedRibbon = Files.exists(file) ? Files.readString(file) : null;
         try {
             Object cfg = Mod.cfg(CFG);
             c.onClient(mc -> {
                 Mod.call(cfg, "setEnabled", true);
-                Mod.call(cfg, "setStyle", Mod.enumValue(STYLE, "RIBBON"));
-                Mod.call(cfg, "setRibbonWidth", 1.25f);
+                Mod.call(cfg, "setRibbonHeight", 1.25f);
                 Mod.call(cfg, "setRibbonSeconds", 2.5f);
+                Mod.call(cfg, "setOpacityPercent", 45);
                 Mod.call(cfg, "setColorMode", Mod.enumValue(MODE, "CHROMA"));
                 Mod.call(cfg, "setColorCount", 2);
                 Mod.call(cfg, "setHeadColor", 0xFF123456);
@@ -591,88 +647,158 @@ final class TrailRibbonCases {
                 return null;
             });
             Object back = Mod.cfg(CFG);
-            String got = Mod.call(back, "isEnabledRaw") + " " + Mod.call(back, "getStyle") + " "
-                    + Mod.call(back, "getRibbonWidth") + " " + Mod.call(back, "getRibbonSeconds") + " "
-                    + Mod.call(back, "getColorMode") + " " + Mod.call(back, "getColorCount") + " "
-                    + Integer.toHexString((Integer) Mod.call(back, "getHeadColor")) + " "
-                    + Integer.toHexString((Integer) Mod.call(back, "getMidColor")) + " "
-                    + Integer.toHexString((Integer) Mod.call(back, "getTailColor")) + " "
-                    + Mod.call(back, "isShowInFirstPerson");
+            String got = ribbonState(back);
             c.note("after save + load: " + got + "; file " + file + " exists " + Files.exists(file));
             c.check(back != cfg, "load() did not make a new instance, so the round trip proved nothing");
-            c.check(got.equals("true RIBBON 1.25 2.5 CHROMA 2 ff123456 ff654321 ffabcdef false"), "round trip gave " + got);
+            c.check(got.equals("true 1.25 2.5 45 CHROMA 2 ff123456 ff654321 ffabcdef false"), "round trip gave " + got);
             c.check(Files.exists(file), "no settings file at " + file);
 
-            // A file from before the Ribbon (no style key) loads as the old Squares trail.
-            Files.writeString(file, "{\"enabled\": true, \"length\": 40, \"squareSize\": 0.3, \"opacityPercent\": 60, "
+            // An old Trail file with Style Ribbon: the Ribbon Trail takes its ribbon settings and its on/off, the squares
+            // keep theirs but go off (they were not showing), and the style key is gone from the Trail file afterwards.
+            Files.deleteIfExists(file);
+            Files.createDirectories(trailFile.getParent());
+            Files.writeString(trailFile, "{\"enabled\": true, \"length\": 55, \"squareSize\": 0.4, \"opacityPercent\": 40, "
+                    + "\"fadeOut\": false, \"style\": \"RIBBON\", \"showInFirstPerson\": false, \"ribbonWidth\": 1.1, "
+                    + "\"ribbonSeconds\": 3.0, \"colorMode\": \"NAME_FADE\", \"colorCount\": 2, \"headColor\": -16711936, "
+                    + "\"midColor\": -256, \"tailColor\": -16776961}");
+            c.onClient(mc -> {
+                Mod.staticCall(SQ, "load");
+                Mod.staticCall(CFG, "load");
+                return null;
+            });
+            String mig = ribbonState(Mod.cfg(CFG));
+            String sq = squaresState(Mod.cfg(SQ));
+            String after = Files.readString(trailFile);
+            c.note("Style Ribbon migrated: ribbon " + mig + "; squares " + sq + "; trail file now " + after.replace('\n', ' '));
+            c.check(mig.equals("true 1.1 3.0 40 NAME_FADE 2 ff00ff00 ffffff00 ff0000ff false"),
+                    "the Ribbon Trail did not take the old ribbon settings: " + mig);
+            c.check(sq.equals("false 55 0.4 40 false false"), "the squares Trail did not keep its settings (off): " + sq);
+            c.check(!after.contains("style") && !after.contains("ribbon"), "the Trail file still has ribbon keys: " + after);
+            c.check(Files.exists(file), "the migration wrote no Ribbon Trail file");
+            // Loading again changes nothing (it ran once).
+            c.onClient(mc -> {
+                Mod.staticCall(SQ, "load");
+                Mod.staticCall(CFG, "load");
+                return null;
+            });
+            String again = ribbonState(Mod.cfg(CFG)) + " / " + squaresState(Mod.cfg(SQ));
+            c.check(again.equals(mig + " / " + sq), "a second load changed the migrated settings: " + again);
+
+            // Style Squares: the squares stay exactly as they were and the existing Ribbon Trail is untouched.
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(CFG), "setEnabled", false);
+                Mod.call(Mod.cfg(CFG), "save");
+                return null;
+            });
+            Files.writeString(trailFile, "{\"enabled\": true, \"length\": 30, \"squareSize\": 0.3, \"opacityPercent\": 60, "
+                    + "\"fadeOut\": true, \"style\": \"SQUARES\", \"showInFirstPerson\": true, \"ribbonWidth\": 0.6, "
+                    + "\"ribbonSeconds\": 1.0, \"colorMode\": \"GRADIENT\", \"colorCount\": 3}");
+            c.onClient(mc -> {
+                Mod.staticCall(SQ, "load");
+                Mod.staticCall(CFG, "load");
+                return null;
+            });
+            String sq2 = squaresState(Mod.cfg(SQ));
+            String rb2 = ribbonState(Mod.cfg(CFG));
+            c.note("Style Squares: squares " + sq2 + "; ribbon " + rb2);
+            c.check(sq2.equals("true 30 0.3 60 true true"), "Style Squares changed the squares Trail: " + sq2);
+            c.check(rb2.equals(mig.replaceFirst("^true", "false")), "Style Squares changed the Ribbon Trail: " + rb2);
+
+            // A file from before either (no style key) loads as the squares Trail it always was.
+            Files.writeString(trailFile, "{\"enabled\": true, \"length\": 40, \"squareSize\": 0.3, \"opacityPercent\": 60, "
                     + "\"fadeOut\": true}");
-            c.onClient(mc -> Mod.staticCall(CFG, "load"));
-            Object old = Mod.cfg(CFG);
-            c.note("old file loads as: " + Mod.call(old, "getStyle") + ", first person " + Mod.call(old, "isShowInFirstPerson"));
-            c.check("SQUARES".equals(String.valueOf(Mod.call(old, "getStyle"))), "an old settings file did not load as Squares");
-            c.check(Boolean.TRUE.equals(Mod.call(old, "isShowInFirstPerson")), "an old file lost first-person drawing");
+            c.onClient(mc -> Mod.staticCall(SQ, "load"));
+            String sq3 = squaresState(Mod.cfg(SQ));
+            c.note("oldest file: squares " + sq3);
+            c.check(sq3.equals("true 40 0.3 60 true true"), "an old settings file did not load as the squares Trail: " + sq3);
+
+            // A profile reload reads the Ribbon Trail's file too (ProfileManager.reloadAllConfigs).
+            Boolean reloaded = c.onClient(mc -> {
+                Mod.call(Mod.cfg(CFG), "setOpacityPercent", 77); // memory only
+                Mod.staticCall("profiles.ProfileManager", "reloadAllConfigs");
+                return ((Number) Mod.call(Mod.cfg(CFG), "getOpacityPercent")).intValue() == 40;
+            });
+            c.check(reloaded, "a profile reload did not reload the Ribbon Trail's settings");
 
             // Clamps.
-            Mod.call(old, "setRibbonWidth", 50f);
-            Mod.call(old, "setRibbonSeconds", 0f);
-            Mod.call(old, "setColorCount", 9);
-            String clamped = Mod.call(old, "getRibbonWidth") + " " + Mod.call(old, "getRibbonSeconds") + " "
-                    + Mod.call(old, "getColorCount");
+            Object rc = Mod.cfg(CFG);
+            Mod.call(rc, "setRibbonHeight", 50f);
+            Mod.call(rc, "setRibbonSeconds", 0f);
+            Mod.call(rc, "setColorCount", 9);
+            String clamped = Mod.call(rc, "getRibbonHeight") + " " + Mod.call(rc, "getRibbonSeconds") + " "
+                    + Mod.call(rc, "getColorCount");
             c.note("clamped: " + clamped);
             c.check(clamped.equals("2.0 0.2 3"), "clamps gave " + clamped);
 
-            // The tab's rows, in Ribbon / Gradient / 3 colours, and in Squares.
-            List<String> ribbonRows = tabRows(c, old, "RIBBON", "GRADIENT", 3);
-            List<String> chromaRows = tabRows(c, old, "RIBBON", "CHROMA", 3);
-            List<String> squareRows = tabRows(c, old, "SQUARES", "GRADIENT", 3);
+            // The Ribbon Trail tab's rows, in Gradient / 3 colours and in Chroma.
+            List<String> ribbonRows = tabRows(c, "gui.tab.RibbonTrailTab", () -> {
+                Mod.call(rc, "setEnabled", true);
+                Mod.call(rc, "setColorMode", Mod.enumValue(MODE, "GRADIENT"));
+                Mod.call(rc, "setColorCount", 3);
+            });
+            List<String> chromaRows = tabRows(c, "gui.tab.RibbonTrailTab", () ->
+                    Mod.call(rc, "setColorMode", Mod.enumValue(MODE, "CHROMA")));
             c.note("ribbon rows: " + ribbonRows);
             c.note("chroma rows: " + chromaRows);
-            c.note("squares rows: " + squareRows);
-            for (String want : new String[]{"Style: Ribbon *", "Ribbon Width: 2.00", "Ribbon Length: 0.2s", "Color Mode: Gradient *",
-                    "Colors: 3 *", "Head Color", "Middle Color", "Tail Color", "Show In First Person"}) {
-                c.check(ribbonRows.stream().anyMatch(r -> r.startsWith(want)), "Ribbon tab has no row '" + want + "': " + ribbonRows);
+            for (String want : new String[]{"Ribbon Trail: ON", "Ribbon Height: 2.00", "Ribbon Length: 0.2s", "Opacity: 40%",
+                    "Color Mode: Gradient *", "Colors: 3 *", "Head Color", "Middle Color", "Tail Color",
+                    "Show In First Person", "Share Trail", "Show Others' Trails"}) {
+                c.check(ribbonRows.stream().anyMatch(r -> r.startsWith(want)), "Ribbon Trail tab has no row '" + want + "': " + ribbonRows);
             }
+            c.check(ribbonRows.stream().noneMatch(r -> r.startsWith("Style")), "the Ribbon Trail tab has a Style row");
             c.check(chromaRows.stream().noneMatch(r -> r.startsWith("Head Color")), "Chroma still shows colour pickers");
-            c.check(squareRows.stream().noneMatch(r -> r.startsWith("Ribbon")), "Squares shows ribbon rows: " + squareRows);
-            c.check(squareRows.stream().anyMatch(r -> r.startsWith("Square Size")), "Squares lost its rows: " + squareRows);
-            for (String label : new String[]{"Style: Ribbon", "Ribbon Width: 2.00", "Ribbon Length: 0.2s", "Opacity: 60%",
+            for (String label : new String[]{"Ribbon Trail: ON", "Ribbon Height: 2.00", "Ribbon Length: 0.2s", "Opacity: 40%",
                     "Color Mode: Gradient", "Colors: 3", "Head Color", "Middle Color", "Tail Color",
-                    "Show In First Person: ON"}) {
-                String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Trail", label));
+                    "Show In First Person: ON", "Share Trail: ON", "Show Others' Trails: ON"}) {
+                String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Ribbon Trail", label));
                 c.note("tooltip '" + label + "': " + tip);
                 c.check(tip != null && !tip.isEmpty(), "no tooltip for '" + label + "'");
             }
         } finally {
+            if (savedTrail != null) {
+                Files.writeString(trailFile, savedTrail);
+            } else {
+                Files.deleteIfExists(trailFile);
+            }
+            if (savedRibbon != null) {
+                Files.writeString(file, savedRibbon);
+            } else {
+                Files.deleteIfExists(file);
+            }
             c.onClient(mc -> {
-                Object cfg = Mod.cfg(CFG);
-                Mod.call(cfg, "setEnabled", false);
-                Mod.call(cfg, "setStyle", Mod.enumValue(STYLE, "SQUARES"));
-                Mod.call(cfg, "setColorMode", Mod.enumValue(MODE, "GRADIENT"));
-                Mod.call(cfg, "setColorCount", 3);
-                Mod.call(cfg, "setRibbonWidth", 0.6f);
-                Mod.call(cfg, "setRibbonSeconds", 1.0f);
-                Mod.call(cfg, "setHeadColor", 0xFFFF2A1A);
-                Mod.call(cfg, "setMidColor", 0xFFFF8C1A);
-                Mod.call(cfg, "setTailColor", 0xFFFFE01A);
-                Mod.call(cfg, "setShowInFirstPerson", true);
-                Mod.call(cfg, "save");
+                Mod.staticCall(SQ, "load");
+                Mod.staticCall(CFG, "load");
+                Mod.call(Mod.cfg(CFG), "setEnabled", false);
+                Mod.call(Mod.cfg(SQ), "setEnabled", false);
                 return null;
             });
         }
     }
 
-    /** The Trail tab's rows (message, " *" when it is a cycling button) for a style / colour mode / count. */
-    private static List<String> tabRows(UiCase c, Object cfg, String style, String mode, int colors) {
+    /** "enabled height seconds opacity mode count head mid tail firstPerson" (colours as hex). */
+    private static String ribbonState(Object r) {
+        return Mod.call(r, "isEnabledRaw") + " " + Mod.call(r, "getRibbonHeight") + " " + Mod.call(r, "getRibbonSeconds")
+                + " " + Mod.call(r, "getOpacityPercent") + " " + Mod.call(r, "getColorMode") + " "
+                + Mod.call(r, "getColorCount") + " " + Integer.toHexString((Integer) Mod.call(r, "getHeadColor")) + " "
+                + Integer.toHexString((Integer) Mod.call(r, "getMidColor")) + " "
+                + Integer.toHexString((Integer) Mod.call(r, "getTailColor")) + " " + Mod.call(r, "isShowInFirstPerson");
+    }
+
+    /** "enabled length squareSize opacity fadeOut firstPerson". */
+    private static String squaresState(Object t) {
+        return Mod.call(t, "isEnabledRaw") + " " + Mod.call(t, "getLength") + " " + Mod.call(t, "getSquareSize") + " "
+                + Mod.call(t, "getOpacityPercent") + " " + Mod.call(t, "isFadeOut") + " " + Mod.call(t, "isShowInFirstPerson");
+    }
+
+    /** A fresh {@code tabClass}'s rows (message, " *" when it is a cycling button) after {@code setup} runs. */
+    private static List<String> tabRows(UiCase c, String tabClass, Runnable setup) {
         return c.onClient(mc -> {
-            Mod.call(cfg, "setEnabled", true);
-            Mod.call(cfg, "setStyle", Mod.enumValue(STYLE, style));
-            Mod.call(cfg, "setColorMode", Mod.enumValue(MODE, mode));
-            Mod.call(cfg, "setColorCount", colors);
+            setup.run();
             Object tab;
             try {
-                tab = Mod.cls("gui.tab.TrailTab").getDeclaredConstructor().newInstance();
+                tab = Mod.cls(tabClass).getDeclaredConstructor().newInstance();
             } catch (ReflectiveOperationException e) {
-                throw new AssertionError("could not make a TrailTab: " + e, e);
+                throw new AssertionError("could not make a " + tabClass + ": " + e, e);
             }
             @SuppressWarnings("unchecked")
             List<AbstractWidget> ws = (List<AbstractWidget>) Mod.call(tab, "buildWidgets", 0, 0, 300, (Runnable) () -> {
@@ -686,6 +812,172 @@ final class TrailRibbonCases {
             }
             return rows;
         });
+    }
+
+    // ---- 1040 tabs ------------------------------------------------------------------------------------------------
+
+    static void tabs(UiCase c) {
+        if (!ready(c)) {
+            return;
+        }
+        List<String> names = c.onClient(mc -> {
+            Object folder;
+            try {
+                folder = Mod.cls("gui.tab.CosmeticsCategoryTab").getDeclaredConstructor().newInstance();
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError("could not make the Cosmetics category: " + e, e);
+            }
+            List<String> out = new ArrayList<>();
+            for (Object t : (List<?>) Mod.call(folder, "subTabs")) {
+                out.add(String.valueOf(Mod.field(t, "name")));
+            }
+            return out;
+        });
+        c.note("Cosmetics tabs: " + names);
+        c.check(names.contains("Ribbon Trail"), "the Cosmetics category has no Ribbon Trail tab: " + names);
+        c.check(names.contains("Trail"), "the Cosmetics category lost the Trail tab: " + names);
+        boolean wasOn = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(SQ), "isEnabledRaw"));
+        try {
+            List<String> rows = tabRows(c, "gui.tab.TrailTab", () -> Mod.call(Mod.cfg(SQ), "setEnabled", true));
+            c.note("Trail tab rows: " + rows);
+            for (String want : new String[]{"Trail: ON", "Length", "Square Size", "Opacity", "Fade Toward Tail",
+                    "Show In First Person"}) {
+                c.check(rows.stream().anyMatch(r -> r.startsWith(want)), "the Trail tab lost its row '" + want + "': " + rows);
+            }
+            c.check(rows.stream().noneMatch(r -> r.startsWith("Style") || r.contains("Ribbon") || r.contains("Share")
+                            || r.contains("Others' Trails") || r.contains("Color")),
+                    "the Trail tab still has Style, ribbon, colour or share rows: " + rows);
+            for (String label : new String[]{"Trail: ON", "Length: 40", "Square Size: 0.30", "Opacity: 60%",
+                    "Fade Toward Tail: ON", "Show In First Person: ON"}) {
+                String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Trail", label));
+                c.note("tooltip '" + label + "': " + tip);
+                c.check(tip != null && !tip.isEmpty() && !tip.toLowerCase(Locale.ROOT).contains("ribbon"),
+                        "the Trail tooltip for '" + label + "' is missing or still talks about the ribbon: " + tip);
+            }
+        } finally {
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(SQ), "setEnabled", wasOn);
+                return null;
+            });
+        }
+    }
+
+    // ---- 1041 camera angles ---------------------------------------------------------------------------------------
+
+    /** Camera angles for 1041: label, yaw, pitch, camera type, whether the band must keep a vertical extent. The band
+     *  runs west of the player (he walked east), so yaw 90 would look straight down it, edge-on. */
+    private static final Object[][] ANGLES = {
+            {"side", 0f, 35f, CameraType.THIRD_PERSON_BACK, true},
+            {"side-level", 0f, 5f, CameraType.THIRD_PERSON_BACK, true},
+            {"behind-oblique", 55f, 25f, CameraType.THIRD_PERSON_BACK, true},
+            {"swung-left", -40f, 35f, CameraType.THIRD_PERSON_BACK, true},
+            {"swung-right", 40f, 35f, CameraType.THIRD_PERSON_BACK, true},
+            {"above", 0f, 75f, CameraType.THIRD_PERSON_BACK, false},
+            {"front", 180f, 30f, CameraType.THIRD_PERSON_FRONT, true},
+    };
+
+    static void cameraAngles(UiCase c) {
+        if (!ready(c)) {
+            return;
+        }
+        try {
+            scene(c);
+            configure(c, RED, YELLOW, BLUE, 3, 4.0f);
+            double ex = origin[0] + STEP * 30, ez = origin[2];
+            // The trail-off frames first, from where the walk will end.
+            List<BufferedImage> offs = new ArrayList<>();
+            enabled(c, false);
+            for (Object[] a : ANGLES) {
+                offs.add(angleShot(c, ex, ez, a, "off"));
+            }
+            c.onClient(mc -> {
+                mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+                return null;
+            });
+            place(c, origin[0], origin[2], 0f);
+            c.ticks(2);
+            enabled(c, true);
+            walk(c, line(origin[0], origin[2], 1, 0, 30), 0f);
+            float[] first = null;
+            for (int i = 0; i < ANGLES.length; i++) {
+                Object[] a = ANGLES[i];
+                BufferedImage on = angleShot(c, ex, ez, a, "on");
+                float[] v = c.onClient(mc -> (float[]) Mod.staticCall(RIBBON, "lastVertices"));
+                String vertical = verticalProblem(v, HEIGHT);
+                int[] ext = extent(offs.get(i), on);
+                c.note(String.format(Locale.ROOT, "%s (yaw %.0f, pitch %.0f): %d vertices; on screen %d changed px, "
+                        + "tallest column %d px, %d columns", a[0], (Float) a[1], (Float) a[2], v == null ? 0 : v.length / 3,
+                        ext[0], ext[1], ext[2]));
+                c.check(vertical == null, a[0] + ": the band is not a vertical strip: " + vertical);
+                if (first == null) {
+                    first = v;
+                } else {
+                    c.check(sameGeometry(first, v), a[0] + ": the band's world-space vertices changed with the camera ("
+                            + (first.length / 3) + " vs " + (v == null ? 0 : v.length / 3) + " vertices, max move "
+                            + maxMove(first, v) + ")");
+                }
+                c.check(ext[0] > 300, a[0] + ": the band is (nearly) invisible from here: " + ext[0] + " px");
+                if ((Boolean) a[4]) {
+                    c.check(ext[1] >= 12, a[0] + ": the band collapsed to a flat line on screen (tallest column "
+                            + ext[1] + " px)");
+                }
+            }
+        } finally {
+            restore(c);
+        }
+    }
+
+    /** Places the player at (x, z) with the angle's yaw, pitch and camera, then takes a shot. */
+    private static BufferedImage angleShot(UiCase c, double x, double z, Object[] a, String suffix) {
+        c.onClient(mc -> {
+            mc.options.setCameraType((CameraType) a[3]);
+            mc.player.getAbilities().flying = true;
+            mc.player.setPos(x, origin[1], z);
+            mc.player.setDeltaMovement(Vec3.ZERO);
+            mc.player.setYRot((Float) a[1]);
+            mc.player.setXRot((Float) a[2]);
+            mc.player.yRotO = (Float) a[1];
+            mc.player.xRotO = (Float) a[2];
+            return null;
+        });
+        return shot(c, a[0] + "-" + suffix, 3);
+    }
+
+    /** {changed pixels, tallest run of changed pixels in one column (top to bottom), columns with any change}. */
+    private static int[] extent(BufferedImage off, BufferedImage on) {
+        int changed = 0, tallest = 0, cols = 0;
+        for (int x = 0; x < on.getWidth(); x++) {
+            int top = -1, bottom = -1;
+            for (int y = 0; y < on.getHeight(); y++) {
+                if (delta(on.getRGB(x, y), off.getRGB(x, y)) > 30) {
+                    changed++;
+                    if (top < 0) {
+                        top = y;
+                    }
+                    bottom = y;
+                }
+            }
+            if (top >= 0) {
+                cols++;
+                tallest = Math.max(tallest, bottom - top + 1);
+            }
+        }
+        return new int[]{changed, tallest, cols};
+    }
+
+    private static boolean sameGeometry(float[] a, float[] b) {
+        return b != null && a.length == b.length && maxMove(a, b) < 1e-4;
+    }
+
+    private static double maxMove(float[] a, float[] b) {
+        if (b == null || a.length != b.length) {
+            return Double.NaN;
+        }
+        double m = 0;
+        for (int i = 0; i < a.length; i++) {
+            m = Math.max(m, Math.abs(a[i] - b[i]));
+        }
+        return m;
     }
 
     // ---- 1035 gallery ---------------------------------------------------------------------------------------------
@@ -703,10 +995,10 @@ final class TrailRibbonCases {
             });
             walk(c, line(origin[0], origin[2], 1, 0, 40), 0f);
             Band side = band(shotPair(c, "default-side"), lastOn, 50);
-            place(c, origin[0], origin[2], 0f);
+            place(c, origin[0], origin[2], 30f);
             c.ticks(40);
             enabled(c, true);
-            walk(c, line(origin[0], origin[2], 0, 1, 30), 0f);
+            walk(c, line(origin[0], origin[2], 0, 1, 30), 30f); // 30 degrees off the walk: dead behind is edge-on
             Band behind = band(shotPair(c, "default-behind"), lastOn, 0);
             place(c, origin[0], origin[2], 0f);
             c.ticks(40);
