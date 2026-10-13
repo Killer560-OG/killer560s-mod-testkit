@@ -74,7 +74,7 @@ import java.util.List;
  *                third person untouched, settings; 676 Outline Side near/far/both, 677 one screenshot per setting
  *                ({@link HeldOutlineCases})
  *                940-947 the Option A mod menu: screenshots, card switches flip the config, a card opens its drawer,
- *                favourites survive a restart, Ctrl K search, no sidebar counts, colour presets and Custom colours
+ *                favourites survive a restart, Ctrl F search, no sidebar counts, colour presets and Custom colours
  *                ({@link MenuACases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
@@ -158,6 +158,8 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] MENU_A_CASES = {"940-ui-menu-a-shots", "941-ui-menu-a-cards", "942-ui-menu-a-drawer",
             "943-ui-menu-a-favourites", "944-ui-menu-a-search", "945-ui-menu-a-no-counts", "946-ui-menu-a-themes",
             "947-ui-menu-a-custom-colour"};
+    /** The Profiles page redesign (mod menu-profiles-ctrlf, {@link MenuProfilesCases}). Own block for merges. */
+    static final String[] MENU_PROFILES_CASES = {"948-ui-menu-profiles-page"};
     /** killer560's 2026-10-12 Edit HUD key / Croesus batch ({@link HudKey2Cases}). Own block for merges. */
     /** Container overlays in Edit HUD only within 10 s (mod hud-key-3, {@link HudKey2Cases#containerGrace}). Own block. */
     static final String[] HUD_KEY3_CASES = {"866-ui-container-overlay-grace"};
@@ -240,6 +242,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : HUD_KEY2_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : MENU_PROFILES_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : HUD_KEY3_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -258,7 +263,8 @@ public class UiSuite implements FabricClientGameTest {
                 || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES)
                 || any(AUTOKICK2_CASES)
                 || any(CYCLE_BACK_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES) || any(HUD_KEY3_CASES)
-                || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES);
+                || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES)
+                || any(MENU_PROFILES_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -449,6 +455,8 @@ public class UiSuite implements FabricClientGameTest {
                     });
                     UiCase.run(ctx, "946-ui-menu-a-themes", MenuACases::themes);
                     UiCase.run(ctx, "947-ui-menu-a-custom-colour", MenuACases::customColour);
+                    // ---- Profiles page (948) ----
+                    UiCase.run(ctx, "948-ui-menu-profiles-page", MenuProfilesCases::page);
                     // ---- Edit HUD key / Croesus (862-865) ----
                     UiCase.run(ctx, "862-ui-hud-key-typing", HudKey2Cases::typing);
                     UiCase.run(ctx, "863-ui-hud-key-over-container", HudKey2Cases::overContainer);

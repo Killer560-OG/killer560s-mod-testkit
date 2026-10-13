@@ -320,6 +320,12 @@
       "key": "style",
       "text": "How this highlight is drawn: filled, outline only, or both.",
       "why": "menu-a (Option A menu, 2026-10-12): the category key dungeon/style (Simon Says' own text, which Simon Says also has as simon says/style) is gone, so Etherwarp Waypoints' Style row shows the generic style text instead of Simon Says'"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "delete",
+      "text": "Permanently deletes this saved profile. Asks for a second click.",
+      "why": "menu-profiles-ctrlf (2026-10-13): Delete on a profile card asks for a second click (it turns into Confirm); this row only exists while a profile is saved, which the fixture never had"
     }
   ]
 }

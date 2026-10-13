@@ -16,12 +16,12 @@ import java.util.List;
 
 /**
  * 940-949: the Option A mod menu (mod menu-a, killer560 2026-10-12) - a sidebar of categories with on/total counts, a
- * grid of feature cards with their master switch, a settings drawer per feature, Favourites, and the Ctrl K search.
+ * grid of feature cards with their master switch, a settings drawer per feature, Favourites, and the Ctrl F search.
  * Everything is driven through the real {@code gui.ModScreen}: its public navigation methods, and real mouse presses
  * at the bounds it reports.
  * <ul>
  *   <li>940 screenshots at 1920x1080 GUI 2 (Auto Scale on, as he plays): HUD with the Health and Mana Bars drawer, the
- *       Dungeons grid, Home, the Ctrl K search, the bottom of Dungeons (cheat block on a cheat jar).</li>
+ *       Dungeons grid, Home, the Ctrl F search, the bottom of Dungeons (cheat block on a cheat jar).</li>
  *   <li>941 every feature card has a description, and its switch is its tab's own ON/OFF row; a real click on a card's
  *       switch flips the feature's CONFIG (Health and Mana Bars' Stat Bars, Quiver Display) and the category count by
  *       one, and a second click puts it back.</li>
@@ -29,7 +29,7 @@ import java.util.List;
  *       drawer, a second Escape the menu.</li>
  *   <li>943 the star on a card saves the feature in Favourites; after a restart (config re-read from disk, tab list and
  *       screen rebuilt) Favourites still lists it; unstarring removes it from the file.</li>
- *   <li>944 Ctrl K focuses the search; typing "etable" lists the Experimentation Table features and a setting; Enter
+ *   <li>944 Ctrl F focuses the search (Ctrl K no longer does, and a plain f typed in it is a letter); typing "etable" lists the Experimentation Table features and a setting; Enter
  *       opens the first hit's drawer; "bar width" finds the Health and Mana Bars setting and opening it scrolls the
  *       drawer to that row; a hit's switch toggles the feature in place.</li>
  *   <li>945 the sidebar shows no on/total counts (killer560, 2026-10-12: "HUD 7/12" becomes "HUD"): every row's drawn
@@ -341,11 +341,27 @@ final class MenuACases {
         String why = c.onClient(mc -> {
             try {
                 Screen s = open(mc);
-                key(s, InputConstants.KEY_K, 2 /* GLFW_MOD_CONTROL */);
+                // Ctrl F is the shortcut since mod menu-profiles-ctrlf (killer560, 2026-10-13); Ctrl K no longer is.
                 EditBox box = (EditBox) Mod.field(s, "searchField");
-                if (!box.isFocused()) {
-                    return "Ctrl K did not focus the search box";
+                key(s, InputConstants.KEY_K, 2 /* GLFW_MOD_CONTROL */);
+                if (box.isFocused()) {
+                    return "Ctrl K still focuses the search box";
                 }
+                key(s, InputConstants.KEY_F, 2 /* GLFW_MOD_CONTROL */);
+                if (!box.isFocused()) {
+                    return "Ctrl F did not focus the search box";
+                }
+                // a plain F typed in the focused box is a letter, not the shortcut
+                key(s, InputConstants.KEY_F, 0);
+                type(s, "f");
+                if (!"f".equals(box.getValue()) || !box.isFocused()) {
+                    return "typing f in the focused search box gave '" + box.getValue() + "' (focused " + box.isFocused() + ")";
+                }
+                key(s, InputConstants.KEY_BACKSPACE, 0);
+                if (!box.getValue().isEmpty()) {
+                    return "Backspace left '" + box.getValue() + "' in the search box";
+                }
+                c.note("Ctrl K: search not focused; Ctrl F: focused; a plain f typed into it as a letter");
                 type(s, "etable");
                 if (!"etable".equals(box.getValue())) {
                     return "typing reached the box as '" + box.getValue() + "'";
@@ -384,7 +400,7 @@ final class MenuACases {
                 advWas[0] = (Boolean) Mod.call(stats, "isMenuAdvancedOpen");
                 Mod.call(stats, "setEnabled", true);
                 Mod.call(stats, "setMenuAdvancedOpen", false);
-                key(s, InputConstants.KEY_K, 2);
+                key(s, InputConstants.KEY_F, 2);
                 type(s, "bar width");
                 Object hit = null;
                 for (Object r : results(s)) {
@@ -421,7 +437,7 @@ final class MenuACases {
                 c.note("'bar width': hit '" + label + "' opened Health and Mana Bars with the row in view at y " + row.getY());
 
                 // a hit's switch toggles the feature in place
-                key(s, InputConstants.KEY_K, 2);
+                key(s, InputConstants.KEY_F, 2);
                 type(s, "quiver display");
                 Object q = null;
                 for (Object r : results(s)) {
@@ -776,7 +792,7 @@ final class MenuACases {
             });
             taken.add(shot(c, s[0], variant + "-3-home", null));
 
-            // 4: Ctrl K search with "etable" typed
+            // 4: Ctrl F search with "etable" typed
             c.onClient(mc -> {
                 Mod.call(s[0], "selectCategory", "HUD");
                 Mod.call(s[0], "focusSearch");

@@ -230,7 +230,7 @@ final class TabSweep {
     // ---- 302 ------------------------------------------------------------------------------------------------
 
     /**
-     * Search (the Option A menu's Ctrl K search, mod menu-a): for every feature tab, typing its name lists that very tab
+     * Search (the Option A menu's Ctrl F search, mod menu-a): for every feature tab, typing its name lists that very tab
      * as a feature hit, and opening the hit opens its drawer. A query nothing matches lists nothing (the palette draws
      * its "No features or settings match" line). Every start of "etable" finds every feature "experiment" finds
      * (killer560 2026-10-12, {@code gui.SearchAliases}).
