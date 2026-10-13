@@ -76,6 +76,8 @@ import java.util.List;
  *                940-947 the Option A mod menu: screenshots, card switches flip the config, a card opens its drawer,
  *                favourites survive a restart, Ctrl F search, no sidebar counts, colour presets and Custom colours
  *                ({@link MenuACases})
+ *                955 every colour picker's Copy / Paste / hex box / Ctrl+C / Ctrl+V / Recent row, between two different
+ *                settings, proven on disk and after a restart ({@link ColourCopyCases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -86,7 +88,9 @@ import java.util.List;
 public class UiSuite implements FabricClientGameTest {
 
     static final String[] TITLE_CASES = {"340-ui-mainmenu", "330-ui-migrate", "310-ui-config-file-roundtrip",
-            "311-ui-config-setters", "320-ui-profiles", "380-ui-autoscale"};
+            "311-ui-config-setters", "320-ui-profiles", "380-ui-autoscale",
+            // title-262 (2026-10-13)
+            "341-ui-title-widgets"};
     static final String[] WORLD_CASES = {"301-ui-smoke-tabs", "302-ui-smoke-search", "303-ui-smoke-toggles",
             "304-ui-smoke-hud-editor", "305-ui-smoke-screens", "306-ui-smoke-commands", "350-ui-termism",
             "360-ui-visuals", "365-ui-overlay-draws", "307-ui-profit", "385-ui-interactive-map", "386-ui-sliders",
@@ -158,12 +162,21 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] MENU_A_CASES = {"940-ui-menu-a-shots", "941-ui-menu-a-cards", "942-ui-menu-a-drawer",
             "943-ui-menu-a-favourites", "944-ui-menu-a-search", "945-ui-menu-a-no-counts", "946-ui-menu-a-themes",
             "947-ui-menu-a-custom-colour"};
+    /** killer560's 2026-10-13 menu and settings list (mod doc-menu, {@link DocMenuCases}). Own block for merges. */
+    static final String[] DOC_MENU_CASES = {"980-ui-docmenu-home", "981-ui-docmenu-mod-hud", "982-ui-docmenu-auto-update",
+            "983-ui-docmenu-masters", "984-ui-docmenu-bold-name", "985-ui-docmenu-hud-scale-live",
+            "986-ui-docmenu-drawer-reopens", "987-ui-docmenu-cycle-halves", "988-ui-docmenu-calculator",
+            "989-ui-docmenu-saved-themes"};
     /** The Profiles page redesign (mod menu-profiles-ctrlf, {@link MenuProfilesCases}). Own block for merges. */
     static final String[] MENU_PROFILES_CASES = {"948-ui-menu-profiles-page"};
+    /** Profiles carry everything, across jars (mod profiles-all, {@link ProfileDataCases}). Own block for merges. */
+    static final String[] PROFILE_DATA_CASES = {"980-ui-profile-data-switch", "981-ui-profile-data-export",
+            "982-ui-profile-import-robust", "983-ui-profile-old-format", "984-ui-profile-xfer-export",
+            "985-ui-profile-xfer-import"};
     /** Screen sweep B: standalone screens in the menu theme + Screen Theme (mod sweep-b, {@link ScreenSweepBCases}).
      *  Own block for merges. */
-    static final String[] SWEEP_B_CASES = {"970-ui-sweepb-profit", "971-ui-sweepb-storage-search",
-            "972-ui-sweepb-run-log", "973-ui-sweepb-invsort", "974-ui-sweepb-custom-items", "975-ui-sweepb-screen-theme"};
+    static final String[] SWEEP_B_CASES = {"1020-ui-sweepb-profit", "1021-ui-sweepb-storage-search",
+            "1022-ui-sweepb-run-log", "1023-ui-sweepb-invsort", "1024-ui-sweepb-custom-items", "1025-ui-sweepb-screen-theme"};
     /** killer560's 2026-10-12 Edit HUD key / Croesus batch ({@link HudKey2Cases}). Own block for merges. */
     /** Container overlays in Edit HUD only within 10 s (mod hud-key-3, {@link HudKey2Cases#containerGrace}). Own block. */
     static final String[] HUD_KEY3_CASES = {"866-ui-container-overlay-grace"};
@@ -179,6 +192,17 @@ public class UiSuite implements FabricClientGameTest {
             "899-ui-bars-his-icons"};
     /** Inventory Theme: every item centred in its slot frame (mod inv-theme-fix, {@link InvThemeCenterCases}). Own block. */
     static final String[] INV_THEME_CENTRE_CASES = {"897-ui-inventory-theme-item-centred"};
+    /** The chroma waterfall (mod chroma-waterfall, {@link ChromaWaveCases}). Own block for merges. */
+    static final String[] CHROMA_WAVE_CASES = {"971-ui-chroma-enchant-waterfall", "972-ui-chroma-scoreboard-border",
+            "973-ui-chroma-crosshair"};
+    /** Item Protect's star on locked player heads (mod lockstar-heads, {@link LockStarHeadCases}). Own block. */
+    static final String[] LOCKSTAR_HEAD_CASES = {"961-ui-lockstar-heads"};
+    /** killer560's 2026-10-13 doc list, misc items ({@link DocMiscCases}). Own block for merges. */
+    static final String[] DOC_MISC_CASES = {"1311-ui-scoreboard-numbers", "1312-ui-inventory-slot-outlines",
+            "1313-ui-bars-default-thinner", "1314-ui-peek-chat", "1315-ui-loadouts-button"};
+    /** killer560's 2026-10-13 dungeon list (mod doc-dungeons, {@link DocDungeonsCases}). Own block. */
+    static final String[] DOC_DUNGEONS_CASES = {"981-ui-etherwarp-walk-in", "985-ui-leap-modes-targets",
+            "986-ui-croesus-key-settings", "987-ui-map-leap-names"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -249,6 +273,12 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : MENU_PROFILES_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : PROFILE_DATA_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            for (String n : DOC_MENU_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : SWEEP_B_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -258,20 +288,33 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : BAR_STYLE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : DOC_DUNGEONS_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : INV_THEME_CENTRE_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            for (String n : CHROMA_WAVE_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            for (String n : LOCKSTAR_HEAD_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            for (String n : DOC_MISC_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
-        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES) || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
+        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES)
+                || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
                 || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES)
                 || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES)
-                || any(AUTOKICK2_CASES)
-                || any(CYCLE_BACK_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES) || any(HUD_KEY3_CASES)
-                || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES)
-                || any(MENU_PROFILES_CASES)
+                || any(AUTOKICK2_CASES) || any(CYCLE_BACK_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES)
+                || any(HUD_KEY3_CASES) || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(CHROMA_WAVE_CASES)
+                || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
+                || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES)
                 || any(SWEEP_B_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
@@ -295,6 +338,8 @@ public class UiSuite implements FabricClientGameTest {
             UiCase.run(ctx, "311-ui-config-setters", ConfigSweep::setterLevel);
             UiCase.run(ctx, "320-ui-profiles", MiscCases::profiles);
             UiCase.run(ctx, "380-ui-autoscale", AutoScaleCases::autoScale);
+            // title-262 (2026-10-13): no stray widget on the themed title screen, none overlapping
+            UiCase.run(ctx, "341-ui-title-widgets", TitleWidgetCases::titleWidgets);
 
             if (anyWorld) {
                 long worldStart = System.nanoTime();
@@ -465,13 +510,40 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "947-ui-menu-a-custom-colour", MenuACases::customColour);
                     // ---- Profiles page (948) ----
                     UiCase.run(ctx, "948-ui-menu-profiles-page", MenuProfilesCases::page);
-                    // ---- screen sweep B (970-975) ----
-                    UiCase.run(ctx, "970-ui-sweepb-profit", ScreenSweepBCases::profit);
-                    UiCase.run(ctx, "971-ui-sweepb-storage-search", ScreenSweepBCases::storageSearch);
-                    UiCase.run(ctx, "972-ui-sweepb-run-log", ScreenSweepBCases::runLog);
-                    UiCase.run(ctx, "973-ui-sweepb-invsort", ScreenSweepBCases::invsort);
-                    UiCase.run(ctx, "974-ui-sweepb-custom-items", ScreenSweepBCases::customItems);
-                    UiCase.run(ctx, "975-ui-sweepb-screen-theme", ScreenSweepBCases::screenTheme);
+                    // ---- killer560's 2026-10-13 menu list (980-989) ----
+                    UiCase.run(ctx, "980-ui-docmenu-home", DocMenuCases::home);
+                    UiCase.run(ctx, "981-ui-docmenu-mod-hud", DocMenuCases::modHud);
+                    UiCase.run(ctx, "982-ui-docmenu-auto-update", DocMenuCases::autoUpdate);
+                    UiCase.run(ctx, "983-ui-docmenu-masters", c -> {
+                        // a testing jar walks its normal menu (every tab counted tested for the case)
+                        try (AutoCloseable all = MenuLayoutCases.allTested(c)) {
+                            DocMenuCases.masters(c);
+                        }
+                    });
+                    UiCase.run(ctx, "984-ui-docmenu-bold-name", DocMenuCases::boldName);
+                    UiCase.run(ctx, "985-ui-docmenu-hud-scale-live", DocMenuCases::hudScaleLive);
+                    UiCase.run(ctx, "986-ui-docmenu-drawer-reopens", DocMenuCases::drawerReopens);
+                    UiCase.run(ctx, "987-ui-docmenu-cycle-halves", DocMenuCases::cycleHalves);
+                    UiCase.run(ctx, "988-ui-docmenu-calculator", DocMenuCases::calculator);
+                    UiCase.run(ctx, "989-ui-docmenu-saved-themes", DocMenuCases::savedThemes);
+                    // ---- colour picker Copy / Paste / Recent (955) ----
+                    UiCase.run(ctx, "955-ui-colour-copy-paste", ColourCopyCases::copyPaste);
+                    // ---- Item Protect star on player heads (961) ----
+                    UiCase.run(ctx, "961-ui-lockstar-heads", LockStarHeadCases::heads);
+                    // ---- profiles carry everything, across jars (980-985) ----
+                    UiCase.run(ctx, "980-ui-profile-data-switch", ProfileDataCases::switchAB);
+                    UiCase.run(ctx, "981-ui-profile-data-export", ProfileDataCases::exportImport);
+                    UiCase.run(ctx, "982-ui-profile-import-robust", ProfileDataCases::importRobust);
+                    UiCase.run(ctx, "983-ui-profile-old-format", ProfileDataCases::oldFormat);
+                    UiCase.run(ctx, "984-ui-profile-xfer-export", ProfileDataCases::xferExport);
+                    UiCase.run(ctx, "985-ui-profile-xfer-import", ProfileDataCases::xferImport);
+                    // ---- screen sweep B (1020-1025) ----
+                    UiCase.run(ctx, "1020-ui-sweepb-profit", ScreenSweepBCases::profit);
+                    UiCase.run(ctx, "1021-ui-sweepb-storage-search", ScreenSweepBCases::storageSearch);
+                    UiCase.run(ctx, "1022-ui-sweepb-run-log", ScreenSweepBCases::runLog);
+                    UiCase.run(ctx, "1023-ui-sweepb-invsort", ScreenSweepBCases::invsort);
+                    UiCase.run(ctx, "1024-ui-sweepb-custom-items", ScreenSweepBCases::customItems);
+                    UiCase.run(ctx, "1025-ui-sweepb-screen-theme", ScreenSweepBCases::screenTheme);
                     // ---- Edit HUD key / Croesus (862-865) ----
                     UiCase.run(ctx, "862-ui-hud-key-typing", HudKey2Cases::typing);
                     UiCase.run(ctx, "863-ui-hud-key-over-container", HudKey2Cases::overContainer);
@@ -495,6 +567,21 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "899-ui-bars-his-icons", BarStyleCases::hisIcons);
                     // ---- Inventory Theme item centring (897) ----
                     UiCase.run(ctx, "897-ui-inventory-theme-item-centred", InvThemeCenterCases::centred);
+                    // ---- chroma waterfall (971-973) ----
+                    UiCase.run(ctx, "971-ui-chroma-enchant-waterfall", ChromaWaveCases::enchantTooltip);
+                    UiCase.run(ctx, "972-ui-chroma-scoreboard-border", ChromaWaveCases::scoreboardBorder);
+                    UiCase.run(ctx, "973-ui-chroma-crosshair", ChromaWaveCases::crosshair);
+                    // ---- killer560's 2026-10-13 doc list, misc (1311-1315) ----
+                    UiCase.run(ctx, "1311-ui-scoreboard-numbers", DocMiscCases::scoreboardNumbers);
+                    UiCase.run(ctx, "1312-ui-inventory-slot-outlines", DocMiscCases::slotOutlines);
+                    UiCase.run(ctx, "1313-ui-bars-default-thinner", DocMiscCases::barsThinner);
+                    UiCase.run(ctx, "1314-ui-peek-chat", DocMiscCases::peekChat);
+                    UiCase.run(ctx, "1315-ui-loadouts-button", DocMiscCases::loadoutsButton);
+                    // ---- doc-dungeons, killer560's 2026-10-13 list (981-989) ----
+                    UiCase.run(ctx, "981-ui-etherwarp-walk-in", DocDungeonsCases::etherwarpWalkIn);
+                    UiCase.run(ctx, "985-ui-leap-modes-targets", DocDungeonsCases::leapSettings);
+                    UiCase.run(ctx, "986-ui-croesus-key-settings", DocDungeonsCases::croesusKeys);
+                    UiCase.run(ctx, "987-ui-map-leap-names", DocDungeonsCases::mapLeapNames);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

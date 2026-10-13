@@ -26,12 +26,12 @@ import java.util.function.Function;
  * bright, Amber dark), so a screen still drawing its old fixed colours fails. Then its main actions are pressed with REAL
  * clicks at the controls' drawn centres under Light and proved by the screen's or config's state:
  * <ul>
- *   <li>970 /profit hub, Experimentation Table, Dungeon Profit: a card opens its tracker, Back returns, By Floor switches.</li>
- *   <li>971 Storage Search: a click on the search well focuses the (borderless) box, Inv toggles the config.</li>
- *   <li>972 Run Log: Kuudra switches the mode.</li>
- *   <li>973 Inventory Sorter layouts: click slot 9 then slot 10 swaps them in the grid.</li>
- *   <li>974 Custom Items: a click on a held item reaches the selection, Done closes.</li>
- *   <li>975 Screen Theme: the Storage Search tab's row cycles Theme Default -> Amber -> Dark -> Light (saved); with the
+ *   <li>1020 /profit hub, Experimentation Table, Dungeon Profit: a card opens its tracker, Back returns, By Floor switches.</li>
+ *   <li>1021 Storage Search: a click on the search well focuses the (borderless) box, Inv toggles the config.</li>
+ *   <li>1022 Run Log: Kuudra switches the mode.</li>
+ *   <li>1023 Inventory Sorter layouts: click slot 9 then slot 10 swaps them in the grid.</li>
+ *   <li>1024 Custom Items: a click on a held item reaches the selection, Done closes.</li>
+ *   <li>1025 Theme (sweep-a's ScreenThemes): the Storage Search tab's row cycles Theme Default -> Amber -> Dark -> Light (saved); with the
  *       menu on Amber the screen draws Light and the menu palette is still Amber; cycled on to Theme Default it follows
  *       the menu again. The Bazaar and AH also offer Inventory Theme, which draws them flat (bevel off).</li>
  * </ul>
@@ -203,7 +203,7 @@ final class ScreenSweepBCases {
         c.check(dist(got[0], got[1]) > 60, label + ": Amber and Light drew the same panel #" + Integer.toHexString(got[0]));
     }
 
-    // ---- 970 profit -------------------------------------------------------------------------------------------------
+    // ---- 1020 profit -------------------------------------------------------------------------------------------------
 
     static void profit(UiCase c) throws Exception {
         List<String> shots = new ArrayList<>();
@@ -240,7 +240,7 @@ final class ScreenSweepBCases {
         c.note("shots: " + shots);
     }
 
-    // ---- 971 storage search -----------------------------------------------------------------------------------------
+    // ---- 1021 storage search -----------------------------------------------------------------------------------------
 
     static void storageSearch(UiCase c) throws Exception {
         List<String> shots = new ArrayList<>();
@@ -281,7 +281,7 @@ final class ScreenSweepBCases {
         c.note("shots: " + shots);
     }
 
-    // ---- 972 run log --------------------------------------------------------------------------------------------------
+    // ---- 1022 run log --------------------------------------------------------------------------------------------------
 
     static void runLog(UiCase c) throws Exception {
         List<String> shots = new ArrayList<>();
@@ -300,7 +300,7 @@ final class ScreenSweepBCases {
         c.note("shots: " + shots);
     }
 
-    // ---- 973 inventory sorter -------------------------------------------------------------------------------------------
+    // ---- 1023 inventory sorter -------------------------------------------------------------------------------------------
 
     static void invsort(UiCase c) throws Exception {
         List<String> shots = new ArrayList<>();
@@ -337,7 +337,7 @@ final class ScreenSweepBCases {
         c.note("shots: " + shots);
     }
 
-    // ---- 974 custom items ---------------------------------------------------------------------------------------------
+    // ---- 1024 custom items ---------------------------------------------------------------------------------------------
 
     static void customItems(UiCase c) throws Exception {
         List<String> shots = new ArrayList<>();
@@ -376,7 +376,7 @@ final class ScreenSweepBCases {
         c.note("shots: " + shots);
     }
 
-    // ---- 975 screen theme ---------------------------------------------------------------------------------------------
+    // ---- 1025 screen theme ---------------------------------------------------------------------------------------------
 
     private static AbstractWidget themeRow(UiCase c) {
         return c.onClient(mc -> {
@@ -386,7 +386,7 @@ final class ScreenSweepBCases {
                 List<AbstractWidget> ws = (List<AbstractWidget>) Mod.call(tab, "buildWidgets", 0, 0, 300,
                         (Runnable) () -> { });
                 for (AbstractWidget w : ws) {
-                    if (ModScreenDriver.label(w).startsWith("Screen Theme")) {
+                    if (ModScreenDriver.label(w).startsWith("Theme:")) {
                         return w;
                     }
                 }
@@ -401,18 +401,18 @@ final class ScreenSweepBCases {
         List<String> shots = new ArrayList<>();
         Function<Screen, Screen> make = p -> construct("storagesearch.StorageSearchScreen",
                 new Class<?>[]{Screen.class, String.class}, p, "");
-        Object stc = Mod.cfg("gui.ScreenThemeConfig");
-        String oldChoice = (String) Mod.call(stc, "get", "storage_search");
-        Path file = (Path) Mod.staticCall("gui.ScreenThemeConfig", "path");
+        String st = "gui.ScreenThemes";
+        String oldChoice = (String) Mod.staticCall(st, "get", "storage_search");
+        Path file = (Path) Mod.staticCall(st, "path");
         try (AutoCloseable on = Mod.with("storagesearch.StorageSearchConfig", "Enabled", true)) {
             inShotWindow(c, () -> {
                 c.onClient(mc -> {
-                    Mod.call(stc, "set", "storage_search", "DEFAULT");
+                    Mod.staticCall(st, "set", "storage_search", "DEFAULT");
                     return null;
                 });
                 AbstractWidget row = themeRow(c);
-                c.check(row != null, "the Storage Search tab has no Screen Theme row");
-                c.check("Screen Theme: Theme Default".equals(ModScreenDriver.label(row)), "the row starts on '"
+                c.check(row != null, "the Storage Search tab has no Theme row");
+                c.check("Theme: Theme Default".equals(ModScreenDriver.label(row)), "the row starts on '"
                         + ModScreenDriver.label(row) + "', not Theme Default");
                 List<String> seen = new ArrayList<>();
                 for (int i = 0; i < 3; i++) {
@@ -423,7 +423,7 @@ final class ScreenSweepBCases {
                     seen.add(ModScreenDriver.label(row));
                 }
                 c.note("three left clicks on the row: " + seen);
-                c.check(seen.equals(List.of("Screen Theme: Amber", "Screen Theme: Dark", "Screen Theme: Light")),
+                c.check(seen.equals(List.of("Theme: Amber", "Theme: Dark", "Theme: Light")),
                         "the row cycled " + seen);
                 String saved = Files.exists(file) ? Files.readString(file).replaceAll("\\s+", "") : "";
                 c.check(saved.contains("\"storage_search\":\"LIGHT\""), "Light was not saved: " + saved);
@@ -455,7 +455,7 @@ final class ScreenSweepBCases {
                     });
                     back.add(ModScreenDriver.label(row));
                 }
-                c.check(back.get(2).equals("Screen Theme: Theme Default"), "three more clicks: " + back);
+                c.check(back.get(2).equals("Theme: Theme Default"), "three more clicks: " + back);
                 c.note("three more clicks: " + back);
                 Screen s2 = open(c, make, "StorageSearchScreen");
                 shotAndPanel(c, s2, "screen-theme-default-amber", "AMBER", shots);
@@ -463,21 +463,60 @@ final class ScreenSweepBCases {
                 Screen s3 = open(c, make, "StorageSearchScreen");
                 shotAndPanel(c, s3, "screen-theme-default-light", "LIGHT", shots);
 
-                // The Bazaar and AH keep their older look as a choice: Inventory Theme, drawn flat.
-                @SuppressWarnings("unchecked")
-                List<String> bz = (List<String>) Mod.staticCall("gui.ScreenThemeConfig", "choicesFor", "bazaar");
-                @SuppressWarnings("unchecked")
-                List<String> ss = (List<String>) Mod.staticCall("gui.ScreenThemeConfig", "choicesFor", "storage_search");
-                c.check(bz.contains("INVENTORY") && !ss.contains("INVENTORY"), "choices: bazaar " + bz + ", storage " + ss);
-                String oldBz = (String) Mod.call(stc, "get", "bazaar");
-                String oldAh = (String) Mod.call(stc, "get", "auction_house");
+                // The Bazaar and AH keep their older look as a choice: Inventory Theme, drawn flat. Their tab rows offer it
+                // after Custom (the row's seventh value).
+                List<String> bzSeen = new ArrayList<>();
+                String oldBz = (String) Mod.staticCall(st, "get", "bazaar");
+                String oldAh = (String) Mod.staticCall(st, "get", "auction_house");
+                Object auction = Mod.cfg("auction.AuctionConfig");
+                boolean bzWas = (Boolean) Mod.call(auction, "isBazaarEnabledRaw");
+                try {
+                    c.onClient(mc -> {
+                        Mod.call(auction, "setBazaarEnabled", true);
+                        return null;
+                    });
+                    AbstractWidget bzRow = c.onClient(mc -> {
+                        Mod.staticCall(st, "set", "bazaar", "DEFAULT");
+                        try {
+                            Object tab = Mod.cls("gui.tab.BazaarTab").getConstructor().newInstance();
+                            @SuppressWarnings("unchecked")
+                            List<AbstractWidget> ws = (List<AbstractWidget>) Mod.call(tab, "buildWidgets", 0, 0, 300,
+                                    (Runnable) () -> { });
+                            for (AbstractWidget w : ws) {
+                                if (ModScreenDriver.label(w).startsWith("Theme:")) {
+                                    return w;
+                                }
+                            }
+                            return null;
+                        } catch (ReflectiveOperationException e) {
+                            throw new AssertionError(e);
+                        }
+                    });
+                    c.check(bzRow != null, "the Bazaar tab has no Theme row");
+                    for (int i = 0; i < 6; i++) {
+                        c.onClient(mc -> {
+                            Mod.call(bzRow, "press");
+                            return null;
+                        });
+                        bzSeen.add(ModScreenDriver.label(bzRow));
+                    }
+                } finally {
+                    c.onClient(mc -> {
+                        Mod.call(auction, "setBazaarEnabled", bzWas);
+                        return null;
+                    });
+                }
+                c.note("the Bazaar tab's Theme row: " + bzSeen);
+                c.check(bzSeen.get(5).equals("Theme: Inventory"), "the Bazaar row's sixth click shows " + bzSeen.get(5));
                 try {
                     boolean[] bevel = c.onClient(mc -> {
                         boolean[] out = new boolean[4];
+                        Mod.staticCall(st, "set", "bazaar", "DEFAULT");
+                        Mod.staticCall(st, "set", "auction_house", "DEFAULT");
                         out[0] = (Boolean) Mod.call(Mod.staticCall("bazaar.BazaarTheme", "current"), "bevel");
                         out[1] = (Boolean) Mod.call(Mod.staticCall("auction.ah.AhTheme", "current"), "bevel");
-                        Mod.call(stc, "set", "bazaar", "INVENTORY");
-                        Mod.call(stc, "set", "auction_house", "INVENTORY");
+                        Mod.staticCall(st, "set", "bazaar", "INVENTORY");
+                        Mod.staticCall(st, "set", "auction_house", "INVENTORY");
                         out[2] = (Boolean) Mod.call(Mod.staticCall("bazaar.BazaarTheme", "current"), "bevel");
                         out[3] = (Boolean) Mod.call(Mod.staticCall("auction.ah.AhTheme", "current"), "bevel");
                         return out;
@@ -487,16 +526,16 @@ final class ScreenSweepBCases {
                     c.note("Bazaar/AH: Theme Default draws the menu's bevelled look, Inventory Theme the old flat one");
                 } finally {
                     c.onClient(mc -> {
-                        Mod.call(stc, "set", "bazaar", oldBz);
-                        Mod.call(stc, "set", "auction_house", oldAh);
+                        Mod.staticCall(st, "set", "bazaar", oldBz);
+                        Mod.staticCall(st, "set", "auction_house", oldAh);
                         return null;
                     });
                 }
             });
         } finally {
             c.onClient(mc -> {
-                Mod.call(stc, "set", "storage_search", oldChoice);
-                Mod.call(stc, "save");
+                Mod.staticCall(st, "set", "storage_search", oldChoice);
+                Mod.staticCall(st, "save");
                 return null;
             });
         }

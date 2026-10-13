@@ -326,6 +326,21 @@
       "key": "delete",
       "text": "Permanently deletes this saved profile. Asks for a second click.",
       "why": "menu-profiles-ctrlf (2026-10-13): Delete on a profile card asks for a second click (it turns into Confirm); this row only exists while a profile is saved, which the fixture never had"
+    },
+    {
+      "owner": "Mod & HUD",
+      "key": "check for updates",
+      "gone": "doc-menu 2026-10-13: killer560 removed Check for Updates, Join Discord, Edit HUD Positions and Edit Bars from Mod & HUD (they live in the header's round buttons and Home's quick buttons)"
+    },
+    {
+      "owner": "Mod & HUD",
+      "key": "join discord",
+      "gone": "doc-menu 2026-10-13: killer560 removed Check for Updates, Join Discord, Edit HUD Positions and Edit Bars from Mod & HUD (they live in the header's round buttons and Home's quick buttons)"
+    },
+    {
+      "owner": "Mod & HUD",
+      "key": "edit hud positions",
+      "gone": "doc-menu 2026-10-13: killer560 removed Check for Updates, Join Discord, Edit HUD Positions and Edit Bars from Mod & HUD (they live in the header's round buttons and Home's quick buttons)"
     }
   ]
 }

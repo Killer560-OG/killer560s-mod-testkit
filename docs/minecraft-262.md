@@ -36,3 +36,5 @@ colour-variant `Items.RED_...` constant or `EntityType.<CONSTANT>`: those are go
 `Minecraft.gui`, colours to `ColorCollection.pick(DyeColor)`, entity constants to `EntityTypes`), and
 `BlockPos.getCenter()` is gone too (use `Vec3.atCenterOf`). Before merging a branch, compile it with
 `-Pminecraft_version=26.2` as well, or new code quietly breaks the 26.2 build.
+- `GuiTextRenderState`'s `dropShadow` and `color` are public in 26.1.2 and private in 26.2: a scenario reading them
+  directly compiles on 26.1.2 and fails the 26.2 build (sweep-a's 950-957, 2026-10-13). Read them reflectively, as `TextRuns` does.

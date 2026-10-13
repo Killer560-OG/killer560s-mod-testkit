@@ -26,7 +26,7 @@ import java.util.List;
  *       switch flips the feature's CONFIG (Health and Mana Bars' Stat Bars, Quiver Display) and the category count by
  *       one, and a second click puts it back.</li>
  *   <li>942 a real click on a card body opens THAT feature's drawer with exactly the rows the tab builds; Escape closes the
- *       drawer, a second Escape the menu.</li>
+ *       menu and keeps the drawer (since mod doc-menu, 2026-10-13).</li>
  *   <li>943 the star on a card saves the feature in Favourites; after a restart (config re-read from disk, tab list and
  *       screen rebuilt) Favourites still lists it; unstarring removes it from the file.</li>
  *   <li>944 Ctrl F focuses the search (Ctrl K no longer does, and a plain f typed in it is a letter); typing "etable" lists the Experimentation Table features and a setting; Enter
@@ -238,17 +238,17 @@ final class MenuACases {
                     if (!new java.util.HashSet<>(shown).equals(new java.util.HashSet<>(built))) {
                         return id + ": the drawer shows " + shown + " but the tab builds " + built;
                     }
-                    key(s, InputConstants.KEY_ESCAPE, 0);
-                    if (Mod.call(s, "openFeature") != null || McCompat.screen(mc) != s) {
-                        return id + ": Escape did not close only the drawer (open " + Mod.call(s, "openFeature") + ", screen "
-                                + McCompat.screen(mc) + ")";
-                    }
+                    // Escape closes the menu with the drawer kept (mod doc-menu, killer560 2026-10-13: the menu reopens on
+                    // the same drawer); the drawer's X closes the drawer.
                     key(s, InputConstants.KEY_ESCAPE, 0);
                     if (McCompat.screen(mc) == s) {
-                        return id + ": a second Escape did not close the menu";
+                        return id + ": Escape with the drawer open did not close the menu";
+                    }
+                    if (Mod.call(s, "openFeature") != tab) {
+                        return id + ": closing the menu forgot the drawer (open " + Mod.call(s, "openFeature") + ")";
                     }
                     c.note(id + ": its card opened its drawer, " + shown.size()
-                            + " rows = the tab's own; Escape twice closed the drawer, then the menu");
+                            + " rows = the tab's own; Escape closed the menu and kept the drawer");
                     return null;
                 } catch (Exception e) {
                     return id + ": " + UiCase.describe(e);

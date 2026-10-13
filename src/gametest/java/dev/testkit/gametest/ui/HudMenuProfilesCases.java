@@ -442,10 +442,18 @@ final class HudMenuProfilesCases {
                 }
             }
 
-            // Home's Edit Bars.
+            // Home's Edit Bars: the quick button on Home (mod doc-menu, 2026-10-13: the Mod & HUD row is gone).
             ModScreenDriver home = homeTab(c);
-            boolean took = c.onClient(mc -> pressRow(home, "Edit Bars"));
-            c.check(took, "Home has no Edit Bars row");
+            boolean took = c.onClient(mc -> {
+                Mod.call(home.screen, "selectCategory", "Home");
+                int[] b = (int[]) Mod.call(home.screen, "homeButtonBounds", "Edit Bars");
+                if (b == null) {
+                    return false;
+                }
+                MenuACases.press(home.screen, b[0] + b[2] / 2.0, b[1] + b[3] / 2.0);
+                return true;
+            });
+            c.check(took, "Home has no Edit Bars quick button");
             c.ticks(3);
             checkBarsEditor(c, "Home > Edit Bars", enabledStats);
             Path shot = c.ctx().takeScreenshot(Report.fileName(c.name() + "-edit-bars"));
@@ -985,9 +993,11 @@ final class HudMenuProfilesCases {
                     + Files.isRegularFile(profilesDir.resolve(name + ".zip")));
             c.check(Files.isRegularFile(zip), "Export put no zip in the share folder " + share);
             c.check(!Files.isRegularFile(profilesDir.resolve(name + ".zip")), "Export still wrote into the profiles folder");
+            // Every FILE of the profile, recursively: since mod profiles-all a profile also holds profile.json and a
+            // data/ folder (GIFs, presets...), each of which is one zip entry.
             long files;
-            try (java.util.stream.Stream<Path> s = Files.list(profilesDir.resolve(name))) {
-                files = s.count();
+            try (java.util.stream.Stream<Path> s = Files.walk(profilesDir.resolve(name))) {
+                files = s.filter(Files::isRegularFile).count();
             }
             int entries;
             try (ZipFile z = new ZipFile(zip.toFile())) {
