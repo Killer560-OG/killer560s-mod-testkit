@@ -1,0 +1,15 @@
+{
+	"required": false,
+	"minVersion": "0.8",
+	"package": "dev.testkit.mixin.probe",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"ProbeNameAnimation",
+		"ProbeNameReplacer",
+		"ProbePlayerNameDisplay",
+		"ProbeSupportersTabText"
+	],
+	"injectors": {
+		"defaultRequire": 0
+	}
+}
