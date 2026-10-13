@@ -92,6 +92,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-870-jumpn",
             // ar-jump-key (2026-10-12)
             "96-ar-872-jumpkey",
+            // ar-jump-cooldown (2026-10-14)
+            "96-ar-1014-jumpcd",
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim", "96-ar-398-startawait",
             "96-ar-405-crypt-mapopen", "96-ar-405-startwarp", "96-ar-path", "96-ar-screen", "96-ar-rotate",
             // sim-world (2026-10-11)
@@ -263,6 +265,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-662-jump" -> ArNodesCases.jump(ctx);
                         case "96-ar-870-jumpn" -> ArNodesCases.jumpCount(ctx);
                         case "96-ar-872-jumpkey" -> ArNodesCases.jumpKey(ctx);
+                        case "96-ar-1014-jumpcd" -> ArJumpCooldownCases.jumpCooldown(ctx);
                         case "96-ar-dbedit" -> caseDbEdit(ctx);
                         case "96-ar-mapopen" -> caseMapOpen(ctx);
                         case "96-ar-mapopen-aim" -> caseMapOpenAim(ctx);
@@ -5590,6 +5593,168 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             check(rises == 1, rises + " jump input(s) went to the server, expected exactly 1");
             check(takeoffs == 1, "he left the ground " + takeoffs + " time(s), expected once");
             check(rose > 0.5, String.format(Locale.US, "he rose only %.2f", rose));
+        }
+    }
+
+    // ============================================================================================ ar-jump-cooldown (2026-10-14)
+
+    /**
+     * 96-ar-1014-jumpcd (killer560, 2026-10-14: "if i make a jump node with 1, then make it so it jumps once then times out
+     * for 3s before it will trigger that node again. Right now it stops jumping but then falls right back onto the node").
+     * The jump lifts him out of the 0.1-high ring, which clears the latch, so the landing armed the node again.
+     */
+    static final class ArJumpCooldownCases {
+        private ArJumpCooldownCases() {
+        }
+
+        /** Per client tick: real ms, server on-ground, client on-ground, relative tile x, z, jump presses so far. */
+        private static final List<double[]> CD_SAMPLES = new ArrayList<>();
+        private static volatile boolean cdSampling;
+        private static boolean cdHooked;
+
+        private static void startCd(ClientGameTestContext ctx) {
+            ctx.runOnClient(mc -> {
+                if (!cdHooked) {
+                    cdHooked = true;
+                    ClientTickEvents.END_CLIENT_TICK.register(c -> {
+                        if (!cdSampling || c.player == null || c.getSingleplayerServer() == null) {
+                            return;
+                        }
+                        var sp = c.getSingleplayerServer().getPlayerList().getPlayer(c.player.getUUID());
+                        Object frame = ModUnderTest.staticCall(FRAME, "current");
+                        Vec3 rel = frame == null ? c.player.position() : (Vec3) ModUnderTest.staticCall(COORDS,
+                                "toRelative", new Class<?>[]{frame.getClass(), Vec3.class},
+                                new Object[]{frame, c.player.position()});
+                        synchronized (CD_SAMPLES) {
+                            CD_SAMPLES.add(new double[]{System.currentTimeMillis(), sp != null && sp.onGround() ? 1 : 0,
+                                    c.player.onGround() ? 1 : 0, Math.floor(rel.x), Math.floor(rel.z),
+                                    ((Number) ModUnderTest.staticCall(EXECUTOR, "jumpPresses")).doubleValue()});
+                        }
+                    });
+                }
+                synchronized (CD_SAMPLES) {
+                    CD_SAMPLES.clear();
+                }
+                cdSampling = true;
+            });
+        }
+
+        /** Stops sampling; the real-ms times of every take-off (on ground -> off) in column {@code col} once the jump node
+         *  has pressed (the teleport onto the node can drop the ground flag on its own: jump 3's first run counted one). */
+        private static List<Long> stopCd(ClientGameTestContext ctx, int col, int[] offTile, int tileX, int tileZ) {
+            ctx.runOnClient(mc -> cdSampling = false);
+            List<Long> out = new ArrayList<>();
+            synchronized (CD_SAMPLES) {
+                for (int i = 1; i < CD_SAMPLES.size(); i++) {
+                    double[] p = CD_SAMPLES.get(i - 1);
+                    double[] c = CD_SAMPLES.get(i);
+                    if (p[col] == 1 && c[col] == 0 && c[5] > CD_SAMPLES.get(0)[5]) {
+                        out.add((long) c[0]);
+                    }
+                    if (offTile != null && (c[3] != tileX || c[4] != tileZ)) {
+                        offTile[0]++;
+                    }
+                }
+            }
+            return out;
+        }
+
+        static void jumpCooldown(ClientGameTestContext ctx) {
+            if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+                // A legit jar registers Auto Routes but never fires a node (first legit run: 0 presses, 0 take-offs).
+                caseSkip = "Auto Routes fires nodes only in a cheat build";
+                return;
+            }
+            long cd = ctx.computeOnClient(mc -> ((Number) ModUnderTest.staticCall(EXECUTOR, "jumpCooldownMs")).longValue());
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            // A count-1 and a count-3 node, each standing still on it the whole time: its jumps, then no take-off for the
+            // cooldown, then (the jump took him out of the ring, which the latch rules count as stepping off) it fires
+            // again - the control that the cooldown, not a latch, held it.
+            for (int count : new int[]{1, 3}) {
+                resetRoutes(ctx);
+                tpRel(ctx, 10.5, 16.5, 0f, 0f); // off the tile first: a route written under his feet arms at once
+                ctx.waitTicks(10);
+                JsonObject j = node("JUMP", 10, 20, 0f, 0f);
+                j.addProperty("jumps", count);
+                j.addProperty("start", true);
+                writeRoute(ctx, List.of(j));
+                ctx.waitTicks(5);
+                int pressesBefore = ArNodesCases.executorInt(ctx, "jumpPresses");
+                long m = LogTap.mark();
+                startCd(ctx);
+                tpRel(ctx, 10.5, 20.5, 0f, 0f);
+                long t0 = System.currentTimeMillis();
+                // Long enough for the jumps, the cooldown and the re-fire's first take-off.
+                for (int t = 0; t < 600 && System.currentTimeMillis() - t0 < count * 1000L + cd + 2500; t++) {
+                    ctx.waitTicks(1);
+                }
+                int[] off = {0};
+                // Judged on the CLIENT's take-offs: the server's on-ground flag also drops once for the teleport onto
+                // the node (first run: 4 server take-offs for 3 presses, the first 545 ms before the second).
+                List<Long> client = stopCd(ctx, 2, off, 10, 20);
+                List<Long> server = stopCd(ctx, 1, null, 0, 0);
+                int presses = ArNodesCases.executorInt(ctx, "jumpPresses") - pressesBefore;
+                stopRoute(ctx);
+                boolean cdLine = logHas(m, "jump cooldown");
+                StringBuilder gaps = new StringBuilder();
+                for (int i = 1; i < client.size(); i++) {
+                    gaps.append(i > 1 ? ", " : "").append(client.get(i) - client.get(i - 1));
+                }
+                println(String.format(Locale.US, "1014 jump %d: client take-offs %d (gaps ms %s), server take-offs %d, "
+                        + "presses %d, ticks off the tile %d, cooldown line %s", count, client.size(), gaps,
+                        server.size(), presses, off[0], cdLine));
+                check(off[0] == 0, "jump " + count + ": he left the tile horizontally for " + off[0] + " tick(s)");
+                check(client.size() >= count + 1, "jump " + count + ": " + client.size() + " take-off(s), expected "
+                        + count + " then one more after the cooldown");
+                check(server.size() >= client.size(), "jump " + count + ": the server saw " + server.size()
+                        + " take-off(s) for the client's " + client.size());
+                check(presses - client.size() >= 0 && presses - client.size() <= 1, "jump " + count + ": " + presses + " press(es) for " + client.size()
+                        + " take-off(s)");
+                for (int i = 1; i < count; i++) {
+                    check(client.get(i) - client.get(i - 1) < 1500, "jump " + count + ": jump " + (i + 1) + " came "
+                            + (client.get(i) - client.get(i - 1)) + " ms after the one before (not in a row)");
+                }
+                long gap = client.get(count) - client.get(count - 1);
+                // The cooldown starts the tick after the last press (that jump's take-off), so the next take-off is at
+                // least the cooldown later, and soon after it ends.
+                check(gap >= cd - 50, "jump " + count + ": the node jumped again " + gap + " ms after its last jump, inside "
+                        + "the " + cd + " ms cooldown");
+                check(gap <= cd + 1500, "jump " + count + ": nothing fired for " + gap + " ms after the cooldown");
+                check(cdLine, "jump " + count + ": no 'jump cooldown' arming line in the log");
+            }
+
+            // A route that carries on after the jump goes at once: jump 1 (start) at (10,20), an etherwarp at (10,21) to
+            // (10,25). Rings 1.0 wide, and he stands at z 20.95, in both.
+            resetRoutes(ctx);
+            tpRel(ctx, 10.5, 16.5, 0f, 0f);
+            ctx.waitTicks(10);
+            JsonObject j = node("JUMP", 10, 20, 0f, 0f);
+            j.addProperty("jumps", 1);
+            j.addProperty("start", true);
+            j.addProperty("radius", 1.0);
+            JsonObject e = ew(10, 21, 10, 25, false);
+            e.addProperty("radius", 1.0);
+            writeRoute(ctx, List.of(j, e));
+            ctx.waitTicks(5);
+            long m = LogTap.mark();
+            startCd(ctx);
+            tpRel(ctx, 10.5, 20.95, 0f, 0f);
+            Vec3 landed = waitLanded(ctx, 10, 25, 100);
+            long landedAt = System.currentTimeMillis();
+            List<Long> offs = stopCd(ctx, 2, null, 0, 0);
+            stopRoute(ctx);
+            int iJump = logIndex(m, "JUMP acted");
+            int iWarp = logIndex(m, "ETHERWARP acted");
+            long takeoffToLanding = offs.isEmpty() ? -1 : landedAt - offs.get(0);
+            println("1014 jump -> etherwarp: landed " + landed + ", take-offs " + offs.size() + ", take-off to landing "
+                    + takeoffToLanding + " ms, jump at " + iJump + ", warp at " + iWarp);
+            check(iJump >= 0 && iWarp > iJump, "the etherwarp did not act after the jump");
+            check(landed != null, "the route did not carry on to the etherwarp's landing at (10,25); he is at " + relPos(ctx));
+            check(!offs.isEmpty() && takeoffToLanding < cd - 500, "the etherwarp waited " + takeoffToLanding
+                    + " ms after the jump (held by the cooldown?)");
+            resetRoutes(ctx);
         }
     }
 
