@@ -19,14 +19,14 @@ import java.util.List;
 /**
  * Loadout Keybinds' per-key mode (killer560, 2026-10-13: "for loadouts make a toggle per keybind to have that keybind open
  * the menu and swap then close it or just only swap if you are in the menu"; mod branch loadout-modes). The key is slot
- * 5's (menu slot 24) set to keypad 7, which nothing else binds, held for 3 ticks like a real press. The loadout menu is
+ * 5's (menu slot 24) set to the 5 key, vanilla's hotbar slot 5 key, held for 3 ticks like a real press. The loadout menu is
  * the Hx fake {@code menus.loadout}; {@code menu.onCommand} makes /loadouts open it, as Hypixel does. Every case runs on
  * the session's GrimAC server and fails on any flag.
  * <ul>
  *   <li>1361: Only In Menu (the default): the key outside the menu sends nothing; inside it, one PICKUP on slot 24 and
- *       the menu stays open.</li>
+ *       the menu stays open. Control: vanilla still gets that key outside the menu (hotbar slot 5 selected).</li>
  *   <li>1362: Open, Swap, Close: exactly one /loadouts, one PICKUP on slot 24 in the menu it opened, then that menu
- *       closed on a later tick than the click; no screen left.</li>
+ *       closed on a later tick than the click; no screen left; the hotbar did NOT switch (the key is consumed).</li>
  *   <li>1363: Open, Swap, Close with no menu answering /loadouts: no click, no close, and the timeout line in chat.</li>
  *   <li>1364: Open, Swap, Close when /loadouts opens a DIFFERENT menu: never clicked or closed, timeout line; and the key
  *       pressed while typing in chat sends nothing.</li>
@@ -40,7 +40,8 @@ final class LoadoutModeCases {
     private static final String MODE = CFG + "$Mode";
     private static final int INDEX = 4;          // slot 5 of the twelve
     private static final int MENU_SLOT = 24;     // LoadoutKeybindsFeature.LOADOUT_SLOTS[4]
-    private static final int KP_7 = 327;         // GLFW_KEY_KP_7
+    /** GLFW_KEY_5: vanilla's hotbar slot 5 key, so the cases also see whether vanilla got the press. */
+    private static final int KEY_5 = 53;
 
     private LoadoutModeCases() {
     }
@@ -53,18 +54,20 @@ final class LoadoutModeCases {
         MenuSuite.test(s, "1365-menu-loadout-mode-setting", LoadoutModeCases::modeSetting);
     }
 
-    /** Runs {@code body} with the switch on and slot 5 on KP_7 in {@code mode}; puts everything back after. */
+    /** Runs {@code body} with the switch on and slot 5 on the 5 key in {@code mode}, holding hotbar slot 1; puts everything back after. */
     private static void withBind(Session c, String mode, Session.Case body) throws Exception {
         MenuKit.reset(c);
         Object[] was = c.onClient(mc -> {
             Object cfg = Mod.cfg(CFG);
-            return new Object[]{Mod.call(cfg, "getSlotKey", INDEX), Mod.call(cfg, "getSlotMode", INDEX)};
+            return new Object[]{Mod.call(cfg, "getSlotKey", INDEX), Mod.call(cfg, "getSlotMode", INDEX),
+                    mc.player.getInventory().getSelectedSlot()};
         });
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set(CFG, "Enabled", true);
             c.ctx().runOnClient(mc -> {
                 Object o = Mod.cfg(CFG);
-                Mod.call(o, "setSlotKey", INDEX, KP_7);
+                Mod.call(o, "setSlotKey", INDEX, KEY_5);
+                mc.player.getInventory().setSelectedSlot(0);
                 Mod.call(o, "setSlotMode", INDEX, Mod.enumValue(MODE, mode));
             });
             boolean on = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(CFG), "isEnabled"));
@@ -76,6 +79,7 @@ final class LoadoutModeCases {
                 Object o = Mod.cfg(CFG);
                 Mod.call(o, "setSlotKey", INDEX, was[0]);
                 Mod.call(o, "setSlotMode", INDEX, was[1]);
+                mc.player.getInventory().setSelectedSlot((Integer) was[2]);
             });
             MenuKit.reset(c);
         }
@@ -86,7 +90,11 @@ final class LoadoutModeCases {
     }
 
     private static void press(Session c) {
-        c.ctx().getInput().holdKeyFor(KP_7, 3);
+        c.ctx().getInput().holdKeyFor(KEY_5, 3);
+    }
+
+    private static int heldSlot(Session c) {
+        return c.onClient(mc -> mc.player.getInventory().getSelectedSlot());
     }
 
     static void onlyInMenu(Session c) throws Exception {
@@ -96,6 +104,9 @@ final class LoadoutModeCases {
             c.ctx().waitTicks(20);
             c.check(loadoutsSent(c) == 0, "Only In Menu sent /loadouts outside the menu: " + c.commands());
             c.check(c.events("container.click").isEmpty(), "Only In Menu clicked outside the menu: " + c.events("container.click"));
+            int vanilla = heldSlot(c);
+            c.check(vanilla == 4, "control: an Only In Menu 5 key outside the menu should still select hotbar slot 5"
+                    + " (index 4), held index is " + vanilla);
             MenuKit.show(c, MenuKit.menu("menus.loadout"));
             int id = MenuKit.awaitScreen(c, "(1/2) Loadout", 100);
             c.ctx().waitTicks(5);
@@ -110,7 +121,7 @@ final class LoadoutModeCases {
             c.check(c.events("container.close").isEmpty(), "Only In Menu closed the menu: " + c.events("container.close"));
             c.check("(1/2) Loadout".equals(c.onClient(MenuKit::screenTitle)), "the loadout menu is no longer open");
             c.check(loadoutsSent(c) == 0, "Only In Menu sent /loadouts: " + c.commands());
-            c.note("Only In Menu: outside -> nothing sent; in menu (container " + id + ") -> PICKUP slot " + MENU_SLOT
+            c.note("Only In Menu: outside -> nothing sent, hotbar went to slot 5 (vanilla untouched); in menu (container " + id + ") -> PICKUP slot " + MENU_SLOT
                     + ", menu left open");
         });
     }
@@ -139,8 +150,11 @@ final class LoadoutModeCases {
             c.check(closeTick > clickTick, "click (tick " + clickTick + ") and close (tick " + closeTick
                     + ") reached the server on the same tick");
             c.check(c.onClient(mc -> McCompat.screen(mc) == null), "a screen is still open after the swap");
+            int held = heldSlot(c);
+            c.check(held == 0, "the Open, Swap, Close 5 key also switched the hotbar: held index " + held + ", want 0");
             c.note("Open, Swap, Close: /loadouts x1, PICKUP slot " + MENU_SLOT + " in container "
-                    + click.get("containerId") + " at server tick " + clickTick + ", closed at " + closeTick);
+                    + click.get("containerId") + " at server tick " + clickTick + ", closed at " + closeTick
+                    + "; hotbar stayed on slot 1");
         });
     }
 
