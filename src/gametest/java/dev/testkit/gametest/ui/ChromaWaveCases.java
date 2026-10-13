@@ -239,6 +239,222 @@ final class ChromaWaveCases {
         return stack;
     }
 
+    // ------------------------------------------------------------------ 974
+
+    /**
+     * Every Turbo-Crop VII is Perfect chroma (mod turbo-chroma, killer560 2026-10-13: "all turbo crop 7's are not chroma'd
+     * either like they should be"). Only turbo_cactus / turbo_coco had an id-to-lore alias, so "turbo_wheat" was looked
+     * up as "turbo wheat" while the lore prints "Turbo-Wheat" and the enchant was never tiered. A hoe with real NBT
+     * enchantments turbo_wheat 7, turbo_carrot 7 and turbo_cactus 7 (the aliased control), one lore line each: all three
+     * lines must draw chroma - hue rising along the line and falling over 250 ms, like 971. A second hoe with turbo_wheat
+     * 5 must draw Turbo-Wheat V in the static Great colour: same hue along the line and over time.
+     */
+    static void turboCrops(UiCase c) throws Exception {
+        Object cfg = Mod.cfg(ENCHANT_CFG);
+        boolean wasEnabled = (Boolean) Mod.call(cfg, "isEnabledRaw");
+        boolean wasChroma = (Boolean) Mod.call(cfg, "isPerfectChroma");
+        boolean wasTrueMax = (Boolean) Mod.call(cfg, "isTrueMaxDetection");
+        float wasSpeed = (Float) Mod.call(cfg, "getChromaSpeed");
+        float wasSize = (Float) Mod.call(cfg, "getChromaSize");
+        int wasGreat = (Integer) Mod.call(cfg, "getGreatColor");
+        int great = 0xFFFFAA00;
+        try {
+            String[] sevenNames = {"Turbo-Wheat VII", "Turbo-Carrot VII", "Turbo-Cacti VII"};
+            ItemStack seven = c.onClient(mc -> turboHoe(new String[]{"turbo_wheat", "turbo_carrot", "turbo_cactus"},
+                    new int[]{7, 7, 7}, sevenNames));
+            ItemStack five = c.onClient(mc -> turboHoe(new String[]{"turbo_wheat"}, new int[]{5},
+                    new String[]{"Turbo-Wheat V"}));
+            java.util.concurrent.atomic.AtomicReference<ItemStack> shown = new java.util.concurrent.atomic.AtomicReference<>(seven);
+            int[] at = {30, 40};
+            Canvas canvas = c.onClient(mc -> {
+                Mod.call(cfg, "setEnabled", true);
+                Mod.call(cfg, "setPerfectChroma", true);
+                Mod.call(cfg, "setTrueMaxDetection", true);
+                Mod.call(cfg, "setChromaSpeed", 1f);
+                Mod.call(cfg, "setChromaSize", 1f);
+                Mod.call(cfg, "setGreatColor", great);
+                Mod.staticCall("enchantcolors.EnchantColorsFeature", "clearCache");
+                Mod.staticCall(WAVE, "setClockOverride", T0);
+                Canvas s = new Canvas((g, scr) -> g.setTooltipForNextFrame(scr.font(),
+                        Screen.getTooltipFromItem(Minecraft.getInstance(), shown.get()), Optional.empty(), at[0], at[1]));
+                McCompat.setScreen(mc, s);
+                return s;
+            });
+            c.ticks(6);
+
+            // The styles the tooltip really carries, per enchant segment.
+            String[] allNames = {"Turbo-Wheat VII", "Turbo-Carrot VII", "Turbo-Cacti VII", "Turbo-Wheat V"};
+            String[] styleOf = c.onClient(mc -> {
+                Object spec = Mod.staticCall("enchantcolors.EnchantColorsFeature", "perfectChroma");
+                TextColor tc = (TextColor) Mod.call(spec, "textColor");
+                String[] out = new String[allNames.length];
+                for (int i = 0; i < allNames.length; i++) {
+                    ItemStack st = i < 3 ? seven : five;
+                    String want = allNames[i];
+                    for (Component line : Screen.getTooltipFromItem(mc, st)) {
+                        int k = i;
+                        line.visit((Style sty, String s) -> {
+                            if (s.trim().equals(want) && out[k] == null) {
+                                TextColor col = sty.getColor();
+                                out[k] = col == tc ? "chroma" : col == null ? "none" : String.format("#%06X", col.getValue());
+                            }
+                            return Optional.empty();
+                        }, Style.EMPTY);
+                    }
+                    if (out[i] == null) {
+                        out[i] = "not one segment";
+                    }
+                }
+                return out;
+            });
+            String greatHex = String.format("#%06X", great & 0xFFFFFF);
+            for (int i = 0; i < allNames.length; i++) {
+                c.note("style of " + allNames[i] + ": " + styleOf[i]);
+            }
+            for (int i = 0; i < 3; i++) {
+                c.check("chroma".equals(styleOf[i]), allNames[i] + " is not styled Perfect chroma: " + styleOf[i]);
+            }
+            c.check(greatHex.equals(styleOf[3]), "Turbo-Wheat V is not the static Great colour " + greatHex + ": " + styleOf[3]);
+
+            // ---- the three VII lines, from pixels
+            Frame f0 = shot(c, canvas, "vii-t0");
+            setClock(c, T0 + 250);
+            Frame f1 = shot(c, canvas, "vii-t250");
+            boolean[][] mask = offMask(c, cfg, canvas, "vii-off");
+            List<int[]> p0 = chromaPixels(f0.img, mask);
+            List<int[]> p1 = chromaPixels(f1.img, mask);
+            List<int[]> bands = bands(p0);
+            c.note("VII hoe: " + p0.size() + " saturated px, line bands " + bands.stream().map(Arrays::toString).toList());
+            c.check(bands.size() == 3, "want 3 coloured enchant lines on the VII hoe, found " + bands.size());
+            float[][] hue0 = hueMap(f0.img, p0);
+            float[][] hue1 = hueMap(f1.img, p1);
+            int dx = (int) Math.round(10 * f0.scale);
+            for (int b = 0; b < Math.min(3, bands.size()); b++) {
+                int[] band = bands.get(b);
+                List<Float> along = new ArrayList<>();
+                List<Float> moved = new ArrayList<>();
+                for (int[] p : p0) {
+                    if (p[1] < band[0] || p[1] > band[1]) {
+                        continue;
+                    }
+                    float h2 = at(hue0, p[0] + dx, p[1]);
+                    if (h2 >= 0) {
+                        along.add(circ(h2 - hue0[p[0]][p[1]]));
+                    }
+                    float h1 = at(hue1, p[0], p[1]);
+                    if (h1 >= 0) {
+                        moved.add(circ(h1 - hue0[p[0]][p[1]]));
+                    }
+                }
+                float a = median(along);
+                float m = median(moved);
+                c.note(String.format("%s: %d pairs 10 GUI apart, median hue step %+.1f deg (formula %+.1f); %d px 250 ms"
+                        + " later, median change %+.1f deg (formula -30)", sevenNames[b], along.size(), a, 10f / 160f * 360f,
+                        moved.size(), m));
+                c.check(along.size() > 30 && a > 8 && a < 45,
+                        sevenNames[b] + " is not chroma along the line: median step " + a + " over " + along.size());
+                c.check(moved.size() > 30 && m < -15 && m > -45,
+                        sevenNames[b] + " does not move over time: median change " + m + " over " + moved.size());
+            }
+
+            // ---- Turbo-Wheat V: a static tier colour
+            c.onClient(mc -> {
+                Mod.call(cfg, "setEnabled", true);
+                Mod.staticCall("enchantcolors.EnchantColorsFeature", "clearCache");
+                shown.set(five);
+                return null;
+            });
+            setClock(c, T0);
+            Frame g0 = shot(c, canvas, "v-t0");
+            setClock(c, T0 + 250);
+            Frame g1 = shot(c, canvas, "v-t250");
+            boolean[][] mask5 = offMask(c, cfg, canvas, "v-off");
+            List<int[]> q0 = chromaPixels(g0.img, mask5);
+            List<int[]> q1 = chromaPixels(g1.img, mask5);
+            float[][] hq0 = hueMap(g0.img, q0);
+            float[][] hq1 = hueMap(g1.img, q1);
+            float greatHue = hue(great);
+            List<Float> off = new ArrayList<>();
+            float worst = 0;
+            for (int[] p : q0) {
+                float d = Math.abs(circ(hq0[p[0]][p[1]] - greatHue));
+                off.add(d);
+                worst = Math.max(worst, d);
+            }
+            List<Float> movedV = new ArrayList<>();
+            for (int[] p : q0) {
+                float h1 = at(hq1, p[0], p[1]);
+                if (h1 >= 0) {
+                    movedV.add(Math.abs(circ(h1 - hq0[p[0]][p[1]])));
+                }
+            }
+            float medOff = median(off);
+            float medMoved = median(movedV);
+            c.note(String.format("Turbo-Wheat V: %d saturated px in %d band(s); median %.1f deg from Great's hue %.0f (worst"
+                            + " %.1f); %d px 250 ms later, median |change| %.1f deg", q0.size(), bands(q0).size(), medOff,
+                    greatHue, worst, movedV.size(), medMoved));
+            c.check(q0.size() > 30 && bands(q0).size() == 1, "Turbo-Wheat V drew " + q0.size() + " coloured px in "
+                    + bands(q0).size() + " band(s), want one line in the Great colour");
+            c.check(medOff < 6 && worst < 20, "Turbo-Wheat V is not the Great colour: median " + medOff + " deg off");
+            c.check(movedV.size() > 30 && medMoved < 3, "Turbo-Wheat V changes colour over time: median " + medMoved);
+        } finally {
+            try {
+                c.onClient(mc -> {
+                    Mod.staticCall(WAVE, "setClockOverride", -1L);
+                    Mod.call(cfg, "setEnabled", wasEnabled);
+                    Mod.call(cfg, "setPerfectChroma", wasChroma);
+                    Mod.call(cfg, "setTrueMaxDetection", wasTrueMax);
+                    Mod.call(cfg, "setChromaSpeed", wasSpeed);
+                    Mod.call(cfg, "setChromaSize", wasSize);
+                    Mod.call(cfg, "setGreatColor", wasGreat);
+                    Mod.call(cfg, "save");
+                    Mod.staticCall("enchantcolors.EnchantColorsFeature", "clearCache");
+                    McCompat.setScreen(mc, null);
+                    return null;
+                });
+            } catch (Throwable t) {
+                c.note("cleanup: " + UiCase.describe(t));
+            }
+        }
+    }
+
+    /** The same tooltip with Enchant Colours off: whatever is saturated then (the tooltip frame) is not enchant colour. */
+    private static boolean[][] offMask(UiCase c, Object cfg, Canvas canvas, String label) throws Exception {
+        c.onClient(mc -> {
+            Mod.call(cfg, "setEnabled", false);
+            Mod.staticCall("enchantcolors.EnchantColorsFeature", "clearCache");
+            return null;
+        });
+        setClock(c, T0);
+        Frame off = shot(c, canvas, label);
+        boolean[][] mask = new boolean[off.img.getWidth()][off.img.getHeight()];
+        for (int[] p : chromaPixels(off.img, null)) {
+            mask[p[0]][p[1]] = true;
+        }
+        return mask;
+    }
+
+    /** A Hypixel-style hoe: NBT {@code enchantments} ids/levels and one grey lore line per enchant, as the game prints it. */
+    private static ItemStack turboHoe(String[] ids, int[] levels, String[] loreLines) {
+        CompoundTag ench = new CompoundTag();
+        for (int i = 0; i < ids.length; i++) {
+            ench.putInt(ids[i], levels[i]);
+        }
+        CompoundTag tag = new CompoundTag();
+        tag.putString("id", "THEORETICAL_HOE_WHEAT_3");
+        tag.put("enchantments", ench);
+        ItemStack stack = new ItemStack(Items.DIAMOND_HOE);
+        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+        stack.set(DataComponents.CUSTOM_NAME, Component.literal("Turbo Test Hoe").withStyle(st -> st.withColor(TextColor.fromRgb(0xFFFFFF))
+                .withItalic(false)));
+        List<Component> lore = new ArrayList<>();
+        for (String l : loreLines) {
+            lore.add(Component.literal(l).withStyle(st -> st.withColor(TextColor.fromRgb(0xAAAAAA)).withItalic(false)));
+        }
+        stack.set(DataComponents.LORE, new ItemLore(lore));
+        return stack;
+    }
+
     // ------------------------------------------------------------------ 972
 
     static void scoreboardBorder(UiCase c) throws Exception {

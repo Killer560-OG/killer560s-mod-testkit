@@ -191,6 +191,8 @@ public class UiSuite implements FabricClientGameTest {
     /** The chroma waterfall (mod chroma-waterfall, {@link ChromaWaveCases}). Own block for merges. */
     static final String[] CHROMA_WAVE_CASES = {"971-ui-chroma-enchant-waterfall", "972-ui-chroma-scoreboard-border",
             "973-ui-chroma-crosshair"};
+    /** Every Turbo-Crop VII tiers as Perfect chroma (mod turbo-chroma, {@link ChromaWaveCases#turboCrops}). Own block. */
+    static final String[] TURBO_CHROMA_CASES = {"974-ui-chroma-turbo-crops"};
     /** Item Protect's star on locked player heads (mod lockstar-heads, {@link LockStarHeadCases}). Own block. */
     static final String[] LOCKSTAR_HEAD_CASES = {"961-ui-lockstar-heads"};
     /** killer560's 2026-10-13 doc list, misc items ({@link DocMiscCases}). Own block for merges. */
@@ -296,6 +298,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : DOC_MISC_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : TURBO_CHROMA_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -307,7 +312,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(AUTOKICK2_CASES) || any(CYCLE_BACK_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES)
                 || any(HUD_KEY3_CASES) || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(CHROMA_WAVE_CASES)
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
-                || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES);
+                || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -567,6 +572,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "985-ui-leap-modes-targets", DocDungeonsCases::leapSettings);
                     UiCase.run(ctx, "986-ui-croesus-key-settings", DocDungeonsCases::croesusKeys);
                     UiCase.run(ctx, "987-ui-map-leap-names", DocDungeonsCases::mapLeapNames);
+                    // ---- every Turbo-Crop VII is Perfect chroma (974) ----
+                    UiCase.run(ctx, "974-ui-chroma-turbo-crops", ChromaWaveCases::turboCrops);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
