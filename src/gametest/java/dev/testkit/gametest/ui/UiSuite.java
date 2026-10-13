@@ -208,6 +208,9 @@ public class UiSuite implements FabricClientGameTest {
     /** The screen sweep, part C (mod sweep-c, {@link ScreenThemeCases}): every sweep-c screen in Amber and Light, and a
      *  screen's own Theme setting. Own block for merges. */
     static final String[] SCREEN_SWEEP_C_CASES = {"975-ui-screen-sweep-c-themes", "976-ui-screen-own-theme"};
+    /** The Ribbon trail style (mod trail-ribbon, {@link TrailRibbonCases}). Own block for merges. */
+    static final String[] TRAIL_RIBBON_CASES = {"1031-ui-trail-ribbon-line", "1032-ui-trail-ribbon-curve",
+            "1033-ui-trail-ribbon-still", "1034-ui-trail-ribbon-settings", "1035-ui-trail-ribbon-gallery"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -302,6 +305,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : CHROMA_WAVE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : TRAIL_RIBBON_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : LOCKSTAR_HEAD_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -326,7 +332,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(HUD_KEY3_CASES) || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(CHROMA_WAVE_CASES)
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
                 || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
-                || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES);
+                || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -598,6 +604,12 @@ public class UiSuite implements FabricClientGameTest {
                     // ---- screen sweep, part C (975-976) ----
                     UiCase.run(ctx, "975-ui-screen-sweep-c-themes", ScreenThemeCases::sweep);
                     UiCase.run(ctx, "976-ui-screen-own-theme", ScreenThemeCases::ownTheme);
+                    // ---- Ribbon trail (1031-1035) ----
+                    UiCase.run(ctx, "1031-ui-trail-ribbon-line", TrailRibbonCases::line);
+                    UiCase.run(ctx, "1032-ui-trail-ribbon-curve", TrailRibbonCases::curve);
+                    UiCase.run(ctx, "1033-ui-trail-ribbon-still", TrailRibbonCases::stillAndSwitch);
+                    UiCase.run(ctx, "1034-ui-trail-ribbon-settings", TrailRibbonCases::settings);
+                    UiCase.run(ctx, "1035-ui-trail-ribbon-gallery", TrailRibbonCases::gallery);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
