@@ -171,6 +171,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-ew-add", GrimAutoRoutesTests::caseEwAdd);
             s.test("62-argrim-walk", GrimAutoRoutesTests::caseWalk);
             s.test("62-argrim-870-jump", GrimAutoRoutesTests::caseJumpCount); // ar-jump-n (2026-10-12)
+            s.test("62-argrim-1014-jumpcd", GrimAutoRoutesTests::caseJumpCooldown); // ar-jump-cooldown (2026-10-14)
             s.testExpectingFlags("62-argrim-correction", GrimAutoRoutesTests::caseCorrection);
             s.test("62-argrim-boom", GrimAutoRoutesTests::caseBoom);
             s.test("62-argrim-breaker", GrimAutoRoutesTests::caseBreaker);
@@ -449,6 +450,64 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         check(maxRise > 1.0, "the jumps rose only " + maxRise);
         check(done, "no third jump logged");
         noteFlags(c, s);
+    }
+
+    /**
+     * 1014 on GrimAC (killer560, 2026-10-14): a written jump-1 start node, standing on it: one take-off, none for the 3 s
+     * cooldown, then the next; and a jump -> etherwarp route goes on to the etherwarp at once. GrimAC says nothing.
+     */
+    private static void caseJumpCooldown(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        long cd = ctx.computeOnClient(mc -> ((Number) ModUnderTest.staticCall(EXECUTOR, "jumpCooldownMs")).longValue());
+        resetRoutes(ctx);
+        arena(ctx, false);
+        tpRel(ctx, 14.5, 10.5, 0f, 0f);
+        ctx.waitTicks(10);
+        JsonObject j = node("JUMP", 14, 6, 0f, 0f);
+        j.addProperty("jumps", 1);
+        j.addProperty("start", true);
+        writeRoute(ctx, List.of(j));
+        ctx.waitTicks(5);
+        startSampling(ctx);
+        tpRel(ctx, 14.5, 6.5, 0f, 0f);
+        List<Long> offs = new ArrayList<>();
+        boolean last = true;
+        long t0 = System.currentTimeMillis();
+        for (int t = 0; t < 600 && System.currentTimeMillis() - t0 < cd + 3500; t++) {
+            boolean g = ctx.computeOnClient(mc -> mc.player.onGround());
+            if (last && !g) {
+                offs.add(System.currentTimeMillis());
+            }
+            last = g;
+            ctx.waitTicks(1);
+        }
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"}));
+        long gap = offs.size() >= 2 ? offs.get(1) - offs.get(0) : -1;
+        String part1 = "jump 1: " + offs.size() + " take-off(s), first to second " + gap + " ms";
+
+        // jump 1 (start) at (14,6) then an etherwarp at (14,7) to (14,11); rings 1.0 wide, he stands at z 6.95 in both.
+        resetRoutes(ctx);
+        tpRel(ctx, 14.5, 10.5, 0f, 0f);
+        ctx.waitTicks(10);
+        j.addProperty("radius", 1.0);
+        JsonObject e = ew(14, 7, 14, 11, false);
+        e.addProperty("radius", 1.0);
+        writeRoute(ctx, List.of(j, e));
+        ctx.waitTicks(5);
+        tpRel(ctx, 14.5, 6.95, 0f, 0f);
+        long t1 = System.currentTimeMillis();
+        Vec3 landed = waitLanded(ctx, 14, 11, 100);
+        long took = System.currentTimeMillis() - t1;
+        List<Sample> s = stopSampling(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"}));
+        c.note(part1 + "; jump -> etherwarp landed " + landed + " " + took + " ms after stepping on");
+        check(offs.size() >= 2, "jump 1 took off " + offs.size() + " time(s): expected one, then one after the cooldown");
+        check(gap >= cd - 50, "jump 1 jumped again " + gap + " ms later, inside the " + cd + " ms cooldown");
+        check(gap <= cd + 1500, "jump 1 did not fire again " + gap + " ms after (cooldown " + cd + ")");
+        check(landed != null, "jump -> etherwarp did not reach (14,11); he is at " + relPos(ctx));
+        check(took < cd - 500, "jump -> etherwarp took " + took + " ms (held by the cooldown?)");
+        noteFlags(c, s);
+        resetRoutes(ctx);
     }
 
     /** /ar add walk sprints along the look until the wall, shift up. */

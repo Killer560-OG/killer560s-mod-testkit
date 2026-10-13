@@ -526,3 +526,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   then (26.1.2 only: 26.2's `Minecraft` has no `getMainRenderTarget`). A compile error in a -Minecraft 26.2 run makes
   run-scenario exit 1 in seconds and leaves the PREVIOUS run's report in place: check the log's "Loading Minecraft" line.
 - 1401-1403 (`SimWorldTests`, sim-superboom-radius 2026-10-14): the sim Superboom's 3-block radius (blast at the hit FACE's centre, measured to each block's box) and whole groups. 1401 Big Red Flag's prince tomb (86 blocks, wall z 27 / x 18 and floor kept) plus a floor cracked chain; 1402 Arrow Trap's slab crypt from an overhang 2 above the lid (out of the old y +-2 cube); 1403 a cracked chain with one end in reach beside a stone brick wall that stays. All three fail on main (46/86 tomb left, 0 broken, 8/8 chain left). 642/645 now expect the decorative brick in reach, the eave and the wall under the lid to go.
+- 96-ar-1014-jumpcd / 62-argrim-1014-jumpcd (ar-jump-cooldown, 2026-10-14): a finished jump node's tile does not arm for
+  3 s. Count take-offs on the CLIENT's ground flag and only after the node has pressed: the integrated server's flag drops
+  once for the teleport onto the node (first run: 4 server take-offs for 3 presses, 545 ms apart), and a teleport can drop
+  the client's too (jump 3: 7 take-offs for 6 presses). Auto Routes fires nothing in a legit jar, so the case skips there.
