@@ -188,6 +188,9 @@ public class UiSuite implements FabricClientGameTest {
             "973-ui-chroma-crosshair"};
     /** Item Protect's star on locked player heads (mod lockstar-heads, {@link LockStarHeadCases}). Own block. */
     static final String[] LOCKSTAR_HEAD_CASES = {"961-ui-lockstar-heads"};
+    /** The Ribbon trail style (mod trail-ribbon, {@link TrailRibbonCases}). Own block for merges. */
+    static final String[] TRAIL_RIBBON_CASES = {"1031-ui-trail-ribbon-line", "1032-ui-trail-ribbon-curve",
+            "1033-ui-trail-ribbon-still", "1034-ui-trail-ribbon-settings", "1035-ui-trail-ribbon-gallery"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -273,6 +276,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : CHROMA_WAVE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : TRAIL_RIBBON_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : LOCKSTAR_HEAD_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -287,6 +293,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(CYCLE_BACK_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES) || any(HUD_KEY3_CASES)
                 || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES)
                 || any(CHROMA_WAVE_CASES)
+                || any(TRAIL_RIBBON_CASES)
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES)
                 || any(LOCKSTAR_HEAD_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
@@ -521,6 +528,12 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "971-ui-chroma-enchant-waterfall", ChromaWaveCases::enchantTooltip);
                     UiCase.run(ctx, "972-ui-chroma-scoreboard-border", ChromaWaveCases::scoreboardBorder);
                     UiCase.run(ctx, "973-ui-chroma-crosshair", ChromaWaveCases::crosshair);
+                    // ---- Ribbon trail (1031-1035) ----
+                    UiCase.run(ctx, "1031-ui-trail-ribbon-line", TrailRibbonCases::line);
+                    UiCase.run(ctx, "1032-ui-trail-ribbon-curve", TrailRibbonCases::curve);
+                    UiCase.run(ctx, "1033-ui-trail-ribbon-still", TrailRibbonCases::stillAndSwitch);
+                    UiCase.run(ctx, "1034-ui-trail-ribbon-settings", TrailRibbonCases::settings);
+                    UiCase.run(ctx, "1035-ui-trail-ribbon-gallery", TrailRibbonCases::gallery);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

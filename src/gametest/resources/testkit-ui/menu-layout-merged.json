@@ -13,6 +13,12 @@
   },
   "tooltips": [
     {
+      "owner": "Trail",
+      "key": "trail",
+      "text": "Draws a cosmetic trail behind you as you move: squares at your feet, or a ribbon (see Style).",
+      "why": "trail-ribbon: Trail gained the Ribbon style"
+    },
+    {
       "owner": "(unscoped)",
       "key": "copy chat",
       "text": "With chat open: Shift or Ctrl + Left-Click a message copies the whole message (every wrapped line); Shift or Ctrl + Right-Click copies only the line you clicked. Copied without colour codes. A plain click does what it always did.",
