@@ -65,6 +65,8 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *       reading and alerts ({@link ChocolateCases})</li>
  *   <li>982-984 killer560's 2026-10-13 list: Auto E-Table stops on any input but a mouse move, Fast/Auto Leap modes
  *       and targets (a Leap Order class pick), Storage Scan All's slower varied pace ({@link DocDungeonsMenuCases})</li>
+ *   <li>1361-1364 Loadout Keybinds' per-key mode: Only In Menu, Open Swap Close, its timeout, a wrong menu and chat
+ *       typing ({@link LoadoutModeCases})</li>
  *   <li>761-767 the Bazaar flipper's full buy/sell cycle with the reskin off and on, its Cookie and price guards, and
  *       Auto Croesus going back into a claimed run for a keyed chest ({@link FlipCroesusCases})</li>
  * </ul>
