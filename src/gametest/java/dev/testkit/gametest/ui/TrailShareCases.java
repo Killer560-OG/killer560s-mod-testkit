@@ -27,14 +27,16 @@ import java.util.function.Consumer;
  *       the same offline) carries the trail in the relay's exact shape only when linked AND Share if Supporter AND Share
  *       Trail AND the Trail are on; nothing at all is attempted for a non-supporter; with no display name the trail goes
  *       up alone (name ""). The tab's Share Trail is greyed out with "Only supporters can share a trail." until linked,
- *       then live; both switches default ON, survive save + load and a profile reload, and have tooltips.</li>
+ *       then live; both switches default ON, survive save + load and a profile reload, and have tooltips. The startup
+ *       supporter check backs off (30 s doubling) offline without linking; a linked answer links and pushes at once.</li>
  *   <li>1037 remote: a relay entry (parsed by the mod's own {@code SupportersFetcher.parseSupporters}) gives a fake
  *       player walking across the view a ribbon: tracked, laid and drawn while he moves, and on screen a band behind him
  *       (against his walk), red at his end and leaning blue at the far end - the same renderer as your own.</li>
  *   <li>1038 hide: Show Others' Trails OFF drops every slot, draws nothing, and the frame matches one where he shares no
  *       trail at all; your own ribbon keeps drawing; ON brings his back.</li>
  *   <li>1039 limits: a squares entry lays squares behind him; a player who leaves loses his slot; 20 sharers keep only
- *       16; bad trail values are dropped by the parser; the supporters cache keeps a trail.</li>
+ *       16; a trail-only entry shows the real name with the trail and a staff-set name keeps showing beside one;
+ *       bad trail values are dropped by the parser; the supporters cache keeps a trail.</li>
  * </ul>
  */
 final class TrailShareCases {
@@ -96,6 +98,26 @@ final class TrailShareCases {
     private static final Consumer<String> NO_ERROR = e -> {
     };
 
+    private static boolean hasMethod(String cls, String name) {
+        for (java.lang.reflect.Method m : Mod.cls(cls).getDeclaredMethods()) {
+            if (m.getName().equals(name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** A successful {@code GET /supporters/me} answer, whitelisted or not. */
+    private static Object meResult(boolean whitelisted) {
+        try {
+            var k = Mod.cls(SS + "$MeResult").getDeclaredConstructors()[0];
+            k.setAccessible(true);
+            return k.newInstance(true, whitelisted, null, 1.0, null);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("could not make a MeResult: " + e, e);
+        }
+    }
+
     /** Runs one shareCurrent; returns the attempt it made, or "(none)". */
     private static String push(UiCase c) {
         return c.onClient(mc -> {
@@ -134,6 +156,43 @@ final class TrailShareCases {
             });
             String want = "\"trail\":{\"style\":\"ribbon\",\"mode\":\"gradient\",\"colors\":[16711680,16776960,255],"
                     + "\"width\":0.8,\"length\":1.5,\"opacity\":70}";
+
+            // The startup check: offline it has failed and is backing off without touching the linked state; a linked
+            // answer marks the account linked and pushes at once (no menu opened); a "not whitelisted" answer unlinks.
+            if (Mod.has(SA) && hasMethod(SA, "startupCheckState")) {
+                String st = "";
+                for (int i = 0; i < 300 && !(st = c.onClient(mc -> (String) Mod.staticCall(SA, "startupCheckState"))).startsWith("retry"); i++) {
+                    c.ticks(1);
+                }
+                boolean linkedOffline = c.onClient(mc -> (Boolean) Mod.staticCall(SA, "isLinked"));
+                c.note("startup check offline: " + st + "; linked " + linkedOffline);
+                java.util.regex.Matcher bm = java.util.regex.Pattern.compile("^retry in (\\d+) s after (\\d+) failure").matcher(st);
+                boolean backoff = bm.find() && Long.parseLong(bm.group(1))
+                        == Math.min(900L, 30L << Math.min(10, Integer.parseInt(bm.group(2)) - 1));
+                c.check(backoff, "the startup check is not retrying with 30 s doubling backoff offline: " + st);
+                c.check(!linkedOffline, "a failed startup check marked the account linked");
+                String[] yes = c.onClient(mc -> {
+                    unthrottle();
+                    int before = (Integer) Mod.staticCall(SS, "attempts");
+                    Mod.staticCall(SA, "onStartupMe", meResult(true));
+                    int after = (Integer) Mod.staticCall(SS, "attempts");
+                    return new String[]{String.valueOf(Mod.staticCall(SA, "startupCheckState")),
+                            String.valueOf(Mod.staticCall(SA, "isLinked")),
+                            after == before ? "(none)" : String.valueOf(Mod.staticCall(SS, "lastAttempt"))};
+                });
+                c.note("startup answer linked: state " + yes[0] + ", linked " + yes[1] + ", pushed " + yes[2]);
+                c.check("linked".equals(yes[0]) && "true".equals(yes[1]), "a linked startup answer did not mark the account linked");
+                c.check(yes[2].startsWith("POST ") && yes[2].contains(want), "a linked startup answer did not push the trail: " + yes[2]);
+                String[] no = c.onClient(mc -> {
+                    Mod.staticCall(SA, "onStartupMe", meResult(false));
+                    return new String[]{String.valueOf(Mod.staticCall(SA, "startupCheckState")),
+                            String.valueOf(Mod.staticCall(SA, "isLinked"))};
+                });
+                c.note("startup answer not linked: state " + no[0] + ", linked " + no[1]);
+                c.check("not linked".equals(no[0]) && "false".equals(no[1]), "a not-linked startup answer left the account linked");
+            } else {
+                c.problem("this jar has no startup supporter check");
+            }
 
             c.onClient(mc -> {
                 Mod.staticCall(SA, "setLinked", false);
@@ -642,6 +701,27 @@ final class TrailShareCases {
                 removeMates(mc, 0, 20);
                 return null;
             });
+
+            // A trail-only entry (name "") shows his real name with the trail; a staff-set name the relay kept under a
+            // trail shows that name with the trail.
+            applyEntries(c, entry(MATE, "", RIBBON_TRAIL), entry(mateId(1), "&dStaffPick", RIBBON_TRAIL));
+            String[] shown = c.onClient(mc -> {
+                Object was = Mod.get(SC, "isShowSupporterNames");
+                Mod.set(SC, "setShowSupporterNames", true);
+                Object a = Mod.staticCall(SF, "displayNameFor", MATE);
+                Object b = Mod.staticCall(SF, "displayNameFor", mateId(1));
+                Mod.set(SC, "setShowSupporterNames", was);
+                return new String[]{a == null ? "null" : ((net.minecraft.network.chat.Component) a).getString(),
+                        b == null ? "null" : ((net.minecraft.network.chat.Component) b).getString(),
+                        String.valueOf(Mod.staticCall(SF, "trailFor", MATE)),
+                        String.valueOf(Mod.staticCall(SF, "trailFor", mateId(1)))};
+            });
+            c.note("trail-only entry: name " + shown[0] + ", trail " + shown[2] + "; staff-named entry: name " + shown[1]
+                    + ", trail " + shown[3]);
+            c.check("null".equals(shown[0]) && RIBBON_TRAIL.equals(shown[2]),
+                    "a trail-only entry does not show the real name with the trail");
+            c.check("StaffPick".equals(shown[1]) && RIBBON_TRAIL.equals(shown[3]),
+                    "a staff-set name with a trail lost the name or the trail");
 
             // The parser drops bad trails (every value the relay refuses), keeps good ones, and the cache keeps them.
             String[] bad = {
