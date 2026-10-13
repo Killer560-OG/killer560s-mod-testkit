@@ -267,6 +267,8 @@ public class UiSuite implements FabricClientGameTest {
                 dev.testkit.gametest.Scenario.skip(n);
             }
             for (String n : PROFILE_DATA_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : DOC_MENU_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -283,6 +285,8 @@ public class UiSuite implements FabricClientGameTest {
                 dev.testkit.gametest.Scenario.skip(n);
             }
             for (String n : LOCKSTAR_HEAD_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : DOC_MISC_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -290,19 +294,14 @@ public class UiSuite implements FabricClientGameTest {
             return;
         }
         boolean anyTitle = any(TITLE_CASES);
-        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES) || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
+        boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES)
+                || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
                 || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES)
                 || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES)
-                || any(AUTOKICK2_CASES)
-                || any(CYCLE_BACK_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES) || any(HUD_KEY3_CASES)
-                || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES)
-                || any(CHROMA_WAVE_CASES)
-                || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES)
-                || any(LOCKSTAR_HEAD_CASES);
-                || any(MENU_PROFILES_CASES)
-                || any(DOC_MENU_CASES);
-                || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(DOC_MISC_CASES)
-                || any(MENU_PROFILES_CASES);
+                || any(AUTOKICK2_CASES) || any(CYCLE_BACK_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES)
+                || any(HUD_KEY3_CASES) || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(CHROMA_WAVE_CASES)
+                || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
+                || any(DOC_MENU_CASES) || any(DOC_MISC_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
