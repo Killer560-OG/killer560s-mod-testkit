@@ -32,8 +32,13 @@ import java.util.List;
  *   <li>944 Ctrl K focuses the search; typing "etable" lists the Experimentation Table features and a setting; Enter
  *       opens the first hit's drawer; "bar width" finds the Health and Mana Bars setting and opening it scrolls the
  *       drawer to that row; a hit's switch toggles the feature in place.</li>
- *   <li>945 every category's sidebar count is on/total over its features with a master switch, read independently from
- *       each tab's freshly built master row.</li>
+ *   <li>945 the sidebar shows no on/total counts (killer560, 2026-10-12: "HUD 7/12" becomes "HUD"): every row's drawn
+ *       text is its name (Favourites keeps its number of stars).</li>
+ *   <li>946 the menu theme: a real click on the header's theme button steps Amber - Dark - Light (right click back); each
+ *       preset changes the DRAWN colours (the panel ring pixel is the palette's, the three differ, Light's sidebar is
+ *       light) and the choice survives a restart.</li>
+ *   <li>947 Custom: the Menu Theme drawer's Accent button opens the colour picker, its answer switches the menu to Custom
+ *       and the drawn ring follows the new accent; it survives a restart; Reset puts the preset's colours back.</li>
  * </ul>
  */
 final class MenuACases {
@@ -143,7 +148,7 @@ final class MenuACases {
         c.check(missing.isEmpty(), missing.size() + " card(s) without a description: " + missing);
         c.check(n[0] > 80 && n[1] > 40, "only " + n[0] + " cards, " + n[1] + " with a switch - the menu is not what it should be");
 
-        // Real clicks on two cards' switches: the feature's config flips, the count moves by one, a second click restores.
+        // Real clicks on two cards' switches: the feature's config flips, the card shows it, a second click restores.
         String[][] probes = {{"HealthAndManaBarsTab", "playerstats.PlayerStatsConfig", "isEnabledRaw"},
                 {"QuiverDisplayTab", "quiver.QuiverDisplayConfig", "isEnabled"}};
         for (String[] probe : probes) {
@@ -154,11 +159,11 @@ final class MenuACases {
                     Object cat = category(tab);
                     Mod.call(s, "selectCategory", name(cat));
                     boolean before = (Boolean) Mod.get(probe[1], probe[2]);
-                    int[] countBefore = (int[]) Mod.staticCall(SCREEN, "counts", cat);
+                    Object drawerBefore = Mod.call(s, "openFeature");
                     int[][] b = reveal(s, tab);
                     press(s, b[1][0] + b[1][2] / 2.0, b[1][1] + b[1][3] / 2.0);
                     boolean after = (Boolean) Mod.get(probe[1], probe[2]);
-                    int[] countAfter = (int[]) Mod.staticCall(SCREEN, "counts", cat);
+                    Object shown = Mod.staticCall("gui.FeatureCards", "state", tab);
                     Boolean fresh = freshMaster(tab);
                     if (after == before) {
                         return probe[0] + ": the card switch did not change " + probe[1] + "." + probe[2] + " (" + before + ")";
@@ -166,9 +171,8 @@ final class MenuACases {
                     if (fresh == null || fresh != after) {
                         return probe[0] + ": the tab's own master row reads " + fresh + " after the card switch, config " + after;
                     }
-                    if (countAfter[0] != countBefore[0] + (after ? 1 : -1) || countAfter[1] != countBefore[1]) {
-                        return probe[0] + ": count went " + countBefore[0] + "/" + countBefore[1] + " -> " + countAfter[0] + "/"
-                                + countAfter[1];
+                    if (!Boolean.valueOf(after).equals(shown)) {
+                        return probe[0] + ": the card shows " + shown + " after its switch set the config to " + after;
                     }
                     b = reveal(s, tab);
                     press(s, b[1][0] + b[1][2] / 2.0, b[1][1] + b[1][3] / 2.0);
@@ -176,11 +180,10 @@ final class MenuACases {
                     if (back != before) {
                         return probe[0] + ": a second click left the config at " + back + ", started " + before;
                     }
-                    if (Mod.call(s, "openFeature") != null) {
-                        return probe[0] + ": a switch click opened a drawer";
+                    if (Mod.call(s, "openFeature") != drawerBefore) {
+                        return probe[0] + ": a switch click changed the drawer";
                     }
-                    c.note(probe[0] + ": card switch " + before + " -> " + after + " -> " + back + "; count "
-                            + countBefore[0] + "/" + countBefore[1] + " -> " + countAfter[0] + "/" + countAfter[1]);
+                    c.note(probe[0] + ": card switch " + before + " -> " + after + " -> " + back + " (card showed " + shown + ")");
                     return null;
                 } catch (Exception e) {
                     return probe[0] + ": " + UiCase.describe(e);
@@ -466,41 +469,25 @@ final class MenuACases {
 
     // ---- 945 ------------------------------------------------------------------------------------------------------
 
-    static void counts(UiCase c) throws Exception {
+    static void noCounts(UiCase c) throws Exception {
         String why = c.onClient(mc -> {
             try {
-                open(mc);
-                List<?> tops = (List<?>) Mod.field(Mod.ROOT + SCREEN, "tabs");
-                int checked = 0;
-                for (Object top : tops) {
-                    if (!Mod.cls("gui.tab.FolderTab").isInstance(top) || Mod.cls("gui.tab.HomeTab").isInstance(top)) {
-                        continue;
-                    }
-                    int on = 0;
-                    int total = 0;
-                    for (Object leaf : leaves()) {
-                        if (category(leaf) != top) {
-                            continue;
-                        }
-                        Boolean m = freshMaster(leaf);
-                        if (m != null) {
-                            total++;
-                            on += m ? 1 : 0;
-                        }
-                    }
-                    int[] shown = (int[]) Mod.staticCall(SCREEN, "counts", top);
-                    if (shown[0] != on || shown[1] != total) {
-                        return name(top) + ": the sidebar counts " + shown[0] + "/" + shown[1] + ", its features read "
-                                + on + "/" + total;
-                    }
-                    if (total == 0) {
-                        return name(top) + ": no feature with a switch - the count would be vacuous";
-                    }
-                    c.note(name(top) + " " + on + "/" + total);
-                    checked++;
+                Screen s = open(mc);
+                @SuppressWarnings("unchecked")
+                List<String> rows = (List<String>) Mod.call(s, "sideTexts");
+                c.note("sidebar rows as drawn: " + rows);
+                if (rows.size() < 9) {
+                    return "only " + rows.size() + " sidebar rows - the check would be vacuous";
                 }
-                if (checked < 7) {
-                    return "only " + checked + " categories counted";
+                for (String r : rows) {
+                    if (r.matches(".*\\d+\\s*/\\s*\\d+.*")) {
+                        return "the sidebar still draws a count: '" + r + "'";
+                    }
+                }
+                for (String want : new String[]{"Home", "Dungeons", "HUD", "Chat", "Items", "Social", "Cosmetics", "Misc"}) {
+                    if (!rows.contains(want)) {
+                        return "no plain '" + want + "' row in " + rows;
+                    }
                 }
                 return null;
             } catch (Exception e) {
@@ -511,6 +498,202 @@ final class MenuACases {
         });
         if (why != null) {
             c.problem(why);
+        }
+    }
+
+    // ---- 946 / 947 ----------------------------------------------------------------------------------------------
+
+    /** Takes a screenshot of the menu and returns {ring ARGB, sidebar ARGB} at the panel ring's top centre and in the
+     *  sidebar's empty lower part (screen pixels per layout unit from the open screen's own width). */
+    static int[] sample(UiCase c, Screen s, String label) throws Exception {
+        c.ticks(3);
+        Path shot = c.ctx().takeScreenshot(Report.fileName(c.name() + "-" + label));
+        Report.screenshot(c.name() + "-" + label, shot);
+        java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(shot.toFile());
+        double sc = img.getWidth() / (double) s.width;
+        int px = (Integer) Mod.field(s, "panelX");
+        int py = (Integer) Mod.field(s, "panelY");
+        int pw = (Integer) Mod.field(s, "panelW");
+        int sx = (Integer) Mod.field(s, "sideX");
+        int sy = (Integer) Mod.field(s, "sideY");
+        int sw = (Integer) Mod.field(s, "sideW");
+        int sh = (Integer) Mod.field(s, "sideH");
+        int ring = img.getRGB((int) ((px + pw / 2 + 0.5) * sc), (int) ((py - 1 + 0.5) * sc));
+        int side = img.getRGB((int) ((sx + sw / 2 + 0.5) * sc), (int) ((sy + sh - 12 + 0.5) * sc));
+        return new int[]{ring | 0xFF000000, side | 0xFF000000};
+    }
+
+    static boolean near(int a, int b) {
+        for (int sh = 0; sh < 24; sh += 8) {
+            if (Math.abs(((a >> sh) & 0xFF) - ((b >> sh) & 0xFF)) > 3) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static float lum(int c) {
+        return (0.299f * ((c >> 16) & 0xFF) + 0.587f * ((c >> 8) & 0xFF) + 0.114f * (c & 0xFF)) / 255f;
+    }
+
+    static String hex(int c) {
+        return String.format("#%06X", c & 0xFFFFFF);
+    }
+
+    static String themeName() {
+        return ((Enum<?>) Mod.call(Mod.cfg("gui.MenuConfig"), "getTheme")).name();
+    }
+
+    static void themes(UiCase c) throws Exception {
+        Object cfg = Mod.cfg("gui.MenuConfig");
+        String old = themeName();
+        try {
+            Screen s = c.onClient(mc -> {
+                Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", Mod.enumValue("gui.MenuTheme", "AMBER"));
+                try {
+                    return open(mc);
+                } catch (Exception e) {
+                    throw new AssertionError(e);
+                }
+            });
+            java.util.Map<String, int[]> seen = new java.util.LinkedHashMap<>();
+            String[] order = {"AMBER", "DARK", "LIGHT"};
+            for (int i = 0; i < order.length; i++) {
+                if (i > 0) {
+                    // a real left click on the header's theme button
+                    c.onClient(mc -> {
+                        int[] b = (int[]) Mod.call(s, "iconBounds", 3);
+                        press(s, b[0] + b[2] / 2.0, b[1] + b[3] / 2.0);
+                        return null;
+                    });
+                }
+                String now = themeName();
+                c.check(now.equals(order[i]), "after " + i + " click(s) the theme is " + now + ", wanted " + order[i]);
+                int[] px = sample(c, s, order[i].toLowerCase(java.util.Locale.ROOT));
+                int want = (Integer) Mod.field("gui.MenuStyle", "FRAME_RING");
+                c.note(order[i] + ": ring drawn " + hex(px[0]) + " (palette " + hex(want) + "), sidebar " + hex(px[1]));
+                c.check(near(px[0], want), order[i] + ": the panel ring is drawn " + hex(px[0]) + ", the palette says " + hex(want));
+                seen.put(order[i], px);
+            }
+            c.check(!near(seen.get("AMBER")[0], seen.get("DARK")[0]) && !near(seen.get("DARK")[0], seen.get("LIGHT")[0])
+                    && !near(seen.get("AMBER")[0], seen.get("LIGHT")[0]), "two presets draw the same ring colour");
+            c.check(lum(seen.get("LIGHT")[1]) > 0.6f && lum(seen.get("AMBER")[1]) < 0.25f && lum(seen.get("DARK")[1]) < 0.25f,
+                    "Light's sidebar is not light, or a dark preset's is not dark");
+            // right click goes back
+            c.onClient(mc -> {
+                int[] b = (int[]) Mod.call(s, "iconBounds", 3);
+                net.minecraft.client.input.MouseButtonEvent e = new net.minecraft.client.input.MouseButtonEvent(
+                        b[0] + b[2] / 2.0, b[1] + b[3] / 2.0, new net.minecraft.client.input.MouseButtonInfo(1, 0));
+                s.mouseClicked(e, false);
+                return null;
+            });
+            c.check(themeName().equals("DARK"), "a right click on the theme button went to " + themeName() + ", not Dark");
+            // restart: the file read back, a new screen
+            Screen fresh = c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                Mod.staticCall("gui.MenuConfig", "load");
+                try {
+                    return open(mc);
+                } catch (Exception e) {
+                    throw new AssertionError(e);
+                }
+            });
+            c.check(themeName().equals("DARK"), "after a restart the theme is " + themeName() + ", not Dark");
+            int[] px = sample(c, fresh, "dark-after-restart");
+            c.check(near(px[0], seen.get("DARK")[0]), "after a restart the ring is drawn " + hex(px[0]) + ", Dark drew "
+                    + hex(seen.get("DARK")[0]));
+            c.note("Dark survived a restart: ring " + hex(px[0]));
+        } finally {
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", Mod.enumValue("gui.MenuTheme", old));
+                Mod.call(Mod.cfg("gui.MenuConfig"), "save");
+                return null;
+            });
+        }
+    }
+
+    static void customColour(UiCase c) throws Exception {
+        String old = themeName();
+        int teal = 0xFF2EC4B6;
+        try {
+            Screen s = c.onClient(mc -> {
+                Object cfg = Mod.cfg("gui.MenuConfig");
+                Mod.call(cfg, "setTheme", Mod.enumValue("gui.MenuTheme", "AMBER"));
+                Mod.call(cfg, "resetCustom");
+                try {
+                    Screen screen = open(mc);
+                    Mod.call(screen, "openFeature", leaf("MenuThemeTab"));
+                    return screen;
+                } catch (Exception e) {
+                    throw new AssertionError(e);
+                }
+            });
+            int[] amber = sample(c, s, "amber");
+            // a real press on the drawer's Accent row: the colour picker opens; its answer is what a pick sends
+            String why = c.onClient(mc -> {
+                AbstractWidget accent = null;
+                for (AbstractWidget w : paneRows(s)) {
+                    if (ModScreenDriver.label(w).startsWith("Accent:")) {
+                        accent = w;
+                    }
+                }
+                if (accent == null) {
+                    return "no Accent row in the Menu Theme drawer";
+                }
+                ModScreenDriver.press(accent);
+                Screen picker = McCompat.screen(mc);
+                if (picker == null || !picker.getClass().getSimpleName().equals("ColorPickerScreen")) {
+                    return "the Accent row opened " + picker + ", not the colour picker";
+                }
+                ((java.util.function.IntConsumer) Mod.field(picker, "onChange")).accept(teal);
+                picker.onClose();
+                return McCompat.screen(mc) == s ? null : "closing the picker did not return to the menu";
+            });
+            if (why != null) {
+                c.problem(why);
+                return;
+            }
+            c.check(themeName().equals("CUSTOM"), "picking an accent left the theme on " + themeName());
+            int[] custom = sample(c, s, "custom-teal");
+            int want = (Integer) Mod.field("gui.MenuStyle", "FRAME_RING");
+            int accentNow = (Integer) Mod.field("gui.MenuStyle", "OR");
+            c.note("custom accent " + hex(accentNow) + ": ring " + hex(custom[0]) + " (palette " + hex(want) + "), Amber's was "
+                    + hex(amber[0]));
+            c.check((accentNow & 0xFFFFFF) == (teal & 0xFFFFFF), "the palette's accent is " + hex(accentNow) + ", not the picked "
+                    + hex(teal));
+            c.check(near(custom[0], want) && !near(custom[0], amber[0]), "the ring did not follow the custom accent");
+            // restart keeps it
+            c.onClient(mc -> {
+                Mod.staticCall("gui.MenuConfig", "load");
+                return null;
+            });
+            int saved = (Integer) Mod.call(Mod.cfg("gui.MenuConfig"), "getCustomColour",
+                    Mod.enumValue("gui.MenuTheme$Slot", "ACCENT"));
+            c.check(themeName().equals("CUSTOM") && (saved & 0xFFFFFF) == (teal & 0xFFFFFF),
+                    "after a restart the theme is " + themeName() + " with accent " + hex(saved));
+            // Reset puts Amber's colours back (a real press on the Reset row)
+            c.onClient(mc -> {
+                Mod.call(s, "refresh");
+                for (AbstractWidget w : paneRows(s)) {
+                    if (ModScreenDriver.label(w).startsWith("Reset Custom to")) {
+                        ModScreenDriver.press(w);
+                    }
+                }
+                return null;
+            });
+            int[] reset = sample(c, s, "custom-reset");
+            c.check(near(reset[0], amber[0]), "after Reset the ring is " + hex(reset[0]) + ", Amber's is " + hex(amber[0]));
+            c.note("Reset: ring back to " + hex(reset[0]));
+        } finally {
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                Object cfg = Mod.cfg("gui.MenuConfig");
+                Mod.call(cfg, "resetCustom");
+                Mod.call(cfg, "setTheme", Mod.enumValue("gui.MenuTheme", old));
+                Mod.call(cfg, "save");
+                return null;
+            });
         }
     }
 
@@ -528,6 +711,7 @@ final class MenuACases {
                 "LagDisplayTab"};
         List<Object> flipped = new ArrayList<>();
         Object menuCfg = Mod.cfg("gui.MenuConfig");
+        String oldTheme = ((Enum<?>) Mod.call(menuCfg, "getTheme")).name();
         @SuppressWarnings("unchecked")
         List<String> oldFavs = (List<String>) Mod.call(menuCfg, "getFavourites");
         try {
@@ -542,6 +726,7 @@ final class MenuACases {
                 }
                 Mod.call(menuCfg, "setFavourites", new ArrayList<>(List.of("HealthAndManaBarsTab", "LiveMapTab",
                         "QuiverDisplayTab", "ChunkCacheTab")));
+                Mod.call(menuCfg, "setTheme", Mod.enumValue("gui.MenuTheme", "AMBER"));
                 return null;
             });
             c.onClient(mc -> {
@@ -609,6 +794,27 @@ final class MenuACases {
                 return null;
             });
             taken.add(shot(c, s[0], variant + "-5-dungeons-bottom", null));
+
+            // 6-9: the HUD drawer in every colour preset and one Custom set (teal on blue-grey)
+            int[] customSet = {0xFF2EC4B6, 0xFF101820, 0xFF1B2733, 0xFFE8F1F2, 0xFF2EC4B6};
+            for (String theme : new String[]{"AMBER", "DARK", "LIGHT", "CUSTOM"}) {
+                c.onClient(mc -> {
+                    Object cfg = Mod.cfg("gui.MenuConfig");
+                    Mod.setField(Mod.ROOT + SCREEN, "gridScroll", 0);
+                    if (theme.equals("CUSTOM")) {
+                        Object[] slots = Mod.cls("gui.MenuTheme$Slot").getEnumConstants();
+                        for (int k = 0; k < slots.length; k++) {
+                            Mod.call(cfg, "setCustomColour", slots[k], customSet[k]);
+                        }
+                    } else {
+                        Mod.call(cfg, "setTheme", Mod.enumValue("gui.MenuTheme", theme));
+                    }
+                    Mod.call(s[0], "selectCategory", "HUD");
+                    Mod.call(s[0], "openFeature", leaf("HealthAndManaBarsTab"));
+                    return null;
+                });
+                taken.add(shot(c, s[0], variant + "-theme-" + theme.toLowerCase(java.util.Locale.ROOT), "HealthAndManaBarsTab"));
+            }
             c.note("shots: " + taken);
         } finally {
             c.onClient(mc -> {
@@ -618,6 +824,9 @@ final class MenuACases {
                     Mod.staticCall("gui.FeatureCards", "toggle", t, none);
                 }
                 Mod.call(menuCfg, "setFavourites", oldFavs);
+                Mod.call(menuCfg, "resetCustom");
+                Mod.call(menuCfg, "setTheme", Mod.enumValue("gui.MenuTheme", oldTheme));
+                Mod.call(menuCfg, "save");
                 Mod.call(hud, "setAutoScale", oldAuto);
                 mc.options.guiScale().set(oldGui);
                 return null;

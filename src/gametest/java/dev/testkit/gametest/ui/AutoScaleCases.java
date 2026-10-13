@@ -232,9 +232,11 @@ final class AutoScaleCases {
         c.check(layoutF == f, "the menu was laid out with factor " + layoutF + ", HUD factor is " + f);
         Path shot = c.ctx().takeScreenshot(Report.fileName(c.name() + "-menu-" + w + "x" + h));
         Report.screenshot(c.name(), shot);
-        // The Option A menu (mod menu-a) has no orange header underline; its panel's outer ring (0x4A3420, one unit
+        // The Option A menu (mod menu-a) has no orange header underline; its panel's outer ring (FRAME_RING, one unit
         // outside the panel on every side) is the full-width line now: panelW + 2 units.
-        int headerRun = longestRun(shot, 0x4A, 0x34, 0x20);
+        // The ring's colour comes from the menu theme's palette (gui.MenuStyle.FRAME_RING since mod menu-a's presets).
+        int ring = (Integer) Mod.field("gui.MenuStyle", "FRAME_RING");
+        int headerRun = longestRun(shot, (ring >> 16) & 0xFF, (ring >> 8) & 0xFF, ring & 0xFF);
         int wantRun = Math.round((panelW + 2) * layoutF * 3);
         c.note("menu panel ring drawn " + headerRun + " px, expected " + wantRun);
         if (Math.abs(headerRun - wantRun) > 3) {

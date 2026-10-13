@@ -76,7 +76,9 @@ final class MenuLayoutCases {
             "gui.tab.AutoUpdateTab",
             // Auto Croesus (mod hud-key-2, killer560 2026-10-12): out of the Croesus tab into its own, in Dungeon's cheat
             // block; cheat jar only.
-            "gui.tab.AutoCroesusTab");
+            "gui.tab.AutoCroesusTab",
+            // Menu Theme (mod menu-a, killer560 2026-10-12): the Option A menu's colour presets, a section of Home.
+            "gui.tab.MenuThemeTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.

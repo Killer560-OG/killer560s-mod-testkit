@@ -400,7 +400,7 @@ final class HxCosmeticNameCases {
 
     // ---- 814 preview ------------------------------------------------------------------------------------------------
 
-    /** The real ModScreen on Player Cosmetics with Custom Names open. */
+    /** The real ModScreen with Player Cosmetics' drawer open and Custom Names open in it. */
     @SuppressWarnings("unchecked")
     private static Screen openCosmetics(Session c) {
         Screen s = c.onClient(mc -> {
@@ -422,7 +422,8 @@ final class HxCosmeticNameCases {
                     for (int j = 0; j < subs.size(); j++) {
                         if ("Player Cosmetics".equals(Mod.field(subs.get(j), "name"))) {
                             Mod.setField("gui.ModScreen", "selectedTab", i);
-                            ((Set<Integer>) Mod.field(t, "expanded")).add(j);
+                            // Option A menu (mod menu-a): the feature's drawer, not an accordion section.
+                            Mod.setField("gui.ModScreen", "openFeature", subs.get(j));
                             setInstanceField(subs.get(j), "customNamesOpen", true);
                             McCompat.setScreen(mc, screen);
                             return screen;

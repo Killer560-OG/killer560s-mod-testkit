@@ -73,6 +73,9 @@ import java.util.List;
  *                671-675 Held Item Outline: off controls, styles/colours/width/alpha from screenshots, hands, hotbar and
  *                third person untouched, settings; 676 Outline Side near/far/both, 677 one screenshot per setting
  *                ({@link HeldOutlineCases})
+ *                940-947 the Option A mod menu: screenshots, card switches flip the config, a card opens its drawer,
+ *                favourites survive a restart, Ctrl K search, no sidebar counts, colour presets and Custom colours
+ *                ({@link MenuACases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
  *
@@ -153,7 +156,8 @@ public class UiSuite implements FabricClientGameTest {
     /** The Option A mod menu (mod menu-a, {@link MenuACases}): shots, card switch, drawer, favourites, search, counts.
      *  Own block for merges. */
     static final String[] MENU_A_CASES = {"940-ui-menu-a-shots", "941-ui-menu-a-cards", "942-ui-menu-a-drawer",
-            "943-ui-menu-a-favourites", "944-ui-menu-a-search", "945-ui-menu-a-counts"};
+            "943-ui-menu-a-favourites", "944-ui-menu-a-search", "945-ui-menu-a-no-counts", "946-ui-menu-a-themes",
+            "947-ui-menu-a-custom-colour"};
     /** killer560's 2026-10-12 Edit HUD key / Croesus batch ({@link HudKey2Cases}). Own block for merges. */
     /** Container overlays in Edit HUD only within 10 s (mod hud-key-3, {@link HudKey2Cases#containerGrace}). Own block. */
     static final String[] HUD_KEY3_CASES = {"866-ui-container-overlay-grace"};
@@ -432,7 +436,9 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "942-ui-menu-a-drawer", MenuACases::drawer);
                     UiCase.run(ctx, "943-ui-menu-a-favourites", MenuACases::favourites);
                     UiCase.run(ctx, "944-ui-menu-a-search", MenuACases::search);
-                    UiCase.run(ctx, "945-ui-menu-a-counts", MenuACases::counts);
+                    UiCase.run(ctx, "945-ui-menu-a-no-counts", MenuACases::noCounts);
+                    UiCase.run(ctx, "946-ui-menu-a-themes", MenuACases::themes);
+                    UiCase.run(ctx, "947-ui-menu-a-custom-colour", MenuACases::customColour);
                     // ---- Edit HUD key / Croesus (862-865) ----
                     UiCase.run(ctx, "862-ui-hud-key-typing", HudKey2Cases::typing);
                     UiCase.run(ctx, "863-ui-hud-key-over-container", HudKey2Cases::overContainer);
