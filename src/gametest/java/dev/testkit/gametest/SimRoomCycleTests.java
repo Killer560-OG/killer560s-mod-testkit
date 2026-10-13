@@ -169,6 +169,23 @@ public class SimRoomCycleTests implements FabricClientGameTest {
                             + expectHas.size());
             check(failures, buttonLabels(ctx).contains("Back"), "no Back button on the route practice menu");
 
+            // Previous Room on the left, Next Room on the right (killer560, 2026-10-13).
+            String sides = ctx.computeOnClient(mc -> {
+                int prev = -1, next = -1;
+                for (var child : McCompat.screen(mc).children()) {
+                    if (child instanceof AbstractWidget w) {
+                        String l = strip(w.getMessage().getString());
+                        if (l.startsWith("Previous Room")) prev = w.getX();
+                        if (l.startsWith("Next Room")) next = w.getX();
+                    }
+                }
+                return prev + "," + next;
+            });
+            String[] px = sides.split(",");
+            System.out.println("[" + NAME + "] key row x: Previous " + px[0] + ", Next " + px[1]);
+            check(failures, Integer.parseInt(px[0]) >= 0 && Integer.parseInt(px[0]) < Integer.parseInt(px[1]),
+                    "Previous Room is not left of Next Room: " + sides);
+
             // Keybind rows: capture a mouse button through the screen, read the stored bind back, then clear it.
             press(ctx, l -> l.startsWith("Next Room"), "Next Room");
             clickRaw(ctx, 3);
