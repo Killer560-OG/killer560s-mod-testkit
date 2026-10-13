@@ -29,3 +29,16 @@ open the gametest loop renders one frame per tick, without one it sometimes rend
 frames ON against 1,798 OFF), and a phase where ON replaces vanilla drawing (Custom Scoreboard hides the vanilla sidebar,
 Storage Overlay replaces an Ender Chest page) can read ON cheaper than OFF. Trust `menu` (both sides draw the same chest)
 and the JFR attribution; read `storage` as ON before/after a change, not as a delta. `framerateLimit` 260 is unlimited.
+
+## Name features bench (975-perf-nametag)
+
+`perf/NametagPerfBenchTest`, ~9 min, only when named. Names off / own fade / fade + Wave, first person and F5, in a quiet
+scene and a busy one (50 named stands, six waving supporter bots, 80-row tab held, a chat line a tick). Its main number
+is `NAME HOOKS us/frame`: `harness/NameProbe`, fed by optional `@Pseudo` mixins on the mod's name classes
+(`testkit.k560probe.mixins.json`), times the outermost hook call and subtracts the timer's own ~45 ns. Read that, not the
+frame-mean deltas: with ~1.5 frames a tick the frame means of two cells drift by +-200 us (one cell rendered 4,600 frames
+where the others rendered 900). `-PnametagShots=<dir>` writes screenshots and `glyphs-*.txt` (every glyph the Font is
+handed, with what of its Style reaches the pixels) per cell at a frozen animation clock; `-PnametagShotsOnly=true` skips
+the timing. Compare two jars by the glyph files: screenshots from two runs are never exact (sky shading and the player's
+idle pose differ by a few levels over the whole frame, even with names off). Under Sodium the gametest screenshot throws
+"Global terrain uniforms have not been updated", so the bench skips shots when Sodium is loaded.
