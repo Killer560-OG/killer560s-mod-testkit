@@ -160,6 +160,10 @@ public class UiSuite implements FabricClientGameTest {
             "947-ui-menu-a-custom-colour"};
     /** The Profiles page redesign (mod menu-profiles-ctrlf, {@link MenuProfilesCases}). Own block for merges. */
     static final String[] MENU_PROFILES_CASES = {"948-ui-menu-profiles-page"};
+    /** Screen sweep B: standalone screens in the menu theme + Screen Theme (mod sweep-b, {@link ScreenSweepBCases}).
+     *  Own block for merges. */
+    static final String[] SWEEP_B_CASES = {"970-ui-sweepb-profit", "971-ui-sweepb-storage-search",
+            "972-ui-sweepb-run-log", "973-ui-sweepb-invsort", "974-ui-sweepb-custom-items", "975-ui-sweepb-screen-theme"};
     /** killer560's 2026-10-12 Edit HUD key / Croesus batch ({@link HudKey2Cases}). Own block for merges. */
     /** Container overlays in Edit HUD only within 10 s (mod hud-key-3, {@link HudKey2Cases#containerGrace}). Own block. */
     static final String[] HUD_KEY3_CASES = {"866-ui-container-overlay-grace"};
@@ -245,6 +249,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : MENU_PROFILES_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : SWEEP_B_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : HUD_KEY3_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -264,7 +271,8 @@ public class UiSuite implements FabricClientGameTest {
                 || any(AUTOKICK2_CASES)
                 || any(CYCLE_BACK_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES) || any(HUD_KEY3_CASES)
                 || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES)
-                || any(MENU_PROFILES_CASES);
+                || any(MENU_PROFILES_CASES)
+                || any(SWEEP_B_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -457,6 +465,13 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "947-ui-menu-a-custom-colour", MenuACases::customColour);
                     // ---- Profiles page (948) ----
                     UiCase.run(ctx, "948-ui-menu-profiles-page", MenuProfilesCases::page);
+                    // ---- screen sweep B (970-975) ----
+                    UiCase.run(ctx, "970-ui-sweepb-profit", ScreenSweepBCases::profit);
+                    UiCase.run(ctx, "971-ui-sweepb-storage-search", ScreenSweepBCases::storageSearch);
+                    UiCase.run(ctx, "972-ui-sweepb-run-log", ScreenSweepBCases::runLog);
+                    UiCase.run(ctx, "973-ui-sweepb-invsort", ScreenSweepBCases::invsort);
+                    UiCase.run(ctx, "974-ui-sweepb-custom-items", ScreenSweepBCases::customItems);
+                    UiCase.run(ctx, "975-ui-sweepb-screen-theme", ScreenSweepBCases::screenTheme);
                     // ---- Edit HUD key / Croesus (862-865) ----
                     UiCase.run(ctx, "862-ui-hud-key-typing", HudKey2Cases::typing);
                     UiCase.run(ctx, "863-ui-hud-key-over-container", HudKey2Cases::overContainer);

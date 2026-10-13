@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
  * 307: {@code /profit}, the profit tracker hub (gui/profit/ProfitCommands, ProfitHubScreen, ProfitTracker).
  *
  * <p>Everything goes through the real mod: the command is executed on the real client dispatcher, the hub is
- * screenshotted and its cards found by their widget class and checked against the pixels (the card's orange stripe
+ * screenshotted and its cards found by their widget class and checked against the pixels (the card's accent stripe
  * must be on the screenshot where layout x Auto Scale factor says), each card is clicked through the real input
  * layer at its DRAWN centre, and Back is clicked the same way. Direct subcommands, aliases, the unknown-name chat
  * line and tab completion are checked against the same dispatcher.
@@ -32,7 +32,11 @@ import java.util.concurrent.TimeUnit;
 final class ProfitCases {
 
     private static final String HUB = "gui.profit.ProfitHubScreen";
-    private static final int ORANGE = 0xCC6600;
+    /** The card stripe's colour: the menu theme's accent (sweep-b: the hub is drawn in the menu's theme). Read from the
+     *  mod after the hub drew, so it is the palette that drew it. */
+    private static int orange() {
+        return ((Integer) R.getStatic(R.cls("gui.MenuStyle"), "OR")) & 0xFFFFFF;
+    }
     private static final int GLFW_ESCAPE = 256;
 
     /** word, card label, screen class (relative to the mod root). */
@@ -346,8 +350,9 @@ final class ProfitCases {
                 int r = (rgb >> 16) & 0xFF;
                 int g = (rgb >> 8) & 0xFF;
                 int b = rgb & 0xFF;
-                if (Math.abs(r - ((ORANGE >> 16) & 0xFF)) <= 12 && Math.abs(g - ((ORANGE >> 8) & 0xFF)) <= 12
-                        && b <= 12) {
+                int o = orange();
+                if (Math.abs(r - ((o >> 16) & 0xFF)) <= 12 && Math.abs(g - ((o >> 8) & 0xFF)) <= 12
+                        && Math.abs(b - (o & 0xFF)) <= 12) {
                     return true;
                 }
             }

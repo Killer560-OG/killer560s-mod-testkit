@@ -1105,11 +1105,12 @@ final class BazaarV3Cases {
                     Mod.staticCall("bazaar.BazaarRecents", "add", id);
                 }
             });
-            Object old = c.onClient(mc -> Mod.get("inventorytheme.InventoryThemeConfig", "getTheme"));
+            // sweep-b: the Bazaar's Screen Theme defaults to the mod menu's theme, so the menu theme drives it.
+            Object old = c.onClient(mc -> Mod.call(Mod.cfg("gui.MenuConfig"), "getTheme"));
             try {
                 for (String theme : List.of("AMBER", "DARK", "LIGHT")) {
-                    c.ctx().runOnClient(mc -> Mod.set("inventorytheme.InventoryThemeConfig", "setTheme",
-                            Mod.enumValue("gui.PanelTheme", theme)));
+                    c.ctx().runOnClient(mc -> Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme",
+                            Mod.enumValue("gui.MenuTheme", theme)));
                     for (int[] sz : new int[][]{{1920, 1080, 2}, {854, 480, 2}}) {
                         setWindow(c, sz[0], sz[1], sz[2]);
                         String size = sz[0] + "x" + sz[1] + "-gui" + sz[2];
@@ -1147,7 +1148,7 @@ final class BazaarV3Cases {
                     }
                 }
             } finally {
-                c.ctx().runOnClient(mc -> Mod.set("inventorytheme.InventoryThemeConfig", "setTheme", old));
+                c.ctx().runOnClient(mc -> Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", old));
             }
         }
     }
