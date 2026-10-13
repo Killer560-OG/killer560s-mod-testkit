@@ -120,6 +120,235 @@ final class EtherwarpFaceCases {
         c.check(missing.isEmpty(), missing.size() + " camera-facing face(s) not drawn: " + missing);
     }
 
+    /**
+     * 1322, killer560 (2026-10-13, 26.2): "When i am holding crouch and walking forward into a block it is almost like the
+     * overlay shifts faster than I walk so it is further behind the block and I cannot see the outline on the front face."
+     * Crouch-walks from 3 blocks into the eye-level block of a two-high wall, Outline style, magenta, and every 2 ticks
+     * while moving shoots the screen and looks for magenta along the near face's projected edges (any pixel within 3 px),
+     * and reports where the magenta actually is (its bounding box against the projected face).
+     */
+    static void walk(UiCase c) throws Exception {
+        List<AutoCloseable> restore = new ArrayList<>();
+        boolean hideWas = c.onClient(mc -> dev.testkit.compat.McCompat.hudHidden(mc));
+        boolean bobWas = c.onClient(mc -> mc.options.bobView().get());
+        List<String> bad = new ArrayList<>();
+        int frames = 0;
+        edgeChecks = 0;
+        try {
+            c.onClient(mc -> {
+                restore.add(0, Mod.with(EWC, "Enabled", true));
+                restore.add(0, Mod.with(EWC, "ShowWhenFailed", true));
+                restore.add(0, Mod.with(EWC, "FullBlock", true));
+                restore.add(0, Mod.with(EWC, "SafeColor", 0xFFFF00FF));
+                restore.add(0, Mod.with(EWC, "FailedColor", 0xFFFF00FF));
+                restore.add(0, Mod.with(EWC, "Style", Mod.enumValue(STYLE, "OUTLINE")));
+                dev.testkit.compat.McCompat.setHudHidden(mc, true);
+                mc.options.bobView().set(false);
+                return null;
+            });
+            DocDungeonsCases.command(c, "tp @a " + CX + " 120 " + CZ);
+            c.ticks(20);
+            DocDungeonsCases.command(c, "fill 330 99 330 350 99 350 minecraft:stone");
+            DocDungeonsCases.command(c, "fill 330 100 330 350 108 350 minecraft:air");
+            DocDungeonsCases.command(c, "fill " + CX + " 100 " + (CZ - 3) + " " + CX + " 101 " + (CZ + 3) + " minecraft:stone");
+            // the target in gold, so the world's own render of its face is visible to compare the outline against
+            DocDungeonsCases.command(c, "setblock " + CX + " 101 " + CZ + " minecraft:gold_block");
+            DocDungeonsCases.command(c, "clear @a");
+            DocDungeonsCases.command(c,
+                    "give @a minecraft:diamond_shovel[custom_data={id:\"ASPECT_OF_THE_VOID\",ethermerge:1}]");
+            DocDungeonsCases.flightOff(c);
+            DocDungeonsCases.command(c, String.format(Locale.ROOT, "tp @a %.4f 100 %.4f -90 0", CX - 3.5, CZ + 0.5));
+            c.onClient(mc -> {
+                mc.player.getInventory().setSelectedSlot(0);
+                mc.options.keyShift.setDown(true);
+                return null;
+            });
+            DocDungeonsCases.await(c, "crouching", mc -> mc.player.onGround() && mc.player.isCrouching(), 100);
+            c.ticks(40); // the gold block's placement settles first
+            c.onClient(mc -> {
+                mc.options.keyUp.setDown(true);
+                return null;
+            });
+            c.onClient(mc -> {
+                if (!probeHooked) {
+                    probeHooked = true;
+                    net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents.AFTER_TRANSLUCENT_FEATURES
+                            .register(ctx -> {
+                                Minecraft m = Minecraft.getInstance();
+                                if (m.player == null) {
+                                    return;
+                                }
+                                Vec3 overlayCam = (Vec3) Mod.staticCall("compat.McRender", "cameraPos", ctx);
+                                Cam main = camera(m);
+                                float pt = -1;
+                                try {
+                                    Object dt = Minecraft.class.getMethod("getDeltaTracker").invoke(m);
+                                    pt = (Float) dt.getClass().getMethod("getGameTimeDeltaPartialTick", boolean.class)
+                                            .invoke(dt, false);
+                                } catch (ReflectiveOperationException ignored) {
+                                    // left at -1
+                                }
+                                PROBE = String.format(Locale.ROOT, "overlayCam.x %.4f mainCam.x %.4f player.xo %.4f player.x %.4f"
+                                        + " partialTick %.3f", overlayCam.x, main.pos.x, m.player.xo, m.player.getX(), pt);
+                            });
+                }
+                return null;
+            });
+            double lastX = -1e9;
+            for (int i = 0; i < 40; i++) {
+                c.ticks(1);
+                double px = c.onClient(mc -> mc.player.getX());
+                boolean moving = Math.abs(px - lastX) > 0.01;
+                lastX = px;
+                String outcome = c.onClient(mc -> (String) Mod.staticCall(EW, "lastOutcome"));
+                String label = String.format(Locale.ROOT, "walk-%02d", i);
+                BufferedImage img = grab(c, label, false);
+                Cam cam = c.onClient(EtherwarpFaceCases::camera);
+                Vec3 eye = c.onClient(mc -> mc.player.getEyePosition());
+                c.note(label + " probe at the overlay's render: " + PROBE);
+                int[] n = FACES[0]; // the near face: -x of block (CX, 101, CZ)
+                int hit = 0, usable = 0;
+                for (double[] e : new double[][]{{0, -1}, {1, -1}, {-1, 0}, {-1, 1}}) {
+                    for (int k = 1; k <= 9; k++) {
+                        double t = k / 10.0;
+                        Vec3 pt = facePoint(CX, 101, CZ, n, e[0] < 0 ? t : e[0], e[1] < 0 ? t : e[1]);
+                        int[] sp = cam.project(pt, img.getWidth(), img.getHeight());
+                        if (sp == null) {
+                            continue;
+                        }
+                        usable++;
+                        if (magentaNear(img, sp, 3)) {
+                            hit++;
+                        }
+                    }
+                }
+                int[] bb = magentaBox(img);
+                int[] gold = goldBox(img);
+                // Where the gold face really starts and ends on the middle row (the world's own render), and whether the
+                // outline is there: a magenta pixel within 4 px of that column, anywhere in the 40 rows around it.
+                int w = img.getWidth(), mid = img.getHeight() / 2;
+                int left = -1, right = -1;
+                for (int x = 0; x < w; x++) {
+                    if (goldish(img.getRGB(x, mid))) {
+                        if (left < 0) {
+                            left = x;
+                        }
+                        right = x;
+                    }
+                }
+                int edges = 0, onEdge = 0;
+                for (int ex : new int[]{left, right}) {
+                    if (ex > 6 && ex < w - 7) {
+                        edges++;
+                        boolean found = false;
+                        for (int y = mid - 20; y <= mid + 20 && !found; y++) {
+                            found = magentaNear(img, new int[]{ex, y}, 4);
+                        }
+                        if (found) {
+                            onEdge++;
+                        }
+                    }
+                }
+                int worst = edges - onEdge;
+                edgeChecks += edges;
+                double[] tl = cam.projectRaw(facePoint(CX, 101, CZ, n, 1, 0), img.getWidth(), img.getHeight());
+                double[] br = cam.projectRaw(facePoint(CX, 101, CZ, n, 0, 1), img.getWidth(), img.getHeight());
+                String line = String.format(Locale.ROOT, "%s x %.3f moving %s cam %.3f,%.3f,%.3f eye %.3f,%.3f,%.3f %s |"
+                                + " near-face edges magenta %d/%d | magenta box %s, gold face %s (side edges on screen %d, outlined %d), face projects"
+                        + " %s..%s", label, px, moving,
+                        cam.pos.x, cam.pos.y, cam.pos.z, eye.x, eye.y, eye.z, outcome, hit, usable,
+                        bb == null ? "none" : bb[0] + "," + bb[1] + ".." + bb[2] + "," + bb[3],
+                        gold == null ? "none" : gold[0] + "," + gold[1] + ".." + gold[2] + "," + gold[3], edges, onEdge,
+                        tl == null ? "-" : String.format(Locale.ROOT, "%.0f,%.0f", tl[0], tl[1]),
+                        br == null ? "-" : String.format(Locale.ROOT, "%.0f,%.0f", br[0], br[1]));
+                c.note(line);
+                frames++;
+                dev.testkit.harness.Report.screenshot(c.name() + "-" + label, TAKEN.get(c.name() + "-" + label));
+                if (worst > 0) {
+                    bad.add(line);
+                }
+                if (!moving && i > 3) {
+                    break;
+                }
+            }
+        } finally {
+            c.onClient(mc -> {
+                mc.options.keyShift.setDown(false);
+                mc.options.keyUp.setDown(false);
+                dev.testkit.compat.McCompat.setHudHidden(mc, hideWas);
+                mc.options.bobView().set(bobWas);
+                return null;
+            });
+            for (AutoCloseable r : restore) {
+                r.close();
+            }
+            DocDungeonsCases.command(c, "fill 330 99 330 350 108 350 minecraft:air");
+            DocDungeonsCases.command(c, "clear @a");
+        }
+        c.note(frames + " frame(s), " + edgeChecks + " on-screen side edge(s) of the gold face checked, " + bad.size() + " bad");
+        c.check(frames >= 15, "only " + frames + " frame(s) while walking");
+        c.check(edgeChecks >= 30, "only " + edgeChecks + " side edges were on screen - the walk never showed the face");
+        c.check(bad.isEmpty(), bad.size() + " frame(s) with the near face's outline off its edges: " + bad);
+    }
+
+    private static int edgeChecks;
+    private static boolean probeHooked;
+    private static volatile String PROBE = "none";
+
+    private static boolean magenta(int rgb) {
+        int r = rgb >> 16 & 0xFF, g = rgb >> 8 & 0xFF, b = rgb & 0xFF;
+        return r > 170 && b > 170 && g < 90;
+    }
+
+    private static boolean magentaNear(BufferedImage img, int[] p, int rad) {
+        for (int dy = -rad; dy <= rad; dy++) {
+            for (int dx = -rad; dx <= rad; dx++) {
+                int x = p[0] + dx, y = p[1] + dy;
+                if (x >= 0 && y >= 0 && x < img.getWidth() && y < img.getHeight() && magenta(img.getRGB(x, y))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean goldish(int rgb) {
+        int r = rgb >> 16 & 0xFF, g = rgb >> 8 & 0xFF, b = rgb & 0xFF;
+        return r > 70 && g > 50 && r - b > 40;
+    }
+
+    private static int[] goldBox(BufferedImage img) {
+        int x0 = Integer.MAX_VALUE, y0 = Integer.MAX_VALUE, x1 = -1, y1 = -1;
+        for (int y = 0; y < img.getHeight(); y++) {
+            for (int x = 0; x < img.getWidth(); x++) {
+                int rgb = img.getRGB(x, y);
+                int r = rgb >> 16 & 0xFF, g = rgb >> 8 & 0xFF, b = rgb & 0xFF;
+                if (r > 80 && g > 65 && b < 60 && r - b > 50) {
+                    x0 = Math.min(x0, x);
+                    y0 = Math.min(y0, y);
+                    x1 = Math.max(x1, x);
+                    y1 = Math.max(y1, y);
+                }
+            }
+        }
+        return x1 < 0 ? null : new int[]{x0, y0, x1, y1};
+    }
+
+    private static int[] magentaBox(BufferedImage img) {
+        int x0 = Integer.MAX_VALUE, y0 = Integer.MAX_VALUE, x1 = -1, y1 = -1;
+        for (int y = 0; y < img.getHeight(); y++) {
+            for (int x = 0; x < img.getWidth(); x++) {
+                if (magenta(img.getRGB(x, y))) {
+                    x0 = Math.min(x0, x);
+                    y0 = Math.min(y0, y);
+                    x1 = Math.max(x1, x);
+                    y1 = Math.max(y1, y);
+                }
+            }
+        }
+        return x1 < 0 ? null : new int[]{x0, y0, x1, y1};
+    }
+
     /** Faces the camera was pressed against (tint expected), over the whole run: must not be zero. */
     private static int tintedTotal;
 
@@ -216,19 +445,18 @@ final class EtherwarpFaceCases {
             int[] clean = tintExpected ? null : filledSamples(c, cam, outline, off, bx, by, bz, f, 5);
             line.append(String.format(Locale.ROOT, " %s filled %s outline %s (inside %s);", FACE_NAMES[f], frac(fs),
                     frac(os), frac(oi)));
-            if (os[1] < 4 && oi[1] >= 4) {
-                // every edge of this face is off screen: the face is drawn only if its interior is tinted
-                checked++;
-                if (oi[0] < 0.9 * oi[1]) {
-                    miss.add(label + " " + FACE_NAMES[f] + " outline: edges off screen and face untinted " + frac(oi));
-                }
-            }
             if (tintExpected) {
+                // Pressed against it (within the mod's NEAR_FACE_DISTANCE, inside its footprint): no shading any more -
+                // killer560 (2026-10-13, 26.2) "I do not want the etherwarp overlay to turn shaded red when I am close" -
+                // but a smaller outline on that face, so some of the screen changes and only a sliver of it.
                 tinted++;
                 tintedTotal++;
                 checked++;
-                if (oi[1] < 4 || oi[0] < 0.9 * oi[1]) {
-                    miss.add(label + " " + FACE_NAMES[f] + " outline: pressed against the face, untinted " + frac(oi));
+                int[] ch = changedPixels(outline, off);
+                double frac = ch[0] / (double) ch[1];
+                if (ch[0] < 200 || frac > 0.10) {
+                    miss.add(label + " " + FACE_NAMES[f] + " outline: pressed against the face, " + ch[0] + " pixel(s) changed ("
+                            + String.format(Locale.ROOT, "%.1f%%", 100 * frac) + ") - want an outline (>= 200) and no shading (<= 10%)");
                 }
             } else if (clean[1] >= 4 && clean[0] > 0.05 * clean[1]) {
                 miss.add(label + " " + FACE_NAMES[f] + " outline: face tinted while not pressed against it "
@@ -256,14 +484,27 @@ final class EtherwarpFaceCases {
         return new Result(line.toString(), checked, miss);
     }
 
-    /** Mirrors the mod's rule: within 0.5 of face f's plane, in front of it, and inside its footprint. */
+    /** {changed, total} pixels between two shots. */
+    private static int[] changedPixels(BufferedImage on, BufferedImage off) {
+        int changed = 0;
+        for (int y = 0; y < on.getHeight(); y++) {
+            for (int x = 0; x < on.getWidth(); x++) {
+                if (dev.testkit.gametest.ui.MapHeadCases.changed(on.getRGB(x, y), off.getRGB(x, y))) {
+                    changed++;
+                }
+            }
+        }
+        return new int[]{changed, on.getWidth() * on.getHeight()};
+    }
+
+    /** Mirrors the mod's rule: within NEAR_FACE_DISTANCE (0.85) of face f's plane, in front of it, inside its footprint. */
     private static boolean pressedAgainst(Vec3 cam, int bx, int by, int bz, int f) {
         int[] n = FACES[f];
         double[] c = {cam.x - bx, cam.y - by, cam.z - bz};
         for (int axis = 0; axis < 3; axis++) {
             if (n[axis] != 0) {
                 double dist = n[axis] > 0 ? c[axis] - 1 : -c[axis];
-                if (dist <= 0 || dist > 0.5) {
+                if (dist <= 0 || dist > 0.85) {
                     return false;
                 }
             } else if (c[axis] < 0 || c[axis] > 1) {
