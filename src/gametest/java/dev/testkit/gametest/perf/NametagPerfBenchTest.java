@@ -231,15 +231,16 @@ public class NametagPerfBenchTest implements FabricClientGameTest {
                 if (busy) {
                     c.check(seen >= 55, "busy scene: the client sees only " + seen + " entities");
                 }
+                boolean shotsOnly = Boolean.getBoolean("testkit.nametagShotsOnly");
                 // warm-up: every config once
-                for (String cfg : CFGS) {
+                for (String cfg : shotsOnly ? new String[0] : CFGS) {
                     apply(c, cfg);
                     for (CameraType cam : CAMS) {
                         camera(c, cam);
                         measure(c, 60, busy, self);
                     }
                 }
-                for (int r = 0; r < rounds; r++) {
+                for (int r = 0; r < (shotsOnly ? 0 : rounds); r++) {
                     for (String cfg : CFGS) {
                         apply(c, cfg);
                         for (CameraType cam : CAMS) {
@@ -256,7 +257,7 @@ public class NametagPerfBenchTest implements FabricClientGameTest {
                     }
                 }
                 FrameClock.Stats[] base = new FrameClock.Stats[CAMS.length];
-                for (String cfg : CFGS) {
+                for (String cfg : shotsOnly ? new String[0] : CFGS) {
                     for (int k = 0; k < CAMS.length; k++) {
                         String key = scene + "/" + cfg + "/" + (k == 0 ? "1st" : "F5");
                         long[][][] acc = cells.get(key);
@@ -297,7 +298,7 @@ public class NametagPerfBenchTest implements FabricClientGameTest {
                         c.check(f.n() >= frames * rounds / 2, key + ": only " + f.n() + " frames recorded");
                     }
                 }
-                if (!Boolean.getBoolean("testkit.bench.noJfr")) {
+                if (!shotsOnly && !Boolean.getBoolean("testkit.bench.noJfr")) {
                     apply(c, "wave");
                     camera(c, CameraType.THIRD_PERSON_BACK);
                     ctx.waitTicks(20);
@@ -441,14 +442,21 @@ public class NametagPerfBenchTest implements FabricClientGameTest {
                             chatLine(c, self);
                         }
                     }
-                    c.ctx().waitTicks(8);
-                    String tag = scene + "-" + cfg + "-" + (cam == CameraType.FIRST_PERSON ? "1st" : "F5") + "-" + t + "ms";
-                    Path p = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(NAME + "-" + tag));
-                    report.add("shot " + tag + ": " + p.getFileName());
-                    if (!SHOTS.isEmpty()) {
-                        Path dir = Path.of(SHOTS);
-                        Files.createDirectories(dir);
-                        Files.copy(p, dir.resolve(tag + ".png"), StandardCopyOption.REPLACE_EXISTING);
+                    for (boolean tab : busy ? new boolean[]{true, false} : new boolean[]{false}) {
+                        c.onClient(mc -> {
+                            mc.options.keyPlayerList.setDown(tab);
+                            return null;
+                        });
+                        c.ctx().waitTicks(8);
+                        String tag = scene + "-" + cfg + "-" + (cam == CameraType.FIRST_PERSON ? "1st" : "F5") + "-" + t + "ms"
+                                + (busy && !tab ? "-notab" : "");
+                        Path p = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(NAME + "-" + tag));
+                        report.add("shot " + tag + ": " + p.getFileName());
+                        if (!SHOTS.isEmpty()) {
+                            Path dir = Path.of(SHOTS);
+                            Files.createDirectories(dir);
+                            Files.copy(p, dir.resolve(tag + ".png"), StandardCopyOption.REPLACE_EXISTING);
+                        }
                     }
                 }
             }
