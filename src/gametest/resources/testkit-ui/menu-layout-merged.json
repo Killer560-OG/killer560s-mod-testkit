@@ -16,8 +16,8 @@
     {
       "owner": "Trail",
       "key": "trail",
-      "text": "Draws a cosmetic trail behind you as you move: squares at your feet, or a ribbon (see Style).",
-      "why": "trail-ribbon: Trail gained the Ribbon style"
+      "text": "Draws squares behind you as you move: one per tick, green on the ground and blue in the air. Only you see it; it is never shared.",
+      "why": "ribbon-cosmetic: Trail is the squares only again; the ribbon is its own Ribbon Trail tab (killer560 2026-10-14)"
     },
     {
       "owner": "(unscoped)",

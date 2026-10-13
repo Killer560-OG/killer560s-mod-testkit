@@ -457,8 +457,11 @@ final class TrailRibbonCases {
             c.check(b.nearMag() > b.farMag() * 1.5, "the band does not fade toward the tail: " + b.describe());
             c.check(b.height() < b.thickness() * 1.6, "a straight walk drew a bent band: " + b.describe());
             // The band starts behind him (against his movement), not inside his body: nothing drawn over him.
-            int overBody = overPlayer(off, on, 20);
-            c.note("changed pixels over the player's torso and legs (centre +-20 px): " + overBody);
+            // His model is one block wide arm to arm (+-30 px here), so the band's head 0.3 blocks behind his centre
+            // sits about 18 px out, beside his arm: +-20 px reached into it (67 px on 26.2, where the arm does not
+            // cover it). +-12 px is his torso and legs.
+            int overBody = overPlayer(off, on, 12);
+            c.note("changed pixels over the player's torso and legs (centre +-12 px): " + overBody);
             c.check(overBody < 50, "the ribbon is drawn over the player (" + overBody + " px in front of his body)");
             // From behind: walking forward (south), the band streams back toward the camera and down the screen. A
             // vertical band seen EXACTLY from behind a dead-straight walk is edge-on (the F5 camera sits in its plane),
