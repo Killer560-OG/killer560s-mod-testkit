@@ -19,7 +19,8 @@ import java.util.Locale;
  *
  * <pre>
  * 1341 the Auto sequence from a sword in slot 1 with the leap in slot 5: swap to 5, use, click the target's head, swap
- *      to Return To (Previous Slot, then Slot 3), each on its own client tick and in that order on the server; then
+ *      to Return To (Previous Slot, then Slot 3; Stay on Leap sends no swap back), each on its own client tick and in
+ *      that order on the server; then
  *      Fast and Auto both on: the trigger leaps, and so does his left click
  * 1342 the failures say which step: no leap in the hotbar (one in the inventory is never moved: nothing sent), the menu
  *      did not open (and it still swaps back), the target is not in the menu
@@ -75,6 +76,12 @@ final class LeapV2MenuCases {
             r = autoLeap(c, "Return To Slot 3", "Bob", 2);
             c.check(r[0] == 13, "the Auto leap on Bob's door clicked slot " + r[0] + ", Bob is 13");
             c.check(r[1] == 2, "after the leap he holds slot " + (r[1] + 1) + ", Return To is slot 3");
+
+            // ---- 2b: Stay on Leap: the leap ends holding the leap, no second held change ----
+            c.ctx().runOnClient(mc -> Mod.call(cfgObj, "setReturnToSlot", -2));
+            r = autoLeap(c, "Stay on Leap", "Alice", -1);
+            c.check(r[0] == 11, "the Auto leap on Alice's door clicked slot " + r[0] + ", Alice is 11");
+            c.check(r[1] == 4, "after the leap he holds slot " + (r[1] + 1) + ", Stay on Leap keeps the leap's slot 5");
 
             // ---- 3: Fast and Auto both on: the trigger leaps, then his left click leaps too ----
             c.ctx().runOnClient(mc -> Mod.call(cfgObj, "setLeapFast", door, true));
@@ -135,10 +142,13 @@ final class LeapV2MenuCases {
         List<String> steps = c.onClient(mc -> (List<String>) Mod.staticCall(LM, "stepLog"));
         int sel = c.onClient(mc -> mc.player.getInventory().getSelectedSlot());
         c.note(what + ": server saw " + seq + "; client steps " + steps + "; holds slot " + (sel + 1));
-        List<String> want = List.of("held 4", "use_item", "click " + slot, "held " + wantReturn);
+        // wantReturn -1: Stay on Leap, so no swap back at all
+        List<String> want = wantReturn < 0 ? List.of("held 4", "use_item", "click " + slot)
+                : List.of("held 4", "use_item", "click " + slot, "held " + wantReturn);
         c.check(seq.equals(want), what + ": the server saw " + seq + ", want " + want);
-        c.check(steps.size() == 4 && steps.get(0).endsWith(" swap 5") && steps.get(1).endsWith(" use")
-                && steps.get(2).endsWith(" click " + slot) && steps.get(3).endsWith(" return " + (wantReturn + 1)),
+        c.check(steps.size() == want.size() && steps.get(0).endsWith(" swap 5") && steps.get(1).endsWith(" use")
+                && steps.get(2).endsWith(" click " + slot)
+                && (wantReturn < 0 || steps.get(3).endsWith(" return " + (wantReturn + 1))),
                 what + ": client steps " + steps);
         long prev = Long.MIN_VALUE;
         for (String s : steps) {

@@ -273,7 +273,7 @@ final class DocDungeonsCases {
             c.check(states.get(1).startsWith("-A Fast: OFF/Auto: ON"), "Fast off did not leave Auto alone: " + states.get(1));
             c.check(states.get(2).startsWith("-- Fast: OFF/Auto: OFF"), "Auto off did not leave both off: " + states.get(2));
             c.check(states.get(3).startsWith("F- Fast: ON/Auto: OFF"), "Fast on did not leave Fast alone: " + states.get(3));
-            // Return To: replaces Swap Back; Previous Slot, then Slot 1 ... Slot 9, wrapping, saved
+            // Return To: replaces Swap Back; Previous Slot, Stay on Leap, then Slot 1 ... Slot 9, wrapping, saved
             List<AbstractWidget> general = new ArrayList<>();
             c.onClient(mc -> Mod.staticCall(FLS, "buildGeneral", general, 0, 0, 400, (Runnable) () -> { }));
             List<String> gl = labels(general);
@@ -282,14 +282,22 @@ final class DocDungeonsCases {
             if (ri >= 0) {
                 AbstractWidget ret = general.get(ri);
                 List<String> rwalk = new ArrayList<>();
-                for (int i = 0; i < 10; i++) {
+                for (int i = 0; i < 11; i++) {
                     c.onClient(mc -> Mod.call(ret, "press"));
                     rwalk.add(label(ret));
                 }
                 int saved = c.onClient(mc -> (Integer) Mod.call(Mod.staticCall(FLC, "getInstance"), "getReturnToSlot"));
                 c.note("Return To presses: " + rwalk + "; saved " + saved);
-                c.check(rwalk.get(0).equals("Return To: Slot 1") && rwalk.get(8).equals("Return To: Slot 9")
-                        && rwalk.get(9).equals("Return To: Previous Slot"), "Return To walked " + rwalk);
+                c.check(rwalk.get(0).equals("Return To: Stay on Leap") && rwalk.get(1).equals("Return To: Slot 1")
+                        && rwalk.get(9).equals("Return To: Slot 9") && rwalk.get(10).equals("Return To: Previous Slot"),
+                        "Return To walked " + rwalk);
+                // Stay on Leap is saved (read from the file: a load here would leave the built buttons on the old
+                // config object; the load at the end of the case reads Slot 3 back)
+                c.onClient(mc -> Mod.call(ret, "press"));
+                int stay = com.google.gson.JsonParser.parseString(Files.readString(file)).getAsJsonObject()
+                        .get("returnToSlot").getAsInt();
+                c.note("Stay on Leap in the saved file: " + stay);
+                c.check(stay == -2, "Stay on Leap read back as " + stay + ", want -2");
                 c.onClient(mc -> Mod.call(ret, "press"));
                 c.onClient(mc -> Mod.call(ret, "press"));
                 c.onClient(mc -> Mod.call(ret, "press")); // Slot 3
