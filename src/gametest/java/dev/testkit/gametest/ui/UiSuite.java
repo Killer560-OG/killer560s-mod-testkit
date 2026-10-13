@@ -177,6 +177,9 @@ public class UiSuite implements FabricClientGameTest {
             "899-ui-bars-his-icons"};
     /** Inventory Theme: every item centred in its slot frame (mod inv-theme-fix, {@link InvThemeCenterCases}). Own block. */
     static final String[] INV_THEME_CENTRE_CASES = {"897-ui-inventory-theme-item-centred"};
+    /** killer560's 2026-10-13 doc list, misc items ({@link DocMiscCases}). Own block for merges. */
+    static final String[] DOC_MISC_CASES = {"1311-ui-scoreboard-numbers", "1312-ui-inventory-slot-outlines",
+            "1313-ui-bars-default-thinner", "1314-ui-peek-chat", "1315-ui-loadouts-button"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -256,6 +259,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : INV_THEME_CENTRE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : DOC_MISC_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -265,7 +271,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES)
                 || any(AUTOKICK2_CASES)
                 || any(CYCLE_BACK_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES) || any(HUD_KEY3_CASES)
-                || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES)
+                || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(DOC_MISC_CASES)
                 || any(MENU_PROFILES_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
@@ -484,6 +490,12 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "899-ui-bars-his-icons", BarStyleCases::hisIcons);
                     // ---- Inventory Theme item centring (897) ----
                     UiCase.run(ctx, "897-ui-inventory-theme-item-centred", InvThemeCenterCases::centred);
+                    // ---- killer560's 2026-10-13 doc list, misc (1311-1315) ----
+                    UiCase.run(ctx, "1311-ui-scoreboard-numbers", DocMiscCases::scoreboardNumbers);
+                    UiCase.run(ctx, "1312-ui-inventory-slot-outlines", DocMiscCases::slotOutlines);
+                    UiCase.run(ctx, "1313-ui-bars-default-thinner", DocMiscCases::barsThinner);
+                    UiCase.run(ctx, "1314-ui-peek-chat", DocMiscCases::peekChat);
+                    UiCase.run(ctx, "1315-ui-loadouts-button", DocMiscCases::loadoutsButton);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

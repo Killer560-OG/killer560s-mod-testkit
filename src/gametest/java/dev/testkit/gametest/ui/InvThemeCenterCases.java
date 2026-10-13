@@ -54,7 +54,17 @@ final class InvThemeCenterCases {
     }
 
     /** The palette's colours (RGB, no alpha): border, panel, light, dark, slotFill, slotDark, slotLight. */
-    private record Pal(int border, int panel, int light, int dark, int slotFill, int slotDark, int slotLight) {
+    private record Pal(int border, int panel, int light, int dark, int slotFill, int slotDark, int slotLight,
+                       boolean bevel) {
+        Pal(int border, int panel, int light, int dark, int slotFill, int slotDark, int slotLight) {
+            this(border, panel, light, dark, slotFill, slotDark, slotLight, true);
+        }
+
+        /** The colour of a slot's top and left line: the dark bevel in Default, the light outline elsewhere (mod
+         *  doc-misc, 2026-10-13: every preset but Default outlines each slot on all four sides in slotLight). */
+        int topLeft() {
+            return bevel ? slotDark : slotLight;
+        }
     }
 
     private static void theme(UiCase c, String preset) {
@@ -84,8 +94,14 @@ final class InvThemeCenterCases {
         return c.onClient(mc -> {
             Object p = Mod.call(Mod.cfg(ICFG), "getPalette");
             java.util.function.Function<String, Integer> f = n -> ((Number) Mod.call(p, n)).intValue() & 0xFFFFFF;
+            boolean bevel;
+            try {
+                bevel = (Boolean) Mod.call(p, "bevelSlots");
+            } catch (Throwable t) {
+                bevel = true; // a jar from before doc-misc: every preset bevelled
+            }
             return new Pal(f.apply("border"), f.apply("panel"), f.apply("light"), f.apply("dark"), f.apply("slotFill"),
-                    f.apply("slotDark"), f.apply("slotLight"));
+                    f.apply("slotDark"), f.apply("slotLight"), bevel);
         });
     }
 
@@ -221,11 +237,14 @@ final class InvThemeCenterCases {
             if (notFill > 0) {
                 bad.add(notFill + " of the item box's 4 edge midpoints are not the slot fill");
             }
-            int dl = run(full, bx0 - 1, cy, -1, 0, p.slotDark());
-            int dt = run(full, cx, by0 - 1, 0, -1, p.slotDark());
+            int dl = run(full, bx0 - 1, cy, -1, 0, p.topLeft());
+            int dt = run(full, cx, by0 - 1, 0, -1, p.topLeft());
             int lr = run(full, bx1 + 1, cy, 1, 0, p.slotLight());
             int lb = run(full, cx, by1 + 1, 0, 1, p.slotLight());
-            if (dl != gs || dt != gs || lr != gs || lb != gs) {
+            // A one-colour outline runs on into a touching neighbour's own line: one unit, or two between two slots.
+            boolean ok = p.bevel() ? dl == gs && dt == gs && lr == gs && lb == gs
+                    : one(dl, gs) && one(dt, gs) && one(lr, gs) && one(lb, gs);
+            if (!ok) {
                 bad.add("bevel dark L" + dl + " T" + dt + ", light R" + lr + " B" + lb + " px (want " + gs + " each)");
             }
             // The stone: everything inside the box that is not the fill.
@@ -276,6 +295,10 @@ final class InvThemeCenterCases {
         c.note(String.format(Locale.ROOT, "%s: %d slots measured, worst item off-centre %d px%s", label, checked, worstOff,
                 first.isEmpty() ? "; every inside, bevel and rarity edge as wanted" : "; first problem " + first));
         return checked;
+    }
+
+    private static boolean one(int run, int gs) {
+        return run == gs || run == 2 * gs;
     }
 
     /** The container panel's raised bevel down its middle column: border, two units light at the top, two dark at the

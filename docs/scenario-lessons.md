@@ -506,3 +506,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   reaches the drawer opened last - a real-input case opens one feature with `d.open(leaf)` (or `openChain`). Tooltips are
   judged with `ModScreen.tooltipCategory(w)` (each tab's pre-regroup category), header rows by `ModScreen.cardTooltip`.
   A slider is clicked on its drawn track (`trackRange()`), not across the whole row.
+
+- 1314 (Peek Chat): the held item on the right sways between two screenshots (2,053 changed px in one run), and the
+  chat sits wherever the window puts it (top-left at 854x480). Diff a strip LEFT of the hotbar and judge by share of
+  the area; find a chat line on the picture by its colour, not by a fixed y (2026-10-13).
