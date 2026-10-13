@@ -175,6 +175,9 @@ public class UiSuite implements FabricClientGameTest {
             "899-ui-bars-his-icons"};
     /** Inventory Theme: every item centred in its slot frame (mod inv-theme-fix, {@link InvThemeCenterCases}). Own block. */
     static final String[] INV_THEME_CENTRE_CASES = {"897-ui-inventory-theme-item-centred"};
+    /** The screen sweep, part C (mod sweep-c, {@link ScreenThemeCases}): every sweep-c screen in Amber and Light, and a
+     *  screen's own Theme setting. Own block for merges. */
+    static final String[] SCREEN_SWEEP_C_CASES = {"975-ui-screen-sweep-c-themes", "976-ui-screen-own-theme"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -254,6 +257,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : INV_THEME_CENTRE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : SCREEN_SWEEP_C_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -264,7 +270,8 @@ public class UiSuite implements FabricClientGameTest {
                 || any(AUTOKICK2_CASES)
                 || any(CYCLE_BACK_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES) || any(HUD_KEY3_CASES)
                 || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES)
-                || any(MENU_PROFILES_CASES);
+                || any(MENU_PROFILES_CASES)
+                || any(SCREEN_SWEEP_C_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -480,6 +487,9 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "899-ui-bars-his-icons", BarStyleCases::hisIcons);
                     // ---- Inventory Theme item centring (897) ----
                     UiCase.run(ctx, "897-ui-inventory-theme-item-centred", InvThemeCenterCases::centred);
+                    // ---- screen sweep, part C (975-976) ----
+                    UiCase.run(ctx, "975-ui-screen-sweep-c-themes", ScreenThemeCases::sweep);
+                    UiCase.run(ctx, "976-ui-screen-own-theme", ScreenThemeCases::ownTheme);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
