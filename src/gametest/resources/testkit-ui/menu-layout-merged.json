@@ -9,7 +9,8 @@
   "newLeaves": {
     "gui.tab.ChatHiderTab": "Chat > Chat Hider",
     "gui.tab.CustomItemsTab": "Cosmetics > Custom Items",
-    "gui.tab.ChocolateFactoryTab": "Misc > Chocolate Factory"
+    "gui.tab.ChocolateFactoryTab": "Misc > Chocolate Factory",
+    "gui.tab.PeekChatTab": "Chat > Peek Chat"
   },
   "tooltips": [
     {
@@ -233,11 +234,6 @@
       "key": "auction house browser",
       "text": "One switch for the whole Auction House: the custom browser (/killer560 ah or a keybind) and Hypixel's real Auction House menus drawn in its look, where every click is the same single click on Hypixel's menu.",
       "why": "bz-reskin c13a41e8: one switch for the Bazaar / Auction House browser and its reskin (killer560, 2026-10-11)"
-    },
-    {
-      "owner": "Bazaar",
-      "key": "hypixel menu key",
-      "gone": "bz-reskin c13a41e8: the Hypixel Menu key row sat beside Reskin Real Bazaar and showed with the Bazaar off; with one switch it shows only while the Bazaar is on (the walk has it off)"
     },
     {
       "owner": "Class Overrides",
