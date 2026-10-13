@@ -103,7 +103,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // hype-down (2026-10-11)
             "96-ar-653-crypt-straight-down",
             // ar-obvious-only (2026-10-11): legit mode exists only in -PtestingBuild jars
-            "96-ar-786-obvious-only"};
+            "96-ar-786-obvious-only",
+            // ar-startguard (2026-10-12): a map arrival's start-only hold on a route with no start node
+            "96-ar-920-nostart-mapwarp"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -270,6 +272,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-639-legit-warp-exact" -> caseLegitWarpExact(ctx);
                         case "96-ar-653-crypt-straight-down" -> caseCryptStraightDown(ctx);
                         case "96-ar-786-obvious-only" -> caseObviousOnly(ctx);
+                        case "96-ar-920-nostart-mapwarp" -> caseNoStartMapWarp(ctx);
                         default -> {
                         }
                     }
@@ -715,6 +718,224 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true);
             });
         }
+    }
+
+    // ============================================================================================ ar-startguard
+
+    /**
+     * 96-ar-920-nostart-mapwarp (killer560, 2026-10-12: "dungeon breaker nodes are not working in ar. they do not break
+     * blocks"). His Mod Only Test log: an Interactive Map warp set Auto Routes' map-arrival hold (start node only), his
+     * Museum route has NO start node, and every check after said "start only, no start node" - nothing in the room armed
+     * again. Start Node Only is OFF here, so the map's hold is the only thing asking for a start node.
+     * <p>
+     * The hold is set the way the map sets it: the Go + Secret bind with the cursor off the map
+     * ({@code InteractiveMapFeature.pathToCurrentRoomStartNode}, which goes through the map's goal queue and
+     * {@code AutoRoutesFeature.cancelForInteractiveMap}), and then whatever pathing the map did to the room. The hold is
+     * only READ by reflection, to prove it was on before he stepped on.
+     * <p>
+     * A: a route of one DUNGEON_BREAKER node, no start node, six stone blocks. After the press he stands on it: it must
+     * arm and all six must break. B (control): a start breaker node and a non-start breaker node. After the press the
+     * non-start one must NOT arm (its blocks stand); once he has been through the start node, it breaks its blocks.
+     */
+    private void caseNoStartMapWarp(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        ctx.runOnClient(mc -> {
+            ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", false);
+            ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
+        });
+        // Own rows, clear of every other breaker case's regrowing blocks (z 12, 18, 22).
+        int[][] rowA = {{19, 0, 25}, {20, 0, 25}, {21, 0, 25}, {19, 1, 25}, {20, 1, 25}, {21, 1, 25}};
+        int[][] rowS = {{7, 0, 25}, {8, 0, 25}, {9, 0, 25}};
+        int[][] rowB = {{19, 0, 5}, {20, 0, 5}, {21, 0, 5}, {19, 1, 5}, {20, 1, 5}, {21, 1, 5}};
+        try {
+            // ---- A: no start node, after each way the map sets the hold: A1 the Go + Secret press, A2 map closed ----
+            for (int pass = 1; pass <= 2; pass++) {
+                String part = "A" + pass;
+                placeStone(ctx, rowA);
+                JsonObject a = node("DUNGEON_BREAKER", 20, 23, 0f, 0f);
+                a.add("blocks", blockList(rowA));
+                writeRoute(ctx, List.of(a));
+                if (pass == 1) {
+                    mapPressAndSettle(ctx, part);
+                } else {
+                    mapOpenClose(ctx, part);
+                }
+                check(arrivalGuard(ctx), part + ": the map did not set the map-arrival hold - the case would prove nothing");
+                awaitCharges(ctx, 6);
+                long m = LogTap.mark();
+                tpRel(ctx, 20.5, 23.5, 0f, 0f);
+                boolean gone = waitFor(ctx, 80, () -> allAir(ctx, rowA));
+                int standing = standingCount(ctx, rowA);
+                println("nostart-mapwarp " + part + ": " + (6 - standing) + " of 6 block(s) broke, armed "
+                        + logHas(m, "armed node #1 (DUNGEON_BREAKER)") + ", hold after " + arrivalGuard(ctx));
+                if (!gone) {
+                    for (String l : LogTap.since(m)) {
+                        if (l.contains("[AutoRoutes] Arming")) {
+                            println("nostart-mapwarp " + part + ":   " + l);
+                        }
+                    }
+                }
+                check(logHas(m, "armed node #1 (DUNGEON_BREAKER)"), part + ": the breaker node (no start node in the "
+                        + "route) did not arm after a map arrival");
+                check(gone, part + ": " + standing + " of the six blocks still stand after the breaker node armed");
+                check(!arrivalGuard(ctx), part + ": the map-arrival hold outlived arming a node of a route with no start node");
+                tpRel(ctx, 14.5, 15.5, 0f, 0f);
+                ctx.waitTicks(5);
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                        new Object[]{"test"}));
+            }
+
+            // ---- B (control): a start node exists, so the map arrival still means start node first. The hold comes
+            // from closing the map (a Go + Secret press would warp him straight onto the start node). ----
+            placeStone(ctx, rowS);
+            placeStone(ctx, rowB);
+            JsonObject s = node("DUNGEON_BREAKER", 8, 23, 0f, 0f);
+            s.add("blocks", blockList(rowS));
+            s.addProperty("start", true);
+            JsonObject b = node("DUNGEON_BREAKER", 20, 7, 0f, 0f);
+            b.add("blocks", blockList(rowB));
+            writeRoute(ctx, List.of(s, b));
+            mapOpenClose(ctx, "B");
+            check(arrivalGuard(ctx), "B: the map did not set the map-arrival hold");
+            awaitCharges(ctx, 9);
+            long m = LogTap.mark();
+            tpRel(ctx, 20.5, 7.5, 0f, 0f);
+            ctx.waitTicks(40);
+            int bStanding = standingCount(ctx, rowB);
+            println("nostart-mapwarp B: on the non-start node after the map: " + bStanding + " of 6 standing, armed "
+                    + logHas(m, "armed node") + ", hold " + arrivalGuard(ctx));
+            check(!logHas(m, "armed node"), "B: a non-start node armed after a map arrival on a route with a start node");
+            check(bStanding == 6, "B: " + (6 - bStanding) + " of the non-start node's blocks broke before the start node");
+            check(arrivalGuard(ctx), "B: the hold went away without him passing the start node");
+            // Through the start node: it arms and breaks its three, and the hold is over.
+            tpRel(ctx, 14.5, 15.5, 0f, 0f);
+            ctx.waitTicks(5);
+            m = LogTap.mark();
+            tpRel(ctx, 8.5, 23.5, 0f, 0f);
+            boolean sGone = waitFor(ctx, 80, () -> allAir(ctx, rowS));
+            println("nostart-mapwarp B: start node armed " + logHas(m, "armed node #1 (DUNGEON_BREAKER, start)")
+                    + ", its blocks gone " + sGone + ", hold " + arrivalGuard(ctx));
+            check(logHas(m, "armed node #1 (DUNGEON_BREAKER, start)"), "B: the start node did not arm after the map press");
+            check(sGone, "B: the start node's blocks did not break");
+            check(!arrivalGuard(ctx), "B: the hold outlived the start node");
+            awaitCharges(ctx, 6);
+            tpRel(ctx, 20.5, 7.5, 0f, 0f);
+            boolean bGone = waitFor(ctx, 80, () -> allAir(ctx, rowB));
+            println("nostart-mapwarp B: after the start node, the non-start node's blocks gone " + bGone + " ("
+                    + standingCount(ctx, rowB) + " standing)");
+            check(bGone, "B: after the start node the non-start breaker node did not break its blocks");
+        } finally {
+            ctx.runOnClient(mc -> {
+                ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"});
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true);
+            });
+        }
+    }
+
+    private static void placeStone(ClientGameTestContext ctx, int[][] row) {
+        Map<int[], BlockState> put = new HashMap<>();
+        for (int[] p : row) {
+            put.put(new int[]{p[0], F + p[1], p[2]}, Blocks.STONE.defaultBlockState());
+        }
+        setBlocks(ctx, put);
+    }
+
+    private static JsonArray blockList(int[][] row) {
+        JsonArray arr = new JsonArray();
+        for (int[] p : row) {
+            arr.add(p[0] + " " + (F + p[1]) + " " + p[2]);
+        }
+        return arr;
+    }
+
+    private static int standingCount(ClientGameTestContext ctx, int[][] row) {
+        int n = 0;
+        for (int[] p : row) {
+            if (!blockAir(ctx, p[0], F + p[1], p[2])) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    private static boolean allAir(ClientGameTestContext ctx, int[][] row) {
+        return standingCount(ctx, row) == 0;
+    }
+
+    /** Auto Routes' map-arrival hold, READ only (it is set by the map press, never here). */
+    private static boolean arrivalGuard(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                java.lang.reflect.Field f = Class.forName(FEATURE).getDeclaredField("mapArrivalGuard");
+                f.setAccessible(true);
+                return f.getBoolean(null);
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    /** The Interactive Map opened (Run While Map Open OFF) and closed from the arena's middle: Auto Routes' interlock 3+4. */
+    private static void mapOpenClose(ClientGameTestContext ctx, String part) {
+        tpRel(ctx, 14.5, 15.5, 0f, 0f);
+        ctx.waitTicks(10);
+        ctx.runOnClient(mc -> {
+            ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setRunWhileMapOpen", false);
+            try {
+                McCompat.setScreen(mc, (Screen) Class.forName("com.killer560.hub.livemap.InteractiveMapScreen")
+                        .getConstructor(boolean.class).newInstance(true));
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        ctx.waitTicks(10);
+        String screen = ctx.computeOnClient(mc -> String.valueOf(McCompat.screen(mc)));
+        ctx.runOnClient(mc -> McCompat.setScreen(mc, null));
+        ctx.waitTicks(10);
+        println("nostart-mapwarp " + part + ": map was open (" + screen + ") and closed");
+        check(screen.contains("InteractiveMapScreen"), part + ": the Interactive Map did not open: " + screen);
+    }
+
+    /** Waits (up to 15 s) until the sim breaker holds at least {@code n} charges. */
+    private static void awaitCharges(ClientGameTestContext ctx, int n) {
+        check(waitFor(ctx, 300, () -> simCharges(ctx) >= n), "the sim breaker never got back to " + n + " charges ("
+                + simCharges(ctx) + ")");
+    }
+
+    /**
+     * From the arena's middle, clear of every node: the Go + Secret bind with the cursor off the map, as he presses it
+     * ({@code InteractiveMapFeature.pathToCurrentRoomStartNode}), then waits for whatever path the map started to end.
+     */
+    private static void mapPressAndSettle(ClientGameTestContext ctx, String part) {
+        tpRel(ctx, 14.5, 15.5, 0f, 0f);
+        ctx.waitTicks(10);
+        long m = LogTap.mark();
+        ctx.runOnClient(mc -> {
+            try {
+                java.lang.reflect.Method press = Class.forName("com.killer560.hub.livemap.InteractiveMapFeature")
+                        .getDeclaredMethod("pathToCurrentRoomStartNode");
+                press.setAccessible(true);
+                press.invoke(null);
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        ctx.waitTicks(5);
+        boolean settled = waitFor(ctx, 200, () -> ctx.computeOnClient(mc ->
+                !(Boolean) ModUnderTest.staticCall(CLEAR, "isBusy")
+                        && !(Boolean) ModUnderTest.staticCall("com.killer560.hub.livemap.InteractiveMapFeature", "isSteering")));
+        ctx.waitTicks(20);
+        Vec3 at = relPos(ctx);
+        println(String.format(Locale.US, "nostart-mapwarp %s: map press settled %s, he is at relative (%.2f, %.2f, %.2f)",
+                part, settled, at.x, at.y, at.z));
+        for (String l : LogTap.since(m)) {
+            if (l.contains("[AutoRoutes]") || l.contains("[Path]") || l.contains("start node")) {
+                println("nostart-mapwarp " + part + ":   " + l);
+            }
+        }
+        check(settled, part + ": the map's path never finished");
     }
 
     /** Spends sim breaker charges on the server until {@code left} remain, and returns the count it read after. */
