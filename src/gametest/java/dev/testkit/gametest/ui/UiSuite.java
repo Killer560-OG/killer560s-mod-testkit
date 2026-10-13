@@ -191,6 +191,9 @@ public class UiSuite implements FabricClientGameTest {
     /** The Ribbon trail style (mod trail-ribbon, {@link TrailRibbonCases}). Own block for merges. */
     static final String[] TRAIL_RIBBON_CASES = {"1031-ui-trail-ribbon-line", "1032-ui-trail-ribbon-curve",
             "1033-ui-trail-ribbon-still", "1034-ui-trail-ribbon-settings", "1035-ui-trail-ribbon-gallery"};
+    /** Shared trails (mod trail-share, {@link TrailShareCases}). Own block for merges. */
+    static final String[] TRAIL_SHARE_CASES = {"1036-ui-trail-share-send", "1037-ui-trail-share-remote",
+            "1038-ui-trail-share-hide", "1039-ui-trail-share-limits"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -279,6 +282,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : TRAIL_RIBBON_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : TRAIL_SHARE_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : LOCKSTAR_HEAD_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -294,6 +300,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES)
                 || any(CHROMA_WAVE_CASES)
                 || any(TRAIL_RIBBON_CASES)
+                || any(TRAIL_SHARE_CASES)
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES)
                 || any(LOCKSTAR_HEAD_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
@@ -534,6 +541,11 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1033-ui-trail-ribbon-still", TrailRibbonCases::stillAndSwitch);
                     UiCase.run(ctx, "1034-ui-trail-ribbon-settings", TrailRibbonCases::settings);
                     UiCase.run(ctx, "1035-ui-trail-ribbon-gallery", TrailRibbonCases::gallery);
+                    // ---- Shared trails (1036-1039) ----
+                    UiCase.run(ctx, "1036-ui-trail-share-send", TrailShareCases::send);
+                    UiCase.run(ctx, "1037-ui-trail-share-remote", TrailShareCases::remote);
+                    UiCase.run(ctx, "1038-ui-trail-share-hide", TrailShareCases::hide);
+                    UiCase.run(ctx, "1039-ui-trail-share-limits", TrailShareCases::limits);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
