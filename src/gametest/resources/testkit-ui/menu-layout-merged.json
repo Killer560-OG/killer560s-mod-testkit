@@ -296,8 +296,8 @@
     {
       "owner": "Croesus / Chest Profit",
       "key": "highlight runs",
-      "text": "In the Croesus menu, marks each run by what is left in it. Runs that need you stand out: unclaimed (solid orange) and worth going back to with a Dungeon Chest Key (solid magenta with a key mark). Runs with nothing to do stay quiet: not looked at yet this session (a faint outline), opened with nothing worth a key (light blue tint) and done with a key (light dark tint). Drawn behind the items, under their tooltips; the key mark sits over the item.",
-      "why": "croesus-ui 79dd7ecc / croesus-key: Highlight Runs behind the items, then by chest-key state (killer560, 2026-10-12); croesus-colors 2026-10-12: magenta / cyan / blue-border palette; croesus-colors2 2026-10-13: action states solid, quiet states recede, no \"?\" mark"
+      "text": "In the Croesus menu, marks each run by what is left in it. Runs that need you stand out: unclaimed (solid orange) and worth going back to with a Dungeon Chest Key (solid magenta with a key mark). Runs with nothing to do are outlines or a light tint, no fill: not looked at yet (a muted teal outline), opened with nothing worth a key (a muted blue outline) and done with a key (a light dark tint). Drawn behind the items, under their tooltips; the key mark sits over the item.",
+      "why": "croesus-ui 79dd7ecc / croesus-key: Highlight Runs behind the items, then by chest-key state (killer560, 2026-10-12); croesus-colors 2026-10-12: magenta / cyan / blue-border palette; croesus-colors2 2026-10-13: action states solid, quiet states recede, no \"?\" mark; croesus-outline 5802c253 2026-10-13: muted teal/blue full outlines"
     },
     {
       "owner": "Inventory Theme",
