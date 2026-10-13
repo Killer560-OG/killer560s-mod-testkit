@@ -568,6 +568,7 @@ final class CmdShortcutsCases {
                         for (Object[] step : chain) {
                             drv.expanded(step[0]).add((Integer) step[1]);
                         }
+                        drv.openChain(chain);
                         McCompat.setScreen(mc, drv.screen);
                         drv.rebuild();
                         return drv;

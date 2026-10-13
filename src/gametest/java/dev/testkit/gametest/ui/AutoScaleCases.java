@@ -24,7 +24,7 @@ import java.util.Locale;
  *   <li>The real window resized to 2560x1440, 1920x1080 and 3840x2160 at GUI Scale 3 ({@code TestInput.resizeWindow}).
  *       At each size a probe HUD element (a 100x20 magenta block registered into the mod's HudElementRegistry) is
  *       shown in the mod's HUD editor and its DRAWN size is measured in screenshot pixels; the mod menu is opened
- *       and its header underline measured. Both must be the same fraction of the window at every size, and at the
+ *       and its panel ring measured (the header underline before mod menu-a). Both must be the same fraction of the window at every size, and at the
  *       baseline the drawn box must be pixel-identical with Auto Scale off.</li>
  *   <li>A real click (cursor moved in window coordinates, button pressed through the input layer) on a mod menu
  *       sidebar row at its DRAWN position must select that row; and a click at the position the row would have
@@ -207,7 +207,7 @@ final class AutoScaleCases {
                     + " - the editor does not draw at the in-game scale");
         }
 
-        // The mod menu: header underline width, then real clicks.
+        // The mod menu: panel ring width, then real clicks.
         Screen menu = c.onClient(mc -> {
             try {
                 Class<?> cls = R.cls(ModScreenDriver.MOD_SCREEN);
@@ -232,11 +232,13 @@ final class AutoScaleCases {
         c.check(layoutF == f, "the menu was laid out with factor " + layoutF + ", HUD factor is " + f);
         Path shot = c.ctx().takeScreenshot(Report.fileName(c.name() + "-menu-" + w + "x" + h));
         Report.screenshot(c.name(), shot);
-        int headerRun = longestOrangeRun(shot);
-        int wantRun = Math.round(panelW * layoutF * 3);
-        c.note("menu header underline drawn " + headerRun + " px, expected " + wantRun);
+        // The Option A menu (mod menu-a) has no orange header underline; its panel's outer ring (0x4A3420, one unit
+        // outside the panel on every side) is the full-width line now: panelW + 2 units.
+        int headerRun = longestRun(shot, 0x4A, 0x34, 0x20);
+        int wantRun = Math.round((panelW + 2) * layoutF * 3);
+        c.note("menu panel ring drawn " + headerRun + " px, expected " + wantRun);
         if (Math.abs(headerRun - wantRun) > 3) {
-            c.problem("menu underline drawn " + headerRun + " px at " + w + "x" + h + ", layout says " + wantRun);
+            c.problem("menu panel ring drawn " + headerRun + " px at " + w + "x" + h + ", layout says " + wantRun);
         }
 
         clickRows(c, menu, panelX, panelY, layoutF, baseline);
@@ -248,16 +250,36 @@ final class AutoScaleCases {
         return new Measured(w, h, real[2], f, probeBox, headerRun, panelW, layoutF);
     }
 
-    /** Row {@code i} of the sidebar: x = panelX+8, y = panelY+40+24i, 94x20 (gui/ModScreen.rebuild). */
+    /** The sidebar's rows as laid out: {x, y, w, h, tab index (-1 for Favourites)} (gui/ModScreen.layout). */
+    private static java.util.List<int[]> sideRows(Screen menu) {
+        java.util.List<int[]> out = new java.util.ArrayList<>();
+        for (Object e : (java.util.List<?>) R.get(menu, "side")) {
+            out.add(new int[]{(Integer) Mod.call(e, "x"), (Integer) Mod.call(e, "y"), (Integer) Mod.call(e, "w"),
+                    (Integer) Mod.call(e, "h"), (Integer) Mod.call(e, "tab")});
+        }
+        return out;
+    }
+
     private static void clickRows(UiCase c, Screen menu, int panelX, int panelY, float f, boolean baseline) {
         Class<?> cls = R.cls(ModScreenDriver.MOD_SCREEN);
-        // Row 2, or the last row when there are fewer (a testing jar shows only Home and Untested at first).
-        int target = Math.min(2, ((java.util.List<?>) R.getStatic(cls, "tabs")).size() - 1);
-        double cx = panelX + 8 + 47;
-        double cy = panelY + 40 + 24 * target + 10;
+        java.util.List<int[]> rows = sideRows(menu);
+        // The sidebar row of category 2, or the last category row when there are fewer (a testing jar at first).
+        int[] row = null;
+        for (int[] r : rows) {
+            if (r[4] >= 1 && (row == null || r[4] <= 2)) {
+                row = r;
+            }
+        }
+        if (row == null) {
+            c.problem("the sidebar has no category row");
+            return;
+        }
+        int target = row[4];
+        double cx = row[0] + row[2] / 2.0;
+        double cy = row[1] + row[3] / 2.0;
         int got = clickAt(c, cls, cx * f, cy * f);
-        c.note(String.format(Locale.ROOT, "click at the DRAWN centre of sidebar row %d (layout %.0f,%.0f -> GUI %.1f,%.1f)"
-                + " selected tab %d", target, cx, cy, cx * f, cy * f, got));
+        c.note(String.format(Locale.ROOT, "click at the DRAWN centre of the sidebar row of tab %d (layout %.0f,%.0f -> GUI "
+                + "%.1f,%.1f) selected tab %d", target, cx, cy, cx * f, cy * f, got));
         if (got != target) {
             c.problem("a click on sidebar row " + target + " at its drawn position selected tab " + got
                     + " (factor " + f + ")");
@@ -265,31 +287,27 @@ final class AutoScaleCases {
         if (baseline) {
             return;
         }
-        // Control: click where row 4 would be WITHOUT scaling. The screen sees that point divided by f, so the row
-        // it hits is predictable - and is not row 4 unless the transform is missing.
-        int control = 4;
-        double ux = panelX + 8 + 47;
-        double uy = panelY + 40 + 24 * control + 10;
+        // Control: click where a lower row would be WITHOUT scaling. The screen sees that point divided by f, so the
+        // row it hits is predictable - and is not that row unless the transform is missing.
+        int[] low = rows.get(Math.min(rows.size() - 1, 5));
+        int control = low[4];
+        double ux = low[0] + low[2] / 2.0;
+        double uy = low[1] + low[3] / 2.0;
         double seenX = ux / f;
         double seenY = uy / f;
-        int predicted = -1;
-        if (seenX >= panelX + 8 && seenX < panelX + 8 + 94) {
-            int rows = ((java.util.List<?>) R.getStatic(cls, "tabs")).size();
-            for (int i = 0; i < rows; i++) {
-                double top = panelY + 40 + 24 * i;
-                if (seenY >= top && seenY < top + 20) {
-                    predicted = i;
-                }
+        int predicted = 0;
+        for (int[] r : rows) {
+            if (seenX >= r[0] && seenX < r[0] + r[2] && seenY >= r[1] && seenY < r[1] + r[3] && r[4] >= 0) {
+                predicted = r[4];
             }
         }
-        int expect = predicted >= 0 ? predicted : 0;
         int hit = clickAt(c, cls, ux, uy);
-        c.note(String.format(Locale.ROOT, "control: click at row %d's UNSCALED spot (GUI %.0f,%.0f) is seen at layout "
-                + "%.1f,%.1f; predicted tab %d, selected %d", control, ux, uy, seenX, seenY, expect, hit));
-        if (hit != expect) {
-            c.problem("the unscaled-position control click selected " + hit + ", the /f transform predicts " + expect);
+        c.note(String.format(Locale.ROOT, "control: click at tab %d's UNSCALED spot (GUI %.0f,%.0f) is seen at layout "
+                + "%.1f,%.1f; predicted tab %d, selected %d", control, ux, uy, seenX, seenY, predicted, hit));
+        if (hit != predicted) {
+            c.problem("the unscaled-position control click selected " + hit + ", the /f transform predicts " + predicted);
         }
-        if (hit == control) {
+        if (hit == control && predicted != control) {
             c.problem("a click at the UNSCALED position still hit row " + control + " - the mouse is not transformed");
         }
     }
@@ -298,6 +316,7 @@ final class AutoScaleCases {
      *  selected. Window (cursor) coordinates come from the window's own GUI-to-screen ratio. */
     private static int clickAt(UiCase c, Class<?> cls, double gx, double gy) {
         R.setStatic(cls, "selectedTab", 0);
+        R.setStatic(cls, "favouritesSelected", false);
         double[] win = c.onClient(mc -> {
             Window w = mc.getWindow();
             return new double[]{gx * w.getScreenWidth() / (double) w.getGuiScaledWidth(),
@@ -348,8 +367,8 @@ final class AutoScaleCases {
         return new int[]{x0, y0, x1, y1};
     }
 
-    /** Longest horizontal run of the theme orange 0xCC6600 - the menu header's underline. */
-    private static int longestOrangeRun(Path shot) throws java.io.IOException {
+    /** Longest horizontal run of one colour (within 10 per channel) - the menu panel's outer ring. */
+    private static int longestRun(Path shot, int wr, int wg, int wb) throws java.io.IOException {
         BufferedImage img = javax.imageio.ImageIO.read(shot.toFile());
         int best = 0;
         for (int y = 0; y < img.getHeight(); y++) {
@@ -357,7 +376,7 @@ final class AutoScaleCases {
             for (int x = 0; x < img.getWidth(); x++) {
                 int rgb = img.getRGB(x, y);
                 int r = (rgb >> 16) & 0xFF, g = (rgb >> 8) & 0xFF, b = rgb & 0xFF;
-                if (Math.abs(r - 0xCC) <= 10 && Math.abs(g - 0x66) <= 10 && b <= 10) {
+                if (Math.abs(r - wr) <= 10 && Math.abs(g - wg) <= 10 && Math.abs(b - wb) <= 10) {
                     run++;
                     best = Math.max(best, run);
                 } else {

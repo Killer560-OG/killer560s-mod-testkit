@@ -123,19 +123,14 @@ final class SliderCases {
         }
     }
 
-    /** Opens the real ModScreen with the Breaker Aura tab selected (its folder sections expanded). */
+    /** Opens the real ModScreen with the target tab's drawer open (Option A menu: its card's drawer). */
     private static Screen open(UiCase c) {
         Screen s = c.onClient(mc -> {
             try {
                 ModScreenDriver d = new ModScreenDriver(mc);
-                List<Object> tops = d.topTabs();
-                for (int i = 0; i < tops.size(); i++) {
-                    List<Object[]> chain = new ArrayList<>();
-                    if (find(d, tops.get(i), chain)) {
-                        d.select(i);
-                        for (Object[] step : chain) {
-                            d.expanded(step[0]).add((Integer) step[1]);
-                        }
+                for (Object leaf : d.leaves()) {
+                    if (SliderCases.tab.equals(R.get(leaf, "name"))) {
+                        d.open(leaf);
                         McCompat.setScreen(mc, d.screen);
                         return d.screen;
                     }
@@ -181,7 +176,17 @@ final class SliderCases {
                             int top = pane.getY() + 4;
                             int bottom = pane.getY() + pane.getHeight() - 4;
                             if (w.getY() >= top && w.getY() + w.getHeight() <= bottom) {
-                                return new double[]{w.getX(), w.getY(), w.getWidth(), w.getHeight()};
+                                // the drawn track's ends (the Option A menu draws a row: label, track, value)
+                                double t0 = w.getX() + 4;
+                                double t1 = w.getX() + w.getWidth() - 4;
+                                try {
+                                    int[] t = (int[]) Mod.call(w, "trackRange");
+                                    t0 = t[0];
+                                    t1 = t[1];
+                                } catch (AssertionError plainSlider) {
+                                    // not the mod's slider: vanilla maps the whole width
+                                }
+                                return new double[]{w.getX(), w.getY(), w.getWidth(), w.getHeight(), t0, t1};
                             }
                             int offset = (Integer) R.getStatic(s.getClass(), "scrollOffset");
                             R.setStatic(s.getClass(), "scrollOffset", offset + (w.getY() - top) - 20);
@@ -223,7 +228,7 @@ final class SliderCases {
         double side2 = witnessRead.getAsDouble();
 
         b = slider(c, s, prefix);
-        double quarterX = b[0] + 4 + (b[2] - 8) * 0.25;
+        double quarterX = b[4] + (b[5] - b[4]) * 0.25;
         click(c, s, quarterX, b[1] + b[3] / 2);
         double vQuarter = read.getAsDouble();
         double side3 = witnessRead.getAsDouble();
@@ -348,12 +353,14 @@ final class SliderCases {
         boolean hudEditorBars = SEEN.stream().anyMatch(x -> x.contains("Health and Mana Bars|Vitality Bar:"));
         if (hudEditorBars || SEEN.stream().anyMatch(x -> x.contains("Health and Mana Bars|Hide Hypixel Stat Text:"))) {
             List<String> missed = new ArrayList<>();
-            List<String> wants = new ArrayList<>(List.of("Stat Bars:", "Health Bar:", "Health Text:", "Colour:",
+            // Since the 2026-10-12 simplification each colour row is "<Bar> Colour" in Advanced's colour grid, and the
+            // second "Hide Vanilla XP Bar" row is gone (Hide's "XP Bar And Level" is the setting).
+            List<String> wants = new ArrayList<>(List.of("Stat Bars:", "Health Bar:", "Health Text:", "Health Colour",
                     "Bar Width:", "Bar Height:", "Show Value:", "Background:", "Absorption Colour:", "Hearts:",
                     "Unhide Hearts In Rift:", "Health:", "XP Bar And Level:", "Text Shadow:"));
             if (hudEditorBars) {
                 wants.addAll(List.of("Vitality Bar:", "XP Bar:", "Vitality Text:", "XP Text:", "Hypixel Stat Text:",
-                        "Hide Vanilla XP Bar:"));
+                        "XP Bar And Level:"));
             }
             for (String want : wants) {
                 if (SEEN.stream().noneMatch(x -> x.contains("Health and Mana Bars|" + want))) {
@@ -484,6 +491,7 @@ final class SliderCases {
             check(d, where, state, found);
             n[0]++;
             n[1]++;
+            openCheckClose(d, where, state, deny, found, n);
             // One level deeper: a toggle the first flip revealed (Breaker Aura ON shows Auto Swap, whose own rows
             // only exist with it ON too) is flipped as well, so a nested gate's rows are checked.
             for (String inner : toggleNames(d)) {
@@ -498,6 +506,7 @@ final class SliderCases {
                 d.rebuild();
                 check(d, where, state + " and " + inner + " flipped", found);
                 n[0]++;
+                openCheckClose(d, where, state + " and " + inner + " flipped", deny, found, n);
                 AbstractWidget back = toggle(d, inner);
                 ModScreenDriver.press(back != null ? back : w);
                 d.rebuild();
@@ -505,6 +514,45 @@ final class SliderCases {
             AbstractWidget again = toggle(d, name);
             ModScreenDriver.press(again != null ? again : target);
             d.rebuild();
+        }
+    }
+
+
+    /** Opens every closed "▶" section in the current layout, checks it, and shuts them again (their saved flags kept). */
+    private static void openCheckClose(ModScreenDriver d, String where, String state, Deny deny, Set<String> found,
+                                       int[] n) throws Throwable {
+        // A section the flip revealed behind a closed "▶" header (Health and Mana Bars' Advanced since the
+        // 2026-10-12 simplification) is opened, checked, and shut again so its saved open flag is left as it was.
+        List<String> openedHere = new ArrayList<>();
+        for (int k = 0; k < 10; k++) {
+            AbstractWidget header = null;
+            for (AbstractWidget w : d.content()) {
+                String l = ModScreenDriver.label(w);
+                if (d.isSettingsButton(w) && l.startsWith(ModScreenDriver.CLOSED) && !openedHere.contains(l.substring(2))
+                        && deny.button(l) == null) {
+                    header = w;
+                    break;
+                }
+            }
+            if (header == null) {
+                break;
+            }
+            openedHere.add(ModScreenDriver.label(header).substring(2));
+            ModScreenDriver.press(header);
+            d.rebuild();
+        }
+        if (!openedHere.isEmpty()) {
+            check(d, where, state + " and " + openedHere + " opened", found);
+            n[0]++;
+            for (String title : openedHere) {
+                for (AbstractWidget w : d.content()) {
+                    if (d.isSettingsButton(w) && ModScreenDriver.label(w).equals(ModScreenDriver.OPEN + title)) {
+                        ModScreenDriver.press(w);
+                        d.rebuild();
+                        break;
+                    }
+                }
+            }
         }
     }
 

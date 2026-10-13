@@ -230,9 +230,10 @@ final class TabSweep {
     // ---- 302 ------------------------------------------------------------------------------------------------
 
     /**
-     * Search: for every leaf tab, typing its name must keep its top-level folder in the sidebar and show that
-     * leaf's section header inside it (gui/ModScreen.java:151 responder, gui/tab/FolderTab.java:57 filter). Plus a
-     * query nothing matches, which must show the "No tabs match" line and build no content.
+     * Search (the Option A menu's Ctrl K search, mod menu-a): for every feature tab, typing its name lists that very tab
+     * as a feature hit, and opening the hit opens its drawer. A query nothing matches lists nothing (the palette draws
+     * its "No features or settings match" line). Every start of "etable" finds every feature "experiment" finds
+     * (killer560 2026-10-12, {@code gui.SearchAliases}).
      */
     static void search(UiCase c) {
         int[] n = new int[3];
@@ -244,62 +245,51 @@ final class TabSweep {
                 c.problem("could not open gui.ModScreen: " + UiCase.describe(t));
                 return null;
             }
-            List<ModScreenDriver.Node> tree = d.tree();
             try {
-                for (int i = 0; i < tree.size(); i++) {
-                    ModScreenDriver.Node topNode = tree.get(i);
-                    for (ModScreenDriver.Node child : topNode.children()) {
-                        String q = child.name();
-                        n[0]++;
-                        d.select(i);
-                        d.search(q);
-                        List<Object> visible = d.visibleTabs();
-                        if (!visible.contains(topNode.tab())) {
-                            c.problem("search '" + q + "' hid its own folder '" + topNode.name() + "'");
-                            continue;
+                for (Object leaf : d.leaves()) {
+                    String q = (String) R.get(leaf, "name");
+                    n[0]++;
+                    d.search(q);
+                    Object hit = null;
+                    for (Object r : (List<?>) Mod.call(d.screen, "searchResults")) {
+                        if ((Boolean) Mod.call(r, "feature") && Mod.call(r, "tab") == leaf) {
+                            hit = r;
+                            break;
                         }
-                        // the responder may have moved the selection to another matching folder; look at ours
-                        R.setStatic(d.screenCls, "selectedTab", i);
-                        d.rebuild();
-                        boolean header = false;
-                        for (AbstractWidget w : d.content()) {
-                            String l = ModScreenDriver.label(w);
-                            if (l.contains(q)) {
-                                header = true;
-                                break;
-                            }
-                        }
-                        if (!header) {
-                            c.problem("search '" + q + "': folder '" + topNode.name()
-                                    + "' is listed but shows no row named '" + q + "'");
-                        } else {
-                            n[1]++;
-                        }
-                        Frames.extract(mc, d.screen, -1, -1);
                     }
+                    if (hit == null) {
+                        c.problem("search '" + q + "' does not list the feature itself");
+                        continue;
+                    }
+                    Mod.call(d.screen, "activate", hit);
+                    Object open = Mod.call(d.screen, "openFeature");
+                    boolean page = !d.isFolder(Mod.staticCall("gui.tab.MenuCategories", "category", leaf))
+                            || Mod.staticCall("gui.tab.MenuCategories", "category", leaf) == leaf;
+                    if (open != leaf && !page) {
+                        c.problem("opening the hit for '" + q + "' opened " + (open == null ? "nothing" : R.get(open, "name")));
+                    } else {
+                        n[1]++;
+                    }
+                    Frames.extract(mc, d.screen, -1, -1);
                 }
                 String nothing = "zz-no-tab-has-this-qx";
                 d.search(nothing);
-                List<Object> visible = d.visibleTabs();
-                if (!visible.isEmpty()) {
-                    c.problem("search '" + nothing + "' still lists " + visible.size() + " tab(s)");
-                }
-                if (!d.content().isEmpty()) {
-                    c.problem("search '" + nothing + "' still built " + d.content().size() + " content rows");
+                if (!((List<?>) Mod.call(d.screen, "searchResults")).isEmpty() || !d.visibleTabs().isEmpty()) {
+                    c.problem("search '" + nothing + "' still lists something");
                 }
                 Frames.Drawn drawn = Frames.extract(mc, d.screen, -1, -1);
                 n[2] = drawn.texts();
                 // killer560 2026-10-12: "etable", and any start of it, finds every Experimentation Table tab.
                 d.search("experiment");
-                List<Object> expTabs = d.visibleTabs();
+                java.util.Set<Object> expTabs = featureHits(d);
                 if (expTabs.isEmpty()) {
-                    c.problem("search 'experiment' found no tab - the alias check below would be vacuous");
+                    c.problem("search 'experiment' found no feature - the alias check below would be vacuous");
                 }
                 for (String alias : new String[] {"et", "eta", "etab", "etable", "ETABLE"}) {
                     d.search(alias);
-                    List<Object> got = d.visibleTabs();
+                    java.util.Set<Object> got = featureHits(d);
                     if (!got.containsAll(expTabs)) {
-                        c.problem("search '" + alias + "' lists " + got.size() + " tab(s) but not every one 'experiment' finds ("
+                        c.problem("search '" + alias + "' lists " + got.size() + " feature(s) but not every one 'experiment' finds ("
                                 + expTabs.size() + ")");
                     }
                 }
@@ -310,9 +300,20 @@ final class TabSweep {
             }
             return null;
         });
-        c.note("searched " + n[0] + " sub-tab names, " + n[1] + " found their row; no-match frame drew "
+        c.note("searched " + n[0] + " feature names, " + n[1] + " listed and opened their own tab; no-match frame drew "
                 + n[2] + " text(s)");
-        c.check(n[0] > 50, "only " + n[0] + " sub-tab names searched - the tree is not what it should be");
+        c.check(n[0] > 80, "only " + n[0] + " feature names searched - the tree is not what it should be");
+        c.check(n[2] > 0, "the no-match search drew no text");
+    }
+
+    private static java.util.Set<Object> featureHits(ModScreenDriver d) {
+        java.util.Set<Object> out = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        for (Object r : (List<?>) Mod.call(d.screen, "searchResults")) {
+            if ((Boolean) Mod.call(r, "feature")) {
+                out.add(Mod.call(r, "tab"));
+            }
+        }
+        return out;
     }
 
     // ---- 303 ------------------------------------------------------------------------------------------------

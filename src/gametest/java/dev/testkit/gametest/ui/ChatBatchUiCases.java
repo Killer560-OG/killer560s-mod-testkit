@@ -87,7 +87,7 @@ final class ChatBatchUiCases {
             SliderDrive.drag(c, s, b[0] + b[2] / 2, b[1] + b[3] / 2, b[0] + b[2] + 30);
             int right = silence(c, cfg);
             b = box(c, s, "Silence Before Send:");
-            SliderDrive.click(c, s, b[0] + 4 + (b[2] - 8) * 0.25, b[1] + b[3] / 2);
+            SliderDrive.click(c, s, b[4] + (b[5] - b[4]) * 0.25, b[1] + b[3] / 2);
             int quarter = silence(c, cfg);
             c.note("Silence Before Send: drag past left -> " + left + " ms, past right -> " + right
                     + " ms, click a quarter along -> " + quarter + " ms");
@@ -271,6 +271,7 @@ final class ChatBatchUiCases {
                         for (Object[] step : chain) {
                             d.expanded(step[0]).add((Integer) step[1]);
                         }
+                        d.openChain(chain);
                         McCompat.setScreen(mc, d.screen);
                         return d.screen;
                     }
@@ -397,7 +398,17 @@ final class ChatBatchUiCases {
                             int top = pane.getY() + 4;
                             int bottom = pane.getY() + pane.getHeight() - 4;
                             if (w.getY() >= top && w.getY() + w.getHeight() <= bottom) {
-                                return new double[]{w.getX(), w.getY(), w.getWidth(), w.getHeight()};
+                                // the drawn track's ends (the Option A menu draws a slider as label, track, value)
+                                double t0 = w.getX() + 4;
+                                double t1 = w.getX() + w.getWidth() - 4;
+                                try {
+                                    int[] t = (int[]) Mod.call(w, "trackRange");
+                                    t0 = t[0];
+                                    t1 = t[1];
+                                } catch (AssertionError notOurSlider) {
+                                    // a vanilla widget maps the whole width
+                                }
+                                return new double[]{w.getX(), w.getY(), w.getWidth(), w.getHeight(), t0, t1};
                             }
                             int offset = (Integer) R.getStatic(s.getClass(), "scrollOffset");
                             R.setStatic(s.getClass(), "scrollOffset", offset + (w.getY() - top) - 20);

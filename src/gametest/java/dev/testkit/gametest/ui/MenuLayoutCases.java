@@ -62,6 +62,8 @@ final class MenuLayoutCases {
 
     private static final String TIPS = "gui.SettingTooltips";
     private static final String UNSCOPED = "(unscoped)";
+    /** The category holding Custom Crosshair: General until the Option A regroup (mod menu-a, 2026-10-12), HUD since. */
+    private static final String CROSSHAIR_HOME = "HUD";
     private static final String CHEAT = "§c§l";
     private static final String LEGIT = "§6§l";
     /** The only folders a category may hold: each was asked for as one tab (killer560, 2026-09-20). */
@@ -76,7 +78,7 @@ final class MenuLayoutCases {
             // block; cheat jar only.
             "gui.tab.AutoCroesusTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
-    private static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
+    static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.
             "Command Shortcuts", "Chat Keybinds",
             // Croesus / Chest Profit is "Croesus" since mod hud-key-2 (2026-10-12); its Auto rows are in Auto Croesus.
@@ -89,7 +91,7 @@ final class MenuLayoutCases {
      * changed on purpose, on top of the 6a61dfa8 fixtures: tabs removed and added, and tooltips
      * changed, moved or removed, each with the commit that did it. 511 and 513 read it; a stale entry fails.
      */
-    private static final String MERGED_FILE = "menu-layout-merged.json";
+    static final String MERGED_FILE = "menu-layout-merged.json";
 
     private MenuLayoutCases() {
     }
@@ -135,16 +137,19 @@ final class MenuLayoutCases {
                 return;
             }
 
-            // (a) Crosshair: not top level, a section of General, and its rows build there.
+            // The Option A categories (mod menu-a, 2026-10-12): Favourites is a sidebar entry, not a category.
+            c.check(top.equals(List.of("Home", "Dungeons", "HUD", "Chat", "Items", "Social", "Cosmetics", "Misc", "Profiles")),
+                    "the categories are " + top);
+            // (a) Crosshair: not top level, a card of HUD (General until the 2026-10-12 regroup), and its rows build there.
             for (String t : top) {
                 c.check(!t.toLowerCase(java.util.Locale.ROOT).contains("crosshair"), "a top-level tab is still called '" + t + "'");
             }
             List<String> crosshair = leaves.get("gui.tab.CrosshairTab");
             c.note("CrosshairTab at " + crosshair);
-            c.check(crosshair != null && crosshair.size() == 1 && crosshair.get(0).equals("General > Custom Crosshair"),
-                    "the crosshair editor is not the General > Custom Crosshair section: " + crosshair);
-            int general = top.indexOf("General");
-            c.check(general >= 0, "no General category");
+            c.check(crosshair != null && crosshair.size() == 1 && crosshair.get(0).equals(CROSSHAIR_HOME + " > Custom Crosshair"),
+                    "the crosshair editor is not the " + CROSSHAIR_HOME + " > Custom Crosshair card: " + crosshair);
+            int general = top.indexOf(CROSSHAIR_HOME);
+            c.check(general >= 0, "no " + CROSSHAIR_HOME + " category");
             List<Row> rows = section(c, d, general, "Custom Crosshair");
             List<String> labels = new ArrayList<>();
             for (Row r : rows) {
@@ -152,7 +157,7 @@ final class MenuLayoutCases {
                     labels.add(r.label());
                 }
             }
-            c.note("General > Custom Crosshair builds " + labels.size() + " rows: " + labels);
+            c.note(CROSSHAIR_HOME + " > Custom Crosshair builds " + labels.size() + " rows: " + labels);
             c.check(labels.stream().anyMatch(l -> l.startsWith("Custom Crosshair: ")), "no 'Custom Crosshair:' toggle in General");
             c.check(labels.stream().anyMatch(l -> l.startsWith("Style: ")), "no 'Style:' row in General's crosshair section");
             c.check(labels.contains("Crosshair Preview"), "no crosshair preview in General's crosshair section");
@@ -161,14 +166,14 @@ final class MenuLayoutCases {
                 try {
                     d.search("crosshair");
                     List<Object> vis = d.visibleTabs();
-                    boolean g = vis.stream().anyMatch(t -> "General".equals(R.get(t, "name")));
+                    boolean g = vis.stream().anyMatch(t -> CROSSHAIR_HOME.equals(R.get(t, "name")));
                     d.search("");
                     return g;
                 } catch (Throwable t) {
                     throw new AssertionError(t);
                 }
             });
-            c.check(found, "searching 'crosshair' does not surface General");
+            c.check(found, "searching 'crosshair' does not surface " + CROSSHAIR_HOME);
 
             // (b) no combined folders, no other nested folder, no lone tab in a folder.
             for (ModScreenDriver.Node n : flat) {
@@ -452,6 +457,17 @@ final class MenuLayoutCases {
             for (ModScreenDriver.Node n : flat) {
                 namesNow.add(n.name().toLowerCase(java.util.Locale.ROOT));
             }
+            // The Option A regroup (mod menu-a) renamed every category, but each tab keeps its old category for the
+            // category-scoped keys (gui.tab.MenuCategories.legacyCategory): those names still resolve.
+            c.onClient(mc -> {
+                for (ModScreenDriver.Node n : flat) {
+                    if (!n.folder()) {
+                        namesNow.add(((String) Mod.staticCall("gui.tab.MenuCategories", "legacyCategory", n.tab()))
+                                .toLowerCase(java.util.Locale.ROOT));
+                    }
+                }
+                return null;
+            });
             Set<String> gone = new TreeSet<>();
             for (JsonElement e : fixture.getAsJsonArray("names")) {
                 String n = e.getAsString().toLowerCase(java.util.Locale.ROOT);
@@ -596,11 +612,16 @@ final class MenuLayoutCases {
             int shots = 0;
             for (int i = 0; i < tops; i++) {
                 int top = i;
+                // Option A menu (mod menu-a): a category is a grid of cards, scrolled by gridScroll; a single-tab
+                // entry (Profiles) is a page in the content pane, scrolled by scrollOffset.
                 Object[] st = c.onClient(mc -> {
                     try {
                         d.select(top);
                         d.rebuild();
-                        return new Object[]{R.get(d.topTabs().get(top), "name"), d.maxScroll(), d.visibleContentHeight()};
+                        boolean grid = d.isFolder(d.topTabs().get(top));
+                        return new Object[]{R.get(d.topTabs().get(top), "name"),
+                                grid ? (Integer) R.get(d.screen, "gridMax") : d.maxScroll(),
+                                grid ? (Integer) R.get(d.screen, "gridH") - 20 : d.visibleContentHeight(), grid};
                     } catch (Throwable t) {
                         throw new AssertionError(t);
                     }
@@ -608,12 +629,17 @@ final class MenuLayoutCases {
                 String name = (String) st[0];
                 int max = (Integer) st[1];
                 int step = Math.max(20, (Integer) st[2] - 20);
+                boolean grid = (Boolean) st[3];
                 int page = 0;
                 for (int off = 0; ; off += step) {
                     int o = Math.min(off, max);
                     c.onClient(mc -> {
                         try {
-                            d.scrollTo(o);
+                            if (grid) {
+                                R.setStatic(d.screenCls, "gridScroll", o);
+                            } else {
+                                d.scrollTo(o);
+                            }
                             d.rebuild();
                         } catch (Throwable t) {
                             throw new AssertionError(t);
@@ -629,6 +655,9 @@ final class MenuLayoutCases {
                         int sel = (Integer) R.getStatic(d.screenCls, "selectedTab");
                         if (sel != top) {
                             return "selected tab " + sel + ", wanted " + top;
+                        }
+                        if (grid) {
+                            return ((List<?>) Mod.call(d.screen, "cards")).isEmpty() ? "the category shows no cards" : null;
                         }
                         return d.content().isEmpty() ? "the content pane is empty" : null;
                     });
@@ -794,7 +823,10 @@ final class MenuLayoutCases {
             String label = ModScreenDriver.label(w);
             String k = (String) key.invoke(null, raw);
             String owner = scopes.get(w);
-            String tip = topName == null || k.isEmpty() ? null : (String) describe.invoke(null, topName, w, raw);
+            // The category the menu itself looks the tooltip up under (the tab's category before the 2026-10-12
+            // regroup, so category-scoped keys still answer): gui.ModScreen.tooltipCategory.
+            String tip = topName == null || k.isEmpty() ? null
+                    : (String) describe.invoke(null, Mod.staticCall("gui.ModScreen", "tooltipCategory", w), w, raw);
             out.add(new Row(owner == null ? UNSCOPED : owner, raw, label, k, tip == null ? "" : tip,
                     w instanceof StringWidget, w.getX(), w.getY()));
         }
@@ -817,6 +849,11 @@ final class MenuLayoutCases {
         Map<String, Map<String, String>> out = new TreeMap<>();
         for (int i = 0; i < tree.size(); i++) {
             ModScreenDriver.Node topNode = tree.get(i);
+            // The accordion's header rows are cards since the Option A menu (mod menu-a): their hover text.
+            Map<String, String> cards = c.onClient(mc -> d.cardTips(topNode));
+            for (Map.Entry<String, String> e : cards.entrySet()) {
+                out.computeIfAbsent(UNSCOPED, x -> new TreeMap<>()).putIfAbsent(e.getKey(), e.getValue());
+            }
             int sections = topNode.folder() ? topNode.children().size() : 1;
             for (int j = 0; j < sections; j++) {
                 int top = i;
