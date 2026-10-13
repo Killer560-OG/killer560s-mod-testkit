@@ -68,7 +68,9 @@ public class SimWorldTests implements FabricClientGameTest {
             "856-sim-lever-redstone-warrior", "857-sim-lever-hallway", "858-sim-lever-knight", "859-sim-lever-atlas",
             "860-sim-lever-long-hall",
             // mimic-fix (2026-10-11)
-            "652-sim-prince-waypoint-brf"};
+            "652-sim-prince-waypoint-brf",
+            // sim-superboom-radius (2026-10-14): a 3-block radius to each block's box, whole groups
+            "1401-sim-boom-prince-tomb", "1402-sim-boom-crypt-overhead", "1403-sim-boom-chain"};
 
     private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
@@ -137,6 +139,9 @@ public class SimWorldTests implements FabricClientGameTest {
                         case "860-sim-lever-long-hall" -> caseLever(ctx, c, "Long Hall",
                                 new int[]{21, 70, 28}, new int[]{18, 82, 12}, new int[]{18, 82, 19}, false, null, null);
                         case "652-sim-prince-waypoint-brf" -> casePrinceWaypoint(ctx);
+                        case "1401-sim-boom-prince-tomb" -> caseBoomPrinceTomb(ctx);
+                        case "1402-sim-boom-crypt-overhead" -> caseBoomCryptOverhead(ctx);
+                        case "1403-sim-boom-chain" -> caseBoomChain(ctx);
                         default -> {
                         }
                     }
@@ -256,11 +261,13 @@ public class SimWorldTests implements FabricClientGameTest {
         int b = countIs(ctx, lidB, Blocks.SMOOTH_STONE_SLAB);
         int c = countIs(ctx, lidC, Blocks.SMOOTH_STONE_SLAB);
         boolean wallGone = onServer(ctx, (level, sp) -> level.getBlockState(wall).isAir());
-        boolean decoStays = onServer(ctx, (level, sp) -> level.getBlockState(deco).is(Blocks.CRACKED_STONE_BRICKS));
+        // In reach, so it goes too since sim-superboom-radius (killer560 2026-10-14: cracked stone within 3 blocks
+        // breaks), but with stone under it there is no chamber and no undead.
+        boolean decoGone = onServer(ctx, (level, sp) -> level.getBlockState(deco).isAir());
         int zombiesAfter = zombies(ctx, t, 10);
         say(String.format(Locale.US, "642 one superboom at %s: slabs left A %d/6, B %d/6 (both 3 away), C %d/6 (6 away); "
-                        + "crypt wall 3 away gone %s; decorative cracked brick stays %s; crypt undead %d -> %d",
-                t.toShortString(), a, b, c, wallGone, decoStays, zombiesBefore, zombiesAfter));
+                        + "crypt wall 3 away gone %s; decorative cracked brick 2 away gone %s; crypt undead %d -> %d",
+                t.toShortString(), a, b, c, wallGone, decoGone, zombiesBefore, zombiesAfter));
         for (String l : LogTap.since(m)) {
             if (l.contains("Sim superboom")) {
                 say("642 log: " + l);
@@ -269,7 +276,7 @@ public class SimWorldTests implements FabricClientGameTest {
         check(a == 0 && b == 0, "one superboom did not open BOTH crypts in reach (A " + a + ", B " + b + " slabs left)");
         check(c == 6, "the crypt 6 blocks away lost " + (6 - c) + " slab(s) - the reach is not bounded");
         check(wallGone, "the cracked brick sealing a crypt chamber 3 blocks away was not broken");
-        check(decoStays, "a decorative cracked brick (no chamber) in reach was broken");
+        check(decoGone, "a decorative cracked brick (no chamber) in reach was not broken");
         check(zombiesAfter - zombiesBefore == 3, "expected 3 crypt undead (A, B, the wall), got "
                 + (zombiesAfter - zombiesBefore));
     }
@@ -478,8 +485,10 @@ public class SimWorldTests implements FabricClientGameTest {
                 belowBefore, belowAfter, overhangBefore, overhangAfter, undead, boomLine));
         check(lidLeft == 0, lidLeft + " block(s) of the prince's lid/ring survived");
         check(underLeft == 0, underLeft + " block(s) of the layer under the prince survived");
-        check(belowAfter.equals(belowBefore) && !"air".equals(belowAfter), "the blast went past the one layer under it");
-        check(overhangAfter.equals(overhangBefore), "the blast took the eave slab outside the prince's footprint");
+        // The WHOLE tomb since sim-superboom-radius (killer560 2026-10-14: "that whole structure should be gone"): the
+        // smooth stone wall two layers down and the eave slab go with it. 1401 checks every block of it.
+        check("air".equals(belowAfter), "the tomb's smooth stone wall under the lid layer survived (" + belowAfter + ")");
+        check("air".equals(overhangAfter), "the tomb's eave slab survived (" + overhangAfter + ")");
         check(boomLine.contains("prince=true") && boomLine.contains("crypts opened=0"),
                 "the tomb opened as something other than a prince alone: " + boomLine);
         check(undead >= 1, "no undead appeared in the opened prince");
@@ -519,6 +528,295 @@ public class SimWorldTests implements FabricClientGameTest {
         check("air".equals(headAfter), "the prince's player head survived");
         check(underLeft == 0, underLeft + " block(s) of the stair layer under the prince survived");
         check(belowAfter.equals(belowBefore), "the blast went below the stair layer");
+    }
+
+    // ============================================================================================ 1401-1403
+
+    /** The blast point the sim uses: the centre of the face the charge hit. */
+    private static Vec3 boomAt(BlockPos hit, Direction face) {
+        BlockPos out = hit.relative(face);
+        return Vec3.atCenterOf(hit).add((out.getX() - hit.getX()) * 0.5, (out.getY() - hit.getY()) * 0.5,
+                (out.getZ() - hit.getZ()) * 0.5);
+    }
+
+    /** Distance from {@code p} to block {@code b}'s box. */
+    private static double boxDist(Vec3 p, BlockPos b) {
+        double dx = Math.max(0, Math.max(b.getX() - p.x, p.x - (b.getX() + 1)));
+        double dy = Math.max(0, Math.max(b.getY() - p.y, p.y - (b.getY() + 1)));
+        double dz = Math.max(0, Math.max(b.getZ() - p.z, p.z - (b.getZ() + 1)));
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    /** The face of {@code hit} that looks at the neighbouring block {@code toward}. */
+    private static Direction faceToward(BlockPos hit, BlockPos toward) {
+        for (Direction d : Direction.values()) {
+            if (hit.relative(d).equals(toward)) {
+                return d;
+            }
+        }
+        throw new AssertionError(toward.toShortString() + " is not beside " + hit.toShortString());
+    }
+
+    private static String boom(ClientGameTestContext ctx, BlockPos hit, Direction face) {
+        long m = LogTap.mark();
+        onServer(ctx, (level, sp) -> ModUnderTest.staticCall(SIM_ITEMS, "superboom",
+                new Class<?>[]{ServerPlayer.class, BlockPos.class, Direction.class}, new Object[]{sp, hit, face}));
+        ctx.waitTicks(10);
+        String line = "";
+        for (String l : LogTap.since(m)) {
+            if (l.contains("Sim superboom at")) {
+                line = l;
+            }
+        }
+        return line;
+    }
+
+    private static List<String> names(ClientGameTestContext ctx, List<BlockPos> ps) {
+        return onServer(ctx, (level, sp) -> {
+            List<String> out = new ArrayList<>();
+            for (BlockPos p : ps) {
+                out.add(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(p).getBlock())
+                        .getPath());
+            }
+            return out;
+        });
+    }
+
+    /** How many of {@code ps} changed between two {@link #names} reads (into count[0]), naming the first few. */
+    private static String changed(List<BlockPos> ps, List<String> before, List<String> after, int[] count) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < ps.size(); i++) {
+            if (!before.get(i).equals(after.get(i))) {
+                if (count[0]++ < 6) {
+                    sb.append(' ').append(ps.get(i).toShortString()).append(' ').append(before.get(i)).append("->")
+                            .append(after.get(i));
+                }
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * killer560 (2026-10-14), Big Red Flag: "this is a prince in big red flag. blowing it up looks like that second
+     * picture, but that whole structure should be gone." One Superboom thrown from beside the tomb at its west face must
+     * leave every block of the tomb (capture x 12..17, y 69..72, z 22..26) air, take a cracked brick chain laid in the
+     * floor beside it (one end in reach, the other 5 blocks out), leave the room wall behind it (z 27, x 18) and the floor
+     * under it as they were, and spawn the prince.
+     */
+    private void caseBoomPrinceTomb(ClientGameTestContext ctx) {
+        String room = "Big Red Flag";
+        build(ctx, room);
+        List<BlockPos> tombAll = new ArrayList<>();
+        for (int x = 12; x <= 17; x++) {
+            for (int z = 22; z <= 26; z++) {
+                for (int y = 69; y <= 72; y++) {
+                    tombAll.add(capW(ctx, room, x, y, z));
+                }
+            }
+        }
+        List<String> tombNames = names(ctx, tombAll);
+        List<BlockPos> tomb = new ArrayList<>();
+        for (int i = 0; i < tombAll.size(); i++) {
+            if (!"air".equals(tombNames.get(i))) {
+                tomb.add(tombAll.get(i));
+            }
+        }
+        List<BlockPos> keep = new ArrayList<>();
+        for (int x = 12; x <= 18; x++) {
+            for (int y = 68; y <= 73; y++) {
+                keep.add(capW(ctx, room, x, y, 27));          // the room wall behind it
+            }
+        }
+        for (int z = 22; z <= 26; z++) {
+            for (int y = 68; y <= 73; y++) {
+                keep.add(capW(ctx, room, 18, y, z));          // the room wall at its east side
+            }
+            for (int x = 12; x <= 17; x++) {
+                keep.add(capW(ctx, room, x, 68, z));          // the floor under it
+            }
+        }
+        BlockPos hit = capW(ctx, room, 13, 70, 23);
+        Direction face = faceToward(hit, capW(ctx, room, 12, 70, 23));
+        Vec3 at = boomAt(hit, face);
+        // A cracked brick chain in the floor beside it: x 11 (in reach) to x 7 (5 blocks out). Its floor neighbours stay.
+        List<BlockPos> chain = new ArrayList<>();
+        List<BlockPos> chainSides = new ArrayList<>();
+        for (int x = 7; x <= 11; x++) {
+            chain.add(capW(ctx, room, x, 68, 23));
+            chainSides.add(capW(ctx, room, x, 68, 22));
+            chainSides.add(capW(ctx, room, x, 68, 24));
+        }
+        onServer(ctx, (level, sp) -> {
+            for (BlockPos p : chain) {
+                level.setBlockAndUpdate(p, Blocks.CRACKED_STONE_BRICKS.defaultBlockState());
+            }
+            return null;
+        });
+        keep.addAll(chainSides);
+        // Every cracked stone brick within 3 blocks of the blast, as the world has it now.
+        List<BlockPos> crackedInReach = onServer(ctx, (level, sp) -> {
+            List<BlockPos> out = new ArrayList<>();
+            for (int dx = -4; dx <= 4; dx++) {
+                for (int dy = -4; dy <= 4; dy++) {
+                    for (int dz = -4; dz <= 4; dz++) {
+                        BlockPos p = hit.offset(dx, dy, dz);
+                        if (boxDist(at, p) <= 3.0 && level.getBlockState(p).is(Blocks.CRACKED_STONE_BRICKS)) {
+                            out.add(p);
+                        }
+                    }
+                }
+            }
+            return out;
+        });
+        List<String> keepBefore = names(ctx, keep);
+        BlockPos lid = capW(ctx, room, 14, 72, 24);
+        int undeadBefore = zombies(ctx, lid, 6);
+        stand(ctx, room, 9, 25, 69, new double[]{12.9, 70.5, 23.5});
+        shot(ctx, "1401-brf-tomb-before");
+        String line = boom(ctx, hit, face);
+        shot(ctx, "1401-brf-tomb-after");
+        int tombLeft = countNotAir(ctx, tomb);
+        int chainLeft = countNotAir(ctx, chain);
+        int crackedLeft = countNotAir(ctx, crackedInReach);
+        int[] moved = {0};
+        String which = changed(keep, keepBefore, names(ctx, keep), moved);
+        int undeadAfter = zombies(ctx, lid, 6);
+        List<String> leftNames = new ArrayList<>();
+        List<String> tombAfter = names(ctx, tomb);
+        for (int i = 0; i < tomb.size(); i++) {
+            if (!"air".equals(tombAfter.get(i)) && leftNames.size() < 8) {
+                leftNames.add(tomb.get(i).toShortString() + " " + tombAfter.get(i));
+            }
+        }
+        say(String.format(Locale.US, "1401 %s: superboom at %s face %s (blast %.1f %.1f %.1f): tomb left %d/%d %s; floor chain"
+                        + " left %d/%d; cracked in reach left %d/%d; wall/floor kept changed %d/%d%s; undead %d -> %d; %s",
+                room, hit.toShortString(), face, at.x, at.y, at.z, tombLeft, tomb.size(), leftNames, chainLeft, chain.size(),
+                crackedLeft, crackedInReach.size(), moved[0], keep.size(), which, undeadBefore, undeadAfter, line));
+        check(tomb.size() >= 60, "the tomb region holds only " + tomb.size() + " blocks - not Big Red Flag's tomb");
+        check(tombLeft == 0, tombLeft + " block(s) of the prince's tomb survived: " + leftNames);
+        check(chainLeft == 0, chainLeft + " block(s) of the cracked chain survived (one end in reach)");
+        check(crackedLeft == 0, crackedLeft + " cracked stone brick(s) within 3 blocks survived");
+        check(moved[0] == 0, moved[0] + " room wall/floor block(s) changed:" + which);
+        check(line.contains("prince=true"), "the tomb did not open as the prince: " + line);
+        check(undeadAfter > undeadBefore, "no undead appeared in the opened prince");
+    }
+
+    /**
+     * A second crypt in another room: Arrow Trap's slab crypt (capture x 15..17, z 20..23, lid y 70, stairs y 69), the
+     * charge hitting the underside of an overhang two blocks above the lid (a stone block put at capture 16,73,21). The
+     * lid's top is 2 blocks from the blast, so the whole crypt opens - slabs and the stairs under them - with its undead;
+     * the floor and the wall behind it stay. Before sim-superboom-radius the reach was y +-2 from the hit block, so a lid
+     * 3 layers under the hit was out of reach and nothing broke.
+     */
+    private void caseBoomCryptOverhead(ClientGameTestContext ctx) {
+        String room = "Arrow Trap";
+        build(ctx, room);
+        List<BlockPos> region = new ArrayList<>();
+        for (int x = 15; x <= 17; x++) {
+            for (int z = 20; z <= 23; z++) {
+                region.add(capW(ctx, room, x, 70, z));
+                region.add(capW(ctx, room, x, 69, z));
+            }
+        }
+        List<String> regionNames = names(ctx, region);
+        List<BlockPos> crypt = new ArrayList<>();
+        int slabs = 0;
+        for (int i = 0; i < region.size(); i++) {
+            String n = regionNames.get(i);
+            if (n.equals("smooth_stone_slab") || n.equals("stone_brick_stairs")) {
+                crypt.add(region.get(i));
+                slabs += n.equals("smooth_stone_slab") ? 1 : 0;
+            }
+        }
+        List<BlockPos> keep = new ArrayList<>();
+        for (int x = 15; x <= 17; x++) {
+            for (int z = 20; z <= 23; z++) {
+                keep.add(capW(ctx, room, x, 68, z));         // the floor
+            }
+            for (int y = 69; y <= 72; y++) {
+                keep.add(capW(ctx, room, x, y, 24));         // the wall behind it
+            }
+        }
+        BlockPos hit = capW(ctx, room, 16, 73, 21);
+        onServer(ctx, (level, sp) -> {
+            level.setBlockAndUpdate(hit, Blocks.STONE.defaultBlockState());
+            return null;
+        });
+        List<String> keepBefore = names(ctx, keep);
+        BlockPos lidMid = capW(ctx, room, 16, 70, 21);
+        int undeadBefore = zombies(ctx, lidMid, 6);
+        stand(ctx, room, 16, 17, 69, new double[]{16.5, 71, 21.5});
+        shot(ctx, "1402-arrowtrap-crypt-before");
+        String line = boom(ctx, hit, Direction.DOWN);
+        shot(ctx, "1402-arrowtrap-crypt-after");
+        int left = countNotAir(ctx, crypt);
+        int[] moved = {0};
+        String which = changed(keep, keepBefore, names(ctx, keep), moved);
+        int undeadAfter = zombies(ctx, lidMid, 6);
+        say(String.format(Locale.US, "1402 %s: superboom under the overhang at %s: crypt (%d slabs + %d stairs) left %d/%d;"
+                        + " floor/wall changed %d/%d%s; undead %d -> %d; %s", room, hit.toShortString(), slabs,
+                crypt.size() - slabs, left, crypt.size(), moved[0], keep.size(), which, undeadBefore, undeadAfter, line));
+        check(slabs == 12, "Arrow Trap's crypt lid is not 12 slabs here (" + slabs + ")");
+        check(left == 0, left + " block(s) of Arrow Trap's crypt survived");
+        check(moved[0] == 0, moved[0] + " floor/wall block(s) changed:" + which);
+        check(undeadAfter > undeadBefore, "no crypt undead appeared");
+    }
+
+    /**
+     * killer560 (2026-10-14): "if it is a chain of blocks but any one is within the 3 blocks then it should break them
+     * all." In a clear arena: a chain of 8 cracked stone bricks in the floor from 3 to 10 blocks out (only the first in
+     * reach), with a two-high stone brick wall along it; a lone cracked brick 6 blocks the other way. The whole chain
+     * goes; every stone brick of the wall stays, including those in reach; the lone brick and the stone hit stay.
+     */
+    private void caseBoomChain(ClientGameTestContext ctx) {
+        build(ctx, "Mossy");
+        BlockPos feet = arena(ctx);
+        int fy = feet.getY() - 1;
+        BlockPos t = new BlockPos(feet.getX(), fy, feet.getZ() + 6);
+        List<BlockPos> chain = new ArrayList<>();
+        List<BlockPos> wall = new ArrayList<>();
+        for (int dx = 3; dx <= 10; dx++) {
+            chain.add(t.offset(dx, 0, 0));
+            wall.add(t.offset(dx, 0, 1));
+            wall.add(t.offset(dx, 1, 1));
+        }
+        BlockPos lone = t.offset(-6, 0, 0);
+        onServer(ctx, (level, sp) -> {
+            for (BlockPos p : chain) {
+                level.setBlockAndUpdate(p, Blocks.CRACKED_STONE_BRICKS.defaultBlockState());
+            }
+            for (BlockPos p : wall) {
+                level.setBlockAndUpdate(p, Blocks.STONE_BRICKS.defaultBlockState());
+            }
+            level.setBlockAndUpdate(lone, Blocks.CRACKED_STONE_BRICKS.defaultBlockState());
+            return null;
+        });
+        ctx.waitTicks(5);
+        Vec3 at = boomAt(t, Direction.UP);
+        int inReach = 0;
+        for (BlockPos p : chain) {
+            inReach += boxDist(at, p) <= 3.0 ? 1 : 0;
+        }
+        int wallInReach = 0;
+        for (BlockPos p : wall) {
+            wallInReach += boxDist(at, p) <= 3.0 ? 1 : 0;
+        }
+        shot(ctx, "1403-chain-before");
+        String line = boom(ctx, t, Direction.UP);
+        shot(ctx, "1403-chain-after");
+        int chainLeft = countNotAir(ctx, chain);
+        int wallLeft = countIs(ctx, wall, Blocks.STONE_BRICKS);
+        boolean loneStays = onServer(ctx, (level, sp) -> level.getBlockState(lone).is(Blocks.CRACKED_STONE_BRICKS));
+        boolean hitStays = onServer(ctx, (level, sp) -> level.getBlockState(t).is(Blocks.STONE));
+        say(String.format(Locale.US, "1403 superboom at %s: chain of %d (%d in reach) left %d; stone brick wall %d/%d stays"
+                        + " (%d in reach); lone cracked brick 6 away stays %s; the stone hit stays %s; %s", t.toShortString(),
+                chain.size(), inReach, chainLeft, wallLeft, wall.size(), wallInReach, loneStays, hitStays, line));
+        check(inReach >= 1 && inReach < chain.size(), "the chain is not partly in reach (" + inReach + ")");
+        check(chainLeft == 0, chainLeft + " block(s) of the cracked chain survived");
+        check(wallInReach > 0 && wallLeft == wall.size(),
+                (wall.size() - wallLeft) + " stone brick(s) of the wall beside it were broken");
+        check(loneStays, "a cracked brick 6 blocks away, not joined to anything in reach, was broken");
+        check(hitStays, "the plain stone the charge hit was broken");
     }
 
     // ============================================================================================ 652
