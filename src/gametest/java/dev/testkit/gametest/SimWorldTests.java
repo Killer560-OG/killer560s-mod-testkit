@@ -295,6 +295,29 @@ public class SimWorldTests implements FabricClientGameTest {
         return onServer(ctx, (level, sp) -> level.getEntitiesOfClass(Zombie.class, new AABB(at).inflate(r)).size());
     }
 
+    /**
+     * killer560 (2026-10-13): "make sure the princes and the crypts spawn on the floor once they explode". Every zombie
+     * within {@code r} of {@code at} whose feet are not on the top of the collision box below them, as "x,y,z" lines
+     * (empty when all stand on something); the count checked goes into {@code n[0]}.
+     */
+    private static List<String> floating(ClientGameTestContext ctx, BlockPos at, int r, int[] n) {
+        return onServer(ctx, (level, sp) -> {
+            List<String> out = new ArrayList<>();
+            for (Zombie z : level.getEntitiesOfClass(Zombie.class, new AABB(at).inflate(r))) {
+                n[0]++;
+                BlockPos under = BlockPos.containing(z.getX(), z.getY() - 0.01, z.getZ());
+                var shape = level.getBlockState(under).getCollisionShape(level, under);
+                double top = shape.isEmpty() ? Double.NaN : under.getY() + shape.max(Direction.Axis.Y);
+                if (!(Math.abs(top - z.getY()) < 0.01)) {
+                    out.add(String.format(Locale.US, "%.2f,%.2f,%.2f (under %s)", z.getX(), z.getY(), z.getZ(),
+                            net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(under)
+                                    .getBlock()).getPath()));
+                }
+            }
+            return out;
+        });
+    }
+
     // ============================================================================================ 643
 
     private void caseBat(ClientGameTestContext ctx) {
@@ -699,6 +722,10 @@ public class SimWorldTests implements FabricClientGameTest {
         check(moved[0] == 0, moved[0] + " room wall/floor block(s) changed:" + which);
         check(line.contains("prince=true"), "the tomb did not open as the prince: " + line);
         check(undeadAfter > undeadBefore, "no undead appeared in the opened prince");
+        int[] seen = {0};
+        List<String> up = floating(ctx, lid, 8, seen);
+        say("1401 prince undead on the floor: " + (seen[0] - up.size()) + "/" + seen[0] + (up.isEmpty() ? "" : " floating " + up));
+        check(seen[0] > 0 && up.isEmpty(), "prince undead not standing on the floor: " + up);
     }
 
     /**
@@ -760,6 +787,10 @@ public class SimWorldTests implements FabricClientGameTest {
         check(left == 0, left + " block(s) of Arrow Trap's crypt survived");
         check(moved[0] == 0, moved[0] + " floor/wall block(s) changed:" + which);
         check(undeadAfter > undeadBefore, "no crypt undead appeared");
+        int[] seen = {0};
+        List<String> up = floating(ctx, lidMid, 8, seen);
+        say("1402 crypt undead on the floor: " + (seen[0] - up.size()) + "/" + seen[0] + (up.isEmpty() ? "" : " floating " + up));
+        check(seen[0] > 0 && up.isEmpty(), "crypt undead not standing on the floor: " + up);
     }
 
     /**
