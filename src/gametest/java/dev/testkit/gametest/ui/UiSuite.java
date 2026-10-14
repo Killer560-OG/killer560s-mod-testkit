@@ -213,7 +213,8 @@ public class UiSuite implements FabricClientGameTest {
             "1033-ui-trail-ribbon-still", "1034-ui-trail-ribbon-settings", "1035-ui-trail-ribbon-gallery",
             "1040-ui-ribbon-cosmetic-tabs", "1041-ui-ribbon-camera-angles"};
     /** Etherwarp Overlay box: every camera-facing face drawn (mod ew-nearface, {@link EtherwarpFaceCases}). Own block. */
-    static final String[] EW_NEARFACE_CASES = {"1321-ui-etherwarp-box-faces", "1322-ui-etherwarp-walk"};
+    static final String[] EW_NEARFACE_CASES = {"1321-ui-etherwarp-box-faces", "1322-ui-etherwarp-walk",
+            "1323-ui-etherwarp-back-edges"};
     /** Shared trails (mod trail-share, {@link TrailShareCases}). Own block for merges. */
     static final String[] TRAIL_SHARE_CASES = {"1036-ui-trail-share-send", "1037-ui-trail-share-remote",
             "1038-ui-trail-share-hide", "1039-ui-trail-share-limits"};
@@ -628,6 +629,7 @@ public class UiSuite implements FabricClientGameTest {
                     // ---- Etherwarp Overlay box faces (1321) ----
                     UiCase.run(ctx, "1321-ui-etherwarp-box-faces", EtherwarpFaceCases::run);
                     UiCase.run(ctx, "1322-ui-etherwarp-walk", EtherwarpFaceCases::walk);
+                    UiCase.run(ctx, "1323-ui-etherwarp-back-edges", EtherwarpFaceCases::backEdges);
                     // ---- Shared trails (1036-1039) ----
                     UiCase.run(ctx, "1036-ui-trail-share-send", TrailShareCases::send);
                     UiCase.run(ctx, "1037-ui-trail-share-remote", TrailShareCases::remote);

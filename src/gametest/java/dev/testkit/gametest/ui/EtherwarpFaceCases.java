@@ -297,6 +297,117 @@ final class EtherwarpFaceCases {
         c.check(bad.isEmpty(), bad.size() + " frame(s) with the near face's outline off its edges: " + bad);
     }
 
+    /**
+     * 1323, killer560 (2026-10-13, both versions): aiming at a stair, the full-block box's back edges showed through the
+     * stair's open corner and changed shape as he walked in ("there is a visible shift ingame when walking forward"). A
+     * bottom slab on a pillar is the same case (the box is a full block, its top half is air): standing 2 blocks off its
+     * face, Outline style, the four front-face edges must be drawn and the back top edge (seen through the air above the
+     * slab) must not, at three distances.
+     */
+    static void backEdges(UiCase c) throws Exception {
+        List<AutoCloseable> restore = new ArrayList<>();
+        boolean hideWas = c.onClient(mc -> dev.testkit.compat.McCompat.hudHidden(mc));
+        double fovEffectWas = c.onClient(mc -> mc.options.fovEffectScale().get());
+        boolean bobWas = c.onClient(mc -> mc.options.bobView().get());
+        List<String> bad = new ArrayList<>();
+        int backSamples = 0, frontSamples = 0;
+        try {
+            c.onClient(mc -> {
+                restore.add(0, Mod.with(EWC, "Enabled", true));
+                restore.add(0, Mod.with(EWC, "ShowWhenFailed", true));
+                restore.add(0, Mod.with(EWC, "FullBlock", true));
+                restore.add(0, Mod.with(EWC, "SafeColor", 0xFFFF00FF));
+                restore.add(0, Mod.with(EWC, "FailedColor", 0xFFFF00FF));
+                restore.add(0, Mod.with(EWC, "Style", Mod.enumValue(STYLE, "OUTLINE")));
+                dev.testkit.compat.McCompat.setHudHidden(mc, true);
+                mc.options.fovEffectScale().set(0.0);
+                mc.options.bobView().set(false);
+                return null;
+            });
+            DocDungeonsCases.command(c, "tp @a " + CX + " 120 " + CZ);
+            c.ticks(20);
+            DocDungeonsCases.command(c, "fill 330 99 330 350 99 350 minecraft:stone");
+            DocDungeonsCases.command(c, "fill 330 100 330 350 108 350 minecraft:air");
+            DocDungeonsCases.command(c, "setblock " + CX + " 100 " + CZ + " minecraft:stone");
+            DocDungeonsCases.command(c, "setblock " + CX + " 101 " + CZ + " minecraft:stone_brick_slab[type=bottom]");
+            DocDungeonsCases.command(c, "clear @a");
+            DocDungeonsCases.command(c,
+                    "give @a minecraft:diamond_shovel[custom_data={id:\"ASPECT_OF_THE_VOID\",ethermerge:1}]");
+            DocDungeonsCases.flightOff(c);
+            c.onClient(mc -> {
+                mc.player.getInventory().setSelectedSlot(0);
+                mc.options.keyShift.setDown(true);
+                return null;
+            });
+            for (double gap : new double[]{3.0, 2.0, 1.2}) {
+                double px = CX - gap - 0.3;
+                DocDungeonsCases.command(c, String.format(Locale.ROOT, "tp @a %.4f 100 %.4f -90 0", px, CZ + 0.5));
+                DocDungeonsCases.await(c, "crouching", mc -> mc.player.onGround() && mc.player.isCrouching(), 100);
+                c.ticks(5);
+                Vec3 aim = new Vec3(CX + 0.1, 101.25, CZ + 0.5);
+                c.onClient(mc -> {
+                    Vec3 d = aim.subtract(mc.player.getEyePosition());
+                    float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+                    float pitch = (float) Math.toDegrees(-Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+                    mc.player.setYRot(yaw);
+                    mc.player.setXRot(pitch);
+                    mc.player.yRotO = yaw;
+                    mc.player.xRotO = pitch;
+                    return null;
+                });
+                c.ticks(3);
+                String outcome = c.onClient(mc -> (String) Mod.staticCall(EW, "lastOutcome"));
+                String label = String.format(Locale.ROOT, "slab-g%.1f", gap);
+                BufferedImage img = grab(c, label, false);
+                dev.testkit.harness.Report.screenshot(c.name() + "-" + label, TAKEN.get(c.name() + "-" + label));
+                Cam cam = c.onClient(EtherwarpFaceCases::camera);
+                int front = 0, frontOn = 0, back = 0, backOn = 0;
+                for (int k = 2; k <= 8; k++) {
+                    double t = k / 10.0;
+                    // front face (x = CX): its four edges
+                    for (Vec3 p : new Vec3[]{new Vec3(CX, 101, CZ + t), new Vec3(CX, 102, CZ + t),
+                            new Vec3(CX, 101 + t, CZ), new Vec3(CX, 101 + t, CZ + 1)}) {
+                        int[] sp = cam.project(p, img.getWidth(), img.getHeight());
+                        if (sp != null) {
+                            front++;
+                            frontOn += magentaNear(img, sp, 3) ? 1 : 0;
+                        }
+                    }
+                    // the back top edge (x = CX + 1, y = 102), in plain view through the air above the slab
+                    int[] sp = cam.project(new Vec3(CX + 1, 102, CZ + t), img.getWidth(), img.getHeight());
+                    if (sp != null) {
+                        back++;
+                        backOn += magentaNear(img, sp, 1) ? 1 : 0;
+                    }
+                }
+                frontSamples += front;
+                backSamples += back;
+                String line = String.format(Locale.ROOT, "%s %s: front edges magenta %d/%d, back top edge magenta %d/%d",
+                        label, outcome, frontOn, front, backOn, back);
+                c.note(line);
+                if (!outcome.startsWith("drawn " + CX + ", 101, " + CZ) || front < 10 || frontOn < 0.8 * front
+                        || backOn > 0) {
+                    bad.add(line);
+                }
+            }
+        } finally {
+            c.onClient(mc -> {
+                mc.options.keyShift.setDown(false);
+                dev.testkit.compat.McCompat.setHudHidden(mc, hideWas);
+                mc.options.fovEffectScale().set(fovEffectWas);
+                mc.options.bobView().set(bobWas);
+                return null;
+            });
+            for (AutoCloseable r : restore) {
+                r.close();
+            }
+            DocDungeonsCases.command(c, "fill 330 99 330 350 108 350 minecraft:air");
+            DocDungeonsCases.command(c, "clear @a");
+        }
+        c.check(backSamples >= 15, "only " + backSamples + " back-edge samples were on screen");
+        c.check(bad.isEmpty(), bad.size() + " view(s) wrong: " + bad);
+    }
+
     private static int edgeChecks;
     private static boolean probeHooked;
     private static volatile String PROBE = "none";
