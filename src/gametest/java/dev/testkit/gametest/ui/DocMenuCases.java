@@ -336,6 +336,32 @@ final class DocMenuCases {
         c.check(on.contains("ON"), "right after the click it reads '" + on + "'");
         c.check(launched, "no browser launch of " + url + " was logged");
         c.check(off.contains("OFF"), "30 ticks later it still reads '" + off + "'");
+        // Home's quick buttons (2026-10-14): YouTube first, Sweat Mode right after Check Updates, nine in all.
+        String home = c.onClient(mc -> {
+            Screen h = openMenu(mc);
+            Mod.call(h, "selectCategory", "Home");
+            int[] yt = (int[]) Mod.call(h, "homeButtonBounds", "YouTube");
+            int[] cu = (int[]) Mod.call(h, "homeButtonBounds", "Check Updates");
+            int[] sw = (int[]) Mod.call(h, "homeButtonBounds", "Sweat Mode");
+            if (yt == null || cu == null || sw == null) {
+                return "Home is missing a quick button (YouTube " + (yt != null) + ", Sweat Mode " + (sw != null) + ")";
+            }
+            int n = (Integer) Mod.staticCall("util.SweatMode", "timesEntered");
+            MenuACases.press(h, sw[0] + sw[2] / 2.0, sw[1] + sw[3] / 2.0);
+            int m = (Integer) Mod.staticCall("util.SweatMode", "timesEntered");
+            dev.testkit.compat.McCompat.setScreen(mc, null);
+            String hTip = (String) Mod.staticCall("gui.SettingTooltips", "describeScoped", null, "home button", "Sweat Mode");
+            c.note("Home buttons: YouTube at " + yt[0] + "," + yt[1] + ", Check Updates at " + cu[0] + "," + cu[1]
+                    + ", Sweat Mode at " + sw[0] + "," + sw[1] + "; Sweat Mode pressed " + n + " -> " + m + "; tooltip " + hTip);
+            if (m != n + 1) {
+                return "Home's Sweat Mode button did not enter sweat mode";
+            }
+            if (!"Enters sweat mode.".equals(hTip)) {
+                return "Home's Sweat Mode tooltip is " + hTip;
+            }
+            return yt[1] <= cu[1] ? null : "YouTube is not on the top row";
+        });
+        c.check(home == null, home);
     }
 
     // ---- 982 -------------------------------------------------------------------------------------------------------

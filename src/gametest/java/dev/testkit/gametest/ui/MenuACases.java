@@ -576,10 +576,11 @@ final class MenuACases {
             String[] order = {"AMBER", "DARK", "LIGHT"};
             for (int i = 0; i < order.length; i++) {
                 if (i > 0) {
-                    // a real left click on the header's theme button
+                    // the next preset (the header's theme icon became the YouTube button, 2026-10-14; themes are
+                    // picked in the Themes tab, whose step this is)
                     c.onClient(mc -> {
-                        int[] b = (int[]) Mod.call(s, "iconBounds", 3);
-                        press(s, b[0] + b[2] / 2.0, b[1] + b[3] / 2.0);
+                        Mod.staticCall("gui.tab.MenuThemeTab", "step", 1);
+                        Mod.call(s, "rebuild");
                         return null;
                     });
                 }
@@ -595,15 +596,27 @@ final class MenuACases {
                     && !near(seen.get("AMBER")[0], seen.get("LIGHT")[0]), "two presets draw the same ring colour");
             c.check(lum(seen.get("LIGHT")[1]) > 0.6f && lum(seen.get("AMBER")[1]) < 0.25f && lum(seen.get("DARK")[1]) < 0.25f,
                     "Light's sidebar is not light, or a dark preset's is not dark");
-            // right click goes back
+            // one step back
             c.onClient(mc -> {
-                int[] b = (int[]) Mod.call(s, "iconBounds", 3);
-                net.minecraft.client.input.MouseButtonEvent e = new net.minecraft.client.input.MouseButtonEvent(
-                        b[0] + b[2] / 2.0, b[1] + b[3] / 2.0, new net.minecraft.client.input.MouseButtonInfo(1, 0));
-                s.mouseClicked(e, false);
+                Mod.staticCall("gui.tab.MenuThemeTab", "step", -1);
+                Mod.call(s, "rebuild");
                 return null;
             });
-            c.check(themeName().equals("DARK"), "a right click on the theme button went to " + themeName() + ", not Dark");
+            c.check(themeName().equals("DARK"), "a step back went to " + themeName() + ", not Dark");
+            // the header's fourth icon is the YouTube channel now, and Home has YouTube and Sweat Mode
+            String yt = c.onClient(mc -> {
+                long mark = dev.testkit.gametest.LogTap.mark();
+                int[] b = (int[]) Mod.call(s, "iconBounds", 3);
+                press(s, b[0] + b[2] / 2.0, b[1] + b[3] / 2.0);
+                for (String l : dev.testkit.gametest.LogTap.since(mark)) {
+                    if (l.contains("would open") && l.contains("youtube.com/@Killer560_iscool")) {
+                        return null;
+                    }
+                }
+                return "the header's fourth icon did not open the YouTube channel (theme now " + themeName() + ")";
+            });
+            c.check(yt == null, yt);
+            c.check(themeName().equals("DARK"), "the header icon still changes the theme: " + themeName());
             // restart: the file read back, a new screen
             Screen fresh = c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
