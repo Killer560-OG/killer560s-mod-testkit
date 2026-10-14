@@ -737,6 +737,9 @@ public final class SimPuzzleSolveTests {
             int chestAt = -1;
             String chestWhat = null;
             int solvedAt = -1;
+            // Ticks the mod's AutoPuzzleActivity read "working" (2026-10-14): what Auto Routes / Auto Secret / Auto Clear
+            // hold under. A solve the auto did must have raised it, or those holds never happen for this puzzle.
+            int workingTicks = 0;
             double[] startPos = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(),
                     mc.player.getZ()});
             double travelled = 0;
@@ -761,6 +764,10 @@ public final class SimPuzzleSolveTests {
             }
             for (int t = 1; t <= limit; t++) {
                 ctx.waitTicks(1);
+                if (ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                        "com.killer560.hub.autopuzzles.AutoPuzzleActivity", "isWorking"))) {
+                    workingTicks++;
+                }
                 if (bw != null) {
                     bw.tick(ctx, t);
                 }
@@ -889,7 +896,13 @@ public final class SimPuzzleSolveTests {
 
             String extra = String.format(" (travelled %.1f blocks%s%s)", travelled,
                     chestAt > 0 ? String.format(", container at %.1fs", chestAt / 20.0) : "",
-                    spec.chestIsVerdict() ? ", sim isComplete=" + complete(ctx) : "");
+                    spec.chestIsVerdict() ? ", sim isComplete=" + complete(ctx) : "")
+                    + " [auto puzzle working " + workingTicks + " tick(s)]";
+            println(name, "auto puzzle activity: working " + workingTicks + " tick(s) of the watch");
+            if ((solvedAt > 0 || chestAt > 0) && failedAt < 0 && workingTicks == 0) {
+                return "FAIL - the auto did it but AutoPuzzleActivity never read working, so Auto Routes, Auto Secret "
+                        + "and Auto Clear would not have held for it" + extra;
+            }
             if (failedAt > 0) {
                 dumpEvidence(ctx, name, mark);
                 return String.format("FAIL - the sim marked the room FAILED at %.1fs%s", failedAt / 20.0, extra);
