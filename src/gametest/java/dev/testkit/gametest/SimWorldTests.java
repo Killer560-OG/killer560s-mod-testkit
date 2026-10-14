@@ -77,7 +77,8 @@ public class SimWorldTests implements FabricClientGameTest {
             "1404-sim-prince-missed", "1405-sim-item-range",
             // deathmite-lever (2026-10-13): stood in reach, flicked as the player, the lever must flip on the server
             "1406-sim-lever-deathmite", "1407-sim-lever-doors",
-            "1408-sim-lever-buttons", "1409-sim-lever-dome"};
+            "1408-sim-lever-buttons", "1409-sim-lever-dome",
+            "1411-sim-newmap-secrets"};
 
     private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
@@ -155,6 +156,7 @@ public class SimWorldTests implements FabricClientGameTest {
                                 {{54, 70, 16}, {28, 65, 15}, {28, 70, 17}, {53, 16}}});
                         // Each lever on a log of one wood opens that wood's door; the two he asked about (dark oak
                         // 44 and jungle 46) are flicked first, each leaving the other's door whole.
+                        case "1411-sim-newmap-secrets" -> caseNewMapSecrets(ctx);
                         case "1408-sim-lever-buttons" -> caseLeverDoors(ctx, c, "Buttons", new int[][][]{
                                 {{43, 81, 58}, {56, 80, 16}, {58, 88, 16}, {42, 59}}});
                         case "1409-sim-lever-dome" -> caseLeverDoors(ctx, c, "Dome", new int[][][]{
@@ -621,6 +623,37 @@ public class SimWorldTests implements FabricClientGameTest {
                 + farStill);
         check(nearUp && t <= 10, "the item 3 blocks from him did not appear within 10 ticks (" + t + ")");
         check(farStill, "the item 4 blocks from him appeared");
+    }
+
+    /**
+     * 1411, killer560 (2026-10-14): "If i generate a map and in the previous one I cleared secrets in a room, in that new
+     * room my map thinks the secrets have already been gotten." A room's found count recorded on one floor (the party
+     * interop facts the map reads, keyed by room name) must be gone once a new floor is built.
+     */
+    private void caseNewMapSecrets(ClientGameTestContext ctx) {
+        String interop = "com.killer560.hub.interop.PartyInteropState";
+        build(ctx, "Mossy");
+        ctx.waitTicks(20);
+        Object before = ctx.computeOnClient(mc -> {
+            Class<?> src;
+            try {
+                src = Class.forName("com.killer560.hub.interop.InteropSource");
+            } catch (ClassNotFoundException e) {
+                throw new AssertionError(e);
+            }
+            Object any = src.getEnumConstants()[0];
+            ModUnderTest.staticCall(interop, "offerRoomSecrets", new Class<?>[]{String.class, int.class, int.class, src,
+                    String.class}, new Object[]{"Mossy", 1, 1, any, "test"});
+            return ModUnderTest.staticCall(interop, "roomSecrets", new Class<?>[]{String.class}, new Object[]{"Mossy"});
+        });
+        build(ctx, "Mossy");
+        ctx.waitTicks(20);
+        Object after = ctx.computeOnClient(mc -> ModUnderTest.staticCall(interop, "roomSecrets", new Class<?>[]{String.class},
+                new Object[]{"Mossy"}));
+        say("1411 Mossy found-secrets fact before the new floor " + before + ", after " + after);
+        check(before != null, "the fact was never recorded - the case would prove nothing");
+        check(after == null || !String.valueOf(after).contains("found=1,"),
+                "the previous floor's found secrets survived the new floor: " + after);
     }
 
     private void casePrinceHead(ClientGameTestContext ctx) {
