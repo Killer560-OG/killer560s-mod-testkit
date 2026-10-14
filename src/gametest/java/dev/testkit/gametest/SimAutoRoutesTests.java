@@ -103,7 +103,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // path-wait (2026-10-11): legit warps land exactly where obvious ones do
             "96-ar-639-legit-warp-exact",
             // hype-down (2026-10-11)
-            "96-ar-653-crypt-straight-down",
+            "96-ar-653-crypt-straight-down", "96-ar-1013-bat", "96-ar-1013-breakerfall",
             // ar-obvious-only (2026-10-11): legit mode exists only in -PtestingBuild jars
             "96-ar-786-obvious-only",
             // ar-startguard (2026-10-12): a map arrival's start-only hold on a route with no start node
@@ -276,6 +276,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-651-mimic-legit-pitch" -> caseMimicWarp(ctx, LEGIT_AURA_HYPE);
                         case "96-ar-639-legit-warp-exact" -> caseLegitWarpExact(ctx);
                         case "96-ar-653-crypt-straight-down" -> caseCryptStraightDown(ctx);
+                        case "96-ar-1013-bat" -> caseBatNode(ctx);
+                        case "96-ar-1013-breakerfall" -> caseBreakerFall(ctx);
                         case "96-ar-786-obvious-only" -> caseObviousOnly(ctx);
                         case "96-ar-920-nostart-mapwarp" -> caseNoStartMapWarp(ctx);
                         case "96-ar-960-redo-restore" -> caseRedoRestore(ctx);
@@ -4263,6 +4265,143 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      * not met by a secret; a secret await is not met by our crypt kill; boom + crypt await:1 + ew await:1 on one tile
      * runs boom, crypt kill, waits for a secret click, then warps.
      */
+    /**
+     * killer560 (2026-10-13): "add a bat node. This functions just like crypts ... but is for bats." A secret bat waits
+     * three blocks from a lone bat node (start); he walks up (it appears after 5 ticks in range), steps on the node, and
+     * the node swaps to the Bat Weapon, uses it straight down and finishes on the bat's death - for Hyperion and Spirit
+     * Sceptre both. Then a bat node with no bat near times out ("up, moving on") instead of counting anything else.
+     */
+    private void caseBatNode(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        giveSlot(ctx, 4, "HYPERION");
+        giveSlot(ctx, 5, "BAT_WAND");
+        try {
+            String[] weapons = {"HYPERION", "SPIRIT_SCEPTRE"};
+            int[] xs = {19, 8};
+            int[] wantSlot = {4, 5};
+            for (int i = 0; i < 2; i++) {
+                int x = xs[i];
+                String weapon = weapons[i];
+                setArEnum(ctx, "setBatWeapon", "CryptWeapon", weapon);
+                BlockPos spot = realNow(ctx, x, F + 2, 13);
+                ctx.runOnClient(mc -> mc.getSingleplayerServer().execute(() -> ModUnderTest.staticCall(
+                        "com.killer560.hub.roomsim.SimSecretItems", "registerBat", new Class<?>[]{BlockPos.class},
+                        new Object[]{spot})));
+                JsonObject bat = node("BAT", x, 10, 0f, 30f);
+                bat.addProperty("start", true);
+                writeRoute(ctx, List.of(bat));
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                tpRel(ctx, x + 0.5, 8.5, 0f, 30f);
+                boolean appeared = waitFor(ctx, 60, () -> ctx.computeOnClient(mc -> {
+                    for (var e : mc.level.entitiesForRendering()) {
+                        if (e instanceof net.minecraft.world.entity.ambient.Bat b && b.getMaxHealth() == 100f
+                                && !b.isDeadOrDying() && b.blockPosition().closerThan(spot, 2)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }));
+                check(appeared, weapon + ": the secret bat never appeared");
+                long m = LogTap.mark();
+                tpRel(ctx, x + 0.5, 10.5, 0f, 30f);
+                boolean done = waitFor(ctx, 160, () -> logHas(m, "BAT: 1 kill(s)"));
+                int held = ctx.computeOnClient(mc -> mc.player.getInventory().getSelectedSlot());
+                boolean batGone = ctx.computeOnClient(mc -> {
+                    for (var e : mc.level.entitiesForRendering()) {
+                        if (e instanceof net.minecraft.world.entity.ambient.Bat b && b.getMaxHealth() == 100f
+                                && !b.isDeadOrDying() && b.blockPosition().closerThan(spot, 2)) {
+                            return false;
+                        }
+                    }
+                    return true;
+                });
+                println(weapon + ": bat node acted " + logHas(m, "BAT acted") + ", 1 kill " + done + ", bat gone " + batGone
+                        + ", slot after " + held);
+                check(logHas(m, "BAT acted"), weapon + ": the bat node never acted");
+                check(done, weapon + ": the bat node never counted the bat's kill");
+                check(batGone, weapon + ": the bat is still alive");
+                waitFor(ctx, 40, () -> !running(ctx));
+                stopRoute(ctx);
+            }
+
+            // ---- no bat near: the node times out, nothing counts ----
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", 20));
+            setArEnum(ctx, "setBatWeapon", "CryptWeapon", "HYPERION");
+            writeRoute(ctx, List.of(node("BAT", 13, 20, 0f, 30f)));
+            JsonObject lone = node("BAT", 13, 20, 0f, 30f);
+            lone.addProperty("start", true);
+            writeRoute(ctx, List.of(lone));
+            check(arm(ctx, 13, 20, 0f, 30f), "the lone bat node did not start");
+            long m2 = LogTap.mark();
+            boolean timedOut = waitFor(ctx, 80, () -> logHas(m2, "up, moving on"));
+            check(timedOut, "a bat node with no bat did not time out");
+            check(!logHas(m2, "BAT: 1 kill"), "a bat node counted a kill with no bat there");
+            stopRoute(ctx);
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", 100));
+        }
+    }
+
+    /**
+     * killer560 (2026-10-13): "if i step on a dungeon breaker node until another node fires it should still be able to
+     * mine so for instance if it mines the blocks out from under its feet and starts falling then it should keep mining
+     * as it falls." A seven-high stone pillar; he stands on top on the node, whose blocks are the whole pillar. From the top
+     * only the upper ones are in reach; the rest must go as he falls past them, after the node itself has finished.
+     */
+    private void caseBreakerFall(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        int top = 7;
+        try {
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+            Map<int[], BlockState> put = new HashMap<>();
+            JsonArray blocks = new JsonArray();
+            for (int y = 0; y < top; y++) {
+                put.put(new int[]{13, F + y, 12}, Blocks.STONE.defaultBlockState());
+                put.put(new int[]{13, F + y, 11}, Blocks.STONE.defaultBlockState()); // the approach column, kept
+                blocks.add("13 " + (F + y) + " 12");
+            }
+            setBlocks(ctx, put);
+            JsonObject br = node("DUNGEON_BREAKER", 13, 12, 0f, 90f);
+            br.addProperty("y", (double) (F + top));
+            br.add("blocks", blocks);
+            br.addProperty("start", true);
+            writeRoute(ctx, List.of(br));
+            tpRelY(ctx, 13.5, F + top, 11.5, 0f, 90f);
+            ctx.waitTicks(60);   // charges back up
+            int broken0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "lingerBroken"));
+            long m = LogTap.mark();
+            tpRelY(ctx, 13.5, F + top, 12.5, 0f, 90f);
+            boolean gone = waitFor(ctx, 160, () -> {
+                for (int y = 0; y < top; y++) {
+                    if (!blockAir(ctx, 13, F + y, 12)) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+            ctx.waitTicks(20);
+            int broken = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "lingerBroken")) - broken0;
+            Vec3 at = relPos(ctx);
+            int standing = 0;
+            for (int y = 0; y < top; y++) {
+                standing += blockAir(ctx, 13, F + y, 12) ? 0 : 1;
+            }
+            println("breaker fall: node acted " + logHas(m, "DUNGEON_BREAKER acted") + ", all gone " + gone + " ("
+                    + standing + " left), " + broken + " broken after the node finished, now at y " + at.y
+                    + " (floor " + F + ")");
+            check(logHas(m, "DUNGEON_BREAKER acted"), "the breaker node never fired");
+            check(broken >= 2, "only " + broken + " block(s) were broken after the node finished - nothing mined while falling");
+            check(gone, standing + " block(s) of the pillar are still standing");
+            check(Math.abs(at.y - F) < 0.2, "he did not fall to the floor (y " + at.y + ")");
+        } finally {
+            stopRoute(ctx);
+        }
+    }
+
     private void caseCrypt(ClientGameTestContext ctx) {
         resetRoutes(ctx);
         arena(ctx, false);

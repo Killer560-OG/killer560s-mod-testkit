@@ -350,7 +350,31 @@ public class SimWorldTests implements FabricClientGameTest {
         int inRoom0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "foundInRoom",
                 new Class<?>[]{String.class}, new Object[]{room}));
         long m = LogTap.mark();
-        tp(ctx, feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5, 0f, 0f);
+        // killer560 (2026-10-13): a sim bat spawns only after he has been within its range for 5 ticks. Teleported in on
+        // the server (game time t0), then polled every tick: the bat may exist only from t0 + 5 on.
+        long t0 = onServer(ctx, (level, sp) -> {
+            sp.teleportTo(level, feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5,
+                    java.util.Set.<net.minecraft.world.entity.Relative>of(), 0f, 0f, false);
+            return level.getGameTime();
+        });
+        long spawnedAt = -1;
+        for (int i = 0; i < 40 && spawnedAt < 0; i++) {
+            ctx.waitTicks(1);
+            spawnedAt = onServer(ctx, (level, sp) -> {
+                @SuppressWarnings("unchecked")
+                List<BlockPos> pend = (List<BlockPos>) ModUnderTest.staticCall(SIM_SECRET_ITEMS, "pendingBats");
+                return pend.contains(spot) ? -1L : level.getGameTime();
+            });
+        }
+        // The poll that saw it gone ran up to a tick after the spawn, so the spawn tick is at least spawnedAt - 1.
+        say("643 bat spawned " + (spawnedAt - t0) + " server tick(s) after he came within range (seen on the poll)");
+        check(spawnedAt >= 0, "the secret bat never spawned once he was within range");
+        check(spawnedAt - t0 >= 5, "the secret bat spawned " + (spawnedAt - t0) + " tick(s) after he came within range - want 5");
+        check(spawnedAt - t0 <= 7, "the secret bat took " + (spawnedAt - t0) + " ticks to spawn within range - want 5");
+        ctx.runOnClient(mc -> {
+            mc.player.setYRot(0f);
+            mc.player.setXRot(0f);
+        });
         boolean appeared = false;
         for (int i = 0; i < 40 && !appeared; i++) {
             ctx.waitTicks(1);

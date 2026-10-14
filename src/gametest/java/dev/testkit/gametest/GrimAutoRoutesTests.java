@@ -175,6 +175,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.testExpectingFlags("62-argrim-correction", GrimAutoRoutesTests::caseCorrection);
             s.test("62-argrim-boom", GrimAutoRoutesTests::caseBoom);
             s.test("62-argrim-breaker", GrimAutoRoutesTests::caseBreaker);
+            s.test("62-argrim-1013-breakerfall", GrimAutoRoutesTests::caseBreakerFall); // ar breaker linger (2026-10-13)
             s.test("62-argrim-use", GrimAutoRoutesTests::caseUse);
             s.test("62-argrim-play", GrimAutoRoutesTests::casePlay);
             s.test("62-argrim-awaitskip", GrimAutoRoutesTests::caseAwaitSkip);
@@ -659,6 +660,73 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         }
         c.note(notes.toString());
         noteFlags(c, List.of());
+    }
+
+    /**
+     * killer560 (2026-10-13): a breaker node keeps mining its blocks as he falls through the hole it made. A seven-high
+     * snow pillar, every block the node's; he walks onto its top from a stone column beside it, and the rest go as he
+     * falls past them - against GrimAC.
+     */
+    private static void caseBreakerFall(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        int top = 7;
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+        Map<int[], String> put = new LinkedHashMap<>();
+        JsonArray blocks = new JsonArray();
+        for (int y = 0; y < top; y++) {
+            put.put(new int[]{13, F + y, 12}, "minecraft:snow_block");
+            put.put(new int[]{13, F + y, 11}, "minecraft:stone");
+            blocks.add("13 " + (F + y) + " 12");
+        }
+        setBlocks(ctx, put);
+        JsonObject br = node("DUNGEON_BREAKER", 13, 12, 0f, 0f);
+        br.addProperty("y", (double) (F + top));
+        br.add("blocks", blocks);
+        br.addProperty("start", true);
+        writeRoute(ctx, List.of(br));
+        double[] p = ctx.computeOnClient(mc -> {
+            Object frame = ModUnderTest.staticCall(FRAME, "current");
+            Vec3 v = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                    double.class, double.class}, new Object[]{frame, 13.5, (double) (F + top), 11.3});
+            float yaw = (Float) ModUnderTest.staticCall(COORDS, "toRealYaw", new Class<?>[]{frame.getClass(), float.class},
+                    new Object[]{frame, 0f});
+            return new double[]{v.x, v.y, v.z, yaw};
+        });
+        lookYaw = (float) p[3];
+        lookPitch = 30f;
+        session.hx().call("dungeon.tp", "x", p[0], "y", p[1], "z", p[2], "yaw", (float) p[3], "pitch", 30f);
+        Vec3 target = new Vec3(p[0], p[1], p[2]);
+        waitFor(ctx, 40, () -> ctx.computeOnClient(mc -> mc.player.position().distanceTo(target) < 0.05));
+        ctx.waitTicks(20);
+        long m = LogTap.mark();
+        startSampling(ctx);
+        ctx.getInput().holdKey(o -> o.keyUp);
+        try {
+            waitFor(ctx, 40, () -> ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning")));
+        } finally {
+            ctx.getInput().releaseKey(o -> o.keyUp);
+        }
+        boolean gone = waitFor(ctx, 160, () -> {
+            for (int y = 0; y < top; y++) {
+                if (!blockAir(ctx, 13, F + y, 12)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+        ctx.waitTicks(20);
+        List<Sample> s = stopSampling(ctx);
+        printTrace("breaker fall", s);
+        Vec3 at = relPos(ctx);
+        int digs = count(s, "player_action");
+        c.note(String.format(Locale.ROOT, "breaker fall: %d dig(s), linger lines %s, all gone %s, ended at y %.2f (floor %d)",
+                digs, logHas(m, "Breaker linger:"), gone, at.y, F));
+        check(logHas(m, "DUNGEON_BREAKER acted"), "the breaker node never fired");
+        check(logHas(m, "block(s) broken") && logHas(m, "Breaker linger"), "nothing was mined after the node finished");
+        check(gone, "the pillar was not all broken");
+        noteFlags(c, s);
     }
 
     /** A use node with the AOTV: Instant Transmission, shift up, from the packet's rotation. */
