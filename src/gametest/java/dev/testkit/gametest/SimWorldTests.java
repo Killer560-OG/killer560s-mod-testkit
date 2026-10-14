@@ -70,7 +70,8 @@ public class SimWorldTests implements FabricClientGameTest {
             // mimic-fix (2026-10-11)
             "652-sim-prince-waypoint-brf",
             // sim-superboom-radius (2026-10-14): a 3-block radius to each block's box, whole groups
-            "1401-sim-boom-prince-tomb", "1402-sim-boom-crypt-overhead", "1403-sim-boom-chain"};
+            "1401-sim-boom-prince-tomb", "1402-sim-boom-crypt-overhead", "1403-sim-boom-chain",
+            "1404-sim-prince-missed", "1405-sim-item-range"};
 
     private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
@@ -142,6 +143,8 @@ public class SimWorldTests implements FabricClientGameTest {
                         case "1401-sim-boom-prince-tomb" -> caseBoomPrinceTomb(ctx);
                         case "1402-sim-boom-crypt-overhead" -> caseBoomCryptOverhead(ctx);
                         case "1403-sim-boom-chain" -> caseBoomChain(ctx);
+                        case "1404-sim-prince-missed" -> casePrinceMissed(ctx);
+                        case "1405-sim-item-range" -> caseItemRange(ctx);
                         default -> {
                         }
                     }
@@ -539,6 +542,66 @@ public class SimWorldTests implements FabricClientGameTest {
         check(boomLine.contains("prince=true") && boomLine.contains("crypts opened=0"),
                 "the tomb opened as something other than a prince alone: " + boomLine);
         check(undead >= 1, "no undead appeared in the opened prince");
+    }
+
+    /**
+     * 1404, killer560 (2026-10-13): "this structure in leaves is a prince" - in route practice the floor scan had not
+     * registered it, and Superbooms on its polished andesite said prince=false. With the scan's result thrown away
+     * (SimPrince.reset after the build), one Superboom at the ring must still find it: prince=true, the lantern gone.
+     */
+    private void casePrinceMissed(ClientGameTestContext ctx) {
+        String room = "Leaves";
+        build(ctx, room);
+        BlockPos lantern = capW(ctx, room, 9, 82, 15);
+        BlockPos aim = capW(ctx, room, 10, 82, 15);
+        onServer(ctx, (level, sp) -> ModUnderTest.staticCall(SIM_PRINCE, "reset"));
+        boolean knownAfterReset = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_PRINCE, "isPart",
+                new Class<?>[]{BlockPos.class}, new Object[]{lantern}));
+        stand(ctx, room, 14, 15, 82, new double[]{9.5, 82.5, 15.5});
+        String line = boom(ctx, aim, Direction.EAST);
+        String lanternAfter = blockName(ctx, lantern);
+        say("1404 " + room + ": known after reset " + knownAfterReset + "; lantern after " + lanternAfter + "; " + line);
+        check(!knownAfterReset, "the reset did not forget the prince - the case would prove nothing");
+        check(line.contains("prince=true"), "the Superboom did not find the prince the scan had missed: " + line);
+        check("air".equals(lanternAfter), "the prince's lantern survived");
+    }
+
+    /**
+     * 1405, killer560 (2026-10-13): "I had a test where I was 3 blocks away and it didnt spawn." An item secret on the
+     * floor three blocks ahead of him (2.2 from his side to the block's) appears within 10 ticks; one four blocks ahead
+     * (3.2 away) never does in 40.
+     */
+    private void caseItemRange(ClientGameTestContext ctx) {
+        build(ctx, "Mossy");
+        BlockPos feet = arena(ctx);
+        BlockPos near = feet.offset(3, 0, 0);
+        BlockPos far = feet.offset(-4, 0, 0);
+        tp(ctx, feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5, 0f, 0f);
+        onServer(ctx, (level, sp) -> {
+            ModUnderTest.staticCall(SIM_SECRET_ITEMS, "register", new Class<?>[]{BlockPos.class}, new Object[]{near});
+            ModUnderTest.staticCall(SIM_SECRET_ITEMS, "register", new Class<?>[]{BlockPos.class}, new Object[]{far});
+            return null;
+        });
+        boolean nearUp = false;
+        int t = 0;
+        for (; t < 40 && !nearUp; t++) {
+            ctx.waitTicks(1);
+            nearUp = onServer(ctx, (level, sp) -> {
+                @SuppressWarnings("unchecked")
+                List<BlockPos> pend = (List<BlockPos>) ModUnderTest.staticCall(SIM_SECRET_ITEMS, "pendingPositions");
+                return !pend.contains(near);
+            });
+        }
+        ctx.waitTicks(40);
+        boolean farStill = onServer(ctx, (level, sp) -> {
+            @SuppressWarnings("unchecked")
+            List<BlockPos> pend = (List<BlockPos>) ModUnderTest.staticCall(SIM_SECRET_ITEMS, "pendingPositions");
+            return pend.contains(far);
+        });
+        say("1405 item 3 blocks ahead appeared " + nearUp + " after " + t + " tick(s); item 4 blocks behind still waiting "
+                + farStill);
+        check(nearUp && t <= 10, "the item 3 blocks from him did not appear within 10 ticks (" + t + ")");
+        check(farStill, "the item 4 blocks from him appeared");
     }
 
     private void casePrinceHead(ClientGameTestContext ctx) {
