@@ -530,3 +530,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   3 s. Count take-offs on the CLIENT's ground flag and only after the node has pressed: the integrated server's flag drops
   once for the teleport onto the node (first run: 4 server take-offs for 3 presses, 545 ms apart), and a teleport can drop
   the client's too (jump 3: 7 take-offs for 6 presses). Auto Routes fires nothing in a legit jar, so the case skips there.
+- 1410-sim-water-static (SimStaticWaterTests, mod sim-water-static, 2026-10-14): builds Museum then Water Board as single rooms
+  and, on the server at an open floor spot beside him, writes a lone level-4 flowing water block (40 ticks) and then a source
+  (60 ticks), counting water in a 17x5x17 box. Museum must keep both still with `SimStaticWater.frozenTicks` rising; Water
+  Board must drain the lone block and spread the source with `allowedTicks` rising - the same writes flowing there is the
+  control for the Museum half. First runs, 26.1.2 and 26.2 alike: Museum 9 -> 9 (frozen +2), Water Board 1 -> 7 (allowed +24).
