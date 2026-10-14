@@ -76,7 +76,8 @@ public class SimWorldTests implements FabricClientGameTest {
             "1401-sim-boom-prince-tomb", "1402-sim-boom-crypt-overhead", "1403-sim-boom-chain",
             "1404-sim-prince-missed", "1405-sim-item-range",
             // deathmite-lever (2026-10-13): stood in reach, flicked as the player, the lever must flip on the server
-            "1406-sim-lever-deathmite", "1407-sim-lever-doors"};
+            "1406-sim-lever-deathmite", "1407-sim-lever-doors",
+            "1408-sim-lever-buttons", "1409-sim-lever-dome"};
 
     private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
@@ -154,6 +155,10 @@ public class SimWorldTests implements FabricClientGameTest {
                                 {{54, 70, 16}, {28, 65, 15}, {28, 70, 17}, {53, 16}}});
                         // Each lever on a log of one wood opens that wood's door; the two he asked about (dark oak
                         // 44 and jungle 46) are flicked first, each leaving the other's door whole.
+                        case "1408-sim-lever-buttons" -> caseLeverDoors(ctx, c, "Buttons", new int[][][]{
+                                {{43, 81, 58}, {56, 80, 16}, {58, 88, 16}, {42, 59}}});
+                        case "1409-sim-lever-dome" -> caseLeverDoors(ctx, c, "Dome", new int[][][]{
+                                {{22, 75, 7}, {21, 77, 4}, {22, 81, 6}, {23, 7}}});
                         case "1407-sim-lever-doors" -> caseLeverDoors(ctx, c, "Doors", new int[][][]{
                                 {{44, 59, 16}, {24, 58, 15}, {24, 64, 17}, {44, 15}},
                                 {{46, 59, 16}, {20, 58, 15}, {20, 64, 17}, {46, 15}},
