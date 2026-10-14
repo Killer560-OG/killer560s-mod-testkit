@@ -94,6 +94,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-872-jumpkey",
             // ar-jump-cooldown (2026-10-14)
             "96-ar-1014-jumpcd",
+            // ac-route-memory (2026-10-14): run memory of secrets/bats/routed rooms, and the auto-puzzle hold
+            "96-ar-1014-awaitmem", "96-ar-1014-batmem", "96-ar-1014-routedroom", "96-ar-1014-puzzlehold",
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim", "96-ar-398-startawait",
             "96-ar-405-crypt-mapopen", "96-ar-405-startwarp", "96-ar-path", "96-ar-screen", "96-ar-rotate",
             // sim-world (2026-10-11)
@@ -266,6 +268,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-870-jumpn" -> ArNodesCases.jumpCount(ctx);
                         case "96-ar-872-jumpkey" -> ArNodesCases.jumpKey(ctx);
                         case "96-ar-1014-jumpcd" -> ArJumpCooldownCases.jumpCooldown(ctx);
+                        case "96-ar-1014-awaitmem" -> ArRouteMemoryCases.awaitMemory(ctx);
+                        case "96-ar-1014-batmem" -> ArRouteMemoryCases.batMemory(ctx);
+                        case "96-ar-1014-routedroom" -> ArRouteMemoryCases.routedRoom(ctx);
+                        case "96-ar-1014-puzzlehold" -> ArRouteMemoryCases.puzzleHold(ctx);
                         case "96-ar-dbedit" -> caseDbEdit(ctx);
                         case "96-ar-mapopen" -> caseMapOpen(ctx);
                         case "96-ar-mapopen-aim" -> caseMapOpenAim(ctx);
@@ -3611,6 +3617,11 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
 
     /** Steps off (2 blocks -z), then onto the start node at (x,z): true once the route has started. */
     private static boolean arm(ClientGameTestContext ctx, int x, int z, float yaw, float pitch) {
+        if (!keepRunMemory) {
+            // Each arm is its own run unless a run-memory case says otherwise: the mod remembers a met await for the rest
+            // of a run (RouteRunMemory), and the cases re-arm one node with a different secret each time.
+            forgetRunMemory(ctx);
+        }
         tpRel(ctx, x + 0.5, z - 1.5, yaw, pitch);
         ctx.waitTicks(10);
         long m = LogTap.mark();
@@ -6387,5 +6398,289 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             });
         }
         check(failures.isEmpty(), String.join("; ", failures));
+    }
+
+    // ============================================================================================ run memory (2026-10-14)
+
+    /** Set by the run-memory cases, so {@link #arm} does not forget the run between their arms. */
+    private static boolean keepRunMemory;
+
+    /** What Auto Routes remembers for the run (RouteRunMemory), forgotten as a new run would - a mod jar from before
+     *  the class existed has nothing to forget. */
+    private static void forgetRunMemory(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> {
+            try {
+                Class.forName(ArRouteMemoryCases.MEMORY);
+            } catch (ClassNotFoundException e) {
+                return;
+            }
+            ModUnderTest.staticCall(ArRouteMemoryCases.MEMORY, "reset");
+        });
+    }
+
+    /**
+     * killer560, 2026-10-14. 96-ar-1014-awaitmem / -batmem: "have it remember my auto routes in a sense so if it
+     * remembers I already got that secret or that bat then it will not wait for the await before doing that action".
+     * 96-ar-1014-routedroom: a route that ran to its end marks its room for Auto Secret ("treat it as though I got every
+     * secret in the room"). 96-ar-1014-puzzlehold: "auto clear related things need to realize when an auto puzzle is
+     * working to stop making it etherwarp back to the start" - Auto Routes' side (it must not arm under one).
+     */
+    static final class ArRouteMemoryCases {
+        static final String MEMORY = "com.killer560.hub.autoroutes.RouteRunMemory";
+
+        private ArRouteMemoryCases() {
+        }
+
+        private static String memory(ClientGameTestContext ctx) {
+            return ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(MEMORY, "describe"));
+        }
+
+        /** Ticks from {@code m} until {@code text} is logged, or -1 within {@code limit}. */
+        private static int ticksUntil(ClientGameTestContext ctx, long m, String text, int limit) {
+            for (int t = 0; t <= limit; t++) {
+                if (logHas(m, text)) {
+                    return t;
+                }
+                ctx.waitTicks(1);
+            }
+            return -1;
+        }
+
+        static void awaitMemory(ClientGameTestContext ctx) {
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            setBlocks(ctx, Map.of(new int[]{10, F, 11}, Blocks.CHEST.defaultBlockState(),
+                    new int[]{14, F, 13}, floorLever(), new int[]{12, F, 22}, floorLever()));
+            writeRoute(ctx, List.of(handUse(12, 12, 0f, 80f, true, 1)));
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            keepRunMemory = true;
+            try {
+                forgetRunMemory(ctx);
+                // ---- 1: a first run waits for its secret; the chest click meets it ----
+                long m1 = LogTap.mark();
+                check(arm(ctx, 12, 12, 0f, 80f), "run 1 did not start");
+                ctx.waitTicks(30);
+                boolean early = logHas(m1, "secrets met");
+                rightClick(ctx, 10, F, 11, Direction.UP);
+                boolean met1 = waitFor(ctx, 60, () -> logHas(m1, "secrets met"));
+                ctx.runOnClient(mc -> mc.player.closeContainer());
+                boolean acted1 = waitFor(ctx, 20, () -> logHas(m1, "USE_ITEM acted"));
+                stopRoute(ctx);
+                println("awaitmem run 1: met before the click " + early + ", met by the chest " + met1 + ", acted " + acted1
+                        + "; memory " + memory(ctx));
+                check(!early, "run 1's await was met before any secret - nothing below would mean anything");
+                check(met1 && acted1, "run 1: the chest click did not meet the await and fire the node");
+
+                // ---- 2: the same node again, nothing new done: met at once from memory, and it acts ----
+                long m2 = LogTap.mark();
+                check(arm(ctx, 12, 12, 0f, 80f), "run 2 did not start");
+                int fromMemory = ticksUntil(ctx, m2, "already met earlier this run", 10);
+                boolean acted2 = waitFor(ctx, 10, () -> logHas(m2, "USE_ITEM acted"));
+                stopRoute(ctx);
+                println("awaitmem run 2 (same node, same run): met from memory after " + fromMemory + " tick(s), acted "
+                        + acted2);
+                check(fromMemory >= 0, "run 2 waited again for a secret he already got this run");
+                check(acted2, "run 2's node did not act after its await was met from memory");
+
+                // ---- 3: control - the run forgotten (a new run), the same node waits again ----
+                forgetRunMemory(ctx);
+                long m3 = LogTap.mark();
+                check(arm(ctx, 12, 12, 0f, 80f), "run 3 did not start");
+                ctx.waitTicks(40);
+                boolean met3 = logHas(m3, "secrets met");
+                stopRoute(ctx);
+                println("awaitmem run 3 (new run, control): met " + met3);
+                check(!met3, "after a new run the await was met with no secret - run 2's pass proves nothing");
+
+                // ---- 4: first visit, the secret taken by hand beside the node before the route ran ----
+                forgetRunMemory(ctx);
+                tpRel(ctx, 12.5, 9.5, 0f, 80f);
+                ctx.waitTicks(5);
+                rightClick(ctx, 14, F, 13, Direction.UP);
+                ctx.waitTicks(30); // past AwaitEvents.START_LOOKBACK (10): only the run memory can count it
+                long m4 = LogTap.mark();
+                check(arm(ctx, 12, 12, 0f, 80f), "run 4 did not start");
+                int byHand = ticksUntil(ctx, m4, "remembered from earlier this run", 10);
+                stopRoute(ctx);
+                println("awaitmem run 4 (lever beside the node clicked by hand 30+ ticks earlier): met after " + byHand
+                        + " tick(s)");
+                check(byHand >= 0, "a secret he got by hand beside the node earlier this run did not meet its await");
+
+                // ---- 5: a secret 10 blocks from the node does not count ----
+                forgetRunMemory(ctx);
+                tpRel(ctx, 12.5, 9.5, 0f, 80f);
+                ctx.waitTicks(5);
+                rightClick(ctx, 12, F, 22, Direction.UP);
+                ctx.waitTicks(30);
+                long m5 = LogTap.mark();
+                check(arm(ctx, 12, 12, 0f, 80f), "run 5 did not start");
+                ctx.waitTicks(40);
+                boolean met5 = logHas(m5, "secrets met");
+                stopRoute(ctx);
+                println("awaitmem run 5 (lever 10 blocks away clicked earlier): met " + met5 + "; memory " + memory(ctx));
+                check(memory(ctx).contains("block "), "the far lever click was never remembered - run 5 proves nothing");
+                check(!met5, "a secret 10 blocks from the node met its await");
+            } finally {
+                keepRunMemory = false;
+                forgetRunMemory(ctx);
+            }
+        }
+
+        static void batMemory(ClientGameTestContext ctx) {
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            giveSlot(ctx, 4, "HYPERION");
+            keepRunMemory = true;
+            try {
+                forgetRunMemory(ctx);
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", 20));
+                setArEnum(ctx, "setBatWeapon", "CryptWeapon", "HYPERION");
+                int x = 19;
+                BlockPos spot = realNow(ctx, x, F + 2, 13);
+                ctx.runOnClient(mc -> mc.getSingleplayerServer().execute(() -> ModUnderTest.staticCall(
+                        "com.killer560.hub.roomsim.SimSecretItems", "registerBat", new Class<?>[]{BlockPos.class},
+                        new Object[]{spot})));
+                JsonObject bat = node("BAT", x, 10, 0f, 30f);
+                bat.addProperty("start", true);
+                writeRoute(ctx, List.of(bat));
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                tpRel(ctx, x + 0.5, 8.5, 0f, 30f);
+                boolean appeared = waitFor(ctx, 60, () -> ctx.computeOnClient(mc -> {
+                    for (var e : mc.level.entitiesForRendering()) {
+                        if (e instanceof net.minecraft.world.entity.ambient.Bat b && b.getMaxHealth() == 100f
+                                && !b.isDeadOrDying() && b.blockPosition().closerThan(spot, 2)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }));
+                check(appeared, "the secret bat never appeared");
+                // ---- 1: the bat node kills its bat ----
+                long m1 = LogTap.mark();
+                tpRel(ctx, x + 0.5, 10.5, 0f, 30f);
+                boolean killed = waitFor(ctx, 160, () -> logHas(m1, "BAT: 1 kill(s)"));
+                waitFor(ctx, 40, () -> !running(ctx));
+                stopRoute(ctx);
+                println("batmem run 1: acted " + logHas(m1, "BAT acted") + ", killed " + killed);
+                check(logHas(m1, "BAT acted") && killed, "run 1: the bat node did not kill its bat");
+
+                // ---- 2: the same node again this run: no attack, it moves on at once ----
+                long m2 = LogTap.mark();
+                check(arm(ctx, x, 10, 0f, 30f), "run 2 did not start");
+                int skipped = ArRouteMemoryCases.ticksUntil(ctx, m2, "already killed earlier this run", 10);
+                ctx.waitTicks(10);
+                boolean acted2 = logHas(m2, "BAT acted");
+                stopRoute(ctx);
+                println("batmem run 2 (same run): skipped from memory after " + skipped + " tick(s), acted " + acted2);
+                check(skipped >= 0, "run 2's bat node did not remember its bat was already killed");
+                check(!acted2, "run 2's bat node attacked for a bat killed earlier this run");
+
+                // ---- 3: control - a new run: the node attacks (and times out, the bat is gone) ----
+                forgetRunMemory(ctx);
+                long m3 = LogTap.mark();
+                check(arm(ctx, x, 10, 0f, 30f), "run 3 did not start");
+                boolean acted3 = waitFor(ctx, 40, () -> logHas(m3, "BAT acted"));
+                boolean timedOut = waitFor(ctx, 80, () -> logHas(m3, "up, moving on"));
+                stopRoute(ctx);
+                println("batmem run 3 (new run, control): acted " + acted3 + ", timed out " + timedOut);
+                check(acted3 && timedOut, "after a new run the bat node did not attack - run 2's skip proves nothing");
+            } finally {
+                keepRunMemory = false;
+                forgetRunMemory(ctx);
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", 100));
+            }
+        }
+
+        static void routedRoom(ClientGameTestContext ctx) {
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            keepRunMemory = true;
+            try {
+                forgetRunMemory(ctx);
+                java.util.function.Supplier<Boolean> routed = () -> ctx.computeOnClient(mc -> (Boolean)
+                        ModUnderTest.staticCall(MEMORY, "routeCompletedThisRun", new Class<?>[]{String.class},
+                                new Object[]{room}));
+                // ---- a route stopped before its end does not count ----
+                writeRoute(ctx, List.of(handUse(12, 12, 0f, 80f, true, 1)));
+                check(arm(ctx, 12, 12, 0f, 80f), "the await route did not start");
+                ctx.waitTicks(10);
+                stopRoute(ctx);
+                boolean afterStop = routed.get();
+                // ---- one that runs to its end does ----
+                writeRoute(ctx, List.of(handUse(12, 12, 0f, 80f, true, 0)));
+                long m = LogTap.mark();
+                check(arm(ctx, 12, 12, 0f, 80f), "the one-node route did not start");
+                boolean complete = waitFor(ctx, 40, () -> logHas(m, "complete"));
+                boolean afterComplete = routed.get();
+                // ---- and a new run forgets it ----
+                forgetRunMemory(ctx);
+                boolean afterReset = routed.get();
+                println("routedroom: stopped route counts " + afterStop + ", completed " + complete + " -> counts "
+                        + afterComplete + ", new run -> " + afterReset);
+                check(!afterStop, "a route stopped on its await marked the room as routed");
+                check(complete, "the one-node route never completed");
+                check(afterComplete, "a route that ran to its end did not mark " + room + " as routed this run");
+                check(!afterReset, "a new run still remembered the routed room");
+            } finally {
+                keepRunMemory = false;
+                forgetRunMemory(ctx);
+            }
+        }
+
+        static void puzzleHold(ClientGameTestContext ctx) {
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            try {
+                // ---- control: no puzzle, the start node arms ----
+                // The first run of this case read the file 1.8 s after the write and armed at tick 38 of arm()'s 40.
+                long w = LogTap.mark();
+                writeRoute(ctx, List.of(handUse(8, 16, 0f, 80f, true, 1)));
+                waitFor(ctx, 100, () -> logHas(w, "Loaded 1 route"));
+                check(arm(ctx, 8, 16, 0f, 80f), "control: the start node did not arm with no puzzle working");
+                // ---- a running route stops when an auto puzzle starts working ----
+                long m0 = LogTap.mark();
+                PuzzleActivityFake.start(ctx);
+                boolean stopped = waitFor(ctx, 10, () -> !running(ctx));
+                println("puzzlehold: running route stopped by the puzzle " + stopped + " ("
+                        + logHas(m0, "Auto testkit is working") + ")");
+                check(stopped, "a running route kept going when an auto puzzle started working");
+                // ---- under the puzzle, stepping onto the start node arms nothing ----
+                tpRel(ctx, 8.5, 14.5, 0f, 80f);
+                ctx.waitTicks(10);
+                long m1 = LogTap.mark();
+                tpRel(ctx, 8.5, 16.5, 0f, 80f);
+                ctx.waitTicks(60);
+                boolean armedUnder = logHas(m1, "Started \"");
+                boolean gateSaid = logHas(m0, "inert: Auto testkit is working");
+                println("puzzlehold: armed under the puzzle " + armedUnder + ", gate line " + gateSaid
+                        + ", working " + PuzzleActivityFake.working(ctx));
+                check(PuzzleActivityFake.working(ctx), "the fake puzzle never read as working - nothing here was tested");
+                check(!armedUnder, "the start node armed while an auto puzzle was working");
+                check(gateSaid, "Auto Routes never said it was holding for the puzzle");
+                // ---- the puzzle done: the node he was left standing in stays latched (it must not fire under him the
+                // moment the puzzle lets go), and stepping off and back on arms it as usual ----
+                PuzzleActivityFake.stop(ctx);
+                ctx.waitTicks(60);
+                boolean firedUnder = logHas(m1, "Started \"");
+                boolean quiet = !PuzzleActivityFake.working(ctx);
+                long m2 = LogTap.mark();
+                boolean rearmed = arm(ctx, 8, 16, 0f, 80f);
+                println("puzzlehold: after the puzzle - working " + !quiet + ", fired under him " + firedUnder
+                        + ", step off/on armed " + rearmed + " (" + logHas(m2, "Started \"") + ")");
+                check(quiet, "the fake puzzle still read working 3 s after it stopped marking");
+                check(!firedUnder, "the node fired under him the moment the puzzle finished");
+                check(rearmed, "the start node never armed after the puzzle finished");
+                stopRoute(ctx);
+            } finally {
+                PuzzleActivityFake.stop(ctx);
+                stopRoute(ctx);
+            }
+        }
     }
 }

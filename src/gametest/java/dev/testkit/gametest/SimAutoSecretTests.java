@@ -70,6 +70,7 @@ public class SimAutoSecretTests implements FabricClientGameTest {
     private static final String AS_CONFIG = "com.killer560.hub.autosecret.AutoSecretConfig";
     private static final String DUNGEON_INFO = "com.killer560.hub.dungeoninfo.DungeonInfoFeature";
     private static final String INSTA = "com.killer560.hub.autosecret.InstaClearTracker";
+    private static final String MEMORY = "com.killer560.hub.autoroutes.RouteRunMemory";
     private static final int GRID = 11;
     private static final int ROUTED = 3;
 
@@ -137,6 +138,7 @@ public class SimAutoSecretTests implements FabricClientGameTest {
             failures.add("scenario threw: " + t);
             t.printStackTrace(System.out);
         } finally {
+            PuzzleActivityFake.stop(ctx);
             ctx.runOnClient(mc -> {
                 if ((Boolean) ModUnderTest.staticCall(AS, "isRunning")) {
                     ModUnderTest.staticCall(AS, "stop", new Class<?>[]{String.class, boolean.class},
@@ -266,6 +268,15 @@ public class SimAutoSecretTests implements FabricClientGameTest {
             }
         }
         Room blockedRouted = blocked.isEmpty() ? null : blocked.get(0);
+        // 2026-10-14 ("if i have already used auto routes in a room ... treat it as though I got every secret in the
+        // room"): one more reachable room WITH a route, whose route is marked as already run this run. Without the rule
+        // it is an ordinary target (it has a route and unfound secrets); with it, it must never be one.
+        Room preRouted = null;
+        for (int i = 1; i < eligible.size() && preRouted == null; i++) {
+            if (!routed.contains(eligible.get(i)) && pathsOut(eligible.get(i))) {
+                preRouted = eligible.get(i);
+            }
+        }
         Map<String, JsonObject> routes = new HashMap<>();
         for (Room r : routed) {
             JsonObject route = routeFor(ctx, r);
@@ -274,6 +285,14 @@ public class SimAutoSecretTests implements FabricClientGameTest {
                 continue;
             }
             routes.put(r.name(), route);
+        }
+        if (preRouted != null) {
+            JsonObject route = routeFor(ctx, preRouted);
+            if (route != null) {
+                routes.put(preRouted.name(), route);
+            } else {
+                preRouted = null;
+            }
         }
         if (blockedRouted != null) {
             JsonObject route = routeFor(ctx, blockedRouted);
@@ -311,10 +330,45 @@ public class SimAutoSecretTests implements FabricClientGameTest {
         long mark = LogTap.mark();
         Vec3 from = ctx.computeOnClient(mc -> mc.player.position());
         int seq0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "arrivalSeq"));
+        if (preRouted != null) {
+            String n = preRouted.name();
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(MEMORY, "testMarkRouted", new Class<?>[]{String.class},
+                    new Object[]{n}));
+            println("marked " + n + " (" + preRouted.unfound() + " unfound, has a route) as routed this run");
+        } else {
+            println("no spare routable room - the routed-this-run case is not tested");
+        }
+        // 2026-10-14 ("auto clear related things need to realize when an auto puzzle is working"): it starts under a
+        // working auto puzzle (PuzzleActivityFake), and for five seconds must neither choose a room nor move him.
+        PuzzleActivityFake.start(ctx);
         Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "start"));
         if (!Boolean.TRUE.equals(started)) {
+            PuzzleActivityFake.stop(ctx);
             failures.add("Auto Secret refused to start: " + tail(LogTap.since(mark), 5));
             return;
+        }
+        ctx.waitTicks(100);
+        boolean underPuzzle = PuzzleActivityFake.working(ctx);
+        double heldMoved = ctx.computeOnClient(mc -> mc.player.position()).distanceTo(from);
+        boolean heldTarget = false;
+        boolean holdSaid = false;
+        for (String l : LogTap.since(mark)) {
+            heldTarget |= TARGET.matcher(l).find() || NO_ROUTE.matcher(l).find();
+            holdSaid |= l.contains("[AutoSecret] waiting: Auto testkit is working");
+        }
+        int heldSeq = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "arrivalSeq"));
+        PuzzleActivityFake.stop(ctx);
+        println(String.format(Locale.US, "under a working auto puzzle for 5 s: working %s, moved %.1f, chose a room %s, "
+                + "map arrivals %d, hold said %s", underPuzzle, heldMoved, heldTarget, heldSeq - seq0, holdSaid));
+        if (!underPuzzle) {
+            failures.add("the fake auto puzzle never read as working - the hold was not tested");
+        }
+        if (heldTarget || heldMoved > 1.5 || heldSeq != seq0) {
+            failures.add(String.format(Locale.US, "Auto Secret acted under a working auto puzzle (chose a room %s, moved "
+                    + "%.1f, %d map arrival(s))", heldTarget, heldMoved, heldSeq - seq0));
+        }
+        if (!holdSaid) {
+            failures.add("Auto Secret never said it was waiting for the auto puzzle");
         }
         double maxTravel = 0;
         int unarmedSeen = 0;
@@ -413,6 +467,21 @@ public class SimAutoSecretTests implements FabricClientGameTest {
             }
         }
         println("decisions in order: " + orderNames);
+        if (preRouted != null) {
+            boolean said = false;
+            for (String l : log) {
+                said |= l.contains("[AutoSecret] " + preRouted.name() + ": its route already ran to the end this run");
+            }
+            println("routed-this-run room " + preRouted.name() + ": targeted " + targets.contains(preRouted.name())
+                    + ", said " + said);
+            if (targets.contains(preRouted.name())) {
+                failures.add(preRouted.name() + "'s route had already run this run, but Auto Secret went back for its "
+                        + preRouted.unfound() + " unfound secret(s)");
+            }
+            if (!said) {
+                failures.add("Auto Secret never said " + preRouted.name() + "'s route had already run this run");
+            }
+        }
         if (noRouteLines != 1) {
             failures.add("the no-route room " + noRoute.name() + " was skipped " + noRouteLines + " time(s) in the log, expected once");
         }
