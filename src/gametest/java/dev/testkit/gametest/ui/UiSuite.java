@@ -213,6 +213,8 @@ public class UiSuite implements FabricClientGameTest {
             "1033-ui-trail-ribbon-still", "1034-ui-trail-ribbon-settings", "1035-ui-trail-ribbon-gallery",
             "1040-ui-ribbon-cosmetic-tabs", "1041-ui-ribbon-camera-angles"};
     /** Etherwarp Overlay box: every camera-facing face drawn (mod ew-nearface, {@link EtherwarpFaceCases}). Own block. */
+    /** Sweat Mode on the Home tab (mod sweat-mode, {@link DocMenuCases#sweatMode}). Own block for merges. */
+    static final String[] SWEAT_CASES = {"1016-ui-sweat-mode"};
     static final String[] EW_NEARFACE_CASES = {"1321-ui-etherwarp-box-faces", "1322-ui-etherwarp-walk",
             "1323-ui-etherwarp-back-edges"};
     /** Shared trails (mod trail-share, {@link TrailShareCases}). Own block for merges. */
@@ -330,6 +332,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : SCREEN_SWEEP_C_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : SWEAT_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : EW_NEARFACE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -345,7 +350,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(HUD_KEY3_CASES) || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(CHROMA_WAVE_CASES)
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
                 || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
-                || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES)
+                || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES) || any(SWEAT_CASES)
                 || any(TRAIL_SHARE_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
@@ -627,6 +632,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1040-ui-ribbon-cosmetic-tabs", TrailRibbonCases::tabs);
                     UiCase.run(ctx, "1041-ui-ribbon-camera-angles", TrailRibbonCases::cameraAngles);
                     // ---- Etherwarp Overlay box faces (1321) ----
+                    UiCase.run(ctx, "1016-ui-sweat-mode", DocMenuCases::sweatMode);
                     UiCase.run(ctx, "1321-ui-etherwarp-box-faces", EtherwarpFaceCases::run);
                     UiCase.run(ctx, "1322-ui-etherwarp-walk", EtherwarpFaceCases::walk);
                     UiCase.run(ctx, "1323-ui-etherwarp-back-edges", EtherwarpFaceCases::backEdges);

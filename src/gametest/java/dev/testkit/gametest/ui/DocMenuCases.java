@@ -286,6 +286,58 @@ final class DocMenuCases {
         }
     }
 
+    // ---- 1016 ------------------------------------------------------------------------------------------------------
+
+    /**
+     * killer560 (2026-10-14): "add a new setting called sweat mode and have it open google chrome with this link ...
+     * Make the setting description click to enter sweat mode. Have it as a toggle that turns on then opens the web page
+     * then will turn back off." On the Home tab's Mod & HUD drawer: the row's tooltip, a real click (the harness's
+     * no-external-open hook logs the launch instead of opening it), ON right after, OFF again within 30 ticks.
+     */
+    static void sweatMode(UiCase c) throws Exception {
+        String url = "https://www.youtube.com/watch?v=mDUOibsW36w";
+        String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describeScoped", null, "home",
+                "Sweat Mode"));
+        c.note("Sweat Mode tooltip: " + tip);
+        c.check("Click to enter sweat mode.".equals(tip), "the tooltip is '" + tip + "'");
+        int before = c.onClient(mc -> (Integer) Mod.staticCall("util.SweatMode", "timesEntered"));
+        long mark = dev.testkit.gametest.LogTap.mark();
+        Screen[] s = new Screen[1];
+        String pressed = c.onClient(mc -> {
+            s[0] = drawer(mc, "HomeMainTab");
+            AbstractWidget row = row(s[0], "Sweat Mode");
+            if (row == null) {
+                return "no Sweat Mode row: " + rowLabels(s[0]);
+            }
+            if (!row.getMessage().getString().contains("OFF")) {
+                return "Sweat Mode is not OFF before the click: " + row.getMessage().getString();
+            }
+            int[] b = controlBounds(row);
+            MenuACases.press(s[0], b[0] + b[2] / 2.0, b[1] + b[3] / 2.0);
+            return null;
+        });
+        c.check(pressed == null, pressed);
+        c.ticks(2);
+        String on = c.onClient(mc -> row(s[0], "Sweat Mode").getMessage().getString());
+        int after = c.onClient(mc -> (Integer) Mod.staticCall("util.SweatMode", "timesEntered"));
+        boolean launched = false;
+        for (String l : dev.testkit.gametest.LogTap.since(mark)) {
+            launched |= l.contains("would open") && l.contains(url);
+        }
+        c.ticks(30);
+        String off = c.onClient(mc -> row(s[0], "Sweat Mode").getMessage().getString());
+        c.onClient(mc -> {
+            dev.testkit.compat.McCompat.setScreen(mc, null);
+            return null;
+        });
+        c.note("Sweat Mode: entered " + before + " -> " + after + ", label right after '" + on + "', 30 ticks later '" + off
+                + "', launch logged " + launched);
+        c.check(after == before + 1, "the click did not enter Sweat Mode (" + before + " -> " + after + ")");
+        c.check(on.contains("ON"), "right after the click it reads '" + on + "'");
+        c.check(launched, "no browser launch of " + url + " was logged");
+        c.check(off.contains("OFF"), "30 ticks later it still reads '" + off + "'");
+    }
+
     // ---- 982 -------------------------------------------------------------------------------------------------------
 
     private static String gate() {
