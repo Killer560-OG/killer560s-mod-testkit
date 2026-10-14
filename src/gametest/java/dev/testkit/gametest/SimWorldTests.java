@@ -53,6 +53,9 @@ import java.util.function.Function;
  *   <li><b>646-sim-prince-head</b>: Leaves' prince takes its player head and the stair layer under it.</li>
  *   <li><b>647-650-sim-lever-*</b>: Bridges, Raccoon, Logs and Arrow Trap - the lever is there (Logs and Arrow Trap's
  *       placed by the sim) and flicking it as the player takes the whole door away.</li>
+ *   <li><b>1406-sim-lever-deathmite, 1407-sim-lever-doors</b> (2026-10-13): stood within reach of each lever, it must
+ *       flip on the server, its own door must go entirely and every door whose lever is still off must stay whole
+ *       (Doors: four levers, each on a log of its door's wood). Against the jar before the rules: 0 levers armed.</li>
  * </ul>
  * The mimic route (644) is {@code SimAutoRoutesTests}' 96-ar-644-mimic-warp, where the route machinery lives.
  * Screenshots of 645-650 go to the report's screens at GUI scale 2.
@@ -71,7 +74,9 @@ public class SimWorldTests implements FabricClientGameTest {
             "652-sim-prince-waypoint-brf",
             // sim-superboom-radius (2026-10-14): a 3-block radius to each block's box, whole groups
             "1401-sim-boom-prince-tomb", "1402-sim-boom-crypt-overhead", "1403-sim-boom-chain",
-            "1404-sim-prince-missed", "1405-sim-item-range"};
+            "1404-sim-prince-missed", "1405-sim-item-range",
+            // deathmite-lever (2026-10-13): stood in reach, flicked as the player, the lever must flip on the server
+            "1406-sim-lever-deathmite", "1407-sim-lever-doors"};
 
     private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
@@ -145,6 +150,15 @@ public class SimWorldTests implements FabricClientGameTest {
                         case "1403-sim-boom-chain" -> caseBoomChain(ctx);
                         case "1404-sim-prince-missed" -> casePrinceMissed(ctx);
                         case "1405-sim-item-range" -> caseItemRange(ctx);
+                        case "1406-sim-lever-deathmite" -> caseLeverDoors(ctx, c, "Deathmite", new int[][][]{
+                                {{54, 70, 16}, {28, 65, 15}, {28, 70, 17}, {53, 16}}});
+                        // Each lever on a log of one wood opens that wood's door; the two he asked about (dark oak
+                        // 44 and jungle 46) are flicked first, each leaving the other's door whole.
+                        case "1407-sim-lever-doors" -> caseLeverDoors(ctx, c, "Doors", new int[][][]{
+                                {{44, 59, 16}, {24, 58, 15}, {24, 64, 17}, {44, 15}},
+                                {{46, 59, 16}, {20, 58, 15}, {20, 64, 17}, {46, 15}},
+                                {{62, 59, 16}, {51, 58, 15}, {51, 63, 17}, {61, 16}},
+                                {{51, 59, 2}, {40, 58, 15}, {40, 64, 17}, {51, 3}}});
                         default -> {
                         }
                     }
@@ -1033,6 +1047,73 @@ public class SimWorldTests implements FabricClientGameTest {
         }
         say(c + " after the flick: door " + solidAfter + "/" + door.size() + " solid, chat line " + chat);
         check(solidAfter == 0, solidAfter + " door block(s) still standing after the lever");
+    }
+
+    // ============================================================================================ 1406-1407
+
+    /**
+     * One room, several lever doors: each {lever, from, to, standColumn}. He is stood in reach of each lever in turn
+     * and uses it as the player; the lever must flip ON THE SERVER (powered), its own door must go entirely, and every
+     * door whose lever has not been flicked yet must still be whole.
+     */
+    private void caseLeverDoors(ClientGameTestContext ctx, String c, String room, int[][][] rules) {
+        build(ctx, room);
+        int armed = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_LEVERS, "armedCount"));
+        List<List<BlockPos>> doors = new ArrayList<>();
+        List<BlockPos> levers = new ArrayList<>();
+        for (int[][] r : rules) {
+            levers.add(capW(ctx, room, r[0][0], r[0][1], r[0][2]));
+            List<BlockPos> door = new ArrayList<>();
+            for (int x = r[1][0]; x <= r[2][0]; x++) {
+                for (int y = r[1][1]; y <= r[2][1]; y++) {
+                    for (int z = r[1][2]; z <= r[2][2]; z++) {
+                        door.add(capW(ctx, room, x, y, z));
+                    }
+                }
+            }
+            doors.add(door);
+        }
+        say(c + " " + room + ": " + armed + " lever(s) armed");
+        check(armed == rules.length, room + " armed " + armed + " lever(s), expected " + rules.length);
+        for (int i = 0; i < rules.length; i++) {
+            BlockPos leverPos = levers.get(i);
+            String leverBlock = blockName(ctx, leverPos);
+            int solidBefore = countNotAir(ctx, doors.get(i));
+            say(c + " lever " + (i + 1) + " " + leverBlock + " at capture " + java.util.Arrays.toString(rules[i][0])
+                    + ", its door " + solidBefore + "/" + doors.get(i).size() + " solid");
+            check(leverBlock.equals("lever"), "no lever at capture " + java.util.Arrays.toString(rules[i][0]));
+            check(solidBefore == doors.get(i).size(), "door " + (i + 1) + " is not whole before its lever ("
+                    + solidBefore + "/" + doors.get(i).size() + ")");
+            check(!powered(ctx, leverPos), "lever " + (i + 1) + " is already on before the flick");
+            int[] l = rules[i][0];
+            stand(ctx, room, rules[i][3][0], rules[i][3][1], l[1] - 2, new double[]{l[0] + 0.5, l[1] + 0.3, l[2] + 0.5});
+            double reach = ctx.computeOnClient(mc -> Math.sqrt(Vec3.atCenterOf(leverPos).distanceToSqr(mc.player.getEyePosition())));
+            ctx.runOnClient(mc -> mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
+                    new BlockHitResult(Vec3.atCenterOf(leverPos), Direction.UP, leverPos, false)));
+            ctx.waitTicks(15);
+            boolean flipped = powered(ctx, leverPos);
+            int solidAfter = countNotAir(ctx, doors.get(i));
+            StringBuilder others = new StringBuilder();
+            for (int j = i + 1; j < rules.length; j++) {
+                int s = countNotAir(ctx, doors.get(j));
+                others.append(" door ").append(j + 1).append(' ').append(s).append('/').append(doors.get(j).size());
+                check(s == doors.get(j).size(), "lever " + (i + 1) + " also took " + (doors.get(j).size() - s)
+                        + " block(s) of door " + (j + 1));
+            }
+            say(c + " after lever " + (i + 1) + " (eye " + String.format(Locale.ROOT, "%.2f", reach)
+                    + " from it): powered " + flipped + ", its door " + solidAfter + "/" + doors.get(i).size()
+                    + " solid;" + (others.length() == 0 ? " no other doors left" : others.toString()));
+            check(flipped, "lever " + (i + 1) + " did not flip on the server");
+            check(solidAfter == 0, solidAfter + " block(s) of door " + (i + 1) + " still standing after its lever");
+        }
+    }
+
+    private static boolean powered(ClientGameTestContext ctx, BlockPos p) {
+        return onServer(ctx, (level, sp) -> {
+            net.minecraft.world.level.block.state.BlockState s = level.getBlockState(p);
+            return s.hasProperty(net.minecraft.world.level.block.LeverBlock.POWERED)
+                    && s.getValue(net.minecraft.world.level.block.LeverBlock.POWERED);
+        });
     }
 
     // ============================================================================================ helpers
