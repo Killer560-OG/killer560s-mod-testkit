@@ -559,6 +559,159 @@ public class SimAutoClearTests implements FabricClientGameTest {
         if (!cleared) {
             failures.add("entry: " + in.name() + " did not count as cleared within 60 ticks of him standing in it");
         }
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOBS, "setClearRoomsOnEntry", new Class<?>[]{boolean.class},
+                new Object[]{false}));
+
+        repositionCase(ctx, failures, here);
+    }
+
+    /**
+     * Case 9 (mod ac-optimize-1015; killer560, 2026-10-15: "For rooms that need repositioning make sure that it always
+     * chooses the repositioning path that will require the least amount of total repositions in the room"): three
+     * starred zombies on one straight open floor line of {@code roomName}, nine blocks apart, and him in the same room at
+     * least ten blocks from each, hops off. Taking the nearest mob and the block nearest IT, one at a time, is three
+     * etherwarps; one block between the first two reaches both with the Hyperion's blast, so two are enough - and must be
+     * all it takes. Every zombie must die.
+     */
+    private static void repositionCase(ClientGameTestContext ctx, List<String> failures, String roomName) {
+        // ---- a line A, B, C (9 apart) of standable floor in the room, every block between them standable too, and a
+        // standable spot of the room at least 10 from all three to start from - read off the client's world.
+        BlockPos[] found = ctx.computeOnClient(mc -> {
+            Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+            int id = -1;
+            int count = (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[]{}, new Object[]{});
+            for (int i = 0; i < count; i++) {
+                if (roomName.equals(ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{i}))) {
+                    id = i;
+                }
+            }
+            if (id < 0) {
+                return null;
+            }
+            int[] tiles = (int[]) ModUnderTest.call(layout, "tiles", new Class<?>[]{int.class}, new Object[]{id});
+            int roomId = id;
+            java.util.function.Predicate<BlockPos> inRoom = p -> roomId == (Integer) ModUnderTest.call(layout, "roomAtWorld",
+                    new Class<?>[]{double.class, double.class}, new Object[]{p.getX() + 0.5, p.getZ() + 0.5});
+            java.util.function.Predicate<BlockPos> stand = p -> !mc.level.getBlockState(p.below()).getCollisionShape(
+                    mc.level, p.below()).isEmpty() && mc.level.getBlockState(p.below()).isCollisionShapeFullBlock(mc.level,
+                    p.below()) && mc.level.getBlockState(p).getCollisionShape(mc.level, p).isEmpty()
+                    && mc.level.getBlockState(p.above()).getCollisionShape(mc.level, p.above()).isEmpty()
+                    && mc.level.getBlockState(p.above(2)).getCollisionShape(mc.level, p.above(2)).isEmpty();
+            for (int t : tiles) {
+                BlockPos c = (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class},
+                        new Object[]{t});
+                for (int dy = -6; dy <= 6; dy++) {
+                    for (int dx = -14; dx <= 14; dx++) {
+                        for (int dz = -14; dz <= 14; dz++) {
+                            for (int axis = 0; axis < 2; axis++) {
+                                BlockPos a = c.offset(dx, dy, dz);
+                                int sx = axis == 0 ? 1 : 0;
+                                int sz = axis == 0 ? 0 : 1;
+                                boolean ok = true;
+                                for (int k = 0; k <= 18 && ok; k++) {
+                                    BlockPos p = a.offset(sx * k, 0, sz * k);
+                                    ok = inRoom.test(p) && stand.test(p);
+                                }
+                                if (!ok) {
+                                    continue;
+                                }
+                                BlockPos b = a.offset(sx * 9, 0, sz * 9);
+                                BlockPos cc = a.offset(sx * 18, 0, sz * 18);
+                                for (int ex = -15; ex <= 15; ex++) {
+                                    for (int ez = -15; ez <= 15; ez++) {
+                                        BlockPos s = b.offset(ex, 0, ez);
+                                        if (inRoom.test(s) && stand.test(s) && s.distSqr(a) >= 100 && s.distSqr(b) >= 100
+                                                && s.distSqr(cc) >= 100) {
+                                            return new BlockPos[]{a, b, cc, s};
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return null;
+        });
+        if (found == null) {
+            println("repositions: " + roomName + " has no straight open line of 19 blocks with a start 10 from it - not"
+                    + " tested on this floor");
+            return;
+        }
+        BlockPos startAt = found[3];
+        AtomicReference<Boolean> moved = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            UUID me = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(me);
+                if (sp != null) {
+                    sp.teleportTo(startAt.getX() + 0.5, startAt.getY(), startAt.getZ() + 0.5);
+                }
+                moved.set(true);
+            });
+        });
+        ctx.waitFor(mc -> moved.get() != null, 100);
+        for (int i = 0; i < 100 && !ctx.computeOnClient(mc -> mc.player.onGround()
+                && mc.player.blockPosition().equals(startAt)); i++) {
+            ctx.waitTicks(1);
+        }
+        List<Placed> line = new ArrayList<>();
+        for (int k = 0; k < 3; k++) {
+            BlockPos at = found[k];
+            int before = starredPairCount(ctx);
+            ctx.runOnClient(mc -> {
+                Object kind = ModUnderTest.enumValue(SIM_MOBS + "$Kind", "ZOMBIE");
+                ModUnderTest.staticCall(SIM_MOBS, "spawnStarred", new Class<?>[]{Minecraft.class, BlockPos.class,
+                        kind.getClass()}, new Object[]{mc, at, kind});
+            });
+            ctx.waitTicks(3);
+            UUID id = newestStarred(ctx, before);
+            if (id != null) {
+                line.add(new Placed(roomName, false, id, at));
+            }
+        }
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_ROOM_STATE, "clearRoom", new Class<?>[]{String.class},
+                new Object[]{roomName}));
+        ctx.waitTicks(30);
+        println("repositions: zombies at " + found[0].toShortString() + ", " + found[1].toShortString() + ", "
+                + found[2].toShortString() + " in " + roomName + "; he starts at " + startAt.toShortString());
+        if (line.size() < 3) {
+            failures.add("repositions: only " + line.size() + " of the three zombies could be placed");
+            return;
+        }
+        setMode(ctx, "ANY_MOB_ROOM", "HYPERION");
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setHyperionHops", false));
+        long mark = LogTap.mark();
+        AtomicReference<String> done = new AtomicReference<>();
+        AtomicReference<String> gaveUp = new AtomicReference<>();
+        Result r = runCase(ctx, "repositions", () -> ModUnderTest.staticCall(AUTO, "clearRoom",
+                new Class<?>[]{String.class, Runnable.class, Consumer.class},
+                new Object[]{roomName, (Runnable) () -> done.set("done"), (Consumer<String>) gaveUp::set}));
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setHyperionHops", true));
+        Map<UUID, String> after = aliveReport(ctx, line);
+        int toward = 0;
+        String plan = null;
+        for (String l : LogTap.since(mark)) {
+            toward += l.contains("[AutoClear] etherwarp toward") ? 1 : 0;
+            if (plan == null && l.contains("[AutoClear] reposition plan")) {
+                plan = l.replaceAll("^.*?\\[AutoClear\\]", "[AutoClear]");
+            }
+        }
+        println("repositions: " + r + "; etherwarps toward a mob " + toward + "; plan " + plan + "; zombies " + after
+                + "; onDone=" + done.get() + " onGiveUp=" + gaveUp.get());
+        for (Placed p : line) {
+            if (!"dead".equals(after.get(p.id()))) {
+                failures.add("repositions: the zombie at " + p.at().toShortString() + " is " + after.get(p.id()));
+            }
+        }
+        if (toward != 2) {
+            failures.add("repositions: " + toward + " etherwarp(s) toward the three zombies in a line - two blocks reach"
+                    + " all three (the first between the first two)");
+        }
+        if (plan == null || !plan.contains("2 block(s) reach all 3") || !plan.contains("nearest mob first would take 3")) {
+            failures.add("repositions: no plan of two blocks against nearest-first's three was logged (" + plan + ")");
+        }
     }
 
     /**

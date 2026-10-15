@@ -285,7 +285,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         SimAutoSecretTests.Room n1 = null;
         SimAutoSecretTests.Room n2 = null;
         SimAutoSecretTests.Room far = null;
-        for (int attempt = 0; attempt < 4 && far == null; attempt++) {
+        for (int attempt = 0; attempt < 8 && far == null; attempt++) {
             if (attempt > 0) {
                 leaveSim(ctx);
             }
@@ -300,20 +300,21 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             }
             eligible.sort((a, b) -> Double.compare(flat(centre.get(a.name()), at), flat(centre.get(b.name()), at)));
             println(ORDER, "floor " + (attempt + 1) + ": eligible by distance " + SimAutoSecretTests.describe(eligible));
-            // Two rooms beside him (each with few unfound), one far off with more unfound than either but at most three.
+            // His example: two 1-secret rooms beside him, a 2-secret room across the floor - most unfound first crosses
+            // the map for the two secrets and comes back.
             for (int i = 0; i < eligible.size() && far == null; i++) {
                 for (int j = i + 1; j < eligible.size() && far == null; j++) {
                     SimAutoSecretTests.Room a = eligible.get(i);
                     SimAutoSecretTests.Room b = eligible.get(j);
                     double da = flat(centre.get(a.name()), at);
                     double ab = flat(centre.get(a.name()), centre.get(b.name()));
-                    if (da > 50 || ab > 50 || a.unfound() > 2 || b.unfound() > 2) {
+                    if (da > 50 || ab > 50 || a.unfound() != 1 || b.unfound() != 1) {
                         continue;
                     }
                     for (int k = eligible.size() - 1; k > j; k--) {
                         SimAutoSecretTests.Room f = eligible.get(k);
                         double df = flat(centre.get(f.name()), at);
-                        if (f.unfound() > Math.max(a.unfound(), b.unfound()) && f.unfound() <= 3 && df >= 110
+                        if (f.unfound() == 2 && df >= 110
                                 && flat(centre.get(f.name()), centre.get(a.name())) >= 90) {
                             n1 = a;
                             n2 = b;
@@ -328,7 +329,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             }
         }
         if (far == null) {
-            failures.add("no floor in 4 had two small rooms beside the Entrance and a bigger one across it");
+            failures.add("no floor in 8 had two 1-secret rooms beside the Entrance and a 2-secret one across it");
             return;
         }
         Map<String, JsonObject> routes = new LinkedHashMap<>();
@@ -343,11 +344,13 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         SimAutoSecretTests.writeRoutes(ctx, routes);
         awaitWarmGraph(ctx, ORDER);
         Vec3 start = ctx.computeOnClient(mc -> mc.player.position());
-        Run fresh = runOrder(ctx, false, start, routes.keySet());
-        Run old = runOrder(ctx, true, start, routes.keySet());
-        println(ORDER, "new order " + fresh.order + ": " + fresh.ticks + " ticks, " + String.format(Locale.US, "%.0f",
-                fresh.travelled) + " blocks; old order " + old.order + ": " + old.ticks + " ticks, "
-                + String.format(Locale.US, "%.0f", old.travelled) + " blocks");
+        Map<String, Integer> unfound = Map.of(n1.name(), n1.unfound(), n2.name(), n2.unfound(), far.name(), far.unfound());
+        Run fresh = runOrder(ctx, false, start, routes.keySet(), unfound);
+        Run old = runOrder(ctx, true, start, routes.keySet(), unfound);
+        println(ORDER, "new order " + fresh.order + ": all three in " + fresh.ticks + " ticks, secret-weighted wait "
+                + fresh.secretWait + ", " + String.format(Locale.US, "%.0f", fresh.travelled) + " blocks; old order " + old.order
+                + ": " + old.ticks + " ticks, wait " + old.secretWait + ", " + String.format(Locale.US, "%.0f", old.travelled)
+                + " blocks");
         if (fresh.order.size() < 3 || old.order.size() < 3) {
             failures.add("a run did not take all three rooms (new " + fresh.order + ", old " + old.order + ")");
             return;
@@ -361,12 +364,17 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         if (fresh.ticks >= old.ticks) {
             failures.add("the new order took " + fresh.ticks + " ticks, the old " + old.ticks + " - not faster");
         }
+        if (fresh.secretWait >= old.secretWait) {
+            failures.add("the new order's secrets waited " + fresh.secretWait + " secret-ticks, the old's " + old.secretWait);
+        }
     }
 
-    private record Run(List<String> order, long ticks, double travelled) {
+    /** @param wait each room's unfound secrets times the ticks until its route finished, summed */
+    private record Run(List<String> order, long ticks, double travelled, long secretWait) {
     }
 
-    private static Run runOrder(ClientGameTestContext ctx, boolean legacy, Vec3 start, java.util.Set<String> routed) {
+    private static Run runOrder(ClientGameTestContext ctx, boolean legacy, Vec3 start, java.util.Set<String> routed,
+                                Map<String, Integer> unfound) {
         String label = legacy ? "old" : "new";
         teleport(ctx, start);
         ctx.runOnClient(mc -> {
@@ -380,6 +388,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "start"));
         List<String> order = new ArrayList<>();
         long end = -1;
+        Map<String, Long> doneAt = new HashMap<>();
         for (int t = 0; t < 20 * 120 && Boolean.TRUE.equals(started); t++) {
             ctx.waitTicks(1);
             Vec3 now = ctx.computeOnClient(mc -> mc.player.position());
@@ -396,6 +405,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                 if (f.find() && routed.contains(f.group(1))) {
                     finished++;
                     end = Long.parseLong(f.group(2));
+                    doneAt.put(f.group(1), end - t0);
                 }
             }
             if (finished >= routed.size()) {
@@ -410,7 +420,12 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             }
         }
         ctx.waitTicks(20);
-        return new Run(new ArrayList<>(order), end < 0 ? Long.MAX_VALUE : end - t0, travelled);
+        long wait = 0;
+        for (Map.Entry<String, Long> e : doneAt.entrySet()) {
+            wait += unfound.getOrDefault(e.getKey(), 0) * e.getValue();
+        }
+        return new Run(new ArrayList<>(order), end < 0 ? Long.MAX_VALUE : end - t0, travelled,
+                doneAt.size() < routed.size() ? Long.MAX_VALUE : wait);
     }
 
     // ================================================================================================ helpers
