@@ -664,7 +664,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                     }
                     // Splash text drawn or not.
                     Object splash = Mod.field(s, "splash");
-                    String splashText = splash == null ? null : plainSplash(splash);
+                    String splashText = splash == null ? null : net.minecraft.ChatFormatting.stripFormatting(plainSplash(splash));
                     boolean drawn = false;
                     if (splashText != null) {
                         GuiRenderState state = new GuiRenderState();
@@ -685,6 +685,23 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                             shadow[0] = dropShadow(t);
                         }
                     });
+                    // No footer texts (killer560, 2026-10-15): no version line, no mod name/version, no copyright -
+                    // neither drawn nor as a widget (the credits link is removed, not just hidden).
+                    List<String> footer = new ArrayList<>();
+                    state.forEachText(t -> {
+                        String str = plain(textOf(t));
+                        if (str.startsWith("Minecraft ") || str.startsWith("Killer560's Mod") || str.contains("Copyright")) {
+                            footer.add(str);
+                        }
+                    });
+                    if (!footer.isEmpty()) {
+                        return e.label() + ": footer text still drawn: " + footer;
+                    }
+                    for (AbstractWidget w : Screens.getWidgets(s)) {
+                        if (w instanceof net.minecraft.client.gui.components.PlainTextButton) {
+                            return e.label() + ": the copyright link is still a widget on the title screen";
+                        }
+                    }
                     boolean light = e.coloursOf().equals("LIGHT");
                     if (shadow[0] == null) {
                         return e.label() + ": no Singleplayer label drawn";
@@ -830,6 +847,30 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                 c.ticks(30); // Soft Light drifts slowly: 12 ticks moved 0.05% on 26.2
                 Pic b = pic(c.ctx().takeScreenshot(Report.fileName(c.name() + "-" + sc[0].toLowerCase(Locale.ROOT) + "-b")));
                 double moved = changed(a.img(), b.img());
+                // The panel is opaque (killer560, 2026-10-15): its padding beside the buttons must not change while the
+                // background animates behind it.
+                int[] card = c.onClient(mc -> (int[]) Mod.staticCall("mainmenu.MainMenuChrome", "cardBox", McCompat.screen(mc)));
+                int screenW = c.onClient(mc -> McCompat.screen(mc).width);
+                if (card != null && !sc[0].equals("PLAIN")) {
+                    double k = a.img().getWidth() / (double) screenW;
+                    int x0 = (int) Math.ceil((card[0] + 2) * k);
+                    int x1 = (int) Math.floor((card[0] + 8) * k);
+                    int y0 = (int) Math.ceil((card[1] + 3) * k);
+                    int y1 = (int) Math.floor((card[1] + card[3] - 3) * k);
+                    int seen = 0;
+                    int diff = 0;
+                    for (int y = y0; y < y1; y++) {
+                        for (int x = x0; x < x1; x++) {
+                            seen++;
+                            if (a.img().getRGB(x, y) != b.img().getRGB(x, y)) {
+                                diff++;
+                            }
+                        }
+                    }
+                    c.note(sc[0] + ": panel padding " + seen + " px, " + diff + " changed between frames");
+                    c.check(seen > 100 && diff == 0, sc[0] + ": the background shows through the panel (" + diff + " of "
+                            + seen + " padding pixels changed between frames)");
+                }
                 summary.add(String.format(Locale.ROOT, "%s/%s rgb %.0f,%.0f,%.0f lum %.2f moved %.2f%%", sc[0], sc[1], a.r(),
                         a.g(), a.b(), a.lum(), moved * 100));
                 switch (sc[0]) {

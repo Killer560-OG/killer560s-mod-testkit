@@ -25,7 +25,7 @@ import java.util.List;
  * icon, his 26.1.2 ones classic) and each window size: with the theme OFF the vanilla screen must show Mod Menu's
  * button (and on 26.2 the Friends icon) - the positive control that they exist to be hidden; with it ON, every
  * visible widget must be one of the intended set (Singleplayer, Multiplayer, Dungeon Sim, Swap Accounts, Options,
- * Quit, vanilla's copyright line) and no two may overlap. Mod Menu's classic Mods row is hidden too (killer560,
+ * Quit; the copyright line is removed since 2026-10-15) and no two may overlap. Mod Menu's classic Mods row is hidden too (killer560,
  * 2026-10-13: both versions show the same column). Run with Mod Menu passed in
  * -PmodUnderTest beside the mod jar; without it the Mod Menu half is noted as not run, not passed.
  */
@@ -163,8 +163,8 @@ final class TitleWidgetCases {
     private static boolean intended(String what, String style) {
         return what.contains("[menu.singleplayer]") || what.contains("[menu.multiplayer]")
                 || what.contains("[menu.options]") || what.contains("[menu.quit]")
-                || what.startsWith("SwapAccountsButton[") || what.contains("[Dungeon Sim]")
-                || what.startsWith("PlainTextButton[");
+                || what.startsWith("SwapAccountsButton[") || what.contains("[Dungeon Sim]");
+        // Vanilla's copyright link (PlainTextButton) is removed since mod mainmenu-footer-1015 (killer560, 2026-10-15).
     }
 
     // ---- Mod Menu's config, by reflection (no compile dependency) --------------------------------------------
