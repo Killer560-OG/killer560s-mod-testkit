@@ -144,6 +144,8 @@ public class MenuSuite implements FabricClientGameTest {
                     ChocolateCases.register(s);
                     // ---- 731-736 trackers (profit scopes, red reset, Experiments tab, Superpairs Escape, RNG), 2026-10-11 ----
                     TrackerCases.register(s);
+                    // ---- 1640-1644 profit by account / mod profile (profit-accounts-1015, 2026-10-15) ----
+                    ProfitAccountCases.register(s);
                     // ---- 761-767 bz-croesus (2026-10-11): Bazaar flipper cycle, Auto Croesus key revisit ----
                     FlipCroesusCases.register(s);
                     // ---- 768-769 bz-reskin (2026-10-11): reskin during the flipper, one Bazaar/AH switch ----
