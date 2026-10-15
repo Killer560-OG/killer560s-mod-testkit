@@ -684,3 +684,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   each look: 27 rays to points inside the block called 7-11% "blind" that were grazing views, and an audit run at the end
   failed blocks that later coal doors had hidden. 538/678 (Show All Doors' coal-door scan) fail on main's cheat jar too:
   WitherDoorScanner finds no coal door on a sim floor at all - not this branch.
+- 1490-sim-mage-capture (SimMageCaptureTests, mod mage-capture-1015, 2026-10-15): `/mage` typed for real in a sim Mage.
+  The integrated server never forgot a chunk here, even at render distance 2 (the client still held chunks 8 out), so the
+  unloaded case hands the client `ClientboundForgetLevelChunkPacket` through the real handler and runs `/mage` in the SAME
+  client task (the server sends it straight back), and it runs last. Ask `mc.level.getChunkSource().hasChunk`, never
+  `mc.level.hasChunk`: ClientLevel's is hard-wired to true. The stitched tile is made sound by copying the good tile's
+  centre column over it on the server, so the save path can be tested on the shipped capture.
