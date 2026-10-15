@@ -310,7 +310,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
     // ================================================================================================ 146
 
     /** At most this many ticks from the last warp of the trip onto a start node to its one-node route ending there. */
-    private static final int ARRIVAL_MAX_TICKS = 4;
+    private static final int ARRIVAL_MAX_TICKS = 2;
 
     /**
      * 146-sim-autosecret-arrival (mod ac-optimize-2-1015; killer560 wants routes as fast as possible): four rooms with a
