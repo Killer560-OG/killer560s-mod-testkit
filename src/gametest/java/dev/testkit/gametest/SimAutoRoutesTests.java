@@ -3634,6 +3634,21 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         return waitFor(ctx, 40, () -> logHas(m, "Started \""));
     }
 
+    /** No secret bat - pending or alive - from an earlier case: one hit beside his made run 1 read "2 kill(s)" (1015a). */
+    private static void clearSecretBats(ClientGameTestContext ctx) {
+        serverRun(ctx, (server, sp) -> {
+            ModUnderTest.staticCall("com.killer560.hub.roomsim.SimSecretItems", "reset");
+            List<net.minecraft.world.entity.Entity> bats = new java.util.ArrayList<>();
+            for (var e : server.overworld().getAllEntities()) {
+                if (e instanceof net.minecraft.world.entity.ambient.Bat) {
+                    bats.add(e);
+                }
+            }
+            bats.forEach(net.minecraft.world.entity.Entity::discard);
+        });
+        ctx.waitTicks(2);
+    }
+
     private static boolean running(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
     }
@@ -4289,6 +4304,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      */
     private void caseBatNode(ClientGameTestContext ctx) {
         resetRoutes(ctx);
+        clearSecretBats(ctx);
         arena(ctx, false);
         giveHotbar(ctx);
         giveSlot(ctx, 4, "HYPERION");
@@ -4822,6 +4838,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     }
 
     private static void writeRoute(ClientGameTestContext ctx, List<JsonObject> nodes) {
+        // The reload can land seconds after the write (2026-10-14/15: 1013-bat, 1014-batmem, 1014-awaitmem each armed
+        // outside their window once). Every caller gets the route in memory before it moves on.
+        long loadMark = LogTap.mark();
+        String loaded = "Loaded " + (nodes == null ? 0 : 1) + " route";
         ctx.runOnClient(mc -> {
             try {
                 Path file = (Path) ModUnderTest.staticCall(STORE, "routesFile");
@@ -4844,6 +4864,13 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             }
         });
         ctx.waitTicks(2);
+        waitFor(ctx, 100, () -> logHas(loadMark, loaded));
+        // The case before may have left him standing on this spot's node, so the load itself can start the route; then
+        // arm()'s step off and on sees it already running and never logs a fresh start. Every case begins idle.
+        ctx.waitTicks(2);
+        if (running(ctx)) {
+            stopRoute(ctx);
+        }
     }
 
     private static void resetRoutes(ClientGameTestContext ctx) {
@@ -6538,6 +6565,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
 
         static void batMemory(ClientGameTestContext ctx) {
             resetRoutes(ctx);
+            clearSecretBats(ctx);
             arena(ctx, false);
             giveHotbar(ctx);
             giveSlot(ctx, 4, "HYPERION");
