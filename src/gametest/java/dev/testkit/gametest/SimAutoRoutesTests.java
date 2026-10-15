@@ -6938,7 +6938,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             long a = LogTap.mark();
             boolean started = arm(ctx, 6, 6, relYawTo(6, 6, 14, 6), 60f);
             ctx.waitTicks(10);
-            boolean waiting = !logHas(a, "secrets met") && waitLanded(ctx, 14, 6, 0) == null;
+            boolean waiting = !logHas(a, "secrets met") && waitLanded(ctx, 14, 6, 1) == null;
             Vec3 from = relPos(ctx);
             int dropsBefore = dev.testkit.harness.HypixelUseAfterClick.dropped;
             long m = LogTap.mark();
@@ -6946,12 +6946,12 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             int landTick = -1;
             Vec3 at = null;
             for (int t = 0; t <= 30; t++) {
-                at = waitLanded(ctx, 14, 6, 0);
+                // waitLanded checks once per tick it is given (0 checks nothing), then waits that tick.
+                at = waitLanded(ctx, 14, 6, 1);
                 if (at != null) {
                     landTick = t;
                     break;
                 }
-                ctx.waitTicks(1);
             }
             String acted = null;
             String landed = null;
