@@ -49,6 +49,7 @@
 			"dev.testkit.gametest.SimAutopilot2Tests",
 			"dev.testkit.gametest.SimKeyLookTests",
 			"dev.testkit.gametest.SimFairyDoorTests",
+			"dev.testkit.gametest.SimDoorsPredictTests",
 			"dev.testkit.gametest.SimEtherTicksTests",
 			"dev.testkit.gametest.SimServerLagTests",
 			"dev.testkit.gametest.SimClickGapTests",
