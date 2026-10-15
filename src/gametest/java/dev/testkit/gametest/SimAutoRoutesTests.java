@@ -98,6 +98,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1014-awaitmem", "96-ar-1014-batmem", "96-ar-1014-routedroom", "96-ar-1014-puzzlehold",
             // ar-mainserver (2026-10-15): Hypixel's pickup-with-the-landing order; left click skips in flight / under Kill Mimic
             "96-ar-1015-landpickup", "96-ar-1015-earlyskip", "96-ar-1015-mimicskip",
+            // ar-warp-after-click (2026-10-15): Hypixel ignores a use right after a block click with the same item
+            "96-ar-1015-warpclick",
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim", "96-ar-398-startawait",
             "96-ar-405-crypt-mapopen", "96-ar-405-startwarp", "96-ar-path", "96-ar-screen", "96-ar-rotate",
             // sim-world (2026-10-11)
@@ -277,6 +279,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1015-landpickup" -> ArMainServerCases.landPickup(ctx);
                         case "96-ar-1015-earlyskip" -> ArMainServerCases.earlySkip(ctx);
                         case "96-ar-1015-mimicskip" -> ArMainServerCases.mimicSkip(ctx);
+                        case "96-ar-1015-warpclick" -> ArMainServerCases.warpAfterClick(ctx);
                         case "96-ar-dbedit" -> caseDbEdit(ctx);
                         case "96-ar-mapopen" -> caseMapOpen(ctx);
                         case "96-ar-mapopen-aim" -> caseMapOpenAim(ctx);
@@ -6921,6 +6924,116 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 waitFor(ctx, 120, () -> logHas(md, "Kill Mimic done") || !ctx.computeOnClient(mc -> (Boolean)
                         ModUnderTest.staticCall("com.killer560.hub.autoroutes.MimicKiller", "isBusy")));
                 giveSlot(ctx, 4, null);
+            }
+        }
+
+        /** One run of {@link #warpAfterClick}: arm #1, then {@code act}; ticks from the act to his landing on (14,6). */
+        private record ClickRun(boolean started, boolean acted, int landTick, double travelled, int dropped,
+                                boolean held, String actedLine, String landedLine) {
+        }
+
+        private static ClickRun clickRun(ClientGameTestContext ctx, int slot, Runnable act) {
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(slot));
+            ctx.waitTicks(3);
+            long a = LogTap.mark();
+            boolean started = arm(ctx, 6, 6, relYawTo(6, 6, 14, 6), 60f);
+            ctx.waitTicks(10);
+            boolean waiting = !logHas(a, "secrets met") && waitLanded(ctx, 14, 6, 0) == null;
+            Vec3 from = relPos(ctx);
+            int dropsBefore = dev.testkit.harness.HypixelUseAfterClick.dropped;
+            long m = LogTap.mark();
+            act.run();
+            int landTick = -1;
+            Vec3 at = null;
+            for (int t = 0; t <= 30; t++) {
+                at = waitLanded(ctx, 14, 6, 0);
+                if (at != null) {
+                    landTick = t;
+                    break;
+                }
+                ctx.waitTicks(1);
+            }
+            String acted = null;
+            String landed = null;
+            for (String l : LogTap.since(m)) {
+                if (acted == null && l.contains("Node #1 ETHERWARP acted")) {
+                    acted = l;
+                }
+                if (landed == null && l.contains("Etherwarp: landed")) {
+                    landed = l;
+                }
+            }
+            ClickRun r = new ClickRun(started && waiting, acted != null, landTick,
+                    at == null ? relPos(ctx).distanceTo(from) : at.distanceTo(from),
+                    dev.testkit.harness.HypixelUseAfterClick.dropped - dropsBefore,
+                    logHas(m, "holding the use - a block click"), acted, landed);
+            stopRoute(ctx);
+            return r;
+        }
+
+        /**
+         * killer560's Mod Only Test log, 2026-10-14 17:22-17:29 (Red Blue, Raccoon): every Auto Routes etherwarp sent one
+         * tick after a chest or lever click met its await, the AOTV already in hand, got "no landing after 61 ticks" -
+         * Hypixel ignores a use of the item he has just clicked a block with ({@link dev.testkit.harness.HypixelUseAfterClick}).
+         * Control 1: a left-click skip, same route, same hook - the use a tick later must land. Control 2: the lever
+         * clicked with an empty hand (the route swaps to the AOTV) must land. The case: the lever clicked with the AOTV
+         * held must land within 20 ticks, 8 blocks along; the old jar sends the use a tick later and stalls.
+         */
+        static void warpAfterClick(ClientGameTestContext ctx) {
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            setBlocks(ctx, Map.of(new int[]{8, F, 7}, Blocks.LEVER.defaultBlockState().setValue(
+                    net.minecraft.world.level.block.LeverBlock.FACE,
+                    net.minecraft.world.level.block.state.properties.AttachFace.FLOOR)));
+            JsonObject w = ew(6, 6, 14, 6, true);
+            w.addProperty("awaitEnabled", true);
+            w.addProperty("await", "SECRET");
+            w.addProperty("amount", 1);
+            long wl = LogTap.mark();
+            writeRoute(ctx, List.of(w));
+            waitFor(ctx, 100, () -> logHas(wl, "Loaded 1 route"));
+            ctx.runOnClient(mc -> {
+                dev.testkit.harness.HypixelUseAfterClick.reset();
+                dev.testkit.harness.HypixelUseAfterClick.enabled = true;
+            });
+            Runnable clickLever = () -> ctx.runOnClient(mc -> {
+                BlockPos pos = real(ModUnderTest.staticCall(FRAME, "current"), 8, F, 7);
+                mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
+                        new BlockHitResult(new Vec3(pos.getX() + 0.5, pos.getY() + 0.1, pos.getZ() + 0.5), Direction.UP,
+                                pos, false));
+            });
+            try {
+                ClickRun skip = clickRun(ctx, 0, () -> leftClick(ctx, 2));
+                ClickRun swap = clickRun(ctx, 3, clickLever);
+                ClickRun same = clickRun(ctx, 0, clickLever);
+                int clicks = dev.testkit.harness.HypixelUseAfterClick.clicks;
+                for (var e : List.of(Map.entry("left-click skip, AOTV held", skip),
+                        Map.entry("lever clicked with an empty hand", swap), Map.entry("lever clicked with the AOTV held", same))) {
+                    ClickRun r = e.getValue();
+                    println(String.format(Locale.US, "warpafterclick %s: started+waiting %s, warp sent %s, landed %s tick(s) "
+                                    + "after the act, travelled %.2f, uses ignored %d, held line %s", e.getKey(), r.started(),
+                            r.acted(), r.landTick() < 0 ? "never (30)" : String.valueOf(r.landTick()), r.travelled(),
+                            r.dropped(), r.held()));
+                    println("  " + r.actedLine());
+                    println("  " + r.landedLine());
+                }
+                println("warpafterclick: block clicks the hook saw " + clicks + ", last ignored gap "
+                        + dev.testkit.harness.HypixelUseAfterClick.lastDroppedGap + ", last passed gap "
+                        + dev.testkit.harness.HypixelUseAfterClick.lastPassedGap);
+                check(skip.started() && swap.started() && same.started(), "a run did not start waiting on #1's await");
+                check(clicks >= 2, "the hook saw " + clicks + " block click(s) - the lever runs prove nothing");
+                check(skip.landTick() >= 0 && skip.dropped() == 0, "control: a left-click skip did not land (or the hook "
+                        + "ignored its use) - the hook is not what the case says");
+                check(swap.landTick() >= 0 && swap.dropped() == 0, "control: a lever clicked with an empty hand did not land");
+                check(same.acted(), "#1 never sent its warp after the lever click");
+                check(same.landTick() >= 0 && same.landTick() <= 20 && same.travelled() > 7.5,
+                        "the warp after a lever click made with the AOTV held did not land within 20 ticks (landed "
+                                + same.landTick() + ", travelled " + String.format(Locale.US, "%.2f", same.travelled())
+                                + ", uses ignored " + same.dropped() + ") - Hypixel ignores that use");
+            } finally {
+                ctx.runOnClient(mc -> dev.testkit.harness.HypixelUseAfterClick.reset());
+                stopRoute(ctx);
             }
         }
     }

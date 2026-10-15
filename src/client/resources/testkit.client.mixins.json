@@ -13,6 +13,7 @@
 		"MixinFrameClockMinecraft",
 		"MixinOutboundPackets",
 		"MixinPacketEncoder",
+		"MixinServerGamePacketListenerUse",
 		"MixinServerPlayerTeleport"
 	],
 	"injectors": {
