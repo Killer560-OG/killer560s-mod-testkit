@@ -373,9 +373,13 @@ public class SimAutoSecretTests implements FabricClientGameTest {
         double maxTravel = 0;
         int unarmedSeen = 0;
         Set<String> finished = new HashSet<>();
+        // The Auto Routes Progress HUD (mod trail-hud-1015), sampled every 10 ticks of the run with every room shown.
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setProgressHudRooms", 15));
+        List<List<String>> hudSamples = new ArrayList<>();
         int ticks = 0;
         for (; ticks < 20 * 180; ticks += 10) {
             ctx.waitTicks(10);
+            hudSamples.add(ctx.computeOnClient(mc -> hudRows()));
             Vec3 at = ctx.computeOnClient(mc -> mc.player.position());
             maxTravel = Math.max(maxTravel, at.distanceTo(from));
             String phase = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(AS, "phaseName"));
@@ -406,6 +410,7 @@ public class SimAutoSecretTests implements FabricClientGameTest {
             }
         }
         String phaseAtEnd = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(AS, "phaseName"));
+        List<String> hudEnd = ctx.computeOnClient(mc -> hudRows());
         int seq1 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "arrivalSeq"));
         List<String> log = LogTap.since(mark);
         println(String.format(Locale.US, "main run: %.1f s, phase now %s, traveled up to %.1f blocks, %d map arrival(s)",
@@ -440,6 +445,8 @@ public class SimAutoSecretTests implements FabricClientGameTest {
                 failures.add("the route in " + r.name() + " started but never finished");
             }
         }
+
+        checkProgressHud(failures, log, hudSamples, hudEnd, phaseAtEnd, routes.keySet(), noRoute.name(), finished);
 
         // ---- the no-route room: skipped once, said in chat, never a target ------------------------------------
         int noRouteLines = 0;
@@ -647,6 +654,111 @@ public class SimAutoSecretTests implements FabricClientGameTest {
      * route or an insta-clear landing there leaves Auto Secret waiting for him to walk out, which the run never does
      * (2026-10-07: an insta clear into Arrow Trap, then "can't path from here" for the rest of the run).
      */
+    private static final String PROGRESS_HUD = "com.killer560.hub.autoroutes.AutoRoutesProgressHud";
+
+    /** The rows the Auto Routes Progress HUD would draw right now; one "<no hud ...>" row when the jar has none. */
+    @SuppressWarnings("unchecked")
+    private static List<String> hudRows() {
+        try {
+            return new ArrayList<>((List<String>) ModUnderTest.staticCall(PROGRESS_HUD, "shownText"));
+        } catch (RuntimeException | Error e) {
+            return List.of("<no hud: " + e + ">");
+        }
+    }
+
+    private static final Pattern HUD_HEAD = Pattern.compile("Auto Secret (\\d+)%  \\((\\d+)/(\\d+)\\)");
+
+    /**
+     * The HUD against the real Auto Secret run: its plan is the rooms it will secret (only rooms with a route - the
+     * no-route room is not in it), the first of them is the room the log says it went to first, the header's percent is
+     * done over done plus left, done rises as routes finish, the route executor reported node progress for every route
+     * that finished, and once the run is idle the HUD is empty.
+     */
+    private static void checkProgressHud(List<String> failures, List<String> log, List<List<String>> samples,
+                                         List<String> end, String phaseAtEnd, Set<String> routedRooms, String noRoute,
+                                         Set<String> finished) {
+        if (!samples.isEmpty() && samples.get(0).size() == 1 && samples.get(0).get(0).startsWith("<no hud")) {
+            failures.add("hud: " + samples.get(0).get(0));
+            return;
+        }
+        String firstTarget = null;
+        for (String l : log) {
+            Matcher t = TARGET.matcher(l);
+            if (t.find()) {
+                firstTarget = t.group(1);
+                break;
+            }
+        }
+        int withPlan = 0;
+        int maxDone = 0;
+        boolean firstChecked = false;
+        for (List<String> rows : samples) {
+            if (rows.isEmpty() || !rows.get(0).startsWith("Auto Secret ")) {
+                continue;
+            }
+            withPlan++;
+            Matcher m = HUD_HEAD.matcher(rows.get(0));
+            if (!m.matches()) {
+                failures.add("hud: the top row is not 'Auto Secret N%  (done/total)': '" + rows.get(0) + "'");
+                continue;
+            }
+            int pct = Integer.parseInt(m.group(1)), done = Integer.parseInt(m.group(2)), total = Integer.parseInt(m.group(3));
+            maxDone = Math.max(maxDone, done);
+            if (pct != Math.round(done * 100f / total)) {
+                failures.add("hud: " + pct + "% does not match " + done + "/" + total);
+            }
+            int listed = 0;
+            for (int i = 1; i < rows.size(); i++) {
+                String r = rows.get(i).replaceFirst("^(> |  )", "").replaceFirst("  \\d+%$", "");
+                if (r.endsWith(" more")) {
+                    failures.add("hud: a '+N more' row with every room shown: " + rows);
+                    continue;
+                }
+                listed++;
+                if (r.equals(noRoute)) {
+                    failures.add("hud: the plan lists " + noRoute + ", a room with no route: " + rows);
+                }
+            }
+            if (total - done != listed) {
+                failures.add("hud: header says " + (total - done) + " room(s) left, " + listed + " listed: " + rows);
+            }
+            if (!firstChecked && firstTarget != null) {
+                firstChecked = true;
+                if (rows.size() < 2 || !rows.get(1).startsWith("> " + firstTarget)) {
+                    failures.add("hud: the room under way should be the first target " + firstTarget + ": " + rows);
+                }
+            }
+        }
+        println("hud: " + withPlan + " of " + samples.size() + " samples drew an Auto Secret plan, most rooms done "
+                + maxDone + ", first sample with a plan " + samples.stream().filter(r -> !r.isEmpty()
+                && r.get(0).startsWith("Auto Secret ")).findFirst().orElse(List.of()));
+        if (withPlan == 0) {
+            failures.add("hud: no sample ever drew an Auto Secret plan, so the HUD was not tested");
+        }
+        if (!finished.isEmpty() && maxDone < 1) {
+            failures.add("hud: " + finished.size() + " route(s) finished but the header never counted one done");
+        }
+        for (String room : finished) {
+            int[] p = hudReported(room);
+            if (p == null) {
+                failures.add("hud: the route executor never reported node progress for " + room);
+            }
+        }
+        if (phaseAtEnd.equals("IDLE") && end.stream().anyMatch(r -> r.startsWith("Auto Secret "))) {
+            failures.add("hud: still drawing a plan after Auto Secret stopped: " + end);
+        }
+    }
+
+    /** What the route executor reported for a room this run ({nodes done, nodes}), or null if it never did. */
+    private static int[] hudReported(String room) {
+        try {
+            return (int[]) ModUnderTest.staticCall(MEMORY, "reportedProgress", new Class<?>[]{String.class},
+                    new Object[]{room});
+        } catch (RuntimeException | Error e) {
+            return null;
+        }
+    }
+
     private static boolean pathsOut(Room r) {
         return !r.name().contains("Maze") && !r.name().contains("Boulder") && !r.name().contains("Trap");
     }

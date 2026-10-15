@@ -222,6 +222,11 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] SWEAT_CASES = {"1016-ui-sweat-mode"};
     static final String[] EW_NEARFACE_CASES = {"1321-ui-etherwarp-box-faces", "1322-ui-etherwarp-walk",
             "1323-ui-etherwarp-back-edges"};
+    /** On Teleport for the trails and the Auto Routes Progress HUD (mod trail-hud-1015, {@link TrailTeleportCases},
+     *  {@link RoutesProgressHudCases}). Own block for merges. */
+    static final String[] TRAIL_HUD_CASES = {"1042-ui-trail-teleport-ribbon", "1043-ui-trail-teleport-squares",
+            "1044-ui-trail-teleport-settings", "1045-ui-routes-progress-content", "1046-ui-routes-progress-editor",
+            "1047-ui-routes-progress-settings"};
     /** Shared trails (mod trail-share, {@link TrailShareCases}). Own block for merges. */
     static final String[] TRAIL_SHARE_CASES = {"1036-ui-trail-share-send", "1037-ui-trail-share-remote",
             "1038-ui-trail-share-hide", "1039-ui-trail-share-limits"};
@@ -331,6 +336,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : TRAIL_SHARE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : TRAIL_HUD_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : MENU_ORDER_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -365,7 +373,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
                 || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
                 || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES) || any(SWEAT_CASES)
-                || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES);
+                || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(TRAIL_HUD_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -652,6 +660,13 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1321-ui-etherwarp-box-faces", EtherwarpFaceCases::run);
                     UiCase.run(ctx, "1322-ui-etherwarp-walk", EtherwarpFaceCases::walk);
                     UiCase.run(ctx, "1323-ui-etherwarp-back-edges", EtherwarpFaceCases::backEdges);
+                    // ---- On Teleport + Auto Routes Progress HUD (1042-1047) ----
+                    UiCase.run(ctx, "1042-ui-trail-teleport-ribbon", TrailTeleportCases::ribbon);
+                    UiCase.run(ctx, "1043-ui-trail-teleport-squares", TrailTeleportCases::squares);
+                    UiCase.run(ctx, "1044-ui-trail-teleport-settings", TrailTeleportCases::settings);
+                    UiCase.run(ctx, "1045-ui-routes-progress-content", RoutesProgressHudCases::content);
+                    UiCase.run(ctx, "1046-ui-routes-progress-editor", RoutesProgressHudCases::editor);
+                    UiCase.run(ctx, "1047-ui-routes-progress-settings", RoutesProgressHudCases::settings);
                     // ---- Shared trails (1036-1039) ----
                     UiCase.run(ctx, "1036-ui-trail-share-send", TrailShareCases::send);
                     UiCase.run(ctx, "1037-ui-trail-share-remote", TrailShareCases::remote);

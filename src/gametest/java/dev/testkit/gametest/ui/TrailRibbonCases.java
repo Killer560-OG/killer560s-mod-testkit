@@ -44,17 +44,17 @@ import java.util.Locale;
  */
 final class TrailRibbonCases {
 
-    private static final String CFG = "trail.RibbonTrailConfig";
-    private static final String SQ = "trail.TrailConfig";
-    private static final String MODE = "trail.RibbonTrailConfig$ColorMode";
-    private static final String RIBBON = "trail.RibbonTrail";
-    private static final float HEIGHT = 0.8f;
+    static final String CFG = "trail.RibbonTrailConfig";
+    static final String SQ = "trail.TrailConfig";
+    static final String MODE = "trail.RibbonTrailConfig$ColorMode";
+    static final String RIBBON = "trail.RibbonTrail";
+    static final float HEIGHT = 0.8f;
 
     private static final int RED = 0xFFFF0000;
     private static final int YELLOW = 0xFFFFFF00;
     private static final int BLUE = 0xFF0000FF;
     /** Blocks per tick of the scripted walk (3 blocks a second). */
-    private static final double STEP = 0.15;
+    static final double STEP = 0.15;
     private static final float PITCH = 35f;
 
     private TrailRibbonCases() {
@@ -62,9 +62,9 @@ final class TrailRibbonCases {
 
     // ---- scene ----------------------------------------------------------------------------------------------------
 
-    private static double[] origin;
-    private static float savedYaw;
-    private static float savedPitch;
+    static double[] origin;
+    static float savedYaw;
+    static float savedPitch;
 
     private static boolean ready(UiCase c) {
         if (!Mod.has(CFG)) {
@@ -75,7 +75,7 @@ final class TrailRibbonCases {
     }
 
     /** F5 behind, HUD hidden, pitch 35 (only ground behind the band), 3 blocks above the grass, trail OFF. */
-    private static void scene(UiCase c) {
+    static void scene(UiCase c) {
         c.onClient(mc -> {
             McCompat.setScreen(mc, null);
             McCompat.clearChatAndToasts(mc);
@@ -95,7 +95,7 @@ final class TrailRibbonCases {
         c.ticks(10);
     }
 
-    private static void configure(UiCase c, int head, int mid, int tail, int colors, float seconds) {
+    static void configure(UiCase c, int head, int mid, int tail, int colors, float seconds) {
         c.onClient(mc -> {
             Object cfg = Mod.cfg(CFG);
             Mod.call(cfg, "setColorMode", Mod.enumValue(MODE, "GRADIENT"));
@@ -112,14 +112,14 @@ final class TrailRibbonCases {
         });
     }
 
-    private static void enabled(UiCase c, boolean on) {
+    static void enabled(UiCase c, boolean on) {
         c.onClient(mc -> {
             Mod.call(Mod.cfg(CFG), "setEnabled", on);
             return null;
         });
     }
 
-    private static void restore(UiCase c) {
+    static void restore(UiCase c) {
         c.onClient(mc -> {
             Object cfg = Mod.cfg(CFG);
             Mod.call(cfg, "setEnabled", false);
@@ -140,7 +140,7 @@ final class TrailRibbonCases {
     }
 
     /** Puts the (flying) player at x, origin y, z facing {@code yaw}, pitch {@link #PITCH}. */
-    private static void place(UiCase c, double x, double z, float yaw) {
+    static void place(UiCase c, double x, double z, float yaw) {
         c.onClient(mc -> {
             mc.player.getAbilities().flying = true;
             mc.player.setPos(x, origin[1], z);
@@ -152,14 +152,14 @@ final class TrailRibbonCases {
     }
 
     /** One tick per point, facing {@code yaw}. */
-    private static void walk(UiCase c, List<double[]> path, float yaw) {
+    static void walk(UiCase c, List<double[]> path, float yaw) {
         for (double[] p : path) {
             place(c, p[0], p[1], yaw);
             c.ticks(1);
         }
     }
 
-    private static List<double[]> line(double x0, double z0, double dx, double dz, int ticks) {
+    static List<double[]> line(double x0, double z0, double dx, double dz, int ticks) {
         List<double[]> out = new ArrayList<>();
         for (int i = 1; i <= ticks; i++) {
             out.add(new double[]{x0 + dx * STEP * i, z0 + dz * STEP * i});
@@ -794,7 +794,7 @@ final class TrailRibbonCases {
     }
 
     /** A fresh {@code tabClass}'s rows (message, " *" when it is a cycling button) after {@code setup} runs. */
-    private static List<String> tabRows(UiCase c, String tabClass, Runnable setup) {
+    static List<String> tabRows(UiCase c, String tabClass, Runnable setup) {
         return c.onClient(mc -> {
             setup.run();
             Object tab;
