@@ -7642,14 +7642,85 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             resetRoutes(ctx);
             arena(ctx, false);
             giveHotbar(ctx);
+            // A pad ten blocks past the step, where the warp's look carries on to from the step: a second warp off the
+            // use half lands on it (with nothing there the sim refuses it against the arena wall and the bug hides).
             setBlocks(ctx, Map.of(new int[]{9, F, 8}, Blocks.STONE.defaultBlockState(),
-                    new int[]{4, F, 10}, Blocks.CHEST.defaultBlockState()));
+                    new int[]{4, F, 10}, Blocks.CHEST.defaultBlockState(),
+                    new int[]{19, F + 1, 8}, Blocks.STONE.defaultBlockState()));
             String two = flyPair(ctx, "a warp within reach", 6, 8, new int[][]{{9, F, 8}}, new int[]{4, F, 10});
             if (two != null) {
                 bad.add(two);
             }
             resetRoutes(ctx);
+            String sync = teleportSync(ctx);
+            if (sync != null) {
+                bad.add(sync);
+            }
             check(bad.isEmpty(), String.join(" | ", bad));
+        }
+
+        private static volatile boolean syncArmed;
+        private static volatile Vec3 syncLastEnd;
+        private static volatile double[] syncSeen;
+        private static boolean syncHooked;
+
+        /**
+         * The mechanism under shape 1, measured directly (the end-to-end flight above only hits it when the next warp
+         * goes out in the very tick the landing is applied, which the gametest's lockstep rarely gives): on the first
+         * client tick after a server teleport is applied - before this tick's own movement packet - util/RightClick's idea
+         * of where the server traces from must already be the landing, not the spot he was teleported from.
+         */
+        private static String teleportSync(ClientGameTestContext ctx) {
+            ctx.runOnClient(mc -> {
+                if (!syncHooked) {
+                    syncHooked = true;
+                    ClientTickEvents.END_CLIENT_TICK.register(c -> {
+                        if (c.player != null) {
+                            syncLastEnd = c.player.position();
+                        }
+                    });
+                    ClientTickEvents.START_CLIENT_TICK.register(c -> {
+                        Vec3 last = syncLastEnd;
+                        if (!syncArmed || c.player == null || last == null || c.player.position().distanceTo(last) < 2.0) {
+                            return;
+                        }
+                        syncArmed = false;
+                        try {
+                            Class<?> rc = Class.forName("com.killer560.hub.util.RightClick");
+                            double[] v = new double[3];
+                            String[] names = {"sentX", "sentY", "sentZ"};
+                            for (int i = 0; i < 3; i++) {
+                                var f = rc.getDeclaredField(names[i]);
+                                f.setAccessible(true);
+                                v[i] = f.getDouble(null);
+                            }
+                            syncSeen = v;
+                        } catch (ReflectiveOperationException e) {
+                            syncSeen = new double[]{Double.NaN, Double.NaN, Double.NaN};
+                        }
+                    });
+                }
+            });
+            tpRel(ctx, 6.5, 8.5, 90f, 10f);
+            ctx.waitTicks(10);
+            Vec3 from = ctx.computeOnClient(mc -> mc.player.position());
+            Vec3 to = ctx.computeOnClient(mc -> toReal(20.5, F, 8.5));
+            syncSeen = null;
+            syncArmed = true;
+            serverRun(ctx, (server, sp) -> sp.teleportTo(to.x, to.y, to.z));
+            waitFor(ctx, 40, () -> syncSeen != null);
+            syncArmed = false;
+            double[] v = syncSeen;
+            if (v == null) {
+                return "teleport sync: the teleport was never seen on a tick start - nothing measured";
+            }
+            Vec3 seen = new Vec3(v[0], v[1], v[2]);
+            println(String.format(Locale.US, "pathland teleport sync: teleported from %.2f, %.2f, %.2f to %.2f, %.2f, %.2f; "
+                    + "first tick after, RightClick traces from %.2f, %.2f, %.2f", from.x, from.y, from.z, to.x, to.y, to.z,
+                    seen.x, seen.y, seen.z));
+            return seen.distanceTo(to) < 0.1 ? null : String.format(Locale.US, "teleport sync: on the tick after a server "
+                    + "teleport RightClick still traced from %.2f, %.2f, %.2f (%.1f from the landing)", seen.x, seen.y, seen.z,
+                    seen.distanceTo(to));
         }
 
         /**
