@@ -548,8 +548,22 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   block click, as Hypixel did to six warps in his 2026-10-14 log. Two controls under the same hook must land (a left-click
   skip with the AOTV held; the lever clicked with an empty hand, the route swapping), then the lever clicked with the AOTV
   held must land within 20 ticks, 8 blocks along. Old jar: ignored at gap 1, travelled 0.00, FAIL; new: held 3 ticks,
-  landed 6 ticks after the click. `waitLanded(ctx, x, z, 0)` checks NOTHING (its loop runs `ticks` times) and always
-  returns null - the first run of this case read every landing as "never"; earlyskip's in-flight checks and mimicskip's
-  "not fired yet" check still pass 0 and so cannot fail.
-- 385-ui-interactive-map (2026-10-15): no drag with any button pans, and a right/middle drag's release acts; the view is moved
+  landed 6 ticks after the click. `waitLanded(ctx, x, z, 0)` used to check NOTHING (its loop ran `ticks` times) and always
+  returned null - the first run of this case read every landing as "never"; earlyskip's in-flight checks and mimicskip's
+  "not fired yet" check passed 0 and so could not fail. Fixed 2026-10-15 (click-gap-all-1015): it looks now, then after each
+  of `ticks` ticks, so 0 is one look and `(.., 1)` looks twice. Proven able to fail: earlyskip with `Latency.install(0)` fails
+  "the warp landed before the click was made"; mimicskip with its node's await switched off fails "the node fired before any
+  click" (only the landing look can catch that - no "secrets met" line exists). No other caller passes 0.
+- 1015-sim-clickgap and 96-ar-1015-puzzleclick (click-gap-all-1015, 2026-10-15): every item-use sender waits out a same-item
+  block click (util/BlockClickGap). `harness/ClickPrimer` makes a block click with the held item at the END of every tick that
+  sent an item use (slot-limited), at a block 30 east of him: the server drops it for reach before any block or ability answers it
+  but `HypixelUseAfterClick` still sees it, and it goes through `useItemOn`, so the mod's packet tap sees it too. NOT a lever: a
+  sneaking AOTV click on one warps in the sim. 1015-sim-clickgap (cheat jar, sim F7, needs room captures): raw-use positive control
+  (click + use in one tick must be ignored), an Auto Clear trip (`clearRoom`, Spirit Sceptre, hops off) to the farthest mob room,
+  then an Interactive Map press (`pathToRoom`, the path Auto Secret and the Autopilot take) with no clicks and the SAME trip (teleported
+  home between) with a click after every hop; asserts 2+ hops each followed by a click, 0 uses ignored, the hold line, no more
+  `[Path] off the plan:` than the control (grep the colon: held hops log "0.05 off the planned spot"). Old jar: 43 / 18 uses
+  ignored, FAIL; new: 0, PASS. 96-ar-1015-puzzleclick (arena): calls `AutoPuzzleUtil.useItemRotated` the way an auto does (retry
+  each tick until true): no click and empty-hand click send at tick 0 and land; AOTV-held click sends at tick 4-8 and lands; the
+  raw use after it is ignored and he does not move. Old jar sends at tick 0, ignored, FAIL.- 385-ui-interactive-map (2026-10-15): no drag with any button pans, and a right/middle drag's release acts; the view is moved
   by scroll zoom for the Reset view check. Old jar: RMB drag panned 75.5.
