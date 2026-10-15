@@ -649,3 +649,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   server even with no arrows - the packet goes before the item's own check), nothing behind a wall, and the Trigger Bot
   with a shortbow sends uses. 189 the clicks between registering hits: the cases before it switch them off in `base()`
   (`setHumanClicks(false)`), since every attack count there would include them. Main: both fail on missing API.
+- **190-192 Auto Blood Camp, round 4 (mod bloodcamp-4-1015, 2026-10-15)**: blood mobs are now known by IDENTITY (the mob on
+  a trip's landing spot as it lands), so a husk summoned with no trip is not a blood mob and the Aura ignores it - 185,
+  186, 188 and 189 were rewritten to use trip husks (named "blood", NoGravity). 190 Dungeon ESP's Blood Mobs: the trip
+  husk is drawn red, a plain husk is not, a starred zombie keeps its own colour, and the husk stays red after a `tp` out
+  of the room tile (Blood Camp itself off - the ESP tracks on its own). 191 a plain husk in reach in front of him is never
+  attacked or aimed at; 192 a plain husk standing on the line to the blood mob holds every click (control: clicks).
+  `MobEspConfig`'s Blood Mobs/Starred/Room Scoped have no bean getter, so 190 sets them with `.custom`.
