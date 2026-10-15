@@ -256,6 +256,9 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-15 click sounds and short descriptions ({@link SoundDescCases}). Own block for merges. */
     static final String[] SOUND_DESC_CASES = {"1060-ui-card-descriptions", "1061-ui-descriptions-toggle",
             "1062-ui-editor-hint-narrow", "1063-ui-click-presets", "1064-ui-click-import"};
+    /** killer560's 2026-10-15 Trajectories for shortbows (mod shortbow-traj-1015, {@link TrajectoryCases}). Own block. */
+    static final String[] TRAJECTORY_CASES = {"1080-ui-traj-shortbow", "1081-ui-traj-terminator-spread",
+            "1082-ui-traj-normal-bow-drawn-only", "1083-ui-traj-shortbows-setting"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -404,6 +407,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : EW_NEARFACE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : TRAJECTORY_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -418,7 +424,8 @@ public class UiSuite implements FabricClientGameTest {
                 || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
                 || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES) || any(SWEAT_CASES)
                 || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES) || any(TRAIL_HUD_CASES)
-                || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES) || any(SOUND_DESC_CASES) || any(MAP_OVERHAUL_CASES);
+                || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES) || any(SOUND_DESC_CASES) || any(MAP_OVERHAUL_CASES)
+                || any(TRAJECTORY_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -548,6 +555,11 @@ public class UiSuite implements FabricClientGameTest {
                     // ---- chat keybinds merge (621-622) ----
                     UiCase.run(ctx, "621-ui-chat-keybinds-merged-tab", ChatKeybindsMergeCases::mergedTab);
                     UiCase.run(ctx, "622-ui-chat-keybinds-migration", ChatKeybindsMergeCases::migration);
+                    // ---- trajectories for shortbows (1080-1083) ----
+                    UiCase.run(ctx, "1080-ui-traj-shortbow", TrajectoryCases::shortbow);
+                    UiCase.run(ctx, "1081-ui-traj-terminator-spread", TrajectoryCases::terminatorSpread);
+                    UiCase.run(ctx, "1082-ui-traj-normal-bow-drawn-only", TrajectoryCases::normalBow);
+                    UiCase.run(ctx, "1083-ui-traj-shortbows-setting", TrajectoryCases::settings);
                     // ---- held item outline (671-675) ----
                     UiCase.run(ctx, "671-ui-held-outline-off", HeldOutlineCases::controls);
                     UiCase.run(ctx, "672-ui-held-outline-styles", HeldOutlineCases::styles);
