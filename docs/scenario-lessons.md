@@ -747,3 +747,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - **193 named blood mobs (mod bloodcamp-5-1015, 2026-10-15)**: a husk with a name-tag stand "Revoker 1.4M❤" summoned just
   above it (no trip - Blood Camp never saw it land) is drawn red by Dungeon ESP's Blood Mobs and attacked by the Aura; a
   husk whose stand reads "[VIP] Revoker: hi ❤" is neither. Main jar: the named husk is not highlighted (fails).
+- 1597-1598 (`ui/MenuAnim2Cases`, mod menu-anim-2-1015): Animation Speed (durations ordered Extra Fast < Fast < Normal < Slow,
+  a drawer slide measured at 120 ms, the four stops pressed and reloaded), and every slider of every drawer - closed
+  sections opened, each off switch turned on in turn to show what it gates, all inside one client task so nothing it
+  turns on gets a tick - dragged to 41 between-step positions; the knob must equal what a freshly opened drawer puts it
+  at for the saved value, with the same text. Read the knob from the `value` field: the old jar has no accessor. On the
+  pre-change jar it named 186 knobs resting between two values.
