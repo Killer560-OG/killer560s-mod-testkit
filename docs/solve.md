@@ -125,6 +125,7 @@ Cases on the same Base, each adding its own settings and checks through `SolveEx
   `-doorwarp` puts him on the doorway spot with a plain teleport instead (what his own etherwarp does; ClearExecutor's
   arrival counter never moves). Every Boulder case now fails on a forward-held tick with the SPRINT KEY up (after the
   first two ticks of a hold); whether vanilla sprints that tick (a wall) is physics, not the auto.
-- The tic tac toe room's secret in Mod Only Test's capture sits in a pit behind a wall with a low roof by it: no warp
-  line onto a block in reach of it, no walk on his floor, and the map lands on the wall top (2026-10-15). So
-  `-tictactoe-grab` fails on every jar there for want of a way in, not for the trip.
+- The tic tac toe room's secret in Mod Only Test's capture sits in a pit behind a wall; nothing reaches it on foot or by
+  map. Grab Secret now warps to a landing within SECRET AURA's own reach (standing eye to the chest's box, through walls,
+  as the aura clicks) - the board side of that wall - and the case requires the secret COUNTED with no click of the auto's
+  own. Mod 40562c30: PASS (secret at 1.2 s); main (380349f2 merge): FAIL, never counted.
