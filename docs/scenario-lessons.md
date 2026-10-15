@@ -773,3 +773,12 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   `prismaccountswitcher.universalProxyFile` build.gradle sets (main ignores the property: 1851 then reports it and leaves the
   switch alone). A row press and Copy ID fail offline; the failure line names the account, which is what proves the press
   reached that account's handler. Rows are found by their label (the account name), their buttons by sitting in its band.
+- **93-solve-waterboard-timing, 1015-sim-water-mappress, 1015-grim-water-clickwarp** (mod water-late-1015, 2026-10-15):
+  Auto Water's timing. The timing case (`SimWaterTimingTests`, on `SimPuzzleSolveTests.Base`) reads Water Board Solver's
+  clock at END_CLIENT_TICK and stamps item uses through `PacketTrace.tap` with the same tick; a timed click must land at
+  most 1 tick after the solver's CLICK ME (the auto ticks before the solver's counter, so on time reads 1 - which is also
+  exactly time*20 ticks after the water lever's own click) and every lever click followed by a warp must have its use the
+  next tick. Main: 12 late, gaps of 7 (the same 11/7 as his Hypixel log). The base calls a `SolveExtra.configure` three
+  times (solver only, auto on, after the verdict): install once. The map press case calls `AutoClearUtils.pathToRoom` on
+  the single-room build from the spawn (doorway, relative y 69) and needs the trip to end on the lever floor (y 59); main
+  does not move him at all. The Grim case replays the auto's tick order with the mod's own primitives on a vanilla server.
