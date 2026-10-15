@@ -1,7 +1,12 @@
 package dev.testkit.gametest;
 
+import dev.testkit.compat.McCompat;
+
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
+
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+
+import net.minecraft.client.gui.screens.Screen;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,6 +60,31 @@ public class SimDesignerCountTests implements FabricClientGameTest {
                 if (COUNT.matcher(r.text().trim()).matches()) {
                     failures.add("drawn: '" + r.text() + "' at " + r.x() + "," + r.y());
                 }
+            }
+            // The designer from the Dungeon Sim menu's Create a New Map (the sim-pages menu, 2026-10-15): the real nav
+            // button opens it, it draws, and its Back returns to the menu.
+            DesignerKit.closeScreen(ctx);
+            ctx.runOnClient(mc -> mc.execute(() -> {
+                try {
+                    Class<?> cls = Class.forName("com.killer560.hub.roomsim.SimMenuScreen");
+                    McCompat.setScreen(mc, (Screen) cls.getConstructor(Screen.class).newInstance((Object) null));
+                } catch (Exception e) {
+                    throw new RuntimeException("could not open the Dungeon Sim menu", e);
+                }
+            }));
+            ctx.waitTicks(10);
+            boolean clicked = DesignerKit.click(ctx, "Create a New Map");
+            boolean opened = DesignerKit.isEditor(ctx);
+            boolean draws = opened && DesignerKit.texts(ctx).stream().anyMatch(r -> r.text().equals("DESIGN A MAP"));
+            boolean back = opened && DesignerKit.click(ctx, "Back");
+            String after = ctx.computeOnClient(mc -> McCompat.screen(mc) == null ? "none"
+                    : McCompat.screen(mc).getClass().getSimpleName());
+            System.out.println("[" + NAME + "] from the sim menu: Create a New Map clicked " + clicked + ", designer open "
+                    + opened + ", draws its title " + draws + ", Back -> " + after);
+            if (!clicked || !opened || !draws || !"SimMenuScreen".equals(after)) {
+                failures.add("Create a New Map on the Dungeon Sim menu did not open a working designer that returns to "
+                        + "the menu (clicked " + clicked + ", open " + opened + ", draws " + draws + ", Back -> " + after
+                        + ")");
             }
         } finally {
             DesignerKit.closeScreen(ctx);
