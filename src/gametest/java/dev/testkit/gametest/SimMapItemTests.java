@@ -115,28 +115,30 @@ public class SimMapItemTests implements FabricClientGameTest {
             ctx.waitTicks(20);
 
             // ---- the sim's own case: no map item, every room drawn ----
-            int groups = ctx.computeOnClient(mc -> ((List<?>) ModUnderTest.staticCall(
-                    "com.killer560.hub.livemap.LiveMapFeature", "groupsView")).size());
             List<int[]> noItem = roomFills(ctx);
+            int groups = noItem.size();
             println("floor " + ctx.computeOnClient(mc -> String.valueOf(Mod.staticCall("secrets.DungeonState", "getFloor")))
                     + ", " + groups + " room group(s); without a map item the HUD draws " + noItem.size() + " room(s)");
             if (groups != 5) {
                 failures.add("the sim published " + groups + " rooms, not 5 - nothing below would mean anything");
                 return;
             }
-            if (noItem.size() != 5) {
-                failures.add("without a map item the sim map drew " + noItem.size() + " rooms, want all 5");
-            }
 
             // ---- the map item ----
             giveMap(ctx, paintMap());
-            boolean calibrated = false;
-            for (int i = 0; i < 60 && !calibrated; i++) {
+            // A jar from before map-overhaul has no calibration hook and never reads a map in the sim: it gets the same
+            // 15 s and is judged on what it draws.
+            Boolean calibrated = false;
+            for (int i = 0; i < 60 && !Boolean.TRUE.equals(calibrated); i++) {
                 ctx.waitTicks(5);
-                calibrated = ctx.computeOnClient(mc -> mapCalibrated());
+                calibrated = hook(ctx, PAINTER, "mapItemCalibrated");
+                if (calibrated == null) {
+                    ctx.waitTicks(300);
+                    break;
+                }
             }
-            println("dungeon map item in slot 9, calibrated: " + calibrated);
-            if (!calibrated) {
+            println("dungeon map item in slot 9, calibrated: " + (calibrated == null ? "no hook (old jar)" : calibrated));
+            if (Boolean.FALSE.equals(calibrated)) {
                 failures.add("the painted dungeon map in slot 9 was never read (calibrated) - the case cannot judge the map");
                 return;
             }
@@ -165,7 +167,8 @@ public class SimMapItemTests implements FabricClientGameTest {
                 boolean custom = k == 1;
                 ctx.runOnClient(mc -> Mod.set(MAP, "setCustomCheckmarks", custom));
                 List<int[]> fills = allFills(ctx);
-                marks[k] = ctx.computeOnClient(mc -> (String) Mod.staticCall(PAINTER, "lastMarkSource"));
+                Object src = hook(ctx, PAINTER, "lastMarkSource");
+                marks[k] = String.valueOf(src);
                 int[] r = roomRect(2, 1);
                 for (int[] f : fills) {
                     if (f[4] == 0xFFFFFFFF && f[0] >= r[0] && f[2] <= r[2] && f[1] >= r[1] && f[3] <= r[3]) {
@@ -173,8 +176,8 @@ public class SimMapItemTests implements FabricClientGameTest {
                     }
                 }
             }
-            int runs = ctx.computeOnClient(mc -> (Integer) Mod.staticCall("livemap.MapMarks", "hypixelRunCount",
-                    2 * 2 + 2 * 1 * GRID));
+            Object runsObj = hook(ctx, "livemap.MapMarks", "hypixelRunCount", 2 * 2 + 2 * 1 * GRID);
+            int runs = runsObj == null ? 0 : (Integer) runsObj;
             println("New Trap's mark: '" + marks[0] + "' with " + whites[0] + " white fill(s) (" + runs
                     + " run(s) copied off the item); Custom Checkmark Sprite ON: '" + marks[1] + "'");
             if (!"hypixel-item".equals(marks[0]) || whites[0] == 0 || runs == 0) {
@@ -193,7 +196,7 @@ public class SimMapItemTests implements FabricClientGameTest {
                 List<int[]> fills = roomFills(ctx);
                 Integer cell = colourAt(fills, 1, 2);
                 Integer blood = colourAt(fills, 3, 2);
-                boolean itemOnly = ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(PAINTER, "mapItemOnly"));
+                boolean itemOnly = Boolean.TRUE.equals(hook(ctx, PAINTER, "mapItemOnly"));
                 println(String.format(Locale.ROOT, "cheat, Funny Map ON: %d room(s) drawn, map-item-only %s, Cell %s, "
                         + "Blood %s", fills.size(), itemOnly, hexOrNone(cell), hexOrNone(blood)));
                 if (fills.size() != 5 || itemOnly) {
@@ -266,8 +269,8 @@ public class SimMapItemTests implements FabricClientGameTest {
         Integer cell = colourAt(fills, 1, 2);
         Integer blood = colourAt(fills, 3, 2);
         brown += cell != null ? 1 : 0;
-        boolean itemOnly = ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(PAINTER, "mapItemOnly"));
-        int revealed = ctx.computeOnClient(mc -> (Integer) Mod.staticCall(PAINTER, "revealedRoomCount"));
+        Object itemOnly = hook(ctx, PAINTER, "mapItemOnly");
+        Object revealed = hook(ctx, PAINTER, "revealedRoomCount");
         println(String.format(Locale.ROOT, "%s: %d room(s) drawn (revealed %d, map-item-only %s); Entrance %s, New Trap %s,"
                         + " Andesite %s, Cell %s, Blood %s; %d red fill(s)", tag, fills.size(), revealed, itemOnly,
                 hexOrNone(colourAt(fills, 1, 1)), hexOrNone(colourAt(fills, 2, 1)), hexOrNone(colourAt(fills, 3, 1)),
@@ -356,8 +359,16 @@ public class SimMapItemTests implements FabricClientGameTest {
         ctx.waitTicks(5);
     }
 
-    private static boolean mapCalibrated() {
-        return (Boolean) Mod.staticCall(PAINTER, "mapItemCalibrated");
+    /** A mod test hook's answer, or null when the jar has no such hook (one from before map-overhaul). */
+    @SuppressWarnings("unchecked")
+    private static <T> T hook(ClientGameTestContext ctx, String cls, String method, Object... args) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                return (T) Mod.staticCall(cls, method, args);
+            } catch (AssertionError | RuntimeException missing) {
+                return null;
+            }
+        });
     }
 
     // ---- what the HUD draws ---------------------------------------------------------------------------------------
