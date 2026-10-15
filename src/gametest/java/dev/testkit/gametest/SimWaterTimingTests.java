@@ -2,6 +2,8 @@ package dev.testkit.gametest;
 
 import dev.testkit.harness.PacketTrace;
 
+import static dev.testkit.gametest.SimPuzzleRoundTests.say;
+
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.minecraft.core.BlockPos;
@@ -49,6 +51,127 @@ public final class SimWaterTimingTests {
         @Override
         SolveExtra extra() {
             return new Timing();
+        }
+    }
+
+    /**
+     * {@code 1015-sim-water-mappress}: an Interactive Map press on Water Board must put him on the lever floor. The room's
+     * recorded spot, relative (15, 58, 9), is a bottom stone-brick stair - no full top, so not a landing - and main fell
+     * back to "anywhere in the clicked tile", which from the doorway is the doorway itself (his log, 16:11:39: "recorded
+     * spot ... is not standable", then Auto Water needed two more warps down). The branch takes the full landing beside
+     * the stair. Judged by where the trip ends (feet on the lever floor, relative y 59) after the map said it ran a path.
+     */
+    public static final class WaterBoardMapPress implements net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest {
+        private static final String NAME = "1015-sim-water-mappress";
+
+        @Override
+        public void runTest(ClientGameTestContext ctx) {
+            if (Scenario.skip(NAME)) {
+                return;
+            }
+            ModUnderTest.require("killer560smod");
+            LogTap.install();
+            ctx.waitTicks(20);
+            ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
+            if (!SimPuzzleSolveTests.seedRooms(ctx)) {
+                Scenario.skipped(NAME, "needs real room captures and room database");
+                return;
+            }
+            String verdict;
+            try {
+                verdict = play(ctx);
+            } finally {
+                SimPuzzleSolveTests.teardown(ctx);
+            }
+            System.out.println("[" + NAME + "] " + (verdict == null ? "PASS" : "FAIL - " + verdict));
+            if (verdict != null) {
+                throw new AssertionError(verdict);
+            }
+        }
+
+        private static String play(ClientGameTestContext ctx) {
+            ctx.runOnClient(mc -> {
+                Object auto = ModUnderTest.config("com.killer560.hub.autopuzzles.AutoPuzzlesConfig");
+                ModUnderTest.set(auto, "setAutoPuzzlesMasterEnabled", false);
+                Object map = ModUnderTest.config("com.killer560.hub.livemap.LiveMapConfig");
+                ModUnderTest.set(map, "setEnabled", true);
+                ModUnderTest.set(map, "setInteractiveMapEnabled", true);
+            });
+            long before = Scenario.simBuildCount(ctx);
+            ctx.runOnClient(mc -> mc.execute(() -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBuilder",
+                    "buildSingleRoom", new Class<?>[]{net.minecraft.client.Minecraft.class, String.class},
+                    new Object[]{mc, "Water Board"})));
+            ctx.waitFor(mc -> mc.level != null && mc.player != null, 2400);
+            Scenario.awaitSimBuild(ctx, before);
+            ctx.waitFor(mc -> dev.testkit.compat.McCompat.screen(mc) == null, 1200);
+            ctx.waitFor(mc -> mc.player.onGround() && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir(), 1800);
+            ctx.waitTicks(60);
+            // An AOTV in hand, as he plays.
+            java.util.concurrent.atomic.AtomicReference<Boolean> given = new java.util.concurrent.atomic.AtomicReference<>();
+            ctx.runOnClient(mc -> {
+                var server = mc.getSingleplayerServer();
+                var uuid = mc.player.getUUID();
+                server.execute(() -> {
+                    var sp = server.getPlayerList().getPlayer(uuid);
+                    if (sp != null) {
+                        sp.getInventory().setItem(0, (net.minecraft.world.item.ItemStack) ModUnderTest.staticCall(
+                                "com.killer560.hub.roomsim.SimItems", "build", new Class<?>[]{String.class},
+                                new Object[]{"ASPECT_OF_THE_VOID"}));
+                    }
+                    given.set(sp != null);
+                });
+            });
+            ctx.waitFor(mc -> given.get() != null, 200);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+            ctx.waitTicks(10);
+            int floorY = 59 + ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(
+                    "com.killer560.hub.livemap.DungeonLayout", "simYOffset"));
+            double[] from = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+            say(NAME, String.format(Locale.US, "start (%.2f, %.2f, %.2f), lever floor feet y %d", from[0], from[1], from[2],
+                    floorY));
+            long mark = LogTap.mark();
+            Boolean pressed = ctx.computeOnClient(mc -> {
+                Object layout = ModUnderTest.staticCall("com.killer560.hub.livemap.DungeonLayout", "capture");
+                int rooms = (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[]{}, new Object[]{});
+                for (int r = 0; r < rooms; r++) {
+                    if ("Water Board".equals(ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{r}))) {
+                        int[] tiles = (int[]) ModUnderTest.call(layout, "tiles", new Class<?>[]{int.class}, new Object[]{r});
+                        return (Boolean) ModUnderTest.staticCall("com.killer560.hub.livemap.autoclear.AutoClearUtils",
+                                "pathToRoom", new Class<?>[]{layout.getClass(), int.class, int.class, int.class},
+                                new Object[]{layout, r, tiles[0], 0});
+                    }
+                }
+                return null;
+            });
+            say(NAME, "map press on Water Board: " + pressed);
+            if (!Boolean.TRUE.equals(pressed)) {
+                return "the Interactive Map refused the press on Water Board (" + pressed + ")";
+            }
+            String executor = "com.killer560.hub.livemap.autoclear.ClearExecutor";
+            ctx.waitTicks(5);
+            for (int t = 0; t < 400 && ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(executor, "isBusy")); t++) {
+                ctx.waitTicks(1);
+            }
+            ctx.waitTicks(10);
+            double[] to = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+            List<String> lines = LogTap.since(mark);
+            String spotLine = lines.stream().filter(l -> l.contains("recorded spot")).findFirst()
+                    .orElse("(no recorded-spot line)");
+            String ran = lines.stream().filter(l -> l.contains("[Path] running")).findFirst().orElse(null);
+            say(NAME, spotLine.trim());
+            say(NAME, ran == null ? "no [Path] running line" : ran.trim());
+            double moved = Math.sqrt(Math.pow(to[0] - from[0], 2) + Math.pow(to[1] - from[1], 2)
+                    + Math.pow(to[2] - from[2], 2));
+            say(NAME, String.format(Locale.US, "after the trip: (%.2f, %.2f, %.2f), moved %.1f block(s)", to[0], to[1],
+                    to[2], moved));
+            if (Math.abs(to[1] - floorY) > 0.6) {
+                return String.format(Locale.US, "the trip ended at feet y %.2f (moved %.1f block(s), path line: %s), not on "
+                        + "the lever floor (y %d)", to[1], moved, ran == null ? "none" : "yes", floorY);
+            }
+            if (ran == null) {
+                return "no [Path] running line - the press did not run a trip";
+            }
+            return null;
         }
     }
 
