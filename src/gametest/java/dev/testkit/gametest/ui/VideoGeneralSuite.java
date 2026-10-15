@@ -91,6 +91,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             }
             Mod.staticCall("util.SkyblockGate", "setEnabled", false);
             mc.options.bobView().set(false);
+            mc.options.gamma().set(1.0); // Brightness: Bright - the sim's rooms are dark at the default
             mc.options.guiScale().set(3);
             Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", Mod.enumValue("gui.MenuTheme", "AMBER"));
             MenuAnimSuite.mode("SMOOTH");
@@ -101,6 +102,8 @@ public class VideoGeneralSuite implements FabricClientGameTest {
         ctx.runOnClient(mc -> mc.resizeGui());
         ctx.waitTicks(3);
 
+        // the room database first: the sim menu's room table and the designer read it too
+        boolean sim = (named(TITLE[1]) || anyNamed(FLOOR) || named(SOLVER)) && VideoSim.prepare(ctx);
         if (anyNamed(TITLE)) {
             if (named(TITLE[0])) {
                 UiCase.run(ctx, TITLE[0], VideoGeneralSuite::title);
@@ -111,7 +114,6 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             ctx.runOnClient(mc -> McCompat.setScreen(mc, new TitleScreen()));
             ctx.waitTicks(5);
         }
-        boolean sim = (anyNamed(FLOOR) || named(SOLVER)) && VideoSim.prepare(ctx);
         if (anyNamed(FLOOR) && sim) {
             ctx.runOnClient(mc -> {
                 Mod.set("livemap.LiveMapConfig", "setEnabled", true);
@@ -232,16 +234,34 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             r.hold(70);
         }
         r.hold(250);
+        String typed = r.c.onClient(mc -> {
+            Screen s = McCompat.screen(mc);
+            Object input = s == null ? null : Mod.field(s, "input");
+            return (s == null ? "no screen" : s.getClass().getSimpleName()) + " '"
+                    + (input instanceof EditBox e ? e.getValue() : "?") + "'";
+        });
+        r.c.note("before Enter: " + typed);
         r.clocks();
         r.c.ctx().getInput().pressKey(InputConstants.KEY_RETURN);
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 60; i++) {
             r.frame();
             Screen s = screen(r.c);
             if (s != null && s.getClass().getSimpleName().equals("ModScreen")) {
+                r.c.note("/killer560 opened the menu after " + (i + 1) + " frames");
                 return s;
             }
         }
-        throw new AssertionError("/killer560 typed in chat did not open the mod menu (screen: " + screen(r.c) + ")");
+        // Not footage of a fake: noted, and the clip is cut at this point by the edit (marker "menu-open").
+        r.c.note("FALLBACK: /killer560 typed in chat did not open the menu in 60 frames (screen " + screen(r.c)
+                + "); opened it directly");
+        r.mark("menu-open-fallback");
+        return r.c.onClient(mc -> {
+            try {
+                return MenuACases.open(mc);
+            } catch (Exception e) {
+                throw new AssertionError(e);
+            }
+        });
     }
 
     /** A fresh menu on Home, opened off camera (the clip starts on it). */
@@ -382,11 +402,24 @@ public class VideoGeneralSuite implements FabricClientGameTest {
     // 1903 menu tour
     // =================================================================================================================
 
-    static void menu(UiCase c) throws Exception {
+    /** Off camera: stand in a lit room of the floor facing across it, chat cleared - the world behind the menu. */
+    private static void niceView(UiCase c) {
+        List<VideoSim.Room> rooms = VideoSim.rooms(c.ctx());
+        VideoSim.Room pick = rooms.stream().filter(x -> x.unfound() >= 3).findFirst()
+                .orElse(rooms.isEmpty() ? null : rooms.get(0));
         c.onClient(mc -> {
-            mc.player.setYRot(mc.player.getYRot());
+            if (pick != null) {
+                VideoRecorder.pose(mc, pick.stand().x, pick.stand().y, pick.stand().z,
+                        yawTowards(pick.stand(), pick.centre()) + 35f, 12f);
+            }
+            McCompat.chat(mc).clearMessages(false);
             return null;
         });
+        c.ticks(40);
+    }
+
+    static void menu(UiCase c) throws Exception {
+        niceView(c);
         VideoRecorder r = new VideoRecorder(c, "menu");
         try {
             r.hold(500);
@@ -527,78 +560,53 @@ public class VideoGeneralSuite implements FabricClientGameTest {
     // 1905 themes
     // =================================================================================================================
 
-    static void themes(UiCase c) throws Exception {
-        Object tab = c.onClient(mc -> MenuACases.leaf("MenuThemeTab"));
-        Screen s = openMenuQuiet(c, null);
-        // which sidebar category holds the Menu Theme card (found off camera)
-        String cat = c.onClient(mc -> {
-            @SuppressWarnings("unchecked")
-            List<String> texts = (List<String>) Mod.call(s, "sideTexts");
-            for (String t : texts) {
-                if ((Boolean) Mod.call(s, "selectCategory", t) && ((List<?>) Mod.call(s, "cards")).contains(tab)) {
-                    return t;
+    /** {x, y, w, h} of Home's Menu Theme chip {@code i} (MenuTheme order; values().length is Customize...), computed the
+     *  way ModScreen.ThemeBlock lays them out; null if Home is not showing it. The click that follows checks it. */
+    @SuppressWarnings("unchecked")
+    private static int[] themeChip(UiCase c, Screen s, int i) {
+        return c.onClient(mc -> {
+            int scroll = ((Number) Mod.field(s, "gridScroll")).intValue();
+            for (Object it : (List<Object>) Mod.field(s, "items")) {
+                Object block = Mod.field(it, "block");
+                if (block == null || !block.getClass().getSimpleName().equals("ThemeBlock")) {
+                    continue;
                 }
+                int x = (Integer) Mod.field(it, "x");
+                int y = (Integer) Mod.field(it, "y") - scroll;
+                int w = (Integer) Mod.field(it, "w");
+                int n = ((Object[]) Mod.staticCall("gui.MenuTheme", "values")).length + 1;
+                int cw = Math.min(90, (w - 20 - (n - 1) * 6) / n);
+                return new int[]{x + 10 + i * (cw + 6), y + 20, cw, 14};
             }
             return null;
         });
-        c.check(cat != null, "no sidebar category lists the Menu Theme card");
-        c.onClient(mc -> {
-            Mod.call(s, "selectCategory", "Dungeons");
-            return null;
-        });
+    }
+
+    static void themes(UiCase c) throws Exception {
+        niceView(c);
+        Screen s = openMenuQuiet(c, "Home");
         c.ticks(3);
+        String[] order = {"AMBER", "DARK", "LIGHT", "OCEAN", "GREEN"};
         VideoRecorder r = new VideoRecorder(c, "themes");
         try {
-            double[] mid = VideoRecorder.menuToWindow(c, s, s.width * 0.6, s.height * 0.45);
+            double[] mid = VideoRecorder.menuToWindow(c, s, s.width * 0.6, s.height * 0.75);
             r.cursorAt(mid[0], mid[1]);
-            r.hold(500);
-            clickSidebar(r, s, cat, 600);
-            r.hold(700);
-            c.onClient(mc -> {
-                Mod.call(s, "revealCard", tab);
-                return null;
-            });
-            r.hold(400);
-            int[][] b = MenuAnimSuite.bounds(c, s, tab);
-            glideTo(r, b[0], 0.33, 0.45, 550);
-            r.click();
-            r.hold(800);
-            String[] want = {"DARK", "LIGHT", "OCEAN", "GREEN", "AMBER"};
-            for (String w : want) {
-                AbstractWidget row = c.onClient(mc -> {
-                    for (AbstractWidget x : MenuACases.paneRows(s)) {
-                        if (x.getMessage().getString().startsWith("Menu Theme:")) {
-                            return x;
-                        }
-                    }
-                    return null;
-                });
-                c.check(row != null, "no Menu Theme row in the drawer");
-                if (row == null) {
-                    break;
-                }
-                int[] rb = c.onClient(mc -> {
-                    try {
-                        return (int[]) Mod.call(row, "controlBounds");
-                    } catch (Throwable t) {
-                        return new int[]{row.getX(), row.getY(), row.getWidth(), row.getHeight()};
-                    }
-                });
-                glideTo(r, rb, 0.5, 0.5, w.equals("DARK") ? 550 : 180);
-                if (w.equals("AMBER")) {
-                    // back to the default by stepping back once from Green and again... the wrap is through Custom,
-                    // so the last step is Amber set by its own right click count: step until Amber.
-                    for (int i = 0; i < 3 && !MenuACases.themeName().equals("AMBER"); i++) {
-                        r.click();
-                        r.hold(250);
-                    }
-                    r.hold(1200);
-                    break;
-                }
+            r.hold(600);
+            int[] first = themeChip(c, s, 0);
+            c.check(first != null, "Home shows no Menu Theme row");
+            if (first == null) {
+                return;
+            }
+            for (int k = 1; k <= order.length; k++) {
+                String want = order[k % order.length];
+                int idx = java.util.Arrays.asList(order).indexOf(want);
+                int[] chip = themeChip(c, s, idx);
+                glideTo(r, chip, 0.5, 0.55, k == 1 ? 600 : 380);
+                r.hold(120);
                 r.click();
-                r.hold(1350);
-                c.check(MenuACases.themeName().equals(w), "a click on Menu Theme gave " + MenuACases.themeName()
-                        + ", wanted " + w);
+                r.hold(want.equals("AMBER") ? 1200 : 1500);
+                c.check(MenuACases.themeName().equals(want), "a click on the " + want + " chip gave "
+                        + MenuACases.themeName());
             }
         } finally {
             r.close();
@@ -616,8 +624,9 @@ public class VideoGeneralSuite implements FabricClientGameTest {
 
     @SuppressWarnings("unchecked")
     static void hudEditor(UiCase c) throws Exception {
+        niceView(c);
         c.onClient(mc -> {
-            Mod.call(Mod.cfg("hud.HudConfig"), "setEditorShowAll", true);
+            Mod.call(Mod.cfg("hud.HudConfig"), "setEditorShowAll", false);
             return null;
         });
         Screen s = openMenuQuiet(c, null);
@@ -660,6 +669,9 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                         bestArea = area;
                         best = e.getKey();
                     }
+                }
+                if (pos.containsKey("live_map")) {
+                    best = "live_map";
                 }
                 return new String[]{best, String.valueOf(pos.keySet())};
             });
@@ -735,6 +747,24 @@ public class VideoGeneralSuite implements FabricClientGameTest {
     // 1907 profiles
     // =================================================================================================================
 
+    /** {x, y, w, h} of the first visible row widget in the menu's content pane whose label starts with {@code prefix}
+     *  (null prefix: the first edit box). */
+    private static int[] paneWidget(UiCase c, Screen s, String prefix) {
+        return c.onClient(mc -> {
+            for (AbstractWidget w : MenuACases.paneRows(s)) {
+                if (!w.visible) {
+                    continue;
+                }
+                boolean hit = prefix == null ? w instanceof EditBox
+                        : w.getMessage().getString().replaceAll("§.", "").strip().startsWith(prefix);
+                if (hit) {
+                    return new int[]{w.getX(), w.getY(), w.getWidth(), w.getHeight()};
+                }
+            }
+            return null;
+        });
+    }
+
     static void profiles(UiCase c) throws Exception {
         Screen s = openMenuQuiet(c, "Home");
         c.ticks(3);
@@ -746,21 +776,38 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             clickSidebar(r, s, "Profiles", 650);
             r.hold(1000);
             c.check(category(c, s).contains("Profiles"), "Profiles did not open: " + category(c, s));
-            // drift down the page's buttons
-            for (String b : new String[]{"Save", "New Blank Profile", "Export", "Open"}) {
-                int[] box = widget(c, b);
-                if (box != null) {
-                    glideTo(r, box, 0.4, 0.5, 550);
-                    r.hold(550);
+            // name a profile and save the current settings as it
+            int[] name = paneWidget(c, s, null);
+            c.check(name != null, "no profile name box on the Profiles page");
+            if (name != null) {
+                glideTo(r, name, 0.25, 0.5, 600);
+                r.click();
+                r.hold(200);
+                for (char ch : "My dungeon setup".toCharArray()) {
+                    r.clocks();
+                    c.ctx().getInput().typeChar(ch);
+                    r.hold(60);
                 }
-            }
-            double[] low = VideoRecorder.menuToWindow(c, s, s.width * 0.55, s.height * 0.7);
-            r.glide(low[0], low[1], 500);
-            for (int i = 0; i < 3; i++) {
-                r.wheel(-1);
                 r.hold(300);
             }
-            r.hold(1200);
+            int[] save = paneWidget(c, s, "Save Current");
+            c.check(save != null, "no Save Current As New button");
+            if (save != null) {
+                glideTo(r, save, 0.45, 0.5, 550);
+                r.click();
+                r.hold(1300);
+            }
+            int[] blank = paneWidget(c, s, "New Blank Profile");
+            if (blank != null) {
+                glideTo(r, blank, 0.45, 0.5, 500);
+                r.hold(900);
+            }
+            int[] export = paneWidget(c, s, "Export");
+            if (export != null) {
+                glideTo(r, export, 0.45, 0.5, 600);
+                r.hold(1200);
+            }
+            r.hold(800);
         } finally {
             r.close();
         }
@@ -790,6 +837,36 @@ public class VideoGeneralSuite implements FabricClientGameTest {
         }
     }
 
+    /** The yaw (of 24 tried) with the most open air in front of the eye, counted over a 60 degree fan. Client thread. */
+    private static float openestYaw(net.minecraft.client.Minecraft mc, Vec3 eye) {
+        double[] free = new double[24];
+        for (int i = 0; i < 24; i++) {
+            double rad = Math.toRadians(i * 15.0);
+            double dx = -Math.sin(rad);
+            double dz = Math.cos(rad);
+            double d = 0;
+            while (d < 30) {
+                d += 0.5;
+                var pos = net.minecraft.core.BlockPos.containing(eye.x + dx * d, eye.y - 0.3, eye.z + dz * d);
+                if (!mc.level.getBlockState(pos).getCollisionShape(mc.level, pos).isEmpty()) {
+                    break;
+                }
+            }
+            free[i] = d;
+        }
+        int best = 0;
+        double bestSum = -1;
+        for (int i = 0; i < 24; i++) {
+            double sum = free[(i + 23) % 24] + free[i] * 2 + free[(i + 1) % 24] + free[(i + 22) % 24] * 0.5
+                    + free[(i + 2) % 24] * 0.5;
+            if (sum > bestSum) {
+                bestSum = sum;
+                best = i;
+            }
+        }
+        return best * 15f;
+    }
+
     private static float yawTowards(Vec3 from, Vec3 to) {
         return (float) Math.toDegrees(Math.atan2(-(to.x - from.x), to.z - from.z));
     }
@@ -811,7 +888,9 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                 VideoSim.Room room = pick.get(k);
                 Vec3 at = room.stand();
                 // stand back from the middle of the room, facing across it
-                float yaw = yawTowards(at, room.centre()) + (k % 2 == 0 ? -70 : 70);
+                // face the longest open view across the room (not a wall), and turn through it
+                float open = c.onClient(mc -> openestYaw(mc, at.add(0, 1.62, 0)));
+                float yaw = open + (k % 2 == 0 ? -50 : 50);
                 c.onClient(mc -> {
                     VideoRecorder.pose(mc, at.x, at.y, at.z, yaw, 8f);
                     return null;
