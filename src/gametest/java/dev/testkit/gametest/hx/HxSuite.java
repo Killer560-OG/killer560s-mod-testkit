@@ -68,7 +68,7 @@ public class HxSuite implements FabricClientGameTest {
                     // takeover, miss retry, Freecam Mode (177-183, branch bloodcamp-1015), own block.
                     HxBloodCampCases.register(s);
                     // Custom Scoreboard made simpler: right-edge anchor, on-screen clamp, old configs, real lines
-                    // (1641-1647, branch scoreboard-simple-1015), own block.
+                    // (1661-1667, branch scoreboard-simple-1015), own block.
                     HxScoreboardCases.register(s);
                 });
     }

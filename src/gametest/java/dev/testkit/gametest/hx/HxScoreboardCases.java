@@ -23,22 +23,22 @@ import static dev.testkit.gametest.hx.HxKit.*;
 /**
  * Custom Scoreboard made simpler (mod branch scoreboard-simple-1015, killer560 2026-10-15: "can you make the custom
  * scoreboard simpler. Also it should be by default aligned on the right side of the screen where the normal scoreboard
- * should be and not able to go off the right side of the screen."), 1641-1647. Every case runs on a real Hypixel-shaped
+ * should be and not able to go off the right side of the screen."), 1661-1667. Every case runs on a real Hypixel-shaped
  * sidebar from the Hx server ({@code hub} template plus a Purse line), so "the board drew" is the in-game HUD layer's
  * own draw stamp, never a preview.
  * <ul>
- *   <li>1641 default position: against the right edge (gap 0-1) and vertically centered, at three window sizes and two
+ *   <li>1661 default position: against the right edge (gap 0-1) and vertically centered, at three window sizes and two
  *       GUI scales, with the board seen drawing at each.</li>
- *   <li>1642 Edit HUD: dragging the board past the right edge (real mouse) keeps the whole box on screen during the drag
+ *   <li>1662 Edit HUD: dragging the board past the right edge (real mouse) keeps the whole box on screen during the drag
  *       and after the drop, and so does dragging it past the top-left corner.</li>
- *   <li>1643 an old config (no anchor keys, snapping off, a HudConfig x hanging two thirds off the right edge, Auto Scale
+ *   <li>1663 an old config (no anchor keys, snapping off, a HudConfig x hanging two thirds off the right edge, Auto Scale
  *       off so the saved x is used as it is) loads pulled on screen; its other settings load unchanged; its old default
  *       look moves to the new one while a changed color is kept.</li>
- *   <li>1644 the lines drawn by the in-game layer are the real sidebar's (area, purse, lobby, footer).</li>
- *   <li>1645 a rebuild that reads the same keeps the same line list object (the frames' caches hold).</li>
- *   <li>1646 the editor's Settings page: the short list, Advanced closed by default and opening on click, Snap X / Snap Y /
+ *   <li>1664 the lines drawn by the in-game layer are the real sidebar's (area, purse, lobby, footer).</li>
+ *   <li>1665 a rebuild that reads the same keeps the same line list object (the frames' caches hold).</li>
+ *   <li>1666 the editor's Settings page: the short list, Advanced closed by default and opening on click, Snap X / Snap Y /
  *       Screen Margin gone, every button with a tooltip and no overlaps.</li>
- *   <li>1647 a screenshot of the board in game (run on the old jar for "before"), copied to
+ *   <li>1667 a screenshot of the board in game (run on the old jar for "before"), copied to
  *       {@code TESTKIT_SCOREBOARD_SHOTS} when that is set.</li>
  * </ul>
  */
@@ -53,13 +53,13 @@ final class HxScoreboardCases {
     }
 
     static void register(Session s) {
-        s.test("1641-hx-sb-default-right", HxScoreboardCases::defaultRight);
-        s.test("1642-hx-sb-drag-clamp", HxScoreboardCases::dragClamp);
-        s.test("1643-hx-sb-old-config", HxScoreboardCases::oldConfig);
-        s.test("1644-hx-sb-real-lines", HxScoreboardCases::realLines);
-        s.test("1645-hx-sb-list-kept", HxScoreboardCases::listKept);
-        s.test("1646-hx-sb-settings-page", HxScoreboardCases::settingsPage);
-        s.test("1647-hx-sb-shot", HxScoreboardCases::shot);
+        s.test("1661-hx-sb-default-right", HxScoreboardCases::defaultRight);
+        s.test("1662-hx-sb-drag-clamp", HxScoreboardCases::dragClamp);
+        s.test("1663-hx-sb-old-config", HxScoreboardCases::oldConfig);
+        s.test("1664-hx-sb-real-lines", HxScoreboardCases::realLines);
+        s.test("1665-hx-sb-list-kept", HxScoreboardCases::listKept);
+        s.test("1666-hx-sb-settings-page", HxScoreboardCases::settingsPage);
+        s.test("1667-hx-sb-shot", HxScoreboardCases::shot);
     }
 
     // ---- helpers ----------------------------------------------------------------------------------------------------
