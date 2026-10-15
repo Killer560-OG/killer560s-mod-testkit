@@ -637,3 +637,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   extent from the open screen's `width`/`height`. 983 fails after 829-834 in one menu session (a stale "LrB (Tank)" leaps
   first) on the pre-change jar and tests too - run 983 alone. 1077 clicks a vanilla container screen's overlay in plain GUI units
   (`pos x getGuiScale`, no Auto Scale).
+- 1590-1596 (`ui/MenuAnimSuite`, mod menu-anim-1015): the mod menu's animations. Every run passes
+  `killer560.test.menuAnimClock=instant` (build.gradle), so an undriven menu animation is instant and any case may read the
+  frame right after a click; these cases drive the clock with `gui.MenuAnim.setClockForTest(ms)` and render ONE frame per
+  clock step (`frame(c, ms)`). A change caused by a press is stamped at the press, so set the clock BEFORE pressing.
+  1594 reads `ModScreen.allocProbe` (bytes the menu's draw allocates per frame; ~750 KB at rest, the same with Smooth and
+  Off) - an allocation that DROPS is a finding too: it was how a page drawn at opacity 0 showed up. 1596 only runs when
+  named and writes `<report>/menu-anim-video/frame_NNNNN.png` (1/60 s of clock each) for
+  `ffmpeg -framerate 60 -i frame_%05d.png -c:v libx264 -pix_fmt yuv420p -crf 18`.
