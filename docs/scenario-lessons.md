@@ -585,3 +585,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 131-sim-auto-clear case 9 (fewest repositions) counts `[Path] running` lines (trips really run), not `[AutoClear]
   etherwarp toward`: before mod ac-optimize-1015 that line was logged again when the body had to be given back first
   (Phase.RELEASE) and a 3-trip clear logged 5. Case 8 leaves a live zombie in the room he stands in; case 9 avoids it.
+- 146-sim-autosecret-arrival (mod ac-optimize-2-1015): ticks from a trip's last warp to its one-node start route ending
+  (main: 11 every room, the Interactive Map's arrival settle; branch: 2). A warp sent on the route's own end tick is the
+  NEXT trip's (the hand-over can be that fast), so only warps strictly before the end belong to the trip into the room.
+- Mod main's sim clears every room on entry (2026-10-14). A case that judges which rooms its clears killed their way to
+  (141) turns `SimMobs.setClearRoomsOnEntry(false)` for its run, or any trip passing through a room "clears" it.
