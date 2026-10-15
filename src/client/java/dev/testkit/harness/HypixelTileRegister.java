@@ -33,12 +33,14 @@ public final class HypixelTileRegister {
     private HypixelTileRegister() {
     }
 
+    /** Any thread (the gametest thread included): turns it off; anything still held is applied on the next tick. */
     public static void reset() {
         delayTicks = 0;
         held = 0;
-        Minecraft mc = Minecraft.getInstance();
-        mc.execute(HypixelTileRegister::flushAll);
+        flushPending = true;
     }
+
+    private static volatile boolean flushPending = false;
 
     /** Render thread: true when the update was taken and will be applied later. */
     public static boolean hold(BlockPos pos, BlockState state) {
@@ -58,6 +60,11 @@ public final class HypixelTileRegister {
 
     private static void release() {
         tick++;
+        if (flushPending) {
+            flushPending = false;
+            flushAll();
+            return;
+        }
         Minecraft mc = Minecraft.getInstance();
         for (Iterator<Pending> it = PENDING.iterator(); it.hasNext(); ) {
             Pending p = it.next();
