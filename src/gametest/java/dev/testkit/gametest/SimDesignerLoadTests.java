@@ -191,9 +191,9 @@ public class SimDesignerLoadTests implements FabricClientGameTest {
         }
         // Deleting the brought-in design keeps it deleted across a re-read, and the old file is left alone.
         int listX = (Integer) DesignerKit.field(ctx, "listX");
-        int panelY = (Integer) DesignerKit.field(ctx, "panelY");
+        int listTop = ctx.computeOnClient(mc -> DesignerKit.listTop(McCompat.screen(mc)));
         int rowH = rowHeight(ctx);
-        DesignerKit.clickAt(ctx, listX + 20, panelY + 66 + 2 * rowH + rowH / 2.0, 1);
+        DesignerKit.clickAt(ctx, listX + 20, listTop + 2 * rowH + rowH / 2.0, 1);
         reopenLoad(ctx);
         List<String> afterDelete = listed(ctx);
         println("after right-clicking the saved design and a re-read: " + afterDelete);
@@ -212,7 +212,7 @@ public class SimDesignerLoadTests implements FabricClientGameTest {
         // ---- 7. click the generated row; record again ----------------------------------------------------------------
         reopenLoad(ctx);
         // A freshly opened designer is on Floor 7, so loading has to change the floor to the entry's.
-        DesignerKit.clickAt(ctx, listX + 20, panelY + 66 + 1 * rowH + rowH / 2.0, 0);
+        DesignerKit.clickAt(ctx, listX + 20, listTop + 1 * rowH + rowH / 2.0, 0);
         Object loaded = DesignerKit.generated(ctx);
         check(loaded != null && code.equals(DesignerKit.code(ctx, loaded)),
                 "clicking the row did not put the played floor back on the grid");

@@ -119,7 +119,7 @@ public class SimMapScreenTests implements FabricClientGameTest {
             int cell = field(screen, "cell");
             int grid = 6;
             int[][] boxes = {
-                {listX, panelY + 66, listX + listW, listBottom},
+                {listX, DesignerKit.listTop(screen), listX + listW, listBottom},
                 {gridX, gridY, gridX + cell * grid, gridY + cell * grid},
             };
             String[] names = {"the room list", "the grid"};

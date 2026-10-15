@@ -18,7 +18,8 @@ import java.util.regex.Pattern;
  * <p>killer560 (2026-10-15): "Remove the 134 of 134 rooms in the top right as well."
  *
  * <p>Reads back every text run one real frame of the designer draws - with the room database loaded, so the room list
- * is full - and fails on any "N of M rooms" or bare "N/M" count. The positive control is the title "DESIGN A MAP" and at
+ * is full - and fails on any "N of M rooms" or bare "N/M" count. The positive control is the menu's title ("DUNGEON SIM"
+ * since the sim-menu redo made the designer a page of the Dungeon Sim menu, 2026-10-15; "DESIGN A MAP" before) and at
  * least one listed room name in the same runs, so an extract that drew nothing cannot pass.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -48,7 +49,7 @@ public class SimDesignerCountTests implements FabricClientGameTest {
             for (DesignerKit.Run r : runs) {
                 strings.add(r.text());
             }
-            boolean title = strings.contains("DESIGN A MAP");
+            boolean title = strings.contains("DUNGEON SIM") || strings.contains("DESIGN A MAP");
             boolean aRoom = !listed.isEmpty() && strings.contains(listed.get(0));
             System.out.println("[" + NAME + "] one frame drew " + runs.size() + " text run(s); title " + title
                     + ", first listed room '" + (listed.isEmpty() ? "-" : listed.get(0)) + "' drawn " + aRoom
@@ -62,7 +63,8 @@ public class SimDesignerCountTests implements FabricClientGameTest {
                 }
             }
             // The designer from the Dungeon Sim menu's Create a New Map (the sim-pages menu, 2026-10-15): the real nav
-            // button opens it, it draws, and its Back returns to the menu.
+            // button opens it, it draws, and its Load a Room entry returns to the menu (the sim-menu redo, 2026-10-15:
+            // the designer carries the menu's left column; its Back closes the whole menu).
             DesignerKit.closeScreen(ctx);
             ctx.runOnClient(mc -> mc.execute(() -> {
                 try {
@@ -75,15 +77,16 @@ public class SimDesignerCountTests implements FabricClientGameTest {
             ctx.waitTicks(10);
             boolean clicked = DesignerKit.click(ctx, "Create a New Map");
             boolean opened = DesignerKit.isEditor(ctx);
-            boolean draws = opened && DesignerKit.texts(ctx).stream().anyMatch(r -> r.text().equals("DESIGN A MAP"));
-            boolean back = opened && DesignerKit.click(ctx, "Back");
+            boolean draws = opened && DesignerKit.texts(ctx).stream().anyMatch(r -> r.text().equals("DUNGEON SIM")
+                    || r.text().equals("DESIGN A MAP"));
+            boolean back = opened && DesignerKit.click(ctx, "Load a Room");
             String after = ctx.computeOnClient(mc -> McCompat.screen(mc) == null ? "none"
                     : McCompat.screen(mc).getClass().getSimpleName());
             System.out.println("[" + NAME + "] from the sim menu: Create a New Map clicked " + clicked + ", designer open "
-                    + opened + ", draws its title " + draws + ", Back -> " + after);
+                    + opened + ", draws its title " + draws + ", Load a Room -> " + after);
             if (!clicked || !opened || !draws || !"SimMenuScreen".equals(after)) {
                 failures.add("Create a New Map on the Dungeon Sim menu did not open a working designer that returns to "
-                        + "the menu (clicked " + clicked + ", open " + opened + ", draws " + draws + ", Back -> " + after
+                        + "the menu (clicked " + clicked + ", open " + opened + ", draws " + draws + ", Load a Room -> " + after
                         + ")");
             }
         } finally {
