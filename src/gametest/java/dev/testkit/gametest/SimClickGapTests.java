@@ -308,7 +308,7 @@ public class SimClickGapTests implements FabricClientGameTest {
             int seen = HypixelUseAfterClick.clicks;
             int dropped = HypixelUseAfterClick.dropped;
             boolean held = LogTap.since(mark).stream().anyMatch(l -> l.contains("holding the use - a block click"));
-            int corrections = (int) LogTap.since(mark).stream().filter(l -> l.contains("off the plan")).count();
+            int corrections = (int) LogTap.since(mark).stream().filter(l -> l.contains("[Path] off the plan:")).count();
             Vec3 to = ctx.computeOnClient(mc -> mc.player.position());
             double moved = from.distanceTo(to);
             ctx.runOnClient(mc -> {
