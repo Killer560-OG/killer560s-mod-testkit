@@ -68,7 +68,7 @@ final class PerfBench {
     /** Switch names that act on the world or the player or reach out, in any package (ArrowAlign's TriggerBot...). */
     static final java.util.regex.Pattern NEVER_ON_NAME = java.util.regex.Pattern.compile(
             "Auto|Aura|Trigger|Breaker|Dialogue|Share|Logger|Protection|DropKey|MelodyKeys|Borderless|Restore|Notify"
-                    + "|Cosmetics|PreventMisclicks|Gfs|Ult|Chocolate|Door");
+                    + "|Cosmetics|PreventMisclicks");
 
     /** Switches that are not a plain isEnabled/setEnabled config but are features of their own (95's ON set). */
     static final String[][] EXTRA = {
