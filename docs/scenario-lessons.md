@@ -659,3 +659,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   failed blocks that later coal doors had hidden. 538/678 (Show All Doors' coal-door scan) fail on main's cheat jar too:
   WitherDoorScanner finds no coal door on a sim floor at all - not this branch.
 >>>>>>> doors-predict-1015
+- 1015-noamm-map (SimNoammMapTests, mod noamm-map-compare-1015) reuses SimMapItemTests' floor and painted map: the gray
+  (85) door's drawn colour, four fake dungeon tab entries (`PlayerInfo`s put straight into the connection's
+  `playerInfoMap`/`listedPlayers`, sorted by their `!B-x` profile names) against four PLAYER decorations, a marker moved
+  three rooms and sampled per tick, then a map with a stray green run at (16,5). Empty slot 9 before a sim REBUILD: the
+  rebuild resets the map reading and the old map still in slot 9 recalibrates first (the old jar measured (16,5) off the
+  previous map and every later part read 11 px off). Old jar fails all four parts; new passes (cheat and legit).

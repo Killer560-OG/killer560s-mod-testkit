@@ -104,29 +104,7 @@ public class SimNoammMapTests implements FabricClientGameTest {
             placements.put(2 * ROOM_GRID + 1, "Cell");
             placements.put(2 * ROOM_GRID + 3, "Blood");
 
-            // ================================================================ calibration (its own floor build)
-            SimMapItemTests.lastOrigin = null;
-            SimMapItemTests.build(ctx, placements);
-            ctx.waitTicks(20);
-            byte[] stray = SimMapItemTests.paintMap();
-            for (int x = 16; x < 32; x++) {
-                SimMapItemTests.set(stray, x, 5, 30);   // a green run 11 pixels into slot (0,0)'s top edge
-            }
-            SimMapItemTests.giveMap(ctx, stray);
-            awaitCalibration(ctx);
-            ctx.waitTicks(10);
-            int[] cal = SimMapItemTests.hook(ctx, PAINTER, "mapCalibration");
-            List<int[]> drawn = SimMapItemTests.roomFills(ctx);
-            println(String.format(Locale.ROOT, "calibration with a stray green run: corner %s, %d room(s) drawn",
-                    cal == null ? "no hook (old jar)" : cal[0] + "," + cal[1] + " size " + cal[2], drawn.size()));
-            if (cal != null && (cal[0] != 5 || cal[1] != 5)) {
-                failures.add("the map calibrated at corner (" + cal[0] + "," + cal[1] + "), not the floor's (5,5)");
-            }
-            if (drawn.size() != 3) {
-                failures.add("with a stray green run the map drew " + drawn.size() + " room(s), not the 3 the item shows");
-            }
-
-            // ================================================================ the rest on a clean map and floor
+            // ================================================================ a clean map first
             SimMapItemTests.lastOrigin = null;
             SimMapItemTests.build(ctx, placements);
             ctx.waitTicks(20);
@@ -191,6 +169,31 @@ public class SimNoammMapTests implements FabricClientGameTest {
             if (between < 2 || Math.abs(last - toX) > 1) {
                 failures.add("the moved marker did not glide (" + between + " sample(s) in between, ended at " + last + ")");
             }
+            // ================================================================ calibration (its own floor build)
+            // Slot 9 emptied first: with the clean map still there the floor rebuild would calibrate on it.
+            ctx.runOnClient(SimNoammMapTests::clearSlot9);
+            ctx.waitTicks(5);
+            SimMapItemTests.lastOrigin = null;
+            SimMapItemTests.build(ctx, placements);
+            ctx.waitTicks(20);
+            byte[] stray = SimMapItemTests.paintMap();
+            for (int x = 16; x < 32; x++) {
+                SimMapItemTests.set(stray, x, 5, 30);   // a green run 11 pixels into slot (0,0)'s top edge
+            }
+            SimMapItemTests.giveMap(ctx, stray);
+            awaitCalibration(ctx);
+            ctx.waitTicks(10);
+            int[] cal = SimMapItemTests.hook(ctx, PAINTER, "mapCalibration");
+            List<int[]> drawn = SimMapItemTests.roomFills(ctx);
+            println(String.format(Locale.ROOT, "calibration with a stray green run: corner %s, %d room(s) drawn",
+                    cal == null ? "no hook (old jar)" : cal[0] + "," + cal[1] + " size " + cal[2], drawn.size()));
+            if (cal != null && (cal[0] != 5 || cal[1] != 5)) {
+                failures.add("the map calibrated at corner (" + cal[0] + "," + cal[1] + "), not the floor's (5,5)");
+            }
+            if (drawn.size() != 3) {
+                failures.add("with a stray green run the map drew " + drawn.size() + " room(s), not the 3 the item shows");
+            }
+
         } catch (Throwable t) {
             failures.add("scenario threw: " + t);
             t.printStackTrace(System.out);
@@ -223,6 +226,18 @@ public class SimNoammMapTests implements FabricClientGameTest {
         if (!failures.isEmpty()) {
             throw new AssertionError(failures.size() + " problem(s): " + String.join("; ", failures));
         }
+    }
+
+    private static void clearSlot9(Minecraft mc) {
+        mc.player.getInventory().setItem(8, net.minecraft.world.item.ItemStack.EMPTY);
+        var server = mc.getSingleplayerServer();
+        var uuid = mc.player.getUUID();
+        server.execute(() -> {
+            var sp = server.getPlayerList().getPlayer(uuid);
+            if (sp != null) {
+                sp.getInventory().setItem(8, net.minecraft.world.item.ItemStack.EMPTY);
+            }
+        });
     }
 
     private static void awaitCalibration(ClientGameTestContext ctx) {
