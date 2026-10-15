@@ -111,10 +111,11 @@ public class GrimPuzzleNoWaitTests implements FabricClientGameTest {
             }
             case ACT1 -> {
                 if (turnRound) {
+                    float before = p.getYRot();
                     boolean gate = (Boolean) ModUnderTest.staticCall(UTIL, "gateWorldClick",
                             new Class<?>[]{Minecraft.class, BlockPos.class}, new Object[]{mc, lever});
-                    step("gateWorldClick +1 tick: " + (gate ? "click now (?!)" : "held, body turned") + ", TurnFirst foreignWait "
-                            + foreignWait());
+                    step(String.format(Locale.ROOT, "gateWorldClick +1 tick: %s, body turned %.1f deg, TurnFirst foreignWait %d",
+                            gate ? "click now (?!)" : "held", p.getYRot() - before, foreignWait()));
                     if (gate) {
                         synchronized (BAD) {
                             BAD.add("gateWorldClick let a click through with the body 90 degrees off the lever");
