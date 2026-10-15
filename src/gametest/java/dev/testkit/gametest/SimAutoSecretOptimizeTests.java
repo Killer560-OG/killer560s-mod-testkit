@@ -93,13 +93,25 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         configure(ctx);
         int renderBefore = ctx.computeOnClient(mc -> mc.options.renderDistance().get());
         ctx.runOnClient(mc -> mc.options.renderDistance().set(16));
+        List<String> failed = new ArrayList<>();
         if (handoff) {
-            runCase(ctx, HANDOFF, SimAutoSecretOptimizeTests::handoffBody);
+            try {
+                runCase(ctx, HANDOFF, SimAutoSecretOptimizeTests::handoffBody);
+            } catch (AssertionError e) {
+                failed.add(e.getMessage());   // the other case still runs
+            }
         }
         if (order) {
-            runCase(ctx, ORDER, SimAutoSecretOptimizeTests::orderBody);
+            try {
+                runCase(ctx, ORDER, SimAutoSecretOptimizeTests::orderBody);
+            } catch (AssertionError e) {
+                failed.add(e.getMessage());
+            }
         }
         ctx.runOnClient(mc -> mc.options.renderDistance().set(renderBefore));
+        if (!failed.isEmpty()) {
+            throw new AssertionError(String.join(" | ", failed));
+        }
     }
 
     private interface Body {
