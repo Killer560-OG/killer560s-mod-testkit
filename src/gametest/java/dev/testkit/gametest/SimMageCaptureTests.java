@@ -32,8 +32,9 @@ import java.util.regex.Pattern;
  *   <li><b>outside Mage it refuses</b>: Altar loaded alone, {@code /mage} says he is in Altar and writes nothing;</li>
  *   <li><b>the stitched tile is caught in the world too</b>: in Mage, with every chunk loaded, {@code /mage} rejects
  *       the room built from that capture, names Altar, and the library file is byte-for-byte unchanged;</li>
- *   <li><b>unloaded chunks refuse</b>: render distance 2, standing at the far end of the room, it refuses for
- *       unloaded chunks (premise checked: the client really lacks a chunk of the footprint);</li>
+ *   <li><b>unloaded chunks refuse</b> (run last): standing in the near end, the client is handed the server's
+ *       "forget chunk" packet for the chunks under the far end (premise checked: the client really lacks them and he is
+ *       still in Mage); it refuses for unloaded chunks and the file is unchanged;</li>
  *   <li><b>a sound room is captured and round-trips</b>: the stitched tile's centre column is replaced, on the server,
  *       by the good tile's (so every tile's column hashes to Mage); {@code /mage} saves, the file decodes to exactly the
  *       server's blocks (full state strings, every x/z of the footprint, every y of the file's band, y moved back by the
@@ -63,7 +64,13 @@ public class SimMageCaptureTests implements FabricClientGameTest {
         ModUnderTest.require("killer560smod");
         LogTap.install();
         ctx.waitTicks(40);
-        ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
+        ctx.runOnClient(mc -> {
+            ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled");
+            // The mod's Chunk Cache and the Live Map's Keep Chunks Loaded keep chunks the server let go of; off, so
+            // the unloaded-chunk step sees what vanilla has.
+            ModUnderTest.turnOff("com.killer560.hub.chunkcache.ChunkCacheConfig", "setEnabled");
+            ModUnderTest.turnOff("com.killer560.hub.livemap.LiveMapConfig", "setKeepChunksLoaded");
+        });
         SimMapTests.copyRoomsForOthers();
         Scenario.ensureRoomDatabase(ctx);
         reload(ctx);
@@ -92,18 +99,30 @@ public class SimMageCaptureTests implements FabricClientGameTest {
             byte[] fileBefore = Files.exists(file) ? Files.readAllBytes(file) : null;
             println("Mage.json in the user library before: " + (fileBefore == null ? "none" : fileBefore.length + " bytes"));
 
-            // 2. Outside Mage.
-            ctx.runOnClient(mc -> mc.options.renderDistance().set(8));
-            load(ctx, OTHER);
+            // 2. Outside Mage: a 1x1 room loaded on its own.
+            String outside = ctx.computeOnClient(mc -> {
+                @SuppressWarnings("unchecked")
+                List<String> names = (List<String>) ModUnderTest.staticCall(ROOM_LIBRARY, "names");
+                for (String n : names) {
+                    if (!n.equals(ROOM) && (Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isUsable",
+                            new Class<?>[]{String.class}, new Object[]{n})
+                            && (Integer) ModUnderTest.staticCall(ROOM_LIBRARY, "cellFootprint",
+                            new Class<?>[]{String.class}, new Object[]{n}) == 1) {
+                        return n;
+                    }
+                }
+                return null;
+            });
+            load(ctx, outside);
             Object r = mage(ctx);
-            println("in " + OTHER + ": " + describe(r));
+            println("in " + outside + ": " + describe(r));
             String refusal = (String) field(r, "refusal");
-            if (Boolean.TRUE.equals(field(r, "saved")) || refusal == null || !refusal.contains("You are in " + OTHER)) {
-                failures.add("/mage in " + OTHER + " did not refuse as being in " + OTHER + ": " + describe(r));
+            if (Boolean.TRUE.equals(field(r, "saved")) || refusal == null || !refusal.contains("You are in " + outside)) {
+                failures.add("/mage in " + outside + " did not refuse as being in it: " + describe(r));
             }
 
-            // 3. Mage as the library has it, every chunk loaded: the stitched tile rejected, nothing written.
             load(ctx, ROOM);
+            // 3. Mage as the library has it, every chunk loaded: the stitched tile rejected, nothing written.
             Object first = awaitLoadedThenMage(ctx);
             println("in Mage as built: " + describe(first));
             @SuppressWarnings("unchecked")
@@ -127,40 +146,8 @@ public class SimMageCaptureTests implements FabricClientGameTest {
                 return;
             }
 
-            // 4. Unloaded chunks: render distance 2, standing at the far end of the room.
             boolean alongX = sizeX > sizeZ;
-            double sx = alongX ? originX + 3.5 : originX + 16.5;
-            double sz = alongX ? originZ + 16.5 : originZ + 3.5;
-            ctx.runOnClient(mc -> mc.options.renderDistance().set(2));
-            teleport(ctx, sx, sz, dy);
-            int farX = alongX ? originX + sizeX - 2 : originX + 16;
-            int farZ = alongX ? originZ + 16 : originZ + sizeZ - 2;
-            boolean unloadedPremise = false;
-            for (int i = 0; i < 300 && !unloadedPremise; i += 10) {
-                ctx.waitTicks(10);
-                unloadedPremise = ctx.computeOnClient(mc -> !mc.level.hasChunk(farX >> 4, farZ >> 4));
-            }
-            String standingIn = ctx.computeOnClient(mc -> {
-                Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
-                int room = (Integer) ModUnderTest.call(layout, "currentRoom", new Class<?>[]{}, new Object[]{});
-                return (String) ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{room});
-            });
-            println("render distance 2 at the near end (" + sx + "," + sz + ", in " + standingIn + "): far chunk "
-                    + (farX >> 4) + "," + (farZ >> 4) + " unloaded on the client: " + unloadedPremise);
-            if (!unloadedPremise || !ROOM.equals(standingIn)) {
-                failures.add("premise: could not get part of Mage unloaded while standing in it (unloaded "
-                        + unloadedPremise + ", in " + standingIn + ")");
-            } else {
-                Object u = mage(ctx);
-                println("with part unloaded: " + describe(u));
-                String why = (String) field(u, "refusal");
-                if (Boolean.TRUE.equals(field(u, "saved")) || why == null || !why.contains("not loaded")) {
-                    failures.add("/mage with unloaded chunks did not refuse for them: " + describe(u));
-                }
-            }
-
             // 5. The stitched tile's column replaced by the good tile's; then a capture that must save and round-trip.
-            ctx.runOnClient(mc -> mc.options.renderDistance().set(8));
             teleport(ctx, originX + sizeX / 2.0, originZ + sizeZ / 2.0, dy);
             int[] bad = null;
             for (String p : problems) {
@@ -218,6 +205,58 @@ public class SimMageCaptureTests implements FabricClientGameTest {
                 failures.add("after the reload the library's Mage is " + after + ", usable " + usable + ", problems "
                         + nowProblems);
             }
+            // 4. Unloaded chunks (last: the server never resends a chunk it thinks the client still has). Standing in the
+            //    near end, the client is handed Hypixel's "forget chunk" packet for every chunk under the far end, through
+            //    the real handler, and /mage runs in the same client task. Loaded-ness is asked of the CHUNK SOURCE:
+            //    ClientLevel.hasChunk is hard-wired to true (javap 26.1.2), which is what the first version of the
+            //    command asked - it then read a forgotten chunk as empty and called its tile "no room".
+            teleport(ctx, alongX ? originX + 3.5 : originX + 16.5, alongX ? originZ + 16.5 : originZ + 3.5, dy);
+            int farCx = (alongX ? originX + sizeX - 1 : originX + 16) >> 4;
+            int farCz = (alongX ? originZ + 16 : originZ + sizeZ - 1) >> 4;
+            byte[] beforeUnloaded = Files.readAllBytes(file);
+            Object[] unloadRun = ctx.computeOnClient(mc -> {
+                var source = mc.level.getChunkSource();
+                int n = 0;
+                for (int cx = originX >> 4; cx <= (originX + sizeX - 1) >> 4; cx++) {
+                    for (int cz = originZ >> 4; cz <= (originZ + sizeZ - 1) >> 4; cz++) {
+                        boolean far = alongX ? cx == farCx : cz == farCz;
+                        if (far && source.hasChunk(cx, cz)) {
+                            mc.getConnection().handleForgetLevelChunk(
+                                    new net.minecraft.network.protocol.game.ClientboundForgetLevelChunkPacket(
+                                            new net.minecraft.world.level.ChunkPos(cx, cz)));
+                            n++;
+                        }
+                    }
+                }
+                boolean isGone = !source.hasChunk(farCx, farCz);
+                Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+                int room = (Integer) ModUnderTest.call(layout, "currentRoom", new Class<?>[]{}, new Object[]{});
+                String in = (String) ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{room});
+                Object before = ModUnderTest.staticCall(CAPTURE, "lastResult");
+                mc.player.connection.sendCommand("mage");
+                Object res = ModUnderTest.staticCall(CAPTURE, "lastResult");
+                return new Object[]{n, isGone, in, res == before ? null : res};
+            });
+            int dropped = (Integer) unloadRun[0];
+            boolean gone = (Boolean) unloadRun[1];
+            String standingIn = (String) unloadRun[2];
+            Object u = unloadRun[3];
+            println("forgot " + dropped + " chunk(s) under the far end; chunk " + farCx + "," + farCz + " gone on the client: "
+                    + gone + "; standing in " + standingIn);
+            if (dropped < 1 || !gone || !ROOM.equals(standingIn)) {
+                failures.add("premise: could not get part of Mage unloaded while standing in it (dropped " + dropped
+                        + ", gone " + gone + ", in " + standingIn + ")");
+            } else {
+                println("with part unloaded: " + describe(u));
+                String why = u == null ? null : (String) field(u, "refusal");
+                if (u == null || Boolean.TRUE.equals(field(u, "saved")) || why == null || !why.contains("not loaded")) {
+                    failures.add("/mage with unloaded chunks did not refuse for them: " + describe(u));
+                }
+                if (!java.util.Arrays.equals(beforeUnloaded, Files.readAllBytes(file))) {
+                    failures.add("a refused capture (unloaded chunks) changed Mage.json");
+                }
+            }
+
             List<String> chat = new ArrayList<>();
             for (String l : LogTap.since(mark)) {
                 if (l.contains("[Room Capture]")) {

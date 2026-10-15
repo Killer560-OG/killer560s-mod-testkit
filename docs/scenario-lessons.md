@@ -637,3 +637,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   extent from the open screen's `width`/`height`. 983 fails after 829-834 in one menu session (a stale "LrB (Tank)" leaps
   first) on the pre-change jar and tests too - run 983 alone. 1077 clicks a vanilla container screen's overlay in plain GUI units
   (`pos x getGuiScale`, no Auto Scale).
+- 1490-sim-mage-capture (SimMageCaptureTests, mod mage-capture-1015, 2026-10-15): `/mage` typed for real in a sim Mage.
+  The integrated server never forgot a chunk here, even at render distance 2 (the client still held chunks 8 out), so the
+  unloaded case hands the client `ClientboundForgetLevelChunkPacket` through the real handler and runs `/mage` in the SAME
+  client task (the server sends it straight back), and it runs last. Ask `mc.level.getChunkSource().hasChunk`, never
+  `mc.level.hasChunk`: ClientLevel's is hard-wired to true. The stitched tile is made sound by copying the good tile's
+  centre column over it on the server, so the save path can be tested on the shipped capture.
