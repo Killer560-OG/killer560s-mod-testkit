@@ -51,7 +51,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
 
     static final String[] TITLE = {"1901-video-title", "1902-video-sim-menu"};
     static final String[] FLOOR = {"1903-video-menu", "1904-video-search", "1905-video-themes", "1906-video-hud-editor",
-            "1907-video-profiles", "1908-video-sim-run"};
+            "1907-video-profiles", "1908-video-sim-run", "1910-video-home", "1911-video-flyover"};
     static final String SOLVER = "1909-video-sim-solver";
 
     private static boolean named(String n) {
@@ -140,6 +140,12 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                 }
                 if (named(FLOOR[5])) {
                     UiCase.run(ctx, FLOOR[5], VideoGeneralSuite::simRun);
+                }
+                if (named(FLOOR[6])) {
+                    UiCase.run(ctx, FLOOR[6], VideoGeneralSuite::home);
+                }
+                if (named(FLOOR[7])) {
+                    UiCase.run(ctx, FLOOR[7], VideoGeneralSuite::flyover);
                 }
             } finally {
                 VideoSim.leave(ctx);
@@ -301,18 +307,18 @@ public class VideoGeneralSuite implements FabricClientGameTest {
         VideoRecorder r = new VideoRecorder(c, "title").titleClock();
         try {
             r.hideCursor();
-            r.hold(1500);
+            r.hold(3500);
             r.cursorAt(1700, 900);
             r.hold(200);
             for (String b : new String[]{"Singleplayer", "Multiplayer", "Dungeon Sim"}) {
                 int[] box = widget(c, b);
                 c.check(box != null, "no " + b + " button on the title screen");
                 if (box != null) {
-                    glideTo(r, box, 0.42, 0.55, 650);
-                    r.hold(700);
+                    glideTo(r, box, 0.42, 0.55, 800);
+                    r.hold(1500);
                 }
             }
-            r.hold(1200);
+            r.hold(3500);
         } finally {
             r.close();
         }
@@ -429,7 +435,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             double[] mid = VideoRecorder.menuToWindow(c, s, s.width * 0.55, s.height * 0.6);
             r.cursorAt(mid[0], mid[1]);
             r.mark("home");
-            r.hold(1300); // Home
+            r.hold(3200); // Home
             r.mark("dungeons");
             clickSidebar(r, s, "Dungeons", 700);
             r.hold(900);
@@ -437,10 +443,10 @@ public class VideoGeneralSuite implements FabricClientGameTest {
 
             // hover across a few cards
             List<Object> cards = cards(c, s);
-            for (int i = 0; i < Math.min(4, cards.size()); i++) {
+            for (int i = 0; i < Math.min(7, cards.size()); i++) {
                 int[][] b = MenuAnimSuite.bounds(c, s, cards.get(i));
-                glideTo(r, b[0], 0.38, 0.5, 420);
-                r.hold(260);
+                glideTo(r, b[0], 0.38, 0.5, 460);
+                r.hold(480);
             }
             // a switch, on and back off
             Object sw = null;
@@ -476,7 +482,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                 r.wheel(-1);
                 r.hold(300);
             }
-            r.hold(600);
+            r.hold(1600);
             for (int i = 0; i < 4; i++) {
                 r.wheel(1);
                 r.hold(200);
@@ -496,7 +502,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                 r.wheel(-1);
                 r.hold(240);
             }
-            r.hold(2200);
+            r.hold(4500);
             int after = c.onClient(mc -> ((Number) Mod.field(s, "gridScroll")).intValue());
             c.note("Dungeons grid scrolled " + before + " -> " + after);
             c.check(after != before, "the Dungeons grid did not scroll");
@@ -506,9 +512,9 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             }
             r.hold(400);
             r.mark("categories");
-            for (String cat : new String[]{"HUD", "Chat", "Items"}) {
-                clickSidebar(r, s, cat, 500);
-                r.hold(900);
+            for (String cat : new String[]{"HUD", "Chat", "Items", "Cosmetics"}) {
+                clickSidebar(r, s, cat, 550);
+                r.hold(1700);
             }
             r.hold(400);
         } finally {
@@ -536,9 +542,9 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             for (char ch : "secret".toCharArray()) {
                 r.clocks();
                 c.ctx().getInput().typeChar(ch);
-                r.hold(110);
+                r.hold(170);
             }
-            r.hold(1600);
+            r.hold(2600);
             int hits = c.onClient(mc -> MenuACases.results(s).size());
             c.note("search 'secret': " + hits + " results");
             c.check(hits > 0, "typing 'secret' found nothing");
@@ -550,7 +556,21 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             }
             r.clocks();
             c.ctx().getInput().pressKey(InputConstants.KEY_RETURN);
-            r.hold(2200);
+            r.hold(3200);
+            // a second search: Ctrl A over the old text, "crosshair"
+            glideTo(r, sb, 0.3, 0.5, 600);
+            r.click();
+            r.clocks();
+            c.ctx().getInput().holdControl();
+            c.ctx().getInput().pressKey(InputConstants.KEY_A);
+            c.ctx().getInput().releaseControl();
+            r.hold(200);
+            for (char ch : "crosshair".toCharArray()) {
+                r.clocks();
+                c.ctx().getInput().typeChar(ch);
+                r.hold(150);
+            }
+            r.hold(3000);
         } finally {
             r.close();
         }
@@ -604,7 +624,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                 glideTo(r, chip, 0.5, 0.55, k == 1 ? 600 : 380);
                 r.hold(120);
                 r.click();
-                r.hold(want.equals("AMBER") ? 1200 : 1500);
+                r.hold(want.equals("AMBER") ? 1500 : 2100);
                 c.check(MenuACases.themeName().equals(want), "a click on the " + want + " chip gave "
                         + MenuACases.themeName());
             }
@@ -649,7 +669,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             }
             Screen ed = screen(c);
             c.check(ed.getClass().getSimpleName().equals("HudEditorScreen"), "Edit HUD opened " + ed);
-            r.hold(700);
+            r.hold(1800);
             // the biggest element on screen
             String[] pick = c.onClient(mc -> {
                 Map<String, int[]> pos = (Map<String, int[]>) Mod.field(ed, "livePositions");
@@ -693,7 +713,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             r.glide(to[0], to[1], 1300);
             r.hold(300);
             r.release();
-            r.hold(500);
+            r.hold(1500);
             int[] moved = hudBox(c, ed, id);
             c.check(moved[0] != box[0] || moved[1] != box[1], "the dragged element did not move");
             // scroll over it: bigger, then a notch back
@@ -706,7 +726,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             }
             r.hold(500);
             r.wheel(-1);
-            r.hold(500);
+            r.hold(1500);
             int[] scaled = hudBox(c, ed, id);
             c.check(scaled[2] - scaled[0] != moved[2] - moved[0], "scrolling over the element did not resize it");
             // drag its bottom-right corner outwards a little (shape kept)
@@ -718,7 +738,19 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             r.glide(corner[0] + 70, corner[1] + 45, 800);
             r.hold(200);
             r.release();
-            r.hold(1200);
+            r.hold(1500);
+            // carried to the middle of the screen: the centre guide shows, and it snaps there
+            int[] mid0 = hudBox(c, ed, id);
+            double[] grab0 = c.onClient(mc -> VideoRecorder.guiToWindow(mc, mid0[0] + (mid0[2] - mid0[0]) * 0.45,
+                    mid0[1] + (mid0[3] - mid0[1]) * 0.5));
+            r.glide(grab0[0], grab0[1], 500);
+            r.press();
+            r.hold(100);
+            double[] centre = c.onClient(mc -> VideoRecorder.guiToWindow(mc, ed.width * 0.5 + 2, ed.height * 0.5 - 2));
+            r.glide(centre[0], centre[1], 1400);
+            r.hold(1300);
+            r.release();
+            r.hold(1800);
             // and back where it came from, so the clip ends on the layout it started with
             int[] fin = hudBox(c, ed, id);
             double[] grab = c.onClient(mc -> VideoRecorder.guiToWindow(mc, fin[0] + (fin[2] - fin[0]) * 0.45,
@@ -795,19 +827,19 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             if (save != null) {
                 glideTo(r, save, 0.45, 0.5, 550);
                 r.click();
-                r.hold(1300);
+                r.hold(2500);
             }
             int[] blank = paneWidget(c, s, "New Blank Profile");
             if (blank != null) {
                 glideTo(r, blank, 0.45, 0.5, 500);
-                r.hold(900);
+                r.hold(2000);
             }
             int[] export = paneWidget(c, s, "Export");
             if (export != null) {
                 glideTo(r, export, 0.45, 0.5, 600);
-                r.hold(1200);
+                r.hold(2200);
             }
-            r.hold(800);
+            r.hold(1500);
         } finally {
             r.close();
         }
@@ -900,6 +932,111 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                 r.mark("room-" + (k + 1));
                 c.note("room " + (k + 1) + ": " + room.name() + " (" + room.unfound() + " secrets), map says " + inRoom);
                 pan(r, at, yaw, k % 2 == 0 ? 100f : -100f, 10f, 4f, 2.0, 5200);
+            }
+        } finally {
+            r.close();
+        }
+    }
+
+    /** 1910: Home - the quick buttons, then the Auto Update card's drawer. */
+    static void home(UiCase c) throws Exception {
+        niceView(c);
+        Screen s = openMenuQuiet(c, "Home");
+        c.ticks(3);
+        VideoRecorder r = new VideoRecorder(c, "home");
+        try {
+            double[] mid = VideoRecorder.menuToWindow(c, s, s.width * 0.55, s.height * 0.75);
+            r.cursorAt(mid[0], mid[1]);
+            r.hold(1500);
+            for (String b : new String[]{"Check Updates", "Discord", "Features Doc"}) {
+                int[] box = c.onClient(mc -> (int[]) Mod.call(s, "homeButtonBounds", b));
+                if (box != null) {
+                    glideTo(r, box, 0.45, 0.5, 650);
+                    r.hold(1300);
+                }
+            }
+            Object auto = null;
+            for (Object t : cards(c, s)) {
+                if (MenuACases.name(t).contains("Auto Update")) {
+                    auto = t;
+                }
+            }
+            c.check(auto != null, "no Auto Update card on Home");
+            if (auto != null) {
+                Object tab = auto;
+                c.onClient(mc -> {
+                    Mod.call(s, "revealCard", tab);
+                    return null;
+                });
+                r.hold(600);
+                int[][] b = MenuAnimSuite.bounds(c, s, tab);
+                glideTo(r, b[0], 0.33, 0.45, 700);
+                r.click();
+                r.hold(1200);
+                int[] drawer = c.onClient(mc -> new int[]{(Integer) Mod.field(s, "drawerX"), (Integer) Mod.field(s, "drawerY"),
+                        (Integer) Mod.field(s, "drawerW"), (Integer) Mod.field(s, "drawerH")});
+                c.check(drawer[2] > 0, "the Auto Update card did not open its drawer");
+                glideTo(r, drawer, 0.5, 0.25, 700);
+                r.hold(1200);
+                glideTo(r, drawer, 0.55, 0.4, 900);
+                r.hold(5000);
+            }
+        } finally {
+            r.close();
+        }
+    }
+
+    /** 1911: an establishing shot - the camera drifting high over the generated floor, looking down into the rooms. */
+    static void flyover(UiCase c) throws Exception {
+        List<VideoSim.Room> rooms = VideoSim.rooms(c.ctx());
+        c.check(!rooms.isEmpty(), "no rooms to fly over");
+        if (rooms.isEmpty()) {
+            return;
+        }
+        double minX = Double.MAX_VALUE, maxX = -Double.MAX_VALUE, minZ = Double.MAX_VALUE, maxZ = -Double.MAX_VALUE, y = 0;
+        for (VideoSim.Room room : rooms) {
+            minX = Math.min(minX, room.centre().x);
+            maxX = Math.max(maxX, room.centre().x);
+            minZ = Math.min(minZ, room.centre().z);
+            maxZ = Math.max(maxZ, room.centre().z);
+            y = Math.max(y, room.stand().y);
+        }
+        double cx = (minX + maxX) / 2;
+        double cz = (minZ + maxZ) / 2;
+        double span = Math.max(maxX - minX, maxZ - minZ);
+        double height = y + 22 + span * 0.18;
+        double startX = minX - 4;
+        double startZ = cz - span * 0.15;
+        double endX = cx + span * 0.1;
+        double endZ = cz + span * 0.05;
+        float yaw0 = yawTowards(new Vec3(startX, 0, startZ), new Vec3(cx + span * 0.3, 0, cz));
+        c.onClient(mc -> {
+            McCompat.chat(mc).clearMessages(false);
+            mc.options.renderDistance().set(16);
+            return null;
+        });
+        c.onClient(mc -> {
+            VideoRecorder.pose(mc, startX, height, startZ, yaw0, 42f);
+            return null;
+        });
+        c.ticks(100); // chunks under the whole path
+        VideoRecorder r = new VideoRecorder(c, "flyover");
+        try {
+            r.hideCursor();
+            int n = (int) Math.round(15000 / VideoRecorder.FRAME_MS);
+            for (int i = 0; i < n; i++) {
+                double p = i / (double) (n - 1);
+                double e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+                double x = startX + (endX - startX) * e;
+                double z = startZ + (endZ - startZ) * e;
+                double h = height - 6 * e;
+                float yaw = (float) (yaw0 + 35 * e);
+                float pitch = (float) (42 + 8 * e);
+                c.onClient(mc -> {
+                    VideoRecorder.pose(mc, x, h, z, yaw, pitch);
+                    return null;
+                });
+                r.frame();
             }
         } finally {
             r.close();
