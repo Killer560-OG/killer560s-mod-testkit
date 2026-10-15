@@ -659,6 +659,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   blocks the carve removed (capture lined up through the paste rotation, self-checked at >= 70% agreement). Main jar: 21-25
   and 20-23 of 30 floors used the edges, Mage's door a dead end in stone with 25 blocks carved, Quad Lava's 23. A walk-on
   probe that allows drops must require a clear shaft, or it drops through stone into a cave and passes a dead end.
+
 - **184-187 Auto Blood Camp, round 2 (mod bloodcamp-2-1015, 2026-10-15)**: walls (a stone row between him and the spot:
   no Aura aim, no Trigger Bot click; control without it), mobs already on the floor (the Aura kills them), the attack-speed
   cap, Never Miss (no swing before the mob exists, first attack on the tick it appears). The hx session's server READS AS
@@ -690,3 +691,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   client task (the server sends it straight back), and it runs last. Ask `mc.level.getChunkSource().hasChunk`, never
   `mc.level.hasChunk`: ClientLevel's is hard-wired to true. The stitched tile is made sound by copying the good tile's
   centre column over it on the server, so the save path can be tested on the shipped capture.
+- **188-189 Auto Blood Camp, round 3 (mod bloodcamp-3-1015, 2026-10-15)**: 188 a husk 6 blocks out (NoGravity, it is off
+  the platform): a mage weapon (blaze rod) gets swings and no attack, a lore-"Shortbow" bow gets uses (use_item at the
+  server even with no arrows - the packet goes before the item's own check), nothing behind a wall, and the Trigger Bot
+  with a shortbow sends uses. 189 the clicks between registering hits: the cases before it switch them off in `base()`
+  (`setHumanClicks(false)`), since every attack count there would include them. Main: both fail on missing API.
