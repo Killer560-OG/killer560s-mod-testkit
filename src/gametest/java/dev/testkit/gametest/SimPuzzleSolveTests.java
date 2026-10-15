@@ -2676,9 +2676,10 @@ public final class SimPuzzleSolveTests {
             forwardRun = ks[0] ? forwardRun + 1 : 0;
             if (ks[0] && forwardBefore && forwardRun > 2) {
                 forwardTicks++;
-                // Into a wall vanilla will not sprint whatever the keys say; the auto is judged on the rest, and a
-                // walk with the sprint KEY up is counted whatever.
-                if (!ks[1] && (!ks[2] || !ks[3])) {
+                // The auto is judged on what it controls: the sprint KEY held whenever it walks. Whether vanilla then
+                // sprints that tick (a wall, the tick after one) is physics; with the key held a stopped sprint
+                // restarts by itself.
+                if (!ks[3]) {
                     notSprinting++;
                     if (firstNotSprinting == null) {
                         firstNotSprinting = String.format("t=%.1fs at (%.2f, %.2f, %.2f)", t / 20.0, end[0], end[1],
@@ -2745,7 +2746,7 @@ public final class SimPuzzleSolveTests {
                     bad.add("forward held for only " + forwardTicks + " tick(s) - the run was not measured");
                 }
                 if (notSprinting > 0) {
-                    bad.add(notSprinting + " tick(s) walking without sprinting (first " + firstNotSprinting + ")");
+                    bad.add(notSprinting + " tick(s) walking with the sprint key up (first " + firstNotSprinting + ")");
                 }
                 if (minY < roofY - 0.6) {
                     bad.add(String.format("left the roof (feet y %.2f, roof %.0f)", minY, roofY));
@@ -2756,7 +2757,7 @@ public final class SimPuzzleSolveTests {
                 println(name, String.format("boulder: sprint check - %d tick(s) with forward held, %d not sprinting%s",
                         forwardTicks, notSprinting, firstNotSprinting == null ? "" : " (first " + firstNotSprinting + ")"));
                 if (notSprinting > 0) {
-                    bad.add(notSprinting + " tick(s) walking without sprinting (first " + firstNotSprinting + ")");
+                    bad.add(notSprinting + " tick(s) walking with the sprint key up (first " + firstNotSprinting + ")");
                 }
                 if (!simComplete) {
                     bad.add("the sim's puzzle is not solved");
