@@ -57,7 +57,7 @@ final class SmallDungeonCases {
             DungeonB2Cases.server(c, s -> s.setDifficulty(Difficulty.EASY, true));
             DungeonB2Cases.command(c, "kill @e[tag=sd15]");
             DungeonB2Cases.command(c, "tp @a 40.5 -60 30.5 -90 0");
-            DungeonB2Cases.command(c, "fill 42 -60 24 42 -52 37 minecraft:stone");
+            wall(c, true);
             DungeonB2Cases.command(c, "summon cow 46.5 -60 30.5 {NoAI:1b,Silent:1b,PersistenceRequired:1b,Tags:[\"sd15\"]}");
             DungeonB2Cases.command(c, "summon bat 46.5 -58 32.5 {NoAI:1b,Silent:1b,PersistenceRequired:1b,Tags:[\"sd15\"]}");
             c.ticks(20);
@@ -153,7 +153,7 @@ final class SmallDungeonCases {
             c.check(back, "the switches did not survive a reload");
         } finally {
             DungeonB2Cases.command(c, "kill @e[tag=sd15]");
-            DungeonB2Cases.command(c, "fill 42 -60 24 42 -52 37 minecraft:air");
+            wall(c, false);
             if (old[0] != null) {
                 DungeonB2Cases.server(c, s -> s.setDifficulty(old[0], true));
             }
@@ -167,6 +167,27 @@ final class SmallDungeonCases {
                 return null;
             });
         }
+    }
+
+    /** The test wall (x 42, y -60..-52, z 24..37), set on the server block by block: a /fill typed after case 687 did nothing
+     *  (the server kept air, 1051 failed its premise on merged main 2026-10-15) while setBlock worked. Waits for the client to
+     *  show the change before returning. */
+    static void wall(UiCase c, boolean up) {
+        DungeonB2Cases.server(c, sv -> {
+            var state = up ? net.minecraft.world.level.block.Blocks.STONE.defaultBlockState()
+                    : net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+            for (int z = 24; z <= 37; z++) {
+                for (int y = -60; y <= -52; y++) {
+                    sv.overworld().setBlock(new net.minecraft.core.BlockPos(42, y, z), state, 3);
+                }
+            }
+        });
+        boolean shown = false;
+        for (int i = 0; i < 40 && !shown; i++) {
+            c.ticks(1);
+            shown = c.onClient(mc -> mc.level.getBlockState(new net.minecraft.core.BlockPos(42, -58, 30)).isAir() != up);
+        }
+        c.check(shown, "the client never showed the wall " + (up ? "up" : "removed"));
     }
 
     private static void setFlags(UiCase c, Object cfg, boolean allMobs, boolean bats, boolean spiritMobs) {
@@ -209,7 +230,7 @@ final class SmallDungeonCases {
             DungeonB2Cases.server(c, s -> s.setDifficulty(Difficulty.EASY, true));
             DungeonB2Cases.command(c, "kill @e[tag=sd15]");
             DungeonB2Cases.command(c, "tp @a 40.5 -60 30.5 -90 0");
-            DungeonB2Cases.command(c, "fill 42 -60 24 42 -52 37 minecraft:air");
+            wall(c, false);
             DungeonB2Cases.command(c, "summon wither 47.5 -60 30.5 {NoAI:1b,Invul:0,Silent:1b,PersistenceRequired:1b,Tags:[\"sd15\"]}");
             c.onClient(mc -> {
                 Mod.setField(STATE, "simOverrideActive", true);
@@ -265,14 +286,14 @@ final class SmallDungeonCases {
             c.note("highlight only, in sight: glow " + seen.get("glow") + ", tracer " + seen.get("tracer"));
             c.check(Integer.valueOf(mine).equals(seen.get("glow")), "the highlight does not draw the wither in the highlight colour: " + seen.get("glow"));
             c.check(Integer.valueOf(mine).equals(seen.get("tracer")), "no tracer to a visible wither with only the highlight on: " + seen.get("tracer"));
-            DungeonB2Cases.command(c, "fill 42 -60 24 42 -52 37 minecraft:stone");
+            wall(c, true);
             c.ticks(12);
             Map<String, Object> hidden = looked(c, id);
             c.note("highlight only, behind a wall: glow " + hidden.get("glow") + ", tracer " + hidden.get("tracer"));
             c.check(hidden.get("tracer") == null, "a tracer went to a wither behind a wall without the cheat ESP");
             c.check(hidden.get("glow") == null && hidden.get("box") == null, "the legit highlight drew a wither behind a wall");
             c.onClient(mc -> Mod.call(e0, "setWitherTracer", false));
-            DungeonB2Cases.command(c, "fill 42 -60 24 42 -52 37 minecraft:air");
+            wall(c, false);
             c.ticks(12);
             Map<String, Object> off = looked(c, id);
             c.check(off.get("tracer") == null, "a tracer is drawn with Tracer off");
@@ -285,7 +306,7 @@ final class SmallDungeonCases {
                     Mod.call(e0, "setWitherTracer", true);
                     return null;
                 });
-                DungeonB2Cases.command(c, "fill 42 -60 24 42 -52 37 minecraft:stone");
+                wall(c, true);
                 c.ticks(12);
                 Map<String, Object> esp = looked(c, id);
                 c.note("ESP on, behind a wall: box " + esp.get("box") + ", tracer " + esp.get("tracer"));
@@ -299,7 +320,7 @@ final class SmallDungeonCases {
                 return null;
             });
             DungeonB2Cases.command(c, "kill @e[tag=sd15]");
-            DungeonB2Cases.command(c, "fill 42 -60 24 42 -52 37 minecraft:air");
+            wall(c, false);
             if (old[0] != null) {
                 DungeonB2Cases.server(c, s -> s.setDifficulty(old[0], true));
             }
