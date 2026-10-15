@@ -25,6 +25,7 @@
 			"dev.testkit.gametest.ReachTests",
 			"dev.testkit.gametest.BehindAuraTests",
 			"dev.testkit.gametest.GrimWaterClickTests",
+			"dev.testkit.gametest.GrimPuzzleNoWaitTests",
 			"dev.testkit.gametest.EntityReachTests",
 			"dev.testkit.gametest.SpeedTests",
 			"dev.testkit.gametest.SimTests",

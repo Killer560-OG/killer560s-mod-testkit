@@ -40,7 +40,7 @@ import java.util.function.Function;
  */
 final class PuzzleTimingExtra extends SolveExtra {
 
-    enum Kind { CLICK, WARP, SHOT, SHIFT_DOWN, SHIFT_UP, LAND, READY, CAMERA_WAIT }
+    enum Kind { CLICK, WARP, SHOT, MAP_WARP, SHIFT_DOWN, SHIFT_UP, LAND, READY, CAMERA_WAIT }
 
     record Ev(long tick, Kind kind, String info) {
     }
@@ -58,6 +58,7 @@ final class PuzzleTimingExtra extends SolveExtra {
     private static Boolean lastShift;
     private static String lastProbe;
     private static int lastWait;
+    private static long logMark;
     private static Function<Minecraft, String> probe;
     private static final List<Ev> EVENTS = new ArrayList<>();
 
@@ -69,6 +70,7 @@ final class PuzzleTimingExtra extends SolveExtra {
     private final java.util.function.BiConsumer<Object, Object> settings;
     private java.util.function.Consumer<Packet<?>> oldTap;
     private boolean installed;
+    private int configures;
     private String summary = "not evaluated";
     private int cooldownTicks = 10;
 
@@ -124,9 +126,20 @@ final class PuzzleTimingExtra extends SolveExtra {
                 v = "probe failed: " + e;
             }
             if (v != null && !v.equals(lastProbe)) {
-                add(t, Kind.READY, v);
+                // Read at END of tick t, after the auto's START tick ran: the auto can first act on it at t + 1.
+                add(t + 1, Kind.READY, v);
             }
             lastProbe = v;
+        }
+        // The mod's own "a reward chest is there to click" line (RewardChest picks it the tick it appears).
+        long m = LogTap.mark();
+        if (m != logMark) {
+            for (String l : LogTap.since(logMark)) {
+                if (l.contains(": reward chest at ")) {
+                    add(t, Kind.READY, "reward chest picked"); // logged by the auto at START of this tick
+                }
+            }
+            logMark = m;
         }
         int w = foreignWait();
         if (w > 0 && w != lastWait) {
@@ -146,9 +159,13 @@ final class PuzzleTimingExtra extends SolveExtra {
             w.setAccessible(true);
             return w.getInt(turn);
         } catch (Throwable e) {
+            waitUnreadable = String.valueOf(e);
             return 0;
         }
     }
+
+    /** Set when the TurnFirst counter could not be read, so a "0 waited ticks" is never quoted off a broken probe. */
+    private static volatile String waitUnreadable;
 
     private static void onPacket(Packet<?> p) {
         if (!recording) {
@@ -160,8 +177,36 @@ final class PuzzleTimingExtra extends SolveExtra {
             Minecraft mc = Minecraft.getInstance();
             boolean chest = mc.level != null
                     && mc.level.getBlockState(pos).getBlock() instanceof net.minecraft.world.level.block.ChestBlock;
+            // Who sent it: the block half RightClick.beforeUse sends ahead of a use is part of that use, not a click; a
+            // Secret Aura click is another feature's (the auto's next step may wait on it, so it is a ready moment).
+            String from = "";
+            for (StackTraceElement f : Thread.currentThread().getStackTrace()) {
+                String c = f.getClassName();
+                if (c.endsWith("util.RightClick") && f.getMethodName().equals("beforeUse")) {
+                    from = "paired";
+                    break;
+                }
+                if (c.contains("SecretAura")) {
+                    from = "aura";
+                    break;
+                }
+            }
+            if (from.equals("paired")) {
+                return;
+            }
+            if (from.equals("aura")) {
+                add(t + 1, Kind.READY, "Secret Aura clicked " + pos.toShortString());
+                return;
+            }
             add(t, Kind.CLICK, pos.toShortString() + (chest ? " chest" : ""));
         } else if (p instanceof ServerboundUseItemPacket) {
+            for (StackTraceElement f : Thread.currentThread().getStackTrace()) {
+                if (f.getClassName().contains(".livemap.autoclear.")) {
+                    // The Interactive Map's own warp (Water Board's start area, Blaze's secret walk): not the auto's.
+                    add(t, Kind.MAP_WARP, f.getClassName().substring(f.getClassName().lastIndexOf('.') + 1));
+                    return;
+                }
+            }
             Minecraft mc = Minecraft.getInstance();
             ItemStack held = mc.player == null ? ItemStack.EMPTY : mc.player.getMainHandItem();
             boolean aotv;
@@ -197,7 +242,14 @@ final class PuzzleTimingExtra extends SolveExtra {
         } catch (Throwable ignored) {
             // keeps 10
         }
-        // The base calls configure for the solver alone, again with the auto on, and once more after the verdict.
+        // The base calls configure for the solver alone, again with the auto on, and once more after the verdict. What
+        // happened before the auto was on (the room's own spawn landing) is not the auto's: start over on the second.
+        configures++;
+        if (configures == 2) {
+            synchronized (EVENTS) {
+                EVENTS.clear();
+            }
+        }
         if (installed) {
             return;
         }
@@ -214,6 +266,8 @@ final class PuzzleTimingExtra extends SolveExtra {
         lastShift = null;
         lastProbe = null;
         lastWait = 0;
+        waitUnreadable = null;
+        logMark = LogTap.mark();
         probe = roomProbe;
         oldTap = PacketTrace.tap;
         java.util.function.Consumer<Packet<?>> chained = oldTap;
@@ -284,7 +338,7 @@ final class PuzzleTimingExtra extends SolveExtra {
                     // the next use before the next click / landing / ready moment
                     for (int j = i + 1; j < ev.size(); j++) {
                         Ev n = ev.get(j);
-                        if (n.kind() == Kind.CLICK || n.kind() == Kind.LAND || n.kind() == Kind.READY) {
+                        if (n.kind() == Kind.CLICK || n.kind() == Kind.LAND) {
                             break;
                         }
                         if (n.kind() == Kind.WARP || n.kind() == Kind.SHOT) {
@@ -315,7 +369,7 @@ final class PuzzleTimingExtra extends SolveExtra {
                     long down = Long.MIN_VALUE;
                     for (int j = i - 1; j >= 0; j--) {
                         Ev p = ev.get(j);
-                        if (p.kind() == Kind.WARP || p.kind() == Kind.SHIFT_UP) {
+                        if (p.kind() == Kind.WARP || p.kind() == Kind.MAP_WARP || p.kind() == Kind.SHIFT_UP) {
                             break; // sneak held over from the previous warp, or not held at all
                         }
                         if (p.kind() == Kind.SHIFT_DOWN) {
@@ -360,7 +414,11 @@ final class PuzzleTimingExtra extends SolveExtra {
         for (Stats s : List.of(clickUse, sneakUse, landAct, readyClick)) {
             SimPuzzleRoundTests.say(name, s.describe());
         }
-        SimPuzzleRoundTests.say(name, "TurnFirst camera-wait ticks: " + waits);
+        SimPuzzleRoundTests.say(name, "TurnFirst camera-wait ticks: " + waits
+                + (waitUnreadable == null ? " (counter read every tick)" : " - COUNTER UNREADABLE: " + waitUnreadable));
+        if (waitUnreadable != null) {
+            bad.add("the TurnFirst wait counter could not be read (" + waitUnreadable + ")");
+        }
         if (waits > 0) {
             bad.add(waits + " tick(s) of TurnFirst waiting on the auto's own free camera");
         }
