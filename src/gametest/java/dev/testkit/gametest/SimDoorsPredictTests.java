@@ -313,7 +313,8 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         List<double[]> after = ctx.computeOnClient(mc -> boxes());
         boolean atDoor = boxAt(after, f.doorCentre(door)) != null;
         row(R_MAPONLY, made > 0 && !anyAtRoom && atDoor && !contains(visited, room) && !contains(visited, neighbour),
-                made + " coal door(s) round " + f.names.get(room) + "; standing in its doorway " + door + " to "
+                made + " coal door(s) round " + f.names.get(room) + " (room " + room + ", neighbour " + neighbour
+                        + ", visited " + names(f, java.util.Arrays.stream(visited).boxed().toList()) + "); standing in its doorway " + door + " to "
                         + f.names.get(neighbour) + ", opened rooms " + Arrays.toString(visited) + ": a box on any of its doors "
                         + anyAtRoom + " (" + before.size() + " box(es) in all); " + f.names.get(neighbour)
                         + " opened: box at that door " + atDoor);
@@ -578,8 +579,10 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
             row(R_HIDDEN, false, "premise: no sealed spot under " + f.names.get(hInto));
             return;
         }
+        // At the doorway first, so the room is loaded on the client, then the two blocks must have arrived.
+        place(ctx, f.approach(hFrom, hd, 5), null);
         ctx.waitFor(mc -> mc.level.getBlockState(gold.get()).is(Blocks.GOLD_BLOCK)
-                && mc.level.getBlockState(emerald.get()).is(Blocks.EMERALD_BLOCK), 400);
+                && mc.level.getBlockState(emerald.get()).is(Blocks.EMERALD_BLOCK), 600);
         lookInto(ctx, f, hFrom, hInto, hd);
         String atGold = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(PREDICTOR, "observedAt",
                 new Class<?>[]{BlockPos.class}, new Object[]{gold.get()}));
@@ -643,7 +646,9 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
                 for (int b = 0; b < 3 && !visible; b++) {
                     for (int c = 0; c < 3 && !visible; c++) {
                         Vec3 pt = new Vec3(p.getX() + 0.1 + 0.4 * a, p.getY() + 0.1 + 0.4 * b, p.getZ() + 0.1 + 0.4 * c);
-                        HitResult hit = mc.level.clip(new ClipContext(eye, pt, ClipContext.Block.VISUAL, ClipContext.Fluid.NONE,
+                        // On past the point by a block, so a ray to the empty part of a slab's cell still meets the slab.
+                        Vec3 end = pt.add(pt.subtract(eye).normalize());
+                        HitResult hit = mc.level.clip(new ClipContext(eye, end, ClipContext.Block.VISUAL, ClipContext.Fluid.NONE,
                                 mc.player));
                         visible = hit instanceof BlockHitResult bhr && hit.getType() == HitResult.Type.BLOCK
                                 && bhr.getBlockPos().equals(p);
