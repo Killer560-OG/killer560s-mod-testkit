@@ -778,3 +778,12 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   Singleplayer opens it directly and that key is its "Create New World" button - the first run made a world and the client
   hung. A theme check measures a button's mean colour in two screenshots (old jar: 30,30,30 in both themes). 1566 counts
   scene motion only in the side strips: the splash text pulses, so a whole-screen count moved 0.1% on Plain too.
+- **93-solve-waterboard-timing, 1015-sim-water-mappress, 1015-grim-water-clickwarp** (mod water-late-1015, 2026-10-15):
+  Auto Water's timing. The timing case (`SimWaterTimingTests`, on `SimPuzzleSolveTests.Base`) reads Water Board Solver's
+  clock at END_CLIENT_TICK and stamps item uses through `PacketTrace.tap` with the same tick; a timed click must land at
+  most 1 tick after the solver's CLICK ME (the auto ticks before the solver's counter, so on time reads 1 - which is also
+  exactly time*20 ticks after the water lever's own click) and every lever click followed by a warp must have its use the
+  next tick. Main: 12 late, gaps of 7 (the same 11/7 as his Hypixel log). The base calls a `SolveExtra.configure` three
+  times (solver only, auto on, after the verdict): install once. The map press case calls `AutoClearUtils.pathToRoom` on
+  the single-room build from the spawn (doorway, relative y 69) and needs the trip to end on the lever floor (y 59); main
+  does not move him at all. The Grim case replays the auto's tick order with the mod's own primitives on a vanilla server.
