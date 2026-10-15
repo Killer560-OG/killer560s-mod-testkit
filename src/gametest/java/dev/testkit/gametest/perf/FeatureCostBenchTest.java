@@ -57,7 +57,10 @@ public class FeatureCostBenchTest implements FabricClientGameTest {
         }
         Map<Switch, Boolean> defaults = new LinkedHashMap<>();
         try {
-            if (!PerfBench.probeOn(ctx)) {
+            boolean noProbe = Boolean.getBoolean("testkit.perf.noProbe");
+            if (noProbe) {
+                report.add("NO PROBE (-PperfNoProbe): frame and tick CPU only; every probe column reads 0");
+            } else if (!PerfBench.probeOn(ctx)) {
                 throw new AssertionError("[" + NAME + "] the mod's PerfProbe is off or wrapped nothing: run with "
                         + "-PperfProbe (automatic for -Pscenario=95-perf...) and a dev jar, not a -Prelease one");
             }
@@ -125,7 +128,7 @@ public class FeatureCostBenchTest implements FabricClientGameTest {
             boolean hud = on1.keys().keySet().stream().anyMatch(k -> k.contains(" HUD["));
             boolean tick = on1.keys().values().stream().anyMatch(k -> k.kind().equals("tick") && k.calls() >= big / 2);
             boolean render = on1.keys().values().stream().anyMatch(k -> k.kind().equals("frame") && !k.key().contains(" HUD["));
-            if (!hud || !tick || !render) {
+            if (!noProbe && (!hud || !tick || !render)) {
                 throw new AssertionError("[" + NAME + "] the probe saw HUD elements=" + hud + ", tick listeners=" + tick
                         + ", render listeners=" + render + " with everything on - a probe hook did not apply");
             }

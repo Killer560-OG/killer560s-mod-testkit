@@ -555,7 +555,10 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	// -PperfBudgetPct=25 -PperfBudgetFloorUs=10 -PperfFeaturePct=50 -PperfFeatureFloorUs=5 -PperfBaseline=<file>
 	// -PperfGateWrite (write the baseline instead of checking it).
 	def scenarioFilter = project.findProperty("scenario")?.toString() ?: ""
-	if (project.hasProperty("perfProbe") || scenarioFilter.contains("95-perf")) {
+	// -PperfNoProbe: the same bench WITHOUT the probe (frame/tick CPU only), to measure what the probe itself costs.
+	if (project.hasProperty("perfNoProbe")) {
+		systemProperty "testkit.perf.noProbe", "true"
+	} else if (project.hasProperty("perfProbe") || scenarioFilter.contains("95-perf")) {
 		systemProperty "killer560.perf.probe", "true"
 	}
 	["Rounds": "rounds", "BigTicks": "bigTicks", "AloneTicks": "aloneTicks", "GateTicks": "gateTicks", "Only": "only",
