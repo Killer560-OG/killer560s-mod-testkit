@@ -71,6 +71,19 @@ public final class HypixelUseAfterClick {
         stored = false;
         denied = false;
         storedPos = null;
+        forgetModModel();
+    }
+
+    /**
+     * The mod's own model of what the server holds ({@code util/RightClick}, mod ar-nexttick-1015 on) is forgotten with
+     * the server's: a scenario's earlier clicks must not make a later control turn first. Absent on older jars.
+     */
+    private static void forgetModModel() {
+        try {
+            Class.forName("com.killer560.hub.util.RightClick").getMethod("reset").invoke(null);
+        } catch (ReflectiveOperationException | LinkageError ignored) {
+            // an older jar: nothing to forget
+        }
     }
 
     /** Server thread: a block click arrived. */

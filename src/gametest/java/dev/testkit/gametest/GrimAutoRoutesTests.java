@@ -179,6 +179,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-use", GrimAutoRoutesTests::caseUse);
             s.test("62-argrim-play", GrimAutoRoutesTests::casePlay);
             s.test("62-argrim-awaitskip", GrimAutoRoutesTests::caseAwaitSkip);
+            s.test("62-argrim-1015-clickwarp", GrimAutoRoutesTests::caseClickWarp); // ar-nexttick-1015
             s.test("62-argrim-pingpong", GrimAutoRoutesTests::casePingPong);
             s.test("62-argrim-chain", GrimAutoRoutesTests::caseChain);
             s.test("62-argrim-path", GrimAutoRoutesTests::casePath);
@@ -767,6 +768,82 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * warp must go, the server must make exactly one etherwarp, nothing but the use may go out for that click (no swing,
      * no player_action before or after it), and GrimAC must stay silent.
      */
+    /**
+     * mod ar-nexttick-1015 (util/RightClick). An await met by a lever click made as Secret Aura makes it - the body turned
+     * to the lever first (so the movement packets report it), then the click with the Aspect of the Void in hand - and the
+     * warp the next tick: the route turns the body to the warp on the firing tick and sends the use after that tick's
+     * movement packet has told the server; for a warp whose block is within reach it also sends the click on that block
+     * first, as a vanilla right click does. Far (8 blocks) and near (3 blocks). Each must land, the server make exactly one
+     * etherwarp, the warp go at most a tick after firing, and GrimAC say nothing (the session's verdict).
+     */
+    private static void caseClickWarp(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        for (boolean near : new boolean[]{false, true}) {
+            String label = near ? "clickwarp near" : "clickwarp far";
+            int tx = near ? 9 : 14;
+            resetRoutes(ctx);
+            arena(ctx, false);
+            setBlocks(ctx, Map.of(new int[]{8, F, 8}, "minecraft:lever[face=floor,facing=east,powered=false]"));
+            JsonObject w = ew(6, 6, tx, 6, true);
+            w.addProperty("awaitEnabled", true);
+            w.addProperty("await", "SECRET");
+            w.addProperty("amount", 1);
+            writeRoute(ctx, List.of(w));
+            long mark = LogTap.mark();
+            warpOnto(ctx, 6.5, 10.5, 6, 6);
+            check(waitFor(ctx, 60, () -> logHas(mark, "Node #1 ETHERWARP begins")), label + ": the await node never began (at "
+                    + relPos(ctx) + ")");
+            ctx.waitTicks(10);
+            // Secret Aura's turn to the lever: the body faces it, a few ticks of movement packets report it.
+            ctx.runOnClient(mc -> {
+                mc.player.getInventory().setSelectedSlot(0);
+                BlockPos lever = real(ModUnderTest.staticCall(FRAME, "current"), 8, F, 8);
+                Vec3 eye = mc.player.getEyePosition();
+                Vec3 at = new Vec3(lever.getX() + 0.5, lever.getY() + 0.1, lever.getZ() + 0.5);
+                double dx = at.x - eye.x;
+                double dy = at.y - eye.y;
+                double dz = at.z - eye.z;
+                float yaw = (float) -Math.toDegrees(Math.atan2(dx, dz));
+                mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(yaw - mc.player.getYRot()));
+                mc.player.setXRot((float) -Math.toDegrees(Math.atan2(dy, Math.hypot(dx, dz))));
+            });
+            ctx.waitTicks(3);
+            check(!logHas(mark, "secrets met"), label + ": the await was met before the click");
+            JsonObject before = stats();
+            startSampling(ctx);
+            long m = LogTap.mark();
+            ctx.runOnClient(mc -> {
+                BlockPos lever = real(ModUnderTest.staticCall(FRAME, "current"), 8, F, 8);
+                mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(
+                        new Vec3(lever.getX() + 0.5, lever.getY() + 0.1, lever.getZ() + 0.5), Direction.UP, lever, false));
+                mc.player.swing(InteractionHand.MAIN_HAND);
+            });
+            Vec3 landed = waitLanded(ctx, tx, 6, 40);
+            ctx.waitTicks(5);
+            List<Sample> s = stopSampling(ctx);
+            printTrace(label, s);
+            String acted = null;
+            for (String l : LogTap.since(m)) {
+                if (l.contains("[RightClick]") || l.contains("Node #1 ETHERWARP") || l.contains("Etherwarp: landed")) {
+                    println("  " + l);
+                }
+                if (acted == null && l.contains("Node #1 ETHERWARP acted")) {
+                    acted = l;
+                }
+            }
+            check(logHas(m, "lever at") && logHas(m, "secrets met"), label + ": the lever click did not meet the await");
+            check(landed != null, label + ": the warp after the lever click did not land (at " + relPos(ctx) + ")");
+            check(delta(before, "etherwarps") == 1, label + ": the server made " + delta(before, "etherwarps")
+                    + " etherwarp(s), expected 1");
+            check(acted != null && (acted.contains("acted 0 tick(s)") || acted.contains("acted 1 tick(s)")),
+                    label + ": the warp did not go the tick after the click: " + acted);
+            if (near) {
+                check(logHas(m, "sent the block half of the right click first"), label + ": the near warp did not send the "
+                        + "click on its block first (vanilla's two-packet right click)");
+            }
+        }
+    }
+
     private static void caseAwaitSkip(Session c) {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);

@@ -67,6 +67,43 @@ public final class ClickPrimer {
         }
     }
 
+    /**
+     * A solid block a 1.8 server would store a click on (its centre under {@link HypixelUseAfterClick#CLICK_STORE_RANGE}
+     * from his feet) but this server answers nothing on (more than 6 from his eye, past the 4.5 + 1 reach a block click
+     * gets): the nearest such block east of him first. Null when there is none.
+     */
+    public static BlockPos storableOutOfReach(Minecraft mc) {
+        if (mc.player == null || mc.level == null) {
+            return null;
+        }
+        net.minecraft.world.phys.Vec3 feet = mc.player.position();
+        net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition();
+        BlockPos at = mc.player.blockPosition();
+        BlockPos best = null;
+        double bestScore = Double.MAX_VALUE;
+        for (int dx = -8; dx <= 8; dx++) {
+            for (int dy = -8; dy <= 8; dy++) {
+                for (int dz = -8; dz <= 8; dz++) {
+                    BlockPos p = at.offset(dx, dy, dz);
+                    if (mc.level.getBlockState(p).isAir() || !mc.level.getBlockState(p).isSolid()) {
+                        continue;
+                    }
+                    double toCentre = feet.distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(p));
+                    double toBox = Math.sqrt(new net.minecraft.world.phys.AABB(p).distanceToSqr(eye));
+                    if (toCentre >= HypixelUseAfterClick.CLICK_STORE_RANGE - 0.3 || toBox <= 6.0) {
+                        continue;
+                    }
+                    double score = Math.abs(dz) + Math.abs(dy) - dx * 0.1;
+                    if (score < bestScore) {
+                        bestScore = score;
+                        best = p.immutable();
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
     private static void tick(Minecraft mc) {
         if (!pending) {
             return;
@@ -76,7 +113,10 @@ public final class ClickPrimer {
             return;
         }
         mc.player.setXRot(90f);
-        BlockPos far = mc.player.blockPosition().offset(7, -1, 0);
+        BlockPos far = storableOutOfReach(mc);
+        if (far == null) {
+            return;
+        }
         mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
                 new BlockHitResult(Vec3.atCenterOf(far), Direction.UP, far, false));
         primed++;

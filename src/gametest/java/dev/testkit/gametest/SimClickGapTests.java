@@ -227,7 +227,10 @@ public class SimClickGapTests implements FabricClientGameTest {
         });
         ctx.waitTicks(5);
         ctx.runOnClient(mc -> {
-            BlockPos far = mc.player.blockPosition().offset(7, -1, 0);
+            BlockPos far = ClickPrimer.storableOutOfReach(mc);
+            if (far == null) {
+                return;
+            }
             mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
                     new BlockHitResult(Vec3.atCenterOf(far), Direction.UP, far, false));
         });
