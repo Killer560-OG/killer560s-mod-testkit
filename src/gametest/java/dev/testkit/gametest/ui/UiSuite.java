@@ -228,6 +228,9 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-14 menu order + independent masters list ({@link MenuOrderCases}). Own block for merges. */
     static final String[] MENU_ORDER_CASES = {"515-ui-menu-order", "516-ui-menu-order-settings",
             "517-ui-menu-queue-masters", "518-ui-menu-independent-masters"};
+    /** killer560's 2026-10-15 click sounds and short descriptions ({@link SoundDescCases}). Own block for merges. */
+    static final String[] SOUND_DESC_CASES = {"520-ui-card-descriptions", "521-ui-descriptions-toggle",
+            "522-ui-editor-hint-narrow", "523-ui-click-presets", "524-ui-click-import"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -331,6 +334,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : TRAIL_SHARE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : SOUND_DESC_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : MENU_ORDER_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -365,7 +371,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
                 || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
                 || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES) || any(SWEAT_CASES)
-                || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES);
+                || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(SOUND_DESC_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -662,6 +668,12 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "516-ui-menu-order-settings", c -> MenuOrderCases.settingsOrder(c, deny));
                     UiCase.run(ctx, "517-ui-menu-queue-masters", MenuOrderCases::queueMasters);
                     UiCase.run(ctx, "518-ui-menu-independent-masters", MenuOrderCases::independentMasters);
+                    // ---- click sounds + short descriptions (520-524) ----
+                    UiCase.run(ctx, "520-ui-card-descriptions", SoundDescCases::fit);
+                    UiCase.run(ctx, "521-ui-descriptions-toggle", SoundDescCases::toggle);
+                    UiCase.run(ctx, "522-ui-editor-hint-narrow", SoundDescCases::editorNarrow);
+                    UiCase.run(ctx, "523-ui-click-presets", SoundDescCases::presets);
+                    UiCase.run(ctx, "524-ui-click-import", SoundDescCases::imported);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
