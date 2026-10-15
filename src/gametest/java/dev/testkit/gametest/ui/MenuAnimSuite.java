@@ -605,7 +605,10 @@ public class MenuAnimSuite implements FabricClientGameTest {
                 }
             }
 
-            // ---- the drawer's eased scroll ----
+            // ---- the drawer's eased scroll (Menu Theme's drawer is long enough to scroll) ----
+            Object themeTab = MenuACases.leaf("MenuThemeTab");
+            c.onClient(mc -> Mod.call(s, "openFeature", themeTab) == null);
+            frame(c, d0 + 2500);
             int max = c.onClient(mc -> (Integer) Mod.field(s, "maxScroll"));
             if (max >= 32) {
                 int dx = c.onClient(mc -> (Integer) Mod.field(s, "drawerX") + 40);
@@ -622,7 +625,7 @@ public class MenuAnimSuite implements FabricClientGameTest {
                 c.check(between(sm, 0f, target), "the drawer's scroll is not part way at 60 ms (" + f(sm) + ")");
                 c.check(sd == target, "the drawer's scroll is not at " + target + " at 160 ms (" + f(sd) + ")");
             } else {
-                c.note("the drawer does not scroll (max " + max + "); scroll covered by 1590's grid");
+                c.problem("the Menu Theme drawer does not scroll (max " + max + "), nothing to ease");
             }
 
             // ---- closing the drawer: it slides out, then is gone ----
@@ -829,6 +832,20 @@ public class MenuAnimSuite implements FabricClientGameTest {
         });
     }
 
+    static int pixelsDiffer(Path a, Path b) throws Exception {
+        java.awt.image.BufferedImage x = javax.imageio.ImageIO.read(a.toFile());
+        java.awt.image.BufferedImage y = javax.imageio.ImageIO.read(b.toFile());
+        int n = 0;
+        for (int j = 0; j < Math.min(x.getHeight(), y.getHeight()); j++) {
+            for (int i = 0; i < Math.min(x.getWidth(), y.getWidth()); i++) {
+                if (x.getRGB(i, j) != y.getRGB(i, j)) {
+                    n++;
+                }
+            }
+        }
+        return n;
+    }
+
     static double median(double[] v) {
         double[] s = v.clone();
         java.util.Arrays.sort(s);
@@ -870,6 +887,18 @@ public class MenuAnimSuite implements FabricClientGameTest {
                 c.ticks(5);
                 smooth[round] = menuBytesPerFrame(c, 100, null);
             }
+            // the same frame drawn at rest under Off and under Smooth must be the same picture
+            mode("OFF");
+            c.ticks(3);
+            Path offShot = c.ctx().takeScreenshot(Report.fileName(c.name() + "-off"));
+            mode("SMOOTH");
+            c.ticks(3);
+            Path smoothShot = c.ctx().takeScreenshot(Report.fileName(c.name() + "-smooth"));
+            Report.screenshot(c.name() + "-off", offShot);
+            Report.screenshot(c.name() + "-smooth", smoothShot);
+            int differ = pixelsDiffer(offShot, smoothShot);
+            c.note("pixels that differ between Off and Smooth at rest: " + differ);
+            c.check(differ == 0, differ + " pixels differ between the menu at rest under Off and under Smooth");
             // animating: the grid scrolling back and forth, its clock driven so it is always mid-ease
             int gx = c.onClient(mc -> (Integer) Mod.field(s, "gridX") + 20);
             int gy = c.onClient(mc -> (Integer) Mod.field(s, "gridY") + 30);
