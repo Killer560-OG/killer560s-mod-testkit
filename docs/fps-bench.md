@@ -42,3 +42,39 @@ handed, with what of its Style reaches the pixels) per cell at a frozen animatio
 the timing. Compare two jars by the glyph files: screenshots from two runs are never exact (sky shading and the player's
 idle pose differ by a few levels over the whole frame, even with names off). Under Sodium the gametest screenshot throws
 "Global terrain uniforms have not been updated", so the bench skips shots when Sodium is loaded.
+
+## Per-feature cost (95-perf-features) and the regression gate (95-perf-gate)
+
+Both run in `perf/PerfBench`'s fixed scene: the seeded sim F7, window 854x480 at GUI 2, render distance 8, FOV 70, vsync
+off, no frame cap, and `harness/BenchCamera` turning the view one full circle per 200 ticks at 10 degrees down, restarted
+from the same yaw every phase. They read the mod's debug-only `perfprobe/PerfProbe` (mod docs/TESTING-HOOKS.md): the
+build sets `-Dkiller560.perf.probe=true` for any `-Pscenario` naming `95-perf`, and the jar must be a dev build (not
+`-Prelease=true`), or the bench fails saying so. The probe times every Fabric listener and HUD layer a mod class
+registers, plus each mod HUD element (`HudElementRegistry.drawAt`), as self time on the render thread minus its own
+calibrated per-call cost (~25 ns inside the window; ~75 ns per call is added to the frame). The mod's mixins into vanilla
+are NOT in the probe; `perf-allon.jfr` (`tools/fps-jfr.py`) covers them.
+
+```
+./run-scenario.ps1 -Scenario 95-perf-features -Port <port> -TimeoutSeconds 4200 -ModUnderTest <cheat jar> -Extra @("-PtestVolume=0")
+./run-scenario.ps1 -Scenario 95-perf-gate -Port <port> -TimeoutSeconds 900 -ModUnderTest <cheat jar> -Extra @("-PtestVolume=0")
+```
+
+**95-perf-features** (~45 min): OFF (every switch off), DEFAULTS (a fresh config after Quiet) and ALL ON (defaults plus
+every switch except automation/OS/network ones, `PerfBench.NEVER_ON`) alternated for 2 rounds x 1200 ticks; then each
+bench-safe switch ALONE for 200 ticks against an OFF reference taken every ten switches; then ALL ON under JFR. Writes
+`perf-features.txt` (summary, per-feature tables, top 40 callbacks, each switch alone) and `perf-features.tsv`.
+`-PperfOnly=livemap,scoreboard` limits the alone runs, `-PperfAloneTicks=0` skips them, `-PperfRounds`, `-PperfBigTicks`,
+`-PperfNoJfr`. The unit that ranks features is **us/f@144**: probe cost per frame plus tick cost x 20/144, i.e. what the
+callback costs per frame of a player at 144 fps. Frame and tick ms are whole-frame CPU (`FrameClock`) and swing +-0.3 ms
+between runs on a loaded machine; read the probe columns for a feature, the frame columns for the total.
+
+**95-perf-gate** (~5 min): 3 rounds x 400 ticks of DEFAULTS and ALL ON; takes the MINIMUM over rounds of each number
+(other processes only ever add time), and fails when the DEFAULTS or ALL ON total exceeds the baseline by more than
+25% + 10 us, or any one feature package's ALL ON cost exceeds its baseline by more than 50% + 5 us (a feature new since
+the baseline gets the 5 us alone). The baseline is `perf/perf-baseline.properties` (killer560's machine; regenerate on
+another one); `-PperfGateWrite` writes it from the run instead of checking (do that only on a jar you have just
+measured as good, and commit the file with the change that justifies it). Budgets: `-PperfBudgetPct`,
+`-PperfBudgetFloorUs`, `-PperfFeaturePct`, `-PperfFeatureFloorUs`; another baseline file: `-PperfBaseline=<file>`.
+Run it before merging anything that adds a HUD element, a render listener or a per-tick handler; when it fails, the
+`OVER` lines in `perf-gate.txt` name the feature package, and 95-perf-features with `-PperfOnly=<it>` says which
+callback.
