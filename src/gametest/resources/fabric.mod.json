@@ -87,6 +87,7 @@
 			"dev.testkit.gametest.SimAuraRebuildTests",
 			"dev.testkit.gametest.SimSealTests",
 			"dev.testkit.gametest.SimDeucesDoorwayTests",
+			"dev.testkit.gametest.SimMageCaptureTests",
 			"dev.testkit.gametest.AuraQuoiTests",
 			"dev.testkit.gametest.SimAuraSkipTests",
 			"dev.testkit.gametest.SimStaticWaterTests",
