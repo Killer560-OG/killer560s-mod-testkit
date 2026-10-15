@@ -545,3 +545,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   Spirit Sceptre going for 5 s; it outlives the route, so the case waits it out. Old jar 3/3 FAIL, new 3/3 PASS.
 - 385-ui-interactive-map (2026-10-15): no drag with any button pans, and a right/middle drag's release acts; the view is moved
   by scroll zoom for the Reset view check. Old jar: RMB drag panned 75.5.
+- 1412-sim-lever-cobble, 1414-sim-lever-golden-oasis, 1415-sim-redstone-key (SimWorldTests, mod sim-levers-1015,
+  2026-10-15): 1412/1414 reuse `caseLeverDoors` on the two levers the sim PLACES (Cobble Wall Pillar's door box includes the
+  12 barriers behind its 12 bars - count both). 1415 clicks Golden Oasis' node with no key first (the control: nothing may
+  change), then the key (block to air, not a secret), then the node (node and the 3-block strip gone, `SimScore.foundInRoom`
+  +1, and an armor stand wearing the key profile visible to the CLIENT at node y - 2). Main jar: 0 levers armed, and the key
+  position holds a lever, not a key head.
