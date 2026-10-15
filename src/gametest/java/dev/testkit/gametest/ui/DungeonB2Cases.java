@@ -916,6 +916,8 @@ final class DungeonB2Cases {
                 Mod.call(e, "setWitherTracer", true);
                 return null;
             });
+            // small-dungeon (2026-10-15): the Tracer is the Wither Boss Highlight's, on both builds, and the ESP has no
+            // colour row of its own.
             String tab = cheat ? "Dungeon ESP" : "Starred Mob Hitboxes";
             Screen s = openTab(c, tab);
             List<String> off = labels(c, s);
@@ -926,7 +928,8 @@ final class DungeonB2Cases {
                     "a separate Through Walls / Wither Bosses toggle is still there");
             if (cheat) {
                 c.check(off.stream().anyMatch(l -> l.startsWith("ESP:")), "no ESP switch");
-                c.check(off.stream().noneMatch(l -> l.startsWith("Tracer:")), "ESP rows show while ESP is off");
+                c.check(off.stream().anyMatch(l -> l.startsWith("Tracer:")), "no Tracer row in the Wither Boss Highlight section");
+                c.check(off.stream().noneMatch(l -> l.startsWith("Wither Boss Color")), "the ESP still has a Wither Boss Color row");
                 boolean[] before = espState(c);
                 // Real press on the ESP switch.
                 double[] b = button(c, s, "ESP:");
@@ -935,10 +938,10 @@ final class DungeonB2Cases {
                 List<String> on = labels(c, s);
                 c.note("ESP off: throughWalls/withers/tracer " + java.util.Arrays.toString(before) + "; after one press: "
                         + java.util.Arrays.toString(after) + "; rows " + on);
-                c.check(!before[0] && !before[1] && !before[2], "with ESP off something still draws through walls");
-                c.check(after[0] && after[1] && after[2], "one ESP press did not turn every ESP item on");
-                c.check(on.stream().anyMatch(l -> l.startsWith("Tracer:")) && on.stream().anyMatch(l -> l.startsWith("Wither Boss Color")),
-                        "the ESP rows did not appear under the switch");
+                c.check(!before[0] && !before[1], "with ESP off something still draws through walls");
+                c.check(after[0] && after[1], "one ESP press did not turn every ESP item on");
+                c.check(on.stream().anyMatch(l -> l.startsWith("Tracer:")) && on.stream().noneMatch(l -> l.startsWith("Wither Boss Color")),
+                        "the Tracer row is gone or a Wither Boss Color row appeared under the switch");
             } else {
                 c.check(off.stream().noneMatch(l -> l.startsWith("ESP:")), "legit jar shows an ESP switch");
                 c.onClient(mc -> {
@@ -946,7 +949,8 @@ final class DungeonB2Cases {
                     return null;
                 });
                 boolean[] st = espState(c);
-                c.check(!st[0] && !st[1] && !st[2], "legit jar: ESP config on reports ESP active");
+                c.check(!st[0] && !st[1], "legit jar: ESP config on reports ESP active");
+                c.check(off.stream().anyMatch(l -> l.startsWith("Tracer:")), "legit jar: no Tracer row in the Wither Boss Highlight section");
             }
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
@@ -1249,11 +1253,11 @@ final class DungeonB2Cases {
         });
     }
 
-    private static void command(UiCase c, String cmd) {
+    static void command(UiCase c, String cmd) {
         server(c, s -> s.getCommands().performPrefixedCommand(s.createCommandSourceStack().withSuppressedOutput(), cmd));
     }
 
-    private static void server(UiCase c, java.util.function.Consumer<net.minecraft.server.MinecraftServer> task) {
+    static void server(UiCase c, java.util.function.Consumer<net.minecraft.server.MinecraftServer> task) {
         java.util.concurrent.atomic.AtomicBoolean done = new java.util.concurrent.atomic.AtomicBoolean();
         c.onClient(mc -> {
             var server = mc.getSingleplayerServer();
