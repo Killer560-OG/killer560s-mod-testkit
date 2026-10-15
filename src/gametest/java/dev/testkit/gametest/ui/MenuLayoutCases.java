@@ -83,7 +83,9 @@ final class MenuLayoutCases {
             "gui.tab.RibbonTrailTab",
             // Lights Device (mod lights-aura-1015, killer560 2026-10-15): out of Secret Aura's In Boss into its own tab in
             // Dungeon's cheat block; cheat jar only.
-            "gui.tab.LightsDeviceTab");
+            "gui.tab.LightsDeviceTab",
+            // Slot Text and Compactor Preview (mod slottext-compactor-1015, killer560 2026-10-15): two new Items tabs, legit in both builds.
+            "gui.tab.SlotTextTab", "gui.tab.CompactorPreviewTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.

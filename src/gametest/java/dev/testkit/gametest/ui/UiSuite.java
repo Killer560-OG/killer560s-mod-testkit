@@ -155,6 +155,9 @@ public class UiSuite implements FabricClientGameTest {
             "710-ui-itembrowser-minion-tiers", "711-ui-itembrowser-neu-recipe", "712-ui-itembrowser-sort-and-bar"};
     /** killer560's 2026-10-15 small dungeon list ({@link SmallDungeonCases}): Thorn through-walls switches, one ESP wither colour + legit tracer, Secrets HUD colour. Own block. */
     static final String[] SMALL_DUNGEON_CASES = {"1051-ui-thorn-through-walls", "1052-ui-esp-colour-tracer", "1053-ui-secrets-hud-colour"};
+    /** killer560's 2026-10-15 Slot Text + Personal Compactor/Deletor overlay ({@link SlotTextCases}). Own block for merges. */
+    static final String[] SLOT_TEXT_CASES = {"960-ui-slottext-types", "961-ui-slottext-drawn", "962-ui-slottext-modes",
+            "963-ui-compactor-contents", "964-ui-compactor-hover-drawn", "965-ui-compactor-modes", "966-ui-compactor-settings"};
     static final String[] DUNGEON_B2_CASES = {"686-ui-blood-trigger", "687-ui-door-key-circle",
             "679-ui-ttt-prediction-misclicks", "680-ui-imap-binds-ticks", "681-ui-auto-kick-pf", "682-ui-dungeon-esp-switch"};
     /** killer560's 2026-10-11 Auto Kick Judge By + Detect Queued Floor ({@link AutoKick2Cases}). Own block for merges. */
@@ -389,7 +392,7 @@ public class UiSuite implements FabricClientGameTest {
         boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES)
                 || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
                 || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES)
-                || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES) || any(SMALL_DUNGEON_CASES)
+                || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES) || any(SLOT_TEXT_CASES) || any(SMALL_DUNGEON_CASES)
                 || any(AUTOKICK2_CASES) || any(CYCLE_BACK_CASES) || any(DOC_SMALL_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES)
                 || any(HUD_KEY3_CASES) || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(CHROMA_WAVE_CASES)
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
@@ -560,6 +563,14 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "710-ui-itembrowser-minion-tiers", ItemUiCases::browserMinions);
                     UiCase.run(ctx, "711-ui-itembrowser-neu-recipe", ItemUiCases::browserRecipe);
                     UiCase.run(ctx, "712-ui-itembrowser-sort-and-bar", ItemUiCases::browserSortAndBar);
+                    // ---- slot text + compactor preview (960-966) ----
+                    UiCase.run(ctx, "960-ui-slottext-types", SlotTextCases::types);
+                    UiCase.run(ctx, "961-ui-slottext-drawn", SlotTextCases::drawn);
+                    UiCase.run(ctx, "962-ui-slottext-modes", SlotTextCases::modes);
+                    UiCase.run(ctx, "963-ui-compactor-contents", SlotTextCases::contentsRead);
+                    UiCase.run(ctx, "964-ui-compactor-hover-drawn", SlotTextCases::hoverDrawn);
+                    UiCase.run(ctx, "965-ui-compactor-modes", SlotTextCases::hoverModes);
+                    UiCase.run(ctx, "966-ui-compactor-settings", SlotTextCases::compactorSettings);
                     // ---- dungeon-b2 (679-682, 686-687) ----
                     UiCase.run(ctx, "686-ui-blood-trigger", DungeonB2Cases::bloodTrigger);
                     UiCase.run(ctx, "687-ui-door-key-circle", DungeonB2Cases::doorKeyRing);
