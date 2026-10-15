@@ -787,3 +787,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   times (solver only, auto on, after the verdict): install once. The map press case calls `AutoClearUtils.pathToRoom` on
   the single-room build from the spawn (doorway, relative y 69) and needs the trip to end on the lever floor (y 59); main
   does not move him at all. The Grim case replays the auto's tick order with the mod's own primitives on a vanilla server.
+- **97-sim-menu-redo (SimMenuRedoTests, mod sim-menu-redo-1015, 2026-10-15):** the Dungeon Sim menu redo. Presses the
+  title screen's real Dungeon Sim button (designer first, last page after), reads text runs for a room count or header
+  page title, checks the Routes sort against SimRoomRoutes per row, and samples chip faces from screenshots. Two traps
+  found while writing it: at the gametest's own window `takeScreenshot` returned only the top-left 854x480 of the frame
+  (the panel half off the shot), so it resizes to 1920x1080 GUI 2 first; and a GUI point maps to the shot through the
+  mod's `AutoScale.appliedFactor` (`x * f * window / guiScaledWidth`), not `img.width / screen.width` - that sampled
+  the backdrop and read every chip as #040302 on both jars.

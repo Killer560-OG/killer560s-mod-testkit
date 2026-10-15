@@ -369,7 +369,7 @@ public class SimMapFilterTests implements FabricClientGameTest {
                 } catch (ReflectiveOperationException e) {
                     throw new RuntimeException(e);
                 }
-                int[][] areas = {{listX, panelY + 66, listX + listW, listBottom},
+                int[][] areas = {{listX, DesignerKit.listTop(s), listX + listW, listBottom},
                         {gridX, gridY, gridX + cell * 6, gridY + cell * 6}};
                 String[] areaNames = {"the room list", "the grid"};
                 for (AbstractWidget w : ws) {

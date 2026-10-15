@@ -154,6 +154,20 @@ final class DesignerKit {
                 sy * f * win.getScreenHeight() / (double) win.getGuiScaledHeight()};
     }
 
+    /**
+     * The top of the designer's room list and grid: its listTop() since the sim-menu redo (2026-10-15) put the designer
+     * inside the Dungeon Sim menu's frame, panelY + 66 on a jar from before it.
+     */
+    static int listTop(Object designer) {
+        try {
+            var m = designer.getClass().getDeclaredMethod("listTop");
+            m.setAccessible(true);
+            return (Integer) m.invoke(designer);
+        } catch (ReflectiveOperationException e) {
+            return (Integer) reflect(designer, "panelY") + 66;
+        }
+    }
+
     static Object field(ClientGameTestContext ctx, String name) {
         return ctx.computeOnClient(mc -> reflect(McCompat.screen(mc), name));
     }

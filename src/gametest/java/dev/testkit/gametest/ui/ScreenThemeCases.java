@@ -61,6 +61,15 @@ final class ScreenThemeCases {
         }
     }
 
+    /** The designer's list top: listTop() since the sim-menu redo (2026-10-15), panelY + 66 before it. */
+    private static int listTop(Screen designer) {
+        try {
+            return (Integer) Mod.call(designer, "listTop");
+        } catch (Throwable t) {
+            return (Integer) Mod.field(designer, "panelY") + 66;
+        }
+    }
+
     private static Screen withParent(String cls) {
         return make(cls, new Class<?>[]{Screen.class}, (Object) null);
     }
@@ -80,9 +89,9 @@ final class ScreenThemeCases {
             List<?> listed = (List<?>) Mod.field(s, "listed");
             check(c, !listed.isEmpty(), "Design a Map lists no rooms after 1000 ticks");
             int listX = (Integer) Mod.field(s, "listX");
-            int panelY = (Integer) Mod.field(s, "panelY");
+            int listTop = listTop(s);
             c.onClient(mc -> {
-                MenuACases.press(s, listX + 20, panelY + 66 + 11);
+                MenuACases.press(s, listX + 20, listTop + 11);
                 return null;
             });
             Object selected = Mod.field(s, "selected");
