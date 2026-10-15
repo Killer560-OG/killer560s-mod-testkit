@@ -7633,9 +7633,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             resetRoutes(ctx);
             arena(ctx, true);
             giveHotbar(ctx);
-            setBlocks(ctx, Map.of(new int[]{4, F, 22}, Blocks.CHEST.defaultBlockState()));
+            // Chests of its own: the run memory counts each chest once, and 96-ar-path's are at (4, 22) and (4, 18).
+            setBlocks(ctx, Map.of(new int[]{8, F, 23}, Blocks.CHEST.defaultBlockState()));
             String one = flyPair(ctx, "after a landing", 6, 20, new int[][]{{12, F - 1, 20}, {12, F - 1, 12}},
-                    new int[]{4, F, 22});
+                    new int[]{8, F, 23});
             if (one != null) {
                 bad.add(one);
             }
@@ -7645,13 +7646,16 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // A pad ten blocks past the step, where the warp's look carries on to from the step: a second warp off the
             // use half lands on it (with nothing there the sim refuses it against the arena wall and the bug hides).
             setBlocks(ctx, Map.of(new int[]{9, F, 8}, Blocks.STONE.defaultBlockState(),
-                    new int[]{4, F, 10}, Blocks.CHEST.defaultBlockState(),
+                    new int[]{8, F, 6}, Blocks.CHEST.defaultBlockState(),
                     new int[]{19, F + 1, 8}, Blocks.STONE.defaultBlockState()));
-            String two = flyPair(ctx, "a warp within reach", 6, 8, new int[][]{{9, F, 8}}, new int[]{4, F, 10});
+            String two = flyPair(ctx, "a warp within reach", 6, 8, new int[][]{{9, F, 8}}, new int[]{8, F, 6});
             if (two != null) {
                 bad.add(two);
             }
             resetRoutes(ctx);
+            // Both routes ran to their end, which the run memory keeps (their awaits, the room as routed): the cases after
+            // this one must start from a fresh run.
+            forgetRunMemory(ctx);
             String sync = teleportSync(ctx);
             if (sync != null) {
                 bad.add(sync);
@@ -7730,6 +7734,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
          * @return null when every position was the start or a planned landing, in order, ending on the arrival; else why
          */
         private static String flyPair(ClientGameTestContext ctx, String label, int ax, int az, int[][] targets, int[] chest) {
+            forgetRunMemory(ctx);
             double ox = ax + 0.5;
             double oy = F;
             double oz = az + 0.5;
