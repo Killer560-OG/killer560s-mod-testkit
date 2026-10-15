@@ -771,6 +771,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
         arena(ctx, false);
+        // An item an earlier case left lying here, picked up 7 ticks before the route started (inside
+        // AwaitEvents.START_LOOKBACK), met the await before it ever waited (2026-10-15 run on mod ac-optimize-1015).
+        c.server().command("kill @e[type=minecraft:item]");
+        ctx.waitTicks(15);
         // ---- control: a vanilla left click, no route ----
         tpRel(ctx, 10.5, 10.5, 0f, 70f);
         ctx.waitTicks(5);
@@ -1331,8 +1335,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         });
         tpRel(ctx, 5.5, 15.5, -90f, 0f);
         ctx.waitTicks(10);
-        double[][] spots = {{12.5, 15.5}, {15.5, 21.5}, {22.5, 9.5}};
-        String[] what = {"in the open, 7 blocks away", "inside the middle wall", "behind the middle wall"};
+        // Every two mobs more than 10.6 blocks apart (mod ac-optimize-1015): no one standing block reaches two of them with
+        // the 6-block blast, so Auto Clear's fewest-repositions plan is one block a mob and the open one is a hop.
+        double[][] spots = {{11.5, 8.5}, {15.5, 21.5}, {22.5, 9.5}};
+        String[] what = {"in the open, 9 blocks away", "inside the middle wall", "behind the middle wall"};
         List<JsonObject> mobs = new ArrayList<>();
         for (double[] sp : spots) {
             Vec3 at = ctx.computeOnClient(mc -> {
@@ -1392,8 +1398,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         check(delta(before, "witherImpacts") > 0, "the server saw no Wither Impact");
         boolean hopped = logHas(m, "[AutoClear] hop toward");
         boolean hopLanded = hopped && !logHas(m, "never landed");
-        println("autoclear: Hyperion hop tried " + hopped + ", every hop landed " + hopLanded);
-        check(hopLanded, "no Hyperion hop, or one that never landed (the server's dash did not move him)");
+        // A standing block that reaches two mobs is fewer repositions than a hop toward one (mod ac-optimize-1015): then
+        // the plan takes it and no hop is owed; a hop that went must still have landed.
+        boolean shared = false;
+        for (String l : LogTap.since(m)) {
+            shared |= l.contains("[AutoClear] reposition plan") && java.util.regex.Pattern.compile(" x[2-9]").matcher(l).find();
+        }
+        println("autoclear: Hyperion hop tried " + hopped + ", every hop landed " + hopLanded + ", a planned block"
+                + " reaching two or more mobs " + shared);
+        check(hopped ? hopLanded : shared, "no Hyperion hop, or one that never landed (the server's dash did not move him)");
         check(finished && done.get() != null && gaveUp.get() == null, "clearRoom ended onDone=" + done.get()
                 + " onGiveUp=" + gaveUp.get());
         c.note("autoclear: 3 starred mobs (open, in a wall, behind a wall) killed by " + delta(before, "witherImpacts")
