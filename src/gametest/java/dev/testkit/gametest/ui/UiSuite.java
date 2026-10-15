@@ -153,6 +153,8 @@ public class UiSuite implements FabricClientGameTest {
             "703-ui-slotbinds-key-toggle", "704-ui-petwheel-no-slices-text-scale", "705-ui-itemprotect-hover-star-drops",
             "706-ui-gif-dvd-hidden-in-containers", "707-ui-storagesearch-equipment-wardrobe", "709-ui-itembrowser-tooltip",
             "710-ui-itembrowser-minion-tiers", "711-ui-itembrowser-neu-recipe", "712-ui-itembrowser-sort-and-bar"};
+    /** killer560's 2026-10-15 small dungeon list ({@link SmallDungeonCases}): Thorn through-walls switches, one ESP wither colour + legit tracer, Secrets HUD colour. Own block. */
+    static final String[] SMALL_DUNGEON_CASES = {"1051-ui-thorn-through-walls", "1052-ui-esp-colour-tracer", "1053-ui-secrets-hud-colour"};
     static final String[] DUNGEON_B2_CASES = {"686-ui-blood-trigger", "687-ui-door-key-circle",
             "679-ui-ttt-prediction-misclicks", "680-ui-imap-binds-ticks", "681-ui-auto-kick-pf", "682-ui-dungeon-esp-switch"};
     /** killer560's 2026-10-11 Auto Kick Judge By + Detect Queued Floor ({@link AutoKick2Cases}). Own block for merges. */
@@ -286,6 +288,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : DUNGEON_B2_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : SMALL_DUNGEON_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : AUTOKICK2_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -359,7 +364,7 @@ public class UiSuite implements FabricClientGameTest {
         boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES)
                 || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
                 || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES)
-                || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES)
+                || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES) || any(SMALL_DUNGEON_CASES)
                 || any(AUTOKICK2_CASES) || any(CYCLE_BACK_CASES) || any(DOC_SMALL_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES)
                 || any(HUD_KEY3_CASES) || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(CHROMA_WAVE_CASES)
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
@@ -536,6 +541,10 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "680-ui-imap-binds-ticks", DungeonB2Cases::interactiveMapBinds);
                     UiCase.run(ctx, "681-ui-auto-kick-pf", DungeonB2Cases::autoKick);
                     UiCase.run(ctx, "682-ui-dungeon-esp-switch", DungeonB2Cases::dungeonEsp);
+                    // ---- small-dungeon (1051-1053) ----
+                    UiCase.run(ctx, "1051-ui-thorn-through-walls", SmallDungeonCases::thornThroughWalls);
+                    UiCase.run(ctx, "1052-ui-esp-colour-tracer", SmallDungeonCases::espColourTracer);
+                    UiCase.run(ctx, "1053-ui-secrets-hud-colour", SmallDungeonCases::secretsHudColour);
                     // ---- autokick-2 (801-805) ----
                     UiCase.run(ctx, "801-ui-autokick-judge-by", AutoKick2Cases::timeMode);
                     UiCase.run(ctx, "802-ui-autokick-detect-pf", AutoKick2Cases::detectPartyFinder);
