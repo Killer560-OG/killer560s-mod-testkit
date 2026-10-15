@@ -5,6 +5,7 @@
     {"class": "autoupdate.UpdatedScreen", "args": ["null", "str:abc1234", "str:v1.1.1", "str:Release notes"], "source": "autoupdate/UpdatedScreen.java:31"},
     {"class": "gui.ColorPickerScreen", "args": ["null", "str:Test Colour", "int:-3381760", "int:-1", "intconsumer"], "source": "gui/ColorPickerScreen.java"},
     {"class": "hud.HudEditorScreen", "args": ["null"], "source": "hud/HudEditorScreen.java:70"},
+    {"class": "livemap.MapSchemeEditorScreen", "args": ["null", "int:0"], "source": "livemap/MapSchemeEditorScreen.java (scheme 0, or 'This scheme was deleted.' with none saved)"},
     {"class": "ap3.Ap3ConfigScreen", "args": ["null"], "source": "ap3/Ap3ConfigScreen.java"},
     {"class": "ap3.Ap3EditScreen", "args": ["null", "int:0"], "source": "ap3/Ap3EditScreen.java:65 (index 0 with no nodes: node() returns null, line 74)"},
     {"class": "accounts.gui.AccountSwitcherScreen", "args": ["null"], "source": "accounts/gui/AccountSwitcherScreen.java (reads the empty Prism accounts fixture)"},
