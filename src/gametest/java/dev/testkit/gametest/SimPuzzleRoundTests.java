@@ -55,6 +55,9 @@ public final class SimPuzzleRoundTests {
                 int forwardTicks = 0;
                 String walkLine = null;
                 String walkOutLine = null;
+                /** The auto clicked the chest itself - it must be Secret Aura's click (killer560: "it should aura the
+                 *  secret"). */
+                String ownClick = null;
                 /** Board clicks made when the walk-out was decided: early when another click came after it. */
                 int walkOutAt = -1;
                 int scanned = 0;
@@ -77,10 +80,6 @@ public final class SimPuzzleRoundTests {
                     }
                     // The room's one chest can be the sim's mimic (a single-room build has one candidate), whose
                     // opening counts no secret: a container opening after the first click counts as taking it too.
-                    if (secretAt < 0 && container && firstClickAt > 0) {
-                        secretAt = t;
-                        say(name, String.format("t=%.1fs a container opened - the room's chest was taken", t / 20.0));
-                    }
                     if (n > secretsNow && secretsNow >= 0 && secretAt < 0 && n > secrets0) {
                         secretAt = t;
                         say(name, String.format("t=%.1fs the room's secret was taken (secrets %d -> %d)", t / 20.0,
@@ -104,6 +103,9 @@ public final class SimPuzzleRoundTests {
                         if (walkLine == null && (l.contains("TicTacToe: move") && l.contains("walking to"))) {
                             walkLine = l;
                         }
+                        if (ownClick == null && l.contains("TicTacToe: clicked the secret chest")) {
+                            ownClick = l;
+                        }
                         if (walkOutAt < 0 && (l.contains("board done but the map has no door")
                                 || l.contains("walk out"))) {
                             walkOutAt = boardClicks;
@@ -124,8 +126,11 @@ public final class SimPuzzleRoundTests {
                     if (boardClicks < 2) {
                         bad.add("only " + boardClicks + " board click(s) - the run was not measured");
                     }
+                    if (ownClick != null) {
+                        bad.add("the auto clicked the chest itself, not Secret Aura: " + ownClick.trim());
+                    }
                     if (secretAt < 0) {
-                        bad.add("the room's secret chest was never opened (Grab Secret on)");
+                        bad.add("the room's secret was never counted (Grab Secret on, Secret Aura on)");
                     } else if (secondClickAt > 0 && secretAt > secondClickAt) {
                         bad.add(String.format("the secret was taken at %.1fs, after the second board click at %.1fs - "
                                 + "it should be right after the first", secretAt / 20.0, secondClickAt / 20.0));
