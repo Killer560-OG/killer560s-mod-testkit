@@ -773,3 +773,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   `prismaccountswitcher.universalProxyFile` build.gradle sets (main ignores the property: 1851 then reports it and leaves the
   switch alone). A row press and Copy ID fail offline; the failure line names the account, which is what proves the press
   reached that account's handler. Rows are found by their label (the account name), their buttons by sitting in its band.
+- 1571-1573 (mod vanilla-themes-1015, 2026-10-15; first numbered 1568-1570, which Amber already used): 1572 walks the vanilla menus by real clicks from the title screen and
+  leaves each by its own Done/Back/Cancel. Never press `selectWorld.create` on CreateWorldScreen: with no saved worlds
+  Singleplayer opens it directly and that key is its "Create New World" button - the first run made a world and the client
+  hung. A theme check measures a button's mean colour in two screenshots (old jar: 30,30,30 in both themes). 1566 counts
+  scene motion only in the side strips: the splash text pulses, so a whole-screen count moved 0.1% on Plain too.

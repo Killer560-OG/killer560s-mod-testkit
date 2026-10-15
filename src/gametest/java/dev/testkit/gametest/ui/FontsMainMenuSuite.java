@@ -63,9 +63,10 @@ import java.util.Map;
 public class FontsMainMenuSuite implements FabricClientGameTest {
 
     static final String[] TITLE_CASES = {"1565-ui-mainmenu-styles", "1566-ui-mainmenu-scenes",
-            "1567-ui-mainmenu-real-name", "1568-ui-amber-scene", "1569-ui-amber-video"};
+            "1567-ui-mainmenu-real-name", "1568-ui-amber-scene", "1569-ui-amber-video",
+            "1571-ui-mainmenu-mod-settings", "1572-ui-vanilla-menus"};
     static final String[] WORLD_CASES = {"1561-ui-font-menu-only", "1562-ui-font-everything", "1563-ui-font-import",
-            "1564-ui-font-settings"};
+            "1564-ui-font-settings", "1573-ui-vanilla-pause"};
 
     static final String FC = "fonts.FontConfig";
     static final String CF = "fonts.CustomFonts";
@@ -103,6 +104,8 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
         UiCase.run(ctx, "1567-ui-mainmenu-real-name", FontsMainMenuSuite::realName);
         UiCase.run(ctx, "1568-ui-amber-scene", AmberSceneCases::scene);
         UiCase.run(ctx, "1569-ui-amber-video", AmberSceneCases::video);
+        UiCase.run(ctx, "1571-ui-mainmenu-mod-settings", FontsMainMenuSuite::modSettings);
+        UiCase.run(ctx, "1572-ui-vanilla-menus", VanillaThemeCases::menus);
         if (anyWorld) {
             try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
                 ctx.waitTicks(40);
@@ -111,6 +114,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                 UiCase.run(ctx, "1562-ui-font-everything", FontsMainMenuSuite::everything);
                 UiCase.run(ctx, "1563-ui-font-import", FontsMainMenuSuite::importFont);
                 UiCase.run(ctx, "1564-ui-font-settings", FontsMainMenuSuite::settings);
+                UiCase.run(ctx, "1573-ui-vanilla-pause", VanillaThemeCases::pause);
             }
         }
     }
@@ -666,7 +670,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                     }
                     // Splash text drawn or not.
                     Object splash = Mod.field(s, "splash");
-                    String splashText = splash == null ? null : plainSplash(splash);
+                    String splashText = splash == null ? null : net.minecraft.ChatFormatting.stripFormatting(plainSplash(splash));
                     boolean drawn = false;
                     if (splashText != null) {
                         GuiRenderState state = new GuiRenderState();
@@ -687,6 +691,23 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                             shadow[0] = dropShadow(t);
                         }
                     });
+                    // No footer texts (killer560, 2026-10-15): no version line, no mod name/version, no copyright -
+                    // neither drawn nor as a widget (the credits link is removed, not just hidden).
+                    List<String> footer = new ArrayList<>();
+                    state.forEachText(t -> {
+                        String str = plain(textOf(t));
+                        if (str.startsWith("Minecraft ") || str.startsWith("Killer560's Mod") || str.contains("Copyright")) {
+                            footer.add(str);
+                        }
+                    });
+                    if (!footer.isEmpty()) {
+                        return e.label() + ": footer text still drawn: " + footer;
+                    }
+                    for (AbstractWidget w : Screens.getWidgets(s)) {
+                        if (w instanceof net.minecraft.client.gui.components.PlainTextButton) {
+                            return e.label() + ": the copyright link is still a widget on the title screen";
+                        }
+                    }
                     boolean light = e.coloursOf().equals("LIGHT");
                     if (shadow[0] == null) {
                         return e.label() + ": no Singleplayer label drawn";
@@ -773,6 +794,28 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
         return n == 0 ? 0 : moved / (double) n;
     }
 
+    /** Pixels whose summed RGB moved by more than 24 in the outer fifth of each side, above the bottom tenth. */
+    static int sideMoved(BufferedImage a, BufferedImage b) {
+        int w = Math.min(a.getWidth(), b.getWidth());
+        int h = Math.min(a.getHeight(), b.getHeight());
+        int moved = 0;
+        for (int y = 0; y < h * 9 / 10; y++) {
+            for (int x = 0; x < w; x++) {
+                if (x >= w / 5 && x < w - w / 5) {
+                    continue;
+                }
+                int p = a.getRGB(x, y);
+                int q = b.getRGB(x, y);
+                int d = Math.abs(((p >> 16) & 0xFF) - ((q >> 16) & 0xFF)) + Math.abs(((p >> 8) & 0xFF) - ((q >> 8) & 0xFF))
+                        + Math.abs((p & 0xFF) - (q & 0xFF));
+                if (d > 24) {
+                    moved++;
+                }
+            }
+        }
+        return moved;
+    }
+
     static Path shot(UiCase c, String label) {
         Path p = c.ctx().takeScreenshot(Report.fileName(c.name() + "-" + label));
         Report.screenshot(c.name(), p);
@@ -832,6 +875,30 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                 c.ticks(30); // Soft Light drifts slowly: 12 ticks moved 0.05% on 26.2
                 Pic b = pic(c.ctx().takeScreenshot(Report.fileName(c.name() + "-" + sc[0].toLowerCase(Locale.ROOT) + "-b")));
                 double moved = changed(a.img(), b.img());
+                // The panel is opaque (killer560, 2026-10-15): its padding beside the buttons must not change while the
+                // background animates behind it.
+                int[] card = c.onClient(mc -> (int[]) Mod.staticCall("mainmenu.MainMenuChrome", "cardBox", McCompat.screen(mc)));
+                int screenW = c.onClient(mc -> McCompat.screen(mc).width);
+                if (card != null && !sc[0].equals("PLAIN")) {
+                    double k = a.img().getWidth() / (double) screenW;
+                    int x0 = (int) Math.ceil((card[0] + 2) * k);
+                    int x1 = (int) Math.floor((card[0] + 8) * k);
+                    int y0 = (int) Math.ceil((card[1] + 3) * k);
+                    int y1 = (int) Math.floor((card[1] + card[3] - 3) * k);
+                    int seen = 0;
+                    int diff = 0;
+                    for (int y = y0; y < y1; y++) {
+                        for (int x = x0; x < x1; x++) {
+                            seen++;
+                            if (a.img().getRGB(x, y) != b.img().getRGB(x, y)) {
+                                diff++;
+                            }
+                        }
+                    }
+                    c.note(sc[0] + ": panel padding " + seen + " px, " + diff + " changed between frames");
+                    c.check(seen > 100 && diff == 0, sc[0] + ": the background shows through the panel (" + diff + " of "
+                            + seen + " padding pixels changed between frames)");
+                }
                 summary.add(String.format(Locale.ROOT, "%s/%s rgb %.0f,%.0f,%.0f lum %.2f moved %.2f%%", sc[0], sc[1], a.r(),
                         a.g(), a.b(), a.lum(), moved * 100));
                 switch (sc[0]) {
@@ -843,8 +910,14 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                     default -> {
                     }
                 }
-                if (!sc[0].equals("PLAIN")) {
-                    c.check(moved > 0.001, sc[0] + " did not move between two frames: " + summary.getLast());
+                // Motion is counted in the side strips only (no splash text, no buttons): the splash pulses on every
+                // scene, Plain included, so a whole-screen count cannot tell a moving background from a still one.
+                int side = sideMoved(a.img(), b.img());
+                summary.set(summary.size() - 1, summary.getLast() + ", sides " + side + " px");
+                if (sc[0].equals("PLAIN")) {
+                    c.check(side < 20, "Plain moved " + side + " px at the sides - the control is not still");
+                } else {
+                    c.check(side >= 20, sc[0] + " did not move at the sides between two frames: " + summary.getLast());
                 }
             }
             c.note("scenes: " + summary);
@@ -864,6 +937,137 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
             m.resizeGui();
         });
         c.ctx().waitTicks(4);
+    }
+
+    // ---- 1568 Mod Settings from the title screen ---------------------------------------------------------------
+
+    /**
+     * killer560, 2026-10-15: "add a button on the main menu to open my mod's settings and edit them from the main menu".
+     * A real click on the title screen's Mod Settings button opens the mod menu with NO world loaded; every feature's
+     * drawer is opened and drawn (each throw is attributed to its tab), the 301 tab sweep and the 303 toggle sweep run
+     * there too; a setting toggled through the menu is saved; Escape goes back to the title screen and the setting is still
+     * set after the menu is opened again and the config re-read. Any killer560smod ERROR line fails the case (UiCase).
+     */
+    static void modSettings(UiCase c) throws Exception {
+        c.onClient(mc -> {
+            Mod.call(Mod.cfg(MM), "setEnabled", true);
+            McCompat.setScreen(mc, new TitleScreen());
+            return null;
+        });
+        c.ticks(40);
+        String opened = c.onClient(mc -> {
+            if (mc.level != null) {
+                return "a world is loaded - this case needs the title screen";
+            }
+            Screen s = McCompat.screen(mc);
+            for (AbstractWidget w : Screens.getWidgets(s)) {
+                if (w.getMessage().getString().equals("Mod Settings")) {
+                    ModScreenDriver.press(w);
+                    Screen now = McCompat.screen(mc);
+                    return now != null && now.getClass().getName().endsWith(".gui.ModScreen") ? null
+                            : "pressing Mod Settings opened " + (now == null ? "nothing" : now.getClass().getName());
+                }
+            }
+            return "no Mod Settings button on the title screen";
+        });
+        c.check(opened == null, opened);
+        if (opened != null) {
+            return;
+        }
+        // Every drawer, opened and drawn with no world.
+        List<String> broken = c.onClient(mc -> {
+            List<String> out = new ArrayList<>();
+            Screen s = McCompat.screen(mc);
+            for (Object leaf : MenuACases.leaves()) {
+                try {
+                    Mod.call(s, "openFeature", leaf);
+                    Frames.extract(mc, s, -1, -1);
+                    Frames.extract(mc, s, s.width - 60, s.height / 2);
+                } catch (Throwable t) {
+                    out.add(leaf.getClass().getSimpleName() + ": " + UiCase.describe(t));
+                }
+            }
+            return out;
+        });
+        c.note("drawers opened and drawn with no world: " + MenuACases.leaves().size() + ", broken: " + broken);
+        c.check(broken.isEmpty(), broken.size() + " drawer(s) threw with no world loaded: " + broken);
+        // World-only things refuse with a note instead of opening over the title screen.
+        String bars = c.onClient(mc -> {
+            Screen s = McCompat.screen(mc);
+            Mod.call(s, "openFeature", MenuACases.leaf("HealthAndManaBarsTab"));
+            // Edit Bars shows while Stat Bars is on.
+            AbstractWidget master = row(s, "Stat Bars: OFF");
+            if (master != null) {
+                ModScreenDriver.press(master);
+            }
+            AbstractWidget edit = row(s, "Edit Bars");
+            if (edit == null) {
+                return "no Edit Bars row in Health and Mana Bars: " + labels(s);
+            }
+            ModScreenDriver.press(edit);
+            Screen now = McCompat.screen(mc);
+            Object notice = Mod.staticCall("gui.ModScreen", "noWorldNotice");
+            if (now != s) {
+                return "Edit Bars with no world opened " + now.getClass().getName();
+            }
+            Frames.extract(mc, s, -1, -1);
+            AbstractWidget on = row(s, "Stat Bars: ON");
+            if (master != null && on != null) {
+                ModScreenDriver.press(on);
+            }
+            return notice != null && notice.toString().contains("Join a world") ? null : "no 'join a world' notice: " + notice;
+        });
+        c.check(bars == null, bars);
+        Deny deny = Deny.load();
+        TabSweep.tabs(c, deny);
+        TabSweep.toggles(c, deny);
+        c.check(c.onClient(mc -> mc.level == null), "a sweep loaded a world");
+
+        // A setting changed in the menu at the title screen is saved and still set after a reopen.
+        Path file = c.onClient(mc -> (Path) Mod.staticCall(FC, "path"));
+        byte[] before = Files.exists(file) ? Files.readAllBytes(file) : null;
+        try {
+            useFont(c, "minecraft", "MENU", 100);
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(FC), "save");
+                McCompat.setScreen(mc, new TitleScreen());
+                return null;
+            });
+            c.ticks(5);
+            String why = c.onClient(mc -> {
+                for (AbstractWidget w : Screens.getWidgets(McCompat.screen(mc))) {
+                    if (w.getMessage().getString().equals("Mod Settings")) {
+                        ModScreenDriver.press(w);
+                    }
+                }
+                Screen menu = McCompat.screen(mc);
+                Mod.call(menu, "openFeature", MenuACases.leaf("MenuThemeTab"));
+                AbstractWidget size = row(menu, "Font Size: ");
+                if (size == null) {
+                    return "no Font Size row: " + labels(menu);
+                }
+                ModScreenDriver.press(size);
+                menu.keyPressed(new net.minecraft.client.input.KeyEvent(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0));
+                if (!(McCompat.screen(mc) instanceof TitleScreen)) {
+                    return "Escape left " + McCompat.screen(mc) + " instead of the title screen";
+                }
+                Mod.staticCall(FC, "load");
+                int now = (Integer) Mod.call(Mod.cfg(FC), "getSize");
+                return now == 110 ? null : "Font Size after the click, Escape and a reload is " + now + "%, expected 110%";
+            });
+            c.check(why == null, why);
+        } finally {
+            if (before == null) {
+                Files.deleteIfExists(file);
+            } else {
+                Files.write(file, before);
+            }
+            c.onClient(mc -> {
+                Mod.staticCall(FC, "load");
+                McCompat.setScreen(mc, new TitleScreen());
+                return null;
+            });
+        }
     }
 
     // ---- 1567 real name -----------------------------------------------------------------------------------------
