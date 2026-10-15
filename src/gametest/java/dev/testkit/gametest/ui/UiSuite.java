@@ -246,6 +246,9 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] AURA_THEME_CASES = {"1420-ui-secret-aura-merge", "1421-ui-overlay-themes"};
     /** Lights Device as its own cheat (mod lights-aura-1015, {@link LightsDeviceUiCases}). Own block for merges. */
     static final String[] LIGHTS_DEVICE_CASES = {"1475-ui-lights-device"};
+    /** killer560's 2026-10-15 click sounds and short descriptions ({@link SoundDescCases}). Own block for merges. */
+    static final String[] SOUND_DESC_CASES = {"1060-ui-card-descriptions", "1061-ui-descriptions-toggle",
+            "1062-ui-editor-hint-narrow", "1063-ui-click-presets", "1064-ui-click-import"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -358,6 +361,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : NAMES_PROFILES_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : SOUND_DESC_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : MENU_ORDER_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -399,7 +405,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
                 || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES) || any(SWEAT_CASES)
                 || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES) || any(TRAIL_HUD_CASES)
-                || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES);
+                || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES) || any(SOUND_DESC_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -724,6 +730,12 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1421-ui-overlay-themes", AuraThemeCases::overlayThemes);
                     // ---- Lights Device, its own cheat (1475) ----
                     UiCase.run(ctx, "1475-ui-lights-device", LightsDeviceUiCases::lightsDevice);
+                    // ---- click sounds + short descriptions (1060-1064) ----
+                    UiCase.run(ctx, "1060-ui-card-descriptions", SoundDescCases::fit);
+                    UiCase.run(ctx, "1061-ui-descriptions-toggle", SoundDescCases::toggle);
+                    UiCase.run(ctx, "1062-ui-editor-hint-narrow", SoundDescCases::editorNarrow);
+                    UiCase.run(ctx, "1063-ui-click-presets", SoundDescCases::presets);
+                    UiCase.run(ctx, "1064-ui-click-import", SoundDescCases::imported);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

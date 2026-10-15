@@ -79,6 +79,8 @@ final class MenuLayoutCases {
             "gui.tab.AutoCroesusTab",
             // Menu Theme (mod menu-a, killer560 2026-10-12): the Option A menu's colour presets, a section of Home.
             "gui.tab.MenuThemeTab",
+            // Click Sounds and Descriptions (mod sounds-desc, killer560 2026-10-15): two sections of Home, legit in both builds.
+            "gui.tab.ClickSoundsTab", "gui.tab.DescriptionsTab",
             // Ribbon Trail (mod ribbon-cosmetic, killer560 2026-10-14): the ribbon out of Trail into its own Cosmetics tab.
             "gui.tab.RibbonTrailTab",
             // Lights Device (mod lights-aura-1015, killer560 2026-10-15): out of Secret Aura's In Boss into its own tab in
