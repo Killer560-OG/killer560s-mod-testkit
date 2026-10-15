@@ -310,9 +310,10 @@ public class SimMapHudTests implements FabricClientGameTest {
         boolean secrets = false;
         boolean crypts = false;
         for (String t : frame.texts()) {
-            score |= t.startsWith("Score");
-            secrets |= t.startsWith("Secrets");
-            crypts |= t.startsWith("Crypts");
+            // Two rows, several labels each (since mod map-info-bat; NoammAddons' order since map-overhaul-1015).
+            score |= t.contains("Score");
+            secrets |= t.contains("Secrets");
+            crypts |= t.contains("Crypts");
         }
         if (!score || !secrets || !crypts) {
             failures.add("the Dungeon Map HUD drew no Extra Info under the map with Score Calculator off (Score "

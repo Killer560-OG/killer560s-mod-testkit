@@ -167,6 +167,9 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] CYCLE_BACK_CASES = {"806-ui-cycle-buttons-both-ways"};
     /** killer560's 2026-10-14 to-do batch: defaults on, removed toggles gone ({@link DocSmall1014Cases}). Own block. */
     static final String[] DOC_SMALL_CASES = {"807-ui-doc-small-1014"};
+    /** killer560's 2026-10-15 Dungeon Map list (mod map-overhaul-1015, {@link MapOverhaulCases}). Own block for merges. */
+    static final String[] MAP_OVERHAUL_CASES = {"1015-ui-switch-align", "1015-ui-map-tab", "1015-ui-map-themes",
+            "1015-ui-door-key-style"};
     /** The Option A mod menu (mod menu-a, {@link MenuACases}): shots, card switch, drawer, favourites, search, counts.
      *  Own block for merges. */
     static final String[] MENU_A_CASES = {"940-ui-menu-a-shots", "941-ui-menu-a-cards", "942-ui-menu-a-drawer",
@@ -273,6 +276,9 @@ public class UiSuite implements FabricClientGameTest {
                 dev.testkit.gametest.Scenario.skip(n);
             }
             for (String n : MAPINFO_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            for (String n : MAP_OVERHAUL_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
             for (String n : CHAT_CASES) {
@@ -412,7 +418,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
                 || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES) || any(SWEAT_CASES)
                 || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES) || any(TRAIL_HUD_CASES)
-                || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES) || any(SOUND_DESC_CASES);
+                || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES) || any(SOUND_DESC_CASES) || any(MAP_OVERHAUL_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -611,6 +617,11 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "806-ui-cycle-buttons-both-ways", c -> CycleButtonCases.cycleButtons(c, deny));
                     // ---- doc-small (807) ----
                     UiCase.run(ctx, "807-ui-doc-small-1014", DocSmall1014Cases::docSmall);
+                    // ---- map-overhaul (1015) ----
+                    UiCase.run(ctx, "1015-ui-switch-align", c -> MapOverhaulCases.switchAlign(c, deny));
+                    UiCase.run(ctx, "1015-ui-map-tab", MapOverhaulCases::mapTab);
+                    UiCase.run(ctx, "1015-ui-map-themes", MapOverhaulCases::mapThemes);
+                    UiCase.run(ctx, "1015-ui-door-key-style", MapOverhaulCases::doorKeyStyle);
                     // ---- Option A menu (940-949) ----
                     UiCase.run(ctx, "940-ui-menu-a-shots", MenuACases::shots);
                     UiCase.run(ctx, "941-ui-menu-a-cards", MenuACases::cards);

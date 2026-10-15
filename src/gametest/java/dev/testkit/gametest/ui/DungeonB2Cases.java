@@ -1140,7 +1140,7 @@ final class DungeonB2Cases {
     // =================================================================================================================
 
     /** A GUI-2 picture of the world view (no screen), kept in the report and copied to {@link #SHOTS}. */
-    private static Path shot(UiCase c, String suffix) {
+    static Path shot(UiCase c, String suffix) {
         c.onClient(mc -> {
             McCompat.setScreen(mc, null);
             McCompat.clearChatAndToasts(mc);

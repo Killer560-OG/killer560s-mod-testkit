@@ -344,6 +344,68 @@
       "owner": "Mod & HUD",
       "key": "edit hud positions",
       "gone": "doc-menu 2026-10-13: killer560 removed Check for Updates, Join Discord, Edit HUD Positions and Edit Bars from Mod & HUD (they live in the header's round buttons and Home's quick buttons)"
+    },
+    {
+      "owner": "Dungeon Map",
+      "key": "checkmark sprites",
+      "gone": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list): Custom Checkmark Sprite replaced it"
+    },
+    {
+      "owner": "Dungeon Map",
+      "key": "icon scale",
+      "gone": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list): renamed Player Marker Size"
+    },
+    {
+      "owner": "Dungeon Map",
+      "key": "mimic room show/hide",
+      "gone": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list): placeholder became the cheat build's Show Mimic Room under Funny Map"
+    },
+    {
+      "owner": "Dungeon Map",
+      "key": "player-head class recolor",
+      "gone": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list): placeholder folded into Recolor by Class"
+    },
+    {
+      "owner": "Dungeon Map",
+      "key": "reset room colors",
+      "gone": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list): room colors live only in the Custom scheme editor"
+    },
+    {
+      "owner": "Dungeon Map",
+      "key": "room colors",
+      "gone": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list): room colors live only in the Custom scheme editor"
+    },
+    {
+      "owner": "Dungeon Map",
+      "key": "darken unexplored",
+      "text": "How much darker rooms you have not been in yet are drawn, 0 to 0.9: the grey question-mark rooms, and on Funny Map every room your hotbar map has not opened yet.",
+      "why": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list)"
+    },
+    {
+      "owner": "Dungeon Map",
+      "key": "dungeon map",
+      "text": "Draws the real dungeon map as a HUD overlay, showing only what your hotbar map has revealed. Scroll over it in the HUD editor to size it.",
+      "why": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list)"
+    },
+    {
+      "owner": "Map, Leap & Party",
+      "key": "dungeon map",
+      "text": "Draws the real dungeon map as a HUD overlay, showing only what your hotbar map has revealed. Scroll over it in the HUD editor to size it.",
+      "to": "Dungeon Map",
+      "why": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list)"
+    },
+    {
+      "owner": "Dungeon Map",
+      "key": "funny map",
+      "text": "Cheat build: the Dungeon Map draws every room the mod has scanned, not just what your hotbar map shows. Rooms you have not been in are darkened by Darken Unexplored. Off, it is the normal map.",
+      "why": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list): the placeholder is real, cheat build only",
+      "variant": "cheat"
+    },
+    {
+      "owner": "Dungeon Map",
+      "key": "funny map",
+      "gone": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list): Funny Map is a cheat-build setting now",
+      "variant": "legit"
     }
   ]
 }

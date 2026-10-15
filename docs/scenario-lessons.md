@@ -637,3 +637,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   extent from the open screen's `width`/`height`. 983 fails after 829-834 in one menu session (a stale "LrB (Tank)" leaps
   first) on the pre-change jar and tests too - run 983 alone. 1077 clicks a vanilla container screen's overlay in plain GUI units
   (`pos x getGuiScale`, no Auto Scale).
+
+- 1015-sim-map-item-only (SimMapItemTests) gives the player a Hypixel-style dungeon map in slot 9 built from bytes the case
+  paints itself: a client-side `MapItemSavedData.createForClient` put in with `ClientLevel.overrideMapData` under an id the
+  server has no data for, and the same `filled_map` stack set on the SERVER player too, or the next inventory sync takes it
+  back. Rooms at corner (5, 5) and a pitch of 20 calibrate on the sim's M7 floor number (the default branch of the
+  scanner's start-corner table); a floor reporting F1-F3 would need that table's fixed corners instead.
+- 1015-ui-switch-align judges a row lone only when NOTHING else shares its height band, so a half-width row beside a slider
+  or a text box is fine; it opens every leaf's real drawer (`ModScreenDriver.open`), not the stacked folder view.

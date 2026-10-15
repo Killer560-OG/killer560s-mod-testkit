@@ -496,6 +496,11 @@ final class MenuLayoutCases {
             Map<String, JsonObject> intended = new LinkedHashMap<>();
             for (JsonElement e : Deny.read(MERGED_FILE).getAsJsonArray("tooltips")) {
                 JsonObject o = e.getAsJsonObject();
+                // An entry with "variant" applies to that jar only (map-overhaul-1015: Funny Map is real on the cheat
+                // jar and gone on the legit one).
+                if (o.has("variant") && !o.get("variant").getAsString().equals(variant)) {
+                    continue;
+                }
                 intended.put(o.get("owner").getAsString() + "\0" + o.get("key").getAsString(), o);
             }
             Set<String> applicable = new LinkedHashSet<>();
