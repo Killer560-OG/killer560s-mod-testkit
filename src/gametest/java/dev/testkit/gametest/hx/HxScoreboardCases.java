@@ -576,7 +576,7 @@ final class HxScoreboardCases {
             float[] look = c.onClient(mc -> new float[]{mc.player.getXRot(), mc.player.getYRot()});
             c.onClient(mc -> {
                 defaultSpot(mc);
-                mc.options.hideGui = false;
+                McCompat.setHudHidden(mc, false);
                 mc.player.setXRot(-55f); // the sky: the same bright backdrop behind the board on every jar
                 return null;
             });
