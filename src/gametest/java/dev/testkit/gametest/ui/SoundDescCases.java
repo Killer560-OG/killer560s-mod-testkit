@@ -12,10 +12,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 520-524: killer560's 2026-10-15 click sounds and short descriptions.
- * 520 measures every feature card's description at several card widths (none may be cut or end in "..."), 521 the
- * Show Descriptions switch (menu cards and the HUD editor hints), 522 the HUD editor hint at narrow windows, 523 the click
- * sound presets and the Vanilla Screens option, 524 an imported .ogg.
+ * 1060-1064: killer560's 2026-10-15 click sounds and short descriptions.
+ * 1060 measures every feature card's description at several card widths (none may be cut or end in "..."), 1061 the
+ * Show Descriptions switch (menu cards and the HUD editor hints), 1062 the HUD editor hint at narrow windows, 1063 the click
+ * sound presets and the Vanilla Screens option, 1064 an imported .ogg.
  */
 final class SoundDescCases {
 
@@ -51,7 +51,7 @@ final class SoundDescCases {
         return Mod.staticCall(CARDS, "cardText", tab, w, CARD_H, hasSwitch);
     }
 
-    // ---- 520 ------------------------------------------------------------------------------------------------------
+    // ---- 1060------------------------------------------------------------------------------------------------------
 
     static void fit(UiCase c) throws Exception {
         try (AutoCloseable all = MenuLayoutCases.allTested(c);
@@ -96,7 +96,7 @@ final class SoundDescCases {
                 return null;
             });
             for (String line : dump) {
-                System.out.println("[520] CARD " + line);
+                System.out.println("[1060] CARD " + line);
             }
             c.check(checked[0] > (Mod.isCheat() ? 1000 : 700), "only " + checked[0] + " card widths measured - the walk did not reach the menu");
             c.note(checked[0] + " card widths measured, none cut");
@@ -272,6 +272,30 @@ final class SoundDescCases {
                 String got = click(c);
                 c.check(("killer560smod:click_" + pid).equals(got), "preset '" + pid + "' on the mod menu played " + got);
             }
+            // A REAL button press in the mod's menu (not a hand-made play call): the Vanilla Screens button's own mouseClicked.
+            Mod.set(CLICK_CFG, "setChoice", "tick");
+            int seenBefore = (Integer) Mod.staticCall(CLICKS, "clicksSeen");
+            c.onClient(mc -> {
+                for (Object t : leaves()) {
+                    if (name(t).equals("Click Sounds")) {
+                        var widgets = (List<?>) Mod.call(t, "buildWidgets", 10, 10, 300, (Runnable) () -> { });
+                        for (Object w : widgets) {
+                            var aw = (net.minecraft.client.gui.components.AbstractWidget) w;
+                            if (aw.getMessage().getString().startsWith("Vanilla Screens")) {
+                                aw.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(aw.getX() + 3, aw.getY() + 3,
+                                        new net.minecraft.client.input.MouseButtonInfo(0, 0)), false);
+                                return null;
+                            }
+                        }
+                    }
+                }
+                throw new AssertionError("no Vanilla Screens button to press");
+            });
+            c.check((Integer) Mod.staticCall(CLICKS, "clicksSeen") == seenBefore + 1,
+                    "pressing a button in the mod menu did not reach the click sound hook");
+            c.check("killer560smod:click_tick".equals(Mod.staticCall(CLICKS, "lastPlayedId")),
+                    "a real button press played " + Mod.staticCall(CLICKS, "lastPlayedId") + ", not the Tick preset");
+            Mod.set(CLICK_CFG, "setVanillaScreens", false);
             // The same click on a vanilla screen stays vanilla while Vanilla Screens is off ...
             openScreen(c, false);
             String vanillaOff = click(c);

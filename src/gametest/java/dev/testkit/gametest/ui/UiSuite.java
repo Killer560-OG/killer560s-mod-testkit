@@ -229,8 +229,8 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] MENU_ORDER_CASES = {"515-ui-menu-order", "516-ui-menu-order-settings",
             "517-ui-menu-queue-masters", "518-ui-menu-independent-masters"};
     /** killer560's 2026-10-15 click sounds and short descriptions ({@link SoundDescCases}). Own block for merges. */
-    static final String[] SOUND_DESC_CASES = {"520-ui-card-descriptions", "521-ui-descriptions-toggle",
-            "522-ui-editor-hint-narrow", "523-ui-click-presets", "524-ui-click-import"};
+    static final String[] SOUND_DESC_CASES = {"1060-ui-card-descriptions", "1061-ui-descriptions-toggle",
+            "1062-ui-editor-hint-narrow", "1063-ui-click-presets", "1064-ui-click-import"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -668,12 +668,12 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "516-ui-menu-order-settings", c -> MenuOrderCases.settingsOrder(c, deny));
                     UiCase.run(ctx, "517-ui-menu-queue-masters", MenuOrderCases::queueMasters);
                     UiCase.run(ctx, "518-ui-menu-independent-masters", MenuOrderCases::independentMasters);
-                    // ---- click sounds + short descriptions (520-524) ----
-                    UiCase.run(ctx, "520-ui-card-descriptions", SoundDescCases::fit);
-                    UiCase.run(ctx, "521-ui-descriptions-toggle", SoundDescCases::toggle);
-                    UiCase.run(ctx, "522-ui-editor-hint-narrow", SoundDescCases::editorNarrow);
-                    UiCase.run(ctx, "523-ui-click-presets", SoundDescCases::presets);
-                    UiCase.run(ctx, "524-ui-click-import", SoundDescCases::imported);
+                    // ---- click sounds + short descriptions (1060-1064) ----
+                    UiCase.run(ctx, "1060-ui-card-descriptions", SoundDescCases::fit);
+                    UiCase.run(ctx, "1061-ui-descriptions-toggle", SoundDescCases::toggle);
+                    UiCase.run(ctx, "1062-ui-editor-hint-narrow", SoundDescCases::editorNarrow);
+                    UiCase.run(ctx, "1063-ui-click-presets", SoundDescCases::presets);
+                    UiCase.run(ctx, "1064-ui-click-import", SoundDescCases::imported);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
