@@ -412,8 +412,18 @@ public final class Scenario {
 
     private static String describeScreen(net.minecraft.client.Minecraft mc) {
         var screen = dev.testkit.compat.McCompat.screen(mc);
+        String reason = "";
+        if (screen instanceof net.minecraft.client.gui.screens.DisconnectedScreen) {
+            try {
+                java.lang.reflect.Field f = net.minecraft.client.gui.screens.DisconnectedScreen.class.getDeclaredField("details");
+                f.setAccessible(true);
+                reason = ": " + ((net.minecraft.network.DisconnectionDetails) f.get(screen)).reason().getString();
+            } catch (Exception ignored) {
+                // Older shape: title only.
+            }
+        }
         return (screen == null ? "no screen" : screen.getClass().getSimpleName() + " \"" + screen.getTitle().getString()
-                + "\"") + ", connection " + (mc.getConnection() == null ? "none" : "open");
+                + "\"" + reason) + ", connection " + (mc.getConnection() == null ? "none" : "open");
     }
 
     private void connect() {
