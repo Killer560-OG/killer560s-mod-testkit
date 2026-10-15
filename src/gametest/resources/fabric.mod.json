@@ -50,6 +50,7 @@
 			"dev.testkit.gametest.SimKeyLookTests",
 			"dev.testkit.gametest.SimFairyDoorTests",
 			"dev.testkit.gametest.SimEtherTicksTests",
+			"dev.testkit.gametest.SimServerLagTests",
 			"dev.testkit.gametest.SimClickGapTests",
 			"dev.testkit.gametest.SimIcePathShoveTests",
 			"dev.testkit.gametest.SimSmoothTeleportTests",

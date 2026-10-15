@@ -33,6 +33,7 @@ public abstract class MixinOutboundPackets {
         try {
             PacketWatch.record(packet);
             dev.testkit.harness.ClickPrimer.onOutbound(packet);
+            dev.testkit.harness.LagSpike.onOutbound(packet);
         } catch (Throwable ignored) {
             // measuring must never break the run it is measuring
         }

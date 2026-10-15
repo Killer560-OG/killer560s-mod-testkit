@@ -579,6 +579,13 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   change), then the key (block to air, not a secret), then the node (node and the 3-block strip gone, `SimScore.foundInRoom`
   +1, and an armor stand wearing the key profile visible to the CLIENT at node y - 2). Main jar: 0 levers armed, and the key
   position holds a lever, not a key head.
+- **A server lag spike cannot be made by blocking the integrated server's thread.** The client gametest API ticks client
+  and server in LOCKSTEP, so a `server.execute(() -> Thread.sleep(2500))` stops the client's ticks too and no client-side
+  timeout ever runs: 1460's first version passed in 26 client ticks across a 2.5 s block, on any jar (2026-10-15). Use
+  `harness/LagSpike` (the connection frozen both ways for N ms, then the client's packets reach the server in order and
+  its answers follow); `armOnNextUse(ms)` starts it on the next `use_item`, so that use's answer is inside the spike.
+  Inbound-only was tried first and is wrong: the server answered every queued warp in real time while the client was
+  blind, and the burst produced a correction no stalled server would.
 
 - 1042-ui-trail-teleport-ribbon, 1043-ui-trail-teleport-squares, 1044-ui-trail-teleport-settings (TrailTeleportCases, mod
   trail-hud-1015, 2026-10-15): the player walks 3 blocks, is moved 30 blocks along +x in one step (position AND old position,
