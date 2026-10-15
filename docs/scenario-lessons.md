@@ -744,3 +744,6 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   named and writes `<report>/menu-anim-video/frame_NNNNN.png` (1/60 s of clock each) for
   `ffmpeg -framerate 60 -i frame_%05d.png -c:v libx264 -pix_fmt yuv420p -crf 18`.
 
+- **193 named blood mobs (mod bloodcamp-5-1015, 2026-10-15)**: a husk with a name-tag stand "Revoker 1.4M❤" summoned just
+  above it (no trip - Blood Camp never saw it land) is drawn red by Dungeon ESP's Blood Mobs and attacked by the Aura; a
+  husk whose stand reads "[VIP] Revoker: hi ❤" is neither. Main jar: the named husk is not highlighted (fails).
