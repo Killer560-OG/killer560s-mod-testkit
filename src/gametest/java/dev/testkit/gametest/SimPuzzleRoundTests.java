@@ -127,9 +127,11 @@ public final class SimPuzzleRoundTests {
                         bad.add(String.format("the secret was taken at %.1fs, after the second board click at %.1fs - "
                                 + "it should be right after the first", secretAt / 20.0, secondClickAt / 20.0));
                     }
-                    if (forwardTicks > 0) {
-                        bad.add("he held the forward key " + forwardTicks + " tick(s) - every move here is an etherwarp"
-                                + (walkLine == null ? "" : " (" + walkLine.trim() + ")"));
+                    // The walk-in he saw on Hypixel was the board approach ("move ... is out of reach - walking to").
+                    // The forward key is printed, not judged: the secret's last blocks may be walked when no warp line
+                    // reaches a spot in reach of it.
+                    if (walkLine != null) {
+                        bad.add("walked to the board instead of etherwarping in front of it: " + walkLine.trim());
                     }
                     if (earlyWalkOut != null) {
                         bad.add("walk-out decided before the game was over: " + earlyWalkOut.trim());

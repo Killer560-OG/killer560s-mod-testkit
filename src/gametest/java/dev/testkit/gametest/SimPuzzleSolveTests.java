@@ -765,10 +765,10 @@ public final class SimPuzzleSolveTests {
                     return null;
                 });
                 if (ownWarp()) {
-                    double[] door = ctx.computeOnClient(mc -> {
-                        var d = rel(mc, 15, 69, -2);
-                        return new double[]{d.getX() + 0.5, d.getY(), d.getZ() + 0.5};
-                    });
+                    // Two blocks from the outside spot (relative 15, 69, -4) towards the room: relative 15, 69, -2. Worked out
+                    // from that spot because outside the room the live map has no clay/rotation to go through.
+                    double yawRad = Math.toRadians(outside[3]);
+                    double[] door = {outside[0] - Math.sin(yawRad) * 2.0, outside[1], outside[2] + Math.cos(yawRad) * 2.0};
                     teleport(ctx, name, door, "by a teleport (no map trip) onto Boulder's doorway spot, relative 15, 68, -2");
                 }
                 println(name, (ownWarp() ? "teleport" : "map press") + " on Boulder from outside the doorway: " + pressed);
@@ -2669,10 +2669,13 @@ public final class SimPuzzleSolveTests {
                 }
                 pressCount = n;
             }
-            boolean[] ks = ctx.computeOnClient(mc -> new boolean[]{mc.options.keyUp.isDown(), mc.player.isSprinting()});
+            boolean[] ks = ctx.computeOnClient(mc -> new boolean[]{mc.options.keyUp.isDown(), mc.player.isSprinting(),
+                    mc.player.horizontalCollision && !mc.player.minorHorizontalCollision, mc.options.keySprint.isDown()});
             if (ks[0] && forwardBefore) {
                 forwardTicks++;
-                if (!ks[1]) {
+                // Into a wall vanilla will not sprint whatever the keys say; the auto is judged on the rest, and a
+                // walk with the sprint KEY up is counted whatever.
+                if (!ks[1] && (!ks[2] || !ks[3])) {
                     notSprinting++;
                     if (firstNotSprinting == null) {
                         firstNotSprinting = String.format("t=%.1fs at (%.2f, %.2f, %.2f)", t / 20.0, end[0], end[1],
