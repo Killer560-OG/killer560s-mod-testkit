@@ -112,7 +112,7 @@ final class DungeonB2Cases {
                 Mod.call(cfg, "setTriggerBotEnabled", true);
                 Mod.call(cfg, "setAuraEnabled", false);
                 Mod.call(cfg, "setAutoDetectLag", false);
-                Mod.call(cfg, "setHitLeadTicks", 3);
+                Mod.call(cfg, "setTriggerOffsetTicks", -1);
                 Mod.staticCall("secrets.DungeonState", "setRoomSim", true);
                 oldDifficulty[0] = mc.getSingleplayerServer().getWorldData().getDifficulty();
                 return null;
@@ -156,14 +156,13 @@ final class DungeonB2Cases {
                         + " blocks the Trigger Bot clicked " + clicksA + " time(s), want exactly 1");
                 c.check(attacksA == 0 && a.interacts == 0, "(A) nothing is in melee reach, yet an attack went out");
                 c.check(a.swings >= 1, "(A) no swing packet went out");
-                // killer560 2026-10-11: a fixed lead - the attack reaches the server 3 ticks before the mob is due,
-                // ping added on top (Auto Detect Lag is off here and the integrated server has no round trip), so the
-                // client clicks on the countdown tick nearest 3 + the mod's 1-tick tick-boundary allowance = 3.8; 792
-                // measures the server's side.
+                // killer560 2026-10-15: Trigger Offset -1 (the default) clicks one tick AFTER the countdown's end
+                // (Auto Detect Lag is off here, so the ping is left out): the first x.8 grid value below -1 is -1.2. 792
+                // measures it against the kill timer with a real round trip.
                 // The mod's own record of the tick it clicked on (this case's clickAt is read a tick later).
                 double firedAt = c.onClient(mc -> (Double) Mod.staticCall(BC, "lastTriggerAt"));
-                c.check(firedAt >= 3.3 && firedAt <= 4.3, "(A) the click went out at " + firedAt
-                        + " ticks left, want 3.8: 3 before the kill moment plus 1 of tick boundaries");
+                c.check(firedAt >= -1.25 && firedAt <= -1.15, "(A) the click went out at " + firedAt
+                        + " ticks left, want -1.2: one tick after the countdown's end");
             } else {
                 c.check(clicksA == 0 && a.swings == 0, "legit jar: the Trigger Bot clicked (" + clicksA + ")");
             }

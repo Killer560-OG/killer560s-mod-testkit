@@ -383,11 +383,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
                 || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
                 || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES) || any(SWEAT_CASES)
-<<<<<<< HEAD
-                || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES);
-=======
-                || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(TRAIL_HUD_CASES);
->>>>>>> trail-hud-1015
+                || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES) || any(TRAIL_HUD_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }

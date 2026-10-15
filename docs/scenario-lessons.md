@@ -598,3 +598,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   planners' REAL queues are checked inside the sims: 131 case 6 (Auto Clear's logged `order` = the published plan = the
   rows), 102 (Auto Secret's first target, only routed rooms, percent math, the executor reporting node progress) and the
   Autopilot sim (every plan the HUD drew is one a logged decision ranked).
+- **177-183 Auto Blood Camp (hx session, mod bloodcamp-1015, 2026-10-15)**: offset from the kill timer, Blood Room gate, aim
+  height, human turn, mouse takeover, miss retry, Freecam Mode; each Grim-clean. Blood Camp only tracks a mob stand within
+  20 blocks of the Watcher, and the session is in the FIRST wave (no Watcher line), whose trip starts 16.1 + 1 blocks back:
+  with the Watcher at (-416.5, -412.5) nothing was ever tracked. (-424.5, -412.5) is in his room tile (-7, -7) and close
+  enough; 792 uses it too. An invulnerable husk is now a MISS the Trigger Bot retries, so 792 uses a hurtable one.
+  Main jar: every case fails on the missing Trigger Offset / Freecam API.

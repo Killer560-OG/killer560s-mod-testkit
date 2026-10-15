@@ -556,9 +556,9 @@
       "auto anvil": "In Hypixel's Anvil, combines two identical single-enchant books into the next level, where the anvil can make it (cheat build only)."
     },
     "Auto Blood Camp": {
-      "aura": "Turns your camera toward the spot a blood mob is about to land (cheat build only; needs Blood Camp on).",
+      "aura": "Turns you toward the blood mob due next, at its chest, with a human-looking mouse movement; moving your mouse takes over (cheat build only; only in the Blood Room).",
       "needs blood camp on (its own tab) - it predicts the mobs these act on.": "",
-      "trigger bot": "Left-clicks a blood mob when its countdown ends, if you are aiming at its spot (cheat build only; needs Blood Camp on)."
+      "trigger bot": "Left-clicks a blood mob at its kill timer if you are aiming at it, and clicks again if the hit missed (cheat build only; only in the Blood Room; needs Blood Camp on)."
     },
     "Auto Chocolate Factory": {
       "auto chocolate factory": "Clicks for you while the Chocolate Factory menu is open (cheat build only)."
