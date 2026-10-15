@@ -783,6 +783,16 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             int tx = near ? 9 : 14;
             resetRoutes(ctx);
             arena(ctx, false);
+            // Each run its own: the mod remembers a lever got earlier this run (RouteRunMemory) and would meet the await.
+            ctx.runOnClient(mc -> {
+                try {
+                    Class.forName("com.killer560.hub.autoroutes.RouteRunMemory").getDeclaredMethod("reset").setAccessible(true);
+                    ModUnderTest.staticCall("com.killer560.hub.autoroutes.RouteRunMemory", "reset", new Class<?>[]{},
+                            new Object[]{});
+                } catch (ReflectiveOperationException | AssertionError ignored) {
+                    // an older jar: no run memory
+                }
+            });
             setBlocks(ctx, Map.of(new int[]{8, F, 8}, "minecraft:lever[face=floor,facing=east,powered=false]"));
             JsonObject w = ew(6, 6, tx, 6, true);
             w.addProperty("awaitEnabled", true);
