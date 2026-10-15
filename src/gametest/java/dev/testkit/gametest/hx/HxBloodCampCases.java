@@ -63,11 +63,23 @@ final class HxBloodCampCases {
         s.test("181-hx-bloodcamp-mouse", HxBloodCampCases::mouse);
         s.test("182-hx-bloodcamp-miss-retry", HxBloodCampCases::missRetry);
         s.test("183-hx-bloodcamp-freecam", HxBloodCampCases::freecam);
+        // bloodcamp-2-1015: walls, mobs already on the floor, attack speed, Never Miss.
+        s.test("184-hx-bloodcamp-walls", HxBloodCampCases::walls);
+        s.test("185-hx-bloodcamp-floor-mobs", HxBloodCampCases::floorMobs);
+        s.test("186-hx-bloodcamp-attack-speed", HxBloodCampCases::attackSpeed);
+        s.test("187-hx-bloodcamp-never-miss", HxBloodCampCases::neverMiss);
     }
 
     // ---- shared -----------------------------------------------------------------------------------------------------
 
-    private enum Mob { NONE, HURTABLE, INVULNERABLE }
+    /** HURTABLE 20 health, FRAGILE 1 (one hit kills it), INVULNERABLE takes no damage. */
+    private enum Mob { NONE, HURTABLE, INVULNERABLE, FRAGILE }
+
+    /** Set before a trip: summon its husk this many ticks after the mob is due instead of as soon as it is tracked
+     *  (null = at once). The trip records the server tick it was summoned on and the clicks sent before it. */
+    private static Integer nextSummonDelay;
+    private static long lastSummonTick = -1;
+    private static int lastClicksBeforeSummon = -1;
 
     /** What one trip measured. */
     private record Trip(boolean tracked, Vec3 end, double killAt, double triggerAt, int clicks, int attacks,
@@ -202,15 +214,22 @@ final class HxBloodCampCases {
             c.waitUntil("the trip is tracked", mc -> endVector() != null, 100);
             tracked = true;
             end = c.onClient(mc -> endVector());
-            if (mob != Mob.NONE) {
-                c.server().command(String.format(Locale.ROOT, "summon husk %.3f %.3f %.3f {Tags:[\"bc1015\"],NoAI:1b,"
-                                + "Silent:1b,PersistenceRequired:1b,Health:20f%s}", end.x, end.y, end.z,
-                        mob == Mob.INVULNERABLE ? ",Invulnerable:1b" : ""));
-            }
+            Integer delay = nextSummonDelay;
+            nextSummonDelay = null;
+            lastSummonTick = -1;
+            lastClicksBeforeSummon = -1;
+            int summonAt = delay == null ? 0 : Math.max(0, (int) Math.ceil(due) - 3 + delay);
             Vec3 chest = end.add(0, 1.4, 0);
             int ticks = (int) Math.ceil(due) + extra;
             for (int i = 0; i < ticks; i++) {
                 final int tick = i;
+                if (i == summonAt && mob != Mob.NONE) {
+                    lastClicksBeforeSummon = intStat(c, "triggerClicks") - clicks0;
+                    c.server().command(String.format(Locale.ROOT, "summon husk %.3f %.3f %.3f {Tags:[\"bc1015\"],NoAI:1b,"
+                                    + "Silent:1b,PersistenceRequired:1b,Health:%s%s}", end.x, end.y, end.z,
+                            mob == Mob.FRAGILE ? "1f" : "20f", mob == Mob.INVULNERABLE ? ",Invulnerable:1b" : ""));
+                    lastSummonTick = c.hx().call("server.tick").getAsLong();
+                }
                 Object[] r = c.onClient(mc -> {
                     if (aimManually) {
                         float[] l = look(mc, chest);
@@ -417,7 +436,8 @@ final class HxBloodCampCases {
             }
             watcher(c, WATCHER_IN);
             stand(c, AWAY_YAW, 10f);
-            Trip t = trip(c, Mob.HURTABLE, false, 10, null);
+            // One hit kills it, so the Aura (which now attacks) has no second approach to overwrite the reaction time.
+            Trip t = trip(c, Mob.FRAGILE, false, 10, null);
             List<float[]> st = steps(t.looks);
             double total = 0;
             int moving = 0;
@@ -584,7 +604,7 @@ final class HxBloodCampCases {
             stand(c, AWAY_YAW, 10f);
             List<float[]> views = new ArrayList<>();
             List<Boolean> held = new ArrayList<>();
-            Trip t = trip(c, Mob.HURTABLE, false, 40, (i, mc) -> {
+            Trip t = trip(c, Mob.FRAGILE, false, 40, (i, mc) -> {
                 views.add(new float[]{(Float) Mod.staticCall(VF, "viewYaw"), (Float) Mod.staticCall(VF, "viewPitch")});
                 held.add((Boolean) Mod.staticCall(VF, "isHeld"));
             });
@@ -608,10 +628,288 @@ final class HxBloodCampCases {
             c.check(maxBodyTurn >= 40, "the Aura turned his body only " + maxBodyTurn + " degrees");
             c.check(heldTicks >= 5, "Freecam Mode never held the camera");
             c.check(maxViewMove < 0.01, "the camera moved " + maxViewMove + " degrees while the Aura turned him");
-            c.check(t.serverAttacks.size() == 1, "the Trigger Bot's attack (body on the husk, camera away) did not land once: "
-                    + t.serverAttacks.size());
+            // The Aura attacks too since bloodcamp-2-1015, so a second hit is allowed; the body's look did the hitting.
+            c.check(t.attacks >= 1 && !t.serverAttacks.isEmpty(), "the Trigger Bot's attack (body on the husk, camera"
+                    + " away) never landed");
             c.check(!heldAtEnd && backOff < 0.6, "after the mob was hit the body did not come back under the camera"
                     + " and release it (held " + heldAtEnd + ", " + backOff + " deg off)");
+        } finally {
+            c.hx().removeStands();
+        }
+    }
+
+    // ---- bloodcamp-2-1015 helpers ----------------------------------------------------------------------------------
+
+    /** A stone wall between him (block z -420) and the landing spot (block z -418): block row z -419. */
+    private static void wall(Session c, boolean on) {
+        c.server().command("fill -424 151 -419 -416 154 -419 " + (on ? "minecraft:stone" : "minecraft:air"));
+        c.ctx().waitTicks(3);
+    }
+
+    /** {@code stack} in hotbar slot 0, selected. */
+    private static void holding(Session c, String stack) {
+        c.hx().give(0, stack);
+        c.onClient(mc -> {
+            mc.player.getInventory().setSelectedSlot(0);
+            return null;
+        });
+        c.ctx().waitTicks(5);
+    }
+
+    /** The hx session's server reads as Hypixel (its label); this makes it read as a plain server for a while, so the
+     *  vanilla cooldown applies. The dialled address is unchanged. */
+    private static HxKit.Settings vanillaServer(Session c) {
+        String ipWas = c.onClient(mc -> mc.getCurrentServer().ip);
+        return new HxKit.Settings(c)
+                .custom(() -> Minecraft.getInstance().getCurrentServer().ip = "localhost",
+                        () -> Minecraft.getInstance().getCurrentServer().ip = ipWas);
+    }
+
+    private static List<Long> attacksSince(Session c, long since) {
+        List<Long> out = new ArrayList<>();
+        for (JsonObject e : c.hx().events(since, "attack_entity")) {
+            out.add(e.get("tick").getAsLong());
+        }
+        return out;
+    }
+
+    private static List<Long> gaps(List<Long> ticks) {
+        List<Long> out = new ArrayList<>();
+        for (int i = 1; i < ticks.size(); i++) {
+            out.add(ticks.get(i) - ticks.get(i - 1));
+        }
+        return out;
+    }
+
+    private static int aliveTagged(Session c, String tag) {
+        return c.onClient(mc -> {
+            int n = 0;
+            for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+                if (e instanceof net.minecraft.world.entity.LivingEntity && !(e instanceof net.minecraft.world.entity.player.Player)
+                        && !(e instanceof net.minecraft.world.entity.decoration.ArmorStand) && e.isAlive() && !e.isRemoved()
+                        && e.position().distanceTo(new Vec3(PX, 151, PZ)) < 6) {
+                    n++;
+                }
+            }
+            return n;
+        });
+    }
+
+    /** Husks standing on the floor of the Blood Room beside him, no trip anywhere. Returns the server's attack ticks. */
+    private static List<Long> floorHusks(Session c, String extraNbt, double[][] at, int ticks, boolean untilDead) {
+        long since = c.hx().head();
+        for (double[] p : at) {
+            c.server().command(String.format(Locale.ROOT, "summon husk %.2f 151 %.2f {Tags:[\"bcfloor\"],NoAI:1b,Silent:1b,"
+                    + "PersistenceRequired:1b%s}", p[0], p[1], extraNbt));
+        }
+        try {
+            for (int i = 0; i < ticks; i++) {
+                c.ctx().waitTicks(1);
+                if (untilDead && i > 20 && aliveTagged(c, "bcfloor") == 0) {
+                    break;
+                }
+            }
+        } finally {
+            c.server().command("kill @e[tag=bcfloor]");
+            c.ctx().waitTicks(5);
+        }
+        return attacksSince(c, since);
+    }
+
+    // ---- 184 --------------------------------------------------------------------------------------------------------
+
+    private static void walls(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            watcher(c, WATCHER_IN);
+            wall(c, true);
+            try {
+                // Aura alone: a mob behind a wall is not tracked, aimed at or hit.
+                if (cheat) {
+                    c.onClient(mc -> {
+                        Mod.call(Mod.cfg(BC_CFG), "setAuraEnabled", true);
+                        return null;
+                    });
+                }
+                stand(c, AWAY_YAW, 10f);
+                Trip a = trip(c, Mob.HURTABLE, false, 20, null);
+                float[] f = a.looks.get(0);
+                float[] l = a.looks.get(a.looks.size() - 1);
+                double turned = Math.abs(net.minecraft.util.Mth.wrapDegrees(l[0] - f[0])) + Math.abs(l[1] - f[1]);
+                c.note("wall, Aura: " + fmt(a) + String.format(Locale.ROOT, ", turned %.2f, aura point %s", turned,
+                        a.auraPoint));
+                c.check(a.tracked, "the trip behind the wall was never tracked (the overlay still has to work)");
+                c.check(!a.everTurning && a.auraPoint == null && turned < 0.01, "the Aura aimed at a mob behind a wall");
+                c.check(a.serverAttacks.isEmpty(), "something attacked the mob behind the wall");
+                // Trigger Bot alone, his own aim on the mob's chest - through the wall.
+                if (cheat) {
+                    c.onClient(mc -> {
+                        Mod.call(Mod.cfg(BC_CFG), "setAuraEnabled", false);
+                        Mod.call(Mod.cfg(BC_CFG), "setTriggerBotEnabled", true);
+                        return null;
+                    });
+                }
+                stand(c, 0f, 0f);
+                Trip b = trip(c, Mob.HURTABLE, true, 20, null);
+                c.note("wall, Trigger Bot aimed through it: " + fmt(b));
+                c.check(b.clicks == 0 && b.serverAttacks.isEmpty(), "the Trigger Bot clicked through a wall: "
+                        + b.clicks + " click(s), " + b.serverAttacks.size() + " attack(s)");
+            } finally {
+                wall(c, false);
+            }
+            // Control: the same trip with no wall is clicked.
+            stand(c, 0f, 0f);
+            Trip open = trip(c, Mob.HURTABLE, true, 20, null);
+            c.note("no wall, Trigger Bot: " + fmt(open));
+            if (cheat) {
+                c.check(open.clicks >= 1 && !open.serverAttacks.isEmpty(), "control: with no wall nothing was clicked");
+            } else {
+                c.check(open.clicks == 0, "legit jar: the Trigger Bot clicked");
+            }
+        } finally {
+            c.hx().removeStands();
+        }
+    }
+
+    // ---- 185 --------------------------------------------------------------------------------------------------------
+
+    private static final double[][] FLOOR = {{-421.5, -417.5}, {-417.5, -421.0}};
+
+    private static void floorMobs(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            if (cheat) {
+                s.with(BC_CFG, "AuraEnabled", true);
+            }
+            watcher(c, WATCHER_IN);
+            holding(c, "minecraft:iron_sword");
+            stand(c, AWAY_YAW + 60f, 10f);
+            int aura0 = cheat ? intStat(c, "auraAttacks") : 0;
+            List<Long> attacks = floorHusks(c, ",Health:3f", FLOOR, 160, true);
+            int auraAttacks = (cheat ? intStat(c, "auraAttacks") : 0) - aura0;
+            int cooldown = cheat ? intStat(c, "lastCooldownTicks") : 0;
+            c.note("two husks already on the floor (no trip): server attacks at " + attacks + ", gaps " + gaps(attacks)
+                    + ", aura attacks " + auraAttacks + ", cooldown " + cooldown + " ticks");
+            if (!cheat) {
+                c.check(attacks.isEmpty(), "legit jar: something attacked");
+                return;
+            }
+            c.check(attacks.size() >= 2 && auraAttacks >= 2, "the Aura did not kill the mobs already on the floor ("
+                    + attacks.size() + " attack(s))");
+            // The hx session reads as Hypixel: 0 Attack Speed is round(10 / 1) = 10 ticks between hits.
+            c.check(cooldown == 10, "the cooldown read " + cooldown + " ticks, want 10 (Hypixel, 0 Attack Speed)");
+            c.check(gaps(attacks).stream().allMatch(g -> g >= 10), "attacks came faster than 10 ticks: " + gaps(attacks));
+        } finally {
+            holding(c, "minecraft:air");
+            c.hx().removeStands();
+        }
+    }
+
+    // ---- 186 --------------------------------------------------------------------------------------------------------
+
+    private static void attackSpeed(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            watcher(c, WATCHER_IN);
+            holding(c, "minecraft:iron_sword");
+            // (a) Trigger Bot retries on a husk that takes no damage (the session reads as Hypixel, 0 Attack Speed): never
+            // sooner than 10 ticks apart. On main they came every 6.
+            if (cheat) {
+                s.with(BC_CFG, "TriggerBotEnabled", true);
+            }
+            stand(c, 0f, 0f);
+            Trip t = trip(c, Mob.INVULNERABLE, true, 70, null);
+            List<Long> g = gaps(t.serverAttacks);
+            c.note("Trigger Bot, iron sword, Hypixel 0 Attack Speed: " + fmt(t) + ", gaps " + g);
+            if (!cheat) {
+                c.check(t.serverAttacks.isEmpty(), "legit jar: the Trigger Bot clicked");
+                return;
+            }
+            c.check(t.serverAttacks.size() >= 2, "no retry to measure (" + t.serverAttacks.size() + " attack(s))");
+            c.check(g.stream().allMatch(x -> x >= 10), "Trigger Bot clicks came faster than 10 ticks: " + g);
+            // (b) The Aura on a floor husk that takes no damage: round(10 / (1 + AS/100)) ticks apart on Hypixel, and the
+            // vanilla cooldown (an iron sword's 12.5, so 13) on a plain server.
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(BC_CFG), "setTriggerBotEnabled", false);
+                Mod.call(Mod.cfg(BC_CFG), "setAuraEnabled", true);
+                return null;
+            });
+            String[][] weapons = {{"minecraft:iron_sword", "10", "hypixel"},
+                    {"minecraft:iron_sword[lore=[\"Attack Speed: +100%\"]]", "5", "hypixel"},
+                    {"minecraft:iron_sword", "13", "vanilla"}};
+            for (String[] w : weapons) {
+                try (HxKit.Settings h = w[2].equals("vanilla") ? vanillaServer(c) : new HxKit.Settings(c)) {
+                    holding(c, w[0]);
+                    stand(c, 0f, 0f);
+                    List<Long> at = floorHusks(c, ",Health:20f,Invulnerable:1b", new double[][]{FLOOR[0]}, 90, false);
+                    @SuppressWarnings("unchecked")
+                    List<Long> sent = c.onClient(mc -> (List<Long>) Mod.staticCall(BC, "recentClickTicks"));
+                    List<Long> sentGaps = gaps(sent.subList(Math.max(0, sent.size() - at.size()), sent.size()));
+                    List<Long> gg = gaps(at);
+                    int cd = intStat(c, "lastCooldownTicks");
+                    int want = Integer.parseInt(w[1]);
+                    c.note("Aura on " + w[2] + ", " + w[0] + ": cooldown " + cd + " ticks, attacks " + at + ", gaps " + gg);
+                    c.check(cd == want, w[0] + ": the cooldown read " + cd + " ticks, want " + want);
+                    c.check(at.size() >= 3, w[0] + ": the Aura hit the floor husk only " + at.size() + " time(s)");
+                    // The client's own clicks are never closer than the cap. At the server a click can land a tick early
+                    // or late against the one before (each end acts on packets only at its own ticks - 792), so there
+                    // the gaps must average the cap and never be more than a tick under it.
+                    c.note("  client click gaps " + sentGaps);
+                    c.check(sentGaps.stream().allMatch(x -> x >= want), w[0] + ": the client clicked faster than " + want
+                            + " ticks: " + sentGaps);
+                    double mean = gg.stream().mapToLong(Long::longValue).average().orElse(0);
+                    c.check(gg.stream().allMatch(x -> x >= want - 1) && mean >= want - 0.05, w[0] + ": hits reached the"
+                            + " server faster than " + want + " ticks: " + gg);
+                    long near = gg.stream().filter(x -> x <= want + 2).count();
+                    c.check(near * 2 >= gg.size(), w[0] + ": most hits were not at the weapon's pace (" + gg
+                            + ") - the cap is not what limits them");
+                }
+            }
+        } finally {
+            holding(c, "minecraft:air");
+            c.hx().removeStands();
+        }
+    }
+
+    // ---- 187 --------------------------------------------------------------------------------------------------------
+
+    private static void neverMiss(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            watcher(c, WATCHER_IN);
+            if (cheat) {
+                s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "NeverMiss", true);
+            }
+            // The mob turns up 6 ticks after the timer says it is due.
+            stand(c, 0f, 0f);
+            nextSummonDelay = 6;
+            Trip on = trip(c, Mob.HURTABLE, true, 30, null);
+            long summon = lastSummonTick;
+            int before = lastClicksBeforeSummon;
+            boolean present = cheat && c.onClient(mc -> (Boolean) Mod.staticCall(BC, "lastTriggerMobPresent"));
+            c.note("Never Miss on: " + fmt(on) + "; clicks before the mob existed " + before + ", husk summoned on server"
+                    + " tick " + summon + ", mob present at the click " + present);
+            if (!cheat) {
+                c.check(on.clicks == 0, "legit jar: the Trigger Bot clicked");
+                return;
+            }
+            c.check(before == 0, "Never Miss swung " + before + " time(s) before the mob was there");
+            c.check(on.attacks >= 1 && !on.serverAttacks.isEmpty(), "Never Miss never attacked the mob once it was there");
+            long lag = on.serverAttacks.isEmpty() ? -1 : on.serverAttacks.get(0) - summon;
+            c.check(lag >= 0 && lag <= 3 && present, "Never Miss's first attack reached the server " + lag
+                    + " ticks after the mob appeared, want at once (0-3)");
+            // Control: Never Miss off - the timer's swing goes before the mob is there, as before.
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(BC_CFG), "setNeverMiss", false);
+                return null;
+            });
+            stand(c, 0f, 0f);
+            nextSummonDelay = 6;
+            Trip off = trip(c, Mob.HURTABLE, true, 30, null);
+            c.note("Never Miss off: " + fmt(off) + "; clicks before the mob existed " + lastClicksBeforeSummon);
+            c.check(lastClicksBeforeSummon >= 1, "Never Miss off: the timer's click did not go before the mob appeared");
+            c.check(Math.abs((off.killAt - off.triggerAt) - 1.0) < 0.01, "Never Miss off: the first click was not one tick"
+                    + " after the kill timer (" + (off.killAt - off.triggerAt) + ")");
         } finally {
             c.hx().removeStands();
         }
