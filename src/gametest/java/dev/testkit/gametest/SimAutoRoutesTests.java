@@ -102,6 +102,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1015-warpclick",
             // click-gap-all (2026-10-15): the Auto Puzzles' shared use (AutoPuzzleUtil.useItemRotated) waits like the route's
             "96-ar-1015-puzzleclick",
+            // small-dungeon (2026-10-15): a secret bat already alive when the bat node arms is killed and counted
+            "96-ar-1015-batpresent",
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim", "96-ar-398-startawait",
             "96-ar-405-crypt-mapopen", "96-ar-405-startwarp", "96-ar-path", "96-ar-screen", "96-ar-rotate",
             // sim-world (2026-10-11)
@@ -294,6 +296,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-639-legit-warp-exact" -> caseLegitWarpExact(ctx);
                         case "96-ar-653-crypt-straight-down" -> caseCryptStraightDown(ctx);
                         case "96-ar-1013-bat" -> caseBatNode(ctx);
+                        case "96-ar-1015-batpresent" -> caseBatPresent(ctx);
                         case "96-ar-1013-breakerfall" -> caseBreakerFall(ctx);
                         case "96-ar-786-obvious-only" -> caseObviousOnly(ctx);
                         case "96-ar-920-nostart-mapwarp" -> caseNoStartMapWarp(ctx);
@@ -4384,6 +4387,72 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         } finally {
             ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", 100));
         }
+    }
+
+    /**
+     * killer560 (2026-10-15): "the bat node should sense whether a bat is there on arrival as well, not just if it
+     * spawns. It is fully possible someone else got close to a secret and spawned it in so the bat node gets there with
+     * it already spawned and never kills it." The secret bat is spawned and standing (100 max health) BEFORE the route
+     * is even written, so no spawn is ever seen inside the node's window; the bat node must still find it, use the
+     * weapon and count its death. Hyperion and Spirit Sceptre.
+     */
+    private void caseBatPresent(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        clearSecretBats(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        giveSlot(ctx, 4, "HYPERION");
+        giveSlot(ctx, 5, "BAT_WAND");
+        List<String> failures = new ArrayList<>();
+        try {
+            String[] weapons = {"HYPERION", "SPIRIT_SCEPTRE"};
+            int[] xs = {19, 8};
+            for (int i = 0; i < 2; i++) {
+                int x = xs[i];
+                String weapon = weapons[i];
+                setArEnum(ctx, "setBatWeapon", "CryptWeapon", weapon);
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                tpRel(ctx, x + 0.5, 8.5, 0f, 30f);
+                // The bat first, a few blocks from the node, spawned by the server as a teammate's approach would.
+                spawnBatAt(ctx, x, F + 2, 13);
+                boolean standing = waitFor(ctx, 80, () -> ctx.computeOnClient(mc -> {
+                    for (var e : mc.level.entitiesForRendering()) {
+                        if (e instanceof net.minecraft.world.entity.ambient.Bat b && b.getMaxHealth() == 100f
+                                && !b.isDeadOrDying()) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }));
+                if (!standing) {
+                    failures.add(weapon + ": the secret bat never stood in the world - nothing measured");
+                    continue;
+                }
+                ctx.waitTicks(20);
+                JsonObject bat = node("BAT", x, 10, 0f, 30f);
+                bat.addProperty("start", true);
+                long w = LogTap.mark();
+                writeRoute(ctx, List.of(bat));
+                check(waitFor(ctx, 100, () -> logHas(w, "Loaded 1 route")), weapon + ": the bat route never loaded");
+                long m = LogTap.mark();
+                tpRel(ctx, x + 0.5, 10.5, 0f, 30f);
+                boolean done = waitFor(ctx, 160, () -> logHas(m, "BAT: 1 kill(s)"));
+                boolean acted = logHas(m, "BAT acted");
+                println("batpresent " + weapon + ": acted " + acted + ", 1 kill " + done);
+                if (!acted) {
+                    failures.add(weapon + ": the bat node never acted");
+                }
+                if (!done) {
+                    failures.add(weapon + ": the bat that was already there was never counted as killed");
+                }
+                waitFor(ctx, 40, () -> !running(ctx));
+                stopRoute(ctx);
+                clearSecretBats(ctx);
+            }
+        } finally {
+            stopRoute(ctx);
+        }
+        check(failures.isEmpty(), String.join("; ", failures));
     }
 
     /**
