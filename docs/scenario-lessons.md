@@ -573,3 +573,15 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   change), then the key (block to air, not a secret), then the node (node and the 3-block strip gone, `SimScore.foundInRoom`
   +1, and an armor stand wearing the key profile visible to the CLIENT at node y - 2). Main jar: 0 levers armed, and the key
   position holds a lever, not a key head.
+- 144-sim-autosecret-handoff / 145-sim-autosecret-order / 364-logic-room-tour (mod ac-optimize-1015, 2026-10-15): routes
+  are one-node starts, so a route ends on its arming tick - before the trip after it can be searched on a COLD floor graph
+  (one search took 1.2 s there). Both sim cases wait for `EtherwarpPathfinder.graphWarm` first, as a real run is warm long
+  before its first route ends. Tick comparisons use `ClearExecutor.clientTick()` read in the SAME client task that changes
+  the world (a `ctx.waitFor` after it lets ticks pass). 145 picks its rooms by the mod planner's own warp counts
+  (`EtherwarpPathfinder.findDungeonPath` on the planner thread): straight-line distance and even map room steps misjudge
+  trips (45 blocks apart was 13 warps), and on such floors the "new order crossed the map" failure was the test's guess
+  being wrong, not the order. Its real-tick secret-weighted wait is printed, not judged: every sim trip pays ~20 ticks of
+  search/sneak/arrival settle whatever its length.
+- 131-sim-auto-clear case 9 (fewest repositions) counts `[Path] running` lines (trips really run), not `[AutoClear]
+  etherwarp toward`: before mod ac-optimize-1015 that line was logged again when the body had to be given back first
+  (Phase.RELEASE) and a 3-trip clear logged 5. Case 8 leaves a live zombie in the room he stands in; case 9 avoids it.
