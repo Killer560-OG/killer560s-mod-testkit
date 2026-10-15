@@ -273,9 +273,15 @@ final class HxDungeonCases {
 
     private static void runSummaryPb(Session s) {
         s.test("107-hx-runsummary-pb", c -> {
+            // The jar being compared against may predate the setting: then there is nothing to set, and the run
+            // shows what the old build did.
+            boolean hasMin = java.util.Arrays.stream(Mod.cls(PB_CFG).getMethods())
+                    .anyMatch(m -> m.getName().equals("getPbMinScore"));
             try (Settings set = new Settings(c).with("runsummary.RunSummaryConfig", "Enabled", true)
-                    .with(PB_CFG, "PbMinScore", 270)
                     .with(PB_CFG, "AnnouncePersonalBests", true)) {
+                if (hasMin) {
+                    set.with(PB_CFG, "PbMinScore", 270);
+                }
                 dungeon(c);
                 run(c, () -> Mod.staticCall(PB_STORE, "clear"));
                 long mark = LogTap.mark();
@@ -299,15 +305,14 @@ final class HxDungeonCases {
                         "a completed 270 run was NOT marked as a personal best (the premise: the feature must act)");
 
                 // S+ threshold: a completed 290 does not count, a completed 300 does.
-                try (Settings splus = new Settings(c).with(PB_CFG, "PbMinScore", 300)) {
+                try (Settings splus = hasMin ? new Settings(c).with(PB_CFG, "PbMinScore", 300) : new Settings(c)) {
                     Object s290 = playRun(c, true, 290, "S");
                     c.check(!flag(s290, "bestTime") && !flag(s290, "bestScore"),
                             "a completed 290 run counted with the S+ (300) threshold");
                     Object s300 = playRun(c, true, 300, "S+");
                     c.check(flag(s300, "bestScore"), "a completed 300 run was not a score personal best at S+");
                 }
-                String log = String.join("
-", LogTap.since(mark));
+                String log = String.join("\n", LogTap.since(mark));
                 int announced = log.split("Personal best!", -1).length - 1;
                 c.check(announced == 2, "expected exactly 2 'Personal best!' announcements (270 and 300), saw " + announced);
 
