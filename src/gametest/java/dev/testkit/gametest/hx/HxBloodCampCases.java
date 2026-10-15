@@ -842,13 +842,24 @@ final class HxBloodCampCases {
                     holding(c, w[0]);
                     stand(c, 0f, 0f);
                     List<Long> at = floorHusks(c, ",Health:20f,Invulnerable:1b", new double[][]{FLOOR[0]}, 90, false);
+                    @SuppressWarnings("unchecked")
+                    List<Long> sent = c.onClient(mc -> (List<Long>) Mod.staticCall(BC, "recentClickTicks"));
+                    List<Long> sentGaps = gaps(sent.subList(Math.max(0, sent.size() - at.size()), sent.size()));
                     List<Long> gg = gaps(at);
                     int cd = intStat(c, "lastCooldownTicks");
                     int want = Integer.parseInt(w[1]);
                     c.note("Aura on " + w[2] + ", " + w[0] + ": cooldown " + cd + " ticks, attacks " + at + ", gaps " + gg);
                     c.check(cd == want, w[0] + ": the cooldown read " + cd + " ticks, want " + want);
                     c.check(at.size() >= 3, w[0] + ": the Aura hit the floor husk only " + at.size() + " time(s)");
-                    c.check(gg.stream().allMatch(x -> x >= want), w[0] + ": hits came faster than " + want + " ticks: " + gg);
+                    // The client's own clicks are never closer than the cap. At the server a click can land a tick early
+                    // or late against the one before (each end acts on packets only at its own ticks - 792), so there
+                    // the gaps must average the cap and never be more than a tick under it.
+                    c.note("  client click gaps " + sentGaps);
+                    c.check(sentGaps.stream().allMatch(x -> x >= want), w[0] + ": the client clicked faster than " + want
+                            + " ticks: " + sentGaps);
+                    double mean = gg.stream().mapToLong(Long::longValue).average().orElse(0);
+                    c.check(gg.stream().allMatch(x -> x >= want - 1) && mean >= want - 0.05, w[0] + ": hits reached the"
+                            + " server faster than " + want + " ticks: " + gg);
                     long near = gg.stream().filter(x -> x <= want + 2).count();
                     c.check(near * 2 >= gg.size(), w[0] + ": most hits were not at the weapon's pace (" + gg
                             + ") - the cap is not what limits them");
