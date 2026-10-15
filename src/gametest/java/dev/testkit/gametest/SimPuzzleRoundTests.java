@@ -256,6 +256,118 @@ public final class SimPuzzleRoundTests {
         }
     }
 
+    /**
+     * Ice Fill's reward chests, LOOKED AT (killer560, 2026-10-15: chests "on each of those pillars ... a fairly distinct
+     * spot where they go after you finish the third part"). The tick the sim says solved, with him on the finish tile:
+     * every chest in the room is listed (world and room-relative), and one screenshot is taken looking at each of the
+     * two nearest, saved as icefill-chests-1/-2. Fails unless there are exactly two chests, each standing on polished
+     * andesite with a torch beside it.
+     */
+    public static final class IceFillShots extends SimPuzzleSolveTests.Base {
+        public IceFillShots() {
+            super(new SimPuzzleSolveTests.Spec("icefill-shots", "Ice Fill", "setAutoIceFillEnabled", "isAutoIceFillEnabled",
+                    "IceFillSolverConfig", "SimIceFillPuzzle", 0, false, 60, SimPuzzleSolveTests.Approach.NONE,
+                    "IceFillSolverFeature.getCurrentPath"));
+        }
+
+        @Override
+        SolveExtra extra() {
+            return new SolveExtra() {
+                boolean done = false;
+                String bad = null;
+                String what = "";
+
+                @Override
+                void configure(Object auto, Object cheat) {
+                    ModUnderTest.set(cheat, "setSecretAuraEnabled", false);
+                }
+
+                @Override
+                void tick(ClientGameTestContext ctx, int t, int solvedAt, boolean container) {
+                    if (solvedAt < 0 || done) {
+                        return;
+                    }
+                    done = true;
+                    // The chests, read on the client, and how each one stands.
+                    List<String> found = new ArrayList<>();
+                    List<double[]> chests = ctx.computeOnClient(mc -> {
+                        List<double[]> out = new ArrayList<>();
+                        var p = mc.player.blockPosition();
+                        int[] cr = (int[]) ModUnderTest.staticCall("com.killer560.hub.livemap.LiveMapFeature",
+                                "currentRoomClayAndRotation", new Class<?>[]{}, new Object[]{});
+                        for (var b : net.minecraft.core.BlockPos.betweenClosed(p.offset(-32, -12, -32), p.offset(32, 16, 32))) {
+                            var st = mc.level.getBlockState(b);
+                            if (!st.is(net.minecraft.world.level.block.Blocks.CHEST)
+                                    && !st.is(net.minecraft.world.level.block.Blocks.TRAPPED_CHEST)) {
+                                continue;
+                            }
+                            boolean pedestal = mc.level.getBlockState(b.below())
+                                    .is(net.minecraft.world.level.block.Blocks.POLISHED_ANDESITE);
+                            boolean torch = false;
+                            for (var q : net.minecraft.core.BlockPos.betweenClosed(b.offset(-1, 0, -1), b.offset(1, 0, 1))) {
+                                var s = mc.level.getBlockState(q);
+                                torch |= s.is(net.minecraft.world.level.block.Blocks.TORCH)
+                                        || s.is(net.minecraft.world.level.block.Blocks.WALL_TORCH);
+                            }
+                            Object rel = cr == null ? "?" : ModUnderTest.staticCall("com.killer560.hub.puzzlesolvers.PuzzleCoords",
+                                    "relative", new Class<?>[]{net.minecraft.core.BlockPos.class, int[].class},
+                                    new Object[]{b.immutable(), cr});
+                            found.add(String.format("%s (relative %s) on %s%s", b.toShortString(),
+                                    rel instanceof net.minecraft.core.BlockPos r ? r.toShortString() : rel,
+                                    pedestal ? "polished andesite" : mc.level.getBlockState(b.below()).getBlock().getName().getString(),
+                                    torch ? ", torch beside" : ", NO torch beside"));
+                            out.add(new double[]{b.getX() + 0.5, b.getY() + 0.5, b.getZ() + 0.5, pedestal && torch ? 1 : 0});
+                        }
+                        out.sort(java.util.Comparator.comparingDouble(c -> mc.player.distanceToSqr(c[0], c[1], c[2])));
+                        return out;
+                    });
+                    String rot = ctx.computeOnClient(mc -> java.util.Arrays.toString((int[]) ModUnderTest.staticCall(
+                            "com.killer560.hub.livemap.LiveMapFeature", "currentRoomClayAndRotation", new Class<?>[]{},
+                            new Object[]{})));
+                    what = chests.size() + " chest(s), room clay/rotation " + rot + ": " + String.join("; ", found);
+                    say(name, "chests at the solve: " + what);
+                    long good = chests.stream().filter(c -> c[3] == 1).count();
+                    if (chests.size() != 2 || good != 2) {
+                        bad = "expected two chests, each on a polished andesite pillar with a torch beside it - " + what;
+                    }
+                    // A look at each: from where he stands (the finish tile), turned to the chest - with the autos off
+                    // first, so no free camera holds the view where it was.
+                    ctx.runOnClient(mc -> {
+                        Object auto = ModUnderTest.config("com.killer560.hub.autopuzzles.AutoPuzzlesConfig");
+                        ModUnderTest.set(auto, "setAutoPuzzlesMasterEnabled", false);
+                        ModUnderTest.set(auto, "setAutoIceFillEnabled", false);
+                    });
+                    ctx.waitTicks(20);
+                    say(name, "standing at " + ctx.computeOnClient(mc -> mc.player.position().toString()));
+                    for (int i = 0; i < Math.min(2, chests.size()); i++) {
+                        double[] c = chests.get(i);
+                        ctx.runOnClient(mc -> {
+                            var eye = mc.player.getEyePosition();
+                            double dx = c[0] - eye.x;
+                            double dy = c[1] - eye.y;
+                            double dz = c[2] - eye.z;
+                            mc.player.setYRot((float) Math.toDegrees(Math.atan2(-dx, dz)));
+                            mc.player.setXRot((float) -Math.toDegrees(Math.atan2(dy, Math.hypot(dx, dz))));
+                        });
+                        ctx.waitTicks(3);
+                        java.nio.file.Path shot = ctx.takeScreenshot("icefill-chests-" + (i + 1));
+                        say(name, "screenshot " + (i + 1) + ": " + shot.toAbsolutePath());
+                    }
+                }
+
+                @Override
+                String verdict(ClientGameTestContext ctx, int solvedAt) {
+                    return solvedAt < 0 ? null : bad;
+                }
+
+                @Override
+                String summary() {
+                    return what;
+                }
+            };
+        }
+    }
+
     // ------------------------------------------------------------------ Ice Fill: each section's first tile
 
     public static final class IceFillFirstTile extends SimPuzzleSolveTests.Base {
