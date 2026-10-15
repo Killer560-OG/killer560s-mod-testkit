@@ -44,7 +44,8 @@ concurrency needs separate checkouts (Gradle locks the project dir). `-Psuite=<n
 Never start two `run-sharded.ps1` at once: both use the same shard worktrees (`<shardsDir>/<mc>-1`...), and two started
 in the same second share one `build/sharded-<timestamp>` folder - on 2026-10-07 the menu run quietly died under the ui run.
 `-PseedConfig=<dir>` copies into the client's config after the wipe. Every run points `prismaccountswitcher.accountsFile`
-at an empty fixture and passes `killer560.net.offline=true` and `killer560.test.noExternalOpen=true` (opt out:
+at an empty fixture, `prismaccountswitcher.universalProxyFile` into build/ (the real one is Prism's shared file every
+instance reads) and passes `killer560.net.offline=true` and `killer560.test.noExternalOpen=true` (opt out:
 `-PnetOnline`, `-PallowExternalOpen`, or `-PnoQuiet` for all, which also stops Session applying `mod/Quiet`).
 `-PnetOverride=svc=url;...` points mod services at fakes. Reports land in `build/testkit-report/` (summary.md/json,
 cases/, screens/, coverage.md). WP1 foundation and every API: `docs/wp/wp1-foundation.md`; change requests to frozen
