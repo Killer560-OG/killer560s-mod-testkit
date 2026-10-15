@@ -215,15 +215,24 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
 
     private void doorsBeforeStart(ClientGameTestContext ctx, Floor f) {
         Report.caseStarted(R_BEFORE);
-        int first = f.path.get(1);
-        int door = f.doorBetween(f.entrance, first);
+        // Two rooms off the Entrance-to-Blood path, joined by a door: coal round the second, the player in the first.
+        int[] pair = f.offPathPair(Set.of());
+        if (pair == null) {
+            row(R_BEFORE, false, "premise: no two joined rooms off the path");
+            return;
+        }
+        int first = pair[0];
+        int coalRoom = pair[1];
+        int door = f.doorBetween(first, coalRoom);
+        f.used.add(first);
+        f.used.add(coalRoom);
         int made = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_DOORS, "witherDoorsAround",
-                new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, f.names.get(first)}));
+                new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, f.names.get(coalRoom)}));
         BlockPos db = f.doorBlock(door);
         ctx.waitFor(mc -> mc.level.getBlockState(db).is(Blocks.COAL_BLOCK), 400);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "resetSimVisits"));
-        double[] inEntrance = f.tileCentre(f.tiles.get(f.entrance)[0], 0.5);
-        place(ctx, inEntrance, null);
+        double[] inFirst = f.tileCentre(f.tiles.get(first)[0], 0.5);
+        place(ctx, inFirst, null);
         ctx.waitTicks(20);
         boolean startedBefore = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_RUN, "hasStarted"));
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_RUN, "begin", new Class<?>[]{Minecraft.class, BlockPos.class},
@@ -251,9 +260,9 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         List<double[]> boxes = ctx.computeOnClient(mc -> boxes());
         List<String> labels = labels(ctx);
         boolean boxAtDoor = boxAt(boxes, f.doorCentre(door)) != null;
-        String detail = made + " coal door(s) round " + f.names.get(first) + "; run started before /start: " + startedBefore
+        String detail = made + " coal door(s) round " + f.names.get(coalRoom) + "; run started before /start: " + startedBefore
                 + "; " + countdownTicks + " countdown tick(s), " + drawnDuring + " with a box drawn, statuses " + statuses
-                + "; after GO: box at the Entrance's door " + door + " " + boxAtDoor + ", " + boxes.size() + " box(es), labels "
+                + "; after GO: box at the door " + door + " from " + f.names.get(first) + " " + boxAtDoor + ", " + boxes.size() + " box(es), labels "
                 + labels + ", status '" + statusSafe(ctx) + "'";
         row(R_BEFORE, made > 0 && !startedBefore && countdownTicks >= 60 && drawnDuring == 0
                 && statuses.contains("waiting for the run to start") && boxAtDoor && labels.contains("Wither Door"), detail);
@@ -264,29 +273,22 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
     private void doorsMapOnly(ClientGameTestContext ctx, Floor f) {
         Report.caseStarted(R_MAPONLY);
         // A room no opened room touches: not the Entrance, not next to it, not on the first steps of the path.
-        Set<Integer> avoid = new HashSet<>(List.of(f.entrance, f.blood, f.fairy, f.path.get(1)));
-        avoid.addAll(f.neighbours(f.entrance));
-        int room = -1;
-        int neighbour = -1;
-        for (int r = 0; r < f.names.size(); r++) {
-            if (avoid.contains(r) || f.neighbours(r).isEmpty()) {
-                continue;
-            }
-            for (int n : f.neighbours(r)) {
-                if (!avoid.contains(n) && !f.neighbours(n).contains(f.entrance)) {
-                    room = r;
-                    neighbour = n;
-                    break;
-                }
-            }
-            if (room >= 0) {
-                break;
-            }
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "resetSimVisits"));
+        // A pair off the path, neither next to the Entrance (opened) nor to the rooms 1721 used.
+        Set<Integer> near = new HashSet<>(f.neighbours(f.entrance));
+        for (int u : f.used) {
+            near.add(u);
+            near.addAll(f.neighbours(u));
         }
-        if (room < 0) {
+        int[] pair = f.offPathPair(near);
+        if (pair == null) {
             row(R_MAPONLY, false, "premise: no room away from the Entrance with a free neighbour");
             return;
         }
+        int room = pair[1];
+        int neighbour = pair[0];
+        f.used.add(room);
+        f.used.add(neighbour);
         final int fr = room;
         int made = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_DOORS, "witherDoorsAround",
                 new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, f.names.get(fr)}));
@@ -913,6 +915,26 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         int fairy = -1;
         int bloodDoor = -1;
         int doorY;
+
+        final Set<Integer> used = new HashSet<>();
+
+        /** {a, b}: two rooms joined by a door, neither on the Entrance-to-Blood path nor next to Fairy, neither in
+         *  {@code avoid}, b not touching a path room (so coal round b never lands on a path door). */
+        int[] offPathPair(Set<Integer> avoid) {
+            Set<Integer> bad = new HashSet<>(path);
+            bad.addAll(avoid);
+            bad.addAll(used);
+            for (int a = 0; a < names.size(); a++) {
+                if (bad.contains(a)) continue;
+                for (int b : neighbours(a)) {
+                    if (bad.contains(b)) continue;
+                    boolean touchesPath = false;
+                    for (int n : neighbours(b)) touchesPath |= path.contains(n);
+                    if (!touchesPath) return new int[]{a, b};
+                }
+            }
+            return null;
+        }
 
         List<Integer> neighbours(int room) {
             List<Integer> out = new ArrayList<>();
