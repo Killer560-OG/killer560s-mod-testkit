@@ -232,6 +232,12 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   so after 400/406 a direct lookup often never reaches the fake. 400/406 answer `/pf/stats` 404, which is their fallback.
   408-menu-partyfinder-stats-live runs a 25-player menu against the REAL backend: only with `TESTKIT_PF_LIVE=1` and
   `-Extra @("-PnetOnline")`; it prints coverage at 30/60/120/180 s and asserts nothing.
+- 411-menu-partyfinder-speed / 412-menu-partyfinder-background (`PartyFinderSpeedCases`, mod pf-speed-1015): a 15-player
+  menu against BOTH upstreams rate limited as his own logs show them, at 1/3 time: backend 3 per 10 s window then 429 with
+  the window's Retry-After, first request for 6 players a 500; relay pending until its pump reaches the name (one per 9 s,
+  first asked first, running whether polled or not) while promising 1.1 s per queue place. 411 times all-filled with the
+  menu open (limit 60 s); 412 closes after 5 s, waits 60 s, and needs all 15 within 1.5 s of reopening. Both clear the
+  Profile Viewer's own profile/name caches, or a direct lookup after 400/406/410 never reaches the fake.
 
 - 407-ui-stat-bars-layout (`StatBarsLayoutCases`, mod bars-anchors): Health and Mana Bars' Layout. Geometry is measured on
   screenshots by exact colour (each bar its own opaque colour, Show Value and text shadow off) in SURVIVAL with XP level 5,
