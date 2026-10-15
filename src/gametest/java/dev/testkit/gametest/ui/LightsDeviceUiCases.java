@@ -87,7 +87,7 @@ final class LightsDeviceUiCases {
             MenuLayoutCases.close(c, d);
             if (!Mod.isCheat()) {
                 c.note("legit jar: Lights Device cards " + cards.size());
-                c.check(cards.isEmpty(), "the legit jar shows a Lights Device card at " + cards.get(0).path());
+                c.check(cards.isEmpty(), "the legit jar shows a Lights Device card at " + (cards.isEmpty() ? "" : cards.get(0).path()));
                 return;
             }
             c.check(cards.size() == 1, "the cheat jar should have one Lights Device card, found " + cards.size());
