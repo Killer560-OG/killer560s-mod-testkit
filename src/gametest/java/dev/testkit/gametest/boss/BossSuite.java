@@ -43,6 +43,8 @@ public class BossSuite implements FabricClientGameTest {
                     GrimTickCases.register(s);
                     // Lever Aura CPS (846, branch nt-aura-2), own block.
                     LeverAuraCpsCases.register(s);
+                    // Lights Device, its own Aura and Triggerbot (1476-1478, branch lights-aura-1015), own block.
+                    LightsDeviceCases.register(s);
                 });
     }
 }

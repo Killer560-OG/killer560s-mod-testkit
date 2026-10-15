@@ -230,6 +230,8 @@ public class UiSuite implements FabricClientGameTest {
             "517-ui-menu-queue-masters", "518-ui-menu-independent-masters"};
     /** Lever Aura merged into Secret Aura + Menu Theme on overlays (mod aura-themes-1015, {@link AuraThemeCases}). Own block for merges. */
     static final String[] AURA_THEME_CASES = {"1420-ui-secret-aura-merge", "1421-ui-overlay-themes"};
+    /** Lights Device as its own cheat (mod lights-aura-1015, {@link LightsDeviceUiCases}). Own block for merges. */
+    static final String[] LIGHTS_DEVICE_CASES = {"1475-ui-lights-device"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -339,6 +341,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : AURA_THEME_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : LIGHTS_DEVICE_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : LOCKSTAR_HEAD_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -370,7 +375,8 @@ public class UiSuite implements FabricClientGameTest {
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
                 || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
                 || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES) || any(SWEAT_CASES)
-                || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES);
+                || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES)
+                || any(LIGHTS_DEVICE_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -670,6 +676,8 @@ public class UiSuite implements FabricClientGameTest {
                     // ---- Lever Aura in Secret Aura + overlay Menu Themes (1420-1421) ----
                     UiCase.run(ctx, "1420-ui-secret-aura-merge", AuraThemeCases::secretAuraMerge);
                     UiCase.run(ctx, "1421-ui-overlay-themes", AuraThemeCases::overlayThemes);
+                    // ---- Lights Device, its own cheat (1475) ----
+                    UiCase.run(ctx, "1475-ui-lights-device", LightsDeviceUiCases::lightsDevice);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

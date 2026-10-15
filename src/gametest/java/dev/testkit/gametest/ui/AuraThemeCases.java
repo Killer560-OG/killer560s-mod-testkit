@@ -16,7 +16,8 @@ import java.util.Map;
  * Mod aura-themes-1015 (killer560 2026-10-15, two to-do items).
  * <ul>
  *   <li>1420 Lever Aura is part of the Secret Aura tab: no Lever Aura card or tab class, the tab holds In Rooms / In Boss and,
- *       with In Boss on, the Lights Device, Section Levers and Boss Lever rows; the card stands for Secret Aura AND In Boss;
+ *       with In Boss on, the Section Levers and Boss Lever rows (the Lights rows are the Lights Device's own tab since mod
+ *       lights-aura-1015, {@link LightsDeviceUiCases}); the card stands for Secret Aura AND In Boss;
  *       an old Lever Aura file ("enabled": true, its other keys) migrates on load (In Boss on, the rest kept, the old key gone)
  *       and "enabled": false never turns In Boss off. Cheat jar only.</li>
  *   <li>1421 every overlay with a Menu Theme setting ({@code gui.OverlayThemes.ids()}): the setting is in its tab and starts on
@@ -98,6 +99,8 @@ final class AuraThemeCases {
             Object tab = secretAura;
             Path laPath = (Path) Mod.field(LA, "CONFIG_PATH");
             Path cuPath = (Path) Mod.field(CU, "CONFIG_PATH");
+            Path ldPath = (Path) Mod.field("lightsdevice.LightsDeviceConfig", "CONFIG_PATH");
+            byte[] ldBefore = snapshot(ldPath);
             byte[] laBefore = snapshot(laPath);
             byte[] cuBefore = snapshot(cuPath);
             Object cu = Mod.cfg(CU);
@@ -111,16 +114,19 @@ final class AuraThemeCases {
                 c.note("both off: " + off);
                 c.check(hasRow(off, "Secret Aura") && hasRow(off, "In Boss"),
                         "the tab should show Secret Aura and In Boss while both are off: " + off);
-                c.check(!hasRow(off, "Pre-Flick Lights Before S2") && !hasRow(off, "Boss Lever CPS"),
+                c.check(!hasRow(off, "S2 Section Levers") && !hasRow(off, "Boss Lever CPS"),
                         "the boss-lever options show with In Boss off: " + off);
                 // In Boss on, Secret Aura still off: In Boss is its own feature
                 Mod.call(cu, "setAuraBossLevers", true);
                 List<String> boss = c.onClient(mc -> labels(build(tab)));
                 c.note("In Boss on: " + boss);
-                for (String row : new String[]{"Pre-Flick Lights Before S2", "Finish Lights When S2 Opens", "S2 Section Levers",
+                for (String row : new String[]{"S2 Section Levers",
                         "Boss Lever Range", "Boss Lever CPS", "Boss Lever Swing Hand", "Boss Lever Chat Feedback"}) {
                     c.check(hasRow(boss, row), "In Boss on but no '" + row + "' row: " + boss);
                 }
+                // mod lights-aura-1015: the Lights rows left In Boss for the Lights Device tab
+                c.check(!hasRow(boss, "Pre-Flick Lights Before S2") && !hasRow(boss, "Finish Lights When S2 Opens"),
+                        "In Boss still builds the Lights rows: " + boss);
                 c.check(!hasRow(boss, "In Rooms"), "In Rooms shows with Secret Aura off: " + boss);
                 Mod.call(cu, "setSecretAuraEnabled", true);
                 List<String> both = c.onClient(mc -> labels(build(tab)));
@@ -144,7 +150,8 @@ final class AuraThemeCases {
                 c.check((Boolean) Mod.call(la, "isEnabledRaw"), "Lever Aura's own switch should read In Boss");
                 c.check(((Integer) Mod.call(la, "getCps")) == 9, "cps 9 did not carry over: " + Mod.call(la, "getCps"));
                 c.check((Boolean) Mod.call(la, "isSectionLeversRaw"), "sectionLevers did not carry over");
-                c.check(!(Boolean) Mod.call(la, "isLightsFinishRaw"), "lightsFinish false did not carry over");
+                // lightsFinish now belongs to the Lights Device (mod lights-aura-1015): it carries over THERE.
+                c.check(!(Boolean) Mod.get("lightsdevice.LightsDeviceConfig", "isFinish"), "lightsFinish false did not carry over");
                 c.check(!(Boolean) Mod.call(la, "isChatFeedback"), "chatFeedback false did not carry over");
                 c.check(Math.abs((Double) Mod.call(la, "getRange") - 3.0) < 0.01, "range 3.0 did not carry over");
                 String rewritten = Files.readString(laPath, StandardCharsets.UTF_8);
@@ -163,8 +170,10 @@ final class AuraThemeCases {
             } finally {
                 restore(laPath, laBefore);
                 restore(cuPath, cuBefore);
+                restore(ldPath, ldBefore);
                 Mod.staticCall(CU, "load");
                 Mod.staticCall(LA, "load");
+                Mod.staticCall("lightsdevice.LightsDeviceConfig", "load");
                 Object cu2 = Mod.cfg(CU);
                 Mod.call(cu2, "setSecretAuraEnabled", sa0);
                 Mod.call(cu2, "setAuraBossLevers", boss0);
