@@ -744,3 +744,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   named and writes `<report>/menu-anim-video/frame_NNNNN.png` (1/60 s of clock each) for
   `ffmpeg -framerate 60 -i frame_%05d.png -c:v libx264 -pix_fmt yuv420p -crf 18`.
 
+- 1597-1598 (`ui/MenuAnim2Cases`, mod menu-anim-2-1015): Animation Speed (durations ordered Extra Fast < Fast < Normal < Slow,
+  a drawer slide measured at 120 ms, the four stops pressed and reloaded), and every slider of every drawer - closed
+  sections opened, each off switch turned on in turn to show what it gates, all inside one client task so nothing it
+  turns on gets a tick - dragged to 41 between-step positions; the knob must equal what a freshly opened drawer puts it
+  at for the saved value, with the same text. Read the knob from the `value` field: the old jar has no accessor. On the
+  pre-change jar it named 186 knobs resting between two values.
