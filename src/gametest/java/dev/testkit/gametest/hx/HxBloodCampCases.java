@@ -436,7 +436,8 @@ final class HxBloodCampCases {
             }
             watcher(c, WATCHER_IN);
             stand(c, AWAY_YAW, 10f);
-            Trip t = trip(c, Mob.HURTABLE, false, 10, null);
+            // One hit kills it, so the Aura (which now attacks) has no second approach to overwrite the reaction time.
+            Trip t = trip(c, Mob.FRAGILE, false, 10, null);
             List<float[]> st = steps(t.looks);
             double total = 0;
             int moving = 0;
@@ -627,8 +628,9 @@ final class HxBloodCampCases {
             c.check(maxBodyTurn >= 40, "the Aura turned his body only " + maxBodyTurn + " degrees");
             c.check(heldTicks >= 5, "Freecam Mode never held the camera");
             c.check(maxViewMove < 0.01, "the camera moved " + maxViewMove + " degrees while the Aura turned him");
-            c.check(t.serverAttacks.size() == 1, "the Trigger Bot's attack (body on the husk, camera away) did not land once: "
-                    + t.serverAttacks.size());
+            // The Aura attacks too since bloodcamp-2-1015, so a second hit is allowed; the body's look did the hitting.
+            c.check(t.attacks >= 1 && !t.serverAttacks.isEmpty(), "the Trigger Bot's attack (body on the husk, camera"
+                    + " away) never landed");
             c.check(!heldAtEnd && backOff < 0.6, "after the mob was hit the body did not come back under the camera"
                     + " and release it (held " + heldAtEnd + ", " + backOff + " deg off)");
         } finally {
@@ -654,11 +656,12 @@ final class HxBloodCampCases {
         c.ctx().waitTicks(5);
     }
 
-    /** The server address reads as Hypixel's (for the attack-speed formula); the dialled address is unchanged. */
-    private static HxKit.Settings hypixel(Session c) {
+    /** The hx session's server reads as Hypixel (its label); this makes it read as a plain server for a while, so the
+     *  vanilla cooldown applies. The dialled address is unchanged. */
+    private static HxKit.Settings vanillaServer(Session c) {
         String ipWas = c.onClient(mc -> mc.getCurrentServer().ip);
         return new HxKit.Settings(c)
-                .custom(() -> Minecraft.getInstance().getCurrentServer().ip = "mc.hypixel.net",
+                .custom(() -> Minecraft.getInstance().getCurrentServer().ip = "localhost",
                         () -> Minecraft.getInstance().getCurrentServer().ip = ipWas);
     }
 
@@ -793,8 +796,9 @@ final class HxBloodCampCases {
             }
             c.check(attacks.size() >= 2 && auraAttacks >= 2, "the Aura did not kill the mobs already on the floor ("
                     + attacks.size() + " attack(s))");
-            c.check(gaps(attacks).stream().allMatch(g -> g >= 13), "attacks came faster than an iron sword's 13 ticks: "
-                    + gaps(attacks));
+            // The hx session reads as Hypixel: 0 Attack Speed is round(10 / 1) = 10 ticks between hits.
+            c.check(cooldown == 10, "the cooldown read " + cooldown + " ticks, want 10 (Hypixel, 0 Attack Speed)");
+            c.check(gaps(attacks).stream().allMatch(g -> g >= 10), "attacks came faster than 10 ticks: " + gaps(attacks));
         } finally {
             holding(c, "minecraft:air");
             c.hx().removeStands();
@@ -808,37 +812,40 @@ final class HxBloodCampCases {
         try (HxKit.Settings s = base(c)) {
             watcher(c, WATCHER_IN);
             holding(c, "minecraft:iron_sword");
-            // (a) Trigger Bot retries on a husk that takes no damage, vanilla server: never sooner than 13 ticks apart.
+            // (a) Trigger Bot retries on a husk that takes no damage (the session reads as Hypixel, 0 Attack Speed): never
+            // sooner than 10 ticks apart. On main they came every 6.
             if (cheat) {
                 s.with(BC_CFG, "TriggerBotEnabled", true);
             }
             stand(c, 0f, 0f);
             Trip t = trip(c, Mob.INVULNERABLE, true, 70, null);
             List<Long> g = gaps(t.serverAttacks);
-            c.note("Trigger Bot, iron sword, vanilla: " + fmt(t) + ", gaps " + g);
+            c.note("Trigger Bot, iron sword, Hypixel 0 Attack Speed: " + fmt(t) + ", gaps " + g);
             if (!cheat) {
                 c.check(t.serverAttacks.isEmpty(), "legit jar: the Trigger Bot clicked");
                 return;
             }
             c.check(t.serverAttacks.size() >= 2, "no retry to measure (" + t.serverAttacks.size() + " attack(s))");
-            c.check(g.stream().allMatch(x -> x >= 13), "Trigger Bot clicks came faster than an iron sword's 13 ticks: " + g);
-            // (b) The Aura on a floor husk that takes no damage, on "Hypixel": round(10 / (1 + AS/100)) ticks apart.
+            c.check(g.stream().allMatch(x -> x >= 10), "Trigger Bot clicks came faster than 10 ticks: " + g);
+            // (b) The Aura on a floor husk that takes no damage: round(10 / (1 + AS/100)) ticks apart on Hypixel, and the
+            // vanilla cooldown (an iron sword's 12.5, so 13) on a plain server.
             c.onClient(mc -> {
                 Mod.call(Mod.cfg(BC_CFG), "setTriggerBotEnabled", false);
                 Mod.call(Mod.cfg(BC_CFG), "setAuraEnabled", true);
                 return null;
             });
-            try (HxKit.Settings h = hypixel(c)) {
-                String[][] weapons = {{"minecraft:iron_sword", "10"},
-                        {"minecraft:iron_sword[lore=[\"Attack Speed: +100%\"]]", "5"}};
-                for (String[] w : weapons) {
+            String[][] weapons = {{"minecraft:iron_sword", "10", "hypixel"},
+                    {"minecraft:iron_sword[lore=[\"Attack Speed: +100%\"]]", "5", "hypixel"},
+                    {"minecraft:iron_sword", "13", "vanilla"}};
+            for (String[] w : weapons) {
+                try (HxKit.Settings h = w[2].equals("vanilla") ? vanillaServer(c) : new HxKit.Settings(c)) {
                     holding(c, w[0]);
                     stand(c, 0f, 0f);
                     List<Long> at = floorHusks(c, ",Health:20f,Invulnerable:1b", new double[][]{FLOOR[0]}, 90, false);
                     List<Long> gg = gaps(at);
                     int cd = intStat(c, "lastCooldownTicks");
                     int want = Integer.parseInt(w[1]);
-                    c.note("Aura on Hypixel, " + w[0] + ": cooldown " + cd + " ticks, attacks " + at + ", gaps " + gg);
+                    c.note("Aura on " + w[2] + ", " + w[0] + ": cooldown " + cd + " ticks, attacks " + at + ", gaps " + gg);
                     c.check(cd == want, w[0] + ": the cooldown read " + cd + " ticks, want " + want);
                     c.check(at.size() >= 3, w[0] + ": the Aura hit the floor husk only " + at.size() + " time(s)");
                     c.check(gg.stream().allMatch(x -> x >= want), w[0] + ": hits came faster than " + want + " ticks: " + gg);
