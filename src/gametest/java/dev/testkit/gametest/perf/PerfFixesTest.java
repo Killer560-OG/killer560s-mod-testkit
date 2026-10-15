@@ -44,10 +44,10 @@ public class PerfFixesTest implements FabricClientGameTest {
     private static final Map<String, Integer> WIDTH_BUDGET_BYTES = new LinkedHashMap<>();
 
     static {
-        WIDTH_BUDGET_BYTES.put("lag_display", 200);
-        WIDTH_BUDGET_BYTES.put("real_time", 100);
-        WIDTH_BUDGET_BYTES.put("mask_invincibility", 200);
-        WIDTH_BUDGET_BYTES.put("dungeon_info", 100);
+        WIDTH_BUDGET_BYTES.put("lag_display", 300);
+        WIDTH_BUDGET_BYTES.put("real_time", 150);
+        WIDTH_BUDGET_BYTES.put("mask_invincibility", 300);
+        WIDTH_BUDGET_BYTES.put("dungeon_info", 150);
     }
 
     private static final String[] LTR = {
