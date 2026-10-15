@@ -116,6 +116,8 @@
 			"dev.testkit.gametest.boss.BossSuite",
 			"dev.testkit.gametest.perf.FpsBenchTest",
 			"dev.testkit.gametest.perf.HubPerfBenchTest",
+			"dev.testkit.gametest.perf.FeatureCostBenchTest",
+			"dev.testkit.gametest.perf.PerfGateTest",
 			"dev.testkit.gametest.perf.NametagPerfBenchTest"
 		]
 	},
