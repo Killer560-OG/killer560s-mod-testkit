@@ -552,12 +552,17 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         double[] u = f.toward(hFrom, hd);
         double[] dc = f.doorCentre(hd);
         server(ctx, level -> {
-            // Sealed: every neighbour solid. Searched round the room's centre, under its floor.
+            // Sealed: every neighbour solid. Searched through the room's tile - under its floor first, then up through
+            // its walls and pillars - anywhere more than six blocks from the doorway.
             outer:
-            for (int dy = 2; dy <= 6; dy++) {
-                for (int dx = -6; dx <= 6; dx++) {
-                    for (int dz = -6; dz <= 6; dz++) {
-                        BlockPos p = new BlockPos((int) Math.floor(centre[0]) + dx, doorY - 1 - dy, (int) Math.floor(centre[2]) + dz);
+            for (int k = 0; k < 24; k++) {
+                int dy = k < 8 ? -2 - k : k - 8;
+                for (int dx = -13; dx <= 13; dx++) {
+                    for (int dz = -13; dz <= 13; dz++) {
+                        BlockPos p = new BlockPos((int) Math.floor(centre[0]) + dx, doorY - 1 + dy, (int) Math.floor(centre[2]) + dz);
+                        if (Math.abs(p.getX() + 0.5 - dc[0]) + Math.abs(p.getZ() + 0.5 - dc[2]) < 7) {
+                            continue;
+                        }
                         boolean sealed = !level.getBlockState(p).isAir();
                         for (net.minecraft.core.Direction dir : net.minecraft.core.Direction.values()) {
                             BlockState n = level.getBlockState(p.relative(dir));
