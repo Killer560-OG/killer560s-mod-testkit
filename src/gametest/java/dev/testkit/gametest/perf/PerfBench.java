@@ -65,12 +65,19 @@ final class PerfBench {
             "bridge.", "bugreport.", "bazaarflip.", "auction.", "translate.", "clicktranslate.", "shorts.",
             "partycommands.", "interop.", "dungeonqueue.", "packdisabler.", "supporters.", "autocorrect.");
 
+    /** Switch names that act on the world or the player or reach out, in any package (ArrowAlign's TriggerBot...). */
+    static final java.util.regex.Pattern NEVER_ON_NAME = java.util.regex.Pattern.compile(
+            "Auto|Aura|Trigger|Breaker|Dialogue|Share|Logger|Protection|DropKey|MelodyKeys|Borderless|Restore|Notify"
+                    + "|Cosmetics|PreventMisclicks|Gfs|Ult|Chocolate|Door");
+
     /** Switches that are not a plain isEnabled/setEnabled config but are features of their own (95's ON set). */
     static final String[][] EXTRA = {
             {"dungeoninfo.DungeonInfoConfig", "setSecretsHudEnabled", "isSecretsHudEnabled"},
             {"mobesp.MobEspConfig", "setStarredMobs", "isStarredMobsEnabled"},
             {"mobesp.MobEspConfig", "setBats", "isBatsEnabled"},
             {"mobesp.MobEspConfig", "setWithers", "isWithersEnabled"},
+            // Etherwarp Waypoints' master toggle is its highlight (its setEnabled is the old, removed HUD list's).
+            {"etherwarp.EtherwarpWaypointsConfig", "setHighlightBlocks", "isHighlightBlocks"},
     };
 
     private PerfBench() {
@@ -97,6 +104,10 @@ final class PerfBench {
         }
 
         boolean neverOn() {
+            // A switch whose own name says it acts or reaches out, whatever package it lives in.
+            if (label.contains("#") && NEVER_ON_NAME.matcher(label.substring(label.indexOf('#'))).find()) {
+                return true;
+            }
             for (String p : NEVER_ON) {
                 if (label.startsWith(p)) {
                     return true;
@@ -117,17 +128,42 @@ final class PerfBench {
             if (c == null) {
                 continue;
             }
+            Object cfg;
             try {
                 Method gi = c.getMethod("getInstance");
-                Method is = c.getMethod("isEnabled");
-                Method set = c.getMethod("setEnabled", boolean.class);
-                if (!Modifier.isStatic(gi.getModifiers()) || Modifier.isStatic(is.getModifiers())) {
+                if (!Modifier.isStatic(gi.getModifiers())) {
                     continue;
                 }
-                String label = fq.substring(Mod.ROOT.length());
-                out.put(label, new Switch(label, gi.invoke(null), is, set));
+                cfg = gi.invoke(null);
             } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
-                // not a plain on/off config
+                continue; // not a singleton config
+            }
+            String base = fq.substring(Mod.ROOT.length());
+            try {
+                Method is = c.getMethod("isEnabled");
+                Method set = c.getMethod("setEnabled", boolean.class);
+                if (!Modifier.isStatic(is.getModifiers())) {
+                    out.put(base, new Switch(base, cfg, is, set));
+                }
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+                // no plain isEnabled/setEnabled
+            }
+            // A feature's master switch is often named for it (setSecretsHudEnabled, setBearHud, setDvdEnabled):
+            // every set...Enabled / set...Hud(boolean) with a boolean getter counts, or OFF would leave it running
+            // (2026-10-15: Thorn's bear HUD, Blessings, Dungeon Extras and a dozen more were never switched off).
+            for (Method set : c.getMethods()) {
+                String n = set.getName();
+                if (Modifier.isStatic(set.getModifiers()) || set.getParameterCount() != 1
+                        || set.getParameterTypes()[0] != boolean.class || n.equals("setEnabled")
+                        || !(n.endsWith("Enabled") || n.endsWith("Hud"))) {
+                    continue;
+                }
+                String prop = n.substring(3);
+                Method is = getter(c, prop);
+                if (is != null) {
+                    String label = base + "#" + prop;
+                    out.putIfAbsent(label, new Switch(label, cfg, is, set));
+                }
             }
         }
         for (String[] e : EXTRA) {
@@ -142,6 +178,20 @@ final class PerfBench {
             }
         }
         return new ArrayList<>(out.values());
+    }
+
+    private static Method getter(Class<?> c, String prop) {
+        for (String g : new String[]{"is" + prop, "get" + prop, "is" + prop + "Raw", "get" + prop + "Raw"}) {
+            try {
+                Method m = c.getMethod(g);
+                if (!Modifier.isStatic(m.getModifiers()) && (m.getReturnType() == boolean.class)) {
+                    return m;
+                }
+            } catch (NoSuchMethodException ignored) {
+                // try the next name
+            }
+        }
+        return null;
     }
 
     static Map<Switch, Boolean> states(List<Switch> all) {
