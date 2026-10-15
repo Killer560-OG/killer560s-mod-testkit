@@ -791,6 +791,28 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
         return n == 0 ? 0 : moved / (double) n;
     }
 
+    /** Pixels whose summed RGB moved by more than 24 in the outer fifth of each side, above the bottom tenth. */
+    static int sideMoved(BufferedImage a, BufferedImage b) {
+        int w = Math.min(a.getWidth(), b.getWidth());
+        int h = Math.min(a.getHeight(), b.getHeight());
+        int moved = 0;
+        for (int y = 0; y < h * 9 / 10; y++) {
+            for (int x = 0; x < w; x++) {
+                if (x >= w / 5 && x < w - w / 5) {
+                    continue;
+                }
+                int p = a.getRGB(x, y);
+                int q = b.getRGB(x, y);
+                int d = Math.abs(((p >> 16) & 0xFF) - ((q >> 16) & 0xFF)) + Math.abs(((p >> 8) & 0xFF) - ((q >> 8) & 0xFF))
+                        + Math.abs((p & 0xFF) - (q & 0xFF));
+                if (d > 24) {
+                    moved++;
+                }
+            }
+        }
+        return moved;
+    }
+
     static Path shot(UiCase c, String label) {
         Path p = c.ctx().takeScreenshot(Report.fileName(c.name() + "-" + label));
         Report.screenshot(c.name(), p);
@@ -884,8 +906,14 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                     default -> {
                     }
                 }
-                if (!sc[0].equals("PLAIN")) {
-                    c.check(moved > 0.001, sc[0] + " did not move between two frames: " + summary.getLast());
+                // Motion is counted in the side strips only (no splash text, no buttons): the splash pulses on every
+                // scene, Plain included, so a whole-screen count cannot tell a moving background from a still one.
+                int side = sideMoved(a.img(), b.img());
+                summary.set(summary.size() - 1, summary.getLast() + ", sides " + side + " px");
+                if (sc[0].equals("PLAIN")) {
+                    c.check(side < 20, "Plain moved " + side + " px at the sides - the control is not still");
+                } else {
+                    c.check(side >= 20, sc[0] + " did not move at the sides between two frames: " + summary.getLast());
                 }
             }
             c.note("scenes: " + summary);
@@ -963,6 +991,11 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
         String bars = c.onClient(mc -> {
             Screen s = McCompat.screen(mc);
             Mod.call(s, "openFeature", MenuACases.leaf("HealthAndManaBarsTab"));
+            // Edit Bars shows while Stat Bars is on.
+            AbstractWidget master = row(s, "Stat Bars: OFF");
+            if (master != null) {
+                ModScreenDriver.press(master);
+            }
             AbstractWidget edit = row(s, "Edit Bars");
             if (edit == null) {
                 return "no Edit Bars row in Health and Mana Bars: " + labels(s);
@@ -974,6 +1007,10 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                 return "Edit Bars with no world opened " + now.getClass().getName();
             }
             Frames.extract(mc, s, -1, -1);
+            AbstractWidget on = row(s, "Stat Bars: ON");
+            if (master != null && on != null) {
+                ModScreenDriver.press(on);
+            }
             return notice != null && notice.toString().contains("Join a world") ? null : "no 'join a world' notice: " + notice;
         });
         c.check(bars == null, bars);

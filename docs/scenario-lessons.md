@@ -758,3 +758,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   NEXT trip's (the hand-over can be that fast), so only warps strictly before the end belong to the trip into the room.
 - Mod main's sim clears every room on entry (2026-10-14). A case that judges which rooms its clears killed their way to
   (141) turns `SimMobs.setClearRoomsOnEntry(false)` for its run, or any trip passing through a room "clears" it.
+- 1568-1570 (mod vanilla-themes-1015, 2026-10-15): 1569 walks the vanilla menus by real clicks from the title screen and
+  leaves each by its own Done/Back/Cancel. Never press `selectWorld.create` on CreateWorldScreen: with no saved worlds
+  Singleplayer opens it directly and that key is its "Create New World" button - the first run made a world and the client
+  hung. A theme check measures a button's mean colour in two screenshots (old jar: 30,30,30 in both themes). 1566 counts
+  scene motion only in the side strips: the splash text pulses, so a whole-screen count moved 0.1% on Plain too.
