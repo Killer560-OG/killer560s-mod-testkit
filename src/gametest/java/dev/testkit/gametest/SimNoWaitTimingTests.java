@@ -34,7 +34,20 @@ public final class SimNoWaitTimingTests {
     /** Tic Tac Toe: the solver's next move appearing (the computer's reply read) is when the click becomes possible. */
     private static String ticTacToeProbe(Minecraft mc) {
         Object best = ModUnderTest.staticCall(MOD + "puzzlesolvers.TicTacToeSolverFeature", "getBestMove");
-        return best == null ? "no move" : "move " + ((BlockPos) best).toShortString();
+        String move = best == null ? "no move" : "move " + ((BlockPos) best).toShortString();
+        // The secret chest seen open (the auto's own test, AutoTicTacToe.chestTaken): what the warp back waits for - the
+        // server's answer to Secret Aura's click, a round trip after it.
+        try {
+            Class<?> auto = Class.forName(MOD + "autopuzzles.AutoTicTacToe");
+            var m = auto.getDeclaredMethod("chestTaken", Minecraft.class);
+            m.setAccessible(true);
+            if (Boolean.TRUE.equals(m.invoke(null, mc))) {
+                return move + ", secret chest open";
+            }
+        } catch (ReflectiveOperationException e) {
+            return move + ", chestTaken unreadable";
+        }
+        return move;
     }
 
     /** Ice Fill: the tile under him turning packed (the server registered it) frees a section's first hop. */

@@ -129,3 +129,26 @@ Cases on the same Base, each adding its own settings and checks through `SolveEx
   map. Grab Secret now warps to a landing within SECRET AURA's own reach (standing eye to the chest's box, through walls,
   as the aura clicks) - the board side of that wall - and the case requires the secret COUNTED with no click of the auto's
   own. Mod 40562c30: PASS (secret at 1.2 s); main (380349f2 merge): FAIL, never counted.
+
+## No-wait timing (93-solve-*-timing, 1015-grim-puzzle-nowait)
+
+Mod branch puzzles-nowait-1015 (killer560's rule: automation acts the very next tick, no fixed safety waits).
+`SimNoWaitTimingTests` plays Ice Path, Ice Fill, Higher/Lower Blaze, Creeper Beams, Tic Tac Toe (Grab Secret, Secret Aura
+on) and Water Board's reward chest (Secret Aura off) on the same Base, with `PuzzleTimingExtra`: every click, use, sneak
+and landing stamped with its client tick, and four gaps judged at 1 tick - click -> next use, sneak down -> warp use,
+landing -> next action, ready -> click - plus the puzzle autos' `TurnFirst.foreignWait` read every tick (any waited tick
+fails). Shoot cooldown is set to its 250 ms minimum and a shot inside it is not counted (his setting, not a wait). Traps in
+the instrument, each found on the first runs:
+
+- A use-on packet is not always the auto's click: `RightClick.beforeUse` sends the block half of a vanilla right click in
+  the same tick as a use (dropped), and Secret Aura's chest click is another feature's (a ready moment, not a click). Told
+  apart by the stack at send time; the Interactive Map's warps (`livemap.autoclear`) likewise, kept as MAP_WARP.
+- A probe read at END of tick t (the solver's next move, the silverfish stopping) is first visible to an auto at START of
+  t + 1, so it is stamped t + 1; a landing is seen at START of its own tick (ActionGate's settle counts from it). A click
+  that needs a turn therefore reads 1 after a probe, an immediate shot 0.
+- Events before the auto is switched on (the room's own spawn landing) are dropped at the base's second configure.
+
+`1015-grim-puzzle-nowait` plays the resulting packet orders against GrimAC at START_CLIENT_TICK with the mod's primitives:
+landing (server tp keeping rotation) -> sneak let go and body on a lever -> click next tick -> warp look and sneak in that
+tick -> use next tick; bow rounds landing -> bow in hand -> shot next tick -> AOTV and use the tick after; and turn rounds
+under a held puzzle `FreeCam` (main waits in TurnFirst's foreign wait and holds the click; the branch turns and clicks).
