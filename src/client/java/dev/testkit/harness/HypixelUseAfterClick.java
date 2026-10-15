@@ -28,8 +28,8 @@ import net.minecraft.world.phys.Vec3;
  * <p>Fed by {@code dev.testkit.mixin.MixinServerGamePacketListenerUse} at HEAD of {@code handleUseItemOn} /
  * {@code handleUseItem} on the server thread - before vanilla snaps the player to the use packet's rotation, so the
  * player's rotation there IS the heard look. A use taken as a denied click's second half is acknowledged and otherwise
- * ignored. A use that pairs with a click with no movement packet between them is a vanilla right click's two halves
- * (one client tick; the block half fired whatever it fires): counted in {@link #pairedSameTick}, not {@link #dropped}. Off unless a scenario sets
+ * ignored. A use that pairs with a click from the same client tick (no tick-end packet between them) is a vanilla right
+ * click's two halves ( the block half fired whatever it fires): counted in {@link #pairedSameTick}, not {@link #dropped}. Off unless a scenario sets
  * {@link #enabled}; {@link #reset} turns it off again.
  */
 public final class HypixelUseAfterClick {
@@ -57,7 +57,7 @@ public final class HypixelUseAfterClick {
     private static boolean denied;
     private static int storedTick;
     private static BlockPos storedPos;
-    /** A movement packet has arrived since the stored click: a use now is not that click's own second half. */
+    /** A client tick ended since the stored click: a use now is not that click's own second half. */
     private static boolean movedSinceClick;
 
     private HypixelUseAfterClick() {
@@ -99,8 +99,9 @@ public final class HypixelUseAfterClick {
             return;
         }
         BlockPos pos = packet.getHitResult().getBlockPos();
-        if (sp.position().distanceToSqr(Vec3.atCenterOf(pos)) >= CLICK_STORE_RANGE * CLICK_STORE_RANGE
-                || sp.level().getBlockState(pos).isAir()) {
+        // A 1.8 server stores only a click within 8 blocks of a solid block; the distance is not held to here (harsher: the
+        // primers click blocks out of THIS server's reach, which a moving player can carry past 8 by the time it arrives).
+        if (sp.level().getBlockState(pos).isAir()) {
             return;
         }
         clicks++;
@@ -111,7 +112,7 @@ public final class HypixelUseAfterClick {
         movedSinceClick = false;
     }
 
-    /** Server thread: a movement packet arrived. */
+    /** Server thread: a client tick ended (its tick-end packet arrived). */
     public static void onMove() {
         movedSinceClick = true;
     }
