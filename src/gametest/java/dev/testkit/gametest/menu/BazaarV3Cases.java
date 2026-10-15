@@ -894,7 +894,7 @@ final class BazaarV3Cases {
             BufferedImage during = shot(c, "v3-seamless-empty-next-page");
             int grey = BazaarReskinCases.count(during, CHEST_GREY);
             String midSummary = summary(c);
-            c.check(grey < 50, "B: " + grey + " chest-grey pixels while the next page is empty");
+            c.check(grey < 50, "B: " + grey + " chest-gray pixels while the next page is empty");
             c.check(midSummary.contains("frozen") && midSummary.contains("PRODUCT"), "B: while empty the panel shows "
                     + midSummary);
             List<Map.Entry<String, com.google.gson.JsonElement>> items = new ArrayList<>(amount.getAsJsonObject("slots")
@@ -914,7 +914,7 @@ final class BazaarV3Cases {
             record(c, false);
             List<String> fb = frames(c);
             c.check(badFrames(fb).isEmpty(), "B: bad frames: " + badFrames(fb));
-            c.note("B empty next page + " + items.size() + " slots trickled in: " + fb.size() + " frames, chest grey "
+            c.note("B empty next page + " + items.size() + " slots trickled in: " + fb.size() + " frames, chest gray "
                     + grey + " mid-way (" + midSummary + "): " + sequence(fb));
 
             // C: the menu-less screen to Hypixel's product page, through /bz and the follow-up click.
@@ -940,7 +940,7 @@ final class BazaarV3Cases {
             c.check(clicks(c) == base + 1, "C: " + (clicks(c) - base) + " clicks");
             c.check(preview.equals(productRegions), "C: the product layout moved between the preview and Hypixel's page:\n"
                     + preview + "\n" + productRegions);
-            c.check(BazaarReskinCases.count(early, CHEST_GREY) < 50, "C: chest grey while opening");
+            c.check(BazaarReskinCases.count(early, CHEST_GREY) < 50, "C: chest gray while opening");
             c.note("C screen -> /bz -> results (held) -> follow-up -> product: " + fc.size() + " frames: " + sequence(fc));
         }
     }

@@ -189,7 +189,7 @@ public class SimStaticWaterTests implements FabricClientGameTest {
                 return "FAIL - " + tag + "water spread outside the Water Board - " + facts;
             }
             if (frozen <= 0) {
-                return "FAIL - " + tag + "the hook never cancelled a tick (nothing proves it ran) - " + facts;
+                return "FAIL - " + tag + "the hook never canceled a tick (nothing proves it ran) - " + facts;
             }
         }
         return "PASS - " + tag + facts;

@@ -295,9 +295,9 @@ final class ItemUiCases {
             c.check(m9 && !m10, "slotMatches: diamond " + m9 + ", golden " + m10);
             // A filled slot: well over a third of the 16x16 is the colour around the sword (an outline is 60 of 256).
             c.check(pink9 >= 100 * gs * gs, "the matching slot is not filled: " + pink9 + " pink px");
-            c.check(pink10 == 0, "the non-matching slot is coloured: " + pink10);
-            c.check(pinkNone == 0, "colour drawn with no query: " + pinkNone);
-            c.check(pinkAll - pink9 <= 4 * gs * gs, "the colour spills outside the matching slot: " + (pinkAll - pink9));
+            c.check(pink10 == 0, "the non-matching slot is colored: " + pink10);
+            c.check(pinkNone == 0, "color drawn with no query: " + pinkNone);
+            c.check(pinkAll - pink9 <= 4 * gs * gs, "the color spills outside the matching slot: " + (pinkAll - pink9));
         } finally {
             closeScreen(c);
             setQuery(c, "");
@@ -604,7 +604,7 @@ final class ItemUiCases {
                 }
             }
             c.note("hovered slot " + (hovered == null ? "none" : ((Slot) hovered).index) + ": " + hit + " of " + cells
-                    + " star cells drawn in the star colour");
+                    + " star cells drawn in the star color");
             c.check(hovered != null && ((Slot) hovered).index == s9[2], "the cursor is not over the protected slot");
             c.check(hit >= cells - 1, "the star disappears on the hovered slot: " + hit + " of " + cells + " cells");
             closeScreen(c);
@@ -931,7 +931,7 @@ final class ItemUiCases {
             // The grid: nine dark cells with brown outlines inside the popup; count the outline colour there.
             int brown = InvBatchCases.count(img, bounds[0] * gs, bounds[1] * gs, (bounds[0] + bounds[2]) * gs,
                     (bounds[1] + bounds[3]) * gs, 0x553311);
-            c.note("popup at " + java.util.Arrays.toString(bounds) + ": " + brown + " px of grid outline colour");
+            c.note("popup at " + java.util.Arrays.toString(bounds) + ": " + brown + " px of grid outline color");
             c.check(brown > 1500, "the popup drew no crafting grid: " + brown);
         });
     }

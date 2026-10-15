@@ -131,7 +131,7 @@ final class ProfitCases {
             AbstractWidget card = cardLabelled(c, hub, e.label());
             double[] centre = drawnCentre(c, hub, card);
             clickAt(c, centre[0], centre[1]);
-            Screen tracker = expectScreen(c, e.screen(), "clicking the '" + e.label() + "' card at its drawn centre");
+            Screen tracker = expectScreen(c, e.screen(), "clicking the '" + e.label() + "' card at its drawn center");
             Frames.Drawn drawn = c.onClient(mc -> Frames.extract(mc, tracker, -1, -1));
             c.note(e.word() + " screen " + tracker.getClass().getSimpleName() + " drew " + drawn);
             c.check(drawn.total() > 0, e.screen() + " drew nothing");
@@ -283,7 +283,7 @@ final class ProfitCases {
                 return w;
             }
         }
-        c.check(false, "no card labelled '" + label + "' on the hub");
+        c.check(false, "no card labeled '" + label + "' on the hub");
         return null;
     }
 

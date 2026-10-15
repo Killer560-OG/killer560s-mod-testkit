@@ -2,6 +2,7 @@
   "_doc": "Label keywords (case-insensitive substring of the formatting-stripped label) the WP4 UI sweeps never press. The sweeps only ever press two kinds of button: a closed section header ('▶ Title', CollapsibleSection) and a two-state toggle ('Name: ON'/'Name: OFF', pressed twice so it ends where it started). Everything else is construct+render only. A keyword here keeps even those two kinds unpressed.",
   "keywords": [
     {"match": "discord", "why": "Discord RPC opens a local IPC pipe to the real Discord client; the home tab's Discord button opens a browser (gui/tab/HomeMainTab.java:78)"},
+    {"match": "sweat mode", "why": "one-shot: opens a video in the browser and turns itself back off (mod 01460812), so a second press cannot restore it"},
     {"match": "spotify", "why": "talks to the desktop Spotify app and lrclib (QUIET profile)"},
     {"match": "voice", "why": "Voice To Text opens the microphone and downloads a Vosk model (QUIET profile)"},
     {"match": "shorts", "why": "Shorts launches a real browser through DevTools (shorts/ShortsFeature.java:337)"},

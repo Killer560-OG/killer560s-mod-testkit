@@ -315,7 +315,7 @@ public class SimMapWarpTests implements FabricClientGameTest {
         }
         println(moved + " of " + targets.size() + " press(es) got him there; " + UNREACHABLE[0]
                 + " room(s) behind a locked door");
-        println("arrival depth (blocks from the clicked tile's centre, tile presses): " + DEPTHS);
+        println("arrival depth (blocks from the clicked tile's center, tile presses): " + DEPTHS);
         if (moved < Math.min(4, targets.size() - UNREACHABLE[0])) {
             failures.add("only " + moved + " press(es) got him into the room");
         }
@@ -471,8 +471,8 @@ public class SimMapWarpTests implements FabricClientGameTest {
         if (travelled >= 1 && inTile && kind.equals("tile")) {
             double depth = Math.max(Math.abs(to.x - (centre.getX() + 0.5)), Math.abs(to.z - (centre.getZ() + 0.5)));
             DEPTHS.add(String.format("%.0f (was %s)", depth, checkDepth < 0 ? "?" : String.valueOf(checkDepth)));
-            println(String.format("  %s: ended %.1f blocks from the tile centre (planner: %s; without the preference:"
-                            + " %s warp(s), %s block(s) from the centre)", label, depth,
+            println(String.format("  %s: ended %.1f blocks from the tile center (planner: %s; without the preference:"
+                            + " %s warp(s), %s block(s) from the center)", label, depth,
                     depthNote == null ? "no landing line" : depthNote, checkWarps < 0 ? "?" : checkWarps,
                     checkDepth < 0 ? "?" : checkDepth));
             if (depthNote == null || checkWarps < 0) {
@@ -481,8 +481,8 @@ public class SimMapWarpTests implements FabricClientGameTest {
             } else if (!warps.trim().matches("\\d+") || Integer.parseInt(warps.trim()) > checkWarps) {
                 // More warps than the no-preference plan is the bug; FEWER (13 vs 14 on 26.2, 2026-10-06) only means the
                 // no-preference search is not perfectly minimal itself, and the centred plan is fine.
-                failures.add(label + ": " + warps + " warp(s), but the fewest without the centre preference is "
-                        + checkWarps + " - landing nearer the centre must never cost a warp");
+                failures.add(label + ": " + warps + " warp(s), but the fewest without the center preference is "
+                        + checkWarps + " - landing nearer the center must never cost a warp");
             }
         }
         if (noRoomRoute && travelled < 1) {

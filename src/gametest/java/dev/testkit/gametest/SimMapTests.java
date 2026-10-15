@@ -208,7 +208,7 @@ public class SimMapTests implements FabricClientGameTest {
                 }
             }
         });
-        System.out.println("[79-sim-map] placements merged into a neighbour: " + mergedRooms.size()
+        System.out.println("[79-sim-map] placements merged into a neighbor: " + mergedRooms.size()
                 + ", placements split across map rooms: " + splitRooms.size());
         for (String s : splitRooms) {
             System.out.println("[79-sim-map]   SPLIT " + s);

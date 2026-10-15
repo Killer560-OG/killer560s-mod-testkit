@@ -116,7 +116,7 @@ final class HxBatCases {
             c.hx().chat("§r§e" + BAT_LINE.replace("+1", "§a+1"));
             c.ctx().waitTicks(10);
             c.check(c.onClient(mc -> batBonus()) == 1, "a second line of his own counted twice: " + killers(c));
-            c.note("8 forged lines counted nothing; the real line -> killers " + k1 + ", batBonus 1; a coloured repeat"
+            c.note("8 forged lines counted nothing; the real line -> killers " + k1 + ", batBonus 1; a colored repeat"
                     + " stays 1");
         }
     }

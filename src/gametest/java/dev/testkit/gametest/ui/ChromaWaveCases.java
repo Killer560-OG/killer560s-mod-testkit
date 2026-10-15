@@ -165,7 +165,7 @@ final class ChromaWaveCases {
                     hue0[br[0]][br[1]], tlbr));
             c.check(along.size() > 50 && alongMedian > 8 && alongMedian < 45,
                     "hue does not rise steadily along the line: median " + alongMedian + " over " + along.size());
-            c.check(tlbr > 15, "top-left and bottom-right glyphs are the same colour (" + tlbr + " deg apart)");
+            c.check(tlbr > 15, "top-left and bottom-right glyphs are the same color (" + tlbr + " deg apart)");
 
             // (2) over time: at a fixed pixel the hue falls by ~30 deg in 250 ms (speed 1 = 3 s a cycle), the opposite
             //     sign of the rise toward the bottom right, so the bands move toward the bottom right.
@@ -314,7 +314,7 @@ final class ChromaWaveCases {
             for (int i = 0; i < 3; i++) {
                 c.check("chroma".equals(styleOf[i]), allNames[i] + " is not styled Perfect chroma: " + styleOf[i]);
             }
-            c.check(greatHex.equals(styleOf[3]), "Turbo-Wheat V is not the static Great colour " + greatHex + ": " + styleOf[3]);
+            c.check(greatHex.equals(styleOf[3]), "Turbo-Wheat V is not the static Great color " + greatHex + ": " + styleOf[3]);
 
             // ---- the three VII lines, from pixels
             Frame f0 = shot(c, canvas, "vii-t0");
@@ -325,7 +325,7 @@ final class ChromaWaveCases {
             List<int[]> p1 = chromaPixels(f1.img, mask);
             List<int[]> bands = bands(p0);
             c.note("VII hoe: " + p0.size() + " saturated px, line bands " + bands.stream().map(Arrays::toString).toList());
-            c.check(bands.size() == 3, "want 3 coloured enchant lines on the VII hoe, found " + bands.size());
+            c.check(bands.size() == 3, "want 3 colored enchant lines on the VII hoe, found " + bands.size());
             float[][] hue0 = hueMap(f0.img, p0);
             float[][] hue1 = hueMap(f1.img, p1);
             int dx = (int) Math.round(10 * f0.scale);
@@ -393,10 +393,10 @@ final class ChromaWaveCases {
             c.note(String.format("Turbo-Wheat V: %d saturated px in %d band(s); median %.1f deg from Great's hue %.0f (worst"
                             + " %.1f); %d px 250 ms later, median |change| %.1f deg", q0.size(), bands(q0).size(), medOff,
                     greatHue, worst, movedV.size(), medMoved));
-            c.check(q0.size() > 30 && bands(q0).size() == 1, "Turbo-Wheat V drew " + q0.size() + " coloured px in "
-                    + bands(q0).size() + " band(s), want one line in the Great colour");
-            c.check(medOff < 6 && worst < 20, "Turbo-Wheat V is not the Great colour: median " + medOff + " deg off");
-            c.check(movedV.size() > 30 && medMoved < 3, "Turbo-Wheat V changes colour over time: median " + medMoved);
+            c.check(q0.size() > 30 && bands(q0).size() == 1, "Turbo-Wheat V drew " + q0.size() + " colored px in "
+                    + bands(q0).size() + " band(s), want one line in the Great color");
+            c.check(medOff < 6 && worst < 20, "Turbo-Wheat V is not the Great color: median " + medOff + " deg off");
+            c.check(movedV.size() > 30 && medMoved < 3, "Turbo-Wheat V changes color over time: median " + medMoved);
         } finally {
             try {
                 c.onClient(mc -> {
@@ -510,7 +510,7 @@ final class ChromaWaveCases {
                     + " compared, median change %+.1f deg (formula -30)", p0.size(), htl, hbr, moved.size(), med));
             c.check(p0.size() > 300, "the chroma border drew only " + p0.size() + " saturated px");
             c.check(htl >= 0 && hbr >= 0 && Math.abs(circ(hbr - htl)) > 30,
-                    "the border's corners are not different colours: " + htl + " vs " + hbr);
+                    "the border's corners are not different colors: " + htl + " vs " + hbr);
             c.check(moved.size() > 300 && med < -15 && med > -45, "the border's chroma did not flow: median " + med);
         } finally {
             try {
@@ -568,12 +568,12 @@ final class ChromaWaveCases {
             float want1 = expectedCentreHue(c, T0 + 750);
             float[] got0 = centreHue(a);
             float[] got1 = centreHue(b);
-            c.note(String.format("crosshair: %d / %d chroma px at the centre; mean hue %.0f then %.0f (ChromaWave at the"
-                    + " centre says %.0f then %.0f)", (int) got0[1], (int) got1[1], got0[0], got1[0], want0, want1));
+            c.note(String.format("crosshair: %d / %d chroma px at the center; mean hue %.0f then %.0f (ChromaWave at the"
+                    + " center says %.0f then %.0f)", (int) got0[1], (int) got1[1], got0[0], got1[0], want0, want1));
             c.check(got0[1] > 20 && got1[1] > 20, "the chroma crosshair drew too few saturated px: " + got0[1] + ", " + got1[1]);
             c.check(Math.abs(circ(got1[0] - got0[0])) > 40, "the crosshair's chroma did not change over 750 ms");
             c.check(Math.abs(circ(got0[0] - want0)) < 25 && Math.abs(circ(got1[0] - want1)) < 25,
-                    "the crosshair's colour is not ChromaWave's at the screen centre");
+                    "the crosshair's color is not ChromaWave's at the screen center");
         } finally {
             try {
                 c.onClient(mc -> {

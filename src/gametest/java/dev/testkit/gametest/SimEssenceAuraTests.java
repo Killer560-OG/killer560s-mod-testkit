@@ -199,7 +199,7 @@ public class SimEssenceAuraTests implements FabricClientGameTest {
         }
         String clientView = ctx.computeOnClient(mc -> describe(mc.level.getBlockState(skull).getBlock().toString(),
                 mc.level.getBlockEntity(skull)) + ", eye " + String.format(java.util.Locale.ROOT, "%.2f",
-                Math.sqrt(mc.player.getEyePosition().distanceToSqr(Vec3.atCenterOf(skull)))) + " from its centre");
+                Math.sqrt(mc.player.getEyePosition().distanceToSqr(Vec3.atCenterOf(skull)))) + " from its center");
         String inHand = ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(
                 "com.killer560.hub.cheatutils.CheatUtils", "skyblockId",
                 new Class<?>[]{net.minecraft.world.item.ItemStack.class},

@@ -1,11 +1,11 @@
 {
-  "_doc": "Recorded by 412-ui-no-new-tab from a jar that still had the New category: every leaf tab under New (class -> path) and the tooltip each row showed there (owner sub-tab -> label key -> tooltip). Variant cheat. Edited 2026-10-08 (mod inv-batch, killer560's request): Armor Recolour became Custom Items (tab, rows and tooltips replaced), Cosmetics became Player Cosmetics, and the Inventory Sorter's master tooltip changed with the rebuilt feature. Edited 2026-10-08 (mod chat-keybinds-merge, killer560's request): Command Shortcuts was merged into Chat Keybinds - its leaf is MERGED in MenuLayoutCases and its rows are judged under Chat Keybinds; the Chat Keybinds tooltips (unscoped and master) changed, the old 'command shortcuts' master row is gone, and the built-in rows' tooltips carry the '/fN sends /joininstance ...' text they have had since cmd-shortcuts. Edited 2026-10-11 (mod dungeon-b2, killer560's 2026-10-09 list): Door Keys and Auto Kick tooltips rewritten for the key circle and the Party Finder Auto Kick; Dungeon ESP's Through Walls / Wither Bosses rows replaced by one ESP switch (Tracer only built under it); Wither Highlight renamed Wither Boss Highlight.",
+  "_doc": "Recorded by 412-ui-no-new-tab from a jar that still had the New category: every leaf tab under New (class -> path) and the tooltip each row showed there (owner sub-tab -> label key -> tooltip). Variant cheat. Edited 2026-10-08 (mod inv-batch, killer560's request): Armor Recolor became Custom Items (tab, rows and tooltips replaced), Cosmetics became Player Cosmetics, and the Inventory Sorter's master tooltip changed with the rebuilt feature. Edited 2026-10-08 (mod chat-keybinds-merge, killer560's request): Command Shortcuts was merged into Chat Keybinds - its leaf is MERGED in MenuLayoutCases and its rows are judged under Chat Keybinds; the Chat Keybinds tooltips (unscoped and master) changed, the old 'command shortcuts' master row is gone, and the built-in rows' tooltips carry the '/fN sends /joininstance ...' text they have had since cmd-shortcuts. Edited 2026-10-11 (mod dungeon-b2, killer560's 2026-10-09 list): Door Keys and Auto Kick tooltips rewritten for the key circle and the Party Finder Auto Kick; Dungeon ESP's Through Walls / Wither Bosses rows replaced by one ESP switch (Tracer only built under it); Wither Highlight renamed Wither Boss Highlight.",
   "leaves": {
     "gui.tab.AbilityCooldownTab": "New > Ability Cooldowns",
     "gui.tab.AbilityKeybindsTab": "New > Ability Keybinds",
     "gui.tab.Ap3Tab": "New > AP3",
     "gui.tab.ArchitectDraftTab": "New > Architect's First Draft",
-    "gui.tab.CustomItemsTab": "New > Armor Recolour",
+    "gui.tab.CustomItemsTab": "New > Armor Recolor",
     "gui.tab.ArrowAlignTab": "New > Arrow Align",
     "gui.tab.AuctionHouseTab": "New > Auction House",
     "gui.tab.AutoAnvilTab": "New > Auto Anvil",
@@ -42,7 +42,7 @@
     "gui.tab.DungeonBreakerTab": "New > Dungeon Breaker",
     "gui.tab.DungeonInfoTab": "New > Secrets HUD",
     "gui.tab.DungeonQueueTab": "New > Dungeon Queue",
-    "gui.tab.EnchantColorsTab": "New > Enchant Colours",
+    "gui.tab.EnchantColorsTab": "New > Enchant Colors",
     "gui.tab.F7SpotsTab": "New > F7 Spots",
     "gui.tab.FastLeapTab": "New > Fast/Auto Leap",
     "gui.tab.FreezeStateTab": "New > Freeze State",
@@ -106,7 +106,7 @@
       "advanced position": "",
       "ap3": "Cheat build: walks a hand-placed node chain through each F7/M7 boss phase.",
       "architect's first draft": "",
-      "custom items": "Recolours and reskins items on your screen only; nothing is sent to the server.",
+      "custom items": "Recolors and reskins items on your screen only; nothing is sent to the server.",
       "arrow align": "Shows how many clicks each Arrow Align frame still needs and can block clicks that overshoot.",
       "auction house": "",
       "auto anvil": "In Hypixel's Anvil, combines two identical single-enchant books into the next level, where the anvil can make it (cheat build only).",
@@ -134,14 +134,14 @@
       "command shortcuts": "",
       "cosmetics": "",
       "croesus / chest profit": "Shows what each dungeon reward chest is worth, logs your claims, and (cheat build) claims the best chest.",
-      "custom mage beam": "In dungeons, redraws every Mage beam as one clean coloured line.",
+      "custom mage beam": "In dungeons, redraws every Mage beam as one clean colored line.",
       "custom scoreboard": "Replaces the sidebar with a custom styled scoreboard.",
       "dungeon alerts": "",
       "dungeon breaker": "",
       "dungeon esp": "Boxes starred mobs, secret bats and the F7/M7 wither bosses.",
       "dungeon map": "Draws the real dungeon map as a HUD overlay, showing only what your hotbar map has revealed.",
       "dungeon queue": "",
-      "enchant colours": "Recolours enchantment names in Hypixel item lore by tier, like SkyHanni.",
+      "enchant colors": "Recolors enchantment names in Hypixel item lore by tier, like SkyHanni.",
       "f7 spots": "",
       "fairy souls": "Tracks which Fairy Souls you have found and guides you to the missing ones.",
       "fast/auto leap": "",
@@ -184,7 +184,7 @@
       "spring boots": "",
       "storage search": "Searches your cached Ender Chests and Backpacks from one screen; also opens with /k560search.",
       "team melody": "",
-      "teammate highlight": "Draws a box around each party member, coloured by their dungeon class.",
+      "teammate highlight": "Draws a box around each party member, colored by their dungeon class.",
       "terminal aura": "Cheat build: opens any terminal in range during F7/M7 P3.",
       "terminal timers": "Shows terminal solve times and section splits in your own chat during F7/M7 P3.",
       "terminal triggerbot": "Cheat build: opens the terminal your crosshair is on during F7/M7 P3.",
@@ -214,8 +214,8 @@
       "click message on puzzle fail": "Posts a clickable chat line to get an Architect's First Draft from your sack when a puzzle fails."
     },
     "Custom Items": {
-      "custom items": "Recolours and reskins items on your screen only; nothing is sent to the server.",
-      "open custom items": "Opens the Custom Items menu (/customitems): pick an item, then set its colour, skin or look.",
+      "custom items": "Recolors and reskins items on your screen only; nothing is sent to the server.",
+      "open custom items": "Opens the Custom Items menu (/customitems): pick an item, then set its color, skin or look.",
       "reset all": "Removes every saved look; press twice."
     },
     "Arrow Align": {
@@ -320,19 +320,19 @@
     },
     "Blessings": {
       "blessings hud": "Draws one line per blessing you have picked up while inside a dungeon.",
-      "colors": "Text colour of each blessing's HUD line.",
+      "colors": "Text color of each blessing's HUD line.",
       "life": "Show Blessing of Life.",
-      "life color": "Colour of the Life line on the Blessings HUD.",
+      "life color": "Color of the Life line on the Blessings HUD.",
       "power": "Show Blessing of Power.",
-      "power color": "Colour of the Power line on the Blessings HUD.",
+      "power color": "Color of the Power line on the Blessings HUD.",
       "roman numerals": "Writes blessing levels as V instead of 5.",
       "shown blessings": "Which blessings may appear on the HUD.",
       "stone": "Show Blessing of Stone.",
-      "stone color": "Colour of the Stone line on the Blessings HUD.",
+      "stone color": "Color of the Stone line on the Blessings HUD.",
       "time": "Show Blessing of Time.",
-      "time color": "Colour of the Time line on the Blessings HUD.",
+      "time color": "Color of the Time line on the Blessings HUD.",
       "wisdom": "Show Blessing of Wisdom.",
-      "wisdom color": "Colour of the Wisdom line on the Blessings HUD."
+      "wisdom color": "Color of the Wisdom line on the Blessings HUD."
     },
     "Blood Camp": {
       "blood camp": "Tracks the Watcher's blood mobs and predicts where each will land."
@@ -392,14 +392,14 @@
     "Player Cosmetics": {
       "checking supporter status...": "",
       "copy settings for global cosmetics": "Copies your name and scale to your clipboard so staff can apply them for you.",
-      "custom names": "Opens the Name Changer: your own display name, its colours, and renames for other players.",
+      "custom names": "Opens the Name Changer: your own display name, its colors, and renames for other players.",
       "height": "Stretches your own player model up and down (0.5x-2x), in your own F5 view only.",
       "held item": "Opens Held Item Transform: the size, position and rotation of your first-person held item.",
       "my size": "Your own player model's size (0.05x-2x); shared with other supporters while Share if Supporter is on.",
       "others' size": "Resizes every other player's model on your screen (0.05x-2x); never shared.",
       "player size": "Opens the player size settings: your own size, everyone else's, and your model's shape.",
       "reset": "Puts the size slider beside it back to 1.00x.",
-      "reset cosmetics": "Puts your display name, colours, fade, both player sizes and model shape back to default.",
+      "reset cosmetics": "Puts your display name, colors, fade, both player sizes and model shape back to default.",
       "share if supporter": "Automatically shares your display name and your own player size with other players who have this mod.",
       "supporter names": "",
       "supporter sizes": "",
@@ -420,7 +420,7 @@
       "second best with key": "Also highlights the second-best chest if it still profits after paying for a Chest Key."
     },
     "Custom Mage Beam": {
-      "custom mage beam": "In dungeons, redraws every Mage beam as one clean coloured line."
+      "custom mage beam": "In dungeons, redraws every Mage beam as one clean colored line."
     },
     "Custom Scoreboard": {
       "custom scoreboard": "Replaces the sidebar with a custom styled scoreboard."
@@ -437,7 +437,7 @@
     },
     "Dungeon ESP": {
       "bats": "Highlights secret bats during dungeon clear.",
-      "color": "Colour of the boxes or glow for this row's target.",
+      "color": "Color of the boxes or glow for this row's target.",
       "esp": "",
       "line width": "Thickness of the drawn lines and box outlines.",
       "range": "How far away a starred mob or bat can be, in blocks, and still be boxed.",
@@ -451,9 +451,9 @@
     },
     "Dungeon Map": {
       "blood": "",
-      "border colour": "Outline colour around the HUD map; set alpha to 0 for no border.",
+      "border color": "Outline color around the HUD map; set alpha to 0 for no border.",
       "checkmark sprites": "Draws the real map's check, cross and question mark instead of text characters.",
-      "colour rooms by type": "Paints each room its real colour by type; off uses the Normal colour for every room.",
+      "color rooms by type": "Paints each room its real color by type; off uses the Normal color for every room.",
       "darken unexplored": "How much dimmer rooms you have not opened are drawn, 0 to 0.9.",
       "dungeon map": "Draws the real dungeon map as a HUD overlay, showing only what your hotbar map has revealed.",
       "entrance": "",
@@ -463,7 +463,7 @@
       "funny map": "Placeholder: saved, but does nothing yet (needs map pixel data first).",
       "icon scale": "Size of the player markers on the Interactive Map, 0.5x to 3x.",
       "map appearance": "",
-      "map background": "Colour behind the map; the alpha slider sets how see-through it is.",
+      "map background": "Color behind the map; the alpha slider sets how see-through it is.",
       "map extras": "",
       "map theme": "",
       "mimic room show/hide": "Placeholder: saved, but does nothing yet (needs map pixel data first).",
@@ -472,9 +472,9 @@
       "player-head class recolor": "Placeholder: saved, but does nothing yet (needs map pixel data first).",
       "puzzle": "",
       "rare": "",
-      "recolouring": "",
-      "reset room colours": "Puts every room and door colour back to the real dungeon map's colours.",
-      "room colours": "Shows a colour picker for every room and door type.",
+      "recoloring": "",
+      "reset room colors": "Puts every room and door color back to the real dungeon map's colors.",
+      "room colors": "Shows a color picker for every room and door type.",
       "save theme": "",
       "text shadow": "Draws a drop shadow behind the text.",
       "trap": "",
@@ -485,13 +485,13 @@
       "auto requeue": "Sends /instancerequeue automatically when a dungeon run ends.",
       "party finder overlay": "Adds join highlights, member counts and player stats to the Party Finder."
     },
-    "Enchant Colours": {
-      "enchant colours": "Recolours enchantment names in Hypixel item lore by tier, like SkyHanni."
+    "Enchant Colors": {
+      "enchant colors": "Recolors enchantment names in Hypixel item lore by tier, like SkyHanni."
     },
     "F7 Spots": {
       "add aim spot here": "Saves the point your crosshair is on as an aim spot.",
       "add waypoint here": "Saves the block you're standing on as a waypoint.",
-      "aim spot color": "Colour of the aim-spot crosshair markers.",
+      "aim spot color": "Color of the aim-spot crosshair markers.",
       "aim spot distance": "Shows the distance to each aim spot in its label.",
       "aim spot labels": "Shows each aim spot's name next to its marker.",
       "aim spot size": "Size of the aim-spot crosshair marker, 0.1-2.0 blocks.",
@@ -511,7 +511,7 @@
       "walk waypoints": "Draws your saved F7/M7 walk-to spots in the boss arena; press Add Waypoint Here to save one.",
       "walk-to waypoints": "Draws your saved standing spots for F7/M7 in the world.",
       "waypoint beam": "Height of the light column above each waypoint, 0-40; 0 turns it off.",
-      "waypoint color": "Colour of walk-to waypoints that have no colour of their own.",
+      "waypoint color": "Color of walk-to waypoints that have no color of their own.",
       "waypoint distance": "Shows the distance to each waypoint in its label.",
       "waypoint labels": "Shows each waypoint's name above its box."
     },
@@ -579,7 +579,7 @@
     "Leap Counter": {
       "alert": "What happens when the expected number of teammates have leaped to you.",
       "alert text": "",
-      "alert text (& colour codes)": "The title text; & colour codes work.",
+      "alert text (& color codes)": "The title text; & color codes work.",
       "core leaps": "Teammates expected to leap to you once inside the core. 0 turns it off.",
       "counter hud": "Shows how many teammates have leaped to you, like 1/4.",
       "detection": "Counts a teammate as leaping to you when they cover the Jump Distance quickly and land within the Leap Radius.",
@@ -605,7 +605,7 @@
       "crystal highlight": "",
       "crystal timers (p1)": "",
       "filled boxes": "Also fills the crystal boxes instead of drawing only the outline.",
-      "highlight color": "Colour of the crystal boxes.",
+      "highlight color": "Color of the crystal boxes.",
       "highlight crystals": "Boxes the real crystals in the arena.",
       "place timer": "Times how long you take to place a crystal and remembers your best.",
       "reset best place time": "Shows your fastest crystal placement. Click twice to reset it.",
@@ -622,7 +622,7 @@
       "randomize others": "Gives every other player a fake name for this session; works without the Name Changer toggle."
     },
     "P3 Nav": {
-      "color": "Colour of the boxes on this row.",
+      "color": "Color of the boxes on this row.",
       "current section only": "ON only boxes your current section; OFF boxes everything left in Phase 3.",
       "device highlight": "Outlines P3 devices you have not done yet.",
       "gate highlight": "Boxes the Phase 3 gate you're heading for.",
@@ -691,7 +691,7 @@
       "secrets hud": "Shows the secrets found in your current dungeon room over its total, as a small movable HUD."
     },
     "Sharp Shooter (i4)": {
-      "aim marker color": "Colour of the i4 Solver's aim dots.",
+      "aim marker color": "Color of the i4 Solver's aim dots.",
       "auto i4": "Cheat build: aims at and shoots each target on the i4 device while you hold your bow.",
       "cheat build - automation": "Cheat build: everything below automates clicks or aim for you, against Hypixel's rules.",
       "i4 leap": "Leaps you out from the i4 spot to your chosen target (cheat build only).",
@@ -721,7 +721,7 @@
       "team melody hud": "Shows each teammate's Melody terminal progress during Phase 3."
     },
     "Teammate Highlight": {
-      "teammate highlight": "Draws a box around each party member, coloured by their dungeon class."
+      "teammate highlight": "Draws a box around each party member, colored by their dungeon class."
     },
     "Terminal Aura": {
       "terminal aura": "Cheat build: opens any terminal in range during F7/M7 P3."
@@ -759,7 +759,7 @@
       "thorn esp style": "How Thorn highlights are drawn: Outline Box, Filled Box or Glow; left click cycles forward, right click back.",
       "thorn esp through walls": "Thorn highlights also show targets behind walls (cheat build only).",
       "thorn highlight": "Highlights Thorn during the F4/M4 fight.",
-      "thorn highlights": "Coloured boxes or a glow on Thorn-fight targets during the F4/M4 boss."
+      "thorn highlights": "Colored boxes or a glow on Thorn-fight targets during the F4/M4 boss."
     },
     "Tick Timers": {
       "tick timers": "Shows a countdown HUD for the F7/M7 boss phases."

@@ -435,7 +435,7 @@ public class SimStarredMobTests implements FabricClientGameTest {
                         + "MINIBOSS kind exists so a clear can be tested against something that does not");
             }
             if (counts[1] < counts[0]) {
-                problems.add((counts[0] - counts[1]) + " starred mob(s) have no armour stand carrying both "
+                problems.add((counts[0] - counts[1]) + " starred mob(s) have no armor stand carrying both "
                         + STAR + " and " + HEART + " - Mob ESP reads the stand's NAME, so those mobs are "
                         + "invisible to it");
             }

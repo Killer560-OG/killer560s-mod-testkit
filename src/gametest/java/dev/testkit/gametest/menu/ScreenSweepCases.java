@@ -625,10 +625,10 @@ final class ScreenSweepCases {
                 });
                 c.check(hint != null, theme + ": the search hint is not drawn");
                 if (hint != null) {
-                    c.note(theme + ": hint '" + hint[0] + "' shadow " + hint[1] + " colour " + hex((Integer) hint[2]));
+                    c.note(theme + ": hint '" + hint[0] + "' shadow " + hint[1] + " color " + hex((Integer) hint[2]));
                     c.check(!(Boolean) hint[1] || theme.equals("AMBER"), theme + ": the search hint is drawn with a shadow");
                     if (theme.equals("LIGHT")) {
-                        c.check(lum((Integer) hint[2]) < 0.6f, "Light: the search hint colour " + hex((Integer) hint[2])
+                        c.check(lum((Integer) hint[2]) < 0.6f, "Light: the search hint color " + hex((Integer) hint[2])
                                 + " is too light");
                     }
                 }

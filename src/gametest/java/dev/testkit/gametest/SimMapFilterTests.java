@@ -433,7 +433,7 @@ public class SimMapFilterTests implements FabricClientGameTest {
                     sy * f * win.getScreenHeight() / (double) win.getGuiScaledHeight()};
         });
         if (at == null) {
-            failures.add("no visible, active control labelled '" + text + "' on " + screenName(ctx));
+            failures.add("no visible, active control labeled '" + text + "' on " + screenName(ctx));
             return;
         }
         ctx.getInput().setCursorPos(at[0], at[1]);

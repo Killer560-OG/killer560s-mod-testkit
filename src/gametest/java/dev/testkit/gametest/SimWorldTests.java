@@ -497,7 +497,7 @@ public class SimWorldTests implements FabricClientGameTest {
         check(before >= 1, "no zombie to blast - the case proves nothing");
         check(alive == 0, "the straight-down Wither Impact did not kill the mob 2 blocks away");
         check(from.distanceTo(to) < 0.05, String.format(Locale.US,
-                "a straight-down Hyperion moved him %.3f blocks (to his block's centre)", from.distanceTo(to)));
+                "a straight-down Hyperion moved him %.3f blocks (to his block's center)", from.distanceTo(to)));
     }
 
     private static Class<?> enumClass(String name) {

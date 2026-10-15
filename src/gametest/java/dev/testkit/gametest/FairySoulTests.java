@@ -124,7 +124,7 @@ public class FairySoulTests implements FabricClientGameTest {
                     Result r = runSouls(ctx, scenario, g, 900, null);
                     scenario.log(r.summary());
                     check(r.soulsUsed >= 2 && r.soulsLogged >= 2, "souls: " + r.summary());
-                    check(r.travelled > 25, "travelled only " + r.travelled);
+                    check(r.travelled > 25, "traveled only " + r.travelled);
                     check(r.takeoffs >= 1 && r.takeoffs <= 3, "take-offs " + r.takeoffs + " (one step needs one; "
                             + "jumping the whole route is the reported bug)");
                     // The camera eases per FRAME by real elapsed time, capped at Turn Speed (20) per tick of real time and
@@ -465,7 +465,7 @@ public class FairySoulTests implements FabricClientGameTest {
         String last = "";
 
         String summary() {
-            return String.format(Locale.US, "souls used (server) %d, logged %d; travelled %.1f blocks in %d ticks; "
+            return String.format(Locale.US, "souls used (server) %d, logged %d; traveled %.1f blocks in %d ticks; "
                             + "take-offs %d; max turn %.2f deg/tick; camera frames %d; max y %.2f; active at end %s; %s",
                     soulsUsed, soulsLogged, travelled, ticks, takeoffs, maxTurnPerTick, framesWritten, maxY, activeAtEnd, last);
         }

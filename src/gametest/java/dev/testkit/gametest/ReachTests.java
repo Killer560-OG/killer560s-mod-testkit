@@ -119,7 +119,7 @@ public class ReachTests implements FabricClientGameTest {
                         if (PacketWatch.totalUses() == 0) {
                             throw new AssertionError(String.format(Locale.ROOT,
                                     "at %.2f blocks - inside the limit - the aura sent nothing. Either a gate "
-                                            + "is shut, or the range is being measured to the block's CENTRE "
+                                            + "is shut, or the range is being measured to the block's CENTER "
                                             + "again, which reads up to half a block further and silently "
                                             + "shortens the real reach.", distance));
                         }

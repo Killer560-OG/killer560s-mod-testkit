@@ -372,7 +372,7 @@ final class DungeonB2Cases {
                     + "; pickup range " + want + " (0.27.2 bonus " + bonus + ")");
             c.check(ring != null, "no circle for the key");
             if (ring != null) {
-                c.check(Math.abs(ring[0] - 270.5) < 1e-6 && Math.abs(ring[2] - 270.5) < 1e-6, "circle not centred under the key");
+                c.check(Math.abs(ring[0] - 270.5) < 1e-6 && Math.abs(ring[2] - 270.5) < 1e-6, "circle not centered under the key");
                 c.check(Math.abs(ring[1] - 100.02) < 1e-6, "circle not on the floor top (y " + ring[1] + ")");
                 c.check(Math.abs(ring[3] - want) < 1e-9 && want >= bonus, "circle radius " + ring[3] + ", pickup range " + want);
             }
@@ -749,7 +749,6 @@ final class DungeonB2Cases {
                 Mod.staticCall("secrets.DungeonState", "setRoomSim", false);
                 Object k = Mod.cfg(AK_CFG);
                 Mod.call(k, "setEnabled", true);
-                Mod.call(k, "setMode", Mod.enumValue(AK_CFG + "$ActionMode", "WARN_ONLY"));
                 Mod.call(k, "setQueueFloor", Mod.enumValue(AK_CFG + "$Floor", "F7"));
                 Mod.call(k, "setTargetSeconds", Mod.enumValue(AK_CFG + "$Floor", "F7"), 300);
                 stats(mc, "FastGuy", "4:12");
@@ -780,24 +779,36 @@ final class DungeonB2Cases {
             line(c, "Party Finder > DungeonGuy joined the dungeon group! (Archer Level 30)");
             c.onClient(mc -> {
                 Mod.staticCall("secrets.DungeonState", "setRoomSim", false);
-                Mod.call(Mod.cfg(AK_CFG), "setMode", Mod.enumValue(AK_CFG + "$ActionMode", "KICK_ALL"));
                 return null;
             });
             line(c, "Party Finder > Kicker joined the dungeon group! (Mage Level 50)");
-            c.ticks(10);
+            // Kicks go out at most one per 3 s (AutoKickFeature.KICK_MIN_GAP_MS) and SlowGuy's went first.
+            for (int i = 0; i < 100; i++) {
+                c.ticks(1);
+                @SuppressWarnings("unchecked")
+                List<String> sent = c.onClient(mc -> (List<String>) Mod.staticCall(AK, "kicksSent"));
+                if (sent.contains("Kicker")) {
+                    break;
+                }
+            }
             List<String> got = decisions(c);
             List<String> mine = got.subList(Math.min(d0, got.size()), got.size());
             @SuppressWarnings("unchecked")
             List<String> kicks = c.onClient(mc -> (List<String>) Mod.staticCall(AK, "kicksSent"));
             c.note("decisions: " + mine + "; kicks sent " + kicks);
             c.check(mine.contains("FastGuy F7 S+ 4:12 limit 5:00 -> ok"), "FastGuy (4:12 under 5:00) was not let in");
-            c.check(mine.contains("SlowGuy F7 S+ 5:40 limit 5:00 -> warn"), "SlowGuy (5:40 over 5:00) was not warned about");
-            c.check(mine.contains("NoPbGuy F7 S+ none limit 5:00 -> warn"), "NoPbGuy (no S+) was not warned about");
+            c.check(mine.contains("SlowGuy F7 S+ 5:40 limit 5:00 -> kick") && kicks.contains("SlowGuy"),
+                    "SlowGuy (5:40 over 5:00) was not kicked");
+            // Judged a kick; the kick itself is still queued (one per KICK_MIN_GAP_MS) when the case enters a dungeon,
+            // which drops the queue on purpose - so only the decision is his.
+            c.check(mine.contains("NoPbGuy F7 S+ none limit 5:00 -> kick"), "NoPbGuy (no S+) was not judged a kick");
+            c.check(!kicks.contains("FastGuy"), "FastGuy (under the limit) was kicked");
             c.check(mine.stream().filter(s -> s.startsWith("SlowGuy")).count() == 1, "the forged chat line counted");
             c.check(mine.stream().noneMatch(s -> s.startsWith(self + " ")), "his own join was judged");
             c.check(mine.stream().noneMatch(s -> s.startsWith("DungeonGuy")), "a join while in a dungeon was judged");
             c.check(mine.contains("Kicker F7 S+ 6:00 limit 5:00 -> kick") && kicks.contains("Kicker"),
-                    "Kick mode did not kick Kicker");
+                    "Auto Kick did not kick Kicker");
+            c.check(mine.stream().noneMatch(s -> s.endsWith("-> warn")), "a joiner was only warned about: " + mine);
 
             // ---- the tab -----------------------------------------------------------------------------------------------
             c.onClient(mc -> {
@@ -812,6 +823,7 @@ final class DungeonB2Cases {
             c.check(!all.contains("remove real") && !all.contains("0 = disabled") && !all.contains("ships")
                     && !all.contains("disabled"), "a removed note is still on the tab");
             c.check(all.contains("floor source") && all.contains("judge by"), "no Floor Source / Judge By row");
+            c.check(!all.contains("action mode") && !all.contains("warn only"), "the removed Action Mode row is still there");
             String[][] ends = {{"Floor 1:", "0:30", "4:00"}, {"Floor 7:", "0:30", "6:00"}, {"Master 7:", "0:30", "7:00"}};
             for (String[] e : ends) {
                 double[] b = slider(c, s, e[0]);
@@ -836,13 +848,13 @@ final class DungeonB2Cases {
             Object[] old = c.onClient(mc -> {
                 Mod.staticCall(AK_CFG, "load");
                 Object k = Mod.cfg(AK_CFG);
-                return new Object[]{Mod.call(k, "getMode").toString(),
+                return new Object[]{"(no mode since 2026-10-14)",
                         Mod.call(k, "getTargetSeconds", Mod.enumValue(AK_CFG + "$Floor", "F1")),
                         Mod.call(k, "getTargetSeconds", Mod.enumValue(AK_CFG + "$Floor", "F7")),
                         Mod.call(k, "getTargetSeconds", Mod.enumValue(AK_CFG + "$Floor", "M7"))};
             });
             c.note("old file: mode " + old[0] + ", F1 " + old[1] + ", F7 " + old[2] + ", M7 " + old[3]);
-            c.check("WARN_ONLY".equals(old[0]) && (Integer) old[1] == 240 && (Integer) old[2] == 200
+            c.check((Integer) old[1] == 240 && (Integer) old[2] == 200
                     && (Integer) old[3] == 420, "an old file did not read back as expected");
         } finally {
             c.onClient(mc -> {
@@ -1074,7 +1086,7 @@ final class DungeonB2Cases {
             }
         });
         if (box == null) {
-            throw new AssertionError("no visible row labelled '" + prefix + "...'");
+            throw new AssertionError("no visible row labeled '" + prefix + "...'");
         }
         return box;
     }

@@ -520,7 +520,7 @@ final class MiscCases {
                 return null;
             });
         }
-        c.note(orange + " theme-orange pixel(s) in the centre of the screen with a popup showing");
+        c.note(orange + " theme-orange pixel(s) in the center of the screen with a popup showing");
         c.check(orange >= 40, "the popup text never drew - its HUD layer did not run");
     }
 

@@ -75,7 +75,7 @@ public class ExampleTest implements FabricClientGameTest {
                     // it shows the map working. Enable your own module in this body and the same
                     // scenario becomes a real bridging test.
                     double[] end = scenario.playerPosition();
-                    scenario.log(String.format("travelled %.1f blocks, ended at y=%.2f (%s)",
+                    scenario.log(String.format("traveled %.1f blocks, ended at y=%.2f (%s)",
                             end[0] - start[0], end[1],
                             end[1] > 149 ? "still up top — something bridged the gap"
                                     : "down on the catch floor, as expected with no module installed"));

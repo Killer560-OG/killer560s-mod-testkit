@@ -377,7 +377,7 @@ final class CmdShortcutsCases {
                 int color = c.onClient(mc -> (Integer) R.get(box(d, "Shortcut Name", 1), "textColor"));
                 c.check("".equals(name(c, row)), "'" + b[0] + "' was saved as the name: '" + name(c, row) + "'");
                 c.check(status.contains(b[1]), "'" + b[0] + "': status '" + status + "', expected '" + b[1] + "'");
-                c.check(color == REFUSED, "'" + b[0] + "': name box colour " + Integer.toHexString(color));
+                c.check(color == REFUSED, "'" + b[0] + "': name box color " + Integer.toHexString(color));
                 seen.add(b[0] + " -> " + status);
             }
             // The refused text survives a rebuild, still red, still explained.
@@ -401,7 +401,7 @@ final class CmdShortcutsCases {
             int color = c.onClient(mc -> (Integer) R.get(box(d, "Shortcut Name", 1), "textColor"));
             c.check("k5fine".equals(name(c, customs(c).get(1))) && status(c, d).isEmpty() && color == TEXT,
                     "a good name after a refusal: saved '" + name(c, customs(c).get(1)) + "', status '"
-                            + status(c, d) + "', colour " + Integer.toHexString(color));
+                            + status(c, d) + "', color " + Integer.toHexString(color));
             c.note("refused: " + seen + "; 40 typed -> " + typed.length() + " kept; 33 via setter -> " + problem
                     + "; k5fine then accepted");
         } finally {

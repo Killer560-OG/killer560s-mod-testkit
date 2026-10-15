@@ -1768,8 +1768,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             float pitch = n10.get("pitch").getAsFloat();
             BlockPos target = new BlockPos(31, 68, 5);
             BlockPos fromCentre = warpHit(ctx, 28.5, 69.0, 10.5, yaw, pitch);
-            println("offnode: the recorded look from #10's centre stops at " + fromCentre + " (#11 stands on " + target + ")");
-            check(target.equals(fromCentre), "premise: #10's recorded look does not even land on #11 from its own centre ("
+            println("offnode: the recorded look from #10's center stops at " + fromCentre + " (#11 stands on " + target + ")");
+            check(target.equals(fromCentre), "premise: #10's recorded look does not even land on #11 from its own center ("
                     + fromCentre + ")");
             // Spots in #10's ring from which the recorded look MISSES #11's block, nearest his own 01:16:43 offset
             // (0.47, 0.41) first: one from which a ray to the block exists (the mod's etherwarp aim finds one - the
@@ -4876,7 +4876,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         double x = n.get("x").getAsDouble();
         double z = n.get("z").getAsDouble();
         check(Math.abs(x - (bx + 0.5)) < 1e-3 && Math.abs(z - (bz + 0.5)) < 1e-3,
-                "node not on the centre of block (" + bx + "," + bz + "): " + n);
+                "node not on the center of block (" + bx + "," + bz + "): " + n);
     }
 
     private static int plans(ClientGameTestContext ctx) {

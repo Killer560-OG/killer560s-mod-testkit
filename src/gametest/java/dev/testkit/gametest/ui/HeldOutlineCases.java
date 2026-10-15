@@ -301,7 +301,7 @@ final class HeldOutlineCases {
             c.problem(label + ": an opaque blue Fill gave only " + n + " blue px - the held item was not filled");
         }
         if (all - n > Math.max(20, n / 50)) {
-            c.problem(label + ": Fill changed " + (all - n) + " px that are not the fill colour");
+            c.problem(label + ": Fill changed " + (all - n) + " px that are not the fill color");
         }
         return s;
     }
@@ -483,7 +483,7 @@ final class HeldOutlineCases {
             int blueLeft = count(colour(base, fr, 2));
             c.note("red fill: " + red + " red px, " + blueLeft + " blue px");
             if (Math.abs(red - count(s)) > Math.max(10, count(s) / 50) || blueLeft > 0) {
-                c.problem("Fill colour change: " + red + " red px (silhouette " + count(s) + "), " + blueLeft + " blue px left");
+                c.problem("Fill color change: " + red + " red px (silhouette " + count(s) + "), " + blueLeft + " blue px left");
             }
 
             // Alpha: a half-transparent blue fill blends with the item instead of painting it.

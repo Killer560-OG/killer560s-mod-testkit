@@ -607,7 +607,7 @@ public class SimImapGapTests implements FabricClientGameTest {
         BlockPos gap = cellCentre(ctx, strip);
         double fromStrip = Math.abs(end.x - (gap.getX() + 0.5));
         System.out.println(String.format(Locale.US, "[%s] the press was on the strip's middle; he ended %.1f block(s) from"
-                + " the strip's centre line (x %d)", CLICK, fromStrip, gap.getX()));
+                + " the strip's center line (x %d)", CLICK, fromStrip, gap.getX()));
         if (fromStrip > 2.5) {
             f.add(String.format(Locale.US, "a press in the strip ended %.1f blocks from the strip (at %s), not in it",
                     fromStrip, fmt(end)));
@@ -618,8 +618,8 @@ public class SimImapGapTests implements FabricClientGameTest {
         BlockPos mainC = ctx.computeOnClient(mc -> (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter",
                 new Class<?>[]{int.class}, new Object[]{mainIdx}));
         boolean inTile = Math.abs(end.x - (centre.getX() + 0.5)) <= 15.5 && Math.abs(end.z - (centre.getZ() + 0.5)) <= 15.5;
-        System.out.println(String.format(Locale.US, "[%s] trip: from %s, ended %s - %s the tile beside the press (centre"
-                + " %s; main tile centre %s)", CLICK, fmt(start), fmt(end), inTile ? "IN" : "NOT in", centre.toShortString(),
+        System.out.println(String.format(Locale.US, "[%s] trip: from %s, ended %s - %s the tile beside the press (center"
+                + " %s; main tile center %s)", CLICK, fmt(start), fmt(end), inTile ? "IN" : "NOT in", centre.toShortString(),
                 mainC.toShortString()));
         if (end.distanceTo(start) < 5) {
             f.add("no trip happened (moved " + String.format(Locale.US, "%.1f", end.distanceTo(start)) + ")");
@@ -685,7 +685,7 @@ public class SimImapGapTests implements FabricClientGameTest {
         String under = ctx.computeOnClient(mc -> mc.level.getBlockState(BlockPos.containing(end.x, end.y - 0.2, end.z))
                 .toString());
         boolean ground = ctx.computeOnClient(mc -> mc.player.onGround());
-        System.out.println(String.format(Locale.US, "[%s] trip: from %s, ended %s, %.1f from the doorway's centre, on %s"
+        System.out.println(String.format(Locale.US, "[%s] trip: from %s, ended %s, %.1f from the doorway's center, on %s"
                 + " (on the ground %s)", DOOR, fmt(here), fmt(end), off, under, ground));
         if (end.distanceTo(here) < 5) {
             f.add("no trip happened");
@@ -729,7 +729,7 @@ public class SimImapGapTests implements FabricClientGameTest {
                 float[] after = ctx.computeOnClient(mc -> new float[]{mc.player.getYRot(), mc.player.getXRot()});
                 double dYaw = Math.abs(net.minecraft.util.Mth.wrapDegrees(after[0] - cam[0]));
                 double dPitch = Math.abs(after[1] - cam[1]);
-                System.out.println(String.format(Locale.US, "[%s] ordinary door %d: travelled %.1f, camera before %.2f/%.2f,"
+                System.out.println(String.format(Locale.US, "[%s] ordinary door %d: traveled %.1f, camera before %.2f/%.2f,"
                         + " after %.2f/%.2f (off by %.3f / %.3f)", DOOR_CAM, normal, end.distanceTo(from), cam[0], cam[1],
                         after[0], after[1], dYaw, dPitch));
                 if (end.distanceTo(from) < 5) {
@@ -770,7 +770,7 @@ public class SimImapGapTests implements FabricClientGameTest {
                     double yaw = -Math.toDegrees(Math.atan2(dx, dz));
                     return new double[]{Math.abs(net.minecraft.util.Mth.wrapDegrees((float) (yaw - mc.player.getYRot())))};
                 });
-                System.out.println(String.format(Locale.US, "[%s] wither door %d (control): travelled %.1f, camera %.1f degrees"
+                System.out.println(String.format(Locale.US, "[%s] wither door %d (control): traveled %.1f, camera %.1f degrees"
                         + " of yaw from facing the door", DOOR_CAM, control, end.distanceTo(from), face[0]));
                 if (end.distanceTo(from) >= 2 && face[0] > 5) {
                     f.add(String.format(Locale.US, "the wither door control did not face the door (%.1f degrees off)", face[0]));

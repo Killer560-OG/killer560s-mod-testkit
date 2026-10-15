@@ -293,9 +293,9 @@ public class ChatBatchSuite implements FabricClientGameTest {
             }
             long copies = c.onClient(mc -> (Long) Mod.staticCall(COPY, "testCopies")) - copiesBefore;
             c.check(copies == n, "the mod counted " + copies + " copies for " + n + " clicks");
-            c.check(!want.contains("§"), "premise: the expected text has no colour codes");
+            c.check(!want.contains("§"), "premise: the expected text has no color codes");
             c.note("PASS " + n + " clicks (Shift on the text and Ctrl past its end, every row): clipboard = whole message, "
-                    + want.length() + " chars, no colour codes");
+                    + want.length() + " chars, no color codes");
             c.ctx().waitTicks(2);
             List<String> chatNow = c.onClient(mc -> {
                 @SuppressWarnings("unchecked")
@@ -770,12 +770,12 @@ public class ChatBatchSuite implements FabricClientGameTest {
             c.note("wrapped line stacked across one message; " + orphans[1] + " rows in chat, 0 orphans");
 
             // different colour in between and repeated: no stack across a different style
-            sayJson(c, colour("StackProbe colour", "red"));
+            sayJson(c, colour("StackProbe color", "red"));
             say(c, "StackProbe spacer");
-            sayJson(c, colour("StackProbe colour", "green"));
+            sayJson(c, colour("StackProbe color", "green"));
             l = lines(c, 3);
-            c.check(l.get(0).equals("StackProbe colour") && l.get(2).equals("StackProbe colour"),
-                    "same text in another colour stacked: " + l);
+            c.check(l.get(0).equals("StackProbe color") && l.get(2).equals("StackProbe color"),
+                    "same text in another color stacked: " + l);
 
             // the 50-message window, at its edge: 49 between stacks, 50 between does not
             say(c, "StackEdge49");

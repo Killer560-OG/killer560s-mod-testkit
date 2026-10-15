@@ -91,7 +91,7 @@ public class PlacementExamples implements FabricClientGameTest {
 
                     double[] end = scenario.playerPosition();
                     scenario.log(String.format(Locale.ROOT,
-                            "built %d block(s), travelled %.1f, ended at y=%.2f",
+                            "built %d block(s), traveled %.1f, ended at y=%.2f",
                             builtInGap(ctx, GROUND, 3, 60) - before, end[0] - start[0], end[1]));
                 });
     }

@@ -210,7 +210,7 @@ public class SimMapScreenTests implements FabricClientGameTest {
                 + " Boulder=" + types[2]);
         if ("NORMAL".equals(types[0]) && "NORMAL".equals(types[1]) && "NORMAL".equals(types[2])) {
             throw new AssertionError("Blood, Fairy and Boulder all came back NORMAL - the room database is "
-                    + "not loaded on the sim path, so every room is one colour and the generator cannot see "
+                    + "not loaded on the sim path, so every room is one color and the generator cannot see "
                     + "which rooms are puzzles");
         }
 

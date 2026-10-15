@@ -6,7 +6,7 @@
     "Ability Timers",
     "Advanced Position",
     "Architect's First Draft",
-    "Armor Recolour",
+    "Armor Recolor",
     "Arrow Align",
     "Auction House",
     "Auto Correct",
@@ -44,7 +44,7 @@
     "Dungeon Alerts",
     "Dungeon Map",
     "Dungeon Queue",
-    "Enchant Colours",
+    "Enchant Colors",
     "Etherwarp Overlay",
     "Etherwarp Waypoints",
     "Experiments",
@@ -147,7 +147,7 @@
     "gui.tab.AbilityKeybindsTab": "Helpers > Ability Keybinds",
     "gui.tab.AbilityTimersTab": "Hud Elements > Ability Timers",
     "gui.tab.ArchitectDraftTab": "Dungeon > Architect's First Draft",
-    "gui.tab.ArmourDyeTab": "Items > Armor Recolour",
+    "gui.tab.ArmourDyeTab": "Items > Armor Recolor",
     "gui.tab.ArrowAlignTab": "Dungeon > Arrow Align",
     "gui.tab.AuctionHouseTab": "Items > Auction House",
     "gui.tab.AutoCorrectTab": "Chat > Auto Correct",
@@ -182,7 +182,7 @@
     "gui.tab.DungeonInfoTab": "Dungeon > Secrets HUD",
     "gui.tab.DungeonQueueTab": "Dungeon > Map, Leap & Party > Dungeon Queue",
     "gui.tab.DvdTab": "Hud Elements > DVD",
-    "gui.tab.EnchantColorsTab": "Items > Enchant Colours",
+    "gui.tab.EnchantColorsTab": "Items > Enchant Colors",
     "gui.tab.EtherwarpOverlayTab": "General > Etherwarp Overlay",
     "gui.tab.EtherwarpTab": "Dungeon > Secrets > Etherwarp Waypoints",
     "gui.tab.ExperimentsTab": "Helpers > Experiments",
@@ -280,7 +280,7 @@
       "active profile": "Shows which saved settings profile is loaded right now.",
       "advanced position": "",
       "architect's first draft": "",
-      "armor recolour": "Changes the colour, skin and trim of your armor, only on your screen.",
+      "armor recolor": "Changes the color, skin and trim of your armor, only on your screen.",
       "arrow align": "Shows how many clicks each Arrow Align frame still needs and can block clicks that overshoot.",
       "attack indicator": "Shows vanilla's attack cooldown under the crosshair (when vanilla's Attack Indicator option is set to Crosshair).",
       "auction house": "",
@@ -293,22 +293,21 @@
       "chat emotes": "Replaces Hypixel's emote shortcuts in your messages with the real emote text.",
       "chat keybinds": "Keys that send a command or chat message, /f7-style shortcuts that queue a floor, and your own typed shortcuts.",
       "chat tidy": "",
-      "chroma": "Cycles the main colour through the rainbow (keeps its transparency).",
+      "chroma": "Cycles the main color through the rainbow (keeps its transparency).",
       "circle dot": "",
       "class overrides": "Sets a player's class by hand for every feature in the mod.",
       "classic": "",
       "click translate": "Adds a click action to chat messages that translates them into your chosen language.",
-      "color": "Main crosshair colour, with transparency.",
-      "color on block": "Changes colour while you are aiming at a block in reach.",
-      "color on entity": "Changes colour while you are aiming at an entity in reach.",
-      "colour": "The one colour every node marker uses while Uniform Colour is on.",
+      "color": "Main crosshair color, with transparency.",
+      "color on block": "Changes color while you are aiming at a block in reach.",
+      "color on entity": "Changes color while you are aiming at an entity in reach.",
       "command shortcuts": "",
       "copy chat": "Shift+Left-Click a chat message to copy its text; Shift+Right-Click copies just that line.",
       "copy code": "Copies a short code for this crosshair to the clipboard, to share.",
       "cosmetics": "",
       "cringe": "Run /cringe to send a random line from cringe-lines.txt, which you can edit.",
       "crosshair": "",
-      "crosshair preview": "Your crosshair at its real in-game size. Click for another background, right click to go back; the strip below previews movement spread, recoil and target colours.",
+      "crosshair preview": "Your crosshair at its real in-game size. Click for another background, right click to go back; the strip below previews movement spread, recoil and target colors.",
       "custom crosshair": "Replaces the vanilla crosshair with the one you design here (both builds).",
       "custom scoreboard": "Replaces the sidebar with a custom styled scoreboard.",
       "display options": "Borderless fullscreen, fullbright, Pack Disabler and the Amber main menu theme.",
@@ -316,12 +315,12 @@
       "dot": "",
       "dvd": "",
       "dynamic": "",
-      "enchant colours": "Recolours enchantment names in Hypixel item lore by tier, like SkyHanni.",
+      "enchant colors": "Recolors enchantment names in Hypixel item lore by tier, like SkyHanni.",
       "etherwarp overlay": "Highlights the block you would land on while holding an etherwarp item.",
       "experiments": "",
       "fairy souls": "Tracks which Fairy Souls you have found and guides you to the missing ones.",
       "friends list": "",
-      "gap": "Space between the centre and each line; negative makes the lines overlap through the middle.",
+      "gap": "Space between the center and each line; negative makes the lines overlap through the middle.",
       "gif player": "",
       "green pro": "",
       "health and mana bars": "",
@@ -335,7 +334,7 @@
       "invert blend": "Inverts whatever is behind the crosshair, like vanilla's. Use white for a full inversion.",
       "item browser": "Shows a panel listing every Skyblock item beside your inventory.",
       "item protection": "Turns on the guards that stop you losing your own gear.",
-      "item rarity backgrounds": "Draws a rarity-coloured square, circle or outline behind Skyblock items.",
+      "item rarity backgrounds": "Draws a rarity-colored square, circle or outline behind Skyblock items.",
       "leap menu": "Spirit Leap settings: the custom leap menu, its Leap Order editor, and the party message sent after you leap.",
       "left arm": "Shows the left line of the cross.",
       "length": "How long each line is.",
@@ -349,7 +348,7 @@
       "no saved profiles yet.": "",
       "object hider": "Hides clutter such as fairies, support orbs, particles and dying dragons.",
       "outline": "Draws a border around every part of the crosshair.",
-      "outline color": "Colour of the outline.",
+      "outline color": "Color of the outline.",
       "outline thickness": "How thick the outline is.",
       "party commands": "",
       "paste code": "Applies a crosshair code from the clipboard.",
@@ -420,7 +419,7 @@
     "Ability Timers": {
       "+ add timer": "Adds a new countdown timer to the list.",
       "ability timers": "Bound keys start countdowns, and running timers show on the Ability Timers HUD.",
-      "color": "Colour of this timer's line on the Ability Timers HUD.",
+      "color": "Color of this timer's line on the Ability Timers HUD.",
       "delete": "Removes this entry from the list.",
       "duration": "How long the countdown runs once started.",
       "enabled": "Turns just this one timer on or off.",
@@ -434,13 +433,13 @@
     "Architect's First Draft": {
       "click message on puzzle fail": "Posts a clickable chat line to get an Architect's First Draft from your sack when a puzzle fails."
     },
-    "Armor Recolour": {
+    "Armor Recolor": {
       "add a piece": "Add a piece with the buttons to use what you're wearing, or press the capture key while hovering a piece in any menu.",
       "add boots": "Adds the boots you are wearing to the list.",
       "add chest": "Adds the chestplate you are wearing to the list.",
       "add helmet": "Adds the helmet you are wearing to the list.",
       "add legs": "Adds the leggings you are wearing to the list.",
-      "armor recolour": "Changes the colour, skin and trim of your armor, only on your screen.",
+      "armor recolor": "Changes the color, skin and trim of your armor, only on your screen.",
       "capture key": "Press this while hovering an armor piece in any inventory to add it to the list.",
       "no pieces yet - add one above.": "",
       "pieces (0)": "",
@@ -481,19 +480,19 @@
     },
     "Blessings": {
       "blessings hud": "Draws one line per blessing you have picked up while inside a dungeon.",
-      "colors": "Text colour of each blessing's HUD line.",
+      "colors": "Text color of each blessing's HUD line.",
       "life": "Show Blessing of Life.",
-      "life color": "Colour of the Life line on the Blessings HUD.",
+      "life color": "Color of the Life line on the Blessings HUD.",
       "power": "Show Blessing of Power.",
-      "power color": "Colour of the Power line on the Blessings HUD.",
+      "power color": "Color of the Power line on the Blessings HUD.",
       "roman numerals": "Writes blessing levels as V instead of 5.",
       "shown blessings": "Which blessings may appear on the HUD.",
       "stone": "Show Blessing of Stone.",
-      "stone color": "Colour of the Stone line on the Blessings HUD.",
+      "stone color": "Color of the Stone line on the Blessings HUD.",
       "time": "Show Blessing of Time.",
-      "time color": "Colour of the Time line on the Blessings HUD.",
+      "time color": "Color of the Time line on the Blessings HUD.",
       "wisdom": "Show Blessing of Wisdom.",
-      "wisdom color": "Colour of the Wisdom line on the Blessings HUD."
+      "wisdom color": "Color of the Wisdom line on the Blessings HUD."
     },
     "Blood Camp": {
       "blood camp": "Tracks the Watcher's blood mobs and predicts where each will land."
@@ -511,7 +510,7 @@
       "ability damage lines": "With Hide Damage Messages on: hides lines like 'Your Implosion hit 2 enemies for 14,736,463.2 damage.' (any ability).",
       "hide damage messages": "Hides Hypixel's combat spam from the chat window: your ability damage lines and the hits you take. Other features still read them, and the log keeps them.",
       "incoming hit lines": "With Hide Damage Messages on: hides 'A Crypt Wither Skull exploded, hitting you for 23,760 damage.', 'Maxor's Frenzy hit you for...', '... struck you for...', 'The Lost Adventurer used Dragon's Breath on you!' and bone plating lines.",
-      "stack duplicate messages": "When a chat line repeats the newest one exactly (same text and colours), the newest copy is replaced by one line ending in a grey (x2), (x3)... Blank lines and separators never stack."
+      "stack duplicate messages": "When a chat line repeats the newest one exactly (same text and colors), the newest copy is replaced by one line ending in a gray (x2), (x3)... Blank lines and separators never stack."
     },
     "Chunk Cache": {
       "cached": "",
@@ -577,14 +576,14 @@
     "Cosmetics": {
       "checking supporter status...": "",
       "copy settings for global cosmetics": "Copies your name and scale to your clipboard so staff can apply them for you.",
-      "custom names": "Opens the Name Changer: your own display name, its colours, and renames for other players.",
+      "custom names": "Opens the Name Changer: your own display name, its colors, and renames for other players.",
       "height": "Stretches your own player model up and down (0.5x-2x), in your own F5 view only.",
       "held item": "Opens Held Item Transform: the size, position and rotation of your first-person held item.",
       "my size": "Your own player model's size (0.05x-2x); shared with other supporters while Share if Supporter is on.",
       "others' size": "Resizes every other player's model on your screen (0.05x-2x); never shared.",
       "player size": "Opens the player size settings: your own size, everyone else's, and your model's shape.",
       "reset": "Puts the size slider beside it back to 1.00x.",
-      "reset cosmetics": "Puts your display name, colours, fade, both player sizes and model shape back to default.",
+      "reset cosmetics": "Puts your display name, colors, fade, both player sizes and model shape back to default.",
       "share if supporter": "Automatically shares your display name and your own player size with other players who have this mod.",
       "supporter names": "",
       "supporter sizes": "",
@@ -611,7 +610,7 @@
       "second best with key": "Also highlights the second-best chest if it still profits after paying for a Chest Key."
     },
     "Custom Mage Beam": {
-      "custom mage beam": "In dungeons, redraws every Mage beam as one clean coloured line."
+      "custom mage beam": "In dungeons, redraws every Mage beam as one clean colored line."
     },
     "Custom Scoreboard": {
       "custom scoreboard": "Replaces the sidebar with a custom styled scoreboard."
@@ -638,9 +637,9 @@
     },
     "Dungeon Map": {
       "blood": "",
-      "border colour": "Outline colour around the HUD map; set alpha to 0 for no border.",
+      "border color": "Outline color around the HUD map; set alpha to 0 for no border.",
       "checkmark sprites": "Draws the real map's check, cross and question mark instead of text characters.",
-      "colour rooms by type": "Paints each room its real colour by type; off uses the Normal colour for every room.",
+      "color rooms by type": "Paints each room its real color by type; off uses the Normal color for every room.",
       "darken unexplored": "How much dimmer rooms you have not opened are drawn, 0 to 0.9.",
       "dungeon map": "Draws the real dungeon map as a HUD overlay, showing only what your hotbar map has revealed.",
       "entrance": "",
@@ -650,7 +649,7 @@
       "funny map": "Placeholder: saved, but does nothing yet (needs map pixel data first).",
       "icon scale": "Size of the player markers on the Interactive Map, 0.5x to 3x.",
       "map appearance": "",
-      "map background": "Colour behind the map; the alpha slider sets how see-through it is.",
+      "map background": "Color behind the map; the alpha slider sets how see-through it is.",
       "map extras": "",
       "map theme": "",
       "mimic room show/hide": "Placeholder: saved, but does nothing yet (needs map pixel data first).",
@@ -659,9 +658,9 @@
       "player-head class recolor": "Placeholder: saved, but does nothing yet (needs map pixel data first).",
       "puzzle": "",
       "rare": "",
-      "recolouring": "",
-      "reset room colours": "Puts every room and door colour back to the real dungeon map's colours.",
-      "room colours": "Shows a colour picker for every room and door type.",
+      "recoloring": "",
+      "reset room colors": "Puts every room and door color back to the real dungeon map's colors.",
+      "room colors": "Shows a color picker for every room and door type.",
       "save theme": "",
       "text shadow": "Draws a drop shadow behind the text.",
       "trap": "",
@@ -672,15 +671,15 @@
       "auto requeue": "Sends /instancerequeue automatically when a dungeon run ends.",
       "party finder overlay": "Adds join highlights, member counts and player stats to the Party Finder."
     },
-    "Enchant Colours": {
-      "enchant colours": "Recolours enchantment names in Hypixel item lore by tier, like SkyHanni."
+    "Enchant Colors": {
+      "enchant colors": "Recolors enchantment names in Hypixel item lore by tier, like SkyHanni."
     },
     "Etherwarp Overlay": {
       "etherwarp overlay": "Highlights the block you would land on while holding an etherwarp item."
     },
     "Etherwarp Waypoints": {
       "/ew waypoint add [name] | remove | undo | clear": "",
-      "color": "Colour used for this element.",
+      "color": "Color used for this element.",
       "etherwarp waypoints": "Use /ew waypoint add [name] to mark the block you stand on with a box.",
       "no waypoints saved for the room you're standing in.": "",
       "style": "How Simon Says highlights are drawn: filled, outline, or both.",
@@ -699,7 +698,7 @@
     "F7 Spots": {
       "add aim spot here": "Saves the point your crosshair is on as an aim spot.",
       "add waypoint here": "Saves the block you're standing on as a waypoint.",
-      "aim spot color": "Colour of the aim-spot crosshair markers.",
+      "aim spot color": "Color of the aim-spot crosshair markers.",
       "aim spot distance": "Shows the distance to each aim spot in its label.",
       "aim spot labels": "Shows each aim spot's name next to its marker.",
       "aim spot size": "Size of the aim-spot crosshair marker, 0.1-2.0 blocks.",
@@ -719,7 +718,7 @@
       "walk waypoints": "Draws your saved F7/M7 walk-to spots in the boss arena; press Add Waypoint Here to save one.",
       "walk-to waypoints": "Draws your saved standing spots for F7/M7 in the world.",
       "waypoint beam": "Height of the light column above each waypoint, 0-40; 0 turns it off.",
-      "waypoint color": "Colour of walk-to waypoints that have no colour of their own.",
+      "waypoint color": "Color of walk-to waypoints that have no color of their own.",
       "waypoint distance": "Shows the distance to each waypoint in its label.",
       "waypoint labels": "Shows each waypoint's name above its box."
     },
@@ -751,15 +750,15 @@
     "Health and Mana Bars": {
       "absorption": "Always hides the golden absorption hearts from the vanilla heart bar.",
       "always": "",
-      "armour": "Always hides the vanilla armour points bar, whether Stat Bars is on or not.",
+      "armor": "Always hides the vanilla armor points bar, whether Stat Bars is on or not.",
       "health": "Always hides the vanilla heart bar, whether Stat Bars is on or not.",
       "held item name": "The item name vanilla shows over the hotbar when you switch slot. Hidden Over Bars: hidden only where it would cover one of these bars or texts. Hidden: always hidden. Shown: always shown.",
       "hide": "",
       "hunger": "Always hides the vanilla hunger bar, whether Stat Bars is on or not.",
-      "hypixel stat text": "Takes Hypixel's own health, defence and mana numbers (and the other stat segments) out of the action bar, leaving anything else on that line.",
+      "hypixel stat text": "Takes Hypixel's own health, defense and mana numbers (and the other stat segments) out of the action bar, leaving anything else on that line.",
       "mount health": "Always hides the health bar of the horse or other mount you ride.",
       "regeneration bounce": "Stops the vanilla hearts bobbing up and down while you regenerate.",
-      "stat bars": "Reads health, mana, defence and vitality from Hypixel's action bar; needed by every bar and text below.",
+      "stat bars": "Reads health, mana, defense and vitality from Hypixel's action bar; needed by every bar and text below.",
       "xp bar and level": "Hides the vanilla experience bar and the level number above it (also the locator and mount jump bars that share its slot)."
     },
     "Held Item Transform": {
@@ -799,12 +798,12 @@
       "item protection": "Turns on the guards that stop you losing your own gear."
     },
     "Item Rarity Backgrounds": {
-      "item rarity backgrounds": "Draws a rarity-coloured square, circle or outline behind Skyblock items."
+      "item rarity backgrounds": "Draws a rarity-colored square, circle or outline behind Skyblock items."
     },
     "Leap Counter": {
       "alert": "What happens when the expected number of teammates have leaped to you.",
       "alert text": "",
-      "alert text (& colour codes)": "The title text; & colour codes work.",
+      "alert text (& color codes)": "The title text; & color codes work.",
       "core leaps": "Teammates expected to leap to you once inside the core. 0 turns it off.",
       "counter hud": "Shows how many teammates have leaped to you, like 1/4.",
       "detection": "Counts a teammate as leaping to you when they cover the Jump Distance quickly and land within the Leap Radius.",
@@ -847,7 +846,7 @@
       "leap counter": "Counts how many teammates leap to you in F7/M7 Phase 3 and alerts when all have arrived.",
       "party interop": "",
       "team melody": "",
-      "teammate highlight": "Draws a box around each party member, coloured by their dungeon class."
+      "teammate highlight": "Draws a box around each party member, colored by their dungeon class."
     },
     "Mask Invincibility": {
       "mask invincibility": "HUD timers for Spirit Mask, Bonzo's Mask and Phoenix pet invincibility and cooldowns."
@@ -857,7 +856,7 @@
       "crystal highlight": "",
       "crystal timers (p1)": "",
       "filled boxes": "Also fills the crystal boxes instead of drawing only the outline.",
-      "highlight color": "Colour of the crystal boxes.",
+      "highlight color": "Color of the crystal boxes.",
       "highlight crystals": "Boxes the real crystals in the arena.",
       "place timer": "Times how long you take to place a crystal and remembers your best.",
       "reset best place time": "Shows your fastest crystal placement. Click twice to reset it.",
@@ -917,7 +916,7 @@
       "no fire overlay": "Hides the full-screen fire effect while you are burning.",
       "no shortbow swing": "",
       "power orbs": "Stops dungeon support orbs from rendering.",
-      "render optimiser": "",
+      "render optimizer": "",
       "screen": "",
       "sheep": "Hides sheep inside dungeons.",
       "smoke particles": "Hides vanilla smoke particles.",
@@ -929,7 +928,7 @@
       "world": ""
     },
     "P3 Nav": {
-      "color": "Colour of the boxes on this row.",
+      "color": "Color of the boxes on this row.",
       "current section only": "ON only boxes your current section; OFF boxes everything left in Phase 3.",
       "device highlight": "Outlines P3 devices you have not done yet.",
       "gate highlight": "Boxes the Phase 3 gate you're heading for.",
@@ -991,7 +990,7 @@
       "ice path solver": "Draws the shortest path for pushing the silverfish to the exit.",
       "quiz solver": "Highlights the floor spot of the correct answer in the Quiz puzzle.",
       "solver highlights": "",
-      "teleport maze solver": "Colours the Teleport Maze pads to show which are used and which are likely exits.",
+      "teleport maze solver": "Colors the Teleport Maze pads to show which are used and which are likely exits.",
       "tic tac toe solver": "Outlines the best Tic Tac Toe square in green on your turn.",
       "water board solver": "Shows a countdown above each Water Board lever for when to flip it.",
       "weirdos solver": "Outlines the correct chest in the Three Weirdos puzzle once an NPC reveals the answer."
@@ -1039,18 +1038,18 @@
       "secret sound": "Plays a sound when you collect a dungeon secret."
     },
     "Secret Waypoints": {
-      "secret waypoints": "Draws a coloured box on every secret in rooms the mod has recognised."
+      "secret waypoints": "Draws a colored box on every secret in rooms the mod has recognized."
     },
     "Secrets": {
       "etherwarp waypoints": "",
       "secret sound": "Plays a sound when you collect a dungeon secret.",
-      "secret waypoints": "Draws a coloured box on every secret in rooms the mod has recognised."
+      "secret waypoints": "Draws a colored box on every secret in rooms the mod has recognized."
     },
     "Secrets HUD": {
       "secrets hud": "Shows the secrets found in your current dungeon room over its total, as a small movable HUD."
     },
     "Sharp Shooter (i4)": {
-      "aim marker color": "Colour of the i4 Solver's aim dots.",
+      "aim marker color": "Color of the i4 Solver's aim dots.",
       "solver": "Highlights the i4 targets you still need to hit and draws dots showing where to aim."
     },
     "Sim Keybinds": {
@@ -1089,7 +1088,7 @@
     },
     "Starred Mob Hitboxes": {
       "bats": "Highlights secret bats during dungeon clear.",
-      "color": "Colour of the boxes or glow for this row's target.",
+      "color": "Color of the boxes or glow for this row's target.",
       "line width": "Thickness of the drawn lines and box outlines.",
       "range": "How far away a starred mob or bat can be, in blocks, and still be boxed.",
       "room scoped": "Boxes every starred mob and bat in the room you are in, however far away.",
@@ -1101,7 +1100,7 @@
     },
     "Storage Overlay": {
       "columns": "How many storage panels sit side by side.",
-      "overlay theme": "Amber (the original dark look), Dark (neutral greys) or Light, for the grid and the relocated inventory.",
+      "overlay theme": "Amber (the original dark look), Dark (neutral grays) or Light, for the grid and the relocated inventory.",
       "scale": "Resizes the whole storage overlay, grid and inventory panel together.",
       "storage overlay enabled": "Shows all your Ender Chest pages and backpacks in a grid beside the menu."
     },
@@ -1112,45 +1111,45 @@
       "team melody hud": "Shows each teammate's Melody terminal progress during Phase 3."
     },
     "Teammate Highlight": {
-      "teammate highlight": "Draws a box around each party member, coloured by their dungeon class."
+      "teammate highlight": "Draws a box around each party member, colored by their dungeon class."
     },
     "Teleport Maze Solver": {
-      "teleport maze solver": "Colours the Teleport Maze pads to show which are used and which are likely exits."
+      "teleport maze solver": "Colors the Teleport Maze pads to show which are used and which are likely exits."
     },
     "Terminal Solver": {
       "custom gui": "Replaces the terminal window with a bigger centered panel showing only the slots you need.",
       "hide completion chat": "Hides the terminal completion lines in chat, including Terminal Timers' split times.",
       "hide completion titles": "Hides the terminal completion title and subtitle on screen.",
       "highlight scale": "Size of the terminal solver visuals, 50-500%.",
-      "label text colour": "Colour of the small label drawn on highlighted slots.",
+      "label text color": "Color of the small label drawn on highlighted slots.",
       "melody": "Detects the Melody terminal so Custom GUI and Auto Terminals can handle it.",
-      "melody button colour": "Colour of the real buttons you click in Melody's Custom GUI.",
-      "melody endpoint colour": "Colour of Melody's two fixed track endpoint panes in Custom GUI.",
+      "melody button color": "Color of the real buttons you click in Melody's Custom GUI.",
+      "melody endpoint color": "Color of Melody's two fixed track endpoint panes in Custom GUI.",
       "melody keys": "Press 1-3 (1-4 on an old 4-row board) to click Melody's row buttons instead of using the mouse.",
-      "melody moving piece colour": "Colour of Melody's moving marker pane in Custom GUI.",
+      "melody moving piece color": "Color of Melody's moving marker pane in Custom GUI.",
       "melody scale": "A separate GUI scale for Melody, which has a much wider board.",
-      "melody track colour": "Colour of Melody's static track background in Custom GUI.",
+      "melody track color": "Color of Melody's static track background in Custom GUI.",
       "numbers": "Highlights the next two panes to click in the 'Click in order!' terminal.",
       "numbers 3-tier reveal": "Also highlights the 3rd upcoming click in the Numbers terminal, not just the next two.",
-      "numbers 3rd colour": "Colour of the 3rd upcoming click in the Numbers terminal.",
-      "numbers after next colour": "Colour of the slot after the next one in the Numbers terminal.",
-      "numbers next colour": "Colour of the slot you need to click next in the Numbers terminal.",
-      "overlay colours": "Colours the terminal solver uses for its highlights.",
-      "panel background colour": "Background colour of the Custom GUI panel, always fully opaque.",
-      "panel border colour": "Outline around the Custom GUI panel.",
+      "numbers 3rd color": "Color of the 3rd upcoming click in the Numbers terminal.",
+      "numbers after next color": "Color of the slot after the next one in the Numbers terminal.",
+      "numbers next color": "Color of the slot you need to click next in the Numbers terminal.",
+      "overlay colors": "Colors the terminal solver uses for its highlights.",
+      "panel background color": "Background color of the Custom GUI panel, always fully opaque.",
+      "panel border color": "Outline around the Custom GUI panel.",
       "panes": "Highlights the red panes to click in the panes terminal.",
-      "panes colour": "Highlight colour for the Correct all the panes terminal.",
-      "reset colours": "Puts every terminal overlay colour back to the default orange.",
+      "panes color": "Highlight color for the Correct all the panes terminal.",
+      "reset colors": "Puts every terminal overlay color back to the default orange.",
       "rubix": "Shows which panes to click, and how many times, in the same-color terminal.",
-      "rubix count text colour": "Colour of the click-count number in each Rubix cell.",
-      "rubix left click colour": "Colour of Rubix panes you should left click.",
-      "rubix right click colour": "Colour of Rubix panes you should right click.",
+      "rubix count text color": "Color of the click-count number in each Rubix cell.",
+      "rubix left click color": "Color of Rubix panes you should left click.",
+      "rubix right click color": "Color of Rubix panes you should right click.",
       "select": "Highlights every item of the requested color in the Select All terminal.",
-      "select all colour": "Highlight colour for matching items in the Select all the [color] items terminal.",
+      "select all color": "Highlight color for matching items in the Select all the [color] items terminal.",
       "send mel coords on open": "Sends your block position to party chat when a Melody terminal opens (F7/M7 boss).",
       "send melody progress": "Posts \"Melody 1/3 - 33%\" style progress to party chat as you finish each Melody row (F7/M7 boss only).",
       "starts with": "Highlights every item starting with the requested letter in the What Starts With terminal.",
-      "starts with colour": "Highlight colour for matching items in the What starts with terminal.",
+      "starts with color": "Highlight color for matching items in the What starts with terminal.",
       "terminal drop key": "Stops Q from throwing your weapon while a terminal is open.",
       "terminal protection": "Blocks your first click right after a terminal opens so it can't hit the wrong slot.",
       "terminal qol": "",
@@ -1190,7 +1189,7 @@
       "thorn esp line width": "Outline thickness for the Thorn highlight boxes, 1-10.",
       "thorn esp style": "How Thorn highlights are drawn: Outline Box, Filled Box or Glow; click to cycle.",
       "thorn highlight": "Highlights Thorn during the F4/M4 fight.",
-      "thorn highlights": "Coloured boxes or a glow on Thorn-fight targets during the F4/M4 boss."
+      "thorn highlights": "Colored boxes or a glow on Thorn-fight targets during the F4/M4 boss."
     },
     "Tic Tac Toe Solver": {
       "tic tac toe solver": "Outlines the best Tic Tac Toe square in green on your turn."
@@ -1202,7 +1201,7 @@
       "blessings": "Shows your five dungeon blessing levels on a HUD and can announce each level up.",
       "blood camp": "Tracks the Watcher's blood mobs and predicts where each will land.",
       "croesus / chest profit": "Shows what each dungeon reward chest is worth, logs your claims, and (cheat build) claims the best chest.",
-      "custom mage beam": "In dungeons, redraws every Mage beam as one clean coloured line.",
+      "custom mage beam": "In dungeons, redraws every Mage beam as one clean colored line.",
       "dungeon alerts": "",
       "f7 spots": "",
       "maxor's crystals": "Phase 1 crystal helpers: timers, an unplaced-crystal warning, a counter and crystal boxes.",

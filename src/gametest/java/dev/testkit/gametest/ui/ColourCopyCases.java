@@ -124,7 +124,7 @@ final class ColourCopyCases {
                     "0x", "#", "rgb(1,2,3)", "#3A7BD5;"}) {
                 c.check(Mod.staticCall("gui.ColourHex", "parse", bad) == null, "\"" + bad + "\" was read as a colour");
             }
-            c.check(Mod.staticCall("gui.ColourHex", "format", 0xFF3A7BD5).equals("#3A7BD5"), "an opaque colour is not #RRGGBB");
+            c.check(Mod.staticCall("gui.ColourHex", "format", 0xFF3A7BD5).equals("#3A7BD5"), "an opaque color is not #RRGGBB");
             c.check(Mod.staticCall("gui.ColourHex", "format", 0x803A7BD5).equals("#803A7BD5"), "a translucent one is not #AARRGGBB");
             return null;
         });
@@ -184,14 +184,14 @@ final class ColourCopyCases {
                 }
             });
             int bBefore = argb(b);
-            for (String junk : new String[]{"not a colour", "#12345", "", "   \n"}) {
+            for (String junk : new String[]{"not a color", "#12345", "", "   \n"}) {
                 Boolean took = c.onClient(mc -> {
                     mc.keyboardHandler.setClipboard(junk);
                     pressWidget(b, "pasteButton");
                     return argb(b) != bBefore;
                 });
                 c.check(!took, "pasting \"" + junk + "\" changed the colour to " + hex(argb(b)));
-                c.check(statusBad(b) && status(b).toLowerCase(java.util.Locale.ROOT).contains("not a colour"),
+                c.check(statusBad(b) && status(b).toLowerCase(java.util.Locale.ROOT).contains("not a color"),
                         "pasting \"" + junk + "\" showed \"" + status(b) + "\", not a red not-a-colour line");
             }
             c.check(c.onClient(mc -> McCompat.screen(mc) == b), "a bad paste closed the picker");
@@ -252,13 +252,13 @@ final class ColourCopyCases {
                 return null;
             });
             int finalB = realTimeOnDisk();
-            c.check((finalB & 0xFFFFFF) == 0x112233, "Real Time's colour after closing is " + hex(finalB));
+            c.check((finalB & 0xFFFFFF) == 0x112233, "Real Time's color after closing is " + hex(finalB));
 
             // ---- Recent in another picker ---------------------------------------------------------------------------
             List<Integer> row = recent();
             c.note("Recent after the round: " + fmt(row));
             c.check(!row.isEmpty() && row.get(0) == 0xFF112233, "Recent does not start with the last pick #112233: " + fmt(row));
-            c.check(row.contains(0xFF2EC4B6) && row.contains(0xFF000000 | accent), "Recent is missing a copied/pasted colour: "
+            c.check(row.contains(0xFF2EC4B6) && row.contains(0xFF000000 | accent), "Recent is missing a copied/pasted color: "
                     + fmt(row));
             Screen a2 = c.onClient(mc -> {
                 try {

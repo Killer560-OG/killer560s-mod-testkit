@@ -57,7 +57,7 @@ final class AutoScaleCases {
                 {3440, 1440, 3}, {1280, 1024, 3}, {2560, 1361, 3}, {854, 480, 2}};
         float[] want = {1.0f, 0.75f, 1.5f, 1.5f, 0.75f, 1.0f, 0.5f, 1.0f, 0.5f};
         String[] why = {"baseline", "1080p", "4K", "GUI 2", "GUI 4", "ultrawide: height drives", "5:4: width drives",
-                "maximised window: dead band", "tiny window: floor 1/guiScale"};
+                "maximized window: dead band", "tiny window: floor 1/guiScale"};
         for (int i = 0; i < cases.length; i++) {
             float got = ((Number) Mod.staticCall("hud.AutoScale", "factor", cases[i][0], cases[i][1], cases[i][2]))
                     .floatValue();
@@ -280,7 +280,7 @@ final class AutoScaleCases {
         double cx = row[0] + row[2] / 2.0;
         double cy = row[1] + row[3] / 2.0;
         int got = clickAt(c, cls, cx * f, cy * f);
-        c.note(String.format(Locale.ROOT, "click at the DRAWN centre of the sidebar row of tab %d (layout %.0f,%.0f -> GUI "
+        c.note(String.format(Locale.ROOT, "click at the DRAWN center of the sidebar row of tab %d (layout %.0f,%.0f -> GUI "
                 + "%.1f,%.1f) selected tab %d", target, cx, cy, cx * f, cy * f, got));
         if (got != target) {
             c.problem("a click on sidebar row " + target + " at its drawn position selected tab " + got

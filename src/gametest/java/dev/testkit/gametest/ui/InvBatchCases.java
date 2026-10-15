@@ -386,14 +386,14 @@ final class InvBatchCases {
                     }
                 }
             }
-            c.note(String.format(Locale.ROOT, "star colour pixels: whole screen %d, protected slot %d, starred-only slot %d, "
+            c.note(String.format(Locale.ROOT, "star color pixels: whole screen %d, protected slot %d, starred-only slot %d, "
                     + "unprotected slot %d; star cells %d (expect %d px at GUI 2); cells drawn wrong: %d",
                     total, inSlot[0], inSlot[1], inSlot[2], cells, cells * gs * gs, wrong));
             c.check(inSlot[0] == cells * gs * gs, "protected slot has " + inSlot[0] + " star pixels, want " + cells * gs * gs);
             c.check(wrong == 0, wrong + " star cell(s) in the top-right corner are not the star's shape");
             c.check(inSlot[1] == 0, "the starred-only item has a marker (" + inSlot[1] + " px)");
             c.check(inSlot[2] == 0, "the unprotected item has a marker");
-            c.check(total == cells * gs * gs, "star-coloured pixels elsewhere on screen: " + (total - inSlot[0]));
+            c.check(total == cells * gs * gs, "star-colored pixels elsewhere on screen: " + (total - inSlot[0]));
         } finally {
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
@@ -737,7 +737,7 @@ final class InvBatchCases {
             });
             int[] dyeAll = dyes(c);
             c.note("every copy, green: slot 9 " + Integer.toHexString(dyeAll[0]) + ", slot 10 " + Integer.toHexString(dyeAll[1]));
-            c.check(dyeAll[0] == 0xFF00FF00 && dyeAll[1] == 0xFF00FF00, "every-copy colour not on both copies");
+            c.check(dyeAll[0] == 0xFF00FF00 && dyeAll[1] == 0xFF00FF00, "every-copy color not on both copies");
 
             Screen s2 = screen(c); // the menu rebuilds itself on every change; the screen object is the same
             clickWidget(c, s2, widget(c, s2, "Applies To"));
@@ -745,7 +745,7 @@ final class InvBatchCases {
             int[] dyeOne = dyes(c);
             c.note("this item only (" + key + "): slot 9 " + Integer.toHexString(dyeOne[0]) + ", slot 10 " + Integer.toHexString(dyeOne[1]));
             c.check("UUID:CI-1".equals(key), "Applies To switched the key to " + key);
-            c.check(dyeOne[0] == 0xFF00FF00 && dyeOne[1] == 0xFF123456, "this-item colour: " + Integer.toHexString(dyeOne[0])
+            c.check(dyeOne[0] == 0xFF00FF00 && dyeOne[1] == 0xFF123456, "this-item color: " + Integer.toHexString(dyeOne[0])
                     + " / " + Integer.toHexString(dyeOne[1]));
 
             // The drawn pixels: green in slot 9's cell, none in slot 10's (same item, its own look).
@@ -757,14 +757,14 @@ final class InvBatchCases {
             int g9 = green(img, cell9, f, gs);
             int g10 = green(img, cell10, f, gs);
             c.note("green pixels drawn: slot 9 cell " + g9 + ", slot 10 cell " + g10);
-            c.check(g9 > 40 && g10 < 5, "drawn colour: slot 9 " + g9 + " green px, slot 10 " + g10);
+            c.check(g9 > 40 && g10 < 5, "drawn color: slot 9 " + g9 + " green px, slot 10 " + g10);
 
             // Use Colour off and on.
-            clickWidget(c, s2, widget(c, s2, "Use Colour"));
+            clickWidget(c, s2, widget(c, s2, "Use Color"));
             int off = dyes(c)[0];
-            clickWidget(c, s2, widget(c, s2, "Use Colour"));
+            clickWidget(c, s2, widget(c, s2, "Use Color"));
             int on = dyes(c)[0];
-            c.check(off == 0xFF123456 && on == 0xFF00FF00, "Use Colour off/on: " + Integer.toHexString(off) + "/" + Integer.toHexString(on));
+            c.check(off == 0xFF123456 && on == 0xFF00FF00, "Use Color off/on: " + Integer.toHexString(off) + "/" + Integer.toHexString(on));
 
             // Armor Skin: None -> Leather -> ...; the worn asset changes, the icon does not.
             clickWidget(c, s2, widget(c, s2, "Skin"));
@@ -878,7 +878,7 @@ final class InvBatchCases {
                         + st.get(DataComponents.ITEM_MODEL);
             });
             String file = text(cfgPath);
-            c.note("old Armour Recolour file: colour|asset|model = " + migrated + "; saved again: " + file);
+            c.note("old Armor Recolor file: color|asset|model = " + migrated + "; saved again: " + file);
             c.check(migrated.startsWith("ff0000ff|") && migrated.contains("iron") && migrated.endsWith("|minecraft:leather_chestplate"),
                     "old entry " + migrated);
             c.check(!file.contains("captureKey") && !file.contains("skinInventoryIcons") && file.contains("\"IB_CHEST\""),
@@ -973,7 +973,7 @@ final class InvBatchCases {
             if (e.getKey().equals("Cosmetics")) {
                 continue;
             }
-            for (String moved : new String[]{"Cosmetics", "Player Cosmetics", "Custom Items", "Nickhider", "Trail", "Armor Recolour"}) {
+            for (String moved : new String[]{"Cosmetics", "Player Cosmetics", "Custom Items", "Nickhider", "Trail", "Armor Recolor"}) {
                 c.check(!e.getValue().contains(moved), "'" + moved + "' is still in " + e.getKey());
             }
         }

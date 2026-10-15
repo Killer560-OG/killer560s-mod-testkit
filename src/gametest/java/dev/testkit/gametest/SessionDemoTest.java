@@ -179,7 +179,7 @@ public class SessionDemoTest implements FabricClientGameTest {
                         // stand -> the client sees a named armour stand; entity.remove -> it goes
                         double[] at = c.scenario().playerPosition();
                         c.hx().stand(at[0] + 2, at[1], at[2], "§cHx Stand", "small", true, "marker", true);
-                        c.waitUntil("the client to see an armour stand named 'Hx Stand'",
+                        c.waitUntil("the client to see an armor stand named 'Hx Stand'",
                                 mc -> standNamed(mc, "Hx Stand"), 100);
                         c.hx().removeStands();
                         c.waitUntil("the stand to be gone on the client", mc -> !standNamed(mc, "Hx Stand"), 100);

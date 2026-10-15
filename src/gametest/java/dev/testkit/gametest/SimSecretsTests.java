@@ -311,7 +311,7 @@ public class SimSecretsTests implements FabricClientGameTest {
             throw new AssertionError("secret chests are being placed outside the rooms they belong to: "
                     + outside + " of " + chests.size() + ", the first at "
                     + worst[0] + "," + worst[1] + "," + worst[2]
-                    + " - they would be in the void or in a neighbour");
+                    + " - they would be in the void or in a neighbor");
         }
 
         // The prince, in a room that actually has one - which is NOT Red Blue.

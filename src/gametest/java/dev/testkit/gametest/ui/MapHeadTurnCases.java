@@ -77,7 +77,7 @@ final class MapHeadTurnCases {
             MapHeadCases.Shot base = MapHeadCases.shot(c, "base");
             int[] frame = MapHeadCases.frameBox(base.img(), GREEN_ROOM);
             if (frame == null) {
-                c.problem("no map frame of the green room colour on screen - the map HUD did not draw");
+                c.problem("no map frame of the green room color on screen - the map HUD did not draw");
                 return;
             }
             int[] face = MapHeadCases.expectedFace(c, null, true);

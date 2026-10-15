@@ -84,10 +84,10 @@ final class CrosshairCases {
             set(c, "setEnabled", false);
             Count vanilla = shot(c, "vanilla");
             long vanillaAfter = ((Number) Mod.field(FEATURE, "vanillaFrames")).longValue();
-            c.note("vanilla (feature OFF): " + vanilla.changed + " changed px at the centre, box " + vanilla.box()
+            c.note("vanilla (feature OFF): " + vanilla.changed + " changed px at the center, box " + vanilla.box()
                     + "; vanilla layer frames " + vanillaBefore + " -> " + vanillaAfter);
             if (vanilla.changed < 20) {
-                c.problem("with the feature OFF the centre changed by only " + vanilla.changed
+                c.problem("with the feature OFF the center changed by only " + vanilla.changed
                         + " px - this check cannot see vanilla's crosshair, so its suppression proves nothing");
             }
             if (vanillaAfter <= vanillaBefore) {
@@ -116,7 +116,7 @@ final class CrosshairCases {
             expectBox(c, "green cross", green, 30, 30);
             if (green.other > 4) {
                 c.problem("green cross: " + green.other + " changed pixels are not the crosshair's green - vanilla's "
-                        + "crosshair (or something else) is still drawing at the centre");
+                        + "crosshair (or something else) is still drawing at the center");
             }
             if (customAfter <= customBefore) {
                 c.problem("the custom crosshair layer never ran");
@@ -131,7 +131,7 @@ final class CrosshairCases {
             c.note("red cross: " + red.red + " red px, " + red.green + " green px, box " + red.box());
             expect(c, "red cross", red.red, 80);
             if (red.green > 0) {
-                c.problem("red cross still has " + red.green + " green pixels - the colour change did not draw");
+                c.problem("red cross still has " + red.green + " green pixels - the color change did not draw");
             }
 
             c.onClient(mc -> {
@@ -166,14 +166,14 @@ final class CrosshairCases {
                 return null;
             });
             Count tee = shot(c, "t-shape");
-            c.note("T-Shape: " + tee.red + " red px, " + tee.above + " above the centre, box " + tee.box());
+            c.note("T-Shape: " + tee.red + " red px, " + tee.above + " above the center, box " + tee.box());
             expect(c, "T-Shape", tee.red, 60);
             if (tee.above > 0) {
-                c.problem("T-Shape drew " + tee.above + " px above the centre - it has no top arm");
+                c.problem("T-Shape drew " + tee.above + " px above the center - it has no top arm");
             }
             set(c, "setRotation", 90f);
             Count teeTurned = shot(c, "t-shape-rot90");
-            c.note("T-Shape rotated 90: " + teeTurned.red + " red px, " + teeTurned.right + " right of the centre, "
+            c.note("T-Shape rotated 90: " + teeTurned.red + " red px, " + teeTurned.right + " right of the center, "
                     + teeTurned.above + " above, box " + teeTurned.box());
             expect(c, "T-Shape rotated 90", teeTurned.red, 60);
             if (teeTurned.right > 0 || teeTurned.above == 0) {
@@ -220,11 +220,11 @@ final class CrosshairCases {
                     return null;
                 });
                 Count blue = shot(c, "on-block");
-                c.note("Colour On Block (aiming at the ground): " + blue.blue + " blue px, " + blue.red + " red px");
-                expect(c, "Colour On Block", blue.blue, 80);
+                c.note("Color On Block (aiming at the ground): " + blue.blue + " blue px, " + blue.red + " red px");
+                expect(c, "Color On Block", blue.blue, 80);
                 set(c, "setColorOnBlock", false);
             } else {
-                c.note("Colour On Block not checked: the crosshair is not on a block here");
+                c.note("Color On Block not checked: the crosshair is not on a block here");
             }
 
             editor(c, cfg);
@@ -355,7 +355,7 @@ final class CrosshairCases {
             c.problem(what + ": box " + bw + "x" + bh + ", expected " + w + "x" + h);
         }
         if (Math.abs(cx - width / 2.0) > 1.0 || Math.abs(cy - height / 2.0) > 1.0) {
-            c.problem(String.format(Locale.ROOT, "%s: centred at %.1f,%.1f, screen centre %.1f,%.1f", what, cx, cy,
+            c.problem(String.format(Locale.ROOT, "%s: centered at %.1f,%.1f, screen center %.1f,%.1f", what, cx, cy,
                     width / 2.0, height / 2.0));
         }
     }

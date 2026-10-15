@@ -168,7 +168,7 @@ final class InteractiveMapCases {
         double cx = (p[0] + p[2]) / 2.0;
         double cy = (p[1] + p[3]) / 2.0;
         double dx = (p[2] - p[0]) / 4.0;
-        c.note("map panel " + java.util.Arrays.toString(p) + ", drag " + dx + " screen units from its centre");
+        c.note("map panel " + java.util.Arrays.toString(p) + ", drag " + dx + " screen units from its center");
 
         // LMB drag: no pan, and the release still dispatched as a Go press.
         float[] v0 = view(c, s);

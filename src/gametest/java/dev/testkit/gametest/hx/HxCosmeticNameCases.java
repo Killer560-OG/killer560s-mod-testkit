@@ -311,7 +311,7 @@ final class HxCosmeticNameCases {
             // The real Font path: the replacer's output for a sequence holding the own IGN.
             List<Integer> painted = c.onClient(mc -> colours((FormattedCharSequence) Mod.staticCall(
                     "namechanger.NameReplacer", "replace", Component.literal(self).getVisualOrderText())));
-            c.note("replacer colours: " + hexList(painted));
+            c.note("replacer colors: " + hexList(painted));
             c.check(painted.size() == FADE_NAME.length(), "replacer painted " + painted.size() + " glyphs for "
                     + FADE_NAME.length() + " letters");
             int prevB = -1;
@@ -323,7 +323,7 @@ final class HxCosmeticNameCases {
                 prevB = b;
             }
             c.check(painted.get(0) == (FROM & 0xFFFFFF) && painted.get(painted.size() - 1) == (TO & 0xFFFFFF),
-                    "the ends are not the two picked colours: " + hexList(painted));
+                    "the ends are not the two picked colors: " + hexList(painted));
 
             look(c, 0f, -30f);
             clearChat(c);
@@ -480,9 +480,9 @@ final class HxCosmeticNameCases {
                 return List.of();
             });
             List<Integer> name = painted.subList(Math.max(0, painted.size() - FADE_NAME.length()), painted.size());
-            c.note("preview widget " + java.util.Arrays.toString(rect) + ", name colours " + hexList(name));
+            c.note("preview widget " + java.util.Arrays.toString(rect) + ", name colors " + hexList(name));
             c.check(name.get(0) == (FROM & 0xFFFFFF) && name.get(name.size() - 1) == (TO & 0xFFFFFF),
-                    "preview ends are not the picked colours: " + hexList(name));
+                    "preview ends are not the picked colors: " + hexList(name));
             BufferedImage img = shot(c, "preview");
             int width = c.onClient(mc -> McCompat.screen(mc).width);
             double k = img.getWidth() / (double) width;
@@ -923,11 +923,11 @@ final class HxCosmeticNameCases {
                 return out;
             });
             c.note("painted: styled '" + shown[0] + "', old '" + shown[1] + "', bad list '" + shown[2] + "'");
-            c.check("§dOldEntry".equals(shown[1]), "an entry without colors is not its single colour: " + shown[1]);
+            c.check("§dOldEntry".equals(shown[1]), "an entry without colors is not its single color: " + shown[1]);
             c.check("§bBadList".equals(shown[2]), "a wrong-length colors list was not dropped: " + shown[2]);
             List<Integer> painted = c.onClient(mc -> colours(((Component) Mod.staticCall(SF, "displayNameFor", botId))
                     .getVisualOrderText()));
-            c.note("nametag component colours: " + hexList(painted));
+            c.note("nametag component colors: " + hexList(painted));
             c.check(painted.size() == FADE_NAME.length() && painted.get(0) == 0x00FF00
                     && painted.get(painted.size() - 1) == 0x0000FF, "the shared fade is not 00ff00..0000ff: " + hexList(painted));
 
@@ -960,7 +960,7 @@ final class HxCosmeticNameCases {
                         l.add(v);
                     }
                 }
-                c.note("own share colours: " + hexList(l));
+                c.note("own share colors: " + hexList(l));
                 c.check(mine != null && mine.length == FADE_NAME.length() && mine[0] == 0x00FF00
                         && mine[mine.length - 1] == 0x0000FF, "own fade is not shared as 00ff00..0000ff: " + hexList(l));
             }

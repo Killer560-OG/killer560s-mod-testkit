@@ -95,6 +95,10 @@ public class SimAutoClearTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> mc.options.renderDistance().set(16));
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
                 new Object[]{"gametest"}));
+        // The sim counts a mob room cleared the moment he walks in (killer560, 2026-10-14, until it has mob fights);
+        // these cases measure a clear by its mobs dying, so that is off until case 8 checks it.
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOBS, "setClearRoomsOnEntry", new Class<?>[]{boolean.class},
+                new Object[]{false}));
 
         List<String> failures = new ArrayList<>();
         try {
@@ -103,6 +107,8 @@ public class SimAutoClearTests implements FabricClientGameTest {
             failures.add("scenario threw: " + t);
             t.printStackTrace(System.out);
         } finally {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOBS, "setClearRoomsOnEntry", new Class<?>[]{boolean.class},
+                    new Object[]{true}));
             ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "cancel"));
             ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setEnabled", false));
             ctx.runOnClient(mc -> mc.options.renderDistance().set(renderBefore));
@@ -346,7 +352,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
             failures.add("hop: " + r4.interacts + " entity interaction packet(s)");
         }
         if (r4.travelled < 3.0) {
-            failures.add("hop: travelled only " + String.format(java.util.Locale.US, "%.1f", r4.travelled) + " blocks");
+            failures.add("hop: traveled only " + String.format(java.util.Locale.US, "%.1f", r4.travelled) + " blocks");
         }
         if (done4.get() == null || gaveUp4.get() != null) {
             failures.add("hop: clearRoom called onDone=" + done4.get() + " onGiveUp=" + gaveUp4.get());
@@ -511,6 +517,48 @@ public class SimAutoClearTests implements FabricClientGameTest {
             failures.add("door: the key was not used (" + keysLeft + " left) - the door never opened");
         }
         check(failures, "door", r7, p7, after7, floor(ctx), List.of(lockedRoom.name()), List.of());
+
+        // ==== case 8: every room counts as cleared on entry (killer560, 2026-10-14: "Treat all rooms as cleared in
+        // the sim until we do mob stuff later") - a live starred zombie in the room he stands in, the room un-cleared,
+        // and with the rule on it must read cleared again while that zombie is still ALIVE (no kill did it).
+        String standing = ctx.computeOnClient(mc -> {
+            Object layout = ModUnderTest.staticCall(LAYOUT, "current");
+            Object idx = ModUnderTest.call(layout, "roomAtWorld", new Class<?>[]{double.class, double.class},
+                    new Object[]{mc.player.getX(), mc.player.getZ()});
+            return (String) ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{idx});
+        });
+        Room in = rooms.stream().filter(r -> r.name().equals(standing)).findFirst().orElse(null);
+        if (in == null || !in.mob()) {
+            failures.add("entry: he stands in '" + standing + "', not a mob room of this floor - nothing to check");
+            return;
+        }
+        List<Placed> p8 = spawnIn(ctx, in, 1, false);
+        ctx.waitTicks(20);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_ROOM_STATE, "clearRoom", new Class<?>[]{String.class},
+                new Object[]{in.name()}));
+        ctx.waitTicks(30);
+        boolean offStays = !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_ROOM_STATE, "isCleared",
+                new Class<?>[]{String.class}, new Object[]{in.name()}));
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOBS, "setClearRoomsOnEntry", new Class<?>[]{boolean.class},
+                new Object[]{true}));
+        boolean cleared = false;
+        for (int i = 0; i < 60 && !cleared; i++) {
+            ctx.waitTicks(1);
+            cleared = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_ROOM_STATE, "isCleared",
+                    new Class<?>[]{String.class}, new Object[]{in.name()}));
+        }
+        Map<UUID, String> after8 = aliveReport(ctx, p8);
+        println("entry: " + in.name() + " with a live zombie " + after8 + ": stayed uncleared with the rule off "
+                + offStays + ", cleared with it on " + cleared);
+        if (p8.isEmpty() || !"alive".equals(after8.get(p8.get(0).id()))) {
+            failures.add("entry: the zombie placed in " + in.name() + " is not alive (" + after8 + ") - the check proves nothing");
+        }
+        if (!offStays) {
+            failures.add("entry: with the entry rule off, " + in.name() + " read cleared while its zombie lived");
+        }
+        if (!cleared) {
+            failures.add("entry: " + in.name() + " did not count as cleared within 60 ticks of him standing in it");
+        }
     }
 
     /**
@@ -1108,7 +1156,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
 
         @Override
         public String toString() {
-            return String.format(java.util.Locale.US, "%s in %.1f s, travelled %.1f blocks, %d use(s), %d entity "
+            return String.format(java.util.Locale.US, "%s in %.1f s, traveled %.1f blocks, %d use(s), %d entity "
                             + "interaction(s), largest use-vs-movement yaw jump %.1f, %d hop(s), %d etherwarp trip(s), "
                             + "%d correction(s), last line: %s", finished ? "finished" : "STILL RUNNING", ticks / 20.0,
                     travelled, uses, interacts, maxUseJump, hops, etherwarps, corrections, lastLine);
@@ -1177,7 +1225,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
             failures.add(label + ": still running after " + CASE_TICKS / 20 + " s");
         }
         if (r.travelled < 5.0) {
-            failures.add(label + ": travelled only " + String.format(java.util.Locale.US, "%.1f", r.travelled)
+            failures.add(label + ": traveled only " + String.format(java.util.Locale.US, "%.1f", r.travelled)
                     + " blocks - nothing moved, so nothing here measured the feature");
         }
         if (r.interacts > 0) {

@@ -253,7 +253,7 @@ final class BarStyleCases {
 
                 // Defence: never an overflow layer.
                 m = measured(c, "DEFENCE_BAR");
-                c.check(m[0] > 0 && m[2] == 0, style + " defence: track " + m[0] + ", overflow " + m[2]);
+                c.check(m[0] > 0 && m[2] == 0, style + " defense: track " + m[0] + ", overflow " + m[2]);
             }
         } finally {
             reset(c);
@@ -346,7 +346,7 @@ final class BarStyleCases {
             });
             ModScreenDriver d = HudMenuProfilesCases.tabByClass(c, "HealthAndManaBarsTab");
             String[] rows = {STYLE_ROW, "Corners", "Icons", "Value Position", "Smooth Fill", "Damage Ghost",
-                    "Text Size", "Overflow Mana Colour", "Absorption Colour"};
+                    "Text Size", "Overflow Mana Color", "Absorption Color"};
             List<String> labels = c.onClient(mc -> barTabLabels(d));
             c.note("rows: " + labels);
             for (String row : rows) {
@@ -452,10 +452,10 @@ final class BarStyleCases {
                     return "io: " + e;
                 }
             });
-            c.note("old files: classic + old overflow default -> " + old.split(";")[0] + "; no style + chosen colour -> "
+            c.note("old files: classic + old overflow default -> " + old.split(";")[0] + "; no style + chosen color -> "
                     + (old.contains(";") ? old.split(";")[1] : "?"));
             c.check(old.equals("BOLD,ff2050c8;BOLD,ff123456;"), "old files load as " + old
-                    + ", want BOLD with the new overflow default, then BOLD keeping a chosen colour");
+                    + ", want BOLD with the new overflow default, then BOLD keeping a chosen color");
         } finally {
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
@@ -481,7 +481,7 @@ final class BarStyleCases {
 
     /** Labels the main view may show with Stat Bars on and Advanced closed (killer560, 2026-10-12: "simplify the health
      *  and mana bar menu"): the switch, Edit Bars, one on/off per bar, Style, Text Size and the Advanced header. */
-    private static final String[] MAIN_ROWS = {"Stat Bars", "Edit Bars", "Health Bar", "Mana Bar", "Defence Bar",
+    private static final String[] MAIN_ROWS = {"Stat Bars", "Edit Bars", "Health Bar", "Mana Bar", "Defense Bar",
             "Vitality Bar", "Other Resource Bar", "XP Bar", "Style", "Text Size", "▶ Advanced"};
 
     static void menu(UiCase c) throws Exception {
@@ -524,7 +524,7 @@ final class BarStyleCases {
                 c.check(find(main, want) != null, "the main view has no " + want + " row");
             }
             for (String hidden : new String[]{"Corners", "Icons", "Smooth Fill", "Damage Ghost", "Layout", "Bar Width",
-                    "Health Colour", "Overflow Mana Colour", "Health Text", "Hearts"}) {
+                    "Health Color", "Overflow Mana Color", "Health Text", "Hearts"}) {
                 c.check(find(main, hidden) == null, "the main view still shows " + hidden + " (it belongs in Advanced)");
             }
             copyScreen(c, "menu-collapsed");
@@ -612,8 +612,8 @@ final class BarStyleCases {
             });
             c.note("Advanced open (" + open.size() + " rows): " + open);
             for (String want : new String[]{"▼ Advanced", "Layout", "Corners", "Icons", "Show Value", "Smooth Fill",
-                    "Damage Ghost", "Bar Width", "Bar Height", "Health Colour", "Mana Colour", "Absorption Colour",
-                    "Overflow Mana Colour", "Background", "Health Text", "Text Shadow", "Hearts", "XP Bar And Level",
+                    "Damage Ghost", "Bar Width", "Bar Height", "Health Color", "Mana Color", "Absorption Color",
+                    "Overflow Mana Color", "Background", "Health Text", "Text Shadow", "Hearts", "XP Bar And Level",
                     "Held Item Name"}) {
                 c.check(find(open, want) != null, "Advanced has no " + want + " row");
             }
@@ -621,7 +621,7 @@ final class BarStyleCases {
             for (String l : open) {
                 String key = l.contains(":") ? l.substring(0, l.indexOf(':')) : l;
                 if (key.isBlank() || key.endsWith("is on") || key.equals("Always") || key.equals("Look")
-                        || key.equals("Colours") || key.equals("Text readouts") || key.equals("Hide")) {
+                        || key.equals("Colors") || key.equals("Text readouts") || key.equals("Hide")) {
                     continue;
                 }
                 String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", TAB, l));
@@ -1146,7 +1146,7 @@ final class BarStyleCases {
                         int icon = iconRoom(c, 150, BH, v[0]);
                         String[] bars = {"health", "mana", "defence"};
                         int[] ys = {20, 50, 80};
-                        StringBuilder line = new StringBuilder(name + " number contrast against white, worst neighbour:");
+                        StringBuilder line = new StringBuilder(name + " number contrast against white, worst neighbor:");
                         for (int k = 0; k < 3; k++) {
                             // From past the icon: the iron chestplate has white highlights beside light grey.
                             double[] cr = contrast(img, (int) ((20 + icon * 1.5) * gs), ys[k] * gs,
@@ -1166,7 +1166,7 @@ final class BarStyleCases {
                 }
             }
             String fills = c.onClient(mc -> {
-                StringBuilder b = new StringBuilder("white straight on each fill colour (no outline):");
+                StringBuilder b = new StringBuilder("white straight on each fill color (no outline):");
                 Object ps = Mod.cfg(PS);
                 for (String n : new String[]{"HEALTH_BAR", "MANA_BAR", "DEFENCE_BAR"}) {
                     int col = (Integer) Mod.call(ps, "getReadoutColor", r(n));
@@ -1349,10 +1349,10 @@ final class BarStyleCases {
                 var font = mc.font;
                 return font.width("1,000/1,000") + "," + font.width("50 (33.3%)") + "," + font.width("50/100");
             });
-            c.note("Beside column: tracks Health " + hT[0] + ", Defence " + dT[0] + " (stacked), Mana " + mT[0]
+            c.note("Beside column: tracks Health " + hT[0] + ", Defense " + dT[0] + " (stacked), Mana " + mT[0]
                     + " (elsewhere); number widths " + own);
             c.check(hT[0] == dT[0], "stacked Beside bars end at different lengths: Health track " + hT[0]
-                    + ", Defence " + dT[0]);
+                    + ", Defense " + dT[0]);
             c.check(mT[0] > hT[0], "the Mana Bar in another column took the column's wider number room (track " + mT[0]
                     + " vs " + hT[0] + ")");
             int gsCol = c.onClient(mc -> mc.getWindow().getGuiScale());
@@ -1361,7 +1361,7 @@ final class BarStyleCases {
             // Bold's orange rim marks each track's right end on screen.
             int hr = rightmost(colImg, RIM, BY * gsCol, (BY + BH) * gsCol);
             int dr = rightmost(colImg, RIM, (BY + 22) * gsCol, (BY + 22 + BH) * gsCol);
-            c.note("Beside column on screen: the rims end at px " + hr + " (Health) and " + dr + " (Defence)");
+            c.note("Beside column on screen: the rims end at px " + hr + " (Health) and " + dr + " (Defense)");
             c.check(hr > 0 && hr == dr, "on screen the stacked bars end at px " + hr + " and " + dr);
             c.onClient(mc -> {
                 Object ps = Mod.cfg(PS);

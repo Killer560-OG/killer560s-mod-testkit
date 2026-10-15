@@ -79,12 +79,12 @@ final class AutoKick2Cases {
             List<String> s = got.get("S");
             List<String> both = got.get("S_PLUS_ELSE_S");
             c.check(sp.size() == 4 && s.size() == 4 && both.size() == 4, "not every join was judged in every mode");
-            c.check(sp.equals(List.of("BothFastSp F7 S+ 4:30 limit 5:00 -> ok", "BothFastS F7 S+ 5:40 limit 5:00 -> warn",
-                    "OnlyS F7 S+ none limit 5:00 -> warn", "OnlySlowS F7 S+ none limit 5:00 -> warn")), "S+ mode: " + sp);
-            c.check(s.equals(List.of("BothFastSp F7 S 5:30 limit 5:00 -> warn", "BothFastS F7 S 4:00 limit 5:00 -> ok",
-                    "OnlyS F7 S 4:20 limit 5:00 -> ok", "OnlySlowS F7 S 5:50 limit 5:00 -> warn")), "S mode: " + s);
-            c.check(both.equals(List.of("BothFastSp F7 S+ 4:30 limit 5:00 -> ok", "BothFastS F7 S+ 5:40 limit 5:00 -> warn",
-                    "OnlyS F7 S 4:20 limit 5:00 -> ok", "OnlySlowS F7 S 5:50 limit 5:00 -> warn")), "S+ else S mode: " + both);
+            c.check(sp.equals(List.of("BothFastSp F7 S+ 4:30 limit 5:00 -> ok", "BothFastS F7 S+ 5:40 limit 5:00 -> kick",
+                    "OnlyS F7 S+ none limit 5:00 -> kick", "OnlySlowS F7 S+ none limit 5:00 -> kick")), "S+ mode: " + sp);
+            c.check(s.equals(List.of("BothFastSp F7 S 5:30 limit 5:00 -> kick", "BothFastS F7 S 4:00 limit 5:00 -> ok",
+                    "OnlyS F7 S 4:20 limit 5:00 -> ok", "OnlySlowS F7 S 5:50 limit 5:00 -> kick")), "S mode: " + s);
+            c.check(both.equals(List.of("BothFastSp F7 S+ 4:30 limit 5:00 -> ok", "BothFastS F7 S+ 5:40 limit 5:00 -> kick",
+                    "OnlyS F7 S 4:20 limit 5:00 -> ok", "OnlySlowS F7 S 5:50 limit 5:00 -> kick")), "S+ else S mode: " + both);
             // Default, and survives a save/load.
             Object[] rt = c.onClient(mc -> {
                 Object k = Mod.cfg(AK_CFG);
@@ -154,12 +154,12 @@ final class AutoKick2Cases {
             String after2 = floor(c);
             c.note("before: " + before + "; Group Builder pick " + pick + " (floor still " + beforeQueue
                     + "); after the queued line: " + after + "; joiner: " + mine + "; normal-mode builder in other slots "
-                    + "with colour codes: pick " + pick2 + " -> " + after2);
+                    + "with color codes: pick " + pick2 + " -> " + after2);
             c.check("F7".equals(before), "Detect did not fall back to the last run (F7) with nothing queued");
             c.check("M4".equals(pick), "the Group Builder's Master Mode / Floor IV was not read (" + pick + ")");
             c.check("F7".equals(beforeQueue), "the builder pick became the floor before the party was queued");
             c.check("M4".equals(after), "the queued line did not commit M4");
-            c.check(mine.equals(List.of("MmJoiner M4 S+ 3:50 limit 3:20 -> warn")),
+            c.check(mine.equals(List.of("MmJoiner M4 S+ 3:50 limit 3:20 -> kick")),
                     "the joiner was not judged on M4 (his F7 time would have passed): " + mine);
             c.check("F6".equals(pick2) && "F6".equals(after2), "the normal-mode Floor VI builder (other slots) was not read");
         } finally {
@@ -394,6 +394,9 @@ final class AutoKick2Cases {
                     "Fixed Floor row missing under Fixed");
             c.check(detectRows.stream().noneMatch(l -> l.toLowerCase(Locale.ROOT).startsWith("queue floor")),
                     "the old Queue Floor row is still there");
+            // killer560, 2026-10-14: no warn-only section, only the kick - the Action Mode row is gone.
+            c.check(!detectRows.isEmpty() && detectRows.stream().noneMatch(l -> l.toLowerCase(Locale.ROOT).startsWith("action mode")
+                    || l.toLowerCase(Locale.ROOT).contains("warn only")), "the removed Action Mode / Warn Only row is still there");
         } finally {
             close(c);
             DungeonB2Cases.restoreConfig(c, saved, AK_CFG);
@@ -402,13 +405,13 @@ final class AutoKick2Cases {
 
     // ---- helpers --------------------------------------------------------------------------------------------------
 
-    /** Auto Kick on, Warn Only, out of a dungeon; {@code fixed} (with its limit) or no change to the source. */
+    /** Auto Kick on (it always kicks - no Warn Only since 2026-10-14), out of a dungeon; {@code fixed} (with its limit)
+     *  or no change to the source. */
     private static void setup(UiCase c, String fixed, int limit) {
         c.onClient(mc -> {
             Mod.staticCall("secrets.DungeonState", "setRoomSim", false);
             Object k = Mod.cfg(AK_CFG);
             Mod.call(k, "setEnabled", true);
-            Mod.call(k, "setMode", Mod.enumValue(AK_CFG + "$ActionMode", "WARN_ONLY"));
             Mod.call(k, "setTimeMode", Mod.enumValue(AK_CFG + "$TimeMode", "S_PLUS"));
             if (fixed != null) {
                 Mod.call(k, "setQueueFloor", Mod.enumValue(AK_CFG + "$Floor", fixed));

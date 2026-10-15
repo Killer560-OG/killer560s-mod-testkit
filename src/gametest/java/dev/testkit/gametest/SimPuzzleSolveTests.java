@@ -853,7 +853,7 @@ public final class SimPuzzleSolveTests {
                     break;
                 }
                 if (t % 100 == 0) {
-                    println(name, String.format("t=%2ds %s, held %s, travelled %.1f, complete=%s, failed=%s; %s",
+                    println(name, String.format("t=%2ds %s, held %s, traveled %.1f, complete=%s, failed=%s; %s",
                             t / 20, ctx.computeOnClient(SimPuzzleSolveTests::where),
                             ctx.computeOnClient(SimPuzzleSolveTests::heldName), travelled, complete(ctx),
                             failed(ctx), probe(ctx)));
@@ -887,7 +887,7 @@ public final class SimPuzzleSolveTests {
                 println(name, "  | " + l);
             }
 
-            String extra = String.format(" (travelled %.1f blocks%s%s)", travelled,
+            String extra = String.format(" (traveled %.1f blocks%s%s)", travelled,
                     chestAt > 0 ? String.format(", container at %.1fs", chestAt / 20.0) : "",
                     spec.chestIsVerdict() ? ", sim isComplete=" + complete(ctx) : "");
             if (failedAt > 0) {

@@ -151,14 +151,14 @@ public class SimThreadTests implements FabricClientGameTest {
             if (in) {
                 reached++;
             } else {
-                failures.add("goto " + name + " left him at " + fmt(to[0]) + "," + fmt(to[2]) + ", tile centre "
+                failures.add("goto " + name + " left him at " + fmt(to[0]) + "," + fmt(to[2]) + ", tile center "
                         + c.getX() + "," + c.getZ());
             }
             ctx.waitTicks(5);
         }
-        println(GOTO, "reached " + reached + " of " + total + " gotos, travelled " + fmt(travelled) + " blocks");
+        println(GOTO, "reached " + reached + " of " + total + " gotos, traveled " + fmt(travelled) + " blocks");
         if (travelled < 100) {
-            failures.add("travelled only " + fmt(travelled) + " blocks across " + total + " gotos - nothing moved him");
+            failures.add("traveled only " + fmt(travelled) + " blocks across " + total + " gotos - nothing moved him");
         }
         for (String e : LogTap.modErrorsSince(mark)) {
             failures.add("mod ERROR: " + e);

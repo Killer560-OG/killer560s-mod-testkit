@@ -708,7 +708,7 @@ public class SimAutopilot2Tests implements FabricClientGameTest {
                 r.stopReason = l.substring(l.indexOf("[AutoSecret] stopped: ") + 22);
             }
         }
-        println(String.format(Locale.US, "%s: travelled %.1f blocks, finished %s, stopped: %s", label, r.travelled,
+        println(String.format(Locale.US, "%s: traveled %.1f blocks, finished %s, stopped: %s", label, r.travelled,
                 r.finished, r.stopReason));
         for (String l : r.log) {
             if (l.contains("[Autopilot]") || l.contains("[AutoSecret]") || l.contains("has obtained")

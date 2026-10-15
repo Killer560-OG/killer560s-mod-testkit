@@ -1077,14 +1077,14 @@ public class SimPathOptimalTests implements FabricClientGameTest {
             boolean planned = logHas(mark, "Path #9 -> #10 planned by the floor planner");
             println(ALTAR, "planned " + planned + ", ended at " + fmt(end) + " (" + String.format(Locale.ROOT, "%.2f",
                     end.distanceTo(n10)) + " from node #10), " + String.format(Locale.ROOT, "%.1f", travelled)
-                    + " block(s) travelled after the stack fired");
+                    + " block(s) traveled after the stack fired");
             if (!planned) {
                 f.add("pair #9 -> #10 was not planned");
             }
             if (!arrived || travelled < 10) {
                 f.add("he did not fly to node #10 (ended " + fmt(end) + ", " + String.format(Locale.ROOT, "%.2f",
                         end.distanceTo(n10)) + " from it, " + String.format(Locale.ROOT, "%.1f", travelled)
-                        + " travelled)");
+                        + " traveled)");
             }
         } finally {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},

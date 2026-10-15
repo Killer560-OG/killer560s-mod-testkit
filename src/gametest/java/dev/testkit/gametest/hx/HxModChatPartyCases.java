@@ -441,7 +441,7 @@ final class HxModChatPartyCases {
                 c.onClient(mc -> Mod.staticCall(PCC, "load"));
             }
             c.check(problems.isEmpty(), String.join("; ", problems));
-            c.note("v1 party + chat configs -> one list (destructive gate honoured, racism/confirm dropped); v2 read as is");
+            c.note("v1 party + chat configs -> one list (destructive gate honored, racism/confirm dropped); v2 read as is");
         });
     }
 

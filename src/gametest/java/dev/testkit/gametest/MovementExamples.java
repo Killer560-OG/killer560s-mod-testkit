@@ -66,13 +66,13 @@ public class MovementExamples implements FabricClientGameTest {
                     double[] end = scenario.playerPosition();
                     double travelled = Math.hypot(end[0] - start[0], end[2] - start[2]);
                     scenario.log(String.format(Locale.ROOT,
-                            "travelled %.2f blocks in 200 ticks = %.4f blocks/tick",
+                            "traveled %.2f blocks in 200 ticks = %.4f blocks/tick",
                             travelled, travelled / 200.0));
 
                     // Vanilla sprint-jumping is about 0.35 blocks/tick. Anything far below means the run
                     // did not actually happen and the clean result means nothing.
                     if (travelled < 20) {
-                        throw new AssertionError("only travelled " + travelled + " blocks — the player "
+                        throw new AssertionError("only traveled " + travelled + " blocks — the player "
                                 + "did not run, so this scenario tested nothing");
                     }
                 });
@@ -302,10 +302,10 @@ public class MovementExamples implements FabricClientGameTest {
                     ctx.getInput().releaseKey(options -> options.keyUp);
                     double[] end = scenario.playerPosition();
                     double travelled = Math.hypot(end[0] - start[0], end[2] - start[2]);
-                    scenario.log(String.format(Locale.ROOT, "travelled %.1f blocks over 100 ms of latency",
+                    scenario.log(String.format(Locale.ROOT, "traveled %.1f blocks over 100 ms of latency",
                             travelled));
                     if (travelled < 20) {
-                        throw new AssertionError("only travelled " + travelled + " blocks — the run did not happen");
+                        throw new AssertionError("only traveled " + travelled + " blocks — the run did not happen");
                     }
                     // Out again, mid-stream, while the server is still talking. Must drain in order.
                     ctx.runOnClient(mc -> Latency.remove());

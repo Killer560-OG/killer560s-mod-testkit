@@ -224,7 +224,7 @@ final class HudFixCases {
             c.note("action bar " + show(gold) + " (absorption: gold) -> health " + read2[0] + "/" + read2[1]);
             check(c, read1[0] == 10464 && read1[1] == 10464, "the plain health segment read as " + read1[0] + "/" + read1[1]);
             check(c, read2[0] == 12000 && read2[1] == 10464, "the gold (absorption) health segment read as " + read2[0]
-                    + "/" + read2[1] + ", want 12000/10464 - the colour code's digit was taken into the number");
+                    + "/" + read2[1] + ", want 12000/10464 - the color code's digit was taken into the number");
             Map<Integer, double[]> m = StatBarsLayoutCases.measure(c, "hypixel-gold", HEALTH, ABSORB);
             segment(c, "gold action bar 12,000/10,464", m, 100, 100, 100 * 1536.0 / 10464, 200);
 
@@ -347,7 +347,7 @@ final class HudFixCases {
             });
             Map<Integer, double[]> m = StatBarsLayoutCases.measure(c, "custom", HEALTH, MANA, DEFENCE);
             c.note("Custom (own scales and thicknesses): heights Health " + h(m.get(HEALTH)) + ", Mana " + h(m.get(MANA))
-                    + ", Defence " + h(m.get(DEFENCE)));
+                    + ", Defense " + h(m.get(DEFENCE)));
             check(c, m.get(HEALTH) != null && m.get(MANA) != null && Math.abs(h(m.get(HEALTH)) - h(m.get(MANA))) > 1,
                     "in Custom the two bars' own sizes did not differ - the Predefined check was not tested against"
                             + " differing sizes");
@@ -364,8 +364,8 @@ final class HudFixCases {
         double hh = h(m.get(HEALTH));
         double mh = h(m.get(MANA));
         double dh = h(m.get(DEFENCE));
-        c.note(String.format(Locale.ROOT, "Predefined %s: heights Health %.1f, Mana %.1f, Defence %.1f (want all %.1f);"
-                + " Health %s, Mana %s, Defence %s", tag, hh, mh, dh, want, gbox(m.get(HEALTH)), gbox(m.get(MANA)),
+        c.note(String.format(Locale.ROOT, "Predefined %s: heights Health %.1f, Mana %.1f, Defense %.1f (want all %.1f);"
+                + " Health %s, Mana %s, Defense %s", tag, hh, mh, dh, want, gbox(m.get(HEALTH)), gbox(m.get(MANA)),
                 gbox(m.get(DEFENCE))));
         if (m.get(HEALTH) == null || m.get(MANA) == null || m.get(DEFENCE) == null) {
             c.problem(tag + ": a bar drew no pixel");
@@ -399,7 +399,7 @@ final class HudFixCases {
             s.mouseScrolled(p[0] + 2, p[1] + 2, 0, 1);
             float after = ((Number) Mod.call(Mod.cfg(PS), "getPredefinedScale")).floatValue();
             Map<String, Float> live = (Map<String, Float>) R.get(s, "liveScales");
-            return String.format(Locale.ROOT, "%.2f->%.2f health %.2f mana %.2f defence %.2f", before, after,
+            return String.format(Locale.ROOT, "%.2f->%.2f health %.2f mana %.2f defense %.2f", before, after,
                     live.get("statbar_health"), live.get("statbar_mana"), live.get("statbar_defence"));
         });
         c.note("HUD editor: one scroll up over the Mana Bar: Predefined Scale " + got);
@@ -885,12 +885,12 @@ final class HudFixCases {
             for (String s : soloLines) {
                 boolean ok = solo.matcher(s).matches();
                 c.note("SOLO " + show(s) + " -> " + ok);
-                check(c, ok, "the Solo line " + show(s) + " is not recognised");
+                check(c, ok, "the Solo line " + show(s) + " is not recognized");
             }
             for (String s : keyLines) {
                 boolean ok = keys.matcher(s).matches();
                 c.note("KEYS " + show(s) + " -> " + ok);
-                check(c, ok, "the Keys line " + show(s) + " is not recognised");
+                check(c, ok, "the Keys line " + show(s) + " is not recognized");
             }
             check(c, !solo.matcher("§7[VIP] Bob§f: Solo run time").matches(), "SOLO matches a chat-like line");
 

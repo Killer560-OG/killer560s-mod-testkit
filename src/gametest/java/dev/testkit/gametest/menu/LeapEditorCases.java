@@ -347,7 +347,7 @@ final class LeapEditorCases {
             }
             int left = bottom.get(0).getX();
             int right = s.width - (bottom.get(3).getX() + bottom.get(3).getWidth());
-            c.check(Math.abs(left - right) <= 1, "bottom row not centred: " + left + " left, " + right + " right");
+            c.check(Math.abs(left - right) <= 1, "bottom row not centered: " + left + " left, " + right + " right");
             String code;
             try (InputStream in = Mod.cls(SCREEN).getResourceAsStream("LeapOrderScreen.class")) {
                 code = new String(in.readAllBytes(), StandardCharsets.ISO_8859_1);

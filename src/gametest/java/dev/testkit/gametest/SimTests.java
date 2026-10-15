@@ -467,7 +467,7 @@ public class SimTests implements FabricClientGameTest {
             }
             if (inBoss) {
                 throw new AssertionError("the sim reads as BOSS PHASE - that closes the gate on exactly the "
-                        + "clear features the sim exists to practise");
+                        + "clear features the sim exists to practice");
             }
 
             // 10. MIMIC. One per map, and only in rooms that can hold one. The eligibility rule is the half

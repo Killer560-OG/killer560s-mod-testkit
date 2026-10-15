@@ -162,7 +162,7 @@ public class SimMapGroupTests implements FabricClientGameTest {
             throw new AssertionError(PINNED_ROOM + " never reached a single floor, pinned or not - so this "
                     + "scenario never drew the case it exists to check");
         }
-        System.out.println("[90-sim-group] rooms merged into a neighbour: " + merged.size()
+        System.out.println("[90-sim-group] rooms merged into a neighbor: " + merged.size()
                 + " (capped at 20), rooms split across map rooms: " + split.size() + " (capped at 20)");
         for (String s : split) {
             System.out.println("[90-sim-group]   SPLIT " + s);
