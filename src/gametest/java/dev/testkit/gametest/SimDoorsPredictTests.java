@@ -332,13 +332,14 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
             row(R_BLOOD, false, "premise: no blood door on the layout");
             return;
         }
-        boolean terracotta = ctx.computeOnClient(mc -> !mc.level.getBlockState(f.doorBlock(bd)).isAir());
         // High over the blood doorway: in neither room, so neither opens, and close enough for any render distance.
         ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "resetSimVisits"));
         double[] bc = f.doorCentre(bd);
         place(ctx, new double[]{bc[0], bc[1] + 30, bc[2]}, null);
         ctx.runOnClient(mc -> invalidate());
         ctx.waitTicks(30);
+        boolean terracotta = ctx.computeOnClient(mc -> mc.level.isLoaded(f.doorBlock(bd))
+                && !mc.level.getBlockState(f.doorBlock(bd)).isAir());
         boolean opened = ctx.computeOnClient(mc -> contains((int[]) ModUnderTest.staticCall(HELD, "simVisitedRooms"), prev));
         boolean before = boxAt(ctx.computeOnClient(mc -> boxes()), f.doorCentre(bd)) != null;
         ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "simVisit", new Class<?>[]{int.class}, new Object[]{prev}));
