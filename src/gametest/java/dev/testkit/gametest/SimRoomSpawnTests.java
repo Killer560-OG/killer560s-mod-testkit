@@ -120,7 +120,8 @@ public class SimRoomSpawnTests implements FabricClientGameTest {
         }));
         ctx.waitFor(mc -> McCompat.screen(mc) != null && McCompat.screen(mc).getClass().getName().equals(MENU), 400);
         ctx.waitTicks(3);
-        press(ctx, "All Rooms (route practice)", true);
+        // "Route Practice" in the menu's left column since mod sim-pages (2026-10-15).
+        press(ctx, labels(ctx).contains("Route Practice") ? "Route Practice" : "All Rooms (route practice)", true);
         for (int i = 0; i < 100 && labels(ctx).stream().anyMatch(l -> l.contains("loading")); i++) {
             ctx.waitTicks(2);
         }
