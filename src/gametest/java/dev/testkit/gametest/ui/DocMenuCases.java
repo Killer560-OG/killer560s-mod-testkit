@@ -465,21 +465,9 @@ final class DocMenuCases {
     }
 
     private static final Master[] MASTERS = {
-            new Master("DungeonAlertsTab", "dungeonalerts.DungeonAlertsConfig", "DungeonAlertsEnabled", "Dungeon Alerts",
-                    new String[]{"field:roomAlertsEnabled", "field:shadowAssassinEnabled"},
-                    new String[]{"roomAlertsOn", "shadowAssassinOn"}),
-            new Master("ThornTab", "thorn.ThornConfig", "ThornEnabled", "Thorn",
-                    new String[]{"setBearHud", "setThornEsp", "setStunSpots"},
-                    new String[]{"isBearHudEnabled", "isThornEspEnabled", "isStunSpotsEnabled", "isAnyEspEnabled"}),
-            new Master("MaxorTab", "maxor.MaxorConfig", "MaxorCrystalsEnabled", "Maxor's Crystals",
-                    new String[]{"setSpawnTimer", "setPlaceTimer", "setHighlight"},
-                    new String[]{"isSpawnTimerEnabled", "isPlaceTimerEnabled", "isHighlightEnabled"}),
-            new Master("P3NavTab", "p3nav.P3NavConfig", "P3NavEnabled", "P3 Nav",
-                    new String[]{"setGateHighlight", "setTerminalEsp", "setDeviceEsp"},
-                    new String[]{"isGateHighlightEnabled", "isTerminalEspEnabled", "isDeviceEspEnabled"}),
-            new Master("F7SpotsTab", "f7spots.F7SpotsConfig", "F7SpotsEnabled", "F7 Spots",
-                    new String[]{"setWalkWaypoints", "setAimSpots"},
-                    new String[]{"isWalkWaypointsEnabled", "isAimSpotsEnabled"}),
+            // Dungeon Alerts, Thorn, Maxor's Crystals, P3 Nav and F7 Spots had a master here until 2026-10-15 (killer560:
+            // "not always should the first setting dictate whether the mod as a whole is on or off"): their parts are
+            // independent now and the card stands for all of them - 518-ui-menu-independent-masters.
             new Master("SolverHighlightsTab", "puzzlesolvers.SolverEspConfig", "Enabled", "Solver Highlights",
                     new String[]{}, new String[]{"isEnabled"}),
             new Master("ObjectHiderTab", "objecthider.ObjectHiderConfig", "ObjectHiderEnabled", "Object Hider",
@@ -961,7 +949,6 @@ final class DocMenuCases {
         try {
             String why = c.onClient(mc -> {
                 Object cfg = Mod.cfg(cls);
-                Mod.call(cfg, "setThornEnabled", true);
                 Screen s = drawer(mc, "ThornTab");
                 Object[] styles = Mod.cls("thorn.ThornConfig$Style").getEnumConstants();
                 int n = styles.length;
