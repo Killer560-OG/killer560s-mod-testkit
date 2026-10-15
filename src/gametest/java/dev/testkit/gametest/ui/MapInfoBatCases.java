@@ -19,7 +19,7 @@ import java.util.regex.Pattern;
  * 524-ui-map-info-rows (mod branch map-info-bat, killer560 2026-10-07): the Dungeon Map's Extra Info filled in with a
  * real-looking run - "Try to make it smaller and only take up 2 rows", "Abbreviate Mimic to M, Prince to P and Bat to B".
  * At GUI scale 2 and 4: exactly two lines and exactly two separate ink bands, every ink pixel inside the map's width,
- * no label spilling past it, each band at most 5 units tall; row 1 reads Score, Secrets and Crypts and row 2 Deaths
+ * no label spilling past it, each band at most 5 units tall; row 1 reads Secrets and Crypts and row 2 Score, Deaths
  * then M/P/B each with a tick or a cross; the B tick is DRAWN (switching the bat off turns green pixels in row 2 red);
  * and Split Timers saved on top of the rows is drawn clear of the map's box. {@code TESTKIT_HUDFIX_SHOTS=<dir>} also
  * gets the GUI 2 pictures and a 4x crop of the map and its rows.
