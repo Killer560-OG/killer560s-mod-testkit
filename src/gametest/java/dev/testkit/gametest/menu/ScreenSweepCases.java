@@ -36,7 +36,7 @@ import java.util.UUID;
  *       the 10 names containing it, clearing the box shows all 30 again; a press on a row opens it.</li>
  *   <li>952-menu-sweep-bestfriends: a stored player draws as a row; typing narrows the list to him.</li>
  *   <li>953-menu-sweep-accounts: three fake Prism accounts (testkit's own accounts copy) list as buttons; the Direct
- *       Session Login, per-account proxy and instance proxy pages are shot too; a press on Back closes the list.</li>
+ *       Session Login, per-account proxy and Universal Proxy pages are shot too; a press on Back closes the list.</li>
  *   <li>954-menu-sweep-popups: the "updated to" popup (OK closes it) and Window Layout (the Windows button steps the
  *       count, Cancel closes it).</li>
  *   <li>955-menu-sweep-petwheel: the wheel opens with four pets; hovering a tile gives it the accent outline.</li>
@@ -441,7 +441,7 @@ final class ScreenSweepCases {
                     new Class<?>[]{Screen.class, account.getClass()}, s, account));
             themed(c, accProxy, "Account Proxy", true);
             Screen proxy = show(c, mc -> construct("proxy.gui.ProxyConfigScreen", new Class<?>[]{Screen.class}, s));
-            themed(c, proxy, "Instance Proxy", true);
+            themed(c, proxy, "Universal Proxy", true);
             // Back on the list: a real press on Back closes it.
             Screen list = show(c, mc -> construct("accounts.gui.AccountSwitcherScreen", new Class<?>[]{Screen.class}, (Object) null));
             menuTheme(c, "AMBER");

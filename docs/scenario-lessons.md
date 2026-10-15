@@ -758,3 +758,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   NEXT trip's (the hand-over can be that fast), so only warps strictly before the end belong to the trip into the room.
 - Mod main's sim clears every room on entry (2026-10-14). A case that judges which rooms its clears killed their way to
   (141) turns `SimMobs.setClearRoomsOnEntry(false)` for its run, or any trip passing through a room "clears" it.
+- 1850-1851 (mod swap-accounts-ui-1015): the Swap Accounts screen. The Universal switch writes Prism's SHARED
+  `universal-proxy.json`, so 1851 presses it only when the mod's `ProxyConfig.UNIVERSAL_PATH` is the
+  `prismaccountswitcher.universalProxyFile` build.gradle sets (main ignores the property: 1851 then reports it and leaves the
+  switch alone). A row press and Copy ID fail offline; the failure line names the account, which is what proves the press
+  reached that account's handler. Rows are found by their label (the account name), their buttons by sitting in its band.

@@ -367,7 +367,7 @@ final class SwapAccountsCases {
             }
 
             // Small window and big GUI scales: still inside the panel, nothing overlapping, a row and the footer shown.
-            int[][] sizes = {{854, 480, 0}, {854, 480, 3}, {1280, 720, 4}, {1920, 1080, 4}};
+            int[][] sizes = {{854, 480, 0}, {640, 480, 2}, {1280, 720, 4}, {1920, 1080, 4}};
             for (int[] sz : sizes) {
                 BazaarV3Cases.setWindow(c, sz[0], sz[1], sz[2]);
                 Screen now = SocialCases.current(c);
