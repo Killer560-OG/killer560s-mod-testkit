@@ -758,3 +758,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   NEXT trip's (the hand-over can be that fast), so only warps strictly before the end belong to the trip into the room.
 - Mod main's sim clears every room on entry (2026-10-14). A case that judges which rooms its clears killed their way to
   (141) turns `SimMobs.setClearRoomsOnEntry(false)` for its run, or any trip passing through a room "clears" it.
+- **1640-1644 menu-profit-*** (mod profit-accounts-1015, 2026-10-15): profit per Minecraft account (UUID) with Show
+  Profit (This / All Accounts) and Profit Data (Shared / Per Mod Profile). Fake accounts come from the mod's
+  `ProfitScope.setAccountForTest(name, uuid)`; always clear it (nulls) in `finally`, or every later profit case records
+  under a fake account. The settings file (`ProfitConfig.PATH`) is outside profiles, so a case snapshots and restores it
+  and calls `ProfitConfig.load()`. 733 now drives the account switch through that setting, not the view filter.
