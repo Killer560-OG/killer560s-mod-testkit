@@ -4787,14 +4787,20 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         });
     }
 
-    /** Waits until he stands in relative block (x, z) at the arena floor; his position then, or null. */
+    /**
+     * Waits until he stands in relative block (x, z) at the arena floor; his position then, or null. Checks now, then after
+     * each of {@code ticks} ticks (so {@code ticks == 0} is a single look at where he is now - it used to check nothing and
+     * always answered null, which made every "has not landed yet" assertion through it vacuous, 2026-10-15).
+     */
     private static Vec3 waitLanded(ClientGameTestContext ctx, int x, int z, int ticks) {
-        for (int i = 0; i < ticks; i++) {
+        for (int i = 0; i <= ticks; i++) {
             Vec3 p = relPos(ctx);
             if (Math.floor(p.x) == x && Math.floor(p.z) == z && Math.abs(p.y - F) < 0.2) {
                 return p;
             }
-            ctx.waitTicks(1);
+            if (i < ticks) {
+                ctx.waitTicks(1);
+            }
         }
         return null;
     }
@@ -6946,12 +6952,13 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             int landTick = -1;
             Vec3 at = null;
             for (int t = 0; t <= 30; t++) {
-                // waitLanded checks once per tick it is given (0 checks nothing), then waits that tick.
-                at = waitLanded(ctx, 14, 6, 1);
+                // One look per tick: waitLanded(.., 0) looks now without waiting.
+                at = waitLanded(ctx, 14, 6, 0);
                 if (at != null) {
                     landTick = t;
                     break;
                 }
+                ctx.waitTicks(1);
             }
             String acted = null;
             String landed = null;

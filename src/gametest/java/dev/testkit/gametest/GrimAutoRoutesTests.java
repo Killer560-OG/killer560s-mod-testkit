@@ -1847,14 +1847,20 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         });
     }
 
-    /** Waits until he stands in relative block (x, z) at the arena floor; his position then, or null. */
+    /**
+     * Waits until he stands in relative block (x, z) at the arena floor; his position then, or null. Checks now, then after
+     * each of {@code ticks} ticks (so {@code ticks == 0} is a single look at where he is now - it used to check nothing and
+     * always answered null, which made every "has not landed yet" assertion through it vacuous, 2026-10-15).
+     */
     private static Vec3 waitLanded(ClientGameTestContext ctx, int x, int z, int ticks) {
-        for (int i = 0; i < ticks; i++) {
+        for (int i = 0; i <= ticks; i++) {
             Vec3 p = relPos(ctx);
             if (Math.floor(p.x) == x && Math.floor(p.z) == z && Math.abs(p.y - F) < 0.2) {
                 return p;
             }
-            ctx.waitTicks(1);
+            if (i < ticks) {
+                ctx.waitTicks(1);
+            }
         }
         return null;
     }
