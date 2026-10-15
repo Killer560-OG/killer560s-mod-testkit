@@ -787,3 +787,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   times (solver only, auto on, after the verdict): install once. The map press case calls `AutoClearUtils.pathToRoom` on
   the single-room build from the spawn (doorway, relative y 69) and needs the trip to end on the lever floor (y 59); main
   does not move him at all. The Grim case replays the auto's tick order with the mod's own primitives on a vanilla server.
+- **93-solve-{icepath,icefill,higherblaze,lowerblaze,creeperbeams,tictactoe,waterboard-chest}-timing, 1015-grim-puzzle-nowait**
+  (mod puzzles-nowait-1015, 2026-10-15): the no-wait rule for every other auto. `PuzzleTimingExtra` stamps clicks, uses,
+  sneaks and landings with the client tick and judges click -> use, sneak -> warp use, landing -> next action and ready ->
+  click at 1, plus TurnFirst's foreign-wait counter. Main: sneak -> use 2 everywhere, landing -> shot 6 in Blaze/Beams/Ice
+  Path (the gate's teleport settle), Tic Tac Toe click -> warp 3 and landing -> click 7; the branch 1 throughout. In the sim
+  the camera wait never showed on main (the counter read 0 in every room), so the Grim case's turn rounds are what prove it:
+  main held the click with foreignWait counting, the branch turned and clicked the next tick. Waterboard-chest passes on
+  main too (a regression guard, not a failing-first case). See docs/solve.md for the recorder's traps.
