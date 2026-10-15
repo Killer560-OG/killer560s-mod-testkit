@@ -573,3 +573,14 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   change), then the key (block to air, not a secret), then the node (node and the 3-block strip gone, `SimScore.foundInRoom`
   +1, and an armor stand wearing the key profile visible to the CLIENT at node y - 2). Main jar: 0 levers armed, and the key
   position holds a lever, not a key head.
+
+- **1720-1731 sim-doors-predict** (mod doors-predict-1015, 2026-10-15). The sim has no map item, so the mod's `HeldMap`
+  stand-in decides what "the map shows": a room is opened once someone stands within 14 blocks of one of its tile centres
+  (x/z only - hovering high over a room opens it too). So a test that must keep a room unopened waits HIGH OVER A DOORWAY
+  GAP, never in it once the doorway is coal: placed inside a coal doorway the server pushes him out into a room, which
+  then counts as opened (1722's first runs, "Black Flag opened (you at -24, -71)"). And a door block read right after
+  `witherDoorsAround` is `void_air` while its chunk has not reached the client (it was 160 blocks off): stand near it before
+  reading it. 1728 audits sight by re-casting each seen block's RECORDED ray (eye to the point the ray met it) right after
+  each look: 27 rays to points inside the block called 7-11% "blind" that were grazing views, and an audit run at the end
+  failed blocks that later coal doors had hidden. 538/678 (Show All Doors' coal-door scan) fail on main's cheat jar too:
+  WitherDoorScanner finds no coal door on a sim floor at all - not this branch.
