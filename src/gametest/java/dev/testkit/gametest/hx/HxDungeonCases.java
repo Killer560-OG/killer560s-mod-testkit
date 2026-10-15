@@ -33,6 +33,7 @@ final class HxDungeonCases {
         dungeonInfo(s);
         runStats(s);
         runSummary(s);
+        runSummaryPb(s);
         rngMeter(s);
         blessings(s);
         classColors(s);
@@ -241,6 +242,129 @@ final class HxDungeonCases {
                 c.note("forged start ignored; real start tracked; Team Score 300 (S+) read; 20-digit score -> " + after);
                 run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
                 run(c, () -> Mod.setField("runsummary.RunSummaryFeature", "finishDelayTicks", -1));
+            }
+        });
+    }
+
+    // ---- 107 runsummary personal bests (killer560, 2026-10-15) ---------------------------------------------
+
+    private static final String PB_STORE = "runsummary.RunHistoryStore";
+    private static final String PB_CFG = "runsummary.RunSummaryConfig";
+
+    /** One run through the real chat path. {@code defeated}: the boss-kill line; {@code score}: Hypixel's number. */
+    private static Object playRun(Session c, boolean defeated, int score, String rank) {
+        int before = c.onClient(mc -> ((Number) Mod.staticCall(PB_STORE, "size")).intValue());
+        run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
+        send(c, "chat.run-start");
+        c.waitUntil("a run is tracked", mc -> (Boolean) Mod.staticCall("runsummary.RunSummaryFeature", "isTrackingRun"), 40);
+        c.ctx().waitTicks(5);
+        if (defeated) {
+            c.hx().chat("                  ☠ Defeated Necron in 03m 41s");
+        }
+        send(c, "chat.extra-stats");
+        c.hx().chat("             Team Score: " + score + " (" + rank + ")");
+        c.waitUntil("the run was stored", mc -> ((Number) Mod.staticCall(PB_STORE, "size")).intValue() > before, 400);
+        return c.onClient(mc -> Mod.staticCall(PB_STORE, "latest"));
+    }
+
+    private static boolean flag(Object record, String name) {
+        return (Boolean) Mod.call(record, name);
+    }
+
+    private static void runSummaryPb(Session s) {
+        s.test("107-hx-runsummary-pb", c -> {
+            // The jar being compared against may predate the setting: then there is nothing to set, and the run
+            // shows what the old build did.
+            boolean hasMin = java.util.Arrays.stream(Mod.cls(PB_CFG).getMethods())
+                    .anyMatch(m -> m.getName().equals("getPbMinScore"));
+            try (Settings set = new Settings(c).with("runsummary.RunSummaryConfig", "Enabled", true)
+                    .with(PB_CFG, "AnnouncePersonalBests", true)) {
+                if (hasMin) {
+                    set.with(PB_CFG, "PbMinScore", 270);
+                }
+                dungeon(c);
+                run(c, () -> Mod.staticCall(PB_STORE, "clear"));
+                long mark = LogTap.mark();
+
+                // A wiped run: Hypixel prints the score block ("Team Score: 2 (D)" + EXTRA STATS) but the boss never died.
+                // On the broken build this stored a "NEW PB (time)" and said so in chat.
+                Object wipe = playRun(c, false, 2, "D");
+                c.check(!flag(wipe, "bestTime") && !flag(wipe, "bestScore"),
+                        "a wiped run (no Defeated line, score 2) was marked as a personal best");
+                c.check(((Number) c.onClient(mc -> Mod.staticCall(PB_STORE, "bestTimeMs", "F7"))).longValue() < 0,
+                        "a wiped run became the stored fastest F7 time");
+
+                // A completed run below S with the default S threshold.
+                Object low = playRun(c, true, 260, "A");
+                c.check(!flag(low, "bestTime") && !flag(low, "bestScore"),
+                        "a completed 260 run was marked as a personal best with the S (270) threshold");
+
+                // The same score is fine when it reaches the threshold: completed + 270 -> PB.
+                Object s270 = playRun(c, true, 270, "S");
+                c.check(flag(s270, "bestTime") && flag(s270, "bestScore"),
+                        "a completed 270 run was NOT marked as a personal best (the premise: the feature must act)");
+
+                // S+ threshold: a completed 290 does not count, a completed 300 does.
+                try (Settings splus = hasMin ? new Settings(c).with(PB_CFG, "PbMinScore", 300) : new Settings(c)) {
+                    Object s290 = playRun(c, true, 290, "S");
+                    c.check(!flag(s290, "bestTime") && !flag(s290, "bestScore"),
+                            "a completed 290 run counted with the S+ (300) threshold");
+                    Object s300 = playRun(c, true, 300, "S+");
+                    c.check(flag(s300, "bestScore"), "a completed 300 run was not a score personal best at S+");
+                }
+                String log = String.join("\n", LogTap.since(mark));
+                int announced = log.split("Personal best!", -1).length - 1;
+                c.check(announced == 2, "expected exactly 2 'Personal best!' announcements (270 and 300), saw " + announced);
+
+                // Repair: a stored bogus best (never completed) loses its mark, a real one keeps it.
+                Object bogus = record(c, null, 2, true, 21109L);
+                Object real = record(c, "3m 07s", 304, true, 188374L);
+                boolean changed = c.onClient(mc -> (Boolean) Mod.staticCall(PB_STORE, "setRunsForTest",
+                        java.util.List.of(bogus, real)));
+                c.check(changed, "the repair found nothing to fix");
+                java.util.List<?> after = c.onClient(mc -> (java.util.List<?>) Mod.staticCall(PB_STORE, "runs"));
+                c.check(!flag(after.get(0), "bestTime"), "the repair left the PB mark on the unfinished run");
+                c.check(flag(after.get(1), "bestTime"), "the repair removed the PB mark from a finished 304 run");
+                long best = ((Number) c.onClient(mc -> Mod.staticCall(PB_STORE, "bestTimeMs", "F7"))).longValue();
+                c.check(best == 188374L, "stored fastest F7 time after repair " + best + ", expected 188374");
+                c.note("wipe/260/290 never a PB; 270 and 300 were; 2 announcements; repair cleared the bogus mark");
+                run(c, () -> Mod.staticCall(PB_STORE, "clear"));
+                run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
+            }
+        });
+    }
+
+    /** A RunRecord through its canonical constructor: everything defaulted except the fields a PB depends on. */
+    private static Object record(Session c, String hypixelTime, int hypixelScore, boolean marked, long totalMs) {
+        return c.onClient(mc -> {
+            try {
+                Class<?> k = Mod.cls("runsummary.RunRecord");
+                java.lang.reflect.RecordComponent[] comps = k.getRecordComponents();
+                Object[] args = new Object[comps.length];
+                Class<?>[] types = new Class<?>[comps.length];
+                for (int i = 0; i < comps.length; i++) {
+                    Class<?> t = comps[i].getType();
+                    types[i] = t;
+                    String n = comps[i].getName();
+                    Object v;
+                    if (t == boolean.class) {
+                        v = (n.equals("bestTime") || n.equals("bestScore")) && marked;
+                    } else if (t == int.class) {
+                        v = n.equals("hypixelScore") ? hypixelScore : -1;
+                    } else if (t == long.class) {
+                        v = n.equals("totalMs") ? totalMs : n.equals("chestProfit") ? Long.MIN_VALUE : 0L;
+                    } else if (t == java.util.List.class) {
+                        v = java.util.List.of();
+                    } else if (t == String.class) {
+                        v = n.equals("floor") ? "F7" : n.equals("hypixelTime") ? hypixelTime : null;
+                    } else {
+                        v = null;
+                    }
+                    args[i] = v;
+                }
+                return k.getDeclaredConstructor(types).newInstance(args);
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
             }
         });
     }
