@@ -84,7 +84,8 @@ final class SoundDescCases {
                         checked[0]++;
                     }
                     int nameLines = list(cardText(tab, 104, hasSwitch), "name").size();
-                    dump.add(String.format("%-34s | switch=%-5s name=%d | %3d chars | %s", n, hasSwitch, nameLines, desc.length(), desc));
+                    String raw = (String) Mod.staticCall(CARDS, "rawDescription", tab);
+                    dump.add(String.format("%s | %s | switch=%s name=%d | %s | cur=%s", tab.getClass().getSimpleName(), n, hasSwitch, nameLines, raw, desc));
                 }
                 @SuppressWarnings("unchecked")
                 List<String> cut = (List<String>) Mod.staticCall(CARDS, "autoCut");
@@ -241,7 +242,7 @@ final class SoundDescCases {
             try {
                 Screen s = modScreen
                         ? (Screen) Mod.cls("gui.ModScreen").getConstructor(Screen.class).newInstance((Object) null)
-                        : new net.minecraft.client.gui.screens.OptionsScreen(null, mc.options);
+                        : new Screen(net.minecraft.network.chat.Component.literal("vanilla stand-in")) { };
                 McCompat.setScreen(mc, s);
                 return null;
             } catch (Exception e) {
@@ -275,16 +276,16 @@ final class SoundDescCases {
             openScreen(c, false);
             String vanillaOff = click(c);
             c.check("minecraft:ui.button.click".equals(vanillaOff),
-                    "Vanilla Screens is off but a click on Minecraft's Options screen played " + vanillaOff);
+                    "Vanilla Screens is off but a click on a Minecraft (non-mod) screen played " + vanillaOff);
             // ... and takes the chosen sound once it is on.
             Mod.set(CLICK_CFG, "setVanillaScreens", true);
             Object first = presets.get(0);
             Mod.set(CLICK_CFG, "setChoice", Mod.call(first, "id"));
             String vanillaOn = click(c);
             c.check(("killer560smod:click_" + Mod.call(first, "id")).equals(vanillaOn),
-                    "Vanilla Screens is on but a click on Minecraft's Options screen played " + vanillaOn);
+                    "Vanilla Screens is on but a click on a Minecraft (non-mod) screen played " + vanillaOn);
             c.note("default -> vanilla click; each of " + presets.size() + " presets plays its own event on the mod menu; "
-                    + "Options screen: vanilla with Vanilla Screens off, '" + vanillaOn + "' with it on");
+                    + "non-mod screen: vanilla with Vanilla Screens off, '" + vanillaOn + "' with it on");
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
                 return null;
