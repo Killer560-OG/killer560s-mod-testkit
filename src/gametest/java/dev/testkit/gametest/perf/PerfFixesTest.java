@@ -50,6 +50,22 @@ public class PerfFixesTest implements FabricClientGameTest {
         WIDTH_BUDGET_BYTES.put("dungeon_info", 150);
     }
 
+    /** HUD elements whose layer skipped drawAt for a switched-off element only from perf-off (2026-10-15). */
+    private static final String[] OFF_NOT_DRAWN = {
+            "thorn_spirit_bear", "ragnarock_timer", "ragnarock_m7_alert", "room_alerts", "spring_boots", "pathfinding",
+            "dungeon_info", "blood_camp_kill"};
+
+    /** Tick handlers that read the tab list every tick (or every 5-10) in a dungeon, B per call with everything off.
+     *  Main measured 552 / 1684 / 1678 / 3044, perf-off 88 / 194 / 82 / 830 (2026-10-15). */
+    private static final Map<String, Integer> OFF_TICK_BYTES = new LinkedHashMap<>();
+
+    static {
+        OFF_TICK_BYTES.put("dungeoninfo.DungeonInfoFeature ClientTickEvents.EndTick", 250);
+        OFF_TICK_BYTES.put("leapmenu.PartyTracker ClientTickEvents.EndTick", 600);
+        OFF_TICK_BYTES.put("fastleap.FastLeapFeature ClientTickEvents.StartTick", 600);
+        OFF_TICK_BYTES.put("pathfinding.PathfindingFeature ClientTickEvents.StartTick", 1800);
+    }
+
     private static final String[] LTR = {
             "Secrets: 3/7", "TPS: 19.9", "Ping: 42ms", "§6X: §f-24.50000", "§6Yaw §f725.12345 (5.12345) §8body 3.0",
             "§lBold §r§cred §ktext§r end", "Real Time: 09:41:07 PM CDT", "Spirit Mask: 2.5s", "", "a§", "§", "50% <>[]{}",
@@ -98,6 +114,65 @@ public class PerfFixesTest implements FabricClientGameTest {
             report.add(statLine);
             if (statBytes / Math.max(1, p.frames()) > 64) {
                 failures.add(statLine + " (budget 64 B/frame)");
+            }
+
+            // ---- 2026-10-15 (perf-off): with every switch off, these HUD elements must not even be laid out ----
+            for (String id : OFF_NOT_DRAWN) {
+                long calls = 0;
+                for (Key k : p.keys().values()) {
+                    if (k.key().contains("HUD[" + id + "]")) {
+                        calls += k.calls();
+                    }
+                }
+                String line = String.format(Locale.ROOT, "OFF: HUD[%s] drawAt %d time(s) in %d frames", id, calls, p.frames());
+                report.add(line);
+                if (calls > 0) {
+                    failures.add(line + " (a switched-off element must not be drawn)");
+                }
+            }
+            // Shared tab readers: allocation per call with everything off, in a dungeon (they must keep running).
+            for (Map.Entry<String, Integer> b : OFF_TICK_BYTES.entrySet()) {
+                Key k = null;
+                for (Key c : p.keys().values()) {
+                    if (c.key().equals(b.getKey())) {
+                        k = c;
+                    }
+                }
+                if (k == null || k.calls() < p.ticks() / 2) {
+                    failures.add(b.getKey() + " did not run every tick (" + (k == null ? 0 : k.calls()) + " calls in "
+                            + p.ticks() + " ticks) - nothing was measured");
+                    continue;
+                }
+                double perCall = k.bytes() / k.calls();
+                String line = String.format(Locale.ROOT, "OFF: %-60s %6.0f B/call (budget %d)", b.getKey(), perCall,
+                        b.getValue());
+                report.add(line);
+                if (perCall > b.getValue()) {
+                    failures.add(line);
+                }
+            }
+
+            // ---- Etherwarp Waypoints: on (its default), nothing saved: no per-frame room lookup ----
+            ctx.runOnClient(mc -> Mod.call(Mod.cfg("etherwarp.EtherwarpWaypointsConfig"), "setHighlightBlocks", true));
+            int saved = ctx.computeOnClient(mc -> ((java.util.List<?>) Mod.staticCall("etherwarp.EtherwarpWaypointsStore", "all")).size());
+            Phase ew = PerfBench.measure(ctx, "Etherwarp highlight ON", 200, cal);
+            ctx.runOnClient(mc -> Mod.call(Mod.cfg("etherwarp.EtherwarpWaypointsConfig"), "setHighlightBlocks", false));
+            Key ek = null;
+            for (Key c : ew.keys().values()) {
+                if (c.key().startsWith("etherwarp.EtherwarpFeature LevelRenderEvents")) {
+                    ek = c;
+                }
+            }
+            if (saved != 0) {
+                failures.add("Etherwarp check needs no saved waypoints, found " + saved);
+            } else if (ek == null || ek.calls() < ew.frames() / 2) {
+                failures.add("Etherwarp's world render did not run every frame - nothing was measured");
+            } else {
+                String line = String.format(Locale.ROOT, "Etherwarp highlight ON, 0 saved: %.0f B/frame", ek.bytes() / ek.calls());
+                report.add(line);
+                if (ek.bytes() / ek.calls() > 0.5) {
+                    failures.add(line + " (budget 0: nothing to draw, nothing to look up)");
+                }
             }
 
             // ---- the three text HUDs on ----
