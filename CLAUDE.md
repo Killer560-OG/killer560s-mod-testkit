@@ -83,7 +83,8 @@ Compile with `-Pminecraft_version=26.2` before merging a branch. Run status, wha
 ## FPS bench (95-fps-bench)
 
 `perf/FpsBenchTest` (~10 min) and `perf/HubPerfBenchTest` (~18 min), only when named: [docs/fps-bench.md](docs/fps-bench.md); notes in
-[docs/scenario-lessons.md](docs/scenario-lessons.md).
+[docs/scenario-lessons.md](docs/scenario-lessons.md). Per-feature cost ranking `95-perf-features` (~45 min) and the
+regression gate `95-perf-gate` (~5 min, baseline `perf/perf-baseline.properties`): same doc, last section.
 
 ## Layout
 

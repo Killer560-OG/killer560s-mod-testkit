@@ -549,6 +549,34 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 			systemProperty "testkit.${p}", project.property(p)
 		}
 	}
+	// 95-perf-features / 95-perf-gate (docs/fps-bench.md). The mod's PerfProbe (killer560.perf.probe, dev jars only)
+	// wraps every mod listener in a timer, so it is switched on only for a run that names a 95-perf scenario, or by
+	// -PperfProbe. -PperfRounds=N -PperfBigTicks=N -PperfAloneTicks=N -PperfGateTicks=N -PperfOnly=a,b
+	// -PperfBudgetPct=25 -PperfBudgetFloorUs=10 -PperfFeaturePct=50 -PperfFeatureFloorUs=5 -PperfBaseline=<file>
+	// -PperfGateWrite (write the baseline instead of checking it).
+	def scenarioFilter = project.findProperty("scenario")?.toString() ?: ""
+	// -PperfNoProbe: the same bench WITHOUT the probe (frame/tick CPU only), to measure what the probe itself costs.
+	if (project.hasProperty("perfNoProbe")) {
+		systemProperty "testkit.perf.noProbe", "true"
+	} else if (project.hasProperty("perfProbe") || scenarioFilter.contains("95-perf")) {
+		systemProperty "killer560.perf.probe", "true"
+	}
+	["Rounds": "rounds", "BigTicks": "bigTicks", "AloneTicks": "aloneTicks", "GateTicks": "gateTicks", "Only": "only",
+	 "BudgetPct": "budgetPct", "BudgetFloorUs": "budgetFloorUs", "FeaturePct": "featurePct",
+	 "FeatureFloorUs": "featureFloorUs"].each { suffix, key ->
+		if (project.hasProperty("perf" + suffix)) {
+			systemProperty "testkit.perf.${key}", project.property("perf" + suffix)
+		}
+	}
+	if (project.hasProperty("perfBaseline")) {
+		systemProperty "testkit.perf.baseline", file(project.property("perfBaseline").toString()).absolutePath
+	}
+	if (project.hasProperty("perfGateWrite")) {
+		systemProperty "testkit.perf.gateWrite", "true"
+	}
+	if (project.hasProperty("perfNoJfr")) {
+		systemProperty "testkit.bench.noJfr", "true"
+	}
 	// Re-run only what failed last time:  -Pfailed
 	if (project.hasProperty("failed")) {
 		if (!failedFile.exists() || failedFile.text.trim().isEmpty()) {
