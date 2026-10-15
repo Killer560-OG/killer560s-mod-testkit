@@ -121,5 +121,10 @@ Cases on the same Base, each adding its own settings and checks through `SolveEx
   block update the client gets for 3 ticks (Hypixel registers a tile after the landing). Every hop off a section's first
   tile (read from `AutoIceFill.lastIndex` / `sectionStart` by reflection) must come after that tile read packed.
 - `93-solve-boulder-mapwarp`: Secret Aura on, placed on the test floor outside the doorway, then a REAL map press on Boulder
-  (`AutoClearUtils.pathToRoom`); Auto Boulder must start within 15 s and pass the aura checks (sprint included). Button
-  mode (`-chestoff`, plain) now also fails on any forward-held tick without sprint.
+  (`AutoClearUtils.pathToRoom`); Auto Boulder must start within 15 s and pass the aura checks (sprint included).
+  `-doorwarp` puts him on the doorway spot with a plain teleport instead (what his own etherwarp does; ClearExecutor's
+  arrival counter never moves). Every Boulder case now fails on a forward-held tick with the SPRINT KEY up (after the
+  first two ticks of a hold); whether vanilla sprints that tick (a wall) is physics, not the auto.
+- The tic tac toe room's secret in Mod Only Test's capture sits in a pit behind a wall with a low roof by it: no warp
+  line onto a block in reach of it, no walk on his floor, and the map lands on the wall top (2026-10-15). So
+  `-tictactoe-grab` fails on every jar there for want of a way in, not for the trip.
