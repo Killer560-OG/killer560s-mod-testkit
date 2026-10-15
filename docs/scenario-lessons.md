@@ -573,3 +573,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   change), then the key (block to air, not a secret), then the node (node and the 3-block strip gone, `SimScore.foundInRoom`
   +1, and an armor stand wearing the key profile visible to the CLIENT at node y - 2). Main jar: 0 levers armed, and the key
   position holds a lever, not a key head.
+- 1433-sim-deuces-doorway (SimDeucesDoorwayTests, mod sim-deuces-1015, 2026-10-15): Altar (2x2, cells x 2..4 z 4..6) and
+  Deuces (6,6) unrotated, door at (5,6). Compares both doorway ends to `RoomLibrary.get(...)` by block id (trapped_chest
+  counts as chest: the sim's mimic turns one secret chest into a trapped one, at random), checks fire on Deuces' four
+  braziers and saves a screenshot from his viewpoint to killer560s-mod-logs/deuces-doorway.png. Main jar: Altar's three
+  iron bars (capture 62,72,47..49) carved to air and 0 of 4 braziers lit. The screenshot needs a wait until the client has
+  the chest block, or it is all sky.
