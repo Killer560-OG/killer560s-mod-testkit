@@ -199,7 +199,9 @@ final class MenuOrderCases {
                             }
                             for (Map.Entry<String, List<Line>> e : by.entrySet()) {
                                 Object tab = tabs.get(e.getKey());
-                                if (tab == null) {
+                                // Auto Clear holds two features: Auto Secret's rows (Blood First, Do Puzzles... no
+                                // switch of its own) come first and Auto Clear's own switch heads the second section.
+                                if (tab == null || "Auto Clear".equals(e.getKey())) {
                                     continue;
                                 }
                                 Object ms = Mod.staticCall("gui.FeatureCards", "masterSwitch", tab, none);
