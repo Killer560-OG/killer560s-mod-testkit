@@ -39,8 +39,8 @@ import java.util.function.Function;
  *       opening, the tooltip, and closing - the menu is gone the instant Escape is pressed, only its picture fades.</li>
  *   <li>1593 clicks during an animation act at once and land on the FINAL layout: a drawer row pressed mid-slide, a card
  *       switch pressed mid page change, a card switch pressed mid scroll.</li>
- *   <li>1594 allocation: bytes allocated by the render thread per frame with the menu idle, Smooth against Off (the
- *       animation path must add nothing), and while animating; prints the numbers. On a jar without animations it prints
+ *   <li>1594 allocation: bytes the menu's own draw allocates per frame at rest, Smooth against Off (the animation path
+ *       must add nothing, and the two pictures must be identical), and while the grid eases; prints the numbers. On a jar without animations it prints
  *       the per-tick number and fails for want of the clock.</li>
  *   <li>1595 screenshot sequences (open, hover, drawer, page change, switch) into the report's screens folder.</li>
  *   <li>1596 (only when named: {@code -Pscenario=1596-menuanim-video}) one PNG per 1/60 s of animation clock for a
@@ -812,6 +812,14 @@ public class MenuAnimSuite implements FabricClientGameTest {
 
     /** Bytes the menu's own draw allocated per frame over {@code ticks} (ModScreen.allocProbe), or -1 without it. */
     static double menuBytesPerFrame(UiCase c, int ticks, Runnable eachTick) {
+        if (eachTick == null) {
+            // drive the clock (the run's hook makes undriven animations instant): real durations, one frame per 1/60 s
+            double[] t = {base += 10_000};
+            eachTick = () -> {
+                t[0] += 1000.0 / 60.0;
+                clock(c, t[0]);
+            };
+        }
         c.onClient(mc -> {
             Mod.setField(Mod.ROOT + SCREEN, "allocBytes", 0L);
             Mod.setField(Mod.ROOT + SCREEN, "allocFrames", 0L);
@@ -888,6 +896,7 @@ public class MenuAnimSuite implements FabricClientGameTest {
                 smooth[round] = menuBytesPerFrame(c, 100, null);
             }
             // the same frame drawn at rest under Off and under Smooth must be the same picture
+            frame(c, base += 10_000);
             mode("OFF");
             c.ticks(3);
             Path offShot = c.ctx().takeScreenshot(Report.fileName(c.name() + "-off"));
