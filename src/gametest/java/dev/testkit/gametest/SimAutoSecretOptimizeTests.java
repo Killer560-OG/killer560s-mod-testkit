@@ -121,8 +121,8 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                 }
                 try {
                     ModUnderTest.staticCall(AS, "testLegacyOrder", new Class<?>[]{boolean.class}, new Object[]{false});
-                } catch (RuntimeException ignored) {
-                    // not in this jar
+                } catch (Throwable ignored) {
+                    // not in this jar (ModUnderTest throws an AssertionError for a missing call)
                 }
             });
             SimAutoSecretTests.writeRoutes(ctx, Map.of());
@@ -589,12 +589,13 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         int waited = 0;
         boolean warm = false;
         for (; waited < 2400 && !warm; waited += 10) {
+            int w = waited;
             warm = ctx.computeOnClient(mc -> {
                 try {
                     return (Boolean) ModUnderTest.staticCall("com.killer560.hub.livemap.autoclear.EtherwarpPathfinder",
                             "graphWarm");
-                } catch (RuntimeException e) {
-                    return true;   // a jar without the call: nothing to wait for
+                } catch (Throwable e) {
+                    return w >= 400;   // a jar without the call (main): the 20 s a floor graph takes to warm
                 }
             });
             if (!warm) {
