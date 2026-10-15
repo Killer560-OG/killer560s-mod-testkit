@@ -41,7 +41,8 @@ import java.util.regex.Pattern;
  * <ul>
  *   <li>it ACTED: he travelled, map warps arrived, and every seeded reachable room's route started and finished;</li>
  *   <li>the no-route room was skipped with the chat line, exactly once, and never travelled to;</li>
- *   <li>rooms were taken most-unfound first (nothing is found in the run, so the order must be non-increasing);</li>
+ *   <li>rooms were taken in the order it logged (mod ac-optimize-1015: secrets per tick of travel between the rooms, over
+ *       the Interactive Map's real trip costs - no longer most-unfound first);</li>
  *   <li>no room behind a closed door was ever a target;</li>
  *   <li>with every secret found (the sim's score, so its tab list says 100%) it stops, saying so.</li>
  * </ul>
@@ -80,7 +81,7 @@ public class SimAutoSecretTests implements FabricClientGameTest {
     private static final Pattern STARTED = Pattern.compile("\\[AutoSecret\\] route (.+?) started");
 
     /** A room as the map sees it at the start. */
-    private record Room(int id, String name, String type, int unfound, int mainTile, boolean reachable) {
+    record Room(int id, String name, String type, int unfound, int mainTile, boolean reachable) {
     }
 
     @Override
@@ -533,12 +534,33 @@ public class SimAutoSecretTests implements FabricClientGameTest {
             }
         }
 
-        // ---- most unfound first ----------------------------------------------------------------------------
-        for (int i = 1; i < order.size(); i++) {
-            if (order.get(i)[0] > order.get(i - 1)[0]) {
-                failures.add("rooms were not taken most-unfound first: " + orderNames);
-                break;
+        // ---- the room order it worked out (mod ac-optimize-1015: secrets per tick of travel, not most unfound first) ----
+        // Every "room order" line is followed by a target, and that target is the order's first room.
+        int orderLines = 0;
+        for (int i = 0; i < log.size(); i++) {
+            String l = log.get(i);
+            // The decision's own line ("room order (each room worth ..."), not the trip searches' ("room order: searched").
+            int at = l.indexOf("[AutoSecret] room order (");
+            if (at < 0) {
+                continue;
             }
+            orderLines++;
+            String rest = l.substring(l.indexOf("): ", at) + 3);
+            String first = rest.substring(0, rest.indexOf('(')).trim();
+            String next = null;
+            for (int j = i + 1; j < log.size() && next == null; j++) {
+                Matcher t = TARGET.matcher(log.get(j));
+                if (t.find()) {
+                    next = t.group(1);
+                }
+            }
+            if (next != null && !next.equals(first)) {
+                failures.add("the room order put " + first + " first but it went to " + next + ": " + l);
+            }
+        }
+        println("room order lines: " + orderLines);
+        if (routed.size() >= 2 && orderLines == 0) {
+            failures.add("no room order was logged with " + routed.size() + " routed rooms to choose between");
         }
         if (orderNames.isEmpty() || !orderNames.get(0).equals("skip " + noRoute.name())) {
             // Ties at the top are ordered by distance, so only a strictly larger first room is required.
@@ -767,7 +789,7 @@ public class SimAutoSecretTests implements FabricClientGameTest {
         }
     }
 
-    private static boolean pathsOut(Room r) {
+    static boolean pathsOut(Room r) {
         return !r.name().contains("Maze") && !r.name().contains("Boulder") && !r.name().contains("Trap");
     }
 
@@ -779,7 +801,7 @@ public class SimAutoSecretTests implements FabricClientGameTest {
     }
 
     /** Every room the mod's RoomStatus lists, with reachability from where he stands. Client thread. */
-    private static List<Room> readRooms(Minecraft mc) {
+    static List<Room> readRooms(Minecraft mc) {
         Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
         int here = (Integer) ModUnderTest.call(layout, "currentRoom", new Class<?>[]{}, new Object[]{});
         @SuppressWarnings("unchecked")
@@ -849,7 +871,7 @@ public class SimAutoSecretTests implements FabricClientGameTest {
     }
 
     /** A one-node route: a ROTATE start node standing on a standable block of the room's main tile. */
-    private static JsonObject routeFor(ClientGameTestContext ctx, Room r) {
+    static JsonObject routeFor(ClientGameTestContext ctx, Room r) {
         return ctx.computeOnClient(mc -> {
             Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
             int[] cr = (int[]) ModUnderTest.call(layout, "clayRotation", new Class<?>[]{int.class}, new Object[]{r.id()});
@@ -890,7 +912,7 @@ public class SimAutoSecretTests implements FabricClientGameTest {
         });
     }
 
-    private static void writeRoutes(ClientGameTestContext ctx, Map<String, JsonObject> routes) {
+    static void writeRoutes(ClientGameTestContext ctx, Map<String, JsonObject> routes) {
         ctx.runOnClient(mc -> {
             try {
                 Path file = (Path) ModUnderTest.staticCall(STORE, "routesFile");
@@ -972,7 +994,7 @@ public class SimAutoSecretTests implements FabricClientGameTest {
         ctx.waitTicks(5);
     }
 
-    private static void giveAotv(ClientGameTestContext ctx) {
+    static void giveAotv(ClientGameTestContext ctx) {
         AtomicReference<Boolean> given = new AtomicReference<>();
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
@@ -999,7 +1021,7 @@ public class SimAutoSecretTests implements FabricClientGameTest {
     }
 
     /** Waits (at most 90 s) for every chunk under the floor's tiles to be on the client (as 95 does). */
-    private static void awaitFloorChunks(ClientGameTestContext ctx) {
+    static void awaitFloorChunks(ClientGameTestContext ctx) {
         int missing = -1;
         int waited = 0;
         for (; waited < 1800; waited += 10) {
@@ -1027,7 +1049,7 @@ public class SimAutoSecretTests implements FabricClientGameTest {
                 : missing + " still missing after 90 s"));
     }
 
-    private static String describe(List<Room> rooms) {
+    static String describe(List<Room> rooms) {
         List<String> parts = new ArrayList<>();
         for (Room r : rooms) {
             parts.add(r.name() + "=" + r.unfound());
