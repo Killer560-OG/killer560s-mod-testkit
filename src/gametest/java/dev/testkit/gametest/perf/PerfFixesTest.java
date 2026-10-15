@@ -38,13 +38,16 @@ public class PerfFixesTest implements FabricClientGameTest {
 
     private static final String NAME = "95-perf-fixes";
 
-    /** Bytes per draw allowed; main measured 1650 / 550 / 2860 (95-perf-features, 2026-10-15). */
-    private static final Map<String, Integer> BUDGET_BYTES = new LinkedHashMap<>();
+    /** HUD elements whose text is now built once per change: bytes allowed per width() call, which on main rebuilt
+     *  the text each time (String.format, a pattern string and a cloned TimeZone, concatenations). What remains is
+     *  Font.width's own lambda; main measured several hundred to a few thousand bytes per call (2026-10-15). */
+    private static final Map<String, Integer> WIDTH_BUDGET_BYTES = new LinkedHashMap<>();
 
     static {
-        BUDGET_BYTES.put("HUD[lag_display]", 300);
-        BUDGET_BYTES.put("HUD[real_time]", 150);
-        BUDGET_BYTES.put("HUD[mask_invincibility]", 1500);
+        WIDTH_BUDGET_BYTES.put("lag_display", 200);
+        WIDTH_BUDGET_BYTES.put("real_time", 100);
+        WIDTH_BUDGET_BYTES.put("mask_invincibility", 200);
+        WIDTH_BUDGET_BYTES.put("dungeon_info", 100);
     }
 
     private static final String[] LTR = {
@@ -109,23 +112,27 @@ public class PerfFixesTest implements FabricClientGameTest {
             ctx.waitTicks(40);
             Phase q = PerfBench.measure(ctx, "three HUDs ON", 400, cal);
             report.add(q.line());
-            for (Map.Entry<String, Integer> b : BUDGET_BYTES.entrySet()) {
+            for (String id : WIDTH_BUDGET_BYTES.keySet()) {
                 Key k = null;
                 for (Key c : q.keys().values()) {
-                    if (c.key().contains(b.getKey())) {
+                    if (c.key().contains("HUD[" + id + "]")) {
                         k = c;
                     }
                 }
-                if (k == null || k.calls() < q.frames() / 2) {
-                    failures.add(b.getKey() + " did not draw every frame (" + (k == null ? 0 : k.calls()) + " draws in "
+                // dungeon_info is drawn by GuiOverlays whenever the Secrets HUD is on, which this phase leaves off.
+                if (!id.equals("dungeon_info") && (k == null || k.calls() < q.frames() / 2)) {
+                    failures.add(id + " did not draw every frame (" + (k == null ? 0 : k.calls()) + " draws in "
                             + q.frames() + " frames) - nothing was measured");
-                    continue;
                 }
-                double perCall = k.bytes() / k.calls();
-                String line = String.format(Locale.ROOT, "%-26s %6d draws  %7.0f B/draw (budget %d)  %6.2f us/draw",
-                        b.getKey(), k.calls(), perCall, b.getValue(), k.ns() / 1e3 / k.calls());
+            }
+            ctx.runOnClient(mc -> Mod.call(Mod.cfg("dungeoninfo.DungeonInfoConfig"), "setSecretsHudEnabled", true));
+            Map<String, double[]> widths = ctx.computeOnClient(mc -> widthAllocations());
+            for (Map.Entry<String, double[]> e : widths.entrySet()) {
+                int budget = WIDTH_BUDGET_BYTES.get(e.getKey());
+                String line = String.format(Locale.ROOT, "%-20s width(): %7.0f B/call, %6.2f us/call (budget %d B)",
+                        e.getKey(), e.getValue()[0], e.getValue()[1], budget);
                 report.add(line);
-                if (perCall > b.getValue()) {
+                if (e.getValue()[0] > budget) {
                     failures.add(line);
                 }
             }
@@ -148,12 +155,54 @@ public class PerfFixesTest implements FabricClientGameTest {
         System.out.println("[" + NAME + "] PASS");
     }
 
+    /** Render thread: each element's width() 2000 times (after a warm-up), allocation and time per call. */
+    private static Map<String, double[]> widthAllocations() {
+        Map<String, double[]> out = new LinkedHashMap<>();
+        for (String id : WIDTH_BUDGET_BYTES.keySet()) {
+            Object element = Mod.staticCall("hud.HudElementRegistry", "byId", id);
+            if (element == null) {
+                out.put(id, new double[]{Double.MAX_VALUE, 0});
+                continue;
+            }
+            for (int i = 0; i < 200; i++) {
+                Mod.call(element, "width");
+            }
+            java.lang.reflect.Method width;
+            try {
+                width = element.getClass().getMethod("width");
+                width.setAccessible(true);
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+            int n = 2000;
+            long b0 = PerfBench.threadAllocated();
+            long t0 = System.nanoTime();
+            try {
+                for (int i = 0; i < n; i++) {
+                    width.invoke(element);
+                }
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+            long t1 = System.nanoTime();
+            long b1 = PerfBench.threadAllocated();
+            out.put(id, new double[]{(b1 - b0) / (double) n, (t1 - t0) / 1e3 / n});
+        }
+        return out;
+    }
+
     /** Client thread. */
     private static List<String> textChecks(List<String> report) {
         List<String> failures = new ArrayList<>();
         int fast = 0;
         for (String s : LTR) {
-            boolean ltr = (Boolean) Mod.staticCall("hud.HudTextCache", "leftToRightOnly", s);
+            boolean ltr;
+            try {
+                ltr = (Boolean) Mod.staticCall("hud.HudTextCache", "leftToRightOnly", s);
+            } catch (AssertionError e) {
+                failures.add("HudTextCache has no left-to-right fast path (leftToRightOnly): " + e.getMessage());
+                return failures;
+            }
             String vanilla = glyphs(Language.getInstance().getVisualOrder(FormattedText.of(s)));
             String cached = glyphs((FormattedCharSequence) Mod.staticCall("hud.HudTextCache", "visualOrder", s));
             if (!vanilla.equals(cached)) {
