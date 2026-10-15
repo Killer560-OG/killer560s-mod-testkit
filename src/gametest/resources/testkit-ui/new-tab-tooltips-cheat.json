@@ -437,6 +437,7 @@
     },
     "Dungeon ESP": {
       "bats": "Highlights secret bats during dungeon clear.",
+      "blood mobs": "Highlights the Watcher's blood mobs (red by default) for as long as they live, even if they walk out of the Blood Room.",
       "color": "Color of the boxes or glow for this row's target.",
       "esp": "",
       "line width": "Thickness of the drawn lines and box outlines.",

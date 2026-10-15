@@ -668,6 +668,19 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   while the client sent exactly 5 - check the client's own click ticks (`recentClickTicks`). Main: 184 aura aimed through
   the wall, 186 retries 5-6 ticks apart; 185/187 fail on missing API.
 
+- **188-189 Auto Blood Camp, round 3 (mod bloodcamp-3-1015, 2026-10-15)**: 188 a husk 6 blocks out (NoGravity, it is off
+  the platform): a mage weapon (blaze rod) gets swings and no attack, a lore-"Shortbow" bow gets uses (use_item at the
+  server even with no arrows - the packet goes before the item's own check), nothing behind a wall, and the Trigger Bot
+  with a shortbow sends uses. 189 the clicks between registering hits: the cases before it switch them off in `base()`
+  (`setHumanClicks(false)`), since every attack count there would include them. Main: both fail on missing API.
+- **190-192 Auto Blood Camp, round 4 (mod bloodcamp-4-1015, 2026-10-15)**: blood mobs are now known by IDENTITY (the mob on
+  a trip's landing spot as it lands), so a husk summoned with no trip is not a blood mob and the Aura ignores it - 185,
+  186, 188 and 189 were rewritten to use trip husks (named "blood", NoGravity). 190 Dungeon ESP's Blood Mobs: the trip
+  husk is drawn red, a plain husk is not, a starred zombie keeps its own colour, and the husk stays red after a `tp` out
+  of the room tile (Blood Camp itself off - the ESP tracks on its own). 191 a plain husk in reach in front of him is never
+  attacked or aimed at; 192 a plain husk standing on the line to the blood mob holds every click (control: clicks).
+  `MobEspConfig`'s Blood Mobs/Starred/Room Scoped have no bean getter, so 190 sets them with `.custom`.
+
 - 1015-sim-map-item-only (SimMapItemTests) gives the player a Hypixel-style dungeon map in slot 9 built from bytes the case
   paints itself: a client-side `MapItemSavedData.createForClient` put in with `ClientLevel.overrideMapData` under an id the
   server has no data for, and the same `filled_map` stack set on the SERVER player too, or the next inventory sync takes it
@@ -730,3 +743,4 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   Off) - an allocation that DROPS is a finding too: it was how a page drawn at opacity 0 showed up. 1596 only runs when
   named and writes `<report>/menu-anim-video/frame_NNNNN.png` (1/60 s of clock each) for
   `ffmpeg -framerate 60 -i frame_%05d.png -c:v libx264 -pix_fmt yuv420p -crf 18`.
+

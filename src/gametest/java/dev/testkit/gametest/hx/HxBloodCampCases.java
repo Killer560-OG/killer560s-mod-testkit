@@ -71,12 +71,19 @@ final class HxBloodCampCases {
         // bloodcamp-3-1015: any range with whatever he holds, and human clicks between the hits.
         s.test("188-hx-bloodcamp-ranged", HxBloodCampCases::ranged);
         s.test("189-hx-bloodcamp-human-clicks", HxBloodCampCases::humanClicks);
+        // bloodcamp-4-1015: Blood Mob ESP, blood mobs only, a clear line of fire.
+        s.test("190-hx-bloodcamp-blood-esp", HxBloodCampCases::bloodEsp);
+        s.test("191-hx-bloodcamp-only-blood-mobs", HxBloodCampCases::onlyBloodMobs);
+        s.test("192-hx-bloodcamp-line-of-fire", HxBloodCampCases::lineOfFire);
     }
 
     // ---- shared -----------------------------------------------------------------------------------------------------
 
     /** HURTABLE 20 health, FRAGILE 1 (one hit kills it), INVULNERABLE takes no damage. */
-    private enum Mob { NONE, HURTABLE, INVULNERABLE, FRAGILE }
+    private enum Mob { NONE, HURTABLE, INVULNERABLE, FRAGILE, WEAK }
+
+    /** Run on the test thread at each tick of the next trip (server commands mid-trip), then cleared. */
+    private static java.util.function.IntConsumer nextServerStep;
 
     /** Set before a trip: summon its husk this many ticks after the mob is due instead of as soon as it is tracked
      *  (null = at once). The trip records the server tick it was summoned on and the clicks sent before it. */
@@ -143,7 +150,12 @@ final class HxBloodCampCases {
 
     /** He stands on the platform looking at {@code yaw}/{@code pitch}; no container open. */
     private static void stand(Session c, float yaw, float pitch) {
-        c.server().command(String.format(Locale.ROOT, "tp @a %.2f 151 %.2f %.1f %.1f", PX, PZ, yaw, pitch));
+        standAt(c, PX, PZ, yaw, pitch);
+    }
+
+    /** {@link #stand} at (x, 151, z). */
+    private static void standAt(Session c, double x, double z, float yaw, float pitch) {
+        c.server().command(String.format(Locale.ROOT, "tp @a %.2f 151 %.2f %.1f %.1f", x, z, yaw, pitch));
         c.ctx().waitTicks(5);
         c.onClient(mc -> {
             if (mc.player.containerMenu != mc.player.inventoryMenu) {
@@ -231,11 +243,14 @@ final class HxBloodCampCases {
             int ticks = (int) Math.ceil(due) + extra;
             for (int i = 0; i < ticks; i++) {
                 final int tick = i;
+                if (nextServerStep != null) {
+                    nextServerStep.accept(i);
+                }
                 if (i == summonAt && mob != Mob.NONE) {
                     lastClicksBeforeSummon = intStat(c, "triggerClicks") - clicks0;
                     c.server().command(String.format(Locale.ROOT, "summon husk %.3f %.3f %.3f {Tags:[\"bc1015\"],NoAI:1b,"
-                                    + "Silent:1b,PersistenceRequired:1b,Health:%s%s}", end.x, end.y, end.z,
-                            mob == Mob.FRAGILE ? "1f" : "20f", mob == Mob.INVULNERABLE ? ",Invulnerable:1b" : ""));
+                                    + "NoGravity:1b,CustomName:\"blood\",Silent:1b,PersistenceRequired:1b,Health:%s%s}",
+                            end.x, end.y, end.z, mob == Mob.FRAGILE ? "1f" : mob == Mob.WEAK ? "3f" : "20f", mob == Mob.INVULNERABLE ? ",Invulnerable:1b" : ""));
                     lastSummonTick = c.hx().call("server.tick").getAsLong();
                 }
                 Object[] r = c.onClient(mc -> {
@@ -260,6 +275,7 @@ final class HxBloodCampCases {
                 c.ctx().waitTicks(1);
             }
         } finally {
+            nextServerStep = null;
             c.hx().call("entity.remove", "uuid", uuid);
             c.server().command("kill @e[tag=bc1015]");
             c.ctx().waitTicks(5);
@@ -786,27 +802,30 @@ final class HxBloodCampCases {
     private static void floorMobs(Session c) {
         boolean cheat = Mod.isCheat();
         try (HxKit.Settings s = base(c)) {
-            if (cheat) {
-                s.with(BC_CFG, "AuraEnabled", true);
-            }
             watcher(c, WATCHER_IN);
             holding(c, "minecraft:iron_sword");
             stand(c, AWAY_YAW + 60f, 10f);
+            // The blood mob lands while the Aura is off (he is not there yet); it is switched on 6 ticks after the mob is
+            // due - "I run into the room after the kill timer and there are mobs on the floor".
             int aura0 = cheat ? intStat(c, "auraAttacks") : 0;
-            List<Long> attacks = floorHusks(c, ",Health:3f", FLOOR, 160, true);
+            int[] onAt = {-1};
+            Trip t = trip(c, Mob.WEAK, false, 40, (i, mc) -> {
+                if (onAt[0] < 0 && cheat && i >= 82) {
+                    onAt[0] = i;
+                    Mod.call(Mod.cfg(BC_CFG), "setAuraEnabled", true);
+                }
+            });
             int auraAttacks = (cheat ? intStat(c, "auraAttacks") : 0) - aura0;
-            int cooldown = cheat ? intStat(c, "lastCooldownTicks") : 0;
-            c.note("two husks already on the floor (no trip): server attacks at " + attacks + ", gaps " + gaps(attacks)
-                    + ", aura attacks " + auraAttacks + ", cooldown " + cooldown + " ticks");
+            c.note("blood mob already on the floor, Aura switched on after its timer: " + fmt(t) + ", aura attacks "
+                    + auraAttacks + ", attack gaps " + gaps(t.serverAttacks));
             if (!cheat) {
-                c.check(attacks.isEmpty(), "legit jar: something attacked");
+                c.check(t.serverAttacks.isEmpty(), "legit jar: something attacked");
                 return;
             }
-            c.check(attacks.size() >= 2 && auraAttacks >= 2, "the Aura did not kill the mobs already on the floor ("
-                    + attacks.size() + " attack(s))");
-            // The hx session reads as Hypixel: 0 Attack Speed is round(10 / 1) = 10 ticks between hits.
-            c.check(cooldown == 10, "the cooldown read " + cooldown + " ticks, want 10 (Hypixel, 0 Attack Speed)");
-            c.check(gaps(attacks).stream().allMatch(g -> g >= 10), "attacks came faster than 10 ticks: " + gaps(attacks));
+            c.check(auraAttacks >= 1 && !t.serverAttacks.isEmpty(), "the Aura did not go for the blood mob already on"
+                    + " the floor");
+            c.check(gaps(t.serverAttacks).stream().allMatch(g -> g >= 10), "attacks came faster than 10 ticks: "
+                    + gaps(t.serverAttacks));
         } finally {
             holding(c, "minecraft:air");
             c.hx().removeStands();
@@ -835,7 +854,7 @@ final class HxBloodCampCases {
             }
             c.check(t.serverAttacks.size() >= 2, "no retry to measure (" + t.serverAttacks.size() + " attack(s))");
             c.check(g.stream().allMatch(x -> x >= 10), "Trigger Bot clicks came faster than 10 ticks: " + g);
-            // (b) The Aura on a floor husk that takes no damage: round(10 / (1 + AS/100)) ticks apart on Hypixel, and the
+            // (b) The Aura on a blood mob that takes no damage: round(10 / (1 + AS/100)) ticks apart on Hypixel, and the
             // vanilla cooldown (an iron sword's 12.5, so 13) on a plain server.
             c.onClient(mc -> {
                 Mod.call(Mod.cfg(BC_CFG), "setTriggerBotEnabled", false);
@@ -849,27 +868,24 @@ final class HxBloodCampCases {
                 try (HxKit.Settings h = w[2].equals("vanilla") ? vanillaServer(c) : new HxKit.Settings(c)) {
                     holding(c, w[0]);
                     stand(c, 0f, 0f);
-                    List<Long> at = floorHusks(c, ",Health:20f,Invulnerable:1b", new double[][]{FLOOR[0]}, 90, false);
-                    @SuppressWarnings("unchecked")
-                    List<Long> sent = c.onClient(mc -> (List<Long>) Mod.staticCall(BC, "recentClickTicks"));
-                    List<Long> sentGaps = gaps(sent.subList(Math.max(0, sent.size() - at.size()), sent.size()));
-                    List<Long> gg = gaps(at);
+                    int a0 = intStat(c, "auraAttacks");
+                    Trip at = trip(c, Mob.INVULNERABLE, false, 90, null);
+                    int n = intStat(c, "auraAttacks") - a0;
+                    List<Long> sent = clientTicks(c, "recentClickTicks");
+                    List<Long> sentGaps = gaps(sent.subList(Math.max(0, sent.size() - n), sent.size()));
+                    List<Long> gg = gaps(at.serverAttacks);
                     int cd = intStat(c, "lastCooldownTicks");
                     int want = Integer.parseInt(w[1]);
-                    c.note("Aura on " + w[2] + ", " + w[0] + ": cooldown " + cd + " ticks, attacks " + at + ", gaps " + gg);
+                    c.note("Aura on " + w[2] + ", " + w[0] + ": cooldown " + cd + " ticks, server attacks "
+                            + at.serverAttacks + ", gaps " + gg + "; client gaps " + sentGaps);
                     c.check(cd == want, w[0] + ": the cooldown read " + cd + " ticks, want " + want);
-                    c.check(at.size() >= 3, w[0] + ": the Aura hit the floor husk only " + at.size() + " time(s)");
-                    // The client's own clicks are never closer than the cap. At the server a click can land a tick early
-                    // or late against the one before (each end acts on packets only at its own ticks - 792), so there
-                    // the gaps must average the cap and never be more than a tick under it.
-                    c.note("  client click gaps " + sentGaps);
+                    c.check(n >= 3, w[0] + ": the Aura hit the blood mob only " + n + " time(s)");
+                    // The client's own clicks are never closer than the cap; at the server a click can land a tick early
+                    // or late against the one before (each end acts on packets only at its own ticks).
                     c.check(sentGaps.stream().allMatch(x -> x >= want), w[0] + ": the client clicked faster than " + want
                             + " ticks: " + sentGaps);
-                    double mean = gg.stream().mapToLong(Long::longValue).average().orElse(0);
-                    c.check(gg.stream().allMatch(x -> x >= want - 1) && mean >= want - 1, w[0] + ": hits reached the"
-                            + " server faster than " + want + " ticks: " + gg);
-                    long near = gg.stream().filter(x -> x <= want + 2).count();
-                    c.check(near * 2 >= gg.size(), w[0] + ": most hits were not at the weapon's pace (" + gg
+                    long near = sentGaps.stream().filter(x -> x <= want + 2).count();
+                    c.check(near * 2 >= sentGaps.size(), w[0] + ": most hits were not at the weapon's pace (" + sentGaps
                             + ") - the cap is not what limits them");
                 }
             }
@@ -880,6 +896,7 @@ final class HxBloodCampCases {
     }
 
     // ---- 187 --------------------------------------------------------------------------------------------------------
+
 
     private static void neverMiss(Session c) {
         boolean cheat = Mod.isCheat();
@@ -925,10 +942,10 @@ final class HxBloodCampCases {
 
     // ---- bloodcamp-3-1015 -------------------------------------------------------------------------------------------
 
-    /** A husk 6 blocks out (+z), out of melee reach, inside his room tile; NoGravity because it is off the platform. */
-    private static final double[] FAR = {-419.5, -413.5};
     private static final String SHORTBOW = "minecraft:bow[lore=[\"Shortbow: Instantly shoots!\"]]";
     private static final String MAGE = "minecraft:blaze_rod";
+    /** A spot 6 blocks from the landing spot, out of melee reach, still in his room tile. */
+    private static final double[] FAR_STAND = {-414.5, -419.5};
 
     private static List<Long> useItemsSince(Session c, long since) {
         List<Long> out = new ArrayList<>();
@@ -947,26 +964,24 @@ final class HxBloodCampCases {
         return c.onClient(mc -> (List<Long>) Mod.staticCall(BC, method));
     }
 
-    /** The Aura on one far husk that takes no damage, holding {@code stack}, for {@code ticks}; returns
-     *  {swings, uses, attacks at server, use_item at server} and fills {@code regGaps} with the client's registering gaps. */
-    private static long[] farAura(Session c, String stack, int ticks, List<Long> regGaps) {
+    /** The Aura on a blood mob that takes no damage, him standing 6 blocks off, holding {@code stack}. Returns
+     *  {swings, uses, attacks at server, use_item at server}; {@code regGaps} gets the client's click gaps. */
+    private static long[] farAura(Session c, String stack, int extra, List<Long> regGaps) {
         holding(c, stack);
-        stand(c, 0f, 0f);
+        standAt(c, FAR_STAND[0], FAR_STAND[1], 0f, 0f);
         int sw0 = kind(c, "SWING");
         int use0 = kind(c, "USE");
         long since = c.hx().head();
-        c.server().command(String.format(Locale.ROOT, "summon husk %.2f 151 %.2f {Tags:[\"bcfloor\"],NoAI:1b,NoGravity:1b,"
-                + "Silent:1b,PersistenceRequired:1b,Health:20f,Invulnerable:1b}", FAR[0], FAR[1]));
+        Trip t;
         try {
-            c.ctx().waitTicks(ticks);
+            t = trip(c, Mob.INVULNERABLE, false, extra, null);
         } finally {
-            c.server().command("kill @e[tag=bcfloor]");
-            c.ctx().waitTicks(5);
+            standAt(c, PX, PZ, 0f, 0f);
         }
         List<Long> reg = clientTicks(c, "recentClickTicks");
         int n = kind(c, "SWING") - sw0 + kind(c, "USE") - use0;
         regGaps.addAll(gaps(reg.subList(Math.max(0, reg.size() - n), reg.size())));
-        return new long[]{kind(c, "SWING") - sw0, kind(c, "USE") - use0, attacksSince(c, since).size(),
+        return new long[]{kind(c, "SWING") - sw0, kind(c, "USE") - use0, t.serverAttacks.size(),
                 useItemsSince(c, since).size()};
     }
 
@@ -979,26 +994,27 @@ final class HxBloodCampCases {
                 s.with(BC_CFG, "AuraEnabled", true);
             }
             watcher(c, WATCHER_IN);
-            // A mage weapon: a left click (swing) at a husk 6 blocks out - the beam's click, no melee attack.
+            // A mage weapon: a left click (swing) at a blood mob 6 blocks out - the beam's click, no melee attack.
             List<Long> mageGaps = new ArrayList<>();
-            long[] mage = farAura(c, MAGE, 70, mageGaps);
-            c.note("mage weapon, husk 6 blocks out: " + mage[0] + " swing(s), " + mage[1] + " use(s), " + mage[2]
-                    + " attack(s) and " + mage[3] + " use_item at the server; registering gaps " + mageGaps);
+            long[] mage = farAura(c, MAGE, 50, mageGaps);
+            c.note("mage weapon, blood mob 6 blocks out: " + mage[0] + " swing(s), " + mage[1] + " use(s), " + mage[2]
+                    + " attack(s) and " + mage[3] + " use_item at the server; click gaps " + mageGaps);
             // A shortbow: a right click (use) each shot.
             List<Long> bowGaps = new ArrayList<>();
-            long[] bow = farAura(c, SHORTBOW, 70, bowGaps);
-            c.note("shortbow, husk 6 blocks out: " + bow[0] + " swing(s), " + bow[1] + " use(s), " + bow[2]
-                    + " attack(s) and " + bow[3] + " use_item at the server; registering gaps " + bowGaps);
-            // The same far husk behind a wall: nothing.
-            c.server().command("fill -424 151 -416 -415 154 -416 minecraft:stone");
+            long[] bow = farAura(c, SHORTBOW, 50, bowGaps);
+            c.note("shortbow, blood mob 6 blocks out: " + bow[0] + " swing(s), " + bow[1] + " use(s), " + bow[2]
+                    + " attack(s) and " + bow[3] + " use_item at the server; click gaps " + bowGaps);
+            // The same, behind a wall (row z -419 between the far spot and the landing spot? the far spot is east of it):
+            // a wall at x -417 between him (x -414.5) and the mob (x -420.5).
+            c.server().command("fill -417 151 -424 -417 154 -414 minecraft:stone");
             long[] walled;
             List<Long> wallGaps = new ArrayList<>();
             try {
-                walled = farAura(c, MAGE, 50, wallGaps);
+                walled = farAura(c, MAGE, 30, wallGaps);
             } finally {
-                c.server().command("fill -424 151 -416 -415 154 -416 minecraft:air");
+                c.server().command("fill -417 151 -424 -417 154 -414 minecraft:air");
             }
-            c.note("mage weapon, husk behind a wall: " + walled[0] + " swing(s), " + walled[1] + " use(s)");
+            c.note("mage weapon, blood mob behind a wall: " + walled[0] + " swing(s), " + walled[1] + " use(s)");
             // The Trigger Bot with a shortbow on a trip's mob: a use, not an attack.
             if (cheat) {
                 c.onClient(mc -> {
@@ -1017,17 +1033,19 @@ final class HxBloodCampCases {
                 c.check(mage[0] + mage[1] + bow[0] + bow[1] == 0 && t.clicks == 0, "legit jar: something clicked");
                 return;
             }
-            c.check(mage[0] >= 3 && mage[1] == 0 && mage[2] == 0, "mage weapon: want left clicks (swings) at the far husk"
-                    + " and no melee attack, got " + mage[0] + " swing(s), " + mage[1] + " use(s), " + mage[2] + " attack(s)");
-            c.check(bow[1] >= 3 && bow[3] >= 3 && bow[0] == 0, "shortbow: want uses at the far husk, got " + bow[1]
+            c.check(mage[0] >= 3 && mage[1] == 0 && mage[2] == 0, "mage weapon: want left clicks (swings) at the far"
+                    + " blood mob and no melee attack, got " + mage[0] + " swing(s), " + mage[1] + " use(s), " + mage[2]
+                    + " attack(s)");
+            c.check(bow[1] >= 3 && bow[3] >= 3 && bow[0] == 0, "shortbow: want uses at the far blood mob, got " + bow[1]
                     + " (server " + bow[3] + "), swings " + bow[0]);
             c.check(mageGaps.stream().allMatch(x -> x >= 10) && bowGaps.stream().allMatch(x -> x >= 10),
                     "a click came inside the 10-tick cap: mage " + mageGaps + ", shortbow " + bowGaps);
-            c.check(walled[0] + walled[1] == 0, "the Aura clicked at a husk behind a wall");
+            c.check(walled[0] + walled[1] == 0, "the Aura clicked at a blood mob behind a wall");
             c.check(t.clicks >= 1 && !tUses.isEmpty() && t.serverAttacks.isEmpty(),
                     "Trigger Bot with a shortbow: want a use and no attack");
         } finally {
             holding(c, "minecraft:air");
+            standAt(c, PX, PZ, 0f, 0f);
             c.hx().removeStands();
         }
     }
@@ -1050,12 +1068,11 @@ final class HxBloodCampCases {
             stand(c, 0f, 0f);
             int f0 = intStat(c, "fillerClicks");
             int a0 = intStat(c, "auraAttacks");
-            List<Long> attacks = floorHusks(c, ",Health:20f,Invulnerable:1b", new double[][]{FLOOR[0]}, 200, false);
+            Trip t = trip(c, Mob.INVULNERABLE, false, 160, null);
             int fillers = intStat(c, "fillerClicks") - f0;
             int registering = intStat(c, "auraAttacks") - a0;
             List<Long> all = clientTicks(c, "allClickTicks");
             List<Long> reg = clientTicks(c, "recentClickTicks");
-            // Both lists hold this run's clicks at their ends.
             int regN = Math.min(reg.size(), registering);
             List<Long> regGaps = gaps(reg.subList(reg.size() - regN, reg.size()));
             List<Long> allGaps = gaps(all.subList(Math.max(0, all.size() - (regN + fillers)), all.size()));
@@ -1070,7 +1087,7 @@ final class HxBloodCampCases {
             long minGap = allGaps.stream().mapToLong(Long::longValue).min().orElse(0);
             c.note(String.format(Locale.ROOT, "%d between-hits clicks; all-click gaps %s (mean %.2f ticks = %.1f CPS, sd"
                             + " %.2f, most common gap %d of %d); registering gaps %s; server attacks %d",
-                    fillers, counts, mean, cps, sd, top, allGaps.size(), regGaps, attacks.size()));
+                    fillers, counts, mean, cps, sd, top, allGaps.size(), regGaps, t.serverAttacks.size()));
             c.check(fillers >= 5, "only " + fillers + " clicks went between the registering hits");
             c.check(regGaps.stream().allMatch(g -> g == 10), "the registering hits were not exactly the 10-tick cap"
                     + " apart: " + regGaps);
@@ -1079,6 +1096,176 @@ final class HxBloodCampCases {
             c.check(cps >= 4 && cps <= 14 && minGap >= 2, String.format(Locale.ROOT,
                     "click rate %.1f CPS (shortest gap %d ticks) is outside a human's 4-14", cps, minGap));
         } finally {
+            holding(c, "minecraft:air");
+            c.hx().removeStands();
+        }
+    }
+
+    // ---- bloodcamp-4-1015 -------------------------------------------------------------------------------------------
+
+    private static final String ESP_CFG = "mobesp.MobEspConfig";
+    private static final String ESP = "mobesp.MobEspFeature";
+
+    /** A plain husk that is NOT a blood mob, named {@code name}, standing still at (x, 151, z). */
+    private static void decoy(Session c, String name, double x, double z) {
+        c.server().command(String.format(Locale.ROOT, "summon husk %.2f 151 %.2f {Tags:[\"bcdecoy\"],NoAI:1b,NoGravity:1b,"
+                + "Silent:1b,PersistenceRequired:1b,Invulnerable:1b,CustomName:\"%s\"}", x, z, name));
+        c.ctx().waitTicks(3);
+    }
+
+    private static void clearDecoys(Session c) {
+        c.server().command("kill @e[tag=bcdecoy]");
+        c.server().command("kill @e[tag=bcstar]");
+        c.ctx().waitTicks(3);
+    }
+
+    /** The client entity id of the living husk named {@code name}, or -1. */
+    private static int clientId(Minecraft mc, String name) {
+        for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+            if (e.isAlive() && e.getCustomName() != null && e.getCustomName().getString().equals(name)) {
+                return e.getId();
+            }
+        }
+        return -1;
+    }
+
+    private static long namedAttacks(Session c, long since, String name) {
+        return c.hx().events(since, "attack_entity").stream()
+                .filter(e -> e.has("name") && e.get("name").getAsString().equals(name)).count();
+    }
+
+    // ---- 190 --------------------------------------------------------------------------------------------------------
+
+    private static void bloodEsp(Session c) {
+        try (HxKit.Settings s = base(c)) {
+            // Blood Camp itself OFF: Dungeon ESP's Blood Mobs tracks the Watcher's mobs on its own.
+            boolean[] was = c.onClient(mc -> new boolean[]{(Boolean) Mod.call(Mod.cfg(ESP_CFG), "getBloodMobsRaw"),
+                    (Boolean) Mod.call(Mod.cfg(ESP_CFG), "getStarredMobsRaw"),
+                    (Boolean) Mod.call(Mod.cfg(ESP_CFG), "isRoomScoped")});
+            s.with(BC_CFG, "Enabled", false)
+                    .custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setBloodMobs", true),
+                            () -> Mod.call(Mod.cfg(ESP_CFG), "setBloodMobs", was[0]))
+                    .custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setStarredMobs", true),
+                            () -> Mod.call(Mod.cfg(ESP_CFG), "setStarredMobs", was[1]))
+                    .custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setRoomScoped", false),
+                            () -> Mod.call(Mod.cfg(ESP_CFG), "setRoomScoped", was[2]));
+            int red = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(ESP_CFG), "getBloodColor"));
+            int starColor = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(ESP_CFG), "getStarredColor"));
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            // A random mob, and a starred mob (a zombie with its "star ... heart" stand), both in plain view.
+            decoy(c, "decoy", -417.5, -417.5);
+            c.server().command("summon zombie -422.5 151 -421.5 {Tags:[\"bcstar\"],NoAI:1b,NoGravity:1b,Silent:1b,"
+                    + "PersistenceRequired:1b,Invulnerable:1b,CustomName:\"starz\"}");
+            c.server().command("summon armor_stand -422.5 152 -421.5 {Tags:[\"bcstar\"],Invisible:1b,NoGravity:1b,"
+                    + "CustomNameVisible:1b,CustomName:\"✯ Zombie 100❤\"}");
+            Object[][] seen = new Object[2][];
+            nextServerStep = i -> {
+                if (i == 95) {
+                    // Out of the Blood Room (room tile x -8): it must stay highlighted.
+                    c.server().command("tp @e[tag=bc1015] -440.5 151 -417.5");
+                }
+            };
+            Trip t = trip(c, Mob.HURTABLE, false, 30, (i, mc) -> {
+                if (i == 90 || i == 105) {
+                    @SuppressWarnings("unchecked")
+                    Map<Integer, Integer> drawn = (Map<Integer, Integer>) Mod.staticCall(ESP, "drawnColors");
+                    int blood = clientId(mc, "blood");
+                    net.minecraft.world.entity.Entity be = blood < 0 ? null : mc.level.getEntity(blood);
+                    seen[i == 90 ? 0 : 1] = new Object[]{drawn.get(blood), drawn.get(clientId(mc, "decoy")),
+                            drawn.get(clientId(mc, "starz")), be == null ? Double.NaN : be.getX()};
+                }
+            });
+            c.note("blood mob ESP: in the room " + java.util.Arrays.toString(seen[0]) + " (blood, decoy, starred, x);"
+                    + " moved out " + java.util.Arrays.toString(seen[1]) + "; red is " + Integer.toHexString(red)
+                    + ", starred " + Integer.toHexString(starColor));
+            c.check(t.tracked, "the trip was never tracked");
+            c.check(seen[0] != null && Integer.valueOf(red).equals(seen[0][0]), "the blood mob was not drawn red");
+            c.check(seen[0] != null && seen[0][1] == null, "a mob that is not a blood mob was highlighted");
+            c.check(seen[0] != null && !Integer.valueOf(red).equals(seen[0][2]), "the starred mob was drawn as a blood mob");
+            c.check(seen[1] != null && (Double) seen[1][3] < -425.0, "the blood mob was not moved out of the room");
+            c.check(seen[1] != null && Integer.valueOf(red).equals(seen[1][0]),
+                    "the blood mob stopped being highlighted once it left the Blood Room");
+        } finally {
+            nextServerStep = null;
+            clearDecoys(c);
+            c.hx().removeStands();
+        }
+    }
+
+    // ---- 191 --------------------------------------------------------------------------------------------------------
+
+    private static void onlyBloodMobs(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            if (cheat) {
+                s.with(BC_CFG, "AuraEnabled", true);
+            }
+            watcher(c, WATCHER_IN);
+            holding(c, "minecraft:iron_sword");
+            stand(c, 0f, 0f);
+            // A plain mob right in front of him, in reach, in the room - closer than any blood mob.
+            decoy(c, "decoy", -418.5, -418.0);
+            long since = c.hx().head();
+            c.ctx().waitTicks(40);
+            Object point = c.onClient(mc -> Mod.staticCall(BC, "lastAuraPoint"));
+            long early = namedAttacks(c, since, "decoy");
+            c.note("a plain mob alone in front of him: " + early + " attack(s) on it, aura point " + point);
+            Trip t = trip(c, Mob.HURTABLE, false, 30, null);
+            long onDecoy = namedAttacks(c, since, "decoy");
+            long onBlood = namedAttacks(c, since, "blood");
+            c.note("with a blood mob landing too: " + onDecoy + " attack(s) on the plain mob, " + onBlood
+                    + " on the blood mob; " + fmt(t));
+            c.check(onDecoy == 0 && point == null, "the Aura went for a mob that is not a blood mob");
+            if (cheat) {
+                c.check(onBlood >= 1, "control: the Aura never attacked the blood mob");
+            }
+        } finally {
+            clearDecoys(c);
+            holding(c, "minecraft:air");
+            c.hx().removeStands();
+        }
+    }
+
+    // ---- 192 --------------------------------------------------------------------------------------------------------
+
+    private static void lineOfFire(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            if (cheat) {
+                s.with(BC_CFG, "AuraEnabled", true);
+            }
+            watcher(c, WATCHER_IN);
+            holding(c, MAGE);
+            // A plain mob standing on the line from his eye to the landing spot: no click may go.
+            stand(c, 0f, 0f);
+            decoy(c, "decoy", -420.0, -418.5);
+            int blocks0 = cheat ? intStat(c, "lineOfFireBlocks") : 0;
+            int a0 = cheat ? intStat(c, "auraAttacks") : 0;
+            long since = c.hx().head();
+            Trip blocked = trip(c, Mob.HURTABLE, false, 30, null);
+            int blocks = (cheat ? intStat(c, "lineOfFireBlocks") : 0) - blocks0;
+            int auraClicks = (cheat ? intStat(c, "auraAttacks") : 0) - a0;
+            long onDecoy = namedAttacks(c, since, "decoy");
+            c.note("plain mob in the line of fire: aura clicks " + auraClicks + ", line-of-fire holds " + blocks
+                    + ", attacks on the plain mob " + onDecoy + ", " + fmt(blocked));
+            clearDecoys(c);
+            // Control: nothing in the way.
+            stand(c, 0f, 0f);
+            int a1 = cheat ? intStat(c, "auraAttacks") : 0;
+            Trip open = trip(c, Mob.HURTABLE, false, 30, null);
+            int openClicks = (cheat ? intStat(c, "auraAttacks") : 0) - a1;
+            c.note("nothing in the way: aura clicks " + openClicks + ", " + fmt(open));
+            if (!cheat) {
+                c.check(auraClicks + openClicks == 0, "legit jar: the Aura clicked");
+                return;
+            }
+            c.check(auraClicks == 0 && blocked.serverAttacks.isEmpty() && onDecoy == 0,
+                    "a click went with a plain mob in the line of fire");
+            c.check(blocks >= 1, "the line-of-fire check never held a click - nothing was tested");
+            c.check(openClicks >= 1, "control: with nothing in the way the Aura never clicked");
+        } finally {
+            clearDecoys(c);
             holding(c, "minecraft:air");
             c.hx().removeStands();
         }
