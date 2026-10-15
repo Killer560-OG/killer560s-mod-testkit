@@ -216,12 +216,12 @@ public class SimEtherTicksTests implements FabricClientGameTest {
     }
 
     @SuppressWarnings("unchecked")
-    private static List<Long> hopTicks() {
+    static List<Long> hopTicks() {
         return (List<Long>) ModUnderTest.staticCall(EXECUTOR, "hopSendTicks");
     }
 
     /** {tile, room} of every room but his own, farthest first (by the first tile's centre). */
-    private static List<int[]> farthestRooms(Minecraft mc) {
+    static List<int[]> farthestRooms(Minecraft mc) {
         Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
         int rooms = (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[]{}, new Object[]{});
         int current = (Integer) ModUnderTest.call(layout, "currentRoom", new Class<?>[]{}, new Object[]{});
@@ -247,7 +247,7 @@ public class SimEtherTicksTests implements FabricClientGameTest {
         return out;
     }
 
-    private static void giveAotv(ClientGameTestContext ctx, List<String> failures) {
+    static void giveAotv(ClientGameTestContext ctx, List<String> failures) {
         AtomicReference<Boolean> given = new AtomicReference<>();
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
@@ -277,7 +277,7 @@ public class SimEtherTicksTests implements FabricClientGameTest {
         }
     }
 
-    private static void awaitFloorChunks(ClientGameTestContext ctx) {
+    static void awaitFloorChunks(ClientGameTestContext ctx) {
         for (int waited = 0; waited < 1800; waited += 10) {
             int missing = ctx.computeOnClient(mc -> {
                 BlockPos first = (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class},

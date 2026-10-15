@@ -100,6 +100,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1015-landpickup", "96-ar-1015-earlyskip", "96-ar-1015-mimicskip",
             // ar-warp-after-click (2026-10-15): Hypixel ignores a use right after a block click with the same item
             "96-ar-1015-warpclick",
+            // click-gap-all (2026-10-15): the Auto Puzzles' shared use (AutoPuzzleUtil.useItemRotated) waits like the route's
+            "96-ar-1015-puzzleclick",
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim", "96-ar-398-startawait",
             "96-ar-405-crypt-mapopen", "96-ar-405-startwarp", "96-ar-path", "96-ar-screen", "96-ar-rotate",
             // sim-world (2026-10-11)
@@ -280,6 +282,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1015-earlyskip" -> ArMainServerCases.earlySkip(ctx);
                         case "96-ar-1015-mimicskip" -> ArMainServerCases.mimicSkip(ctx);
                         case "96-ar-1015-warpclick" -> ArMainServerCases.warpAfterClick(ctx);
+                        case "96-ar-1015-puzzleclick" -> ArMainServerCases.puzzleWarpAfterClick(ctx);
                         case "96-ar-dbedit" -> caseDbEdit(ctx);
                         case "96-ar-mapopen" -> caseMapOpen(ctx);
                         case "96-ar-mapopen-aim" -> caseMapOpenAim(ctx);
@@ -7041,6 +7044,134 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             } finally {
                 ctx.runOnClient(mc -> dev.testkit.harness.HypixelUseAfterClick.reset());
                 stopRoute(ctx);
+            }
+        }
+
+        /** One run of {@link #puzzleWarpAfterClick}. */
+        private record PuzzleRun(boolean sneaking, int sentTick, int landTick, double travelled, int dropped, int clicks,
+                                 boolean held) {
+        }
+
+        /** How the click before the use is made. */
+        private enum PuzzleClick { NONE, EMPTY_HAND_THEN_SWAP, SAME_ITEM, SAME_ITEM_RAW_USE }
+
+        private static PuzzleRun puzzleRun(ClientGameTestContext ctx, PuzzleClick kind) {
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+            tpRel(ctx, 6.5, 6.5, relYawTo(6, 6, 14, 6), pitchTo(6, 6, 14, 6));
+            boolean sneaking = waitFor(ctx, 30, () -> ctx.computeOnClient(mc -> mc.player.getLastSentInput().shift()));
+            ctx.waitTicks(5);
+            ctx.runOnClient(mc -> {
+                dev.testkit.harness.HypixelUseAfterClick.reset();
+                dev.testkit.harness.HypixelUseAfterClick.enabled = true;
+            });
+            Vec3 from = relPos(ctx);
+            long m = LogTap.mark();
+            // A block 30 blocks east: the server drops the click for reach before any block or ability answers it (a lever
+            // would not do - sneaking, as the warp needs, a click on it is an AOTV use-on-block and warps him itself), but its
+            // handler is entered first, where the hook takes the click, and the click goes through the game mode, where the
+            // mod's own packet tap takes it (the same click ClickPrimer makes).
+            Runnable click = () -> {
+                Minecraft mc = Minecraft.getInstance();
+                BlockPos far = mc.player.blockPosition().offset(30, 0, 0);
+                mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
+                        new BlockHitResult(Vec3.atCenterOf(far), Direction.UP, far, false));
+            };
+            int sent = -1;
+            for (int t = 0; t <= 30 && sent < 0; t++) {
+                final int tick = t;
+                // The use is what an Auto Puzzles auto calls every tick until it answers true; a false is "nothing sent".
+                boolean sentNow = ctx.computeOnClient(mc -> {
+                    if (tick == 0) {
+                        switch (kind) {
+                            case SAME_ITEM, SAME_ITEM_RAW_USE -> click.run();
+                            case EMPTY_HAND_THEN_SWAP -> {
+                                mc.player.getInventory().setSelectedSlot(3);
+                                click.run();
+                                mc.player.getInventory().setSelectedSlot(0);
+                            }
+                            default -> {
+                            }
+                        }
+                    }
+                    if (kind == PuzzleClick.SAME_ITEM_RAW_USE) {
+                        mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
+                        return true;
+                    }
+                    return (Boolean) ModUnderTest.staticCall("com.killer560.hub.autopuzzles.AutoPuzzleUtil", "useItemRotated",
+                            new Class<?>[]{Minecraft.class, net.minecraft.client.player.LocalPlayer.class, float.class, float.class},
+                            new Object[]{mc, mc.player, mc.player.getYRot(), mc.player.getXRot()});
+                });
+                if (sentNow) {
+                    sent = t;
+                } else {
+                    ctx.waitTicks(1);
+                }
+            }
+            int land = -1;
+            for (int t = 0; t <= 20; t++) {
+                if (waitLanded(ctx, 14, 6, 0) != null) {
+                    land = t;
+                    break;
+                }
+                ctx.waitTicks(1);
+            }
+            double travelled = relPos(ctx).distanceTo(from);
+            PuzzleRun r = new PuzzleRun(sneaking, sent, land, travelled, dev.testkit.harness.HypixelUseAfterClick.dropped,
+                    dev.testkit.harness.HypixelUseAfterClick.clicks, logHas(m, "holding the use - a block click"));
+            ctx.runOnClient(mc -> dev.testkit.harness.HypixelUseAfterClick.reset());
+            return r;
+        }
+
+        /**
+         * click-gap-all-1015. Every Auto Puzzles auto that etherwarps or shoots (Ice Fill, Tic Tac Toe, Boulder, Water Board,
+         * Teleport Maze, the blaze / beams / ice path shots, Auto Debuff) sends its item use through
+         * {@code AutoPuzzleUtil.useItemRotated}, whose callers treat false as "nothing was sent" and ask again next tick. Hypixel
+         * ignores a use right after a same-item block click ({@link dev.testkit.harness.HypixelUseAfterClick}), so that call
+         * must answer false for the gap. Called as an auto calls it, sneaking with the AOTV aimed at relative (14, 6): control
+         * 1, no click - sent at once, lands. Control 2, a block clicked with an empty hand and the AOTV swapped in the same task
+         * - sent at once, lands. The case: a block clicked with the AOTV held - not sent for 3+ ticks, then lands, nothing
+         * ignored. Control 3: the same click and a RAW use (no gap kept) - the server ignores it and he does not move, so the
+         * rule bites in this arena and the case's pass is not the hook being off. The old jar sends at tick 0 and is ignored.
+         */
+        static void puzzleWarpAfterClick(ClientGameTestContext ctx) {
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            ctx.getInput().holdKey(options -> options.keyShift);
+            try {
+                PuzzleRun none = puzzleRun(ctx, PuzzleClick.NONE);
+                PuzzleRun swap = puzzleRun(ctx, PuzzleClick.EMPTY_HAND_THEN_SWAP);
+                PuzzleRun same = puzzleRun(ctx, PuzzleClick.SAME_ITEM);
+                PuzzleRun raw = puzzleRun(ctx, PuzzleClick.SAME_ITEM_RAW_USE);
+                for (var e : List.of(Map.entry("no click", none), Map.entry("block click, empty hand, AOTV swapped in", swap),
+                        Map.entry("block click with the AOTV held", same), Map.entry("same click, RAW use (control)", raw))) {
+                    PuzzleRun r = e.getValue();
+                    println(String.format(Locale.US, "puzzleclick %s: sneaking %s, use sent at tick %d, landed %s tick(s) after, "
+                                    + "travelled %.2f, block clicks seen %d, uses ignored %d, held line %s", e.getKey(), r.sneaking(),
+                            r.sentTick(), r.landTick() < 0 ? "never (20)" : String.valueOf(r.landTick()), r.travelled(),
+                            r.clicks(), r.dropped(), r.held()));
+                }
+                check(none.sneaking() && swap.sneaking() && same.sneaking() && raw.sneaking(),
+                        "shift never reached the server - an etherwarp would not fire and nothing here proves anything");
+                check(none.sentTick() == 0 && none.landTick() >= 0 && none.travelled() > 7.5 && none.dropped() == 0,
+                        "control: with no click the use was not sent at once and landed (sent " + none.sentTick() + ")");
+                check(swap.sentTick() == 0 && swap.landTick() >= 0 && swap.clicks() >= 1 && swap.dropped() == 0 && !swap.held(),
+                        "control: a block clicked with an empty hand held the use, or it was ignored (sent " + swap.sentTick()
+                                + ", ignored " + swap.dropped() + ")");
+                check(raw.clicks() >= 1 && raw.dropped() >= 1 && raw.travelled() < 1.0,
+                        "control: a raw use right after the same-item click was not ignored (clicks " + raw.clicks() + ", ignored "
+                                + raw.dropped() + ", travelled " + String.format(Locale.US, "%.2f", raw.travelled())
+                                + ") - the rule is not live, so the case proves nothing");
+                check(same.clicks() >= 1, "the block click never reached the server - the case proves nothing");
+                check(same.sentTick() >= 3 && same.held(),
+                        "the use went out at tick " + same.sentTick() + " after a same-item block click (held line " + same.held()
+                                + ") - it must wait the gap");
+                check(same.dropped() == 0 && same.landTick() >= 0 && same.travelled() > 7.5,
+                        "the use was ignored or did not land (ignored " + same.dropped() + ", landed " + same.landTick()
+                                + ", travelled " + String.format(Locale.US, "%.2f", same.travelled()) + ")");
+            } finally {
+                ctx.getInput().releaseKey(options -> options.keyShift);
+                ctx.runOnClient(mc -> dev.testkit.harness.HypixelUseAfterClick.reset());
             }
         }
     }

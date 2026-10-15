@@ -55,7 +55,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
     private static final int CASE_TICKS = 2400;
 
     /** One room of the floor as Auto Clear reports it. */
-    private record Room(String name, String type, boolean mob, boolean cleared, boolean rush, int x, int z) {
+    record Room(String name, String type, boolean mob, boolean cleared, boolean rush, int x, int z) {
         static Room parse(String line) {
             String[] p = line.split("\\|");
             return new Room(p[0], p[1], p[2].equals("1"), p[3].equals("1"), p[4].equals("1"),
@@ -64,7 +64,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
     }
 
     /** A starred mob placed here: which room, whether in a wall, its id. */
-    private record Placed(String room, boolean inWall, UUID id, BlockPos at) {
+    record Placed(String room, boolean inWall, UUID id, BlockPos at) {
     }
 
     @Override
@@ -1142,7 +1142,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
 
     // ------------------------------------------------------------------------------------------------- a case
 
-    private static final class Result {
+    static final class Result {
         double travelled;
         int ticks;
         int uses;
@@ -1163,7 +1163,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
         }
     }
 
-    private static Result runCase(ClientGameTestContext ctx, String label, Runnable start) {
+    static Result runCase(ClientGameTestContext ctx, String label, Runnable start) {
         return runCase(ctx, label, start, null);
     }
 
@@ -1254,7 +1254,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
         }
     }
 
-    private static void setMode(ClientGameTestContext ctx, String mode, String weapon) {
+    static void setMode(ClientGameTestContext ctx, String mode, String weapon) {
         ctx.runOnClient(mc -> {
             Object cfg = ModUnderTest.config(AUTO_CONFIG);
             ModUnderTest.call(cfg, "setMode", new Class<?>[]{ModUnderTest.enumValue(AUTO_CONFIG + "$Mode", mode).getClass()},
@@ -1271,7 +1271,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
     // ------------------------------------------------------------------------------------------------- the world
 
     @SuppressWarnings("unchecked")
-    private static List<Room> floor(ClientGameTestContext ctx) {
+    static List<Room> floor(ClientGameTestContext ctx) {
         List<String> lines = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(AUTO, "floorReport"));
         List<Room> out = new ArrayList<>();
         for (String l : lines) {
@@ -1280,7 +1280,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
         return out;
     }
 
-    private static double dist(Vec3 me, Room r) {
+    static double dist(Vec3 me, Room r) {
         double dx = me.x - r.x();
         double dz = me.z - r.z();
         return Math.sqrt(dx * dx + dz * dz);
@@ -1290,7 +1290,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
      * Places {@code open} starred zombies on the room's floor and, if asked, one standing INSIDE a wall (feet and head in
      * solid blocks) two to four blocks from a floor spot - in reach of a Wither Impact / Guided Bat from that spot.
      */
-    private static List<Placed> spawnIn(ClientGameTestContext ctx, Room room, int open, boolean wall) {
+    static List<Placed> spawnIn(ClientGameTestContext ctx, Room room, int open, boolean wall) {
         AtomicReference<List<BlockPos[]>> spots = new AtomicReference<>();
         int yHint = ctx.computeOnClient(mc -> ((BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter",
                 new Class<?>[]{int.class}, new Object[]{0})).getY());
@@ -1405,7 +1405,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
     }
 
     /** "alive", "dead", or "unknown" (not readable: its section is not entity-ticking) for each placed mob. */
-    private static Map<UUID, String> aliveReport(ClientGameTestContext ctx, List<Placed> placed) {
+    static Map<UUID, String> aliveReport(ClientGameTestContext ctx, List<Placed> placed) {
         AtomicReference<Map<UUID, String>> out = new AtomicReference<>();
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
@@ -1427,7 +1427,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
         return out.get();
     }
 
-    private static void awaitFloorChunks(ClientGameTestContext ctx) {
+    static void awaitFloorChunks(ClientGameTestContext ctx) {
         int missing = -1;
         int waited = 0;
         for (; waited < 1800; waited += 10) {
@@ -1455,7 +1455,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
                 : missing + " still missing after 90 s"));
     }
 
-    private static void println(String s) {
+    static void println(String s) {
         System.out.println("[" + NAME + "] " + s);
     }
 }

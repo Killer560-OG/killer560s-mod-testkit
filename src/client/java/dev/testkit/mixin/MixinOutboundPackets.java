@@ -32,6 +32,7 @@ public abstract class MixinOutboundPackets {
     private void testkit$tapOutbound(Packet<?> packet, CallbackInfo ci) {
         try {
             PacketWatch.record(packet);
+            dev.testkit.harness.ClickPrimer.onOutbound(packet);
         } catch (Throwable ignored) {
             // measuring must never break the run it is measuring
         }
