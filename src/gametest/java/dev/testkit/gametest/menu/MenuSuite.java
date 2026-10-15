@@ -127,6 +127,7 @@ public class MenuSuite implements FabricClientGameTest {
                     DungeonMenuCases.register(s);
                     InventoryCases.register(s);
                     ItemCases.register(s);
+                    PriceTooltipCases.register(s); // 1750-1754: Price Tooltip (price-tooltip-1015)
                     AnvilCases.register(s);
                     BazaarReskinCases.register(s);
                     PolishMenuCases.register(s); // 472, polish
