@@ -105,6 +105,7 @@
 			"dev.testkit.gametest.SimPuzzleRoundTests$WaterBoardClaim",
 			"dev.testkit.gametest.SimPuzzleRoundTests$IcePathClaim",
 			"dev.testkit.gametest.SimPuzzleRoundTests$IceFillClaim",
+			"dev.testkit.gametest.SimPuzzleRoundTests$IceFillShots",
 			"dev.testkit.gametest.SimPuzzleRoundTests$IceFillFirstTile",
 			"dev.testkit.gametest.SimPuzzleSolveTests$IcePath",
 			"dev.testkit.gametest.SimPuzzleSolveTests$IceFill",
