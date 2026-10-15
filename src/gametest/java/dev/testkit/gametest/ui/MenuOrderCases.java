@@ -213,6 +213,13 @@ final class MenuOrderCases {
                                         masters.add(rowName(ModScreenDriver.label((AbstractWidget) part)));
                                     }
                                 }
+                                // Only a switch the tab really shows as a row is judged (Auto Clear's card switch is
+                                // not a row of its tab).
+                                java.util.Set<String> shown = new java.util.HashSet<>();
+                                for (Line l : e.getValue()) {
+                                    shown.add(rowName(l.label()));
+                                }
+                                masters.retainAll(shown);
                                 if (masters.isEmpty()) {
                                     continue;
                                 }
