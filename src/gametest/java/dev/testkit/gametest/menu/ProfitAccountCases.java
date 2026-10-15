@@ -240,8 +240,10 @@ final class ProfitAccountCases {
                 String label = c.onClient(mc -> text(accountSwitch(McCompat.screen(mc))));
                 steps.add(label);
                 profits.add(c.onClient(mc -> shownCroesusProfit()));
-                runOn(c, mc -> TrackerCases.press(accountSwitch(McCompat.screen(mc))));
-                c.ctx().waitTicks(1);
+                if (i < 4) { // four steps round: This, All, Stranger, TkBravo, back to This
+                    runOn(c, mc -> TrackerCases.press(accountSwitch(McCompat.screen(mc))));
+                    c.ctx().waitTicks(1);
+                }
             }
             runOn(c, mc -> TrackerCases.pressSecondary(accountSwitch(McCompat.screen(mc))));
             c.ctx().waitTicks(1);
