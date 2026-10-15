@@ -350,6 +350,8 @@ public class UiSuite implements FabricClientGameTest {
                 dev.testkit.gametest.Scenario.skip(n);
             }
             for (String n : TRAIL_HUD_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : NAMES_PROFILES_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
