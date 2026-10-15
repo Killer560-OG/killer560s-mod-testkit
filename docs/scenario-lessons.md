@@ -763,3 +763,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   with the feature OFF, so main fails on what it draws, not on a missing method (main: 0 px for a held shortbow, 885 px for
   an idle plain bow). Measure an arc's first step LEVEL: at pitch 50 it hits the superflat inside one tick and reads 1.98
   blocks, not 3.0 (1080's first run). The arcs start at the eye, so on screen mostly the impact boxes show.
+- **97-sim-menu-redo (SimMenuRedoTests, mod sim-menu-redo-1015, 2026-10-15):** the Dungeon Sim menu redo. Presses the
+  title screen's real Dungeon Sim button (designer first, last page after), reads text runs for a room count or header
+  page title, checks the Routes sort against SimRoomRoutes per row, and samples chip faces from screenshots. Two traps
+  found while writing it: at the gametest's own window `takeScreenshot` returned only the top-left 854x480 of the frame
+  (the panel half off the shot), so it resizes to 1920x1080 GUI 2 first; and a GUI point maps to the shot through the
+  mod's `AutoScale.appliedFactor` (`x * f * window / guiScaledWidth`), not `img.width / screen.width` - that sampled
+  the backdrop and read every chip as #040302 on both jars.
