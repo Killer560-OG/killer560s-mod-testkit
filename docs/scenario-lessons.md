@@ -758,3 +758,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   NEXT trip's (the hand-over can be that fast), so only warps strictly before the end belong to the trip into the room.
 - Mod main's sim clears every room on entry (2026-10-14). A case that judges which rooms its clears killed their way to
   (141) turns `SimMobs.setClearRoomsOnEntry(false)` for its run, or any trip passing through a room "clears" it.
+- **1080-1083 (TrajectoryCases, mod shortbow-traj-1015, 2026-10-15):** Trajectories for shortbows. Each draw is judged by the
+  feature's own views (`TrajectoriesFeature.lastArcs/lastKind/lastSpeed/renderCalls`) AND by cyan arc pixels against a frame
+  with the feature OFF, so main fails on what it draws, not on a missing method (main: 0 px for a held shortbow, 885 px for
+  an idle plain bow). Measure an arc's first step LEVEL: at pitch 50 it hits the superflat inside one tick and reads 1.98
+  blocks, not 3.0 (1080's first run). The arcs start at the eye, so on screen mostly the impact boxes show.
