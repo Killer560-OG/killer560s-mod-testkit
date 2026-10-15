@@ -290,38 +290,50 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                 leaveSim(ctx);
             }
             enterFloor(ctx);
-            Vec3 at = ctx.computeOnClient(mc -> mc.player.position());
             List<SimAutoSecretTests.Room> eligible = eligible(ctx.computeOnClient(SimAutoSecretTests::readRooms));
-            Map<String, Vec3> centre = new HashMap<>();
+            // Distances are ROOMS on the map's path (a trip goes round by the doors: on 2026-10-15 two rooms 45 blocks
+            // apart in a straight line were 13 etherwarps, six rooms, apart).
+            Map<String, Integer> fromHere = new HashMap<>();
+            Map<String, Map<String, Integer>> between = new HashMap<>();
+            ctx.runOnClient(mc -> {
+                Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+                int here = (Integer) ModUnderTest.call(layout, "currentRoom", new Class<?>[]{}, new Object[]{});
+                for (SimAutoSecretTests.Room a : eligible) {
+                    fromHere.put(a.name(), steps(layout, here, a.id()));
+                    Map<String, Integer> row = new HashMap<>();
+                    for (SimAutoSecretTests.Room b : eligible) {
+                        row.put(b.name(), steps(layout, a.id(), b.id()));
+                    }
+                    between.put(a.name(), row);
+                }
+            });
+            eligible.sort((a, b) -> Integer.compare(fromHere.get(a.name()), fromHere.get(b.name())));
+            List<String> shown = new ArrayList<>();
             for (SimAutoSecretTests.Room r : eligible) {
-                BlockPos c = ctx.computeOnClient(mc -> (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter",
-                        new Class<?>[]{int.class}, new Object[]{r.mainTile()}));
-                centre.put(r.name(), Vec3.atCenterOf(c));
+                shown.add(r.name() + "=" + r.unfound() + "@" + fromHere.get(r.name()));
             }
-            eligible.sort((a, b) -> Double.compare(flat(centre.get(a.name()), at), flat(centre.get(b.name()), at)));
-            println(ORDER, "floor " + (attempt + 1) + ": eligible by distance " + SimAutoSecretTests.describe(eligible));
+            println(ORDER, "floor " + (attempt + 1) + ": eligible (unfound@rooms away) " + shown);
             // His example: two 1-secret rooms beside him, a 2-secret room across the floor - most unfound first crosses
             // the map for the two secrets and comes back.
             for (int i = 0; i < eligible.size() && far == null; i++) {
-                for (int j = i + 1; j < eligible.size() && far == null; j++) {
+                for (int j = 0; j < eligible.size() && far == null; j++) {
                     SimAutoSecretTests.Room a = eligible.get(i);
                     SimAutoSecretTests.Room b = eligible.get(j);
-                    double da = flat(centre.get(a.name()), at);
-                    double ab = flat(centre.get(a.name()), centre.get(b.name()));
-                    if (da > 50 || ab > 50 || a.unfound() != 1 || b.unfound() != 1) {
+                    if (i == j || a.unfound() != 1 || b.unfound() != 1 || fromHere.get(a.name()) > 2
+                            || between.get(a.name()).get(b.name()) > 2) {
                         continue;
                     }
-                    for (int k = eligible.size() - 1; k > j; k--) {
-                        SimAutoSecretTests.Room f = eligible.get(k);
-                        double df = flat(centre.get(f.name()), at);
-                        if (f.unfound() == 2 && df >= 110
-                                && flat(centre.get(f.name()), centre.get(a.name())) >= 90) {
+                    for (SimAutoSecretTests.Room f : eligible) {
+                        if (f.unfound() == 2 && fromHere.get(f.name()) >= 4 && between.get(a.name()).get(f.name()) >= 4
+                                && between.get(b.name()).get(f.name()) >= 4) {
                             n1 = a;
                             n2 = b;
                             far = f;
-                            println(ORDER, String.format(Locale.US, "beside him: %s=%d (%.0f blocks), %s=%d (%.0f from it);"
-                                    + " across the floor: %s=%d (%.0f blocks)", a.name(), a.unfound(), da, b.name(),
-                                    b.unfound(), ab, f.name(), f.unfound(), df));
+                            println(ORDER, String.format(Locale.US, "beside him: %s=%d (%d room(s) away), %s=%d (%d from"
+                                            + " it); across the floor: %s=%d (%d room(s) away, %d and %d from them)",
+                                    a.name(), a.unfound(), fromHere.get(a.name()), b.name(), b.unfound(),
+                                    between.get(a.name()).get(b.name()), f.name(), f.unfound(), fromHere.get(f.name()),
+                                    between.get(a.name()).get(f.name()), between.get(b.name()).get(f.name())));
                             break;
                         }
                     }
@@ -440,6 +452,16 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             }
         }
         return out;
+    }
+
+    /** Rooms on the map's path from room {@code a} to {@code b} (doors open or not), 99 with none. Client thread. */
+    private static int steps(Object layout, int a, int b) {
+        if (a == b) {
+            return 0;
+        }
+        Object path = ModUnderTest.staticCall("com.killer560.hub.livemap.autoclear.DungeonMapPathfinder", "findPath",
+                new Class<?>[]{layout.getClass(), int.class, int.class, boolean.class}, new Object[]{layout, a, b, true});
+        return path == null ? 99 : ((List<?>) path).size() - 1;
     }
 
     private static double flat(Vec3 a, Vec3 b) {
