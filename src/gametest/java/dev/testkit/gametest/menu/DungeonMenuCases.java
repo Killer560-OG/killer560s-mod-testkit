@@ -22,6 +22,7 @@ final class DungeonMenuCases {
         MenuSuite.test(s, "232-menu-spiritleap-overlay-key", DungeonMenuCases::spiritLeap);
         MenuSuite.test(s, "233-menu-fastleap-leap", DungeonMenuCases::fastLeap);
         MenuSuite.test(s, "234-menu-dungeonclass-select", DungeonMenuCases::classSelect);
+        MenuSuite.test(s, "1077-menu-class-overlay-editor", DungeonMenuCases::classOverlayEditor);
         MenuSuite.test(s, "235-menu-partyfinder", DungeonMenuCases::partyFinder);
         MenuSuite.test(s, "236-menu-partyfinder-style", PartyFinderStyleCases::style);
         MenuSuite.test(s, "400-menu-partyfinder-stats", PartyFinderStatsCases::stats);
@@ -188,6 +189,94 @@ final class DungeonMenuCases {
         } finally {
             MenuKit.reset(c);
         }
+    }
+
+    /** mod leap-queue-1015 (killer560, 2026-10-15: "have it use the /leaporder process"): on the real class-selection
+     *  screen the party bar's name chip and a class box, clicked with the real mouse, set that player's class in the Leap
+     *  Order's own data (killer560smod-leapmenu.json, no Class Overrides file any more), and the bar's Edit Classes chip
+     *  opens the Leap Order editor over the screen. */
+    static void classOverlayEditor(Session c) throws Exception {
+        MenuKit.reset(c);
+        String dungeonClass = "dungeonclass.DungeonClass";
+        java.nio.file.Path leapPath = (java.nio.file.Path) Mod.field("leapmenu.LeapMenuConfig", "CONFIG_PATH");
+        byte[] leapBytes = java.nio.file.Files.exists(leapPath) ? java.nio.file.Files.readAllBytes(leapPath) : null;
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set("dungeonclass.ClassSelectionOverlayConfig", "Enabled", true);
+            c.onClient(mc -> {
+                Mod.staticCall("dungeonclass.ClassOverrides", "clear", "LoAnna");
+                Mod.staticCall("leapmenu.PartyTracker", "noteTeammates", List.of("LoAnna", "LoBen"));
+                return null;
+            });
+            c.check(!c.onClient(mc -> (Boolean) Mod.staticCall("dungeonclass.ClassOverrides", "has", "LoAnna")),
+                    "LoAnna already had a class pick");
+            MenuKit.show(c, MenuKit.menu("menus.catacombs-gate-classes"));
+            MenuKit.awaitScreen(c, "Catacombs Gate", 100);
+            c.waitUntil("ClassSelectionOverlay to find 5 class slots", mc ->
+                    ((Map<?, ?>) Mod.field("dungeonclass.ClassSelectionOverlay", "classSlots")).size() == 5, 100);
+            c.waitUntil("the party bar to draw its chips", mc -> {
+                Map<?, ?> chips = (Map<?, ?>) Mod.staticCall("dungeonclass.ClassSelectionOverlay", "chipBoundsForTest");
+                return chips.containsKey("LoAnna") && chips.containsKey("<leap order>");
+            }, 100);
+            // click LoAnna's chip, then the Mage box
+            int[] chip = c.onClient(mc -> (int[]) ((Map<?, ?>) Mod.staticCall("dungeonclass.ClassSelectionOverlay",
+                    "chipBoundsForTest")).get("LoAnna"));
+            guiClick(c, (chip[0] + chip[2]) / 2.0, (chip[1] + chip[3]) / 2.0);
+            double[] mage = c.onClient(mc -> {
+                Object screen = McCompat.screen(mc);
+                Object slot = ((Map<?, ?>) Mod.field("dungeonclass.ClassSelectionOverlay", "classSlots"))
+                        .get(Mod.enumValue(dungeonClass, "MAGE"));
+                int lx = (Integer) Mod.field(screen, "leftPos");
+                int ty = (Integer) Mod.field(screen, "topPos");
+                return new double[]{lx + (Integer) Mod.field(slot, "x") + 8, ty + (Integer) Mod.field(slot, "y") + 8};
+            });
+            guiClick(c, mage[0], mage[1]);
+            String pick = c.onClient(mc -> String.valueOf(Mod.staticCall("dungeonclass.ClassOverrides", "classOf",
+                    "LoAnna", null)));
+            c.check(pick.equals("MAGE"), "clicking LoAnna's chip then the Mage box left her class at " + pick);
+            java.nio.file.Path leapFile = (java.nio.file.Path) Mod.field("leapmenu.LeapMenuConfig", "CONFIG_PATH");
+            String saved = java.nio.file.Files.readString(leapFile);
+            c.check(saved.contains("classPicks") && saved.contains("LoAnna"),
+                    "the pick is not in the Leap Order data (killer560smod-leapmenu.json)");
+            // the Edit Classes chip
+            int[] edit = c.onClient(mc -> (int[]) ((Map<?, ?>) Mod.staticCall("dungeonclass.ClassSelectionOverlay",
+                    "chipBoundsForTest")).get("<leap order>"));
+            guiClick(c, (edit[0] + edit[2]) / 2.0, (edit[1] + edit[3]) / 2.0);
+            String now = c.onClient(mc -> McCompat.screen(mc) == null ? "(none)" : McCompat.screen(mc).getClass().getSimpleName());
+            c.check(now.equals("LeapOrderScreen"), "the Edit Classes chip opened " + now);
+            c.note("class overlay: chip LoAnna + Mage box -> pick " + pick + " saved in killer560smod-leapmenu.json; Edit Classes chip -> " + now);
+        } finally {
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                Mod.staticCall("dungeonclass.ClassOverrides", "clear", "LoAnna");
+                @SuppressWarnings("unchecked")
+                java.util.Collection<String> members = (java.util.Collection<String>) Mod.field("leapmenu.PartyTracker", "MEMBERS");
+                members.removeIf(n -> n.equals("LoAnna") || n.equals("LoBen"));
+                try {
+                    if (leapBytes != null) {
+                        java.nio.file.Files.write(leapPath, leapBytes);
+                    } else {
+                        java.nio.file.Files.deleteIfExists(leapPath);
+                    }
+                } catch (java.io.IOException e) {
+                    throw new AssertionError(e);
+                }
+                Mod.staticCall("leapmenu.LeapMenuConfig", "load");
+                return null;
+            });
+            MenuKit.reset(c);
+        }
+    }
+
+    /** A real left click at a point in plain GUI units of a vanilla container screen (no Auto Scale on it). */
+    private static void guiClick(Session c, double gx, double gy) {
+        double[] at = c.onClient(mc -> {
+            double scale = mc.getWindow().getGuiScale();
+            return new double[]{gx * scale, gy * scale};
+        });
+        c.ctx().getInput().setCursorPos(at[0], at[1]);
+        c.ctx().waitTicks(2);
+        c.ctx().getInput().pressMouse(0);
+        c.ctx().waitTicks(3);
     }
 
     static void partyFinder(Session c) throws Exception {

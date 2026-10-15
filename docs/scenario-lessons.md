@@ -630,3 +630,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   no Secret Aura attempt on a Lights lever, 1478 only the looked-at lever after the 2-tick delay, all GrimAC clean. Main
   jar: all three fail (no LightsDeviceConfig). Turning onto a second lever is a server `dungeon.tp` with yaw/pitch, never a
   harness rotation.
+- **1071-1075, 1077 (mod leap-queue-1015, 2026-10-15):** `EditBox.setValue` from the test thread throws "Rendersystem called from
+  wrong thread" - type through `c.onClient` (1075's first run). A tab built by reflection (`buildWidgets(0,0,300,...)`) is
+  pressed with `ModScreenDriver.press`, left click forward, a `MouseButtonInfo(1,0)` event for back. The mod's screens lay out
+  on Auto Scale's canvas, so 1073 reads 854x480 at the test window AND at 1920x1080 GUI 2 with Auto Scale on; take every
+  extent from the open screen's `width`/`height`. 983 fails after 829-834 in one menu session (a stale "LrB (Tank)" leaps
+  first) on the pre-change jar and tests too - run 983 alone. 1077 clicks a vanilla container screen's overlay in plain GUI units
+  (`pos x getGuiScale`, no Auto Scale).

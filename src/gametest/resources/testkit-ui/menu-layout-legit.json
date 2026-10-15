@@ -24,7 +24,6 @@
     "Chat Tidy",
     "Chunk Cache",
     "Class Colors",
-    "Class Overrides",
     "Click Translate",
     "Command Shortcuts",
     "Copy Chat",
@@ -164,7 +163,6 @@
     "gui.tab.ChatTidyTab": "Chat > Chat Tidy",
     "gui.tab.ChunkCacheTab": "Dungeon > Map, Leap & Party > Chunk Cache",
     "gui.tab.ClassColorsTab": "Dungeon > Map, Leap & Party > Class Colors",
-    "gui.tab.ClassOverridesTab": "Dungeon > Class Overrides",
     "gui.tab.ClickTranslateTab": "Chat > Click Translate",
     "gui.tab.CommandKeybindsTab": "Chat > Chat Keybinds",
     "gui.tab.CommandShortcutsTab": "Chat > Command Shortcuts",
@@ -295,7 +293,6 @@
       "chat tidy": "",
       "chroma": "Cycles the main color through the rainbow (keeps its transparency).",
       "circle dot": "",
-      "class overrides": "Sets a player's class by hand for every feature in the mod.",
       "classic": "",
       "click translate": "Adds a click action to chat messages that translates them into your chosen language.",
       "color": "Main crosshair color, with transparency.",
@@ -521,19 +518,6 @@
     },
     "Class Colors": {
       "class colors": "Colors dungeon teammates by their class in the tab list and on nametags."
-    },
-    "Class Overrides": {
-      "add by name": "Type an IGN and pick a class to override someone not in the party.",
-      "add override": "Saves the typed IGN with the chosen class.",
-      "class selection overlay": "Pick a player in the bar, then a class box, to assign their class on the class-selection screen.",
-      "current party": "Lists your party and their classes; click Override to set a different class.",
-      "ign": "The player's exact in-game name; case doesn't matter.",
-      "none.": "",
-      "other overrides": "Overrides for players who aren't in your current party.",
-      "override": "Click to cycle this player's class override.",
-      "override class": "Click to cycle the class given to the typed IGN.",
-      "player0 (detected": "",
-      "remove override": "Removes this player's override."
     },
     "Click Translate": {
       "click translate enabled": "Left-click any chat message to translate it.",

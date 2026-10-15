@@ -255,18 +255,6 @@
       "gone": "bz-reskin c13a41e8: the Hypixel Menu key row sat beside Reskin Real Bazaar and showed with the Bazaar off; with one switch it shows only while the Bazaar is on (the walk has it off)"
     },
     {
-      "owner": "Class Overrides",
-      "key": "override",
-      "text": "Left click cycles this player's class override, right click goes back.",
-      "why": "cycle-back 357cee13: every cycling setting steps back on a right click (killer560, 2026-10-11)"
-    },
-    {
-      "owner": "Class Overrides",
-      "key": "override class",
-      "text": "Left click cycles the class given to the typed IGN, right click goes back.",
-      "why": "cycle-back 357cee13: every cycling setting steps back on a right click (killer560, 2026-10-11)"
-    },
-    {
       "owner": "Thorn (F4)",
       "key": "thorn esp style",
       "text": "How Thorn highlights are drawn: Outline Box, Filled Box or Glow; left click cycles forward, right click back.",

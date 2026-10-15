@@ -70,7 +70,7 @@ final class LeapEditorCases {
         Saved sv = new Saved();
         sv.leap = (Path) Mod.field(LEAPCFG, "CONFIG_PATH");
         sv.leapBytes = Files.exists(sv.leap) ? Files.readAllBytes(sv.leap) : null;
-        sv.ovr = (Path) Mod.field(OVR, "CONFIG_PATH");
+        sv.ovr = (Path) Mod.field(LEAPCFG, "LEGACY_PICKS_PATH");
         sv.ovrBytes = Files.exists(sv.ovr) ? Files.readAllBytes(sv.ovr) : null;
         sv.members = c.onClient(mc -> {
             Collection<String> m = (Collection<String>) Mod.field("leapmenu.PartyTracker", "MEMBERS");
@@ -109,7 +109,6 @@ final class LeapEditorCases {
                 throw new AssertionError(e);
             }
             Mod.staticCall(LEAPCFG, "load");
-            Mod.staticCall(OVR, "load");
             return null;
         });
     }

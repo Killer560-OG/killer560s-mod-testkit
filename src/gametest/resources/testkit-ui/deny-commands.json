@@ -3,6 +3,9 @@
   "execute": [
     {"input": "killer560", "expect": "screen:gui.ModScreen", "source": "Killer560ModClient.java:423"},
     {"input": "killer560 leaporder", "expect": "screen:leapmenu.LeapOrderScreen", "source": "Killer560ModClient.java (leaporder)"},
+    {"input": "killer560 class", "expect": "screen:leapmenu.LeapOrderScreen", "source": "Killer560ModClient.java (class; same screen as leaporder, mod leap-queue-1015)"},
+    {"input": "leaporder", "expect": "screen:leapmenu.LeapOrderScreen", "source": "Killer560ModClient.java (bare /leaporder, mod leap-queue-1015)"},
+    {"input": "class", "expect": "screen:leapmenu.LeapOrderScreen", "source": "Killer560ModClient.java (bare /class opens the Leap Order editor, mod leap-queue-1015)"},
     {"input": "killer560 sim", "expect": "flip:secrets.DungeonState#isSimOverrideActive", "source": "Killer560ModClient.java (sim) -> DungeonState.toggleSimOverride; executed twice so it ends off"},
     {"input": "language", "expect": "screen:gui.ModScreen", "source": "Killer560ModClient.java:680"},
     {"input": "termism", "expect": "screen:termism.TermismMenuScreen", "source": "Killer560ModClient.java:652 (needs SkyblockGate off)"},
