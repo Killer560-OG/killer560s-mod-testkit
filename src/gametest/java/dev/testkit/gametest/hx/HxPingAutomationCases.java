@@ -286,7 +286,7 @@ final class HxPingAutomationCases {
             tracked = true;
             Vec3 end = c.onClient(mc -> endVector());
             c.server().command(String.format(Locale.ROOT, "summon husk %.3f %.3f %.3f {Tags:[\"pnghusk\"],NoAI:1b,"
-                    + "Silent:1b,Invulnerable:1b,PersistenceRequired:1b}", end.x, end.y, end.z));
+                    + "Silent:1b,Health:20f,PersistenceRequired:1b}", end.x, end.y, end.z));
             since = c.hx().head();
             for (int i = 0; i < 160; i++) {
                 Boolean done = c.onClient(mc -> {
@@ -313,11 +313,16 @@ final class HxPingAutomationCases {
             c.server().command("kill @e[tag=pnghusk]");
             c.ctx().waitTicks(5);
         }
+        // A husk that takes damage (bloodcamp-1015: an invulnerable one is a miss, and the Trigger Bot clicks again).
         Double serverLead = null;
+        java.util.List<Long> ticks = new java.util.ArrayList<>();
         for (com.google.gson.JsonObject e : c.hx().events(since, "attack_entity")) {
-            serverLead = firstTick + due - e.get("tick").getAsLong();
-            break;
+            ticks.add(e.get("tick").getAsLong());
         }
+        if (!ticks.isEmpty()) {
+            serverLead = firstTick + due - ticks.get(0);
+        }
+        c.note("trip: first packet at server tick " + firstTick + ", due " + due + " after it, attacks at " + ticks);
         double killAt = c.onClient(mc -> (Double) Mod.staticCall(BC, "lastKillableAt"));
         int killPing = c.onClient(mc -> (Integer) Mod.staticCall(BC, "lastKillablePingMs"));
         double trig = c.onClient(mc -> (Double) Mod.staticCall(BC, "lastTriggerAt"));
