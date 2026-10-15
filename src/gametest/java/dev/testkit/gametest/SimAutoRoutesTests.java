@@ -4183,7 +4183,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             check(killed, "Kill Mimic (Hyperion) did not kill the mimic (alive " + mimicAlive(ctx) + ")");
             check(countOut(s, "use_item") == 1, "Kill Mimic (Hyperion) sent " + countOut(s, "use_item")
                     + " use_item packet(s), expected exactly 1");
-            check(logHas(m, "Hyperion used straight down (use 1)"), "no straight-down Hyperion use logged");
+            check(logHas(m, "Hyperion used straight down (use 1"), "no straight-down Hyperion use logged");
             int sel = ctx.computeOnClient(mc -> mc.player.getInventory().getSelectedSlot());
             check(sel == 3, "Kill Mimic did not put slot 4 back (holding slot " + (sel + 1) + ")");
             println("hyperion: killed, 1 use");

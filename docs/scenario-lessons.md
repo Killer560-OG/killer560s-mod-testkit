@@ -535,3 +535,13 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   (60 ticks), counting water in a 17x5x17 box. Museum must keep both still with `SimStaticWater.frozenTicks` rising; Water
   Board must drain the lone block and spread the source with `allowedTicks` rising - the same writes flowing there is the
   control for the Museum half. First runs, 26.1.2 and 26.2 alike: Museum 9 -> 9 (frozen +2), Water Board 1 -> 7 (allowed +24).
+- 96-ar-1015-landpickup / -earlyskip / -mimicskip (ar-mainserver, 2026-10-15). landpickup: #1 warps onto #2 (await 1) where
+  an item lies; `harness/HypixelOrder` (mixin at RETURN of `ServerPlayer.teleportTo`) takes it in the teleport's own step, as
+  Hypixel does - a vanilla integrated server picks it up a tick later, after the client has seen the landing, so without the
+  hook neither jar shows the bug. Run 1 (OTHER: a take packet naming another collector) must leave #2 waiting; run 2 (SELF)
+  must log the pickup BEFORE "Landed in node #2" or it proves nothing. Drop the item with him off the tile: the last run
+  leaves him standing on it and vanilla took it the tick it appeared (first run, "items taken 0"). earlyskip: `Latency` 250 ms
+  makes #1's flight ~7 ticks so a real left click lands inside it. mimicskip: a plain trapped chest keeps Kill Mimic's
+  Spirit Sceptre going for 5 s; it outlives the route, so the case waits it out. Old jar 3/3 FAIL, new 3/3 PASS.
+- 385-ui-interactive-map (2026-10-15): no drag with any button pans, and a right/middle drag's release acts; the view is moved
+  by scroll zoom for the Reset view check. Old jar: RMB drag panned 75.5.
