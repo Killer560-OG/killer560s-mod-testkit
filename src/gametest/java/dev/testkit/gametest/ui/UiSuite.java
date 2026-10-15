@@ -190,6 +190,10 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-11 leap-menu batch, the editor half ({@link LeapWizardCases}); 821-825 are in the menu
      *  suite. Own block for merges. */
     static final String[] LEAP2_CASES = {"826-ui-leap-wizard", "827-ui-leap-settings", "828-ui-leap-shots"};
+    /** killer560's 2026-10-15 to-do: /class + /leaporder, Class Overrides folded into the Leap Order, the editor's layout,
+     *  Party Finder styles and the custom style editor ({@link LeapQueueCases}). Own block for merges. */
+    static final String[] LEAPQUEUE_CASES = {"1071-ui-class-commands", "1072-ui-class-overrides-migrated",
+            "1073-ui-leaporder-layout", "1074-ui-pf-queue-styles", "1075-ui-pf-custom-editor"};
     /** killer560's 2026-10-12 Health and Mana Bars styles ({@link BarStyleCases}). Own block for merges. */
     static final String[] BAR_STYLE_CASES = {"891-ui-bars-style-fill", "892-ui-bars-style-overflow",
             "893-ui-bars-style-settings", "894-ui-bars-style-ghost", "895-ui-bars-style-shots",
@@ -280,6 +284,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : LEAP2_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : LEAPQUEUE_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : ITEM_UI_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -359,7 +366,7 @@ public class UiSuite implements FabricClientGameTest {
         boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES)
                 || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
                 || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES)
-                || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES)
+                || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(LEAPQUEUE_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES)
                 || any(AUTOKICK2_CASES) || any(CYCLE_BACK_CASES) || any(DOC_SMALL_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES)
                 || any(HUD_KEY3_CASES) || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(CHROMA_WAVE_CASES)
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
@@ -517,6 +524,12 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "826-ui-leap-wizard", LeapWizardCases::wizardCase);
                     UiCase.run(ctx, "827-ui-leap-settings", LeapWizardCases::settings);
                     UiCase.run(ctx, "828-ui-leap-shots", LeapWizardCases::shots);
+                    // ---- /class + /leaporder, overrides folded in, editor layout, Party Finder styles (1071-1075) ----
+                    UiCase.run(ctx, "1071-ui-class-commands", LeapQueueCases::commands);
+                    UiCase.run(ctx, "1072-ui-class-overrides-migrated", LeapQueueCases::overridesGoneAndMigrated);
+                    UiCase.run(ctx, "1073-ui-leaporder-layout", LeapQueueCases::layout);
+                    UiCase.run(ctx, "1074-ui-pf-queue-styles", LeapQueueCases::queueStyles);
+                    UiCase.run(ctx, "1075-ui-pf-custom-editor", LeapQueueCases::customEditor);
                     // ---- item / inventory UI (701-712; 708 is in the menu suite) ----
                     UiCase.run(ctx, "701-ui-invsearch-red-fill", ItemUiCases::redFill);
                     UiCase.run(ctx, "702-ui-invsearch-calculator", ItemUiCases::calculator);

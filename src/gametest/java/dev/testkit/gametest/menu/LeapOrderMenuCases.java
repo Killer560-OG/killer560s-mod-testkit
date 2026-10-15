@@ -133,7 +133,6 @@ final class LeapOrderMenuCases {
                     Mod.staticCall("dungeonclass.ClassOverrides", "clear", n);
                 }
                 Mod.staticCall("dungeonclass.ClassOverrides", "clear", mc.player.getGameProfile().name());
-                Mod.call(Mod.staticCall("dungeonclass.ClassOverrides", "getInstance"), "save");
                 ((Collection<String>) Mod.field("leapmenu.PartyTracker", "MEMBERS")).removeIf(PARTY::contains);
                 try {
                     if (existed) {
