@@ -110,6 +110,7 @@
 			"dev.testkit.gametest.hx.HxSuite",
 			"dev.testkit.gametest.menu.MenuSuite",
 			"dev.testkit.gametest.ui.UiSuite",
+			"dev.testkit.gametest.ui.FontsMainMenuSuite",
 			"dev.testkit.gametest.logic.LogicSuite",
 			"dev.testkit.gametest.ui.RebootCommandTest",
 			"dev.testkit.gametest.dsim.DungeonServerSuite",
