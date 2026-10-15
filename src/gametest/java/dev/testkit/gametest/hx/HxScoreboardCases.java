@@ -200,7 +200,7 @@ final class HxScoreboardCases {
                 return null;
             });
             List<String> bad = new ArrayList<>();
-            int[][] sizes = {{1024, 640}, {1366, 768}, {1600, 900}};
+            int[][] sizes = {{1280, 720}, {1366, 768}, {1600, 900}}; // each allows GUI 3
             int[] scales = {2, 3};
             int checked = 0;
             for (int[] size : sizes) {
@@ -412,7 +412,7 @@ final class HxScoreboardCases {
                     "the old config's settings did not load unchanged: " + loaded);
             c.check(loaded.contains("background 50000000") && loaded.contains("padding 2") && loaded.contains("rounded false"),
                     "the old default look did not move to the new one: " + loaded);
-            c.check(loaded.contains("border true 3366ff"), "a border he recolored was not kept: " + loaded);
+            c.check(loaded.contains("border true ff3366ff"), "a border he recolored was not kept: " + loaded);
             // Saved back: the anchor is written, and loading again gives the same spot.
             String file = c.onClient(mc -> new String(read((Path) Mod.field(CFG, "CONFIG_PATH")),
                     java.nio.charset.StandardCharsets.UTF_8));

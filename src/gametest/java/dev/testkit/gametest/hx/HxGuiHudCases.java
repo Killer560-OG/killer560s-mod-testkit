@@ -424,7 +424,8 @@ final class HxGuiHudCases {
                 }
             });
             c.note("Custom Scoreboard tab (on): " + labels);
-            c.check(labels.equals(List.of("Custom Scoreboard: ON", "Open Visual Editor")),
+            // The Theme row (screen sweep, 2026-10-13) picks the editor's own theme; it is part of the tab since then.
+            c.check(labels.equals(List.of("Custom Scoreboard: ON", "Open Visual Editor", "Theme: Theme Default")),
                     "the tab shows " + labels + ", expected only the switch and Open Visual Editor");
         }
     }
