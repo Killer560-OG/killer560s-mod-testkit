@@ -579,3 +579,22 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   change), then the key (block to air, not a secret), then the node (node and the 3-block strip gone, `SimScore.foundInRoom`
   +1, and an armor stand wearing the key profile visible to the CLIENT at node y - 2). Main jar: 0 levers armed, and the key
   position holds a lever, not a key head.
+
+- 1042-ui-trail-teleport-ribbon, 1043-ui-trail-teleport-squares, 1044-ui-trail-teleport-settings (TrailTeleportCases, mod
+  trail-hud-1015, 2026-10-15): the player walks 3 blocks, is moved 30 blocks along +x in one step (position AND old position,
+  as a server teleport does), then walks on. Per On Teleport mode (Break / Connect / Arc) the geometry the renderers hand
+  to the GPU is judged: the ribbon's `lastVertices` with `lastBreaks` / `lastSegments` / `teleportsSeen`, the squares ring's
+  `position(i)`. Break: one gap, joined quads stop short, the longest step is the jump and the second longest is short;
+  Connect: no gap, every step short, 100+ points, flat; Arc: no gap, short steps, rises 3.6+ blocks (squares 4.5+); exactly
+  one teleport counted (walking never is). 1044 is the config: default Connect, file round trip, profile reload, a bad file
+  value, and both tabs' cycling row stepping Connect -> Arc -> Break -> Arc. Main jar: no `trail.TeleportMode`, all three
+  report a problem (and its ribbon dropped the whole trail past 6 blocks).
+- 1045-ui-routes-progress-content, 1046-ui-routes-progress-editor, 1047-ui-routes-progress-settings (RoutesProgressHudCases,
+  mod trail-hud-1015): drives the HUD's two real inputs, `RouteRunMemory.noteProgress` and `RunPlan.publish`, and reads
+  `AutoRoutesProgressHud.shownText`: the one-room line (43% for 3/7, 100% for a route that ran to its end), a plan's header
+  percent, the `>` row with its route percent, exactly the configured number of upcoming rows, `+N more` only when rooms are
+  left out, and the Autopilot > Auto Secret > Auto Clear priority. 1046: the HUD editor lists it only while the setting is on
+  (and a legit jar has no such element). 394 now switches the setting on and fails if the element draws nothing. The
+  planners' REAL queues are checked inside the sims: 131 case 6 (Auto Clear's logged `order` = the published plan = the
+  rows), 102 (Auto Secret's first target, only routed rooms, percent math, the executor reporting node progress) and the
+  Autopilot sim (every plan the HUD drew is one a logged decision ranked).
