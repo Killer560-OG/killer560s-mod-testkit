@@ -26,7 +26,7 @@ import java.util.Map;
  *       each counted under its own scope and both under All Profit; a scoped reset clears only its scope.</li>
  *   <li>732 Dungeon (Croesus) profit the same way, from log files: an old file's earlier reset is kept, claims split by
  *       account and profile, a scoped reset hides only that account and survives a reload, the entries stay.</li>
- *   <li>733 the /profit screens: All Profit / Account / Profile / Mod Profile switches, and Reset Totals turns red asking
+ *   <li>733 the /profit screens: All Profit / Account (This Account, All Accounts since profit-accounts-1015) / Profile / Mod Profile switches, and Reset Totals turns red asking
  *       "Reset ...?", resets on the second press, and turns back after 3 s.</li>
  *   <li>734 the Experiments tab: no Reset Profit Totals, no totals text, Open /profit where the reset was.</li>
  *   <li>735 Auto E-Table (cheat): a Superpairs board whose clicks run out (and stays open, as on Hypixel) gets exactly one
@@ -296,41 +296,63 @@ final class TrackerCases {
             c.check(first.contains("All Profit") && first.contains("Account") && first.contains("Profile")
                     && first.contains("Mod Profile"), "scope switches missing: " + first);
 
-            // Account switch: All -> this account; All Profit clears it again.
-            c.ctx().runOnClient(mc -> {
-                try {
-                    press(button(McCompat.screen(mc), "Account"));
-                } catch (Exception e) {
-                    throw new AssertionError(e);
+            // Account switch (since profit-accounts-1015 the shared Show Profit setting, This Account by default):
+            // This Account -> All Accounts, right click back; then All Profit selects everything for the reset below.
+            Path pcfgPath = c.onClient(mc -> (Path) Mod.field("gui.profit.ProfitConfig", "PATH"));
+            byte[] pcfgBefore = Files.exists(pcfgPath) ? Files.readAllBytes(pcfgPath) : null;
+            try {
+                c.ctx().runOnClient(mc -> {
+                    Object pc = Mod.cfg("gui.profit.ProfitConfig");
+                    Mod.call(pc, "setShow", Mod.enumValue("gui.profit.ProfitConfig$Show", "THIS_ACCOUNT"));
+                    Mod.call(pc, "setDataMode", Mod.enumValue("gui.profit.ProfitConfig$DataMode", "SHARED"));
+                    McCompat.setScreen(mc, null);
+                    try {
+                        Screen s = (Screen) Mod.cls("gui.profit.ExperimentsProfitScreen").getConstructor(Screen.class)
+                                .newInstance((Object) null);
+                        McCompat.setScreen(mc, s);
+                    } catch (Exception e) {
+                        throw new AssertionError(e);
+                    }
+                });
+                c.ctx().waitTicks(3);
+                String start = c.onClient(mc -> button(McCompat.screen(mc), "This Account") == null ? labels(McCompat.screen(mc))
+                        : "This Account");
+                c.ctx().runOnClient(mc -> {
+                    try {
+                        press(button(McCompat.screen(mc), "This Account"));
+                    } catch (Exception e) {
+                        throw new AssertionError(e);
+                    }
+                });
+                Object picked = c.onClient(mc -> String.valueOf(Mod.call(Mod.cfg("gui.profit.ProfitConfig"), "getShow")));
+                String afterPick = c.onClient(mc -> labels(McCompat.screen(mc)));
+                c.check("This Account".equals(start), "the Account switch does not start on This Account: " + start);
+                c.check("ALL_ACCOUNTS".equals(picked) && afterPick.contains("All Accounts"),
+                        "Account switch went to " + picked + ": " + afterPick);
+                c.ctx().runOnClient(mc -> {
+                    try {
+                        pressSecondary(button(McCompat.screen(mc), "All Accounts")); // back to This Account
+                    } catch (Exception e) {
+                        throw new AssertionError(e);
+                    }
+                });
+                Object back = c.onClient(mc -> String.valueOf(Mod.call(Mod.cfg("gui.profit.ProfitConfig"), "getShow")));
+                c.check("THIS_ACCOUNT".equals(back), "right click did not step back to This Account: " + back);
+                c.note("Account switch: " + afterPick + "; right click -> This Account");
+                c.ctx().runOnClient(mc -> {
+                    try {
+                        press(button(McCompat.screen(mc), "All Profit"));
+                    } catch (Exception e) {
+                        throw new AssertionError(e);
+                    }
+                });
+            } finally {
+                if (pcfgBefore == null) {
+                    Files.deleteIfExists(pcfgPath);
+                } else {
+                    Files.write(pcfgPath, pcfgBefore);
                 }
-            });
-            Object picked = c.onClient(mc -> {
-                try {
-                    Object v = Mod.staticCall(PROFIT, "view");
-                    return v.getClass().getField("account").get(v);
-                } catch (Exception e) {
-                    throw new AssertionError(e);
-                }
-            });
-            String afterPick = c.onClient(mc -> labels(McCompat.screen(mc)));
-            c.check(account.equals(picked), "Account switch picked " + picked + ", want " + account);
-            c.ctx().runOnClient(mc -> {
-                try {
-                    pressSecondary(button(McCompat.screen(mc), "Account")); // back to All
-                } catch (Exception e) {
-                    throw new AssertionError(e);
-                }
-            });
-            Object back = c.onClient(mc -> {
-                try {
-                    Object v = Mod.staticCall(PROFIT, "view");
-                    return v.getClass().getField("account").get(v);
-                } catch (Exception e) {
-                    throw new AssertionError(e);
-                }
-            });
-            c.check(back == null, "right click did not step back to All: " + back);
-            c.note("Account switch: " + afterPick + "; right click -> All");
+            }
 
             // Reset: first press arms it red, wait it out (back to normal), arm again, second press resets.
             boolean[] states = new boolean[4];
@@ -397,7 +419,10 @@ final class TrackerCases {
             c.check(cro.contains("All Profit") && cro.contains("Mod Profile") && states[3],
                     "dungeon screen: switches or red reset missing: " + cro);
         } finally {
-            c.ctx().runOnClient(mc -> McCompat.setScreen(mc, null));
+            c.ctx().runOnClient(mc -> {
+                McCompat.setScreen(mc, null);
+                Mod.staticCall("gui.profit.ProfitConfig", "load"); // its file was put back above
+            });
             MenuKit.reset(c);
             c.ctx().runOnClient(mc -> Mod.staticCall(PROFIT, "reset"));
         }
