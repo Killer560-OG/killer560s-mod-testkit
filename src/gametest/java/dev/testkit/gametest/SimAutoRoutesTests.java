@@ -4302,9 +4302,13 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         new Object[]{spot})));
                 JsonObject bat = node("BAT", x, 10, 0f, 30f);
                 bat.addProperty("start", true);
-                writeRoute(ctx, List.of(bat));
+                // The file can load seconds after the write; it then armed before the mark below (1014f run).
+                // Off the node first: the previous case can leave him standing on this spot's node.
                 ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
                 tpRel(ctx, x + 0.5, 8.5, 0f, 30f);
+                long w = LogTap.mark();
+                writeRoute(ctx, List.of(bat));
+                check(waitFor(ctx, 100, () -> logHas(w, "Loaded 1 route")), weapon + ": the bat route never loaded");
                 boolean appeared = waitFor(ctx, 60, () -> ctx.computeOnClient(mc -> {
                     for (var e : mc.level.entitiesForRendering()) {
                         if (e instanceof net.minecraft.world.entity.ambient.Bat b && b.getMaxHealth() == 100f
@@ -6544,9 +6548,13 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         new Object[]{spot})));
                 JsonObject bat = node("BAT", x, 10, 0f, 30f);
                 bat.addProperty("start", true);
-                writeRoute(ctx, List.of(bat));
+                // As in puzzleHold: the file can load seconds after the write, after run 1's window closed (1014f).
+                // Off the node first: the previous case can leave him standing on this spot's node.
                 ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
                 tpRel(ctx, x + 0.5, 8.5, 0f, 30f);
+                long w = LogTap.mark();
+                writeRoute(ctx, List.of(bat));
+                check(waitFor(ctx, 100, () -> logHas(w, "Loaded 1 route")), "the bat route never loaded");
                 boolean appeared = waitFor(ctx, 60, () -> ctx.computeOnClient(mc -> {
                     for (var e : mc.level.entitiesForRendering()) {
                         if (e instanceof net.minecraft.world.entity.ambient.Bat b && b.getMaxHealth() == 100f
