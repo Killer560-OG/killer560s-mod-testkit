@@ -187,20 +187,20 @@
     "kind": "chat",
     "payload": "Killer560 completed a device! (3/7)",
     "source": {
-      "file": "src/main/java/com/killer560/hub/leveraura/LeverAuraFeature.java",
-      "line": 58
+      "file": "src/main/java/com/killer560/hub/leveraura/P3SectionTracker.java",
+      "line": 37
     },
     "matches": [
       "fastleap.I4LeapFeature#DEVICE_DONE_REGEX",
       "ap3.Ap3Feature#TERM_COMPLETED",
       "fastleap.Floor7Tracker$Stage#TERM_COMPLETED",
       "interop.SelfDerivation#DEVICE_COMPLETE",
-      "leveraura.LeverAuraFeature#TERM_COMPLETED"
+      "leveraura.P3SectionTracker#TERM_COMPLETED"
     ],
     "mode": "matches",
     "verifiedBy": "regex",
     "sender": "Killer560",
-    "notes": "Shape \"... completed a device! (x/y)\" from LeverAuraFeature's class doc; x/y chosen inside the single-digit groups. Stops Auto I4 / advances P3 trackers."
+    "notes": "Shape \"... completed a device! (x/y)\" from P3SectionTracker's class doc; x/y chosen inside the single-digit groups. Stops Auto I4 / advances P3 trackers."
   },
   {
     "id": "logic.device-done-find",

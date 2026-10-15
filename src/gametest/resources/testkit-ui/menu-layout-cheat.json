@@ -45,7 +45,6 @@
     "Chat Tidy",
     "Chunk Cache",
     "Class Colors",
-    "Class Overrides",
     "Click Translate",
     "Command Shortcuts",
     "Copy Chat",
@@ -218,7 +217,6 @@
     "gui.tab.ChatTidyTab": "Chat > Chat Tidy",
     "gui.tab.ChunkCacheTab": "Dungeon > Map, Leap & Party > Chunk Cache",
     "gui.tab.ClassColorsTab": "Dungeon > Map, Leap & Party > Class Colors",
-    "gui.tab.ClassOverridesTab": "Dungeon > Class Overrides",
     "gui.tab.ClickTranslateTab": "Chat > Click Translate",
     "gui.tab.CommandKeybindsTab": "Chat > Chat Keybinds",
     "gui.tab.CommandShortcutsTab": "Chat > Command Shortcuts",
@@ -381,7 +379,6 @@
       "chat tidy": "",
       "chroma": "Cycles the main color through the rainbow (keeps its transparency).",
       "circle dot": "",
-      "class overrides": "Sets a player's class by hand for every feature in the mod.",
       "classic": "",
       "click translate": "Adds a click action to chat messages that translates them into your chosen language.",
       "color": "Main crosshair color, with transparency.",
@@ -556,9 +553,9 @@
       "auto anvil": "In Hypixel's Anvil, combines two identical single-enchant books into the next level, where the anvil can make it (cheat build only)."
     },
     "Auto Blood Camp": {
-      "aura": "Turns your camera toward the spot a blood mob is about to land (cheat build only; needs Blood Camp on).",
+      "aura": "Turns you toward the blood mob due next, at its chest, with a human-looking mouse movement; moving your mouse takes over (cheat build only; only in the Blood Room).",
       "needs blood camp on (its own tab) - it predicts the mobs these act on.": "",
-      "trigger bot": "Left-clicks a blood mob when its countdown ends, if you are aiming at its spot (cheat build only; needs Blood Camp on)."
+      "trigger bot": "Left-clicks a blood mob at its kill timer if you are aiming at it, and clicks again if the hit missed (cheat build only; only in the Blood Room; needs Blood Camp on)."
     },
     "Auto Chocolate Factory": {
       "auto chocolate factory": "Clicks for you while the Chocolate Factory menu is open (cheat build only)."
@@ -724,19 +721,6 @@
     },
     "Class Colors": {
       "class colors": "Colors dungeon teammates by their class in the tab list and on nametags."
-    },
-    "Class Overrides": {
-      "add by name": "Type an IGN and pick a class to override someone not in the party.",
-      "add override": "Saves the typed IGN with the chosen class.",
-      "class selection overlay": "Pick a player in the bar, then a class box, to assign their class on the class-selection screen.",
-      "current party": "Lists your party and their classes; click Override to set a different class.",
-      "ign": "The player's exact in-game name; case doesn't matter.",
-      "none.": "",
-      "other overrides": "Overrides for players who aren't in your current party.",
-      "override": "Click to cycle this player's class override.",
-      "override class": "Click to cycle the class given to the typed IGN.",
-      "player0 (detected": "",
-      "remove override": "Removes this player's override."
     },
     "Click Translate": {
       "click translate enabled": "Left-click any chat message to translate it.",

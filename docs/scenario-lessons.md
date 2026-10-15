@@ -232,6 +232,12 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   so after 400/406 a direct lookup often never reaches the fake. 400/406 answer `/pf/stats` 404, which is their fallback.
   408-menu-partyfinder-stats-live runs a 25-player menu against the REAL backend: only with `TESTKIT_PF_LIVE=1` and
   `-Extra @("-PnetOnline")`; it prints coverage at 30/60/120/180 s and asserts nothing.
+- 411-menu-partyfinder-speed / 412-menu-partyfinder-background (`PartyFinderSpeedCases`, mod pf-speed-1015): a 15-player
+  menu against BOTH upstreams rate limited as his own logs show them, at 1/3 time: backend 3 per 10 s window then 429 with
+  the window's Retry-After, first request for 6 players a 500; relay pending until its pump reaches the name (one per 9 s,
+  first asked first, running whether polled or not) while promising 1.1 s per queue place. 411 times all-filled with the
+  menu open (limit 60 s); 412 closes after 5 s, waits 60 s, and needs all 15 within 1.5 s of reopening. Both clear the
+  Profile Viewer's own profile/name caches, or a direct lookup after 400/406/410 never reaches the fake.
 
 - 407-ui-stat-bars-layout (`StatBarsLayoutCases`, mod bars-anchors): Health and Mana Bars' Layout. Geometry is measured on
   screenshots by exact colour (each bar its own opaque colour, Show Value and text shadow off) in SURVIVAL with XP level 5,
@@ -573,3 +579,61 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   change), then the key (block to air, not a secret), then the node (node and the 3-block strip gone, `SimScore.foundInRoom`
   +1, and an armor stand wearing the key profile visible to the CLIENT at node y - 2). Main jar: 0 levers armed, and the key
   position holds a lever, not a key head.
+- **A server lag spike cannot be made by blocking the integrated server's thread.** The client gametest API ticks client
+  and server in LOCKSTEP, so a `server.execute(() -> Thread.sleep(2500))` stops the client's ticks too and no client-side
+  timeout ever runs: 1460's first version passed in 26 client ticks across a 2.5 s block, on any jar (2026-10-15). Use
+  `harness/LagSpike` (the connection frozen both ways for N ms, then the client's packets reach the server in order and
+  its answers follow); `armOnNextUse(ms)` starts it on the next `use_item`, so that use's answer is inside the spike.
+  Inbound-only was tried first and is wrong: the server answered every queued warp in real time while the client was
+  blind, and the burst produced a correction no stalled server would.
+
+- 1042-ui-trail-teleport-ribbon, 1043-ui-trail-teleport-squares, 1044-ui-trail-teleport-settings (TrailTeleportCases, mod
+  trail-hud-1015, 2026-10-15): the player walks 3 blocks, is moved 30 blocks along +x in one step (position AND old position,
+  as a server teleport does), then walks on. Per On Teleport mode (Break / Connect / Arc) the geometry the renderers hand
+  to the GPU is judged: the ribbon's `lastVertices` with `lastBreaks` / `lastSegments` / `teleportsSeen`, the squares ring's
+  `position(i)`. Break: one gap, joined quads stop short, the longest step is the jump and the second longest is short;
+  Connect: no gap, every step short, 100+ points, flat; Arc: no gap, short steps, rises 3.6+ blocks (squares 4.5+); exactly
+  one teleport counted (walking never is). 1044 is the config: default Connect, file round trip, profile reload, a bad file
+  value, and both tabs' cycling row stepping Connect -> Arc -> Break -> Arc. Main jar: no `trail.TeleportMode`, all three
+  report a problem (and its ribbon dropped the whole trail past 6 blocks).
+- 1045-ui-routes-progress-content, 1046-ui-routes-progress-editor, 1047-ui-routes-progress-settings (RoutesProgressHudCases,
+  mod trail-hud-1015): drives the HUD's two real inputs, `RouteRunMemory.noteProgress` and `RunPlan.publish`, and reads
+  `AutoRoutesProgressHud.shownText`: the one-room line (43% for 3/7, 100% for a route that ran to its end), a plan's header
+  percent, the `>` row with its route percent, exactly the configured number of upcoming rows, `+N more` only when rooms are
+  left out, and the Autopilot > Auto Secret > Auto Clear priority. 1046: the HUD editor lists it only while the setting is on
+  (and a legit jar has no such element). 394 now switches the setting on and fails if the element draws nothing. The
+  planners' REAL queues are checked inside the sims: 131 case 6 (Auto Clear's logged `order` = the published plan = the
+  rows), 102 (Auto Secret's first target, only routed rooms, percent math, the executor reporting node progress) and the
+  Autopilot sim (every plan the HUD drew is one a logged decision ranked).
+- **177-183 Auto Blood Camp (hx session, mod bloodcamp-1015, 2026-10-15)**: offset from the kill timer, Blood Room gate, aim
+  height, human turn, mouse takeover, miss retry, Freecam Mode; each Grim-clean. Blood Camp only tracks a mob stand within
+  20 blocks of the Watcher, and the session is in the FIRST wave (no Watcher line), whose trip starts 16.1 + 1 blocks back:
+  with the Watcher at (-416.5, -412.5) nothing was ever tracked. (-424.5, -412.5) is in his room tile (-7, -7) and close
+  enough; 792 uses it too. An invulnerable husk is now a MISS the Trigger Bot retries, so 792 uses a hurtable one.
+  Main jar: every case fails on the missing Trigger Offset / Freecam API.
+- 1433-sim-deuces-doorway (SimDeucesDoorwayTests, mod sim-deuces-1015, 2026-10-15): Altar (2x2, cells x 2..4 z 4..6) and
+  Deuces (6,6) unrotated, door at (5,6). Compares both doorway ends to `RoomLibrary.get(...)` by block id (trapped_chest
+  counts as chest: the sim's mimic turns one secret chest into a trapped one, at random), checks fire on Deuces' four
+  braziers and saves a screenshot from his viewpoint to killer560s-mod-logs/deuces-doorway.png. Main jar: Altar's three
+  iron bars (capture 62,72,47..49) carved to air and 0 of 4 braziers lit. The screenshot needs a wait until the client has
+  the chest block, or it is all sky.
+- 1561-1567 (ui/FontsMainMenuSuite, mod fonts-mainmenu-1015, 2026-10-15): the Font setting is measured by each GUI text
+  render state's PREPARED bounds after an off-screen extract (a state replays the font scope it was made in), not by
+  `Font.width` alone: Mod Menu Only changed 49/53 menu texts and 0/13 Options texts; 1562 also reloads resources with a font
+  on (the set borrows the default providers). The title-screen chip is read through `NameReplacer.replace`, as the font sees
+  it; on the main jar it says "FontTester" (Name Changer's name). 1566 needs a 30-tick gap for Soft Light to move 0.1%.
+- 1475-1478 (LightsDeviceUiCases in the UI suite, LightsDeviceCases in the boss session; lights-aura-1015, 2026-10-15). The
+  S2 Lights device is its own cheat (Lights Aura + Lights Triggerbot); 846 now drives LightsDeviceConfig and is named
+  846-boss-lights-aura-cps. 1476-1478 reuse 846's arena (wall at z 142, him at 60.5,133,139.5 yaw 0, so the crosshair is
+  on 60,134,142) and read who flicked what off `LightsDeviceFeature.recentFlicks`/`flickCount` (count first: the list
+  keeps only 32). Branch: 1476 3 pre-flicks + 1 activation, 1477 six uses one per lever with Secret Aura + In Boss on and
+  no Secret Aura attempt on a Lights lever, 1478 only the looked-at lever after the 2-tick delay, all GrimAC clean. Main
+  jar: all three fail (no LightsDeviceConfig). Turning onto a second lever is a server `dungeon.tp` with yaw/pitch, never a
+  harness rotation.
+- **1071-1075, 1077 (mod leap-queue-1015, 2026-10-15):** `EditBox.setValue` from the test thread throws "Rendersystem called from
+  wrong thread" - type through `c.onClient` (1075's first run). A tab built by reflection (`buildWidgets(0,0,300,...)`) is
+  pressed with `ModScreenDriver.press`, left click forward, a `MouseButtonInfo(1,0)` event for back. The mod's screens lay out
+  on Auto Scale's canvas, so 1073 reads 854x480 at the test window AND at 1920x1080 GUI 2 with Auto Scale on; take every
+  extent from the open screen's `width`/`height`. 983 fails after 829-834 in one menu session (a stale "LrB (Tank)" leaps
+  first) on the pre-change jar and tests too - run 983 alone. 1077 clicks a vanilla container screen's overlay in plain GUI units
+  (`pos x getGuiScale`, no Auto Scale).

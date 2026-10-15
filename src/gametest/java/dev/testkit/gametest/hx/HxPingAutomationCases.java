@@ -25,10 +25,10 @@ import java.util.Map;
  *   tab-list value.</li>
  *   <li>792 Blood Camp: a Watcher and a blood mob's skull stand on the server, its move packets sent on server ticks
  *   the case knows. The moment the box turns green / the kill sound is due (ping &gt; time left) comes one measured
- *   round trip earlier with +200 ms. The Trigger Bot's attack on a husk on the landing spot reaches the server 3 ticks
- *   (+-1; 2.8 is the countdown's x.8 grid point nearest, see SERVER_LEAD) before the mob is due, both locally and with
- *   +200 ms (Hit Lead 3, the default; ping added on the client), read off the server's own attack_entity tick; and
- *   Hit Lead 6 brings that hit 3 ticks (+-1) earlier (cheat jar).</li>
+ *   round trip earlier with +200 ms. The Trigger Bot (cheat jar, Trigger Offset -1, the default since bloodcamp-1015)
+ *   clicks exactly one tick after that kill timer, locally and with +200 ms, so its attack reaches the server after
+ *   the countdown's end (read off the server's own attack_entity tick); Trigger Offset +2 clicks exactly 3 ticks
+ *   earlier than -1. The Watcher stands in his room tile (-7, -7): the Trigger Bot only works in the Blood Room.</li>
  *   <li>793 Auto Debuff (cheat): the spray lead {@code leadOffset} grows by round(ping / 50) ticks; Ping Compensation off,
  *   it does not.</li>
  *   <li>794 Auto Routes (cheat): a boom that changed nothing waits {@code 4 + ceil(ping / 50)} ticks: 5 locally, 8-9
@@ -223,14 +223,6 @@ final class HxPingAutomationCases {
 
     // ---- 792 --------------------------------------------------------------------------------------------------------
 
-    /**
-     * Ticks before the countdown's end the Trigger Bot's attack should reach the server (killer560, 2026-10-11: 3), as
-     * the x.8 countdown grid allows it: the mod clicks on the tick nearest 3 + 1 (its mean tick-boundary allowance) +
-     * ping, which is 3.8 + ping, so the mean arrival is 2.8. Each end's tick boundary adds 0-1 tick in a phase the case
-     * cannot control, so a single trip lands 1.8-3.8 early - 2.8 +-1.
-     */
-    private static final double SERVER_LEAD = 2.8;
-
     private record Trip(boolean tracked, double killAt, int killPing, double triggerAt, int clicks, int attacks,
                         Double serverLead) {
     }
@@ -294,7 +286,7 @@ final class HxPingAutomationCases {
             tracked = true;
             Vec3 end = c.onClient(mc -> endVector());
             c.server().command(String.format(Locale.ROOT, "summon husk %.3f %.3f %.3f {Tags:[\"pnghusk\"],NoAI:1b,"
-                    + "Silent:1b,Invulnerable:1b,PersistenceRequired:1b}", end.x, end.y, end.z));
+                    + "Silent:1b,Health:20f,PersistenceRequired:1b}", end.x, end.y, end.z));
             since = c.hx().head();
             for (int i = 0; i < 160; i++) {
                 Boolean done = c.onClient(mc -> {
@@ -321,11 +313,16 @@ final class HxPingAutomationCases {
             c.server().command("kill @e[tag=pnghusk]");
             c.ctx().waitTicks(5);
         }
+        // A husk that takes damage (bloodcamp-1015: an invulnerable one is a miss, and the Trigger Bot clicks again).
         Double serverLead = null;
+        java.util.List<Long> ticks = new java.util.ArrayList<>();
         for (com.google.gson.JsonObject e : c.hx().events(since, "attack_entity")) {
-            serverLead = firstTick + due - e.get("tick").getAsLong();
-            break;
+            ticks.add(e.get("tick").getAsLong());
         }
+        if (!ticks.isEmpty()) {
+            serverLead = firstTick + due - ticks.get(0);
+        }
+        c.note("trip: first packet at server tick " + firstTick + ", due " + due + " after it, attacks at " + ticks);
         double killAt = c.onClient(mc -> (Double) Mod.staticCall(BC, "lastKillableAt"));
         int killPing = c.onClient(mc -> (Integer) Mod.staticCall(BC, "lastKillablePingMs"));
         double trig = c.onClient(mc -> (Double) Mod.staticCall(BC, "lastTriggerAt"));
@@ -356,7 +353,7 @@ final class HxPingAutomationCases {
                     .with(BC_CFG, "KillSound", false)
                     .with(BC_CFG, "AuraEnabled", false)
                     .with(BC_CFG, "AutoDetectLag", true)
-                    .with(BC_CFG, "HitLeadTicks", 3);
+                    .with(BC_CFG, "TriggerOffsetTicks", -1);
             if (cheat) {
                 on.with(BC_CFG, "TriggerBotEnabled", true);
             }
@@ -365,7 +362,8 @@ final class HxPingAutomationCases {
                     mc.player.closeContainer();
                     return null;
                 });
-                c.hx().stand(-428.5, 151, -412.5, null, "marker", false, "invisible", false, "helmet", head(watcherTex));
+                // In his room tile (-7, -7) - the Trigger Bot only works inside the Blood Room (bloodcamp-1015).
+                c.hx().stand(-424.5, 151, -412.5, null, "marker", false, "invisible", false, "helmet", head(watcherTex));
                 c.waitUntil("Blood Camp sees the Watcher", mc -> Mod.field(Mod.ROOT + BC, "watcherEntityId") != null, 200);
 
                 int base = baseline(c);
@@ -381,15 +379,15 @@ final class HxPingAutomationCases {
                 } finally {
                     lagOff(c);
                 }
-                // Hit Lead (2026-10-11, its own setting): 6 instead of 3 must bring the server-side hit 3 ticks earlier.
+                // Trigger Offset +2 instead of -1 must click exactly 3 ticks earlier.
                 Trip h = null;
                 if (cheat) {
                     c.onClient(mc -> {
-                        Mod.call(Mod.cfg(BC_CFG), "setHitLeadTicks", 6);
+                        Mod.call(Mod.cfg(BC_CFG), "setTriggerOffsetTicks", 2);
                         return null;
                     });
                     h = trip(c, mobTex);
-                    c.note("local, Hit Lead 6: " + fmt(h));
+                    c.note("local, Trigger Offset +2: " + fmt(h));
                 }
                 c.check(a.tracked && b.tracked, "a trip was never tracked - nothing to measure");
                 // The box / kill sound: unchanged, Noamm's ping > time left.
@@ -405,20 +403,27 @@ final class HxPingAutomationCases {
                     c.check(a.clicks == 1 && b.clicks == 1 && a.attacks == 1 && b.attacks == 1,
                             "want one attack per trip, got clicks " + a.clicks + "/" + b.clicks + ", attacks " + a.attacks
                                     + "/" + b.attacks);
-                    c.check(a.serverLead != null && Math.abs(a.serverLead - SERVER_LEAD) <= 1.0 + 1e-6, "at " + base
-                            + " ms the attack reached the server " + a.serverLead + " ticks early, want 2.8 (+-1)");
-                    c.check(b.serverLead != null && Math.abs(b.serverLead - SERVER_LEAD) <= 1.0 + 1e-6, "with +" + LAG_MS
-                            + " ms the attack reached the server " + b.serverLead + " ticks early, want 2.8 (+-1)");
+                    // killer560 2026-10-15: "Triggerbot was attacking them before the kill timer actually went off".
+                    c.check(Math.abs((a.killAt - a.triggerAt) - 1.0) < 0.01 && Math.abs((b.killAt - b.triggerAt) - 1.0) < 0.01,
+                            "Trigger Offset -1: the click went " + (a.killAt - a.triggerAt) + " / " + (b.killAt - b.triggerAt)
+                                    + " ticks after the kill timer, want exactly 1");
+                    c.check(a.serverLead != null && a.serverLead < 0 && a.serverLead > -4.5, "at " + base
+                            + " ms the attack reached the server " + a.serverLead + " ticks before due, want just after it");
+                    c.check(b.serverLead != null && b.serverLead < 0 && b.serverLead > -4.5, "with +" + LAG_MS
+                            + " ms the attack reached the server " + b.serverLead + " ticks before due, want just after it");
                     // The client fired one round trip earlier to get there.
                     double fireShift = b.triggerAt - a.triggerAt;
                     c.note(String.format(Locale.ROOT, "client fired %.1f ticks earlier with +%d ms (%.1f ticks of ping)",
                             fireShift, LAG_MS, lagged / 50.0));
                     c.check(Math.abs(fireShift - lagged / 50.0) <= 1.0, "the client's click moved " + fireShift
                             + " ticks with " + lagged + " ms");
+                    c.check(Math.abs((h.triggerAt - a.triggerAt) - 3.0) < 0.01, "Trigger Offset +2 against -1 moved the"
+                            + " click " + (h.triggerAt - a.triggerAt) + " ticks, want exactly 3");
                     c.check(h.serverLead != null && a.serverLead != null
                                     && Math.abs((h.serverLead - a.serverLead) - 3.0) <= 1.0 + 1e-6,
-                            "Hit Lead 6 against 3 moved the server-side hit " + (h.serverLead == null || a.serverLead == null
-                                    ? "?" : String.valueOf(h.serverLead - a.serverLead)) + " ticks, want 3 (+-1)");
+                            "Trigger Offset +2 against -1 moved the server-side hit " + (h.serverLead == null
+                                    || a.serverLead == null ? "?" : String.valueOf(h.serverLead - a.serverLead))
+                                    + " ticks, want 3 (+-1)");
                 } else {
                     c.check(a.clicks == 0 && b.clicks == 0 && a.serverLead == null && b.serverLead == null,
                             "legit jar: the Trigger Bot attacked");

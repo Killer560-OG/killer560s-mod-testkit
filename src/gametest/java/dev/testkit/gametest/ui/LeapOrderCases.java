@@ -174,7 +174,6 @@ final class LeapOrderCases {
             for (String n : PARTY) {
                 Mod.staticCall(OVERRIDES, "clear", n);
             }
-            Mod.call(Mod.staticCall(OVERRIDES, "getInstance"), "save");
             members().clear();
             try {
                 if (st.existed) {

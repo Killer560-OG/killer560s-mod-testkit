@@ -79,8 +79,15 @@ final class MenuLayoutCases {
             "gui.tab.AutoCroesusTab",
             // Menu Theme (mod menu-a, killer560 2026-10-12): the Option A menu's colour presets, a section of Home.
             "gui.tab.MenuThemeTab",
+            // Click Sounds and Descriptions (mod sounds-desc, killer560 2026-10-15): two sections of Home, legit in both builds.
+            "gui.tab.ClickSoundsTab", "gui.tab.DescriptionsTab",
             // Ribbon Trail (mod ribbon-cosmetic, killer560 2026-10-14): the ribbon out of Trail into its own Cosmetics tab.
-            "gui.tab.RibbonTrailTab");
+            "gui.tab.RibbonTrailTab",
+            // Lights Device (mod lights-aura-1015, killer560 2026-10-15): out of Secret Aura's In Boss into its own tab in
+            // Dungeon's cheat block; cheat jar only.
+            "gui.tab.LightsDeviceTab",
+            // Slot Text and Compactor Preview (mod slottext-compactor-1015, killer560 2026-10-15): two new Items tabs, legit in both builds.
+            "gui.tab.SlotTextTab", "gui.tab.CompactorPreviewTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.
@@ -196,7 +203,13 @@ final class MenuLayoutCases {
             // changed on purpose (menu-layout-merged.json: tabs those branches removed, tabs they added and where).
             JsonObject fixture = Deny.read("menu-layout-" + variant + ".json");
             JsonObject merged = Deny.read(MERGED_FILE);
-            JsonObject goneLeaves = merged.getAsJsonObject("goneLeaves");
+            JsonObject goneLeaves = merged.getAsJsonObject("goneLeaves").deepCopy();
+            // Tabs only the cheat jar had (the legit fixture never listed them): judged on the cheat variant alone.
+            if (variant.equals("cheat") && merged.has("goneCheatLeaves")) {
+                for (Map.Entry<String, com.google.gson.JsonElement> g : merged.getAsJsonObject("goneCheatLeaves").entrySet()) {
+                    goneLeaves.add(g.getKey(), g.getValue());
+                }
+            }
             JsonObject newLeaves = merged.getAsJsonObject("newLeaves");
             Set<String> before = new TreeSet<>(fixture.getAsJsonObject("leaves").keySet());
             int retired = 0;

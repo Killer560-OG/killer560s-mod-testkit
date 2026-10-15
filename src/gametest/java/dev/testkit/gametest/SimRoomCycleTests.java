@@ -530,7 +530,8 @@ public class SimRoomCycleTests implements FabricClientGameTest {
         }));
         ctx.waitFor(mc -> McCompat.screen(mc) != null && McCompat.screen(mc).getClass().getName().equals(MENU), 400);
         ctx.waitTicks(3);
-        press(ctx, l -> l.equals(HOME_LABEL), HOME_LABEL);
+        // Since mod sim-pages (2026-10-15) the page is "Route Practice" in the menu's left column.
+        press(ctx, l -> l.equals(HOME_LABEL) || l.equals("Route Practice"), HOME_LABEL);
         // The database is loaded (ensureRoomDatabase), but the counts are drawn from it - wait for real ones.
         for (int i = 0; i < 100 && buttonLabels(ctx).stream().anyMatch(l -> l.contains("loading")); i++) {
             ctx.waitTicks(2);

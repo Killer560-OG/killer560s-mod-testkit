@@ -85,8 +85,9 @@ final class BossAuraTurnCases {
                     new net.minecraft.world.phys.AABB(LEVER.above()).inflate(1.5)).stream().map(e -> e.getDisplayName().getString()).toList()));
             c.note("gates: phaseAt=" + c.onClient(mc -> String.valueOf(Mod.staticCall(TerminalAuraCases.TRACKER, "getPhaseAt")))
                     + " inF7Boss=" + c.onClient(mc -> String.valueOf(Mod.staticCall(TerminalAuraCases.TRACKER, "inF7Boss"))));
-            undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "LightsPreFlick", false)));
-            undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "LightsFinish", false)));
+            // The Lights levers are the Lights Device's own feature since mod lights-aura-1015; it stays off here.
+            undo.add(c.onClient(mc -> LightsDeviceCases.raw(LightsDeviceCases.CFG, "AuraEnabled", false)));
+            undo.add(c.onClient(mc -> LightsDeviceCases.raw(LightsDeviceCases.CFG, "TriggerEnabled", false)));
             undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "SectionLevers", true)));
             undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "SectionLeversEarly", true)));
             undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "Range", 4.5)));

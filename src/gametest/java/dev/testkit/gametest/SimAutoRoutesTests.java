@@ -102,6 +102,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1015-warpclick",
             // click-gap-all (2026-10-15): the Auto Puzzles' shared use (AutoPuzzleUtil.useItemRotated) waits like the route's
             "96-ar-1015-puzzleclick",
+            // server-lag-1015: a server stall during an etherwarp is not a missed landing (util/ServerLag)
+            "96-ar-1015-serverlag",
+            // small-dungeon (2026-10-15): a secret bat already alive when the bat node arms is killed and counted
+            "96-ar-1015-batpresent", "96-ar-1015-batseek",
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim", "96-ar-398-startawait",
             "96-ar-405-crypt-mapopen", "96-ar-405-startwarp", "96-ar-path", "96-ar-screen", "96-ar-rotate",
             // sim-world (2026-10-11)
@@ -283,6 +287,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1015-mimicskip" -> ArMainServerCases.mimicSkip(ctx);
                         case "96-ar-1015-warpclick" -> ArMainServerCases.warpAfterClick(ctx);
                         case "96-ar-1015-puzzleclick" -> ArMainServerCases.puzzleWarpAfterClick(ctx);
+                        case "96-ar-1015-serverlag" -> ArServerLagCases.serverLag(ctx);
                         case "96-ar-dbedit" -> caseDbEdit(ctx);
                         case "96-ar-mapopen" -> caseMapOpen(ctx);
                         case "96-ar-mapopen-aim" -> caseMapOpenAim(ctx);
@@ -294,6 +299,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-639-legit-warp-exact" -> caseLegitWarpExact(ctx);
                         case "96-ar-653-crypt-straight-down" -> caseCryptStraightDown(ctx);
                         case "96-ar-1013-bat" -> caseBatNode(ctx);
+                        case "96-ar-1015-batpresent" -> caseBatPresent(ctx);
+                        case "96-ar-1015-batseek" -> caseBatSeek(ctx);
                         case "96-ar-1013-breakerfall" -> caseBreakerFall(ctx);
                         case "96-ar-786-obvious-only" -> caseObviousOnly(ctx);
                         case "96-ar-920-nostart-mapwarp" -> caseNoStartMapWarp(ctx);
@@ -4387,6 +4394,171 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     }
 
     /**
+     * killer560 (2026-10-15): "If I have the spirit scepter set to bat mode have the first 2 bats go straight down after
+     * that have it look right at the bat to use the rest of them till it times out. If using hype have it keep looking
+     * down." A secret bat stands seven blocks to the side of a lone bat node (outside the straight-down blast). Spirit
+     * Sceptre: the server takes at least three uses, the first two at pitch exactly 90.0, the rest aimed at the bat
+     * (pitch short of straight down, yaw towards it). Hyperion: every use at 90.0. Obvious mode (legit mode is testing-build only).
+     */
+    private void caseBatSeek(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        clearSecretBats(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        giveSlot(ctx, 4, "HYPERION");
+        giveSlot(ctx, 5, "BAT_WAND");
+        List<String> failures = new ArrayList<>();
+        int attack0 = ctx.computeOnClient(mc -> ModUnderTest.getInt(ModUnderTest.config(AR_CONFIG), "getBatAttackTicks"));
+        try {
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", 60));
+            String[] weapons = {"SPIRIT_SCEPTRE", "HYPERION"};
+            int[] nodeX = {8, 19};
+            int[] batX = {15, 12};
+            float[] wantYaw = {-90f, 90f};
+            for (int i = 0; i < 2; i++) {
+                String weapon = weapons[i];
+                int x = nodeX[i];
+                setArEnum(ctx, "setBatWeapon", "CryptWeapon", weapon);
+                forgetRunMemory(ctx);
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                tpRel(ctx, x + 0.5, 8.5, 0f, 30f);
+                spawnBatAt(ctx, batX[i], F + 2, 10);
+                boolean standing = waitFor(ctx, 80, () -> ctx.computeOnClient(mc -> {
+                    for (var e : mc.level.entitiesForRendering()) {
+                        if (e instanceof net.minecraft.world.entity.ambient.Bat b && b.getMaxHealth() == 100f
+                                && !b.isDeadOrDying()) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }));
+                if (!standing) {
+                    failures.add(weapon + ": the secret bat never stood in the world - nothing measured");
+                    continue;
+                }
+                ctx.waitTicks(20);
+                JsonObject bat = node("BAT", x, 10, 0f, 30f);
+                bat.addProperty("start", true);
+                long w = LogTap.mark();
+                writeRoute(ctx, List.of(bat));
+                check(waitFor(ctx, 100, () -> logHas(w, "Loaded 1 route")), weapon + ": the bat route never loaded");
+                long m = LogTap.mark();
+                tpRel(ctx, x + 0.5, 10.5, 0f, 30f);
+                waitFor(ctx, 120, () -> logHas(m, "BAT: 1 kill(s)") || logHas(m, "up, moving on"));
+                List<float[]> aims = serverUseAims(m);
+                StringBuilder sb = new StringBuilder();
+                for (float[] a : aims) {
+                    sb.append(String.format(Locale.US, " (%.2f, %.2f)", a[0], a[1]));
+                }
+                println("batseek " + weapon + ": server uses (pitch, yaw)" + sb + ", killed " + logHas(m, "BAT: 1 kill(s)"));
+                if (aims.size() < 3) {
+                    failures.add(weapon + ": the server took only " + aims.size() + " use(s) - need 3 to measure");
+                } else if (weapon.equals("SPIRIT_SCEPTRE")) {
+                    for (int k = 0; k < 2; k++) {
+                        if (aims.get(k)[0] != 90.0f) {
+                            failures.add(weapon + ": use " + (k + 1) + " was at pitch " + aims.get(k)[0] + ", not 90.0");
+                        }
+                    }
+                    float[] third = aims.get(2);
+                    if (third[0] >= 60f) {
+                        failures.add(weapon + ": use 3 was still pointed down (pitch " + third[0] + ") instead of at the bat");
+                    }
+                    // The arena frame is turned against the world (the first uses read yaw -180 for a rel yaw 0): the
+                    // bearing is taken between the node's and the bat's real positions.
+                    BlockPos nodeReal = realNow(ctx, x, F + 2, 10);
+                    BlockPos batReal = realNow(ctx, batX[i], F + 2, 10);
+                    float wantReal = (float) Math.toDegrees(Math.atan2(-(batReal.getX() - nodeReal.getX()),
+                            batReal.getZ() - nodeReal.getZ()));
+                    float dyaw = Math.abs(net.minecraft.util.Mth.wrapDegrees(third[1] - wantReal));
+                    if (Float.isNaN(third[1]) || dyaw > 25f) {
+                        failures.add(weapon + ": use 3 yaw " + third[1] + " is not towards the bat (" + wantReal + ")");
+                    }
+                } else {
+                    for (int k = 0; k < aims.size(); k++) {
+                        if (aims.get(k)[0] != 90.0f) {
+                            failures.add(weapon + ": use " + (k + 1) + " was at pitch " + aims.get(k)[0] + " - Hyperion must keep looking down");
+                        }
+                    }
+                }
+                waitFor(ctx, 40, () -> !running(ctx));
+                stopRoute(ctx);
+                clearSecretBats(ctx);
+            }
+        } finally {
+            stopRoute(ctx);
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", attack0));
+        }
+        check(failures.isEmpty(), String.join("; ", failures));
+    }
+
+    /**
+     * killer560 (2026-10-15): "the bat node should sense whether a bat is there on arrival as well, not just if it
+     * spawns. It is fully possible someone else got close to a secret and spawned it in so the bat node gets there with
+     * it already spawned and never kills it." The secret bat is spawned and standing (100 max health) BEFORE the route
+     * is even written, so no spawn is ever seen inside the node's window; the bat node must still find it, use the
+     * weapon and count its death. Hyperion and Spirit Sceptre.
+     */
+    private void caseBatPresent(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        clearSecretBats(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        giveSlot(ctx, 4, "HYPERION");
+        giveSlot(ctx, 5, "BAT_WAND");
+        List<String> failures = new ArrayList<>();
+        try {
+            String[] weapons = {"HYPERION", "SPIRIT_SCEPTRE"};
+            int[] xs = {19, 8};
+            for (int i = 0; i < 2; i++) {
+                int x = xs[i];
+                String weapon = weapons[i];
+                setArEnum(ctx, "setBatWeapon", "CryptWeapon", weapon);
+                forgetRunMemory(ctx);
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                tpRel(ctx, x + 0.5, 8.5, 0f, 30f);
+                // The bat first, a few blocks from the node, spawned by the server as a teammate's approach would.
+                spawnBatAt(ctx, x, F + 2, 13);
+                boolean standing = waitFor(ctx, 80, () -> ctx.computeOnClient(mc -> {
+                    for (var e : mc.level.entitiesForRendering()) {
+                        if (e instanceof net.minecraft.world.entity.ambient.Bat b && b.getMaxHealth() == 100f
+                                && !b.isDeadOrDying()) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }));
+                if (!standing) {
+                    failures.add(weapon + ": the secret bat never stood in the world - nothing measured");
+                    continue;
+                }
+                ctx.waitTicks(20);
+                JsonObject bat = node("BAT", x, 10, 0f, 30f);
+                bat.addProperty("start", true);
+                long w = LogTap.mark();
+                writeRoute(ctx, List.of(bat));
+                check(waitFor(ctx, 100, () -> logHas(w, "Loaded 1 route")), weapon + ": the bat route never loaded");
+                long m = LogTap.mark();
+                tpRel(ctx, x + 0.5, 10.5, 0f, 30f);
+                boolean done = waitFor(ctx, 160, () -> logHas(m, "BAT: 1 kill(s)"));
+                boolean acted = logHas(m, "BAT acted");
+                println("batpresent " + weapon + ": acted " + acted + ", 1 kill " + done);
+                if (!acted) {
+                    failures.add(weapon + ": the bat node never acted");
+                }
+                if (!done) {
+                    failures.add(weapon + ": the bat that was already there was never counted as killed");
+                }
+                waitFor(ctx, 40, () -> !running(ctx));
+                stopRoute(ctx);
+                clearSecretBats(ctx);
+            }
+        } finally {
+            stopRoute(ctx);
+        }
+        check(failures.isEmpty(), String.join("; ", failures));
+    }
+
+    /**
      * killer560 (2026-10-13): "if i step on a dungeon breaker node until another node fires it should still be able to
      * mine so for instance if it mines the blocks out from under its feet and starts falling then it should keep mining
      * as it falls." A seven-high stone pillar; he stands on top on the node, whose blocks are the whole pillar. From the top
@@ -6185,6 +6357,24 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
 
     /** The exact pitch (Float.toString) of every Hyperion / Spirit Sceptre use the sim's server logged since {@code mark}
      *  - its own log lines only, not this class's reprints of them. */
+    /** Every sceptre / Wither Impact use the sim's server took, as {pitch, yaw} (yaw NaN on a jar whose log has none). */
+    private static List<float[]> serverUseAims(long mark) {
+        List<float[]> out = new ArrayList<>();
+        java.util.regex.Pattern pat = java.util.regex.Pattern.compile(
+                "\\[Sim\\] (?:Wither Impact|Spirit Sceptre) at [^(]*\\(pitch ([^)]+)\\)(?: yaw (\\S+))?");
+        for (String l : LogTap.since(mark)) {
+            if (l.contains("[STDOUT]")) {
+                continue;
+            }
+            java.util.regex.Matcher pm = pat.matcher(l);
+            if (pm.find()) {
+                out.add(new float[]{Float.parseFloat(pm.group(1)),
+                        pm.group(2) == null ? Float.NaN : Float.parseFloat(pm.group(2))});
+            }
+        }
+        return out;
+    }
+
     private static List<String> serverUsePitches(long mark) {
         List<String> out = new ArrayList<>();
         java.util.regex.Pattern pat = java.util.regex.Pattern.compile(
@@ -7173,6 +7363,99 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 ctx.getInput().releaseKey(options -> options.keyShift);
                 ctx.runOnClient(mc -> dev.testkit.harness.HypixelUseAfterClick.reset());
             }
+        }
+    }
+
+    /**
+     * 96-ar-1015-serverlag (mod server-lag-1015). killer560, 2026-10-15: "... Same with auto puzzles and auto routes and
+     * things it needs to always account for server lag." A start etherwarp (6,6) -> (14,6), run twice:
+     * <ol>
+     *   <li><b>control</b>, no lag: it lands, and the mod's "landed ... N tick(s) after the use" is printed to compare with
+     *   a main jar (the normal case's timing must not change);</li>
+     *   <li><b>lag</b>: from the moment the route's warp is sent, nothing from the server reaches the client for
+     *   {@link #STALL_MS} ({@link dev.testkit.harness.LagSpike}: no landing, no per-tick ping, then all of it at once),
+     *   longer than LANDING_TIMEOUT (60 ticks). It must land once the server's packets come through,
+     *   with no "no landing after" line and no correction ("did not land where it was recorded"), and the mod's
+     *   util.ServerLag must have measured the stall.</li>
+     * </ol>
+     */
+    static final class ArServerLagCases {
+
+        private static final long STALL_MS = 5000L;
+
+        private ArServerLagCases() {
+        }
+
+        static void serverLag(ClientGameTestContext ctx) {
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            long w = LogTap.mark();
+            writeRoute(ctx, List.of(ew(6, 6, 14, 6, true)));
+            waitFor(ctx, 100, () -> logHas(w, "Loaded 1 route"));
+            float yaw = relYawTo(6, 6, 14, 6);
+            float pitch = pitchTo(6, 6, 14, 6);
+            try {
+                // ---- control: no lag ----
+                long m0 = LogTap.mark();
+                check(arm(ctx, 6, 6, yaw, pitch), "control: the route did not start");
+                boolean landed0 = waitLanded(ctx, 14, 6, 80) != null;
+                ctx.waitTicks(5);
+                String line0 = lineWith(m0, "Etherwarp: landed at");
+                stopRoute(ctx);
+                println("serverlag control: landed " + landed0 + " - " + line0);
+                check(landed0 && line0 != null, "control: the warp did not land with no lag - the lag run would prove nothing");
+                check(lineWith(m0, "no landing after") == null, "control: a no-lag warp reported no landing");
+
+                // ---- lag: from the route's warp, nothing from the server arrives for STALL_MS (dev.testkit.harness.LagSpike)
+                int stalls0 = SimServerLagTests.lagStalls(ctx);
+                ctx.runOnClient(mc -> dev.testkit.harness.LagSpike.armOnNextUse(STALL_MS));
+                long m = LogTap.mark();
+                check(arm(ctx, 6, 6, yaw, pitch), "lag: the route did not start");
+                int ticks = 0;
+                Vec3 landed = null;
+                for (; ticks < (int) (STALL_MS / 50) + 120 && landed == null; ticks++) {
+                    landed = waitLanded(ctx, 14, 6, 0);
+                    if (landed == null) {
+                        ctx.waitTicks(1);
+                    }
+                }
+                ctx.waitTicks(5);
+                ctx.runOnClient(mc -> dev.testkit.harness.LagSpike.disarm());
+                long spike = dev.testkit.harness.LagSpike.releasedAt() - dev.testkit.harness.LagSpike.startedAt();
+                String acted = lineWith(m, "Node #1 ETHERWARP acted");
+                String line = lineWith(m, "Etherwarp: landed at");
+                String noLanding = lineWith(m, "no landing after");
+                String correction = lineWith(m, "did not land where");
+                long longest = SimServerLagTests.lagLongest(ctx);
+                stopRoute(ctx);
+                println("serverlag lag: spike " + spike + " ms holding " + dev.testkit.harness.LagSpike.held()
+                        + " packet(s); acted " + (acted != null) + "; landed " + (landed != null) + " after " + ticks
+                        + " tick(s) - " + line + "; ServerLag stalls +" + (SimServerLagTests.lagStalls(ctx) - stalls0)
+                        + ", longest " + longest + " ms; no-landing line " + noLanding + "; correction " + correction);
+                check(acted != null, "the route never sent its warp - the run proves nothing");
+                check(dev.testkit.harness.LagSpike.startedAt() != 0L && spike >= STALL_MS - 100,
+                        "no lag spike ran on the warp (" + spike + " ms) - the run proves nothing");
+                check(longest >= STALL_MS - 1500, "util.ServerLag did not measure the " + STALL_MS + " ms stall (longest "
+                        + longest + " ms)");
+                check(noLanding == null, "a server stall was read as a missed landing: " + noLanding);
+                check(correction == null, "a server stall was reported as a correction: " + correction);
+                check(landed != null, "the warp never landed once the server's packets came through");
+                check(ticks > 60, "it landed after only " + ticks + " tick(s), inside LANDING_TIMEOUT - the run proves nothing");
+            } finally {
+                ctx.runOnClient(mc -> dev.testkit.harness.LagSpike.disarm());
+                stopRoute(ctx);
+            }
+        }
+
+        private static String lineWith(long mark, String text) {
+            for (String l : LogTap.since(mark)) {
+                if (l.contains(text)) {
+                    return l;
+                }
+            }
+            return null;
         }
     }
 }

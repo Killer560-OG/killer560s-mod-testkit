@@ -64,6 +64,9 @@ public class HxSuite implements FabricClientGameTest {
                     // Name Animation: Wave / Pulse / Off on faded names, own and shared (960-965, branch
                     // name-wave), own block.
                     HxNameWaveCases.register(s);
+                    // Auto Blood Camp: offset from the kill timer, Blood Room gate, aim height, human turn, mouse
+                    // takeover, miss retry, Freecam Mode (177-183, branch bloodcamp-1015), own block.
+                    HxBloodCampCases.register(s);
                 });
     }
 }

@@ -93,6 +93,9 @@ final class HudBoxCases {
             {"witherdragons.WitherDragonsConfig", "DragonTimer", true},
             {"witherdragons.WitherDragonsConfig", "RelicsEnabled", true},
             {"witherdragons.WitherDragonsConfig", "RelicSpawnTimer", true},
+            // The Auto Routes Progress HUD (mod trail-hud-1015) draws its sample in the editor once its setting is on.
+            {"autoroutes.AutoRoutesConfig", "Enabled", true},
+            {"autoroutes.AutoRoutesConfig", "ProgressHud", true},
     };
 
     static void run(UiCase c) throws Exception {
@@ -179,6 +182,12 @@ final class HudBoxCases {
                 if (m == null || m.drawn() == null || !m.listed()) {
                     c.problem(id + " was not listed or drew nothing with its readout on - its box check would be vacuous");
                 }
+            }
+        }
+        if (Mod.has("autoroutes.AutoRoutesProgressHud") && Mod.isCheat()) {
+            Measured m = all.stream().filter(x -> x.id().equals("autoroutes_progress")).findFirst().orElse(null);
+            if (m == null || m.drawn() == null || !m.listed()) {
+                c.problem("autoroutes_progress was not listed or drew nothing with its setting on - its box check would be vacuous");
             }
         }
         c.note("judged " + judged + " listed element(s) that drew; slack " + SLACK + " units a side, spill " + SPILL);
