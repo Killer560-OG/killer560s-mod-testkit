@@ -80,7 +80,10 @@ final class MenuLayoutCases {
             // Menu Theme (mod menu-a, killer560 2026-10-12): the Option A menu's colour presets, a section of Home.
             "gui.tab.MenuThemeTab",
             // Ribbon Trail (mod ribbon-cosmetic, killer560 2026-10-14): the ribbon out of Trail into its own Cosmetics tab.
-            "gui.tab.RibbonTrailTab");
+            "gui.tab.RibbonTrailTab",
+            // Lights Device (mod lights-aura-1015, killer560 2026-10-15): out of Secret Aura's In Boss into its own tab in
+            // Dungeon's cheat block; cheat jar only.
+            "gui.tab.LightsDeviceTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.

@@ -622,3 +622,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   `Font.width` alone: Mod Menu Only changed 49/53 menu texts and 0/13 Options texts; 1562 also reloads resources with a font
   on (the set borrows the default providers). The title-screen chip is read through `NameReplacer.replace`, as the font sees
   it; on the main jar it says "FontTester" (Name Changer's name). 1566 needs a 30-tick gap for Soft Light to move 0.1%.
+- 1475-1478 (LightsDeviceUiCases in the UI suite, LightsDeviceCases in the boss session; lights-aura-1015, 2026-10-15). The
+  S2 Lights device is its own cheat (Lights Aura + Lights Triggerbot); 846 now drives LightsDeviceConfig and is named
+  846-boss-lights-aura-cps. 1476-1478 reuse 846's arena (wall at z 142, him at 60.5,133,139.5 yaw 0, so the crosshair is
+  on 60,134,142) and read who flicked what off `LightsDeviceFeature.recentFlicks`/`flickCount` (count first: the list
+  keeps only 32). Branch: 1476 3 pre-flicks + 1 activation, 1477 six uses one per lever with Secret Aura + In Boss on and
+  no Secret Aura attempt on a Lights lever, 1478 only the looked-at lever after the 2-tick delay, all GrimAC clean. Main
+  jar: all three fail (no LightsDeviceConfig). Turning onto a second lever is a server `dungeon.tp` with yaw/pitch, never a
+  harness rotation.
