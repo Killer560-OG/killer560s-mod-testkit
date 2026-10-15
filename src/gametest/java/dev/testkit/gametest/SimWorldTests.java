@@ -56,6 +56,11 @@ import java.util.function.Function;
  *   <li><b>1406-sim-lever-deathmite, 1407-sim-lever-doors</b> (2026-10-13): stood within reach of each lever, it must
  *       flip on the server, its own door must go entirely and every door whose lever is still off must stay whole
  *       (Doors: four levers, each on a log of its door's wood). Against the jar before the rules: 0 levers armed.</li>
+ *   <li><b>1412-sim-lever-cobble, 1414-sim-lever-golden-oasis</b> (2026-10-15): the same, for two levers the sim
+ *       PLACES (Cobble Wall Pillar: 12 iron bars and the 12 barriers behind them; Golden Oasis: 32 acacia logs).</li>
+ *   <li><b>1415-sim-redstone-key</b>: Golden Oasis' Redstone Key - the key head by Hypixel's profile; the node clicked
+ *       with no key does nothing; the key taken (no secret); then the node goes, the three redstone blocks by the lever
+ *       go, one secret counts for the room, and the client sees the key on an armor stand at the node.</li>
  * </ul>
  * The mimic route (644) is {@code SimAutoRoutesTests}' 96-ar-644-mimic-warp, where the route machinery lives.
  * Screenshots of 645-650 go to the report's screens at GUI scale 2.
@@ -78,7 +83,9 @@ public class SimWorldTests implements FabricClientGameTest {
             // deathmite-lever (2026-10-13): stood in reach, flicked as the player, the lever must flip on the server
             "1406-sim-lever-deathmite", "1407-sim-lever-doors",
             "1408-sim-lever-buttons", "1409-sim-lever-dome",
-            "1411-sim-newmap-secrets"};
+            "1411-sim-newmap-secrets",
+            // sim-levers-1015 (2026-10-15): Cobble Wall Pillar's and Golden Oasis' placed levers, the Redstone Key
+            "1412-sim-lever-cobble", "1414-sim-lever-golden-oasis", "1415-sim-redstone-key"};
 
     private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
@@ -86,6 +93,7 @@ public class SimWorldTests implements FabricClientGameTest {
     private static final String SIM_ITEMS = "com.killer560.hub.roomsim.SimItems";
     private static final String SIM_PRINCE = "com.killer560.hub.roomsim.SimPrince";
     private static final String SIM_LEVERS = "com.killer560.hub.roomsim.SimRoomLevers";
+    private static final String SIM_KEY = "com.killer560.hub.roomsim.SimRedstoneKey";
     private static final String SIM_SECRET_ITEMS = "com.killer560.hub.roomsim.SimSecretItems";
     private static final String SIM_MOBS = "com.killer560.hub.roomsim.SimMobs";
     private static final String SIM_SCORE = "com.killer560.hub.roomsim.SimScore";
@@ -166,6 +174,13 @@ public class SimWorldTests implements FabricClientGameTest {
                                 {{46, 59, 16}, {20, 58, 15}, {20, 64, 17}, {46, 15}},
                                 {{62, 59, 16}, {51, 58, 15}, {51, 63, 17}, {61, 16}},
                                 {{51, 59, 2}, {40, 58, 15}, {40, 64, 17}, {51, 3}}});
+                        // Placed floor lever in the nook beside the captured redstone torch; 12 bars + 12 barriers.
+                        case "1412-sim-lever-cobble" -> caseLeverDoors(ctx, c, "Cobble Wall Pillar", new int[][][]{
+                                {{8, 69, 21}, {18, 60, 27}, {20, 63, 28}, {9, 20}}});
+                        // Placed floor lever on the acacia wood; the 32-block acacia log wall.
+                        case "1414-sim-lever-golden-oasis" -> caseLeverDoors(ctx, c, "Golden Oasis", new int[][][]{
+                                {{30, 71, 26}, {5, 69, 11}, {8, 72, 12}, {29, 26}}});
+                        case "1415-sim-redstone-key" -> caseRedstoneKey(ctx, c);
                         default -> {
                         }
                     }
@@ -1144,6 +1159,116 @@ public class SimWorldTests implements FabricClientGameTest {
             check(flipped, "lever " + (i + 1) + " did not flip on the server");
             check(solidAfter == 0, solidAfter + " block(s) of door " + (i + 1) + " still standing after its lever");
         }
+    }
+
+    // ============================================================================================ 1415
+
+    /**
+     * Golden Oasis' Redstone Key, as a player does it: the key is a head wearing Hypixel's key profile at capture
+     * (13, 71, 9) and the node a redstone block at (11, 71, 4). A click on the node with no key does nothing; a click on
+     * the key takes it (not a secret); a click on the node then places it: the node goes, the three redstone blocks by
+     * the lever at (27..29, 70, 26) go, one secret counts for the room, and the client sees an armor stand wearing the
+     * key where the node was.
+     */
+    private void caseRedstoneKey(ClientGameTestContext ctx, String c) {
+        String room = "Golden Oasis";
+        build(ctx, room);
+        BlockPos key = capW(ctx, room, 13, 71, 9);
+        BlockPos node = capW(ctx, room, 11, 71, 4);
+        List<BlockPos> strip = new ArrayList<>();
+        for (int x = 27; x <= 29; x++) {
+            strip.add(capW(ctx, room, x, 70, 26));
+        }
+        boolean keyHead = isKeyOnClient(ctx, key);
+        String nodeBlock = blockName(ctx, node);
+        int stripBefore = countIs(ctx, strip, Blocks.REDSTONE_BLOCK);
+        int found0 = foundIn(ctx, room);
+        // Before asking SimRedstoneKey anything, so a jar without it fails on what the world holds.
+        check(keyHead, "no Redstone Key head (Hypixel's key profile) at capture 13,71,9 - it is " + blockName(ctx, key));
+        int armed = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_KEY, "armedCount"));
+        say(c + " before: node(s) armed " + armed + ", key head (client, by profile) " + keyHead + " at "
+                + key.toShortString() + ", node " + nodeBlock + " at " + node.toShortString() + ", strip " + stripBefore
+                + "/3 redstone, room secrets " + found0);
+        check(keyHead, "no Redstone Key head (Hypixel's key profile) at capture 13,71,9 - it is " + blockName(ctx, key));
+        check(nodeBlock.equals("redstone_block"), "no redstone node at capture 11,71,4 - it is " + nodeBlock);
+        check(stripBefore == 3, "the strip by the lever is " + stripBefore + "/3 redstone before anything");
+        check(armed == 1, armed + " node(s) armed, expected 1");
+
+        // Control: the node with no key does nothing.
+        stand(ctx, room, 9, 5, 69, new double[]{11.5, 71.5, 4.5});
+        use(ctx, node);
+        ctx.waitTicks(15);
+        int stripNoKey = countIs(ctx, strip, Blocks.REDSTONE_BLOCK);
+        String nodeNoKey = blockName(ctx, node);
+        say(c + " node clicked without the key: node " + nodeNoKey + ", strip " + stripNoKey + "/3");
+        check(nodeNoKey.equals("redstone_block") && stripNoKey == 3, "the node did something without the key");
+
+        // The key.
+        stand(ctx, room, 13, 7, 69, new double[]{13.5, 71.25, 9.5});
+        double keyReach = ctx.computeOnClient(mc -> Math.sqrt(Vec3.atCenterOf(key).distanceToSqr(mc.player.getEyePosition())));
+        use(ctx, key);
+        ctx.waitTicks(15);
+        String keyAfter = blockName(ctx, key);
+        boolean found = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_KEY, "keyFound",
+                new Class<?>[]{String.class}, new Object[]{room}));
+        int found1 = foundIn(ctx, room);
+        say(c + " key clicked (eye " + String.format(Locale.ROOT, "%.2f", keyReach) + " from it): its block is now "
+                + keyAfter + ", key found " + found + ", room secrets " + found1);
+        check(keyAfter.equals("air"), "the key head is still there after the click (" + keyAfter + ")");
+        check(!isKeyOnClient(ctx, key), "the client still sees the key head");
+        check(found, "the key was not taken");
+        check(found1 == found0, "picking the key up counted a secret (" + found0 + " -> " + found1 + ")");
+
+        // The node, with the key.
+        stand(ctx, room, 9, 5, 69, new double[]{11.5, 71.5, 4.5});
+        double nodeReach = ctx.computeOnClient(mc -> Math.sqrt(Vec3.atCenterOf(node).distanceToSqr(mc.player.getEyePosition())));
+        use(ctx, node);
+        ctx.waitTicks(20);
+        String nodeAfter = blockName(ctx, node);
+        int stripAfter = countIs(ctx, strip, Blocks.REDSTONE_BLOCK);
+        int stripSolid = countNotAir(ctx, strip);
+        int found2 = foundIn(ctx, room);
+        int placed = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_KEY, "placedCount"));
+        boolean standSeen = ctx.computeOnClient(mc -> {
+            for (var e : mc.level.entitiesForRendering()) {
+                if (e instanceof net.minecraft.world.entity.decoration.ArmorStand as
+                        && e.blockPosition().getY() + 2 == node.getY()
+                        && Math.abs(e.getX() - (node.getX() + 0.5)) < 0.6 && Math.abs(e.getZ() - (node.getZ() + 0.5)) < 0.6) {
+                    var prof = as.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD)
+                            .get(net.minecraft.core.component.DataComponents.PROFILE);
+                    if (prof != null && prof.partialProfile() != null
+                            && "fed95410-aba1-39df-9b95-1d4f361eb66e".equals(String.valueOf(prof.partialProfile().id()))) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        });
+        say(c + " node clicked with the key (eye " + String.format(Locale.ROOT, "%.2f", nodeReach) + " from it): node "
+                + nodeAfter + ", strip " + stripAfter + "/3 redstone (" + stripSolid + " solid), room secrets " + found1
+                + " -> " + found2 + ", keys placed " + placed + ", key stand seen by the client " + standSeen);
+        check(nodeAfter.equals("air"), "the node is still " + nodeAfter + " after the key went in");
+        check(stripSolid == 0, stripSolid + " of the 3 strip blocks still standing after the key went in");
+        check(found2 == found1 + 1, "placing the key counted " + (found2 - found1) + " secret(s) for the room, expected 1");
+        check(placed == 1, placed + " key(s) placed");
+        check(standSeen, "the client sees no armor stand wearing the key at the node");
+    }
+
+    private static int foundIn(ClientGameTestContext ctx, String room) {
+        return ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "foundInRoom",
+                new Class<?>[]{String.class}, new Object[]{room}));
+    }
+
+    private static boolean isKeyOnClient(ClientGameTestContext ctx, BlockPos p) {
+        return ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.secrets.SecretsFeature",
+                "isRedstoneKey", new Class<?>[]{net.minecraft.world.level.BlockGetter.class, BlockPos.class},
+                new Object[]{mc.level, p}));
+    }
+
+    /** A plain right click on a block, as the player sends it. */
+    private static void use(ClientGameTestContext ctx, BlockPos p) {
+        ctx.runOnClient(mc -> mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
+                new BlockHitResult(Vec3.atCenterOf(p), Direction.UP, p, false)));
     }
 
     private static boolean powered(ClientGameTestContext ctx, BlockPos p) {
