@@ -104,6 +104,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1015-puzzleclick",
             // server-lag-1015: a server stall during an etherwarp is not a missed landing (util/ServerLag)
             "96-ar-1015-serverlag",
+            // sim-corrections-1015: a path's warps land on their planned blocks after a chest click with the AOTV held
+            "96-ar-1015-pathland",
             // small-dungeon (2026-10-15): a secret bat already alive when the bat node arms is killed and counted
             "96-ar-1015-batpresent", "96-ar-1015-batseek",
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim", "96-ar-398-startawait",
@@ -288,6 +290,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1015-warpclick" -> ArMainServerCases.warpAfterClick(ctx);
                         case "96-ar-1015-puzzleclick" -> ArMainServerCases.puzzleWarpAfterClick(ctx);
                         case "96-ar-1015-serverlag" -> ArServerLagCases.serverLag(ctx);
+                        case "96-ar-1015-pathland" -> ArPathLandCases.pathLand(ctx);
                         case "96-ar-dbedit" -> caseDbEdit(ctx);
                         case "96-ar-mapopen" -> caseMapOpen(ctx);
                         case "96-ar-mapopen-aim" -> caseMapOpenAim(ctx);
@@ -7600,6 +7603,171 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 }
             }
             return null;
+        }
+    }
+
+    /**
+     * {@code 96-ar-1015-pathland} (sim-corrections-1015). killer560, 2026-10-15: "In sim something is off with etherwarping
+     * and it will end up in a random spot while doing auto routes. It may be from path nodes specifically." His Mod Only
+     * Test log (15:54-15:56) had two shapes, both a tick or two after a chest click made with the AOTV in hand:
+     * <ol>
+     *   <li><b>after a landing</b>: the path's next warp went a tick after the last one landed, and util/RightClick still
+     *   traced the server's ray from where he stood BEFORE that warp (vanilla's answer to a teleport goes past its send
+     *   tap), so the warp went bare while the click was unpaired; the server, tracing from the landing, met a block and
+     *   took it as the click's second half - "no landing after 62 ticks" (Flags #13, #15). Here: warp 1 lands 2.5 blocks
+     *   short of the arena's wall, and its look carries on into the wall.</li>
+     *   <li><b>a warp within reach</b>: the warp's own look met its block within 4.5, so the block half went first; the
+     *   sim's server etherwarped on that click, then traced the use half from the landing, met nothing, and warped AGAIN
+     *   past it - 11.2 blocks off (Flags #18). Here: a one-warp pair onto a step three blocks away.</li>
+     * </ol>
+     * Every sampled position from the await to the arrival must be the start or one of the planned landings, in order,
+     * and he must end on the arrival node.
+     */
+    static final class ArPathLandCases {
+
+        private ArPathLandCases() {
+        }
+
+        static void pathLand(ClientGameTestContext ctx) {
+            List<String> bad = new ArrayList<>();
+            resetRoutes(ctx);
+            arena(ctx, true);
+            giveHotbar(ctx);
+            setBlocks(ctx, Map.of(new int[]{4, F, 22}, Blocks.CHEST.defaultBlockState()));
+            String one = flyPair(ctx, "after a landing", 6, 20, new int[][]{{12, F - 1, 20}, {12, F - 1, 12}},
+                    new int[]{4, F, 22});
+            if (one != null) {
+                bad.add(one);
+            }
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            setBlocks(ctx, Map.of(new int[]{9, F, 8}, Blocks.STONE.defaultBlockState(),
+                    new int[]{4, F, 10}, Blocks.CHEST.defaultBlockState()));
+            String two = flyPair(ctx, "a warp within reach", 6, 8, new int[][]{{9, F, 8}}, new int[]{4, F, 10});
+            if (two != null) {
+                bad.add(two);
+            }
+            resetRoutes(ctx);
+            check(bad.isEmpty(), String.join(" | ", bad));
+        }
+
+        /**
+         * A start PATH node at (ax, az) awaiting one secret, its saved warps onto {@code targets} (relative blocks), and the
+         * arrival PATH node on the last one. The chest at {@code chest} is clicked with the AOTV held; the path then flies.
+         *
+         * @return null when every position was the start or a planned landing, in order, ending on the arrival; else why
+         */
+        private static String flyPair(ClientGameTestContext ctx, String label, int ax, int az, int[][] targets, int[] chest) {
+            double ox = ax + 0.5;
+            double oy = F;
+            double oz = az + 0.5;
+            JsonArray hops = new JsonArray();
+            List<double[]> landings = new ArrayList<>();
+            for (int[] t : targets) {
+                double cx = t[0] + 0.5;
+                double cz = t[2] + 0.5;
+                double top = t[1] + 1.0;
+                double horiz = Math.hypot(cx - ox, cz - oz);
+                float yaw = (float) Math.toDegrees(Math.atan2(-(cx - ox), cz - oz));
+                float pitch = (float) Math.toDegrees(Math.atan2(oy + 1.27 - top, horiz));
+                double lx = cx;
+                double ly = top + 0.05;
+                double lz = cz;
+                hops.add(String.format(Locale.US, "%.6f %.6f %.6f %.6f %.6f %d %d %d %.6f %.6f %.6f", ox, oy, oz, yaw, pitch,
+                        t[0], t[1], t[2], lx, ly, lz));
+                landings.add(new double[]{lx, top, lz});
+                ox = lx;
+                oy = top;
+                oz = lz;
+            }
+            JsonObject start = node("PATH", ax, az, 0f, 0f);
+            start.addProperty("start", true);
+            start.addProperty("awaitEnabled", true);
+            start.addProperty("await", "SECRET");
+            start.addProperty("amount", 1);
+            start.add("hops", hops);
+            start.addProperty("planFrom", String.format(Locale.US, "%.6f %.6f %.6f", ax + 0.5, (double) F, az + 0.5));
+            start.addProperty("planTo", String.format(Locale.US, "%.6f %.6f %.6f", ox, oy, oz));
+            start.addProperty("planBreakers", 0);
+            int[] last = targets[targets.length - 1];
+            JsonObject arrival = node("PATH", last[0], last[2], 0f, 0f);
+            arrival.addProperty("y", oy);
+            writeRoute(ctx, List.of(start, arrival));
+            // Looking down at the floor: the chest click's look, which the first warp must turn away from.
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+            tpRel(ctx, ax + 0.5, az + 0.5, 90f, 80f);
+            ctx.waitTicks(10);
+            long m = LogTap.mark();
+            List<Vec3> expect = new ArrayList<>();
+            expect.add(ctx.computeOnClient(mc -> toReal(ax + 0.5, F, az + 0.5)));
+            for (double[] l : landings) {
+                expect.add(ctx.computeOnClient(mc -> toReal(l[0], l[1], l[2])));
+            }
+            int dropped0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimAbilities",
+                    "usesTakenAsClickHalf"));
+            startSampling(ctx);
+            List<Sample> s;
+            boolean met;
+            try {
+                // The chest, clicked with the AOTV in hand (as Secret Aura clicks): its verdict is stored, unpaired.
+                rightClick(ctx, chest[0], chest[1], chest[2], Direction.UP);
+                met = waitFor(ctx, 40, () -> awaitMet(m));
+                ctx.runOnClient(mc -> mc.player.closeContainer());
+                Vec3 end = expect.get(expect.size() - 1);
+                waitFor(ctx, 100, () -> ctx.computeOnClient(mc -> mc.player.position().distanceTo(end) < 0.4));
+                ctx.waitTicks(10);
+            } finally {
+                s = stopSampling(ctx);
+                stopRoute(ctx);
+            }
+            int dropped = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimAbilities",
+                    "usesTakenAsClickHalf")) - dropped0;
+            // Every sampled spot is the start or a planned landing, and the landings come in order.
+            int reached = 0;
+            List<String> off = new ArrayList<>();
+            for (Sample x : s) {
+                int at = -1;
+                for (int i = 0; i < expect.size(); i++) {
+                    Vec3 e = expect.get(i);
+                    if (Math.hypot(x.pos().x - e.x, x.pos().z - e.z) < 0.35 && Math.abs(x.pos().y - e.y) < 0.35) {
+                        at = i;
+                    }
+                }
+                if (at < 0) {
+                    if (off.size() < 3) {
+                        off.add(String.format(Locale.US, "tick %d at %.2f, %.2f, %.2f", x.tick(), x.pos().x, x.pos().y,
+                                x.pos().z));
+                    }
+                } else if (at > reached) {
+                    if (at != reached + 1) {
+                        off.add("landing " + at + " reached before landing " + (reached + 1));
+                    }
+                    reached = at;
+                }
+            }
+            int uses = useTicks(s).size();
+            boolean noLanding = logHas(m, "no landing after");
+            println(String.format(Locale.US, "pathland %s: await met %s, %d warp(s) planned, %d use(s) sent, landings reached "
+                            + "%d of %d, off-plan spots %s, sim dropped %d use(s) as a click's second half, 'no landing' %s",
+                    label, met, landings.size(), uses, reached, landings.size(), off, dropped, noLanding));
+            if (!met) {
+                return label + ": the chest click never met the start node's await - nothing flew";
+            }
+            if (uses == 0) {
+                return label + ": no warp was sent";
+            }
+            if (reached != landings.size() || !off.isEmpty() || noLanding) {
+                return label + ": landed " + reached + " of " + landings.size() + " planned landing(s); off the plan: " + off
+                        + (noLanding ? "; a warp never landed" : "") + "; sim dropped " + dropped + " use(s)";
+            }
+            return null;
+        }
+
+        private static Vec3 toReal(double x, double y, double z) {
+            Object frame = ModUnderTest.staticCall(FRAME, "current");
+            return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                    double.class, double.class}, new Object[]{frame, x, y, z});
         }
     }
 }

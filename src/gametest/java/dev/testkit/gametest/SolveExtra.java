@@ -20,6 +20,10 @@ abstract class SolveExtra {
     void configure(Object auto, Object cheat) {
     }
 
+    /** Client-test thread, after the premise checks and right before the auto is switched on (2026-10-15). */
+    void beforeAutoOn(ClientGameTestContext ctx) {
+    }
+
     /** Every watched tick; {@code solvedAt} is -1 until the sim said solved, {@code container} a container was open. */
     void tick(ClientGameTestContext ctx, int t, int solvedAt, boolean container) {
     }

@@ -463,4 +463,290 @@ public final class SimPuzzleRoundTests {
             };
         }
     }
+
+    // ------------------------------------------------------------------ Ice Fill: done on the tab list and the map
+
+    private static final String EXECUTOR = "com.killer560.hub.livemap.autoclear.ClearExecutor";
+    private static final String CORRECTIONS = "com.killer560.hub.util.ServerCorrections";
+    private static final String DONE_MARK = "[✔]";
+
+    /** Every tab-list display name the client holds, as plain text. */
+    static List<String> tabLines(Minecraft mc) {
+        List<String> out = new ArrayList<>();
+        if (mc.getConnection() == null) {
+            return out;
+        }
+        for (var info : mc.getConnection().getListedOnlinePlayers()) {
+            if (info.getTabListDisplayName() != null) {
+                out.add(info.getTabListDisplayName().getString());
+            }
+        }
+        return out;
+    }
+
+    static String iceFillTabRow(Minecraft mc) {
+        return tabLines(mc).stream().filter(l -> l.contains("Ice Fill")).findFirst().orElse("(no Ice Fill row)");
+    }
+
+    /** {@code SimRoomState.stateFor(room)}: 0 green checkmark, 1 white checkmark, 3 failed, -1 no opinion. */
+    static int simRoomState(String room) {
+        return (Integer) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRoomState", "stateFor",
+                new Class<?>[]{String.class}, new Object[]{room});
+    }
+
+    static int correctionReports() {
+        return (Integer) ModUnderTest.staticCall(CORRECTIONS, "reports");
+    }
+
+    static void serverTeleport(ClientGameTestContext ctx, double x, double y, double z) {
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            var uuid = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(uuid);
+                if (sp != null) {
+                    sp.teleportTo(x, y, z);
+                }
+            });
+        });
+    }
+
+    /** Auto Ice Fill's first hop point (feet, 0.1 up), or null before it built its path. */
+    static net.minecraft.world.phys.Vec3 iceFillFirstPoint() {
+        try {
+            Class<?> c = Class.forName("com.killer560.hub.autopuzzles.AutoIceFill");
+            var fp = c.getDeclaredField("path");
+            fp.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            List<net.minecraft.world.phys.Vec3> path = (List<net.minecraft.world.phys.Vec3>) fp.get(null);
+            return path == null || path.isEmpty() ? null : path.get(0);
+        } catch (ReflectiveOperationException e) {
+            return null;
+        }
+    }
+
+    static int executorSyncDelay() {
+        try {
+            var f = Class.forName(EXECUTOR).getDeclaredField("syncDelay");
+            f.setAccessible(true);
+            return f.getInt(null);
+        } catch (ReflectiveOperationException e) {
+            return -1;
+        }
+    }
+
+    static void etherPathExact(Minecraft mc, net.minecraft.core.BlockPos to) {
+        ModUnderTest.staticCall(EXECUTOR, "etherPathExact",
+                new Class<?>[]{net.minecraft.core.BlockPos.class, Runnable.class}, new Object[]{to, null});
+    }
+
+    /**
+     * {@code 93-solve-icefill-done}: killer560, 2026-10-15: "make ice fill on sim show as complete once it reaches the
+     * end". Once the sim says solved, the tab list's Ice Fill row must read done and the map must paint the room with the
+     * green checkmark ({@code SimRoomState.stateFor == STATE_GREEN}), as Hypixel does. Main left every sim puzzle room on
+     * the white checkmark it gets on entry.
+     */
+    public static final class IceFillDone extends SimPuzzleSolveTests.Base {
+        public IceFillDone() {
+            super(new SimPuzzleSolveTests.Spec("icefill-done", "Ice Fill", "setAutoIceFillEnabled", "isAutoIceFillEnabled",
+                    "IceFillSolverConfig", "SimIceFillPuzzle", 0, false, 60, SimPuzzleSolveTests.Approach.NONE,
+                    "IceFillSolverFeature.getCurrentPath"));
+        }
+
+        @Override
+        SolveExtra extra() {
+            return new SolveExtra() {
+                String before = "";
+                String tab = "";
+                int state = -9;
+
+                @Override
+                void beforeAutoOn(ClientGameTestContext ctx) {
+                    before = ctx.computeOnClient(mc -> iceFillTabRow(mc) + "; map state " + simRoomState("Ice Fill"));
+                    say(name, "before the auto: tab " + before);
+                }
+
+                @Override
+                String verdict(ClientGameTestContext ctx, int solvedAt) {
+                    if (solvedAt < 0) {
+                        return "never solved - nothing to show as done";
+                    }
+                    // The tab list is republished once a second.
+                    for (int i = 0; i < 60; i++) {
+                        tab = ctx.computeOnClient(SimPuzzleRoundTests::iceFillTabRow);
+                        state = ctx.computeOnClient(mc -> simRoomState("Ice Fill"));
+                        if (tab.contains(DONE_MARK) && state == 0) {
+                            break;
+                        }
+                        ctx.waitTicks(1);
+                    }
+                    List<String> bad = new ArrayList<>();
+                    if (!tab.contains(DONE_MARK)) {
+                        bad.add("tab row is '" + tab + "', not done " + DONE_MARK);
+                    }
+                    if (state != 0) {
+                        bad.add("map state for Ice Fill is " + state + ", not 0 (the green checkmark)");
+                    }
+                    return bad.isEmpty() ? null : String.join("; ", bad);
+                }
+
+                @Override
+                String summary() {
+                    return "before: " + before + " | after the solve: tab '" + tab + "', map state " + state;
+                }
+            };
+        }
+    }
+
+    /**
+     * {@code 93-solve-icefill-maptrip}: killer560, 2026-10-15: "every movement shows as a server reposition and makes the
+     * sound on sim". His log: a map trip onto Ice Fill's first tile had every landing answered and was settling when Auto
+     * Ice Fill began hopping, and each hop read as a server correction (88 alarms in one crossing). Here: he stands on the
+     * finish tile, a real ClearExecutor trip takes him to the first tile with Auto Ice Fill on, and the crossing must raise
+     * NO correction while the trip and the hops did overlap. Then, Ice Fill switched off, a trip back is moved by a plain
+     * server teleport during its arrival settle: a genuine correction, which must report exactly once.
+     */
+    public static final class IceFillMapTrip extends SimPuzzleSolveTests.Base {
+        public IceFillMapTrip() {
+            super(new SimPuzzleSolveTests.Spec("icefill-maptrip", "Ice Fill", "setAutoIceFillEnabled",
+                    "isAutoIceFillEnabled", "IceFillSolverConfig", "SimIceFillPuzzle", 0, false, 60,
+                    SimPuzzleSolveTests.Approach.NONE, "IceFillSolverFeature.getCurrentPath"));
+        }
+
+        @Override
+        SolveExtra extra() {
+            return new SolveExtra() {
+                Object auto;
+                int reports0 = -1;
+                int reportsAtSolve = -1;
+                int tripAt = -1;
+                String tripTo = null;
+                int genuine = -1;
+                String genuineWhat = "";
+
+                net.minecraft.core.BlockPos tripBlock;
+
+                @Override
+                void configure(Object auto, Object cheat) {
+                    this.auto = auto;
+                    // Off: with it on, a mid-trip landing off the ice band has Auto Ice Fill warp him onto the first tile
+                    // itself, and the trip never ends there with the hops starting under its arrival settle - his case.
+                    ModUnderTest.set(auto, "setEtherwarpReposition", false);
+                }
+
+                @Override
+                void beforeAutoOn(ClientGameTestContext ctx) {
+                    net.minecraft.core.BlockPos finish = ctx.computeOnClient(mc -> SimPuzzleSolveTests.rel(mc, 15, 71, 26));
+                    serverTeleport(ctx, finish.getX() + 0.5, finish.getY() + 1.0, finish.getZ() + 0.5);
+                    ctx.waitTicks(40);
+                    reports0 = ctx.computeOnClient(mc -> correctionReports());
+                    say(name, "on the finish tile " + finish.toShortString() + ": "
+                            + ctx.computeOnClient(SimPuzzleSolveTests::where) + "; correction reports so far " + reports0);
+                }
+
+                @Override
+                void tick(ClientGameTestContext ctx, int t, int solvedAt, boolean container) {
+                    if (tripAt < 0) {
+                        String to = ctx.computeOnClient(mc -> {
+                            net.minecraft.world.phys.Vec3 first = iceFillFirstPoint();
+                            if (first == null) {
+                                return null;
+                            }
+                            net.minecraft.core.BlockPos below = net.minecraft.core.BlockPos.containing(first).below();
+                            etherPathExact(mc, below);
+                            tripBlock = below;
+                            return below.toShortString();
+                        });
+                        if (to != null) {
+                            tripAt = t;
+                            tripTo = to;
+                            say(name, String.format("t=%.1fs Interactive Map trip started onto the first tile %s",
+                                    t / 20.0, to));
+                        }
+                    }
+                    if (solvedAt > 0 && reportsAtSolve < 0) {
+                        reportsAtSolve = ctx.computeOnClient(mc -> correctionReports());
+                    }
+                }
+
+                @Override
+                String verdict(ClientGameTestContext ctx, int solvedAt) {
+                    List<String> log = LogTap.since(mark);
+                    boolean ran = log.stream().anyMatch(l -> l.contains("[Path] running"));
+                    long hops = log.stream().filter(l -> l.contains("[AutoIceFill] hop ")).count();
+                    // The overlap the bug needs: the trip still owned him (settling, or waiting to plan again) when a hop
+                    // landed - the fixed jar's line, or the broken jar's correction lines.
+                    long overlap = log.stream().filter(l -> l.contains("another feature's")
+                            || l.contains("off the last landing") || l.contains("while waiting to plan again")).count();
+                    List<String> bad = new ArrayList<>();
+                    if (tripAt < 0 || !ran) {
+                        bad.add("the map trip onto the first tile never ran (" + tripTo + ") - nothing was tested");
+                    }
+                    if (hops < 10) {
+                        bad.add("Auto Ice Fill hopped only " + hops + " time(s) - the crossing was not measured");
+                    }
+                    if (overlap == 0) {
+                        bad.add("no hop landed while the trip still owned him - the case the fix is about never happened");
+                    }
+                    int during = (reportsAtSolve < 0 ? ctx.computeOnClient(mc -> correctionReports()) : reportsAtSolve)
+                            - reports0;
+                    say(name, "crossing: " + hops + " hop(s), " + overlap + " landing(s) while the trip owned him, "
+                            + during + " correction report(s) by the solve");
+                    if (solvedAt < 0) {
+                        bad.add("Ice Fill was never solved");
+                    }
+                    if (during != 0) {
+                        bad.add(during + " server correction(s) reported while Auto Ice Fill crossed after a map trip - "
+                                + "its own hops, not corrections");
+                    }
+                    genuine = genuineCorrection(ctx);
+                    if (genuine != 1) {
+                        bad.add("a genuine server teleport during a trip's arrival settle reported " + genuine
+                                + " time(s), not exactly once (" + genuineWhat + ")");
+                    }
+                    return bad.isEmpty() ? null : String.join("; ", bad);
+                }
+
+                /** Ice Fill off; a trip back to the first tile; a plain server teleport once its arrival settle starts. */
+                private int genuineCorrection(ClientGameTestContext ctx) {
+                    ctx.runOnClient(mc -> ModUnderTest.set(auto, "setAutoIceFillEnabled", false));
+                    ctx.waitTicks(80);   // any chest-claim warp of the auto's is over, and its 2 s grace has lapsed
+                    net.minecraft.core.BlockPos start = tripBlock;
+                    net.minecraft.core.BlockPos finish = ctx.computeOnClient(mc -> SimPuzzleSolveTests.rel(mc, 15, 71, 26));
+                    if (start == null) {
+                        genuineWhat = "no first tile to plan to";
+                        return -1;
+                    }
+                    serverTeleport(ctx, finish.getX() + 0.5, finish.getY() + 1.0, finish.getZ() + 0.5);
+                    ctx.waitTicks(40);
+                    int r0 = ctx.computeOnClient(mc -> correctionReports());
+                    ctx.runOnClient(mc -> etherPathExact(mc, start));
+                    int settleAt = -1;
+                    for (int t = 0; t < 200 && settleAt < 0; t++) {
+                        ctx.waitTicks(1);
+                        if (ctx.computeOnClient(mc -> executorSyncDelay()) >= 2) {
+                            settleAt = t;
+                        }
+                    }
+                    if (settleAt < 0) {
+                        genuineWhat = "the trip back never reached its arrival settle";
+                        return -1;
+                    }
+                    serverTeleport(ctx, finish.getX() + 0.5, finish.getY() + 1.0, finish.getZ() + 0.5);
+                    ctx.waitTicks(100);
+                    int n = ctx.computeOnClient(mc -> correctionReports()) - r0;
+                    genuineWhat = String.format("settle reached %.1fs into the trip back; server teleport onto the finish "
+                            + "tile; %d report(s) in the 5 s after", settleAt / 20.0, n);
+                    say(name, "genuine correction: " + genuineWhat);
+                    return n;
+                }
+
+                @Override
+                String summary() {
+                    return "trip at t=" + tripAt + " onto " + tripTo + "; reports by the solve "
+                            + (reportsAtSolve < 0 ? "?" : String.valueOf(reportsAtSolve - reports0)) + "; genuine " + genuine;
+                }
+            };
+        }
+    }
 }

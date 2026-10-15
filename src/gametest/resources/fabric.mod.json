@@ -115,6 +115,8 @@
 			"dev.testkit.gametest.SimPuzzleRoundTests$IceFillClaim",
 			"dev.testkit.gametest.SimPuzzleRoundTests$IceFillShots",
 			"dev.testkit.gametest.SimPuzzleRoundTests$IceFillFirstTile",
+			"dev.testkit.gametest.SimPuzzleRoundTests$IceFillDone",
+			"dev.testkit.gametest.SimPuzzleRoundTests$IceFillMapTrip",
 			"dev.testkit.gametest.SimPuzzleSolveTests$IcePath",
 			"dev.testkit.gametest.SimPuzzleSolveTests$IceFill",
 			"dev.testkit.gametest.SimPuzzleSolveTests$HigherBlaze",

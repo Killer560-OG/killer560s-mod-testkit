@@ -711,6 +711,9 @@ public final class SimPuzzleSolveTests {
             BlazeTrip trip = blaze() ? new BlazeTrip(ctx, name, forceMiss()) : null;
 
             // ---- switch it on ---------------------------------------------------------------------------
+            if (caseExtra != null) {
+                caseExtra.beforeAutoOn(ctx);
+            }
             ctx.runOnClient(mc -> configure(true, true));
             if (atMapDoor) {
                 // Stands in for the Interactive Map's path ending here: ClearExecutor moves these three when a path ends
@@ -1420,7 +1423,7 @@ public final class SimPuzzleSolveTests {
         return s.isEmpty() ? "nothing" : s.getHoverName().getString();
     }
 
-    private static String where(Minecraft mc) {
+    static String where(Minecraft mc) {
         if (mc.player == null) {
             return "(no player)";
         }
@@ -1454,7 +1457,7 @@ public final class SimPuzzleSolveTests {
     }
 
     /** A room-relative block of the room the live map says he is in. */
-    private static net.minecraft.core.BlockPos rel(Minecraft mc, int x, int y, int z) {
+    static net.minecraft.core.BlockPos rel(Minecraft mc, int x, int y, int z) {
         int[] cr = (int[]) ModUnderTest.staticCall(LIVE_MAP, "currentRoomClayAndRotation", new Class<?>[]{},
                 new Object[]{});
         return (net.minecraft.core.BlockPos) ModUnderTest.staticCall(SOLVERS + "PuzzleCoords", "real",
