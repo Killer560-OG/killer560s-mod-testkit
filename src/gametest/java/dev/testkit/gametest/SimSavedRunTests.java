@@ -153,6 +153,37 @@ public class SimSavedRunTests implements FabricClientGameTest {
                     + " rooms rebuilt at a different rotation from the run: " + wrong);
             check(failures, replayUnbacked <= originalUnbacked, "the replay has " + replayUnbacked
                     + " door(s) not backed by both rooms, the run had " + originalUnbacked);
+
+            // ---- a run saved before rotations were recorded: every one of his existing runs -----------------
+            // No rotation to restore, so the doors are the test: each room must be turned so its doorways meet the
+            // run's doors. A room whose doors fit more than one way may differ from the original; that is reported.
+            if (hasRecordLoad()) {
+                teardown(ctx);
+                Object legacy = ctx.computeOnClient(mc -> makeRun(stripRotations(snapshot)));
+                before = Scenario.simBuildCount(ctx);
+                mark = LogTap.mark();
+                ctx.runOnClient(mc -> mc.execute(() -> ModUnderTest.staticCall(HISTORY, "load",
+                        new Class<?>[]{Minecraft.class, legacy.getClass()}, new Object[]{mc, legacy})));
+                ctx.waitFor(mc -> mc.level != null && mc.player != null, 2400);
+                Scenario.awaitSimBuild(ctx, before);
+                ctx.waitTicks(60);
+                Map<String, int[]> fitted = placed(ctx);
+                int fittedUnbacked = count(LogTap.since(mark), DOOR_AUDIT);
+                List<String> turned = new ArrayList<>();
+                for (Map.Entry<String, int[]> e : original.entrySet()) {
+                    int[] got = fitted.get(e.getKey());
+                    if (got != null && got[0] != e.getValue()[0]) {
+                        turned.add(e.getKey() + " " + e.getValue()[0] + "->" + got[0]);
+                    }
+                }
+                System.out.println("[" + NAME + "] rotation-less run: " + fitted.size() + " placed room(s), door audit "
+                        + "lines " + fittedUnbacked + " (original " + originalUnbacked + "); " + turned.size()
+                        + " room(s) turned differently from the original, doors still met: " + turned);
+                check(failures, fitted.size() == original.size(), "the rotation-less run placed " + fitted.size()
+                        + " of " + original.size() + " rooms");
+                check(failures, fittedUnbacked <= originalUnbacked, "the rotation-less run has " + fittedUnbacked
+                        + " door(s) not backed by both rooms, the run had " + originalUnbacked);
+            }
         } finally {
             teardown(ctx);
             ctx.runOnClient(mc -> {
@@ -304,6 +335,32 @@ public class SimSavedRunTests implements FabricClientGameTest {
                     .newInstance(rooms, doors, list);
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("could not build a map snapshot", e);
+        }
+    }
+
+    /** Whether this jar can rebuild a RunRecord directly (SimRunHistory.load(Minecraft, RunRecord)). */
+    private static boolean hasRecordLoad() {
+        try {
+            Class.forName(HISTORY).getMethod("load", Minecraft.class, Class.forName(RECORD));
+            return true;
+        } catch (ReflectiveOperationException e) {
+            return false;
+        }
+    }
+
+    /** {@code snapshot} as a run saved before 2026-10-15 stored it: the same rooms and doors, no rotation. */
+    private static Object stripRotations(Object snapshot) {
+        try {
+            Class<?> mapRoom = Class.forName(RECORD + "$MapRoom");
+            List<Object> rooms = new ArrayList<>();
+            for (Object r : (List<?>) call(snapshot, "rooms")) {
+                rooms.add(mapRoom.getConstructor(String.class, String.class).newInstance(call(r, "name"),
+                        call(r, "type")));
+            }
+            return Class.forName(RECORD + "$MapSnapshot").getConstructor(int[].class, int[].class, List.class)
+                    .newInstance(call(snapshot, "roomOfCell"), call(snapshot, "doorOfCell"), rooms);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("could not strip the snapshot's rotations", e);
         }
     }
 
