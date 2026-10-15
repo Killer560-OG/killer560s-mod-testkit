@@ -109,7 +109,7 @@ final class MapOverhaulCases {
             c.problem("row stops short of the drawer's right edge with nothing beside it: " + f);
         }
         c.check(n[0] > 100, "only " + n[0] + " layouts checked - the sweep did not reach the menu");
-        c.check(n[2] > 50, "only " + n[2] + " half-width rows seen - the check had nothing to judge");
+        c.check(n[1] > 1000, "only " + n[1] + " switch/pill/value rows seen - the check had nothing to judge");
     }
 
     private static void collectLeaves(ModScreenDriver d, Object folder, List<Object> out) {
@@ -546,7 +546,7 @@ final class MapOverhaulCases {
         Map<Path, byte[]> saved = DungeonB2Cases.snapshotConfig(c, KEYS);
         int gui = c.onClient(mc -> mc.options.guiScale().get());
         try {
-            command(c, "tp @a 270.5 104 262.5 0 35");
+            command(c, "tp @a 270.5 116 259.5 0 50");
             c.ticks(20);
             command(c, "fill 255 99 255 285 99 285 minecraft:stone");
             command(c, "fill 255 100 255 285 110 285 minecraft:air");
@@ -570,8 +570,7 @@ final class MapOverhaulCases {
                 Mod.staticCall("secrets.DungeonState", "setRoomSim", true);
                 return null;
             });
-            c.ticks(60);
-            lookAt(c, new Vec3(270.5, 100.0, 270.5));
+            c.ticks(80);   // the floor's chunks render (a fresh section reads as sky for a while)
             Path off = null;
             Path radius = shotAndStyle(c, "radius", "radius");
             double[] sphere0 = c.onClient(mc -> (double[]) Mod.staticCall("doorkeys.DoorKeysFeature", "pickupSphere"));
@@ -592,6 +591,7 @@ final class MapOverhaulCases {
                 return null;
             });
             c.ticks(5);
+            lookAt(c, new Vec3(270.5, 100.0, 270.5));
             off = DungeonB2Cases.shot(c, "door-key-off");
             int radiusPx = changed(radius, off);
             int spherePx = changed(sphere, off);
@@ -612,6 +612,7 @@ final class MapOverhaulCases {
     }
 
     private static Path shotAndStyle(UiCase c, String suffix, String want) {
+        lookAt(c, new Vec3(270.5, 100.0, 270.5));
         Path p = DungeonB2Cases.shot(c, "door-key-" + suffix);
         String style = c.onClient(mc -> (String) Mod.staticCall("doorkeys.DoorKeysFeature", "lastDrawnStyle"));
         c.note(suffix + ": the last frame drew style '" + style + "'");
