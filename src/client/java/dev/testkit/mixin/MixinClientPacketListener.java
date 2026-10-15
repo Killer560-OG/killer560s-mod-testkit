@@ -3,6 +3,7 @@ package dev.testkit.mixin;
 import dev.testkit.harness.ChatWatch;
 
 import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundDisguisedChatPacket;
 import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
 
@@ -31,5 +32,19 @@ public class MixinClientPacketListener {
     @Inject(method = "handleDisguisedChat", at = @At("HEAD"))
     private void testkit$disguisedChat(ClientboundDisguisedChatPacket packet, CallbackInfo ci) {
         ChatWatch.record(packet.message());
+    }
+
+    /**
+     * {@link dev.testkit.harness.HypixelTileRegister}. {@code public void handleBlockUpdate(ClientboundBlockUpdatePacket)}
+     * - javap on the 26.1.2 and 26.2 merged jars, the same on both. Entered first on the network thread (rescheduled) and
+     * then on the render thread; only the second is looked at.
+     */
+    @Inject(method = "handleBlockUpdate", at = @At("HEAD"), cancellable = true)
+    private void testkit$tileRegister(ClientboundBlockUpdatePacket packet, CallbackInfo ci) {
+        if (dev.testkit.harness.HypixelTileRegister.delayTicks > 0
+                && net.minecraft.client.Minecraft.getInstance().isSameThread()
+                && dev.testkit.harness.HypixelTileRegister.hold(packet.getPos(), packet.getBlockState())) {
+            ci.cancel();
+        }
     }
 }
