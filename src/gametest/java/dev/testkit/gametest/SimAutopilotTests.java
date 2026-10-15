@@ -162,12 +162,18 @@ public class SimAutopilotTests implements FabricClientGameTest {
                 new Object[]{"gametest"}));
 
         List<String> failures = new ArrayList<>();
+        // This case clears mob rooms by killing their mobs, and judges which rooms got cleared: the sim's "every room
+        // counts as cleared on entry" (mod main, 2026-10-14) clears any room a trip passes through and is turned off here.
+        ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimMobs", "setClearRoomsOnEntry",
+                new Class<?>[]{boolean.class}, new Object[]{false}));
         try {
             body(ctx, failures);
         } catch (Throwable t) {
             failures.add("scenario threw: " + t);
             t.printStackTrace(System.out);
         } finally {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimMobs", "setClearRoomsOnEntry",
+                    new Class<?>[]{boolean.class}, new Object[]{true}));
             ctx.runOnClient(mc -> {
                 if ((Boolean) ModUnderTest.staticCall(AS, "isRunning")) {
                     ModUnderTest.staticCall(AS, "stop", new Class<?>[]{String.class, boolean.class},
