@@ -358,7 +358,7 @@ final class HxPingAutomationCases {
                     return null;
                 });
                 // In his room tile (-7, -7) - the Trigger Bot only works inside the Blood Room (bloodcamp-1015).
-                c.hx().stand(-416.5, 151, -412.5, null, "marker", false, "invisible", false, "helmet", head(watcherTex));
+                c.hx().stand(-424.5, 151, -412.5, null, "marker", false, "invisible", false, "helmet", head(watcherTex));
                 c.waitUntil("Blood Camp sees the Watcher", mc -> Mod.field(Mod.ROOT + BC, "watcherEntityId") != null, 200);
 
                 int base = baseline(c);

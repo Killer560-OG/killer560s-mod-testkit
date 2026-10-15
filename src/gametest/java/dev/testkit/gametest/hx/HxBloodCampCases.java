@@ -47,7 +47,8 @@ final class HxBloodCampCases {
     private static final String VF = "util.ViewFreeze";
     private static final double PX = -419.5;
     private static final double PZ = -419.5;
-    private static final double[] WATCHER_IN = {-416.5, 151, -412.5};
+    /** Tile -7 (round((-424.5 + 185) / 32) = -7, his), and within Blood Camp's 20 blocks of a first-wave trip's start. */
+    private static final double[] WATCHER_IN = {-424.5, 151, -412.5};
     /** Tile -8 along x: round((-430.5 + 185) / 32) = -8, his is -7. */
     private static final double[] WATCHER_OUT = {-430.5, 151, -412.5};
 
@@ -158,9 +159,10 @@ final class HxBloodCampCases {
     /**
      * One blood mob trip (792's): three move packets a tick apart from the server, a husk on the predicted spot as
      * soon as the trip is tracked. {@code aimManually}: the case points him at the husk's chest every tick (no Aura).
-     * {@code each(tick, mc)} runs on the client every tick after that. Runs {@code ticks} ticks from the first packet.
+     * {@code each(tick, mc)} runs on the client every tick after that. Runs until {@code extra} ticks past the mob's due
+     * moment (the first wave is due 78.8 ticks after its first packet, later ones 38.8).
      */
-    private static Trip trip(Session c, Mob mob, boolean aimManually, int ticks, BiConsumer<Integer, Minecraft> each) {
+    private static Trip trip(Session c, Mob mob, boolean aimManually, int extra, BiConsumer<Integer, Minecraft> each) {
         boolean firstWave = c.onClient(mc -> (Boolean) Mod.staticCall("bloodcamp.BloodCampMoveTimer", "isFirstSpawns"));
         double scale = firstWave ? 16.1 : 11.9;
         double due = (firstWave ? 40 : 0) + 38 + 0.8;
@@ -206,6 +208,7 @@ final class HxBloodCampCases {
                         mob == Mob.INVULNERABLE ? ",Invulnerable:1b" : ""));
             }
             Vec3 chest = end.add(0, 1.4, 0);
+            int ticks = (int) Math.ceil(due) + extra;
             for (int i = 0; i < ticks; i++) {
                 final int tick = i;
                 Object[] r = c.onClient(mc -> {
@@ -301,7 +304,7 @@ final class HxBloodCampCases {
                     });
                 }
                 stand(c, 0f, 0f);
-                Trip t = trip(c, Mob.HURTABLE, true, 60, null);
+                Trip t = trip(c, Mob.HURTABLE, true, 20, null);
                 c.note("offset " + off + ": " + fmt(t));
                 c.check(t.tracked, "offset " + off + ": the trip was never tracked");
                 c.check(!Double.isNaN(t.killAt), "offset " + off + ": the kill timer never went off");
@@ -337,7 +340,7 @@ final class HxBloodCampCases {
             // Trigger Bot), and the Aura must not even pick a target.
             watcher(c, WATCHER_OUT);
             stand(c, 0f, 0f);
-            Trip out = trip(c, Mob.HURTABLE, true, 55, null);
+            Trip out = trip(c, Mob.HURTABLE, true, 20, null);
             c.note("Watcher one tile over: " + fmt(out) + ", aura turning " + out.everTurning + ", aura point "
                     + out.auraPoint);
             c.check(out.tracked, "outside: the trip was never tracked (the overlay still has to work outside)");
@@ -348,7 +351,7 @@ final class HxBloodCampCases {
             // Back in his tile: the same trip is clicked (control - the case CAN see a click).
             watcher(c, WATCHER_IN);
             stand(c, 0f, 0f);
-            Trip in = trip(c, Mob.HURTABLE, true, 55, null);
+            Trip in = trip(c, Mob.HURTABLE, true, 20, null);
             c.note("Watcher in his tile: " + fmt(in));
             c.check(in.inRoom, "in his tile Blood Camp did not see the Blood Room");
             if (cheat) {
@@ -370,12 +373,14 @@ final class HxBloodCampCases {
             watcher(c, WATCHER_IN);
             // Empty landing spot: 1.5 above it.
             stand(c, AWAY_YAW, 10f);
-            Trip empty = trip(c, Mob.NONE, false, 50, null);
+            Trip empty = trip(c, Mob.NONE, false, 10, null);
             // A husk on it: its upper chest; and his body look ends on the husk.
             stand(c, AWAY_YAW, 10f);
             boolean[] onHusk = {false};
-            Trip husk = trip(c, Mob.HURTABLE, false, 50, (i, mc) -> {
-                if (i == 49) {
+            int[] lastTick = {-1};
+            Trip husk = trip(c, Mob.HURTABLE, false, 10, (i, mc) -> {
+                if (i > lastTick[0]) {
+                    lastTick[0] = i;
                     Vec3 e = endVector();
                     if (e != null) {
                         onHusk[0] = bodyHits(mc, new AABB(e.x - 0.3, e.y + 1.0, e.z - 0.3, e.x + 0.3, e.y + 1.95, e.z + 0.3));
@@ -412,7 +417,7 @@ final class HxBloodCampCases {
             }
             watcher(c, WATCHER_IN);
             stand(c, AWAY_YAW, 10f);
-            Trip t = trip(c, Mob.HURTABLE, false, 50, null);
+            Trip t = trip(c, Mob.HURTABLE, false, 10, null);
             List<float[]> st = steps(t.looks);
             double total = 0;
             int moving = 0;
@@ -492,7 +497,7 @@ final class HxBloodCampCases {
                 float[] startLook = {AWAY_YAW, 10f};
                 int[] movedAt = {-1};
                 float[] afterMouse = new float[4]; // body yaw, pitch, view yaw (NaN = not held), owns camera
-                Trip t = trip(c, Mob.HURTABLE, false, 60, (i, mc) -> {
+                Trip t = trip(c, Mob.HURTABLE, false, 20, (i, mc) -> {
                     float yaw = mc.player.getYRot();
                     if (movedAt[0] < 0 && Math.abs(net.minecraft.util.Mth.wrapDegrees(yaw - startLook[0])) > 8f) {
                         movedAt[0] = i;
@@ -540,10 +545,10 @@ final class HxBloodCampCases {
             }
             watcher(c, WATCHER_IN);
             stand(c, 0f, 0f);
-            Trip miss = trip(c, Mob.INVULNERABLE, true, 70, null);
+            Trip miss = trip(c, Mob.INVULNERABLE, true, 40, null);
             c.note("husk that takes no damage: " + fmt(miss));
             stand(c, 0f, 0f);
-            Trip hit = trip(c, Mob.HURTABLE, true, 70, null);
+            Trip hit = trip(c, Mob.HURTABLE, true, 40, null);
             c.note("husk that is hurt: " + fmt(hit));
             if (!cheat) {
                 c.check(miss.clicks == 0 && hit.clicks == 0 && miss.serverAttacks.isEmpty(),
@@ -579,7 +584,7 @@ final class HxBloodCampCases {
             stand(c, AWAY_YAW, 10f);
             List<float[]> views = new ArrayList<>();
             List<Boolean> held = new ArrayList<>();
-            Trip t = trip(c, Mob.HURTABLE, false, 80, (i, mc) -> {
+            Trip t = trip(c, Mob.HURTABLE, false, 40, (i, mc) -> {
                 views.add(new float[]{(Float) Mod.staticCall(VF, "viewYaw"), (Float) Mod.staticCall(VF, "viewPitch")});
                 held.add((Boolean) Mod.staticCall(VF, "isHeld"));
             });
