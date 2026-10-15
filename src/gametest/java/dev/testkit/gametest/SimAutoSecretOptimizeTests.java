@@ -118,8 +118,12 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         void run(ClientGameTestContext ctx, List<String> failures);
     }
 
+    /** Set by a body that called {@code Scenario.skipped}: its case ends SKIPPED, not PASS. */
+    private static boolean caseSkipped;
+
     private static void runCase(ClientGameTestContext ctx, String name, Body body) {
         List<String> failures = new ArrayList<>();
+        caseSkipped = false;
         try {
             body.run(ctx, failures);
         } catch (Throwable t) {
@@ -146,7 +150,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         if (!failures.isEmpty()) {
             throw new AssertionError(name + ": " + failures.size() + " problem(s): " + String.join("; ", failures));
         }
-        println(name, "PASS");
+        println(name, caseSkipped ? "SKIPPED (see above)" : "PASS");
     }
 
     // ================================================================================================ 144
@@ -380,6 +384,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             // The floors are random: a run of floors with no such three rooms is the dice, not the mod - said loudly.
             Scenario.skipped(ORDER, "no floor in 12 had two small rooms beside the Entrance and a bigger (at most 3) one"
                     + " across it, by the planner's own warps - run it again");
+            caseSkipped = true;
             return;
         }
         Map<String, JsonObject> routes = new LinkedHashMap<>();
