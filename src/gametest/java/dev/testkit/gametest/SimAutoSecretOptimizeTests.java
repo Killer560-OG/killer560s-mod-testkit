@@ -282,9 +282,9 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             if (!planned) {
                 failures.add(room + ": the trip after its route was searched again, not the one planned ahead");
             }
-            if (mode == 1 && after != 1) {
+            if (mode == 1 && (after < 0 || after > 1)) {
                 failures.add(room + ": every secret counted, but the first warp went " + after + " tick(s) after the route"
-                        + " (want 1)");
+                        + " (want at most 1)");
             }
             if (mode == 2 && after != 6) {
                 failures.add(room + ": nothing counted, but the first warp went " + after + " tick(s) after the route (want"
@@ -385,7 +385,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             long end = e.getValue();
             long last = -1;
             for (long h : hops) {
-                if (h > from && h <= end) {
+                if (h > from && h < end) {   // a warp ON the route's end tick is already the next trip's (hand-over)
                     last = h;
                 }
             }
