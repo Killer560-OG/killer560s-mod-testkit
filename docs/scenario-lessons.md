@@ -759,12 +759,12 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - Mod main's sim clears every room on entry (2026-10-14). A case that judges which rooms its clears killed their way to
   (141) turns `SimMobs.setClearRoomsOnEntry(false)` for its run, or any trip passing through a room "clears" it.
 - **1080-1083 (TrajectoryCases, mod shortbow-traj-1015, 2026-10-15):** Trajectories for shortbows. Each draw is judged by the
-- **1640-1644 menu-profit-*** (mod profit-accounts-1015, 2026-10-15): profit per Minecraft account (UUID) with Show
   feature's own views (`TrajectoriesFeature.lastArcs/lastKind/lastSpeed/renderCalls`) AND by cyan arc pixels against a frame
-  Profit (This / All Accounts) and Profit Data (Shared / Per Mod Profile). Fake accounts come from the mod's
   with the feature OFF, so main fails on what it draws, not on a missing method (main: 0 px for a held shortbow, 885 px for
-  `ProfitScope.setAccountForTest(name, uuid)`; always clear it (nulls) in `finally`, or every later profit case records
   an idle plain bow). Measure an arc's first step LEVEL: at pitch 50 it hits the superflat inside one tick and reads 1.98
-  under a fake account. The settings file (`ProfitConfig.PATH`) is outside profiles, so a case snapshots and restores it
   blocks, not 3.0 (1080's first run). The arcs start at the eye, so on screen mostly the impact boxes show.
+- **1640-1644 menu-profit-*** (mod profit-accounts-1015, 2026-10-15): profit per Minecraft account (UUID) with Show
+  Profit (This / All Accounts) and Profit Data (Shared / Per Mod Profile). Fake accounts come from the mod's
+  `ProfitScope.setAccountForTest(name, uuid)`; always clear it (nulls) in `finally`, or every later profit case records
+  under a fake account. The settings file (`ProfitConfig.PATH`) is outside profiles, so a case snapshots and restores it
   and calls `ProfitConfig.load()`. 733 now drives the account switch through that setting, not the view filter.
