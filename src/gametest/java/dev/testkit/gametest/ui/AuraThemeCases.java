@@ -363,7 +363,10 @@ final class AuraThemeCases {
             c.check((cols[3] & 0xFFFFFF) == 0x00FF00, "Termism's colours on the saved theme: text " + Integer.toHexString(cols[3]));
             Mod.call(menu, "deleteSavedTheme", idx2);
             int[] fallback = (int[]) Mod.staticCall("gui.MenuTheme", "forScreen", "termism");
-            c.check((fallback[3] & 0xFFFFFF) != 0x00FF00, "Termism still draws a deleted theme");
+            int[] menuNow = (int[]) Mod.call(Mod.cfg("gui.MenuConfig"), "activeColours");
+            c.check(java.util.Arrays.equals(fallback, menuNow), "a deleted theme should read as Theme Default (the menu's colours)");
+            c.check(((String) Mod.staticCall(ST, "label", choice("termism"))).equals("Theme Default"),
+                    "a deleted theme's label on a menu screen is not Theme Default");
         } finally {
             restore(screens, screensBefore);
             restore(menuPath, menuBefore);
