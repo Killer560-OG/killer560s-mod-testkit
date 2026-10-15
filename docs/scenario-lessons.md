@@ -715,3 +715,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   three rooms and sampled per tick, then a map with a stray green run at (16,5). Empty slot 9 before a sim REBUILD: the
   rebuild resets the map reading and the old map still in slot 9 recalibrates first (the old jar measured (16,5) off the
   previous map and every later part read 11 px off). Old jar fails all four parts; new passes (cheat and legit).
+- 1491-sim-chunk-loaded (SimChunkLoadedTests, mod chunk-loaded-1015, 2026-10-15): seven readers against a chunk the client
+  was told to forget (`handleForgetLevelChunk`, as 1490). The server did NOT send it back on its own here (5 s of waiting,
+  checked after every "while gone" reading), so the chunk is handed back by building
+  `ClientboundLevelChunkWithLightPacket(level.getChunk(cx, cz), lightEngine, null, null)` on the server thread and calling
+  `handleLevelChunkWithLight` on the client. Do not `reset()` a door scanner after forgetting: the reset is a new run, and
+  a rescan rightly skips the unloaded cell, so the first version "failed" on the fixed jar too. Main's cheat jar fails all
+  seven parts (premises pass); the branch passes all seven.
