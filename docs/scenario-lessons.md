@@ -637,3 +637,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   extent from the open screen's `width`/`height`. 983 fails after 829-834 in one menu session (a stale "LrB (Tank)" leaps
   first) on the pre-change jar and tests too - run 983 alone. 1077 clicks a vanilla container screen's overlay in plain GUI units
   (`pos x getGuiScale`, no Auto Scale).
+- 1446-sim-door-height (SimDoorHeightTests, mod sim-doorheight-1015, 2026-10-15): 30 F7s planned with Mage, then Quad Lava,
+  pinned at room cell (2,2); counts floors whose door tree uses Mage N1 / Quad Lava E0 (capture frame, turned through the
+  mod's RoomDoors.rotate/doorCells) - openings above the doorway floor that are not doors - and Entrance W0 as a control.
+  Builds the first floor that used the edge (else the first that kept the room) and checks every door of the room in the
+  server level: 3x7 passage clear three high and floored at y69, walk on 4..6 blocks into each room, and solid capture
+  blocks the carve removed (capture lined up through the paste rotation, self-checked at >= 70% agreement). Main jar: 21-25
+  and 20-23 of 30 floors used the edges, Mage's door a dead end in stone with 25 blocks carved, Quad Lava's 23. A walk-on
+  probe that allows drops must require a clear shaft, or it drops through stone into a cave and passes a dead end.
