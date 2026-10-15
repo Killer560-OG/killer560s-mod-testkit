@@ -1,9 +1,9 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-15T12:46:49",
+ "generatedAt": "2026-10-15T13:07:15",
  "modSource": "killer560s-mod-lights",
- "modGitSha": "265a5d20823ce1cba279fa0018d26776099afe2b",
- "modSourceDirty": true,
+ "modGitSha": "d4687058209617932b4df737a27d4c4603907e54",
+ "modSourceDirty": false,
  "count": 479,
  "byKind": {
   "dynamic": 7,

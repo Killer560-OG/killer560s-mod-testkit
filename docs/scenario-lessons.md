@@ -573,3 +573,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   change), then the key (block to air, not a secret), then the node (node and the 3-block strip gone, `SimScore.foundInRoom`
   +1, and an armor stand wearing the key profile visible to the CLIENT at node y - 2). Main jar: 0 levers armed, and the key
   position holds a lever, not a key head.
+- 1475-1478 (LightsDeviceUiCases in the UI suite, LightsDeviceCases in the boss session; lights-aura-1015, 2026-10-15). The
+  S2 Lights device is its own cheat (Lights Aura + Lights Triggerbot); 846 now drives LightsDeviceConfig and is named
+  846-boss-lights-aura-cps. 1476-1478 reuse 846's arena (wall at z 142, him at 60.5,133,139.5 yaw 0, so the crosshair is
+  on 60,134,142) and read who flicked what off `LightsDeviceFeature.recentFlicks`/`flickCount` (count first: the list
+  keeps only 32). Branch: 1476 3 pre-flicks + 1 activation, 1477 six uses one per lever with Secret Aura + In Boss on and
+  no Secret Aura attempt on a Lights lever, 1478 only the looked-at lever after the 2-tick delay, all GrimAC clean. Main
+  jar: all three fail (no LightsDeviceConfig). Turning onto a second lever is a server `dungeon.tp` with yaw/pitch, never a
+  harness rotation.
