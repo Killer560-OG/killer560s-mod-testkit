@@ -137,6 +137,7 @@
 			"dev.testkit.gametest.ui.FontsMainMenuSuite",
 			"dev.testkit.gametest.ui.GreenThemeSuite",
 			"dev.testkit.gametest.ui.MenuAnimSuite",
+			"dev.testkit.gametest.ui.VideoGeneralSuite",
 			"dev.testkit.gametest.logic.LogicSuite",
 			"dev.testkit.gametest.ui.RebootCommandTest",
 			"dev.testkit.gametest.dsim.DungeonServerSuite",

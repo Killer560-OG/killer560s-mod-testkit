@@ -544,7 +544,8 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	// (sections 1 and 2 by default, or -PicefillBreaks=2):  -PicefillControl=true
 	// 97-sim-roomspawn: -ProomspawnOnly=first,rooms,goto  -ProomspawnRooms="Altar,Market"
 	["serverStallMs", "serverStallEvery", "netStallMs", "icefillControl", "icefillBreaks", "floorRepeat",
-	 "roomspawnOnly", "roomspawnRooms", "roomspawnFloors", "pathoptRooms", "nametagShots", "nametagShotsOnly"].each { p ->
+	 "roomspawnOnly", "roomspawnRooms", "roomspawnFloors", "pathoptRooms", "nametagShots", "nametagShotsOnly",
+	 "videoOut"].each { p ->
 		if (project.hasProperty(p)) {
 			systemProperty "testkit.${p}", project.property(p)
 		}
