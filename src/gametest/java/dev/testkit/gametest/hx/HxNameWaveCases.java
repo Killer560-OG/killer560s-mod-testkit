@@ -468,6 +468,15 @@ final class HxNameWaveCases {
     private static void saved(Session c) throws Exception {
         Path file = c.onClient(mc -> (Path) Mod.field(NC, "CONFIG_PATH"));
         byte[] before = Files.exists(file) ? Files.readAllBytes(file) : null;
+        // The shared names file (mod names-profiles-1015) is put back too, or a later case would load the wave from it.
+        Path sharedFile = c.onClient(mc -> {
+            try {
+                return (Path) Mod.field(NC, "NAMES_PATH");
+            } catch (AssertionError e) {
+                return null; // a jar from before the shared names file
+            }
+        });
+        byte[] sharedBefore = sharedFile != null && Files.exists(sharedFile) ? Files.readAllBytes(sharedFile) : null;
         try (HxKit.Settings s = HxCosmeticNameCases.fade(c)) {
             c.onClient(mc -> {
                 Mod.set(NC, "setOwnAnimation", mode("WAVE"));
@@ -475,7 +484,15 @@ final class HxNameWaveCases {
                 Mod.call(Mod.cfg(NC), "save");
                 return null;
             });
-            String json = Files.readString(file);
+            // The names are saved in the shared names file since mod names-profiles-1015 (by default, outside the profile's file).
+            Path namesFile = c.onClient(mc -> {
+                try {
+                    return Boolean.TRUE.equals(Mod.get(NC, "isPerProfileNames")) ? file : (Path) Mod.field(NC, "NAMES_PATH");
+                } catch (AssertionError e) {
+                    return file; // a jar from before the shared names file
+                }
+            });
+            String json = Files.readString(namesFile);
             c.check(json.contains("\"ownAnimation\": \"wave\"") && json.contains("\"ownAnimationSpeed\": 1.75"),
                     "the saved file lacks the animation: " + json);
             Object[] loaded = c.onClient(mc -> {
@@ -563,6 +580,13 @@ final class HxNameWaveCases {
                 Files.write(file, before);
             } else {
                 Files.deleteIfExists(file);
+            }
+            if (sharedFile != null) {
+                if (sharedBefore != null) {
+                    Files.write(sharedFile, sharedBefore);
+                } else {
+                    Files.deleteIfExists(sharedFile);
+                }
             }
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);

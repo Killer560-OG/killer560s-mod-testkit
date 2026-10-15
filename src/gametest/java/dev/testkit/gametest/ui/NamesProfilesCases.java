@@ -49,15 +49,26 @@ final class NamesProfilesCases {
     private static final int BLUE = 0xFF5555FF;
     private static final int GOLD = 0xFFFFAA00;
 
+    /** A config path of the mod; the shared names file's does not exist on a jar from before this change (then null). */
     private static Path path(String field) {
-        return (Path) Mod.field(NC, field);
+        try {
+            return (Path) Mod.field(NC, field);
+        } catch (AssertionError e) {
+            if (field.equals("NAMES_PATH")) {
+                return null;
+            }
+            throw e;
+        }
     }
 
     private static byte[] snapshot(Path p) throws Exception {
-        return Files.exists(p) ? Files.readAllBytes(p) : null;
+        return p != null && Files.exists(p) ? Files.readAllBytes(p) : null;
     }
 
     private static void restore(Path p, byte[] bytes) throws Exception {
+        if (p == null) {
+            return;
+        }
         if (bytes == null) {
             Files.deleteIfExists(p);
         } else {
@@ -108,10 +119,12 @@ final class NamesProfilesCases {
         Mod.call(cfg, "setOwnColorFadeEnabled", false);
         Mod.call(cfg, "setOwnBold", false);
         Mod.call(cfg, "clearOwnCharColors");
-        Mod.call(cfg, "setOwnRank", Mod.enumValue(PRESET, "DEFAULT"));
-        Mod.call(cfg, "setOwnRankColor", 0);
-        Mod.call(cfg, "setOwnRankPlusColor", 0);
-        Mod.call(cfg, "setOwnRankCustomText", "");
+        if (Mod.has("namechanger.NameRank")) { // a jar from before the rank has neither the class nor the setters
+            Mod.call(cfg, "setOwnRank", Mod.enumValue(PRESET, "DEFAULT"));
+            Mod.call(cfg, "setOwnRankColor", 0);
+            Mod.call(cfg, "setOwnRankPlusColor", 0);
+            Mod.call(cfg, "setOwnRankCustomText", "");
+        }
         Mod.call(cfg, "setRandomizeOthers", false);
     }
 
