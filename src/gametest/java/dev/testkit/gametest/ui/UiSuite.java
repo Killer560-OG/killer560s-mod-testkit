@@ -394,8 +394,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
                 || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES) || any(SWEAT_CASES)
                 || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES) || any(TRAIL_HUD_CASES)
-                || any(LIGHTS_DEVICE_CASES);
-                || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(NAMES_PROFILES_CASES);
+                || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
