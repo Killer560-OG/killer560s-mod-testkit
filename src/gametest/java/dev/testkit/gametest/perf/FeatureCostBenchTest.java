@@ -175,6 +175,18 @@ public class FeatureCostBenchTest implements FabricClientGameTest {
     }
 
     /** label, probe delta us/frame@144, frame-mean delta ms, alloc delta KB/frame, top keys. */
+    /** The probe cost of the keys whose owner is in {@code label}'s package, in this phase. */
+    private static double own(String label, Phase p) {
+        String pkg = label.substring(0, label.indexOf('.') + 1);
+        double s = 0;
+        for (Key k : p.keys().values()) {
+            if (!k.kind().equals("server") && k.key().startsWith(pkg)) {
+                s += p.keyAt144(k);
+            }
+        }
+        return s;
+    }
+
     private static String[] aloneRow(String label, Phase p, Phase ref) {
         Map<String, Double> refKeys = new TreeMap<>();
         for (Key k : ref.keys().values()) {
@@ -196,6 +208,7 @@ public class FeatureCostBenchTest implements FabricClientGameTest {
                     deltas.get(i).getKey(), deltas.get(i).getValue()));
         }
         return new String[]{label,
+                String.format(Locale.ROOT, "%.1f", own(label, p) - own(label, ref)),
                 String.format(Locale.ROOT, "%.1f", p.at144Us() - ref.at144Us()),
                 String.format(Locale.ROOT, "%.1f", p.frameUs() - ref.frameUs()),
                 String.format(Locale.ROOT, "%.1f", p.tickUs() - ref.tickUs()),
@@ -267,6 +280,25 @@ public class FeatureCostBenchTest implements FabricClientGameTest {
             }
         }
 
+        // Every key of every configuration (mean over rounds), for diffing two runs key by key.
+        for (Object[] cfg : new Object[][]{{"OFF", offs}, {"DEFAULTS", defs}, {"ALL ON", ons}}) {
+            @SuppressWarnings("unchecked")
+            List<Phase> ps = (List<Phase>) cfg[1];
+            Map<String, double[]> acc = new TreeMap<>();
+            Map<String, String> kinds = new TreeMap<>();
+            for (Phase p : ps) {
+                for (Key k : p.keys().values()) {
+                    double[] a = acc.computeIfAbsent(k.key(), x -> new double[3]);
+                    a[0] += (k.kind().equals("server") ? k.ns() / 1e3 / Math.max(1, p.ticks()) : p.keyAt144(k)) / ps.size();
+                    a[1] += k.calls() / (double) Math.max(1, p.ticks()) / ps.size();
+                    a[2] += k.bytes() / Math.max(1, k.calls()) / ps.size();
+                    kinds.put(k.key(), k.kind());
+                }
+            }
+            acc.forEach((key, a) -> tsv.add(String.join("	", "key", (String) cfg[0], key, kinds.get(key), f(a[0]), f(a[1]),
+                    f(a[2]))));
+        }
+
         Phase on = ons.get(ons.size() - 1);
         List<Key> keys = new ArrayList<>(on.keys().values());
         keys.removeIf(k -> k.kind().equals("server"));
@@ -296,10 +328,12 @@ public class FeatureCostBenchTest implements FabricClientGameTest {
             report.add("== EACH SWITCH ALONE vs the OFF reference, heaviest first ==");
             report.add("(probe = the mod's own callbacks; frame/tick = whole-frame CPU, includes mixin and vanilla work the"
                     + " feature causes, noisy at +-0.05 ms; alloc = render thread)");
-            report.add(String.format(Locale.ROOT, "%-52s %9s %8s %8s %9s %9s %9s  %s", "switch", "us/f@144", "frame us",
-                    "tick us", "frame ms", "tick ms", "KB/frame", "top callbacks (us/f@144)"));
+            report.add("(own = the switch's own package's callbacks, the number to rank by; total = every callback, which"
+                    + " carries the machine's noise, +-15 us per key between phases on a loaded machine)");
+            report.add(String.format(Locale.ROOT, "%-52s %8s %9s %8s %8s %9s %9s %9s  %s", "switch", "own us", "total us",
+                    "frame us", "tick us", "frame ms", "tick ms", "KB/frame", "top callbacks (us/f@144)"));
             for (String[] r : alone) {
-                report.add(String.format(Locale.ROOT, "%-52s %9s %8s %8s %9s %9s %9s  %s", (Object[]) r));
+                report.add(String.format(Locale.ROOT, "%-52s %8s %9s %8s %8s %9s %9s %9s  %s", (Object[]) r));
                 tsv.add("alone\t" + String.join("\t", r));
             }
         }
