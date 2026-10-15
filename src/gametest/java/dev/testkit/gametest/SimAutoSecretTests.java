@@ -525,7 +525,8 @@ public class SimAutoSecretTests implements FabricClientGameTest {
         int orderLines = 0;
         for (int i = 0; i < log.size(); i++) {
             String l = log.get(i);
-            int at = l.indexOf("[AutoSecret] room order");
+            // The decision's own line ("room order (each room worth ..."), not the trip searches' ("room order: searched").
+            int at = l.indexOf("[AutoSecret] room order (");
             if (at < 0) {
                 continue;
             }
