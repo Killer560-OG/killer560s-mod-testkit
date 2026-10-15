@@ -722,3 +722,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   `handleLevelChunkWithLight` on the client. Do not `reset()` a door scanner after forgetting: the reset is a new run, and
   a rescan rightly skips the unloaded cell, so the first version "failed" on the fixed jar too. Main's cheat jar fails all
   seven parts (premises pass); the branch passes all seven.
+- 1590-1596 (`ui/MenuAnimSuite`, mod menu-anim-1015): the mod menu's animations. Every run passes
+  `killer560.test.menuAnimClock=instant` (build.gradle), so an undriven menu animation is instant and any case may read the
+  frame right after a click; these cases drive the clock with `gui.MenuAnim.setClockForTest(ms)` and render ONE frame per
+  clock step (`frame(c, ms)`). A change caused by a press is stamped at the press, so set the clock BEFORE pressing.
+  1594 reads `ModScreen.allocProbe` (bytes the menu's draw allocates per frame; ~750 KB at rest, the same with Smooth and
+  Off) - an allocation that DROPS is a finding too: it was how a page drawn at opacity 0 showed up. 1596 only runs when
+  named and writes `<report>/menu-anim-video/frame_NNNNN.png` (1/60 s of clock each) for
+  `ffmpeg -framerate 60 -i frame_%05d.png -c:v libx264 -pix_fmt yuv420p -crf 18`.

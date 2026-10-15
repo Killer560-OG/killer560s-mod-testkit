@@ -615,6 +615,10 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	systemProperty "testkit.quiet", noQuiet ? "false" : "true"
 	// Interactive Map tile clicks also plan without the centre preference and log it (95 asserts the warps match).
 	systemProperty "killer560.test.checkFewest", "true"
+	// The mod menu's animations are instant (as with Animations: Off) unless a case drives their clock: the lockstep
+	// renders one frame per tick as fast as it can, and many cases read the very frame after a click (its text, its
+	// pixels). 1590-1596 drive the clock themselves (gui.MenuAnim.setClockForTest) and get the real durations.
+	systemProperty "killer560.test.menuAnimClock", "instant"
 	def overridden = [] as Set
 	if (project.hasProperty("netOverride")) {
 		project.property("netOverride").toString().split(";").each { pair ->
