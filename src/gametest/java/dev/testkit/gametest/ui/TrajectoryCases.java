@@ -299,6 +299,8 @@ final class TrajectoryCases {
                 c.problem("this jar has no Shortbows trajectories (mod before shortbow-traj-1015)");
                 return;
             }
+            // Level, so the first simulated step is a whole tick in the air (at pitch 50 it is cut short by the ground).
+            look(c, 0f);
             Drawn d = drawn(c);
             c.note("views: " + d.describe());
             c.check("SHORTBOW".equals(d.kind) && d.arcs == 1, "a lore-only shortbow drew " + d.describe());
