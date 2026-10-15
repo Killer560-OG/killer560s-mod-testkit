@@ -333,6 +333,24 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
             c.note("Space Mono at 100% " + w100 + ", at 130% " + w130);
             c.check(w130 > w100 + 10, "Font Size 130% did not widen the text (" + w100 + " -> " + w130 + ")");
 
+            // A resource reload closes the default font's providers the custom set borrows: the set must be dropped and
+            // rebuilt from the new ones (a stale one would read freed glyph data), and the font must still apply after.
+            int buildsBefore = c.onClient(mc -> (Integer) Mod.staticCall(CF, "builds"));
+            java.util.concurrent.CompletableFuture<?> reload = c.onClient(Minecraft::reloadResourcePacks);
+            for (int i = 0; i < 1200 && !reload.isDone(); i++) {
+                c.ticks(1);
+            }
+            c.ticks(10);
+            int buildsAfter = c.onClient(mc -> (Integer) Mod.staticCall(CF, "builds"));
+            String builtAfter = c.onClient(mc -> (String) Mod.staticCall(CF, "builtId"));
+            int wAfter = c.onClient(mc -> mc.font.width(PROBE));
+            c.note("resource reload: done " + reload.isDone() + ", builds " + buildsBefore + " -> " + buildsAfter + ", built "
+                    + builtAfter + ", width " + wAfter);
+            c.check(reload.isDone(), "the resource reload never finished");
+            c.check(buildsAfter > buildsBefore && "bundled:space_mono".equals(builtAfter) && wAfter == w130,
+                    "after a resource reload the font was not rebuilt the same (builds " + buildsBefore + " -> " + buildsAfter
+                            + ", built " + builtAfter + ", width " + wAfter + " vs " + w130 + ")");
+
             // Back to Minecraft: every width exactly as before.
             useFont(c, "minecraft", "EVERYTHING", 100);
             Measure back = measure(c);
