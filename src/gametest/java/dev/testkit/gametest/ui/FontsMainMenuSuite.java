@@ -63,9 +63,9 @@ import java.util.Map;
 public class FontsMainMenuSuite implements FabricClientGameTest {
 
     static final String[] TITLE_CASES = {"1565-ui-mainmenu-styles", "1566-ui-mainmenu-scenes",
-            "1567-ui-mainmenu-real-name"};
+            "1567-ui-mainmenu-real-name", "1568-ui-mainmenu-mod-settings", "1569-ui-vanilla-menus"};
     static final String[] WORLD_CASES = {"1561-ui-font-menu-only", "1562-ui-font-everything", "1563-ui-font-import",
-            "1564-ui-font-settings"};
+            "1564-ui-font-settings", "1570-ui-vanilla-pause"};
 
     static final String FC = "fonts.FontConfig";
     static final String CF = "fonts.CustomFonts";
@@ -101,6 +101,8 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
         UiCase.run(ctx, "1565-ui-mainmenu-styles", FontsMainMenuSuite::styles);
         UiCase.run(ctx, "1566-ui-mainmenu-scenes", FontsMainMenuSuite::scenes);
         UiCase.run(ctx, "1567-ui-mainmenu-real-name", FontsMainMenuSuite::realName);
+        UiCase.run(ctx, "1568-ui-mainmenu-mod-settings", FontsMainMenuSuite::modSettings);
+        UiCase.run(ctx, "1569-ui-vanilla-menus", VanillaThemeCases::menus);
         if (anyWorld) {
             try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
                 ctx.waitTicks(40);
@@ -109,6 +111,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                 UiCase.run(ctx, "1562-ui-font-everything", FontsMainMenuSuite::everything);
                 UiCase.run(ctx, "1563-ui-font-import", FontsMainMenuSuite::importFont);
                 UiCase.run(ctx, "1564-ui-font-settings", FontsMainMenuSuite::settings);
+                UiCase.run(ctx, "1570-ui-vanilla-pause", VanillaThemeCases::pause);
             }
         }
     }
@@ -902,6 +905,128 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
             m.resizeGui();
         });
         c.ctx().waitTicks(4);
+    }
+
+    // ---- 1568 Mod Settings from the title screen ---------------------------------------------------------------
+
+    /**
+     * killer560, 2026-10-15: "add a button on the main menu to open my mod's settings and edit them from the main menu".
+     * A real click on the title screen's Mod Settings button opens the mod menu with NO world loaded; every feature's
+     * drawer is opened and drawn (each throw is attributed to its tab), the 301 tab sweep and the 303 toggle sweep run
+     * there too; a setting toggled through the menu is saved; Escape goes back to the title screen and the setting is still
+     * set after the menu is opened again and the config re-read. Any killer560smod ERROR line fails the case (UiCase).
+     */
+    static void modSettings(UiCase c) throws Exception {
+        c.onClient(mc -> {
+            Mod.call(Mod.cfg(MM), "setEnabled", true);
+            McCompat.setScreen(mc, new TitleScreen());
+            return null;
+        });
+        c.ticks(40);
+        String opened = c.onClient(mc -> {
+            if (mc.level != null) {
+                return "a world is loaded - this case needs the title screen";
+            }
+            Screen s = McCompat.screen(mc);
+            for (AbstractWidget w : Screens.getWidgets(s)) {
+                if (w.getMessage().getString().equals("Mod Settings")) {
+                    ModScreenDriver.press(w);
+                    Screen now = McCompat.screen(mc);
+                    return now != null && now.getClass().getName().endsWith(".gui.ModScreen") ? null
+                            : "pressing Mod Settings opened " + (now == null ? "nothing" : now.getClass().getName());
+                }
+            }
+            return "no Mod Settings button on the title screen";
+        });
+        c.check(opened == null, opened);
+        if (opened != null) {
+            return;
+        }
+        // Every drawer, opened and drawn with no world.
+        List<String> broken = c.onClient(mc -> {
+            List<String> out = new ArrayList<>();
+            Screen s = McCompat.screen(mc);
+            for (Object leaf : MenuACases.leaves()) {
+                try {
+                    Mod.call(s, "openFeature", leaf);
+                    Frames.extract(mc, s, -1, -1);
+                    Frames.extract(mc, s, s.width - 60, s.height / 2);
+                } catch (Throwable t) {
+                    out.add(leaf.getClass().getSimpleName() + ": " + UiCase.describe(t));
+                }
+            }
+            return out;
+        });
+        c.note("drawers opened and drawn with no world: " + MenuACases.leaves().size() + ", broken: " + broken);
+        c.check(broken.isEmpty(), broken.size() + " drawer(s) threw with no world loaded: " + broken);
+        // World-only things refuse with a note instead of opening over the title screen.
+        String bars = c.onClient(mc -> {
+            Screen s = McCompat.screen(mc);
+            Mod.call(s, "openFeature", MenuACases.leaf("HealthAndManaBarsTab"));
+            AbstractWidget edit = row(s, "Edit Bars");
+            if (edit == null) {
+                return "no Edit Bars row in Health and Mana Bars: " + labels(s);
+            }
+            ModScreenDriver.press(edit);
+            Screen now = McCompat.screen(mc);
+            Object notice = Mod.staticCall("gui.ModScreen", "noWorldNotice");
+            if (now != s) {
+                return "Edit Bars with no world opened " + now.getClass().getName();
+            }
+            Frames.extract(mc, s, -1, -1);
+            return notice != null && notice.toString().contains("Join a world") ? null : "no 'join a world' notice: " + notice;
+        });
+        c.check(bars == null, bars);
+        Deny deny = Deny.load();
+        TabSweep.tabs(c, deny);
+        TabSweep.toggles(c, deny);
+        c.check(c.onClient(mc -> mc.level == null), "a sweep loaded a world");
+
+        // A setting changed in the menu at the title screen is saved and still set after a reopen.
+        Path file = c.onClient(mc -> (Path) Mod.staticCall(FC, "path"));
+        byte[] before = Files.exists(file) ? Files.readAllBytes(file) : null;
+        try {
+            useFont(c, "minecraft", "MENU", 100);
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(FC), "save");
+                McCompat.setScreen(mc, new TitleScreen());
+                return null;
+            });
+            c.ticks(5);
+            String why = c.onClient(mc -> {
+                for (AbstractWidget w : Screens.getWidgets(McCompat.screen(mc))) {
+                    if (w.getMessage().getString().equals("Mod Settings")) {
+                        ModScreenDriver.press(w);
+                    }
+                }
+                Screen menu = McCompat.screen(mc);
+                Mod.call(menu, "openFeature", MenuACases.leaf("MenuThemeTab"));
+                AbstractWidget size = row(menu, "Font Size: ");
+                if (size == null) {
+                    return "no Font Size row: " + labels(menu);
+                }
+                ModScreenDriver.press(size);
+                menu.keyPressed(new net.minecraft.client.input.KeyEvent(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0));
+                if (!(McCompat.screen(mc) instanceof TitleScreen)) {
+                    return "Escape left " + McCompat.screen(mc) + " instead of the title screen";
+                }
+                Mod.staticCall(FC, "load");
+                int now = (Integer) Mod.call(Mod.cfg(FC), "getSize");
+                return now == 110 ? null : "Font Size after the click, Escape and a reload is " + now + "%, expected 110%";
+            });
+            c.check(why == null, why);
+        } finally {
+            if (before == null) {
+                Files.deleteIfExists(file);
+            } else {
+                Files.write(file, before);
+            }
+            c.onClient(mc -> {
+                Mod.staticCall(FC, "load");
+                McCompat.setScreen(mc, new TitleScreen());
+                return null;
+            });
+        }
     }
 
     // ---- 1567 real name -----------------------------------------------------------------------------------------

@@ -103,9 +103,9 @@ final class TitleWidgetCases {
                         }
                     }
                     long columnRows = boxes.stream().filter(b -> b.w == 200).count();
-                    c.check(columnRows >= 4, tag + ": only " + columnRows + " full-width column rows: " + boxes);
-                    c.check(columnRows == 4, tag + ": " + columnRows + " full-width rows, expected exactly 4 "
-                            + "(Singleplayer, Multiplayer, Dungeon Sim, Swap Accounts)");
+                    c.check(columnRows >= 5, tag + ": only " + columnRows + " full-width column rows: " + boxes);
+                    c.check(columnRows == 5, tag + ": " + columnRows + " full-width rows, expected exactly 5 "
+                            + "(Singleplayer, Multiplayer, Dungeon Sim, Mod Settings, Swap Accounts)");
                     if (size[0] == 1920) {
                         Path shot = c.ctx().takeScreenshot(Report.fileName(c.name() + "-" + style.toLowerCase()));
                         Report.screenshot(c.name(), shot);
@@ -163,7 +163,8 @@ final class TitleWidgetCases {
     private static boolean intended(String what, String style) {
         return what.contains("[menu.singleplayer]") || what.contains("[menu.multiplayer]")
                 || what.contains("[menu.options]") || what.contains("[menu.quit]")
-                || what.startsWith("SwapAccountsButton[") || what.contains("[Dungeon Sim]");
+                || what.startsWith("SwapAccountsButton[") || what.contains("[Dungeon Sim]")
+                || what.contains("[Mod Settings]");
         // Vanilla's copyright link (PlainTextButton) is removed since mod mainmenu-footer-1015 (killer560, 2026-10-15).
     }
 
