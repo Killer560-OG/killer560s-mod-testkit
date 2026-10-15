@@ -12,16 +12,18 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Makes a same-item block click land right before the next item use a mod sends: after EVERY item use this client sends
- * (while the selected hotbar slot is {@link #onlySlot}), a right click on a block is made through the game mode at the end
- * of that tick, with the same item still in hand. A mod that chains uses a tick apart (the Interactive Map's hops, Auto
- * Clear's trips) then has its next use due one tick after a block click, which Hypixel ignores
- * ({@link HypixelUseAfterClick}); one that waits ({@code util/BlockClickGap}) sends it later and it lands.
+ * Secret Aura, as Hypixel's server sees it, right before the next item use a mod sends: after EVERY item use this client
+ * sends (while the selected hotbar slot is {@link #onlySlot}), at the end of that tick the BODY is turned to look straight
+ * down - so the next movement packet tells the server a look that meets the floor, as an aura's turn to a chest does - and
+ * a right click on a block is made through the game mode with the same item still in hand. A mod whose next use goes out
+ * before the server has heard ITS look then has that use taken as the click's second half ({@link HypixelUseAfterClick});
+ * one that turns first ({@code util/RightClick}) has it land.
  *
- * <p>The block is 30 blocks east of him: the integrated server's reach check drops the click before any block, lever or
- * ability answers it (so no teleport, no chest, no door), but its handler is entered first, which is where
- * {@link HypixelUseAfterClick} takes the click, and the click went through {@code MultiPlayerGameMode.useItemOn}, which is
- * where the mod takes it. Client thread only; off unless a scenario sets {@link #enabled}.
+ * <p>The block is the floor 7 blocks east of him: past the integrated server's reach for a block click (4.5 + 1), so no block, lever
+ * or ability answers it (no teleport, no chest, no door), but inside the 8 blocks a 1.8 server stores a click from, and its
+ * handler is entered first, which is where {@link HypixelUseAfterClick} stores it; the click went through
+ * {@code MultiPlayerGameMode.useItemOn}, which is where the mod takes it. Client thread only; off unless a scenario sets
+ * {@link #enabled}.
  */
 public final class ClickPrimer {
 
@@ -73,7 +75,8 @@ public final class ClickPrimer {
         if (!enabled || mc.player == null || mc.level == null || mc.gameMode == null) {
             return;
         }
-        BlockPos far = mc.player.blockPosition().offset(30, 0, 0);
+        mc.player.setXRot(90f);
+        BlockPos far = mc.player.blockPosition().offset(7, -1, 0);
         mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
                 new BlockHitResult(Vec3.atCenterOf(far), Direction.UP, far, false));
         primed++;
