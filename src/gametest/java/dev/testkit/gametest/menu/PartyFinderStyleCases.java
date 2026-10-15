@@ -68,7 +68,18 @@ final class PartyFinderStyleCases {
             new Variant("Custom", "CUSTOM", false,
                     Pattern.compile("^\\[T\\] killer560 \\[50 \\| \\?\\] \\[\\? \\| \\?\\] \\[\\?\\]$")),
             new Variant("Style 1 + Rank Name Colors", "STYLE1", true,
-                    Pattern.compile("^\\[T\\] killer560 \\[50 \\| \\?\\] \\[\\? \\| \\?\\] \\[\\?\\]$")));
+                    Pattern.compile("^\\[T\\] killer560 \\[50 \\| \\?\\] \\[\\? \\| \\?\\] \\[\\?\\]$")),
+            // mod leap-queue-1015 (killer560, 2026-10-15: "make a few more styles"): the five new built-in styles.
+            new Variant("Compact", "COMPACT", false,
+                    Pattern.compile("^T killer560 50 \\| \\? \\| \\?$")),
+            new Variant("Minimal", "MINIMAL", false,
+                    Pattern.compile("^killer560 \\(\\?\\) \\?$")),
+            new Variant("Detailed", "DETAILED", false,
+                    Pattern.compile("^\\[Tank 50\\] killer560 - Cata \\? - \\? secrets \\(\\? avg\\) - \\?$")),
+            new Variant("Stat Row", "STAT_ROW", false,
+                    Pattern.compile("^killer560 >> 50 / \\? / \\? / \\? / \\?$")),
+            new Variant("Class Tag", "CLASS_TAG", false,
+                    Pattern.compile("^Tank \\| killer560 \\| \\? \\| \\? \\| \\?$")));
 
     static JsonObject head(String name, List<String> lore) {
         JsonObject o = new JsonObject();
