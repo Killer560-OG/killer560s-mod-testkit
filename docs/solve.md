@@ -105,3 +105,26 @@ the start-pad walk) the sim's exit pad (`SimTeleportMazePuzzle.boundPads[exitPad
 `TeleportMazeSolverFeature.getCorrectPortals()` until it has been stepped on. Mod 264ea8c1: 1 of 4 (exit lost after the first
 teleport with 0-2 candidates left, one run not solved in 30 s). The watch is seeded with the solver's teleport count at the
 start - it survives from the run before, and an unseeded watch judged a stale count at t=0.1s.
+
+## Puzzles round 2026-10-15 (SimPuzzleRoundTests, 93-solve-boulder-mapwarp)
+
+Cases on the same Base, each adding its own settings and checks through `SolveExtra`:
+
+- `93-solve-tictactoe-grab`: his settings (Grab Secret and Walk Out on, Secret Aura on). The room's secret must be taken
+  (`SimScore.secretsFound` rises) between the first and second board click, the forward key never held, and no walk-out
+  line before the sim's game is over. The mod's sim now has the computer reply `SimTicTacToePuzzle.REPLY_TICKS` after his
+  click, as Hypixel does; an older jar's sim replies in the same tick, so the early walk-out cannot show on it.
+- `93-solve-waterboard-claim`, `-icepath-claim`, `-icefill-claim`: Secret Aura OFF; the auto itself must open the reward
+  chest within 20 s of the solve (Water Board / Ice Path: the sim's `isRewardChestOpened`; Ice Fill: a container opening).
+  An older jar's sim has no Ice Path chest at all.
+- `93-solve-icefill-firsttile`: delay 1, adaptive off, and `harness/HypixelTileRegister` holding every ice-to-packed-ice
+  block update the client gets for 3 ticks (Hypixel registers a tile after the landing). Every hop off a section's first
+  tile (read from `AutoIceFill.lastIndex` / `sectionStart` by reflection) must come after that tile read packed.
+- `93-solve-boulder-mapwarp`: Secret Aura on, placed on the test floor outside the doorway, then a REAL map press on Boulder
+  (`AutoClearUtils.pathToRoom`); Auto Boulder must start within 15 s and pass the aura checks (sprint included).
+  `-doorwarp` puts him on the doorway spot with a plain teleport instead (what his own etherwarp does; ClearExecutor's
+  arrival counter never moves). Every Boulder case now fails on a forward-held tick with the SPRINT KEY up (after the
+  first two ticks of a hold); whether vanilla sprints that tick (a wall) is physics, not the auto.
+- The tic tac toe room's secret in Mod Only Test's capture sits in a pit behind a wall with a low roof by it: no warp
+  line onto a block in reach of it, no walk on his floor, and the map lands on the wall top (2026-10-15). So
+  `-tictactoe-grab` fails on every jar there for want of a way in, not for the trip.
