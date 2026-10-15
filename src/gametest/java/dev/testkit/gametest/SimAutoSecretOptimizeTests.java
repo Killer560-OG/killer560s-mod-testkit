@@ -313,18 +313,18 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                 shown.add(r.name() + "=" + r.unfound() + "@" + fromHere.get(r.name()));
             }
             println(ORDER, "floor " + (attempt + 1) + ": eligible (unfound@rooms away) " + shown);
-            // His example: two 1-secret rooms beside him, a 2-secret room across the floor - most unfound first crosses
-            // the map for the two secrets and comes back.
+            // His example, as near as a floor has it: two small rooms beside him (1 or 2 unfound), a room across the floor
+            // with more than either but at most 3 - most unfound first crosses the map for it and comes back.
             for (int i = 0; i < eligible.size() && far == null; i++) {
                 for (int j = 0; j < eligible.size() && far == null; j++) {
                     SimAutoSecretTests.Room a = eligible.get(i);
                     SimAutoSecretTests.Room b = eligible.get(j);
-                    if (i == j || a.unfound() != 1 || b.unfound() != 1 || fromHere.get(a.name()) > 2
+                    if (i == j || a.unfound() > 2 || b.unfound() > 2 || fromHere.get(a.name()) > 2
                             || between.get(a.name()).get(b.name()) > 2) {
                         continue;
                     }
                     for (SimAutoSecretTests.Room f : eligible) {
-                        if (f.unfound() == 2 && fromHere.get(f.name()) >= 4 && between.get(a.name()).get(f.name()) >= 4
+                        if (f.unfound() > Math.max(a.unfound(), b.unfound()) && f.unfound() <= 3 && fromHere.get(f.name()) >= 4 && between.get(a.name()).get(f.name()) >= 4
                                 && between.get(b.name()).get(f.name()) >= 4) {
                             n1 = a;
                             n2 = b;
@@ -341,7 +341,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             }
         }
         if (far == null) {
-            failures.add("no floor in 8 had two 1-secret rooms beside the Entrance and a 2-secret one across it");
+            failures.add("no floor in 8 had two small rooms beside the Entrance and a bigger (at most 3) one across it");
             return;
         }
         Map<String, JsonObject> routes = new LinkedHashMap<>();
