@@ -385,7 +385,13 @@ final class ScoreboardEditorCases {
         GuiGraphicsExtractor g = new GuiGraphicsExtractor(mc, state, -1, -1);
         Object cfg = Mod.cfg(CFG);
         Object lines = Mod.staticCall(FEATURE, "previewLines");
-        Mod.staticCall(FEATURE, "drawBoard", g, mc.font, 0, 0, lines, cfg, false);
+        try {
+            // Since mod scoreboard-simple-1015 drawBoard takes the title's row count (the darker title band).
+            int titleRows = (Integer) Mod.field(FEATURE, "previewTitleRows");
+            Mod.staticCall(FEATURE, "drawBoard", g, mc.font, 0, 0, lines, titleRows, cfg, false);
+        } catch (AssertionError | RuntimeException older) {
+            Mod.staticCall(FEATURE, "drawBoard", g, mc.font, 0, 0, lines, cfg, false);
+        }
         TreeMap<Integer, TreeMap<Integer, String>> rows = new TreeMap<>();
         state.forEachText(t -> {
             ScreenRectangle r = TextRuns.box(t);

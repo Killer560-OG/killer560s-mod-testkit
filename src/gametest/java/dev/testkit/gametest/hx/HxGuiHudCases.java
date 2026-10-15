@@ -35,8 +35,8 @@ import static dev.testkit.gametest.hx.HxKit.*;
  * <ul>
  *   <li>716-720 Custom Scoreboard: the board is edited by dragging its own lines in the visual editor (real mouse
  *       input), a line dropped on the right-hand panel comes off, Not Active lines go back by drag (where dropped) or
- *       click (bottom), a clicked line shows its settings, General and Background moved into the editor with their
- *       tooltips, the tab is only the switch and the editor button, and a drag list keeps every wheel turn.</li>
+ *       click (bottom), a clicked line shows its settings, the Settings page (once General and Background) with its
+ *       Advanced section and tooltips, the tab is only the switch and the editor button, and a drag list keeps every wheel turn.</li>
  *   <li>721-722 Quiver Display: the Low Arrow Alert fires once per dip below the threshold and re-arms above it; the
  *       threshold snaps to 20..200 in 20s; the HUD line is drawn in the Text Color, and the settings survive a reload.</li>
  *   <li>723 Spring Boots: real sound packets charge the height, and the box is drawn in the chosen colour and style
@@ -380,14 +380,22 @@ final class HxGuiHudCases {
             c.check(hasList, "EVENTS selected but its event list is not shown");
             layoutCheck(c, s, "Board page, Events selected");
 
-            for (String[] p : new String[][]{{"General", "Hide Vanilla Scoreboard:"}, {"Background", "Background Color"}}) {
-                AbstractWidget pageBtn = widget(c, s, p[0]);
-                c.check(pageBtn != null, "no " + p[0] + " page button");
-                click(c, s, pageBtn.getX() + pageBtn.getWidth() / 2.0, pageBtn.getY() + pageBtn.getHeight() / 2.0);
-                AbstractWidget row = widget(c, s, p[1]);
-                c.check(row != null, "the " + p[0] + " page has no '" + p[1] + "'");
-                layoutCheck(c, s, p[0] + " page");
-            }
+            // One Settings page since mod scoreboard-simple-1015 (the General and Background pages merged): the common
+            // settings, then Advanced, checked closed and then open.
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(SB_CFG), "setEditorAdvancedOpen", false);
+                return null;
+            });
+            AbstractWidget pageBtn = widget(c, s, "Settings");
+            c.check(pageBtn != null, "no Settings page button");
+            click(c, s, pageBtn.getX() + pageBtn.getWidth() / 2.0, pageBtn.getY() + pageBtn.getHeight() / 2.0);
+            c.check(widget(c, s, "Background Color") != null, "the Settings page has no 'Background Color'");
+            layoutCheck(c, s, "Settings page, Advanced closed");
+            AbstractWidget adv = widget(c, s, "▶ §6§lAdvanced"); // CollapsibleSection: arrow, amber header codes, title
+            c.check(adv != null, "the Settings page has no closed Advanced row");
+            click(c, s, adv.getX() + adv.getWidth() / 2.0, adv.getY() + adv.getHeight() / 2.0);
+            c.check(widget(c, s, "Hide Vanilla Scoreboard:") != null, "Advanced opened without 'Hide Vanilla Scoreboard'");
+            layoutCheck(c, s, "Settings page, Advanced open");
             AbstractWidget boardBtn = widget(c, s, "Board");
             click(c, s, boardBtn.getX() + boardBtn.getWidth() / 2.0, boardBtn.getY() + boardBtn.getHeight() / 2.0);
         } finally {
@@ -416,7 +424,8 @@ final class HxGuiHudCases {
                 }
             });
             c.note("Custom Scoreboard tab (on): " + labels);
-            c.check(labels.equals(List.of("Custom Scoreboard: ON", "Open Visual Editor")),
+            // The Theme row (screen sweep, 2026-10-13) picks the editor's own theme; it is part of the tab since then.
+            c.check(labels.equals(List.of("Custom Scoreboard: ON", "Open Visual Editor", "Theme: Theme Default")),
                     "the tab shows " + labels + ", expected only the switch and Open Visual Editor");
         }
     }

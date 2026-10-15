@@ -181,14 +181,14 @@ final class ScreenThemeCases {
         out.add(new Spec("HudEditorScreen", false, mc -> withParent("hud.HudEditorScreen"), (c, s) ->
                 "drag / resize / snap are 399 and 612-614's; " + ((List<?>) Mod.field(s, "shown")).size() + " box(es) listed"));
         out.add(new Spec("ScoreboardEditorScreen", false, mc -> withParent("scoreboard.ScoreboardEditorScreen"), (c, s) -> {
-            press(c, s, button(s, "General"));
+            press(c, s, button(s, "Settings"));
             Screen now = c.onClient(McCompat::screen);
             String page = String.valueOf(Mod.field("scoreboard.ScoreboardEditorScreen", "page"));
-            check(c, "GENERAL".equals(page), "the General page button left the editor on " + page);
+            check(c, "SETTINGS".equals(page), "the Settings page button left the editor on " + page);
             press(c, now, button(now, "Board"));
             String back = String.valueOf(Mod.field("scoreboard.ScoreboardEditorScreen", "page"));
             check(c, "BOARD".equals(back), "the Board page button left the editor on " + back);
-            return "page buttons General -> " + page + ", Board -> " + back;
+            return "page buttons Settings -> " + page + ", Board -> " + back;
         }));
         out.add(new Spec("TermismMenuScreen", false, mc -> withParent("termism.TermismMenuScreen"), (c, s) -> {
             press(c, s, button(s, "Random"));
