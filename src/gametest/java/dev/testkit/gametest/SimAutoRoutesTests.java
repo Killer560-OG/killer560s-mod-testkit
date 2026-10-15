@@ -6720,8 +6720,11 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             });
         }
 
-        /** A plain item lying on relative block (x, F, z), pickable at once. */
+        /** A plain item lying on relative block (x, F, z), pickable at once - with him well away from it first (the last
+         *  run leaves him standing on that very block, and vanilla would pick it up the tick it appeared). */
         private static void dropItem(ClientGameTestContext ctx, int x, int z) {
+            tpRel(ctx, 6.5, 4.5, 0f, 30f);
+            ctx.waitTicks(3);
             BlockPos at = realNow(ctx, x, F, z);
             serverRun(ctx, (server, sp) -> {
                 var item = new net.minecraft.world.entity.item.ItemEntity(server.overworld(), at.getX() + 0.5, at.getY(),
@@ -6885,7 +6888,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             } finally {
                 setArEnum(ctx, "setKillMimic", "KillMimic", "OFF");
                 stopRoute(ctx);
-                ctx.waitTicks(10);
+                // Kill Mimic outlives the route: let it finish (5 s at most) before the next case.
+                long md = LogTap.mark();
+                waitFor(ctx, 120, () -> logHas(md, "Kill Mimic done") || !ctx.computeOnClient(mc -> (Boolean)
+                        ModUnderTest.staticCall("com.killer560.hub.autoroutes.MimicKiller", "isBusy")));
                 giveSlot(ctx, 4, null);
             }
         }
