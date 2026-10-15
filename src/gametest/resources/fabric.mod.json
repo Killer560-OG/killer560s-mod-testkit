@@ -106,6 +106,7 @@
 			"dev.testkit.gametest.SimPuzzleSolveTests$BoulderChestOff",
 			"dev.testkit.gametest.SimPuzzleSolveTests$BoulderMapDoor",
 			"dev.testkit.gametest.SimPuzzleSolveTests$BoulderMapWarp",
+			"dev.testkit.gametest.SimPuzzleSolveTests$BoulderDoorWarp",
 			"dev.testkit.gametest.SimPuzzleSolveTests$ThreeWeirdos",
 			"dev.testkit.gametest.SimPuzzleSolveTests$WaterBoard",
 			"dev.testkit.gametest.SimPuzzleSolveTests$TeleportMaze",

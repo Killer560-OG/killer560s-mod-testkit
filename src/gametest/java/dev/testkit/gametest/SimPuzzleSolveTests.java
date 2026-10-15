@@ -303,6 +303,30 @@ public final class SimPuzzleSolveTests {
         }
     }
 
+    /** {@link BoulderMapWarp}, but onto the doorway spot by a plain teleport, as his own etherwarp lands him there. */
+    public static final class BoulderDoorWarp extends Base {
+        public BoulderDoorWarp() {
+            super(new Spec("boulder-doorwarp", "Boulder", "setAutoBoulderEnabled", "isAutoBoulderEnabled",
+                    "BoulderSolverConfig", "SimBoulderPuzzle", AOTV_SLOT, true, 90, Approach.NONE,
+                    "BoulderSolverFeature.getNextClick", "BoulderSolverFeature.getRemainingClicks"));
+        }
+
+        @Override
+        boolean secretAura() {
+            return true;
+        }
+
+        @Override
+        boolean mapWarp() {
+            return true;
+        }
+
+        @Override
+        boolean ownWarp() {
+            return true;
+        }
+    }
+
     /**
      * Teleport Maze inside the Dungeon Autopilot's budget for a puzzle (30 s; 142-sim-autopilot2 saw Auto Teleport Maze
      * walk back through the maze "taking the diagonal again" until that ran out, on two floors of three). Each run draws
@@ -405,6 +429,12 @@ public final class SimPuzzleSolveTests {
 
         /** Boulder only: placed outside the doorway, then brought in by a REAL Interactive Map press on the room. */
         boolean mapWarp() {
+            return false;
+        }
+
+        /** Boulder only (with {@link #mapWarp}): brought onto the doorway spot by a plain teleport instead of a map trip -
+         *  what an etherwarp of his own does - so ClearExecutor's arrival counter never moves. */
+        boolean ownWarp() {
             return false;
         }
 
@@ -720,7 +750,7 @@ public final class SimPuzzleSolveTests {
                 // killer560 (2026-10-15): "Auto boulder does not work if i ehterwarp to the room on interactive map but
                 // it does if i step into the room." A real map press on Boulder from the test floor outside its doorway,
                 // the same call the map's click makes (AutoClearUtils.pathToRoom), and the auto must start from it.
-                Boolean pressed = ctx.computeOnClient(mc -> {
+                Boolean pressed = ownWarp() ? Boolean.TRUE : ctx.computeOnClient(mc -> {
                     Object layout = ModUnderTest.staticCall("com.killer560.hub.livemap.DungeonLayout", "capture");
                     int rooms = (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[]{}, new Object[]{});
                     for (int r = 0; r < rooms; r++) {
@@ -734,7 +764,14 @@ public final class SimPuzzleSolveTests {
                     }
                     return null;
                 });
-                println(name, "map press on Boulder from outside the doorway: " + pressed);
+                if (ownWarp()) {
+                    double[] door = ctx.computeOnClient(mc -> {
+                        var d = rel(mc, 15, 69, -2);
+                        return new double[]{d.getX() + 0.5, d.getY(), d.getZ() + 0.5};
+                    });
+                    teleport(ctx, name, door, "by a teleport (no map trip) onto Boulder's doorway spot, relative 15, 68, -2");
+                }
+                println(name, (ownWarp() ? "teleport" : "map press") + " on Boulder from outside the doorway: " + pressed);
                 if (!Boolean.TRUE.equals(pressed)) {
                     throw new AssertionError("the Interactive Map refused the press on Boulder (" + pressed + ")");
                 }
