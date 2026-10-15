@@ -68,6 +68,9 @@ final class HxBloodCampCases {
         s.test("185-hx-bloodcamp-floor-mobs", HxBloodCampCases::floorMobs);
         s.test("186-hx-bloodcamp-attack-speed", HxBloodCampCases::attackSpeed);
         s.test("187-hx-bloodcamp-never-miss", HxBloodCampCases::neverMiss);
+        // bloodcamp-3-1015: any range with whatever he holds, and human clicks between the hits.
+        s.test("188-hx-bloodcamp-ranged", HxBloodCampCases::ranged);
+        s.test("189-hx-bloodcamp-human-clicks", HxBloodCampCases::humanClicks);
     }
 
     // ---- shared -----------------------------------------------------------------------------------------------------
@@ -125,6 +128,11 @@ final class HxBloodCampCases {
                 .with(BC_CFG, "ShowOverlay", true)
                 .with(BC_CFG, "CountdownStartSound", false)
                 .with(BC_CFG, "KillSound", false);
+        if (Mod.isCheat()) {
+            // Clicks between the registering hits (bloodcamp-3-1015) would add attacks every case here counts; 189
+            // switches them back on to test them.
+            s.custom(() -> Mod.staticCall(BC, "setHumanClicks", false), () -> Mod.staticCall(BC, "setHumanClicks", true));
+        }
         if (Mod.isCheat()) {
             s.with(BC_CFG, "TriggerBotEnabled", false).with(BC_CFG, "AuraEnabled", false)
                     .with(BC_CFG, "AuraFreecam", false).with(BC_CFG, "AutoDetectLag", true)
@@ -911,6 +919,166 @@ final class HxBloodCampCases {
             c.check(Math.abs((off.killAt - off.triggerAt) - 1.0) < 0.01, "Never Miss off: the first click was not one tick"
                     + " after the kill timer (" + (off.killAt - off.triggerAt) + ")");
         } finally {
+            c.hx().removeStands();
+        }
+    }
+
+    // ---- bloodcamp-3-1015 -------------------------------------------------------------------------------------------
+
+    /** A husk 6 blocks out (+z), out of melee reach, inside his room tile; NoGravity because it is off the platform. */
+    private static final double[] FAR = {-419.5, -413.5};
+    private static final String SHORTBOW = "minecraft:bow[lore=[\"Shortbow: Instantly shoots!\"]]";
+    private static final String MAGE = "minecraft:blaze_rod";
+
+    private static List<Long> useItemsSince(Session c, long since) {
+        List<Long> out = new ArrayList<>();
+        for (JsonObject e : c.hx().events(since, "use_item")) {
+            out.add(e.get("tick").getAsLong());
+        }
+        return out;
+    }
+
+    private static int kind(Session c, String k) {
+        return c.onClient(mc -> (Integer) Mod.staticCall(BC, "clicksOfKind", k));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Long> clientTicks(Session c, String method) {
+        return c.onClient(mc -> (List<Long>) Mod.staticCall(BC, method));
+    }
+
+    /** The Aura on one far husk that takes no damage, holding {@code stack}, for {@code ticks}; returns
+     *  {swings, uses, attacks at server, use_item at server} and fills {@code regGaps} with the client's registering gaps. */
+    private static long[] farAura(Session c, String stack, int ticks, List<Long> regGaps) {
+        holding(c, stack);
+        stand(c, 0f, 0f);
+        int sw0 = kind(c, "SWING");
+        int use0 = kind(c, "USE");
+        long since = c.hx().head();
+        c.server().command(String.format(Locale.ROOT, "summon husk %.2f 151 %.2f {Tags:[\"bcfloor\"],NoAI:1b,NoGravity:1b,"
+                + "Silent:1b,PersistenceRequired:1b,Health:20f,Invulnerable:1b}", FAR[0], FAR[1]));
+        try {
+            c.ctx().waitTicks(ticks);
+        } finally {
+            c.server().command("kill @e[tag=bcfloor]");
+            c.ctx().waitTicks(5);
+        }
+        List<Long> reg = clientTicks(c, "recentClickTicks");
+        int n = kind(c, "SWING") - sw0 + kind(c, "USE") - use0;
+        regGaps.addAll(gaps(reg.subList(Math.max(0, reg.size() - n), reg.size())));
+        return new long[]{kind(c, "SWING") - sw0, kind(c, "USE") - use0, attacksSince(c, since).size(),
+                useItemsSince(c, since).size()};
+    }
+
+    // ---- 188 --------------------------------------------------------------------------------------------------------
+
+    private static void ranged(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            if (cheat) {
+                s.with(BC_CFG, "AuraEnabled", true);
+            }
+            watcher(c, WATCHER_IN);
+            // A mage weapon: a left click (swing) at a husk 6 blocks out - the beam's click, no melee attack.
+            List<Long> mageGaps = new ArrayList<>();
+            long[] mage = farAura(c, MAGE, 70, mageGaps);
+            c.note("mage weapon, husk 6 blocks out: " + mage[0] + " swing(s), " + mage[1] + " use(s), " + mage[2]
+                    + " attack(s) and " + mage[3] + " use_item at the server; registering gaps " + mageGaps);
+            // A shortbow: a right click (use) each shot.
+            List<Long> bowGaps = new ArrayList<>();
+            long[] bow = farAura(c, SHORTBOW, 70, bowGaps);
+            c.note("shortbow, husk 6 blocks out: " + bow[0] + " swing(s), " + bow[1] + " use(s), " + bow[2]
+                    + " attack(s) and " + bow[3] + " use_item at the server; registering gaps " + bowGaps);
+            // The same far husk behind a wall: nothing.
+            c.server().command("fill -424 151 -416 -415 154 -416 minecraft:stone");
+            long[] walled;
+            List<Long> wallGaps = new ArrayList<>();
+            try {
+                walled = farAura(c, MAGE, 50, wallGaps);
+            } finally {
+                c.server().command("fill -424 151 -416 -415 154 -416 minecraft:air");
+            }
+            c.note("mage weapon, husk behind a wall: " + walled[0] + " swing(s), " + walled[1] + " use(s)");
+            // The Trigger Bot with a shortbow on a trip's mob: a use, not an attack.
+            if (cheat) {
+                c.onClient(mc -> {
+                    Mod.call(Mod.cfg(BC_CFG), "setAuraEnabled", false);
+                    Mod.call(Mod.cfg(BC_CFG), "setTriggerBotEnabled", true);
+                    return null;
+                });
+            }
+            holding(c, SHORTBOW);
+            stand(c, 0f, 0f);
+            long sinceT = c.hx().head();
+            Trip t = trip(c, Mob.HURTABLE, true, 20, null);
+            List<Long> tUses = useItemsSince(c, sinceT);
+            c.note("Trigger Bot with a shortbow: " + fmt(t) + "; use_item at the server " + tUses);
+            if (!cheat) {
+                c.check(mage[0] + mage[1] + bow[0] + bow[1] == 0 && t.clicks == 0, "legit jar: something clicked");
+                return;
+            }
+            c.check(mage[0] >= 3 && mage[1] == 0 && mage[2] == 0, "mage weapon: want left clicks (swings) at the far husk"
+                    + " and no melee attack, got " + mage[0] + " swing(s), " + mage[1] + " use(s), " + mage[2] + " attack(s)");
+            c.check(bow[1] >= 3 && bow[3] >= 3 && bow[0] == 0, "shortbow: want uses at the far husk, got " + bow[1]
+                    + " (server " + bow[3] + "), swings " + bow[0]);
+            c.check(mageGaps.stream().allMatch(x -> x >= 10) && bowGaps.stream().allMatch(x -> x >= 10),
+                    "a click came inside the 10-tick cap: mage " + mageGaps + ", shortbow " + bowGaps);
+            c.check(walled[0] + walled[1] == 0, "the Aura clicked at a husk behind a wall");
+            c.check(t.clicks >= 1 && !tUses.isEmpty() && t.serverAttacks.isEmpty(),
+                    "Trigger Bot with a shortbow: want a use and no attack");
+        } finally {
+            holding(c, "minecraft:air");
+            c.hx().removeStands();
+        }
+    }
+
+    // ---- 189 --------------------------------------------------------------------------------------------------------
+
+    private static void humanClicks(Session c) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: no Aura");
+            return;
+        }
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "AuraEnabled", true);
+            c.onClient(mc -> {
+                Mod.staticCall(BC, "setHumanClicks", true);
+                return null;
+            });
+            watcher(c, WATCHER_IN);
+            holding(c, "minecraft:iron_sword");
+            stand(c, 0f, 0f);
+            int f0 = intStat(c, "fillerClicks");
+            List<Long> attacks = floorHusks(c, ",Health:20f,Invulnerable:1b", new double[][]{FLOOR[0]}, 200, false);
+            int fillers = intStat(c, "fillerClicks") - f0;
+            List<Long> all = clientTicks(c, "allClickTicks");
+            List<Long> reg = clientTicks(c, "recentClickTicks");
+            long first = attacks.isEmpty() ? Long.MAX_VALUE : 0;
+            // The last 200 ticks' worth: both lists hold this run's clicks at their ends.
+            int regN = Math.min(reg.size(), 20);
+            List<Long> regGaps = gaps(reg.subList(reg.size() - regN, reg.size()));
+            List<Long> allGaps = gaps(all.subList(Math.max(0, all.size() - (regN + fillers)), all.size()));
+            double mean = allGaps.stream().mapToLong(Long::longValue).average().orElse(0);
+            double sd = Math.sqrt(allGaps.stream().mapToDouble(x -> (x - mean) * (x - mean)).average().orElse(0));
+            java.util.Map<Long, Long> counts = new java.util.TreeMap<>();
+            for (long g : allGaps) {
+                counts.merge(g, 1L, Long::sum);
+            }
+            long top = counts.values().stream().mapToLong(Long::longValue).max().orElse(0);
+            double cps = mean > 0 ? 20.0 / mean : 0;
+            long minGap = allGaps.stream().mapToLong(Long::longValue).min().orElse(0);
+            c.note(String.format(Locale.ROOT, "%d between-hits clicks; all-click gaps %s (mean %.2f ticks = %.1f CPS, sd"
+                            + " %.2f, most common gap %d of %d); registering gaps %s; server attacks %d",
+                    fillers, counts, mean, cps, sd, top, allGaps.size(), regGaps, attacks.size()));
+            c.check(fillers >= 5, "only " + fillers + " clicks went between the registering hits");
+            c.check(regGaps.stream().allMatch(g -> g == 10), "the registering hits were not exactly the 10-tick cap"
+                    + " apart: " + regGaps);
+            c.check(sd > 0.3 && top * 10 < allGaps.size() * 6, "the click stream is too regular (sd " + sd
+                    + ", most common gap " + top + " of " + allGaps.size() + ")");
+            c.check(cps >= 4 && cps <= 14 && minGap >= 2, String.format(Locale.ROOT,
+                    "click rate %.1f CPS (shortest gap %d ticks) is outside a human's 4-14", cps, minGap));
+        } finally {
+            holding(c, "minecraft:air");
             c.hx().removeStands();
         }
     }
