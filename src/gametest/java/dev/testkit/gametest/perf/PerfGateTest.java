@@ -144,7 +144,6 @@ public class PerfGateTest implements FabricClientGameTest {
             } catch (Throwable ignored) {
                 // restoring config must not mask the real failure
             }
-            PerfBench.close(ctx);
             for (String line : report) {
                 System.out.println("[" + NAME + "] " + line);
             }
@@ -155,6 +154,7 @@ public class PerfGateTest implements FabricClientGameTest {
             } catch (Exception e) {
                 System.out.println("[" + NAME + "] could not write perf-gate.txt: " + e);
             }
+            PerfBench.close(ctx);
         }
         if (!failures.isEmpty()) {
             throw new AssertionError("[" + NAME + "] over budget (us per frame at 144 fps):\n  "

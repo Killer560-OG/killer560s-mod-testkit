@@ -248,6 +248,7 @@ final class PerfBench {
     static void close(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> BenchCamera.stop());
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave"));
+        ctx.waitTicks(20);
         ctx.runOnClient(mc -> mc.execute(() -> {
             if (mc.level != null) {
                 mc.level.disconnect(net.minecraft.network.chat.Component.literal("bench over"));

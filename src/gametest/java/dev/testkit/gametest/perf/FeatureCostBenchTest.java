@@ -139,7 +139,6 @@ public class FeatureCostBenchTest implements FabricClientGameTest {
             } catch (Throwable ignored) {
                 // restoring config must not mask the real failure
             }
-            PerfBench.close(ctx);
             for (String line : report) {
                 System.out.println("[" + NAME + "] " + line);
             }
@@ -152,6 +151,7 @@ public class FeatureCostBenchTest implements FabricClientGameTest {
             } catch (Exception e) {
                 System.out.println("[" + NAME + "] could not write the report: " + e);
             }
+            PerfBench.close(ctx); // after the report is on disk: a hung disconnect must not lose 45 minutes of numbers
         }
     }
 
