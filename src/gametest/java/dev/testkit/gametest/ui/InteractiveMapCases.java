@@ -23,9 +23,10 @@ import java.util.Locale;
  * every map action answers with a chat line, which is the proof each click was actually dispatched:
  * <ul>
  *   <li>a LEFT drag across the map never changes zoom/pan, and its release still acts ("not in a dungeon");</li>
- *   <li>a RIGHT drag (bound to Locked Door, as on his instance) pans and does NOT run Locked Door; a right click
- *       that does not move runs it ("No locked doors found.") and does not pan;</li>
- *   <li>a MIDDLE drag (bound to Go + Secret) pans without acting; the legend's Reset view row puts the view back;
+ *   <li>killer560 2026-10-14, "I should never be able to drag the map around inside of interactive map it should be
+ *       fixed": a RIGHT drag (bound to Locked Door, as on his instance) and a MIDDLE drag (bound to Go + Secret) do not
+ *       pan either, and their release acts as a click does; a right click runs Locked Door ("No locked doors found.");
+ *       the legend has no Pan row; scroll zoom still works and the legend's Reset view row puts the view back;
  *       the Controls header toggles the full list;</li>
  *   <li>the legend's text/swatch boxes never overlap each other, stay inside the legend panel and the screen, and
  *       the panel does not overlap the map - collapsed and expanded, at 854x480 GUI 2 and 1920x1080 GUI 3 with
@@ -197,35 +198,48 @@ final class InteractiveMapCases {
             c.problem("a right CLICK panned the view");
         }
 
-        // RMB drag: pans, does not act.
+        // RMB drag: no pan, and its release runs Locked Door like a click.
         m = LogTap.mark();
         drag(c, s, 1, cx, cy, dx);
         float[] v3 = view(c, s);
         boolean doorOnDrag = said(m, NO_LOCKED);
-        c.note("RMB drag: " + fmt(v2) + " -> " + fmt(v3) + "; Locked Door ran: " + doorOnDrag);
-        if (v3[1] - v2[1] < dx * 0.5) {
-            c.problem(String.format(Locale.ROOT, "a RIGHT drag of %.0f units panned only %.1f", dx, v3[1] - v2[1]));
+        c.note("RMB drag: " + fmt(v2) + " -> " + fmt(v3) + "; Locked Door ran on release: " + doorOnDrag);
+        if (v3[0] != v2[0] || v3[1] != v2[1] || v3[2] != v2[2]) {
+            c.problem("a RIGHT drag moved the map: " + fmt(v2) + " -> " + fmt(v3));
         }
-        if (doorOnDrag) {
-            c.problem("a right DRAG also ran Locked Door");
+        if (!doorOnDrag) {
+            c.problem("a right drag's release did not run Locked Door - was the press seen at all?");
         }
 
-        // MMB drag (bound to Go + Secret): pans, does not act.
+        // MMB drag (bound to Go + Secret): no pan, its release acts.
         m = LogTap.mark();
         drag(c, s, 2, cx, cy, -dx);
         float[] v4 = view(c, s);
         boolean secretOnDrag = said(m, NOT_IN_DUNGEON);
-        c.note("MMB drag: " + fmt(v3) + " -> " + fmt(v4) + "; Go + Secret ran: " + secretOnDrag);
-        if (v3[1] - v4[1] < dx * 0.5) {
-            c.problem("a MIDDLE drag did not pan back");
+        c.note("MMB drag: " + fmt(v3) + " -> " + fmt(v4) + "; Go + Secret ran on release: " + secretOnDrag);
+        if (v4[0] != v3[0] || v4[1] != v3[1] || v4[2] != v3[2]) {
+            c.problem("a MIDDLE drag moved the map: " + fmt(v3) + " -> " + fmt(v4));
         }
-        if (secretOnDrag) {
-            c.problem("a middle DRAG also ran Go + Secret");
+        if (!secretOnDrag) {
+            c.problem("a middle drag's release did not run Go + Secret - was the press seen at all?");
         }
 
-        // Move the view, then the legend's Reset view row.
-        drag(c, s, 1, cx, cy, dx);
+        // No Pan row in the legend.
+        if (boxOf(c, s, "Pan") != null) {
+            c.problem("the legend still lists a Pan control");
+        }
+
+        // Scroll zoom moves the view (the control that the drags above could not), then the legend's Reset view row.
+        double[] at = toWindow(c, s, cx + dx / 2, cy);
+        c.ctx().getInput().setCursorPos(at[0], at[1]);
         c.ticks(2);
+        c.ctx().getInput().scroll(1);
+        c.ticks(3);
+        float[] vz = view(c, s);
+        c.note("scroll up: " + fmt(v4) + " -> " + fmt(vz));
+        if (vz[0] <= v4[0]) {
+            c.problem("scrolling did not zoom the map - the no-pan checks above may be reading a dead screen");
+        }
         int[] reset = boxOf(c, s, "Reset view");
         if (reset == null) {
             c.problem("the view is moved (" + fmt(view(c, s)) + ") but the legend shows no Reset view row");

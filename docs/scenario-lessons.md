@@ -535,3 +535,27 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   (60 ticks), counting water in a 17x5x17 box. Museum must keep both still with `SimStaticWater.frozenTicks` rising; Water
   Board must drain the lone block and spread the source with `allowedTicks` rising - the same writes flowing there is the
   control for the Museum half. First runs, 26.1.2 and 26.2 alike: Museum 9 -> 9 (frozen +2), Water Board 1 -> 7 (allowed +24).
+- 96-ar-1015-landpickup / -earlyskip / -mimicskip (ar-mainserver, 2026-10-15). landpickup: #1 warps onto #2 (await 1) where
+  an item lies; `harness/HypixelOrder` (mixin at RETURN of `ServerPlayer.teleportTo`) takes it in the teleport's own step, as
+  Hypixel does - a vanilla integrated server picks it up a tick later, after the client has seen the landing, so without the
+  hook neither jar shows the bug. Run 1 (OTHER: a take packet naming another collector) must leave #2 waiting; run 2 (SELF)
+  must log the pickup BEFORE "Landed in node #2" or it proves nothing. Drop the item with him off the tile: the last run
+  leaves him standing on it and vanilla took it the tick it appeared (first run, "items taken 0"). earlyskip: `Latency` 250 ms
+  makes #1's flight ~7 ticks so a real left click lands inside it. mimicskip: a plain trapped chest keeps Kill Mimic's
+  Spirit Sceptre going for 5 s; it outlives the route, so the case waits it out. Old jar 3/3 FAIL, new 3/3 PASS.
+- 96-ar-1015-warpclick (ar-warp-after-click, 2026-10-15): an await:1 etherwarp node; `harness/HypixelUseAfterClick` (mixin at
+  HEAD of `handleUseItemOn`/`handleUseItem`, server thread only) ignores a use of the same item within 2 server ticks of a
+  block click, as Hypixel did to six warps in his 2026-10-14 log. Two controls under the same hook must land (a left-click
+  skip with the AOTV held; the lever clicked with an empty hand, the route swapping), then the lever clicked with the AOTV
+  held must land within 20 ticks, 8 blocks along. Old jar: ignored at gap 1, travelled 0.00, FAIL; new: held 3 ticks,
+  landed 6 ticks after the click. `waitLanded(ctx, x, z, 0)` checks NOTHING (its loop runs `ticks` times) and always
+  returns null - the first run of this case read every landing as "never"; earlyskip's in-flight checks and mimicskip's
+  "not fired yet" check still pass 0 and so cannot fail.
+- 385-ui-interactive-map (2026-10-15): no drag with any button pans, and a right/middle drag's release acts; the view is moved
+  by scroll zoom for the Reset view check. Old jar: RMB drag panned 75.5.
+- 1412-sim-lever-cobble, 1414-sim-lever-golden-oasis, 1415-sim-redstone-key (SimWorldTests, mod sim-levers-1015,
+  2026-10-15): 1412/1414 reuse `caseLeverDoors` on the two levers the sim PLACES (Cobble Wall Pillar's door box includes the
+  12 barriers behind its 12 bars - count both). 1415 clicks Golden Oasis' node with no key first (the control: nothing may
+  change), then the key (block to air, not a secret), then the node (node and the 3-block strip gone, `SimScore.foundInRoom`
+  +1, and an armor stand wearing the key profile visible to the CLIENT at node y - 2). Main jar: 0 levers armed, and the key
+  position holds a lever, not a key head.
