@@ -38,7 +38,10 @@ import java.util.concurrent.atomic.AtomicReference;
  *       level at every door of the room: the 3x7 passage at the doorway floor is clear three high with floor under it,
  *       you can walk on from it 4..6 blocks into EACH room (solid underfoot, feet and head clear, one block up or any drop), and the
  *       carve removed no more than {@value #MAX_SOLID_REMOVED} solid capture blocks inside the room (wall plane and the
- *       two columns behind it, the opening's lower three rows).</li>
+ *       two columns behind it, the opening's lower three rows) - at a doorway the mod measures for the room. A door that
+ *       is the fill pass's carve through the room's wall (no doorway of the room there, by design) is held to the walk
+ *       checks only; its count is printed. The re-captured Mage (2026-10-15, doorways W0 and E1) drew one through its
+ *       south wall: 9 blocks, its one-thick wall plane, walkable both ways.</li>
  * </ol>
  * On the main jar of 2026-10-15 the plan uses both edges and the built door into Mage/Quad Lava is a dead end in stone.
  * Sim only, so no GrimAC.
@@ -257,6 +260,49 @@ public class SimDoorHeightTests implements FabricClientGameTest {
         }
     }
 
+    /**
+     * The door cells (11-grid index) of every doorway the mod measures for {@code room} on this floor: RoomDoors.of,
+     * turned by the room's rotation, through doorCells. A door of the room NOT in this set is the fill pass's carve
+     * through a wall (SimFloorLayout's last resort, "X at a,b through Room" in its WARN), which cuts the wall by design.
+     */
+    private static Set<Integer> measuredDoorCells(String[] names, int[] cellRoom, int[] cellRotation, String room) {
+        Set<Integer> out = new java.util.HashSet<>();
+        int idx = -1;
+        for (int n = 0; n < names.length; n++) {
+            if (room.equals(names[n])) {
+                idx = n;
+            }
+        }
+        int minX = Integer.MAX_VALUE;
+        int minZ = Integer.MAX_VALUE;
+        int anyCell = -1;
+        for (int cell = 0; cell < cellRoom.length && idx >= 0; cell++) {
+            if (cellRoom[cell] == idx && (cell % GRID) % 2 == 0 && (cell / GRID) % 2 == 0) {
+                minX = Math.min(minX, cell % GRID);
+                minZ = Math.min(minZ, cell / GRID);
+                anyCell = cell;
+            }
+        }
+        Object mask = ModUnderTest.staticCall(ROOM_DOORS, "of", new Class<?>[]{String.class}, new Object[]{room});
+        if (anyCell < 0 || mask == null) {
+            return out;
+        }
+        try {
+            Class<?> maskClass = Class.forName(ROOM_DOORS + "$Mask");
+            Object turned = ModUnderTest.staticCall(ROOM_DOORS, "rotate", new Class<?>[]{maskClass, int.class},
+                    new Object[]{mask, cellRotation[anyCell]});
+            @SuppressWarnings("unchecked")
+            List<int[]> cells = (List<int[]>) ModUnderTest.staticCall(ROOM_DOORS, "doorCells",
+                    new Class<?>[]{maskClass, int.class, int.class}, new Object[]{turned, minX / 2, minZ / 2});
+            for (int[] d : cells) {
+                out.add((2 * d[1] + DZ[d[2]]) * GRID + 2 * d[0] + DX[d[2]]);
+            }
+            return out;
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private static void build(ClientGameTestContext ctx, String code) {
         long before = Scenario.simBuildCount(ctx);
         long mark = LogTap.mark();
@@ -290,6 +336,7 @@ public class SimDoorHeightTests implements FabricClientGameTest {
             int[] cellDoor = (int[]) ModUnderTest.call(decoded, "cellDoor", new Class<?>[]{}, new Object[]{});
             int[] cellRotation = (int[]) ModUnderTest.call(decoded, "cellRotation", new Class<?>[]{}, new Object[]{});
             int dy = (Integer) ModUnderTest.staticCall(ALTITUDE, "offset");
+            Set<Integer> measured = measuredDoorCells(names, cellRoom, cellRotation, room);
             Map<String, Object> captures = new HashMap<>();
             for (String n : names) {
                 captures.put(n, ModUnderTest.staticCall(ROOM_LIBRARY, "get", new Class<?>[]{String.class}, new Object[]{n}));
@@ -303,7 +350,7 @@ public class SimDoorHeightTests implements FabricClientGameTest {
             server.execute(() -> {
                 try {
                     out.set(checkOnServer(server.overworld(), room, names, cellRoom, cellDoor, cellRotation, dy, captures,
-                            centres));
+                            centres, measured));
                 } catch (Throwable t) {
                     out.set(t);
                 }
@@ -318,7 +365,7 @@ public class SimDoorHeightTests implements FabricClientGameTest {
 
     private static Check checkOnServer(ServerLevel level, String room, String[] names, int[] cellRoom, int[] cellDoor,
                                        int[] cellRotation, int dy, Map<String, Object> captures,
-                                       Map<Integer, BlockPos> centres) throws Exception {
+                                       Map<Integer, BlockPos> centres, Set<Integer> measured) throws Exception {
         List<String> lines = new ArrayList<>();
         List<String> fail = new ArrayList<>();
         int f = DOOR_FLOOR + dy;
@@ -344,7 +391,9 @@ public class SimDoorHeightTests implements FabricClientGameTest {
             doors++;
             BlockPos c = centres.get(cell);
             String other = names[aIs ? rb : ra];
-            String label = "door at cell (" + gx + "," + gz + ") " + room + " <-> " + other;
+            boolean doorway = measured.contains(cell);
+            String label = "door at cell (" + gx + "," + gz + ") " + room + " <-> " + other
+                    + (doorway ? "" : " (fill-pass carve through " + room + "'s wall, not a doorway of it)");
             // 1. The passage: d -3..3 across the seam, w -1..1, three high, floored.
             int blocked = 0;
             int noFloor = 0;
@@ -401,7 +450,7 @@ public class SimDoorHeightTests implements FabricClientGameTest {
             }
             if (removed < 0) {
                 fail.add(label + ": the capture could not be lined up with the world (" + removed + ")");
-            } else if (removed > MAX_SOLID_REMOVED) {
+            } else if (doorway && removed > MAX_SOLID_REMOVED) {
                 fail.add(label + ": the carve cut " + removed + " solid block(s) out of " + room + "'s capture");
             }
         }
