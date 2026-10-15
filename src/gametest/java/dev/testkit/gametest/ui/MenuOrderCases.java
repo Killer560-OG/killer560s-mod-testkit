@@ -217,7 +217,9 @@ final class MenuOrderCases {
                                 // not a row of its tab).
                                 java.util.Set<String> shown = new java.util.HashSet<>();
                                 for (Line l : e.getValue()) {
-                                    shown.add(rowName(l.label()));
+                                    if (l.sw()) {
+                                        shown.add(rowName(l.label()));
+                                    }
                                 }
                                 masters.retainAll(shown);
                                 if (masters.isEmpty()) {
