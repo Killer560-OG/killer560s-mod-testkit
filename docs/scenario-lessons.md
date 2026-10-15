@@ -543,5 +543,13 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   leaves him standing on it and vanilla took it the tick it appeared (first run, "items taken 0"). earlyskip: `Latency` 250 ms
   makes #1's flight ~7 ticks so a real left click lands inside it. mimicskip: a plain trapped chest keeps Kill Mimic's
   Spirit Sceptre going for 5 s; it outlives the route, so the case waits it out. Old jar 3/3 FAIL, new 3/3 PASS.
+- 96-ar-1015-warpclick (ar-warp-after-click, 2026-10-15): an await:1 etherwarp node; `harness/HypixelUseAfterClick` (mixin at
+  HEAD of `handleUseItemOn`/`handleUseItem`, server thread only) ignores a use of the same item within 2 server ticks of a
+  block click, as Hypixel did to six warps in his 2026-10-14 log. Two controls under the same hook must land (a left-click
+  skip with the AOTV held; the lever clicked with an empty hand, the route swapping), then the lever clicked with the AOTV
+  held must land within 20 ticks, 8 blocks along. Old jar: ignored at gap 1, travelled 0.00, FAIL; new: held 3 ticks,
+  landed 6 ticks after the click. `waitLanded(ctx, x, z, 0)` checks NOTHING (its loop runs `ticks` times) and always
+  returns null - the first run of this case read every landing as "never"; earlyskip's in-flight checks and mimicskip's
+  "not fired yet" check still pass 0 and so cannot fail.
 - 385-ui-interactive-map (2026-10-15): no drag with any button pans, and a right/middle drag's release acts; the view is moved
   by scroll zoom for the Reset view check. Old jar: RMB drag panned 75.5.
