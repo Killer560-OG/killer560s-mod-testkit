@@ -141,6 +141,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
 
     private static void handoffBody(ClientGameTestContext ctx, List<String> failures) {
         enterFloor(ctx);
+        awaitWarmGraph(ctx, HANDOFF);
         List<SimAutoSecretTests.Room> rooms = ctx.computeOnClient(SimAutoSecretTests::readRooms);
         List<SimAutoSecretTests.Room> eligible = eligible(rooms);
         eligible.sort((a, b) -> Integer.compare(b.unfound(), a.unfound()));
@@ -182,8 +183,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                     int mode = targets.size();
                     modeOf.put(room, mode);
                     if (mode == 1) {
-                        markAllFound(ctx, room);
-                        markedAt.put(room, tick(ctx));
+                        markedAt.put(room, markAllFound(ctx, room));
                         println(HANDOFF, "target 1 " + room + ": every secret marked found while he travels there");
                     } else {
                         println(HANDOFF, "target " + mode + " " + room + (mode == 2 ? ": left unfound"
@@ -196,8 +196,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                     Integer mode = modeOf.get(f.group(1));
                     if (mode != null && mode == 3) {
                         ctx.waitTicks(1);
-                        markAllFound(ctx, f.group(1));
-                        markedAt.put(f.group(1), tick(ctx));
+                        markedAt.put(f.group(1), markAllFound(ctx, f.group(1)));
                     }
                 }
             }
@@ -342,6 +341,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             routes.put(r.name(), route);
         }
         SimAutoSecretTests.writeRoutes(ctx, routes);
+        awaitWarmGraph(ctx, ORDER);
         Vec3 start = ctx.computeOnClient(mc -> mc.player.position());
         Run fresh = runOrder(ctx, false, start, routes.keySet());
         Run old = runOrder(ctx, true, start, routes.keySet());
@@ -441,8 +441,9 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
      * as 102 supplies a wither door).
      */
     @SuppressWarnings("unchecked")
-    private static void markAllFound(ClientGameTestContext ctx, String room) {
+    private static long markAllFound(ClientGameTestContext ctx, String room) {
         AtomicReference<Boolean> done = new AtomicReference<>();
+        AtomicReference<Long> at = new AtomicReference<>();
         ctx.runOnClient(mc -> {
             Object entry = ModUnderTest.staticCall(DB, "lookupByName", new Class<?>[]{String.class}, new Object[]{room});
             int secrets;
@@ -476,8 +477,33 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             } catch (ReflectiveOperationException e) {
                 throw new RuntimeException(e);
             }
+            at.set((Long) ModUnderTest.staticCall(EXECUTOR, "clientTick"));
         });
         ctx.waitFor(mc -> done.get() != null, 200);
+        return at.get();
+    }
+
+    /**
+     * Waits (at most 120 s) for the Interactive Map's floor graph to be warm, as it is a while into a real run: on a cold
+     * graph one search takes a second, and a one-node route ends long before it.
+     */
+    private static void awaitWarmGraph(ClientGameTestContext ctx, String name) {
+        int waited = 0;
+        boolean warm = false;
+        for (; waited < 2400 && !warm; waited += 10) {
+            warm = ctx.computeOnClient(mc -> {
+                try {
+                    return (Boolean) ModUnderTest.staticCall("com.killer560.hub.livemap.autoclear.EtherwarpPathfinder",
+                            "graphWarm");
+                } catch (RuntimeException e) {
+                    return true;   // a jar without the call: nothing to wait for
+                }
+            });
+            if (!warm) {
+                ctx.waitTicks(10);
+            }
+        }
+        println(name, "floor graph warm: " + warm + " after " + waited / 20.0 + " s");
     }
 
     private static void teleport(ClientGameTestContext ctx, Vec3 to) {

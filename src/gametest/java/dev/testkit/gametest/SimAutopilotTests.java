@@ -102,8 +102,9 @@ public class SimAutopilotTests implements FabricClientGameTest {
         }
     }
 
-    /** One logged decision: the pick (null for a door/finish line) and every ranked candidate. */
-    private record Decision(Cand pick, List<Cand> ranked, String line) {
+    /** One logged decision: the pick (null for a door/finish line), every ranked candidate, and the tour it planned
+     *  (mod ac-optimize-1015: the order of the tier's candidates; empty when the pick was by rate alone). */
+    private record Decision(Cand pick, List<Cand> ranked, String line, List<String> tour) {
     }
 
     private static final class Result {
@@ -397,7 +398,11 @@ public class SimAutopilotTests implements FabricClientGameTest {
             if (d.pick().kind().equals("SECRET")) {
                 lastSecret = i;
                 double best = d.ranked().stream().filter(c -> c.kind().equals("SECRET")).mapToDouble(Cand::rate).max().orElse(0);
-                if (d.pick().rate() + 1e-6 < best) {
+                if (!d.tour().isEmpty()) {
+                    if (!d.tour().get(0).equals(d.pick().room())) {
+                        failures.add("party: route pick " + d.pick().room() + " is not its tour's first (" + d.tour() + ")");
+                    }
+                } else if (d.pick().rate() + 1e-6 < best) {
                     failures.add("party: route pick " + d.pick().room() + " rate " + d.pick().rate() + " < best route " + best);
                 }
             } else if (firstClear < 0) {
@@ -735,7 +740,14 @@ public class SimAutopilotTests implements FabricClientGameTest {
         }
         ctx.waitTicks(5);
         r.log = LogTap.since(mark);
+        List<String> lastTour = List.of();
         for (String l : r.log) {
+            int tl = l.indexOf("[Autopilot] tour: ");
+            if (tl >= 0) {
+                String body = l.substring(tl + 18);
+                lastTour = List.of(body.substring(0, Math.max(0, body.indexOf(" | "))).split(" > "));
+                continue;
+            }
             if (l.contains("[AutoSecret] stopped: ")) {
                 r.stopReason = l.substring(l.indexOf("[AutoSecret] stopped: ") + 22);
             }
@@ -753,7 +765,8 @@ public class SimAutopilotTests implements FabricClientGameTest {
                         }
                     }
                 }
-                r.decisions.add(new Decision(pick, ranked, l.replaceAll("^.*?\\[Autopilot\\]", "[Autopilot]")));
+                r.decisions.add(new Decision(pick, ranked, l.replaceAll("^.*?\\[Autopilot\\]", "[Autopilot]"), lastTour));
+                lastTour = List.of();
             }
         }
         println(String.format(Locale.US, "%s: %.1f s, traveled %.1f blocks, %d decision(s), stopped: %s", label,
@@ -783,14 +796,23 @@ public class SimAutopilotTests implements FabricClientGameTest {
         }
     }
 
-    /** Every pick is the logged best score per second, and its logged rate is gain/seconds. */
+    /**
+     * Every pick is the first of the tour it logged (mod ac-optimize-1015: the order that is best for the score by the
+     * second over all of them, not the best per second next), or - picked by rate alone - the logged best score per
+     * second; and every logged rate is gain/seconds.
+     */
     private static void checkBestRate(List<String> failures, String label, Result r) {
         for (Decision d : r.decisions) {
             if (d.pick() == null || d.ranked().isEmpty()) {
                 continue;
             }
             double best = d.ranked().stream().mapToDouble(Cand::rate).max().orElse(0);
-            if (d.pick().rate() + 1e-6 < best) {
+            if (!d.tour().isEmpty()) {
+                if (!d.tour().get(0).equals(d.pick().room())) {
+                    failures.add(label + ": pick " + d.pick().room() + " is not its tour's first " + d.tour() + ": "
+                            + d.line());
+                }
+            } else if (d.pick().rate() + 1e-6 < best) {
                 failures.add(label + ": pick " + d.pick().room() + " rate " + d.pick().rate() + " below the best " + best
                         + ": " + d.line());
             }

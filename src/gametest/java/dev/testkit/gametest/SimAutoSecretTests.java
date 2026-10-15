@@ -41,7 +41,8 @@ import java.util.regex.Pattern;
  * <ul>
  *   <li>it ACTED: he travelled, map warps arrived, and every seeded reachable room's route started and finished;</li>
  *   <li>the no-route room was skipped with the chat line, exactly once, and never travelled to;</li>
- *   <li>rooms were taken most-unfound first (nothing is found in the run, so the order must be non-increasing);</li>
+ *   <li>rooms were taken in the order it logged (mod ac-optimize-1015: secrets per tick of travel between the rooms, over
+ *       the Interactive Map's real trip costs - no longer most-unfound first);</li>
  *   <li>no room behind a closed door was ever a target;</li>
  *   <li>with every secret found (the sim's score, so its tab list says 100%) it stops, saying so.</li>
  * </ul>
@@ -519,12 +520,32 @@ public class SimAutoSecretTests implements FabricClientGameTest {
             }
         }
 
-        // ---- most unfound first ----------------------------------------------------------------------------
-        for (int i = 1; i < order.size(); i++) {
-            if (order.get(i)[0] > order.get(i - 1)[0]) {
-                failures.add("rooms were not taken most-unfound first: " + orderNames);
-                break;
+        // ---- the room order it worked out (mod ac-optimize-1015: secrets per tick of travel, not most unfound first) ----
+        // Every "room order" line is followed by a target, and that target is the order's first room.
+        int orderLines = 0;
+        for (int i = 0; i < log.size(); i++) {
+            String l = log.get(i);
+            int at = l.indexOf("[AutoSecret] room order");
+            if (at < 0) {
+                continue;
             }
+            orderLines++;
+            String rest = l.substring(l.indexOf("): ", at) + 3);
+            String first = rest.substring(0, rest.indexOf('(')).trim();
+            String next = null;
+            for (int j = i + 1; j < log.size() && next == null; j++) {
+                Matcher t = TARGET.matcher(log.get(j));
+                if (t.find()) {
+                    next = t.group(1);
+                }
+            }
+            if (next != null && !next.equals(first)) {
+                failures.add("the room order put " + first + " first but it went to " + next + ": " + l);
+            }
+        }
+        println("room order lines: " + orderLines);
+        if (routed.size() >= 2 && orderLines == 0) {
+            failures.add("no room order was logged with " + routed.size() + " routed rooms to choose between");
         }
         if (orderNames.isEmpty() || !orderNames.get(0).equals("skip " + noRoute.name())) {
             // Ties at the top are ordered by distance, so only a strictly larger first room is required.
