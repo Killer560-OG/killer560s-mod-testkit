@@ -704,11 +704,22 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         long m = LogTap.mark();
         startSampling(ctx);
         ctx.getInput().holdKey(o -> o.keyUp);
+        boolean onPillar;
         try {
-            waitFor(ctx, 40, () -> ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning")));
+            // Walked on until he is over the pillar or already falling, not just until the route runs: the start node's
+            // ring reaches the stone column, so the route arms while he still stands beside the pillar, and letting go
+            // then left him on the column with the hole beside him - he never fell, so nothing was there to linger for
+            // (2026-10-15, "nothing was mined after the node finished").
+            onPillar = waitFor(ctx, 60, () -> {
+                Vec3 r = relPos(ctx);
+                return r.z >= 12.2 || r.y < F + top - 0.5;
+            });
         } finally {
             ctx.getInput().releaseKey(o -> o.keyUp);
         }
+        check(ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"))
+                || logHas(m, "DUNGEON_BREAKER acted"), "the breaker route never started under him");
+        check(onPillar, "he never got over the pillar (at " + relPos(ctx) + ")");
         boolean gone = waitFor(ctx, 160, () -> {
             for (int y = 0; y < top; y++) {
                 if (!blockAir(ctx, 13, F + y, 12)) {
@@ -2058,7 +2069,26 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test reset"});
             mc.player.getInventory().setSelectedSlot(3);
         });
+        forgetRunMemory(ctx);
         writeRoute(ctx, null);
+    }
+
+    /**
+     * Every case starts a fresh run, as the sim cases do: Auto Routes remembers for the run (RouteRunMemory) the secrets,
+     * bats and routes already done, and with the session's earlier cases all in the same room, 62-argrim-autosecret and
+     * -autopilot found "Andesite: its route already ran to the end this run" and stopped at once (2026-10-15) - so they
+     * tested nothing. A jar from before the class existed has nothing to forget.
+     */
+    private static void forgetRunMemory(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> {
+            try {
+                Class.forName("com.killer560.hub.autoroutes.RouteRunMemory");
+            } catch (ClassNotFoundException e) {
+                return;
+            }
+            ModUnderTest.staticCall("com.killer560.hub.autoroutes.RouteRunMemory", "reset", new Class<?>[]{},
+                    new Object[]{});
+        });
     }
 
     private static JsonArray fileNodes(ClientGameTestContext ctx) {
