@@ -176,6 +176,10 @@ public class UiSuite implements FabricClientGameTest {
             "989-ui-docmenu-saved-themes"};
     /** The Profiles page redesign (mod menu-profiles-ctrlf, {@link MenuProfilesCases}). Own block for merges. */
     static final String[] MENU_PROFILES_CASES = {"948-ui-menu-profiles-page"};
+    /** killer560's 2026-10-15 custom names + profiles list (mod names-profiles-1015, {@link NamesProfilesCases}; 1553 is in
+     *  {@link MenuProfilesCases}). Own block for merges. */
+    static final String[] NAMES_PROFILES_CASES = {"1550-ui-np-command-names", "1551-ui-np-rank", "1552-ui-np-shared-names",
+            "1553-ui-np-profile-rename-quiet"};
     /** Profiles carry everything, across jars (mod profiles-all, {@link ProfileDataCases}). Own block for merges. */
     static final String[] PROFILE_DATA_CASES = {"980-ui-profile-data-switch", "981-ui-profile-data-export",
             "982-ui-profile-import-robust", "983-ui-profile-old-format", "984-ui-profile-xfer-export",
@@ -346,6 +350,7 @@ public class UiSuite implements FabricClientGameTest {
                 dev.testkit.gametest.Scenario.skip(n);
             }
             for (String n : TRAIL_HUD_CASES) {
+            for (String n : NAMES_PROFILES_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
             for (String n : MENU_ORDER_CASES) {
@@ -390,6 +395,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES) || any(SWEAT_CASES)
                 || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES) || any(TRAIL_HUD_CASES)
                 || any(LIGHTS_DEVICE_CASES);
+                || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(NAMES_PROFILES_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -693,6 +699,10 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1038-ui-trail-share-hide", TrailShareCases::hide);
                     UiCase.run(ctx, "1039-ui-trail-share-limits", TrailShareCases::limits);
                     // ---- menu order + independent masters (515-517) ----
+                    UiCase.run(ctx, "1550-ui-np-command-names", NamesProfilesCases::commandNames);
+                    UiCase.run(ctx, "1551-ui-np-rank", NamesProfilesCases::rank);
+                    UiCase.run(ctx, "1552-ui-np-shared-names", NamesProfilesCases::sharedNames);
+                    UiCase.run(ctx, "1553-ui-np-profile-rename-quiet", MenuProfilesCases::renameAndQuiet);
                     UiCase.run(ctx, "515-ui-menu-order", MenuOrderCases::tabOrder);
                     UiCase.run(ctx, "516-ui-menu-order-settings", c -> MenuOrderCases.settingsOrder(c, deny));
                     UiCase.run(ctx, "517-ui-menu-queue-masters", MenuOrderCases::queueMasters);
