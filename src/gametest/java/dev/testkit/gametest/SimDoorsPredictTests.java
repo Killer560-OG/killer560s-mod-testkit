@@ -229,7 +229,7 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         int made = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_DOORS, "witherDoorsAround",
                 new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, f.names.get(coalRoom)}));
         BlockPos db = f.doorBlock(door);
-        ctx.waitFor(mc -> mc.level.getBlockState(db).is(Blocks.COAL_BLOCK), 400);
+        waitCoal(ctx, db, made);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "resetSimVisits"));
         double[] inFirst = f.tileCentre(f.tiles.get(first)[0], 0.5);
         place(ctx, inFirst, null);
@@ -294,7 +294,7 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
                 new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, f.names.get(fr)}));
         int door = f.doorBetween(room, neighbour);
         BlockPos db = f.doorBlock(door);
-        ctx.waitFor(mc -> mc.level.getBlockState(db).is(Blocks.COAL_BLOCK), 400);
+        waitCoal(ctx, db, made);
         // In the doorway between the two: inside neither room, so neither opens.
         double[] gap = f.doorCentre(door);
         place(ctx, new double[]{gap[0], gap[1] + 0.2, gap[2]}, null);
@@ -411,7 +411,7 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         int made = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_DOORS, "witherDoorsAround",
                 new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, f.names.get(after)}));
         BlockPos db = f.doorBlock(afd);
-        ctx.waitFor(mc -> mc.level.getBlockState(db).is(Blocks.COAL_BLOCK), 400);
+        waitCoal(ctx, db, made);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "resetSimVisits"));
         ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "simVisit", new Class<?>[]{int.class}, new Object[]{before}));
         // In the Fairy door's gap, right by Fairy: the nearest coal door is the one after it.
@@ -745,6 +745,25 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
     }
 
     // ------------------------------------------------------------------------------------------------- reading
+
+    /** Waits (bounded) for coal at a door block; says what is there if it never comes. */
+    private static boolean waitCoal(ClientGameTestContext ctx, BlockPos db, int made) {
+        for (int i = 0; i < 200; i++) {
+            if (ctx.computeOnClient(mc -> mc.level.getBlockState(db).is(Blocks.COAL_BLOCK))) {
+                return true;
+            }
+            ctx.waitTick();
+        }
+        String around = ctx.computeOnClient(mc -> {
+            StringBuilder sb = new StringBuilder();
+            for (int dy = -2; dy <= 3; dy++) {
+                sb.append(dy).append('=').append(mc.level.getBlockState(db.above(dy)).getBlock()).append(' ');
+            }
+            return sb.toString();
+        });
+        println("no coal at " + db.toShortString() + " (made " + made + "): " + around);
+        return false;
+    }
 
     private static List<double[]> boxes() {
         List<double[]> out = new ArrayList<>();
