@@ -28,8 +28,8 @@ import net.minecraft.world.phys.Vec3;
  * <p>Fed by {@code dev.testkit.mixin.MixinServerGamePacketListenerUse} at HEAD of {@code handleUseItemOn} /
  * {@code handleUseItem} on the server thread - before vanilla snaps the player to the use packet's rotation, so the
  * player's rotation there IS the heard look. A use taken as a denied click's second half is acknowledged and otherwise
- * ignored. A use that pairs with a click from the SAME server tick is a vanilla right click's two halves (the block half
- * fired whatever it fires): counted in {@link #pairedSameTick}, not {@link #dropped}. Off unless a scenario sets
+ * ignored. A use that pairs with a click with no movement packet between them is a vanilla right click's two halves
+ * (one client tick; the block half fired whatever it fires): counted in {@link #pairedSameTick}, not {@link #dropped}. Off unless a scenario sets
  * {@link #enabled}; {@link #reset} turns it off again.
  */
 public final class HypixelUseAfterClick {
@@ -57,6 +57,8 @@ public final class HypixelUseAfterClick {
     private static boolean denied;
     private static int storedTick;
     private static BlockPos storedPos;
+    /** A movement packet has arrived since the stored click: a use now is not that click's own second half. */
+    private static boolean movedSinceClick;
 
     private HypixelUseAfterClick() {
     }
@@ -75,14 +77,19 @@ public final class HypixelUseAfterClick {
     }
 
     /**
-     * The mod's own model of what the server holds ({@code util/RightClick}, mod ar-nexttick-1015 on) is forgotten with
-     * the server's: a scenario's earlier clicks must not make a later control turn first. Absent on older jars.
+     * The mod's own model of what the server holds ({@code util/RightClick}, mod ar-nexttick-1015 on) and its sim's stored
+     * clicks are forgotten with the hook's: a scenario's earlier clicks must not decide a later control. Absent on older jars.
      */
     private static void forgetModModel() {
         try {
             Class.forName("com.killer560.hub.util.RightClick").getMethod("reset").invoke(null);
         } catch (ReflectiveOperationException | LinkageError ignored) {
             // an older jar: nothing to forget
+        }
+        try {
+            Class.forName("com.killer560.hub.roomsim.SimAbilities").getMethod("forgetStoredClicks").invoke(null);
+        } catch (ReflectiveOperationException | LinkageError ignored) {
+            // an older jar's sim has no stored clicks
         }
     }
 
@@ -101,6 +108,12 @@ public final class HypixelUseAfterClick {
         denied = !sp.getItemInHand(packet.getHand()).isEmpty();
         storedTick = sp.level().getServer().getTickCount();
         storedPos = pos.immutable();
+        movedSinceClick = false;
+    }
+
+    /** Server thread: a movement packet arrived. */
+    public static void onMove() {
+        movedSinceClick = true;
     }
 
     /** Server thread: a use arrived (the player still has the heard look). True when it must be ignored. */
@@ -118,7 +131,7 @@ public final class HypixelUseAfterClick {
         }
         stored = false;
         int gap = sp.level().getServer().getTickCount() - storedTick;
-        if (gap == 0) {
+        if (!movedSinceClick) {
             pairedSameTick++;
             return denied;
         }
@@ -126,8 +139,9 @@ public final class HypixelUseAfterClick {
             return false;
         }
         dropped++;
-        lastDrop = String.format(java.util.Locale.US, "heard look %.2f/%.2f meets %s at %s, click at %s %d server tick(s) "
-                        + "earlier", net.minecraft.util.Mth.wrapDegrees(sp.getYRot()), sp.getXRot(),
+        lastDrop = String.format(java.util.Locale.US, "use seq %d rot %.2f/%.2f: heard look %.2f/%.2f meets %s at %s, click "
+                        + "at %s %d server tick(s) earlier", packet.getSequence(), packet.getYRot(), packet.getXRot(),
+                net.minecraft.util.Mth.wrapDegrees(sp.getYRot()), sp.getXRot(),
                 sp.level().getBlockState(ray.getBlockPos()).getBlock().getName().getString(),
                 ray.getBlockPos().toShortString(), storedPos == null ? "?" : storedPos.toShortString(), gap);
         System.out.println("[HypixelUseAfterClick] use ignored - taken as the block click's second half: " + lastDrop);

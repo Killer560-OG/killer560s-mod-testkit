@@ -2,6 +2,7 @@ package dev.testkit.mixin;
 
 import dev.testkit.harness.HypixelUseAfterClick;
 
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
@@ -25,6 +26,16 @@ public abstract class MixinServerGamePacketListenerUse {
         ServerGamePacketListenerImpl self = (ServerGamePacketListenerImpl) (Object) this;
         if (HypixelUseAfterClick.enabled && self.player != null && self.player.level().getServer().isSameThread()) {
             HypixelUseAfterClick.onUseItemOn(self.player, packet);
+        }
+    }
+
+    /** {@code public void handleMovePlayer(ServerboundMovePlayerPacket)} (javap 26.1.2 and 26.2): a movement packet ends
+     *  the client tick a right click's two halves are sent in. */
+    @Inject(method = "handleMovePlayer", at = @At("HEAD"))
+    private void testkit$move(ServerboundMovePlayerPacket packet, CallbackInfo ci) {
+        ServerGamePacketListenerImpl self = (ServerGamePacketListenerImpl) (Object) this;
+        if (HypixelUseAfterClick.enabled && self.player != null && self.player.level().getServer().isSameThread()) {
+            HypixelUseAfterClick.onMove();
         }
     }
 
