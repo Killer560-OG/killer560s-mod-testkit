@@ -409,7 +409,7 @@ final class PerfBench {
             Mod.staticCall("perfprobe.PerfProbe", "reset");
             alloc[0] = threadAllocated();
             alloc[1] = System.nanoTime();
-            FrameClock.start(ticks * 40);
+            FrameClock.start(ticks * 100); // an idle gametest loop can render 40+ frames a tick
         });
         ctx.waitTicks(ticks);
         return ctx.computeOnClient(mc -> {
