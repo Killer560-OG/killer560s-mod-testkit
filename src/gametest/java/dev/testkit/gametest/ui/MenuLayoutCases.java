@@ -101,7 +101,7 @@ final class MenuLayoutCases {
     }
 
     /** A content row as built: who built it (sub-tab scope), its raw label (section signs kept) and where. */
-    private record Row(String owner, String raw, String label, String key, String tip, boolean header, int x, int y) {
+    record Row(String owner, String raw, String label, String key, String tip, boolean header, int x, int y) {
         boolean cheatHeader() {
             return header && raw.startsWith(CHEAT);
         }
@@ -701,7 +701,7 @@ final class MenuLayoutCases {
 
     // ---- shared ---------------------------------------------------------------------------------------------------
 
-    private static ModScreenDriver driver(UiCase c) {
+    static ModScreenDriver driver(UiCase c) {
         return c.onClient(mc -> {
             try {
                 R.setStatic(R.cls(ModScreenDriver.MOD_SCREEN), "tabs", null);
@@ -756,7 +756,7 @@ final class MenuLayoutCases {
         return n.tab().getClass().getName().replace(Mod.ROOT, "");
     }
 
-    private static boolean cheatOnly(UiCase c, ModScreenDriver.Node n) {
+    static boolean cheatOnly(UiCase c, ModScreenDriver.Node n) {
         return c.onClient(mc -> {
             try {
                 return (Boolean) n.tab().getClass().getMethod("isCheatOnly").invoke(n.tab());
@@ -778,7 +778,7 @@ final class MenuLayoutCases {
     }
 
     /** Select top-level tab {@code top}, open its section {@code sec} (and every folder inside), and every collapsible. */
-    private static void open(ModScreenDriver d, int top, int sec, Deny deny) throws Throwable {
+    static void open(ModScreenDriver d, int top, int sec, Deny deny) throws Throwable {
         Object topTab = d.topTabs().get(top);
         d.select(top);
         if (d.isFolder(topTab)) {
@@ -816,7 +816,7 @@ final class MenuLayoutCases {
     }
 
     /** What the selected tab built, with each row's owner and (when {@code topName} is given) its tooltip. */
-    private static List<Row> rows(ModScreenDriver d, String topName) throws Exception {
+    static List<Row> rows(ModScreenDriver d, String topName) throws Exception {
         Method describe = R.cls(TIPS).getMethod("describe", String.class, AbstractWidget.class, String.class);
         Method key = R.cls(TIPS).getMethod("key", String.class);
         @SuppressWarnings("unchecked")
@@ -906,7 +906,7 @@ final class MenuLayoutCases {
         c.note("recorded " + leaves.size() + " leaf tabs and " + rows.size() + " row owners to " + file);
     }
 
-    private static void close(UiCase c, ModScreenDriver d) {
+    static void close(UiCase c, ModScreenDriver d) {
         c.onClient((Minecraft mc) -> {
             McCompat.setScreen(mc, null);
             d.select(0);

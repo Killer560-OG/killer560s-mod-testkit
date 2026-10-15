@@ -222,6 +222,9 @@ public class UiSuite implements FabricClientGameTest {
     /** Shared trails (mod trail-share, {@link TrailShareCases}). Own block for merges. */
     static final String[] TRAIL_SHARE_CASES = {"1036-ui-trail-share-send", "1037-ui-trail-share-remote",
             "1038-ui-trail-share-hide", "1039-ui-trail-share-limits"};
+    /** killer560's 2026-10-14 menu order + independent masters list ({@link MenuOrderCases}). Own block for merges. */
+    static final String[] MENU_ORDER_CASES = {"515-ui-menu-order", "516-ui-menu-order-settings",
+            "517-ui-menu-queue-masters", "518-ui-menu-independent-masters"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -325,6 +328,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : TRAIL_SHARE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : MENU_ORDER_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : LOCKSTAR_HEAD_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -356,7 +362,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
                 || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
                 || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES) || any(SWEAT_CASES)
-                || any(TRAIL_SHARE_CASES);
+                || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -648,6 +654,11 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1037-ui-trail-share-remote", TrailShareCases::remote);
                     UiCase.run(ctx, "1038-ui-trail-share-hide", TrailShareCases::hide);
                     UiCase.run(ctx, "1039-ui-trail-share-limits", TrailShareCases::limits);
+                    // ---- menu order + independent masters (515-517) ----
+                    UiCase.run(ctx, "515-ui-menu-order", MenuOrderCases::tabOrder);
+                    UiCase.run(ctx, "516-ui-menu-order-settings", c -> MenuOrderCases.settingsOrder(c, deny));
+                    UiCase.run(ctx, "517-ui-menu-queue-masters", MenuOrderCases::queueMasters);
+                    UiCase.run(ctx, "518-ui-menu-independent-masters", MenuOrderCases::independentMasters);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
