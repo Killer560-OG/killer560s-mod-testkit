@@ -290,7 +290,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
             c.check(lato.loose() == base.loose(), "text drawn outside a screen (the HUD path) changed width: "
                     + base.loose() + " -> " + lato.loose());
             c.check(lato.width() == base.width(), "Font.width outside the menu changed: " + base.width() + " -> " + lato.width());
-            shot(c, "lato-menu-only");
+            menuShot(c, "lato-menu-only");
         } finally {
             restoreFont(c, saved);
         }
@@ -313,7 +313,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                     + " widths (" + options[0] + "/" + options[1] + ")");
             c.check(lato.loose() != base.loose(), "Everything: HUD-path text kept its width " + base.loose());
             c.check(lato.width() != base.width(), "Everything: Font.width kept " + base.width());
-            shot(c, "lato-everything");
+            menuShot(c, "lato-everything");
 
             // Every bundled font builds and measures differently from Minecraft's.
             List<String> widths = new ArrayList<>();
@@ -393,7 +393,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
             c.check(target.equals(built), "the imported font was not built: " + built);
             c.check(imported == bundled, "the imported copy of Space Mono measures " + imported + ", the bundled one " + bundled);
             c.check(imported != vanilla, "the imported font measures like Minecraft's (" + imported + ")");
-            shot(c, "imported");
+            menuShot(c, "imported");
 
             useFont(c, "minecraft", "EVERYTHING", 100);
             c.onClient(mc -> {
@@ -613,7 +613,8 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                     if ((Boolean) Mod.field("mainmenu.MainMenuTheme", "failed")) {
                         return e.label() + ": the themed main menu turned itself off after an error";
                     }
-                    if (d.elements() < 20) {
+                    // Each scene, the panel and each button is ONE batched element (GuiRects), so a full screen is ~10.
+                    if (d.elements() < 8) {
                         return e.label() + ": only " + d.elements() + " elements drawn";
                     }
                     int[] card = (int[]) Mod.staticCall("mainmenu.MainMenuChrome", "cardBox", s);
@@ -623,7 +624,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                     int inside = 0;
                     boolean simThemed = false;
                     for (AbstractWidget w : Screens.getWidgets(s)) {
-                        if (!w.visible || w.getWidth() < 90) {
+                        if (!w.visible || w.getWidth() < 90 || w instanceof net.minecraft.client.gui.components.PlainTextButton) {
                             continue;
                         }
                         boolean in = w.getX() >= card[0] && w.getY() >= card[1] && w.getX() + w.getWidth() <= card[0] + card[2]
@@ -657,12 +658,39 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                     if (splashText != null && drawn != e.splash()) {
                         return e.label() + ": splash '" + splashText + "' drawn=" + drawn + " with Splash Text " + e.splash();
                     }
+                    // Button labels: no drop shadow on a light theme (it smears dark text), a shadow on a dark one.
+                    GuiRenderState state = new GuiRenderState();
+                    s.extractRenderStateWithTooltipAndSubtitles(new GuiGraphicsExtractor(mc, state, -1, -1), -1, -1, 0.5f);
+                    Boolean[] shadow = {null};
+                    state.forEachText(t -> {
+                        if (plain(textOf(t)).equals("Singleplayer")) {
+                            shadow[0] = dropShadow(t);
+                        }
+                    });
+                    boolean light = e.coloursOf().equals("LIGHT");
+                    if (shadow[0] == null) {
+                        return e.label() + ": no Singleplayer label drawn";
+                    }
+                    if (shadow[0] == light) {
+                        return e.label() + ": the Singleplayer label's shadow is " + shadow[0] + " on a "
+                                + (light ? "light" : "dark") + " theme";
+                    }
                     return null;
                 });
                 c.check(screenWhy == null, screenWhy);
             }
         } finally {
             restoreMm(c, saved);
+        }
+    }
+
+    static boolean dropShadow(GuiTextRenderState t) {
+        try {
+            Field f = GuiTextRenderState.class.getDeclaredField("dropShadow");
+            f.setAccessible(true);
+            return f.getBoolean(t);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("GuiTextRenderState.dropShadow", e);
         }
     }
 
@@ -741,9 +769,35 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
         return p;
     }
 
+    /** The Themes drawer on screen with a chat line behind it, at 1600x900 GUI 2, photographed. */
+    static void menuShot(UiCase c, String label) {
+        int[] win0 = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight(),
+                mc.options.guiScale().get()});
+        try {
+            setWindow(c, 1600, 900, 2);
+            c.onClient(mc -> {
+                McCompat.chat(mc).addClientSystemMessage(net.minecraft.network.chat.Component.literal(
+                        "Chat behind the menu: " + PROBE));
+                themesDrawer(mc);
+                return null;
+            });
+            c.ticks(6);
+            shot(c, label);
+        } finally {
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                return null;
+            });
+            setWindow(c, win0[0], win0[1], win0[2]);
+        }
+    }
+
     static void scenes(UiCase c) throws Exception {
         MmState saved = saveMm(c);
+        int[] win0 = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight(),
+                mc.options.guiScale().get()});
         try {
+            setWindow(c, 1600, 900, 2);
             String[][] scenes = {{"EMBERS", "AMBER"}, {"WATERFALL", "OCEAN"}, {"STARFIELD", "DARK"},
                     {"SOFT_LIGHT", "LIGHT"}, {"AURORA", "CUSTOM"}, {"PLAIN", "AMBER"}};
             List<String> summary = new ArrayList<>();
@@ -776,8 +830,19 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
             c.check(!(Boolean) c.onClient(mc -> Mod.field("mainmenu.MainMenuTheme", "failed")),
                     "the themed main menu turned itself off after an error");
         } finally {
+            setWindow(c, win0[0], win0[1], win0[2]);
             restoreMm(c, saved);
         }
+    }
+
+    static void setWindow(UiCase c, int w, int h, int gui) {
+        c.ctx().getInput().resizeWindow(w, h);
+        c.ctx().waitTicks(3);
+        c.ctx().runOnClient(m -> {
+            m.options.guiScale().set(gui);
+            m.resizeGui();
+        });
+        c.ctx().waitTicks(4);
     }
 
     // ---- 1567 real name -----------------------------------------------------------------------------------------
@@ -790,7 +855,11 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
             return new Object[]{Mod.call(cfg, "isEnabled"), Mod.call(cfg, "isOwnNameEnabled"),
                     Mod.call(cfg, "getOwnDisplayName"), Mod.call(cfg, "getOwnColor")};
         });
+        int[] win0 = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight(),
+                mc.options.guiScale().get()});
         try {
+            // A window tall enough for the chip under the panel (a short one shows "Playing as" as a tooltip instead).
+            setWindow(c, 1600, 900, 2);
             String real = c.onClient(mc -> mc.getUser().getName());
             c.onClient(mc -> {
                 setMm(mc, "MATCH", "OCEAN", "AUTO", 100, true, true);
@@ -852,6 +921,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                 Mod.call(cfg, "setOwnColor", nc[3]);
                 return null;
             });
+            setWindow(c, win0[0], win0[1], win0[2]);
             restoreMm(c, saved);
         }
     }
