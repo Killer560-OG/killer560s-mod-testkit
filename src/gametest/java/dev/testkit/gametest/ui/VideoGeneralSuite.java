@@ -323,30 +323,49 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             }
             c.check(screen(c).getClass().getSimpleName().equals("SimMenuScreen"),
                     "the Dungeon Sim button opened " + screen(c));
+            r.mark("sim-menu-open");
             r.hold(1500);
-            for (String page : new String[]{"Previous Runs", "Create a New Map", "Load a Room", "Route Practice"}) {
+            // the pages first (Create a New Map opens its own screen, so it goes last)
+            for (String page : new String[]{"Load a Room", "Route Practice", "Previous Runs", "Create a New Map"}) {
                 int[] box = widget(c, page);
+                c.check(box != null, "no '" + page + "' page button");
                 if (box == null) {
-                    c.note("no '" + page + "' page button");
                     continue;
                 }
+                r.mark("page-" + page);
                 glideTo(r, box, 0.4, 0.5, 550);
                 r.click();
                 r.hold(500);
                 for (int i = 0; i < 60 && widget(c, "loading") != null; i++) {
                     r.frame();
                 }
-                if (page.equals("Load a Room")) {
-                    // drift over the list and scroll it a little
-                    r.glide(r.cx + 520, r.cy + 120, 600);
-                    for (int i = 0; i < 4; i++) {
-                        r.wheel(-1);
-                        r.hold(250);
+                switch (page) {
+                    case "Load a Room" -> {
+                        // drift over the list and scroll it a little
+                        r.glide(r.cx + 520, r.cy + 160, 600);
+                        for (int i = 0; i < 5; i++) {
+                            r.wheel(-1);
+                            r.hold(260);
+                        }
+                        r.hold(700);
                     }
-                    r.hold(500);
-                } else {
-                    r.glide(r.cx + 300, r.cy + 60, 700);
-                    r.hold(1200);
+                    case "Previous Runs" -> r.hold(700);
+                    case "Create a New Map" -> {
+                        r.hold(900);
+                        int[] fill = widget(c, "Fill");
+                        if (fill != null) {
+                            glideTo(r, fill, 0.45, 0.5, 650);
+                            r.click();
+                            r.hold(500);
+                        }
+                        double[] grid = VideoRecorder.menuToWindow(c, screen(c), screen(c).width * 0.25, screen(c).height * 0.45);
+                        r.glide(grid[0], grid[1], 800);
+                        r.hold(1800);
+                    }
+                    default -> {
+                        r.glide(r.cx + 300, r.cy + 60, 700);
+                        r.hold(1300);
+                    }
                 }
             }
             r.hold(500);
@@ -376,7 +395,9 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             r.hold(300);
             double[] mid = VideoRecorder.menuToWindow(c, s, s.width * 0.55, s.height * 0.6);
             r.cursorAt(mid[0], mid[1]);
+            r.mark("home");
             r.hold(1300); // Home
+            r.mark("dungeons");
             clickSidebar(r, s, "Dungeons", 700);
             r.hold(900);
             c.check(category(c, s).contains("Dungeons") || cards(c, s).size() > 4, "Dungeons did not open");
@@ -407,6 +428,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                 r.click();
                 r.hold(400);
             }
+            r.mark("drawer");
             // a drawer: open, scroll it, close
             Object card = cards.get(Math.min(1, cards.size() - 1));
             int[][] cb = MenuAnimSuite.bounds(c, s, card);
@@ -434,6 +456,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             // the grid down to the red Cheat block at the bottom, and back
             int[] grid = c.onClient(mc -> new int[]{(Integer) Mod.field(s, "gridX"), (Integer) Mod.field(s, "gridY"),
                     (Integer) Mod.field(s, "gridW"), (Integer) Mod.field(s, "gridH")});
+            r.mark("cheat-scroll");
             glideTo(r, grid, 0.5, 0.6, 450);
             int before = c.onClient(mc -> ((Number) Mod.field(s, "gridScroll")).intValue());
             for (int i = 0; i < 14; i++) {
@@ -449,6 +472,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                 r.hold(90);
             }
             r.hold(400);
+            r.mark("categories");
             for (String cat : new String[]{"HUD", "Chat", "Items"}) {
                 clickSidebar(r, s, cat, 500);
                 r.hold(900);
@@ -794,6 +818,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                 });
                 c.ticks(60); // off camera: chunks, the map's room, waypoints
                 String inRoom = c.onClient(mc -> String.valueOf(Mod.staticCall("livemap.LiveMapFeature", "currentRoomType")));
+                r.mark("room-" + (k + 1));
                 c.note("room " + (k + 1) + ": " + room.name() + " (" + room.unfound() + " secrets), map says " + inRoom);
                 pan(r, at, yaw, k % 2 == 0 ? 100f : -100f, 10f, 4f, 2.0, 5200);
             }

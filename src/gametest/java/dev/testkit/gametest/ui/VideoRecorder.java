@@ -115,6 +115,12 @@ final class VideoRecorder {
         t += FRAME_MS;
     }
 
+    /** Names the next frame in {@code markers.csv}, so the edit can cut on a moment instead of a guessed second. */
+    void mark(String label) throws IOException {
+        Files.writeString(dir.resolve("markers.csv"), frame + "," + label + "\n", StandardCharsets.UTF_8,
+                java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+    }
+
     void hold(double ms) throws IOException {
         int n = (int) Math.round(ms / FRAME_MS);
         for (int i = 0; i < n; i++) {
