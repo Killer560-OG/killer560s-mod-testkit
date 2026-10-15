@@ -644,3 +644,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   186 clears the label for its vanilla part (iron sword, 13). Server attack gaps at a 5-tick cap came 4/6 alternating
   while the client sent exactly 5 - check the client's own click ticks (`recentClickTicks`). Main: 184 aura aimed through
   the wall, 186 retries 5-6 ticks apart; 185/187 fail on missing API.
+- **188-189 Auto Blood Camp, round 3 (mod bloodcamp-3-1015, 2026-10-15)**: 188 a husk 6 blocks out (NoGravity, it is off
+  the platform): a mage weapon (blaze rod) gets swings and no attack, a lore-"Shortbow" bow gets uses (use_item at the
+  server even with no arrows - the packet goes before the item's own check), nothing behind a wall, and the Trigger Bot
+  with a shortbow sends uses. 189 the clicks between registering hits: the cases before it switch them off in `base()`
+  (`setHumanClicks(false)`), since every attack count there would include them. Main: both fail on missing API.
