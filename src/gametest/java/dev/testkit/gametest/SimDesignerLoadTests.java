@@ -22,16 +22,19 @@ import java.util.List;
  *
  * <ol>
  *   <li>The designer has a Load button and no Save button.</li>
- *   <li>A real run in the run history (seeded, and confirmed listed by the saved-runs code) and an old saved design
- *       (the removed Save's file) are both on disk.</li>
- *   <li>Entrance is picked and generated with the real buttons and Play is clicked: the floor is built for real, then
- *       left.</li>
- *   <li>Back on the designer, Load lists exactly that one floor - "Entrance · generated", today's date drawn on its
- *       row, its map code - and neither the run nor the old design.</li>
- *   <li>The list is read again from the file (the restart path) and still holds it with the same date.</li>
- *   <li>Every list row's two lines have at least 2 px between them, on the Load list and on the room list.</li>
- *   <li>Clicking the row puts that exact floor back on the grid at Entrance; recording it again does not list it
- *       twice.</li>
+ *   <li>A real run in the run history (seeded, and confirmed listed by the saved-runs code) and an old Save file
+ *       ({@code killer560smod-simmaps.json}, "Old Design", modified 2026-01-02 03:04) are on disk.</li>
+ *   <li>Entrance is generated and played, then filled (a drawing) and played, with the real buttons; both builds finish
+ *       and are left.</li>
+ *   <li>Load lists exactly three rows, newest first: "Entrance · Drawn" (its cells), "Entrance · Generated" (its map
+ *       code, today's date) and "Old Design · Saved design" dated by the old file's modified time (coordinator,
+ *       2026-10-15: keep drawn floors marked "Drawn"; bring his old saved designs in once) - and not the run. Every
+ *       row's date is drawn.</li>
+ *   <li>Re-read from disk: still three (the old design is not brought in twice); right-clicking the saved design and
+ *       re-reading leaves it gone, and the old file is untouched.</li>
+ *   <li>Every list row's two lines are apart, on the Load list and on the room list.</li>
+ *   <li>Clicking the generated row puts that exact floor back on the grid at Entrance; recording it again does not list
+ *       it twice.</li>
  * </ol>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -42,6 +45,8 @@ public class SimDesignerLoadTests implements FabricClientGameTest {
     private static final String RUN_STORE = "com.killer560.hub.runsummary.RunHistoryStore";
     private static final String RUN_HISTORY = "com.killer560.hub.roomsim.SimRunHistory";
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
+    /** The seeded old Save file's modified time, which its brought-in entry must show. */
+    private static final String OLD_DATE = "2026-01-02 03:04";
 
     private final List<String> failures = new ArrayList<>();
 
@@ -85,8 +90,9 @@ public class SimDesignerLoadTests implements FabricClientGameTest {
             return;
         }
 
-        // ---- 2. what must NOT be listed: a real run, and an old saved design --------------------------------------
+        // ---- 2. a real run (must NOT be listed) and an old Save file (brought in once as a Saved design) -----------
         String runLabel = seedRunAndPreset(ctx);
+        Path presets = ModUnderTest.modConfig("killer560smod-simmaps.json");
         check(runLabel != null, "the seeded run is not in the saved-runs list - the 'not runs' check would be empty");
         Path file = ModUnderTest.modConfig("killer560smod-sim-map-history.json");
         ctx.runOnClient(mc -> {
@@ -100,7 +106,7 @@ public class SimDesignerLoadTests implements FabricClientGameTest {
         DesignerKit.closeScreen(ctx);
         DesignerKit.openEditor(ctx);
 
-        // ---- 3. Entrance, Generate, Play ----------------------------------------------------------------------------
+        // ---- 3. Entrance: Generate + Play, then Fill (a drawing) + Play ------------------------------------------------
         for (int i = 0; i < 8 && !"Entrance".equals(DesignerKit.floorLabel(ctx)); i++) {
             DesignerKit.click(ctx, DesignerKit.floorLabel(ctx));
         }
@@ -112,13 +118,20 @@ public class SimDesignerLoadTests implements FabricClientGameTest {
             return;
         }
         String code = DesignerKit.code(ctx, plan);
-        long builds = Scenario.simBuildCount(ctx);
-        check(DesignerKit.click(ctx, "Play"), "no Play button");
-        ctx.waitFor(mc -> mc.level != null, 20 * 60);
-        Scenario.awaitSimBuild(ctx, builds);
-        ctx.waitTicks(20);
+        play(ctx);
         println("played the generated Entrance floor (" + code.length() + "-char map code)");
-        leaveWorld(ctx);
+
+        DesignerKit.openEditor(ctx);
+        for (int i = 0; i < 8 && !"Entrance".equals(DesignerKit.floorLabel(ctx)); i++) {
+            DesignerKit.click(ctx, DesignerKit.floorLabel(ctx));
+        }
+        check(DesignerKit.click(ctx, "Fill"), "no Fill button");
+        @SuppressWarnings("unchecked")
+        java.util.Map<Integer, String> drawing = new java.util.LinkedHashMap<>(
+                (java.util.Map<Integer, String>) DesignerKit.field(ctx, "placements"));
+        check(!drawing.isEmpty() && DesignerKit.generated(ctx) == null, "Fill drew nothing to play");
+        play(ctx);
+        println("played a drawn (Fill) Entrance floor of " + drawing.size() + " room(s)");
 
         // ---- 4. the Load list --------------------------------------------------------------------------------------
         DesignerKit.openEditor(ctx);
@@ -127,41 +140,66 @@ public class SimDesignerLoadTests implements FabricClientGameTest {
         List<Object> entries = history(ctx);
         String today = LocalDate.now().toString();
         println("Load lists " + listed.size() + ": " + listed);
-        check(listed.size() == 1, "Load should list exactly the one floor played, lists " + listed);
-        check(!listed.contains("Old Design"), "Load lists the old saved design 'Old Design'");
+        check(listed.size() == 3, "Load should list the drawn floor, the generated floor and the old saved design, "
+                + "lists " + listed);
         for (String l : listed) {
             check(runLabel == null || !l.contains(runLabel), "Load lists the run '" + runLabel + "'");
         }
         long created = -1;
-        if (entries.size() == 1) {
-            Object e = entries.get(0);
-            String title = listed.get(0);
+        int generatedRow = -1;
+        List<DesignerKit.Run> runs = DesignerKit.texts(ctx);
+        for (int i = 0; i < entries.size(); i++) {
+            Object e = entries.get(i);
+            String title = listed.get(i);
             String date = (String) call(ctx, e, "dateText");
-            created = (Long) call(ctx, e, "createdMs");
-            check(title.startsWith("Entrance") && title.contains("generated"), "the row reads '" + title + "'");
-            check(date.startsWith(today), "the row's date is '" + date + "', not today " + today);
-            check(code.equals(call(ctx, e, "code")), "the listed floor's map code is not the one played");
-            List<DesignerKit.Run> runs = DesignerKit.texts(ctx);
             boolean dateDrawn = runs.stream().anyMatch(r -> r.text().equals(date));
-            check(dateDrawn, "the date '" + date + "' is not drawn on the Load list");
-            spacing(runs, title, "Load list");
+            println("  row " + i + ": '" + title + "' " + date + (dateDrawn ? " (drawn on the row)" : " (NOT drawn)"));
+            check(dateDrawn, "the date '" + date + "' of '" + title + "' is not drawn on the Load list");
+            if (title.equals("Old Design · Saved design")) {
+                check(date.equals(OLD_DATE), "the saved design is dated '" + date + "', not its file's " + OLD_DATE);
+                check(i == 2, "the saved design (oldest) is row " + i + ", not last");
+            } else if (title.equals("Entrance · Generated")) {
+                generatedRow = i;
+                created = (Long) call(ctx, e, "createdMs");
+                check(date.startsWith(today), "the generated row's date is '" + date + "', not today " + today);
+                check(code.equals(call(ctx, e, "code")), "the listed floor's map code is not the one played");
+                check(i == 1, "the generated floor is row " + i + ", not second (newest first)");
+            } else if (title.equals("Entrance · Drawn")) {
+                check(i == 0, "the drawn floor is row " + i + ", not first (newest first)");
+                check(drawing.equals(call(ctx, e, "cells")), "the drawn row's cells are not the drawing played");
+                spacing(runs, title, "Load list");
+            } else {
+                check(false, "unexpected row '" + title + "'");
+            }
         }
+        check(listed.contains("Entrance · Drawn"), "no 'Entrance · Drawn' row for the drawn floor played");
+        check(listed.contains("Old Design · Saved design"), "the old saved design was not brought into the list");
         Path loadShot = shot(ctx, "load-list");
         println("Load list screenshot " + loadShot);
 
-        // ---- 5. read again from the file -------------------------------------------------------------------------
+        // ---- 5. read again from the file; the old design comes in only once ------------------------------------------
         check(Files.exists(file), "nothing written to " + file);
         String onDisk = readQuietly(file);
         check(onDisk.contains(code), "the file does not hold the played floor's code");
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(HISTORY, "reload"));
-        DesignerKit.closeScreen(ctx);
-        DesignerKit.openEditor(ctx);
-        DesignerKit.click(ctx, "Load");
+        reopenLoad(ctx);
         List<Object> again = history(ctx);
-        check(again.size() == 1, "after a re-read from disk Load lists " + again.size());
-        if (again.size() == 1) {
-            check((Long) call(ctx, again.get(0), "createdMs") == created, "the date changed across the re-read");
+        check(again.size() == 3, "after a re-read from disk Load lists " + again.size() + " (the old design brought in "
+                + "twice?)");
+        if (generatedRow >= 0 && again.size() == 3) {
+            check((Long) call(ctx, again.get(generatedRow), "createdMs") == created,
+                    "the date changed across the re-read");
         }
+        // Deleting the brought-in design keeps it deleted across a re-read, and the old file is left alone.
+        int listX = (Integer) DesignerKit.field(ctx, "listX");
+        int panelY = (Integer) DesignerKit.field(ctx, "panelY");
+        int rowH = rowHeight(ctx);
+        DesignerKit.clickAt(ctx, listX + 20, panelY + 66 + 2 * rowH + rowH / 2.0, 1);
+        reopenLoad(ctx);
+        List<String> afterDelete = listed(ctx);
+        println("after right-clicking the saved design and a re-read: " + afterDelete);
+        check(!afterDelete.contains("Old Design · Saved design") && afterDelete.size() == 2,
+                "the deleted saved design came back: " + afterDelete);
+        check(readQuietly(presets).contains("Old Design"), "the old Save file was changed or removed");
 
         // ---- 6. room list spacing too ------------------------------------------------------------------------------
         DesignerKit.click(ctx, "Load");   // back to the rooms
@@ -171,23 +209,39 @@ public class SimDesignerLoadTests implements FabricClientGameTest {
             spacing(DesignerKit.texts(ctx), rooms.get(0), "room list");
         }
 
-        // ---- 7. click the row; record again ----------------------------------------------------------------------
-        DesignerKit.click(ctx, "Load");
-        int listX = (Integer) DesignerKit.field(ctx, "listX");
-        int panelY = (Integer) DesignerKit.field(ctx, "panelY");
-        int rowH = rowHeight(ctx);
+        // ---- 7. click the generated row; record again ----------------------------------------------------------------
+        reopenLoad(ctx);
         // A freshly opened designer is on Floor 7, so loading has to change the floor to the entry's.
-        DesignerKit.clickAt(ctx, listX + 20, panelY + 66 + rowH / 2.0, 0);
+        DesignerKit.clickAt(ctx, listX + 20, panelY + 66 + 1 * rowH + rowH / 2.0, 0);
         Object loaded = DesignerKit.generated(ctx);
         check(loaded != null && code.equals(DesignerKit.code(ctx, loaded)),
                 "clicking the row did not put the played floor back on the grid");
         check("Entrance".equals(DesignerKit.floorLabel(ctx)), "after loading, the floor button reads "
                 + DesignerKit.floorLabel(ctx));
+        int countBefore = historyNow(ctx);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(HISTORY, "recordGenerated",
                 new Class<?>[]{String.class, String.class, String.class, int.class, int.class},
                 new Object[]{"E", "Entrance", code, 1, 1}));
-        check(historyNow(ctx) == 1, "recording the same floor again listed it twice");
+        check(historyNow(ctx) == countBefore, "recording the same floor again listed it twice");
         println("status after loading: '" + DesignerKit.field(ctx, "status") + "'");
+    }
+
+    /** Plays what is on the grid with the real Play button, waits for the build, and leaves the world. */
+    private void play(ClientGameTestContext ctx) {
+        long builds = Scenario.simBuildCount(ctx);
+        check(DesignerKit.click(ctx, "Play"), "no Play button");
+        ctx.waitFor(mc -> mc.level != null, 20 * 60);
+        Scenario.awaitSimBuild(ctx, builds);
+        ctx.waitTicks(20);
+        leaveWorld(ctx);
+    }
+
+    /** Re-reads the list from disk and opens a fresh designer on Load. */
+    private static void reopenLoad(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(HISTORY, "reload"));
+        DesignerKit.closeScreen(ctx);
+        DesignerKit.openEditor(ctx);
+        DesignerKit.click(ctx, "Load");
     }
 
     /** A run with a map in the run history, and an old Save file; returns the run's saved-runs label, or null. */
@@ -209,6 +263,10 @@ public class SimDesignerLoadTests implements FabricClientGameTest {
             Path presets = ModUnderTest.modConfig("killer560smod-simmaps.json");
             Files.createDirectories(presets.getParent());
             Files.writeString(presets, "{\"Old Design\":{\"0\":\"Entrance\"}}", StandardCharsets.UTF_8);
+            // The old file held no dates; the brought-in entry is dated by its modified time.
+            Files.setLastModifiedTime(presets, java.nio.file.attribute.FileTime.from(
+                    java.time.LocalDateTime.parse(OLD_DATE.replace(' ', 'T')).atZone(java.time.ZoneId.systemDefault())
+                            .toInstant()));
         } catch (Exception e) {
             throw new AssertionError("could not seed the run history / old design", e);
         }

@@ -36,6 +36,7 @@
 			"dev.testkit.gametest.SimDesignerFloorTests",
 			"dev.testkit.gametest.SimDesignerLoadTests",
 			"dev.testkit.gametest.SimDesignerCountTests",
+			"dev.testkit.gametest.SimDesignerSliderTests",
 			"dev.testkit.gametest.HostileChatTests",
 			"dev.testkit.gametest.ChatTidyTests",
 			"dev.testkit.gametest.chat.ChatBatchSuite",
