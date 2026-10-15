@@ -412,4 +412,153 @@ final class MenuProfilesCases {
             });
         }
     }
+
+    /**
+     * 1553: Rename in place, no swap message, and the removed lines (mod names-profiles-1015; killer560, 2026-10-15). A real
+     * click on a card's Rename turns its name into a box, typing and Save moves the folder (the marker follows an active
+     * profile), a taken or empty name is refused; a real click on Load leaves the on-screen message empty; and
+     * ProfilesTab no longer holds the "Setting changes save into it", "Save copies..." or "N files" texts.
+     */
+    static void renameAndQuiet(UiCase c) throws Exception {
+        String a = "tk-1553-a";
+        String b = "tk-1553-b";
+        String other = "tk-1553-other";
+        Path markerPath = (Path) R.getStatic(R.cls(PM), "ACTIVE_MARKER");
+        String activeBefore = marker();
+        List<String> made = new ArrayList<>();
+        Screen[] s = new Screen[1];
+        try {
+            // The removed lines: read the compiled class's own text (a control string proves the right bytes were read).
+            Class<?> tab = Mod.cls("gui.tab.ProfilesTab");
+            byte[] bytes;
+            try (java.io.InputStream in = tab.getResourceAsStream(tab.getSimpleName() + ".class")) {
+                bytes = in.readAllBytes();
+            }
+            String text = new String(bytes, StandardCharsets.ISO_8859_1);
+            c.check(text.contains("ACTIVE PROFILE"), "control: ProfilesTab.class was not read (no 'ACTIVE PROFILE')");
+            for (String gone : new String[]{"Setting changes save into it", "Save copies your current settings", " files",
+                    "last saved", "Never saved"}) {
+                c.check(!text.contains(gone), "ProfilesTab still holds the text '" + gone + "'");
+            }
+            c.note("ProfilesTab.class has none of: Setting changes save into it / Save copies your current settings / files / Never saved");
+
+            c.onClient(mc -> {
+                Mod.staticCall(PM, "saveCurrentAsProfile", a);
+                Mod.staticCall(PM, "saveCurrentAsProfile", other);
+                made.add(a);
+                made.add(other);
+                try {
+                    s[0] = MenuACases.open(mc);
+                } catch (Exception e) {
+                    throw new AssertionError(e);
+                }
+                showProfiles(s[0]);
+                return null;
+            });
+            c.ticks(3);
+            int filesBefore = files(dir(a));
+            c.check(filesBefore > 0, "the saved profile has no files");
+
+            // Rename by a real click: Rename, type, Save.
+            String why = c.onClient(mc -> {
+                AbstractWidget card = panel(s[0], a);
+                AbstractWidget rename = card == null ? null : buttonIn(s[0], card, "Rename");
+                if (rename == null) {
+                    return "no Rename button on the " + a + " card";
+                }
+                click(s[0], rename);
+                Mod.call(s[0], "refresh");
+                card = panel(s[0], a);
+                AbstractWidget box = row(s[0], "New name");
+                if (!(box instanceof EditBox eb)) {
+                    return "Rename did not turn the card's name into a box";
+                }
+                if (!a.equals(eb.getValue())) {
+                    return "the rename box starts with '" + eb.getValue() + "', not the current name";
+                }
+                click(s[0], box);
+                eb.setValue("");
+                MenuACases.type(s[0], b);
+                if (!b.equals(eb.getValue())) {
+                    return "the rename box holds '" + eb.getValue() + "' after typing";
+                }
+                AbstractWidget save = buttonIn(s[0], card, "Save");
+                if (save == null || buttonIn(s[0], card, "Cancel") == null) {
+                    return "the renaming card lacks Save/Cancel";
+                }
+                click(s[0], save);
+                return null;
+            });
+            c.check(why == null, why);
+            made.remove(a);
+            made.add(b);
+            c.check(Files.isDirectory(dir(b)) && !Files.exists(dir(a)), "the folder did not move from " + a + " to " + b);
+            c.check(files(dir(b)) == filesBefore, "the renamed folder holds " + files(dir(b)) + " files, not " + filesBefore);
+            c.ticks(2);
+            boolean cards = c.onClient(mc -> {
+                Mod.call(s[0], "refresh");
+                return panel(s[0], b) != null && panel(s[0], a) == null;
+            });
+            c.check(cards, "the page does not show a card for " + b + " and none for " + a);
+            c.note("Rename: a real click, typing and Save moved " + a + " to " + b + " with all " + filesBefore + " files");
+
+            // Refusals and the active marker.
+            Object taken = Mod.staticCall(PM, "renameProfile", b, other);
+            c.check(!(Boolean) Mod.call(taken, "success"), "renaming onto an existing profile was allowed");
+            Object empty = Mod.staticCall(PM, "renameProfile", b, "   ");
+            c.check(!(Boolean) Mod.call(empty, "success"), "renaming to a blank name was allowed");
+            c.check(Files.isDirectory(dir(b)), "a refused rename lost the folder");
+            c.onClient(mc -> Mod.staticCall(PM, "applyProfile", b));
+            c.check(b.equals(marker()), "control: loading " + b + " did not make it active (marker '" + marker() + "')");
+            Object moved = Mod.staticCall(PM, "renameProfile", b, "tk-1553-c");
+            made.remove(b);
+            made.add("tk-1553-c");
+            c.check((Boolean) Mod.call(moved, "success"), "renaming the active profile failed: " + Mod.call(moved, "message"));
+            c.check("tk-1553-c".equals(marker()), "the active marker reads '" + marker() + "' after renaming the active profile");
+            c.check("tk-1553-c".equals(Mod.staticCall(PM, "getActiveProfile")), "getActiveProfile did not follow the rename");
+            c.note("a taken and a blank name are refused; renaming the active profile moved the marker");
+
+            // No swap text on screen: a real click on Load.
+            why = c.onClient(mc -> {
+                Mod.staticCall("notify.ModOverlayMessage", "show", "", 0L);
+                showProfiles(s[0]);
+                Mod.call(s[0], "refresh");
+                AbstractWidget card = panel(s[0], other);
+                AbstractWidget load = card == null ? null : buttonIn(s[0], card, "Load");
+                if (load == null) {
+                    return "no Load on the " + other + " card";
+                }
+                click(s[0], load);
+                return null;
+            });
+            c.check(why == null, why);
+            c.check(other.equals(marker()), "Load did not make " + other + " active (marker '" + marker() + "')");
+            Object shown = Mod.staticCall("notify.ModOverlayMessage", "current");
+            c.check(shown == null, "Load put '" + shown + "' on screen");
+            c.note("Load made " + other + " active and left the on-screen message empty");
+            c.ticks(2);
+            MenuACases.shot(c, s[0], "profiles-renamed", null);
+        } finally {
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                for (String p : made) {
+                    Mod.staticCall(PM, "deleteProfile", p);
+                }
+                try {
+                    if (activeBefore == null) {
+                        Files.deleteIfExists(markerPath);
+                    } else {
+                        Files.writeString(markerPath, activeBefore);
+                    }
+                } catch (Exception ignored) {
+                    // nothing later reads it
+                }
+                if (Quiet.enabled()) {
+                    Quiet.apply();
+                }
+                Mod.staticCall("util.SkyblockGate", "setEnabled", false);
+                return null;
+            });
+        }
+    }
 }

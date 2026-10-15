@@ -687,6 +687,9 @@ final class DocMenuCases {
         String cls = "namechanger.NameChangerConfig";
         Path file = configPath(cls, "CONFIG_PATH");
         byte[] before = snapshot(file);
+        // The names live in a second file since mod names-profiles-1015 (shared by every profile).
+        Path namesFile = Mod.has("namechanger.NameRank") ? configPath(cls, "NAMES_PATH") : null;
+        byte[] namesBefore = namesFile == null ? null : snapshot(namesFile);
         try {
             String why = c.onClient(mc -> {
                 Object cfg = Mod.cfg(cls);
@@ -746,6 +749,9 @@ final class DocMenuCases {
             c.check(why == null, why);
         } finally {
             restore(file, before);
+            if (namesFile != null) {
+                restore(namesFile, namesBefore);
+            }
             c.onClient(mc -> {
                 Mod.staticCall(cls, "load");
                 return null;
