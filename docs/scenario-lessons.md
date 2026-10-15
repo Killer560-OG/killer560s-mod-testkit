@@ -702,3 +702,6 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   client task (the server sends it straight back), and it runs last. Ask `mc.level.getChunkSource().hasChunk`, never
   `mc.level.hasChunk`: ClientLevel's is hard-wired to true. The stitched tile is made sound by copying the good tile's
   centre column over it on the server, so the save path can be tested on the shipped capture.
+- **193 named blood mobs (mod bloodcamp-5-1015, 2026-10-15)**: a husk with a name-tag stand "Revoker 1.4M❤" summoned just
+  above it (no trip - Blood Camp never saw it land) is drawn red by Dungeon ESP's Blood Mobs and attacked by the Aura; a
+  husk whose stand reads "[VIP] Revoker: hi ❤" is neither. Main jar: the named husk is not highlighted (fails).
