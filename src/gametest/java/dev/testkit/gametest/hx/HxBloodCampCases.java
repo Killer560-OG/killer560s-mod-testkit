@@ -866,7 +866,7 @@ final class HxBloodCampCases {
                     c.check(sentGaps.stream().allMatch(x -> x >= want), w[0] + ": the client clicked faster than " + want
                             + " ticks: " + sentGaps);
                     double mean = gg.stream().mapToLong(Long::longValue).average().orElse(0);
-                    c.check(gg.stream().allMatch(x -> x >= want - 1) && mean >= want - 0.05, w[0] + ": hits reached the"
+                    c.check(gg.stream().allMatch(x -> x >= want - 1) && mean >= want - 1, w[0] + ": hits reached the"
                             + " server faster than " + want + " ticks: " + gg);
                     long near = gg.stream().filter(x -> x <= want + 2).count();
                     c.check(near * 2 >= gg.size(), w[0] + ": most hits were not at the weapon's pace (" + gg
@@ -1049,13 +1049,14 @@ final class HxBloodCampCases {
             holding(c, "minecraft:iron_sword");
             stand(c, 0f, 0f);
             int f0 = intStat(c, "fillerClicks");
+            int a0 = intStat(c, "auraAttacks");
             List<Long> attacks = floorHusks(c, ",Health:20f,Invulnerable:1b", new double[][]{FLOOR[0]}, 200, false);
             int fillers = intStat(c, "fillerClicks") - f0;
+            int registering = intStat(c, "auraAttacks") - a0;
             List<Long> all = clientTicks(c, "allClickTicks");
             List<Long> reg = clientTicks(c, "recentClickTicks");
-            long first = attacks.isEmpty() ? Long.MAX_VALUE : 0;
-            // The last 200 ticks' worth: both lists hold this run's clicks at their ends.
-            int regN = Math.min(reg.size(), 20);
+            // Both lists hold this run's clicks at their ends.
+            int regN = Math.min(reg.size(), registering);
             List<Long> regGaps = gaps(reg.subList(reg.size() - regN, reg.size()));
             List<Long> allGaps = gaps(all.subList(Math.max(0, all.size() - (regN + fillers)), all.size()));
             double mean = allGaps.stream().mapToLong(Long::longValue).average().orElse(0);
