@@ -33,6 +33,7 @@
 			"dev.testkit.gametest.SimRunTests",
 			"dev.testkit.gametest.SimMapEditorTests",
 			"dev.testkit.gametest.SimMapFilterTests",
+			"dev.testkit.gametest.SimDesignerFloorTests",
 			"dev.testkit.gametest.HostileChatTests",
 			"dev.testkit.gametest.ChatTidyTests",
 			"dev.testkit.gametest.chat.ChatBatchSuite",
