@@ -201,7 +201,7 @@ public class SimMapHudTests implements FabricClientGameTest {
                         + "units - it does not fill the map", tag, longSide, inner / S));
             }
             if (Math.abs(left - right) > FIT_MARGIN || Math.abs(top - bottom) > FIT_MARGIN) {
-                failures.add(String.format(Locale.ROOT, "%s: the drawn floor is not centred (L %.1f R %.1f, T %.1f "
+                failures.add(String.format(Locale.ROOT, "%s: the drawn floor is not centered (L %.1f R %.1f, T %.1f "
                         + "B %.1f)", tag, left, right, top, bottom));
             }
             if (Mod.isCheat()) {
@@ -281,7 +281,7 @@ public class SimMapHudTests implements FabricClientGameTest {
                     rooms[i][1], want));
             if (got != want) {
                 failures.add(tag + ": an Interactive Map press on room slot (" + rooms[i][0] + "," + rooms[i][1]
-                        + ")'s drawn centre resolved to cell " + got + ", not " + want);
+                        + ")'s drawn center resolved to cell " + got + ", not " + want);
             }
         }
         ctx.runOnClient(mc -> McCompat.setScreen(mc, null));

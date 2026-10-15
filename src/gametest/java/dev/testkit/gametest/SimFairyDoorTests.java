@@ -148,8 +148,8 @@ public class SimFairyDoorTests implements FabricClientGameTest {
             Object cfg = ModUnderTest.config(CFG);
             ModUnderTest.set(cfg, "setEnabled", true);
             ModUnderTest.set(cfg, "setFairyDoor", true);
-            ModUnderTest.set(cfg, "setThroughWalls", true);
-            ModUnderTest.set(cfg, "setShowAllDoors", false);
+            // No separate Through Walls toggle since 2026-10-14: Show All Doors is what draws through walls.
+            ModUnderTest.set(cfg, "setShowAllDoors", true);
             ModUnderTest.set(cfg, "setCustomFillColor", false);
             ModUnderTest.set(cfg, "setFillOpacity", 100);
             ModUnderTest.set(cfg, "setFairyDoorColor", MAGENTA);
@@ -843,7 +843,7 @@ public class SimFairyDoorTests implements FabricClientGameTest {
     /** The Wither Doors settings this scenario touches, as one string, so the finally block puts them back. */
     private static String snapshotConfig() {
         Object c = ModUnderTest.config(CFG);
-        return ModUnderTest.getBoolean(c, "isEnabled") + ";" + inv(c, "isFairyDoorRaw") + ";" + inv(c, "isThroughWallsRaw")
+        return ModUnderTest.getBoolean(c, "isEnabled") + ";" + inv(c, "isFairyDoorRaw") + ";" + "-"
                 + ";" + inv(c, "isShowAllDoorsRaw") + ";" + inv(c, "isCustomFillColor") + ";" + inv(c, "getFillOpacity")
                 + ";" + inv(c, "getFairyDoorColor") + ";" + inv(c, "getRenderDistance") + ";" + inv(c, "getStyle");
     }
@@ -854,7 +854,6 @@ public class SimFairyDoorTests implements FabricClientGameTest {
             Object c = ModUnderTest.config(CFG);
             ModUnderTest.set(c, "setEnabled", Boolean.parseBoolean(p[0]));
             ModUnderTest.set(c, "setFairyDoor", Boolean.parseBoolean(p[1]));
-            ModUnderTest.set(c, "setThroughWalls", Boolean.parseBoolean(p[2]));
             ModUnderTest.set(c, "setShowAllDoors", Boolean.parseBoolean(p[3]));
             ModUnderTest.set(c, "setCustomFillColor", Boolean.parseBoolean(p[4]));
             ModUnderTest.set(c, "setFillOpacity", Integer.parseInt(p[5]));

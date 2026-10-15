@@ -698,8 +698,8 @@ final class AuctionHouseCases {
                         c.ctx().waitTicks(3);
                         BufferedImage img = shot(c, "reskin-" + m[0].replace("menus.", ""));
                         int grey = count(img, CHEST_GREY);
-                        c.check(grey < 50, size + " " + m[1] + ": " + grey + " chest-grey pixels - Hypixel's chest is showing");
-                        line += ", chest-grey px " + grey;
+                        c.check(grey < 50, size + " " + m[1] + ": " + grey + " chest-gray pixels - Hypixel's chest is showing");
+                        line += ", chest-gray px " + grey;
                     } else if (pass == 0 && (m[1].equals("BROWSER") || m[1].equals("VIEW"))) {
                         shot(c, "reskin-small-" + m[0].replace("menus.", ""));
                     }
@@ -899,7 +899,7 @@ final class AuctionHouseCases {
             int grey = count(img, CHEST_GREY);
             int t = texts(carried);
             boolean oldTexts = carried.stream().anyMatch(l -> l.startsWith("text card ") && l.contains("Hyperion"));
-            c.check(grey < 50, "while the next page loads " + grey + " chest-grey pixels show");
+            c.check(grey < 50, "while the next page loads " + grey + " chest-gray pixels show");
             c.check(t >= 20 && oldTexts, "while the next page loads only " + t + " texts (old cards drawn: " + oldTexts + ")");
             c.check(carried.contains("state carried"), "layout state is not 'carried'");
             // The server's items arrive: a full page in a new container.
@@ -911,7 +911,7 @@ final class AuctionHouseCases {
             c.check(frames[0] > 0, "no loading frame was drawn - the transition was not exercised");
             c.check(frames[1] == 0 && frames[2] == 0, "frames: " + frames[1] + " blank, " + frames[2] + " showing the chest");
             c.note("page change: " + frames[0] + " frames drew the previous page while loading (screenshot " + grey
-                    + " chest-grey px, " + t + " texts), " + frames[1] + " blank, " + frames[2] + " chest");
+                    + " chest-gray px, " + t + " texts), " + frames[1] + " blank, " + frames[2] + " chest");
         }
     }
 
@@ -965,7 +965,7 @@ final class AuctionHouseCases {
     static void vanillaClick(Session c, JsonObject spec, String what) {
         BufferedImage img = shot(c, "ah-vanilla-" + what.replaceAll("[^a-z0-9]+", "-"));
         int grey = count(img, CHEST_GREY);
-        c.check(grey > 1000, what + ": only " + grey + " chest-grey pixels - Hypixel's GUI is not showing");
+        c.check(grey > 1000, what + ": only " + grey + " chest-gray pixels - Hypixel's GUI is not showing");
         int slot = Integer.parseInt(realSlots(spec).get(0));
         double[] at = c.onClient(mc -> {
             AbstractContainerScreen<?> s = (AbstractContainerScreen<?>) McCompat.screen(mc);
@@ -982,7 +982,7 @@ final class AuctionHouseCases {
         c.waitUntil(what + ": vanilla's click", mc -> clicks(c) > before, 40);
         JsonObject k = lastClick(c);
         c.check(k.get("slot").getAsInt() == slot, what + ": vanilla press sent " + describe(k));
-        c.note(what + ": Hypixel's GUI (" + grey + " chest-grey px), press on slot " + slot + " -> " + describe(k));
+        c.note(what + ": Hypixel's GUI (" + grey + " chest-gray px), press on slot " + slot + " -> " + describe(k));
     }
 
     // ---- 499 ------------------------------------------------------------------------------------------------------
@@ -1013,7 +1013,7 @@ final class AuctionHouseCases {
             List<String> opening = reskinLayout(c);
             int grey = count(img, CHEST_GREY);
             boolean hero = opening.stream().anyMatch(l -> l.startsWith("text hero "));
-            c.check(grey < 50 && hero, "opening frame: " + grey + " chest-grey px, hero drawn " + hero);
+            c.check(grey < 50 && hero, "opening frame: " + grey + " chest-gray px, hero drawn " + hero);
             MenuKit.show(c, MenuKit.menu("menus.ah-view-bin"));
             c.waitUntil("the real view reskinned", mc -> "VIEW".equals(Mod.staticCall(RESKIN, "kindForTest")), 60);
             c.ctx().waitTicks(5);

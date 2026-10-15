@@ -316,13 +316,13 @@ final class StatBarsLayoutCases {
         row(c, tag + " vanilla shown", new double[][]{hp, mp, vp}, new String[]{"Health", "Mana", "Vitality"}, hb,
                 vanillaTop);
         if (dp != null && hp != null) {
-            c.note(String.format(Locale.ROOT, "%s Row 2 Defence fill %s, Row 1 top %.1f", tag, gbox(dp), hp[1]));
+            c.note(String.format(Locale.ROOT, "%s Row 2 Defense fill %s, Row 1 top %.1f", tag, gbox(dp), hp[1]));
             expect(c, Math.abs(dp[0] - hb) <= 0.5, tag + " Row 2's first bar does not start at the hotbar's left (" + dp[0]
                     + " vs " + hb + ")");
             expect(c, dp[3] <= Math.min(hp[1], Math.min(mp == null ? 1e9 : mp[1], vp == null ? 1e9 : vp[1])),
                     tag + " Row 2 (bottom " + dp[3] + ") overlaps Row 1 (top " + hp[1] + ")");
         } else {
-            c.problem(tag + " Row 2's Defence bar drew no pixel");
+            c.problem(tag + " Row 2's Defense bar drew no pixel");
         }
         double[] ht = m.get(HEALTH_TEXT);
         double[] mt = m.get(MANA_TEXT);
@@ -413,7 +413,7 @@ final class StatBarsLayoutCases {
             int[] hb = HudEditorBox.box(c, s, "statbar_health");
             int[] mb = HudEditorBox.box(c, s, "statbar_mana");
             int[] db = HudEditorBox.box(c, s, "statbar_defence");
-            c.note(tag + " editor: Health " + HudEditorCases.str(hb) + ", Mana " + HudEditorCases.str(mb) + ", Defence "
+            c.note(tag + " editor: Health " + HudEditorCases.str(hb) + ", Mana " + HudEditorCases.str(mb) + ", Defense "
                     + HudEditorCases.str(db));
             // ---- Defence from Row 2 onto Above Hotbar, between Health and Mana --------------------------------------
             int gx = (db[0] + db[2]) / 2;
@@ -433,14 +433,14 @@ final class StatBarsLayoutCases {
                     return "";
                 }
             });
-            c.note(tag + " dragged Defence onto Above Hotbar between Health and Mana: area/order " + got
-                    + "; saved file has defence in above_hotbar: " + disk.replaceAll("\\s", "").contains(
+            c.note(tag + " dragged Defense onto Above Hotbar between Health and Mana: area/order " + got
+                    + "; saved file has defense in above_hotbar: " + disk.replaceAll("\\s", "").contains(
                     "\"defence_bar\":{\"on\":true,\"color\":" + DEFENCE));
             String[] g = got.split(" ");
             String[] o = g[1].split(",");
             expect(c, g[0].equals("ABOVE_HOTBAR") && Integer.parseInt(o[0]) < Integer.parseInt(o[1])
                     && Integer.parseInt(o[1]) < Integer.parseInt(o[2]),
-                    tag + " Defence did not land in Above Hotbar between Health and Mana: " + got);
+                    tag + " Defense did not land in Above Hotbar between Health and Mana: " + got);
             String reloaded = c.onClient(mc -> {
                 Mod.staticCall(PS, "load");
                 Object ps = Mod.cfg(PS);
@@ -490,15 +490,15 @@ final class StatBarsLayoutCases {
         double[] hp = m.get(HEALTH);
         double[] dp = m.get(DEFENCE);
         double[] mp = m.get(MANA);
-        c.note(tag + " after the drags: Health " + gbox(hp) + ", Defence " + gbox(dp) + ", Mana " + gbox(mp)
+        c.note(tag + " after the drags: Health " + gbox(hp) + ", Defense " + gbox(dp) + ", Mana " + gbox(mp)
                 + ", Vitality " + gbox(m.get(VITALITY)));
         expect(c, m.get(VITALITY) == null, tag + " the hidden Vitality Bar still draws: " + gbox(m.get(VITALITY)));
         if (hp != null && dp != null && mp != null) {
-            expect(c, hp[2] <= dp[0] && dp[0] < mp[0], tag + " the row is not Health, Defence, Mana from the left");
+            expect(c, hp[2] <= dp[0] && dp[0] < mp[0], tag + " the row is not Health, Defense, Mana from the left");
             expect(c, Math.abs(hp[0] - hbX) <= 0.5 && Math.abs(mp[2] - (hbX + 182)) <= 1.01,
                     tag + " the three bars do not span the hotbar (" + hp[0] + ".." + mp[2] + " vs " + hbX + ".."
                             + (hbX + 182) + ")");
-            expect(c, Math.abs(dp[1] - hp[1]) <= 0.01, tag + " Defence is not on Health's row (y " + dp[1] + " vs "
+            expect(c, Math.abs(dp[1] - hp[1]) <= 0.01, tag + " Defense is not on Health's row (y " + dp[1] + " vs "
                     + hp[1] + ")");
         } else {
             c.problem(tag + " after the drags a bar drew nothing");

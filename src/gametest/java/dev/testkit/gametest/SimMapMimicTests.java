@@ -123,7 +123,7 @@ public class SimMapMimicTests implements FabricClientGameTest {
         String roomName = (String) choice[2];
         boolean offCentre = (Boolean) choice[3];
         System.out.println("[" + CASE + "] sim picked " + picked + "; moving the mimic to " + chest.toShortString()
-                + " in " + roomName + " (tile " + tile + ", " + (offCentre ? "outside" : "INSIDE") + " the room's cells by nearest cell centre)");
+                + " in " + roomName + " (tile " + tile + ", " + (offCentre ? "outside" : "INSIDE") + " the room's cells by nearest cell center)");
         BlockPos old = (BlockPos) picked;
         serverRun(ctx, (server, sp) -> {
             var level = server.overworld();

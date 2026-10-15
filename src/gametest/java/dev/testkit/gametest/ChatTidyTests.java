@@ -108,7 +108,7 @@ public class ChatTidyTests implements FabricClientGameTest {
         expect(lines.get(0).equals(alpha + " (x3)"), "newest line is \"" + alpha + " (x3)\"", lines);
         expect(count(lines, alpha) == 0, "no un-stacked copy of alpha is left", lines);
         String colour = (String) onClient(ctx, () -> ModUnderTest.staticCall(TIDY, "testNewestLastColour"));
-        expect("gray".equalsIgnoreCase(colour), "the (x3) suffix is grey (read " + colour + ")", lines);
+        expect("gray".equalsIgnoreCase(colour), "the (x3) suffix is gray (read " + colour + ")", lines);
         expect(num("testStacked") - stackedBefore == 2, "the mod counted 2 stacks", lines);
         scenario.log("PASS stack: 3 identical lines -> one \"" + lines.get(0) + "\", grey suffix");
 
@@ -123,8 +123,8 @@ public class ChatTidyTests implements FabricClientGameTest {
         send(ctx, server, "Tidy probe delta", "green");
         lines = chat(ctx, 4);
         expect(lines.get(0).equals("Tidy probe delta") && lines.get(1).equals("Tidy probe delta"),
-                "same text in a different colour stays two lines", lines);
-        scenario.log("PASS same text, different colour does not stack: " + lines.subList(0, 2));
+                "same text in a different color stays two lines", lines);
+        scenario.log("PASS same text, different color does not stack: " + lines.subList(0, 2));
 
         send(ctx, server, "-----------------------------", "blue");
         send(ctx, server, "-----------------------------", "blue");

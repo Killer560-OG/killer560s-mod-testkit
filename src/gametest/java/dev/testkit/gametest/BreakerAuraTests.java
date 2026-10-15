@@ -143,7 +143,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             "open ground on Speed V: %.2f blocks in 200 ticks = %.3f blocks/tick",
                             travelled, travelled / 200.0));
                     if (travelled < 60) {
-                        throw new AssertionError("only travelled " + travelled + " blocks on Speed V - the "
+                        throw new AssertionError("only traveled " + travelled + " blocks on Speed V - the "
                                 + "run did not happen, so a clean result says nothing");
                     }
                 });
@@ -553,7 +553,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
     /** The shape of the digs from his own eyes, which GrimAC may not check and another anticheat could. */
     private static void logDigShape(Scenario scenario) {
         scenario.log(String.format(Locale.ROOT,
-                "dig shape: %d dig(s), up to %d on one tick, %d whose eye-to-centre line crossed another block "
+                "dig shape: %d dig(s), up to %d on one tick, %d whose eye-to-center line crossed another block "
                         + "first (dug through something), widest angle off his view %.1f deg, furthest %.2f to box",
                 PacketWatch.totalBreaks(), PacketWatch.maxBreaksOnOneTick(), PacketWatch.occludedDigs(),
                 PacketWatch.maxDigLookAngle(), PacketWatch.maxBoxReach()));
@@ -729,7 +729,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                     + lost.stream().map(BreakerAuraTests::xyz).toList());
                         }
                         scenario.log("53 PASS: " + sidePicks.size() + " side picks broken, the out-of-reach pick and "
-                                + "every unpicked block (wall walked into, the snow floor under him, neighbours) left "
+                                + "every unpicked block (wall walked into, the snow floor under him, neighbors) left "
                                 + "alone, every dig named a picked block");
                     } finally {
                         unconfigure(ctx);

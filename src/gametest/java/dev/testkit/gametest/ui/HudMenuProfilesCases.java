@@ -239,7 +239,7 @@ final class HudMenuProfilesCases {
             for (String[] t : idle) {
                 c.note("drawn text: \"" + t[0] + "\" at " + t[1]);
                 String plain = t[0];
-                for (String gone : new String[]{"Snapping:", "Show Unseen:", "Element Edges", "Screen Centre",
+                for (String gone : new String[]{"Snapping:", "Show Unseen:", "Element Edges", "Screen Center",
                         "Equal Spacing", "Done"}) {
                     if (plain.contains(gone)) {
                         c.problem("Edit HUD still draws \"" + plain + "\" (the old " + gone + " control)");
@@ -281,8 +281,8 @@ final class HudMenuProfilesCases {
         Object hud = Mod.cfg(HUD);
         String[][] rows = {
                 {"Snapping", "isEditorSnap"}, {"Show Unseen", "isEditorShowAll"},
-                {"Element Edges", "isSnapElementEdges"}, {"Element Centres", "isSnapElementCentres"},
-                {"Screen Edges", "isSnapScreenEdges"}, {"Screen Centre", "isSnapScreenCentre"},
+                {"Element Edges", "isSnapElementEdges"}, {"Element Centers", "isSnapElementCentres"},
+                {"Screen Edges", "isSnapScreenEdges"}, {"Screen Center", "isSnapScreenCentre"},
                 {"Equal Spacing", "isSnapEqualSpacing"}};
         Map<String, Boolean> before = new LinkedHashMap<>();
         for (String[] row : rows) {
@@ -686,7 +686,7 @@ final class HudMenuProfilesCases {
         c.ctx().getInput().pressMouse(0);
         c.ticks(3);
         int got = (Integer) R.getStatic(cls, "selectedTab");
-        c.note(String.format(Locale.ROOT, "%s: click at the drawn centre of sidebar row %d (GUI %.1f,%.1f) selected tab %d",
+        c.note(String.format(Locale.ROOT, "%s: click at the drawn center of sidebar row %d (GUI %.1f,%.1f) selected tab %d",
                 where, target, gx, gy, got));
         if (got != target) {
             c.problem(where + ": a click on sidebar row " + target + " at its drawn position selected tab " + got);

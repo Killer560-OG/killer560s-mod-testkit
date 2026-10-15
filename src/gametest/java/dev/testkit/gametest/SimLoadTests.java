@@ -140,7 +140,7 @@ public class SimLoadTests implements FabricClientGameTest {
                 .getBlockState(new BlockPos(x0 + 15, FLOOR_Y, z0 + 15)).getBlock().toString()));
         ctx.waitFor(mc -> floorRef.get() != null);
         String floor = floorRef.get();
-        System.out.println("[71-sim-load-from-menu] floor at the centre cell: " + floor);
+        System.out.println("[71-sim-load-from-menu] floor at the center cell: " + floor);
         if (floor.contains("air")) {
             throw new AssertionError("the sim opened but the room was never built - the floor at " + (x0 + 15)
                     + "," + FLOOR_Y + "," + (z0 + 15) + " is " + floor + ". This is exactly what killer560 "

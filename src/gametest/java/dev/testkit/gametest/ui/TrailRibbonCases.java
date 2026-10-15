@@ -451,8 +451,8 @@ final class TrailRibbonCases {
             c.check(b.share() >= 0.9, "the changed pixels are not one band: " + b.describe());
             c.check(b.columnGaps() == 0, "the band has " + b.columnGaps() + " empty column(s): " + b.describe());
             c.check(b.reach() > 120, "the band is short on screen: " + b.describe());
-            c.check(reddish(b.nearD()), "near the player the band is not the head colour (red): " + b.describe());
-            c.check(yellowish(b.midD()), "the band's middle is not the middle colour (yellow): " + b.describe());
+            c.check(reddish(b.nearD()), "near the player the band is not the head color (red): " + b.describe());
+            c.check(yellowish(b.midD()), "the band's middle is not the middle color (yellow): " + b.describe());
             c.check(headToTail(b), "the band does not run red at the player to blue at the end: " + b.describe());
             c.check(b.nearMag() > b.farMag() * 1.5, "the band does not fade toward the tail: " + b.describe());
             c.check(b.height() < b.thickness() * 1.6, "a straight walk drew a bent band: " + b.describe());
@@ -461,7 +461,7 @@ final class TrailRibbonCases {
             // sits about 18 px out, beside his arm: +-20 px reached into it (67 px on 26.2, where the arm does not
             // cover it). +-12 px is his torso and legs.
             int overBody = overPlayer(off, on, 12);
-            c.note("changed pixels over the player's torso and legs (centre +-12 px): " + overBody);
+            c.note("changed pixels over the player's torso and legs (center +-12 px): " + overBody);
             c.check(overBody < 50, "the ribbon is drawn over the player (" + overBody + " px in front of his body)");
             // From behind: walking forward (south), the band streams back toward the camera and down the screen. A
             // vertical band seen EXACTLY from behind a dead-straight walk is edge-on (the F5 camera sits in its plane),
@@ -749,7 +749,7 @@ final class TrailRibbonCases {
                 c.check(ribbonRows.stream().anyMatch(r -> r.startsWith(want)), "Ribbon Trail tab has no row '" + want + "': " + ribbonRows);
             }
             c.check(ribbonRows.stream().noneMatch(r -> r.startsWith("Style")), "the Ribbon Trail tab has a Style row");
-            c.check(chromaRows.stream().noneMatch(r -> r.startsWith("Head Color")), "Chroma still shows colour pickers");
+            c.check(chromaRows.stream().noneMatch(r -> r.startsWith("Head Color")), "Chroma still shows color pickers");
             for (String label : new String[]{"Ribbon Trail: ON", "Ribbon Height: 2.00", "Ribbon Length: 0.2s", "Opacity: 40%",
                     "Color Mode: Gradient", "Colors: 3", "Head Color", "Middle Color", "Tail Color",
                     "Show In First Person: ON", "Share Trail: ON", "Show Others' Trails: ON"}) {
@@ -849,7 +849,7 @@ final class TrailRibbonCases {
             }
             c.check(rows.stream().noneMatch(r -> r.startsWith("Style") || r.contains("Ribbon") || r.contains("Share")
                             || r.contains("Others' Trails") || r.contains("Color")),
-                    "the Trail tab still has Style, ribbon, colour or share rows: " + rows);
+                    "the Trail tab still has Style, ribbon, color or share rows: " + rows);
             for (String label : new String[]{"Trail: ON", "Length: 40", "Square Size: 0.30", "Opacity: 60%",
                     "Fade Toward Tail: ON", "Show In First Person: ON"}) {
                 String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Trail", label));

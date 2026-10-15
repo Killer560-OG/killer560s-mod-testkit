@@ -308,7 +308,7 @@ public class SimKeyLookTests implements FabricClientGameTest {
                     && head.is(net.minecraft.world.item.Items.PLAYER_HEAD) && textured && s.isCustomNameVisible();
             return (ok ? "OK " : "WRONG ") + facts;
         }
-        return "WRONG no client armour stand named " + want;
+        return "WRONG no client armor stand named " + want;
     }
 
     private static void leave(ClientGameTestContext ctx) {

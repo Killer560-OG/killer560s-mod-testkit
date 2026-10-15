@@ -1,7 +1,7 @@
 {
   "_doc": "newLeaves paths follow the Option A regroup (mod menu-a, 2026-10-12: Helpers became part of Misc). What the branches merged with menu-layout on 2026-10-08 (mod 3744aa32) changed on purpose, on top of the menu-layout-<variant>.json fixtures (recorded from 6a61dfa8). 511: goneLeaves must be absent, newLeaves must be at exactly that path once. 513: a fixture row listed in tooltips must now show \"text\" (under \"to\" when it moved sub-tab) or be gone everywhere (\"gone\"); an entry that no longer differs from the fixture is stale and fails.",
   "goneLeaves": {
-    "gui.tab.ArmourDyeTab": "inv-batch 701742c2: Armor Recolour became Custom Items (Cosmetics > Custom Items)",
+    "gui.tab.ArmourDyeTab": "inv-batch 701742c2: Armor Recolor became Custom Items (Cosmetics > Custom Items)",
     "gui.tab.ChatTidyTab": "chat-batch a64924b9: merged into Chat Hider",
     "gui.tab.HideChatMessagesTab": "chat-batch a64924b9: merged into Chat Hider",
     "gui.tab.AbilityTimersTab": "gui-hud 805ca633: Ability Timers removed (killer560: \"Remove the ability timers setting that is unneeded.\")"
@@ -14,6 +14,11 @@
   },
   "tooltips": [
     {
+      "owner": "Party Interop",
+      "key": "log pickups",
+      "gone": "doc-small-1014: Log Pickups (printed every piece of party info to chat) removed, killer560 2026-10-14"
+    },
+    {
       "owner": "Trail",
       "key": "trail",
       "text": "Draws squares behind you as you move: one per tick, green on the ground and blue in the air. Only you see it; it is never shared.",
@@ -22,7 +27,7 @@
     {
       "owner": "(unscoped)",
       "key": "copy chat",
-      "text": "With chat open: Shift or Ctrl + Left-Click a message copies the whole message (every wrapped line); Shift or Ctrl + Right-Click copies only the line you clicked. Copied without colour codes. A plain click does what it always did.",
+      "text": "With chat open: Shift or Ctrl + Left-Click a message copies the whole message (every wrapped line); Shift or Ctrl + Right-Click copies only the line you clicked. Copied without color codes. A plain click does what it always did.",
       "why": "chat-batch a64924b9: Copy Chat takes Shift or Ctrl and copies whole messages"
     },
     {
@@ -32,39 +37,39 @@
       "why": "modchat-party 76cf2846: /killer560 chat removed, /kc and /chat k"
     },
     {
-      "owner": "Armor Recolour",
+      "owner": "Armor Recolor",
       "key": "add a piece",
-      "gone": "inv-batch 701742c2: Armor Recolour became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
+      "gone": "inv-batch 701742c2: Armor Recolor became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
     },
     {
-      "owner": "Armor Recolour",
+      "owner": "Armor Recolor",
       "key": "add boots",
-      "gone": "inv-batch 701742c2: Armor Recolour became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
+      "gone": "inv-batch 701742c2: Armor Recolor became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
     },
     {
-      "owner": "Armor Recolour",
+      "owner": "Armor Recolor",
       "key": "add chest",
-      "gone": "inv-batch 701742c2: Armor Recolour became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
+      "gone": "inv-batch 701742c2: Armor Recolor became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
     },
     {
-      "owner": "Armor Recolour",
+      "owner": "Armor Recolor",
       "key": "add helmet",
-      "gone": "inv-batch 701742c2: Armor Recolour became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
+      "gone": "inv-batch 701742c2: Armor Recolor became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
     },
     {
-      "owner": "Armor Recolour",
+      "owner": "Armor Recolor",
       "key": "add legs",
-      "gone": "inv-batch 701742c2: Armor Recolour became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
+      "gone": "inv-batch 701742c2: Armor Recolor became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
     },
     {
-      "owner": "Armor Recolour",
+      "owner": "Armor Recolor",
       "key": "capture key",
-      "gone": "inv-batch 701742c2: Armor Recolour became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
+      "gone": "inv-batch 701742c2: Armor Recolor became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
     },
     {
-      "owner": "Armor Recolour",
+      "owner": "Armor Recolor",
       "key": "skin inventory icons",
-      "gone": "inv-batch 701742c2: Armor Recolour became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
+      "gone": "inv-batch 701742c2: Armor Recolor became Custom Items; capture key, add-piece buttons and skin inventory icons removed"
     },
     {
       "owner": "Chat Tidy",
@@ -87,13 +92,13 @@
       "owner": "Chat Tidy",
       "key": "stack duplicate messages",
       "to": "Chat Hider",
-      "text": "A line that repeats one of the last 50 chat messages from the last 60 seconds replaces it: the earlier copy goes, and one line ending in a grey (x2), (x3)... is added at the bottom, even with other messages in between. Blank lines and separators never stack.",
+      "text": "A line that repeats one of the last 50 chat messages from the last 60 seconds replaces it: the earlier copy goes, and one line ending in a gray (x2), (x3)... is added at the bottom, even with other messages in between. Blank lines and separators never stack.",
       "why": "chat-batch a64924b9: Chat Tidy and Hide Chat Messages became Chat Hider"
     },
     {
       "owner": "Copy Chat",
       "key": "copy chat",
-      "text": "With chat open: Shift or Ctrl + Left-Click a message copies the whole message (every wrapped line); Shift or Ctrl + Right-Click copies only the line you clicked. Copied without colour codes. A plain click does what it always did.",
+      "text": "With chat open: Shift or Ctrl + Left-Click a message copies the whole message (every wrapped line); Shift or Ctrl + Right-Click copies only the line you clicked. Copied without color codes. A plain click does what it always did.",
       "why": "chat-batch a64924b9: Copy Chat takes Shift or Ctrl and copies whole messages"
     },
     {
@@ -309,7 +314,7 @@
     {
       "owner": "Inventory Theme",
       "key": "inventory theme",
-      "text": "Re-skins the chest and inventory screens, and the hotbar: vanilla's own shapes (bevelled panel, sunken slots) in the colours of the Preset.",
+      "text": "Re-skins the chest and inventory screens, and the hotbar: vanilla's own shapes (bevelled panel, sunken slots) in the colors of the Preset.",
       "why": "inv-theme-reskin 8ef13dd9: vanilla-shaped reskin with presets (killer560 2026-10-13)"
     },
     {

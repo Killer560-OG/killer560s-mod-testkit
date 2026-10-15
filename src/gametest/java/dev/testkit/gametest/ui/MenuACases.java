@@ -287,10 +287,10 @@ final class MenuACases {
                 Mod.staticCall("gui.MenuConfig", "load");
                 Mod.setField(Mod.ROOT + SCREEN, "tabs", null);
                 Screen fresh = open(mc);
-                Mod.call(fresh, "selectCategory", "Favourites");
+                Mod.call(fresh, "selectCategory", "Favorites");
                 List<?> cards = (List<?>) Mod.call(fresh, "cards");
                 if (cards.size() != 1 || !cards.get(0).getClass().getSimpleName().equals(id)) {
-                    return "after a restart Favourites shows " + cards;
+                    return "after a restart Favorites shows " + cards;
                 }
                 Object again = leaf(id);
                 Mod.call(fresh, "selectCategory", name(category(again)));
@@ -300,9 +300,9 @@ final class MenuACases {
                 if (text.contains("\"" + id + "\"")) {
                     return "unstarring left " + id + " in the file";
                 }
-                Mod.call(fresh, "selectCategory", "Favourites");
+                Mod.call(fresh, "selectCategory", "Favorites");
                 if (!((List<?>) Mod.call(fresh, "cards")).isEmpty()) {
-                    return "Favourites still shows a card after unstarring";
+                    return "Favorites still shows a card after unstarring";
                 }
                 c.note("starred " + id + " by its card; it survived a restart (" + file.getFileName()
                         + " re-read, tabs and screen rebuilt); unstarred cleanly");
@@ -593,7 +593,7 @@ final class MenuACases {
                 seen.put(order[i], px);
             }
             c.check(!near(seen.get("AMBER")[0], seen.get("DARK")[0]) && !near(seen.get("DARK")[0], seen.get("LIGHT")[0])
-                    && !near(seen.get("AMBER")[0], seen.get("LIGHT")[0]), "two presets draw the same ring colour");
+                    && !near(seen.get("AMBER")[0], seen.get("LIGHT")[0]), "two presets draw the same ring color");
             c.check(lum(seen.get("LIGHT")[1]) > 0.6f && lum(seen.get("AMBER")[1]) < 0.25f && lum(seen.get("DARK")[1]) < 0.25f,
                     "Light's sidebar is not light, or a dark preset's is not dark");
             // one step back
@@ -673,7 +673,7 @@ final class MenuACases {
                 ModScreenDriver.press(accent);
                 Screen picker = McCompat.screen(mc);
                 if (picker == null || !picker.getClass().getSimpleName().equals("ColorPickerScreen")) {
-                    return "the Accent row opened " + picker + ", not the colour picker";
+                    return "the Accent row opened " + picker + ", not the color picker";
                 }
                 ((java.util.function.IntConsumer) Mod.field(picker, "onChange")).accept(teal);
                 picker.onClose();

@@ -756,7 +756,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
                 r.decisions.add(new Decision(pick, ranked, l.replaceAll("^.*?\\[Autopilot\\]", "[Autopilot]")));
             }
         }
-        println(String.format(Locale.US, "%s: %.1f s, travelled %.1f blocks, %d decision(s), stopped: %s", label,
+        println(String.format(Locale.US, "%s: %.1f s, traveled %.1f blocks, %d decision(s), stopped: %s", label,
                 r.ticks / 20.0, r.travelled, r.decisions.size(), r.stopReason));
         for (String l : r.log) {
             if (l.contains("[Autopilot]") || l.contains("[AutoSecret]") || l.contains("[AutoClear] done")
@@ -773,7 +773,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
             failures.add(label + ": still running after " + CASE_TICKS / 20 + " s");
         }
         if (r.travelled < 10) {
-            failures.add(String.format(Locale.US, "%s: travelled only %.1f blocks - nothing happened", label, r.travelled));
+            failures.add(String.format(Locale.US, "%s: traveled only %.1f blocks - nothing happened", label, r.travelled));
         }
         if (r.decisions.isEmpty()) {
             failures.add(label + ": no [Autopilot] decision was logged");

@@ -85,7 +85,6 @@ final class WitherDoorFillCases {
         int opacityWas = (Integer) Mod.call(cfg0, "getFillOpacity");
         boolean customWas = (Boolean) Mod.call(cfg0, "isCustomFillColor");
         int fillColorWas = (Integer) Mod.call(cfg0, "getFillColor");
-        boolean twWas = (Boolean) Mod.call(cfg0, "isThroughWallsRaw");
         boolean showAllWas = (Boolean) Mod.call(cfg0, "isShowAllDoorsRaw");
         int lockedWas = (Integer) Mod.call(cfg0, "getWitherLockedColor");
         int readyWas = (Integer) Mod.call(cfg0, "getWitherReadyColor");
@@ -118,7 +117,6 @@ final class WitherDoorFillCases {
                 dev.testkit.compat.McCompat.clearChatAndToasts(mc);
                 Object cfg = Mod.cfg(CFG);
                 Mod.call(cfg, "setEnabled", false);
-                Mod.call(cfg, "setThroughWalls", false);
                 Mod.call(cfg, "setShowAllDoors", false);
                 Mod.call(cfg, "setCustomFillColor", false);
                 Mod.call(cfg, "setWitherLockedColor", 0xFF000000 | RED);
@@ -127,7 +125,7 @@ final class WitherDoorFillCases {
                 return true;
             });
             c.check(c.onClient(mc -> (Boolean) Mod.staticCall("cheatutils.CheatUtils", "isOnDungeonServer", mc)),
-                    "CheatUtils.isOnDungeonServer is still false after labelling the connection - nothing would draw");
+                    "CheatUtils.isOnDungeonServer is still false after labeling the connection - nothing would draw");
             c.note("door at " + DX + ",69," + DZ + " (coal 3x4x3, roof y 73); player to " + camX + "," + camY + ","
                     + camZ + " facing +x");
 
@@ -232,13 +230,14 @@ final class WitherDoorFillCases {
                 BufferedImage wallBase = shot(c, "wall-none", false, "FILL", 35);
                 BufferedImage hidden = shot(c, "wall-fill", true, "FILL", 35);
                 c.onClient(mc -> {
-                    Mod.call(Mod.cfg(CFG), "setThroughWalls", true);
+                    // No separate Through Walls toggle since 2026-10-14: Show All Doors draws through walls.
+                    Mod.call(Mod.cfg(CFG), "setShowAllDoors", true);
                     return null;
                 });
                 BufferedImage tw = shot(c, "wall-fill-through-walls", true, "FILL", 35);
                 BufferedImage twOutline = shot(c, "wall-outline-through-walls", true, "OUTLINE", 35);
                 c.onClient(mc -> {
-                    Mod.call(Mod.cfg(CFG), "setThroughWalls", false);
+                    Mod.call(Mod.cfg(CFG), "setShowAllDoors", false);
                     return null;
                 });
                 Stat hid = stat(wallBase, hidden, inner, RED);
@@ -302,7 +301,6 @@ final class WitherDoorFillCases {
                     Mod.call(cfg, "setFillOpacity", opacityWas);
                     Mod.call(cfg, "setCustomFillColor", customWas);
                     Mod.call(cfg, "setFillColor", fillColorWas);
-                    Mod.call(cfg, "setThroughWalls", twWas);
                     Mod.call(cfg, "setShowAllDoors", showAllWas);
                     Mod.call(cfg, "setWitherLockedColor", lockedWas);
                     Mod.call(cfg, "setWitherReadyColor", readyWas);

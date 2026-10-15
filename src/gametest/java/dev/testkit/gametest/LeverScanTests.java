@@ -172,7 +172,7 @@ public class LeverScanTests implements FabricClientGameTest {
 
         if (r[0] == 0) {
             throw new AssertionError("no levers anywhere on the floor, so nothing was compared - this "
-                    + "assertion would pass vacuously and prove nothing about the optimisation");
+                    + "assertion would pass vacuously and prove nothing about the optimization");
         }
         if (r[2] != 1) {
             throw new AssertionError("the two scans disagree: brute force found " + r[0]

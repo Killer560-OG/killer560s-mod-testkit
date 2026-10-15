@@ -208,20 +208,20 @@ final class DocMenuCases {
                 MenuACases.press(s[0], chip[0] + chip[2] / 2.0, chip[1] + chip[3] / 2.0);
                 Object open = Mod.call(s[0], "openFeature");
                 if (open == null || !open.getClass().getSimpleName().equals("MenuThemeTab")) {
-                    return "Customise... opened " + (open == null ? "nothing" : open.getClass().getSimpleName());
+                    return "Customize... opened " + (open == null ? "nothing" : open.getClass().getSimpleName());
                 }
                 Mod.call(s[0], "closeDrawer");
                 // The Favourites PAGE stays.
-                if (!(Boolean) Mod.call(s[0], "selectCategory", "Favourites")) {
-                    return "the sidebar has no Favourites page";
+                if (!(Boolean) Mod.call(s[0], "selectCategory", "Favorites")) {
+                    return "the sidebar has no Favorites page";
                 }
                 List<?> favCards = (List<?>) Mod.call(s[0], "cards");
                 if (favCards.size() != 1 || !favCards.get(0).getClass().getSimpleName().equals("QuiverDisplayTab")) {
-                    return "the Favourites page shows " + favCards + " with Quiver Display starred";
+                    return "the Favorites page shows " + favCards + " with Quiver Display starred";
                 }
                 Mod.call(s[0], "selectCategory", "Home");
                 c.note("Home: quick buttons " + kept + "; boxes " + blocks + "; cards " + cards
-                        + "; Customise... opened Menu Theme; the Favourites page lists the starred card");
+                        + "; Customize... opened Menu Theme; the Favorites page lists the starred card");
                 return null;
             });
             c.check(why == null, why);

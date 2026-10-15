@@ -181,7 +181,7 @@ final class PartyFinderStyleCases {
                             + " (member lines " + members.size() + ", all with '?' " + allStyled + ", killer560 line '"
                             + killer + "', new 0x555555 tooltip pixels " + darkGrey + ")");
                     c.note(v.label() + " no stats: " + noStats + " - killer560 line '" + killer + "', "
-                            + darkGrey + " dark-grey bracket pixels drawn");
+                            + darkGrey + " dark-gray bracket pixels drawn");
                     if (!noStats.equals("PASS")) {
                         failures.add(v.label() + " with no stats: real tooltip " + plain);
                     }

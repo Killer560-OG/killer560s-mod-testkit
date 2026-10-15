@@ -292,7 +292,7 @@ final class InvThemeCenterCases {
             }
             checked++;
         }
-        c.note(String.format(Locale.ROOT, "%s: %d slots measured, worst item off-centre %d px%s", label, checked, worstOff,
+        c.note(String.format(Locale.ROOT, "%s: %d slots measured, worst item off-center %d px%s", label, checked, worstOff,
                 first.isEmpty() ? "; every inside, bevel and rarity edge as wanted" : "; first problem " + first));
         return checked;
     }
@@ -349,7 +349,7 @@ final class InvThemeCenterCases {
             c.note(String.format(Locale.ROOT, "%s: Default hotbar insides opaque #%06X with #%06X top/left edge: %d of 21 "
                     + "sampled pixels wrong", label, inside, edge, wrong));
             if (wrong > 0) {
-                problems.add(label + ": " + wrong + " Default hotbar inside pixels are not their opaque colour (see-through?)");
+                problems.add(label + ": " + wrong + " Default hotbar inside pixels are not their opaque color (see-through?)");
             }
         }
         List<int[]> slots = new ArrayList<>();
@@ -550,7 +550,7 @@ final class InvThemeCenterCases {
                 int border = preset.equals("DEFAULT") ? 0x000000 : palette(c).border();
                 if (topRow != border || (sideCol != border && sideCol != 0x2B2B2B)) {
                     problems.add(String.format(Locale.ROOT, "%s: the ring's outline (top #%06X, side #%06X) is not the bar's edge "
-                            + "colour #%06X", preset, topRow, sideCol, border));
+                            + "color #%06X", preset, topRow, sideCol, border));
                 }
             }
             if (preset.equals("DARK") && bright > 0xA0) {

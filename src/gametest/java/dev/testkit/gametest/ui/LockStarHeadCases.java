@@ -262,9 +262,9 @@ final class LockStarHeadCases {
                     c.problem(labels[i] + " shows a star (" + got + " px)");
                 }
             }
-            c.note("star-coloured px on the whole screen " + total + " (want " + locked * want + ")");
+            c.note("star-colored px on the whole screen " + total + " (want " + locked * want + ")");
             if (total != locked * want) {
-                c.problem("star-coloured px elsewhere on screen: " + (total - locked * want));
+                c.problem("star-colored px elsewhere on screen: " + (total - locked * want));
             }
 
             // Hovered: each locked head keeps its star under the slot highlight; the tooltip opens beside it.

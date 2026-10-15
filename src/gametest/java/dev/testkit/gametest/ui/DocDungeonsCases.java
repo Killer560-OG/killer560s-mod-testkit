@@ -192,7 +192,7 @@ final class DocDungeonsCases {
                     + " fast " + old[3] + "; P3 (on, Mode Fast) fast/auto " + old[4] + "; P4 (off, Mode Auto) and Middle (off,"
                     + " Mode Fast) fast/auto " + old[5] + "; mode " + old[6] + "; P1 by class " + old[7] + " "
                     + old[8] + "; S1 by class " + old[9] + " " + old[10]);
-            c.check("Crystal".equals(old[0]), "P1's leap is labelled " + old[0] + ", not Crystal");
+            c.check("Crystal".equals(old[0]), "P1's leap is labeled " + old[0] + ", not Crystal");
             c.check(!old[1].contains("TEST"), "the Test leap is still a leap: " + old[1]);
             c.check("true".equals(old[2]) && "false".equals(old[3]),
                     "the old P1 (on, Mode Auto) did not carry over to Crystal as Auto on / Fast off");

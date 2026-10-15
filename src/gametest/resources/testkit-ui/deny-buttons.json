@@ -3,6 +3,7 @@
   "keywords": [
     {"match": "sweat mode", "why": "a one-shot that opens a browser and turns itself off a second later, so a second press cannot undo the first (1016-ui-sweat-mode covers it)"},
     {"match": "discord", "why": "Discord RPC opens a local IPC pipe to the real Discord client; the home tab's Discord button opens a browser (gui/tab/HomeMainTab.java:78)"},
+    {"match": "sweat mode", "why": "one-shot: opens a video in the browser and turns itself back off (mod 01460812), so a second press cannot restore it"},
     {"match": "spotify", "why": "talks to the desktop Spotify app and lrclib (QUIET profile)"},
     {"match": "voice", "why": "Voice To Text opens the microphone and downloads a Vosk model (QUIET profile)"},
     {"match": "shorts", "why": "Shorts launches a real browser through DevTools (shorts/ShortsFeature.java:337)"},

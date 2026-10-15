@@ -221,14 +221,14 @@ final class GrimTickCases {
                 });
                 long mark = c.hx().head();
                 aura(c, true);
-                c.waitUntil("seven clicks on the centre frame at " + want + " CPS", mc -> onFrame(c, mark, centre).size() >= 7,
+                c.waitUntil("seven clicks on the center frame at " + want + " CPS", mc -> onFrame(c, mark, centre).size() >= 7,
                         200);
                 aura(c, false);
                 List<JsonObject> mine = onFrame(c, mark, centre);
                 double rate = cps(mine);
-                c.note(String.format(Locale.ROOT, "arrow aura on the look at %d CPS: %d clicks on the centre frame, %.1f CPS "
+                c.note(String.format(Locale.ROOT, "arrow aura on the look at %d CPS: %d clicks on the center frame, %.1f CPS "
                         + "(ticks %s)", want, mine.size(), rate, mine.stream().map(e -> e.get("tick").getAsString()).toList()));
-                c.check(mine.size() == 7, "the centre frame got " + mine.size() + " clicks, it needed 7");
+                c.check(mine.size() == 7, "the center frame got " + mine.size() + " clicks, it needed 7");
                 double lo = want == 20 ? 17.0 : want * 0.8;
                 double hi = want * 1.2;
                 c.check(rate >= lo && rate <= hi, String.format(Locale.ROOT,

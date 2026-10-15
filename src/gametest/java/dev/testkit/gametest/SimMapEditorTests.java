@@ -307,9 +307,9 @@ public class SimMapEditorTests implements FabricClientGameTest {
                     }
                 }
                 System.out.println("[75-sim-map-editor] labels at Room Labels style " + style + ": " + rooms
-                        + " room(s) labelled, " + secretLines + " secrets line(s): " + drawnNow);
+                        + " room(s) labeled, " + secretLines + " secrets line(s): " + drawnNow);
                 if (rooms < 5) {
-                    throw new AssertionError("the designer labelled only " + rooms
+                    throw new AssertionError("the designer labeled only " + rooms
                             + " room(s) at style " + style + " - the labels did not run");
                 }
                 if (style == 3 && secretLines != 0) {

@@ -903,14 +903,14 @@ public class SimPlannerGapsTests implements FabricClientGameTest {
         double travelled = feet.distanceTo(end);
         BlockPos stoodOn = BlockPos.containing(end.x, end.y - 0.2, end.z);
         double fromTarget = new Vec3(target.getX() + 0.5, target.getY() + 1.0, target.getZ() + 0.5).distanceTo(end);
-        String summary = String.format(Locale.US, "trip: busy seen %s, %d tick(s), travelled %.1f blocks, ended %s on %s"
+        String summary = String.format(Locale.US, "trip: busy seen %s, %d tick(s), traveled %.1f blocks, ended %s on %s"
                         + " in %s, %.2f from the target's top, %d refusal(s)", busySeen, ticks, travelled, fmt(end),
                 stoodOn.toShortString(), endRoom, fromTarget, refused);
         if (!busySeen) {
             failures.add(label + ": the executor never took the trip (" + String.join(" | ", paths) + ")");
         }
         if (travelled < 5.0) {
-            failures.add(String.format(Locale.US, "%s: travelled %.1f blocks - no trip happened", label, travelled));
+            failures.add(String.format(Locale.US, "%s: traveled %.1f blocks - no trip happened", label, travelled));
         }
         if (fromTarget > 1.5) {
             failures.add(String.format(Locale.US, "%s: ended %.1f blocks from the target block's top (%s)", label,

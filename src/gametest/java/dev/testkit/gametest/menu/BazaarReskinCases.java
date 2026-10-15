@@ -369,8 +369,8 @@ final class BazaarReskinCases {
                         if (big) {
                             BufferedImage img = shot(c, m[1].toLowerCase(java.util.Locale.ROOT).replace('_', '-'));
                             int grey = count(img, CHEST_GREY);
-                            c.check(grey < 50, size + " " + m[1] + ": " + grey + " chest-grey pixels - Hypixel's chest is showing");
-                            line += ", chest-grey pixels " + grey;
+                            c.check(grey < 50, size + " " + m[1] + ": " + grey + " chest-gray pixels - Hypixel's chest is showing");
+                            line += ", chest-gray pixels " + grey;
                         }
                         c.check(clicks(c) == before, m[1] + ": opening and drawing sent " + (clicks(c) - before) + " click(s)");
                         c.note(line);
@@ -571,7 +571,7 @@ final class BazaarReskinCases {
     private static void vanillaClick(Session c, JsonObject spec, String what) {
         BufferedImage img = shot(c, "vanilla-" + what.replaceAll("[^a-z0-9]+", "-"));
         int grey = count(img, CHEST_GREY);
-        c.check(grey > 1000, what + ": only " + grey + " chest-grey pixels - Hypixel's GUI is not showing");
+        c.check(grey > 1000, what + ": only " + grey + " chest-gray pixels - Hypixel's GUI is not showing");
         int slot = Integer.parseInt(realSlots(spec).get(0));
         double[] at = c.onClient(mc -> {
             AbstractContainerScreen<?> s = (AbstractContainerScreen<?>) McCompat.screen(mc);
@@ -588,7 +588,7 @@ final class BazaarReskinCases {
         c.waitUntil(what + ": vanilla's click", mc -> clicks(c) > before, 40);
         JsonObject k = lastClick(c);
         c.check(k.get("slot").getAsInt() == slot, what + ": vanilla press sent " + describe(k));
-        c.note(what + ": Hypixel's GUI (" + grey + " chest-grey px), press on slot " + slot + " -> " + describe(k));
+        c.note(what + ": Hypixel's GUI (" + grey + " chest-gray px), press on slot " + slot + " -> " + describe(k));
     }
 
     // ---- 464 ------------------------------------------------------------------------------------------------------

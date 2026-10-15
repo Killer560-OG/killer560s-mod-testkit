@@ -805,7 +805,7 @@ final class HxGuiHudCases {
         c.note("GIF tab: " + labels + "; built-in shown as '" + display + "'");
         c.check(labels.contains("Open GIF / Audio Folder"), "no 'Open GIF / Audio Folder' button: " + labels);
         c.check(labels.stream().noneMatch(l -> l.contains("(built-in)")), "a GIF row still says (built-in): " + labels);
-        c.check("Dancing Cat Girl".equals(display), "the built-in GIF is labelled '" + display + "'");
+        c.check("Dancing Cat Girl".equals(display), "the built-in GIF is labeled '" + display + "'");
 
         String dvd = c.onClient(mc -> {
             Object cfg = Mod.cfg("dvd.DvdConfig");

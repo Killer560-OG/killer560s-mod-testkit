@@ -114,11 +114,11 @@ final class ItemCases {
             });
             Integer sharp = colourOf(segs, "Sharpness");
             Integer wise = colourOf(segs, "Ultimate Wise");
-            c.check(sharp != null && sharp == 0xFFAA00, "Sharpness VI (level 6, good 5 / max 7) coloured "
+            c.check(sharp != null && sharp == 0xFFAA00, "Sharpness VI (level 6, good 5 / max 7) colored "
                     + (sharp == null ? "null" : Integer.toHexString(sharp)) + ", expected GREAT ffaa00; segments " + segs);
-            c.check(wise != null && wise == 0xFF55FF, "Ultimate Wise V coloured " + (wise == null ? "null" : Integer.toHexString(wise))
+            c.check(wise != null && wise == 0xFF55FF, "Ultimate Wise V colored " + (wise == null ? "null" : Integer.toHexString(wise))
                     + ", expected ULTIMATE ff55ff");
-            c.note("enchant colours: Sharpness VI -> " + Integer.toHexString(sharp) + ", Ultimate Wise V -> " + Integer.toHexString(wise));
+            c.note("enchant colors: Sharpness VI -> " + Integer.toHexString(sharp) + ", Ultimate Wise V -> " + Integer.toHexString(wise));
         } finally {
             clear(c, 0);
         }
@@ -158,8 +158,8 @@ final class ItemCases {
             String id = c.onClient(mc -> (String) Mod.staticCall("armourdye.ArmourDye", "identityOf", stack));
             int colour = c.onClient(mc -> DyedItemColor.getOrDefault(stack, 0));
             c.check("NECRON_CHESTPLATE".equals(id), "identityOf = " + id);
-            c.check(colour == 0xFF00FF00, "dye colour " + Integer.toHexString(colour) + ", entry says ff00ff00");
-            c.note("armour dye: identity " + id + ", DyedItemColor -> " + Integer.toHexString(colour));
+            c.check(colour == 0xFF00FF00, "dye color " + Integer.toHexString(colour) + ", entry says ff00ff00");
+            c.note("armor dye: identity " + id + ", DyedItemColor -> " + Integer.toHexString(colour));
         } finally {
             c.ctx().runOnClient(mc -> {
                 Mod.call(cfgObj, "remove", "NECRON_CHESTPLATE");
@@ -220,8 +220,8 @@ final class ItemCases {
             MenuKit.show(c, MenuKit.obj("{\"title\":\"Hx Themed\",\"rows\":3,\"fill\":true}"));
             MenuKit.awaitScreen(c, "Hx Themed", 100);
             boolean themed = c.onClient(mc -> (Boolean) Mod.staticCall("inventorytheme.InventoryThemeFeature", "shouldTheme", McCompat.screen(mc)));
-            c.check(themed, "shouldTheme false on a server chest with the connection labelled mc.hypixel.net");
-            c.note("inventory theme applies to a server chest (hypixelOnly on, labelled mc.hypixel.net)");
+            c.check(themed, "shouldTheme false on a server chest with the connection labeled mc.hypixel.net");
+            c.note("inventory theme applies to a server chest (hypixelOnly on, labeled mc.hypixel.net)");
         } finally {
             MenuKit.reset(c);
         }

@@ -133,7 +133,7 @@ final class MapHeadCases {
             Shot greenBase = baseShot(c, "green-base", GREEN_ROOM, away);
             int[] frame = frameBox(greenBase.img, GREEN_ROOM);
             if (frame == null) {
-                c.problem("no map frame of the green room colour on screen - the map HUD did not draw");
+                c.problem("no map frame of the green room color on screen - the map HUD did not draw");
                 return;
             }
             c.note(String.format(Locale.ROOT, "map frame on screen %d,%d..%d,%d", frame[0], frame[1], frame[2],
@@ -209,7 +209,7 @@ final class MapHeadCases {
             Shot brownBase = baseShot(c, "brown-base", BROWN_ROOM, away);
             int[] bframe = frameBox(brownBase.img, BROWN_ROOM);
             if (bframe == null) {
-                c.problem("no map frame of the brown room colour on screen");
+                c.problem("no map frame of the brown room color on screen");
             } else {
                 placeMarkers(c, self, mateHead, mateArrow);
                 Shot brownOff = shot(c, "brown-heads-off");
@@ -659,7 +659,7 @@ final class MapHeadCases {
     record RotFace(int score, int angle, double cx, double cy, double side) {
         @Override
         public String toString() {
-            return String.format(Locale.ROOT, "%d/64 cells, turned %d deg, centre %.1f,%.1f, side %.1f px", score, angle,
+            return String.format(Locale.ROOT, "%d/64 cells, turned %d deg, center %.1f,%.1f, side %.1f px", score, angle,
                     cx, cy, side);
         }
     }
@@ -747,7 +747,7 @@ final class MapHeadCases {
     record Outline(int boundary, int inOutline, double coverage, double contrast, double fillContrast) {
         @Override
         public String toString() {
-            return String.format(Locale.ROOT, "%d boundary px, %d in the outline colour (%.0f%%), boundary contrast "
+            return String.format(Locale.ROOT, "%d boundary px, %d in the outline color (%.0f%%), boundary contrast "
                     + "%.2f:1 against the room, fill contrast %.2f:1", boundary, inOutline, coverage * 100, contrast,
                     fillContrast);
         }

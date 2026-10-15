@@ -478,7 +478,7 @@ final class InvStorageCases {
             int amber = count(col, rx0, r[1] - 4, rx1, r[3], exact(AMBER_ACCENT));
             c.note("custom accent green " + green + " px, custom slot blue " + blue + " px, Amber left " + amber + " px");
             if (green < 600 || blue < 2000 || amber > 0) {
-                c.problem("custom colours not drawn: green " + green + ", blue " + blue + ", amber " + amber);
+                c.problem("custom colors not drawn: green " + green + ", blue " + blue + ", amber " + amber);
             }
             c.onClient(mc -> {
                 Mod.call(cfg, "setUseCustomAccent", false);
@@ -685,7 +685,7 @@ final class InvStorageCases {
                     return null;
                 });
             }
-            c.note(String.format(Locale.ROOT, "chest slot 0 top line at width 1/3/0: %d/%d/%d px; slot centre #%06X",
+            c.note(String.format(Locale.ROOT, "chest slot 0 top line at width 1/3/0: %d/%d/%d px; slot center #%06X",
                     runs[0], runs[1], runs[2], slotPx[0]));
             // Screen pixels since the polish branch (Line Width 1 was one GUI unit, 2 px at GUI 2, before it). The
             // vanilla-shaped reskin has no lines: slot 0's top edge is its one-unit dark bevel at every Line Width.
@@ -825,15 +825,15 @@ final class InvStorageCases {
                     float invCentre = box[2] + box[3] / 2f;
                     float screenCentre = b.gw() / 2f;
                     String line = String.format(Locale.ROOT, "%dx%d GUI %d (%dx%d units), Scale %.0f%%: grid x %.0f w %.0f"
-                                    + " centre %.1f, inventory centre %.1f, screen centre %.1f",
+                                    + " center %.1f, inventory center %.1f, screen center %.1f",
                             sz[0], sz[1], b.s(), b.gw(), b.gh(), sliderScale * 100, box[0], box[1], gridCentre, invCentre,
                             screenCentre);
                     c.note(line);
                     if (Math.abs(gridCentre - screenCentre) > 1.0f) {
-                        c.problem("grid not centred: " + line);
+                        c.problem("grid not centered: " + line);
                     }
                     if (box[2] < 0 || Math.abs(invCentre - screenCentre) > 1.0f) {
-                        c.problem("inventory panel not centred: " + line);
+                        c.problem("inventory panel not centered: " + line);
                     }
                     if (pass == 0 && sz[0] == 1280 && sz[2] == 2) {
                         // On the picture: the outer border pixels of the panels' top row.
@@ -860,11 +860,11 @@ final class InvStorageCases {
                             }
                         }
                         double centrePx = (lx + rx + 1) / 2.0;
-                        c.note(String.format(Locale.ROOT, "screenshot: panel borders on row %d span x %d..%d, centre %.1f px "
+                        c.note(String.format(Locale.ROOT, "screenshot: panel borders on row %d span x %d..%d, center %.1f px "
                                 + "of a %d px wide frame", y, lx, rx, centrePx, img.getWidth()));
                         if (lx < 0 || Math.abs(centrePx - img.getWidth() / 2.0) > 2.5) {
                             c.problem("on the screenshot the panels span " + lx + ".." + rx + " of " + img.getWidth()
-                                    + " px - not centred");
+                                    + " px - not centered");
                         }
                     }
                     c.onClient(mc -> {
@@ -943,7 +943,7 @@ final class InvStorageCases {
                         + "%d old-dark-border #553311 px", name, orange, borders, border & 0xFFFFFF, lines,
                         cellLine & 0xFFFFFF, oldDark));
                 if (borders < 200 || lines < 200) {
-                    c.problem(name + ": the overlay's border/cell-line colours are not on screen (" + borders + "/" + lines
+                    c.problem(name + ": the overlay's border/cell-line colors are not on screen (" + borders + "/" + lines
                             + " px) - nothing to judge");
                 }
                 if (name.equals("AMBER")) {
@@ -953,7 +953,7 @@ final class InvStorageCases {
                             || (Integer) themeField(theme, "panelBg") != 0xCC101010
                             || (Integer) themeField(theme, "cellBg") != 0xFF1E1E22
                             || (Integer) themeField(theme, "viewportBg") != 0xD0000000) {
-                        c.problem("Amber's colours are not the old dark mode's");
+                        c.problem("Amber's colors are not the old dark mode's");
                     }
                     if (orange < 300) {
                         c.problem("Amber shows only " + orange + " orange px - the active page's orange border is missing");
@@ -963,7 +963,7 @@ final class InvStorageCases {
                         c.problem(name + " still draws " + orange + " orange px in the overlay");
                     }
                     if (oldDark > 0) {
-                        c.problem(name + " still draws the Amber border colour (" + oldDark + " px)");
+                        c.problem(name + " still draws the Amber border color (" + oldDark + " px)");
                     }
                 }
                 c.onClient(mc -> {

@@ -311,9 +311,9 @@ final class HudEditorCases {
         int[] t1 = box(c, s, C);
         double dcx = (t1[0] + t1[2]) / 2.0 - w / 2.0;
         double dcy = (t1[1] + t1[3]) / 2.0 - h / 2.0;
-        c.note(String.format(Locale.ROOT, "%s centre: dropped at %d,%d -> landed %s, off the screen centre by %.1f, %.1f",
+        c.note(String.format(Locale.ROOT, "%s center: dropped at %d,%d -> landed %s, off the screen center by %.1f, %.1f",
                 tag, wantX, wantY, str(t1), dcx, dcy));
-        expect(c, Math.abs(dcx) <= 0.5 && Math.abs(dcy) <= 0.5, tag + " the text did not snap to the screen centre ("
+        expect(c, Math.abs(dcx) <= 0.5 && Math.abs(dcy) <= 0.5, tag + " the text did not snap to the screen center ("
                 + dcx + ", " + dcy + ")");
 
         // ---- B's left edge: A dropped 3 px right of it ---------------------------------------------------------------
@@ -332,7 +332,7 @@ final class HudEditorCases {
                 + ", dropped at " + a1[0] + "," + a1[1]);
         int[] cBack = back[2];
         double rcx = cBack[0] + tw / 2.0 - w / 2.0;
-        expect(c, Math.abs(rcx) <= 0.5, tag + " after reload the centred text is " + rcx + " off centre");
+        expect(c, Math.abs(rcx) <= 0.5, tag + " after reload the centered text is " + rcx + " off center");
 
         // ---- Alt held: the same drop stays put ----------------------------------------------------------------------
         a = box(c, s, A);

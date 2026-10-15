@@ -300,10 +300,10 @@ public class AuraQuoiTests implements FabricClientGameTest {
                         auraOn(ctx, false, true);
                         ctx.waitTicks(60);
                         uses[i] = PacketWatch.totalUses() - before;
-                        facts.add(String.format(Locale.ROOT, "eye to centre %.3f (box %.3f): %d use(s) in 60 ticks",
+                        facts.add(String.format(Locale.ROOT, "eye to center %.3f (box %.3f): %d use(s) in 60 ticks",
                                 d[0], d[1], uses[i]));
                         if (Math.abs(d[0] - want[i]) > 0.02) {
-                            throw new AssertionError("premise - stood " + d[0] + " from the centre, wanted " + want[i]);
+                            throw new AssertionError("premise - stood " + d[0] + " from the center, wanted " + want[i]);
                         }
                     }
                     PacketWatch.stop();
@@ -399,10 +399,10 @@ public class AuraQuoiTests implements FabricClientGameTest {
                         uses[i] = PacketWatch.totalUses() - before;
                         String what = i == 0 ? "decorative head" : "redstone key";
                         boolean gone = ctx.computeOnClient(mc -> mc.level.getBlockState(head).isAir());
-                        facts.add(String.format(Locale.ROOT, "%s at %.3f from the eye to its centre: %d use(s) in 60 ticks, "
+                        facts.add(String.format(Locale.ROOT, "%s at %.3f from the eye to its center: %d use(s) in 60 ticks, "
                                 + "block %s afterwards", what, centre, uses[i], gone ? "GONE" : "still there"));
                         if (Math.abs(centre - 4.6) > 0.02) {
-                            throw new AssertionError("premise - stood " + centre + " from the " + what + "'s centre");
+                            throw new AssertionError("premise - stood " + centre + " from the " + what + "'s center");
                         }
                     }
                     PacketWatch.stop();
@@ -496,7 +496,7 @@ public class AuraQuoiTests implements FabricClientGameTest {
                     int before1 = PacketWatch.totalUses();
                     ctx.waitTicks(40);
                     int uses1 = PacketWatch.totalUses() - before1;
-                    facts.add(String.format(Locale.ROOT, "1 (key vanished %.2f away): by the block (%.2f to its centre) "
+                    facts.add(String.format(Locale.ROOT, "1 (key vanished %.2f away): by the block (%.2f to its center) "
                             + "%d use(s) in 40 ticks", dFar, dNode1, uses1));
 
                     // 2. A key 9 blocks away vanishes (a teammate's pickup): counted. Place OFF, then ON.

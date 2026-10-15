@@ -744,14 +744,14 @@ final class PolishCases {
                     int[] armour = span(img, (left + 16) * gs, y0, y1);
                     int[] model = span(img, (left + 50) * gs, y0, y1);
                     int[] modelRight = span(img, (left + 74) * gs, y0, y1);
-                    String line = String.format(Locale.ROOT, "GUI %d line %d %s: armour column rows %s, model frame rows %s "
-                                    + "(and %s near its right side)", gs, w, worn ? "armour worn" : "nothing worn",
+                    String line = String.format(Locale.ROOT, "GUI %d line %d %s: armor column rows %s, model frame rows %s "
+                                    + "(and %s near its right side)", gs, w, worn ? "armor worn" : "nothing worn",
                             show(armour), show(model), show(modelRight));
                     c.note(line);
                     if (armour == null || model == null) {
                         c.problem("no outline found (" + line + ") - nothing to compare");
                     } else if (armour[0] != model[0] || armour[1] != model[1]) {
-                        c.problem(String.format(Locale.ROOT, "the armour column's outline runs %d..%d, the model frame's "
+                        c.problem(String.format(Locale.ROOT, "the armor column's outline runs %d..%d, the model frame's "
                                 + "%d..%d - top differs by %d px, bottom by %d px", armour[0], armour[1], model[0],
                                 model[1], model[0] - armour[0], armour[1] - model[1]));
                     }
@@ -877,7 +877,7 @@ final class PolishCases {
             }
         }
         if (bx1 < 0) {
-            c.problem(tag + ": the bar drew no pixel of its colour");
+            c.problem(tag + ": the bar drew no pixel of its color");
             return;
         }
         // The absorption segment on the same rows widens the box (the white number sits over both).
@@ -907,7 +907,7 @@ final class PolishCases {
             busiest = Math.max(busiest, r);
         }
         if (busiest == 0) {
-            c.problem(tag + ": no number drawn on the bar - nothing to centre");
+            c.problem(tag + ": no number drawn on the bar - nothing to center");
             return;
         }
         int ty0 = -1;
@@ -927,10 +927,10 @@ final class PolishCases {
         double offX = (left - right) / 2.0;
         double offY = (above - below) / 2.0;
         c.note(String.format(Locale.ROOT, "%s: bar %dx%d px, number %dx%d px (digit rows); room left %d right %d, above %d "
-                        + "below %d px -> off centre by %.1f px across, %.1f px down", tag, bx1 - bx0 + 1, by1 - by0 + 1,
+                        + "below %d px -> off center by %.1f px across, %.1f px down", tag, bx1 - bx0 + 1, by1 - by0 + 1,
                 tx1 - tx0 + 1, ty1 - ty0 + 1, left, right, above, below, offX, offY));
         c.check(Math.abs(offX) <= 1.0 && Math.abs(offY) <= 1.0, String.format(Locale.ROOT,
-                "%s: the number is %.1f px off centre across and %.1f px down (room left %d / right %d, above %d / below "
+                "%s: the number is %.1f px off center across and %.1f px down (room left %d / right %d, above %d / below "
                         + "%d) - want within 1 px", tag, offX, offY, left, right, above, below));
     }
 }

@@ -408,7 +408,7 @@ public class SimAutoSecretTests implements FabricClientGameTest {
         String phaseAtEnd = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(AS, "phaseName"));
         int seq1 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "arrivalSeq"));
         List<String> log = LogTap.since(mark);
-        println(String.format(Locale.US, "main run: %.1f s, phase now %s, travelled up to %.1f blocks, %d map arrival(s)",
+        println(String.format(Locale.US, "main run: %.1f s, phase now %s, traveled up to %.1f blocks, %d map arrival(s)",
                 ticks / 20.0, phaseAtEnd, maxTravel, seq1 - seq0));
         for (String l : log) {
             if (l.contains("[AutoSecret]") || l.contains("[CHAT]") && (l.contains("Auto Secret") || l.contains("Auto Routes"))) {

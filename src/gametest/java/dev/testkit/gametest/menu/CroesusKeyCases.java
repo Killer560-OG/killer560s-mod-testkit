@@ -163,7 +163,7 @@ final class CroesusKeyCases {
             c.check(b2 > r2 + 15, "opened tint " + hex(px[2]) + " is not blue");
             c.check(lum3 < 3 * 110, "key-used tint " + hex(px[3]) + " is not dark");
             c.check(g4 > r4 + 15 && b4 > r4 + 15, "the not-looked-at run's corner " + hex(px[4]) + " is not teal");
-            c.check(px[2] != px[3] && px[1] != px[0], "two states share a colour: " + hex(px[0]) + " " + hex(px[1]) + " "
+            c.check(px[2] != px[3] && px[1] != px[0], "two states share a color: " + hex(px[0]) + " " + hex(px[1]) + " "
                     + hex(px[2]) + " " + hex(px[3]));
             List<String> lines = CroesusUiCases.panel(c);
             c.check(lines.contains("Worth a key=1 (1 not looked at)"), "info box: " + lines);
@@ -227,7 +227,7 @@ final class CroesusKeyCases {
             String json = Files.readString(file, StandardCharsets.UTF_8);
             c.check(key == 0x12AB34 && opened == 0x56CD78, "reloaded " + hex(key) + " / " + hex(opened));
             c.check(json.contains("runKeyColor") && json.contains("runOpenedColor"), "not in the file: " + json);
-            c.note("Needs Key and Opened Run colours saved and reloaded: " + hex(key) + " / " + hex(opened));
+            c.note("Needs Key and Opened Run colors saved and reloaded: " + hex(key) + " / " + hex(opened));
         } finally {
             if (was == null) {
                 Files.deleteIfExists(file);

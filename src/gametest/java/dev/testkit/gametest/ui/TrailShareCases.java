@@ -306,7 +306,7 @@ final class TrailShareCases {
             c.note("first build: " + rowsOut);
             c.note("not linked: " + rowsNo);
             c.note("linked: " + rowsYes);
-            c.check(rowsNo.contains("Share Trail: OFF [inactive]"), "Share Trail is not greyed out for a non-supporter: " + rowsNo);
+            c.check(rowsNo.contains("Share Trail: OFF [inactive]"), "Share Trail is not grayed out for a non-supporter: " + rowsNo);
             c.check(rowsNo.contains("Only supporters can share a trail."), "no one-line reason for a non-supporter: " + rowsNo);
             c.check(rowsNo.contains("Show Others' Trails: ON"), "Show Others' Trails is missing or not ON: " + rowsNo);
             c.check(rowsYes.contains("Share Trail: ON"), "Share Trail is not live for a supporter: " + rowsYes);
@@ -329,7 +329,7 @@ final class TrailShareCases {
             c.note("Ribbon Trail tab, not linked: " + ribbonNo);
             c.note("Ribbon Trail tab, linked: " + ribbonYes);
             c.check(ribbonNo.contains("Share Trail: OFF [inactive]") && ribbonNo.contains("Only supporters can share a trail."),
-                    "the Ribbon Trail tab's Share Trail is not greyed out with the reason: " + ribbonNo);
+                    "the Ribbon Trail tab's Share Trail is not grayed out with the reason: " + ribbonNo);
             c.check(ribbonYes.contains("Share Trail: ON") && ribbonYes.contains("Show Others' Trails: ON"),
                     "the Ribbon Trail tab's sharing switches are not live for a supporter: " + ribbonYes);
 
@@ -621,7 +621,7 @@ final class TrailShareCases {
             // He walked to the right of the screen, so the band streams out to his left: his end (right) is the head
             // colour, red; the far end (left) leans further to the tail colour, blue.
             c.check(d.right()[0] > 40 && d.right()[0] - d.right()[1] > 40,
-                    "the band at his end is not the head colour (red): " + d.describe());
+                    "the band at his end is not the head color (red): " + d.describe());
             c.check(d.left()[2] - d.left()[0] > d.right()[2] - d.right()[0] + 30,
                     "the band does not run red at him to blue at the far end: " + d.describe());
         } finally {

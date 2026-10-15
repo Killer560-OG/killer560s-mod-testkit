@@ -193,7 +193,7 @@ public class SimCryptWaypointTests implements FabricClientGameTest {
         magentaOff = countColour(ctx, "crypt-off", 0xFF, 0x00, 0xFF);
         aimAt(ctx, princeBox);
         cyanOff = countColour(ctx, "prince-off", 0x00, 0xFF, 0xFF);
-        say("screen: crypt colour " + magentaOn + " px on / " + magentaOff + " px off; prince colour " + cyanOn
+        say("screen: crypt color " + magentaOn + " px on / " + magentaOff + " px off; prince color " + cyanOn
                 + " px on / " + cyanOff + " px off");
         if (magentaOn < 200 || magentaOn < 10 * Math.max(1, magentaOff)) {
             throw new AssertionError("the crypt waypoint did not reach the screen: " + magentaOn + " magenta px with "

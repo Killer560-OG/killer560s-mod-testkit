@@ -382,7 +382,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         String why = lookVerdict(evs, entry, 37.5f, 12.25f);
         Ev later = endAt(evs, entry.tick() + 12);
         double carried = later == null ? 0 : later.x() - entry.x();
-        c.note(String.format(Locale.ROOT, "travelled %.2f blocks in the 12 ticks after the LOOK", carried));
+        c.note(String.format(Locale.ROOT, "traveled %.2f blocks in the 12 ticks after the LOOK", carried));
         if (why != null) {
             throw new AssertionError(why);
         }
@@ -562,7 +562,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         }
         Ev later = endAt(evs, entry.tick() + 12);
         double carried = later == null ? 0 : later.x() - entry.x();
-        c.note(String.format(Locale.ROOT, "travelled %.2f blocks in the 12 ticks after the USE", carried));
+        c.note(String.format(Locale.ROOT, "traveled %.2f blocks in the 12 ticks after the USE", carried));
         if (carried < 1.5) {
             problems.add(String.format(Locale.ROOT, "the USE ended the run (%.2f blocks in 12 ticks)", carried));
         }
@@ -671,7 +671,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         }
         Ev later = endAt(evs, entry.tick() + 12);
         double carried = later == null ? 0 : later.x() - entry.x();
-        c.note(String.format(Locale.ROOT, "travelled %.2f blocks in the 12 ticks after the %s", carried, type));
+        c.note(String.format(Locale.ROOT, "traveled %.2f blocks in the 12 ticks after the %s", carried, type));
         if (carried < 1.5) {
             problems.add(String.format(Locale.ROOT, "the %s ended the run (%.2f blocks in 12 ticks)", type, carried));
         }

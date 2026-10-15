@@ -548,7 +548,7 @@ final class PackDisablerCases {
         for (int p : px) {
             distinct.add(p);
         }
-        return px.length + " px, " + distinct.size() + " colour(s), first " + Integer.toHexString(px[0]);
+        return px.length + " px, " + distinct.size() + " color(s), first " + Integer.toHexString(px[0]);
     }
 
     private static void deleteTree(Path dir) {

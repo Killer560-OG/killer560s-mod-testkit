@@ -199,7 +199,7 @@ final class SliderCases {
                 throw new AssertionError(UiCase.describe(t), t);
             }
         });
-        c.check(box != null, "no visible slider labelled '" + prefix + "...' on the " + tab + " tab");
+        c.check(box != null, "no visible slider labeled '" + prefix + "...' on the " + tab + " tab");
         return box;
     }
 
@@ -355,8 +355,8 @@ final class SliderCases {
             List<String> missed = new ArrayList<>();
             // Since the 2026-10-12 simplification each colour row is "<Bar> Colour" in Advanced's colour grid, and the
             // second "Hide Vanilla XP Bar" row is gone (Hide's "XP Bar And Level" is the setting).
-            List<String> wants = new ArrayList<>(List.of("Stat Bars:", "Health Bar:", "Health Text:", "Health Colour",
-                    "Bar Width:", "Bar Height:", "Show Value:", "Background:", "Absorption Colour:", "Hearts:",
+            List<String> wants = new ArrayList<>(List.of("Stat Bars:", "Health Bar:", "Health Text:", "Health Color",
+                    "Bar Width:", "Bar Height:", "Show Value:", "Background:", "Absorption Color:", "Hearts:",
                     "Unhide Hearts In Rift:", "Health:", "XP Bar And Level:", "Text Shadow:"));
             if (hudEditorBars) {
                 wants.addAll(List.of("Vitality Bar:", "XP Bar:", "Vitality Text:", "XP Text:", "Hypixel Stat Text:",

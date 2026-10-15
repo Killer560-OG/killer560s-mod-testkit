@@ -154,7 +154,7 @@ final class HudBoxCases {
             String line = String.format(Locale.ROOT,
                     "%-28s box %4dx%-4d drawn %6.1fx%-6.1f gaps L %5.1f T %5.1f R %6.1f B %6.1f%s%s", m.id(), m.w(),
                     m.h(), dw, dh, left, top, right, bottom, (m.listed() ? "" : " (setting off)")
-                            + (centred.isEmpty() ? "" : " (centred on " + centred + ", not judged there)"),
+                            + (centred.isEmpty() ? "" : " (centered on " + centred + ", not judged there)"),
                     bad ? (m.listed() ? "  <-- BAD" : "  <-- off by more than the slack") : "");
             c.note(line);
             if (m.listed()) {

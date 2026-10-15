@@ -218,7 +218,7 @@ public class CombatExamples implements FabricClientGameTest {
                     armoured.remove();
 
                     scenario.log("kills in 120 ticks — naked " + nakedDeaths
-                            + ", diamond-armoured " + armouredDeaths);
+                            + ", diamond-armored " + armouredDeaths);
                 });
     }
 

@@ -243,8 +243,8 @@ final class HxNameWaveCases {
             for (int k = 1; shifted && k < g1.length; k++) {
                 shifted = g1[k] == g0[k - 1];
             }
-            c.check(shifted, "at 250 ms the glyph colours are not the 0 ms ones moved one letter right");
-            c.check(g1[0] == g0[1], "letter 0 does not loop back to the fade's second colour: " + Integer.toHexString(g1[0]));
+            c.check(shifted, "at 250 ms the glyph colors are not the 0 ms ones moved one letter right");
+            c.check(g1[0] == g0[1], "letter 0 does not loop back to the fade's second color: " + Integer.toHexString(g1[0]));
 
             HxCosmeticNameCases.look(c, 0f, -30f);
             HxCosmeticNameCases.clearChat(c);
@@ -278,7 +278,7 @@ final class HxNameWaveCases {
             int matched = 0, moved = 0;
             for (int i = 0; i < pa.length; i++) {
                 c.check(sa[i] >= 0 && Math.abs(sa[i] - blue(g0[i])) <= 0.05,
-                        "letter " + i + " on screen at 0 ms is not its glyph colour: " + sa[i] + " vs " + blue(g0[i]));
+                        "letter " + i + " on screen at 0 ms is not its glyph color: " + sa[i] + " vs " + blue(g0[i]));
                 if (i > 0 && Math.abs(sb[i] - sa[i - 1]) <= 0.04) {
                     matched++;
                 }
@@ -286,10 +286,10 @@ final class HxNameWaveCases {
                     moved++;
                 }
             }
-            c.note("letters showing their left neighbour's 0 ms colour: " + matched + "/" + (pa.length - 1)
-                    + ", letters whose colour changed: " + moved + "/" + pa.length);
-            c.check(matched == pa.length - 1, "on screen the colours did not move one letter right");
-            c.check(moved >= pa.length - 2, "on screen too few letters changed colour: " + moved);
+            c.note("letters showing their left neighbor's 0 ms color: " + matched + "/" + (pa.length - 1)
+                    + ", letters whose color changed: " + moved + "/" + pa.length);
+            c.check(matched == pa.length - 1, "on screen the colors did not move one letter right");
+            c.check(moved >= pa.length - 2, "on screen too few letters changed color: " + moved);
         } finally {
             unfreeze(c);
             HxCosmeticNameCases.clearChat(c);
@@ -371,7 +371,7 @@ final class HxNameWaveCases {
             int[] g2 = ownGlyphs(c, self, 1000L);
             c.note("glyphs at 0 / 250 / 1000 ms: " + hex(g0) + " | " + hex(g1) + " | " + hex(g2));
             c.check(g0.length == NAME.length() && java.util.Arrays.equals(g0, g1) && java.util.Arrays.equals(g0, g2),
-                    "an Off name's colours changed over time");
+                    "an Off name's colors changed over time");
             HxCosmeticNameCases.look(c, 0f, -30f);
             HxCosmeticNameCases.clearChat(c);
             BufferedImage base = shotAt(c, T0, "base");
@@ -408,7 +408,7 @@ final class HxNameWaveCases {
             HxCosmeticNameCases.Fade ft = HxCosmeticNameCases.fadeOf(t0, closed, 0, 0, t0.getWidth(), t0.getHeight() / 2);
             c.note("tab: " + ft);
             double tabShare = changedShare(t0, t1, nameRun(c, ft, "the tab list"));
-            c.note("tab: share of name pixels a different colour at 250 ms: " + tabShare);
+            c.note("tab: share of name pixels a different color at 250 ms: " + tabShare);
             c.check(tabShare >= 0.6, "the tab list name did not animate: " + tabShare);
             hub(c);
 
@@ -426,7 +426,7 @@ final class HxNameWaveCases {
                 HxCosmeticNameCases.Fade fn = HxCosmeticNameCases.fadeOf(n0, offTag, 0, 0, n0.getWidth(), n0.getHeight());
                 c.note("nametag: " + fn);
                 double tagShare = changedShare(n0, n1, nameRun(c, fn, "the own F5 nametag"));
-                c.note("nametag: share of name pixels a different colour at 250 ms: " + tagShare);
+                c.note("nametag: share of name pixels a different color at 250 ms: " + tagShare);
                 c.check(tagShare >= 0.6, "the own F5 nametag did not animate: " + tagShare);
             } finally {
                 HxCosmeticNameCases.camera(c, CameraType.FIRST_PERSON);
@@ -451,7 +451,7 @@ final class HxNameWaveCases {
                     (int) ((rect[0] + rect[2]) * k), (int) ((rect[1] + rect[3]) * k) + 2);
             c.note("preview: " + fp);
             double previewShare = changedShare(p0, p1, nameRun(c, fp, "the preview"));
-            c.note("preview: share of name pixels a different colour at 250 ms: " + previewShare);
+            c.note("preview: share of name pixels a different color at 250 ms: " + previewShare);
             c.check(previewShare >= 0.6, "the Player Cosmetics preview did not animate: " + previewShare);
         } finally {
             unfreeze(c);
@@ -656,7 +656,7 @@ final class HxNameWaveCases {
             HxCosmeticNameCases.Fade fn = HxCosmeticNameCases.fadeOf(n0, off, 0, 0, n0.getWidth(), n0.getHeight());
             c.note("their nametag: " + fn);
             double share = changedShare(n0, n1, nameRun(c, fn, "their nametag"));
-            c.note("their nametag: share of name pixels a different colour at 250 ms: " + share);
+            c.note("their nametag: share of name pixels a different color at 250 ms: " + share);
             c.check(share >= 0.6, "the other player's nametag did not animate: " + share);
 
             // The cache keeps the animation across a restart.

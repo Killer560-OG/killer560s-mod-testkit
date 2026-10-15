@@ -311,7 +311,7 @@ final class DocMiscCases {
             for (boolean repeat : new boolean[]{false, true}) {
                 for (int offset : HYPIXEL_OFFSETS) {
                     boardHypixel(c, lines, offset, repeat);
-                    String label = v + " split +" + offset + (repeat ? " colour repeated" : "");
+                    String label = v + " split +" + offset + (repeat ? " color repeated" : "");
                     List<String> sidebar = c.onClient(mc ->
                             (List<String>) Mod.staticCall("scoreboard.ScoreboardData", "sidebarNow", mc));
                     for (String line : lines) {
@@ -348,7 +348,7 @@ final class DocMiscCases {
                 }
             }
         }
-        c.note("Hypixel shape: " + rounds + " boards (6 values of 4-9 digits x 13 split offsets x colour repeated or"
+        c.note("Hypixel shape: " + rounds + " boards (6 values of 4-9 digits x 13 split offsets x color repeated or"
                 + " not, owner = one invalid code), each read in Long and Short; " + failures + " wrong reading(s)");
         c.check(failures == 0, failures + " wrong reading(s) of Hypixel-shaped lines");
         return rounds;
@@ -536,7 +536,7 @@ final class DocMiscCases {
                 Pal p = palette(c);
                 String key = preset.toLowerCase(Locale.ROOT);
                 c.note(String.format(Locale.ROOT, "%s: panel #%06X, slot fill #%06X, top/left line #%06X, bottom/right #%06X%s",
-                        preset, p.panel(), p.slotFill(), p.topLeft(), p.slotLight(), p.bevel() ? " (vanilla bevel)" : " (one-colour outline)"));
+                        preset, p.panel(), p.slotFill(), p.topLeft(), p.slotLight(), p.bevel() ? " (vanilla bevel)" : " (one-color outline)"));
                 // The top/left line must be visible: well apart from the panel round it and the fill inside it.
                 int vsPanel = delta(p.topLeft(), p.panel());
                 int vsFill = delta(p.topLeft(), p.slotFill());
