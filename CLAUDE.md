@@ -318,6 +318,12 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   `postRunTasks` (jstack, 2026-10-15): "Test client has stopped responding" and every scenario after it is lost until the
   deadline. Kill only that client's PID and re-run the rest.
 
+- "could not reach localhost:N ... Failed to connect to the server" on every join, with the server up and the port free,
+  was the mod's Proxy Client sending the join through killer560's REAL universal proxy (Prism's shared
+  `prismaccountswitcher/universal-proxy.json`, on since 16:06 on 2026-10-15). build.gradle points
+  `prismaccountswitcher.universalProxyFile` at a fixture; a jar older than mod 6c09a491 ignores it and cannot join while
+  his universal proxy is on. Join failures now print the DisconnectedScreen reason (`Scenario.describeScreen`).
+
 Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosecret wither doors, 62-argrim frames,
 143 camera, 141/142 autopilot, the mod's Auto Scale, terminal layouts, the logic world, 386's sweep):
 [docs/scenario-lessons.md](docs/scenario-lessons.md).
