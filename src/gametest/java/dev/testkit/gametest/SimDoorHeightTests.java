@@ -420,7 +420,12 @@ public class SimDoorHeightTests implements FabricClientGameTest {
                 for (int k = 1; k >= -12; k--) {
                     int y = feet + (k == 1 ? 0 : k == 0 ? 1 : k);
                     BlockPos p = at(c, alongX, s * d, w, y);
-                    if (!clear(level, p.below()) && clear(level, p) && clear(level, p.above())) {
+                    // A drop has to fall through open air: everything from the feet's old level down is clear.
+                    boolean shaft = true;
+                    for (int yy = y + 2; yy <= feet + 1 && shaft; yy++) {
+                        shaft = clear(level, at(c, alongX, s * d, w, yy));
+                    }
+                    if (shaft && !clear(level, p.below()) && clear(level, p) && clear(level, p.above())) {
                         feet = y;
                         ok = true;
                         break;
