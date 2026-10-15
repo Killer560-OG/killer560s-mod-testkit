@@ -573,3 +573,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   change), then the key (block to air, not a secret), then the node (node and the 3-block strip gone, `SimScore.foundInRoom`
   +1, and an armor stand wearing the key profile visible to the CLIENT at node y - 2). Main jar: 0 levers armed, and the key
   position holds a lever, not a key head.
+- 1561-1567 (ui/FontsMainMenuSuite, mod fonts-mainmenu-1015, 2026-10-15): the Font setting is measured by each GUI text
+  render state's PREPARED bounds after an off-screen extract (a state replays the font scope it was made in), not by
+  `Font.width` alone: Mod Menu Only changed 49/53 menu texts and 0/13 Options texts; 1562 also reloads resources with a font
+  on (the set borrows the default providers). The title-screen chip is read through `NameReplacer.replace`, as the font sees
+  it; on the main jar it says "FontTester" (Name Changer's name). 1566 needs a 30-tick gap for Soft Light to move 0.1%.

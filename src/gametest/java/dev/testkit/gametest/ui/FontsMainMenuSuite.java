@@ -827,7 +827,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                 });
                 c.ticks(40); // past the title screen's fade-in
                 Pic a = pic(shot(c, sc[0].toLowerCase(Locale.ROOT)));
-                c.ticks(12);
+                c.ticks(30); // Soft Light drifts slowly: 12 ticks moved 0.05% on 26.2
                 Pic b = pic(c.ctx().takeScreenshot(Report.fileName(c.name() + "-" + sc[0].toLowerCase(Locale.ROOT) + "-b")));
                 double moved = changed(a.img(), b.img());
                 summary.add(String.format(Locale.ROOT, "%s/%s rgb %.0f,%.0f,%.0f lum %.2f moved %.2f%%", sc[0], sc[1], a.r(),
@@ -866,7 +866,9 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
     // ---- 1567 real name -----------------------------------------------------------------------------------------
 
     static void realName(UiCase c) throws Exception {
-        MmState saved = saveMm(c);
+        // Only the switch that every jar has, so on a jar without the fix this case fails on what it draws, not on a
+        // missing setting.
+        boolean enabled0 = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(MM), "isEnabled"));
         String cls = "namechanger.NameChangerConfig";
         Object[] nc = c.onClient(mc -> {
             Object cfg = Mod.cfg(cls);
@@ -880,7 +882,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
             setWindow(c, 1600, 900, 2);
             String real = c.onClient(mc -> mc.getUser().getName());
             c.onClient(mc -> {
-                setMm(mc, "MATCH", "OCEAN", "AUTO", 100, true, true);
+                Mod.call(Mod.cfg(MM), "setEnabled", true);
                 Object cfg = Mod.cfg(cls);
                 Mod.call(cfg, "setEnabled", true);
                 Mod.call(cfg, "setOwnNameEnabled", true);
@@ -940,7 +942,11 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                 return null;
             });
             setWindow(c, win0[0], win0[1], win0[2]);
-            restoreMm(c, saved);
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(MM), "setEnabled", enabled0);
+                McCompat.setScreen(mc, new TitleScreen());
+                return null;
+            });
         }
     }
 }
