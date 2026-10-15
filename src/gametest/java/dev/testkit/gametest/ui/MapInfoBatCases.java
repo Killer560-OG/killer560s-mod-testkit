@@ -37,9 +37,11 @@ final class MapInfoBatCases {
     private static final int MAP_BG = HudFixCases.MAP_BG;
     private static final int GREEN = 0x55FF55;
     private static final int RED = 0xFF5555;
-    private static final Pattern ROW1 = Pattern.compile("^Score \\d{1,3} \\((?:S\\+|S|A|B|C|D)\\)  Secrets \\d{1,3}/(?:\\d{1,3}|\\?)"
-            + "  Crypts \\d/5$");
-    private static final Pattern ROW2 = Pattern.compile("^Deaths \\d{1,2}(?:  M [✔✘])?  P [✔✘]  B [✔✘](?:x\\d)?$");
+    /** Since mod map-overhaul-1015 (killer560, 2026-10-15: "Make the extra info overlay look more like noamm's"): secrets
+     *  as found/needed/total and crypts, then score, deaths and M | P | B, each letter green when done and red when not. */
+    private static final Pattern ROW1 = Pattern.compile("^Secrets: \\d{1,3}/(?:\\d{1,3}|\\?|-)(?:/\\d{1,3})?   Crypts: \\d{1,2}$");
+    private static final Pattern ROW2 = Pattern.compile("^Score: (?:\\d{1,3} \\((?:S\\+|S|A|B|C|D)\\)|\\?)   Deaths: \\d{1,2}   "
+            + "(?:M \\| )?P \\| B(?:x\\d)?$");
 
     private MapInfoBatCases() {
     }
@@ -141,11 +143,11 @@ final class MapInfoBatCases {
         HudFixCases.check(c, lines.size() == 2, tag + ": Extra Info has " + lines.size() + " lines, want exactly 2: " + plain);
         if (plain.size() == 2) {
             HudFixCases.check(c, ROW1.matcher(plain.get(0)).matches(), tag + ": row 1 is \"" + plain.get(0)
-                    + "\", want Score, Secrets and Crypts");
+                    + "\", want Secrets (found/needed/total) and Crypts");
             HudFixCases.check(c, ROW2.matcher(plain.get(1)).matches(), tag + ": row 2 is \"" + plain.get(1)
-                    + "\", want Deaths then M / P / B with ticks");
-            HudFixCases.check(c, plain.get(1).contains("M ✔") && plain.get(1).contains("P ✘")
-                    && plain.get(1).contains("B ✔"), tag + ": row 2 \"" + plain.get(1) + "\" does not show mimic yes,"
+                    + "\", want Score, Deaths, then M | P | B");
+            HudFixCases.check(c, lines.get(1).contains("§aM") && lines.get(1).contains("§cP")
+                    && lines.get(1).contains("§aB"), tag + ": row 2 \"" + lines.get(1) + "\" does not show mimic yes,"
                     + " prince no, bat yes");
         }
 
