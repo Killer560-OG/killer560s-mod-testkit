@@ -786,7 +786,7 @@ public final class SimPuzzleSolveTests {
                         : "Auto Boulder did NOT start in 15 s after the map press; he is at " + arrivedAt + ", live map room "
                         + ctx.computeOnClient(SimPuzzleSolveTests::liveRoom));
                 if (!started) {
-                    throw new AssertionError("Auto Boulder never started after a real Interactive Map press on the room "
+                    throw new AssertionError("Auto Boulder never started after " + (ownWarp() ? "the teleport onto its doorway " : "a real Interactive Map press on the room ")
                             + "(he is at " + arrivedAt + ")");
                 }
             }
@@ -2423,6 +2423,8 @@ public final class SimPuzzleSolveTests {
         private int notSprinting = 0;
         private String firstNotSprinting = null;
         private boolean forwardBefore = false;
+        /** Ticks the current forward hold has lasted: vanilla's sprint can start a tick after the keys go down. */
+        private int forwardRun = 0;
 
         // ---- smoothness (killer560, 2026-10-06: "The boulder turning is really choppy") ----
         /** A real mouse at the auto's 28 degree-per-tick cap turns 560 degrees a second; a per-tick snap seen between
@@ -2671,7 +2673,8 @@ public final class SimPuzzleSolveTests {
             }
             boolean[] ks = ctx.computeOnClient(mc -> new boolean[]{mc.options.keyUp.isDown(), mc.player.isSprinting(),
                     mc.player.horizontalCollision && !mc.player.minorHorizontalCollision, mc.options.keySprint.isDown()});
-            if (ks[0] && forwardBefore) {
+            forwardRun = ks[0] ? forwardRun + 1 : 0;
+            if (ks[0] && forwardBefore && forwardRun > 2) {
                 forwardTicks++;
                 // Into a wall vanilla will not sprint whatever the keys say; the auto is judged on the rest, and a
                 // walk with the sprint KEY up is counted whatever.
