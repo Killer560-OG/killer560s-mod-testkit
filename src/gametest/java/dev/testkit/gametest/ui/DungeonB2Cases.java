@@ -372,7 +372,9 @@ final class DungeonB2Cases {
             c.check(ring != null, "no circle for the key");
             if (ring != null) {
                 c.check(Math.abs(ring[0] - 270.5) < 1e-6 && Math.abs(ring[2] - 270.5) < 1e-6, "circle not centered under the key");
-                c.check(Math.abs(ring[1] - 100.02) < 1e-6, "circle not on the floor top (y " + ring[1] + ")");
+                // Since mod map-overhaul-2-1015 the Radius circle is at the key's own height (killer560: "Radius is just a circle
+                // drawn at its height"), the stand's y, not the floor under it.
+                c.check(Math.abs(ring[1] - 100.6) < 1e-6, "circle not at the key's height y 100.6 (y " + ring[1] + ")");
                 c.check(Math.abs(ring[3] - want) < 1e-9 && want >= bonus, "circle radius " + ring[3] + ", pickup range " + want);
             }
             // The picture: a Blood Key (red reads on stone), against a Door-Keys-off frame of the same view.

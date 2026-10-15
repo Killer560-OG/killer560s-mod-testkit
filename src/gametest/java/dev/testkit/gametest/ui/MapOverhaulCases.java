@@ -42,7 +42,7 @@ import java.util.Set;
  *       changes; New Custom Scheme opens the scheme editor on a new scheme; a colour and a name set in it are on disk
  *       (re-read with load()), the map paints with them, and the editor's sample map draws that colour; a second scheme
  *       can be made, both are kept, and deleting one leaves the other.</li>
- *   <li><b>1015-ui-door-key-style</b> - Door Keys' Pickup Range: Radius draws the ground circle, Sphere draws a shaded
+ *   <li><b>1015-ui-door-key-style</b> - Door Keys' Pickup Range: Radius draws the circle at the key's height (not the floor under it), Sphere draws a shaded
  *       ball centred on the key's stand with the pickup radius; the Sphere picture has far more changed pixels around the
  *       key than the Radius one.</li>
  * </ul>
@@ -551,7 +551,7 @@ final class MapOverhaulCases {
             command(c, "fill 255 99 255 285 99 285 minecraft:stone");
             command(c, "fill 255 100 255 285 110 285 minecraft:air");
             command(c, "kill @e[tag=mokey]");
-            command(c, "summon armor_stand 270.5 100.0 270.5 {Tags:[\"mokey\"],NoGravity:1b,Invisible:1b}");
+            command(c, "summon armor_stand 270.5 101.3 270.5 {Tags:[\"mokey\"],NoGravity:1b,Invisible:1b}");
             server(c, s -> {
                 for (ArmorStand st : s.overworld().getEntities(EntityTypeTest.forClass(ArmorStand.class),
                         e -> e.entityTags().contains("mokey"))) {
@@ -574,6 +574,12 @@ final class MapOverhaulCases {
             Path off = null;
             Path radius = shotAndStyle(c, "radius", "radius");
             double[] sphere0 = c.onClient(mc -> (double[]) Mod.staticCall("doorkeys.DoorKeysFeature", "pickupSphere"));
+            // killer560, 2026-10-15: "Radius is just a circle drawn at its height" - the key floats 1.3 above the floor
+            // top (y 100), and the circle must be at the key's y 101.3, not on the floor.
+            double[] ring = c.onClient(mc -> (double[]) Mod.staticCall("doorkeys.DoorKeysFeature", "pickupRing"));
+            c.note("radius circle " + java.util.Arrays.toString(ring));
+            c.check(ring != null && Math.abs(ring[1] - 101.3) < 1e-6 && Math.abs(ring[0] - 270.5) < 1e-6
+                    && Math.abs(ring[2] - 270.5) < 1e-6, "the Radius circle is not centred on the key at its height (y 101.3)");
             c.onClient(mc -> {
                 Mod.call(Mod.cfg(KEYS), "setRangeStyle", 1);
                 return null;
@@ -583,7 +589,7 @@ final class MapOverhaulCases {
             double range = c.onClient(mc -> (Double) Mod.call(Mod.cfg("autosecret.AutoSecretConfig"), "keyPickupRange"));
             c.note("sphere " + java.util.Arrays.toString(sp) + " (pickup range " + range + "; before switching "
                     + java.util.Arrays.toString(sphere0) + ")");
-            c.check(sp != null && Math.abs(sp[0] - 270.5) < 1e-6 && Math.abs(sp[1] - 100.0) < 1e-6
+            c.check(sp != null && Math.abs(sp[0] - 270.5) < 1e-6 && Math.abs(sp[1] - 101.3) < 1e-6
                     && Math.abs(sp[2] - 270.5) < 1e-6, "the sphere is not centred on the key's stand");
             c.check(sp != null && Math.abs(sp[3] - range) < 1e-9, "the sphere's radius is not the pickup range");
             c.onClient(mc -> {
@@ -591,7 +597,7 @@ final class MapOverhaulCases {
                 return null;
             });
             c.ticks(5);
-            lookAt(c, new Vec3(270.5, 100.0, 270.5));
+            lookAt(c, new Vec3(270.5, 101.3, 270.5));
             off = DungeonB2Cases.shot(c, "door-key-off");
             int radiusPx = changed(radius, off);
             int spherePx = changed(sphere, off);
@@ -612,7 +618,7 @@ final class MapOverhaulCases {
     }
 
     private static Path shotAndStyle(UiCase c, String suffix, String want) {
-        lookAt(c, new Vec3(270.5, 100.0, 270.5));
+        lookAt(c, new Vec3(270.5, 101.3, 270.5));
         Path p = DungeonB2Cases.shot(c, "door-key-" + suffix);
         String style = c.onClient(mc -> (String) Mod.staticCall("doorkeys.DoorKeysFeature", "lastDrawnStyle"));
         c.note(suffix + ": the last frame drew style '" + style + "'");
