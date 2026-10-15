@@ -47,6 +47,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
 
     private static final String HANDOFF = "144-sim-autosecret-handoff";
     private static final String ORDER = "145-sim-autosecret-order";
+    private static final String ARRIVAL = "146-sim-autosecret-arrival";
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
     private static final String FLOOR_GEN = "com.killer560.hub.roomsim.SimFloorGen";
@@ -71,7 +72,8 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         }
         boolean handoff = !Scenario.skip(HANDOFF);
         boolean order = !Scenario.skip(ORDER);
-        if (!handoff && !order) {
+        boolean arrival = !Scenario.skip(ARRIVAL);
+        if (!handoff && !order && !arrival) {
             return;
         }
         ModUnderTest.require("killer560smod");
@@ -84,6 +86,9 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             }
             if (order) {
                 Scenario.skipped(ORDER, "needs real room captures and room database");
+            }
+            if (arrival) {
+                Scenario.skipped(ARRIVAL, "needs real room captures and room database");
             }
             return;
         }
@@ -104,6 +109,13 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         if (order) {
             try {
                 runCase(ctx, ORDER, SimAutoSecretOptimizeTests::orderBody);
+            } catch (AssertionError e) {
+                failed.add(e.getMessage());
+            }
+        }
+        if (arrival) {
+            try {
+                runCase(ctx, ARRIVAL, SimAutoSecretOptimizeTests::arrivalBody);
             } catch (AssertionError e) {
                 failed.add(e.getMessage());
             }
@@ -293,6 +305,107 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         if (!capSaid || !earlySaid) {
             failures.add("the wait's lines are missing (cap " + capSaid + ", early " + earlySaid + ")");
         }
+    }
+
+    // ================================================================================================ 146
+
+    /** At most this many ticks from the last warp of the trip onto a start node to its one-node route ending there. */
+    private static final int ARRIVAL_MAX_TICKS = 4;
+
+    /**
+     * 146-sim-autosecret-arrival (mod ac-optimize-2-1015; killer560 wants routes as fast as possible): four rooms with a
+     * one-node start route each, every secret marked found as each becomes the target (so no last-node wait). For each
+     * room, the ticks from the last warp of the trip into it to its route finishing - a one-node route finishes on the
+     * tick it arms, so this is the warp's landing plus everything the route waited for before it could arm. The
+     * Interactive Map used to keep the trip "busy" for ~9 ticks after the landing (its arrival settle) and Auto Routes
+     * does not arm while it is: about 11 ticks. Now the trip ends on the tick the server confirms the landing.
+     */
+    private static void arrivalBody(ClientGameTestContext ctx, List<String> failures) {
+        enterFloor(ctx);
+        awaitWarmGraph(ctx, ARRIVAL);
+        List<SimAutoSecretTests.Room> eligible = eligible(ctx.computeOnClient(SimAutoSecretTests::readRooms));
+        eligible.sort((a, b) -> Integer.compare(b.unfound(), a.unfound()));
+        Map<String, JsonObject> routes = new LinkedHashMap<>();
+        for (SimAutoSecretTests.Room r : eligible) {
+            if (routes.size() >= 4) {
+                break;
+            }
+            JsonObject route = SimAutoSecretTests.routeFor(ctx, r);
+            if (route != null) {
+                routes.put(r.name(), route);
+            }
+        }
+        if (routes.size() < 4) {
+            failures.add("only " + routes.size() + " room(s) could be routed - need four");
+            return;
+        }
+        SimAutoSecretTests.writeRoutes(ctx, routes);
+        long mark = LogTap.mark();
+        long t0 = tick(ctx);
+        Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "start"));
+        if (!Boolean.TRUE.equals(started)) {
+            failures.add("Auto Secret refused to start");
+            return;
+        }
+        List<String> targets = new ArrayList<>();
+        Map<String, Long> finishedAt = new LinkedHashMap<>();
+        for (int t = 0; t < 20 * 150 && finishedAt.size() < routes.size(); t++) {
+            ctx.waitTicks(1);
+            for (String l : LogTap.since(mark)) {
+                Matcher m = TARGET.matcher(l);
+                if (m.find() && !targets.contains(m.group(1))) {
+                    targets.add(m.group(1));
+                    markAllFound(ctx, m.group(1));
+                }
+                Matcher f = FINISHED.matcher(l);
+                if (f.find() && !finishedAt.containsKey(f.group(1))) {
+                    finishedAt.put(f.group(1), Long.parseLong(f.group(2)));
+                }
+            }
+            if (!(Boolean) ctx.computeOnClient(mc -> ModUnderTest.staticCall(AS, "isRunning"))) {
+                break;
+            }
+        }
+        @SuppressWarnings("unchecked")
+        List<Long> hops = ctx.computeOnClient(mc -> (List<Long>) ModUnderTest.staticCall(EXECUTOR, "hopSendTicks"));
+        for (String l : LogTap.since(mark)) {
+            if (l.contains("[Path] arrived") || l.contains("[AutoSecret] route") || l.contains("[AutoSecret] target")
+                    || l.contains("settling after the map")) {
+                println(ARRIVAL, "  " + l.replaceAll("^.*?(\\[AutoSecret\\]|\\[Path\\]|\\[AutoRoutes\\])", "$1"));
+            }
+        }
+        println(ARRIVAL, "finished at " + finishedAt + ", hop ticks " + hops);
+        if (finishedAt.size() < 3) {
+            failures.add("fewer than three routes ran to their end (" + finishedAt.keySet() + ")");
+            return;
+        }
+        long from = t0;
+        List<Long> gaps = new ArrayList<>();
+        for (Map.Entry<String, Long> e : finishedAt.entrySet()) {
+            long end = e.getValue();
+            long last = -1;
+            for (long h : hops) {
+                if (h > from && h <= end) {
+                    last = h;
+                }
+            }
+            if (last < 0) {
+                println(ARRIVAL, e.getKey() + ": no warp of a trip into it (it was where he stood) - not counted");
+            } else {
+                gaps.add(end - last);
+                println(ARRIVAL, String.format(Locale.US, "%s: last warp of the trip on tick %d, route finished on tick"
+                        + " %d: %d tick(s) from the warp to the route", e.getKey(), last, end, end - last));
+                if (end - last > ARRIVAL_MAX_TICKS) {
+                    failures.add(e.getKey() + ": " + (end - last) + " ticks from the trip's last warp to its start node's"
+                            + " route - the arrival settle is still there (want at most " + ARRIVAL_MAX_TICKS + ")");
+                }
+            }
+            from = end;
+        }
+        if (gaps.size() < 2) {
+            failures.add("fewer than two trips into a routed room were measured (" + gaps + ")");
+        }
+        println(ARRIVAL, "warp-to-route ticks per room: " + gaps);
     }
 
     // ================================================================================================ 145
