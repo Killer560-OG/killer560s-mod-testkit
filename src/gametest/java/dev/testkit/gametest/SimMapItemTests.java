@@ -311,11 +311,11 @@ public class SimMapItemTests implements FabricClientGameTest {
         return px;
     }
 
-    private static int[] origin(int col, int row) {
+    static int[] origin(int col, int row) {
         return new int[]{5 + col * 20, 5 + row * 20};
     }
 
-    private static void room(byte[] px, int col, int row, int colour) {
+    static void room(byte[] px, int col, int row, int colour) {
         int[] o = origin(col, row);
         for (int y = 0; y < 16; y++) {
             for (int x = 0; x < 16; x++) {
@@ -325,7 +325,7 @@ public class SimMapItemTests implements FabricClientGameTest {
     }
 
     /** A door east of room (col, row): the 4-pixel gap, 6 pixels across the middle. */
-    private static void door(byte[] px, int col, int row, int colour) {
+    static void door(byte[] px, int col, int row, int colour) {
         int[] o = origin(col, row);
         for (int y = 5; y <= 10; y++) {
             for (int x = 16; x < 20; x++) {
@@ -334,12 +334,12 @@ public class SimMapItemTests implements FabricClientGameTest {
         }
     }
 
-    private static void set(byte[] px, int x, int y, int colour) {
+    static void set(byte[] px, int x, int y, int colour) {
         px[y * 128 + x] = (byte) colour;
     }
 
     /** Puts a filled map with id {@link #MAP_ID} in hotbar slot 9 on both sides, its pixels {@code colours} client-side. */
-    private static void giveMap(ClientGameTestContext ctx, byte[] colours) {
+    static void giveMap(ClientGameTestContext ctx, byte[] colours) {
         AtomicReference<String> done = new AtomicReference<>();
         ctx.runOnClient(mc -> {
             MapId id = new MapId(MAP_ID);
@@ -364,7 +364,7 @@ public class SimMapItemTests implements FabricClientGameTest {
     }
 
     /** {@code Mod.with}, skipped on a jar that has no such setting (one from before map-overhaul). */
-    private static void tryWith(List<AutoCloseable> restore, String cls, String property, Object value) {
+    static void tryWith(List<AutoCloseable> restore, String cls, String property, Object value) {
         try {
             restore.add(0, Mod.with(cls, property, value));
         } catch (AssertionError missing) {
@@ -374,7 +374,7 @@ public class SimMapItemTests implements FabricClientGameTest {
 
     /** A mod test hook's answer, or null when the jar has no such hook (one from before map-overhaul). */
     @SuppressWarnings("unchecked")
-    private static <T> T hook(ClientGameTestContext ctx, String cls, String method, Object... args) {
+    static <T> T hook(ClientGameTestContext ctx, String cls, String method, Object... args) {
         return ctx.computeOnClient(mc -> {
             try {
                 return (T) Mod.staticCall(cls, method, args);
@@ -387,7 +387,7 @@ public class SimMapItemTests implements FabricClientGameTest {
     // ---- what the HUD draws ---------------------------------------------------------------------------------------
 
     /** The room-sized fills (10 to 45 map units square: this floor is fitted about 2x): {x0, y0, x1, y1, argb}. */
-    private static List<int[]> roomFills(ClientGameTestContext ctx) {
+    static List<int[]> roomFills(ClientGameTestContext ctx) {
         List<int[]> out = new ArrayList<>();
         for (int[] f : allFills(ctx)) {
             int w = f[2] - f[0];
@@ -400,7 +400,7 @@ public class SimMapItemTests implements FabricClientGameTest {
     }
 
     /** The fill drawn on room (col, row)'s square, by the map's own fit of this floor, or null. */
-    private static Integer colourAt(List<int[]> rooms, int col, int row) {
+    static Integer colourAt(List<int[]> rooms, int col, int row) {
         int[] r = roomRect(col, row);
         for (int[] f : rooms) {
             int cx = (f[0] + f[2]) / 2;
@@ -413,10 +413,10 @@ public class SimMapItemTests implements FabricClientGameTest {
     }
 
     private static int[] lastRoomRects;
-    private static int[] lastOrigin;
+    static int[] lastOrigin;
 
     /** Room (col, row)'s rectangle in the extracted frame, from where the Entrance and New Trap were drawn. */
-    private static int[] roomRect(int col, int row) {
+    static int[] roomRect(int col, int row) {
         // The floor is fitted to its rooms' box (cols 1..3, rows 1..2): the drawn Entrance square gives the origin and
         // New Trap's the pitch. Kept from the first frame that had both.
         int[] o = lastOrigin;
@@ -430,7 +430,7 @@ public class SimMapItemTests implements FabricClientGameTest {
     }
 
     /** Every opaque fill the Dungeon Map HUD draws: {x0, y0, x1, y1, argb}. Also learns the floor's drawn grid. */
-    private static List<int[]> allFills(ClientGameTestContext ctx) {
+    static List<int[]> allFills(ClientGameTestContext ctx) {
         List<int[]> fills = ctx.computeOnClient(SimMapItemTests::extract);
         if (lastOrigin == null) {
             // Entrance is the top-left room: the smallest room-sized square; New Trap the next one to its right.
@@ -451,7 +451,7 @@ public class SimMapItemTests implements FabricClientGameTest {
         return fills;
     }
 
-    private static List<int[]> extract(Minecraft mc) {
+    static List<int[]> extract(Minecraft mc) {
         Object element = Mod.staticCall("hud.HudElementRegistry", "byId", "live_map");
         GuiRenderState state = new GuiRenderState();
         GuiGraphicsExtractor g = new GuiGraphicsExtractor(mc, state, -1, -1);
@@ -504,11 +504,11 @@ public class SimMapItemTests implements FabricClientGameTest {
         return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
-    private static String hexOrNone(Integer c) {
+    static String hexOrNone(Integer c) {
         return c == null ? "none" : String.format(Locale.ROOT, "#%08X", c);
     }
 
-    private static void build(ClientGameTestContext ctx, Map<Integer, String> placements) {
+    static void build(ClientGameTestContext ctx, Map<Integer, String> placements) {
         long before = Scenario.simBuildCount(ctx);
         ctx.runOnClient(mc -> mc.execute(() -> ModUnderTest.staticCall(FLOOR_GEN, "buildExplicit",
                 new Class<?>[]{Minecraft.class, Map.class}, new Object[]{mc, placements})));

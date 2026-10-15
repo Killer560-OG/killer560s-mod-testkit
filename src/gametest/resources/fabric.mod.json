@@ -64,6 +64,7 @@
 			"dev.testkit.gametest.SimInteractiveMapTests",
 			"dev.testkit.gametest.SimMapHudTests",
 			"dev.testkit.gametest.SimMapItemTests",
+			"dev.testkit.gametest.SimNoammMapTests",
 			"dev.testkit.gametest.SimAutoRoutesTests",
 			"dev.testkit.gametest.GrimAutoRoutesTests",
 			"dev.testkit.gametest.Ap3RuntimeTests",

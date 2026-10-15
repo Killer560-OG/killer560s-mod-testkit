@@ -675,6 +675,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   scanner's start-corner table); a floor reporting F1-F3 would need that table's fixed corners instead.
 - 1015-ui-switch-align judges a row lone only when NOTHING else shares its height band, so a half-width row beside a slider
   or a text box is fine; it opens every leaf's real drawer (`ModScreenDriver.open`), not the stacked folder view.
+
 - **1720-1731 sim-doors-predict** (mod doors-predict-1015, 2026-10-15). The sim has no map item, so the mod's `HeldMap`
   stand-in decides what "the map shows": a room is opened once someone stands within 14 blocks of one of its tile centres
   (x/z only - hovering high over a room opens it too). So a test that must keep a room unopened waits HIGH OVER A DOORWAY
@@ -708,3 +709,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 131-sim-auto-clear case 9 (fewest repositions) counts `[Path] running` lines (trips really run), not `[AutoClear]
   etherwarp toward`: before mod ac-optimize-1015 that line was logged again when the body had to be given back first
   (Phase.RELEASE) and a 3-trip clear logged 5. Case 8 leaves a live zombie in the room he stands in; case 9 avoids it.
+- 1015-noamm-map (SimNoammMapTests, mod noamm-map-compare-1015) reuses SimMapItemTests' floor and painted map: the gray
+  (85) door's drawn colour, four fake dungeon tab entries (`PlayerInfo`s put straight into the connection's
+  `playerInfoMap`/`listedPlayers`, sorted by their `!B-x` profile names) against four PLAYER decorations, a marker moved
+  three rooms and sampled per tick, then a map with a stray green run at (16,5). Empty slot 9 before a sim REBUILD: the
+  rebuild resets the map reading and the old map still in slot 9 recalibrates first (the old jar measured (16,5) off the
+  previous map and every later part read 11 px off). Old jar fails all four parts; new passes (cheat and legit).
