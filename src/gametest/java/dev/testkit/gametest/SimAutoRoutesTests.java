@@ -102,6 +102,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1015-warpclick",
             // click-gap-all (2026-10-15): the Auto Puzzles' shared use (AutoPuzzleUtil.useItemRotated) waits like the route's
             "96-ar-1015-puzzleclick",
+            // server-lag-1015: a server stall during an etherwarp is not a missed landing (util/ServerLag)
+            "96-ar-1015-serverlag",
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim", "96-ar-398-startawait",
             "96-ar-405-crypt-mapopen", "96-ar-405-startwarp", "96-ar-path", "96-ar-screen", "96-ar-rotate",
             // sim-world (2026-10-11)
@@ -283,6 +285,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1015-mimicskip" -> ArMainServerCases.mimicSkip(ctx);
                         case "96-ar-1015-warpclick" -> ArMainServerCases.warpAfterClick(ctx);
                         case "96-ar-1015-puzzleclick" -> ArMainServerCases.puzzleWarpAfterClick(ctx);
+                        case "96-ar-1015-serverlag" -> ArServerLagCases.serverLag(ctx);
                         case "96-ar-dbedit" -> caseDbEdit(ctx);
                         case "96-ar-mapopen" -> caseMapOpen(ctx);
                         case "96-ar-mapopen-aim" -> caseMapOpenAim(ctx);
@@ -7173,6 +7176,99 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 ctx.getInput().releaseKey(options -> options.keyShift);
                 ctx.runOnClient(mc -> dev.testkit.harness.HypixelUseAfterClick.reset());
             }
+        }
+    }
+
+    /**
+     * 96-ar-1015-serverlag (mod server-lag-1015). killer560, 2026-10-15: "... Same with auto puzzles and auto routes and
+     * things it needs to always account for server lag." A start etherwarp (6,6) -> (14,6), run twice:
+     * <ol>
+     *   <li><b>control</b>, no lag: it lands, and the mod's "landed ... N tick(s) after the use" is printed to compare with
+     *   a main jar (the normal case's timing must not change);</li>
+     *   <li><b>lag</b>: from the moment the route's warp is sent, nothing from the server reaches the client for
+     *   {@link #STALL_MS} ({@link dev.testkit.harness.LagSpike}: no landing, no per-tick ping, then all of it at once),
+     *   longer than LANDING_TIMEOUT (60 ticks). It must land once the server's packets come through,
+     *   with no "no landing after" line and no correction ("did not land where it was recorded"), and the mod's
+     *   util.ServerLag must have measured the stall.</li>
+     * </ol>
+     */
+    static final class ArServerLagCases {
+
+        private static final long STALL_MS = 5000L;
+
+        private ArServerLagCases() {
+        }
+
+        static void serverLag(ClientGameTestContext ctx) {
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            long w = LogTap.mark();
+            writeRoute(ctx, List.of(ew(6, 6, 14, 6, true)));
+            waitFor(ctx, 100, () -> logHas(w, "Loaded 1 route"));
+            float yaw = relYawTo(6, 6, 14, 6);
+            float pitch = pitchTo(6, 6, 14, 6);
+            try {
+                // ---- control: no lag ----
+                long m0 = LogTap.mark();
+                check(arm(ctx, 6, 6, yaw, pitch), "control: the route did not start");
+                boolean landed0 = waitLanded(ctx, 14, 6, 80) != null;
+                ctx.waitTicks(5);
+                String line0 = lineWith(m0, "Etherwarp: landed at");
+                stopRoute(ctx);
+                println("serverlag control: landed " + landed0 + " - " + line0);
+                check(landed0 && line0 != null, "control: the warp did not land with no lag - the lag run would prove nothing");
+                check(lineWith(m0, "no landing after") == null, "control: a no-lag warp reported no landing");
+
+                // ---- lag: from the route's warp, nothing from the server arrives for STALL_MS (dev.testkit.harness.LagSpike)
+                int stalls0 = SimServerLagTests.lagStalls(ctx);
+                ctx.runOnClient(mc -> dev.testkit.harness.LagSpike.armOnNextUse(STALL_MS));
+                long m = LogTap.mark();
+                check(arm(ctx, 6, 6, yaw, pitch), "lag: the route did not start");
+                int ticks = 0;
+                Vec3 landed = null;
+                for (; ticks < (int) (STALL_MS / 50) + 120 && landed == null; ticks++) {
+                    landed = waitLanded(ctx, 14, 6, 0);
+                    if (landed == null) {
+                        ctx.waitTicks(1);
+                    }
+                }
+                ctx.waitTicks(5);
+                ctx.runOnClient(mc -> dev.testkit.harness.LagSpike.disarm());
+                long spike = dev.testkit.harness.LagSpike.releasedAt() - dev.testkit.harness.LagSpike.startedAt();
+                String acted = lineWith(m, "Node #1 ETHERWARP acted");
+                String line = lineWith(m, "Etherwarp: landed at");
+                String noLanding = lineWith(m, "no landing after");
+                String correction = lineWith(m, "did not land where");
+                long longest = SimServerLagTests.lagLongest(ctx);
+                stopRoute(ctx);
+                println("serverlag lag: spike " + spike + " ms holding " + dev.testkit.harness.LagSpike.held()
+                        + " packet(s); acted " + (acted != null) + "; landed " + (landed != null) + " after " + ticks
+                        + " tick(s) - " + line + "; ServerLag stalls +" + (SimServerLagTests.lagStalls(ctx) - stalls0)
+                        + ", longest " + longest + " ms; no-landing line " + noLanding + "; correction " + correction);
+                check(acted != null, "the route never sent its warp - the run proves nothing");
+                check(dev.testkit.harness.LagSpike.startedAt() != 0L && spike >= STALL_MS - 100,
+                        "no lag spike ran on the warp (" + spike + " ms) - the run proves nothing");
+                check(longest >= STALL_MS - 1500, "util.ServerLag did not measure the " + STALL_MS + " ms stall (longest "
+                        + longest + " ms)");
+                check(noLanding == null, "a server stall was read as a missed landing: " + noLanding);
+                check(correction == null, "a server stall was reported as a correction: " + correction);
+                check(landed != null, "the warp never landed once the server's packets came through");
+                check(ticks > 60, "it landed after only " + ticks + " tick(s), inside LANDING_TIMEOUT - the run proves nothing");
+            } finally {
+                ctx.runOnClient(mc -> dev.testkit.harness.LagSpike.disarm());
+                stopRoute(ctx);
+            }
+        }
+
+        private static String lineWith(long mark, String text) {
+            for (String l : LogTap.since(mark)) {
+                if (l.contains(text)) {
+                    return l;
+                }
+            }
+            return null;
         }
     }
 }
