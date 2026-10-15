@@ -46,7 +46,8 @@ final class CheatTabsCases {
     private static final String BC = "bloodcamp.BloodCampFeature";
     private static final String ACC_CFG = "autoclosechest.AutoCloseChestConfig";
     private static final String TIPS = "gui.SettingTooltips";
-    private static final List<String> AUTO_ROWS = List.of("Trigger Bot", "Aura", "Auto Detect Lag", "Hit Lead");
+    private static final List<String> AUTO_ROWS = List.of("Trigger Bot", "Aura", "Auto Detect Lag", "Trigger Offset",
+            "Freecam Mode");
     private static final List<String> LEGIT_ROWS = List.of("Show Overlay", "Kill Popup", "Spawn Line",
             "Countdown Start Sound", "Kill Sound", "Start Sound Type", "Kill Sound Type", "Sound Volume");
 

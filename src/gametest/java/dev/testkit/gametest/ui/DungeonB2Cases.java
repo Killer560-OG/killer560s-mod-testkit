@@ -112,7 +112,7 @@ final class DungeonB2Cases {
                 Mod.call(cfg, "setTriggerBotEnabled", true);
                 Mod.call(cfg, "setAuraEnabled", false);
                 Mod.call(cfg, "setAutoDetectLag", false);
-                Mod.call(cfg, "setHitLeadTicks", 3);
+                Mod.call(cfg, "setTriggerOffsetTicks", -1);
                 Mod.staticCall("secrets.DungeonState", "setRoomSim", true);
                 oldDifficulty[0] = mc.getSingleplayerServer().getWorldData().getDifficulty();
                 return null;
@@ -156,14 +156,13 @@ final class DungeonB2Cases {
                         + " blocks the Trigger Bot clicked " + clicksA + " time(s), want exactly 1");
                 c.check(attacksA == 0 && a.interacts == 0, "(A) nothing is in melee reach, yet an attack went out");
                 c.check(a.swings >= 1, "(A) no swing packet went out");
-                // killer560 2026-10-11: a fixed lead - the attack reaches the server 3 ticks before the mob is due,
-                // ping added on top (Auto Detect Lag is off here and the integrated server has no round trip), so the
-                // client clicks on the countdown tick nearest 3 + the mod's 1-tick tick-boundary allowance = 3.8; 792
-                // measures the server's side.
+                // killer560 2026-10-15: Trigger Offset -1 (the default) clicks one tick AFTER the countdown's end
+                // (Auto Detect Lag is off here, so the ping is left out): the first x.8 grid value below -1 is -1.2. 792
+                // measures it against the kill timer with a real round trip.
                 // The mod's own record of the tick it clicked on (this case's clickAt is read a tick later).
                 double firedAt = c.onClient(mc -> (Double) Mod.staticCall(BC, "lastTriggerAt"));
-                c.check(firedAt >= 3.3 && firedAt <= 4.3, "(A) the click went out at " + firedAt
-                        + " ticks left, want 3.8: 3 before the kill moment plus 1 of tick boundaries");
+                c.check(firedAt >= -1.25 && firedAt <= -1.15, "(A) the click went out at " + firedAt
+                        + " ticks left, want -1.2: one tick after the countdown's end");
             } else {
                 c.check(clicksA == 0 && a.swings == 0, "legit jar: the Trigger Bot clicked (" + clicksA + ")");
             }
@@ -916,6 +915,8 @@ final class DungeonB2Cases {
                 Mod.call(e, "setWitherTracer", true);
                 return null;
             });
+            // small-dungeon (2026-10-15): the Tracer is the Wither Boss Highlight's, on both builds, and the ESP has no
+            // colour row of its own.
             String tab = cheat ? "Dungeon ESP" : "Starred Mob Hitboxes";
             Screen s = openTab(c, tab);
             List<String> off = labels(c, s);
@@ -926,7 +927,8 @@ final class DungeonB2Cases {
                     "a separate Through Walls / Wither Bosses toggle is still there");
             if (cheat) {
                 c.check(off.stream().anyMatch(l -> l.startsWith("ESP:")), "no ESP switch");
-                c.check(off.stream().noneMatch(l -> l.startsWith("Tracer:")), "ESP rows show while ESP is off");
+                c.check(off.stream().anyMatch(l -> l.startsWith("Tracer:")), "no Tracer row in the Wither Boss Highlight section");
+                c.check(off.stream().noneMatch(l -> l.startsWith("Wither Boss Color")), "the ESP still has a Wither Boss Color row");
                 boolean[] before = espState(c);
                 // Real press on the ESP switch.
                 double[] b = button(c, s, "ESP:");
@@ -935,10 +937,10 @@ final class DungeonB2Cases {
                 List<String> on = labels(c, s);
                 c.note("ESP off: throughWalls/withers/tracer " + java.util.Arrays.toString(before) + "; after one press: "
                         + java.util.Arrays.toString(after) + "; rows " + on);
-                c.check(!before[0] && !before[1] && !before[2], "with ESP off something still draws through walls");
-                c.check(after[0] && after[1] && after[2], "one ESP press did not turn every ESP item on");
-                c.check(on.stream().anyMatch(l -> l.startsWith("Tracer:")) && on.stream().anyMatch(l -> l.startsWith("Wither Boss Color")),
-                        "the ESP rows did not appear under the switch");
+                c.check(!before[0] && !before[1], "with ESP off something still draws through walls");
+                c.check(after[0] && after[1], "one ESP press did not turn every ESP item on");
+                c.check(on.stream().anyMatch(l -> l.startsWith("Tracer:")) && on.stream().noneMatch(l -> l.startsWith("Wither Boss Color")),
+                        "the Tracer row is gone or a Wither Boss Color row appeared under the switch");
             } else {
                 c.check(off.stream().noneMatch(l -> l.startsWith("ESP:")), "legit jar shows an ESP switch");
                 c.onClient(mc -> {
@@ -946,7 +948,8 @@ final class DungeonB2Cases {
                     return null;
                 });
                 boolean[] st = espState(c);
-                c.check(!st[0] && !st[1] && !st[2], "legit jar: ESP config on reports ESP active");
+                c.check(!st[0] && !st[1], "legit jar: ESP config on reports ESP active");
+                c.check(off.stream().anyMatch(l -> l.startsWith("Tracer:")), "legit jar: no Tracer row in the Wither Boss Highlight section");
             }
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
@@ -1249,11 +1252,11 @@ final class DungeonB2Cases {
         });
     }
 
-    private static void command(UiCase c, String cmd) {
+    static void command(UiCase c, String cmd) {
         server(c, s -> s.getCommands().performPrefixedCommand(s.createCommandSourceStack().withSuppressedOutput(), cmd));
     }
 
-    private static void server(UiCase c, java.util.function.Consumer<net.minecraft.server.MinecraftServer> task) {
+    static void server(UiCase c, java.util.function.Consumer<net.minecraft.server.MinecraftServer> task) {
         java.util.concurrent.atomic.AtomicBoolean done = new java.util.concurrent.atomic.AtomicBoolean();
         c.onClient(mc -> {
             var server = mc.getSingleplayerServer();

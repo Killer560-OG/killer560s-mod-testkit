@@ -153,6 +153,8 @@ public class UiSuite implements FabricClientGameTest {
             "703-ui-slotbinds-key-toggle", "704-ui-petwheel-no-slices-text-scale", "705-ui-itemprotect-hover-star-drops",
             "706-ui-gif-dvd-hidden-in-containers", "707-ui-storagesearch-equipment-wardrobe", "709-ui-itembrowser-tooltip",
             "710-ui-itembrowser-minion-tiers", "711-ui-itembrowser-neu-recipe", "712-ui-itembrowser-sort-and-bar"};
+    /** killer560's 2026-10-15 small dungeon list ({@link SmallDungeonCases}): Thorn through-walls switches, one ESP wither colour + legit tracer, Secrets HUD colour. Own block. */
+    static final String[] SMALL_DUNGEON_CASES = {"1051-ui-thorn-through-walls", "1052-ui-esp-colour-tracer", "1053-ui-secrets-hud-colour"};
     static final String[] DUNGEON_B2_CASES = {"686-ui-blood-trigger", "687-ui-door-key-circle",
             "679-ui-ttt-prediction-misclicks", "680-ui-imap-binds-ticks", "681-ui-auto-kick-pf", "682-ui-dungeon-esp-switch"};
     /** killer560's 2026-10-11 Auto Kick Judge By + Detect Queued Floor ({@link AutoKick2Cases}). Own block for merges. */
@@ -222,12 +224,19 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] SWEAT_CASES = {"1016-ui-sweat-mode"};
     static final String[] EW_NEARFACE_CASES = {"1321-ui-etherwarp-box-faces", "1322-ui-etherwarp-walk",
             "1323-ui-etherwarp-back-edges"};
+    /** On Teleport for the trails and the Auto Routes Progress HUD (mod trail-hud-1015, {@link TrailTeleportCases},
+     *  {@link RoutesProgressHudCases}). Own block for merges. */
+    static final String[] TRAIL_HUD_CASES = {"1042-ui-trail-teleport-ribbon", "1043-ui-trail-teleport-squares",
+            "1044-ui-trail-teleport-settings", "1045-ui-routes-progress-content", "1046-ui-routes-progress-editor",
+            "1047-ui-routes-progress-settings"};
     /** Shared trails (mod trail-share, {@link TrailShareCases}). Own block for merges. */
     static final String[] TRAIL_SHARE_CASES = {"1036-ui-trail-share-send", "1037-ui-trail-share-remote",
             "1038-ui-trail-share-hide", "1039-ui-trail-share-limits"};
     /** killer560's 2026-10-14 menu order + independent masters list ({@link MenuOrderCases}). Own block for merges. */
     static final String[] MENU_ORDER_CASES = {"515-ui-menu-order", "516-ui-menu-order-settings",
             "517-ui-menu-queue-masters", "518-ui-menu-independent-masters"};
+    /** Lever Aura merged into Secret Aura + Menu Theme on overlays (mod aura-themes-1015, {@link AuraThemeCases}). Own block for merges. */
+    static final String[] AURA_THEME_CASES = {"1420-ui-secret-aura-merge", "1421-ui-overlay-themes"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -286,6 +295,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : DUNGEON_B2_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : SMALL_DUNGEON_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : AUTOKICK2_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -331,7 +343,13 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : TRAIL_SHARE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : TRAIL_HUD_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : MENU_ORDER_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            for (String n : AURA_THEME_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
             for (String n : LOCKSTAR_HEAD_CASES) {
@@ -359,13 +377,13 @@ public class UiSuite implements FabricClientGameTest {
         boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES)
                 || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
                 || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES)
-                || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES)
+                || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES) || any(SMALL_DUNGEON_CASES)
                 || any(AUTOKICK2_CASES) || any(CYCLE_BACK_CASES) || any(DOC_SMALL_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES)
                 || any(HUD_KEY3_CASES) || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(CHROMA_WAVE_CASES)
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
                 || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
                 || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES) || any(SWEAT_CASES)
-                || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES);
+                || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES) || any(TRAIL_HUD_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -536,6 +554,10 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "680-ui-imap-binds-ticks", DungeonB2Cases::interactiveMapBinds);
                     UiCase.run(ctx, "681-ui-auto-kick-pf", DungeonB2Cases::autoKick);
                     UiCase.run(ctx, "682-ui-dungeon-esp-switch", DungeonB2Cases::dungeonEsp);
+                    // ---- small-dungeon (1051-1053) ----
+                    UiCase.run(ctx, "1051-ui-thorn-through-walls", SmallDungeonCases::thornThroughWalls);
+                    UiCase.run(ctx, "1052-ui-esp-colour-tracer", SmallDungeonCases::espColourTracer);
+                    UiCase.run(ctx, "1053-ui-secrets-hud-colour", SmallDungeonCases::secretsHudColour);
                     // ---- autokick-2 (801-805) ----
                     UiCase.run(ctx, "801-ui-autokick-judge-by", AutoKick2Cases::timeMode);
                     UiCase.run(ctx, "802-ui-autokick-detect-pf", AutoKick2Cases::detectPartyFinder);
@@ -652,6 +674,13 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1321-ui-etherwarp-box-faces", EtherwarpFaceCases::run);
                     UiCase.run(ctx, "1322-ui-etherwarp-walk", EtherwarpFaceCases::walk);
                     UiCase.run(ctx, "1323-ui-etherwarp-back-edges", EtherwarpFaceCases::backEdges);
+                    // ---- On Teleport + Auto Routes Progress HUD (1042-1047) ----
+                    UiCase.run(ctx, "1042-ui-trail-teleport-ribbon", TrailTeleportCases::ribbon);
+                    UiCase.run(ctx, "1043-ui-trail-teleport-squares", TrailTeleportCases::squares);
+                    UiCase.run(ctx, "1044-ui-trail-teleport-settings", TrailTeleportCases::settings);
+                    UiCase.run(ctx, "1045-ui-routes-progress-content", RoutesProgressHudCases::content);
+                    UiCase.run(ctx, "1046-ui-routes-progress-editor", RoutesProgressHudCases::editor);
+                    UiCase.run(ctx, "1047-ui-routes-progress-settings", RoutesProgressHudCases::settings);
                     // ---- Shared trails (1036-1039) ----
                     UiCase.run(ctx, "1036-ui-trail-share-send", TrailShareCases::send);
                     UiCase.run(ctx, "1037-ui-trail-share-remote", TrailShareCases::remote);
@@ -662,6 +691,9 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "516-ui-menu-order-settings", c -> MenuOrderCases.settingsOrder(c, deny));
                     UiCase.run(ctx, "517-ui-menu-queue-masters", MenuOrderCases::queueMasters);
                     UiCase.run(ctx, "518-ui-menu-independent-masters", MenuOrderCases::independentMasters);
+                    // ---- Lever Aura in Secret Aura + overlay Menu Themes (1420-1421) ----
+                    UiCase.run(ctx, "1420-ui-secret-aura-merge", AuraThemeCases::secretAuraMerge);
+                    UiCase.run(ctx, "1421-ui-overlay-themes", AuraThemeCases::overlayThemes);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

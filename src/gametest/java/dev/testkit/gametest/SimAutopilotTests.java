@@ -113,6 +113,8 @@ public class SimAutopilotTests implements FabricClientGameTest {
         String stopReason;
         List<String> log = new ArrayList<>();
         List<Decision> decisions = new ArrayList<>();
+        /** The Auto Routes Progress HUD's rows, sampled every 5 ticks of the run. */
+        List<List<String>> hud = new ArrayList<>();
     }
 
     @Override
@@ -714,8 +716,11 @@ public class SimAutopilotTests implements FabricClientGameTest {
             return r;
         }
         Vec3 last = ctx.computeOnClient(mc -> mc.player.position());
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoroutes.AutoRoutesConfig"),
+                "setProgressHudRooms", 15));
         for (int t = 0; t < CASE_TICKS; t += 5) {
             ctx.waitTicks(5);
+            r.hud.add(ctx.computeOnClient(mc -> hudRows()));
             Vec3 now = ctx.computeOnClient(mc -> mc.player.position());
             r.travelled += now.distanceTo(last);
             last = now;
@@ -768,7 +773,102 @@ public class SimAutopilotTests implements FabricClientGameTest {
         return r;
     }
 
+    private static final String PROGRESS_HUD = "com.killer560.hub.autoroutes.AutoRoutesProgressHud";
+
+    /** The rows the Auto Routes Progress HUD would draw right now; one "<no hud ...>" row when the jar has none. */
+    @SuppressWarnings("unchecked")
+    private static List<String> hudRows() {
+        try {
+            return new ArrayList<>((List<String>) ModUnderTest.staticCall(PROGRESS_HUD, "shownText"));
+        } catch (RuntimeException | Error e) {
+            return List.of("<no hud: " + e + ">");
+        }
+    }
+
+    private static final Pattern HUD_PILOT_HEAD = Pattern.compile("Autopilot (\\d+)%  \\((\\d+)/(\\d+)\\)");
+
+    /**
+     * The Auto Routes Progress HUD against Autopilot's own decisions (mod trail-hud-1015): every decision logs the
+     * candidates it ranked, best first, and the HUD must draw exactly those (a dropped key is not a room) under an
+     * "Autopilot N%  (done/total)" header whose percent is done over done plus left, with the pick on the "> " row. Every
+     * plan the HUD drew must be one a decision made, the decisions it drew must be more than the first, and the count
+     * done must never go down.
+     */
+    private static void checkHud(List<String> failures, String label, Result r) {
+        if (!r.hud.isEmpty() && r.hud.get(0).size() == 1 && r.hud.get(0).get(0).startsWith("<no hud")) {
+            failures.add(label + ": hud: " + r.hud.get(0).get(0));
+            return;
+        }
+        List<List<String>> wanted = new ArrayList<>();
+        for (Decision d : r.decisions) {
+            List<String> rooms = new ArrayList<>();
+            for (Cand k : d.ranked()) {
+                if (k.kind().equals("KEY")) {
+                    continue;
+                }
+                String tag = k.kind().charAt(0) + k.kind().substring(1).toLowerCase(Locale.ROOT);
+                rooms.add(tag + " " + (k.room().startsWith("Unknown@") ? "an unexplored room" : k.room()));
+            }
+            wanted.add(rooms);
+        }
+        java.util.Set<Integer> matched = new java.util.TreeSet<>();
+        int withPlan = 0;
+        int lastDone = 0;
+        for (List<String> rows : r.hud) {
+            if (rows.isEmpty() || !rows.get(0).startsWith("Autopilot ")) {
+                continue;
+            }
+            withPlan++;
+            Matcher m = HUD_PILOT_HEAD.matcher(rows.get(0));
+            if (!m.matches()) {
+                failures.add(label + ": hud: the top row is not 'Autopilot N%  (done/total)': '" + rows.get(0) + "'");
+                continue;
+            }
+            int pct = Integer.parseInt(m.group(1)), done = Integer.parseInt(m.group(2)), total = Integer.parseInt(m.group(3));
+            if (pct != Math.round(done * 100f / total)) {
+                failures.add(label + ": hud: " + pct + "% does not match " + done + "/" + total);
+            }
+            if (done < lastDone) {
+                failures.add(label + ": hud: the count done went down, " + lastDone + " to " + done);
+            }
+            lastDone = done;
+            List<String> shownRooms = new ArrayList<>();
+            for (int i = 1; i < rows.size(); i++) {
+                if (rows.get(i).endsWith(" more")) {
+                    continue;
+                }
+                shownRooms.add(rows.get(i).replaceFirst("^(> |  )", "").replaceFirst("  \\d+%$", ""));
+            }
+            int hit = -1;
+            for (int i = 0; i < wanted.size(); i++) {
+                List<String> w = wanted.get(i);
+                if (shownRooms.equals(w.subList(0, Math.min(w.size(), 16)))) {
+                    hit = i;
+                }
+            }
+            if (hit < 0) {
+                failures.add(label + ": hud: a plan no decision made: " + rows + " (decisions ranked "
+                        + wanted.stream().map(w -> w.size() + " rooms, first " + (w.isEmpty() ? "-" : w.get(0))).toList() + ")");
+            } else {
+                matched.add(hit);
+                if (rows.size() < 2 || !rows.get(1).startsWith("> ")) {
+                    failures.add(label + ": hud: no '> ' row for the pick: " + rows);
+                }
+            }
+        }
+        println(label + ": hud: " + withPlan + " of " + r.hud.size() + " samples drew a plan; matched decision(s) " + matched
+                + " of " + r.decisions.size() + "; most done " + lastDone);
+        if (r.decisions.size() > 0 && withPlan == 0) {
+            failures.add(label + ": hud: the run made " + r.decisions.size() + " decision(s) but the HUD never drew a plan");
+        }
+        if (r.decisions.size() >= 3 && matched.size() < 2) {
+            failures.add(label + ": hud: only decision(s) " + matched + " of " + r.decisions.size()
+                    + " ever reached the HUD - the plan is not following the planner");
+        }
+    }
+
     private static void checkActed(List<String> failures, String label, Result r) {
+        checkHud(failures, label, r);
         if (!r.finished) {
             failures.add(label + ": still running after " + CASE_TICKS / 20 + " s");
         }

@@ -387,7 +387,19 @@ public class SimAutoClearTests implements FabricClientGameTest {
         ctx.waitTicks(30);
         setMode(ctx, "ANY_MOB_ROOM", "HYPERION");
         long mark6 = LogTap.mark();
-        Result r6 = runCase(ctx, "order", () -> ModUnderTest.staticCall(AUTO, "start"));
+        // The Auto Routes Progress HUD (mod trail-hud-1015) is sampled every 5 ticks of this run: the plan Auto Clear
+        // published and the rows the HUD would draw.
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoroutes.AutoRoutesConfig"),
+                "setProgressHudRooms", 5));
+        List<List<String>> hudShown = new ArrayList<>();
+        List<List<String>> hudPlanned = new ArrayList<>();
+        Result r6 = runCase(ctx, "order", () -> ModUnderTest.staticCall(AUTO, "start"), t -> {
+            if (t % 5 == 0) {
+                hudShown.add(ctx.computeOnClient(mc -> hudRows()));
+                hudPlanned.add(ctx.computeOnClient(mc -> planned()));
+            }
+        });
+        List<String> hudAfter = ctx.computeOnClient(mc -> hudRows());
         Map<UUID, String> after6 = aliveReport(ctx, p6);
         List<String> picks = new ArrayList<>();
         for (String l : LogTap.since(mark6)) {
@@ -399,6 +411,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
         }
         println("order: " + r6 + "; picks " + picks + "; mobs " + after6);
         check(failures, "order", r6, p6, after6, floor(ctx), List.of(rush.name(), offRoom.name()), List.of());
+        checkProgressHud(failures, LogTap.since(mark6), hudShown, hudPlanned, hudAfter);
         int offAt = picks.indexOf(offRoom.name() + "/off");
         int rushAt = picks.indexOf(rush.name() + "/on");
         if (offAt < 0 || rushAt < 0 || offAt > rushAt) {
@@ -1160,6 +1173,109 @@ public class SimAutoClearTests implements FabricClientGameTest {
                             + "interaction(s), largest use-vs-movement yaw jump %.1f, %d hop(s), %d etherwarp trip(s), "
                             + "%d correction(s), last line: %s", finished ? "finished" : "STILL RUNNING", ticks / 20.0,
                     travelled, uses, interacts, maxUseJump, hops, etherwarps, corrections, lastLine);
+        }
+    }
+
+    private static final String PROGRESS_HUD = "com.killer560.hub.autoroutes.AutoRoutesProgressHud";
+
+    /** The rows the Auto Routes Progress HUD would draw right now; empty when the jar has no such HUD. */
+    @SuppressWarnings("unchecked")
+    private static List<String> hudRows() {
+        try {
+            return new ArrayList<>((List<String>) ModUnderTest.staticCall(PROGRESS_HUD, "shownText"));
+        } catch (RuntimeException | Error e) {
+            return List.of("<no hud: " + e + ">");
+        }
+    }
+
+    /** The rooms Auto Clear says it plans to do, in order (its published queue). */
+    @SuppressWarnings("unchecked")
+    private static List<String> planned() {
+        try {
+            return new ArrayList<>((List<String>) ModUnderTest.staticCall(AUTO, "plannedRooms"));
+        } catch (RuntimeException | Error e) {
+            return List.of("<no plan: " + e + ">");
+        }
+    }
+
+    /**
+     * killer560's 2026-10-15 Progress HUD against the real planner (mod trail-hud-1015). The run's own log names the pick
+     * and the order {@code AutoClearTargets.ordered} gave; the plan Auto Clear published at that pick must be the pick
+     * first and that order after it, and the HUD must draw exactly that: the total percent at the top (rooms done over
+     * rooms done plus rooms left), the room under way, then the rooms to come. Once the first room is cleared the
+     * header reads 1 done, and when the run ends the HUD is empty.
+     */
+    private static void checkProgressHud(List<String> failures, List<String> log, List<List<String>> shown,
+                                         List<List<String>> planned, List<String> after) {
+        java.util.regex.Pattern next = java.util.regex.Pattern.compile(
+                "\\[AutoClear\\] next room (.+?) \\((?:on|off) the blood rush\\) - order \\[(.*)\\]");
+        String picked = null;
+        List<String> order = null;
+        for (String l : log) {
+            java.util.regex.Matcher m = next.matcher(l);
+            if (m.find()) {
+                picked = m.group(1);
+                order = new ArrayList<>(List.of(m.group(2).split(", ")));
+                break;
+            }
+        }
+        if (picked == null) {
+            failures.add("hud: the run logged no 'next room ... order' line to compare the plan with");
+            return;
+        }
+        List<String> expect = new ArrayList<>();
+        expect.add(picked);
+        for (String r : order) {
+            if (!r.equals(picked)) {
+                expect.add(r);
+            }
+        }
+        int firstPlan = -1;
+        for (int i = 0; i < planned.size(); i++) {
+            if (!planned.get(i).isEmpty()) {
+                firstPlan = i;
+                break;
+            }
+        }
+        println("hud: log picked " + picked + " from order " + order + "; first plan " + (firstPlan < 0 ? "none"
+                : planned.get(firstPlan)) + "; first rows " + (firstPlan < 0 ? "none" : shown.get(firstPlan)));
+        if (firstPlan < 0) {
+            failures.add("hud: Auto Clear published no plan during the run (" + planned.size() + " samples)");
+            return;
+        }
+        if (shown.get(firstPlan).size() == 1 && shown.get(firstPlan).get(0).startsWith("<no hud")) {
+            failures.add("hud: " + shown.get(firstPlan).get(0));
+            return;
+        }
+        if (!planned.get(firstPlan).equals(expect)) {
+            failures.add("hud: the published plan " + planned.get(firstPlan) + " is not the pick then the logged order "
+                    + expect);
+        }
+        List<String> rows = shown.get(firstPlan);
+        String head = "Auto Clear 0%  (0/" + expect.size() + ")";
+        if (rows.isEmpty() || !rows.get(0).equals(head)) {
+            failures.add("hud: the top row is " + (rows.isEmpty() ? "missing" : "'" + rows.get(0) + "'") + ", wanted '" + head + "'");
+        }
+        if (rows.size() < 2 || !rows.get(1).startsWith("> " + picked)) {
+            failures.add("hud: the room under way is not first after the header: " + rows);
+        }
+        for (int i = 1; i < expect.size(); i++) {
+            if (rows.size() <= i + 1 || !rows.get(i + 1).equals("  " + expect.get(i))) {
+                failures.add("hud: upcoming room " + i + " should read '  " + expect.get(i) + "': " + rows);
+            }
+        }
+        boolean oneDone = false;
+        for (List<String> r : shown) {
+            if (!r.isEmpty() && r.get(0).matches("Auto Clear 50%  \\(1/2\\)")) {
+                oneDone = true;
+            }
+        }
+        if (expect.size() == 2 && !oneDone) {
+            failures.add("hud: the header never read 50% (1/2) after the first room was cleared; saw "
+                    + shown.stream().map(r -> r.isEmpty() ? "-" : r.get(0)).distinct().toList());
+        }
+        if (!after.isEmpty()) {
+            failures.add("hud: still drawing after the run ended: " + after);
         }
     }
 

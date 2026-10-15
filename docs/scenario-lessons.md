@@ -232,6 +232,12 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   so after 400/406 a direct lookup often never reaches the fake. 400/406 answer `/pf/stats` 404, which is their fallback.
   408-menu-partyfinder-stats-live runs a 25-player menu against the REAL backend: only with `TESTKIT_PF_LIVE=1` and
   `-Extra @("-PnetOnline")`; it prints coverage at 30/60/120/180 s and asserts nothing.
+- 411-menu-partyfinder-speed / 412-menu-partyfinder-background (`PartyFinderSpeedCases`, mod pf-speed-1015): a 15-player
+  menu against BOTH upstreams rate limited as his own logs show them, at 1/3 time: backend 3 per 10 s window then 429 with
+  the window's Retry-After, first request for 6 players a 500; relay pending until its pump reaches the name (one per 9 s,
+  first asked first, running whether polled or not) while promising 1.1 s per queue place. 411 times all-filled with the
+  menu open (limit 60 s); 412 closes after 5 s, waits 60 s, and needs all 15 within 1.5 s of reopening. Both clear the
+  Profile Viewer's own profile/name caches, or a direct lookup after 400/406/410 never reaches the fake.
 
 - 407-ui-stat-bars-layout (`StatBarsLayoutCases`, mod bars-anchors): Health and Mana Bars' Layout. Geometry is measured on
   screenshots by exact colour (each bar its own opaque colour, Show Value and text shadow off) in SURVIVAL with XP level 5,
@@ -580,3 +586,28 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   its answers follow); `armOnNextUse(ms)` starts it on the next `use_item`, so that use's answer is inside the spike.
   Inbound-only was tried first and is wrong: the server answered every queued warp in real time while the client was
   blind, and the burst produced a correction no stalled server would.
+
+- 1042-ui-trail-teleport-ribbon, 1043-ui-trail-teleport-squares, 1044-ui-trail-teleport-settings (TrailTeleportCases, mod
+  trail-hud-1015, 2026-10-15): the player walks 3 blocks, is moved 30 blocks along +x in one step (position AND old position,
+  as a server teleport does), then walks on. Per On Teleport mode (Break / Connect / Arc) the geometry the renderers hand
+  to the GPU is judged: the ribbon's `lastVertices` with `lastBreaks` / `lastSegments` / `teleportsSeen`, the squares ring's
+  `position(i)`. Break: one gap, joined quads stop short, the longest step is the jump and the second longest is short;
+  Connect: no gap, every step short, 100+ points, flat; Arc: no gap, short steps, rises 3.6+ blocks (squares 4.5+); exactly
+  one teleport counted (walking never is). 1044 is the config: default Connect, file round trip, profile reload, a bad file
+  value, and both tabs' cycling row stepping Connect -> Arc -> Break -> Arc. Main jar: no `trail.TeleportMode`, all three
+  report a problem (and its ribbon dropped the whole trail past 6 blocks).
+- 1045-ui-routes-progress-content, 1046-ui-routes-progress-editor, 1047-ui-routes-progress-settings (RoutesProgressHudCases,
+  mod trail-hud-1015): drives the HUD's two real inputs, `RouteRunMemory.noteProgress` and `RunPlan.publish`, and reads
+  `AutoRoutesProgressHud.shownText`: the one-room line (43% for 3/7, 100% for a route that ran to its end), a plan's header
+  percent, the `>` row with its route percent, exactly the configured number of upcoming rows, `+N more` only when rooms are
+  left out, and the Autopilot > Auto Secret > Auto Clear priority. 1046: the HUD editor lists it only while the setting is on
+  (and a legit jar has no such element). 394 now switches the setting on and fails if the element draws nothing. The
+  planners' REAL queues are checked inside the sims: 131 case 6 (Auto Clear's logged `order` = the published plan = the
+  rows), 102 (Auto Secret's first target, only routed rooms, percent math, the executor reporting node progress) and the
+  Autopilot sim (every plan the HUD drew is one a logged decision ranked).
+- **177-183 Auto Blood Camp (hx session, mod bloodcamp-1015, 2026-10-15)**: offset from the kill timer, Blood Room gate, aim
+  height, human turn, mouse takeover, miss retry, Freecam Mode; each Grim-clean. Blood Camp only tracks a mob stand within
+  20 blocks of the Watcher, and the session is in the FIRST wave (no Watcher line), whose trip starts 16.1 + 1 blocks back:
+  with the Watcher at (-416.5, -412.5) nothing was ever tracked. (-424.5, -412.5) is in his room tile (-7, -7) and close
+  enough; 792 uses it too. An invulnerable husk is now a MISS the Trigger Bot retries, so 792 uses a hurtable one.
+  Main jar: every case fails on the missing Trigger Offset / Freecam API.

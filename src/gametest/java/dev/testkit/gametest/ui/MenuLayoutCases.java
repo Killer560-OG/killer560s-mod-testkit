@@ -196,7 +196,13 @@ final class MenuLayoutCases {
             // changed on purpose (menu-layout-merged.json: tabs those branches removed, tabs they added and where).
             JsonObject fixture = Deny.read("menu-layout-" + variant + ".json");
             JsonObject merged = Deny.read(MERGED_FILE);
-            JsonObject goneLeaves = merged.getAsJsonObject("goneLeaves");
+            JsonObject goneLeaves = merged.getAsJsonObject("goneLeaves").deepCopy();
+            // Tabs only the cheat jar had (the legit fixture never listed them): judged on the cheat variant alone.
+            if (variant.equals("cheat") && merged.has("goneCheatLeaves")) {
+                for (Map.Entry<String, com.google.gson.JsonElement> g : merged.getAsJsonObject("goneCheatLeaves").entrySet()) {
+                    goneLeaves.add(g.getKey(), g.getValue());
+                }
+            }
             JsonObject newLeaves = merged.getAsJsonObject("newLeaves");
             Set<String> before = new TreeSet<>(fixture.getAsJsonObject("leaves").keySet());
             int retired = 0;
