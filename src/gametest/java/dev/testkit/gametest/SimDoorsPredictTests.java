@@ -62,7 +62,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * <li>1726 named: looking through doorways into unopened rooms, at least two are named right, and NO prediction ever
  *     names a tile for a room that is not there.</li>
  * <li>1727 partial: every prediction's certain tiles are that room's tiles; unsure tiles are reported.</li>
- * <li>1728 sight only: every seen block is visible from the eye it was recorded with (27 rays to its box).</li>
+ * <li>1728 sight only: every seen block, re-cast along its recorded ray from its recorded eye right after the look, is
+ *     the first block that ray meets.</li>
  * <li>1729 hidden block: an emerald sealed under a room's floor is never seen while a gold block standing in the open
  *     in the same view is.</li>
  * <li>1730 guess: a one-tile room whose neighbours are all opened gets a guess with Puzzle in it; a room with an
@@ -296,8 +297,9 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         BlockPos db = f.doorBlock(door);
         waitCoal(ctx, db, made);
         // In the doorway between the two: inside neither room, so neither opens.
+        // High over the doorway (the doorway itself is coal now and would push him out into a room).
         double[] gap = f.doorCentre(door);
-        place(ctx, new double[]{gap[0], gap[1] + 0.2, gap[2]}, null);
+        place(ctx, new double[]{gap[0], gap[1] + 30, gap[2]}, null);
         ctx.runOnClient(mc -> invalidate());
         ctx.waitTicks(30);
         List<double[]> before = ctx.computeOnClient(mc -> boxes());
@@ -527,9 +529,10 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
 
         // ---- 1728: every seen block is visible from where it was seen.
         Report.caseStarted(R_SIGHT);
-        int[] audit = ctx.computeOnClient(SimDoorsPredictTests::auditSight);
-        row(R_SIGHT, audit[0] >= 500 && audit[1] * 100 <= audit[0], audit[0] + " seen block(s) audited, " + audit[1]
-                + " with no clear ray from the recorded eye to any of 27 points on its box (" + audit[2] + " unloaded)");
+        int[] audit = auditTotals;
+        row(R_SIGHT, audit[0] >= 500 && audit[1] == 0, audit[0] + " seen block(s) audited right after each look, " + audit[1]
+                + " whose recorded ray, cast again from the recorded eye, meets something else first (" + audit[2] + " unloaded); "
+                + "first blind ones " + blindExamples);
 
         // ---- 1729: a block nobody could see is never seen.
         Report.caseStarted(R_HIDDEN);
@@ -609,7 +612,28 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
     }
 
     /** Stands in {@code from} and looks through door {@code d} into {@code into} from three distances and five angles. */
+    /** Running {audited, blind, unloaded} over every look, each audited before anything else changes the world. */
+    private final int[] auditTotals = new int[3];
+    private final List<String> blindExamples = new ArrayList<>();
+
     private void lookInto(ClientGameTestContext ctx, Floor f, int from, int into, int d) {
+        int start = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(PREDICTOR, "observationCount"));
+        lookIntoOnly(ctx, f, from, into, d);
+        Object[] r = ctx.computeOnClient(mc -> auditSight(mc, start));
+        int[] a = (int[]) r[0];
+        for (int i = 0; i < 3; i++) {
+            auditTotals[i] += a[i];
+        }
+        @SuppressWarnings("unchecked")
+        List<String> ex = (List<String>) r[1];
+        for (String e : ex) {
+            if (blindExamples.size() < 6) {
+                blindExamples.add(e);
+            }
+        }
+    }
+
+    private void lookIntoOnly(ClientGameTestContext ctx, Floor f, int from, int into, int d) {
         double[] dc = f.doorCentre(d);
         double[] u = f.toward(from, d);
         for (double back : new double[]{5, 2, 0}) {
@@ -626,13 +650,13 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
     }
 
     /** {audited, not visible, unloaded}: each seen block against 27 rays from its recorded eye to points on its box. */
-    private static int[] auditSight(Minecraft mc) {
+    private static Object[] auditSight(Minecraft mc, int from) {
         List<?> obs = (List<?>) ModUnderTest.staticCall(PREDICTOR, "observations");
-        int step = Math.max(1, obs.size() / 3000);
         int audited = 0;
         int blind = 0;
         int unloaded = 0;
-        for (int i = 0; i < obs.size(); i += step) {
+        List<String> examples = new ArrayList<>();
+        for (int i = from; i < obs.size(); i++) {
             double[] o = (double[]) obs.get(i);
             BlockPos p = BlockPos.containing(o[0], o[1], o[2]);
             if (!mc.level.isLoaded(p)) {
@@ -640,26 +664,24 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
                 continue;
             }
             audited++;
+            // The recorded ray again, from the recorded eye through the point it met the block: the first block it
+            // meets must be that block, in the world as it stands now (audited before anything else changes it).
             Vec3 eye = new Vec3(o[3], o[4], o[5]);
-            boolean visible = false;
-            for (int a = 0; a < 3 && !visible; a++) {
-                for (int b = 0; b < 3 && !visible; b++) {
-                    for (int c = 0; c < 3 && !visible; c++) {
-                        Vec3 pt = new Vec3(p.getX() + 0.1 + 0.4 * a, p.getY() + 0.1 + 0.4 * b, p.getZ() + 0.1 + 0.4 * c);
-                        // On past the point by a block, so a ray to the empty part of a slab's cell still meets the slab.
-                        Vec3 end = pt.add(pt.subtract(eye).normalize());
-                        HitResult hit = mc.level.clip(new ClipContext(eye, end, ClipContext.Block.VISUAL, ClipContext.Fluid.NONE,
-                                mc.player));
-                        visible = hit instanceof BlockHitResult bhr && hit.getType() == HitResult.Type.BLOCK
-                                && bhr.getBlockPos().equals(p);
-                    }
-                }
-            }
+            Vec3 at = new Vec3(o[6], o[7], o[8]);
+            Vec3 past = at.add(at.subtract(eye).normalize().scale(0.05));
+            HitResult again = mc.level.clip(new ClipContext(eye, past, ClipContext.Block.VISUAL, ClipContext.Fluid.NONE,
+                    mc.player));
+            boolean visible = again instanceof BlockHitResult br && again.getType() == HitResult.Type.BLOCK
+                    && br.getBlockPos().equals(p);
             if (!visible) {
                 blind++;
+                if (examples.size() < 6) {
+                    examples.add(mc.level.getBlockState(p).getBlock() + " at " + p.toShortString() + " from "
+                            + String.format(Locale.ROOT, "%.1f,%.1f,%.1f", o[3], o[4], o[5]));
+                }
             }
         }
-        return new int[]{audited, blind, unloaded};
+        return new Object[]{new int[]{audited, blind, unloaded}, examples};
     }
 
     // ---- 1730 -----------------------------------------------------------------------------------------------------
