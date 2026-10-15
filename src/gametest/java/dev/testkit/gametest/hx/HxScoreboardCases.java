@@ -573,9 +573,11 @@ final class HxScoreboardCases {
             skyblock(c);
             enable(c);
             setWindow(c, 1366, 768, 2);
+            float[] look = c.onClient(mc -> new float[]{mc.player.getXRot(), mc.player.getYRot()});
             c.onClient(mc -> {
                 defaultSpot(mc);
                 mc.options.hideGui = false;
+                mc.player.setXRot(-55f); // the sky: the same bright backdrop behind the board on every jar
                 return null;
             });
             waitDrawn(c, "screenshot");
@@ -583,6 +585,10 @@ final class HxScoreboardCases {
             c.note("board " + str(b));
             Path p = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(c.name() + "-board"));
             c.note("screenshot " + p);
+            c.onClient(mc -> {
+                mc.player.setXRot(look[0]);
+                return null;
+            });
             c.check(Files.exists(p), "no screenshot was written");
             String dir = System.getenv("TESTKIT_SCOREBOARD_SHOTS");
             if (dir != null && !dir.isBlank()) {
