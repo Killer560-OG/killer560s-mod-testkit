@@ -338,7 +338,11 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         // In the doorway between the two: inside neither room, so neither opens.
         // High over the doorway (the doorway itself is coal now and would push him out into a room).
         double[] gap = f.doorCentre(door);
-        place(ctx, new double[]{gap[0], gap[1] + 30, gap[2]}, null);
+        // Far above every roof: 30 up put him inside a tall room's roof, the server pushed him two blocks sideways
+        // and into a room, which then counted as opened (1722 on merged main, 2026-10-15). Visits are reset once he
+        // is up there, so nothing from the trip counts.
+        place(ctx, new double[]{gap[0], gap[1] + 90, gap[2]}, null);
+        ctx.runOnClient(mc -> opt(HELD, "resetSimVisits", null));
         ctx.runOnClient(mc -> invalidate());
         ctx.waitTicks(30);
         List<double[]> before = ctx.computeOnClient(mc -> boxes());
@@ -374,7 +378,8 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         // High over the blood doorway: in neither room, so neither opens, and close enough for any render distance.
         ctx.runOnClient(mc -> opt(HELD, "resetSimVisits", null));
         double[] bc = f.doorCentre(bd);
-        place(ctx, new double[]{bc[0], bc[1] + 30, bc[2]}, null);
+        place(ctx, new double[]{bc[0], bc[1] + 90, bc[2]}, null);
+        ctx.runOnClient(mc -> opt(HELD, "resetSimVisits", null));
         ctx.runOnClient(mc -> invalidate());
         ctx.waitTicks(30);
         boolean terracotta = ctx.computeOnClient(mc -> mc.level.isLoaded(f.doorBlock(bd))
