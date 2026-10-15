@@ -98,9 +98,13 @@ public class SimMapItemTests implements FabricClientGameTest {
                 restore.add(0, Mod.with(MAP, "Enabled", true));
                 restore.add(0, Mod.with(MAP, "RoomLabels", 1));
                 restore.add(0, Mod.with(MAP, "ColourByType", true));
-                restore.add(0, Mod.with(MAP, "CustomCheckmarks", false));
-                restore.add(0, Mod.with(MAP, "FunnyMap", false));
-                Mod.set(MAP, "setMapThemeName", "REAL");
+                tryWith(restore, MAP, "CustomCheckmarks", false);
+                tryWith(restore, MAP, "FunnyMap", false);
+                try {
+                    Mod.set(MAP, "setMapThemeName", "REAL");
+                } catch (AssertionError oldJar) {
+                    // a jar from before map-overhaul paints Real Map colours by default
+                }
                 restore.add(0, Mod.with(MAP, "DarkenUnopened", 0.4f));
                 restore.add(0, Mod.with("autopuzzles.AutoPuzzlesConfig", "AutoPuzzlesMasterEnabled", false));
                 restore.add(0, Mod.with("mapping.MappingConfig", "ExtraInfoEnabled", false));
@@ -357,6 +361,15 @@ public class SimMapItemTests implements FabricClientGameTest {
         });
         ctx.waitFor(mc -> done.get() != null, 200);
         ctx.waitTicks(5);
+    }
+
+    /** {@code Mod.with}, skipped on a jar that has no such setting (one from before map-overhaul). */
+    private static void tryWith(List<AutoCloseable> restore, String cls, String property, Object value) {
+        try {
+            restore.add(0, Mod.with(cls, property, value));
+        } catch (AssertionError missing) {
+            println("no setting " + property + " on this jar");
+        }
     }
 
     /** A mod test hook's answer, or null when the jar has no such hook (one from before map-overhaul). */
