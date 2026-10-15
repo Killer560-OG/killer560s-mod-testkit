@@ -1179,11 +1179,13 @@ public class SimWorldTests implements FabricClientGameTest {
         for (int x = 27; x <= 29; x++) {
             strip.add(capW(ctx, room, x, 70, 26));
         }
-        int armed = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_KEY, "armedCount"));
         boolean keyHead = isKeyOnClient(ctx, key);
         String nodeBlock = blockName(ctx, node);
         int stripBefore = countIs(ctx, strip, Blocks.REDSTONE_BLOCK);
         int found0 = foundIn(ctx, room);
+        // Before asking SimRedstoneKey anything, so a jar without it fails on what the world holds.
+        check(keyHead, "no Redstone Key head (Hypixel's key profile) at capture 13,71,9 - it is " + blockName(ctx, key));
+        int armed = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_KEY, "armedCount"));
         say(c + " before: node(s) armed " + armed + ", key head (client, by profile) " + keyHead + " at "
                 + key.toShortString() + ", node " + nodeBlock + " at " + node.toShortString() + ", strip " + stripBefore
                 + "/3 redstone, room secrets " + found0);
