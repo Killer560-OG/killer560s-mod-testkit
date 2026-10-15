@@ -30,7 +30,7 @@ import java.util.TreeMap;
  * The fixed scene and the measuring for the 95-perf-* benches (2026-10-15). See docs/fps-bench.md.
  *
  * <p>Scene: a generated sim F7 floor with the sim's RNGs seeded (the same floor every run), the player standing where
- * the floor puts him, window 1280x720 at GUI scale 2, render distance 8, FOV 70, vsync off, frame rate unlimited, no
+ * the floor puts him, window 854x480 (the gametest default, so it still fits a screen quadrant) at GUI scale 2, render distance 8, FOV 70, vsync off, frame rate unlimited, no
  * screen open, and {@link BenchCamera} turning the view one full circle every {@link #PERIOD} ticks at 10 degrees
  * down, restarted from the same yaw at the start of every phase.
  *
@@ -210,7 +210,7 @@ final class PerfBench {
             Scenario.skipped(name, "needs the room database (killer560smod-roomdata) to build a floor");
             return false;
         }
-        ctx.getInput().resizeWindow(1280, 720);
+        ctx.getInput().resizeWindow(854, 480);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter",
                 new Class<?>[]{String.class}, new Object[]{"gametest"}));
         report.add("sim RNGs seeded with " + SEED + ": " + ctx.computeOnClient(mc -> seedSimRandoms(SEED)));
