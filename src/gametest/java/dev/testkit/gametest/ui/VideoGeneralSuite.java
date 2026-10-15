@@ -318,7 +318,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                     r.hold(1500);
                 }
             }
-            r.hold(3500);
+            r.hold(6500);
         } finally {
             r.close();
         }
@@ -350,7 +350,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             c.check(screen(c).getClass().getSimpleName().equals("SimMenuScreen"),
                     "the Dungeon Sim button opened " + screen(c));
             r.mark("sim-menu-open");
-            r.hold(1500);
+            r.hold(2300);
             // the pages first (Create a New Map opens its own screen, so it goes last)
             for (String page : new String[]{"Load a Room", "Route Practice", "Previous Runs", "Create a New Map"}) {
                 int[] box = widget(c, page);
@@ -373,7 +373,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                             r.wheel(-1);
                             r.hold(260);
                         }
-                        r.hold(700);
+                        r.hold(2000);
                     }
                     case "Previous Runs" -> r.hold(700);
                     case "Create a New Map" -> {
@@ -386,11 +386,11 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                         }
                         double[] grid = VideoRecorder.menuToWindow(c, screen(c), screen(c).width * 0.25, screen(c).height * 0.45);
                         r.glide(grid[0], grid[1], 800);
-                        r.hold(1800);
+                        r.hold(3500);
                     }
                     default -> {
                         r.glide(r.cx + 300, r.cy + 60, 700);
-                        r.hold(1300);
+                        r.hold(2500);
                     }
                 }
             }
@@ -435,7 +435,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             double[] mid = VideoRecorder.menuToWindow(c, s, s.width * 0.55, s.height * 0.6);
             r.cursorAt(mid[0], mid[1]);
             r.mark("home");
-            r.hold(3200); // Home
+            r.hold(3700); // Home
             r.mark("dungeons");
             clickSidebar(r, s, "Dungeons", 700);
             r.hold(900);
@@ -446,7 +446,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             for (int i = 0; i < Math.min(7, cards.size()); i++) {
                 int[][] b = MenuAnimSuite.bounds(c, s, cards.get(i));
                 glideTo(r, b[0], 0.38, 0.5, 460);
-                r.hold(480);
+                r.hold(700);
             }
             // a switch, on and back off
             Object sw = null;
@@ -473,7 +473,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             int[][] cb = MenuAnimSuite.bounds(c, s, card);
             glideTo(r, cb[0], 0.33, 0.45, 500);
             r.click();
-            r.hold(800);
+            r.hold(2500);
             int[] drawer = c.onClient(mc -> new int[]{(Integer) Mod.field(s, "drawerX"), (Integer) Mod.field(s, "drawerY"),
                     (Integer) Mod.field(s, "drawerW"), (Integer) Mod.field(s, "drawerH")});
             c.check(drawer[2] > 0, "the card did not open a drawer");
@@ -482,7 +482,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                 r.wheel(-1);
                 r.hold(300);
             }
-            r.hold(1600);
+            r.hold(3000);
             for (int i = 0; i < 4; i++) {
                 r.wheel(1);
                 r.hold(200);
@@ -624,7 +624,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                 glideTo(r, chip, 0.5, 0.55, k == 1 ? 600 : 380);
                 r.hold(120);
                 r.click();
-                r.hold(want.equals("AMBER") ? 1500 : 2100);
+                r.hold(want.equals("AMBER") ? 2500 : 3300);
                 c.check(MenuACases.themeName().equals(want), "a click on the " + want + " chip gave "
                         + MenuACases.themeName());
             }
@@ -669,7 +669,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             }
             Screen ed = screen(c);
             c.check(ed.getClass().getSimpleName().equals("HudEditorScreen"), "Edit HUD opened " + ed);
-            r.hold(1800);
+            r.hold(2800);
             // the biggest element on screen
             String[] pick = c.onClient(mc -> {
                 Map<String, int[]> pos = (Map<String, int[]>) Mod.field(ed, "livePositions");
@@ -713,7 +713,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             r.glide(to[0], to[1], 1300);
             r.hold(300);
             r.release();
-            r.hold(1500);
+            r.hold(2500);
             int[] moved = hudBox(c, ed, id);
             c.check(moved[0] != box[0] || moved[1] != box[1], "the dragged element did not move");
             // scroll over it: bigger, then a notch back
@@ -726,7 +726,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             }
             r.hold(500);
             r.wheel(-1);
-            r.hold(1500);
+            r.hold(2500);
             int[] scaled = hudBox(c, ed, id);
             c.check(scaled[2] - scaled[0] != moved[2] - moved[0], "scrolling over the element did not resize it");
             // drag its bottom-right corner outwards a little (shape kept)
@@ -748,9 +748,9 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             r.hold(100);
             double[] centre = c.onClient(mc -> VideoRecorder.guiToWindow(mc, ed.width * 0.5 + 2, ed.height * 0.5 - 2));
             r.glide(centre[0], centre[1], 1400);
-            r.hold(1300);
+            r.hold(2300);
             r.release();
-            r.hold(1800);
+            r.hold(2800);
             // and back where it came from, so the clip ends on the layout it started with
             int[] fin = hudBox(c, ed, id);
             double[] grab = c.onClient(mc -> VideoRecorder.guiToWindow(mc, fin[0] + (fin[2] - fin[0]) * 0.45,
@@ -804,9 +804,9 @@ public class VideoGeneralSuite implements FabricClientGameTest {
         try {
             double[] mid = VideoRecorder.menuToWindow(c, s, s.width * 0.5, s.height * 0.5);
             r.cursorAt(mid[0], mid[1]);
-            r.hold(500);
+            r.hold(1500);
             clickSidebar(r, s, "Profiles", 650);
-            r.hold(1000);
+            r.hold(2200);
             c.check(category(c, s).contains("Profiles"), "Profiles did not open: " + category(c, s));
             // name a profile and save the current settings as it
             int[] name = paneWidget(c, s, null);
@@ -818,7 +818,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                 for (char ch : "My dungeon setup".toCharArray()) {
                     r.clocks();
                     c.ctx().getInput().typeChar(ch);
-                    r.hold(60);
+                    r.hold(110);
                 }
                 r.hold(300);
             }
@@ -827,19 +827,19 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             if (save != null) {
                 glideTo(r, save, 0.45, 0.5, 550);
                 r.click();
-                r.hold(2500);
+                r.hold(5000);
             }
             int[] blank = paneWidget(c, s, "New Blank Profile");
             if (blank != null) {
                 glideTo(r, blank, 0.45, 0.5, 500);
-                r.hold(2000);
+                r.hold(4000);
             }
             int[] export = paneWidget(c, s, "Export");
             if (export != null) {
                 glideTo(r, export, 0.45, 0.5, 600);
-                r.hold(2200);
+                r.hold(4500);
             }
-            r.hold(1500);
+            r.hold(3500);
         } finally {
             r.close();
         }
