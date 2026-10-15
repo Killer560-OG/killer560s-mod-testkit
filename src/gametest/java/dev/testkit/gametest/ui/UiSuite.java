@@ -67,7 +67,8 @@ import java.util.List;
  *                511-514 killer560's 2026-10-07 menu layout report: Crosshair in General, no combined folders, every tab
  *                once, cheat-only tabs and sections after every legit one, tooltips unchanged, screenshots at GUI 2
  *                ({@link MenuLayoutCases})
- *                515-518 killer560's 2026-10-14 menu order list: tabs alphabetical in every category (cheat block last),
+ *                519 Home cleanup (2026-10-15): no Reboot button, 4x2 buttons, short version line, cards in his fixed order
+ *                ({@link DocMenuCases}); 515-518 killer560's 2026-10-14 menu order list: tabs alphabetical in every category (cheat block last),
  *                the card's switch first in every tab, Dungeon Queue's card ON while either feature is, and the five
  *                tabs that lost their "as a whole" switch keep their old files' meaning ({@link MenuOrderCases})
  *                611-618 killer560's 2026-10-08 HUD / menu / profiles list: the Edit HUD key only with no screen,
@@ -248,7 +249,8 @@ public class UiSuite implements FabricClientGameTest {
             "1038-ui-trail-share-hide", "1039-ui-trail-share-limits"};
     /** killer560's 2026-10-14 menu order + independent masters list ({@link MenuOrderCases}). Own block for merges. */
     static final String[] MENU_ORDER_CASES = {"515-ui-menu-order", "516-ui-menu-order-settings",
-            "517-ui-menu-queue-masters", "518-ui-menu-independent-masters"};
+            "517-ui-menu-queue-masters", "518-ui-menu-independent-masters",
+            "519-ui-home-cleanup"};
     /** Lever Aura merged into Secret Aura + Menu Theme on overlays (mod aura-themes-1015, {@link AuraThemeCases}). Own block for merges. */
     static final String[] AURA_THEME_CASES = {"1420-ui-secret-aura-merge", "1421-ui-overlay-themes"};
     /** Lights Device as its own cheat (mod lights-aura-1015, {@link LightsDeviceUiCases}). Own block for merges. */
@@ -749,6 +751,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "516-ui-menu-order-settings", c -> MenuOrderCases.settingsOrder(c, deny));
                     UiCase.run(ctx, "517-ui-menu-queue-masters", MenuOrderCases::queueMasters);
                     UiCase.run(ctx, "518-ui-menu-independent-masters", MenuOrderCases::independentMasters);
+                    UiCase.run(ctx, "519-ui-home-cleanup", DocMenuCases::homeCleanup);
                     // ---- Lever Aura in Secret Aura + overlay Menu Themes (1420-1421) ----
                     UiCase.run(ctx, "1420-ui-secret-aura-merge", AuraThemeCases::secretAuraMerge);
                     UiCase.run(ctx, "1421-ui-overlay-themes", AuraThemeCases::overlayThemes);
