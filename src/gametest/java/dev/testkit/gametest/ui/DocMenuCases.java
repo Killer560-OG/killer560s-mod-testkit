@@ -167,7 +167,7 @@ final class DocMenuCases {
                 Mod.call(menuCfg, "setFavourites", new ArrayList<>(List.of("QuiverDisplayTab")));
                 s[0] = openMenu(mc);
                 Mod.call(s[0], "selectCategory", "Home");
-                for (String gone : new String[]{"Profiles", "Changelog"}) {
+                for (String gone : new String[]{"Profiles", "Changelog", "Reboot"}) {
                     if (Mod.call(s[0], "homeButtonBounds", gone) != null) {
                         return "Home still has a " + gone + " button";
                     }
@@ -232,6 +232,63 @@ final class DocMenuCases {
                 Mod.call(menuCfg, "save");
                 return null;
             });
+            restoreWindow(c, old);
+        }
+    }
+
+    // ---- 519 -------------------------------------------------------------------------------------------------------
+
+    /** killer560's 2026-10-15 Home cleanup: no Reboot button, eight quick buttons in two rows, a version line with no
+     *  Minecraft version or build, and the Mod Settings cards in his order (not alphabetical). */
+    static void homeCleanup(UiCase c) throws Exception {
+        Object[] old = bigWindow(c);
+        try {
+            Screen[] s = new Screen[1];
+            String why = c.onClient(mc -> {
+                s[0] = openMenu(mc);
+                Mod.call(s[0], "selectCategory", "Home");
+                if (Mod.call(s[0], "homeButtonBounds", "Reboot") != null) {
+                    return "Home still has a Reboot button";
+                }
+                @SuppressWarnings("unchecked")
+                List<String> labels = (List<String>) Mod.call(s[0], "homeButtonLabels");
+                List<String> want = List.of("YouTube", "Edit HUD", "Edit Bars", "Check Updates", "Sweat Mode", "Discord", "GitHub",
+                        "Features Doc");
+                if (!labels.equals(want)) {
+                    return "Home's buttons are " + labels + ", wanted " + want;
+                }
+                java.util.Set<Integer> rows = new java.util.TreeSet<>();
+                for (String l : labels) {
+                    int[] b = (int[]) Mod.call(s[0], "homeButtonBounds", l);
+                    if (b == null) {
+                        return "no box for the " + l + " button";
+                    }
+                    rows.add(b[1]);
+                }
+                String line = (String) Mod.call(s[0], "versionLine");
+                String lower = line.toLowerCase(java.util.Locale.ROOT);
+                if (lower.contains("minecraft") || lower.contains("build") || !line.startsWith("Version ")
+                        || !lower.endsWith(Mod.isCheat() ? "cheat" : "legit")) {
+                    return "Home's version line is '" + line + "'";
+                }
+                List<String> cards = new ArrayList<>();
+                for (Object t : (List<?>) Mod.call(s[0], "cards")) {
+                    cards.add(t.getClass().getSimpleName());
+                }
+                List<String> wantCards = new ArrayList<>(List.of("HomeMainTab", "ClickSoundsTab", "DescriptionsTab",
+                        "DiscordRpcTab", "AutoUpdateTab"));
+                if (Mod.isCheat()) {
+                    wantCards.add("CorrectionAlarmTab");
+                }
+                if (!cards.equals(wantCards)) {
+                    return "Home's cards are " + cards + ", wanted " + wantCards;
+                }
+                c.note("Home: buttons " + labels + " in " + rows.size() + " rows; version line '" + line + "'; cards " + cards);
+                return rows.size() == 2 ? null : "Home's buttons are in " + rows.size() + " rows (wanted a 4x2 grid)";
+            });
+            c.check(why == null, why);
+            MenuACases.shot(c, s[0], (Mod.isCheat() ? "cheat" : "legit") + "-home-cleanup", null);
+        } finally {
             restoreWindow(c, old);
         }
     }

@@ -18,8 +18,8 @@ import java.util.List;
  * 995-reboot-not-prism: the mod's /reboot (reboot-cmd, 2026-10-13) in a test client connected to the dedicated server.
  * This client is started by gradle's java, not by Prism, so every way in must say so and leave the game running: the
  * command is registered on the client dispatcher; typing {@code /reboot} shows "not started by Prism Launcher";
- * {@code /reboot confirm} with nothing pending says so; the menu's Home page has a Reboot button (with a tooltip) whose
- * real click shows the same refusal. After each, the game is still running and no relauncher was started (its
+ * {@code /reboot confirm} with nothing pending says so; the menu's Home page no longer has a Reboot button (removed
+ * 2026-10-15). After each, the game is still running and no relauncher was started (its
  * reboot.log never appears or grows). Never starts Prism.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -94,48 +94,28 @@ public class RebootCommandTest implements FabricClientGameTest {
         }
         assertStillRunning(ctx, "/reboot confirm");
 
-        // 3. Home's Reboot button, a real click.
-        String tip = ctx.computeOnClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describeScoped",
-                null, "home button", "Reboot"));
-        scenario.log("Reboot button tooltip: " + tip);
-        if (tip == null || !tip.contains("Prism")) {
-            throw new AssertionError("Home's Reboot button has no tooltip naming Prism: " + tip);
-        }
+        // 3. Home's Reboot button is gone (killer560, 2026-10-15); the command above is the only way in.
         Screen[] s = new Screen[1];
-        ctx.runOnClient(mc -> {
+        String stillThere = ctx.computeOnClient(mc -> {
             try {
                 s[0] = MenuACases.open(mc);
             } catch (Exception e) {
                 throw new AssertionError(e);
             }
             Mod.call(s[0], "selectCategory", "Home");
+            return Mod.call(s[0], "homeButtonBounds", "Reboot") == null ? null : "Home still has a Reboot button";
         });
-        ctx.waitTicks(3);
-        String pressed = ctx.computeOnClient(mc -> {
-            int[] b = (int[]) Mod.call(s[0], "homeButtonBounds", "Reboot");
-            if (b == null) {
-                return "Home has no Reboot button";
-            }
-            MenuACases.press(s[0], b[0] + b[2] / 2.0, b[1] + b[3] / 2.0);
-            return null;
-        });
-        if (pressed != null) {
-            throw new AssertionError(pressed);
-        }
-        ctx.waitTicks(10);
-        String button = last();
-        scenario.log("Home's Reboot button said: " + button);
-        if (!button.contains("this game was not started by Prism Launcher")) {
-            throw new AssertionError("Home's Reboot button did not give the not-Prism refusal: '" + button + "'");
-        }
         ctx.runOnClient(mc -> McCompat.setScreen(mc, null));
-        assertStillRunning(ctx, "the Home button");
+        if (stillThere != null) {
+            throw new AssertionError(stillThere);
+        }
+        assertStillRunning(ctx, "the Home page");
 
         long logAfter = relauncherLogSize();
         if (logAfter != logBefore) {
             throw new AssertionError("a relauncher ran: reboot.log went from " + logBefore + " to " + logAfter + " bytes");
         }
-        scenario.log("995 PASS: three refusals, the game kept running, no relauncher started");
+        scenario.log("995 PASS: two refusals, the game kept running, no relauncher started");
     }
 
     private static void assertStillRunning(ClientGameTestContext ctx, String after) {
