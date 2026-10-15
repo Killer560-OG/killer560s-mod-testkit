@@ -22,20 +22,21 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 /**
- * 1015-sim-clickgap (mod branch click-gap-all-1015). Hypixel ignores a use of an item that arrives within a tick or so of a
- * right click on a block made with that same item ({@link HypixelUseAfterClick}); Auto Routes waits for it
- * ({@code util/BlockClickGap}) and, since this branch, so does everything else that sends an item use. This proves the
- * two trips that chain etherwarps a tick apart: the Interactive Map's (a map press, {@code AutoClearUtils.pathToRoom} -
- * the same path Auto Secret and the Dungeon Autopilot take to a room) and Auto Clear's (a trip to a room's starred mob,
- * {@code AutoClearFeature.clearRoom}). Only when named; cheat jar, a whole generated sim F7.
+ * 1015-sim-clickgap (rewritten on mod branch ar-nexttick-1015). Hypixel's 1.8 server takes a bare item use as the second
+ * half of an unpaired right click on a block when its ray along the look it last HEARD meets a block
+ * ({@link HypixelUseAfterClick}); the mod's senders turn to the use's look first when that would happen
+ * ({@code util/RightClick}) and otherwise do not wait at all. This proves the two trips that chain etherwarps a tick
+ * apart: the Interactive Map's (a map press, {@code AutoClearUtils.pathToRoom} - the same path Auto Secret and the
+ * Dungeon Autopilot take to a room) and Auto Clear's (a trip to a room's starred mob, {@code AutoClearFeature.clearRoom}).
+ * Only when named; cheat jar, a whole generated sim F7.
  *
- * <p>{@link ClickPrimer} makes a block click with the Aspect of the Void in hand at the end of EVERY tick that sent an
- * item use, so each next hop is due one tick after a same-item block click. A mod that does not wait has its next hop
- * ignored by the integrated server (counted in {@code HypixelUseAfterClick.dropped}); one that waits has none ignored.
- * Premises asserted first, so a pass cannot be vacuous: a raw use sent in the same tick as a click IS ignored in this world
- * (the rule is live, and the AOTV is the clicked item), the same press with no clicks lands with nothing ignored, and
- * every primed run must have made 2+ hops and clicked after each, moved 20+ blocks, and (the trip's own proof) the mob died
- * / the room's call-back came.
+ * <p>{@link ClickPrimer} plays Secret Aura after EVERY tick that sent an item use: the body turned straight down and a
+ * block clicked with the Aspect of the Void in hand, so each next hop is due while a click is unpaired and the server's
+ * look meets the floor. A mod that sends the hop in the tick it turns has it ignored by the integrated server (counted in
+ * {@code HypixelUseAfterClick.dropped}); one that turns first has none ignored. Premises asserted first, so a pass cannot
+ * be vacuous: a raw use under a heard look that meets a block, a tick after a click, IS ignored in this world (the rule is
+ * live), the same press with no clicks lands with nothing ignored, and every primed run must have made 2+ hops and clicked
+ * after each, moved 20+ blocks, and (the trip's own proof) the mob died / the room's call-back came.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimClickGapTests implements FabricClientGameTest {
@@ -215,26 +216,32 @@ public class SimClickGapTests implements FabricClientGameTest {
         ctx.waitTicks(5);
     }
 
-    /** A click and, in the same task, a raw use: the server must ignore the use, or the hook means nothing here. */
+    /** Looking straight down, a block click and a tick later a raw use: the server must ignore the use, or the hook means
+     *  nothing here. */
     private static void rawControl(ClientGameTestContext ctx, List<String> failures) {
         ctx.runOnClient(mc -> {
             ClickPrimer.reset();
             HypixelUseAfterClick.reset();
             HypixelUseAfterClick.enabled = true;
+            mc.player.setXRot(90f);
         });
         ctx.waitTicks(5);
         ctx.runOnClient(mc -> {
-            BlockPos far = mc.player.blockPosition().offset(30, 0, 0);
+            BlockPos far = ClickPrimer.storableOutOfReach(mc);
+            if (far == null) {
+                return;
+            }
             mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
                     new BlockHitResult(Vec3.atCenterOf(far), Direction.UP, far, false));
-            mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
         });
+        ctx.waitTicks(1);
+        ctx.runOnClient(mc -> mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND));
         ctx.waitTicks(10);
         int clicks = HypixelUseAfterClick.clicks;
         int dropped = HypixelUseAfterClick.dropped;
         ctx.runOnClient(mc -> HypixelUseAfterClick.reset());
-        println("raw control: a block click and a use of the same item in one tick - block clicks the hook saw " + clicks
-                + ", uses ignored " + dropped);
+        println("raw control: looking down, a block click and a use of the same item a tick later - block clicks the hook "
+                + "saw " + clicks + ", uses ignored " + dropped + " (" + HypixelUseAfterClick.lastDrop + ")");
         if (clicks < 1 || dropped < 1) {
             failures.add("raw control: the use sent with the click was not ignored (clicks " + clicks + ", ignored " + dropped
                     + ") - the rule is not live in this world, so no case below proves anything");
@@ -307,7 +314,7 @@ public class SimClickGapTests implements FabricClientGameTest {
             int clicks = ClickPrimer.primed;
             int seen = HypixelUseAfterClick.clicks;
             int dropped = HypixelUseAfterClick.dropped;
-            boolean held = LogTap.since(mark).stream().anyMatch(l -> l.contains("holding the use - a block click"));
+            boolean held = LogTap.since(mark).stream().anyMatch(l -> l.contains("turning to the use's look first"));
             int corrections = (int) LogTap.since(mark).stream().filter(l -> l.contains("[Path] off the plan:")).count();
             Vec3 to = ctx.computeOnClient(mc -> mc.player.position());
             double moved = from.distanceTo(to);
@@ -316,7 +323,7 @@ public class SimClickGapTests implements FabricClientGameTest {
                 HypixelUseAfterClick.reset();
             });
             println(String.format(java.util.Locale.US, "%s: press to room %d %s; %d hop(s), %d use(s) seen, %d click(s) made, "
-                            + "%d block click(s) the server saw, %d use(s) ignored, held line %s, moved %.1f blocks, off-the-plan lines %d",
+                            + "%d block click(s) the server saw, %d use(s) ignored, turned-first line %s, moved %.1f blocks, off-the-plan lines %d",
                     label, t[1], Boolean.TRUE.equals(ok) ? "taken" : "REFUSED", hops, uses, clicks, seen, dropped, held, moved,
                     corrections));
             if (hops < 2 || moved < 20) {
@@ -334,15 +341,12 @@ public class SimClickGapTests implements FabricClientGameTest {
                     failures.add(label + ": " + hops + " hop(s) but " + clicks + " click(s) made / " + seen
                             + " seen by the server - the clicks did not precede the hops, so this proves nothing");
                 }
-                if (!held) {
-                    failures.add(label + ": no 'holding the use - a block click' line - nothing waited");
-                }
             } else if (clicks != 0 || seen != 0) {
                 failures.add(label + ": clicks were made in the control run");
             }
             if (dropped != 0) {
-                failures.add(label + ": " + dropped + " hop(s) were ignored by the server (sent too soon after a same-item "
-                        + "block click)");
+                failures.add(label + ": " + dropped + " hop(s) were ignored by the server (taken as an unpaired block click's "
+                        + "second half)");
             }
             return;
         }
@@ -396,13 +400,13 @@ public class SimClickGapTests implements FabricClientGameTest {
         int clicks = ClickPrimer.primed;
         int seen = HypixelUseAfterClick.clicks;
         int dropped = HypixelUseAfterClick.dropped;
-        boolean held = LogTap.since(mark).stream().anyMatch(l -> l.contains("holding the use - a block click"));
+        boolean held = LogTap.since(mark).stream().anyMatch(l -> l.contains("turning to the use's look first"));
         ctx.runOnClient(mc -> {
             ClickPrimer.reset();
             HypixelUseAfterClick.reset();
         });
         println(String.format("autoclear+clicks: %s; onDone=%s onGiveUp=%s; mob %s; %d AOTV use(s) seen, %d click(s) made, "
-                + "%d block click(s) the server saw, %d use(s) ignored, held line %s", r, done.get(), gaveUp.get(), alive,
+                + "%d block click(s) the server saw, %d use(s) ignored, turned-first line %s", r, done.get(), gaveUp.get(), alive,
                 uses, clicks, seen, dropped, held));
         if (!r.finished || done.get() == null || gaveUp.get() != null) {
             failures.add("autoclear: the trip did not finish (finished " + r.finished + ", onDone " + done.get() + ", onGiveUp "
@@ -416,11 +420,8 @@ public class SimClickGapTests implements FabricClientGameTest {
                     + "server, travelled " + String.format(java.util.Locale.US, "%.0f", r.travelled)
                     + " - the clicks did not precede 2+ hops, so this proves nothing");
         }
-        if (!held) {
-            failures.add("autoclear: no 'holding the use - a block click' line - nothing waited");
-        }
         if (dropped != 0) {
-            failures.add("autoclear: " + dropped + " use(s) were ignored by the server (sent too soon after a same-item block click)");
+            failures.add("autoclear: " + dropped + " use(s) were ignored by the server (taken as an unpaired block click's second half)");
         }
     }
 

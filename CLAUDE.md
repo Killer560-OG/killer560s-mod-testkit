@@ -311,6 +311,11 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   "Advanced Position": after a search, reopen the tab before pressing, and match a "▶ Advanced" header exactly (898's
   first run pressed the other one, 2026-10-12).
 
+- After a sim scenario FAILS with its world open (80-sim-playable's room fidelity, which flaps on Temple 65-66 on main too),
+  the runner's keep-going `disconnectWithProgressScreen` deadlocks against the integrated server parked in the gametest
+  `postRunTasks` (jstack, 2026-10-15): "Test client has stopped responding" and every scenario after it is lost until the
+  deadline. Kill only that client's PID and re-run the rest.
+
 Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosecret wither doors, 62-argrim frames,
 143 camera, 141/142 autopilot, the mod's Auto Scale, terminal layouts, the logic world, 386's sweep):
 [docs/scenario-lessons.md](docs/scenario-lessons.md).

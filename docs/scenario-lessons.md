@@ -549,29 +549,43 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   leaves him standing on it and vanilla took it the tick it appeared (first run, "items taken 0"). earlyskip: `Latency` 250 ms
   makes #1's flight ~7 ticks so a real left click lands inside it. mimicskip: a plain trapped chest keeps Kill Mimic's
   Spirit Sceptre going for 5 s; it outlives the route, so the case waits it out. Old jar 3/3 FAIL, new 3/3 PASS.
-- 96-ar-1015-warpclick (ar-warp-after-click, 2026-10-15): an await:1 etherwarp node; `harness/HypixelUseAfterClick` (mixin at
-  HEAD of `handleUseItemOn`/`handleUseItem`, server thread only) ignores a use of the same item within 2 server ticks of a
-  block click, as Hypixel did to six warps in his 2026-10-14 log. Two controls under the same hook must land (a left-click
-  skip with the AOTV held; the lever clicked with an empty hand, the route swapping), then the lever clicked with the AOTV
-  held must land within 20 ticks, 8 blocks along. Old jar: ignored at gap 1, travelled 0.00, FAIL; new: held 3 ticks,
-  landed 6 ticks after the click. `waitLanded(ctx, x, z, 0)` used to check NOTHING (its loop ran `ticks` times) and always
+- `harness/HypixelUseAfterClick` (rewritten on ar-nexttick-1015, 2026-10-15) is Hypixel's 1.8 pairing, not a timer: a block
+  click (HEAD of `handleUseItemOn`) stores a verdict (denied when an item is in hand); a use (HEAD of `handleUseItem`, BEFORE
+  vanilla snaps him to the packet's rotation, so his rotation there is the look the server HEARD) traces 4.5 from the 1.8 eye
+  (1.54 sneaking) along that look, and if it meets a block the use is the stored click's second half: dropped when denied. A
+  ray in the air fires and leaves the click stored. A use from the same client tick as its click (no `client_tick_end`
+  between - a standing client sends no movement packet, and server ticks do not line up with client ticks) is a vanilla right
+  click's own two halves: `pairedSameTick`, not `dropped`. `reset()` also forgets the mod's `util/RightClick` model and the
+  sim's stored clicks (`SimAbilities.forgetStoredClicks`), or one case's clicks decide the next case's control. The cause it
+  models: his 2026-10-14 Mod Only Test run, six warps after an AOTV chest/lever click "no landing after 61 ticks"; Red Blue
+  #5/#6's own looks meet nothing within 4.5 in the room capture, the look the chest was clicked with does.
+- 96-ar-1015-warpclick: an await:1 etherwarp node, armed looking at the floor (pitch 80 - the heard look meets a block, as
+  Secret Aura's turn to a chest does). Controls: a left-click skip lands; the lever clicked with an empty hand lands; a raw use
+  a tick after a click with the body NOT turned is ignored (rule live); the human stream (look at the lever, click; next tick
+  look at the warp's block + sneak; next tick a real use key press) lands. The case: the lever clicked with the AOTV held must
+  land with the warp 1 tick after firing; an item pickup (no click) must warp and land with no turn. 2026-10-15: new jar
+  (nexttick) acted 1 tick after firing, landed 3 ticks after the click, 0 ignored, PASS; the click-gap jar (95e50d7c) held 4
+  ticks and was STILL ignored (never landed), FAIL; the jar before it (8cf017b7) ignored at 1 tick, FAIL. `waitLanded(ctx, x, z, 0)` used to check NOTHING (its loop ran `ticks` times) and always
   returned null - the first run of this case read every landing as "never"; earlyskip's in-flight checks and mimicskip's
   "not fired yet" check passed 0 and so could not fail. Fixed 2026-10-15 (click-gap-all-1015): it looks now, then after each
   of `ticks` ticks, so 0 is one look and `(.., 1)` looks twice. Proven able to fail: earlyskip with `Latency.install(0)` fails
   "the warp landed before the click was made"; mimicskip with its node's await switched off fails "the node fired before any
   click" (only the landing look can catch that - no "secrets met" line exists). No other caller passes 0.
-- 1015-sim-clickgap and 96-ar-1015-puzzleclick (click-gap-all-1015, 2026-10-15): every item-use sender waits out a same-item
-  block click (util/BlockClickGap). `harness/ClickPrimer` makes a block click with the held item at the END of every tick that
-  sent an item use (slot-limited), at a block 30 east of him: the server drops it for reach before any block or ability answers it
-  but `HypixelUseAfterClick` still sees it, and it goes through `useItemOn`, so the mod's packet tap sees it too. NOT a lever: a
-  sneaking AOTV click on one warps in the sim. 1015-sim-clickgap (cheat jar, sim F7, needs room captures): raw-use positive control
-  (click + use in one tick must be ignored), an Auto Clear trip (`clearRoom`, Spirit Sceptre, hops off) to the farthest mob room,
-  then an Interactive Map press (`pathToRoom`, the path Auto Secret and the Autopilot take) with no clicks and the SAME trip (teleported
-  home between) with a click after every hop; asserts 2+ hops each followed by a click, 0 uses ignored, the hold line, no more
-  `[Path] off the plan:` than the control (grep the colon: held hops log "0.05 off the planned spot"). Old jar: 43 / 18 uses
-  ignored, FAIL; new: 0, PASS. 96-ar-1015-puzzleclick (arena): calls `AutoPuzzleUtil.useItemRotated` the way an auto does (retry
-  each tick until true): no click and empty-hand click send at tick 0 and land; AOTV-held click sends at tick 4-8 and lands; the
-  raw use after it is ignored and he does not move. Old jar sends at tick 0, ignored, FAIL.- 385-ui-interactive-map (2026-10-15): no drag with any button pans, and a right/middle drag's release acts; the view is moved
+- 1015-sim-clickgap and 96-ar-1015-puzzleclick: `harness/ClickPrimer` plays Secret Aura after every tick that sent an item use
+  (slot-limited): body turned straight down at END, and a click on a solid block a 1.8 server would store but this server's
+  reach (4.5 + 1) drops (`storableOutOfReach`: >6 from the eye, <7.7 from the feet) - NOT a lever: a sneaking AOTV click on one
+  warps in the sim, and NOT 30 blocks east (outside the 8 a 1.8 server stores from, and often air in a generated floor).
+  1015-sim-clickgap (cheat jar, sim F7, room captures): raw control (looking down, click, a tick later a use: ignored), an Auto
+  Clear trip and an Interactive Map press with the primer, against the same press without it; asserts every hop was followed by a
+  click the server saw, 0 uses ignored, no more `[Path] off the plan:` than the control. New: 0 ignored, 0 off-plan, PASS. Click-gap
+  jar: Auto Clear 80 ignored and gave up, map 20 of 21 ignored; pre-gap jar: 13 and 4; both FAIL. 96-ar-1015-puzzleclick (arena):
+  `AutoPuzzleUtil.useItemRotated` called as an auto calls it, heard look on the floor: no click sends at tick 0; an AOTV-held
+  click turns first and sends at tick 1, lands; the raw use after the click is ignored. Click-gap jar sent at tick 5 and was
+  ignored; pre-gap at tick 0, ignored; both FAIL.
+- 62-argrim-1015-clickwarp (GrimAC session): an await met by a lever click made as Secret Aura makes it (body turned to the
+  lever for a few ticks, then the click with the AOTV), far (8 blocks) and near (3 blocks, which sends the click on the target
+  block first): each must land with one etherwarp, the warp at most 1 tick after firing, Grim silent.
+- 385-ui-interactive-map (2026-10-15): no drag with any button pans, and a right/middle drag's release acts; the view is moved
   by scroll zoom for the Reset view check. Old jar: RMB drag panned 75.5.
 - 1412-sim-lever-cobble, 1414-sim-lever-golden-oasis, 1415-sim-redstone-key (SimWorldTests, mod sim-levers-1015,
   2026-10-15): 1412/1414 reuse `caseLeverDoors` on the two levers the sim PLACES (Cobble Wall Pillar's door box includes the
@@ -637,6 +651,14 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   extent from the open screen's `width`/`height`. 983 fails after 829-834 in one menu session (a stale "LrB (Tank)" leaps
   first) on the pre-change jar and tests too - run 983 alone. 1077 clicks a vanilla container screen's overlay in plain GUI units
   (`pos x getGuiScale`, no Auto Scale).
+- 1446-sim-door-height (SimDoorHeightTests, mod sim-doorheight-1015, 2026-10-15): 30 F7s planned with Mage, then Quad Lava,
+  pinned at room cell (2,2); counts floors whose door tree uses Mage N1 / Quad Lava E0 (capture frame, turned through the
+  mod's RoomDoors.rotate/doorCells) - openings above the doorway floor that are not doors - and Entrance W0 as a control.
+  Builds the first floor that used the edge (else the first that kept the room) and checks every door of the room in the
+  server level: 3x7 passage clear three high and floored at y69, walk on 4..6 blocks into each room, and solid capture
+  blocks the carve removed (capture lined up through the paste rotation, self-checked at >= 70% agreement). Main jar: 21-25
+  and 20-23 of 30 floors used the edges, Mage's door a dead end in stone with 25 blocks carved, Quad Lava's 23. A walk-on
+  probe that allows drops must require a clear shaft, or it drops through stone into a cave and passes a dead end.
 - **184-187 Auto Blood Camp, round 2 (mod bloodcamp-2-1015, 2026-10-15)**: walls (a stone row between him and the spot:
   no Aura aim, no Trigger Bot click; control without it), mobs already on the floor (the Aura kills them), the attack-speed
   cap, Never Miss (no swing before the mob exists, first attack on the tick it appears). The hx session's server READS AS
@@ -656,3 +678,27 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   of the room tile (Blood Camp itself off - the ESP tracks on its own). 191 a plain husk in reach in front of him is never
   attacked or aimed at; 192 a plain husk standing on the line to the blood mob holds every click (control: clicks).
   `MobEspConfig`'s Blood Mobs/Starred/Room Scoped have no bean getter, so 190 sets them with `.custom`.
+
+- 1015-sim-map-item-only (SimMapItemTests) gives the player a Hypixel-style dungeon map in slot 9 built from bytes the case
+  paints itself: a client-side `MapItemSavedData.createForClient` put in with `ClientLevel.overrideMapData` under an id the
+  server has no data for, and the same `filled_map` stack set on the SERVER player too, or the next inventory sync takes it
+  back. Rooms at corner (5, 5) and a pitch of 20 calibrate on the sim's M7 floor number (the default branch of the
+  scanner's start-corner table); a floor reporting F1-F3 would need that table's fixed corners instead.
+- 1015-ui-switch-align judges a row lone only when NOTHING else shares its height band, so a half-width row beside a slider
+  or a text box is fine; it opens every leaf's real drawer (`ModScreenDriver.open`), not the stacked folder view.
+- **1720-1731 sim-doors-predict** (mod doors-predict-1015, 2026-10-15). The sim has no map item, so the mod's `HeldMap`
+  stand-in decides what "the map shows": a room is opened once someone stands within 14 blocks of one of its tile centres
+  (x/z only - hovering high over a room opens it too). So a test that must keep a room unopened waits HIGH OVER A DOORWAY
+  GAP, never in it once the doorway is coal: placed inside a coal doorway the server pushes him out into a room, which
+  then counts as opened (1722's first runs, "Black Flag opened (you at -24, -71)"). And a door block read right after
+  `witherDoorsAround` is `void_air` while its chunk has not reached the client (it was 160 blocks off): stand near it before
+  reading it. 1728 audits sight by re-casting each seen block's RECORDED ray (eye to the point the ray met it) right after
+  each look: 27 rays to points inside the block called 7-11% "blind" that were grazing views, and an audit run at the end
+  failed blocks that later coal doors had hidden. 538/678 (Show All Doors' coal-door scan) fail on main's cheat jar too:
+  WitherDoorScanner finds no coal door on a sim floor at all - not this branch.
+- 1490-sim-mage-capture (SimMageCaptureTests, mod mage-capture-1015, 2026-10-15): `/mage` typed for real in a sim Mage.
+  The integrated server never forgot a chunk here, even at render distance 2 (the client still held chunks 8 out), so the
+  unloaded case hands the client `ClientboundForgetLevelChunkPacket` through the real handler and runs `/mage` in the SAME
+  client task (the server sends it straight back), and it runs last. Ask `mc.level.getChunkSource().hasChunk`, never
+  `mc.level.hasChunk`: ClientLevel's is hard-wired to true. The stitched tile is made sound by copying the good tile's
+  centre column over it on the server, so the save path can be tested on the shipped capture.

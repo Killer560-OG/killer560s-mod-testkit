@@ -282,6 +282,52 @@ public final class SimPuzzleSolveTests {
     }
 
     /**
+     * Boulder with Secret Aura ON, brought in by a REAL Interactive Map press on the room from the test floor outside its
+     * doorway (2026-10-15 round). The auto must start from the map's landing, run the roof sprinting and take the chest.
+     */
+    public static final class BoulderMapWarp extends Base {
+        public BoulderMapWarp() {
+            super(new Spec("boulder-mapwarp", "Boulder", "setAutoBoulderEnabled", "isAutoBoulderEnabled",
+                    "BoulderSolverConfig", "SimBoulderPuzzle", AOTV_SLOT, true, 90, Approach.NONE,
+                    "BoulderSolverFeature.getNextClick", "BoulderSolverFeature.getRemainingClicks"));
+        }
+
+        @Override
+        boolean secretAura() {
+            return true;
+        }
+
+        @Override
+        boolean mapWarp() {
+            return true;
+        }
+    }
+
+    /** {@link BoulderMapWarp}, but onto the doorway spot by a plain teleport, as his own etherwarp lands him there. */
+    public static final class BoulderDoorWarp extends Base {
+        public BoulderDoorWarp() {
+            super(new Spec("boulder-doorwarp", "Boulder", "setAutoBoulderEnabled", "isAutoBoulderEnabled",
+                    "BoulderSolverConfig", "SimBoulderPuzzle", AOTV_SLOT, true, 90, Approach.NONE,
+                    "BoulderSolverFeature.getNextClick", "BoulderSolverFeature.getRemainingClicks"));
+        }
+
+        @Override
+        boolean secretAura() {
+            return true;
+        }
+
+        @Override
+        boolean mapWarp() {
+            return true;
+        }
+
+        @Override
+        boolean ownWarp() {
+            return true;
+        }
+    }
+
+    /**
      * Teleport Maze inside the Dungeon Autopilot's budget for a puzzle (30 s; 142-sim-autopilot2 saw Auto Teleport Maze
      * walk back through the maze "taking the diagonal again" until that ran out, on two floors of three). Each run draws
      * a new maze, so {@code -PsolveRepeat=N} plays N mazes. Also fails on the start pad's "no pad to walk to".
@@ -369,8 +415,26 @@ public final class SimPuzzleSolveTests {
             return false;
         }
 
+        /** A case's own settings and per-tick checks on top of the room's (2026-10-15 puzzles round); null for none. */
+        SolveExtra extra() {
+            return null;
+        }
+
+        private SolveExtra caseExtra;
+
         /** Boulder only: started by a (faked) Interactive Map arrival on the doorway spot, as the autopilot starts it. */
         boolean mapDoor() {
+            return false;
+        }
+
+        /** Boulder only: placed outside the doorway, then brought in by a REAL Interactive Map press on the room. */
+        boolean mapWarp() {
+            return false;
+        }
+
+        /** Boulder only (with {@link #mapWarp}): brought onto the doorway spot by a plain teleport instead of a map trip -
+         *  what an etherwarp of his own does - so ClearExecutor's arrival counter never moves. */
+        boolean ownWarp() {
             return false;
         }
 
@@ -453,6 +517,7 @@ public final class SimPuzzleSolveTests {
             // The SOLVER on from before the room exists, as he plays with it - Quiz's question is announced the
             // moment he is in the room and is never repeated, so a solver switched on later would miss it. The
             // AUTO stays off until the room is on the client and he is where a player would be.
+            caseExtra = extra();
             ctx.runOnClient(mc -> configure(true, false));
 
             long mark = LogTap.mark();
@@ -467,6 +532,7 @@ public final class SimPuzzleSolveTests {
                 throw e;
             } finally {
                 BlazeMiss.disarm();
+                dev.testkit.harness.HypixelTileRegister.reset();
                 allAutosOff(ctx);
                 teardown(ctx);
             }
@@ -483,6 +549,9 @@ public final class SimPuzzleSolveTests {
         /** @return the verdict line; throws when the premise fails */
         private String play(ClientGameTestContext ctx, String name, long mark) {
             Class<?>[] mcArg = {Minecraft.class};
+            if (caseExtra != null) {
+                caseExtra.begin(name, mark);
+            }
             // ---- load the room the way he does: from the title screen ---------------------------------
             long before = Scenario.simBuildCount(ctx);
             ctx.runOnClient(mc -> mc.execute(() -> ModUnderTest.staticCall(BUILDER, "buildSingleRoom",
@@ -677,7 +746,51 @@ public final class SimPuzzleSolveTests {
                             + "spot - nothing below would be testing that start");
                 }
             }
-            if (outside != null && secretAura()) {
+            if (outside != null && mapWarp()) {
+                // killer560 (2026-10-15): "Auto boulder does not work if i ehterwarp to the room on interactive map but
+                // it does if i step into the room." A real map press on Boulder from the test floor outside its doorway,
+                // the same call the map's click makes (AutoClearUtils.pathToRoom), and the auto must start from it.
+                Boolean pressed = ownWarp() ? Boolean.TRUE : ctx.computeOnClient(mc -> {
+                    Object layout = ModUnderTest.staticCall("com.killer560.hub.livemap.DungeonLayout", "capture");
+                    int rooms = (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[]{}, new Object[]{});
+                    for (int r = 0; r < rooms; r++) {
+                        if ("Boulder".equals(ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{r}))) {
+                            int[] tiles = (int[]) ModUnderTest.call(layout, "tiles", new Class<?>[]{int.class},
+                                    new Object[]{r});
+                            return (Boolean) ModUnderTest.staticCall("com.killer560.hub.livemap.autoclear.AutoClearUtils",
+                                    "pathToRoom", new Class<?>[]{layout.getClass(), int.class, int.class, int.class},
+                                    new Object[]{layout, r, tiles[0], 0});
+                        }
+                    }
+                    return null;
+                });
+                if (ownWarp()) {
+                    // Two blocks from the outside spot (relative 15, 69, -4) towards the room: relative 15, 69, -2. Worked out
+                    // from that spot because outside the room the live map has no clay/rotation to go through.
+                    double yawRad = Math.toRadians(outside[3]);
+                    double[] door = {outside[0] - Math.sin(yawRad) * 2.0, outside[1], outside[2] + Math.cos(yawRad) * 2.0};
+                    teleport(ctx, name, door, "by a teleport (no map trip) onto Boulder's doorway spot, relative 15, 68, -2");
+                }
+                println(name, (ownWarp() ? "teleport" : "map press") + " on Boulder from outside the doorway: " + pressed);
+                if (!Boolean.TRUE.equals(pressed)) {
+                    throw new AssertionError("the Interactive Map refused the press on Boulder (" + pressed + ")");
+                }
+                int t = 0;
+                boolean started = false;
+                for (; t < 300 && !started; t++) {
+                    ctx.waitTicks(1);
+                    started = LogTap.since(mark).stream().anyMatch(l -> l.contains("Boulder: started"));
+                }
+                String arrivedAt = ctx.computeOnClient(SimPuzzleSolveTests::where);
+                println(name, started ? String.format("Auto Boulder started %.1fs after the press, now %s", t / 20.0, arrivedAt)
+                        : "Auto Boulder did NOT start in 15 s after the map press; he is at " + arrivedAt + ", live map room "
+                        + ctx.computeOnClient(SimPuzzleSolveTests::liveRoom));
+                if (!started) {
+                    throw new AssertionError("Auto Boulder never started after " + (ownWarp() ? "the teleport onto its doorway " : "a real Interactive Map press on the room ")
+                            + "(he is at " + arrivedAt + ")");
+                }
+            }
+            if (outside != null && secretAura() && !mapWarp()) {
                 // He walks in himself; the auto must take over the moment the live map says Boulder.
                 ctx.getInput().holdKey(o -> o.keyUp);
                 int t = 0;
@@ -842,7 +955,13 @@ public final class SimPuzzleSolveTests {
                 if (trip != null) {
                     trip.tick(ctx, t, solvedNow);
                 }
+                if (caseExtra != null) {
+                    caseExtra.tick(ctx, t, solvedAt, s[0] != null);
+                }
                 boolean done = spec.chestIsVerdict() ? chestAt > 0 : solvedAt > 0;
+                if (done && caseExtra != null && !caseExtra.satisfied() && t < solvedAt + 20 * 20) {
+                    done = false; // the case's own after-solve part (a reward chest, a secret) still to come
+                }
                 if (done && trip != null && !trip.secretTaken() && t < solvedAt + 25 * 20) {
                     // Auto Secret: the chest is half of it. 25 s after the solve is far past any walk.
                     done = false;
@@ -866,8 +985,13 @@ public final class SimPuzzleSolveTests {
                             failed(ctx), probe(ctx)));
                 }
             }
+            String extraBad = null;
+            if (caseExtra != null) {
+                extraBad = caseExtra.verdict(ctx, solvedAt);
+                println(name, "case checks: " + caseExtra.summary());
+            }
             // Before the autos go off: Auto Water's last act is the warp onto its chest spot.
-            String waterReward = water && solvedAt > 0 && failedAt < 0 ? waterReward(ctx, name) : null;
+            String waterReward = water && solvedAt > 0 && failedAt < 0 && extraBad == null ? waterReward(ctx, name) : null;
             ctx.runOnClient(mc -> configure(true, false));
             if (trip != null) {
                 BlazeMiss.disarm();
@@ -906,6 +1030,11 @@ public final class SimPuzzleSolveTests {
             if (failedAt > 0) {
                 dumpEvidence(ctx, name, mark);
                 return String.format("FAIL - the sim marked the room FAILED at %.1fs%s", failedAt / 20.0, extra);
+            }
+            if (extraBad != null) {
+                dumpEvidence(ctx, name, mark);
+                return "FAIL - " + extraBad + (solvedAt > 0 ? String.format(" (solved at %.1fs)", solvedAt / 20.0)
+                        : " (not solved)") + extra;
             }
             if (spec.chestIsVerdict()) {
                 if (chestAt > 0 && bw != null) {
@@ -1138,6 +1267,9 @@ public final class SimPuzzleSolveTests {
                 if (secretAura()) {
                     ModUnderTest.call(cheat, "setAuraRange", new Class<?>[]{double.class}, new Object[]{4.5});
                 }
+            }
+            if (caseExtra != null) {
+                caseExtra.configure(auto, ModUnderTest.config(CHEAT_CONFIG));
             }
             if (on) {
                 ModUnderTest.set(auto, spec.autoSetter(), true);
@@ -2291,6 +2423,8 @@ public final class SimPuzzleSolveTests {
         private int notSprinting = 0;
         private String firstNotSprinting = null;
         private boolean forwardBefore = false;
+        /** Ticks the current forward hold has lasted: vanilla's sprint can start a tick after the keys go down. */
+        private int forwardRun = 0;
 
         // ---- smoothness (killer560, 2026-10-06: "The boulder turning is really choppy") ----
         /** A real mouse at the auto's 28 degree-per-tick cap turns 560 degrees a second; a per-tick snap seen between
@@ -2537,10 +2671,15 @@ public final class SimPuzzleSolveTests {
                 }
                 pressCount = n;
             }
-            boolean[] ks = ctx.computeOnClient(mc -> new boolean[]{mc.options.keyUp.isDown(), mc.player.isSprinting()});
-            if (ks[0] && forwardBefore) {
+            boolean[] ks = ctx.computeOnClient(mc -> new boolean[]{mc.options.keyUp.isDown(), mc.player.isSprinting(),
+                    mc.player.horizontalCollision && !mc.player.minorHorizontalCollision, mc.options.keySprint.isDown()});
+            forwardRun = ks[0] ? forwardRun + 1 : 0;
+            if (ks[0] && forwardBefore && forwardRun > 2) {
                 forwardTicks++;
-                if (!ks[1]) {
+                // The auto is judged on what it controls: the sprint KEY held whenever it walks. Whether vanilla then
+                // sprints that tick (a wall, the tick after one) is physics; with the key held a stopped sprint
+                // restarts by itself.
+                if (!ks[3]) {
                     notSprinting++;
                     if (firstNotSprinting == null) {
                         firstNotSprinting = String.format("t=%.1fs at (%.2f, %.2f, %.2f)", t / 20.0, end[0], end[1],
@@ -2607,12 +2746,19 @@ public final class SimPuzzleSolveTests {
                     bad.add("forward held for only " + forwardTicks + " tick(s) - the run was not measured");
                 }
                 if (notSprinting > 0) {
-                    bad.add(notSprinting + " tick(s) walking without sprinting (first " + firstNotSprinting + ")");
+                    bad.add(notSprinting + " tick(s) walking with the sprint key up (first " + firstNotSprinting + ")");
                 }
                 if (minY < roofY - 0.6) {
                     bad.add(String.format("left the roof (feet y %.2f, roof %.0f)", minY, roofY));
                 }
             } else {
+                // Sprinting on every walk in button mode too (killer560, 2026-10-15: "make sure that it is sprinting not
+                // walking").
+                println(name, String.format("boulder: sprint check - %d tick(s) with forward held, %d not sprinting%s",
+                        forwardTicks, notSprinting, firstNotSprinting == null ? "" : " (first " + firstNotSprinting + ")"));
+                if (notSprinting > 0) {
+                    bad.add(notSprinting + " tick(s) walking with the sprint key up (first " + firstNotSprinting + ")");
+                }
                 if (!simComplete) {
                     bad.add("the sim's puzzle is not solved");
                 }

@@ -382,7 +382,11 @@ public class SimFairyDoorTests implements FabricClientGameTest {
         setFairyDoor(ctx, true);
         boolean same = describe(withFairy).equals(describe(withoutFairy));
         boolean heightOk = !withFairy.isEmpty() && Math.abs(withFairy.get(0)[1] - f.doorY) < 0.01;
-        row(R_WITHER, made > 0 && same && heightOk, made + " wither door(s) made round " + f.afterRoomName
+        // Legit jar (no Show All Doors) since mod doors-predict-1015: only the held map's doors, and nothing before the
+        // run has started - this floor never ran /start, so nothing at all may be drawn.
+        boolean legitOk = !cheat && made > 0 && withFairy.isEmpty() && withoutFairy.isEmpty();
+        row(R_WITHER, cheat ? made > 0 && same && heightOk : legitOk, (cheat ? "" : "legit jar, run not started: ")
+                + made + " wither door(s) made round " + f.afterRoomName
                 + "; wither boxes with the Fairy Door on " + describe(withFairy) + ", off " + describe(withoutFairy)
                 + " (door block y " + f.doorY + ")");
 

@@ -7128,16 +7128,18 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
 
         /** One run of {@link #warpAfterClick}: arm #1, then {@code act}; ticks from the act to his landing on (14,6). */
         private record ClickRun(boolean started, boolean acted, int landTick, double travelled, int dropped,
-                                boolean held, String actedLine, String landedLine) {
+                                boolean turnedFirst, int actedAfterFiring, String actedLine, String landedLine) {
         }
 
         private static ClickRun clickRun(ClientGameTestContext ctx, int slot, Runnable act) {
             ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(slot));
             ctx.waitTicks(3);
             long a = LogTap.mark();
-            boolean started = arm(ctx, 6, 6, relYawTo(6, 6, 14, 6), 60f);
+            // Pitch 80: the look the server hears while #1 waits meets the floor, as Secret Aura's turn to a chest meets
+            // the chest.
+            boolean started = arm(ctx, 6, 6, relYawTo(6, 6, 14, 6), 80f);
             ctx.waitTicks(10);
-            boolean waiting = !logHas(a, "secrets met") && waitLanded(ctx, 14, 6, 1) == null;
+            boolean waiting = !logHas(a, "secrets met") && waitLanded(ctx, 14, 6, 0) == null;
             Vec3 from = relPos(ctx);
             int dropsBefore = dev.testkit.harness.HypixelUseAfterClick.dropped;
             long m = LogTap.mark();
@@ -7163,21 +7165,53 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     landed = l;
                 }
             }
+            int after = -1;
+            if (acted != null) {
+                java.util.regex.Matcher am = java.util.regex.Pattern.compile("acted (\\d+) tick\\(s\\) after firing").matcher(acted);
+                if (am.find()) {
+                    after = Integer.parseInt(am.group(1));
+                }
+            }
             ClickRun r = new ClickRun(started && waiting, acted != null, landTick,
                     at == null ? relPos(ctx).distanceTo(from) : at.distanceTo(from),
                     dev.testkit.harness.HypixelUseAfterClick.dropped - dropsBefore,
-                    logHas(m, "holding the use - a block click"), acted, landed);
+                    logHas(m, "turning to the use's look first"), after, acted, landed);
             stopRoute(ctx);
             return r;
         }
 
+        /** A right click on (8, F, 7) - the lever - through the game mode, as Secret Aura or his own click sends it. */
+        private static void clickLever(Minecraft mc) {
+            BlockPos pos = real(ModUnderTest.staticCall(FRAME, "current"), 8, F, 7);
+            mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
+                    new BlockHitResult(new Vec3(pos.getX() + 0.5, pos.getY() + 0.1, pos.getZ() + 0.5), Direction.UP,
+                            pos, false));
+        }
+
+        /** Ticks (0 = the first look) until he stands on relative (x, z), at most {@code max}; -1 when never. */
+        private static int ticksToLand(ClientGameTestContext ctx, int x, int z, int max) {
+            for (int t = 0; t <= max; t++) {
+                if (waitLanded(ctx, x, z, 0) != null) {
+                    return t;
+                }
+                ctx.waitTicks(1);
+            }
+            return -1;
+        }
+
         /**
-         * killer560's Mod Only Test log, 2026-10-14 17:22-17:29 (Red Blue, Raccoon): every Auto Routes etherwarp sent one
-         * tick after a chest or lever click met its await, the AOTV already in hand, got "no landing after 61 ticks" -
-         * Hypixel ignores a use of the item he has just clicked a block with ({@link dev.testkit.harness.HypixelUseAfterClick}).
-         * Control 1: a left-click skip, same route, same hook - the use a tick later must land. Control 2: the lever
-         * clicked with an empty hand (the route swaps to the AOTV) must land. The case: the lever clicked with the AOTV
-         * held must land within 20 ticks, 8 blocks along; the old jar sends the use a tick later and stalls.
+         * killer560, 2026-10-15: "I need it etherwarping out as fast as possible. Preferably the next tick ... when I
+         * manually do it I can click a chest and warp the next tick." His real run (Mod Only Test, 2026-10-14 17:22-17:29):
+         * six warps a tick after a chest or lever click with the AOTV held did nothing. The cause is Hypixel's 1.8 server
+         * pairing a bare use with the unpaired block click when its ray along the look it last HEARD meets a block
+         * ({@link dev.testkit.harness.HypixelUseAfterClick}); the old jar sent the use in the tick it turned to the warp.
+         * <p>
+         * Controls: a left-click skip lands; a lever clicked with an empty hand lands; a raw use a tick after a click,
+         * the body not turned (the look the server heard meets the floor), is ignored (the rule is live here). Human: the
+         * lever clicked by hand looking at it, the next tick he looks at the warp's block and sneaks, the tick after he
+         * right-clicks - it must land. The case: the lever clicked with the AOTV held while #1 waits (the heard look
+         * meets the floor) - the warp must go the NEXT tick (acted 1 tick after firing) and land with nothing ignored.
+         * Item: #1 met by an item he picks up (no click) - the warp goes and lands with nothing ignored and no turn.
          */
         static void warpAfterClick(ClientGameTestContext ctx) {
             resetRoutes(ctx);
@@ -7197,44 +7231,138 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 dev.testkit.harness.HypixelUseAfterClick.reset();
                 dev.testkit.harness.HypixelUseAfterClick.enabled = true;
             });
-            Runnable clickLever = () -> ctx.runOnClient(mc -> {
-                BlockPos pos = real(ModUnderTest.staticCall(FRAME, "current"), 8, F, 7);
-                mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
-                        new BlockHitResult(new Vec3(pos.getX() + 0.5, pos.getY() + 0.1, pos.getZ() + 0.5), Direction.UP,
-                                pos, false));
-            });
             try {
                 ClickRun skip = clickRun(ctx, 0, () -> leftClick(ctx, 2));
-                ClickRun swap = clickRun(ctx, 3, clickLever);
-                ClickRun same = clickRun(ctx, 0, clickLever);
+                ClickRun swap = clickRun(ctx, 3, () -> ctx.runOnClient(ArMainServerCases::clickLever));
+                ClickRun same = clickRun(ctx, 0, () -> ctx.runOnClient(ArMainServerCases::clickLever));
+                ClickRun item = clickRun(ctx, 0, () -> serverRun(ctx, (server, sp) -> {
+                    var drop = new net.minecraft.world.entity.item.ItemEntity(server.overworld(), sp.getX(), sp.getY(),
+                            sp.getZ(), new ItemStack(net.minecraft.world.item.Items.PAPER));
+                    drop.setNoPickUpDelay();
+                    drop.setDeltaMovement(Vec3.ZERO);
+                    server.overworld().addFreshEntity(drop);
+                }));
                 int clicks = dev.testkit.harness.HypixelUseAfterClick.clicks;
                 for (var e : List.of(Map.entry("left-click skip, AOTV held", skip),
-                        Map.entry("lever clicked with an empty hand", swap), Map.entry("lever clicked with the AOTV held", same))) {
+                        Map.entry("lever clicked with an empty hand", swap), Map.entry("lever clicked with the AOTV held", same),
+                        Map.entry("item picked up, no click", item))) {
                     ClickRun r = e.getValue();
-                    println(String.format(Locale.US, "warpafterclick %s: started+waiting %s, warp sent %s, landed %s tick(s) "
-                                    + "after the act, travelled %.2f, uses ignored %d, held line %s", e.getKey(), r.started(),
-                            r.acted(), r.landTick() < 0 ? "never (30)" : String.valueOf(r.landTick()), r.travelled(),
-                            r.dropped(), r.held()));
+                    println(String.format(Locale.US, "warpafterclick %s: started+waiting %s, warp sent %s (%d tick(s) after "
+                                    + "firing), landed %s tick(s) after the act, travelled %.2f, uses ignored %d, turned-first "
+                                    + "line %s", e.getKey(), r.started(), r.acted(), r.actedAfterFiring(),
+                            r.landTick() < 0 ? "never (30)" : String.valueOf(r.landTick()), r.travelled(), r.dropped(),
+                            r.turnedFirst()));
                     println("  " + r.actedLine());
                     println("  " + r.landedLine());
                 }
-                println("warpafterclick: block clicks the hook saw " + clicks + ", last ignored gap "
-                        + dev.testkit.harness.HypixelUseAfterClick.lastDroppedGap + ", last passed gap "
-                        + dev.testkit.harness.HypixelUseAfterClick.lastPassedGap);
-                check(skip.started() && swap.started() && same.started(), "a run did not start waiting on #1's await");
+                // ---- raw control and the human stream: no route (off its ring), from (6, 4) to (14, 4) ----
+                stopRoute(ctx);
+                RawHuman rh = rawAndHuman(ctx);
+                println("warpafterclick: block clicks the hook saw " + clicks + "; last ignored: "
+                        + dev.testkit.harness.HypixelUseAfterClick.lastDrop);
+                check(skip.started() && swap.started() && same.started() && item.started(),
+                        "a run did not start waiting on #1's await");
                 check(clicks >= 2, "the hook saw " + clicks + " block click(s) - the lever runs prove nothing");
+                check(rh.rawDropped() >= 1 && rh.rawMoved() < 1.0, "control: a raw use a tick after a block click, under a "
+                        + "heard look that meets the floor, was not ignored (ignored " + rh.rawDropped() + ", moved "
+                        + String.format(Locale.US, "%.2f", rh.rawMoved()) + ") - the rule is not live, so nothing here "
+                        + "proves anything");
                 check(skip.landTick() >= 0 && skip.dropped() == 0, "control: a left-click skip did not land (or the hook "
-                        + "ignored its use) - the hook is not what the case says");
+                        + "ignored its use)");
                 check(swap.landTick() >= 0 && swap.dropped() == 0, "control: a lever clicked with an empty hand did not land");
+                check(rh.humanLand() >= 0 && rh.humanDropped() == 0, "human: click the lever, look at the warp's block and "
+                        + "sneak, right-click - did not land (ignored " + rh.humanDropped() + ")");
                 check(same.acted(), "#1 never sent its warp after the lever click");
-                check(same.landTick() >= 0 && same.landTick() <= 20 && same.travelled() > 7.5,
-                        "the warp after a lever click made with the AOTV held did not land within 20 ticks (landed "
+                check(same.dropped() == 0 && same.landTick() >= 0 && same.travelled() > 7.5,
+                        "the warp after a lever click made with the AOTV held was ignored or did not land (landed "
                                 + same.landTick() + ", travelled " + String.format(Locale.US, "%.2f", same.travelled())
-                                + ", uses ignored " + same.dropped() + ") - Hypixel ignores that use");
+                                + ", uses ignored " + same.dropped() + ")");
+                check(same.actedAfterFiring() <= 1, "the warp after the lever click went " + same.actedAfterFiring()
+                        + " tick(s) after firing - it must go the next tick, as his own does");
+                check(item.acted() && item.dropped() == 0 && item.landTick() >= 0 && !item.turnedFirst(),
+                        "the warp after an item pickup did not go and land at once (landed " + item.landTick()
+                                + ", ignored " + item.dropped() + ", turned first " + item.turnedFirst() + ")");
             } finally {
                 ctx.runOnClient(mc -> dev.testkit.harness.HypixelUseAfterClick.reset());
+                ctx.getInput().releaseKey(options -> options.keyShift);
                 stopRoute(ctx);
             }
+        }
+
+        private record RawHuman(int rawDropped, double rawMoved, int humanDropped, int humanLand) {
+        }
+
+        /** The raw control and the human stream, from (6, 4) - outside #1's ring - to (14, 4). */
+        private static RawHuman rawAndHuman(ClientGameTestContext ctx) {
+            float yawTo = relYawTo(6, 4, 14, 4);
+            float pitchTo = pitchTo(6, 4, 14, 4);
+            // Raw: sneaking, the heard look on the floor, a block click 7 blocks east (out of the server's reach, so
+            // nothing answers it, but stored), and the next tick a use packet aimed at the warp with the body NOT turned.
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+            tpRel(ctx, 6.5, 4.5, yawTo, 80f);
+            ctx.getInput().holdKey(options -> options.keyShift);
+            ctx.waitTicks(5);
+            int d0 = dev.testkit.harness.HypixelUseAfterClick.dropped;
+            Vec3 from = relPos(ctx);
+            ctx.runOnClient(mc -> {
+                BlockPos far = mc.player.blockPosition().offset(7, -1, 0);
+                mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
+                        new BlockHitResult(Vec3.atCenterOf(far), Direction.UP, far, false));
+            });
+            ctx.waitTicks(1);
+            ctx.runOnClient(mc -> {
+                // The use packet carries the warp's look; the body (what the movement packets report) stays on the floor -
+                // the old jar's use, sent in the tick it turned.
+                float yaw = (Float) ModUnderTest.staticCall(COORDS, "toRealYaw", new Class<?>[]{
+                        ModUnderTest.staticCall(FRAME, "current").getClass(), float.class},
+                        new Object[]{ModUnderTest.staticCall(FRAME, "current"), yawTo});
+                float keepYaw = mc.player.getYRot();
+                float keepPitch = mc.player.getXRot();
+                mc.player.setYRot(keepYaw + net.minecraft.util.Mth.wrapDegrees(yaw - keepYaw));
+                mc.player.setXRot(pitchTo);
+                mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
+                mc.player.setYRot(keepYaw);
+                mc.player.setXRot(keepPitch);
+            });
+            ctx.waitTicks(20);
+            int rawDropped = dev.testkit.harness.HypixelUseAfterClick.dropped - d0;
+            double rawMoved = relPos(ctx).distanceTo(from);
+            ctx.getInput().releaseKey(options -> options.keyShift);
+            // Human: not sneaking, looking at the lever, click it; next tick look at the warp's block and sneak; the tick
+            // after, a real right click (vanilla's startUseItem).
+            tpRel(ctx, 6.5, 4.5, yawTo, 80f);
+            ctx.waitTicks(5);
+            int d1 = dev.testkit.harness.HypixelUseAfterClick.dropped;
+            ctx.runOnClient(mc -> {
+                BlockPos lever = real(ModUnderTest.staticCall(FRAME, "current"), 8, F, 7);
+                Vec3 eye = mc.player.getEyePosition();
+                Vec3 c = new Vec3(lever.getX() + 0.5, lever.getY() + 0.1, lever.getZ() + 0.5);
+                double dx = c.x - eye.x;
+                double dy = c.y - eye.y;
+                double dz = c.z - eye.z;
+                mc.player.setYRot((float) -Math.toDegrees(Math.atan2(dx, dz)));
+                mc.player.setXRot((float) -Math.toDegrees(Math.atan2(dy, Math.hypot(dx, dz))));
+            });
+            ctx.waitTicks(2);
+            ctx.runOnClient(ArMainServerCases::clickLever);
+            ctx.waitTicks(1);
+            ctx.runOnClient(mc -> {
+                float yaw = (Float) ModUnderTest.staticCall(COORDS, "toRealYaw", new Class<?>[]{
+                        ModUnderTest.staticCall(FRAME, "current").getClass(), float.class},
+                        new Object[]{ModUnderTest.staticCall(FRAME, "current"), yawTo});
+                mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(yaw - mc.player.getYRot()));
+                mc.player.setXRot(pitchTo);
+            });
+            ctx.getInput().holdKey(options -> options.keyShift);
+            ctx.waitTicks(1);
+            ctx.getInput().pressKey(options -> options.keyUse);
+            int humanLand = ticksToLand(ctx, 14, 4, 20);
+            int humanDropped = dev.testkit.harness.HypixelUseAfterClick.dropped - d1;
+            ctx.getInput().releaseKey(options -> options.keyShift);
+            println(String.format(Locale.US, "warpafterclick raw use a tick after a click, body not turned: ignored %d, moved "
+                    + "%.2f; human (click, look + sneak, right click): landed %s tick(s) after the click, ignored %d", rawDropped,
+                    rawMoved, humanLand < 0 ? "never (20)" : String.valueOf(humanLand), humanDropped));
+            return new RawHuman(rawDropped, rawMoved, humanDropped, humanLand);
         }
 
         /** One run of {@link #puzzleWarpAfterClick}. */
@@ -7247,7 +7375,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
 
         private static PuzzleRun puzzleRun(ClientGameTestContext ctx, PuzzleClick kind) {
             ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
-            tpRel(ctx, 6.5, 6.5, relYawTo(6, 6, 14, 6), pitchTo(6, 6, 14, 6));
+            // Looking at the floor (pitch 80): the look the server hears meets a block, as Secret Aura's turn to a chest does.
+            tpRel(ctx, 6.5, 6.5, relYawTo(6, 6, 14, 6), 80f);
             boolean sneaking = waitFor(ctx, 30, () -> ctx.computeOnClient(mc -> mc.player.getLastSentInput().shift()));
             ctx.waitTicks(5);
             ctx.runOnClient(mc -> {
@@ -7256,13 +7385,13 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             });
             Vec3 from = relPos(ctx);
             long m = LogTap.mark();
-            // A block 30 blocks east: the server drops the click for reach before any block or ability answers it (a lever
-            // would not do - sneaking, as the warp needs, a click on it is an AOTV use-on-block and warps him itself), but its
-            // handler is entered first, where the hook takes the click, and the click goes through the game mode, where the
-            // mod's own packet tap takes it (the same click ClickPrimer makes).
+            // The floor 7 blocks east: past the server's reach for a block click, so no block or ability answers it (a lever
+            // would not do - sneaking, as the warp needs, a click on it is an AOTV use-on-block and warps him itself), but
+            // inside the 8 blocks a 1.8 server stores a click from; its handler is entered first, where the hook stores it,
+            // and the click goes through the game mode, where the mod's own packet tap takes it (as ClickPrimer's does).
             Runnable click = () -> {
                 Minecraft mc = Minecraft.getInstance();
-                BlockPos far = mc.player.blockPosition().offset(30, 0, 0);
+                BlockPos far = mc.player.blockPosition().offset(7, -1, 0);
                 mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
                         new BlockHitResult(Vec3.atCenterOf(far), Direction.UP, far, false));
             };
@@ -7283,13 +7412,27 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                             }
                         }
                     }
+                    float yaw = (Float) ModUnderTest.staticCall(COORDS, "toRealYaw", new Class<?>[]{
+                            ModUnderTest.staticCall(FRAME, "current").getClass(), float.class},
+                            new Object[]{ModUnderTest.staticCall(FRAME, "current"), relYawTo(6, 6, 14, 6)});
+                    float pitch = pitchTo(6, 6, 14, 6);
                     if (kind == PuzzleClick.SAME_ITEM_RAW_USE) {
+                        if (tick == 0) {
+                            return false; // the raw use goes a tick after the click, as the old jar's did
+                        }
+                        // The use packet carries the warp's look; the body stays on the floor (the old jar's use).
+                        float keepYaw = mc.player.getYRot();
+                        float keepPitch = mc.player.getXRot();
+                        mc.player.setYRot(keepYaw + net.minecraft.util.Mth.wrapDegrees(yaw - keepYaw));
+                        mc.player.setXRot(pitch);
                         mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
+                        mc.player.setYRot(keepYaw);
+                        mc.player.setXRot(keepPitch);
                         return true;
                     }
                     return (Boolean) ModUnderTest.staticCall("com.killer560.hub.autopuzzles.AutoPuzzleUtil", "useItemRotated",
                             new Class<?>[]{Minecraft.class, net.minecraft.client.player.LocalPlayer.class, float.class, float.class},
-                            new Object[]{mc, mc.player, mc.player.getYRot(), mc.player.getXRot()});
+                            new Object[]{mc, mc.player, yaw, pitch});
                 });
                 if (sentNow) {
                     sent = t;
@@ -7307,21 +7450,22 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             }
             double travelled = relPos(ctx).distanceTo(from);
             PuzzleRun r = new PuzzleRun(sneaking, sent, land, travelled, dev.testkit.harness.HypixelUseAfterClick.dropped,
-                    dev.testkit.harness.HypixelUseAfterClick.clicks, logHas(m, "holding the use - a block click"));
+                    dev.testkit.harness.HypixelUseAfterClick.clicks, logHas(m, "turning to the use's look first"));
             ctx.runOnClient(mc -> dev.testkit.harness.HypixelUseAfterClick.reset());
             return r;
         }
 
         /**
-         * click-gap-all-1015. Every Auto Puzzles auto that etherwarps or shoots (Ice Fill, Tic Tac Toe, Boulder, Water Board,
-         * Teleport Maze, the blaze / beams / ice path shots, Auto Debuff) sends its item use through
-         * {@code AutoPuzzleUtil.useItemRotated}, whose callers treat false as "nothing was sent" and ask again next tick. Hypixel
-         * ignores a use right after a same-item block click ({@link dev.testkit.harness.HypixelUseAfterClick}), so that call
-         * must answer false for the gap. Called as an auto calls it, sneaking with the AOTV aimed at relative (14, 6): control
-         * 1, no click - sent at once, lands. Control 2, a block clicked with an empty hand and the AOTV swapped in the same task
-         * - sent at once, lands. The case: a block clicked with the AOTV held - not sent for 3+ ticks, then lands, nothing
-         * ignored. Control 3: the same click and a RAW use (no gap kept) - the server ignores it and he does not move, so the
-         * rule bites in this arena and the case's pass is not the hook being off. The old jar sends at tick 0 and is ignored.
+         * Every Auto Puzzles auto that etherwarps or shoots (Ice Fill, Tic Tac Toe, Boulder, Water Board, Teleport Maze, the
+         * blaze / beams / ice path shots, Auto Debuff) sends its item use through {@code AutoPuzzleUtil.useItemRotated}, whose
+         * callers treat false as "nothing was sent" and ask again next tick. Hypixel's 1.8 server takes a bare use as an
+         * unpaired block click's second half when its ray along the look it last HEARD meets a block
+         * ({@link dev.testkit.harness.HypixelUseAfterClick}). Called as an auto calls it, sneaking with the AOTV, the heard
+         * look on the floor, aimed at relative (14, 6): control 1, no click - sent at once, lands. Control 2, a block clicked
+         * with an empty hand and the AOTV swapped in - lands, nothing ignored. The case: a block clicked with the AOTV held -
+         * the body turns to the shot's look, the use goes the next tick and lands, nothing ignored. Control 3: the same click
+         * and a RAW use a tick later with the body not turned - the server ignores it and he does not move, so the rule bites
+         * in this arena and the case's pass is not the hook being off.
          */
         static void puzzleWarpAfterClick(ClientGameTestContext ctx) {
             resetRoutes(ctx);
@@ -7337,7 +7481,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         Map.entry("block click with the AOTV held", same), Map.entry("same click, RAW use (control)", raw))) {
                     PuzzleRun r = e.getValue();
                     println(String.format(Locale.US, "puzzleclick %s: sneaking %s, use sent at tick %d, landed %s tick(s) after, "
-                                    + "travelled %.2f, block clicks seen %d, uses ignored %d, held line %s", e.getKey(), r.sneaking(),
+                                    + "travelled %.2f, block clicks seen %d, uses ignored %d, turned-first line %s", e.getKey(), r.sneaking(),
                             r.sentTick(), r.landTick() < 0 ? "never (20)" : String.valueOf(r.landTick()), r.travelled(),
                             r.clicks(), r.dropped(), r.held()));
                 }
@@ -7345,17 +7489,17 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         "shift never reached the server - an etherwarp would not fire and nothing here proves anything");
                 check(none.sentTick() == 0 && none.landTick() >= 0 && none.travelled() > 7.5 && none.dropped() == 0,
                         "control: with no click the use was not sent at once and landed (sent " + none.sentTick() + ")");
-                check(swap.sentTick() == 0 && swap.landTick() >= 0 && swap.clicks() >= 1 && swap.dropped() == 0 && !swap.held(),
-                        "control: a block clicked with an empty hand held the use, or it was ignored (sent " + swap.sentTick()
+                check(swap.sentTick() <= 1 && swap.landTick() >= 0 && swap.clicks() >= 1 && swap.dropped() == 0,
+                        "control: after a block click with an empty hand the use was late or ignored (sent " + swap.sentTick()
                                 + ", ignored " + swap.dropped() + ")");
                 check(raw.clicks() >= 1 && raw.dropped() >= 1 && raw.travelled() < 1.0,
                         "control: a raw use right after the same-item click was not ignored (clicks " + raw.clicks() + ", ignored "
                                 + raw.dropped() + ", travelled " + String.format(Locale.US, "%.2f", raw.travelled())
                                 + ") - the rule is not live, so the case proves nothing");
                 check(same.clicks() >= 1, "the block click never reached the server - the case proves nothing");
-                check(same.sentTick() >= 3 && same.held(),
-                        "the use went out at tick " + same.sentTick() + " after a same-item block click (held line " + same.held()
-                                + ") - it must wait the gap");
+                check(same.sentTick() == 1 && same.held(),
+                        "the use went out at tick " + same.sentTick() + " after a same-item block click (turned-first line "
+                                + same.held() + ") - it must turn to its look first and go the next tick");
                 check(same.dropped() == 0 && same.landTick() >= 0 && same.travelled() > 7.5,
                         "the use was ignored or did not land (ignored " + same.dropped() + ", landed " + same.landTick()
                                 + ", travelled " + String.format(Locale.US, "%.2f", same.travelled()) + ")");

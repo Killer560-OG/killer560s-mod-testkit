@@ -91,6 +91,12 @@ public class SimMapMimicTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ModUnderTest.staticCall(ROOM_LIBRARY, "forceReload"));
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isReady"));
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CONFIG), "setEnabled", true));
+        if (cheat) {
+            // Since mod map-overhaul-1015 the scan that knows the mimic's room in advance is the cheat build's Funny Map
+            // with Show Mimic Room (killer560, 2026-10-15); this case is about that scan's latch.
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CONFIG), "setFunnyMap", true));
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CONFIG), "setShowMimicRoom", true));
+        }
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter",
                 new Class<?>[]{String.class}, new Object[]{"gametest"}));
         long before = Scenario.simBuildCount(ctx);

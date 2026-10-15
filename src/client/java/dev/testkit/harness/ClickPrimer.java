@@ -12,16 +12,18 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Makes a same-item block click land right before the next item use a mod sends: after EVERY item use this client sends
- * (while the selected hotbar slot is {@link #onlySlot}), a right click on a block is made through the game mode at the end
- * of that tick, with the same item still in hand. A mod that chains uses a tick apart (the Interactive Map's hops, Auto
- * Clear's trips) then has its next use due one tick after a block click, which Hypixel ignores
- * ({@link HypixelUseAfterClick}); one that waits ({@code util/BlockClickGap}) sends it later and it lands.
+ * Secret Aura, as Hypixel's server sees it, right before the next item use a mod sends: after EVERY item use this client
+ * sends (while the selected hotbar slot is {@link #onlySlot}), at the end of that tick the BODY is turned to look straight
+ * down - so the next movement packet tells the server a look that meets the floor, as an aura's turn to a chest does - and
+ * a right click on a block is made through the game mode with the same item still in hand. A mod whose next use goes out
+ * before the server has heard ITS look then has that use taken as the click's second half ({@link HypixelUseAfterClick});
+ * one that turns first ({@code util/RightClick}) has it land.
  *
- * <p>The block is 30 blocks east of him: the integrated server's reach check drops the click before any block, lever or
- * ability answers it (so no teleport, no chest, no door), but its handler is entered first, which is where
- * {@link HypixelUseAfterClick} takes the click, and the click went through {@code MultiPlayerGameMode.useItemOn}, which is
- * where the mod takes it. Client thread only; off unless a scenario sets {@link #enabled}.
+ * <p>The block is the floor 7 blocks east of him: past the integrated server's reach for a block click (4.5 + 1), so no block, lever
+ * or ability answers it (no teleport, no chest, no door), but inside the 8 blocks a 1.8 server stores a click from, and its
+ * handler is entered first, which is where {@link HypixelUseAfterClick} stores it; the click went through
+ * {@code MultiPlayerGameMode.useItemOn}, which is where the mod takes it. Client thread only; off unless a scenario sets
+ * {@link #enabled}.
  */
 public final class ClickPrimer {
 
@@ -65,6 +67,43 @@ public final class ClickPrimer {
         }
     }
 
+    /**
+     * A solid block a 1.8 server would store a click on (its centre under {@link HypixelUseAfterClick#CLICK_STORE_RANGE}
+     * from his feet) but this server answers nothing on (more than 6 from his eye, past the 4.5 + 1 reach a block click
+     * gets): the nearest such block east of him first. Null when there is none.
+     */
+    public static BlockPos storableOutOfReach(Minecraft mc) {
+        if (mc.player == null || mc.level == null) {
+            return null;
+        }
+        net.minecraft.world.phys.Vec3 feet = mc.player.position();
+        net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition();
+        BlockPos at = mc.player.blockPosition();
+        BlockPos best = null;
+        double bestScore = Double.MAX_VALUE;
+        for (int dx = -8; dx <= 8; dx++) {
+            for (int dy = -8; dy <= 8; dy++) {
+                for (int dz = -8; dz <= 8; dz++) {
+                    BlockPos p = at.offset(dx, dy, dz);
+                    if (mc.level.getBlockState(p).isAir() || !mc.level.getBlockState(p).isSolid()) {
+                        continue;
+                    }
+                    double toCentre = feet.distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(p));
+                    double toBox = Math.sqrt(new net.minecraft.world.phys.AABB(p).distanceToSqr(eye));
+                    if (toCentre >= HypixelUseAfterClick.CLICK_STORE_RANGE - 0.3 || toBox <= 6.0) {
+                        continue;
+                    }
+                    double score = Math.abs(dz) + Math.abs(dy) - dx * 0.1;
+                    if (score < bestScore) {
+                        bestScore = score;
+                        best = p.immutable();
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
     private static void tick(Minecraft mc) {
         if (!pending) {
             return;
@@ -73,7 +112,11 @@ public final class ClickPrimer {
         if (!enabled || mc.player == null || mc.level == null || mc.gameMode == null) {
             return;
         }
-        BlockPos far = mc.player.blockPosition().offset(30, 0, 0);
+        mc.player.setXRot(90f);
+        BlockPos far = storableOutOfReach(mc);
+        if (far == null) {
+            return;
+        }
         mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
                 new BlockHitResult(Vec3.atCenterOf(far), Direction.UP, far, false));
         primed++;
