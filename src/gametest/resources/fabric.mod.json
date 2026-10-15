@@ -95,6 +95,7 @@
 			"dev.testkit.gametest.SimDeucesDoorwayTests",
 			"dev.testkit.gametest.SimDoorHeightTests",
 			"dev.testkit.gametest.SimMageCaptureTests",
+			"dev.testkit.gametest.SimChunkLoadedTests",
 			"dev.testkit.gametest.AuraQuoiTests",
 			"dev.testkit.gametest.SimAuraSkipTests",
 			"dev.testkit.gametest.SimStaticWaterTests",
