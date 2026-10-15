@@ -246,6 +246,7 @@ final class PartyFinderRelayCases {
         }
         Path dir = Fixtures.root().getParent().resolve("testkit-http").resolve("partyfinder-stats");
         forget(c, NAMES);
+        dropAllWants(c);
         try (Fake fake = new Fake(Integer.parseInt(portProp), dir);
              MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set(CFG, "Enabled", true).set(CFG, "Tooltip", true).set(CFG, "Highlight", true)
@@ -473,6 +474,18 @@ final class PartyFinderRelayCases {
             return l.toString();
         }
         return e.toString();
+    }
+
+    /** Drop every want the mod still holds. Since mod pf-speed-1015 lookups outlive the menu, so an earlier case's
+     *  names (failed offline, retried 15-120 s later) would otherwise start lookups inside the next case's counters. */
+    static void dropAllWants(Session c) {
+        c.ctx().runOnClient(mc -> {
+            try {
+                ((Map<?, ?>) Mod.field(API, "WANTS")).clear();
+            } catch (RuntimeException | AssertionError ignored) {
+                // An old jar has no such field.
+            }
+        });
     }
 
     /** Drop whatever the mod knows about these names (both paths), and clear an earlier case's relay outage. */
