@@ -13,7 +13,8 @@
     "gui.tab.ChatHiderTab": "Chat > Chat Hider",
     "gui.tab.CustomItemsTab": "Cosmetics > Custom Items",
     "gui.tab.ChocolateFactoryTab": "Misc > Chocolate Factory",
-    "gui.tab.PeekChatTab": "Chat > Peek Chat"
+    "gui.tab.PeekChatTab": "Chat > Peek Chat",
+    "gui.tab.PredictiveRoomsTab": "Dungeons > Predictive Rooms"
   },
   "tooltips": [
     {
