@@ -269,7 +269,7 @@ final class PartyFinderStatsCases {
             }
             int brokenFetches = profileFetches(fake, BROKEN.uuid());
             if (brokenFetches != 1) {
-                requestFailures.add("BrokenBackend fetched " + brokenFetches + "x (a failure must not be retried within 3 min)");
+                requestFailures.add("BrokenBackend fetched " + brokenFetches + "x (a transient failure is retried after 15 s at the soonest, and this case lasts ~11 s)");
             }
             int unknownLookups = fake.count("/mcs/minecraft/profile/lookup/name/" + UNKNOWN.toLowerCase(Locale.ROOT));
             if (unknownLookups != 1) {
@@ -325,6 +325,14 @@ final class PartyFinderStatsCases {
                 } catch (RuntimeException | AssertionError ignored) {
                     // An old jar has no such field.
                 }
+            }
+            // Since mod pf-speed-1015 lookups outlive the menu: names an earlier case asked about (235/236 run offline,
+            // so every one failed transiently) are retried 15 s later, inside this case's LOOKUPS_STARTED window -
+            // 2 of them (bob, eve) made it read "7 lookups for 5 names" on jars-1015i. Drop every leftover want.
+            try {
+                ((Map<?, ?>) Mod.field("partyfinder.PartyFinderStatsApi", "WANTS")).clear();
+            } catch (RuntimeException | AssertionError ignored) {
+                // An old jar has no such field.
             }
         });
     }

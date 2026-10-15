@@ -356,6 +356,7 @@ final class PartyFinderSpeedCases {
         c.check(portProp != null && relayUrl != null && relayUrl.contains("127.0.0.1:" + portProp),
                 "build.gradle must point pf-relay at the fake (testkit.fakeHttp.port " + portProp + ", pf-relay " + relayUrl + ")");
         forgetAll(c);
+        PartyFinderRelayCases.dropAllWants(c);
         Path dir = Fixtures.root().getParent().resolve("testkit-http").resolve("partyfinder-stats");
         return new Fake(Integer.parseInt(portProp), dir);
     }

@@ -291,6 +291,7 @@ final class PartyFinderCoverageCases {
         List<String> names = new ArrayList<>();
         PLAYERS.forEach(p -> names.add(p.name()));
         forget(c, names);
+        PartyFinderRelayCases.dropAllWants(c);
         int throttledBefore = Math.max(0, PartyFinderStatsCases.hookInt("THROTTLED"));
         long mark = LogTap.mark();
         try (Fake fake = new Fake(Integer.parseInt(portProp), fixtures);
