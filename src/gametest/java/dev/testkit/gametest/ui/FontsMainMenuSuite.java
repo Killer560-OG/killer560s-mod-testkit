@@ -63,7 +63,7 @@ import java.util.Map;
 public class FontsMainMenuSuite implements FabricClientGameTest {
 
     static final String[] TITLE_CASES = {"1565-ui-mainmenu-styles", "1566-ui-mainmenu-scenes",
-            "1567-ui-mainmenu-real-name"};
+            "1567-ui-mainmenu-real-name", "1568-ui-amber-scene", "1569-ui-amber-video"};
     static final String[] WORLD_CASES = {"1561-ui-font-menu-only", "1562-ui-font-everything", "1563-ui-font-import",
             "1564-ui-font-settings"};
 
@@ -101,6 +101,8 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
         UiCase.run(ctx, "1565-ui-mainmenu-styles", FontsMainMenuSuite::styles);
         UiCase.run(ctx, "1566-ui-mainmenu-scenes", FontsMainMenuSuite::scenes);
         UiCase.run(ctx, "1567-ui-mainmenu-real-name", FontsMainMenuSuite::realName);
+        UiCase.run(ctx, "1568-ui-amber-scene", AmberSceneCases::scene);
+        UiCase.run(ctx, "1569-ui-amber-video", AmberSceneCases::video);
         if (anyWorld) {
             try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
                 ctx.waitTicks(40);
@@ -817,7 +819,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
         try {
             setWindow(c, 1600, 900, 2);
             String[][] scenes = {{"EMBERS", "AMBER"}, {"WATERFALL", "OCEAN"}, {"STARFIELD", "DARK"},
-                    {"SOFT_LIGHT", "LIGHT"}, {"AURORA", "CUSTOM"}, {"PLAIN", "AMBER"}};
+                    {"SOFT_LIGHT", "LIGHT"}, {"AURORA", "CUSTOM"}, {"FIREFLIES", "GREEN"}, {"PLAIN", "AMBER"}};
             List<String> summary = new ArrayList<>();
             for (String[] sc : scenes) {
                 c.onClient(mc -> {
@@ -834,6 +836,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                         a.g(), a.b(), a.lum(), moved * 100));
                 switch (sc[0]) {
                     case "WATERFALL" -> c.check(a.b() > a.r() + 8, "the Ocean waterfall is not blue: " + summary.getLast());
+                    case "FIREFLIES" -> c.check(a.g() > a.r() + 4, "the Green fireflies scene is not green: " + summary.getLast());
                     case "EMBERS" -> c.check(a.r() > a.b() + 4, "Amber's embers are not warm: " + summary.getLast());
                     case "SOFT_LIGHT" -> c.check(a.lum() > 0.55, "the Light theme's main menu is not light: " + summary.getLast());
                     case "STARFIELD" -> c.check(a.lum() < 0.25, "the Dark starfield is not dark: " + summary.getLast());

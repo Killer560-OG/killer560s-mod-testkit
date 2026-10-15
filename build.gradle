@@ -688,6 +688,14 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 		accountsCopy.parentFile.mkdirs()
 		accountsCopy.bytes = accountsFixture.bytes
 	}
+	// The Universal proxy lives in Prism's SHARED folder (every instance reads it), so a test that presses the Swap
+	// Accounts screen's Universal switch must never reach the real file: point it into build/, empty each run (mod
+	// swap-accounts-ui, 2026-10-15; a jar from before the hook ignores it, and 1851 then refuses to press the switch).
+	def universalCopy = layout.buildDirectory.file("testkit-fixtures/universal-proxy.json").get().asFile
+	systemProperty "prismaccountswitcher.universalProxyFile", universalCopy.absolutePath
+	doFirst {
+		universalCopy.delete()
+	}
 
 	// Reports: summary.md / summary.json / cases/ / screens/ / coverage.md, fresh each run.
 	def reportDir = layout.buildDirectory.dir("testkit-report").get().asFile

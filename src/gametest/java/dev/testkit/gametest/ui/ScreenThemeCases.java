@@ -549,19 +549,19 @@ final class ScreenThemeCases {
                 c.check("LIGHT".equals(termismTheme()), "after a reload from disk Termism's theme is " + termismTheme());
                 c.note("Termism's Light survived a reload from disk");
 
-                // Back to Theme Default (Light -> Ocean -> Custom -> Theme Default) and Termism follows the menu again.
+                // Back to Theme Default (Light -> Ocean -> Green -> Custom -> Theme Default) and Termism follows the menu again.
                 Screen m2 = reopenMenu(c);
                 c.onClient(mc -> {
                     Mod.call(m2, "openFeature", MenuACases.leaf("TermismTab"));
                     return null;
                 });
-                for (int i = 0; i < 3; i++) {
+                for (int i = 0; i < 4; i++) {
                     c.onClient(mc -> {
                         Mod.call(themeRow(m2), "press");
                         return null;
                     });
                 }
-                c.check("DEFAULT".equals(termismTheme()), "three more left clicks gave " + termismTheme());
+                c.check("DEFAULT".equals(termismTheme()), "four more left clicks gave " + termismTheme());
                 Screen s2 = c.onClient(mc -> {
                     Screen made = withParent("termism.TermismMenuScreen");
                     McCompat.setScreen(mc, made);

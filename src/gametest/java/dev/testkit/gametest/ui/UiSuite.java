@@ -67,7 +67,8 @@ import java.util.List;
  *                511-514 killer560's 2026-10-07 menu layout report: Crosshair in General, no combined folders, every tab
  *                once, cheat-only tabs and sections after every legit one, tooltips unchanged, screenshots at GUI 2
  *                ({@link MenuLayoutCases})
- *                515-518 killer560's 2026-10-14 menu order list: tabs alphabetical in every category (cheat block last),
+ *                519 Home cleanup (2026-10-15): no Reboot button, 4x2 buttons, short version line, cards in his fixed order
+ *                ({@link DocMenuCases}); 515-518 killer560's 2026-10-14 menu order list: tabs alphabetical in every category (cheat block last),
  *                the card's switch first in every tab, Dungeon Queue's card ON while either feature is, and the five
  *                tabs that lost their "as a whole" switch keep their old files' meaning ({@link MenuOrderCases})
  *                611-618 killer560's 2026-10-08 HUD / menu / profiles list: the Edit HUD key only with no screen,
@@ -248,7 +249,8 @@ public class UiSuite implements FabricClientGameTest {
             "1038-ui-trail-share-hide", "1039-ui-trail-share-limits"};
     /** killer560's 2026-10-14 menu order + independent masters list ({@link MenuOrderCases}). Own block for merges. */
     static final String[] MENU_ORDER_CASES = {"515-ui-menu-order", "516-ui-menu-order-settings",
-            "517-ui-menu-queue-masters", "518-ui-menu-independent-masters"};
+            "517-ui-menu-queue-masters", "518-ui-menu-independent-masters",
+            "519-ui-home-cleanup"};
     /** Lever Aura merged into Secret Aura + Menu Theme on overlays (mod aura-themes-1015, {@link AuraThemeCases}). Own block for merges. */
     static final String[] AURA_THEME_CASES = {"1420-ui-secret-aura-merge", "1421-ui-overlay-themes"};
     /** Lights Device as its own cheat (mod lights-aura-1015, {@link LightsDeviceUiCases}). Own block for merges. */
@@ -256,6 +258,9 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-15 click sounds and short descriptions ({@link SoundDescCases}). Own block for merges. */
     static final String[] SOUND_DESC_CASES = {"1060-ui-card-descriptions", "1061-ui-descriptions-toggle",
             "1062-ui-editor-hint-narrow", "1063-ui-click-presets", "1064-ui-click-import"};
+    /** killer560's 2026-10-15 Trajectories for shortbows (mod shortbow-traj-1015, {@link TrajectoryCases}). Own block. */
+    static final String[] TRAJECTORY_CASES = {"1080-ui-traj-shortbow", "1081-ui-traj-terminator-spread",
+            "1082-ui-traj-normal-bow-drawn-only", "1083-ui-traj-shortbows-setting"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -404,6 +409,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : EW_NEARFACE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : TRAJECTORY_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -418,7 +426,8 @@ public class UiSuite implements FabricClientGameTest {
                 || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
                 || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES) || any(SWEAT_CASES)
                 || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES) || any(TRAIL_HUD_CASES)
-                || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES) || any(SOUND_DESC_CASES) || any(MAP_OVERHAUL_CASES);
+                || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES) || any(SOUND_DESC_CASES) || any(MAP_OVERHAUL_CASES)
+                || any(TRAJECTORY_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -548,6 +557,11 @@ public class UiSuite implements FabricClientGameTest {
                     // ---- chat keybinds merge (621-622) ----
                     UiCase.run(ctx, "621-ui-chat-keybinds-merged-tab", ChatKeybindsMergeCases::mergedTab);
                     UiCase.run(ctx, "622-ui-chat-keybinds-migration", ChatKeybindsMergeCases::migration);
+                    // ---- trajectories for shortbows (1080-1083) ----
+                    UiCase.run(ctx, "1080-ui-traj-shortbow", TrajectoryCases::shortbow);
+                    UiCase.run(ctx, "1081-ui-traj-terminator-spread", TrajectoryCases::terminatorSpread);
+                    UiCase.run(ctx, "1082-ui-traj-normal-bow-drawn-only", TrajectoryCases::normalBow);
+                    UiCase.run(ctx, "1083-ui-traj-shortbows-setting", TrajectoryCases::settings);
                     // ---- held item outline (671-675) ----
                     UiCase.run(ctx, "671-ui-held-outline-off", HeldOutlineCases::controls);
                     UiCase.run(ctx, "672-ui-held-outline-styles", HeldOutlineCases::styles);
@@ -749,6 +763,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "516-ui-menu-order-settings", c -> MenuOrderCases.settingsOrder(c, deny));
                     UiCase.run(ctx, "517-ui-menu-queue-masters", MenuOrderCases::queueMasters);
                     UiCase.run(ctx, "518-ui-menu-independent-masters", MenuOrderCases::independentMasters);
+                    UiCase.run(ctx, "519-ui-home-cleanup", DocMenuCases::homeCleanup);
                     // ---- Lever Aura in Secret Aura + overlay Menu Themes (1420-1421) ----
                     UiCase.run(ctx, "1420-ui-secret-aura-merge", AuraThemeCases::secretAuraMerge);
                     UiCase.run(ctx, "1421-ui-overlay-themes", AuraThemeCases::overlayThemes);

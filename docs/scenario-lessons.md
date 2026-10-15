@@ -758,3 +758,18 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   NEXT trip's (the hand-over can be that fast), so only warps strictly before the end belong to the trip into the room.
 - Mod main's sim clears every room on entry (2026-10-14). A case that judges which rooms its clears killed their way to
   (141) turns `SimMobs.setClearRoomsOnEntry(false)` for its run, or any trip passing through a room "clears" it.
+- **1080-1083 (TrajectoryCases, mod shortbow-traj-1015, 2026-10-15):** Trajectories for shortbows. Each draw is judged by the
+  feature's own views (`TrajectoriesFeature.lastArcs/lastKind/lastSpeed/renderCalls`) AND by cyan arc pixels against a frame
+  with the feature OFF, so main fails on what it draws, not on a missing method (main: 0 px for a held shortbow, 885 px for
+  an idle plain bow). Measure an arc's first step LEVEL: at pitch 50 it hits the superflat inside one tick and reads 1.98
+  blocks, not 3.0 (1080's first run). The arcs start at the eye, so on screen mostly the impact boxes show.
+- **1640-1644 menu-profit-*** (mod profit-accounts-1015, 2026-10-15): profit per Minecraft account (UUID) with Show
+  Profit (This / All Accounts) and Profit Data (Shared / Per Mod Profile). Fake accounts come from the mod's
+  `ProfitScope.setAccountForTest(name, uuid)`; always clear it (nulls) in `finally`, or every later profit case records
+  under a fake account. The settings file (`ProfitConfig.PATH`) is outside profiles, so a case snapshots and restores it
+  and calls `ProfitConfig.load()`. 733 now drives the account switch through that setting, not the view filter.
+- 1850-1851 (mod swap-accounts-ui-1015): the Swap Accounts screen. The Universal switch writes Prism's SHARED
+  `universal-proxy.json`, so 1851 presses it only when the mod's `ProxyConfig.UNIVERSAL_PATH` is the
+  `prismaccountswitcher.universalProxyFile` build.gradle sets (main ignores the property: 1851 then reports it and leaves the
+  switch alone). A row press and Copy ID fail offline; the failure line names the account, which is what proves the press
+  reached that account's handler. Rows are found by their label (the account name), their buttons by sitting in its band.
