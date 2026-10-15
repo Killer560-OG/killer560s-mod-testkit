@@ -202,6 +202,55 @@ public class SimMapEditorTests implements FabricClientGameTest {
         // Saving a map he spent time drawing and getting something else back is the worst failure this screen
         // has, so it is asserted rather than assumed: write it, force a re-read from the file, compare.
         final String presets = "com.killer560.hub.roomsim.SimMapPresets";
+        if (!classExists(presets)) {
+            // Mod sim-designer-1015 removed Save: a drawn floor is kept by playing it (SimMapHistory). Same question -
+            // does it come back exactly across a re-read from disk - asked of that store; 75-sim-designer-load drives
+            // the list itself.
+            historyRoundTrip(ctx, drawn);
+        } else {
+            presetRoundTrip(ctx, drawn, presets);
+        }
+        screenChecks(ctx);
+    }
+
+    private static boolean classExists(String name) {
+        try {
+            Class.forName(name);
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+    private static void historyRoundTrip(ClientGameTestContext ctx, Map<Integer, String> drawn) {
+        final String history = "com.killer560.hub.roomsim.SimMapHistory";
+        final Object[] entry = new Object[1];
+        ctx.runOnClient(mc -> entry[0] = ModUnderTest.staticCall(history, "recordDrawn",
+                new Class<?>[]{String.class, String.class, Map.class, int.class},
+                new Object[]{"F7", "Floor 7", drawn, 0}));
+        if (entry[0] == null) {
+            throw new AssertionError("recording a drawn floor returned nothing");
+        }
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(history, "reload"));
+        final Object[] back = new Object[1];
+        ctx.runOnClient(mc -> {
+            for (Object e : (List<?>) ModUnderTest.staticCall(history, "entries")) {
+                Object cells = ModUnderTest.call(e, "cells", new Class<?>[]{}, new Object[]{});
+                if (drawn.equals(cells)) {
+                    back[0] = e;
+                }
+            }
+        });
+        if (back[0] == null) {
+            throw new AssertionError("a drawn floor did not come back the same after a re-read from disk");
+        }
+        System.out.println("[75-sim-map-editor] drawn floor round-trip through the Load list: " + drawn.size()
+                + " cell(s) preserved");
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(history, "remove",
+                new Class<?>[]{back[0].getClass()}, new Object[]{back[0]}));
+    }
+
+    private static void presetRoundTrip(ClientGameTestContext ctx, Map<Integer, String> drawn, String presets) {
         final String designName = "gametest-roundtrip";
         ctx.runOnClient(mc -> ModUnderTest.staticCall(presets, "put",
                 new Class<?>[]{String.class, Map.class}, new Object[]{designName, drawn}));
@@ -226,6 +275,9 @@ public class SimMapEditorTests implements FabricClientGameTest {
         if (gone[0] != null) {
             throw new AssertionError("deleting a saved map left it behind");
         }
+    }
+
+    private static void screenChecks(ClientGameTestContext ctx) {
 
         // 6. The SCREEN itself opens, lays out and renders without throwing.
         //
