@@ -75,6 +75,8 @@ final class HxBloodCampCases {
         s.test("190-hx-bloodcamp-blood-esp", HxBloodCampCases::bloodEsp);
         s.test("191-hx-bloodcamp-only-blood-mobs", HxBloodCampCases::onlyBloodMobs);
         s.test("192-hx-bloodcamp-line-of-fire", HxBloodCampCases::lineOfFire);
+        // bloodcamp-5-1015: blood mobs recognised by their Hypixel name tags.
+        s.test("193-hx-bloodcamp-named-blood-mobs", HxBloodCampCases::namedBloodMobs);
     }
 
     // ---- shared -----------------------------------------------------------------------------------------------------
@@ -1264,6 +1266,66 @@ final class HxBloodCampCases {
                     "a click went with a plain mob in the line of fire");
             c.check(blocks >= 1, "the line-of-fire check never held a click - nothing was tested");
             c.check(openClicks >= 1, "control: with nothing in the way the Aura never clicked");
+        } finally {
+            clearDecoys(c);
+            holding(c, "minecraft:air");
+            c.hx().removeStands();
+        }
+    }
+
+    // ---- 193 (bloodcamp-5-1015) ---------------------------------------------------------------------------------------
+
+    /** A husk named {@code mobName} with a Hypixel-style name-tag stand reading {@code tag} just above it - no trip. */
+    private static void taggedHusk(Session c, String mobName, String tag, double x, double z) {
+        c.server().command(String.format(Locale.ROOT, "summon husk %.2f 151 %.2f {Tags:[\"bcdecoy\"],NoAI:1b,NoGravity:1b,"
+                + "Silent:1b,PersistenceRequired:1b,Invulnerable:1b,CustomName:\"%s\"}", x, z, mobName));
+        c.server().command(String.format(Locale.ROOT, "summon armor_stand %.2f 152.2 %.2f {Tags:[\"bcdecoy\"],Invisible:1b,"
+                + "NoGravity:1b,Marker:1b,CustomNameVisible:1b,CustomName:\"%s\"}", x, z, tag));
+        c.ctx().waitTicks(3);
+    }
+
+    private static void namedBloodMobs(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            boolean[] was = c.onClient(mc -> new boolean[]{(Boolean) Mod.call(Mod.cfg(ESP_CFG), "getBloodMobsRaw")});
+            s.custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setBloodMobs", true),
+                    () -> Mod.call(Mod.cfg(ESP_CFG), "setBloodMobs", was[0]));
+            if (cheat) {
+                s.with(BC_CFG, "AuraEnabled", true);
+            }
+            watcher(c, WATCHER_IN);
+            holding(c, "minecraft:iron_sword");
+            stand(c, AWAY_YAW, 10f);
+            int red = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(ESP_CFG), "getBloodColor"));
+            long since = c.hx().head();
+            // A Revoker already standing in the room - Blood Camp never saw it land - and a look-alike whose tag is not
+            // a Hypixel mob tag (a chat-style line), both in reach.
+            taggedHusk(c, "namedblood", "Revoker 1.4M❤", -421.0, -417.5);
+            taggedHusk(c, "lookalike", "[VIP] Revoker: hi ❤", -417.5, -421.0);
+            Object[] seen = new Object[2];
+            for (int i = 0; i < 80; i++) {
+                c.ctx().waitTicks(1);
+                if (i == 20) {
+                    Object[] r = c.onClient(mc -> {
+                        @SuppressWarnings("unchecked")
+                        Map<Integer, Integer> drawn = (Map<Integer, Integer>) Mod.staticCall(ESP, "drawnColors");
+                        return new Object[]{drawn.get(clientId(mc, "namedblood")), drawn.get(clientId(mc, "lookalike"))};
+                    });
+                    seen = r;
+                }
+            }
+            long onNamed = namedAttacks(c, since, "namedblood");
+            long onLookalike = namedAttacks(c, since, "lookalike");
+            c.note("named Revoker (never seen landing): ESP colour " + seen[0] + ", attacks " + onNamed + "; look-alike tag:"
+                    + " ESP colour " + seen[1] + ", attacks " + onLookalike + "; red " + Integer.toHexString(red));
+            c.check(Integer.valueOf(red).equals(seen[0]), "the named blood mob was not highlighted red");
+            c.check(seen[1] == null, "a mob whose tag only looks like a blood mob's was highlighted");
+            c.check(onLookalike == 0, "the Aura attacked a mob whose tag only looks like a blood mob's");
+            if (cheat) {
+                c.check(onNamed >= 1, "the Aura never attacked the named blood mob");
+            } else {
+                c.check(onNamed == 0, "legit jar: something attacked");
+            }
         } finally {
             clearDecoys(c);
             holding(c, "minecraft:air");
