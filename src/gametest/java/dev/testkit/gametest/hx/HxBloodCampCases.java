@@ -1139,8 +1139,16 @@ final class HxBloodCampCases {
     private static void bloodEsp(Session c) {
         try (HxKit.Settings s = base(c)) {
             // Blood Camp itself OFF: Dungeon ESP's Blood Mobs tracks the Watcher's mobs on its own.
-            s.with(BC_CFG, "Enabled", false).with(ESP_CFG, "BloodMobs", true).with(ESP_CFG, "StarredMobs", true)
-                    .with(ESP_CFG, "RoomScoped", false);
+            boolean[] was = c.onClient(mc -> new boolean[]{(Boolean) Mod.call(Mod.cfg(ESP_CFG), "getBloodMobsRaw"),
+                    (Boolean) Mod.call(Mod.cfg(ESP_CFG), "getStarredMobsRaw"),
+                    (Boolean) Mod.call(Mod.cfg(ESP_CFG), "isRoomScoped")});
+            s.with(BC_CFG, "Enabled", false)
+                    .custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setBloodMobs", true),
+                            () -> Mod.call(Mod.cfg(ESP_CFG), "setBloodMobs", was[0]))
+                    .custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setStarredMobs", true),
+                            () -> Mod.call(Mod.cfg(ESP_CFG), "setStarredMobs", was[1]))
+                    .custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setRoomScoped", false),
+                            () -> Mod.call(Mod.cfg(ESP_CFG), "setRoomScoped", was[2]));
             int red = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(ESP_CFG), "getBloodColor"));
             int starColor = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(ESP_CFG), "getStarredColor"));
             watcher(c, WATCHER_IN);
