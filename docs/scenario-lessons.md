@@ -610,3 +610,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   braziers and saves a screenshot from his viewpoint to killer560s-mod-logs/deuces-doorway.png. Main jar: Altar's three
   iron bars (capture 62,72,47..49) carved to air and 0 of 4 braziers lit. The screenshot needs a wait until the client has
   the chest block, or it is all sky.
+- **184-187 Auto Blood Camp, round 2 (mod bloodcamp-2-1015, 2026-10-15)**: walls (a stone row between him and the spot:
+  no Aura aim, no Trigger Bot click; control without it), mobs already on the floor (the Aura kills them), the attack-speed
+  cap, Never Miss (no swing before the mob exists, first attack on the tick it appears). The hx session's server READS AS
+  HYPIXEL (its default label), so the cap there is Hypixel's round(10 / (1 + AS/100)), 10 ticks with no Attack Speed;
+  186 clears the label for its vanilla part (iron sword, 13). Server attack gaps at a 5-tick cap came 4/6 alternating
+  while the client sent exactly 5 - check the client's own click ticks (`recentClickTicks`). Main: 184 aura aimed through
+  the wall, 186 retries 5-6 ticks apart; 185/187 fail on missing API.
