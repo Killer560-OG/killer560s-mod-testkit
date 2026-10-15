@@ -112,11 +112,15 @@ public class FeatureCostBenchTest implements FabricClientGameTest {
             }
 
             if (!Boolean.getBoolean("testkit.bench.noJfr")) {
-                ctx.runOnClient(mc -> PerfBench.apply(on));
+                // -PperfJfrOff: record the OFF configuration instead (what a switched-off mod still does).
+                boolean jfrOff = Boolean.getBoolean("testkit.perf.jfrOff");
+                int jfrTicks = Integer.getInteger("testkit.perf.jfrTicks", big);
+                String name = jfrOff ? "perf-off.jfr" : "perf-allon.jfr";
+                ctx.runOnClient(mc -> PerfBench.apply(jfrOff ? off : on));
                 ctx.waitTicks(40);
                 ctx.runOnClient(mc -> dev.testkit.harness.BenchCamera.start(0f, 10f, PerfBench.PERIOD));
-                FpsBenchTest.jfrPhase(ctx, big, PerfBench.outDir().resolve("perf-allon.jfr"));
-                report.add("JFR (ALL ON, " + big + " ticks): " + PerfBench.outDir().resolve("perf-allon.jfr"));
+                FpsBenchTest.jfrPhase(ctx, jfrTicks, PerfBench.outDir().resolve(name));
+                report.add("JFR (" + (jfrOff ? "OFF" : "ALL ON") + ", " + jfrTicks + " ticks): " + PerfBench.outDir().resolve(name));
             }
 
             // ---- the bench must have measured something ----

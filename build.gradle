@@ -574,6 +574,12 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	if (project.hasProperty("perfGateWrite")) {
 		systemProperty "testkit.perf.gateWrite", "true"
 	}
+	if (project.hasProperty("perfJfrOff")) {
+		systemProperty "testkit.perf.jfrOff", "true"
+	}
+	if (project.hasProperty("perfJfrTicks")) {
+		systemProperty "testkit.perf.jfrTicks", project.property("perfJfrTicks")
+	}
 	if (project.hasProperty("perfNoJfr")) {
 		systemProperty "testkit.bench.noJfr", "true"
 	}
