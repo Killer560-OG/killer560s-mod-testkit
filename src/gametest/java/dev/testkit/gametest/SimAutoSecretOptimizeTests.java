@@ -413,10 +413,20 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                                 Map<String, Integer> unfound) {
         String label = legacy ? "old" : "new";
         teleport(ctx, start);
-        ctx.runOnClient(mc -> {
+        boolean hooked = ctx.computeOnClient(mc -> {
             ModUnderTest.staticCall(MEMORY, "reset");
-            ModUnderTest.staticCall(AS, "testLegacyOrder", new Class<?>[]{boolean.class}, new Object[]{legacy});
+            try {
+                ModUnderTest.staticCall(AS, "testLegacyOrder", new Class<?>[]{boolean.class}, new Object[]{legacy});
+                return true;
+            } catch (Throwable t) {
+                return false;
+            }
         });
+        if (!hooked) {
+            // Thrown on the test thread: a throw inside a client task ends the whole gametest run.
+            throw new AssertionError("this jar has no AutoSecretFeature.testLegacyOrder - the old order cannot be run"
+                    + " beside the new one");
+        }
         long mark = LogTap.mark();
         long t0 = tick(ctx);
         Vec3 last = ctx.computeOnClient(mc -> mc.player.position());
@@ -530,7 +540,16 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
     }
 
     private static long tick(ClientGameTestContext ctx) {
-        return ctx.computeOnClient(mc -> (Long) ModUnderTest.staticCall(EXECUTOR, "clientTick"));
+        return ctx.computeOnClient(mc -> clientTick());
+    }
+
+    /** {@code ClearExecutor.clientTick()}, or -1 on a jar without it (main before ac-optimize-1015). Client thread. */
+    private static long clientTick() {
+        try {
+            return (Long) ModUnderTest.staticCall(EXECUTOR, "clientTick");
+        } catch (Throwable t) {
+            return -1;
+        }
     }
 
     /**
@@ -575,7 +594,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             } catch (ReflectiveOperationException e) {
                 throw new RuntimeException(e);
             }
-            at.set((Long) ModUnderTest.staticCall(EXECUTOR, "clientTick"));
+            at.set(clientTick());
         });
         ctx.waitFor(mc -> done.get() != null, 200);
         return at.get();
