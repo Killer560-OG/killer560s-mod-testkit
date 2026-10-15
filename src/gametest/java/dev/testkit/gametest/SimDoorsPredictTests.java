@@ -169,7 +169,11 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
             ModUnderTest.set(cfg, "setEnabled", true);
             ModUnderTest.set(cfg, "setShowAllDoors", false);
             ModUnderTest.set(cfg, "setFairyDoor", true);
-            ModUnderTest.set(cfg, "setDoorLabels", true);
+            try {
+                ModUnderTest.set(cfg, "setDoorLabels", true);
+            } catch (Throwable missing) {
+                println("this jar has no Door Labels");
+            }
             ModUnderTest.set(cfg, "setRenderDistance", 256);
             Object p = ModUnderTest.config(PCFG);
             ModUnderTest.set(p, "setEnabled", true);
@@ -202,14 +206,45 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         }
         creativeFlying(ctx);
 
-        doorsBeforeStart(ctx, f);
-        doorsMapOnly(ctx, f);
-        doorsBlood(ctx, f);
-        doorsFairy(ctx, f);
-        doorsAfterFairy(ctx, f);
-        predict(ctx, f);
-        guess(ctx, f);
-        settings(ctx);
+        // Each part on its own, so a jar without one of these features (main, for the old-vs-new run) fails that
+        // part's rows and carries on with the rest.
+        section(R_BEFORE, () -> doorsBeforeStart(ctx, f));
+        section(R_MAPONLY, () -> doorsMapOnly(ctx, f));
+        section(R_BLOOD, () -> doorsBlood(ctx, f));
+        section(R_FAIRY, () -> doorsFairy(ctx, f));
+        section(R_AFTER, () -> doorsAfterFairy(ctx, f));
+        section(R_NAMED, () -> predict(ctx, f));
+        section(R_GUESS, () -> guess(ctx, f));
+        section(R_SETTINGS, () -> settings(ctx));
+    }
+
+    private void section(String firstRow, Runnable part) {
+        try {
+            part.run();
+        } catch (Throwable t) {
+            Throwable root = t;
+            while (root.getCause() != null) {
+                root = root.getCause();
+            }
+            row(firstRow, false, "threw: " + t.getMessage() + " (" + root + ")");
+        }
+    }
+
+    /** A static no-argument call that a jar may not have; {@code fallback} when it does not. */
+    private static Object opt(String cls, String method, Object fallback) {
+        try {
+            return ModUnderTest.staticCall(cls, method, new Class<?>[]{}, new Object[]{});
+        } catch (Throwable missing) {
+            return fallback;
+        }
+    }
+
+    private static Object optInt(String cls, String method, int arg, Object fallback) {
+        try {
+            return ModUnderTest.staticCall(cls, method, new Class<?>[]{int.class}, new Object[]{arg});
+        } catch (Throwable missing) {
+            return fallback;
+        }
     }
 
     // ---- 1721 -----------------------------------------------------------------------------------------------------
@@ -231,7 +266,7 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
                 new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, f.names.get(coalRoom)}));
         BlockPos db = f.doorBlock(door);
         waitCoal(ctx, db, made);
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "resetSimVisits"));
+        ctx.runOnClient(mc -> opt(HELD, "resetSimVisits", null));
         double[] inFirst = f.tileCentre(f.tiles.get(first)[0], 0.5);
         place(ctx, inFirst, null);
         ctx.waitTicks(20);
@@ -274,7 +309,7 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
     private void doorsMapOnly(ClientGameTestContext ctx, Floor f) {
         Report.caseStarted(R_MAPONLY);
         // A room no opened room touches: not the Entrance, not next to it, not on the first steps of the path.
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "resetSimVisits"));
+        ctx.runOnClient(mc -> opt(HELD, "resetSimVisits", null));
         // A pair off the path, neither next to the Entrance (opened) nor to the rooms 1721 used.
         Set<Integer> near = new HashSet<>(f.neighbours(f.entrance));
         for (int u : f.used) {
@@ -303,13 +338,13 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> invalidate());
         ctx.waitTicks(30);
         List<double[]> before = ctx.computeOnClient(mc -> boxes());
-        int[] visited = ctx.computeOnClient(mc -> (int[]) ModUnderTest.staticCall(HELD, "simVisitedRooms"));
+        int[] visited = ctx.computeOnClient(mc -> (int[]) opt(HELD, "simVisitedRooms", new int[0]));
         boolean anyAtRoom = false;
         for (int d : f.doorsOf(room)) {
             anyAtRoom |= boxAt(before, f.doorCentre(d)) != null;
         }
         final int nb = neighbour;
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "simVisit", new Class<?>[]{int.class}, new Object[]{nb}));
+        ctx.runOnClient(mc -> optInt(HELD, "simVisit", nb, null));
         ctx.runOnClient(mc -> invalidate());
         ctx.waitTicks(30);
         List<double[]> after = ctx.computeOnClient(mc -> boxes());
@@ -333,16 +368,16 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
             return;
         }
         // High over the blood doorway: in neither room, so neither opens, and close enough for any render distance.
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "resetSimVisits"));
+        ctx.runOnClient(mc -> opt(HELD, "resetSimVisits", null));
         double[] bc = f.doorCentre(bd);
         place(ctx, new double[]{bc[0], bc[1] + 30, bc[2]}, null);
         ctx.runOnClient(mc -> invalidate());
         ctx.waitTicks(30);
         boolean terracotta = ctx.computeOnClient(mc -> mc.level.isLoaded(f.doorBlock(bd))
                 && !mc.level.getBlockState(f.doorBlock(bd)).isAir());
-        boolean opened = ctx.computeOnClient(mc -> contains((int[]) ModUnderTest.staticCall(HELD, "simVisitedRooms"), prev));
+        boolean opened = ctx.computeOnClient(mc -> contains((int[]) opt(HELD, "simVisitedRooms", new int[0]), prev));
         boolean before = boxAt(ctx.computeOnClient(mc -> boxes()), f.doorCentre(bd)) != null;
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "simVisit", new Class<?>[]{int.class}, new Object[]{prev}));
+        ctx.runOnClient(mc -> optInt(HELD, "simVisit", prev, null));
         ctx.runOnClient(mc -> invalidate());
         ctx.waitTicks(30);
         boolean after = boxAt(ctx.computeOnClient(mc -> boxes()), f.doorCentre(bd)) != null;
@@ -363,12 +398,12 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         int before = f.path.get(at - 1);
         int fd = f.doorBetween(before, f.fairy);
         boolean air = ctx.computeOnClient(mc -> mc.level.getBlockState(f.doorBlock(fd)).isAir());
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "resetSimVisits"));
+        ctx.runOnClient(mc -> opt(HELD, "resetSimVisits", null));
         // Out of sight of the doorway: high above the floor, where the rays meet the roofs.
         double[] far = f.tileCentre(f.tiles.get(f.entrance)[0], 60);
         place(ctx, far, null);
         ctx.runOnClient(mc -> resetDoorsRun());
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "simVisit", new Class<?>[]{int.class}, new Object[]{before}));
+        ctx.runOnClient(mc -> optInt(HELD, "simVisit", before, null));
         ctx.runOnClient(mc -> invalidate());
         ctx.waitTicks(30);
         List<int[]> unseen = ctx.computeOnClient(mc -> mapDoors());
@@ -416,18 +451,18 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
                 new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, f.names.get(after)}));
         BlockPos db = f.doorBlock(afd);
         waitCoal(ctx, db, made);
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "resetSimVisits"));
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "simVisit", new Class<?>[]{int.class}, new Object[]{before}));
+        ctx.runOnClient(mc -> opt(HELD, "resetSimVisits", null));
+        ctx.runOnClient(mc -> optInt(HELD, "simVisit", before, null));
         // In the Fairy door's gap, right by Fairy: the nearest coal door is the one after it.
         int fd = f.doorBetween(before, f.fairy);
         double[] gap = f.doorCentre(fd);
         place(ctx, new double[]{gap[0], gap[1] + 0.2, gap[2]}, null);
         ctx.runOnClient(mc -> invalidate());
         ctx.waitTicks(30);
-        boolean fairyOpen = ctx.computeOnClient(mc -> contains((int[]) ModUnderTest.staticCall(HELD, "simVisitedRooms"), f.fairy));
+        boolean fairyOpen = ctx.computeOnClient(mc -> contains((int[]) opt(HELD, "simVisitedRooms", new int[0]), f.fairy));
         boolean hidden = kindAt(ctx.computeOnClient(mc -> mapDoors()), afd) == -1
                 && boxAt(ctx.computeOnClient(mc -> boxes()), f.doorCentre(afd)) == null;
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "simVisit", new Class<?>[]{int.class}, new Object[]{f.fairy}));
+        ctx.runOnClient(mc -> optInt(HELD, "simVisit", f.fairy, null));
         ctx.runOnClient(mc -> invalidate());
         ctx.waitTicks(30);
         boolean loaded = ctx.computeOnClient(mc -> mc.level.isLoaded(db));
@@ -442,7 +477,7 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
 
     private void predict(ClientGameTestContext ctx, Floor f) {
         Report.caseStarted(R_NAMED);
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "resetSimVisits"));
+        ctx.runOnClient(mc -> opt(HELD, "resetSimVisits", null));
         ctx.runOnClient(mc -> ModUnderTest.staticCall(PREDICTOR, "reset"));
         // Doorways from one room into another that is neither the Entrance nor Blood, with nothing in the doorway.
         List<int[]> tries = new ArrayList<>();
@@ -694,7 +729,7 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
 
     private void guess(ClientGameTestContext ctx, Floor f) {
         Report.caseStarted(R_GUESS);
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "resetSimVisits"));
+        ctx.runOnClient(mc -> opt(HELD, "resetSimVisits", null));
         // A one-tile room every in-floor neighbour tile of which is another room it has a door to at least one of.
         int pick = -1;
         List<Integer> around = new ArrayList<>();
@@ -719,10 +754,9 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         // Before: its neighbours are not opened, so it is not known to be one tile.
         List<String> none = guessAt(ctx, tile);
         for (int n : around) {
-            ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "simVisit", new Class<?>[]{int.class}, new Object[]{n}));
+            ctx.runOnClient(mc -> optInt(HELD, "simVisit", n, null));
         }
-        int state = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(HELD, "roomState",
-                new Class<?>[]{int.class}, new Object[]{tile}));
+        int state = ctx.computeOnClient(mc -> (Integer) optInt(HELD, "roomState", tile, -1));
         List<String> guessed = guessAt(ctx, tile);
         @SuppressWarnings("unchecked")
         Map<Integer, String> plan = ctx.computeOnClient(mc -> (Map<Integer, String>) ModUnderTest.staticCall(PAINTER, "plan",
@@ -732,7 +766,7 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         List<String> afterTrap = null;
         if (trap >= 0) {
             final int tr = trap;
-            ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "simVisit", new Class<?>[]{int.class}, new Object[]{tr}));
+            ctx.runOnClient(mc -> optInt(HELD, "simVisit", tr, null));
             afterTrap = guessAt(ctx, tile);
         }
         boolean ok = none.isEmpty() && state == 4 && guessed.contains("PUZZLE")
@@ -808,12 +842,12 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
 
     @SuppressWarnings("unchecked")
     private static List<String> labels(ClientGameTestContext ctx) {
-        return ctx.computeOnClient(mc -> new ArrayList<>((List<String>) ModUnderTest.staticCall(FEATURE, "cachedLabels")));
+        return ctx.computeOnClient(mc -> new ArrayList<>((List<String>) opt(FEATURE, "cachedLabels", List.of())));
     }
 
     private static List<int[]> mapDoors() {
         List<int[]> out = new ArrayList<>();
-        for (Object o : (List<?>) ModUnderTest.staticCall(FEATURE, "mapDoorsNow")) {
+        for (Object o : (List<?>) opt(FEATURE, "mapDoorsNow", List.of())) {
             out.add((int[]) o);
         }
         return out;
@@ -821,7 +855,7 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
 
     @SuppressWarnings("unchecked")
     private static Map<Integer, Boolean> seen() {
-        return (Map<Integer, Boolean>) ModUnderTest.staticCall(FEATURE, "seenDoorways");
+        return (Map<Integer, Boolean>) opt(FEATURE, "seenDoorways", Map.of());
     }
 
     private static int kindAt(List<int[]> doors, int idx) {
@@ -843,7 +877,7 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
     }
 
     private static String status() {
-        return (String) ModUnderTest.staticCall(FEATURE, "status");
+        return (String) opt(FEATURE, "status", "(no status in this jar)");
     }
 
     private static String statusSafe(ClientGameTestContext ctx) {
