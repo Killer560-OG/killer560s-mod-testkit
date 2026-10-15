@@ -175,9 +175,13 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
                 println("this jar has no Door Labels");
             }
             ModUnderTest.set(cfg, "setRenderDistance", 256);
-            Object p = ModUnderTest.config(PCFG);
-            ModUnderTest.set(p, "setEnabled", true);
-            ModUnderTest.set(p, "setSpecialGuess", true);
+            try {
+                Object p = ModUnderTest.config(PCFG);
+                ModUnderTest.set(p, "setEnabled", true);
+                ModUnderTest.set(p, "setSpecialGuess", true);
+            } catch (Throwable missing) {
+                println("this jar has no Predictive Rooms");
+            }
             mc.options.guiScale().set(2);
         });
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
