@@ -315,8 +315,11 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             println(ORDER, "floor " + (attempt + 1) + ": eligible (unfound@rooms away) " + shown);
             // His example, as near as a floor has it: two small rooms beside him (1 or 2 unfound), a room across the floor
             // with more than either but at most 3 - most unfound first crosses the map for it and comes back.
-            for (int i = 0; i < eligible.size() && far == null; i++) {
-                for (int j = 0; j < eligible.size() && far == null; j++) {
+            awaitWarmGraph(ctx, ORDER);
+            Vec3 here = ctx.computeOnClient(mc -> mc.player.position());
+            int tried = 0;
+            for (int i = 0; i < eligible.size() && far == null && tried < 6; i++) {
+                for (int j = 0; j < eligible.size() && far == null && tried < 6; j++) {
                     SimAutoSecretTests.Room a = eligible.get(i);
                     SimAutoSecretTests.Room b = eligible.get(j);
                     if (i == j || a.unfound() > 2 || b.unfound() > 2 || fromHere.get(a.name()) > 2
@@ -324,16 +327,37 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                         continue;
                     }
                     for (SimAutoSecretTests.Room f : eligible) {
-                        if (f.unfound() > Math.max(a.unfound(), b.unfound()) && f.unfound() <= 3 && fromHere.get(f.name()) >= 4 && between.get(a.name()).get(f.name()) >= 4
-                                && between.get(b.name()).get(f.name()) >= 4) {
+                        if (f.unfound() <= Math.max(a.unfound(), b.unfound()) || f.unfound() > 3 || fromHere.get(f.name()) < 4
+                                || between.get(a.name()).get(f.name()) < 4 || between.get(b.name()).get(f.name()) < 4) {
+                            continue;
+                        }
+                        // The rooms on the map are a guess at the trips: what the mod's own planner takes decides.
+                        tried++;
+                        BlockPos sa = standBlock(ctx, a);
+                        BlockPos sb = standBlock(ctx, b);
+                        BlockPos sf = standBlock(ctx, f);
+                        if (sa == null || sb == null || sf == null) {
+                            continue;
+                        }
+                        int hA = warps(ctx, here, sa);
+                        int aB = warps(ctx, feet(sa), sb);
+                        int bA = warps(ctx, feet(sb), sa);
+                        int hF = warps(ctx, here, sf);
+                        int aF = warps(ctx, feet(sa), sf);
+                        int bF = warps(ctx, feet(sb), sf);
+                        println(ORDER, String.format(Locale.US, "candidates %s=%d, %s=%d, %s=%d: warps here->%s %d, %s<->%s"
+                                        + " %d/%d, here->%s %d, %s->%s %d, %s->%s %d", a.name(), a.unfound(), b.name(),
+                                b.unfound(), f.name(), f.unfound(), a.name(), hA, a.name(), b.name(), aB, bA, f.name(), hF,
+                                a.name(), f.name(), aF, b.name(), f.name(), bF));
+                        if (hA <= 3 && aB <= 3 && bA <= 3 && hF >= hA + 3 && aF >= 5 && bF >= 5) {
                             n1 = a;
                             n2 = b;
                             far = f;
-                            println(ORDER, String.format(Locale.US, "beside him: %s=%d (%d room(s) away), %s=%d (%d from"
-                                            + " it); across the floor: %s=%d (%d room(s) away, %d and %d from them)",
-                                    a.name(), a.unfound(), fromHere.get(a.name()), b.name(), b.unfound(),
-                                    between.get(a.name()).get(b.name()), f.name(), f.unfound(), fromHere.get(f.name()),
-                                    between.get(a.name()).get(f.name()), between.get(b.name()).get(f.name())));
+                            println(ORDER, "beside him: " + a.name() + " and " + b.name() + "; across the floor: "
+                                    + f.name());
+                            break;
+                        }
+                        if (tried >= 6) {
                             break;
                         }
                     }
@@ -354,7 +378,6 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             routes.put(r.name(), route);
         }
         SimAutoSecretTests.writeRoutes(ctx, routes);
-        awaitWarmGraph(ctx, ORDER);
         Vec3 start = ctx.computeOnClient(mc -> mc.player.position());
         Map<String, Integer> unfound = Map.of(n1.name(), n1.unfound(), n2.name(), n2.unfound(), far.name(), far.unfound());
         Run fresh = runOrder(ctx, false, start, routes.keySet(), unfound);
@@ -453,6 +476,43 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             }
         }
         return out;
+    }
+
+    /** The block a seeded route's start node stands on ({@code SimAutoSecretTests.routeFor}'s choice). */
+    private static BlockPos standBlock(ClientGameTestContext ctx, SimAutoSecretTests.Room r) {
+        return ctx.computeOnClient(mc -> {
+            BlockPos c = (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class},
+                    new Object[]{r.mainTile()});
+            return (BlockPos) ModUnderTest.staticCall("com.killer560.hub.livemap.autoclear.TeleportUtils",
+                    "etherwarpableInTile", new Class<?>[]{BlockPos.class, Vec3.class}, new Object[]{c, Vec3.atCenterOf(c)});
+        });
+    }
+
+    private static Vec3 feet(BlockPos stand) {
+        return new Vec3(stand.getX() + 0.5, stand.getY() + 1.05, stand.getZ() + 0.5);
+    }
+
+    /** The warps the mod's own map planner takes from {@code from} onto {@code to} (999 for none), on its planner thread. */
+    private static int warps(ClientGameTestContext ctx, Vec3 from, BlockPos to) {
+        AtomicReference<Integer> out = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+            Object cfg = ModUnderTest.staticCall(EXECUTOR, "pathConfig");
+            double range = (Double) ModUnderTest.staticCall(EXECUTOR, "hopRange");
+            Runnable job = () -> {
+                try {
+                    Object path = ModUnderTest.staticCall("com.killer560.hub.livemap.autoclear.EtherwarpPathfinder",
+                            "findDungeonPath", new Class<?>[]{Vec3.class, BlockPos.class, cfg.getClass(), double.class,
+                                    layout.getClass(), boolean.class}, new Object[]{from, to, cfg, range, layout, false});
+                    out.set(path == null ? 999 : ((List<?>) path).size());
+                } catch (RuntimeException e) {
+                    out.set(999);
+                }
+            };
+            ModUnderTest.staticCall(EXECUTOR, "onPlanner", new Class<?>[]{Runnable.class}, new Object[]{job});
+        });
+        ctx.waitFor(mc -> out.get() != null, 600);
+        return out.get();
     }
 
     /** Rooms on the map's path from room {@code a} to {@code b} (doors open or not), 99 with none. Client thread. */

@@ -562,7 +562,14 @@ public class SimAutoClearTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOBS, "setClearRoomsOnEntry", new Class<?>[]{boolean.class},
                 new Object[]{false}));
 
-        repositionCase(ctx, failures, here);
+        // Not the room case 8 left its live zombie in.
+        List<String> tryRooms = new ArrayList<>();
+        for (String n : List.of(here, offRoom.name(), rush.name())) {
+            if (!n.equals(in.name()) && !tryRooms.contains(n)) {
+                tryRooms.add(n);
+            }
+        }
+        repositionCase(ctx, failures, tryRooms);
     }
 
     /**
@@ -573,7 +580,18 @@ public class SimAutoClearTests implements FabricClientGameTest {
      * etherwarps; one block between the first two reaches both with the Hyperion's blast, so two are enough - and must be
      * all it takes. Every zombie must die.
      */
-    private static void repositionCase(ClientGameTestContext ctx, List<String> failures, String roomName) {
+    private static void repositionCase(ClientGameTestContext ctx, List<String> failures, List<String> rooms) {
+        for (String roomName : rooms) {
+            if (repositionCase(ctx, failures, roomName)) {
+                return;
+            }
+        }
+        println("repositions: none of " + rooms + " has a straight open line of 19 blocks with a start 10 from it - not"
+                + " tested on this floor");
+    }
+
+    /** @return false when the room has no line to test on */
+    private static boolean repositionCase(ClientGameTestContext ctx, List<String> failures, String roomName) {
         // ---- a line A, B, C (9 apart) of standable floor in the room, every block between them standable too, and a
         // standable spot of the room at least 10 from all three to start from - read off the client's world.
         BlockPos[] found = ctx.computeOnClient(mc -> {
@@ -634,9 +652,8 @@ public class SimAutoClearTests implements FabricClientGameTest {
             return null;
         });
         if (found == null) {
-            println("repositions: " + roomName + " has no straight open line of 19 blocks with a start 10 from it - not"
-                    + " tested on this floor");
-            return;
+            println("repositions: " + roomName + " has no straight open line of 19 blocks with a start 10 from it");
+            return false;
         }
         BlockPos startAt = found[3];
         AtomicReference<Boolean> moved = new AtomicReference<>();
@@ -678,7 +695,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
                 + found[2].toShortString() + " in " + roomName + "; he starts at " + startAt.toShortString());
         if (line.size() < 3) {
             failures.add("repositions: only " + line.size() + " of the three zombies could be placed");
-            return;
+            return true;
         }
         setMode(ctx, "ANY_MOB_ROOM", "HYPERION");
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setHyperionHops", false));
@@ -691,27 +708,31 @@ public class SimAutoClearTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setHyperionHops", true));
         Map<UUID, String> after = aliveReport(ctx, line);
         int toward = 0;
+        int trips = 0;
         String plan = null;
         for (String l : LogTap.since(mark)) {
             toward += l.contains("[AutoClear] etherwarp toward") ? 1 : 0;
+            trips += l.contains("[Path] running") ? 1 : 0;
             if (plan == null && l.contains("[AutoClear] reposition plan")) {
                 plan = l.replaceAll("^.*?\\[AutoClear\\]", "[AutoClear]");
             }
         }
-        println("repositions: " + r + "; etherwarps toward a mob " + toward + "; plan " + plan + "; zombies " + after
+        println("repositions: " + r + "; etherwarp trips run " + trips + " (\"etherwarp toward\" lines " + toward + "); plan "
+                + plan + "; zombies " + after
                 + "; onDone=" + done.get() + " onGiveUp=" + gaveUp.get());
         for (Placed p : line) {
             if (!"dead".equals(after.get(p.id()))) {
                 failures.add("repositions: the zombie at " + p.at().toShortString() + " is " + after.get(p.id()));
             }
         }
-        if (toward != 2) {
-            failures.add("repositions: " + toward + " etherwarp(s) toward the three zombies in a line - two blocks reach"
+        if (trips != 2) {
+            failures.add("repositions: " + trips + " etherwarp trip(s) for the three zombies in a line - two blocks reach"
                     + " all three (the first between the first two)");
         }
         if (plan == null || !plan.contains("2 block(s) reach all 3") || !plan.contains("nearest mob first would take 3")) {
             failures.add("repositions: no plan of two blocks against nearest-first's three was logged (" + plan + ")");
         }
+        return true;
     }
 
     /**
