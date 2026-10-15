@@ -228,8 +228,8 @@ final class RoutesProgressHudCases {
             c.check(on, "the HUD editor does not list the Auto Routes Progress HUD while its setting is ON");
 
             // A box with a size, at a resolvable position; the sample it draws in the editor fills it.
-            int w = c.onClient(mc -> (Integer) Mod.call(element, "width"));
-            int h = c.onClient(mc -> (Integer) Mod.call(element, "height"));
+            int w = boxSeen[0];
+            int h = boxSeen[1];
             c.note("editor box " + w + "x" + h + " (HudBoxCases 394 judges it against what is drawn)");
             c.check(w > 40 && h >= 30, "the editor box is only " + w + "x" + h);
             int[] pos = c.onClient(mc -> (int[]) Mod.staticCall("hud.HudElementRegistry", "resolvePosition", element));
@@ -245,6 +245,9 @@ final class RoutesProgressHudCases {
         }
     }
 
+    /** {width, height} of the element with the editor open, set by {@link #listed}. */
+    private static final int[] boxSeen = new int[2];
+
     @SuppressWarnings("unchecked")
     private static boolean listed(UiCase c) throws Exception {
         Screen s = c.onClient(mc -> {
@@ -257,6 +260,9 @@ final class RoutesProgressHudCases {
             }
         });
         c.ticks(3);
+        // Measured with the editor open: its sample is what the box must hold.
+        boxSeen[0] = c.onClient(mc -> (Integer) Mod.call(Mod.staticCall("hud.HudElementRegistry", "byId", "autoroutes_progress"), "width"));
+        boxSeen[1] = c.onClient(mc -> (Integer) Mod.call(Mod.staticCall("hud.HudElementRegistry", "byId", "autoroutes_progress"), "height"));
         boolean in = c.onClient(mc -> {
             for (Object e : (List<Object>) R.get(s, "shown")) {
                 if ("autoroutes_progress".equals(Mod.call(e, "id"))) {

@@ -376,10 +376,17 @@ public class SimAutoSecretTests implements FabricClientGameTest {
         // The Auto Routes Progress HUD (mod trail-hud-1015), sampled every 10 ticks of the run with every room shown.
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setProgressHudRooms", 15));
         List<List<String>> hudSamples = new ArrayList<>();
+        Map<String, int[]> reportedSeen = new HashMap<>();
         int ticks = 0;
         for (; ticks < 20 * 180; ticks += 10) {
             ctx.waitTicks(10);
             hudSamples.add(ctx.computeOnClient(mc -> hudRows()));
+            for (String room : routes.keySet()) {
+                int[] rp = ctx.computeOnClient(mc -> hudReported(room));
+                if (rp != null) {
+                    reportedSeen.put(room, rp);
+                }
+            }
             Vec3 at = ctx.computeOnClient(mc -> mc.player.position());
             maxTravel = Math.max(maxTravel, at.distanceTo(from));
             String phase = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(AS, "phaseName"));
@@ -446,7 +453,7 @@ public class SimAutoSecretTests implements FabricClientGameTest {
             }
         }
 
-        checkProgressHud(failures, log, hudSamples, hudEnd, phaseAtEnd, routes.keySet(), noRoute.name(), finished);
+        checkProgressHud(failures, log, hudSamples, hudEnd, phaseAtEnd, reportedSeen, noRoute.name(), finished);
 
         // ---- the no-route room: skipped once, said in chat, never a target ------------------------------------
         int noRouteLines = 0;
@@ -675,7 +682,7 @@ public class SimAutoSecretTests implements FabricClientGameTest {
      * that finished, and once the run is idle the HUD is empty.
      */
     private static void checkProgressHud(List<String> failures, List<String> log, List<List<String>> samples,
-                                         List<String> end, String phaseAtEnd, Set<String> routedRooms, String noRoute,
+                                         List<String> end, String phaseAtEnd, Map<String, int[]> reportedSeen, String noRoute,
                                          Set<String> finished) {
         if (!samples.isEmpty() && samples.get(0).size() == 1 && samples.get(0).get(0).startsWith("<no hud")) {
             failures.add("hud: " + samples.get(0).get(0));
@@ -739,7 +746,7 @@ public class SimAutoSecretTests implements FabricClientGameTest {
             failures.add("hud: " + finished.size() + " route(s) finished but the header never counted one done");
         }
         for (String room : finished) {
-            int[] p = hudReported(room);
+            int[] p = reportedSeen.get(room);
             if (p == null) {
                 failures.add("hud: the route executor never reported node progress for " + room);
             }
@@ -755,6 +762,7 @@ public class SimAutoSecretTests implements FabricClientGameTest {
             return (int[]) ModUnderTest.staticCall(MEMORY, "reportedProgress", new Class<?>[]{String.class},
                     new Object[]{room});
         } catch (RuntimeException | Error e) {
+            println("hud: reportedProgress(" + room + ") threw " + e);
             return null;
         }
     }
