@@ -888,3 +888,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   sim's chest window arrives 1-2 ticks after a click, racing the warp an await fires: 96-ar-1015-reaim's control read 2 for 1
   in a session, so it reruns a side whose log says the window arrived after the await was met. A case that only passes alone
   is not passing.
+- 147-sim-map-precompute (mod map-precompute-1015): three generated F7s, four one-node start routes each; phase 1
+  readiness after the gate opens, the same press with TripCache on and off (its `testDisabled` hook; it has no setting, it runs whenever the Interactive Map is on) from the same spot with the planner's own
+  fresh plan before each, phase 2, a block across a cached trip's first warp with TripCache's drop and searches held off
+  (`testNoCorridorDrop`, `testPaused`), a doorway walled up and opened, and the Interactive Map switched off (cache empty,
+  no search, no tick work) and on again with the map screen closed (fills). A press on a room with a recorded spot (Tic
+  Tac Toe, Quiz, the other `AutoClearUtils` overrides) is a BLOCK trip to `overrideGoal`, not a tile trip: the first
+  fresh-plan comparator planned the tile and read 19/5/5 warps beside the press's 20/6/7 (the OFF press agreed with the
+  cache every time). Resolve the goal the way `pathToRoom` does before comparing.
