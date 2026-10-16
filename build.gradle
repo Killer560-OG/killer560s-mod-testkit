@@ -568,6 +568,22 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 			systemProperty "testkit.perf.${key}", project.property("perf" + suffix)
 		}
 	}
+	// 95-mixin-bench (docs/fps-bench.md): its @WrapMethod timers on hot vanilla methods are applied only for a run that
+	// names it, so no other run carries them. -PmixinBenchIters=N scales the direct-call loops.
+	if (scenarioFilter.contains("95-mixin")) {
+		systemProperty "testkit.mixinBench", "true"
+	}
+	if (project.hasProperty("mixinBenchIters")) {
+		systemProperty "testkit.mixinBench.iters", project.property("mixinBenchIters")
+	}
+	// -PmixinBenchAlone: also time the open menu with each ALL ON switch alone (-PmixinBenchAloneTicks=40 each).
+	// -PmixinBenchOnly=direct|frame|alone skips the other parts. -PmixinBenchFrames=300 ticks per in-frame phase.
+	["mixinBenchAlone": "alone", "mixinBenchAloneTicks": "aloneTicks", "mixinBenchOnly": "only",
+	 "mixinBenchFrames": "frames"].each { prop, key ->
+		if (project.hasProperty(prop)) {
+			systemProperty "testkit.mixinBench.${key}", project.property(prop).toString().isEmpty() ? "true" : project.property(prop)
+		}
+	}
 	if (project.hasProperty("perfBaseline")) {
 		systemProperty "testkit.perf.baseline", file(project.property("perfBaseline").toString()).absolutePath
 	}
