@@ -476,7 +476,10 @@ public class PaintedScenesSuite implements FabricClientGameTest {
                         return null;
                     });
                     title(c, "LIGHT", null, null);
-                    lim[k * 2] = c.onClient(mc -> mc.getFramerateLimitTracker().getFramerateLimit());
+                    lim[k * 2] = c.onClient(mc -> {
+                        mc.getFramerateLimitTracker().onInputReceived(); // not the AFK cap (see fps)
+                        return mc.getFramerateLimitTracker().getFramerateLimit();
+                    });
                     themed[k] = fps(c, 3.0);
                     c.onClient(mc -> {
                         Mod.call(Mod.cfg(FontsMainMenuSuite.MM), "setEnabled", false);
@@ -484,7 +487,10 @@ public class PaintedScenesSuite implements FabricClientGameTest {
                         return null;
                     });
                     c.ticks(20);
-                    lim[k * 2 + 1] = c.onClient(mc -> mc.getFramerateLimitTracker().getFramerateLimit());
+                    lim[k * 2 + 1] = c.onClient(mc -> {
+                        mc.getFramerateLimitTracker().onInputReceived();
+                        return mc.getFramerateLimitTracker().getFramerateLimit();
+                    });
                     vanilla[k] = fps(c, 3.0);
                     sb.append(String.format(Locale.ROOT, "Max Framerate %s: themed title %.1f fps (limit %d), vanilla title %.1f fps (limit %d); ",
                             max == 260 ? "unlimited" : String.valueOf(max), themed[k], lim[k * 2], vanilla[k], lim[k * 2 + 1]));
