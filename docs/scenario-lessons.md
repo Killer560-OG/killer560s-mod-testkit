@@ -896,3 +896,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   Tac Toe, Quiz, the other `AutoClearUtils` overrides) is a BLOCK trip to `overrideGoal`, not a tile trip: the first
   fresh-plan comparator planned the tile and read 19/5/5 warps beside the press's 20/6/7 (the OFF press agreed with the
   cache every time). Resolve the goal the way `pathToRoom` does before comparing.
+
+- The title-scene allocation probe (`MainMenuScenes.allocBytes/allocQuads`) counts only the GuiRects batch's parts, so a
+  picture scene's ripple tiles (each a blit, allocated like a part) inflate bytes-per-quad: 1680's Milky Way with its cape read
+  242.8 B/quad against STARS' 163.7 until the tiles joined the denominator (176.4 then, 2026-10-16).
