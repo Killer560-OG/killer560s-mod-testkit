@@ -78,3 +78,17 @@ measured as good, and commit the file with the change that justifies it). Budget
 Run it before merging anything that adds a HUD element, a render listener or a per-tick handler; when it fails, the
 `OVER` lines in `perf-gate.txt` name the feature package, and 95-perf-features with `-PperfOnly=<it>` says which
 callback.
+
+## In-world drawing (95-perf-world)
+
+`perf/WorldRenderBenchTest`, ~5 min, only when named; run it through `perf-lock.py`. The 95-perf scene has almost
+nothing for a world renderer to draw, so every LevelRenderEvents listener sits at the probe floor there. This one builds
+the sim's Chambers room, spawns 20 starred zombies round the player and puts a Terminator in his hand, switches
+everything else off, and measures BASE / ESP (Filled Box, through walls) / WAYPOINTS (Fill + Outline, names, crypts) /
+TRAJ (shortbow arcs) / ALL, 2 rounds x 400 ticks (`-PperfWorldTicks`, `-PperfWorldRounds`; pass more than one `-Extra`
+through `powershell -Command`, since `-File` hands a comma list over as ONE argument). Per phase: probe us and B per
+frame of the world keys, plus `compat.McRender` (the mod's world batch, which now does the drawing the features used to
+pay for), and draw calls per frame counted at `RenderType.draw` by `harness/DrawCalls` (26.1.2 only; 26.2 has no
+MultiBufferSource). Fails when ALL adds more than 12 draw calls a frame over BASE or ESP allocates more than 16 KB a
+frame, and when a feature drew nothing. Main 69505e45: ESP alone 40 draw calls and 112 KB a frame; fps-world-1015: 2 and
+6.6 KB. Output also in `build/testkit-report/perf-world.txt`.
