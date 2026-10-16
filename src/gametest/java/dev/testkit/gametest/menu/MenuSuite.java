@@ -15,6 +15,8 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  * <ul>
  *   <li>201-217 terminals: solver vs the server board, solved end-to-end; Auto Terminals per type (clicks/tick,
  *       Grim), and nothing clicked on the legit jar ({@link TerminalCases})</li>
+ *   <li>1015-menu-term-hidden-slots(-off): with the terminal Custom GUI on, the hidden chest slots take no hover, click
+ *       or key; the panel's squares click as before ({@link TermHiddenSlotCases})</li>
  *   <li>220-229 experiments: solver state, Auto E-Table end-to-end, profit tracker ({@link ExperimentCases})</li>
  *   <li>230-239 dungeon menus: Croesus, reward chests, auto close chest, Spirit Leap, fast leap, class select,
  *       party finder ({@link DungeonMenuCases})</li>

@@ -837,3 +837,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   fixed jar; the screen's scissor hides that part. Class a run as a heading only if it ENDS above the rows, and clip row
   runs to the visible band. The menu's gradient title is one string drawn three times plus a shadow: same text at the
   same x is one run, not an overlap.
+- 1015-menu-term-hidden-slots(-off) (term-hover-1015): with the terminal Custom GUI on, every type x {a hidden grid slot,
+  a hidden inventory slot} outside the panel: hoveredSlot null, 0 px changed by the hover, 4 clicks + 1/drop/pick keys
+  reach the server as nothing; a real click on a custom square = exactly the solver's target (slot/button/input). Main
+  failed all 12 (1024 px highlight, SWAP/THROW sent). The -off control proves the checks can see vanilla's hover.
