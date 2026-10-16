@@ -63,6 +63,7 @@ public class SimPathLandTests implements FabricClientGameTest {
 
     private static final Pattern ACTED = Pattern.compile("\\[AutoRoutes\\] Node #(\\d+) PATH acted .*\\(path warp (\\d+)/(\\d+)\\)");
     private static final Pattern LANDED = Pattern.compile("\\[AutoRoutes\\] Etherwarp: landed at \\((-?[\\d.]+), (-?[\\d.]+), (-?[\\d.]+)\\)");
+    private static final Pattern SAVED_FROM = Pattern.compile("firing the saved look from \\(-?[\\d.]+, (-?[\\d.]+), -?[\\d.]+\\)");
     private static final Pattern CORRECTED = Pattern.compile("during path #(\\d+)'s warp (\\d+) \\(([\\d.]+) from its landing\\)");
 
     /** One room's route: its frame (name, clay, rotation), where each PATH node stands (real feet), and the real look of
@@ -106,8 +107,9 @@ public class SimPathLandTests implements FabricClientGameTest {
         long seed = Long.getLong("testkit.pathlandSeed", 1015L);
         int renderBefore = ctx.computeOnClient(mc -> mc.options.renderDistance().get());
         List<String> failures = new ArrayList<>();
-        int[] totals = new int[9];   // hops, wrong block, never landed, hop-1 re-aims, unpairable re-aims, rooms,
-                                     // aim probes, fragile aims, fragile aims with a firm one to be had
+        int[] totals = new int[11];   // hops, wrong block, never landed, hop-1 re-aims, unpairable re-aims, rooms,
+                                     // aim probes, fragile aims, fragile aims with a firm one to be had,
+                                     // saved looks fired from above their spot, probe: no run-time aim at all
         try {
             ctx.runOnClient(mc -> {
                 ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autopuzzles.AutoPuzzlesConfig"),
@@ -172,6 +174,11 @@ public class SimPathLandTests implements FabricClientGameTest {
         if (totals[6] < 100) {
             failures.add("aim probe: only " + totals[6] + " aim(s) worked out - too few to measure");
         }
+        println(String.format(Locale.US, "SAVED LOOK: %d warp(s) fired their saved look from above the spot it was planned "
+                + "from; aim probe: %d pair(s) with no run-time aim from 0.05 up (the saved look goes then)", totals[9], totals[10]));
+        if (totals[9] > 0) {
+            failures.add(totals[9] + " warp(s) fired their saved look from 0.05 over the spot it was planned from");
+        }
         if (totals[8] * 100 > totals[6]) {
             failures.add("aim probe: " + totals[8] + " of " + totals[6] + " run-time aims were fragile while a firm aim existed");
         }
@@ -233,6 +240,7 @@ public class SimPathLandTests implements FabricClientGameTest {
             for (int i = 0; i < 3; i++) {
                 totals[6 + i] += pr[i];
             }
+            totals[10] += pr[3];
         }
         println("floor " + f + ": " + rooms.size() + " room(s), routes in " + routes.size() + ": "
                 + routes.stream().map(RoomRoute::name).toList());
@@ -355,6 +363,7 @@ public class SimPathLandTests implements FabricClientGameTest {
         int aims = 0;
         int fragile = 0;
         int avoidable = 0;
+        int noAim = 0;
         for (int k = 0; k < 4000 && aims < 120 && all.size() > 1; k++) {
             BlockPos a = all.get(rng.nextInt(all.size()));
             BlockPos b = all.get(rng.nextInt(all.size()));
@@ -366,6 +375,18 @@ public class SimPathLandTests implements FabricClientGameTest {
             Object rot = ModUnderTest.staticCall(TELEPORT_UTILS, "getEtherwarpDirection",
                     new Class<?>[]{Vec3.class, BlockPos.class, double.class}, new Object[]{eye, b, 57.0});
             if (rot == null) {
+                try {
+                    rot = ModUnderTest.staticCall(TELEPORT_UTILS, "exactEtherwarpDirection",
+                            new Class<?>[]{Vec3.class, BlockPos.class, double.class}, new Object[]{eye, b, 57.0});
+                } catch (AssertionError e) {
+                    rot = null;   // main: no exact fallback
+                }
+            }
+            if (rot == null) {
+                // From the settled eye a firm aim exists (what the planner saves) but none from the landing tick's.
+                if (firmAim(new Vec3(eye.x, eye.y - 0.05, eye.z), b, 0.01f) != null) {
+                    noAim++;
+                }
                 continue;
             }
             aims++;
@@ -378,7 +399,7 @@ public class SimPathLandTests implements FabricClientGameTest {
                 }
             }
         }
-        return new int[]{aims, fragile, avoidable};
+        return new int[]{aims, fragile, avoidable, noAim};
     }
 
     /** Whether the etherwarp from {@code eye} lands on {@code to} along the look and along it nudged {@code m} degrees
@@ -524,6 +545,11 @@ public class SimPathLandTests implements FabricClientGameTest {
         for (String l : log) {
             reaimed += l.contains("[AutoRoutes] Etherwarp (path hop 1): re-aimed from") ? 1 : 0;
             unpairable += l.contains("[AutoRoutes] Etherwarp: re-aimed ") && l.contains("rays agree") ? 1 : 0;
+            Matcher sv = SAVED_FROM.matcher(l);
+            if (sv.find() && Math.abs(Double.parseDouble(sv.group(1)) - Math.floor(Double.parseDouble(sv.group(1))) - 0.05) < 0.005) {
+                totals[9]++;
+                println(label + ": saved look fired from above its spot: " + l.substring(l.indexOf("[AutoRoutes]")));
+            }
             if (l.contains("[AutoRoutes] Stopped: ")) {
                 stop = l.substring(l.indexOf("Stopped: ") + 9);
             }
