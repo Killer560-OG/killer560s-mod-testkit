@@ -112,9 +112,10 @@ final class EtableDefaultsCases {
         return Mod.field(cfg, field);
     }
 
-    /** killer560's screenshot, 2026-10-15. The feature's own switch keeps its default (off). */
-    static final String HIS = "superpairs=true valuableOnly=true skipGrand=true skipGuardian=true adaptive=false"
-            + " blockInput=false guardianSwap=true stop=MAX_CLICKS delay=400 first=600 random=50 renew=0 titanic=800000"
+    /** killer560's screenshot, 2026-10-15, less what he kept off for everyone the same day: the three Superpairs skips
+     *  and the Titanic purchase. The feature's own switch keeps its default (off). */
+    static final String HIS = "superpairs=true valuableOnly=false skipGrand=false skipGuardian=false adaptive=false"
+            + " blockInput=false guardianSwap=true stop=MAX_CLICKS delay=400 first=600 random=50 renew=0 titanic=0"
             + " auto=false";
 
     /** The defaults before 2026-10-15, as a version-1 file wrote them. */
@@ -148,14 +149,17 @@ final class EtableDefaultsCases {
             if (!migrated.equals(expectMigrated)) {
                 problems.add("old defaults file: got " + migrated + ", expected " + expectMigrated);
             }
-            // (c) an old file whose owner changed Click Delay, Random Delay and the Titanic price: those stay as they
-            // are, while everything still at an old default moves.
+            // (c) an old file whose owner changed Click Delay, Random Delay, the Titanic price and turned two skips on:
+            // those stay as they are, while every delay still at an old default moves.
             loadFrom(c, oldDefaultsFile("").replace("\"delayMs\":200", "\"delayMs\":550")
+                    .replace("\"superpairsValuableOnly\":false", "\"superpairsValuableOnly\":true")
+                    .replace("\"skipGuardianPets\":false", "\"skipGuardianPets\":true")
                     .replace("\"randomDelayMaxMs\":0", "\"randomDelayMaxMs\":100")
                     .replace("\"titanicMaxPriceCoins\":0.0", "\"titanicMaxPriceCoins\":1234567.0"));
             String kept = snapshot(c);
             String expectKept = HIS.replace("delay=400", "delay=550").replace("random=50", "random=100")
-                    .replace("titanic=800000", "titanic=1234567");
+                    .replace("titanic=0", "titanic=1234567").replace("valuableOnly=false", "valuableOnly=true")
+                    .replace("skipGuardian=false", "skipGuardian=true");
             c.note("old file with changed delays/price: " + kept);
             if (!kept.equals(expectKept)) {
                 problems.add("changed values: got " + kept + ", expected " + expectKept);
@@ -169,7 +173,7 @@ final class EtableDefaultsCases {
                     .replace("\"autoRenewCount\":0", "\"autoRenewCount\":3"));
             String garbage = snapshot(c);
             String expectGarbage = HIS.replace("delay=400", "delay=150").replace("first=600", "first=150")
-                    .replace("titanic=800000", "titanic=3000000").replace("renew=0", "renew=3");
+                    .replace("titanic=0", "titanic=3000000").replace("renew=0", "renew=3");
             c.note("zero/negative/garbage file: " + garbage);
             if (!garbage.equals(expectGarbage)) {
                 problems.add("zero/garbage file: got " + garbage + ", expected " + expectGarbage);
@@ -191,9 +195,9 @@ final class EtableDefaultsCases {
             c.ctx().runOnClient(mc -> {
                 Object cfg = Mod.cfg(CONFIG);
                 Mod.call(cfg, "setSuperpairsEnabled", false);
-                Mod.call(cfg, "setSuperpairsValuableOnly", false);
-                Mod.call(cfg, "setSkipGrandExpBottles", false);
-                Mod.call(cfg, "setSkipGuardianPets", false);
+                Mod.call(cfg, "setSuperpairsValuableOnly", true);
+                Mod.call(cfg, "setSkipGrandExpBottles", true);
+                Mod.call(cfg, "setSkipGuardianPets", true);
                 Mod.call(cfg, "setSuperpairsAdaptiveTimeout", true);
                 Mod.call(cfg, "setBlockInputEnabled", true);
                 Mod.call(cfg, "setAutoSwapGuardianPet", false);
@@ -208,7 +212,7 @@ final class EtableDefaultsCases {
                 Mod.staticCall(CONFIG, "load");
             });
             String restarted = snapshot(c);
-            String expectRestarted = "superpairs=false valuableOnly=false skipGrand=false skipGuardian=false adaptive=true"
+            String expectRestarted = "superpairs=false valuableOnly=true skipGrand=true skipGuardian=true adaptive=true"
                     + " blockInput=true guardianSwap=false stop=MAX_XP delay=650 first=2500 random=300 renew=1"
                     + " titanic=1500000 auto=false";
             c.note("after save + load: " + restarted);
@@ -258,8 +262,7 @@ final class EtableDefaultsCases {
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutonomousMode", true).set(CONFIG, "SuperpairsEnabled", true)
                     .set(CONFIG, "StopStrategy", Mod.enumValue("experiments.ExperimentStopStrategy", "MAX_XP"))
-                    .set(CONFIG, "BlockInputEnabled", false).set(CONFIG, "AutoSwapGuardianPet", false)
-                    .set(CONFIG, "SuperpairsValuableOnly", false);
+                    .set(CONFIG, "BlockInputEnabled", false).set(CONFIG, "AutoSwapGuardianPet", false);
             c.ctx().runOnClient(mc -> Mod.setField(ExperimentCases.FEATURE, "armed", true));
             try {
                 int before = c.events("experiment.click").size();
