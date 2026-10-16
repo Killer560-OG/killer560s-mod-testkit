@@ -76,6 +76,8 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
     private static final List<int[]> PRESS_ROWS = new ArrayList<>();
     private static final List<Long> PHASE1_MS = new ArrayList<>();
     private static final List<Long> PHASE2_MS = new ArrayList<>();
+    /** Per floor: {client us a tick average, client us at most, planner ms a second}. */
+    private static final List<double[]> COST_ROWS = new ArrayList<>();
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -160,6 +162,13 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
         println("floor " + f + ": routed " + routes.keySet());
 
         // ---- GO: the gate opens ------------------------------------------------------------------------------------
+        if (hasCache) {
+            try {
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(CACHE, "resetCost"));
+            } catch (Throwable ignored) {
+                // an older branch jar without the cost counters
+            }
+        }
         long go = System.currentTimeMillis();
         long goTick = tick(ctx);
         ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRun", "begin",
@@ -302,6 +311,20 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
         // ---- a doorway walled up, then opened: dropped by the change, planned again ------------------------------------
         doorway(ctx, spot, targets, failures);
 
+        try {
+            long[] cost = ctx.computeOnClient(mc -> (long[]) ModUnderTest.staticCall(CACHE, "cost"));
+            double wall = (System.currentTimeMillis() - go) / 1000.0;
+            double avgUs = cost[0] == 0 ? 0 : cost[1] / 1000.0 / cost[0];
+            println(String.format(Locale.US, "floor %d: cost - client tick %.1f us average over %d tick(s), %.0f us at most;"
+                            + " planner %.0f ms in %.0f s (%.1f ms a second, off the render thread)", f, avgUs, cost[0],
+                    cost[2] / 1000.0, cost[3] / 1e6, wall, cost[3] / 1e6 / Math.max(1, wall)));
+            COST_ROWS.add(new double[]{avgUs, cost[2] / 1000.0, cost[3] / 1e6 / Math.max(1, wall)});
+            if (avgUs > 1000) {
+                failures.add(String.format(Locale.US, "the precompute's client tick averaged %.0f us (budget 1000)", avgUs));
+            }
+        } catch (Throwable e) {
+            println("floor " + f + ": cost counters not in this jar");
+        }
         int[] st = ctx.computeOnClient(mc -> (int[]) ModUnderTest.staticCall(CACHE, "stats"));
         println(String.format(Locale.US, "floor %d: cache stats - %d hit(s), %d miss(es), %d rejected at use, %d dropped by"
                         + " block changes, %d search(es), %d stored, %d with no plan, %d held, %d room-order cost(s) read",
@@ -844,6 +867,11 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
                         + " searched; precomputed trips costlier than fresh: %d;%s", PRESS_ROWS.size(),
                 nOn == 0 ? "-" : String.format(Locale.US, "%.2f", onT / nOn),
                 nOff == 0 ? "-" : String.format(Locale.US, "%.2f", offT / nOff), costlier, rows));
+        StringBuilder cost = new StringBuilder();
+        for (double[] c : COST_ROWS) {
+            cost.append(String.format(Locale.US, " [%.1f us avg, %.0f us max, %.1f planner ms/s]", c[0], c[1], c[2]));
+        }
+        println("SUMMARY cost per floor:" + cost);
         println("SUMMARY phase 1 ready (ms after the gate opened): " + PHASE1_MS + "; phase 2 done (ms): " + PHASE2_MS
                 + (hasCache ? "" : " (no TripCache)"));
     }

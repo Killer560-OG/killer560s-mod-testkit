@@ -832,3 +832,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   menu, opened before its recorder, stamped its open fade at the later time, and `MenuAnim.progress` reads a start 0-1 s
   ahead as 0, so the whole menu vanished for a second once the new clock came within 1 s of the old end (Home 14.6 s
   after the 15.6 s sim-run clip, Profiles 24.6 s after the 25.6 s HUD editor clip). Failed 70/90 frames before the fix.
+- 147-sim-map-precompute (mod map-precompute-1015): three generated F7s, four one-node start routes each; phase 1
+  readiness after the gate opens, the same press ON then OFF (Precompute Trips) from the same spot with the planner's own
+  fresh plan before each, phase 2, a block across a cached trip's first warp with TripCache's drop and searches held off
+  (`testNoCorridorDrop`, `testPaused`), and a doorway walled up and opened. A press on a room with a recorded spot (Tic
+  Tac Toe, Quiz, the other `AutoClearUtils` overrides) is a BLOCK trip to `overrideGoal`, not a tile trip: the first
+  fresh-plan comparator planned the tile and read 19/5/5 warps beside the press's 20/6/7 (the OFF press agreed with the
+  cache every time). Resolve the goal the way `pathToRoom` does before comparing.
