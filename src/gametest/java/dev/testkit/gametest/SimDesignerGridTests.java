@@ -193,8 +193,8 @@ public class SimDesignerGridTests implements FabricClientGameTest {
 
     /**
      * Places one room of each shape by real clicks (pick it, click its anchor cell), each with an empty cell between it
-     * and the next so no doorway is drawn between them. Arrangement 0 fills from the top-left, 1 from the bottom-right
-     * in the other order, so every shape is measured at two positions.
+     * and the next so no doorway is drawn between them. Arrangement 0 fills from the top-left, 1 from the bottom-right,
+     * so every shape is measured at two positions.
      */
     private List<Placed> place(ClientGameTestContext ctx, Map<String, String> rooms, int arrangement) {
         int[] size = ctx.computeOnClient(mc -> {
@@ -205,10 +205,8 @@ public class SimDesignerGridTests implements FabricClientGameTest {
         int down = size[1];
         boolean[][] taken = new boolean[across][down];
         List<Placed> out = new ArrayList<>();
+        // Biggest first in both, so they pack; the scan direction is what moves every room.
         List<String> order = new ArrayList<>(List.of(SHAPES));
-        if (arrangement == 1) {
-            java.util.Collections.reverse(order);
-        }
         for (String shape : order) {
             String name = rooms.get(shape);
             if (name == null) {
