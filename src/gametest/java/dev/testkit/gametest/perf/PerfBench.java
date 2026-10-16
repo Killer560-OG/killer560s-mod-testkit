@@ -325,7 +325,7 @@ final class PerfBench {
         return String.join(", ", done);
     }
 
-    private static int copyRealRooms() {
+    static int copyRealRooms() {
         try {
             Path source = Path.of(ModUnderTest.instanceConfig(Machine.roomsConfigDir(), "killer560smod-rooms"));
             if (!Files.isDirectory(source)) {
