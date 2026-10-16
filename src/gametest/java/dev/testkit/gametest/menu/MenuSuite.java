@@ -71,8 +71,9 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *       together, and each failure's chat line ({@link LeapV2MenuCases})</li>
  *   <li>1361-1364 Loadout Keybinds' per-key mode: Only In Menu, Open Swap Close, its timeout, a wrong menu and chat
  *       typing ({@link LoadoutModeCases})</li>
- *   <li>1850-1851 the Swap Accounts screen: full-width rows, Active / proxy status, search, scroll, small windows,
- *       and every control's job by real presses ({@link SwapAccountsCases})</li>
+ *   <li>1850-1852 the Swap Accounts screen: full-width rows, Active / proxy status, search, scroll, small windows,
+ *       every control's job by real presses, and (1852) the signed-in card standing out with no hint line
+ *       ({@link SwapAccountsCases})</li>
  *   <li>761-767 the Bazaar flipper's full buy/sell cycle with the reskin off and on, its Cookie and price guards, and
  *       Auto Croesus going back into a claimed run for a keyed chest ({@link FlipCroesusCases})</li>
  * </ul>
@@ -178,7 +179,7 @@ public class MenuSuite implements FabricClientGameTest {
                     DocDungeonsMenuCases.register(s);
                     // ---- leap-v2 (1341-1342): Auto Leap's swap/use/click/return sequence and its failures ----
                     LeapV2MenuCases.register(s);
-                    // ---- 1850-1851 swap-accounts-ui (2026-10-15): the redone Swap Accounts screen, Set Universal Proxy ----
+                    // ---- 1850-1852 swap-accounts-ui (2026-10-15, 1852 2026-10-16): the redone Swap Accounts screen, Set Universal Proxy ----
                     SwapAccountsCases.register(s);
                 });
     }

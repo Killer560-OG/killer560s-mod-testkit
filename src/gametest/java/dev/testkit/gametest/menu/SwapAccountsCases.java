@@ -42,6 +42,7 @@ final class SwapAccountsCases {
     static void register(Session s) {
         MenuSuite.test(s, "1850-menu-swap-accounts-layout", SwapAccountsCases::layout);
         MenuSuite.test(s, "1851-menu-swap-accounts-buttons", SwapAccountsCases::buttons);
+        MenuSuite.test(s, "1852-menu-swap-accounts-active", SwapAccountsCases::active);
     }
 
     static final String[] NAMES = {"HxSwapAlpha", "HxSwapBravo", "HxSwapActive", "HxSwapProxied", "HxSwapEcho",
@@ -275,11 +276,11 @@ final class SwapAccountsCases {
             if (active != null) {
                 List<String> t = textsIn(c, s, SocialCases.rect(active));
                 c.note("active row texts " + t);
-                if (t.stream().noneMatch(x -> x.equals("Active"))) {
+                if (t.stream().noneMatch(x -> x.equalsIgnoreCase("Active"))) {
                     fails.add("the signed-in account's row does not say Active: " + t);
                 }
             }
-            long activeCount = allTexts(c, s).stream().filter(x -> x.equals("Active")).count();
+            long activeCount = allTexts(c, s).stream().filter(x -> x.equalsIgnoreCase("Active")).count();
             if (activeCount != 1) {
                 fails.add("'Active' is drawn " + activeCount + " times, not once");
             }
@@ -321,8 +322,9 @@ final class SwapAccountsCases {
             }
             c.ctx().waitTicks(10);
             AbstractWidget last = row(c, s, NAMES[NAMES.length - 1]);
-            boolean lastIn = last != null && c.onClient(mc -> last.visible && last.getY() >= list[1]
-                    && last.getY() + last.getHeight() <= list[1] + list[3] + 1);
+            // The card's drawn box: since 2026-10-16 the widget's own box is clipped to the list, so it would always pass.
+            boolean lastIn = last != null && c.onClient(mc -> last.visible && drawnY(last) >= list[1]
+                    && drawnY(last) + drawnH(last) <= list[1] + list[3] + 1);
             c.note("after scrolling down, the last row " + (last == null ? "missing" : SocialCases.str(SocialCases.rect(last))
                     + " visible " + last.visible));
             if (!lastIn) {
@@ -396,6 +398,23 @@ final class SwapAccountsCases {
     }
 
     // ---- 1851 buttons -----------------------------------------------------------------------------------------------
+
+    /** A row's drawn top: its drawY where the row keeps one (clipped widget box), else the widget's y. */
+    static int drawnY(AbstractWidget w) {
+        try {
+            return SocialCases.intField(w, "drawY");
+        } catch (RuntimeException | AssertionError e) {
+            return w.getY();
+        }
+    }
+
+    static int drawnH(AbstractWidget w) {
+        try {
+            return SocialCases.intField(w, "drawH");
+        } catch (RuntimeException | AssertionError e) {
+            return w.getHeight();
+        }
+    }
 
     static String status(Session c, Screen s) {
         return c.onClient(mc -> String.valueOf(Mod.field(s, "statusMessage")));
@@ -591,5 +610,142 @@ final class SwapAccountsCases {
             c.note("FAIL " + f);
         }
         c.check(fails.isEmpty(), fails.size() + " problem(s): " + fails);
+    }
+
+    // ---- 1852 active / hint -----------------------------------------------------------------------------------------
+
+    /** The hint line killer560 asked to remove (2026-10-16). */
+    static final String HINT = "Click an account to switch to it.";
+
+    /**
+     * killer560 (2026-10-16): "Make Active a bit more noticeable, and remove the 'Click an account to switch to it' line."
+     * At three window sizes, measured on the screenshot: the hint is drawn nowhere and the list runs down to the footer
+     * (its bottom within 10 units of the footer's top, where the hint row left 20); the signed-in account's card carries
+     * a SOLID accent pill (at least two pixel rows inside the card with a run of 20+ units of the accent colour, which a
+     * plain card has none of) and its background, sampled where no text is, is at least 35 (RGB distance) nearer the
+     * accent than a plain card's. Fails on main: the hint is there, the list stops 20 above the footer, and the tag is a
+     * faint green outline.
+     */
+    static void active(Session c) throws Exception {
+        List<String> fails = new ArrayList<>();
+        try (ScreenSweepCases.SweepEnv env = new ScreenSweepCases.SweepEnv(c); Accounts acc = new Accounts(c)) {
+            ScreenSweepCases.menuTheme(c, "AMBER");
+            int[][] sizes = {{1920, 1080, 2}, {854, 480, 2}, {1920, 1080, 3}};
+            int measured = 0;
+            for (int[] sz : sizes) {
+                BazaarV3Cases.setWindow(c, sz[0], sz[1], sz[2]);
+                Screen s = open(c);
+                c.ctx().getInput().setCursorPos(2, 2);
+                c.ctx().waitTicks(12);
+                String tag = sz[0] + "x" + sz[1] + " gui " + sz[2];
+                List<String> texts = allTexts(c, s);
+                if (texts.stream().anyMatch(x -> x.contains("Click an account"))) {
+                    fails.add(tag + ": still draws '" + HINT + "'");
+                }
+                int[] list = list(c, s);
+                int footerTop = c.onClient(mc -> SocialCases.intField(s, "footerTop"));
+                int gap = footerTop - (list[1] + list[3]);
+                c.note(tag + ": list " + SocialCases.str(list) + ", footer top " + footerTop + ", gap " + gap);
+                if (gap > 10) {
+                    fails.add(tag + ": the list stops " + gap + " units above the footer - the hint's row was not given back");
+                }
+                AbstractWidget active = row(c, s, NAMES[ACTIVE]);
+                AbstractWidget plain = row(c, s, NAMES[0]);
+                if (active == null || plain == null || !active.visible || !plain.visible) {
+                    fails.add(tag + ": the active and a plain row are not both visible");
+                    continue;
+                }
+                int accent = c.onClient(mc -> (Integer) Mod.field("gui.MenuStyle", "OR")) & 0xFFFFFF;
+                int[] ar = SocialCases.rect(active);
+                int[] pr = SocialCases.rect(plain);
+                AbstractWidget copyA = inRow(c, s, active, "Copy ID");
+                AbstractWidget copyP = inRow(c, s, plain, "Copy ID");
+                int textRightA = copyA == null ? ar[0] + ar[2] - 120 : copyA.getX();
+                int textRightP = copyP == null ? pr[0] + pr[2] - 120 : copyP.getX();
+                java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(
+                        ScreenSweepCases.shot(c, "Swap Accounts", "Active " + sz[0] + "x" + sz[1] + " gui " + sz[2]).toFile());
+                double ppu = img.getWidth() / (double) c.onClient(mc -> s.width);
+                int pillA = accentRows(img, ar, ppu, accent);
+                int pillP = accentRows(img, pr, ppu, accent);
+                double[] bgA = background(img, ar, textRightA, ppu);
+                double[] bgP = background(img, pr, textRightP, ppu);
+                double dA = dist(bgA, accent);
+                double dP = dist(bgP, accent);
+                c.note(String.format(Locale.ROOT, "%s: accent-run rows active %d plain %d; background active (%.0f,%.0f,%.0f) "
+                        + "plain (%.0f,%.0f,%.0f), distance to the accent %.1f vs %.1f", tag, pillA, pillP, bgA[0], bgA[1],
+                        bgA[2], bgP[0], bgP[1], bgP[2], dA, dP));
+                measured++;
+                if (pillA < 2 || pillP > 0) {
+                    fails.add(tag + ": no solid accent pill on the active row (" + pillA + " accent-run rows, a plain row "
+                            + pillP + ")");
+                }
+                if (dP - dA < 35) {
+                    fails.add(String.format(Locale.ROOT, "%s: the active card's background is only %.1f nearer the accent "
+                            + "than a plain one's", tag, dP - dA));
+                }
+            }
+            if (measured < sizes.length) {
+                fails.add("only " + measured + " of " + sizes.length + " sizes were measured");
+            }
+        }
+        for (String f : fails) {
+            c.note("FAIL " + f);
+        }
+        c.check(fails.isEmpty(), fails.size() + " problem(s): " + fails);
+    }
+
+    /** Pixel rows inside the card (8 units in from the left, 3 from the other edges) holding a run of 20+ units of the
+     *  accent colour - only a solid accent fill makes one; the frame and the side bar are outside the inset. */
+    static int accentRows(java.awt.image.BufferedImage img, int[] r, double ppu, int accent) {
+        int x0 = (int) Math.ceil((r[0] + 8) * ppu);
+        int x1 = (int) Math.floor((r[0] + r[2] - 3) * ppu);
+        int y0 = (int) Math.ceil((r[1] + 3) * ppu);
+        int y1 = (int) Math.floor((r[1] + r[3] - 3) * ppu);
+        int need = (int) Math.round(20 * ppu);
+        int rows = 0;
+        for (int y = Math.max(0, y0); y < Math.min(img.getHeight(), y1); y++) {
+            int run = 0;
+            int best = 0;
+            for (int x = Math.max(0, x0); x < Math.min(img.getWidth(), x1); x++) {
+                int rgb = img.getRGB(x, y) & 0xFFFFFF;
+                boolean hit = true;
+                for (int sh = 0; sh < 24; sh += 8) {
+                    hit &= Math.abs(((rgb >> sh) & 0xFF) - ((accent >> sh) & 0xFF)) <= 8;
+                }
+                run = hit ? run + 1 : 0;
+                best = Math.max(best, run);
+            }
+            if (best >= need) {
+                rows++;
+            }
+        }
+        return rows;
+    }
+
+    /** The card's mean colour over a strip with no text: 30..10 units left of its buttons, 3 units in from top/bottom. */
+    static double[] background(java.awt.image.BufferedImage img, int[] r, int textRight, double ppu) {
+        int x0 = (int) Math.ceil((textRight - 30) * ppu);
+        int x1 = (int) Math.floor((textRight - 10) * ppu);
+        int y0 = (int) Math.ceil((r[1] + 3) * ppu);
+        int y1 = (int) Math.floor((r[1] + r[3] - 3) * ppu);
+        double[] sum = new double[3];
+        int n = 0;
+        for (int y = y0; y < y1; y++) {
+            for (int x = x0; x < x1; x++) {
+                int rgb = img.getRGB(x, y);
+                sum[0] += (rgb >> 16) & 0xFF;
+                sum[1] += (rgb >> 8) & 0xFF;
+                sum[2] += rgb & 0xFF;
+                n++;
+            }
+        }
+        return new double[]{sum[0] / Math.max(1, n), sum[1] / Math.max(1, n), sum[2] / Math.max(1, n)};
+    }
+
+    static double dist(double[] c, int rgb) {
+        double dr = c[0] - ((rgb >> 16) & 0xFF);
+        double dg = c[1] - ((rgb >> 8) & 0xFF);
+        double db = c[2] - (rgb & 0xFF);
+        return Math.sqrt(dr * dr + dg * dg + db * db);
     }
 }
