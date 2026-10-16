@@ -59,7 +59,7 @@ public class SimPathLandTests implements FabricClientGameTest {
     private static final String EXECUTOR = "com.killer560.hub.autoroutes.RouteExecutor";
     private static final String MEMORY = "com.killer560.hub.autoroutes.RouteRunMemory";
     private static final String OVERLAY = "com.killer560.hub.etherwarpoverlay.EtherwarpOverlayFeature";
-    private static final int ROOMS_PER_FLOOR = 6;
+    private static final int ROOMS_PER_FLOOR = 10;
 
     private static final Pattern ACTED = Pattern.compile("\\[AutoRoutes\\] Node #(\\d+) PATH acted .*\\(path warp (\\d+)/(\\d+)\\)");
     private static final Pattern LANDED = Pattern.compile("\\[AutoRoutes\\] Etherwarp: landed at \\((-?[\\d.]+), (-?[\\d.]+), (-?[\\d.]+)\\)");
@@ -535,7 +535,9 @@ public class SimPathLandTests implements FabricClientGameTest {
             if (why == null) {
                 continue;
             }
-            if (h.landed() == null) {
+            // A warp the executor saw land more than 2 blocks off its plan reads as "the server moved you": in the sim
+            // nothing else teleports him, so that is the warp landing somewhere else - a wrong block too.
+            if (h.landed() == null && !h.note().startsWith("the server put him")) {
                 never++;
             } else {
                 wrong.add(why);
@@ -626,7 +628,7 @@ public class SimPathLandTests implements FabricClientGameTest {
             }
             Matcher c = CORRECTED.matcher(l);
             if (c.find()) {
-                out.add(new Hop(room, node, hop, null, "the server put him " + c.group(3) + " from its landing"));
+                out.add(new Hop(room, node, hop, null, "the server put him " + c.group(3) + " from its landing (WRONG BLOCK: the warp landed elsewhere)"));
                 node = -1;
                 continue;
             }
