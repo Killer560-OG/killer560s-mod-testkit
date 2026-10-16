@@ -146,6 +146,10 @@ public class PaintedScenesSuite implements FabricClientGameTest {
             return alloc[0] / (double) Math.max(1, alloc[2] + (long) tiles * alloc[1]);
         }
 
+        double perFrame() {
+            return alloc[0] / (double) Math.max(1, alloc[1]);
+        }
+
         double quadsPerFrame() {
             return alloc[2] / (double) Math.max(1, alloc[1]);
         }
@@ -229,10 +233,20 @@ public class PaintedScenesSuite implements FabricClientGameTest {
                 c.check(s.moved() > 0.0001, String.format(Locale.ROOT, "%s did not move over 4 s: %.3f%%", s.name(), s.moved() * 100));
                 c.check(titleLum(s.a().img()) < 0.09, String.format(Locale.ROOT, "%s is bright behind the title: %.3f",
                         s.name(), titleLum(s.a().img())));
-                c.check(s.bytesPerQuad() <= stars.bytesPerQuad() * 1.15, String.format(Locale.ROOT,
-                        "%s allocates beyond its rectangles: %.1f B/quad against STARS' %.1f", s.name(), s.bytesPerQuad(),
-                        stars.bytesPerQuad()));
             }
+            // Rectangles: the Milky Way's batch costs what STARS' does per rectangle.
+            c.check(plain.bytesPerQuad() <= stars.bytesPerQuad() * 1.15, String.format(Locale.ROOT,
+                    "%s allocates beyond its rectangles: %.1f B/quad against STARS' %.1f", plain.name(), plain.bytesPerQuad(),
+                    stars.bytesPerQuad()));
+            // The cape: what the character adds a frame, per tile, against a vanilla blit's own render state. Not B/quad
+            // against STARS: fps-gui-1015 made a batched rectangle ~29 B instead of ~160, a blit kept its ~213, so the
+            // blended figure rose to 43 with nothing new allocated (1016b: 164.5 vs 160.5, 1016c: 43.0 vs 28.7 B/quad -
+            // 190 KB a frame over the plain scene both times, 213 B a tile).
+            double perTile = (hero.perFrame() - plain.perFrame()) / Math.max(1, hero.tiles());
+            c.note(String.format(Locale.ROOT, "milkyway-char: %.0f B a frame over milkyway-nochar, %.0f B per cape tile",
+                    hero.perFrame() - plain.perFrame(), perTile));
+            c.check(perTile <= 320, String.format(Locale.ROOT, "%s allocates beyond its rectangles and tiles: %.0f B per cape"
+                    + " tile a frame (a blit's render state is ~213)", hero.name(), perTile));
             double vsStars = FontsMainMenuSuite.changed(plain.a().img(), stars.a().img());
             c.check(vsStars > 0.05, String.format(Locale.ROOT, "the Milky Way looks like the old starfield: %.1f%% differ", vsStars * 100));
             // killer560's picture graded black and white ("mainly black and white"): no channel far from the others

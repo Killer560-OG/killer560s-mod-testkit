@@ -231,6 +231,14 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
                 backTo(ctx, spot);
                 awaitPhase1(ctx);
                 on = press(ctx, t[0], t[1], "ON", failures);
+                if (on != null && !on.cached && on.warmedDuring) {
+                    // The full floor graph warmed between phase 1's check and the press: the mod does not fly a quick
+                    // graph trip then (fps-fix-1016) and searches; once the cache has planned it again, press again.
+                    println("  ON tile " + t[0] + ": the full graph warmed during the press - pressing again");
+                    backTo(ctx, spot);
+                    awaitPhase1(ctx);
+                    on = press(ctx, t[0], t[1], "ON", failures);
+                }
             }
             backTo(ctx, spot);
             if (hasCache) {
@@ -340,7 +348,11 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
 
     // ================================================================================================ presses
 
-    private record Press(int ticks, int warps, int fresh, boolean cached, boolean arrived) {
+    private record Press(int ticks, int warps, int fresh, boolean cached, boolean arrived, boolean warmedDuring) {
+    }
+
+    private static boolean fullWarm(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(PATHFINDER, "fullWarm"));
     }
 
     /** One map press on {@code tile}; ticks from the press to its first warp, warps flown, the fresh plan's warps. */
@@ -349,10 +361,13 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
             ctx.waitTicks(1);
         }
         Vec3 from = ctx.computeOnClient(mc -> mc.player.position());
+        boolean warmBefore = fullWarm(ctx);
         int fresh = freshWarps(ctx, from, tile, room);
         long mark = LogTap.mark();
         long[] pressTick = {-1};
+        boolean[] warmAtPress = {false};
         Boolean ok = ctx.computeOnClient(mc -> {
+            warmAtPress[0] = (Boolean) ModUnderTest.staticCall(PATHFINDER, "fullWarm");
             pressTick[0] = (Long) ModUnderTest.staticCall(EXECUTOR, "clientTick");
             Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
             return (Boolean) ModUnderTest.staticCall(CLEAR_UTILS, "pathToRoom",
@@ -410,7 +425,7 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
         if (offPlan) {
             failures.add(label + " tile " + tile + ": the trip went off the plan");
         }
-        return new Press(ticks, warps, fresh, cached, arrived);
+        return new Press(ticks, warps, fresh, cached, arrived, warmAtPress[0] && !warmBefore);
     }
 
     /**
@@ -649,7 +664,8 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
         for (int i = 0; i < 100; i++) {
             Vec3 o = ctx.computeOnClient(mc -> (Vec3) ModUnderTest.staticCall(CACHE, "origin"));
             int[] s = status(ctx, 1);
-            if (o != null && o.distanceTo(at) < 0.3 && s[0] > 0 && s[3] == 0) {
+            // No trip missing, and none on the quick graph once the full one is warm (those are planned again, not flown).
+            if (o != null && o.distanceTo(at) < 0.3 && s[0] > 0 && s[3] == 0 && (s[4] == 0 || !fullWarm(ctx))) {
                 return;
             }
             ctx.waitTicks(1);
