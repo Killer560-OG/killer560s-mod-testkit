@@ -78,3 +78,34 @@ measured as good, and commit the file with the change that justifies it). Budget
 Run it before merging anything that adds a HUD element, a render listener or a per-tick handler; when it fails, the
 `OVER` lines in `perf-gate.txt` name the feature package, and 95-perf-features with `-PperfOnly=<it>` says which
 callback.
+
+## The mod's mixins into vanilla (95-mixin-bench, 95-mixin-fixes)
+
+PerfProbe sees Fabric listeners and HUD layers only; a mixin handler is merged into the vanilla class it targets
+(JFR names it `<vanilla class>.handler$abc000$killer560smod$name`, which `tools/fps-jfr.py` now counts as mod code).
+
+```
+./run-scenario.ps1 -Scenario 95-mixin-bench -Port <port> -TimeoutSeconds 900 -ModUnderTest <cheat jar> -Extra @("-PtestVolume=0")
+./run-scenario.ps1 -Scenario 95-mixin-bench -Port <port> -TimeoutSeconds 900 -NoMod -Extra @("-PtestVolume=0")
+./run-scenario.ps1 -Scenario 95-mixin-fixes -Port <port> -TimeoutSeconds 600 -ModUnderTest <jar> -Extra @("-PtestVolume=0")
+```
+
+**95-mixin-bench** (`perf/MixinBenchTest`, ~3 min, only when named; runs with or without the mod): 403's hub scene (120
+named stands, 60 zombies, 80-row tab, the SkyBlock sidebar) plus a chest, button, lever and skull. DIRECT: about
+twenty hot vanilla methods the mod hooks (team colour, glow, entity culling, hover name, components, dye colour, font
+width, tooltips, chunk lookups, block shapes, cooldowns, view yaw, FOV, mouse scaling) called in a tight loop on the
+client thread, best of 5 after 2 warm-ups, in ns per call; the mod's cost is the difference from the `-NoMod` run. FRAME:
+`harness/MixinBench` `@WrapMethod` timers (`testkit.bench.mixins.json`, applied only for a filter naming `95-mixin`)
+around `extractSlot`, a whole container screen, `extractEntity`, `shouldRender` and GUI text/sprite/fill calls,
+during a 54-slot SkyBlock menu with slot 13 hovered and then the lobby, plus render-thread KB per frame. With the mod it
+runs DEFAULTS and ALL ON (95's set, 403's hub extras, and the features whose hooks it exists for). `mixin-bench.txt/.tsv`.
+`-PmixinBenchOnly=direct|frame|alone`, `-PmixinBenchFrames=300`, `-PmixinBenchIters=1000000`, `-PmixinBenchJfr` (one JFR
+per in-frame phase, `mixin-<config>-<phase>.jfr`), `-PmixinBenchAlone` (the menu timed with each ALL ON switch alone,
+`-PmixinBenchAloneTicks=40`). The `@WrapMethod` timers box primitive arguments (`Integer.valueOf` per call), the same
+on both sides of an A/B, so read KB/frame as a difference between jars, never against another bench.
+
+**95-mixin-fixes** (`perf/MixinFixesTest`, ~1 min): allocated bytes per call (20,000 calls after a warm-up) of the hot
+paths fixed on branch fps-mixins-1015, each with a check that the feature still acted. Fails on mod main 69505e45 with
+seven failures. A mixin's `CallbackInfo(Returnable)` costs 24 B per call whenever the JIT leaves its handler out of line,
+and in a tight loop that changed between runs of the same jar (0 or 24 B), so the budgets sit above 24 B and below
+what main allocated.
