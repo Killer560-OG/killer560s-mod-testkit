@@ -97,6 +97,7 @@ public final class SimNoWaitTimingTests {
             }
             net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition();
             boolean fresh = false;
+            java.util.Set<Integer> added = new java.util.HashSet<>();
             for (var a : mc.level.getEntitiesOfClass(net.minecraft.world.entity.projectile.arrow.AbstractArrow.class,
                     new net.minecraft.world.phys.AABB(eye, eye).inflate(4.0), a -> a.tickCount <= 4)) {
                 if (!FLYING.containsKey(a.getId()) && !SEEN.contains(a.getId())) {
@@ -105,6 +106,7 @@ public final class SimNoWaitTimingTests {
                     }
                     FLYING.put(a.getId(), a.position());
                     SEEN.add(a.getId());
+                    added.add(a.getId());
                 }
             }
             if (fresh) {
@@ -116,6 +118,9 @@ public final class SimNoWaitTimingTests {
             }
             net.minecraft.world.phys.Vec3 aim = target == null ? null : target.position().add(0.0, -1.0, 0.0);
             FLYING.entrySet().removeIf(e -> {
+                if (added.contains(e.getKey())) {
+                    return false; // first seen this tick: no step to judge yet (a removed one is judged next tick)
+                }
                 net.minecraft.world.entity.Entity a = mc.level.getEntity(e.getKey());
                 if (a == null || a.isRemoved() || a.position().distanceTo(eye) > 40.0
                         || a.position().distanceToSqr(e.getValue()) < 1.0e-4) {
