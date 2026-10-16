@@ -60,16 +60,17 @@ final class HxScoreboardCases {
         s.test("1665-hx-sb-list-kept", HxScoreboardCases::listKept);
         s.test("1666-hx-sb-settings-page", HxScoreboardCases::settingsPage);
         s.test("1667-hx-sb-shot", HxScoreboardCases::shot);
+        HxScoreboardAnchorCases.register(s);
     }
 
     // ---- helpers ----------------------------------------------------------------------------------------------------
 
-    private static Object element() {
+    static Object element() {
         return Mod.staticCall("hud.HudElementRegistry", "byId", ID);
     }
 
     /** {x, y, w, h} of the board's box where the mod draws it now, plus the GUI screen size {sw, sh}. */
-    private static int[] box(Minecraft mc) {
+    static int[] box(Minecraft mc) {
         Object el = element();
         int[] pos = (int[]) Mod.staticCall("hud.HudElementRegistry", "resolvePosition", el);
         float scale = ((Number) Mod.staticCall("hud.HudElementRegistry", "resolveScale", el)).floatValue();
@@ -93,7 +94,7 @@ final class HxScoreboardCases {
         return (Long) Mod.staticCall("hud.HudSeen", "msSince", ID, System.currentTimeMillis());
     }
 
-    private static void skyblock(Session c) {
+    static void skyblock(Session c) {
         sidebar(c, "template", "hub", "extra", List.of("Purse: §6" + PURSE, "§7Late Summer 12th", "§711:40am"));
         tab(c, "template", "area", "area", "Hub");
         c.waitUntil("Skyblock (the sidebar title)", mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isOnSkyblock"), 100);
@@ -111,7 +112,7 @@ final class HxScoreboardCases {
         Mod.call(cfg, "save");
     }
 
-    private static byte[] read(Path p) {
+    static byte[] read(Path p) {
         try {
             return Files.exists(p) ? Files.readAllBytes(p) : null;
         } catch (Exception e) {
@@ -119,7 +120,7 @@ final class HxScoreboardCases {
         }
     }
 
-    private static void write(Path p, byte[] data) {
+    static void write(Path p, byte[] data) {
         try {
             if (data == null) {
                 Files.deleteIfExists(p);
@@ -132,7 +133,7 @@ final class HxScoreboardCases {
     }
 
     /** Snapshot of the scoreboard config and HudConfig, put back (and reloaded) on close. */
-    private static final class Saved implements AutoCloseable {
+    static final class Saved implements AutoCloseable {
         private final Session c;
         private final Path cfgPath;
         private final Path hudPath;
@@ -165,7 +166,7 @@ final class HxScoreboardCases {
         }
     }
 
-    private static void setWindow(Session c, int w, int h, int gui) {
+    static void setWindow(Session c, int w, int h, int gui) {
         c.ctx().getInput().resizeWindow(w, h);
         c.ctx().waitTicks(3);
         c.ctx().runOnClient(mc -> {
@@ -175,7 +176,7 @@ final class HxScoreboardCases {
         c.ctx().waitTicks(6);
     }
 
-    private static void enable(Session c) {
+    static void enable(Session c) {
         c.onClient(mc -> {
             Object cfg = Mod.cfg(CFG);
             Mod.call(cfg, "setEnabled", true);
@@ -184,7 +185,7 @@ final class HxScoreboardCases {
         });
     }
 
-    private static void waitDrawn(Session c, String where) {
+    static void waitDrawn(Session c, String where) {
         c.ctx().waitTicks(12); // rebuilt every 5 ticks; then drawn on the next frames
         c.waitUntil("the board draws in game (" + where + ")", mc -> sinceDrawn(mc) < 300, 100);
     }
