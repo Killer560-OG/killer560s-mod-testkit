@@ -600,6 +600,10 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	if (project.hasProperty("perfNoCeiling")) {
 		systemProperty "testkit.perf.noCeiling", "true"
 	}
+	// 95-perf-ar-render: -PperfArRef=<dir> compares its still shots with another jar's (its ar-render-shots folder).
+	if (project.hasProperty("perfArRef")) {
+		systemProperty "testkit.perf.arRef", file(project.property("perfArRef").toString()).absolutePath
+	}
 	if (project.hasProperty("perfAutoJfr")) {
 		systemProperty "testkit.perf.autoJfr", "true"
 	}

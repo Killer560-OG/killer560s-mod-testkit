@@ -159,6 +159,23 @@ IDLE (a feature acted, so the phase is not idle), and on its budgets: bytes per 
 Secret Aura ticks, no draw call for an idle status HUD, and two direct allocation checks of single hot calls
 (`EtherwarpHopper.range()` with nine Skyblock items in the hotbar, `TerminalSolverFeature.refreshState()` with a plain
 chest open and the solver on). Results in `perf-autoidle.txt` / `.tsv`.
+## Auto Routes node renderer (95-perf-ar-render)
+
+`perf/ArRenderBenchTest`, ~4 min, only when named; run it through `perf-lock.py` (ar-render-1016). PerfBench's scene with
+a 30-node route seeded 3-13 blocks south of the player (two nodes of every type, a start node, await modifiers, a stacked
+tile, a node of its own colour and radius, breaker blocks, a recorded path). Phases OFF (only the Dungeon Map on), then
+Auto Routes in BOX, BOX bare (no labels), CYLINDER, FILLED and EDIT BOX, `-PperfRounds` (1) x `-PperfBigTicks` (400).
+FAILS when the render listener allocates over 1500 B a frame plus 2500 B per node label drawn (a label is vanilla's
+`Font.drawInBatch`, ~0.8 KB), when the renderer rebuilt its mesh or palette with nothing changing, drew no frame, or
+culled nothing in a full camera turn (`AutoRoutesRenderer.renderStats()`, mod ar-render-1016 and later). Then still
+shots (HUD hidden, noon, fixed view): no route, then each style normal and edit, into `ar-render-shots/`;
+`-PperfArRef=<another run's ar-render-shots>` compares each with that jar's (pixels over a summed RGB delta of 30,
+budget 80: a fire texture at the top edge animates between runs, 31-39 px a shot). Main 4b8d18da vs
+ar-render-1016: render listener 85.7 KB -> 24.6 KB a frame (BOX), 25.8 KB -> 0.2 KB (bare), 210 KB -> 24.6 KB (CYLINDER),
+every shot within the budget. On 26.2 the shot comparison is reported only: 26.2 orders translucent draws differently
+from one launch to the next (main against itself: up to 21,066 px on Filled edit, 285 px on Cylinder), and its byte
+floor is 4000 B (no mod batch there; each shape is its own submit, as on main). 96-ar-1016-activeframe (in 96-ar)
+checks the active node highlight frame by frame.
 ## The sim's own cost, startup and heap (95-perf-sim)
 
 `perf/SimPerfTest`, ~4 min, only when named (fps-sim-1015). First, before anything else touches the client: JVM uptime

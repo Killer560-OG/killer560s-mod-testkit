@@ -127,7 +127,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // ar-startguard (2026-10-12): a map arrival's start-only hold on a route with no start node
             "96-ar-920-nostart-mapwarp",
             // ar-redo (2026-10-12): /ar redo restores deletes and clears
-            "96-ar-960-redo-restore"};
+            "96-ar-960-redo-restore",
+            // ar-render-1016: the node renderer draws the executor's active node in the active colour on every frame
+            "96-ar-1016-activeframe"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -299,6 +301,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1015-serverlag" -> ArServerLagCases.serverLag(ctx);
                         case "96-ar-1015-pathland" -> ArPathLandCases.pathLand(ctx);
                         case "96-ar-1015-reaim" -> ArReaimCases.reaim(ctx);
+                        case "96-ar-1016-activeframe" -> ArRenderCases.activeFrame(ctx);
                         case "96-ar-dbedit" -> caseDbEdit(ctx);
                         case "96-ar-mapopen" -> caseMapOpen(ctx);
                         case "96-ar-mapopen-aim" -> caseMapOpenAim(ctx);
@@ -8324,6 +8327,115 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             }
             return new Run(met, landed, acted, dropped, logHas(m, "re-aimed"), logHas(m, "no landing after"), off,
                     logHas(m, "window arrived after the await was met"));
+        }
+    }
+
+    /**
+     * ar-render-1016: the node renderer caches its geometry and keeps colours in a palette rebuilt when the active node
+     * changes. This plays a three-node route and checks, on EVERY frame the renderer drew, that the node it coloured as
+     * active is the node {@code RouteExecutor.activeNode()} reports at that moment (read by a listener after the
+     * default phase of the same render event), and that the highlight really moved (three or more different nodes).
+     */
+    static final class ArRenderCases {
+        private ArRenderCases() {
+        }
+
+        private static final String RENDERER = "com.killer560.hub.autoroutes.AutoRoutesRenderer";
+        private static volatile boolean sampling;
+        private static boolean hooked;
+        private static long lastFrames = -1;
+        private static int frames;
+        private static int mismatches;
+        private static String firstMismatch;
+        private static final java.util.Set<Object> seen = java.util.Collections.newSetFromMap(
+                new java.util.IdentityHashMap<>());
+
+        private static void hook(ClientGameTestContext ctx) {
+            ctx.runOnClient(mc -> {
+                if (hooked) {
+                    return;
+                }
+                hooked = true;
+                var ev = net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents.AFTER_TRANSLUCENT_FEATURES;
+                net.minecraft.resources.Identifier after = net.minecraft.resources.Identifier.fromNamespaceAndPath(
+                        "testkit", "ar_active_probe");
+                ev.addPhaseOrdering(net.fabricmc.fabric.api.event.Event.DEFAULT_PHASE, after);
+                ev.register(after, c -> {
+                    if (!sampling) {
+                        return;
+                    }
+                    long drawn;
+                    try {
+                        drawn = ((long[]) ModUnderTest.staticCall(RENDERER, "renderStats", new Class<?>[0],
+                                new Object[0]))[3];
+                    } catch (Throwable t) {
+                        // A jar before ar-render-1016: no frame counter to read. Never throw out of a render event.
+                        sampling = false;
+                        mismatches++;
+                        firstMismatch = "the renderer has no renderStats()/drawnActive() (pre-ar-render jar)";
+                        return;
+                    }
+                    if (drawn == lastFrames) {
+                        return; // the renderer did not draw this frame
+                    }
+                    lastFrames = drawn;
+                    Object exec = ModUnderTest.staticCall(EXECUTOR, "activeNode", new Class<?>[0], new Object[0]);
+                    Object painted = ModUnderTest.staticCall(RENDERER, "drawnActive", new Class<?>[0], new Object[0]);
+                    frames++;
+                    if (exec != painted) {
+                        mismatches++;
+                        if (firstMismatch == null) {
+                            firstMismatch = "frame " + frames + ": executor " + exec + ", drawn " + painted;
+                        }
+                    }
+                    if (painted != null) {
+                        seen.add(painted);
+                    }
+                });
+            });
+        }
+
+        static void activeFrame(ClientGameTestContext ctx) {
+            if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+                caseSkip = "Auto Routes fires nodes only in a cheat build";
+                return;
+            }
+            hook(ctx);
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            List<JsonObject> n = new ArrayList<>();
+            n.add(ew(6, 6, 14, 6, true));               // #1
+            n.add(ew(14, 6, 22, 6, false));             // #2
+            n.add(node("WALK", 22, 6, 0f, 0f));         // #3
+            writeRoute(ctx, n);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            tpRel(ctx, 4.5, 6.5, 0f, 0f);
+            ctx.waitTicks(10);
+            long mark = LogTap.mark();
+            ctx.runOnClient(mc -> {
+                lastFrames = -1;
+                frames = 0;
+                mismatches = 0;
+                firstMismatch = null;
+                seen.clear();
+                sampling = true;
+            });
+            try {
+                tpRel(ctx, 6.5, 6.5, -90f, 0f);
+                boolean done = waitFor(ctx, 200, () -> logHas(mark, "Node #3 WALK acted"));
+                ctx.waitTicks(5);
+                check(done, "the route never reached #3 (at " + relPos(ctx) + ")");
+            } finally {
+                ctx.runOnClient(mc -> sampling = false);
+            }
+            println("96-ar-1016-activeframe: " + frames + " frame(s) drawn while sampling, " + mismatches
+                    + " with a different active node, " + seen.size() + " node(s) drawn active"
+                    + (firstMismatch == null ? "" : "; first: " + firstMismatch));
+            check(frames >= 20, "the renderer drew only " + frames + " frame(s) while the route played");
+            check(seen.size() >= 3, "only " + seen.size() + " node(s) were ever drawn active - the highlight did not move");
+            check(mismatches == 0, mismatches + " frame(s) drew a different active node than the executor's: "
+                    + firstMismatch);
         }
     }
 }
