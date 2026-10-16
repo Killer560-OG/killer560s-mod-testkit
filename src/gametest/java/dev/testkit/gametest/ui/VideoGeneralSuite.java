@@ -702,6 +702,17 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             }
             String id = pick[0];
             int[] box = hudBox(c, ed, id);
+            // the layout the clip started from, put back afterwards (later clips film this HUD where it belongs)
+            int[] home = c.onClient(mc -> (int[]) Mod.staticCall("hud.HudElementRegistry", "toSaved", box[0], box[1]));
+            @SuppressWarnings("unchecked")
+            float scale0 = c.onClient(mc -> ((Map<String, Float>) Mod.field(ed, "liveScales")).get(id));
+            restoreHud = () -> c.onClient(mc -> {
+                Object cfg = Mod.cfg("hud.HudConfig");
+                Mod.call(cfg, "setPosition", id, home[0], home[1]);
+                Mod.call(cfg, "setScale", id, scale0);
+                Mod.call(cfg, "save");
+                return null;
+            });
             // grab it a little left of centre and carry it to the right side of the screen
             double[] g0 = c.onClient(mc -> VideoRecorder.guiToWindow(mc, box[0] + (box[2] - box[0]) * 0.45,
                     box[1] + (box[3] - box[1]) * 0.5));
@@ -759,8 +770,18 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             r.hold(800);
         } finally {
             r.close();
+            if (restoreHud != null) {
+                c.onClient(mc -> {
+                    McCompat.setScreen(mc, null);
+                    return null;
+                });
+                restoreHud.run();
+                restoreHud = null;
+            }
         }
     }
+
+    private static Runnable restoreHud;
 
     @SuppressWarnings("unchecked")
     private static int[] hudBox(UiCase c, Screen ed, String id) {
