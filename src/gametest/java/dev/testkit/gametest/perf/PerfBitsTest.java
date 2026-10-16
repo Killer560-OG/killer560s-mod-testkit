@@ -37,7 +37,9 @@ public class PerfBitsTest implements FabricClientGameTest {
         for (String s : new String[]{"Beams", "Blaze", "Boulder", "IceFill", "IcePath", "Quiz", "TeleportMaze", "TicTacToe",
                 "Water", "Weirdos"}) {
             GATED.put(s + " Solver render", new String[]{"puzzlesolvers." + s + "SolverConfig", "setEnabled", "isEnabledRaw"});
+            GATED.put(s + " Solver tick", new String[]{"puzzlesolvers." + s + "SolverConfig", "setEnabled", "isEnabledRaw"});
         }
+        GATED.put("Livid Solver tick", new String[]{"boss.LividSolverConfig", "setEnabled", "isEnabledRaw"});
         GATED.put("Livid Solver render", new String[]{"boss.LividSolverConfig", "setEnabled", "isEnabledRaw"});
         GATED.put("P4 Platform render", new String[]{"p4platform.P4PlatformHighlightConfig", "setEnabled", "isEnabledRaw"});
         GATED.put("Waypoint Routes render", new String[]{"routes.WaypointRoutesConfig", "setEnabled", "isEnabledRaw"});
