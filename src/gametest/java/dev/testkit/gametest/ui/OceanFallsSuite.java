@@ -28,7 +28,8 @@ import java.util.Locale;
  *       streaks fall: the open fall changes more than the cliffs), the white title and the button text keep their
  *       contrast, and it allocates no more per drawn part than WATERFALL.</li>
  *   <li>1691 the water really pours (ocean-waterfall-2): every sixtieth of a second several percent of the fall changes,
- *       drawn through the falls shader.</li>
+ *       drawn through the falls shader; and the lake itself moves and the mist at the foot billows every frame
+ *       (ocean-waterfall-3).</li>
  *   <li>1692 gating: without previewScenes Ocean draws WATERFALL; with it CAVERN_FALLS; the Title Screen Switcher lists
  *       "Ocean · Waterfall" and "Ocean · Cavern Falls".</li>
  *   <li>1693 video (only when named): {@code -PpaintedFrames} (default 600 = 10 s) at 60 fps into
@@ -42,6 +43,9 @@ public class OceanFallsSuite implements FabricClientGameTest {
             "1693-ui-ocean-falls-video"};
 
     static final String SCENES = "mainmenu.MainMenuScenes";
+    /** Share of the mist band at the foot (below where the streaks end) that must change in 0.1 s (1691): 8.1% with the
+     *  billow, 6.6% with only ocean-waterfall-2's churn, so this says it moves, not that it billows - watch the clip. */
+    static final double MIST_SPAN = 0.04;
     static final String PREVIEW = "killer560smod.previewScenes";
 
     @Override
@@ -234,15 +238,30 @@ public class OceanFallsSuite implements FabricClientGameTest {
         around(c, true, () -> {
             title(c, "CAVERN_FALLS");
             FontsMainMenuSuite.Pic prev = at(c, 2_100_000, "ocean-smooth-0");
+            FontsMainMenuSuite.Pic first = prev;
             double most = 0;
             double least = 1;
+            double lakeLeast = 1;
+            double mistLeast;
             for (int i = 1; i <= 6; i++) {
                 FontsMainMenuSuite.Pic next = at(c, 2_100_000 + i * (1000.0 / 60.0), "ocean-smooth-" + i);
                 double d = PaintedScenesSuite.changedIn(prev.img(), next.img(), 0.20, 0.17, 0.80, 0.75);
                 most = Math.max(most, d);
                 least = Math.min(least, d);
+                // the lake (right of the rocks, below the far shore) and the mist at the foot of the falls
+                lakeLeast = Math.min(lakeLeast, PaintedScenesSuite.changedIn(prev.img(), next.img(), 0.50, 0.875, 0.98, 0.99));
                 prev = next;
             }
+            // soft mist changes little in one frame by any measure; over a tenth of a second it must have rolled on
+            mistLeast = PaintedScenesSuite.changedIn(first.img(), prev.img(), 0.40, 0.83, 0.75, 0.856);
+            c.note(String.format(Locale.ROOT, "frame to frame the lake changes at least %.2f%%; the mist at its foot %.2f%% in 0.1 s",
+                    lakeLeast * 100, mistLeast * 100));
+            // killer560 (2026-10-16): "have the more lake portion of it move a bit more ... it's like you stuck flow on top
+            // of a still picture" - the lake itself moves every frame, and the mist billows
+            c.check(lakeLeast > 0.04, String.format(Locale.ROOT, "the lake barely moves: %.2f%% of it changed in a frame",
+                    lakeLeast * 100));
+            c.check(mistLeast > MIST_SPAN, String.format(Locale.ROOT, "the mist at the foot does not billow: %.2f%% changed"
+                    + " in 0.1 s", mistLeast * 100));
             c.note(String.format(Locale.ROOT, "frame to frame (1/60 s) the fall changes %.2f%%..%.2f%%", least * 100, most * 100));
             // killer560 after the first clip (2026-10-16): "the water in that looks still" - it changed 0.08-0.10% a frame.
             // Now the whole curtain pours: several percent of the fall changes every frame.
