@@ -224,6 +224,17 @@ public class AmberAuroraSuite implements FabricClientGameTest {
             double skyR = PaintedScenesSuite.changedIn(a.img(), b.img(), 0.70, 0.10, 1.0, 0.45);
             double land = PaintedScenesSuite.changedIn(a.img(), b.img(), 0.30, 0.90, 0.38, 1.0);
             double hill = PaintedScenesSuite.changedIn(a.img(), b.img(), 0.0, 0.60, 0.05, 0.75);
+            // killer560, 2026-10-16: "don't have the lights kind of break as it goes around my head ... positioned a bit
+            // higher so it doesn't hit the player's head": round the character's head (x 490-605, y 670-790 of 1920x1080)
+            // nothing moves and no rays streak the sky (sideways ray detail, mean |d lum / dx|)
+            double head = PaintedScenesSuite.changedIn(a.img(), b.img(), 0.255, 0.62, 0.315, 0.73);
+            double headRays = rayDetail(a.img(), 0.25, 0.60, 0.32, 0.72);
+            double skyRays = rayDetail(a.img(), 0.75, 0.55, 0.82, 0.67);
+            c.note(String.format(Locale.ROOT, "round the head: %.3f%% changed over 2 s, ray detail %.4f (the right sky %.4f)",
+                    head * 100, headRays, skyRays));
+            c.check(head < 0.002, String.format(Locale.ROOT, "the aurora moves round the head: %.3f%%", head * 100));
+            c.check(headRays < skyRays * 0.5, String.format(Locale.ROOT,
+                    "rays reach the head: ray detail %.4f there against %.4f in the open sky", headRays, skyRays));
             double sum = 0;
             for (int y = 0; y < a.img().getHeight(); y += 3) {
                 for (int x = 0; x < a.img().getWidth(); x += 3) {
@@ -277,6 +288,19 @@ public class AmberAuroraSuite implements FabricClientGameTest {
     }
 
     private static BufferedImage embersImg;
+
+    /** Mean |luminance step| between horizontal neighbours in a box (fractions of the image): vertical rays read high. */
+    static double rayDetail(BufferedImage img, double x0, double y0, double x1, double y1) {
+        double sum = 0;
+        long n = 0;
+        for (int y = (int) (img.getHeight() * y0); y < (int) (img.getHeight() * y1); y++) {
+            for (int x = (int) (img.getWidth() * x0); x < (int) (img.getWidth() * x1) - 1; x++) {
+                sum += Math.abs(GreenThemeSuite.lum709(img.getRGB(x + 1, y)) - GreenThemeSuite.lum709(img.getRGB(x, y)));
+                n++;
+            }
+        }
+        return n == 0 ? 0 : sum / n;
+    }
 
     // ---- 1696 ----------------------------------------------------------------------------------------------------------
 
