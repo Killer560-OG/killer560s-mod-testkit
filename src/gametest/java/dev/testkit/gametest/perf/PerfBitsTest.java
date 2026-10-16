@@ -44,6 +44,23 @@ public class PerfBitsTest implements FabricClientGameTest {
         GATED.put("P4 Platform render", new String[]{"p4platform.P4PlatformHighlightConfig", "setEnabled", "isEnabledRaw"});
         GATED.put("Waypoint Routes render", new String[]{"routes.WaypointRoutesConfig", "setEnabled", "isEnabledRaw"});
         GATED.put("Pathfinding render", new String[]{"pathfinding.PathfindingConfig", "setEnabled", "isEnabledRaw"});
+        // fps-idle-2 batch 3
+        GATED.put("Ability Keybinds tick", new String[]{"abilitykeybinds.AbilityKeybindsConfig", "setEnabled", "isEnabledRaw"});
+        GATED.put("Class Selection Overlay tick", new String[]{"dungeonclass.ClassSelectionOverlayConfig", "setEnabled", "isEnabledRaw"});
+        GATED.put("Experiments Profit Tracker tick", new String[]{"experiments.ExperimentsConfig", "setProfitTrackerEnabled",
+                "isProfitTrackerEnabledRaw"});
+        GATED.put("Leap Counter tick", new String[]{"leapcounter.LeapCounterConfig", "setEnabled", "getEnabledRaw"});
+        GATED.put("Pet Wheel tick", new String[]{"petwheel.PetWheelConfig", "setEnabled", "isEnabled"});
+        GATED.put("Quiver Display tick", new String[]{"quiver.QuiverDisplayConfig", "setEnabled", "isEnabledRaw"});
+        GATED.put("Storage Search tick", new String[]{"storagesearch.StorageSearchConfig", "setEnabled", "isEnabledRaw"});
+        GATED.put("Arrow Align render", new String[]{"arrowalign.ArrowAlignConfig", "setSolverEnabled", "isSolverEnabledRaw"});
+        // several switches: "a|b|c" setters and getters; OR unless the row ends with "and"
+        GATED.put("P3 Nav render", new String[]{"p3nav.P3NavConfig", "setGateHighlight|setTerminalEsp|setDeviceEsp",
+                "getGateHighlightRaw|getTerminalEspRaw|getDeviceEspRaw"});
+        GATED.put("Simon Says render", new String[]{"simonsays.SimonSaysConfig", "setEnabled|setSolverEnabled",
+                "isEnabledRaw|isSolverEnabledRaw", "and"});
+        GATED.put("Mage Beam render", new String[]{"dungeonextras.DungeonExtrasConfig", "setMageBeamEnabled",
+                "isMageBeamEnabledRaw"});
     }
 
     @Override
@@ -107,26 +124,46 @@ public class PerfBitsTest implements FabricClientGameTest {
                 continue;
             }
             String[] c = e.getValue();
-            Object cfg = Mod.cfg(c[0]);
-            boolean was = (Boolean) Mod.call(cfg, c[2]);
+            String[] setters = c[1].split("\\|");
+            String[] getters = c[2].split("\\|");
+            boolean and = c.length > 3 && c[3].equals("and");
+            boolean[] was = new boolean[setters.length];
+            for (int i = 0; i < setters.length; i++) {
+                was[i] = (Boolean) Mod.call(Mod.cfg(c[0]), getters[i]);
+            }
             try {
-                Mod.call(cfg, c[1], false);
-                boolean off = snapshot().get(name);
-                Mod.call(cfg, c[1], true);
-                boolean on = snapshot().get(name);
-                if (off || !on) {
-                    failures.add(name + ": setter off -> bit " + off + ", setter on -> bit " + on + " (want false, true)");
+                for (int i = 0; i < setters.length; i++) {
+                    // every switch off but this one (OR) / every switch on but this one (AND)
+                    for (int j = 0; j < setters.length; j++) {
+                        Mod.call(Mod.cfg(c[0]), setters[j], and);
+                    }
+                    Mod.call(Mod.cfg(c[0]), setters[i], !and);
+                    boolean one = snapshot().get(name);
+                    Mod.call(Mod.cfg(c[0]), setters[i], and);
+                    boolean other = snapshot().get(name);
+                    // OR: only i on -> true, all off -> false.  AND: all on but i -> false, all on -> true.
+                    boolean wantOne = !and;
+                    boolean wantOther = and;
+                    if (one != wantOne || other != wantOther) {
+                        failures.add(name + ": " + setters[i] + " -> bit " + one + " / " + other + " (want " + wantOne
+                                + " / " + wantOther + ")");
+                    }
                 }
                 // A profile apply reloads the config from disk: the bit must follow whatever was loaded.
                 Mod.staticCall(c[0], "load");
-                Object loaded = Mod.cfg(c[0]);
-                boolean fileValue = (Boolean) Mod.call(loaded, c[2]);
+                boolean fileValue = and;
+                for (String g : getters) {
+                    boolean v = (Boolean) Mod.call(Mod.cfg(c[0]), g);
+                    fileValue = and ? fileValue && v : fileValue || v;
+                }
                 boolean afterLoad = snapshot().get(name);
                 if (afterLoad != fileValue) {
-                    failures.add(name + ": after load() the switch is " + fileValue + " but the bit is " + afterLoad);
+                    failures.add(name + ": after load() the switches give " + fileValue + " but the bit is " + afterLoad);
                 }
             } finally {
-                Mod.call(Mod.cfg(c[0]), c[1], was);
+                for (int i = 0; i < setters.length; i++) {
+                    Mod.call(Mod.cfg(c[0]), setters[i], was[i]);
+                }
             }
         }
         report.add("setters and load() checked for " + GATED.size() + " bit(s)");
