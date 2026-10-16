@@ -290,7 +290,9 @@ final class HxScoreboardAnchorCases {
             double mx = right ? best[1] - 1.5 : best[0] + 1.5;
             double my = best[2] + 3;
             Object line = Mod.staticCall(FEATURE, "lineAt", layout, mx, my);
-            String got = line == null ? null : String.valueOf(Mod.call(line, "text"));
+            // The widest run can be the line's own number-change popup, drawn as a run after its text.
+            String got = line == null ? null : Mod.call(line, "text") + (Mod.call(line, "popup") == null ? ""
+                    : String.valueOf(Mod.call(line, "popup")));
             String plain = got == null ? null : net.minecraft.ChatFormatting.stripFormatting(got);
             return plain != null && bestText != null && plain.contains(bestText.trim()) ? "ok " + plain
                     : "at " + mx + "," + my + " found '" + plain + "', widest run is '" + bestText + "'";
