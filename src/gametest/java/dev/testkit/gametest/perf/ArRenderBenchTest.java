@@ -60,7 +60,8 @@ public class ArRenderBenchTest implements FabricClientGameTest {
      * about 1.8 KB for an "#12 Etherwarp" (ar-render-1016, BOX vs BOX bare). That is the same call before and after.
      */
     static final int LABEL_BYTES = 2500;
-    /** Pixels a shot may differ from the reference jar's (summed RGB delta over 30). */
+    /** Pixels a shot may differ from the reference jar's (summed RGB delta over 30). A fire texture in rows 0-2 of the
+     *  view animates between runs: 19 and 32 px in the two edit shots of the first A/B, nothing of the route. */
     static final int SHOT_PIXEL_BUDGET = 40;
 
     @Override
