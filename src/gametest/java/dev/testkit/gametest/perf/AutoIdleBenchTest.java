@@ -39,7 +39,7 @@ public class AutoIdleBenchTest implements FabricClientGameTest {
     /** The packages of the automation area (fps-auto-1015). Label prefixes, matched with startsWith. */
     static final String DEFAULT_AUTO = "autoroutes.,ap3.,autopuzzles.,leveraura.,cheatutils.,terminalaura.,"
             + "terminaltrigger.,secrettrigger.,goldor.,dungeonbreaker.,simonsays.,autosecret.,bloodcamp.,terminals.,"
-            + "dungeonextras.,fastleap.";
+            + "dungeonextras.,fastleap.,autoclear.";
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -83,6 +83,10 @@ public class AutoIdleBenchTest implements FabricClientGameTest {
                 throw new AssertionError("[" + NAME + "] no switch matched " + autoCsv);
             }
 
+            // A route in the room he stands in, every node well clear of him: Auto Routes' idle arm test then walks a
+            // real node list every tick, as it does in any routed room he is not standing on a node of.
+            report.add(ctx.computeOnClient(AutoIdleBenchTest::seedRoute));
+
             List<Phase> offs = new ArrayList<>();
             List<Phase> autos = new ArrayList<>();
             for (int r = 1; r <= rounds; r++) {
@@ -99,7 +103,13 @@ public class AutoIdleBenchTest implements FabricClientGameTest {
                             + "-PperfAutoSkip=<label part>");
                 }
             }
+            // ---- direct allocation checks of single hot calls (deterministic, unlike time) ----
+            ctx.runOnClient(mc -> PerfBench.apply(auto));
+            ctx.waitTicks(5);
+            List<String> failures = new ArrayList<>();
+            failures.addAll(ctx.computeOnClient(mc -> directChecks(mc, report)));
             ctx.runOnClient(mc -> PerfBench.apply(off));
+            ctx.runOnClient(mc -> unseedRoute());
 
             // ---- the bench must have measured something ----
             Phase a1 = autos.get(0);
@@ -112,6 +122,11 @@ public class AutoIdleBenchTest implements FabricClientGameTest {
                 throw new AssertionError("[" + NAME + "] the probe saw no callback of " + prefixes);
             }
             summarize(report, tsv, offs, autos, prefixes);
+            failures.addAll(keyBudgets(offs, autos, report));
+            if (!failures.isEmpty()) {
+                throw new AssertionError("[" + NAME + "] " + failures.size() + " budget(s) over: " + failures);
+            }
+            report.add("PASS: every budget held");
         } finally {
             try {
                 if (!defaults.isEmpty()) {
@@ -134,6 +149,211 @@ public class AutoIdleBenchTest implements FabricClientGameTest {
             }
             PerfBench.close(ctx);
         }
+    }
+
+    // ---- budgets (fps-auto-1015; main 69505e45 measured over them, the branch under) ----
+
+    /** Render-thread bytes per call of a single hot call, measured directly (no probe in between). */
+    static final int RANGE_BUDGET_B = 32;
+    static final int REFRESH_BUDGET_B = 32;
+
+    /** Probe keys: {phase, key, max bytes per tick}. */
+    static final Object[][] KEY_BYTES = {
+            {"OFF", "autopuzzles.AutoPuzzlesFeature ClientTickEvents.StartTick", 120},
+            {"AUTO IDLE", "autopuzzles.AutoPuzzlesFeature ClientTickEvents.StartTick", 120},
+            {"AUTO IDLE", "autoroutes.AutoRoutesFeature ClientTickEvents.StartTick", 400},
+            {"AUTO IDLE", "cheatutils.CheatUtils ClientTickEvents.StartTick", 400},
+    };
+
+    /** HUD elements that have nothing to show while idle: never laid out ({phase, HUD id}). */
+    static final String[][] NOT_DRAWN = {
+            {"AUTO IDLE", "HUD[autopilot_status]"},
+            {"AUTO IDLE", "HUD[auto_clear_status]"},
+    };
+
+    private static List<String> keyBudgets(List<Phase> offs, List<Phase> autos, List<String> report) {
+        List<String> fails = new ArrayList<>();
+        report.add("");
+        report.add("== budgets ==");
+        for (Object[] b : KEY_BYTES) {
+            List<Phase> ps = b[0].equals("OFF") ? offs : autos;
+            double bytes = 0;
+            for (Phase p : ps) {
+                Key k = p.keys().get((String) b[1]);
+                bytes += k == null ? 0 : k.bytes() / Math.max(1, p.ticks()) / ps.size();
+            }
+            String line = String.format(Locale.ROOT, "%-9s %-62s %8.0f B/tick (budget %d)", b[0], b[1], bytes, (Integer) b[2]);
+            report.add(line);
+            if (bytes > (Integer) b[2]) {
+                fails.add(line);
+            }
+        }
+        for (String[] b : NOT_DRAWN) {
+            List<Phase> ps = b[0].equals("OFF") ? offs : autos;
+            long calls = 0;
+            for (Phase p : ps) {
+                for (Key k : p.keys().values()) {
+                    if (k.key().endsWith(b[1])) {
+                        calls += k.calls();
+                    }
+                }
+            }
+            String line = String.format(Locale.ROOT, "%-9s %-62s %8d draw call(s) (budget 0)", b[0], b[1], calls);
+            report.add(line);
+            if (calls > 0) {
+                fails.add(line);
+            }
+        }
+        return fails;
+    }
+
+    /** Client thread. One hot call each, timed for allocation alone. */
+    private static List<String> directChecks(net.minecraft.client.Minecraft mc, List<String> report) {
+        List<String> fails = new ArrayList<>();
+        var inv = mc.player.getInventory();
+        net.minecraft.world.item.ItemStack[] saved = new net.minecraft.world.item.ItemStack[9];
+        try {
+            // EtherwarpHopper.range(): read for all nine hotbar slots every tick the Interactive Map keeps its floor
+            // graph warm. Nine Skyblock items, none of them an etherwarp item, so every slot is read.
+            for (int i = 0; i < 9; i++) {
+                saved[i] = inv.getItem(i).copy();
+                inv.setItem(i, skyblockItem(i));
+            }
+            java.lang.invoke.MethodHandle range = java.lang.invoke.MethodHandles.publicLookup().findStatic(
+                    dev.testkit.gametest.mod.Mod.cls("pathfinding.EtherwarpHopper"), "range",
+                    java.lang.invoke.MethodType.methodType(double.class));
+            double r = (double) range.invokeExact();
+            long b0 = PerfBench.threadAllocated();
+            for (int k = 0; k < 500; k++) {
+                r += (double) range.invokeExact();
+            }
+            double per = (PerfBench.threadAllocated() - b0) / 500.0;
+            String line = String.format(Locale.ROOT, "EtherwarpHopper.range() with 9 Skyblock items: %.0f B/call (budget %d)",
+                    per, RANGE_BUDGET_B);
+            report.add(line + " [sum " + r + "]");
+            if (per > RANGE_BUDGET_B) {
+                fails.add(line);
+            }
+        } catch (Throwable t) {
+            fails.add("range check threw: " + t);
+        } finally {
+            for (int i = 0; i < 9; i++) {
+                if (saved[i] != null) {
+                    inv.setItem(i, saved[i]);
+                }
+            }
+        }
+        // TerminalSolverFeature.refreshState(): the head of every screen frame (two mixins), here with a plain chest
+        // open and the solver on, the case where nothing is a terminal and the title used to be re-matched each time.
+        net.minecraft.client.gui.screens.Screen before = dev.testkit.compat.McCompat.screen(mc);
+        try {
+            boolean solverOn = (Boolean) dev.testkit.gametest.mod.Mod.get("terminals.TerminalSolverConfig", "isEnabled");
+            dev.testkit.compat.McCompat.setScreen(mc, new net.minecraft.client.gui.screens.inventory.ContainerScreen(
+                    net.minecraft.world.inventory.ChestMenu.threeRows(0, inv), inv,
+                    net.minecraft.network.chat.Component.literal("Large Chest")));
+            java.lang.invoke.MethodHandle refresh = java.lang.invoke.MethodHandles.publicLookup().findStatic(
+                    dev.testkit.gametest.mod.Mod.cls("terminals.TerminalSolverFeature"), "refreshState",
+                    java.lang.invoke.MethodType.methodType(void.class));
+            refresh.invokeExact();
+            long b0 = PerfBench.threadAllocated();
+            for (int k = 0; k < 500; k++) {
+                refresh.invokeExact();
+            }
+            double per = (PerfBench.threadAllocated() - b0) / 500.0;
+            String line = String.format(Locale.ROOT, "TerminalSolverFeature.refreshState() on a 'Large Chest' (solver %s): "
+                    + "%.0f B/call (budget %d)", solverOn ? "on" : "OFF", per, REFRESH_BUDGET_B);
+            report.add(line);
+            if (!solverOn) {
+                fails.add("the Terminal Solver was off for the refreshState check, so it measured nothing");
+            } else if (per > REFRESH_BUDGET_B) {
+                fails.add(line);
+            }
+        } catch (Throwable t) {
+            fails.add("refreshState check threw: " + t);
+        } finally {
+            dev.testkit.compat.McCompat.setScreen(mc, before);
+        }
+        return fails;
+    }
+
+    private static net.minecraft.world.item.ItemStack skyblockItem(int i) {
+        net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(
+                net.minecraft.world.item.Items.DIAMOND_SWORD);
+        net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+        tag.putString("id", "HYPERION");
+        tag.putString("uuid", "0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5" + i);
+        tag.putLong("timestamp", 1_700_000_000_000L + i);
+        net.minecraft.nbt.CompoundTag ench = new net.minecraft.nbt.CompoundTag();
+        for (String e : new String[]{"sharpness", "critical", "ender_slayer", "giant_killer", "looting", "luck",
+                "scavenger", "vampirism", "venomous", "first_strike", "execute", "cubism"}) {
+            ench.putInt(e, 5 + i);
+        }
+        tag.put("enchantments", ench);
+        net.minecraft.nbt.CompoundTag gems = new net.minecraft.nbt.CompoundTag();
+        gems.putString("SAPPHIRE_0", "PERFECT");
+        gems.putString("COMBAT_0", "FLAWLESS");
+        tag.put("gems", gems);
+        net.minecraft.nbt.ListTag scrolls = new net.minecraft.nbt.ListTag();
+        for (String s : new String[]{"IMPLOSION_SCROLL", "WITHER_SHIELD_SCROLL", "SHADOW_WARP_SCROLL"}) {
+            scrolls.add(net.minecraft.nbt.StringTag.valueOf(s));
+        }
+        tag.put("ability_scroll", scrolls);
+        stack.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
+                net.minecraft.world.item.component.CustomData.of(tag));
+        return stack;
+    }
+
+    private static final String SEEDED = "fps-auto-idle";
+    private static String seededRoom;
+
+    /** Client thread. Thirty WALK nodes 8-18 blocks from the player in the room he stands in (in memory, not saved). */
+    private static String seedRoute(net.minecraft.client.Minecraft mc) {
+        try {
+            Object frame = dev.testkit.gametest.mod.Mod.staticCall("autoroutes.RouteCoords$Frame", "current");
+            if (frame == null) {
+                return "route NOT seeded: the live map has no room frame here";
+            }
+            String room = (String) dev.testkit.gametest.mod.Mod.call(frame, "roomName");
+            Object store = dev.testkit.gametest.mod.Mod.staticCall("autoroutes.RouteStore", "getInstance");
+            Object route = dev.testkit.gametest.mod.Mod.call(store, "forRoomOrCreate", room);
+            @SuppressWarnings("unchecked")
+            List<Object> nodes = (List<Object>) dev.testkit.gametest.mod.Mod.call(route, "nodes");
+            if (!nodes.isEmpty()) {
+                return "route NOT seeded: " + room + " already has " + nodes.size() + " node(s)";
+            }
+            Class<?> nodeCls = dev.testkit.gametest.mod.Mod.cls("autoroutes.RouteNode");
+            Class<?> typeCls = dev.testkit.gametest.mod.Mod.cls("autoroutes.RouteNode$Type");
+            Object walk = dev.testkit.gametest.mod.Mod.enumValue("autoroutes.RouteNode$Type", "WALK");
+            java.lang.reflect.Constructor<?> ctor = nodeCls.getConstructor(typeCls, double.class, double.class,
+                    double.class, float.class, float.class, int.class);
+            java.lang.reflect.Method toRel = dev.testkit.gametest.mod.Mod.cls("autoroutes.RouteCoords").getMethod(
+                    "toRelative", frame.getClass(), double.class, double.class, double.class);
+            for (int i = 0; i < 30; i++) {
+                net.minecraft.world.phys.Vec3 rel = (net.minecraft.world.phys.Vec3) toRel.invoke(null, frame,
+                        mc.player.getX() + 8 + (i % 6) * 2, mc.player.getY(), mc.player.getZ() + 8 + (i / 6) * 2);
+                nodes.add(ctor.newInstance(walk, rel.x, rel.y, rel.z, 0f, 0f, i));
+            }
+            seededRoom = room;
+            return "route seeded: 30 WALK nodes in " + room + " (" + SEEDED + "), 8-18 blocks from the player";
+        } catch (Throwable t) {
+            return "route NOT seeded: " + t;
+        }
+    }
+
+    private static void unseedRoute() {
+        if (seededRoom == null) {
+            return;
+        }
+        try {
+            Object store = dev.testkit.gametest.mod.Mod.staticCall("autoroutes.RouteStore", "getInstance");
+            Object route = dev.testkit.gametest.mod.Mod.call(store, "forRoom", seededRoom);
+            if (route != null) {
+                ((List<?>) dev.testkit.gametest.mod.Mod.call(route, "nodes")).clear();
+            }
+        } catch (Throwable ignored) {
+            // the client config is thrown away after the run anyway
+        }
+        seededRoom = null;
     }
 
     private static double[] playerState(net.minecraft.client.Minecraft mc) {
