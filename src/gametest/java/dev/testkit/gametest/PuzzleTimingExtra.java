@@ -486,6 +486,11 @@ final class PuzzleTimingExtra extends SolveExtra {
                     }
                 }
                 case LAND -> {
+                    if (mapLanding(ev, i)) {
+                        // The end of an Interactive Map trip: when it lets go of him is ClearExecutor's arrival settle
+                        // (docs/LESSONS-AUTOMATION.md), not the auto's - not judged here.
+                        break;
+                    }
                     long ready = e.tick();
                     String why = "landing at " + e.tick();
                     for (int j = i + 1; j < ev.size(); j++) {
@@ -535,6 +540,20 @@ final class PuzzleTimingExtra extends SolveExtra {
                 landAct.brief(), readyClick.brief(), volleyNext.brief(), waits);
         SimPuzzleRoundTests.say(name, summary);
         return bad.isEmpty() ? null : String.join("; ", bad);
+    }
+
+    /** Whether the warp that brought this landing was the Interactive Map's (the last warp-kind use before it). */
+    private static boolean mapLanding(List<Ev> ev, int i) {
+        for (int k = i - 1; k >= 0; k--) {
+            Kind kd = ev.get(k).kind();
+            if (kd == Kind.MAP_WARP) {
+                return true;
+            }
+            if (kd == Kind.WARP) {
+                return false;
+            }
+        }
+        return false;
     }
 
     private static long lastShotBefore(List<Ev> ev, int j) {
