@@ -1,0 +1,15 @@
+{
+	"required": false,
+	"minVersion": "0.8",
+	"package": "dev.testkit.mixin.bench",
+	"plugin": "dev.testkit.benchplugin.BenchMixinPlugin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"BenchContainerScreen",
+		"BenchEntityRenderDispatcher",
+		"BenchGuiGraphics"
+	],
+	"injectors": {
+		"defaultRequire": 0
+	}
+}
