@@ -28,7 +28,7 @@ import java.util.Locale;
  *       blue, no blue cast), moves over 2 s in the sky while the land at the bottom stays put (no whole-screen sway), stays
  *       dark behind the title and the buttons (the title and the button labels stand out), and differs from the embers.
  *       The Title Screen Switcher lists it as Amber "Aurora" beside Embers, New and Simple.</li>
- *   <li>1696 video (only when named): ~10 s at 60 fps ({@code -PpaintedFrames}, default 600) into
+ *   <li>1696 video (only when named): ~10 s at {@code -PpaintedFps} (default 60) fps ({@code -PpaintedFrames}) into
  *       {@code <report>/amber-aurora/}; {@code TESTKIT_PAINTED_SHOTS} also gets the first frame as amber-aurora.png.</li>
  * </ul>
  * Fails on main: there is no AURORA scene there ({@code setAmberSceneForTest("AURORA")} throws) and no AmberAuroraScene.
@@ -310,10 +310,12 @@ public class AmberAuroraSuite implements FabricClientGameTest {
             return;
         }
         around(c, true, () -> {
-            int frames = Integer.parseInt(System.getProperty("testkit.paintedFrames", "600"));
+            // -PpaintedFps=N (default 60; 120 for the high-fps check), -PpaintedFrames=N (default 10 s worth)
+            int fps = Integer.parseInt(System.getProperty("testkit.paintedFps", "60"));
+            int frames = Integer.parseInt(System.getProperty("testkit.paintedFrames", String.valueOf(fps * 10)));
             Path dir = Report.dir().resolve("amber-aurora");
             for (int i = 0; i < frames; i++) {
-                double ms = 3_000_000 + i * (1000.0 / 60.0);
+                double ms = 3_000_000 + i * (1000.0 / fps);
                 c.onClient(mc -> {
                     Mod.staticCall(SCENES, "setClockForTest", ms);
                     return null;
