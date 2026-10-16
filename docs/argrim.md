@@ -47,6 +47,6 @@ abilities are `hx/dungeon/HxAbilities` (etherwarp, Instant Transmission, Superbo
   under the crosshair must (no attack packet).
   96-ar also has `-leverwp` (Secret Waypoints hides a clicked lever, not its neighbour) and `-complete` (`await:`).
 - `62-argrim-1015-cryptaim` (crypt-aim-1015): two unstarred crypt mobs as Hypixel shows them (`dungeon.starred` with a
-  `name`, "[Lv89] Crypt Undead 45k" + heart) 9 blocks either side of a Spirit Sceptre crypt node. The server emulates no
+  `name`, Hypixel's "(sword) Crypt Undead 512.6k(heart)") 9 blocks either side of a Spirit Sceptre crypt node. The server emulates no
   sceptre, so nothing dies: two held uses down, then exactly two aimed `use_item` per mob (by the node's log, per mob id),
   the node moves on, use key up, GrimAC silent. Main d1eda658: never aims (fails); branch: clean.

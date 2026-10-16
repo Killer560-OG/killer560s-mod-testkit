@@ -1375,7 +1375,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     /**
      * 62-argrim-1015-cryptaim (killer560, 2026-10-15: "make the crypt node follow the same logic as bat where it will try to
      * look at a crypt as well. If there are two or more that spawned have it do 2 bats at each before moving on"). Two
-     * unstarred crypt mobs as Hypixel shows them - a zombie with a "[Lv89] Crypt Undead 45k(heart)" name-tag stand over it
+     * unstarred crypt mobs as Hypixel shows them - a zombie with a "(sword) Crypt Undead 512.6k(heart)" name-tag stand over it (his run screenshot)
      * (dungeon.starred with a name) - stand 9 blocks either side of a Spirit Sceptre crypt node. The server emulates no
      * sceptre, so nothing dies: the node must send its two held uses down, then exactly two plain use_item packets aimed
      * at each mob, move on, and draw nothing from GrimAC. Only the client's packets are under test.
@@ -1401,7 +1401,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                             double.class, double.class}, new Object[]{frame, sp[0], (double) F, sp[1]});
                 });
                 mobs.add(c.hx().call("dungeon.starred", "x", at.x, "y", at.y, "z", at.z, "name",
-                        "[Lv89] Crypt Undead 45k❤").getAsJsonObject());
+                        "⚔ Crypt Undead 512.6k❤").getAsJsonObject());
             }
             ctx.waitTicks(20);
             JsonObject crypt = node("CRYPT", 14, 14, 0f, 10f);

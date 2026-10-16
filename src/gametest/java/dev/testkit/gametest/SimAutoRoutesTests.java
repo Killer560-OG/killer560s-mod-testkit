@@ -4518,13 +4518,19 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
 
     // ============================================================================================ crypt-aim (2026-10-15)
 
+    /** A sim crypt mob's name: Hypixel's tag, "⚔ Crypt Undead 512.6k❤" or "⚔ Prince ..." (mod crypt-aim-2-1016),
+     *  or the older bare "Crypt Undead" / "Crypt Prince" of a jar from before it. */
+    private static boolean isCryptTag(String name) {
+        return name.contains("Crypt Undead") || name.contains("Crypt Prince") || name.contains("Prince ");
+    }
+
     /** Every sim crypt mob (a zombie named "Crypt ...") removed on the server. */
     private static void clearCryptMobs(ClientGameTestContext ctx) {
         serverRun(ctx, (server, sp) -> {
             List<net.minecraft.world.entity.Entity> gone = new ArrayList<>();
             for (var e : server.overworld().getAllEntities()) {
                 if (e instanceof net.minecraft.world.entity.monster.zombie.Zombie && e.hasCustomName()
-                        && e.getCustomName().getString().startsWith("Crypt")) {
+                        && isCryptTag(e.getCustomName().getString())) {
                     gone.add(e);
                 }
             }
@@ -4539,7 +4545,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             for (var e : mc.level.entitiesForRendering()) {
                 if (e instanceof net.minecraft.world.entity.LivingEntity l && !(e instanceof net.minecraft.world.entity
                         .decoration.ArmorStand) && l.isAlive() && !l.isDeadOrDying() && l.hasCustomName()
-                        && l.getCustomName().getString().startsWith("Crypt")) {
+                        && isCryptTag(l.getCustomName().getString())) {
                     out.put(l.getId(), l.position());
                 }
             }
@@ -4548,9 +4554,13 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     }
 
     private static void spawnCryptMob(ClientGameTestContext ctx, int x, int z) {
+        spawnCryptMob(ctx, x, z, false);
+    }
+
+    private static void spawnCryptMob(ClientGameTestContext ctx, int x, int z, boolean prince) {
         BlockPos p = realNow(ctx, x, F, z);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOBS, "spawnCrypt",
-                new Class<?>[]{Minecraft.class, BlockPos.class, boolean.class}, new Object[]{mc, p, false}));
+                new Class<?>[]{Minecraft.class, BlockPos.class, boolean.class}, new Object[]{mc, p, prince}));
     }
 
     /**
@@ -4578,7 +4588,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         int attack0 = ctx.computeOnClient(mc -> ModUnderTest.getInt(ModUnderTest.config(AR_CONFIG), "getCryptAttackTicks"));
         int[][] spots = {{24, 15}, {11, 23}, {11, 7}};
         // label, mob count, late (the last one spawns after the first aimed use), tough (pre-spawned, 1000 health)
-        Object[][] variants = {{"1 mob", 1, false, false}, {"2 mobs", 2, false, false}, {"3 mobs, one late", 3, true, false},
+        Object[][] variants = {{"1 mob", 1, false, false}, {"2 mobs", 2, false, false}, {"3 mobs, one late (a prince)", 3, true, false},
                 {"2 tough mobs already there", 2, false, true}};
         try {
             ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setCryptAttackTicks", 200));
@@ -4601,7 +4611,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     serverRun(ctx, (server, sp) -> {
                         for (var e : server.overworld().getAllEntities()) {
                             if (e instanceof net.minecraft.world.entity.monster.zombie.Zombie z && z.hasCustomName()
-                                    && z.getCustomName().getString().startsWith("Crypt")) {
+                                    && isCryptTag(z.getCustomName().getString())) {
                                 z.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH)
                                         .setBaseValue(1000.0);
                                 z.setHealth(1000f);
@@ -4634,7 +4644,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     Map<Integer, Vec3> alive = clientCryptMobs(ctx);
                     seen.putAll(alive);
                     if (!lateSpawned && logHas(m, "use 1/2 at crypt mob")) {
-                        spawnCryptMob(ctx, spots[n - 1][0], spots[n - 1][1]);
+                        // A prince, so both of Hypixel's crypt-mob tags are read.
+                        spawnCryptMob(ctx, spots[n - 1][0], spots[n - 1][1], true);
                         lateSpawned = true;
                     }
                     if (allGoneTick < 0 && seen.size() == n && alive.isEmpty()) {
