@@ -22,7 +22,8 @@ import java.util.function.Consumer;
  * Info) on, then with the bench's ALL ON set (Predictive Rooms and the rest) plus the map:
  * <ol>
  *   <li><b>cost</b>: the map draws every frame (asserted), and its render-thread allocation per frame stays under
- *       {@link #ALLOC_BUDGET} (main painted everything afresh every frame: 61.7 KB a frame here, 3.1 KB with the cache, 2026-10-15),
+ *       {@link #ALLOC_BUDGET} plus {@link #ALLOC_TICK_BUDGET} a tick (main painted everything afresh every frame: 61.7-65.6 KB a frame with only the
+ *       map on, 84.5 KB under ALL ON; the cache 2.6 KB and 14.8 KB at 1.5 frames a tick, 2026-10-16),
  *       with the cache actually replaying (hits counted by the mod);</li>
  *   <li><b>same picture</b>: with the mod's verify mode on, every replayed frame is also painted afresh, unsubmitted, and
  *       compared element by element (rectangles, text, pose, colours, scissor). While that runs, a change is made every
@@ -40,7 +41,10 @@ public class PerfLiveMapTest implements FabricClientGameTest {
     private static final String NAME = "95-perf-livemap";
     private static final String CACHE = "livemap.MapDrawCache";
     /** Bytes per frame the map may allocate on the render thread while nothing changes. */
-    private static final double ALLOC_BUDGET = 6000;
+    private static final double ALLOC_BUDGET = 2500;
+    /** And per client tick: the players' part, Extra Info's lines and the per-tick inputs are worked out once a tick,
+     *  which a scene drawing ~1.5 frames a tick (ALL ON) spreads over few frames. */
+    private static final double ALLOC_TICK_BUDGET = 25_000;
     private static final int STEP = 30;
 
     @Override
@@ -138,6 +142,13 @@ public class PerfLiveMapTest implements FabricClientGameTest {
                 });
                 ctx.waitTicks(STEP);
                 long builds2 = ctx.computeOnClient(mc -> ((long[]) Mod.staticCall(CACHE, "stats"))[1]);
+                // The kept layout snapshot (DungeonLayout.current) against one taken afresh, after every change.
+                String layoutDiff = ctx.computeOnClient(mc -> Mod.has("livemap.DungeonLayout")
+                        && hasMethod("livemap.DungeonLayout", "currentMismatch")
+                        ? (String) Mod.staticCall("livemap.DungeonLayout", "currentMismatch") : "no currentMismatch hook");
+                if (!layoutDiff.isEmpty()) {
+                    failures.add("after '" + what[0] + "' the kept dungeon layout differs from a fresh one: " + layoutDiff);
+                }
                 if (!what[1].isEmpty()) {
                     failures.add("change '" + what[0] + "' could not be made: " + what[1]);
                     continue;
@@ -217,11 +228,13 @@ public class PerfLiveMapTest implements FabricClientGameTest {
             return;
         }
         double bytes = map.bytes() / Math.max(1, p.frames());
+        double budget = ALLOC_BUDGET + ALLOC_TICK_BUDGET * p.ticks() / Math.max(1, p.frames());
         String line = String.format(Locale.ROOT, "%s: HUD[live_map] %.2f us/frame, %.0f B/frame over %d frames,"
-                        + " %d ticks; cache %d replays, %d paints (budget %.0f B/frame)", label,
-                map.ns() / 1e3 / Math.max(1, p.frames()), bytes, p.frames(), p.ticks(), cost[0], cost[1], ALLOC_BUDGET);
+                        + " %d ticks; cache %d replays, %d paints (budget %.0f B/frame + %.0f B/tick = %.0f B/frame)", label,
+                map.ns() / 1e3 / Math.max(1, p.frames()), bytes, p.frames(), p.ticks(), cost[0], cost[1], ALLOC_BUDGET,
+                ALLOC_TICK_BUDGET, budget);
         report.add(line);
-        if (bytes > ALLOC_BUDGET) {
+        if (bytes > budget) {
             failures.add(line);
         }
         if (!cached) {
@@ -235,6 +248,15 @@ public class PerfLiveMapTest implements FabricClientGameTest {
             failures.add(label + ": the draw cache painted " + cost[1] + " part(s) in " + p.ticks()
                     + " ticks: more than the players once a tick");
         }
+    }
+
+    private static boolean hasMethod(String cls, String name) {
+        for (java.lang.reflect.Method m : Mod.cls(cls).getMethods()) {
+            if (m.getName().equals(name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void remember(Map<String, Object[]> restore, String cfgClass, String getter, String setter) {
@@ -262,7 +284,35 @@ public class PerfLiveMapTest implements FabricClientGameTest {
                 !(Boolean) Mod.get("livemap.predict.PredictiveRoomsConfig", "isEnabledRaw")));
         out.put("Map Background colour", mc -> Mod.set("livemap.LiveMapConfig", "setMapBackground", 0xC0102030));
         out.put("Room Labels: Name + Secrets", mc -> Mod.set("livemap.LiveMapConfig", "setRoomLabels", 4));
+        out.put("walked into another room", mc -> moveToRoom((net.minecraft.client.Minecraft) mc, 3));
         return out;
+    }
+
+    /** Puts him (server side) on the floor at the middle of the current layout's room {@code room}'s first tile. */
+    private static void moveToRoom(net.minecraft.client.Minecraft mc, int room) {
+        Object layout = Mod.staticCall("livemap.DungeonLayout", "current");
+        int tile = ((int[]) Mod.call(layout, "tiles", room))[0];
+        net.minecraft.core.BlockPos c = (net.minecraft.core.BlockPos) Mod.staticCall("livemap.DungeonLayout", "cellCenter", tile);
+        int x = c.getX();
+        int z = c.getZ();
+        int fromY = (int) Math.floor(mc.player.getY()) + 12;
+        var server = mc.getSingleplayerServer();
+        java.util.UUID uuid = mc.player.getUUID();
+        server.execute(() -> {
+            var sp = server.getPlayerList().getPlayer(uuid);
+            if (sp == null) {
+                return;
+            }
+            var level = sp.level();
+            for (int y = fromY; y > fromY - 40 && y > level.getMinY(); y--) {
+                net.minecraft.core.BlockPos b = new net.minecraft.core.BlockPos(x, y, z);
+                if (!level.getBlockState(b).isAir() && level.getBlockState(b.above()).isAir()
+                        && level.getBlockState(b.above(2)).isAir()) {
+                    sp.teleportTo(x + 0.5, y + 1, z + 0.5);
+                    return;
+                }
+            }
+        });
     }
 
     /** The name of the n-th room of the current layout that has one. */
