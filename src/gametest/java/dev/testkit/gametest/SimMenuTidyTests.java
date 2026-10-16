@@ -284,10 +284,14 @@ public class SimMenuTidyTests implements FabricClientGameTest {
         int listRight = list[0] + list[2] - 6;
         List<Run> table = new ArrayList<>();
         for (Run r : runs(ctx)) {
-            boolean inHead = r.y0() >= headY && r.y0() < rowsTop;
-            boolean inRows = r.y1() > rowsTop && r.y0() < rowsBottom;
+            // A heading ends above the rows; a run that reaches below their top is a row, even one scrolled half up.
+            boolean inHead = r.y0() >= headY && r.y1() <= rowsTop + 0.01f;
+            boolean inRows = !inHead && r.y1() > rowsTop && r.y0() < rowsBottom;
             if ((inHead || inRows) && r.x0() >= listLeft - 40 && r.x0() < list[0] + list[2]) {
-                table.add(r);
+                // A row scrolled half under the headings is cut at the list's top by the screen's scissor, so only its
+                // visible band can meet anything.
+                table.add(inHead ? r : new Run(r.text(), r.x0(), Math.max(r.y0(), rowsTop), r.x1(),
+                        Math.min(r.y1(), rowsBottom)));
             }
         }
         tableChecks++;
@@ -381,7 +385,9 @@ public class SimMenuTidyTests implements FabricClientGameTest {
                 Run a = sorted.get(i);
                 Run b = sorted.get(j);
                 boolean sameLine = a.y0() < b.y1() - 1 && b.y0() < a.y1() - 1;
-                if (!sameLine || a.text().isBlank() || b.text().isBlank()) {
+                // One string drawn on itself is a shadow or a gradient band (the DUNGEON SIM title), not two texts.
+                boolean layer = a.text().equals(b.text()) && Math.abs(a.x0() - b.x0()) <= 2;
+                if (!sameLine || layer || a.text().isBlank() || b.text().isBlank()) {
                     continue;
                 }
                 float gap = b.x0() - a.x1();
