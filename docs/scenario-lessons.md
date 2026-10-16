@@ -766,8 +766,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   warp out: a trip that was not planned ahead searches for up to a second after the release, and a secret can register in
   that gap by luck. Turn Auto Close Chest on as killer560 has it: with it off the sim opens the chest's window and the
   warp goes under it. Stands are chosen within 4.0 (chest box) / 4.2 (essence) of BOTH the standing and sneaking eye; the
-  Interactive Map sometimes ends a trip 5 blocks off a start node ("did not arm"), so some rooms go unjudged - 2 a floor
-  is the floor.
+  Interactive Map sometimes ends a trip 5 blocks off a start node ("did not arm"), so some rooms go unjudged - 2 judged rooms a floor
+  is the minimum the case accepts.
 - 146-sim-autosecret-arrival (mod ac-optimize-2-1015): ticks from a trip's last warp to its one-node start route ending
   (main: 11 every room, the Interactive Map's arrival settle; branch: 2). A warp sent on the route's own end tick is the
   NEXT trip's (the hand-over can be that fast), so only warps strictly before the end belong to the trip into the room.
