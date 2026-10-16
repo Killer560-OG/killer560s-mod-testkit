@@ -15,7 +15,7 @@ import java.util.Locale;
  * 1568-ui-amber-scene: Amber's three title-screen backgrounds, EMBERS (the old drifting embers), NEW (mainmenu/
  * AmberForgeScene, the colonnade) and SIMPLE (mainmenu/AmberCalmScene). Each renders warm (red above blue), changes with
  * the clock and stays calm enough for the menu; each is a different picture from the others (so no check judged the wrong
- * scene); the default is EMBERS; none allocates beyond the batch's own rectangles (bytes per batched rectangle match the
+ * scene); the default is AURORA since mod simple-scenes-1016 (EMBERS before); none allocates beyond the batch's own rectangles (bytes per batched rectangle match the
  * old embers'); and SIMPLE draws no more rectangles than EMBERS and is no brighter behind the title.
  * 1569-ui-amber-video: ~10 s of one scene ({@code -Dtestkit.amberVideo}, default SIMPLE) at 60 fps, one PNG per 1/60 s of
  * the scene clock into {@code <report>/amber-scene/<scene>/frame_NNNNN.png}. Only runs when its number is named.
@@ -153,8 +153,16 @@ final class AmberSceneCases {
             // The default is EMBERS (killer560 preferred the simple style, 2026-10-15) until he picks. Two shots of one
             // scene at one clock still differ a little, so
             // "the same" means ten times closer to EMBERS than either other scene is.
-            c.check(dfltVsEmbers * 10 < Math.min(simpleVsEmbers, forgeVsEmbers), String.format(Locale.ROOT,
-                    "Amber's default scene is not EMBERS: %.3f%% differ from EMBERS", dfltVsEmbers * 100));
+            // Since mod simple-scenes-1016 the default is AURORA, his picture, released to every instance: a different
+            // picture from the embers, and the scene the mod names.
+            String dfltScene = c.onClient(mc -> {
+                Mod.staticCall(SCENES, "setAmberSceneForTest", "");
+                return String.valueOf(Mod.staticCall(SCENES, "amberScene"));
+            });
+            c.note("default Amber scene: " + dfltScene);
+            c.check("AURORA".equals(dfltScene), "Amber's default scene is " + dfltScene + ", not AURORA");
+            c.check(dfltVsEmbers > 0.05, String.format(Locale.ROOT,
+                    "Amber's default scene draws like EMBERS: %.3f%% differ", dfltVsEmbers * 100));
 
             // No allocation beyond the batch's own rectangles; SIMPLE draws no more rectangles than the old embers and
             // is no brighter than they are behind the title.

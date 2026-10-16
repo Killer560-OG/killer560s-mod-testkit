@@ -363,9 +363,9 @@ final class TitleSwitcherCases {
                 Object green = Mod.staticCall("mainmenu.MainMenuScenes", "greenScene");
                 Object gradient = Mod.staticCall("gui.GreenTheme", "gradient");
                 Object dark = Mod.staticCall("mainmenu.MainMenuScenes", "darkScene");
-                Object darkDefault = Mod.staticCall("mainmenu.MainMenuScenes", "previewScenes").equals(Boolean.TRUE)
-                        ? Mod.field(Mod.ROOT + "mainmenu.MainMenuScenes", "DARK_SCENE")
-                        : Mod.field(Mod.ROOT + "mainmenu.MainMenuScenes", "DARK_SCENE_RELEASED");
+                // the defaults as the mod states them (released everywhere since mod simple-scenes-1016)
+                Object darkDefault = Mod.field(Mod.ROOT + "mainmenu.MainMenuScenes", "DARK_SCENE");
+                Object amberDefault = Mod.field(Mod.ROOT + "mainmenu.MainMenuScenes", "AMBER_SCENE");
                 if (dark != darkDefault) {
                     return "turning the switcher off left Dark on " + dark + ", default " + darkDefault;
                 }
@@ -377,7 +377,7 @@ final class TitleSwitcherCases {
                 // every instance (mod a8b9555b), so a literal here goes stale with every scene release.
                 Object greenDefault = Mod.staticCall("mainmenu.MainMenuScenes", "defaultGreenScene");
                 Object gradientDefault = Mod.field(Mod.ROOT + "gui.GreenTheme", "DEFAULT_GRADIENT");
-                if (!"EMBERS".equals(String.valueOf(amber)) || green != greenDefault || gradient != gradientDefault) {
+                if (amber != amberDefault || green != greenDefault || gradient != gradientDefault) {
                     return "turning the switcher off left amber " + amber + ", green " + green + " (default " + greenDefault
                             + "), gradient " + gradient + " (default " + gradientDefault + ")";
                 }

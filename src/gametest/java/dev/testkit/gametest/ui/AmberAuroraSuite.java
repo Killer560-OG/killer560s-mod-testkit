@@ -24,7 +24,7 @@ import java.util.Locale;
  * and only behind {@code MainMenuScenes.previewScenes()} (the Title Screen GUI instance). At 1920x1080 GUI 2, clock held:
  * <ul>
  *   <li>1695 the scene: with previewScenes Amber draws AURORA through the shader (its frame counter rises, never the still
- *       fallback); without it Amber still draws EMBERS and the shader draws nothing. The picture is warm (red over green over
+ *       fallback); since mod simple-scenes-1016 it does so without previewScenes too (released everywhere). The picture is warm (red over green over
  *       blue, no blue cast), moves over 2 s in the sky while the land at the bottom stays put (no whole-screen sway), stays
  *       dark behind the title and the buttons (the title and the button labels stand out), and differs from the embers.
  *       The Title Screen Switcher lists it as Amber "Aurora" beside Embers, New and Simple.</li>
@@ -180,19 +180,31 @@ public class AmberAuroraSuite implements FabricClientGameTest {
     // ---- 1695 ----------------------------------------------------------------------------------------------------------
 
     static void scene(UiCase c) throws Exception {
-        // The released look: Amber keeps its embers and the shader draws nothing.
+        // Released to every instance (mod simple-scenes-1016): without previewScenes Amber draws the aurora through its
+        // shader too. The old embers, for the "differs from the embers" check below, are picked by the hook.
         around(c, false, () -> {
             clock(c, 2_000_000);
             long s0 = counter(c, "shaderFrames");
             long f0 = counter(c, "stillFrames");
-            FontsMainMenuSuite.Pic embers = FontsMainMenuSuite.pic(FontsMainMenuSuite.shot(c, "amber-released"));
+            FontsMainMenuSuite.shot(c, "amber-released");
             String scene = amberScene(c);
             long s1 = counter(c, "shaderFrames");
             long f1 = counter(c, "stillFrames");
             c.note("released: Amber draws " + scene + ", aurora frames +" + (s1 - s0) + " shader, +" + (f1 - f0) + " still");
-            c.check("EMBERS".equals(scene), "without previewScenes Amber draws " + scene + ", not EMBERS");
-            c.check(s1 == s0 && f1 == f0, "without previewScenes the aurora drew " + (s1 - s0) + "+" + (f1 - f0) + " frames");
-            embersImg = embers.img();
+            c.check("AURORA".equals(scene), "without previewScenes Amber draws " + scene + ", not AURORA");
+            c.check(s1 - s0 >= 1 && f1 == f0, "without previewScenes the aurora shader drew " + (s1 - s0) + " frames, the still "
+                    + (f1 - f0));
+            c.onClient(mc -> {
+                Mod.staticCall(SCENES, "setAmberSceneForTest", "EMBERS");
+                return null;
+            });
+            c.ticks(3);
+            clock(c, 2_000_000);
+            embersImg = FontsMainMenuSuite.pic(FontsMainMenuSuite.shot(c, "amber-embers")).img();
+            c.onClient(mc -> {
+                Mod.staticCall(SCENES, "setAmberSceneForTest", "");
+                return null;
+            });
         });
         around(c, true, () -> {
             String scene = amberScene(c);

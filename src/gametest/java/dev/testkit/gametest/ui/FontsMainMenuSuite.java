@@ -573,6 +573,12 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
         Mod.call(cfg, "setDensity", Mod.enumValue(MM + "$Density", "NORMAL"));
         Mod.call(cfg, "setSpeed", speed);
         Mod.call(cfg, "setPanel", panel);
+        try {
+            // Main Menu Scene (mod simple-scenes-1016): the painted scenes these cases were written for
+            Mod.call(cfg, "setSceneMode", Mod.enumValue(MM + "$SceneMode", "FANCY"));
+        } catch (Throwable ignored) {
+            // a jar from before the toggle
+        }
     }
 
     /** {scene name, colours, panel, speed} of MainMenuLook.current(). */

@@ -165,6 +165,7 @@
 			"dev.testkit.gametest.ui.PaintedScenesSuite",
 			"dev.testkit.gametest.ui.AmberAuroraSuite",
 			"dev.testkit.gametest.ui.OceanFallsSuite",
+			"dev.testkit.gametest.ui.SimpleScenesSuite",
 			"dev.testkit.gametest.ui.MenuAnimSuite",
 			"dev.testkit.gametest.ui.VideoGeneralSuite",
 			"dev.testkit.gametest.ui.MenuOpenSuite",

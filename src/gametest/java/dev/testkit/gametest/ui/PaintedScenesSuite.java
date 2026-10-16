@@ -28,7 +28,8 @@ import java.util.Locale;
  *       allocate no more per drawn part than STARS; with and without differ where she sits and nowhere much else.</li>
  *   <li>1681 Green's TARGET through the pipeline: three frames at fixed clocks ({@code TESTKIT_PAINTED_SHOTS} copies them
  *       as target-*.png, for a pixel diff against main's jar), its cape and hair ripple, and it is still green.</li>
- *   <li>1682 gating: without previewScenes Dark draws STARS and no character; with it MILKY_WAY_HERO.</li>
+ *   <li>1682 gating: Dark draws MILKY_WAY_HERO with her with and without previewScenes (released to every instance,
+ *       mod simple-scenes-1016; before it, STARS without).</li>
  *   <li>1684 Light's Soft Light drawn smooth (killer560: "can you smooth out the light one"): without previewScenes the
  *       blocky scene, with it the smooth one; both light, both moving, the same picture in tone (mean colour within a few
  *       levels) but drawn differently, the smooth one's side vignette has no strips (its calmest row steps at most 2 levels between neighbours, the
@@ -326,7 +327,13 @@ public class PaintedScenesSuite implements FabricClientGameTest {
         for (int k = 0; k < 2; k++) {
             boolean preview = k == 1;
             int idx = k;
-            around(c, preview, () -> shots[idx] = measure(c, "LIGHT", null, null, preview ? "light-smooth" : "light-blocky"));
+            // The smooth Soft Light is released everywhere (mod simple-scenes-1016); the blocky one is behind a test hook.
+            setOldSoftLight(c, !preview);
+            try {
+                around(c, preview, () -> shots[idx] = measure(c, "LIGHT", null, null, preview ? "light-smooth" : "light-blocky"));
+            } finally {
+                setOldSoftLight(c, false);
+            }
         }
         Shot blocky = shots[0];
         Shot smooth = shots[1];
@@ -382,6 +389,18 @@ public class PaintedScenesSuite implements FabricClientGameTest {
         double rayS = rayContrast(smooth.a().img());
         c.note(String.format(Locale.ROOT, "first ray against the sky beside it: blocky %+.2f, smooth %+.2f levels", rayB, rayS));
         c.check(rayS > 0.5, String.format(Locale.ROOT, "the smooth Soft Light lost its rays: %+.2f levels", rayS));
+    }
+
+    /** Draws Light's old blocky Soft Light (mod simple-scenes-1016's hook); nothing on a jar without it, where the blocky one
+     *  is what shows without previewScenes. */
+    static void setOldSoftLight(UiCase c, boolean on) {
+        c.onClient(mc -> {
+            try {
+                Mod.setField(Mod.ROOT + SCENES, "oldSoftLightForTest", on);
+            } catch (Throwable ignored) {
+            }
+            return null;
+        });
     }
 
     /** The scene shaders' element probe (mod light-hq-1016), or -1 when the jar has none. */
@@ -640,11 +659,12 @@ public class PaintedScenesSuite implements FabricClientGameTest {
                     clock(c, 2_000_000);
                     String scene = c.onClient(mc -> String.valueOf(Mod.staticCall(SCENES, th[3])));
                     int hero = heroRects(c);
-                    String want = preview ? th[2] : th[1];
+                    // Released to every instance (mod simple-scenes-1016): the Milky Way with her, flag or no flag.
+                    String want = th[2];
                     c.note((preview ? "preview: " : "released: ") + th[0] + " draws " + scene + ", hero " + hero + " rects");
                     c.check(want.equals(scene), (preview ? "with" : "without") + " previewScenes " + th[0] + " draws " + scene
                             + ", not " + want);
-                    c.check(preview == (hero > 0), (preview ? "with" : "without") + " previewScenes " + th[0]
+                    c.check(hero > 0, (preview ? "with" : "without") + " previewScenes " + th[0]
                             + " drew " + hero + " character rects");
                 }
             });

@@ -30,8 +30,9 @@ import java.util.Locale;
  *   <li>1691 the water really pours (ocean-waterfall-2): every sixtieth of a second several percent of the fall changes,
  *       drawn through the falls shader; and the lake itself moves and the mist at the foot billows every frame
  *       (ocean-waterfall-3).</li>
- *   <li>1692 gating: without previewScenes Ocean draws WATERFALL; with it CAVERN_FALLS; the Title Screen Switcher lists
- *       "Ocean · Waterfall" and "Ocean · Cavern Falls".</li>
+ *   <li>1692 gating: Ocean draws CAVERN_FALLS with and without previewScenes (released to every instance, mod
+ *       simple-scenes-1016; before it, WATERFALL without); the Title Screen Switcher lists "Ocean · Waterfall",
+ *       "Ocean · Cavern Falls" and "Ocean · Simple".</li>
  *   <li>1693 video (only when named): {@code -PpaintedFrames} (default 10 s) at {@code -PpaintedFps} (default 60) into
  *       {@code <report>/painted-cavern_falls/}; {@code TESTKIT_PAINTED_SHOTS} also gets {@code ocean-falls.png}.</li>
  * </ul>
@@ -282,7 +283,8 @@ public class OceanFallsSuite implements FabricClientGameTest {
                 title(c, null);
                 clock(c, 2_000_000);
                 String scene = c.onClient(mc -> String.valueOf(Mod.staticCall(SCENES, "oceanScene")));
-                String want = preview ? "CAVERN_FALLS" : "WATERFALL";
+                // released to every instance (mod simple-scenes-1016): Cavern Falls with or without the flag
+                String want = "CAVERN_FALLS";
                 c.note((preview ? "preview: " : "released: ") + "Ocean draws " + scene);
                 c.check(want.equals(scene), (preview ? "with" : "without") + " previewScenes Ocean draws " + scene + ", not " + want);
             });
@@ -297,6 +299,7 @@ public class OceanFallsSuite implements FabricClientGameTest {
         c.note("switcher looks: " + labels);
         c.check(labels.contains("Ocean · Waterfall"), "the switcher lost Ocean · Waterfall: " + labels);
         c.check(labels.contains("Ocean · Cavern Falls"), "the switcher has no Ocean · Cavern Falls: " + labels);
+        c.check(labels.contains("Ocean · Simple"), "the switcher has no Ocean · Simple: " + labels);
     }
 
     // ---- 1693 ----------------------------------------------------------------------------------------------------------
