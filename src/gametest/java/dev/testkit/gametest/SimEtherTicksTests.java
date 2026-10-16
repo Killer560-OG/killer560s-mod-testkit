@@ -146,7 +146,7 @@ public class SimEtherTicksTests implements FabricClientGameTest {
                 ctx.waitTicks(1);
             }
             Vec3 from = ctx.computeOnClient(mc -> mc.player.position());
-            int hops0 = ctx.computeOnClient(mc -> hopTicks().size());
+            long hops0 = ctx.computeOnClient(mc -> hopMark());
             ctx.runOnClient(mc -> PacketTrace.start());
             Boolean ok = ctx.computeOnClient(mc -> {
                 Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
@@ -175,8 +175,7 @@ public class SimEtherTicksTests implements FabricClientGameTest {
                 return out;
             });
             List<Long> own = ctx.computeOnClient(mc -> {
-                List<Long> all = hopTicks();
-                return new ArrayList<>(all.subList(Math.min(hops0, all.size()), all.size()));
+                return hopsSince(hops0);
             });
             Vec3 to = ctx.computeOnClient(mc -> mc.player.position());
             double moved = from.distanceTo(to);
@@ -218,6 +217,28 @@ public class SimEtherTicksTests implements FabricClientGameTest {
     @SuppressWarnings("unchecked")
     static List<Long> hopTicks() {
         return (List<Long>) ModUnderTest.staticCall(EXECUTOR, "hopSendTicks");
+    }
+
+    /**
+     * Where the hop record stands now: the newest hop's tick, or {@code Long.MIN_VALUE} with none. Count hops after it
+     * with {@link #hopsSince}, never by the list's SIZE: the mod keeps only the last 200 ({@code ClearExecutor
+     * .hopSendTicks}), so after a few hop-heavy scenarios in one client the size stays 200 and a size delta reads 0 hops
+     * for a 222-block trip (1015-sim-clickgap behind 147-sim-map-precompute and 141, 2026-10-16).
+     */
+    static long hopMark() {
+        List<Long> all = hopTicks();
+        return all.isEmpty() ? Long.MIN_VALUE : all.get(all.size() - 1);
+    }
+
+    /** The hop ticks recorded after {@code mark} ({@link #hopMark}). */
+    static List<Long> hopsSince(long mark) {
+        List<Long> out = new ArrayList<>();
+        for (long t : hopTicks()) {
+            if (t > mark) {
+                out.add(t);
+            }
+        }
+        return out;
     }
 
     /** {tile, room} of every room but his own, farthest first (by the first tile's centre). */

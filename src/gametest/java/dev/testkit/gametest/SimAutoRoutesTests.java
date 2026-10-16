@@ -8216,6 +8216,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         }
 
         private static Run run(ClientGameTestContext ctx, boolean floating, int[] chest) {
+            // The chest is the TEST's click: an aura left on by an earlier scenario in this client clicks it first, in the
+            // 10-tick settle, and the await is met before the mark (met=false, acted=-1; 2026-10-16 after 147-lastsecret).
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
             forgetRunMemory(ctx);
             resetRoutes(ctx);
             arena(ctx, false);
