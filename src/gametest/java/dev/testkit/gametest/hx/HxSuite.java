@@ -70,6 +70,9 @@ public class HxSuite implements FabricClientGameTest {
                     // Custom Scoreboard made simpler: right-edge anchor, on-screen clamp, old configs, real lines
                     // (1661-1667, branch scoreboard-simple-1015), own block.
                     HxScoreboardCases.register(s);
+                    // Staleness of the FPS pass's caches: every cached input changed, the display read back
+                    // (1016-hx-stale-*, branch fps-combined-1016), own block.
+                    HxStaleCases.register(s);
                 });
     }
 }
