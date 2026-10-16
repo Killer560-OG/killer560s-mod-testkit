@@ -159,3 +159,16 @@ an arrow ends when the client loses it, it stops moving, or it is 40 blocks out)
 be known, and the next shot or chest click must come at most 1 tick after it or after his Shoot cooldown, whichever is
 later (0 or less means the auto knew earlier). A warp, a landing or a map warp in between hands the gap to the landing
 check, and an Interactive Map trip's own landing is not judged (that is the map's arrival settle). Main: misses 5 to 6.
+
+## Reward chests under Auto Close Chest (93-solve-*-chest-autoclose, 93-solve-boulder-chest-unsolved)
+
+Mod branch chest-stall-1015 (killer560, 2026-10-15, "it gets stuck on ice fill after grabbing the chest"). `SimChestStallTests`
+plays Ice Path, Ice Fill and Water Board with Secret Aura off and Auto Close Chest ON (his setting), so no chest screen ever
+shows. The truth is a server-side `UseBlockCallback` in the harness that records every chest the integrated server took a
+click on. Each claimed chest must be clicked once, the step must log "reward chest step over - done" within 3 ticks of the
+last claim, and `AutoPuzzleActivity.isWorking` must read false within 2 ticks of that; a case where a screen showed, or the
+server took no chest click, is UNTESTED. Main: 3 clicks per chest, "did not open", the step over ~9 s later, the hold 41
+ticks after that. `boulder-chest-unsolved` (Secret Aura on, no button pressed): the sim's `SimPuzzles.isComplete("boulder")`
+within 2 ticks of the chest opening and the tab list's Boulder ✔ within 40; main never. Every 93-solve case now starts
+with Auto Close Chest off unless its extra turns it on. 102-sim-autosecret's puzzle hold alternates the fake puzzle's name
+per tick ("Ice Path chest" / "Puzzles") and allows one hold line each in the log, chat and Auto Routes' arming (main: 100).
