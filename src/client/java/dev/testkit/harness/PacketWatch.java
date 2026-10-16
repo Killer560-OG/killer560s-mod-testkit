@@ -181,7 +181,22 @@ public final class PacketWatch {
         clicksThisTick = 0;
     }
 
+    /** Wall-clock ms of every container click the client sent, recorded whether or not a watch is active (bounded).
+     *  Scenarios that measure click pacing read it, since a server tick count is only good to about one tick. */
+    private static final java.util.List<Long> CONTAINER_CLICK_MS = new java.util.ArrayList<>();
+
+    /** A copy of the send times of every container click so far (see {@link #CONTAINER_CLICK_MS}). */
+    public static synchronized java.util.List<Long> containerClickMillis() {
+        return new java.util.ArrayList<>(CONTAINER_CLICK_MS);
+    }
+
     public static synchronized void record(Packet<?> packet) {
+        if (packet instanceof ServerboundContainerClickPacket) {
+            if (CONTAINER_CLICK_MS.size() >= 20_000) {
+                CONTAINER_CLICK_MS.subList(0, 10_000).clear();
+            }
+            CONTAINER_CLICK_MS.add(System.currentTimeMillis());
+        }
         if (!active) {
             return;
         }

@@ -18,10 +18,11 @@ import java.util.List;
  *   <li>288: a fresh config, an old (version 1) file at the old defaults, an old file with zero and garbage values, the
  *   setters' floor, and every value surviving save + load (311-style). Read through the real loader from the real
  *   file.</li>
- *   <li>289: Auto E-Table playing Chronomatron and Superpairs against {@code menu.experiment}, measuring the server's
- *   tick gap between two clicks of one sequence under the defaults, Random Delay larger than Click Delay, an old file
- *   with zero delays, and Superpairs with Adaptive Timeout on. Every run must also have clicked (the game reached its
- *   end), or its gaps prove nothing.</li>
+ *   <li>289: Auto E-Table playing Chronomatron and Superpairs against {@code menu.experiment}, measuring the gap
+ *   between two clicks of one sequence - in ms at the client's send ({@code PacketWatch.containerClickMillis}), with
+ *   the server's tick gap alongside - under the defaults, Random Delay larger than Click Delay, an old file with zero
+ *   delays, and Superpairs with Adaptive Timeout on. Every run must also have clicked (the game reached its end), or
+ *   its gaps prove nothing. Server ticks alone are not precise enough: on a loaded machine a 400 ms gap read 6 ticks.</li>
  * </ul>
  */
 final class EtableDefaultsCases {
@@ -230,16 +231,21 @@ final class EtableDefaultsCases {
     // ---- click spacing ---------------------------------------------------------------------------------------------
 
     /** One game played by Auto E-Table: the server's tick gaps between consecutive clicks of one sequence. */
-    record Run(String label, String reason, int clicks, int wrong, List<Long> gaps) {
+    record Run(String label, String reason, int clicks, int clientClicks, int wrong, List<Long> gaps, List<Long> msGaps) {
         long minGap() {
             return gaps.stream().mapToLong(Long::longValue).min().orElse(-1);
         }
 
+        long minMs() {
+            return msGaps.stream().mapToLong(Long::longValue).min().orElse(-1);
+        }
+
         String line() {
-            List<Long> sorted = new ArrayList<>(gaps);
+            List<Long> sorted = new ArrayList<>(msGaps);
             sorted.sort(Long::compare);
-            return label + ": game " + reason + ", " + clicks + " clicks (" + wrong + " wrong), " + gaps.size()
-                    + " in-sequence gaps, min " + minGap() + " ticks, all " + sorted;
+            return label + ": game " + reason + ", " + clicks + " clicks at the server / " + clientClicks + " sent ("
+                    + wrong + " wrong), " + msGaps.size() + " in-sequence gaps, min " + minMs() + " ms (" + minGap()
+                    + " server ticks), ms gaps " + sorted + ", tick gaps " + gaps;
         }
     }
 
@@ -257,6 +263,7 @@ final class EtableDefaultsCases {
             c.ctx().runOnClient(mc -> Mod.setField(ExperimentCases.FEATURE, "armed", true));
             try {
                 int before = c.events("experiment.click").size();
+                int sentBefore = dev.testkit.harness.PacketWatch.containerClickMillis().size();
                 int overBefore = c.events("experiment.over").size();
                 JsonObject st = c.hx().call("menu.experiment", "game", game, "seed", 47, "rounds", 5, "watch", 8,
                         "hold", 6, "pairs", 4, "clicks", 30).getAsJsonObject();
@@ -265,7 +272,10 @@ final class EtableDefaultsCases {
                 JsonObject over = c.events("experiment.over").get(c.events("experiment.over").size() - 1);
                 List<JsonObject> clicks = c.events("experiment.click");
                 clicks = new ArrayList<>(clicks.subList(before, clicks.size()));
+                List<Long> sent = dev.testkit.harness.PacketWatch.containerClickMillis();
+                sent = new ArrayList<>(sent.subList(sentBefore, sent.size()));
                 List<Long> gaps = new ArrayList<>();
+                List<Long> msGaps = new ArrayList<>();
                 for (int i = 1; i < clicks.size(); i++) {
                     JsonObject a = clicks.get(i - 1);
                     JsonObject b = clicks.get(i);
@@ -273,9 +283,13 @@ final class EtableDefaultsCases {
                     if (a.get("round").getAsInt() == b.get("round").getAsInt()
                             && !a.get("phase").getAsString().equals("WATCH") && !b.get("phase").getAsString().equals("WATCH")) {
                         gaps.add(b.get("tick").getAsLong() - a.get("tick").getAsLong());
+                        if (sent.size() == clicks.size()) {
+                            msGaps.add(sent.get(i) - sent.get(i - 1));
+                        }
                     }
                 }
-                return new Run(label, over.get("reason").getAsString(), clicks.size(), over.get("wrong").getAsInt(), gaps);
+                return new Run(label, over.get("reason").getAsString(), clicks.size(), sent.size(),
+                        over.get("wrong").getAsInt(), gaps, msGaps);
             } finally {
                 c.ctx().runOnClient(mc -> Mod.setField(ExperimentCases.FEATURE, "armed", false));
             }
@@ -294,30 +308,29 @@ final class EtableDefaultsCases {
         List<String> problems = new ArrayList<>();
         List<Run> runs = new ArrayList<>();
         try {
-            // A click is sent on a client tick and counted on the server's next one, so two clicks d ms apart land
-            // d/50 ticks apart, give or take one. The floors below allow that one tick.
-            // (1) Defaults: what a friend gets on first use. Click Delay 400 ms = 8 ticks.
+            // The floor is the configured Click Delay in ms at the client's send.
+            // (1) Defaults: what a friend gets on first use. Click Delay 400 ms.
             loadFrom(c, null);
             Run defaults = play(c, "defaults (no file)", "CHRONOMATRON");
             runs.add(defaults);
-            expect(problems, defaults, "max rounds", 7);
+            expect(problems, defaults, "max rounds", 400);
             // (2) Random Delay above Click Delay: 400 ms with up to 500 ms of jitter. Paced from the DECISION, two
             // clicks were 400 - jitter apart, or swapped.
             loadFrom(c, "{\"configVersion\":2,\"delayMs\":400,\"firstClickDelayMs\":600,\"randomDelayMaxMs\":500}");
             Run jitter = play(c, "Click Delay 400 + Random Delay 500", "CHRONOMATRON");
             runs.add(jitter);
-            expect(problems, jitter, "max rounds", 7);
-            // (3) An old file with zero delays: 0 ms clicked every tick. The floor is 150 ms = 3 ticks.
+            expect(problems, jitter, "max rounds", 400);
+            // (3) An old file with zero delays: 0 ms clicked every tick. The floor is 150 ms.
             loadFrom(c, oldDefaultsFile("").replace("\"delayMs\":200", "\"delayMs\":0")
                     .replace("\"firstClickDelayMs\":1000", "\"firstClickDelayMs\":0"));
             Run zero = play(c, "old file, delays 0", "CHRONOMATRON");
             runs.add(zero);
-            expect(problems, zero, "max rounds", 2);
+            expect(problems, zero, "max rounds", 150);
             // (4) Superpairs with Adaptive Timeout on, defaults otherwise.
             loadFrom(c, "{\"configVersion\":2,\"superpairsAdaptiveTimeout\":true}");
             Run pairs = play(c, "Superpairs, Adaptive Timeout on", "SUPERPAIRS");
             runs.add(pairs);
-            expect(problems, pairs, "all pairs", 7);
+            expect(problems, pairs, "all pairs", 400);
         } finally {
             runs.forEach(r -> c.note(r.line()));
             restore(c, saved);
@@ -327,15 +340,18 @@ final class EtableDefaultsCases {
         c.check(problems.isEmpty(), String.join(" | ", problems));
     }
 
-    private static void expect(List<String> problems, Run r, String reason, long minTicks) {
+    private static void expect(List<String> problems, Run r, String reason, long minMs) {
         if (!r.reason().equals(reason) || r.wrong() != 0) {
             problems.add(r.label() + ": game ended '" + r.reason() + "' with " + r.wrong() + " wrong, expected '" + reason + "'");
         }
-        if (r.gaps().size() < 3) {
-            problems.add(r.label() + ": only " + r.gaps().size() + " in-sequence gaps measured, the run proves nothing");
-        } else if (r.minGap() < minTicks) {
-            problems.add(r.label() + ": two clicks " + r.minGap() + " tick(s) apart, expected at least " + minTicks
-                    + " " + r.gaps());
+        if (r.clientClicks() != r.clicks()) {
+            problems.add(r.label() + ": the client sent " + r.clientClicks() + " clicks and the server counted " + r.clicks()
+                    + ", so the send times cannot be paired with the server's rounds");
+        } else if (r.msGaps().size() < 3) {
+            problems.add(r.label() + ": only " + r.msGaps().size() + " in-sequence gaps measured, the run proves nothing");
+        } else if (r.minMs() < minMs) {
+            problems.add(r.label() + ": two clicks sent " + r.minMs() + " ms apart, expected at least " + minMs + " "
+                    + r.msGaps());
         }
     }
 }
