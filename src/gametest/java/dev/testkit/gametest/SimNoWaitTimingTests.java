@@ -59,7 +59,21 @@ public final class SimNoWaitTimingTests {
     /** Blaze: one fewer blaze listed ends a volley's wait. */
     private static String blazeProbe(Minecraft mc) {
         Object list = ModUnderTest.staticCall(MOD + "puzzlesolvers.BlazeSolverFeature", "getOrderedBlazes");
-        return "blazes " + (list instanceof List<?> l ? l.size() : -1);
+        String out = "blazes " + (list instanceof List<?> l ? l.size() : -1);
+        // The secret chest only exists once the room is done (the sim puts it there on the kill): the auto's click on it
+        // can go no earlier, so its appearing is a ready moment - not the auto's wait.
+        try {
+            var m = Class.forName(MOD + "autopuzzles.AutoBlaze").getDeclaredMethod("testSecretPos");
+            m.setAccessible(true);
+            BlockPos[] pos = (BlockPos[]) m.invoke(null);
+            if (pos != null && pos[0] != null && mc.level.getBlockState(pos[0]).getBlock()
+                    instanceof net.minecraft.world.level.block.ChestBlock) {
+                out += ", secret chest there";
+            }
+        } catch (ReflectiveOperationException e) {
+            out += ", secret unreadable";
+        }
+        return out;
     }
 
     /** Beams: one fewer lit pair is a pair done. */
