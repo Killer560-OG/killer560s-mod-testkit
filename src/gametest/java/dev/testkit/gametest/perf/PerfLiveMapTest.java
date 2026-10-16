@@ -18,8 +18,8 @@ import java.util.function.Consumer;
 
 /**
  * 95-perf-livemap: the Dungeon Map HUD's draw cache (mod {@code livemap/MapDrawCache}, 2026-10-15), ~3 min, only when
- * named. In {@link PerfBench}'s scene (the seeded sim F7, camera turning) with only the Dungeon Map (and its Extra Info)
- * on:
+ * named. In {@link PerfBench}'s scene (the seeded sim F7, camera turning), first with only the Dungeon Map (and its Extra
+ * Info) on, then with the bench's ALL ON set (Predictive Rooms and the rest) plus the map:
  * <ol>
  *   <li><b>cost</b>: the map draws every frame (asserted), and its render-thread allocation per frame stays under
  *       {@link #ALLOC_BUDGET} (main painted everything afresh every frame: 61.7 KB a frame here, 3.1 KB with the cache, 2026-10-15),
@@ -94,37 +94,24 @@ public class PerfLiveMapTest implements FabricClientGameTest {
                     Mod.staticCall(CACHE, "resetStats");
                 });
             }
-            Phase p = PerfBench.measure(ctx, "Dungeon Map ON", 400, cal);
-            long[] cost = cached ? ctx.computeOnClient(mc -> (long[]) Mod.staticCall(CACHE, "stats")) : new long[5];
-            report.add(p.line());
-            Key map = null;
-            for (Key k : p.keys().values()) {
-                if (k.key().contains("HUD[live_map]")) {
-                    map = k;
+            costPhase(ctx, "Dungeon Map ON", cal, cached, report, failures);
+            // ALL ON (the bench's set, the map's extras included): what else is on must not make the map repaint.
+            Map<Switch, Boolean> allOn = PerfBench.allOn(defaults);
+            for (Switch s : all) {
+                if (s.label().equals("livemap.LiveMapConfig")) {
+                    allOn.put(s, true);
                 }
             }
-            if (map == null || map.calls() < p.frames() / 2) {
-                failures.add("the Dungeon Map did not draw every frame (" + (map == null ? 0 : map.calls())
-                        + " draws in " + p.frames() + " frames) - nothing was measured");
-            } else {
-                double bytes = map.bytes() / Math.max(1, p.frames());
-                String line = String.format(Locale.ROOT, "HUD[live_map]: %.2f us/frame, %.0f B/frame over %d frames,"
-                                + " %d ticks; cache %d replays, %d paints (budget %.0f B/frame)",
-                        map.ns() / 1e3 / Math.max(1, p.frames()), bytes, p.frames(), p.ticks(), cost[0], cost[1],
-                        ALLOC_BUDGET);
-                report.add(line);
-                if (bytes > ALLOC_BUDGET) {
-                    failures.add(line);
-                }
-                // Players are painted once a tick; the rooms, labels and Extra Info only when they change.
-                if (cost[0] < p.frames()) {
-                    failures.add("the draw cache replayed only " + cost[0] + " part(s) in " + p.frames() + " frames");
-                }
-                if (cost[1] > p.ticks() * 1.5 + 20) {
-                    failures.add("the draw cache painted " + cost[1] + " part(s) in " + p.ticks()
-                            + " ticks: more than the players once a tick");
-                }
+            ctx.runOnClient(mc -> {
+                PerfBench.apply(allOn);
+                Mod.set("livemap.LiveMapConfig", "setRoomLabels", 4);
+                Mod.set("mapping.MappingConfig", "setExtraInfoEnabled", true);
+            });
+            ctx.waitTicks(40);
+            if (cached) {
+                ctx.runOnClient(mc -> Mod.staticCall(CACHE, "resetStats"));
             }
+            costPhase(ctx, "ALL ON", cal, cached, report, failures);
 
             if (!cached) {
                 throw new AssertionError("[" + NAME + "] the mod has no " + CACHE + ": the Dungeon Map is painted afresh"
@@ -211,6 +198,45 @@ public class PerfLiveMapTest implements FabricClientGameTest {
         System.out.println("[" + NAME + "] PASS");
     }
 
+    /** 400 ticks with the probe: the map draws every frame, allocates under budget, and (with the cache) replays
+     *  every frame while painting no more than the players' part once a tick. */
+    private static void costPhase(ClientGameTestContext ctx, String label, double[] cal, boolean cached,
+                                  List<String> report, List<String> failures) {
+        Phase p = PerfBench.measure(ctx, label, 400, cal);
+        long[] cost = cached ? ctx.computeOnClient(mc -> (long[]) Mod.staticCall(CACHE, "stats")) : new long[5];
+        report.add(p.line());
+        Key map = null;
+        for (Key k : p.keys().values()) {
+            if (k.key().contains("HUD[live_map]")) {
+                map = k;
+            }
+        }
+        if (map == null || map.calls() < p.frames() / 2) {
+            failures.add(label + ": the Dungeon Map did not draw every frame (" + (map == null ? 0 : map.calls())
+                    + " draws in " + p.frames() + " frames) - nothing was measured");
+            return;
+        }
+        double bytes = map.bytes() / Math.max(1, p.frames());
+        String line = String.format(Locale.ROOT, "%s: HUD[live_map] %.2f us/frame, %.0f B/frame over %d frames,"
+                        + " %d ticks; cache %d replays, %d paints (budget %.0f B/frame)", label,
+                map.ns() / 1e3 / Math.max(1, p.frames()), bytes, p.frames(), p.ticks(), cost[0], cost[1], ALLOC_BUDGET);
+        report.add(line);
+        if (bytes > ALLOC_BUDGET) {
+            failures.add(line);
+        }
+        if (!cached) {
+            return;
+        }
+        // Players are painted once a tick; the rooms, labels and Extra Info only when they change.
+        if (cost[0] < p.frames()) {
+            failures.add(label + ": the draw cache replayed only " + cost[0] + " part(s) in " + p.frames() + " frames");
+        }
+        if (cost[1] > p.ticks() * 1.5 + 20) {
+            failures.add(label + ": the draw cache painted " + cost[1] + " part(s) in " + p.ticks()
+                    + " ticks: more than the players once a tick");
+        }
+    }
+
     private static void remember(Map<String, Object[]> restore, String cfgClass, String getter, String setter) {
         Object cfg = Mod.cfg(cfgClass);
         restore.put(cfgClass + "#" + setter, new Object[]{cfg, setter, Mod.call(cfg, getter)});
@@ -230,8 +256,10 @@ public class PerfLiveMapTest implements FabricClientGameTest {
         out.put("sim room back to normal", mc -> Mod.staticCall("roomsim.SimRoomState", "clearRoom", roomName(1)));
         out.put("sim door made a wither door", mc -> Mod.staticCall("livemap.LiveMapFeature", "setSimDoorWither",
                 normalDoor()));
-        out.put("Custom Checkmark Sprite on", mc -> Mod.set("livemap.LiveMapConfig", "setCustomCheckmarks", true));
-        out.put("Predictive Rooms on", mc -> Mod.set("livemap.predict.PredictiveRoomsConfig", "setEnabled", true));
+        out.put("Custom Checkmark Sprite toggled", mc -> Mod.set("livemap.LiveMapConfig", "setCustomCheckmarks",
+                !(Boolean) Mod.get("livemap.LiveMapConfig", "isCustomCheckmarks")));
+        out.put("Predictive Rooms toggled", mc -> Mod.set("livemap.predict.PredictiveRoomsConfig", "setEnabled",
+                !(Boolean) Mod.get("livemap.predict.PredictiveRoomsConfig", "isEnabledRaw")));
         out.put("Map Background colour", mc -> Mod.set("livemap.LiveMapConfig", "setMapBackground", 0xC0102030));
         out.put("Room Labels: Name + Secrets", mc -> Mod.set("livemap.LiveMapConfig", "setRoomLabels", 4));
         return out;
