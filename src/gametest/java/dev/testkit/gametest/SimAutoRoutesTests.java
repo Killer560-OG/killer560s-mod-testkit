@@ -129,7 +129,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // ar-redo (2026-10-12): /ar redo restores deletes and clears
             "96-ar-960-redo-restore",
             // ar-render-1016: the node renderer draws the executor's active node in the active colour on every frame
-            "96-ar-1016-activeframe"};
+            "96-ar-1016-activeframe",
+            // fullclear-1016: a path hop the server takes as an unpaired chest click's second half is sent again
+            "96-ar-1016-eaten"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -275,6 +277,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-crypthold" -> caseCryptHold(ctx);
                         case "96-ar-charges" -> caseCharges(ctx);
                         case "96-ar-museum" -> caseMuseum(ctx);
+                        case "96-ar-1016-eaten" -> caseEatenHop(ctx);
                         case "96-ar-398-offnode" -> caseOffNode(ctx);
                         case "96-ar-398-regrow" -> caseRegrow(ctx);
                         case "96-ar-398-startawait" -> caseStartAwait(ctx);
@@ -2760,6 +2763,83 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     }
 
     /**
+     * fullclear-1016 (his sim run 2026-10-16 16:59:25 Cathedral #15 and 17:00:10 Crypt #5, the first full-clear run's Crypt
+     * #5): a chest opened with the Aspect of the Void in hand stays unpaired on the server, and a later warp looks up past a
+     * block the 1.8 server's ray (1.54 eye) meets within 4.5 while this client's look (1.27 eye) passes under it - so no
+     * block half can be sent, and no other look onto the target has rays that agree: the use goes out to be taken as the
+     * chest click's second half and dropped. Built here: a stone plate at head height just in front of him (7, F+2, 20), a
+     * target block high across the arena (16, F+5, 20) whose west face every look reaches only under the plate. Main: "no
+     * landing after 61 ticks" and the route lets the node go off its ring. Fixed: the warp goes again a round trip later
+     * (the click is paired by then) and lands on the target.
+     */
+    private void caseEatenHop(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+        forgetRunMemory(ctx);
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        int[] chest = {8, F, 23};
+        Map<int[], BlockState> put = new LinkedHashMap<>();
+        put.put(new int[]{7, F + 2, 20}, Blocks.STONE.defaultBlockState());
+        put.put(new int[]{16, F + 5, 20}, Blocks.STONE.defaultBlockState());
+        put.put(chest, Blocks.CHEST.defaultBlockState());
+        setBlocks(ctx, put);
+        // The west face's middle of the target, from the sneaking eye at (6.5, F, 20.5): slope 4.23 / 9.5, so the 1.27 ray
+        // is at 1.94 under the plate's far edge (x 1.5 out) and the 1.54 ray meets its underside at 1.03 out.
+        float yaw = relYawTo(6, 20, 16, 20);
+        float pitch = (float) -Math.toDegrees(Math.atan2(5.5 - 1.27, 16.0 - 6.5));
+        JsonObject n = node("ETHERWARP", 6, 20, yaw, pitch);
+        n.addProperty("landing", String.format(Locale.US, "%.3f %.3f %.3f", 16.5, F + 6.05, 20.5));
+        n.addProperty("start", true);
+        n.addProperty("awaitEnabled", true);
+        n.addProperty("await", "SECRET");
+        n.addProperty("amount", 1);
+        writeRoute(ctx, List.of(n));
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+        tpRel(ctx, 6.5, 20.5, yaw, pitch);
+        ctx.waitTicks(10);
+        Vec3 top = ctx.computeOnClient(mc -> ArPathLandCases.toRealPublic(16.5, F + 6, 20.5));
+        long m = LogTap.mark();
+        boolean met;
+        boolean landed;
+        try {
+            rightClick(ctx, chest[0], chest[1], chest[2], Direction.UP);
+            met = waitFor(ctx, 40, () -> awaitMet(m));
+            ctx.runOnClient(mc -> mc.player.closeContainer());
+            landed = waitFor(ctx, 120, () -> ctx.computeOnClient(mc -> mc.player.position().distanceTo(top) < 0.4));
+            ctx.waitTicks(10);
+        } finally {
+            stopRoute(ctx);
+        }
+        int dropped = 0;
+        int uses = 0;
+        for (String l : LogTap.since(m)) {
+            if (l.contains("dropped, as on Hypixel")) {
+                dropped++;
+            }
+            if (l.contains("[RightClick] use seq")) {
+                uses++;
+            }
+            if (l.contains("RightClick") || l.contains("Etherwarp") || l.contains("ETHERWARP") || l.contains("dropped")) {
+                println("eaten log: " + l);
+            }
+        }
+        boolean resent = logHas(m, "sending the warp again");
+        boolean timedOut = logHas(m, "no landing after");
+        println(String.format(Locale.US, "eaten: await met %s, uses %d, dropped by the sim %d, resent %s, timed out %s, "
+                + "landed on the target %s", met, uses, dropped, resent, timedOut, landed));
+        resetRoutes(ctx);
+        forgetRunMemory(ctx);
+        check(met, "the chest click never met the await - nothing flew");
+        check(dropped >= 1, "no use was dropped as the chest click's second half - the case it is about never happened");
+        check(!timedOut, "the warp waited out the 61-tick landing timeout after its use was dropped");
+        check(resent, "no \"sending the warp again\" line after the dropped use");
+        check(landed, "he never landed on the target block");
+        check(dropped == 1 && uses == 2, "expected exactly one dropped use and one resend (" + uses + " use(s), " + dropped
+                + " dropped)");
+    }
+
+    /**
      * killer560 (2026-10-06): "having those multiple boom nodes on the same spot are not working to then go into the
      * crypt killer". His Museum route, exact, in the sim's Museum: armed on node #10 (the etherwarp onto the stack
      * tile), so the stack #11 BOOM, #12 BOOM, #13 CRYPT (await 2), #14 ETHERWARP fires as it does for him. Each boom
@@ -5102,6 +5182,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 return new int[]{1, 1};
             }
         });
+        if (rotation % 180 != 0) {
+            span = new int[]{span[1], span[0]};   // a quarter turn swaps the capture's footprint
+        }
         for (int gz = 4; gz <= 4 + 2 * (span[1] - 1); gz++) {
             for (int gx = 4; gx <= 4 + 2 * (span[0] - 1); gx++) {
                 cellRoom[gz * 11 + gx] = 0;

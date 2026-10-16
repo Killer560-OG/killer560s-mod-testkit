@@ -51,6 +51,7 @@
 			"dev.testkit.gametest.SimMapMimicTests",
 			"dev.testkit.gametest.SimMapWarpTests",
 			"dev.testkit.gametest.SimAutoSecretTests",
+			"dev.testkit.gametest.SimFullClearTests",
 			"dev.testkit.gametest.RoomTourLogicTests",
 			"dev.testkit.gametest.SimAutoSecretOptimizeTests",
 			"dev.testkit.gametest.SimMapPrecomputeTests",
