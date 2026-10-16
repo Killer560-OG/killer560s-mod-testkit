@@ -134,10 +134,13 @@ public class PerfIdleTest implements FabricClientGameTest {
                 ctx.waitTicks(400);
                 String span = ctx.computeOnClient(mc -> {
                     EventSpan.stop();
-                    return String.format(Locale.ROOT, "%-8s ticks: START %.1f us %.0f B, END %.1f us %.0f B per tick (%d ticks)",
+                    return String.format(Locale.ROOT, "%-8s ticks: START %.1f us %.0f B, END %.1f us %.0f B per tick (%d ticks)"
+                                    + " | frames: after-terrain %.2f us, after-features %.2f us per frame (%d frames)",
                             label, EventSpan.usPerCall(EventSpan.Kind.START_TICK),
                             EventSpan.bytesPerCall(EventSpan.Kind.START_TICK), EventSpan.usPerCall(EventSpan.Kind.END_TICK),
-                            EventSpan.bytesPerCall(EventSpan.Kind.END_TICK), EventSpan.calls(EventSpan.Kind.END_TICK));
+                            EventSpan.bytesPerCall(EventSpan.Kind.END_TICK), EventSpan.calls(EventSpan.Kind.END_TICK),
+                            EventSpan.usPerCall(EventSpan.Kind.AFTER_TERRAIN), EventSpan.usPerCall(EventSpan.Kind.AFTER_FEATURES),
+                            EventSpan.calls(EventSpan.Kind.AFTER_FEATURES));
                 });
                 report.add(span);
                 if (!span.contains("(") || ctx.computeOnClient(mc -> EventSpan.calls(EventSpan.Kind.END_TICK)) < 300) {
@@ -235,6 +238,20 @@ public class PerfIdleTest implements FabricClientGameTest {
         if (s.contains(w)) {
             into.add(s);
         }
+    }
+
+    /** {@code Minecraft.getChatListener()} on 26.1, {@code chatListener()} on 26.2 (by reflection, no compat edit). */
+    private static net.minecraft.client.multiplayer.chat.ChatListener chatListener(Minecraft mc) {
+        for (String n : new String[]{"getChatListener", "chatListener"}) {
+            try {
+                return (net.minecraft.client.multiplayer.chat.ChatListener) Minecraft.class.getMethod(n).invoke(mc);
+            } catch (NoSuchMethodException ignored) {
+                // the other version's name
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+        }
+        throw new AssertionError("no chat listener accessor on Minecraft");
     }
 
     // ---- 2 ----------------------------------------------------------------------------------------------------------
