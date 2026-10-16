@@ -106,6 +106,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1015-serverlag",
             // sim-corrections-1015: a path's warps land on their planned blocks after a chest click with the AOTV held
             "96-ar-1015-pathland",
+            // rightclick-reaim-1015: a warp whose server ray meets a block the client cannot click is re-aimed, one tick
+            "96-ar-1015-reaim",
             // small-dungeon (2026-10-15): a secret bat already alive when the bat node arms is killed and counted
             "96-ar-1015-batpresent", "96-ar-1015-batseek",
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim", "96-ar-398-startawait",
@@ -291,6 +293,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1015-puzzleclick" -> ArMainServerCases.puzzleWarpAfterClick(ctx);
                         case "96-ar-1015-serverlag" -> ArServerLagCases.serverLag(ctx);
                         case "96-ar-1015-pathland" -> ArPathLandCases.pathLand(ctx);
+                        case "96-ar-1015-reaim" -> ArReaimCases.reaim(ctx);
                         case "96-ar-dbedit" -> caseDbEdit(ctx);
                         case "96-ar-mapopen" -> caseMapOpen(ctx);
                         case "96-ar-mapopen-aim" -> caseMapOpenAim(ctx);
@@ -7840,10 +7843,126 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             return null;
         }
 
+        static Vec3 toRealPublic(double x, double y, double z) {
+            return toReal(x, y, z);
+        }
+
         private static Vec3 toReal(double x, double y, double z) {
             Object frame = ModUnderTest.staticCall(FRAME, "current");
             return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
                     double.class, double.class}, new Object[]{frame, x, y, z});
+        }
+    }
+
+    /**
+     * {@code 96-ar-1015-reaim} (rightclick-reaim-1015). killer560, 2026-10-15 ("nothing that flags or breaks"): when the
+     * server's ray for a warp - traced from the 1.8 eye, 0.27 above the modern sneaking one - meets a block this client's
+     * look cannot reach, no click can pair the use and Hypixel drops it; the warp must be held ONE tick and re-aimed to a
+     * look whose rays agree. The mismatch is built: an ETHERWARP start node at (6, 20) awaiting a chest clicked with the
+     * AOTV held, aimed at the west face of a raised block at (11, F, 20), with a stone block floating at (9, F+1, 20) that
+     * only the 1.8 eye's ray meets (geometry found by search, killer560s-mod-logs/reaim-geom.py). He already looks along the
+     * warp, so the control (no floating block) sends on its firing tick. The old jar sends the same and the sim drops it;
+     * the new one re-aims and lands on the block one tick after the control.
+     */
+    static final class ArReaimCases {
+
+        private ArReaimCases() {
+        }
+
+        private record Run(boolean met, boolean landed, int acted, int dropped, boolean reaimed, boolean noLanding,
+                           List<String> off) {
+        }
+
+        static void reaim(ClientGameTestContext ctx) {
+            Run control = run(ctx, false, new int[]{8, F, 23});
+            Run mismatch = run(ctx, true, new int[]{8, F, 24});
+            println(String.format(Locale.US, "reaim control: %s | mismatch: %s", control, mismatch));
+            resetRoutes(ctx);
+            forgetRunMemory(ctx);
+            check(control.met() && control.landed() && control.dropped() == 0 && control.acted() >= 0,
+                    "control (no floating block): the warp did not land cleanly - " + control);
+            check(!control.reaimed(), "control: a look whose rays agree was re-aimed - it must cost nothing");
+            check(mismatch.met(), "mismatch: the chest click never met the await - nothing flew");
+            check(mismatch.dropped() == 0 && !mismatch.noLanding(), "mismatch: the server dropped the warp as the chest "
+                    + "click's second half (" + mismatch.dropped() + " use(s)) - the client sent a look it could not pair");
+            check(mismatch.landed() && mismatch.off().isEmpty(), "mismatch: did not land on the raised block - off " + mismatch.off());
+            check(mismatch.reaimed(), "mismatch: no re-aim line - the case it is about never happened");
+            check(mismatch.acted() == control.acted() + 1, "mismatch: the warp went " + mismatch.acted()
+                    + " tick(s) after firing, the control " + control.acted() + " - the re-aim must cost exactly one tick");
+        }
+
+        private static Run run(ClientGameTestContext ctx, boolean floating, int[] chest) {
+            forgetRunMemory(ctx);
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            Map<int[], BlockState> put = new LinkedHashMap<>();
+            put.put(new int[]{11, F, 20}, Blocks.STONE.defaultBlockState());
+            put.put(chest, Blocks.CHEST.defaultBlockState());
+            if (floating) {
+                put.put(new int[]{9, F + 1, 20}, Blocks.STONE.defaultBlockState());
+            }
+            setBlocks(ctx, put);
+            // The warp's look: the west face's middle of the raised block, from the sneaking eye at (6.5, F, 20.5).
+            double dx = 11.03 - 6.5;
+            double drop = 1.27 - 0.5;
+            float yaw = relYawTo(6, 20, 11, 20);
+            float pitch = (float) Math.toDegrees(Math.atan2(drop, dx));
+            JsonObject n = node("ETHERWARP", 6, 20, yaw, pitch);
+            n.addProperty("landing", String.format(Locale.US, "%.3f %.3f %.3f", 11.5, F + 1.05, 20.5));
+            n.addProperty("start", true);
+            n.addProperty("awaitEnabled", true);
+            n.addProperty("await", "SECRET");
+            n.addProperty("amount", 1);
+            writeRoute(ctx, List.of(n));
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+            // Already looking along the warp: the server has heard its look, so nothing needs turning in the control.
+            tpRel(ctx, 6.5, 20.5, yaw, pitch);
+            ctx.waitTicks(10);
+            int dropped0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimAbilities",
+                    "usesTakenAsClickHalf"));
+            Vec3 start = ctx.computeOnClient(mc -> ArPathLandCases.toRealPublic(6.5, F, 20.5));
+            Vec3 top = ctx.computeOnClient(mc -> ArPathLandCases.toRealPublic(11.5, F + 1, 20.5));
+            long m = LogTap.mark();
+            startSampling(ctx);
+            List<Sample> s;
+            boolean met;
+            try {
+                rightClick(ctx, chest[0], chest[1], chest[2], Direction.UP);
+                met = waitFor(ctx, 40, () -> awaitMet(m));
+                ctx.runOnClient(mc -> mc.player.closeContainer());
+                waitFor(ctx, 100, () -> ctx.computeOnClient(mc -> mc.player.position().distanceTo(top) < 0.4));
+                ctx.waitTicks(10);
+            } finally {
+                s = stopSampling(ctx);
+                stopRoute(ctx);
+            }
+            int dropped = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimAbilities",
+                    "usesTakenAsClickHalf")) - dropped0;
+            List<String> off = new ArrayList<>();
+            boolean landed = false;
+            for (Sample x : s) {
+                boolean atStart = Math.hypot(x.pos().x - start.x, x.pos().z - start.z) < 0.35 && Math.abs(x.pos().y - start.y) < 0.35;
+                boolean atTop = Math.hypot(x.pos().x - top.x, x.pos().z - top.z) < 0.35 && Math.abs(x.pos().y - top.y) < 0.35;
+                landed |= atTop;
+                if (!atStart && !atTop && off.size() < 3) {
+                    off.add(String.format(Locale.US, "tick %d at %.2f, %.2f, %.2f", x.tick(), x.pos().x, x.pos().y, x.pos().z));
+                }
+            }
+            int acted = -1;
+            String line = null;
+            for (String l : LogTap.since(m)) {
+                if (l.contains("Node #1 ETHERWARP acted")) {
+                    line = l;
+                }
+            }
+            if (line != null) {
+                java.util.regex.Matcher mm = java.util.regex.Pattern.compile("acted (\\d+) tick").matcher(line);
+                if (mm.find()) {
+                    acted = Integer.parseInt(mm.group(1));
+                }
+            }
+            return new Run(met, landed, acted, dropped, logHas(m, "re-aimed"), logHas(m, "no landing after"), off);
         }
     }
 }
