@@ -172,3 +172,11 @@ allocate over 600 B a tick (main: 10,485 / 5,913) or the library's arrays exceed
 through Start-Process, which splits on spaces), e.g. `-XX:StartFlightRecording:filename=startup.jfr,settings=profile`
 and `-Xlog:class+load=info:file=classload.txt` (both land in build/run/clientGameTest; relative, because -Xlog splits
 on the colon of a drive letter).
+## Dungeon Map draw cache (95-perf-livemap)
+
+`perf/PerfLiveMapTest`, ~3 min, only when named. In PerfBench's scene with only the Dungeon Map (names + secrets, Extra
+Info) on, then ALL ON plus the map: HUD[live_map] must draw every frame, allocate under 2500 B a frame plus 25000 B a tick (main 69505e45:
+61.7-84.5 KB a frame) and, through the mod's `livemap/MapDrawCache`, replay every frame while painting no more than the players' part
+once a tick. Then the cache's verify mode paints every replayed frame afresh and compares element by element while
+thirteen inputs change (settings, a sim room's state, a door, Predictive Rooms, checkmarks, the background), each of
+which must make it repaint; a replay that differs after its own tick fails the run. Fails on main (no cache).
