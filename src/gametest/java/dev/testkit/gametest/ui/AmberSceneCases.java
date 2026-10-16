@@ -115,7 +115,9 @@ final class AmberSceneCases {
         FontsMainMenuSuite.Pic a = m.a();
         c.check(a.r() > a.b() + 4, String.format(Locale.ROOT, "the %s Amber scene is not warm: rgb %.0f,%.0f,%.0f",
                 m.name(), a.r(), a.g(), a.b()));
-        c.check(m.moved() > 0.002, String.format(Locale.ROOT, "the %s Amber scene did not move over 4 s: %.3f%% changed",
+        // The scene's own motion only: the splash text, which pulses on the real clock, is gone from the themed main menu
+        // since mod no-splash-1015, and embers alone measured 0.10% (0.23% with the splash on main, 2026-10-16).
+        c.check(m.moved() > 0.0005, String.format(Locale.ROOT, "the %s Amber scene did not move over 4 s: %.3f%% changed",
                 m.name(), m.moved() * 100));
         c.check(a.lum() < 0.4, String.format(Locale.ROOT, "the %s Amber scene is too bright for the menu: lum %.2f",
                 m.name(), a.lum()));
@@ -149,7 +151,7 @@ final class AmberSceneCases {
             c.check(simpleVsForge > 0.05, String.format(Locale.ROOT, "the SIMPLE and NEW scenes look alike: %.1f%% differ", simpleVsForge * 100));
             c.check(simpleVsEmbers > 0.002, String.format(Locale.ROOT, "the SIMPLE scene draws the same as EMBERS: %.3f%% differ", simpleVsEmbers * 100));
             // The default is EMBERS (killer560 preferred the simple style, 2026-10-15) until he picks. Two shots of one
-            // scene at one clock still differ a little (the title's splash text is new each time the screen opens), so
+            // scene at one clock still differ a little, so
             // "the same" means ten times closer to EMBERS than either other scene is.
             c.check(dfltVsEmbers * 10 < Math.min(simpleVsEmbers, forgeVsEmbers), String.format(Locale.ROOT,
                     "Amber's default scene is not EMBERS: %.3f%% differ from EMBERS", dfltVsEmbers * 100));

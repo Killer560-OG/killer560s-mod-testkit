@@ -790,7 +790,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   leaves each by its own Done/Back/Cancel. Never press `selectWorld.create` on CreateWorldScreen: with no saved worlds
   Singleplayer opens it directly and that key is its "Create New World" button - the first run made a world and the client
   hung. A theme check measures a button's mean colour in two screenshots (old jar: 30,30,30 in both themes). 1566 counts
-  scene motion only in the side strips: the splash text pulses, so a whole-screen count moved 0.1% on Plain too.
+  scene motion only in the side strips: the splash text pulsed, so a whole-screen count moved 0.1% on Plain too (the themed menu draws no splash since mod no-splash-1015; 1568 embers moved 0.23% with it, 0.10% without).
 - **93-solve-waterboard-timing, 1015-sim-water-mappress, 1015-grim-water-clickwarp** (mod water-late-1015, 2026-10-15):
   Auto Water's timing. The timing case (`SimWaterTimingTests`, on `SimPuzzleSolveTests.Base`) reads Water Board Solver's
   clock at END_CLIENT_TICK and stamps item uses through `PacketTrace.tap` with the same tick; a timed click must land at
