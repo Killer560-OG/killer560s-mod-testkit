@@ -593,6 +593,15 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   `AutoPuzzleUtil.useItemRotated` called as an auto calls it, heard look on the floor: no click sends at tick 0; an AOTV-held
   click turns first and sends at tick 1, lands; the raw use after the click is ignored. Click-gap jar sent at tick 5 and was
   ignored; pre-gap at tick 0, ignored; both FAIL.
+- 1015-sim-pathland (cheat jar, sim F7 x `-PpathlandFloors` (3), room captures; ~15 min): per room a route PATH S0->S1, ETHERWARP
+  S1->S2, PATH S2->S3, ... so every pair after the first fires on the etherwarp's landing tick (0.05 up, the run-time re-aim).
+  Pass 1 plans (he settles while it plans, so no re-aim), 2 flies the saved plans, 3 adds `ClickPrimer`. Each hop is judged
+  against its saved plan's target block (RouteNode.PathHop.target), not the mod's 2-block "landed"; a correction during a
+  path warp is a warp landed elsewhere. Plus an aim probe: the mod's `getEtherwarpDirection` from 0.05 over a block centre
+  to landable blocks, fragile = lands for the exact float look but not within 0.01 degrees. Mod main d1eda658: 3600 aims,
+  260 fragile, 67 with a firm one to be had - FAIL; path-wrongblock-1015: 8 fragile, 0 avoidable, no saved look fired from
+  above its spot, PASS. End-to-end wrong blocks are rare (0 in 552 main hops one run; one 5.4-block miss on Overgrown in
+  another), which is why the probe is the gate. Floors are random per run (SimFloorGen has no seed).
 - 62-argrim-1015-clickwarp (GrimAC session): an await met by a lever click made as Secret Aura makes it (body turned to the
   lever for a few ticks, then the click with the AOTV), far (8 blocks) and near (3 blocks, which sends the click on the target
   block first): each must land with one etherwarp, the warp at most 1 tick after firing, Grim silent.

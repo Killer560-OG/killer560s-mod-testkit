@@ -545,7 +545,7 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	// 97-sim-roomspawn: -ProomspawnOnly=first,rooms,goto  -ProomspawnRooms="Altar,Market"
 	["serverStallMs", "serverStallEvery", "netStallMs", "icefillControl", "icefillBreaks", "floorRepeat",
 	 "roomspawnOnly", "roomspawnRooms", "roomspawnFloors", "pathoptRooms", "nametagShots", "nametagShotsOnly",
-	 "videoOut"].each { p ->
+	 "videoOut", "pathlandFloors", "pathlandSeed"].each { p ->
 		if (project.hasProperty(p)) {
 			systemProperty "testkit.${p}", project.property(p)
 		}
