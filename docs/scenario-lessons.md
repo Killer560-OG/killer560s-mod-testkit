@@ -848,3 +848,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   5 s interval) must send once and stop, logging the stop once. Main sent 5 in 20 s. Run one Hx case with
   `-Scenario "100-hx-session:,115-hx-autogfs"`; the case resets `util.SackCommands.dead` because 115-hx-architect-draft's
   `/gfs` gets the same answer just before it.
+- 1015-menu-term-hidden-slots(-off) (term-hover-1015): with the terminal Custom GUI on, every type x {a hidden grid slot,
+  a hidden inventory slot} outside the panel: hoveredSlot null, 0 px changed by the hover, 4 clicks + 1/drop/pick keys
+  reach the server as nothing; a real click on a custom square = exactly the solver's target (slot/button/input). Main
+  failed all 12 (1024 px highlight, SWAP/THROW sent). The -off control proves the checks can see vanilla's hover.
