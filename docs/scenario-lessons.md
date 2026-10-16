@@ -832,3 +832,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   menu, opened before its recorder, stamped its open fade at the later time, and `MenuAnim.progress` reads a start 0-1 s
   ahead as 0, so the whole menu vanished for a second once the new clock came within 1 s of the old end (Home 14.6 s
   after the 15.6 s sim-run clip, Profiles 24.6 s after the 25.6 s HUD editor clip). Failed 70/90 frames before the fix.
+- 97-sim-menu-tidy (2026-10-15) reads a table's text runs by row band. A row scrolled half under the headings has its TOP
+  in the heading band, so classing runs by where they start called it a heading and "found" it overlapping one, on the
+  fixed jar; the screen's scissor hides that part. Class a run as a heading only if it ENDS above the rows, and clip row
+  runs to the visible band. The menu's gradient title is one string drawn three times plus a shadow: same text at the
+  same x is one run, not an overlap.
