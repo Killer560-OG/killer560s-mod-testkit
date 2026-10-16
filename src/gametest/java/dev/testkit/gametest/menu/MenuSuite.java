@@ -74,6 +74,9 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *   <li>1850-1852 the Swap Accounts screen: full-width rows, Active / proxy status, search, scroll, small windows,
  *       every control's job by real presses, and (1852) the signed-in card standing out with no hint line
  *       ({@link SwapAccountsCases})</li>
+ *   <li>1880-1886 Auto Mask (cheat): Keybind and Full Auto, Mask First / Phoenix First with Phoenix through the pet
+ *       menu, Dungeons Only, Boss Only, settings and the old Auto Swap / millisecond migration, whole-tick step delay
+ *       ({@link AutoMaskCases})</li>
  *   <li>761-767 the Bazaar flipper's full buy/sell cycle with the reskin off and on, its Cookie and price guards, and
  *       Auto Croesus going back into a claimed run for a keyed chest ({@link FlipCroesusCases})</li>
  * </ul>
@@ -181,6 +184,8 @@ public class MenuSuite implements FabricClientGameTest {
                     LeapV2MenuCases.register(s);
                     // ---- 1850-1852 swap-accounts-ui (2026-10-15, 1852 2026-10-16): the redone Swap Accounts screen, Set Universal Proxy ----
                     SwapAccountsCases.register(s);
+                    // ---- 1880-1886 auto-mask-1016 (2026-10-16): Auto Mask's Keybind / Full Auto, Swap Order, gates, ticks ----
+                    AutoMaskCases.register(s);
                 });
     }
 }
