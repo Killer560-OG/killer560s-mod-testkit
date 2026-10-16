@@ -900,3 +900,14 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - The title-scene allocation probe (`MainMenuScenes.allocBytes/allocQuads`) counts only the GuiRects batch's parts, so a
   picture scene's ripple tiles (each a blit, allocated like a part) inflate bytes-per-quad: 1680's Milky Way with its cape read
   242.8 B/quad against STARS' 163.7 until the tiles joined the denominator (176.4 then, 2026-10-16).
+- **Count the executor's hops after a tick mark, never by the record's size** (predeploy-1016). `ClearExecutor.hopSendTicks`
+  keeps only the last 200, so once 147-sim-map-precompute, 141 and 147-lastsecret have run in the same client the size
+  stays 200 and a size delta reads 0: 1015-sim-clickgap reported "no press made 2+ hops" for a 222-block trip whose
+  every click the server saw. `SimEtherTicksTests.hopMark()` / `hopsSince(mark)`.
+- **A scenario that switches a feature on must switch it off in its `finally`.** 147-sim-autosecret-lastsecret left
+  Secret Aura (and Auto Close Chest) on, and the aura then clicked 96-ar-1015-reaim's chest in its 10-tick settle, so the
+  await was met before the test's mark and the run read met=false, acted=-1 - which looked like a regression in Auto
+  Routes. The 96-ar session now turns the aura off at its start as well.
+- 96-ar-1015-reaim's chest-window race can hold one phase for a whole stretch (5 of 5 mismatch attempts). The window
+  costs both sides the same tick (control 1 -> 2, mismatch 2 -> 3), so a side that only ran with the window is paired
+  with a window run of the other.

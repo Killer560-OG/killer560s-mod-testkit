@@ -284,7 +284,7 @@ public class SimClickGapTests implements FabricClientGameTest {
                 ctx.waitTicks(1);
             }
             Vec3 from = ctx.computeOnClient(mc -> mc.player.position());
-            int hops0 = ctx.computeOnClient(mc -> SimEtherTicksTests.hopTicks().size());
+            long hops0 = ctx.computeOnClient(mc -> SimEtherTicksTests.hopMark());
             long mark = LogTap.mark();
             ctx.runOnClient(mc -> {
                 ClickPrimer.reset();
@@ -309,7 +309,7 @@ public class SimClickGapTests implements FabricClientGameTest {
                 }
             }
             ctx.waitTicks(5);
-            int hops = ctx.computeOnClient(mc -> SimEtherTicksTests.hopTicks().size()) - hops0;
+            int hops = ctx.computeOnClient(mc -> SimEtherTicksTests.hopsSince(hops0).size());
             int uses = ClickPrimer.uses;
             int clicks = ClickPrimer.primed;
             int seen = HypixelUseAfterClick.clicks;

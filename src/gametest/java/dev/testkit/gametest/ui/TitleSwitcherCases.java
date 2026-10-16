@@ -83,11 +83,20 @@ final class TitleSwitcherCases {
         return p;
     }
 
-    /** {label, vanilla, theme, amber, green, gradient} of look i. */
+    /** {label, vanilla, theme, amber, green, gradient, variant} of look i. */
     private static Object[] lookInfo(Object look) {
         return new Object[]{Mod.call(look, "label"), Mod.call(look, "vanilla"), String.valueOf(Mod.call(look, "theme")),
                 String.valueOf(Mod.call(look, "amber")), String.valueOf(Mod.call(look, "green")),
-                String.valueOf(Mod.call(look, "gradient"))};
+                String.valueOf(Mod.call(look, "gradient")), variant(look)};
+    }
+
+    /** The look's scene variant (Dark's Milky Way / Starfield, mod 2231f84d), "null" on a jar without it. */
+    private static String variant(Object look) {
+        try {
+            return String.valueOf(Mod.call(look, "variant"));
+        } catch (RuntimeException e) {
+            return "null";
+        }
     }
 
     private static String slug(String label) {
@@ -224,12 +233,19 @@ final class TitleSwitcherCases {
                 c.check(got[5] == null, name + " threw while extracting: " + got[5]);
                 FontsMainMenuSuite.Pic pic = FontsMainMenuSuite.pic(shot(c, String.format(Locale.ROOT, "%02d-%s", idx, slug(name))));
                 if (prev != null) {
-                    boolean sameTitle = info[2].equals(prevInfo[2]) && info[3].equals(prevInfo[3]) && info[4].equals(prevInfo[4]);
+                    boolean sameTitle = info[2].equals(prevInfo[2]) && info[3].equals(prevInfo[3]) && info[4].equals(prevInfo[4])
+                            && info[6].equals(prevInfo[6]);
                     double d = FontsMainMenuSuite.changed(prev.img(), pic.img());
                     c.note(String.format(Locale.ROOT, "%s: rgb %.0f,%.0f,%.0f, %.1f%% differs from the look before",
                             name, pic.r(), pic.g(), pic.b(), d * 100));
                     if (!sameTitle) {
-                        c.check(d > 0.05, String.format(Locale.ROOT, "%s draws the same title screen as the look before it: %.2f%% differ", name, d * 100));
+                        // Dark's Milky Way with and without the character differ by the character alone (~0.6% of the
+                        // frame, 2026-10-16), so a scene variant of the same picture needs only a visible change.
+                        boolean variantOnly = info[2].equals(prevInfo[2]) && info[3].equals(prevInfo[3])
+                                && info[4].equals(prevInfo[4]) && String.valueOf(info[6]).startsWith("MILKY_WAY")
+                                && String.valueOf(prevInfo[6]).startsWith("MILKY_WAY");
+                        double min = variantOnly ? 0.0025 : 0.05;
+                        c.check(d > min, String.format(Locale.ROOT, "%s draws the same title screen as the look before it: %.2f%% differ", name, d * 100));
                     }
                 }
                 prev = pic;
@@ -266,7 +282,7 @@ final class TitleSwitcherCases {
                 c.ticks(10);
                 shot(c, "picker-open");
                 FontsMainMenuSuite.Pic before = null;
-                for (String[] pick : new String[][]{{"Waterfall", "Ocean · Waterfall"}, {"Acid Cave", "Green · Acid Cave"},
+                for (String[] pick : new String[][]{{"Waterfall", "Ocean · Waterfall"}, {"Milky Way", "Dark · Milky Way"},
                         {"New", "Amber · New"}}) {
                     String why = c.onClient(mc -> {
                         Screen s = McCompat.screen(mc);
@@ -346,13 +362,24 @@ final class TitleSwitcherCases {
                 Object amber = Mod.staticCall("mainmenu.MainMenuScenes", "amberScene");
                 Object green = Mod.staticCall("mainmenu.MainMenuScenes", "greenScene");
                 Object gradient = Mod.staticCall("gui.GreenTheme", "gradient");
+                Object dark = Mod.staticCall("mainmenu.MainMenuScenes", "darkScene");
+                Object darkDefault = Mod.staticCall("mainmenu.MainMenuScenes", "previewScenes").equals(Boolean.TRUE)
+                        ? Mod.field(Mod.ROOT + "mainmenu.MainMenuScenes", "DARK_SCENE")
+                        : Mod.field(Mod.ROOT + "mainmenu.MainMenuScenes", "DARK_SCENE_RELEASED");
+                if (dark != darkDefault) {
+                    return "turning the switcher off left Dark on " + dark + ", default " + darkDefault;
+                }
                 boolean active = (Boolean) Mod.staticCall("mainmenu.MainMenuTheme", "active");
                 if (active != saved.enabled()) {
                     return "with the switcher off the themed main menu is " + active + ", saved " + saved.enabled();
                 }
-                if (!"EMBERS".equals(String.valueOf(amber)) || !"BOSS".equals(String.valueOf(green))
-                        || !"CANOPY_GLOW".equals(String.valueOf(gradient))) {
-                    return "turning the switcher off left amber " + amber + ", green " + green + ", gradient " + gradient;
+                // The defaults as the mod states them: Green's moved BOSS -> TARGET when Viridian's final look went to
+                // every instance (mod a8b9555b), so a literal here goes stale with every scene release.
+                Object greenDefault = Mod.staticCall("mainmenu.MainMenuScenes", "defaultGreenScene");
+                Object gradientDefault = Mod.field(Mod.ROOT + "gui.GreenTheme", "DEFAULT_GRADIENT");
+                if (!"EMBERS".equals(String.valueOf(amber)) || green != greenDefault || gradient != gradientDefault) {
+                    return "turning the switcher off left amber " + amber + ", green " + green + " (default " + greenDefault
+                            + "), gradient " + gradient + " (default " + gradientDefault + ")";
                 }
                 return null;
             });

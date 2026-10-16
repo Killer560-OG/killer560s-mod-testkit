@@ -152,7 +152,7 @@ public class SimServerLagTests implements FabricClientGameTest {
                 ctx.waitTicks(1);
             }
             Vec3 start = ctx.computeOnClient(mc -> mc.player.position());
-            int hops0 = ctx.computeOnClient(mc -> SimEtherTicksTests.hopTicks().size());
+            long hops0 = ctx.computeOnClient(mc -> SimEtherTicksTests.hopMark());
             int stalls0 = lagStalls(ctx);
             long log = LogTap.mark();
             if (lag) {
@@ -171,8 +171,8 @@ public class SimServerLagTests implements FabricClientGameTest {
             for (int i = 0; i < 900 && Boolean.TRUE.equals(ok); i++) {
                 ctx.waitTicks(1);
                 ticks++;
-                int hops = ctx.computeOnClient(mc -> SimEtherTicksTests.hopTicks().size());
-                if (firstHopTick < 0 && hops > hops0) {
+                int hops = ctx.computeOnClient(mc -> SimEtherTicksTests.hopsSince(hops0).size());
+                if (firstHopTick < 0 && hops > 0) {
                     firstHopTick = ticks;
                 }
                 boolean busy = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isBusy"));
@@ -189,7 +189,7 @@ public class SimServerLagTests implements FabricClientGameTest {
             ctx.waitTicks(5);
             Vec3 end = ctx.computeOnClient(mc -> mc.player.position());
             double moved = start.distanceTo(end);
-            int hops = ctx.computeOnClient(mc -> SimEtherTicksTests.hopTicks().size()) - hops0;
+            int hops = ctx.computeOnClient(mc -> SimEtherTicksTests.hopsSince(hops0).size());
             boolean failed = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "lastPathFailed"));
             List<String> lines = LogTap.since(log);
             List<String> warnings = new ArrayList<>();

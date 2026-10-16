@@ -166,6 +166,11 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                     ModUnderTest.staticCall(AS, "stop", new Class<?>[]{String.class, boolean.class},
                             new Object[]{"test over", true});
                 }
+                // lastsecret turns Secret Aura and Auto Close Chest on (both default OFF); left on, the aura clicked the
+                // chests of every scenario after it in the client - 96-ar-1015-reaim's control met its await before
+                // the test's own click and read met=false, acted=-1 (2026-10-16).
+                ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled");
+                ModUnderTest.turnOff("com.killer560.hub.autoclosechest.AutoCloseChestConfig", "setEnabled");
                 try {
                     ModUnderTest.staticCall(AS, "testLegacyOrder", new Class<?>[]{boolean.class}, new Object[]{false});
                 } catch (Throwable ignored) {

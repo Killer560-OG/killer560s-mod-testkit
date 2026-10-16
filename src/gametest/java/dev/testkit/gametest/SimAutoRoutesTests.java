@@ -245,6 +245,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             ModUnderTest.set(map, "setInteractiveMapEnabled", true);
             ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraEnabled", false);
             ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
+            // Default OFF, and every case that wants it turns it on and off itself; a scenario earlier in the client can
+            // leave it on (147-sim-autosecret-lastsecret did, 2026-10-16), and then it clicks the cases' own chests.
+            ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled");
         });
         try {
             buildRoom(ctx, 0);
@@ -8176,11 +8179,28 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         private static final int WINDOW_ATTEMPTS = 5;
 
         static void reaim(ClientGameTestContext ctx) {
-            Run control = clean(ctx, false, new int[]{8, F, 23});
-            Run mismatch = clean(ctx, true, new int[]{8, F, 24});
+            int[] controlChest = {8, F, 23};
+            int[] mismatchChest = {8, F, 24};
+            Run control = clean(ctx, false, controlChest);
+            Run mismatch = clean(ctx, true, mismatchChest);
+            // The window costs both sides the same one tick (control 1 -> 2, mismatch 2 -> 3, 2026-10-15/16), and the
+            // tick phase that decides it can hold for a whole stretch of a session (5 of 5 mismatch attempts, 2026-10-16
+            // run 3 of predeploy-1016). When only one side found a window-free run, look for a window run of the other
+            // and compare like with like.
+            if (control.window() != mismatch.window()) {
+                boolean controlNeeds = !control.window();
+                Run other = sameKind(ctx, !controlNeeds, controlNeeds ? controlChest : mismatchChest);
+                if (other != null) {
+                    if (controlNeeds) {
+                        control = other;
+                    } else {
+                        mismatch = other;
+                    }
+                }
+            }
             println(String.format(Locale.US, "reaim control: %s | mismatch: %s", control, mismatch));
-            check(!control.window() && !mismatch.window(), "the chest's window landed in the warp's ticks on all "
-                    + WINDOW_ATTEMPTS + " attempts of a side - no comparable run");
+            check(control.window() == mismatch.window(), "the chest's window landed in the warp's ticks on one side only "
+                    + "on every attempt - no comparable pair");
             resetRoutes(ctx);
             forgetRunMemory(ctx);
             check(control.met() && control.landed() && control.dropped() == 0 && control.acted() >= 0,
@@ -8215,7 +8235,23 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             return r;
         }
 
+        /** A run of this side WITH the window in it, or null in {@link #WINDOW_ATTEMPTS} tries. */
+        private static Run sameKind(ClientGameTestContext ctx, boolean floating, int[] chest) {
+            for (int i = 0; i < WINDOW_ATTEMPTS; i++) {
+                Run r = run(ctx, floating, chest);
+                if (r.window()) {
+                    println(String.format(Locale.US, "reaim %s: a window run to pair with the other side's, acted %d",
+                            floating ? "mismatch" : "control", r.acted()));
+                    return r;
+                }
+            }
+            return null;
+        }
+
         private static Run run(ClientGameTestContext ctx, boolean floating, int[] chest) {
+            // The chest is the TEST's click: an aura left on by an earlier scenario in this client clicks it first, in the
+            // 10-tick settle, and the await is met before the mark (met=false, acted=-1; 2026-10-16 after 147-lastsecret).
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
             forgetRunMemory(ctx);
             resetRoutes(ctx);
             arena(ctx, false);
