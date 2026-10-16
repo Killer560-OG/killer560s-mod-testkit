@@ -584,6 +584,10 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	if (project.hasProperty("perfNoJfr")) {
 		systemProperty "testkit.bench.noJfr", "true"
 	}
+	// 95-perf-idle: -PperfIdleJfr=<file> records where a chat line's time and bytes go (OFF, 4000 lines).
+	if (project.hasProperty("perfIdleJfr")) {
+		systemProperty "testkit.perf.idleJfr", file(project.property("perfIdleJfr").toString()).absolutePath
+	}
 	// Re-run only what failed last time:  -Pfailed
 	if (project.hasProperty("failed")) {
 		if (!failedFile.exists() || failedFile.text.trim().isEmpty()) {

@@ -78,3 +78,20 @@ measured as good, and commit the file with the change that justifies it). Budget
 Run it before merging anything that adds a HUD element, a render listener or a per-tick handler; when it fails, the
 `OVER` lines in `perf-gate.txt` name the feature package, and 95-perf-features with `-PperfOnly=<it>` says which
 callback.
+
+## Idle cost (95-perf-idle) and the unwrapped listener span
+
+`harness/EventSpan` times every START/END_CLIENT_TICK and after-translucent-terrain/-features listener from outside, by a
+testkit listener in a phase before all others and one after the default phase, so nothing is wrapped. Every
+95-perf-features phase prints it ("listener span"); it is the real cost only with `-PperfNoProbe`. On 2026-10-15 it
+matched the probe's total with every switch off (~570-620 us a tick), which is how the 1-2 us per-handler floor was shown
+to be real cold-cache cost, not proxy overhead.
+
+`perf/PerfIdleTest` (~4 min, only when named, no probe needed): with every switch OFF and at DEFAULTS, a chat corpus
+(party, guild, all chat, NPC/boss, system, one action bar in five) through the real `ChatListener.handleSystemMessage`,
+render-thread bytes and microseconds per line against `-Dtestkit.perf.idleChatOff`/`idleChatDefaults` (24/26 KB), plus
+the tick span; and a check that two ChatObserver subscribers and a raw Fabric GAME listener get the SAME String for one
+line. `-PperfIdleJfr=<file>` records a chat JFR (execution + allocation samples, 4000 lines, OFF).
+```
+python -X utf8 perf-lock.py <label> -- powershell -NoProfile -Command "& ./run-scenario.ps1 -Scenario 95-perf-idle -Port <port> -TimeoutSeconds 900 -ModUnderTest <cheat jar> -Extra @('-PtestVolume=0','-PperfNoProbe')"
+```
