@@ -170,7 +170,7 @@ FAILS when the render listener allocates over 1500 B a frame plus 2500 B per nod
 culled nothing in a full camera turn (`AutoRoutesRenderer.renderStats()`, mod ar-render-1016 and later). Then still
 shots (HUD hidden, noon, fixed view): no route, then each style normal and edit, into `ar-render-shots/`;
 `-PperfArRef=<another run's ar-render-shots>` compares each with that jar's (pixels over a summed RGB delta of 30,
-budget 40: a fire texture at the top edge animates between runs and accounts for up to ~32). Main 4b8d18da vs
+budget 80: a fire texture at the top edge animates between runs, 31-39 px a shot). Main 4b8d18da vs
 ar-render-1016: render listener 85.7 KB -> 24.6 KB a frame (BOX), 25.8 KB -> 0.2 KB (bare), 210 KB -> 24.6 KB (CYLINDER),
 every shot within the budget. On 26.2 the shot comparison is reported only: 26.2 orders translucent draws differently
 from one launch to the next (main against itself: up to 21,066 px on Filled edit, 285 px on Cylinder), and its byte

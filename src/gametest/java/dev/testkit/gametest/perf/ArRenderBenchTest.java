@@ -76,8 +76,8 @@ public class ArRenderBenchTest implements FabricClientGameTest {
         }
     }
     /** Pixels a shot may differ from the reference jar's (summed RGB delta over 30). A fire texture in rows 0-2 of the
-     *  view animates between runs: 19 and 32 px in the two edit shots of the first A/B, nothing of the route. */
-    static final int SHOT_PIXEL_BUDGET = 40;
+     *  view animates between runs: 31-39 px per shot in the final A/B, the no-route shots 33 against each other. */
+    static final int SHOT_PIXEL_BUDGET = 80;
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
