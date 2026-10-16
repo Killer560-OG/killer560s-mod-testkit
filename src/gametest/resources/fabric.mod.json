@@ -53,6 +53,7 @@
 			"dev.testkit.gametest.SimAutoSecretTests",
 			"dev.testkit.gametest.RoomTourLogicTests",
 			"dev.testkit.gametest.SimAutoSecretOptimizeTests",
+			"dev.testkit.gametest.SimMapPrecomputeTests",
 			"dev.testkit.gametest.SimAutopilotTests",
 			"dev.testkit.gametest.SimAutopilot2Tests",
 			"dev.testkit.gametest.SimKeyLookTests",
