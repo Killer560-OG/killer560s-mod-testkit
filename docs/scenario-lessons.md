@@ -802,3 +802,16 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   the camera wait never showed on main (the counter read 0 in every room), so the Grim case's turn rounds are what prove it:
   main held the click with foreignWait counting, the branch turned and clicked the next tick. Waterboard-chest passes on
   main too (a regression guard, not a failing-first case). See docs/solve.md for the recorder's traps.
+- 1900-video-general (`ui/VideoGeneralSuite`, `ui/VideoRecorder`, `VideoSim`): footage for the YouTube pilot, only when
+  named, `-PvideoOut=<dir>`. One frame per 1/60 s of game time: the client ticks on every THIRD frame and the two between
+  are the screenshot re-rendered at `withDeltaTicks(1/3, 2/3)` (TestScreenshotOptions), so the world runs at real speed
+  at 60 fps; the camera is posed per frame with xo/yRotO equal to the new values so any partial tick shows that pose.
+  `gui.MenuAnim` and `mainmenu.MainMenuScenes` clocks are stepped 1/60 s a frame; the sim run's timer and the vanilla
+  title fade run on the wall clock and are kept out of shot. A screenshot never contains the OS cursor: positions go to
+  each clip's `cursor.csv` and the edit draws it. The Menu Theme is picked on Home's chips (there is no Menu Theme card,
+  2026-10-15); in the HUD editor, Show Unseen puts the Storage Overlay's large preview over others, so a scroll "over" a
+  small element scaled the overlay - film with Show Unseen off, and put the dragged element back (later clips film it).
+  Load the room database before filming the sim menu, or Load a Room's Type/Secrets/Crypts columns read "-". The sim's
+  rooms are near black on camera even at Brightness: Bright, so the sim clips give the camera Night Vision. Typing
+  /killer560 into chat through TestInput never opened the menu here (ChatScreen held the text; screen null after Enter);
+  the clip notes FALLBACK and opens it directly. Capture runs ~9 frames a second at 1080p.
