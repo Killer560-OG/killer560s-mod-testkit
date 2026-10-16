@@ -256,7 +256,11 @@ public class SimAutoClearTests implements FabricClientGameTest {
             Object cfg = ModUnderTest.config(AUTO_CONFIG);
             ModUnderTest.set(cfg, "setEnabled", true);
             ModUnderTest.set(cfg, "setHyperionHops", true);
-            ModUnderTest.set(cfg, "setStatusHud", true);
+            try {
+                ModUnderTest.set(cfg, "setStatusHud", true);   // a jar from before the shared Status HUD
+            } catch (AssertionError e) {
+                ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig"), "setStatusHud", true);
+            }
         });
 
         // ==== case 1: Blood Rush Split, Hyperion ====
