@@ -70,6 +70,16 @@ public final class SimNoWaitTimingTests {
                     instanceof net.minecraft.world.level.block.ChestBlock) {
                 out += ", secret chest there";
             }
+            // The last volley's simulated flight (the auto's own clock): a chest is not clicked while a volley that may
+            // still finish the room is in the air - a puzzle wait, its end a ready moment.
+            Class<?> blaze = Class.forName(MOD + "autopuzzles.AutoBlaze");
+            var last = blaze.getDeclaredField("lastShotTime");
+            var flight = blaze.getDeclaredField("shotFlightMs");
+            last.setAccessible(true);
+            flight.setAccessible(true);
+            if (System.currentTimeMillis() - last.getLong(null) <= flight.getLong(null)) {
+                out += ", volley in flight";
+            }
         } catch (ReflectiveOperationException e) {
             out += ", secret unreadable";
         }
