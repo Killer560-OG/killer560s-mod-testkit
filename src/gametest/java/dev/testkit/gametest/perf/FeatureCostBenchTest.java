@@ -168,7 +168,9 @@ public class FeatureCostBenchTest implements FabricClientGameTest {
         ctx.waitTicks(40);
         Phase p = PerfBench.measure(ctx, label, ticks, cal);
         report.add(p.line());
+        report.add(p.spanLine());
         System.out.println("[" + NAME + "] " + p.line());
+        System.out.println("[" + NAME + "] " + p.spanLine());
         return p;
     }
 
@@ -242,6 +244,25 @@ public class FeatureCostBenchTest implements FabricClientGameTest {
             tsv.add(String.join("\t", "summary", label, f(avg(ps, p -> p.frame().mean())), f(avg(ps, p -> p.frame().p95())),
                     f(avg(ps, p -> p.frame().p99())), f(avg(ps, p -> p.tick().mean())), f(avg(ps, Phase::at144Us)),
                     f(avg(ps, p -> p.allocPerFrame() / 1024.0))));
+        }
+        report.add("listener spans (dev.testkit.harness.EventSpan, every listener between two testkit phases, unwrapped;"
+                + " the true cost only with -PperfNoProbe):");
+        for (List<Phase> ps : List.of(offs, defs, ons)) {
+            String label = ps.get(0).label().replaceAll(" r\\d+$", "");
+            report.add(String.format(Locale.ROOT, "  %-9s START %7.2f us %6.0f B/tick | END %7.2f us %6.0f B/tick | after-terrain"
+                            + " %6.2f us | after-features %6.2f us/frame | %7.1f us/frame@144",
+                    label, avg(ps, p -> p.spanUs(dev.testkit.harness.EventSpan.Kind.START_TICK)),
+                    avg(ps, p -> p.spanBytes(dev.testkit.harness.EventSpan.Kind.START_TICK)),
+                    avg(ps, p -> p.spanUs(dev.testkit.harness.EventSpan.Kind.END_TICK)),
+                    avg(ps, p -> p.spanBytes(dev.testkit.harness.EventSpan.Kind.END_TICK)),
+                    avg(ps, p -> p.spanUs(dev.testkit.harness.EventSpan.Kind.AFTER_TERRAIN)),
+                    avg(ps, p -> p.spanUs(dev.testkit.harness.EventSpan.Kind.AFTER_FEATURES)),
+                    avg(ps, Phase::spanAt144Us)));
+            tsv.add(String.join("\t", "span", label, f(avg(ps, p -> p.spanUs(dev.testkit.harness.EventSpan.Kind.START_TICK))),
+                    f(avg(ps, p -> p.spanUs(dev.testkit.harness.EventSpan.Kind.END_TICK))),
+                    f(avg(ps, p -> p.spanUs(dev.testkit.harness.EventSpan.Kind.AFTER_TERRAIN))),
+                    f(avg(ps, p -> p.spanUs(dev.testkit.harness.EventSpan.Kind.AFTER_FEATURES))),
+                    f(avg(ps, Phase::spanAt144Us))));
         }
         report.add(String.format(Locale.ROOT, "DEFAULTS - OFF: frame %+.3f ms, tick %+.3f ms, probe %+.1f us/frame@144;  "
                         + "ALL ON - OFF: frame %+.3f ms, tick %+.3f ms, probe %+.1f us/frame@144",
