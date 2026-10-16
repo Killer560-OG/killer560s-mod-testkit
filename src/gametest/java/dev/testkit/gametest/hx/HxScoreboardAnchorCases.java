@@ -28,7 +28,7 @@ import static dev.testkit.gametest.hx.HxScoreboardCases.*;
  * <ul>
  *   <li>1668 in game: for each side (right, left), each Text Align (Left, Center, Right) and each HUD scale (1.0 and a
  *       non-integer 0.9), plus a Min Width wider than the text, the board is drawn through five sidebar states (purse
- *       999,999, 1,000,000, 12,345,678,901 with a longer area name, a long extra line, and that line gone with a Show
+ *       999,999, 1,000,000, 12,345,678,901 with a longer area name, a longer Bits line, and that line gone with a Show
  *       Number Changes popup). The box's anchored edge and the outermost text point on that side are measured from the
  *       layer's own render state, in GUI units, and must not move by more than 0.01 between states; the box edge must sit
  *       exactly {@code gap} from the screen edge. With chat open, the hover layout must find the widest line under its
@@ -135,8 +135,8 @@ final class HxScoreboardAnchorCases {
             {"purse 999,999", "999,999", "Village", ""},
             {"purse 1,000,000", "1,000,000", "Village", ""},
             {"purse 12,345,678,901, long area", "12,345,678,901", "Colosseum Arena Long", ""},
-            {"a long extra line", "12,345,678,901", "Colosseum Arena Long", "§cA much longer unknown line appears!"},
-            {"extra line gone, purse +1", "12,345,678,902", "Village", ""},
+            {"a longer Bits line appears", "12,345,678,901", "Colosseum Arena Long", "Bits: §b1,234,567,890,123"},
+            {"Bits line gone, purse +1", "12,345,678,902", "Village", ""},
     };
 
     private static void apply(Session c, String[] st) {
@@ -147,7 +147,7 @@ final class HxScoreboardAnchorCases {
         }
         sidebar(c, "template", "hub", "area", st[2], "extra", extra);
         c.waitUntil("the board shows " + st[0], mc -> String.valueOf(Mod.staticCall(FEATURE, "currentTexts")).contains(st[1])
-                && (st[3].isEmpty() || String.valueOf(Mod.staticCall(FEATURE, "currentTexts")).contains("longer unknown")), 100);
+                && (st[3].isEmpty() || String.valueOf(Mod.staticCall(FEATURE, "currentTexts")).contains("1,234,567,890,123")), 100);
         c.ctx().waitTicks(2);
     }
 
