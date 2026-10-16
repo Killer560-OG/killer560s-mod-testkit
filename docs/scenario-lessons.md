@@ -19,6 +19,12 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   `gameMode.useItem` (Wither Impact, radius 5) does kill it - use that to kill a sim mob as the player.
 
 - `menu.experiment` Superpairs takes `layout` (tiles from slot 9: `{item,name}`, `{powerup:true}` for Instant Find or `{powerup:"clicks",amount:N}`, no shuffle). Powerups behave as killer560 described Hypixel's (2026-10-05): turning one over costs a click and never touches the turn (the open tile stays up); an Instant Find arms the next click, and they stack (`armed` in the state); an armed click claims that tile and its partner, closing the turn if the partner is the open tile. Cases 284-287 cover those rules. The state lists every claimed pair (`claimed`), the server-side truth 229 asserts on. `clicks` sets "Remaining Clicks" (the solver reads it since mod 5d579534); 280-283 play fixed boards with a tight budget and assert what was claimed and in which order (`ExperimentCases.play`). Main's solver before 5d579534 fails 229 and 280-283.
+- 288-menu-exp-etable-defaults / 289-menu-exp-etable-click-spacing (`EtableDefaultsCases`, mod etable-defaults-1015): 288
+  writes the experiments config FILE and runs the mod's own `load()` (no file, old defaults, changed values, zero and garbage
+  values, setters, save + load), restoring the file afterwards; do it outside a `MenuKit.Cfg`, whose undo holds the OLD
+  instance. 289 measures click gaps in ms at the client's send (`PacketWatch.containerClickMillis`, recorded with or without a
+  watch): server tick gaps are too coarse on a loaded machine (13 then 6 ticks for two 400 ms gaps). Main: defaults 200 ms,
+  Click Delay 400 + Random 500 down to 167 ms, an old zero-delay file 32 ms; branch: 447/467/199/435 ms minimum.
 - The sim's `/goto` (SimTeleportCommands.goTo) scanned the ServerLevel from the RENDER thread; in the gametest lockstep a
   chunk load there deadlocked the client (99-sim-im, 2026-10-05, jstack). Fixed in mod b5eee0d6 (server.execute);
   `97-sim-goto-loop` freezes on any jar before it. 99-sim-im still places the player itself (`standOn`). A sim scenario that reads the legend's Extra Info on a jar before mod hud-fixes must turn Score Calculator on
