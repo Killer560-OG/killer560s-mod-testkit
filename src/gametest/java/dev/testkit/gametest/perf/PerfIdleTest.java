@@ -191,7 +191,7 @@ public class PerfIdleTest implements FabricClientGameTest {
         SEEN_RAW.clear();
         String text = "§9Party §8> §b[MVP§c+§b] SharedTextProbe§f: one walk per line please";
         watchFor = "SharedTextProbe";
-        mc.getChatListener().handleSystemMessage(Component.literal(text), false);
+        dev.testkit.compat.McCompat.chatListener(mc).handleSystemMessage(Component.literal(text), false);
         watchFor = null;
         String expected = "Party > [MVP+] SharedTextProbe: one walk per line please";
         if (SEEN_A.size() != 1 || SEEN_B.size() != 1 || SEEN_RAW.size() != 1) {
@@ -243,7 +243,7 @@ public class PerfIdleTest implements FabricClientGameTest {
 
     /** Render thread: {bytes per line, us per line}. */
     private static double[] chatLines(Minecraft mc, int n, int pass) {
-        var listener = mc.getChatListener();
+        var listener = dev.testkit.compat.McCompat.chatListener(mc);
         Component[] lines = new Component[n];
         boolean[] overlay = new boolean[n];
         for (int i = 0; i < n; i++) {

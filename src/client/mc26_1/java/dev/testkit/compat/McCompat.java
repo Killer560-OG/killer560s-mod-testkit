@@ -60,4 +60,9 @@ public final class McCompat {
     public static net.minecraft.client.gui.components.PlayerTabOverlay tabList(Minecraft mc) {
         return mc.gui.getTabList();
     }
+
+    /** The client's chat listener, where a system line enters ({@code mc.getChatListener()}). */
+    public static net.minecraft.client.multiplayer.chat.ChatListener chatListener(Minecraft mc) {
+        return mc.getChatListener();
+    }
 }

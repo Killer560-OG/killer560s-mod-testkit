@@ -384,7 +384,7 @@ public class PerfScreensTest implements FabricClientGameTest {
     }
 
     private static ItemStack pane() {
-        ItemStack s = new ItemStack(Items.BLACK_STAINED_GLASS_PANE);
+        ItemStack s = new ItemStack(dev.testkit.compat.McItems.BLACK_STAINED_GLASS_PANE);
         s.set(DataComponents.CUSTOM_NAME, Component.literal(" "));
         return s;
     }
