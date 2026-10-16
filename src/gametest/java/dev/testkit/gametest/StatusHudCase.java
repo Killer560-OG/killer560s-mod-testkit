@@ -377,6 +377,9 @@ final class StatusHudCase {
 
     private static void shot(ClientGameTestContext ctx, String tag) {
         try {
+            // The run's chat lines cover the left of the small test window, where the status HUD sits.
+            ctx.runOnClient(dev.testkit.compat.McCompat::clearChatAndToasts);
+            ctx.waitTicks(1);
             Path p = ctx.takeScreenshot(dev.testkit.harness.Report.fileName(NAME + "-" + tag));
             Path dir = dev.testkit.harness.Report.dir().resolve("screens");
             Files.createDirectories(dir);
