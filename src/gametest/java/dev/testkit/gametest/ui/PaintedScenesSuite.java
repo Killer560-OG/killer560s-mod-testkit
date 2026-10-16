@@ -29,6 +29,10 @@ import java.util.Locale;
  *   <li>1681 Green's TARGET through the pipeline: three frames at fixed clocks ({@code TESTKIT_PAINTED_SHOTS} copies them
  *       as target-*.png, for a pixel diff against main's jar), its cape and hair ripple, and it is still green.</li>
  *   <li>1682 gating: without previewScenes Dark draws STARS and no character; with it MILKY_WAY_HERO.</li>
+ *   <li>1684 Light's Soft Light drawn smooth (killer560: "can you smooth out the light one"): without previewScenes the
+ *       blocky scene, with it the smooth one; both light, both moving, the same picture in tone (mean colour within a few
+ *       levels) but drawn differently, the smooth one's side vignette has no strips (its calmest row steps at most 2 levels between neighbours, the
+ *       blocky one 3 or more) and its rays still show.</li>
  *   <li>1683 video (only when named): ~8 s at 60 fps of each of {@code -PpaintedScene} (default MILKY_WAY,
  *       MILKY_WAY_HERO) into {@code <report>/painted-<scene>/}.</li>
  * </ul>
@@ -37,7 +41,7 @@ import java.util.Locale;
 public class PaintedScenesSuite implements FabricClientGameTest {
 
     static final String[] CASES = {"1680-ui-painted-milkyway", "1681-ui-picture-target", "1682-ui-painted-gating",
-            "1683-ui-painted-video"};
+            "1683-ui-painted-video", "1684-ui-light-smooth"};
 
     static final String SCENES = "mainmenu.MainMenuScenes";
     static final String PREVIEW = "killer560smod.previewScenes";
@@ -70,6 +74,7 @@ public class PaintedScenesSuite implements FabricClientGameTest {
         UiCase.run(ctx, "1681-ui-picture-target", PaintedScenesSuite::target);
         UiCase.run(ctx, "1682-ui-painted-gating", PaintedScenesSuite::gating);
         UiCase.run(ctx, "1683-ui-painted-video", PaintedScenesSuite::video);
+        UiCase.run(ctx, "1684-ui-light-smooth", PaintedScenesSuite::lightSmooth);
     }
 
     // ---- shared ---------------------------------------------------------------------------------------------------------
@@ -304,7 +309,87 @@ public class PaintedScenesSuite implements FabricClientGameTest {
         });
     }
 
-    // ---- 1683 ----------------------------------------------------------------------------------------------------------
+    // ---- 1684 ----------------------------------------------------------------------------------------------------------
+
+    static void lightSmooth(UiCase c) throws Exception {
+        Shot[] shots = new Shot[2];
+        for (int k = 0; k < 2; k++) {
+            boolean preview = k == 1;
+            int idx = k;
+            around(c, preview, () -> shots[idx] = measure(c, "LIGHT", null, null, preview ? "light-smooth" : "light-blocky"));
+        }
+        Shot blocky = shots[0];
+        Shot smooth = shots[1];
+        for (Shot sh : shots) {
+            c.check(sh.a().lum() > 0.55, sh.name() + " is not light: " + sh.a().lum());
+            c.check(sh.moved() > 0.0005, String.format(Locale.ROOT, "%s did not move over 4 s: %.3f%%", sh.name(), sh.moved() * 100));
+        }
+        double tone = Math.abs(blocky.a().r() - smooth.a().r()) + Math.abs(blocky.a().g() - smooth.a().g())
+                + Math.abs(blocky.a().b() - smooth.a().b());
+        double differ = FontsMainMenuSuite.changed(blocky.a().img(), smooth.a().img());
+        c.note(String.format(Locale.ROOT, "light: tone difference %.1f levels, %.2f%% of pixels differ by >30", tone, differ * 100));
+        c.check(tone < 12, "the smooth Soft Light is not the same picture in tone: " + tone + " levels apart");
+        c.check(differ > 0.0005 || smooth.alloc()[2] != blocky.alloc()[2], "the smooth Soft Light draws the same as the blocky one");
+        // The side vignette: the blocky one is ten strips of falling alpha (a few levels' step at each), the smooth one a
+        // true gradient (at most a level or two between neighbours). Rows that a drifting light crosses read high either
+        // way, so the measure is the calmest row's largest step.
+        int bStep = vignetteStep(blocky.a().img());
+        int sStep = vignetteStep(smooth.a().img());
+        c.note("calmest row's largest step across the left vignette: blocky " + bStep + ", smooth " + sStep + " levels");
+        c.check(bStep >= 3, "the instrument found no strips in the blocky vignette (" + bStep + " levels) - it measures nothing");
+        c.check(sStep <= 2, "the smooth Soft Light's vignette still steps: " + sStep + " levels");
+        // The rays still show: the first ray's middle is brighter than the sky beside it, down the screen.
+        double rayB = rayContrast(blocky.a().img());
+        double rayS = rayContrast(smooth.a().img());
+        c.note(String.format(Locale.ROOT, "first ray against the sky beside it: blocky %+.2f, smooth %+.2f levels", rayB, rayS));
+        c.check(rayS > 0.5, String.format(Locale.ROOT, "the smooth Soft Light lost its rays: %+.2f levels", rayS));
+    }
+
+    /** Over rows of the left sixth of the screen: each row's largest step between neighbouring pixels (summed RGB / 3);
+     *  the smallest of those over the rows. */
+    static int vignetteStep(BufferedImage img) {
+        int w = img.getWidth();
+        int h = img.getHeight();
+        int best = Integer.MAX_VALUE;
+        for (int y = h / 4; y < h * 3 / 4; y += 7) {
+            int max = 0;
+            int prev = -1;
+            for (int x = 2; x < w / 6 - 2; x++) {
+                int p = img.getRGB(x, y);
+                int v = (((p >> 16) & 0xFF) + ((p >> 8) & 0xFF) + (p & 0xFF)) / 3;
+                if (prev >= 0) {
+                    max = Math.max(max, Math.abs(v - prev));
+                }
+                prev = v;
+            }
+            best = Math.min(best, max);
+        }
+        return best;
+    }
+
+    /** The first ray (x = 0.05 w + 0.55 y + its half width): mean of (middle - average of 40 px either side), rows 25-60%. */
+    static double rayContrast(BufferedImage img) {
+        int w = img.getWidth();
+        int h = img.getHeight();
+        double scale = w / 960.0;
+        double sum = 0;
+        int n = 0;
+        for (int y = h / 4; y < h * 6 / 10; y += 3) {
+            int mid = (int) (w * 0.05 + 8 * scale + y * 0.55);
+            if (mid + 45 >= w) {
+                continue;
+            }
+            sum += lum255(img.getRGB(mid, y)) - (lum255(img.getRGB(mid - 40, y)) + lum255(img.getRGB(mid + 40, y))) / 2;
+            n++;
+        }
+        return n == 0 ? 0 : sum / n;
+    }
+
+    static double lum255(int p) {
+        return (((p >> 16) & 0xFF) + ((p >> 8) & 0xFF) + (p & 0xFF)) / 3.0;
+    }
+
+    // ---- 1682 ----------------------------------------------------------------------------------------------------------
 
     static void gating(UiCase c) throws Exception {
         String[][] themes = {{"DARK", "STARS", "MILKY_WAY_HERO", "darkScene"}};
@@ -340,8 +425,9 @@ public class PaintedScenesSuite implements FabricClientGameTest {
     }
 
     private static void record(UiCase c, String scene) throws Exception {
-        String theme = "DARK";
-        String hook = "setDarkSceneForTest";
+        boolean lightScene = scene.equals("SOFT_LIGHT");
+        String theme = lightScene ? "LIGHT" : "DARK";
+        String hook = lightScene ? null : "setDarkSceneForTest";
         around(c, true, () -> {
             title(c, theme, hook, scene);
             int frames = Integer.parseInt(System.getProperty("testkit.paintedFrames", "480"));
