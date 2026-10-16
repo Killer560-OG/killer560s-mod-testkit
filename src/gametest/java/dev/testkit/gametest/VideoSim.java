@@ -91,6 +91,45 @@ public final class VideoSim {
         });
     }
 
+    /**
+     * Night Vision on the sim's server player, for the camera only: the sim's rooms are much darker than Hypixel's
+     * (even at Brightness: Bright), and footage of a near-black room shows nothing. No feature reads it.
+     */
+    public static void nightVision(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            var uuid = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(uuid);
+                if (sp != null) {
+                    sp.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+                            net.minecraft.world.effect.MobEffects.NIGHT_VISION, 20 * 60 * 30, 0, false, false));
+                }
+            });
+        });
+        ctx.waitTicks(10);
+    }
+
+    /**
+     * The map only lists rooms someone has been in. Stands the camera a moment in every cell of the floor's grid so the
+     * map discovers them all (off camera), then puts it back where it was.
+     */
+    public static void discover(ClientGameTestContext ctx) {
+        Vec3 back = ctx.computeOnClient(mc -> mc.player.position());
+        for (int i = 0; i < 121; i++) {
+            int tile = i;
+            BlockPos c = ctx.computeOnClient(mc -> (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter",
+                    new Class<?>[]{int.class}, new Object[]{tile}));
+            if (c == null) {
+                continue;
+            }
+            ctx.runOnClient(mc -> mc.player.setPos(c.getX() + 0.5, c.getY() + 1, c.getZ() + 0.5));
+            ctx.waitTicks(2);
+        }
+        ctx.runOnClient(mc -> mc.player.setPos(back.x, back.y, back.z));
+        ctx.waitTicks(20);
+    }
+
     /** Leaves the sim world for the title screen. */
     public static void leave(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave"));

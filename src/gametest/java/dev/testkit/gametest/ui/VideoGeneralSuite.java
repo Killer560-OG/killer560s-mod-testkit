@@ -122,6 +122,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                 Mod.call(wp, "setShowCrypts", true);
             });
             VideoSim.floor(ctx, "F5", 2, 5);
+            VideoSim.nightVision(ctx);
             try {
                 if (named(FLOOR[0])) {
                     UiCase.run(ctx, FLOOR[0], VideoGeneralSuite::menu);
@@ -154,6 +155,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
         if (named(SOLVER) && sim) {
             ctx.runOnClient(mc -> Mod.set("puzzlesolvers.BeamsSolverConfig", "setEnabled", true));
             VideoSim.singleRoom(ctx, "Creeper Beams");
+            VideoSim.nightVision(ctx);
             try {
                 UiCase.run(ctx, SOLVER, VideoGeneralSuite::solver);
             } finally {
@@ -925,6 +927,9 @@ public class VideoGeneralSuite implements FabricClientGameTest {
     }
 
     static void simRun(UiCase c) throws Exception {
+        if (VideoSim.rooms(c.ctx()).size() < 8) {
+            VideoSim.discover(c.ctx());
+        }
         List<VideoSim.Room> rooms = VideoSim.rooms(c.ctx());
         c.note("rooms: " + rooms.stream().map(x -> x.name() + "/" + x.type() + "/" + x.unfound()).toList());
         List<VideoSim.Room> pick = new ArrayList<>(rooms.stream()
@@ -1078,7 +1083,9 @@ public class VideoGeneralSuite implements FabricClientGameTest {
         VideoRecorder r = new VideoRecorder(c, "sim-solver");
         try {
             r.hideCursor();
-            pan(r, new Vec3(at.x, at.y + 1.5, at.z), yaw0 - 60, 160f, 18f, 8f, 1.5, 9000);
+            Vec3 eye = new Vec3(at.x, at.y + 1.5, at.z);
+            float open = c.onClient(mc -> openestYaw(mc, eye.add(0, 1.62, 0)));
+            pan(r, eye, open - 70, 140f, 16f, 8f, 0.0, 9000);
         } finally {
             r.close();
         }
