@@ -42,7 +42,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * Per phase: the mod's PerfProbe time and render-thread allocation of the world render callbacks per frame, and the
  * DRAW CALLS per frame out of the immediate buffer sources ({@code harness/DrawCalls}, 26.1.2). The verdict is judged on
  * the draw calls (deterministic) and on each feature having drawn (asserted, so a phase that drew nothing cannot pass):
- * ALL may add at most {@link #MAX_ADDED_DRAWS} draw calls per frame over BASE. Main (69505e45) adds one or more per box
+ * ALL may add at most {@link #MAX_ADDED_DRAWS} draw calls per frame over BASE, and ESP may allocate at most
+ * {@link #MAX_ESP_BYTES} per frame. Main (69505e45) adds one or more per box
  * and type switch, about 50 here; the branch draws each render type once per event.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -56,6 +57,10 @@ public class WorldRenderBenchTest implements FabricClientGameTest {
     /** Draw calls per frame ALL may add over BASE: ESP fill + lines, waypoint fill + lines, the names' text, the arcs'
      *  lines, plus slack for the text's glyph pages and an event with nothing in it. */
     static final double MAX_ADDED_DRAWS = 12.0;
+    /** Render-thread bytes per frame the world callbacks may allocate with ESP on (20 filled boxes): main 69505e45
+     *  allocated ~112 KB (a colour array, a lambda, an AABB and two Vec3 per box and draw, plus a buffer per draw call);
+     *  the branch ~6.6 KB, nearly all of it vanilla's own batch end. */
+    static final int MAX_ESP_BYTES = 16384;
     /** The world render packages this bench is about, plus the batch flush in the mod's compat layer. */
     private static final List<String> WORLD = List.of("mobesp", "secretwaypoints", "trajectories", "compat");
 
@@ -119,6 +124,13 @@ public class WorldRenderBenchTest implements FabricClientGameTest {
                 if (allOn - base > MAX_ADDED_DRAWS) {
                     failures.add(line);
                 }
+            }
+            double espBytes = minBytes(rows.get("ESP"));
+            String espLine = String.format(Locale.ROOT, "Dungeon ESP, 20 filled boxes: %.0f B/frame allocated by the world"
+                    + " callbacks (budget %d)", espBytes, MAX_ESP_BYTES);
+            report.add(espLine);
+            if (espBytes > MAX_ESP_BYTES) {
+                failures.add(espLine);
             }
             report.add(String.format(Locale.ROOT, "world callbacks (min of rounds): BASE %.1f us %.0f B, ESP %.1f us %.0f B,"
                             + " WAYPOINTS %.1f us %.0f B, TRAJ %.1f us %.0f B, ALL %.1f us %.0f B per frame",
