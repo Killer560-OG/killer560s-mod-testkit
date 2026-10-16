@@ -30,6 +30,11 @@ import java.util.Locale;
  *   <li><b>bow rounds</b> (Blaze, Creeper Beams, Ice Path): sneak held throughout; in the landing tick the bow goes back
  *   in hand; the next tick the shot (its look in the use packet); the next tick the AOTV back in hand and the next warp's
  *   use in that same tick (sneak already heard). Before, the gate's 6-tick teleport settle held the shot.</li>
+ *   <li><b>talk rounds</b> (Auto Three Weirdos after its own warp into reach, mod branch weirdos-reach-1015): in the landing
+ *   tick sneak is let go and the body turns onto the first "CLICK" armour stand ({@code AutoPuzzleUtil.aimBodyAt} on its
+ *   box); the next tick the interact (no turn tick: {@code gateWorldClick} must let it straight through) and, after it in
+ *   the same tick, the body onto the second stand; the next tick the second interact. GrimAC judges each interact against
+ *   the reported look (Hitboxes) and its reach.</li>
  * </ul>
  * Not vacuous: every action must go on its planned tick after the landing (+1 / +2), every lever must end flipped, the
  * uses must have gone out, and GrimAC must say nothing ({@link Scenario#run}, after its positive control).
@@ -46,6 +51,7 @@ public class GrimPuzzleNoWaitTests implements FabricClientGameTest {
     private static final int CLICK_ROUNDS = 3;
     private static final int BOW_ROUNDS = 3;
     private static final int TURN_ROUNDS = 2;
+    private static final int TALK_ROUNDS = 2;
     private static final String FREECAM = "com.killer560.hub.autopuzzles.FreeCam";
 
     private enum Stage { IDLE, AWAIT_LAND, ACT1, ACT2, DONE }
@@ -54,6 +60,9 @@ public class GrimPuzzleNoWaitTests implements FabricClientGameTest {
     private static volatile Stage stage = Stage.IDLE;
     private static volatile boolean bowRound;
     private static volatile boolean turnRound;
+    private static volatile boolean talkRound;
+    /** The talk round's two stands, in talk order (found on the client by position each round). */
+    private static volatile net.minecraft.world.entity.Entity[] talkStands;
     private static Object freeCam;
     private static volatile BlockPos lever;
     private static volatile Vec3 warpTarget;
@@ -89,7 +98,12 @@ public class GrimPuzzleNoWaitTests implements FabricClientGameTest {
                 } catch (ClassNotFoundException e) {
                     throw new AssertionError(e);
                 }
-                if (turnRound) {
+                if (talkRound) {
+                    mc.options.keyShift.setDown(false);
+                    freeCam = newFreeCam();
+                    boolean turned = aimBodyAtBox(p, talkStands[0]);
+                    step("landed: sneak let go, body onto the first stand (turned " + turned + ")");
+                } else if (turnRound) {
                     // An auto puzzle's own free camera held, the body a quarter turn off the lever: the click must turn
                     // the body at once (util/TurnFirst, no foreign wait for the auto's own camera) and go the tick after.
                     mc.options.keyShift.setDown(false);
@@ -110,6 +124,12 @@ public class GrimPuzzleNoWaitTests implements FabricClientGameTest {
                 stage = Stage.ACT1;
             }
             case ACT1 -> {
+                if (talkRound) {
+                    talk(mc, p, talkStands[0], "+1 tick after the landing");
+                    aimBodyAtBox(p, talkStands[1]); // after the interact, this same tick
+                    stage = Stage.ACT2;
+                    return;
+                }
                 if (turnRound) {
                     float before = p.getYRot();
                     boolean gate = (Boolean) ModUnderTest.staticCall(UTIL, "gateWorldClick",
@@ -146,6 +166,12 @@ public class GrimPuzzleNoWaitTests implements FabricClientGameTest {
                 stage = Stage.ACT2;
             }
             case ACT2 -> {
+                if (talkRound) {
+                    talk(mc, p, talkStands[1], "+2 ticks after the landing (body turned onto it the tick before)");
+                    callCam("release", p);
+                    stage = Stage.DONE;
+                    return;
+                }
                 if (turnRound) {
                     boolean gate = (Boolean) ModUnderTest.staticCall(UTIL, "gateWorldClick",
                             new Class<?>[]{Minecraft.class, BlockPos.class}, new Object[]{mc, lever});
@@ -170,6 +196,34 @@ public class GrimPuzzleNoWaitTests implements FabricClientGameTest {
             }
             default -> {
             }
+        }
+    }
+
+    /** Auto Three Weirdos' talk: the gate (which must not need a turn - the body is already on the stand), then the
+     *  interact at the point of the stand's box on the line to its centre, and the swing. */
+    private static void talk(Minecraft mc, LocalPlayer p, net.minecraft.world.entity.Entity stand, String when) {
+        boolean gate = (Boolean) ModUnderTest.staticCall(UTIL, "gateWorldClick",
+                new Class<?>[]{Minecraft.class, net.minecraft.world.entity.Entity.class}, new Object[]{mc, stand});
+        expect(gate, "the talk to the stand at " + stand.blockPosition().toShortString() + " " + when);
+        if (gate) {
+            Vec3 eye = p.getEyePosition();
+            var box = stand.getBoundingBox();
+            Vec3 aim = box.clip(eye, box.getCenter()).orElse(box.getCenter());
+            mc.gameMode.interact(p, stand, new net.minecraft.world.phys.EntityHitResult(stand, aim),
+                    net.minecraft.world.InteractionHand.MAIN_HAND);
+            p.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+        }
+    }
+
+    private static boolean aimBodyAtBox(LocalPlayer p, net.minecraft.world.entity.Entity stand) {
+        try {
+            var m = Class.forName(UTIL).getDeclaredMethod("aimBodyAt", LocalPlayer.class,
+                    net.minecraft.world.phys.AABB.class, Class.forName(FREECAM));
+            m.setAccessible(true);
+            return (Boolean) m.invoke(null, p, stand.getBoundingBox(), freeCam);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("no AutoPuzzleUtil.aimBodyAt(LocalPlayer, AABB, FreeCam) - this jar predates "
+                    + "weirdos-reach-1015", e);
         }
     }
 
@@ -216,6 +270,16 @@ public class GrimPuzzleNoWaitTests implements FabricClientGameTest {
                         map.command("setblock " + l.getX() + " " + l.getY() + " " + l.getZ()
                                 + " minecraft:lever[face=wall,facing=north]");
                     }
+                    // Two "CLICK" armour stands per talk round, two blocks either side of its landing and two further from
+                    // the lever wall: 2.47 blocks eye to box, inside the 3.0 entity reach.
+                    for (int t = 0; t < TALK_ROUNDS; t++) {
+                        int tx = talkX(t);
+                        for (int side : new int[]{-1, 1}) {
+                            map.command(String.format(Locale.ROOT, "summon minecraft:armor_stand %.1f %d %.1f "
+                                    + "{CustomName:\"CLICK\",CustomNameVisible:1b,NoGravity:1b,Invulnerable:1b}",
+                                    tx + 0.5 + side * 2.0, SURFACE_Y, BASE_Z - 5.5));
+                        }
+                    }
                     map.spawn(BASE_X + 0.5, BASE_Z + 0.5, 0f).build();
                 },
                 (server, scenario) -> {
@@ -238,13 +302,38 @@ public class GrimPuzzleNoWaitTests implements FabricClientGameTest {
                     ctx.waitTicks(5);
                     PacketWatch.start();
                     int spot = 0;
-                    for (int r = 0; r < CLICK_ROUNDS + BOW_ROUNDS + TURN_ROUNDS; r++) {
+                    int talks = 0;
+                    for (int r = 0; r < CLICK_ROUNDS + BOW_ROUNDS + TURN_ROUNDS + TALK_ROUNDS; r++) {
                         boolean bow = r >= CLICK_ROUNDS && r < CLICK_ROUNDS + BOW_ROUNDS;
-                        boolean turn = r >= CLICK_ROUNDS + BOW_ROUNDS;
+                        boolean talk = r >= CLICK_ROUNDS + BOW_ROUNDS + TURN_ROUNDS;
+                        boolean turn = !talk && r >= CLICK_ROUNDS + BOW_ROUNDS;
                         int i = turn ? CLICK_ROUNDS + (r - CLICK_ROUNDS - BOW_ROUNDS) : r % CLICK_ROUNDS;
                         lever = levers.get(i);
                         bowRound = bow;
                         turnRound = turn;
+                        talkRound = talk;
+                        if (talk) {
+                            int tx = talkX(r - CLICK_ROUNDS - BOW_ROUNDS - TURN_ROUNDS);
+                            talkStands = ctx.computeOnClient(mc -> {
+                                net.minecraft.world.entity.Entity[] two = new net.minecraft.world.entity.Entity[2];
+                                for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+                                    if (e instanceof net.minecraft.world.entity.decoration.ArmorStand
+                                            && Math.abs(e.getZ() - (BASE_Z - 5.5)) < 0.2) {
+                                        if (Math.abs(e.getX() - (tx + 0.5 - 2.0)) < 0.2) {
+                                            two[0] = e;
+                                        } else if (Math.abs(e.getX() - (tx + 0.5 + 2.0)) < 0.2) {
+                                            two[1] = e;
+                                        }
+                                    }
+                                }
+                                return two;
+                            });
+                            if (talkStands[0] == null || talkStands[1] == null) {
+                                throw new AssertionError("talk round: the two CLICK stands by x " + tx + " are not on the "
+                                        + "client - nothing to talk to");
+                            }
+                            talks += 2;
+                        }
                         // The warp's look: a floor block 7 blocks behind him, like an etherwarp aim; the shot: up the wall.
                         warpTarget = new Vec3(BASE_X + 3 * (i + 1) + 0.5, SURFACE_Y, BASE_Z - 6.5);
                         shotTarget = new Vec3(BASE_X + 3 * (i + 1) + 0.5, SURFACE_Y + 12, BASE_Z + 3.5);
@@ -253,14 +342,15 @@ public class GrimPuzzleNoWaitTests implements FabricClientGameTest {
                             ctx.waitTick();
                         }
                         stage = Stage.AWAIT_LAND;
-                        int sx = BASE_X + 3 * (i + 1);
+                        int sx = talk ? talkX(r - CLICK_ROUNDS - BOW_ROUNDS - TURN_ROUNDS) : BASE_X + 3 * (i + 1);
                         synchronized (STEPS) {
-                            STEPS.add("round " + (r + 1) + (bow ? " (bow)" : turn ? " (turn under own camera)" : " (click)")
+                            STEPS.add("round " + (r + 1) + (bow ? " (bow)" : turn ? " (turn under own camera)"
+                                    : talk ? " (talk to two stands)" : " (click)")
                                     + ": teleport onto " + sx + ", "
                                     + SURFACE_Y + ", " + BASE_Z);
                         }
                         server.command(String.format(Locale.ROOT, "execute as @p at @s run tp @s %.2f %d %.2f ~ ~",
-                                sx + 0.5 + (spot++ % 2 == 0 ? 0.0 : 0.01), SURFACE_Y, BASE_Z + 0.5));
+                                sx + 0.5 + (spot++ % 2 == 0 ? 0.0 : 0.01), SURFACE_Y, talk ? BASE_Z - 3.5 : BASE_Z + 0.5));
                         for (int w = 0; w < 100 && stage != Stage.DONE; w++) {
                             ctx.waitTick();
                         }
@@ -285,8 +375,10 @@ public class GrimPuzzleNoWaitTests implements FabricClientGameTest {
                         }
                     }
                     scenario.log(PacketWatch.summary());
-                    scenario.log(String.format(Locale.ROOT, "RESULT %d of %d levers flipped, %d item use(s), GrimAC %d line(s)",
-                            flipped, levers.size(), PacketWatch.itemUses(), scenario.flags().size()));
+                    scenario.log(String.format(Locale.ROOT, "RESULT %d of %d levers flipped, %d item use(s), %d entity "
+                            + "interact(s) (max %.2f eye to box), GrimAC %d line(s)", flipped, levers.size(),
+                            PacketWatch.itemUses(), PacketWatch.entityInteracts(), PacketWatch.maxEntityReach(),
+                            scenario.flags().size()));
                     synchronized (BAD) {
                         if (!BAD.isEmpty()) {
                             throw new AssertionError(String.join("; ", BAD));
@@ -295,12 +387,21 @@ public class GrimPuzzleNoWaitTests implements FabricClientGameTest {
                     if (flipped != levers.size()) {
                         throw new AssertionError(flipped + " of " + levers.size() + " levers flipped - the clicks did not land");
                     }
-                    int uses = CLICK_ROUNDS + 2 * BOW_ROUNDS; // the turn rounds use nothing
+                    if (PacketWatch.entityInteracts() < talks) {
+                        throw new AssertionError("only " + PacketWatch.entityInteracts() + " entity interact(s) went out, "
+                                + talks + " expected - the talk rounds did not talk");
+                    }
+                    int uses = CLICK_ROUNDS + 2 * BOW_ROUNDS; // the turn and talk rounds use nothing
                     if (PacketWatch.itemUses() < uses) {
                         throw new AssertionError("only " + PacketWatch.itemUses() + " item use(s) went out, " + uses
                                 + " expected");
                     }
                 });
+    }
+
+    /** The x a talk round lands on (at z BASE_Z - 3.5, on the platform's other half from the lever wall). */
+    private static int talkX(int t) {
+        return BASE_X + 3 + 6 * t;
     }
 
     private static Object newFreeCam() {
