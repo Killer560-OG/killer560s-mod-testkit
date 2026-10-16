@@ -147,3 +147,15 @@ Position draws and width(), a never-moved element's resolvePosition, Split Timer
 Calling `run-scenario.ps1` from Bash: `powershell -File run-scenario.ps1 -Extra "-Pa","-Pb"` hands the script ONE
 string "-Pa,-Pb", so only the first flag's name survives (a 95-perf-features run meant to take 5 minutes ran the full
 45, 2026-10-15). Use `powershell -NoProfile -Command "& ./run-scenario.ps1 ... -Extra @('-Pa','-Pb')"`.
+## Automation switched on but idle (95-perf-autoidle)
+
+`perf/AutoIdleBenchTest`, ~4 min, only when named (fps-auto-1015). 95-perf-features never switches automation on
+(`PerfBench.NEVER_ON`), so it only shows what an automation package costs while OFF. This one alternates OFF and AUTO
+IDLE (all off except every switch whose label starts with one of `-PperfAuto=autoroutes.,ap3.,...`, default the
+automation area's packages; `-PperfAutoSkip=<label part>` leaves one out) for `-PperfRounds` (3) x `-PperfBigTicks`
+(400) ticks in PerfBench's scene, with a 30-node Auto Routes route seeded in the player's room (every node 8-18 blocks
+away), and prints both per package and per key. It FAILS if the player moved or the hotbar slot changed during AUTO
+IDLE (a feature acted, so the phase is not idle), and on its budgets: bytes per tick of the Auto Puzzles / Auto Routes /
+Secret Aura ticks, no draw call for an idle status HUD, and two direct allocation checks of single hot calls
+(`EtherwarpHopper.range()` with nine Skyblock items in the hotbar, `TerminalSolverFeature.refreshState()` with a plain
+chest open and the solver on). Results in `perf-autoidle.txt` / `.tsv`.
