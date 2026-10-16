@@ -342,7 +342,10 @@ final class PuzzleTimingExtra extends SolveExtra {
                 if (n.kind() == Kind.READY && n.info().contains("volley flying #")) {
                     break; // another volley left before anything else
                 }
-                if (act(n.kind()) || n.kind() == Kind.MAP_WARP) {
+                if (n.kind() == Kind.MAP_WARP) {
+                    break; // the secret trip, set off when the volley LEFT the bow: the Interactive Map's pace, not this
+                }
+                if (act(n.kind())) {
                     if (n.kind() == Kind.SHOT && lastShotBefore(ev, j) + cooldownTicks + 1 >= r.tick()) {
                         break;
                     }
