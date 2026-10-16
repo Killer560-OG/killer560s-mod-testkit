@@ -89,6 +89,7 @@
 			"dev.testkit.gametest.SimRoomCycleTests",
 			"dev.testkit.gametest.SimPagesTests",
 			"dev.testkit.gametest.SimMenuTidyTests",
+			"dev.testkit.gametest.SimDesignerGridTests",
 			"dev.testkit.gametest.SimMenuRedoTests",
 			"dev.testkit.gametest.SimSavedRunTests",
 			"dev.testkit.gametest.SimRoomSpawnTests",
