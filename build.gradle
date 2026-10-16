@@ -580,6 +580,9 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	if (project.hasProperty("perfJfrTicks")) {
 		systemProperty "testkit.perf.jfrTicks", project.property("perfJfrTicks")
 	}
+	if (project.hasProperty("perfAutoJfr")) {
+		systemProperty "testkit.perf.autoJfr", "true"
+	}
 	if (project.hasProperty("perfNoJfr")) {
 		systemProperty "testkit.bench.noJfr", "true"
 	}

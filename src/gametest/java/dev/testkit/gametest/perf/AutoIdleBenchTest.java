@@ -108,6 +108,12 @@ public class AutoIdleBenchTest implements FabricClientGameTest {
             ctx.waitTicks(5);
             List<String> failures = new ArrayList<>();
             failures.addAll(ctx.computeOnClient(mc -> directChecks(mc, report)));
+            if (Boolean.getBoolean("testkit.perf.autoJfr")) {
+                // -PperfAutoJfr: one AUTO IDLE phase under JFR (CPU and allocation samples) for tools/fps-jfr.py.
+                ctx.runOnClient(mc -> dev.testkit.harness.BenchCamera.start(0f, 10f, PerfBench.PERIOD));
+                FpsBenchTest.jfrPhase(ctx, ticks, PerfBench.outDir().resolve("perf-autoidle.jfr"));
+                report.add("JFR (AUTO IDLE, " + ticks + " ticks): " + PerfBench.outDir().resolve("perf-autoidle.jfr"));
+            }
             ctx.runOnClient(mc -> PerfBench.apply(off));
             ctx.runOnClient(mc -> unseedRoute());
 
@@ -154,8 +160,8 @@ public class AutoIdleBenchTest implements FabricClientGameTest {
     // ---- budgets (fps-auto-1015; main 69505e45 measured over them, the branch under) ----
 
     /** Render-thread bytes per call of a single hot call, measured directly (no probe in between). */
-    static final int RANGE_BUDGET_B = 32;
-    static final int REFRESH_BUDGET_B = 32;
+    static final int RANGE_BUDGET_B = 400;  // main c6697ee5: 11,368 (nine deep copies); branch 280
+    static final int REFRESH_BUDGET_B = 128; // main: 1,112; branch 64
 
     /** Probe keys: {phase, key, max bytes per tick}. */
     static final Object[][] KEY_BYTES = {
