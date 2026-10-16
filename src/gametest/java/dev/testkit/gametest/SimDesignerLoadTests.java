@@ -24,8 +24,8 @@ import java.util.List;
  *   <li>The designer has a Load button and no Save button.</li>
  *   <li>A real run in the run history (seeded, and confirmed listed by the saved-runs code) and an old Save file
  *       ({@code killer560smod-simmaps.json}, "Old Design", modified 2026-01-02 03:04) are on disk.</li>
- *   <li>Entrance is generated and played, then filled (a drawing) and played, with the real buttons; both builds finish
- *       and are left.</li>
+ *   <li>Entrance is generated and played, then two rooms are drawn on it by hand (a drawing; Fill went 2026-10-15) and
+ *       played, with the real mouse and buttons; both builds finish and are left.</li>
  *   <li>Load lists exactly three rows, newest first: "Entrance · Drawn" (its cells), "Entrance · Generated" (its map
  *       code, today's date) and "Old Design · Saved design" dated by the old file's modified time (coordinator,
  *       2026-10-15: keep drawn floors marked "Drawn"; bring his old saved designs in once) - and not the run. Every
@@ -106,7 +106,7 @@ public class SimDesignerLoadTests implements FabricClientGameTest {
         DesignerKit.closeScreen(ctx);
         DesignerKit.openEditor(ctx);
 
-        // ---- 3. Entrance: Generate + Play, then Fill (a drawing) + Play ------------------------------------------------
+        // ---- 3. Entrance: Generate + Play, then two rooms drawn by hand + Play ------------------------------------------------
         for (int i = 0; i < 8 && !"Entrance".equals(DesignerKit.floorLabel(ctx)); i++) {
             DesignerKit.click(ctx, DesignerKit.floorLabel(ctx));
         }
@@ -125,13 +125,15 @@ public class SimDesignerLoadTests implements FabricClientGameTest {
         for (int i = 0; i < 8 && !"Entrance".equals(DesignerKit.floorLabel(ctx)); i++) {
             DesignerKit.click(ctx, DesignerKit.floorLabel(ctx));
         }
-        check(DesignerKit.click(ctx, "Fill"), "no Fill button");
+        // Drawn by hand: Fill went (killer560, 2026-10-15: "Remove the fill button, it no longer has a use").
+        drawByHand(ctx, 2);
         @SuppressWarnings("unchecked")
         java.util.Map<Integer, String> drawing = new java.util.LinkedHashMap<>(
                 (java.util.Map<Integer, String>) DesignerKit.field(ctx, "placements"));
-        check(!drawing.isEmpty() && DesignerKit.generated(ctx) == null, "Fill drew nothing to play");
+        check(drawing.size() >= 2 && DesignerKit.generated(ctx) == null,
+                "drawing by hand put " + drawing.size() + " room(s) on the grid, expected 2");
         play(ctx);
-        println("played a drawn (Fill) Entrance floor of " + drawing.size() + " room(s)");
+        println("played a hand-drawn Entrance floor of " + drawing.size() + " room(s): " + drawing);
 
         // ---- 4. the Load list --------------------------------------------------------------------------------------
         DesignerKit.openEditor(ctx);
@@ -224,6 +226,50 @@ public class SimDesignerLoadTests implements FabricClientGameTest {
                 new Object[]{"E", "Entrance", code, 1, 1}));
         check(historyNow(ctx) == countBefore, "recording the same floor again listed it twice");
         println("status after loading: '" + DesignerKit.field(ctx, "status") + "'");
+    }
+
+    /**
+     * Places {@code rooms} rooms with the real mouse, the way he draws a floor: a click on a room-list row selects it, a
+     * click on a grid cell puts it there. Rows and cells are tried in order until that many are on the grid.
+     */
+    @SuppressWarnings("unchecked")
+    private void drawByHand(ClientGameTestContext ctx, int rooms) {
+        int listX = (Integer) DesignerKit.field(ctx, "listX");
+        int listTop = ctx.computeOnClient(mc -> DesignerKit.listTop(McCompat.screen(mc)));
+        int rowH = rowHeight(ctx);
+        int gridX = (Integer) DesignerKit.field(ctx, "gridX");
+        int gridY = (Integer) DesignerKit.field(ctx, "gridY");
+        int cell = (Integer) DesignerKit.field(ctx, "cell");
+        Object floor = DesignerKit.field(ctx, "floor");
+        int across;
+        int down;
+        try {
+            across = floor.getClass().getField("across").getInt(floor);
+            down = floor.getClass().getField("down").getInt(floor);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("the designer's floor has no across/down", e);
+        }
+        int listed = listed(ctx).size();
+        for (int row = 0; row < Math.min(listed, 8); row++) {
+            DesignerKit.clickAt(ctx, listX + 20, listTop + row * rowH + rowH / 2.0, 0);
+            for (int slot = 0; slot < across * down; slot++) {
+                int before = ((java.util.Map<Integer, String>) DesignerKit.field(ctx, "placements")).size();
+                int gx = slot % across;
+                int gz = slot / across;
+                boolean taken = ((java.util.Map<Integer, Integer>) DesignerKit.field(ctx, "occupiedBy"))
+                        .containsKey(gz * 6 + gx);
+                if (taken) {
+                    continue;
+                }
+                DesignerKit.clickAt(ctx, gridX + gx * cell + cell / 2.0, gridY + gz * cell + cell / 2.0, 0);
+                if (((java.util.Map<Integer, String>) DesignerKit.field(ctx, "placements")).size() > before) {
+                    break;
+                }
+            }
+            if (((java.util.Map<Integer, String>) DesignerKit.field(ctx, "placements")).size() >= rooms) {
+                return;
+            }
+        }
     }
 
     /** Plays what is on the grid with the real Play button, waits for the build, and leaves the world. */

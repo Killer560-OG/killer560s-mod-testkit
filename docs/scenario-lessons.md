@@ -19,6 +19,12 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   `gameMode.useItem` (Wither Impact, radius 5) does kill it - use that to kill a sim mob as the player.
 
 - `menu.experiment` Superpairs takes `layout` (tiles from slot 9: `{item,name}`, `{powerup:true}` for Instant Find or `{powerup:"clicks",amount:N}`, no shuffle). Powerups behave as killer560 described Hypixel's (2026-10-05): turning one over costs a click and never touches the turn (the open tile stays up); an Instant Find arms the next click, and they stack (`armed` in the state); an armed click claims that tile and its partner, closing the turn if the partner is the open tile. Cases 284-287 cover those rules. The state lists every claimed pair (`claimed`), the server-side truth 229 asserts on. `clicks` sets "Remaining Clicks" (the solver reads it since mod 5d579534); 280-283 play fixed boards with a tight budget and assert what was claimed and in which order (`ExperimentCases.play`). Main's solver before 5d579534 fails 229 and 280-283.
+- 288-menu-exp-etable-defaults / 289-menu-exp-etable-click-spacing (`EtableDefaultsCases`, mod etable-defaults-1015): 288
+  writes the experiments config FILE and runs the mod's own `load()` (no file, old defaults, changed values, zero and garbage
+  values, setters, save + load), restoring the file afterwards; do it outside a `MenuKit.Cfg`, whose undo holds the OLD
+  instance. 289 measures click gaps in ms at the client's send (`PacketWatch.containerClickMillis`, recorded with or without a
+  watch): server tick gaps are too coarse on a loaded machine (13 then 6 ticks for two 400 ms gaps). Main: defaults 200 ms,
+  Click Delay 400 + Random 500 down to 167 ms, an old zero-delay file 32 ms; branch: 447/467/199/435 ms minimum.
 - The sim's `/goto` (SimTeleportCommands.goTo) scanned the ServerLevel from the RENDER thread; in the gametest lockstep a
   chunk load there deadlocked the client (99-sim-im, 2026-10-05, jstack). Fixed in mod b5eee0d6 (server.execute);
   `97-sim-goto-loop` freezes on any jar before it. 99-sim-im still places the player itself (`standOn`). A sim scenario that reads the legend's Extra Info on a jar before mod hud-fixes must turn Score Calculator on
@@ -531,6 +537,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   "Global terrain uniforms have not been updated"; the case reads the main target back with `Screenshot.takeScreenshot`
   then (26.1.2 only: 26.2's `Minecraft` has no `getMainRenderTarget`). A compile error in a -Minecraft 26.2 run makes
   run-scenario exit 1 in seconds and leaves the PREVIOUS run's report in place: check the log's "Loading Minecraft" line.
+- 1324-ui-etherwarp-nonfull (mod ew-chest-1015, 2026-10-15): the Etherwarp box on a chest, ender chest, trapped chest, slab, stair,
+  hopper, cauldron, carpet, stone under a player head and plain stone, from a one-high step at 0 and 40 degrees. An outline sample
+  needs 7 magenta pixels in its 5x5 (a whole 2 px line, about 10): 'any magenta within 2 px' passed main's chest at 54/63,
+  because the half of each line outside the chest's silhouette survived. Main 26.1.2: chest Outline 0/63, Filled 0/50; 26.2
+  and the fix: all pass. Etherwarp passes through heads, so the head case's box is the stone below it, red.
 - 1401-1403 (`SimWorldTests`, sim-superboom-radius 2026-10-14): the sim Superboom's 3-block radius (blast at the hit FACE's centre, measured to each block's box) and whole groups. 1401 Big Red Flag's prince tomb (86 blocks, wall z 27 / x 18 and floor kept) plus a floor cracked chain; 1402 Arrow Trap's slab crypt from an overhang 2 above the lid (out of the old y +-2 cube); 1403 a cracked chain with one end in reach beside a stone brick wall that stays. All three fail on main (46/86 tomb left, 0 broken, 8/8 chain left). 642/645 now expect the decorative brick in reach, the eave and the wall under the lid to go.
 - 96-ar-1014-jumpcd / 62-argrim-1014-jumpcd (ar-jump-cooldown, 2026-10-14): a finished jump node's tile does not arm for
   3 s. Count take-offs on the CLIENT's ground flag and only after the node has pressed: the integrated server's flag drops
@@ -832,3 +843,23 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   menu, opened before its recorder, stamped its open fade at the later time, and `MenuAnim.progress` reads a start 0-1 s
   ahead as 0, so the whole menu vanished for a second once the new clock came within 1 s of the old end (Home 14.6 s
   after the 15.6 s sim-run clip, Profiles 24.6 s after the 25.6 s HUD editor clip). Failed 70/90 frames before the fix.
+- 97-sim-menu-tidy (2026-10-15) reads a table's text runs by row band. A row scrolled half under the headings has its TOP
+  in the heading band, so classing runs by where they start called it a heading and "found" it overlapping one, on the
+  fixed jar; the screen's scissor hides that part. Class a run as a heading only if it ENDS above the rows, and clip row
+  runs to the visible band. The menu's gradient title is one string drawn three times plus a shadow: same text at the
+  same x is one run, not an overlap.
+- **115-hx-autogfs-unknown-command** (2026-10-15): the Hx server has no `/gfs` until a case registers that responder root
+  (140, later), so vanilla answers "Unknown or incomplete command" exactly as p3sim did. Auto GFS (pearls, skip-if-none off,
+  5 s interval) must send once and stop, logging the stop once. Main sent 5 in 20 s. Run one Hx case with
+  `-Scenario "100-hx-session:,115-hx-autogfs"`; the case resets `util.SackCommands.dead` because 115-hx-architect-draft's
+  `/gfs` gets the same answer just before it.
+- 1015-menu-term-hidden-slots(-off) (term-hover-1015): with the terminal Custom GUI on, every type x {a hidden grid slot,
+  a hidden inventory slot} outside the panel: hoveredSlot null, 0 px changed by the hover, 4 clicks + 1/drop/pick keys
+  reach the server as nothing; a real click on a custom square = exactly the solver's target (slot/button/input). Main
+  failed all 12 (1024 px highlight, SWAP/THROW sent). The -off control proves the checks can see vanilla's hover.
+- 96-ar session order (ar-merge-regress-1015, 2026-10-15). A case inherits util/RightClick's state from the one before:
+  96-ar-awaitskip's crypt Hyperion clicks were left unpaired (the sim's ability hook ended vanilla's right click after the
+  block half) and 96-ar-chain after it waited a tick at every corner, on the deployed jars too; alone, chain passed. And the
+  sim's chest window arrives 1-2 ticks after a click, racing the warp an await fires: 96-ar-1015-reaim's control read 2 for 1
+  in a session, so it reruns a side whose log says the window arrived after the await was met. A case that only passes alone
+  is not passing.

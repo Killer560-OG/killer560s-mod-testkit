@@ -47,8 +47,16 @@ import java.util.Locale;
  *       3%), the title band and the button column are dark (mean luminance under 0.2, 7:1 for the text on their median),
  *       and over 60 frames it allocates no more per rectangle than Amber's embers (nothing built per frame). It notes the
  *       rectangles per frame. TESTKIT_GREEN_SHOTS copies the frame to forest-mainmenu.png.</li>
- *   <li>1653 ~10 s of the forest at 60 fps, one PNG per 1/60 s of the scene clock into {@code <report>/green-forest/}
- *       (for ffmpeg). Only runs when its number is named.</li>
+ *   <li>1651 also, the acid cave (green-v3-1015, the designer: "an acid looking cave with an acid lake and waterfall ...
+ *       a silhouette of my character fighting a big green slime"): it is the default Green scene (the forest above is
+ *       drawn through {@code MainMenuScenes.setGreenSceneForTest("FOREST")}); at 1920x1080 GUI 2 it is green-dominant and
+ *       dark, the lake along the bottom glows (brighter than the button column), the fight bottom left moves within one
+ *       swing while the button column barely changes, the title band and column pass the forest's contrast checks, and it
+ *       allocates no more per rectangle than Amber's embers. It notes rects per frame. TESTKIT_GREEN_SHOTS copies the frame
+ *       to acid-cave.png. On a jar without the scene the hook is missing and the case fails.</li>
+ *   <li>1652 also: Canopy Glow (C) is the default gradient (the designer: "the last gradient looks the best").</li>
+ *   <li>1653 ~10 s of the default Green scene (or {@code -Dtestkit.greenScene=FOREST|SIMPLE|ACID}) at 60 fps, one PNG per
+ *       1/60 s of the scene clock into {@code <report>/green-<scene>/} (for ffmpeg). Only runs when its number is named.</li>
  * </ul>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -340,11 +348,15 @@ public class GreenThemeSuite implements FabricClientGameTest {
             c.check(a.g() > a.r() + 4 && a.g() >= a.b() - 2, "the Green main menu is not green: " + a.r() + "," + a.g() + "," + a.b());
             c.check(a.lum() < 0.3, "the Green main menu is not dark: " + a.lum());
             c.check(moved > 0.0005, "the Fireflies scene did not move between two frames: " + moved);
+            greenScene(c, "FOREST");
             forest(c);
+            greenScene(c, "");
+            acidCave(c);
             c.check(!(Boolean) c.onClient(mc -> Mod.field("mainmenu.MainMenuTheme", "failed")),
                     "the themed main menu turned itself off after an error");
         } finally {
             clock(c, -1);
+            greenScene(c, "");
             FontsMainMenuSuite.setWindow(c, win0[0], win0[1], win0[2]);
             FontsMainMenuSuite.restoreMm(c, saved);
         }
@@ -414,7 +426,13 @@ public class GreenThemeSuite implements FabricClientGameTest {
             }
         });
         FontsMainMenuSuite.MmState savedMm = FontsMainMenuSuite.saveMm(c);
+        String defaultGradient = hasGradient ? c.onClient(mc -> String.valueOf(Mod.staticCall("gui.GreenTheme", "gradient")))
+                : "none";
         try {
+            // The designer picked C (green-v3-1015: "the last gradient looks the best").
+            c.note("default gradient: " + defaultGradient);
+            c.check("CANOPY_GLOW".equals(defaultGradient), "the default Green gradient is " + defaultGradient
+                    + ", not CANOPY_GLOW (C)");
             // The menu as 940 shoots it: 1920x1080, GUI 2, Auto Scale on, the HUD category with the Health and Mana
             // Bars drawer. On a jar without the gradient this first shot is the "before".
             c.onClient(mc -> {
@@ -470,6 +488,12 @@ public class GreenThemeSuite implements FabricClientGameTest {
                     return null;
                 });
                 String kept = MenuACases.shot(c, s, VARIANT_SHOT[v], "HealthAndManaBarsTab");
+                String copyTo = System.getenv("TESTKIT_GREEN_SHOTS");
+                if (v == 2 && copyTo != null && !copyTo.isBlank()) {
+                    Files.createDirectories(Path.of(copyTo));
+                    Files.copy(Path.of(kept), Path.of(copyTo).resolve("menu-variant-c.png"),
+                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
                 // The background in use is the variant's cached constant, and the same object frames later.
                 Object[] bg = c.onClient(mc -> new Object[]{Mod.field("gui.MenuStyle", "PANEL_BG"),
                         Mod.field("gui.GreenTheme", constant)});
@@ -555,7 +579,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
         } finally {
             c.onClient(mc -> {
                 if (hasGradient) {
-                    Mod.staticCall("gui.GreenTheme", "setGradient", Mod.enumValue("gui.GreenTheme$Gradient", "FOREST_NIGHT"));
+                    Mod.staticCall("gui.GreenTheme", "setGradient", Mod.enumValue("gui.GreenTheme$Gradient", defaultGradient));
                 }
                 McCompat.setScreen(mc, null);
                 Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", Mod.enumValue("gui.MenuTheme", old));
@@ -730,6 +754,91 @@ public class GreenThemeSuite implements FabricClientGameTest {
                 "the forest allocates beyond its rectangles: %.1f B/rect against embers' %.1f", bPerQuad, refPerQuad));
     }
 
+    /** Picks the Green scene through the mod's test hook; "" goes back to the default. Fails the case on a jar without
+     *  the hook (before the acid cave), except when resetting. */
+    static void greenScene(UiCase c, String name) {
+        boolean ok = c.onClient(mc -> {
+            try {
+                Mod.staticCall(SCENES, "setGreenSceneForTest", name);
+                return true;
+            } catch (Throwable t) {
+                return false;
+            }
+        });
+        if (!ok && !name.isEmpty()) {
+            c.problem("the mod has no MainMenuScenes.setGreenSceneForTest: no acid cave scene (an older jar)");
+        }
+    }
+
+    /** The acid cave (green-v3-1015), the default Green scene. */
+    static void acidCave(UiCase c) throws Exception {
+        String def = c.onClient(mc -> {
+            try {
+                return String.valueOf(Mod.field(Mod.ROOT + SCENES, "GREEN_SCENE"));
+            } catch (Throwable t) {
+                return "none";
+            }
+        });
+        c.check("ACID".equals(def), "the default Green scene is " + def + ", not ACID");
+        forestTitle(c);
+        clock(c, 2_000_000);
+        c.ticks(2);
+        Path pa = FontsMainMenuSuite.shot(c, "acid-a");
+        FontsMainMenuSuite.Pic a = FontsMainMenuSuite.pic(pa);
+        clock(c, 2_004_000);
+        c.ticks(2);
+        FontsMainMenuSuite.Pic b = FontsMainMenuSuite.pic(FontsMainMenuSuite.shot(c, "acid-b"));
+        // Within one swing (1.6 s): the strike against the wind-up.
+        clock(c, 2_000_000 + 1600 * 0.30);
+        c.ticks(2);
+        FontsMainMenuSuite.Pic windup = FontsMainMenuSuite.pic(FontsMainMenuSuite.shot(c, "acid-windup"));
+        clock(c, 2_000_000 + 1600 * 0.60);
+        c.ticks(2);
+        FontsMainMenuSuite.Pic strike = FontsMainMenuSuite.pic(FontsMainMenuSuite.shot(c, "acid-strike"));
+        String copy = System.getenv("TESTKIT_GREEN_SHOTS");
+        if (copy != null && !copy.isBlank()) {
+            Files.createDirectories(Path.of(copy));
+            Files.copy(pa, Path.of(copy).resolve("acid-cave.png"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+        double moved = FontsMainMenuSuite.changed(a.img(), b.img());
+        double[] title = boxStats(a.img(), 0.25, 0.0, 0.75, 0.22);
+        double[] column = boxStats(a.img(), 0.3, 0.22, 0.7, 0.66);
+        double[] lakeBox = boxStats(a.img(), 0.4, 0.84, 0.7, 0.98);
+        int text = c.onClient(mc -> ((int[]) Mod.call(Mod.enumValue("gui.MenuTheme", "GREEN"), "base"))[3]);
+        float colContrast = contrast(text, (int) column[1] | 0xFF000000);
+        float titleContrast = contrast(0xFFFFFFFF, (int) title[1] | 0xFF000000);
+        BufferedImage A = a.img();
+        int W = A.getWidth();
+        int H = A.getHeight();
+        double colMoved = FontsMainMenuSuite.changed(A.getSubimage(W * 3 / 10, H * 22 / 100, W * 4 / 10, H * 44 / 100),
+                b.img().getSubimage(W * 3 / 10, H * 22 / 100, W * 4 / 10, H * 44 / 100));
+        double fightMoved = FontsMainMenuSuite.changed(windup.img().getSubimage(0, H * 50 / 100, W * 3 / 10, H * 40 / 100),
+                strike.img().getSubimage(0, H * 50 / 100, W * 3 / 10, H * 40 / 100));
+        int lakeMedian = (int) lakeBox[1];
+        long[] alloc = alloc(c);
+        double quads = alloc[2] / (double) Math.max(1, alloc[1]);
+        double bPerQuad = alloc[0] / (double) Math.max(1, alloc[2]);
+        c.note(String.format(Locale.ROOT, "acid cave: rgb %.1f,%.1f,%.1f lum %.3f, moved %.2f%% over 4 s (button column %.2f%%), "
+                        + "fight moved %.2f%% between wind-up and strike; lake lum %.3f median %s; title band lum %.3f (white title "
+                        + "%.1f:1), button column lum %.3f (Green text %.1f:1); %.0f rects/frame, %.0f B/frame, %.1f B/rect over %d frames",
+                a.r(), a.g(), a.b(), a.lum(), moved * 100, colMoved * 100, fightMoved * 100, lakeBox[0], MenuACases.hex(lakeMedian),
+                title[0], titleContrast, column[0], colContrast, quads, alloc[0] / (double) Math.max(1, alloc[1]), bPerQuad, alloc[1]));
+        c.check(a.g() > a.r() + 4 && a.g() > a.b() + 2, "the acid cave is not green-dominant: " + a.r() + "," + a.g() + "," + a.b());
+        c.check(a.lum() < 0.3, "the acid cave is too bright for the menu: " + a.lum());
+        c.check(lakeBox[0] > column[0] * 2 && ((lakeMedian >> 8) & 0xFF) > ((lakeMedian >> 16) & 0xFF) + 20,
+                "no glowing acid lake along the bottom: lum " + lakeBox[0] + " median " + MenuACases.hex(lakeMedian));
+        c.check(moved > 0.002, String.format(Locale.ROOT, "the acid cave did not move over 4 s: %.3f%%", moved * 100));
+        c.check(fightMoved > 0.003, String.format(Locale.ROOT, "the fight did not move within a swing: %.3f%%", fightMoved * 100));
+        c.check(colMoved < 0.03, String.format(Locale.ROOT, "the button column is busy: %.2f%% changed over 4 s", colMoved * 100));
+        c.check(title[0] < 0.2 && titleContrast >= 7f, "the title band is too bright: lum " + title[0] + ", contrast " + titleContrast);
+        c.check(column[0] < 0.2 && colContrast >= 7f, "the button column is too bright: lum " + column[0] + ", contrast " + colContrast);
+        c.check(alloc[1] >= 50 && alloc[2] > 0, "the allocation probe did not run: " + Arrays.toString(alloc));
+        long[] ref = embersAlloc(c);
+        double refPerQuad = ref[0] / (double) Math.max(1, ref[2]);
+        c.check(bPerQuad <= refPerQuad * 1.15, String.format(Locale.ROOT,
+                "the acid cave allocates beyond its rectangles: %.1f B/rect against embers' %.1f", bPerQuad, refPerQuad));
+    }
+
     static long[] embersAlloc(UiCase c) {
         c.onClient(mc -> {
             FontsMainMenuSuite.setMm(mc, "CUSTOM", "AMBER", "EMBERS", 100, true, true);
@@ -757,10 +866,14 @@ public class GreenThemeSuite implements FabricClientGameTest {
         int[] win0 = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight(),
                 mc.options.guiScale().get()});
         String old = MenuACases.themeName();
+        String scene = System.getProperty("testkit.greenScene", "");
         try {
+            if (!scene.isEmpty()) {
+                greenScene(c, scene);
+            }
             forestTitle(c);
             int frames = 600;
-            Path dir = Report.dir().resolve("green-forest");
+            Path dir = Report.dir().resolve("green-" + (scene.isEmpty() ? "default" : scene.toLowerCase(Locale.ROOT)));
             for (int i = 0; i < frames; i++) {
                 clock(c, 3_000_000 + i * (1000.0 / 60.0));
                 c.ticks(1);
@@ -770,6 +883,9 @@ public class GreenThemeSuite implements FabricClientGameTest {
             c.note("wrote " + frames + " frames to " + dir);
         } finally {
             clock(c, -1);
+            if (!scene.isEmpty()) {
+                greenScene(c, "");
+            }
             c.onClient(mc -> {
                 Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", Mod.enumValue("gui.MenuTheme", old));
                 return null;

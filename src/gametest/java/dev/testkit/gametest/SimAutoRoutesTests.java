@@ -4026,9 +4026,16 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             boolean skipped = waitFor(ctx, 10, () -> logHas(mc0, "left click skipped the kill wait"));
             ctx.waitTicks(3);
             boolean useUp = ctx.computeOnClient(mc -> !mc.options.keyUse.isDown());
-            println("awaitskip crypt: skipped=" + skipped + ", use key up=" + useUp);
+            // Vanilla's right click on the floor with the Hyperion is two packets on Hypixel (the block, then the use,
+            // which pairs it). The sim's ability hook once ended it after the block half, so util/RightClick held that
+            // click unpaired for good and 96-ar-chain, run next, waited a tick at every corner (mod ar-merge-regress-1015).
+            boolean pairedUp = ctx.computeOnClient(mc -> !(Boolean) ModUnderTest.staticCall("com.killer560.hub.util.RightClick",
+                    "unpaired"));
+            println("awaitskip crypt: skipped=" + skipped + ", use key up=" + useUp + ", every click paired=" + pairedUp);
             check(skipped, "his left click did not end the crypt node's wait for a kill");
             check(useUp, "the crypt node left the use key held after the skip");
+            check(pairedUp, "the crypt node's Hyperion right clicks on the floor left a block click unpaired - vanilla's "
+                    + "right click sent the block half without its use half");
             check(!logHas(mc0, "up, moving on"), "the crypt node ran out its attack time instead of being skipped");
         } finally {
             ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setCryptAttackTicks",
@@ -7870,13 +7877,18 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         }
 
         private record Run(boolean met, boolean landed, int acted, int dropped, boolean reaimed, boolean noLanding,
-                           List<String> off) {
+                           List<String> off, boolean window) {
         }
 
+        /** Runs per side before giving up on one the chest's window did not land in. */
+        private static final int WINDOW_ATTEMPTS = 5;
+
         static void reaim(ClientGameTestContext ctx) {
-            Run control = run(ctx, false, new int[]{8, F, 23});
-            Run mismatch = run(ctx, true, new int[]{8, F, 24});
+            Run control = clean(ctx, false, new int[]{8, F, 23});
+            Run mismatch = clean(ctx, true, new int[]{8, F, 24});
             println(String.format(Locale.US, "reaim control: %s | mismatch: %s", control, mismatch));
+            check(!control.window() && !mismatch.window(), "the chest's window landed in the warp's ticks on all "
+                    + WINDOW_ATTEMPTS + " attempts of a side - no comparable run");
             resetRoutes(ctx);
             forgetRunMemory(ctx);
             check(control.met() && control.landed() && control.dropped() == 0 && control.acted() >= 0,
@@ -7889,6 +7901,26 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             check(mismatch.reaimed(), "mismatch: no re-aim line - the case it is about never happened");
             check(mismatch.acted() == control.acted() + 1, "mismatch: the warp went " + mismatch.acted()
                     + " tick(s) after firing, the control " + control.acted() + " - the re-aim must cost exactly one tick");
+        }
+
+        /**
+         * {@link #run} again while the clicked chest's window arrived after the await was met and the warp started over
+         * under it (the mod's "window arrived after the await was met" line, mod ar-merge-regress-1015). In the sim the
+         * window comes 1-2 ticks after the click, so whether it lands before the use is the client/server tick phase,
+         * which drifts through a session: such a run's count is the window's, not the re-aim's. The control read 2 for 1
+         * in session runs after 96-ar-1015-pathland, on the rightclick-reaim tip and on merged main alike (2026-10-15).
+         */
+        private static Run clean(ClientGameTestContext ctx, boolean floating, int[] chest) {
+            Run r = null;
+            for (int i = 0; i < WINDOW_ATTEMPTS; i++) {
+                r = run(ctx, floating, chest);
+                if (!r.window()) {
+                    break;
+                }
+                println(String.format(Locale.US, "reaim %s attempt %d: the chest's window arrived after the await was met"
+                        + " - acted %d is the window's, run again", floating ? "mismatch" : "control", i + 1, r.acted()));
+            }
+            return r;
         }
 
         private static Run run(ClientGameTestContext ctx, boolean floating, int[] chest) {
@@ -7962,7 +7994,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     acted = Integer.parseInt(mm.group(1));
                 }
             }
-            return new Run(met, landed, acted, dropped, logHas(m, "re-aimed"), logHas(m, "no landing after"), off);
+            return new Run(met, landed, acted, dropped, logHas(m, "re-aimed"), logHas(m, "no landing after"), off,
+                    logHas(m, "window arrived after the await was met"));
         }
     }
 }

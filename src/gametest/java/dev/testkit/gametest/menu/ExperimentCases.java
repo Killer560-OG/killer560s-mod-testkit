@@ -44,6 +44,7 @@ final class ExperimentCases {
         MenuSuite.test(s, "285-menu-exp-superpairs-clicks-free-space", ExperimentCases::clicksFreeSpace);
         MenuSuite.test(s, "286-menu-exp-superpairs-powerup-into-powerup", ExperimentCases::powerupIntoPowerup);
         MenuSuite.test(s, "287-menu-exp-superpairs-instant-find-stack", ExperimentCases::instantFindStack);
+        EtableDefaultsCases.register(s);
     }
 
     // ---- 280-283: Superpairs deductions and priority (mod branch etable-deduce) -------------------------------------

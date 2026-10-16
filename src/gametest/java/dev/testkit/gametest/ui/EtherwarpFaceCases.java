@@ -408,6 +408,253 @@ final class EtherwarpFaceCases {
         c.check(bad.isEmpty(), bad.size() + " view(s) wrong: " + bad);
     }
 
+    /**
+     * 1324, killer560 (2026-10-15): "etherwarp on chest corners does not really show up" - on top of a chest on his island
+     * only faint green slivers at its corners. The target is each non-full or block-entity block in turn, on a stone floor
+     * (a chest, ender chest, trapped chest, a bottom slab, a stair, a hopper, a cauldron, a carpet, stone with a player head
+     * on it - etherwarp passes through heads, so the box is on the stone and red - and a full stone block as the control),
+     * seen from a one-high step 2 blocks off at two angles. Outline and Filled, magenta, are each shot against the overlay
+     * off. Outline: every on-screen, unoccluded sample along the box's camera-facing edges (the block's own shape, as the
+     * overlay draws it) needs at least 7 magenta pixels in the 5x5 around it (a whole line, not a sliver); at least 85% must. Filled: at least 85% of the samples inside those faces
+     * must change. The chest is also shot with Full Block on.
+     */
+    static void nonFull(UiCase c) throws Exception {
+        List<AutoCloseable> restore = new ArrayList<>();
+        boolean hideWas = c.onClient(mc -> dev.testkit.compat.McCompat.hudHidden(mc));
+        double fovEffectWas = c.onClient(mc -> mc.options.fovEffectScale().get());
+        boolean bobWas = c.onClient(mc -> mc.options.bobView().get());
+        List<String> bad = new ArrayList<>();
+        int views = 0;
+        // {block to place at the target, block placed above it (or null), full block on, kept as a picture}
+        Object[][] targets = {
+                {"minecraft:stone", null, false, true},
+                {"minecraft:chest[facing=west]", null, false, true},
+                {"minecraft:chest[facing=west]", null, true, false},
+                {"minecraft:ender_chest[facing=west]", null, false, false},
+                {"minecraft:trapped_chest[facing=west]", null, false, false},
+                {"minecraft:stone_brick_slab[type=bottom]", null, false, true},
+                {"minecraft:oak_stairs[facing=east]", null, false, false},
+                {"minecraft:hopper", null, false, false},
+                {"minecraft:cauldron", null, false, false},
+                {"minecraft:white_carpet", null, false, false},
+                {"minecraft:stone", "minecraft:player_head", false, true},
+        };
+        try {
+            c.onClient(mc -> {
+                restore.add(0, Mod.with(EWC, "Enabled", true));
+                restore.add(0, Mod.with(EWC, "ShowWhenFailed", true));
+                restore.add(0, Mod.with(EWC, "FullBlock", false));
+                restore.add(0, Mod.with(EWC, "SafeColor", 0xFFFF00FF));
+                restore.add(0, Mod.with(EWC, "FailedColor", 0xFFFF00FF));
+                restore.add(0, Mod.with(EWC, "Style", Mod.enumValue(STYLE, "OUTLINE")));
+                dev.testkit.compat.McCompat.setHudHidden(mc, true);
+                mc.options.fovEffectScale().set(0.0);
+                mc.options.bobView().set(false);
+                return null;
+            });
+            DocDungeonsCases.command(c, "tp @a " + CX + " 120 " + CZ);
+            c.ticks(20);
+            for (Object[] t : targets) {
+                for (int angle : new int[]{0, 40}) {
+                    String block = (String) t[0];
+                    String above = (String) t[1];
+                    boolean full = (Boolean) t[2];
+                    String name = block.replace("minecraft:", "").replaceAll("\\[.*", "")
+                            + (above != null ? "+" + above.replace("minecraft:", "") : "") + (full ? "-fullblock" : "");
+                    String label = String.format(Locale.ROOT, "%s-a%d", name, angle);
+                    String line = nonFullView(c, block, above, full, angle, label, (Boolean) t[3] && angle == 0);
+                    views++;
+                    c.note(line);
+                    if (line.contains("BAD")) {
+                        bad.add(line);
+                    }
+                }
+            }
+        } finally {
+            c.onClient(mc -> {
+                mc.options.keyShift.setDown(false);
+                dev.testkit.compat.McCompat.setHudHidden(mc, hideWas);
+                mc.options.fovEffectScale().set(fovEffectWas);
+                mc.options.bobView().set(bobWas);
+                return null;
+            });
+            for (AutoCloseable r : restore) {
+                r.close();
+            }
+            DocDungeonsCases.command(c, "fill 330 99 330 350 108 350 minecraft:air");
+            DocDungeonsCases.command(c, "clear @a");
+        }
+        c.check(views == targets.length * 2, "only " + views + " views ran");
+        c.check(bad.isEmpty(), bad.size() + " view(s) where the box did not show: " + bad);
+    }
+
+    private static String nonFullView(UiCase c, String block, String above, boolean full, int angle, String label,
+                                      boolean keep) throws Exception {
+        DocDungeonsCases.command(c, "tp @a " + CX + " 120 " + CZ);
+        c.ticks(2);
+        DocDungeonsCases.command(c, "fill 330 99 330 350 99 350 minecraft:stone");
+        DocDungeonsCases.command(c, "fill 330 100 330 350 108 350 minecraft:air");
+        DocDungeonsCases.command(c, "setblock " + CX + " 100 " + CZ + " " + block);
+        if (above != null) {
+            DocDungeonsCases.command(c, "setblock " + CX + " 101 " + CZ + " " + above);
+        }
+        // a one-high step 2 blocks off (horizontal distance from the block's centre ~2.6), turned `angle` towards +z
+        double th = Math.toRadians(angle);
+        double px = CX + 0.5 - 2.6 * Math.cos(th);
+        double pz = CZ + 0.5 + 2.6 * Math.sin(th);
+        int sx = (int) Math.floor(px), sz = (int) Math.floor(pz);
+        DocDungeonsCases.command(c, "setblock " + sx + " 100 " + sz + " minecraft:stone");
+        DocDungeonsCases.command(c, "clear @a");
+        DocDungeonsCases.command(c,
+                "give @a minecraft:diamond_shovel[custom_data={id:\"ASPECT_OF_THE_VOID\",ethermerge:1}]");
+        DocDungeonsCases.flightOff(c);
+        DocDungeonsCases.command(c, String.format(Locale.ROOT, "tp @a %.4f 101 %.4f -90 30", px, pz));
+        c.onClient(mc -> {
+            Mod.set(EWC, "setFullBlock", full);
+            mc.player.getInventory().setSelectedSlot(0);
+            mc.options.keyShift.setDown(true);
+            return null;
+        });
+        DocDungeonsCases.await(c, label + ": crouching on the step", mc -> mc.player != null && mc.player.onGround()
+                && mc.player.isCrouching() && Math.abs(mc.player.getY() - 101) < 1e-6, 100);
+        net.minecraft.core.BlockPos target = new net.minecraft.core.BlockPos(CX, 100, CZ);
+        // the box the overlay draws: the block's own shape bounds (or the full block), at the target
+        net.minecraft.world.phys.AABB box = c.onClient(mc -> {
+            var shape = mc.level.getBlockState(target).getShape(mc.level, target);
+            return full || shape.isEmpty() ? new net.minecraft.world.phys.AABB(target) : shape.bounds().move(target);
+        });
+        Vec3 aim = new Vec3((box.minX + box.maxX) / 2, Math.min(box.maxY - 0.02, box.minY + 0.5),
+                (box.minZ + box.maxZ) / 2);
+        if (above != null) {
+            aim = new Vec3(CX + 0.02, 100.5, CZ + 0.5); // the stone's near face, under the head
+        }
+        final Vec3 aimAt = aim;
+        for (int i = 0; i < 10; i++) {
+            c.onClient(mc -> {
+                Vec3 d = aimAt.subtract(mc.player.getEyePosition());
+                float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+                float pitch = (float) Math.toDegrees(-Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+                mc.player.setYRot(yaw);
+                mc.player.setXRot(pitch);
+                mc.player.yRotO = yaw;
+                mc.player.xRotO = pitch;
+                mc.player.setYHeadRot(yaw);
+                return null;
+            });
+            c.ticks(1);
+        }
+        c.ticks(10); // a block entity's first frames
+        String outcome = c.onClient(mc -> (String) Mod.staticCall(EW, "lastOutcome"));
+        if (!outcome.startsWith("drawn " + CX + ", 100, " + CZ)) {
+            return label + ": BAD overlay not on the target: " + outcome;
+        }
+        BufferedImage outline = shot(c, label, "OUTLINE");
+        BufferedImage filled = shot(c, label, "FILLED");
+        c.onClient(mc -> {
+            Mod.set(EWC, "setEnabled", false);
+            return null;
+        });
+        c.ticks(2);
+        BufferedImage off = grab(c, label + "-off", false);
+        c.onClient(mc -> {
+            Mod.set(EWC, "setEnabled", true);
+            Mod.set(EWC, "setStyle", Mod.enumValue(STYLE, "OUTLINE"));
+            return null;
+        });
+        if (keep) {
+            for (String s : new String[]{label + "-outline", label + "-filled", label + "-off"}) {
+                dev.testkit.harness.Report.screenshot(c.name() + "-" + s, TAKEN.get(c.name() + "-" + s));
+            }
+        }
+        Cam cam = c.onClient(EtherwarpFaceCases::camera);
+        int[] edge = boxEdgeSamples(c, cam, outline, box);
+        int[] fill = boxFillSamples(c, cam, filled, off, box);
+        boolean ok = edge[1] >= 12 && edge[0] >= 0.85 * edge[1] && fill[1] >= 12 && fill[0] >= 0.85 * fill[1];
+        return String.format(Locale.ROOT, "%s: %s %s | box %.3f..%.3f x %.3f..%.3f y %.3f..%.3f z | outline edges magenta %s,"
+                        + " filled faces changed %s", label, ok ? "ok" : "BAD", outcome, box.minX - CX, box.maxX - CX,
+                box.minY - 100, box.maxY - 100, box.minZ - CZ, box.maxZ - CZ, frac(edge), frac(fill));
+    }
+
+    /** {magenta within 2 px, usable} along every edge of {@code box} that bounds a face turned towards the camera. */
+    private static int[] boxEdgeSamples(UiCase c, Cam cam, BufferedImage img, net.minecraft.world.phys.AABB box) {
+        double[] xs = {box.minX, box.maxX}, ys = {box.minY, box.maxY}, zs = {box.minZ, box.maxZ};
+        boolean[] faces = {cam.pos.x < box.minX, cam.pos.x > box.maxX, cam.pos.y < box.minY, cam.pos.y > box.maxY,
+                cam.pos.z < box.minZ, cam.pos.z > box.maxZ};
+        int hit = 0, usable = 0;
+        // the 12 edges: along x (y,z fixed), along y (x,z fixed), along z (x,y fixed)
+        for (int axis = 0; axis < 3; axis++) {
+            for (int i = 0; i < 2; i++) {
+                for (int j = 0; j < 2; j++) {
+                    boolean front;
+                    if (axis == 0) {
+                        front = faces[2 + i] || faces[4 + j];
+                    } else if (axis == 1) {
+                        front = faces[i] || faces[4 + j];
+                    } else {
+                        front = faces[i] || faces[2 + j];
+                    }
+                    if (!front) {
+                        continue;
+                    }
+                    for (int k = 1; k <= 9; k++) {
+                        double t = k / 10.0;
+                        Vec3 p = axis == 0 ? new Vec3(box.minX + t * (box.maxX - box.minX), ys[i], zs[j])
+                                : axis == 1 ? new Vec3(xs[i], box.minY + t * (box.maxY - box.minY), zs[j])
+                                : new Vec3(xs[i], ys[j], box.minZ + t * (box.maxZ - box.minZ));
+                        int[] px = cam.project(p, img.getWidth(), img.getHeight());
+                        Vec3 towards = p.add(cam.pos.subtract(p).normalize().scale(0.04));
+                        if (px == null || !clear(c, cam.pos, towards)) {
+                            continue;
+                        }
+                        usable++;
+                        // a whole line, not the half of it that sticks out past a model drawn over it: a 2 px line
+                        // across a 5x5 window colours about 10 of its pixels, the outer half alone about 5
+                        if (magentaCount(img, px, 2) >= 7) {
+                            hit++;
+                        }
+                    }
+                }
+            }
+        }
+        return new int[]{hit, usable};
+    }
+
+    /** {changed, usable} over a 5x5 grid inside each face of {@code box} turned towards the camera. */
+    private static int[] boxFillSamples(UiCase c, Cam cam, BufferedImage on, BufferedImage off,
+                                        net.minecraft.world.phys.AABB box) {
+        int changed = 0, usable = 0;
+        for (int f = 0; f < 6; f++) {
+            int[] n = FACES[f];
+            double[] lo = {box.minX, box.minY, box.minZ}, hi = {box.maxX, box.maxY, box.maxZ};
+            int axis = n[0] != 0 ? 0 : n[1] != 0 ? 1 : 2;
+            double plane = n[axis] > 0 ? hi[axis] : lo[axis];
+            double camC = axis == 0 ? cam.pos.x : axis == 1 ? cam.pos.y : cam.pos.z;
+            if ((camC - plane) * n[axis] <= 1e-3) {
+                continue;
+            }
+            int a1 = (axis + 1) % 3, a2 = (axis + 2) % 3;
+            for (int i = 0; i < 5; i++) {
+                for (int j = 0; j < 5; j++) {
+                    double[] p = new double[3];
+                    p[axis] = plane;
+                    p[a1] = lo[a1] + (0.15 + 0.7 * i / 4.0) * (hi[a1] - lo[a1]);
+                    p[a2] = lo[a2] + (0.15 + 0.7 * j / 4.0) * (hi[a2] - lo[a2]);
+                    Vec3 v = new Vec3(p[0], p[1], p[2]);
+                    int[] px = cam.project(v, on.getWidth(), on.getHeight());
+                    Vec3 out = v.add(n[0] * 0.03, n[1] * 0.03, n[2] * 0.03);
+                    if (px == null || !clear(c, cam.pos, out)) {
+                        continue;
+                    }
+                    usable++;
+                    if (dev.testkit.gametest.ui.MapHeadCases.changed(on.getRGB(px[0], px[1]), off.getRGB(px[0], px[1]))) {
+                        changed++;
+                    }
+                }
+            }
+        }
+        return new int[]{changed, usable};
+    }
+
     private static int edgeChecks;
     private static boolean probeHooked;
     private static volatile String PROBE = "none";
@@ -427,6 +674,19 @@ final class EtherwarpFaceCases {
             }
         }
         return false;
+    }
+
+    private static int magentaCount(BufferedImage img, int[] p, int rad) {
+        int n = 0;
+        for (int dy = -rad; dy <= rad; dy++) {
+            for (int dx = -rad; dx <= rad; dx++) {
+                int x = p[0] + dx, y = p[1] + dy;
+                if (x >= 0 && y >= 0 && x < img.getWidth() && y < img.getHeight() && magenta(img.getRGB(x, y))) {
+                    n++;
+                }
+            }
+        }
+        return n;
     }
 
     private static boolean goldish(int rgb) {

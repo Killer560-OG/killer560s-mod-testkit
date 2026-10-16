@@ -51,6 +51,22 @@ public final class TextRuns {
         return new ScreenRectangle(x0, y0, x1 - x0, y1 - y0);
     }
 
+    /**
+     * The run's advance box {x0, y0, x1, y1} in the units of the screen that drew it, unrounded: the pose's corners divided
+     * by {@code scale} (the mod's Auto Scale factor for that screen, 1 for a plain one), so it compares exactly against
+     * widget and column bounds the screen reports in its own units.
+     */
+    public static float[] screenBox(GuiTextRenderState t, float scale) {
+        Font font = (Font) get(t, "font");
+        FormattedCharSequence seq = (FormattedCharSequence) get(t, "text");
+        int x = (Integer) get(t, "x");
+        int y = (Integer) get(t, "y");
+        org.joml.Vector2f a = t.pose.transformPosition(new org.joml.Vector2f(x, y));
+        org.joml.Vector2f c = t.pose.transformPosition(new org.joml.Vector2f(x + font.width(seq), y + font.lineHeight));
+        return new float[]{Math.min(a.x, c.x) / scale, Math.min(a.y, c.y) / scale, Math.max(a.x, c.x) / scale,
+                Math.max(a.y, c.y) / scale};
+    }
+
     private static Object get(GuiTextRenderState t, String name) {
         try {
             Field f = GuiTextRenderState.class.getDeclaredField(name);
