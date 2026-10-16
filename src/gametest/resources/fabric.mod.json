@@ -111,6 +111,7 @@
 			"dev.testkit.gametest.SimAuraSkipTests",
 			"dev.testkit.gametest.SimStaticWaterTests",
 			"dev.testkit.gametest.SimWorldTests",
+			"dev.testkit.gametest.SimResetTests",
 			"dev.testkit.gametest.InventorySorterTests",
 			"dev.testkit.gametest.SimPuzzleSolveTests$TicTacToe",
 			"dev.testkit.gametest.SimPuzzleRoundTests$TicTacToeGrab",

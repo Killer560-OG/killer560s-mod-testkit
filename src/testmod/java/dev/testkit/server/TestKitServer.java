@@ -76,6 +76,13 @@ public class TestKitServer implements DedicatedServerModInitializer {
         ServerLifecycleEvents.SERVER_STARTED.register(TestKitServer::applyTestRules);
         net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register(TestKitServer::refuseProtected);
         RedstoneKeyPickup.register();
+        // A server-side /reset, so 1775-sim-reset-server can prove the mod's sim-only /reset never shadows a server's
+        // own: the line must arrive here unchanged, and this command must be the only "reset" the client suggests.
+        CommandRegistrationCallback.EVENT.register((dispatcher, registry, environment) ->
+                dispatcher.register(Commands.literal("reset").executes(context -> {
+                    System.out.println("[testkit] server /reset received from " + context.getSource().getTextName());
+                    return say(context, "server /reset received");
+                })));
         // The Hx RPC bridge (loopback, -Dtestkit.hx.port): lets a scenario drive this server as if it were Hypixel.
         dev.testkit.server.hx.HxBridge.init();
         CommandRegistrationCallback.EVENT.register((dispatcher, registry, environment) ->

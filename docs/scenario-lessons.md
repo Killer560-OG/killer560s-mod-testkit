@@ -927,3 +927,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   from one launch to the next. Mod main's Auto Routes shots against themselves differed by up to 21,066 px (Filled, edit
   mode) while two launches of 26.1.2 differ only by an animated fire texture (31-39 px). Never judge a 26.2 world-render
   pixel compare from one pair of launches; compare 26.1.2, and on 26.2 look for a launch that matches.
+- 1771-1775 (sim-reset-1016, `SimResetTests`): the sim's `/reset`. A room's blocks are compared against the load's over the
+  load's own box (`SimBuildQueue.touchedBounds` grows with every build, so re-reading it after the reset compares two different
+  boxes). 1775 needs the testmod's server-side `/reset`; it reads the client's command tree (`getConnection().getCommands()`)
+  for whose node `reset` is: a client command copied in by Fabric has a command lambda from `ClientCommandInternals`.
+  96-ar-chain and 96-ar-398-regrow fail together in one run of `96-ar-398-regrow,96-ar-breakerwait,96-ar-complete,96-ar-play,
+  96-ar-chain,96-ar-mapopen,96-ar-920-nostart-mapwarp,96-ar-398-offnode,96-ar-405-startwarp` on mod main 8a9f9549 as well,
+  and pass run alone: an order effect, not a regression.
