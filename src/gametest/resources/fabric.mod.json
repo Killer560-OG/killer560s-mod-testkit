@@ -177,7 +177,8 @@
 			"dev.testkit.gametest.perf.MixinBenchTest",
 			"dev.testkit.gametest.perf.MixinFixesTest",
 			"dev.testkit.gametest.perf.WorldRenderBenchTest",
-			"dev.testkit.gametest.perf.PerfScreensTest"
+			"dev.testkit.gametest.perf.PerfScreensTest",
+			"dev.testkit.gametest.perf.PerfHudTest"
 		]
 	},
 	"depends": {

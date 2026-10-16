@@ -137,3 +137,13 @@ fps-gui-1015 and later) and the mod's own draw probes (`ModScreen.allocProbe`, `
 allocation samples at 5000/s), `-PperfNoCeiling` only measures. It FAILS when a screen was not open, the screen probe
 counted nothing, or the mod's draw allocates over `CEILING_KB` (menu 150, drawer 250, title scene 50 KB/frame; main
 69505e45 measured 342 / 697 / 100). Results in `perf-screens.txt`.
+**95-perf-hud** (~3 min, fps-hud-1015): the HUD text caches stay correct and cheap. Compares each cached answer with a
+fresh build (Score Calculator lines across input changes, Advanced Position every tick while turning, Health and Mana
+Bars text readouts, Ability Cooldowns for every ms 0-12 s, Tick Timers 0-3000 ticks, the scoreboard colour-code scan
+against its regex on 20,000 strings), then budgets allocation per draw / per call (Score Calculator and Advanced
+Position draws and width(), a never-moved element's resolvePosition, Split Timers' layoutPosition). Fails on mod main
+69505e45, passes on fps-hud-1015.
+
+Calling `run-scenario.ps1` from Bash: `powershell -File run-scenario.ps1 -Extra "-Pa","-Pb"` hands the script ONE
+string "-Pa,-Pb", so only the first flag's name survives (a 95-perf-features run meant to take 5 minutes ran the full
+45, 2026-10-15). Use `powershell -NoProfile -Command "& ./run-scenario.ps1 ... -Extra @('-Pa','-Pb')"`.
