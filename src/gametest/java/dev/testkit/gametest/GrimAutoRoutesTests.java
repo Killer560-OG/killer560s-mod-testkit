@@ -1417,7 +1417,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             int aimed = 0;
             for (String l : LogTap.since(m)) {
                 if (l.contains("CRYPT")) {
-                    println("  " + l.replaceAll("^.*?\[AutoRoutes\]", "[AutoRoutes]"));
+                    println("  " + l.replaceAll("^.*?\\[AutoRoutes\\]", "[AutoRoutes]"));
                 }
                 if (l.contains("CRYPT: Spirit Sceptre use ")) {
                     aimed++;
