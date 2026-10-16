@@ -659,6 +659,13 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   blocks the carve removed (capture lined up through the paste rotation, self-checked at >= 70% agreement). Main jar: 21-25
   and 20-23 of 30 floors used the edges, Mage's door a dead end in stone with 25 blocks carved, Quad Lava's 23. A walk-on
   probe that allows drops must require a clear shaft, or it drops through stone into a cave and passes a dead end.
+  Reworked for mod sim-doorblock-1015 (2026-10-15): the /mage re-capture is 33x65 where the stitched one was 65x33, so
+  "Mage N1" was no edge of it and pointed at the cell east of Mage (main's "4 of 30" were doors between two other rooms);
+  a case edge must now be on the room's tile grid and not measured as a doorway, and Mage is pinned only to build and walk.
+  A join through Quad Lava E0 is the fill pass's carve (printed, walk-checked). New TUNNEL phase: 1000 F7s from fixed seeds
+  (SimFloorGen.RNG seeded, SimFloorLayout.RECENT cleared - plain reflection, both private), summing the solid capture blocks
+  every off-doorway door cuts behind its wall plane, read from the capture by the scenario: main 2,505, branch 2,041, limit
+  2,270. A capture-frame edge (side, index) silently changes meaning when a room is re-captured at another turn.
 
 - **184-187 Auto Blood Camp, round 2 (mod bloodcamp-2-1015, 2026-10-15)**: walls (a stone row between him and the spot:
   no Aura aim, no Trigger Bot click; control without it), mobs already on the floor (the Aura kills them), the attack-speed

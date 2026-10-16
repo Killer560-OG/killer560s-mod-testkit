@@ -29,21 +29,28 @@ import java.util.concurrent.atomic.AtomicReference;
  * a neighbour to them there, and the carve, at the doorway floor, cut 3x4x3 into the solid wall below the opening: a
  * tunnel that ends in stone.
  *
- * <p>For each of those rooms, in the capture's own frame (Mage N1, Quad Lava E0):
+ * <p>For each of those rooms (Mage, and Quad Lava with its edge E0 in the capture's own frame):
  * <ol>
- *   <li>PLAN: {@value #PLANS} F7s with the room pinned at room cell (2,2); count floors whose door tree uses that edge
- *       (the edge turned by the room's placed rotation, through the mod's own RoomDoors.rotate/doorCells). Must be 0.
- *       The Entrance's west wall (its back staircase, same kind of opening) is counted on every floor as a control.</li>
+ *   <li>The edge is on the room's tile grid and is NOT measured as a doorway.</li>
+ *   <li>PLAN: {@value #PLANS} F7s with the room pinned at room cell (2,2); count (and print) floors whose door tree uses
+ *       that edge (turned by the room's placed rotation, through the mod's own RoomDoors.rotate/doorCells). It is not a
+ *       doorway, so such a join is the fill pass's carve through the wall - by design, and checked in BUILD like any
+ *       other. The Entrance's west wall (its back staircase) is counted on every floor as a control and must be 0.</li>
  *   <li>BUILD the first floor that used the edge (or, when none did, the first that kept the room) and read the server's
  *       level at every door of the room: the 3x7 passage at the doorway floor is clear three high with floor under it,
  *       you can walk on from it 4..6 blocks into EACH room (solid underfoot, feet and head clear, one block up or any drop), and the
  *       carve removed no more than {@value #MAX_SOLID_REMOVED} solid capture blocks inside the room (wall plane and the
  *       two columns behind it, the opening's lower three rows) - at a doorway the mod measures for the room. A door that
  *       is the fill pass's carve through the room's wall (no doorway of the room there, by design) is held to the walk
- *       checks only; its count is printed. The re-captured Mage (2026-10-15, doorways W0 and E1) drew one through its
- *       south wall: 9 blocks, its one-thick wall plane, walkable both ways.</li>
+ *       checks only; what it cut behind the wall plane is printed.</li>
+ *   <li>TUNNEL: {@value #TUNNEL_PLANS} F7s from fixed seeds; the solid capture blocks every fill carve cuts behind its
+ *       wall plane, summed. Must be at most {@value #MAX_TUNNEL}: mod sim-doorblock-1015 takes the walkable wall with
+ *       the least behind it anywhere on the floor, where main took the first in cell order.</li>
  * </ol>
- * On the main jar of 2026-10-15 the plan uses both edges and the built door into Mage/Quad Lava is a dead end in stone.
+ * The Mage case's edge used to be N1: the stitched 65x33 capture, whose second tile was Altar's interior. The re-capture
+ * of 2026-10-15 is 33x65 and has no N1, and the old edge pointed at the cell EAST of Mage - the "4 of 30 floors joined"
+ * on main 4a2b306d were doors between two other rooms. Quad Lava's "1 of 30" was the fill pass's carve through its
+ * three-thick east wall, the first walkable wall in cell order.
  * Sim only, so no GrimAC.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -61,6 +68,15 @@ public class SimDoorHeightTests implements FabricClientGameTest {
     private static final int ROOM_GRID = 6;
     private static final int PLANS = 30;
     private static final int MAX_SOLID_REMOVED = 2;
+    /** The opening's lower three rows through a one-thick wall: what a fill-pass carve through a wall must cut. */
+    private static final int WALL_PLANE = 9;
+    private static final int TUNNEL_PLANS = 1000;
+    /**
+     * Between the two jars' totals on the TUNNEL plans (his Mod Only Test library, 2026-10-15): main 4a2b306d 2,505
+     * blocks over 325 off-doorway doors (73 through a one-thick wall), sim-doorblock-1015 2,041 over 332 (115). The floors
+     * move with the room library, so re-measure both if a capture changes and this starts failing.
+     */
+    private static final int MAX_TUNNEL = 2270;
     private static final int DOOR_FLOOR = 69;
     private static final int[] DX = {0, 1, 0, -1};
     private static final int[] DZ = {-1, 0, 1, 0};
@@ -69,9 +85,15 @@ public class SimDoorHeightTests implements FabricClientGameTest {
     private record Case(String room, int side, int index, String label) {
     }
 
+    /**
+     * Mage carries no edge (side -1): the stitched capture whose second tile was Altar's interior (N1 of a 65x33 room) was
+     * replaced on 2026-10-15 by a real 33x65 one, which has no N1 - the old case's edge then pointed at the cell EAST of
+     * Mage and counted other rooms' doors (4 of 30 "joined" floors on main 4a2b306d, every one a door between two
+     * neighbours). It stays as a room to pin and build, so every door of it is still checked.
+     */
     private static final List<Case> CASES = List.of(
-            new Case("Mage", 0, 1, "Mage N1 (an Altar tile's interior, y72..87)"),
-            new Case("Quad Lava", 1, 0, "Quad Lava E0 (red terracotta panel, y77..80)"));
+            new Case("Mage", -1, 0, "Mage (re-captured 2026-10-15, 1x2)"),
+            new Case("Quad Lava", 1, 0, "Quad Lava E0 (red terracotta panel, y77..80, three-thick wall)"));
     private static final Case CONTROL = new Case("Entrance", 3, 0, "Entrance W0 (above the back staircase)");
 
     @Override
@@ -97,12 +119,24 @@ public class SimDoorHeightTests implements FabricClientGameTest {
                     failures.add("premise: " + c.room() + " is not a usable capture here");
                     continue;
                 }
-                println(c.label() + ": measured as a doorway by this jar: " + ctx.computeOnClient(mc -> hasDoorway(c)));
-                Plan p = planMany(ctx, c);
-                if (p.linked() > 0) {
-                    failures.add(c.label() + ": the layout joined a room through it on " + p.linked() + " of "
-                            + p.kept() + " floors that kept " + c.room());
+                if (c.side() >= 0) {
+                    String off = ctx.computeOnClient(mc -> offGrid(c));
+                    if (off != null) {
+                        failures.add("premise: " + c.label() + " is not an edge of " + c.room() + " here (" + off + ")");
+                        continue;
+                    }
+                    boolean doorway = ctx.computeOnClient(mc -> hasDoorway(c));
+                    println(c.label() + ": measured as a doorway by this jar: " + doorway);
+                    if (doorway) {
+                        failures.add(c.label() + ": measured as a doorway");
+                    }
                 }
+                Plan p = planMany(ctx, c);
+                // Not a doorway (asserted above), so a join there is the fill pass's carve through the wall - by design,
+                // and held to the walk checks below like every other fill carve. Since mod sim-doorblock-1015 the fill
+                // takes the walkable wall with the least behind its plane anywhere on the floor, so this three-thick one
+                // only when nothing thinner fits (layoutsim, Quad Lava pinned: 5 -> 2 of 840 F7s).
+                println(c.label() + ": joined by the fill pass's carve on " + p.linked() + " of " + p.kept() + " floors");
                 if (p.controlLinked() > 0) {
                     failures.add(CONTROL.label() + ": joined on " + p.controlLinked() + " floors");
                 }
@@ -123,6 +157,16 @@ public class SimDoorHeightTests implements FabricClientGameTest {
                     failures.add(c.room() + ": " + f);
                 }
             }
+            Tunnel t = tunnels(ctx);
+            println("TUNNEL: " + TUNNEL_PLANS + " seeded F7s (recency cleared), " + t.carves() + " door(s) off a measured "
+                    + "doorway, " + t.thin() + " through a one-thick wall, " + t.behind() + " solid capture block(s) behind "
+                    + "their wall planes (limit " + MAX_TUNNEL + ")");
+            if (t.carves() == 0) {
+                failures.add("premise: no fill carve on " + TUNNEL_PLANS + " floors - the tunnel check measured nothing");
+            } else if (t.behind() > MAX_TUNNEL) {
+                failures.add("TUNNEL: the fill carves cut " + t.behind() + " solid block(s) behind wall planes over "
+                        + TUNNEL_PLANS + " seeded F7s (limit " + MAX_TUNNEL + ") - it is not taking the thinnest wall");
+            }
         } catch (Throwable t) {
             failures.add("threw: " + t);
             t.printStackTrace();
@@ -139,6 +183,137 @@ public class SimDoorHeightTests implements FabricClientGameTest {
                 SuiteVerdict.failCase(NAME, new AssertionError(why));
             }
         }
+    }
+
+    private record Tunnel(int carves, int thin, int behind) {
+    }
+
+    /**
+     * TUNNEL: {@value #TUNNEL_PLANS} F7s planned from fixed seeds (SimFloorGen's RNG seeded, the recency memory cleared
+     * before each, so a jar plans the same floors every run and two jars the same floors up to the fill pass). Every door
+     * on an edge a room does not measure as a doorway is the fill pass's carve through that room's wall; this sums the
+     * solid capture blocks behind the wall plane that the 3-deep cut reaches (columns 2..3 in from the seam, the
+     * opening's three columns, its lower three rows), read from the capture by this scenario, not by the mod.
+     */
+    private static Tunnel tunnels(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRecencyStore", "ensureLoaded");
+                java.lang.reflect.Field rngField = Class.forName(FLOOR_GEN).getDeclaredField("RNG");
+                rngField.setAccessible(true);
+                java.util.Random rng = (java.util.Random) rngField.get(null);
+                java.lang.reflect.Field recentField = Class.forName("com.killer560.hub.roomsim.SimFloorLayout")
+                        .getDeclaredField("RECENT");
+                recentField.setAccessible(true);
+                Map<?, ?> recent = (Map<?, ?>) recentField.get(null);
+                Map<Integer, BlockPos> centres = new HashMap<>();
+                for (int cell = 0; cell < GRID * GRID; cell++) {
+                    centres.put(cell, (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class},
+                            new Object[]{cell}));
+                }
+                int carves = 0;
+                int thin = 0;
+                int behind = 0;
+                for (int i = 0; i < TUNNEL_PLANS; i++) {
+                    recent.clear();
+                    rng.setSeed(5600L + i);
+                    Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
+                    Object p = ModUnderTest.staticCall(FLOOR_GEN, "plan",
+                            new Class<?>[]{floor.getClass(), int.class, int.class, Map.class},
+                            new Object[]{floor, 2 + (i % 3), 3 + (i % 5), new HashMap<Integer, String>()});
+                    if (p == null) {
+                        continue;
+                    }
+                    Object decoded = ModUnderTest.call(p, "decoded", new Class<?>[]{}, new Object[]{});
+                    String[] names = (String[]) ModUnderTest.call(decoded, "nameTable", new Class<?>[]{}, new Object[]{});
+                    int[] cellRoom = (int[]) ModUnderTest.call(decoded, "cellRoom", new Class<?>[]{}, new Object[]{});
+                    int[] cellDoor = (int[]) ModUnderTest.call(decoded, "cellDoor", new Class<?>[]{}, new Object[]{});
+                    int[] cellRotation = (int[]) ModUnderTest.call(decoded, "cellRotation", new Class<?>[]{},
+                            new Object[]{});
+                    Map<String, Set<Integer>> measured = new HashMap<>();
+                    for (int cell = 0; cell < GRID * GRID; cell++) {
+                        if (cellDoor[cell] == 0) {
+                            continue;
+                        }
+                        int gx = cell % GRID;
+                        int gz = cell / GRID;
+                        boolean alongX = gx % 2 == 1;
+                        int[] side = {alongX ? gz * GRID + gx - 1 : (gz - 1) * GRID + gx,
+                                alongX ? gz * GRID + gx + 1 : (gz + 1) * GRID + gx};
+                        for (int k = 0; k < 2; k++) {
+                            int rc = side[k];
+                            int r = cellRoom[rc];
+                            if (r < 0 || r == cellRoom[side[1 - k]]) {
+                                continue;
+                            }
+                            Set<Integer> doors = measured.computeIfAbsent(names[r],
+                                    n -> measuredDoorCells(names, cellRoom, cellRotation, n));
+                            if (doors.contains(cell)) {
+                                continue;
+                            }
+                            Object room = ModUnderTest.staticCall(ROOM_LIBRARY, "get", new Class<?>[]{String.class},
+                                    new Object[]{names[r]});
+                            int n = behindWall(room, anchorCell(cellRoom, rc), cellRotation[rc], centres,
+                                    centres.get(cell), alongX, k == 0 ? -1 : 1);
+                            carves++;
+                            thin += n <= MAX_SOLID_REMOVED ? 1 : 0;
+                            behind += n;
+                        }
+                    }
+                }
+                return new Tunnel(carves, thin, behind);
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    /** Solid capture blocks at d 2..3 (behind the wall plane at d 1) on side {@code s}, w -1..1, capture y 69..71. */
+    private static int behindWall(Object room, int anchor, int rotation, Map<Integer, BlockPos> centres, BlockPos c,
+                                  boolean alongX, int s) throws ReflectiveOperationException {
+        @SuppressWarnings("unchecked")
+        List<String> palette = (List<String>) room.getClass().getField("palette").get(room);
+        var atM = room.getClass().getMethod("at", int.class, int.class, int.class);
+        int sizeX = room.getClass().getField("sizeX").getInt(room);
+        int sizeZ = room.getClass().getField("sizeZ").getInt(room);
+        int margin = room.getClass().getField("margin").getInt(room);
+        BlockPos origin = centres.get(anchor);
+        int x0 = origin.getX() - 15 - margin;
+        int z0 = origin.getZ() - 15 - margin;
+        int solid = 0;
+        for (int d = 2; d <= 3; d++) {
+            for (int w = -1; w <= 1; w++) {
+                for (int y = DOOR_FLOOR; y <= DOOR_FLOOR + 2; y++) {
+                    BlockPos p = at(c, alongX, s * d, w, y);
+                    int px = p.getX() - x0;
+                    int pz = p.getZ() - z0;
+                    int x;
+                    int z;
+                    switch (rotation) {
+                        case 90 -> { x = pz; z = sizeZ - 1 - px; }
+                        case 180 -> { x = sizeX - 1 - px; z = sizeZ - 1 - pz; }
+                        case 270 -> { x = sizeX - 1 - pz; z = px; }
+                        default -> { x = px; z = pz; }
+                    }
+                    short v = (Short) atM.invoke(room, x, y, z);
+                    if (v >= 0 && solid(bare(palette.get(v)))) {
+                        solid++;
+                    }
+                }
+            }
+        }
+        return solid;
+    }
+
+    /** Null when {@code c}'s edge is on the room's tile grid, else what the grid is. */
+    private static String offGrid(Case c) {
+        int tilesX = (Integer) ModUnderTest.staticCall(ROOM_LIBRARY, "tilesX", new Class<?>[]{String.class},
+                new Object[]{c.room()});
+        int tiles = (Integer) ModUnderTest.staticCall(ROOM_LIBRARY, "cellFootprint", new Class<?>[]{String.class},
+                new Object[]{c.room()});
+        int tilesZ = tilesX == 0 ? 1 : Math.max(1, tiles / tilesX);
+        int along = c.side() == 0 || c.side() == 2 ? tilesX : tilesZ;
+        return c.index() < along ? null : tilesX + "x" + tilesZ + " tiles";
     }
 
     private static boolean hasDoorway(Case c) {
@@ -230,6 +405,9 @@ public class SimDoorHeightTests implements FabricClientGameTest {
         }
         if (anyCell < 0) {
             return -1;
+        }
+        if (c.side() < 0) {
+            return 0;   // no edge to watch: pinned to be built and checked
         }
         int tilesX = (Integer) ModUnderTest.staticCall(ROOM_LIBRARY, "tilesX", new Class<?>[]{String.class},
                 new Object[]{c.room()});
@@ -452,6 +630,9 @@ public class SimDoorHeightTests implements FabricClientGameTest {
                 fail.add(label + ": the capture could not be lined up with the world (" + removed + ")");
             } else if (doorway && removed > MAX_SOLID_REMOVED) {
                 fail.add(label + ": the carve cut " + removed + " solid block(s) out of " + room + "'s capture");
+            } else if (!doorway) {
+                lines.add(label + ": the fill carve cut " + Math.max(0, removed - WALL_PLANE) + " block(s) behind "
+                        + room + "'s wall plane (a one-thick wall is " + WALL_PLANE + ")");
             }
         }
         lines.add(room + ": " + doors + " door(s) on the built floor");
