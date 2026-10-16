@@ -33,15 +33,23 @@ import java.util.Locale;
  *       blocky scene, with it the smooth one; both light, both moving, the same picture in tone (mean colour within a few
  *       levels) but drawn differently, the smooth one's side vignette has no strips (its calmest row steps at most 2 levels between neighbours, the
  *       blocky one 3 or more) and its rays still show.</li>
- *   <li>1683 video (only when named): ~8 s at 60 fps of each of {@code -PpaintedScene} (default MILKY_WAY,
- *       MILKY_WAY_HERO) into {@code <report>/painted-<scene>/}.</li>
+ *   <li>1683 video (only when named): ~8 s at {@code -PpaintedFps} (default 60) of each of {@code -PpaintedScene} (default
+ *       MILKY_WAY, MILKY_WAY_HERO; SOFT_LIGHT and TARGET too) into {@code <report>/painted-<scene>/}.</li>
+ *   <li>1684 also (light-hq-1016, "super high quality"): the smooth scene is drawn by the mod's scene shaders (their probe
+ *       counts elements), and its gradients have no bands: in the calm sky no row is a line where most columns step to
+ *       the next 8-bit level together (dithered), where the GuiRects version of the same scene steps every column at once.</li>
+ *   <li>1685 title-screen frame rate (light-hq-1016, "120fps"): frames counted over 3 s of wall time on the themed title
+ *       screen and on the vanilla one, Max Framerate 120 and unlimited, vsync off; the themed one is no longer held to
+ *       vanilla's 60 out-of-world cap (FramerateLimitTracker reads max(120, Max Framerate)), the vanilla one still is.</li>
+ *   <li>1686 Viridian high quality (light-hq-1016): its base texture is 2560x1440 and linearly filtered, its glows and fog
+ *       go through the cone-glow shader, and the picture is the same as the GuiRects version's in tone.</li>
  * </ul>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class PaintedScenesSuite implements FabricClientGameTest {
 
     static final String[] CASES = {"1680-ui-painted-milkyway", "1681-ui-picture-target", "1682-ui-painted-gating",
-            "1683-ui-painted-video", "1684-ui-light-smooth"};
+            "1683-ui-painted-video", "1684-ui-light-smooth", "1685-ui-title-fps", "1686-ui-viridian-hq"};
 
     static final String SCENES = "mainmenu.MainMenuScenes";
     static final String PREVIEW = "killer560smod.previewScenes";
@@ -75,6 +83,8 @@ public class PaintedScenesSuite implements FabricClientGameTest {
         UiCase.run(ctx, "1682-ui-painted-gating", PaintedScenesSuite::gating);
         UiCase.run(ctx, "1683-ui-painted-video", PaintedScenesSuite::video);
         UiCase.run(ctx, "1684-ui-light-smooth", PaintedScenesSuite::lightSmooth);
+        UiCase.run(ctx, "1685-ui-title-fps", PaintedScenesSuite::titleFps);
+        UiCase.run(ctx, "1686-ui-viridian-hq", PaintedScenesSuite::viridianHq);
     }
 
     // ---- shared ---------------------------------------------------------------------------------------------------------
@@ -320,6 +330,35 @@ public class PaintedScenesSuite implements FabricClientGameTest {
         }
         Shot blocky = shots[0];
         Shot smooth = shots[1];
+        // light-hq-1016: the smooth scene through the scene shaders, and the same scene through GuiRects for the band check
+        long[] el = new long[2];
+        Shot[] rects = new Shot[1];
+        around(c, true, () -> {
+            el[0] = shaderElements(c);
+            title(c, "LIGHT", null, null);
+            clock(c, 2_000_000);
+            c.ticks(3);
+            el[1] = shaderElements(c);
+        });
+        c.note("scene shader elements over the smooth Soft Light's frames: " + (el[1] - el[0]) + (el[0] < 0 ? " (no SceneShaders)" : ""));
+        c.check(el[0] >= 0 && el[1] > el[0], "the smooth Soft Light is not drawn by the scene shaders");
+        setShaders(c, false);
+        try {
+            around(c, true, () -> rects[0] = measure(c, "LIGHT", null, null, "light-rects"));
+        } finally {
+            setShaders(c, true);
+        }
+        double bandS = bandEdge(smooth.a().img());
+        double bandR = bandEdge(rects[0].a().img());
+        double bandB = bandEdge(blocky.a().img());
+        c.note(String.format(Locale.ROOT, "sharpest band edge in the calm sky (share of columns stepping together between two rows):"
+                + " shader %.2f, GuiRects smooth %.2f, blocky %.2f", bandS, bandR, bandB));
+        c.check(bandR >= 0.8, "the instrument found no band edges in the GuiRects gradient (" + bandR + ") - it measures nothing");
+        c.check(bandS <= 0.5, "the shader Soft Light still bands: " + bandS + " of the columns step together at one row");
+        double toneR = Math.abs(rects[0].a().r() - smooth.a().r()) + Math.abs(rects[0].a().g() - smooth.a().g())
+                + Math.abs(rects[0].a().b() - smooth.a().b());
+        c.note(String.format(Locale.ROOT, "shader vs GuiRects smooth: tone %.2f levels apart", toneR));
+        c.check(toneR < 3, "the shader Soft Light is not the GuiRects one in tone: " + toneR + " levels apart");
         for (Shot sh : shots) {
             c.check(sh.a().lum() > 0.55, sh.name() + " is not light: " + sh.a().lum());
             c.check(sh.moved() > 0.0005, String.format(Locale.ROOT, "%s did not move over 4 s: %.3f%%", sh.name(), sh.moved() * 100));
@@ -343,6 +382,198 @@ public class PaintedScenesSuite implements FabricClientGameTest {
         double rayS = rayContrast(smooth.a().img());
         c.note(String.format(Locale.ROOT, "first ray against the sky beside it: blocky %+.2f, smooth %+.2f levels", rayB, rayS));
         c.check(rayS > 0.5, String.format(Locale.ROOT, "the smooth Soft Light lost its rays: %+.2f levels", rayS));
+    }
+
+    /** The scene shaders' element probe (mod light-hq-1016), or -1 when the jar has none. */
+    static long shaderElements(UiCase c) {
+        return c.onClient(mc -> {
+            try {
+                return ((Number) Mod.field("mainmenu.SceneShaders", "elements")).longValue();
+            } catch (Throwable t) {
+                return -1L;
+            }
+        });
+    }
+
+    /** Turns the scene shaders on or off (their test hook); nothing when the jar has none. */
+    static void setShaders(UiCase c, boolean on) {
+        c.onClient(mc -> {
+            try {
+                Mod.setField("mainmenu.SceneShaders", "enabledForTest", on);
+            } catch (Throwable ignored) {
+            }
+            return null;
+        });
+    }
+
+    /**
+     * Banding: in the calm sky at the right (x 80-95%, rows 30-70%: no rays, the vignette constant down a column), for each
+     * pair of neighbouring rows the share of columns whose green level stepped down (or up) between them; the largest share.
+     * A smooth vertical gradient rounded to 8 bits steps every column at the same row - a band edge, a share near 1. Dithered,
+     * each column steps at its own rows (a level held for a while is still fine; what shows is a line), so no row gathers more
+     * than a fraction of them (~0.33 measured). A drifting light crossing the box only lowers the share.
+     */
+    static double bandEdge(BufferedImage img) {
+        int w = img.getWidth();
+        int h = img.getHeight();
+        int x0 = w * 80 / 100;
+        int x1 = w * 95 / 100;
+        double best = 0;
+        for (int y = h * 30 / 100; y < h * 70 / 100 - 1; y++) {
+            int dn = 0;
+            int up = 0;
+            for (int x = x0; x < x1; x++) {
+                int a = (img.getRGB(x, y) >> 8) & 0xFF;
+                int b = (img.getRGB(x, y + 1) >> 8) & 0xFF;
+                if (b < a) {
+                    dn++;
+                } else if (b > a) {
+                    up++;
+                }
+            }
+            best = Math.max(best, Math.max(dn, up) / (double) (x1 - x0));
+        }
+        return best;
+    }
+
+    // ---- 1685 ----------------------------------------------------------------------------------------------------------
+
+    /** Frames rendered over {@code seconds} of wall time (FrameClock counts every GameRenderer.render). */
+    static double fps(UiCase c, double seconds) {
+        // vanilla's AFK throttle (30 fps after 60 s with no input, Inactivity FPS Limit "AFK") is untouched and would read
+        // as the menu's cap after a long session: count as input first
+        c.onClient(mc -> {
+            mc.getFramerateLimitTracker().onInputReceived();
+            return null;
+        });
+        c.ticks(5);
+        long f0 = dev.testkit.harness.FrameClock.frameCount();
+        long t0 = System.nanoTime();
+        while (System.nanoTime() - t0 < seconds * 1e9) {
+            c.ticks(1);
+        }
+        long f1 = dev.testkit.harness.FrameClock.frameCount();
+        return (f1 - f0) / ((System.nanoTime() - t0) / 1e9);
+    }
+
+    static void titleFps(UiCase c) throws Exception {
+        int[] opt0 = c.onClient(mc -> new int[]{mc.options.framerateLimit().get(), mc.options.enableVsync().get() ? 1 : 0});
+        try {
+            around(c, true, () -> {
+                c.onClient(mc -> {
+                    mc.options.enableVsync().set(false);
+                    return null;
+                });
+                StringBuilder sb = new StringBuilder();
+                double[] themed = new double[2];
+                double[] vanilla = new double[2];
+                int[] lim = new int[4];
+                int[] limits = {120, 260};
+                for (int k = 0; k < 2; k++) {
+                    int max = limits[k];
+                    c.onClient(mc -> {
+                        mc.options.framerateLimit().set(max);
+                        return null;
+                    });
+                    title(c, "LIGHT", null, null);
+                    lim[k * 2] = c.onClient(mc -> mc.getFramerateLimitTracker().getFramerateLimit());
+                    themed[k] = fps(c, 3.0);
+                    c.onClient(mc -> {
+                        Mod.call(Mod.cfg(FontsMainMenuSuite.MM), "setEnabled", false);
+                        McCompat.setScreen(mc, new TitleScreen());
+                        return null;
+                    });
+                    c.ticks(20);
+                    lim[k * 2 + 1] = c.onClient(mc -> mc.getFramerateLimitTracker().getFramerateLimit());
+                    vanilla[k] = fps(c, 3.0);
+                    sb.append(String.format(Locale.ROOT, "Max Framerate %s: themed title %.1f fps (limit %d), vanilla title %.1f fps (limit %d); ",
+                            max == 260 ? "unlimited" : String.valueOf(max), themed[k], lim[k * 2], vanilla[k], lim[k * 2 + 1]));
+                }
+                c.note(sb.toString());
+                c.check(lim[0] == 120 && lim[2] == 260, "the themed title screen's frame cap is not max(120, Max Framerate): "
+                        + lim[0] + " at 120, " + lim[2] + " at unlimited");
+                c.check(lim[1] == 60 && lim[3] == 60, "the vanilla title screen's cap changed: " + lim[1] + ", " + lim[3]);
+                c.check(themed[0] > 90, String.format(Locale.ROOT, "the themed title screen renders %.1f fps at Max Framerate 120", themed[0]));
+                c.check(vanilla[0] < 70, String.format(Locale.ROOT, "the instrument: the vanilla title screen renders %.1f fps"
+                        + " under vanilla's 60 cap - the count is not frames", vanilla[0]));
+            });
+        } finally {
+            c.onClient(mc -> {
+                mc.options.framerateLimit().set(opt0[0]);
+                mc.options.enableVsync().set(opt0[1] == 1);
+                return null;
+            });
+        }
+    }
+
+    // ---- 1686 ----------------------------------------------------------------------------------------------------------
+
+    static void viridianHq(UiCase c) throws Exception {
+        String old = MenuACases.themeName();
+        try {
+            Shot[] shots = new Shot[2];
+            long[] el = new long[2];
+            for (int k = 0; k < 2; k++) {
+                boolean shaders = k == 0;
+                int idx = k;
+                setShaders(c, shaders);
+                around(c, false, () -> {
+                    c.onClient(mc -> {
+                        Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", FontsMainMenuSuite.menuTheme("GREEN"));
+                        FontsMainMenuSuite.setMm(mc, "MATCH", "GREEN", "AUTO", 100, true);
+                        Mod.staticCall(SCENES, "setGreenSceneForTest", "TARGET");
+                        McCompat.setScreen(mc, new TitleScreen());
+                        return null;
+                    });
+                    c.ticks(40);
+                    long e0 = shaderElements(c);
+                    clock(c, 2_000_000);
+                    Path pa = FontsMainMenuSuite.shot(c, shaders ? "viridian-hq" : "viridian-rects");
+                    copy(pa, shaders ? "viridian-hq" : "viridian-rects");
+                    long e1 = shaderElements(c);
+                    if (shaders) {
+                        el[0] = e0;
+                        el[1] = e1;
+                    }
+                    clock(c, 2_000_000 + 1000.0 / 120);
+                    FontsMainMenuSuite.Pic b = FontsMainMenuSuite.pic(FontsMainMenuSuite.shot(c, (shaders ? "viridian-hq" : "viridian-rects") + "-next"));
+                    shots[idx] = new Shot(shaders ? "viridian-hq" : "viridian-rects", FontsMainMenuSuite.pic(pa), b, heroRects(c),
+                            new long[]{0, 1, 1}, 0);
+                });
+            }
+            setShaders(c, true);
+            int[] size = c.onClient(mc -> {
+                try {
+                    Object tex = mc.getTextureManager().getTexture(net.minecraft.resources.Identifier.fromNamespaceAndPath(
+                            "killer560smod", "textures/gui/green_boss_target.png"));
+                    Object gpu = tex.getClass().getMethod("getTexture").invoke(tex);
+                    int w = (Integer) gpu.getClass().getMethod("getWidth", int.class).invoke(gpu, 0);
+                    int h = (Integer) gpu.getClass().getMethod("getHeight", int.class).invoke(gpu, 0);
+                    return new int[]{w, h};
+                } catch (Throwable t) {
+                    return new int[]{-1, -1};
+                }
+            });
+            Shot hq = shots[0];
+            Shot rects = shots[1];
+            double tone = Math.abs(hq.a().r() - rects.a().r()) + Math.abs(hq.a().g() - rects.a().g())
+                    + Math.abs(hq.a().b() - rects.a().b());
+            c.note(String.format(Locale.ROOT, "Viridian: texture %dx%d, %d shader elements over its frames, tone %.2f levels from the"
+                            + " GuiRects version, %.3f%% of pixels moved in 1/120 s, ripple tiles %d", size[0], size[1], el[1] - el[0],
+                    tone, hq.moved() * 100, hq.hero()));
+            c.check(size[0] >= 2560 && size[1] >= 1440, "Viridian's texture is " + size[0] + "x" + size[1] + ", not 2560x1440");
+            c.check(el[0] >= 0 && el[1] > el[0], "Viridian's glows and fog are not drawn by the cone-glow shader");
+            c.check(tone < 4, "Viridian through the shaders is not the same picture in tone: " + tone + " levels apart");
+            c.check(hq.a().g() > hq.a().r() + 4, "Viridian is not green: " + hq.a());
+            c.check(hq.hero() > 50, "Viridian's cape and hair do not ripple: " + hq.hero() + " tiles");
+        } finally {
+            setShaders(c, true);
+            c.onClient(mc -> {
+                Mod.staticCall(SCENES, "setGreenSceneForTest", "");
+                Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", Mod.enumValue("gui.MenuTheme", old));
+                return null;
+            });
+        }
     }
 
     /** Over rows of the left sixth of the screen: each row's largest step between neighbouring pixels (summed RGB / 3);
@@ -426,14 +657,28 @@ public class PaintedScenesSuite implements FabricClientGameTest {
 
     private static void record(UiCase c, String scene) throws Exception {
         boolean lightScene = scene.equals("SOFT_LIGHT");
+        boolean target = scene.equals("TARGET");
         String theme = lightScene ? "LIGHT" : "DARK";
         String hook = lightScene ? null : "setDarkSceneForTest";
+        double fpsRec = Double.parseDouble(System.getProperty("testkit.paintedFps", "60"));
+        String old = MenuACases.themeName();
         around(c, true, () -> {
-            title(c, theme, hook, scene);
+            if (target) {
+                c.onClient(mc -> {
+                    Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", FontsMainMenuSuite.menuTheme("GREEN"));
+                    FontsMainMenuSuite.setMm(mc, "MATCH", "GREEN", "AUTO", 100, true);
+                    Mod.staticCall(SCENES, "setGreenSceneForTest", "TARGET");
+                    McCompat.setScreen(mc, new TitleScreen());
+                    return null;
+                });
+                c.ticks(40);
+            } else {
+                title(c, theme, hook, scene);
+            }
             int frames = Integer.parseInt(System.getProperty("testkit.paintedFrames", "480"));
             Path dir = Report.dir().resolve("painted-" + scene.toLowerCase(Locale.ROOT));
             for (int i = 0; i < frames; i++) {
-                double ms = 3_000_000 + i * (1000.0 / 60.0);
+                double ms = 3_000_000 + i * (1000.0 / fpsRec);
                 c.onClient(mc -> {
                     Mod.staticCall(SCENES, "setClockForTest", ms);
                     return null;
@@ -441,7 +686,14 @@ public class PaintedScenesSuite implements FabricClientGameTest {
                 c.ticks(1);
                 MenuAnimSuite.keep(c.ctx().takeScreenshot("painted-frame"), dir, String.format(Locale.ROOT, "frame_%05d.png", i));
             }
-            c.note("wrote " + frames + " frames to " + dir);
+            c.note("wrote " + frames + " frames at " + fpsRec + " fps to " + dir);
+            if (target) {
+                c.onClient(mc -> {
+                    Mod.staticCall(SCENES, "setGreenSceneForTest", "");
+                    Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", Mod.enumValue("gui.MenuTheme", old));
+                    return null;
+                });
+            }
         });
     }
 }
