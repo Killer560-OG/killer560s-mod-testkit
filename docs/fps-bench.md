@@ -196,3 +196,19 @@ line. `-PperfIdleJfr=<file>` records a chat JFR (execution + allocation samples,
 ```
 python -X utf8 perf-lock.py <label> -- powershell -NoProfile -Command "& ./run-scenario.ps1 -Scenario 95-perf-idle -Port <port> -TimeoutSeconds 900 -ModUnderTest <cheat jar> -Extra @('-PtestVolume=0','-PperfNoProbe')"
 ```
+
+## Staleness of the caches (1016-hx-stale-*)
+
+`hx/HxStaleCases` (fps-combined-1016, ~1 min, in the Hx session): what the FPS pass cached is changed through what
+Hypixel sends (sidebar, tab list, chat, slot packets) or through the setting, then the DRAWN text (the real in-game draw
+into a throwaway `GuiRenderState`) or the feature state is read tick by tick. Where the mod keeps a cache, the cached
+answer is also compared with a fresh build in the same instant: the mod caches only on the client thread, so
+`offThread` builds the fresh one on a plain thread of its own while the client thread waits (the gametest thread itself
+may not call `Minecraft.getInstance()`). Each check notes "source +N, display +M ticks"; run it on main and on the
+branch and compare the lines. Checks whose hook a jar lacks note n/a. The Dungeon Map and DungeonLayout are covered by
+95-perf-livemap's verify mode, not here.
+```
+./run-scenario.ps1 -Scenario "100-hx-session+,1016-hx-stale" -Port <port> -TimeoutSeconds 1500 -ModUnderTest <jar>
+```
+A filter part that CONTAINS a session's name (`100-hx-session+`) starts the session without selecting all its cases;
+the other parts pick the cases. A part the session name contains (`-hx-`, `100-hx-session`) runs every case.
