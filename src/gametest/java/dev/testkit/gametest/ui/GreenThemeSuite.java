@@ -875,7 +875,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
         double[] title = boxStats(a.img(), 0.25, 0.0, 0.75, 0.22);
         double[] column = boxStats(a.img(), 0.3, 0.22, 0.7, 0.66);
         double[] bossBox = boxStats(a.img(), 0.74, 0.55, 0.89, 0.78);
-        double[] charBox = boxStats(a.img(), 0.08, 0.50, 0.17, 0.95);
+        double[] charBox = boxStats(a.img(), 0.115, 0.50, 0.145, 0.62); // the torso (green-v5: a slender smooth figure)
         int text = c.onClient(mc -> ((int[]) Mod.call(Mod.enumValue("gui.MenuTheme", "GREEN"), "base"))[3]);
         float colContrast = contrast(text, (int) column[1] | 0xFF000000);
         float titleContrast = contrast(0xFFFFFFFF, (int) title[1] | 0xFF000000);
