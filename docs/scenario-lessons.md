@@ -593,6 +593,15 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   `AutoPuzzleUtil.useItemRotated` called as an auto calls it, heard look on the floor: no click sends at tick 0; an AOTV-held
   click turns first and sends at tick 1, lands; the raw use after the click is ignored. Click-gap jar sent at tick 5 and was
   ignored; pre-gap at tick 0, ignored; both FAIL.
+- 1015-sim-pathland (cheat jar, sim F7 x `-PpathlandFloors` (3), room captures; ~15 min): per room a route PATH S0->S1, ETHERWARP
+  S1->S2, PATH S2->S3, ... so every pair after the first fires on the etherwarp's landing tick (0.05 up, the run-time re-aim).
+  Pass 1 plans (he settles while it plans, so no re-aim), 2 flies the saved plans, 3 adds `ClickPrimer`. Each hop is judged
+  against its saved plan's target block (RouteNode.PathHop.target), not the mod's 2-block "landed"; a correction during a
+  path warp is a warp landed elsewhere. Plus an aim probe: the mod's `getEtherwarpDirection` from 0.05 over a block centre
+  to landable blocks, fragile = lands for the exact float look but not within 0.01 degrees. Mod main d1eda658: 3600 aims,
+  260 fragile, 67 with a firm one to be had - FAIL; path-wrongblock-1015: 8 fragile, 0 avoidable, no saved look fired from
+  above its spot, PASS. End-to-end wrong blocks are rare (0 in 552 main hops one run; one 5.4-block miss on Overgrown in
+  another), which is why the probe is the gate. Floors are random per run (SimFloorGen has no seed).
 - 62-argrim-1015-clickwarp (GrimAC session): an await met by a lever click made as Secret Aura makes it (body turned to the
   lever for a few ticks, then the click with the AOTV), far (8 blocks) and near (3 blocks, which sends the click on the target
   block first): each must land with one etherwarp, the warp at most 1 tick after firing, Grim silent.
@@ -771,9 +780,25 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   turns on gets a tick - dragged to 41 between-step positions; the knob must equal what a freshly opened drawer puts it
   at for the saved value, with the same text. Read the knob from the `value` field: the old jar has no accessor. On the
   pre-change jar it named 186 knobs resting between two values.
+- 147-sim-autosecret-lastsecret (mod autoclear-leave-1015, 2026-10-15): judge a room's last secret against the sim
+  SERVER's own count (`SimScore.foundInRoom`), never the mod's: the mod's count was the bug (it counted the leaving room
+  from the next room's start). Judge the hold's RELEASE tick (the "the next warp goes now (tick N)" line), not the first
+  warp out: a trip that was not planned ahead searches for up to a second after the release, and a secret can register in
+  that gap by luck. Turn Auto Close Chest on as killer560 has it: with it off the sim opens the chest's window and the
+  warp goes under it. Stands are chosen within 4.0 (chest box) / 4.2 (essence) of BOTH the standing and sneaking eye; the
+  Interactive Map sometimes ends a trip 5 blocks off a start node ("did not arm"), so some rooms go unjudged - 2 judged rooms a floor
+  is the minimum the case accepts.
 - 146-sim-autosecret-arrival (mod ac-optimize-2-1015): ticks from a trip's last warp to its one-node start route ending
   (main: 11 every room, the Interactive Map's arrival settle; branch: 2). A warp sent on the route's own end tick is the
   NEXT trip's (the hand-over can be that fast), so only warps strictly before the end belong to the trip into the room.
+- 147-sim-autostatus-hud (mod autoclear-hud-1015, 2026-10-15): the shared Status HUD on a Solo Autopilot run, in 141's
+  class and world setup (`StatusHudCase`). The run is short (one zombie, two one-node routes: ~5 s, ~30 samples), so it
+  samples every 5 ticks. Clear the chat before a screenshot: in the 854x480 window the run's chat lines cover the HUD.
+- 131-sim-auto-clear's correction-plan case is a race on main (2026-10-16, autoclear-hud-1015): the teleport is sent with
+  the clearRoom call, and it counts only when the Interactive Map runner is already on its trip when it lands ("caught by
+  the Interactive Map runner"); when the trip's search is still running Auto Clear files it as the trip's own and nothing
+  counts it. main's cheat jar passed 2 of 6 runs, the branch 2 of 9. A failure there also leaves the sim world open and
+  the client hangs until the deadline (the keep-going disconnect deadlock above).
 - Mod main's sim clears every room on entry (2026-10-14). A case that judges which rooms its clears killed their way to
   (141) turns `SimMobs.setClearRoomsOnEntry(false)` for its run, or any trip passing through a room "clears" it.
 - **1080-1083 (TrajectoryCases, mod shortbow-traj-1015, 2026-10-15):** Trajectories for shortbows. Each draw is judged by the
@@ -795,7 +820,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   leaves each by its own Done/Back/Cancel. Never press `selectWorld.create` on CreateWorldScreen: with no saved worlds
   Singleplayer opens it directly and that key is its "Create New World" button - the first run made a world and the client
   hung. A theme check measures a button's mean colour in two screenshots (old jar: 30,30,30 in both themes). 1566 counts
-  scene motion only in the side strips: the splash text pulses, so a whole-screen count moved 0.1% on Plain too.
+  scene motion only in the side strips: the splash text pulsed, so a whole-screen count moved 0.1% on Plain too (the themed menu draws no splash since mod no-splash-1015; 1568 embers moved 0.23% with it, 0.10% without).
 - **93-solve-waterboard-timing, 1015-sim-water-mappress, 1015-grim-water-clickwarp** (mod water-late-1015, 2026-10-15):
   Auto Water's timing. The timing case (`SimWaterTimingTests`, on `SimPuzzleSolveTests.Base`) reads Water Board Solver's
   clock at END_CLIENT_TICK and stamps item uses through `PacketTrace.tap` with the same tick; a timed click must land at
@@ -863,3 +888,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   sim's chest window arrives 1-2 ticks after a click, racing the warp an await fires: 96-ar-1015-reaim's control read 2 for 1
   in a session, so it reruns a side whose log says the window arrived after the await was met. A case that only passes alone
   is not passing.
+- 147-sim-map-precompute (mod map-precompute-1015): three generated F7s, four one-node start routes each; phase 1
+  readiness after the gate opens, the same press with TripCache on and off (its `testDisabled` hook; it has no setting, it runs whenever the Interactive Map is on) from the same spot with the planner's own
+  fresh plan before each, phase 2, a block across a cached trip's first warp with TripCache's drop and searches held off
+  (`testNoCorridorDrop`, `testPaused`), a doorway walled up and opened, and the Interactive Map switched off (cache empty,
+  no search, no tick work) and on again with the map screen closed (fills). A press on a room with a recorded spot (Tic
+  Tac Toe, Quiz, the other `AutoClearUtils` overrides) is a BLOCK trip to `overrideGoal`, not a tile trip: the first
+  fresh-plan comparator planned the tile and read 19/5/5 warps beside the press's 20/6/7 (the OFF press agreed with the
+  cache every time). Resolve the goal the way `pathToRoom` does before comparing.

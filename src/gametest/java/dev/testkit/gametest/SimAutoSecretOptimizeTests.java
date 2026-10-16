@@ -48,6 +48,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
     private static final String HANDOFF = "144-sim-autosecret-handoff";
     private static final String ORDER = "145-sim-autosecret-order";
     private static final String ARRIVAL = "146-sim-autosecret-arrival";
+    private static final String LASTSECRET = "147-sim-autosecret-lastsecret";
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
     private static final String FLOOR_GEN = "com.killer560.hub.roomsim.SimFloorGen";
@@ -64,6 +65,10 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
 
     private static final Pattern TARGET = Pattern.compile("\\[AutoSecret\\] target (.+?): (\\d+) unfound");
     private static final Pattern FINISHED = Pattern.compile("\\[AutoSecret\\] route (.+?) finished \\(tick (\\d+)\\)");
+    private static final Pattern GOES_NOW = Pattern.compile(
+            "\\[AutoSecret\\] (.+?): .*of the last-node wait \\(tick (\\d+)\\) - the next warp goes now");
+    private static final Pattern LEAVES_AT_END = Pattern.compile(
+            "\\[AutoSecret\\] (.+?): every secret counted at the route's end.* - leaving this tick");
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -73,7 +78,8 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         boolean handoff = !Scenario.skip(HANDOFF);
         boolean order = !Scenario.skip(ORDER);
         boolean arrival = !Scenario.skip(ARRIVAL);
-        if (!handoff && !order && !arrival) {
+        boolean last = !Scenario.skip(LASTSECRET);
+        if (!handoff && !order && !arrival && !last) {
             return;
         }
         ModUnderTest.require("killer560smod");
@@ -89,6 +95,9 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             }
             if (arrival) {
                 Scenario.skipped(ARRIVAL, "needs real room captures and room database");
+            }
+            if (last) {
+                Scenario.skipped(LASTSECRET, "needs real room captures and room database");
             }
             return;
         }
@@ -118,6 +127,16 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                 runCase(ctx, ARRIVAL, SimAutoSecretOptimizeTests::arrivalBody);
             } catch (AssertionError e) {
                 failed.add(e.getMessage());
+            }
+        }
+        if (last) {
+            for (int f = 1; f <= LAST_FLOORS; f++) {
+                lastFloor = f;
+                try {
+                    runCase(ctx, LASTSECRET, SimAutoSecretOptimizeTests::lastSecretBody);
+                } catch (AssertionError e) {
+                    failed.add(e.getMessage());
+                }
             }
         }
         ctx.runOnClient(mc -> mc.options.renderDistance().set(renderBefore));
@@ -305,6 +324,352 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         if (!capSaid || !earlySaid) {
             failures.add("the wait's lines are missing (cap " + capSaid + ", early " + earlySaid + ")");
         }
+    }
+
+    // ================================================================================================ 147
+
+    /** Floors (each a fresh random F7) 147 runs. */
+    private static final int LAST_FLOORS = 3;
+    /** Rooms 147 routes per floor. */
+    private static final int LAST_ROOMS = 4;
+    private static int lastFloor;
+    private static final String CHEAT_CFG = "com.killer560.hub.cheatutils.CheatUtilsConfig";
+
+    /** One 147 room: its last secret, of what kind, the block its one-node route stands on, its total secrets. */
+    private record LastCase(String room, int id, String kind, BlockPos secret, BlockPos stand, int total) {
+    }
+
+    /**
+     * 147-sim-autosecret-lastsecret (mod autoclear-leave-1015). killer560, 2026-10-15: "it is still having an issue for
+     * auto clear where it will leave a room before a secret is grabbed and registered, at least on sim." His Gold and
+     * Basement (22:42:48 / 22:42:56): a one-node DUNGEON_BREAKER route with no blocks standing beside the room's one
+     * wither essence, left for Secret Aura; "0/1 secret(s) counted at the route's end", "the 6-tick cap", the next warp,
+     * the essence never taken. Scaffolding the same with the chest by its last landing.
+     * <p>
+     * Each floor: up to four rooms, each with ONE secret left (the rest marked found on the sim's server and the map, as
+     * 144 does), of a kind Secret Aura or a pickup takes - a wither essence, a chest, an item - and a one-node
+     * DUNGEON_BREAKER route (no blocks) on a block that secret is in reach of. Secret Aura on, his settings (range 4.5,
+     * skull 4.5, cooldown 150 ms). Asserted per room, against the sim SERVER's own count for the room
+     * ({@code SimScore.foundInRoom}): the room's last secret registered, and no later than the tick the first warp out of
+     * the room was sent; and the warp went at most 2 ticks after it registered (no fixed wait). Three floors.
+     */
+    @SuppressWarnings("unchecked")
+    private static void lastSecretBody(ClientGameTestContext ctx, List<String> failures) {
+        String name = LASTSECRET + " floor " + lastFloor;
+        enterFloor(ctx);
+        awaitWarmGraph(ctx, LASTSECRET);
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(CHEAT_CFG);
+            ModUnderTest.set(cfg, "setSecretAuraEnabled", true);
+            ModUnderTest.set(cfg, "setAuraChests", true);
+            ModUnderTest.set(cfg, "setAuraLevers", true);
+            ModUnderTest.set(cfg, "setAuraEssence", true);
+            ModUnderTest.set(cfg, "setAuraPauseWhileSneaking", false);
+            ModUnderTest.set(cfg, "setAuraRange", 4.5);
+            ModUnderTest.set(cfg, "setAuraSkullRange", 4.5);
+            ModUnderTest.set(cfg, "setAuraCooldownMs", 150);
+            ModUnderTest.call(cfg, "setAuraPauseHolding", new Class<?>[]{String.class}, new Object[]{""});
+            // His setting too: the chest's window never opens, its lid does (and no warp goes under a window).
+            ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"), "setEnabled",
+                    true);
+        });
+        List<SimAutoSecretTests.Room> eligible = eligible(ctx.computeOnClient(SimAutoSecretTests::readRooms));
+        Map<Integer, SimAutoSecretTests.Room> byId = new HashMap<>();
+        for (SimAutoSecretTests.Room r : eligible) {
+            byId.put(r.id(), r);
+        }
+        // Every placed secret of an eligible room, by kind, from the sim's own lists.
+        List<Object[]> secrets = ctx.computeOnClient(mc -> {
+            List<Object[]> out = new ArrayList<>();
+            try {
+                Class<?> ss = Class.forName("com.killer560.hub.roomsim.SimSecrets");
+                for (BlockPos p : (java.util.Set<BlockPos>) ss.getField("PLACED_WITHER").get(null)) {
+                    out.add(new Object[]{"essence", p});
+                }
+                for (BlockPos p : (List<BlockPos>) ss.getField("PLACED_CHESTS").get(null)) {
+                    out.add(new Object[]{"chest", p});
+                }
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+            for (BlockPos p : (List<BlockPos>) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimSecretItems",
+                    "pendingPositions")) {
+                out.add(new Object[]{"item", p});
+            }
+            return out;
+        });
+        Vec3 here = ctx.computeOnClient(mc -> mc.player.position());
+        List<LastCase> cases = new ArrayList<>();
+        java.util.Set<String> kindsTaken = new java.util.HashSet<>();
+        // Two passes: one room per kind first, so a floor tries every kind it has, then any.
+        for (int pass = 0; pass < 2 && cases.size() < LAST_ROOMS; pass++) {
+            java.util.Collections.shuffle(secrets, new java.util.Random(lastFloor * 31L + pass));
+            for (Object[] s : secrets) {
+                if (cases.size() >= LAST_ROOMS) {
+                    break;
+                }
+                String kind = (String) s[0];
+                BlockPos pos = (BlockPos) s[1];
+                if (pass == 0 && kindsTaken.contains(kind)) {
+                    continue;
+                }
+                int id = ctx.computeOnClient(mc -> (Integer) ModUnderTest.call(ModUnderTest.staticCall(LAYOUT, "capture"),
+                        "roomAtWorld", new Class<?>[]{double.class, double.class},
+                        new Object[]{pos.getX() + 0.5, pos.getZ() + 0.5}));
+                SimAutoSecretTests.Room r = byId.get(id);
+                if (r == null || cases.stream().anyMatch(c -> c.id() == id)) {
+                    continue;
+                }
+                BlockPos stand = standFor(ctx, kind, pos, id);
+                if (stand == null || warps(ctx, here, stand) >= 999) {
+                    continue;
+                }
+                int total = ctx.computeOnClient(mc -> {
+                    Object entry = ModUnderTest.staticCall(DB, "lookupByName", new Class<?>[]{String.class},
+                            new Object[]{r.name()});
+                    try {
+                        return entry.getClass().getField("secrets").getInt(entry);
+                    } catch (ReflectiveOperationException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+                cases.add(new LastCase(r.name(), id, kind, pos, stand, total));
+                kindsTaken.add(kind);
+            }
+        }
+        println(name, "cases: " + cases);
+        if (cases.size() < 2) {
+            failures.add("floor " + lastFloor + ": only " + cases.size() + " room(s) with a secret a route can stand by");
+            return;
+        }
+        Map<String, JsonObject> routes = new LinkedHashMap<>();
+        for (LastCase c : cases) {
+            routes.put(c.room(), breakerRoute(ctx, c));
+            leaveOneUnfound(ctx, c);
+        }
+        SimAutoSecretTests.writeRoutes(ctx, routes);
+        Map<String, Integer> found0 = new HashMap<>();
+        for (LastCase c : cases) {
+            found0.put(c.room(), serverFound(c.room()));
+        }
+        println(name, "server count before the run: " + found0);
+        long mark = LogTap.mark();
+        Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "start"));
+        if (!Boolean.TRUE.equals(started)) {
+            failures.add("Auto Secret refused to start");
+            return;
+        }
+        Map<String, Long> finishedAt = new HashMap<>();
+        Map<String, Long> releasedAt = new HashMap<>();
+        Map<String, Long> registeredAt = new HashMap<>();
+        for (int t = 0; t < 20 * 150; t++) {
+            ctx.waitTicks(1);
+            long now = tick(ctx);
+            for (LastCase c : cases) {
+                if (!registeredAt.containsKey(c.room()) && serverFound(c.room()) >= c.total()) {
+                    registeredAt.put(c.room(), now);
+                }
+            }
+            for (String l : LogTap.since(mark)) {
+                Matcher f = FINISHED.matcher(l);
+                if (f.find() && !finishedAt.containsKey(f.group(1))) {
+                    finishedAt.put(f.group(1), Long.parseLong(f.group(2)));
+                }
+                Matcher g = GOES_NOW.matcher(l);
+                if (g.find() && !releasedAt.containsKey(g.group(1))) {
+                    releasedAt.put(g.group(1), Long.parseLong(g.group(2)));
+                }
+                Matcher e = LEAVES_AT_END.matcher(l);
+                if (e.find() && !releasedAt.containsKey(e.group(1)) && finishedAt.containsKey(e.group(1))) {
+                    releasedAt.put(e.group(1), finishedAt.get(e.group(1)));
+                }
+            }
+            boolean allDone = cases.stream().allMatch(c -> finishedAt.containsKey(c.room()));
+            if (allDone && t > 0 && finishedAt.values().stream().mapToLong(Long::longValue).max().orElse(0) + 120 < now) {
+                break;
+            }
+            if (!(Boolean) ctx.computeOnClient(mc -> ModUnderTest.staticCall(AS, "isRunning"))) {
+                ctx.waitTicks(40);
+                break;
+            }
+        }
+        List<Long> hops = ctx.computeOnClient(mc -> (List<Long>) ModUnderTest.staticCall(EXECUTOR, "hopSendTicks"));
+        List<String> log = LogTap.since(mark);
+        for (String l : log) {
+            if (l.contains("[AutoSecret]") && (l.contains("route's end") || l.contains("last-node wait")
+                    || l.contains("to register") || l.contains("finished") || l.contains("target ")
+                    || l.contains("stopped"))
+                    || l.contains("Wither essence collected") || l.contains("item picked up")) {
+                println(name, "  " + l.replaceAll("^.*?(\\[AutoSecret\\]|\\[AutoRoutes\\]|\\[System\\])", "$1"));
+            }
+        }
+        println(name, "finished " + finishedAt + ", registered " + registeredAt + ", hops " + hops);
+        int checked = 0;
+        for (LastCase c : cases) {
+            Long end = finishedAt.get(c.room());
+            if (end == null) {
+                println(name, c.room() + " (" + c.kind() + "): its route never ran to its end - not judged");
+                continue;
+            }
+            checked++;
+            long out = -1;
+            for (long h : hops) {
+                if (h > end) {
+                    out = h;
+                    break;
+                }
+            }
+            Long reg = registeredAt.get(c.room());
+            Long rel = releasedAt.get(c.room());
+            println(name, String.format(Locale.US, "%s (%s at %s, stand %s): route end %d, last secret registered %s,"
+                            + " warp let go %s, first warp out %s%s", c.room(), c.kind(), c.secret().toShortString(),
+                    c.stand().toShortString(), end, reg == null ? "NEVER" : reg + " (" + (reg - end) + " after the end)",
+                    rel == null ? "?" : rel + (reg != null ? " (" + (rel - reg) + " after it registered)" : ""),
+                    out < 0 ? "none" : out + " (" + (out - end) + " after the end)",
+                    reg != null && out >= 0 ? ", " + (out - reg) + " tick(s) after it registered" : ""));
+            if (reg == null) {
+                failures.add(c.room() + " (" + c.kind() + "): its last secret never registered"
+                        + (out >= 0 ? " - the warp out went " + (out - end) + " tick(s) after the route" : ""));
+            } else if (out >= 0 && out < reg) {
+                failures.add(c.room() + " (" + c.kind() + "): left on tick " + out + ", before its last secret registered"
+                        + " on " + reg);
+            } else if (rel != null && rel < reg) {
+                // Let go before it registered; that the trip then searched long enough for it to register first is luck.
+                failures.add(c.room() + " (" + c.kind() + "): let the warp out go on tick " + rel + ", before its last"
+                        + " secret registered on " + reg);
+            } else if (rel != null && rel - reg > 1) {
+                // The client sees a server registration a tick later at the earliest; the hold must go on that tick. (The
+                // trip itself may still take a search when it was not planned ahead - not this wait's doing.)
+                failures.add(c.room() + " (" + c.kind() + "): registered on " + reg + " but the held warp was let go only"
+                        + " on " + rel);
+            }
+        }
+        if (checked < 2) {
+            failures.add("only " + checked + " route(s) ran to their end");
+        }
+    }
+
+    /**
+     * A standable, warpable block in room {@code id}, with {@code secret} in reach from it: a chest within 4.0 of both
+     * the standing and the sneaking eye (box), an essence within 4.2 (centre), an item within 1.5 of the body. Closest
+     * first. Client thread via computeOnClient.
+     */
+    private static BlockPos standFor(ClientGameTestContext ctx, String kind, BlockPos secret, int id) {
+        return ctx.computeOnClient(mc -> {
+            Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+            BlockPos best = null;
+            double bestD = Double.MAX_VALUE;
+            for (BlockPos b : BlockPos.betweenClosed(secret.offset(-5, -5, -5), secret.offset(5, 3, 5))) {
+                if (b.equals(secret) || (Integer) ModUnderTest.call(layout, "roomAtWorld",
+                        new Class<?>[]{double.class, double.class}, new Object[]{b.getX() + 0.5, b.getZ() + 0.5}) != id) {
+                    continue;
+                }
+                if (!(Boolean) ModUnderTest.staticCall("com.killer560.hub.livemap.autoclear.TeleportUtils", "landable",
+                        new Class<?>[]{BlockPos.class}, new Object[]{b})
+                        || !(Boolean) ModUnderTest.staticCall("com.killer560.hub.livemap.autoclear.TeleportUtils",
+                        "underCover", new Class<?>[]{BlockPos.class}, new Object[]{b})) {
+                    continue;
+                }
+                Vec3 feet = new Vec3(b.getX() + 0.5, b.getY() + 1.0, b.getZ() + 0.5);
+                double d;
+                if (kind.equals("item")) {
+                    double dx = Math.max(0, Math.max(secret.getX() - (feet.x + 0.3), (feet.x - 0.3) - (secret.getX() + 1)));
+                    double dy = Math.max(0, Math.max(secret.getY() - (feet.y + 1.8), feet.y - (secret.getY() + 1)));
+                    double dz = Math.max(0, Math.max(secret.getZ() - (feet.z + 0.3), (feet.z - 0.3) - (secret.getZ() + 1)));
+                    d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                    if (d > 1.5) {
+                        continue;
+                    }
+                } else {
+                    double worst = 0;
+                    for (double eyeH : new double[]{1.62, 1.27}) {
+                        Vec3 eye = feet.add(0, eyeH, 0);
+                        double box = Math.sqrt(boxDistSq(eye, secret));
+                        double centre = eye.distanceTo(Vec3.atCenterOf(secret));
+                        worst = Math.max(worst, kind.equals("chest") ? box : Math.max(box, centre));
+                    }
+                    if (worst > (kind.equals("chest") ? 4.0 : 4.2)) {
+                        continue;
+                    }
+                    d = worst;
+                }
+                if (d < bestD) {
+                    bestD = d;
+                    best = b.immutable();
+                }
+            }
+            return best;
+        });
+    }
+
+    private static double boxDistSq(Vec3 p, BlockPos b) {
+        double dx = Math.max(0, Math.max(b.getX() - p.x, p.x - (b.getX() + 1)));
+        double dy = Math.max(0, Math.max(b.getY() - p.y, p.y - (b.getY() + 1)));
+        double dz = Math.max(0, Math.max(b.getZ() - p.z, p.z - (b.getZ() + 1)));
+        return dx * dx + dy * dy + dz * dz;
+    }
+
+    /** His Gold: one DUNGEON_BREAKER start node with no blocks, standing on {@code c.stand()}. */
+    private static JsonObject breakerRoute(ClientGameTestContext ctx, LastCase c) {
+        return ctx.computeOnClient(mc -> {
+            Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+            int[] cr = (int[]) ModUnderTest.call(layout, "clayRotation", new Class<?>[]{int.class}, new Object[]{c.id()});
+            Object frame;
+            try {
+                frame = Class.forName("com.killer560.hub.autoroutes.RouteCoords$Frame")
+                        .getConstructor(String.class, int.class, int.class, int.class)
+                        .newInstance(c.room(), cr[0], cr[1], cr[2]);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            Vec3 rel = (Vec3) ModUnderTest.staticCall("com.killer560.hub.autoroutes.RouteCoords", "toRelative",
+                    new Class<?>[]{frame.getClass(), Vec3.class}, new Object[]{frame,
+                            new Vec3(c.stand().getX() + 0.5, c.stand().getY() + 1, c.stand().getZ() + 0.5)});
+            JsonObject node = new JsonObject();
+            node.addProperty("type", "DUNGEON_BREAKER");
+            node.addProperty("x", rel.x);
+            node.addProperty("y", rel.y);
+            node.addProperty("z", rel.z);
+            node.addProperty("yaw", 0f);
+            node.addProperty("pitch", 0f);
+            node.addProperty("start", true);
+            node.add("blocks", new com.google.gson.JsonArray());
+            com.google.gson.JsonArray nodes = new com.google.gson.JsonArray();
+            nodes.add(node);
+            JsonObject route = new JsonObject();
+            route.add("nodes", nodes);
+            return route;
+        });
+    }
+
+    /** All but one of the room's secrets found, on the sim's server and on the map (as {@link #markAllFound}). */
+    @SuppressWarnings("unchecked")
+    private static void leaveOneUnfound(ClientGameTestContext ctx, LastCase c) {
+        int n = c.total() - 1;
+        AtomicReference<Boolean> done = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            mc.getSingleplayerServer().execute(() -> {
+                for (int i = 0; i < n; i++) {
+                    ModUnderTest.staticCall(SIM_SCORE, "secretFound", new Class<?>[]{BlockPos.class},
+                            new Object[]{c.secret()});
+                }
+                done.set(true);
+            });
+            try {
+                java.lang.reflect.Field f = Class.forName(LIVE_MAP).getDeclaredField("foundSecretsByRoom");
+                f.setAccessible(true);
+                ((Map<String, Integer>) f.get(null)).put(c.room(), n);
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        ctx.waitFor(mc -> done.get() != null, 200);
+    }
+
+    /** The sim server's own count of found secrets in the room (static, thread-safe). */
+    private static int serverFound(String room) {
+        return (Integer) ModUnderTest.staticCall(SIM_SCORE, "foundInRoom", new Class<?>[]{String.class},
+                new Object[]{room});
     }
 
     // ================================================================================================ 146

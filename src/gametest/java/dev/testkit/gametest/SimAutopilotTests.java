@@ -52,6 +52,8 @@ import java.util.regex.Pattern;
 public class SimAutopilotTests implements FabricClientGameTest {
 
     private static final String NAME = "141-sim-autopilot";
+    /** The shared Status HUD on an Autopilot run ({@link StatusHudCase}); same world setup as 141. */
+    static final String HUD_CASE = "147-sim-autostatus-hud";
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String SIM_MOBS = "com.killer560.hub.roomsim.SimMobs";
     private static final String SIM_ITEMS = "com.killer560.hub.roomsim.SimItems";
@@ -79,7 +81,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
     /** "pick CLEAR Mushroom 4.67/9.0s=0.519" and each "; "-separated ranked entry. */
     private static final Pattern CAND = Pattern.compile("(SECRET|CLEAR|PUZZLE|EXPLORE|KEY) (.+?) (-?[\\d.]+)/([\\d.]+)s=(-?[\\d.]+)( \\(teammate\\))?$");
 
-    private record Room(String name, String type, boolean mob, boolean cleared, boolean rush, int x, int z) {
+    record Room(String name, String type, boolean mob, boolean cleared, boolean rush, int x, int z) {
         static Room parse(String line) {
             String[] p = line.split("\\|");
             return new Room(p[0], p[1], p[2].equals("1"), p[3].equals("1"), p[4].equals("1"),
@@ -88,7 +90,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
     }
 
     /** RoomStatus's view: id, name, type, unfound, main tile. */
-    private record Status(int id, String name, String type, int unfound, int mainTile) {
+    record Status(int id, String name, String type, int unfound, int mainTile) {
     }
 
     private record Cand(String kind, String room, double gain, double seconds, double rate, boolean teammate) {
@@ -107,7 +109,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
     private record Decision(Cand pick, List<Cand> ranked, String line, List<String> tour) {
     }
 
-    private static final class Result {
+    static final class Result {
         double travelled;
         int ticks;
         boolean finished;
@@ -124,7 +126,9 @@ public class SimAutopilotTests implements FabricClientGameTest {
             ModUnderTest.require("killer560smod");
             logicCase(ctx);
         }
-        if (System.getProperty("testkit.scenario", "").isBlank() || Scenario.skip(NAME)) {
+        boolean mainCase = !Scenario.skip(NAME);
+        boolean hudCase = !Scenario.skip(HUD_CASE);
+        if (System.getProperty("testkit.scenario", "").isBlank() || !mainCase && !hudCase) {
             return;
         }
         ModUnderTest.require("killer560smod");
@@ -156,7 +160,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
             ModUnderTest.set(as, "setRouteStallSeconds", 10);
             ModUnderTest.set(as, "setInstaClear", false);
             ModUnderTest.set(as, "setDoPuzzles", true);
-            ModUnderTest.set(as, "setAutopilotHud", true);
+            setStatusHud(as);
         });
         int renderBefore = ctx.computeOnClient(mc -> mc.options.renderDistance().get());
         ctx.runOnClient(mc -> mc.options.renderDistance().set(16));
@@ -169,7 +173,12 @@ public class SimAutopilotTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimMobs", "setClearRoomsOnEntry",
                 new Class<?>[]{boolean.class}, new Object[]{false}));
         try {
-            body(ctx, failures);
+            if (mainCase) {
+                body(ctx, failures);
+            }
+            if (hudCase) {
+                StatusHudCase.run(ctx, failures);
+            }
         } catch (Throwable t) {
             failures.add("scenario threw: " + t);
             t.printStackTrace(System.out);
@@ -705,9 +714,18 @@ public class SimAutopilotTests implements FabricClientGameTest {
                 new Object[]{state, n, party});
     }
 
+    /** The one Status HUD switch (mod autoclear-hud-1015); an older jar only has Autopilot HUD. */
+    static void setStatusHud(Object asConfig) {
+        try {
+            ModUnderTest.set(asConfig, "setStatusHud", true);
+        } catch (AssertionError e) {
+            ModUnderTest.set(asConfig, "setAutopilotHud", true);
+        }
+    }
+
     // ================================================================================================ the run
 
-    private static void setMode(ClientGameTestContext ctx, String mode, boolean bloodFirst) {
+    static void setMode(ClientGameTestContext ctx, String mode, boolean bloodFirst) {
         ctx.runOnClient(mc -> {
             Object cfg = ModUnderTest.config(AS_CONFIG);
             Object m = ModUnderTest.enumValue(AS_CONFIG + "$RunMode", mode);
@@ -717,7 +735,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
         ground(ctx);
     }
 
-    private static Result runCase(ClientGameTestContext ctx, String label) {
+    static Result runCase(ClientGameTestContext ctx, String label) {
         Result r = new Result();
         long mark = LogTap.mark();
         Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "startAutopilot"));
@@ -934,14 +952,14 @@ public class SimAutopilotTests implements FabricClientGameTest {
 
     // ================================================================================================ the world
 
-    private static void ground(ClientGameTestContext ctx) {
+    static void ground(ClientGameTestContext ctx) {
         for (int i = 0; i < 100 && !ctx.computeOnClient(mc -> mc.player.onGround()); i++) {
             ctx.waitTicks(1);
         }
     }
 
     @SuppressWarnings("unchecked")
-    private static List<Room> floor(ClientGameTestContext ctx) {
+    static List<Room> floor(ClientGameTestContext ctx) {
         List<String> lines = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(AUTO_CLEAR, "floorReport"));
         List<Room> out = new ArrayList<>();
         for (String l : lines) {
@@ -950,7 +968,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
         return out;
     }
 
-    private static List<Status> readStatus(Minecraft mc) {
+    static List<Status> readStatus(Minecraft mc) {
         @SuppressWarnings("unchecked")
         List<Object> list = (List<Object>) ModUnderTest.staticCall(ROOM_STATUS, "rooms");
         List<Status> out = new ArrayList<>();
@@ -965,18 +983,18 @@ public class SimAutopilotTests implements FabricClientGameTest {
     }
 
     /** The mod leaves these out (the map cannot path out of them): Autopilot.strands. */
-    private static boolean strands(String name) {
+    static boolean strands(String name) {
         return name.contains("Maze") || name.contains("Boulder") || name.contains("Trap");
     }
 
-    private static double dist(Vec3 me, Room r) {
+    static double dist(Vec3 me, Room r) {
         double dx = me.x - r.x();
         double dz = me.z - r.z();
         return Math.sqrt(dx * dx + dz * dz);
     }
 
     /** A one-node route: a ROTATE start node standing on a standable block of the room's main tile (102's). */
-    private static JsonObject routeFor(ClientGameTestContext ctx, Status r) {
+    static JsonObject routeFor(ClientGameTestContext ctx, Status r) {
         return ctx.computeOnClient(mc -> {
             Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
             int[] cr = (int[]) ModUnderTest.call(layout, "clayRotation", new Class<?>[]{int.class}, new Object[]{r.id()});
@@ -1015,7 +1033,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
         });
     }
 
-    private static void writeRoutes(ClientGameTestContext ctx, Map<String, JsonObject> routes) {
+    static void writeRoutes(ClientGameTestContext ctx, Map<String, JsonObject> routes) {
         ctx.runOnClient(mc -> {
             try {
                 Path file = (Path) ModUnderTest.staticCall(STORE, "routesFile");
@@ -1035,7 +1053,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
     }
 
     /** One starred zombie on an open floor spot near the room's first tile's centre; its UUID, or null. */
-    private static UUID spawnOne(ClientGameTestContext ctx, Room room) {
+    static UUID spawnOne(ClientGameTestContext ctx, Room room) {
         AtomicReference<BlockPos> spot = new AtomicReference<>();
         AtomicReference<Boolean> done = new AtomicReference<>();
         int yHint = ctx.computeOnClient(mc -> ((BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter",
@@ -1165,7 +1183,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
     }
 
     /** Room name -> cleared on the map, as Auto Clear reads it. */
-    private static Map<String, Boolean> cleared(ClientGameTestContext ctx) {
+    static Map<String, Boolean> cleared(ClientGameTestContext ctx) {
         Map<String, Boolean> m = new LinkedHashMap<>();
         for (Room r : floor(ctx)) {
             m.put(r.name(), r.cleared());
@@ -1173,7 +1191,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
         return m;
     }
 
-    private static void awaitFloorChunks(ClientGameTestContext ctx) {
+    static void awaitFloorChunks(ClientGameTestContext ctx) {
         int missing = -1;
         int waited = 0;
         for (; waited < 1800; waited += 10) {
@@ -1201,7 +1219,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
                 : missing + " still missing after 90 s"));
     }
 
-    private static void println(String s) {
+    static void println(String s) {
         System.out.println("[" + NAME + "] " + s);
     }
 }

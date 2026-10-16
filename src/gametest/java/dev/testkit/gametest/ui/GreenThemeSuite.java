@@ -54,6 +54,11 @@ import java.util.Locale;
  *       swing while the button column barely changes, the title band and column pass the forest's contrast checks, and it
  *       allocates no more per rectangle than Amber's embers. It notes rects per frame. TESTKIT_GREEN_SHOTS copies the frame
  *       to acid-cave.png. On a jar without the scene the hook is missing and the case fails.</li>
+ *   <li>1651 also, the slime boss (green-v4-1015, the designer: "the radiance is the slime boss ... emerging from the acid
+ *       lake"): BOSS is the default Green scene; it is a still (nothing changes over 4 s of its clock); the boss glows bright
+ *       on the right, the character's silhouette is dark on the left, the title band and column pass the same contrast
+ *       checks, and it allocates no more per rectangle than Amber's embers. TESTKIT_GREEN_SHOTS copies it to
+ *       boss-scene.png.</li>
  *   <li>1652 also: Canopy Glow (C) is the default gradient (the designer: "the last gradient looks the best").</li>
  *   <li>1653 ~10 s of the default Green scene (or {@code -Dtestkit.greenScene=FOREST|SIMPLE|ACID}) at 60 fps, one PNG per
  *       1/60 s of the scene clock into {@code <report>/green-<scene>/} (for ffmpeg). Only runs when its number is named.</li>
@@ -308,7 +313,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
                     new Expect("custom auto", "AMBER", "CUSTOM", "GREEN", "AUTO"))) {
                 String why = c.onClient(mc -> {
                     Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", FontsMainMenuSuite.menuTheme(e.menu()));
-                    FontsMainMenuSuite.setMm(mc, e.style(), e.theme(), e.scene(), 100, true, true);
+                    FontsMainMenuSuite.setMm(mc, e.style(), e.theme(), e.scene(), 100, true);
                     Object[] l = FontsMainMenuSuite.look();
                     if (!"FIREFLIES".equals(l[0])) {
                         return e.label() + ": scene " + l[0] + ", expected FIREFLIES";
@@ -322,7 +327,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
             }
             // The main menu's own theme setting saves and reloads.
             c.onClient(mc -> {
-                FontsMainMenuSuite.setMm(mc, "SEPARATE", "GREEN", "AUTO", 100, true, true);
+                FontsMainMenuSuite.setMm(mc, "SEPARATE", "GREEN", "AUTO", 100, true);
                 Mod.call(Mod.cfg(FontsMainMenuSuite.MM), "save");
                 Mod.staticCall(FontsMainMenuSuite.MM, "load");
                 return null;
@@ -330,10 +335,12 @@ public class GreenThemeSuite implements FabricClientGameTest {
             String reloaded = c.onClient(mc -> String.valueOf(Mod.call(Mod.cfg(FontsMainMenuSuite.MM), "getTheme")));
             c.check(reloaded.equals("GREEN"), "after a reload the main menu's theme is " + reloaded);
 
+            // An animated Green scene for the "moves between two frames" check (the default, the slime boss, is a still).
+            greenScene(c, "ACID");
             FontsMainMenuSuite.setWindow(c, 1600, 900, 2);
             c.onClient(mc -> {
                 Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", FontsMainMenuSuite.menuTheme("GREEN"));
-                FontsMainMenuSuite.setMm(mc, "MATCH", "GREEN", "AUTO", 100, true, true);
+                FontsMainMenuSuite.setMm(mc, "MATCH", "GREEN", "AUTO", 100, true);
                 McCompat.setScreen(mc, new TitleScreen());
                 return null;
             });
@@ -350,8 +357,13 @@ public class GreenThemeSuite implements FabricClientGameTest {
             c.check(moved > 0.0005, "the Fireflies scene did not move between two frames: " + moved);
             greenScene(c, "FOREST");
             forest(c);
-            greenScene(c, "");
+            greenScene(c, "ACID");
             acidCave(c);
+            greenScene(c, "");
+            greenScene(c, "BOSS");
+            bossScene(c);
+            greenScene(c, "");
+            targetScene(c);
             c.check(!(Boolean) c.onClient(mc -> Mod.field("mainmenu.MainMenuTheme", "failed")),
                     "the themed main menu turned itself off after an error");
         } finally {
@@ -567,7 +579,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
             // The main menu in Green at the same size.
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
-                FontsMainMenuSuite.setMm(mc, "MATCH", "GREEN", "AUTO", 100, true, true);
+                FontsMainMenuSuite.setMm(mc, "MATCH", "GREEN", "AUTO", 100, true);
                 McCompat.setScreen(mc, new TitleScreen());
                 return null;
             });
@@ -669,7 +681,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
         FontsMainMenuSuite.setWindow(c, 1920, 1080, 2);
         c.onClient(mc -> {
             Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", FontsMainMenuSuite.menuTheme("GREEN"));
-            FontsMainMenuSuite.setMm(mc, "MATCH", "GREEN", "AUTO", 100, true, true);
+            FontsMainMenuSuite.setMm(mc, "MATCH", "GREEN", "AUTO", 100, true);
             McCompat.setScreen(mc, new TitleScreen());
             return null;
         });
@@ -779,7 +791,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
                 return "none";
             }
         });
-        c.check("ACID".equals(def), "the default Green scene is " + def + ", not ACID");
+        c.note("default Green scene: " + def + " (the acid cave is drawn through the test hook)");
         forestTitle(c);
         clock(c, 2_000_000);
         c.ticks(2);
@@ -839,9 +851,124 @@ public class GreenThemeSuite implements FabricClientGameTest {
                 "the acid cave allocates beyond its rectangles: %.1f B/rect against embers' %.1f", bPerQuad, refPerQuad));
     }
 
+    /** The designer's own picture, animated (green-v7-1016: "match THIS image almost exactly"), the default Green scene. */
+    static void targetScene(UiCase c) throws Exception {
+        String def = c.onClient(mc -> {
+            try {
+                return String.valueOf(Mod.field(Mod.ROOT + SCENES, "GREEN_SCENE"));
+            } catch (Throwable t) {
+                return "none";
+            }
+        });
+        c.check("TARGET".equals(def), "the default Green scene is " + def + ", not TARGET");
+        // green-v8-1016 (killer560): droplets dripping from the ceiling.
+        int drops = c.onClient(mc -> {
+            try {
+                return (Integer) Mod.field("mainmenu.TargetScene", "DROPS");
+            } catch (Throwable t) {
+                return 0;
+            }
+        });
+        c.note("ceiling droplet sources: " + drops);
+        c.check(drops >= 12, "the target scene has no ceiling droplets (" + drops + " sources)");
+        forestTitle(c);
+        clock(c, 2_000_000);
+        c.ticks(2);
+        Path pa = FontsMainMenuSuite.shot(c, "target-a");
+        FontsMainMenuSuite.Pic a = FontsMainMenuSuite.pic(pa);
+        String copy = System.getenv("TESTKIT_GREEN_SHOTS");
+        if (copy != null && !copy.isBlank()) {
+            Files.createDirectories(Path.of(copy));
+            Files.copy(pa, Path.of(copy).resolve("drops.png"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+        clock(c, 2_001_800);
+        c.ticks(2);
+        FontsMainMenuSuite.Pic b = FontsMainMenuSuite.pic(FontsMainMenuSuite.shot(c, "target-b"));
+        BufferedImage A = a.img();
+        int W = A.getWidth();
+        int H = A.getHeight();
+        double moved = FontsMainMenuSuite.changed(A, b.img());
+        // The cape (left of her body) moves between the two frames.
+        double cape = FontsMainMenuSuite.changed(A.getSubimage(W * 4 / 100, H * 42 / 100, W * 9 / 100, H * 27 / 100),
+                b.img().getSubimage(W * 4 / 100, H * 42 / 100, W * 9 / 100, H * 27 / 100));
+        double[] title = boxStats(A, 0.25, 0.0, 0.75, 0.22);
+        double[] column = boxStats(A, 0.3, 0.22, 0.7, 0.66);
+        double[] slime = boxStats(A, 0.74, 0.55, 0.89, 0.75);
+        double[] girl = boxStats(A, 0.135, 0.45, 0.165, 0.56); // her back, under the cape
+        int text = c.onClient(mc -> ((int[]) Mod.call(Mod.enumValue("gui.MenuTheme", "GREEN"), "base"))[3]);
+        float colContrast = contrast(text, (int) column[1] | 0xFF000000);
+        float titleContrast = contrast(0xFFFFFFFF, (int) title[1] | 0xFF000000);
+        long[] alloc = alloc(c);
+        c.note(String.format(Locale.ROOT, "target: rgb %.1f,%.1f,%.1f lum %.3f, moved %.2f%% over 1.8 s, cape region %.2f%%; slime lum %.3f, "
+                        + "girl lum %.3f; title band lum %.3f (white title %.1f:1), button column lum %.3f (Green text %.1f:1); "
+                        + "%.0f B/frame over %d frames",
+                a.r(), a.g(), a.b(), a.lum(), moved * 100, cape * 100, slime[0], girl[0], title[0], titleContrast, column[0],
+                colContrast, alloc[0] / (double) Math.max(1, alloc[1]), alloc[1]));
+        c.check(a.g() > a.r() + 4 && a.g() > a.b() + 2, "the target scene is not green-dominant: " + a.r() + "," + a.g() + "," + a.b());
+        c.check(slime[0] > 0.45, "the picture is not drawn (no glowing slime on the right): lum " + slime[0]);
+        c.check(girl[0] < 0.08, "the picture is not drawn (no dark girl on the left): lum " + girl[0]);
+        c.check(moved > 0.002, String.format(Locale.ROOT, "the target scene did not move: %.3f%%", moved * 100));
+        c.check(cape > 0.01, String.format(Locale.ROOT, "the cape did not flow: %.3f%% of its region changed", cape * 100));
+        c.check(title[0] < 0.2 && titleContrast >= 7f, "the title band is too bright: lum " + title[0] + ", contrast " + titleContrast);
+        c.check(column[0] < 0.2 && colContrast >= 7f, "the button column is too bright: lum " + column[0] + ", contrast " + colContrast);
+    }
+
+    /** The slime boss (green-v4-1015), a still for now. */
+    static void bossScene(UiCase c) throws Exception {
+        String def = c.onClient(mc -> {
+            try {
+                return String.valueOf(Mod.field(Mod.ROOT + SCENES, "GREEN_SCENE"));
+            } catch (Throwable t) {
+                return "none";
+            }
+        });
+        c.note("default Green scene: " + def + " (the slime boss is drawn through the test hook)");
+        forestTitle(c);
+        clock(c, 2_000_000);
+        c.ticks(2);
+        Path pa = FontsMainMenuSuite.shot(c, "boss-a");
+        FontsMainMenuSuite.Pic a = FontsMainMenuSuite.pic(pa);
+        clock(c, 2_004_000);
+        c.ticks(2);
+        FontsMainMenuSuite.Pic b = FontsMainMenuSuite.pic(FontsMainMenuSuite.shot(c, "boss-b"));
+        String copy = System.getenv("TESTKIT_GREEN_SHOTS");
+        if (copy != null && !copy.isBlank()) {
+            Files.createDirectories(Path.of(copy));
+            Files.copy(pa, Path.of(copy).resolve("boss-scene.png"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+        double moved = FontsMainMenuSuite.changed(a.img(), b.img());
+        double[] title = boxStats(a.img(), 0.25, 0.0, 0.75, 0.22);
+        double[] column = boxStats(a.img(), 0.3, 0.22, 0.7, 0.66);
+        double[] bossBox = boxStats(a.img(), 0.74, 0.55, 0.89, 0.78);
+        double[] charBox = boxStats(a.img(), 0.115, 0.50, 0.145, 0.62); // the torso (green-v5: a slender smooth figure)
+        int text = c.onClient(mc -> ((int[]) Mod.call(Mod.enumValue("gui.MenuTheme", "GREEN"), "base"))[3]);
+        float colContrast = contrast(text, (int) column[1] | 0xFF000000);
+        float titleContrast = contrast(0xFFFFFFFF, (int) title[1] | 0xFF000000);
+        long[] alloc = alloc(c);
+        double quads = alloc[2] / (double) Math.max(1, alloc[1]);
+        double bPerQuad = alloc[0] / (double) Math.max(1, alloc[2]);
+        c.note(String.format(Locale.ROOT, "slime boss: rgb %.1f,%.1f,%.1f lum %.3f, moved %.2f%% over 4 s; boss lum %.3f, character "
+                        + "lum %.3f; title band lum %.3f (white title %.1f:1), button column lum %.3f (Green text %.1f:1); %.0f rects/frame, "
+                        + "%.0f B/frame, %.1f B/rect over %d frames",
+                a.r(), a.g(), a.b(), a.lum(), moved * 100, bossBox[0], charBox[0], title[0], titleContrast, column[0], colContrast,
+                quads, alloc[0] / (double) Math.max(1, alloc[1]), bPerQuad, alloc[1]));
+        c.check(a.g() > a.r() + 4 && a.g() > a.b() + 2, "the slime boss scene is not green-dominant: " + a.r() + "," + a.g() + "," + a.b());
+        c.check(a.lum() < 0.3, "the slime boss scene is too bright for the menu: " + a.lum());
+        c.check(moved < 0.002, String.format(Locale.ROOT, "the still moved over 4 s: %.3f%%", moved * 100));
+        c.check(bossBox[0] > 0.45, "no glowing boss on the right: lum " + bossBox[0]);
+        c.check(charBox[0] < 0.08, "no dark character silhouette on the left: lum " + charBox[0]);
+        c.check(title[0] < 0.2 && titleContrast >= 7f, "the title band is too bright: lum " + title[0] + ", contrast " + titleContrast);
+        c.check(column[0] < 0.2 && colContrast >= 7f, "the button column is too bright: lum " + column[0] + ", contrast " + colContrast);
+        c.check(alloc[1] >= 50 && alloc[2] > 0, "the allocation probe did not run: " + Arrays.toString(alloc));
+        long[] ref = embersAlloc(c);
+        double refPerQuad = ref[0] / (double) Math.max(1, ref[2]);
+        c.check(bPerQuad <= refPerQuad * 1.15, String.format(Locale.ROOT,
+                "the slime boss allocates beyond its rectangles: %.1f B/rect against embers' %.1f", bPerQuad, refPerQuad));
+    }
+
     static long[] embersAlloc(UiCase c) {
         c.onClient(mc -> {
-            FontsMainMenuSuite.setMm(mc, "CUSTOM", "AMBER", "EMBERS", 100, true, true);
+            FontsMainMenuSuite.setMm(mc, "CUSTOM", "AMBER", "EMBERS", 100, true);
             Mod.staticCall(SCENES, "setAmberSceneForTest", "EMBERS");
             McCompat.setScreen(mc, new TitleScreen());
             return null;
@@ -872,7 +999,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
                 greenScene(c, scene);
             }
             forestTitle(c);
-            int frames = 600;
+            int frames = Integer.parseInt(System.getenv().getOrDefault("TESTKIT_GREEN_FRAMES", "600"));
             Path dir = Report.dir().resolve("green-" + (scene.isEmpty() ? "default" : scene.toLowerCase(Locale.ROOT)));
             for (int i = 0; i < frames; i++) {
                 clock(c, 3_000_000 + i * (1000.0 / 60.0));

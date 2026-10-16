@@ -545,7 +545,7 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	// 97-sim-roomspawn: -ProomspawnOnly=first,rooms,goto  -ProomspawnRooms="Altar,Market"
 	["serverStallMs", "serverStallEvery", "netStallMs", "icefillControl", "icefillBreaks", "floorRepeat",
 	 "roomspawnOnly", "roomspawnRooms", "roomspawnFloors", "pathoptRooms", "nametagShots", "nametagShotsOnly",
-	 "videoOut"].each { p ->
+	 "videoOut", "pathlandFloors", "pathlandSeed"].each { p ->
 		if (project.hasProperty(p)) {
 			systemProperty "testkit.${p}", project.property(p)
 		}
@@ -652,6 +652,9 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 		systemProperty "killer560.test.noExternalOpen", "true"
 	}
 	systemProperty "testkit.quiet", noQuiet ? "false" : "true"
+	// The mod's unreleased main menu pictures (Green's TARGET scene, gradient C) show only in killer560's Title Screen GUI
+	// instance or with this property (mod MainMenuScenes.previewScenes, 2026-10-16); 1651-1653 check those pictures.
+	systemProperty "killer560smod.previewScenes", "true"
 	// Interactive Map tile clicks also plan without the centre preference and log it (95 asserts the warps match).
 	systemProperty "killer560.test.checkFewest", "true"
 	// The mod menu's animations are instant (as with Animations: Off) unless a case drives their clock: the lockstep

@@ -50,8 +50,9 @@ import java.util.Map;
  *   <li>1564-ui-font-settings: the Themes drawer has the Font and Main Menu rows, a real click on Font steps it and it
  *       survives a reload; Open Fonts Folder opens the import folder (the test hook's log line).</li>
  *   <li>1565-ui-mainmenu-styles: Match Menu Theme follows the menu's theme, Separate Theme its own, Custom every look
- *       setting (scene, speed, splash, panel); each title screen extracts cleanly, the panel holds every column button,
- *       the splash text is gone when switched off, Dungeon Sim is a themed vanilla button.</li>
+ *       setting (scene, speed, panel); each title screen extracts cleanly, the panel holds every column button,
+ *       the splash text is never drawn on the themed menu (every style), and IS drawn on the vanilla title screen with
+ *       the theming off, Dungeon Sim is a themed vanilla button.</li>
  *   <li>1566-ui-mainmenu-scenes: a screenshot of every background in its theme: Ocean's waterfall reads blue, Amber's
  *       embers orange, Light bright, Dark dark, and each one moves between two frames.</li>
  *   <li>1567-ui-mainmenu-real-name: with Name Changer giving his name a red custom name, the title screen's
@@ -64,7 +65,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
 
     static final String[] TITLE_CASES = {"1565-ui-mainmenu-styles", "1566-ui-mainmenu-scenes",
             "1567-ui-mainmenu-real-name", "1568-ui-amber-scene", "1569-ui-amber-video",
-            "1571-ui-mainmenu-mod-settings", "1572-ui-vanilla-menus"};
+            "1571-ui-mainmenu-mod-settings", "1572-ui-vanilla-menus", "1574-ui-title-switcher"};
     static final String[] WORLD_CASES = {"1561-ui-font-menu-only", "1562-ui-font-everything", "1563-ui-font-import",
             "1564-ui-font-settings", "1573-ui-vanilla-pause"};
 
@@ -106,6 +107,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
         UiCase.run(ctx, "1569-ui-amber-video", AmberSceneCases::video);
         UiCase.run(ctx, "1571-ui-mainmenu-mod-settings", FontsMainMenuSuite::modSettings);
         UiCase.run(ctx, "1572-ui-vanilla-menus", VanillaThemeCases::menus);
+        UiCase.run(ctx, "1574-ui-title-switcher", TitleSwitcherCases::run);
         if (anyWorld) {
             try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
                 ctx.waitTicks(40);
@@ -526,7 +528,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
     // main menu
     // =================================================================================================================
 
-    record MmState(Object style, Object theme, Object scene, Object density, int speed, boolean splash, boolean panel,
+    record MmState(Object style, Object theme, Object scene, Object density, int speed, boolean panel,
                    boolean particles, boolean enabled, Object menuTheme) {
     }
 
@@ -534,7 +536,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
         return c.onClient(mc -> {
             Object cfg = Mod.cfg(MM);
             return new MmState(Mod.call(cfg, "getStyle"), Mod.call(cfg, "getTheme"), Mod.call(cfg, "getScene"),
-                    Mod.call(cfg, "getDensity"), (Integer) Mod.call(cfg, "getSpeed"), (Boolean) Mod.call(cfg, "isSplash"),
+                    Mod.call(cfg, "getDensity"), (Integer) Mod.call(cfg, "getSpeed"),
                     (Boolean) Mod.call(cfg, "isPanel"), (Boolean) Mod.call(cfg, "isParticles"),
                     (Boolean) Mod.call(cfg, "isEnabled"), Mod.call(Mod.cfg("gui.MenuConfig"), "getTheme"));
         });
@@ -548,7 +550,6 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
             Mod.call(cfg, "setScene", s.scene());
             Mod.call(cfg, "setDensity", s.density());
             Mod.call(cfg, "setSpeed", s.speed());
-            Mod.call(cfg, "setSplash", s.splash());
             Mod.call(cfg, "setPanel", s.panel());
             Mod.call(cfg, "setParticles", s.particles());
             Mod.call(cfg, "setEnabled", s.enabled());
@@ -562,7 +563,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
         return Mod.enumValue("gui.MenuTheme", name);
     }
 
-    static void setMm(Minecraft mc, String style, String theme, String scene, int speed, boolean splash, boolean panel) {
+    static void setMm(Minecraft mc, String style, String theme, String scene, int speed, boolean panel) {
         Object cfg = Mod.cfg(MM);
         Mod.call(cfg, "setEnabled", true);
         Mod.call(cfg, "setParticles", true);
@@ -571,14 +572,13 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
         Mod.call(cfg, "setScene", Mod.enumValue(MM + "$Scene", scene));
         Mod.call(cfg, "setDensity", Mod.enumValue(MM + "$Density", "NORMAL"));
         Mod.call(cfg, "setSpeed", speed);
-        Mod.call(cfg, "setSplash", splash);
         Mod.call(cfg, "setPanel", panel);
     }
 
-    /** {scene name, colours, splash, panel, speed} of MainMenuLook.current(). */
+    /** {scene name, colours, panel, speed} of MainMenuLook.current(). */
     static Object[] look() {
         Object look = Mod.staticCall("mainmenu.MainMenuLook", "current");
-        return new Object[]{String.valueOf(Mod.call(look, "scene")), Mod.call(look, "colours"), Mod.call(look, "splash"),
+        return new Object[]{String.valueOf(Mod.call(look, "scene")), Mod.call(look, "colours"),
                 Mod.call(look, "panel"), Mod.call(look, "speed")};
     }
 
@@ -594,19 +594,19 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
         MmState saved = saveMm(c);
         try {
             record Expect(String label, String menu, String style, String theme, String scene, String wantScene,
-                          String coloursOf, boolean splash, boolean panel, int speed) {
+                          String coloursOf, boolean panel, int speed) {
             }
             List<Expect> cases = List.of(
-                    new Expect("match amber", "AMBER", "MATCH", "OCEAN", "PLAIN", "EMBERS", "AMBER", true, true, 100),
-                    new Expect("match ocean", "OCEAN", "MATCH", "LIGHT", "PLAIN", "WATERFALL", "OCEAN", true, true, 100),
-                    new Expect("separate light", "AMBER", "SEPARATE", "LIGHT", "PLAIN", "SOFT_LIGHT", "LIGHT", true, true, 100),
-                    new Expect("separate dark", "OCEAN", "SEPARATE", "DARK", "AURORA", "STARFIELD", "DARK", true, true, 100),
-                    new Expect("custom aurora", "AMBER", "CUSTOM", "OCEAN", "AURORA", "AURORA", "OCEAN", false, false, 200),
-                    new Expect("custom auto", "AMBER", "CUSTOM", "DARK", "AUTO", "STARFIELD", "DARK", true, true, 50));
+                    new Expect("match amber", "AMBER", "MATCH", "OCEAN", "PLAIN", "EMBERS", "AMBER", true, 100),
+                    new Expect("match ocean", "OCEAN", "MATCH", "LIGHT", "PLAIN", "WATERFALL", "OCEAN", true, 100),
+                    new Expect("separate light", "AMBER", "SEPARATE", "LIGHT", "PLAIN", "SOFT_LIGHT", "LIGHT", true, 100),
+                    new Expect("separate dark", "OCEAN", "SEPARATE", "DARK", "AURORA", "STARFIELD", "DARK", true, 100),
+                    new Expect("custom aurora", "AMBER", "CUSTOM", "OCEAN", "AURORA", "AURORA", "OCEAN", false, 200),
+                    new Expect("custom auto", "AMBER", "CUSTOM", "DARK", "AUTO", "STARFIELD", "DARK", true, 50));
             for (Expect e : cases) {
                 String why = c.onClient(mc -> {
                     Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", menuTheme(e.menu()));
-                    setMm(mc, e.style(), e.theme(), e.scene(), e.speed(), e.splash(), e.panel());
+                    setMm(mc, e.style(), e.theme(), e.scene(), e.speed(), e.panel());
                     Object[] l = look();
                     int[] want = (int[]) Mod.call(menuTheme(e.coloursOf()), "base");
                     if (!e.wantScene().equals(l[0])) {
@@ -615,9 +615,8 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                     if (!java.util.Arrays.equals(want, (int[]) l[1])) {
                         return e.label() + ": colours " + hex((int[]) l[1]) + ", expected " + e.coloursOf() + "'s " + hex(want);
                     }
-                    if ((Boolean) l[2] != e.splash() || (Boolean) l[3] != e.panel()
-                            || Math.abs((Float) l[4] - e.speed() / 100f) > 0.001f) {
-                        return e.label() + ": splash/panel/speed " + l[2] + "/" + l[3] + "/" + l[4];
+                    if ((Boolean) l[2] != e.panel() || Math.abs((Float) l[3] - e.speed() / 100f) > 0.001f) {
+                        return e.label() + ": panel/speed " + l[2] + "/" + l[3];
                     }
                     return null;
                 });
@@ -668,19 +667,10 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                     if (!simThemed) {
                         return e.label() + ": Dungeon Sim is not a vanilla button the theme draws";
                     }
-                    // Splash text drawn or not.
-                    Object splash = Mod.field(s, "splash");
-                    String splashText = splash == null ? null : net.minecraft.ChatFormatting.stripFormatting(plainSplash(splash));
-                    boolean drawn = false;
-                    if (splashText != null) {
-                        GuiRenderState state = new GuiRenderState();
-                        s.extractRenderStateWithTooltipAndSubtitles(new GuiGraphicsExtractor(mc, state, -1, -1), -1, -1, 0.5f);
-                        boolean[] hit = {false};
-                        state.forEachText(t -> hit[0] |= plain(textOf(t)).equals(splashText));
-                        drawn = hit[0];
-                    }
-                    if (splashText != null && drawn != e.splash()) {
-                        return e.label() + ": splash '" + splashText + "' drawn=" + drawn + " with Splash Text " + e.splash();
+                    // No splash text on the themed main menu, in any theme, style or scene (killer560, 2026-10-15).
+                    String splashWhy = splashDrawn(mc, s, false);
+                    if (splashWhy != null) {
+                        return e.label() + ": " + splashWhy;
                     }
                     // Button labels: no drop shadow on a light theme (it smears dark text), a shadow on a dark one.
                     GuiRenderState state = new GuiRenderState();
@@ -720,6 +710,26 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                 });
                 c.check(screenWhy == null, screenWhy);
             }
+            // The control: with the main menu theming off the title screen is vanilla's and keeps its splash, so the
+            // check above can see a splash when one is drawn.
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(MM), "setEnabled", false);
+                McCompat.setScreen(mc, new TitleScreen());
+                return null;
+            });
+            c.ticks(4);
+            String vanillaWhy = c.onClient(mc -> {
+                Screen s = McCompat.screen(mc);
+                if (!(s instanceof TitleScreen)) {
+                    return "vanilla: no title screen up";
+                }
+                if ((Boolean) Mod.staticCall("mainmenu.MainMenuTheme", "activeOnTitleScreen")) {
+                    return "vanilla: the themed main menu is still active with the theming off";
+                }
+                String why = splashDrawn(mc, s, true);
+                return why == null ? null : "vanilla: " + why;
+            });
+            c.check(vanillaWhy == null, vanillaWhy);
         } finally {
             restoreMm(c, saved);
         }
@@ -733,6 +743,21 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("GuiTextRenderState.dropShadow", e);
         }
+    }
+
+    /** Null when the title screen's splash text is drawn exactly when {@code want} says; a reason otherwise. The screen
+     *  must hold a splash, or there is nothing to judge and the check fails rather than pass vacuously. */
+    static String splashDrawn(Minecraft mc, Screen s, boolean want) {
+        Object splash = Mod.field(s, "splash");
+        String splashText = splash == null ? null : net.minecraft.ChatFormatting.stripFormatting(plainSplash(splash));
+        if (splashText == null || splashText.isEmpty()) {
+            return "the title screen holds no splash text to judge";
+        }
+        GuiRenderState state = new GuiRenderState();
+        s.extractRenderStateWithTooltipAndSubtitles(new GuiGraphicsExtractor(mc, state, -1, -1), -1, -1, 0.5f);
+        boolean[] hit = {false};
+        state.forEachText(t -> hit[0] |= plain(textOf(t)).equals(splashText));
+        return hit[0] == want ? null : "splash '" + splashText + "' drawn=" + hit[0] + ", expected " + want;
     }
 
     static String plainSplash(Object splashRenderer) {
@@ -866,7 +891,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
             List<String> summary = new ArrayList<>();
             for (String[] sc : scenes) {
                 c.onClient(mc -> {
-                    setMm(mc, "CUSTOM", sc[1], sc[0], 100, true, true);
+                    setMm(mc, "CUSTOM", sc[1], sc[0], 100, true);
                     McCompat.setScreen(mc, new TitleScreen());
                     return null;
                 });
@@ -914,8 +939,19 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                 // scene, Plain included, so a whole-screen count cannot tell a moving background from a still one.
                 int side = sideMoved(a.img(), b.img());
                 summary.set(summary.size() - 1, summary.getLast() + ", sides " + side + " px");
+                // Green's slime boss (green-v4-1015) is a still until the designer approves it (killer560: "ONLY the
+                // still image first"), so Fireflies is not required to move while that is the Green default.
+                boolean greenStill = sc[0].equals("FIREFLIES") && c.onClient(mc -> {
+                    try {
+                        return "BOSS".equals(String.valueOf(Mod.field(Mod.ROOT + "mainmenu.MainMenuScenes", "GREEN_SCENE")));
+                    } catch (Throwable t) {
+                        return false;
+                    }
+                });
                 if (sc[0].equals("PLAIN")) {
                     c.check(side < 20, "Plain moved " + side + " px at the sides - the control is not still");
+                } else if (greenStill) {
+                    c.note("FIREFLIES draws Green's slime boss, a still by design: " + side + " px moved at the sides");
                 } else {
                     c.check(side >= 20, sc[0] + " did not move at the sides between two frames: " + summary.getLast());
                 }

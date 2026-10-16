@@ -66,7 +66,8 @@ public final class HxDungeonModule implements HxModule {
     /**
      * A Catacombs starred mob as Hypixel shows it: a zombie (no AI, persistent) and, built right after it so its entity
      * id is the zombie's plus one, an invisible marker armour stand over it named " (star) Zombie 20(heart)" - what Mob
-     * ESP (and so Auto Clear) resolves. Args x, y, z (the zombie's feet). Returns the two UUIDs and entity ids.
+     * ESP (and so Auto Clear) resolves. Args x, y, z (the zombie's feet), optional name (the stand's tag, e.g. an
+     * unstarred "[Lv89] Crypt Undead 45k❤" crypt mob). Returns the two UUIDs and entity ids.
      */
     private static JsonElement starred(MinecraftServer server, JsonObject a) {
         ServerLevel level = server.overworld();
@@ -89,7 +90,8 @@ public final class HxDungeonModule implements HxModule {
         byte flags = stand.getEntityData().get(net.minecraft.world.entity.decoration.ArmorStand.DATA_CLIENT_FLAGS);
         stand.getEntityData().set(net.minecraft.world.entity.decoration.ArmorStand.DATA_CLIENT_FLAGS,
                 (byte) (flags | net.minecraft.world.entity.decoration.ArmorStand.CLIENT_FLAG_MARKER));
-        stand.setCustomName(net.minecraft.network.chat.Component.literal(" ✯ Zombie 20❤"));
+        stand.setCustomName(net.minecraft.network.chat.Component.literal(a.has("name") ? a.get("name").getAsString()
+                : " ✯ Zombie 20❤"));
         stand.setCustomNameVisible(true);
         level.addFreshEntity(mob);
         level.addFreshEntity(stand);
