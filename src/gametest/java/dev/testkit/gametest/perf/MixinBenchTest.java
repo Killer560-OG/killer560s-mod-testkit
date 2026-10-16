@@ -347,12 +347,45 @@ public class MixinBenchTest implements FabricClientGameTest {
 
     private static void inFrame(Session c, String cfg, String phase, int frames, double timer, List<String> report,
                                 List<String> tsv) {
-        c.ctx().runOnClient(mc -> MixinBench.start());
+        long[] start = c.onClient(mc -> {
+            MixinBench.start();
+            return new long[]{renderAllocated(), dev.testkit.harness.FrameClock.frameCount()};
+        });
+        jdk.jfr.Recording rec = null;
+        if (Boolean.getBoolean("testkit.mixinBench.jfr")) {
+            try {
+                rec = new jdk.jfr.Recording(jdk.jfr.Configuration.getConfiguration("profile"));
+                rec.enable("jdk.ExecutionSample").withPeriod(java.time.Duration.ofMillis(1));
+                rec.start();
+            } catch (Exception e) {
+                report.add("  JFR failed: " + e);
+                rec = null;
+            }
+        }
         c.ctx().waitTicks(frames);
         long[][] r = c.onClient(mc -> {
             MixinBench.stop();
-            return new long[][]{MixinBench.calls(), MixinBench.nanos()};
+            return new long[][]{MixinBench.calls(), MixinBench.nanos(),
+                    {renderAllocated() - start[0], dev.testkit.harness.FrameClock.frameCount() - start[1]}};
         });
+        if (rec != null) {
+            try {
+                rec.stop();
+                Path file = Path.of(System.getProperty("testkit.reportDir", "build/testkit-report"))
+                        .resolve("mixin-" + cfg + "-" + phase + ".jfr");
+                Files.createDirectories(file.getParent());
+                rec.dump(file);
+                rec.close();
+                report.add("  JFR " + file.getFileName());
+            } catch (Exception e) {
+                report.add("  JFR failed: " + e);
+            }
+        }
+        long frameCount = Math.max(1, r[2][1]);
+        report.add(String.format(Locale.ROOT, "  frame %-6s render-thread allocation %9.1f KB/frame  (%d frames)",
+                phase, r[2][0] / 1024.0 / frameCount, r[2][1]));
+        tsv.add(cfg + "	frame-" + phase + "	render-thread KB/frame	"
+                + String.format(Locale.ROOT, "%.2f", r[2][0] / 1024.0 / frameCount) + "	" + r[2][1]);
         for (int i = 0; i < MixinBench.POINTS.length; i++) {
             long n = r[0][i];
             if (n == 0) {
@@ -362,6 +395,12 @@ public class MixinBenchTest implements FabricClientGameTest {
             report.add(String.format(Locale.ROOT, "  frame %-6s %-44s %9.1f ns/call  (%d calls)", phase, MixinBench.POINTS[i], ns, n));
             tsv.add(cfg + "\tframe-" + phase + "\t" + MixinBench.POINTS[i] + "\t" + String.format(Locale.ROOT, "%.1f", ns) + "\t" + n);
         }
+    }
+
+    /** Bytes allocated so far by the calling thread (the render thread, from runOnClient). */
+    private static long renderAllocated() {
+        return ((com.sun.management.ThreadMXBean) java.lang.management.ManagementFactory.getThreadMXBean())
+                .getCurrentThreadAllocatedBytes();
     }
 
     // ---- direct-call loops ----------------------------------------------------------------------------------------

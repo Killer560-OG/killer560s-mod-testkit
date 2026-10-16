@@ -579,7 +579,7 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	// -PmixinBenchAlone: also time the open menu with each ALL ON switch alone (-PmixinBenchAloneTicks=40 each).
 	// -PmixinBenchOnly=direct|frame|alone skips the other parts. -PmixinBenchFrames=300 ticks per in-frame phase.
 	["mixinBenchAlone": "alone", "mixinBenchAloneTicks": "aloneTicks", "mixinBenchOnly": "only",
-	 "mixinBenchFrames": "frames"].each { prop, key ->
+	 "mixinBenchFrames": "frames", "mixinBenchJfr": "jfr"].each { prop, key ->
 		if (project.hasProperty(prop)) {
 			systemProperty "testkit.mixinBench.${key}", project.property(prop).toString().isEmpty() ? "true" : project.property(prop)
 		}
