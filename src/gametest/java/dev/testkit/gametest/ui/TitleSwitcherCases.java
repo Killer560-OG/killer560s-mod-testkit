@@ -239,7 +239,13 @@ final class TitleSwitcherCases {
                     c.note(String.format(Locale.ROOT, "%s: rgb %.0f,%.0f,%.0f, %.1f%% differs from the look before",
                             name, pic.r(), pic.g(), pic.b(), d * 100));
                     if (!sameTitle) {
-                        c.check(d > 0.05, String.format(Locale.ROOT, "%s draws the same title screen as the look before it: %.2f%% differ", name, d * 100));
+                        // Dark's Milky Way with and without the character differ by the character alone (~0.6% of the
+                        // frame, 2026-10-16), so a scene variant of the same picture needs only a visible change.
+                        boolean variantOnly = info[2].equals(prevInfo[2]) && info[3].equals(prevInfo[3])
+                                && info[4].equals(prevInfo[4]) && String.valueOf(info[6]).startsWith("MILKY_WAY")
+                                && String.valueOf(prevInfo[6]).startsWith("MILKY_WAY");
+                        double min = variantOnly ? 0.0025 : 0.05;
+                        c.check(d > min, String.format(Locale.ROOT, "%s draws the same title screen as the look before it: %.2f%% differ", name, d * 100));
                     }
                 }
                 prev = pic;
@@ -367,9 +373,13 @@ final class TitleSwitcherCases {
                 if (active != saved.enabled()) {
                     return "with the switcher off the themed main menu is " + active + ", saved " + saved.enabled();
                 }
-                if (!"EMBERS".equals(String.valueOf(amber)) || !"BOSS".equals(String.valueOf(green))
-                        || !"CANOPY_GLOW".equals(String.valueOf(gradient))) {
-                    return "turning the switcher off left amber " + amber + ", green " + green + ", gradient " + gradient;
+                // The defaults as the mod states them: Green's moved BOSS -> TARGET when Viridian's final look went to
+                // every instance (mod a8b9555b), so a literal here goes stale with every scene release.
+                Object greenDefault = Mod.staticCall("mainmenu.MainMenuScenes", "defaultGreenScene");
+                Object gradientDefault = Mod.field(Mod.ROOT + "gui.GreenTheme", "DEFAULT_GRADIENT");
+                if (!"EMBERS".equals(String.valueOf(amber)) || green != greenDefault || gradient != gradientDefault) {
+                    return "turning the switcher off left amber " + amber + ", green " + green + " (default " + greenDefault
+                            + "), gradient " + gradient + " (default " + gradientDefault + ")";
                 }
                 return null;
             });
