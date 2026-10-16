@@ -182,6 +182,10 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   the list by design, so it failed at y 64 naming the wrong thing - and it would not have caught what was
   actually wrong at that window size, the GRID running into the settings row, because it never looked at the
   grid. Check every drawn box against every control's box.
+- Two runs of a menu screenshot case never match byte for byte: the backdrop margin around the panel shows the animated
+  title panorama, and the header search box's caret blinks. To prove a change left a theme pixel-identical (green-v2,
+  2026-10-15: 940/946/947 on main vs branch), diff the shots and require every differing pixel to sit in the outer 3% of
+  the frame or on the caret - both were the only differences there.
 - Run a screen scenario and read the NUMBERS, not the verdict. The gametest window is about 240 GUI units
   tall, far smaller than a real one, so layout that is fine on a real monitor can overlap there - which is how the map
   designer's `Math.max(14, ...)` cell floor was found. That small window is a feature, not noise: it is the
