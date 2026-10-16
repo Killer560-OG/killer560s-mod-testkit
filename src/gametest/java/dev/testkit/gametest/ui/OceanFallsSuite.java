@@ -27,8 +27,8 @@ import java.util.Locale;
  *   <li>1690 the scene: CAVERN_FALLS is teal, a different picture from the old WATERFALL, moves over 1 s and over 4 s (its
  *       streaks fall: the open fall changes more than the cliffs), the white title and the button text keep their
  *       contrast, and it allocates no more per drawn part than WATERFALL.</li>
- *   <li>1691 the streaks really fall: over a sixtieth of a second the middle of the fall changes a little, never jumps -
- *       successive frames differ in a few percent of the fall, not wholesale.</li>
+ *   <li>1691 the water really pours (ocean-waterfall-2): every sixtieth of a second several percent of the fall changes,
+ *       drawn through the falls shader.</li>
  *   <li>1692 gating: without previewScenes Ocean draws WATERFALL; with it CAVERN_FALLS; the Title Screen Switcher lists
  *       "Ocean · Waterfall" and "Ocean · Cavern Falls".</li>
  *   <li>1693 video (only when named): {@code -PpaintedFrames} (default 600 = 10 s) at 60 fps into
@@ -244,8 +244,14 @@ public class OceanFallsSuite implements FabricClientGameTest {
                 prev = next;
             }
             c.note(String.format(Locale.ROOT, "frame to frame (1/60 s) the fall changes %.2f%%..%.2f%%", least * 100, most * 100));
-            c.check(least > 0.0005, String.format(Locale.ROOT, "a frame where the fall did not move: %.3f%%", least * 100));
-            c.check(most < 0.08, String.format(Locale.ROOT, "the fall jumps between frames: %.2f%% changed in 1/60 s", most * 100));
+            // killer560 after the first clip (2026-10-16): "the water in that looks still" - it changed 0.08-0.10% a frame.
+            // Now the whole curtain pours: several percent of the fall changes every frame.
+            c.check(least > 0.02, String.format(Locale.ROOT, "the water does not pour: only %.2f%% of the fall changed in a"
+                    + " frame", least * 100));
+            boolean shader = c.onClient(mc -> (Boolean) Mod.staticCall("mainmenu.OceanFallsScene", "shaderActive"));
+            long frames = c.onClient(mc -> (Long) Mod.field(Mod.ROOT + "mainmenu.OceanFallsScene", "shaderFrames"));
+            c.note("shader active " + shader + ", " + frames + " frames through it");
+            c.check(shader && frames > 0, "the falls shader did not draw: active " + shader + ", " + frames + " frames");
         });
     }
 
