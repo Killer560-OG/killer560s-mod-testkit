@@ -4,6 +4,7 @@
 	"package": "dev.testkit.mixin.probe",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
+		"ProbeBufferSourceDraws",
 		"ProbeNameAnimation",
 		"ProbeNameReplacer",
 		"ProbePlayerNameDisplay",

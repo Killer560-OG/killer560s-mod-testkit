@@ -173,9 +173,19 @@
 			"dev.testkit.gametest.perf.FpsBenchTest",
 			"dev.testkit.gametest.perf.HubPerfBenchTest",
 			"dev.testkit.gametest.perf.FeatureCostBenchTest",
+			"dev.testkit.gametest.perf.AutoIdleBenchTest",
 			"dev.testkit.gametest.perf.PerfGateTest",
 			"dev.testkit.gametest.perf.PerfFixesTest",
-			"dev.testkit.gametest.perf.NametagPerfBenchTest"
+			"dev.testkit.gametest.perf.NametagPerfBenchTest",
+			"dev.testkit.gametest.perf.MixinBenchTest",
+			"dev.testkit.gametest.perf.MixinFixesTest",
+			"dev.testkit.gametest.perf.WorldRenderBenchTest",
+			"dev.testkit.gametest.perf.PerfScreensTest",
+			"dev.testkit.gametest.perf.PerfHudTest",
+			"dev.testkit.gametest.perf.SimPerfTest",
+			"dev.testkit.gametest.perf.PerfLiveMapTest",
+			"dev.testkit.gametest.perf.PerfIdleTest",
+			"dev.testkit.gametest.perf.PerfBitsTest"
 		]
 	},
 	"depends": {

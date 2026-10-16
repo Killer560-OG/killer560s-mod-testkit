@@ -8,6 +8,7 @@ import dev.testkit.gametest.mod.Mod;
 import dev.testkit.gametest.mod.Quiet;
 import dev.testkit.gametest.ui.JarIndex;
 import dev.testkit.harness.BenchCamera;
+import dev.testkit.harness.EventSpan;
 import dev.testkit.harness.FrameClock;
 
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
@@ -325,7 +326,7 @@ final class PerfBench {
         return String.join(", ", done);
     }
 
-    private static int copyRealRooms() {
+    static int copyRealRooms() {
         try {
             Path source = Path.of(ModUnderTest.instanceConfig(Machine.roomsConfigDir(), "killer560smod-rooms"));
             if (!Files.isDirectory(source)) {
@@ -380,7 +381,31 @@ final class PerfBench {
 
     /** What one phase measured. */
     record Phase(String label, FrameClock.Stats frame, FrameClock.Stats tick, long allocBytes, long wallNs,
-                 Map<String, Key> keys) {
+                 Map<String, Key> keys, double[] spans) {
+        /** {@link EventSpan}: us per call of everything registered on START tick, END tick, after-translucent-terrain
+         *  and after-translucent-features, then bytes per call of each (index 4..7). Real cost only with -PperfNoProbe. */
+        double spanUs(EventSpan.Kind k) {
+            return spans[k.ordinal()];
+        }
+
+        double spanBytes(EventSpan.Kind k) {
+            return spans[4 + k.ordinal()];
+        }
+
+        /** Both tick spans per tick plus both render spans per frame, at 144 fps / 20 tps. */
+        double spanAt144Us() {
+            return (spanUs(EventSpan.Kind.START_TICK) + spanUs(EventSpan.Kind.END_TICK)) * 20.0 / REF_FPS
+                    + spanUs(EventSpan.Kind.AFTER_TERRAIN) + spanUs(EventSpan.Kind.AFTER_FEATURES);
+        }
+
+        String spanLine() {
+            return String.format(Locale.ROOT, "%-34s listener span (no wrapping): START %.2f us %.0f B/tick, END %.2f us"
+                            + " %.0f B/tick, after-terrain %.2f us, after-features %.2f us/frame = %.1f us/frame@144",
+                    label, spanUs(EventSpan.Kind.START_TICK), spanBytes(EventSpan.Kind.START_TICK),
+                    spanUs(EventSpan.Kind.END_TICK), spanBytes(EventSpan.Kind.END_TICK),
+                    spanUs(EventSpan.Kind.AFTER_TERRAIN), spanUs(EventSpan.Kind.AFTER_FEATURES), spanAt144Us());
+        }
+
         int frames() {
             return frame.n();
         }
@@ -460,10 +485,17 @@ final class PerfBench {
             alloc[0] = threadAllocated();
             alloc[1] = System.nanoTime();
             FrameClock.start(ticks * 100); // an idle gametest loop can render 40+ frames a tick
+            EventSpan.start();
         });
         ctx.waitTicks(ticks);
         return ctx.computeOnClient(mc -> {
             FrameClock.stop();
+            EventSpan.stop();
+            double[] spans = new double[8];
+            for (EventSpan.Kind k : EventSpan.Kind.values()) {
+                spans[k.ordinal()] = EventSpan.usPerCall(k);
+                spans[4 + k.ordinal()] = EventSpan.bytesPerCall(k);
+            }
             long bytes = threadAllocated() - alloc[0];
             long wall = System.nanoTime() - alloc[1];
             String snap = (String) Mod.staticCall("perfprobe.PerfProbe", "snapshot");
@@ -481,7 +513,7 @@ final class PerfBench {
             }
             long[] f = FrameClock.frameSamples();
             long[] t = FrameClock.tickSamples();
-            return new Phase(label, FrameClock.stats(f, f.length), FrameClock.stats(t, t.length), bytes, wall, keys);
+            return new Phase(label, FrameClock.stats(f, f.length), FrameClock.stats(t, t.length), bytes, wall, keys, spans);
         });
     }
 

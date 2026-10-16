@@ -12,6 +12,12 @@ import sys
 MOD = "com.killer560."
 
 
+def is_mod(frame):
+    # A mixin handler is merged into the VANILLA class it targets, so its frame is
+    # net.minecraft...handler$abc000$killer560smod$name, not com.killer560...: count those as mod code too.
+    return frame.startswith(MOD) or "killer560smod$" in frame
+
+
 def jfr_exe():
     jh = os.environ.get("JAVA_HOME")
     if jh:
@@ -61,7 +67,7 @@ def main():
         if not fr:
             continue
         self_c[fr[0]] += 1
-        mods = [f for f in fr if f.startswith(MOD)]
+        mods = [f for f in fr if is_mod(f)]
         if mods:
             mod_any += 1
             entry_mod[mods[-1]] += 1
@@ -87,7 +93,7 @@ def main():
         w = int(e["values"].get("weight", 0))
         total += w
         fr = frames(e)
-        mods = [f for f in fr if f.startswith(MOD)]
+        mods = [f for f in fr if is_mod(f)]
         if mods:
             mod_total += w
             cls = e["values"]["objectClass"]["name"]

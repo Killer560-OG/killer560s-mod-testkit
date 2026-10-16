@@ -545,7 +545,7 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	// 97-sim-roomspawn: -ProomspawnOnly=first,rooms,goto  -ProomspawnRooms="Altar,Market"
 	["serverStallMs", "serverStallEvery", "netStallMs", "icefillControl", "icefillBreaks", "floorRepeat",
 	 "roomspawnOnly", "roomspawnRooms", "roomspawnFloors", "pathoptRooms", "nametagShots", "nametagShotsOnly",
-	 "videoOut", "pathlandFloors", "pathlandSeed", "paintedScene", "paintedFrames"].each { p ->
+	 "videoOut", "pathlandFloors", "pathlandSeed", "paintedScene", "paintedFrames", "perfWorldTicks", "perfWorldRounds"].each { p ->
 		if (project.hasProperty(p)) {
 			systemProperty "testkit.${p}", project.property(p)
 		}
@@ -564,9 +564,25 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	}
 	["Rounds": "rounds", "BigTicks": "bigTicks", "AloneTicks": "aloneTicks", "GateTicks": "gateTicks", "Only": "only",
 	 "BudgetPct": "budgetPct", "BudgetFloorUs": "budgetFloorUs", "FeaturePct": "featurePct",
-	 "FeatureFloorUs": "featureFloorUs"].each { suffix, key ->
+	 "FeatureFloorUs": "featureFloorUs", "Screens": "screens", "Auto": "auto", "AutoSkip": "autoSkip"].each { suffix, key ->
 		if (project.hasProperty("perf" + suffix)) {
 			systemProperty "testkit.perf.${key}", project.property("perf" + suffix)
+		}
+	}
+	// 95-mixin-bench (docs/fps-bench.md): its @WrapMethod timers on hot vanilla methods are applied only for a run that
+	// names it, so no other run carries them. -PmixinBenchIters=N scales the direct-call loops.
+	if (scenarioFilter.contains("95-mixin")) {
+		systemProperty "testkit.mixinBench", "true"
+	}
+	if (project.hasProperty("mixinBenchIters")) {
+		systemProperty "testkit.mixinBench.iters", project.property("mixinBenchIters")
+	}
+	// -PmixinBenchAlone: also time the open menu with each ALL ON switch alone (-PmixinBenchAloneTicks=40 each).
+	// -PmixinBenchOnly=direct|frame|alone skips the other parts. -PmixinBenchFrames=300 ticks per in-frame phase.
+	["mixinBenchAlone": "alone", "mixinBenchAloneTicks": "aloneTicks", "mixinBenchOnly": "only",
+	 "mixinBenchFrames": "frames", "mixinBenchJfr": "jfr"].each { prop, key ->
+		if (project.hasProperty(prop)) {
+			systemProperty "testkit.mixinBench.${key}", project.property(prop).toString().isEmpty() ? "true" : project.property(prop)
 		}
 	}
 	if (project.hasProperty("perfBaseline")) {
@@ -581,8 +597,24 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	if (project.hasProperty("perfJfrTicks")) {
 		systemProperty "testkit.perf.jfrTicks", project.property("perfJfrTicks")
 	}
+	if (project.hasProperty("perfNoCeiling")) {
+		systemProperty "testkit.perf.noCeiling", "true"
+	}
+	if (project.hasProperty("perfAutoJfr")) {
+		systemProperty "testkit.perf.autoJfr", "true"
+	}
+	// Extra JVM flags for the test client, separated by whitespace or "@@" (run-scenario.ps1 hands gradlew.bat its
+	// arguments through Start-Process, which splits on spaces). 95-perf-sim's startup numbers, fps-sim-1015:
+	//   -PclientJvmArgs=-XX:StartFlightRecording:filename=build/testkit-report/startup.jfr,settings=profile@@-Xlog:class+load=info:file=build/testkit-report/classload.txt
+	if (project.hasProperty("clientJvmArgs")) {
+		jvmArgs(project.property("clientJvmArgs").toString().trim().split(/\s+|@@/) as List)
+	}
 	if (project.hasProperty("perfNoJfr")) {
 		systemProperty "testkit.bench.noJfr", "true"
+	}
+	// 95-perf-idle: -PperfIdleJfr=<file> records where a chat line's time and bytes go (OFF, 4000 lines).
+	if (project.hasProperty("perfIdleJfr")) {
+		systemProperty "testkit.perf.idleJfr", file(project.property("perfIdleJfr").toString()).absolutePath
 	}
 	// Re-run only what failed last time:  -Pfailed
 	if (project.hasProperty("failed")) {

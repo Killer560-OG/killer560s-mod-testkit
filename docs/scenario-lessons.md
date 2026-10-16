@@ -911,3 +911,15 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 96-ar-1015-reaim's chest-window race can hold one phase for a whole stretch (5 of 5 mismatch attempts). The window
   costs both sides the same tick (control 1 -> 2, mismatch 2 -> 3), so a side that only ran with the window is paired
   with a window run of the other.
+- 95-perf-sim (fps-sim-1015): a few seconds of work in `ctx.computeOnClient` (a block walk over a whole sim floor) froze
+  the client long enough for run-scenario's "Not Responding" watcher to kill it, exit -1, twice, with no assertion in the
+  log. Off the server thread `getChunkNow` found no chunks, so the hash read as "0 non-air". Queue such work with
+  `server.execute` and poll for the result with `ctx.waitFor`; never join it from the test thread.
+- 513-ui-menu-tooltips depends on what ran before it (fps-combined-1016, 2026-10-16): in the menu set
+  (301,303,305,306,311,320,511-518) it fails on main 2231f84d as on the fps branch, "lists 'Bazaar/hypixel menu key' as
+  changed, but it shows the fixture's text", because an earlier case leaves the Bazaar Browser on and that row only shows
+  while it is on; run alone it passes on both. Compare a failure in that set with main's run of the same set, never with
+  a lone run.
+- 1016-hx-stale-* (fps-combined-1016): a cached value checked against a "fresh" build must get the fresh one off the
+  client thread (the mod caches only there), but the gametest thread may not call `Minecraft.getInstance()` at all
+  ("cannot be called from the gametest thread"). Build it on a plain thread started and joined inside `computeOnClient`.

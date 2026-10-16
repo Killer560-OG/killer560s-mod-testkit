@@ -8,7 +8,8 @@
 	"environment": "client",
 	"mixins": [
 		{ "config": "testkit.client.mixins.json", "environment": "client" },
-		{ "config": "testkit.k560probe.mixins.json", "environment": "client" }
+		{ "config": "testkit.k560probe.mixins.json", "environment": "client" },
+		{ "config": "testkit.bench.mixins.json", "environment": "client" }
 	],
 	"depends": {
 		"fabricloader": ">=0.16",

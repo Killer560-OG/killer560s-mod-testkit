@@ -344,7 +344,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             Object r = ModUnderTest.staticCall(ROOM_LIBRARY, "get", new Class<?>[]{String.class}, new Object[]{name});
             try {
                 Class<?> c = r.getClass();
-                short[] blocks = (short[]) c.getField("blocks").get(r);
+                // Since mod fps-sim-1015 a room may hold one byte per block; blockArray() is the short form either way.
+                short[] blocks;
+                try {
+                    blocks = (short[]) c.getMethod("blockArray").invoke(r);
+                } catch (NoSuchMethodException old) {
+                    blocks = (short[]) c.getField("blocks").get(r);
+                }
                 byte[] raw = new byte[blocks.length * 2];
                 for (int i = 0; i < blocks.length; i++) {
                     raw[i * 2] = (byte) (blocks[i] >> 8);
