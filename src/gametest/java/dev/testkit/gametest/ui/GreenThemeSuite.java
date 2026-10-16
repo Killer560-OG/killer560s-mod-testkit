@@ -14,6 +14,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 
 import java.awt.image.BufferedImage;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -40,12 +41,21 @@ import java.util.Locale;
  *       constant (the same object frames apart, nothing built per frame); a 1920x1080 GUI 2 screenshot of the menu in
  *       each variant (and before them, "default") and of the main menu is kept. On a jar without the gradient the
  *       "default" shot is the before picture and the case fails.</li>
+ *   <li>1651 also, the forest (killer560, 2026-10-15: "can you make the main menu more of a forest?"): at 1920x1080 GUI 2
+ *       the Fireflies scene has laid out a forest (trunks in three depth layers, crown and bush lobes, ferns, grass
+ *       tufts); it is green-dominant and dark, moves over 4 s of its clock while the button column barely changes (under
+ *       3%), the title band and the button column are dark (mean luminance under 0.2, 7:1 for the text on their median),
+ *       and over 60 frames it allocates no more per rectangle than Amber's embers (nothing built per frame). It notes the
+ *       rectangles per frame. TESTKIT_GREEN_SHOTS copies the frame to forest-mainmenu.png.</li>
+ *   <li>1653 ~10 s of the forest at 60 fps, one PNG per 1/60 s of the scene clock into {@code <report>/green-forest/}
+ *       (for ffmpeg). Only runs when its number is named.</li>
  * </ul>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class GreenThemeSuite implements FabricClientGameTest {
 
-    static final String[] CASES = {"1650-ui-green-theme", "1651-ui-green-mainmenu", "1652-ui-green-gradient"};
+    static final String[] CASES = {"1650-ui-green-theme", "1651-ui-green-mainmenu", "1652-ui-green-gradient",
+            "1653-ui-green-forest-video"};
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -74,6 +84,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
         UiCase.run(ctx, "1650-ui-green-theme", GreenThemeSuite::theme);
         UiCase.run(ctx, "1651-ui-green-mainmenu", GreenThemeSuite::mainMenu);
         UiCase.run(ctx, "1652-ui-green-gradient", GreenThemeSuite::gradient);
+        UiCase.run(ctx, "1653-ui-green-forest-video", GreenThemeSuite::video);
     }
 
     static float contrast(int a, int b) {
@@ -329,9 +340,11 @@ public class GreenThemeSuite implements FabricClientGameTest {
             c.check(a.g() > a.r() + 4 && a.g() >= a.b() - 2, "the Green main menu is not green: " + a.r() + "," + a.g() + "," + a.b());
             c.check(a.lum() < 0.3, "the Green main menu is not dark: " + a.lum());
             c.check(moved > 0.0005, "the Fireflies scene did not move between two frames: " + moved);
+            forest(c);
             c.check(!(Boolean) c.onClient(mc -> Mod.field("mainmenu.MainMenuTheme", "failed")),
                     "the themed main menu turned itself off after an error");
         } finally {
+            clock(c, -1);
             FontsMainMenuSuite.setWindow(c, win0[0], win0[1], win0[2]);
             FontsMainMenuSuite.restoreMm(c, saved);
         }
@@ -574,5 +587,195 @@ public class GreenThemeSuite implements FabricClientGameTest {
             b.append(b.isEmpty() ? "" : " > ").append(MenuACases.hex(col));
         }
         return b.toString();
+    }
+
+    // ---- 1651 the forest, 1653 its video ----------------------------------------------------------------------------
+
+    static final String SCENES = "mainmenu.MainMenuScenes";
+
+    static void clock(UiCase c, double ms) {
+        c.onClient(mc -> {
+            Mod.staticCall(SCENES, "setClockForTest", ms);
+            return null;
+        });
+    }
+
+    /** {bytes, frames, quads} the title background allocated over 60 frames. */
+    static long[] alloc(UiCase c) {
+        c.onClient(mc -> {
+            Mod.setField(Mod.ROOT + SCENES, "allocBytes", 0L);
+            Mod.setField(Mod.ROOT + SCENES, "allocFrames", 0L);
+            Mod.setField(Mod.ROOT + SCENES, "allocQuads", 0L);
+            Mod.setField(Mod.ROOT + SCENES, "allocProbe", true);
+            return null;
+        });
+        for (int i = 0; i < 60; i++) {
+            clock(c, 2_000_000 + i * (1000.0 / 60.0));
+            c.ticks(1);
+        }
+        return c.onClient(mc -> {
+            Mod.setField(Mod.ROOT + SCENES, "allocProbe", false);
+            return new long[]{(Long) Mod.field(Mod.ROOT + SCENES, "allocBytes"), (Long) Mod.field(Mod.ROOT + SCENES, "allocFrames"),
+                    (Long) Mod.field(Mod.ROOT + SCENES, "allocQuads")};
+        });
+    }
+
+    /** Luminance (0..1) of a pixel, Rec. 709. */
+    static double lum709(int p) {
+        return (0.2126 * ((p >> 16) & 0xFF) + 0.7152 * ((p >> 8) & 0xFF) + 0.0722 * (p & 0xFF)) / 255.0;
+    }
+
+    /** {mean luminance, median pixel} of a box given in fractions of the image. */
+    static double[] boxStats(BufferedImage img, double x0, double y0, double x1, double y1) {
+        List<Integer> px = new ArrayList<>();
+        double sum = 0;
+        for (int y = (int) (img.getHeight() * y0); y < (int) (img.getHeight() * y1); y += 2) {
+            for (int x = (int) (img.getWidth() * x0); x < (int) (img.getWidth() * x1); x += 2) {
+                int p = img.getRGB(x, y);
+                px.add(p);
+                sum += lum709(p);
+            }
+        }
+        px.sort((a, b) -> Double.compare(lum709(a), lum709(b)));
+        return new double[]{px.isEmpty() ? 0 : sum / px.size(), px.isEmpty() ? 0 : px.get(px.size() / 2)};
+    }
+
+    /** Opens the title screen in Green's forest at 1920x1080 GUI 2 with the clock held. */
+    static void forestTitle(UiCase c) {
+        FontsMainMenuSuite.setWindow(c, 1920, 1080, 2);
+        c.onClient(mc -> {
+            Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", FontsMainMenuSuite.menuTheme("GREEN"));
+            FontsMainMenuSuite.setMm(mc, "MATCH", "GREEN", "AUTO", 100, true, true);
+            McCompat.setScreen(mc, new TitleScreen());
+            return null;
+        });
+        c.ctx().getInput().setCursorPos(4, 4);
+        c.ticks(40);
+    }
+
+    /** The forest itself (killer560, 2026-10-15: "can you make the main menu more of a forest?"). */
+    static void forest(UiCase c) throws Exception {
+        forestTitle(c);
+        clock(c, 2_000_000);
+        c.ticks(2);
+        Path pa = FontsMainMenuSuite.shot(c, "forest-a");
+        FontsMainMenuSuite.Pic a = FontsMainMenuSuite.pic(pa);
+        clock(c, 2_004_000);
+        c.ticks(2);
+        FontsMainMenuSuite.Pic b = FontsMainMenuSuite.pic(FontsMainMenuSuite.shot(c, "forest-b"));
+        double moved = FontsMainMenuSuite.changed(a.img(), b.img());
+        String copy = System.getenv("TESTKIT_GREEN_SHOTS");
+        if (copy != null && !copy.isBlank()) {
+            Files.createDirectories(Path.of(copy));
+            Files.copy(pa, Path.of(copy).resolve("forest-mainmenu.png"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+        // Readable: the title band and the column the buttons sit in stay dark and calm.
+        double[] title = boxStats(a.img(), 0.25, 0.0, 0.75, 0.22);
+        double[] column = boxStats(a.img(), 0.3, 0.22, 0.7, 0.66);
+        int text = c.onClient(mc -> ((int[]) Mod.call(Mod.enumValue("gui.MenuTheme", "GREEN"), "base"))[3]);
+        float colContrast = contrast(text, (int) column[1] | 0xFF000000);
+        float titleContrast = contrast(0xFFFFFFFF, (int) title[1] | 0xFF000000);
+        int cx0 = a.img().getWidth() * 3 / 10;
+        java.awt.image.BufferedImage colA = a.img().getSubimage(cx0, a.img().getHeight() * 22 / 100, a.img().getWidth() * 4 / 10,
+                a.img().getHeight() * 44 / 100);
+        java.awt.image.BufferedImage colB = b.img().getSubimage(cx0, b.img().getHeight() * 22 / 100, b.img().getWidth() * 4 / 10,
+                b.img().getHeight() * 44 / 100);
+        double colMoved = FontsMainMenuSuite.changed(colA, colB);
+        long[] alloc = alloc(c);
+        double quads = alloc[2] / (double) Math.max(1, alloc[1]);
+        double bPerQuad = alloc[0] / (double) Math.max(1, alloc[2]);
+        c.note(String.format(Locale.ROOT, "forest: rgb %.1f,%.1f,%.1f lum %.3f, moved %.2f%% over 4 s (button column %.2f%%); "
+                        + "title band lum %.3f (white title on its median %.1f:1), button column lum %.3f (Green text on its median %.1f:1); "
+                        + "%.0f rects/frame, %.0f B/frame, %.1f B/rect over %d frames",
+                a.r(), a.g(), a.b(), a.lum(), moved * 100, colMoved * 100, title[0], titleContrast, column[0], colContrast, quads,
+                alloc[0] / (double) Math.max(1, alloc[1]), bPerQuad, alloc[1]));
+        int[] geo = c.onClient(mc -> {
+            try {
+                return new int[]{(Integer) Mod.field("mainmenu.MainMenuFireflies", "trunks"),
+                (Integer) Mod.field("mainmenu.MainMenuFireflies", "lobes"), (Integer) Mod.field("mainmenu.MainMenuFireflies", "ferns"),
+                (Integer) Mod.field("mainmenu.MainMenuFireflies", "tufts")};
+            } catch (AssertionError e) {
+                return null; // a jar from before the forest
+            }
+        });
+        c.check(geo != null, "the Fireflies scene has no forest layout (an older jar)");
+        c.note("forest geometry: " + geo[0] + " trunks, " + geo[1] + " crown/bush lobes, " + geo[2] + " ferns, " + geo[3]
+                + " grass tufts");
+        c.check(geo[0] >= 20 && geo[1] >= 60 && geo[2] >= 6 && geo[3] >= 20, "the forest was not laid out: "
+                + Arrays.toString(geo));
+        int[] layers = c.onClient(mc -> {
+            int[] l = (int[]) Mod.field("mainmenu.MainMenuFireflies", "trunkLayer");
+            int[] n = new int[3];
+            for (int i = 0; i < geo[0]; i++) {
+                n[l[i]]++;
+            }
+            return n;
+        });
+        c.check(layers[0] > 0 && layers[1] > 0 && layers[2] > 0, "trunks are not in three depth layers: " + Arrays.toString(layers));
+
+        c.check(a.g() > a.r() + 4 && a.g() > a.b() + 2, "the forest is not green-dominant: " + a.r() + "," + a.g() + "," + a.b());
+        c.check(a.lum() < 0.3, "the forest is too bright for the menu: " + a.lum());
+        c.check(moved > 0.002, String.format(Locale.ROOT, "the forest did not move over 4 s: %.3f%% changed", moved * 100));
+        c.check(colMoved < 0.03, String.format(Locale.ROOT, "the button column is busy: %.2f%% changed over 4 s", colMoved * 100));
+        c.check(title[0] < 0.2 && titleContrast >= 7f, "the title band is too bright: lum " + title[0] + ", contrast " + titleContrast);
+        c.check(column[0] < 0.2 && colContrast >= 7f, "the button column is too bright: lum " + column[0] + ", contrast " + colContrast);
+        // Zero allocation beyond the batch's own rectangles: the bytes per rectangle are the batch's (an EMBERS-like
+        // ~100 B/rect, testkit 1568); anything the scene built per frame would show up as more.
+        c.check(alloc[1] >= 50 && alloc[2] > 0, "the allocation probe did not run: " + Arrays.toString(alloc));
+        long[] ref = embersAlloc(c);
+        double refPerQuad = ref[0] / (double) Math.max(1, ref[2]);
+        c.note(String.format(Locale.ROOT, "Amber embers for reference: %.0f rects/frame, %.1f B/rect", ref[2] / (double) Math.max(1, ref[1]),
+                refPerQuad));
+        c.check(bPerQuad <= refPerQuad * 1.15, String.format(Locale.ROOT,
+                "the forest allocates beyond its rectangles: %.1f B/rect against embers' %.1f", bPerQuad, refPerQuad));
+    }
+
+    static long[] embersAlloc(UiCase c) {
+        c.onClient(mc -> {
+            FontsMainMenuSuite.setMm(mc, "CUSTOM", "AMBER", "EMBERS", 100, true, true);
+            Mod.staticCall(SCENES, "setAmberSceneForTest", "EMBERS");
+            McCompat.setScreen(mc, new TitleScreen());
+            return null;
+        });
+        c.ticks(10);
+        long[] r = alloc(c);
+        c.onClient(mc -> {
+            Mod.staticCall(SCENES, "setAmberSceneForTest", "");
+            return null;
+        });
+        return r;
+    }
+
+    /** 1653: ~10 s of the forest at 60 fps, one PNG per 1/60 s of the scene clock into {@code <report>/green-forest/}.
+     *  Only runs when its number is named. */
+    static void video(UiCase c) throws Exception {
+        if (!System.getProperty("testkit.scenario", "").contains("1653")) {
+            c.note("skipped: the video only runs when 1653 is named");
+            return;
+        }
+        FontsMainMenuSuite.MmState saved = FontsMainMenuSuite.saveMm(c);
+        int[] win0 = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight(),
+                mc.options.guiScale().get()});
+        String old = MenuACases.themeName();
+        try {
+            forestTitle(c);
+            int frames = 600;
+            Path dir = Report.dir().resolve("green-forest");
+            for (int i = 0; i < frames; i++) {
+                clock(c, 3_000_000 + i * (1000.0 / 60.0));
+                c.ticks(1);
+                MenuAnimSuite.keep(c.ctx().takeScreenshot("green-forest-frame"), dir,
+                        String.format(Locale.ROOT, "frame_%05d.png", i));
+            }
+            c.note("wrote " + frames + " frames to " + dir);
+        } finally {
+            clock(c, -1);
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", Mod.enumValue("gui.MenuTheme", old));
+                return null;
+            });
+            FontsMainMenuSuite.setWindow(c, win0[0], win0[1], win0[2]);
+            FontsMainMenuSuite.restoreMm(c, saved);
+        }
     }
 }
