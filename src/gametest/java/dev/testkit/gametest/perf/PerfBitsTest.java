@@ -79,6 +79,7 @@ public class PerfBitsTest implements FabricClientGameTest {
                 "getWalkWaypointsRaw|getAimSpotsRaw"});
         GATED.put("Maxor Crystals render", new String[]{"maxor.MaxorConfig", "setHighlight", "getHighlightRaw"});
         GATED.put("Auto Routes keybinds tick", new String[]{"autoroutes.AutoRoutesConfig", "setEnabled", "isEnabledRaw"});
+        GATED.put("Auto Routes render", new String[]{"autoroutes.AutoRoutesConfig", "setEnabled", "isEnabledRaw"});
         GATED.put("Inventory HUD tick", new String[]{"inventoryhud.InventoryHudConfig", "setEnabled", "isEnabledRaw"});
         // batch 4
         GATED.put("Posmsg render",new String[]{"posmsg.PosmsgConfig", "setEnabled", "isEnabledRaw"});
