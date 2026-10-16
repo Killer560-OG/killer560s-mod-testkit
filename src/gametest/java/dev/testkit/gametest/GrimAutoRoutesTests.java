@@ -191,6 +191,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             }
             s.test("62-argrim-hand", GrimAutoRoutesTests::caseHand);
             s.test("62-argrim-crypt", GrimAutoRoutesTests::caseCrypt);
+            s.test("62-argrim-1015-cryptaim", GrimAutoRoutesTests::caseCryptAim); // crypt-aim-1015
             s.test("62-argrim-mimic", GrimAutoRoutesTests::caseMimic);
             s.test("62-argrim-autoclear", GrimAutoRoutesTests::caseAutoClear);
             // The Interactive Map's own executor (livemap/autoclear/ClearExecutor), last: a map warp or a Go To sets the
@@ -1369,6 +1370,92 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         c.note("crypt: held use, " + node.describe() + " - vanilla control " + control.describe()
                 + " (the server emulates no Wither Impact - only the client's packets are under test)");
         noteFlags(c, s);
+    }
+
+    /**
+     * 62-argrim-1015-cryptaim (killer560, 2026-10-15: "make the crypt node follow the same logic as bat where it will try to
+     * look at a crypt as well. If there are two or more that spawned have it do 2 bats at each before moving on"). Two
+     * unstarred crypt mobs as Hypixel shows them - a zombie with a "[Lv89] Crypt Undead 45k(heart)" name-tag stand over it
+     * (dungeon.starred with a name) - stand 9 blocks either side of a Spirit Sceptre crypt node. The server emulates no
+     * sceptre, so nothing dies: the node must send its two held uses down, then exactly two plain use_item packets aimed
+     * at each mob, move on, and draw nothing from GrimAC. Only the client's packets are under test.
+     */
+    private static void caseCryptAim(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        c.hx().give(5, "minecraft:iron_sword[custom_data={id:\"BAT_WAND\"},unbreakable={}]");
+        ctx.runOnClient(mc -> {
+            Object ar = ModUnderTest.config(AR_CONFIG);
+            ModUnderTest.call(ar, "setCryptWeapon", new Class<?>[]{enumClass("CryptWeapon")},
+                    new Object[]{ModUnderTest.enumValue(AR_CONFIG + "$CryptWeapon", "SPIRIT_SCEPTRE")});
+            ModUnderTest.set(ar, "setCryptAttackTicks", 200);
+        });
+        double[][] spots = {{23.5, 14.5}, {5.5, 14.5}};
+        List<JsonObject> mobs = new ArrayList<>();
+        try {
+            for (double[] sp : spots) {
+                Vec3 at = ctx.computeOnClient(mc -> {
+                    Object frame = ModUnderTest.staticCall(FRAME, "current");
+                    return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                            double.class, double.class}, new Object[]{frame, sp[0], (double) F, sp[1]});
+                });
+                mobs.add(c.hx().call("dungeon.starred", "x", at.x, "y", at.y, "z", at.z, "name",
+                        "[Lv89] Crypt Undead 45k❤").getAsJsonObject());
+            }
+            ctx.waitTicks(20);
+            JsonObject crypt = node("CRYPT", 14, 14, 0f, 10f);
+            crypt.addProperty("start", true);
+            writeRoute(ctx, List.of(crypt));
+            long m = LogTap.mark();
+            startSampling(ctx);
+            walkOnto(ctx, 14.5, 11.5, 14, 14);
+            boolean done = waitFor(ctx, 200, () -> logHas(m, "every crypt mob dead or given its"));
+            ctx.waitTicks(10);
+            List<Sample> s = stopSampling(ctx);
+            printTrace("cryptaim", s);
+            int aimed = 0;
+            for (String l : LogTap.since(m)) {
+                if (l.contains("CRYPT")) {
+                    println("  " + l.replaceAll("^.*?\[AutoRoutes\]", "[AutoRoutes]"));
+                }
+                if (l.contains("CRYPT: Spirit Sceptre use ")) {
+                    aimed++;
+                }
+            }
+            List<String> states = new ArrayList<>();
+            for (JsonObject mob : mobs) {
+                states.add(c.hx().call("dungeon.alive", "id", mob.get("mob").getAsString()).getAsString());
+            }
+            boolean keyUp = ctx.computeOnClient(mc -> !mc.options.keyUse.isDown());
+            println("cryptaim: node done " + done + ", aimed uses " + aimed + ", use_item " + count(s, "use_item")
+                    + ", use_item_on " + count(s, "use_item_on") + ", mobs " + states + ", use key up " + keyUp);
+            check(logHas(m, "aiming at crypt mob"), "the crypt node never aimed at a crypt mob");
+            check(done, "the crypt node did not move on after its uses");
+            check(aimed == 4, "the crypt node aimed " + aimed + " use(s), expected 2 at each of 2 mobs");
+            for (JsonObject mob : mobs) {
+                int id = mob.get("mobId").getAsInt();
+                check(logHas(m, "use 1/2 at crypt mob " + id) && logHas(m, "use 2/2 at crypt mob " + id),
+                        "the crypt mob " + id + " did not get its two uses");
+            }
+            check(keyUp, "the use key was left held after the crypt node");
+            c.note("cryptaim: 2 held uses down, then " + aimed + " aimed sceptre uses at 2 crypt mobs (use_item "
+                    + count(s, "use_item") + ")");
+            noteFlags(c, s);
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                    new Object[]{"test"}));
+            for (JsonObject mob : mobs) {
+                c.hx().call("dungeon.alive", "id", mob.get("mob").getAsString(), "stand", mob.get("stand").getAsString());
+            }
+            c.server().command("kill @e[type=minecraft:zombie]");
+            ctx.runOnClient(mc -> {
+                Object ar = ModUnderTest.config(AR_CONFIG);
+                ModUnderTest.call(ar, "setCryptWeapon", new Class<?>[]{enumClass("CryptWeapon")},
+                        new Object[]{ModUnderTest.enumValue(AR_CONFIG + "$CryptWeapon", "HYPERION")});
+                ModUnderTest.set(ar, "setCryptAttackTicks", 100);
+            });
+        }
     }
 
     /** Kill Mimic (Hyperion): an empty-hand node clicks a trapped chest, the blade is used straight down. */
