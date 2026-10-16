@@ -465,6 +465,26 @@ final class PuzzleTimingExtra extends SolveExtra {
                             break;
                         }
                     }
+                    // A chest that waits on a volley still flying (Blaze: never opened while a volley that may finish the
+                    // room is in the air): the volley's end is the ready moment, even when it comes after the click (the
+                    // auto knew the result before the last arrow ended) - a gap of 0 or less.
+                    if (why != null && e.info().endsWith(" chest")) {
+                        for (int j = i - 1; j >= 0; j--) {
+                            if (ev.get(j).kind() == Kind.VOLLEY_START) {
+                                String id = ev.get(j).info();
+                                for (int k = j + 1; k < ev.size(); k++) {
+                                    if (ev.get(k).kind() == Kind.VOLLEY_END && ev.get(k).info().equals(id)) {
+                                        if (ev.get(k).tick() > ready) {
+                                            ready = ev.get(k).tick();
+                                            why = "volley " + id + " ended";
+                                        }
+                                        break;
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
                     if (why != null && judged.test(e)) {
                         readyClick.add(e.tick() - ready, why + " at " + ready + " -> click at " + e.tick() + " on " + e.info());
                     }
@@ -510,6 +530,13 @@ final class PuzzleTimingExtra extends SolveExtra {
                             if (!judged.test(n)) {
                                 break;
                             }
+                            if (n.kind() == Kind.CLICK && n.info().endsWith(" chest")) {
+                                long v = lastVolleyEnd(ev, j);
+                                if (v > ready) {
+                                    ready = v;
+                                    why += ", the volley before it ended at " + v;
+                                }
+                            }
                             landAct.add(n.tick() - ready, why + " -> " + n.kind().name().toLowerCase(Locale.ROOT)
                                     + " at " + n.tick());
                             break;
@@ -540,6 +567,22 @@ final class PuzzleTimingExtra extends SolveExtra {
                 landAct.brief(), readyClick.brief(), volleyNext.brief(), waits);
         SimPuzzleRoundTests.say(name, summary);
         return bad.isEmpty() ? null : String.join("; ", bad);
+    }
+
+    /** The end tick of the last volley started before event {@code j} (possibly after it), or Long.MIN_VALUE. */
+    private static long lastVolleyEnd(List<Ev> ev, int j) {
+        for (int k = j - 1; k >= 0; k--) {
+            if (ev.get(k).kind() == Kind.VOLLEY_START) {
+                String id = ev.get(k).info();
+                for (int m = k + 1; m < ev.size(); m++) {
+                    if (ev.get(m).kind() == Kind.VOLLEY_END && ev.get(m).info().equals(id)) {
+                        return ev.get(m).tick();
+                    }
+                }
+                return Long.MIN_VALUE;
+            }
+        }
+        return Long.MIN_VALUE;
     }
 
     /** Whether the warp that brought this landing was the Interactive Map's (the last warp-kind use before it). */
