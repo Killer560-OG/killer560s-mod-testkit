@@ -345,8 +345,8 @@ final class PuzzleTimingExtra extends SolveExtra {
                 if (n.kind() == Kind.MAP_WARP) {
                     break; // the secret trip, set off when the volley LEFT the bow: the Interactive Map's pace, not this
                 }
-                if (n.kind() == Kind.WARP) {
-                    break; // a reposition: where to stand next is the room search's business, not the volley's wait
+                if (n.kind() == Kind.WARP || n.kind() == Kind.LAND) {
+                    break; // a reposition: judged as landing -> next action, not as the volley's wait
                 }
                 if (act(n.kind())) {
                     if (n.kind() == Kind.SHOT && lastShotBefore(ev, j) + cooldownTicks + 1 >= r.tick()) {
