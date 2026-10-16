@@ -32,7 +32,7 @@ import java.util.Locale;
  *       (ocean-waterfall-3).</li>
  *   <li>1692 gating: without previewScenes Ocean draws WATERFALL; with it CAVERN_FALLS; the Title Screen Switcher lists
  *       "Ocean · Waterfall" and "Ocean · Cavern Falls".</li>
- *   <li>1693 video (only when named): {@code -PpaintedFrames} (default 600 = 10 s) at 60 fps into
+ *   <li>1693 video (only when named): {@code -PpaintedFrames} (default 10 s) at {@code -PpaintedFps} (default 60) into
  *       {@code <report>/painted-cavern_falls/}; {@code TESTKIT_PAINTED_SHOTS} also gets {@code ocean-falls.png}.</li>
  * </ul>
  */
@@ -308,10 +308,11 @@ public class OceanFallsSuite implements FabricClientGameTest {
         }
         around(c, true, () -> {
             title(c, "CAVERN_FALLS");
-            int frames = Integer.parseInt(System.getProperty("testkit.paintedFrames", "600"));
+            double fps = Double.parseDouble(System.getProperty("testkit.paintedFps", "60"));
+            int frames = Integer.parseInt(System.getProperty("testkit.paintedFrames", String.valueOf((int) Math.round(10 * fps))));
             Path dir = Report.dir().resolve("painted-cavern_falls");
             for (int i = 0; i < frames; i++) {
-                double ms = 3_000_000 + i * (1000.0 / 60.0);
+                double ms = 3_000_000 + i * (1000.0 / fps);
                 c.onClient(mc -> {
                     Mod.staticCall(SCENES, "setClockForTest", ms);
                     return null;
@@ -319,7 +320,7 @@ public class OceanFallsSuite implements FabricClientGameTest {
                 c.ticks(1);
                 MenuAnimSuite.keep(c.ctx().takeScreenshot("painted-frame"), dir, String.format(Locale.ROOT, "frame_%05d.png", i));
             }
-            c.note("wrote " + frames + " frames to " + dir);
+            c.note("wrote " + frames + " frames at " + fps + " fps to " + dir);
         });
     }
 }
