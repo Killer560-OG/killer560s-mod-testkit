@@ -500,16 +500,34 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             r.mark("cheat-scroll");
             glideTo(r, grid, 0.5, 0.6, 450);
             int before = c.onClient(mc -> ((Number) Mod.field(s, "gridScroll")).intValue());
-            for (int i = 0; i < 14; i++) {
-                r.wheel(-1);
-                r.hold(240);
+            // to the very bottom (Dungeons is long): a few notches at a time until the grid stops moving
+            int last = before;
+            for (int i = 0; i < 40; i++) {
+                r.wheel(-3);
+                r.hold(200);
+                int now = c.onClient(mc -> ((Number) Mod.field(s, "gridScroll")).intValue());
+                if (now == last && i > 2) {
+                    break;
+                }
+                last = now;
             }
-            r.hold(4500);
+            r.mark("cheat-bottom");
+            r.hold(2500);
             int after = c.onClient(mc -> ((Number) Mod.field(s, "gridScroll")).intValue());
             c.note("Dungeons grid scrolled " + before + " -> " + after);
             c.check(after != before, "the Dungeons grid did not scroll");
-            for (int i = 0; i < 14; i++) {
-                r.wheel(1);
+            // over two of the red Cheat block's cards (the last cards of the page)
+            List<Object> all = cards(c, s);
+            for (int i = Math.max(0, all.size() - 2); i < all.size(); i++) {
+                int[][] b = MenuAnimSuite.bounds(c, s, all.get(i));
+                if (b != null) {
+                    glideTo(r, b[0], 0.38, 0.5, 550);
+                    r.hold(1300);
+                }
+            }
+            r.hold(800);
+            for (int i = 0; i < 40 && c.onClient(mc -> ((Number) Mod.field(s, "gridScroll")).intValue()) > 0; i++) {
+                r.wheel(4);
                 r.hold(90);
             }
             r.hold(400);
