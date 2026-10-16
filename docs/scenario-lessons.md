@@ -857,3 +857,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   a hidden inventory slot} outside the panel: hoveredSlot null, 0 px changed by the hover, 4 clicks + 1/drop/pick keys
   reach the server as nothing; a real click on a custom square = exactly the solver's target (slot/button/input). Main
   failed all 12 (1024 px highlight, SWAP/THROW sent). The -off control proves the checks can see vanilla's hover.
+- 96-ar session order (ar-merge-regress-1015, 2026-10-15). A case inherits util/RightClick's state from the one before:
+  96-ar-awaitskip's crypt Hyperion clicks were left unpaired (the sim's ability hook ended vanilla's right click after the
+  block half) and 96-ar-chain after it waited a tick at every corner, on the deployed jars too; alone, chain passed. And the
+  sim's chest window arrives 1-2 ticks after a click, racing the warp an await fires: 96-ar-1015-reaim's control read 2 for 1
+  in a session, so it reruns a side whose log says the window arrived after the await was met. A case that only passes alone
+  is not passing.
