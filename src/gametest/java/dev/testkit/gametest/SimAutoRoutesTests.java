@@ -131,7 +131,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // ar-render-1016: the node renderer draws the executor's active node in the active colour on every frame
             "96-ar-1016-activeframe",
             // fullclear-1016: a path hop the server takes as an unpaired chest click's second half is sent again
-            "96-ar-1016-eaten"};
+            "96-ar-1016-eaten",
+            // fullclear-1016: a secret got under an await-less node counts for the next await
+            "96-ar-1016-carry"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -278,6 +280,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-charges" -> caseCharges(ctx);
                         case "96-ar-museum" -> caseMuseum(ctx);
                         case "96-ar-1016-eaten" -> caseEatenHop(ctx);
+                        case "96-ar-1016-carry" -> ArMainServerCases.carryPastAwaitless(ctx);
                         case "96-ar-398-offnode" -> caseOffNode(ctx);
                         case "96-ar-398-regrow" -> caseRegrow(ctx);
                         case "96-ar-398-startawait" -> caseStartAwait(ctx);
@@ -7373,6 +7376,48 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
 
         private static boolean armChain(ClientGameTestContext ctx) {
             return arm(ctx, 6, 6, relYawTo(6, 6, 14, 6), pitchTo(6, 6, 14, 6));
+        }
+
+        /**
+         * fullclear-1016 run 004 (his Double Diamond: #4 PATH / #5 breaker / #6 etherwarp on one tile, #7 awaits the item
+         * the breaker opened): an item picked up under a node with no await belongs to the next node that has one, however
+         * many await-less nodes come between. #1 (start) warps onto #2's tile, where the item lies; #2 (no await) warps on
+         * to #3, 4 blocks away, which awaits one secret. Main: #2's window took the pickup and #3 waited for good.
+         */
+        static void carryPastAwaitless(ClientGameTestContext ctx) {
+            resetRoutes(ctx);
+            forgetRunMemory(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            JsonObject c = ew(14, 10, 14, 14, false);
+            c.addProperty("awaitEnabled", true);
+            c.addProperty("await", "SECRET");
+            c.addProperty("amount", 1);
+            long w = LogTap.mark();
+            writeRoute(ctx, List.of(ew(6, 6, 14, 6, true), ew(14, 6, 14, 10, false), c));
+            waitFor(ctx, 100, () -> logHas(w, "Loaded 1 route"));
+            try {
+                dropItem(ctx, 14, 6);
+                long m = LogTap.mark();
+                check(armChain(ctx), "the route did not start");
+                boolean onB = waitLanded(ctx, 14, 10, 60) != null;
+                boolean warped = waitLanded(ctx, 14, 14, 60) != null;
+                boolean picked = logHas(m, "item picked up by you");
+                stopRoute(ctx);
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("await") || l.contains("Landed") || l.contains("picked up")) {
+                        println("  " + l);
+                    }
+                }
+                println("carry: picked up " + picked + ", reached #3 " + onB + ", #3 warped on " + warped);
+                check(picked, "the item on #2's tile was never picked up - the run proves nothing");
+                check(onB, "#2 never warped him onto #3");
+                check(warped, "#3 never warped: the item picked up under #2 (no await) was not counted for #3's await");
+            } finally {
+                stopRoute(ctx);
+                resetRoutes(ctx);
+            }
         }
 
         static void landPickup(ClientGameTestContext ctx) {

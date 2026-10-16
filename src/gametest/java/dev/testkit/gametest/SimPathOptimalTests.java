@@ -14,6 +14,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
@@ -85,11 +86,14 @@ public class SimPathOptimalTests implements FabricClientGameTest {
     static final String ALTAR = "941-sim-pathopt-altar";
     // path-scaffold (2026-10-12): a path node on a block no etherwarp lands on (Scaffolding's floor under the walkway).
     static final String UNREACHABLE = "947-sim-pathopt-unreachable";
+    // fullclear-1016: a trip from a stand more than 45 over the floor (Higher Blaze's reward chest)
+    static final String HIGH = "1016-sim-pathopt-high";
     // The map trip (636) goes after every path-pair flight: after a map warp only a START node may arm until he has
     // been through one (the map-arrival interlock), and these pairs have none.
     private static final String[] CASES = {LIP, SLAB, SLAB_NODE, CHEST, BREAKER, RW, REFIRE,
             ALTAR,
             UNREACHABLE,
+            HIGH,
             MAP_SLAB, REPLAN, SWEEP};
 
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
@@ -183,6 +187,7 @@ public class SimPathOptimalTests implements FabricClientGameTest {
                         case REFIRE -> caseRefire(ctx, f);
                         case ALTAR -> caseAltar(ctx, f);
                         case UNREACHABLE -> caseUnreachable(ctx, f);
+                        case HIGH -> caseHighStart(ctx, f);
                         case REPLAN -> caseReplan(ctx, f);
                         case SWEEP -> caseSweep(ctx, f);
                         default -> { }
@@ -1093,6 +1098,130 @@ public class SimPathOptimalTests implements FabricClientGameTest {
             F = keepF;
             giveAotv(ctx);
         }
+    }
+
+    /**
+     * fullclear-1016 run 004: Auto Blaze took Higher Blaze's reward chest from a stand 48 over the floor, and from there
+     * every Interactive Map trip (Teleport Maze, Creeper Beams, Water Board) was "no way ... from here on the floor graph",
+     * each puzzle skipped. The floor graph took landings only up to 45 over the floor, so his own spot was no node. Here:
+     * Higher Blaze alone, he is put on the stand nearest its highest chest, more than 45 over the floor, and the map is
+     * asked for an exact trip down to a floor-level block of the room. Main: no way; fixed: it flies there.
+     */
+    private static void caseHighStart(ClientGameTestContext ctx, List<String> f) {
+        @SuppressWarnings("unchecked")
+        List<String> names = ctx.computeOnClient(mc -> new ArrayList<>((List<String>) ModUnderTest.staticCall(
+                ROOM_LIBRARY, "names")));
+        if (!names.contains("Higher Blaze")) {
+            f.add("Higher Blaze is not in the room library");
+            return;
+        }
+        String keep = room;
+        int keepF = F;
+        buildRoom(ctx, "Higher Blaze");
+        try {
+            double floorY = rel(ctx, 15.5, F, 15.5).y;
+            BlockPos centre = ctx.computeOnClient(mc -> (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter",
+                    new Class<?>[]{int.class}, new Object[]{4 * 11 + 4}));
+            BlockPos[] picked = onServer(ctx, (mc, level) -> {
+                int fy = (int) Math.floor(floorY);
+                BlockPos chest = null;
+                for (BlockPos p : BlockPos.betweenClosed(centre.offset(-15, 0, -15), centre.offset(15, 0, 15))) {
+                    for (int y = fy + 70; y >= fy + 30; y--) {
+                        BlockPos q = new BlockPos(p.getX(), y, p.getZ());
+                        if (level.getBlockState(q).is(Blocks.CHEST) && (chest == null || y > chest.getY())) {
+                            chest = q.immutable();
+                        }
+                    }
+                }
+                BlockPos high = null;
+                BlockPos low = null;
+                double highD = Double.MAX_VALUE;
+                double lowD = Double.MAX_VALUE;
+                for (BlockPos p : BlockPos.betweenClosed(centre.offset(-14, 0, -14), centre.offset(14, 0, 14))) {
+                    for (int y = fy - 2; y <= fy + 70; y++) {
+                        BlockPos floor = new BlockPos(p.getX(), y - 1, p.getZ());
+                        if (!standable(level, floor)) {
+                            continue;
+                        }
+                        if (y > fy + 46 && covered(level, floor)) {
+                            // Nearest the highest chest when the puzzle's chest is there, else the highest stand.
+                            double d = chest != null ? floor.distSqr(chest) : -y;
+                            if (d < highD) {
+                                highD = d;
+                                high = floor.immutable();
+                            }
+                        } else if (y <= fy + 1) {
+                            double d = floor.distSqr(new BlockPos(centre.getX(), fy - 1, centre.getZ()));
+                            if (d < lowD) {
+                                lowD = d;
+                                low = floor.immutable();
+                            }
+                        }
+                    }
+                }
+                return new BlockPos[]{chest, high, low};
+            });
+            println(HIGH, "floor y " + floorY + ", highest chest " + picked[0] + ", high stand " + picked[1]
+                    + ", floor goal " + picked[2]);
+            if (picked[1] == null || picked[2] == null) {
+                f.add("no stand more than 46 over the floor, or no floor-level goal, in Higher Blaze");
+                return;
+            }
+            // His exact stand from fullclear-1016 run 004: Auto Blaze's reward-chest spot, relative (6, 116, 25) - an alcove
+            // at the top from which every landing in sight is over the band. The scan's pick above is only the fallback.
+            BlockPos exact = relBlock(ctx, 6, 116, 25);
+            boolean exactOk = onServer(ctx, (mc, level) -> standable(level, exact));
+            println(HIGH, "his stand " + exact.toShortString() + " standable " + exactOk);
+            BlockPos high = exactOk ? exact : picked[1];
+            BlockPos goal = picked[2];
+            Vec3 at = new Vec3(high.getX() + 0.5, high.getY() + 1, high.getZ() + 0.5);
+            tpNoWait(ctx, at);
+            ctx.waitFor(mc -> mc.player.position().distanceTo(at) < 0.3 && mc.player.onGround(), 200);
+            ctx.waitTicks(20);
+            long mark = LogTap.mark();
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(CLEAR, "etherPathExact",
+                    new Class<?>[]{BlockPos.class, Runnable.class}, new Object[]{goal, null}));
+            Vec3 want = new Vec3(goal.getX() + 0.5, goal.getY() + 1, goal.getZ() + 0.5);
+            boolean arrived = false;
+            for (int i = 0; i < 400 && !arrived; i++) {
+                ctx.waitTicks(1);
+                arrived = ctx.computeOnClient(mc -> Math.hypot(mc.player.getX() - want.x, mc.player.getZ() - want.z) < 0.6
+                        && Math.abs(mc.player.getY() - want.y) < 0.5);
+            }
+            for (String l : LogTap.since(mark)) {
+                if (l.contains("[Path]") || l.contains("Interactive Map")) {
+                    println(HIGH, "  " + l.replaceAll("^.*?\\[Path\\]", "[Path]"));
+                }
+            }
+            boolean noWay = logHas(mark, "no way to");
+            println(HIGH, "from " + high.toShortString() + " (" + (high.getY() + 1 - floorY) + " over the floor) to "
+                    + goal.toShortString() + ": arrived " + arrived + ", \"no way\" " + noWay);
+            if (!arrived) {
+                f.add("the Interactive Map never took him from " + (high.getY() + 1 - floorY) + " over the floor down to "
+                        + goal.toShortString() + (noWay ? " (\"no way ... from here\")" : ""));
+            }
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(CLEAR, "cancel"));
+            buildRoom(ctx, keep);
+            F = keepF;
+            giveAotv(ctx);
+        }
+    }
+
+    /** A roof somewhere over the stand: the floor graph takes no open-sky landing, so a roof top proves nothing. */
+    private static boolean covered(Level level, BlockPos floor) {
+        for (int dy = 3; dy <= 30; dy++) {
+            if (!level.getBlockState(floor.above(dy)).isAir()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean standable(Level level, BlockPos floor) {
+        return Block.isShapeFullBlock(level.getBlockState(floor).getCollisionShape(level, floor))
+                && level.getBlockState(floor.above()).getCollisionShape(level, floor.above()).isEmpty()
+                && level.getBlockState(floor.above(2)).getCollisionShape(level, floor.above(2)).isEmpty();
     }
 
     private static void caseUnreachable(ClientGameTestContext ctx, List<String> f) {

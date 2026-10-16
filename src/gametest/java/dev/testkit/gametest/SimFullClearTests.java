@@ -69,6 +69,8 @@ public class SimFullClearTests implements FabricClientGameTest {
     private static final Set<String> SKIP_TYPES = Set.of("PUZZLE", "TRAP", "BLOOD", "FAIRY", "ENTRANCE");
 
     private static final Pattern PLACED = Pattern.compile("Sim secrets for (.+?): (\\d+) placed");
+    private static final Pattern PLACED_ONE = Pattern.compile("Sim secret placed: (\\w+) at (-?\\d+, -?\\d+, -?\\d+)");
+    private static final Pattern COUNTED = Pattern.compile("Sim secret counted: (-?\\d+, -?\\d+, -?\\d+) in (.+?) \\(");
     private static final Pattern STARTED = Pattern.compile("\\[AutoSecret\\] route (.+?) started");
     private static final Pattern FINISHED = Pattern.compile("\\[AutoSecret\\] route (.+?) finished");
     private static final Pattern AR_STOP = Pattern.compile("\\[AutoRoutes\\] Stopped: (.*)$");
@@ -76,7 +78,12 @@ public class SimFullClearTests implements FabricClientGameTest {
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
-        if (System.getProperty("testkit.scenario", "").isBlank() || Scenario.skip(NAME)) {
+        if (System.getProperty("testkit.scenario", "").isBlank()) {
+            return;
+        }
+        boolean fullClear = !Scenario.skip(NAME);
+        boolean highBlaze = !Scenario.skip(HIGH_NAME);
+        if (!fullClear && !highBlaze) {
             return;
         }
         ModUnderTest.require("killer560smod");
@@ -94,6 +101,30 @@ public class SimFullClearTests implements FabricClientGameTest {
         println("routes file holds " + routes + " room(s)");
         if (routes < 20) {
             throw new AssertionError("only " + routes + " routed room(s) - run with -PseedConfig=<his config>");
+        }
+        if (highBlaze) {
+            String why = null;
+            try {
+                why = highBlazeOut(ctx);
+            } catch (Throwable e) {
+                why = "threw " + e;
+                e.printStackTrace(System.out);
+            } finally {
+                leave(ctx);
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(
+                        "com.killer560.hub.autopuzzles.AutoPuzzlesConfig"), "setAutoPuzzlesMasterEnabled", true));
+            }
+            if (why != null) {
+                println("[" + HIGH_NAME + "] FAIL: " + why);
+                if (!fullClear) {
+                    throw new AssertionError(why);
+                }
+            } else {
+                println("[" + HIGH_NAME + "] PASS");
+            }
+            if (!fullClear) {
+                return;
+            }
         }
         int runs = Integer.getInteger("testkit.fullclearRuns", 1);
         String code = System.getProperty("testkit.fullclearCode", "");
@@ -176,6 +207,41 @@ public class SimFullClearTests implements FabricClientGameTest {
         boolean mapFailed;
         boolean visited;
         int started;
+        /** "kind x, y, z" per secret the sim placed, and the positions it counted. */
+        final List<String> placedList = new ArrayList<>();
+        final List<int[]> counted = new ArrayList<>();
+
+        /** The placed secrets nothing counted: each counted position takes the nearest placed one of its room within 6
+         *  blocks (a bat dies away from its spot, so a bat takes any bat left). */
+        List<String> missing() {
+            List<String> left = new ArrayList<>(placedList);
+            for (int[] c : counted) {
+                String best = null;
+                double bestD = 6.0;
+                for (String s : left) {
+                    String[] k = s.split(" ", 2);
+                    String[] xyz = k[1].split(", ");
+                    double d = Math.sqrt(Math.pow(c[0] - Integer.parseInt(xyz[0]), 2)
+                            + Math.pow(c[1] - Integer.parseInt(xyz[1]), 2) + Math.pow(c[2] - Integer.parseInt(xyz[2]), 2));
+                    if (d <= bestD) {
+                        bestD = d;
+                        best = s;
+                    }
+                }
+                if (best == null) {
+                    for (String s : left) {
+                        if (s.startsWith("bat ")) {
+                            best = s;
+                            break;
+                        }
+                    }
+                }
+                if (best != null) {
+                    left.remove(best);
+                }
+            }
+            return left;
+        }
         int finished;
     }
 
@@ -215,10 +281,19 @@ public class SimFullClearTests implements FabricClientGameTest {
             ctx.waitTicks(1);
         }
         // The floor as the sim placed it, once its build lines are in.
+        List<String> pending = new ArrayList<>();
         for (String l : LogTap.since(mark0)) {
+            Matcher p = PLACED_ONE.matcher(l);
+            if (p.find()) {
+                pending.add(p.group(1) + " " + p.group(2));
+                continue;
+            }
             Matcher m = PLACED.matcher(l);
             if (m.find()) {
-                room(t, m.group(1)).placed = Integer.parseInt(m.group(2));
+                Room r = room(t, m.group(1));
+                r.placed = Integer.parseInt(m.group(2));
+                r.placedList.addAll(pending);
+                pending.clear();
             }
         }
         ctx.computeOnClient(mc -> {
@@ -258,8 +333,18 @@ public class SimFullClearTests implements FabricClientGameTest {
             Vec3 at = ctx.computeOnClient(mc -> mc.player.position());
             t.travelled += at.distanceTo(last);
             last = at;
-            String here = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(SIM_SCORE, "roomAt",
-                    new Class<?>[]{BlockPos.class}, new Object[]{mc.player.blockPosition()}));
+            // The live map's room (SimScore.roomAt rounds to a tile and named Gold for a spot in Quiz).
+            String here = ctx.computeOnClient(mc -> {
+                Object e = ModUnderTest.staticCall("com.killer560.hub.livemap.LiveMapFeature", "currentRoomEntry");
+                if (e == null) {
+                    return null;
+                }
+                try {
+                    return (String) e.getClass().getField("name").get(e);
+                } catch (ReflectiveOperationException x) {
+                    return null;
+                }
+            });
             if (here != null) {
                 room(t, here).visited = true;
             }
@@ -327,6 +412,12 @@ public class SimFullClearTests implements FabricClientGameTest {
 
     private static void judge(Tally t) {
         for (String l : t.log) {
+            Matcher c = COUNTED.matcher(l);
+            if (c.find()) {
+                String[] xyz = c.group(1).split(", ");
+                room(t, c.group(2)).counted.add(new int[]{Integer.parseInt(xyz[0]), Integer.parseInt(xyz[1]),
+                        Integer.parseInt(xyz[2])});
+            }
             Matcher m = STARTED.matcher(l);
             if (m.find()) {
                 room(t, m.group(1)).started++;
@@ -406,8 +497,8 @@ public class SimFullClearTests implements FabricClientGameTest {
             }
             if (r.placed > 0 && r.found < r.placed) {
                 missed++;
-                t.notes.add(String.format(Locale.US, "%s: %d/%d secrets (map %d/%d)", r.name, r.found, r.placed,
-                        r.mapSecrets - r.mapUnfound, r.mapSecrets));
+                t.notes.add(String.format(Locale.US, "%s: %d/%d secrets (map %d/%d), missing %s", r.name, r.found, r.placed,
+                        r.mapSecrets - r.mapUnfound, r.mapSecrets, r.missing()));
             }
         }
         if (missed > MAX_MISSED_ROOMS) {
@@ -421,6 +512,133 @@ public class SimFullClearTests implements FabricClientGameTest {
         }
         if (!t.errors.isEmpty()) {
             t.problems.add(t.errors.size() + " mod ERROR line(s), first: " + t.errors.get(0));
+        }
+    }
+
+    // ================================================================================================ high blaze
+
+    static final String HIGH_NAME = "1016-sim-highblaze-out";
+    /** The floor of fullclear run-004 (his designer filters): Higher Blaze among 23 rooms. */
+    private static final String HIGH_CODE = "MC2:CxgIRW50cmFuY2UEQ2FnZQNFbmQFRmxhZ3MFTXVyYWwIUGFpbnRpbmcLQmx1ZSBTa3VsbHMGTXVz"
+            + "ZXVtBUZhaXJ5DFNtYWxsIFN0YWlycwVCbG9vZAlDYXRoZWRyYWwLV2F0ZXIgQm9hcmQIT2xkIFRyYXAHSGFsbHdheQREb21lDUNyZWVwZXIg"
+            + "QmVhbXMMSGlnaGVyIEJsYXplDVRlbGVwb3J0IE1hemUERHJvcAdDYXJwZXRzBlJpdHVhbAtTY2FmZm9sZGluZw5Eb3VibGUgRGlhbW9uZAALAw"
+            + "AAAAAEAwAEAwAEAwEAAAADAAEAAAACAwQAAAABAgMAAAAAAAAEAwAEAwAEAwAAAAAAAAAAAAAAAAAAAAAAAAAKAwAAAAAEAwAEAwAEAwEAAAAM"
+            + "AAAMAAAMAAEAAAANAwEAAAAAAAEAAAAAAAAAAAAAAAAMAAAMAAAMAAAAAAAAAAAJAgAAAAAFAAEAAAAGAwAAAAAMAAAMAAAMAAEAAAAVAAEAAA"
+            + "AAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAEAAAAIAAAIAAAIAAEAAAAHAQAAAAARAQEAAAAQAAAAAAAWAAAIAAAIAAAIAAAAAAAAAAAAAAAA"
+            + "AAAAAAEAAAAAAAAAAAAIAAAIAAAIAAEAAAAPAQAPAQAPAQAPAQAPAQAPAQAPAQEAAAAAAAEAAAAAAAEAAAAAAAEAAAAAAAEAAAAAAAAAAAAOAw"
+            + "AAAAAUAAAAAAASAQAAAAATAAAAAAAXAAEAAAAYAg";
+
+    /**
+     * fullclear-1016 run 004: after Auto Blaze took Higher Blaze's reward chest from its stand at the top of the room
+     * (relative 6, 116, 25 - 47 over the floor), every Interactive Map trip out ("no way to exact ... from here on the
+     * floor graph", "the fine room search found nothing either") failed and Teleport Maze, Creeper Beams and Water Board
+     * were skipped. The same floor, him on that stand, a trip asked to the Entrance. Null on arrival, else why not.
+     */
+    private static String highBlazeOut(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
+                new Object[]{"gametest"}));
+        long before = Scenario.simBuildCount(ctx);
+        ctx.runOnClient(mc -> mc.execute(() -> {
+            ModUnderTest.staticCall(SIM_STATE, "setFloorLabel", new Class<?>[]{String.class}, new Object[]{"F7"});
+            java.util.function.Consumer<Minecraft> build = c -> ModUnderTest.staticCall(
+                    "com.killer560.hub.roomsim.SimBuilder", "build", new Class<?>[]{Minecraft.class, String.class},
+                    new Object[]{c, HIGH_CODE});
+            ModUnderTest.staticCall(SIM_WORLD, "open", new Class<?>[]{Minecraft.class, String.class,
+                    java.util.function.Consumer.class, String.class}, new Object[]{mc, HIGH_CODE, build, "Generating Floor 7"});
+        }));
+        ctx.waitFor(mc -> mc.level != null, 2400);
+        Scenario.awaitSimBuild(ctx, before);
+        ctx.waitTicks(60);
+        awaitClientChunks(ctx);
+        giveLoadout(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_RUN, "begin",
+                new Class<?>[]{Minecraft.class, BlockPos.class},
+                new Object[]{mc, ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBuilder", "entranceDoor")}));
+        for (int i = 0; i < 600 && !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_RUN, "isRunning")); i++) {
+            ctx.waitTicks(1);
+        }
+        // Wait for the FULL floor graph to know the floor, as a real run does long before its puzzles (graphWarm is true
+        // on the quick graph already; the first try planned on it and was refused as impossible).
+        // The warm-up runs again whenever the world changes (the gate, then his own teleport into a new area), so wait until
+        // a warm line is followed by 10 s with no warm-up running.
+        awaitGraphQuiet(ctx);
+        // Auto Blaze would start on the stand (the puzzle arms when he is in the room) and move him.
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autopuzzles.AutoPuzzlesConfig"),
+                "setAutoPuzzlesMasterEnabled", false));
+        BlockPos[] spots = ctx.computeOnClient(mc -> {
+            Object layout = ModUnderTest.staticCall("com.killer560.hub.livemap.DungeonLayout", "capture");
+            BlockPos stand = null;
+            BlockPos goal = null;
+            for (Object o : (List<?>) ModUnderTest.staticCall(ROOM_STATUS, "rooms")) {
+                String n = (String) ModUnderTest.call(o, "name", new Class<?>[0], new Object[0]);
+                int id = (Integer) ModUnderTest.call(o, "room", new Class<?>[0], new Object[0]);
+                int main = (Integer) ModUnderTest.call(o, "mainTile", new Class<?>[0], new Object[0]);
+                if (n.equals("Higher Blaze")) {
+                    int[] cr = (int[]) ModUnderTest.call(layout, "clayRotation", new Class<?>[]{int.class}, new Object[]{id});
+                    if (cr != null) {
+                        try {
+                            Object frame = Class.forName("com.killer560.hub.autoroutes.RouteCoords$Frame")
+                                    .getConstructor(String.class, int.class, int.class, int.class)
+                                    .newInstance(n, cr[0], cr[1], cr[2]);
+                            stand = (BlockPos) ModUnderTest.staticCall("com.killer560.hub.autoroutes.RouteCoords",
+                                    "toRealBlock", new Class<?>[]{frame.getClass(), BlockPos.class},
+                                    new Object[]{frame, new BlockPos(6, 116, 25)});
+                        } catch (ReflectiveOperationException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                }
+            }
+            // Auto Secret's goal for Teleport Maze in run 004, the first trip that failed (this floor code builds at the
+            // same height every time: his stand reads -130, 301, -15 as it did then).
+            goal = new BlockPos(-89, 253, -42);
+            return new BlockPos[]{stand, goal};
+        });
+        println("[" + HIGH_NAME + "] his Higher Blaze stand " + spots[0] + ", Teleport Maze goal " + spots[1]);
+        if (spots[0] == null || spots[1] == null) {
+            return "no Higher Blaze stand or Teleport Maze goal on this floor";
+        }
+        Vec3 at = new Vec3(spots[0].getX() + 0.5, spots[0].getY() + 1, spots[0].getZ() + 0.5);
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            var uuid = mc.player.getUUID();
+            server.execute(() -> server.getPlayerList().getPlayer(uuid).teleportTo(server.overworld(), at.x, at.y, at.z,
+                    java.util.Set.<net.minecraft.world.entity.Relative>of(), 0f, 0f, false));
+        });
+        ctx.waitFor(mc -> mc.player.position().distanceTo(at) < 0.3, 200);
+        awaitGraphQuiet(ctx);
+        BlockPos goal = spots[1];
+        long mark = LogTap.mark();
+        ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.livemap.autoclear.ClearExecutor", "etherPathExact",
+                new Class<?>[]{BlockPos.class, Runnable.class}, new Object[]{goal, null}));
+        Vec3 want = new Vec3(goal.getX() + 0.5, goal.getY() + 1, goal.getZ() + 0.5);
+        boolean arrived = false;
+        for (int i = 0; i < 600 && !arrived; i++) {
+            ctx.waitTicks(1);
+            arrived = ctx.computeOnClient(mc -> mc.player.position().distanceTo(want) < 1.0);
+        }
+        for (String l : LogTap.since(mark)) {
+            if (l.contains("[Path]")) {
+                println("[" + HIGH_NAME + "]   " + clip(l));
+            }
+        }
+        boolean noWay = LogTap.since(mark).stream().anyMatch(l -> l.contains("no way to"));
+        println("[" + HIGH_NAME + "] from " + spots[0].toShortString() + " to Teleport Maze: arrived " + arrived
+                + ", \"no way\" " + noWay);
+        return arrived ? null : "the Interactive Map never took him from Higher Blaze's chest stand to Teleport Maze"
+                + (noWay ? " (\"no way ... from here\")" : "");
+    }
+
+    /** Until the floor graph's warm-up has said nothing for 10 s (at most 2 minutes). */
+    private static void awaitGraphQuiet(ClientGameTestContext ctx) {
+        long warmMark = LogTap.mark();
+        int quiet = 0;
+        for (int i = 0; i < 20 * 120 && quiet < 200; i += 10) {
+            ctx.waitTicks(10);
+            long m2 = LogTap.mark();
+            boolean busy = LogTap.since(warmMark).stream().anyMatch(l -> l.contains("warm-up") || l.contains("graph warm"));
+            warmMark = m2;
+            quiet = busy ? 0 : quiet + 10;
         }
     }
 
