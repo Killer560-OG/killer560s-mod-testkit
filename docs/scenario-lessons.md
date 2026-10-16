@@ -923,3 +923,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 1016-hx-stale-* (fps-combined-1016): a cached value checked against a "fresh" build must get the fresh one off the
   client thread (the mod caches only there), but the gametest thread may not call `Minecraft.getInstance()` at all
   ("cannot be called from the gametest thread"). Build it on a plain thread started and joined inside `computeOnClient`.
+- 95-perf-ar-render (ar-render-1016): on 26.2 the same jar draws overlapping translucent world shapes in a different order
+  from one launch to the next. Mod main's Auto Routes shots against themselves differed by up to 21,066 px (Filled, edit
+  mode) while two launches of 26.1.2 differ only by an animated fire texture (31-39 px). Never judge a 26.2 world-render
+  pixel compare from one pair of launches; compare 26.1.2, and on 26.2 look for a launch that matches.
