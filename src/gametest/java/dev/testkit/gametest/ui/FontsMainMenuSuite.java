@@ -914,8 +914,19 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                 // scene, Plain included, so a whole-screen count cannot tell a moving background from a still one.
                 int side = sideMoved(a.img(), b.img());
                 summary.set(summary.size() - 1, summary.getLast() + ", sides " + side + " px");
+                // Green's slime boss (green-v4-1015) is a still until the designer approves it (killer560: "ONLY the
+                // still image first"), so Fireflies is not required to move while that is the Green default.
+                boolean greenStill = sc[0].equals("FIREFLIES") && c.onClient(mc -> {
+                    try {
+                        return "BOSS".equals(String.valueOf(Mod.field(Mod.ROOT + "mainmenu.MainMenuScenes", "GREEN_SCENE")));
+                    } catch (Throwable t) {
+                        return false;
+                    }
+                });
                 if (sc[0].equals("PLAIN")) {
                     c.check(side < 20, "Plain moved " + side + " px at the sides - the control is not still");
+                } else if (greenStill) {
+                    c.note("FIREFLIES draws Green's slime boss, a still by design: " + side + " px moved at the sides");
                 } else {
                     c.check(side >= 20, sc[0] + " did not move at the sides between two frames: " + summary.getLast());
                 }
