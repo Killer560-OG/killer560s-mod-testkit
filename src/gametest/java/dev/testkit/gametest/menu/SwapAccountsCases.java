@@ -322,8 +322,9 @@ final class SwapAccountsCases {
             }
             c.ctx().waitTicks(10);
             AbstractWidget last = row(c, s, NAMES[NAMES.length - 1]);
-            boolean lastIn = last != null && c.onClient(mc -> last.visible && last.getY() >= list[1]
-                    && last.getY() + last.getHeight() <= list[1] + list[3] + 1);
+            // The card's drawn box: since 2026-10-16 the widget's own box is clipped to the list, so it would always pass.
+            boolean lastIn = last != null && c.onClient(mc -> last.visible && drawnY(last) >= list[1]
+                    && drawnY(last) + drawnH(last) <= list[1] + list[3] + 1);
             c.note("after scrolling down, the last row " + (last == null ? "missing" : SocialCases.str(SocialCases.rect(last))
                     + " visible " + last.visible));
             if (!lastIn) {
@@ -397,6 +398,23 @@ final class SwapAccountsCases {
     }
 
     // ---- 1851 buttons -----------------------------------------------------------------------------------------------
+
+    /** A row's drawn top: its drawY where the row keeps one (clipped widget box), else the widget's y. */
+    static int drawnY(AbstractWidget w) {
+        try {
+            return SocialCases.intField(w, "drawY");
+        } catch (RuntimeException | AssertionError e) {
+            return w.getY();
+        }
+    }
+
+    static int drawnH(AbstractWidget w) {
+        try {
+            return SocialCases.intField(w, "drawH");
+        } catch (RuntimeException | AssertionError e) {
+            return w.getHeight();
+        }
+    }
 
     static String status(Session c, Screen s) {
         return c.onClient(mc -> String.valueOf(Mod.field(s, "statusMessage")));
