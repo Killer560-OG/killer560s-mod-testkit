@@ -41,9 +41,11 @@ public class PerfIdleTest implements FabricClientGameTest {
 
     private static final String NAME = "95-perf-idle";
 
-    /** Chat bytes per line allowed with everything OFF / at DEFAULTS. Main measured TBD / TBD; the branch TBD / TBD. */
-    private static final int CHAT_BYTES_OFF = Integer.getInteger("testkit.perf.idleChatOff", 1_000_000);
-    private static final int CHAT_BYTES_DEFAULTS = Integer.getInteger("testkit.perf.idleChatDefaults", 1_000_000);
+    /** Chat bytes per line allowed with everything OFF / at DEFAULTS (vanilla's own share, mostly ICU Bidi and line
+     *  wrapping, is ~14 KB of it). Mod main 69505e45 measured 51.9 / 53.3 KB, fps-idle-1015 15.5 / 16.8 KB (2026-10-15,
+     *  back to back on one machine). */
+    private static final int CHAT_BYTES_OFF = Integer.getInteger("testkit.perf.idleChatOff", 24_000);
+    private static final int CHAT_BYTES_DEFAULTS = Integer.getInteger("testkit.perf.idleChatDefaults", 26_000);
 
     /** {0} is replaced by the line's number: every line differs, and no line is a prefix of another (the observer drops
      *  repeats and prefix-repeats within 250 ms). */
