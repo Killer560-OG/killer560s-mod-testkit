@@ -871,3 +871,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   sim's chest window arrives 1-2 ticks after a click, racing the warp an await fires: 96-ar-1015-reaim's control read 2 for 1
   in a session, so it reruns a side whose log says the window arrived after the await was met. A case that only passes alone
   is not passing.
+
+- The title-scene allocation probe (`MainMenuScenes.allocBytes/allocQuads`) counts only the GuiRects batch's parts, so a
+  picture scene's ripple tiles (each a blit, allocated like a part) inflate bytes-per-quad: 1680's Milky Way with its cape read
+  242.8 B/quad against STARS' 163.7 until the tiles joined the denominator (176.4 then, 2026-10-16).
