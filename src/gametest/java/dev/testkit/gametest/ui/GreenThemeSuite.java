@@ -861,6 +861,16 @@ public class GreenThemeSuite implements FabricClientGameTest {
             }
         });
         c.check("TARGET".equals(def), "the default Green scene is " + def + ", not TARGET");
+        // green-v8-1016 (killer560): droplets dripping from the ceiling.
+        int drops = c.onClient(mc -> {
+            try {
+                return (Integer) Mod.field("mainmenu.TargetScene", "DROPS");
+            } catch (Throwable t) {
+                return 0;
+            }
+        });
+        c.note("ceiling droplet sources: " + drops);
+        c.check(drops >= 12, "the target scene has no ceiling droplets (" + drops + " sources)");
         forestTitle(c);
         clock(c, 2_000_000);
         c.ticks(2);
@@ -869,7 +879,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
         String copy = System.getenv("TESTKIT_GREEN_SHOTS");
         if (copy != null && !copy.isBlank()) {
             Files.createDirectories(Path.of(copy));
-            Files.copy(pa, Path.of(copy).resolve("boss-target.png"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(pa, Path.of(copy).resolve("drops.png"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         }
         clock(c, 2_001_800);
         c.ticks(2);
