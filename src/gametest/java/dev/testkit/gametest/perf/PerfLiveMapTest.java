@@ -60,10 +60,7 @@ public class PerfLiveMapTest implements FabricClientGameTest {
             if (!PerfBench.probeOn(ctx)) {
                 throw new AssertionError("[" + NAME + "] the mod's PerfProbe is off: run with -PperfProbe and a dev jar");
             }
-            if (!ctx.computeOnClient(mc -> Mod.has(CACHE))) {
-                throw new AssertionError("[" + NAME + "] the mod has no " + CACHE + ": the Dungeon Map is painted afresh"
-                        + " every frame");
-            }
+            boolean cached = ctx.computeOnClient(mc -> Mod.has(CACHE));
             double[] cal = PerfBench.calibrate(ctx);
             List<Switch> all = ctx.computeOnClient(mc -> PerfBench.switches());
             defaults.putAll(ctx.computeOnClient(mc -> PerfBench.states(all)));
@@ -91,12 +88,14 @@ public class PerfLiveMapTest implements FabricClientGameTest {
             ctx.waitTicks(40);
 
             // ---- 1. cost, verify off ----
-            ctx.runOnClient(mc -> {
-                Mod.staticCall(CACHE, "setVerify", false);
-                Mod.staticCall(CACHE, "resetStats");
-            });
+            if (cached) {
+                ctx.runOnClient(mc -> {
+                    Mod.staticCall(CACHE, "setVerify", false);
+                    Mod.staticCall(CACHE, "resetStats");
+                });
+            }
             Phase p = PerfBench.measure(ctx, "Dungeon Map ON", 400, cal);
-            long[] cost = ctx.computeOnClient(mc -> (long[]) Mod.staticCall(CACHE, "stats"));
+            long[] cost = cached ? ctx.computeOnClient(mc -> (long[]) Mod.staticCall(CACHE, "stats")) : new long[5];
             report.add(p.line());
             Key map = null;
             for (Key k : p.keys().values()) {
@@ -125,6 +124,11 @@ public class PerfLiveMapTest implements FabricClientGameTest {
                     failures.add("the draw cache painted " + cost[1] + " part(s) in " + p.ticks()
                             + " ticks: more than the players once a tick");
                 }
+            }
+
+            if (!cached) {
+                throw new AssertionError("[" + NAME + "] the mod has no " + CACHE + ": the Dungeon Map is painted afresh"
+                        + " every frame" + (failures.isEmpty() ? "" : "; " + String.join("; ", failures)));
             }
 
             // ---- 2. same picture, verify on, with changes ----
@@ -181,7 +185,9 @@ public class PerfLiveMapTest implements FabricClientGameTest {
         } finally {
             try {
                 ctx.runOnClient(mc -> {
-                    Mod.staticCall(CACHE, "setVerify", false);
+                    if (Mod.has(CACHE)) {
+                        Mod.staticCall(CACHE, "setVerify", false);
+                    }
                     for (Map.Entry<String, Object[]> e : restore.entrySet()) {
                         Object[] r = e.getValue();
                         Mod.call(r[0], (String) r[1], r[2]);
