@@ -32,6 +32,7 @@
     {"class": "roomsim.SimMapEditorScreen", "args": ["null"], "source": "roomsim/SimMapEditorScreen.java"},
     {"class": "roomsim.SimRoomFilterScreen", "args": ["null"], "source": "roomsim/SimRoomFilterScreen.java - the shared room Filters panel; this constructor opens it on the designer's filter (Load a Room and All Rooms open it on theirs, see ui/FilterPanelCases)"},
     {"class": "roomsim.SimMenuScreen", "args": ["null"], "source": "roomsim/SimMenuScreen.java - render only; its buttons open sim worlds"},
+    {"class": "mainmenu.TitleScreenLooksScreen", "args": ["null"], "source": "mainmenu/TitleScreenLooksScreen.java (the Title Screen GUI instance's main menu look picker; testkit 1574 drives it)"},
     {"class": "scoreboard.ScoreboardEditorScreen", "args": ["null"], "source": "scoreboard/ScoreboardEditorScreen.java"},
     {"class": "termism.TermismMenuScreen", "args": ["null"], "source": "termism/TermismMenuScreen.java"},
     {"class": "termism.TermismPracticeScreen", "args": ["null", "enum:*"], "source": "termism/TermismPracticeScreen.java (one per TerminalType)"},
