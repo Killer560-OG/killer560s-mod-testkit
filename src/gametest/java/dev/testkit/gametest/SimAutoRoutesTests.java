@@ -110,6 +110,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1015-reaim",
             // small-dungeon (2026-10-15): a secret bat already alive when the bat node arms is killed and counted
             "96-ar-1015-batpresent", "96-ar-1015-batseek",
+            // crypt-aim (2026-10-15): a Spirit Sceptre crypt node aims at each crypt mob, two uses each
+            "96-ar-1015-cryptaim",
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim", "96-ar-398-startawait",
             "96-ar-405-crypt-mapopen", "96-ar-405-startwarp", "96-ar-path", "96-ar-screen", "96-ar-rotate",
             // sim-world (2026-10-11)
@@ -307,6 +309,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1013-bat" -> caseBatNode(ctx);
                         case "96-ar-1015-batpresent" -> caseBatPresent(ctx);
                         case "96-ar-1015-batseek" -> caseBatSeek(ctx);
+                        case "96-ar-1015-cryptaim" -> caseCryptAim(ctx);
                         case "96-ar-1013-breakerfall" -> caseBreakerFall(ctx);
                         case "96-ar-786-obvious-only" -> caseObviousOnly(ctx);
                         case "96-ar-920-nostart-mapwarp" -> caseNoStartMapWarp(ctx);
@@ -2098,8 +2101,12 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 tpRelY(ctx, 28.5, 69.0, 10.5, -150.342102f, 12.861895f);
                 boolean acted = waitFor(ctx, 200, () -> logHas(m, "Node #13 CRYPT acted") || logHas(m, "Stopped"));
                 int cryptTick = ctx.computeOnClient(mc -> PacketTrace.tickCount());
+                // Since crypt-aim-1015 a Spirit Sceptre crypt node also ends the tick it sees every crypt mob it was
+                // tracking dead (2 seen, 2 dead meets await 2), without the tab list's count a second later.
                 boolean ended = waitFor(ctx, 160, () -> logHas(m, "CRYPT: 2 kill(s)") || logHas(m, "up, moving on")
-                        || logHas(m, "skipped the kill wait") || logHas(m, "Stopped"));
+                        || logHas(m, "skipped the kill wait") || logHas(m, "Stopped")
+                        || logHas(m, "CRYPT: every crypt mob dead or given its"));
+                int endTick = ctx.computeOnClient(mc -> PacketTrace.tickCount());
                 ctx.waitTicks(2);
                 List<Sample> s = stopSampling(ctx);
                 ArChainMeasure.Held uses = ArChainMeasure.held(Math.max(0, cryptTick - 2));
@@ -2122,7 +2129,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     }
                 }
                 held[pass] = ticks;
-                boolean killed = logHas(m, "CRYPT: 2 kill(s) after");
+                boolean killed = logHas(m, "CRYPT: 2 kill(s) after") || logHas(m, "(2 seen, 2 dead,");
                 println(String.format(Locale.US, "crypt-mapopen %s: crypt acted %s, ended %s, 2 kills %s after holding use %d "
                                 + "tick(s), crypt undead dead %d -> %d, uses from the crypt node on: %s, screen at the end %s",
                         label, acted, ended, killed, ticks, c0, c1, uses.describe(), still));
@@ -2132,7 +2139,12 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     failures.add(label + ": the crypt node got no 2 kills (" + (line == null ? "no kill line" : line) + ")");
                 }
                 // The first use tick is #10's etherwarp, landed a few ticks before the stack; the crypt's held uses follow.
-                List<Integer> cryptGaps = uses.gaps().size() > 1 ? uses.gaps().subList(1, uses.gaps().size()) : List.of();
+                // Only the crypt node's own uses: up to the tick it ended (#14 goes after it).
+                List<Integer> cryptTicks = uses.ticks().stream().filter(t -> t <= endTick).toList();
+                List<Integer> cryptGaps = new ArrayList<>();
+                for (int k = 2; k < cryptTicks.size(); k++) {
+                    cryptGaps.add(cryptTicks.get(k) - cryptTicks.get(k - 1));
+                }
                 if (cryptGaps.stream().anyMatch(g -> g != 4)) {
                     failures.add(label + ": the crypt node's uses are not 4 ticks apart: " + uses.describe());
                 }
@@ -4504,6 +4516,241 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         check(failures.isEmpty(), String.join("; ", failures));
     }
 
+    // ============================================================================================ crypt-aim (2026-10-15)
+
+    /** Every sim crypt mob (a zombie named "Crypt ...") removed on the server. */
+    private static void clearCryptMobs(ClientGameTestContext ctx) {
+        serverRun(ctx, (server, sp) -> {
+            List<net.minecraft.world.entity.Entity> gone = new ArrayList<>();
+            for (var e : server.overworld().getAllEntities()) {
+                if (e instanceof net.minecraft.world.entity.monster.zombie.Zombie && e.hasCustomName()
+                        && e.getCustomName().getString().startsWith("Crypt")) {
+                    gone.add(e);
+                }
+            }
+            gone.forEach(net.minecraft.world.entity.Entity::discard);
+        });
+    }
+
+    /** The client's living crypt mobs (named "Crypt ..."): id to its real position. */
+    private static Map<Integer, Vec3> clientCryptMobs(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            Map<Integer, Vec3> out = new LinkedHashMap<>();
+            for (var e : mc.level.entitiesForRendering()) {
+                if (e instanceof net.minecraft.world.entity.LivingEntity l && !(e instanceof net.minecraft.world.entity
+                        .decoration.ArmorStand) && l.isAlive() && !l.isDeadOrDying() && l.hasCustomName()
+                        && l.getCustomName().getString().startsWith("Crypt")) {
+                    out.put(l.getId(), l.position());
+                }
+            }
+            return out;
+        });
+    }
+
+    private static void spawnCryptMob(ClientGameTestContext ctx, int x, int z) {
+        BlockPos p = realNow(ctx, x, F, z);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOBS, "spawnCrypt",
+                new Class<?>[]{Minecraft.class, BlockPos.class, boolean.class}, new Object[]{mc, p, false}));
+    }
+
+    /**
+     * 96-ar-1015-cryptaim (killer560, 2026-10-15): "make the crypt node follow the same logic as bat where it will try to
+     * look at a crypt as well. If there are two or more that spawned have it do 2 bats at each before moving on." A lone
+     * Spirit Sceptre crypt node in the middle of the arena (15, 15); crypt mobs (SimMobs.spawnCrypt, the sim's real
+     * "Crypt Undead") stand 9 blocks out, 15+ blocks from each other, so neither the straight-down blasts nor one mob's
+     * blast reaches another. Variants: 1 mob, 2 mobs, 3 mobs with the third spawned only after the node's first aimed use
+     * (a late spawn), and 2 mobs that are already standing when the node arms and are too tough to die (1000 health),
+     * where the node must give each exactly its 2 uses and move on. Every variant: the server's first two sceptre uses
+     * at pitch 90.0, then aimed uses whose yaw points at each mob (within 12 degrees) - exactly 2 for a tough one, 1 or 2
+     * for a sim crypt mob, which has one health and so can die to the first bat before the second is due - every mob
+     * dead (except the tough ones), nothing aimed elsewhere, and the route complete within a tick of the last mob's death (the last bat's landing for the tough
+     * ones). Then a Hyperion control: every use stays at 90.0.
+     */
+    private void caseCryptAim(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        clearSecretBats(ctx);
+        clearCryptMobs(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        giveSlot(ctx, 4, "HYPERION");
+        giveSlot(ctx, 5, "BAT_WAND");
+        List<String> failures = new ArrayList<>();
+        int attack0 = ctx.computeOnClient(mc -> ModUnderTest.getInt(ModUnderTest.config(AR_CONFIG), "getCryptAttackTicks"));
+        int[][] spots = {{24, 15}, {11, 23}, {11, 7}};
+        // label, mob count, late (the last one spawns after the first aimed use), tough (pre-spawned, 1000 health)
+        Object[][] variants = {{"1 mob", 1, false, false}, {"2 mobs", 2, false, false}, {"3 mobs, one late", 3, true, false},
+                {"2 tough mobs already there", 2, false, true}};
+        try {
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setCryptAttackTicks", 200));
+            setArEnum(ctx, "setCryptWeapon", "CryptWeapon", "SPIRIT_SCEPTRE");
+            for (Object[] v : variants) {
+                String label = (String) v[0];
+                int n = (Integer) v[1];
+                boolean late = (Boolean) v[2];
+                boolean tough = (Boolean) v[3];
+                stopRoute(ctx);
+                clearCryptMobs(ctx);
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                writeRoute(ctx, List.of(cryptNode(15, 15, 0f, 30f, true, 0)));
+                waitFor(ctx, 40, () -> !running(ctx));
+                if (tough) {
+                    for (int k = 0; k < n; k++) {
+                        spawnCryptMob(ctx, spots[k][0], spots[k][1]);
+                    }
+                    ctx.waitTicks(3);
+                    serverRun(ctx, (server, sp) -> {
+                        for (var e : server.overworld().getAllEntities()) {
+                            if (e instanceof net.minecraft.world.entity.monster.zombie.Zombie z && z.hasCustomName()
+                                    && z.getCustomName().getString().startsWith("Crypt")) {
+                                z.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH)
+                                        .setBaseValue(1000.0);
+                                z.setHealth(1000f);
+                            }
+                        }
+                    });
+                    if (!waitFor(ctx, 60, () -> clientCryptMobs(ctx).size() == n)) {
+                        failures.add(label + ": the crypt mobs never stood in the client's world - nothing measured");
+                        continue;
+                    }
+                }
+                long m = LogTap.mark();
+                if (!arm(ctx, 15, 15, 0f, 30f)) {
+                    failures.add(label + ": the crypt node did not start");
+                    continue;
+                }
+                if (!tough) {
+                    // Spawned as a Superboom opens a crypt: the node is already running when they appear.
+                    for (int k = 0; k < (late ? n - 1 : n); k++) {
+                        spawnCryptMob(ctx, spots[k][0], spots[k][1]);
+                    }
+                }
+                Map<Integer, Vec3> seen = new LinkedHashMap<>();
+                boolean lateSpawned = !late;
+                int allGoneTick = -1;
+                int doneTick = -1;
+                int completeTick = -1;
+                for (int t = 0; t < 260 && completeTick < 0; t++) {
+                    ctx.waitTicks(1);
+                    Map<Integer, Vec3> alive = clientCryptMobs(ctx);
+                    seen.putAll(alive);
+                    if (!lateSpawned && logHas(m, "use 1/2 at crypt mob")) {
+                        spawnCryptMob(ctx, spots[n - 1][0], spots[n - 1][1]);
+                        lateSpawned = true;
+                    }
+                    if (allGoneTick < 0 && seen.size() == n && alive.isEmpty()) {
+                        allGoneTick = t;
+                    }
+                    if (doneTick < 0 && logHas(m, "every crypt mob dead or given its")) {
+                        doneTick = t;
+                    }
+                    if (logHas(m, "\" complete")) {
+                        completeTick = t;
+                    }
+                }
+                List<float[]> aims = serverUseAims(m);
+                StringBuilder sb = new StringBuilder();
+                for (float[] a : aims) {
+                    sb.append(String.format(Locale.US, " (%.2f, %.2f)", a[0], a[1]));
+                }
+                int aliveAfter = clientCryptMobs(ctx).size();
+                println(String.format(Locale.US, "cryptaim %s: server uses (pitch, yaw)%s; mobs seen %d, alive after %d,"
+                                + " all gone at t%d, node done at t%d, route complete at t%d", label, sb, seen.size(),
+                        aliveAfter, allGoneTick, doneTick, completeTick));
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("CRYPT")) {
+                        println("  " + l.replaceAll("^.*?\\[AutoRoutes\\]", "[AutoRoutes]"));
+                    }
+                }
+                if (seen.size() != n) {
+                    failures.add(label + ": " + seen.size() + " crypt mob(s) seen on the client, " + n + " spawned");
+                    continue;
+                }
+                if (aims.size() < 2 || aims.get(0)[0] != 90.0f || aims.get(1)[0] != 90.0f) {
+                    failures.add(label + ": the first two uses were not straight down:" + sb);
+                }
+                List<float[]> aimed = aims.size() > 2 ? aims.subList(2, aims.size()) : List.of();
+                BlockPos nodeReal = realNow(ctx, 15, F, 15);
+                int matched = 0;
+                for (Map.Entry<Integer, Vec3> e : seen.entrySet()) {
+                    Vec3 p = e.getValue();
+                    float want = (float) Math.toDegrees(Math.atan2(-(p.x - (nodeReal.getX() + 0.5)),
+                            p.z - (nodeReal.getZ() + 0.5)));
+                    int at = 0;
+                    for (float[] a : aimed) {
+                        if (!Float.isNaN(a[1]) && a[0] < 60f
+                                && Math.abs(net.minecraft.util.Mth.wrapDegrees(a[1] - want)) <= 12f) {
+                            at++;
+                        }
+                    }
+                    matched += at;
+                    // A tough mob takes exactly its 2; a sim crypt mob dies to the first bat's blast (one health), often
+                    // before the second use is due, and a dead mob is not shot again.
+                    if (tough ? at != 2 : at < 1 || at > 2) {
+                        failures.add(String.format(Locale.US, "%s: %d aimed use(s) at the mob at bearing %.1f, not %s",
+                                label, at, want, tough ? "2" : "1 or 2"));
+                    }
+                }
+                if (aimed.size() != matched) {
+                    failures.add(label + ": " + (aimed.size() - matched) + " use(s) after the first two aimed at no crypt mob");
+                }
+                if (completeTick < 0) {
+                    failures.add(label + ": the route never completed (node done " + (doneTick >= 0) + ")");
+                } else if (doneTick < 0) {
+                    failures.add(label + ": the route completed without the node's every-crypt-mob line");
+                }
+                if (tough) {
+                    if (aliveAfter != n) {
+                        failures.add(label + ": a 1000-health mob died (" + aliveAfter + " left)");
+                    }
+                } else {
+                    if (aliveAfter != 0) {
+                        failures.add(label + ": " + aliveAfter + " crypt mob(s) still alive");
+                    }
+                    if (allGoneTick >= 0 && completeTick >= 0 && completeTick - allGoneTick > 1) {
+                        failures.add(label + ": the route went on " + (completeTick - allGoneTick)
+                                + " ticks after the last crypt mob died");
+                    }
+                }
+                stopRoute(ctx);
+            }
+
+            // ---- Hyperion: keeps looking down, whatever crypt mob stands there ----
+            setArEnum(ctx, "setCryptWeapon", "CryptWeapon", "HYPERION");
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setCryptAttackTicks", 30));
+            clearCryptMobs(ctx);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            writeRoute(ctx, List.of(cryptNode(15, 15, 0f, 30f, true, 0)));
+            waitFor(ctx, 40, () -> !running(ctx));
+            spawnCryptMob(ctx, spots[0][0], spots[0][1]);
+            ctx.waitTicks(10);
+            long mh = LogTap.mark();
+            if (!arm(ctx, 15, 15, 0f, 30f)) {
+                failures.add("Hyperion: the crypt node did not start");
+            } else {
+                waitFor(ctx, 120, () -> logHas(mh, "\" complete") || logHas(mh, "up, moving on"));
+                List<String> pitches = serverUsePitches(mh);
+                println("cryptaim Hyperion: server use pitches " + pitches);
+                if (pitches.isEmpty()) {
+                    failures.add("Hyperion: the server took no use");
+                }
+                for (String p : pitches) {
+                    if (!"90.0".equals(p)) {
+                        failures.add("Hyperion: a use went out at pitch " + p + " - the Hyperion must keep looking down");
+                    }
+                }
+                if (logHas(mh, "at crypt mob")) {
+                    failures.add("Hyperion: the node aimed at a crypt mob");
+                }
+            }
+        } finally {
+            stopRoute(ctx);
+            clearCryptMobs(ctx);
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setCryptAttackTicks", attack0));
+            setArEnum(ctx, "setCryptWeapon", "CryptWeapon", "HYPERION");
+        }
+        check(failures.isEmpty(), String.join("; ", failures));
+    }
+
     /**
      * killer560 (2026-10-15): "the bat node should sense whether a bat is there on arrival as well, not just if it
      * spawns. It is fully possible someone else got close to a secret and spawned it in so the bat node gets there with
@@ -4653,7 +4900,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 ctx.waitTicks(10);
                 long m = LogTap.mark();
                 tpRel(ctx, x + 0.5, 16.5, 0f, p);
-                boolean done = waitFor(ctx, 160, () -> logHas(m, "CRYPT: 1 kill(s)"));
+                // A Spirit Sceptre crypt node also ends the tick it sees its crypt's undead dead (crypt-aim-1015).
+                boolean done = waitFor(ctx, 160, () -> logHas(m, "CRYPT: 1 kill(s)") || logHas(m, "(1 seen, 1 dead,"));
                 int iBoom = logIndex(m, "BOOM acted");
                 int iCrypt = logIndex(m, "CRYPT acted");
                 println(weapon + ": boom@" + iBoom + " crypt@" + iCrypt + " done=" + done + " crypts " + c0 + " -> "
@@ -4725,7 +4973,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(10);
             long mc3 = LogTap.mark();
             tpRel(ctx, 19.5, 10.5, 0f, p);
-            boolean cryptDone = waitFor(ctx, 160, () -> logHas(mc3, "CRYPT: 1 kill(s)"));
+            boolean cryptDone = waitFor(ctx, 160, () -> logHas(mc3, "CRYPT: 1 kill(s)") || logHas(mc3, "(1 seen, 1 dead,"));
             check(cryptDone, "combined: the crypt node never killed its crypt");
             ctx.waitTicks(40);
             check(!logHas(mc3, "ETHERWARP acted"), "combined: the etherwarp went before its secret");
@@ -4735,7 +4983,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             rightClick(ctx, 21, F, 10, Direction.UP);
             Vec3 l = waitLanded(ctx, 19, 4, 80);
             int iB = logIndex(mc3, "BOOM acted");
-            int iC = logIndex(mc3, "CRYPT: 1 kill");
+            int iC = Math.max(logIndex(mc3, "CRYPT: 1 kill"), logIndex(mc3, "(1 seen, 1 dead,"));
             int iS = logIndex(mc3, "await secret 1");
             int iE = logIndex(mc3, "ETHERWARP acted");
             println("combined order: boom " + iB + ", crypt kill " + iC + ", secret " + iS + ", ew " + iE);
