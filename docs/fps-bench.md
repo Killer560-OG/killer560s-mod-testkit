@@ -109,3 +109,16 @@ paths fixed on branch fps-mixins-1015, each with a check that the feature still 
 seven failures. A mixin's `CallbackInfo(Returnable)` costs 24 B per call whenever the JIT leaves its handler out of line,
 and in a tight loop that changed between runs of the same jar (0 or 24 B), so the budgets sit above 24 B and below
 what main allocated.
+## In-world drawing (95-perf-world)
+
+`perf/WorldRenderBenchTest`, ~5 min, only when named; run it through `perf-lock.py`. The 95-perf scene has almost
+nothing for a world renderer to draw, so every LevelRenderEvents listener sits at the probe floor there. This one builds
+the sim's Chambers room, spawns 20 starred zombies round the player and puts a Terminator in his hand, switches
+everything else off, and measures BASE / ESP (Filled Box, through walls) / WAYPOINTS (Fill + Outline, names, crypts) /
+TRAJ (shortbow arcs) / ALL, 2 rounds x 400 ticks (`-PperfWorldTicks`, `-PperfWorldRounds`; pass more than one `-Extra`
+through `powershell -Command`, since `-File` hands a comma list over as ONE argument). Per phase: probe us and B per
+frame of the world keys, plus `compat.McRender` (the mod's world batch, which now does the drawing the features used to
+pay for), and draw calls per frame counted at `RenderType.draw` by `harness/DrawCalls` (26.1.2 only; 26.2 has no
+MultiBufferSource). Fails when ALL adds more than 12 draw calls a frame over BASE or ESP allocates more than 16 KB a
+frame, and when a feature drew nothing. Main 69505e45: ESP alone 40 draw calls and 112 KB a frame; fps-world-1015: 2 and
+6.6 KB. Output also in `build/testkit-report/perf-world.txt`.
