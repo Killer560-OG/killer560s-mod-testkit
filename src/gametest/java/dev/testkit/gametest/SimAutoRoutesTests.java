@@ -2101,8 +2101,12 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 tpRelY(ctx, 28.5, 69.0, 10.5, -150.342102f, 12.861895f);
                 boolean acted = waitFor(ctx, 200, () -> logHas(m, "Node #13 CRYPT acted") || logHas(m, "Stopped"));
                 int cryptTick = ctx.computeOnClient(mc -> PacketTrace.tickCount());
+                // Since crypt-aim-1015 a Spirit Sceptre crypt node also ends the tick it sees every crypt mob it was
+                // tracking dead (2 seen, 2 dead meets await 2), without the tab list's count a second later.
                 boolean ended = waitFor(ctx, 160, () -> logHas(m, "CRYPT: 2 kill(s)") || logHas(m, "up, moving on")
-                        || logHas(m, "skipped the kill wait") || logHas(m, "Stopped"));
+                        || logHas(m, "skipped the kill wait") || logHas(m, "Stopped")
+                        || logHas(m, "CRYPT: every crypt mob dead or given its"));
+                int endTick = ctx.computeOnClient(mc -> PacketTrace.tickCount());
                 ctx.waitTicks(2);
                 List<Sample> s = stopSampling(ctx);
                 ArChainMeasure.Held uses = ArChainMeasure.held(Math.max(0, cryptTick - 2));
@@ -2125,7 +2129,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     }
                 }
                 held[pass] = ticks;
-                boolean killed = logHas(m, "CRYPT: 2 kill(s) after");
+                boolean killed = logHas(m, "CRYPT: 2 kill(s) after") || logHas(m, "(2 seen, 2 dead,");
                 println(String.format(Locale.US, "crypt-mapopen %s: crypt acted %s, ended %s, 2 kills %s after holding use %d "
                                 + "tick(s), crypt undead dead %d -> %d, uses from the crypt node on: %s, screen at the end %s",
                         label, acted, ended, killed, ticks, c0, c1, uses.describe(), still));
@@ -2135,7 +2139,12 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     failures.add(label + ": the crypt node got no 2 kills (" + (line == null ? "no kill line" : line) + ")");
                 }
                 // The first use tick is #10's etherwarp, landed a few ticks before the stack; the crypt's held uses follow.
-                List<Integer> cryptGaps = uses.gaps().size() > 1 ? uses.gaps().subList(1, uses.gaps().size()) : List.of();
+                // Only the crypt node's own uses: up to the tick it ended (#14 goes after it).
+                List<Integer> cryptTicks = uses.ticks().stream().filter(t -> t <= endTick).toList();
+                List<Integer> cryptGaps = new ArrayList<>();
+                for (int k = 2; k < cryptTicks.size(); k++) {
+                    cryptGaps.add(cryptTicks.get(k) - cryptTicks.get(k - 1));
+                }
                 if (cryptGaps.stream().anyMatch(g -> g != 4)) {
                     failures.add(label + ": the crypt node's uses are not 4 ticks apart: " + uses.describe());
                 }
@@ -4884,7 +4893,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 ctx.waitTicks(10);
                 long m = LogTap.mark();
                 tpRel(ctx, x + 0.5, 16.5, 0f, p);
-                boolean done = waitFor(ctx, 160, () -> logHas(m, "CRYPT: 1 kill(s)"));
+                // A Spirit Sceptre crypt node also ends the tick it sees its crypt's undead dead (crypt-aim-1015).
+                boolean done = waitFor(ctx, 160, () -> logHas(m, "CRYPT: 1 kill(s)") || logHas(m, "(1 seen, 1 dead,"));
                 int iBoom = logIndex(m, "BOOM acted");
                 int iCrypt = logIndex(m, "CRYPT acted");
                 println(weapon + ": boom@" + iBoom + " crypt@" + iCrypt + " done=" + done + " crypts " + c0 + " -> "
