@@ -44,6 +44,7 @@ final class ExperimentCases {
         MenuSuite.test(s, "285-menu-exp-superpairs-clicks-free-space", ExperimentCases::clicksFreeSpace);
         MenuSuite.test(s, "286-menu-exp-superpairs-powerup-into-powerup", ExperimentCases::powerupIntoPowerup);
         MenuSuite.test(s, "287-menu-exp-superpairs-instant-find-stack", ExperimentCases::instantFindStack);
+        EtableDefaultsCases.register(s);
     }
 
     // ---- 280-283: Superpairs deductions and priority (mod branch etable-deduce) -------------------------------------
@@ -625,7 +626,11 @@ final class ExperimentCases {
         cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutonomousMode", true).set(CONFIG, "SuperpairsEnabled", true)
                 .set(CONFIG, "DelayMs", 150).set(CONFIG, "FirstClickDelayMs", 300).set(CONFIG, "RandomDelayMaxMs", 0)
                 .set(CONFIG, "StopStrategy", Mod.enumValue("experiments.ExperimentStopStrategy", "MAX_XP"))
-                .set(CONFIG, "BlockInputEnabled", false);
+                .set(CONFIG, "BlockInputEnabled", false)
+                // The pre-2026-10-15 defaults, which every case here was written against; mod etable-defaults-1015
+                // turned all three on by default. A case that wants one on sets it after this.
+                .set(CONFIG, "SuperpairsValuableOnly", false).set(CONFIG, "SkipGrandExpBottles", false)
+                .set(CONFIG, "SkipGuardianPets", false);
         c.ctx().runOnClient(mc -> Mod.setField(FEATURE, "armed", true));
         return () -> c.ctx().runOnClient(mc -> Mod.setField(FEATURE, "armed", false));
     }
