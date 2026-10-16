@@ -84,6 +84,29 @@ public class PerfIdleTest implements FabricClientGameTest {
             ctx.waitTicks(20);
             failures.addAll(ctx.computeOnClient(mc -> sharedText(mc, report)));
 
+            // ---- optional: where a chat line's time and bytes go (-Dtestkit.perf.idleJfr=<file>), OFF ----
+            String jfr = System.getProperty("testkit.perf.idleJfr", "");
+            if (!jfr.isBlank()) {
+                try {
+                    jdk.jfr.Recording rec = new jdk.jfr.Recording(jdk.jfr.Configuration.getConfiguration("profile"));
+                    rec.enable("jdk.ExecutionSample").withPeriod(java.time.Duration.ofMillis(1));
+                    rec.enable("jdk.ObjectAllocationSample").with("throttle", "20000/s");
+                    rec.start();
+                    for (int t = 0; t < 200; t++) {
+                        ctx.runOnClient(mc -> chatLines(mc, 20, 2));
+                        ctx.waitTicks(1);
+                    }
+                    rec.stop();
+                    java.nio.file.Path out = java.nio.file.Path.of(jfr);
+                    java.nio.file.Files.createDirectories(out.toAbsolutePath().getParent());
+                    rec.dump(out);
+                    rec.close();
+                    report.add("chat JFR (OFF, 4000 lines): " + out.toAbsolutePath());
+                } catch (Exception e) {
+                    report.add("chat JFR failed: " + e);
+                }
+            }
+
             // ---- 2 + 3, OFF then DEFAULTS ----
             for (Object[] cfg : new Object[][]{{"OFF", off, CHAT_BYTES_OFF}, {"DEFAULTS", defaults, CHAT_BYTES_DEFAULTS}}) {
                 String label = (String) cfg[0];
