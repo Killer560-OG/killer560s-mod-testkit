@@ -587,7 +587,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   Pass 1 plans (he settles while it plans, so no re-aim), 2 flies the saved plans, 3 adds `ClickPrimer`. Each hop is judged
   against its saved plan's target block (RouteNode.PathHop.target), not the mod's 2-block "landed"; a correction during a
   path warp is a warp landed elsewhere. Plus an aim probe: the mod's `getEtherwarpDirection` from 0.05 over a block centre
-  to landable blocks, fragile = lands for the exact float look but not within 0.01 degrees. Main 4a2b306d-era code: 3600 aims,
+  to landable blocks, fragile = lands for the exact float look but not within 0.01 degrees. Mod main d1eda658: 3600 aims,
   260 fragile, 67 with a firm one to be had - FAIL; path-wrongblock-1015: 8 fragile, 0 avoidable, no saved look fired from
   above its spot, PASS. End-to-end wrong blocks are rare (0 in 552 main hops one run; one 5.4-block miss on Overgrown in
   another), which is why the probe is the gate. Floors are random per run (SimFloorGen has no seed).
