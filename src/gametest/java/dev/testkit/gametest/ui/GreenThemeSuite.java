@@ -30,12 +30,22 @@ import java.util.Locale;
  *       overlay theme choices, the map theme list (with a palette of its own) and the main menu's themes.</li>
  *   <li>1651 the main menu: Match, Separate and Custom-Auto all give the Fireflies scene in Green's colors; its screenshot
  *       is dark and green, moves between two frames and the themed menu does not turn itself off.</li>
+ *   <li>1650 also (green-v2-1015, the theme's designer: "The color is more teal than green, I think making it more green
+ *       would be good"): every one of the five base colors has a hue of 120-142 degrees, a true green (the first pass sat
+ *       at ~160, viridian), and the white knob reads on the on-switch.</li>
+ *   <li>1652 the gradient background (the designer: "can you do gradients for the background or no?"): only Green has a
+ *       panel background of its own - every other preset, and a Custom set one step off Green's, keeps the plain bevel;
+ *       each of the three variants (A forest night, B moss floor, C canopy glow) is DRAWN (panel pixels at the top, middle
+ *       and foot of the panel's left margin match that variant's stops, C's glow included); the background is a cached
+ *       constant (the same object frames apart, nothing built per frame); a 1920x1080 GUI 2 screenshot of the menu in
+ *       each variant (and before them, "default") and of the main menu is kept. On a jar without the gradient the
+ *       "default" shot is the before picture and the case fails.</li>
  * </ul>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class GreenThemeSuite implements FabricClientGameTest {
 
-    static final String[] CASES = {"1650-ui-green-theme", "1651-ui-green-mainmenu"};
+    static final String[] CASES = {"1650-ui-green-theme", "1651-ui-green-mainmenu", "1652-ui-green-gradient"};
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -63,6 +73,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
         });
         UiCase.run(ctx, "1650-ui-green-theme", GreenThemeSuite::theme);
         UiCase.run(ctx, "1651-ui-green-mainmenu", GreenThemeSuite::mainMenu);
+        UiCase.run(ctx, "1652-ui-green-gradient", GreenThemeSuite::gradient);
     }
 
     static float contrast(int a, int b) {
@@ -78,6 +89,28 @@ public class GreenThemeSuite implements FabricClientGameTest {
             v[i] = s <= 0.03928f ? s / 12.92f : (float) Math.pow((s + 0.055f) / 1.055f, 2.4);
         }
         return 0.2126f * v[0] + 0.7152f * v[1] + 0.0722f * v[2];
+    }
+
+    /** Hue in degrees (0..360), HSV. */
+    static float hue(int argb) {
+        int r = (argb >> 16) & 0xFF;
+        int g = (argb >> 8) & 0xFF;
+        int b = argb & 0xFF;
+        int max = Math.max(r, Math.max(g, b));
+        int min = Math.min(r, Math.min(g, b));
+        if (max == min) {
+            return 0f;
+        }
+        float d = max - min;
+        float h;
+        if (max == r) {
+            h = 60f * (((g - b) / d) % 6f);
+        } else if (max == g) {
+            h = 60f * ((b - r) / d + 2f);
+        } else {
+            h = 60f * ((r - g) / d + 4f);
+        }
+        return h < 0 ? h + 360f : h;
     }
 
     static boolean green(int argb) {
@@ -183,6 +216,21 @@ public class GreenThemeSuite implements FabricClientGameTest {
             c.note(String.format(Locale.ROOT, "contrast: text on panel %.1f, text on card %.1f, accent on panel %.1f",
                     onPanel, onCard, accent));
             c.check(onPanel >= 7f && onCard >= 7f && accent >= 4.5f, "Green's contrast is too low");
+            float onSwitch = contrast(0xFFFFFFFF, base[4]);
+            c.note(String.format(Locale.ROOT, "white knob on the on-switch %.1f", onSwitch));
+            c.check(onSwitch >= 3f, "the white knob on Green's on-switch is too faint: " + onSwitch);
+
+            // 4b. a true green, not teal (designer, 2026-10-15): every base color's hue is 120-142 degrees.
+            String[] slot = {"accent", "panel", "card", "text", "switch-on"};
+            StringBuilder hues = new StringBuilder();
+            for (int k = 0; k < 5; k++) {
+                float h = hue(base[k]);
+                hues.append(slot[k]).append(' ').append(MenuACases.hex(base[k]))
+                        .append(String.format(Locale.ROOT, " %.0f; ", h));
+                c.check(h >= 120f && h <= 142f, "Green's " + slot[k] + " " + MenuACases.hex(base[k]) + " has hue "
+                        + Math.round(h) + " - teal, not green (wanted 120-142)");
+            }
+            c.note("hues: " + hues);
 
             // 5. everywhere presets appear.
             List<String> choices = c.onClient(mc -> (List<String>) Mod.staticCall("gui.ScreenThemes", "builtInChoices"));
@@ -287,5 +335,244 @@ public class GreenThemeSuite implements FabricClientGameTest {
             FontsMainMenuSuite.setWindow(c, win0[0], win0[1], win0[2]);
             FontsMainMenuSuite.restoreMm(c, saved);
         }
+    }
+
+    // ---- 1652 the gradient background ------------------------------------------------------------------------------
+
+    static final String[] VARIANTS = {"FOREST_NIGHT", "MOSS_FLOOR", "CANOPY_GLOW"};
+    static final String[] VARIANT_BG = {"FOREST_NIGHT_BG", "MOSS_FLOOR_BG", "CANOPY_GLOW_BG"};
+    static final String[] VARIANT_SHOT = {"variant-a-forest-night", "variant-b-moss-floor", "variant-c-canopy-glow"};
+
+    /** The colour the panel's background should have at GUI row {@code y} (pixel centre) in its left margin column, for a
+     *  background with {@code stops} spread over y0..y1 and, when {@code ring0} is set, the widest glow ring over it. */
+    static int expected(int[] stops, int ring0, int y0, int y1, double y) {
+        int n = stops.length - 1;
+        int h = y1 - y0;
+        int base = stops[n];
+        for (int i = 0; i < n; i++) {
+            int a = y0 + h * i / n;
+            int b = y0 + h * (i + 1) / n;
+            if (y >= a && y < b) {
+                base = mixRgb(stops[i], stops[i + 1], (float) ((y - a) / (b - a)));
+                break;
+            }
+        }
+        if (ring0 != 0) {
+            int hh = Math.round(h * 0.55f);
+            double f = (y - y0) / hh;
+            if (f < 1) {
+                float alpha = (float) (((ring0 >>> 24) & 0xFF) * (1 - f) / 255.0);
+                base = mixRgb(base, ring0, alpha);
+            }
+        }
+        return base | 0xFF000000;
+    }
+
+    static int mixRgb(int a, int b, float t) {
+        int r = 0;
+        for (int s = 0; s < 24; s += 8) {
+            int ca = (a >>> s) & 0xFF;
+            int cb = (b >>> s) & 0xFF;
+            r |= (Math.round(ca + (cb - ca) * t) & 0xFF) << s;
+        }
+        return r;
+    }
+
+    static boolean within(int a, int b, int tol) {
+        for (int sh = 0; sh < 24; sh += 8) {
+            if (Math.abs(((a >> sh) & 0xFF) - ((b >> sh) & 0xFF)) > tol) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static void gradient(UiCase c) throws Exception {
+        String old = MenuACases.themeName();
+        int[] win0 = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight(),
+                mc.options.guiScale().get()});
+        Object hud = Mod.cfg("hud.HudConfig");
+        boolean oldAuto = (Boolean) Mod.call(hud, "isAutoScale");
+        boolean hasGradient = c.onClient(mc -> {
+            try {
+                return Mod.cls("gui.GreenTheme$Gradient") != null;
+            } catch (Throwable t) {
+                return false;
+            }
+        });
+        FontsMainMenuSuite.MmState savedMm = FontsMainMenuSuite.saveMm(c);
+        try {
+            // The menu as 940 shoots it: 1920x1080, GUI 2, Auto Scale on, the HUD category with the Health and Mana
+            // Bars drawer. On a jar without the gradient this first shot is the "before".
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                Mod.call(hud, "setAutoScale", true);
+                Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", Mod.enumValue("gui.MenuTheme", "GREEN"));
+                return null;
+            });
+            FontsMainMenuSuite.setWindow(c, 1920, 1080, 2);
+            c.ctx().getInput().setCursorPos(4, 4); // no hover tooltip in the shots
+            Screen s = c.onClient(mc -> {
+                try {
+                    Screen m = MenuACases.open(mc);
+                    Mod.call(m, "selectCategory", "HUD");
+                    Mod.call(m, "openFeature", MenuACases.leaf("HealthAndManaBarsTab"));
+                    return m;
+                } catch (Exception e) {
+                    throw new AssertionError(e);
+                }
+            });
+            c.ticks(10);
+            MenuACases.shot(c, s, "default", "HealthAndManaBarsTab");
+            if (!hasGradient) {
+                c.problem("the mod has no GreenTheme.Gradient: the Green panel has no gradient background");
+                return;
+            }
+
+            // Only Green has a background of its own: every other preset, and a set one color off Green's, does not.
+            String why = c.onClient(mc -> {
+                for (String t : new String[]{"AMBER", "DARK", "LIGHT", "OCEAN"}) {
+                    int[] b = (int[]) Mod.call(Mod.enumValue("gui.MenuTheme", t), "base");
+                    if (Mod.staticCall("gui.GreenTheme", "background", b[0], b[1], b[2], b[3], b[4]) != null) {
+                        return t + " has a gradient background";
+                    }
+                }
+                int[] g = (int[]) Mod.call(Mod.enumValue("gui.MenuTheme", "GREEN"), "base");
+                if (Mod.staticCall("gui.GreenTheme", "background", g[0] + 1, g[1], g[2], g[3], g[4]) != null) {
+                    return "a Custom set one step off Green's accent has Green's background";
+                }
+                if (Mod.staticCall("gui.GreenTheme", "background", g[0], g[1], g[2], g[3], g[4]) == null) {
+                    return "Green's own colors give no background";
+                }
+                return null;
+            });
+            c.check(why == null, why);
+
+            java.awt.image.BufferedImage[] imgs = new java.awt.image.BufferedImage[VARIANTS.length];
+            for (int v = 0; v < VARIANTS.length; v++) {
+                String variant = VARIANTS[v];
+                String constant = VARIANT_BG[v];
+                c.onClient(mc -> {
+                    Mod.staticCall("gui.GreenTheme", "setGradient", Mod.enumValue("gui.GreenTheme$Gradient", variant));
+                    return null;
+                });
+                String kept = MenuACases.shot(c, s, VARIANT_SHOT[v], "HealthAndManaBarsTab");
+                // The background in use is the variant's cached constant, and the same object frames later.
+                Object[] bg = c.onClient(mc -> new Object[]{Mod.field("gui.MenuStyle", "PANEL_BG"),
+                        Mod.field("gui.GreenTheme", constant)});
+                c.ticks(5);
+                Object later = c.onClient(mc -> Mod.field("gui.MenuStyle", "PANEL_BG"));
+                c.check(bg[0] != null && bg[0] == bg[1], variant + ": the drawn background is not the cached " + constant);
+                c.check(later == bg[0], variant + ": the background object changed between frames (built per frame?)");
+                if (bg[0] == null) {
+                    continue;
+                }
+                int[] stops = (int[]) Mod.field(bg[0], "panel");
+                int[] side = (int[]) Mod.field(bg[0], "side");
+                int[] rings = (int[]) Mod.field(bg[0], "ringColours");
+                c.check(v != 2 || rings.length > 0, "the canopy glow variant draws no glow");
+                c.check(v == 2 || rings.length == 0, variant + " draws a glow");
+                // Its pixels: the panel's left margin (one column inside the bevel's light edge) at the top, middle and
+                // foot, and the sidebar's empty lower part.
+                java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(Path.of(kept).toFile());
+                imgs[v] = img;
+                double sc = img.getWidth() / (double) s.width;
+                int px = (Integer) Mod.field(s, "panelX");
+                int py = (Integer) Mod.field(s, "panelY");
+                int ph = (Integer) Mod.field(s, "panelH");
+                int y0 = py + 1;
+                int y1 = py + ph - 1;
+                int x = px + 2;
+                StringBuilder got = new StringBuilder();
+                for (int gy : new int[]{y0 + 3, y0 + (y1 - y0) / 2, y1 - 4}) {
+                    int drawn = img.getRGB((int) ((x + 0.25) * sc), (int) ((gy + 0.25) * sc)) | 0xFF000000;
+                    int want = expected(stops, 0, y0, y1, gy + 0.25);
+                    got.append(String.format(Locale.ROOT, "y%d %s/%s ", gy - py, MenuACases.hex(drawn), MenuACases.hex(want)));
+                    c.check(within(drawn, want, 5), variant + ": the panel at row " + (gy - py) + " is drawn "
+                            + MenuACases.hex(drawn) + ", the background says " + MenuACases.hex(want));
+                    c.check(green(drawn) || MenuACases.lum(drawn) < 0.03f, variant + ": the panel pixel "
+                            + MenuACases.hex(drawn) + " is not green");
+                }
+                int sx = (Integer) Mod.field(s, "sideX");
+                int sy = (Integer) Mod.field(s, "sideY");
+                int sw = (Integer) Mod.field(s, "sideW");
+                int sh = (Integer) Mod.field(s, "sideH");
+                int sideY = sy + sh - 12;
+                int sideDrawn = img.getRGB((int) ((sx + sw / 2 + 0.25) * sc), (int) ((sideY + 0.25) * sc)) | 0xFF000000;
+                int sideWant = expected(side, 0, sy + 1, sy + sh - 1, sideY + 0.25);
+                c.check(within(sideDrawn, sideWant, 5), variant + ": the sidebar is drawn " + MenuACases.hex(sideDrawn)
+                        + ", the background says " + MenuACases.hex(sideWant));
+                c.note(variant + " (" + VARIANT_SHOT[v] + "): panel " + hexes(stops) + ", sidebar/drawer " + hexes(side)
+                        + ", well " + hexes((int[]) Mod.field(bg[0], "well"))
+                        + (rings.length > 0 ? ", glow " + MenuACases.hex(rings[0]) + " x" + rings.length + " at alpha "
+                        + (rings[0] >>> 24) : "") + "; panel drawn/wanted " + got + "; sidebar " + MenuACases.hex(sideDrawn)
+                        + "/" + MenuACases.hex(sideWant));
+            }
+
+            // C is A's stops plus the glow: in the card well, C is brighter than A in the top centre and the same at the
+            // foot (the cards are the same in both, so only well pixels can differ).
+            if (imgs[0] != null && imgs[2] != null) {
+                double sc = imgs[0].getWidth() / (double) s.width;
+                int gx = (Integer) Mod.field(s, "gridX");
+                int gyy = (Integer) Mod.field(s, "gridY");
+                int gw = (Integer) Mod.field(s, "gridW");
+                int gh = (Integer) Mod.field(s, "gridH");
+                int top = brighter(imgs[2], imgs[0], (int) ((gx + gw * 0.3) * sc), (int) ((gyy + 4) * sc),
+                        (int) ((gx + gw * 0.7) * sc), (int) ((gyy + gh * 0.3) * sc));
+                int foot = brighter(imgs[2], imgs[0], (int) ((gx + 4) * sc), (int) ((gyy + gh * 0.8) * sc),
+                        (int) ((gx + gw - 8) * sc), (int) ((gyy + gh - 4) * sc));
+                c.note("canopy glow: " + top + " well pixels brighter than forest night in the top centre, " + foot
+                        + " at the foot");
+                c.check(top > 500, "the canopy glow is not drawn: only " + top + " brighter pixels in the well's top centre");
+                c.check(foot < 50, "the canopy glow reaches the foot of the well: " + foot + " brighter pixels there");
+            }
+
+            // The main menu in Green at the same size.
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                FontsMainMenuSuite.setMm(mc, "MATCH", "GREEN", "AUTO", 100, true, true);
+                McCompat.setScreen(mc, new TitleScreen());
+                return null;
+            });
+            c.ticks(40);
+            FontsMainMenuSuite.Pic a = FontsMainMenuSuite.pic(FontsMainMenuSuite.shot(c, "mainmenu"));
+            c.note(String.format(Locale.ROOT, "Green main menu 1920x1080: rgb %.1f,%.1f,%.1f", a.r(), a.g(), a.b()));
+            c.check(a.g() > a.r() + 4 && a.g() > a.b() + 2, "the Green main menu is not a true green: " + a.r() + ","
+                    + a.g() + "," + a.b());
+        } finally {
+            c.onClient(mc -> {
+                if (hasGradient) {
+                    Mod.staticCall("gui.GreenTheme", "setGradient", Mod.enumValue("gui.GreenTheme$Gradient", "FOREST_NIGHT"));
+                }
+                McCompat.setScreen(mc, null);
+                Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", Mod.enumValue("gui.MenuTheme", old));
+                Mod.call(Mod.cfg("gui.MenuConfig"), "save");
+                Mod.call(hud, "setAutoScale", oldAuto);
+                return null;
+            });
+            FontsMainMenuSuite.restoreMm(c, savedMm);
+            FontsMainMenuSuite.setWindow(c, win0[0], win0[1], win0[2]);
+        }
+    }
+
+    /** Pixels in the box where {@code a}'s green channel is more than 2 above {@code b}'s. */
+    static int brighter(java.awt.image.BufferedImage a, java.awt.image.BufferedImage b, int x0, int y0, int x1, int y1) {
+        int n = 0;
+        for (int y = Math.max(0, y0); y < Math.min(y1, a.getHeight()); y++) {
+            for (int x = Math.max(0, x0); x < Math.min(x1, a.getWidth()); x++) {
+                if (((a.getRGB(x, y) >> 8) & 0xFF) > ((b.getRGB(x, y) >> 8) & 0xFF) + 2) {
+                    n++;
+                }
+            }
+        }
+        return n;
+    }
+
+    static String hexes(int[] cs) {
+        StringBuilder b = new StringBuilder();
+        for (int col : cs) {
+            b.append(b.isEmpty() ? "" : " > ").append(MenuACases.hex(col));
+        }
+        return b.toString();
     }
 }
