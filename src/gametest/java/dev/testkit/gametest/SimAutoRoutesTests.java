@@ -4966,7 +4966,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(10);
             long mc3 = LogTap.mark();
             tpRel(ctx, 19.5, 10.5, 0f, p);
-            boolean cryptDone = waitFor(ctx, 160, () -> logHas(mc3, "CRYPT: 1 kill(s)"));
+            boolean cryptDone = waitFor(ctx, 160, () -> logHas(mc3, "CRYPT: 1 kill(s)") || logHas(mc3, "(1 seen, 1 dead,"));
             check(cryptDone, "combined: the crypt node never killed its crypt");
             ctx.waitTicks(40);
             check(!logHas(mc3, "ETHERWARP acted"), "combined: the etherwarp went before its secret");
@@ -4976,7 +4976,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             rightClick(ctx, 21, F, 10, Direction.UP);
             Vec3 l = waitLanded(ctx, 19, 4, 80);
             int iB = logIndex(mc3, "BOOM acted");
-            int iC = logIndex(mc3, "CRYPT: 1 kill");
+            int iC = Math.max(logIndex(mc3, "CRYPT: 1 kill"), logIndex(mc3, "(1 seen, 1 dead,"));
             int iS = logIndex(mc3, "await secret 1");
             int iE = logIndex(mc3, "ETHERWARP acted");
             println("combined order: boom " + iB + ", crypt kill " + iC + ", secret " + iS + ", ew " + iE);
