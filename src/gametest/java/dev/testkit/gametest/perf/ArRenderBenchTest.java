@@ -51,8 +51,15 @@ public class ArRenderBenchTest implements FabricClientGameTest {
     private static final String AR = "autoroutes.AutoRoutesConfig";
     private static final String MAP = "livemap.LiveMapConfig";
 
-    /** Render-thread bytes per frame of the Auto Routes render listener (main 4b8d18da measured far above it). */
+    /** Render-thread bytes per frame of the Auto Routes render listener without its labels (main 4b8d18da measured far
+     *  above it). */
     static final int FRAME_BYTES_BUDGET = 1500;
+    /**
+     * Allowed per node label drawn. A label is {@code Font.drawInBatch}: vanilla prepares the glyphs and writes each
+     * glyph vertex through {@code VertexConsumer.addVertex(Matrix4fc, ...)}, which allocates a Vector3f per vertex -
+     * about 1.8 KB for an "#12 Etherwarp" (ar-render-1016, BOX vs BOX bare). That is the same call before and after.
+     */
+    static final int LABEL_BYTES = 2500;
     /** Pixels a shot may differ from the reference jar's (summed RGB delta over 30). */
     static final int SHOT_PIXEL_BUDGET = 40;
 
@@ -102,7 +109,9 @@ public class ArRenderBenchTest implements FabricClientGameTest {
             }
 
             // ---- the cost, per style ----
-            String[][] arPhases = {{"BOX", "false"}, {"CYLINDER", "false"}, {"FILLED", "false"}, {"BOX", "true"}};
+            // {style, edit mode, node numbers}. "BOX bare" has no labels (numbers off, not editing): the shapes alone.
+            String[][] arPhases = {{"BOX", "false", "true"}, {"BOX", "false", "false"}, {"CYLINDER", "false", "true"},
+                    {"FILLED", "false", "true"}, {"BOX", "true", "true"}};
             List<Phase> offs = new ArrayList<>();
             Map<String, List<Phase>> byPhase = new LinkedHashMap<>();
             Map<String, long[]> statsByPhase = new LinkedHashMap<>();
@@ -112,10 +121,12 @@ public class ArRenderBenchTest implements FabricClientGameTest {
                 offs.add(PerfBench.measure(ctx, "OFF r" + r, ticks, cal));
                 report.add(offs.get(offs.size() - 1).line());
                 for (String[] p : arPhases) {
-                    String label = (Boolean.parseBoolean(p[1]) ? "EDIT " : "") + p[0];
+                    String label = (Boolean.parseBoolean(p[1]) ? "EDIT " : "") + p[0]
+                            + (Boolean.parseBoolean(p[2]) ? "" : " bare");
                     ctx.runOnClient(mc -> {
                         PerfBench.apply(on);
                         style(p[0]);
+                        Mod.set(AR, "setShowNodeNumbers", Boolean.parseBoolean(p[2]));
                         Mod.staticCall("autoroutes.AutoRoutesFeature", "setEditMode", Boolean.parseBoolean(p[1]));
                     });
                     ctx.waitTicks(40);
@@ -128,11 +139,14 @@ public class ArRenderBenchTest implements FabricClientGameTest {
                     report.add(ph.line());
                     report.add("   renderer: " + (d == null ? "no AutoRoutesRenderer.renderStats() (pre-ar-render jar)"
                             : String.format(Locale.ROOT, "%d mesh build(s), %d palette build(s), %d path build(s), "
-                                    + "%d frame(s) drawn, %d node draw(s), %d node cull(s), last frame %d labels",
-                            d[0], d[1], d[2], d[3], d[4], d[5], s1[8])));
+                                    + "%d frame(s) drawn, %d node draw(s), %d node cull(s), %.1f labels/frame",
+                            d[0], d[1], d[2], d[3], d[4], d[5], d.length > 9 ? d[9] / (double) Math.max(1, d[3]) : -1.0)));
                 }
             }
-            ctx.runOnClient(mc -> Mod.staticCall("autoroutes.AutoRoutesFeature", "setEditMode", false));
+            ctx.runOnClient(mc -> {
+                Mod.staticCall("autoroutes.AutoRoutesFeature", "setEditMode", false);
+                Mod.set(AR, "setShowNodeNumbers", true);
+            });
 
             // ---- budgets ----
             report.add("");
@@ -162,9 +176,13 @@ public class ArRenderBenchTest implements FabricClientGameTest {
                             kinds.get(k.getKey()), a[0], a[1], a[2]));
                     if (isRenderKey(k.getKey(), kinds.get(k.getKey()))) {
                         sawRender = true;
-                        if (a[1] > FRAME_BYTES_BUDGET) {
-                            failures.add(String.format(Locale.ROOT, "%s: %s allocates %.0f B/frame (budget %d)",
-                                    e.getKey(), k.getKey(), a[1], FRAME_BYTES_BUDGET));
+                        double labels = labelsPerFrame(statsByPhase, e.getKey());
+                        double budget = FRAME_BYTES_BUDGET + LABEL_BYTES * Math.max(0, labels);
+                        report.add(String.format(Locale.ROOT, "%-10s   budget %.0f B/frame (%d + %d x %.1f labels)",
+                                e.getKey(), budget, FRAME_BYTES_BUDGET, LABEL_BYTES, Math.max(0, labels)));
+                        if (a[1] > budget) {
+                            failures.add(String.format(Locale.ROOT, "%s: %s allocates %.0f B/frame (budget %.0f)",
+                                    e.getKey(), k.getKey(), a[1], budget));
                         }
                     }
                 }
@@ -231,6 +249,19 @@ public class ArRenderBenchTest implements FabricClientGameTest {
             }
             PerfBench.close(ctx);
         }
+    }
+
+    /** Mean labels a frame over the phase's rounds, from renderStats; -1 when the jar has none. */
+    private static double labelsPerFrame(Map<String, long[]> stats, String phase) {
+        long labels = 0;
+        long frames = 0;
+        for (Map.Entry<String, long[]> e : stats.entrySet()) {
+            if (e.getKey().startsWith(phase + " r") && e.getValue() != null && e.getValue().length > 9) {
+                labels += e.getValue()[9];
+                frames += e.getValue()[3];
+            }
+        }
+        return frames == 0 ? -1 : labels / (double) frames;
     }
 
     private static boolean isRenderKey(String key, String kind) {
