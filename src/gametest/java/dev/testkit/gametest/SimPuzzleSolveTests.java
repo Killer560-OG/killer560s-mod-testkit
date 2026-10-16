@@ -1285,6 +1285,10 @@ public final class SimPuzzleSolveTests {
                     ModUnderTest.call(cheat, "setAuraRange", new Class<?>[]{double.class}, new Object[]{4.5});
                 }
             }
+            // Auto Close Chest hides every chest window (chest-stall-1015's cases turn it on): off unless a case asks, so
+            // one case's setting never decides how the next one's chest reads.
+            ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"), "setEnabled",
+                    false);
             if (caseExtra != null) {
                 caseExtra.configure(auto, ModUnderTest.config(CHEAT_CONFIG));
             }
