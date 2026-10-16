@@ -837,3 +837,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   fixed jar; the screen's scissor hides that part. Class a run as a heading only if it ENDS above the rows, and clip row
   runs to the visible band. The menu's gradient title is one string drawn three times plus a shadow: same text at the
   same x is one run, not an overlap.
+- **115-hx-autogfs-unknown-command** (2026-10-15): the Hx server has no `/gfs` until a case registers that responder root
+  (140, later), so vanilla answers "Unknown or incomplete command" exactly as p3sim did. Auto GFS (pearls, skip-if-none off,
+  5 s interval) must send once and stop, logging the stop once. Main sent 5 in 20 s. Run one Hx case with
+  `-Scenario "100-hx-session:,115-hx-autogfs"`; the case resets `util.SackCommands.dead` because 115-hx-architect-draft's
+  `/gfs` gets the same answer just before it.

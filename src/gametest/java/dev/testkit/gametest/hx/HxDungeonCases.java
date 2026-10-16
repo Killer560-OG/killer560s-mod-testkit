@@ -41,6 +41,7 @@ final class HxDungeonCases {
         autoKick(s);
         doorKeys(s);
         architect(s);
+        autoGfsUnknown(s);
         quiz(s);
         liveMap(s);
         interop(s);
@@ -588,6 +589,57 @@ final class HxDungeonCases {
                             mc -> !logLines(mark, "Click to get an Architect's First Draft").isEmpty(), 60);
                     c.note("forged ignored; own Quiz fail -> click message (legit jar)");
                 }
+            }
+        });
+    }
+
+    // ---- 115 Auto GFS on a server with no /gfs --------------------------------------------------------------------
+
+    /**
+     * killer560 (2026-10-15): p3sim chat full of "Unknown or incomplete command ... gfs ender_pearl 16<--[HERE]". This
+     * server has no /gfs either (HxResponders registers the root only when a case asks, 140 is later), so Auto GFS must
+     * send once, read vanilla's unknown-command reply, stop, and say so once. Main resent every check interval.
+     */
+    private static void autoGfsUnknown(Session s) {
+        s.test("115-hx-autogfs-unknown-command", c -> {
+            if (!Mod.isCheat()) {
+                c.note("legit jar: Auto GFS is cheat-only, nothing to send");
+                return;
+            }
+            String cfg = "cheatutils.CheatUtilsConfig";
+            try (Settings set = new Settings(c).with(cfg, "AutoGfsEnabled", true).with(cfg, "GfsPearls", true)
+                    .with(cfg, "GfsLeaps", false).with(cfg, "GfsSuperbooms", false).with(cfg, "GfsJerries", false)
+                    .with(cfg, "GfsSkipIfNone", false).with(cfg, "GfsDungeonKuudraOnly", false)
+                    .with(cfg, "GfsIntervalSec", 5)) {
+                dungeon(c);
+                resetSackCommands(c); // 115-hx-architect-draft's /gfs got the same answer a moment ago
+                long mark = LogTap.mark();
+                run(c, () -> {
+                    Mod.setField("cheatutils.AutoGfsFeature", "lastCheckMs", 0L);
+                    Mod.setField("cheatutils.AutoGfsFeature", "lastCommandMs", 0L);
+                });
+                String cmd = awaitCommand(c, "gfs", 200);
+                c.check(cmd.equals("gfs ender_pearl 16"), "first command /" + cmd);
+                c.ctx().waitTicks(400); // 20 s = four 5 s check intervals; main sent one per interval
+                List<String> sent = commandsStarting(c, "gfs");
+                c.check(!logLines(mark, "Unknown or incomplete command").isEmpty(),
+                        "the server never answered unknown command, so the case did not exercise the stop");
+                c.check(sent.size() == 1, "/gfs sent " + sent.size() + " times in 20 s: " + sent);
+                int stops = logLines(mark, "no more automatic /gfs").size();
+                c.check(stops == 1, "the stop was logged " + stops + " times (want exactly once)");
+                c.note("/" + cmd + " once -> unknown command -> stopped, logged once; 20 s later still " + sent.size() + " send");
+            } finally {
+                resetSackCommands(c);
+            }
+        });
+    }
+
+    private static void resetSackCommands(Session c) {
+        run(c, () -> {
+            try {
+                Mod.setField("util.SackCommands", "dead", false);
+            } catch (AssertionError | RuntimeException e) {
+                System.out.println("[115-hx-autogfs-unknown-command] no util.SackCommands on this jar: " + e.getMessage());
             }
         });
     }
