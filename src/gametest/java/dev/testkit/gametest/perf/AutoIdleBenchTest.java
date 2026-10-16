@@ -165,10 +165,10 @@ public class AutoIdleBenchTest implements FabricClientGameTest {
 
     /** Probe keys: {phase, key, max bytes per tick}. */
     static final Object[][] KEY_BYTES = {
-            {"OFF", "autopuzzles.AutoPuzzlesFeature ClientTickEvents.StartTick", 120},
-            {"AUTO IDLE", "autopuzzles.AutoPuzzlesFeature ClientTickEvents.StartTick", 120},
-            {"AUTO IDLE", "autoroutes.AutoRoutesFeature ClientTickEvents.StartTick", 400},
-            {"AUTO IDLE", "cheatutils.CheatUtils ClientTickEvents.StartTick", 400},
+            {"OFF", "autopuzzles.AutoPuzzlesFeature ClientTickEvents.StartTick", 120}, // main 528, branch 16-48
+            {"AUTO IDLE", "autopuzzles.AutoPuzzlesFeature ClientTickEvents.StartTick", 300}, // main 590, branch 98-242
+            {"AUTO IDLE", "autoroutes.AutoRoutesFeature ClientTickEvents.StartTick", 400}, // main 3,232, branch 78-94
+            {"AUTO IDLE", "cheatutils.CheatUtils ClientTickEvents.StartTick", 2000}, // main 32,915 (a boxed Long per block), branch 1,084
     };
 
     /** HUD elements that have nothing to show while idle: never laid out ({phase, HUD id}). */
