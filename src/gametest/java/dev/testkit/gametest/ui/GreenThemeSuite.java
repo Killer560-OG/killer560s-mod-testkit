@@ -999,7 +999,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
                 greenScene(c, scene);
             }
             forestTitle(c);
-            int frames = 600;
+            int frames = Integer.parseInt(System.getenv().getOrDefault("TESTKIT_GREEN_FRAMES", "600"));
             Path dir = Report.dir().resolve("green-" + (scene.isEmpty() ? "default" : scene.toLowerCase(Locale.ROOT)));
             for (int i = 0; i < frames; i++) {
                 clock(c, 3_000_000 + i * (1000.0 / 60.0));
