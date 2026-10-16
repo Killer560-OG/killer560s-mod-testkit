@@ -418,7 +418,8 @@ public class PaintedScenesSuite implements FabricClientGameTest {
             c.note("skipped: the video only runs when 1683 is named");
             return;
         }
-        // -PpaintedScene=<one or a comma list>; default all four new scenes, -PpaintedFrames=N (default 480 = 8 s)
+        // -PpaintedScene=<one or a comma list>; default all four new scenes, -PpaintedFps=N (default 60; 120 for the high
+        // frame rate clips), -PpaintedFrames=N (default 8 s of frames)
         for (String scene : System.getProperty("testkit.paintedScene", "MILKY_WAY,MILKY_WAY_HERO").split(",")) {
             record(c, scene.trim());
         }
@@ -430,10 +431,11 @@ public class PaintedScenesSuite implements FabricClientGameTest {
         String hook = lightScene ? null : "setDarkSceneForTest";
         around(c, true, () -> {
             title(c, theme, hook, scene);
-            int frames = Integer.parseInt(System.getProperty("testkit.paintedFrames", "480"));
+            int fps = Integer.parseInt(System.getProperty("testkit.paintedFps", "60"));
+            int frames = Integer.parseInt(System.getProperty("testkit.paintedFrames", String.valueOf(8 * fps)));
             Path dir = Report.dir().resolve("painted-" + scene.toLowerCase(Locale.ROOT));
             for (int i = 0; i < frames; i++) {
-                double ms = 3_000_000 + i * (1000.0 / 60.0);
+                double ms = 3_000_000 + i * (1000.0 / fps);
                 c.onClient(mc -> {
                     Mod.staticCall(SCENES, "setClockForTest", ms);
                     return null;
