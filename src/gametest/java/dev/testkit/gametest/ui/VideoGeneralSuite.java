@@ -235,7 +235,9 @@ public class VideoGeneralSuite implements FabricClientGameTest {
     private static Screen typeCommand(VideoRecorder r) throws Exception {
         r.hideCursor();
         r.clocks();
-        r.c.ctx().getInput().pressKey(InputConstants.KEY_T);
+        // Real key presses (GLFW's Minecraft.execute path, MenuOpenSuite.realKey): TestInput's pressKey runs the command
+        // outside a task, so the menu's client.execute opened it at once and ChatScreen's setScreen(null) closed it (1920).
+        MenuOpenSuite.realKey(r.c, InputConstants.KEY_T);
         r.hold(300);
         for (char ch : "/killer560".toCharArray()) {
             r.c.ctx().getInput().typeChar(ch);
@@ -250,7 +252,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
         });
         r.c.note("before Enter: " + typed);
         r.clocks();
-        r.c.ctx().getInput().pressKey(InputConstants.KEY_RETURN);
+        MenuOpenSuite.realKey(r.c, InputConstants.KEY_RETURN);
         for (int i = 0; i < 60; i++) {
             r.frame();
             Screen s = screen(r.c);

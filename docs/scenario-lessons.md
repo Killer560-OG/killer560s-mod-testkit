@@ -812,6 +812,16 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   2026-10-15); in the HUD editor, Show Unseen puts the Storage Overlay's large preview over others, so a scroll "over" a
   small element scaled the overlay - film with Show Unseen off, and put the dragged element back (later clips film it).
   Load the room database before filming the sim menu, or Load a Room's Type/Secrets/Crypts columns read "-". The sim's
-  rooms are near black on camera even at Brightness: Bright, so the sim clips give the camera Night Vision. Typing
-  /killer560 into chat through TestInput never opened the menu here (ChatScreen held the text; screen null after Enter);
-  the clip notes FALLBACK and opens it directly. Capture runs ~9 frames a second at 1080p.
+  rooms are near black on camera even at Brightness: Bright, so the sim clips give the camera Night Vision. Capture runs
+  ~9 frames a second at 1080p. Typing /killer560 now uses `MenuOpenSuite.realKey` (see 1920); the FALLBACK note stays
+  as a guard. Each recorder starts its clock a second past `MenuAnim.now()` (see 1921).
+- 1920-ui-killer560-typed / 1921-ui-video-clock (`ui/MenuOpenSuite`): the two 1900 oddities, both the harness. 1920:
+  Fabric's `TestInput.pressKey` calls `KeyboardHandler.keyPress` straight from `runOnClient`, but GLFW's callback wraps it
+  in `Minecraft.execute`, so in the real game the chat Enter runs as a task and the command's own `client.execute` is
+  QUEUED (ReentrantBlockableEventLoop.runningTask) until after ChatScreen's unconditional `setScreen(null)`. Through
+  TestInput the execute runs at once, the menu opens and ChatScreen closes it (and keeps '/killer560' as a draft for
+  the next T). `realKey` delivers a key the GLFW way; use it for any typed command that opens a screen. 1921: every
+  `VideoRecorder` restarted the driven clock at 1,000,000 ms, behind where the previous clip left it; the next clip's
+  menu, opened before its recorder, stamped its open fade at the later time, and `MenuAnim.progress` reads a start 0-1 s
+  ahead as 0, so the whole menu vanished for a second once the new clock came within 1 s of the old end (Home 14.6 s
+  after the 15.6 s sim-run clip, Profiles 24.6 s after the 25.6 s HUD editor clip). Failed 70/90 frames before the fix.

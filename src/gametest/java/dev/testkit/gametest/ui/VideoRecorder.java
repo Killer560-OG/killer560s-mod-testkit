@@ -68,6 +68,12 @@ final class VideoRecorder {
         Files.createDirectories(dir);
         cursorLog = Files.newBufferedWriter(dir.resolve("cursor.csv"), StandardCharsets.UTF_8);
         cursorLog.write("frame,x,y,shown,down\n");
+        // The driven clock never goes back. Each clip used to restart it at 1,000,000 ms, behind where the previous clip
+        // left it; a menu opened before this clip had stamped its open fade at that later moment, and MenuAnim reads a
+        // start up to 1 s ahead as "not begun", so the whole menu went transparent for a second once the new clock came
+        // within 1 s of the old one (14.6 s into Home after the 15.6 s sim-run clip; 1921). Start a second past now.
+        double now = c.onClient(mc -> ((Number) Mod.staticCall("gui.MenuAnim", "now")).longValue() / 1_000_000.0);
+        t = Math.max(t, Math.ceil(now) + 1000);
     }
 
     /** Where clips go: {@code -PvideoOut=<dir>}, else {@code <report>/video-general}. */
