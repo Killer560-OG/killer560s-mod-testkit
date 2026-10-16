@@ -832,3 +832,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   menu, opened before its recorder, stamped its open fade at the later time, and `MenuAnim.progress` reads a start 0-1 s
   ahead as 0, so the whole menu vanished for a second once the new clock came within 1 s of the old end (Home 14.6 s
   after the 15.6 s sim-run clip, Profiles 24.6 s after the 25.6 s HUD editor clip). Failed 70/90 frames before the fix.
+- 96-ar session order (ar-merge-regress-1015, 2026-10-15). A case inherits util/RightClick's state from the one before:
+  96-ar-awaitskip's crypt Hyperion clicks were left unpaired (the sim's ability hook ended vanilla's right click after the
+  block half) and 96-ar-chain after it waited a tick at every corner, on the deployed jars too; alone, chain passed. And the
+  sim's chest window arrives 1-2 ticks after a click, racing the warp an await fires: 96-ar-1015-reaim's control read 2 for 1
+  in a session, so it reruns a side whose log says the window arrived after the await was met. A case that only passes alone
+  is not passing.
