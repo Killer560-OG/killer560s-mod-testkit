@@ -152,3 +152,10 @@ the instrument, each found on the first runs:
 landing (server tp keeping rotation) -> sneak let go and body on a lever -> click next tick -> warp look and sneak in that
 tick -> use next tick; bow rounds landing -> bow in hand -> shot next tick -> AOTV and use the tick after; and turn rounds
 under a held puzzle `FreeCam` (main waits in TurnFirst's foreign wait and holds the click; the branch turns and clicks).
+
+`93-solve-blazemiss-{higher,lower}-timing` and the two blaze timing cases (mod blaze-event-1015) also judge each volley:
+the recorder's own arrow watch (arrows that appear by his eye in their first 4 ticks belong to the last shot's volley;
+an arrow ends when the client loses it, it stops moving, or it is 40 blocks out) gives the latest moment its result could
+be known, and the next shot or chest click must come at most 1 tick after it or after his Shoot cooldown, whichever is
+later (0 or less means the auto knew earlier). A warp, a landing or a map warp in between hands the gap to the landing
+check, and an Interactive Map trip's own landing is not judged (that is the map's arrival settle). Main: misses 5 to 6.

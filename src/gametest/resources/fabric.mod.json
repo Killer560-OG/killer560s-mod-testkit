@@ -116,6 +116,8 @@
 			"dev.testkit.gametest.SimNoWaitTimingTests$IceFillTiming",
 			"dev.testkit.gametest.SimNoWaitTimingTests$HigherBlazeTiming",
 			"dev.testkit.gametest.SimNoWaitTimingTests$LowerBlazeTiming",
+			"dev.testkit.gametest.SimNoWaitTimingTests$BlazeMissHigherTiming",
+			"dev.testkit.gametest.SimNoWaitTimingTests$BlazeMissLowerTiming",
 			"dev.testkit.gametest.SimNoWaitTimingTests$CreeperBeamsTiming",
 			"dev.testkit.gametest.SimNoWaitTimingTests$TicTacToeTiming",
 			"dev.testkit.gametest.SimNoWaitTimingTests$WaterBoardChestTiming",

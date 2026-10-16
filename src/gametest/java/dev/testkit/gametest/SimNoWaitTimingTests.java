@@ -70,16 +70,6 @@ public final class SimNoWaitTimingTests {
                     instanceof net.minecraft.world.level.block.ChestBlock) {
                 out += ", secret chest there";
             }
-            // The last volley's simulated flight (the auto's own clock): a chest is not clicked while a volley that may
-            // still finish the room is in the air - a puzzle wait, its end a ready moment.
-            Class<?> blaze = Class.forName(MOD + "autopuzzles.AutoBlaze");
-            var last = blaze.getDeclaredField("lastShotTime");
-            var flight = blaze.getDeclaredField("shotFlightMs");
-            last.setAccessible(true);
-            flight.setAccessible(true);
-            if (System.currentTimeMillis() - last.getLong(null) <= flight.getLong(null)) {
-                out += ", volley in flight";
-            }
         } catch (ReflectiveOperationException e) {
             out += ", secret unreadable";
         }
@@ -140,7 +130,7 @@ public final class SimNoWaitTimingTests {
 
         @Override
         SolveExtra extra() {
-            return new PuzzleTimingExtra(List.of(Pair.LAND_ACT), SimNoWaitTimingTests::blazeProbe, null,
+            return new PuzzleTimingExtra(List.of(Pair.LAND_ACT, Pair.VOLLEY_NEXT), SimNoWaitTimingTests::blazeProbe, null,
                     SimNoWaitTimingTests::minCooldown);
         }
     }
@@ -154,7 +144,50 @@ public final class SimNoWaitTimingTests {
 
         @Override
         SolveExtra extra() {
-            return new PuzzleTimingExtra(List.of(Pair.LAND_ACT), SimNoWaitTimingTests::blazeProbe, null,
+            return new PuzzleTimingExtra(List.of(Pair.LAND_ACT, Pair.VOLLEY_NEXT), SimNoWaitTimingTests::blazeProbe, null,
+                    SimNoWaitTimingTests::minCooldown);
+        }
+    }
+
+    /**
+     * Higher Blaze with the final volley refused (BlazeMiss, as 93-solve-blazemiss-higher): the re-shot after the miss and
+     * the secret chest's click are judged from the moment the volley's arrows are gone.
+     */
+    public static final class BlazeMissHigherTiming extends SimPuzzleSolveTests.Base {
+        public BlazeMissHigherTiming() {
+            super(new SimPuzzleSolveTests.Spec("blazemiss-higher-timing", "Higher Blaze", "setAutoBlazeEnabled",
+                    "isAutoBlazeEnabled", "BlazeSolverConfig", "SimBlazePuzzle", 1, false, 75,
+                    SimPuzzleSolveTests.Approach.NONE, "BlazeSolverFeature.getOrderedBlazes"));
+        }
+
+        @Override
+        boolean forceMiss() {
+            return true;
+        }
+
+        @Override
+        SolveExtra extra() {
+            return new PuzzleTimingExtra(List.of(Pair.LAND_ACT, Pair.VOLLEY_NEXT), SimNoWaitTimingTests::blazeProbe, null,
+                    SimNoWaitTimingTests::minCooldown);
+        }
+    }
+
+    /** {@link BlazeMissHigherTiming} in Lower Blaze. */
+    public static final class BlazeMissLowerTiming extends SimPuzzleSolveTests.Base {
+        public BlazeMissLowerTiming() {
+            super(new SimPuzzleSolveTests.Spec("blazemiss-lower-timing", "Lower Blaze", "setAutoBlazeEnabled",
+                    "isAutoBlazeEnabled", "BlazeSolverConfig", "SimBlazePuzzle", 1, false, 75,
+                    SimPuzzleSolveTests.Approach.NONE, "BlazeSolverFeature.getOrderedBlazes"));
+        }
+
+        @Override
+        boolean forceMiss() {
+            return true;
+        }
+
+        @Override
+        SolveExtra extra() {
+            return new PuzzleTimingExtra(List.of(Pair.LAND_ACT, Pair.VOLLEY_NEXT), SimNoWaitTimingTests::blazeProbe, null,
                     SimNoWaitTimingTests::minCooldown);
         }
     }
