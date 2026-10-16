@@ -83,7 +83,7 @@ public final class SimPuzzleSolveTests {
 
     private static final String AOTV = "ASPECT_OF_THE_VOID";
     private static final String TERMINATOR = "TERMINATOR";
-    private static final int AOTV_SLOT = 0;
+    static final int AOTV_SLOT = 0;
     private static final int TERM_SLOT = 1;
 
     /** Every auto's toggle, so each scenario can switch ALL of them off before turning its own on. */
@@ -1041,7 +1041,7 @@ public final class SimPuzzleSolveTests {
             }
             if (spec.chestIsVerdict()) {
                 if (chestAt > 0 && bw != null) {
-                    String problem = bw.verdict(ctx, auraTakesChest(), complete(ctx));
+                    String problem = bw.verdict(ctx, auraTakesChest(), boardSolved(ctx));
                     println(name, "boulder: " + bw.summary());
                     if (problem != null) {
                         dumpEvidence(ctx, name, mark);
@@ -1113,6 +1113,20 @@ public final class SimPuzzleSolveTests {
             dumpEvidence(ctx, name, mark);
             return "FAIL - not solved in " + spec.seconds() + "s" + extra + "; last: "
                     + (tail.isEmpty() ? "(no auto/sim log line at all)" : tail.get(tail.size() - 1));
+        }
+
+        /**
+         * Boulder's BOARD solved (the boxes open a way), whatever the chest: since mod chest-stall-1015 the sim's
+         * isComplete is also true once the chest is opened (Hypixel completes Boulder on the chest), so the button-mode
+         * check reads isPathOpen; a jar without it has isComplete as the board test.
+         */
+        private boolean boardSolved(ClientGameTestContext ctx) {
+            try {
+                return ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(PUZZLES + spec.puzzle(),
+                        "isPathOpen", new Class<?>[]{}, new Object[]{}));
+            } catch (Throwable e) {
+                return complete(ctx);
+            }
         }
 
         private boolean complete(ClientGameTestContext ctx) {

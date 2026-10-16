@@ -341,7 +341,10 @@ public class SimAutoSecretTests implements FabricClientGameTest {
         }
         // 2026-10-14 ("auto clear related things need to realize when an auto puzzle is working"): it starts under a
         // working auto puzzle (PuzzleActivityFake), and for five seconds must neither choose a room nor move him.
-        PuzzleActivityFake.start(ctx);
+        // Marked as his Ice Path chest step marks a tick (killer560, 2026-10-15): three tags a tick, the last of them the
+        // generic "Puzzles" - main posted "Waiting for Auto Ice Path chest / Auto Puzzles to finish" to his chat every
+        // tick, alternating, and Auto Routes logged its "Arming: inert" line every tick.
+        PuzzleActivityFake.start(ctx, "Ice Path", "Ice Path chest", "Puzzles");
         Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "start"));
         if (!Boolean.TRUE.equals(started)) {
             PuzzleActivityFake.stop(ctx);
@@ -353,9 +356,27 @@ public class SimAutoSecretTests implements FabricClientGameTest {
         double heldMoved = ctx.computeOnClient(mc -> mc.player.position()).distanceTo(from);
         boolean heldTarget = false;
         boolean holdSaid = false;
+        int holdLines = 0;
+        int holdChat = 0;
+        int inertLines = 0;
         for (String l : LogTap.since(mark)) {
             heldTarget |= TARGET.matcher(l).find() || NO_ROUTE.matcher(l).find();
-            holdSaid |= l.contains("[AutoSecret] waiting: Auto testkit is working");
+            if (l.contains("[AutoSecret] waiting: Auto ") && l.contains(" is working")) {
+                holdSaid = true;
+                holdLines++;
+            }
+            if (l.contains("[CHAT]") && l.contains("Waiting for ") && l.contains(" to finish")) {
+                holdChat++;
+            }
+            if (l.contains("[AutoRoutes] Arming: inert: ") && l.contains(" is working")) {
+                inertLines++;
+            }
+        }
+        println(String.format(Locale.US, "hold lines under the alternating marks: %d AutoSecret log, %d chat, %d Auto Routes "
+                + "inert", holdLines, holdChat, inertLines));
+        if (holdLines > 1 || holdChat > 1 || inertLines > 1) {
+            failures.add(String.format(Locale.US, "the puzzle hold was said more than once in 5 s (%d log, %d chat, %d Auto "
+                    + "Routes inert line(s)) - one per reason per room", holdLines, holdChat, inertLines));
         }
         int heldSeq = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "arrivalSeq"));
         PuzzleActivityFake.stop(ctx);

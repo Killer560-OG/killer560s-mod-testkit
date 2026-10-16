@@ -16,17 +16,30 @@ final class PuzzleActivityFake {
 
     private static volatile boolean on;
     private static boolean hooked;
+    /** The tags marked, one after the other within each tick (default the one "testkit"). */
+    private static volatile String[] tags = {"testkit"};
 
     private PuzzleActivityFake() {
     }
 
     static void start(ClientGameTestContext ctx) {
+        start(ctx, "testkit");
+    }
+
+    /**
+     * Marks every one of {@code marks} in order each tick - as one real tick of Ice Path's chest step marks "Ice Path",
+     * its free camera "Ice Path chest" and its click "Puzzles" (killer560's log, 2026-10-15).
+     */
+    static void start(ClientGameTestContext ctx, String... marks) {
+        tags = marks.clone();
         ctx.runOnClient(mc -> {
             if (!hooked) {
                 hooked = true;
                 ClientTickEvents.START_CLIENT_TICK.register(c -> {
                     if (on) {
-                        ModUnderTest.staticCall(ACTIVITY, "note", new Class<?>[]{String.class}, new Object[]{"testkit"});
+                        for (String tag : tags) {
+                            ModUnderTest.staticCall(ACTIVITY, "note", new Class<?>[]{String.class}, new Object[]{tag});
+                        }
                     }
                 });
             }
