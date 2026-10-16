@@ -65,6 +65,10 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
 
     private static final Pattern TARGET = Pattern.compile("\\[AutoSecret\\] target (.+?): (\\d+) unfound");
     private static final Pattern FINISHED = Pattern.compile("\\[AutoSecret\\] route (.+?) finished \\(tick (\\d+)\\)");
+    private static final Pattern GOES_NOW = Pattern.compile(
+            "\\[AutoSecret\\] (.+?): .*of the last-node wait \\(tick (\\d+)\\) - the next warp goes now");
+    private static final Pattern LEAVES_AT_END = Pattern.compile(
+            "\\[AutoSecret\\] (.+?): every secret counted at the route's end.* - leaving this tick");
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -365,6 +369,9 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             ModUnderTest.set(cfg, "setAuraSkullRange", 4.5);
             ModUnderTest.set(cfg, "setAuraCooldownMs", 150);
             ModUnderTest.call(cfg, "setAuraPauseHolding", new Class<?>[]{String.class}, new Object[]{""});
+            // His setting too: the chest's window never opens, its lid does (and no warp goes under a window).
+            ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"), "setEnabled",
+                    true);
         });
         List<SimAutoSecretTests.Room> eligible = eligible(ctx.computeOnClient(SimAutoSecretTests::readRooms));
         Map<Integer, SimAutoSecretTests.Room> byId = new HashMap<>();
@@ -453,6 +460,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             return;
         }
         Map<String, Long> finishedAt = new HashMap<>();
+        Map<String, Long> releasedAt = new HashMap<>();
         Map<String, Long> registeredAt = new HashMap<>();
         for (int t = 0; t < 20 * 150; t++) {
             ctx.waitTicks(1);
@@ -466,6 +474,14 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                 Matcher f = FINISHED.matcher(l);
                 if (f.find() && !finishedAt.containsKey(f.group(1))) {
                     finishedAt.put(f.group(1), Long.parseLong(f.group(2)));
+                }
+                Matcher g = GOES_NOW.matcher(l);
+                if (g.find() && !releasedAt.containsKey(g.group(1))) {
+                    releasedAt.put(g.group(1), Long.parseLong(g.group(2)));
+                }
+                Matcher e = LEAVES_AT_END.matcher(l);
+                if (e.find() && !releasedAt.containsKey(e.group(1)) && finishedAt.containsKey(e.group(1))) {
+                    releasedAt.put(e.group(1), finishedAt.get(e.group(1)));
                 }
             }
             boolean allDone = cases.stream().allMatch(c -> finishedAt.containsKey(c.room()));
@@ -504,9 +520,11 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                 }
             }
             Long reg = registeredAt.get(c.room());
+            Long rel = releasedAt.get(c.room());
             println(name, String.format(Locale.US, "%s (%s at %s, stand %s): route end %d, last secret registered %s,"
-                            + " first warp out %s%s", c.room(), c.kind(), c.secret().toShortString(), c.stand().toShortString(),
-                    end, reg == null ? "NEVER" : reg + " (" + (reg - end) + " after the end)",
+                            + " warp let go %s, first warp out %s%s", c.room(), c.kind(), c.secret().toShortString(),
+                    c.stand().toShortString(), end, reg == null ? "NEVER" : reg + " (" + (reg - end) + " after the end)",
+                    rel == null ? "?" : rel + (reg != null ? " (" + (rel - reg) + " after it registered)" : ""),
                     out < 0 ? "none" : out + " (" + (out - end) + " after the end)",
                     reg != null && out >= 0 ? ", " + (out - reg) + " tick(s) after it registered" : ""));
             if (reg == null) {
@@ -515,8 +533,11 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             } else if (out >= 0 && out < reg) {
                 failures.add(c.room() + " (" + c.kind() + "): left on tick " + out + ", before its last secret registered"
                         + " on " + reg);
-            } else if (out >= 0 && out - reg > 2) {
-                failures.add(c.room() + " (" + c.kind() + "): registered on " + reg + " but the warp out waited until " + out);
+            } else if (rel != null && rel - reg > 1) {
+                // The client sees a server registration a tick later at the earliest; the hold must go on that tick. (The
+                // trip itself may still take a search when it was not planned ahead - not this wait's doing.)
+                failures.add(c.room() + " (" + c.kind() + "): registered on " + reg + " but the held warp was let go only"
+                        + " on " + rel);
             }
         }
         if (checked < 2) {
