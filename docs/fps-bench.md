@@ -122,3 +122,18 @@ pay for), and draw calls per frame counted at `RenderType.draw` by `harness/Draw
 MultiBufferSource). Fails when ALL adds more than 12 draw calls a frame over BASE or ESP allocates more than 16 KB a
 frame, and when a feature drew nothing. Main 69505e45: ESP alone 40 draw calls and 112 KB a frame; fps-world-1015: 2 and
 6.6 KB. Output also in `build/testkit-report/perf-world.txt`.
+## Screens (95-perf-screens)
+
+`perf/PerfScreensTest`, ~5 min, only when named (fps-gui-1015, 2026-10-15). 95-perf-features and the gate never open a
+screen, so the mod menu, the container overlays and the title screen's scene never show in them. In PerfBench's scene it
+opens in turn: nothing (`none`), the mod menu's card grid (`menu`), the menu with Live Map's drawer (`drawer`), the
+Dungeon Sim menu (`sim`), a 54-slot
+"Auctions Browser" chest of SkyBlock items with the mouse on slot 10 (`chest`), the same items on "Ender Chest (1/9)",
+which Storage Overlay takes over (`storage`), and after leaving the world the title screen (`title`); each with every
+switch OFF, then ALL ON, `-PperfBigTicks` (200) ticks each. Per phase: frame CPU, render-thread KB/frame, the probe's top
+keys, the mod's probe key `screen.<Class> extract` (the screen's whole draw, needs the mod's `ScreenProbeMixin`, mod
+fps-gui-1015 and later) and the mod's own draw probes (`ModScreen.allocProbe`, `MainMenuScenes.allocProbe`).
+`-PperfScreens=menu,chest` picks phases, `-PperfNoJfr` skips the per-phase ALL ON JFR (`perf-screens-<phase>.jfr`, with
+allocation samples at 5000/s), `-PperfNoCeiling` only measures. It FAILS when a screen was not open, the screen probe
+counted nothing, or the mod's draw allocates over `CEILING_KB` (menu 150, drawer 250, title scene 50 KB/frame; main
+69505e45 measured 342 / 697 / 100). Results in `perf-screens.txt`.
