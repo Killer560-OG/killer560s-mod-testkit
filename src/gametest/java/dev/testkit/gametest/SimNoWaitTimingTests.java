@@ -79,7 +79,8 @@ public final class SimNoWaitTimingTests {
     /**
      * The volley's own arrows, watched by the test and not by the mod: every arrow that appears within 4 blocks of his
      * eye in its first 4 ticks is one of his, and it has ENDED once the client no longer has it (the server removed it -
-     * a hit, or BlazeMiss refusing one), it has stopped moving (stuck in a block), or it is 40 blocks out. "volley ended
+     * a hit, or BlazeMiss refusing one), it has stopped moving (stuck in a block), it is 40 blocks out, or its own last
+     * step on the client took it away from the volley's target; the target's removal ends them all. "volley ended
      * #n" is the moment the volley's result is known on the client; the auto's next shot, or its chest click, is judged
      * from it (no fixed margin, mod blaze-event-1015). Main waited the simulated flight plus 4 ticks.
      */
@@ -109,10 +110,21 @@ public final class SimNoWaitTimingTests {
             if (fresh) {
                 volleys++;
             }
+            net.minecraft.world.entity.Entity target = shotTarget();
+            if (target != null && target.isRemoved()) {
+                FLYING.clear(); // the target's kill is reported: the volley's result is known
+            }
+            net.minecraft.world.phys.Vec3 aim = target == null ? null : target.position().add(0.0, -1.0, 0.0);
             FLYING.entrySet().removeIf(e -> {
                 net.minecraft.world.entity.Entity a = mc.level.getEntity(e.getKey());
                 if (a == null || a.isRemoved() || a.position().distanceTo(eye) > 40.0
                         || a.position().distanceToSqr(e.getValue()) < 1.0e-4) {
+                    return true;
+                }
+                // Moving away from the target (its blaze stands a block under the label) on its own last tick's
+                // flight, as the client saw it: it can no longer be the arrow that hits it.
+                net.minecraft.world.phys.Vec3 step = a.position().subtract(e.getValue());
+                if (aim != null && step.dot(aim.subtract(a.position())) <= 0.0) {
                     return true;
                 }
                 e.setValue(a.position());
@@ -125,6 +137,17 @@ public final class SimNoWaitTimingTests {
         }
 
         private static final java.util.Set<Integer> SEEN = new java.util.HashSet<>();
+
+        /** Which blaze the last volley was shot at (the auto's own record of its target - only WHO, never WHEN). */
+        private static net.minecraft.world.entity.Entity shotTarget() {
+            try {
+                var f = Class.forName(MOD + "autopuzzles.AutoBlaze").getDeclaredField("currentTarget");
+                f.setAccessible(true);
+                return (net.minecraft.world.entity.Entity) f.get(null);
+            } catch (ReflectiveOperationException e) {
+                return null;
+            }
+        }
     }
 
     /** Beams: one fewer lit pair is a pair done. */
