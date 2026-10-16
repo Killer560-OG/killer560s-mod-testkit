@@ -531,6 +531,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   "Global terrain uniforms have not been updated"; the case reads the main target back with `Screenshot.takeScreenshot`
   then (26.1.2 only: 26.2's `Minecraft` has no `getMainRenderTarget`). A compile error in a -Minecraft 26.2 run makes
   run-scenario exit 1 in seconds and leaves the PREVIOUS run's report in place: check the log's "Loading Minecraft" line.
+- 1324-ui-etherwarp-nonfull (mod ew-chest-1015, 2026-10-15): the Etherwarp box on a chest, ender chest, trapped chest, slab, stair,
+  hopper, cauldron, carpet, stone under a player head and plain stone, from a one-high step at 0 and 40 degrees. An outline sample
+  needs 7 magenta pixels in its 5x5 (a whole 2 px line, about 10): 'any magenta within 2 px' passed main's chest at 54/63,
+  because the half of each line outside the chest's silhouette survived. Main 26.1.2: chest Outline 0/63, Filled 0/50; 26.2
+  and the fix: all pass. Etherwarp passes through heads, so the head case's box is the stone below it, red.
 - 1401-1403 (`SimWorldTests`, sim-superboom-radius 2026-10-14): the sim Superboom's 3-block radius (blast at the hit FACE's centre, measured to each block's box) and whole groups. 1401 Big Red Flag's prince tomb (86 blocks, wall z 27 / x 18 and floor kept) plus a floor cracked chain; 1402 Arrow Trap's slab crypt from an overhang 2 above the lid (out of the old y +-2 cube); 1403 a cracked chain with one end in reach beside a stone brick wall that stays. All three fail on main (46/86 tomb left, 0 broken, 8/8 chain left). 642/645 now expect the decorative brick in reach, the eave and the wall under the lid to go.
 - 96-ar-1014-jumpcd / 62-argrim-1014-jumpcd (ar-jump-cooldown, 2026-10-14): a finished jump node's tile does not arm for
   3 s. Count take-offs on the CLIENT's ground flag and only after the node has pressed: the integrated server's flag drops
