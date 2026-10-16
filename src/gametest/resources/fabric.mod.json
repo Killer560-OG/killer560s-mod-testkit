@@ -163,6 +163,7 @@
 			"dev.testkit.gametest.ui.FontsMainMenuSuite",
 			"dev.testkit.gametest.ui.GreenThemeSuite",
 			"dev.testkit.gametest.ui.PaintedScenesSuite",
+			"dev.testkit.gametest.ui.OceanFallsSuite",
 			"dev.testkit.gametest.ui.MenuAnimSuite",
 			"dev.testkit.gametest.ui.VideoGeneralSuite",
 			"dev.testkit.gametest.ui.MenuOpenSuite",
