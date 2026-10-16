@@ -341,10 +341,10 @@ public class SimAutoSecretTests implements FabricClientGameTest {
         }
         // 2026-10-14 ("auto clear related things need to realize when an auto puzzle is working"): it starts under a
         // working auto puzzle (PuzzleActivityFake), and for five seconds must neither choose a room nor move him.
-        // Marked as his Ice Path chest step marks a tick (killer560, 2026-10-15): three tags a tick, the last of them the
-        // generic "Puzzles" - main posted "Waiting for Auto Ice Path chest / Auto Puzzles to finish" to his chat every
-        // tick, alternating, and Auto Routes logged its "Arming: inert" line every tick.
-        PuzzleActivityFake.start(ctx, "Ice Path", "Ice Path chest", "Puzzles");
+        // Marked as his Ice Path chest step left the name (killer560, 2026-10-15): "Ice Path chest" on one tick, the click's
+        // generic "Puzzles" on the next - main posted "Waiting for Auto Ice Path chest / Auto Puzzles to finish" to his
+        // chat on every change, and Auto Routes logged its "Arming: inert" line on every change.
+        PuzzleActivityFake.start(ctx, "Ice Path chest", "Puzzles");
         Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "start"));
         if (!Boolean.TRUE.equals(started)) {
             PuzzleActivityFake.stop(ctx);

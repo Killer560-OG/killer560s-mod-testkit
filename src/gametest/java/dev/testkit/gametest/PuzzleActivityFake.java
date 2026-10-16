@@ -16,8 +16,9 @@ final class PuzzleActivityFake {
 
     private static volatile boolean on;
     private static boolean hooked;
-    /** The tags marked, one after the other within each tick (default the one "testkit"). */
+    /** The tags marked, one per tick in turn (default the one "testkit"). */
     private static volatile String[] tags = {"testkit"};
+    private static int turn;
 
     private PuzzleActivityFake() {
     }
@@ -27,8 +28,9 @@ final class PuzzleActivityFake {
     }
 
     /**
-     * Marks every one of {@code marks} in order each tick - as one real tick of Ice Path's chest step marks "Ice Path",
-     * its free camera "Ice Path chest" and its click "Puzzles" (killer560's log, 2026-10-15).
+     * Marks one of {@code marks} each tick, in turn - as Ice Path's chest step ended a tick on "Ice Path chest" (its free
+     * camera) and a clicking tick on "Puzzles" (the click), which main read as a new name every tick (killer560's log,
+     * 2026-10-15).
      */
     static void start(ClientGameTestContext ctx, String... marks) {
         tags = marks.clone();
@@ -37,9 +39,9 @@ final class PuzzleActivityFake {
                 hooked = true;
                 ClientTickEvents.START_CLIENT_TICK.register(c -> {
                     if (on) {
-                        for (String tag : tags) {
-                            ModUnderTest.staticCall(ACTIVITY, "note", new Class<?>[]{String.class}, new Object[]{tag});
-                        }
+                        String[] t = tags;
+                        String tag = t[Math.floorMod(turn++, t.length)];
+                        ModUnderTest.staticCall(ACTIVITY, "note", new Class<?>[]{String.class}, new Object[]{tag});
                     }
                 });
             }
