@@ -382,9 +382,10 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                     case "Previous Runs" -> r.hold(700);
                     case "Create a New Map" -> {
                         r.hold(900);
-                        int[] fill = widget(c, "Fill");
-                        if (fill != null) {
-                            glideTo(r, fill, 0.45, 0.5, 650);
+                        // Generate, not Fill: the designer's Fill button went (killer560, 2026-10-15).
+                        int[] gen = widget(c, "Generate");
+                        if (gen != null) {
+                            glideTo(r, gen, 0.45, 0.5, 650);
                             r.click();
                             r.hold(500);
                         }
