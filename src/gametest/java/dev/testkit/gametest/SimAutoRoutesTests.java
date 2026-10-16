@@ -4701,6 +4701,25 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                                 label, at, want, tough ? "2" : "1 or 2"));
                     }
                 }
+                // "2 bats at each before moving on": a mob's uses come together, never split by another mob's (mod
+                // crypt-aim-2-1016 - its own bat in flight once read as a wall and split them).
+                List<Integer> order = new ArrayList<>();
+                for (float[] a : aimed) {
+                    int k = 0;
+                    for (Vec3 p : seen.values()) {
+                        float want = (float) Math.toDegrees(Math.atan2(-(p.x - (nodeReal.getX() + 0.5)),
+                                p.z - (nodeReal.getZ() + 0.5)));
+                        if (!Float.isNaN(a[1]) && Math.abs(net.minecraft.util.Mth.wrapDegrees(a[1] - want)) <= 12f) {
+                            if (order.isEmpty() || order.get(order.size() - 1) != k) {
+                                if (order.contains(k)) {
+                                    failures.add(label + ": the uses at one mob were split by another's: " + sb);
+                                }
+                                order.add(k);
+                            }
+                        }
+                        k++;
+                    }
+                }
                 if (aimed.size() != matched) {
                     failures.add(label + ": " + (aimed.size() - matched) + " use(s) after the first two aimed at no crypt mob");
                 }
