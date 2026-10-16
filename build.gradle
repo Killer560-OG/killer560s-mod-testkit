@@ -603,6 +603,12 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	if (project.hasProperty("perfAutoJfr")) {
 		systemProperty "testkit.perf.autoJfr", "true"
 	}
+	// Extra JVM flags for the test client, separated by whitespace or "@@" (run-scenario.ps1 hands gradlew.bat its
+	// arguments through Start-Process, which splits on spaces). 95-perf-sim's startup numbers, fps-sim-1015:
+	//   -PclientJvmArgs=-XX:StartFlightRecording:filename=build/testkit-report/startup.jfr,settings=profile@@-Xlog:class+load=info:file=build/testkit-report/classload.txt
+	if (project.hasProperty("clientJvmArgs")) {
+		jvmArgs(project.property("clientJvmArgs").toString().trim().split(/\s+|@@/) as List)
+	}
 	if (project.hasProperty("perfNoJfr")) {
 		systemProperty "testkit.bench.noJfr", "true"
 	}

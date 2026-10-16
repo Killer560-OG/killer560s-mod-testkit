@@ -159,3 +159,16 @@ IDLE (a feature acted, so the phase is not idle), and on its budgets: bytes per 
 Secret Aura ticks, no draw call for an idle status HUD, and two direct allocation checks of single hot calls
 (`EtherwarpHopper.range()` with nine Skyblock items in the hotbar, `TerminalSolverFeature.refreshState()` with a plain
 chest open and the solver on). Results in `perf-autoidle.txt` / `.tsv`.
+## The sim's own cost, startup and heap (95-perf-sim)
+
+`perf/SimPerfTest`, ~4 min, only when named (fps-sim-1015). First, before anything else touches the client: JVM uptime
+at the first gametest (title screen up), loaded classes, heap after a full GC, and the room library's block-array bytes.
+Then PerfBench's seeded sim F7 with every switch OFF for 600 ticks: every `roomsim.` probe key (client and server
+thread, us and bytes per tick), the integrated server thread's whole CPU and allocation per tick, a hash of every block
+the build placed (compare the `floor block hash` line between two jars: a paste change that only got cheaper must leave
+it equal), and RoomPlacer's array-free rotation checked against `rotateLocal`. Fails when `SimTabList`/`SimSidebar`
+allocate over 600 B a tick (main: 10,485 / 5,913) or the library's arrays exceed 20 MB (main: 25.7).
+`-PclientJvmArgs=a@@b` adds JVM flags to the test client ("@@" or whitespace separated; run-scenario passes arguments
+through Start-Process, which splits on spaces), e.g. `-XX:StartFlightRecording:filename=startup.jfr,settings=profile`
+and `-Xlog:class+load=info:file=classload.txt` (both land in build/run/clientGameTest; relative, because -Xlog splits
+on the colon of a drive letter).

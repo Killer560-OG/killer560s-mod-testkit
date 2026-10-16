@@ -896,3 +896,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   Tac Toe, Quiz, the other `AutoClearUtils` overrides) is a BLOCK trip to `overrideGoal`, not a tile trip: the first
   fresh-plan comparator planned the tile and read 19/5/5 warps beside the press's 20/6/7 (the OFF press agreed with the
   cache every time). Resolve the goal the way `pathToRoom` does before comparing.
+- 95-perf-sim (fps-sim-1015): a few seconds of work in `ctx.computeOnClient` (a block walk over a whole sim floor) froze
+  the client long enough for run-scenario's "Not Responding" watcher to kill it, exit -1, twice, with no assertion in the
+  log. Off the server thread `getChunkNow` found no chunks, so the hash read as "0 non-air". Queue such work with
+  `server.execute` and poll for the result with `ctx.waitFor`; never join it from the test thread.

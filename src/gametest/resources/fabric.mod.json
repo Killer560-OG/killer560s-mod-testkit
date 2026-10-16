@@ -179,7 +179,8 @@
 			"dev.testkit.gametest.perf.MixinFixesTest",
 			"dev.testkit.gametest.perf.WorldRenderBenchTest",
 			"dev.testkit.gametest.perf.PerfScreensTest",
-			"dev.testkit.gametest.perf.PerfHudTest"
+			"dev.testkit.gametest.perf.PerfHudTest",
+			"dev.testkit.gametest.perf.SimPerfTest"
 		]
 	},
 	"depends": {
