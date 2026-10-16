@@ -569,12 +569,12 @@ public class SimMapWarpTests implements FabricClientGameTest {
     }
 
     /** The planner's landing note on a tile plan line (mod im-quickgraph and later). */
-    private static final Pattern LANDING_DEPTH = Pattern.compile("; landing (\\d+ block\\(s\\) from the tile centre[^;]*)");
+    private static final Pattern LANDING_DEPTH = Pattern.compile("; landing (\\d+ block\\(s\\) from the tile cent(?:re|er)[^;]*)");
     /** ClearExecutor's "[Path] running N warp(s) from (x, y, z) to BlockPos{x=.., y=.., z=..}". */
     private static final Pattern RUNNING = Pattern.compile("\\[Path\\] running (\\d+) warp\\(s\\) from \\((-?[0-9.]+),"
             + " (-?[0-9.]+), (-?[0-9.]+)\\) to BlockPos\\{x=(-?\\d+), y=(-?\\d+), z=(-?\\d+)\\}");
     /** The mod's [check] plan of the same click without the centre preference (killer560.test.checkFewest). */
-    private static final Pattern CHECK_FEWEST = Pattern.compile("\\[check\\] without the centre preference: (\\d+)"
+    private static final Pattern CHECK_FEWEST = Pattern.compile("\\[check\\] without the cent(?:re|er) preference: (\\d+)"
             + " warp\\(s\\), landing (\\d+) block");
     private static final List<String> DEPTHS = new ArrayList<>();
     private static final boolean[] FULL_WARM_BEFORE_PAUSE = {false};
