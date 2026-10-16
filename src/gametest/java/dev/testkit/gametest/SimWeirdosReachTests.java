@@ -28,8 +28,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * until he walked over himself: 28.9 s for a puzzle the Autopilot estimates at 7.9.
  *
  * <p>The room is built alone at each of its four quarter turns ({@code SimBuilder.setSingleRoomRotationForTest}; a jar
- * without it plays rotation 0 only and says so), and at each the auto is started from three spots: the Interactive Map's
- * spot for the room (his case), a spot with exactly ONE weirdo in entity reach, and a spot with NONE in reach. Talk To NPCs,
+ * without it plays rotation 0 only and says so), and at each the auto is started from four spots: where the build stands
+ * him by the doorway (about 21 blocks from the weirdos), the Interactive Map's spot for the room (his case), a spot with
+ * exactly ONE weirdo in entity reach, and a spot with NONE in reach. Talk To NPCs,
  * Etherwarp Reposition and pathing are on (his settings), an AOTV is in hand, nothing else moves him. Each case must:
  * have the sim mark Three Weirdos solved (the correct chest opened, the room never failed) within {@link #BUDGET_TICKS} of
  * the auto being switched on (the Autopilot's estimate for the room is 6 s standing in it); have talked to all three (3
@@ -60,7 +61,7 @@ public class SimWeirdosReachTests implements FabricClientGameTest {
     private static final int WATCH_TICKS = 20 * 20;
     private static final double ENTITY_REACH = 3.0;
 
-    private enum Start { IMAP, ONE_IN_REACH, NONE_IN_REACH }
+    private enum Start { DOORWAY, IMAP, ONE_IN_REACH, NONE_IN_REACH }
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -185,11 +186,14 @@ public class SimWeirdosReachTests implements FabricClientGameTest {
         if (stands != 3) {
             throw new AssertionError(stands + " CLICK stand(s) in the room, not 3 - the sim did not place the weirdos");
         }
-        double[] spot = ctx.computeOnClient(mc -> startSpot(mc, start));
-        if (spot == null) {
-            return "SKIP - no standable start spot of this kind in the room";
+        if (start != Start.DOORWAY) {
+            // DOORWAY: where the build stands him, one block in from the room's doorway - as walking in does.
+            double[] spot = ctx.computeOnClient(mc -> startSpot(mc, start));
+            if (spot == null) {
+                return "SKIP - no standable start spot of this kind in the room";
+            }
+            teleport(ctx, spot);
         }
-        teleport(ctx, spot);
         ctx.waitTicks(10);
         int inReach = ctx.computeOnClient(mc -> inReach(mc, mc.player.getEyePosition()));
         String reaches = ctx.computeOnClient(SimWeirdosReachTests::reachLine);
@@ -260,7 +264,7 @@ public class SimWeirdosReachTests implements FabricClientGameTest {
                 }
                 lastWait = why;
             }
-            if (l.contains("Weirdos:") && (l.contains("etherwarping onto") || l.contains("walking to"))) {
+            if (l.contains("Weirdos:") && (l.contains("etherwarping onto") || l.contains("walking to") || l.contains("Interactive Map to"))) {
                 movedLine = true;
             }
         }

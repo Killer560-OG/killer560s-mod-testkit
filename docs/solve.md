@@ -167,13 +167,13 @@ Mod branch weirdos-reach-1015 (killer560 2026-10-15, sim: "it cannot reach the r
 `SimWeirdosReachTests` builds Three Weirdos alone at 0, 90, 180 and 270 (`SimBuilder.setSingleRoomRotationForTest`; a jar
 without it plays 0 only) and starts Auto Three Weirdos (Talk To NPCs, Etherwarp Reposition, pathing on, AOTV in hand) from
 the Interactive Map's spot (relative 15, 68, 22: 1.90 / 2.85 / 3.26 to the three CLICK stands in every rotation, his
-case), a spot with one in reach and one with none. Each case: solved within 6 s (the Autopilot's estimate), three
+case), a spot with one in reach and one with none, plus where the build stands him by the doorway (~21 blocks off). Each case: solved within 6 s (the Autopilot's estimate), three
 interacts each within 3.0 eye to box (PacketWatch), talks without a move between at most 2 ticks apart, and the auto's
 "waiting" lines once per change (no repeat, at most 12). Rooms after the first are rebuilt in the open world with
 `SimQuizPuzzle.reset()` first; leaving the world after every case deadlocked the client (IntegratedServer.halt under
 Minecraft.disconnect against the server parked in the gametest's postRunTasks). Main d1eda658: 3 of 3 FAIL (never solved;
-2 / 1 / 0 talks; 781 waiting lines in one case). Branch 93293970: 12 of 12 PASS, solved in 0.70-0.75 s, every case a warp
-of the auto's own.
+2 / 1 / 0 talks; 781 waiting lines in one case). Branch b77b8df9: 16 of 16 PASS, solved in 0.70-0.90 s (the doorway starts by an Interactive
+Map trip: no warp line from there reaches a spot in reach). Full 93-solve on 93293970: 38 of 38 in one launch.
 
 `1015-grim-puzzle-nowait` also plays two talk rounds: land, body onto a CLICK armour stand in the landing tick, the interact
 the next tick with no turn tick, the body onto the second stand after it, its interact the tick after (4 interacts at
