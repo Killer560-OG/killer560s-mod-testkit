@@ -56,7 +56,8 @@ Boulder, Ice Fill, Ice Path, Quiz and Water Board differed, and Mod Only Test's 
 at all ("best 1 of 7 expected blocks") while Map Logger's does. Say which instance a verdict was played on.
 
 Human input it drives, only after giving the auto 10 s to do it itself, and says so in the log: Quiz is placed
-between the pillars, Three Weirdos in front of the NPCs (both autos only click within reach and never move), and
+between the pillars, Three Weirdos in front of the NPCs (Auto Quiz only clicks within reach and never moves; Auto Three
+Weirdos moves into reach itself since weirdos-reach-1015, so its case should read "approached by itself"), and
 Teleport Maze is walked onto the start pad with the forward key.
 
 ## Boulder (93-solve-boulder, 93-solve-boulder-aura)
@@ -172,3 +173,20 @@ ticks after that. `boulder-chest-unsolved` (Secret Aura on, no button pressed): 
 within 2 ticks of the chest opening and the tab list's Boulder ✔ within 40; main never. Every 93-solve case now starts
 with Auto Close Chest off unless its extra turns it on. 102-sim-autosecret's puzzle hold alternates the fake puzzle's name
 per tick ("Ice Path chest" / "Puzzles") and allows one hold line each in the log, chat and Auto Routes' arming (main: 100).
+## Three Weirdos reach (93-solve-weirdos-reach)
+Mod branch weirdos-reach-1015 (killer560 2026-10-15, sim: "it cannot reach the right person for auto three weirdos").
+`SimWeirdosReachTests` builds Three Weirdos alone at 0, 90, 180 and 270 (`SimBuilder.setSingleRoomRotationForTest`; a jar
+without it plays 0 only) and starts Auto Three Weirdos (Talk To NPCs, Etherwarp Reposition, pathing on, AOTV in hand) from
+the Interactive Map's spot (relative 15, 68, 22: 1.90 / 2.85 / 3.26 to the three CLICK stands in every rotation, his
+case), a spot with one in reach and one with none, plus where the build stands him by the doorway (~21 blocks off). Each case: solved within 6 s (the Autopilot's estimate), three
+interacts each within 3.0 eye to box (PacketWatch), talks without a move between at most 2 ticks apart, and the auto's
+"waiting" lines once per change (no repeat, at most 12). Rooms after the first are rebuilt in the open world with
+`SimQuizPuzzle.reset()` first; leaving the world after every case deadlocked the client (IntegratedServer.halt under
+Minecraft.disconnect against the server parked in the gametest's postRunTasks). Main d1eda658: 3 of 3 FAIL (never solved;
+2 / 1 / 0 talks; 781 waiting lines in one case). Branch b77b8df9: 16 of 16 PASS, solved in 0.70-0.90 s (the doorway starts by an Interactive
+Map trip: no warp line from there reaches a spot in reach). Full 93-solve on 93293970: 38 of 38 in one launch.
+`1015-grim-puzzle-nowait` also plays two talk rounds: land, body onto a CLICK armour stand in the landing tick, the interact
+the next tick with no turn tick, the body onto the second stand after it, its interact the tick after (4 interacts at
+2.48 eye to box, GrimAC clean on the branch; a jar before weirdos-reach-1015 has no `aimBodyAt(LocalPlayer, AABB, FreeCam)`).
+weirdos-fast-1016: the case also requires the chest within 3 ticks of the last talk (the Chest Open Delay default is
+0). Main 93c10e55: 16 of 16 FAIL (6-7 ticks, 250 ms default); branch: 16 of 16 PASS (0.40-0.75 s).
