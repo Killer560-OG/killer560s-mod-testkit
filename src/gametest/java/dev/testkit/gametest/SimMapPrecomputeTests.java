@@ -221,6 +221,9 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
         Vec3 spot = ctx.computeOnClient(mc -> mc.player.position());
         List<int[]> targets = targets(ctx);
         println("floor " + f + ": " + targets.size() + " room(s) to press from " + fmt(spot));
+        if (hasCache && f == FLOORS) {
+            outgrown(ctx, f, spot, targets, failures);
+        }
         int pressed = 0;
         for (int[] t : targets) {
             if (pressed >= PRESSES) {
@@ -347,6 +350,65 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
     }
 
     // ================================================================================================ presses
+
+    /**
+     * fps-fix-1016: a trip planned on the quick graph is never flown once the full floor graph is warm. Phase 1 is held
+     * on the quick graph (cache paused) until the full graph has warmed, then a room whose cached trip is the quick
+     * graph's is pressed: the press must search (and so take no more warps than fresh planning), not fly that trip. Two
+     * FPS-build runs flew it in the second before the cache planned it again: 15 warps where fresh planning took 11.
+     */
+    private static void outgrown(ClientGameTestContext ctx, int f, Vec3 spot, List<int[]> targets, List<String> failures) {
+        if (fullWarm(ctx)) {
+            println("floor " + f + ": outgrown check skipped - the full graph was already warm at phase 1");
+            return;
+        }
+        setPaused(ctx, true, true, false);
+        try {
+            for (int i = 0; i < 600 && !fullWarm(ctx); i++) {
+                ctx.waitTicks(1);
+            }
+            if (!fullWarm(ctx)) {
+                failures.add("outgrown check: the full floor graph did not warm within 30 s");
+                return;
+            }
+            int[] pick = null;
+            for (int[] t : targets) {
+                Boolean quick = ctx.computeOnClient(mc -> {
+                    Object e = entryOf(mc.player.position(), t[0]);
+                    return e != null && !(Boolean) ModUnderTest.call(e, "onFull", new Class<?>[]{}, new Object[]{});
+                });
+                if (Boolean.TRUE.equals(quick)) {
+                    pick = t;
+                    break;
+                }
+            }
+            if (pick == null) {
+                failures.add("outgrown check: no room had a quick-graph trip held while the cache was paused");
+                return;
+            }
+            Press p = press(ctx, pick[0], pick[1], "OUTGROWN", failures);
+            if (p == null) {
+                failures.add("outgrown check: the press on tile " + pick[0] + " was refused");
+                return;
+            }
+            println(String.format(Locale.US, "floor %d: outgrown check, tile %d: %s, %d warp(s), fresh plan %d", f, pick[0],
+                    p.cached ? "FLEW the quick graph's trip" : "searched", p.warps, p.fresh));
+            if (p.cached) {
+                failures.add("tile " + pick[0] + ": a quick-graph precomputed trip was flown with the full graph warm ("
+                        + p.warps + " warps, fresh " + p.fresh + ")");
+            }
+            if (p.fresh > 0 && p.fresh < 999 && p.warps > p.fresh) {
+                failures.add("tile " + pick[0] + ": the outgrown press took " + p.warps + " warps where fresh planning takes "
+                        + p.fresh);
+            }
+            if (!p.arrived) {
+                failures.add("tile " + pick[0] + ": the outgrown press did not get him into the room");
+            }
+        } finally {
+            setPaused(ctx, true, false, false);
+            backTo(ctx, spot);
+        }
+    }
 
     private record Press(int ticks, int warps, int fresh, boolean cached, boolean arrived, boolean warmedDuring) {
     }
