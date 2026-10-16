@@ -794,3 +794,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   (the panel half off the shot), so it resizes to 1920x1080 GUI 2 first; and a GUI point maps to the shot through the
   mod's `AutoScale.appliedFactor` (`x * f * window / guiScaledWidth`), not `img.width / screen.width` - that sampled
   the backdrop and read every chip as #040302 on both jars.
+- 95-perf-sim (fps-sim-1015): a few seconds of work in `ctx.computeOnClient` (a block walk over a whole sim floor) froze
+  the client long enough for run-scenario's "Not Responding" watcher to kill it, exit -1, twice, with no assertion in the
+  log. Off the server thread `getChunkNow` found no chunks, so the hash read as "0 non-air". Queue such work with
+  `server.execute` and poll for the result with `ctx.waitFor`; never join it from the test thread.
