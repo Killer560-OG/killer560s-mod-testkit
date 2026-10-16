@@ -89,9 +89,16 @@ public class SimPerfTest implements FabricClientGameTest {
             }
             // What the build put in the world, as one number: the same seeded floor must hash the same on any jar
             // whose paste only got cheaper (compare the line between runs; fps-sim-1015 changed the paste loop).
-            // On the TEST thread, not the client's: the walk takes a moment, and a client thread busy that long reads
-            // as "Not Responding" and run-scenario's freeze watcher closes it. The built floor no longer changes.
-            report.add("floor block hash: " + floorHash(net.minecraft.client.Minecraft.getInstance()));
+            // On the SERVER thread, queued and polled (never joined): the walk takes a moment, a client thread busy
+            // that long reads as "Not Responding" to run-scenario's freeze watcher, and off the server thread the
+            // chunk lookups find nothing. The built floor no longer changes.
+            String[] hash = new String[1];
+            ctx.runOnClient(mc -> {
+                var server = mc.getSingleplayerServer();
+                server.execute(() -> hash[0] = floorHash(server));
+            });
+            ctx.waitFor(mc -> hash[0] != null, 600);
+            report.add("floor block hash: " + hash[0]);
             failures.addAll(rotationChecks()); // pure arithmetic, test thread
             double[] cal = PerfBench.calibrate(ctx);
             List<Switch> all = ctx.computeOnClient(mc -> PerfBench.switches());
@@ -228,22 +235,23 @@ public class SimPerfTest implements FabricClientGameTest {
 
     /**
      * Every block state id in the last build's area, full height, hashed in a fixed order (chunk by chunk, section by
-     * section; an all-air section hashes as one constant). Read only, from the test thread.
+     * section; an all-air section hashes as one constant). Read only. Server thread.
      */
-    private static String floorHash(net.minecraft.client.Minecraft mc) {
+    private static String floorHash(net.minecraft.server.MinecraftServer server) {
         int[] b = (int[]) Mod.staticCall("roomsim.SimBuildQueue", "touchedBounds");
-        var server = mc.getSingleplayerServer();
         if (b == null || server == null) {
             return "no build bounds";
         }
         var level = server.overworld();
         long h = 1;
         long nonAir = 0;
+        int missing = 0;
         var registry = net.minecraft.world.level.block.Block.BLOCK_STATE_REGISTRY;
         for (int cx = b[0] >> 4; cx <= b[2] >> 4; cx++) {
             for (int cz = b[1] >> 4; cz <= b[3] >> 4; cz++) {
                 var chunk = level.getChunkSource().getChunkNow(cx, cz);
                 if (chunk == null) {
+                    missing++;
                     h = h * 31 + 7;
                     continue;
                 }
@@ -266,7 +274,8 @@ public class SimPerfTest implements FabricClientGameTest {
                 }
             }
         }
-        return String.format(Locale.ROOT, "%016x over x %d..%d z %d..%d, %d non-air", h, b[0], b[2], b[1], b[3], nonAir);
+        return String.format(Locale.ROOT, "%016x over x %d..%d z %d..%d, %d non-air, %d chunk(s) not loaded", h, b[0], b[2],
+                b[1], b[3], nonAir, missing);
     }
 
     /** The paste loop's array-free rotation (fps-sim-1015) against rotateLocal, every cell of the room sizes in use. */
