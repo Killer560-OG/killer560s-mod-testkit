@@ -75,7 +75,7 @@ final class PuzzleTimingExtra extends SolveExtra {
     private int cooldownTicks = 10;
 
     /**
-     * @param need      the gaps that must have been measured (and are judged; every other one is printed only)
+     * @param need      the gaps that must have been measured (every measured gap is judged)
      * @param roomProbe client-thread reading whose change is a "ready" moment, or null
      * @param inner     another case's extra run alongside (a reward-chest claim), or null
      * @param settings  extra settings (auto-puzzles config, cheat-utils config), or null
@@ -441,8 +441,9 @@ final class PuzzleTimingExtra extends SolveExtra {
         return Long.MIN_VALUE / 4;
     }
 
+    /** Every measured gap is judged; {@link #need} only says which must have been measured at all. */
     private void judge(List<String> bad, Pair pair, Stats s) {
-        if (!need.contains(pair)) {
+        if (s.n == 0 && !need.contains(pair)) {
             return;
         }
         if (s.n == 0) {

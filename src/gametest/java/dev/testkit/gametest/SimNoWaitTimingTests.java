@@ -140,7 +140,7 @@ public final class SimNoWaitTimingTests {
 
         @Override
         SolveExtra extra() {
-            return new PuzzleTimingExtra(List.of(Pair.SNEAK_USE, Pair.LAND_ACT), SimNoWaitTimingTests::blazeProbe, null,
+            return new PuzzleTimingExtra(List.of(Pair.LAND_ACT), SimNoWaitTimingTests::blazeProbe, null,
                     SimNoWaitTimingTests::minCooldown);
         }
     }
@@ -154,7 +154,7 @@ public final class SimNoWaitTimingTests {
 
         @Override
         SolveExtra extra() {
-            return new PuzzleTimingExtra(List.of(Pair.SNEAK_USE, Pair.LAND_ACT), SimNoWaitTimingTests::blazeProbe, null,
+            return new PuzzleTimingExtra(List.of(Pair.LAND_ACT), SimNoWaitTimingTests::blazeProbe, null,
                     SimNoWaitTimingTests::minCooldown);
         }
     }
