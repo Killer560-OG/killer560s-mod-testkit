@@ -61,8 +61,27 @@ public class PerfBitsTest implements FabricClientGameTest {
                 "isEnabledRaw|isSolverEnabledRaw", "and"});
         GATED.put("Mage Beam render", new String[]{"dungeonextras.DungeonExtrasConfig", "setMageBeamEnabled",
                 "isMageBeamEnabledRaw"});
+        // fps-idle-3-1016 batch A
+        GATED.put("AP3 render", new String[]{"ap3.Ap3Config", "setEnabled", "isEnabledRaw"});
+        GATED.put("AP3 tickStart", new String[]{"ap3.Ap3Config", "setEnabled", "isEnabledRaw"});
+        GATED.put("Door Keys render", new String[]{"doorkeys.DoorKeysConfig", "setEnabled", "isEnabledRaw"});
+        GATED.put("Door Keys tick", new String[]{"doorkeys.DoorKeysConfig", "setEnabled", "isEnabledRaw"});
+        GATED.put("Etherwarp Waypoints render", new String[]{"etherwarp.EtherwarpWaypointsConfig", "setHighlightBlocks",
+                "isHighlightBlocksRaw"});
+        GATED.put("King Relics render", new String[]{"witherdragons.WitherDragonsConfig", "setRelicsEnabled|setRelicHighlight",
+                "isRelicsEnabledRaw|isRelicHighlightRaw", "and"});
+        GATED.put("Wither Dragons render", new String[]{"witherdragons.WitherDragonsConfig", "setEnabled", "isEnabledRaw"});
+        GATED.put("Teammates render", new String[]{"teammates.TeammatesConfig", "setEnabled", "isEnabledRaw"});
+        GATED.put("Teammates tick", new String[]{"teammates.TeammatesConfig", "setEnabled", "isEnabledRaw"});
+        GATED.put("Blood Camp overlay render", new String[]{"bloodcamp.BloodCampConfig", "setEnabled|setShowOverlay",
+                "isEnabledRaw|isShowOverlayRaw", "and"});
+        GATED.put("F7 Spots render", new String[]{"f7spots.F7SpotsConfig", "setWalkWaypoints|setAimSpots",
+                "getWalkWaypointsRaw|getAimSpotsRaw"});
+        GATED.put("Maxor Crystals render", new String[]{"maxor.MaxorConfig", "setHighlight", "getHighlightRaw"});
+        GATED.put("Auto Routes keybinds tick", new String[]{"autoroutes.AutoRoutesConfig", "setEnabled", "isEnabledRaw"});
+        GATED.put("Inventory HUD tick", new String[]{"inventoryhud.InventoryHudConfig", "setEnabled", "isEnabledRaw"});
         // batch 4
-        GATED.put("Posmsg render", new String[]{"posmsg.PosmsgConfig", "setEnabled", "isEnabledRaw"});
+        GATED.put("Posmsg render",new String[]{"posmsg.PosmsgConfig", "setEnabled", "isEnabledRaw"});
         GATED.put("Trail render", new String[]{"trail.RibbonTrailConfig", "setEnabled|trail.TrailConfig#setEnabled",
                 "isEnabledRaw|trail.TrailConfig#isEnabledRaw"});
     }
