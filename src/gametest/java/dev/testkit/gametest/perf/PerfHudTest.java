@@ -66,6 +66,7 @@ public class PerfHudTest implements FabricClientGameTest {
             failures.addAll(ctx.computeOnClient(mc -> guarded("ability cooldowns", () -> abilityChecks(report))));
             failures.addAll(ctx.computeOnClient(mc -> guarded("tick timers", () -> tickTimerChecks(report))));
             failures.addAll(ctx.computeOnClient(mc -> guarded("stat text", () -> statTextChecks(report))));
+            failures.addAll(ctx.computeOnClient(mc -> guarded("inventory hud", () -> inventoryChecks(mc, report))));
 
             Map<Switch, Boolean> on = PerfBench.allOff(all);
             for (Switch s : all) {
@@ -325,6 +326,180 @@ public class PerfHudTest implements FabricClientGameTest {
             Mod.setField(f, "defenceValue", def);
         }
         return fails;
+    }
+
+    // ---- Inventory HUD: the panel's fills, batched ----
+
+    /** Every fill record the panel puts in a fresh render state, in draw order (a GuiRects batch flattened), and how many
+     *  elements carried them. */
+    private static List<String> panelFills(net.minecraft.client.Minecraft mc, int[] elements) throws ReflectiveOperationException {
+        net.minecraft.client.renderer.state.gui.GuiRenderState state = new net.minecraft.client.renderer.state.gui.GuiRenderState();
+        net.minecraft.client.gui.GuiGraphicsExtractor g = new net.minecraft.client.gui.GuiGraphicsExtractor(mc, state, -1, -1);
+        Class<?> feature = Mod.cls("inventoryhud.InventoryHudFeature");
+        java.lang.reflect.Method draw = null;
+        for (java.lang.reflect.Method m : feature.getDeclaredMethods()) {
+            if (m.getName().equals("drawPanel")) {
+                draw = m;
+            }
+        }
+        if (draw == null) {
+            throw new AssertionError("no InventoryHudFeature.drawPanel");
+        }
+        draw.setAccessible(true);
+        g.pose().pushMatrix();
+        g.pose().translate(40, 40);
+        g.pose().scale(2f, 2f);
+        draw.invoke(null, g, 0, 0, mc.player, Mod.cfg("inventoryhud.InventoryHudConfig"), 0f);
+        g.pose().popMatrix();
+        List<String> out = new ArrayList<>();
+        state.forEachElement(el -> {
+            elements[0]++;
+            if (el.getClass().getName().endsWith("GuiRects$Batch")) {
+                try {
+                    var parts = el.getClass().getDeclaredMethod("parts");
+                    parts.setAccessible(true);
+                    for (Object part : (Object[]) parts.invoke(el)) {
+                        out.add(part.toString());
+                    }
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+            } else {
+                out.add(el.toString());
+            }
+        }, net.minecraft.client.renderer.state.gui.GuiRenderState.TraverseRange.ALL);
+        return out;
+    }
+
+    /** One vanilla fill's record, as {@code GuiGraphicsExtractor.fill} builds it under the panel's pose. */
+    private static String vanillaFill(net.minecraft.client.Minecraft mc, int x0, int y0, int x1, int y1, int color) {
+        net.minecraft.client.renderer.state.gui.GuiRenderState state = new net.minecraft.client.renderer.state.gui.GuiRenderState();
+        net.minecraft.client.gui.GuiGraphicsExtractor g = new net.minecraft.client.gui.GuiGraphicsExtractor(mc, state, -1, -1);
+        g.pose().translate(40, 40);
+        g.pose().scale(2f, 2f);
+        g.fill(x0, y0, x1, y1, color);
+        List<String> one = new ArrayList<>();
+        state.forEachElement(el -> one.add(el.toString()), net.minecraft.client.renderer.state.gui.GuiRenderState.TraverseRange.ALL);
+        return one.isEmpty() ? null : one.get(0);
+    }
+
+    private static int withAlpha(int rgb, int opacity) {
+        return (Math.round(opacity * 2.55f) << 24) | (rgb & 0xFFFFFF);
+    }
+
+    /** The fills the old drawPanel made one by one (panel, outline, slot backdrops, slot grid, then the dim quad), each
+     *  built by vanilla's fill, against what the panel records now: the same records in the same order, and (fails on
+     *  main 69505e45) one element for all of them. */
+    private static List<String> inventoryChecks(net.minecraft.client.Minecraft mc, List<String> report) {
+        List<String> fails = new ArrayList<>();
+        Object cfg = Mod.cfg("inventoryhud.InventoryHudConfig");
+        boolean mini0 = (Boolean) Mod.call(cfg, "isMiniMode");
+        boolean vert0 = (Boolean) Mod.call(cfg, "isVertical");
+        int opacity0 = (Integer) Mod.call(cfg, "getBackgroundOpacity");
+        Object bg0 = Mod.call(cfg, "getBackground");
+        Object slots = Mod.enumValue("inventoryhud.InventoryHudConfig$Background", "SLOTS");
+        int combos = 0;
+        try {
+            Mod.call(cfg, "setBackground", slots);
+            for (boolean mini : new boolean[]{false, true}) {
+                for (boolean vert : new boolean[]{false, true}) {
+                    for (int opacity : new int[]{100, 60}) {
+                        Mod.call(cfg, "setMiniMode", mini);
+                        Mod.call(cfg, "setVertical", vert);
+                        Mod.call(cfg, "setBackgroundOpacity", opacity);
+                        combos++;
+                        String what = "Inventory HUD (mini " + mini + ", vertical " + vert + ", opacity " + opacity + ")";
+                        List<String> want = expectedPanel(mc, mini, vert, opacity);
+                        int[] elements = {0};
+                        List<String> got;
+                        try {
+                            got = panelFills(mc, elements);
+                        } catch (ReflectiveOperationException e) {
+                            throw new AssertionError(e);
+                        }
+                        // Order: within the batch it is the submission order; on main the separate elements come back
+                        // in the render state's own order, so main is compared as a set.
+                        boolean same = elements[0] <= 2 ? got.equals(want)
+                                : new java.util.HashSet<>(got).equals(new java.util.HashSet<>(want)) && got.size() == want.size();
+                        if (!same) {
+                            fails.add(what + ": " + got.size() + " fill records differ from the old code's " + want.size()
+                                    + (got.isEmpty() || want.isEmpty() ? "" : "\n    first got  " + got.get(0)
+                                    + "\n    first want " + want.get(0)));
+                        }
+                        int allowed = opacity < 100 ? 2 : 1;
+                        if (elements[0] > allowed) {
+                            fails.add(what + ": " + elements[0] + " render-state elements for an empty inventory's panel,"
+                                    + " want " + allowed + " (one batch" + (allowed == 2 ? " plus the dim quad" : "") + ")");
+                        }
+                    }
+                }
+            }
+        } finally {
+            Mod.call(cfg, "setMiniMode", mini0);
+            Mod.call(cfg, "setVertical", vert0);
+            Mod.call(cfg, "setBackgroundOpacity", opacity0);
+            Mod.call(cfg, "setBackground", bg0);
+        }
+        report.add("inventory hud: " + combos + " layouts, panel fills == the old code's vanilla fills");
+        return fails;
+    }
+
+    private static List<String> expectedPanel(net.minecraft.client.Minecraft mc, boolean mini, boolean vert, int opacity) {
+        int cell = mini ? 9 : 18;
+        int pad = mini ? 1 : 2;
+        int w = (vert ? 3 : 9) * cell + pad * 2;
+        int h = (vert ? 9 : 3) * cell + pad * 2;
+        Object menu = Mod.staticCall("gui.OverlayThemes", "of", "inventory_hud");
+        int panel = menu == null ? 0x101010 : (Integer) Mod.call(menu, "panel");
+        int accent = menu == null ? 0xCC6600 : (Integer) Mod.call(menu, "accent");
+        int card = menu == null ? 0x262626 : (Integer) Mod.call(menu, "card");
+        int border = menu == null ? 0x3D2A14 : (Integer) Mod.call(menu, "border");
+        List<String> out = new ArrayList<>();
+        out.add(vanillaFill(mc, 0, 0, w, h, withAlpha(panel, opacity)));
+        int o = withAlpha(accent, opacity);
+        out.add(vanillaFill(mc, 0, 0, w, 1, o));
+        out.add(vanillaFill(mc, 0, h - 1, w, h, o));
+        out.add(vanillaFill(mc, 0, 1, 1, h - 1, o));
+        out.add(vanillaFill(mc, w - 1, 1, w, h - 1, o));
+        int slotBg = withAlpha(card, opacity);
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 9; col++) {
+                int cx = pad + (vert ? row : col) * cell;
+                int cy = pad + (vert ? col : row) * cell;
+                out.add(mini ? vanillaFill(mc, cx, cy, cx + cell - 1, cy + cell - 1, slotBg)
+                        : vanillaFill(mc, cx + 1, cy + 1, cx + cell - 1, cy + cell - 1, slotBg));
+            }
+        }
+        if (!mini) {
+            int color = withAlpha(border, opacity);
+            int cols = vert ? 3 : 9;
+            int rows = vert ? 9 : 3;
+            int x0 = pad;
+            int y0 = pad;
+            int right = x0 + cols * cell;
+            int bottom = y0 + rows * cell;
+            out.add(vanillaFill(mc, x0, y0, right, y0 + 1, color));
+            for (int r = 1; r < rows; r++) {
+                int ly = y0 + r * cell;
+                out.add(vanillaFill(mc, x0, ly - 1, right, ly + 1, color));
+            }
+            out.add(vanillaFill(mc, x0, bottom - 1, right, bottom, color));
+            for (int r = 0; r < rows; r++) {
+                int top = y0 + r * cell + 1;
+                int bot = y0 + (r + 1) * cell - 1;
+                out.add(vanillaFill(mc, x0, top, x0 + 1, bot, color));
+                for (int c = 1; c < cols; c++) {
+                    int lx = x0 + c * cell;
+                    out.add(vanillaFill(mc, lx - 1, top, lx + 1, bot, color));
+                }
+                out.add(vanillaFill(mc, right - 1, top, right, bot, color));
+            }
+        }
+        if (opacity < 100) {
+            out.add(vanillaFill(mc, 0, 0, w, h, withAlpha(0x000000, (100 - opacity) * 4 / 5)));
+        }
+        out.removeIf(java.util.Objects::isNull);
+        return out;
     }
 
     // ---- Score Calculator ----
