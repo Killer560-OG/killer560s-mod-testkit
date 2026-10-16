@@ -181,7 +181,8 @@
 			"dev.testkit.gametest.perf.PerfScreensTest",
 			"dev.testkit.gametest.perf.PerfHudTest",
 			"dev.testkit.gametest.perf.SimPerfTest",
-			"dev.testkit.gametest.perf.PerfLiveMapTest"
+			"dev.testkit.gametest.perf.PerfLiveMapTest",
+			"dev.testkit.gametest.perf.PerfIdleTest"
 		]
 	},
 	"depends": {
