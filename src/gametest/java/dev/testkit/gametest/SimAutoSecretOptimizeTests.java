@@ -533,6 +533,10 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             } else if (out >= 0 && out < reg) {
                 failures.add(c.room() + " (" + c.kind() + "): left on tick " + out + ", before its last secret registered"
                         + " on " + reg);
+            } else if (rel != null && rel < reg) {
+                // Let go before it registered; that the trip then searched long enough for it to register first is luck.
+                failures.add(c.room() + " (" + c.kind() + "): let the warp out go on tick " + rel + ", before its last"
+                        + " secret registered on " + reg);
             } else if (rel != null && rel - reg > 1) {
                 // The client sees a server registration a tick later at the earliest; the hold must go on that tick. (The
                 // trip itself may still take a search when it was not planned ahead - not this wait's doing.)
