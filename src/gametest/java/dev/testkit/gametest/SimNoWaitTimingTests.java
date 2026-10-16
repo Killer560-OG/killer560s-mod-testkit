@@ -70,20 +70,61 @@ public final class SimNoWaitTimingTests {
                     instanceof net.minecraft.world.level.block.ChestBlock) {
                 out += ", secret chest there";
             }
-            // The last volley's simulated flight (the auto's own clock): a chest is not clicked while a volley that may
-            // still finish the room is in the air - a puzzle wait, its end a ready moment.
-            Class<?> blaze = Class.forName(MOD + "autopuzzles.AutoBlaze");
-            var last = blaze.getDeclaredField("lastShotTime");
-            var flight = blaze.getDeclaredField("shotFlightMs");
-            last.setAccessible(true);
-            flight.setAccessible(true);
-            if (System.currentTimeMillis() - last.getLong(null) <= flight.getLong(null)) {
-                out += ", volley in flight";
-            }
         } catch (ReflectiveOperationException e) {
             out += ", secret unreadable";
         }
-        return out;
+        return out + VolleyArrows.state(mc);
+    }
+
+    /**
+     * The volley's own arrows, watched by the test and not by the mod: every arrow that appears within 4 blocks of his
+     * eye in its first 4 ticks is one of his, and it has ENDED once the client no longer has it (the server removed it -
+     * a hit, or BlazeMiss refusing one), it has stopped moving (stuck in a block), or it is 40 blocks out. "volley ended
+     * #n" is the moment the volley's result is known on the client; the auto's next shot, or its chest click, is judged
+     * from it (no fixed margin, mod blaze-event-1015). Main waited the simulated flight plus 4 ticks.
+     */
+    static final class VolleyArrows {
+        private static final java.util.Map<Integer, net.minecraft.world.phys.Vec3> FLYING = new java.util.HashMap<>();
+        private static int volleys;
+        private static net.minecraft.client.multiplayer.ClientLevel level;
+
+        static String state(Minecraft mc) {
+            if (mc.level != level) {
+                level = mc.level;
+                FLYING.clear();
+                volleys = 0;
+            }
+            net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition();
+            boolean fresh = false;
+            for (var a : mc.level.getEntitiesOfClass(net.minecraft.world.entity.projectile.arrow.AbstractArrow.class,
+                    new net.minecraft.world.phys.AABB(eye, eye).inflate(4.0), a -> a.tickCount <= 4)) {
+                if (!FLYING.containsKey(a.getId()) && !SEEN.contains(a.getId())) {
+                    if (FLYING.isEmpty()) {
+                        fresh = true;
+                    }
+                    FLYING.put(a.getId(), a.position());
+                    SEEN.add(a.getId());
+                }
+            }
+            if (fresh) {
+                volleys++;
+            }
+            FLYING.entrySet().removeIf(e -> {
+                net.minecraft.world.entity.Entity a = mc.level.getEntity(e.getKey());
+                if (a == null || a.isRemoved() || a.position().distanceTo(eye) > 40.0
+                        || a.position().distanceToSqr(e.getValue()) < 1.0e-4) {
+                    return true;
+                }
+                e.setValue(a.position());
+                return false;
+            });
+            if (volleys == 0) {
+                return "";
+            }
+            return FLYING.isEmpty() ? ", volley ended #" + volleys : ", volley flying #" + volleys;
+        }
+
+        private static final java.util.Set<Integer> SEEN = new java.util.HashSet<>();
     }
 
     /** Beams: one fewer lit pair is a pair done. */
@@ -140,7 +181,7 @@ public final class SimNoWaitTimingTests {
 
         @Override
         SolveExtra extra() {
-            return new PuzzleTimingExtra(List.of(Pair.LAND_ACT), SimNoWaitTimingTests::blazeProbe, null,
+            return new PuzzleTimingExtra(List.of(Pair.LAND_ACT, Pair.VOLLEY_NEXT), SimNoWaitTimingTests::blazeProbe, null,
                     SimNoWaitTimingTests::minCooldown);
         }
     }
@@ -154,7 +195,50 @@ public final class SimNoWaitTimingTests {
 
         @Override
         SolveExtra extra() {
-            return new PuzzleTimingExtra(List.of(Pair.LAND_ACT), SimNoWaitTimingTests::blazeProbe, null,
+            return new PuzzleTimingExtra(List.of(Pair.LAND_ACT, Pair.VOLLEY_NEXT), SimNoWaitTimingTests::blazeProbe, null,
+                    SimNoWaitTimingTests::minCooldown);
+        }
+    }
+
+    /**
+     * Higher Blaze with the final volley refused (BlazeMiss, as 93-solve-blazemiss-higher): the re-shot after the miss and
+     * the secret chest's click are judged from the moment the volley's arrows are gone.
+     */
+    public static final class BlazeMissHigherTiming extends SimPuzzleSolveTests.Base {
+        public BlazeMissHigherTiming() {
+            super(new SimPuzzleSolveTests.Spec("blazemiss-higher-timing", "Higher Blaze", "setAutoBlazeEnabled",
+                    "isAutoBlazeEnabled", "BlazeSolverConfig", "SimBlazePuzzle", 1, false, 75,
+                    SimPuzzleSolveTests.Approach.NONE, "BlazeSolverFeature.getOrderedBlazes"));
+        }
+
+        @Override
+        boolean forceMiss() {
+            return true;
+        }
+
+        @Override
+        SolveExtra extra() {
+            return new PuzzleTimingExtra(List.of(Pair.LAND_ACT, Pair.VOLLEY_NEXT), SimNoWaitTimingTests::blazeProbe, null,
+                    SimNoWaitTimingTests::minCooldown);
+        }
+    }
+
+    /** {@link BlazeMissHigherTiming} in Lower Blaze. */
+    public static final class BlazeMissLowerTiming extends SimPuzzleSolveTests.Base {
+        public BlazeMissLowerTiming() {
+            super(new SimPuzzleSolveTests.Spec("blazemiss-lower-timing", "Lower Blaze", "setAutoBlazeEnabled",
+                    "isAutoBlazeEnabled", "BlazeSolverConfig", "SimBlazePuzzle", 1, false, 75,
+                    SimPuzzleSolveTests.Approach.NONE, "BlazeSolverFeature.getOrderedBlazes"));
+        }
+
+        @Override
+        boolean forceMiss() {
+            return true;
+        }
+
+        @Override
+        SolveExtra extra() {
+            return new PuzzleTimingExtra(List.of(Pair.LAND_ACT, Pair.VOLLEY_NEXT), SimNoWaitTimingTests::blazeProbe, null,
                     SimNoWaitTimingTests::minCooldown);
         }
     }

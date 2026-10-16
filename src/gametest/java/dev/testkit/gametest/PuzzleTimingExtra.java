@@ -46,7 +46,7 @@ final class PuzzleTimingExtra extends SolveExtra {
     }
 
     /** Which gaps a case must have measured at least once (and which it judges). */
-    enum Pair { CLICK_USE, SNEAK_USE, LAND_ACT, READY_CLICK }
+    enum Pair { CLICK_USE, SNEAK_USE, LAND_ACT, READY_CLICK, VOLLEY_NEXT }
 
     private static final String UTIL = "com.killer560.hub.autopuzzles.AutoPuzzleUtil";
 
@@ -329,6 +329,29 @@ final class PuzzleTimingExtra extends SolveExtra {
         Stats sneakUse = new Stats("sneak -> warp use");
         Stats landAct = new Stats("landing -> next action");
         Stats readyClick = new Stats("ready -> click");
+        Stats volleyNext = new Stats("volley ended -> next action");
+        // A volley's result known on the client (the room's probe says "volley ended #n") -> the auto's next shot, warp
+        // or click: no margin on top. A shot his Shoot cooldown still held is not counted.
+        for (int i = 0; i < ev.size(); i++) {
+            Ev r = ev.get(i);
+            if (r.kind() != Kind.READY || !r.info().contains("volley ended #")) {
+                continue;
+            }
+            for (int j = i + 1; j < ev.size(); j++) {
+                Ev n = ev.get(j);
+                if (n.kind() == Kind.READY && n.info().contains("volley flying #")) {
+                    break; // another volley left before anything else
+                }
+                if (act(n.kind()) || n.kind() == Kind.MAP_WARP) {
+                    if (n.kind() == Kind.SHOT && lastShotBefore(ev, j) + cooldownTicks + 1 >= r.tick()) {
+                        break;
+                    }
+                    volleyNext.add(n.tick() - r.tick(), r.info().replaceAll(".*(volley ended #\\d+).*", "$1") + " at "
+                            + r.tick() + " -> " + n.kind().name().toLowerCase(Locale.ROOT) + " at " + n.tick());
+                    break;
+                }
+            }
+        }
         int waits = 0;
         for (int i = 0; i < ev.size(); i++) {
             Ev e = ev.get(i);
@@ -411,7 +434,7 @@ final class PuzzleTimingExtra extends SolveExtra {
                 }
             }
         }
-        for (Stats s : List.of(clickUse, sneakUse, landAct, readyClick)) {
+        for (Stats s : List.of(clickUse, sneakUse, landAct, readyClick, volleyNext)) {
             SimPuzzleRoundTests.say(name, s.describe());
         }
         SimPuzzleRoundTests.say(name, "TurnFirst camera-wait ticks: " + waits
@@ -426,8 +449,9 @@ final class PuzzleTimingExtra extends SolveExtra {
         judge(bad, Pair.SNEAK_USE, sneakUse);
         judge(bad, Pair.LAND_ACT, landAct);
         judge(bad, Pair.READY_CLICK, readyClick);
-        summary = String.format(Locale.US, "TIMING %s | %s | %s | %s | camera-wait %d", clickUse.brief(), sneakUse.brief(),
-                landAct.brief(), readyClick.brief(), waits);
+        judge(bad, Pair.VOLLEY_NEXT, volleyNext);
+        summary = String.format(Locale.US, "TIMING %s | %s | %s | %s | %s | camera-wait %d", clickUse.brief(), sneakUse.brief(),
+                landAct.brief(), readyClick.brief(), volleyNext.brief(), waits);
         SimPuzzleRoundTests.say(name, summary);
         return bad.isEmpty() ? null : String.join("; ", bad);
     }
