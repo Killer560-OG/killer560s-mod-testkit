@@ -61,6 +61,10 @@ public class PerfBitsTest implements FabricClientGameTest {
                 "isEnabledRaw|isSolverEnabledRaw", "and"});
         GATED.put("Mage Beam render", new String[]{"dungeonextras.DungeonExtrasConfig", "setMageBeamEnabled",
                 "isMageBeamEnabledRaw"});
+        // batch 4
+        GATED.put("Posmsg render", new String[]{"posmsg.PosmsgConfig", "setEnabled", "isEnabledRaw"});
+        GATED.put("Trail render", new String[]{"trail.RibbonTrailConfig", "setEnabled|trail.TrailConfig#setEnabled",
+                "isEnabledRaw|trail.TrailConfig#isEnabledRaw"});
     }
 
     @Override
@@ -90,6 +94,17 @@ public class PerfBitsTest implements FabricClientGameTest {
             throw new AssertionError("[" + NAME + "] " + failures.size() + " failure(s):\n  " + String.join("\n  ", failures));
         }
         System.out.println("[" + NAME + "] PASS");
+    }
+
+    /** "other.Config#method" names a method of another config; a bare method is the row's own config's. */
+    private static String cls(String rowClass, String token) {
+        int h = token.indexOf('#');
+        return h < 0 ? rowClass : token.substring(0, h);
+    }
+
+    private static String meth(String token) {
+        int h = token.indexOf('#');
+        return h < 0 ? token : token.substring(h + 1);
     }
 
     private static Map<String, Boolean> snapshot() {
@@ -129,17 +144,17 @@ public class PerfBitsTest implements FabricClientGameTest {
             boolean and = c.length > 3 && c[3].equals("and");
             boolean[] was = new boolean[setters.length];
             for (int i = 0; i < setters.length; i++) {
-                was[i] = (Boolean) Mod.call(Mod.cfg(c[0]), getters[i]);
+                was[i] = (Boolean) Mod.call(Mod.cfg(cls(c[0], getters[i])), meth(getters[i]));
             }
             try {
                 for (int i = 0; i < setters.length; i++) {
                     // every switch off but this one (OR) / every switch on but this one (AND)
                     for (int j = 0; j < setters.length; j++) {
-                        Mod.call(Mod.cfg(c[0]), setters[j], and);
+                        Mod.call(Mod.cfg(cls(c[0], setters[j])), meth(setters[j]), and);
                     }
-                    Mod.call(Mod.cfg(c[0]), setters[i], !and);
+                    Mod.call(Mod.cfg(cls(c[0], setters[i])), meth(setters[i]), !and);
                     boolean one = snapshot().get(name);
-                    Mod.call(Mod.cfg(c[0]), setters[i], and);
+                    Mod.call(Mod.cfg(cls(c[0], setters[i])), meth(setters[i]), and);
                     boolean other = snapshot().get(name);
                     // OR: only i on -> true, all off -> false.  AND: all on but i -> false, all on -> true.
                     boolean wantOne = !and;
@@ -150,10 +165,16 @@ public class PerfBitsTest implements FabricClientGameTest {
                     }
                 }
                 // A profile apply reloads the config from disk: the bit must follow whatever was loaded.
-                Mod.staticCall(c[0], "load");
+                java.util.Set<String> classes = new java.util.LinkedHashSet<>();
+                for (String g : getters) {
+                    classes.add(cls(c[0], g));
+                }
+                for (String k : classes) {
+                    Mod.staticCall(k, "load");
+                }
                 boolean fileValue = and;
                 for (String g : getters) {
-                    boolean v = (Boolean) Mod.call(Mod.cfg(c[0]), g);
+                    boolean v = (Boolean) Mod.call(Mod.cfg(cls(c[0], g)), meth(g));
                     fileValue = and ? fileValue && v : fileValue || v;
                 }
                 boolean afterLoad = snapshot().get(name);
@@ -162,7 +183,7 @@ public class PerfBitsTest implements FabricClientGameTest {
                 }
             } finally {
                 for (int i = 0; i < setters.length; i++) {
-                    Mod.call(Mod.cfg(c[0]), setters[i], was[i]);
+                    Mod.call(Mod.cfg(cls(c[0], setters[i])), meth(setters[i]), was[i]);
                 }
             }
         }
