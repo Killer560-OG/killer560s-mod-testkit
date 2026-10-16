@@ -116,6 +116,17 @@ public class PerfBitsTest implements FabricClientGameTest {
         System.out.println("[" + NAME + "] PASS");
     }
 
+    /** Bits of cheat-only features: a legit jar never registers them. */
+    static final java.util.Set<String> CHEAT_ONLY = java.util.Set.of("Auto Routes keybinds tick");
+
+    private static boolean cheatBuild() {
+        try {
+            return Class.forName("com.killer560.hub.BuildVariant").getField("CHEAT_FEATURES_ENABLED").getBoolean(null);
+        } catch (ReflectiveOperationException e) {
+            return true;
+        }
+    }
+
     /** "other.Config#method" names a method of another config; a bare method is the row's own config's. */
     private static String cls(String rowClass, String token) {
         int h = token.indexOf('#');
@@ -155,6 +166,10 @@ public class PerfBitsTest implements FabricClientGameTest {
         for (Map.Entry<String, String[]> e : GATED.entrySet()) {
             String name = e.getKey();
             if (!bits.containsKey(name)) {
+                if (CHEAT_ONLY.contains(name) && !cheatBuild()) {
+                    report.add("bit '" + name + "' belongs to a cheat-only feature: not registered in this legit jar, as it should");
+                    continue;
+                }
                 failures.add("bit '" + name + "' is not registered");
                 continue;
             }
