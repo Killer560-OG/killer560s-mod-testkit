@@ -60,6 +60,9 @@ public class SimWeirdosReachTests implements FabricClientGameTest {
     /** How long a case is watched: past the budget, so a slow solve is measured rather than cut off. */
     private static final int WATCH_TICKS = 20 * 20;
     private static final double ENTITY_REACH = 3.0;
+    /** Ticks from the last talk to the sim's solve with no Chest Open Delay: the line back, a turn, the click. */
+    private static final int CHEST_AFTER_TALK = 3;
+    private static int chestDelayTicks = 0;
 
     private enum Start { DOORWAY, IMAP, ONE_IN_REACH, NONE_IN_REACH }
 
@@ -83,6 +86,11 @@ public class SimWeirdosReachTests implements FabricClientGameTest {
             return;
         }
         boolean rotations = ctx.computeOnClient(mc -> hasRotationHook());
+        // His Chest Open Delay as a fresh config has it (weirdos-fast-1016: 0 by default, the chest the tick it is known).
+        int chestDelay = ctx.computeOnClient(mc -> (Integer) ModUnderTest.call(ModUnderTest.config(AUTO_CONFIG),
+                "getWeirdosDelayMs", new Class<?>[]{}, new Object[]{}));
+        say("Chest Open Delay as the config has it: " + chestDelay + " ms");
+        chestDelayTicks = (chestDelay + 49) / 50;
         int[] turns = rotations ? new int[]{0, 90, 180, 270} : new int[]{0};
         say(rotations ? "rooms built at 0, 90, 180 and 270 (SimBuilder.setSingleRoomRotationForTest)"
                 : "this jar has no SimBuilder.setSingleRoomRotationForTest - rotation 0 only");
@@ -281,6 +289,12 @@ public class SimWeirdosReachTests implements FabricClientGameTest {
         }
         if (talkTicks.size() < 3) {
             problems.add("only " + talkTicks.size() + " interact(s) sent - not all three weirdos were talked to");
+        } else if (solvedAt > 0 && solvedAt - talkTicks.get(talkTicks.size() - 1)[0] > CHEST_AFTER_TALK) {
+            // The third weirdo's line comes back a tick after the talk, the click on the chest it names goes the tick
+            // after that (a turn tick when the reported look is elsewhere), and the sim marks it solved on the click.
+            problems.add("the chest went " + (solvedAt - talkTicks.get(talkTicks.size() - 1)[0])
+                    + " ticks after the last talk (at most " + CHEST_AFTER_TALK + "; the config's Chest Open Delay is "
+                    + chestDelayTicks + " tick(s), and its default must be 0)");
         }
         if (maxReach > ENTITY_REACH + 1e-6) {
             problems.add(String.format(Locale.ROOT, "an interact went %.2f blocks eye to box, past %.1f", maxReach,

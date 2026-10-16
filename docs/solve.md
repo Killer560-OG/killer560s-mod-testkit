@@ -178,3 +178,6 @@ Map trip: no warp line from there reaches a spot in reach). Full 93-solve on 932
 `1015-grim-puzzle-nowait` also plays two talk rounds: land, body onto a CLICK armour stand in the landing tick, the interact
 the next tick with no turn tick, the body onto the second stand after it, its interact the tick after (4 interacts at
 2.48 eye to box, GrimAC clean on the branch; a jar before weirdos-reach-1015 has no `aimBodyAt(LocalPlayer, AABB, FreeCam)`).
+
+weirdos-fast-1016: the case also requires the chest within 3 ticks of the last talk (the Chest Open Delay default is
+0). Main 93c10e55: 16 of 16 FAIL (6-7 ticks, 250 ms default); branch: 16 of 16 PASS (0.40-0.75 s).
