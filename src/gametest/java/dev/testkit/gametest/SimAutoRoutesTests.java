@@ -247,7 +247,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
             // Default OFF, and every case that wants it turns it on and off itself; a scenario earlier in the client can
             // leave it on (147-sim-autosecret-lastsecret did, 2026-10-16), and then it clicks the cases' own chests.
-            ModUnderTest.set(ModUnderTest.config(CHEAT_CFG), "setSecretAuraEnabled", false);
+            ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled");
         });
         try {
             buildRoom(ctx, 0);
