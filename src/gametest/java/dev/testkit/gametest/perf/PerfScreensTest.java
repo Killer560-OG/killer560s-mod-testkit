@@ -44,7 +44,7 @@ import java.util.Map;
  * <p>95-perf-features and the gate measure with no screen open, so the mod menu, the container overlays (Item Rarity,
  * Slot Text, Storage Overlay, Inventory Theme, tooltips...) and the main menu scenes never show in them. In
  * {@link PerfBench}'s fixed scene this opens, in turn: nothing ({@code none}, the reference), the mod menu on its card
- * grid ({@code menu}), the menu with Live Map's drawer open ({@code drawer}), a 54-slot "Auctions Browser" chest of
+ * grid ({@code menu}), the menu with Live Map's drawer open ({@code drawer}), the Dungeon Sim menu ({@code sim}), a 54-slot "Auctions Browser" chest of
  * SkyBlock items with the mouse on slot 10 so its tooltip shows ({@code chest}), the same items on "Ender Chest (1/9)"
  * which Storage Overlay takes over ({@code storage}), and after leaving the world the title screen with the mod's
  * main menu scene ({@code title}). Each screen phase runs with every switch OFF and with ALL ON (as 95-perf-features),
@@ -91,7 +91,7 @@ public class PerfScreensTest implements FabricClientGameTest {
             return;
         }
         List<String> phases = new ArrayList<>();
-        for (String p : new String[]{"none", "menu", "drawer", "chest", "storage", "title"}) {
+        for (String p : new String[]{"none", "menu", "drawer", "sim", "chest", "storage", "title"}) {
             if (only.isBlank() || p.equals("none") || List.of(only.split(",")).contains(p)) {
                 phases.add(p);
             }
@@ -245,6 +245,17 @@ public class PerfScreensTest implements FabricClientGameTest {
                 }
                 cursor(ctx, 0.5, 0.45);
             }
+            case "sim" -> {
+                ctx.runOnClient(mc -> {
+                    try {
+                        McCompat.setScreen(mc, (Screen) Mod.cls("roomsim.SimMenuScreen").getConstructor(Screen.class)
+                                .newInstance((Object) null));
+                    } catch (ReflectiveOperationException e) {
+                        throw new AssertionError("could not open roomsim.SimMenuScreen: " + e, e);
+                    }
+                });
+                cursor(ctx, 0.5, 0.45);
+            }
             case "chest", "storage" -> {
                 String title = phase.equals("chest") ? "Auctions Browser" : "Ender Chest (1/9)";
                 ctx.runOnClient(mc -> {
@@ -289,6 +300,7 @@ public class PerfScreensTest implements FabricClientGameTest {
                         && Mod.call(s, "openFeature") == null;
                 case "drawer" -> s != null && s.getClass().getName().endsWith(".ModScreen")
                         && Mod.call(s, "openFeature") != null;
+                case "sim" -> s != null && s.getClass().getName().endsWith(".SimMenuScreen");
                 case "chest", "storage" -> s instanceof ContainerScreen;
                 case "title" -> s instanceof net.minecraft.client.gui.screens.TitleScreen;
                 default -> false;

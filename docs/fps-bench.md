@@ -83,7 +83,8 @@ callback.
 
 `perf/PerfScreensTest`, ~5 min, only when named (fps-gui-1015, 2026-10-15). 95-perf-features and the gate never open a
 screen, so the mod menu, the container overlays and the title screen's scene never show in them. In PerfBench's scene it
-opens in turn: nothing (`none`), the mod menu's card grid (`menu`), the menu with Live Map's drawer (`drawer`), a 54-slot
+opens in turn: nothing (`none`), the mod menu's card grid (`menu`), the menu with Live Map's drawer (`drawer`), the
+Dungeon Sim menu (`sim`), a 54-slot
 "Auctions Browser" chest of SkyBlock items with the mouse on slot 10 (`chest`), the same items on "Ender Chest (1/9)",
 which Storage Overlay takes over (`storage`), and after leaving the world the title screen (`title`); each with every
 switch OFF, then ALL ON, `-PperfBigTicks` (200) ticks each. Per phase: frame CPU, render-thread KB/frame, the probe's top
