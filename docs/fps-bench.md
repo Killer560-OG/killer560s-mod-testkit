@@ -82,8 +82,8 @@ callback.
 ## Dungeon Map draw cache (95-perf-livemap)
 
 `perf/PerfLiveMapTest`, ~3 min, only when named. In PerfBench's scene with only the Dungeon Map (names + secrets, Extra
-Info) on, then ALL ON plus the map: HUD[live_map] must draw every frame, allocate under 6000 B/frame (main 69505e45:
-61.7 KB) and, through the mod's `livemap/MapDrawCache`, replay every frame while painting no more than the players' part
+Info) on, then ALL ON plus the map: HUD[live_map] must draw every frame, allocate under 2500 B a frame plus 25000 B a tick (main 69505e45:
+61.7-84.5 KB a frame) and, through the mod's `livemap/MapDrawCache`, replay every frame while painting no more than the players' part
 once a tick. Then the cache's verify mode paints every replayed frame afresh and compares element by element while
 thirteen inputs change (settings, a sim room's state, a door, Predictive Rooms, checkmarks, the background), each of
 which must make it repaint; a replay that differs after its own tick fails the run. Fails on main (no cache).
