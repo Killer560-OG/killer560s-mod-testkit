@@ -781,5 +781,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   title fade run on the wall clock and are kept out of shot. A screenshot never contains the OS cursor: positions go to
   each clip's `cursor.csv` and the edit draws it. The Menu Theme is picked on Home's chips (there is no Menu Theme card,
   2026-10-15); in the HUD editor, Show Unseen puts the Storage Overlay's large preview over others, so a scroll "over" a
-  small element scaled the overlay - film with Show Unseen off. Load the room database before filming the sim menu, or
-  Load a Room's columns read "-" and Fill names every room "Mage". Capture runs ~9 frames a second at 1080p.
+  small element scaled the overlay - film with Show Unseen off, and put the dragged element back (later clips film it).
+  Load the room database before filming the sim menu, or Load a Room's Type/Secrets/Crypts columns read "-". The sim's
+  rooms are near black on camera even at Brightness: Bright, so the sim clips give the camera Night Vision. Typing
+  /killer560 into chat through TestInput never opened the menu here (ChatScreen held the text; screen null after Enter);
+  the clip notes FALLBACK and opens it directly. Capture runs ~9 frames a second at 1080p.
