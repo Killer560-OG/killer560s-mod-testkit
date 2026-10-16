@@ -60,14 +60,14 @@ public class SimPathLandTests implements FabricClientGameTest {
     private static final String MEMORY = "com.killer560.hub.autoroutes.RouteRunMemory";
     private static final String OVERLAY = "com.killer560.hub.etherwarpoverlay.EtherwarpOverlayFeature";
     private static final int ROOMS_PER_FLOOR = 6;
-    private static final int STANDS = 5;
 
     private static final Pattern ACTED = Pattern.compile("\\[AutoRoutes\\] Node #(\\d+) PATH acted .*\\(path warp (\\d+)/(\\d+)\\)");
     private static final Pattern LANDED = Pattern.compile("\\[AutoRoutes\\] Etherwarp: landed at \\((-?[\\d.]+), (-?[\\d.]+), (-?[\\d.]+)\\)");
     private static final Pattern CORRECTED = Pattern.compile("during path #(\\d+)'s warp (\\d+) \\(([\\d.]+) from its landing\\)");
 
-    /** One room's route: its frame (name, clay, rotation) and where each node stands (real feet). */
-    record RoomRoute(String name, int[] frame, List<Vec3> stands) {
+    /** One room's route: its frame (name, clay, rotation), where each PATH node stands (real feet), and the real look of
+     *  each ETHERWARP node between pairs. */
+    record RoomRoute(String name, int[] frame, List<Vec3> stands, List<float[]> aims) {
     }
 
     /** One flown hop: route node (1-based), hop (1-based), where he landed (null: never landed), why. */
@@ -106,7 +106,8 @@ public class SimPathLandTests implements FabricClientGameTest {
         long seed = Long.getLong("testkit.pathlandSeed", 1015L);
         int renderBefore = ctx.computeOnClient(mc -> mc.options.renderDistance().get());
         List<String> failures = new ArrayList<>();
-        int[] totals = new int[6];   // hops, wrong block, never landed, hop-1 re-aims, unpairable re-aims, rooms
+        int[] totals = new int[9];   // hops, wrong block, never landed, hop-1 re-aims, unpairable re-aims, rooms,
+                                     // aim probes, fragile aims, fragile aims with a firm one to be had
         try {
             ctx.runOnClient(mc -> {
                 ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autopuzzles.AutoPuzzlesConfig"),
@@ -165,6 +166,15 @@ public class SimPathLandTests implements FabricClientGameTest {
         if (totals[1] > 0) {
             failures.add(totals[1] + " hop(s) landed on a block other than the one planned");
         }
+        println(String.format(Locale.US, "AIM PROBE: %d run-time etherwarp aim(s) from a landing (0.05 over a block centre), "
+                + "%d fragile (miss the block within 0.01 degrees), %d of them with a firm aim to be had", totals[6], totals[7],
+                totals[8]));
+        if (totals[6] < 100) {
+            failures.add("aim probe: only " + totals[6] + " aim(s) worked out - too few to measure");
+        }
+        if (totals[8] * 100 > totals[6]) {
+            failures.add("aim probe: " + totals[8] + " of " + totals[6] + " run-time aims were fragile while a firm aim existed");
+        }
         if (!failures.isEmpty()) {
             for (String s : failures) {
                 println("FAIL: " + s);
@@ -217,19 +227,34 @@ public class SimPathLandTests implements FabricClientGameTest {
             routes.add(rr);
             json.put(rr.name(), toJson(ctx, rr));
         }
+        for (RoomRoute rr : routes) {
+            long s = rng.nextLong();
+            int[] pr = ctx.computeOnClient(mc -> probe(mc, rr, new Random(s)));
+            for (int i = 0; i < 3; i++) {
+                totals[6 + i] += pr[i];
+            }
+        }
         println("floor " + f + ": " + rooms.size() + " room(s), routes in " + routes.size() + ": "
                 + routes.stream().map(RoomRoute::name).toList());
         SimAutoSecretTests.writeRoutes(ctx, json);
         ctx.waitTicks(10);
-        for (boolean primed : new boolean[]{false, true}) {
+        // Pass 1 plans each pair as it is reached (he stands still while it plans, so its first warp goes from the spot it
+        // was planned from); pass 2 flies the saved plans, each next pair on the landing tick; pass 3 the same with clicks.
+        for (int pass = 1; pass <= 3; pass++) {
             for (RoomRoute rr : routes) {
-                flyRoom(ctx, f, rr, primed, failures, totals);
+                flyRoom(ctx, f, rr, pass, failures, totals);
             }
         }
         totals[5] += routes.size();
     }
 
-    /** Up to {@link #STANDS} landable blocks in the room's main tile, 7+ blocks apart, as real feet positions. */
+    /**
+     * The route's stands, as real feet: S0 (start PATH) -> S1 (arrival PATH), an ETHERWARP node on S1 onto S2, S2 (PATH)
+     * -> S3, an ETHERWARP on S3 onto S4, S4 -> S5. The etherwarp lands him on the next pair's source, so that pair's first
+     * warp goes on the landing tick, 0.05 over the spot it was planned from (killer560's log: an ETHERWARP node landing
+     * on a PATH node, "Etherwarp (path hop 1): re-aimed from ... (0.05 off ...)"). Landable full blocks of the room's main
+     * tile, 7+ blocks apart; each etherwarp's look is a firm one (lands for every look 0.02 degrees either way).
+     */
     private static RoomRoute routeIn(Minecraft mc, SimAutoSecretTests.Room r, Random rng) {
         Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
         int[] cr = (int[]) ModUnderTest.call(layout, "clayRotation", new Class<?>[]{int.class}, new Object[]{r.id()});
@@ -255,20 +280,144 @@ public class SimPathLandTests implements FabricClientGameTest {
         }
         java.util.Collections.shuffle(all, rng);
         List<Vec3> stands = new ArrayList<>();
-        for (BlockPos p : all) {
-            Vec3 feet = new Vec3(p.getX() + 0.5, p.getY() + 1.0, p.getZ() + 0.5);
-            boolean far = true;
-            for (Vec3 s : stands) {
-                far &= s.distanceTo(feet) >= 7.0;
+        List<float[]> aims = new ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            Vec3 pick = null;
+            float[] aim = null;
+            for (BlockPos p : all) {
+                Vec3 feet = new Vec3(p.getX() + 0.5, p.getY() + 1.0, p.getZ() + 0.5);
+                boolean far = true;
+                for (Vec3 s : stands) {
+                    far &= s.distanceTo(feet) >= 7.0;
+                }
+                if (!far) {
+                    continue;
+                }
+                if (i == 2 || i == 4) {
+                    Vec3 from = stands.get(i - 1);
+                    if (from.distanceTo(feet) > 25.0) {
+                        continue;
+                    }
+                    aim = firmAim(new Vec3(from.x, from.y + 1.27, from.z), p);
+                    if (aim == null) {
+                        continue;
+                    }
+                }
+                pick = feet;
+                break;
             }
-            if (far) {
-                stands.add(feet);
+            if (pick == null) {
+                break;
             }
-            if (stands.size() >= STANDS) {
+            stands.add(pick);
+            if (aim != null) {
+                aims.add(aim);
+            }
+        }
+        // Whole pairs only, each pair after the first reached by its etherwarp.
+        while (stands.size() % 2 != 0 || aims.size() < stands.size() / 2 - 1) {
+            stands.remove(stands.size() - 1);
+        }
+        while (aims.size() > Math.max(0, stands.size() / 2 - 1)) {
+            aims.remove(aims.size() - 1);
+        }
+        return stands.size() < 4 ? null : new RoomRoute(r.name(), cr, stands, aims);
+    }
+
+    /**
+     * The mechanism under the wrong-block hops, measured where it happens: the mod's own run-time etherwarp aim
+     * ({@code TeleportUtils.getEtherwarpDirection}, what a path hop or etherwarp node fired 0.05 over its spot re-aims
+     * with) from 0.05 over a block centre to another landable block of the room. An aim is FRAGILE when it lands for its
+     * exact float values but not for a look 0.01 degrees off (the server reads the running yaw a few float bits off - the
+     * planner's own {@code EtherSearch.AIM_MARGIN}); such an aim goes into the neighbouring block a coin toss of the time.
+     * @return {aims, fragile, fragile with a firm aim to be had}. Client thread.
+     */
+    private static int[] probe(Minecraft mc, RoomRoute rr, Random rng) {
+        List<BlockPos> all = new ArrayList<>();
+        for (Vec3 s : rr.stands()) {
+            BlockPos c = BlockPos.containing(s.x, s.y - 1, s.z);
+            for (int x = c.getX() - 12; x <= c.getX() + 12; x++) {
+                for (int z = c.getZ() - 12; z <= c.getZ() + 12; z++) {
+                    for (int y = c.getY() - 8; y <= c.getY() + 8; y++) {
+                        BlockPos p = new BlockPos(x, y, z);
+                        if (!mc.level.getBlockState(p).isAir() && !all.contains(p) && mc.level.getBlockState(p)
+                                .isCollisionShapeFullBlock(mc.level, p) && (Boolean) ModUnderTest.staticCall(TELEPORT_UTILS,
+                                "landable", new Class<?>[]{BlockPos.class}, new Object[]{p})) {
+                            all.add(p);
+                        }
+                    }
+                }
+            }
+            if (all.size() > 600) {
                 break;
             }
         }
-        return stands.size() < 3 ? null : new RoomRoute(r.name(), cr, stands);
+        int aims = 0;
+        int fragile = 0;
+        int avoidable = 0;
+        for (int k = 0; k < 4000 && aims < 120 && all.size() > 1; k++) {
+            BlockPos a = all.get(rng.nextInt(all.size()));
+            BlockPos b = all.get(rng.nextInt(all.size()));
+            double d = Math.sqrt(a.distSqr(b));
+            if (d < 3 || d > 30) {
+                continue;
+            }
+            Vec3 eye = new Vec3(a.getX() + 0.5, a.getY() + 1.05 + 1.27, a.getZ() + 0.5);
+            Object rot = ModUnderTest.staticCall(TELEPORT_UTILS, "getEtherwarpDirection",
+                    new Class<?>[]{Vec3.class, BlockPos.class, double.class}, new Object[]{eye, b, 57.0});
+            if (rot == null) {
+                continue;
+            }
+            aims++;
+            float yaw = (Float) ModUnderTest.call(rot, "yaw", new Class<?>[]{}, new Object[]{});
+            float pitch = (Float) ModUnderTest.call(rot, "pitch", new Class<?>[]{}, new Object[]{});
+            if (!holds(eye, b, yaw, pitch, 0.01f)) {
+                fragile++;
+                if (firmAim(eye, b, 0.01f) != null) {
+                    avoidable++;
+                }
+            }
+        }
+        return new int[]{aims, fragile, avoidable};
+    }
+
+    /** Whether the etherwarp from {@code eye} lands on {@code to} along the look and along it nudged {@code m} degrees
+     *  either way in yaw and in pitch (the mod's own cast, 56 blocks). Client thread. */
+    private static boolean holds(Vec3 eye, BlockPos to, float yaw, float pitch, float m) {
+        for (float[] d : new float[][]{{0, 0}, {m, 0}, {-m, 0}, {0, m}, {0, -m}}) {
+            Object hit = ModUnderTest.staticCall(TELEPORT_UTILS, "getEtherPos",
+                    new Class<?>[]{Vec3.class, float.class, float.class, double.class},
+                    new Object[]{eye, yaw + d[0], pitch + d[1], 56.0});
+            boolean lands = hit != null && (Boolean) ModUnderTest.call(hit, "succeeded", new Class<?>[]{}, new Object[]{})
+                    && to.equals(ModUnderTest.call(hit, "pos", new Class<?>[]{}, new Object[]{}));
+            if (!lands) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static float[] firmAim(Vec3 eye, BlockPos to) {
+        return firmAim(eye, to, 0.02f);
+    }
+
+    /** A look from {@code eye} whose etherwarp lands on {@code to} for it and for it nudged {@code m} degrees each way, or
+     *  null. Client thread. */
+    private static float[] firmAim(Vec3 eye, BlockPos to, float m) {
+        double[] uv = {0.17, 0.29, 0.41, 0.53, 0.66, 0.78};
+        for (double u : uv) {
+            for (double v : uv) {
+                double dx = to.getX() + u - eye.x;
+                double dy = to.getY() + 0.97 - eye.y;
+                double dz = to.getZ() + v - eye.z;
+                float yaw = net.minecraft.util.Mth.wrapDegrees((float) -Math.toDegrees(Math.atan2(dx, dz)));
+                float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+                if (holds(eye, to, yaw, pitch, m)) {
+                    return new float[]{yaw, pitch};
+                }
+            }
+        }
+        return null;
     }
 
     private static Object frame(RoomRoute rr) {
@@ -280,28 +429,41 @@ public class SimPathLandTests implements FabricClientGameTest {
         }
     }
 
-    /** P0 (start) on stand 0, then for each next stand: the arrival there and, but for the last, the next pair's source
-     *  stacked on it. */
+    private static JsonObject node(Object frame, String type, Vec3 feet) {
+        Vec3 rel = (Vec3) ModUnderTest.staticCall(COORDS, "toRelative", new Class<?>[]{frame.getClass(), Vec3.class},
+                new Object[]{frame, feet});
+        JsonObject n = new JsonObject();
+        n.addProperty("type", type);
+        n.addProperty("x", rel.x);
+        n.addProperty("y", rel.y);
+        n.addProperty("z", rel.z);
+        n.addProperty("yaw", 0f);
+        n.addProperty("pitch", 0f);
+        return n;
+    }
+
+    /** See {@link #routeIn}: PATH S0 (start), PATH S1, ETHERWARP S1 -> S2, PATH S2, PATH S3, ETHERWARP S3 -> S4, ... */
     private static JsonObject toJson(ClientGameTestContext ctx, RoomRoute rr) {
         return ctx.computeOnClient(mc -> {
             Object frame = frame(rr);
             JsonArray nodes = new JsonArray();
             for (int i = 0; i < rr.stands().size(); i++) {
-                int copies = i == 0 || i == rr.stands().size() - 1 ? 1 : 2;
-                for (int c = 0; c < copies; c++) {
+                JsonObject p = node(frame, "PATH", rr.stands().get(i));
+                if (i == 0) {
+                    p.addProperty("start", true);
+                }
+                nodes.add(p);
+                if (i % 2 == 1 && i + 1 < rr.stands().size()) {
+                    float[] aim = rr.aims().get(i / 2);
+                    JsonObject e = node(frame, "ETHERWARP", rr.stands().get(i));
+                    e.addProperty("yaw", (Float) ModUnderTest.staticCall(COORDS, "toRelativeYaw",
+                            new Class<?>[]{frame.getClass(), float.class}, new Object[]{frame, aim[0]}));
+                    e.addProperty("pitch", aim[1]);
                     Vec3 rel = (Vec3) ModUnderTest.staticCall(COORDS, "toRelative",
-                            new Class<?>[]{frame.getClass(), Vec3.class}, new Object[]{frame, rr.stands().get(i)});
-                    JsonObject n = new JsonObject();
-                    n.addProperty("type", "PATH");
-                    n.addProperty("x", rel.x);
-                    n.addProperty("y", rel.y);
-                    n.addProperty("z", rel.z);
-                    n.addProperty("yaw", 0f);
-                    n.addProperty("pitch", 0f);
-                    if (i == 0) {
-                        n.addProperty("start", true);
-                    }
-                    nodes.add(n);
+                            new Class<?>[]{frame.getClass(), Vec3.class},
+                            new Object[]{frame, rr.stands().get(i + 1).add(0, 0.05, 0)});
+                    e.addProperty("landing", String.format(Locale.US, "%.3f %.3f %.3f", rel.x, rel.y, rel.z));
+                    nodes.add(e);
                 }
             }
             JsonObject route = new JsonObject();
@@ -310,9 +472,10 @@ public class SimPathLandTests implements FabricClientGameTest {
         });
     }
 
-    private static void flyRoom(ClientGameTestContext ctx, int f, RoomRoute rr, boolean primed, List<String> failures,
+    private static void flyRoom(ClientGameTestContext ctx, int f, RoomRoute rr, int pass, List<String> failures,
                                 int[] totals) {
-        String label = "floor " + f + " " + rr.name() + (primed ? " +clicks" : "");
+        boolean primed = pass == 3;
+        String label = "floor " + f + " " + rr.name() + " pass " + pass + (primed ? " (+clicks)" : "");
         ctx.runOnClient(mc -> {
             ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"next room"});
             ModUnderTest.staticCall(MEMORY, "reset");
@@ -340,6 +503,10 @@ public class SimPathLandTests implements FabricClientGameTest {
             boolean running = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isSessionActive"));
             began |= running;
             idle = began && !running ? idle + 1 : 0;
+            if (running && t % 20 == 0 && LogTap.since(mark).stream().filter(l -> l.contains("Etherwarp: no landing after"))
+                    .count() >= 2) {
+                break;   // a warp the server keeps dropping: counted below, not waited out again and again
+            }
             if (!began && t > 200) {
                 break;
             }
