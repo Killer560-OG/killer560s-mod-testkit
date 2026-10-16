@@ -782,6 +782,14 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 146-sim-autosecret-arrival (mod ac-optimize-2-1015): ticks from a trip's last warp to its one-node start route ending
   (main: 11 every room, the Interactive Map's arrival settle; branch: 2). A warp sent on the route's own end tick is the
   NEXT trip's (the hand-over can be that fast), so only warps strictly before the end belong to the trip into the room.
+- 147-sim-autostatus-hud (mod autoclear-hud-1015, 2026-10-15): the shared Status HUD on a Solo Autopilot run, in 141's
+  class and world setup (`StatusHudCase`). The run is short (one zombie, two one-node routes: ~5 s, ~30 samples), so it
+  samples every 5 ticks. Clear the chat before a screenshot: in the 854x480 window the run's chat lines cover the HUD.
+- 131-sim-auto-clear's correction-plan case is a race on main (2026-10-16, autoclear-hud-1015): the teleport is sent with
+  the clearRoom call, and it counts only when the Interactive Map runner is already on its trip when it lands ("caught by
+  the Interactive Map runner"); when the trip's search is still running Auto Clear files it as the trip's own and nothing
+  counts it. main's cheat jar passed 2 of 6 runs, the branch 2 of 9. A failure there also leaves the sim world open and
+  the client hangs until the deadline (the keep-going disconnect deadlock above).
 - Mod main's sim clears every room on entry (2026-10-14). A case that judges which rooms its clears killed their way to
   (141) turns `SimMobs.setClearRoomsOnEntry(false)` for its run, or any trip passing through a room "clears" it.
 - **1080-1083 (TrajectoryCases, mod shortbow-traj-1015, 2026-10-15):** Trajectories for shortbows. Each draw is judged by the
