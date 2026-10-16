@@ -129,7 +129,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // ar-redo (2026-10-12): /ar redo restores deletes and clears
             "96-ar-960-redo-restore",
             // ar-render-1016: the node renderer draws the executor's active node in the active colour on every frame
-            "96-ar-1016-activeframe"};
+            "96-ar-1016-activeframe",
+            // aura-skull-place-1016: the Redstone Key counts for an await on its PLACING, by hand or by Secret Aura
+            "96-ar-1016-keyawait", "96-ar-1016-keyaura", "96-ar-1016-keyreach"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -302,6 +304,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1015-pathland" -> ArPathLandCases.pathLand(ctx);
                         case "96-ar-1015-reaim" -> ArReaimCases.reaim(ctx);
                         case "96-ar-1016-activeframe" -> ArRenderCases.activeFrame(ctx);
+                        case "96-ar-1016-keyawait" -> ArRedstoneKeyCases.keyAwait(ctx);
+                        case "96-ar-1016-keyaura" -> ArRedstoneKeyCases.keyAura(ctx);
+                        case "96-ar-1016-keyreach" -> ArRedstoneKeyCases.keyReach(ctx);
                         case "96-ar-dbedit" -> caseDbEdit(ctx);
                         case "96-ar-mapopen" -> caseMapOpen(ctx);
                         case "96-ar-mapopen-aim" -> caseMapOpenAim(ctx);
@@ -8436,6 +8441,263 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             check(seen.size() >= 3, "only " + seen.size() + " node(s) were ever drawn active - the highlight did not move");
             check(mismatches == 0, mismatches + " frame(s) drew a different active node than the executor's: "
                     + firstMismatch);
+        }
+    }
+
+    /**
+     * aura-skull-place-1016 (killer560, 2026-10-16: "make sure the secret aura for skulls will also place them and count
+     * that placing in the await sequence"). The Redstone Key in the arena, answered by the sim's own server
+     * ({@code SimRedstoneKey.armForTest}: the key head by Hypixel's profile, a click takes it; a click on the armed
+     * redstone block with the key found puts it in - the block goes and a stand wears the key - and counts one secret).
+     * Hypixel gives the room's key secret for the PLACING (wiki, Redstone Key: "rewards 1 secret"), not the pickup.
+     * <ul>
+     *   <li>keyawait, by hand: a node click with no key, and the key pickup, each leave await:1 unmet; the node click with
+     *   the key meets it and the server has the key in; a teammate's key (found server-side only) put in by his click
+     *   meets it once the server's answer shows.</li>
+     *   <li>keyaura: Secret Aura (Redstone Key + Place Redstone Key) takes the key and puts it in with no input, while the
+     *   route's await:1 waits: two use_item_on packets went out, the server has the key in, and the await was met by the
+     *   placing (its line) and not before it (no met line between the pickup and the placing).</li>
+     *   <li>keyreach: the node 5.1 from his eye to its centre (past the 4.7 skull range): the key is taken, the node is
+     *   not clicked and the await stays unmet; a node walled in on all six sides, in reach, is never clicked either;
+     *   stood in reach of an open node, it goes in.</li>
+     * </ul>
+     */
+    static final class ArRedstoneKeyCases {
+        private ArRedstoneKeyCases() {
+        }
+
+        private static final String SIM_KEY = "com.killer560.hub.roomsim.SimRedstoneKey";
+        private static final String AWAIT = "com.killer560.hub.autoroutes.AwaitEvents";
+        private static final String KEY_ROOM = "Testkit Key Room";
+
+        private static boolean hasHook(ClientGameTestContext ctx) {
+            return ctx.computeOnClient(mc -> {
+                try {
+                    Class.forName(SIM_KEY).getMethod("armForTest", net.minecraft.server.level.ServerLevel.class,
+                            BlockPos.class, BlockPos.class, String.class);
+                    return true;
+                } catch (ReflectiveOperationException e) {
+                    return false;
+                }
+            });
+        }
+
+        /** Server side: a key at relative (kx, F, kz) (or none) and an armed node at (nx, ny, nz). */
+        private static void armKey(ClientGameTestContext ctx, int[] keyAt, int[] nodeAt) {
+            BlockPos key = keyAt == null ? null : realNow(ctx, keyAt[0], keyAt[1], keyAt[2]);
+            BlockPos node = realNow(ctx, nodeAt[0], nodeAt[1], nodeAt[2]);
+            serverRun(ctx, (server, sp) -> ModUnderTest.staticCall(SIM_KEY, "armForTest",
+                    new Class<?>[]{net.minecraft.server.level.ServerLevel.class, BlockPos.class, BlockPos.class, String.class},
+                    new Object[]{server.overworld(), key, node, KEY_ROOM}));
+            ctx.waitTicks(5);
+        }
+
+        private static int placed(ClientGameTestContext ctx) {
+            return ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_KEY, "placedCount"));
+        }
+
+        private static boolean serverAir(ClientGameTestContext ctx, int x, int y, int z) {
+            BlockPos p = realNow(ctx, x, y, z);
+            AtomicReference<Boolean> air = new AtomicReference<>();
+            serverRun(ctx, (server, sp) -> air.set(server.overworld().getBlockState(p).isAir()));
+            return Boolean.TRUE.equals(air.get());
+        }
+
+        private static boolean premise(ClientGameTestContext ctx) {
+            if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+                caseSkip = "Auto Routes fires nodes only in a cheat build";
+                return false;
+            }
+            if (!hasHook(ctx)) {
+                caseSkip = "the jar has no SimRedstoneKey.armForTest (before aura-skull-place-1016)";
+                return false;
+            }
+            return true;
+        }
+
+        static void keyAwait(ClientGameTestContext ctx) {
+            if (!premise(ctx)) {
+                return;
+            }
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            // The start node's own action: an empty-hand click straight down at the floor - harmless.
+            writeRoute(ctx, List.of(handUse(12, 12, 0f, 80f, true, 1)));
+            int[] key = {13, F, 14};
+            int[] node = {11, F, 14};
+            armKey(ctx, key, node);
+            List<String> wrong = new ArrayList<>();
+            java.util.function.Consumer<String> note = r -> {
+                if (r != null) {
+                    wrong.add(r);
+                }
+            };
+            int p0 = placed(ctx);
+            note.accept(awaitRun(ctx, "a node click with no key", false,
+                    () -> rightClick(ctx, node[0], node[1], node[2], Direction.UP)));
+            check(placed(ctx) == p0 && !serverAir(ctx, node[0], node[1], node[2]), "the node took a key nobody had found");
+            note.accept(awaitRun(ctx, "our key pickup", false, () -> rightClick(ctx, key[0], key[1], key[2], Direction.UP)));
+            check(serverAir(ctx, key[0], key[1], key[2]), "premise: the sim server did not take the key on his click");
+            note.accept(awaitRun(ctx, "our click putting the key in", true,
+                    () -> rightClick(ctx, node[0], node[1], node[2], Direction.UP)));
+            check(placed(ctx) == p0 + 1 && serverAir(ctx, node[0], node[1], node[2]),
+                    "premise: the sim server did not put the key in (placed " + (placed(ctx) - p0) + ")");
+
+            // A teammate's key: found on the server only, so the client cannot know - his click is counted on the answer.
+            armKey(ctx, null, node);
+            serverRun(ctx, (server, sp) -> ModUnderTest.staticCall(SIM_KEY, "foundForTest",
+                    new Class<?>[]{String.class}, new Object[]{KEY_ROOM}));
+            long m = LogTap.mark();
+            note.accept(awaitRun(ctx, "our click putting a teammate's key in", true,
+                    () -> rightClick(ctx, node[0], node[1], node[2], Direction.UP)));
+            check(placed(ctx) == p0 + 2, "premise: the teammate's key was not put in");
+            check(logHas(m, "the server put the key in"), "the teammate's key was not counted on the server's answer");
+            println("keyawait: " + (wrong.isEmpty() ? "all sub-runs as expected" : String.join("; ", wrong)));
+            check(wrong.isEmpty(), String.join("; ", wrong));
+        }
+
+        private static void auraOn(ClientGameTestContext ctx) {
+            ctx.runOnClient(mc -> {
+                Object cfg = ModUnderTest.config(CHEAT_CFG);
+                ModUnderTest.set(cfg, "setAuraRedstoneKey", true);
+                ModUnderTest.set(cfg, "setAuraPlaceRedstoneKey", true);
+                ModUnderTest.set(cfg, "setAuraPauseWhileSneaking", false);
+                ModUnderTest.set(cfg, "setSecretAuraEnabled", true);
+            });
+        }
+
+        private static void auraOff(ClientGameTestContext ctx) {
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+        }
+
+        static void keyAura(ClientGameTestContext ctx) {
+            if (!premise(ctx)) {
+                return;
+            }
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            writeRoute(ctx, List.of(handUse(12, 12, 0f, 80f, true, 1)));
+            int[] key = {13, F, 14};
+            int[] node = {11, F, 14};
+            armKey(ctx, key, node);
+            int p0 = placed(ctx);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            check(arm(ctx, 12, 12, 0f, 80f), "the await route did not start");
+            long m = LogTap.mark();
+            ctx.waitTicks(10);
+            check(!logHas(m, "secrets met"), "the await was met before anything was clicked");
+            startSampling(ctx);
+            try {
+                auraOn(ctx);
+                boolean met = waitFor(ctx, 120, () -> logHas(m, "secrets met"));
+                ctx.waitTicks(10);
+                List<Sample> s = stopSampling(ctx);
+                int clicks = countOut(s, "use_item_on");
+                boolean keyGone = serverAir(ctx, key[0], key[1], key[2]);
+                boolean nodeIn = serverAir(ctx, node[0], node[1], node[2]);
+                int placedNow = placed(ctx) - p0;
+                List<String> lines = new ArrayList<>();
+                int pickupAt = -1;
+                int placeAt = -1;
+                int metAt = -1;
+                List<String> log = LogTap.since(m);
+                for (int i = 0; i < log.size(); i++) {
+                    String l = log.get(i);
+                    if (l.contains("redstone key at") && l.contains("not a secret") && pickupAt < 0) {
+                        pickupAt = i;
+                    }
+                    if (l.contains("redstone key put on its redstone block") && placeAt < 0) {
+                        placeAt = i;
+                    }
+                    if (l.contains("secrets met") && metAt < 0) {
+                        metAt = i;
+                    }
+                    if (l.contains("redstone") || l.contains("await") || l.contains("Node #1")) {
+                        lines.add(l);
+                    }
+                }
+                lines.forEach(l -> println("keyaura log: " + l));
+                println("keyaura: use_item_on " + clicks + ", key taken " + keyGone + ", key in " + nodeIn + " (placed "
+                        + placedNow + "), log order pickup " + pickupAt + " / placing " + placeAt + " / met " + metAt);
+                check(keyGone, "Secret Aura did not take the key (server side)");
+                check(nodeIn && placedNow == 1, "Secret Aura did not put the key in (server side, placed " + placedNow + ")");
+                check(clicks >= 2, "only " + clicks + " use_item_on packet(s) went out for the key and its node");
+                check(met, "the route's await:1 was never met by the aura's placing");
+                check(pickupAt >= 0 && placeAt > pickupAt, "the log does not show the pickup, then the placing");
+                check(metAt > placeAt, "the await was met before the key was put in (met line " + metAt + ", placing "
+                        + placeAt + ")");
+            } finally {
+                auraOff(ctx);
+                stopRoute(ctx);
+            }
+        }
+
+        static void keyReach(ClientGameTestContext ctx) {
+            if (!premise(ctx)) {
+                return;
+            }
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            writeRoute(ctx, List.of(handUse(12, 12, 0f, 80f, true, 1)));
+            // Out of reach: eye (12.5, F+1.62, 12.5) to the node's centre (12.5, F+0.5, 17.5) is 5.12, past 4.7.
+            // Its own key spot: Secret Aura's done-set (per block, per run) still holds keyaura's (13, F, 14).
+            int[] key = {14, F, 13};
+            int[] far = {12, F, 17};
+            armKey(ctx, key, far);
+            int p0 = placed(ctx);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            check(arm(ctx, 12, 12, 0f, 80f), "the await route did not start");
+            long m = LogTap.mark();
+            try {
+                auraOn(ctx);
+                boolean taken = waitFor(ctx, 80, () -> serverAir(ctx, key[0], key[1], key[2]));
+                ctx.waitTicks(40);
+                boolean farIn = serverAir(ctx, far[0], far[1], far[2]);
+                boolean metFar = logHas(m, "secrets met");
+                double d = ctx.computeOnClient(mc -> Vec3.atCenterOf(realNow0(far)).distanceTo(mc.player.getEyePosition()));
+                println(String.format(Locale.US, "keyreach far: key taken %s, node %.2f from the eye put in %s, await met %s",
+                        taken, d, farIn, metFar));
+                check(taken, "premise: Secret Aura did not take the key");
+                check(d > 4.7, "premise: the far node is only " + d + " from the eye");
+                check(!farIn && placed(ctx) == p0, "Secret Aura put the key in a node " + d + " from his eye");
+                check(!metFar, "the await was met with the key only picked up");
+                stopRoute(ctx);
+
+                // In reach but walled in: every face against stone. Never clicked.
+                // Eye (12.5, F+1.62, 12.5) to its centre (9.5, F+0.5, 12.5) is 3.2.
+                // Walled in BEFORE it is armed: the first run armed it first and the aura put the key in at once.
+                int[] boxed = {9, F, 12};
+                setBlocks(ctx, Map.of(new int[]{8, F, 12}, Blocks.STONE.defaultBlockState(),
+                        new int[]{10, F, 12}, Blocks.STONE.defaultBlockState(),
+                        new int[]{9, F, 11}, Blocks.STONE.defaultBlockState(),
+                        new int[]{9, F, 13}, Blocks.STONE.defaultBlockState(),
+                        new int[]{9, F + 1, 12}, Blocks.STONE.defaultBlockState()));
+                startSampling(ctx);
+                armKey(ctx, null, boxed);
+                tpRel(ctx, 12.5, 12.5, 0f, 30f);
+                ctx.waitTicks(40);
+                int boxedClicks = countOut(stopSampling(ctx), "use_item_on");
+                boolean boxedIn = serverAir(ctx, boxed[0], boxed[1], boxed[2]);
+                println("keyreach boxed: " + boxedClicks + " use_item_on, put in " + boxedIn);
+                check(boxedClicks == 0 && !boxedIn, "Secret Aura clicked a node with no face open to air ("
+                        + boxedClicks + " use_item_on)");
+
+                // The far node again, now in reach (the boxed one stays walled in): it goes in.
+                tpRel(ctx, 12.5, 15.5, 0f, 30f);
+                boolean in = waitFor(ctx, 60, () -> serverAir(ctx, far[0], far[1], far[2]));
+                println("keyreach near: the far node put in once in reach " + in);
+                check(in, "Secret Aura never put the key in once the node was in reach");
+            } finally {
+                auraOff(ctx);
+                stopRoute(ctx);
+            }
+        }
+
+        private static BlockPos realNow0(int[] p) {
+            return real(ModUnderTest.staticCall(FRAME, "current"), p[0], p[1], p[2]);
         }
     }
 }

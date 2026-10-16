@@ -942,3 +942,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   one the mod counts in its own END_SERVER_TICK (an item) - otherwise "same tick" is one tick late for half the types.
   Main fcba4045: 18 of 20 fail; the two passes are one-tick cases where the ten-tick action bar fell on that tick, so a
   one-tick pass on an old jar proves nothing.
+- **96-ar-1016-keyawait / -keyaura / -keyreach** (aura-skull-place-1016): the Redstone Key in the 96-ar arena, answered by
+  the sim server through `SimRedstoneKey.armForTest` (a jar without it SKIPs). The aura's done-set is per BLOCK for the
+  whole run, so each case needs its own key spot: keyreach first reused keyaura's (13, F, 14) and the aura never clicked it
+  ("premise: Secret Aura did not take the key"). 1415 and 848 also open an `AwaitEvents` window and require exactly one
+  secret for the placing and none for the pickup.
