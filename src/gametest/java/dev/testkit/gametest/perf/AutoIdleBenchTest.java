@@ -175,6 +175,9 @@ public class AutoIdleBenchTest implements FabricClientGameTest {
     static final String[][] NOT_DRAWN = {
             {"AUTO IDLE", "HUD[autopilot_status]"},
             {"AUTO IDLE", "HUD[auto_clear_status]"},
+            // Since mod autoclear-hud-1015 the two above are one shared Status HUD; the old ids no longer exist, so
+            // without this row the check passed with nothing to count (fps-combined-1016).
+            {"AUTO IDLE", "HUD[auto_status]"},
     };
 
     private static List<String> keyBudgets(List<Phase> offs, List<Phase> autos, List<String> report) {
