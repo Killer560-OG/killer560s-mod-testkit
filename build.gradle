@@ -563,7 +563,7 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	}
 	["Rounds": "rounds", "BigTicks": "bigTicks", "AloneTicks": "aloneTicks", "GateTicks": "gateTicks", "Only": "only",
 	 "BudgetPct": "budgetPct", "BudgetFloorUs": "budgetFloorUs", "FeaturePct": "featurePct",
-	 "FeatureFloorUs": "featureFloorUs"].each { suffix, key ->
+	 "FeatureFloorUs": "featureFloorUs", "Auto": "auto", "AutoSkip": "autoSkip"].each { suffix, key ->
 		if (project.hasProperty("perf" + suffix)) {
 			systemProperty "testkit.perf.${key}", project.property("perf" + suffix)
 		}
