@@ -40,7 +40,7 @@ import java.util.function.Function;
  */
 final class PuzzleTimingExtra extends SolveExtra {
 
-    enum Kind { CLICK, WARP, SHOT, MAP_WARP, SHIFT_DOWN, SHIFT_UP, LAND, READY, CAMERA_WAIT }
+    enum Kind { CLICK, WARP, SHOT, MAP_WARP, SHIFT_DOWN, SHIFT_UP, LAND, READY, CAMERA_WAIT, VOLLEY_START, VOLLEY_END }
 
     record Ev(long tick, Kind kind, String info) {
     }
@@ -118,6 +118,9 @@ final class PuzzleTimingExtra extends SolveExtra {
             add(t, Kind.LAND, String.format(Locale.US, "%.1f block(s)", Math.sqrt(pos.distanceToSqr(lastPos))));
         }
         lastPos = pos;
+        if (watchVolleys) {
+            watchVolleys(mc, t);
+        }
         if (probe != null) {
             String v;
             try {
@@ -146,6 +149,64 @@ final class PuzzleTimingExtra extends SolveExtra {
             add(t, Kind.CAMERA_WAIT, "TurnFirst foreignWait " + w);
         }
         lastWait = w;
+    }
+
+    // ---- the volleys' own arrows (Blaze rooms), watched by the test, never read from the mod ----
+    private static volatile boolean watchVolleys;
+    /** arrow id -> {volley number, x, y, z}; an arrow leaves this map when it has ENDED. */
+    private static final java.util.Map<Integer, double[]> ARROWS = new java.util.HashMap<>();
+    private static final java.util.Set<Integer> ARROWS_SEEN = new java.util.HashSet<>();
+    private static final java.util.Map<Integer, Integer> VOLLEY_LEFT = new java.util.HashMap<>();
+    private static int volleyCount;
+    private static long lastShotTick = Long.MIN_VALUE / 4;
+    private static int lastShotVolley = -1;
+
+    /**
+     * Every arrow that appears within 4 blocks of his eye in its first 4 ticks is one of his, and belongs to the volley of
+     * the last SHOT before it. An arrow has ENDED when the client no longer has it (the server removed it: a hit, or
+     * BlazeMiss refusing one), when it did not move over a tick (stuck in a block), or 40 blocks out. A volley ends with
+     * its last arrow. This is the latest moment its result can be known; the mod is free to know it earlier (an arrow
+     * flying away from the target), which reads as a gap of 0 or less.
+     */
+    private static void watchVolleys(Minecraft mc, long t) {
+        Vec3 eye = mc.player.getEyePosition();
+        java.util.Set<Integer> added = new java.util.HashSet<>();
+        for (var a : mc.level.getEntitiesOfClass(net.minecraft.world.entity.projectile.arrow.AbstractArrow.class,
+                new net.minecraft.world.phys.AABB(eye, eye).inflate(4.0), a -> a.tickCount <= 4)) {
+            if (ARROWS_SEEN.add(a.getId())) {
+                if (lastShotVolley < 0) {
+                    lastShotVolley = ++volleyCount; // the first arrow after a shot opens its volley
+                    add(t, Kind.VOLLEY_START, "#" + lastShotVolley);
+                }
+                int v = lastShotVolley;
+                VOLLEY_LEFT.merge(v, 1, Integer::sum);
+                ARROWS.put(a.getId(), new double[]{v, a.getX(), a.getY(), a.getZ()});
+                added.add(a.getId());
+            }
+        }
+        var it = ARROWS.entrySet().iterator();
+        while (it.hasNext()) {
+            var e = it.next();
+            if (added.contains(e.getKey())) {
+                continue;
+            }
+            double[] d = e.getValue();
+            net.minecraft.world.entity.Entity a = mc.level.getEntity(e.getKey());
+            boolean ended = a == null || a.isRemoved() || a.position().distanceTo(eye) > 40.0
+                    || a.position().distanceToSqr(d[1], d[2], d[3]) < 1.0e-4;
+            if (!ended) {
+                d[1] = a.getX();
+                d[2] = a.getY();
+                d[3] = a.getZ();
+                continue;
+            }
+            it.remove();
+            int v = (int) d[0];
+            if (VOLLEY_LEFT.merge(v, -1, Integer::sum) <= 0) {
+                VOLLEY_LEFT.remove(v);
+                add(t, Kind.VOLLEY_END, "#" + v); // seen at END of t: first actionable at START of t + 1, read as t
+            }
+        }
     }
 
     /** The puzzle autos' TurnFirst wait counter: it counts up while a turn waits on a camera somebody else holds. */
@@ -217,6 +278,10 @@ final class PuzzleTimingExtra extends SolveExtra {
                 aotv = false;
             }
             add(t, aotv ? Kind.WARP : Kind.SHOT, held.getHoverName().getString());
+            if (!aotv) {
+                lastShotTick = t;
+                lastShotVolley = -1; // the next arrows seen are a new volley
+            }
         } else if (p instanceof ServerboundPlayerInputPacket in) {
             boolean shift = in.input().shift();
             if (lastShift == null || shift != lastShift) {
@@ -269,6 +334,12 @@ final class PuzzleTimingExtra extends SolveExtra {
         waitUnreadable = null;
         logMark = LogTap.mark();
         probe = roomProbe;
+        watchVolleys = need.contains(Pair.VOLLEY_NEXT);
+        ARROWS.clear();
+        ARROWS_SEEN.clear();
+        VOLLEY_LEFT.clear();
+        volleyCount = 0;
+        lastShotVolley = -1;
         oldTap = PacketTrace.tap;
         java.util.function.Consumer<Packet<?>> chained = oldTap;
         PacketTrace.tap = p -> {
@@ -329,31 +400,35 @@ final class PuzzleTimingExtra extends SolveExtra {
         Stats sneakUse = new Stats("sneak -> warp use");
         Stats landAct = new Stats("landing -> next action");
         Stats readyClick = new Stats("ready -> click");
-        Stats volleyNext = new Stats("volley ended -> next action");
-        // A volley's result known on the client (the room's probe says "volley ended #n") -> the auto's next shot, warp
-        // or click: no margin on top. A shot his Shoot cooldown still held is not counted.
+        Stats volleyNext = new Stats("volley ended -> next shot/click");
+        // Each volley: from the moment its last arrow ended (or his Shoot cooldown ran out, whichever is later) to the
+        // auto's next shot or chest click after it left. 0 or less = the auto knew the result before the arrows ended.
+        // A warp or a landing in between hands the gap to "landing -> next action"; a map warp is the secret trip.
         for (int i = 0; i < ev.size(); i++) {
-            Ev r = ev.get(i);
-            if (r.kind() != Kind.READY || !r.info().contains("volley ended #")) {
+            Ev start = ev.get(i);
+            if (start.kind() != Kind.VOLLEY_START) {
                 continue;
             }
+            long end = -1;
+            for (int j = i + 1; j < ev.size(); j++) {
+                if (ev.get(j).kind() == Kind.VOLLEY_END && ev.get(j).info().equals(start.info())) {
+                    end = ev.get(j).tick();
+                    break;
+                }
+            }
+            if (end < 0) {
+                continue;
+            }
+            long shot = lastShotBefore(ev, i);
             for (int j = i + 1; j < ev.size(); j++) {
                 Ev n = ev.get(j);
-                if (n.kind() == Kind.READY && n.info().contains("volley flying #")) {
-                    break; // another volley left before anything else
+                if (n.kind() == Kind.MAP_WARP || n.kind() == Kind.WARP || n.kind() == Kind.LAND) {
+                    break;
                 }
-                if (n.kind() == Kind.MAP_WARP) {
-                    break; // the secret trip, set off when the volley LEFT the bow: the Interactive Map's pace, not this
-                }
-                if (n.kind() == Kind.WARP || n.kind() == Kind.LAND) {
-                    break; // a reposition: judged as landing -> next action, not as the volley's wait
-                }
-                if (act(n.kind())) {
-                    if (n.kind() == Kind.SHOT && lastShotBefore(ev, j) + cooldownTicks + 1 >= r.tick()) {
-                        break;
-                    }
-                    volleyNext.add(n.tick() - r.tick(), r.info().replaceAll(".*(volley ended #\\d+).*", "$1") + " at "
-                            + r.tick() + " -> " + n.kind().name().toLowerCase(Locale.ROOT) + " at " + n.tick());
+                if (n.kind() == Kind.SHOT || n.kind() == Kind.CLICK) {
+                    long ready = Math.max(end, shot + cooldownTicks + 1);
+                    volleyNext.add(n.tick() - ready, "volley " + start.info() + " shot at " + shot + ", ended at " + end
+                            + " -> " + n.kind().name().toLowerCase(Locale.ROOT) + " at " + n.tick());
                     break;
                 }
             }
