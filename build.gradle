@@ -563,7 +563,7 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	}
 	["Rounds": "rounds", "BigTicks": "bigTicks", "AloneTicks": "aloneTicks", "GateTicks": "gateTicks", "Only": "only",
 	 "BudgetPct": "budgetPct", "BudgetFloorUs": "budgetFloorUs", "FeaturePct": "featurePct",
-	 "FeatureFloorUs": "featureFloorUs"].each { suffix, key ->
+	 "FeatureFloorUs": "featureFloorUs", "Screens": "screens"].each { suffix, key ->
 		if (project.hasProperty("perf" + suffix)) {
 			systemProperty "testkit.perf.${key}", project.property("perf" + suffix)
 		}
@@ -579,6 +579,9 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	}
 	if (project.hasProperty("perfJfrTicks")) {
 		systemProperty "testkit.perf.jfrTicks", project.property("perfJfrTicks")
+	}
+	if (project.hasProperty("perfNoCeiling")) {
+		systemProperty "testkit.perf.noCeiling", "true"
 	}
 	if (project.hasProperty("perfNoJfr")) {
 		systemProperty "testkit.bench.noJfr", "true"

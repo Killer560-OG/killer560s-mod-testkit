@@ -152,6 +152,7 @@
 			"dev.testkit.gametest.perf.FeatureCostBenchTest",
 			"dev.testkit.gametest.perf.PerfGateTest",
 			"dev.testkit.gametest.perf.PerfFixesTest",
+			"dev.testkit.gametest.perf.PerfScreensTest",
 			"dev.testkit.gametest.perf.NametagPerfBenchTest"
 		]
 	},

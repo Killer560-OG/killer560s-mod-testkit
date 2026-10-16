@@ -78,3 +78,18 @@ measured as good, and commit the file with the change that justifies it). Budget
 Run it before merging anything that adds a HUD element, a render listener or a per-tick handler; when it fails, the
 `OVER` lines in `perf-gate.txt` name the feature package, and 95-perf-features with `-PperfOnly=<it>` says which
 callback.
+
+## Screens (95-perf-screens)
+
+`perf/PerfScreensTest`, ~5 min, only when named (fps-gui-1015, 2026-10-15). 95-perf-features and the gate never open a
+screen, so the mod menu, the container overlays and the title screen's scene never show in them. In PerfBench's scene it
+opens in turn: nothing (`none`), the mod menu's card grid (`menu`), the menu with Live Map's drawer (`drawer`), a 54-slot
+"Auctions Browser" chest of SkyBlock items with the mouse on slot 10 (`chest`), the same items on "Ender Chest (1/9)",
+which Storage Overlay takes over (`storage`), and after leaving the world the title screen (`title`); each with every
+switch OFF, then ALL ON, `-PperfBigTicks` (200) ticks each. Per phase: frame CPU, render-thread KB/frame, the probe's top
+keys, the mod's probe key `screen.<Class> extract` (the screen's whole draw, needs the mod's `ScreenProbeMixin`, mod
+fps-gui-1015 and later) and the mod's own draw probes (`ModScreen.allocProbe`, `MainMenuScenes.allocProbe`).
+`-PperfScreens=menu,chest` picks phases, `-PperfNoJfr` skips the per-phase ALL ON JFR (`perf-screens-<phase>.jfr`, with
+allocation samples at 5000/s), `-PperfNoCeiling` only measures. It FAILS when a screen was not open, the screen probe
+counted nothing, or the mod's draw allocates over `CEILING_KB` (menu 150, drawer 250, title scene 50 KB/frame; main
+69505e45 measured 342 / 697 / 100). Results in `perf-screens.txt`.
