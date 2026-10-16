@@ -172,7 +172,10 @@ shots (HUD hidden, noon, fixed view): no route, then each style normal and edit,
 `-PperfArRef=<another run's ar-render-shots>` compares each with that jar's (pixels over a summed RGB delta of 30,
 budget 40: a fire texture at the top edge animates between runs and accounts for up to ~32). Main 4b8d18da vs
 ar-render-1016: render listener 85.7 KB -> 24.6 KB a frame (BOX), 25.8 KB -> 0.2 KB (bare), 210 KB -> 24.6 KB (CYLINDER),
-every shot within the budget. 96-ar-1016-activeframe (in 96-ar) checks the active node highlight frame by frame.
+every shot within the budget. On 26.2 the shot comparison is reported only: 26.2 orders translucent draws differently
+from one launch to the next (main against itself: up to 21,066 px on Filled edit, 285 px on Cylinder), and its byte
+floor is 4000 B (no mod batch there; each shape is its own submit, as on main). 96-ar-1016-activeframe (in 96-ar)
+checks the active node highlight frame by frame.
 ## The sim's own cost, startup and heap (95-perf-sim)
 
 `perf/SimPerfTest`, ~4 min, only when named (fps-sim-1015). First, before anything else touches the client: JVM uptime

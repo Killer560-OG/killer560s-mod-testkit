@@ -60,6 +60,21 @@ public class ArRenderBenchTest implements FabricClientGameTest {
      * about 1.8 KB for an "#12 Etherwarp" (ar-render-1016, BOX vs BOX bare). That is the same call before and after.
      */
     static final int LABEL_BYTES = 2500;
+    /**
+     * 26.2 has no mod batch: each shape stays its own {@code submitCustomGeometry} (mod ar-render-1016 keeps main's
+     * submission sequence there), and vanilla allocates a submit record and a pose copy per call: ~2.7 KB a frame for the
+     * bare route (main 4b8d18da: 14.7 KB).
+     */
+    static final int FRAME_BYTES_BUDGET_262 = 4000;
+
+    /** True on a jar whose world draw runs later in the frame (26.2), from the mod's own compat flag. */
+    private static boolean lateCallbacks() {
+        try {
+            return (Boolean) Mod.field("compat.McRender", "CALLBACK_RUNS_LATER");
+        } catch (Throwable t) {
+            return false;
+        }
+    }
     /** Pixels a shot may differ from the reference jar's (summed RGB delta over 30). A fire texture in rows 0-2 of the
      *  view animates between runs: 19 and 32 px in the two edit shots of the first A/B, nothing of the route. */
     static final int SHOT_PIXEL_BUDGET = 40;
@@ -150,6 +165,7 @@ public class ArRenderBenchTest implements FabricClientGameTest {
             });
 
             // ---- budgets ----
+            boolean late = ctx.computeOnClient(mc -> lateCallbacks());
             report.add("");
             report.add("== Auto Routes keys (probe self time, mean of rounds) ==");
             report.add(String.format(Locale.ROOT, "%-10s %-78s %-6s %9s %10s %10s", "phase", "key", "kind", "us/f@144",
@@ -178,9 +194,10 @@ public class ArRenderBenchTest implements FabricClientGameTest {
                     if (isRenderKey(k.getKey(), kinds.get(k.getKey()))) {
                         sawRender = true;
                         double labels = labelsPerFrame(statsByPhase, e.getKey());
-                        double budget = FRAME_BYTES_BUDGET + LABEL_BYTES * Math.max(0, labels);
+                        int base = late ? FRAME_BYTES_BUDGET_262 : FRAME_BYTES_BUDGET;
+                        double budget = base + LABEL_BYTES * Math.max(0, labels);
                         report.add(String.format(Locale.ROOT, "%-10s   budget %.0f B/frame (%d + %d x %.1f labels)",
-                                e.getKey(), budget, FRAME_BYTES_BUDGET, LABEL_BYTES, Math.max(0, labels)));
+                                e.getKey(), budget, base, LABEL_BYTES, Math.max(0, labels)));
                         if (a[1] > budget) {
                             failures.add(String.format(Locale.ROOT, "%s: %s allocates %.0f B/frame (budget %.0f)",
                                     e.getKey(), k.getKey(), a[1], budget));
@@ -294,6 +311,7 @@ public class ArRenderBenchTest implements FabricClientGameTest {
 
     private static List<String> shots(ClientGameTestContext ctx, Map<Switch, Boolean> on, String ref, List<String> report) {
         List<String> fails = new ArrayList<>();
+        boolean late = ctx.computeOnClient(mc -> lateCallbacks());
         Path dir = PerfBench.outDir().resolve("ar-render-shots");
         try {
             Files.createDirectories(dir);
@@ -357,7 +375,12 @@ public class ArRenderBenchTest implements FabricClientGameTest {
                         int dRefNone = none == null ? -1 : refVsNone(other, dir);
                         line += String.format(Locale.ROOT, "; vs reference: %d px differ (ref's own no-route diff %d)", d,
                                 dRefNone);
-                        if (d > SHOT_PIXEL_BUDGET) {
+                        if (late) {
+                            // 26.2 orders translucent draws differently from one launch to the next: main 4b8d18da
+                            // against itself differed by up to 21,066 px (Filled, edit mode) on 2026-10-16, so the
+                            // comparison there is reported, never judged.
+                            line += " [26.2: reported only]";
+                        } else if (d > SHOT_PIXEL_BUDGET) {
                             fails.add(String.format(Locale.ROOT, "shot %s: %d px differ from the reference (budget %d)", s[0],
                                     d, SHOT_PIXEL_BUDGET));
                         }
