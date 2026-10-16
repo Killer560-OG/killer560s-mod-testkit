@@ -769,7 +769,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 131-sim-auto-clear's correction-plan case is a race on main (2026-10-16, autoclear-hud-1015): the teleport is sent with
   the clearRoom call, and it counts only when the Interactive Map runner is already on its trip when it lands ("caught by
   the Interactive Map runner"); when the trip's search is still running Auto Clear files it as the trip's own and nothing
-  counts it. main's cheat jar passed 2 of 3 runs, the branch 2 of 7. A failure there also leaves the sim world open and
+  counts it. main's cheat jar passed 2 of 6 runs, the branch 2 of 9. A failure there also leaves the sim world open and
   the client hangs until the deadline (the keep-going disconnect deadlock above).
 - Mod main's sim clears every room on entry (2026-10-14). A case that judges which rooms its clears killed their way to
   (141) turns `SimMobs.setClearRoomsOnEntry(false)` for its run, or any trip passing through a room "clears" it.
