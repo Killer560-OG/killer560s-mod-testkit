@@ -39,8 +39,8 @@ import java.util.Locale;
  *       counts elements), and its gradients have no bands: in the calm sky no row is a line where most columns step to
  *       the next 8-bit level together (dithered), where the GuiRects version of the same scene steps every column at once.</li>
  *   <li>1685 title-screen frame rate (light-hq-1016, "120fps"): frames counted over 3 s of wall time on the themed title
- *       screen and on the vanilla one, Max Framerate 120 and unlimited, vsync off; the themed one is no longer held to
- *       vanilla's 60 out-of-world cap (FramerateLimitTracker reads max(120, Max Framerate)), the vanilla one still is.</li>
+ *       screen and on the vanilla one, Max Framerate 120, unlimited and 30, vsync off; the themed one is no longer held to
+ *       vanilla's 60 out-of-world cap (FramerateLimitTracker reads the Max Framerate, so 120 by default, and 30 when set to 30), the vanilla one still is.</li>
  *   <li>1686 Viridian high quality (light-hq-1016): its base texture is 2560x1440 and linearly filtered, its glows and fog
  *       go through the cone-glow shader, and the picture is the same as the GuiRects version's in tone.</li>
  * </ul>
@@ -465,11 +465,13 @@ public class PaintedScenesSuite implements FabricClientGameTest {
                     return null;
                 });
                 StringBuilder sb = new StringBuilder();
-                double[] themed = new double[2];
-                double[] vanilla = new double[2];
-                int[] lim = new int[4];
-                int[] limits = {120, 260};
-                for (int k = 0; k < 2; k++) {
+                // 30: a Max Framerate below 120 is kept as set (killer560, 2026-10-16: "if below 120 is set then have it
+                // restrict to whatever they have it set at").
+                int[] limits = {120, 260, 30};
+                double[] themed = new double[limits.length];
+                double[] vanilla = new double[limits.length];
+                int[] lim = new int[limits.length * 2];
+                for (int k = 0; k < limits.length; k++) {
                     int max = limits[k];
                     c.onClient(mc -> {
                         mc.options.framerateLimit().set(max);
@@ -496,8 +498,9 @@ public class PaintedScenesSuite implements FabricClientGameTest {
                             max == 260 ? "unlimited" : String.valueOf(max), themed[k], lim[k * 2], vanilla[k], lim[k * 2 + 1]));
                 }
                 c.note(sb.toString());
-                c.check(lim[0] == 120 && lim[2] == 260, "the themed title screen's frame cap is not max(120, Max Framerate): "
-                        + lim[0] + " at 120, " + lim[2] + " at unlimited");
+                c.check(lim[0] == 120 && lim[2] == 260 && lim[4] == 30, "the themed title screen's frame cap is not the Max Framerate: "
+                        + lim[0] + " at 120, " + lim[2] + " at unlimited, " + lim[4] + " at 30");
+                c.check(themed[2] < 40, String.format(Locale.ROOT, "the themed title screen renders %.1f fps at Max Framerate 30", themed[2]));
                 c.check(lim[1] == 60 && lim[3] == 60, "the vanilla title screen's cap changed: " + lim[1] + ", " + lim[3]);
                 c.check(themed[0] > 90, String.format(Locale.ROOT, "the themed title screen renders %.1f fps at Max Framerate 120", themed[0]));
                 c.check(vanilla[0] < 70, String.format(Locale.ROOT, "the instrument: the vanilla title screen renders %.1f fps"
