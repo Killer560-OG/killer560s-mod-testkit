@@ -417,12 +417,26 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         // Edit mode picks only with the Dungeon Breaker in hand (mod ar-breaker-wait); any other item clicks normally.
         ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(2));
         ctx.waitTicks(2);
+        long mPick = LogTap.mark();
+        startSampling(ctx);
         rightClick(ctx, 22, F, 10, Direction.WEST);
         ctx.waitTicks(3);
         rightClick(ctx, 22, F + 1, 10, Direction.WEST);
         ctx.waitTicks(3);
         cmd(ctx, "/ar edit db");
-        ctx.waitTicks(3);
+        // Long enough for the breaker re-fire to have acted: on main it read the two picks as blocks grown back on the
+        // node he stands on and broke them the tick edit mode closed (2026-10-15).
+        ctx.waitTicks(20);
+        s = stopSampling(ctx);
+        int pickDigs = 0;
+        for (Sample x : s) {
+            pickDigs += (int) x.out().stream().filter("player_action"::equals).count();
+        }
+        boolean refiredOnPick = logHas(mPick, "standing while he is on it");
+        println("picks: " + pickDigs + " player_action packet(s) from the picks to 20 ticks after edit mode closed,"
+                + " re-fire logged " + refiredOnPick);
+        check(pickDigs == 0, "picking (and closing edit mode) sent " + pickDigs + " dig packet(s)");
+        check(!refiredOnPick, "closing edit mode re-fired the breaker node on the blocks he had just picked");
         nodes = fileNodes(ctx);
         JsonObject br = nodes.get(3).getAsJsonObject();
         check("DUNGEON_BREAKER".equals(br.get("type").getAsString()) && br.has("blocks")
