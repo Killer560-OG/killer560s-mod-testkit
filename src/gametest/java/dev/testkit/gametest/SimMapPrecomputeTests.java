@@ -34,7 +34,7 @@ import java.util.regex.Pattern;
  *   <li><b>phase 1</b>: the mod's own TripCache status - every trip from where he stands to every room planned (or known
  *       to have no graph plan) - within 5 s of the gate opening;</li>
  *   <li><b>press to first warp</b>: the same map press ({@code AutoClearUtils.pathToRoom}) on rooms across the floor from
- *       the same spot, Precompute Trips ON and OFF back to back: client ticks from the press to the first warp's use
+ *       the same spot, TripCache on and (test hook) off back to back: client ticks from the press to the first warp's use
  *       packet ({@code ClearExecutor.hopSendTicks}), the warps flown, and that the ON press ran a precomputed trip with no
  *       search; and before each press the planner's own fresh plan from that spot - a precomputed trip must never take
  *       more warps than it;</li>
@@ -117,6 +117,9 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
                 t.printStackTrace(System.out);
             } finally {
                 setPaused(ctx, hasCache, false, false);
+                if (hasCache) {
+                    setPrecompute(ctx, true);
+                }
                 SimAutoSecretTests.writeRoutes(ctx, Map.of());
                 leaveSim(ctx);
             }
@@ -191,6 +194,9 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
                 st = status(ctx, 1);
                 Vec3 o = ctx.computeOnClient(mc -> (Vec3) ModUnderTest.staticCall(CACHE, "origin"));
                 if (o != null && st[0] > 0 && st[3] == 0 && st[1] * 2 >= st[0]) {
+                    if (ctx.computeOnClient(mc -> McCompat.screen(mc) != null)) {
+                        failures.add("phase 1 was measured with a screen open - it must fill with the map closed");
+                    }
                     readyMs = System.currentTimeMillis() - opened;
                     break;
                 }
@@ -325,6 +331,7 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
         } catch (Throwable e) {
             println("floor " + f + ": cost counters not in this jar");
         }
+        featureOff(ctx, f, failures);
         int[] st = ctx.computeOnClient(mc -> (int[]) ModUnderTest.staticCall(CACHE, "stats"));
         println(String.format(Locale.US, "floor %d: cache stats - %d hit(s), %d miss(es), %d rejected at use, %d dropped by"
                         + " block changes, %d search(es), %d stored, %d with no plan, %d held, %d room-order cost(s) read",
@@ -710,9 +717,51 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
         });
     }
 
+    /** The A/B's "searched" side: TripCache's test hook makes it as if it were not there (it has no setting of its own -
+     *  killer560: it runs whenever the Interactive Map is on). */
     private static void setPrecompute(ClientGameTestContext ctx, boolean on) {
-        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(LIVE_MAP_CONFIG), "setPrecomputeTrips", on));
+        ctx.runOnClient(mc -> {
+            try {
+                Class.forName(CACHE).getField("testDisabled").setBoolean(null, !on);
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        });
         ctx.waitTicks(1);
+    }
+
+    /**
+     * With the Interactive Map switched OFF in the dungeon nothing of it runs: the cache empties at once and stays empty,
+     * no search is made and its tick does no work. Then back on: it fills again with the map screen closed.
+     */
+    private static void featureOff(ClientGameTestContext ctx, int f, List<String> failures) {
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(LIVE_MAP_CONFIG), "setInteractiveMapEnabled", false));
+        ctx.waitTicks(5);
+        int[] a = ctx.computeOnClient(mc -> (int[]) ModUnderTest.staticCall(CACHE, "stats"));
+        long[] ca = ctx.computeOnClient(mc -> (long[]) ModUnderTest.staticCall(CACHE, "cost"));
+        ctx.waitTicks(60);
+        int[] b = ctx.computeOnClient(mc -> (int[]) ModUnderTest.staticCall(CACHE, "stats"));
+        long[] cb = ctx.computeOnClient(mc -> (long[]) ModUnderTest.staticCall(CACHE, "cost"));
+        println(String.format(Locale.US, "floor %d: Interactive Map OFF for 3 s - trips held %d -> %d, searches %d -> %d,"
+                + " ticks of work %d -> %d", f, a[7], b[7], a[4], b[4], ca[0], cb[0]));
+        if (b[7] != 0 || b[4] != a[4] || cb[0] != ca[0]) {
+            failures.add("with the Interactive Map off the trip cache still held or did something");
+        }
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(LIVE_MAP_CONFIG), "setInteractiveMapEnabled", true));
+        boolean filled = false;
+        boolean screenClosed = true;
+        for (int i = 0; i < 200 && !filled; i++) {
+            ctx.waitTicks(1);
+            int[] s1 = status(ctx, 1);
+            screenClosed &= ctx.computeOnClient(mc -> McCompat.screen(mc) == null);
+            filled = s1[0] > 0 && s1[3] == 0 && s1[1] * 2 >= s1[0];
+        }
+        int held = ctx.computeOnClient(mc -> ((int[]) ModUnderTest.staticCall(CACHE, "stats"))[7]);
+        println("floor " + f + ": Interactive Map back ON, map screen closed " + screenClosed + ": phase 1 filled " + filled
+                + ", " + held + " trip(s) held");
+        if (!filled || !screenClosed || held == 0) {
+            failures.add("with the Interactive Map back on (screen closed) the trip cache did not fill");
+        }
     }
 
     // ================================================================================================ world
@@ -821,6 +870,12 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
     }
 
     private static void leaveSim(ClientGameTestContext ctx) {
+        // Every trip over first: a disconnect asked for while a map trip's last landing is still coming has hung the
+        // integrated server's halt against the gametest's own tick phase (main jar, floor 1, jstack 2026-10-15).
+        for (int i = 0; i < 100 && ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isBusy")); i++) {
+            ctx.waitTicks(1);
+        }
+        ctx.waitTicks(20);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave"));
         ctx.runOnClient(mc -> mc.execute(() -> {
             if (mc.level != null) {
