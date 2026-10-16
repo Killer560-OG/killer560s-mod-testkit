@@ -308,7 +308,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
                     new Expect("custom auto", "AMBER", "CUSTOM", "GREEN", "AUTO"))) {
                 String why = c.onClient(mc -> {
                     Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", FontsMainMenuSuite.menuTheme(e.menu()));
-                    FontsMainMenuSuite.setMm(mc, e.style(), e.theme(), e.scene(), 100, true, true);
+                    FontsMainMenuSuite.setMm(mc, e.style(), e.theme(), e.scene(), 100, true);
                     Object[] l = FontsMainMenuSuite.look();
                     if (!"FIREFLIES".equals(l[0])) {
                         return e.label() + ": scene " + l[0] + ", expected FIREFLIES";
@@ -322,7 +322,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
             }
             // The main menu's own theme setting saves and reloads.
             c.onClient(mc -> {
-                FontsMainMenuSuite.setMm(mc, "SEPARATE", "GREEN", "AUTO", 100, true, true);
+                FontsMainMenuSuite.setMm(mc, "SEPARATE", "GREEN", "AUTO", 100, true);
                 Mod.call(Mod.cfg(FontsMainMenuSuite.MM), "save");
                 Mod.staticCall(FontsMainMenuSuite.MM, "load");
                 return null;
@@ -333,7 +333,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
             FontsMainMenuSuite.setWindow(c, 1600, 900, 2);
             c.onClient(mc -> {
                 Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", FontsMainMenuSuite.menuTheme("GREEN"));
-                FontsMainMenuSuite.setMm(mc, "MATCH", "GREEN", "AUTO", 100, true, true);
+                FontsMainMenuSuite.setMm(mc, "MATCH", "GREEN", "AUTO", 100, true);
                 McCompat.setScreen(mc, new TitleScreen());
                 return null;
             });
@@ -567,7 +567,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
             // The main menu in Green at the same size.
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
-                FontsMainMenuSuite.setMm(mc, "MATCH", "GREEN", "AUTO", 100, true, true);
+                FontsMainMenuSuite.setMm(mc, "MATCH", "GREEN", "AUTO", 100, true);
                 McCompat.setScreen(mc, new TitleScreen());
                 return null;
             });
@@ -669,7 +669,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
         FontsMainMenuSuite.setWindow(c, 1920, 1080, 2);
         c.onClient(mc -> {
             Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", FontsMainMenuSuite.menuTheme("GREEN"));
-            FontsMainMenuSuite.setMm(mc, "MATCH", "GREEN", "AUTO", 100, true, true);
+            FontsMainMenuSuite.setMm(mc, "MATCH", "GREEN", "AUTO", 100, true);
             McCompat.setScreen(mc, new TitleScreen());
             return null;
         });
@@ -841,7 +841,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
 
     static long[] embersAlloc(UiCase c) {
         c.onClient(mc -> {
-            FontsMainMenuSuite.setMm(mc, "CUSTOM", "AMBER", "EMBERS", 100, true, true);
+            FontsMainMenuSuite.setMm(mc, "CUSTOM", "AMBER", "EMBERS", 100, true);
             Mod.staticCall(SCENES, "setAmberSceneForTest", "EMBERS");
             McCompat.setScreen(mc, new TitleScreen());
             return null;

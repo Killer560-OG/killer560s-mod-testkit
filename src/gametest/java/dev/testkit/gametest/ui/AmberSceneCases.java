@@ -30,7 +30,7 @@ final class AmberSceneCases {
     /** Opens the title screen on Amber with {@code scene} ("NEW", "EMBERS", "SIMPLE"; "" = the mod's default). */
     private static void title(UiCase c, String scene) {
         c.onClient(mc -> {
-            FontsMainMenuSuite.setMm(mc, "CUSTOM", "AMBER", "EMBERS", 100, true, true);
+            FontsMainMenuSuite.setMm(mc, "CUSTOM", "AMBER", "EMBERS", 100, true);
             Mod.staticCall(SCENES, "setAmberSceneForTest", scene);
             McCompat.setScreen(mc, new TitleScreen());
             return null;
