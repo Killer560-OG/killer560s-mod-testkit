@@ -31,6 +31,8 @@
     {"root": "reboot", "why": "closes the game and relaunches it through Prism (reboot-cmd); the test client is not started by Prism so it only refuses, but running it in a sweep is pointless - testkit 995 drives it"},
     {"root": "k560tested", "why": "testing jars only (mod -PtestingBuild, testing/TestingCommands.java): prints the marks; 413 runs it and checks its output"},
     {"root": "simwhere", "why": "sim only: .requires the sim, so outside it the command is not even visible (roomsim/SimWhere.java:54)"},
+    {"root": "reset", "why": "sim only: .requires the sim (roomsim/SimResetCommand.java), so outside it the line goes to the server; 1771-1775 drive it"},
+    {"root": "reload", "why": "sim only: .requires the sim (roomsim/SimResetCommand.java), so outside it the line goes to the server; 1771-1775 drive it"},
     {"root": "simscore", "why": "sim only (roomsim/SimScoreCommand.java:23)"},
     {"root": "start", "why": "sim only: starts a sim run (roomsim/SimRun.java:58)"},
     {"root": "simitem", "why": "sim only: gives sim items (roomsim/SimItems)"},

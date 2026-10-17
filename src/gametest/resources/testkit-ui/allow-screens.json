@@ -2,6 +2,7 @@
   "_doc": "Every concrete mod Screen class (found in the jar at run time; a class missing from both lists fails 305). 'args' builds the constructor call: null | int:N | bool:B | str:S | float:F | enum:* (one screen per constant of that parameter's enum) | intconsumer | pvtarget (ProfileViewerFeature.Target of a fixed name/UUID). 'factory' names a public static method to call instead (args apply to it). Constructor sources are mod 8c43a6d.",
   "screens": [
     {"class": "gui.ModScreen", "args": ["null"], "source": "gui/ModScreen.java:84"},
+    {"class": "gui.profit.BazaarFlipProfitScreen", "args": ["null"], "source": "gui/profit/BazaarFlipProfitScreen.java:16 (cheat only)"},
     {"class": "autoupdate.UpdatedScreen", "args": ["null", "str:abc1234", "str:v1.1.1", "str:Release notes"], "source": "autoupdate/UpdatedScreen.java:31"},
     {"class": "gui.ColorPickerScreen", "args": ["null", "str:Test Colour", "int:-3381760", "int:-1", "intconsumer"], "source": "gui/ColorPickerScreen.java"},
     {"class": "hud.HudEditorScreen", "args": ["null"], "source": "hud/HudEditorScreen.java:70"},
