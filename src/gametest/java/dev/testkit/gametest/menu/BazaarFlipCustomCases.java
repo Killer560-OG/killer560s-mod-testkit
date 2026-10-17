@@ -51,19 +51,32 @@ final class BazaarFlipCustomCases {
     private BazaarFlipCustomCases() {
     }
 
+    /** {@code TESTKIT_BZFLIP_REPEAT=N} registers the whole set N times in one session (rounds 2.. get "-rN"), to tell
+     *  an ordering flake from a bug. */
     static void register(Session s) {
-        MenuSuite.test(s, "2761-menu-bzflip-cut-title-custom", c -> customCycle(c, false));
-        MenuSuite.test(s, "2762-menu-bzflip-custom-confirm", c -> customCycle(c, true));
-        MenuSuite.test(s, "2763-menu-bzflip-sign-never-opens", BazaarFlipCustomCases::signNeverOpens);
-        MenuSuite.test(s, "2764-menu-bzflip-buy-up-to", BazaarFlipCustomCases::buyUpTo);
-        MenuSuite.test(s, "2765-menu-bzflip-amount-rejected", BazaarFlipCustomCases::amountRejected);
-        MenuSuite.test(s, "2766-menu-bzflip-key-in-container", BazaarFlipCustomCases::keyInContainer);
-        MenuSuite.test(s, "2767-menu-bzflip-key-in-sign", BazaarFlipCustomCases::keyInSign);
-        MenuSuite.test(s, "2768-menu-bzflip-npc-limit-midcycle", BazaarFlipCustomCases::npcLimitMidCycle);
-        MenuSuite.test(s, "2769-menu-bzflip-npc-near-limit", BazaarFlipCustomCases::npcNearLimit);
-        MenuSuite.test(s, "2770-menu-bzflip-profit-variant", BazaarFlipCustomCases::profitVariant);
-        MenuSuite.test(s, "2771-menu-bzflip-tab-target-purse", BazaarFlipCustomCases::tabTargetPurse);
-        MenuSuite.test(s, "2772-menu-bzflip-nothing-profitable", BazaarFlipCustomCases::nothingProfitable);
+        int rounds = 1;
+        try {
+            rounds = Math.max(1, Integer.parseInt(System.getenv().getOrDefault("TESTKIT_BZFLIP_REPEAT", "1").trim()));
+        } catch (NumberFormatException ignored) {
+        }
+        for (int r = 1; r <= rounds; r++) {
+            registerRound(s, r == 1 ? "" : "-r" + r);
+        }
+    }
+
+    static void registerRound(Session s, String sfx) {
+        MenuSuite.test(s, "2761-menu-bzflip-cut-title-custom" + sfx, c -> customCycle(c, false));
+        MenuSuite.test(s, "2762-menu-bzflip-custom-confirm" + sfx, c -> customCycle(c, true));
+        MenuSuite.test(s, "2763-menu-bzflip-sign-never-opens" + sfx, BazaarFlipCustomCases::signNeverOpens);
+        MenuSuite.test(s, "2764-menu-bzflip-buy-up-to" + sfx, BazaarFlipCustomCases::buyUpTo);
+        MenuSuite.test(s, "2765-menu-bzflip-amount-rejected" + sfx, BazaarFlipCustomCases::amountRejected);
+        MenuSuite.test(s, "2766-menu-bzflip-key-in-container" + sfx, BazaarFlipCustomCases::keyInContainer);
+        MenuSuite.test(s, "2767-menu-bzflip-key-in-sign" + sfx, BazaarFlipCustomCases::keyInSign);
+        MenuSuite.test(s, "2768-menu-bzflip-npc-limit-midcycle" + sfx, BazaarFlipCustomCases::npcLimitMidCycle);
+        MenuSuite.test(s, "2769-menu-bzflip-npc-near-limit" + sfx, BazaarFlipCustomCases::npcNearLimit);
+        MenuSuite.test(s, "2770-menu-bzflip-profit-variant" + sfx, BazaarFlipCustomCases::profitVariant);
+        MenuSuite.test(s, "2771-menu-bzflip-tab-target-purse" + sfx, BazaarFlipCustomCases::tabTargetPurse);
+        MenuSuite.test(s, "2772-menu-bzflip-nothing-profitable" + sfx, BazaarFlipCustomCases::nothingProfitable);
     }
 
     // ---- the product and its Bazaar --------------------------------------------------------------------------
@@ -400,7 +413,8 @@ final class BazaarFlipCustomCases {
                     || !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 1200);
             List<String> amounts = signAmounts(c);
             c.check(amounts.equals(List.of("40", "40", "20")), "sign amounts " + amounts + " (Buy up to 40, 100 wanted); stop: "
-                    + stopReason(c));
+                    + stopReason(c) + "; sign prompts the server opened " + c.events("sign.opened").size() + "; clicks "
+                    + FlipCroesusCases.allClicks(c));
             c.check(given(c) == 100 && sold(c) == 100, "delivered " + given(c) + ", sold " + sold(c));
             c.note("Buy up to 40x., 100 wanted: typed " + amounts + ", delivered " + given(c));
         }
