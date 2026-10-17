@@ -213,6 +213,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1016-autosecret-key", c -> caseAutoSecret(c, false, true));
             s.test("62-argrim-1016-autopilot-key", c -> caseAutoSecret(c, true, true));
             s.test("62-argrim-1016-oneuse", GrimAutoRoutesTests::caseOneUsePerTick); // grim-autopilot-flag-1016
+            // autosecret-bloodfirst-1017: Auto Secret with Secret Blood First = Door Camp on the arena (no blood door on
+            // its map): it says so, secrets meanwhile, and sends exactly what the plain run does.
+            s.test("62-argrim-1017-autosecret-bloodfirst", GrimAutoRoutesTests::caseAutoSecretBloodFirst);
             s.test("62-argrim-imwarp", c -> caseMapWarp(c, false));
             s.test("62-argrim-imwarp-run", c -> caseMapWarp(c, true));
             s.test("62-argrim-goto", GrimAutoRoutesTests::caseGoTo);
@@ -1973,6 +1976,37 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      */
     private static void caseAutoSecret(Session c, boolean pilot) {
         caseAutoSecret(c, pilot, false);
+    }
+
+    /**
+     * autosecret-bloodfirst-1017: {@link #caseAutoSecret} with Secret Blood First on Door Camp. The arena's map has no blood
+     * door and no wither door, so Blood First has no step: it must log that and run the route exactly as Off does, with
+     * GrimAC silent. (The door trip itself is the Interactive Map's door pathing, already in this suite's map cases; the
+     * blood-door-first order is 148-sim-autosecret-bloodfirst's.)
+     */
+    private static void caseAutoSecretBloodFirst(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        String cfgClass = "com.killer560.hub.autosecret.AutoSecretConfig";
+        Object[] before = new Object[1];
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(cfgClass);
+            before[0] = ModUnderTest.call(cfg, "getSecretBloodFirst", new Class<?>[]{}, new Object[]{});
+            Object camp = ModUnderTest.enumValue(cfgClass + "$SecretBloodFirst", "DOOR_CAMP");
+            ModUnderTest.call(cfg, "setSecretBloodFirst", new Class<?>[]{camp.getClass()}, new Object[]{camp});
+        });
+        long m = LogTap.mark();
+        try {
+            caseAutoSecret(c, false, false);
+            check(logHas(m, "Blood First (Door Camp): the blood door is not on the map yet - secrets meanwhile"),
+                    "Blood First never said it had no step on the arena - was it on at all?");
+            check(!logHas(m, "[AutoSecret] going to the blood door"), "it went for a blood door the arena does not have");
+            c.note("Door Camp with no blood door on the map: secrets meanwhile, logged");
+        } finally {
+            ctx.runOnClient(mc -> {
+                Object cfg = ModUnderTest.config(cfgClass);
+                ModUnderTest.call(cfg, "setSecretBloodFirst", new Class<?>[]{before[0].getClass()}, new Object[]{before[0]});
+            });
+        }
     }
 
     /**
