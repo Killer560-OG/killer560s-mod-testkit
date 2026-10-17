@@ -947,3 +947,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   whole run, so each case needs its own key spot: keyreach first reused keyaura's (13, F, 14) and the aura never clicked it
   ("premise: Secret Aura did not take the key"). 1415 and 848 also open an `AwaitEvents` window and require exactly one
   secret for the placing and none for the pickup.
+- **96-ar-1016-auranoawait / -auraawait, 62-argrim-1016-auraawait** (aura-await-only-1016): Secret Aura only clicks on a
+  route node waiting for secrets. noawait sprints a WALK route past a lever, a chest and an essence skull (each 2.3 from
+  the eye) and over an item: 0 use_item_on, item picked up; then, no route running, the same blocks are taken (the
+  control). On the fcba4045 jar the aura flipped the lever mid-walk and the walk never reached its end node. auraawait:
+  an await:3 WALK start node, the aura on once it waits: 3/3 met, the walk goes on, the route completes. The grim case is
+  the lever half of both on GrimAC (it fails on fcba4045 too: "the walk route did not run to its end"). Close a chest's
+  window in the poll: the aura is gated while a container is open. The first noawait sat its lever on keyreach's key spot
+  (14, F, 13): alone it passed, after keyreach the done-set held the block and the control failed; its blocks moved.

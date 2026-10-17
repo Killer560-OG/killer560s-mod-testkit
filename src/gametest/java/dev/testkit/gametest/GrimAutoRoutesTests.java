@@ -190,6 +190,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 s.shelved("62-argrim-legit", SimAutoRoutesTests.LEGIT_ONLY_TESTING, GrimAutoRoutesTests::caseLegit);
             }
             s.test("62-argrim-hand", GrimAutoRoutesTests::caseHand);
+            s.test("62-argrim-1016-auraawait", GrimAutoRoutesTests::caseAuraAwait); // aura-await-only-1016
             s.test("62-argrim-crypt", GrimAutoRoutesTests::caseCrypt);
             s.test("62-argrim-1015-cryptaim", GrimAutoRoutesTests::caseCryptAim); // crypt-aim-1015
             s.test("62-argrim-mimic", GrimAutoRoutesTests::caseMimic);
@@ -1320,6 +1321,85 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         check(opened, "the empty-hand node did not open the chest");
         c.note("hand: lever flipped and chest opened by empty-hand use nodes, one use_item_on each, no use_item");
         noteFlags(c, s2);
+    }
+
+    /**
+     * 62-argrim-1016-auraawait (killer560, 2026-10-16: "never have secret aura grab secrets while it is auto routing unless
+     * it is on an await node"). Secret Aura on. Pass 1: a WALK start node sprints him past a floor lever 1.5 blocks to the
+     * side, onto an UNSNEAK node out of the lever's reach: no use_item_on, the lever stays off. Pass 2: a WALK start node
+     * with await:1 beside another lever, the aura switched on once the node waits: it flips the lever, the await is met,
+     * the walk goes on and the route completes. GrimAC must say nothing about either.
+     */
+    private static void caseAuraAwait(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        String cheat = "com.killer560.hub.cheatutils.CheatUtilsConfig";
+        setBlocks(ctx, Map.of(new int[]{16, F, 12}, "minecraft:lever[face=floor,facing=north,powered=false]",
+                new int[]{6, F, 11}, "minecraft:lever[face=floor,facing=north,powered=false]"));
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(cheat);
+            ModUnderTest.set(cfg, "setAuraLevers", true);
+            ModUnderTest.set(cfg, "setAuraPauseWhileSneaking", false);
+            ModUnderTest.set(cfg, "setSecretAuraEnabled", true);
+        });
+        try {
+            // ---- pass 1: a non-await stretch ----
+            JsonObject w1 = node("WALK", 14, 6, 0f, 0f);
+            w1.addProperty("start", true);
+            writeRoute(ctx, List.of(w1, node("UNSNEAK", 14, 22, 0f, 0f)));
+            long m1 = LogTap.mark();
+            startSampling(ctx);
+            walkOnto(ctx, 14.5, 4.5, 14, 6);
+            boolean done1 = waitFor(ctx, 100, () -> logHas(m1, "\" complete") || logHas(m1, "Stopped"));
+            ctx.waitTicks(10);
+            List<Sample> s1 = stopSampling(ctx);
+            boolean leverA = String.valueOf(blockState(ctx, 16, F, 12)).contains("powered=true");
+            int clicks1 = count(s1, "use_item_on");
+            Vec3 end1 = relPos(ctx);
+            println(String.format(Locale.ROOT, "auraawait pass 1: complete %s, end z %.2f, use_item_on %d, lever on %s",
+                    logHas(m1, "\" complete"), end1.z, clicks1, leverA));
+            check(done1 && logHas(m1, "\" complete"), "pass 1: the walk route did not run to its end");
+            check(end1.z > 20, "pass 1: the walk did not take him past the lever (ended at " + end1 + ")");
+            check(clicks1 == 0 && !leverA, "pass 1: Secret Aura clicked during a non-await node (" + clicks1
+                    + " use_item_on, lever on " + leverA + ")");
+            noteFlags(c, s1);
+
+            // ---- pass 2: an await node ----
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(cheat, "setSecretAuraEnabled"));
+            JsonObject w2 = node("WALK", 8, 10, 0f, 0f);
+            w2.addProperty("start", true);
+            w2.addProperty("awaitEnabled", true);
+            w2.addProperty("await", "SECRET");
+            w2.addProperty("amount", 1);
+            writeRoute(ctx, List.of(w2, node("UNSNEAK", 8, 22, 0f, 0f)));
+            long m2 = LogTap.mark();
+            startSampling(ctx);
+            walkOnto(ctx, 8.5, 7.5, 8, 10);
+            ctx.waitTicks(5);
+            boolean waiting = !logHas(m2, "secrets met")
+                    && ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(cheat), "setSecretAuraEnabled", true));
+            boolean met = waitFor(ctx, 80, () -> logHas(m2, "secrets met"));
+            boolean done2 = waitFor(ctx, 100, () -> logHas(m2, "\" complete") || logHas(m2, "Stopped"));
+            ctx.waitTicks(5);
+            List<Sample> s2 = stopSampling(ctx);
+            boolean leverB = String.valueOf(blockState(ctx, 6, F, 11)).contains("powered=true");
+            int clicks2 = count(s2, "use_item_on");
+            println("auraawait pass 2: waiting " + waiting + ", met " + met + ", complete " + logHas(m2, "\" complete")
+                    + ", use_item_on " + clicks2 + ", lever on " + leverB);
+            check(waiting, "pass 2: the await node was not waiting before the aura went on");
+            check(leverB && clicks2 >= 1, "pass 2: Secret Aura did not flip the lever on the await node (" + clicks2
+                    + " use_item_on)");
+            check(met, "pass 2: the await was not met by the aura's lever");
+            check(done2 && logHas(m2, "\" complete"), "pass 2: the route did not go on to its end after the await");
+            c.note("auraawait: non-await walk past a lever 0 use_item_on; await node " + clicks2
+                    + " use_item_on, lever flipped, await met, route complete");
+            noteFlags(c, s2);
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(cheat, "setSecretAuraEnabled"));
+            resetRoutes(ctx);
+        }
     }
 
     /**
