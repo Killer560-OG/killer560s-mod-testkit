@@ -176,7 +176,9 @@ public class SimArrowTrapMapTests implements FabricClientGameTest {
         boolean found = false;
         boolean trap = false;
         for (String l : LogTap.since(mark)) {
-            found |= l.contains("Found path");
+            // A searched plan says "Found path"; a trip planned ahead runs with no search ("Path precomputed" /
+            // "planned ahead"). Every one logs "[Path] running N warp(s)" (2026-10-16: a precomputed press failed this).
+            found |= l.contains("Found path") || l.contains("[Path] running ");
             trap |= l.contains(TRAP_LINE);
         }
         String end = liveRoomName(ctx);

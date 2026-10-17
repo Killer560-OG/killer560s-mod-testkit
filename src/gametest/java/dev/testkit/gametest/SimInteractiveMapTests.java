@@ -241,7 +241,7 @@ public class SimInteractiveMapTests implements FabricClientGameTest {
         for (String l : LogTap.since(mark)) {
             trap |= l.contains(TRAP_LINE);
             already |= l.contains("Already there");
-            found |= l.contains("Found path");
+            found |= l.contains("Found path") || l.contains("[Path] running "); // a precomputed trip has no search
         }
         String end = liveRoomName(ctx);
         double moved = at.distanceTo(after);
