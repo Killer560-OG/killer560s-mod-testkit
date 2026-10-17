@@ -651,6 +651,13 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   braziers and saves a screenshot from his viewpoint to killer560s-mod-logs/deuces-doorway.png. Main jar: Altar's three
   iron bars (capture 62,72,47..49) carved to air and 0 of 4 braziers lit. The screenshot needs a wait until the client has
   the chest block, or it is all sky.
+  Since mod sim-deuces-door-1016 it also sweeps Hypixel's door piece (`DoorPieceSweep`): the 5x3 box over each standard
+  doorway's trim, wall plane and one in, must be the recess (cyan terracotta, air) on a world east/south wall and the
+  fill (stone, bricks + four stairs facing out) on a world west/north one - on the two-room floor at Deuces 0 and 180,
+  three generated F7s (premise: >= 30 doorways crossed to the other side's piece) and a solo Deuces at 0 and 180. Main
+  fcba4045: 0 and the unrotated floor pass, every turned case fails (24/19/10 wrong on the F7s). Its screenshots now go
+  to killer560s-mod-logs/sim-deuces-door-1016/: the old deuces-doorway.png, a SIM shot, had been taken for his Hypixel
+  reference picture.
 - 1561-1567 (ui/FontsMainMenuSuite, mod fonts-mainmenu-1015, 2026-10-15): the Font setting is measured by each GUI text
   render state's PREPARED bounds after an off-screen extract (a state replays the font scope it was made in), not by
   `Font.width` alone: Mod Menu Only changed 49/53 menu texts and 0/13 Options texts; 1562 also reloads resources with a font
