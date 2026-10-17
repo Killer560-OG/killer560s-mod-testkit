@@ -55,6 +55,132 @@ public class AuraSweepTests implements FabricClientGameTest {
     @Override
     public void runTest(ClientGameTestContext ctx) {
         secretTriggerbot(ctx);
+        secretTriggerbotSwap(ctx);
+    }
+
+    /**
+     * 60-secret-triggerbot-swap (hotbar-select-rest-1016): the same strafe past a wall of levers with Swap on (slot 3,
+     * Swap Back on) while he holds slot 1. Each trigger swaps to slot 3 in one tick (util/HotbarSelect, inside the tick),
+     * clicks on the next and swaps back on the one after. Asserted clean, and by the trace: levers flipped, swaps to 2
+     * and back to 0 told to the server, no click in a swap's tick, at most one slot per tick (BadPacketsA), nothing sent
+     * outside a tick. Its own wall, 40 blocks along z: the done-set outlives a TestMap rebuild.
+     */
+    private void secretTriggerbotSwap(ClientGameTestContext ctx) {
+        String name = "60-secret-triggerbot-swap";
+        if (Scenario.skip(name)) {
+            return;
+        }
+        ModUnderTest.require(MOD_ID);
+        Scenario.labelServerAs(DUNGEON_LABEL);
+        int bz = BASE_Z + 40;
+        String cfgClass = "com.killer560.hub.secrettrigger.SecretTriggerbotConfig";
+        Scenario.run(ctx, name,
+                (server, scenario) -> TestMap.on(server)
+                        .platform(BASE_X, SURFACE_Y - 1, bz, 12)
+                        .walls(4)
+                        .catchFloor(120)
+                        .survival()
+                        .clearInventory()
+                        .skyblockSidebar("F7")
+                        .give("stick", 1)
+                        .command("item replace entity @p hotbar.2 with minecraft:blaze_rod")
+                        .command("fill " + (BASE_X + 1) + " " + SURFACE_Y + " " + (bz - 10)
+                                + " " + (BASE_X + 1) + " " + (SURFACE_Y + 2) + " " + (bz + 10)
+                                + " minecraft:stone")
+                        .command("fill " + BASE_X + " " + (SURFACE_Y + 1) + " " + (bz - 10)
+                                + " " + BASE_X + " " + (SURFACE_Y + 1) + " " + (bz + 10)
+                                + " minecraft:lever[face=wall,facing=west]")
+                        .spawn(BASE_X - 2.5, bz - 9.5, -90f)
+                        .build(),
+                (server, scenario) -> {
+                    scenario.assertDetectorWorks();
+                    String looking = ctx.computeOnClient(mc -> mc.hitResult == null
+                            ? "nothing" : mc.hitResult.getType() + " " + mc.hitResult.getLocation());
+                    if (!looking.contains("BLOCK")) {
+                        throw new AssertionError("the crosshair is not on the lever (" + looking + ") - nothing to "
+                                + "measure");
+                    }
+                    boolean items = ctx.computeOnClient(mc -> mc.player.getInventory().getItem(0).getItem()
+                            == net.minecraft.world.item.Items.STICK && mc.player.getInventory().getItem(2).getItem()
+                            == net.minecraft.world.item.Items.BLAZE_ROD);
+                    if (!items) {
+                        throw new AssertionError("the stick (slot 1) and blaze rod (slot 3) never reached the client");
+                    }
+                    ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+                    ctx.waitTicks(3);
+                    PacketWatch.start();
+                    ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.start());
+                    ctx.runOnClient(mc -> {
+                        Object cfg = ModUnderTest.config(cfgClass);
+                        ModUnderTest.set(cfg, "setSwapEnabled", true);
+                        ModUnderTest.set(cfg, "setSwapBack", true);
+                        ModUnderTest.call(cfg, "setSwapSlot", new Class<?>[]{int.class}, new Object[]{3});
+                        ModUnderTest.set(cfg, "setEnabled", true);
+                        if (!ModUnderTest.getBoolean(cfg, "isEnabled")) {
+                            throw new AssertionError("Secret Triggerbot reads OFF after switching it on");
+                        }
+                    });
+                    try {
+                        ctx.waitTicks(5);
+                        ctx.getInput().holdKey(options -> options.keyRight);
+                        ctx.waitTicks(200);
+                        ctx.getInput().releaseKey(options -> options.keyRight);
+                        ctx.waitTicks(10);
+                    } finally {
+                        ctx.runOnClient(mc -> {
+                            Object cfg = ModUnderTest.config(cfgClass);
+                            ModUnderTest.set(cfg, "setEnabled", false);
+                            ModUnderTest.set(cfg, "setSwapEnabled", false);
+                            ModUnderTest.set(cfg, "setSwapBack", false);
+                            ModUnderTest.call(cfg, "setSwapSlot", new Class<?>[]{int.class}, new Object[]{1});
+                        });
+                    }
+                    PacketWatch.stop();
+                    ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.stop());
+                    int flipped = ctx.computeOnClient(mc -> {
+                        int n = 0;
+                        for (int dz = -10; dz <= 10; dz++) {
+                            if (mc.level.getBlockState(new net.minecraft.core.BlockPos(BASE_X, SURFACE_Y + 1, bz + dz))
+                                    .getValue(net.minecraft.world.level.block.LeverBlock.POWERED)) {
+                                n++;
+                            }
+                        }
+                        return n;
+                    });
+                    int finalSlot = ctx.computeOnClient(mc -> mc.player.getInventory().getSelectedSlot());
+                    int swaps = dev.testkit.harness.PacketTrace.sent("set_carried_item");
+                    int clicks = dev.testkit.harness.PacketTrace.sent("use_item_on");
+                    List<Integer> shared = new java.util.ArrayList<>();
+                    for (int t = 0; t < dev.testkit.harness.PacketTrace.tickCount(); t++) {
+                        List<String> out = dev.testkit.harness.PacketTrace.sentOn(t);
+                        if (out.contains("set_carried_item") && out.contains("use_item_on")) {
+                            shared.add(t);
+                        }
+                    }
+                    List<String> outside = dev.testkit.harness.PacketTrace.sentOutsideTick();
+                    scenario.log(String.format(Locale.ROOT, "triggerbot swap: %d of 21 levers flipped, %d use_item_on, "
+                                    + "%d set_carried_item, slot at the end %d, sent outside a tick: %s", flipped, clicks,
+                            swaps, finalSlot, outside.isEmpty() ? "nothing" : outside));
+                    if (clicks == 0 || flipped == 0) {
+                        throw new AssertionError("Secret Triggerbot clicked nothing - nothing measured");
+                    }
+                    if (swaps < 2) {
+                        throw new AssertionError("only " + swaps + " set_carried_item - the swap never ran");
+                    }
+                    if (!shared.isEmpty()) {
+                        throw new AssertionError("a click went out in the same tick as a swap, buckets " + shared);
+                    }
+                    if (dev.testkit.harness.PacketTrace.maxPerTick("set_carried_item") > 1) {
+                        throw new AssertionError("a slot went out twice in one tick (BadPacketsA)");
+                    }
+                    if (!outside.isEmpty()) {
+                        throw new AssertionError("sent outside a tick (after its client_tick_end, before the next "
+                                + "tick): " + outside);
+                    }
+                    if (finalSlot != 0) {
+                        throw new AssertionError("Swap Back left him on slot " + (finalSlot + 1) + ", want 1");
+                    }
+                });
     }
 
     /**
@@ -123,6 +249,7 @@ public class AuraSweepTests implements FabricClientGameTest {
                     }
 
                     PacketWatch.start();
+                    ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.start());
                     ctx.runOnClient(mc -> {
                         Object cfg = ModUnderTest.config(
                                 "com.killer560.hub.secrettrigger.SecretTriggerbotConfig");
@@ -182,6 +309,15 @@ public class AuraSweepTests implements FabricClientGameTest {
                         throw new AssertionError("Secret Triggerbot sent no block-use packets in 200 ticks, "
                                 + "so its anticheat result means nothing. Check the client log for its own "
                                 + "skip reason.");
+                    }
+                    // hotbar-select-rest-1016: GrimAC Post is luck; the trace's record of what went out between two
+                    // ticks is the same fault without it.
+                    ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.stop());
+                    List<String> outside = dev.testkit.harness.PacketTrace.sentOutsideTick();
+                    scenario.log("sent outside a tick: " + (outside.isEmpty() ? "nothing" : outside));
+                    if (!outside.isEmpty()) {
+                        throw new AssertionError("sent outside a tick (after its client_tick_end, before the next "
+                                + "tick): " + outside);
                     }
                 });
     }

@@ -491,6 +491,15 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   832 since aura-cps (2026-10-12) also times the Aura CPS setting on a frame under the crosshair needing 7 clicks (Hx
   `frame` with `rotation` 2): 20.0 at 20, 5.2 at 5. A console `kill` of old frames right before Hx spawned new ones
   killed the NEW ones (console commands and Hx calls are not ordered) - remove Hx frames with `removeStands` only.
+- Hotbar swaps (mod hotbar-select-rest-1016, every slot change through `util/HotbarSelect`): 63-breaker-aura-autoswap,
+  836-boss-grim-autoi4-swap, 837-boss-grim-autodebuff-swap, 1887-menu-automask-rod (Phoenix's rod route) and
+  60-secret-triggerbot-swap each prove the swap reached the server (`held` events or `set_carried_item`), the feature
+  acted with the new item in the server's hand (Hx `use_item` names the vanilla item, so each fake Skyblock item rides
+  on a different one), no use/dig in a swap's trace bucket, at most one slot a tick, and `PacketTrace.sentOutsideTick()`
+  empty; 50/51/53/55-61, 60 and 833/834 require that last one too. 837 fakes M7 P5 the mod's own way: the M7 sidebar,
+  y 30 at x, z >= 0, and Hypixel's spawn burst `particle minecraft:flame 27.0 19.0 59.0 2 3 2 0 20 force @a` over two
+  statues. Write the coordinates as DECIMALS: a whole `27` is centred to 27.5 by the command and the mod's
+  whole-block check rejects the packet (837's first run: no dragon ever spawning).
 - A pixel compare of a screen drawn over the WORLD is only as still as the world behind it: 824's legit run counted
   2474 changed pixels at the cursor with no carried item anywhere, because the camera view moved between frames
   (2026-10-12). Look straight up at the sky first and take two clean frames to prove the noise floor is 0.
