@@ -50,6 +50,11 @@ abilities are `hx/dungeon/HxAbilities` (etherwarp, Instant Transmission, Superbo
   `name`, Hypixel's "(sword) Crypt Undead 512.6k(heart)") 9 blocks either side of a Spirit Sceptre crypt node. The server emulates no
   sceptre, so nothing dies: two held uses down, then exactly two aimed `use_item` per mob (by the node's log, per mob id),
   the node moves on, use key up, GrimAC silent. Main d1eda658: never aims (fails); branch: clean.
+- `62-argrim-chain`'s 20/s pace is the SERVER's answer time (fullclear-1016): on a busy machine the same jar read 1.00 and
+  1.18-1.55 ticks per warp an hour apart (base fcba4045 too, over four commits, perf-lock "clean" every time), and in
+  every slow run each warp still went on its landing's tick (`landingToUse` all 0) - the gaps of 2 were landings the
+  dedicated server answered a tick later. The case prints each use's round trip (`roundTrips`) and judges 20/s against
+  it; `firesOnLanding` is what catches a route that waits.
 - `62-argrim-1016-autosecret-key` / `-autopilot-key` (grim-post-autopilot-1016): Auto Secret / Autopilot started by his
   toggle key (read at END_CLIENT_TICK), holding the empty slot 3, once `TripCache` has the trip to the start node from his
   spot, so the first trip runs precomputed and swaps to the AOTV. GrimAC Post flags a held-item change after a tick's

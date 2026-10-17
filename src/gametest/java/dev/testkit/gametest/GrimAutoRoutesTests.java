@@ -1285,7 +1285,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     check(chain.firesOnLanding(), "20/s: a warp waited after its landing arrived: ticks from each landing "
                             + "to the next use " + chain.landingToUse());
                 }
-                double want = 20.0 / rate;
+                // At 20/s the pace is the server's answer time, not the route's: every warp went on its landing's tick
+                // (firesOnLanding), so a warp only waits for the landing. Judged against the round trip measured on
+                // this run: the client must add nothing to it (the same jar read 1.00 and 1.27 an hour apart on a busy
+                // machine, the slow runs' gaps exactly their round trips - fullclear-1016).
+                double want = rate == 20 ? Math.max(1.0, chain.meanRoundTrip()) : 20.0 / rate;
                 check(Math.abs(chain.ticksPerWarp() - want) <= 0.3, String.format(Locale.ROOT, "%d/s: %.2f ticks per "
                         + "warp (gaps %s), expected %.2f", rate, chain.ticksPerWarp(), chain.gaps(), want));
             }

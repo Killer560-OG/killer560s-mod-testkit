@@ -26,7 +26,14 @@ final class ArChainMeasure {
 
     /** One chain, as the trace saw it. */
     record Chain(List<Integer> useTicks, List<Integer> gaps, int usesBeforeLanding, int teleportsReceived,
-                 List<Integer> landingToUse) {
+                 List<Integer> landingToUse, List<Integer> roundTrips) {
+
+        /** Mean client ticks from a use to its landing's teleport accept: the server's answer time, which the client
+         *  cannot shorten (fullclear-1016: the same jar measured 1.00 and 1.27 ticks per warp an hour apart, every warp
+         *  sent on its landing's tick both times - the late ones were landings the server answered a tick later). */
+        double meanRoundTrip() {
+            return roundTrips.isEmpty() ? Double.NaN : roundTrips.stream().mapToInt(Integer::intValue).average().orElse(0);
+        }
 
         int warps() {
             return useTicks.size();
@@ -49,8 +56,8 @@ final class ArChainMeasure {
         String describe() {
             return String.format(Locale.ROOT, "%d warp(s), %.2f tick(s) per warp, gaps %s, %d use(s) sent before the "
                     + "previous landing's teleport accept, %d player_position received, ticks from each landing's "
-                    + "teleport accept to the next use %s", warps(), ticksPerWarp(), gaps, usesBeforeLanding,
-                    teleportsReceived, landingToUse);
+                    + "teleport accept to the next use %s, ticks from each use to its landing's accept %s", warps(),
+                    ticksPerWarp(), gaps, usesBeforeLanding, teleportsReceived, landingToUse, roundTrips);
         }
     }
 
@@ -65,12 +72,19 @@ final class ArChainMeasure {
         boolean acceptSince = false;
         int lastAccept = -1;
         List<Integer> lag = new ArrayList<>();
+        List<Integer> rtt = new ArrayList<>();
+        int lastUse = -1;
+        boolean rttOpen = false;
         int n = PacketTrace.tickCount();
         for (int t = 0; t < n; t++) {
             for (String p : PacketTrace.sentOn(t)) {
                 if (p.equals("accept_teleportation")) {
                     acceptSince = true;
                     lastAccept = t;
+                    if (rttOpen) {
+                        rtt.add(t - lastUse);
+                        rttOpen = false;
+                    }
                 } else if (p.equals("use_item")) {
                     seenUses++;
                     if (seenUses > skip) {
@@ -81,6 +95,8 @@ final class ArChainMeasure {
                             lag.add(t - lastAccept);
                         }
                         ticks.add(t);
+                        lastUse = t;
+                        rttOpen = true;
                     }
                     acceptSince = false;
                 }
@@ -90,7 +106,10 @@ final class ArChainMeasure {
         for (int i = 1; i < ticks.size(); i++) {
             gaps.add(ticks.get(i) - ticks.get(i - 1));
         }
-        return new Chain(ticks, gaps, before, PacketTrace.received("player_position"), lag);
+        if (rtt.size() >= ticks.size() && !rtt.isEmpty()) {
+            rtt.remove(rtt.size() - 1);   // the last use's landing ends the chain: no warp follows it
+        }
+        return new Chain(ticks, gaps, before, PacketTrace.received("player_position"), lag, rtt);
     }
 
     /**
