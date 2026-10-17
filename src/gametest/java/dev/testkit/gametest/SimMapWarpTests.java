@@ -411,7 +411,7 @@ public class SimMapWarpTests implements FabricClientGameTest {
             roomByRoom |= l.contains("room by room:") || l.contains("- room by room instead");
             offPlan |= l.contains("[Path] off the plan");
             noRoomRoute |= l.contains("No ROOM route") || l.contains("no way to");
-            refused += l.contains("no etherwarp target there") ? 1 : 0;
+            refused += l.contains("[Sim] etherwarp refused") ? 1 : 0; // the sim's log line (no chat line since 2026-10-16)
             if (l.contains("[Path] refused an impossible plan")) {
                 failures.add(label + ": the mod refused an impossible plan - " + l.replaceAll("^.*\\[Path\\] ", ""));
             }
@@ -439,7 +439,7 @@ public class SimMapWarpTests implements FabricClientGameTest {
         }
         if (refused > 0) {
             // A planned hop the server would not perform: the plan and the server disagree about the world.
-            failures.add(label + ": the server refused " + refused + " planned warp(s) (\"no etherwarp target there\")");
+            failures.add(label + ": the server refused " + refused + " planned warp(s) (\"[Sim] etherwarp refused\")");
         }
         String graph = "?";
         for (String l : LogTap.since(mark)) {
