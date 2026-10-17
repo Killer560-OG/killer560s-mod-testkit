@@ -79,6 +79,9 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *       ({@link AutoMaskCases})</li>
  *   <li>761-767 the Bazaar flipper's full buy/sell cycle with the reskin off and on, its Cookie and price guards, and
  *       Auto Croesus going back into a claimed run for a keyed chest ({@link FlipCroesusCases})</li>
+ *   <li>2761-2772 the flipper on Hypixel's cut Instant Buy title and its Custom Amount sign (typed amount, Done, a
+ *       Confirm page, Buy up to, no sign, a rejected amount), keys in a container and in the sign, the NPC sell limit,
+ *       the cheat-only profit tracker, the tab's typed Target Purse ({@link BazaarFlipCustomCases})</li>
  * </ul>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -158,6 +161,8 @@ public class MenuSuite implements FabricClientGameTest {
                     ProfitAccountCases.register(s);
                     // ---- 761-767 bz-croesus (2026-10-11): Bazaar flipper cycle, Auto Croesus key revisit ----
                     FlipCroesusCases.register(s);
+                    // ---- 2761-2772 bazaarflip-custom-1016: cut titles, Custom Amount's sign, NPC sell limit, tab ----
+                    BazaarFlipCustomCases.register(s);
                     // ---- 768-769 bz-reskin (2026-10-11): reskin during the flipper, one Bazaar/AH switch ----
                     ReskinSwitchCases.register(s);
                     // ---- 773-776 croesus-price (2026-10-11): M4 chest valuation, Croesus Price Mode ----

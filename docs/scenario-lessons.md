@@ -971,3 +971,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   the lever half of both on GrimAC (it fails on fcba4045 too: "the walk route did not run to its end"). Close a chest's
   window in the poll: the aura is gated while a container is open. The first noawait sat its lever on keyreach's key spot
   (14, F, 13): alone it passed, after keyreach the done-set held the block and the control failed; its blocks moved.
+- **2761-2772-menu-bzflip-*, 2775-logic-bazaarflip** (bazaarflip-custom-1016): Hypixel's cut Instant Buy title and
+  Custom Amount's sign (`HxSigns`: a `sign` slot action opens a sign prompt, `MixinServerSignUpdate` hands the update
+  back and records `sign.update` with its lines). A sign sent to the client as packets only (no block in the server's
+  world) was dropped a tick later - its BlockEntity.isRemoved went true and the editor closed with nothing typed - so
+  HxSigns places a real sign at the player's feet and puts the old block back on the update. Cases that stop with units
+  unsold must `clear @a` on the SERVER: a client-side clearContent left 2768's stack for 2769 to sell.

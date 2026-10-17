@@ -118,13 +118,29 @@ final class FlipCroesusCases {
         JsonObject one = item(PRODUCT, "§aLump of Magma");
         bought1.add("give", one);
         bought1.addProperty("chat", String.format("[Bazaar] Bought 1x Lump of Magma for %,.0f coins!", each));
+        // Since 2026-10-16 the flipper buys the exact amount: 128 is no preset, so Custom Amount's sign (HxSigns) gets it.
+        JsonObject custom = new JsonObject();
+        JsonObject sign = new JsonObject();
+        JsonArray lines = new JsonArray();
+        for (String l : BazaarFlipCustomCases.SIGN_LINES) {
+            lines.add(l);
+        }
+        sign.add("lines", lines);
+        JsonObject amount = new JsonObject();
+        amount.addProperty("max", 71_680);
+        amount.addProperty("each", each);
+        amount.add("unit", item(PRODUCT, "§aLump of Magma"));
+        amount.addProperty("name", "Lump of Magma");
+        amount.addProperty("stack", 64);
+        sign.add("amount", amount);
+        custom.add("sign", sign);
         JsonObject instant = menu(INSTANT_TITLE, 4, Map.of(
                 10, item("minecraft:magma_cream", "§aBuy only one!", "§7Amount: §a1§7x", String.format("§7Price: §6%,.0f coins", each)),
                 12, item("minecraft:magma_cream", "§aBuy a stack!", "§7Amount: §a64§7x", String.format("§7Price: §6%,.0f coins", 64 * each)),
                 14, item("minecraft:chest", "§aFill my inventory!", "§7Amount: §a2,304§7x", String.format("§7Price: §6%,.0f coins", 2304 * each)),
                 16, item("minecraft:oak_sign", "§aCustom Amount"),
                 31, item("minecraft:arrow", "§aGo Back")),
-                Map.of(10, bought1, 12, bought64, 14, closeWith("unexpected: Fill my inventory!")));
+                Map.of(10, bought1, 12, bought64, 14, closeWith("unexpected: Fill my inventory!"), 16, custom));
         JsonObject product = menu(PRODUCT_TITLE, 4, Map.of(
                 10, item("minecraft:golden_horse_armor", "§aBuy Instantly", "§7Price per unit: §635.0 coins"),
                 11, item("minecraft:hopper", "§6Sell Instantly"),
@@ -161,7 +177,6 @@ final class FlipCroesusCases {
         MenuKit.Cfg cfg = new MenuKit.Cfg(c);
         cfg.set("bazaarflip.BazaarFlipConfig", "Enabled", true)
                 .set("bazaarflip.BazaarFlipConfig", "Speed", 10)
-                .set("bazaarflip.BazaarFlipConfig", "MinProfitPerRun", 0L)
                 .set("bazaarflip.BazaarFlipConfig", "TargetPurse", 0L)
                 // One switch since 2026-10-11: the Bazaar feature is the browser AND the reskin.
                 .set("auction.AuctionConfig", "BazaarEnabled", reskin);
@@ -224,8 +239,10 @@ final class FlipCroesusCases {
             c.check(cmds.contains("trades"), "no /trades, commands " + cmds);
             c.check(clicksOn(c, SEARCH_TITLE).equals(List.of(11)), "search clicks " + clicksOn(c, SEARCH_TITLE));
             c.check(clicksOn(c, PRODUCT_TITLE).equals(List.of(10)), "product clicks " + clicksOn(c, PRODUCT_TITLE));
-            c.check(clicksOn(c, INSTANT_TITLE).equals(List.of(12, 12)), "instant-buy clicks "
-                    + clicksOn(c, INSTANT_TITLE) + " (want Buy a stack! twice for 128 units)");
+            c.check(clicksOn(c, INSTANT_TITLE).equals(List.of(16)), "instant-buy clicks "
+                    + clicksOn(c, INSTANT_TITLE) + " (want Custom Amount once for 128 units)");
+            List<String> typed = BazaarFlipCustomCases.signAmounts(c);
+            c.check(typed.equals(List.of("128")), "the amount sign sent " + typed);
             int given = c.events("menu.give").stream().mapToInt(e -> e.get("count").getAsInt()).sum();
             c.check(given == 128, "the server delivered " + given + " units");
             List<JsonObject> sold = c.events("sell.sold");

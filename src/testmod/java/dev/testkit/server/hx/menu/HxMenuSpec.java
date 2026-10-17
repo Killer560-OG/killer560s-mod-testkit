@@ -35,7 +35,12 @@ import java.util.List;
  *
  * <p>{@code sell: true}: a QUICK_MOVE (shift-click) on one of the player's own slots SELLS that stack - it leaves the
  * player's inventory and a {@code sell.sold} event names it - the way an NPC shop takes items. A PICKUP on a player slot
- * does nothing, like Hypixel.
+ * does nothing, like Hypixel. With {@code sellPrice} the shop also sends Hypixel's "You sold X xN for C Coins!"; with
+ * {@code sellLimit} a sale that would take its total past that many coins is refused ({@code sell.refused}, the stack
+ * stays) and {@code limitChat} is sent - the daily NPC sell limit.
+ *
+ * <p>Two more actions (2026-10-16, Bazaar Custom Amount): {@code {sign: {...}}} closes the menu and opens a sign prompt
+ * ({@link HxSigns}), and {@code {deliver: {...}}} is a Confirm Instant Buy button that does the purchase it states.
  */
 final class HxMenuSpec {
 
@@ -130,8 +135,32 @@ final class HxMenuSpec {
                     var data = stack.get(DataComponents.CUSTOM_DATA);
                     e.addProperty("skyblockId", data == null ? "" : data.copyTag().getStringOr("id", ""));
                     e.addProperty("name", stack.getHoverName().getString());
+                    // "sellPrice": coins per unit - the shop then says "You sold <name> x<n> for <coins> Coins!" as
+                    // Hypixel's do. "sellLimit": coins this menu will pay in all (the daily NPC sell limit); a sale
+                    // past it is refused - the stack stays - and "limitChat", if given, is sent instead.
+                    double price = spec.has("sellPrice") ? spec.get("sellPrice").getAsDouble() : -1;
+                    double coins = price > 0 ? price * stack.getCount() : 0;
+                    double paid = spec.has("paid") ? spec.get("paid").getAsDouble() : 0;
+                    if (spec.has("sellLimit") && paid + coins > spec.get("sellLimit").getAsDouble()) {
+                        e.addProperty("limit", spec.get("sellLimit").getAsDouble());
+                        HxEvents.custom("sell.refused", player, e);
+                        if (spec.has("limitChat")) {
+                            String line = spec.get("limitChat").getAsString();
+                            HxMenus.later(() -> player.connection.send(
+                                    new ClientboundSystemChatPacket(Component.literal(line), false)));
+                        }
+                        menu.broadcastChanges();
+                        return;
+                    }
+                    spec.addProperty("paid", paid + coins);
                     player.getInventory().setItem(s.getContainerSlot(), ItemStack.EMPTY);
                     HxEvents.custom("sell.sold", player, e);
+                    if (price > 0) {
+                        String line = String.format(java.util.Locale.US, "You sold %s x%d for %,.0f Coin%s!",
+                                stack.getHoverName().getString(), stack.getCount(), coins, coins == 1 ? "" : "s");
+                        HxMenus.later(() -> player.connection.send(
+                                new ClientboundSystemChatPacket(Component.literal(line), false)));
+                    }
                 }
             }
             // Hypixel's equipment menu (/stats, "Your Equipment and Stats"): a click on a helmet in his own inventory puts it
@@ -207,6 +236,18 @@ final class HxMenuSpec {
             }
             HxMenus.later(() -> texts.forEach(t -> player.connection.send(
                     new ClientboundSystemChatPacket(Component.literal(t), false))));
+        }
+        if (action.has("deliver")) {
+            // The Confirm Instant Buy page's buy button (HxSigns): the purchase it states.
+            JsonObject deliver = action.getAsJsonObject("deliver");
+            HxMenus.later(() -> HxSigns.deliver(server, player, deliver));
+            return;
+        }
+        if (action.has("sign")) {
+            // A sign prompt (the Bazaar's Custom Amount): HxSigns closes this menu and opens the sign.
+            JsonObject sign = action.getAsJsonObject("sign");
+            HxMenus.later(() -> HxSigns.open(server, player, sign));
+            return;
         }
         if (action.has("experiment")) {
             JsonObject next = action.getAsJsonObject("experiment");

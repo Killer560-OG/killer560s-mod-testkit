@@ -550,7 +550,7 @@
     },
     "source": {
       "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
-      "line": 97
+      "line": 104
     },
     "verifiedBy": "regex",
     "notes": "'<Item> ➜ Instant Buy' from hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07) (not in SkyHanni's list). Mapped: INSTANT_BUY."
@@ -621,7 +621,7 @@
     },
     "source": {
       "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
-      "line": 255
+      "line": 267
     },
     "verifiedBy": "regex",
     "notes": "Buy order amount step, hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07); title in SkyHanni BazaarApi.kt. Item types are guesses. Mapped: ORDER_AMOUNT."
@@ -706,7 +706,7 @@
     },
     "source": {
       "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
-      "line": 258
+      "line": 270
     },
     "verifiedBy": "regex",
     "notes": "Buy order price step, hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07); title in SkyHanni BazaarApi.kt. Mapped: ORDER_PRICE."
@@ -750,7 +750,7 @@
     },
     "source": {
       "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
-      "line": 264
+      "line": 276
     },
     "verifiedBy": "regex",
     "notes": "Confirm Buy Order, hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07). Mapped: CONFIRM_BUY."
@@ -828,7 +828,7 @@
     },
     "source": {
       "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
-      "line": 261
+      "line": 273
     },
     "verifiedBy": "regex",
     "notes": "Sell offer price step, hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07). Mapped: OFFER_PRICE."
@@ -873,7 +873,7 @@
     },
     "source": {
       "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
-      "line": 266
+      "line": 278
     },
     "verifiedBy": "regex",
     "notes": "Confirm Sell Offer, hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07). Mapped: CONFIRM_SELL."
@@ -905,7 +905,7 @@
     },
     "source": {
       "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
-      "line": 268
+      "line": 280
     },
     "verifiedBy": "regex",
     "notes": "Sell Inventory Now's 'Are you sure?' (3 rows, 11 hopper 'Selling whole inventory', 15 'Cancel'), hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07). Mapped: CONFIRM_SELL_INVENTORY."
@@ -939,7 +939,7 @@
     },
     "source": {
       "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
-      "line": 124
+      "line": 136
     },
     "verifiedBy": "regex",
     "notes": "Order options: only the cancel item is sourced (SkyHanni: slot 11 name contains 'Cancel Order'; lore '... missing items.'); the rest of the layout is unverified. Mapped: ORDER_OPTIONS."
