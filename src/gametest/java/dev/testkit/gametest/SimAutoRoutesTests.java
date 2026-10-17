@@ -136,6 +136,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1016-carry",
             // fullclear-1016: a secret clicked far from the start node just before it arms is not its await's
             "96-ar-1016-farstart",
+            // fullclear-1016: a warp the server refused is aimed again and sent once more, not waited 61 ticks
+            "96-ar-1016-refused",
             // aura-skull-place-1016: the Redstone Key counts for an await on its PLACING, by hand or by Secret Aura
             "96-ar-1016-keyawait", "96-ar-1016-keyaura", "96-ar-1016-keyreach"};
 
@@ -286,6 +288,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1016-eaten" -> caseEatenHop(ctx);
                         case "96-ar-1016-carry" -> ArMainServerCases.carryPastAwaitless(ctx);
                         case "96-ar-1016-farstart" -> ArMainServerCases.farBeforeStart(ctx);
+                        case "96-ar-1016-refused" -> ArMainServerCases.refusedWarp(ctx);
                         case "96-ar-398-offnode" -> caseOffNode(ctx);
                         case "96-ar-398-regrow" -> caseRegrow(ctx);
                         case "96-ar-398-startawait" -> caseStartAwait(ctx);
@@ -7480,6 +7483,73 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 check(notIts, "no \"not its\" line - the far click never reached the lookback, so this proves nothing");
                 check(metNear, "the chest beside the start node, clicked after it armed, did not meet the await");
             } finally {
+                stopRoute(ctx);
+                resetRoutes(ctx);
+            }
+        }
+
+        /**
+         * fullclear-1016 run 019 (his Doors #13 hop 3): the server refused a warp (its ray stopped at a jungle log the
+         * client's did not meet) and the route waited the 61-tick landing timeout off every ring until Route Stall. Built
+         * here: a stone on the warp's line that only the SERVER has (the client's copy is set back to air), taken away a
+         * tick after the use. Main: no landing for 61 ticks. Fixed: aimed again and sent once more a round trip later.
+         */
+        static void refusedWarp(ClientGameTestContext ctx) {
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+            resetRoutes(ctx);
+            forgetRunMemory(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            long w = LogTap.mark();
+            writeRoute(ctx, List.of(ew(6, 20, 14, 20, true)));
+            waitFor(ctx, 100, () -> logHas(w, "Loaded 1 route"));
+            BlockPos ghost = realNow(ctx, 10, F, 20);
+            try {
+                // Three high, so the warp cannot land on it either: the server's ray stops in a column with no room on top.
+                serverRun(ctx, (server, sp) -> {
+                    for (int dy = 0; dy < 3; dy++) {
+                        server.overworld().setBlockAndUpdate(ghost.above(dy), Blocks.STONE.defaultBlockState());
+                    }
+                });
+                ctx.waitTicks(5);
+                ctx.runOnClient(mc -> {
+                    for (int dy = 0; dy < 3; dy++) {
+                        mc.level.setBlock(ghost.above(dy), Blocks.AIR.defaultBlockState(), 3);
+                    }
+                });
+                ctx.waitTicks(1);
+                long m = LogTap.mark();
+                tpRel(ctx, 6.5, 20.5, relYawTo(6, 20, 14, 20), pitchTo(6, 20, 14, 20));
+                boolean acted = waitFor(ctx, 40, () -> logHas(m, "ETHERWARP acted"));
+                serverRun(ctx, (server, sp) -> {
+                    for (int dy = 0; dy < 3; dy++) {
+                        server.overworld().setBlockAndUpdate(ghost.above(dy), Blocks.AIR.defaultBlockState());
+                    }
+                });
+                boolean landed = waitLanded(ctx, 14, 20, 40) != null;
+                boolean retried = logHas(m, "refused it; aimed again");
+                boolean refused = logHas(m, "etherwarp refused");
+                boolean timedOut = logHas(m, "no landing after");
+                stopRoute(ctx);
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("Etherwarp") || l.contains("refused") || l.contains("ETHERWARP")) {
+                        println("  " + l);
+                    }
+                }
+                println("refused: acted " + acted + ", the server refused it " + refused + ", aimed again " + retried
+                        + ", landed " + landed + ", timed out " + timedOut);
+                check(acted, "the etherwarp node never sent its warp");
+                check(refused, "the server did not refuse the first warp - the case it is about never happened");
+                check(retried && landed, "after the refused warp it never went again and landed (retried " + retried
+                        + ", landed " + landed + ")");
+                check(!timedOut, "it waited out the 61-tick landing timeout");
+            } finally {
+                serverRun(ctx, (server, sp) -> {
+                    for (int dy = 0; dy < 3; dy++) {
+                        server.overworld().setBlockAndUpdate(ghost.above(dy), Blocks.AIR.defaultBlockState());
+                    }
+                });
                 stopRoute(ctx);
                 resetRoutes(ctx);
             }
