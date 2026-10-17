@@ -185,6 +185,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-play", GrimAutoRoutesTests::casePlay);
             s.test("62-argrim-awaitskip", GrimAutoRoutesTests::caseAwaitSkip);
             s.test("62-argrim-1015-clickwarp", GrimAutoRoutesTests::caseClickWarp); // ar-nexttick-1015
+            s.test("62-argrim-1017-breakerwarp", GrimAutoRoutesTests::caseBreakerWarpPaired); // ar-bridges-bat-1017
             s.test("62-argrim-pingpong", GrimAutoRoutesTests::casePingPong);
             s.test("62-argrim-chain", GrimAutoRoutesTests::caseChain);
             s.test("62-argrim-path", GrimAutoRoutesTests::casePath);
@@ -199,6 +200,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-crypt", GrimAutoRoutesTests::caseCrypt);
             s.test("62-argrim-1015-cryptaim", GrimAutoRoutesTests::caseCryptAim); // crypt-aim-1015
             s.test("62-argrim-mimic", GrimAutoRoutesTests::caseMimic);
+            s.test("62-argrim-1017-mimicaim", GrimAutoRoutesTests::caseMimicAim); // ar-bridges-bat-1017
             s.test("62-argrim-autoclear", GrimAutoRoutesTests::caseAutoClear);
             // The Interactive Map's own executor (livemap/autoclear/ClearExecutor), last: a map warp or a Go To sets the
             // map-arrival interlock (only a START node arms afterwards) and Go To leaves edit mode on.
@@ -797,6 +799,100 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * warp must go, the server must make exactly one etherwarp, nothing but the use may go out for that click (no swing,
      * no player_action before or after it), and GrimAC must stay silent.
      */
+    /**
+     * mod ar-bridges-bat-1017 (killer560's Bridges: "after the second dungeon breaker I cannot get it to make that
+     * etherwarp"). A lever clicked with the Aspect of the Void in hand stays unpaired; a breaker node then fires, and the
+     * etherwarp stacked after it looks past a stone plate at head height that the 1.8 server's 1.54 ray meets and this
+     * client's 1.27 look passes under (the hole rim in Bridges). The route pairs the lever click first with a bare use of
+     * the Dungeon Breaker at the look the server has heard, then swaps back and warps the next tick. Against GrimAC: the
+     * breaker's digs, the breaker use, the swap and the warp must draw nothing, and the warp must land on the target.
+     */
+    private static void caseBreakerWarpPaired(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        ctx.runOnClient(mc -> {
+            try {
+                ModUnderTest.staticCall("com.killer560.hub.autoroutes.RouteRunMemory", "reset", new Class<?>[]{},
+                        new Object[]{});
+            } catch (AssertionError ignored) {
+                // an older jar: no run memory
+            }
+        });
+        Map<int[], String> put = new LinkedHashMap<>();
+        put.put(new int[]{7, F + 2, 20}, "minecraft:stone");
+        put.put(new int[]{16, F + 5, 20}, "minecraft:stone");
+        put.put(new int[]{5, F, 20}, "minecraft:snow_block");
+        put.put(new int[]{8, F, 22}, "minecraft:lever[face=floor,facing=east,powered=false]");
+        setBlocks(ctx, put);
+        JsonObject br = node("DUNGEON_BREAKER", 6, 20, 0f, 0f);
+        JsonArray blocks = new JsonArray();
+        blocks.add("5 " + F + " 20");
+        br.add("blocks", blocks);
+        br.addProperty("start", true);
+        br.addProperty("awaitEnabled", true);
+        br.addProperty("await", "SECRET");
+        br.addProperty("amount", 1);
+        float yaw = relYawTo(6, 20, 16, 20);
+        float pitch = (float) -Math.toDegrees(Math.atan2(5.5 - 1.27, 16.0 - 6.5));
+        JsonObject w = node("ETHERWARP", 6, 20, yaw, pitch);
+        w.addProperty("landing", String.format(Locale.US, "%.3f %.3f %.3f", 16.5, F + 6.05, 20.5));
+        writeRoute(ctx, List.of(br, w));
+        long mark = LogTap.mark();
+        warpOnto(ctx, 6.5, 10.5, 6, 20);
+        check(waitFor(ctx, 60, () -> logHas(mark, "Stack of 2")), "the breaker/etherwarp stack never fired (at "
+                + relPos(ctx) + ")");
+        ctx.waitTicks(10);
+        ctx.runOnClient(mc -> {
+            mc.player.getInventory().setSelectedSlot(0);
+            BlockPos lever = real(ModUnderTest.staticCall(FRAME, "current"), 8, F, 22);
+            Vec3 eye = mc.player.getEyePosition();
+            Vec3 at = new Vec3(lever.getX() + 0.5, lever.getY() + 0.1, lever.getZ() + 0.5);
+            double dx = at.x - eye.x;
+            double dy = at.y - eye.y;
+            double dz = at.z - eye.z;
+            float ly = (float) -Math.toDegrees(Math.atan2(dx, dz));
+            mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(ly - mc.player.getYRot()));
+            mc.player.setXRot((float) -Math.toDegrees(Math.atan2(dy, Math.hypot(dx, dz))));
+        });
+        ctx.waitTicks(3);
+        JsonObject before = stats();
+        startSampling(ctx);
+        long m = LogTap.mark();
+        ctx.runOnClient(mc -> {
+            BlockPos lever = real(ModUnderTest.staticCall(FRAME, "current"), 8, F, 22);
+            mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(
+                    new Vec3(lever.getX() + 0.5, lever.getY() + 0.1, lever.getZ() + 0.5), Direction.UP, lever, false));
+            mc.player.swing(InteractionHand.MAIN_HAND);
+        });
+        Vec3 top = ctx.computeOnClient(mc -> {
+            Object frame = ModUnderTest.staticCall(FRAME, "current");
+            return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                    double.class, double.class}, new Object[]{frame, 16.5, (double) (F + 6), 20.5});
+        });
+        boolean landed = waitFor(ctx, 60, () -> ctx.computeOnClient(mc -> mc.player.position().distanceTo(top) < 0.4));
+        ctx.waitTicks(10);
+        List<Sample> s = stopSampling(ctx);
+        printTrace("breakerwarp", s);
+        for (String l : LogTap.since(m)) {
+            if (l.contains("[RightClick]") || l.contains("ETHERWARP") || l.contains("Etherwarp") || l.contains("Breaker")
+                    || l.contains("DUNGEON_BREAKER")) {
+                println("  " + l);
+            }
+        }
+        boolean paired = logHas(m, "paired the block click at");
+        boolean broke = blockAir(ctx, 5, F, 20);
+        c.note(String.format(Locale.ROOT, "breakerwarp: lever click paired by a breaker use %s, snow broken %s, landed on "
+                + "the target %s, server etherwarps %d", paired, broke, landed, delta(before, "etherwarps")));
+        check(logHas(m, "lever at") && logHas(m, "secrets met"), "the lever click did not meet the breaker's await");
+        check(broke, "the breaker node did not break its snow block");
+        check(paired, "no Dungeon Breaker use paired the lever click before the warp - the case never happened");
+        check(landed, "the warp after the breaker did not land on the target (at " + relPos(ctx) + ")");
+        check(delta(before, "etherwarps") == 1, "the server made " + delta(before, "etherwarps")
+                + " etherwarp(s), expected 1");
+        noteFlags(c, s);
+    }
+
     /**
      * mod ar-nexttick-1015 (util/RightClick). An await met by a lever click made as Secret Aura makes it - the body turned
      * to the lever first (so the movement packets report it), then the click with the Aspect of the Void in hand - and the
@@ -1550,6 +1646,93 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 ModUnderTest.call(ar, "setCryptWeapon", new Class<?>[]{enumClass("CryptWeapon")},
                         new Object[]{ModUnderTest.enumValue(AR_CONFIG + "$CryptWeapon", "HYPERION")});
                 ModUnderTest.set(ar, "setCryptAttackTicks", 100);
+            });
+        }
+    }
+
+    /**
+     * mod ar-bridges-bat-1017 (killer560, 2026-10-17: Kill Mimic's Spirit Sceptre, two uses straight down, then the rest
+     * aimed at the mimic, in every room). A trapped chest five blocks up and a block across (within the server's block
+     * reach - the first version stood it 2.5 across and the harness's own click drew FarPlace and RotationPlace),
+     * clicked by hand with the body turned to it; a baby zombie (NoAI, invulnerable: the uses are what is measured) stands on it as the mimic. The
+     * first two uses go at pitch 90.0, then the body turns to the mimic and the uses go along the look the server has
+     * heard, until the Mimic Timeout. Against GrimAC: nothing.
+     */
+    private static void caseMimicAim(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        c.hx().give(5, "minecraft:iron_sword[custom_data={id:\"BAT_WAND\"},unbreakable={}]");
+        int timeout0 = ctx.computeOnClient(mc -> ModUnderTest.getInt(ModUnderTest.config(AR_CONFIG), "getMimicTimeoutTicks"));
+        ctx.runOnClient(mc -> {
+            ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setKillMimic", new Class<?>[]{enumClass("KillMimic")},
+                    new Object[]{ModUnderTest.enumValue(AR_CONFIG + "$KillMimic", "SPIRIT_SCEPTRE")});
+            ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setMimicTimeoutTicks", 40);
+        });
+        try {
+            setBlocks(ctx, Map.of(new int[]{13, F + 5, 22}, "minecraft:trapped_chest"));
+            tpRel(ctx, 14.5, 23.5, 0f, -50f);
+            ctx.waitTicks(10);
+            ctx.runOnClient(mc -> {
+                mc.player.getInventory().setSelectedSlot(3);
+                BlockPos chest = real(ModUnderTest.staticCall(FRAME, "current"), 13, F + 5, 22);
+                Vec3 eye = mc.player.getEyePosition();
+                Vec3 at = new Vec3(chest.getX() + 0.5, chest.getY() + 0.05, chest.getZ() + 0.5);
+                double dx = at.x - eye.x;
+                double dy = at.y - eye.y;
+                double dz = at.z - eye.z;
+                float ly = (float) -Math.toDegrees(Math.atan2(dx, dz));
+                mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(ly - mc.player.getYRot()));
+                mc.player.setXRot((float) -Math.toDegrees(Math.atan2(dy, Math.hypot(dx, dz))));
+            });
+            ctx.waitTicks(3);
+            long m = LogTap.mark();
+            startSampling(ctx);
+            ctx.runOnClient(mc -> {
+                BlockPos chest = real(ModUnderTest.staticCall(FRAME, "current"), 13, F + 5, 22);
+                mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(
+                        new Vec3(chest.getX() + 0.5, chest.getY(), chest.getZ() + 0.5), Direction.DOWN, chest, false));
+                mc.player.swing(InteractionHand.MAIN_HAND);
+            });
+            BlockPos top = ctx.computeOnClient(mc -> real(ModUnderTest.staticCall(FRAME, "current"), 13, F + 6, 22));
+            c.server().command(String.format(Locale.ROOT, "summon minecraft:zombie %d %d %d {IsBaby:1b,NoAI:1b,NoGravity:1b,"
+                    + "Invulnerable:1b,PersistenceRequired:1b}", top.getX(), top.getY(), top.getZ()));
+            waitFor(ctx, 20, () -> ctx.computeOnClient(mc -> McCompat.screen(mc) != null));
+            ctx.runOnClient(mc -> {
+                if (mc.player.containerMenu != mc.player.inventoryMenu) {
+                    mc.player.closeContainer();
+                }
+            });
+            boolean done = waitFor(ctx, 160, () -> logHas(m, "Kill Mimic done"));
+            ctx.waitTicks(10);
+            List<Sample> s = stopSampling(ctx);
+            printTrace("mimicaim", s);
+            int down = 0;
+            int aimed = 0;
+            for (String l : LogTap.since(m)) {
+                if (l.contains("Kill Mimic")) {
+                    println("  " + l);
+                }
+                if (l.contains("Spirit Sceptre used straight down")) {
+                    down++;
+                }
+                if (l.contains("Spirit Sceptre used at the mimic")) {
+                    aimed++;
+                }
+            }
+            c.note(String.format(Locale.ROOT, "mimicaim: %d use(s) straight down, %d at the mimic, %d use_item, done %s",
+                    down, aimed, count(s, "use_item"), done));
+            check(logHas(m, "watching for its mimic"), "the trapped-chest click was not seen");
+            check(down == 2, down + " use(s) went straight down, expected 2");
+            check(aimed >= 2, "only " + aimed + " use(s) went at the mimic");
+            check(done, "Kill Mimic did not finish (Mimic Timeout)");
+            noteFlags(c, s);
+        } finally {
+            c.server().command("kill @e[type=minecraft:zombie]");
+            ctx.runOnClient(mc -> {
+                ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setKillMimic", new Class<?>[]{enumClass("KillMimic")},
+                        new Object[]{ModUnderTest.enumValue(AR_CONFIG + "$KillMimic", "OFF")});
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setMimicTimeoutTicks", timeout0);
             });
         }
     }

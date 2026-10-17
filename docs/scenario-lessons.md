@@ -991,3 +991,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   world) was dropped a tick later - its BlockEntity.isRemoved went true and the editor closed with nothing typed - so
   HxSigns places a real sign at the player's feet and puts the old block back on the update. Cases that stop with units
   unsold must `clear @a` on the SERVER: a client-side clearContent left 2768's stack for 2769 to sell.
+- **96-ar-1017-bridges / -mimicaim, 62-argrim-1017-breakerwarp / -mimicaim** (ar-bridges-bat-1017). Bridges plays
+  killer560's route exact; the sim's server drops the mod's own Dungeon Breaker use on purpose (that use IS the pairing),
+  so only an `ASPECT_OF_THE_VOID` "dropped, as on Hypixel" line counts as an eaten warp. 96-ar-1016-eaten now clears the
+  breaker slot, or the route pairs the chest click first and the resend it tests never happens. The first Grim mimicaim
+  probe stood the chest 2.5 blocks across and its own hand click drew FarPlace + RotationPlace: keep a probe's clicks in reach.
