@@ -534,6 +534,13 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	if (project.hasProperty("listScenarios")) {
 		systemProperty "testkit.listFile", file(project.property("listScenarios").toString()).absolutePath
 	}
+	// 1016-sim-fullclear: -PfullclearRuns=N fresh floors in one client, -PfullclearCode=<map code> to replay one,
+	// -PfullclearOut=<dir> for the run-NNN.md tallies (default: the report dir).
+	["fullclearRuns", "fullclearCode", "fullclearOut"].each { k ->
+		if (project.hasProperty(k)) {
+			systemProperty "testkit.${k}", project.property(k)
+		}
+	}
 	// Play each selected 93-solve room N times in one launch, to measure a flake rate:  -PsolveRepeat=N
 	if (project.hasProperty("solveRepeat")) {
 		systemProperty "testkit.solveRepeat", project.property("solveRepeat")
