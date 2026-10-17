@@ -153,7 +153,9 @@ public class SimWorldTests implements FabricClientGameTest {
                         case "859-sim-lever-atlas" -> caseLever(ctx, c, "Atlas",
                                 new int[]{54, 67, 32}, new int[]{7, 80, 25}, new int[]{9, 83, 26}, false, null, null);
                         case "860-sim-lever-long-hall" -> caseLever(ctx, c, "Long Hall",
-                                new int[]{21, 70, 28}, new int[]{18, 82, 12}, new int[]{18, 82, 19}, false, null, null);
+                                // 2026-10-16: the 3 x 5 wood panel, not the channel floor ("this lever in Long
+                                // Hall drops this door").
+                                new int[]{21, 70, 28}, new int[]{20, 84, 11}, new int[]{22, 88, 11}, false, null, null);
                         case "652-sim-prince-waypoint-brf" -> casePrinceWaypoint(ctx);
                         case "1401-sim-boom-prince-tomb" -> caseBoomPrinceTomb(ctx);
                         case "1402-sim-boom-crypt-overhead" -> caseBoomCryptOverhead(ctx);
