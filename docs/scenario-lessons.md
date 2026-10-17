@@ -986,3 +986,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   world) was dropped a tick later - its BlockEntity.isRemoved went true and the editor closed with nothing typed - so
   HxSigns places a real sign at the player's feet and puts the old block back on the update. Cases that stop with units
   unsold must `clear @a` on the SERVER: a client-side clearContent left 2768's stack for 2769 to sell.
+- **1017-sim-dummy-lever-r0 / -r90** (`SimDummyLeverTests`): Red Blue on a two-room floor (horizontal at 0, vertical at 90),
+  him inside the cage with both dummy levers and the real one in reach. A floor build can make the nook's chest the mimic
+  (a trapped chest), so the premise takes either. The waypoint and packet checks are held to the end so a failing jar still
+  shows what the aura did (main 098b6c92: both dummies listed as waypoints, 2 of its 3 use_item_on at the dummies).
