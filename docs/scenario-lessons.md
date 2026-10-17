@@ -941,6 +941,12 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   96-ar-chain and 96-ar-398-regrow fail together in one run of `96-ar-398-regrow,96-ar-breakerwait,96-ar-complete,96-ar-play,
   96-ar-chain,96-ar-mapopen,96-ar-920-nostart-mapwarp,96-ar-398-offnode,96-ar-405-startwarp` on mod main 8a9f9549 as well,
   and pass run alone: an order effect, not a regression.
+- 1961-1979 (sim-grassruin-lever-1016, `SimLeverGateTests`): room levers drop their gates. Gates are written against the
+  mod's BUNDLED captures, but the library prefers a local capture, and Mod Only Test's Overgrown is the bundled one turned
+  180 degrees: each gate is turned to the quarter turn that lands its lever on a lever before anything is read. Stand in
+  reach by distance to the lever's block BOX, not its centre (Purple Flags' hanging lever is 4.4 / 4.9). The numbers
+  1781-1798 were taken first and collided with 1790-sim-map-leave-secrets - a filter of bare digits ran another class's
+  cases; grep the testkit for a number before using it.
 - 1790-sim-map-leave-secrets (`SimMapLeaveSecretsTests`, mod sim-map-secrets-1016, 2026-10-16): a room's last secret
   collected as he leaves must still show on the map. Two-room map code (R with the secret, NORMAL door, 1x1 B); the server
   is told all but one of R's secrets, the map must read (N-1)/N, then the last is collected for real and an END_SERVER_TICK
