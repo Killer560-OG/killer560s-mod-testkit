@@ -56,3 +56,14 @@ abilities are `hx/dungeon/HxAbilities` (etherwarp, Instant Transmission, Superbo
   `client_tick_end` only when a transaction answer follows it before the next tick packet, so on main the pair flagged one
   in two; every autosecret/autopilot case now also requires `PacketTrace.sentOutsideTick()` empty, which is the same fault
   without the luck. Both cases require the precomputed run and a `set_carried_item` (else nothing was tested).
+- **The positive control's own flags are not the case's.** Every session prints `Simulation (x1) 5.99...`, `Simulation (x2)
+  5.7` / `5.99` or `GroundSpoof claimed false` around its two controls; on 2026-10-16 a `62-argrim-autopilot` failure was
+  first read as "Simulation 5.999436" from that line, while the case's flag was `BadPacketsJ` (time it against the case's
+  PASS/FAILED lines, or read the case log's own flag list).
+- `62-argrim-1016-oneuse` (grim-autopilot-flag-1016): Auto Secret's precomputed trip from rel (13.5, 11.5), a block and a
+  half from the middle wall, with an unpaired Dungeon Breaker click on the floor first. Its first hop turns first, then goes
+  onto the wall top with its block half (the ray meets the wall), which pairs the click; on mod main 098b6c92 the second hop
+  then went from the same tick's `sendNow` slot - two `use_item` with two looks before one movement packet, BadPacketsJ
+  every run (62-argrim-autopilot drew it about one run in seven). `harness/UseRotationWatch` replays GrimAC 2.3.74's
+  BadPacketsJ on the outbound packets (the teleport answer is not a tick packet; a tick end is one when no movement went), and
+  every autosecret/autopilot case and this one require it empty. Requires the precomputed trip and the block-half line.

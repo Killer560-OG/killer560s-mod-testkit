@@ -108,6 +108,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 SAMPLES.clear();
             }
             PacketTrace.start();
+            dev.testkit.harness.UseRotationWatch.start();
             synchronized (SAMPLES) {
                 SAMPLES.add(new Sample(0, mc.player.getLastSentInput().shift(), mc.player.isSprinting(),
                         mc.player.position(), List.of()));
@@ -120,7 +121,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> {
             sampling = false;
             PacketTrace.stop();
+            dev.testkit.harness.UseRotationWatch.stop();
         });
+        for (String v : dev.testkit.harness.UseRotationWatch.violations()) {
+            println("  BadPacketsJ (replayed): " + v);
+        }
         List<Sample> out = new ArrayList<>();
         synchronized (SAMPLES) {
             for (Sample x : SAMPLES) {
@@ -205,6 +210,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // already in TripCache, so the trip runs precomputed and its AOTV swap is the one under test.
             s.test("62-argrim-1016-autosecret-key", c -> caseAutoSecret(c, false, true));
             s.test("62-argrim-1016-autopilot-key", c -> caseAutoSecret(c, true, true));
+            s.test("62-argrim-1016-oneuse", GrimAutoRoutesTests::caseOneUsePerTick); // grim-autopilot-flag-1016
             s.test("62-argrim-imwarp", c -> caseMapWarp(c, false));
             s.test("62-argrim-imwarp-run", c -> caseMapWarp(c, true));
             s.test("62-argrim-goto", GrimAutoRoutesTests::caseGoTo);
@@ -1782,6 +1788,84 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         caseAutoSecret(c, pilot, false);
     }
 
+    /**
+     * grim-autopilot-flag-1016: the map trip's first hop held behind an unpaired block click (a Dungeon Breaker click on the
+     * floor, as an earlier case's aura click left one in 62-argrim-autopilot), standing a block and a half from the middle
+     * wall so that hop goes onto the wall's top within reach - its ray meets the wall, so it goes with its block half and
+     * the click is paired. On mod main 098b6c92 the NEXT hop was then queued and sent from the same tick's second slot
+     * (ClearExecutor.onTickStart's sendNow doInteract): two uses with two looks before one movement packet, GrimAC
+     * BadPacketsJ, two teleports answered together. Requires the hop to have gone with its block half (else nothing was
+     * tested), the trip and the route to land, and the use-look replay and GrimAC to be silent.
+     */
+    private static void caseOneUsePerTick(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        String as = "com.killer560.hub.autosecret.AutoSecretFeature";
+        resetRoutes(ctx);
+        arena(ctx, true);
+        writeRoute(ctx, List.of(ew(24, 10, 24, 22, true)));
+        List<Sample> s = List.of();
+        try {
+            tpRel(ctx, 13.5, 11.5, 0f, 0f);
+            ctx.waitTicks(5);
+            // The unpaired click: the Dungeon Breaker (slot 2) on the floor in front of him - nothing answers it.
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(2));
+            ctx.waitTicks(3);
+            rightClick(ctx, 12, F - 1, 11, Direction.UP);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+            ctx.waitTicks(3);
+            boolean unpaired = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                    "com.killer560.hub.util.RightClick", "unpaired"));
+            check(unpaired, "the Dungeon Breaker click on the floor left no unpaired click - nothing to test");
+            // A precomputed trip (TripCache) is the one that sends each hop on the tick it is queued (sendNow), the slot
+            // the second use went from; a searched trip never uses it.
+            BlockPos goal = ctx.computeOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                Vec3 v = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(),
+                        double.class, double.class, double.class}, new Object[]{frame, 24.5, (double) F, 10.5});
+                return BlockPos.containing(v.x, v.y - 0.5, v.z);
+            });
+            boolean cached = waitFor(ctx, 600, () -> ctx.computeOnClient(mc -> ModUnderTest.staticCall(
+                    "com.killer560.hub.livemap.autoclear.TripCache", "find", new Class<?>[]{Vec3.class, BlockPos.class,
+                            int.class, boolean.class}, new Object[]{mc.player.position(), goal, -1, true}) != null));
+            check(cached, "TripCache never precomputed the trip from his spot to the start node " + goal);
+            ctx.waitTicks(2);
+            long m = LogTap.mark();
+            startSampling(ctx);
+            Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as, "start"));
+            check(Boolean.TRUE.equals(started), "Auto Secret refused to start");
+            Vec3 atStart = waitLanded(ctx, 24, 10, 300);
+            Vec3 atEnd = waitLanded(ctx, 24, 22, 200);
+            waitFor(ctx, 200, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as, "isRunning")));
+            ctx.waitTicks(10);
+            s = stopSampling(ctx);
+            printTrace("oneuse", s);
+            for (String l : LogTap.since(m)) {
+                if (l.contains("[RightClick]") || l.contains("[Path] Warp") || l.contains("[Path] running")) {
+                    println("  " + l);
+                }
+            }
+            List<String> twoLooks = dev.testkit.harness.UseRotationWatch.violations();
+            int uses = dev.testkit.harness.UseRotationWatch.uses();
+            check(logHas(m, "- no search, precomputed"), "the trip was not run precomputed - nothing tested");
+            check(logHas(m, "so the use pairs with it"), "no hop went with its block half while the click was unpaired - "
+                    + "the path under test never ran (" + uses + " use(s))");
+            check(atStart != null, "the trip did not bring him to the start node (24,10) - at " + relPos(ctx));
+            check(atEnd != null, "the route's etherwarp did not land on (24,22) - at " + relPos(ctx));
+            check(uses >= 3, "only " + uses + " use(s) went out - the trip needs 2 hops and the route 1");
+            check(twoLooks.isEmpty(), "two uses with different looks before one movement packet (GrimAC BadPacketsJ): "
+                    + twoLooks);
+            c.note("a hop went with its block half after an unpaired click; " + uses + " use(s), one look per tick");
+        } finally {
+            ctx.runOnClient(mc -> {
+                if ((Boolean) ModUnderTest.staticCall(as, "isRunning")) {
+                    ModUnderTest.staticCall(as, "stop", new Class<?>[]{String.class, boolean.class},
+                            new Object[]{"test over", true});
+                }
+            });
+            writeRoute(ctx, null);
+        }
+    }
+
     /** GLFW_KEY_KP_3 / GLFW_KEY_KP_6: bound to nothing in vanilla or the mod's defaults. */
     private static final int AS_KEY = 323;
     private static final int PILOT_KEY = 326;
@@ -1895,6 +1979,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // the trace's record of what went out between two ticks is the same fault without the luck.
             List<String> outside = PacketTrace.sentOutsideTick();
             check(outside.isEmpty(), "sent outside a tick (after its client_tick_end, before the next tick): " + outside);
+            // GrimAC BadPacketsJ flags two uses with different looks before one movement packet, which only some explore
+            // trips here happen to send; the replay names the tick whether or not Grim's log is read (grim-autopilot-flag-1016).
+            List<String> twoLooks = dev.testkit.harness.UseRotationWatch.violations();
+            check(twoLooks.isEmpty(), "a use's look was not the one its tick reported (GrimAC BadPacketsJ): " + twoLooks);
             if (byKey) {
                 // The code under test must have run: the first trip precomputed, and a swap to the AOTV sent for it.
                 check(logHas(m, "- no search, precomputed"), "the first trip was not run precomputed - nothing tested");
