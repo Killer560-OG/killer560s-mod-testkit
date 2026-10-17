@@ -1,0 +1,55 @@
+[
+  {
+    "id": "chat.bazaarflip-bought-custom",
+    "kind": "chat",
+    "payload": "[Bazaar] Bought 238x Enchanted Pumpkin for 401,411 coins!",
+    "source": {"file": "src/main/java/com/killer560/hub/bazaarflip/BazaarFlipFeature.java", "line": 107},
+    "matches": ["bazaarflip.BazaarFlipFeature#BOUGHT_LINE"],
+    "mode": "matches",
+    "verifiedBy": "capture:26.1.2 (Dungeons)/logs/2026-07-05-1.log.gz:35347",
+    "notes": "An instant buy of a custom amount (238). Bazaar Flip adds the coins to the cycle's spend (profit tracker)."
+  },
+  {
+    "id": "chat.bazaarflip-npc-sold",
+    "kind": "chat",
+    "payload": "You sold Box of Seeds x62 for 4,761,600 Coins!",
+    "source": {"file": "src/main/java/com/killer560/hub/bazaarflip/BazaarFlipNpcLimit.java", "line": 46},
+    "matches": ["bazaarflip.BazaarFlipNpcLimit#SOLD_LINE"],
+    "mustNotMatch": ["bazaarflip.BazaarFlipNpcLimit#LIMIT_LINE"],
+    "mode": "matches",
+    "verifiedBy": "capture:26.1.2 (Dungeons)/logs/2026-07-05-1.log.gz:35079",
+    "notes": "An NPC sale: counted towards the daily NPC sell limit and, during a cycle, its revenue."
+  },
+  {
+    "id": "chat.bazaarflip-npc-sold-one-coin",
+    "kind": "chat",
+    "payload": "You sold Oak Sign x1 for 1 Coin!",
+    "source": {"file": "src/main/java/com/killer560/hub/bazaarflip/BazaarFlipNpcLimit.java", "line": 46},
+    "matches": ["bazaarflip.BazaarFlipNpcLimit#SOLD_LINE"],
+    "mode": "matches",
+    "verifiedBy": "capture:26.1.2 (Dungeons)/logs/2026-07-07-1.log.gz (\"You sold Oak Sign x1 for 1 Coin!\")",
+    "notes": "Singular 'Coin'."
+  },
+  {
+    "id": "chat.bazaarflip-npc-limit",
+    "kind": "chat",
+    "payload": "You have reached the daily limit of coins you can earn by selling items to NPCs!",
+    "source": {"file": "src/main/java/com/killer560/hub/bazaarflip/BazaarFlipNpcLimit.java", "line": 54},
+    "matches": ["bazaarflip.BazaarFlipNpcLimit#LIMIT_LINE"],
+    "mustNotMatch": ["bazaarflip.BazaarFlipNpcLimit#SOLD_LINE"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "NOT Hypixel's text: the real line is not on the wiki or in any of his 374 Dungeons logs (2026-10-16). LIMIT_LINE matches any colon-free system line naming selling, a limit and the day; this is a plausible shape, used by 2768."
+  },
+  {
+    "id": "chat.bazaarflip-forged-player-lines",
+    "kind": "chat",
+    "payload": "[MVP+] Bob: You sold Box of Seeds x62 for 4,761,600 Coins! daily selling limit reached",
+    "source": {"file": "src/main/java/com/killer560/hub/bazaarflip/BazaarFlipNpcLimit.java", "line": 54},
+    "mustNotMatch": ["bazaarflip.BazaarFlipNpcLimit#LIMIT_LINE", "bazaarflip.BazaarFlipNpcLimit#SOLD_LINE",
+      "bazaarflip.BazaarFlipFeature#BOUGHT_LINE"],
+    "mode": "matches",
+    "verifiedBy": "regex",
+    "notes": "Another player typing the lines: every player line has 'name: ' before it, which neither anchored pattern accepts and LIMIT_LINE's no-colon rule refuses."
+  }
+]

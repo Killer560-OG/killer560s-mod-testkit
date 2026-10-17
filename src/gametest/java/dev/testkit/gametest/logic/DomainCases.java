@@ -616,7 +616,7 @@ final class DomainCases {
         }
     }
 
-    private static List<Object> book(double... pa) {
+    static List<Object> book(double... pa) {
         List<Object> out = new ArrayList<>();
         for (int i = 0; i < pa.length; i += 2) {
             out.add(R.construct("auction.BazaarOrderLevel", pa[i], (long) pa[i + 1], 1));

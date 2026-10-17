@@ -24,6 +24,8 @@ import net.minecraft.world.level.block.Blocks;
  * 357-logic-items-ap3-routes   ItemIdentity + every skyblockId reader, AP3 push sizes and store precision, routes JSON
  * 358-logic-mapcode-floorlayout MapCode round trip/fuzz, SimFloorLayout helpers and seeded determinism
  * 359-logic-bazaar-party       Bazaar flip sizing/book direction/ranking, party-command authorisation
+ * 2775-logic-bazaarflip        cut Instant Buy titles, Bought/You sold/NPC-limit lines, Buy up to, the amount sign,
+ *                              typed Target Purse, the scan's NPC-limit cap (BazaarFlipLogicCases)
  * 362-logic-boss-timers        0.27.2 pacing (NoammAddons 1.2.9): Tick Timers, Blood Camp kill, Auto i4 prediction re-roll
  * 402-logic-autokick-units     Auto Kick populate: fastest_time_s is milliseconds (real AntsRNG profile, 263003 -> 264 s)
  * 363-logic-roof-cover         Interactive Map landings outside the sim: an open roof refused, under a ceiling accepted
@@ -49,6 +51,7 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "356-logic-score-blessings", DomainCases::scoreAndBlessings);
         LogicCase.run(ctx, "358-logic-mapcode-floorlayout", DomainCases::mapCodeAndLayout);
         LogicCase.run(ctx, "359-logic-bazaar-party", DomainCases::bazaarAndParty);
+        LogicCase.run(ctx, "2775-logic-bazaarflip", BazaarFlipLogicCases::run);
         LogicCase.run(ctx, "402-logic-autokick-units", AutoKickCases::units);
         // ---- Auto Update (nt-auto-update, 2026-10-11) - own block
         AutoUpdateCases.ctx = ctx;

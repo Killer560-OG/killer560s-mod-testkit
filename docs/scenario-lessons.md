@@ -947,3 +947,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   whole run, so each case needs its own key spot: keyreach first reused keyaura's (13, F, 14) and the aura never clicked it
   ("premise: Secret Aura did not take the key"). 1415 and 848 also open an `AwaitEvents` window and require exactly one
   secret for the placing and none for the pickup.
+- **2761-2772-menu-bzflip-*, 2775-logic-bazaarflip** (bazaarflip-custom-1016): Hypixel's cut Instant Buy title and
+  Custom Amount's sign (`HxSigns`: a `sign` slot action opens a sign prompt, `MixinServerSignUpdate` hands the update
+  back and records `sign.update` with its lines). A sign sent to the client as packets only (no block in the server's
+  world) was dropped a tick later - its BlockEntity.isRemoved went true and the editor closed with nothing typed - so
+  HxSigns places a real sign at the player's feet and puts the old block back on the update. Cases that stop with units
+  unsold must `clear @a` on the SERVER: a client-side clearContent left 2768's stack for 2769 to sell.
