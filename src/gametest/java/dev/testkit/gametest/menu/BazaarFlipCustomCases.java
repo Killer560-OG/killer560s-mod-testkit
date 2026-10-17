@@ -77,6 +77,8 @@ final class BazaarFlipCustomCases {
         MenuSuite.test(s, "2770-menu-bzflip-profit-variant" + sfx, BazaarFlipCustomCases::profitVariant);
         MenuSuite.test(s, "2771-menu-bzflip-tab-target-purse" + sfx, BazaarFlipCustomCases::tabTargetPurse);
         MenuSuite.test(s, "2772-menu-bzflip-nothing-profitable" + sfx, BazaarFlipCustomCases::nothingProfitable);
+        MenuSuite.test(s, "2773-menu-bzflip-live-price-next-best" + sfx, BazaarFlipCustomCases::livePriceNextBest);
+        MenuSuite.test(s, "2774-menu-bzflip-no-reuse" + sfx, BazaarFlipCustomCases::noReuse);
     }
 
     // ---- the product and its Bazaar --------------------------------------------------------------------------
@@ -155,16 +157,16 @@ final class BazaarFlipCustomCases {
         JsonObject custom = new JsonObject();
         custom.add("sign", customSpec);
         JsonObject s12 = FlipCroesusCases.item("minecraft:" + p.item(), "§aBuy a stack!", "§8" + p.name(), "",
-                "§7Amount: §a64§7x", String.format("§7Per unit: §6%,.1f coins", each), "",
-                String.format("§7Price: §6%,.0f coins", 64 * each), "", "§eClick to buy now!");
+                "§7Amount: §a64§7x", String.format("§7Per unit: §6%,.1f coins", FlipCroesusCases.Q * each), "",
+                String.format("§7Price: §6%,.0f coins", FlipCroesusCases.Q * 64 * each), "", "§eClick to buy now!");
         s12.addProperty("count", 64);
         Map<Integer, JsonObject> slots = new LinkedHashMap<>();
         slots.put(10, FlipCroesusCases.item("minecraft:golden_horse_armor", "§aBuy only §eone§a!", "§8" + p.name(), "",
-                "§7Amount: §a1§7x", "", String.format("§7Price: §6%,.1f coins", each), "", "§eClick to buy now!"));
+                "§7Amount: §a1§7x", "", String.format("§7Price: §6%,.1f coins", FlipCroesusCases.Q * each), "", "§eClick to buy now!"));
         slots.put(12, s12);
         slots.put(14, FlipCroesusCases.item("minecraft:chest", "§aFill my inventory!", "§8" + p.name(), "",
-                "§7Amount: §a2,304§7x", String.format("§7Per unit: §6%,.1f coins", each), "",
-                String.format("§7Price: §6%,.0f coins", 2304 * each), "", "§eClick to buy now!"));
+                "§7Amount: §a2,304§7x", String.format("§7Per unit: §6%,.1f coins", FlipCroesusCases.Q * each), "",
+                String.format("§7Price: §6%,.0f coins", FlipCroesusCases.Q * 2304 * each), "", "§eClick to buy now!"));
         // His tooltip: "Custom Amount / Buy Order Quantity / Buy up to 71,680x. / Click to specify!"
         slots.put(16, FlipCroesusCases.item("minecraft:oak_sign", "§aCustom Amount", "§8Buy Order Quantity", "",
                 "§7Buy up to §a" + upTo + "§7x§7.", "", "§eClick to specify!"));
@@ -693,6 +695,133 @@ final class BazaarFlipCustomCases {
             c.check(reason.contains("nothing is profitable"), "stopped with: " + reason);
             c.check(c.commands().stream().noneMatch(x -> x.startsWith("bz")), "sent " + c.commands());
             c.note("no unit sellable today: \"" + reason + "\", no /bz");
+        }
+    }
+
+    // ---- 2773 / 2774 (bazaarflip-fresh-1017) ----------------------------------------------------------------------
+
+    static JsonObject productPage(Product p, JsonObject instant) {
+        return FlipCroesusCases.menu(p.productTitle(), 4, Map.of(
+                10, FlipCroesusCases.item("minecraft:golden_horse_armor", "§aBuy Instantly"),
+                11, FlipCroesusCases.item("minecraft:hopper", "§6Sell Instantly"),
+                13, unit(p),
+                15, FlipCroesusCases.item("minecraft:map", "§aCreate Buy Order"),
+                16, FlipCroesusCases.item("minecraft:map", "§6Create Sell Offer"),
+                31, FlipCroesusCases.item("minecraft:arrow", "§aGo Back")),
+                Map.of(10, FlipCroesusCases.open(instant)));
+    }
+
+    static JsonObject priced(Product p) {
+        JsonObject result = unit(p);
+        JsonArray lore = new JsonArray();
+        lore.add("§7Buy price: §634.9 coins");
+        lore.add("§7Sell price: §630.1 coins");
+        result.add("lore", lore);
+        return result;
+    }
+
+    /**
+     * killer560, 2026-10-17: "It keeps going back to Enchanted Pufferfish then it says Stopped: bought nothing". The scan
+     * ranks Enchanted Pufferfish first at 1,900 a unit, but its live Instant Buy page prices the book at 2,500 (quoting
+     * 2,600) against an NPC 2,400; Lump of Magma is second. The flipper must leave the pufferfish untouched, rescan, take
+     * the Lump of Magma and finish its cycle - and never open the pufferfish again (same scan price).
+     */
+    static void livePriceNextBest(Session c) throws Exception {
+        if (cheatOnly(c) != null) {
+            return;
+        }
+        try (AutoCloseable w = world(c, PUFFER, 100, 1_900.0, 2_400.0, 0, 10, false)) {
+            c.ctx().runOnClient(mc -> Mod.staticCall("bazaarflip.BazaarFlipScanner", "addTestCandidateForTest",
+                    MAGMA.id(), MAGMA.name(), 64, 128, 35.0, 50.0));
+            JsonObject pufferInstant = instant(PUFFER, PUFFER_CUT, 2_500.0, "71,680", Sign.normal(), 1);
+            JsonObject magmaInstant = instant(MAGMA, MAGMA.instantTitle(), 35.0, "71,680", Sign.normal(), 1);
+            JsonObject search = FlipCroesusCases.menu("Bazaar ➜ \"Enchanted\"", 6, Map.of(
+                    11, priced(PUFFER), 12, priced(MAGMA),
+                    45, FlipCroesusCases.item("minecraft:oak_sign", "§aSearch"),
+                    49, FlipCroesusCases.item("minecraft:arrow", "§aGo Back"),
+                    50, FlipCroesusCases.item("minecraft:book", "§aManage Orders")),
+                    Map.of(11, FlipCroesusCases.open(productPage(PUFFER, pufferInstant)),
+                            12, FlipCroesusCases.open(productPage(MAGMA, magmaInstant))));
+            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", search));
+            c.hx().call("menu.onCommand", Hx.args("name", "trades", "menu", trades(50.0, 0, null)));
+            String refusal = FlipCroesusCases.start(c);
+            c.check(refusal == null, "start refused: " + refusal);
+            c.waitUntil("the flipper to finish a cycle or stop", mc -> ((Number) Mod.staticCall(
+                    "bazaarflip.BazaarFlipFeature", "getCycles")).intValue() >= 1
+                    || !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 1200);
+            // Let it start the next cycle: the pufferfish must not come back at the same price.
+            c.ctx().waitTicks(80);
+            String reason = stopReason(c);
+            c.ctx().runOnClient(mc -> Mod.staticCall("bazaarflip.BazaarFlipFeature", "requestStop"));
+            List<String> cmds = c.commands();
+            long pufferBz = cmds.stream().filter(x -> x.equals("bz Enchanted Pufferfish")).count();
+            List<Integer> pufferClicks = FlipCroesusCases.clicksOn(c, PUFFER_CUT);
+            c.check(pufferClicks.isEmpty(), "bought on the pufferfish page: " + pufferClicks);
+            c.check(pufferBz == 1, "/bz Enchanted Pufferfish sent " + pufferBz + " time(s): " + cmds + " (stop: " + reason + ")");
+            c.check(cmds.contains("bz Lump of Magma"), "never went to the next best: " + cmds + " (stop: " + reason + ")");
+            // One or more whole Lump of Magma cycles (the 80 ticks after the first may start another).
+            c.check(!signAmounts(c).isEmpty() && signAmounts(c).stream().allMatch("128"::equals)
+                            && given(c) >= 128 && given(c) % 128 == 0 && sold(c) <= given(c) && sold(c) >= 128,
+                    "Lump of Magma: sign " + signAmounts(c) + ", delivered " + given(c) + ", sold " + sold(c));
+            c.note("pufferfish live at 2,500 (quoted 2,600) vs NPC 2,400: skipped once, then " + cmds
+                    + "; magma sign " + signAmounts(c) + ", sold " + sold(c));
+        }
+    }
+
+    /**
+     * Nothing from an earlier session is reused (killer560, 2026-10-17: "it is pulling data from tests earlier"): a
+     * session that ran and stopped leaves a scan behind; the next start must fetch afresh (here offline, so it fails and
+     * stops) instead of acting on it. And a test candidate is refused when the JVM does not look like a harness.
+     */
+    static void noReuse(Session c) throws Exception {
+        if (cheatOnly(c) != null) {
+            return;
+        }
+        try (AutoCloseable w = world(c, MAGMA, 128, 35.0, 50.0, 0, 1, false)) {
+            String first = FlipCroesusCases.start(c);
+            c.check(first == null, "start refused: " + first);
+            c.waitUntil("the first session to send /bz", mc -> c.commands().contains("bz Lump of Magma"), 200);
+            c.ctx().runOnClient(mc -> {
+                Mod.staticCall("bazaarflip.BazaarFlipFeature", "requestStop");
+                Mod.staticCall("bazaarflip.BazaarFlipScanner", "clearTestCandidateForTest");
+                McCompat.setScreen(mc, null);
+            });
+            Object leftover = c.onClient(mc -> Mod.staticCall("bazaarflip.BazaarFlipScanner", "getLast"));
+            c.check(leftover != null, "the first session left no scan to (wrongly) reuse - the case proves nothing");
+            int bzBefore = (int) c.commands().stream().filter(x -> x.startsWith("bz")).count();
+            String second = FlipCroesusCases.start(c);
+            c.check(second == null, "second start refused: " + second);
+            c.waitUntil("the second session to stop", mc -> !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature",
+                    "isRunning"), 400);
+            String reason = stopReason(c);
+            int bzAfter = (int) c.commands().stream().filter(x -> x.startsWith("bz")).count();
+            c.check(bzAfter == bzBefore, "the second session sent /bz from the old scan: " + c.commands());
+            c.check(reason.contains("fetch failed"), "the second session stopped with: " + reason);
+            // The hook refuses a JVM that is not the testkit's.
+            boolean refusedOutside = c.onClient(mc -> {
+                String off = System.getProperty("killer560.net.offline");
+                String open = System.getProperty("killer560.test.noExternalOpen");
+                try {
+                    System.setProperty("killer560.net.offline", "false");
+                    System.setProperty("killer560.test.noExternalOpen", "false");
+                    Mod.staticCall("bazaarflip.BazaarFlipScanner", "setTestCandidateForTest", "X", "X", 64, 1, 1.0, 2.0);
+                    return !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipScanner", "hasTestCandidateForTest");
+                } finally {
+                    if (off == null) {
+                        System.clearProperty("killer560.net.offline");
+                    } else {
+                        System.setProperty("killer560.net.offline", off);
+                    }
+                    if (open == null) {
+                        System.clearProperty("killer560.test.noExternalOpen");
+                    } else {
+                        System.setProperty("killer560.test.noExternalOpen", open);
+                    }
+                }
+            });
+            c.check(refusedOutside, "a test candidate was accepted outside a harness");
+            c.note("restart after a session: fresh fetch (offline here) -> \"" + reason + "\", no /bz from the old scan;"
+                    + " test candidate refused outside a harness");
         }
     }
 }

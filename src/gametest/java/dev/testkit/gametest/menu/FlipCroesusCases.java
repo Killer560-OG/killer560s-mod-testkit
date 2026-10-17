@@ -99,7 +99,11 @@ final class FlipCroesusCases {
 
     // ---- Bazaar flipper -----------------------------------------------------------------------------------------
 
-    static final String PRODUCT = "minecraft:magma_cream[minecraft:custom_data={id:\"LUMP_OF_MAGMA\"}]";
+    /** Hypixel's Instant Buy page quotes the book price plus 4% (refunded after; wiki Bazaar, read 2026-10-17). The fake
+     *  pages' lore does the same; the Bought line charges the book price. */
+    static final double Q = 1.04;
+
+    static final String PRODUCT ="minecraft:magma_cream[minecraft:custom_data={id:\"LUMP_OF_MAGMA\"}]";
     static final String SEARCH_TITLE = "Bazaar ➜ \"Lump of Magma\"";
     static final String PRODUCT_TITLE = "Mining ➜ Lump of Magma";
     static final String INSTANT_TITLE = "Lump of Magma ➜ Instant Buy";
@@ -135,9 +139,9 @@ final class FlipCroesusCases {
         sign.add("amount", amount);
         custom.add("sign", sign);
         JsonObject instant = menu(INSTANT_TITLE, 4, Map.of(
-                10, item("minecraft:magma_cream", "§aBuy only one!", "§7Amount: §a1§7x", String.format("§7Price: §6%,.0f coins", each)),
-                12, item("minecraft:magma_cream", "§aBuy a stack!", "§7Amount: §a64§7x", String.format("§7Price: §6%,.0f coins", 64 * each)),
-                14, item("minecraft:chest", "§aFill my inventory!", "§7Amount: §a2,304§7x", String.format("§7Price: §6%,.0f coins", 2304 * each)),
+                10, item("minecraft:magma_cream", "§aBuy only one!", "§7Amount: §a1§7x", String.format("§7Price: §6%,.0f coins", Q * each)),
+                12, item("minecraft:magma_cream", "§aBuy a stack!", "§7Amount: §a64§7x", String.format("§7Price: §6%,.0f coins", Q * 64 * each)),
+                14, item("minecraft:chest", "§aFill my inventory!", "§7Amount: §a2,304§7x", String.format("§7Price: §6%,.0f coins", Q * 2304 * each)),
                 16, item("minecraft:oak_sign", "§aCustom Amount"),
                 31, item("minecraft:arrow", "§aGo Back")),
                 Map.of(10, bought1, 12, bought64, 14, closeWith("unexpected: Fill my inventory!"), 16, custom));

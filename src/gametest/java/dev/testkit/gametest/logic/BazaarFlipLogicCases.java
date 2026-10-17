@@ -121,5 +121,55 @@ final class BazaarFlipLogicCases {
         c.eq("no room on the NPC limit", null, Mod.staticCall(bz, "size", "P", "P", DomainCases.book(100, 10), 120.0, 1e9,
                 64, 119.0));
         c.eq("instant buy tax", 0.0, Mod.field(bz, "INSTANT_BUY_TAX"));
+        fresh(c);
+    }
+
+    static String snapshot(long lastUpdated) {
+        return "{\"success\":true,\"lastUpdated\":" + lastUpdated + ",\"products\":{\"P\":{\"buy_summary\":"
+                + "[{\"amount\":10,\"pricePerUnit\":100.0,\"orders\":1}],\"sell_summary\":[]}}}";
+    }
+
+    /** bazaarflip-fresh-1017: the snapshot's own lastUpdated decides; a stale one is refetched once, then refused. */
+    static void fresh(LogicCase c) {
+        String api = "auction.BazaarApi";
+        String bz = "bazaarflip.BazaarFlipScanner";
+        long now = 1_792_211_042_779L;
+        Object parsed = Mod.staticCall(api, "parseInstantBuyBooks", snapshot(now - 5_000));
+        c.eq("lastUpdated parsed", now - 5_000, Mod.call(parsed, "lastUpdatedMs"));
+        java.util.function.LongSupplier clock = () -> now;
+        // Stale, then fresh: refetched once, the fresh one used.
+        int[] calls = {0};
+        java.util.function.Supplier<Object> staleThenFresh = () -> Mod.staticCall(api, "parseInstantBuyBooks",
+                snapshot(calls[0]++ == 0 ? now - 300_000 : now - 2_000));
+        Object f1 = Mod.staticCall(bz, "fetchFresh", staleThenFresh, clock);
+        c.eq("stale then fresh: two fetches", 2, calls[0]);
+        c.eq("stale then fresh: accepted", null, Mod.call(f1, "error"));
+        c.eq("stale then fresh: the fresh snapshot", now - 2_000, Mod.call(Mod.call(f1, "books"), "lastUpdatedMs"));
+        // Stale twice: refused, naming the age.
+        int[] calls2 = {0};
+        java.util.function.Supplier<Object> stale = () -> {
+            calls2[0]++;
+            return Mod.staticCall(api, "parseInstantBuyBooks", snapshot(now - 300_000));
+        };
+        Object f2 = Mod.staticCall(bz, "fetchFresh", stale, clock);
+        c.eq("stale twice: two fetches", 2, calls2[0]);
+        c.check("stale twice: refused", String.valueOf(Mod.call(f2, "error")).contains("300 s old"),
+                String.valueOf(Mod.call(f2, "error")));
+        // Fresh at once: one fetch.
+        int[] calls3 = {0};
+        java.util.function.Supplier<Object> ok = () -> {
+            calls3[0]++;
+            return Mod.staticCall(api, "parseInstantBuyBooks", snapshot(now - 1_000));
+        };
+        Object f3 = Mod.staticCall(bz, "fetchFresh", ok, clock);
+        c.eq("fresh: one fetch", 1, calls3[0]);
+        c.eq("fresh: accepted", null, Mod.call(f3, "error"));
+        // No lastUpdated at all: never trusted.
+        Object f4 = Mod.staticCall(bz, "fetchFresh", (java.util.function.Supplier<Object>) () ->
+                Mod.staticCall(api, "parseInstantBuyBooks", snapshot(0)), clock);
+        c.check("no lastUpdated: refused", Mod.call(f4, "error") != null, "accepted a snapshot with no time");
+        // The page's quote is the book + 4% (wiki; 2,339.6 -> 2,433.1 on his page).
+        c.near("quote to book", 2_339.5, (Double) Mod.staticCall("bazaarflip.BazaarFlipFeature", "bookPrice", 2_433.1), 0.1);
+        c.eq("quote margin", 0.04, Mod.field(bz, "INSTANT_BUY_QUOTE_MARGIN"));
     }
 }

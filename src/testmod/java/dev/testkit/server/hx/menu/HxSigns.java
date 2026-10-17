@@ -35,7 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *   <li>{@code amount}: line 1 is read as a whole number {@code n}. With {@code 1 <= n <= max} the purchase happens:
  *       {@code unit} (a slot spec for one unit) is given {@code n} times in stacks of {@code stack}, and the Bazaar's
  *       {@code "[Bazaar] Bought <n>x <name> for <n*each> coins!"} is sent; with {@code confirm: true} a "Confirm Instant
- *       Buy" page comes first, whose slot 13 states {@code Amount: <n>x} and {@code Price: <n*each> coins} and does
+ *       Buy" page comes first, whose slot 13 states {@code Amount: <n>x} and {@code Price: <n*each*1.04> coins} (Hypixel's 4% quote) and does
  *       the purchase when clicked. After the purchase {@code reopen} (a menu.show spec), if given, opens. Any other
  *       line 1 records {@code sign.rejected} and does nothing else.</li>
  *   <li>{@code none: true}: the click does nothing at all - the sign never opens (the stop-cleanly case).</li>
@@ -141,7 +141,8 @@ public final class HxSigns {
             item.addProperty("name", "§aCustom Amount");
             JsonArray lore = new JsonArray();
             lore.add("§7Amount: §a" + String.format(Locale.US, "%,d", n) + "§7x");
-            lore.add("§7Price: §6" + String.format(Locale.US, "%,.0f", n * each) + " coins");
+            // Hypixel quotes the book + 4% (refunded after); the Bought line charges the book price.
+            lore.add("§7Price: §6" + String.format(Locale.US, "%,.0f", n * each * 1.04) + " coins");
             lore.add("");
             lore.add("§eClick to buy!");
             item.add("lore", lore);
