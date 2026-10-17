@@ -67,7 +67,9 @@ public class SimLeverGateTests implements FabricClientGameTest {
     private static final Map<String, String[]> GATES = new LinkedHashMap<>();
 
     static {
-        GATES.put("Grass Ruin", new String[]{"32,53,7|37,52,8|37,58,12|33|iron_bars"});
+        // 2026-10-17: the upstairs lever drops the wood door across the gallery ("this lever drops this door").
+        GATES.put("Grass Ruin", new String[]{"32,53,7|37,52,8|37,58,12|33|iron_bars",
+                "32,82,3|29,63,14|35,71,14|59|oak_wood+spruce_stairs+oak_log"});
         GATES.put("Layers", new String[]{"6,76,3|5,69,10|7,73,10|13|oak_wood+spruce_stairs+iron_bars",
                 "9,90,33|46,69,47|46,72,49|12|"});
         GATES.put("Long Hall", new String[]{"21,70,28|20,84,11|22,88,11|15|"});
