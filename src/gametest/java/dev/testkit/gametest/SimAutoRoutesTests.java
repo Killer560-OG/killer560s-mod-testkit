@@ -133,7 +133,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // fullclear-1016: a path hop the server takes as an unpaired chest click's second half is sent again
             "96-ar-1016-eaten",
             // fullclear-1016: a secret got under an await-less node counts for the next await
-            "96-ar-1016-carry"};
+            "96-ar-1016-carry",
+            // fullclear-1016: a secret clicked far from the start node just before it arms is not its await's
+            "96-ar-1016-farstart"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -281,6 +283,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-museum" -> caseMuseum(ctx);
                         case "96-ar-1016-eaten" -> caseEatenHop(ctx);
                         case "96-ar-1016-carry" -> ArMainServerCases.carryPastAwaitless(ctx);
+                        case "96-ar-1016-farstart" -> ArMainServerCases.farBeforeStart(ctx);
                         case "96-ar-398-offnode" -> caseOffNode(ctx);
                         case "96-ar-398-regrow" -> caseRegrow(ctx);
                         case "96-ar-398-startawait" -> caseStartAwait(ctx);
@@ -7414,6 +7417,63 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 check(picked, "the item on #2's tile was never picked up - the run proves nothing");
                 check(onB, "#2 never warped him onto #3");
                 check(warped, "#3 never warped: the item picked up under #2 (no await) was not counted for #3's await");
+            } finally {
+                stopRoute(ctx);
+                resetRoutes(ctx);
+            }
+        }
+
+        /**
+         * fullclear-1016 run 010 (Museum): Secret Aura took the last room's skull as the map's warp left it, 9 ticks before
+         * the start node armed, and START_LOOKBACK counted it for #1's await - 50 blocks away - so the route left the chest
+         * beside #1 behind. A chest clicked 16 blocks from the start node a few ticks before it arms must not meet its
+         * await; the chest beside it, clicked after, must. Main: met by the far chest at once.
+         */
+        static void farBeforeStart(ClientGameTestContext ctx) {
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+            resetRoutes(ctx);
+            forgetRunMemory(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            Map<int[], BlockState> put = new LinkedHashMap<>();
+            put.put(new int[]{22, F, 22}, Blocks.CHEST.defaultBlockState());
+            put.put(new int[]{8, F, 7}, Blocks.CHEST.defaultBlockState());
+            setBlocks(ctx, put);
+            JsonObject a = ew(6, 6, 14, 6, true);
+            a.addProperty("awaitEnabled", true);
+            a.addProperty("await", "SECRET");
+            a.addProperty("amount", 1);
+            long w = LogTap.mark();
+            writeRoute(ctx, List.of(a, ew(14, 6, 14, 14, false)));
+            waitFor(ctx, 100, () -> logHas(w, "Loaded 1 route"));
+            try {
+                tpRel(ctx, 21.5, 21.5, 0f, 30f);
+                ctx.waitTicks(5);
+                long m = LogTap.mark();
+                rightClick(ctx, 22, F, 22, Direction.UP);
+                ctx.runOnClient(mc -> mc.player.closeContainer());
+                tpRel(ctx, 6.5, 6.5, relYawTo(6, 6, 14, 6), pitchTo(6, 6, 14, 6));
+                boolean started = waitFor(ctx, 40, () -> logHas(m, "Started \""));
+                ctx.waitTicks(20);
+                boolean metEarly = logHas(m, "secrets met");
+                boolean notIts = logHas(m, "not its");
+                long m2 = LogTap.mark();
+                rightClick(ctx, 8, F, 7, Direction.UP);
+                ctx.runOnClient(mc -> mc.player.closeContainer());
+                boolean metNear = waitFor(ctx, 40, () -> logHas(m2, "secrets met"));
+                stopRoute(ctx);
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("await") || l.contains("Started")) {
+                        println("  " + l);
+                    }
+                }
+                println("farstart: started " + started + ", met by the far chest " + metEarly + ", \"not its\" " + notIts
+                        + ", met by the chest beside it " + metNear);
+                check(started, "the start node never armed");
+                check(!metEarly, "a chest clicked 16 blocks from the start node before it armed met its await");
+                check(notIts, "no \"not its\" line - the far click never reached the lookback, so this proves nothing");
+                check(metNear, "the chest beside the start node, clicked after it armed, did not meet the await");
             } finally {
                 stopRoute(ctx);
                 resetRoutes(ctx);

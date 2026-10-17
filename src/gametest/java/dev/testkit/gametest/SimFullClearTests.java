@@ -447,6 +447,9 @@ public class SimFullClearTests implements FabricClientGameTest {
                 t.noLanding++;
                 t.events.add(clip(l));
             }
+            if (l.contains("Kill Mimic done: timed out")) {
+                t.problems.add("Kill Mimic never killed the mimic: " + clip(l));
+            }
             if (l.contains("start node did not arm")) {
                 t.unarmed++;
                 t.events.add(clip(l));
