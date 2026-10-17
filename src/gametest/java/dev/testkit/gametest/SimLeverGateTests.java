@@ -85,16 +85,39 @@ public class SimLeverGateTests implements FabricClientGameTest {
                 "13,131,8|30,117,20|34,125,21|90|", "54,142,52|52,139,55|54,139,57|9|"});
         GATES.put("Water", new String[]{"16,70,8|7,69,5|8,72,6|16|"});
         GATES.put("Withermancer", new String[]{"25,61,4|27,111,15|27,117,17|19|iron_bars"});
+        // 2026-10-17: the cobblestone WALL lattices, Buttons' two levers, and the sweep's rooms as he confirmed them.
+        GATES.put("Rails", new String[]{"46,71,24|54,49,42|58,54,42|21|cobblestone_wall"});
+        GATES.put("Spider", new String[]{"28,93,33|21,83,31|21,87,35|16|cobblestone_wall"});
+        GATES.put("Buttons", new String[]{"59,70,37|30,73,18|30,76,20|12|", "43,81,58|56,80,16|58,88,16|27|"});
+        GATES.put("End", new String[]{"8,84,6|14,69,11|18,76,11|40|"});
+        GATES.put("Gravel", new String[]{"5,69,64|19,69,34|21,73,34|15|"});
+        GATES.put("Dip", new String[]{"5,79,20|17,78,17|18,82,18|20|"});
+        GATES.put("Lava Ravine", new String[]{"43,84,55|7,88,38|11,92,38|25|"});
+        GATES.put("Lots Of Floors", new String[]{"19,62,17|20,76,25|21,81,27|36|"});
+        GATES.put("Museum", new String[]{"54,84,27|48,69,30|48,77,34|45|"});
+        GATES.put("Rare Pillars", new String[]{"7,88,28|11,69,11|11,75,13|21|"});
+        GATES.put("Red Green", new String[]{"2,61,16|8,74,15|8,77,17|12|"});
+        GATES.put("Red Blue", new String[]{"55,69,6|57,69,12|60,74,12|24|"});
+        // The 2026-10-12 lever and the route's other one both drop the oak log door (his /simwhere: capture 8,81,25).
+        GATES.put("Atlas", new String[]{"61,90,34|7,80,25|9,83,26|24|"});
+        GATES.put("Criss Cross", new String[]{"16,75,2|15,66,14|17,70,14|14|oak_log"});
     }
 
     private static final String[] ROOM_CASES = {"1963-sim-gate-layers", "1964-sim-gate-long-hall",
             "1965-sim-gate-mines", "1966-sim-gate-mossy", "1967-sim-gate-overgrown", "1968-sim-gate-pipes",
             "1969-sim-gate-pirate", "1970-sim-gate-pressure-plates", "1971-sim-gate-purple-flags",
             "1972-sim-gate-redstone-crypt", "1973-sim-gate-redstone-key", "1974-sim-gate-supertall",
-            "1975-sim-gate-water", "1976-sim-gate-withermancer"};
+            "1975-sim-gate-water", "1976-sim-gate-withermancer",
+            // 2026-10-17 (sim-rails-spider-1017)
+            "1981-sim-gate-rails", "1982-sim-gate-spider", "1983-sim-gate-buttons", "1984-sim-gate-end",
+            "1985-sim-gate-gravel", "1986-sim-gate-dip", "1987-sim-gate-criss-cross", "1988-sim-gate-lava-ravine",
+            "1989-sim-gate-lots-of-floors", "1990-sim-gate-museum",
+            "1991-sim-gate-rare-pillars", "1992-sim-gate-red-green",
+            "1993-sim-gate-red-blue", "1994-sim-gate-atlas"};
     private static final String[] ROOM_OF_CASE = {"Layers", "Long Hall", "Mines", "Mossy", "Overgrown", "Pipes",
             "Pirate", "Pressure Plates", "Purple Flags", "Redstone Crypt", "Redstone Key", "Supertall", "Water",
-            "Withermancer"};
+            "Withermancer", "Rails", "Spider", "Buttons", "End", "Gravel", "Dip", "Criss Cross", "Lava Ravine",
+            "Lots Of Floors", "Museum", "Rare Pillars", "Red Green", "Red Blue", "Atlas"};
 
     private static UUID playerId;
     private static final List<String> RESULTS = new ArrayList<>();
@@ -107,6 +130,7 @@ public class SimLeverGateTests implements FabricClientGameTest {
         all.addAll(Arrays.asList(ROOM_CASES));
         all.add("1977-sim-gate-floor");
         all.add("1979-sim-gate-reset");
+        all.add("1980-sim-gate-where");
         all.add("1961-sim-gate-sweep");
         for (String c : all) {
             if (!Scenario.skip(c)) {
@@ -145,6 +169,7 @@ public class SimLeverGateTests implements FabricClientGameTest {
                         case "1977-sim-gate-floor" -> caseFloor(ctx);
                         case "1978-sim-gate-survey" -> caseSurvey(ctx);
                         case "1979-sim-gate-reset" -> caseReset(ctx);
+                        case "1980-sim-gate-where" -> caseWhere(ctx);
                         default -> {
                             int i = Arrays.asList(ROOM_CASES).indexOf(c);
                             String room = ROOM_OF_CASE[i];
@@ -260,6 +285,74 @@ public class SimLeverGateTests implements FabricClientGameTest {
         check(armed >= 3, "only " + armed + " lever(s) armed on a floor holding Grass Ruin and Layers");
         gates(ctx, "1977-sim-gate-floor Grass Ruin", "Grass Ruin", GATES.get("Grass Ruin"));
         gates(ctx, "1977-sim-gate-floor Layers", "Layers", GATES.get("Layers"));
+    }
+
+    // ============================================================================================ 1980
+
+    /**
+     * /simwhere names the room for every block of its walls and edges (killer560, 2026-10-16: on Spider's facade and
+     * Atlas' log wall it said "not inside any placed room"). For each room built alone: every column of the capture's
+     * outer ring and of the ring one in, at the room's door height, must be named as that room. Then the points he
+     * /simwhere'd are read back: Rails' wall at world (-81, -57, -95) must be capture (56, 51, 42), which also proves
+     * the solo build lands where his did, and Spider's (-116, -4, -104) and Atlas' (-129, -30, -112) are printed.
+     */
+    private void caseWhere(ClientGameTestContext ctx) {
+        String[][] rooms = {{"Rails", "-81,-57,-95"}, {"Spider", "-116,-4,-104"}, {"Atlas", "-129,-30,-112"},
+                {"Buttons", ""}};
+        List<String> bad = new ArrayList<>();
+        for (String[] r : rooms) {
+            String room = r[0];
+            build(ctx, room);
+            int[] size = roomSize(ctx, room);
+            int checked = 0;
+            int wrong = 0;
+            String firstWrong = null;
+            for (int ring = 0; ring <= 1; ring++) {
+                for (int x = ring; x < size[0] - ring; x++) {
+                    for (int z = ring; z < size[1] - ring; z++) {
+                        if (x != ring && x != size[0] - 1 - ring && z != ring && z != size[1] - 1 - ring) {
+                            continue;
+                        }
+                        BlockPos w = capW(ctx, room, x, 70, z);
+                        String named = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(
+                                "com.killer560.hub.roomsim.SimWhere", "roomNameAt",
+                                new Class<?>[]{BlockPos.class}, new Object[]{w}));
+                        checked++;
+                        if (!room.equals(named)) {
+                            wrong++;
+                            if (firstWrong == null) {
+                                firstWrong = "capture " + x + ",70," + z + " -> " + named;
+                            }
+                        }
+                    }
+                }
+            }
+            say("1980 " + room + ": " + checked + " edge column(s), " + wrong + " not named " + room
+                    + (firstWrong == null ? "" : " (first: " + firstWrong + ")"));
+            if (wrong > 0) {
+                bad.add(room + " " + wrong + "/" + checked);
+            }
+            if (!r[1].isEmpty()) {
+                int[] p = ints(r[1]);
+                BlockPos his = new BlockPos(p[0], p[1], p[2]);
+                String named = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(
+                        "com.killer560.hub.roomsim.SimWhere", "roomNameAt", new Class<?>[]{BlockPos.class},
+                        new Object[]{his}));
+                int[] local = ctx.computeOnClient(mc -> (int[]) ModUnderTest.staticCall(
+                        "com.killer560.hub.roomsim.SimWhere", "captureLocalAt", new Class<?>[]{BlockPos.class},
+                        new Object[]{his}));
+                String block = blockName(ctx, his);
+                say("1980 " + room + ": his /simwhere point " + his.toShortString() + " is " + block + ", named " + named
+                        + ", capture-local " + (local == null ? "none" : local[0] + "," + local[1] + "," + local[2]));
+                if (!room.equals(named)) {
+                    bad.add(room + " his point named " + named);
+                }
+                if (room.equals("Rails") && (local == null || local[0] != 56 || local[1] != 51 || local[2] != 42)) {
+                    bad.add("Rails' point is not capture 56,51,42 - the solo build is not where his was");
+                }
+            }
+        }
+        check(bad.isEmpty(), "/simwhere: " + bad);
     }
 
     // ============================================================================================ 1979

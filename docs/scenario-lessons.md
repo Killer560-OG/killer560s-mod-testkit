@@ -956,6 +956,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   reach by distance to the lever's block BOX, not its centre (Purple Flags' hanging lever is 4.4 / 4.9). The numbers
   1781-1798 were taken first and collided with 1790-sim-map-leave-secrets - a filter of bare digits ran another class's
   cases; grep the testkit for a number before using it.
+- 1980-1994 (sim-rails-spider-1017, same class): 1980 checks `/simwhere` (`SimWhere.roomNameAt`) on every column of each
+  solo room's two outer rings, and reads his own /simwhere points back - Rails' world (-81,-57,-95) must be capture
+  (56,51,42), which also proves a solo build lands where his did, so his world coordinates can be turned into capture ones
+  this way. 1981-1994 are the wall-lattice gates (Rails, Spider), Buttons' two levers and the sweep's rooms. 1408 now
+  asks for at least its levers armed, since Buttons has a second one.
 - 1790-sim-map-leave-secrets (`SimMapLeaveSecretsTests`, mod sim-map-secrets-1016, 2026-10-16): a room's last secret
   collected as he leaves must still show on the map. Two-room map code (R with the secret, NORMAL door, 1x1 B); the server
   is told all but one of R's secrets, the map must read (N-1)/N, then the last is collected for real and an END_SERVER_TICK
