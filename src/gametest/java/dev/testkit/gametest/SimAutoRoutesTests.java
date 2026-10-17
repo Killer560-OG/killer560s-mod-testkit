@@ -138,6 +138,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1016-farstart",
             // fullclear-1016: a warp the server refused is aimed again and sent once more, not waited 61 ticks
             "96-ar-1016-refused",
+            "96-ar-1016-batowner",
             // aura-skull-place-1016: the Redstone Key counts for an await on its PLACING, by hand or by Secret Aura
             "96-ar-1016-keyawait", "96-ar-1016-keyaura", "96-ar-1016-keyreach",
             "96-ar-1016-auranoawait", "96-ar-1016-auraawait"};
@@ -290,6 +291,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1016-carry" -> ArMainServerCases.carryPastAwaitless(ctx);
                         case "96-ar-1016-farstart" -> ArMainServerCases.farBeforeStart(ctx);
                         case "96-ar-1016-refused" -> ArMainServerCases.refusedWarp(ctx);
+                        case "96-ar-1016-batowner" -> ArMainServerCases.batOwnedByBatNode(ctx);
                         case "96-ar-398-offnode" -> caseOffNode(ctx);
                         case "96-ar-398-regrow" -> caseRegrow(ctx);
                         case "96-ar-398-startawait" -> caseStartAwait(ctx);
@@ -7554,6 +7556,74 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     }
                 });
                 stopRoute(ctx);
+                resetRoutes(ctx);
+            }
+        }
+
+        /**
+         * fullclear-1016 runs 019/026 (his Doors): #7 waits for its two levers, the room's secret bat appeared 8.6 blocks
+         * off while it waited and counted as one of the two, #7 moved on with one lever, and the way the second opens
+         * stayed shut (#13's hop 3 refused at it). The bat is #9 BAT's kill. Here #1 (start) warps onto #2, which awaits
+         * one secret; a secret bat appears 6 blocks from #2; #3 is a BAT node. Main: the bat met #2's await. Fixed: #2
+         * waits until the chest beside it is clicked.
+         */
+        static void batOwnedByBatNode(ClientGameTestContext ctx) {
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+            resetRoutes(ctx);
+            forgetRunMemory(ctx);
+            clearSecretBats(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            giveSlot(ctx, 4, "HYPERION");
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            setBlocks(ctx, Map.of(new int[]{15, F, 7}, Blocks.CHEST.defaultBlockState()));
+            JsonObject b = ew(14, 6, 14, 14, false);
+            b.addProperty("awaitEnabled", true);
+            b.addProperty("await", "SECRET");
+            b.addProperty("amount", 1);
+            JsonObject bat = node("BAT", 14, 14, 0f, 30f);
+            long w = LogTap.mark();
+            writeRoute(ctx, List.of(ew(6, 6, 14, 6, true), b, bat));
+            waitFor(ctx, 100, () -> logHas(w, "Loaded 1 route"));
+            BlockPos spot = realNow(ctx, 16, F + 2, 12);
+            ctx.runOnClient(mc -> mc.getSingleplayerServer().execute(() -> ModUnderTest.staticCall(
+                    "com.killer560.hub.roomsim.SimSecretItems", "registerBat", new Class<?>[]{BlockPos.class},
+                    new Object[]{spot})));
+            try {
+                long m = LogTap.mark();
+                check(armChain(ctx), "the route did not start");
+                boolean onB = waitLanded(ctx, 14, 6, 60) != null;
+                boolean appeared = waitFor(ctx, 60, () -> ctx.computeOnClient(mc -> {
+                    for (var e : mc.level.entitiesForRendering()) {
+                        if (e instanceof net.minecraft.world.entity.ambient.Bat a && a.getMaxHealth() == 100f
+                                && !a.isDeadOrDying()) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }));
+                ctx.waitTicks(20);
+                boolean metByBat = logHas(m, "secrets met");
+                boolean owned = logHas(m, "BAT awaits its kill");
+                long m2 = LogTap.mark();
+                rightClick(ctx, 15, F, 7, Direction.UP);
+                ctx.runOnClient(mc -> mc.player.closeContainer());
+                boolean metByChest = waitFor(ctx, 40, () -> logHas(m2, "secrets met"));
+                stopRoute(ctx);
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("await") || l.contains("Landed")) {
+                        println("  " + l);
+                    }
+                }
+                println("batowner: on #2 " + onB + ", bat appeared " + appeared + ", #2 met by the bat " + metByBat
+                        + ", \"BAT awaits its kill\" " + owned + ", met by the chest " + metByChest);
+                check(onB, "#1 never warped him onto #2");
+                check(appeared, "the secret bat never appeared - the run proves nothing");
+                check(!metByBat, "the bat appearing met #2's secret await although #3 BAT awaits its kill");
+                check(metByChest, "the chest beside #2 did not meet its await");
+            } finally {
+                stopRoute(ctx);
+                clearSecretBats(ctx);
                 resetRoutes(ctx);
             }
         }
