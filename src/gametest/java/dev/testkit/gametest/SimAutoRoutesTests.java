@@ -138,7 +138,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1016-farstart",
             // aura-skull-place-1016: the Redstone Key counts for an await on its PLACING, by hand or by Secret Aura
             "96-ar-1016-keyawait", "96-ar-1016-keyaura", "96-ar-1016-keyreach",
-            "96-ar-1016-auranoawait", "96-ar-1016-auraawait"};
+            "96-ar-1016-auranoawait", "96-ar-1016-auraawait",
+            // ar-bridges-bat-1017: his Bridges route runs to the end (no warp eaten after the breaker); Kill Mimic aims
+            "96-ar-1017-bridges", "96-ar-1017-mimicaim"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -332,6 +334,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1013-bat" -> caseBatNode(ctx);
                         case "96-ar-1015-batpresent" -> caseBatPresent(ctx);
                         case "96-ar-1015-batseek" -> caseBatSeek(ctx);
+                        case "96-ar-1017-bridges" -> caseBridges(ctx);
+                        case "96-ar-1017-mimicaim" -> caseMimicAim(ctx);
                         case "96-ar-1015-cryptaim" -> caseCryptAim(ctx);
                         case "96-ar-1013-breakerfall" -> caseBreakerFall(ctx);
                         case "96-ar-786-obvious-only" -> caseObviousOnly(ctx);
@@ -2792,6 +2796,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         resetRoutes(ctx);
         arena(ctx, false);
         giveHotbar(ctx);
+        // No Dungeon Breaker: with one in the hotbar the route pairs the chest click with a breaker use before the warp
+        // (mod ar-bridges-bat-1017, case 96-ar-1017-bridges) and nothing is eaten. This case keeps the resend, the
+        // fallback when there is no breaker to pair it with.
+        giveSlot(ctx, 2, null);
         int[] chest = {8, F, 23};
         Map<int[], BlockState> put = new LinkedHashMap<>();
         put.put(new int[]{7, F + 2, 20}, Blocks.STONE.defaultBlockState());
@@ -4628,6 +4636,200 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", attack0));
         }
         check(failures.isEmpty(), String.join("; ", failures));
+    }
+
+    // ============================================================================================ ar-bridges-bat-1017
+
+    /** killer560's Bridges route, exact (his Mod Only Test config, 2026-10-17 22:36): node #2's breaker and #15's path
+     *  warp down the hole it opens share a tile; #1 waits on the room's lever. */
+    private static final String BRIDGES_ROUTE = "[\n" + """
+            {"type":"ETHERWARP","x":55.5,"y":59.0,"z":28.5,"yaw":172.139282,"pitch":15.579375,"at":0,"start":true,"awaitEnabled":true,"await":"SECRET","amount":1,"landing":"54.500000 58.050000 20.500000"},
+            {"type":"DUNGEON_BREAKER","x":54.5,"y":58.0,"z":20.5,"yaw":168.061768,"pitch":58.937447,"at":0,"blocks":["54 57 19","53 56 19","53 57 19","54 56 19","53 56 18","53 55 19","53 55 18","54 55 19"]},
+            {"type":"ETHERWARP","x":52.5,"y":52.0,"z":16.5,"yaw":-20.968414,"pitch":-50.136463,"at":0,"awaitEnabled":true,"await":"SECRET","amount":2,"landing":"53.500000 58.050000 20.500000"},
+            {"type":"PATH","x":53.5,"y":58.0,"z":20.5,"yaw":36.497559,"pitch":11.794393,"at":0,"planFrom":"53.500000 58.000000 20.500000","planTo":"5.500000 81.000000 16.500000","planBreakers":105664870,"hops":["53.500000 58.000000 20.500000 -90.000000 23.428692 56 57 20 56.500000 58.050000 20.500000","56.500000 58.050000 20.500000 66.710320 -20.970448 34 68 29 34.500000 69.050000 29.500000","34.500000 69.050000 29.500000 137.763855 -29.573301 20 81 14 20.500000 82.050000 14.500000","20.500000 82.050000 14.500000 83.246429 8.728604 5 80 16 5.500000 81.050000 16.500000"]},
+            {"type":"PATH","x":5.5,"y":81.0,"z":16.5,"yaw":-98.815849,"pitch":22.277227,"at":0},
+            {"type":"PATH","x":5.5,"y":81.0,"z":16.5,"yaw":-96.874557,"pitch":-14.80362,"at":0,"awaitEnabled":true,"await":"SECRET","amount":1,"planFrom":"5.500000 81.000000 16.500000","planTo":"46.500000 93.000000 4.500000","planBreakers":105664870,"hops":["5.500000 81.000000 16.500000 -92.489555 -3.355996 51 84 14 51.500000 85.050000 14.500000","51.500000 85.050000 14.500000 154.472961 -28.041466 46 92 4 46.500000 93.050000 4.500000"]},
+            {"type":"PATH","x":46.5,"y":93.0,"z":4.5,"yaw":175.308746,"pitch":-57.579319,"at":0},
+            {"type":"DUNGEON_BREAKER","x":46.5,"y":93.0,"z":4.5,"yaw":-37.211945,"pitch":83.593491,"at":0,"blocks":["46 92 5"]},
+            {"type":"BAT","x":46.5,"y":93.0,"z":4.5,"yaw":-12.427582,"pitch":90.0,"at":0,"awaitEnabled":true,"await":"SECRET","amount":1},
+            {"type":"PATH","x":46.5,"y":93.0,"z":4.5,"yaw":-13.915924,"pitch":69.162292,"at":0,"planFrom":"46.500000 93.000000 4.500000","planTo":"51.500000 81.000000 16.500000","planBreakers":-1019348623,"hops":["46.500000 93.000000 4.500000 -18.434948 64.567490 48 80 10 48.500000 81.050000 10.500000","48.500000 81.050000 10.500000 -24.304550 11.224161 51 80 16 51.500000 81.050000 16.500000"]},
+            {"type":"PATH","x":51.5,"y":81.0,"z":16.5,"yaw":-93.127716,"pitch":83.464195,"at":0},
+            {"type":"DUNGEON_BREAKER","x":51.5,"y":81.0,"z":16.5,"yaw":-88.856384,"pitch":19.591917,"at":0,"blocks":["52 82 16","52 81 16","53 82 16","53 81 16","54 82 16","55 81 16","55 82 16","54 81 16"]},
+            {"type":"ETHERWARP","x":51.5,"y":81.0,"z":16.5,"yaw":-89.31015,"pitch":19.332996,"at":0,"landing":"55.500000 81.050000 16.500000"},
+            {"type":"ETHERWARP","x":55.5,"y":81.0,"z":16.5,"yaw":89.881683,"pitch":12.214493,"at":0,"awaitEnabled":true,"await":"SECRET","amount":1,"landing":"49.500000 81.050000 16.500000"},
+            {"type":"PATH","x":54.5,"y":58.0,"z":20.5,"yaw":161.977875,"pitch":82.97905,"at":0,"planFrom":"54.500000 58.000000 20.500000","planTo":"52.500000 52.000000 16.500000","planBreakers":-1128850443,"hops":["54.500000 58.000000 20.500000 155.308441 56.740917 52 51 16 52.500000 52.050000 16.500000"]},
+            {"type":"PATH","x":52.5,"y":52.0,"z":16.5,"yaw":147.935181,"pitch":75.92527,"at":0}
+            """ + "]";
+
+    /**
+     * killer560 (2026-10-17): "In Bridges ... after the second dungeon breaker I cannot get it to make that etherwarp ...
+     * if it stalls out then it works." His route, exact, in the sim's Bridges, with Secret Aura and Kill Mimic as he
+     * plays. Secret Aura flips #1's lever with the Aspect of the Void in hand; #1's warp goes as a right click in the air,
+     * so the lever click stays unpaired on the server. #2's breaker opens the hole, and #15's warp down it passes 0.27
+     * under the rim from the client's 1.27 eye while the 1.8 server's 1.54 ray meets the rim: on main the warp is taken as
+     * the lever click's second half and dropped (a resend a round trip later, on a jar from before 2026-10-16 the 61-tick
+     * timeout). Fixed: a Dungeon Breaker use pairs the click first and the warp lands the tick after, nothing dropped.
+     * The whole route must then run to its end with every secret it routes.
+     */
+    private void caseBridges(ClientGameTestContext ctx) {
+        String saved = room;
+        resetRoutes(ctx);
+        forgetRunMemory(ctx);
+        room = "Bridges";
+        try {
+            buildRoom(ctx, 0);
+            giveHotbar(ctx);                // AOTV 1, Superboom 2, Dungeon Breaker 3, empty 4
+            giveSlot(ctx, 4, "BAT_WAND");   // the Spirit Sceptre
+            setArEnum(ctx, "setKillMimic", "KillMimic", "SPIRIT_SCEPTRE");
+            setArEnum(ctx, "setBatWeapon", "CryptWeapon", "SPIRIT_SCEPTRE");
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CHEAT_CFG), "setSecretAuraEnabled", true));
+            List<JsonObject> nodes = new ArrayList<>();
+            for (JsonElement e : JsonParser.parseString(BRIDGES_ROUTE).getAsJsonArray()) {
+                nodes.add(e.getAsJsonObject());
+            }
+            writeRoute(ctx, nodes);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+            long m = LogTap.mark();
+            startSampling(ctx);
+            tpRelY(ctx, 55.5, 59.0, 28.5, 172.139282f, 15.579375f);   // onto start node #1
+            boolean ended = waitFor(ctx, 1200, () -> logHas(m, "Route \"Bridges\" complete") || logHas(m, "Stopped"));
+            ctx.waitTicks(10);
+            stopSampling(ctx);
+            int dropped = 0;
+            int breakerPaired = 0;
+            int essences = 0;
+            for (String l : LogTap.since(m)) {
+                if (l.contains("[STDOUT]")) {
+                    continue;
+                }
+                // A warp eaten as the lever click's second half. The fix's own Dungeon Breaker use is dropped by the sim on
+                // purpose (that is the pairing), so only an etherwarp item's use counts here.
+                if (l.contains("dropped, as on Hypixel") && l.contains("use of ASPECT_OF_THE_VOID")) {
+                    dropped++;
+                }
+                if (l.contains("dropped, as on Hypixel") && l.contains("use of DUNGEONBREAKER")) {
+                    breakerPaired++;
+                }
+                if (l.contains("Wither essence collected")) {
+                    essences++;
+                }
+                if (l.contains("[AutoRoutes]") && (l.contains("acted") || l.contains("landed") || l.contains("paired")
+                        || l.contains("await") || l.contains("Stack of") || l.contains("Stopped") || l.contains("complete")
+                        || l.contains("no landing") || l.contains("again") || l.contains("Kill Mimic"))
+                        || l.contains("dropped") || l.contains("collected") || l.contains("[RightClick] use")) {
+                    println("bridges log: " + l);
+                }
+            }
+            boolean paired = logHas(m, "paired the block click at");
+            boolean resent = logHas(m, "sending the warp again");
+            boolean timedOut = logHas(m, "no landing after");
+            boolean complete = logHas(m, "Route \"Bridges\" complete");
+            int i15 = logIndex(m, "Node #15 PATH: all 1 warp(s) landed");
+            println(String.format(Locale.US, "bridges: ended %s, complete %s, lever click paired first %s (sim paired %d breaker use(s)), "
+                            + "warp uses dropped %d, "
+                            + "resent %s, timed out %s, #15 landed %s, essences %d, bat %s, mimic/chest %s, item %s", ended,
+                    complete, paired, breakerPaired, dropped, resent, timedOut, i15 >= 0, essences,
+                    logHas(m, "secret bat killed"), logHas(m, "Node #6 PATH: await 1/1"), logHas(m, "item picked up by you")));
+            check(paired || dropped > 0, "the lever click was neither paired nor a warp dropped - the case never happened");
+            check(!paired || breakerPaired == 1, "the Dungeon Breaker use was logged as sent but the sim's server paired "
+                    + breakerPaired + " breaker use(s) with the lever click");
+            check(dropped == 0, dropped + " use(s) dropped as the lever click's second half (the warp down the hole)");
+            check(!resent && !timedOut, "a warp had to be sent again or timed out (resent " + resent + ", timed out "
+                    + timedOut + ")");
+            check(i15 >= 0, "#15's path warp down the hole never landed");
+            check(complete, "the route did not run to its end");
+            check(essences >= 2, "only " + essences + " wither essence(s) collected");
+            check(logHas(m, "secret bat killed"), "#9's secret bat was not killed");
+            check(logHas(m, "Node #6 PATH: await 1/1"), "#6's await (the chest / mimic) was not met");
+            check(logHas(m, "item picked up by you"), "#14's item was not picked up");
+        } finally {
+            try {
+                stopRoute(ctx);
+            } catch (Throwable ignored) {
+                // the rebuild below matters more
+            }
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+            setArEnum(ctx, "setKillMimic", "KillMimic", "OFF");
+            setArEnum(ctx, "setBatWeapon", "CryptWeapon", "HYPERION");
+            forgetRunMemory(ctx);
+            resetRoutes(ctx);
+            room = saved;
+            buildRoom(ctx, 0);
+        }
+    }
+
+    /**
+     * killer560 (2026-10-17, for every room): Kill Mimic with the Spirit Sceptre sends its first two uses straight down,
+     * then aims the rest AT the mimic. Chains' trapped chest is six blocks over where he stands, so a floor blast (radius
+     * 6) never reaches its mimic: 51 uses down in his log, then the 5-s timeout. Built here: a trapped chest six blocks up
+     * and two across. The server must take two uses at pitch 90.0, then uses pointed up at the mimic, and the mimic must
+     * die after an aimed use, not to the first two.
+     */
+    private void caseMimicAim(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        giveSlot(ctx, 5, "BAT_WAND");
+        setArEnum(ctx, "setKillMimic", "KillMimic", "SPIRIT_SCEPTRE");
+        int mx = 14;
+        int mz = 8;
+        int my = F + 6;
+        try {
+            setBlocks(ctx, Map.of(new int[]{mx, my, mz}, Blocks.TRAPPED_CHEST.defaultBlockState()));
+            BlockPos p = realNow(ctx, mx, my, mz);
+            try {
+                Class<?> c = Class.forName(SIM_MIMIC);
+                var f = c.getDeclaredField("mimic");
+                f.setAccessible(true);
+                f.set(null, p);
+                var found = c.getDeclaredField("found");
+                found.setAccessible(true);
+                found.set(null, false);
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));   // the AOTV, as Secret Aura has it
+            tpRel(ctx, mx + 2.5, mz + 2.5, 0f, -50f);
+            ctx.waitTicks(5);
+            long m = LogTap.mark();
+            startSampling(ctx);
+            rightClick(ctx, mx, my, mz, Direction.DOWN);
+            boolean killed = waitFor(ctx, 200, () -> logHas(m, "Mimic of the trapped chest"));
+            ctx.waitTicks(5);
+            stopSampling(ctx);
+            List<float[]> aims = serverUseAims(m);
+            StringBuilder sb = new StringBuilder();
+            for (int k = 0; k < Math.min(aims.size(), 8); k++) {
+                sb.append(String.format(Locale.US, " (%.2f, %.2f)", aims.get(k)[0], aims.get(k)[1]));
+            }
+            if (aims.size() > 8) {
+                sb.append(" ... ").append(aims.size()).append(" in all");
+            }
+            for (String l : LogTap.since(m)) {
+                if (!l.contains("[STDOUT]") && (l.contains("Kill Mimic") || l.contains("Mimic of"))) {
+                    println("mimicaim log: " + l);
+                }
+            }
+            int iAimed = logIndex(m, "used at the mimic");
+            int iKill = logIndex(m, "Mimic of the trapped chest");
+            println("mimicaim: server uses (pitch, yaw)" + sb + ", killed " + killed + ", first aimed use @" + iAimed
+                    + ", kill @" + iKill);
+            check(logHas(m, "watching for its mimic"), "the trapped-chest click was not seen");
+            check(aims.size() >= 3, "the server took only " + aims.size() + " Spirit Sceptre use(s) - the mimic died to "
+                    + "the straight-down ones (nothing aimed was measured)");
+            check(aims.get(0)[0] == 90.0f && aims.get(1)[0] == 90.0f, "the first two uses were not at pitch 90.0:" + sb);
+            for (int k = 2; k < aims.size(); k++) {
+                check(aims.get(k)[0] < 0f, "use " + (k + 1) + " was at pitch " + aims.get(k)[0]
+                        + " - not aimed up at the mimic:" + sb);
+            }
+            check(killed, "the mimic did not die to the aimed uses");
+            check(iAimed >= 0 && iKill > iAimed, "the mimic did not die after an aimed use (aimed @" + iAimed + ", kill @"
+                    + iKill + ")");
+        } finally {
+            setArEnum(ctx, "setKillMimic", "KillMimic", "OFF");
+            killMimicOnServer(ctx);
+            ctx.waitTicks(10);
+        }
     }
 
     // ============================================================================================ crypt-aim (2026-10-15)
