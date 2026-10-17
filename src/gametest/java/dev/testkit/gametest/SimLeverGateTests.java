@@ -227,7 +227,9 @@ public class SimLeverGateTests implements FabricClientGameTest {
         String chestBlock = blockName(ctx, chest);
         say("Grass Ruin before: way through the window open " + openBefore + ", chest " + chestBlock);
         check(!openBefore, "the window is already passable before the lever");
-        check(chestBlock.equals("chest"), "no chest at capture 60,55,17 - it is " + chestBlock);
+        // A trapped chest when the floor's mimic landed on it.
+        check(chestBlock.equals("chest") || chestBlock.equals("trapped_chest"),
+                "no chest at capture 60,55,17 - it is " + chestBlock);
         gates(ctx, "1962-sim-gate-grassruin", room, GATES.get(room));
         boolean openAfter = passable(ctx, low) && passable(ctx, high);
         String a = blockName(ctx, cornerA);
@@ -439,7 +441,7 @@ public class SimLeverGateTests implements FabricClientGameTest {
             double bestD = 99;
             for (int dx = -3; dx <= 3; dx++) {
                 for (int dz = -3; dz <= 3; dz++) {
-                    for (int dy = -4; dy <= 2; dy++) {
+                    for (int dy = -7; dy <= 2; dy++) {
                         BlockPos f = lever.offset(dx, dy, dz);
                         if (f.equals(lever) || f.above().equals(lever)) {
                             continue;
