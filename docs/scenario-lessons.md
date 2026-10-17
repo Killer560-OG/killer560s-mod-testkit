@@ -954,3 +954,6 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   whole run, so each case needs its own key spot: keyreach first reused keyaura's (13, F, 14) and the aura never clicked it
   ("premise: Secret Aura did not take the key"). 1415 and 848 also open an `AwaitEvents` window and require exactly one
   secret for the placing and none for the pickup.
+- 93-solve-boulder-speed-*, -*blaze-speed, -<room>-resume, 1016-grim-puzzle-speed (2026-10-16): his sim speed 600, every
+  rotation, done-to-resume per puzzle, and the Boulder run out and Blaze move-ahead on GrimAC - see docs/solve.md "Speed round".
+  An earlier case's "PUZZLE SOLVED!" line can reach LogTap after the next case's mark: match chat by the room's name.
