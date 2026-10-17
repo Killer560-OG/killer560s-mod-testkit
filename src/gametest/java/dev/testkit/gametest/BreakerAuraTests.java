@@ -1,5 +1,6 @@
 package dev.testkit.gametest;
 
+import dev.testkit.harness.PacketTrace;
 import dev.testkit.harness.PacketWatch;
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
@@ -73,6 +74,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
     private static final int BEHIND_CX = 30;
     private static final int BEHIND_CZ = -30;
     private static final int FLOOR_CX = -30;
+    private static final int SWAP_CX = 60;
+    private static final int SWAP_CZ = 30;
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -86,6 +89,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
         highSpeedDesync(ctx);
         // Picked blocks beside him break; unpicked ones, even in his way or under his feet, never do.
         pickedSideAndFloor(ctx);
+        // Auto Swap: the breaker comes to hand, breaks, and Swap Back returns the slot (hotbar-select-rest-1016).
+        autoSwap(ctx);
         // The floor cases repeat -PfloorRepeat=N times (default 1): the GroundSpoof they chase was intermittent,
         // so one verdict is not a measurement. Repeats are named "#k" so the filter still selects them.
         int repeat = Integer.getInteger("testkit.floorRepeat", 1);
@@ -267,6 +272,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                     try {
 
                     PacketWatch.start();
+                    traceStart(ctx);
                     double[] start = scenario.playerPosition();
                     ctx.getInput().holdKey(options -> options.keyUp);
                     ctx.getInput().holdKey(options -> options.keySprint);
@@ -283,6 +289,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                     ctx.getInput().releaseKey(options -> options.keyUp);
                     ctx.waitTicks(10);
                     PacketWatch.stop();
+                    requireInTick(ctx, scenario);
 
                     double[] end = scenario.playerPosition();
                     int after = countWall(ctx);
@@ -646,6 +653,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                     // Watching BEFORE the aura is switched on: configure() waits a few ticks with it live, and
                     // the first run of this scenario saw all five picks go during that wait, uncounted.
                     PacketWatch.start();
+                    traceStart(ctx);
                     configure(ctx, scenario, true, picks);
                     try {
                         // ---- 1: standing still, picks to either side
@@ -694,6 +702,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             ctx.waitTicks(1);
                         }
                         PacketWatch.stop();
+                        requireInTick(ctx, scenario);
                         int bumps = PacketWatch.collisionTicks();
                         List<BlockPos> dug2 = PacketWatch.digPositions();
                         double[] pos = scenario.playerPosition();
@@ -779,6 +788,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                     }
                     double[] pos = scenario.playerPosition();
                     PacketWatch.start(); // before the aura goes live, see 53
+                    traceStart(ctx);
                     // Zero Ping BEFORE the aura goes live, and the pick only once it is running. Until 2026-10-06 Zero
                     // Ping was set after configure(), whose 5-tick wait already broke the block - so 56 and 59 broke it
                     // with Zero Ping OFF and never measured Zero Ping at all.
@@ -800,6 +810,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             ctx.waitTicks(1);
                         }
                         PacketWatch.stop();
+                        requireInTick(ctx, scenario);
                         ctx.waitTicks(20);
                         List<BlockPos> dug = PacketWatch.digPositions();
                         double[] after = scenario.playerPosition();
@@ -981,6 +992,169 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         unconfigure(ctx);
                     }
                 });
+    }
+
+    /** Starts {@link PacketTrace} on the client thread, beside {@code PacketWatch.start()}. */
+    private static void traceStart(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> PacketTrace.start());
+    }
+
+    /**
+     * Stops the trace and requires that nothing went out between a tick's {@code client_tick_end} and the next tick
+     * (hotbar-select-rest-1016). A held-item change, dig or swing there is GrimAC "Post" whenever a transaction answer
+     * happens to follow it, so a clean Grim run alone does not prove the order.
+     */
+    private static void requireInTick(ClientGameTestContext ctx, Scenario scenario) {
+        ctx.runOnClient(mc -> PacketTrace.stop());
+        List<String> outside = PacketTrace.sentOutsideTick();
+        scenario.log("sent outside a tick: " + (outside.isEmpty() ? "nothing" : outside));
+        if (!outside.isEmpty()) {
+            throw new AssertionError("sent outside a tick (after its client_tick_end, before the next tick): " + outside);
+        }
+    }
+
+    /**
+     * 63 (hotbar-select-rest-1016): AUTO SWAP. The breaker in slot 2, a stick in his hand (slot 0), Auto Swap and Swap
+     * Back on, two picks beside him in reach. The aura must swap to slot 2 (util/HotbarSelect, inside the tick), break
+     * both picks no earlier than a tick after the swap, and once nothing is left in reach for the Swap Back idle time
+     * swap back to slot 0. Proven by the trace: one set_carried_item to the breaker before any dig, none in a dig's
+     * tick, at most one per tick (BadPacketsA), the slot back on 0 at the end, nothing sent outside a tick. GrimAC silent.
+     */
+    private void autoSwap(ClientGameTestContext ctx) {
+        String name = "63-breaker-aura-autoswap";
+        if (Scenario.skip(name)) {
+            return;
+        }
+        ModUnderTest.require(MOD_ID);
+        int fy = SURFACE_Y - 1;
+        List<BlockPos> picks = List.of(new BlockPos(SWAP_CX, SURFACE_Y, SWAP_CZ + 2),
+                new BlockPos(SWAP_CX + 1, SURFACE_Y + 1, SWAP_CZ - 2));
+        Scenario.run(ctx, name,
+                (server, scenario) -> {
+                    TestMap map = TestMap.on(server)
+                            .platform(SWAP_CX, fy, SWAP_CZ, 6)
+                            .catchFloor(120)
+                            .survival()
+                            .clearInventory()
+                            .give("stick", 1)
+                            .command("item replace entity @p hotbar.2 with minecraft:diamond_shovel")
+                            .command("enchant @p minecraft:efficiency 5")
+                            .command("effect give @p minecraft:haste 99999 4 true")
+                            .command("effect clear @p minecraft:speed");
+                    for (BlockPos p : picks) {
+                        map.fill(p.getX(), p.getY(), p.getZ(), p.getX(), p.getY(), p.getZ(), "snow_block");
+                    }
+                    map.spawn(SWAP_CX + 0.5, SWAP_CZ + 0.5, -90f).build();
+                },
+                (server, scenario) -> {
+                    scenario.assertDetectorWorks();
+                    for (BlockPos p : picks) {
+                        if (isAir(ctx, p)) {
+                            throw new AssertionError("block " + xyz(p) + " was never built - nothing to measure");
+                        }
+                    }
+                    boolean ready = ctx.computeOnClient(mc -> mc.player.getInventory().getItem(2).getItem()
+                            == net.minecraft.world.item.Items.DIAMOND_SHOVEL
+                            && mc.player.getInventory().getItem(0).getItem() == net.minecraft.world.item.Items.STICK);
+                    if (!ready) {
+                        throw new AssertionError("the stick (slot 0) and the shovel (slot 2) never reached the client");
+                    }
+                    ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+                    ctx.waitTicks(3);
+                    // Picks only once the aura is running (configure would otherwise break them in its 5-tick wait).
+                    configure(ctx, scenario, true, List.of());
+                    ctx.runOnClient(mc -> {
+                        // configure() stamped the stick in slot 0 as a breaker; it is the thing he holds, not one.
+                        ItemStack stick = mc.player.getInventory().getItem(0);
+                        stick.remove(DataComponents.CUSTOM_DATA);
+                        stick.remove(DataComponents.LORE);
+                        mc.player.getInventory().setSelectedSlot(0);
+                        Object cfg = ModUnderTest.config(CONFIG);
+                        ModUnderTest.set(cfg, "setBreakerAuraAutoSwap", true);
+                        ModUnderTest.set(cfg, "setBreakerAuraSwapBack", true);
+                        ModUnderTest.call(cfg, "setBreakerAuraSwapDelayTicks", new Class<?>[]{int.class}, new Object[]{4});
+                        ModUnderTest.call(cfg, "setBreakerAuraSwapBackIdleTicks", new Class<?>[]{int.class},
+                                new Object[]{20});
+                    });
+                    PacketWatch.start();
+                    traceStart(ctx);
+                    try {
+                        stampBreakerAt(ctx, 2);
+                        ctx.runOnClient(mc -> setPicks(picks));
+                        for (int i = 0; i < 60; i++) {
+                            stampBreakerAt(ctx, 2);
+                            ctx.waitTicks(1);
+                        }
+                        PacketWatch.stop();
+                        int finalSlot = ctx.computeOnClient(mc -> mc.player.getInventory().getSelectedSlot());
+                        requireInTick(ctx, scenario);
+                        int gone = 0;
+                        for (BlockPos p : picks) {
+                            if (isAir(ctx, p)) {
+                                gone++;
+                            }
+                        }
+                        int swaps = PacketTrace.sent("set_carried_item");
+                        int firstSwap = -1;
+                        int firstDig = -1;
+                        List<Integer> shared = new java.util.ArrayList<>();
+                        for (int t = 0; t < PacketTrace.tickCount(); t++) {
+                            List<String> out = PacketTrace.sentOn(t);
+                            boolean swap = out.contains("set_carried_item");
+                            boolean dig = out.contains("player_action");
+                            if (swap && firstSwap < 0) {
+                                firstSwap = t;
+                            }
+                            if (dig && firstDig < 0) {
+                                firstDig = t;
+                            }
+                            if (swap && dig) {
+                                shared.add(t);
+                            }
+                        }
+                        scenario.log(String.format(Locale.ROOT, "auto swap: %d set_carried_item (first in bucket %d), "
+                                        + "first dig in bucket %d, %d of %d picks broken, %d dig(s), slot at the end %d",
+                                swaps, firstSwap, firstDig, gone, picks.size(), PacketWatch.totalBreaks(), finalSlot));
+                        if (PacketWatch.totalBreaks() == 0 || gone != picks.size()) {
+                            throw new AssertionError("the picks were not broken (" + gone + " of " + picks.size()
+                                    + ", " + PacketWatch.totalBreaks() + " dig(s)) - nothing measured");
+                        }
+                        if (swaps < 2 || firstSwap < 0 || firstSwap >= firstDig) {
+                            throw new AssertionError("want the swap to the breaker before the first dig and the swap "
+                                    + "back after: " + swaps + " set_carried_item, first in bucket " + firstSwap
+                                    + ", first dig in bucket " + firstDig);
+                        }
+                        if (!shared.isEmpty()) {
+                            throw new AssertionError("a dig went out in the same tick as a swap, buckets " + shared);
+                        }
+                        if (PacketTrace.maxPerTick("set_carried_item") > 1) {
+                            throw new AssertionError("a slot went out twice in one tick (BadPacketsA)");
+                        }
+                        if (finalSlot != 0) {
+                            throw new AssertionError("Swap Back left him on slot " + finalSlot + ", want 0");
+                        }
+                        scenario.log("63 PASS: swapped to the breaker, broke both picks, swapped back to slot 0");
+                    } finally {
+                        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CONFIG), "setBreakerAuraAutoSwap",
+                                false));
+                        unconfigure(ctx);
+                    }
+                });
+    }
+
+    /** {@link #stampBreaker} for the item in {@code slot}, leaving the held slot alone. */
+    private void stampBreakerAt(ClientGameTestContext ctx, int slot) {
+        ctx.runOnClient(mc -> {
+            ItemStack stack = mc.player.getInventory().getItem(slot);
+            if (stack.isEmpty()) {
+                return;
+            }
+            CompoundTag tag = new CompoundTag();
+            tag.putString("id", "DUNGEONBREAKER");
+            stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+            stack.set(DataComponents.LORE, new ItemLore(
+                    List.of(Component.literal("Charges: 5000/5000"))));
+        });
     }
 
     /**

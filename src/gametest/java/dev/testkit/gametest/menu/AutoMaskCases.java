@@ -82,6 +82,7 @@ final class AutoMaskCases {
         MenuSuite.test(s, "1884-menu-automask-boss-only", AutoMaskCases::bossOnly);
         MenuSuite.test(s, "1885-menu-automask-settings", AutoMaskCases::settings);
         MenuSuite.test(s, "1886-menu-automask-step-ticks", AutoMaskCases::stepTicks);
+        MenuSuite.test(s, "1887-menu-automask-rod", AutoMaskCases::rod);
     }
 
     // ---- fixtures ----------------------------------------------------------------------------------------------------
@@ -100,6 +101,11 @@ final class AutoMaskCases {
     /** Runs {@code body} with Auto Mask on in {@code mode} / {@code order}, the fake menus answering /stats and /pets,
      *  in an F7 dungeon (unless {@code dungeon} is false), with every timer and swap state cleared; puts it all back. */
     private static void with(Session c, String mode, String order, boolean dungeon, Session.Case body) throws Exception {
+        with(c, mode, order, dungeon, "PETS", body);
+    }
+
+    private static void with(Session c, String mode, String order, boolean dungeon, String phoenixRoute, Session.Case body)
+            throws Exception {
         MenuKit.reset(c);
         c.check(Mod.isCheat(), "Auto Mask is cheat-only; this case needs the cheat jar");
         if (dungeon) {
@@ -114,7 +120,7 @@ final class AutoMaskCases {
                     .set(CFG, "SwapOrder", Mod.enumValue(CFG + "$SwapOrder", order))
                     .set(CFG, "SwapKey", KEY).set(CFG, "AutoMaskDungeonsOnly", true).set(CFG, "AutoMaskBossOnly", false)
                     .set(CFG, "SwapStepDelayTicks", 3)
-                    .set(CFG, "PhoenixRoute", Mod.enumValue(CFG + "$PhoenixRoute", "PETS"))
+                    .set(CFG, "PhoenixRoute", Mod.enumValue(CFG + "$PhoenixRoute", phoenixRoute))
                     .set(CFG, "AutoSwapEnabled", true);
             boolean on = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(CFG), "isAutoSwapEnabled")
                     && (Boolean) Mod.call(Mod.cfg(CFG), "isEnabled"));
@@ -502,6 +508,67 @@ final class AutoMaskCases {
             c.ctx().runOnClient(mc -> Mod.staticCall(CFG, "load"));
         }
         notes.forEach(c::note);
+    }
+
+    /**
+     * 1887 (hotbar-select-rest-1016): Phoenix by the ROD route, the only one that touches the hotbar. A fishing rod in
+     * slot 6 while he holds slot 1, Phoenix First, the key: the swapper must select the rod (util/HotbarSelect, inside
+     * the tick), cast it on a later tick with the rod in the server's hand, and with Return To Previous Slot put slot 1
+     * back. The server sees {@code held} 5, a rod {@code use_item}, {@code held} 0; no command; at most one slot a tick;
+     * nothing sent outside a tick. GrimAC silent (the session's verdict).
+     */
+    static void rod(Session c) throws Exception {
+        with(c, "KEYBIND", "PHOENIX_FIRST", true, "ROD", s -> {
+            boolean returnWas = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(CFG), "isRodReturnToPreviousSlot"));
+            try {
+                c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(CFG), "setRodReturnToPreviousSlot", true));
+                c.server().command("item replace entity @a hotbar.5 with minecraft:fishing_rod");
+                c.server().command("item replace entity @a hotbar.0 with minecraft:stick");
+                wear(c, SPIRIT, "minecraft:air", BONZO);
+                c.waitUntil("the rod in slot 6", mc -> mc.player.getInventory().getItem(5).is(
+                        net.minecraft.world.item.Items.FISHING_ROD), 60);
+                c.ctx().runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+                c.ctx().waitTicks(5);
+                long mark = c.hx().head();
+                c.ctx().runOnClient(mc -> PacketTrace.start());
+                press(c);
+                c.waitUntil("the rod thrown", mc -> ((Number) Mod.field(SW, "lastPhoenixRodThrowMs")).longValue() != 0L, 100);
+                c.waitUntil("the swapper idle after the rod", mc -> !(Boolean) Mod.staticCall(SW, "isBusy"), 200);
+                c.ctx().waitTicks(5);
+                c.ctx().runOnClient(mc -> PacketTrace.stop());
+                List<Integer> held = c.hx().events(mark, "held").stream().map(e -> e.get("slot").getAsInt()).toList();
+                List<String> uses = c.hx().events(mark, "use_item").stream().map(e -> e.get("item").getAsString()).toList();
+                int slotNow = c.onClient(mc -> mc.player.getInventory().getSelectedSlot());
+                List<String> outside = PacketTrace.sentOutsideTick();
+                c.note("rod route: held " + held + ", use_item " + uses + ", slot now " + (slotNow + 1) + ", commands "
+                        + c.commands() + ", sent outside a tick: " + (outside.isEmpty() ? "nothing" : outside));
+                c.check(held.equals(List.of(5, 0)), "want the server told slot 6 then slot 1, got " + held);
+                c.check(uses.equals(List.of("minecraft:fishing_rod")), "want one rod cast with the rod in the server's hand, "
+                        + "got " + uses);
+                c.check(slotNow == 0, "Return To Previous Slot left him on slot " + (slotNow + 1));
+                c.check(c.commands().isEmpty(), "the rod route sent a command: " + c.commands());
+                int shared = 0;
+                for (int t = 0; t < PacketTrace.tickCount(); t++) {
+                    List<String> out = PacketTrace.sentOn(t);
+                    if (out.contains("set_carried_item") && out.contains("use_item")) {
+                        shared++;
+                    }
+                }
+                c.check(shared == 0, "the cast went out in the same tick as a swap");
+                c.check(PacketTrace.maxPerTick("set_carried_item") <= 1, "a slot went out twice in one tick (BadPacketsA)");
+                c.check(outside.isEmpty(), "sent outside a tick (after its client_tick_end, before the next tick): "
+                        + outside);
+            } finally {
+                c.ctx().runOnClient(mc -> {
+                    PacketTrace.stop();
+                    Mod.call(Mod.cfg(CFG), "setRodReturnToPreviousSlot", returnWas);
+                    mc.player.getInventory().setSelectedSlot(0);
+                });
+                c.server().command("kill @e[type=fishing_bobber]");
+                c.server().command("item replace entity @a hotbar.5 with minecraft:air");
+                c.server().command("item replace entity @a hotbar.0 with minecraft:air");
+            }
+        });
     }
 
     static void stepTicks(Session c) throws Exception {
