@@ -134,6 +134,28 @@ final class HxMenuSpec {
                     HxEvents.custom("sell.sold", player, e);
                 }
             }
+            // Hypixel's equipment menu (/stats, "Your Equipment and Stats"): a click on a helmet in his own inventory puts it
+            // on and the worn one goes where it was. "equipHelmet": true makes any player-inventory click do that, with a
+            // "menu.equip" event naming both, so a mask swap is judged by the helmet the SERVER put on (testkit 1880-1886).
+            if (spec.has("equipHelmet") && spec.get("equipHelmet").getAsBoolean()) {
+                Slot s = menu.slots.get(slot);
+                ItemStack clicked = s.getItem();
+                if (!clicked.isEmpty()) {
+                    ItemStack worn = player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD);
+                    JsonObject e = new JsonObject();
+                    e.addProperty("slot", slot);
+                    e.addProperty("inventorySlot", s.getContainerSlot());
+                    var data = clicked.get(DataComponents.CUSTOM_DATA);
+                    e.addProperty("skyblockId", data == null ? "" : data.copyTag().getStringOr("id", ""));
+                    var wornData = worn.get(DataComponents.CUSTOM_DATA);
+                    e.addProperty("previous", wornData == null ? "" : wornData.copyTag().getStringOr("id", ""));
+                    player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, clicked.copy());
+                    player.getInventory().setItem(s.getContainerSlot(), worn.copy());
+                    player.inventoryMenu.broadcastChanges();
+                    menu.broadcastChanges();
+                    HxEvents.custom("menu.equip", player, e);
+                }
+            }
             // A player-inventory slot may carry an action too (Hypixel's Bazaar opens the product of an item clicked in
             // his inventory: testkit 490); otherwise nothing happens, as before.
             if (!spec.has("on") || !spec.getAsJsonObject("on").has(String.valueOf(slot))) {

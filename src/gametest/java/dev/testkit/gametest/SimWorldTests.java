@@ -1193,6 +1193,16 @@ public class SimWorldTests implements FabricClientGameTest {
         check(nodeBlock.equals("redstone_block"), "no redstone node at capture 11,71,4 - it is " + nodeBlock);
         check(stripBefore == 3, "the strip by the lever is " + stripBefore + "/3 redstone before anything");
         check(armed == 1, armed + " node(s) armed, expected 1");
+        // aura-skull-place-1016: Auto Routes' await counts the key as Hypixel does - the placing, not the pickup. An
+        // await window is opened as a running route's would be (cheat jars: Auto Routes is a cheat-build feature).
+        boolean cheat = isCheatJar();
+        if (cheat) {
+            ctx.runOnClient(mc -> {
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", true);
+                ModUnderTest.staticCall(AWAIT, "begin", new Class<?>[]{Minecraft.class}, new Object[]{mc});
+                ModUnderTest.staticCall(AWAIT, "window", new Class<?>[]{Minecraft.class}, new Object[]{mc});
+            });
+        }
 
         // Control: the node with no key does nothing.
         stand(ctx, room, 9, 5, 69, new double[]{11.5, 71.5, 4.5});
@@ -1200,8 +1210,11 @@ public class SimWorldTests implements FabricClientGameTest {
         ctx.waitTicks(15);
         int stripNoKey = countIs(ctx, strip, Blocks.REDSTONE_BLOCK);
         String nodeNoKey = blockName(ctx, node);
-        say(c + " node clicked without the key: node " + nodeNoKey + ", strip " + stripNoKey + "/3");
+        int awaitNoKey = cheat ? awaitSecrets(ctx) : 0;
+        say(c + " node clicked without the key: node " + nodeNoKey + ", strip " + stripNoKey + "/3, await secrets "
+                + awaitNoKey);
         check(nodeNoKey.equals("redstone_block") && stripNoKey == 3, "the node did something without the key");
+        check(awaitNoKey == 0, "Auto Routes' await counted a node click with no key");
 
         // The key.
         stand(ctx, room, 13, 7, 69, new double[]{13.5, 71.25, 9.5});
@@ -1218,6 +1231,9 @@ public class SimWorldTests implements FabricClientGameTest {
         check(!isKeyOnClient(ctx, key), "the client still sees the key head");
         check(found, "the key was not taken");
         check(found1 == found0, "picking the key up counted a secret (" + found0 + " -> " + found1 + ")");
+        int awaitKey = cheat ? awaitSecrets(ctx) : 0;
+        say(c + " await secrets after the pickup " + awaitKey);
+        check(awaitKey == 0, "Auto Routes' await counted the key's pickup (Hypixel counts only its placing)");
 
         // The node, with the key.
         stand(ctx, room, 9, 5, 69, new double[]{11.5, 71.5, 4.5});
@@ -1252,6 +1268,24 @@ public class SimWorldTests implements FabricClientGameTest {
         check(found2 == found1 + 1, "placing the key counted " + (found2 - found1) + " secret(s) for the room, expected 1");
         check(placed == 1, placed + " key(s) placed");
         check(standSeen, "the client sees no armor stand wearing the key at the node");
+        if (cheat) {
+            int awaitPlaced = awaitSecrets(ctx);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(AWAIT, "end", new Class<?>[]{}, new Object[]{}));
+            say(c + " await secrets after the placing " + awaitPlaced);
+            check(awaitPlaced == 1, "Auto Routes' await counted " + awaitPlaced + " secret(s) for the key's placing, expected 1");
+        }
+    }
+
+    private static int awaitSecrets(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(AWAIT, "secrets", new Class<?>[]{}, new Object[]{}));
+    }
+
+    private static boolean isCheatJar() {
+        try {
+            return Class.forName("com.killer560.hub.BuildVariant").getField("CHEAT_FEATURES_ENABLED").getBoolean(null);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
     }
 
     private static int foundIn(ClientGameTestContext ctx, String room) {

@@ -267,9 +267,9 @@ public class SimResetTests implements FabricClientGameTest {
         check(changed >= wall.size() + 1, "only " + changed + " block(s) differ from the load - the changes did not land");
         check(moved.distanceTo(base) > 3, "he is still at the spawn, so the teleport back cannot be told apart");
 
-        // ---- /reset, then /reset again ----------------------------------------------------------------------------
+        // ---- /reset, then /reload straight after (the same command under both names) ----------------------------
         for (int round = 1; round <= 2; round++) {
-            Snapshot after = reset(ctx, "Room reset", base.box);
+            Snapshot after = reset(ctx, "Room reset", base.box, round == 1 ? "reset" : "reload");
             int diffs = diff(base.blocks, after.blocks);
             say(String.format(Locale.US, "after /reset #%d: %d block(s) differ, at %s yaw %.2f pitch %.2f, entities %s,"
                             + " items pending %d, bats pending %d, essences %d, secrets %d, map generation %d -> %d",
@@ -552,9 +552,14 @@ public class SimResetTests implements FabricClientGameTest {
 
     /** /reset typed as he types it; waits for the rebuild and his landing, checks the chat line, and reads the room. */
     private Snapshot reset(ClientGameTestContext ctx, String expectChat, AABB box) {
+        return reset(ctx, expectChat, box, "reset");
+    }
+
+    /** {@code command} is "reset" or "reload" (killer560, 2026-10-16: "have /reset and /reload both work"). */
+    private Snapshot reset(ClientGameTestContext ctx, String expectChat, AABB box, String command) {
         long before = Scenario.simBuildCount(ctx);
         long mark = LogTap.mark();
-        ctx.runOnClient(mc -> mc.player.connection.sendCommand("reset"));
+        ctx.runOnClient(mc -> mc.player.connection.sendCommand(command));
         Scenario.awaitSimBuild(ctx, before);
         ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
         waitStanding(ctx, "the reset room");

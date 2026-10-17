@@ -104,6 +104,7 @@
 			"dev.testkit.gametest.SimAuraRebuildTests",
 			"dev.testkit.gametest.SimSealTests",
 			"dev.testkit.gametest.SimDeucesDoorwayTests",
+			"dev.testkit.gametest.SimMapLeaveSecretsTests",
 			"dev.testkit.gametest.SimDoorHeightTests",
 			"dev.testkit.gametest.SimOneDoorTests",
 			"dev.testkit.gametest.SimMageCaptureTests",

@@ -252,8 +252,8 @@ final class DocMenuCases {
                 }
                 @SuppressWarnings("unchecked")
                 List<String> labels = (List<String>) Mod.call(s[0], "homeButtonLabels");
-                List<String> want = List.of("YouTube", "Edit HUD", "Edit Bars", "Check Updates", "Sweat Mode", "Discord", "GitHub",
-                        "Features Doc");
+                List<String> want = List.of("Edit HUD", "Edit Bars", "Check Updates", "Sweat Mode", "YouTube", "Discord", "GitHub",
+                        "Features Doc"); // killer560 2026-10-16: tools on top, links below
                 if (!labels.equals(want)) {
                     return "Home's buttons are " + labels + ", wanted " + want;
                 }
@@ -283,6 +283,21 @@ final class DocMenuCases {
                 if (!cards.equals(wantCards)) {
                     return "Home's cards are " + cards + ", wanted " + wantCards;
                 }
+                // The Main Menu scene chip in the Menu Theme row (killer560, 2026-10-16): a click flips Fancy <-> Simple.
+                int[] sc = (int[]) Mod.call(s[0], "homeSceneChipBounds");
+                if (sc == null) {
+                    return "Home has no Main Menu scene chip";
+                }
+                Object mm = Mod.staticCall("mainmenu.MainMenuThemeConfig", "getInstance");
+                String m0 = String.valueOf(Mod.call(mm, "getSceneMode"));
+                MenuACases.press(s[0], sc[0] + sc[2] / 2.0, sc[1] + sc[3] / 2.0);
+                String m1 = String.valueOf(Mod.call(mm, "getSceneMode"));
+                MenuACases.press(s[0], sc[0] + sc[2] / 2.0, sc[1] + sc[3] / 2.0);
+                String m2 = String.valueOf(Mod.call(mm, "getSceneMode"));
+                if (m0.equals(m1) || !m0.equals(m2)) {
+                    return "the scene chip went " + m0 + " -> " + m1 + " -> " + m2 + " (wanted a flip and back)";
+                }
+                c.note("Home: scene chip " + m0 + " -> " + m1 + " -> " + m2);
                 c.note("Home: buttons " + labels + " in " + rows.size() + " rows; version line '" + line + "'; cards " + cards);
                 return rows.size() == 2 ? null : "Home's buttons are in " + rows.size() + " rows (wanted a 4x2 grid)";
             });
@@ -393,7 +408,8 @@ final class DocMenuCases {
         c.check(on.contains("ON"), "right after the click it reads '" + on + "'");
         c.check(launched, "no browser launch of " + url + " was logged");
         c.check(off.contains("OFF"), "30 ticks later it still reads '" + off + "'");
-        // Home's quick buttons (2026-10-14): YouTube first, Sweat Mode right after Check Updates, nine in all.
+        // Home's quick buttons (2026-10-16): Edit HUD, Edit Bars, Check Updates, Sweat Mode, then YouTube, Discord, GitHub,
+        // Features Doc.
         String home = c.onClient(mc -> {
             Screen h = openMenu(mc);
             Mod.call(h, "selectCategory", "Home");
@@ -416,7 +432,8 @@ final class DocMenuCases {
             if (!"Enters sweat mode.".equals(hTip)) {
                 return "Home's Sweat Mode tooltip is " + hTip;
             }
-            return yt[1] <= cu[1] ? null : "YouTube is not on the top row";
+            // 2026-10-16: the tools on the top row, the links (YouTube first) on the second.
+            return yt[1] > cu[1] ? null : "YouTube is not on the second row";
         });
         c.check(home == null, home);
     }

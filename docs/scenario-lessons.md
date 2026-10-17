@@ -934,3 +934,16 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   96-ar-chain and 96-ar-398-regrow fail together in one run of `96-ar-398-regrow,96-ar-breakerwait,96-ar-complete,96-ar-play,
   96-ar-chain,96-ar-mapopen,96-ar-920-nostart-mapwarp,96-ar-398-offnode,96-ar-405-startwarp` on mod main 8a9f9549 as well,
   and pass run alone: an order effect, not a regression.
+- 1790-sim-map-leave-secrets (`SimMapLeaveSecretsTests`, mod sim-map-secrets-1016, 2026-10-16): a room's last secret
+  collected as he leaves must still show on the map. Two-room map code (R with the secret, NORMAL door, 1x1 B); the server
+  is told all but one of R's secrets, the map must read (N-1)/N, then the last is collected for real and an END_SERVER_TICK
+  hook moves him out the moment `SimScore.foundInRoom` reaches N. The hook needs TWO phases: before the mod's listeners for
+  a secret counted while the tick's packets ran (chest, essence, key, a bat counted by SimMobs' queued task), after them for
+  one the mod counts in its own END_SERVER_TICK (an item) - otherwise "same tick" is one tick late for half the types.
+  Main fcba4045: 18 of 20 fail; the two passes are one-tick cases where the ten-tick action bar fell on that tick, so a
+  one-tick pass on an old jar proves nothing.
+- **96-ar-1016-keyawait / -keyaura / -keyreach** (aura-skull-place-1016): the Redstone Key in the 96-ar arena, answered by
+  the sim server through `SimRedstoneKey.armForTest` (a jar without it SKIPs). The aura's done-set is per BLOCK for the
+  whole run, so each case needs its own key spot: keyreach first reused keyaura's (13, F, 14) and the aura never clicked it
+  ("premise: Secret Aura did not take the key"). 1415 and 848 also open an `AwaitEvents` window and require exactly one
+  secret for the placing and none for the pickup.

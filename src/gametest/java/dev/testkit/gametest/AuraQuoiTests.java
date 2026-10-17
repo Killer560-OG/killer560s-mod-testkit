@@ -31,6 +31,7 @@ public class AuraQuoiTests implements FabricClientGameTest {
 
     private static final String MOD_ID = "killer560smod";
     private static final String CHEAT_CFG = "com.killer560.hub.cheatutils.CheatUtilsConfig";
+    private static final String AWAIT = "com.killer560.hub.autoroutes.AwaitEvents";
     private static final String DUNGEON_LABEL = "localhost.p3sim.net:25565";
     private static final int SURFACE_Y = 151;
     private static final int BASE_Z = -300;
@@ -514,6 +515,11 @@ public class AuraQuoiTests implements FabricClientGameTest {
                     int before2 = PacketWatch.totalUses();
                     ctx.waitTicks(40);
                     int usesOff = PacketWatch.totalUses() - before2;
+                    // aura-skull-place-1016: an await window open (as a running route's), so the placing is counted.
+                    ctx.runOnClient(mc -> {
+                        ModUnderTest.staticCall(AWAIT, "begin", new Class<?>[]{net.minecraft.client.Minecraft.class}, new Object[]{mc});
+                        ModUnderTest.staticCall(AWAIT, "window", new Class<?>[]{net.minecraft.client.Minecraft.class}, new Object[]{mc});
+                    });
                     ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CHEAT_CFG), "setAuraPlaceRedstoneKey", true));
                     int before3 = PacketWatch.totalUses();
                     int waited = 0;
@@ -525,13 +531,16 @@ public class AuraQuoiTests implements FabricClientGameTest {
                     PacketWatch.stop();
                     ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
                     boolean placed = server.logged(placedLine);
+                    int awaitCounted = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(AWAIT, "secrets",
+                            new Class<?>[]{}, new Object[]{}));
+                    ctx.runOnClient(mc -> ModUnderTest.staticCall(AWAIT, "end", new Class<?>[]{}, new Object[]{}));
                     boolean coveredTried = server.logged(" covered,");
                     List<String> faces = server.since().stream().filter(l -> l.contains("redstone block used at")).toList();
                     boolean headOnTop = ctx.computeOnClient(mc -> mc.level.getBlockState(node.above()).getBlock()
                             instanceof net.minecraft.world.level.block.AbstractSkullBlock);
                     facts.add(String.format(Locale.ROOT, "2 (key vanished %.2f away): Place off %d use(s) in 40 ticks; Place on "
-                            + "%d use(s), placed %s after ~%d ticks, key head on top %s", dNear, usesOff, usesOn, placed, waited,
-                            headOnTop));
+                            + "%d use(s), placed %s after ~%d ticks, key head on top %s, Auto Routes await counted %d", dNear,
+                            usesOff, usesOn, placed, waited, headOnTop, awaitCounted));
                     facts.add("uses on the redstone block, server side: " + faces);
                     for (String f : facts) {
                         scenario.log("RESULT " + f);
@@ -554,6 +563,10 @@ public class AuraQuoiTests implements FabricClientGameTest {
                     }
                     if (usesOn != 1 || !placed || !headOnTop) {
                         throw new AssertionError("wanted exactly one placement with the head on top: " + facts.get(1));
+                    }
+                    if (awaitCounted != 1) {
+                        throw new AssertionError("Auto Routes' await did not count the aura's placing as one secret: "
+                                + facts.get(1));
                     }
                 });
     }
