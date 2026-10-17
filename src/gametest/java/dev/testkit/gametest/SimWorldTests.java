@@ -1138,7 +1138,9 @@ public class SimWorldTests implements FabricClientGameTest {
             doors.add(door);
         }
         say(c + " " + room + ": " + armed + " lever(s) armed");
-        check(armed == rules.length, room + " armed " + armed + " lever(s), expected " + rules.length);
+        // At least: a room may have more levers than this case flicks (Buttons' lever behind the lava, 2026-10-17, is
+        // 1983-sim-gate-buttons'); SimLeverGateTests' sweep holds the full count per room.
+        check(armed >= rules.length, room + " armed " + armed + " lever(s), expected at least " + rules.length);
         for (int i = 0; i < rules.length; i++) {
             BlockPos leverPos = levers.get(i);
             String leverBlock = blockName(ctx, leverPos);
