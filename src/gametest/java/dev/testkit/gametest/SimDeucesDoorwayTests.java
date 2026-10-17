@@ -42,7 +42,15 @@ import java.util.concurrent.atomic.AtomicReference;
  * </ul>
  * On the main jar of 2026-10-15 the braziers are cold (0 of 4) and Altar's bars are gone (3 iron_bars -> air).
  * Also takes a screenshot from his viewpoint (feet at capture (7.8, 69, 16.5), facing west, looking up, FOV 110) and copies it to
- * {@code killer560s-mod-logs/deuces-doorway.png} when that folder exists. Sim only, so no GrimAC.
+ * {@code killer560s-mod-logs/sim-deuces-door-1016/} when that folder's parent exists. Sim only, so no GrimAC.
+ *
+ * <p><b>Door pieces</b> (mod sim-deuces-door-1016, killer560 2026-10-16: "this door isn't supposed to have almost any blocks
+ * above it in Deuces"). The 5x3 box over a standard doorway's trim is Hypixel's door connector, and which half a doorway
+ * has follows the side it faces in the WORLD: a recess (cyan terracotta, then air) on east and south walls, a fill (stone,
+ * then bricks and four stairs) on west and north ones. {@link DoorPieceSweep} checks every placed room's standard doorways
+ * on this floor at Deuces 0 and 180, on three generated F7s and on a solo Deuces at 0 and 180, and the chest doorway's
+ * box is asserted on its own (fill at 0, facing west; recess at 180, facing east). Main fcba4045 passes every unrotated
+ * case and fails every turned one; screenshots from his solo view (capture (9.5, 69, 16.5), pitch -22, FOV 90) for each.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimDeucesDoorwayTests implements FabricClientGameTest {
@@ -59,6 +67,12 @@ public class SimDeucesDoorwayTests implements FabricClientGameTest {
     private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
     private static final int GRID = 11;
     private static final Path OUT = Path.of(System.getProperty("user.home"), "killer560s-mod-logs");
+    /**
+     * Where this scenario's screenshots go. Until 2026-10-16 it wrote {@code killer560s-mod-logs/deuces-doorway.png},
+     * a sim shot with a name that read as a reference picture and was taken for Hypixel's.
+     */
+    private static final Path SHOTS = OUT.resolve("sim-deuces-door-1016");
+    private static final String FLOOR_GEN = "com.killer560.hub.roomsim.SimFloorGen";
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -91,13 +105,44 @@ public class SimDeucesDoorwayTests implements FabricClientGameTest {
                         + ", Deuces W0 " + deucesWest + ")");
                 return;
             }
-            build(ctx);
+            build(ctx, 0);
             Check c = check(ctx);
             for (String l : c.lines()) {
                 println(l);
             }
             failures.addAll(c.failures());
             screenshot(ctx, c.offset());
+            // The box over each doorway's trim, against Hypixel's door piece for the side it faces (sim-deuces-door-1016).
+            pieces(ctx, "floor, both unrotated", 0, 0, failures);
+            chestDoorway(ctx, 6, 0, "fill", "floor, both unrotated", failures);
+            heroShot(ctx, "floor-r0", 6, 0);
+            // Deuces turned 180: its chest doorway faces EAST (sealed), its capture E0 faces west into Altar.
+            build(ctx, 180);
+            pieces(ctx, "floor, Deuces at 180", 2, 2, failures);
+            chestDoorway(ctx, 6, 180, "recess", "floor, Deuces at 180", failures);
+            heroShot(ctx, "floor-r180", 6, 180);
+            // Three generated F7s: every room, every standard doorway.
+            int crossed = 0;
+            for (int i = 0; i < 3; i++) {
+                generateF7(ctx);
+                crossed += pieces(ctx, "generated F7 #" + (i + 1), 0, 0, failures);
+            }
+            println("generated floors: " + crossed + " doorway(s) faced a side whose piece differs from the capture's");
+            if (crossed < 30) {
+                failures.add("premise: only " + crossed + " doorway(s) on three generated F7s faced a side whose piece "
+                        + "differs from the capture's - the sweep did not exercise the swap");
+            }
+            // Solo rooms, as Load a Room builds them (rotation 0) and turned 180 (the test rotation).
+            solo(ctx, 0);
+            pieces(ctx, "solo Deuces at 0", 0, 0, failures);
+            chestDoorway(ctx, 4, 0, "fill", "solo Deuces at 0", failures);
+            heroShot(ctx, "solo-r0", 4, 0);
+            solo(ctx, 180);
+            pieces(ctx, "solo Deuces at 180", 2, 2, failures);
+            chestDoorway(ctx, 4, 180, "recess", "solo Deuces at 180", failures);
+            heroShot(ctx, "solo-r180", 4, 180);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(BUILDER, "setSingleRoomRotationForTest",
+                    new Class<?>[]{int.class}, new Object[]{0}));
         } catch (Throwable t) {
             failures.add("threw: " + t);
             t.printStackTrace();
@@ -125,7 +170,7 @@ public class SimDeucesDoorwayTests implements FabricClientGameTest {
      * Altar (2x2) on grid cells x 2..4, z 4..6, Deuces on (6,6), both unrotated, and a NORMAL door at (5,6): Altar's
      * east doorway on its second tile (iron bars along the top of it, one block in) meets Deuces' west doorway.
      */
-    private static void build(ClientGameTestContext ctx) {
+    private static void build(ClientGameTestContext ctx, int deucesRotation) {
         int[] cellRoom = new int[GRID * GRID];
         java.util.Arrays.fill(cellRoom, -1);
         int[] cellDoor = new int[GRID * GRID];
@@ -136,6 +181,7 @@ public class SimDeucesDoorwayTests implements FabricClientGameTest {
             }
         }
         cellRoom[6 * GRID + 6] = 1;
+        cellRotation[6 * GRID + 6] = deucesRotation;
         cellDoor[6 * GRID + 5] = 1; // DungeonLayout.DOOR_NORMAL
         String code = ctx.computeOnClient(mc -> {
             try {
@@ -395,9 +441,197 @@ public class SimDeucesDoorwayTests implements FabricClientGameTest {
         println("screenshot " + shot);
         try {
             if (Files.isDirectory(OUT)) {
-                String tag = "deuces-doorway.png";
-                Files.copy(shot, OUT.resolve(tag), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                println("copied to " + OUT.resolve(tag));
+                Files.createDirectories(SHOTS);
+                Path to = SHOTS.resolve("deuces-floor-r0-1433view.png");
+                Files.copy(shot, to, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                println("copied to " + to);
+            }
+        } catch (java.io.IOException e) {
+            println("could not copy the screenshot: " + e);
+        }
+    }
+
+    /**
+     * The door-piece sweep over every placed room (see {@link DoorPieceSweep}), from the server's level. Fails on any
+     * doorway whose box is not Hypixel's piece for the side it faces, and when fewer than {@code minChecked} standard
+     * doorways were compared or fewer than {@code minCrossed} faced a side whose piece differs from the capture's.
+     *
+     * @return how many doorways faced a side whose piece differs from the capture's
+     */
+    private static int pieces(ClientGameTestContext ctx, String label, int minChecked, int minCrossed, List<String> fail) {
+        AtomicReference<Object> out = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            int dy = (Integer) ModUnderTest.staticCall(ALTITUDE, "offset");
+            var server = mc.getSingleplayerServer();
+            server.execute(() -> {
+                try {
+                    out.set(DoorPieceSweep.run(server.overworld(), dy));
+                } catch (Throwable t) {
+                    out.set(t);
+                }
+            });
+        });
+        ctx.waitFor(mc -> out.get() != null, 1200);
+        if (out.get() instanceof Throwable t) {
+            t.printStackTrace();
+            fail.add(label + ": the door-piece sweep threw " + t);
+            return 0;
+        }
+        DoorPieceSweep.Result r = (DoorPieceSweep.Result) out.get();
+        println("door pieces, " + label + ": " + r.summary());
+        if (r.checked() < Math.max(1, minChecked)) {
+            fail.add(label + ": premise - only " + r.checked() + " standard doorway(s) compared");
+        }
+        if (r.crossed() < minCrossed) {
+            fail.add(label + ": premise - only " + r.crossed() + " doorway(s) faced a side whose piece differs");
+        }
+        if (r.wrong() > 0) {
+            fail.add(label + ": " + r.wrong() + " doorway(s) carry the wrong door piece for the side they face "
+                    + r.samples());
+        }
+        return r.crossed();
+    }
+
+    /**
+     * The box over Deuces' chest doorway (capture W0, the chest at capture (3, 78, 16) above it) in the world, Deuces
+     * pasted at {@code rotation} on cell ({@code cell}, {@code cell}): {@code want} is "fill" or "recess".
+     */
+    private static void chestDoorway(ClientGameTestContext ctx, int cell, int rotation, String want, String label,
+                                     List<String> fail) {
+        AtomicReference<String> got = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            int dy = (Integer) ModUnderTest.staticCall(ALTITUDE, "offset");
+            BlockPos o = (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class, int.class},
+                    new Object[]{cell, cell});
+            var server = mc.getSingleplayerServer();
+            server.execute(() -> {
+                ServerLevel level = server.overworld();
+                StringBuilder k0 = new StringBuilder();
+                StringBuilder k1 = new StringBuilder();
+                for (int y = 76; y >= 74; y--) {
+                    for (int u = -2; u <= 2; u++) {
+                        k0.append(code(level, world(o, rotation, 1, y, 16 + u, dy)));
+                        k1.append(code(level, world(o, rotation, 2, y, 16 + u, dy)));
+                    }
+                    k0.append(' ');
+                    k1.append(' ');
+                }
+                String chest = BuiltInRegistries.BLOCK.getKey(
+                        level.getBlockState(world(o, rotation, 3, 78, 16, dy)).getBlock()).getPath();
+                got.set("wall plane " + k0.toString().trim() + " | one in " + k1.toString().trim() + " | chest " + chest);
+            });
+        });
+        ctx.waitFor(mc -> got.get() != null, 600);
+        String g = got.get();
+        boolean recess = g.startsWith("wall plane ccccc ccccc ccccc | one in ..... ..... .....");
+        boolean fill = g.startsWith("wall plane sssss sssss sssss | one in ") && !g.contains("one in .....")
+                && !g.contains("?");
+        println(label + ": the box over the chest doorway (y 76..74, u -2..2): " + g);
+        if (!g.endsWith("chest") && !g.endsWith("trapped_chest")) {
+            fail.add(label + ": premise - no chest above the chest doorway (" + g + ")");
+        }
+        if ("recess".equals(want) ? !recess : !fill) {
+            fail.add(label + ": the chest doorway faces " + (rotation == 0 ? "west" : "east") + " and should have the "
+                    + want + " over its trim, found " + g);
+        }
+    }
+
+    /** World position of Deuces' capture block (x, y, z) pasted at rotation 0 or 180 on the cell centred at {@code o}. */
+    private static BlockPos world(BlockPos o, int rotation, int x, int y, int z, int dy) {
+        int x0 = o.getX() - 16;
+        int z0 = o.getZ() - 16;
+        return rotation == 180 ? new BlockPos(x0 + 32 - x, y + dy, z0 + 32 - z) : new BlockPos(x0 + x, y + dy, z0 + z);
+    }
+
+    private static char code(ServerLevel level, BlockPos p) {
+        String id = BuiltInRegistries.BLOCK.getKey(level.getBlockState(p).getBlock()).getPath();
+        return switch (id) {
+            case "air", "cave_air", "void_air" -> '.';
+            case "cyan_terracotta" -> 'c';
+            case "stone" -> 's';
+            case "stone_bricks" -> 'B';
+            case "mossy_stone_bricks" -> 'M';
+            case "stone_brick_stairs" -> 'T';
+            default -> '?';
+        };
+    }
+
+    /** One generated F7, the way the designer's Generate does it. */
+    private static void generateF7(ClientGameTestContext ctx) {
+        long before = Scenario.simBuildCount(ctx);
+        ctx.runOnClient(mc -> mc.execute(() -> {
+            Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
+            ModUnderTest.staticCall(FLOOR_GEN, "generate",
+                    new Class<?>[]{Minecraft.class, floor.getClass(), int.class, int.class},
+                    new Object[]{mc, floor, 3, 4});
+        }));
+        ctx.waitFor(mc -> mc.level != null && mc.player != null, 2400);
+        Scenario.awaitSimBuild(ctx, before);
+        ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
+        ctx.waitTicks(40);
+    }
+
+    /** Deuces on its own, as Load a Room builds it, pasted at {@code rotation} (SimBuilder's test rotation). */
+    private static void solo(ClientGameTestContext ctx, int rotation) {
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(BUILDER, "setSingleRoomRotationForTest",
+                new Class<?>[]{int.class}, new Object[]{rotation}));
+        long before = Scenario.simBuildCount(ctx);
+        ctx.runOnClient(mc -> mc.execute(() -> ModUnderTest.staticCall(BUILDER, "buildSingleRoom",
+                new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, ROOM})));
+        Scenario.awaitSimBuild(ctx, before);
+        ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
+        ctx.waitTicks(60);
+    }
+
+    /**
+     * His view in his report (killer560, 2026-10-16, a solo Deuces): standing in the room about eight blocks from the
+     * chest doorway's wall, facing it and looking up towards the chest. Feet at capture (9.5, 69, 16.5), facing the
+     * doorway (west at rotation 0, east at 180), pitch -22, FOV 90. Copied to {@link #SHOTS}.
+     */
+    private static void heroShot(ClientGameTestContext ctx, String tag, int cell, int rotation) {
+        AtomicReference<double[]> at = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            int dy = (Integer) ModUnderTest.staticCall(ALTITUDE, "offset");
+            BlockPos o = (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class, int.class},
+                    new Object[]{cell, cell});
+            double x0 = o.getX() - 16;
+            double z0 = o.getZ() - 16;
+            at.set(rotation == 180 ? new double[]{x0 + 33 - 9.5, 69 + dy, z0 + 33 - 16.5, -90}
+                    : new double[]{x0 + 9.5, 69 + dy, z0 + 16.5, 90});
+        });
+        double[] a = at.get();
+        float pitch = -22f;
+        AtomicReference<Boolean> done = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            var uuid = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(uuid);
+                sp.teleportTo(server.overworld(), a[0], a[1], a[2], java.util.Set.<net.minecraft.world.entity.Relative>of(),
+                        (float) a[3], pitch, false);
+                done.set(true);
+            });
+            mc.player.setYRot((float) a[3]);
+            mc.player.setXRot(pitch);
+            McCompat.setHudHidden(mc, true);
+            mc.options.fov().set(90);
+        });
+        ctx.waitFor(mc -> done.get() != null, 100);
+        ctx.waitTicks(100);
+        ctx.runOnClient(mc -> {
+            mc.player.setYRot((float) a[3]);
+            mc.player.setXRot(pitch);
+        });
+        ctx.waitTicks(5);
+        Path shot = ctx.takeScreenshot(dev.testkit.harness.Report.fileName(NAME + "-" + tag));
+        ctx.runOnClient(mc -> McCompat.setHudHidden(mc, false));
+        println("screenshot " + tag + ": " + shot);
+        try {
+            if (Files.isDirectory(OUT)) {
+                Files.createDirectories(SHOTS);
+                Path to = SHOTS.resolve("deuces-" + tag + ".png");
+                Files.copy(shot, to, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                println("copied to " + to);
             }
         } catch (java.io.IOException e) {
             println("could not copy the screenshot: " + e);

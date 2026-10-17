@@ -6,6 +6,7 @@ import dev.testkit.gametest.hx.HxKit;
 import dev.testkit.gametest.hx.Session;
 import dev.testkit.gametest.hx.TriggerTiming;
 import dev.testkit.gametest.mod.Mod;
+import dev.testkit.harness.PacketTrace;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.AABB;
@@ -51,9 +52,12 @@ final class GrimTickCases {
         }
         s.test("831-boss-grim-ss-autosolve-rotate", GrimTickCases::simonRotate);
         s.test("832-boss-grim-arrowalign-aura", GrimTickCases::arrowAura);
-        s.test("833-boss-grim-autoi4-rotate", c -> autoI4(c, true));
-        s.test("834-boss-grim-autoi4-norotate", c -> autoI4(c, false));
+        s.test("833-boss-grim-autoi4-rotate", c -> autoI4(c, true, false));
+        s.test("834-boss-grim-autoi4-norotate", c -> autoI4(c, false, false));
         s.test("835-boss-grim-goldor-cps", GrimTickCases::goldorRate);
+        // hotbar-select-rest-1016: the hotbar swaps of Auto i4 (Auto Swap To Bow) and Auto Debuff, through HotbarSelect.
+        s.test("836-boss-grim-autoi4-swap", c -> autoI4(c, false, true));
+        s.test("837-boss-grim-autodebuff-swap", GrimTickCases::autoDebuff);
     }
 
     private static HxKit.Settings gateOff(Session c) {
@@ -286,10 +290,16 @@ final class GrimTickCases {
     private static final BlockPos[] I4_TARGETS = {new BlockPos(66, 128, 50), new BlockPos(64, 126, 50),
             new BlockPos(68, 130, 50)};
 
-    private static void autoI4(Session c, boolean rotate) throws Exception {
+    /**
+     * {@code swap} (836, hotbar-select-rest-1016): the Terminator in slot 0 while he holds slot 4, Auto Swap To Bow on. The
+     * swap must reach the server (a {@code held} 0) and the shots must be the bow's; with the other two, nothing may go out
+     * between a tick's {@code client_tick_end} and the next tick (GrimAC Post, deterministic: {@link PacketTrace}).
+     */
+    private static void autoI4(Session c, boolean rotate, boolean swap) throws Exception {
         try (HxKit.Settings off = gateOff(c);
              HxKit.Settings ip = hypixelIp(c);
-             HxKit.Settings on = new HxKit.Settings(c).with(I4_CFG, "AutoSwapToBow", false).with(I4_CFG, "AutoMask", false)
+             HxKit.Settings on = new HxKit.Settings(c).with(I4_CFG, "AutoSwapToBow", swap).with(I4_CFG, "AutoMask", false)
+                     .with(I4_CFG, "AutoI4Weapon", Mod.enumValue(Mod.ROOT + I4_CFG + "$Weapon", "TERMINATOR"))
                      .with(I4_CFG, "AutoI4Predictions", false).with(I4_CFG, "ShotAccuracyPercent", 100)
                      .with(I4_CFG, "AutoI4Rotate", rotate).with(I4_CFG, "AutoI4RotationTimeMs", 150)
                      .custom(() -> Mod.call(Mod.cfg(I4_CFG), "setCpsRange", 7, 7),
@@ -306,14 +316,22 @@ final class GrimTickCases {
                     c.server().command("setblock " + x + " " + y + " 50 blue_terracotta");
                 }
             }
-            c.server().command("item replace entity @a hotbar.0 with bow");
+            c.server().command("item replace entity @a hotbar.0 with bow[custom_data={id:\"TERMINATOR\"}]");
+            c.server().command("item replace entity @a hotbar.4 with stick");
             c.server().command("give @a arrow 64");
             c.hx().call("dungeon.tp", "x", 63.5, "y", 127.0, "z", 35.5, "yaw", 0f, "pitch", 0f);
             c.waitUntil("on the i4 platform with a bow", mc -> mc.player.onGround()
                     && Math.abs(mc.player.getY() - 127.0) < 0.01 && !mc.level.getBlockState(I4_TARGETS[0]).isAir() // the wall (no colour-block constant: 26.2 has none)
                     && mc.player.getInventory().getItem(0).is(net.minecraft.world.item.Items.BOW), 200);
+            int startSlot = swap ? 4 : 0;
             c.onClient(mc -> {
-                mc.player.getInventory().setSelectedSlot(0);
+                mc.player.getInventory().setSelectedSlot(startSlot);
+                return null;
+            });
+            c.ctx().waitTicks(5); // vanilla sends the test's own slot change; the trace starts after it
+            long swapMark = c.hx().head();
+            c.ctx().runOnClient(mc -> PacketTrace.start());
+            c.onClient(mc -> {
                 Mod.set(I4_CFG, "setAutoI4Enabled", true);
                 return null;
             });
@@ -333,21 +351,127 @@ final class GrimTickCases {
                 Mod.set(I4_CFG, "setAutoI4Enabled", false);
                 return null;
             });
+            c.ctx().runOnClient(mc -> PacketTrace.stop());
             List<JsonObject> shots = c.hx().events(since, "use_item");
             c.note(String.format(Locale.ROOT, "auto i4 %s: %d use_item (per target %s), %.1f CPS (7 set)",
                     rotate ? "rotate" : "no rotate", shots.size(), java.util.Arrays.toString(perTarget), cps(shots)));
             for (int i = 0; i < perTarget.length; i++) {
                 c.check(perTarget[i] > 0, "no shot reached the server while target " + I4_TARGETS[i] + " was lit");
             }
+            List<String> outside = PacketTrace.sentOutsideTick();
+            c.check(outside.isEmpty(), "sent outside a tick (after its client_tick_end, before the next tick): " + outside);
+            if (swap) {
+                List<JsonObject> held = c.hx().events(swapMark, "held");
+                c.check(held.stream().anyMatch(e -> e.get("slot").getAsInt() == 0),
+                        "Auto Swap To Bow never told the server slot 0 (held events " + held + ") - nothing tested");
+                c.check(shots.stream().allMatch(e -> "minecraft:bow".equals(e.get("item").getAsString())),
+                        "a shot went out with something other than the bow in the server's hand: " + shots);
+                c.check(PacketTrace.maxPerTick("set_carried_item") <= 1, "a slot went out twice in one tick (BadPacketsA)");
+                c.note("swap: held " + held.stream().map(e -> e.get("slot").getAsInt()).toList() + ", then "
+                        + shots.size() + " bow shot(s); nothing sent outside a tick");
+            }
         } finally {
             c.onClient(mc -> {
+                PacketTrace.stop();
                 Mod.set(I4_CFG, "setAutoI4Enabled", false);
+                mc.player.getInventory().setSelectedSlot(0);
                 return null;
             });
             c.server().command("kill @e[type=arrow]");
             c.server().command("clear @a");
             c.server().command("fill 60 124 32 70 132 51 air");
             c.server().command("forceload remove 60 32 70 51");
+            home(c);
+        }
+    }
+
+    // ---- 837 --------------------------------------------------------------------------------------------------------
+
+    private static final String AD_CFG = "autodebuff.AutoDebuffConfig";
+    private static final String WD_CFG = "witherdragons.WitherDragonsConfig";
+
+    /**
+     * Auto Debuff (hotbar-select-rest-1016): M7 P5 as the mod reads it - the M7 sidebar, him at y 30 with x, z >= 0, and
+     * Hypixel's spawn burst (20 FLAME at y 19 over a statue, spread 2/3/2, speed 0) over Red and Orange, so both read as
+     * spawning and a priority dragon is picked. Mage (class override), Last Breath in slot 1 and the Ice Spray Wand in
+     * slot 2 (by their Skyblock ids, on a stick and a blaze rod so the server can tell them apart), holding slot 0. Before
+     * the spawn it must swap to Last Breath and fire it, then swap to the wand, jump, and spray on the spawn tick: the
+     * server must see {@code held} 1 then 2, stick uses then a blaze-rod use; nothing may go out between a tick's
+     * {@code client_tick_end} and the next tick; GrimAC silent (the session's verdict).
+     */
+    private static void autoDebuff(Session c) throws Exception {
+        try (HxKit.Settings off = gateOff(c);
+             HxKit.Settings on = new HxKit.Settings(c).with(AD_CFG, "OnMage", true).with(AD_CFG, "MeleeAfter", false)
+                     .with(AD_CFG, "PingCompensation", false).with(AD_CFG, "ManualOffsetTicks", 0)
+                     .with(AD_CFG, "StopLastBreathTicks", 10).with(AD_CFG, "JumpLeadTicks", 6)
+                     .with(WD_CFG, "Enabled", true)
+                     .with(WD_CFG, "ClassOverride", Mod.enumValue(Mod.ROOT + WD_CFG + "$ClassOverride", "MAGE"))
+                     .with(AD_CFG, "Enabled", false)) {
+            c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(M7)");
+            c.waitUntil("DungeonState M7", mc -> "M7".equals(Mod.staticCall("secrets.DungeonState", "getFloor")), 100);
+            c.server().command("forceload add 48 72 64 88");
+            c.server().sync(20);
+            c.server().command("fill 50 29 74 62 29 86 stone");
+            c.server().command("clear @a");
+            c.server().command("item replace entity @a hotbar.1 with stick[custom_data={id:\"LAST_BREATH\"}]");
+            c.server().command("item replace entity @a hotbar.2 with blaze_rod[custom_data={id:\"ICE_SPRAY_WAND\"}]");
+            c.hx().call("dungeon.tp", "x", 56.5, "y", 30.0, "z", 80.5, "yaw", 0f, "pitch", 0f);
+            c.waitUntil("in P5 with Last Breath and the wand", mc -> mc.player.onGround()
+                    && Math.abs(mc.player.getY() - 30.0) < 0.01
+                    && mc.player.getInventory().getItem(1).is(net.minecraft.world.item.Items.STICK)
+                    && mc.player.getInventory().getItem(2).is(net.minecraft.world.item.Items.BLAZE_ROD)
+                    && (Boolean) Mod.staticCall("witherdragons.P5State", "inP5"), 200);
+            c.onClient(mc -> {
+                mc.player.getInventory().setSelectedSlot(0);
+                return null;
+            });
+            c.ctx().waitTicks(10);
+            long mark = c.hx().head();
+            c.ctx().runOnClient(mc -> PacketTrace.start());
+            c.onClient(mc -> {
+                Mod.set(AD_CFG, "setEnabled", true);
+                return null;
+            });
+            // Odin's spawn burst over Red's and Orange's statues.
+            c.server().command("particle minecraft:flame 27.0 19.0 59.0 2 3 2 0 20 force @a");
+            c.server().command("particle minecraft:flame 85.0 19.0 56.0 2 3 2 0 20 force @a");
+            c.waitUntil("a priority dragon spawning", mc -> Mod.staticCall("witherdragons.WitherDragonsFeature",
+                    "priorityDragon") != null, 60);
+            boolean sprayed = false;
+            for (int i = 0; i < 200 && !sprayed; i++) {
+                c.ctx().waitTicks(1);
+                sprayed = c.hx().events(mark, "use_item").stream()
+                        .anyMatch(e -> "minecraft:blaze_rod".equals(e.get("item").getAsString()));
+            }
+            c.ctx().waitTicks(5);
+            c.ctx().runOnClient(mc -> PacketTrace.stop());
+            List<JsonObject> held = c.hx().events(mark, "held");
+            List<JsonObject> uses = c.hx().events(mark, "use_item");
+            List<Integer> slots = held.stream().map(e -> e.get("slot").getAsInt()).toList();
+            long lastBreath = uses.stream().filter(e -> "minecraft:stick".equals(e.get("item").getAsString())).count();
+            long sprays = uses.stream().filter(e -> "minecraft:blaze_rod".equals(e.get("item").getAsString())).count();
+            c.note(String.format(Locale.ROOT, "auto debuff: held %s, %d Last Breath use(s), %d spray(s), %d use(s) in all",
+                    slots, lastBreath, sprays, uses.size()));
+            c.check(slots.indexOf(1) >= 0 && slots.lastIndexOf(2) > slots.indexOf(1),
+                    "want the server told slot 1 (Last Breath) and then slot 2 (the wand), got " + slots);
+            c.check(lastBreath >= 1, "Last Breath was never fired with it in the server's hand");
+            c.check(sprays >= 1, "the wand was never used with it in the server's hand");
+            c.check(uses.stream().noneMatch(e -> e.get("item").getAsString().isEmpty()),
+                    "a use went out with an empty hand on the server (a swap arrived late): " + uses);
+            c.check(PacketTrace.maxPerTick("set_carried_item") <= 1, "a slot went out twice in one tick (BadPacketsA)");
+            List<String> outside = PacketTrace.sentOutsideTick();
+            c.check(outside.isEmpty(), "sent outside a tick (after its client_tick_end, before the next tick): " + outside);
+        } finally {
+            c.onClient(mc -> {
+                PacketTrace.stop();
+                Mod.set(AD_CFG, "setEnabled", false);
+                mc.player.getInventory().setSelectedSlot(0);
+                mc.options.keyJump.setDown(false);
+                return null;
+            });
+            c.server().command("clear @a");
+            c.server().command("fill 50 29 74 62 29 86 air");
+            c.server().command("forceload remove 48 72 64 88");
             home(c);
         }
     }

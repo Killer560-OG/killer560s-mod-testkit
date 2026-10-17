@@ -381,6 +381,11 @@ public final class SimPuzzleSolveTests {
                     "QuizSolverConfig", "SimQuizPuzzle", AOTV_SLOT, false, 60, Approach.QUIZ_SPOT,
                     "QuizSolverFeature.getCorrectAnswerPos"));
         }
+
+        @Override
+        boolean workingMayBeInstant() {
+            return true; // one click, and Oruo's final-answer line ends the spell in that tick (mod puzzles-speed-1016)
+        }
     }
 
     /** Registered last: prints every verdict this run reached, on one line each. */
@@ -448,6 +453,26 @@ public final class SimPuzzleSolveTests {
             return false;
         }
 
+        /** A room whose whole solve can be one click whose tick also ends the working spell (Quiz since mod
+         *  puzzles-speed-1016): no watched tick ever reads "working", which is right, not a missing mark. */
+        boolean workingMayBeInstant() {
+            return false;
+        }
+
+        /** Which run of a {@code -PsolveRepeat} launch this is (1 for a single run), for {@link #rotation}. */
+        int runNo = 1;
+
+        /** The single-room build's rotation for this run ({@code SimBuilder.setSingleRoomRotationForTest}), or -1 to
+         *  leave the build's own (2026-10-16 speed round: every rotation of Boulder). */
+        int rotation() {
+            return -1;
+        }
+
+        /** The Hypixel speed set on the sim's player once he stands in the room, or 0 to leave it (his sim runs 600). */
+        int simSpeed() {
+            return 0;
+        }
+
         /** Higher and Lower Blaze play with Auto Blaze's Auto Secret on (killer560, 2026-10-06). */
         private boolean blaze() {
             return "SimBlazePuzzle".equals(spec.puzzle());
@@ -474,12 +499,14 @@ public final class SimPuzzleSolveTests {
             }
             int reps = Math.max(1, Integer.getInteger("testkit.solveRepeat", 1));
             if (reps == 1) {
+                runNo = 1;
                 runOnce(ctx, base);
                 return;
             }
             List<String> failed = new ArrayList<>();
             for (int r = 1; r <= reps; r++) {
                 String name = base + "#" + r;
+                runNo = r;
                 try {
                     runOnce(ctx, name);
                 } catch (AssertionError | RuntimeException e) {
@@ -533,6 +560,10 @@ public final class SimPuzzleSolveTests {
             } finally {
                 BlazeMiss.disarm();
                 dev.testkit.harness.HypixelTileRegister.reset();
+                if (rotation() >= 0) {
+                    ctx.runOnClient(mc -> ModUnderTest.staticCall(BUILDER, "setSingleRoomRotationForTest",
+                            new Class<?>[]{int.class}, new Object[]{0}));
+                }
                 allAutosOff(ctx);
                 teardown(ctx);
             }
@@ -553,6 +584,12 @@ public final class SimPuzzleSolveTests {
                 caseExtra.begin(name, mark);
             }
             // ---- load the room the way he does: from the title screen ---------------------------------
+            int turn = rotation();
+            if (turn >= 0) {
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(BUILDER, "setSingleRoomRotationForTest",
+                        new Class<?>[]{int.class}, new Object[]{turn}));
+                println(name, "single-room build at rotation " + turn);
+            }
             long before = Scenario.simBuildCount(ctx);
             ctx.runOnClient(mc -> mc.execute(() -> ModUnderTest.staticCall(BUILDER, "buildSingleRoom",
                     new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, spec.room()})));
@@ -632,6 +669,32 @@ public final class SimPuzzleSolveTests {
                         + "could be seen, so this run cannot judge it");
             }
             ctx.waitTicks(20);
+            if (simSpeed() > 0) {
+                int speed = simSpeed();
+                AtomicReference<Double> set = new AtomicReference<>();
+                ctx.runOnClient(mc -> {
+                    var server = mc.getSingleplayerServer();
+                    var uuid = mc.player.getUUID();
+                    server.execute(() -> {
+                        var sp = server.getPlayerList().getPlayer(uuid);
+                        var attr = sp == null ? null
+                                : sp.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
+                        if (attr != null) {
+                            attr.setBaseValue(speed / 1000.0); // what the sim's /speed does, without saving it
+                        }
+                        set.set(attr == null ? -1.0 : attr.getValue());
+                    });
+                });
+                ctx.waitFor(mc -> set.get() != null, 200);
+                ctx.waitTicks(5);
+                double clientSpeed = ctx.computeOnClient(mc -> mc.player.getAttributeValue(
+                        net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED));
+                println(name, String.format("sim speed %d: server attribute %.3f, client %.3f", speed, set.get(),
+                        clientSpeed));
+                if (Math.abs(clientSpeed - speed / 1000.0) > 1e-6) {
+                    throw new AssertionError("the speed " + speed + " never reached the client (" + clientSpeed + ")");
+                }
+            }
 
             // ---- premise: where he is, what the map says, the puzzle not already solved ------------------
             String liveRoom = ctx.computeOnClient(SimPuzzleSolveTests::liveRoom);
@@ -1026,7 +1089,7 @@ public final class SimPuzzleSolveTests {
                     spec.chestIsVerdict() ? ", sim isComplete=" + complete(ctx) : "")
                     + " [auto puzzle working " + workingTicks + " tick(s)]";
             println(name, "auto puzzle activity: working " + workingTicks + " tick(s) of the watch");
-            if ((solvedAt > 0 || chestAt > 0) && failedAt < 0 && workingTicks == 0) {
+            if ((solvedAt > 0 || chestAt > 0) && failedAt < 0 && workingTicks == 0 && !workingMayBeInstant()) {
                 return "FAIL - the auto did it but AutoPuzzleActivity never read working, so Auto Routes, Auto Secret "
                         + "and Auto Clear would not have held for it" + extra;
             }

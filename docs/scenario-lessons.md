@@ -491,6 +491,15 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   832 since aura-cps (2026-10-12) also times the Aura CPS setting on a frame under the crosshair needing 7 clicks (Hx
   `frame` with `rotation` 2): 20.0 at 20, 5.2 at 5. A console `kill` of old frames right before Hx spawned new ones
   killed the NEW ones (console commands and Hx calls are not ordered) - remove Hx frames with `removeStands` only.
+- Hotbar swaps (mod hotbar-select-rest-1016, every slot change through `util/HotbarSelect`): 63-breaker-aura-autoswap,
+  836-boss-grim-autoi4-swap, 837-boss-grim-autodebuff-swap, 1887-menu-automask-rod (Phoenix's rod route) and
+  60-secret-triggerbot-swap each prove the swap reached the server (`held` events or `set_carried_item`), the feature
+  acted with the new item in the server's hand (Hx `use_item` names the vanilla item, so each fake Skyblock item rides
+  on a different one), no use/dig in a swap's trace bucket, at most one slot a tick, and `PacketTrace.sentOutsideTick()`
+  empty; 50/51/53/55-61, 60 and 833/834 require that last one too. 837 fakes M7 P5 the mod's own way: the M7 sidebar,
+  y 30 at x, z >= 0, and Hypixel's spawn burst `particle minecraft:flame 27.0 19.0 59.0 2 3 2 0 20 force @a` over two
+  statues. Write the coordinates as DECIMALS: a whole `27` is centred to 27.5 by the command and the mod's
+  whole-block check rejects the packet (837's first run: no dragon ever spawning).
 - A pixel compare of a screen drawn over the WORLD is only as still as the world behind it: 824's legit run counted
   2474 changed pixels at the cursor with no carried item anywhere, because the camera view moved between frames
   (2026-10-12). Look straight up at the sky first and take two clean frames to prove the noise floor is 0.
@@ -651,6 +660,13 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   braziers and saves a screenshot from his viewpoint to killer560s-mod-logs/deuces-doorway.png. Main jar: Altar's three
   iron bars (capture 62,72,47..49) carved to air and 0 of 4 braziers lit. The screenshot needs a wait until the client has
   the chest block, or it is all sky.
+  Since mod sim-deuces-door-1016 it also sweeps Hypixel's door piece (`DoorPieceSweep`): the 5x3 box over each standard
+  doorway's trim, wall plane and one in, must be the recess (cyan terracotta, air) on a world east/south wall and the
+  fill (stone, bricks + four stairs facing out) on a world west/north one - on the two-room floor at Deuces 0 and 180,
+  three generated F7s (premise: >= 30 doorways crossed to the other side's piece) and a solo Deuces at 0 and 180. Main
+  fcba4045: 0 and the unrotated floor pass, every turned case fails (24/19/10 wrong on the F7s). Its screenshots now go
+  to killer560s-mod-logs/sim-deuces-door-1016/: the old deuces-doorway.png, a SIM shot, had been taken for his Hypixel
+  reference picture.
 - 1561-1567 (ui/FontsMainMenuSuite, mod fonts-mainmenu-1015, 2026-10-15): the Font setting is measured by each GUI text
   render state's PREPARED bounds after an off-screen extract (a state replays the font scope it was made in), not by
   `Font.width` alone: Mod Menu Only changed 49/53 menu texts and 0/13 Options texts; 1562 also reloads resources with a font
@@ -934,6 +950,12 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   96-ar-chain and 96-ar-398-regrow fail together in one run of `96-ar-398-regrow,96-ar-breakerwait,96-ar-complete,96-ar-play,
   96-ar-chain,96-ar-mapopen,96-ar-920-nostart-mapwarp,96-ar-398-offnode,96-ar-405-startwarp` on mod main 8a9f9549 as well,
   and pass run alone: an order effect, not a regression.
+- 1961-1979 (sim-grassruin-lever-1016, `SimLeverGateTests`): room levers drop their gates. Gates are written against the
+  mod's BUNDLED captures, but the library prefers a local capture, and Mod Only Test's Overgrown is the bundled one turned
+  180 degrees: each gate is turned to the quarter turn that lands its lever on a lever before anything is read. Stand in
+  reach by distance to the lever's block BOX, not its centre (Purple Flags' hanging lever is 4.4 / 4.9). The numbers
+  1781-1798 were taken first and collided with 1790-sim-map-leave-secrets - a filter of bare digits ran another class's
+  cases; grep the testkit for a number before using it.
 - 1790-sim-map-leave-secrets (`SimMapLeaveSecretsTests`, mod sim-map-secrets-1016, 2026-10-16): a room's last secret
   collected as he leaves must still show on the map. Two-room map code (R with the secret, NORMAL door, 1x1 B); the server
   is told all but one of R's secrets, the map must read (N-1)/N, then the last is collected for real and an END_SERVER_TICK
@@ -947,3 +969,20 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   whole run, so each case needs its own key spot: keyreach first reused keyaura's (13, F, 14) and the aura never clicked it
   ("premise: Secret Aura did not take the key"). 1415 and 848 also open an `AwaitEvents` window and require exactly one
   secret for the placing and none for the pickup.
+- 93-solve-boulder-speed-*, -*blaze-speed, -<room>-resume, 1016-grim-puzzle-speed (2026-10-16): his sim speed 600, every
+  rotation, done-to-resume per puzzle, and the Boulder run out and Blaze move-ahead on GrimAC - see docs/solve.md "Speed round".
+  An earlier case's "PUZZLE SOLVED!" line can reach LogTap after the next case's mark: match chat by the room's name.
+- **96-ar-1016-auranoawait / -auraawait, 62-argrim-1016-auraawait** (aura-await-only-1016): Secret Aura only clicks on a
+  route node waiting for secrets. noawait sprints a WALK route past a lever, a chest and an essence skull (each 2.3 from
+  the eye) and over an item: 0 use_item_on, item picked up; then, no route running, the same blocks are taken (the
+  control). On the fcba4045 jar the aura flipped the lever mid-walk and the walk never reached its end node. auraawait:
+  an await:3 WALK start node, the aura on once it waits: 3/3 met, the walk goes on, the route completes. The grim case is
+  the lever half of both on GrimAC (it fails on fcba4045 too: "the walk route did not run to its end"). Close a chest's
+  window in the poll: the aura is gated while a container is open. The first noawait sat its lever on keyreach's key spot
+  (14, F, 13): alone it passed, after keyreach the done-set held the block and the control failed; its blocks moved.
+- **2761-2772-menu-bzflip-*, 2775-logic-bazaarflip** (bazaarflip-custom-1016): Hypixel's cut Instant Buy title and
+  Custom Amount's sign (`HxSigns`: a `sign` slot action opens a sign prompt, `MixinServerSignUpdate` hands the update
+  back and records `sign.update` with its lines). A sign sent to the client as packets only (no block in the server's
+  world) was dropped a tick later - its BlockEntity.isRemoved went true and the editor closed with nothing typed - so
+  HxSigns places a real sign at the player's feet and puts the old block back on the update. Cases that stop with units
+  unsold must `clear @a` on the SERVER: a client-side clearContent left 2768's stack for 2769 to sell.

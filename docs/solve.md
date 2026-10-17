@@ -190,3 +190,27 @@ the next tick with no turn tick, the body onto the second stand after it, its in
 2.48 eye to box, GrimAC clean on the branch; a jar before weirdos-reach-1015 has no `aimBodyAt(LocalPlayer, AABB, FreeCam)`).
 weirdos-fast-1016: the case also requires the chest within 3 ticks of the last talk (the Chest Open Delay default is
 0). Main 93c10e55: 16 of 16 FAIL (6-7 ticks, 250 ms default); branch: 16 of 16 PASS (0.40-0.75 s).
+
+## Speed round 2026-10-16 (SimPuzzleSpeedTests, SimPuzzleDoneTests, 1016-grim-puzzle-speed)
+
+Mod branch puzzles-speed-1016. Base gained `rotation()` (each run of `-PsolveRepeat` builds the room at the next quarter
+turn via `SimBuilder.setSingleRoomRotationForTest`), `simSpeed()` (sets the server player's movement_speed attribute, as the
+sim's `/speed` does without saving it; checked on the client) and `workingMayBeInstant()` (Quiz: one click whose tick ends
+the activity spell, so no watched tick reads "working").
+
+- `93-solve-boulder-speed-aura` / `-buttons`: speed 600 (his sim's), four rotations with `-PsolveRepeat=4`. Fails on any
+  "pushed off the path", more than one path walk or straight run out, a stalled run, a give-up, or no finish. Prints a
+  `SPEED boulder` line (start -> chest, start -> finished, finished -> not working) and, on a failure, a per-tick trace
+  (position, velocity, yaw, keys, collision). Main: 0 of 4 and 0 of 4.
+- `93-solve-lowerblaze-speed` / `-higherblaze-speed`: every sim kill must be the one due, all of them, and "Blaze: done";
+  `SPEED blaze` line (first shot -> last kill / done, done -> not working, shots, warps).
+- `93-solve-<room>-resume` for Creeper Beams, Three Weirdos, Quiz, Tic Tac Toe, Ice Path, Ice Fill, Water Board and Teleport
+  Maze: the sim's solve to `AutoPuzzleActivity.isWorking` false (when Auto Secret carries on), bound 5 ticks where nothing
+  follows the solve, 40 for the reward-chest rooms, 200 for Teleport Maze's walk out; it also stamps the "PUZZLE SOLVED!"
+  line (matched by room name: an earlier case's line can arrive after the next case's mark) and `solvedByHim`.
+  `93-solve-icefill-done` already exists (SimPuzzleRoundTests), hence `-resume`.
+- `1016-grim-puzzle-speed` (GrimAC): `AutoBoulder.testRunTo` runs the room's own run-out code 40 blocks from pressed
+  against iron bars, at movement_speed 0.6 and 0.1; then three "move ahead" rounds (shot, the warp's use the next tick,
+  landing, a shot 5 degrees of yaw off). Needs 35+ blocks, 80% sprinting, every use on its tick, 0 GrimAC lines.
+- `PuzzleTimingExtra`: a landing whose next shot waited on a volley in flight or the Shoot cooldown is counted, and when
+  every landing was one of those the "landing -> next action" pair is not required (Auto Blaze now lands during the flight).

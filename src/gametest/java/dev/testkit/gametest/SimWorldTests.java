@@ -61,6 +61,9 @@ import java.util.function.Function;
  *   <li><b>1415-sim-redstone-key</b>: Golden Oasis' Redstone Key - the key head by Hypixel's profile; the node clicked
  *       with no key does nothing; the key taken (no secret); then the node goes, the three redstone blocks by the lever
  *       go, one secret counts for the room, and the client sees the key on an armor stand at the node.</li>
+ *   <li><b>1781-sim-prince-supertall, 1782-sim-prince-supertall-floor, 1783-sim-prince-obsidian-census</b>
+ *       (2026-10-16): Supertall's two obsidian tombs are princes, by themselves and on a floor; a Superboom opens
+ *       each as a prince; /reset brings both back; and the obsidian signature matches exactly the census's rooms.</li>
  * </ul>
  * The mimic route (644) is {@code SimAutoRoutesTests}' 96-ar-644-mimic-warp, where the route machinery lives.
  * Screenshots of 645-650 go to the report's screens at GUI scale 2.
@@ -85,13 +88,16 @@ public class SimWorldTests implements FabricClientGameTest {
             "1408-sim-lever-buttons", "1409-sim-lever-dome",
             "1411-sim-newmap-secrets",
             // sim-levers-1015 (2026-10-15): Cobble Wall Pillar's and Golden Oasis' placed levers, the Redstone Key
-            "1412-sim-lever-cobble", "1414-sim-lever-golden-oasis", "1415-sim-redstone-key"};
+            "1412-sim-lever-cobble", "1414-sim-lever-golden-oasis", "1415-sim-redstone-key",
+            // sim-prince-supertall-1016: the obsidian prince signature
+            "1781-sim-prince-supertall", "1782-sim-prince-supertall-floor", "1783-sim-prince-obsidian-census"};
 
     private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String SIM_ITEMS = "com.killer560.hub.roomsim.SimItems";
     private static final String SIM_PRINCE = "com.killer560.hub.roomsim.SimPrince";
+    private static final String MAP_CODE = "com.killer560.hub.roomsim.MapCode";
     private static final String SIM_LEVERS = "com.killer560.hub.roomsim.SimRoomLevers";
     private static final String SIM_KEY = "com.killer560.hub.roomsim.SimRedstoneKey";
     private static final String SIM_SECRET_ITEMS = "com.killer560.hub.roomsim.SimSecretItems";
@@ -153,7 +159,9 @@ public class SimWorldTests implements FabricClientGameTest {
                         case "859-sim-lever-atlas" -> caseLever(ctx, c, "Atlas",
                                 new int[]{54, 67, 32}, new int[]{7, 80, 25}, new int[]{9, 83, 26}, false, null, null);
                         case "860-sim-lever-long-hall" -> caseLever(ctx, c, "Long Hall",
-                                new int[]{21, 70, 28}, new int[]{18, 82, 12}, new int[]{18, 82, 19}, false, null, null);
+                                // 2026-10-16: the 3 x 5 wood panel, not the channel floor ("this lever in Long
+                                // Hall drops this door").
+                                new int[]{21, 70, 28}, new int[]{20, 84, 11}, new int[]{22, 88, 11}, false, null, null);
                         case "652-sim-prince-waypoint-brf" -> casePrinceWaypoint(ctx);
                         case "1401-sim-boom-prince-tomb" -> caseBoomPrinceTomb(ctx);
                         case "1402-sim-boom-crypt-overhead" -> caseBoomCryptOverhead(ctx);
@@ -181,6 +189,9 @@ public class SimWorldTests implements FabricClientGameTest {
                         case "1414-sim-lever-golden-oasis" -> caseLeverDoors(ctx, c, "Golden Oasis", new int[][][]{
                                 {{30, 71, 26}, {5, 69, 11}, {8, 72, 12}, {29, 26}}});
                         case "1415-sim-redstone-key" -> caseRedstoneKey(ctx, c);
+                        case "1781-sim-prince-supertall" -> casePrinceSupertall(ctx);
+                        case "1782-sim-prince-supertall-floor" -> casePrinceSupertallFloor(ctx);
+                        case "1783-sim-prince-obsidian-census" -> casePrinceObsidianCensus(ctx);
                         default -> {
                         }
                     }
@@ -1311,6 +1322,281 @@ public class SimWorldTests implements FabricClientGameTest {
             return s.hasProperty(net.minecraft.world.level.block.LeverBlock.POWERED)
                     && s.getValue(net.minecraft.world.level.block.LeverBlock.POWERED);
         });
+    }
+
+    // ============================================================================================ 1781-1783
+
+    /** Supertall's two obsidian tombs, capture coordinates: the upper one's obsidian ring and the lower one's 1x2. */
+    private static final int[][] SUPERTALL_UPPER_OBSIDIAN = {{49, 142, 44}, {50, 142, 44}, {51, 142, 44}, {52, 142, 44},
+            {49, 142, 45}, {52, 142, 45}, {49, 142, 46}, {52, 142, 46}, {49, 142, 47}, {50, 142, 47}, {51, 142, 47},
+            {52, 142, 47}};
+    private static final int[][] SUPERTALL_LOWER_OBSIDIAN = {{5, 99, 12}, {5, 99, 13}};
+
+    /**
+     * 1781, killer560 (2026-10-16), standing in Supertall: "this is a prince" (the raised obsidian tomb under the two
+     * hopper braziers, capture x 48..53 y 142 z 44..48). The wiki gives Supertall 2 princes, and the room's other
+     * obsidian tomb (x 4..6 y 99 z 11..14, "behind a Cracked Stone Bricks wall") is the second. Built by itself: both
+     * are princes and neither is a crypt; one Superboom on each opens it as a prince (prince=true, no crypt), takes all
+     * its obsidian and drops an undead; the run's prince point is taken once. Then {@code /reset}: both come back, whole
+     * and unblown.
+     */
+    private void casePrinceSupertall(ClientGameTestContext ctx) {
+        String room = "Supertall";
+        build(ctx, room);
+        List<BlockPos> upper = capList(ctx, room, SUPERTALL_UPPER_OBSIDIAN);
+        List<BlockPos> lower = capList(ctx, room, SUPERTALL_LOWER_OBSIDIAN);
+        BlockPos upperRim = capW(ctx, room, 50, 142, 48);
+        BlockPos lowerRim = capW(ctx, room, 4, 99, 11);
+        BlockPos chestPlatform = capW(ctx, room, 27, 141, 52);
+        int princes = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_PRINCE, "count"));
+        boolean upperPart = isPart(ctx, upper.get(0)) && isPart(ctx, upperRim);
+        boolean lowerPart = isPart(ctx, lower.get(0)) && isPart(ctx, lowerRim);
+        boolean platformPart = isPart(ctx, chestPlatform);
+        int upperObs = countIs(ctx, upper, Blocks.OBSIDIAN);
+        int lowerObs = countIs(ctx, lower, Blocks.OBSIDIAN);
+        say("1781 " + room + ": " + princes + " prince(s); upper tomb obsidian " + upperObs + "/" + upper.size()
+                + ", a prince " + upperPart + "; lower tomb obsidian " + lowerObs + "/" + lower.size() + ", a prince "
+                + lowerPart + "; chest platform slab a prince " + platformPart);
+        check(upperObs == upper.size() && lowerObs == lower.size(), "the capture's obsidian is not where the census put it");
+        check(princes == 2, "Supertall has " + princes + " prince(s), the wiki and its two obsidian tombs say 2");
+        check(upperPart, "the upper obsidian tomb (his screenshot) is not a prince, or its slab rim is not part of it");
+        check(lowerPart, "the lower obsidian tomb is not a prince, or its slab rim is not part of it");
+        check(!platformPart, "a chest platform's slabs were taken for a prince");
+
+        // The upper tomb, aimed at its rim from the floor in front of it.
+        stand(ctx, room, 50, 51, 142, new double[]{50.5, 142.5, 48.5});
+        shot(ctx, "1781-supertall-prince-before");
+        int undeadBefore = zombies(ctx, upperRim, 4);
+        String line = boom(ctx, upperRim, Direction.UP);
+        int upperLeft = countNotAir(ctx, upper);
+        int undeadAfter = zombies(ctx, upperRim, 4);
+        boolean scored = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_PRINCE, "hasScored"));
+        shot(ctx, "1781-supertall-prince-after");
+        say("1781 upper: obsidian left " + upperLeft + "/" + upper.size() + ", undead " + undeadBefore + " -> "
+                + undeadAfter + ", run scored the prince " + scored + "; " + line);
+        check(line.contains("prince=true") && line.contains("crypts opened=0"),
+                "the upper tomb did not open as a prince alone: " + line);
+        check(upperLeft == 0, upperLeft + " obsidian block(s) of the upper tomb survived");
+        check(undeadAfter > undeadBefore, "no undead appeared in the opened upper prince");
+        check(scored, "blowing the prince did not take the run's prince point");
+
+        // The lower tomb, from the floor of its alcove.
+        stand(ctx, room, 7, 12, 98, new double[]{5.5, 99.5, 12.5});
+        int lowBefore = zombies(ctx, lower.get(0), 4);
+        String line2 = boom(ctx, lower.get(0), Direction.UP);
+        int lowerLeft = countNotAir(ctx, lower);
+        int lowAfter = zombies(ctx, lower.get(0), 4);
+        say("1781 lower: obsidian left " + lowerLeft + "/" + lower.size() + ", undead " + lowBefore + " -> " + lowAfter
+                + "; " + line2);
+        check(line2.contains("prince=true") && line2.contains("crypts opened=0"),
+                "the lower tomb did not open as a prince alone: " + line2);
+        check(lowerLeft == 0, lowerLeft + " obsidian block(s) of the lower tomb survived");
+        check(lowAfter > lowBefore, "no undead appeared in the opened lower prince");
+
+        // /reset: the room as loaded, both princes back and unblown.
+        long before = Scenario.simBuildCount(ctx);
+        ctx.runOnClient(mc -> mc.player.connection.sendCommand("reset"));
+        Scenario.awaitSimBuild(ctx, before);
+        ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
+        waitStanding(ctx, room);
+        ctx.waitTicks(30);
+        int princesAfter = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_PRINCE, "count"));
+        int upperBack = countIs(ctx, upper, Blocks.OBSIDIAN);
+        int lowerBack = countIs(ctx, lower, Blocks.OBSIDIAN);
+        boolean upperLive = isPrince(ctx, upper.get(0));
+        boolean lowerLive = isPrince(ctx, lower.get(0));
+        boolean scoredAfter = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_PRINCE, "hasScored"));
+        say("1781 after /reset: " + princesAfter + " prince(s), upper obsidian " + upperBack + "/" + upper.size()
+                + " unblown " + upperLive + ", lower obsidian " + lowerBack + "/" + lower.size() + " unblown " + lowerLive
+                + ", prince point taken " + scoredAfter);
+        check(princesAfter == 2, "after /reset Supertall has " + princesAfter + " prince(s)");
+        check(upperBack == upper.size() && lowerBack == lower.size(), "/reset did not put the obsidian back");
+        check(upperLive && lowerLive, "after /reset a prince is still marked blown");
+        check(!scoredAfter, "after /reset the run's prince point is still taken");
+    }
+
+    /**
+     * 1782: Supertall on a generated floor (grid cells x 2..4, z 4..6, unrotated, beside Dueces) - the floor scan
+     * registers both obsidian tombs as princes.
+     */
+    private void casePrinceSupertallFloor(ClientGameTestContext ctx) {
+        String room = "Supertall";
+        int grid = 11;
+        int[] cellRoom = new int[grid * grid];
+        java.util.Arrays.fill(cellRoom, -1);
+        int[] cellDoor = new int[grid * grid];
+        int[] cellRotation = new int[grid * grid];
+        for (int gz = 4; gz <= 6; gz++) {
+            for (int gx = 2; gx <= 4; gx++) {
+                cellRoom[gz * grid + gx] = 0;
+            }
+        }
+        cellRoom[6 * grid + 6] = 1;
+        cellDoor[6 * grid + 5] = 1; // DungeonLayout.DOOR_NORMAL
+        String code = ctx.computeOnClient(mc -> {
+            try {
+                Class<?> dec = Class.forName(MAP_CODE + "$Decoded");
+                Object d = dec.getConstructor(String[].class, int[].class, int[].class, int[].class)
+                        .newInstance(new String[]{room, "Dueces"}, cellRoom, cellDoor, cellRotation);
+                return (String) ModUnderTest.staticCall(MAP_CODE, "encodeDecoded", new Class<?>[]{dec}, new Object[]{d});
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        long before = Scenario.simBuildCount(ctx);
+        long mark = LogTap.mark();
+        ctx.runOnClient(mc -> mc.execute(() -> ModUnderTest.staticCall(BUILDER, "build",
+                new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, code})));
+        ctx.waitFor(mc -> mc.level != null && mc.player != null, 2400);
+        Scenario.awaitSimBuild(ctx, before);
+        ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
+        String princeLine = "";
+        for (int i = 0; i < 600 && princeLine.isEmpty(); i++) {
+            for (String l : LogTap.since(mark)) {
+                if (l.contains("Sim prince:") && !l.contains("[STDOUT]")) {
+                    princeLine = l;
+                }
+            }
+            ctx.waitTicks(1);
+        }
+        waitStanding(ctx, "the floor");
+        playerId = ctx.computeOnClient(mc -> mc.player.getUUID());
+        builtRoom = room;
+        List<BlockPos> upper = capList(ctx, room, SUPERTALL_UPPER_OBSIDIAN);
+        List<BlockPos> lower = capList(ctx, room, SUPERTALL_LOWER_OBSIDIAN);
+        int upperObs = countIs(ctx, upper, Blocks.OBSIDIAN);
+        int lowerObs = countIs(ctx, lower, Blocks.OBSIDIAN);
+        int princes = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_PRINCE, "count"));
+        boolean upperPart = isPart(ctx, upper.get(0));
+        boolean lowerPart = isPart(ctx, lower.get(0));
+        say("1782 floor: " + princeLine + "; " + princes + " prince(s); upper obsidian " + upperObs + "/" + upper.size()
+                + " a prince " + upperPart + ", lower obsidian " + lowerObs + "/" + lower.size() + " a prince " + lowerPart);
+        check(upperObs == upper.size() && lowerObs == lower.size(), "Supertall's obsidian is not on the floor where expected");
+        check(upperPart && lowerPart, "the floor scan did not register both of Supertall's obsidian tombs (upper "
+                + upperPart + ", lower " + lowerPart + ")");
+        check(princes >= 2, "the floor has " + princes + " prince(s), Supertall alone has 2");
+    }
+
+    /**
+     * 1783: the obsidian signature against the whole library. Only a room whose palette holds obsidian can match it, so
+     * every such room is built by itself and its princes that contain obsidian are counted. They must be exactly
+     * Supertall 2, Withermancer 1, Grass Ruin 1, Pirate 1, Waterfall 1 (census 2026-10-16) - no other room.
+     */
+    private void casePrinceObsidianCensus(ClientGameTestContext ctx) {
+        java.util.Map<String, Integer> expected = new java.util.TreeMap<>(java.util.Map.of("Supertall", 2,
+                "Withermancer", 1, "Grass Ruin", 1, "Pirate", 1, "Waterfall", 1));
+        List<String> withObsidian = ctx.computeOnClient(mc -> {
+            List<String> out = new ArrayList<>();
+            @SuppressWarnings("unchecked")
+            List<String> names = (List<String>) ModUnderTest.staticCall(ROOM_LIBRARY, "names");
+            for (String n : names) {
+                Object r = ModUnderTest.staticCall(ROOM_LIBRARY, "get", new Class<?>[]{String.class}, new Object[]{n});
+                try {
+                    @SuppressWarnings("unchecked")
+                    List<String> pal = (List<String>) r.getClass().getField("palette").get(r);
+                    if (pal.stream().anyMatch(p -> p.startsWith("minecraft:obsidian"))) {
+                        out.add(n);
+                    }
+                } catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            return out;
+        });
+        say("1783 rooms with obsidian in their palette (" + withObsidian.size() + "): " + withObsidian);
+        java.util.Map<String, Integer> found = new java.util.TreeMap<>();
+        List<String> unusable = new ArrayList<>();
+        for (String n : withObsidian) {
+            boolean usable = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isUsable",
+                    new Class<?>[]{String.class}, new Object[]{n}));
+            if (!usable) {
+                unusable.add(n);
+                continue;
+            }
+            build(ctx, n);
+            // The floor scan reads only chunks already loaded (SimPrince.scan's javadoc; a Superboom's scanNear covers
+            // the rest), and a second build of a 2x2 left half of Supertall unloaded on the first run (1 of 2 found).
+            // This case is about the SIGNATURE, so every chunk of the room is loaded and the scan asked again.
+            int[] size = ctx.computeOnClient(mc -> {
+                Object r = ModUnderTest.staticCall(ROOM_LIBRARY, "get", new Class<?>[]{String.class}, new Object[]{n});
+                try {
+                    return new int[]{r.getClass().getField("sizeX").getInt(r), r.getClass().getField("sizeZ").getInt(r)};
+                } catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            BlockPos ca = capW(ctx, n, 0, 100, 0);
+            BlockPos cb = capW(ctx, n, size[0] - 1, 100, size[1] - 1);
+            int rescanned = onServer(ctx, (level, sp) -> {
+                for (int cx = Math.min(ca.getX(), cb.getX()) >> 4; cx <= Math.max(ca.getX(), cb.getX()) >> 4; cx++) {
+                    for (int cz = Math.min(ca.getZ(), cb.getZ()) >> 4; cz <= Math.max(ca.getZ(), cb.getZ()) >> 4; cz++) {
+                        level.getChunk(cx, cz);
+                    }
+                }
+                return (Integer) ModUnderTest.staticCall(SIM_PRINCE, "scan", new Class<?>[]{ServerLevel.class},
+                        new Object[]{level});
+            });
+            say("1783 " + n + ": " + rescanned + " prince(s) of any kind with the whole room loaded");
+            int obsidianPrinces = onServer(ctx, (level, sp) -> {
+                int k = 0;
+                @SuppressWarnings("unchecked")
+                List<BlockPos> seeds = (List<BlockPos>) ModUnderTest.staticCall(SIM_PRINCE, "positions");
+                for (BlockPos seed : seeds) {
+                    @SuppressWarnings("unchecked")
+                    List<BlockPos> blocks = (List<BlockPos>) ModUnderTest.staticCall(SIM_PRINCE, "blocksOf",
+                            new Class<?>[]{BlockPos.class}, new Object[]{seed});
+                    for (BlockPos b : blocks) {
+                        if (level.getBlockState(b).is(Blocks.OBSIDIAN)) {
+                            k++;
+                            break;
+                        }
+                    }
+                }
+                return k;
+            });
+            say("1783 " + n + ": " + obsidianPrinces + " obsidian prince(s)");
+            if (obsidianPrinces > 0) {
+                found.put(n, obsidianPrinces);
+            }
+        }
+        say("1783 obsidian princes by room: " + found + (unusable.isEmpty() ? "" : ", not buildable " + unusable));
+        for (String n : expected.keySet()) {
+            check(!unusable.contains(n), n + " cannot be built, so the census cannot check it");
+        }
+        check(withObsidian.containsAll(expected.keySet()), "a room the signature should match has no obsidian: "
+                + withObsidian);
+        check(found.equals(expected), "the obsidian signature matched " + found + ", the census says " + expected);
+    }
+
+    private static List<BlockPos> capList(ClientGameTestContext ctx, String room, int[][] cs) {
+        List<BlockPos> out = new ArrayList<>();
+        for (int[] c : cs) {
+            out.add(capW(ctx, room, c[0], c[1], c[2]));
+        }
+        return out;
+    }
+
+    private static boolean isPart(ClientGameTestContext ctx, BlockPos p) {
+        return ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_PRINCE, "isPart",
+                new Class<?>[]{BlockPos.class}, new Object[]{p}));
+    }
+
+    private static boolean isPrince(ClientGameTestContext ctx, BlockPos p) {
+        return ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_PRINCE, "isPrince",
+                new Class<?>[]{BlockPos.class}, new Object[]{p}));
+    }
+
+    /** Waits until he stands on a block, as {@link #build} does. */
+    private static void waitStanding(ClientGameTestContext ctx, String where) {
+        for (int t = 0; t < 1800; t++) {
+            boolean ok = ctx.computeOnClient(mc -> mc.player != null && mc.player.onGround()
+                    && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir());
+            if (ok) {
+                return;
+            }
+            ctx.waitTicks(1);
+        }
+        check(false, "the client never stood in " + where);
     }
 
     // ============================================================================================ helpers

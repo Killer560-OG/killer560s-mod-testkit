@@ -573,7 +573,7 @@ public class SimPathOptimalTests implements FabricClientGameTest {
                 - waitedBefore;
         int named = 0;
         for (String l : LogTap.since(flyMark)) {
-            named += l.contains("[CHAT]") && l.contains("Waiting for the breaker block at") ? 1 : 0;
+            named += (l.contains("[CHAT]") || l.contains("(chat)")) && l.contains("Waiting for the breaker block at") ? 1 : 0;
         }
         println(BREAKER, String.format(Locale.US, "blocks standing, 60 ticks on #2: at %s (%.2f from the start), route"
                         + " running %s, sneak held %s, %d use packet(s), %d tick(s) waited, chat line(s) naming it: %d",

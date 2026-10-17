@@ -139,7 +139,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // fullclear-1016: a warp the server refused is aimed again and sent once more, not waited 61 ticks
             "96-ar-1016-refused",
             // aura-skull-place-1016: the Redstone Key counts for an await on its PLACING, by hand or by Secret Aura
-            "96-ar-1016-keyawait", "96-ar-1016-keyaura", "96-ar-1016-keyreach"};
+            "96-ar-1016-keyawait", "96-ar-1016-keyaura", "96-ar-1016-keyreach",
+            "96-ar-1016-auranoawait", "96-ar-1016-auraawait"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -319,6 +320,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1016-keyawait" -> ArRedstoneKeyCases.keyAwait(ctx);
                         case "96-ar-1016-keyaura" -> ArRedstoneKeyCases.keyAura(ctx);
                         case "96-ar-1016-keyreach" -> ArRedstoneKeyCases.keyReach(ctx);
+                        case "96-ar-1016-auranoawait" -> ArAuraAwaitCases.noAwait(ctx);
+                        case "96-ar-1016-auraawait" -> ArAuraAwaitCases.await(ctx);
                         case "96-ar-dbedit" -> caseDbEdit(ctx);
                         case "96-ar-mapopen" -> caseMapOpen(ctx);
                         case "96-ar-mapopen-aim" -> caseMapOpenAim(ctx);
@@ -8950,6 +8953,251 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 check(in, "Secret Aura never put the key in once the node was in reach");
             } finally {
                 auraOff(ctx);
+                stopRoute(ctx);
+            }
+        }
+
+        private static BlockPos realNow0(int[] p) {
+            return real(ModUnderTest.staticCall(FRAME, "current"), p[0], p[1], p[2]);
+        }
+    }
+
+    /**
+     * killer560, 2026-10-16: "make sure you never have secret aura grab secrets while it is auto routing unless it is on
+     * an await node ... It can pick up items cause you cannot stop that but that is it".
+     * <ul>
+     * <li>96-ar-1016-auranoawait: a WALK route sprints him past a floor lever, a chest and a Wither Essence skull, each
+     * within 2 blocks, and over a dropped item; Secret Aura is on. Zero use_item_on go out, the lever stays off, the
+     * item is picked up. Then, no route running, he stands among the same three blocks and the aura clicks them all
+     * (the control: the aura would have taken them).</li>
+     * <li>96-ar-1016-auraawait: the start node waits on await:3 with the same three kinds in reach. The aura clicks
+     * them, the await is met 3/3, and the route walks on to its next node and completes.</li>
+     * </ul>
+     */
+    static final class ArAuraAwaitCases {
+        private ArAuraAwaitCases() {
+        }
+
+        /** Hypixel's Wither Essence skull profile id (AuraQuoiTests 842). */
+        private static final String ESSENCE_ID = "[I;677717835,815216974,-2125861790,-1670195120]";
+
+        private static void essence(ClientGameTestContext ctx, int[] at) {
+            BlockPos p = realNow(ctx, at[0], at[1], at[2]);
+            serverRun(ctx, (server, sp) -> server.getCommands().performPrefixedCommand(
+                    server.createCommandSourceStack().withSuppressedOutput(),
+                    "setblock " + p.getX() + " " + p.getY() + " " + p.getZ()
+                            + " minecraft:player_head[rotation=8]{profile:{id:" + ESSENCE_ID + ",name:\"WitherEssence\"}}"));
+            ctx.waitTicks(5);
+            boolean read = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                    "com.killer560.hub.secrets.SecretsFeature", "isWitherEssence",
+                    new Class<?>[]{net.minecraft.world.level.BlockGetter.class, BlockPos.class}, new Object[]{mc.level, p}));
+            check(read, "premise: the client does not read the skull at " + p.toShortString() + " as Wither Essence");
+        }
+
+        private static void auraOn(ClientGameTestContext ctx) {
+            ctx.runOnClient(mc -> {
+                Object cfg = ModUnderTest.config(CHEAT_CFG);
+                ModUnderTest.set(cfg, "setAuraLevers", true);
+                ModUnderTest.set(cfg, "setAuraChests", true);
+                ModUnderTest.set(cfg, "setAuraEssence", true);
+                ModUnderTest.set(cfg, "setAuraPauseWhileSneaking", false);
+                ModUnderTest.set(cfg, "setSecretAuraEnabled", true);
+            });
+        }
+
+        private static void auraOff(ClientGameTestContext ctx) {
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+        }
+
+        private static JsonObject walk(int x, int z, boolean start, int await) {
+            JsonObject o = node("WALK", x, z, 0f, 0f);
+            if (start) {
+                o.addProperty("start", true);
+            }
+            if (await > 0) {
+                o.addProperty("awaitEnabled", true);
+                o.addProperty("await", "SECRET");
+                o.addProperty("amount", await);
+            }
+            return o;
+        }
+
+        /** A chest's window the aura opened: closed at once, as Auto Close Chest would (the aura waits under a screen). */
+        private static void closeScreens(ClientGameTestContext ctx) {
+            ctx.runOnClient(mc -> {
+                if (McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>) {
+                    mc.player.closeContainer();
+                }
+            });
+        }
+
+        private static boolean itemsNear(ClientGameTestContext ctx, double x, double z) {
+            Vec3 c = ctx.computeOnClient(mc -> (Vec3) ModUnderTest.staticCall(COORDS, "toReal",
+                    new Class<?>[]{ModUnderTest.staticCall(FRAME, "current").getClass(), double.class, double.class,
+                            double.class}, new Object[]{ModUnderTest.staticCall(FRAME, "current"), x, (double) F, z}));
+            AtomicReference<Boolean> any = new AtomicReference<>();
+            serverRun(ctx, (server, sp) -> any.set(!server.overworld().getEntitiesOfClass(
+                    net.minecraft.world.entity.item.ItemEntity.class,
+                    new net.minecraft.world.phys.AABB(c, c).inflate(1.5)).isEmpty()));
+            return Boolean.TRUE.equals(any.get());
+        }
+
+        private static void dropItem(ClientGameTestContext ctx, double x, double z) {
+            Vec3 c = ctx.computeOnClient(mc -> (Vec3) ModUnderTest.staticCall(COORDS, "toReal",
+                    new Class<?>[]{ModUnderTest.staticCall(FRAME, "current").getClass(), double.class, double.class,
+                            double.class}, new Object[]{ModUnderTest.staticCall(FRAME, "current"), x, (double) F, z}));
+            serverRun(ctx, (server, sp) -> {
+                var item = new net.minecraft.world.entity.item.ItemEntity(server.overworld(), c.x, c.y + 0.1, c.z,
+                        new ItemStack(net.minecraft.world.item.Items.BONE));
+                item.setNoPickUpDelay();
+                item.setDeltaMovement(Vec3.ZERO);
+                server.overworld().addFreshEntity(item);
+            });
+        }
+
+        /** Closest his eye came to the block's centre over the samples (feet + 1.62). */
+        private static double closest(ClientGameTestContext ctx, List<Sample> s, int[] at) {
+            Vec3 c = Vec3.atCenterOf(realNow(ctx, at[0], at[1], at[2]));
+            double best = Double.MAX_VALUE;
+            for (Sample x : s) {
+                if (x.pos() != null) {
+                    best = Math.min(best, x.pos().add(0, 1.62, 0).distanceTo(c));
+                }
+            }
+            return best;
+        }
+
+        static void noAwait(ClientGameTestContext ctx) {
+            if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+                caseSkip = "Auto Routes and Secret Aura are cheat-build features";
+                return;
+            }
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            // Blocks no other aura case of the 96-ar arena uses: the aura's done-set is per block for the whole run, and
+            // keyreach's key spot (14, F, 13) was this case's first lever - its control then never clicked it.
+            int[] lever = {20, F, 11};
+            int[] chest = {16, F, 13};
+            int[] skull = {20, F, 15};
+            setBlocks(ctx, Map.of(lever, floorLever(), chest, Blocks.CHEST.defaultBlockState()));
+            essence(ctx, skull);
+            // #1 sprints him along +z from (18, 6) until he runs into #2, an UNSNEAK at (18, 25) that sends nothing.
+            writeRoute(ctx, List.of(walk(18, 6, true, 0), node("UNSNEAK", 18, 25, 0f, 0f)));
+            auraOn(ctx);
+            try {
+                dropItem(ctx, 18.5, 9.5);
+                startSampling(ctx);
+                long m = LogTap.mark();
+                check(arm(ctx, 18, 6, 0f, 0f), "the walk route did not start");
+                boolean done = waitFor(ctx, 120, () -> {
+                    closeScreens(ctx);
+                    return logHas(m, "\" complete") || logHas(m, "Stopped");
+                });
+                ctx.waitTicks(10);
+                List<Sample> s = stopSampling(ctx);
+                int clicks = countOut(s, "use_item_on");
+                boolean leverFlipped = leverOn(ctx, lever[0], lever[1], lever[2]);
+                boolean picked = logHas(m, "item picked up by you") && !itemsNear(ctx, 18.5, 9.5);
+                double dl = closest(ctx, s, lever);
+                double dc = closest(ctx, s, chest);
+                double ds = closest(ctx, s, skull);
+                println(String.format(Locale.US, "auranoawait route: complete %s, use_item_on %d, lever on %s, item picked up"
+                        + " %s, closest eye to lever %.2f / chest %.2f / skull %.2f", done && logHas(m, "\" complete"),
+                        clicks, leverFlipped, picked, dl, dc, ds));
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("AutoRoutes") && (l.contains("clicked by you") || l.contains("await") || l.contains("Node #"))) {
+                        println("auranoawait log: " + l);
+                    }
+                }
+                check(done && logHas(m, "\" complete"), "premise: the walk route did not run to its end");
+                check(dl < 3.0 && dc < 3.0 && ds < 3.0, "premise: the route did not take him past all three in reach");
+                check(clicks == 0, "Secret Aura sent " + clicks + " use_item_on during a non-await stretch of the route");
+                check(!leverFlipped, "the lever was flipped during the route");
+                check(!logHas(m, "clicked by you"), "a secret block was clicked during the route");
+                check(picked, "the item on his path was not picked up");
+
+                // Control: no route running, the same three blocks in reach - the aura takes them, as before.
+                check(!running(ctx), "premise: the route is still running");
+                startSampling(ctx);
+                tpRel(ctx, 18.5, 13.5, 0f, 30f);
+                boolean took = waitFor(ctx, 100, () -> {
+                    closeScreens(ctx);
+                    return leverOn(ctx, lever[0], lever[1], lever[2])
+                            && ctx.computeOnClient(m2 -> (Boolean) ModUnderTest.staticCall(
+                                    "com.killer560.hub.cheatutils.SecretAuraFeature", "isDone",
+                                    new Class<?>[]{BlockPos.class}, new Object[]{realNow0(chest)}));
+                });
+                // The skull is clicked by distance order too; give it the aura's cooldown and retry spacing.
+                waitFor(ctx, 40, () -> {
+                    closeScreens(ctx);
+                    return false;
+                });
+                List<Sample> sc = stopSampling(ctx);
+                int controlClicks = countOut(sc, "use_item_on");
+                println("auranoawait control (no route): lever and chest taken " + took + ", use_item_on " + controlClicks);
+                check(took, "control: with no route running Secret Aura did not take the lever and the chest");
+                check(controlClicks >= 3, "control: with no route running Secret Aura sent only " + controlClicks
+                        + " use_item_on for a lever, a chest and an essence skull");
+            } finally {
+                auraOff(ctx);
+                closeScreens(ctx);
+                stopRoute(ctx);
+            }
+        }
+
+        static void await(ClientGameTestContext ctx) {
+            if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+                caseSkip = "Auto Routes and Secret Aura are cheat-build features";
+                return;
+            }
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            // Its own blocks: Secret Aura's done-set (per block, per run) still holds auranoawait's.
+            int[] lever = {22, F, 11};
+            int[] chest = {18, F, 11};
+            int[] skull = {21, F, 8};
+            setBlocks(ctx, Map.of(lever, floorLever(), chest, Blocks.CHEST.defaultBlockState()));
+            essence(ctx, skull);
+            writeRoute(ctx, List.of(walk(20, 10, true, 3), node("UNSNEAK", 20, 22, 0f, 0f)));
+            try {
+                startSampling(ctx);
+                check(arm(ctx, 20, 10, 0f, 0f), "the await route did not start");
+                long m = LogTap.mark();
+                ctx.waitTicks(5);
+                check(!logHas(m, "secrets met"), "premise: the await was met before the aura was on");
+                auraOn(ctx);
+                boolean met = waitFor(ctx, 160, () -> {
+                    closeScreens(ctx);
+                    return logHas(m, "await 3/3 secrets met");
+                });
+                boolean done = waitFor(ctx, 120, () -> {
+                    closeScreens(ctx);
+                    return logHas(m, "\" complete") || logHas(m, "Stopped");
+                });
+                List<Sample> s = stopSampling(ctx);
+                int clicks = countOut(s, "use_item_on");
+                boolean leverFlipped = leverOn(ctx, lever[0], lever[1], lever[2]);
+                int metAt = logIndex(m, "secrets met");
+                int completeAt = logIndex(m, "\" complete");
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("AutoRoutes") && (l.contains("clicked by you") || l.contains("await")
+                            || l.contains("Node #") || l.contains("complete") || l.contains("Stopped"))) {
+                        println("auraawait log: " + l);
+                    }
+                }
+                println("auraawait: await met " + met + ", route complete " + (completeAt >= 0) + ", use_item_on " + clicks
+                        + ", lever on " + leverFlipped);
+                check(met, "the await:3 was never met by Secret Aura's clicks");
+                check(clicks >= 3, "only " + clicks + " use_item_on went out on the await node");
+                check(leverFlipped, "the lever was not flipped on the await node");
+                check(logHas(m, "chest at") && logHas(m, "lever at") && logHas(m, "skull at"),
+                        "the await did not count a chest, a lever and a skull");
+                check(done && completeAt > metAt, "the route did not continue to its end after the await was met");
+            } finally {
+                auraOff(ctx);
+                closeScreens(ctx);
                 stopRoute(ctx);
             }
         }

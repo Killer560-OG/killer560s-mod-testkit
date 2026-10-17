@@ -365,7 +365,8 @@ public class SimAutoSecretTests implements FabricClientGameTest {
                 holdSaid = true;
                 holdLines++;
             }
-            if (l.contains("[CHAT]") && l.contains("Waiting for ") && l.contains(" to finish")) {
+            // Logged, not said, since 2026-10-16 (ModChat.log, logger killer560smod-chat): count either form.
+            if ((l.contains("[CHAT]") || l.contains("(chat)")) && l.contains("Waiting for ") && l.contains(" to finish")) {
                 holdChat++;
             }
             if (l.contains("[AutoRoutes] Arming: inert: ") && l.contains(" is working")) {

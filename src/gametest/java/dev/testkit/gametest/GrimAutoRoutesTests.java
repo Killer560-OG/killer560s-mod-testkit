@@ -190,6 +190,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 s.shelved("62-argrim-legit", SimAutoRoutesTests.LEGIT_ONLY_TESTING, GrimAutoRoutesTests::caseLegit);
             }
             s.test("62-argrim-hand", GrimAutoRoutesTests::caseHand);
+            s.test("62-argrim-1016-auraawait", GrimAutoRoutesTests::caseAuraAwait); // aura-await-only-1016
             s.test("62-argrim-crypt", GrimAutoRoutesTests::caseCrypt);
             s.test("62-argrim-1015-cryptaim", GrimAutoRoutesTests::caseCryptAim); // crypt-aim-1015
             s.test("62-argrim-mimic", GrimAutoRoutesTests::caseMimic);
@@ -200,6 +201,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-autosecret", c -> caseAutoSecret(c, false));
             // Dungeon Autopilot (mod dungeon-autopilot): the same room through the planner - Solo, nothing but the route.
             s.test("62-argrim-autopilot", c -> caseAutoSecret(c, true));
+            // grim-post-autopilot-1016: started by his key (END_CLIENT_TICK) with a non-AOTV slot held and the first trip
+            // already in TripCache, so the trip runs precomputed and its AOTV swap is the one under test.
+            s.test("62-argrim-1016-autosecret-key", c -> caseAutoSecret(c, false, true));
+            s.test("62-argrim-1016-autopilot-key", c -> caseAutoSecret(c, true, true));
             s.test("62-argrim-imwarp", c -> caseMapWarp(c, false));
             s.test("62-argrim-imwarp-run", c -> caseMapWarp(c, true));
             s.test("62-argrim-goto", GrimAutoRoutesTests::caseGoTo);
@@ -1327,6 +1332,85 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     }
 
     /**
+     * 62-argrim-1016-auraawait (killer560, 2026-10-16: "never have secret aura grab secrets while it is auto routing unless
+     * it is on an await node"). Secret Aura on. Pass 1: a WALK start node sprints him past a floor lever 1.5 blocks to the
+     * side, onto an UNSNEAK node out of the lever's reach: no use_item_on, the lever stays off. Pass 2: a WALK start node
+     * with await:1 beside another lever, the aura switched on once the node waits: it flips the lever, the await is met,
+     * the walk goes on and the route completes. GrimAC must say nothing about either.
+     */
+    private static void caseAuraAwait(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        String cheat = "com.killer560.hub.cheatutils.CheatUtilsConfig";
+        setBlocks(ctx, Map.of(new int[]{16, F, 12}, "minecraft:lever[face=floor,facing=north,powered=false]",
+                new int[]{6, F, 11}, "minecraft:lever[face=floor,facing=north,powered=false]"));
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(cheat);
+            ModUnderTest.set(cfg, "setAuraLevers", true);
+            ModUnderTest.set(cfg, "setAuraPauseWhileSneaking", false);
+            ModUnderTest.set(cfg, "setSecretAuraEnabled", true);
+        });
+        try {
+            // ---- pass 1: a non-await stretch ----
+            JsonObject w1 = node("WALK", 14, 6, 0f, 0f);
+            w1.addProperty("start", true);
+            writeRoute(ctx, List.of(w1, node("UNSNEAK", 14, 22, 0f, 0f)));
+            long m1 = LogTap.mark();
+            startSampling(ctx);
+            walkOnto(ctx, 14.5, 4.5, 14, 6);
+            boolean done1 = waitFor(ctx, 100, () -> logHas(m1, "\" complete") || logHas(m1, "Stopped"));
+            ctx.waitTicks(10);
+            List<Sample> s1 = stopSampling(ctx);
+            boolean leverA = String.valueOf(blockState(ctx, 16, F, 12)).contains("powered=true");
+            int clicks1 = count(s1, "use_item_on");
+            Vec3 end1 = relPos(ctx);
+            println(String.format(Locale.ROOT, "auraawait pass 1: complete %s, end z %.2f, use_item_on %d, lever on %s",
+                    logHas(m1, "\" complete"), end1.z, clicks1, leverA));
+            check(done1 && logHas(m1, "\" complete"), "pass 1: the walk route did not run to its end");
+            check(end1.z > 20, "pass 1: the walk did not take him past the lever (ended at " + end1 + ")");
+            check(clicks1 == 0 && !leverA, "pass 1: Secret Aura clicked during a non-await node (" + clicks1
+                    + " use_item_on, lever on " + leverA + ")");
+            noteFlags(c, s1);
+
+            // ---- pass 2: an await node ----
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(cheat, "setSecretAuraEnabled"));
+            JsonObject w2 = node("WALK", 8, 10, 0f, 0f);
+            w2.addProperty("start", true);
+            w2.addProperty("awaitEnabled", true);
+            w2.addProperty("await", "SECRET");
+            w2.addProperty("amount", 1);
+            writeRoute(ctx, List.of(w2, node("UNSNEAK", 8, 22, 0f, 0f)));
+            long m2 = LogTap.mark();
+            startSampling(ctx);
+            walkOnto(ctx, 8.5, 7.5, 8, 10);
+            ctx.waitTicks(5);
+            boolean waiting = !logHas(m2, "secrets met")
+                    && ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(cheat), "setSecretAuraEnabled", true));
+            boolean met = waitFor(ctx, 80, () -> logHas(m2, "secrets met"));
+            boolean done2 = waitFor(ctx, 100, () -> logHas(m2, "\" complete") || logHas(m2, "Stopped"));
+            ctx.waitTicks(5);
+            List<Sample> s2 = stopSampling(ctx);
+            boolean leverB = String.valueOf(blockState(ctx, 6, F, 11)).contains("powered=true");
+            int clicks2 = count(s2, "use_item_on");
+            println("auraawait pass 2: waiting " + waiting + ", met " + met + ", complete " + logHas(m2, "\" complete")
+                    + ", use_item_on " + clicks2 + ", lever on " + leverB);
+            check(waiting, "pass 2: the await node was not waiting before the aura went on");
+            check(leverB && clicks2 >= 1, "pass 2: Secret Aura did not flip the lever on the await node (" + clicks2
+                    + " use_item_on)");
+            check(met, "pass 2: the await was not met by the aura's lever");
+            check(done2 && logHas(m2, "\" complete"), "pass 2: the route did not go on to its end after the await");
+            c.note("auraawait: non-await walk past a lever 0 use_item_on; await node " + clicks2
+                    + " use_item_on, lever flipped, await met, route complete");
+            noteFlags(c, s2);
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(cheat, "setSecretAuraEnabled"));
+            resetRoutes(ctx);
+        }
+    }
+
+    /**
      * A crypt node: the Crypt Weapon (Hyperion) used straight down until a prince/crypt kill is counted. It HOLDS the use
      * key (killer560, 2026-10-06: "hold right click ... do not have it spam click"), so its uses must come at the cadence
      * of a held right click, packet for packet: the control first holds the real use key with the Hyperion, looking
@@ -1699,8 +1783,30 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * GrimAC.
      */
     private static void caseAutoSecret(Session c, boolean pilot) {
+        caseAutoSecret(c, pilot, false);
+    }
+
+    /** GLFW_KEY_KP_3 / GLFW_KEY_KP_6: bound to nothing in vanilla or the mod's defaults. */
+    private static final int AS_KEY = 323;
+    private static final int PILOT_KEY = 326;
+
+    /**
+     * {@code byKey} (grim-post-autopilot-1016): started the way he starts it - his toggle key, read by Auto Secret's
+     * END_CLIENT_TICK poll - holding the empty slot 3, once TripCache has the trip to the start node from his spot. The
+     * first trip then runs precomputed (no search), and on main its AOTV swap went out from that END tick, after the
+     * tick's client_tick_end: GrimAC "Post held item change" on the next transaction. Requires the precomputed run, one
+     * set_carried_item, and the usual warps; GrimAC must stay silent.
+     */
+    private static void caseAutoSecret(Session c, boolean pilot, boolean byKey) {
         ClientGameTestContext ctx = c.ctx();
         String as = "com.killer560.hub.autosecret.AutoSecretFeature";
+        if (byKey) {
+            ctx.runOnClient(mc -> {
+                Object cfg = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
+                ModUnderTest.call(cfg, "setToggleKey", new Class<?>[]{int.class}, new Object[]{AS_KEY});
+                ModUnderTest.call(cfg, "setAutopilotKey", new Class<?>[]{int.class}, new Object[]{PILOT_KEY});
+            });
+        }
         if (pilot) {
             ctx.runOnClient(mc -> {
                 Object cfg = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
@@ -1716,11 +1822,34 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         try {
             tpRel(ctx, 6.5, 20.5, 0f, 0f);
             ctx.waitTicks(5);
+            if (byKey) {
+                // Slot 3 is empty: the trip's first warp must swap to the AOTV (slot 0).
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                BlockPos goal = ctx.computeOnClient(mc -> {
+                    Object frame = ModUnderTest.staticCall(FRAME, "current");
+                    Vec3 v = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(),
+                            double.class, double.class, double.class}, new Object[]{frame, 24.5, (double) F, 10.5});
+                    return BlockPos.containing(v.x, v.y - 0.5, v.z);
+                });
+                boolean cached = waitFor(ctx, 600, () -> ctx.computeOnClient(mc -> ModUnderTest.staticCall(
+                        "com.killer560.hub.livemap.autoclear.TripCache", "find", new Class<?>[]{Vec3.class, BlockPos.class,
+                                int.class, boolean.class}, new Object[]{mc.player.position(), goal, -1, true}) != null));
+                check(cached, "TripCache never precomputed the trip from his spot to the start node " + goal
+                        + " - the case cannot test a precomputed first trip");
+                ctx.waitTicks(2);
+            }
             JsonObject before = stats();
             long m = LogTap.mark();
             startSampling(ctx);
-            Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as,
-                    pilot ? "startAutopilot" : "start"));
+            Boolean started;
+            if (byKey) {
+                ctx.getInput().holdKeyFor(pilot ? PILOT_KEY : AS_KEY, 3);
+                started = waitFor(ctx, 20, () -> ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as,
+                        "isRunning")));
+            } else {
+                started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as,
+                        pilot ? "startAutopilot" : "start"));
+            }
             check(Boolean.TRUE.equals(started), (pilot ? "Dungeon Autopilot" : "Auto Secret") + " refused to start");
             Vec3 atStart = waitLanded(ctx, 24, 10, 300);
             Vec3 atEnd = waitLanded(ctx, 24, 22, 200);
@@ -1766,6 +1895,17 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             for (Sample x : uses) {
                 check(x.shift(), "a warp's use went out on tick " + x.tick() + " without the server having the sneak");
             }
+            // GrimAC Post flags these only when a transaction answer happens to follow them before the next tick packet;
+            // the trace's record of what went out between two ticks is the same fault without the luck.
+            List<String> outside = PacketTrace.sentOutsideTick();
+            check(outside.isEmpty(), "sent outside a tick (after its client_tick_end, before the next tick): " + outside);
+            if (byKey) {
+                // The code under test must have run: the first trip precomputed, and a swap to the AOTV sent for it.
+                check(logHas(m, "- no search, precomputed"), "the first trip was not run precomputed - nothing tested");
+                long swaps = s.stream().flatMap(x -> x.out().stream()).filter(p -> p.equals("set_carried_item")).count();
+                check(swaps >= 1, "no set_carried_item went out - he already held the AOTV, nothing tested");
+                c.note("first trip precomputed, " + swaps + " set_carried_item(s)");
+            }
             c.note((pilot ? "autopilot: " : "auto secret: ") + planned + " map warp(s) + route warp, " + uses.size() + " use(s), server etherwarps +"
                     + delta(before, "etherwarps") + ", landed " + atStart + " then " + atEnd);
         } finally {
@@ -1773,6 +1913,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 if ((Boolean) ModUnderTest.staticCall(as, "isRunning")) {
                     ModUnderTest.staticCall(as, "stop", new Class<?>[]{String.class, boolean.class},
                             new Object[]{"test over", true});
+                }
+                if (byKey) {
+                    Object cfg = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
+                    ModUnderTest.call(cfg, "setToggleKey", new Class<?>[]{int.class}, new Object[]{-1});
+                    ModUnderTest.call(cfg, "setAutopilotKey", new Class<?>[]{int.class}, new Object[]{-1});
                 }
             });
             writeRoute(ctx, null);

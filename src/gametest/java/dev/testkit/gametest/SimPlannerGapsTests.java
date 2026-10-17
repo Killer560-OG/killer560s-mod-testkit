@@ -889,7 +889,7 @@ public class SimPlannerGapsTests implements FabricClientGameTest {
         int refused = 0;
         List<String> paths = new ArrayList<>();
         for (String l : LogTap.since(mark)) {
-            refused += l.contains("no etherwarp target there") ? 1 : 0;
+            refused += l.contains("[Sim] etherwarp refused") ? 1 : 0; // the sim's log line (no chat line since 2026-10-16)
             if (l.contains("[Path]") && (l.contains("warp(s)") || l.contains("no way") || l.contains("Failed"))) {
                 paths.add(l.replaceAll("^.*?\\[Path\\]", "[Path]"));
             }
@@ -920,7 +920,7 @@ public class SimPlannerGapsTests implements FabricClientGameTest {
             failures.add(label + ": ended in " + endRoom + ", not " + room);
         }
         if (refused > 0) {
-            failures.add(label + ": the server refused " + refused + " planned warp(s) (\"no etherwarp target there\")");
+            failures.add(label + ": the server refused " + refused + " planned warp(s) (\"[Sim] etherwarp refused\")");
         }
         return summary;
     }

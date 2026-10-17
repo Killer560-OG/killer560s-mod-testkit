@@ -55,3 +55,9 @@ abilities are `hx/dungeon/HxAbilities` (etherwarp, Instant Transmission, Superbo
   every slow run each warp still went on its landing's tick (`landingToUse` all 0) - the gaps of 2 were landings the
   dedicated server answered a tick later. The case prints each use's round trip (`roundTrips`) and judges 20/s against
   it; `firesOnLanding` is what catches a route that waits.
+- `62-argrim-1016-autosecret-key` / `-autopilot-key` (grim-post-autopilot-1016): Auto Secret / Autopilot started by his
+  toggle key (read at END_CLIENT_TICK), holding the empty slot 3, once `TripCache` has the trip to the start node from his
+  spot, so the first trip runs precomputed and swaps to the AOTV. GrimAC Post flags a held-item change after a tick's
+  `client_tick_end` only when a transaction answer follows it before the next tick packet, so on main the pair flagged one
+  in two; every autosecret/autopilot case now also requires `PacketTrace.sentOutsideTick()` empty, which is the same fault
+  without the luck. Both cases require the precomputed run and a `set_carried_item` (else nothing was tested).
