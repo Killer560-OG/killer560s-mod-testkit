@@ -434,6 +434,7 @@ final class PuzzleTimingExtra extends SolveExtra {
             }
         }
         int waits = 0;
+        landsUnderCooldown = 0;
         for (int i = 0; i < ev.size(); i++) {
             Ev e = ev.get(i);
             switch (e.kind()) {
@@ -525,6 +526,7 @@ final class PuzzleTimingExtra extends SolveExtra {
                         }
                         if (act(n.kind())) {
                             if (n.kind() == Kind.SHOT && lastShotBefore(ev, j) + cooldownTicks + 1 >= ready) {
+                                landsUnderCooldown++;
                                 break; // his Shoot cooldown was still running: not the auto's wait
                             }
                             if (!judged.test(n)) {
@@ -560,7 +562,14 @@ final class PuzzleTimingExtra extends SolveExtra {
         }
         judge(bad, Pair.CLICK_USE, clickUse);
         judge(bad, Pair.SNEAK_USE, sneakUse);
-        judge(bad, Pair.LAND_ACT, landAct);
+        if (landAct.n == 0 && landsUnderCooldown > 0) {
+            // Every landing came while the volley before it was still in the air or his Shoot cooldown ran (Auto Blaze's
+            // move while the volley flies, mod puzzles-speed-1016): the shot after it waited on those, not on the landing.
+            SimPuzzleRoundTests.say(name, "landing -> next action: all " + landsUnderCooldown + " landing(s) came under a "
+                    + "volley or the Shoot cooldown - the next shot waited on those, nothing to judge as the auto's wait");
+        } else {
+            judge(bad, Pair.LAND_ACT, landAct);
+        }
         judge(bad, Pair.READY_CLICK, readyClick);
         judge(bad, Pair.VOLLEY_NEXT, volleyNext);
         summary = String.format(Locale.US, "TIMING %s | %s | %s | %s | %s | camera-wait %d", clickUse.brief(), sneakUse.brief(),
@@ -607,6 +616,8 @@ final class PuzzleTimingExtra extends SolveExtra {
         }
         return Long.MIN_VALUE / 4;
     }
+
+    private int landsUnderCooldown;
 
     /** Every measured gap is judged; {@link #need} only says which must have been measured at all. */
     private void judge(List<String> bad, Pair pair, Stats s) {

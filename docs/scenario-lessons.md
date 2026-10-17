@@ -934,3 +934,6 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   96-ar-chain and 96-ar-398-regrow fail together in one run of `96-ar-398-regrow,96-ar-breakerwait,96-ar-complete,96-ar-play,
   96-ar-chain,96-ar-mapopen,96-ar-920-nostart-mapwarp,96-ar-398-offnode,96-ar-405-startwarp` on mod main 8a9f9549 as well,
   and pass run alone: an order effect, not a regression.
+- 93-solve-boulder-speed-*, -*blaze-speed, -<room>-resume, 1016-grim-puzzle-speed (2026-10-16): his sim speed 600, every
+  rotation, done-to-resume per puzzle, and the Boulder run out and Blaze move-ahead on GrimAC - see docs/solve.md "Speed round".
+  An earlier case's "PUZZLE SOLVED!" line can reach LogTap after the next case's mark: match chat by the room's name.
