@@ -64,18 +64,48 @@ public final class PacketTrace {
         }
     }
 
+    /**
+     * Serverbound packets sent OUTSIDE {@code Minecraft.tick}: after a tick's {@code client_tick_end} and before the next
+     * tick starts (END_CLIENT_TICK handlers, render frames, tasks and packet handlers drained between ticks). Each is
+     * {@code "t<bucket> <name>"}. A held-item change, use, click, dig or swing here is what GrimAC "Post" flags once a
+     * transaction answer follows it before the next tick packet, which depends on when the server's ping lands - so a
+     * flag is luck, and this record is the deterministic version (grim-post-autopilot-1016).
+     */
+    private static final List<String> outsideTick = new ArrayList<>();
+    /** True from a client_tick_end until the next tick's earliest START handler. */
+    private static volatile boolean betweenTicks;
+    private static final Identifier TICK_HEAD_PHASE = Identifier.parse("testkit:packettrace_tick_head");
+
     /** Clear the trace and start recording. Call on the client thread. */
     public static void start() {
         if (!hooked) {
             ClientTickEvents.START_CLIENT_TICK.register(client -> newTick());
+            // Ahead of every mod's START handler (the default phase), so a packet a mod sends at START counts as
+            // inside the tick it belongs to.
+            ClientTickEvents.START_CLIENT_TICK.addPhaseOrdering(TICK_HEAD_PHASE,
+                    net.fabricmc.fabric.api.event.Event.DEFAULT_PHASE);
+            ClientTickEvents.START_CLIENT_TICK.register(TICK_HEAD_PHASE, client -> betweenTicks = false);
             hooked = true;
         }
         synchronized (ticks) {
             ticks.clear();
             ticks.add(new Tick());
+            outsideTick.clear();
         }
+        betweenTicks = false;
         recording = true;
     }
+
+    /** The interaction packets sent outside a tick since {@link #start} (see {@link #outsideTick}); pongs, teleport
+     *  accepts and chunk acks, which vanilla sends from its packet handlers, are left out. */
+    public static List<String> sentOutsideTick() {
+        synchronized (ticks) {
+            return List.copyOf(outsideTick);
+        }
+    }
+
+    private static final java.util.Set<String> POST_KINDS = java.util.Set.of("set_carried_item", "use_item", "use_item_on",
+            "interact", "attack", "player_action", "container_click", "swing", "player_command", "player_abilities");
 
     /** Stop recording. What was recorded stays readable until the next {@link #start}. */
     public static void stop() {
@@ -108,7 +138,13 @@ public final class PacketTrace {
             synchronized (ticks) {
                 if (!ticks.isEmpty()) {
                     ticks.getLast().out().add(name);
+                    if (betweenTicks && POST_KINDS.contains(name)) {
+                        outsideTick.add("t" + (ticks.size() - 1) + " " + name);
+                    }
                 }
+            }
+            if (name.equals("client_tick_end")) {
+                betweenTicks = true;
             }
         }
     }

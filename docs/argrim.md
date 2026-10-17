@@ -50,3 +50,9 @@ abilities are `hx/dungeon/HxAbilities` (etherwarp, Instant Transmission, Superbo
   `name`, Hypixel's "(sword) Crypt Undead 512.6k(heart)") 9 blocks either side of a Spirit Sceptre crypt node. The server emulates no
   sceptre, so nothing dies: two held uses down, then exactly two aimed `use_item` per mob (by the node's log, per mob id),
   the node moves on, use key up, GrimAC silent. Main d1eda658: never aims (fails); branch: clean.
+- `62-argrim-1016-autosecret-key` / `-autopilot-key` (grim-post-autopilot-1016): Auto Secret / Autopilot started by his
+  toggle key (read at END_CLIENT_TICK), holding the empty slot 3, once `TripCache` has the trip to the start node from his
+  spot, so the first trip runs precomputed and swaps to the AOTV. GrimAC Post flags a held-item change after a tick's
+  `client_tick_end` only when a transaction answer follows it before the next tick packet, so on main the pair flagged one
+  in two; every autosecret/autopilot case now also requires `PacketTrace.sentOutsideTick()` empty, which is the same fault
+  without the luck. Both cases require the precomputed run and a `set_carried_item` (else nothing was tested).

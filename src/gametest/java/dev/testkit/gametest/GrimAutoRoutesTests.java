@@ -200,6 +200,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-autosecret", c -> caseAutoSecret(c, false));
             // Dungeon Autopilot (mod dungeon-autopilot): the same room through the planner - Solo, nothing but the route.
             s.test("62-argrim-autopilot", c -> caseAutoSecret(c, true));
+            // grim-post-autopilot-1016: started by his key (END_CLIENT_TICK) with a non-AOTV slot held and the first trip
+            // already in TripCache, so the trip runs precomputed and its AOTV swap is the one under test.
+            s.test("62-argrim-1016-autosecret-key", c -> caseAutoSecret(c, false, true));
+            s.test("62-argrim-1016-autopilot-key", c -> caseAutoSecret(c, true, true));
             s.test("62-argrim-imwarp", c -> caseMapWarp(c, false));
             s.test("62-argrim-imwarp-run", c -> caseMapWarp(c, true));
             s.test("62-argrim-goto", GrimAutoRoutesTests::caseGoTo);
@@ -1695,8 +1699,30 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * GrimAC.
      */
     private static void caseAutoSecret(Session c, boolean pilot) {
+        caseAutoSecret(c, pilot, false);
+    }
+
+    /** GLFW_KEY_KP_3 / GLFW_KEY_KP_6: bound to nothing in vanilla or the mod's defaults. */
+    private static final int AS_KEY = 323;
+    private static final int PILOT_KEY = 326;
+
+    /**
+     * {@code byKey} (grim-post-autopilot-1016): started the way he starts it - his toggle key, read by Auto Secret's
+     * END_CLIENT_TICK poll - holding the empty slot 3, once TripCache has the trip to the start node from his spot. The
+     * first trip then runs precomputed (no search), and on main its AOTV swap went out from that END tick, after the
+     * tick's client_tick_end: GrimAC "Post held item change" on the next transaction. Requires the precomputed run, one
+     * set_carried_item, and the usual warps; GrimAC must stay silent.
+     */
+    private static void caseAutoSecret(Session c, boolean pilot, boolean byKey) {
         ClientGameTestContext ctx = c.ctx();
         String as = "com.killer560.hub.autosecret.AutoSecretFeature";
+        if (byKey) {
+            ctx.runOnClient(mc -> {
+                Object cfg = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
+                ModUnderTest.call(cfg, "setToggleKey", new Class<?>[]{int.class}, new Object[]{AS_KEY});
+                ModUnderTest.call(cfg, "setAutopilotKey", new Class<?>[]{int.class}, new Object[]{PILOT_KEY});
+            });
+        }
         if (pilot) {
             ctx.runOnClient(mc -> {
                 Object cfg = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
@@ -1712,11 +1738,34 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         try {
             tpRel(ctx, 6.5, 20.5, 0f, 0f);
             ctx.waitTicks(5);
+            if (byKey) {
+                // Slot 3 is empty: the trip's first warp must swap to the AOTV (slot 0).
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                BlockPos goal = ctx.computeOnClient(mc -> {
+                    Object frame = ModUnderTest.staticCall(FRAME, "current");
+                    Vec3 v = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(),
+                            double.class, double.class, double.class}, new Object[]{frame, 24.5, (double) F, 10.5});
+                    return BlockPos.containing(v.x, v.y - 0.5, v.z);
+                });
+                boolean cached = waitFor(ctx, 600, () -> ctx.computeOnClient(mc -> ModUnderTest.staticCall(
+                        "com.killer560.hub.livemap.autoclear.TripCache", "find", new Class<?>[]{Vec3.class, BlockPos.class,
+                                int.class, boolean.class}, new Object[]{mc.player.position(), goal, -1, true}) != null));
+                check(cached, "TripCache never precomputed the trip from his spot to the start node " + goal
+                        + " - the case cannot test a precomputed first trip");
+                ctx.waitTicks(2);
+            }
             JsonObject before = stats();
             long m = LogTap.mark();
             startSampling(ctx);
-            Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as,
-                    pilot ? "startAutopilot" : "start"));
+            Boolean started;
+            if (byKey) {
+                ctx.getInput().holdKeyFor(pilot ? PILOT_KEY : AS_KEY, 3);
+                started = waitFor(ctx, 20, () -> ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as,
+                        "isRunning")));
+            } else {
+                started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as,
+                        pilot ? "startAutopilot" : "start"));
+            }
             check(Boolean.TRUE.equals(started), (pilot ? "Dungeon Autopilot" : "Auto Secret") + " refused to start");
             Vec3 atStart = waitLanded(ctx, 24, 10, 300);
             Vec3 atEnd = waitLanded(ctx, 24, 22, 200);
@@ -1762,6 +1811,17 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             for (Sample x : uses) {
                 check(x.shift(), "a warp's use went out on tick " + x.tick() + " without the server having the sneak");
             }
+            // GrimAC Post flags these only when a transaction answer happens to follow them before the next tick packet;
+            // the trace's record of what went out between two ticks is the same fault without the luck.
+            List<String> outside = PacketTrace.sentOutsideTick();
+            check(outside.isEmpty(), "sent outside a tick (after its client_tick_end, before the next tick): " + outside);
+            if (byKey) {
+                // The code under test must have run: the first trip precomputed, and a swap to the AOTV sent for it.
+                check(logHas(m, "- no search, precomputed"), "the first trip was not run precomputed - nothing tested");
+                long swaps = s.stream().flatMap(x -> x.out().stream()).filter(p -> p.equals("set_carried_item")).count();
+                check(swaps >= 1, "no set_carried_item went out - he already held the AOTV, nothing tested");
+                c.note("first trip precomputed, " + swaps + " set_carried_item(s)");
+            }
             c.note((pilot ? "autopilot: " : "auto secret: ") + planned + " map warp(s) + route warp, " + uses.size() + " use(s), server etherwarps +"
                     + delta(before, "etherwarps") + ", landed " + atStart + " then " + atEnd);
         } finally {
@@ -1769,6 +1829,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 if ((Boolean) ModUnderTest.staticCall(as, "isRunning")) {
                     ModUnderTest.staticCall(as, "stop", new Class<?>[]{String.class, boolean.class},
                             new Object[]{"test over", true});
+                }
+                if (byKey) {
+                    Object cfg = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
+                    ModUnderTest.call(cfg, "setToggleKey", new Class<?>[]{int.class}, new Object[]{-1});
+                    ModUnderTest.call(cfg, "setAutopilotKey", new Class<?>[]{int.class}, new Object[]{-1});
                 }
             });
             writeRoute(ctx, null);
