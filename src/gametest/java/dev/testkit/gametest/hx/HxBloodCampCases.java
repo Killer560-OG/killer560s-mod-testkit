@@ -77,6 +77,47 @@ final class HxBloodCampCases {
         s.test("192-hx-bloodcamp-line-of-fire", HxBloodCampCases::lineOfFire);
         // bloodcamp-5-1015: blood mobs recognised by their Hypixel name tags.
         s.test("193-hx-bloodcamp-named-blood-mobs", HxBloodCampCases::namedBloodMobs);
+        // blood-ap3-1018 (doc item 19): the map calling his Blood Room something else must not stop the Trigger Bot.
+        s.test("1018-bloodcamp-map-type", HxBloodCampCases::mapType);
+    }
+
+    // ---- 1018 -------------------------------------------------------------------------------------------------------
+
+    /**
+     * killer560, 2026-10-18: "I just tired blood camp triggerbot and it wasnt working in f1." Until mod blood-ap3-1018 the
+     * map's room type, whenever it had one, decided "in the Blood Room" alone - and the same F1 run showed his Blood Room
+     * "as a random room on the map". Here the map is made to call the room he stands in NORMAL while he stands in the
+     * Watcher's tile: the Trigger Bot must still click. Then, with the Watcher one tile over and the map saying NORMAL,
+     * it must not (the room gate still works). The map type goes through the mod's test hook; a jar without the hook
+     * cannot be told what the map says, so it fails here.
+     */
+    private static void mapType(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            s.custom(() -> Mod.staticCall(BC, "setTestMapRoomType", "NORMAL"),
+                    () -> Mod.staticCall(BC, "setTestMapRoomType", (Object) null));
+            if (cheat) {
+                s.with(BC_CFG, "TriggerBotEnabled", true);
+            }
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            Trip in = trip(c, Mob.HURTABLE, true, 20, null);
+            c.note("map says NORMAL, he is in the Watcher's tile: " + fmt(in));
+            c.check(in.tracked, "the trip was never tracked - nothing was tested");
+            c.check(in.inRoom, "with the map calling it NORMAL, Blood Camp did not see the Blood Room he and the Watcher are in");
+            if (cheat) {
+                c.check(in.clicks >= 1 && !in.serverAttacks.isEmpty(), "the Trigger Bot did not click in the Blood Room"
+                        + " because the map called it NORMAL");
+            }
+            watcher(c, WATCHER_OUT);
+            stand(c, 0f, 0f);
+            Trip out = trip(c, Mob.HURTABLE, true, 20, null);
+            c.note("map says NORMAL, Watcher one tile over: " + fmt(out));
+            c.check(!out.inRoom && out.clicks == 0 && out.serverAttacks.isEmpty(),
+                    "outside the Watcher's tile with the map saying NORMAL it still acted");
+        } finally {
+            c.hx().removeStands();
+        }
     }
 
     // ---- shared -----------------------------------------------------------------------------------------------------
