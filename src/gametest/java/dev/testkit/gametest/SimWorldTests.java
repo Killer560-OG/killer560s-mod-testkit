@@ -93,7 +93,11 @@ public class SimWorldTests implements FabricClientGameTest {
             "1781-sim-prince-supertall", "1782-sim-prince-supertall-floor", "1783-sim-prince-obsidian-census",
             // sim-secrets-1018: Sarcophagus' prince, one Redstone Key per room, chests that appear like bats, Change Room
             "1018-sim-prince-sarcophagus", "1018-sim-keyspot-one", "1018-sim-chest-appear",
-            "1018-sim-changeroom-lastpage"};
+            "1018-sim-changeroom-lastpage",
+            // sim-skull-prince-1018: the key takes the room's redstone batch; a prince takes its polished andesite
+            "1018-sim-skull-golden-oasis", "1018-sim-skull-redstone-crypt", "1018-sim-skull-redstone-key",
+            "1018-sim-prince-stairs", "1018-sim-prince-withermancer", "1018-sim-prince-sloth", "1018-sim-prince-red-blue",
+            "1018-sim-prince-grass-ruin"};
 
     private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
@@ -199,6 +203,36 @@ public class SimWorldTests implements FabricClientGameTest {
                         case "1018-sim-keyspot-one" -> SimSecrets1018.keySpotOne(ctx);
                         case "1018-sim-chest-appear" -> SimSecrets1018.chestAppear(ctx);
                         case "1018-sim-changeroom-lastpage" -> SimSecrets1018.changeRoomLastPage(ctx);
+                        case "1018-sim-skull-golden-oasis" -> SkullPrince1018.skull(ctx, "Golden Oasis",
+                                new int[]{11, 71, 4}, SkullPrince1018.box(27, 29, 70, 70, 26, 26));
+                        case "1018-sim-skull-redstone-crypt" -> SkullPrince1018.skull(ctx, "Redstone Crypt",
+                                new int[]{5, 72, 25}, new int[][]{{16, 69, 16}, {16, 70, 16}, {17, 69, 16}, {17, 70, 16},
+                                        {18, 69, 16}, {18, 70, 16}, {19, 70, 16}});
+                        case "1018-sim-skull-redstone-key" -> SkullPrince1018.skull(ctx, "Redstone Key",
+                                new int[]{28, 68, 8}, SkullPrince1018.box(19, 22, 68, 68, 24, 24));
+                        case "1018-sim-prince-stairs" -> SkullPrince1018.prince(ctx, "Stairs", new int[]{16, 89, 12},
+                                new int[]{14, 13, 90}, new int[][]{{15, 89, 11}, {15, 89, 12}, {15, 89, 13}, {16, 89, 11},
+                                        {16, 89, 15}, {17, 89, 11}, {17, 89, 15}, {18, 89, 11}, {18, 89, 15}, {19, 89, 12},
+                                        {19, 89, 13}},
+                                // the rest of the ledge it is set into (one ring, not a flood)
+                                new int[][]{{14, 89, 12}, {13, 89, 11}});
+                        case "1018-sim-prince-withermancer" -> SkullPrince1018.prince(ctx, "Withermancer",
+                                new int[]{29, 73, 34}, new int[]{26, 34, 71}, new int[][]{{28, 71, 34}, {28, 71, 35},
+                                        {29, 71, 33}, {29, 71, 34}, {29, 71, 35}, {29, 71, 36}, {30, 71, 33}, {30, 71, 34},
+                                        {30, 71, 35}, {30, 71, 36}, {31, 71, 34}, {31, 71, 35}},
+                                new int[][]{});
+                        case "1018-sim-prince-sloth" -> SkullPrince1018.prince(ctx, "Sloth", new int[]{13, 72, 28},
+                                new int[]{13, 25, 71}, SkullPrince1018.slothLining(),
+                                // the arch over the alcove (polished andesite one further out) stays
+                                new int[][]{{12, 74, 29}, {14, 74, 29}, {13, 74, 31}});
+                        case "1018-sim-prince-red-blue" -> SkullPrince1018.prince(ctx, "Red Blue", new int[]{58, 84, 8},
+                                new int[]{56, 8, 83}, new int[][]{{61, 83, 6}, {61, 83, 7}, {61, 83, 8}, {61, 83, 9}},
+                                // the wall's trim line beside it, not touching the tomb
+                                new int[][]{{58, 83, 5}, {58, 83, 11}});
+                        case "1018-sim-prince-grass-ruin" -> SkullPrince1018.prince(ctx, "Grass Ruin",
+                                new int[]{4, 95, 16}, new int[]{8, 16, 93}, new int[][]{{3, 96, 14}, {3, 96, 19}},
+                                // the posts' upper blocks (one ring)
+                                new int[][]{{3, 97, 14}, {3, 97, 19}});
                         default -> {
                         }
                     }
@@ -2094,6 +2128,140 @@ public class SimWorldTests implements FabricClientGameTest {
             check("menu:CYCLE".equals(cycle), "with Route Practice used last, Change Room opened " + cycle);
             check("menu:ROOM".equals(room), "with Load a Room used last, Change Room opened " + room);
             check("menu:ROOM".equals(fresh), "with no page used yet, Change Room opened " + fresh + " - want Load a Room");
+        }
+    }
+
+    /**
+     * killer560's to-do list, 2026-10-18 (mod sim-skull-prince-1018):
+     * <ul>
+     *   <li><b>1018-sim-skull-&lt;room&gt;</b> (item 5): "in any room with a skull and a batch of those redstone blocks
+     *       placing the skull should remove them." In each of the three key rooms the key is taken (the testkit hook a
+     *       teammate's pickup uses) and put on the node through the server's own use-on-block handler; the room's batch
+     *       of redstone blocks (Golden Oasis 3, Redstone Crypt 7, Redstone Key 4, capture coordinates from the census) must
+     *       be gone and every other redstone block of the room (the roof markers) still there. On the parent 1e31ca30:
+     *       Golden Oasis passes (its strip was the one hard-coded batch), the other two keep their batch.</li>
+     *   <li><b>1018-sim-prince-&lt;room&gt;</b> (item 9): "those smooth andesite blocks shouldnt be there" / "yes fix all
+     *       of them". One Superboom on the prince must open it as a prince and leave none of the polished andesite the
+     *       census found touching its tomb (Stairs 11, Withermancer 12, Sloth 27, Red Blue 4, Grass Ruin 2), and leave the
+     *       polished andesite one further out as it was (one ring, not a flood). On the parent: every owned block stays.</li>
+     * </ul>
+     */
+    static final class SkullPrince1018 {
+        private SkullPrince1018() {
+        }
+
+        static int[][] box(int x0, int x1, int y0, int y1, int z0, int z1) {
+            List<int[]> out = new ArrayList<>();
+            for (int x = x0; x <= x1; x++) {
+                for (int y = y0; y <= y1; y++) {
+                    for (int z = z0; z <= z1; z++) {
+                        out.add(new int[]{x, y, z});
+                    }
+                }
+            }
+            return out.toArray(new int[0][]);
+        }
+
+        /** Sloth's alcove lining: x 11 and x 15 at z 28..30, and z 31 at x 12..14, each y 71..73. */
+        static int[][] slothLining() {
+            List<int[]> out = new ArrayList<>();
+            for (int y = 71; y <= 73; y++) {
+                for (int z = 28; z <= 30; z++) {
+                    out.add(new int[]{11, y, z});
+                    out.add(new int[]{15, y, z});
+                }
+                for (int x = 12; x <= 14; x++) {
+                    out.add(new int[]{x, y, 31});
+                }
+            }
+            return out.toArray(new int[0][]);
+        }
+
+        /** Every redstone block in the room's capture-sized box round the node, by world position. */
+        private static List<BlockPos> redstoneAround(ClientGameTestContext ctx, String room) {
+            BlockPos a = capW(ctx, room, 0, 60, 0);
+            BlockPos b = capW(ctx, room, 32, 110, 32);
+            return onServer(ctx, (level, sp) -> {
+                List<BlockPos> out = new ArrayList<>();
+                for (int x = Math.min(a.getX(), b.getX()); x <= Math.max(a.getX(), b.getX()); x++) {
+                    for (int z = Math.min(a.getZ(), b.getZ()); z <= Math.max(a.getZ(), b.getZ()); z++) {
+                        for (int y = Math.min(a.getY(), b.getY()); y <= Math.max(a.getY(), b.getY()); y++) {
+                            BlockPos p = new BlockPos(x, y, z);
+                            if (level.getBlockState(p).is(Blocks.REDSTONE_BLOCK)) {
+                                out.add(p);
+                            }
+                        }
+                    }
+                }
+                return out;
+            });
+        }
+
+        static void skull(ClientGameTestContext ctx, String room, int[] nodeC, int[][] batchC) {
+            build(ctx, room);
+            BlockPos node = capW(ctx, room, nodeC[0], nodeC[1], nodeC[2]);
+            List<BlockPos> batch = capList(ctx, room, batchC);
+            int armed = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_KEY, "armedCount"));
+            String nodeBlock = blockName(ctx, node);
+            int batchBefore = countIs(ctx, batch, Blocks.REDSTONE_BLOCK);
+            List<BlockPos> others = redstoneAround(ctx, room);
+            others.remove(node);
+            others.removeAll(batch);
+            say("1018 skull " + room + " before: node " + nodeBlock + " at " + node.toShortString() + ", armed " + armed
+                    + ", batch " + batchBefore + "/" + batch.size() + " redstone, other redstone blocks " + others.size());
+            check(nodeBlock.equals("redstone_block") && armed == 1, "premise: " + room + "'s node is " + nodeBlock
+                    + " with " + armed + " node(s) armed");
+            check(batchBefore == batch.size(), "premise: " + room + "'s batch is " + batchBefore + "/" + batch.size()
+                    + " redstone before the key");
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_KEY, "foundForTest", new Class<?>[]{String.class},
+                    new Object[]{room}));
+            String result = onServer(ctx, (level, sp) -> String.valueOf(
+                    net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.invoker().interact(sp, level,
+                            InteractionHand.MAIN_HAND, new BlockHitResult(Vec3.atCenterOf(node), Direction.UP, node, false))));
+            ctx.waitTicks(10);
+            int placed = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_KEY, "placedCount"));
+            String nodeAfter = blockName(ctx, node);
+            int batchAfter = countNotAir(ctx, batch);
+            int othersAfter = countIs(ctx, others, Blocks.REDSTONE_BLOCK);
+            say("1018 skull " + room + " after the key went in (" + result + "): node " + nodeAfter + ", keys placed "
+                    + placed + ", batch " + batchAfter + "/" + batch.size() + " still standing, other redstone "
+                    + othersAfter + "/" + others.size());
+            check(placed == 1 && nodeAfter.equals("air"), "the key did not go in (placed " + placed + ", node "
+                    + nodeAfter + ")");
+            check(batchAfter == 0, batchAfter + " of " + room + "'s " + batch.size()
+                    + " batch redstone blocks still standing after the key went in");
+            check(othersAfter == others.size(), "placing the key took " + (others.size() - othersAfter)
+                    + " redstone block(s) that are not the batch");
+        }
+
+        static void prince(ClientGameTestContext ctx, String room, int[] seedC, int[] standC, int[][] ownedC,
+                           int[][] keptC) {
+            build(ctx, room);
+            BlockPos seed = capW(ctx, room, seedC[0], seedC[1], seedC[2]);
+            List<BlockPos> owned = capList(ctx, room, ownedC);
+            List<BlockPos> kept = capList(ctx, room, keptC);
+            int ownedBefore = countIs(ctx, owned, Blocks.POLISHED_ANDESITE);
+            int keptBefore = countIs(ctx, kept, Blocks.POLISHED_ANDESITE);
+            boolean seedPart = isPart(ctx, seed);
+            say("1018 prince " + room + " before: seed " + blockName(ctx, seed) + " a prince " + seedPart
+                    + ", owned polished andesite " + ownedBefore + "/" + owned.size() + ", kept " + keptBefore + "/"
+                    + kept.size());
+            check(ownedBefore == owned.size() && keptBefore == kept.size(), "premise: the capture's polished andesite is"
+                    + " not where the census put it (owned " + ownedBefore + "/" + owned.size() + ", kept " + keptBefore
+                    + "/" + kept.size() + ")");
+            check(seedPart, "premise: " + seed.toShortString() + " is not part of " + room + "'s prince");
+            stand(ctx, room, standC[0], standC[1], standC[2],
+                    new double[]{seedC[0] + 0.5, seedC[1] + 0.5, seedC[2] + 0.5});
+            String line = boom(ctx, seed, Direction.UP);
+            int ownedAfter = countNotAir(ctx, owned);
+            int keptAfter = countIs(ctx, kept, Blocks.POLISHED_ANDESITE);
+            say("1018 prince " + room + " after one Superboom: owned polished andesite left " + ownedAfter + "/"
+                    + owned.size() + ", kept " + keptAfter + "/" + kept.size() + "; " + line);
+            check(line.contains("prince=true"), room + "'s prince did not open as a prince: " + line);
+            check(ownedAfter == 0, ownedAfter + " of the " + owned.size() + " polished andesite block(s) round "
+                    + room + "'s prince survived the Superboom");
+            check(keptAfter == kept.size(), "the blast took " + (kept.size() - keptAfter)
+                    + " polished andesite block(s) one further out (one ring only)");
         }
     }
 }
