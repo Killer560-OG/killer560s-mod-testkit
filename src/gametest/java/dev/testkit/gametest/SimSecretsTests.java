@@ -54,9 +54,13 @@ public class SimSecretsTests implements FabricClientGameTest {
         // screen, so the gametest runner's next scenario had nowhere to start and the freeze watcher shot the
         // process ~16 s later. On 2026-09-29 that cost the six scenarios queued behind this one: 73 had just
         // passed, this failed, and 79, 80, 82, 83, 84 and 89 never ran at all.
+        // Counts every secret chest on the floor as a block: they all go in at the build for this scenario (mod
+        // sim-secrets-1018 makes them appear when he comes near - 1018-sim-chest-appear tests that).
+        SimChestHook.placeAtBuild(ctx);
         try {
             runChecks(ctx);
         } finally {
+            SimChestHook.restore(ctx);
             teardown(ctx);
         }
     }

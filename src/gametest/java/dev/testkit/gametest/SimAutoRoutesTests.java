@@ -142,7 +142,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1016-keyawait", "96-ar-1016-keyaura", "96-ar-1016-keyreach",
             "96-ar-1016-auranoawait", "96-ar-1016-auraawait",
             // ar-bridges-bat-1017: his Bridges route runs to the end (no warp eaten after the breaker); Kill Mimic aims
-            "96-ar-1017-bridges", "96-ar-1017-mimicaim"};
+            "96-ar-1017-bridges", "96-ar-1017-mimicaim",
+            // sim-secrets-1018: an await beside a Redstone Key spot the key never spawned at starts one secret on
+            "1018-ar-keyspot-empty"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -338,6 +340,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1015-batpresent" -> caseBatPresent(ctx);
                         case "96-ar-1015-batseek" -> caseBatSeek(ctx);
                         case "96-ar-1017-bridges" -> caseBridges(ctx);
+                        case "1018-ar-keyspot-empty" -> caseKeySpotEmpty(ctx);
                         case "96-ar-1017-mimicaim" -> caseMimicAim(ctx);
                         case "96-ar-1015-cryptaim" -> caseCryptAim(ctx);
                         case "96-ar-1013-breakerfall" -> caseBreakerFall(ctx);
@@ -4754,6 +4757,122 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
             setArEnum(ctx, "setKillMimic", "KillMimic", "OFF");
             setArEnum(ctx, "setBatWeapon", "CryptWeapon", "HYPERION");
+            forgetRunMemory(ctx);
+            resetRoutes(ctx);
+            room = saved;
+            buildRoom(ctx, 0);
+        }
+    }
+
+    /**
+     * 1018-ar-keyspot-empty, killer560 (2026-10-18): "in some rooms there are two spots [a redstone skull] could be in, so
+     * for auto routes it is a bain to make stuff check both because you need an await at each but then one you manually
+     * have to click. SO make it such that if a redstone skull could be clicked from a spot but it didnt spawn there then
+     * that spot has 1 await prefilled." Redstone Key is built by itself with its key on database spot 0 (19, 66, 7); spot
+     * 1 (10, 70, 26) is made empty on the server whatever the jar does. A start node at his recorded spot beside spot 1
+     * (7.5, 69, 25.5) with await 1 must be met at once, the log naming the empty key spot; a start node beside spot 0,
+     * where the key lies, with await 1 must NOT be met by anything (40 ticks). On main the first waits for good.
+     */
+    private void caseKeySpotEmpty(ClientGameTestContext ctx) {
+        if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+            caseSkip = "Auto Routes fires nodes only in a cheat build";
+            return;
+        }
+        String saved = room;
+        resetRoutes(ctx);
+        forgetRunMemory(ctx);
+        room = "Redstone Key";
+        boolean hook = ctx.computeOnClient(mc -> {
+            try {
+                Class.forName("com.killer560.hub.roomsim.SimSecrets").getMethod("setKeySpotForTest", int.class)
+                        .invoke(null, 0);
+                return true;
+            } catch (ReflectiveOperationException e) {
+                return false;
+            }
+        });
+        try {
+            buildRoom(ctx, 0);
+            giveHotbar(ctx);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));   // the empty slot: the node's use is harmless
+            BlockPos spot0 = realNow(ctx, 19, 66, 7);
+            BlockPos spot1 = realNow(ctx, 10, 70, 26);
+            serverRun(ctx, (server, sp) -> {
+                var level = server.overworld();
+                if (level.getBlockState(spot1).is(Blocks.PLAYER_HEAD) || level.getBlockState(spot1).is(Blocks.PLAYER_WALL_HEAD)) {
+                    level.setBlockAndUpdate(spot1, Blocks.AIR.defaultBlockState());
+                }
+            });
+            ctx.waitTicks(10);
+            boolean key0 = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.secrets.SecretsFeature",
+                    "isRedstoneKey", new Class<?>[]{net.minecraft.world.level.BlockGetter.class, BlockPos.class},
+                    new Object[]{mc.level, spot0}));
+            boolean empty1 = ctx.computeOnClient(mc -> mc.level.getBlockState(spot1).isAir());
+            println("keyspot: hook " + hook + "; spot 0 " + spot0.toShortString() + " holds the key " + key0 + "; spot 1 "
+                    + spot1.toShortString() + " empty " + empty1);
+            check(key0 && empty1, "premise: the key is not on spot 0 alone (spot 0 key " + key0 + ", spot 1 empty " + empty1 + ")");
+
+            // Beside the empty spot: met at once.
+            JsonObject a = new JsonObject();
+            a.addProperty("type", "USE_ITEM");
+            a.addProperty("x", 7.5);
+            a.addProperty("y", 69.0);
+            a.addProperty("z", 25.5);
+            a.addProperty("yaw", 0f);
+            a.addProperty("pitch", 80f);
+            a.addProperty("start", true);
+            a.addProperty("awaitEnabled", true);
+            a.addProperty("await", "SECRET");
+            a.addProperty("amount", 1);
+            writeRoute(ctx, List.of(a));
+            long m = LogTap.mark();
+            tpRelY(ctx, 7.5, 69.0, 25.5, 0f, 80f);
+            boolean started = waitFor(ctx, 40, () -> logHas(m, "Started \""));
+            boolean met = waitFor(ctx, 40, () -> logHas(m, "secrets met"));
+            for (String l : LogTap.since(m)) {
+                if (l.contains("[AutoRoutes]") && (l.contains("await") || l.contains("Started") || l.contains("complete"))) {
+                    println("keyspot empty log: " + l);
+                }
+            }
+            boolean named = logHas(m, "never spawned there");
+            println("keyspot beside the empty spot: started " + started + ", await met " + met + ", prefilled line " + named);
+            stopRoute(ctx);
+            check(started, "the route beside the empty key spot never started");
+            check(met, "the await beside the key spot the key never spawned at was not met - it waits for a skull that "
+                    + "is not there");
+            check(named, "the await was met, but not by the empty key spot");
+
+            // Beside the spot holding the key: nothing prefilled, nothing met.
+            JsonObject b = a.deepCopy();
+            b.addProperty("x", 20.5);
+            b.addProperty("y", 67.0);
+            b.addProperty("z", 9.5);
+            forgetRunMemory(ctx);
+            writeRoute(ctx, List.of(b));
+            long m2 = LogTap.mark();
+            tpRelY(ctx, 20.5, 67.0, 9.5, 0f, 80f);
+            boolean started2 = waitFor(ctx, 40, () -> logHas(m2, "Started \""));
+            ctx.waitTicks(40);
+            boolean met2 = logHas(m2, "secrets met");
+            boolean prefilled2 = logHas(m2, "await prefilled");
+            println("keyspot beside the key: started " + started2 + ", await met " + met2 + ", prefilled " + prefilled2);
+            stopRoute(ctx);
+            check(started2, "the control route beside the key never started");
+            check(!met2 && !prefilled2, "the await beside the spot that HOLDS the key was met or prefilled");
+        } finally {
+            try {
+                stopRoute(ctx);
+            } catch (Throwable ignored) {
+                // the rebuild below matters more
+            }
+            ctx.runOnClient(mc -> {
+                try {
+                    Class.forName("com.killer560.hub.roomsim.SimSecrets").getMethod("setKeySpotForTest", int.class)
+                            .invoke(null, -1);
+                } catch (ReflectiveOperationException ignored) {
+                    // a jar without the hook
+                }
+            });
             forgetRunMemory(ctx);
             resetRoutes(ctx);
             room = saved;

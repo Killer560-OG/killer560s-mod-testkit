@@ -55,6 +55,7 @@
 			"dev.testkit.gametest.SimQuizCooldownTests",
 			"dev.testkit.gametest.SimFullClearTests",
 			"dev.testkit.gametest.RoomTourLogicTests",
+			"dev.testkit.gametest.RoomOrder1018LogicTests",
 			"dev.testkit.gametest.SimAutoSecretOptimizeTests",
 			"dev.testkit.gametest.SimMapPrecomputeTests",
 			"dev.testkit.gametest.SimAutopilotTests",

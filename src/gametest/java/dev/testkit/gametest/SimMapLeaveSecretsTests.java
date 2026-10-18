@@ -128,6 +128,8 @@ public class SimMapLeaveSecretsTests implements FabricClientGameTest {
         hook();
         String only = System.getProperty("testkit.leaveSecrets.kinds", "");
         List<String> verdicts = new ArrayList<>();
+        // Finds a room's chest secrets as blocks from anywhere: they go in at the build here (mod sim-secrets-1018).
+        SimChestHook.placeAtBuild(ctx);
         try {
             for (Kind kind : Kind.values()) {
                 if (!only.isBlank() && !only.toLowerCase(Locale.ROOT).contains(kind.name().toLowerCase(Locale.ROOT))) {
@@ -153,6 +155,7 @@ public class SimMapLeaveSecretsTests implements FabricClientGameTest {
                 }
             }
         } finally {
+            SimChestHook.restore(ctx);
             leaver = null;
             ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(LIVE_MAP_CONFIG), "setEnabled", mapWasOn));
             leave(ctx);

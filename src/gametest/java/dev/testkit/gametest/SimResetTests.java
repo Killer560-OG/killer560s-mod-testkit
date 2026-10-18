@@ -113,6 +113,9 @@ public class SimResetTests implements FabricClientGameTest {
             Scenario.ensureRoomDatabase(ctx);
             ctx.runOnClient(mc -> ModUnderTest.staticCall(ROOM_LIBRARY, "forceReload"));
             ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isReady"), 2400);
+            // Compares whole rooms block for block across /reset and opens a chest by its block: secret chests go in at
+            // the build here (mod sim-secrets-1018 makes them appear when he comes near).
+            SimChestHook.placeAtBuild(ctx);
             try {
                 for (String c : selected) {
                     long mark = LogTap.mark();
@@ -142,6 +145,7 @@ public class SimResetTests implements FabricClientGameTest {
                     }
                 }
             } finally {
+                SimChestHook.restore(ctx);
                 teardown(ctx);
             }
         }
