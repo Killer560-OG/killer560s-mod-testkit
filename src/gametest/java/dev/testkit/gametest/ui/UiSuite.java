@@ -251,6 +251,8 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] MENU_ORDER_CASES = {"515-ui-menu-order", "516-ui-menu-order-settings",
             "517-ui-menu-queue-masters", "518-ui-menu-independent-masters",
             "519-ui-home-cleanup"};
+    /** Predictive Rooms inside the Dungeon Map tab (mod todo-predict-ui-1018, {@link PredictInMapCases}). Own block for merges. */
+    static final String[] PREDICT_IN_MAP_CASES = {"1018-predict-in-map"};
     /** Lever Aura merged into Secret Aura + Menu Theme on overlays (mod aura-themes-1015, {@link AuraThemeCases}). Own block for merges. */
     static final String[] AURA_THEME_CASES = {"1420-ui-secret-aura-merge", "1421-ui-overlay-themes"};
     /** Lights Device as its own cheat (mod lights-aura-1015, {@link LightsDeviceUiCases}). Own block for merges. */
@@ -427,7 +429,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES) || any(SWEAT_CASES)
                 || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES) || any(TRAIL_HUD_CASES)
                 || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES) || any(SOUND_DESC_CASES) || any(MAP_OVERHAUL_CASES)
-                || any(TRAJECTORY_CASES);
+                || any(TRAJECTORY_CASES) || any(PREDICT_IN_MAP_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -768,6 +770,8 @@ public class UiSuite implements FabricClientGameTest {
                     // ---- Lever Aura in Secret Aura + overlay Menu Themes (1420-1421) ----
                     UiCase.run(ctx, "1420-ui-secret-aura-merge", AuraThemeCases::secretAuraMerge);
                     UiCase.run(ctx, "1421-ui-overlay-themes", AuraThemeCases::overlayThemes);
+                    // ---- Predictive Rooms inside the Dungeon Map tab (1018) ----
+                    UiCase.run(ctx, "1018-predict-in-map", PredictInMapCases::run);
                     // ---- Lights Device, its own cheat (1475) ----
                     UiCase.run(ctx, "1475-ui-lights-device", LightsDeviceUiCases::lightsDevice);
                     // ---- click sounds + short descriptions (1060-1064) ----
