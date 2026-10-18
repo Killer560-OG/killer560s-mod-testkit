@@ -164,6 +164,9 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-11 Auto Kick Judge By + Detect Queued Floor ({@link AutoKick2Cases}). Own block for merges. */
     static final String[] AUTOKICK2_CASES = {"801-ui-autokick-judge-by", "802-ui-autokick-detect-pf",
             "803-ui-autokick-joininstance-ignored", "804-ui-autokick-forged-queue", "805-ui-autokick-floor-source"};
+    /** killer560's 2026-10-18 to-do item 1, the Custom Party Finder ({@link PartyFinder1018Cases}). Own block for merges. */
+    static final String[] PARTY_FINDER_1018_CASES = {"1018-pf-leader-accept", "1018-pf-joiner-accept", "1018-pf-dual-list",
+            "1018-pf-requirements", "1018-pf-settings"};
     /** killer560's 2026-10-11 "left click forward, right click backward" for every cycling setting ({@link CycleButtonCases}). Own block. */
     static final String[] CYCLE_BACK_CASES = {"806-ui-cycle-buttons-both-ways"};
     /** killer560's 2026-10-14 to-do batch: defaults on, removed toggles gone ({@link DocSmall1014Cases}). Own block. */
@@ -334,6 +337,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : CYCLE_BACK_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : PARTY_FINDER_1018_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : DOC_SMALL_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -420,7 +426,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
                 || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES)
                 || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(LEAPQUEUE_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES) || any(SLOT_TEXT_CASES) || any(SMALL_DUNGEON_CASES)
-                || any(AUTOKICK2_CASES) || any(CYCLE_BACK_CASES) || any(DOC_SMALL_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES)
+                || any(AUTOKICK2_CASES) || any(PARTY_FINDER_1018_CASES) || any(CYCLE_BACK_CASES) || any(DOC_SMALL_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES)
                 || any(HUD_KEY3_CASES) || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(CHROMA_WAVE_CASES)
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
                 || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
@@ -627,6 +633,12 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "803-ui-autokick-joininstance-ignored", AutoKick2Cases::joinInstanceIgnored);
                     UiCase.run(ctx, "804-ui-autokick-forged-queue", AutoKick2Cases::forgery);
                     UiCase.run(ctx, "805-ui-autokick-floor-source", AutoKick2Cases::floorSourceSettings);
+                    // ---- Custom Party Finder (1018-pf-*) ----
+                    UiCase.run(ctx, "1018-pf-leader-accept", PartyFinder1018Cases::leaderAccept);
+                    UiCase.run(ctx, "1018-pf-joiner-accept", PartyFinder1018Cases::joinerAccept);
+                    UiCase.run(ctx, "1018-pf-dual-list", PartyFinder1018Cases::dualList);
+                    UiCase.run(ctx, "1018-pf-requirements", PartyFinder1018Cases::requirements);
+                    UiCase.run(ctx, "1018-pf-settings", PartyFinder1018Cases::settings);
                     // ---- cycle-back (806) ----
                     UiCase.run(ctx, "806-ui-cycle-buttons-both-ways", c -> CycleButtonCases.cycleButtons(c, deny));
                     // ---- doc-small (807) ----
