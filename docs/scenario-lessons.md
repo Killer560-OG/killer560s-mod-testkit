@@ -4,7 +4,9 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
 
 - **1017-sim-quiz-timing / 1017-sim-quiz-autosecret** (SimQuizCooldownTests, mod quiz-cooldown-1017): the plan case
   needs Auto Close Chest on (his setting) - without it the Ice Fill reward chest's window stayed open and nothing moved
-  for four minutes on the first run.
+  for four minutes on the first run. Since mod quiz-entry-1018 walking in starts the Quiz: a lone Quiz room spawns him
+  inside it (so it starts at spawn; the timing case re-arms with `SimQuizPuzzle.testRearm` and steps out and in), and
+  room-relative spots (`rel`) must be worked out while the map still has him in the room - outside it they throw.
 
 - 96-ar (`SimAutoRoutesTests`): an Auto Routes Go To is an Interactive Map warp, and after one only a START node may arm
   until he passes one (the map-arrival interlock). Cases that arm non-start nodes run before 96-ar-screen.

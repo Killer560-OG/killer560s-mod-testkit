@@ -30,14 +30,14 @@ import java.util.regex.Pattern;
  * The Quiz's cooldowns (mod quiz-cooldown-1017; killer560, 2026-10-17: "the first time you open it there is a long
  * cooldown till you can answer then a shorter one after that for a total of 3 answers").
  *
- * <p>{@code 1017-sim-quiz-timing}: the sim's Quiz room alone. Talked to by the test, Oruo's lines go out at his pace
+ * <p>{@code 1017-sim-quiz-timing}: the sim's Quiz room alone. Walked into (mod quiz-entry-1018), Oruo's lines go out at his pace
  * (question 1 asked 160 server ticks after the intro and answerable at 220; each later lock line 40 ticks after an
  * answer, its question 40 after it, answerable 100 after it - NoammAddons' QuizSolver.kt and his own Hypixel logs); the
  * mod's QuizState reads the same 220 / 100; a correct press before the lock ends is refused; then Auto Quiz answers all
  * three, each on the server tick the lock ends or the one after.
  *
  * <p>{@code 1017-sim-quiz-autosecret}: an F7 with Quiz and Ice Fill pinned and one-node routes seeded (as 102), Auto
- * Secret with Quiz First: the Quiz is its first goal (Auto Quiz talks to Oruo), Ice Fill is done during the first lock,
+ * Secret with Quiz First: the Quiz is its first goal (walking in starts it, and he leaves at once), Ice Fill is done during the first lock,
  * at least one route runs between the later answers, all three answers count, and the time it stood at the Quiz waiting
  * out a lock is under a bound. Both only when named.
  */
@@ -62,8 +62,20 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
     private static final String AS_CONFIG = "com.killer560.hub.autosecret.AutoSecretConfig";
     private static final String AR_CONFIG = "com.killer560.hub.autoroutes.AutoRoutesConfig";
 
-    private static final Pattern TALKED = Pattern.compile(
-            "Sim quiz: talked to Oruo at server tick (\\d+) - question 1 is asked at (\\d+) and answerable from (\\d+)");
+    private static final Pattern WALKED = Pattern.compile(
+            "Sim quiz: \\S+ walked into the Quiz at server tick (\\d+) \\([^)]*\\) - question 1 is asked at (\\d+) and"
+                    + " answerable from (\\d+)");
+    /** The mod's Quiz logger (2026-10-18): his entry, Oruo's lines, the intro's distance from the entry, questions, presses. */
+    private static final Pattern QL_ENTER = Pattern.compile(
+            "\\[QuizLog\\] entered the Quiz room \\(entry \\d+ this run\\) at server tick (-?\\d+)");
+    private static final Pattern QL_ORUO = Pattern.compile("\\[QuizLog\\] Oruo at server tick (-?\\d+)");
+    private static final Pattern QL_INTRO = Pattern.compile("\\[QuizLog\\] intro (-?\\d+) server tick\\(s\\) after he walked in");
+    private static final Pattern QL_QUESTION = Pattern.compile("\\[QuizLog\\] question (\\d): \".+\" at server tick (-?\\d+), .*"
+            + "QuizState: question \\d, answerable at server tick (-?\\d+)");
+    private static final Pattern QL_PRESS = Pattern.compile("\\[QuizLog\\] press \\(([^)]+)\\) on .+? \\(answer (\\S+)\\) at server"
+            + " tick (-?\\d+), .*: (EARLY|on time), (\\d+) server tick");
+    private static final Pattern QL_RESULT = Pattern.compile("\\[QuizLog\\] press on .+? at server tick (-?\\d+)(?: -> (\\d+)"
+            + " server tick\\(s\\) later: (.*)|: no line from Oruo)");
     private static final Pattern ASKED = Pattern.compile("Sim quiz: question (\\d) asked at server tick (\\d+) \\(answerable from (\\d+)\\)");
     private static final Pattern ANNOUNCED = Pattern.compile("Sim quiz: question (\\d) announced at server tick (\\d+) \\(answerable from (\\d+)\\)");
     private static final Pattern ANSWERED = Pattern.compile("Sim quiz: question (\\d) answered at server tick (\\d+) \\(open from (\\d+)");
@@ -157,37 +169,89 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
             failures.add("the sim's Quiz never armed Oruo");
             return;
         }
+        // ---- walking in starts it (killer560, 2026-10-18: "quiz starts once you walk in") -------------------------
+        // A lone room's spawn may already be inside it. Either way: out of the footprint first (nothing may start), then
+        // back in (the intro must come on that step).
+        int[] area = ctx.computeOnClient(mc -> (int[]) ModUnderTest.staticCall(SIM_QUIZ, "oruoArea"));
+        if (area == null) {
+            failures.add("the sim's Quiz armed no walk-in area");
+            return;
+        }
+        println(TIMING, "walk-in area x " + area[0] + ".." + area[2] + ", z " + area[1] + ".." + area[3]);
+        boolean startedAtSpawn = !"IDLE".equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(SIM_QUIZ, "oruoFlow")));
+        boolean spawnInside = ctx.computeOnClient(mc -> inside(area, mc.player.getX(), mc.player.getZ()));
+        println(TIMING, "spawned inside the room " + spawnInside + ", Oruo began at spawn " + startedAtSpawn);
+        if (startedAtSpawn != spawnInside) {
+            failures.add("at spawn: inside the room " + spawnInside + " but Oruo began " + startedAtSpawn);
+        }
+        if (startedAtSpawn) {
+            // Put him back to not started for the controlled step (what a wrong answer does), standing outside.
+            ctx.runOnClient(mc -> {
+                var server = mc.getSingleplayerServer();
+                server.execute(() -> ModUnderTest.staticCall(SIM_QUIZ, "testRearm"));
+            });
+            ctx.waitTicks(2);
+        }
+        // Worked out while the map still has him in the room (rel goes through its clay corner).
+        double[] in = ctx.computeOnClient(mc -> floorNear(mc, SimPuzzleSolveTests.rel(mc, 15, 69, 3)));
+        double[] outside = ctx.computeOnClient(mc -> floorNear(mc, new BlockPos(area[0] - 3, (int) mc.player.getY(),
+                (area[1] + area[3]) / 2)));
+        if (outside == null) {
+            outside = new double[]{area[0] - 2.5, ctx.computeOnClient(mc -> mc.player.getY()) + 3, (area[1] + area[3]) / 2.0};
+        }
+        teleport(ctx, outside, "outside the room");
         if (!"IDLE".equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(SIM_QUIZ, "oruoFlow")))) {
-            failures.add("Oruo began before anyone talked to him");
+            failures.add("Oruo began while he stood outside the room");
         }
-        if (ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(QUIZ_STATE, "started"))) {
-            failures.add("QuizState reads started before Oruo was talked to");
+        if (!startedAtSpawn && ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(QUIZ_STATE, "started"))) {
+            failures.add("QuizState reads started before he walked in");
         }
-
-        // ---- talk to Oruo -------------------------------------------------------------------------------------
-        double[] near = ctx.computeOnClient(SimQuizCooldownTests::spotNearOruo);
-        teleport(ctx, near, "within entity reach of Oruo's CLICK stand");
         long talkMark = LogTap.mark();
-        String talk = ctx.computeOnClient(SimQuizCooldownTests::talk);
-        println(TIMING, "talk: " + talk);
-        ctx.waitTicks(10);
+        teleport(ctx, in, "inside the room (room-relative 15, 3)");
         List<String> log = LogTap.since(talkMark);
         long t0 = -1;
         for (String l : log) {
-            Matcher m = TALKED.matcher(l);
+            Matcher m = WALKED.matcher(l);
             if (m.find()) {
                 t0 = Long.parseLong(m.group(1));
                 long ask = Long.parseLong(m.group(2)) - t0;
                 long open = Long.parseLong(m.group(3)) - t0;
-                println(TIMING, "intro at server tick " + t0 + ": question 1 asked +" + ask + ", answerable +" + open);
+                println(TIMING, "walked in, intro at server tick " + t0 + ": question 1 asked +" + ask + ", answerable +" + open);
                 if (ask != 160 || open != 220) {
                     failures.add("question 1 asked +" + ask + " / answerable +" + open + " after the intro, want +160 / +220");
                 }
             }
         }
         if (t0 < 0) {
-            failures.add("talking to Oruo did not start the Quiz (" + talk + ")");
+            failures.add("walking into the room did not start the Quiz");
             return;
+        }
+        // The [QuizLog]: his entry, then Oruo's intro a few server ticks either side of it (the map names the room on
+        // the client, the server sees his feet cross the footprint).
+        long entryTick = -1;
+        long introTick = -1;
+        long introAfter = Long.MIN_VALUE;
+        for (String l : log) {
+            Matcher m = QL_ENTER.matcher(l);
+            if (entryTick < 0 && m.find()) {
+                entryTick = Long.parseLong(m.group(1));
+            }
+            m = QL_ORUO.matcher(l);
+            if (introTick < 0 && m.find() && l.contains("I am Oruo the Omniscient")) {
+                introTick = Long.parseLong(m.group(1));
+            }
+            m = QL_INTRO.matcher(l);
+            if (m.find()) {
+                introAfter = Long.parseLong(m.group(1));
+            }
+        }
+        println(TIMING, "[QuizLog]: entered at server tick " + entryTick + ", intro at " + introTick + ", intro "
+                + introAfter + " tick(s) after the entry");
+        if (entryTick < 0 || introTick < 0 || introAfter == Long.MIN_VALUE) {
+            failures.add("the [QuizLog] entry / intro lines are missing (entry " + entryTick + ", intro " + introTick + ")");
+        } else if (Math.abs(introTick - entryTick) > 20 || introAfter != introTick - entryTick) {
+            failures.add("[QuizLog] intro " + (introTick - entryTick) + " tick(s) from the entry (want within 20, and the"
+                    + " intro line saying the same; it said " + introAfter + ")");
         }
         boolean introSeen = log.stream().anyMatch(l -> l.contains("[STATUE] Oruo the Omniscient: I am Oruo the Omniscient."));
         long[] qs = ctx.computeOnClient(mc -> new long[]{
@@ -284,6 +348,7 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
                         + (an[1] - an[0]) + " (want +40/+40/+100)");
             }
         }
+        quizLogChecks(LogTap.since(talkMark), failures);
         boolean auto = LogTap.since(autoMark).stream().anyMatch(l -> l.contains("[AutoPuzzles] Quiz: answered question"));
         boolean done = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(QUIZ_STATE, "done"));
         boolean complete = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_QUIZ, "isQuizComplete"));
@@ -296,6 +361,7 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
         }
         // A talk after the last answer gets Oruo's "already shown" line.
         long againMark = LogTap.mark();
+        double[] near = ctx.computeOnClient(SimQuizCooldownTests::spotNearOruo);
         teleport(ctx, near, "back by Oruo");
         ctx.computeOnClient(SimQuizCooldownTests::talk);
         ctx.waitTicks(10);
@@ -425,6 +491,9 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
         List<String> events = new ArrayList<>();
         int quizFirst = -1;
         int talked = -1;
+        int left = -1;
+        int qlEntry = -1;
+        long qlIntroAfter = Long.MIN_VALUE;
         int iceFirst = -1;
         int iceDone = -1;
         int firstTarget = -1;
@@ -437,9 +506,23 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
                 quizFirst = i;
                 events.add("quiz first");
             }
-            if (talked < 0 && l.contains("[AutoPuzzles] Quiz: talked to Oruo")) {
+            if (talked < 0 && WALKED.matcher(l).find()) {
                 talked = i;
-                events.add("talked to Oruo");
+                events.add("walked into the Quiz");
+            }
+            if (left < 0 && l.contains("[AutoSecret] Quiz: Oruo began")) {
+                left = i;
+                events.add("left the Quiz");
+            }
+            if (qlEntry < 0 && QL_ENTER.matcher(l).find()) {
+                qlEntry = i;
+            }
+            Matcher qi = QL_INTRO.matcher(l);
+            if (qi.find()) {
+                qlIntroAfter = Long.parseLong(qi.group(1));
+            }
+            if (l.contains("[AutoPuzzles] Quiz: talked to Oruo") || l.contains("Sim quiz: talked to Oruo")) {
+                failures.add("something still talks to Oruo: " + l);
             }
             if (iceFirst < 0 && l.contains("[AutoSecret] Ice Fill first:")) {
                 iceFirst = i;
@@ -475,9 +558,18 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
         println(PLAN, String.format(Locale.US, "%.1f s; events: %s; idle at the Quiz %d tick(s); lateness %s", ticks / 20.0,
                 events, idle, late));
         if (quizFirst < 0 || talked < 0) {
-            failures.add("the Quiz was not started (quiz-first line " + (quizFirst >= 0) + ", talk " + (talked >= 0) + ")");
+            failures.add("the Quiz was not started (quiz-first line " + (quizFirst >= 0) + ", walk-in " + (talked >= 0) + ")");
         } else if (firstTarget >= 0 && firstTarget < talked || iceFirst >= 0 && iceFirst < talked) {
             failures.add("something else came before the Quiz was started");
+        }
+        if (left < 0 || talked >= 0 && left < talked || iceFirst >= 0 && left > iceFirst) {
+            failures.add("Auto Secret did not leave the Quiz for Ice Fill once Oruo began (walk-in " + talked + ", left " + left
+                    + ", ice fill " + iceFirst + ")");
+        }
+        println(PLAN, "[QuizLog] entry line " + (qlEntry >= 0) + ", intro " + qlIntroAfter + " server tick(s) after it");
+        if (qlEntry < 0 || qlIntroAfter == Long.MIN_VALUE || Math.abs(qlIntroAfter) > 20) {
+            failures.add("[QuizLog] entry/intro: entry line " + (qlEntry >= 0) + ", intro " + qlIntroAfter
+                    + " tick(s) after it (want within 20)");
         }
         if (iceFirst < 0 || iceDone < 0) {
             failures.add("Ice Fill was not done (started " + (iceFirst >= 0) + ", done " + (iceDone >= 0) + ")");
@@ -500,7 +592,70 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
         }
     }
 
+    /**
+     * The [QuizLog] lines of one timed Quiz: each question with QuizState's open 60 ticks after it is asked (asked +160 /
+     * open +220 from the intro; asked +40 / open +100 from a lock line); the early press logged EARLY with no answer from
+     * Oruo; Auto Quiz's three presses on time (0-1 ticks after the open) and each answered by his "answered" line.
+     */
+    private static void quizLogChecks(List<String> log, List<String> failures) {
+        int questions = 0;
+        int early = 0;
+        int earlyUnanswered = 0;
+        int onTime = 0;
+        int answeredResults = 0;
+        for (String l : log) {
+            Matcher m = QL_QUESTION.matcher(l);
+            if (m.find()) {
+                questions++;
+                long gap = Long.parseLong(m.group(3)) - Long.parseLong(m.group(2));
+                if (gap < 58 || gap > 62) {
+                    failures.add("[QuizLog] question " + m.group(1) + " opens " + gap + " tick(s) after it is asked (want 60)");
+                }
+            }
+            m = QL_PRESS.matcher(l);
+            if (m.find()) {
+                if (m.group(4).equals("EARLY")) {
+                    early++;
+                } else if (m.group(1).equals("Auto Quiz")) {
+                    onTime++;
+                    if (Long.parseLong(m.group(5)) > 1) {
+                        failures.add("[QuizLog] an Auto Quiz press " + m.group(5) + " tick(s) after the open");
+                    }
+                }
+                if (m.group(2).equals("?") || m.group(2).equals("none")) {
+                    failures.add("[QuizLog] a press named no answer pillar: " + l);
+                }
+            }
+            m = QL_RESULT.matcher(l);
+            if (m.find()) {
+                if (m.group(3) == null) {
+                    earlyUnanswered++;
+                } else if (m.group(3).contains("answered")) {
+                    answeredResults++;
+                }
+            }
+        }
+        println(TIMING, "[QuizLog]: " + questions + " question line(s), " + early + " early press(es), " + earlyUnanswered
+                + " press(es) with no line from Oruo, " + onTime + " Auto Quiz press(es) on time, " + answeredResults
+                + " answered by his line");
+        if (questions != 3) {
+            failures.add("[QuizLog] logged " + questions + " of 3 questions");
+        }
+        if (early != 1 || earlyUnanswered < 1) {
+            failures.add("[QuizLog] early press: " + early + " logged EARLY, " + earlyUnanswered + " with no line (want 1, 1)");
+        }
+        if (onTime != 3 || answeredResults != 3) {
+            failures.add("[QuizLog] Auto Quiz presses on time " + onTime + ", answered by Oruo " + answeredResults + " (want 3, 3)");
+        }
+    }
+
     // ================================================================================================ helpers
+
+    private static boolean inside(int[] area, double x, double z) {
+        int bx = (int) Math.floor(x);
+        int bz = (int) Math.floor(z);
+        return bx >= area[0] && bx <= area[2] && bz >= area[1] && bz <= area[3];
+    }
 
     /** Quiz solver on; Auto Puzzles master, pathing and the map on; Auto Quiz {@code quiz}; Ice Fill's auto {@code ice}. */
     private static void configure(boolean quiz, boolean ice) {
@@ -542,23 +697,17 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
         return (String) ModUnderTest.call(planned, "code", new Class<?>[0], new Object[0]);
     }
 
+    /** Oruo's name stand (the sim has no CLICK stand since mod quiz-entry-1018: walking in starts him). */
     private static Entity oruoClick(Minecraft mc) {
-        Entity best = null;
         for (Entity e : mc.level.entitiesForRendering()) {
-            if (e instanceof ArmorStand && "CLICK".equals(e.getName().getString()) && e.distanceTo(mc.player) < 48) {
-                boolean byOruo = false;
-                for (Entity o : mc.level.entitiesForRendering()) {
-                    byOruo |= o.getName().getString().contains("Oruo the Omniscient") && o.distanceTo(e) < 4;
-                }
-                if (byOruo) {
-                    best = e;
-                }
+            if (e instanceof ArmorStand && e.getName().getString().contains("Oruo the Omniscient") && e.distanceTo(mc.player) < 48) {
+                return e;
             }
         }
-        return best;
+        return null;
     }
 
-    /** A standable spot whose eye is within 2.5 of Oruo's CLICK stand's box. Client thread. */
+    /** A standable spot whose eye is within 2.5 of Oruo's stand's box. Client thread. */
     private static double[] spotNearOruo(Minecraft mc) {
         Entity e = oruoClick(mc);
         if (e == null) {
