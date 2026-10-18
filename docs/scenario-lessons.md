@@ -2,6 +2,10 @@
 
 Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size limit. Problem, then fix; verified only.
 
+- **1017-sim-quiz-timing / 1017-sim-quiz-autosecret** (SimQuizCooldownTests, mod quiz-cooldown-1017): the plan case
+  needs Auto Close Chest on (his setting) - without it the Ice Fill reward chest's window stayed open and nothing moved
+  for four minutes on the first run.
+
 - 96-ar (`SimAutoRoutesTests`): an Auto Routes Go To is an Interactive Map warp, and after one only a START node may arm
   until he passes one (the map-arrival interlock). Cases that arm non-start nodes run before 96-ar-screen.
   `buildRoom` gives a room bigger than 1x1 all its map cells (Museum is 2x2; one cell left half of it outside and the live
