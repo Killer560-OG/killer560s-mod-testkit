@@ -1034,3 +1034,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   clicks; a recovery case that ends at the soul may never "complete" its way back (the click cuts it short); and a player
   spawned straight into lava dies before the run starts - stand him on a glass block in the pool and let the walk take him in.
   On the 26.1.2 cheat jar of fairy-souls-1017 all 21 fairy cases pass, GrimAC clean; on the legit jar 746 and -settings.
+- 1018-ss-* (SsStimMomentumCases, todo-ss-stim-1018, 2026-10-18): Auto Solve Rotate mode with Stim and Momentum on a 4-round
+  device, 831's set-up. Judged by the server: 10 correct presses and EXACTLY 11 use_block (Stim must send nothing), then the
+  mod's counters prove the path ran (stimRehearsalsStarted/stimButtonsTraced, momentumFaceFires/GlideFrames/CarryFrames).
+  1018-ss-rotate-fast-off never touches the new settings, so it is the control that also passes on main; the other four fail
+  there (no setter). The fake's gap between rounds (~20 ticks) cuts some rehearsals short at the next reveal - expected.

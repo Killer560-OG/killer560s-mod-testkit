@@ -45,6 +45,8 @@ public class BossSuite implements FabricClientGameTest {
                     LeverAuraCpsCases.register(s);
                     // Lights Device, its own Aura and Triggerbot (1476-1478, branch lights-aura-1015), own block.
                     LightsDeviceCases.register(s);
+                    // Auto Simon Says Stim and Momentum (1018-ss-*, branch todo-ss-stim-1018), own block.
+                    SsStimMomentumCases.register(s);
                 });
     }
 }
