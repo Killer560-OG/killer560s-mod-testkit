@@ -1037,3 +1037,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 1018-pf-*: the mod's `ChatObserver` drops a line identical to one delivered in the last 250 ms (real time) as a duplicate, and
   the lockstep runs two ticks far faster than that, so a case that sends the same chat line twice must sleep ~400 ms between
   them or the second never reaches any listener (1018-pf-dual-list's first run read "not dual-listed" for exactly this).
+- 1018-mob-own/scale/share/settings/all (ui/MobSkinCases, mod todo-mobskin-1018): Play as Mob. They read the render state
+  `extractEntity` hands the level renderer and the mod's swap counter during real F5 frames, and count pig-pink pixels
+  (r>=100, r-g>=30, g<=b<=r: the shaded pig in the test world is about (120,70,90), so a bright-pink rule found 30 px).
+  Named outside the -ui- tag on purpose; suites ui and k560 list 1018-mob-. All 5 fail on main f0a61ba4, pass on 26.1.2 and 26.2.

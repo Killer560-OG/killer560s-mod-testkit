@@ -250,6 +250,9 @@ public class UiSuite implements FabricClientGameTest {
     /** Shared trails (mod trail-share, {@link TrailShareCases}). Own block for merges. */
     static final String[] TRAIL_SHARE_CASES = {"1036-ui-trail-share-send", "1037-ui-trail-share-remote",
             "1038-ui-trail-share-hide", "1039-ui-trail-share-limits"};
+    /** Play as Mob (mod todo-mobskin-1018, {@link MobSkinCases}). Own block for merges. */
+    static final String[] MOB_SKIN_CASES = {"1018-mob-own", "1018-mob-scale", "1018-mob-share", "1018-mob-settings",
+            "1018-mob-all"};
     /** killer560's 2026-10-14 menu order + independent masters list ({@link MenuOrderCases}). Own block for merges. */
     static final String[] MENU_ORDER_CASES = {"515-ui-menu-order", "516-ui-menu-order-settings",
             "517-ui-menu-queue-masters", "518-ui-menu-independent-masters",
@@ -379,6 +382,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : TRAIL_SHARE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : MOB_SKIN_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : TRAIL_HUD_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -433,7 +439,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES) || any(SWEAT_CASES)
                 || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES) || any(TRAIL_HUD_CASES)
                 || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES) || any(SOUND_DESC_CASES) || any(MAP_OVERHAUL_CASES)
-                || any(TRAJECTORY_CASES);
+                || any(TRAJECTORY_CASES) || any(MOB_SKIN_CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -768,6 +774,12 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1037-ui-trail-share-remote", TrailShareCases::remote);
                     UiCase.run(ctx, "1038-ui-trail-share-hide", TrailShareCases::hide);
                     UiCase.run(ctx, "1039-ui-trail-share-limits", TrailShareCases::limits);
+                    // ---- Play as Mob (1018-mob-*) ----
+                    UiCase.run(ctx, "1018-mob-own", MobSkinCases::own);
+                    UiCase.run(ctx, "1018-mob-scale", MobSkinCases::scale);
+                    UiCase.run(ctx, "1018-mob-share", MobSkinCases::share);
+                    UiCase.run(ctx, "1018-mob-settings", MobSkinCases::settings);
+                    UiCase.run(ctx, "1018-mob-all", MobSkinCases::all);
                     // ---- menu order + independent masters (515-517) ----
                     UiCase.run(ctx, "1550-ui-np-command-names", NamesProfilesCases::commandNames);
                     UiCase.run(ctx, "1551-ui-np-rank", NamesProfilesCases::rank);
