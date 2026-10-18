@@ -36,6 +36,7 @@ final class ExperimentCases {
         MenuSuite.test(s, "227-menu-exp-profit-tracker", ExperimentCases::profit);
         MenuSuite.test(s, "228-menu-exp-guardian-swap", ExperimentCases::guardianSwap);
         MenuSuite.test(s, "229-menu-exp-superpairs-skips", ExperimentCases::superpairsSkips);
+        MenuSuite.test(s, "1018-serum-skip", ExperimentCases::serumSkip);
         MenuSuite.test(s, "280-menu-exp-superpairs-deduce-partner", ExperimentCases::deducePartner);
         MenuSuite.test(s, "281-menu-exp-superpairs-deduce-powerup", ExperimentCases::deducePowerup);
         MenuSuite.test(s, "282-menu-exp-superpairs-priority", ExperimentCases::priority);
@@ -527,6 +528,88 @@ final class ExperimentCases {
             }
         }
         notes.forEach(c::note);
+        c.check(problems.isEmpty(), String.join(" | ", problems));
+    }
+
+    private static final String SERUM = "Metaphysical Serum";
+
+    /**
+     * Skip Metaphysical Serums (killer560, 2026-10-18). One Superpairs board, the switch OFF then ON. Tiles 9-12 are
+     * four different kinds, so the Instant Find at 13 knows exactly those: its matched click goes to the first one in
+     * snake order it may claim - the Serum (9) when it is paired, the Titanic (10) when the Serum is skipped. The
+     * server's own claim list is the verdict. (A skipped pair can still be taken later when a turn's first flip
+     * already shows its partner - the solver says the click is spent either way - so only the powerup's pick is asserted.)
+     */
+    static void serumSkip(Session c) throws Exception {
+        MenuKit.reset(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto E-Table clicks nothing, so there is nothing to skip");
+            return;
+        }
+        List<String> problems = new ArrayList<>();
+        Object[][] runs = {{false, SERUM}, {true, TITANIC}};
+        for (Object[] run : runs) {
+            boolean skipSerum = (Boolean) run[0];
+            String expectPowerup = (String) run[1];
+            String label = "serum=" + (skipSerum ? "skip" : "pair");
+            MenuKit.reset(c);
+            try (MenuKit.Cfg cfg = new MenuKit.Cfg(c); AutoCloseable armed = autoConfig(c, cfg)) {
+                cfg.set(CONFIG, "SkipMetaphysicalSerums", skipSerum);
+                boolean got = c.onClient(mc -> (Boolean) Mod.get(CONFIG, "isSkipMetaphysicalSerums"));
+                c.check(got == skipSerum, label + ": the switch reads back " + got);
+                com.google.gson.JsonArray a = new com.google.gson.JsonArray();
+                a.add(tile("minecraft:potion", "\u00a76" + SERUM));                 // 9
+                a.add(tile("minecraft:experience_bottle", "\u00a75" + TITANIC));   // 10
+                a.add(tile("minecraft:enchanted_book", "\u00a7a" + BOOK));         // 11
+                a.add(tile("minecraft:lime_dye", "\u00a7a" + XP));                 // 12
+                JsonObject up = new JsonObject();
+                up.addProperty("powerup", true);
+                a.add(up);                                                          // 13 Instant Find
+                a.add(tile("minecraft:potion", "\u00a76" + SERUM));                 // 14
+                a.add(tile("minecraft:experience_bottle", "\u00a75" + TITANIC));   // 15
+                a.add(tile("minecraft:enchanted_book", "\u00a7a" + BOOK));         // 16
+                a.add(tile("minecraft:lime_dye", "\u00a7a" + XP));                 // 17
+                JsonObject args = new JsonObject();
+                args.addProperty("game", "SUPERPAIRS");
+                args.addProperty("clicks", 80);
+                args.add("layout", a);
+                JsonObject st = c.hx().call("menu.experiment", args).getAsJsonObject();
+                MenuKit.awaitScreen(c, st.get("title").getAsString(), 100);
+                int waited = 0;
+                while (waited < 1800 && state(c).getAsJsonArray("claimed").size() < 4
+                        && !state(c).get("phase").getAsString().equals("OVER")) {
+                    c.ctx().waitTicks(10);
+                    waited += 10;
+                }
+                c.ctx().waitTicks(240);
+                JsonObject end = state(c);
+                List<String> order = new ArrayList<>();
+                String powerupName = null;
+                int powerupClaims = 0;
+                for (var el : end.getAsJsonArray("claimed")) {
+                    JsonObject cl = el.getAsJsonObject();
+                    String n = plain(cl.get("name").getAsString());
+                    order.add(n);
+                    if (cl.get("viaPowerup").getAsBoolean()) {
+                        powerupName = n;
+                        powerupClaims++;
+                    }
+                }
+                c.note(label + ": claimed " + order + ", powerup took " + powerupName + ", game "
+                        + (end.get("phase").getAsString().equals("OVER") ? "over" : "still open"));
+                java.util.Set<String> kinds = new java.util.TreeSet<>(order);
+                if (order.size() != 4 || !kinds.equals(new java.util.TreeSet<>(List.of(SERUM, TITANIC, BOOK, XP)))) {
+                    problems.add(label + ": expected the four pairs claimed once each, got " + order);
+                }
+                if (powerupClaims != 1) {
+                    problems.add(label + ": the powerup claimed " + powerupClaims + " pair(s), expected exactly 1 " + order);
+                } else if (!expectPowerup.equals(powerupName)) {
+                    problems.add(label + ": the powerup's matched click landed on " + powerupName + ", expected " + expectPowerup);
+                }
+            } finally {
+                MenuKit.reset(c);
+            }
+        }
         c.check(problems.isEmpty(), String.join(" | ", problems));
     }
 
