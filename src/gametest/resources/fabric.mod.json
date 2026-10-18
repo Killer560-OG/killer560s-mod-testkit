@@ -9,6 +9,7 @@
 			"dev.testkit.gametest.SmokeTest",
 			"dev.testkit.gametest.CorrectionAlarmTest",
 			"dev.testkit.gametest.FairySoulTests",
+			"dev.testkit.gametest.FreelookTests",
 			"dev.testkit.gametest.JoinFingerprintTest",
 			"dev.testkit.gametest.ProofTest",
 			"dev.testkit.gametest.SeedWorldTest",
