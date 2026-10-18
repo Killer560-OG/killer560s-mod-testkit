@@ -49,6 +49,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
     private static final String ORDER = "145-sim-autosecret-order";
     private static final String ARRIVAL = "146-sim-autosecret-arrival";
     private static final String LASTSECRET = "147-sim-autosecret-lastsecret";
+    private static final String PREBLOOD = "1018-sim-autosecret-preblood";
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
     private static final String FLOOR_GEN = "com.killer560.hub.roomsim.SimFloorGen";
@@ -79,7 +80,8 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         boolean order = !Scenario.skip(ORDER);
         boolean arrival = !Scenario.skip(ARRIVAL);
         boolean last = !Scenario.skip(LASTSECRET);
-        if (!handoff && !order && !arrival && !last) {
+        boolean preblood = !Scenario.skip(PREBLOOD);
+        if (!handoff && !order && !arrival && !last && !preblood) {
             return;
         }
         ModUnderTest.require("killer560smod");
@@ -98,6 +100,9 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             }
             if (last) {
                 Scenario.skipped(LASTSECRET, "needs real room captures and room database");
+            }
+            if (preblood) {
+                Scenario.skipped(PREBLOOD, "needs real room captures and room database");
             }
             return;
         }
@@ -137,6 +142,13 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                 } catch (AssertionError e) {
                     failed.add(e.getMessage());
                 }
+            }
+        }
+        if (preblood) {
+            try {
+                runCase(ctx, PREBLOOD, SimAutoSecretOptimizeTests::preBloodBody);
+            } catch (AssertionError e) {
+                failed.add(e.getMessage());
             }
         }
         ctx.runOnClient(mc -> mc.options.renderDistance().set(renderBefore));
@@ -974,6 +986,135 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         }
         return new Run(new ArrayList<>(order), end < 0 ? Long.MAX_VALUE : end - t0, travelled,
                 doneAt.size() < routed.size() ? Long.MAX_VALUE : wait);
+    }
+
+    // ================================================================================================ 1018
+
+    /**
+     * 1018-sim-autosecret-preblood, killer560 (2026-10-18): "never have it secret the room before blood until very last
+     * under any circumstance for auto secret." On a generated F7, the room on the near side of the blood door (read off the
+     * map here, not asked of the mod) and the two other routed rooms with the fewest unfound secrets - so the room before
+     * blood holds the most, and both the value-weighted order and most-unfound-first would take it early. Auto Secret runs
+     * from the Entrance: all three must be targeted and the room before blood must be the last. On main it is not.
+     */
+    private static void preBloodBody(ClientGameTestContext ctx, List<String> failures) {
+        SimAutoSecretTests.Room pre = null;
+        List<SimAutoSecretTests.Room> others = new ArrayList<>();
+        for (int attempt = 0; attempt < 12 && pre == null; attempt++) {
+            if (attempt > 0) {
+                leaveSim(ctx);
+            }
+            enterFloor(ctx);
+            List<SimAutoSecretTests.Room> eligible = eligible(ctx.computeOnClient(SimAutoSecretTests::readRooms));
+            String preName = ctx.computeOnClient(mc -> {
+                Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+                int door = (Integer) ModUnderTest.call(layout, "bloodDoor", new Class<?>[]{}, new Object[]{});
+                if (door < 0) {
+                    return null;
+                }
+                int[] side = door % 11 % 2 == 1 ? new int[]{door - 1, door + 1} : new int[]{door - 11, door + 11};
+                String found = null;
+                int bloods = 0;
+                for (int cell : side) {
+                    int room = (Integer) ModUnderTest.call(layout, "roomOfCell", new Class<?>[]{int.class}, new Object[]{cell});
+                    Object entry = room < 0 ? null : ModUnderTest.call(layout, "entry", new Class<?>[]{int.class},
+                            new Object[]{room});
+                    String type = null;
+                    try {
+                        type = entry == null ? null : (String) entry.getClass().getField("type").get(entry);
+                    } catch (ReflectiveOperationException ignored) {
+                        // no type
+                    }
+                    if ("BLOOD".equalsIgnoreCase(type)) {
+                        bloods++;
+                    } else if (room >= 0) {
+                        found = (String) ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{room});
+                    }
+                }
+                return bloods == 1 ? found : null;
+            });
+            SimAutoSecretTests.Room p = null;
+            for (SimAutoSecretTests.Room r : eligible) {
+                if (r.name().equals(preName)) {
+                    p = r;
+                }
+            }
+            List<SimAutoSecretTests.Room> rest = new ArrayList<>(eligible);
+            rest.remove(p);
+            rest.sort((a, b) -> Integer.compare(a.unfound(), b.unfound()));
+            println(PREBLOOD, "floor " + (attempt + 1) + ": room before blood " + preName + " ("
+                    + (p == null ? "not eligible" : p.unfound() + " unfound") + "); eligible " + SimAutoSecretTests.describe(eligible));
+            if (p == null || rest.size() < 2 || rest.get(1).unfound() >= p.unfound()) {
+                continue;
+            }
+            pre = p;
+            others = List.of(rest.get(0), rest.get(1));
+        }
+        if (pre == null) {
+            Scenario.skipped(PREBLOOD, "no floor in 12 had an eligible room before blood holding more unfound secrets than"
+                    + " two other rooms - run it again");
+            caseSkipped = true;
+            return;
+        }
+        awaitWarmGraph(ctx, PREBLOOD);
+        Map<String, JsonObject> routes = new LinkedHashMap<>();
+        for (SimAutoSecretTests.Room r : List.of(pre, others.get(0), others.get(1))) {
+            JsonObject route = SimAutoSecretTests.routeFor(ctx, r);
+            if (route == null) {
+                failures.add("no standable block for a route in " + r.name());
+                return;
+            }
+            routes.put(r.name(), route);
+        }
+        SimAutoSecretTests.writeRoutes(ctx, routes);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(MEMORY, "reset"));
+        long mark = LogTap.mark();
+        Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "start"));
+        if (!Boolean.TRUE.equals(started)) {
+            failures.add("Auto Secret refused to start");
+            return;
+        }
+        List<String> order = new ArrayList<>();
+        int finished = 0;
+        for (int t = 0; t < 20 * 150 && finished < 3; t++) {
+            ctx.waitTicks(1);
+            order.clear();
+            finished = 0;
+            for (String l : LogTap.since(mark)) {
+                Matcher m = TARGET.matcher(l);
+                if (m.find() && routes.containsKey(m.group(1)) && !order.contains(m.group(1))) {
+                    order.add(m.group(1));
+                }
+                Matcher f = FINISHED.matcher(l);
+                if (f.find() && routes.containsKey(f.group(1))) {
+                    finished++;
+                }
+            }
+            if (!(Boolean) ctx.computeOnClient(mc -> ModUnderTest.staticCall(AS, "isRunning"))) {
+                break;
+            }
+        }
+        boolean held = false;
+        for (String l : LogTap.since(mark)) {
+            if (l.contains("[AutoSecret] room order") || l.contains("[AutoSecret] target") || l.contains("finished (tick")
+                    || l.contains("in front of the blood door")) {
+                println(PREBLOOD, "  " + l.replaceAll("^.*?\\[AutoSecret\\]", "[AutoSecret]"));
+            }
+            held |= l.contains("in front of the blood door - held");
+        }
+        println(PREBLOOD, "room before blood " + pre.name() + " (" + pre.unfound() + " unfound), others " + others.get(0).name()
+                + " (" + others.get(0).unfound() + "), " + others.get(1).name() + " (" + others.get(1).unfound()
+                + "); targets in order " + order + ", routes finished " + finished + ", hold said " + held);
+        if (order.size() < 3) {
+            failures.add("only " + order.size() + " of the three routed rooms were targeted: " + order);
+            return;
+        }
+        if (!order.get(2).equals(pre.name())) {
+            failures.add("the room before blood (" + pre.name() + ") was not the last secreted: " + order);
+        }
+        if (!held) {
+            failures.add("Auto Secret never said it held the room before blood");
+        }
     }
 
     // ================================================================================================ helpers

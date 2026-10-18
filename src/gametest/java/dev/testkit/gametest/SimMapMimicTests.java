@@ -67,9 +67,12 @@ public class SimMapMimicTests implements FabricClientGameTest {
         } catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
         }
+        // Moves the mimic between secret chests by their blocks: they go in at the build here (mod sim-secrets-1018).
+        SimChestHook.placeAtBuild(ctx);
         try {
             run(ctx, cheat);
         } finally {
+            SimChestHook.restore(ctx);
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave"));
             ctx.runOnClient(mc -> mc.execute(() -> {
                 if (mc.level != null) {

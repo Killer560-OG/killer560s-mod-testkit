@@ -84,6 +84,8 @@ public class SimAuraRebuildTests implements FabricClientGameTest {
         hookServerUses();
 
         List<String> verdicts = new ArrayList<>();
+        // Picks its chest by the block before going to it: secret chests go in at the build here (mod sim-secrets-1018).
+        SimChestHook.placeAtBuild(ctx);
         try {
             List<Target> targets = null;
             for (int build = 1; build <= BUILDS; build++) {
@@ -116,6 +118,7 @@ public class SimAuraRebuildTests implements FabricClientGameTest {
                 }
             }
         } finally {
+            SimChestHook.restore(ctx);
             auraOff(ctx);
             leave(ctx);
         }

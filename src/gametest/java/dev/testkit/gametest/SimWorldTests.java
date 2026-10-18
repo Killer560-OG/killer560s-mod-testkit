@@ -90,7 +90,10 @@ public class SimWorldTests implements FabricClientGameTest {
             // sim-levers-1015 (2026-10-15): Cobble Wall Pillar's and Golden Oasis' placed levers, the Redstone Key
             "1412-sim-lever-cobble", "1414-sim-lever-golden-oasis", "1415-sim-redstone-key",
             // sim-prince-supertall-1016: the obsidian prince signature
-            "1781-sim-prince-supertall", "1782-sim-prince-supertall-floor", "1783-sim-prince-obsidian-census"};
+            "1781-sim-prince-supertall", "1782-sim-prince-supertall-floor", "1783-sim-prince-obsidian-census",
+            // sim-secrets-1018: Sarcophagus' prince, one Redstone Key per room, chests that appear like bats, Change Room
+            "1018-sim-prince-sarcophagus", "1018-sim-keyspot-one", "1018-sim-chest-appear",
+            "1018-sim-changeroom-lastpage"};
 
     private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
@@ -192,6 +195,10 @@ public class SimWorldTests implements FabricClientGameTest {
                         case "1781-sim-prince-supertall" -> casePrinceSupertall(ctx);
                         case "1782-sim-prince-supertall-floor" -> casePrinceSupertallFloor(ctx);
                         case "1783-sim-prince-obsidian-census" -> casePrinceObsidianCensus(ctx);
+                        case "1018-sim-prince-sarcophagus" -> SimSecrets1018.princeSarcophagus(ctx);
+                        case "1018-sim-keyspot-one" -> SimSecrets1018.keySpotOne(ctx);
+                        case "1018-sim-chest-appear" -> SimSecrets1018.chestAppear(ctx);
+                        case "1018-sim-changeroom-lastpage" -> SimSecrets1018.changeRoomLastPage(ctx);
                         default -> {
                         }
                     }
@@ -1803,5 +1810,290 @@ public class SimWorldTests implements FabricClientGameTest {
 
     private static void say(String s) {
         System.out.println("[" + NAME + "] " + s);
+    }
+
+    /**
+     * killer560's to-do list, 2026-10-18 (mod sim-secrets-1018):
+     * <ul>
+     *   <li><b>1018-sim-prince-sarcophagus</b>: "this is a prince in sarcophogous". Sarcophagus' one tomb (capture x 14..18,
+     *       y 69..71, z 15..17: five bottom slabs and two heads on a polished andesite body on stair legs) is the room's
+     *       one prince; one Superboom on its slabs opens it as a prince and takes every block of it, and the room floor
+     *       under it (y 68) stays. On main: no prince, and the slab crypt rule left the andesite standing.</li>
+     *   <li><b>1018-sim-keyspot-one</b>: Redstone Key's database has two key spots; the sim puts the key on ONE of them
+     *       (each forced in turn), as Hypixel does. On main: a key on both.</li>
+     *   <li><b>1018-sim-chest-appear</b>: "Make chests on sim have the same spawn in logic as bats for not appearing" - a
+     *       secret chest more than 10 blocks from him is not in the world; standing beside it, it appears 5 server ticks
+     *       later (the bat rule). On main: every secret chest is there from the build.</li>
+     *   <li><b>1018-sim-changeroom-lastpage</b>: "if i press escape then change room after I have generated a map it always
+     *       takes me back to load room. It should take me to the setting I selected previously." The pause screen's Change
+     *       Room opens the sim menu on the page used last (designer, Previous Runs, Route Practice), and Load a Room when
+     *       none was used yet. On main: Load a Room every time.</li>
+     * </ul>
+     */
+    static final class SimSecrets1018 {
+        private SimSecrets1018() {
+        }
+
+        private static final String SIM_SECRETS = "com.killer560.hub.roomsim.SimSecrets";
+        private static final String NAV = "com.killer560.hub.roomsim.SimMenuNav";
+        private static final String MENU = "com.killer560.hub.roomsim.SimMenuScreen";
+        private static final String DESIGNER = "com.killer560.hub.roomsim.SimMapEditorScreen";
+
+        static void princeSarcophagus(ClientGameTestContext ctx) {
+            String room = "Sarcophagus";
+            build(ctx, room);
+            List<BlockPos> tomb = new ArrayList<>();
+            List<BlockPos> floor = new ArrayList<>();
+            for (int x = 14; x <= 18; x++) {
+                for (int z = 15; z <= 17; z++) {
+                    for (int y = 69; y <= 71; y++) {
+                        BlockPos p = capW(ctx, room, x, y, z);
+                        if (!onServer(ctx, (level, sp) -> level.getBlockState(p).isAir())) {
+                            tomb.add(p);
+                        }
+                    }
+                    floor.add(capW(ctx, room, x, 68, z));
+                }
+            }
+            BlockPos slab = capW(ctx, room, 16, 71, 16);
+            BlockPos body = capW(ctx, room, 14, 70, 15);
+            int princes = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_PRINCE, "count"));
+            boolean slabPart = isPart(ctx, slab);
+            boolean bodyPart = isPart(ctx, body);
+            int floorBefore = countNotAir(ctx, floor);
+            say("1018 sarcophagus: tomb " + tomb.size() + " block(s), slab " + blockName(ctx, slab) + ", body "
+                    + blockName(ctx, body) + "; " + princes + " prince(s); slab a prince " + slabPart + ", body a prince "
+                    + bodyPart + "; floor under it " + floorBefore + "/" + floor.size());
+            check(tomb.size() >= 35 && blockName(ctx, slab).equals("smooth_stone_slab")
+                    && blockName(ctx, body).equals("polished_andesite"), "premise: the capture's tomb is not where the census put it");
+            check(princes == 1, "Sarcophagus has " + princes + " prince(s); its one tomb is the prince");
+            check(slabPart && bodyPart, "the tomb's slabs (" + slabPart + ") or its andesite body (" + bodyPart
+                    + ") are not part of the prince");
+            stand(ctx, room, 16, 13, 69, new double[]{16.5, 71.5, 16.5});
+            int undeadBefore = zombies(ctx, slab, 4);
+            String line = boom(ctx, slab, Direction.UP);
+            int left = countNotAir(ctx, tomb);
+            int floorAfter = countNotAir(ctx, floor);
+            int undeadAfter = zombies(ctx, slab, 4);
+            say("1018 sarcophagus after one Superboom: tomb blocks left " + left + "/" + tomb.size() + ", floor "
+                    + floorAfter + "/" + floor.size() + ", undead " + undeadBefore + " -> " + undeadAfter + "; " + line);
+            check(line.contains("prince=true"), "the tomb did not open as a prince: " + line);
+            check(left == 0, left + " block(s) of the sarcophagus survived the Superboom");
+            check(floorAfter == floorBefore, "the blast took " + (floorBefore - floorAfter) + " block(s) of the room's floor");
+            check(undeadAfter > undeadBefore, "no undead appeared in the opened prince");
+        }
+
+        private static boolean setKeySpot(ClientGameTestContext ctx, int idx) {
+            return ctx.computeOnClient(mc -> {
+                try {
+                    Class.forName(SIM_SECRETS).getMethod("setKeySpotForTest", int.class).invoke(null, idx);
+                    return true;
+                } catch (ReflectiveOperationException e) {
+                    return false;
+                }
+            });
+        }
+
+        @SuppressWarnings("unchecked")
+        private static List<BlockPos> keysLying(ClientGameTestContext ctx) {
+            return onServer(ctx, (level, sp) -> {
+                try {
+                    var f = Class.forName(SIM_KEY).getDeclaredField("KEYS");
+                    f.setAccessible(true);
+                    return new ArrayList<>(((java.util.Map<BlockPos, String>) f.get(null)).keySet());
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+            });
+        }
+
+        static void keySpotOne(ClientGameTestContext ctx) {
+            String room = "Redstone Key";
+            List<BlockPos> seen = new ArrayList<>();
+            try {
+                for (int idx = 0; idx <= 1; idx++) {
+                    boolean hook = setKeySpot(ctx, idx);
+                    build(ctx, room);
+                    List<BlockPos> keys = keysLying(ctx);
+                    int onClient = 0;
+                    for (BlockPos k : keys) {
+                        onClient += isKeyOnClient(ctx, k) ? 1 : 0;
+                    }
+                    say("1018 keyspot: forced spot " + idx + " (hook " + hook + "): " + keys.size() + " key(s) lying at "
+                            + keys + ", " + onClient + " a Redstone Key head on the client");
+                    check(keys.size() == 1, room + " has " + keys.size() + " Redstone Key(s) lying - Hypixel spawns one, in"
+                            + " one of its two spots");
+                    check(onClient == 1, "the client does not see the key as Hypixel's Redstone Key head");
+                    seen.add(keys.get(0));
+                }
+                check(!seen.get(0).equals(seen.get(1)), "both forced spots put the key at " + seen.get(0));
+            } finally {
+                setKeySpot(ctx, -1);
+            }
+        }
+
+        @SuppressWarnings("unchecked")
+        private static List<BlockPos> placedChests(ClientGameTestContext ctx) {
+            return onServer(ctx, (level, sp) -> {
+                try {
+                    return new ArrayList<>((List<BlockPos>) Class.forName(SIM_SECRETS).getField("PLACED_CHESTS").get(null));
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+            });
+        }
+
+        static void chestAppear(ClientGameTestContext ctx) {
+            SimChestHook.restore(ctx);   // the mod's own rule, whatever a scenario before this one left
+            BlockPos far = null;
+            String inRoom = null;
+            for (String room : new String[]{"Mossy", "Gravel", "Andesite", "Sarcophagus", "Cathedral"}) {
+                boolean usable = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isUsable",
+                        new Class<?>[]{String.class}, new Object[]{room}));
+                if (!usable) {
+                    continue;
+                }
+                build(ctx, room);
+                Vec3 at = ctx.computeOnClient(mc -> mc.player.position());
+                List<BlockPos> chests = placedChests(ctx);
+                for (BlockPos c : chests) {
+                    if (Vec3.atCenterOf(c).distanceTo(at) > 13) {
+                        far = c;
+                        break;
+                    }
+                }
+                say("1018 chest: " + room + " has " + chests.size() + " secret chest(s), " + (far == null ? "none" : "one at "
+                        + far.toShortString()) + " more than 13 blocks from him");
+                if (far != null) {
+                    inRoom = room;
+                    break;
+                }
+            }
+            check(far != null, "premise: no room tried has a secret chest more than 13 blocks from the spawn");
+            BlockPos c = far;
+            String before = blockName(ctx, c);
+            boolean clientChest = ctx.computeOnClient(mc -> mc.level.getBlockState(c).is(Blocks.CHEST));
+            say("1018 chest at " + c.toShortString() + " in " + inRoom + " while he is far: server " + before
+                    + ", client chest " + clientChest);
+            check(!before.equals("chest") && !before.equals("trapped_chest") && !clientChest,
+                    "the secret chest at " + c.toShortString() + " exists while he is more than 13 blocks from it");
+            // A standing spot beside it: feet and head free, solid under, within 3 blocks across and 2 up or down.
+            BlockPos spot = onServer(ctx, (level, sp) -> {
+                for (int r = 1; r <= 3; r++) {
+                    for (int dx = -r; dx <= r; dx++) {
+                        for (int dz = -r; dz <= r; dz++) {
+                            for (int dy = -2; dy <= 2; dy++) {
+                                BlockPos f = c.offset(dx, dy, dz);
+                                if (f.equals(c) || f.equals(c.above())) {
+                                    continue;
+                                }
+                                if (level.getBlockState(f).getCollisionShape(level, f).isEmpty()
+                                        && level.getBlockState(f.above()).getCollisionShape(level, f.above()).isEmpty()
+                                        && !level.getBlockState(f.below()).getCollisionShape(level, f.below()).isEmpty()) {
+                                    return f;
+                                }
+                            }
+                        }
+                    }
+                }
+                return null;
+            });
+            check(spot != null, "premise: no standing spot within 3 blocks of the chest at " + c.toShortString());
+            long t0 = onServer(ctx, (level, sp) -> {
+                sp.teleportTo(level, spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5,
+                        java.util.Set.<net.minecraft.world.entity.Relative>of(), 0f, 0f, false);
+                return level.getGameTime();
+            });
+            long appearedAt = -1;
+            for (int i = 0; i < 40 && appearedAt < 0; i++) {
+                ctx.waitTicks(1);
+                appearedAt = onServer(ctx, (level, sp) -> level.getBlockState(c).is(Blocks.CHEST)
+                        || level.getBlockState(c).is(Blocks.TRAPPED_CHEST) ? level.getGameTime() : -1L);
+            }
+            ctx.waitTicks(5);
+            boolean clientAfter = ctx.computeOnClient(mc -> mc.level.getBlockState(c).is(Blocks.CHEST)
+                    || mc.level.getBlockState(c).is(Blocks.TRAPPED_CHEST));
+            say("1018 chest appeared " + (appearedAt - t0) + " server tick(s) after he came within range (seen on the poll);"
+                    + " client sees it " + clientAfter);
+            check(appearedAt >= 0, "the secret chest never appeared once he stood beside it");
+            check(appearedAt - t0 >= 5 && appearedAt - t0 <= 7, "the chest appeared " + (appearedAt - t0)
+                    + " tick(s) after he came within range - want 5, as a secret bat");
+            check(clientAfter, "the client never saw the chest");
+        }
+
+        private static Object page(String name) {
+            return ModUnderTest.enumValue(NAV + "$Page", name);
+        }
+
+        /** Shows {@code pageName} as the menu's last page (null: forget the session), then presses Change Room. */
+        private static String changeRoom(ClientGameTestContext ctx, String pageName) {
+            ctx.runOnClient(mc -> {
+                if (pageName == null) {
+                    ModUnderTest.staticCall(NAV, "forgetSession", new Class<?>[]{}, new Object[]{});
+                } else {
+                    ModUnderTest.staticCall(NAV, "shown", new Class<?>[]{page(pageName).getClass()},
+                            new Object[]{page(pageName)});
+                }
+                McCompat.setScreen(mc, new net.minecraft.client.gui.screens.PauseScreen(true));
+            });
+            ctx.waitFor(mc -> McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.PauseScreen, 200);
+            ctx.waitTicks(3);
+            String pressed = ctx.computeOnClient(mc -> {
+                var s = McCompat.screen(mc);
+                for (var child : s.children()) {
+                    if (child instanceof net.minecraft.client.gui.components.AbstractWidget w
+                            && "Change Room".equals(w.getMessage().getString())) {
+                        double x = w.getX() + w.getWidth() / 2.0;
+                        double y = w.getY() + w.getHeight() / 2.0;
+                        s.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(x, y,
+                                new net.minecraft.client.input.MouseButtonInfo(0, 0)), false);
+                        s.mouseReleased(new net.minecraft.client.input.MouseButtonEvent(x, y,
+                                new net.minecraft.client.input.MouseButtonInfo(0, 0)));
+                        return "ok";
+                    }
+                }
+                return "no Change Room button";
+            });
+            check("ok".equals(pressed), pressed);
+            ctx.waitFor(mc -> !(McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.PauseScreen), 200);
+            ctx.waitTicks(3);
+            String opened = ctx.computeOnClient(mc -> {
+                var s = McCompat.screen(mc);
+                if (s == null) {
+                    return "none";
+                }
+                String cls = s.getClass().getName();
+                if (cls.equals(MENU)) {
+                    try {
+                        var f = s.getClass().getDeclaredField("mode");
+                        f.setAccessible(true);
+                        return "menu:" + f.get(s);
+                    } catch (ReflectiveOperationException e) {
+                        return "menu:?";
+                    }
+                }
+                return cls.equals(DESIGNER) ? "designer" : cls;
+            });
+            ctx.runOnClient(mc -> McCompat.setScreen(mc, null));
+            ctx.waitFor(mc -> McCompat.screen(mc) == null, 200);
+            return opened;
+        }
+
+        static void changeRoomLastPage(ClientGameTestContext ctx) {
+            build(ctx, "Mossy");
+            String designer = changeRoom(ctx, "DESIGNER");
+            String previous = changeRoom(ctx, "PREVIOUS");
+            String cycle = changeRoom(ctx, "CYCLE");
+            String room = changeRoom(ctx, "ROOM");
+            String fresh = changeRoom(ctx, null);
+            say("1018 Change Room opened: last page designer -> " + designer + ", Previous Runs -> " + previous
+                    + ", Route Practice -> " + cycle + ", Load a Room -> " + room + ", none yet -> " + fresh);
+            check("designer".equals(designer), "with the designer used last (a map generated), Change Room opened "
+                    + designer + " - want the designer");
+            check("menu:PREVIOUS".equals(previous), "with Previous Runs used last, Change Room opened " + previous);
+            check("menu:CYCLE".equals(cycle), "with Route Practice used last, Change Room opened " + cycle);
+            check("menu:ROOM".equals(room), "with Load a Room used last, Change Room opened " + room);
+            check("menu:ROOM".equals(fresh), "with no page used yet, Change Room opened " + fresh + " - want Load a Room");
+        }
     }
 }

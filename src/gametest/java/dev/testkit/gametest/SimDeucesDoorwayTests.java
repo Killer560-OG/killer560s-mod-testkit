@@ -96,6 +96,9 @@ public class SimDeucesDoorwayTests implements FabricClientGameTest {
             return;
         }
         List<String> failures = new ArrayList<>();
+        // The chest above the doorway is waited for and photographed from farther than 10 blocks: secret chests go in at
+        // the build here (mod sim-secrets-1018 makes them appear when he comes near).
+        SimChestHook.placeAtBuild(ctx);
         try {
             boolean altarEast = ctx.computeOnClient(mc -> hasDoorway(NEIGHBOUR, 1, 1));
             boolean deucesWest = ctx.computeOnClient(mc -> hasDoorway(ROOM, 3, 0));
@@ -147,6 +150,7 @@ public class SimDeucesDoorwayTests implements FabricClientGameTest {
             failures.add("threw: " + t);
             t.printStackTrace();
         } finally {
+            SimChestHook.restore(ctx);
             teardown(ctx);
             if (failures.isEmpty()) {
                 System.out.println("[" + NAME + "] PASS - Deuces' doorway matches the capture, open through to Altar, "
