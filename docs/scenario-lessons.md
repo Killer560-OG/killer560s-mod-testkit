@@ -1034,3 +1034,6 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   clicks; a recovery case that ends at the soul may never "complete" its way back (the click cuts it short); and a player
   spawned straight into lava dies before the run starts - stand him on a glass block in the pool and let the walk take him in.
   On the 26.1.2 cheat jar of fairy-souls-1017 all 21 fairy cases pass, GrimAC clean; on the legit jar 746 and -settings.
+- 1018-pf-*: the mod's `ChatObserver` drops a line identical to one delivered in the last 250 ms (real time) as a duplicate, and
+  the lockstep runs two ticks far faster than that, so a case that sends the same chat line twice must sleep ~400 ms between
+  them or the second never reaches any listener (1018-pf-dual-list's first run read "not dual-listed" for exactly this).
