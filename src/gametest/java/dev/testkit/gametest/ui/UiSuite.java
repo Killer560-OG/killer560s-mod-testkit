@@ -237,6 +237,29 @@ public class UiSuite implements FabricClientGameTest {
     /** Etherwarp Overlay box: every camera-facing face drawn (mod ew-nearface, {@link EtherwarpFaceCases}). Own block. */
     /** Sweat Mode on the Home tab (mod sweat-mode, {@link DocMenuCases#sweatMode}). Own block for merges. */
     static final String[] SWEAT_CASES = {"1016-ui-sweat-mode"};
+    /** killer560's 2026-10-18 menu and HUD list (mod todo-menu-hud-1018, {@link Doc1018MenuHudCases}). Own block for merges. */
+    static final String[] DOC_1018_MENU_HUD_CASES = {
+            "1018-ui-search-sum-enter",
+            "1018-ui-menu-search-order",
+            "1018-ui-theme-one-per-section",
+            "1018-ui-chat-history",
+            "1018-ui-loadout-open-key",
+            "1018-ui-profiles-count",
+            "1018-ui-home-sweat-once",
+            "1018-ui-solver-highlights",
+            "1018-ui-termism-menu",
+            "1018-ui-spotify-lyrics",
+            "1018-ui-peek-chat-modes",
+            "1018-ui-voice-status",
+            "1018-ui-inventory-hud-default",
+            "1018-ui-inventory-hud-opacity",
+            "1018-ui-pet-wheel-pages",
+            "1018-ui-sim-keybinds-text",
+            "1018-ui-performance-colors",
+            "1018-ui-chat-hider-ban",
+            "1018-ui-party-command-defaults",
+            "1018-ui-inventory-theme-settings",
+            "1018-ui-ribbon-in-cosmetics"};
     static final String[] EW_NEARFACE_CASES = {"1321-ui-etherwarp-box-faces", "1322-ui-etherwarp-walk",
             "1323-ui-etherwarp-back-edges", "1324-ui-etherwarp-nonfull"};
     /** On Teleport for the trails and the Auto Routes Progress HUD (mod trail-hud-1015, {@link TrailTeleportCases},
@@ -406,6 +429,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : SWEAT_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : DOC_1018_MENU_HUD_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : EW_NEARFACE_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -424,7 +450,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(HUD_KEY3_CASES) || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(CHROMA_WAVE_CASES)
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
                 || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
-                || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES) || any(SWEAT_CASES)
+                || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES) || any(SWEAT_CASES) || any(DOC_1018_MENU_HUD_CASES)
                 || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES) || any(TRAIL_HUD_CASES)
                 || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES) || any(SOUND_DESC_CASES) || any(MAP_OVERHAUL_CASES)
                 || any(TRAJECTORY_CASES);
@@ -739,6 +765,28 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1041-ui-ribbon-camera-angles", TrailRibbonCases::cameraAngles);
                     // ---- Etherwarp Overlay box faces (1321) ----
                     UiCase.run(ctx, "1016-ui-sweat-mode", DocMenuCases::sweatMode);
+                    // ---- killer560's 2026-10-18 menu and HUD list (1018-ui-*) ----
+                    UiCase.run(ctx, "1018-ui-search-sum-enter", Doc1018MenuHudCases::searchSumEnter);
+                    UiCase.run(ctx, "1018-ui-menu-search-order", Doc1018MenuHudCases::menuSearchOrder);
+                    UiCase.run(ctx, "1018-ui-theme-one-per-section", Doc1018MenuHudCases::themeOnePerSection);
+                    UiCase.run(ctx, "1018-ui-chat-history", Doc1018MenuHudCases::chatHistory);
+                    UiCase.run(ctx, "1018-ui-loadout-open-key", Doc1018MenuHudCases::loadoutOpenKey);
+                    UiCase.run(ctx, "1018-ui-profiles-count", Doc1018MenuHudCases::profilesCount);
+                    UiCase.run(ctx, "1018-ui-home-sweat-once", Doc1018MenuHudCases::homeSweat);
+                    UiCase.run(ctx, "1018-ui-solver-highlights", Doc1018MenuHudCases::solverHighlights);
+                    UiCase.run(ctx, "1018-ui-termism-menu", Doc1018MenuHudCases::termismMenu);
+                    UiCase.run(ctx, "1018-ui-spotify-lyrics", Doc1018MenuHudCases::spotifyName);
+                    UiCase.run(ctx, "1018-ui-peek-chat-modes", Doc1018MenuHudCases::peekModes);
+                    UiCase.run(ctx, "1018-ui-voice-status", Doc1018MenuHudCases::voiceStatus);
+                    UiCase.run(ctx, "1018-ui-inventory-hud-default", Doc1018MenuHudCases::inventoryHudDefault);
+                    UiCase.run(ctx, "1018-ui-inventory-hud-opacity", Doc1018MenuHudCases::inventoryHudOpacity);
+                    UiCase.run(ctx, "1018-ui-pet-wheel-pages", Doc1018MenuHudCases::petWheelPages);
+                    UiCase.run(ctx, "1018-ui-sim-keybinds-text", Doc1018MenuHudCases::simKeybindsText);
+                    UiCase.run(ctx, "1018-ui-performance-colors", Doc1018MenuHudCases::performanceColors);
+                    UiCase.run(ctx, "1018-ui-chat-hider-ban", Doc1018MenuHudCases::chatHiderBan);
+                    UiCase.run(ctx, "1018-ui-party-command-defaults", Doc1018MenuHudCases::partyCommandDefaults);
+                    UiCase.run(ctx, "1018-ui-inventory-theme-settings", Doc1018MenuHudCases::inventoryThemeSettings);
+                    UiCase.run(ctx, "1018-ui-ribbon-in-cosmetics", Doc1018MenuHudCases::ribbonInCosmetics);
                     UiCase.run(ctx, "1321-ui-etherwarp-box-faces", EtherwarpFaceCases::run);
                     UiCase.run(ctx, "1322-ui-etherwarp-walk", EtherwarpFaceCases::walk);
                     UiCase.run(ctx, "1323-ui-etherwarp-back-edges", EtherwarpFaceCases::backEdges);

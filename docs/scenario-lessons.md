@@ -1034,3 +1034,12 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   clicks; a recovery case that ends at the soul may never "complete" its way back (the click cuts it short); and a player
   spawned straight into lava dies before the run starts - stand him on a glass block in the pool and let the walk take him in.
   On the 26.1.2 cheat jar of fairy-souls-1017 all 21 fairy cases pass, GrimAC clean; on the legit jar 746 and -settings.
+
+- **1018-ui-* (menu-hud-1018, 2026-10-18; `ui/Doc1018MenuHudCases`, 21 cases in the UiSuite block `DOC_1018_MENU_HUD_CASES`).**
+  Drawer rows are read by building the registered tab (`build(MenuACases.leaf(...))`, label = `ModScreenDriver.label`) and
+  pressed with `ModScreenDriver.press`; a feature that is not there makes `MenuACases.leaf`/`openTab` throw "no feature tab X",
+  which is the main-jar failure of the new-tab cases. Pixel probes are relative (a row's brightness range, a same-row
+  reference, the HUD off vs on over the panel's box) so no absolute colour is assumed; each has a positive control or was
+  seen failing on the main jar (c099a9fa). A new settings row must not reuse another row's label: the tooltip table is keyed
+  by label, and the Solver Highlight rows first clashed with Tic Tac Toe's own "Highlight Style" and Breaker Aura's tooltip.
+  Run: `./run-scenario.ps1 -Scenario 1018-ui -ModUnderTest <jar> -Port 27803` (about a minute with the build warm).
