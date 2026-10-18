@@ -541,6 +541,14 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 			systemProperty "testkit.${k}", project.property(k)
 		}
 	}
+	// 1434-sim-deuces-hypixelview: -PdeucesRotation=90 -PdeucesXs=7.5,8.5 -PdeucesPitches=-30,-40
+	// -PdeucesVariants=built,box2air -PdeucesTag=name (comma lists; see SimDeucesHypixelViewTests)
+	["rotation", "xs", "ys", "fovs", "pitches", "variants", "tag"].each { k ->
+		def p = "deuces" + k.capitalize()
+		if (project.hasProperty(p)) {
+			systemProperty "testkit.deuces.${k}", project.property(p)
+		}
+	}
 	// Play each selected 93-solve room N times in one launch, to measure a flake rate:  -PsolveRepeat=N
 	if (project.hasProperty("solveRepeat")) {
 		systemProperty "testkit.solveRepeat", project.property("solveRepeat")
