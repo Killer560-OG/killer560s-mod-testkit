@@ -1050,3 +1050,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   seen failing on the main jar (c099a9fa). A new settings row must not reuse another row's label: the tooltip table is keyed
   by label, and the Solver Highlight rows first clashed with Tic Tac Toe's own "Highlight Style" and Breaker Aura's tooltip.
   Run: `./run-scenario.ps1 -Scenario 1018-ui -ModUnderTest <jar> -Port 27803` (about a minute with the build warm).
+- 1018-ss-* (SsStimMomentumCases, todo-ss-stim-1018, 2026-10-18): Auto Solve Rotate mode with Stim and Momentum on a 4-round
+  device, 831's set-up. Judged by the server: 10 correct presses and EXACTLY 11 use_block (Stim must send nothing), then the
+  mod's counters prove the path ran (stimRehearsalsStarted/stimButtonsTraced, momentumFaceFires/GlideFrames/CarryFrames).
+  1018-ss-rotate-fast-off never touches the new settings, so it is the control that also passes on main; the other four fail
+  there (no setter). The fake's gap between rounds (~20 ticks) cuts some rehearsals short at the next reveal - expected.
