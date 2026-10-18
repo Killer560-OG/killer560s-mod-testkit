@@ -86,6 +86,16 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             for (int i = 2; i <= 5; i++) {
                 s.test("63-ap3-block-rep-" + i, c -> caseInteract(c, "BLOCK"));
             }
+            // GrimAC gives a place the next movement packet's rotation only within 15 ms of it: a slow client tick
+            // (25 ms of it after the mod's START work) must not open that gap (todo-blood-ap3-grim-1018).
+            s.test("1018-ap3-block-slow-tick", c -> {
+                startStallMs = 25;
+                try {
+                    caseInteract(c, "BLOCK");
+                } finally {
+                    startStallMs = 0;
+                }
+            });
             for (String type : new String[]{"LOOK", "USE", "STOPWATCH", "JUMP", "EDGE", "BLOCK", "BOOM", "TERMINAL",
                     "LEAP_COUNTER", "TERM_AURA", "STOP", "ALIGN", "AXIS_ALIGN", "FAST_ALIGN", "WALK"}) {
                 String name = "63-ap3-hold-" + type.toLowerCase(Locale.ROOT).replace('_', '-');
@@ -93,6 +103,9 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             }
             s.test("63-ap3-hold-boom-then-stop", Ap3RuntimeTests::caseBoomThenStop);
             s.test("63-ap3-stopwatch-hud", Ap3RuntimeTests::caseStopwatchHud);
+            // mod blood-ap3-1018 (killer560's doc item 11): the ss modifier, and overlapping walk/run boxes.
+            s.test("1018-ap3-ss-wait", Ap3RuntimeTests::caseSsWait);
+            s.test("1018-ap3-run-centre", Ap3RuntimeTests::caseRunCentre);
             s.testExpectingFlags("63-ap3-corrections", Ap3RuntimeTests::caseCorrection);
             onClient(ctx, mc -> {
                 PacketTrace.tap = null;
@@ -140,6 +153,8 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
 
     private static final List<Ev> EVENTS = new ArrayList<>();
     private static volatile boolean recording;
+    /** Milliseconds every recorded START_CLIENT_TICK sleeps after the mod's own START work; 0 = none. */
+    private static volatile int startStallMs;
     private static int tick;
     private static boolean probeInstalled;
 
@@ -153,6 +168,15 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         ClientTickEvents.START_CLIENT_TICK.register(mc -> {
             if (recording) {
                 add(new Ev(tick, "S", 0, 0, 0, 0, 0, 0, 0, -1, ""));
+                if (startStallMs > 0) {
+                    // A slow tick: registered after the mod's START listeners, so this sits between anything the mod
+                    // sends at START and the player tick's movement packet (1018-ap3-block-slow-tick).
+                    try {
+                        Thread.sleep(startStallMs);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
             }
         });
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
@@ -186,9 +210,22 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         }
     }
 
+    /** When each event was recorded (System.nanoTime), for the place-to-movement-packet gap GrimAC times. */
+    private static final java.util.Map<Ev, Long> EVENT_NS = new java.util.IdentityHashMap<>();
+
     private static void add(Ev e) {
         synchronized (EVENTS) {
             EVENTS.add(e);
+            EVENT_NS.put(e, System.nanoTime());
+        }
+    }
+
+    /** Milliseconds between two recorded events, or NaN when either was not timed. */
+    private static double msBetween(Ev a, Ev b) {
+        synchronized (EVENTS) {
+            Long x = EVENT_NS.get(a);
+            Long y = EVENT_NS.get(b);
+            return x == null || y == null ? Double.NaN : (y - x) / 1e6;
         }
     }
 
@@ -196,6 +233,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         onClient(ctx, mc -> {
             synchronized (EVENTS) {
                 EVENTS.clear();
+                EVENT_NS.clear();
             }
             tick = 0;
             recording = true;
@@ -276,6 +314,10 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             setChain();
             return null;
         });
+        // Slot 1 is meant to be empty: an item picked up off the world (wildflowers, 2026-10-18) made every Block case
+        // place that instead of the slab, with no slot change to judge.
+        c.server().command("kill @e[type=item]");
+        c.server().command("item replace entity @p hotbar.0 with minecraft:air");
         c.server().command(String.format(Locale.ROOT, "tp @p %.2f %d %.2f -90 0", LANE_X0 + 0.5, FLOOR + 1, z));
         c.server().sync(20);
         ctx.waitTicks(15);
@@ -625,6 +667,16 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
                 }
             }
         }
+        // GrimAC (2.3.74 CheckManagerListener.handleQueuedPlaces) takes a place's rotation from the NEXT movement packet
+        // only when that packet arrives within 15 ms of the place; later, it judges the place by the rotation before it
+        // (RotationPlace "post-flying"). So the gap between the place / dig and the movement packet after it matters.
+        for (int i = act + 1; i < evs.size(); i++) {
+            if (evs.get(i).kind().equals("move")) {
+                c.note(String.format(Locale.ROOT, "the %s went out %.2f ms before the movement packet after it (GrimAC "
+                        + "reads that packet's rotation for it only within 15 ms)", type, msBetween(evs.get(act), evs.get(i))));
+                break;
+            }
+        }
         List<String> problems = new ArrayList<>();
         if (entryMove < 0 || act < entryMove) {
             problems.add("the " + type + " went out before any movement packet put him in its box");
@@ -767,6 +819,163 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         c.note(String.format(Locale.ROOT, "after the STOP he moved %.2f blocks in 12 ticks", slid));
         if (slid > 1.0) {
             throw new AssertionError(String.format(Locale.ROOT, "the STOP waited behind the BOOM: he ran on %.2f blocks", slid));
+        }
+    }
+
+    // ------------------------------------------------------------------------------------------------- 1018 (item 11)
+
+    /**
+     * killer560 (2026-10-18): "For ap3 add a ss trailer that will only trigger that node after ss finishes". A RUN
+     * carries him into a big LOOK box marked {@code ss} and a STOP inside it stands him there. Until Simon Says is done
+     * (Hypixel's "completed a device!" line in section 1) the LOOK must not turn his view; the tick after the line it
+     * must. The line is a real server chat line; Goldor's opening line first starts a fresh P3 run.
+     */
+    private static void caseSsWait(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        double z = lane();
+        Object run = runNode(z);
+        // East-facing so the box lies along the lane: x 6..14, 3 wide. Its aim is pitch 25 (his is 0).
+        Object look = node("LOOK", LANE_X0 + 10.0, z, -90f, 25f, 8.0, 3.0);
+        set(look, "ssGate", true);
+        Object stop = node("STOP", LANE_X0 + 9.0, z, -90f, 0f, 1.0, 3.0);
+        onClient(ctx, mc -> {
+            ModUnderTest.staticCall("com.killer560.hub.secrets.DungeonState", "setRoomSim", new Class<?>[]{boolean.class},
+                    new Object[]{true}); // isF7OrM7, which the P3 tracker asks before it reads a device line
+            return null;
+        });
+        try {
+            c.server().command("tellraw @a \"[BOSS] Goldor: Who dares trespass into my domain?\"");
+            ctx.waitTicks(5);
+            boolean before = onClient(ctx, mc -> (Boolean) ModUnderTest.staticCall(
+                    "com.killer560.hub.leveraura.P3SectionTracker", "ssCompleted"));
+            if (before) {
+                throw new AssertionError("Simon Says already reads done after Goldor's line - nothing below would be tested");
+            }
+            walkIntoRun(c, z, run, look, stop);
+            ctx.waitTicks(40);
+            float[] held = onClient(ctx, mc -> new float[]{mc.player.getViewXRot(1f), (float) mc.player.getX(),
+                    ((Number) ModUnderTest.staticCall(EXEC, "ssWaitingCount")).floatValue()});
+            boolean inBox = onClient(ctx, mc -> contains(look, mc.player.position()));
+            c.note(String.format(Locale.ROOT, "before Simon Says: x %.2f, in the LOOK box %s, view pitch %.2f, nodes waiting for SS %.0f",
+                    held[1], inBox, held[0], held[2]));
+            if (!inBox) {
+                throw new AssertionError(String.format(Locale.ROOT, "the STOP did not stand him in the ss LOOK's box (x %.2f)", held[1]));
+            }
+            if (Math.abs(held[0] - 25f) < 1f) {
+                throw new AssertionError("the ss LOOK turned his view before Simon Says was done");
+            }
+            if (held[2] < 1f) {
+                throw new AssertionError("the ss LOOK is not waiting for Simon Says (ssWaitingCount 0) - it was never entered or dropped");
+            }
+            c.server().command("tellraw @a \"Tester completed a device! (1/7)\"");
+            boolean turned = false;
+            float pitch = 0f;
+            for (int i = 0; i < 20 && !turned; i++) {
+                ctx.waitTick();
+                pitch = onClient(ctx, mc -> mc.player.getViewXRot(1f));
+                turned = Math.abs(pitch - 25f) < 0.5f;
+            }
+            boolean done = onClient(ctx, mc -> (Boolean) ModUnderTest.staticCall(
+                    "com.killer560.hub.leveraura.P3SectionTracker", "ssCompleted"));
+            c.note(String.format(Locale.ROOT, "after the device line: Simon Says done %s, view pitch %.2f", done, pitch));
+            if (!done) {
+                throw new AssertionError("the device line did not mark Simon Says done");
+            }
+            if (!turned) {
+                throw new AssertionError(String.format(Locale.ROOT, "Simon Says is done but the ss LOOK never fired (pitch %.2f)", pitch));
+            }
+        } finally {
+            onClient(ctx, mc -> {
+                ModUnderTest.staticCall(EXEC, "stop", new Class<?>[]{String.class}, new Object[]{"test lane"});
+                ModUnderTest.staticCall("com.killer560.hub.secrets.DungeonState", "setRoomSim", new Class<?>[]{boolean.class},
+                        new Object[]{false});
+                return null;
+            });
+        }
+    }
+
+    /**
+     * killer560 (2026-10-18): "lets say I am in two run nodes at the same time. They are each slightly offset from
+     * eachother. WHichever one i am more in the center of is the one that should toggle on that tick." RUN A (x 1..9,
+     * east) carries him into RUN B (x 6..14, heading east-south-east). He is inside B from x 6, but more central in A until x 7.5: B
+     * must take over at x 7.5 or later, not on its entry edge at x 6. Measured by the tick the held walk turns to B's
+     * heading, sampled every tick from before he reaches B.
+     */
+    private static void caseRunCentre(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        double z = lane();
+        Object a = node("RUN", LANE_X0 + 5.0, z, -90f, 0f, 8.0, 2.0);
+        // Yaw -60: a heading of its own, and the box still lies along x (a box turns with its yaw snapped to 90).
+        Object b = node("RUN", LANE_X0 + 10.0, z, -60f, 0f, 8.0, 2.0);
+        Vec3 bDir = onClient(ctx, mc -> (Vec3) ModUnderTest.call(b, "dir", new Class<?>[]{}, new Object[]{}));
+        try {
+            walkIntoRun(c, z, a, b);
+            double switchX = Double.NaN;
+            double entryX = Double.NaN;
+            int deferredSeen = 0;
+            double firstX = Double.NaN;
+            for (int i = 0; i < 40 && Double.isNaN(switchX); i++) {
+                Object[] r = onClient(ctx, mc -> new Object[]{mc.player.getX(), contains(b, mc.player.position()),
+                        staticField(EXEC, "holdDir"), deferredCount()});
+                double x = (Double) r[0];
+                if (Double.isNaN(firstX)) {
+                    firstX = x;
+                }
+                if ((Boolean) r[1] && Double.isNaN(entryX)) {
+                    entryX = x;
+                }
+                deferredSeen += ((Number) r[3]).intValue() > 0 ? 1 : 0;
+                Vec3 hold = (Vec3) r[2];
+                if (hold != null && hold.distanceTo(bDir) < 1e-3) {
+                    switchX = x;
+                }
+                ctx.waitTick();
+            }
+            c.note(String.format(Locale.ROOT, "first sample at x %.2f, entered B at x %.2f, B took over at x %.2f (tie at 7.50), %d tick(s) with B deferred",
+                    firstX, entryX, switchX, deferredSeen));
+            if (Double.isNaN(entryX)) {
+                throw new AssertionError("A never carried him into B's box - nothing was tested");
+            }
+            if (firstX >= 6.0) {
+                throw new AssertionError(String.format(Locale.ROOT, "sampling began at x %.2f, already inside B - the entry"
+                        + " edge was not watched", firstX));
+            }
+            if (Double.isNaN(switchX)) {
+                throw new AssertionError("B never took over the held run");
+            }
+            if (switchX < 7.5 - 0.02) {
+                throw new AssertionError(String.format(Locale.ROOT, "B took over at x %.2f, while he was still more central in A"
+                        + " (it should go at x 7.5 or later)", switchX));
+            }
+            if (deferredSeen == 0) {
+                throw new AssertionError("B was never held back while he was more central in A");
+            }
+        } finally {
+            onClient(ctx, mc -> {
+                ModUnderTest.staticCall(EXEC, "stop", new Class<?>[]{String.class}, new Object[]{"test lane"});
+                return null;
+            });
+        }
+    }
+
+    /** Ap3Executor.moverDeferredCount(), or -1 on a jar without it - so such a jar is judged by where B took over (the
+     *  behaviour), not by a missing hook. */
+    private static int deferredCount() {
+        try {
+            return ((Number) ModUnderTest.staticCall(EXEC, "moverDeferredCount")).intValue();
+        } catch (AssertionError e) {
+            return -1;
+        }
+    }
+
+    /** A private static field of a mod class, read by reflection. */
+    private static Object staticField(String className, String name) {
+        try {
+            Field f = Class.forName(className).getDeclaredField(name);
+            f.setAccessible(true);
+            return f.get(null);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(className + "." + name, e);
         }
     }
 

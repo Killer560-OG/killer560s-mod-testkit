@@ -126,6 +126,10 @@ public class SimAutopilotTests implements FabricClientGameTest {
             ModUnderTest.require("killer560smod");
             logicCase(ctx);
         }
+        if (!Scenario.skip(ETA_LOGIC)) {
+            ModUnderTest.require("killer560smod");
+            etaLogicCase(ctx);
+        }
         boolean mainCase = !Scenario.skip(NAME);
         boolean hudCase = !Scenario.skip(HUD_CASE);
         if (System.getProperty("testkit.scenario", "").isBlank() || !mainCase && !hudCase) {
@@ -644,6 +648,68 @@ public class SimAutopilotTests implements FabricClientGameTest {
             throw new AssertionError(problems.size() + " problem(s): " + String.join("; ", problems));
         }
         System.out.println("[" + LOGIC + "] PASS");
+    }
+
+    private static final String ETA_LOGIC = "1018-autopilot-eta";
+
+    /**
+     * 1018-autopilot-eta (mod blood-ap3-1018, doc item 27): Autopilot's time-to-finish estimate, which the Auto Clear
+     * Status HUD and the Progress HUD count down from. With made-up candidates and trip times: the tour in order (trip from
+     * here, work, trips between), then every other ranked candidate at its own seconds, a dropped key not counted.
+     */
+    private static void etaLogicCase(ClientGameTestContext ctx) {
+        List<String> problems = new ArrayList<>();
+        ctx.runOnClient(mc -> {
+            Object a = cand("SECRET", "A", 3.0, 10.0, false, -1);   // 4 s from here + 6 s of route
+            Object b = cand("CLEAR", "B", 2.0, 6.0, false, -1);     // 3 s from here + 3 s of clear
+            Object c = cand("PUZZLE", "C", 5.0, 7.0, false, -1);
+            Object k = cand("KEY", "Wither Key#1", 9.0, 3.0, false, -1);
+            Object travel = java.lang.reflect.Proxy.newProxyInstance(SimAutopilotTests.class.getClassLoader(),
+                    new Class<?>[]{cls(PLANNER + "$Travel")}, (proxy, m, args) -> switch (m.getName()) {
+                        case "fromHere" -> switch ((String) args[0]) {
+                            case "A" -> 4.0;
+                            case "B" -> 3.0;
+                            default -> 2.0;
+                        };
+                        case "between" -> 2.0;
+                        default -> null;
+                    });
+            Object toured = choice(a, List.of(a, b, c, k), List.of(a, b));
+            // A: 4 + 6, then the trip A -> B 2 + B's 3 of work = 15; C not in the tour: its 7; the key: nothing. 22.
+            check(problems, "tour then the rest", String.format(Locale.US, "%.1f", eta(toured, travel)), "22.0");
+            Object plain = choice(a, List.of(a, c, k), List.of());
+            check(problems, "no tour: each at its own seconds", String.format(Locale.US, "%.1f", eta(plain, travel)), "17.0");
+            check(problems, "no choice: no estimate", String.valueOf(eta(null, travel)), "NaN");
+        });
+        for (String p : problems) {
+            System.out.println("[" + ETA_LOGIC + "] FAIL: " + p);
+        }
+        if (!problems.isEmpty()) {
+            throw new AssertionError(problems.size() + " problem(s): " + String.join("; ", problems));
+        }
+        System.out.println("[" + ETA_LOGIC + "] PASS");
+    }
+
+    private static Class<?> cls(String name) {
+        try {
+            return Class.forName(name);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static Object choice(Object pick, List<Object> ranked, List<Object> tour) {
+        try {
+            return cls(PLANNER + "$Choice").getConstructor(cls(PLANNER + "$Candidate"), String.class, List.class, List.class)
+                    .newInstance(pick, "test", ranked, tour);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static double eta(Object choice, Object travel) {
+        return (Double) ModUnderTest.staticCall(PLANNER, "estimateSeconds",
+                new Class<?>[]{cls(PLANNER + "$Choice"), cls(PLANNER + "$Travel")}, new Object[]{choice, travel});
     }
 
     private static void check(List<String> problems, String what, String got, String want) {

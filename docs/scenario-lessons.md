@@ -1055,3 +1055,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   mod's counters prove the path ran (stimRehearsalsStarted/stimButtonsTraced, momentumFaceFires/GlideFrames/CarryFrames).
   1018-ss-rotate-fast-off never touches the new settings, so it is the control that also passes on main; the other four fail
   there (no setter). The fake's gap between rounds (~20 ticks) cuts some rehearsals short at the next reveal - expected.
+- **1018 blood-ap3** (mod blood-ap3-1018). `63-ap3-session:,1018-ap3` adds two AP3 cases to the 63 session: 1018-ap3-ss-wait
+  (a LOOK with the `ss` modifier, stood in by a STOP; Goldor's line then a real "completed a device!" tellraw; needs
+  `DungeonState.setRoomSim(true)` for the P3 tracker's F7 check) and 1018-ap3-run-centre (two overlapping RUN boxes, B takes
+  over at the tie point, not its entry edge; sample from before B - with 4-block boxes the first sample after walkIntoRun was
+  already inside B, so a jar that fired B on entry would have looked right). `100-hx-session:,1018-bloodcamp` drives the Blood
+  Room gate with the map type forced to NORMAL through `BloodCampFeature.setTestMapRoomType`. `1018-autopilot-eta` is a logic
+  case in SimAutopilotTests; `1018-autoclear-eta` (SimAutoClearEtaTests) runs Auto Clear on two sim rooms and reads the Auto
+  Clear Status HUD's "Done in ~m:ss" line counting down.
