@@ -1041,3 +1041,12 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   `extractEntity` hands the level renderer and the mod's swap counter during real F5 frames, and count pig-pink pixels
   (r>=100, r-g>=30, g<=b<=r: the shaded pig in the test world is about (120,70,90), so a bright-pink rule found 30 px).
   Named outside the -ui- tag on purpose; suites ui and k560 list 1018-mob-. All 5 fail on main f0a61ba4, pass on 26.1.2 and 26.2.
+
+- **1018-ui-* (menu-hud-1018, 2026-10-18; `ui/Doc1018MenuHudCases`, 21 cases in the UiSuite block `DOC_1018_MENU_HUD_CASES`).**
+  Drawer rows are read by building the registered tab (`build(MenuACases.leaf(...))`, label = `ModScreenDriver.label`) and
+  pressed with `ModScreenDriver.press`; a feature that is not there makes `MenuACases.leaf`/`openTab` throw "no feature tab X",
+  which is the main-jar failure of the new-tab cases. Pixel probes are relative (a row's brightness range, a same-row
+  reference, the HUD off vs on over the panel's box) so no absolute colour is assumed; each has a positive control or was
+  seen failing on the main jar (c099a9fa). A new settings row must not reuse another row's label: the tooltip table is keyed
+  by label, and the Solver Highlight rows first clashed with Tic Tac Toe's own "Highlight Style" and Breaker Aura's tooltip.
+  Run: `./run-scenario.ps1 -Scenario 1018-ui -ModUnderTest <jar> -Port 27803` (about a minute with the build warm).
