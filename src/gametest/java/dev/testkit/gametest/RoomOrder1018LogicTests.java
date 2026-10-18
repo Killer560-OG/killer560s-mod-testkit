@@ -10,7 +10,7 @@ import java.util.Locale;
 import java.util.Random;
 
 /**
- * 1018-logic-room-order (mod sim-secrets-1018): Auto Secret's "Fewest Warps" room order, with made-up floors - no world.
+ * 1018-logic-room-order (mod sim-secrets-1018): Auto Secret's "Least Etherwarps" room order and its 3-or-fewer switch, with made-up floors - no world.
  *
  * <p>killer560, 2026-10-18: "For auto secret make two modes. One is largest to smallest secret rooms and the other is as
  * few etherwarps possible pathfinding the whole dungeon no room order preference." {@code TourPlanner.shortest} is the
@@ -55,7 +55,7 @@ public class RoomOrder1018LogicTests implements FabricClientGameTest {
         double[][] between = {{0, 20, 20}, {20, 0, 5}, {20, 5, 0}};
         int[] o = shortest(from, between);
         double t = travel(o, from, between);
-        println("his example: fewest warps " + Arrays.toString(o) + ", travel " + t);
+        println("his example: least etherwarps " + Arrays.toString(o) + ", travel " + t);
         check(problems, "his example: the room across the map last, 30 ticks of travel", o[2] == 0 && t == 30);
 
         Random rnd = new Random(1018);
@@ -93,10 +93,35 @@ public class RoomOrder1018LogicTests implements FabricClientGameTest {
                 planFurther++;
             }
         }
-        println(String.format(Locale.US, "200 random 7-room floors: fewest warps equals the brute-force least travel on %d;"
+        println(String.format(Locale.US, "200 random 7-room floors: least etherwarps equals the brute-force least travel on %d;"
                 + " the value-weighted plan travels further on %d", exact, planFurther));
-        check(problems, "fewest warps is the least travel of all 5040 orders on every floor", exact == 200);
-        check(problems, "fewest warps is a different order from the value-weighted plan on some floors", planFurther > 0);
+        check(problems, "least etherwarps is the least travel of all 5040 orders on every floor", exact == 200);
+        check(problems, "least etherwarps is a different order from the value-weighted plan on some floors", planFurther > 0);
+
+        // The switch (killer560, 2026-10-18): with every room left at 3 unfound or fewer, Largest To Smallest is not used.
+        check(problems, "rooms {3,2,1}, Largest To Smallest selected: Least Etherwarps is used",
+                effective(new double[]{3, 2, 1}, "LARGEST_TO_SMALLEST").equals("LEAST_ETHERWARPS"));
+        check(problems, "rooms {1}, Largest To Smallest selected: Least Etherwarps is used",
+                effective(new double[]{1}, "LARGEST_TO_SMALLEST").equals("LEAST_ETHERWARPS"));
+        check(problems, "rooms {4,1,1}, Largest To Smallest selected: Largest To Smallest is used",
+                effective(new double[]{4, 1, 1}, "LARGEST_TO_SMALLEST").equals("LARGEST_TO_SMALLEST"));
+        check(problems, "rooms {9,8}, Least Etherwarps selected: Least Etherwarps is used",
+                effective(new double[]{9, 8}, "LEAST_ETHERWARPS").equals("LEAST_ETHERWARPS"));
+        check(problems, "rooms {3,3,3}, Least Etherwarps selected: Least Etherwarps is used",
+                effective(new double[]{3, 3, 3}, "LEAST_ETHERWARPS").equals("LEAST_ETHERWARPS"));
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static String effective(double[] weights, String setting) {
+        try {
+            Class<? extends Enum> e = (Class<? extends Enum>) Class.forName(
+                    "com.killer560.hub.autosecret.AutoSecretConfig$SecretOrder");
+            Object v = Enum.valueOf(e, setting);
+            return String.valueOf(ModUnderTest.staticCall("com.killer560.hub.autosecret.RoomTour", "effectiveOrder",
+                    new Class<?>[]{double[].class, e}, new Object[]{weights, v}));
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError("no RoomTour.effectiveOrder / SecretOrder in this jar: " + ex);
+        }
     }
 
     private static int[] shortest(double[] f, double[][] b) {

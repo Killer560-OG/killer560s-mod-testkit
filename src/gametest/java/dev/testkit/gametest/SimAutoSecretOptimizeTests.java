@@ -50,6 +50,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
     private static final String ARRIVAL = "146-sim-autosecret-arrival";
     private static final String LASTSECRET = "147-sim-autosecret-lastsecret";
     private static final String PREBLOOD = "1018-sim-autosecret-preblood";
+    private static final String SMALL = "1018-autosecret-small-rooms";
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
     private static final String FLOOR_GEN = "com.killer560.hub.roomsim.SimFloorGen";
@@ -81,7 +82,8 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         boolean arrival = !Scenario.skip(ARRIVAL);
         boolean last = !Scenario.skip(LASTSECRET);
         boolean preblood = !Scenario.skip(PREBLOOD);
-        if (!handoff && !order && !arrival && !last && !preblood) {
+        boolean small = !Scenario.skip(SMALL);
+        if (!handoff && !order && !arrival && !last && !preblood && !small) {
             return;
         }
         ModUnderTest.require("killer560smod");
@@ -104,6 +106,9 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             if (preblood) {
                 Scenario.skipped(PREBLOOD, "needs real room captures and room database");
             }
+            if (small) {
+                Scenario.skipped(SMALL, "needs real room captures and room database");
+            }
             return;
         }
         Scenario.ensureRoomDatabase(ctx);
@@ -122,7 +127,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         }
         if (order) {
             try {
-                runCase(ctx, ORDER, SimAutoSecretOptimizeTests::orderBody);
+                runCase(ctx, ORDER, (c, f) -> orderBody(c, f, false));
             } catch (AssertionError e) {
                 failed.add(e.getMessage());
             }
@@ -144,11 +149,21 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                 }
             }
         }
-        if (preblood) {
+        if (small) {
             try {
-                runCase(ctx, PREBLOOD, SimAutoSecretOptimizeTests::preBloodBody);
+                runCase(ctx, SMALL, (c, f) -> orderBody(c, f, true));
             } catch (AssertionError e) {
                 failed.add(e.getMessage());
+            }
+        }
+        if (preblood) {
+            // Under each of the two Room Order settings: the room before blood is last either way.
+            for (boolean largest : new boolean[]{false, true}) {
+                try {
+                    runCase(ctx, PREBLOOD, (c, f) -> preBloodBody(c, f, largest));
+                } catch (AssertionError e) {
+                    failed.add(e.getMessage());
+                }
             }
         }
         ctx.runOnClient(mc -> mc.options.renderDistance().set(renderBefore));
@@ -183,11 +198,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                 // the test's own click and read met=false, acted=-1 (2026-10-16).
                 ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled");
                 ModUnderTest.turnOff("com.killer560.hub.autoclosechest.AutoCloseChestConfig", "setEnabled");
-                try {
-                    ModUnderTest.staticCall(AS, "testLegacyOrder", new Class<?>[]{boolean.class}, new Object[]{false});
-                } catch (Throwable ignored) {
-                    // not in this jar (ModUnderTest throws an AssertionError for a missing call)
-                }
+                setOrder(false);   // the mod's default, Least Etherwarps
             });
             SimAutoSecretTests.writeRoutes(ctx, Map.of());
             leaveSim(ctx);
@@ -790,9 +801,29 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         println(ARRIVAL, "warp-to-route ticks per room: " + gaps);
     }
 
+    /** Auto Secret's Room Order setting: Largest To Smallest ({@code true}) or Least Etherwarps. Call on the client thread. */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static void setOrder(boolean largest) {
+        try {
+            Class<? extends Enum> e = (Class<? extends Enum>) Class.forName(AS_CONFIG + "$SecretOrder");
+            Object v = Enum.valueOf(e, largest ? "LARGEST_TO_SMALLEST" : "LEAST_ETHERWARPS");
+            ModUnderTest.call(ModUnderTest.config(AS_CONFIG), "setSecretOrder", new Class<?>[]{e}, new Object[]{v});
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError("this jar has no AutoSecretConfig.SecretOrder LARGEST_TO_SMALLEST / LEAST_ETHERWARPS: " + ex);
+        }
+    }
+
     // ================================================================================================ 145
 
-    private static void orderBody(ClientGameTestContext ctx, List<String> failures) {
+    /**
+     * @param small {@code false}: 145, the far room holds MORE than 3 unfound, so Largest To Smallest crosses the map first
+     *              and Least Etherwarps does not. {@code true}: 1018-autosecret-small-rooms, every room holds 3 or fewer,
+     *              so with Largest To Smallest SELECTED the mod must still take Least Etherwarps' order (killer560,
+     *              2026-10-18: "once only rooms with 3 or less secrets remain it will use the least total etherwarp mode
+     *              no matter what is selected").
+     */
+    private static void orderBody(ClientGameTestContext ctx, List<String> failures, boolean small) {
+        final String name = small ? SMALL : ORDER;
         SimAutoSecretTests.Room n1 = null;
         SimAutoSecretTests.Room n2 = null;
         SimAutoSecretTests.Room far = null;
@@ -823,10 +854,10 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             for (SimAutoSecretTests.Room r : eligible) {
                 shown.add(r.name() + "=" + r.unfound() + "@" + fromHere.get(r.name()));
             }
-            println(ORDER, "floor " + (attempt + 1) + ": eligible (unfound@rooms away) " + shown);
+            println(name, "floor " + (attempt + 1) + ": eligible (unfound@rooms away) " + shown);
             // His example, as near as a floor has it: two small rooms beside him (1 or 2 unfound), a room across the floor
             // with more than either but at most 3 - most unfound first crosses the map for it and comes back.
-            awaitWarmGraph(ctx, ORDER);
+            awaitWarmGraph(ctx, name);
             Vec3 here = ctx.computeOnClient(mc -> mc.player.position());
             int tried = 0;
             for (int i = 0; i < eligible.size() && far == null && tried < 10; i++) {
@@ -838,7 +869,8 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                         continue;
                     }
                     for (SimAutoSecretTests.Room f : eligible) {
-                        if (f.unfound() <= Math.max(a.unfound(), b.unfound()) || f.unfound() > 3 || fromHere.get(f.name()) < 3
+                        if (f.unfound() <= Math.max(a.unfound(), b.unfound()) || (small ? f.unfound() > 3 : f.unfound() < 4)
+                                || fromHere.get(f.name()) < 3
                                 || between.get(a.name()).get(f.name()) < 3 || between.get(b.name()).get(f.name()) < 3) {
                             continue;
                         }
@@ -856,7 +888,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                         int hF = warps(ctx, here, sf);
                         int aF = warps(ctx, feet(sa), sf);
                         int bF = warps(ctx, feet(sb), sf);
-                        println(ORDER, String.format(Locale.US, "candidates %s=%d, %s=%d, %s=%d: warps here->%s %d, %s<->%s"
+                        println(name, String.format(Locale.US, "candidates %s=%d, %s=%d, %s=%d: warps here->%s %d, %s<->%s"
                                         + " %d/%d, here->%s %d, %s->%s %d, %s->%s %d", a.name(), a.unfound(), b.name(),
                                 b.unfound(), f.name(), f.unfound(), a.name(), hA, a.name(), b.name(), aB, bA, f.name(), hF,
                                 a.name(), f.name(), aF, b.name(), f.name(), bF));
@@ -864,7 +896,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                             n1 = a;
                             n2 = b;
                             far = f;
-                            println(ORDER, "beside him: " + a.name() + " and " + b.name() + "; across the floor: "
+                            println(name, "beside him: " + a.name() + " and " + b.name() + "; across the floor: "
                                     + f.name());
                             break;
                         }
@@ -877,8 +909,8 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         }
         if (far == null) {
             // The floors are random: a run of floors with no such three rooms is the dice, not the mod - said loudly.
-            Scenario.skipped(ORDER, "no floor in 12 had two small rooms beside the Entrance and a bigger (at most 3) one"
-                    + " across it, by the planner's own warps - run it again");
+            Scenario.skipped(name, "no floor in 12 had two small rooms beside the Entrance and a bigger ("
+                    + (small ? "at most 3" : "4 or more") + ") one across it, by the planner's own warps - run it again");
             caseSkipped = true;
             return;
         }
@@ -896,7 +928,28 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         Map<String, Integer> unfound = Map.of(n1.name(), n1.unfound(), n2.name(), n2.unfound(), far.name(), far.unfound());
         Run fresh = runOrder(ctx, false, start, routes.keySet(), unfound);
         Run old = runOrder(ctx, true, start, routes.keySet(), unfound);
-        println(ORDER, "new order " + fresh.order + ": all three in " + fresh.ticks + " ticks, secret-weighted wait "
+        if (small) {
+            // Largest To Smallest was selected for "old": with every room at 3 or fewer it must have taken the same
+            // order as Least Etherwarps, the far room last. (The control is 145: with the far room above 3 the same
+            // setting crosses the map first.)
+            println(name, "Least Etherwarps took " + fresh.order + " in " + fresh.ticks + " ticks; Largest To Smallest"
+                    + " selected took " + old.order + " in " + old.ticks + " ticks");
+            if (fresh.order.size() < 3 || old.order.size() < 3) {
+                failures.add("a run did not take all three rooms (Least Etherwarps " + fresh.order + ", Largest To Smallest "
+                        + old.order + ")");
+                return;
+            }
+            if (!old.order.get(2).equals(far.name()) || old.order.get(0).equals(far.name())) {
+                failures.add("with Largest To Smallest selected and only rooms of 3 or fewer unfound, the mod crossed the"
+                        + " map for " + far.name() + " first: " + old.order + " - the least-etherwarps order is not used");
+            }
+            if (!old.order.equals(fresh.order)) {
+                failures.add("Largest To Smallest selected took " + old.order + ", Least Etherwarps " + fresh.order
+                        + " - not the same order");
+            }
+            return;
+        }
+        println(name, "new order " + fresh.order + ": all three in " + fresh.ticks + " ticks, secret-weighted wait "
                 + fresh.secretWait + ", " + String.format(Locale.US, "%.0f", fresh.travelled) + " blocks; old order " + old.order
                 + ": " + old.ticks + " ticks, wait " + old.secretWait + ", " + String.format(Locale.US, "%.0f", old.travelled)
                 + " blocks");
@@ -910,8 +963,11 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         if (fresh.order.get(0).equals(far.name()) || !fresh.order.get(2).equals(far.name())) {
             failures.add("the new order crossed the map for " + far.name() + " before the rooms beside him: " + fresh.order);
         }
-        if (fresh.ticks >= old.ticks) {
-            failures.add("the new order took " + fresh.ticks + " ticks, the old " + old.ticks + " - not faster");
+        // Not slower, rather than faster (2026-10-18): once the rooms left hold 3 or fewer the old order's own setting
+        // switches to least etherwarps too, so after its first (far) room the two runs can tie on real ticks (35 and 35).
+        // The order itself is what is judged above; the distance walked is printed.
+        if (fresh.ticks > old.ticks) {
+            failures.add("the new order took " + fresh.ticks + " ticks, the old " + old.ticks + " - slower");
         }
         // The secret-weighted wait in real ticks is printed, not judged: every trip pays the same ~20 ticks of search,
         // sneak and arrival settle in the sim whatever its length, so by real ticks the big room first can wait a few
@@ -923,24 +979,13 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
     private record Run(List<String> order, long ticks, double travelled, long secretWait) {
     }
 
+    /** @param legacy {@code true}: Largest To Smallest is selected ("old"); {@code false}: Least Etherwarps ("new") */
     private static Run runOrder(ClientGameTestContext ctx, boolean legacy, Vec3 start, java.util.Set<String> routed,
                                 Map<String, Integer> unfound) {
         String label = legacy ? "old" : "new";
         teleport(ctx, start);
-        boolean hooked = ctx.computeOnClient(mc -> {
-            ModUnderTest.staticCall(MEMORY, "reset");
-            try {
-                ModUnderTest.staticCall(AS, "testLegacyOrder", new Class<?>[]{boolean.class}, new Object[]{legacy});
-                return true;
-            } catch (Throwable t) {
-                return false;
-            }
-        });
-        if (!hooked) {
-            // Thrown on the test thread: a throw inside a client task ends the whole gametest run.
-            throw new AssertionError("this jar has no AutoSecretFeature.testLegacyOrder - the old order cannot be run"
-                    + " beside the new one");
-        }
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(MEMORY, "reset"));
+        ctx.runOnClient(mc -> setOrder(legacy));
         long mark = LogTap.mark();
         long t0 = tick(ctx);
         Vec3 last = ctx.computeOnClient(mc -> mc.player.position());
@@ -997,7 +1042,9 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
      * blood holds the most, and both the value-weighted order and most-unfound-first would take it early. Auto Secret runs
      * from the Entrance: all three must be targeted and the room before blood must be the last. On main it is not.
      */
-    private static void preBloodBody(ClientGameTestContext ctx, List<String> failures) {
+    private static void preBloodBody(ClientGameTestContext ctx, List<String> failures, boolean largest) {
+        ctx.runOnClient(mc -> setOrder(largest));
+        println(PREBLOOD, "Room Order: " + (largest ? "Largest To Smallest" : "Least Etherwarps"));
         SimAutoSecretTests.Room pre = null;
         List<SimAutoSecretTests.Room> others = new ArrayList<>();
         for (int attempt = 0; attempt < 12 && pre == null; attempt++) {
