@@ -97,8 +97,9 @@ final class MenuOrderCases {
         int n = kids.size();
         for (ModScreenDriver.Node k : kids) {
             if (k.folder()) {
-                n += checkList(c, where + " > " + k.name(), k.children(),
-                        "Puzzle Solvers".equals(k.name()) ? "Solver Highlights" : null);
+                // Solver Highlights, which Puzzle Solvers used to list first, is gone since mod menu-hud-1018 (killer560
+                // 2026-10-18: per-solver highlight rows; mod MenuCategories): every group is plain alphabetical now.
+                n += checkList(c, where + " > " + k.name(), k.children(), null);
             }
         }
         return n;
