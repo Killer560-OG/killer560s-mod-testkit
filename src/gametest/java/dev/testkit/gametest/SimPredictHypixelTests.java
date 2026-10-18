@@ -34,10 +34,13 @@ import java.util.Random;
  * <ul>
  * <li>1018-predict-hypixel-fresh: from two blocks short of a doorway, the room behind it must be named within
  *     {@link #GLANCE_TICKS} ticks (half a second), right.</li>
+ * <li>1018-predict-hypixel-corridor: from {@link #CORRIDOR_BACK} blocks short of a doorway, where it is a narrow slot
+ *     in his view, the room behind it must be named within {@link #CORRIDOR_TICKS} ticks (one second), right.</li>
  * <li>1018-predict-hypixel-walk: every other room of the floor walked as a player clears it (stood in, looked round,
  *     looked out of each doorway for {@link #DOOR_LOOK_TICKS} ticks from 8 and from 3 blocks back): at least
  *     {@link #WALK_MIN_NAMED} of the rooms looked into named right before he reaches them, and none named wrong.</li>
- * <li>1018-predict-hypixel-late: after that walk, the fresh glance into a room not looked into yet.</li>
+ * <li>1018-predict-hypixel-late: after that walk, the fresh glance into a room not looked into yet, named within
+ *     {@link #CORRIDOR_TICKS} ticks.</li>
  * </ul>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -45,7 +48,12 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
 
     private static final String NAME = "1018-predict-hypixel";
     private static final String R_FRESH = "1018-predict-hypixel-fresh";
+    private static final String R_CORRIDOR = "1018-predict-hypixel-corridor";
     private static final String R_WALK = "1018-predict-hypixel-walk";
+    /** The corridor glance: this far short of the doorway, named within one second (killer560, 2026-10-18: about 20 s
+     *  in game after he stopped in a corridor; "near instant" wanted). */
+    private static final double CORRIDOR_BACK = 10;
+    private static final int CORRIDOR_TICKS = 20;
     private static final String R_LATE = "1018-predict-hypixel-late";
 
     /** A glance into a room from its entrance: half a second. */
@@ -155,12 +163,12 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
             if (!clash && open) {
                 picks.add(t);
             }
-            if (picks.size() == 2) {
+            if (picks.size() == 3) {
                 break;
             }
         }
-        if (picks.size() < 2) {
-            row(R_FRESH, false, "premise: fewer than two free doorways");
+        if (picks.size() < 3) {
+            row(R_FRESH, false, "premise: fewer than three free doorways");
             return;
         }
 
@@ -170,6 +178,13 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ModUnderTest.staticCall(PREDICTOR, "reset"));
         Glance fresh = glance(ctx, f, picks.get(0));
         row(R_FRESH, fresh.pass(), fresh.toString());
+
+        // ---- corridor: from well back, the doorway a narrow slot in his view; few blocks reach the room behind it.
+        Report.caseStarted(R_CORRIDOR);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "resetSimVisits"));
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(PREDICTOR, "reset"));
+        Glance corridor = glance(ctx, f, picks.get(2), CORRIDOR_BACK, CORRIDOR_TICKS);
+        row(R_CORRIDOR, corridor.pass(), corridor.toString());
 
         // ---- walk: the rest of the floor as a player clears it; the room of the late glance not looked into.
         Report.caseStarted(R_WALK);
@@ -198,7 +213,8 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         for (int r : walked) {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "simVisit", new Class<?>[]{int.class}, new Object[]{r}));
         }
-        Glance g = glance(ctx, f, late);
+        // One second: a room much like another (Flags beside the other flag rooms) can need a little more of its view.
+        Glance g = glance(ctx, f, late, 2, CORRIDOR_TICKS);
         boolean premise = seen > 0 && intoBefore == 0;
         row(R_LATE, premise && g.pass(), "after " + seen + " block(s) seen elsewhere (" + intoBefore + " in "
                 + f.names.get(late[2]) + "): " + g);
@@ -219,16 +235,19 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         int obsAtEnd;
         String wrong;
         String lastStatus;
+        double back;
+        int limit;
 
         boolean pass() {
-            return wrong == null && namedTick >= 0 && namedTick <= GLANCE_TICKS && obsAtEnd > obsAtStart;
+            return wrong == null && namedTick >= 0 && namedTick <= limit && obsAtEnd > obsAtStart;
         }
 
         @Override
         public String toString() {
-            return "glance from " + from + "'s entrance into " + into + " (" + tiles + " tile(s)): first block seen at tick "
-                    + firstObsTick + ", named at tick " + (namedTick < 0 ? "never (watched " + (GLANCE_TICKS + WATCH_TICKS)
-                    + ")" : namedTick) + " (must be by " + GLANCE_TICKS + "), one room left standing from tick "
+            return "glance from " + back + " block(s) inside " + from + " into " + into + " (" + tiles
+                    + " tile(s)): first block seen at tick " + firstObsTick + ", named at tick "
+                    + (namedTick < 0 ? "never (watched " + (limit + WATCH_TICKS) + ")" : namedTick)
+                    + " (must be by " + limit + "), one room left standing from tick "
                     + oneRoomTick + " (" + oneRoomEvidence + " seen), " + evidenceAtEnd + " of its block(s) seen, "
                     + obsAtStart + " -> " + obsAtEnd + " seen in all, status '" + lastStatus + "'"
                     + (wrong == null ? "" : ", WRONG: " + wrong);
@@ -237,6 +256,11 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
 
     /** Stands two blocks short of door {@code t[0]} in room {@code t[1]}, looks into {@code t[2]}, and lets ticks run. */
     private Glance glance(ClientGameTestContext ctx, Floor f, int[] t) {
+        return glance(ctx, f, t, 2, GLANCE_TICKS);
+    }
+
+    /** The same from {@code back} blocks short of the doorway; the room must be named within {@code limit} ticks. */
+    private Glance glance(ClientGameTestContext ctx, Floor f, int[] t, double back, int limit) {
         int d = t[0];
         int from = t[1];
         int into = t[2];
@@ -244,16 +268,19 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         g.from = f.names.get(from);
         g.into = f.names.get(into);
         g.tiles = f.tiles.get(into).length;
+        g.back = back;
+        g.limit = limit;
         double[] dc = f.doorCentre(d);
         double[] u = f.toward(from, d);
-        double[] at = new double[]{dc[0] - u[0] * 2, dc[1] + 0.2, dc[2] - u[1] * 2};
+        double[] at = new double[]{dc[0] - u[0] * back, dc[1] + 0.2, dc[2] - u[1] * back};
         double[] target = new double[]{dc[0] + u[0] * 12, dc[1] + 1.0, dc[2] + u[1] * 12};
+        // Counted before he is placed: the predictor can start seeing on the tick he lands.
+        g.obsAtStart = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(PREDICTOR, "observationCount"));
         // The client chunks of the room he looks into are in before the clock starts (on Hypixel they are long since).
         place(ctx, at, target);
         ctx.waitFor(mc -> mc.level.isLoaded(BlockPos.containing(target[0], target[1], target[2])), 400);
-        g.obsAtStart = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(PREDICTOR, "observationCount"));
         int[] intoTiles = f.tiles.get(into);
-        for (int tick = 1; tick <= GLANCE_TICKS + WATCH_TICKS; tick++) {
+        for (int tick = 1; tick <= limit + WATCH_TICKS; tick++) {
             ctx.waitTick();
             final int now = tick;
             Object[] r = ctx.computeOnClient(mc -> {
