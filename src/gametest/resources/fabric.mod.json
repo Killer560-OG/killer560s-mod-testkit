@@ -58,6 +58,7 @@
 			"dev.testkit.gametest.SimMapPrecomputeTests",
 			"dev.testkit.gametest.SimAutopilotTests",
 			"dev.testkit.gametest.SimAutopilot2Tests",
+			"dev.testkit.gametest.SimAutoSecretBloodFirstTests",
 			"dev.testkit.gametest.SimKeyLookTests",
 			"dev.testkit.gametest.SimFairyDoorTests",
 			"dev.testkit.gametest.SimDoorsPredictTests",

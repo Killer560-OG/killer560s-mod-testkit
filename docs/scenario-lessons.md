@@ -1000,3 +1000,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   so only an `ASPECT_OF_THE_VOID` "dropped, as on Hypixel" line counts as an eaten warp. 96-ar-1016-eaten now clears the
   breaker slot, or the route pairs the chest click first and the resend it tests never happens. The first Grim mimicaim
   probe stood the chest 2.5 blocks across and its own hand click drew FarPlace + RotationPlace: keep a probe's clicks in reach.
+- **148-sim-autosecret-bloodfirst / 366-logic-secret-bloodfirst / 62-argrim-1017-autosecret-bloodfirst**
+  (autosecret-bloodfirst-1017): Auto Secret's Secret Blood First, one fresh F7 per mode (a route that ran this run counts
+  its room as secreted for the rest of the run, so one floor cannot be reused across modes); 141's setup with one rush mob
+  room R left uncleared. The sim's blood door opens on a plain click and it builds no wither doors, so on the sim Door Camp
+  is one door; the Grim arena has no blood door, so 62's case only proves the "not on the map yet" fallback is clean.
