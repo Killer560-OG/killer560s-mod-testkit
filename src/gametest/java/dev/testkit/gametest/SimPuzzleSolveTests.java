@@ -491,9 +491,14 @@ public final class SimPuzzleSolveTests {
          * {@code -PsolveRepeat=N} plays the room N times in one client launch, each run named {@code <name>#k},
          * and carries on past a failed run so one launch measures a flake rate. A summary line counts them.
          */
+        /** The scenario's name ({@code 93-solve-<slug>} unless a case names itself, as the 1018-beams-melee cases do). */
+        String scenarioName() {
+            return spec.name();
+        }
+
         @Override
         public void runTest(ClientGameTestContext ctx) {
-            String base = spec.name();
+            String base = scenarioName();
             if (Scenario.skip(base)) {
                 return;
             }
@@ -1352,6 +1357,14 @@ public final class SimPuzzleSolveTests {
             // one case's setting never decides how the next one's chest reads.
             ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"), "setEnabled",
                     false);
+            // Auto Creeper Beams' mode (mod 2026-10-18): back to Shoot, its default, unless a case asks for Melee, so a
+            // Melee case never decides how the next Creeper Beams case plays. A jar without the setting has only Shoot.
+            try {
+                ModUnderTest.call(auto, "setAutoBeamsMode", new Class<?>[]{Class.forName(AUTO_CONFIG + "$BeamsMode")},
+                        new Object[]{ModUnderTest.enumValue(AUTO_CONFIG + "$BeamsMode", "SHOOT")});
+            } catch (ClassNotFoundException | AssertionError e) {
+                // an older jar: Shoot is all there is
+            }
             if (caseExtra != null) {
                 caseExtra.configure(auto, ModUnderTest.config(CHEAT_CONFIG));
             }
