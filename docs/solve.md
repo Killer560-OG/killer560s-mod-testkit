@@ -214,3 +214,18 @@ the activity spell, so no watched tick reads "working").
   landing, a shot 5 degrees of yaw off). Needs 35+ blocks, 80% sprinting, every use on its tick, 0 GrimAC lines.
 - `PuzzleTimingExtra`: a landing whose next shot waited on a volley in flight or the Shoot cooldown is counted, and when
   every landing was one of those the "landing -> next action" pair is not required (Auto Blaze now lands during the flight).
+
+## Creeper Beams Melee (1018-beams-melee-*)
+
+Mod branch todo-creeper-melee-1018 (to-do item 29). `SimBeamsMeleeTests` plays Creeper Beams on the same Base with Auto
+Creeper Beams' mode set to MELEE (`-solve`: the build's rotation; `-rotations`: the next quarter turn each run, use
+`-PsolveRepeat=4`). Besides the sim's solve it needs every end of every pair the sim joined (`SimCreeperPuzzle.worldPairs`
+/ `connected`) struck by a left click the sim counted ("struck lantern ... from N blocks"), each within 4.5 eye to box and
+none refused, those lanterns prismarine on the client, no Terminator arrow, no shot line, and at least one warp. `Base`
+now resets the mode to SHOOT in its configure, so a Melee case never decides how the next Creeper Beams case plays. A jar
+without the mode fails on its missing `setAutoBeamsMode`. Main f0a61ba4: FAIL. Branch: 8 of 8 PASS, solved 2.3 s
+(Shoot at 500 ms: 3.8 s). `1018-beams-melee-grim` (GrimAC) lands him by server teleport by six sea lanterns and calls
+`AutoBeams.meleeClick` at START_CLIENT_TICK: four hits (2.2 to 4.0 eye to box), one that must turn first and hit the tick
+after, one at 9.5 that must send nothing. PacketWatch's dig look angle reads ~133 degrees there: it uses `getViewVector`,
+which the held puzzle camera answers, not the body's reported look; GrimAC said nothing. The `1018-beams-melee` filter
+selects all three.
