@@ -17,6 +17,12 @@ real W press and lets go inside it - AP3 carries him from there.
   that the next thing after the entering movement packet, a Block's swap back sent once. On mod ec838c10 and earlier
   they drew Post (held item change, block placement, digging) and BadPacketsA; clean from 0b6107fc. One RotationPlace
   "post-flying" was seen once on 26.2 (1 of 15 places that night, not reproduced) - read the rep cases as a rate.
+  Its cause (2026-10-18): GrimAC 2.3.74 (`CheckManagerListener.handleQueuedPlaces`) gives a place the NEXT movement
+  packet's rotation only when that packet arrives within 15 ms of it, else judges it by the rotation before (the run's
+  heading) - and one post-flying leaves its buffer at 1, so every later place in the session flags "pre-flying". AP3 sent
+  the place at START_CLIENT_TICK, so a slow tick opened the gap; since mod todo-blood-ap3-grim-1018 it goes out at the
+  head of `sendPosition`. Each case notes the gap; `1018-ap3-block-slow-tick` sleeps 25 ms after the mod's START work
+  every tick and must stay clean (the START-sending jar flags it every time).
 - `stopwatch-hud`, `cmdtree`: see the case code. `corrections`: two server moves 10 ticks apart while a RUN carries him - AP3 must keep running and enabled, report each (chat line, `[Correction] AP3:` log line) and play the alarm (`ModSounds.correctionAlarmsPlayed`); mod rule 2026-10-06, a correction never stops anything.
 
 Traps found writing it:

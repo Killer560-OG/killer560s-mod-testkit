@@ -86,6 +86,16 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             for (int i = 2; i <= 5; i++) {
                 s.test("63-ap3-block-rep-" + i, c -> caseInteract(c, "BLOCK"));
             }
+            // GrimAC gives a place the next movement packet's rotation only within 15 ms of it: a slow client tick
+            // (25 ms of it after the mod's START work) must not open that gap (todo-blood-ap3-grim-1018).
+            s.test("1018-ap3-block-slow-tick", c -> {
+                startStallMs = 25;
+                try {
+                    caseInteract(c, "BLOCK");
+                } finally {
+                    startStallMs = 0;
+                }
+            });
             for (String type : new String[]{"LOOK", "USE", "STOPWATCH", "JUMP", "EDGE", "BLOCK", "BOOM", "TERMINAL",
                     "LEAP_COUNTER", "TERM_AURA", "STOP", "ALIGN", "AXIS_ALIGN", "FAST_ALIGN", "WALK"}) {
                 String name = "63-ap3-hold-" + type.toLowerCase(Locale.ROOT).replace('_', '-');
@@ -143,6 +153,8 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
 
     private static final List<Ev> EVENTS = new ArrayList<>();
     private static volatile boolean recording;
+    /** Milliseconds every recorded START_CLIENT_TICK sleeps after the mod's own START work; 0 = none. */
+    private static volatile int startStallMs;
     private static int tick;
     private static boolean probeInstalled;
 
@@ -156,6 +168,15 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         ClientTickEvents.START_CLIENT_TICK.register(mc -> {
             if (recording) {
                 add(new Ev(tick, "S", 0, 0, 0, 0, 0, 0, 0, -1, ""));
+                if (startStallMs > 0) {
+                    // A slow tick: registered after the mod's START listeners, so this sits between anything the mod
+                    // sends at START and the player tick's movement packet (1018-ap3-block-slow-tick).
+                    try {
+                        Thread.sleep(startStallMs);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
             }
         });
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
@@ -189,9 +210,22 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         }
     }
 
+    /** When each event was recorded (System.nanoTime), for the place-to-movement-packet gap GrimAC times. */
+    private static final java.util.Map<Ev, Long> EVENT_NS = new java.util.IdentityHashMap<>();
+
     private static void add(Ev e) {
         synchronized (EVENTS) {
             EVENTS.add(e);
+            EVENT_NS.put(e, System.nanoTime());
+        }
+    }
+
+    /** Milliseconds between two recorded events, or NaN when either was not timed. */
+    private static double msBetween(Ev a, Ev b) {
+        synchronized (EVENTS) {
+            Long x = EVENT_NS.get(a);
+            Long y = EVENT_NS.get(b);
+            return x == null || y == null ? Double.NaN : (y - x) / 1e6;
         }
     }
 
@@ -199,6 +233,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         onClient(ctx, mc -> {
             synchronized (EVENTS) {
                 EVENTS.clear();
+                EVENT_NS.clear();
             }
             tick = 0;
             recording = true;
@@ -279,6 +314,10 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             setChain();
             return null;
         });
+        // Slot 1 is meant to be empty: an item picked up off the world (wildflowers, 2026-10-18) made every Block case
+        // place that instead of the slab, with no slot change to judge.
+        c.server().command("kill @e[type=item]");
+        c.server().command("item replace entity @p hotbar.0 with minecraft:air");
         c.server().command(String.format(Locale.ROOT, "tp @p %.2f %d %.2f -90 0", LANE_X0 + 0.5, FLOOR + 1, z));
         c.server().sync(20);
         ctx.waitTicks(15);
@@ -626,6 +665,16 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
                 if (in) {
                     entryMove = i;
                 }
+            }
+        }
+        // GrimAC (2.3.74 CheckManagerListener.handleQueuedPlaces) takes a place's rotation from the NEXT movement packet
+        // only when that packet arrives within 15 ms of the place; later, it judges the place by the rotation before it
+        // (RotationPlace "post-flying"). So the gap between the place / dig and the movement packet after it matters.
+        for (int i = act + 1; i < evs.size(); i++) {
+            if (evs.get(i).kind().equals("move")) {
+                c.note(String.format(Locale.ROOT, "the %s went out %.2f ms before the movement packet after it (GrimAC "
+                        + "reads that packet's rotation for it only within 15 ms)", type, msBetween(evs.get(act), evs.get(i))));
+                break;
             }
         }
         List<String> problems = new ArrayList<>();
