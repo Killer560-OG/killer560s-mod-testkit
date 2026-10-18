@@ -663,6 +663,10 @@ public class FairySoulTests implements FabricClientGameTest {
                         ctx.waitTicks(3);
                         boolean activeAfterMouse = isActive(ctx);
                         float viewAfterMouse = ctx.computeOnClient(mc -> mc.player.getViewYRot(1f));
+                        // The perspective key (F5) changes the view and is not a stop (killer560, 2026-10-18).
+                        ctx.getInput().pressKey(294); // F5
+                        ctx.waitTicks(3);
+                        boolean activeAfterF5 = isActive(ctx);
                         ctx.getInput().pressKey(74); // J
                         ctx.waitTicks(3);
                         boolean activeAfterJ = isActive(ctx);
@@ -693,6 +697,7 @@ public class FairySoulTests implements FabricClientGameTest {
                         check(bodyMax - bodyMin > 30f, "the body never turned the corner (" + (bodyMax - bodyMin) + ")");
                         check(viewMax - viewMin < 0.5f, "the camera moved " + (viewMax - viewMin) + " degrees with the body");
                         check(activeAfterMouse, "moving the mouse stopped it");
+                        check(activeAfterF5, "the perspective key (F5) stopped it");
                         check(!activeAfterJ && namedJ, "the J key did not stop it by name");
                         check(after[2] == 0 && Math.abs(after[0] - after[1]) < 0.5f, "the camera was not handed back under the body");
                         check(activeBeforeClick && !activeAfterClick && namedClick, "a left click did not stop the second run");
