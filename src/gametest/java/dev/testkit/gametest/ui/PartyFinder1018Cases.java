@@ -35,7 +35,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * a forged queued line, or Dual-List off, does not; "You left the party." takes it down (a forged copy does not); a full
  * party's answer drops it.
  * <p>1018-pf-requirements: his own stats under a listing's Cata Level stop the Join (no relay call); stats that meet it
- * send it; the leader sees a joiner's checks; Magical Power is shown "not checked".
+ * send it; the leader sees a joiner's checks.
+ * <p>1018-pf-nokuudra: the finder has no Kuudra tab, category, requirement, queue detector or dual-list hook (killer560,
+ * 2026-10-18: "kuudra should not be implemented yet"); only Dungeons, Diana and Fishing are there.
  * <p>1018-pf-settings: the switch and three options survive save/load and a profile reload, every row has a tooltip, and
  * the tab sits in the Dungeon category with its switch first.
  */
@@ -485,19 +487,76 @@ final class PartyFinder1018Cases {
                 Map<String, Integer> reqs = new LinkedHashMap<>();
                 reqs.put("cata", 40);
                 reqs.put("secrets", 10000);
-                reqs.put("magicalPower", 1200);
-                List<?> list = (List<?>) Mod.staticCall("lfg.LfgRequirements", "check", Mod.enumValue(CAT, "KUUDRA"), reqs, "Strong_J");
+                List<?> list = (List<?>) Mod.staticCall("lfg.LfgRequirements", "check", Mod.enumValue(CAT, "DUNGEONS"), reqs, "Strong_J");
                 List<String> out = new ArrayList<>();
                 for (Object o : list) {
                     out.add(Mod.call(o, "result") + " " + Mod.call(o, "key"));
                 }
                 return String.join(", ", out);
             });
-            c.note("Strong_J (45, 9000 secrets) against cata 40, secrets 10000, magical power 1200: " + checks);
-            c.check(checks.equals("MET cata, UNMET secrets, UNCHECKED magicalPower"), "requirement checks wrong: " + checks);
+            c.note("Strong_J (45, 9000 secrets) against cata 40, secrets 10000: " + checks);
+            c.check(checks.equals("MET cata, UNMET secrets"), "requirement checks wrong: " + checks);
             c.check(sent.isEmpty(), "a command went out: " + sent);
         } finally {
             PacketTrace.tap = null;
+            c.onClient(mc -> {
+                Mod.staticCall(F, "resetForTest");
+                restoreGate();
+                return null;
+            });
+        }
+    }
+
+    // ---- 1018-pf-nokuudra -------------------------------------------------------------------------------------------
+
+    static void noKuudra(UiCase c) throws Exception {
+        try {
+            reset(c);
+            List<String> cats = c.onClient(mc -> {
+                List<String> out = new ArrayList<>();
+                for (Object o : Mod.cls(CAT).getEnumConstants()) {
+                    out.add(((Enum<?>) o).name());
+                }
+                return out;
+            });
+            c.note("categories: " + cats);
+            c.check(cats.equals(List.of("DUNGEONS", "DIANA", "FISHING")), "the finder's categories are not exactly Dungeons, Diana, Fishing: " + cats);
+            Screen s = openScreen(c);
+            List<String> tabs = c.onClient(mc -> {
+                List<String> out = new ArrayList<>();
+                for (GuiEventListener l : s.children()) {
+                    if (l instanceof AbstractWidget w) {
+                        String t = ModScreenDriver.label(w);
+                        if (t.equals("Kuudra") || t.equals("Dungeons") || t.equals("Diana") || t.equals("Fishing")) {
+                            out.add(t);
+                        }
+                    }
+                }
+                return out;
+            });
+            c.note("tab buttons on the menu: " + tabs);
+            c.check(tabs.equals(List.of("Dungeons", "Diana", "Fishing")), "the menu's tab buttons are not Dungeons, Diana, Fishing: " + tabs);
+            boolean detector = c.onClient(mc -> {
+                try {
+                    Class.forName("com.killer560.hub.lfg.KuudraQueueDetector");
+                    return true;
+                } catch (ClassNotFoundException e) {
+                    return false;
+                }
+            });
+            c.check(!detector, "KuudraQueueDetector still exists");
+            boolean hook = c.onClient(mc -> {
+                for (java.lang.reflect.Method m : Mod.cls(F).getDeclaredMethods()) {
+                    if (m.getName().toLowerCase(Locale.ROOT).contains("kuudra")) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+            c.check(!hook, "LfgFeature still has a Kuudra method");
+            String tip = c.onClient(mc -> String.valueOf(Mod.staticCall("gui.SettingTooltips", "describeScoped", "Custom Party Finder", "Dungeon", "Dual-List Hypixel Queues: ON")));
+            c.check(!tip.toLowerCase(Locale.ROOT).contains("kuudra"), "the dual-list tooltip still mentions Kuudra: " + tip);
+        } finally {
             c.onClient(mc -> {
                 Mod.staticCall(F, "resetForTest");
                 restoreGate();
