@@ -177,6 +177,7 @@ public class MenuSuite implements FabricClientGameTest {
                     CroesusStableCases.register(s);
                     // ---- 888-890 croesus-track (2026-10-12): run state follows a run that moves, and restarts ----
                     CroesusTrackCases.register(s);
+                    Solver1018Cases.register(s); // 1018-*: the 2026-10-18 solver-sound batch
                     // ---- 898 croesus-colors (2026-10-12): run states distinct by colour (deltaE, CVD) and marks ----
                     CroesusColorCases.register(s);
                     // ---- 903-905 croesus-colors2 (2026-10-13): a run's chest view - free claim green, key chest orange ----
