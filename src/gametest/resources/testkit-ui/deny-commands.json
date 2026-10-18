@@ -102,6 +102,7 @@
     {"root": "simloadout", "why": "gives sim items (SimLoadout.java:61)"},
     {"root": "simpuzzle", "why": "builds sim puzzle rooms (SimPuzzles.java:90)"},
     {"root": "speed", "why": "sim speed (SimSpeed.java:86)"},
-    {"root": "translate", "why": "sets the translate language; Google Translate is network (Killer560ModClient.java:673)"}
+    {"root": "cpf", "why": "Custom Party Finder (lfg/LfgCommands.java): opens LfgScreen only when the feature is on (off by default, so a chat line) and 'cpf unlist' talks to the relay; 1018-pf-* drive it, 305 shows LfgScreen"},
+    {"root": "translate","why": "sets the translate language; Google Translate is network (Killer560ModClient.java:673)"}
   ]
 }

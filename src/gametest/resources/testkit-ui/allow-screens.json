@@ -38,7 +38,9 @@
     {"class": "termism.TermismMenuScreen", "args": ["null"], "source": "termism/TermismMenuScreen.java"},
     {"class": "termism.TermismPracticeScreen", "args": ["null", "enum:*"], "source": "termism/TermismPracticeScreen.java (one per TerminalType)"},
     {"class": "storagesearch.StorageSearchScreen", "args": ["null", "str:"], "source": "storagesearch/StorageSearchScreen.java"},
-    {"class": "accounts.gui.DirectSessionLoginScreen", "args": ["null", "null"], "source": "accounts/gui/DirectSessionLoginScreen.java - render only; nothing is typed into it"}
+    {"class": "accounts.gui.DirectSessionLoginScreen", "args": ["null", "null"], "source": "accounts/gui/DirectSessionLoginScreen.java - render only; nothing is typed into it"},
+    {"class": "inventorytheme.InventoryCustomizeScreen", "args": ["null"], "source": "inventorytheme/InventoryCustomizeScreen.java:27 (Inventory Theme > Customize, mod menu-hud-1018; render only)"},
+    {"class": "lfg.LfgScreen", "args": ["null"], "source": "lfg/LfgScreen.java:47 (/cpf, mod partyfinder-1018; offline: the relay poll is refused, render only)"}
   ],
   "deny": [
     {"class": "peekchat.PeekChatScreen", "why": "read-only chat history: in the empty smoke world it has no lines to draw, so it draws nothing by design (testkit 1314 drives it with real chat)"},
