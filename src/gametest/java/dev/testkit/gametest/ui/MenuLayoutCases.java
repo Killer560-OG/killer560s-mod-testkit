@@ -89,7 +89,11 @@ final class MenuLayoutCases {
             // Slot Text and Compactor Preview (mod slottext-compactor-1015, killer560 2026-10-15): two new Items tabs, legit in both builds.
             "gui.tab.SlotTextTab", "gui.tab.CompactorPreviewTab",
             // Custom Party Finder (mod todo-partyfinder-1018, killer560 2026-10-18): its own tab in Dungeons.
-            "gui.tab.CustomPartyFinderTab");
+            "gui.tab.CustomPartyFinderTab",
+            // Chat History (mod menu-hud-1018, killer560 2026-10-18): its own Chat tab, unlimited history.
+            "gui.tab.ChatHistoryTab",
+            // Freelook (mod todo-freelook-1018, killer560 2026-10-18): its own tab in Misc, off by default.
+            "gui.tab.FreelookTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.

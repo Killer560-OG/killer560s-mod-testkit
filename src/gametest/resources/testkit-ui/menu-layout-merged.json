@@ -4,7 +4,8 @@
     "gui.tab.ArmourDyeTab": "inv-batch 701742c2: Armor Recolor became Custom Items (Cosmetics > Custom Items)",
     "gui.tab.ChatTidyTab": "chat-batch a64924b9: merged into Chat Hider",
     "gui.tab.HideChatMessagesTab": "chat-batch a64924b9: merged into Chat Hider",
-    "gui.tab.AbilityTimersTab": "gui-hud 805ca633: Ability Timers removed (killer560: \"Remove the ability timers setting that is unneeded.\")"
+    "gui.tab.AbilityTimersTab": "gui-hud 805ca633: Ability Timers removed (killer560: \"Remove the ability timers setting that is unneeded.\")",
+    "gui.tab.SolverHighlightsTab": "menu-hud-1018 4a7ffc31: the shared Solver Highlights tab became per-solver highlight rows (killer560 2026-10-18)"
   },
   "goneCheatLeaves": {
     "gui.tab.LeverAuraTab": "aura-themes-1015: Lever Aura became the In Boss part of the Secret Aura tab (cheat jar only)"
