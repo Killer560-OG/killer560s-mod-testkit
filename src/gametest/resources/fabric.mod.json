@@ -8,6 +8,7 @@
 		"fabric-client-gametest": [
 			"dev.testkit.gametest.SmokeTest",
 			"dev.testkit.gametest.CorrectionAlarmTest",
+			"dev.testkit.gametest.ArmourHeadStandTest",
 			"dev.testkit.gametest.FairySoulTests",
 			"dev.testkit.gametest.JoinFingerprintTest",
 			"dev.testkit.gametest.ProofTest",
