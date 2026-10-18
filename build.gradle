@@ -543,7 +543,7 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	}
 	// 1434-sim-deuces-hypixelview: -PdeucesRotation=90 -PdeucesXs=7.5,8.5 -PdeucesPitches=-30,-40
 	// -PdeucesVariants=built,box2air -PdeucesTag=name (comma lists; see SimDeucesHypixelViewTests)
-	["rotation", "xs", "ys", "fovs", "pitches", "variants", "tag"].each { k ->
+	["rotation", "xs", "ys", "zs", "fovs", "pitches", "variants", "tag", "out"].each { k ->
 		def p = "deuces" + k.capitalize()
 		if (project.hasProperty(p)) {
 			systemProperty "testkit.deuces.${k}", project.property(p)

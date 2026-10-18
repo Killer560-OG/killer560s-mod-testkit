@@ -673,6 +673,16 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   fcba4045: 0 and the unrotated floor pass, every turned case fails (24/19/10 wrong on the F7s). Its screenshots now go
   to killer560s-mod-logs/sim-deuces-door-1016/: the old deuces-doorway.png, a SIM shot, had been taken for his Hypixel
   reference picture.
+  Since mod deuces-exact-1018 Deuces' chest doorway (W0) is not a door piece: `DoorPieceSweep` exempts it (counted as
+  `exempt`) and 1433's chest-doorway check is the table check of 1435; its capture comparison skips the table's blocks.
+- 1435-sim-deuces-exact (SimDeucesExactTests, mod deuces-exact-1018, 2026-10-18): Deuces' chest doorway against the mod's
+  own table (`DeucesChestDoorway.overrides`, via `DeucesExact`), every block, solo and on the 1433 floor at 0/90/180/270;
+  the door-piece sweep on each build; the passage into Altar at floor 0. The table states are turned by the paste's
+  rotation; a wall is compared by block only (its arms follow its neighbours). Premise: >= 20 of the table's blocks
+  differ from the capture, so a paste that ignored the table fails.
+- 1434-sim-deuces-hypixelview takes `-PdeucesVariants=spec=<file>` (lines `x y z block`, ranges `a..b`, capture frame,
+  cumulative), `-PdeucesZs`, `-PdeucesOut`. The test client FLIES, and flying multiplies FOV by 1.1: his FOV 110 is
+  `-PdeucesFovs=100`.
 - 1561-1567 (ui/FontsMainMenuSuite, mod fonts-mainmenu-1015, 2026-10-15): the Font setting is measured by each GUI text
   render state's PREPARED bounds after an off-screen extract (a state replays the font scope it was made in), not by
   `Font.width` alone: Mod Menu Only changed 49/53 menu texts and 0/13 Options texts; 1562 also reloads resources with a font
