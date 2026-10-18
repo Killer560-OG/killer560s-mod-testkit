@@ -1034,3 +1034,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   clicks; a recovery case that ends at the soul may never "complete" its way back (the click cuts it short); and a player
   spawned straight into lava dies before the run starts - stand him on a glass block in the pool and let the walk take him in.
   On the 26.1.2 cheat jar of fairy-souls-1017 all 21 fairy cases pass, GrimAC clean; on the legit jar 746 and -settings.
+- 1018-mob-own/scale/share/settings/all (ui/MobSkinCases, mod todo-mobskin-1018): Play as Mob. They read the render state
+  `extractEntity` hands the level renderer and the mod's swap counter during real F5 frames, and count pig-pink pixels
+  (r>=100, r-g>=30, g<=b<=r: the shaded pig in the test world is about (120,70,90), so a bright-pink rule found 30 px).
+  Named outside the -ui- tag on purpose; suites ui and k560 list 1018-mob-. All 5 fail on main f0a61ba4, pass on 26.1.2 and 26.2.
