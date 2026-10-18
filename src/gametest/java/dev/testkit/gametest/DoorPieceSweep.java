@@ -34,6 +34,8 @@ final class DoorPieceSweep {
     private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
     private static final String[] FACING = {"north", "east", "south", "west"};
     private static final String[] SIDE = {"N", "E", "S", "W"};
+    /** Deuces' capture name (sic); its W0, the chest doorway, is exempt. */
+    private static final String DEUCES = "Dueces";
 
     /**
      * @param checked  standard doorways compared
@@ -43,12 +45,12 @@ final class DoorPieceSweep {
      * @param skipped  measured doorways whose capture box is not one of the two (the room's own)
      */
     record Result(int rooms, int checked, int turned, int crossed, int wrong, int skipped, List<String> samples,
-                  Map<String, Integer> found) {
+                  Map<String, Integer> found, int exempt) {
         String summary() {
             return rooms + " room(s), " + checked + " standard doorway(s) checked (" + turned + " in a turned room, "
                     + crossed + " facing a side whose filling differs from the capture's), " + skipped
-                    + " not standard, " + wrong + " wrong" + (samples.isEmpty() ? "" : " e.g. " + samples)
-                    + "; world fillings " + found;
+                    + " not standard, " + exempt + " exempt (Deuces' chest doorway), " + wrong + " wrong"
+                    + (samples.isEmpty() ? "" : " e.g. " + samples) + "; world fillings " + found;
         }
     }
 
@@ -69,6 +71,7 @@ final class DoorPieceSweep {
         int crossed = 0;
         int wrong = 0;
         int skipped = 0;
+        int exempt = 0;
         List<String> samples = new ArrayList<>();
         Map<String, Integer> found = new TreeMap<>();
         for (Object p : placed) {
@@ -94,6 +97,12 @@ final class DoorPieceSweep {
             for (int packed : edges) {
                 int side = packed / 8;
                 int index = packed % 8;
+                if (DEUCES.equals(name) && side == 3 && index == 0) {
+                    // Deuces' chest doorway is its own design, the same at every turn (DeucesChestDoorway, 2026-10-18):
+                    // not a door piece, checked by 1435 instead.
+                    exempt++;
+                    continue;
+                }
                 Box cap = new Box(new String[15], new String[15]);
                 Box world = new Box(new String[15], new String[15]);
                 int n = 0;
@@ -146,7 +155,7 @@ final class DoorPieceSweep {
                 }
             }
         }
-        return new Result(rooms, checked, turned, crossed, wrong, skipped, samples, found);
+        return new Result(rooms, checked, turned, crossed, wrong, skipped, samples, found, exempt);
     }
 
     /** The box's filling: "fill" (stairs facing {@code facing}), "recess", or a description of what is there. */

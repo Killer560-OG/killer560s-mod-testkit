@@ -118,7 +118,7 @@ public class SimDeucesDoorwayTests implements FabricClientGameTest {
             heroShot(ctx, "floor-r0", 6, 0);
             // Deuces turned 180: its chest doorway faces EAST (sealed), its capture E0 faces west into Altar.
             build(ctx, 180);
-            pieces(ctx, "floor, Deuces at 180", 2, 2, failures);
+            pieces(ctx, "floor, Deuces at 180", 1, 1, failures);   // 2, 2 until W0 was exempted (deuces-exact-1018)
             chestDoorway(ctx, 6, 180, "recess", "floor, Deuces at 180", failures);
             heroShot(ctx, "floor-r180", 6, 180);
             // Three generated F7s: every room, every standard doorway.
@@ -138,7 +138,7 @@ public class SimDeucesDoorwayTests implements FabricClientGameTest {
             chestDoorway(ctx, 4, 0, "fill", "solo Deuces at 0", failures);
             heroShot(ctx, "solo-r0", 4, 0);
             solo(ctx, 180);
-            pieces(ctx, "solo Deuces at 180", 2, 2, failures);
+            pieces(ctx, "solo Deuces at 180", 1, 1, failures);   // 2, 2 until W0 was exempted
             chestDoorway(ctx, 4, 180, "recess", "solo Deuces at 180", failures);
             heroShot(ctx, "solo-r180", 4, 180);
             ctx.runOnClient(mc -> ModUnderTest.staticCall(BUILDER, "setSingleRoomRotationForTest",
@@ -357,11 +357,20 @@ public class SimDeucesDoorwayTests implements FabricClientGameTest {
         Map<String, Integer> diffs = new TreeMap<>();
         List<String> samples = new ArrayList<>();
         int compared = 0;
+        // Deuces' chest doorway is pasted from the mod's own table, not the capture (checked by chestDoorway / 1435).
+        java.util.Set<Long> own = java.util.Set.of();
+        if ("Deuces".equals(label)) {
+            try {
+                own = DeucesExact.table(room).keySet();
+            } catch (AssertionError e) {
+                lines.add("Deuces: the mod has no DeucesChestDoorway (a jar from before deuces-exact-1018)");
+            }
+        }
         for (int x = x0; x <= x1; x++) {
             for (int z = z0; z <= z1; z++) {
                 for (int y = 66; y <= 84; y++) {
                     short s = (Short) at.invoke(room, x, y, z);
-                    if (s < 0) {
+                    if (s < 0 || own.contains(((long) y << 32) | ((long) (x & 0xFFFF) << 16) | (z & 0xFFFF))) {
                         continue;
                     }
                     String want = idOf(palette.get(s));
@@ -523,16 +532,37 @@ public class SimDeucesDoorwayTests implements FabricClientGameTest {
         });
         ctx.waitFor(mc -> got.get() != null, 600);
         String g = got.get();
-        boolean recess = g.startsWith("wall plane ccccc ccccc ccccc | one in ..... ..... .....");
-        boolean fill = g.startsWith("wall plane sssss sssss sssss | one in ") && !g.contains("one in .....")
-                && !g.contains("?");
         println(label + ": the box over the chest doorway (y 76..74, u -2..2): " + g);
         if (!g.endsWith("chest") && !g.endsWith("trapped_chest")) {
             fail.add(label + ": premise - no chest above the chest doorway (" + g + ")");
         }
-        if ("recess".equals(want) ? !recess : !fill) {
-            fail.add(label + ": the chest doorway faces " + (rotation == 0 ? "west" : "east") + " and should have the "
-                    + want + " over its trim, found " + g);
+        // Since deuces-exact-1018 the chest doorway is not a door piece: it is Deuces' own, the same at every turn
+        // (DeucesChestDoorway). Checked block for block against the mod's table; 1435 does it at every rotation.
+        AtomicReference<Object> exact = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            Object room = ModUnderTest.staticCall(ROOM_LIBRARY, "get", new Class<?>[]{String.class}, new Object[]{ROOM});
+            int dy = (Integer) ModUnderTest.staticCall(ALTITUDE, "offset");
+            BlockPos o = (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class, int.class},
+                    new Object[]{cell, cell});
+            var server = mc.getSingleplayerServer();
+            server.execute(() -> {
+                try {
+                    exact.set(DeucesExact.check(server.overworld(), room, o.getX() - 16, o.getZ() - 16, dy, rotation));
+                } catch (Throwable t) {
+                    exact.set(t);
+                }
+            });
+        });
+        ctx.waitFor(mc -> exact.get() != null, 600);
+        if (exact.get() instanceof Throwable t) {
+            fail.add(label + ": the chest doorway check threw " + t);
+            return;
+        }
+        DeucesExact.Result r = (DeucesExact.Result) exact.get();
+        println(label + ": chest doorway against the mod's table (was \"" + want + "\" before 2026-10-18): "
+                + r.summary());
+        if (r.compared() < 30 || r.wrong() > 0) {
+            fail.add(label + ": the chest doorway is not Deuces' own: " + r.summary());
         }
     }
 

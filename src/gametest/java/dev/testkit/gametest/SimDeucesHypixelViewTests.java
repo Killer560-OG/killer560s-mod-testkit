@@ -43,8 +43,9 @@ public class SimDeucesHypixelViewTests implements FabricClientGameTest {
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String ALTITUDE = "com.killer560.hub.roomsim.SimAltitude";
     private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
-    private static final Path OUT = Path.of(System.getProperty("user.home"), "killer560s-mod-logs", "deuces-door-2",
-            "renders");
+    private static final Path OUT = System.getProperty("testkit.deuces.out", "").isBlank()
+            ? Path.of(System.getProperty("user.home"), "killer560s-mod-logs", "deuces-door-2", "renders")
+            : Path.of(System.getProperty("testkit.deuces.out"));
     /** The solo room's cell, as 1433's solo checks use. */
     private static final int CELL = 4;
 
@@ -77,6 +78,7 @@ public class SimDeucesHypixelViewTests implements FabricClientGameTest {
             String[] variants = System.getProperty("testkit.deuces.variants", "built,box2air").split(",");
             String[] ys = System.getProperty("testkit.deuces.ys", "69").split(",");
             String[] fovs = System.getProperty("testkit.deuces.fovs", "100").split(",");
+            String[] zs = System.getProperty("testkit.deuces.zs", "16.5").split(",");
             ctx.getInput().resizeWindow(1920, 1080);
             ctx.waitTicks(10);
             for (String variant : variants) {
@@ -84,13 +86,18 @@ public class SimDeucesHypixelViewTests implements FabricClientGameTest {
                 for (String fv : fovs) {
                     for (String ys1 : ys) {
                         for (String xs1 : xs) {
-                            for (String p : pitches) {
-                                double cx = Double.parseDouble(xs1.trim());
-                                double feet = Double.parseDouble(ys1.trim());
-                                float pitch = Float.parseFloat(p.trim());
-                                int fov = Integer.parseInt(fv.trim());
-                                shot(ctx, map, cx, feet, 16.5, pitch, fov, tag + "-r" + rotation + "-" + variant.trim()
-                                        + "-f" + fov + "-x" + xs1.trim() + "-y" + ys1.trim() + "-p" + (int) -pitch);
+                            for (String zs1 : zs) {
+                                for (String p : pitches) {
+                                    double cx = Double.parseDouble(xs1.trim());
+                                    double cz = Double.parseDouble(zs1.trim());
+                                    double feet = Double.parseDouble(ys1.trim());
+                                    float pitch = Float.parseFloat(p.trim());
+                                    int fov = Integer.parseInt(fv.trim());
+                                    String zTag = zs.length > 1 || cz != 16.5 ? "-z" + zs1.trim() : "";
+                                    shot(ctx, map, cx, feet, cz, pitch, fov, tag + "-r" + rotation + "-"
+                                            + label(variant.trim()) + "-f" + fov + "-x" + xs1.trim() + zTag + "-y"
+                                            + ys1.trim() + "-p" + p.trim().replace("-", ""));
+                                }
                             }
                         }
                     }
@@ -190,6 +197,10 @@ public class SimDeucesHypixelViewTests implements FabricClientGameTest {
         if (variant.equals("built")) {
             return;
         }
+        if (variant.startsWith("spec=")) {
+            applySpec(ctx, map, Path.of(variant.substring(5)));
+            return;
+        }
         AtomicReference<Boolean> done = new AtomicReference<>();
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
@@ -213,6 +224,81 @@ public class SimDeucesHypixelViewTests implements FabricClientGameTest {
         ctx.waitFor(mc -> done.get() != null, 200);
         ctx.waitTicks(40);
         println("variant " + variant + " applied");
+    }
+
+    /**
+     * A variant read from a file, for trying a doorway block by block without rebuilding the mod: one edit per line,
+     * {@code x y z state} in capture coordinates and the capture's frame (each of x, y, z may be a range {@code a..b}),
+     * {@code #} comments. States go through the mod's own palette resolver and are turned by the paste's rotation.
+     * Variants are cumulative, in the order given.
+     */
+    private static void applySpec(ClientGameTestContext ctx, int[] map, Path file) {
+        List<String> lines;
+        try {
+            lines = Files.readAllLines(file);
+        } catch (java.io.IOException e) {
+            throw new AssertionError("could not read spec " + file, e);
+        }
+        net.minecraft.world.level.block.Rotation turn = net.minecraft.world.level.block.Rotation.values()[map[0]];
+        AtomicReference<Boolean> done = new AtomicReference<>();
+        int[] count = {0};
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            server.execute(() -> {
+                ServerLevel level = server.overworld();
+                for (String raw : lines) {
+                    String line = raw.contains("#") ? raw.substring(0, raw.indexOf('#')) : raw;
+                    line = line.trim();
+                    if (line.isEmpty()) {
+                        continue;
+                    }
+                    String[] f = line.split("\\s+", 4);
+                    int[] xr = range(f[0]);
+                    int[] yr = range(f[1]);
+                    int[] zr = range(f[2]);
+                    String id = f[3].contains(":") ? f[3] : "minecraft:" + f[3];
+                    var state = (net.minecraft.world.level.block.state.BlockState) ModUnderTest.staticCall(
+                            "com.killer560.hub.roomsim.RoomPlacer", "resolve", new Class<?>[]{String.class},
+                            new Object[]{id});
+                    if (state == null) {
+                        println("spec: unresolved state " + id);
+                        continue;
+                    }
+                    for (int x = xr[0]; x <= xr[1]; x++) {
+                        for (int y = yr[0]; y <= yr[1]; y++) {
+                            for (int z = zr[0]; z <= zr[1]; z++) {
+                                int[] w = block(map, x, y, z);
+                                level.setBlock(new BlockPos(w[0], w[1], w[2]), state.rotate(turn), 2);
+                                count[0]++;
+                            }
+                        }
+                    }
+                }
+                done.set(true);
+            });
+        });
+        ctx.waitFor(mc -> done.get() != null, 200);
+        ctx.waitTicks(40);
+        println("spec " + file.getFileName() + " applied: " + count[0] + " blocks");
+    }
+
+    /** A variant's name in a file name: a spec's file name without its extension. */
+    private static String label(String variant) {
+        if (!variant.startsWith("spec=")) {
+            return variant;
+        }
+        String name = Path.of(variant.substring(5)).getFileName().toString();
+        int dot = name.lastIndexOf('.');
+        return dot > 0 ? name.substring(0, dot) : name;
+    }
+
+    private static int[] range(String s) {
+        int dots = s.indexOf("..");
+        if (dots < 0) {
+            int v = Integer.parseInt(s);
+            return new int[]{v, v};
+        }
+        return new int[]{Integer.parseInt(s.substring(0, dots)), Integer.parseInt(s.substring(dots + 2))};
     }
 
     private static void shot(ClientGameTestContext ctx, int[] map, double cx, double feet, double cz, float pitch,

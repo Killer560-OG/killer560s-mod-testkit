@@ -108,6 +108,7 @@
 			"dev.testkit.gametest.SimSealTests",
 			"dev.testkit.gametest.SimDeucesDoorwayTests",
 			"dev.testkit.gametest.SimDeucesHypixelViewTests",
+			"dev.testkit.gametest.SimDeucesExactTests",
 			"dev.testkit.gametest.GradientTextSeamTests",
 			"dev.testkit.gametest.SimMapLeaveSecretsTests",
 			"dev.testkit.gametest.SimDoorHeightTests",
