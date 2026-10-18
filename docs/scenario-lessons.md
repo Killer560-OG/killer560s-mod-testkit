@@ -1009,3 +1009,16 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   its room as secreted for the rest of the run, so one floor cannot be reused across modes); 141's setup with one rush mob
   room R left uncleared. The sim's blood door opens on a plain click and it builds no wither doors, so on the sim Door Camp
   is one door; the Grim arena has no blood door, so 62's case only proves the "not on the map yet" fallback is clean.
+- **1017-fairy-* Auto Fairy Souls rework (`FairySoulTests`, fairy-souls-1017).** -overshoot runs one L route (a step 4 before
+  the corner) at walk, sprint, Speed II, Skyblock 400 and 600, and Jump Boost II with sprint and 600, and logs how far past
+  the corner and past the soul he ever got (bounds 1.0 / 0.5); -turning compares two identical runs' per-tick body turns;
+  -freecam checks the held view against the turning body, the Start/Stop key, a mouse move (no stop), J and a left click
+  (stops, by name); -soulsoff runs with the Fairy Souls switch off and the graph unloaded; -settings reads both tabs' rows
+  in reading order, saves and reloads every setting and migrates a version-1 file (the config file is backed up and put
+  back); -water/-ledge/-pit/-lava/-stuck build each place to get stuck in and need a way back planned and the soul; the
+  -escape-* trio is one sealed pit with an AOTV (Hx `dungeon.abilities`), with pearls, and with neither. Traps: reset the
+  found log only after `ProfileTracker` reads "Profile: Test", or the reset clears "unknown profile" and the run finds every
+  soul already logged; a soul answers nothing here unless the case's loop does, so a run left near one gives up after its
+  clicks; a recovery case that ends at the soul may never "complete" its way back (the click cuts it short); and a player
+  spawned straight into lava dies before the run starts - stand him on a glass block in the pool and let the walk take him in.
+  On the 26.1.2 cheat jar of fairy-souls-1017 all 21 fairy cases pass, GrimAC clean; on the legit jar 746 and -settings.

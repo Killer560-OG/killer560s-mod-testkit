@@ -69,8 +69,12 @@ public class FairySoulTests implements FabricClientGameTest {
     public void runTest(ClientGameTestContext ctx) {
         if (!Mod.isCheat()) {
             legit(ctx);
+            settings(ctx);
             for (String n : List.of("747-fairy-ladder", "748-fairy-godpot", "749-fairy-corrections", "750-fairy-failsafes",
-                    "756-fairy-knockback", "757-fairy-death", "758-fairy-rotation")) {
+                    "756-fairy-knockback", "757-fairy-death", "758-fairy-rotation", "1017-fairy-overshoot",
+                    "1017-fairy-turning", "1017-fairy-freecam", "1017-fairy-soulsoff", "1017-fairy-water", "1017-fairy-ledge",
+                    "1017-fairy-pit", "1017-fairy-lava", "1017-fairy-stuck", "1017-fairy-escape-ether",
+                    "1017-fairy-escape-pearl", "1017-fairy-escape-none")) {
                 if (!Scenario.skip(n)) {
                     Scenario.skipped(n, "Auto Fairy Souls is cheat build only (746 checks the legit jar does not walk)");
                 }
@@ -82,7 +86,10 @@ public class FairySoulTests implements FabricClientGameTest {
         for (java.util.function.Consumer<ClientGameTestContext> c : List.<java.util.function.Consumer<ClientGameTestContext>>of(
                 FairySoulTests::walk, FairySoulTests::ladder, FairySoulTests::godPotion, FairySoulTests::corrections,
                 FairySoulTests::failsafes, FairySoulTests::knockback, FairySoulTests::death,
-                FairySoulTests::rotationControl)) {
+                FairySoulTests::rotationControl, FairySoulTests::settings, FairySoulTests::overshoot,
+                FairySoulTests::turning, FairySoulTests::freecam, FairySoulTests::soulsOff, FairySoulTests::water,
+                FairySoulTests::ledge, FairySoulTests::pitLadder, FairySoulTests::lava, FairySoulTests::stuckWall,
+                FairySoulTests::escapes)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -446,6 +453,591 @@ public class FairySoulTests implements FabricClientGameTest {
                 });
     }
 
+    // ------------------------------------------------------------------ fairy-souls-1017
+
+    /** The L route of the overshoot and turning cases: 26 east (a step up 4 before the corner), then 30 north. */
+    private static final List<Node> L_ROUTE = List.of(
+            new Node(0, -820, 151, 1420, false, 1),
+            new Node(1, -806, 151, 1420, false, 0, 2),
+            new Node(2, -796, 151, 1420, false, 1, 3),
+            new Node(3, -792, 152, 1420, false, 2, 4),
+            new Node(4, -790, 152, 1420, false, 3, 5),
+            new Node(5, -790, 152, 1434, false, 4, 6),
+            new Node(6, -790, 152, 1450, true, 5));
+    private static final double CORNER_X = -789.5;
+    private static final double SOUL_Z = 1450.5;
+
+    private static void lArena(TestServer server) {
+        TestMap.on(server)
+                .floor(-830, 150, 1405, -770, 1465)
+                .fill(-830, 151, 1405, -770, 156, 1465, "air")
+                .fill(-794, 151, 1405, -770, 151, 1465, "stone")
+                .survival()
+                .surface(151)
+                .spawn(-819.5, 1420.5, -90f)
+                .build();
+    }
+
+    /** One speed set-up: Skyblock speed (attribute x1000), sprint, Speed and Jump Boost levels (0 = none). */
+    record Speed(String name, int hypixel, boolean sprint, int speedLevel, int jumpLevel) {
+    }
+
+    private static void applySpeed(TestServer server, ClientGameTestContext ctx, Speed s) {
+        server.command("effect clear @p");
+        server.command(String.format(Locale.ROOT, "attribute @p minecraft:movement_speed base set %s",
+                new java.math.BigDecimal(s.hypixel()).movePointLeft(3).toPlainString()));
+        if (s.speedLevel() > 0) {
+            server.command("effect give @p minecraft:speed 600 " + (s.speedLevel() - 1) + " true");
+        }
+        if (s.jumpLevel() > 0) {
+            server.command("effect give @p minecraft:jump_boost 600 " + (s.jumpLevel() - 1) + " true");
+        }
+        server.command("tp @p -819.5 151 1420.5 -90 0");
+        sprint = s.sprint();
+        ctx.waitTicks(15);
+    }
+
+    /**
+     * 1017-fairy-overshoot (killer560 2026-10-17: "it was always overshooting not accounting for if it has jump boost or
+     * what its speed is"): the L route at walking pace, sprint, Speed II, Skyblock speed 400 and 600, and Jump Boost II
+     * with sprint and with 600. Per run: how far past the corner (east of its x) and past the soul (north of its z) he
+     * ever got. Bounds: 1.0 at the corner, 0.5 at the soul, the soul collected every time, GrimAC clean throughout.
+     */
+    private static void overshoot(ClientGameTestContext ctx) {
+        Scenario.run(ctx, "1017-fairy-overshoot", (server, scenario) -> lArena(server), (server, scenario) -> {
+            List<Speed> speeds = List.of(
+                    new Speed("walk", 100, false, 0, 0),
+                    new Speed("sprint", 100, true, 0, 0),
+                    new Speed("speed II", 100, true, 2, 0),
+                    new Speed("speed 400", 400, true, 0, 0),
+                    new Speed("speed 600", 600, true, 0, 0),
+                    new Speed("sprint + jump II", 100, true, 0, 2),
+                    new Speed("speed 600 + jump II", 600, true, 0, 2));
+            List<String> bad = new ArrayList<>();
+            StringBuilder table = new StringBuilder();
+            try {
+                for (Speed s : speeds) {
+                    applySpeed(server, ctx, s);
+                    Result r = runSouls(ctx, scenario, L_ROUTE, 700, null);
+                    double corner = Double.NEGATIVE_INFINITY;
+                    double pastSoul = Double.NEGATIVE_INFINITY;
+                    double topSpeed = 0;
+                    double[] prev = null;
+                    for (double[] p : r.track) {
+                        corner = Math.max(corner, p[0] - CORNER_X);
+                        pastSoul = Math.max(pastSoul, p[2] - SOUL_Z);
+                        if (prev != null) {
+                            topSpeed = Math.max(topSpeed, Math.hypot(p[0] - prev[0], p[2] - prev[2]));
+                        }
+                        prev = p;
+                    }
+                    double[] end = r.track.get(r.track.size() - 1);
+                    double rest = Math.hypot(end[0] - CORNER_X, end[2] - SOUL_Z);
+                    String line = String.format(Locale.US, "%-20s top %.2f b/t, past corner %+.2f, past soul %+.2f, "
+                                    + "rest %.2f from soul, souls %d, %d ticks", s.name(), topSpeed, corner, pastSoul, rest,
+                            r.soulsUsed, r.ticks);
+                    table.append(line).append('\n');
+                    scenario.log("OVERSHOOT " + line);
+                    if (corner > 1.0 || pastSoul > 0.5 || r.soulsUsed < 1) {
+                        bad.add(line);
+                    }
+                }
+            } finally {
+                resetKnobs();
+                server.command("effect clear @p");
+                server.command("attribute @p minecraft:movement_speed base set 0.1");
+            }
+            scenario.log("overshoot table:\n" + table);
+            check(bad.isEmpty(), "over the bounds (corner 1.0, soul 0.5): " + bad);
+        });
+    }
+
+    /**
+     * 1017-fairy-turning ("it should attempt to make it look as human as possible so it should be more jittery sometimes
+     * and not always perfectly smooth"): the same L route twice at the same speed. The body's per-tick turns must not
+     * repeat between the runs, and inside a run the turn rates must vary (not one fixed curve).
+     */
+    private static void turning(ClientGameTestContext ctx) {
+        Scenario.run(ctx, "1017-fairy-turning", (server, scenario) -> lArena(server), (server, scenario) -> {
+            List<List<Double>> runs = new ArrayList<>();
+            int movementsBefore = ctx.computeOnClient(mc -> (Integer) Mod.staticCall("pathfinding.WalkCamera", "movements"));
+            int overshootsBefore = ctx.computeOnClient(mc -> (Integer) Mod.staticCall("pathfinding.WalkCamera", "overshoots"));
+            int pausesBefore = ctx.computeOnClient(mc -> (Integer) Mod.staticCall("pathfinding.WalkCamera", "pauses"));
+            try {
+                for (int i = 0; i < 2; i++) {
+                    applySpeed(server, ctx, new Speed("sprint", 100, true, 0, 0));
+                    Result r = runSouls(ctx, scenario, L_ROUTE, 700, null);
+                    check(r.soulsUsed >= 1, "run " + (i + 1) + " did not collect the soul: " + r.summary());
+                    List<Double> turns = new ArrayList<>();
+                    for (int k = 1; k < r.track.size(); k++) {
+                        if (r.track.get(k)[7] == 1 && r.track.get(k - 1)[7] == 1) {
+                            turns.add(r.track.get(k)[3] - r.track.get(k - 1)[3]);
+                        }
+                    }
+                    runs.add(turns);
+                }
+            } finally {
+                resetKnobs();
+            }
+            int n = Math.min(runs.get(0).size(), runs.get(1).size());
+            double diff = 0;
+            for (int k = 0; k < n; k++) {
+                diff += Math.abs(runs.get(0).get(k) - runs.get(1).get(k));
+            }
+            // Turn rates of the ticks that turned at all (over 0.3 degrees), run 1.
+            List<Double> rates = new ArrayList<>();
+            for (double t : runs.get(0)) {
+                if (Math.abs(t) > 0.3) {
+                    rates.add(Math.abs(t));
+                }
+            }
+            double mean = rates.stream().mapToDouble(d -> d).average().orElse(0);
+            double sd = Math.sqrt(rates.stream().mapToDouble(d -> (d - mean) * (d - mean)).average().orElse(0));
+            long distinct = rates.stream().map(d -> Math.round(d * 10)).distinct().count();
+            int movements = ctx.computeOnClient(mc -> (Integer) Mod.staticCall("pathfinding.WalkCamera", "movements")) - movementsBefore;
+            int overshoots = ctx.computeOnClient(mc -> (Integer) Mod.staticCall("pathfinding.WalkCamera", "overshoots")) - overshootsBefore;
+            int pauses = ctx.computeOnClient(mc -> (Integer) Mod.staticCall("pathfinding.WalkCamera", "pauses")) - pausesBefore;
+            scenario.log(String.format(Locale.US, "turning: summed per-tick difference between the runs %.1f deg over %d ticks; "
+                            + "run 1 turning ticks %d, rate mean %.2f sd %.2f (cv %.2f), %d distinct rates; movements %d, "
+                            + "overshoot-and-correct %d, micro-pauses %d", diff, n, rates.size(), mean, sd,
+                    mean == 0 ? 0 : sd / mean, distinct, movements, overshoots, pauses));
+            check(rates.size() >= 8, "only " + rates.size() + " turning ticks - the premise (a turning run) failed");
+            check(diff > 5.0, "the two runs turned the same way tick for tick (" + diff + ")");
+            check(mean > 0 && sd / mean > 0.25 && distinct >= 6, "the turn rates barely vary (cv " + (sd / mean) + ")");
+        });
+    }
+
+    /**
+     * 1017-fairy-freecam ("have it put the player in freecam like auto routes ... and only if they press a key have it
+     * stop"): the Start/Stop key (K) starts it and its own press does not stop it; while it walks the L the camera is
+     * held still and the body turns; moving the mouse does not stop it; the J key does, by name, and gives the camera
+     * back with the body under it. A second run is stopped by a left click.
+     */
+    private static void freecam(ClientGameTestContext ctx) {
+        Scenario.run(ctx, "1017-fairy-freecam",
+                (server, scenario) -> TestMap.on(server)
+                        .floor(-830, 150, 1500, -790, 1530)
+                        .fill(-830, 151, 1500, -790, 155, 1530, "air")
+                        .survival()
+                        .surface(151)
+                        .spawn(-824.5, 1505.5, -90f)
+                        .build(),
+                (server, scenario) -> {
+                    List<Node> g = List.of(
+                            new Node(0, -825, 151, 1505, false, 1),
+                            new Node(1, -805, 151, 1505, false, 0, 2),
+                            new Node(2, -805, 151, 1528, true, 1));
+                    try (Hx hx = Hx.connect()) {
+                        setup(ctx, hx, g);
+                        ctx.runOnClient(mc -> Mod.set(CFG, "setResumeKeyCode", 75)); // K
+                        long mark = LogTap.mark();
+                        ctx.getInput().pressKey(75);
+                        ctx.waitTicks(3);
+                        boolean startedByKey = isActive(ctx);
+                        if (!startedByKey) {
+                            scenario.log("the K press did not start it (simulated keys may not reach the poll) - starting by call");
+                            startRun(ctx);
+                        }
+                        ctx.waitTicks(2);
+                        float view0 = ctx.computeOnClient(mc -> mc.player.getViewYRot(1f));
+                        float body0 = ctx.computeOnClient(mc -> mc.player.getYRot());
+                        int heldTicks = 0;
+                        float viewMin = view0;
+                        float viewMax = view0;
+                        float bodyMin = body0;
+                        float bodyMax = body0;
+                        boolean activeAll = true;
+                        for (int t = 0; t < 110; t++) {
+                            ctx.waitTick();
+                            float[] v = ctx.computeOnClient(mc -> new float[]{mc.player.getViewYRot(1f), mc.player.getYRot(),
+                                    viewHeld() ? 1 : 0});
+                            viewMin = Math.min(viewMin, v[0]);
+                            viewMax = Math.max(viewMax, v[0]);
+                            bodyMin = Math.min(bodyMin, v[1]);
+                            bodyMax = Math.max(bodyMax, v[1]);
+                            heldTicks += (int) v[2];
+                            activeAll &= isActive(ctx);
+                        }
+                        // The mouse steers the held view, and is not a stop.
+                        ctx.getInput().moveCursor(120, 0);
+                        ctx.waitTicks(3);
+                        boolean activeAfterMouse = isActive(ctx);
+                        float viewAfterMouse = ctx.computeOnClient(mc -> mc.player.getViewYRot(1f));
+                        ctx.getInput().pressKey(74); // J
+                        ctx.waitTicks(3);
+                        boolean activeAfterJ = isActive(ctx);
+                        float[] after = ctx.computeOnClient(mc -> new float[]{mc.player.getViewYRot(1f), mc.player.getYRot(),
+                                viewHeld() ? 1 : 0});
+                        boolean namedJ = LogTap.since(mark).stream().anyMatch(l -> l.contains("Stopped") && l.contains("J key"));
+                        // Second run, from the start again (the server answers no click here, so near the soul it would give up): a left click stops it.
+                        server.command("tp @p -824.5 151 1505.5 -90 0");
+                        ctx.waitTicks(5);
+                        startRun(ctx);
+                        ctx.waitTicks(20);
+                        boolean activeBeforeClick = isActive(ctx);
+                        long mark2 = LogTap.mark();
+                        ctx.getInput().pressMouse(0);
+                        ctx.waitTicks(3);
+                        boolean activeAfterClick = isActive(ctx);
+                        boolean namedClick = LogTap.since(mark2).stream().anyMatch(l -> l.contains("Stopped") && l.contains("left click"));
+                        ctx.runOnClient(mc -> Mod.set(CFG, "setResumeKeyCode", -1));
+                        scenario.log(String.format(Locale.US, "freecam: started by K %s, active through the walk %s, view held %d/110 "
+                                        + "ticks, view yaw range %.2f, body yaw range %.1f; after a mouse move active %s (view %.1f -> %.1f); "
+                                        + "after J active %s, named J %s, view held %s, body-view %.2f; second run active %s, "
+                                        + "after a left click active %s, named %s",
+                                startedByKey, activeAll, heldTicks, viewMax - viewMin, bodyMax - bodyMin, activeAfterMouse,
+                                view0, viewAfterMouse, activeAfterJ, namedJ, after[2] == 1, Math.abs(after[0] - after[1]),
+                                activeBeforeClick, activeAfterClick, namedClick));
+                        check(activeAll, "it stopped by itself during the walk (its own start key?)");
+                        check(heldTicks >= 105, "the camera was held only " + heldTicks + " of 110 ticks");
+                        check(bodyMax - bodyMin > 30f, "the body never turned the corner (" + (bodyMax - bodyMin) + ")");
+                        check(viewMax - viewMin < 0.5f, "the camera moved " + (viewMax - viewMin) + " degrees with the body");
+                        check(activeAfterMouse, "moving the mouse stopped it");
+                        check(!activeAfterJ && namedJ, "the J key did not stop it by name");
+                        check(after[2] == 0 && Math.abs(after[0] - after[1]) < 0.5f, "the camera was not handed back under the body");
+                        check(activeBeforeClick && !activeAfterClick && namedClick, "a left click did not stop the second run");
+                    }
+                });
+    }
+
+    /** 1017-fairy-soulsoff ("you shouldn't have to have the fairy soul setting on"): the Fairy Souls switch OFF, the graph
+     *  not loaded by anything else; Auto Fairy Souls loads it, walks and collects both souls. */
+    private static void soulsOff(ClientGameTestContext ctx) {
+        Scenario.run(ctx, "1017-fairy-soulsoff",
+                (server, scenario) -> TestMap.on(server)
+                        .floor(-830, 150, 1550, -790, 1570)
+                        .fill(-830, 151, 1550, -790, 155, 1570, "air")
+                        .survival()
+                        .surface(151)
+                        .spawn(-824.5, 1560.5, -90f)
+                        .build(),
+                (server, scenario) -> {
+                    List<Node> g = List.of(
+                            new Node(0, -825, 151, 1560, false, 1),
+                            new Node(1, -812, 151, 1560, true, 0, 2),
+                            new Node(2, -798, 151, 1560, true, 1));
+                    fairySoulsSwitch = false;
+                    Result r;
+                    try {
+                        r = runSouls(ctx, scenario, g, 600, null);
+                    } finally {
+                        resetKnobs();
+                    }
+                    boolean enabled = ctx.computeOnClient(mc -> (Boolean) Mod.get(CFG, "isEnabledRaw"));
+                    scenario.log(r.summary() + ", Fairy Souls switch now " + enabled);
+                    check(r.soulsUsed >= 2 && r.soulsLogged >= 2, "with Fairy Souls off: " + r.summary());
+                });
+    }
+
+    /** A plateau (top feet 155) over a floor at 150 with a 3x3, 4-deep pit at (cx, cz); a ladder up its west wall. */
+    private static TestMap pitArena(TestServer server, int cx, int cz, boolean ladder) {
+        TestMap m = TestMap.on(server)
+                .floor(cx - 14, 150, cz - 14, cx + 14, cz + 14)
+                .fill(cx - 14, 151, cz - 14, cx + 14, 154, cz + 14, "stone")
+                .fill(cx - 14, 155, cz - 14, cx + 14, 160, cz + 14, "air")
+                .fill(cx - 1, 151, cz - 1, cx + 1, 154, cz + 1, "air");
+        if (ladder) {
+            m.command(String.format(Locale.ROOT, "fill %d 151 %d %d 154 %d minecraft:ladder[facing=east]", cx - 1, cz, cx - 1, cz));
+        }
+        return m.survival().surface(151).spawn(cx + 0.5, cz + 0.5, 90f);
+    }
+
+    /** The pit's route: along its east rim, then off to the soul on the plateau. */
+    private static List<Node> pitRoute(int cx, int cz) {
+        return List.of(
+                new Node(0, cx + 2, 155, cz, false, 1),
+                new Node(1, cx + 2, 155, cz + 4, false, 0, 2),
+                new Node(2, cx + 7, 155, cz + 7, true, 1));
+    }
+
+    /** A recovery case: the run reaches the soul, at least one way back was planned, and no death on the way. */
+    private static void recovery(ClientGameTestContext ctx, String name, java.util.function.Consumer<TestServer> build,
+                                 List<Node> g, int maxTicks) {
+        recovery(ctx, name, build, g, maxTicks, null);
+    }
+
+    private static void recovery(ClientGameTestContext ctx, String name, java.util.function.Consumer<TestServer> build,
+                                 List<Node> g, int maxTicks, java.util.function.BiConsumer<TestServer, Integer> hook) {
+        Scenario.run(ctx, name, (server, scenario) -> build.accept(server), (server, scenario) -> {
+            int plannedBefore = walkerInt(ctx, "rescuesPlanned");
+            int doneBefore = walkerInt(ctx, "rescuesDone");
+            int deathsBefore = walkerInt(ctx, "deaths");
+            ctx.waitTicks(20); // let him fall into whatever he was put over
+            Result r;
+            try {
+                r = runSouls(ctx, scenario, g, maxTicks, hook == null ? null : tick -> hook.accept(server, tick));
+            } finally {
+                resetKnobs();
+            }
+            int planned = walkerInt(ctx, "rescuesPlanned") - plannedBefore;
+            int done = walkerInt(ctx, "rescuesDone") - doneBefore;
+            int deaths = walkerInt(ctx, "deaths") - deathsBefore;
+            String why = ctx.computeOnClient(mc -> (String) Mod.staticCall(WALKER, "lastRescue"));
+            scenario.log(r.summary() + String.format(", ways back planned %d, completed %d (last: %s), deaths %d",
+                    planned, done, why, deaths));
+            // A way back that ends at the soul is cut short by the click (the soul in reach), so "completed" can stay 0.
+            check(planned >= 1, "no way back was planned (" + planned + ")");
+            check(deaths == 0, "he died on the way");
+            check(r.soulsUsed >= 1 && r.soulsLogged >= 1, "the soul after the way back: " + r.summary());
+        });
+    }
+
+    private static void water(ClientGameTestContext ctx) {
+        recovery(ctx, "1017-fairy-water", server -> TestMap.on(server)
+                        .floor(-830, 150, 1590, -795, 1612)
+                        .fill(-830, 151, 1590, -795, 155, 1612, "air")
+                        .fill(-822, 147, 1596, -816, 147, 1604, "stone")
+                        .fill(-822, 148, 1596, -816, 150, 1604, "water")
+                        .survival().surface(151).spawn(-818.5, 1600.5, 90f).build(),
+                List.of(new Node(0, -812, 151, 1600, false, 1),
+                        new Node(1, -806, 151, 1600, false, 0, 2),
+                        new Node(2, -800, 151, 1600, true, 1)), 700);
+    }
+
+    private static void ledge(ClientGameTestContext ctx) {
+        recovery(ctx, "1017-fairy-ledge", server -> TestMap.on(server)
+                        .floor(-830, 150, 1640, -790, 1662)
+                        .fill(-830, 151, 1640, -790, 158, 1662, "air")
+                        .fill(-830, 151, 1652, -790, 153, 1662, "stone")
+                        .fill(-800, 151, 1649, -798, 151, 1649, "stone")
+                        .fill(-800, 151, 1650, -798, 152, 1650, "stone")
+                        .fill(-800, 151, 1651, -798, 153, 1651, "stone")
+                        .survival().surface(151).spawn(-818.5, 1648.5, 0f).build(),
+                List.of(new Node(0, -818, 154, 1654, false, 1),
+                        new Node(1, -810, 154, 1656, false, 0, 2),
+                        new Node(2, -804, 154, 1658, true, 1)), 800);
+    }
+
+    private static void pitLadder(ClientGameTestContext ctx) {
+        recovery(ctx, "1017-fairy-pit", server -> pitArena(server, -810, 1700, true).build(), pitRoute(-810, 1700), 800);
+    }
+
+    private static void lava(ClientGameTestContext ctx) {
+        recovery(ctx, "1017-fairy-lava", server -> TestMap.on(server)
+                        .floor(-830, 150, 1740, -800, 1760)
+                        .fill(-830, 151, 1740, -800, 155, 1760, "air")
+                        .fill(-821, 149, 1749, -819, 149, 1751, "stone")
+                        .fill(-821, 150, 1749, -819, 150, 1751, "lava")
+                        .fill(-820, 150, 1750, -820, 150, 1750, "minecraft:glass")
+                        .survival().surface(151).spawn(-819.5, 1750.5, -90f).build(),
+                List.of(new Node(0, -815, 151, 1750, false, 1),
+                        new Node(1, -810, 151, 1750, false, 0, 2),
+                        new Node(2, -805, 151, 1750, true, 1)), 600);
+    }
+
+    private static void stuckWall(ClientGameTestContext ctx) {
+        recovery(ctx, "1017-fairy-stuck", server -> TestMap.on(server)
+                        .floor(-830, 150, 1790, -790, 1812)
+                        .fill(-830, 151, 1790, -790, 155, 1812, "air")
+                        .fill(-812, 151, 1794, -812, 153, 1806, "minecraft:glass")
+                        .survival().surface(151).spawn(-824.5, 1800.5, -90f).build(),
+                List.of(new Node(0, -825, 151, 1800, false, 1),
+                        new Node(1, -812, 151, 1800, false, 0, 2),
+                        new Node(2, -798, 151, 1800, true, 1)), 800);
+    }
+
+    /**
+     * 1017-fairy-escape-*: the same 4-deep pit with no ladder - no way out on foot. With an AOTV and Etherwarp mode it
+     * warps out (the server makes the etherwarp); with only Allow Ender Pearls and pearls it throws one; with neither
+     * it says "No way out" once and skips the soul.
+     */
+    private static void escapes(ClientGameTestContext ctx) {
+        escape(ctx, "1017-fairy-escape-ether", -810, 1850, "ether");
+        escape(ctx, "1017-fairy-escape-pearl", -810, 1900, "pearl");
+        escape(ctx, "1017-fairy-escape-none", -810, 1950, "none");
+    }
+
+    private static void escape(ClientGameTestContext ctx, String name, int cx, int cz, String tool) {
+        Scenario.run(ctx, name, (server, scenario) -> pitArena(server, cx, cz, false).build(), (server, scenario) -> {
+            int etherBefore = ctx.computeOnClient(mc -> (Integer) Mod.staticCall(RUNNER, "escapesEther"));
+            int pearlBefore = ctx.computeOnClient(mc -> (Integer) Mod.staticCall(RUNNER, "escapesPearl"));
+            int noneBefore = ctx.computeOnClient(mc -> (Integer) Mod.staticCall(RUNNER, "noWayOuts"));
+            long mark = LogTap.mark();
+            JsonObject statsBefore = null;
+            Result r;
+            try (Hx hx = Hx.connect()) {
+                if (tool.equals("ether")) {
+                    hx.call("dungeon.abilities", "enabled", true);
+                    statsBefore = hx.call("dungeon.stats").getAsJsonObject();
+                    hx.give(0, "minecraft:diamond_shovel[custom_data={id:\"ASPECT_OF_THE_VOID\",ethermerge:1,tuned_transmission:4},"
+                            + "unbreakable={}]");
+                    autoMode = "ETHERWARP";
+                } else if (tool.equals("pearl")) {
+                    hx.call("give", "slot", 1, "count", 16, "stack", "minecraft:ender_pearl");
+                    allowPearls = true;
+                }
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(4));
+                ctx.waitTicks(20);
+                try {
+                    r = runSouls(ctx, scenario, pitRoute(cx, cz), 700, null);
+                } finally {
+                    resetKnobs();
+                }
+                int ether = ctx.computeOnClient(mc -> (Integer) Mod.staticCall(RUNNER, "escapesEther")) - etherBefore;
+                int pearl = ctx.computeOnClient(mc -> (Integer) Mod.staticCall(RUNNER, "escapesPearl")) - pearlBefore;
+                int none = ctx.computeOnClient(mc -> (Integer) Mod.staticCall(RUNNER, "noWayOuts")) - noneBefore;
+                int serverWarps = statsBefore == null ? 0 : hx.call("dungeon.stats").getAsJsonObject().get("etherwarps").getAsInt()
+                        - statsBefore.get("etherwarps").getAsInt();
+                if (tool.equals("ether")) {
+                    hx.call("dungeon.abilities", "enabled", false);
+                }
+                List<String> log = LogTap.since(mark);
+                boolean saidNoWay = log.stream().anyMatch(l -> l.contains("No way out"));
+                boolean saidUnreached = log.stream().anyMatch(l -> l.contains("could not be reached"));
+                scenario.log(r.summary() + String.format(", escapes: etherwarp %d (server warps %d), pearl %d, no way out %d; "
+                        + "said 'No way out' %s, 'could not be reached' %s", ether, serverWarps, pearl, none, saidNoWay, saidUnreached));
+                switch (tool) {
+                    case "ether" -> {
+                        check(ether >= 1 && serverWarps >= 1 && pearl == 0, "no etherwarp escape");
+                        check(r.soulsUsed >= 1, "the soul after the etherwarp: " + r.summary());
+                    }
+                    case "pearl" -> {
+                        check(pearl >= 1 && ether == 0, "no pearl escape");
+                        check(r.soulsUsed >= 1, "the soul after the pearl: " + r.summary());
+                    }
+                    default -> {
+                        check(none >= 1 && ether == 0 && pearl == 0, "it escaped with a tool it was not allowed");
+                        check(saidNoWay && saidUnreached && r.soulsUsed == 0 && !r.activeAtEnd,
+                                "no 'No way out' and skip, or it did not end");
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * 1017-fairy-settings: the Fairy Souls tab's rows in killer560's order (switch, Show Waypoints, Show Path + Path
+     * Mode, Dim Path + Path Color, the sliders, HUD + Start On Island Join), no "Found n/m" line and no Stop Navigation;
+     * the Auto Fairy Souls tab (cheat) with its switch first, Auto Walk and Auto Click ON by default and no Turn Speed;
+     * every setting through save and load; and a version-1 file migrated.
+     */
+    @SuppressWarnings("unchecked")
+    private static void settings(ClientGameTestContext ctx) {
+        Scenario.run(ctx, "1017-fairy-settings",
+                (server, scenario) -> TestMap.on(server).platform(-810, 150, 2000, 4).survival().spawn(-809.5, 2000.5, 0f).build(),
+                (server, scenario) -> {
+                    String report = ctx.computeOnClient(mc -> {
+                        StringBuilder out = new StringBuilder();
+                        Path file = (Path) Mod.staticCall("pathfinding.PathfindingConfig", "path");
+                        byte[] backup;
+                        try {
+                            backup = Files.exists(file) ? Files.readAllBytes(file) : null;
+                        } catch (Exception e) {
+                            throw new AssertionError(e);
+                        }
+                        try {
+                            Mod.set(CFG, "setEnabled", true);
+                            List<String> legit = rows("com.killer560.hub.gui.tab.PathfindingTab");
+                            out.append("fairy souls rows ").append(legit).append('\n');
+                            List<String> want = List.of("Fairy Souls", "Show Waypoints", "Show Path", "Path Mode", "Dim Path",
+                                    "Path Color", "Visible Path", "Line Width", "Re-Path After", "Text Scale", "HUD",
+                                    "Start On Island Join");
+                            check(legit.size() >= want.size() && legit.subList(0, want.size()).equals(want),
+                                    "Fairy Souls rows out of order: " + legit);
+                            check(legit.stream().noneMatch(l -> l.startsWith("Found") || l.startsWith("No graph")),
+                                    "the Found n/m line is still there");
+                            check(legit.stream().noneMatch(l -> l.contains("Stop Navigation") || l.contains("Nothing To Stop")),
+                                    "the Stop Navigation button is still there");
+                            if (Mod.isCheat()) {
+                                Mod.set(CFG, "setAutoSouls", true);
+                                List<String> cheat = rows("com.killer560.hub.gui.tab.AutoFairySoulsTab");
+                                out.append("auto fairy souls rows ").append(cheat).append('\n');
+                                check(!cheat.isEmpty() && cheat.get(0).equals("Auto Fairy Souls"), "Auto Fairy Souls switch not first: " + cheat);
+                                check(cheat.contains("Auto Walk") && cheat.contains("Auto Click") && cheat.contains("Sprint")
+                                        && cheat.contains("Start/Stop Key") && cheat.contains("Allow Ender Pearls"), "rows missing: " + cheat);
+                                check(cheat.stream().noneMatch(l -> l.contains("Turn Speed")), "Turn Speed is still there");
+                            }
+                            // Save and load every setting.
+                            Mod.set(CFG, "setSoulWaypoints", false);
+                            Mod.set(CFG, "setShowPath", false);
+                            Mod.set(CFG, "setSoulMode", Mod.enumValue("pathfinding.PathfindingConfig$SoulMode", "NEAREST"));
+                            Mod.set(CFG, "setDimPath", true);
+                            Mod.set(CFG, "setPathColor", 0xFF123456);
+                            Mod.set(CFG, "setVisiblePathLength", 40);
+                            Mod.set(CFG, "setSoulHud", false);
+                            Mod.set(CFG, "setAutoStartOnIsland", true);
+                            Mod.set(CFG, "setAutoWalk", false);
+                            Mod.set(CFG, "setAutoCollect", false);
+                            Mod.set(CFG, "setAllowPearls", true);
+                            Mod.set(CFG, "setAutoSprint", false);
+                            Mod.set(CFG, "setAutoMode", Mod.enumValue("pathfinding.PathfindingConfig$AutoMode", "FAST_ETHERWARP"));
+                            Mod.set(CFG, "setResumeKeyCode", 75);
+                            Mod.call(Mod.cfg(CFG), "save");
+                            Mod.staticCall(CFG, "load");
+                            String got = String.format("waypoints %s path %s mode %s dim %s color %x length %s hud %s join %s walk %s "
+                                            + "click %s pearls %s sprint %s auto %s key %s", g("isSoulWaypoints"), g("isShowPath"),
+                                    g("getSoulMode"), g("isDimPath"), (Integer) g("getPathColor"), g("getVisiblePathLength"),
+                                    g("isSoulHud"), g("isAutoStartOnIsland"), g("isAutoWalkRaw"), g("isAutoCollect"),
+                                    g("isAllowPearls"), g("isAutoSprint"), g("getAutoMode"), g("getResumeKeyCode"));
+                            out.append("reloaded: ").append(got).append('\n');
+                            check(got.equals("waypoints false path false mode NEAREST dim true color ff123456 length 40 hud false "
+                                    + "join true walk false click false pearls true sprint false auto FAST_ETHERWARP key 75"),
+                                    "settings did not survive save and load: " + got);
+                            // A version-1 file.
+                            Files.writeString(file, "{\"enabled\":true,\"fairySouls\":false,\"showWholePath\":true,"
+                                    + "\"autoMode\":\"PEARLS\",\"autoWalk\":false,\"autoSouls\":true,\"rotationSpeed\":12.0}");
+                            Mod.staticCall(CFG, "load");
+                            String migrated = String.format("enabled %s waypoints %s dim %s mode %s pearls %s walk %s souls %s",
+                                    g("isEnabledRaw"), g("isSoulWaypoints"), g("isDimPath"), g("getAutoMode"), g("isAllowPearls"),
+                                    g("isAutoWalkRaw"), g("isAutoSoulsRaw"));
+                            Mod.call(Mod.cfg(CFG), "save");
+                            String saved = Files.readString(file);
+                            out.append("migrated: ").append(migrated).append('\n');
+                            check(migrated.equals("enabled true waypoints false dim true mode WALK pearls true walk true souls true"),
+                                    "the version-1 file migrated wrong: " + migrated);
+                            check(saved.contains("\"version\": 2") && !saved.contains("showWholePath")
+                                    && !saved.contains("rotationSpeed") && !saved.contains("fairySouls"), "the saved file: " + saved);
+                        } catch (java.io.IOException e) {
+                            throw new AssertionError(e);
+                        } finally {
+                            try {
+                                if (backup != null) {
+                                    Files.write(file, backup);
+                                } else {
+                                    Files.deleteIfExists(file);
+                                }
+                            } catch (Exception ignored) {
+                                // best effort
+                            }
+                            Mod.staticCall(CFG, "load");
+                        }
+                        return out.toString();
+                    });
+                    scenario.log(report);
+                });
+    }
+
+    private static Object g(String getter) {
+        return Mod.get(CFG, getter);
+    }
+
+    /** A tab's row labels in reading order (formatting stripped, cut at ':'), switches and buttons and sliders. */
+    private static List<String> rows(String tabClass) {
+        try {
+            Object tab = Class.forName(tabClass).getConstructor().newInstance();
+            List<net.minecraft.client.gui.components.AbstractWidget> widgets =
+                    (List<net.minecraft.client.gui.components.AbstractWidget>) tab.getClass()
+                            .getMethod("buildWidgets", int.class, int.class, int.class, Runnable.class)
+                            .invoke(tab, 0, 0, 300, (Runnable) () -> { });
+            List<net.minecraft.client.gui.components.AbstractWidget> sorted = new ArrayList<>(widgets);
+            sorted.removeIf(w -> w instanceof net.minecraft.client.gui.components.StringWidget);
+            sorted.sort((a, b) -> a.getY() != b.getY() ? Integer.compare(a.getY(), b.getY()) : Integer.compare(a.getX(), b.getX()));
+            List<String> out = new ArrayList<>();
+            for (var w : sorted) {
+                String text = net.minecraft.ChatFormatting.stripFormatting(w.getMessage().getString());
+                text = text == null ? "" : text.trim();
+                int colon = text.indexOf(':');
+                String label = (colon > 0 ? text.substring(0, colon) : text).trim();
+                // a colour swatch's label carries the swatch glyph after the name
+                label = label.replaceAll("[^A-Za-z0-9/ ()?.'-]", "").trim();
+                out.add(label);
+            }
+            return out;
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("could not build " + tabClass + ": " + e, e);
+        }
+    }
+
     // ------------------------------------------------------------------ machinery
 
     interface TickHook {
@@ -463,6 +1055,8 @@ public class FairySoulTests implements FabricClientGameTest {
         int ticks;
         boolean activeAtEnd;
         String last = "";
+        /** Every tick: x, y, z, body yaw, camera (view) yaw, on ground, view held (1/0), run active (1/0). */
+        final List<double[]> track = new ArrayList<>();
 
         String summary() {
             return String.format(Locale.US, "souls used (server) %d, logged %d; traveled %.1f blocks in %d ticks; "
@@ -475,6 +1069,11 @@ public class FairySoulTests implements FabricClientGameTest {
         if (!ok) {
             throw new AssertionError(message);
         }
+    }
+
+    /** The mod's free camera is held (client thread). */
+    private static boolean viewHeld() {
+        return (Boolean) Mod.staticCall("util.ViewFreeze", "isHeld");
     }
 
     private static boolean isActive(ClientGameTestContext ctx) {
@@ -505,6 +1104,28 @@ public class FairySoulTests implements FabricClientGameTest {
         return root.toString();
     }
 
+    /** Per-run knobs for {@link #setup} (cases set them and put them back). */
+    static boolean fairySoulsSwitch = true;
+    static String autoMode = "WALK";
+    static boolean sprint = true;
+    static boolean allowPearls = false;
+
+    private static void resetKnobs() {
+        fairySoulsSwitch = true;
+        autoMode = "WALK";
+        sprint = true;
+        allowPearls = false;
+    }
+
+    /** A setter only some mod versions have (a removed or added setting). */
+    private static void trySet(String setter, Object value) {
+        try {
+            Mod.set(CFG, setter, value);
+        } catch (RuntimeException | AssertionError ignored) {
+            // not in this jar
+        }
+    }
+
     /** Graph on disk as the cached HUB graph, island = Hub, Skyblock sidebar, settings, souls placed. */
     @SuppressWarnings("unchecked")
     private static Map<String, Integer> setup(ClientGameTestContext ctx, Hx hx, List<Node> nodes) {
@@ -521,22 +1142,29 @@ public class FairySoulTests implements FabricClientGameTest {
             ((Map<String, Object>) Mod.field("com.killer560.hub.pathfinding.GraphRepository", "NEXT_ATTEMPT")).remove("HUB");
             Mod.staticCall("pathfinding.AutoSoulRunner", "stop", "testkit setup", false);
             Mod.staticCall("pathfinding.FairySoulsFeature", "stopGuide", false);
-            Mod.set(CFG, "setEnabled", true);
-            Mod.set(CFG, "setFairySouls", true);
+            Mod.set(CFG, "setEnabled", fairySoulsSwitch);
+            trySet("setFairySouls", true); // before fairy-souls-1017 only
             Mod.set(CFG, "setAutoStartOnIsland", false);
             Mod.set(CFG, "setSoulMode", Mod.enumValue("pathfinding.PathfindingConfig$SoulMode", "ROUTE"));
             Mod.set(CFG, "setAutoWalk", true);
             Mod.set(CFG, "setAutoSouls", true);
-            Mod.set(CFG, "setAutoMode", Mod.enumValue("pathfinding.PathfindingConfig$AutoMode", "WALK"));
+            Mod.set(CFG, "setAutoMode", Mod.enumValue("pathfinding.PathfindingConfig$AutoMode", autoMode));
             Mod.set(CFG, "setAutoCollect", true);
-            Mod.set(CFG, "setAutoSprint", true);
-            Mod.set(CFG, "setRotationSpeed", 20f);
+            Mod.set(CFG, "setAutoSprint", sprint);
+            trySet("setAllowPearls", allowPearls); // fairy-souls-1017 on
+            trySet("setRotationSpeed", 20f); // before fairy-souls-1017 only
             Mod.set(CFG, "setChatFeedback", true);
         });
         hx.sidebar("SKYBLOCK", "⏣ Village", "Purse: 0");
         hx.tab(List.of("Area: Hub", "Profile: Test"), null, null);
         ctx.waitFor(mc -> "HUB".equals(Mod.staticCall("pathfinding.IslandDetector", "graphIsland")), 200);
-        ctx.waitFor(mc -> (Boolean) Mod.staticCall("pathfinding.GraphRepository", "isLoaded", "HUB"), 200);
+        // The found log is per profile: reset it only once the tab's "Profile: Test" is read, or the reset clears
+        // "unknown profile" and the run finds every soul already logged (1017-fairy-turning, first try).
+        ctx.waitFor(mc -> "Test".equals(Mod.staticCall("pathfinding.ProfileTracker", "displayName")), 200);
+        if (fairySoulsSwitch) {
+            // With the Fairy Souls switch off nothing loads the graph until Auto Fairy Souls does (1017-fairy-soulsoff).
+            ctx.waitFor(mc -> (Boolean) Mod.staticCall("pathfinding.GraphRepository", "isLoaded", "HUB"), 200);
+        }
         ctx.runOnClient(mc -> Mod.staticCall("pathfinding.FairySoulsFeature", "resetIsland"));
         hx.removeStands();
         Map<String, Integer> stands = new HashMap<>();
@@ -577,7 +1205,10 @@ public class FairySoulTests implements FabricClientGameTest {
                     hook.at(tick);
                 }
                 double[] s = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ(),
-                        mc.player.getYRot(), mc.player.onGround() ? 1 : 0, mc.player.getDeltaMovement().y});
+                        mc.player.getYRot(), mc.player.onGround() ? 1 : 0, mc.player.getDeltaMovement().y,
+                        mc.player.getViewYRot(1f), viewHeld() ? 1 : 0,
+                        (Boolean) Mod.staticCall(RUNNER, "isActive") ? 1 : 0});
+                r.track.add(new double[]{s[0], s[1], s[2], s[3], s[6], s[4], s[7], s[8]});
                 r.maxY = Math.max(r.maxY, s[1]);
                 if (tick % 20 == 0) {
                     // A trace of where he is and what the walker wants, so a failed case says why.
@@ -599,7 +1230,10 @@ public class FairySoulTests implements FabricClientGameTest {
                         r.travelled += step;
                     }
                     float turn = (float) Math.abs(s[3] - prev[3]);
-                    if (hook == null || (tick < 39 || tick > 90)) {
+                    // Only while the run drives him: at its end the body is turned back under the held camera view in
+                    // one tick (invisible on his screen; util/ViewFreeze), which is not the walker's turning.
+                    boolean driving = s[8] == 1 && prev[8] == 1;
+                    if (driving && (hook == null || (tick < 39 || tick > 90))) {
                         r.maxTurnPerTick = Math.max(r.maxTurnPerTick, turn);
                     }
                     if (prevGround && s[4] == 0 && s[5] > 0.3) {
