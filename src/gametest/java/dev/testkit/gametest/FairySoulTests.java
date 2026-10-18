@@ -70,11 +70,13 @@ public class FairySoulTests implements FabricClientGameTest {
         if (!Mod.isCheat()) {
             legit(ctx);
             settings(ctx);
+            travelModes(ctx);
             for (String n : List.of("747-fairy-ladder", "748-fairy-godpot", "749-fairy-corrections", "750-fairy-failsafes",
                     "756-fairy-knockback", "757-fairy-death", "758-fairy-rotation", "1017-fairy-overshoot",
                     "1017-fairy-turning", "1017-fairy-freecam", "1017-fairy-soulsoff", "1017-fairy-water", "1017-fairy-ledge",
                     "1017-fairy-pit", "1017-fairy-lava", "1017-fairy-stuck", "1017-fairy-escape-ether",
-                    "1017-fairy-escape-pearl", "1017-fairy-escape-none")) {
+                    "1017-fairy-escape-pearl", "1017-fairy-escape-none", "1018-fairy-travel-walkonly",
+                    "1018-fairy-travel-pearls")) {
                 if (!Scenario.skip(n)) {
                     Scenario.skipped(n, "Auto Fairy Souls is cheat build only (746 checks the legit jar does not walk)");
                 }
@@ -89,7 +91,7 @@ public class FairySoulTests implements FabricClientGameTest {
                 FairySoulTests::rotationControl, FairySoulTests::settings, FairySoulTests::overshoot,
                 FairySoulTests::turning, FairySoulTests::freecam, FairySoulTests::soulsOff, FairySoulTests::water,
                 FairySoulTests::ledge, FairySoulTests::pitLadder, FairySoulTests::lava, FairySoulTests::stuckWall,
-                FairySoulTests::escapes)) {
+                FairySoulTests::travelModes, FairySoulTests::escapes)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -850,6 +852,10 @@ public class FairySoulTests implements FabricClientGameTest {
         escape(ctx, "1017-fairy-escape-ether", -810, 1850, "ether");
         escape(ctx, "1017-fairy-escape-pearl", -810, 1900, "pearl");
         escape(ctx, "1017-fairy-escape-none", -810, 1950, "none");
+        // 1018-fairy-travel: Walk Only with an AOTV and pearls in the hotbar uses neither; Walk With Pearls with both throws
+        // the pearl and never warps.
+        escape(ctx, "1018-fairy-travel-walkonly", -810, 2050, "walkonly");
+        escape(ctx, "1018-fairy-travel-pearls", -810, 2100, "pearls");
     }
 
     private static void escape(ClientGameTestContext ctx, String name, int cx, int cz, String tool) {
@@ -861,7 +867,15 @@ public class FairySoulTests implements FabricClientGameTest {
             JsonObject statsBefore = null;
             Result r;
             try (Hx hx = Hx.connect()) {
-                if (tool.equals("ether")) {
+                boolean bothTools = tool.equals("walkonly") || tool.equals("pearls");
+                if (bothTools) {
+                    hx.call("dungeon.abilities", "enabled", true);
+                    statsBefore = hx.call("dungeon.stats").getAsJsonObject();
+                    hx.give(0, "minecraft:diamond_shovel[custom_data={id:\"ASPECT_OF_THE_VOID\",ethermerge:1,tuned_transmission:4},"
+                            + "unbreakable={}]");
+                    hx.call("give", "slot", 1, "count", 16, "stack", "minecraft:ender_pearl");
+                    autoMode = tool.equals("pearls") ? "PEARLS" : "WALK";
+                } else if (tool.equals("ether")) {
                     hx.call("dungeon.abilities", "enabled", true);
                     statsBefore = hx.call("dungeon.stats").getAsJsonObject();
                     hx.give(0, "minecraft:diamond_shovel[custom_data={id:\"ASPECT_OF_THE_VOID\",ethermerge:1,tuned_transmission:4},"
@@ -869,7 +883,7 @@ public class FairySoulTests implements FabricClientGameTest {
                     autoMode = "ETHERWARP";
                 } else if (tool.equals("pearl")) {
                     hx.call("give", "slot", 1, "count", 16, "stack", "minecraft:ender_pearl");
-                    allowPearls = true;
+                    autoMode = "PEARLS";
                 }
                 ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(4));
                 ctx.waitTicks(20);
@@ -883,7 +897,7 @@ public class FairySoulTests implements FabricClientGameTest {
                 int none = ctx.computeOnClient(mc -> (Integer) Mod.staticCall(RUNNER, "noWayOuts")) - noneBefore;
                 int serverWarps = statsBefore == null ? 0 : hx.call("dungeon.stats").getAsJsonObject().get("etherwarps").getAsInt()
                         - statsBefore.get("etherwarps").getAsInt();
-                if (tool.equals("ether")) {
+                if (tool.equals("ether") || bothTools) {
                     hx.call("dungeon.abilities", "enabled", false);
                 }
                 List<String> log = LogTap.since(mark);
@@ -900,8 +914,13 @@ public class FairySoulTests implements FabricClientGameTest {
                         check(pearl >= 1 && ether == 0, "no pearl escape");
                         check(r.soulsUsed >= 1, "the soul after the pearl: " + r.summary());
                     }
+                    case "pearls" -> {
+                        check(pearl >= 1 && ether == 0 && serverWarps == 0, "Walk With Pearls: no pearl, or it etherwarped");
+                        check(r.soulsUsed >= 1, "the soul after the pearl: " + r.summary());
+                    }
                     default -> {
-                        check(none >= 1 && ether == 0 && pearl == 0, "it escaped with a tool it was not allowed");
+                        check(none >= 1 && ether == 0 && pearl == 0 && serverWarps == 0,
+                                "it escaped with a tool it was not allowed");
                         check(saidNoWay && saidUnreached && r.soulsUsed == 0 && !r.activeAtEnd,
                                 "no 'No way out' and skip, or it did not end");
                     }
@@ -949,7 +968,8 @@ public class FairySoulTests implements FabricClientGameTest {
                                 out.append("auto fairy souls rows ").append(cheat).append('\n');
                                 check(!cheat.isEmpty() && cheat.get(0).equals("Auto Fairy Souls"), "Auto Fairy Souls switch not first: " + cheat);
                                 check(cheat.contains("Auto Walk") && cheat.contains("Auto Click") && cheat.contains("Sprint")
-                                        && cheat.contains("Start/Stop Key") && cheat.contains("Allow Ender Pearls"), "rows missing: " + cheat);
+                                        && cheat.contains("Start/Stop Key") && cheat.contains("Auto Mode"), "rows missing: " + cheat);
+                                check(!cheat.contains("Allow Ender Pearls"), "Allow Ender Pearls is still a row (it is a travel mode now)");
                                 check(cheat.stream().noneMatch(l -> l.contains("Turn Speed")), "Turn Speed is still there");
                             }
                             // Save and load every setting.
@@ -963,7 +983,6 @@ public class FairySoulTests implements FabricClientGameTest {
                             Mod.set(CFG, "setAutoStartOnIsland", true);
                             Mod.set(CFG, "setAutoWalk", false);
                             Mod.set(CFG, "setAutoCollect", false);
-                            Mod.set(CFG, "setAllowPearls", true);
                             Mod.set(CFG, "setAutoSprint", false);
                             Mod.set(CFG, "setAutoMode", Mod.enumValue("pathfinding.PathfindingConfig$AutoMode", "FAST_ETHERWARP"));
                             Mod.set(CFG, "setResumeKeyCode", 75);
@@ -976,7 +995,7 @@ public class FairySoulTests implements FabricClientGameTest {
                                     g("isAllowPearls"), g("isAutoSprint"), g("getAutoMode"), g("getResumeKeyCode"));
                             out.append("reloaded: ").append(got).append('\n');
                             check(got.equals("waypoints false path false mode NEAREST dim true color ff123456 length 40 hud false "
-                                    + "join true walk false click false pearls true sprint false auto FAST_ETHERWARP key 75"),
+                                    + "join true walk false click false pearls false sprint false auto FAST_ETHERWARP key 75"),
                                     "settings did not survive save and load: " + got);
                             // A version-1 file.
                             Files.writeString(file, "{\"enabled\":true,\"fairySouls\":false,\"showWholePath\":true,"
@@ -988,11 +1007,91 @@ public class FairySoulTests implements FabricClientGameTest {
                             Mod.call(Mod.cfg(CFG), "save");
                             String saved = Files.readString(file);
                             out.append("migrated: ").append(migrated).append('\n');
-                            check(migrated.equals("enabled true waypoints false dim true mode WALK pearls true walk true souls true"),
+                            check(migrated.equals("enabled true waypoints false dim true mode PEARLS pearls true walk true souls true"),
                                     "the version-1 file migrated wrong: " + migrated);
                             check(saved.contains("\"version\": 2") && !saved.contains("showWholePath")
                                     && !saved.contains("rotationSpeed") && !saved.contains("fairySouls"), "the saved file: " + saved);
                         } catch (java.io.IOException e) {
+                            throw new AssertionError(e);
+                        } finally {
+                            try {
+                                if (backup != null) {
+                                    Files.write(file, backup);
+                                } else {
+                                    Files.deleteIfExists(file);
+                                }
+                            } catch (Exception ignored) {
+                                // best effort
+                            }
+                            Mod.staticCall(CFG, "load");
+                        }
+                        return out.toString();
+                    });
+                    scenario.log(report);
+                });
+    }
+
+    /**
+     * 1018-fairy-travel-modes: Auto Mode has exactly four values in order (Walk Only, Walk With Pearls, Etherwarp, Fast
+     * Etherwarp); each survives save and load; the pearl/etherwarp permissions follow the mode; an old file with
+     * Walk Only plus allowPearls loads as Walk With Pearls and an old Etherwarp file stays Etherwarp.
+     */
+    private static void travelModes(ClientGameTestContext ctx) {
+        Scenario.run(ctx, "1018-fairy-travel-modes",
+                (server, scenario) -> TestMap.on(server).platform(-810, 150, 2000, 4).survival().spawn(-809.5, 2000.5, 0f).build(),
+                (server, scenario) -> {
+                    String report = ctx.computeOnClient(mc -> {
+                        StringBuilder out = new StringBuilder();
+                        Path file = (Path) Mod.staticCall("pathfinding.PathfindingConfig", "path");
+                        byte[] backup;
+                        try {
+                            backup = Files.exists(file) ? Files.readAllBytes(file) : null;
+                        } catch (Exception e) {
+                            throw new AssertionError(e);
+                        }
+                        try {
+                            Object[] values = Class.forName("com.killer560.hub.pathfinding.PathfindingConfig$AutoMode").getEnumConstants();
+                            List<String> names = new ArrayList<>();
+                            for (Object v : values) {
+                                names.add(v.toString());
+                            }
+                            out.append("modes ").append(names).append('\n');
+                            check(names.equals(List.of("WALK", "PEARLS", "ETHERWARP", "FAST_ETHERWARP")), "the four modes: " + names);
+                            Files.deleteIfExists(file);
+                            Mod.staticCall(CFG, "load");
+                            check(g("getAutoMode").toString().equals("WALK") && !(Boolean) g("isAllowPearls"),
+                                    "default is not Walk Only: " + g("getAutoMode"));
+                            for (String name : names) {
+                                Mod.set(CFG, "setAutoMode", Mod.enumValue("pathfinding.PathfindingConfig$AutoMode", name));
+                                Mod.call(Mod.cfg(CFG), "save");
+                                Mod.staticCall(CFG, "load");
+                                Object mode = g("getAutoMode");
+                                boolean ether = (Boolean) mode.getClass().getMethod("etherwarps").invoke(mode);
+                                out.append("reloaded ").append(mode).append(" pearls ").append(g("isAllowPearls"))
+                                        .append(" etherwarps ").append(ether).append('\n');
+                                check(mode.toString().equals(name), "mode lost on reload: " + mode);
+                                check(g("isAllowPearls").toString().equals(String.valueOf(name.equals("PEARLS"))),
+                                        "pearl permission wrong in " + name);
+                                check(ether == name.endsWith("ETHERWARP"), "etherwarp permission wrong in " + name);
+                            }
+                            // Old files: the walk-only flag.
+                            String[][] old = {
+                                    {"{\"autoMode\":\"WALK\",\"allowPearls\":true}", "PEARLS"},
+                                    {"{\"autoMode\":\"WALK\",\"allowPearls\":false}", "WALK"},
+                                    {"{\"autoMode\":\"WALK\"}", "WALK"},
+                                    {"{\"autoMode\":\"ETHERWARP\",\"allowPearls\":true}", "ETHERWARP"},
+                                    {"{\"autoMode\":\"FAST_ETHERWARP\"}", "FAST_ETHERWARP"},
+                                    {"{\"autoMode\":\"PEARLS\"}", "PEARLS"},
+                                    {"{\"allowPearls\":true}", "PEARLS"}};
+                            for (String[] o : old) {
+                                Files.writeString(file, o[0]);
+                                Mod.staticCall(CFG, "load");
+                                out.append(o[0]).append(" -> ").append(g("getAutoMode")).append('\n');
+                                check(g("getAutoMode").toString().equals(o[1]), o[0] + " loaded as " + g("getAutoMode") + ", wanted " + o[1]);
+                            }
+                            Mod.call(Mod.cfg(CFG), "save");
+                            check(!Files.readString(file).contains("allowPearls"), "the saved file still has allowPearls");
+                        } catch (Exception e) {
                             throw new AssertionError(e);
                         } finally {
                             try {
@@ -1113,13 +1212,11 @@ public class FairySoulTests implements FabricClientGameTest {
     static boolean fairySoulsSwitch = true;
     static String autoMode = "WALK";
     static boolean sprint = true;
-    static boolean allowPearls = false;
 
     private static void resetKnobs() {
         fairySoulsSwitch = true;
         autoMode = "WALK";
         sprint = true;
-        allowPearls = false;
     }
 
     /** A setter only some mod versions have (a removed or added setting). */
@@ -1156,7 +1253,6 @@ public class FairySoulTests implements FabricClientGameTest {
             Mod.set(CFG, "setAutoMode", Mod.enumValue("pathfinding.PathfindingConfig$AutoMode", autoMode));
             Mod.set(CFG, "setAutoCollect", true);
             Mod.set(CFG, "setAutoSprint", sprint);
-            trySet("setAllowPearls", allowPearls); // fairy-souls-1017 on
             trySet("setRotationSpeed", 20f); // before fairy-souls-1017 only
             Mod.set(CFG, "setChatFeedback", true);
         });
