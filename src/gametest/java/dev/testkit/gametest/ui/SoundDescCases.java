@@ -253,8 +253,7 @@ final class SoundDescCases {
     }
 
     static void presets(UiCase c) throws Exception {
-        try (AutoCloseable a = Mod.with(CLICK_CFG, "Choice", "default");
-             AutoCloseable b = Mod.with(CLICK_CFG, "VanillaScreens", false)) {
+        try (AutoCloseable a = Mod.with(CLICK_CFG, "Choice", "default")) {
             List<?> presets = (List<?>) Mod.staticCall(CLICKS, "presets");
             c.check(presets.size() >= 4, "only " + presets.size() + " click presets");
             // Control: Default leaves vanilla's own click alone, on a mod screen.
@@ -281,7 +280,7 @@ final class SoundDescCases {
                         var widgets = (List<?>) Mod.call(t, "buildWidgets", 10, 10, 300, (Runnable) () -> { });
                         for (Object w : widgets) {
                             var aw = (net.minecraft.client.gui.components.AbstractWidget) w;
-                            if (aw.getMessage().getString().startsWith("Vanilla Screens")) {
+                            if (aw.getMessage().getString().startsWith("Preview")) {
                                 aw.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(aw.getX() + 3, aw.getY() + 3,
                                         new net.minecraft.client.input.MouseButtonInfo(0, 0)), false);
                                 return null;
@@ -289,27 +288,22 @@ final class SoundDescCases {
                         }
                     }
                 }
-                throw new AssertionError("no Vanilla Screens button to press");
+                throw new AssertionError("no Preview button to press");
             });
             c.check((Integer) Mod.staticCall(CLICKS, "clicksSeen") == seenBefore + 1,
                     "pressing a button in the mod menu did not reach the click sound hook");
             c.check("killer560smod:click_tick".equals(Mod.staticCall(CLICKS, "lastPlayedId")),
                     "a real button press played " + Mod.staticCall(CLICKS, "lastPlayedId") + ", not the Tick preset");
-            Mod.set(CLICK_CFG, "setVanillaScreens", false);
-            // The same click on a vanilla screen stays vanilla while Vanilla Screens is off ...
+            // The same click on a Minecraft (non-mod) screen takes the chosen sound too: there is no Vanilla Screens
+            // switch any more (killer560, 2026-10-18).
             openScreen(c, false);
-            String vanillaOff = click(c);
-            c.check("minecraft:ui.button.click".equals(vanillaOff),
-                    "Vanilla Screens is off but a click on a Minecraft (non-mod) screen played " + vanillaOff);
-            // ... and takes the chosen sound once it is on.
-            Mod.set(CLICK_CFG, "setVanillaScreens", true);
             Object first = presets.get(0);
             Mod.set(CLICK_CFG, "setChoice", Mod.call(first, "id"));
             String vanillaOn = click(c);
             c.check(("killer560smod:click_" + Mod.call(first, "id")).equals(vanillaOn),
-                    "Vanilla Screens is on but a click on a Minecraft (non-mod) screen played " + vanillaOn);
+                    "a click on a Minecraft (non-mod) screen played " + vanillaOn);
             c.note("default -> vanilla click; each of " + presets.size() + " presets plays its own event on the mod menu; "
-                    + "non-mod screen: vanilla with Vanilla Screens off, '" + vanillaOn + "' with it on");
+                    + "non-mod screen: '" + vanillaOn + "'");
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
                 return null;
@@ -324,8 +318,7 @@ final class SoundDescCases {
         Path source = Files.createTempFile("k560-click-", ".ogg");
         Path bad = Files.createTempFile("k560-notogg-", ".ogg");
         Path copy = null;
-        try (AutoCloseable a = Mod.with(CLICK_CFG, "Choice", "default");
-             AutoCloseable b = Mod.with(CLICK_CFG, "VanillaScreens", false)) {
+        try (AutoCloseable a = Mod.with(CLICK_CFG, "Choice", "default")) {
             // A real bundled preset is the one valid .ogg we have: take it out of the running jar.
             try (var in = Mod.cls("clicksound.ClickSounds").getResourceAsStream("/assets/killer560smod/sounds/click_pop.ogg")) {
                 c.check(in != null, "the bundled click_pop.ogg is not in the jar");
