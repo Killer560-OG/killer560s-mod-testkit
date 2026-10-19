@@ -112,6 +112,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1015-batpresent", "96-ar-1015-batseek",
             // crypt-aim (2026-10-15): a Spirit Sceptre crypt node aims at each crypt mob, two uses each
             "96-ar-1015-cryptaim",
+            // todo-autoroutes-debug-1018: every node's start / sent / landed trace line, and the 10 s await WARN
+            "1018-autoroutes-trace",
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim", "96-ar-398-startawait",
             "96-ar-405-crypt-mapopen", "96-ar-405-startwarp", "96-ar-path", "96-ar-screen", "96-ar-rotate",
             // sim-world (2026-10-11)
@@ -341,6 +343,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1015-batseek" -> caseBatSeek(ctx);
                         case "96-ar-1017-bridges" -> caseBridges(ctx);
                         case "1018-ar-keyspot-empty" -> caseKeySpotEmpty(ctx);
+                        case "1018-autoroutes-trace" -> caseTrace(ctx);
                         case "96-ar-1017-mimicaim" -> caseMimicAim(ctx);
                         case "96-ar-1015-cryptaim" -> caseCryptAim(ctx);
                         case "96-ar-1013-breakerfall" -> caseBreakerFall(ctx);
@@ -4882,6 +4885,100 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             room = saved;
             buildRoom(ctx, 0);
         }
+    }
+
+    /**
+     * 1018-autoroutes-trace (mod todo-autoroutes-debug-1018). killer560, 2026-10-18: "Auto routes seems to be having issues
+     * on main getting secrets but not teleporting or teleporting to the wrong blocks." No cause was found in the code, so
+     * every route node now leaves one "[AutoRoutes] trace" line when it starts, when its warp goes, and when it lands, and a
+     * WARN when an await has waited 10 s. This plays a two-etherwarp route (6,6 -> 14,6 -> 6,22) and requires, for both
+     * nodes, a start, a sent and a landed line naming the planned block, "on it yes" and "server teleport yes"; then a
+     * start node whose await 1 nothing can meet must leave its "await waiting" WARN within 13 s. On main none of these
+     * lines exist.
+     */
+    private void caseTrace(ClientGameTestContext ctx) {
+        if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+            caseSkip = "Auto Routes fires nodes only in a cheat build";
+            return;
+        }
+        resetRoutes(ctx);
+        forgetRunMemory(ctx);
+        arena(ctx, true);
+        giveHotbar(ctx);
+        tpRel(ctx, 6.5, 6.5, relYawTo(6, 6, 14, 6), pitchTo(6, 6, 14, 6));
+        ctx.waitTicks(4);
+        cmd(ctx, "/ar add ew start");
+        check(waitLanded(ctx, 14, 6, 60) != null, "recording: the start ew did not land at (14,6)");
+        tpRel(ctx, 14.5, 6.5, relYawTo(14, 6, 6, 22), pitchTo(14, 6, 6, 22));
+        ctx.waitTicks(4);
+        cmd(ctx, "/ar add ew");
+        check(waitLanded(ctx, 6, 22, 60) != null, "recording: the second ew did not land at (6,22)");
+        BlockPos land1 = realNow(ctx, 14, F - 1, 6);
+        BlockPos land2 = realNow(ctx, 6, F - 1, 22);
+
+        tpRel(ctx, 4.5, 6.5, 0f, 0f);
+        ctx.waitTicks(10);
+        long m = LogTap.mark();
+        tpRel(ctx, 6.5, 6.5, 0f, 0f);
+        boolean l1 = waitLanded(ctx, 14, 6, 80) != null;
+        boolean l2 = waitLanded(ctx, 6, 22, 80) != null;
+        ctx.waitTicks(5);
+        int traces = 0;
+        for (String l : LogTap.since(m)) {
+            if (l.contains("[AutoRoutes] trace")) {
+                traces++;
+                println("trace: " + l.substring(l.indexOf("[AutoRoutes] trace")));
+            }
+        }
+        println("trace lines " + traces + "; landed #1 " + l1 + ", #2 " + l2 + "; planned blocks " + land1.toShortString()
+                + " / " + land2.toShortString());
+        check(l1 && l2, "premise: the route did not land both etherwarps (#1 " + l1 + ", #2 " + l2 + ")");
+        for (int n = 1; n <= 2; n++) {
+            BlockPos land = n == 1 ? land1 : land2;
+            String id = "trace #" + n + " ETHERWARP";
+            check(logHas(m, id + " start"), "no '" + id + " start' line");
+            check(logHas(m, id + " sent"), "no '" + id + " sent' line");
+            check(logHas(m, id + " landed"), "no '" + id + " landed' line");
+            boolean named = false;
+            boolean onIt = false;
+            for (String l : LogTap.since(m)) {
+                if (l.contains(id + " landed")) {
+                    named |= l.contains("target " + land.toShortString());
+                    onIt |= l.contains("on it yes") && l.contains("server teleport yes");
+                }
+            }
+            check(named, id + "'s landed line does not name its planned block " + land.toShortString());
+            check(onIt, id + "'s landed line does not say it landed on the block with the server's teleport");
+        }
+        stopRoute(ctx);
+
+        // An await nothing can meet: one WARN after 10 s, naming what it waits for.
+        resetRoutes(ctx);
+        forgetRunMemory(ctx);
+        writeRoute(ctx, List.of(handUse(10, 14, 0f, 80f, true, 1)));
+        tpRel(ctx, 8.5, 14.5, 0f, 80f);
+        ctx.waitTicks(10);
+        long m2 = LogTap.mark();
+        tpRel(ctx, 10.5, 14.5, 0f, 80f);
+        boolean started = waitFor(ctx, 40, () -> logHas(m2, "Started \""));
+        boolean warned = waitFor(ctx, 13 * 20, () -> logHas(m2, "trace #1 USE_ITEM await waiting"));
+        for (String l : LogTap.since(m2)) {
+            if (l.contains("[AutoRoutes] trace")) {
+                println("await trace: " + l.substring(l.indexOf("[AutoRoutes] trace")));
+            }
+        }
+        boolean warnLevel = false;
+        for (String l : LogTap.since(m2)) {
+            if (l.contains("trace #1 USE_ITEM await waiting") && l.contains("WARN") && l.contains("secret 0/1")) {
+                warnLevel = true;
+            }
+        }
+        stopRoute(ctx);
+        check(started, "premise: the await route never started");
+        check(warned, "no 'await waiting' line 13 s into an await nothing can meet");
+        check(warnLevel, "the 'await waiting' line is not a WARN naming 'secret 0/1'");
+        resetRoutes(ctx);
+        forgetRunMemory(ctx);
     }
 
     /**
@@ -9439,7 +9536,15 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 check(dl < 3.0 && dc < 3.0 && ds < 3.0, "premise: the route did not take him past all three in reach");
                 check(clicks == 0, "Secret Aura sent " + clicks + " use_item_on during a non-await stretch of the route");
                 check(!leverFlipped, "the lever was flipped during the route");
-                check(!logHas(m, "clicked by you"), "a secret block was clicked during the route");
+                // Not the start's look-back line about a click BEFORE the route ("... tick(s) before the route started is
+                // N blocks from the start node - not its"): 96-ar-1016-keyreach's key, placed just before, is named there.
+                boolean clickedDuring = false;
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("clicked by you") && !l.contains("before the route started")) {
+                        clickedDuring = true;
+                    }
+                }
+                check(!clickedDuring, "a secret block was clicked during the route");
                 check(picked, "the item on his path was not picked up");
 
                 // Control: no route running, the same three blocks in reach - the aura takes them, as before.
