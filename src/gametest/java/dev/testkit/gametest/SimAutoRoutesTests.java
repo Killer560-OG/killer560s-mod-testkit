@@ -1969,6 +1969,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         resetRoutes(ctx);
         room = "Museum";
         BlockPos chest = null;
+        // The premise reads #1's chest as a block right after the build, before he is near it; since mod
+        // sim-secrets-1018 a sim chest appears only once he has been within 10 blocks, so put them in at the build.
+        SimChestHook.placeAtBuild(ctx);
         try {
             for (int attempt = 0; attempt < 6 && chest == null; attempt++) {
                 buildRoom(ctx, 0);
@@ -2079,6 +2082,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             check(met - started <= 10, "#1's await was met only " + (met - started) + " ticks after the route started - by "
                     + "Secret Aura's retry, not its first click on the chest (which came before the start and was not counted)");
         } finally {
+            SimChestHook.restore(ctx);
             ctx.runOnClient(mc -> {
                 ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled");
                 ModUnderTest.turnOff("com.killer560.hub.autoclosechest.AutoCloseChestConfig", "setEnabled");
