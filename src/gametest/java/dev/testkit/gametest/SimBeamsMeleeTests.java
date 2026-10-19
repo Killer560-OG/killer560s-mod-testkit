@@ -51,12 +51,15 @@ public final class SimBeamsMeleeTests {
     private static final Pattern HIT = Pattern.compile("Beams \\(melee\\): hit (-?\\d{1,8}), (-?\\d{1,4}), (-?\\d{1,8}) "
             + "\\(pair stage (\\d)\\) from .{1,40}, eye to box (\\d{1,3}\\.\\d{2})");
 
+    private static final Pattern SHOT_LANDED = Pattern.compile(
+            "Sim creeper beams: shot landed on lantern BlockPos\\{x=(-?\\d{1,8}), y=(-?\\d{1,4}), z=(-?\\d{1,8})\\}");
+
     static void say(String name, String line) {
         System.out.println("[" + name + "] " + line);
     }
 
     /** The log read every tick: the auto's hits, the sim's strikes and refusals, shots and warps. */
-    static final class MeleeWatch extends SolveExtra {
+    static class MeleeWatch extends SolveExtra {
         boolean noMode;
         String noModeWhy = "";
         long seen;
@@ -73,6 +76,11 @@ public final class SimBeamsMeleeTests {
         int retries;
         double maxHitDist;
         double maxStruckDist;
+        /** Every auto hit in order, and whether it came straight after an AOTV teleport; lanterns the sim saw shot. */
+        final List<BlockPos> hitPos = new ArrayList<>();
+        final List<Boolean> hitAotv = new ArrayList<>();
+        final Set<BlockPos> shotAt = new LinkedHashSet<>();
+        int aotvLandings;
 
         @Override
         void begin(String name, long mark) {
@@ -132,8 +140,22 @@ public final class SimBeamsMeleeTests {
                 }
                 double d = Double.parseDouble(h.group(5));
                 maxHitDist = Math.max(maxHitDist, d);
-                hits.add(h.group(1) + "," + h.group(2) + "," + h.group(3) + " stage " + h.group(4) + " at " + h.group(5));
+                boolean aotv = l.contains(" via aotv");
+                hits.add(h.group(1) + "," + h.group(2) + "," + h.group(3) + " stage " + h.group(4) + " at " + h.group(5)
+                        + (aotv ? " (aotv)" : ""));
+                BlockPos hp = new BlockPos(Integer.parseInt(h.group(1)), Integer.parseInt(h.group(2)),
+                        Integer.parseInt(h.group(3)));
+                hitPos.add(hp);
+                hitAotv.add(aotv);
                 return;
+            }
+            Matcher sl = SHOT_LANDED.matcher(l);
+            if (sl.find()) {
+                shotAt.add(new BlockPos(Integer.parseInt(sl.group(1)), Integer.parseInt(sl.group(2)),
+                        Integer.parseInt(sl.group(3))));
+            }
+            if (l.contains("Beams (melee): AOTV teleport landed")) {
+                aotvLandings++;
             }
             if (l.contains("Sim creeper beams: a hit on lantern") && l.contains("refused")) {
                 refused++;
@@ -244,6 +266,153 @@ public final class SimBeamsMeleeTests {
         }
     }
 
+    /** Every pair the sim armed, ends in absolute positions ({@code SimCreeperPuzzle.worldPairs}). */
+    @SuppressWarnings("unchecked")
+    static List<BlockPos[]> allPairs() {
+        try {
+            Class<?> c = Class.forName(PUZZLE);
+            var wf = c.getDeclaredField("worldPairs");
+            wf.setAccessible(true);
+            List<BlockPos[]> out = new ArrayList<>();
+            for (Object pair : (List<Object>) wf.get(null)) {
+                var a = pair.getClass().getDeclaredMethod("a");
+                var b = pair.getClass().getDeclaredMethod("b");
+                a.setAccessible(true);
+                b.setAccessible(true);
+                out.add(new BlockPos[]{(BlockPos) a.invoke(pair), (BlockPos) b.invoke(pair)});
+            }
+            return out;
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("could not read SimCreeperPuzzle.worldPairs", e);
+        }
+    }
+
+    /** The mod's own count of etherwarp spots that reach a lantern ({@code AutoBeams.meleeSpots}); -1 on a jar without it. */
+    static int meleeSpotCount(net.minecraft.client.Minecraft mc, BlockPos lantern) {
+        try {
+            Object l = ModUnderTest.staticCall("com.killer560.hub.autopuzzles.AutoBeams", "meleeSpots",
+                    new Class<?>[]{net.minecraft.client.Minecraft.class, BlockPos.class}, new Object[]{mc, lantern});
+            return ((List<?>) l).size();
+        } catch (AssertionError e) {
+            return -1;
+        }
+    }
+
+    /**
+     * His in-game room of 2026-10-18 rebuilt: only some pairs left that etherwarp spots alone can finish. Before the auto
+     * starts, both ends of {@code burnFullPairs} of the pairs whose two lanterns BOTH have etherwarp spots are turned to
+     * prismarine on the server (the solver then reads them as joined and does not list them; the sim still needs four
+     * other beams) - all of them when {@code burnFullPairs} is negative. Two left ({@code -after}): the auto plays those two
+     * on foot and must go on past them, hitting a ground lantern after its fourth hit and finishing with teleports or shots.
+     * None left ({@code -aotv}): every remaining pair has a lantern no etherwarp spot reaches, and one of those must be hit
+     * in the air straight after an AOTV teleport, from within 4.5 of its box.
+     */
+    static final class RestWatch extends MeleeWatch {
+        final int burnFullPairs;
+        final boolean needAotv;
+        final Set<BlockPos> noSpot = new LinkedHashSet<>();
+        final Set<BlockPos> withSpot = new LinkedHashSet<>();
+        int burned;
+
+        RestWatch(int burnFullPairs, boolean needAotv) {
+            this.burnFullPairs = burnFullPairs;
+            this.needAotv = needAotv;
+        }
+
+        @Override
+        void beforeAutoOn(ClientGameTestContext ctx) {
+            super.beforeAutoOn(ctx);
+            if (noMode) {
+                return;
+            }
+            List<BlockPos[]> pairs = ctx.computeOnClient(mc -> allPairs());
+            List<BlockPos> burn = new ArrayList<>();
+            int fullSeen = 0;
+            for (BlockPos[] p : pairs) {
+                int s0 = ctx.computeOnClient(mc -> meleeSpotCount(mc, p[0]));
+                int s1 = ctx.computeOnClient(mc -> meleeSpotCount(mc, p[1]));
+                (s0 > 0 ? withSpot : noSpot).add(p[0]);
+                (s1 > 0 ? withSpot : noSpot).add(p[1]);
+                if (s0 > 0 && s1 > 0) {
+                    fullSeen++;
+                    if (burnFullPairs < 0 || burn.size() < 2 * burnFullPairs) {
+                        burn.add(p[0]);
+                        burn.add(p[1]);
+                    }
+                }
+            }
+            burned = burn.size() / 2;
+            say(name, pairs.size() + " pair(s) armed, " + fullSeen + " with etherwarp spots at both ends; burning " + burned
+                    + " of those (" + burn.stream().map(BlockPos::toShortString).toList() + "); lanterns with no spot: "
+                    + noSpot.size());
+            ctx.runOnClient(mc -> {
+                var server = mc.getSingleplayerServer();
+                server.execute(() -> {
+                    for (BlockPos b : burn) {
+                        server.overworld().setBlockAndUpdate(b, net.minecraft.world.level.block.Blocks.PRISMARINE.defaultBlockState());
+                    }
+                });
+            });
+            ctx.waitTicks(20);
+        }
+
+        @Override
+        String verdict(ClientGameTestContext ctx, int solvedAt) {
+            if (noMode) {
+                return "this jar has no Melee mode for Auto Creeper Beams (no AutoPuzzlesConfig.setAutoBeamsMode)";
+            }
+            List<BlockPos> joinedEnds = ctx.computeOnClient(mc -> joinedEnds());
+            List<String> untouched = new ArrayList<>();
+            for (BlockPos p : joinedEnds) {
+                if (!struck.containsKey(p) && !shotAt.contains(p)) {
+                    untouched.add(p.toShortString());
+                }
+            }
+            say(name, "joined lanterns (sim): " + joinedEnds.size() + "; struck by melee " + struck.size() + ", shot "
+                    + shotAt.size() + "; AOTV landings " + aotvLandings + "; auto hits in order: " + hits);
+            if (burned == 0) {
+                return "no fully reachable pair was burned - the fixture did not build his room";
+            }
+            if (solvedAt < 0) {
+                return "the room was not solved - it stopped after " + hits.size() + " hit(s)";
+            }
+            if (joinedEnds.size() < 8) {
+                return "the sim names only " + joinedEnds.size() + " joined lantern(s)";
+            }
+            if (!untouched.isEmpty()) {
+                return "joined lantern(s) neither struck nor shot by the auto: " + untouched;
+            }
+            if (maxStruckDist > REACH + 1e-9 || maxHitDist > REACH + 1e-9 || refused > 0) {
+                return String.format(Locale.ROOT, "a hit beyond reach (sim %.2f, auto %.2f) or refused (%d)", maxStruckDist,
+                        maxHitDist, refused);
+            }
+            if (!needAotv) {
+                boolean groundLater = false;
+                for (int i = 4; i < hitPos.size(); i++) {
+                    if (!hitAotv.get(i) && withSpot.contains(hitPos.get(i))) {
+                        groundLater = true;
+                    }
+                }
+                if (!groundLater) {
+                    return "no ground lantern (one with an etherwarp spot) was hit after the first four hits " + hits;
+                }
+            } else {
+                BlockPos high = null;
+                for (int i = 0; i < hitPos.size(); i++) {
+                    if (hitAotv.get(i) && noSpot.contains(hitPos.get(i)) && struck.containsKey(hitPos.get(i))) {
+                        high = hitPos.get(i);
+                    }
+                }
+                if (high == null) {
+                    return "no lantern without an etherwarp spot was hit straight after an AOTV teleport " + hits;
+                }
+                say(name, "high lantern " + high.toShortString() + " hit after an AOTV teleport, struck from "
+                        + String.format(Locale.ROOT, "%.2f", struck.get(high)) + " eye to box");
+            }
+            return null;
+        }
+    }
+
     abstract static class MeleeBase extends SimPuzzleSolveTests.Base {
         private final String caseName;
 
@@ -262,6 +431,30 @@ public final class SimBeamsMeleeTests {
         @Override
         SolveExtra extra() {
             return new MeleeWatch();
+        }
+    }
+
+    /** Two of the pairs etherwarp spots can finish burned: it must carry on past its first four hits and finish. */
+    public static final class After extends MeleeBase {
+        public After() {
+            super("after");
+        }
+
+        @Override
+        SolveExtra extra() {
+            return new RestWatch(2, false);
+        }
+    }
+
+    /** Every pair etherwarp spots can finish burned: a high lantern must be hit after an AOTV teleport. */
+    public static final class Aotv extends MeleeBase {
+        public Aotv() {
+            super("aotv");
+        }
+
+        @Override
+        SolveExtra extra() {
+            return new RestWatch(-1, true);
         }
     }
 

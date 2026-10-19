@@ -25,7 +25,8 @@ import java.util.Locale;
  * {@code AutoBeams.meleeClick} - the hit itself, vanilla's start / swing / abort.
  *
  * <p>Rounds: a lantern in a wall at eye height, one high in the wall, one in the floor, one 4.0 blocks off (eye to box),
- * one where the body is left a quarter turn off (the hit must turn first and go the tick after, never on a look that
+ * one in mid-air five blocks up beside a floating lantern (where an AOTV teleport straight up leaves him, hit the tick after
+ * the landing while he starts to fall), one where the body is left a quarter turn off (the hit must turn first and go the tick after, never on a look that
  * misses), and one from 9.5 blocks away (the reach check where the hit is sent must refuse it: nothing sent).
  *
  * <p>Not vacuous: every hit must go on its planned tick, one START_DESTROY_BLOCK per hit and none for the refused one, each
@@ -44,7 +45,7 @@ public class GrimBeamsMeleeTests implements FabricClientGameTest {
     private static final int BX = -760;
     private static final int BZ = -420;
 
-    private enum Kind { HIT, TURN, FAR }
+    private enum Kind { HIT, TURN, FAR, AIR }
 
     /** One round: where he lands (feet), the lantern, what is expected. */
     private record Round(String what, double x, double z, BlockPos lantern, Kind kind) {
@@ -71,6 +72,8 @@ public class GrimBeamsMeleeTests implements FabricClientGameTest {
                 new Round("in the floor", BX + 9.5, BZ + 0.5, new BlockPos(BX + 9, Y - 1, BZ - 2), Kind.HIT),
                 new Round("4.0 eye to box", BX + 12.5, BZ + 0.0, new BlockPos(BX + 12, Y + 1, BZ + 4), Kind.HIT),
                 new Round("body a quarter turn off", BX + 15.5, BZ + 1.5, new BlockPos(BX + 15, Y + 2, BZ + 4), Kind.TURN),
+                new Round("in the air, as after an AOTV teleport up", BX + 16.5, BZ - 0.5, new BlockPos(BX + 16, Y + 7, BZ + 1),
+                        Kind.AIR),
                 new Round("9.5 blocks away", BX + 0.5, BZ - 5.5, new BlockPos(BX + 1, Y + 2, BZ + 4), Kind.FAR));
     }
 
@@ -120,7 +123,7 @@ public class GrimBeamsMeleeTests implements FabricClientGameTest {
                 boolean sent = click(mc, p, r.lantern());
                 double d = Math.sqrt(boxSq(p.getEyePosition(), r.lantern()));
                 switch (r.kind()) {
-                    case HIT -> expect(sent, String.format(Locale.ROOT, "the hit on %s at %.2f eye to box",
+                    case HIT, AIR -> expect(sent, String.format(Locale.ROOT, "the hit on %s at %.2f eye to box",
                             r.lantern().toShortString(), d), true);
                     case TURN -> expect(sent, "the hit with the body 90 degrees off (must turn, not send)", false);
                     case FAR -> expect(sent, String.format(Locale.ROOT, "the hit from %.2f eye to box (must be refused)", d),
@@ -142,6 +145,11 @@ public class GrimBeamsMeleeTests implements FabricClientGameTest {
             default -> {
             }
         }
+    }
+
+    /** Where a round lands his feet: the platform, or five blocks up in the air for the AOTV-style round. */
+    private static int feetY(Round r) {
+        return r.kind() == Kind.AIR ? Y + 5 : Y;
     }
 
     private static boolean click(Minecraft mc, LocalPlayer p, BlockPos lantern) {
@@ -224,17 +232,18 @@ public class GrimBeamsMeleeTests implements FabricClientGameTest {
                     for (int i = 0; i < rounds.size(); i++) {
                         Round r = rounds.get(i);
                         round = r;
-                        // He arrives sneaking, as from an etherwarp.
-                        ctx.runOnClient(mc -> mc.options.keyShift.setDown(true));
+                        // He arrives sneaking, as from an etherwarp; standing from an AOTV teleport (no sneak).
+                        boolean sneakIn = r.kind() != Kind.AIR;
+                        ctx.runOnClient(mc -> mc.options.keyShift.setDown(sneakIn));
                         ctx.waitTicks(2);
                         int before = PacketWatch.totalBreaks();
                         stage = Stage.AWAIT_LAND;
                         synchronized (STEPS) {
                             STEPS.add("round " + (i + 1) + " (" + r.what() + "): teleport onto "
-                                    + String.format(Locale.ROOT, "%.1f, %d, %.1f", r.x(), Y, r.z()));
+                                    + String.format(Locale.ROOT, "%.1f, %d, %.1f", r.x(), feetY(r), r.z()));
                         }
                         server.command(String.format(Locale.ROOT, "execute as @p at @s run tp @s %.2f %d %.2f ~ ~",
-                                r.x(), Y, r.z()));
+                                r.x(), feetY(r), r.z()));
                         for (int w = 0; w < 100 && stage != Stage.DONE; w++) {
                             ctx.waitTick();
                         }

@@ -180,6 +180,8 @@
 			"dev.testkit.gametest.SimPuzzleDoneTests$TeleportMazeDone",
 			"dev.testkit.gametest.SimBeamsMeleeTests$Solve",
 			"dev.testkit.gametest.SimBeamsMeleeTests$Rotations",
+			"dev.testkit.gametest.SimBeamsMeleeTests$After",
+			"dev.testkit.gametest.SimBeamsMeleeTests$Aotv",
 			"dev.testkit.gametest.GrimBeamsMeleeTests",
 			"dev.testkit.gametest.SimPuzzleSolveTests$Summary",
 			"dev.testkit.gametest.SessionDemoTest",

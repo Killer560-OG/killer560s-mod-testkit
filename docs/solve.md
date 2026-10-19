@@ -228,4 +228,13 @@ without the mode fails on its missing `setAutoBeamsMode`. Main f0a61ba4: FAIL. B
 `AutoBeams.meleeClick` at START_CLIENT_TICK: four hits (2.2 to 4.0 eye to box), one that must turn first and hit the tick
 after, one at 9.5 that must send nothing. PacketWatch's dig look angle reads ~133 degrees there: it uses `getViewVector`,
 which the held puzzle camera answers, not the body's reported look; GrimAC said nothing. The `1018-beams-melee` filter
-selects all three.
+selects all of them.
+
+`-after` and `-aotv` rebuild killer560's in-game room (only some pairs lit): before the auto starts, both ends of pairs
+whose two lanterns both have etherwarp spots (the mod's own `AutoBeams.meleeSpots`) are set to prismarine on the server -
+two such pairs for `-after`, all four for `-aotv` - so the solver lists them as joined. `-after` needs the room solved and
+a lantern with an etherwarp spot hit after the auto's fourth hit; `-aotv` needs a lantern with NO spot hit straight after
+an AOTV teleport (" via aotv"), from within 4.5. Both accept joined lanterns that were shot. First melee commit b1c3165d:
+`-after` FAIL "stopped after 4 hit(s)" with his log's "no etherwarp aim onto <platform>"; `-aotv` FAIL. Branch 3d3b895a:
+4 of 4 each. The GrimAC case gained a hit in mid-air five blocks up beside a floating lantern (as an AOTV teleport up
+leaves him), still 0 lines.
