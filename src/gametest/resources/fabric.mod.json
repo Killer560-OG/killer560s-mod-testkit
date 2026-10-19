@@ -97,6 +97,7 @@
 			"dev.testkit.gametest.SimImapGapTests",
 			"dev.testkit.gametest.SimPathOptimalTests",
 			"dev.testkit.gametest.SimMapGroupTests",
+			"dev.testkit.gametest.SimMapMergeTests",
 			"dev.testkit.gametest.SimSingleRoomTests",
 			"dev.testkit.gametest.SimRoomFloorTests",
 			"dev.testkit.gametest.SimRoomPickTests",
