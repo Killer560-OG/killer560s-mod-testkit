@@ -39,9 +39,36 @@ public abstract class MixinServerGamePacketListenerUse {
         }
     }
 
+    /** {@link dev.testkit.harness.LeverClickJudge}: refuse a lever click the heard look misses, and record each handled one. */
+    @Inject(method = "handleUseItemOn", at = @At("HEAD"), cancellable = true)
+    private void testkit$judgeLever(ServerboundUseItemOnPacket packet, CallbackInfo ci) {
+        ServerGamePacketListenerImpl self = (ServerGamePacketListenerImpl) (Object) this;
+        if (dev.testkit.harness.LeverClickJudge.enabled && self.player != null
+                && self.player.level().getServer().isSameThread()
+                && dev.testkit.harness.LeverClickJudge.onClickHead(self.player, packet)) {
+            self.ackBlockChangesUpTo(packet.getSequence());
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "handleUseItemOn", at = @At("RETURN"))
+    private void testkit$leverAfter(ServerboundUseItemOnPacket packet, CallbackInfo ci) {
+        ServerGamePacketListenerImpl self = (ServerGamePacketListenerImpl) (Object) this;
+        if (dev.testkit.harness.LeverClickJudge.enabled && self.player != null
+                && self.player.level().getServer().isSameThread()) {
+            dev.testkit.harness.LeverClickJudge.onClickReturn(self.player);
+        }
+    }
+
     @Inject(method = "handleUseItem", at = @At("HEAD"), cancellable = true)
     private void testkit$dropUse(ServerboundUseItemPacket packet, CallbackInfo ci) {
         ServerGamePacketListenerImpl self = (ServerGamePacketListenerImpl) (Object) this;
+        if (dev.testkit.harness.LeverClickJudge.enabled && self.player != null
+                && self.player.level().getServer().isSameThread() && dev.testkit.harness.LeverClickJudge.onUse(self.player)) {
+            self.ackBlockChangesUpTo(packet.getSequence());
+            ci.cancel();
+            return;
+        }
         if (HypixelUseAfterClick.enabled && self.player != null && self.player.level().getServer().isSameThread()
                 && HypixelUseAfterClick.dropUse(self.player, packet)) {
             self.ackBlockChangesUpTo(packet.getSequence());

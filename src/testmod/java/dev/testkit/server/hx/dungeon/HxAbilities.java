@@ -92,6 +92,9 @@ public final class HxAbilities {
             if (!(player instanceof ServerPlayer sp) || !enabled) {
                 return InteractionResult.PASS;
             }
+            if (level.getBlockState(hit.getBlockPos()).getBlock() instanceof net.minecraft.world.level.block.LeverBlock) {
+                leverClicks++;
+            }
             String id = skyblockId(sp.getItemInHand(hand));
             if (isBoom(id)) {
                 superboom(sp, hit.getBlockPos().immutable());
@@ -120,6 +123,8 @@ public final class HxAbilities {
         o.addProperty("boomBlocks", boomBlocks);
         o.addProperty("witherImpacts", witherImpacts);
         o.addProperty("witherHits", witherHits);
+        o.addProperty("leverClicks", leverClicks);
+        o.addProperty("usesDropped", usesDropped);
         if (lastLanding != null) {
             JsonArray l = new JsonArray();
             l.add(lastLanding.x);
@@ -153,9 +158,33 @@ public final class HxAbilities {
         return "SUPERBOOM_TNT".equals(id) || "INFINITE_SUPERBOOM_TNT".equals(id);
     }
 
+    /**
+     * {@code dungeon.dropUseAfterLevers}: once this many lever clicks have reached the server, the next ability use does
+     * nothing - a warp with no landing, as two of Auto Water's warps a tick after a lever click got none on Hypixel
+     * (killer560's run 2026-10-18 19:25:14 / 19:25:17). Negative: off. One drop per arming.
+     */
+    static void dropUseAfterLevers(int n) {
+        dropAfterLevers = n;
+        dropDone = false;
+        leverClicks = 0;
+        usesDropped = 0;
+    }
+
+    private static int dropAfterLevers = -1;
+    private static boolean dropDone;
+    private static int leverClicks;
+    private static int usesDropped;
+
     private static InteractionResult onUse(ServerPlayer sp, InteractionHand hand) {
         ItemStack held = sp.getItemInHand(hand);
         String id = skyblockId(held);
+        if (dropAfterLevers >= 0 && !dropDone && leverClicks >= dropAfterLevers
+                && ("ASPECT_OF_THE_VOID".equals(id) || "ASPECT_OF_THE_END".equals(id))) {
+            dropDone = true;
+            usesDropped++;
+            System.out.println("[testkit] dropped the ability use after " + leverClicks + " lever click(s) - no landing");
+            return InteractionResult.SUCCESS;
+        }
         if ("HYPERION".equals(id)) {
             witherImpact(sp);
             return InteractionResult.SUCCESS;

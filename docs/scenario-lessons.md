@@ -1064,3 +1064,14 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   case in SimAutopilotTests; `1018-autoclear-eta` (SimAutoClearEtaTests) runs Auto Clear on two sim rooms and reads the Auto
   Clear Status HUD's "Done in ~m:ss" line counting down.
 - 1018-freelook-setting/-toggle/-hold/-pan (`FreelookTests`): Freelook's F5 rear view (Toggle, and Hold via `holdKey(o -> o.keyTogglePerspective)`) and pan key (`FreelookFeature.panHeldForTest`), each checking the camera type and the rendered `Camera.yRot/xRot` moved while the player's yaw and pitch did not, GrimAC clean. The first `moveCursor` after joining a world is dropped by vanilla (`MouseHandler.ignoreFirstMove`, set when the mouse is grabbed), so a case that measures a mouse turn spends one move first; without it the pan read "camera 0.0". Main fails all four (no `FreelookConfig`); the fix passes 4/4 on 26.1.2 cheat and legit and 26.2.
+- **1018-waterboard-predict / -predict-board / -lever / -grim** (`SimWaterBoard1018Tests`, `GrimWaterBoardTests`, mod
+  todo-waterboard-1018). Predict pins Water Board on a planned F7 (`SimFloorGen.plan` with a pin, built through
+  `SimWorld.open` + `SimBuilder.build`) and glances in from the neighbour; the sim's board is the capture's, so it names the
+  room on main too, and -board first mirrors the board planes (relative z 26..29) through `SimWaterPuzzle.at`, as another
+  Hypixel layout differs. The copied captures are Mod Only Test's, turned a quarter from the bundled file: anything keyed
+  to capture coordinates must follow `RoomCaptureRotation`. -lever runs the 93-solve Base with `harness/LeverClickJudge` on
+  the integrated server (refuses a lever click the heard look misses, as GrimAC RotationPlace; drops the first use after
+  the third lever click) and judges each solver-counted click by the server's own lever flip - `SimWaterPuzzle` advances
+  on the CLIENT's click callback, so its verdict alone cannot see a refused click. -grim pastes the room on the dedicated
+  server (water left out), sets the three colour columns and plays the real auto against GrimAC with Hx
+  `dungeon.dropUseAfterLevers`.

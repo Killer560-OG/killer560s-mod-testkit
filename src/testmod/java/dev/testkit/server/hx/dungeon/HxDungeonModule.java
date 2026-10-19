@@ -56,6 +56,10 @@ public final class HxDungeonModule implements HxModule {
             HxAbilities.resetStats();
             return null;
         });
+        HxBridge.register("dungeon.dropUseAfterLevers", (server, args) -> {
+            HxAbilities.dropUseAfterLevers(args.has("n") ? args.get("n").getAsInt() : -1);
+            return null;
+        });
         HxBridge.register("dungeon.paste", HxDungeonModule::paste);
         HxBridge.register("dungeon.blocks", HxDungeonModule::blocks);
         HxBridge.register("dungeon.tp", HxDungeonModule::tp);
