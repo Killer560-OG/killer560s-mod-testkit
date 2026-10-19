@@ -6,6 +6,7 @@ import dev.testkit.gametest.mod.Mod;
 import dev.testkit.harness.PacketTrace;
 
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -40,6 +41,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * 2026-10-18: "kuudra should not be implemented yet"); only Dungeons, Diana and Fishing are there.
  * <p>1018-pf-settings: the switch and three options survive save/load and a profile reload, every row has a tooltip, and
  * the tab sits in the Dungeon category with its switch first.
+ * <p>2026-10-18 fixes (mod branch todo-pf-fix-1018): 1018-pf-autoaccept-leader (Auto Accept Requests invites a joiner who
+ * meets the listing with no click, not one under it or with unknown stats); 1018-pf-cata-gate-leader / -joiner (under the
+ * Cata Level: rejected in the leader's menu with no Accept and the relay told declined; his own stats unknown: Join never
+ * reaches the relay); 1018-pf-pb-gate (S+ PB 5:30 against 5:00 rejected, 4:40 accepted); 1018-pf-search / -filter / -sort;
+ * 1018-pf-start-screen (start screen, Dungeons only, Back); 1018-pf-misc.
  */
 final class PartyFinder1018Cases {
 
@@ -75,6 +81,14 @@ final class PartyFinder1018Cases {
             Mod.call(cfg, "setAutoAcceptInvite", true);
             Mod.call(cfg, "setCheckRequirements", true);
             Mod.call(cfg, "setLastTab", Mod.enumValue(CAT, "DUNGEONS"));
+            if (Mod.has("lfg.LfgFilter")) {
+                // The older cases click Accept themselves: Auto Accept Requests (2026-10-18) would invite first.
+                Mod.call(cfg, "setAutoAcceptRequests", false);
+                Mod.call(cfg, "setSort", Mod.enumValue("lfg.LfgFilter$Sort", "NEWEST"));
+                Mod.call(cfg, "setMeetsOnly", false);
+                Mod.call(cfg, "setHideFull", true);
+                Mod.call(cfg, "setActivityFilter", Mod.enumValue(CAT, "DUNGEONS"), "");
+            }
             if (gateWas == null) {
                 gateWas = (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled");
             }
@@ -133,6 +147,7 @@ final class PartyFinder1018Cases {
         c.ticks(2);
     }
 
+    /** /cpf's screen: since 2026-10-18 the start screen, where he picks the activity. */
     private static Screen openScreen(UiCase c) {
         c.onClient(mc -> {
             try {
@@ -145,6 +160,40 @@ final class PartyFinder1018Cases {
         });
         c.ticks(4);
         return c.onClient(McCompat::screen);
+    }
+
+    /** Opens /cpf's screen and really clicks {@code label} ("Dungeons", "Misc"...) on the start screen. */
+    private static Screen openActivity(UiCase c, String label) {
+        Screen s = openScreen(c);
+        List<AbstractWidget> b = widgets(c, s, label);
+        c.check(b.size() == 1, "the start screen should have one " + label + " button, has " + b.size());
+        if (!b.isEmpty()) {
+            InvBatchCases.clickWidget(c, s, b.get(0));
+        }
+        c.ticks(3);
+        return c.onClient(McCompat::screen);
+    }
+
+    private static Object tabOf(UiCase c, Screen s) {
+        return c.onClient(mc -> Mod.call(s, "tabForTest"));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> shownLeaders(UiCase c, Screen s) {
+        return c.onClient(mc -> {
+            List<String> out = new ArrayList<>();
+            for (Object l : (List<Object>) Mod.call(s, "shownForTest")) {
+                out.add(String.valueOf(Mod.call(l, "leader")));
+            }
+            return out;
+        });
+    }
+
+    private static String listingJson(String id, String leader, String category, String activity, String reqs, String note,
+                                      int size, int max, long ageMs) {
+        return "{\"id\":\"" + id + "\",\"leader\":\"" + leader + "\",\"leaderUuid\":\"00000000-0000-0000-0000-000000000001\","
+                + "\"verified\":true,\"category\":\"" + category + "\",\"activity\":\"" + activity + "\",\"note\":\"" + note
+                + "\",\"reqs\":" + reqs + ",\"size\":" + size + ",\"max\":" + max + ",\"source\":\"mod\",\"ageMs\":" + ageMs + "}";
     }
 
     /** Every widget on the screen whose plain label is exactly {@code label}. */
@@ -169,10 +218,15 @@ final class PartyFinder1018Cases {
     }
 
     private static void putStats(String name, double cata, int secrets) {
+        putStats(name, cata, secrets, new JsonObject());
+    }
+
+    /** {@code pbMaster} as the stats cache holds it: {"s_plus": {"floor_7": "4:40"}}. */
+    private static void putStats(String name, double cata, int secrets, JsonObject pbMaster) {
         try {
             Class<?> rec = Mod.cls("partyfinder.PartyFinderStatsApi$PlayerStats");
             Object st = rec.getDeclaredConstructor(double.class, int.class, double.class, JsonObject.class,
-                    JsonObject.class, long.class).newInstance(cata, secrets, 8.0, new JsonObject(), new JsonObject(),
+                    JsonObject.class, long.class).newInstance(cata, secrets, 8.0, new JsonObject(), pbMaster,
                     System.currentTimeMillis());
             @SuppressWarnings("unchecked")
             Map<String, Object> cache = (Map<String, Object>) Mod.field("partyfinder.PartyFinderStatsApi", "CACHE");
@@ -190,6 +244,10 @@ final class PartyFinder1018Cases {
             reset(c);
             String me = self(c);
             c.onClient(mc -> {
+                putStats("Bob_J", 45.0, 9000); // a request is acceptable only with known stats that meet the listing
+                for (int i = 0; i < 8; i++) {
+                    putStats("Crowd" + i, 45.0, 9000);
+                }
                 Map<String, Integer> reqs = new LinkedHashMap<>();
                 reqs.put("cata", 40);
                 Object spec = Mod.staticCall(F, "spec", Mod.enumValue(CAT, "DUNGEONS"), "M7", "s+ only", reqs, 5, false);
@@ -289,7 +347,7 @@ final class PartyFinder1018Cases {
                 Mod.staticCall(F, "onListingsForTest", "dungeons", "{\"listings\":[" + alice + "," + carl + "]}");
                 return null;
             });
-            Screen s = openScreen(c);
+            Screen s = openActivity(c, "Dungeons");
             List<AbstractWidget> joins = widgets(c, s, "Join");
             c.check(joins.size() == 2, "the Dungeons tab should show two Join buttons, shows " + joins.size());
             if (!joins.isEmpty()) {
@@ -342,7 +400,7 @@ final class PartyFinder1018Cases {
             c.check(sent.equals(List.of("/party accept Alice_L")), "a second invite from Alice was accepted again: " + sent);
 
             // The race: Carl's invite arrives before the relay poll says he accepted.
-            Screen s2 = openScreen(c);
+            Screen s2 = openActivity(c, "Dungeons");
             List<AbstractWidget> joins2 = widgets(c, s2, "Join");
             c.check(joins2.size() == 1, "Carl's listing should still offer Join (Alice's shows Accepted): " + joins2.size());
             sleep(2100);
@@ -464,7 +522,7 @@ final class PartyFinder1018Cases {
                 Mod.staticCall(F, "onListingsForTest", "dungeons", "{\"listings\":[" + hard + "," + easy + "]}");
                 return null;
             });
-            Screen s = openScreen(c);
+            Screen s = openActivity(c, "Dungeons");
             List<AbstractWidget> joins = widgets(c, s, "Join");
             c.check(joins.size() == 2, "two Join buttons expected, " + joins.size());
             if (joins.size() == 2) {
@@ -520,14 +578,14 @@ final class PartyFinder1018Cases {
                 return out;
             });
             c.note("categories: " + cats);
-            c.check(cats.equals(List.of("DUNGEONS", "DIANA", "FISHING")), "the finder's categories are not exactly Dungeons, Diana, Fishing: " + cats);
+            c.check(cats.equals(List.of("DUNGEONS", "DIANA", "FISHING", "MISC")), "the finder's categories are not exactly Dungeons, Diana, Fishing, Misc: " + cats);
             Screen s = openScreen(c);
             List<String> tabs = c.onClient(mc -> {
                 List<String> out = new ArrayList<>();
                 for (GuiEventListener l : s.children()) {
                     if (l instanceof AbstractWidget w) {
                         String t = ModScreenDriver.label(w);
-                        if (t.equals("Kuudra") || t.equals("Dungeons") || t.equals("Diana") || t.equals("Fishing")) {
+                        if (t.equals("Kuudra") || t.equals("Dungeons") || t.equals("Diana") || t.equals("Fishing") || t.equals("Misc")) {
                             out.add(t);
                         }
                     }
@@ -535,7 +593,7 @@ final class PartyFinder1018Cases {
                 return out;
             });
             c.note("tab buttons on the menu: " + tabs);
-            c.check(tabs.equals(List.of("Dungeons", "Diana", "Fishing")), "the menu's tab buttons are not Dungeons, Diana, Fishing: " + tabs);
+            c.check(tabs.equals(List.of("Dungeons", "Diana", "Fishing", "Misc")), "the start screen's buttons are not Dungeons, Diana, Fishing, Misc: " + tabs);
             boolean detector = c.onClient(mc -> {
                 try {
                     Class.forName("com.killer560.hub.lfg.KuudraQueueDetector");
@@ -577,11 +635,12 @@ final class PartyFinder1018Cases {
                 Mod.call(cfg, "setDualList", false);
                 Mod.call(cfg, "setAutoAcceptInvite", false);
                 Mod.call(cfg, "setCheckRequirements", false);
+                Mod.call(cfg, "setAutoAcceptRequests", false);
                 Mod.call(cfg, "save");
                 Mod.staticCall(CFG, "load");
                 Object r = Mod.cfg(CFG);
                 Object[] a = {Mod.call(r, "isEnabledRaw"), Mod.call(r, "isDualList"), Mod.call(r, "isAutoAcceptInvite"),
-                        Mod.call(r, "isCheckRequirements")};
+                        Mod.call(r, "isCheckRequirements"), Mod.call(r, "isAutoAcceptRequests")};
                 Mod.call(r, "setEnabled", true);
                 Mod.call(r, "save");
                 try {
@@ -591,17 +650,17 @@ final class PartyFinder1018Cases {
                 }
                 Mod.staticCall("profiles.ProfileManager", "reloadAllConfigs");
                 Object p = Mod.cfg(CFG);
-                return new Object[]{a[0], a[1], a[2], a[3], Mod.call(p, "isEnabledRaw"), Mod.call(p, "isDualList")};
+                return new Object[]{a[0], a[1], a[2], a[3], Mod.call(p, "isEnabledRaw"), Mod.call(p, "isDualList"), a[4]};
             });
             c.note("after save/load: " + java.util.Arrays.toString(back));
             c.check(Boolean.FALSE.equals(back[0]) && Boolean.FALSE.equals(back[1]) && Boolean.FALSE.equals(back[2])
-                    && Boolean.FALSE.equals(back[3]), "a setting did not survive save/load");
+                    && Boolean.FALSE.equals(back[3]) && Boolean.FALSE.equals(back[6]), "a setting did not survive save/load");
             c.check(Boolean.FALSE.equals(back[4]) && Boolean.TRUE.equals(back[5]),
                     "a profile reload did not re-read the file (enabled false, dualList default true): " + back[4] + " " + back[5]);
             List<String> missing = c.onClient(mc -> {
                 List<String> out = new ArrayList<>();
                 for (String label : new String[]{"Custom Party Finder: ON", "Open Party Finder", "Dual-List Hypixel Queues: ON",
-                        "Auto Accept Invite: ON", "Check Requirements: ON"}) {
+                        "Auto Accept Requests: ON", "Auto Accept Invite: ON", "Check Requirements: ON"}) {
                     Object d = Mod.staticCall("gui.SettingTooltips", "describeScoped", "Custom Party Finder", "Dungeon", label);
                     if (d == null) {
                         out.add(label);
@@ -621,7 +680,7 @@ final class PartyFinder1018Cases {
                 }
             });
             c.note("tab: " + firstRow);
-            c.check(firstRow.startsWith("Custom Party Finder: ON") && firstRow.endsWith("5 rows"), "the tab's first row is not its switch: " + firstRow);
+            c.check(firstRow.startsWith("Custom Party Finder: ON") && firstRow.endsWith("6 rows"), "the tab's first row is not its switch: " + firstRow);
             boolean inDungeon = c.onClient(mc -> {
                 try {
                     Object folder = Mod.cls("gui.tab.DungeonTab").getConstructor().newInstance();
@@ -639,6 +698,431 @@ final class PartyFinder1018Cases {
             }
             c.onClient(mc -> {
                 Mod.staticCall(CFG, "load");
+                return null;
+            });
+        }
+    }
+
+    // ==== 2026-10-18 fixes (mod branch todo-pf-fix-1018) ===========================================================
+
+    private static void listAs(UiCase c, String activity, Map<String, Integer> reqs, String id) {
+        String me = self(c);
+        c.onClient(mc -> {
+            Object spec = Mod.staticCall(F, "spec", Mod.enumValue(CAT, "DUNGEONS"), activity, "", reqs, 5, false);
+            Mod.staticCall(F, "list", spec);
+            StringBuilder r = new StringBuilder("{");
+            reqs.forEach((k, v) -> r.append(r.length() > 1 ? "," : "").append('"').append(k).append("\":").append(v));
+            r.append('}');
+            Mod.staticCall(F, "onUpsertForTest", "{\"listing\":" + listingJson(id, me, activity, r.toString(), 1, 5, "mod") + "}");
+            return null;
+        });
+    }
+
+    private static String listingOf(UiCase c, String id, String activity, String reqs) {
+        return listingJson(id, self(c), activity, reqs, 1, 5, "mod");
+    }
+
+    private static JsonObject m7(String splus) {
+        JsonObject floors = new JsonObject();
+        floors.addProperty("floor_7", splus);
+        JsonObject o = new JsonObject();
+        o.add("s_plus", floors);
+        return o;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> inboxVerdicts(UiCase c) {
+        return c.onClient(mc -> {
+            List<String> out = new ArrayList<>();
+            for (Object row : (List<Object>) Mod.staticCall(F, "inboxRows")) {
+                out.add(Mod.call(Mod.call(row, "request"), "joiner") + " " + Mod.call(row, "verdict"));
+            }
+            return out;
+        });
+    }
+
+    // ---- 1018-pf-autoaccept-leader -----------------------------------------------------------------------------------
+
+    /**
+     * killer560's "for the custom party the auto accept didnt work": his own log (26.1.2 Untested Cheat, 19:45:06) has a
+     * request from AutoBallz that sat 47 s with nothing sent until he unlisted - only a click on Accept could answer one.
+     * With Auto Accept Requests on, a request that meets every checked requirement is invited with no click, through the
+     * command gate; one under them, and one whose stats are not known yet, are not.
+     */
+    static void autoAcceptLeader(UiCase c) throws Exception {
+        List<String> sent = tapCommands();
+        try {
+            reset(c);
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(CFG), "setAutoAcceptRequests", true);
+                putStats("Good_G", 35.2, 4000);
+                putStats("Low_L", 25.0, 4000);
+                return null;
+            });
+            Map<String, Integer> reqs = new LinkedHashMap<>();
+            reqs.put("cata", 30);
+            listAs(c, "F7", reqs, "aaaa00000001");
+            String listing = listingOf(c, "aaaa00000001", "F7", "{\"cata\":30}");
+            me(c, "{\"listing\":" + listing + ",\"requests\":[" + request("bbbb00000001", "Good_G") + ","
+                    + request("bbbb00000002", "Low_L") + "," + request("bbbb00000003", "Unk_U") + "],\"outgoing\":[]}");
+            c.ticks(5);
+            List<String> cl = calls(c);
+            c.note("no click: commands " + sent + "; relay calls " + cl + "; inbox " + inboxVerdicts(c) + "; events " + events(c));
+            c.check(sent.equals(List.of("/party invite Good_G")), "Auto Accept Requests did not invite exactly Good_G: " + sent);
+            c.check(cl.contains("POST /lfg/respond {\"requestId\":\"bbbb00000001\",\"accept\":true}"),
+                    "the relay was not told Good_G was accepted: " + cl);
+            c.check(cl.contains("POST /lfg/respond {\"requestId\":\"bbbb00000002\",\"accept\":false}"),
+                    "the relay was not told Low_L was turned away: " + cl);
+            c.check(!cl.contains("POST /lfg/respond {\"requestId\":\"bbbb00000003\",\"accept\":true}"), "Unk_U (stats unknown) was accepted");
+            // Off: a fresh request that meets it waits for a click (3.3 s on, so the gate's spacing is not the reason).
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(CFG), "setAutoAcceptRequests", false);
+                putStats("Late_L", 40.0, 100);
+                return null;
+            });
+            sleep(3300);
+            me(c, "{\"listing\":" + listing + ",\"requests\":[" + request("bbbb00000004", "Late_L") + "],\"outgoing\":[]}");
+            c.ticks(5);
+            c.check(sent.size() == 1, "with Auto Accept Requests off a request was invited without a click: " + sent);
+        } finally {
+            PacketTrace.tap = null;
+            c.onClient(mc -> {
+                Mod.staticCall(F, "resetForTest");
+                restoreGate();
+                return null;
+            });
+        }
+    }
+
+    // ---- 1018-pf-cata-gate-leader -----------------------------------------------------------------------------------
+
+    /** "if i put the cata level as 30 and someone tries to join without that cata then it shouldnt be able to send it to
+     *  me": the leader's menu shows such a request rejected with no Accept, a direct accept sends nothing, and the relay is
+     *  told "declined"; a joiner who meets it keeps his Accept button. */
+    static void cataGateLeader(UiCase c) throws Exception {
+        List<String> sent = tapCommands();
+        try {
+            reset(c);
+            c.onClient(mc -> {
+                putStats("Good_G", 35.2, 4000);
+                putStats("Low_L", 25.0, 4000);
+                return null;
+            });
+            Map<String, Integer> reqs = new LinkedHashMap<>();
+            reqs.put("cata", 30);
+            listAs(c, "F7", reqs, "aaaa00000002");
+            String listing = listingOf(c, "aaaa00000002", "F7", "{\"cata\":30}");
+            me(c, "{\"listing\":" + listing + ",\"requests\":[" + request("cccc00000001", "Low_L") + ","
+                    + request("cccc00000002", "Good_G") + "],\"outgoing\":[]}");
+            c.ticks(3);
+            Screen s = openScreen(c);
+            c.ticks(3);
+            int accepts = widgets(c, s, "Accept").size();
+            List<String> verdicts = inboxVerdicts(c);
+            String direct = c.onClient(mc -> String.valueOf(Mod.staticCall(F, "accept", "cccc00000001")));
+            c.ticks(2);
+            List<String> cl = calls(c);
+            c.note("inbox " + verdicts + "; Accept buttons " + accepts + "; direct accept of Low_L: " + direct + "; commands "
+                    + sent + "; relay calls " + cl);
+            c.check(verdicts.contains("Low_L REJECTED"), "Low_L (Cata 25 against 30) is not shown rejected: " + verdicts);
+            c.check(verdicts.contains("Good_G OK"), "Good_G (Cata 35) is not acceptable: " + verdicts);
+            c.check(accepts == 1, "the menu should offer one Accept (Good_G's), offers " + accepts);
+            c.check(!"null".equals(direct) && sent.isEmpty(), "accepting Low_L went through: " + direct + " " + sent);
+            c.check(cl.contains("POST /lfg/respond {\"requestId\":\"cccc00000001\",\"accept\":false}"), "the relay was not told Low_L was declined: " + cl);
+            String drawn = c.onClient(mc -> String.valueOf(Mod.call(s, "inboxForTest")));
+            c.check(drawn.contains("Low_L") && drawn.contains("Cata Level 30"), "the rejected row does not say why: " + drawn);
+        } finally {
+            PacketTrace.tap = null;
+            c.onClient(mc -> {
+                Mod.staticCall(F, "resetForTest");
+                restoreGate();
+                return null;
+            });
+        }
+    }
+
+    // ---- 1018-pf-cata-gate-joiner -----------------------------------------------------------------------------------
+
+    /** His own stats not known yet: Join on a listing with a Cata Level requirement does not reach the relay, and says why. */
+    static void cataGateJoiner(UiCase c) throws Exception {
+        List<String> sent = tapCommands();
+        try {
+            reset(c);
+            String me = self(c);
+            c.onClient(mc -> {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> cache = (Map<String, Object>) Mod.field("partyfinder.PartyFinderStatsApi", "CACHE");
+                cache.remove(me.toLowerCase(Locale.ROOT));
+                Mod.staticCall(F, "onListingsForTest", "dungeons", "{\"listings\":["
+                        + listingJson("dddd00000001", "Alice_L", "F7", "{\"cata\":30}", 2, 5, "mod") + "]}");
+                return null;
+            });
+            Screen s = openActivity(c, "Dungeons");
+            List<AbstractWidget> joins = widgets(c, s, "Join");
+            if (!joins.isEmpty()) {
+                InvBatchCases.clickWidget(c, s, joins.get(0));
+            }
+            c.ticks(3);
+            List<String> cl = calls(c);
+            String status = c.onClient(mc -> String.valueOf(Mod.field(McCompat.screen(mc), "message")));
+            c.note("Join buttons " + joins.size() + "; relay calls " + cl + "; message '" + status + "'");
+            c.check(joins.size() == 1, "one Join button expected, " + joins.size());
+            c.check(cl.stream().noneMatch(x -> x.startsWith("POST /lfg/join")), "Join went to the relay with his stats unknown: " + cl);
+            c.check(status.contains("stats"), "the menu did not say his stats are not known: " + status);
+            c.check(sent.isEmpty(), "a command went out: " + sent);
+        } finally {
+            PacketTrace.tap = null;
+            c.onClient(mc -> {
+                Mod.staticCall(F, "resetForTest");
+                restoreGate();
+                return null;
+            });
+        }
+    }
+
+    // ---- 1018-pf-pb-gate --------------------------------------------------------------------------------------------
+
+    /** A PB requirement (M7 S+ at most 5:00): a joiner at 5:30 is rejected with no Accept, one at 4:40 can be accepted. */
+    static void pbGate(UiCase c) throws Exception {
+        List<String> sent = tapCommands();
+        try {
+            reset(c);
+            c.onClient(mc -> {
+                putStats("Slow_S", 45.0, 9000, m7("5:30"));
+                putStats("Quick_Q", 45.0, 9000, m7("4:40"));
+                return null;
+            });
+            Map<String, Integer> reqs = new LinkedHashMap<>();
+            reqs.put("pb", 300);
+            listAs(c, "M7", reqs, "aaaa00000003");
+            String listing = listingOf(c, "aaaa00000003", "M7", "{\"pb\":300}");
+            me(c, "{\"listing\":" + listing + ",\"requests\":[" + request("eeee00000001", "Slow_S") + ","
+                    + request("eeee00000002", "Quick_Q") + "],\"outgoing\":[]}");
+            c.ticks(3);
+            Screen s = openScreen(c);
+            c.ticks(3);
+            List<String> verdicts = inboxVerdicts(c);
+            List<AbstractWidget> accepts = widgets(c, s, "Accept");
+            c.note("inbox " + verdicts + "; Accept buttons " + accepts.size());
+            c.check(verdicts.contains("Slow_S REJECTED") && verdicts.contains("Quick_Q OK"), "PB verdicts wrong: " + verdicts);
+            c.check(accepts.size() == 1, "one Accept (Quick_Q's) expected, " + accepts.size());
+            if (accepts.size() == 1) {
+                InvBatchCases.clickWidget(c, s, accepts.get(0));
+            }
+            c.ticks(3);
+            c.check(sent.equals(List.of("/party invite Quick_Q")), "the Accept click did not invite exactly Quick_Q: " + sent);
+            String shown = c.onClient(mc -> {
+                Map<String, Integer> r = new LinkedHashMap<>();
+                r.put("pb", 300);
+                List<?> list = (List<?>) Mod.staticCall("lfg.LfgRequirements", "check", Mod.enumValue(CAT, "DUNGEONS"), "M7", r, "Slow_S");
+                return list.isEmpty() ? "" : String.valueOf(Mod.call(list.get(0), "plain"));
+            });
+            c.check(shown.equals("S+ PB 5:00 (has 5:30)"), "the PB requirement reads wrong: " + shown);
+        } finally {
+            PacketTrace.tap = null;
+            c.onClient(mc -> {
+                Mod.staticCall(F, "resetForTest");
+                restoreGate();
+                return null;
+            });
+        }
+    }
+
+    // ---- 1018-pf-search / -filter / -sort ---------------------------------------------------------------------------
+
+    private static Screen browseFixture(UiCase c) {
+        reset(c);
+        String me = self(c);
+        c.onClient(mc -> {
+            putStats(me, 32.0, 5000);
+            Mod.staticCall(F, "onListingsForTest", "dungeons", "{\"listings\":["
+                    + listingJson("ffff00000001", "Alice_L", "dungeons", "F7", "{\"cata\":40}", "carry wanted", 2, 5, 100) + ","
+                    + listingJson("ffff00000002", "Carl_Z", "dungeons", "M3", "{\"cata\":20}", "chill run", 3, 5, 9000) + ","
+                    + listingJson("ffff00000003", "Dora_D", "dungeons", "F7", "{\"cata\":30}", "s+ only", 1, 5, 4000) + "]}");
+            return null;
+        });
+        return openActivity(c, "Dungeons");
+    }
+
+    /** Search matches the leader's name, the activity and the note. */
+    static void search(UiCase c) throws Exception {
+        try {
+            Screen s = browseFixture(c);
+            List<String> before = shownLeaders(c, s);
+            EditBox box = c.onClient(mc -> {
+                for (GuiEventListener l : s.children()) {
+                    if (l instanceof EditBox e) {
+                        return e;
+                    }
+                }
+                return null;
+            });
+            c.check(box != null, "no search box on the Dungeons page");
+            List<String> byName = typeSearch(c, s, box, "carl");
+            List<String> byActivity = typeSearch(c, s, box, "f7");
+            List<String> byNote = typeSearch(c, s, box, "s+ only");
+            c.note("all " + before + "; 'carl' " + byName + "; 'f7' " + byActivity + "; 's+ only' " + byNote);
+            c.check(before.size() == 3, "three listings expected before searching: " + before);
+            c.check(byName.equals(List.of("Carl_Z")), "searching a leader's name: " + byName);
+            c.check(byActivity.size() == 2 && byActivity.containsAll(List.of("Alice_L", "Dora_D")), "searching an activity: " + byActivity);
+            c.check(byNote.equals(List.of("Dora_D")), "searching a note: " + byNote);
+        } finally {
+            c.onClient(mc -> {
+                Mod.staticCall(F, "resetForTest");
+                restoreGate();
+                return null;
+            });
+        }
+    }
+
+    private static List<String> typeSearch(UiCase c, Screen s, EditBox box, String text) {
+        if (box == null) {
+            return List.of();
+        }
+        c.onClient(mc -> {
+            box.setValue(text);
+            return null;
+        });
+        c.ticks(2);
+        return shownLeaders(c, s);
+    }
+
+    /** "I meet": only parties whose requirements he is not under (Cata 32 against 40 / 20 / 30); saved and reloaded. */
+    static void filter(UiCase c) throws Exception {
+        try {
+            Screen s = browseFixture(c);
+            List<AbstractWidget> b = widgets(c, s, "Any reqs");
+            c.check(b.size() == 1, "one 'Any reqs' filter button expected, " + b.size());
+            if (!b.isEmpty()) {
+                InvBatchCases.clickWidget(c, s, b.get(0));
+            }
+            c.ticks(2);
+            List<String> meets = shownLeaders(c, s);
+            boolean saved = c.onClient(mc -> {
+                Mod.staticCall(CFG, "load");
+                return (Boolean) Mod.call(Mod.cfg(CFG), "isMeetsOnly");
+            });
+            c.note("'I meet' with Cata 32: " + meets + "; saved " + saved);
+            c.check(meets.size() == 2 && meets.containsAll(List.of("Carl_Z", "Dora_D")), "the 'I meet' filter kept the wrong parties: " + meets);
+            c.check(saved, "the filter did not survive a reload");
+        } finally {
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(CFG), "setMeetsOnly", false);
+                Mod.call(Mod.cfg(CFG), "save");
+                Mod.staticCall(F, "resetForTest");
+                restoreGate();
+                return null;
+            });
+        }
+    }
+
+    /** Newest first by default; one click on the sort makes it oldest first, again lowest Cata requirement first; saved. */
+    static void sort(UiCase c) throws Exception {
+        try {
+            Screen s = browseFixture(c);
+            List<String> newest = shownLeaders(c, s);
+            List<AbstractWidget> b = widgets(c, s, "Newest");
+            c.check(b.size() == 1, "one 'Newest' sort button expected, " + b.size());
+            if (!b.isEmpty()) {
+                InvBatchCases.clickWidget(c, s, b.get(0));
+            }
+            c.ticks(2);
+            List<String> oldest = shownLeaders(c, s);
+            List<AbstractWidget> b2 = widgets(c, s, "Oldest");
+            if (!b2.isEmpty()) {
+                InvBatchCases.clickWidget(c, s, b2.get(0));
+            }
+            c.ticks(2);
+            List<String> lowest = shownLeaders(c, s);
+            String saved = c.onClient(mc -> {
+                Mod.staticCall(CFG, "load");
+                return String.valueOf(Mod.call(Mod.cfg(CFG), "getSort"));
+            });
+            c.note("newest " + newest + "; oldest " + oldest + "; lowest req " + lowest + "; saved " + saved);
+            c.check(newest.equals(List.of("Alice_L", "Dora_D", "Carl_Z")), "newest first is wrong: " + newest);
+            c.check(oldest.equals(List.of("Carl_Z", "Dora_D", "Alice_L")), "oldest first is wrong: " + oldest);
+            c.check(lowest.equals(List.of("Carl_Z", "Dora_D", "Alice_L")), "lowest Cata requirement first is wrong: " + lowest);
+            c.check(saved.equals("LOWEST_REQ"), "the sort did not survive a reload: " + saved);
+        } finally {
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(CFG), "setSort", Mod.enumValue("lfg.LfgFilter$Sort", "NEWEST"));
+                Mod.call(Mod.cfg(CFG), "save");
+                Mod.staticCall(F, "resetForTest");
+                restoreGate();
+                return null;
+            });
+        }
+    }
+
+    // ---- 1018-pf-start-screen / 1018-pf-misc ------------------------------------------------------------------------
+
+    /** /cpf opens on the start screen; Dungeons shows only Dungeons parties; Back returns to the start screen. */
+    static void startScreen(UiCase c) throws Exception {
+        try {
+            reset(c);
+            c.onClient(mc -> {
+                Mod.staticCall(F, "onListingsForTest", "dungeons", "{\"listings\":["
+                        + listingJson("abab00000001", "Alice_L", "dungeons", "F7", "{}", "", 2, 5, 100) + ","
+                        + listingJson("abab00000002", "Fred_F", "fishing", "Fishing", "{}", "", 2, 5, 100) + ","
+                        + listingJson("abab00000003", "Mona_M", "misc", "Slayer T4", "{}", "", 2, 5, 100) + "]}");
+                return null;
+            });
+            Screen start = openScreen(c);
+            Object startTab = tabOf(c, start);
+            int joinsOnStart = widgets(c, start, "Join").size();
+            Screen s = openActivity(c, "Dungeons");
+            Object tab = tabOf(c, s);
+            List<String> shown = shownLeaders(c, s);
+            List<AbstractWidget> back = widgets(c, s, "< Back");
+            if (!back.isEmpty()) {
+                InvBatchCases.clickWidget(c, s, back.get(0));
+            }
+            c.ticks(3);
+            Object after = tabOf(c, c.onClient(McCompat::screen));
+            int dungeonButtons = widgets(c, c.onClient(McCompat::screen), "Dungeons").size();
+            c.note("start tab " + startTab + " (Join buttons " + joinsOnStart + "); after Dungeons: " + tab + " " + shown
+                    + "; after Back: " + after + ", Dungeons button " + dungeonButtons);
+            c.check(startTab == null && joinsOnStart == 0, "/cpf did not open on the start screen: " + startTab);
+            c.check(String.valueOf(tab).equals("DUNGEONS") && shown.equals(List.of("Alice_L")), "Dungeons did not show only Dungeons parties: " + tab + " " + shown);
+            c.check(back.size() == 1, "no Back button on the Dungeons page");
+            c.check(after == null && dungeonButtons == 1, "Back did not return to the start screen: " + after);
+        } finally {
+            c.onClient(mc -> {
+                Mod.staticCall(F, "resetForTest");
+                restoreGate();
+                return null;
+            });
+        }
+    }
+
+    /** Misc is on the start screen and shows only Misc parties; its Create page takes a typed activity. */
+    static void misc(UiCase c) throws Exception {
+        try {
+            reset(c);
+            c.onClient(mc -> {
+                Mod.staticCall(F, "onListingsForTest", "misc", "{\"listings\":["
+                        + listingJson("acac00000001", "Mona_M", "misc", "Slayer T4", "{}", "", 2, 5, 100) + ","
+                        + listingJson("acac00000002", "Alice_L", "dungeons", "F7", "{}", "", 2, 5, 100) + "]}");
+                return null;
+            });
+            Screen s = openActivity(c, "Misc");
+            Object tab = tabOf(c, s);
+            List<String> shown = shownLeaders(c, s);
+            List<AbstractWidget> create = widgets(c, s, "Create");
+            if (!create.isEmpty()) {
+                InvBatchCases.clickWidget(c, s, create.get(0));
+            }
+            c.ticks(3);
+            Screen form = c.onClient(McCompat::screen);
+            boolean typed = c.onClient(mc -> Mod.field(form, "activityBox") != null);
+            c.note("Misc page: " + tab + " " + shown + "; Create has a typed activity box: " + typed);
+            c.check(String.valueOf(tab).equals("MISC"), "the Misc button did not open Misc: " + tab);
+            c.check(shown.equals(List.of("Mona_M")), "Misc did not show only Misc parties: " + shown);
+            c.check(typed, "Misc's Create page has no activity box");
+        } finally {
+            c.onClient(mc -> {
+                Mod.staticCall(F, "resetForTest");
+                restoreGate();
                 return null;
             });
         }

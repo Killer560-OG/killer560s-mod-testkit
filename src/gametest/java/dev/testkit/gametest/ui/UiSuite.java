@@ -166,7 +166,10 @@ public class UiSuite implements FabricClientGameTest {
             "803-ui-autokick-joininstance-ignored", "804-ui-autokick-forged-queue", "805-ui-autokick-floor-source"};
     /** killer560's 2026-10-18 to-do item 1, the Custom Party Finder ({@link PartyFinder1018Cases}). Own block for merges. */
     static final String[] PARTY_FINDER_1018_CASES = {"1018-pf-leader-accept", "1018-pf-joiner-accept", "1018-pf-dual-list",
-            "1018-pf-requirements", "1018-pf-settings", "1018-pf-nokuudra"};
+            "1018-pf-requirements", "1018-pf-settings", "1018-pf-nokuudra",
+            // 2026-10-18 fixes (mod branch todo-pf-fix-1018)
+            "1018-pf-autoaccept-leader", "1018-pf-cata-gate-leader", "1018-pf-cata-gate-joiner", "1018-pf-pb-gate",
+            "1018-pf-search", "1018-pf-filter", "1018-pf-sort", "1018-pf-start-screen", "1018-pf-misc"};
     /** killer560's 2026-10-11 "left click forward, right click backward" for every cycling setting ({@link CycleButtonCases}). Own block. */
     static final String[] CYCLE_BACK_CASES = {"806-ui-cycle-buttons-both-ways"};
     /** killer560's 2026-10-14 to-do batch: defaults on, removed toggles gone ({@link DocSmall1014Cases}). Own block. */
@@ -674,6 +677,15 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1018-pf-requirements", PartyFinder1018Cases::requirements);
                     UiCase.run(ctx, "1018-pf-settings", PartyFinder1018Cases::settings);
                     UiCase.run(ctx, "1018-pf-nokuudra", PartyFinder1018Cases::noKuudra);
+                    UiCase.run(ctx, "1018-pf-autoaccept-leader", PartyFinder1018Cases::autoAcceptLeader);
+                    UiCase.run(ctx, "1018-pf-cata-gate-leader", PartyFinder1018Cases::cataGateLeader);
+                    UiCase.run(ctx, "1018-pf-cata-gate-joiner", PartyFinder1018Cases::cataGateJoiner);
+                    UiCase.run(ctx, "1018-pf-pb-gate", PartyFinder1018Cases::pbGate);
+                    UiCase.run(ctx, "1018-pf-search", PartyFinder1018Cases::search);
+                    UiCase.run(ctx, "1018-pf-filter", PartyFinder1018Cases::filter);
+                    UiCase.run(ctx, "1018-pf-sort", PartyFinder1018Cases::sort);
+                    UiCase.run(ctx, "1018-pf-start-screen", PartyFinder1018Cases::startScreen);
+                    UiCase.run(ctx, "1018-pf-misc", PartyFinder1018Cases::misc);
                     // ---- cycle-back (806) ----
                     UiCase.run(ctx, "806-ui-cycle-buttons-both-ways", c -> CycleButtonCases.cycleButtons(c, deny));
                     // ---- doc-small (807) ----
