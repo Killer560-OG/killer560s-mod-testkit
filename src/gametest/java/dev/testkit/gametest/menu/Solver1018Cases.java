@@ -53,6 +53,7 @@ final class Solver1018Cases {
         MenuSuite.test(s, "1018-croesus-page-match", Solver1018Cases::croesus);
         MenuSuite.test(s, "1018-magebeam-shape", Solver1018Cases::mageBeam);
         MenuSuite.test(s, "1018-doorkeys-circle", Solver1018Cases::doorKeys);
+        MenuSuite.test(s, "1018-doorkeys-tracer-height-radius", Solver1018Cases::doorKeysTracerHeight);
         MenuSuite.test(s, "1018-roomalerts-current-room", Solver1018Cases::roomAlerts);
         MenuSuite.test(s, "1018-scorecalc-toggles-colors", Solver1018Cases::scoreCalc);
         MenuSuite.test(s, "1018-clicksound-volume", Solver1018Cases::clickVolume);
@@ -322,6 +323,21 @@ final class Solver1018Cases {
             c.check(anyStarts(texts, "Circle Height:"), "Radius style has no Circle Height slider: " + texts);
             c.check(!anyStarts(texts, "Sphere Fill:"), "Radius style shows a sphere fill row");
         }
+    }
+
+    // ---- Door Keys tracer height (Radius, Circle Height 0) -----------------------------------------------------------
+
+    static void doorKeysTracerHeight(Session c) throws Exception {
+        String feature = "doorkeys.DoorKeysFeature";
+        double standY = 64.3, box = 0.5;
+        double circle = (Double) Mod.staticCall(feature, "circleY", standY, box, 0f);
+        // Premise: the circle is above the block centre (64.5), so a tracer at the block centre would not meet it.
+        c.check(Math.abs(circle - 64.5) > 0.01, "premise: circle " + circle + " equals the block centre, test would be vacuous");
+        Vec3 radius = (Vec3) Mod.staticCall(feature, "tracerTarget", new Vec3(10.3, standY, 20.7), box, 0f, false);
+        c.check(Math.abs(radius.y - circle) < 1e-9, "Radius tracer ends at " + radius.y + ", the circle is at " + circle);
+        c.check(radius.x == 10.5 && radius.z == 20.5, "the tracer end left the block centre in x/z: " + radius);
+        Vec3 sphere = (Vec3) Mod.staticCall(feature, "tracerTarget", new Vec3(10.3, standY, 20.7), box, 0f, true);
+        c.check(sphere.y == 64.5, "Sphere tracer height changed: " + sphere.y);
     }
 
     // ---- 24: Room Alerts --------------------------------------------------------------------------------------------
