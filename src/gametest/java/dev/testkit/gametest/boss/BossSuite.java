@@ -47,6 +47,8 @@ public class BossSuite implements FabricClientGameTest {
                     LightsDeviceCases.register(s);
                     // Auto Simon Says Stim and Momentum (1018-ss-*, branch todo-ss-stim-1018), own block.
                     SsStimMomentumCases.register(s);
+                    // Arrow Align Trigger Bot CPS range, crouch toggles, Leave Last Arrow (1018-arrowalign-*, branch todo-arrowalign-cps-1018).
+                    ArrowAlignCpsCases.register(s);
                 });
     }
 }

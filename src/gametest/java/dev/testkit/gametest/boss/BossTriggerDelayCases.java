@@ -278,13 +278,16 @@ final class BossTriggerDelayCases {
     private static final int[] LAYOUT = {5, 7, 9, 10, 12, 14, 15, 17, 19};
 
     private static void arrowAlign(Session c) throws Exception {
-        int[] delays = {0, 300};
+        // The delay is a CPS range now (todo-arrowalign-cps-1018): 20 CPS (a 50 ms gap) against 4 CPS (250 ms), the click
+        // moving by the 200 ms between them.
+        int[] cpsOf = {20, 4};
+        int[] delays = {50, 250};
         long[] t = new long[2];
         int[] targets = {7, 12};
         try (HxKit.Settings off = gateOff(c);
              HxKit.Settings on = new HxKit.Settings(c).with(AA_CFG, "SolverEnabled", true)
                      .with(AA_CFG, "PreventMisclicksEnabled", false).with(AA_CFG, "AuraEnabled", false)
-                     .with(AA_CFG, "TriggerBotEnabled", true).with(AA_CFG, "TriggerBotDelayMs", 0)) {
+                     .with(AA_CFG, "TriggerBotEnabled", true)) {
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
             c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
             // Loaded first: the console's fill refuses an unloaded area.
@@ -306,9 +309,9 @@ final class BossTriggerDelayCases {
             c.waitUntil("Arrow Align to read a solution", mc -> Mod.field(Mod.ROOT + "arrowalign.ArrowAlignFeature",
                     "solution") != null, 100);
             for (int i = 0; i < 2; i++) {
-                int delay = delays[i];
+                int finalI = i;
                 c.onClient(mc -> {
-                    Mod.call(Mod.cfg(AA_CFG), "setTriggerBotDelayMs", delay);
+                    Mod.call(Mod.cfg(AA_CFG), "setTriggerBotCpsRange", cpsOf[finalI], cpsOf[finalI]);
                     return null;
                 });
                 TriggerTiming.lookAway(c);
@@ -342,7 +345,7 @@ final class BossTriggerDelayCases {
                 TriggerTiming.lookAway(c);
                 c.ctx().waitTicks(10);
             }
-            verdict(c, "Arrow Align Trigger Bot", t, delays[1]);
+            verdict(c, "Arrow Align Trigger Bot", t, delays[1] - delays[0]);
         } finally {
             c.hx().removeStands();
             c.server().command("fill -3 119 72 3 125 82 air");
