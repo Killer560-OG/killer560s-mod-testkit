@@ -22,8 +22,8 @@ import java.util.Map;
  *
  * <p>The sim floor of 1015-sim-map-item-only (Entrance, New Trap, Andesite, Cell, Blood) and its Hypixel-style map item,
  * plus a Blood room painted as an unopened grey square below Andesite with a red (colour 18) door between them. Read from
- * what the Dungeon Map HUD draws: the Blood fill must equal the unopened grey exactly (Darken Unexplored 0.4 would make
- * it 0.6 of that), it carries no mark fills of its own, and Andesite - an ordinary unopened room - is still darkened.
+ * what the Dungeon Map HUD draws: the Blood fill must equal Funny Map's greyed brown (Normal at 0.6, since the
+ * 1018-map-unopened correction), it carries no mark fills of its own, and Cell - an ordinary unopened room - is unchanged.
  * The cheat build repeats it with Funny Map ON, where Cell (not on the item) must still be its own colour darkened.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -168,11 +168,11 @@ public class SimMapBloodTests implements FabricClientGameTest {
         System.out.println(String.format(Locale.ROOT, "[%s] %s: Blood %s, Andesite %s, Cell %s, %d small fill(s) on Blood",
                 CASE, tag, SimMapItemTests.hexOrNone(blood), SimMapItemTests.hexOrNone(andesite),
                 SimMapItemTests.hexOrNone(cell), marks));
-        int want = funny ? SimMapItemTests.multiply(UNOPENED, 0.6f) : UNOPENED;
+        // Corrected again the same day (1018-map-unopened-*): in both styles it is Funny Map's greyed brown.
+        int want = SimMapItemTests.multiply(NORMAL, 0.6f);
         if (blood == null || blood != want) {
             failures.add(tag + ": the unopened Blood Room is " + SimMapItemTests.hexOrNone(blood) + ", want "
-                    + SimMapItemTests.hexOrNone(want) + (funny ? " (greyed like every unopened room)"
-                    : " (the light unopened grey, undarkened)"));
+                    + SimMapItemTests.hexOrNone(want) + " (Funny Map's greyed brown)");
         }
         if (!funny && marks != 0) {
             failures.add(tag + ": " + marks + " mark fill(s) drawn on the unopened Blood Room (a \"?\")");

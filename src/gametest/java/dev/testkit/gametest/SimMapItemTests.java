@@ -42,7 +42,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * <ul>
  *   <li>legit, and cheat with Funny Map OFF: exactly the three rooms the item shows are drawn; no Blood red and no Cell
  *       brown anywhere, though the world has both loaded;</li>
- *   <li>cheat with Funny Map ON: all five, Cell and Blood in their own colours darkened by Darken Unexplored;</li>
+ *   <li>cheat with Funny Map ON: all five, Cell in its own colour darkened by Darken Unexplored and the unopened Blood in the
+ *   greyed brown (Normal darkened, 1018-map-unopened);</li>
  *   <li>Darken Unexplored changes the drawn Andesite (and, with Funny Map, Cell) fill: 0 against 0.6 differ by exactly
  *       the multiply;</li>
  *   <li>Checkmarks: New Trap's mark is Hypixel's own, copied off the item (white pixels inside New Trap's square, the
@@ -206,9 +207,12 @@ public class SimMapItemTests implements FabricClientGameTest {
                 if (fills.size() != 5 || itemOnly) {
                     failures.add("Funny Map ON drew " + fills.size() + " room(s) (map-item-only " + itemOnly + "), want all 5");
                 }
-                if (cell == null || cell != multiply(NORMAL, 0.6f) || blood == null || blood != multiply(BLOOD, 0.6f)) {
+                // The unopened Blood Room is Funny Map's greyed brown, not its red darkened (killer560, 2026-10-18,
+                // 1018-map-unopened-*): every other unexplored room keeps its own colour darkened.
+                if (cell == null || cell != multiply(NORMAL, 0.6f) || blood == null || blood != multiply(NORMAL, 0.6f)) {
                     failures.add("Funny Map's unexplored rooms are not drawn in their own colour darkened by Darken "
-                            + "Unexplored 0.4: Cell " + hexOrNone(cell) + ", Blood " + hexOrNone(blood));
+                            + "Unexplored 0.4 (the Blood Room in the greyed brown): Cell " + hexOrNone(cell) + ", Blood "
+                            + hexOrNone(blood));
                 }
                 ctx.runOnClient(mc -> Mod.set(MAP, "setDarkenUnopened", 0f));
                 Integer cell0 = colourAt(roomFills(ctx), 1, 2);

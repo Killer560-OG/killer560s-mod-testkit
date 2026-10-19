@@ -80,6 +80,8 @@
 			"dev.testkit.gametest.SimMapItemTests",
 			"dev.testkit.gametest.SimMapBloodTests",
 			"dev.testkit.gametest.SimMapUnknownRoomTests",
+			"dev.testkit.gametest.SimMapUnopenedFunnyTests",
+			"dev.testkit.gametest.SimMapUnopenedBloodTests",
 			"dev.testkit.gametest.SimNoammMapTests",
 			"dev.testkit.gametest.SimAutoRoutesTests",
 			"dev.testkit.gametest.GrimAutoRoutesTests",
