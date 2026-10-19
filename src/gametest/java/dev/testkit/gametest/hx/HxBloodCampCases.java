@@ -79,6 +79,491 @@ final class HxBloodCampCases {
         s.test("193-hx-bloodcamp-named-blood-mobs", HxBloodCampCases::namedBloodMobs);
         // blood-ap3-1018 (doc item 19): the map calling his Blood Room something else must not stop the Trigger Bot.
         s.test("1018-bloodcamp-map-type", HxBloodCampCases::mapType);
+        // blood-trigger-1018: "Blood just attacked for triggerbot before the kill timer went off and then it attacked 1
+        // mob after and didnt attack again", and the Attack Speed header in the tab.
+        s.test("1018-bloodtrigger-offset", HxBloodCampCases::killTimerOffset);
+        s.test("1018-bloodtrigger-next-mob", HxBloodCampCases::nextMob);
+        s.test("1018-bloodtrigger-menu", HxBloodCampCases::attackSpeedMenu);
+        // Coordinator additions 2026-10-18: the Kill Sound only on the hit tick, and a Timer Text Color.
+        s.test("1018-bloodtrigger-sound", HxBloodCampCases::hitTickSound);
+        s.test("1018-bloodtrigger-text-color", HxBloodCampCases::timerTextColor);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Long> statTicks(Session c, String method, long from) {
+        return c.onClient(mc -> {
+            List<Long> out = new ArrayList<>();
+            for (Long t : (List<Long>) Mod.staticCall(BC, method)) {
+                if (t >= from) {
+                    out.add(t);
+                }
+            }
+            return out;
+        });
+    }
+
+    /**
+     * killer560, 2026-10-18: "The sound should play only on the tick the trigger bot should hit to kill a mob, not every
+     * tick while a mob is on the wall or starting to spawn." A mob skull shuffles on the wall (three 0.3-block moves, 12
+     * ticks apart), then two mobs fly out one after the other and the Trigger Bot hits each. Every Kill Sound must fall
+     * on a hit tick - one per mob, on the tick of its first click - and nothing else may sound: not the shuffle, not a
+     * countdown starting. Main sounds at the box turning green (a tick before the hit at offset -1) and at each start.
+     */
+    private static void hitTickSound(Session c) {
+        boolean cheat = Mod.isCheat();
+        Object[] was = moveTimerState(c);
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "KillSound", true).with(BC_CFG, "CountdownStartSound", true).with(BC_CFG, "SoundVolume", 0.5f);
+            if (cheat) {
+                s.with(BC_CFG, "TriggerBotEnabled", true);
+            }
+            setMoveTimer(c, -1L, -1L, false);
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            long t0 = c.onClient(mc -> mc.level.getGameTime());
+            int start0 = intStat(c, "countdownStartSoundsPlayed");
+            int kill0 = intStat(c, "killSoundsPlayed");
+            // The shuffle on the wall.
+            String mobTex = c.onClient(mc -> anyOf(Mod.field(Mod.ROOT + BC, "MOB_SKULL_TEXTURES")));
+            String wall = c.hx().stand(-424.5, 152.0, -405.5, null, "marker", false, "invisible", false, "helmet",
+                    head(mobTex));
+            c.ctx().waitTicks(10);
+            // Back and forth by 1.2 (a smaller step rounds to no movement in Noamm's integer sum, and is never tracked).
+            boolean[] shuffleTracked = {false};
+            for (int i = 0; i < 3; i++) {
+                c.hx().call("entity.nudge", "uuid", wall, "dx", i % 2 == 0 ? 1.2 : -1.2);
+                c.ctx().waitTicks(1);
+                c.hx().call("entity.nudge", "uuid", wall, "dx", i % 2 == 0 ? 0.1 : -0.1);
+                for (int w = 0; w < 12; w++) {
+                    c.ctx().waitTicks(1);
+                    shuffleTracked[0] |= c.onClient(mc -> endVector() != null);
+                }
+            }
+            for (int w = 0; w < 60; w++) {
+                c.ctx().waitTicks(1);
+                shuffleTracked[0] |= c.onClient(mc -> endVector() != null);
+            }
+            c.note("wall shuffle tracked as a trip: " + shuffleTracked[0]);
+            c.check(shuffleTracked[0], "the wall shuffle was never tracked as a trip - that half tests nothing");
+            int shuffleKill = intStat(c, "killSoundsPlayed") - kill0;
+            int shuffleStart = intStat(c, "countdownStartSoundsPlayed") - start0;
+            c.hx().call("entity.remove", "uuid", wall);
+            c.ctx().waitTicks(3);
+            List<Long> hits = new ArrayList<>();
+            for (int k = 0; k < 2; k++) {
+                long before = c.onClient(mc -> mc.level.getGameTime());
+                stand(c, 0f, 0f);
+                Trip t = trip(c, Mob.FRAGILE, true, 20, null);
+                List<Long> clicks = statTicks(c, "recentClickTicks", before);
+                c.note("mob " + (k + 1) + ": client click ticks " + clicks + "; " + fmt(t));
+                c.check(t.tracked, "mob " + (k + 1) + ": the trip was never tracked - nothing was tested");
+                if (cheat && !clicks.isEmpty()) {
+                    hits.add(clicks.get(0));
+                }
+            }
+            // A jar without killSoundTicks (main) still counts its sounds; the counts alone show where it differs.
+            List<Long> sounds;
+            try {
+                sounds = statTicks(c, "killSoundTicks", t0);
+            } catch (AssertionError e) {
+                sounds = new ArrayList<>();
+                c.note("this jar has no killSoundTicks(): " + e.getMessage());
+            }
+            int kills = intStat(c, "killSoundsPlayed") - kill0;
+            int starts = intStat(c, "countdownStartSoundsPlayed") - start0;
+            c.note(String.format(Locale.ROOT, "wall shuffle: %d kill / %d start sound(s); two mobs: hit ticks %s, kill sound"
+                    + " ticks %s (%d played), countdown start sounds %d", shuffleKill, shuffleStart, hits, sounds, kills,
+                    starts));
+            c.check(shuffleKill == 0 && shuffleStart == 0, "a skull shuffling on the wall made a sound");
+            c.check(starts == 0, "a countdown start sound played (" + starts + ")");
+            if (!cheat) {
+                // No Trigger Bot in the legit jar; the sound still goes on the tick it would hit, one per mob.
+                c.check(kills == 2, "legit jar: want one Kill Sound per mob, got " + kills);
+                return;
+            }
+            c.check(hits.size() == 2, "the Trigger Bot did not hit both mobs - the premise failed: " + hits);
+            c.check(kills == 2 && sounds.size() == 2, "want exactly one Kill Sound per mob (2), got " + kills + " " + sounds);
+            c.check(sounds.equals(hits), "the Kill Sounds " + sounds + " are not on the hit ticks " + hits);
+        } finally {
+            setMoveTimer(c, (Long) was[0], (Long) was[1], (Boolean) was[2]);
+            c.hx().removeStands();
+        }
+    }
+
+    /** "Add a text colour option for the blood camp text": the countdown is drawn in it, the tab has the row, it saves. */
+    private static void timerTextColor(Session c) {
+        Object[] was = moveTimerState(c);
+        int purple = 0xFFAA55FF;
+        try (HxKit.Settings s = base(c)) {
+            int def = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(BC_CFG), "getTimerTextColor"));
+            int defConst = c.onClient(mc -> (Integer) Mod.field(BC_CFG, "DEFAULT_TIMER_TEXT_COLOR"));
+            c.note(String.format(Locale.ROOT, "Timer Text Color as found #%08X, default #%08X", def, defConst));
+            c.check(defConst == 0xFFFFFFFF, "the default is not the white the timer always had");
+            s.with(BC_CFG, "TimerTextColor", purple);
+            setMoveTimer(c, -1L, -1L, false);
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            int[] drawn = {0};
+            trip(c, Mob.NONE, false, 0, (i, mc) -> {
+                if (i == 10) {
+                    drawn[0] = (Integer) Mod.staticCall(BC, "lastTimerTextColor");
+                }
+            });
+            c.note(String.format(Locale.ROOT, "countdown drawn in #%08X with the setting at #%08X", drawn[0], purple));
+            c.check(drawn[0] == purple, String.format(Locale.ROOT, "the countdown was drawn in #%08X, not the chosen #%08X",
+                    drawn[0], purple));
+            List<String> rows = c.onClient(mc -> {
+                try {
+                    Object tab = Mod.cls("gui.tab.BloodCampTab").getConstructor().newInstance();
+                    @SuppressWarnings("unchecked")
+                    List<Object> ws = (List<Object>) Mod.call(tab, "buildWidgets", 10, 10, 300, (Runnable) () -> { });
+                    List<String> out = new ArrayList<>();
+                    for (Object w : ws) {
+                        out.add(((net.minecraft.client.gui.components.AbstractWidget) w).getMessage().getString()
+                                .replaceAll("§.", ""));
+                    }
+                    return out;
+                } catch (Exception e) {
+                    throw new AssertionError(e);
+                }
+            });
+            c.note("Blood Camp tab rows: " + rows);
+            c.check(rows.stream().anyMatch(r -> r.startsWith("Timer Text Color")), "no Timer Text Color row in the tab");
+            c.check(rows.stream().noneMatch(r -> r.startsWith("Countdown Start Sound") || r.startsWith("Start Sound Type")),
+                    "the Countdown Start Sound rows are still there");
+            String tip = c.onClient(mc -> String.valueOf(Mod.staticCall("gui.SettingTooltips", "describe", "Blood Camp",
+                    "Timer Text Color")));
+            c.note("tooltip: " + tip);
+            c.check(tip != null && tip.toLowerCase(Locale.ROOT).contains("colour"), "no tooltip for Timer Text Color: " + tip);
+            // Saved and loaded back from disk.
+            boolean ok = c.onClient(mc -> {
+                Object cfg = Mod.cfg(BC_CFG);
+                Mod.call(cfg, "save");
+                Mod.staticCall(BC_CFG, "load");
+                Object fresh = Mod.cfg(BC_CFG);
+                boolean same = fresh != cfg && (Integer) Mod.call(fresh, "getTimerTextColor") == purple;
+                Mod.setField(BC_CFG, "instance", cfg);
+                return same;
+            });
+            c.check(ok, "Timer Text Color did not survive a save and load");
+        } finally {
+            setMoveTimer(c, (Long) was[0], (Long) was[1], (Boolean) was[2]);
+            c.hx().removeStands();
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(BC_CFG), "save");
+                return null;
+            });
+        }
+    }
+
+    // ---- 1018 blood-trigger -----------------------------------------------------------------------------------------
+
+    private static final String MT = "bloodcamp.BloodCampMoveTimer";
+
+    /** The Kill Popup's state ({bloodOpenTick, moveAtTick, firstSpawns}) as it is now, to put back afterwards. */
+    private static Object[] moveTimerState(Session c) {
+        return c.onClient(mc -> new Object[]{Mod.field(MT, "bloodOpenTick"), Mod.field(MT, "moveAtTick"),
+                Mod.field(MT, "firstSpawns")});
+    }
+
+    private static void setMoveTimer(Session c, long bloodOpen, long moveAt, boolean firstSpawns) {
+        c.onClient(mc -> {
+            Mod.setField(MT, "bloodOpenTick", bloodOpen);
+            Mod.setField(MT, "moveAtTick", moveAt);
+            Mod.setField(MT, "firstSpawns", firstSpawns);
+            return null;
+        });
+    }
+
+    /** The countdown origin (client game tick of its first packet) of the trip being tracked, or -1. */
+    private static long tripStart() {
+        Map<?, ?> mobs = (Map<?, ?>) Mod.field(Mod.ROOT + BC, "bloodMobs");
+        for (Object data : mobs.values()) {
+            if (Mod.field(data, "endVector") != null) {
+                return (Long) Mod.field(data, "startedAtTick");
+            }
+        }
+        return -1L;
+    }
+
+    /**
+     * killer560, 2026-10-18: "Blood just attacked for triggerbot before the kill timer went off". His log of that run: the
+     * Trigger Bot clicked "use at 0.8 ticks" - on the mob's own countdown - in the same second the Kill Popup was armed
+     * 100 ticks before "KILL". The Watcher has greeted the room and sent the last wave (the popup's state is set
+     * directly, the way BloodCampMoveTimer leaves it after those two lines), and the popup's "KILL" is put D ticks after
+     * the trip's own countdown ends. The first click must go exactly -offset ticks after "KILL": offset -1 with D = 6 (the
+     * mob's trip is still live, so the trip's own click is held back) and offset +2 with D = 50 (the trip is over by
+     * then; the mob standing on the spot is the next mob). Main clicks on the countdown, before "KILL".
+     */
+    private static void killTimerOffset(Session c) {
+        boolean cheat = Mod.isCheat();
+        Object[] was = moveTimerState(c);
+        int lead = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(BC_CFG), "getKillPopupLeadTicks"));
+        try (HxKit.Settings s = base(c)) {
+            if (cheat) {
+                s.with(BC_CFG, "TriggerBotEnabled", true);
+            }
+            watcher(c, WATCHER_IN);
+            int[][] cases = {{-1, 6}, {2, 50}};
+            for (int[] k : cases) {
+                int off = k[0];
+                int d = k[1];
+                if (cheat) {
+                    c.onClient(mc -> {
+                        Mod.call(Mod.cfg(BC_CFG), "setTriggerOffsetTicks", off);
+                        return null;
+                    });
+                }
+                // Greeting seen, last wave not out yet: the popup has no "KILL" yet.
+                long now0 = c.onClient(mc -> mc.level.getGameTime());
+                setMoveTimer(c, now0, -1L, false); // a greeting "now" (a negative tick reads as none seen)
+                stand(c, 0f, 0f);
+                long[] killShown = {-1};
+                long[] start = {-1};
+                int clicks0 = intStat(c, "triggerClicks");
+                Trip t = trip(c, Mob.HURTABLE, true, d + 20, (i, mc) -> {
+                    if (i == 0) {
+                        start[0] = tripStart();
+                        killShown[0] = start[0] + 39 + d;
+                        Mod.setField(MT, "moveAtTick", killShown[0] + lead);
+                    }
+                });
+                List<Long> ticks = c.onClient(mc -> {
+                    @SuppressWarnings("unchecked")
+                    List<Long> all = (List<Long>) Mod.staticCall(BC, "recentClickTicks");
+                    List<Long> out = new ArrayList<>();
+                    for (Long tk : all) {
+                        if (tk >= start[0]) {
+                            out.add(tk);
+                        }
+                    }
+                    return out;
+                });
+                long expect = killShown[0] - off;
+                c.note(String.format(Locale.ROOT, "offset %d, KILL %d ticks after the countdown: trip start %d, KILL shows"
+                                + " at %d, want the first click at %d; client click ticks %s; %s", off, d, start[0],
+                        killShown[0], expect, ticks, fmt(t)));
+                c.check(t.tracked && start[0] >= 0, "offset " + off + ": the trip was never tracked - nothing was tested");
+                if (!cheat) {
+                    c.check(t.clicks == 0 && t.serverAttacks.isEmpty(), "legit jar: something clicked");
+                    continue;
+                }
+                c.check(!ticks.isEmpty() && !t.serverAttacks.isEmpty(), "offset " + off + ", D " + d
+                        + ": the Trigger Bot never attacked the mob standing on the spot");
+                if (!ticks.isEmpty()) {
+                    long first = ticks.get(0);
+                    c.check(first >= expect, String.format(Locale.ROOT, "offset %d: the first click went at %d, %d ticks"
+                            + " BEFORE the kill timer allowed it (%d)", off, first, expect - first, expect));
+                    c.check(first == expect, String.format(Locale.ROOT, "offset %d: the first click went at %d, want"
+                            + " exactly %d (-offset ticks after KILL)", off, first, expect));
+                }
+                c.check(intStat(c, "triggerClicks") - clicks0 == 1, "offset " + off + ": want one click on a mob that"
+                        + " was hit, got " + (intStat(c, "triggerClicks") - clicks0));
+            }
+        } finally {
+            setMoveTimer(c, (Long) was[0], (Long) was[1], (Boolean) was[2]);
+            c.hx().removeStands();
+        }
+    }
+
+    /**
+     * "...and then it attacked 1 mob after and didnt attack again." The first mob lands in his crosshair and is killed.
+     * The second lands while he looks elsewhere, and 25 ticks after its countdown ends - past the Trigger Bot's window -
+     * walks off its spot into his crosshair, in melee reach. The Trigger Bot must attack it; main never does (it only
+     * looked at a mob on its landing spot, within 20 ticks of its countdown's end).
+     */
+    private static void nextMob(Session c) {
+        boolean cheat = Mod.isCheat();
+        Object[] was = moveTimerState(c);
+        try (HxKit.Settings s = base(c)) {
+            if (cheat) {
+                s.with(BC_CFG, "TriggerBotEnabled", true);
+            }
+            setMoveTimer(c, -1L, -1L, false); // no greeting: no kill timer to wait for
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            Trip first = trip(c, Mob.FRAGILE, true, 20, null);
+            c.note("first mob: " + fmt(first));
+            c.check(first.tracked, "first mob: the trip was never tracked - nothing was tested");
+            if (cheat) {
+                c.check(!first.serverAttacks.isEmpty(), "first mob: the Trigger Bot did not attack it - the premise failed");
+            }
+            stand(c, 0f, 0f);
+            // Where the second mob walks to: in front of him, 3 blocks from its landing spot, in melee reach.
+            Vec3 to = new Vec3(-418.5, 151.0, -417.5);
+            Vec3 chest = to.add(0, 1.4, 0);
+            int due = 39;
+            int walkAt = due + 25;
+            long[] walkTick = {-1};
+            nextServerStep = i -> {
+                if (i == walkAt) {
+                    c.server().command(String.format(Locale.ROOT, "tp @e[tag=bc1015] %.2f %.2f %.2f", to.x, to.y, to.z));
+                    walkTick[0] = c.hx().call("server.tick").getAsLong();
+                }
+            };
+            int clicks0 = intStat(c, "triggerClicks");
+            Trip second = trip(c, Mob.HURTABLE, false, 45, (i, mc) -> {
+                float[] l = look(mc, chest);
+                mc.player.setYRot(l[0]);
+                mc.player.setXRot(l[1]);
+            });
+            int clicks = intStat(c, "triggerClicks") - clicks0;
+            List<Long> after = new ArrayList<>();
+            for (Long tk : second.serverAttacks) {
+                if (walkTick[0] >= 0 && tk >= walkTick[0]) {
+                    after.add(tk);
+                }
+            }
+            c.note(String.format(Locale.ROOT, "second mob: landed at %s, walked into his crosshair at server tick %d; %d"
+                    + " click(s); server attacks %s (%d after the walk); %s", second.end, walkTick[0], clicks,
+                    second.serverAttacks, after.size(), fmt(second)));
+            c.check(second.tracked && walkTick[0] >= 0, "second mob: the trip was never tracked or the mob never moved");
+            if (!cheat) {
+                c.check(clicks == 0 && second.serverAttacks.isEmpty(), "legit jar: the Trigger Bot clicked");
+                return;
+            }
+            c.check(second.serverAttacks.size() == after.size(), "second mob: attacked before it came into his crosshair: "
+                    + second.serverAttacks);
+            c.check(!after.isEmpty(), "second mob: it came into his crosshair in reach and the Trigger Bot never attacked it");
+        } finally {
+            nextServerStep = null;
+            setMoveTimer(c, (Long) was[0], (Long) was[1], (Boolean) was[2]);
+            c.hx().removeStands();
+        }
+    }
+
+    /** "For this menu make a small separator for the attack speed related stuff." */
+    @SuppressWarnings("unchecked")
+    private static void attackSpeedMenu(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            for (boolean[] on : new boolean[][]{{true, true}, {true, false}, {false, true}, {false, false}}) {
+                if (cheat) {
+                    c.onClient(mc -> {
+                        Object cfg = Mod.cfg(BC_CFG);
+                        Mod.call(cfg, "setTriggerBotEnabled", on[0]);
+                        Mod.call(cfg, "setAuraEnabled", on[1]);
+                        return null;
+                    });
+                }
+                List<Object[]> rows = c.onClient(mc -> {
+                    try {
+                        Object tab = Mod.cls("gui.tab.AutoBloodCampTab").getConstructor().newInstance();
+                        List<Object> ws = (List<Object>) Mod.call(tab, "buildWidgets", 10, 10, 300, (Runnable) () -> { });
+                        List<Object[]> out = new ArrayList<>();
+                        for (Object w : ws) {
+                            net.minecraft.client.gui.components.AbstractWidget aw = (net.minecraft.client.gui.components.AbstractWidget) w;
+                            out.add(new Object[]{aw.getMessage().getString(), aw.getY(), aw});
+                        }
+                        return out;
+                    } catch (Exception e) {
+                        throw new AssertionError("building AutoBloodCampTab: " + e, e);
+                    }
+                });
+                List<String> texts = new ArrayList<>();
+                for (Object[] r : rows) {
+                    texts.add(((String) r[0]).replaceAll("§.", "") + "@" + r[1]);
+                }
+                String label = "Trigger Bot " + (on[0] ? "on" : "off") + ", Aura " + (on[1] ? "on" : "off");
+                c.note(label + ": " + texts);
+                if (!cheat) {
+                    c.check(rows.isEmpty(), "legit jar: the Auto Blood Camp tab built rows: " + texts);
+                    return;
+                }
+                int header = -1;
+                int trigger = -1;
+                int aura = -1;
+                for (int i = 0; i < rows.size(); i++) {
+                    String t = (String) rows.get(i)[0];
+                    if (t.replaceAll("§.", "").equals("Attack Speed")) {
+                        c.check(header < 0, label + ": two Attack Speed headers");
+                        header = i;
+                        c.check(t.startsWith("§c§l"), label + ": the Attack Speed header is not in the red SectionHeaders"
+                                + " style: " + t);
+                    } else if (t.startsWith("Trigger Bot:")) {
+                        trigger = i;
+                    } else if (t.startsWith("Aura:")) {
+                        aura = i;
+                    }
+                }
+                c.check(trigger == 0 && aura == 1, label + ": the Trigger Bot and Aura switches are not the first row: "
+                        + texts);
+                if (!on[0] && !on[1]) {
+                    c.check(header < 0, label + ": an Attack Speed header over no settings: " + texts);
+                    continue;
+                }
+                c.check(header > aura, label + ": no Attack Speed header below the switches: " + texts);
+                if (header < 0) {
+                    continue;
+                }
+                List<String> want = new ArrayList<>();
+                if (on[0]) {
+                    want.add("Auto Detect Lag:");
+                    want.add("Trigger Offset:");
+                }
+                want.add("Never Miss:");
+                List<String> under = new ArrayList<>();
+                for (int i = header + 1; i < rows.size(); i++) {
+                    under.add(((String) rows.get(i)[0]).replaceAll("§.", ""));
+                }
+                boolean match = under.size() == want.size();
+                for (int i = 0; match && i < want.size(); i++) {
+                    match = under.get(i).startsWith(want.get(i));
+                }
+                c.check(match, label + ": under the Attack Speed header want " + want + " and nothing else, got " + under);
+                int hy = (Integer) rows.get(header)[1];
+                int prevBottom = (Integer) rows.get(header - 1)[1]
+                        + ((net.minecraft.client.gui.components.AbstractWidget) rows.get(header - 1)[2]).getHeight();
+                int nextY = header + 1 < rows.size() ? (Integer) rows.get(header + 1)[1] : Integer.MAX_VALUE;
+                c.check(hy >= prevBottom && hy + 12 <= nextY, String.format(Locale.ROOT, "%s: the header (y %d, 12 tall)"
+                        + " overlaps its neighbours (above ends %d, below starts %d)", label, hy, prevBottom, nextY));
+            }
+            if (!cheat) {
+                return;
+            }
+            // The rows under the header still save: press Never Miss and Auto Detect Lag, read the config back from disk.
+            c.onClient(mc -> {
+                try {
+                    Object cfg = Mod.cfg(BC_CFG);
+                    Mod.call(cfg, "setTriggerBotEnabled", true);
+                    Mod.call(cfg, "setAuraEnabled", false);
+                    boolean nm = (Boolean) Mod.call(cfg, "isNeverMiss");
+                    boolean adl = (Boolean) Mod.call(cfg, "isAutoDetectLag");
+                    int off = (Integer) Mod.call(cfg, "getTriggerOffsetTicks");
+                    Object tab = Mod.cls("gui.tab.AutoBloodCampTab").getConstructor().newInstance();
+                    List<Object> ws = (List<Object>) Mod.call(tab, "buildWidgets", 10, 10, 300, (Runnable) () -> { });
+                    for (Object w : ws) {
+                        String t = ((net.minecraft.client.gui.components.AbstractWidget) w).getMessage().getString();
+                        if (t.startsWith("Never Miss:") || t.startsWith("Auto Detect Lag:")) {
+                            Object onPress = Mod.field(w, "onPress");
+                            Class<?> btn = Mod.cls("gui.SettingsButtonWidget");
+                            Mod.cls("gui.SettingsButtonWidget$OnPress").getMethod("onPress", btn).invoke(onPress, w);
+                        }
+                    }
+                    Mod.call(cfg, "setTriggerOffsetTicks", off == -4 ? -3 : -4);
+                    Mod.call(cfg, "save");
+                    Mod.staticCall(BC_CFG, "load");
+                    Object fresh = Mod.cfg(BC_CFG);
+                    boolean ok = fresh != cfg && (Boolean) Mod.call(fresh, "isNeverMiss") == !nm
+                            && (Boolean) Mod.call(fresh, "isAutoDetectLag") == !adl
+                            && (Integer) Mod.call(fresh, "getTriggerOffsetTicks") == (off == -4 ? -3 : -4);
+                    // Put the instance the case's restores point at back, with its old values, and save those.
+                    Mod.setField(BC_CFG, "instance", cfg);
+                    Mod.call(cfg, "setNeverMiss", nm);
+                    Mod.call(cfg, "setAutoDetectLag", adl);
+                    Mod.call(cfg, "setTriggerOffsetTicks", off);
+                    Mod.call(cfg, "save");
+                    if (!ok) {
+                        throw new AssertionError("Never Miss / Auto Detect Lag / Trigger Offset did not survive a save"
+                                + " and load");
+                    }
+                    return null;
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+            });
+            c.note("Never Miss, Auto Detect Lag and Trigger Offset pressed/set, saved and loaded back from disk");
+        }
     }
 
     // ---- 1018 -------------------------------------------------------------------------------------------------------

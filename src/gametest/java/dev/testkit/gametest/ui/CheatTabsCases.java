@@ -48,8 +48,10 @@ final class CheatTabsCases {
     private static final String TIPS = "gui.SettingTooltips";
     private static final List<String> AUTO_ROWS = List.of("Trigger Bot", "Aura", "Auto Detect Lag", "Trigger Offset",
             "Never Miss", "Freecam Mode");
+    // Mod blood-trigger-1018: the Countdown Start Sound and its type are gone (one sound, on the hit tick), and the
+    // countdown has a Timer Text Color.
     private static final List<String> LEGIT_ROWS = List.of("Show Overlay", "Kill Popup", "Spawn Line",
-            "Countdown Start Sound", "Kill Sound", "Start Sound Type", "Kill Sound Type", "Sound Volume");
+            "Timer Text Color", "Kill Sound", "Kill Sound Type", "Sound Volume");
 
     private CheatTabsCases() {
     }
@@ -364,17 +366,21 @@ final class CheatTabsCases {
                             + " flight (one step is %.3f); text '%s'", a.predictError, a.oldPredictError,
                     a.lineSettledError, a.lineFlightError, a.step, a.text));
             c.check(a.tracked, "A: the mod never tracked the stand - no move packets reached Blood Camp");
-            if (afterA[0] - before[0] != 1) {
-                c.problem("A: expected exactly one countdown start sound, got " + (afterA[0] - before[0]));
+            // Mod blood-trigger-1018: no countdown start sound at all, and the Kill Sound on the Trigger Bot's hit tick -
+            // the box turning green moved by Trigger Offset.
+            int offset = c.onClient(mc -> (Integer) Mod.call(cfg, "getTriggerOffsetTicks"));
+            if (afterA[0] - before[0] != 0) {
+                c.problem("A: expected no countdown start sound, got " + (afterA[0] - before[0]));
             }
             if (afterA[1] - before[1] != 1) {
                 c.problem("A: expected exactly one kill sound, got " + (afterA[1] - before[1]));
             }
-            if (a.startSoundAt < 0 || a.startSoundAt > 8) {
-                c.problem("A: the start sound came at tick +" + a.startSoundAt + ", not with the first moves");
-            }
-            if (a.killSoundAt < 0 || Math.abs(a.killSoundAt - a.greenAt) > 1) {
-                c.problem("A: the kill sound came at +" + a.killSoundAt + ", the box turned green at +" + a.greenAt);
+            // greenAt is read off a rendered frame, which already shows the next game tick (the level ticks between the
+            // mod's START_CLIENT_TICK and the frame), so the hit tick reads -offset or -offset + 1 frames after it.
+            int lag = a.killSoundAt - a.greenAt;
+            if (a.killSoundAt < 0 || (lag != -offset && lag != -offset + 1)) {
+                c.problem("A: the kill sound came at +" + a.killSoundAt + ", the box turned green at +" + a.greenAt
+                        + " and the hit is " + (-offset) + " tick(s) after that");
             }
             c.note("A: box green " + a.greenAfterStart + " ticks after the first move packet (countdown "
                     + a.countdown + ", minus the ping lead)");
@@ -406,8 +412,8 @@ final class CheatTabsCases {
             c.note("B: three mobs together -> " + (afterB[0] - before[0]) + " start, " + (afterB[1] - before[1])
                     + " kill sound(s)");
             c.check(b.tracked, "B: the mod never tracked the stands");
-            if (afterB[0] - before[0] != 1 || afterB[1] - before[1] != 1) {
-                c.problem("B: three mobs at one moment must make one start and one kill sound");
+            if (afterB[0] - before[0] != 0 || afterB[1] - before[1] != 1) {
+                c.problem("B: three mobs at one moment must make one kill sound and no start sound");
             }
 
             // ---- C: both sounds off -> silence ----
