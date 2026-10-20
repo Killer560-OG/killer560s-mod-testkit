@@ -9248,14 +9248,15 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      * redstone block with the key found puts it in - the block goes and a stand wears the key - and counts one secret).
      * Hypixel gives the room's key secret for the PLACING (wiki, Redstone Key: "rewards 1 secret"), not the pickup.
      * <ul>
-     *   <li>keyawait, by hand: a node click with no key, and the key pickup, each leave await:1 unmet; the node click with
-     *   the key meets it and the server has the key in; a teammate's key (found server-side only) put in by his click
-     *   meets it once the server's answer shows.</li>
+     *   <li>keyawait, by hand: a node click with no key leaves await:1 unmet; the key pickup meets it once the skull is
+     *   gone (stall-1020: his routes count the pickup - Redstone Crypt #1 waits for its chest and the key - though the
+     *   room's secret is the placing); the node click with the key meets it and the server has the key in; a teammate's
+     *   key (found server-side only) put in by his click meets it once the server's answer shows.</li>
      *   <li>keyaura: Secret Aura (Redstone Key + Place Redstone Key) takes the key and puts it in with no input, while the
-     *   route's await:1 waits: two use_item_on packets went out, the server has the key in, and the await was met by the
-     *   placing (its line) and not before it (no met line between the pickup and the placing).</li>
-     *   <li>keyreach: the node 5.1 from his eye to its centre (past the 4.7 skull range): the key is taken, the node is
-     *   not clicked and the await stays unmet; a node walled in on all six sides, in reach, is never clicked either;
+     *   route's await:1 waits: two use_item_on packets went out, the server has the key in, the await was met at the
+     *   pickup, and the placing followed once the route was done.</li>
+     *   <li>keyreach: the node 5.1 from his eye to its centre (past the 4.7 skull range): the key is taken (which meets the
+     *   await) and the node is not clicked; a node walled in on all six sides, in reach, is never clicked either;
      *   stood in reach of an open node, it goes in.</li>
      * </ul>
      */
@@ -9334,7 +9335,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             note.accept(awaitRun(ctx, "a node click with no key", false,
                     () -> rightClick(ctx, node[0], node[1], node[2], Direction.UP)));
             check(placed(ctx) == p0 && !serverAir(ctx, node[0], node[1], node[2]), "the node took a key nobody had found");
-            note.accept(awaitRun(ctx, "our key pickup", false, () -> rightClick(ctx, key[0], key[1], key[2], Direction.UP)));
+            note.accept(awaitRun(ctx, "our key pickup", true, () -> rightClick(ctx, key[0], key[1], key[2], Direction.UP)));
             check(serverAir(ctx, key[0], key[1], key[2]), "premise: the sim server did not take the key on his click");
             note.accept(awaitRun(ctx, "our click putting the key in", true,
                     () -> rightClick(ctx, node[0], node[1], node[2], Direction.UP)));
@@ -9402,7 +9403,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 List<String> log = LogTap.since(m);
                 for (int i = 0; i < log.size(); i++) {
                     String l = log.get(i);
-                    if (l.contains("redstone key at") && l.contains("not a secret") && pickupAt < 0) {
+                    if (l.contains("you took the redstone key") && pickupAt < 0) {
                         pickupAt = i;
                     }
                     if (l.contains("redstone key put on its redstone block") && placeAt < 0) {
@@ -9421,10 +9422,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 check(keyGone, "Secret Aura did not take the key (server side)");
                 check(nodeIn && placedNow == 1, "Secret Aura did not put the key in (server side, placed " + placedNow + ")");
                 check(clicks >= 2, "only " + clicks + " use_item_on packet(s) went out for the key and its node");
-                check(met, "the route's await:1 was never met by the aura's placing");
+                check(met, "the route's await:1 was never met by the aura's pickup");
                 check(pickupAt >= 0 && placeAt > pickupAt, "the log does not show the pickup, then the placing");
-                check(metAt > placeAt, "the await was met before the key was put in (met line " + metAt + ", placing "
-                        + placeAt + ")");
+                check(metAt > pickupAt, "the await was met before the key was taken (met line " + metAt + ", pickup "
+                        + pickupAt + ")");
             } finally {
                 auraOff(ctx);
                 stopRoute(ctx);
@@ -9460,7 +9461,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 check(taken, "premise: Secret Aura did not take the key");
                 check(d > 4.7, "premise: the far node is only " + d + " from the eye");
                 check(!farIn && placed(ctx) == p0, "Secret Aura put the key in a node " + d + " from his eye");
-                check(!metFar, "the await was met with the key only picked up");
+                // stall-1020: the pickup is one await event (his routes count it), so await:1 is met by it here.
+                check(metFar, "the await was not met by the key's pickup");
                 stopRoute(ctx);
 
                 // In reach but walled in: every face against stone. Never clicked.
