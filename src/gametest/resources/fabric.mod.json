@@ -72,6 +72,7 @@
 			"dev.testkit.gametest.SimServerLagTests",
 			"dev.testkit.gametest.SimClickGapTests",
 			"dev.testkit.gametest.SimAutoClearEtaTests",
+			"dev.testkit.gametest.SimAutoClear1020Tests",
 			"dev.testkit.gametest.SimPathLandTests",
 			"dev.testkit.gametest.SimIcePathShoveTests",
 			"dev.testkit.gametest.SimSmoothTeleportTests",

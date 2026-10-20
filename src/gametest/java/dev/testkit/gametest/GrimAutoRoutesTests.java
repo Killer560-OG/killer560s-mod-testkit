@@ -202,6 +202,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-mimic", GrimAutoRoutesTests::caseMimic);
             s.test("62-argrim-1017-mimicaim", GrimAutoRoutesTests::caseMimicAim); // ar-bridges-bat-1017
             s.test("62-argrim-autoclear", GrimAutoRoutesTests::caseAutoClear);
+            s.test("62-argrim-1020-acbat", GrimAutoRoutesTests::caseAutoClearBat); // ac-1020
             // The Interactive Map's own executor (livemap/autoclear/ClearExecutor), last: a map warp or a Go To sets the
             // map-arrival interlock (only a START node arms afterwards) and Go To leaves edit mode on.
             // Auto Secret (mod auto-secret): drives the same map warp and route; before imwarp, after the AR cases.
@@ -1882,6 +1883,118 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 + " onGiveUp=" + gaveUp.get());
         c.note("autoclear: 3 starred mobs (open, in a wall, behind a wall) killed by " + delta(before, "witherImpacts")
                 + " Wither Impact(s) and " + delta(before, "etherwarps") + " etherwarp(s), no entity packet");
+        noteFlags(c, s);
+    }
+
+    /**
+     * Auto Clear with the Spirit Sceptre on GrimAC (mod ac-1020, 2026-10-20): three starred zombies 12-15 blocks off in
+     * the open arena, one walked back and forth by the server ({@code dungeon.move}, 0.25 blocks a tick) so the bats are
+     * LED, and a mana figure on the action bar (1000 max: the one-tap Intelligence floor is 4,480, the tags say 20) so
+     * every first bat is trusted and Auto Clear moves on to the next mob the tick it leaves. The server has no bat, so
+     * nothing dies: each mob is shot, left, shot again when its bat is late, and skipped at Mob Timeout. What is read is
+     * the client's traffic under that - fast turns between mobs, a use per turn - and GrimAC for the whole stretch.
+     */
+    private static void caseAutoClearBat(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        c.hx().give(5, "minecraft:iron_sword[custom_data={id:\"BAT_WAND\"},unbreakable={}]");
+        String auto = "com.killer560.hub.autoclear.AutoClearFeature";
+        String autoCfg = "com.killer560.hub.autoclear.AutoClearConfig";
+        boolean isNew = ctx.computeOnClient(mc -> {
+            Object cfg = ModUnderTest.config(autoCfg);
+            ModUnderTest.set(cfg, "setEnabled", true);
+            ModUnderTest.set(cfg, "setHyperionHops", false);
+            ModUnderTest.call(cfg, "setMobTimeoutTicks", new Class<?>[]{int.class}, new Object[]{80});
+            ModUnderTest.call(cfg, "setWeapon", new Class<?>[]{ModUnderTest.enumValue(autoCfg + "$Weapon",
+                    "SPIRIT_SCEPTRE").getClass()}, new Object[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "SPIRIT_SCEPTRE")});
+            try {
+                ModUnderTest.set(cfg, "setPredictiveBats", true);
+                Object at = ModUnderTest.enumValue(autoCfg + "$OneTap", "AT_ONCE");
+                ModUnderTest.call(cfg, "setOneTap", new Class<?>[]{at.getClass()}, new Object[]{at});
+                return true;
+            } catch (RuntimeException | Error e) {
+                return false;
+            }
+        });
+        c.hx().call("actionbar.packet", "text", "§c1000/1000❤     §b1000/1000✎ Mana");
+        tpRel(ctx, 5.5, 15.5, -90f, 0f);
+        ctx.waitTicks(10);
+        double[][] spots = {{19.5, 8.5}, {20.5, 15.5}, {19.5, 22.5}};
+        List<JsonObject> mobs = new ArrayList<>();
+        List<Vec3> at = new ArrayList<>();
+        for (double[] sp : spots) {
+            Vec3 v = ctx.computeOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                        double.class, double.class}, new Object[]{frame, sp[0], (double) F, sp[1]});
+            });
+            at.add(v);
+            mobs.add(c.hx().call("dungeon.starred", "x", v.x, "y", v.y, "z", v.z).getAsJsonObject());
+        }
+        ctx.waitTicks(20);
+        long m = LogTap.mark();
+        startSampling(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class, Runnable.class,
+                java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> { }, (java.util.function.Consumer<String>)
+                why -> { }}));
+        // The middle mob walks along the arena's z axis, 0.25 a tick, 4 blocks each way.
+        Vec3 base = at.get(1);
+        double off = 0;
+        double dir = 0.5;
+        int ticks = 0;
+        for (; ticks < 600; ticks += 2) {
+            ctx.waitTicks(2);
+            off += dir;
+            if (Math.abs(off) >= 4) {
+                dir = -dir;
+            }
+            Vec3 p = ctx.computeOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                        double.class, double.class}, new Object[]{frame, 20.5, (double) F, 15.5});
+            });
+            Vec3 alongZ = ctx.computeOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                        double.class, double.class}, new Object[]{frame, 20.5, (double) F, 16.5});
+            });
+            Vec3 step = alongZ.subtract(p);
+            Vec3 to = base.add(step.scale(off));
+            c.hx().call("dungeon.move", "id", mobs.get(1).get("mob").getAsString(), "stand",
+                    mobs.get(1).get("stand").getAsString(), "x", to.x, "y", to.y, "z", to.z);
+            if (!ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto, "isBusy"))) {
+                break;
+            }
+        }
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "cancel"));
+        ctx.waitTicks(5);
+        List<Sample> s = stopSampling(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(autoCfg), "setEnabled", false));
+        int trusted = 0;
+        int led = 0;
+        int interacts = 0;
+        for (String l : LogTap.since(m)) {
+            if (l.contains("[AutoClear]")) {
+                println("  " + l.replaceAll("^.*?\\[AutoClear\\]", "[AutoClear]"));
+            }
+            trusted += l.contains("one-tap:") && l.contains("trusting the bat") ? 1 : 0;
+            led += l.contains("leading the bat") ? 1 : 0;
+        }
+        for (Sample x : s) {
+            interacts += (int) x.out().stream().filter(p -> p.contains("interact")).count();
+        }
+        printTrace("acbat", s);
+        println("acbat: jar " + (isNew ? "NEW" : "OLD") + ", " + ticks + " ticks, use_item " + count(s, "use_item")
+                + ", one-tap trusted " + trusted + ", lead lines " + led + ", entity packets " + interacts);
+        check(count(s, "use_item") > 0, "no use_item at all - Auto Clear never fired a bat, so nothing was measured");
+        check(interacts == 0, interacts + " entity packet(s)");
+        if (isNew) {
+            check(trusted > 0, "the new jar never trusted a bat (the one-tap path did not run)");
+            check(led > 0, "the new jar never led the walking mob (the predictive path did not run)");
+        }
+        c.note("acbat: " + count(s, "use_item") + " sceptre uses at 3 mobs (one walking), one-tap trusted " + trusted
+                + ", led " + led);
         noteFlags(c, s);
     }
 

@@ -536,7 +536,8 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	}
 	// 1016-sim-fullclear: -PfullclearRuns=N fresh floors in one client, -PfullclearCode=<map code> to replay one,
 	// -PfullclearOut=<dir> for the run-NNN.md tallies (default: the report dir).
-	["fullclearRuns", "fullclearCode", "fullclearOut"].each { k ->
+	// 131e-sim-ac-1020: -PacCode=<map code> replays the floor a first run printed.
+	["fullclearRuns", "fullclearCode", "fullclearOut", "acCode"].each { k ->
 		if (project.hasProperty(k)) {
 			systemProperty "testkit.${k}", project.property(k)
 		}
