@@ -179,6 +179,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1014-jumpcd", GrimAutoRoutesTests::caseJumpCooldown); // ar-jump-cooldown (2026-10-14)
             s.testExpectingFlags("62-argrim-correction", GrimAutoRoutesTests::caseCorrection);
             s.test("62-argrim-boom", GrimAutoRoutesTests::caseBoom);
+            s.test("62-argrim-1020-boomsneak", GrimAutoRoutesTests::caseBoomSneak);
             s.test("62-argrim-breaker", GrimAutoRoutesTests::caseBreaker);
             s.test("62-argrim-1013-breakerfall", GrimAutoRoutesTests::caseBreakerFall); // ar breaker linger (2026-10-13)
             s.test("62-argrim-use", GrimAutoRoutesTests::caseUse);
@@ -629,6 +630,44 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         check(broke, "/ar add boom did not blow the cracked bricks in front of him");
         check(delta(before, "superbooms") == 1, "the server ran " + delta(before, "superbooms") + " superboom(s)");
         c.note("boom: " + count(s, "player_action") + " player_action, " + count(s, "swing") + " swing; bricks gone");
+        noteFlags(c, s);
+    }
+
+    /**
+     * boom-eye-1020: an etherwarp onto a tile (its sneak still held), then two booms recorded standing at 30 degrees down,
+     * east and west, each onto a cracked stone brick in the floor three blocks out. From the sneaking eye the recorded
+     * look meets the floor a block short (plain stone: the server's Superboom blows nothing there), so the boom must aim
+     * at the recorded block with a look of its own - and GrimAC must say nothing about that turn and dig.
+     */
+    private static void caseBoomSneak(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        setBlocks(ctx, Map.of(new int[]{13, F - 1, 14}, "minecraft:cracked_stone_bricks",
+                new int[]{7, F - 1, 14}, "minecraft:cracked_stone_bricks"));
+        writeRoute(ctx, List.of(ew(6, 14, 10, 14, true), node("BOOM", 10, 14, relYawTo(10, 14, 13, 14), 30f),
+                node("BOOM", 10, 14, relYawTo(10, 14, 7, 14), 30f)));
+        JsonObject before = stats();
+        long m = LogTap.mark();
+        startSampling(ctx);
+        warpOnto(ctx, 6.5, 18.5, 6, 14);
+        boolean gone = waitFor(ctx, 80, () -> blockAir(ctx, 13, F - 1, 14) && blockAir(ctx, 7, F - 1, 14));
+        ctx.waitTicks(10);
+        cmd(ctx, "/ar stop");
+        ctx.waitTicks(5);
+        List<Sample> s = stopSampling(ctx);
+        printTrace("boomsneak", s);
+        for (String l : LogTap.since(m)) {
+            if (l.contains("BOOM") || l.contains("Boom")) {
+                System.out.println("[62-argrim] boomsneak log: " + l);
+            }
+        }
+        long booms = delta(before, "superbooms");
+        check(logHas(m, "Node #2 BOOM acted") && logHas(m, "Node #3 BOOM acted"), "the two booms did not both act");
+        check(gone, "the cracked bricks the booms were recorded on were not both blown (east "
+                + blockAir(ctx, 13, F - 1, 14) + ", west " + blockAir(ctx, 7, F - 1, 14) + ")");
+        c.note("boomsneak: " + booms + " superboom(s) on the server, " + count(s, "player_action") + " player_action; both "
+                + "recorded bricks gone " + gone);
         noteFlags(c, s);
     }
 

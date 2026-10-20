@@ -208,6 +208,162 @@ public final class SimPuzzleDoneTests {
         }
     }
 
+    /**
+     * puzzle-leave-1020 (killer560, 2026-10-20: "it waits a long time after finishing"; his Mod Only Test log, Higher Blaze
+     * "room finished and the secret trip over" at 09:55:27, Autopilot's "puzzle Higher Blaze: finished" at 09:55:34 when the
+     * map's check came, handed back 09:55:35). Auto Secret is put in Dungeon Autopilot's PUZZLE_WAIT for the room before
+     * the auto is switched on (reflection, so any jar runs it); the room then plays as 93-solve-higherblaze. Stamped on the
+     * test's tick clock: the auto's "ended its last step" line and Auto Secret's "puzzle Higher Blaze: ..." line (its leave).
+     * Fails when it leaves more than 2 ticks after the auto ended, before the auto ended, or not within 20 s of the solve.
+     * NOT a main-vs-fix discriminator: the sim sends its "PUZZLE SOLVED!" line with the solve, a tick before the auto
+     * ends, so main leaves on that check at the same tick (2026-10-20: both 0 ticks; the fixed jar's line names the auto's
+     * own signal). On Hypixel the check came 7 s late; holding it back from the test thread raced the packet and failed.
+     */
+    static final class LeaveTimed extends SolveExtra {
+        private final String room;
+        long seen;
+        boolean armed;
+        String armWhy = "";
+        int ended = -1;
+        int left = -1;
+        String leftLine;
+        String stoppedLine;
+        boolean stopped;
+
+        LeaveTimed(String room) {
+            this.room = room;
+        }
+
+        @Override
+        void begin(String name, long mark) {
+            super.begin(name, mark);
+            seen = mark;
+        }
+
+        @Override
+        void beforeAutoOn(ClientGameTestContext ctx) {
+            armWhy = ctx.computeOnClient(mc -> armPuzzleWait(mc, room));
+            armed = armWhy.isEmpty();
+            SimPuzzleSpeedTests.say(name, "LEAVE " + room + ": Auto Secret put in PUZZLE_WAIT - "
+                    + (armed ? "ok" : armWhy));
+        }
+
+        @Override
+        void tick(ClientGameTestContext ctx, int t, int solvedAt, boolean container) {
+            if (!armed) {
+                return;
+            }
+            long now = LogTap.mark();
+            for (String l : LogTap.since(seen)) {
+                if (ended < 0 && l.contains("[AutoPuzzles] Activity: ") && l.contains("ended its last step")) {
+                    ended = t;
+                }
+                if (left < 0 && l.contains("[AutoSecret] puzzle " + room + ":")) {
+                    left = t;
+                    leftLine = l.substring(l.indexOf("[AutoSecret]"));
+                }
+                if (stoppedLine == null && l.contains("[AutoSecret] stopped:")) {
+                    stoppedLine = l.substring(l.indexOf("[AutoSecret]"));
+                }
+            }
+            seen = now;
+            if ((left >= 0 || stoppedLine != null) && !stopped) {
+                stopped = true;
+                ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.autosecret.AutoSecretFeature", "stop",
+                        new Class<?>[]{String.class, boolean.class}, new Object[]{"test over", true}));
+            }
+        }
+
+        @Override
+        boolean satisfied() {
+            return !armed || left >= 0 || stoppedLine != null;
+        }
+
+        @Override
+        String verdict(ClientGameTestContext ctx, int solvedAt) {
+            if (!stopped && armed) {
+                ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.autosecret.AutoSecretFeature", "stop",
+                        new Class<?>[]{String.class, boolean.class}, new Object[]{"test over", true}));
+                stopped = true;
+            }
+            if (!armed) {
+                return "could not put Auto Secret in PUZZLE_WAIT: " + armWhy;
+            }
+            if (ended < 0) {
+                return "the auto never ended its last step";
+            }
+            if (left < 0) {
+                return stoppedLine != null ? "Auto Secret stopped before it left the puzzle: " + stoppedLine
+                        : "Auto Secret was still in PUZZLE_WAIT 20 s after the solve (" + (solvedAt < 0 ? "?" : "solve t="
+                        + solvedAt) + ", auto ended t=" + ended + ")";
+            }
+            if (left < ended) {
+                return "Auto Secret left the puzzle (t=" + left + ") before its auto ended (t=" + ended + ")";
+            }
+            if (left - ended > 2) {
+                return "Auto Secret left " + (left - ended) + " tick(s) after the auto ended (bound 2): " + leftLine;
+            }
+            return null;
+        }
+
+        @Override
+        String summary() {
+            String line = String.format(Locale.ROOT, "LEAVE %s: auto ended t=%d, Auto Secret left t=%d - %s tick(s) [%s]%s",
+                    room, ended, left, ended < 0 || left < 0 ? "-" : String.valueOf(left - ended), leftLine,
+                    stoppedLine == null ? "" : " stopped: " + stoppedLine);
+            SimPuzzleSpeedTests.say(name, line);
+            return line;
+        }
+
+        /** Auto Secret into Dungeon Autopilot's PUZZLE_WAIT for {@code room}, by its fields. @return "" or why not */
+        private static String armPuzzleWait(net.minecraft.client.Minecraft mc, String room) {
+            try {
+                Class<?> c = Class.forName("com.killer560.hub.autosecret.AutoSecretFeature");
+                Class<?> phase = Class.forName("com.killer560.hub.autosecret.AutoSecretFeature$Phase");
+                Object wait = null;
+                for (Object o : phase.getEnumConstants()) {
+                    if ("PUZZLE_WAIT".equals(o.toString())) {
+                        wait = o;
+                    }
+                }
+                set(c, "level", mc.level);
+                set(c, "pilot", true);
+                set(c, "target", room);
+                set(c, "phaseTicks", 0);
+                try {
+                    set(c, "puzzleSince", ModUnderTest.staticCall("com.killer560.hub.autopuzzles.AutoPuzzleActivity",
+                            "clock"));
+                } catch (ReflectiveOperationException | AssertionError e) {
+                    // a jar from before the auto's own done signal: it has no puzzleSince
+                }
+                set(c, "phase", wait);
+                return "";
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                return String.valueOf(e);
+            }
+        }
+
+        private static void set(Class<?> c, String field, Object value) throws ReflectiveOperationException {
+            var f = c.getDeclaredField(field);
+            f.setAccessible(true);
+            f.set(null, value);
+        }
+    }
+
+    /** Higher Blaze under Dungeon Autopilot's PUZZLE_WAIT (see {@link LeaveTimed}). */
+    public static final class HigherBlazeLeave extends SimPuzzleSolveTests.Base {
+        public HigherBlazeLeave() {
+            super(new SimPuzzleSolveTests.Spec("higherblaze-leave", "Higher Blaze", "setAutoBlazeEnabled",
+                    "isAutoBlazeEnabled", "BlazeSolverConfig", "SimBlazePuzzle", SimPuzzleSolveTests.TERM_SLOT, false, 60,
+                    SimPuzzleSolveTests.Approach.NONE, "BlazeSolverFeature.getOrderedBlazes"));
+        }
+
+        @Override
+        SolveExtra extra() {
+            return new LeaveTimed("Higher Blaze");
+        }
+    }
+
     static final List<String> ROOMS = List.of("Creeper Beams", "Three Weirdos", "Quiz", "Tic Tac Toe", "Ice Path", "Ice Fill",
             "Water Board", "Teleport Maze");
 }
