@@ -535,8 +535,10 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 		systemProperty "testkit.listFile", file(project.property("listScenarios").toString()).absolutePath
 	}
 	// 1016-sim-fullclear: -PfullclearRuns=N fresh floors in one client, -PfullclearCode=<map code> to replay one,
-	// -PfullclearOut=<dir> for the run-NNN.md tallies (default: the report dir).
-	["fullclearRuns", "fullclearCode", "fullclearOut"].each { k ->
+	// -PfullclearOut=<dir> for the run-NNN.md tallies (default: the report dir). -PfullclearMobs=N starred zombies per
+	// tile of every mob room (the sim's clear-on-entry off, so Auto Clear has real clears), -PfullclearCodes=<file> one
+	// map code a line, each replayed once, -PfullclearPlan=<Auto Secret RoomPlan constant> (a jar without it: ignored).
+	["fullclearRuns", "fullclearCode", "fullclearOut", "fullclearMobs", "fullclearCodes", "fullclearPlan"].each { k ->
 		if (project.hasProperty(k)) {
 			systemProperty "testkit.${k}", project.property(k)
 		}
