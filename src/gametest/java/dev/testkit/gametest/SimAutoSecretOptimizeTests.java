@@ -31,10 +31,11 @@ import java.util.regex.Pattern;
  *
  * <ul>
  *   <li><b>144-sim-autosecret-handoff</b>: four routed rooms, taken in whatever order it picks. The first one's secrets
- *       all count before its route ends: the first warp to the next room goes the tick after the route finished. The
- *       second's never count: the first warp goes exactly {@code 6} ticks after. The third's count two ticks into the
- *       wait: the warp goes on the tick they count. Every hand-over runs the path planned while he traveled ("planned
- *       ahead"), with no search.</li>
+ *       all count before its route ends; the second's never count; the third's count a tick after its route ends. No
+ *       route stands by a secret, so since 2026-10-20 (killer560: wait at most 20 ticks, only when a secret is close,
+ *       else leave at once) every first warp to the next room goes the tick after its route finished and no last-node
+ *       wait runs (it was a 6-tick cap for the second and third). Every hand-over runs the path planned while he
+ *       traveled ("planned ahead"), with no search.</li>
  *   <li><b>145-sim-autosecret-order</b>: three routed rooms - two small ones beside the Entrance and one with more
  *       unfound secrets across the floor. Run twice from the Entrance: the old order (most unfound first) crosses the map
  *       first and comes back; the new one takes the two beside him first. The new run must not start across the map,
@@ -319,38 +320,37 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             }
             long after = first < 0 ? -1 : first - end;
             int mode = k + 1;
+            // killer560, 2026-10-20: wait at most 20 ticks and only when a secret is close; with none close leave at
+            // once. These routes stand by no secret, so modes 2 and 3 leave the next tick like mode 1 (the 6-tick cap
+            // they once measured is gone; 147 measures the wait for a secret that IS close).
             String what = switch (mode) {
                 case 1 -> "every secret counted at the end: the first warp the next tick";
-                case 2 -> "none counted: the first warp at the 6-tick cap";
-                default -> "counted two ticks into the wait: the first warp on the tick they count";
+                case 2 -> "none counted, none close: the first warp the next tick";
+                default -> "counted only after the route ended, none close: the first warp the next tick all the same";
             };
             println(HANDOFF, String.format(Locale.US, "%s (%s): route finished on tick %d, first warp on tick %d (%+d), path"
                     + " planned ahead and run with no search: %s", room, what, end, first, after, planned));
             if (!planned) {
                 failures.add(room + ": the trip after its route was searched again, not the one planned ahead");
             }
-            if (mode == 1 && (after < 0 || after > 1)) {
-                failures.add(room + ": every secret counted, but the first warp went " + after + " tick(s) after the route"
+            if (after < 0 || after > 1) {
+                failures.add(room + ": " + what + ", but the first warp went " + after + " tick(s) after the route"
                         + " (want at most 1)");
-            }
-            if (mode == 2 && after != 6) {
-                failures.add(room + ": nothing counted, but the first warp went " + after + " tick(s) after the route (want"
-                        + " the 6-tick cap)");
             }
             if (mode == 3) {
                 Long m = markedAt.get(room);
-                long fromMark = m == null || first < 0 ? -1 : first - m;
-                println(HANDOFF, room + ": secrets counted on tick " + m + ", first warp " + fromMark + " tick(s) later");
-                if (after >= 6 || fromMark != 1) {
-                    failures.add(room + ": counted on tick " + m + " (route end " + end + "), first warp on " + first
-                            + " - want the tick they count, before the cap");
-                }
+                println(HANDOFF, room + ": secrets counted on tick " + m + ", first warp on tick " + first);
             }
         }
-        boolean capSaid = log.stream().anyMatch(l -> l.contains("the 6-tick cap"));
-        boolean earlySaid = log.stream().anyMatch(l -> l.contains("every secret counted after"));
-        if (!capSaid || !earlySaid) {
-            failures.add("the wait's lines are missing (cap " + capSaid + ", early " + earlySaid + ")");
+        boolean allSaid = log.stream().anyMatch(l -> l.contains("every secret counted at the route's end"));
+        boolean noneCloseSaid = log.stream().anyMatch(l -> l.contains("and none close - leaving this tick"));
+        boolean waited = log.stream().anyMatch(l -> l.contains("of the last-node wait"));
+        if (!allSaid || !noneCloseSaid) {
+            failures.add("the hand-over's lines are missing (all counted " + allSaid + ", none close " + noneCloseSaid
+                    + ")");
+        }
+        if (waited) {
+            failures.add("a last-node wait ran with no secret close by");
         }
     }
 
