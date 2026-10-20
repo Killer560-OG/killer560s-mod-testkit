@@ -219,6 +219,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-imwarp", c -> caseMapWarp(c, false));
             s.test("62-argrim-imwarp-run", c -> caseMapWarp(c, true));
             s.test("62-argrim-goto", GrimAutoRoutesTests::caseGoTo);
+            // midas-1020: pastes King Midas over the session's room, so it goes last.
+            s.test("62-argrim-1020-midas", GrimAutoRoutesTests::caseMidas);
             teardown(ctx);
         });
     }
@@ -1882,6 +1884,150 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 + " onGiveUp=" + gaveUp.get());
         c.note("autoclear: 3 starred mobs (open, in a wall, behind a wall) killed by " + delta(before, "witherImpacts")
                 + " Wither Impact(s) and " + delta(before, "etherwarps") + " etherwarp(s), no entity packet");
+        noteFlags(c, s);
+    }
+
+    /**
+     * Auto Clear in King Midas on GrimAC (mod midas-1020, killer560 2026-10-19/20: the gold altar in the middle has to be
+     * superboomed, and only then does the room's mob spawn and have to be killed). His captured King Midas is pasted over
+     * the session's room and identified by the live map's own scan; there is no starred mob in it. {@code clearRoom} must
+     * aim a Superboom at the altar's lid (the server's {@code HxAbilities} blows a smooth stone slab lid whole); the test
+     * plays Hypixel's part and puts a starred mob on the altar only once the lid is gone, and Auto Clear must then kill it
+     * with the Hyperion and call onDone. Order and GrimAC are judged on the whole stretch.
+     */
+    private static void caseMidas(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        Hx hx = c.hx();
+        String midas = "King Midas";
+        JsonObject pasted = paste(ctx, hx, midas);
+        println("midas: pasted: " + pasted);
+        // On the red carpet in front of the altar (capture x 16, z 20 - the paste puts capture x/z 16 on the cell centre).
+        hx.call("dungeon.tp", "x", CENTRE + 0.5, "y", 67.0625, "z", CENTRE + 4.5, "yaw", 180f, "pitch", 0f);
+        ctx.waitTicks(10);
+        // The live map keeps the cell's identification for the run: leave the dungeon (sidebar) and enter it again, so
+        // its "Dungeon entered" grid reset makes it scan the cell afresh.
+        hx.sidebar("SKYBLOCK", "§7Hub");
+        boolean left = waitFor(ctx, 200, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                "com.killer560.hub.secrets.DungeonState", "isInDungeon")));
+        hx.sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
+        boolean back = waitFor(ctx, 400, () -> ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                "com.killer560.hub.secrets.DungeonState", "isInDungeon")));
+        println("midas: left the dungeon " + left + ", back in " + back);
+        boolean known = waitFor(ctx, 300, () -> midas.equals(ctx.computeOnClient(mc -> {
+            Object f = ModUnderTest.staticCall(FRAME, "current");
+            return f == null ? null : (String) ModUnderTest.call(f, "roomName", new Class<?>[]{}, new Object[]{});
+        })));
+        println("midas: live map " + (known ? "identified King Midas, frame " : "did NOT identify King Midas, frame ")
+                + frameString(ctx));
+        check(known, "the pasted King Midas was not identified by the live map - Auto Clear cannot find the room");
+        ctx.waitTicks(20);
+        // The lid, read from the client's world: every smooth stone slab within 12 blocks of the cell centre.
+        Supplier<List<BlockPos>> lid = () -> ctx.computeOnClient(mc -> {
+            List<BlockPos> out = new ArrayList<>();
+            for (int dx = -12; dx <= 12; dx++) {
+                for (int dz = -12; dz <= 12; dz++) {
+                    for (int y = 60; y <= 100; y++) {
+                        BlockPos p = new BlockPos(CENTRE + dx, y, CENTRE + dz);
+                        if (mc.level.getBlockState(p).is(net.minecraft.world.level.block.Blocks.SMOOTH_STONE_SLAB)) {
+                            out.add(p);
+                        }
+                    }
+                }
+            }
+            return out;
+        });
+        List<BlockPos> lidBefore = lid.get();
+        int seenBefore = ctx.computeOnClient(mc -> ((List<?>) ModUnderTest.staticCall(
+                "com.killer560.hub.mobesp.MobEspFeature", "starredMobs", new Class<?>[]{net.minecraft.client.Minecraft.class},
+                new Object[]{mc})).size());
+        println("midas: " + lidBefore.size() + " lid slab(s) standing, " + seenBefore + " starred mob(s) in sight");
+        check(lidBefore.size() >= 30, "the King Midas altar's lid is not standing (" + lidBefore.size() + " slabs)");
+        check(seenBefore == 0, seenBefore + " starred mob(s) already in sight - the boom would prove nothing");
+        double sx = 0;
+        double sz = 0;
+        int ly = lidBefore.get(0).getY();
+        for (BlockPos p : lidBefore) {
+            sx += p.getX() + 0.5;
+            sz += p.getZ() + 0.5;
+        }
+        double mobX = sx / lidBefore.size();
+        double mobZ = sz / lidBefore.size();
+
+        String auto = "com.killer560.hub.autoclear.AutoClearFeature";
+        String autoCfg = "com.killer560.hub.autoclear.AutoClearConfig";
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(autoCfg);
+            ModUnderTest.set(cfg, "setEnabled", true);
+            ModUnderTest.set(cfg, "setHyperionHops", true);
+            ModUnderTest.call(cfg, "setWeapon", new Class<?>[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")
+                    .getClass()}, new Object[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")});
+        });
+        JsonObject before = stats();
+        java.util.concurrent.atomic.AtomicReference<String> done = new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<String> gaveUp = new java.util.concurrent.atomic.AtomicReference<>();
+        long m = LogTap.mark();
+        startSampling(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class, Runnable.class,
+                java.util.function.Consumer.class}, new Object[]{midas, (Runnable) () -> done.set("done"),
+                (java.util.function.Consumer<String>) gaveUp::set}));
+        JsonObject mob = null;
+        int openedTick = -1;
+        boolean finished = false;
+        for (int t = 0; t < 900; t++) {
+            ctx.waitTicks(1);
+            if (mob == null && lid.get().size() < lidBefore.size()) {
+                // Hypixel's part: the room's mob appears once the altar is open.
+                openedTick = t;
+                mob = hx.call("dungeon.starred", "x", mobX, "y", (double) ly, "z", mobZ).getAsJsonObject();
+                println("midas: altar open at t" + t + " - starred mob placed at " + String.format(Locale.ROOT,
+                        "%.1f %d %.1f", mobX, ly, mobZ) + ": " + mob);
+            }
+            if (!ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto, "isBusy"))) {
+                finished = true;
+                break;
+            }
+        }
+        if (!finished) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "cancel"));
+        }
+        ctx.waitTicks(5);
+        List<Sample> s = stopSampling(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(autoCfg), "setEnabled", false));
+        String state = mob == null ? "never placed" : hx.call("dungeon.alive", "id", mob.get("mob").getAsString(), "stand",
+                mob.get("stand").getAsString()).getAsString();
+        for (String l : LogTap.since(m)) {
+            if (l.contains("[AutoClear]") || l.contains("[testkit] superboom")) {
+                println("  " + l.replaceAll("^.*?(\\[AutoClear\\]|\\[testkit\\])", "$1"));
+            }
+        }
+        printTrace("midas", s);
+        int boomAt = logIndex(m, "[AutoClear] King Midas: Superboom 1 on the altar");
+        int openedAt = logIndex(m, "[AutoClear] King Midas: altar opened");
+        int deadAt = logIndex(m, " in King Midas is dead");
+        int interacts = 0;
+        for (Sample x : s) {
+            interacts += (int) x.out().stream().filter(p -> p.contains("interact")).count();
+        }
+        println("midas: " + (finished ? "finished" : "STILL RUNNING") + ", onDone=" + done.get() + " onGiveUp="
+                + gaveUp.get() + ", superbooms " + delta(before, "superbooms") + " (blocks " + delta(before, "boomBlocks")
+                + "), lid " + lidBefore.size() + " -> " + lid.get().size() + ", opened at t" + openedTick + ", mob " + state
+                + ", Wither Impacts " + delta(before, "witherImpacts") + ", etherwarps " + delta(before, "etherwarps")
+                + ", player_action " + count(s, "player_action") + ", entity packets " + interacts + "; log: boom "
+                + boomAt + ", opened " + openedAt + ", dead " + deadAt);
+        check(boomAt >= 0, "Auto Clear never superboomed the King Midas altar");
+        check(delta(before, "superbooms") >= 1, "the server ran no Superboom");
+        check(mob != null, "the altar's lid never broke in the client's world");
+        check(openedAt > boomAt, "Auto Clear did not see the altar open after its boom");
+        check(!"alive".equals(state), "the starred mob that came out of the altar is " + state);
+        check(deadAt > openedAt, "the kill was not logged after the altar opened (opened " + openedAt + ", dead " + deadAt
+                + ")");
+        check(interacts == 0, interacts + " entity packet(s): a melee hit or an entity click");
+        check(finished && done.get() != null && gaveUp.get() == null, "clearRoom ended onDone=" + done.get() + " onGiveUp="
+                + gaveUp.get());
+        c.note("midas: altar boomed (" + delta(before, "superbooms") + " superboom, " + delta(before, "boomBlocks")
+                + " blocks), mob placed when it opened and killed by " + delta(before, "witherImpacts")
+                + " Wither Impact(s); onDone");
         noteFlags(c, s);
     }
 
