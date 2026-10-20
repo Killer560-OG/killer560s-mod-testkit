@@ -31,6 +31,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 62-argrim-*: Auto Routes on the DEDICATED server with GrimAC - every node type and the timing behaviours, judged on
@@ -75,6 +77,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     private static final int CENTRE = -185 + CELL * 32;
     /** Feet height of the arena floor: relative y is world y outside the sim, and 69 is a Catacombs floor. */
     private static final int F = 69;
+    /** The mod's click-gap: a warp goes this many ticks after a block click made with the same item (ar-1019). */
+    private static final int CLICK_TO_WARP_TICKS = 2;
 
     private static String room;
     private static Session session;
@@ -902,7 +906,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * warp the next tick: the route turns the body to the warp on the firing tick and sends the use after that tick's
      * movement packet has told the server; for a warp whose block is within reach it also sends the click on that block
      * first, as a vanilla right click does. Far (8 blocks) and near (3 blocks). Each must land, the server make exactly one
-     * etherwarp, the warp go at most a tick after firing, and GrimAC say nothing (the session's verdict).
+     * etherwarp, the warp go exactly on the click-gap tick ({@link #CLICK_TO_WARP_TICKS} after the click, since mod ar-1019
+     * holds a warp that long after a click with the same item; it was "at most a tick after firing" before), and GrimAC say
+     * nothing (the session's verdict).
      */
     private static void caseClickWarp(Session c) {
         ClientGameTestContext ctx = c.ctx();
@@ -921,6 +927,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     // an older jar: no run memory
                 }
             });
+            // An item lying in the room, picked up on the way in, meets the await before the click (run on its own,
+            // 2026-10-20: "item picked up by you ... 5 tick(s) before the start"); in the suite awaitskip had cleared it.
+            c.server().command("kill @e[type=minecraft:item]");
+            ctx.waitTicks(15);
             setBlocks(ctx, Map.of(new int[]{8, F, 8}, "minecraft:lever[face=floor,facing=east,powered=false]"));
             JsonObject w = ew(6, 6, tx, 6, true);
             w.addProperty("awaitEnabled", true);
@@ -973,8 +983,18 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             check(landed != null, label + ": the warp after the lever click did not land (at " + relPos(ctx) + ")");
             check(delta(before, "etherwarps") == 1, label + ": the server made " + delta(before, "etherwarps")
                     + " etherwarp(s), expected 1");
-            check(acted != null && (acted.contains("acted 0 tick(s)") || acted.contains("acted 1 tick(s)")),
-                    label + ": the warp did not go the tick after the click: " + acted);
+            // The click is made with the Aspect of the Void, the item the warp uses, so the mod holds the warp to the
+            // click-gap tick (RouteExecutor.CLICK_TO_WARP_TICKS = 2, ar-1019: on Hypixel a use one tick after a same-item
+            // block click got no teleport 45 of 69 times). The warp must go exactly then: earlier is the refused warp,
+            // later is a wasted tick. "acted N tick(s) after firing" counts from the await being met, i.e. the click.
+            Matcher am = acted == null ? null : Pattern.compile("acted (\\d{1,4}) tick\\(s\\) after firing").matcher(acted);
+            int actedTicks = am != null && am.find() ? Integer.parseInt(am.group(1)) : -1;
+            check(actedTicks >= 0, label + ": the warp never logged when it acted: " + acted);
+            check(actedTicks >= CLICK_TO_WARP_TICKS, label + ": the warp went " + actedTicks + " tick(s) after the click, "
+                    + "before the " + CLICK_TO_WARP_TICKS + "-tick click-gap: " + acted);
+            check(actedTicks <= CLICK_TO_WARP_TICKS, label + ": the warp went " + actedTicks + " tick(s) after the click, "
+                    + "later than the " + CLICK_TO_WARP_TICKS + "-tick click-gap: " + acted);
+            check(acted.contains("(click-gap hold "), label + ": the warp was not held by the click-gap: " + acted);
             if (near) {
                 check(logHas(m, "sent the block half of the right click first"), label + ": the near warp did not send the "
                         + "click on its block first (vanilla's two-packet right click)");
