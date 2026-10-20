@@ -91,6 +91,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
             ModUnderTest.set(map, "setEnabled", true);
             ModUnderTest.set(map, "setInteractiveMapEnabled", true);
         });
+        GrimAutoRoutesTests.applyAcWalk(ctx, NAME);
         int renderBefore = ctx.computeOnClient(mc -> mc.options.renderDistance().get());
         ctx.runOnClient(mc -> mc.options.renderDistance().set(16));
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
@@ -107,6 +108,9 @@ public class SimAutoClearTests implements FabricClientGameTest {
             failures.add("scenario threw: " + t);
             t.printStackTrace(System.out);
         } finally {
+            int[] w = GrimAutoRoutesTests.walkCounts(ctx);
+            System.out.println("[" + NAME + "] walks chosen by Auto Clear " + w[0] + ", ShortWalk walks started " + w[1]
+                    + ", jumps pressed " + w[2] + " (this client, all cases)");
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOBS, "setClearRoomsOnEntry", new Class<?>[]{boolean.class},
                     new Object[]{true}));
             ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "cancel"));

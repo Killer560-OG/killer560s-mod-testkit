@@ -1064,3 +1064,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   case in SimAutopilotTests; `1018-autoclear-eta` (SimAutoClearEtaTests) runs Auto Clear on two sim rooms and reads the Auto
   Clear Status HUD's "Done in ~m:ss" line counting down.
 - 1018-freelook-setting/-toggle/-hold/-pan (`FreelookTests`): Freelook's F5 rear view (Toggle, and Hold via `holdKey(o -> o.keyTogglePerspective)`) and pan key (`FreelookFeature.panHeldForTest`), each checking the camera type and the rendered `Camera.yRot/xRot` moved while the player's yaw and pitch did not, GrimAC clean. The first `moveCursor` after joining a world is dropped by vanilla (`MouseHandler.ignoreFirstMove`, set when the mouse is grabbed), so a case that measures a mouse turn spends one move first; without it the pan read "camera 0.0". Main fails all four (no `FreelookConfig`); the fix passes 4/4 on 26.1.2 cheat and legit and 26.2.
+- 62-argrim-1019-acwalk (mod e25da354 Walk When Faster, fixed in mod 752439d6): hops off, one starred mob 5.7 blocks from
+  his blast point; Auto Clear must WALK (ShortWalk start line, distance, 0 etherwarps) and kill in place, then the same with
+  the setting off must etherwarp, then `ShortWalk` is driven from START_CLIENT_TICK over 7.5 blocks and a 1-high step
+  (Auto Clear never prices a step walk under the 7-tick etherwarp, so the jump is driven directly). On e25da354 the walk
+  ended ARRIVED 0.45 short of its point, outside reach, and Auto Clear etherwarped anyway. `-PacWalk=on|off` sets the
+  setting for 62-argrim-autoclear and 131-sim-auto-clear. 131's hud case fails on its own since the ETA ("~0:26 left").

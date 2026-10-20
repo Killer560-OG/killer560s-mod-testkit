@@ -558,7 +558,8 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	// and/or Ice Fill's negative control before the auto plays, plus a mistake forced mid-section while it plays
 	// (sections 1 and 2 by default, or -PicefillBreaks=2):  -PicefillControl=true
 	// 97-sim-roomspawn: -ProomspawnOnly=first,rooms,goto  -ProomspawnRooms="Altar,Market"
-	["serverStallMs", "serverStallEvery", "netStallMs", "icefillControl", "icefillBreaks", "floorRepeat",
+	// -PacWalk=on|off: Auto Clear's Walk When Faster for 62-argrim-autoclear and 131-sim-auto-clear (mod e25da354)
+	["acWalk", "serverStallMs", "serverStallEvery", "netStallMs", "icefillControl", "icefillBreaks", "floorRepeat",
 	 "roomspawnOnly", "roomspawnRooms", "roomspawnFloors", "pathoptRooms", "nametagShots", "nametagShotsOnly",
 	 "videoOut", "pathlandFloors", "pathlandSeed", "paintedScene", "paintedFrames", "paintedFps", "perfWorldTicks", "perfWorldRounds"].each { p ->
 		if (project.hasProperty(p)) {

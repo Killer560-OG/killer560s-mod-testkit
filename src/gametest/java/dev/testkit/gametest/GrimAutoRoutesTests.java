@@ -202,6 +202,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-mimic", GrimAutoRoutesTests::caseMimic);
             s.test("62-argrim-1017-mimicaim", GrimAutoRoutesTests::caseMimicAim); // ar-bridges-bat-1017
             s.test("62-argrim-autoclear", GrimAutoRoutesTests::caseAutoClear);
+            s.test("62-argrim-1019-acwalk", GrimAutoRoutesTests::caseAutoClearWalk); // mod e25da354 (Walk When Faster)
             // The Interactive Map's own executor (livemap/autoclear/ClearExecutor), last: a map warp or a Go To sets the
             // map-arrival interlock (only a START node arms afterwards) and Go To leaves edit mode on.
             // Auto Secret (mod auto-secret): drives the same map warp and route; before imwarp, after the AR cases.
@@ -1806,6 +1807,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         });
         tpRel(ctx, 5.5, 15.5, -90f, 0f);
         ctx.waitTicks(10);
+        applyAcWalk(ctx, "62-argrim-autoclear");
+        int[] walkBefore = walkCounts(ctx);
         // Every two mobs more than 10.6 blocks apart (mod ac-optimize-1015): no one standing block reaches two of them with
         // the 6-block blast, so Auto Clear's fewest-repositions plan is one block a mob and the open one is a hop.
         double[][] spots = {{11.5, 8.5}, {15.5, 21.5}, {22.5, 9.5}};
@@ -1861,6 +1864,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 + delta(before, "witherHits") + "), etherwarps " + delta(before, "etherwarps") + ", use_item "
                 + count(s, "use_item") + ", entity packets " + interacts + String.format(Locale.ROOT,
                 ", moved %.1f blocks", start.distanceTo(end)));
+        int[] walkAfter = walkCounts(ctx);
+        println("autoclear: walks chosen by Auto Clear " + (walkAfter[0] - walkBefore[0]) + ", ShortWalk walks started "
+                + (walkAfter[1] - walkBefore[1]) + ", jumps pressed " + (walkAfter[2] - walkBefore[2]));
         for (int i = 0; i < mobs.size(); i++) {
             check(!"alive".equals(states.get(i)), "the starred mob " + what[i] + " is still alive");
         }
@@ -1883,6 +1889,228 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         c.note("autoclear: 3 starred mobs (open, in a wall, behind a wall) killed by " + delta(before, "witherImpacts")
                 + " Wither Impact(s) and " + delta(before, "etherwarps") + " etherwarp(s), no entity packet");
         noteFlags(c, s);
+    }
+
+    // ============================================================================================ Auto Clear walks
+
+    private static final String AC = "com.killer560.hub.autoclear.AutoClearFeature";
+    private static final String AC_CFG = "com.killer560.hub.autoclear.AutoClearConfig";
+    private static final String SHORT_WALK = "com.killer560.hub.pathfinding.ShortWalk";
+
+    /**
+     * {@code -PacWalk=on|off} sets Auto Clear's Walk When Faster (mod e25da354) for a run of 62-argrim-autoclear or
+     * 131-sim-auto-clear; without it the jar's default (on) stands. A jar without the setting says so.
+     */
+    static void applyAcWalk(ClientGameTestContext ctx, String label) {
+        String v = System.getProperty("testkit.acWalk");
+        if (v == null || v.isBlank()) {
+            System.out.println("[" + label + "] Walk When Faster: the jar's default");
+            return;
+        }
+        boolean on = !v.equalsIgnoreCase("off") && !v.equalsIgnoreCase("false");
+        String said = ctx.computeOnClient(mc -> {
+            try {
+                ModUnderTest.set(ModUnderTest.config(AC_CFG), "setWalkWhenFaster", on);
+                return "Walk When Faster set " + (on ? "ON" : "OFF");
+            } catch (Throwable t) {
+                return "this jar has no Walk When Faster (" + t + ")";
+            }
+        });
+        System.out.println("[" + label + "] " + said);
+    }
+
+    /** {Auto Clear walks chosen, ShortWalk walks started, ShortWalk jumps pressed}; zeros on a jar without them. */
+    static int[] walkCounts(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                return new int[]{(Integer) ModUnderTest.staticCall(AC, "walks"),
+                        (Integer) ModUnderTest.staticCall(SHORT_WALK, "walksStarted"),
+                        (Integer) ModUnderTest.staticCall(SHORT_WALK, "jumpsPressed")};
+            } catch (Throwable t) {
+                return new int[]{0, 0, 0};
+            }
+        });
+    }
+
+    private static volatile boolean driveWalk;
+    private static volatile String walkStatus;
+    private static volatile int walkTicks;
+    private static boolean walkHooked;
+
+    /**
+     * mod e25da354, Auto Clear's Walk When Faster, on GrimAC. Three parts, one Grim read over all of them:
+     * <ol>
+     *   <li><b>walk</b> - Hyperion hops OFF, one starred mob across open floor just out of the blast (5.7 blocks from his
+     *       blast point, reach 5.0): Auto Clear must price a walk under the etherwarp, WALK there (ShortWalk started,
+     *       its log line, distance travelled, no etherwarp) and kill the mob in place.</li>
+     *   <li><b>control</b> - the same with Walk When Faster OFF: no walk, an etherwarp instead, the mob dead.</li>
+     *   <li><b>ledge</b> - the walk itself over a one-block step: {@code ShortWalk.plan/start/tick} driven from
+     *       START_CLIENT_TICK the way Auto Clear's stepWalk drives it (keys through PathWalkInputMixin, the body turned
+     *       to its yaw), 7.5 blocks of floor and a jump onto a 1-high platform. Auto Clear itself never prices a walk
+     *       with a step under an etherwarp (2 + length / 0.286 + 3 per step against 7 ticks), so the jump is driven
+     *       directly. Requires ARRIVED, a jump pressed, his feet on the platform and the distance.</li>
+     * </ol>
+     */
+    private static void caseAutoClearWalk(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(AC_CFG);
+            ModUnderTest.set(cfg, "setEnabled", true);
+            ModUnderTest.set(cfg, "setHyperionHops", false);
+            ModUnderTest.call(cfg, "setWeapon", new Class<?>[]{ModUnderTest.enumValue(AC_CFG + "$Weapon", "HYPERION")
+                    .getClass()}, new Object[]{ModUnderTest.enumValue(AC_CFG + "$Weapon", "HYPERION")});
+        });
+        startSampling(ctx);
+        List<String> parts = new ArrayList<>();
+        try {
+            // ---- 1 and 2: Auto Clear's own choice, on then off ----
+            for (boolean walkOn : new boolean[]{true, false}) {
+                String label = walkOn ? "walk" : "control";
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AC_CFG), "setWalkWhenFaster", walkOn));
+                tpRel(ctx, 5.5, 15.5, -90f, 0f);
+                ctx.waitTicks(10);
+                Vec3 at = ctx.computeOnClient(mc -> {
+                    Object frame = ModUnderTest.staticCall(FRAME, "current");
+                    return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                            double.class, double.class}, new Object[]{frame, 11.5, (double) F, 15.5});
+                });
+                JsonObject mob = c.hx().call("dungeon.starred", "x", at.x, "y", at.y, "z", at.z).getAsJsonObject();
+                ctx.waitTicks(20);
+                JsonObject before = stats();
+                int[] wb = walkCounts(ctx);
+                long m = LogTap.mark();
+                Vec3 start = ctx.computeOnClient(mc -> mc.player.position());
+                java.util.concurrent.atomic.AtomicReference<String> done = new java.util.concurrent.atomic.AtomicReference<>();
+                java.util.concurrent.atomic.AtomicReference<String> gaveUp = new java.util.concurrent.atomic.AtomicReference<>();
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(AC, "clearRoom", new Class<?>[]{String.class, Runnable.class,
+                        java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> done.set("done"),
+                        (java.util.function.Consumer<String>) gaveUp::set}));
+                boolean finished = waitFor(ctx, 400, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AC,
+                        "isBusy")));
+                if (!finished) {
+                    ctx.runOnClient(mc -> ModUnderTest.staticCall(AC, "cancel"));
+                }
+                ctx.waitTicks(5);
+                Vec3 end = ctx.computeOnClient(mc -> mc.player.position());
+                int[] wa = walkCounts(ctx);
+                String state = c.hx().call("dungeon.alive", "id", mob.get("mob").getAsString(), "stand",
+                        mob.get("stand").getAsString()).getAsString();
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("[AutoClear]") || l.contains("[ShortWalk]")) {
+                        println("  " + label + ": " + l.replaceAll("^.*?(\\[AutoClear\\]|\\[ShortWalk\\])", "$1"));
+                    }
+                }
+                double moved = Math.hypot(end.x - start.x, end.z - start.z);
+                int walks = wa[1] - wb[1];
+                int ethers = delta(before, "etherwarps");
+                String line = String.format(Locale.ROOT, "%s: Walk When Faster %s, %s, mob %s, walks %d (Auto Clear %d),"
+                                + " etherwarps %d, Wither Impacts %d, moved %.2f blocks horizontally", label,
+                        walkOn ? "ON" : "OFF", finished ? "finished" : "STILL RUNNING", state, walks, wa[0] - wb[0],
+                        ethers, delta(before, "witherImpacts"), moved);
+                println("acwalk " + line);
+                parts.add(line);
+                check(!"alive".equals(state), label + ": the starred mob is still alive");
+                check(finished && done.get() != null && gaveUp.get() == null, label + ": clearRoom ended onDone="
+                        + done.get() + " onGiveUp=" + gaveUp.get());
+                if (walkOn) {
+                    check(walks >= 1 && wa[0] - wb[0] >= 1, "walk: Auto Clear never started a walk");
+                    check(logHas(m, "[ShortWalk] Auto Clear: walking to"), "walk: no ShortWalk start line");
+                    check(logHas(m, "- walking ("), "walk: no walk-vs-etherwarp decision that chose the walk");
+                    check(moved >= 0.4, String.format(Locale.ROOT, "walk: he moved only %.2f blocks", moved));
+                    check(ethers == 0, "walk: " + ethers + " etherwarp(s) where a walk was chosen");
+                } else {
+                    check(walks == 0, "control: a walk started with Walk When Faster OFF");
+                    check(ethers >= 1, "control: no etherwarp with Walk When Faster OFF");
+                }
+            }
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AC_CFG), "setEnabled", false));
+
+            // ---- 3: the walk over a one-block step, driven as stepWalk drives it ----
+            Map<int[], String> step = new java.util.LinkedHashMap<>();
+            for (int x = 12; x <= 15; x++) {
+                for (int z = 13; z <= 17; z++) {
+                    step.put(new int[]{x, F, z}, "minecraft:stone");
+                }
+            }
+            setBlocks(ctx, step);
+            tpRel(ctx, 5.5, 15.5, -90f, 0f);
+            ctx.waitTicks(10);
+            int[] wb = walkCounts(ctx);
+            long m = LogTap.mark();
+            Vec3 start = ctx.computeOnClient(mc -> mc.player.position());
+            String planned = ctx.computeOnClient(mc -> {
+                if (!walkHooked) {
+                    walkHooked = true;
+                    ClientTickEvents.START_CLIENT_TICK.register(cl -> {
+                        if (!driveWalk || cl.player == null || cl.level == null) {
+                            return;
+                        }
+                        walkTicks++;
+                        Object st = ModUnderTest.staticCall(SHORT_WALK, "tick", new Class<?>[]{
+                                        net.minecraft.world.level.Level.class, net.minecraft.client.player.LocalPlayer.class,
+                                        java.util.function.Consumer.class},
+                                new Object[]{cl.level, cl.player, (java.util.function.Consumer<Float>) yaw -> cl.player.setYRot(yaw)});
+                        if (!"WALKING".equals(String.valueOf(st)) || walkTicks > 200) {
+                            walkStatus = walkTicks > 200 ? "TIMEOUT" : String.valueOf(st);
+                            driveWalk = false;
+                            ModUnderTest.staticCall(SHORT_WALK, "stop", new Class<?>[]{String.class},
+                                    new Object[]{"testkit: " + walkStatus});
+                        }
+                    });
+                }
+                BlockPos goal = real(ModUnderTest.staticCall(FRAME, "current"), 14, F + 1, 15);
+                Object plan = ModUnderTest.staticCall(SHORT_WALK, "plan", new Class<?>[]{net.minecraft.world.level.Level.class,
+                        net.minecraft.client.player.LocalPlayer.class, BlockPos.class, java.util.function.Predicate.class},
+                        new Object[]{mc.level, mc.player, goal, null});
+                if (plan == null) {
+                    return null;
+                }
+                walkStatus = null;
+                walkTicks = 0;
+                ModUnderTest.staticCall(SHORT_WALK, "start", new Class<?>[]{plan.getClass(), String.class},
+                        new Object[]{plan, "testkit ledge"});
+                driveWalk = true;
+                return (String) ModUnderTest.call(plan, "describe", new Class<?>[]{}, new Object[]{});
+            });
+            check(planned != null, "ledge: ShortWalk found no way onto the platform");
+            boolean ended = waitFor(ctx, 240, () -> walkStatus != null);
+            driveWalk = false;
+            ctx.waitTicks(10);
+            Vec3 end = ctx.computeOnClient(mc -> mc.player.position());
+            boolean ground = ctx.computeOnClient(mc -> mc.player.onGround());
+            int[] wa = walkCounts(ctx);
+            for (String l : LogTap.since(m)) {
+                if (l.contains("[ShortWalk]")) {
+                    println("  ledge: " + l.replaceAll("^.*?\\[ShortWalk\\]", "[ShortWalk]"));
+                }
+            }
+            double moved = Math.hypot(end.x - start.x, end.z - start.z);
+            String line = String.format(Locale.ROOT, "ledge: plan %s, ended %s after %d ticks, jumps %d, moved %.2f blocks"
+                            + " horizontally, rose %.2f, on ground %s", planned, walkStatus, walkTicks, wa[2] - wb[2], moved,
+                    end.y - start.y, ground);
+            println("acwalk " + line);
+            parts.add(line);
+            check(ended && "ARRIVED".equals(walkStatus), "ledge: the walk ended " + walkStatus);
+            check(wa[2] - wb[2] >= 1, "ledge: no jump was pressed");
+            check(moved >= 7.0, String.format(Locale.ROOT, "ledge: he moved only %.2f blocks", moved));
+            check(end.y - start.y > 0.99 && ground, String.format(Locale.ROOT, "ledge: not standing on the platform (rose"
+                    + " %.2f, on ground %s)", end.y - start.y, ground));
+        } finally {
+            driveWalk = false;
+            ctx.runOnClient(mc -> {
+                ModUnderTest.staticCall(SHORT_WALK, "stop", new Class<?>[]{String.class}, new Object[]{"testkit: case over"});
+                ModUnderTest.staticCall(AC, "cancel");
+                Object cfg = ModUnderTest.config(AC_CFG);
+                ModUnderTest.set(cfg, "setEnabled", false);
+                ModUnderTest.set(cfg, "setHyperionHops", true);
+                ModUnderTest.set(cfg, "setWalkWhenFaster", true);
+            });
+            List<Sample> s = stopSampling(ctx);
+            c.note("acwalk: " + String.join(" | ", parts));
+            noteFlags(c, s);
+        }
     }
 
     // ============================================================================================ Interactive Map
