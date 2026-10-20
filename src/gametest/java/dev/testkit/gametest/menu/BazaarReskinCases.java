@@ -75,6 +75,7 @@ final class BazaarReskinCases {
             {"menus.reskin-bazaar-product", "PRODUCT"},
             {"menus.reskin-bazaar-instant-buy", "INSTANT_BUY"},
             {"menus.reskin-bazaar-order-amount", "ORDER_AMOUNT"},
+            {"menus.reskin-bazaar-order-amount-buy-n", "ORDER_AMOUNT"}, // the 2026-10-20 layout
             {"menus.reskin-bazaar-order-price", "ORDER_PRICE"},
             {"menus.reskin-bazaar-confirm-buy", "CONFIRM_BUY"},
             {"menus.reskin-bazaar-offer-price", "OFFER_PRICE"},

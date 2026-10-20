@@ -627,6 +627,80 @@
     "notes": "Buy order amount step, hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07); title in SkyHanni BazaarApi.kt. Item types are guesses. Mapped: ORDER_AMOUNT."
   },
   {
+    "id": "menus.reskin-bazaar-order-amount-buy-n",
+    "kind": "menu",
+    "payload": {
+      "title": "How many do you want?",
+      "rows": 4,
+      "fill": true,
+      "slots": {
+        "10": {
+          "item": "minecraft:wheat",
+          "name": "§aBuy only one!",
+          "lore": [
+            "§8Buy Order Setup",
+            "",
+            "§7Amount: §a1§7x",
+            "",
+            "§eClick to proceed!"
+          ]
+        },
+        "12": {
+          "item": "minecraft:wheat",
+          "name": "§aBuy 4!",
+          "lore": [
+            "§8Buy Order Setup",
+            "",
+            "§7Amount: §a4§7x",
+            "",
+            "§eClick to proceed!"
+          ],
+          "count": 4
+        },
+        "14": {
+          "item": "minecraft:wheat",
+          "name": "§aBuy 32!",
+          "lore": [
+            "§8Buy Order Setup",
+            "",
+            "§7Amount: §a32§7x",
+            "",
+            "§eClick to proceed!"
+          ],
+          "count": 32
+        },
+        "16": {
+          "item": "minecraft:oak_sign",
+          "name": "§aCustom Amount",
+          "lore": [
+            "§8Buy Order Quantity",
+            "",
+            "§7Order up to §a71,680§7x§7.",
+            "",
+            "§eClick to specify!"
+          ]
+        },
+        "30": {
+          "item": "minecraft:arrow",
+          "name": "§aGo Back",
+          "lore": [
+            "§7To Wheat"
+          ]
+        },
+        "31": {
+          "item": "minecraft:barrier",
+          "name": "§cClose"
+        }
+      }
+    },
+    "source": {
+      "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
+      "line": 351
+    },
+    "verifiedBy": "regex",
+    "notes": "Buy order amount step as killer560's client showed it on 2026-10-20 (names, counts and slots from the flipper's stop line: Buy only one! / Buy 4! x4 / Buy 32! x32 / Custom Amount / Go Back / Close). Lore lines are guesses in the older fixture's shape. Mapped: ORDER_AMOUNT."
+  },
+  {
     "id": "menus.reskin-bazaar-order-price",
     "kind": "menu",
     "payload": {
