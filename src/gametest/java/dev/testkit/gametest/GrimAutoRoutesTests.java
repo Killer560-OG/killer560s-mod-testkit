@@ -2042,6 +2042,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         c.note("acbat: " + count(s, "use_item") + " sceptre uses at 3 mobs (one walking), one-tap trusted " + trusted
                 + ", led " + led);
         noteFlags(c, s);
+    }
+
+    /**
      * {@code /test} (mod battest-1020, killer560 2026-10-20): the Spirit Sceptre bat measurement as typed, on GrimAC. One
      * starred zombie ({@code dungeon.starred}, NoAI) at rel (24.5, 15.5) of the open arena, him at (13.5, 15.5) facing away
      * from it; the server emulates no sceptre, so no bat ever flies and every fired shot ends "no bat seen" - what is under
