@@ -179,6 +179,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1014-jumpcd", GrimAutoRoutesTests::caseJumpCooldown); // ar-jump-cooldown (2026-10-14)
             s.testExpectingFlags("62-argrim-correction", GrimAutoRoutesTests::caseCorrection);
             s.test("62-argrim-boom", GrimAutoRoutesTests::caseBoom);
+            s.test("62-argrim-1020-boomsneak", GrimAutoRoutesTests::caseBoomSneak);
             s.test("62-argrim-breaker", GrimAutoRoutesTests::caseBreaker);
             s.test("62-argrim-1013-breakerfall", GrimAutoRoutesTests::caseBreakerFall); // ar breaker linger (2026-10-13)
             s.test("62-argrim-use", GrimAutoRoutesTests::caseUse);
@@ -216,6 +217,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // autosecret-bloodfirst-1017: Auto Secret with Secret Blood First = Door Camp on the arena (no blood door on
             // its map): it says so, secrets meanwhile, and sends exactly what the plain run does.
             s.test("62-argrim-1017-autosecret-bloodfirst", GrimAutoRoutesTests::caseAutoSecretBloodFirst);
+            // acplan-1020: Auto Secret's Fastest Total - the route, then the room's clear in the same visit.
+            s.test("62-argrim-1020-clearhere", GrimAutoRoutesTests::caseClearHere);
             s.test("62-argrim-imwarp", c -> caseMapWarp(c, false));
             s.test("62-argrim-imwarp-run", c -> caseMapWarp(c, true));
             s.test("62-argrim-goto", GrimAutoRoutesTests::caseGoTo);
@@ -627,6 +630,44 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         check(broke, "/ar add boom did not blow the cracked bricks in front of him");
         check(delta(before, "superbooms") == 1, "the server ran " + delta(before, "superbooms") + " superboom(s)");
         c.note("boom: " + count(s, "player_action") + " player_action, " + count(s, "swing") + " swing; bricks gone");
+        noteFlags(c, s);
+    }
+
+    /**
+     * boom-eye-1020: an etherwarp onto a tile (its sneak still held), then two booms recorded standing at 30 degrees down,
+     * east and west, each onto a cracked stone brick in the floor three blocks out. From the sneaking eye the recorded
+     * look meets the floor a block short (plain stone: the server's Superboom blows nothing there), so the boom must aim
+     * at the recorded block with a look of its own - and GrimAC must say nothing about that turn and dig.
+     */
+    private static void caseBoomSneak(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        setBlocks(ctx, Map.of(new int[]{13, F - 1, 14}, "minecraft:cracked_stone_bricks",
+                new int[]{7, F - 1, 14}, "minecraft:cracked_stone_bricks"));
+        writeRoute(ctx, List.of(ew(6, 14, 10, 14, true), node("BOOM", 10, 14, relYawTo(10, 14, 13, 14), 30f),
+                node("BOOM", 10, 14, relYawTo(10, 14, 7, 14), 30f)));
+        JsonObject before = stats();
+        long m = LogTap.mark();
+        startSampling(ctx);
+        warpOnto(ctx, 6.5, 18.5, 6, 14);
+        boolean gone = waitFor(ctx, 80, () -> blockAir(ctx, 13, F - 1, 14) && blockAir(ctx, 7, F - 1, 14));
+        ctx.waitTicks(10);
+        cmd(ctx, "/ar stop");
+        ctx.waitTicks(5);
+        List<Sample> s = stopSampling(ctx);
+        printTrace("boomsneak", s);
+        for (String l : LogTap.since(m)) {
+            if (l.contains("BOOM") || l.contains("Boom")) {
+                System.out.println("[62-argrim] boomsneak log: " + l);
+            }
+        }
+        long booms = delta(before, "superbooms");
+        check(logHas(m, "Node #2 BOOM acted") && logHas(m, "Node #3 BOOM acted"), "the two booms did not both act");
+        check(gone, "the cracked bricks the booms were recorded on were not both blown (east "
+                + blockAir(ctx, 13, F - 1, 14) + ", west " + blockAir(ctx, 7, F - 1, 14) + ")");
+        c.note("boomsneak: " + booms + " superboom(s) on the server, " + count(s, "player_action") + " player_action; both "
+                + "recorded bricks gone " + gone);
         noteFlags(c, s);
     }
 
@@ -2082,6 +2123,118 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     ModUnderTest.staticCall(as, "stop", new Class<?>[]{String.class, boolean.class},
                             new Object[]{"test over", true});
                 }
+            });
+            writeRoute(ctx, null);
+        }
+    }
+
+    /**
+     * acplan-1020 (mod: Auto Secret's Room Plan, Fastest Total): Auto Secret with the arena room's route and two starred mobs
+     * in the room out of the weapon's reach from where the route ends, Auto Clear on (Hyperion, hops). The room's clear must
+     * go in the same visit as its route - "clear here" after the route, or "clear first" before it when that prices
+     * cheaper - so the hand-over between the route's packets and Auto Clear's runs under GrimAC. Requires the route to
+     * finish, one of those two lines, both mobs dead, no entity packet; GrimAC silent.
+     */
+    private static void caseClearHere(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        String as = "com.killer560.hub.autosecret.AutoSecretFeature";
+        String asCfg = "com.killer560.hub.autosecret.AutoSecretConfig";
+        String autoCfg = "com.killer560.hub.autoclear.AutoClearConfig";
+        boolean hasPlan = ctx.computeOnClient(mc -> {
+            try {
+                Class.forName(asCfg + "$RoomPlan");
+                return true;
+            } catch (ClassNotFoundException e) {
+                return false;
+            }
+        });
+        check(hasPlan, "this jar has no Auto Secret Room Plan - nothing to test");
+        Object[] planBefore = new Object[1];
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(asCfg);
+            planBefore[0] = ModUnderTest.call(cfg, "getRoomPlan", new Class<?>[]{}, new Object[]{});
+            Object ft = ModUnderTest.enumValue(asCfg + "$RoomPlan", "FASTEST_TOTAL");
+            ModUnderTest.call(cfg, "setRoomPlan", new Class<?>[]{ft.getClass()}, new Object[]{ft});
+            Object ac = ModUnderTest.config(autoCfg);
+            ModUnderTest.set(ac, "setEnabled", true);
+            ModUnderTest.set(ac, "setHyperionHops", true);
+            ModUnderTest.call(ac, "setWeapon", new Class<?>[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")
+                    .getClass()}, new Object[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")});
+        });
+        resetRoutes(ctx);
+        arena(ctx, true);
+        writeRoute(ctx, List.of(ew(24, 10, 24, 22, true)));
+        List<Sample> s = List.of();
+        try {
+            tpRel(ctx, 6.5, 20.5, 0f, 0f);
+            ctx.waitTicks(5);
+            // Both well over the Hyperion's reach from the route's end (24, 22) and from each other.
+            double[][] spots = {{11.5, 8.5}, {22.5, 9.5}};
+            List<JsonObject> mobs = new ArrayList<>();
+            for (double[] sp : spots) {
+                Vec3 at = ctx.computeOnClient(mc -> {
+                    Object frame = ModUnderTest.staticCall(FRAME, "current");
+                    return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                            double.class, double.class}, new Object[]{frame, sp[0], (double) F, sp[1]});
+                });
+                mobs.add(c.hx().call("dungeon.starred", "x", at.x, "y", at.y, "z", at.z).getAsJsonObject());
+            }
+            ctx.waitTicks(20);
+            int seen = ctx.computeOnClient(mc -> ((List<?>) ModUnderTest.staticCall("com.killer560.hub.mobesp.MobEspFeature",
+                    "starredMobs", new Class<?>[]{net.minecraft.client.Minecraft.class}, new Object[]{mc})).size());
+            JsonObject before = stats();
+            long m = LogTap.mark();
+            startSampling(ctx);
+            Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as, "start"));
+            check(Boolean.TRUE.equals(started), "Auto Secret refused to start");
+            boolean stopped = waitFor(ctx, 1200, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as,
+                    "isRunning")));
+            ctx.waitTicks(10);
+            s = stopSampling(ctx);
+            printTrace("clearhere", s);
+            for (String l : LogTap.since(m)) {
+                if (l.contains("[AutoSecret]") || l.contains("[AutoClear]")) {
+                    println("  " + l.replaceAll("^.*?\\[(AutoSecret|AutoClear)\\]", "[$1]"));
+                }
+            }
+            List<String> states = new ArrayList<>();
+            for (JsonObject mob : mobs) {
+                states.add(c.hx().call("dungeon.alive", "id", mob.get("mob").getAsString(), "stand",
+                        mob.get("stand").getAsString()).getAsString());
+            }
+            int interacts = 0;
+            for (Sample x : s) {
+                interacts += (int) x.out().stream().filter(p -> p.contains("interact")).count();
+            }
+            boolean here = logHas(m, "[AutoSecret] clear here:");
+            boolean first = logHas(m, "[AutoSecret] clear first:");
+            println("clearhere: " + seen + " starred mob(s) resolved, mobs " + states + ", clear here " + here + ", clear first "
+                    + first + ", Wither Impacts " + delta(before, "witherImpacts") + ", etherwarps " + delta(before, "etherwarps")
+                    + ", entity packets " + interacts + ", stopped " + stopped);
+            check(seen >= 2, "the client resolved only " + seen + " of the 2 starred mobs - nothing to clear");
+            check(logHas(m, "[AutoSecret] route " + room + " finished"), "Auto Secret never saw the route finish");
+            check(here || first, "the room's clear did not go in the same visit as its route (no clear here / clear first)");
+            for (int i = 0; i < states.size(); i++) {
+                check(!"alive".equals(states.get(i)), "starred mob " + i + " is still alive");
+            }
+            check(interacts == 0, interacts + " entity packet(s): a melee hit or an entity click");
+            check(stopped, "Auto Secret was still running after the clear");
+            List<String> twoLooks = dev.testkit.harness.UseRotationWatch.violations();
+            check(twoLooks.isEmpty(), "a use's look was not the one its tick reported (GrimAC BadPacketsJ): " + twoLooks);
+            List<String> outside = PacketTrace.sentOutsideTick();
+            check(outside.isEmpty(), "sent outside a tick (after its client_tick_end, before the next tick): " + outside);
+            c.note("route then " + (here ? "clear here" : "clear first") + ": " + delta(before, "witherImpacts")
+                    + " Wither Impact(s), " + delta(before, "etherwarps") + " etherwarp(s), mobs " + states);
+            noteFlags(c, s);
+        } finally {
+            ctx.runOnClient(mc -> {
+                if ((Boolean) ModUnderTest.staticCall(as, "isRunning")) {
+                    ModUnderTest.staticCall(as, "stop", new Class<?>[]{String.class, boolean.class},
+                            new Object[]{"test over", true});
+                }
+                Object cfg = ModUnderTest.config(asCfg);
+                ModUnderTest.call(cfg, "setRoomPlan", new Class<?>[]{planBefore[0].getClass()}, new Object[]{planBefore[0]});
+                ModUnderTest.set(ModUnderTest.config(autoCfg), "setEnabled", false);
             });
             writeRoute(ctx, null);
         }

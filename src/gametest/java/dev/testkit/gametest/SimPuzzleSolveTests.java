@@ -84,7 +84,7 @@ public final class SimPuzzleSolveTests {
     private static final String AOTV = "ASPECT_OF_THE_VOID";
     private static final String TERMINATOR = "TERMINATOR";
     static final int AOTV_SLOT = 0;
-    private static final int TERM_SLOT = 1;
+    static final int TERM_SLOT = 1;
 
     /** Every auto's toggle, so each scenario can switch ALL of them off before turning its own on. */
     private static final String[] ALL_AUTOS = {"setAutoQuizEnabled", "setAutoWeirdosEnabled", "setAutoBlazeEnabled",
