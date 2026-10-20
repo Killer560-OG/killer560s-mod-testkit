@@ -827,13 +827,13 @@ public class SimAutopilot2Tests implements FabricClientGameTest {
         return out;
     }
 
-    /** A standable block of the room's main tile (the mod's own TeleportUtils.etherwarpableInTile). */
+    /** A standable block of the room's main tile that an etherwarp can reach (SimAutopilotTests.warpableStand). */
     private static BlockPos standIn(ClientGameTestContext ctx, Room r) {
         return ctx.computeOnClient(mc -> {
             BlockPos centre = (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class},
                     new Object[]{r.mainTile()});
-            return (BlockPos) ModUnderTest.staticCall(TELEPORT_UTILS, "etherwarpableInTile",
-                    new Class<?>[]{BlockPos.class, Vec3.class}, new Object[]{centre, Vec3.atCenterOf(centre)});
+            // One an etherwarp can reach from the room, not the centre block alone (SimAutopilotTests.warpableStand).
+            return SimAutopilotTests.warpableStand(centre);
         });
     }
 

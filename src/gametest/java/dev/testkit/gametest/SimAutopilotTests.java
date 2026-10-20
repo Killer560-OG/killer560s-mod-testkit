@@ -1068,6 +1068,75 @@ public class SimAutopilotTests implements FabricClientGameTest {
         return Math.sqrt(dx * dx + dz * dz);
     }
 
+    /**
+     * The landable block of the tile nearest its centre (the mod's {@code TeleportUtils.etherwarpableInTile} rule) that an
+     * etherwarp can actually reach from the room: seen by at least {@link #STAND_SEEN_BY} landable blocks 6 or more blocks
+     * off. The centre block alone can sit in a closed pocket - Silver Sword's, under the sword, is seen by 7 blocks
+     * within 2 of it and each of those by the same handful (2026-10-20, twice, two rotations) - and then the mod's planner
+     * rightly finds only a near landing, the start node never arms, and 141 failed "the route ... never finished".
+     * Client thread. Null when no block of the tile qualifies.
+     */
+    static BlockPos warpableStand(BlockPos centre) {
+        List<BlockPos> cands = new ArrayList<>();
+        for (int band : new int[]{2, 8}) {
+            for (int dy = band; dy >= -band; dy--) {
+                for (int dx = -14; dx <= 14; dx++) {
+                    for (int dz = -14; dz <= 14; dz++) {
+                        BlockPos p = centre.offset(dx, dy, dz);
+                        if (cands.contains(p) || !landableCovered(p)) {
+                            continue;
+                        }
+                        cands.add(p);
+                    }
+                }
+            }
+            if (!cands.isEmpty()) {
+                break;
+            }
+        }
+        Vec3 c = Vec3.atCenterOf(centre);
+        cands.sort(java.util.Comparator.comparingDouble(p -> c.distanceToSqr(p.getX() + 0.5, p.getY() + 1.0, p.getZ() + 0.5)));
+        for (int i = 0; i < Math.min(60, cands.size()); i++) {
+            if (seenFromAfar(cands.get(i))) {
+                return cands.get(i);
+            }
+        }
+        return null;
+    }
+
+    private static final int STAND_SEEN_BY = 10;
+
+    private static boolean landableCovered(BlockPos p) {
+        return (Boolean) ModUnderTest.staticCall(TELEPORT_UTILS, "landable", new Class<?>[]{BlockPos.class}, new Object[]{p})
+                && (Boolean) ModUnderTest.staticCall(TELEPORT_UTILS, "underCover", new Class<?>[]{BlockPos.class},
+                new Object[]{p});
+    }
+
+    private static boolean seenFromAfar(BlockPos stand) {
+        int seen = 0;
+        for (int dx = -20; dx <= 20; dx++) {
+            for (int dz = -20; dz <= 20; dz++) {
+                if (dx * dx + dz * dz < 36) {
+                    continue;
+                }
+                for (int dy = -6; dy <= 6; dy++) {
+                    BlockPos q = stand.offset(dx, dy, dz);
+                    if (!(Boolean) ModUnderTest.staticCall(TELEPORT_UTILS, "landable", new Class<?>[]{BlockPos.class},
+                            new Object[]{q})) {
+                        continue;
+                    }
+                    Vec3 eye = new Vec3(q.getX() + 0.5, q.getY() + 1.05 + 1.54, q.getZ() + 0.5);
+                    if (ModUnderTest.staticCall(TELEPORT_UTILS, "getEtherwarpDirection",
+                            new Class<?>[]{Vec3.class, BlockPos.class, double.class}, new Object[]{eye, stand, 61.0}) != null
+                            && ++seen >= STAND_SEEN_BY) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     /** A one-node route: a ROTATE start node standing on a standable block of the room's main tile (102's). */
     static JsonObject routeFor(ClientGameTestContext ctx, Status r) {
         return ctx.computeOnClient(mc -> {
@@ -1078,8 +1147,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
             }
             BlockPos centre = (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class},
                     new Object[]{r.mainTile()});
-            BlockPos stand = (BlockPos) ModUnderTest.staticCall(TELEPORT_UTILS, "etherwarpableInTile",
-                    new Class<?>[]{BlockPos.class, Vec3.class}, new Object[]{centre, Vec3.atCenterOf(centre)});
+            BlockPos stand = warpableStand(centre);
             if (stand == null) {
                 return null;
             }
