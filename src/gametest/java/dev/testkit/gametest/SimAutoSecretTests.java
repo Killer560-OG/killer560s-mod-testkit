@@ -717,7 +717,8 @@ public class SimAutoSecretTests implements FabricClientGameTest {
         }
     }
 
-    private static final Pattern HUD_HEAD = Pattern.compile("Auto Secret (\\d+)%  \\((\\d+)/(\\d+)\\)");
+    // Optional "  ~M:SS left" countdown after the count (mod 4893a558, 2026-10-18, AutoRoutesProgressHud.planLines).
+    private static final Pattern HUD_HEAD = Pattern.compile("Auto Secret (\\d+)%  \\((\\d+)/(\\d+)\\)(?:  ~\\d+:\\d\\d left)?");
 
     /**
      * The HUD against the real Auto Secret run: its plan is the rooms it will secret (only rooms with a route - the
