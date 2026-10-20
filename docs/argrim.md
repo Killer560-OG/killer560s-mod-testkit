@@ -37,6 +37,15 @@ abilities are `hx/dungeon/HxAbilities` (etherwarp, Instant Transmission, Superbo
   middle wall, behind it); the server emulates Wither Impact (`HxAbilities.witherImpact`: 10-block dash that settles at his
   height on a slightly-downward look, as the sim and Hypixel do - the plain transmission walk stopped dead there and every
   hop "never landed" - then a 6-block blast). Requires every mob dead, a landed hop, no entity packet. Clean on mod 27c52408.
+- `62-argrim-1020-autoclearaura` (2026-10-20, mod ac-aura-memory-1020): the same three mobs with four chests (one at eye
+  height on the start-to-first-mob line), two levers and a ring of floor levers round each mob, Secret Aura on. While Auto
+  Clear kills: no `[SecretAura] click sent`, no "[AutoRoutes] secret click sent", every lever off, no chest or lever in
+  the run memory, and the aura's "Auto Clear is killing mobs" hold must appear (the first version had no ring: Auto Clear
+  hopped off the start inside the aura's 150 ms first-seen wait, nothing was ever held, a vacuous pass). use_item_on is NOT
+  a secret click here: each etherwarp sends its right click's block half on the stone first (2 in a clean run). The aura is switched off inside onDone, in the tick the run
+  ends. An item summoned at his feet mid-kill must be remembered by RouteRunMemory "in room <room>" with "Auto Clear
+  running=true". Then chest A is opened by hand, and a WALK start node with await:1 4.5 blocks from it must log "await
+  counts chest at ... already got this run" and "await satisfied at once" and run to its end with no click.
 - `62-argrim-awaitskip` / `96-ar-awaitskip` (2026-10-06, mod ar-await-skip): a real left click (TestInput through
   `keyAttack`) while an await:1 etherwarp waits with no secret must fire the warp - one use, the server's etherwarp
   count +1 - with no swing and no player_action in the window, GrimAC silent. A control click with no route first must

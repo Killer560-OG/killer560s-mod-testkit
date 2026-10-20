@@ -202,6 +202,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-mimic", GrimAutoRoutesTests::caseMimic);
             s.test("62-argrim-1017-mimicaim", GrimAutoRoutesTests::caseMimicAim); // ar-bridges-bat-1017
             s.test("62-argrim-autoclear", GrimAutoRoutesTests::caseAutoClear);
+            s.test("62-argrim-1020-autoclearaura", GrimAutoRoutesTests::caseAutoClearAura); // mod ac-aura-memory-1020
             // The Interactive Map's own executor (livemap/autoclear/ClearExecutor), last: a map warp or a Go To sets the
             // map-arrival interlock (only a START node arms afterwards) and Go To leaves edit mode on.
             // Auto Secret (mod auto-secret): drives the same map warp and route; before imwarp, after the AR cases.
@@ -1883,6 +1884,255 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         c.note("autoclear: 3 starred mobs (open, in a wall, behind a wall) killed by " + delta(before, "witherImpacts")
                 + " Wither Impact(s) and " + delta(before, "etherwarps") + " etherwarp(s), no entity packet");
         noteFlags(c, s);
+    }
+
+    /**
+     * 62-argrim-1020-autoclearaura (killer560, 2026-10-20: Auto Clear "grabs a secret (a chest, lever or skull) while
+     * killing. Then when Auto Routes comes through the same room, it is missing that secret and waits for it").
+     * <p>
+     * Pass 1: caseAutoClear's three starred mobs, with chests and levers beside the start and beside each mob (and one
+     * chest at eye height on the line toward the first mob), Secret Aura on for chests and levers. While Auto Clear kills,
+     * no secret may be clicked - not by the aura, not by the held Hyperion - while the aura must have SEEN a candidate and
+     * been held by Auto Clear (so the pass is not vacuous). An item dropped at his feet mid-kill is picked up: Auto Routes'
+     * run memory must hold it with its room's name. Pass 2: with no route running he opens chest A by hand. Pass 3: a WALK
+     * start node with await:1 beside chest A, Secret Aura off: the await must be met at once from the run memory (chest A
+     * already got) and the route run to its end - without the memory it would wait forever. GrimAC must say nothing.
+     */
+    private static void caseAutoClearAura(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, true);
+        String auto = "com.killer560.hub.autoclear.AutoClearFeature";
+        String autoCfg = "com.killer560.hub.autoclear.AutoClearConfig";
+        String cheat = "com.killer560.hub.cheatutils.CheatUtilsConfig";
+        String memory = "com.killer560.hub.autoroutes.RouteRunMemory";
+        // chest A beside the start (the one taken by hand in pass 2), a floor lever beside the start, one chest at eye
+        // height on the start-to-first-mob line, a chest and a lever beside the mobs.
+        int[] chestA = {6, F, 15};
+        int[] leverA = {4, F, 13};
+        int[] chestEye = {7, F + 1, 13};
+        int[] chestB = {12, F, 11};
+        int[] leverB = {21, F, 11};
+        int[] chestC = {13, F, 22};
+        Map<int[], String> secrets = new LinkedHashMap<>();
+        secrets.put(chestA, "minecraft:chest");
+        secrets.put(leverA, "minecraft:lever[face=floor,facing=north,powered=false]");
+        secrets.put(chestEye, "minecraft:chest");
+        secrets.put(chestB, "minecraft:chest");
+        secrets.put(leverB, "minecraft:lever[face=floor,facing=north,powered=false]");
+        secrets.put(chestC, "minecraft:chest");
+        // A ring of floor levers two blocks round each mob (not in the middle wall): Auto Clear hops off the start in a
+        // few ticks, inside the aura's 150 ms first-seen wait, so these are what keep a secret in reach of where it
+        // stands to kill and of its end-of-room wait (the first run saw no candidate past the wait: a vacuous pass).
+        List<int[]> ring = new ArrayList<>();
+        for (int[] mob : new int[][]{{11, 8}, {15, 21}, {22, 9}}) {
+            for (int dx = -2; dx <= 2; dx += 2) {
+                for (int dz = -2; dz <= 2; dz += 2) {
+                    int x = mob[0] + dx;
+                    int z = mob[1] + dz;
+                    if ((dx != 0 || dz != 0) && x != 15 && x > 3 && x < 27 && z > 3 && z < 27) {
+                        ring.add(new int[]{x, F, z});
+                    }
+                }
+            }
+        }
+        for (int[] r : ring) {
+            secrets.put(r, "minecraft:lever[face=floor,facing=north,powered=false]");
+        }
+        setBlocks(ctx, secrets);
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(autoCfg);
+            ModUnderTest.set(cfg, "setEnabled", true);
+            ModUnderTest.set(cfg, "setHyperionHops", true);
+            ModUnderTest.call(cfg, "setWeapon", new Class<?>[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")
+                    .getClass()}, new Object[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")});
+            Object aura = ModUnderTest.config(cheat);
+            ModUnderTest.set(aura, "setAuraChests", true);
+            ModUnderTest.set(aura, "setAuraLevers", true);
+            ModUnderTest.set(aura, "setAuraPauseWhileSneaking", false);
+            ModUnderTest.call(aura, "setAuraPauseHolding", new Class<?>[]{String.class}, new Object[]{""});
+        });
+        List<JsonObject> mobs = new ArrayList<>();
+        try {
+            tpRel(ctx, 5.5, 15.5, -90f, 0f);
+            ctx.waitTicks(10);
+            double[][] spots = {{11.5, 8.5}, {15.5, 21.5}, {22.5, 9.5}};
+            for (double[] sp : spots) {
+                Vec3 at = ctx.computeOnClient(mc -> {
+                    Object frame = ModUnderTest.staticCall(FRAME, "current");
+                    return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                            double.class, double.class}, new Object[]{frame, sp[0], (double) F, sp[1]});
+                });
+                mobs.add(c.hx().call("dungeon.starred", "x", at.x, "y", at.y, "z", at.z).getAsJsonObject());
+            }
+            ctx.waitTicks(20);
+
+            // ---- pass 1: Auto Clear kills with Secret Aura on ----
+            java.util.concurrent.atomic.AtomicReference<String> done = new java.util.concurrent.atomic.AtomicReference<>();
+            java.util.concurrent.atomic.AtomicReference<String> gaveUp = new java.util.concurrent.atomic.AtomicReference<>();
+            long m = LogTap.mark();
+            startSampling(ctx);
+            ctx.runOnClient(mc -> {
+                ModUnderTest.set(ModUnderTest.config(cheat), "setSecretAuraEnabled", true);
+                // The aura goes off in the same client tick the run ends (onDone / onGiveUp run inside Auto Clear's tick),
+                // so a click right after the kill cannot be mistaken for one during it.
+                ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class, Runnable.class,
+                        java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> {
+                            ModUnderTest.turnOff(cheat, "setSecretAuraEnabled");
+                            done.set("done");
+                        }, (java.util.function.Consumer<String>) why -> {
+                            ModUnderTest.turnOff(cheat, "setSecretAuraEnabled");
+                            gaveUp.set(why);
+                        }});
+            });
+            // An item dropped at his feet mid-kill: picked up while Auto Clear runs, as an item secret on his way would be.
+            ctx.waitTicks(15);
+            Vec3 dropAt = relPos(ctx);
+            boolean busyAtDrop = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto, "isBusy"));
+            c.server().command("execute at @p run summon minecraft:item ~ ~ ~ {Item:{id:\"minecraft:bone\",count:1},"
+                    + "PickupDelay:0s}");
+            boolean finished = waitFor(ctx, 900, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto,
+                    "isBusy")));
+            if (!finished) {
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "cancel"));
+            }
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(cheat, "setSecretAuraEnabled"));
+            ctx.waitTicks(5);
+            List<Sample> s1 = stopSampling(ctx);
+            List<String> states = new ArrayList<>();
+            for (JsonObject mob : mobs) {
+                states.add(c.hx().call("dungeon.alive", "id", mob.get("mob").getAsString(), "stand",
+                        mob.get("stand").getAsString()).getAsString());
+            }
+            int auraClicks = 0;
+            boolean auraHeld = false;
+            boolean useTurned = false;
+            for (String l : LogTap.since(m)) {
+                if (l.contains("[SecretAura] click sent")) {
+                    auraClicks++;
+                    println("  " + l.replaceAll("^.*?\\[SecretAura\\]", "[SecretAura]"));
+                }
+                auraHeld |= l.contains("Auto Clear is killing mobs");
+                useTurned |= l.contains("held use: the look meets the secret");
+                if (l.contains("[AutoClear]") || l.contains("[RouteMemory] remembered")) {
+                    println("  " + l.replaceAll("^.*?\\[(AutoClear|RouteMemory)\\]", "[$1]"));
+                }
+            }
+            int useOn = count(s1, "use_item_on");
+            // use_item_on alone is not a secret click: an etherwarp sends the block half of its right click on the stone
+            // it lands on first (util/RightClick). Every click on a chest, lever or skull through the game mode is logged
+            // by Auto Routes' await hook ("secret click sent"), whoever made it.
+            int secretClicks = 0;
+            for (String l : LogTap.since(m)) {
+                if (l.contains("[AutoRoutes] secret click sent")) {
+                    secretClicks++;
+                    println("  " + l.replaceAll("^.*?\\[AutoRoutes\\]", "[AutoRoutes]"));
+                }
+            }
+            boolean leversOff = true;
+            for (var e : secrets.entrySet()) {
+                if (e.getValue().contains("lever")) {
+                    int[] p = e.getKey();
+                    leversOff &= !String.valueOf(blockState(ctx, p[0], p[1], p[2])).contains("powered=true");
+                }
+            }
+            String inRoom = ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(memory, "gotInRoom",
+                    new Class<?>[]{String.class}, new Object[]{room})));
+            boolean itemRemembered = false;
+            for (String l : LogTap.since(m)) {
+                itemRemembered |= l.contains("[RouteMemory] remembered secret item picked up") && l.contains("in room " + room)
+                        && l.contains("Auto Clear running=true");
+            }
+            printTrace("autoclearaura", s1);
+            println(String.format(Locale.ROOT, "autoclearaura pass 1: %s, onDone=%s onGiveUp=%s, mobs %s, aura clicks %d, "
+                            + "aura held by Auto Clear %s, held use turned off a secret %s, secret clicks %d, use_item_on %d "
+                            + "(etherwarp block halves), levers off %s (%d), item dropped at %.1f,%.1f (Auto Clear busy %s), "
+                            + "memory in %s: %s",
+                    finished ? "finished" : "STILL RUNNING", done.get(), gaveUp.get(), states, auraClicks, auraHeld,
+                    useTurned, secretClicks, useOn, leversOff, ring.size() + 2, dropAt.x, dropAt.z, busyAtDrop, room,
+                    inRoom));
+            for (int i = 0; i < mobs.size(); i++) {
+                check(!"alive".equals(states.get(i)), "pass 1: starred mob " + i + " is still alive");
+            }
+            check(finished && done.get() != null && gaveUp.get() == null, "pass 1: clearRoom ended onDone=" + done.get()
+                    + " onGiveUp=" + gaveUp.get());
+            check(auraHeld, "pass 1: Secret Aura never had a secret in reach to hold back - the pass proves nothing");
+            check(auraClicks == 0, "pass 1: Secret Aura clicked " + auraClicks + " secret(s) while Auto Clear was killing");
+            check(secretClicks == 0, "pass 1: " + secretClicks + " click(s) on a chest, lever or skull while Auto Clear "
+                    + "was killing");
+            check(!inRoom.contains("chest at") && !inRoom.contains("lever at"), "pass 1: the run memory holds a chest or "
+                    + "lever taken while Auto Clear was killing: " + inRoom);
+            check(leversOff, "pass 1: a lever was flipped while Auto Clear was killing");
+            check(busyAtDrop, "pass 1: Auto Clear had already finished when the item was dropped");
+            check(itemRemembered, "pass 1: the item picked up during the kill was not remembered with room " + room);
+            noteFlags(c, s1);
+
+            // ---- pass 2: chest A taken by hand, no route running ----
+            tpRel(ctx, 8.5, 16.5, 90f, 0f);
+            ctx.waitTicks(5);
+            long m2 = LogTap.mark();
+            startSampling(ctx);
+            rightClick(ctx, chestA[0], chestA[1], chestA[2], Direction.UP);
+            boolean opened = waitFor(ctx, 20, () -> ctx.computeOnClient(mc -> McCompat.screen(mc) != null));
+            ctx.runOnClient(mc -> {
+                if (mc.player.containerMenu != mc.player.inventoryMenu) {
+                    mc.player.closeContainer();
+                }
+            });
+            ctx.waitTicks(5);
+            List<Sample> s2 = stopSampling(ctx);
+            boolean chestRemembered = logHasAll(m2, "[RouteMemory] remembered secret chest at", "in room " + room);
+            println("autoclearaura pass 2: chest A opened " + opened + ", remembered with its room " + chestRemembered
+                    + ", use_item_on " + count(s2, "use_item_on"));
+            // (Auto Close Chest, when on, cancels the screen: the click itself is what is checked.)
+            check(count(s2, "use_item_on") == 1, "pass 2: the hand click on chest A sent " + count(s2, "use_item_on")
+                    + " use_item_on");
+            check(chestRemembered, "pass 2: chest A was not remembered with room " + room);
+            noteFlags(c, s2);
+
+            // ---- pass 3: the route's await beside chest A is met from memory ----
+            JsonObject w = node("WALK", 8, 19, 0f, 0f);
+            w.addProperty("start", true);
+            w.addProperty("awaitEnabled", true);
+            w.addProperty("await", "SECRET");
+            w.addProperty("amount", 1);
+            writeRoute(ctx, List.of(w, node("UNSNEAK", 8, 26, 0f, 0f)));
+            long m3 = LogTap.mark();
+            startSampling(ctx);
+            walkOnto(ctx, 8.5, 16.5, 8, 19);
+            boolean complete = waitFor(ctx, 100, () -> logHas(m3, "\" complete") || logHas(m3, "Stopped"));
+            ctx.waitTicks(5);
+            List<Sample> s3 = stopSampling(ctx);
+            boolean counted = logHasAll(m3, "await counts chest at", "already got this run");
+            boolean atOnce = logHas(m3, "await satisfied at once");
+            for (String l : LogTap.since(m3)) {
+                if (l.contains("Node #1") || l.contains("complete")) {
+                    println("  " + l.replaceAll("^.*?\\[AutoRoutes\\]", "[AutoRoutes]"));
+                }
+            }
+            println("autoclearaura pass 3: chest A counted from memory " + counted + ", met at once " + atOnce
+                    + ", route complete " + logHas(m3, "\" complete") + ", use_item_on " + count(s3, "use_item_on"));
+            check(counted && atOnce, "pass 3: the await beside chest A did not count it from the run memory");
+            check(complete && logHas(m3, "\" complete"), "pass 3: the route did not run to its end (it waited for chest A)");
+            check(count(s3, "use_item_on") == 0, "pass 3: the route clicked something (" + count(s3, "use_item_on") + ")");
+            c.note("autoclearaura: Auto Clear killed 3 mobs beside 4 chests and 2 levers with Secret Aura on - 0 secret "
+                    + "clicks (aura held by Auto Clear" + (useTurned ? ", held use turned off a secret" : "")
+                    + "); item picked up mid-kill remembered in " + room + "; chest A by hand then met the route's await "
+                    + "at once from memory, route complete");
+            noteFlags(c, s3);
+        } finally {
+            ctx.runOnClient(mc -> {
+                ModUnderTest.staticCall(auto, "cancel");
+                ModUnderTest.turnOff(cheat, "setSecretAuraEnabled");
+                ModUnderTest.set(ModUnderTest.config(autoCfg), "setEnabled", false);
+                if (mc.player.containerMenu != mc.player.inventoryMenu) {
+                    mc.player.closeContainer();
+                }
+            });
+            c.server().command("kill @e[type=minecraft:zombie]");
+            c.server().command("kill @e[type=minecraft:item]");
+            resetRoutes(ctx);
+        }
     }
 
     // ============================================================================================ Interactive Map
