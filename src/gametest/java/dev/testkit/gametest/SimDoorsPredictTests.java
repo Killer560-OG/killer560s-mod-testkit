@@ -641,24 +641,41 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
                 new Class<?>[]{BlockPos.class}, new Object[]{gold.get()}));
         String atEmerald = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(PREDICTOR, "observedAt",
                 new Class<?>[]{BlockPos.class}, new Object[]{emerald.get()}));
-        int emeraldsSeen = ctx.computeOnClient(mc -> {
-            int n = 0;
+        // Every seen block that is an emerald now; once the placed emerald is put back, the ones still emerald are the
+        // world's own (a room with emerald blocks in sight - the 96-block rays and the extra rays of 2026-10-20 reach
+        // them), and only those that stop being emerald were the one placed here.
+        List<BlockPos> emeraldsNow = ctx.computeOnClient(mc -> {
+            List<BlockPos> out = new java.util.ArrayList<>();
             for (Object o : (List<?>) ModUnderTest.staticCall(PREDICTOR, "observations")) {
                 double[] b = (double[]) o;
-                if (mc.level.getBlockState(BlockPos.containing(b[0], b[1], b[2])).is(Blocks.EMERALD_BLOCK)) {
-                    n++;
+                BlockPos p = BlockPos.containing(b[0], b[1], b[2]);
+                if (mc.level.getBlockState(p).is(Blocks.EMERALD_BLOCK)) {
+                    out.add(p);
                 }
             }
-            return n;
+            return out;
         });
         server(ctx, level -> {
             level.setBlock(emerald.get(), emeraldWas.get(), 3);
             level.setBlock(gold.get(), goldWas.get(), 3);
         });
+        ctx.waitFor(mc -> !mc.level.getBlockState(emerald.get()).is(Blocks.EMERALD_BLOCK), 200);
+        int emeraldsSeen = ctx.computeOnClient(mc -> {
+            int n = 0;
+            for (BlockPos p : emeraldsNow) {
+                if (!mc.level.getBlockState(p).is(Blocks.EMERALD_BLOCK)) {
+                    n++;
+                }
+            }
+            return n;
+        });
+        println("hidden block: " + emeraldsNow.size() + " emerald block(s) seen, " + (emeraldsNow.size() - emeraldsSeen)
+                + " of them the world's own");
         row(R_HIDDEN, "minecraft:gold_block".equals(atGold) && atEmerald == null && emeraldsSeen == 0,
                 "looking into " + f.names.get(hInto) + ": gold block in the open at " + gold.get().toShortString() + " seen as "
                         + atGold + "; emerald sealed at " + emerald.get().toShortString() + " seen as " + atEmerald
-                        + "; emerald blocks among everything seen: " + emeraldsSeen);
+                        + "; placed emerald blocks among everything seen: " + emeraldsSeen + " (the world's own: "
+                        + (emeraldsNow.size() - emeraldsSeen) + ")");
     }
 
     /** Stands in {@code from} and looks through door {@code d} into {@code into} from three distances and five angles. */
