@@ -2645,6 +2645,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         });
         session.hx().call("dungeon.blocks", "blocks", set);
         ctx.waitTicks(10);
+        // Loose items are picked up as secrets. The world persists between runs, and the rebuild above knocks the last
+        // case's chests and levers (1020-autoclearaura's, an earlier run's) out as drops: 1016-auraawait's await was
+        // met by three of them with no click at all (2026-10-20). Every arena starts with none.
+        session.server().command("kill @e[type=minecraft:item]");
+        ctx.waitTicks(2);
     }
 
     private static String spec(BlockPos p, String state) {
