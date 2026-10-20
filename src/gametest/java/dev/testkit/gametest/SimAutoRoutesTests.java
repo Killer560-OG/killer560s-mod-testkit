@@ -144,7 +144,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // ar-bridges-bat-1017: his Bridges route runs to the end (no warp eaten after the breaker); Kill Mimic aims
             "96-ar-1017-bridges", "96-ar-1017-mimicaim",
             // sim-secrets-1018: an await beside a Redstone Key spot the key never spawned at starts one secret on
-            "1018-ar-keyspot-empty"};
+            "1018-ar-keyspot-empty",
+            // saleap-1020: a Shadow Assassin's leap refuses Secret Aura's chest click on an await - the route must not freeze
+            "96-ar-1020-saleap", "96-ar-1020-saleap-letgo"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -341,6 +343,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1015-batseek" -> caseBatSeek(ctx);
                         case "96-ar-1017-bridges" -> caseBridges(ctx);
                         case "1018-ar-keyspot-empty" -> caseKeySpotEmpty(ctx);
+                        case "96-ar-1020-saleap" -> ArLeapCases.leap(ctx, false);
+                        case "96-ar-1020-saleap-letgo" -> ArLeapCases.leap(ctx, true);
                         case "96-ar-1017-mimicaim" -> caseMimicAim(ctx);
                         case "96-ar-1015-cryptaim" -> caseCryptAim(ctx);
                         case "96-ar-1013-breakerfall" -> caseBreakerFall(ctx);
@@ -9529,6 +9533,133 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
 
         private static BlockPos realNow0(int[] p) {
             return real(ModUnderTest.staticCall(FRAME, "current"), p[0], p[1], p[2]);
+        }
+    }
+
+    /**
+     * saleap-1020 (killer560, 2026-10-20: "if I am trying to grab a chest when it leaps to me then it'll sit there and the
+     * auto route freezes for forever because it couldn't click when it tried"). Hypixel shows a Shadow Assassin's leap
+     * with a world-border packet that leaves him outside the client's border, and vanilla's useItemOn refuses every block
+     * click outside it before sending anything (QUOI's fixInteract and RSM's WorldBorderFix wrap that check). The sim's
+     * {@code SimShadowAssassinLeap} does the same: an assassin behind him and the client's border moved off him until the
+     * leap lands. An await:1 walk node waits beside a chest; the leap starts, then Secret Aura comes on.
+     * <ul>
+     * <li>{@code saleap}: a 3 s leap. Before the fix the aura's two clicks a second apart were both refused, the chest was
+     * given up for the run, and the await sat at 0/1 for ever. Now the click is held and goes when the border lifts: the
+     * await meets on the chest and the route completes.</li>
+     * <li>{@code saleap-letgo}: a 30 s leap, longer than any hold. The route must still complete, uncounted (no secret
+     * met, the chest never clicked), and say so in chat.</li>
+     * </ul>
+     */
+    static final class ArLeapCases {
+        private ArLeapCases() {
+        }
+
+        private static final String LEAP = "com.killer560.hub.roomsim.SimShadowAssassinLeap";
+
+        private static boolean borderRefuses(ClientGameTestContext ctx, BlockPos p) {
+            return ctx.computeOnClient(mc -> mc.level != null && !mc.level.getWorldBorder().isWithinBounds(p));
+        }
+
+        private static void endLeap(ClientGameTestContext ctx) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(LEAP, "landNow"));
+            ctx.waitFor(mc -> !(Boolean) ModUnderTest.staticCall(LEAP, "leaping"), 100);
+            ctx.waitTicks(3);
+            // The assassin the leap placed: not left standing in the arena for the cases after.
+            serverRun(ctx, (server, sp) -> {
+                List<net.minecraft.world.entity.Entity> gone = new ArrayList<>();
+                for (var e : server.overworld().getAllEntities()) {
+                    if (e instanceof net.minecraft.world.entity.player.Player p && p != sp
+                            && "Shadow Assassin".equals(p.getName().getString())) {
+                        gone.add(e);
+                    }
+                }
+                gone.forEach(net.minecraft.world.entity.Entity::discard);
+            });
+        }
+
+        static void leap(ClientGameTestContext ctx, boolean letGo) {
+            if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+                caseSkip = "Auto Routes and Secret Aura are cheat-build features";
+                return;
+            }
+            String tag = letGo ? "saleap-letgo" : "saleap";
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            // Blocks no other case of the 96-ar arena uses (Secret Aura's done-set is per block for the run).
+            int[] chest = letGo ? new int[]{25, F, 17} : new int[]{25, F, 5};
+            int startZ = letGo ? 17 : 5;
+            setBlocks(ctx, Map.of(chest, Blocks.CHEST.defaultBlockState()));
+            writeRoute(ctx, List.of(ArAuraAwaitCases.walk(23, startZ, true, 1), node("UNSNEAK", 23, startZ + 7, 0f, 0f)));
+            BlockPos chestAt = realNow(ctx, chest[0], chest[1], chest[2]);
+            int leapTicks = letGo ? 600 : 60;
+            try {
+                startSampling(ctx);
+                check(arm(ctx, 23, startZ, 0f, 0f), "the await route did not start");
+                long m = LogTap.mark();
+                ctx.waitTicks(5);
+                check(!logHas(m, "secrets met"), "premise: the await was met before the leap");
+                boolean asked = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(LEAP, "leap",
+                        new Class<?>[]{net.minecraft.client.Minecraft.class, int.class}, new Object[]{mc, leapTicks}));
+                check(asked, "premise: the sim refused the leap (SimState.canAct)");
+                check(waitFor(ctx, 40, () -> borderRefuses(ctx, chestAt)),
+                        "premise: the leap's border never reached the client - the chest click would not be refused");
+                boolean assassin = ctx.computeOnClient(mc -> {
+                    for (var e : mc.level.entitiesForRendering()) {
+                        if (e instanceof net.minecraft.world.entity.player.Player p && p != mc.player
+                                && "Shadow Assassin".equals(p.getName().getString()) && p.distanceTo(mc.player) < 6) {
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+                long leapAt = LogTap.mark();
+                ArAuraAwaitCases.auraOn(ctx);
+                boolean done = waitFor(ctx, letGo ? 500 : 400, () -> {
+                    ArAuraAwaitCases.closeScreens(ctx);
+                    return logHas(m, "\" complete") || logHas(m, "Stopped");
+                });
+                boolean landed = logHas(m, "leap landed");
+                List<Sample> s = stopSampling(ctx);
+                int clicks = countOut(s, "use_item_on");
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("AutoRoutes") || l.contains("SecretAura") || l.contains("Shadow Assassin")) {
+                        println(tag + " log: " + l);
+                    }
+                }
+                boolean complete = done && logHas(m, "\" complete");
+                boolean met = logHas(m, "await 1/1 secrets met");
+                boolean chestClicked = logHas(m, "clicked by you");
+                boolean letGoLine = logHas(m, "await let go");
+                println(String.format(Locale.US, "%s: assassin behind him %s, route complete %s (still running %s), await met"
+                                + " %s, chest clicked %s, let go %s, use_item_on %d, leap landed during the run %s", tag,
+                        assassin, complete, running(ctx), met, chestClicked, letGoLine, clicks, landed));
+                check(assassin, "premise: no Shadow Assassin stood behind him during the leap");
+                check(complete, "the route did not complete within " + (letGo ? 500 : 400) + " ticks of the leap - it froze"
+                        + " on the await (still running: " + running(ctx) + ")");
+                if (letGo) {
+                    check(!landed, "premise: the leap landed during the run, so the let-go was never needed");
+                    check(letGoLine, "the route went on, but not by the refused-click let-go");
+                    check(!met && !chestClicked, "the refused chest was counted as a secret");
+                    check(!logHas(m, "its secrets count as done this run") && logHas(m, "not counted as fully secreted"),
+                            "the room was remembered as fully secreted although its chest was left");
+                    check(logHas(leapAt, "outside the world border"), "Secret Aura never held its click for the border");
+                } else {
+                    check(landed, "premise: the leap never landed");
+                    check(met && chestClicked, "the await did not meet on the chest after the leap landed");
+                    check(clicks >= 1, "no use_item_on went out for the chest");
+                    check(logIndex(m, "leap landed") < logIndex(m, "secrets met"),
+                            "the await met before the leap landed - the click was never refused");
+                    check(!letGoLine, "the await was let go although the chest was taken");
+                    check(logHas(m, "its secrets count as done this run"), "the completed route did not mark its room done");
+                }
+            } finally {
+                ArAuraAwaitCases.auraOff(ctx);
+                ArAuraAwaitCases.closeScreens(ctx);
+                stopRoute(ctx);
+                endLeap(ctx);
+            }
         }
     }
 }
