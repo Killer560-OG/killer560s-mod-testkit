@@ -61,6 +61,7 @@ public final class HxDungeonModule implements HxModule {
         HxBridge.register("dungeon.tp", HxDungeonModule::tp);
         HxBridge.register("dungeon.starred", HxDungeonModule::starred);
         HxBridge.register("dungeon.alive", HxDungeonModule::alive);
+        HxBridge.register("dungeon.move", HxDungeonModule::move);
     }
 
     /**
@@ -101,6 +102,27 @@ public final class HxDungeonModule implements HxModule {
         out.addProperty("mobId", mob.getId());
         out.addProperty("standId", stand.getId());
         return out;
+    }
+
+    /** Moves a {@link #starred} mob (arg {@code id}) and its star stand (arg {@code stand}) to x, y, z: a walking mob for
+     *  131e / 62-argrim-1020-acbat (2026-10-20). False when the mob is gone. */
+    private static JsonElement move(MinecraftServer server, JsonObject a) {
+        ServerLevel level = server.overworld();
+        var mob = level.getEntity(java.util.UUID.fromString(a.get("id").getAsString()));
+        if (mob == null || !mob.isAlive()) {
+            return new com.google.gson.JsonPrimitive(false);
+        }
+        double x = a.get("x").getAsDouble();
+        double y = a.get("y").getAsDouble();
+        double z = a.get("z").getAsDouble();
+        mob.setPos(x, y, z);
+        if (a.has("stand")) {
+            var s = level.getEntity(java.util.UUID.fromString(a.get("stand").getAsString()));
+            if (s != null) {
+                s.setPos(x, y + mob.getBbHeight() + 0.1, z);
+            }
+        }
+        return new com.google.gson.JsonPrimitive(true);
     }
 
     /** "alive", "dead" or "missing" for arg {@code id}; a mob no longer alive loses its star stand (arg {@code stand}). */

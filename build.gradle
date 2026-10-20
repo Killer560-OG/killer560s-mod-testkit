@@ -565,7 +565,8 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	// tile of every mob room (the sim's clear-on-entry off, so Auto Clear has real clears), -PfullclearCodes=<file> one
 	// map code a line, each replayed once, -PfullclearPlan=<Auto Secret RoomPlan constant> (a jar without it: ignored),
 	// -PfullclearNoTraps=true plans floors without a trap room.
-	["fullclearRuns", "fullclearCode", "fullclearOut", "fullclearMobs", "fullclearCodes", "fullclearPlan", "fullclearNoTraps"].each { k ->
+	// 131e-sim-ac-1020: -PacCode=<map code> replays the floor a first run printed.
+	["fullclearRuns", "fullclearCode", "fullclearOut", "fullclearMobs", "fullclearCodes", "fullclearPlan", "fullclearNoTraps", "acCode"].each { k ->
 		if (project.hasProperty(k)) {
 			systemProperty "testkit.${k}", project.property(k)
 		}
