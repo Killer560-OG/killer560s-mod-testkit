@@ -34,7 +34,14 @@ clients by this checkout's path).
 ./run-sharded.ps1 -Scenario "smoke,-ui-,93-solve,96-ar" -Shards 3      # ONE filter across 3 clients, see "Sharding"
 ./gradlew runClientGameTest -Pscenario=60-secret -PmodUnderTest=<jar>   # no watcher
 ./gradlew runClientGameTest -Pnogrim -PmodUnderTest=<jar>               # anticheat removed
+./run-scenario.ps1 -Scenario smoke -Extra @("-PextraMods=C:/mods")      # load other mods beside it (folder or jar,jar)
 ```
+
+`-PextraMods` adds every jar it names (or every jar in a folder) to `fabric.addMods`, skipping `fabric-api*` (the testkit
+runs its own) and any jar with the mod under test's file name. 306 leaves out command roots another mod registered
+(Flashback's `/flashback`). Give it a path with no spaces or brackets: `run-scenario.ps1` hands gradle its arguments
+through `Start-Process -ArgumentList`, which does not quote them. Lithium makes the mod's `ChunkCacheLevelMixin` fail to
+apply (logged as a WARN, 2026-10-20); the smoke suite passes regardless.
 
 The default mod jar is the newest snapshot under `jarsDir` matching `modJarPattern`, never the mod's build/libs (it
 moves under a run). `-Minecraft` follows the jar's `fabric.mod.json` when not given. A server start is about 7 s (launch
@@ -229,8 +236,8 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   better: it arrives as one string, so the volume flag is lost and the client played sound (2026-10-06). Call the script
   from PowerShell itself with `-Extra @("-PtestVolume=0", ...)`, and check the run prints "Test client volume set to 0".
 
-- `run-sharded.ps1 ... | Out-File x.txt` leaves x.txt EMPTY: the script prints with Write-Host, which a pipeline does
-  not carry. An `until grep -q "merged report" x.txt` wait then never ends; eight such loops were found still running
+- `run-sharded.ps1 ... | Out-File x.txt` (and `run-scenario.ps1`, 2026-10-20) leaves x.txt EMPTY: the script prints with
+  Write-Host, which a pipeline does not carry; redirect the whole `powershell` process's stdout from Bash instead. An `until grep -q "merged report" x.txt` wait then never ends; eight such loops were found still running
   on 2026-10-06. Read `build/sharded-<timestamp>/summary.md`, or the background task's own output file. Do not poll
   `run-sharded.log` either: a grep holding it open made the script's log write throw and the run killed its own shards
   (2026-10-07; the write now retries, but wait on the background task instead).

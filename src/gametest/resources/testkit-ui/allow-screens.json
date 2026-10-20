@@ -1,5 +1,5 @@
 {
-  "_doc": "Every concrete mod Screen class (found in the jar at run time; a class missing from both lists fails 305). 'args' builds the constructor call: null | int:N | bool:B | str:S | float:F | enum:* (one screen per constant of that parameter's enum) | intconsumer | pvtarget (ProfileViewerFeature.Target of a fixed name/UUID). 'factory' names a public static method to call instead (args apply to it). Constructor sources are mod 8c43a6d.",
+  "_doc": "Every concrete mod Screen class (found in the jar at run time; a class missing from both lists fails 305). 'args' builds the constructor call: null | int:N | bool:B | str:S | float:F | enum:* (one screen per constant of that parameter's enum) | intconsumer | consumer (a no-op Consumer) | strlist:a|b (a List<String>) | screen:R (mod screen R built with a null parent) | pvtarget (ProfileViewerFeature.Target of a fixed name/UUID). 'factory' names a public static method to call instead (args apply to it). Constructor sources are mod 8c43a6d.",
   "screens": [
     {"class": "gui.ModScreen", "args": ["null"], "source": "gui/ModScreen.java:84"},
     {"class": "gui.profit.BazaarFlipProfitScreen", "args": ["null"], "source": "gui/profit/BazaarFlipProfitScreen.java:16 (cheat only)"},
@@ -40,7 +40,16 @@
     {"class": "storagesearch.StorageSearchScreen", "args": ["null", "str:"], "source": "storagesearch/StorageSearchScreen.java"},
     {"class": "accounts.gui.DirectSessionLoginScreen", "args": ["null", "null"], "source": "accounts/gui/DirectSessionLoginScreen.java - render only; nothing is typed into it"},
     {"class": "inventorytheme.InventoryCustomizeScreen", "args": ["null"], "source": "inventorytheme/InventoryCustomizeScreen.java:27 (Inventory Theme > Customize, mod menu-hud-1018; render only)"},
-    {"class": "lfg.LfgScreen", "args": ["null"], "source": "lfg/LfgScreen.java:47 (/cpf, mod partyfinder-1018; offline: the relay poll is refused, render only)"}
+    {"class": "lfg.LfgScreen", "args": ["null"], "source": "lfg/LfgScreen.java:47 (/cpf, mod partyfinder-1018; offline: the relay poll is refused, render only)"},
+    {"class": "armourdye.ChoiceListScreen", "args": ["null", "str:Choice", "strlist:One|Two|Three", "str:Two", "consumer"], "source": "armourdye/ChoiceListScreen.java:39 (mod release-1019; render only)"},
+    {"class": "armourdye.CustomColorScreen", "args": ["screen:armourdye.CustomItemsScreen"], "source": "armourdye/CustomColorScreen.java:35 (owned by CustomItemsScreen, built with a null parent; render only)"},
+    {"class": "armourdye.CustomItemPickerScreen", "args": ["screen:armourdye.CustomItemsScreen"], "source": "armourdye/CustomItemPickerScreen.java:56 (owned by CustomItemsScreen, built with a null parent; render only)"},
+    {"class": "armourdye.DyePickerScreen", "args": ["null", "intconsumer"], "source": "armourdye/DyePickerScreen.java:39 (render only)"},
+    {"class": "armourdye.HypixelSkinScreen", "args": ["null", "str:Helmet", "consumer"], "source": "armourdye/HypixelSkinScreen.java:48 (render only)"},
+    {"class": "autosell.AutoSellListScreen", "args": ["null"], "source": "autosell/AutoSellListScreen.java:43 (render only)"},
+    {"class": "bazaaradvisor.BazaarAdvisorSetupScreen", "args": [], "source": "bazaaradvisor/BazaarAdvisorSetupScreen.java:34 (/bzflip; render only)"},
+    {"class": "gui.CapeDesignerScreen", "args": ["null"], "source": "gui/CapeDesignerScreen.java:44 (render only)"},
+    {"class": "mobskin.MobPickerScreen", "args": ["null", "null", "consumer"], "source": "mobskin/MobPickerScreen.java:56 (null current = the player; render only)"}
   ],
   "deny": [
     {"class": "peekchat.PeekChatScreen", "why": "read-only chat history: in the empty smoke world it has no lines to draw, so it draws nothing by design (testkit 1314 drives it with real chat)"},

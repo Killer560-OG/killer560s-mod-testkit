@@ -510,14 +510,40 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	// RuntimeModRemapper maps a production jar from intermediary to named on the way in - so what gets tested
 	// is the ACTUAL SHIPPED JAR, not a dev-classpath rebuild of it.
 	//   ./gradlew runClientGameTest -Pscenario=... -PmodUnderTest=C:/path/to/mod.jar
+	// -PextraMods=<folder or jar,jar>: any other mods to load beside the mod under test (Flashback, Sodium, ...).
+	// A jar named fabric-api* is skipped: the testkit runs its own Fabric API, and a second copy is a duplicate
+	// mod id. A jar with the same file name as the mod under test is skipped too (the same jar twice).
+	def addMods = []
+	def testedNames = []
 	if (project.hasProperty("modUnderTest")) {
 		def jars = project.property("modUnderTest").toString().split(",").collect {
 			def f = file(it.trim())
 			if (!f.exists()) throw new GradleException("modUnderTest not found: ${f}")
 			f.absolutePath
 		}
-		systemProperty "fabric.addMods", jars.join(File.pathSeparator)
+		testedNames = jars.collect { new File(it).name }
+		addMods += jars
 		doFirst { logger.lifecycle("Mod under test: ${jars.join(', ')}") }
+	}
+	if (project.hasProperty("extraMods")) {
+		project.property("extraMods").toString().split(",").collect { it.trim() }.findAll { !it.isEmpty() }.each { entry ->
+			def f = file(entry)
+			if (!f.exists()) throw new GradleException("extraMods not found: ${f}")
+			def candidates = f.isDirectory() ? f.listFiles().findAll { it.name.endsWith(".jar") }.sort { it.name } : [f]
+			candidates.each { j ->
+				if (j.name.startsWith("fabric-api")) {
+					logger.lifecycle("extraMods: skipping ${j.name} (the testkit runs its own Fabric API)")
+				} else if (testedNames.contains(j.name)) {
+					logger.lifecycle("extraMods: skipping ${j.name} (it is the mod under test)")
+				} else {
+					addMods << j.absolutePath
+					logger.lifecycle("extraMods: adding ${j.name}")
+				}
+			}
+		}
+	}
+	if (!addMods.isEmpty()) {
+		systemProperty "fabric.addMods", addMods.join(File.pathSeparator)
 	}
 	dependsOn "writeTestServerLaunch"
 	systemProperty "testkit.testserver.launch",

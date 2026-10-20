@@ -71,6 +71,56 @@ final class CommandSweep {
         throw new AssertionError("[ui] no Fabric client command dispatcher: " + tried);
     }
 
+    /** The mod the deny lists are written for (UiSuite is {@code @RequiresMod("killer560smod")}). */
+    static final String MOD_ID = "killer560smod";
+
+    /**
+     * The id of the loaded mod whose jar holds the code behind {@code root} (the first command or non-default
+     * requirement found under it), or null when none is found - an unknown root is treated as the mod's own, as before.
+     */
+    static String ownerMod(CommandNode<Object> root) {
+        Class<?> k = codeClass(root, 0);
+        if (k == null) {
+            return null;
+        }
+        String name = k.getName();
+        int lambda = name.indexOf("$$Lambda");
+        if (lambda > 0) {
+            name = name.substring(0, lambda);
+        }
+        String path = name.replace('.', '/') + ".class";
+        for (net.fabricmc.loader.api.ModContainer m : net.fabricmc.loader.api.FabricLoader.getInstance().getAllMods()) {
+            if (m.findPath(path).isPresent()) {
+                String id = m.getMetadata().getId();
+                // a helper from the game or Fabric API names no mod: leave the root with the mod under test
+                boolean platform = id.equals("minecraft") || id.equals("fabricloader") || id.equals("java")
+                        || id.startsWith("fabric-") || id.equals("fabric-api");
+                return platform ? null : id;
+            }
+        }
+        return null;
+    }
+
+    private static Class<?> codeClass(CommandNode<Object> node, int depth) {
+        if (node.getCommand() != null) {
+            return node.getCommand().getClass();
+        }
+        Class<?> req = node.getRequirement() == null ? null : node.getRequirement().getClass();
+        if (req != null && !req.getName().startsWith("com.mojang.brigadier.")) {
+            return req;
+        }
+        if (depth >= MAX_DEPTH) {
+            return null;
+        }
+        for (CommandNode<Object> child : node.getChildren()) {
+            Class<?> k = codeClass(child, depth + 1);
+            if (k != null) {
+                return k;
+            }
+        }
+        return null;
+    }
+
     static Object source(Minecraft mc) {
         return mc.player.connection.getSuggestionsProvider();
     }
@@ -79,6 +129,7 @@ final class CommandSweep {
         // ---- walk: every root, every literal path, parse + suggestions ----
         GATED.clear();
         List<String> roots = new ArrayList<>();
+        List<String> foreign = new ArrayList<>();
         List<String> inputs = new ArrayList<>();
         Map<String, CompletableFuture<Suggestions>> pending = new LinkedHashMap<>();
         c.onClient(mc -> {
@@ -86,6 +137,13 @@ final class CommandSweep {
             c.check(d != null && mc.player != null, "no active client dispatcher - not in a world?");
             Object src = source(mc);
             for (CommandNode<Object> root : d.getRoot().getChildren()) {
+                // A root another loaded mod registered (Flashback's /flashback beside the mod, -PextraMods) is that
+                // mod's, not this jar's: the lists cannot name it and its commands are not under test here.
+                String owner = ownerMod(root);
+                if (owner != null && !owner.equals(MOD_ID)) {
+                    foreign.add(root.getName() + " (" + owner + ")");
+                    continue;
+                }
                 roots.add(root.getName());
                 walk(c, d, src, root, "", 0, inputs, pending);
             }
@@ -118,6 +176,9 @@ final class CommandSweep {
             }
         }
         c.note(roots.size() + " client command roots: " + roots);
+        if (!foreign.isEmpty()) {
+            c.note(foreign.size() + " root(s) registered by other loaded mods, not walked or listed: " + foreign);
+        }
         c.note(GATED.size() + " node(s) gated by .requires for this source (not walked): " + GATED);
         c.note("parsed " + inputs.size() + " inputs, " + suggested + " suggestion requests completed with "
                 + suggestions + " suggestions in all");

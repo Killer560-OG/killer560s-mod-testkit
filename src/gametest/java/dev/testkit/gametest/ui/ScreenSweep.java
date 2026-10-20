@@ -418,6 +418,21 @@ final class ScreenSweep {
         if (a.equals("intconsumer")) {
             return (IntConsumer) v -> { };
         }
+        if (a.equals("consumer")) {
+            return (java.util.function.Consumer<Object>) v -> { };
+        }
+        if (a.startsWith("strlist:")) {
+            return List.of(a.substring(8).split("\\|"));
+        }
+        if (a.startsWith("screen:")) {
+            // A mod screen built with one null parent, for a screen whose constructor takes its owning screen.
+            String rel = a.substring(7);
+            try {
+                return R.cls(rel).getConstructor(Screen.class).newInstance((Object) null);
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError("[ui] cannot build " + rel + "(null) for a screen: argument", e);
+            }
+        }
         if (a.equals("pvtarget")) {
             try {
                 return type.getConstructor(String.class, UUID.class)
