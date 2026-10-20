@@ -61,7 +61,13 @@ public class SimAutoClearSpeedTests implements FabricClientGameTest {
     record RoomTime(String room, int ticks, String how, int trips, int tripTicks, int warps, int uses, int kills,
                     Map<String, Integer> buckets) {
         boolean cleared() {
-            return how.equals("cleared") || how.equals("done without a map");
+            return how.startsWith("cleared") || how.startsWith("done without a map");
+        }
+
+        /** "cleared; last death 85" (mod RoomClock since its second version): 85, else -1. */
+        int lastDeath() {
+            Matcher m = Pattern.compile("last death (-?\\d+)").matcher(how);
+            return m.find() ? Integer.parseInt(m.group(1)) : -1;
         }
     }
 
@@ -309,8 +315,19 @@ public class SimAutoClearSpeedTests implements FabricClientGameTest {
         Collections.sort(t);
         double median = t.size() % 2 == 1 ? t.get(t.size() / 2) : (t.get(t.size() / 2 - 1) + t.get(t.size() / 2)) / 2.0;
         int total = t.stream().mapToInt(Integer::intValue).sum();
-        return String.format(Locale.US, "rooms %d cleared (%d not), median %.1f, mean %.1f, worst %d (%s), total %d ticks",
-                t.size(), other, median, total / (double) t.size(), worst, worstRoom, total);
+        // To the last starred death (the kills alone, without the wait for the map's clear), where the line has it.
+        List<Integer> d = new ArrayList<>();
+        for (RoomTime r : rooms) {
+            if (r.cleared() && r.lastDeath() >= 0) {
+                d.add(r.lastDeath() + 1);
+            }
+        }
+        Collections.sort(d);
+        String deaths = d.isEmpty() ? "" : String.format(Locale.US, "; to the last death median %.1f, worst %d, total %d",
+                d.size() % 2 == 1 ? d.get(d.size() / 2) : (d.get(d.size() / 2 - 1) + d.get(d.size() / 2)) / 2.0,
+                d.get(d.size() - 1), d.stream().mapToInt(Integer::intValue).sum());
+        return String.format(Locale.US, "rooms %d cleared (%d not), median %.1f, mean %.1f, worst %d (%s), total %d ticks%s",
+                t.size(), other, median, total / (double) t.size(), worst, worstRoom, total, deaths);
     }
 
     static String buckets(List<RoomTime> rooms) {
