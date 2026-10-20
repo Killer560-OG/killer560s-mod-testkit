@@ -202,6 +202,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-mimic", GrimAutoRoutesTests::caseMimic);
             s.test("62-argrim-1017-mimicaim", GrimAutoRoutesTests::caseMimicAim); // ar-bridges-bat-1017
             s.test("62-argrim-autoclear", GrimAutoRoutesTests::caseAutoClear);
+            s.test("62-argrim-1020-battest", GrimAutoRoutesTests::caseBatTest); // mod battest-1020: /test
             // The Interactive Map's own executor (livemap/autoclear/ClearExecutor), last: a map warp or a Go To sets the
             // map-arrival interlock (only a START node arms afterwards) and Go To leaves edit mode on.
             // Auto Secret (mod auto-secret): drives the same map warp and route; before imwarp, after the AR cases.
@@ -1883,6 +1884,97 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         c.note("autoclear: 3 starred mobs (open, in a wall, behind a wall) killed by " + delta(before, "witherImpacts")
                 + " Wither Impact(s) and " + delta(before, "etherwarps") + " etherwarp(s), no entity packet");
         noteFlags(c, s);
+    }
+
+    /**
+     * {@code /test} (mod battest-1020, killer560 2026-10-20): the Spirit Sceptre bat measurement as typed, on GrimAC. One
+     * starred zombie ({@code dungeon.starred}, NoAI) at rel (24.5, 15.5) of the open arena, him at (13.5, 15.5) facing away
+     * from it; the server emulates no sceptre, so no bat ever flies and every fired shot ends "no bat seen" - what is under
+     * test is everything the client SENDS: the moves to ~10/20/30 blocks (ShortWalk or a map etherwarp), the hotbar swap,
+     * each turn a tick before its use, and exactly one {@code use_item} per fired shot (at most five; 30 blocks does not
+     * fit in this arena, so that shot is skipped). Requires the test to start and end with its summary, at least three
+     * shots fired, one use per fired shot with the [Bat] use line for it, the use key up, and GrimAC silent.
+     */
+    private static void caseBatTest(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        String batTest = "com.killer560.hub.autoclear.BatTest";
+        c.hx().give(5, "minecraft:iron_sword[custom_data={id:\"BAT_WAND\"},unbreakable={}]");
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclear.AutoClearConfig"),
+                "setEnabled", false));
+        tpRel(ctx, 13.5, 15.5, 90f, 0f);
+        ctx.waitTicks(10);
+        Vec3 at = ctx.computeOnClient(mc -> {
+            Object frame = ModUnderTest.staticCall(FRAME, "current");
+            return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                    double.class, double.class}, new Object[]{frame, 24.5, (double) F, 15.5});
+        });
+        JsonObject mob = c.hx().call("dungeon.starred", "x", at.x, "y", at.y, "z", at.z).getAsJsonObject();
+        ctx.waitTicks(20);
+        List<Sample> s = List.of();
+        try {
+            int seen = ctx.computeOnClient(mc -> ((List<?>) ModUnderTest.staticCall("com.killer560.hub.mobesp.MobEspFeature",
+                    "starredMobs", new Class<?>[]{net.minecraft.client.Minecraft.class}, new Object[]{mc})).size());
+            println("battest: starred zombie at " + at + ", resolved by the client: " + seen + "; him at " + relPos(ctx));
+            check(seen >= 1, "the client resolved no starred mob - /test would have nothing to shoot");
+            JsonObject before = stats();
+            long m = LogTap.mark();
+            Vec3 start = ctx.computeOnClient(mc -> mc.player.position());
+            String batLog = "com.killer560.hub.autoclear.BatLog";
+            int shotsBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(batLog, "shots"));
+            startSampling(ctx);
+            ctx.runOnClient(mc -> mc.player.connection.sendCommand("test"));
+            boolean started = waitFor(ctx, 20, () -> ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(batTest,
+                    "isRunning")));
+            boolean ended = started && waitFor(ctx, 2600, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                    batTest, "isRunning")));
+            ctx.waitTicks(5);
+            s = stopSampling(ctx);
+            Vec3 end = ctx.computeOnClient(mc -> mc.player.position());
+            int fired = 0;
+            int skipped = 0;
+            int useLines = 0;
+            boolean summary = false;
+            for (String l : LogTap.since(m)) {
+                if (l.contains("[BatTest]") || l.contains("[Bat] #") && !l.contains(" fly ")) {
+                    println("  " + l.replaceAll("^.*?(\\[Bat(Test)?\\])", "$1"));
+                }
+                fired += l.contains("[BatTest] shot") && l.contains(" done: bat #") ? 1 : 0;
+                skipped += l.contains("[BatTest] shot") && l.contains(" skipped: ") ? 1 : 0;
+                useLines += l.contains("[Bat] #") && l.contains(" use tick ") ? 1 : 0;
+                summary |= l.contains("[BatTest] summary:") && l.contains("bat(s) seen");
+            }
+            boolean keyUp = ctx.computeOnClient(mc -> !mc.options.keyUse.isDown());
+            int uses = count(s, "use_item");
+            // BatLog logs every Spirit Sceptre use packet as it leaves: these are the shots; the rest are trip etherwarps.
+            int sceptreUses = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(batLog, "shots")) - shotsBefore;
+            printTrace("battest", s);
+            println(String.format(Locale.ROOT, "battest: started %s, ended %s, fired %d, skipped %d, use_item %d (Spirit"
+                            + " Sceptre %d), [Bat] use lines %d, etherwarps %d, moved %.1f blocks, summary %s, use key up %s",
+                    started, ended, fired, skipped, uses, sceptreUses, useLines, delta(before, "etherwarps"),
+                    start.distanceTo(end), summary, keyUp));
+            check(started, "/test did not start");
+            check(ended, "/test was still running");
+            check(summary, "no [BatTest] summary line");
+            check(fired >= 3, "only " + fired + " shot(s) fired");
+            check(fired + skipped == 5, fired + " fired + " + skipped + " skipped is not the set of 5");
+            check(sceptreUses == fired && useLines == fired && uses >= fired, "sceptre uses " + sceptreUses + " (use_item "
+                    + uses + "), [Bat] use lines " + useLines + " for " + fired + " fired shot(s) - one use per shot expected");
+            // It goes out for the 20-block shot and back for the 10-block ones, so where it ends says nothing: its moves do.
+            boolean moved = logHas(m, "[BatTest] shot 2/5: the trip ended") || logHas(m, "[BatTest] shot 2/5: the walk ended ARRIVED");
+            check(moved, "it never moved for the 20-block shot");
+            check(keyUp, "the use key was left down");
+            c.note(String.format(Locale.ROOT, "battest: %d shot(s) fired with %d sceptre use(s), %d skipped, moved %.1f blocks",
+                    fired, sceptreUses, skipped, start.distanceTo(end)));
+            noteFlags(c, s);
+        } finally {
+            if (ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(batTest, "isRunning"))) {
+                ctx.runOnClient(mc -> mc.player.connection.sendCommand("test"));
+            }
+            c.hx().call("dungeon.alive", "id", mob.get("mob").getAsString(), "stand", mob.get("stand").getAsString());
+            c.server().command("kill @e[type=minecraft:zombie]");
+        }
     }
 
     // ============================================================================================ Interactive Map
