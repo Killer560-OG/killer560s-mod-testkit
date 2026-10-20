@@ -1064,3 +1064,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   case in SimAutopilotTests; `1018-autoclear-eta` (SimAutoClearEtaTests) runs Auto Clear on two sim rooms and reads the Auto
   Clear Status HUD's "Done in ~m:ss" line counting down.
 - 1018-freelook-setting/-toggle/-hold/-pan (`FreelookTests`): Freelook's F5 rear view (Toggle, and Hold via `holdKey(o -> o.keyTogglePerspective)`) and pan key (`FreelookFeature.panHeldForTest`), each checking the camera type and the rendered `Camera.yRot/xRot` moved while the player's yaw and pitch did not, GrimAC clean. The first `moveCursor` after joining a world is dropped by vanilla (`MouseHandler.ignoreFirstMove`, set when the mouse is grabbed), so a case that measures a mouse turn spends one move first; without it the pan read "camera 0.0". Main fails all four (no `FreelookConfig`); the fix passes 4/4 on 26.1.2 cheat and legit and 26.2.
+- 1020-predict-matrix (`SimPredictMatrixTests`): Predictive Rooms over every doorway of `-PpredictFloors` (3) sim F7s, from
+  2-27 blocks back and 0/3.5 sideways, "fresh" (his room and the Entrance opened) and "late" (all but the target), through the
+  mod's `RoomPredictor.tickFrom(mc, eye, view)` - the player is parked on a seam and never moves, so ~300 glances a floor take
+  seconds. `-PpredictVariants="base;x:KEY=v,KEY=v"` runs each `RoomPredictor.tune` variant over the SAME glances (paired);
+  `TEST_NOISE=0.05` reads 5% of seen blocks as random others, the only way the sim (whose blocks are the captures) can name
+  wrong. CSV per glance to `-PpredictOut`. A busy render thread looks frozen to Windows: the loop yields a tick every 150 ms.
