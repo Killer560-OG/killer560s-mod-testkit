@@ -95,6 +95,7 @@
 			"dev.testkit.gametest.SimStarredMobTests",
 			"dev.testkit.gametest.InstaClearTests",
 			"dev.testkit.gametest.SimAutoClearTests",
+			"dev.testkit.gametest.SimAutoClearSpeedTests",
 			"dev.testkit.gametest.SimChestClearTests",
 			"dev.testkit.gametest.SimBatTestTests",
 			"dev.testkit.gametest.SimPlannerGapsTests",

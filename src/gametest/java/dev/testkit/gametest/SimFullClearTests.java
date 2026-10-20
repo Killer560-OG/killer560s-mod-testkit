@@ -66,8 +66,22 @@ public class SimFullClearTests implements FabricClientGameTest {
     private static final int MAX_MISSED_ROOMS = 2;
     private static final double STALL_SECONDS = 4.0;
     /** 8 minutes; with mobs on, 12 (every clear and every puzzle, which a slow Teleport Maze alone can take 80 s of). */
-    private static final int RUN_LIMIT_TICKS = 20 * 60 * (Integer.getInteger("testkit.fullclearMobs", 0) > 0 ? 12 : 8);
+    private static final int RUN_LIMIT_TICKS = 20 * 60 * (Integer.getInteger("testkit.fullclearMobs", 0) > 0
+            || Integer.getInteger("testkit.fullclearLive", 0) > 0
+            || System.getProperty("testkit.scenario", "").contains("1020-sim-300") ? 12 : 8);
     private static final Set<String> SKIP_TYPES = Set.of("PUZZLE", "TRAP", "BLOOD", "FAIRY", "ENTRANCE");
+
+    /**
+     * <b>1020-sim-300</b> (mod autoclear-speed-1020, killer560 2026-10-20: "the 300 score option: test it on the private
+     * sim ... treat the trap room as already cleared with all its secrets"): one or more floors (as this scenario plans
+     * them, trap room allowed) run by Dungeon Autopilot in Solo ("300 score") with Auto Clear on, the sim's own live mobs
+     * ({@code -PfullclearLive=N} a tile, default 2, {@code -PfullclearLiveHp}) and the sim's trap-cleared option, until
+     * Autopilot says "300 reached - finishing". Read: the score Autopilot read when it stopped, the sim's own score
+     * (skill / explore / bonus), and the trap room's state on the map. Needs his routes ({@code -PseedConfig}).
+     */
+    static final String NAME_300 = "1020-sim-300";
+    private static boolean mode300 = false;
+    private static final Pattern DECIDE_SCORE = Pattern.compile("\\[Autopilot\\] decide \\(SOLO[^)]*\\): score (-?\\d+)");
 
     private static final Pattern PLACED = Pattern.compile("Sim secrets for (.+?): (\\d+) placed");
     private static final Pattern PLACED_ONE = Pattern.compile("Sim secret placed: (\\w+) at (-?\\d+, -?\\d+, -?\\d+)");
@@ -84,6 +98,10 @@ public class SimFullClearTests implements FabricClientGameTest {
         }
         boolean fullClear = !Scenario.skip(NAME);
         boolean highBlaze = !Scenario.skip(HIGH_NAME);
+        mode300 = !Scenario.skip(NAME_300);
+        if (mode300) {
+            fullClear = true;
+        }
         if (!fullClear && !highBlaze) {
             return;
         }
@@ -216,6 +234,11 @@ public class SimFullClearTests implements FabricClientGameTest {
         int clearsHere;
         int unclearedAtEnd;
         double firstAllClearedSeconds = -1;
+        // 1020-sim-300
+        boolean reached300;
+        int lastScore = -1;
+        String simScore = "";
+        String trap = "no trap room on this floor";
 
         String verdict() {
             return !ran ? "NOT RUN" : clean() ? "CLEAN" : "BROKE (" + problems.size() + " problem(s))";
@@ -280,6 +303,16 @@ public class SimFullClearTests implements FabricClientGameTest {
         long mark0 = LogTap.mark();
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
                 new Object[]{"gametest"}));
+        int live = Integer.getInteger("testkit.fullclearLive", mode300 ? 2 : 0);
+        if (mode300 || live > 0) {
+            // The sim's own options (SimLiveMobs): set before the build, as the trap room's secrets are left out of it.
+            double hp = Double.parseDouble(System.getProperty("testkit.fullclearLiveHp", "1"));
+            ctx.runOnClient(mc -> {
+                ModUnderTest.staticCall(SIM_LIVE, "setTrapCleared", new Class<?>[]{boolean.class}, new Object[]{mode300});
+                ModUnderTest.staticCall(SIM_LIVE, "configure", new Class<?>[]{int.class, double.class, boolean.class,
+                        boolean.class}, new Object[]{live, hp, false, true});
+            });
+        }
         long before = Scenario.simBuildCount(ctx);
         // As he generates them (the map designer's Generate then Play): an F7, the sliders at "pick for me" (drawn inside
         // their ranges), the room pool narrowed by his designer filters - "routes: HAS", so every room but Entrance,
@@ -339,7 +372,22 @@ public class SimFullClearTests implements FabricClientGameTest {
         });
 
         int mobsPerTile = Integer.getInteger("testkit.fullclearMobs", 0);
-        if (mobsPerTile > 0) {
+        if (live > 0) {
+            // The sim placed them at GO; its line says how many.
+            for (int i = 0; i < 100 && t.mobsPlaced == 0; i += 5) {
+                ctx.waitTicks(5);
+                for (String l : LogTap.since(mark0)) {
+                    Matcher m = Pattern.compile("\\[Sim\\] live mobs placed: (\\d+) starred mob\\(s\\) in (\\d+)").matcher(l);
+                    if (m.find()) {
+                        t.mobsPlaced = Integer.parseInt(m.group(1));
+                        t.mobRooms = Integer.parseInt(m.group(2));
+                        println(l.replaceAll("^.*\\[Sim\\]", "[Sim]"));
+                    }
+                }
+            }
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclear.AutoClearConfig"),
+                    "setEnabled", true));
+        } else if (mobsPerTile > 0) {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOBS, "setClearRoomsOnEntry", new Class<?>[]{boolean.class},
                     new Object[]{false}));
             placeMobs(ctx, t, mobsPerTile);
@@ -349,8 +397,11 @@ public class SimFullClearTests implements FabricClientGameTest {
             });
         }
         applyPlan(ctx, t);
+        if (mode300) {
+            SimAutopilotTests.setMode(ctx, "SOLO", false);
+        }
         long mark = LogTap.mark();
-        Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "start"));
+        Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, mode300 ? "startAutopilot" : "start"));
         if (!Boolean.TRUE.equals(started)) {
             t.problems.add("Auto Secret refused to start: " + String.join(" | ", LogTap.since(mark)));
             return;
@@ -447,9 +498,77 @@ public class SimFullClearTests implements FabricClientGameTest {
                     r.type = (String) ModUnderTest.call(o, "type", new Class<?>[0], new Object[0]);
                 }
             }
+            if (mode300) {
+                t.simScore = String.format(Locale.US, "skill %d + explore %d + bonus %d (rooms %d/%d, secrets %d/%d) - %s",
+                        (Integer) ModUnderTest.staticCall(SIM_SCORE, "skillScore"),
+                        (Integer) ModUnderTest.staticCall(SIM_SCORE, "exploreScore"),
+                        (Integer) ModUnderTest.staticCall(SIM_SCORE, "bonusScore"),
+                        (Integer) ModUnderTest.staticCall(SIM_SCORE, "roomsCleared"),
+                        (Integer) ModUnderTest.staticCall(SIM_SCORE, "roomsTotal"), t.secretsFound, t.secretsTotal,
+                        ModUnderTest.staticCall(SIM_SCORE, "summary"));
+            }
             return null;
         });
+        if (mode300) {
+            judge300(t);
+            return;
+        }
         judge(t);
+    }
+
+    private static final String SIM_LIVE = "com.killer560.hub.roomsim.SimLiveMobs";
+
+    /** 1020-sim-300's verdict: Autopilot stopped at 300, the trap room on the map cleared with every secret. */
+    private static void judge300(Tally t) {
+        for (String l : t.log) {
+            Matcher m = DECIDE_SCORE.matcher(l);
+            if (m.find()) {
+                t.lastScore = Integer.parseInt(m.group(1));
+            }
+            if (l.contains("300 reached - finishing")) {
+                t.reached300 = true;
+                t.events.add(clip(l));
+            }
+            Matcher a = AS_STOP.matcher(l);
+            if (a.find()) {
+                t.asStop = a.group(1).trim();
+            }
+            if (l.contains("[Sim] trap room ") || l.contains("Sim secrets credited")) {
+                t.events.add(clip(l));
+            }
+            if (l.contains("[AutoClear] gave up on ")) {
+                t.clearsGaveUp++;
+                t.events.add(clip(l));
+            }
+            String[] parts = l.split(" ", 4);
+            if (parts.length >= 3 && parts[1].equals("ERROR") && parts[2].startsWith("(")) {
+                t.errors.add(clip(l));
+            }
+        }
+        t.ran = t.travelled > 20;
+        if (!t.ran) {
+            t.problems.add(String.format(Locale.US, "the run never moved (travelled %.1f)", t.travelled));
+        }
+        for (Room r : t.rooms.values()) {
+            if ("TRAP".equals(r.type)) {
+                t.trap = String.format(Locale.US, "%s: map %s, %d/%d secret(s) on the map, %d counted by the sim, %d placed",
+                        r.name, r.mapCleared ? "cleared" : "NOT cleared", r.mapSecrets - r.mapUnfound, r.mapSecrets, r.found,
+                        Math.max(0, r.placed));
+                if (!r.mapCleared || r.mapUnfound > 0 || r.found <= 0) {
+                    t.problems.add("the trap room is not counted cleared with its secrets: " + t.trap);
+                }
+            }
+        }
+        if (!t.reached300) {
+            t.problems.add("Autopilot never read 300 (last score it read " + t.lastScore + ", stopped: " + t.asStop + ")");
+        }
+        if (!t.errors.isEmpty()) {
+            t.problems.add(t.errors.size() + " mod ERROR line(s), first: " + t.errors.get(0));
+        }
+        t.notes.add("300: reached " + t.reached300 + ", last score Autopilot read " + t.lastScore + "; sim score "
+                + t.simScore + "; trap " + t.trap);
+        println("[" + NAME_300 + "] reached 300 " + t.reached300 + ", Autopilot's last reading " + t.lastScore
+                + ", sim: " + t.simScore + ", trap: " + t.trap + ", Auto Secret stopped: " + t.asStop);
     }
 
     private static void judge(Tally t) {
@@ -982,6 +1101,15 @@ public class SimFullClearTests implements FabricClientGameTest {
                 if (mc.level != null && (Boolean) ModUnderTest.staticCall(AS, "isRunning")) {
                     ModUnderTest.staticCall(AS, "stop", new Class<?>[]{String.class, boolean.class},
                             new Object[]{"test over", true});
+                }
+            });
+            ctx.runOnClient(mc -> {
+                try {
+                    ModUnderTest.staticCall(SIM_LIVE, "configure", new Class<?>[]{int.class, double.class, boolean.class,
+                            boolean.class}, new Object[]{0, 1.0, false, true});
+                    ModUnderTest.staticCall(SIM_LIVE, "setTrapCleared", new Class<?>[]{boolean.class}, new Object[]{false});
+                } catch (RuntimeException | Error ignored) {
+                    // a jar without the sim's live-mob option
                 }
             });
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOBS, "setClearRoomsOnEntry", new Class<?>[]{boolean.class},
