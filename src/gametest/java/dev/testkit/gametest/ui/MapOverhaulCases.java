@@ -229,10 +229,10 @@ final class MapOverhaulCases {
             c.check(indexOf(on, "Player Heads") == indexOf(on, "Show Teammates") + 1,
                     "Player Heads is not directly under Show Teammates while it is on");
             for (String want : new String[]{"Player Marker Size", "Custom Checkmark Sprite", "Darken Unexplored",
-                    "Map Theme", "New Custom Scheme", "Names Holding Leap", "Recolor by Class"}) {
+                    "Map Theme", "New Custom Scheme", "Names Holding Leap", "Recolour by Class"}) {
                 c.check(contains(on, want), "no '" + want + "' row");
             }
-            for (String gone : new String[]{"Room Colors", "Normal", "Save Theme", "Checkmark Sprites", "Icon Scale",
+            for (String gone : new String[]{"Room Colours", "Normal", "Save Theme", "Checkmark Sprites", "Icon Scale",
                     "Mimic Room Show/Hide", "Player-Head Class Recolor"}) {
                 c.check(!containsExact(on, gone), "'" + gone + "' is still a row of the tab");
             }
@@ -251,7 +251,7 @@ final class MapOverhaulCases {
             List<String> off = drawerLabels(c, "Dungeon Map");
             c.note("Dungeon Map drawer (Show Teammates OFF, Funny Map ON): " + off);
             c.check(!contains(off, "Player Heads"), "Player Heads shown with Show Teammates off");
-            c.check(contains(off, "Show Mimic Room") == Mod.isCheat() && contains(off, "Mimic Room Color") == Mod.isCheat(),
+            c.check(contains(off, "Show Mimic Room") == Mod.isCheat() && contains(off, "Mimic Room Colour") == Mod.isCheat(),
                     "Show Mimic Room / Mimic Room Color must be there exactly on the cheat jar with Funny Map on");
             if (!Mod.isCheat()) {
                 boolean funny = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(MAP), "isFunnyMap"));

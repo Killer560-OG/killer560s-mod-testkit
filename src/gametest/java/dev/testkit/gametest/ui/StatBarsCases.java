@@ -76,10 +76,10 @@ final class StatBarsCases {
         }
         String[][] t = {{"Stat Bars", PS, "isEnabledRaw"}, {"Show Value", PS, "isBarShowValue"},
                 {"Hearts", PS, "isHideVanillaHearts"}, {"Hunger Bar", PS, "isHideVanillaHunger"},
-                {"Armor Bar", PS, "isHideVanillaArmour"}, {"Air Bar", PS, "isHideVanillaAir"},
+                {"Armour Bar", PS, "isHideVanillaArmour"}, {"Air Bar", PS, "isHideVanillaAir"},
                 {"Unhide Hearts In Rift", PS, "isShowHeartsInRift"}, {"Health", OH, "getHideHealthBarRaw"},
                 {"Absorption", OH, "getHideAbsorptionHeartsRaw"}, {"Mount Health", OH, "getHideMountHealthBarRaw"},
-                {"Regeneration Bounce", OH, "getHideRegenBounceRaw"}, {"Armor", OH, "getHideArmorBarRaw"},
+                {"Regeneration Bounce", OH, "getHideRegenBounceRaw"}, {"Armour", OH, "getHideArmorBarRaw"},
                 {"Hunger", OH, "getHideHungerBarRaw"}, {"XP Bar And Level", PS, "isHideXpBar"},
                 {"Hypixel Stat Text", PS, "isHideHypixelStatText"}, {"Text Shadow", PS, "isTextShadow"}};
         for (String[] p : t) {
@@ -88,7 +88,7 @@ final class StatBarsCases {
     }
 
     /** Every row the tab must be able to show (label before any ':'), besides the readouts and their colours. */
-    private static final String[] OTHER_ROWS = {"Bar Width", "Bar Height", "Background", "Absorption Color"};
+    private static final String[] OTHER_ROWS = {"Bar Width", "Bar Height", "Background", "Absorption Colour"};
     /** Classic Display and its rows: gone from every layout since mod hud-editor-bars. */
     private static final String[] CLASSIC = {"Classic Display", "Show Health", "Show Mana", "Show Defense", "Show Text",
             "Show Bar"};
@@ -166,11 +166,11 @@ final class StatBarsCases {
                 for (String r : READOUTS.keySet()) {
                     absent(c, l, r, "Stat Bars is OFF");
                 }
-                for (String s : new String[]{"Hearts", "Text Shadow", "Bar Width", "Color", "Hide Vanilla XP Bar"}) {
+                for (String s : new String[]{"Hearts", "Text Shadow", "Bar Width", "Colour", "Hide Vanilla XP Bar"}) {
                     absent(c, l, s, "Stat Bars is OFF");
                 }
                 // Independent of Stat Bars: they must stay reachable with it off.
-                for (String s : new String[]{"Health", "Absorption", "Mount Health", "Regeneration Bounce", "Armor",
+                for (String s : new String[]{"Health", "Absorption", "Mount Health", "Regeneration Bounce", "Armour",
                         "Hunger", "XP Bar And Level", "Hypixel Stat Text"}) {
                     present(c, l, s, "Stat Bars is OFF (it never depended on Stat Bars)");
                 }
@@ -182,7 +182,7 @@ final class StatBarsCases {
                 for (String r : READOUTS.keySet()) {
                     present(c, l, r, "Stat Bars is ON");
                 }
-                for (String s : new String[]{"Hearts", "Hunger Bar", "Armor Bar", "Air Bar", "Text Shadow"}) {
+                for (String s : new String[]{"Hearts", "Hunger Bar", "Armour Bar", "Air Bar", "Text Shadow"}) {
                     present(c, l, s, "Stat Bars is ON");
                 }
                 // Since mod bars-menu the bar look rows are in Advanced whenever Stat Bars is on; colours only for
@@ -190,7 +190,7 @@ final class StatBarsCases {
                 for (String s : new String[]{"Bar Width", "Bar Height", "Show Value"}) {
                     present(c, l, s, "Stat Bars is ON (Advanced open)");
                 }
-                for (String s : new String[]{"Color", "Health Color", "Absorption Color", "Unhide Hearts In Rift",
+                for (String s : new String[]{"Colour", "Health Colour", "Absorption Colour", "Unhide Hearts In Rift",
                         "Hide Vanilla XP Bar"}) {
                     absent(c, l, s, "no bar on, Hearts off");
                 }
@@ -201,7 +201,7 @@ final class StatBarsCases {
                 record(ws, everSeen, old);
                 l = labels(ws);
                 for (String s : new String[]{"Bar Width", "Bar Height", "Show Value", "Background",
-                        "Absorption Color"}) {
+                        "Absorption Colour"}) {
                     present(c, l, s, "Health Bar is ON");
                 }
                 expectColours(c, ws, 1, "Health Bar ON");
@@ -212,7 +212,7 @@ final class StatBarsCases {
                 record(ws, everSeen, old);
                 l = labels(ws);
                 present(c, l, "Bar Width", "Mana Bar is ON");
-                absent(c, l, "Absorption Color", "Health Bar is OFF");
+                absent(c, l, "Absorption Colour", "Health Bar is OFF");
                 expectColours(c, ws, 1, "Mana Bar ON only");
 
                 int on = 1;
@@ -393,15 +393,15 @@ final class StatBarsCases {
         }
     }
 
-    private static final Set<String> BAR_COLOURS = Set.of("Health Color", "Mana Color", "Defense Color",
-            "Vitality Color", "Other Color", "XP Color");
+    private static final Set<String> BAR_COLOURS = Set.of("Health Colour", "Mana Colour", "Defense Colour",
+            "Vitality Colour", "Other Colour", "XP Colour");
 
     private static void expectColours(UiCase c, List<AbstractWidget> ws, int want, String when) {
         int n = 0;
         for (AbstractWidget w : ws) {
             String k = key(ModScreenDriver.label(w));
             // A text readout's swatch is "Color"; a bar's is in the Colours grid as "<Bar> Colour" (mod bars-menu).
-            if (k.equals("Color") || BAR_COLOURS.contains(k)) {
+            if (k.equals("Colour") || BAR_COLOURS.contains(k)) {
                 n++;
             }
         }

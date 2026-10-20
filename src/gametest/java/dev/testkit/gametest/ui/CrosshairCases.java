@@ -221,7 +221,7 @@ final class CrosshairCases {
                 });
                 Count blue = shot(c, "on-block");
                 c.note("Color On Block (aiming at the ground): " + blue.blue + " blue px, " + blue.red + " red px");
-                expect(c, "Color On Block", blue.blue, 80);
+                expect(c, "Colour On Block", blue.blue, 80);
                 set(c, "setColorOnBlock", false);
             } else {
                 c.note("Color On Block not checked: the crosshair is not on a block here");

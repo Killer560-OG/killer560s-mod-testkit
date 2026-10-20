@@ -47,6 +47,18 @@ import java.util.Map;
  */
 final class BarStyleCases {
 
+    /** A point on a cycler's value pill, right half (forward): in the menu a cycler steps from its pill, never from its
+     *  label (mod doc-menu, 2026-10-13). */
+    private static double pillX(AbstractWidget w) {
+        int[] cb = (int[]) Mod.call(w, "controlBounds");
+        return cb[0] + cb[2] * 0.75;
+    }
+
+    private static double pillY(AbstractWidget w) {
+        int[] cb = (int[]) Mod.call(w, "controlBounds");
+        return cb[1] + cb[3] / 2.0;
+    }
+
     private static final String PS = "playerstats.PlayerStatsConfig";
     private static final String HUD = "hud.HudConfig";
     private static final String READOUT = "playerstats.StatElements$Readout";
@@ -346,7 +358,7 @@ final class BarStyleCases {
             });
             ModScreenDriver d = HudMenuProfilesCases.tabByClass(c, "HealthAndManaBarsTab");
             String[] rows = {STYLE_ROW, "Corners", "Icons", "Value Position", "Smooth Fill", "Damage Ghost",
-                    "Text Size", "Overflow Mana Color", "Absorption Color"};
+                    "Text Size", "Overflow Mana Colour", "Absorption Colour"};
             List<String> labels = c.onClient(mc -> barTabLabels(d));
             c.note("rows: " + labels);
             for (String row : rows) {
@@ -363,8 +375,8 @@ final class BarStyleCases {
                 if (w == null) {
                     return "no Style row";
                 }
-                w.mouseClicked(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)), false);
-                w.mouseReleased(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)));
+                w.mouseClicked(new MouseButtonEvent(pillX(w), pillY(w), new MouseButtonInfo(0, 0)), false);
+                w.mouseReleased(new MouseButtonEvent(pillX(w), pillY(w), new MouseButtonInfo(0, 0)));
                 return String.valueOf(Mod.call(Mod.cfg(PS), "getBarStyle"));
             });
             c.ticks(2);
@@ -375,8 +387,8 @@ final class BarStyleCases {
                 if (w == null) {
                     return "no Style row";
                 }
-                w.mouseClicked(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(1, 0)), false);
-                w.mouseReleased(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(1, 0)));
+                w.mouseClicked(new MouseButtonEvent(pillX(w), pillY(w), new MouseButtonInfo(1, 0)), false);
+                w.mouseReleased(new MouseButtonEvent(pillX(w), pillY(w), new MouseButtonInfo(1, 0)));
                 return String.valueOf(Mod.call(Mod.cfg(PS), "getBarStyle"));
             });
             c.ticks(2);
@@ -402,8 +414,8 @@ final class BarStyleCases {
                 if (w == null) {
                     return "no Style row";
                 }
-                w.mouseClicked(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)), false);
-                w.mouseReleased(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)));
+                w.mouseClicked(new MouseButtonEvent(pillX(w), pillY(w), new MouseButtonInfo(0, 0)), false);
+                w.mouseReleased(new MouseButtonEvent(pillX(w), pillY(w), new MouseButtonInfo(0, 0)));
                 return String.valueOf(Mod.call(Mod.cfg(PS), "getBarStyle"));
             });
             c.check(wrap.equals("SLEEK"), "a left click on Bar Style (Bold) gave " + wrap + ", want SLEEK");
@@ -418,8 +430,8 @@ final class BarStyleCases {
                     return "no Text Size row";
                 }
                 Object before = Mod.call(Mod.cfg(PS), "getBarTextSize");
-                w.mouseClicked(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)), false);
-                w.mouseReleased(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)));
+                w.mouseClicked(new MouseButtonEvent(pillX(w), pillY(w), new MouseButtonInfo(0, 0)), false);
+                w.mouseReleased(new MouseButtonEvent(pillX(w), pillY(w), new MouseButtonInfo(0, 0)));
                 Mod.staticCall(PS, "load");
                 return before + "->" + Mod.call(Mod.cfg(PS), "getBarTextSize");
             });
@@ -524,7 +536,7 @@ final class BarStyleCases {
                 c.check(find(main, want) != null, "the main view has no " + want + " row");
             }
             for (String hidden : new String[]{"Corners", "Icons", "Smooth Fill", "Damage Ghost", "Layout", "Bar Width",
-                    "Health Color", "Overflow Mana Color", "Health Text", "Hearts"}) {
+                    "Health Colour", "Overflow Mana Colour", "Health Text", "Hearts"}) {
                 c.check(find(main, hidden) == null, "the main view still shows " + hidden + " (it belongs in Advanced)");
             }
             copyScreen(c, "menu-collapsed");
@@ -612,8 +624,8 @@ final class BarStyleCases {
             });
             c.note("Advanced open (" + open.size() + " rows): " + open);
             for (String want : new String[]{"▼ Advanced", "Layout", "Corners", "Icons", "Show Value", "Smooth Fill",
-                    "Damage Ghost", "Bar Width", "Bar Height", "Health Color", "Mana Color", "Absorption Color",
-                    "Overflow Mana Color", "Background", "Health Text", "Text Shadow", "Hearts", "XP Bar And Level",
+                    "Damage Ghost", "Bar Width", "Bar Height", "Health Colour", "Mana Colour", "Absorption Colour",
+                    "Overflow Mana Colour", "Background", "Health Text", "Text Shadow", "Hearts", "XP Bar And Level",
                     "Held Item Name"}) {
                 c.check(find(open, want) != null, "Advanced has no " + want + " row");
             }

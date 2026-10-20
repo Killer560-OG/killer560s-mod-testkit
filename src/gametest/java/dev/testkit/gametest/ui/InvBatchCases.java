@@ -50,6 +50,9 @@ import java.util.Map;
  */
 final class InvBatchCases {
 
+    /** 586's controls from before the Custom Items redesign (mod 998c9f96); off until the case is rewritten. */
+    private static final boolean OLD_CUSTOM_ITEMS_SCREEN = false;
+
     private static final String IPC = "itemprotect.ItemProtectConfig";
     private static final String ISC = "invsort.InventorySorterConfig";
     private static final String ADC = "armourdye.ArmourDyeConfig";
@@ -441,13 +444,13 @@ final class InvBatchCases {
             List<String> labels = tabLabels(c, "gui.tab.ItemProtectTab");
             c.note("Item Protection rows: " + labels);
             for (String gone : new String[]{"Slot Lock", "Lock Key", "Marker", "Lock Color", "Clear Locks",
-                    "Show Protected Key", "Lock Icon", "Highlight Color"}) {
+                    "Show Protected Key", "Lock Icon", "Highlight Colour"}) {
                 c.check(labels.stream().noneMatch(l -> l.startsWith(gone)), "the tab still has '" + gone + "'");
             }
             c.check(labels.stream().anyMatch(l -> l.startsWith("Lock In Place")), "no Lock In Place row");
-            c.check(labels.stream().anyMatch(l -> l.startsWith("Star Color")), "no Star Color row");
+            c.check(labels.stream().anyMatch(l -> l.startsWith("Star Colour")), "no Star Color row");
             String tipLock = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Item Protection", "Lock In Place: OFF"));
-            String tipStar = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Item Protection", "Star Color"));
+            String tipStar = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Item Protection", "Star Colour"));
             String tipOld = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Item Protection", "Slot Lock: ON"));
             c.check(tipLock != null && tipStar != null, "new rows lack tooltips: " + tipLock + " / " + tipStar);
             c.check(tipOld == null, "a Slot Lock tooltip is still registered: " + tipOld);
@@ -740,7 +743,11 @@ final class InvBatchCases {
             c.check(dyeAll[0] == 0xFF00FF00 && dyeAll[1] == 0xFF00FF00, "every-copy color not on both copies");
 
             Screen s2 = screen(c); // the menu rebuilds itself on every change; the screen object is the same
-            clickWidget(c, s2, widget(c, s2, "Applies To"));
+            // No Applies To button since the redesign (mod 998c9f96): the screen's own switch, called directly.
+            c.onClient(mc -> {
+                Mod.call(s2, "toggleAppliesTo");
+                return null;
+            });
             key = c.onClient(mc -> (String) Mod.call(s2, "selectedKey"));
             int[] dyeOne = dyes(c);
             c.note("this item only (" + key + "): slot 9 " + Integer.toHexString(dyeOne[0]) + ", slot 10 " + Integer.toHexString(dyeOne[1]));
@@ -759,10 +766,14 @@ final class InvBatchCases {
             c.note("green pixels drawn: slot 9 cell " + g9 + ", slot 10 cell " + g10);
             c.check(g9 > 40 && g10 < 5, "drawn color: slot 9 " + g9 + " green px, slot 10 " + g10);
 
+            // The Custom Items redesign (mod 998c9f96: Custom Item, Custom Colour, Clear Changes, Copy Look) removed
+            // Use Colour, Skin, the typed Look, Clear Look, the saved list and Remove, which the rest of this block drove.
+            // Kept switched off until the case is rewritten for the new screen.
+            if (OLD_CUSTOM_ITEMS_SCREEN) {
             // Use Colour off and on.
-            clickWidget(c, s2, widget(c, s2, "Use Color"));
+            clickWidget(c, s2, widget(c, s2, "Use Colour"));
             int off = dyes(c)[0];
-            clickWidget(c, s2, widget(c, s2, "Use Color"));
+            clickWidget(c, s2, widget(c, s2, "Use Colour"));
             int on = dyes(c)[0];
             c.check(off == 0xFF123456 && on == 0xFF00FF00, "Use Color off/on: " + Integer.toHexString(off) + "/" + Integer.toHexString(on));
 
@@ -838,6 +849,8 @@ final class InvBatchCases {
             });
             c.note("head texture Look on the sword: model|texture matches|profile after remove = " + head);
             c.check(head.equals("minecraft:player_head|true|null"), "head look " + head);
+            }
+            c.note("not run: the pre-redesign Custom Items controls (Use Colour, Skin, Look, saved list, Remove, setLook)");
 
             // Reset All needs two presses.
             c.onClient(mc -> {

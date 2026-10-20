@@ -117,7 +117,9 @@ final class WitherDoorFillCases {
                 dev.testkit.compat.McCompat.clearChatAndToasts(mc);
                 Object cfg = Mod.cfg(CFG);
                 Mod.call(cfg, "setEnabled", false);
-                Mod.call(cfg, "setShowAllDoors", false);
+                // Since mod 2026-10-15 Wither Doors draws only the held map's doors once the run has started; the
+                // scanner's doors (this scene has no map) only with Show All Doors, a cheat-jar setting.
+                Mod.call(cfg, "setShowAllDoors", cheat);
                 Mod.call(cfg, "setCustomFillColor", false);
                 Mod.call(cfg, "setWitherLockedColor", 0xFF000000 | RED);
                 Mod.call(cfg, "setWitherReadyColor", 0xFF000000 | GREEN);
@@ -128,6 +130,10 @@ final class WitherDoorFillCases {
                     "CheatUtils.isOnDungeonServer is still false after labeling the connection - nothing would draw");
             c.note("door at " + DX + ",69," + DZ + " (coal 3x4x3, roof y 73); player to " + camX + "," + camY + ","
                     + camZ + " facing +x");
+            if (!cheat) {
+                c.note("legit jar: Wither Doors draws only the held map's doors, and this scene has no map - nothing to judge");
+                return;
+            }
 
             BufferedImage base = shot(c, "none", false, "OUTLINE", 35);
             BufferedImage outline = shot(c, "outline", true, "OUTLINE", 35);
@@ -209,7 +215,7 @@ final class WitherDoorFillCases {
             c.note(String.format(Locale.ROOT,
                     "FILLED_OUTLINE custom #%06X: %d/%d interior px, alpha %.3f; %d red outline px outside the interior",
                     CUSTOM, cu.changed, innerArea, cu.alpha, edgeRed));
-            requireFill(c, "Custom Fill Color", cu, innerArea, 0.35);
+            requireFill(c, "Custom Fill Colour", cu, innerArea, 0.35);
             if (edgeRed < 50) {
                 c.problem("with a Custom Fill Color the outline should still be red; only " + edgeRed + " red px");
             }
@@ -227,6 +233,10 @@ final class WitherDoorFillCases {
                     }
                 });
                 c.ctx().waitFor(mc -> mc.level.getBlockState(new BlockPos(DX - 4, 71, DZ)).is(Blocks.STONE), 200);
+                c.onClient(mc -> {
+                    Mod.call(Mod.cfg(CFG), "setShowAllDoors", false);
+                    return null;
+                });
                 BufferedImage wallBase = shot(c, "wall-none", false, "FILL", 35);
                 BufferedImage hidden = shot(c, "wall-fill", true, "FILL", 35);
                 c.onClient(mc -> {
@@ -338,9 +348,12 @@ final class WitherDoorFillCases {
         if (s.changed < innerArea * 9 / 10) {
             c.problem(what + " tinted only " + s.changed + " of " + innerArea + " interior px");
         }
-        if (Math.abs(s.alpha - opacity) > 0.08) {
-            c.problem(String.format(Locale.ROOT, "%s: mean alpha %.3f, expected %.2f +- 0.08", what, s.alpha,
-                    opacity));
+        // The frames are drawn with Show All Doors, which draws through walls: the box's front and back faces both
+        // land on the door's face, so the fill shows as two layers, 1 - (1 - opacity)^2 (measured 0.577 at 35%).
+        double want = 1 - (1 - opacity) * (1 - opacity);
+        if (Math.abs(s.alpha - want) > 0.08) {
+            c.problem(String.format(Locale.ROOT, "%s: mean alpha %.3f, expected %.2f +- 0.08 (two %.2f layers)", what,
+                    s.alpha, want, opacity));
         }
     }
 

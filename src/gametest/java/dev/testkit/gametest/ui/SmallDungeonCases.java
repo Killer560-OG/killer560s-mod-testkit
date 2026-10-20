@@ -30,7 +30,7 @@ import java.util.Set;
  * Wither Boss Highlight's colour; the Tracer row is on both builds and, without the cheat ESP, a tracer goes only to a
  * wither that can be seen.
  *
- * <p>1053 Secrets HUD: a "Secrets Text Color" setting; the HUD line is drawn in it and it survives a config reload.
+ * <p>1053 Secrets HUD: a "Secrets Text Colour" setting; the HUD line is drawn in it and it survives a config reload.
  */
 final class SmallDungeonCases {
 
@@ -365,7 +365,7 @@ final class SmallDungeonCases {
             Screen s = DungeonB2Cases.openTab(c, "Secrets HUD");
             List<String> rows = DungeonB2Cases.labels(c, s);
             c.note("Secrets HUD rows: " + rows);
-            c.check(rows.stream().anyMatch(l -> l.startsWith("Secrets Text Color")), "no 'Secrets Text Color' row");
+            c.check(rows.stream().anyMatch(l -> l.startsWith("Secrets Text Colour")), "no 'Secrets Text Color' row");
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
                 return null;

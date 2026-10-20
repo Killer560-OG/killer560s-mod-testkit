@@ -353,8 +353,9 @@ final class NamesProfilesCases {
                 if (rankRow == null) {
                     return "no Rank row in Cosmetics' Custom Names: " + labels(s[0]);
                 }
-                if (row(s[0], "Per-Profile Names") == null) {
-                    return "no Per-Profile Names row";
+                // Removed from the tab on purpose (mod 89a8e7fe, 2026-10-18); its saved value still loads.
+                if (row(s[0], "Per-Profile Names") != null) {
+                    return "the Per-Profile Names row is back in Custom Names (removed 2026-10-18)";
                 }
                 for (int i = 0; i < 8 && !"CUSTOM".equals(((Enum<?>) Mod.call(Mod.cfg(NC), "getOwnRank")).name()); i++) {
                     ModScreenDriver.press(row(s[0], "Rank:"));
@@ -371,7 +372,7 @@ final class NamesProfilesCases {
                 if (!"CHAMP".equals(Mod.call(Mod.cfg(NC), "getOwnRankCustomText"))) {
                     return "typing in the rank box did not reach the config";
                 }
-                AbstractWidget colour = row(s[0], "Rank Color");
+                AbstractWidget colour = row(s[0], "Rank Colour");
                 if (colour == null) {
                     return "no Rank Color row for a custom rank: " + labels(s[0]);
                 }

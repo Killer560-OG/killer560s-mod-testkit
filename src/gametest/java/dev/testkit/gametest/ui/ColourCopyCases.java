@@ -178,20 +178,20 @@ final class ColourCopyCases {
             int diskBefore = realTimeOnDisk();
             Screen b = c.onClient(mc -> {
                 try {
-                    return openPicker(mc, "RealTimeTab", "Text Color:");
+                    return openPicker(mc, "RealTimeTab", "Text Colour:");
                 } catch (Exception e) {
                     throw new AssertionError(e);
                 }
             });
             int bBefore = argb(b);
-            for (String junk : new String[]{"not a color", "#12345", "", "   \n"}) {
+            for (String junk : new String[]{"not a colour", "#12345", "", "   \n"}) {
                 Boolean took = c.onClient(mc -> {
                     mc.keyboardHandler.setClipboard(junk);
                     pressWidget(b, "pasteButton");
                     return argb(b) != bBefore;
                 });
                 c.check(!took, "pasting \"" + junk + "\" changed the colour to " + hex(argb(b)));
-                c.check(statusBad(b) && status(b).toLowerCase(java.util.Locale.ROOT).contains("not a color"),
+                c.check(statusBad(b) && status(b).toLowerCase(java.util.Locale.ROOT).contains("not a colour"),
                         "pasting \"" + junk + "\" showed \"" + status(b) + "\", not a red not-a-colour line");
             }
             c.check(c.onClient(mc -> McCompat.screen(mc) == b), "a bad paste closed the picker");
@@ -299,7 +299,7 @@ final class ColourCopyCases {
             c.check(before.equals(after), "after a restart Recent is " + fmt(after) + ", was " + fmt(before));
             Screen b2 = c.onClient(mc -> {
                 try {
-                    return openPicker(mc, "RealTimeTab", "Text Color:");
+                    return openPicker(mc, "RealTimeTab", "Text Colour:");
                 } catch (Exception e) {
                     throw new AssertionError(e);
                 }

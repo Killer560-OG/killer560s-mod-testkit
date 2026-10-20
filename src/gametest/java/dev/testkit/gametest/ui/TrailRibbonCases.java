@@ -744,14 +744,14 @@ final class TrailRibbonCases {
             c.note("ribbon rows: " + ribbonRows);
             c.note("chroma rows: " + chromaRows);
             for (String want : new String[]{"Ribbon Trail: ON", "Ribbon Height: 2.00", "Ribbon Length: 0.2s", "Opacity: 40%",
-                    "Color Mode: Gradient *", "Colors: 3 *", "Head Color", "Middle Color", "Tail Color",
+                    "Colour Mode: Gradient *", "Colours: 3 *", "Head Colour", "Middle Colour", "Tail Colour",
                     "Show In First Person", "Share Trail", "Show Others' Trails"}) {
                 c.check(ribbonRows.stream().anyMatch(r -> r.startsWith(want)), "Ribbon Trail tab has no row '" + want + "': " + ribbonRows);
             }
             c.check(ribbonRows.stream().noneMatch(r -> r.startsWith("Style")), "the Ribbon Trail tab has a Style row");
-            c.check(chromaRows.stream().noneMatch(r -> r.startsWith("Head Color")), "Chroma still shows color pickers");
+            c.check(chromaRows.stream().noneMatch(r -> r.startsWith("Head Colour")), "Chroma still shows color pickers");
             for (String label : new String[]{"Ribbon Trail: ON", "Ribbon Height: 2.00", "Ribbon Length: 0.2s", "Opacity: 40%",
-                    "Color Mode: Gradient", "Colors: 3", "Head Color", "Middle Color", "Tail Color",
+                    "Colour Mode: Gradient", "Colours: 3", "Head Colour", "Middle Colour", "Tail Colour",
                     "Show In First Person: ON", "Share Trail: ON", "Show Others' Trails: ON"}) {
                 String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Ribbon Trail", label));
                 c.note("tooltip '" + label + "': " + tip);

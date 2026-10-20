@@ -15,7 +15,16 @@
     "gui.tab.CustomItemsTab": "Cosmetics > Custom Items",
     "gui.tab.ChocolateFactoryTab": "Misc > Chocolate Factory",
     "gui.tab.PeekChatTab": "Chat > Peek Chat",
-    "gui.tab.PriceTooltipTab": "Items > Price Tooltip"
+    "gui.tab.PriceTooltipTab": "Items > Price Tooltip",
+    "gui.tab.SoundEffectsTab": "Home > Sound Effects",
+    "gui.tab.StreamerModeTab": "Home > Streamer Mode",
+    "gui.tab.BazaarAdvisorTab": "Items > Bazaar Advisor",
+    "gui.tab.LegitGfsTab": "Misc > Legit GFS",
+    "gui.tab.ModTagTab": "Cosmetics > Mod User Tag",
+    "gui.tab.PackDisablerTab": "Misc > Pack Disabler",
+    "gui.tab.SessionRecorderTab": "Misc > Session Recorder",
+    "gui.tab.ZoomTab": "Misc > Zoom",
+    "gui.tab.HeldItemTab": "Cosmetics > Held Item Transform"
   },
   "tooltips": [
     {
@@ -32,8 +41,8 @@
     {
       "owner": "(unscoped)",
       "key": "copy chat",
-      "text": "With chat open: Shift or Ctrl + Left-Click a message copies the whole message (every wrapped line); Shift or Ctrl + Right-Click copies only the line you clicked. Copied without color codes. A plain click does what it always did.",
-      "why": "chat-batch a64924b9: Copy Chat takes Shift or Ctrl and copies whole messages"
+      "text": "Shift or Ctrl + left-click copies a whole chat message; right-click copies one line. A plain click works as before.",
+      "why": "chat-batch a64924b9: Copy Chat takes Shift or Ctrl and copies whole messages; then mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
     },
     {
       "owner": "(unscoped)",
@@ -85,8 +94,8 @@
       "owner": "Chat Tidy",
       "key": "hide damage messages",
       "to": "Chat Hider",
-      "text": "Hides Hypixel's combat spam from the chat window: your ability damage lines ('Your Implosion hit 2 enemies for ...') and the hits you take ('A Crypt Wither Skull exploded, hitting you for ...', '... hit you for ...', '... struck you for ...'). Other features still read them, and the log keeps them.",
-      "why": "chat-batch a64924b9: Chat Tidy and Hide Chat Messages became Chat Hider"
+      "text": "Hides ability-damage and incoming-hit lines.",
+      "why": "chat-batch a64924b9: Chat Tidy and Hide Chat Messages became Chat Hider; then mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
     },
     {
       "owner": "Chat Tidy",
@@ -97,14 +106,14 @@
       "owner": "Chat Tidy",
       "key": "stack duplicate messages",
       "to": "Chat Hider",
-      "text": "A line that repeats one of the last 50 chat messages from the last 60 seconds replaces it: the earlier copy goes, and one line ending in a gray (x2), (x3)... is added at the bottom, even with other messages in between. Blank lines and separators never stack.",
-      "why": "chat-batch a64924b9: Chat Tidy and Hide Chat Messages became Chat Hider"
+      "text": "A message repeated within 60 seconds replaces its earlier copy with one line ending in a grey (x2), (x3)...",
+      "why": "chat-batch a64924b9: Chat Tidy and Hide Chat Messages became Chat Hider; then mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
     },
     {
       "owner": "Copy Chat",
       "key": "copy chat",
-      "text": "With chat open: Shift or Ctrl + Left-Click a message copies the whole message (every wrapped line); Shift or Ctrl + Right-Click copies only the line you clicked. Copied without color codes. A plain click does what it always did.",
-      "why": "chat-batch a64924b9: Copy Chat takes Shift or Ctrl and copies whole messages"
+      "text": "Shift or Ctrl + left-click copies a whole chat message; right-click copies one line. A plain click works as before.",
+      "why": "chat-batch a64924b9: Copy Chat takes Shift or Ctrl and copies whole messages; then mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
     },
     {
       "owner": "Inventory Sorter",
@@ -186,14 +195,12 @@
     {
       "owner": "Auto Fairy Souls",
       "key": "start/stop key",
-      "text": "Starts or stops Auto Fairy Souls (it has no button; /k560path souls auto starts it too).",
-      "why": "fairy-choc (killer560 2026-10-11): the Start button is gone, the key and command start it"
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys (was: fairy-choc (killer560 2026-10-11): the Start button is gone, the key and command start it)"
     },
     {
       "owner": "Auto Fairy Souls",
       "key": "turn speed",
-      "text": "Top speed the camera turns while auto walking, in degrees per tick; it eases smoothly every frame below that.",
-      "why": "fairy-choc (killer560 2026-10-11): the walker's camera eases per frame"
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys (was: fairy-choc (killer560 2026-10-11): the walker's camera eases per frame)"
     },
     {
       "owner": "Experiments",
@@ -237,8 +244,8 @@
     {
       "owner": "Bazaar",
       "key": "bazaar browser",
-      "text": "One switch for the whole Bazaar: the custom Bazaar browser (/killer560bz or a keybind; like Hypixel's remote Bazaar, only while your Booster Cookie is active), and Hypixel's real Bazaar (the NPC, or /bz) opened as the same screen - every click on one of Hypixel's buttons is the same click on the same slot, and pages it does not know stay Hypixel's own.",
-      "why": "bz-reskin c13a41e8: one switch for the Bazaar / Auction House browser and its reskin (killer560, 2026-10-11)"
+      "text": "Turns the Bazaar browser on or off (/killer560bz, or its keybind). Needs an active Booster Cookie, as Hypixel's remote Bazaar does.",
+      "why": "bz-reskin c13a41e8: one switch for the Bazaar / Auction House browser and its reskin (killer560, 2026-10-11); then mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
     },
     {
       "owner": "Bazaar",
@@ -271,14 +278,14 @@
     {
       "owner": "(unscoped)",
       "key": "breaker aura",
-      "text": "Cheat build: in a boss fight only, breaks the blocks you have picked (Pick Block Key) once they are in reach, while you hold a charged Dungeon Breaker. Nothing unpicked is broken. During clear it does nothing - use an Auto Routes breaker node.",
-      "why": "path-db 73c5b0e4: Breaker Aura works only in boss (killer560 2026-10-12)"
+      "text": "Cheat build: in a boss fight only, breaks the blocks you picked with the Pick Block Key once they are in reach, while you hold a charged Dungeon Breaker.",
+      "why": "path-db 73c5b0e4: Breaker Aura works only in boss (killer560 2026-10-12); then mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
     },
     {
       "owner": "Breaker Aura",
       "key": "breaker aura",
-      "text": "Cheat build: in a boss fight only, breaks the blocks you have picked (Pick Block Key) once they are in reach, while you hold a charged Dungeon Breaker. Nothing unpicked is broken. During clear it does nothing - use an Auto Routes breaker node.",
-      "why": "path-db 73c5b0e4: Breaker Aura works only in boss (killer560 2026-10-12)"
+      "text": "Cheat build: in a boss fight only, breaks the blocks you picked with the Pick Block Key once they are in reach, while you hold a charged Dungeon Breaker.",
+      "why": "path-db 73c5b0e4: Breaker Aura works only in boss (killer560 2026-10-12); then mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
     },
     {
       "owner": "(unscoped)",
@@ -295,20 +302,18 @@
     {
       "owner": "Spotify Mod",
       "key": "chat destination",
-      "text": "Which chat the lyrics are sent to: Party, All, Guild, Co-op / Plain, or Mod Chat.",
-      "why": "automeow-channel de1edf77: Auto Meow replies in the source channel; Spotify/Voice To Text gain a Mod Chat destination (killer560 2026-10-13)"
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys (was: automeow-channel de1edf77: Auto Meow replies in the source channel; Spotify/Voice To Text gain a Mod Chat destination (killer560 2026-10-13))"
     },
     {
       "owner": "Croesus / Chest Profit",
       "key": "highlight runs",
-      "text": "In the Croesus menu, marks each run by what is left in it. Runs that need you stand out: unclaimed (solid orange) and worth going back to with a Dungeon Chest Key (solid magenta with a key mark). Runs with nothing to do are outlines or a light tint, no fill: not looked at yet (a muted teal outline), opened with nothing worth a key (a muted blue outline) and done with a key (a light dark tint). Drawn behind the items, under their tooltips; the key mark sits over the item.",
-      "why": "croesus-ui 79dd7ecc / croesus-key: Highlight Runs behind the items, then by chest-key state (killer560, 2026-10-12); croesus-colors 2026-10-12: magenta / cyan / blue-border palette; croesus-colors2 2026-10-13: action states solid, quiet states recede, no \"?\" mark; croesus-outline 5802c253 2026-10-13: muted teal/blue full outlines"
+      "text": "Marks each run in the Croesus menu by what is left in it: solid orange unclaimed, solid magenta worth a Dungeon Chest Key, outlines for runs with nothing to do.",
+      "why": "croesus-ui 79dd7ecc / croesus-key: Highlight Runs behind the items, then by chest-key state (killer560, 2026-10-12); croesus-colors 2026-10-12: magenta / cyan / blue-border palette; croesus-colors2 2026-10-13: action states solid, quiet states recede, no \"?\" mark; croesus-outline 5802c253 2026-10-13: muted teal/blue full outlines; then mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
     },
     {
       "owner": "Inventory Theme",
       "key": "inventory theme",
-      "text": "Re-skins the chest and inventory screens, and the hotbar: vanilla's own shapes (bevelled panel, sunken slots) in the colors of the Preset.",
-      "why": "inv-theme-reskin 8ef13dd9: vanilla-shaped reskin with presets (killer560 2026-10-13)"
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys (was: inv-theme-reskin 8ef13dd9: vanilla-shaped reskin with presets (killer560 2026-10-13))"
     },
     {
       "owner": "Croesus / Chest Profit",
@@ -380,8 +385,8 @@
     {
       "owner": "Dungeon Map",
       "key": "darken unexplored",
-      "text": "How much darker rooms you have not been in yet are drawn, 0 to 0.9: the grey question-mark rooms, and on Funny Map every room your hotbar map has not opened yet.",
-      "why": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list)"
+      "text": "How much darker unopened rooms are drawn, 0 to 0.9 (0 by default). On Funny Map, every room your hotbar map has not opened yet.",
+      "why": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list); then mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
     },
     {
       "owner": "Dungeon Map",
@@ -408,6 +413,601 @@
       "key": "funny map",
       "gone": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list): Funny Map is a cheat-build setting now",
       "variant": "legit"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "auto clear",
+      "text": "Cheat build: kills the starred mobs of the dungeon's mob rooms with your Hyperion or Spirit Sceptre; start and stop it with the Clear Toggle Key or /autoclear.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "auto fairy souls",
+      "text": "Cheat build: walks the island's soul route and clicks each Fairy Soul, with your camera free. Any key or click stops it. Needs nothing else on.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "auto gfs",
+      "text": "Runs /gfs to refill dungeon items from your sacks when you run low, asking only for what tops the stack off (cheat build only).",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "auto sell",
+      "text": "Sells every stack on your sell list by itself while a sell screen is open; an item added there is sold without reopening it.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "center dot",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "chroma",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "color on block",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "color on entity",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "crosshair preview",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "fairy souls",
+      "text": "Tracks which Fairy Souls you have found and guides you to the missing ones. Turning it off stops the guide.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "gap",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "item rarity backgrounds",
+      "text": "Draws a rarity-coloured square, circle or outline behind Skyblock items.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "outline color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "slot binds",
+      "text": "Links two inventory slots so shift-clicking one swaps them. Hold the bind key over a slot and release it over a hotbar slot to swap the two. If Protect Item uses the same key, a quick tap protects the item and a drag is only a swap.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Auto Blood Camp",
+      "key": "aura",
+      "text": "Cheat build, Blood Room only: turns you to the next blood mob you can see and clicks it at your weapon's attack speed until it dies; moving your mouse takes over.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Auto Blood Camp",
+      "key": "trigger bot",
+      "text": "Cheat build: clicks a blood mob on its kill timer when you aim at it, never faster than your attack speed. Needs Blood Camp on.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "auto clear",
+      "text": "Cheat build: kills the starred mobs of the dungeon's mob rooms with your Hyperion or Spirit Sceptre; start and stop it with the Clear Toggle Key or /autoclear.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "auto clear rooms",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "autopilot",
+      "text": "Cheat build: Dungeon Autopilot runs Auto Secret, Auto Clear and Auto Puzzles under one planner; any movement key takes over.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "do puzzles",
+      "text": "Treat puzzles like rooms: go to one and let Auto Puzzles solve it. Only puzzles whose auto is switched on.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "key base range",
+      "text": "Pickup range for dungeon keys, in blocks. The range used (shown after the arrow) adds 5 to this.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "run mode",
+      "text": "Solo plays for the best score per second toward 300 with the blood door last; Party does your routes first and never opens the blood door.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "status hud",
+      "text": "One small HUD showing what Auto Clear, Auto Secret and Dungeon Autopilot are doing, hidden while nothing runs; move it in the HUD editor.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Auto Correct",
+      "key": "correct commands",
+      "text": "Also fixes typos in command names you type, like /wardorbe to /wardrobe. The corrected command is what is sent.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Auto Fairy Souls",
+      "key": "auto click souls",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Auto Fairy Souls",
+      "key": "auto fairy souls",
+      "text": "Cheat build: walks the island's soul route and clicks each Fairy Soul, with your camera free. Any key or click stops it. Needs nothing else on.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Auto Fairy Souls",
+      "key": "auto mode",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Auto Fairy Souls",
+      "key": "auto walk path",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Auto Fairy Souls",
+      "key": "sprint",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Auto GFS",
+      "key": "auto gfs",
+      "text": "Runs /gfs to refill dungeon items from your sacks when you run low, asking only for what tops the stack off (cheat build only).",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Auto Sell",
+      "key": "auto sell",
+      "text": "Sells every stack on your sell list by itself while a sell screen is open; an item added there is sold without reopening it.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Auto Trap",
+      "key": "auto trap",
+      "text": "Cheat build: plays your New Trap and Old Trap routes through Auto Routes. Dungeon Autopilot uses trap rooms only with this on.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Blessings",
+      "key": "colors",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Blessings",
+      "key": "life color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Blessings",
+      "key": "power color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Blessings",
+      "key": "stone color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Blessings",
+      "key": "time color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Blessings",
+      "key": "wisdom color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Click Translate",
+      "key": "click translate enabled",
+      "text": "Left-click any chat message to translate it. The message is sent to Google Translate (or MyMemory) to be translated.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Cosmetics",
+      "key": "custom names",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Cosmetics",
+      "key": "held item",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Cosmetics",
+      "key": "reset cosmetics",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Cosmetics",
+      "key": "share if supporter",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Custom Mage Beam",
+      "key": "custom mage beam",
+      "text": "In dungeons, redraws every Mage beam as one clean coloured line.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Display Options",
+      "key": "pack disabler",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Dungeon ESP",
+      "key": "color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Dungeon Map",
+      "key": "border color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Dungeon Map",
+      "key": "color rooms by type",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Dungeon Map",
+      "key": "font scale",
+      "text": "Size of the room labels on both maps, 0.5x to 3x.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Dungeon Map",
+      "key": "map background",
+      "text": "Colour behind the map; the alpha slider sets how see-through it is.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Etherwarp Waypoints",
+      "key": "color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "F7 Spots",
+      "key": "aim spot color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "F7 Spots",
+      "key": "waypoint color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Fairy Souls",
+      "key": "pathfinding",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "General",
+      "key": "auto join skyblock",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Health and Mana Bars",
+      "key": "armor",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Inventory Theme",
+      "key": "hide potion effects",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Item Rarity Backgrounds",
+      "key": "item rarity backgrounds",
+      "text": "Draws a rarity-coloured square, circle or outline behind Skyblock items.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Leap Counter",
+      "key": "alert text (& color codes)",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Map, Leap & Party",
+      "key": "teammate highlight",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Maxor's Crystals",
+      "key": "highlight color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Maxor's Crystals",
+      "key": "reset best place time",
+      "text": "Shows your fastest crystal placement. Click once and the box turns red; after 2 seconds, click again to wipe it.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Mod & HUD",
+      "key": "auto scale (monitor)",
+      "text": "Keeps this mod's HUD elements and menus the same size relative to your window on any monitor and GUI Scale (on by default).",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Mod & HUD",
+      "key": "correction alarm",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Mod & HUD",
+      "key": "hud scale",
+      "text": "Scales everything this mod draws at once, 5% to 300%: HUD elements, this menu and the mod's other screens.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Nickhider",
+      "key": "randomize others",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "P3 Nav",
+      "key": "color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Puzzle Solvers",
+      "key": "teleport maze solver",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Secret Waypoints",
+      "key": "secret waypoints",
+      "text": "Draws a coloured box on every secret in rooms the mod has recognized.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Secrets",
+      "key": "secret waypoints",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Sharp Shooter (i4)",
+      "key": "aim marker color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Sim Settings",
+      "key": "echoes of the lost",
+      "text": "Dungeon Sim only: charges each secret gives back to the Dungeon Breaker (0 is off; default is the maxed perk, 5).",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Slot Binds",
+      "key": "slot binds",
+      "text": "Links two inventory slots so shift-clicking one swaps them. Hold the bind key over a slot and release it over a hotbar slot to swap the two. If Protect Item uses the same key, a quick tap protects the item and a drag is only a swap.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Solver Highlights",
+      "key": "through walls",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Solver Highlights",
+      "key": "waypoint style",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Spotify Mod",
+      "key": "mod enabled",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Storage Overlay",
+      "key": "overlay theme",
+      "text": "Amber (the original dark look), Dark (neutral greys) or Light, for the grid and the relocated inventory.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Teammate Highlight",
+      "key": "teammate highlight",
+      "text": "Draws a box around each party member, coloured by their dungeon class.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Teleport Maze Solver",
+      "key": "teleport maze solver",
+      "text": "Colours the Teleport Maze pads to show which are used and which are likely exits.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "custom gui",
+      "text": "Replaces the terminal window with a bigger centred panel showing only the slots you need.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "label text color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "melody button color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "melody endpoint color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "melody moving piece color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "melody track color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "numbers 3rd color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "numbers after next color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "numbers next color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "overlay colors",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "panel background color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "panel border color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "panes color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "reset colors",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "rubix",
+      "text": "Shows which panes to click, and how many times, in the same-colour terminal.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "rubix count text color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "rubix left click color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "rubix right click color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "select",
+      "text": "Highlights every item of the requested colour in the Select All terminal.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "select all color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "starts with color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "terminal drop key",
+      "text": "Stops your drop key from throwing your weapon while a terminal is open. Bind it below.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "terminals to solve",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Thorn (F4)",
+      "key": "spirit bear color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Thorn (F4)",
+      "key": "spirit bow color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Thorn (F4)",
+      "key": "spirit mob color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Thorn (F4)",
+      "key": "stun spot color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Thorn (F4)",
+      "key": "thorn color",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Thorn (F4)",
+      "key": "thorn highlights",
+      "text": "Coloured boxes or a glow on Thorn-fight targets during the F4/M4 boss.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Timers, Score & Boss",
+      "key": "custom mage beam",
+      "gone": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Translate",
+      "key": "chat translate enabled",
+      "text": "Run /translate to change the language, or pick it below; all your messages are then sent in that language. Your messages are sent to Google Translate (or MyMemory) to be translated.",
+      "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
     }
   ]
 }

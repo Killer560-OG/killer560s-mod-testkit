@@ -212,7 +212,7 @@ final class DocMenuCases {
                 }
                 Mod.call(s[0], "closeDrawer");
                 // The Favourites PAGE stays.
-                if (!(Boolean) Mod.call(s[0], "selectCategory", "Favorites")) {
+                if (!(Boolean) Mod.call(s[0], "selectCategory", "Favourites")) {
                     return "the sidebar has no Favorites page";
                 }
                 List<?> favCards = (List<?>) Mod.call(s[0], "cards");

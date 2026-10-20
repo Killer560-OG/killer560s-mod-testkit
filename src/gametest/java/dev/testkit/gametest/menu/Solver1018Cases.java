@@ -314,7 +314,7 @@ final class Solver1018Cases {
         try (AutoCloseable sphere = Mod.with(cfgClass, "RangeStyle", 1)) {
             List<String> texts = tabTexts(c, "gui.tab.DoorKeysTab", cfgClass, "Enabled");
             c.check(anyStarts(texts, "Circle Thickness:"), "no Circle Thickness slider: " + texts);
-            c.check(anyStarts(texts, "Circle Color:") && anyStarts(texts, "Tracer Color:"), "no circle/tracer colour rows: " + texts);
+            c.check(anyStarts(texts, "Circle Colour:") && anyStarts(texts, "Tracer Colour:"), "no circle/tracer colour rows: " + texts);
             c.check(anyStarts(texts, "Sphere Fill:"), "Sphere style has no fill colour row: " + texts);
         }
         try (AutoCloseable radius = Mod.with(cfgClass, "RangeStyle", 0)) {
@@ -391,8 +391,8 @@ final class Solver1018Cases {
             setField(live, "shadowAssassinEnabled", true);
             List<String> texts = tabTexts(c, "gui.tab.DungeonAlertsTab", null, null);
             c.check(!anyContains(texts, "On-screen Text"), "the On-screen Text switch is still there: " + texts);
-            c.check(anyStarts(texts, "Cleared Color") && anyStarts(texts, "Secrets Color"), "no room alert colour rows: " + texts);
-            c.check(anyStarts(texts, "Alert Color"), "no shadow assassin colour row: " + texts);
+            c.check(anyStarts(texts, "Cleared Colour") && anyStarts(texts, "Secrets Colour"), "no room alert colour rows: " + texts);
+            c.check(anyStarts(texts, "Alert Colour"), "no shadow assassin colour row: " + texts);
         } finally {
             setField(live, "roomAlertsEnabled", wasRoom);
             setField(live, "shadowAssassinEnabled", wasSa);
@@ -501,7 +501,7 @@ final class Solver1018Cases {
             c.check(!anyContains(texts, "at most once per run"), "the 'send at most once per run' line is still there");
             c.check(!anyContains(texts, "Crypts & Deaths"), "Crypts & Deaths is still one switch");
             c.check(anyStarts(texts, "Crypts:") && anyStarts(texts, "Deaths:"), "no separate Crypts / Deaths rows: " + texts);
-            c.check(anyStarts(texts, "Label Color") && anyStarts(texts, "Good Color") && anyStarts(texts, "Bad Color"),
+            c.check(anyStarts(texts, "Label Colour") && anyStarts(texts, "Good Colour") && anyStarts(texts, "Bad Colour"),
                     "no HUD colour rows: " + texts);
         } finally {
             if (saved == null) {
@@ -794,7 +794,7 @@ final class Solver1018Cases {
             c.check(key != null, "premise: the item could not be selected (no key)");
             // The real colour button, pressed.
             AbstractWidget colour = c.onClient(mc -> screen.children().stream()
-                    .filter(w -> w instanceof AbstractWidget aw && aw.getMessage().getString().startsWith("Color"))
+                    .filter(w -> w instanceof AbstractWidget aw && aw.getMessage().getString().startsWith("Custom Colour"))
                     .map(w -> (AbstractWidget) w).findFirst().orElse(null));
             c.check(colour != null, "premise: no Color button on the Custom Items screen");
             c.check(colour != null && colour.active, "premise: the Color button is not active for the selected item");
