@@ -181,6 +181,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-boom", GrimAutoRoutesTests::caseBoom);
             s.test("62-argrim-breaker", GrimAutoRoutesTests::caseBreaker);
             s.test("62-argrim-1013-breakerfall", GrimAutoRoutesTests::caseBreakerFall); // ar breaker linger (2026-10-13)
+            s.test("62-argrim-1020-breakerstand", GrimAutoRoutesTests::caseBreakerStand); // stall-1020 (his Wizard #1)
             s.test("62-argrim-use", GrimAutoRoutesTests::caseUse);
             s.test("62-argrim-play", GrimAutoRoutesTests::casePlay);
             s.test("62-argrim-awaitskip", GrimAutoRoutesTests::caseAwaitSkip);
@@ -629,6 +630,44 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         check(broke, "/ar add boom did not blow the cracked bricks in front of him");
         check(delta(before, "superbooms") == 1, "the server ran " + delta(before, "superbooms") + " superboom(s)");
         c.note("boom: " + count(s, "player_action") + " player_action, " + count(s, "swing") + " swing; bricks gone");
+        noteFlags(c, s);
+    }
+
+    /**
+     * stall-1020 (his Wizard #1, fullclear acplan-1020): a breaker node fired the tick an etherwarp landed, the sneak still
+     * at the server, and its block 6 over his feet - 4.73 from the crouched eye (1.27), 4.38 from the standing one - was
+     * left out of reach for good. The node must wait for the stand to reach the server, then dig it, against GrimAC: his
+     * own sneaking etherwarp onto (14,14), the start node there a breaker of one snow block at F+6.
+     */
+    private static void caseBreakerStand(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+        int high = F + 6;
+        setBlocks(ctx, Map.of(new int[]{14, high, 14}, "minecraft:snow_block"));
+        JsonObject br = node("DUNGEON_BREAKER", 14, 14, 0f, -90f);
+        JsonArray blocks = new JsonArray();
+        blocks.add("14 " + high + " 14");
+        br.add("blocks", blocks);
+        br.addProperty("start", true);
+        writeRoute(ctx, List.of(br));
+        long m = LogTap.mark();
+        startSampling(ctx);
+        warpOnto(ctx, 6.5, 18.5, 14, 14);
+        boolean gone = waitFor(ctx, 80, () -> blockAir(ctx, 14, high, 14));
+        ctx.waitTicks(10);
+        List<Sample> s = stopSampling(ctx);
+        printTrace("breaker stand", s);
+        boolean held = logHas(m, "in reach only from the standing eye");
+        boolean stood = logHas(m, "Breaker: standing after");
+        c.note("breaker stand: block gone " + gone + ", held for the stand " + held + ", stood " + stood + ", "
+                + count(s, "player_action") + " player_action");
+        check(logHas(m, "DUNGEON_BREAKER begins") || logHas(m, "DUNGEON_BREAKER acted"),
+                "the breaker node never fired after his etherwarp - the case proves nothing");
+        check(held, "the breaker did not wait for the stand (the sneak was not at the server, or the block was in reach "
+                + "crouched) - the case proves nothing");
+        check(gone, "the block 6 over his feet was never broken");
         noteFlags(c, s);
     }
 
