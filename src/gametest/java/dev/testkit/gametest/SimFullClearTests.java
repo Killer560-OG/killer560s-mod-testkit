@@ -563,6 +563,11 @@ public class SimFullClearTests implements FabricClientGameTest {
                         r.mapSecrets - r.mapUnfound, r.mapSecrets, r.missing()));
             }
         }
+        for (Room r : t.rooms.values()) {
+            if ("TRAP".equals(r.type)) {
+                t.notes.add("TRAP room on this floor: " + r.name + " (leave this floor out of comparisons)");
+            }
+        }
         if (t.mobsPlaced > 0) {
             for (Room r : t.rooms.values()) {
                 if (Set.of("NORMAL", "RARE", "CHAMPION").contains(r.type) && !r.mapCleared) {
@@ -852,6 +857,12 @@ public class SimFullClearTests implements FabricClientGameTest {
         boolean isDefault = (Boolean) ModUnderTest.staticCall(filters, "isDefault");
         java.util.function.Predicate<String> allow = isDefault ? null : n -> (Boolean) ModUnderTest.staticCall(filters,
                 "generatorAllows", new Class<?>[]{String.class}, new Object[]{n});
+        if (Boolean.getBoolean("testkit.fullclearNoTraps")) {
+            // killer560, 2026-10-20: his trap routes are not working yet - floors for comparisons have no trap room.
+            java.util.function.Predicate<String> base = allow;
+            allow = n -> !"TRAP".equalsIgnoreCase(String.valueOf(ModUnderTest.staticCall(FLOOR_GEN, "typeOf",
+                    new Class<?>[]{String.class}, new Object[]{n}))) && (base == null || base.test(n));
+        }
         Object planned = ModUnderTest.staticCall(FLOOR_GEN, "plan", new Class<?>[]{floor.getClass(), int.class, int.class,
                 Map.class, java.util.function.Predicate.class}, new Object[]{floor, puzzles, blood, null, allow});
         if (planned == null) {
