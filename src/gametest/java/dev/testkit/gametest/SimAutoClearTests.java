@@ -1376,6 +1376,9 @@ public class SimAutoClearTests implements FabricClientGameTest {
         }
     }
 
+    /** The Progress HUD header's optional countdown suffix, "  ~0:26 left" (mod 4893a558, 2026-10-18), as a regex. */
+    private static final String HUD_LEFT = "(?:  ~\\d+:\\d\\d left)?";
+
     /**
      * killer560's 2026-10-15 Progress HUD against the real planner (mod trail-hud-1015). The run's own log names the pick
      * and the order {@code AutoClearTargets.ordered} gave; the plan Auto Clear published at that pick must be the pick
@@ -1430,9 +1433,12 @@ public class SimAutoClearTests implements FabricClientGameTest {
                     + expect);
         }
         List<String> rows = shown.get(firstPlan);
+        // The header ends in the planner's countdown, "  ~0:26 left", whenever it has an estimate and rooms ahead (mod
+        // 4893a558, 2026-10-18, AutoRoutesProgressHud.planLines); the count before it is what this checks.
         String head = "Auto Clear 0%  (0/" + expect.size() + ")";
-        if (rows.isEmpty() || !rows.get(0).equals(head)) {
-            failures.add("hud: the top row is " + (rows.isEmpty() ? "missing" : "'" + rows.get(0) + "'") + ", wanted '" + head + "'");
+        if (rows.isEmpty() || !rows.get(0).matches(java.util.regex.Pattern.quote(head) + HUD_LEFT)) {
+            failures.add("hud: the top row is " + (rows.isEmpty() ? "missing" : "'" + rows.get(0) + "'") + ", wanted '" + head
+                    + "' (with or without '  ~M:SS left')");
         }
         if (rows.size() < 2 || !rows.get(1).startsWith("> " + picked)) {
             failures.add("hud: the room under way is not first after the header: " + rows);
@@ -1444,7 +1450,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
         }
         boolean oneDone = false;
         for (List<String> r : shown) {
-            if (!r.isEmpty() && r.get(0).matches("Auto Clear 50%  \\(1/2\\)")) {
+            if (!r.isEmpty() && r.get(0).matches("Auto Clear 50%  \\(1/2\\)" + HUD_LEFT)) {
                 oneDone = true;
             }
         }

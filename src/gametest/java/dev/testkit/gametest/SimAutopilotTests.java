@@ -888,7 +888,10 @@ public class SimAutopilotTests implements FabricClientGameTest {
         }
     }
 
-    private static final Pattern HUD_PILOT_HEAD = Pattern.compile("Autopilot (\\d+)%  \\((\\d+)/(\\d+)\\)");
+    // The header ends in the planner's countdown, "  ~0:06 left", whenever it has an estimate and rooms ahead (mod 4893a558,
+    // 2026-10-18, AutoRoutesProgressHud.planLines); optional, because a plan with no estimate or no rooms left has none.
+    private static final Pattern HUD_PILOT_HEAD = Pattern.compile(
+            "Autopilot (\\d+)%  \\((\\d+)/(\\d+)\\)(?:  ~\\d+:\\d\\d left)?");
 
     /**
      * The Auto Routes Progress HUD against Autopilot's own decisions (mod trail-hud-1015): every decision logs the
@@ -916,15 +919,20 @@ public class SimAutopilotTests implements FabricClientGameTest {
         }
         java.util.Set<Integer> matched = new java.util.TreeSet<>();
         int withPlan = 0;
+        int withClock = 0;
         int lastDone = 0;
         for (List<String> rows : r.hud) {
             if (rows.isEmpty() || !rows.get(0).startsWith("Autopilot ")) {
                 continue;
             }
             withPlan++;
+            if (rows.get(0).endsWith(" left")) {
+                withClock++;
+            }
             Matcher m = HUD_PILOT_HEAD.matcher(rows.get(0));
             if (!m.matches()) {
-                failures.add(label + ": hud: the top row is not 'Autopilot N%  (done/total)': '" + rows.get(0) + "'");
+                failures.add(label + ": hud: the top row is not 'Autopilot N%  (done/total)[  ~M:SS left]': '"
+                        + rows.get(0) + "'");
                 continue;
             }
             int pct = Integer.parseInt(m.group(1)), done = Integer.parseInt(m.group(2)), total = Integer.parseInt(m.group(3));
@@ -959,7 +967,8 @@ public class SimAutopilotTests implements FabricClientGameTest {
                 }
             }
         }
-        println(label + ": hud: " + withPlan + " of " + r.hud.size() + " samples drew a plan; matched decision(s) " + matched
+        println(label + ": hud: " + withPlan + " of " + r.hud.size() + " samples drew a plan (" + withClock
+                + " with the '~M:SS left' countdown); matched decision(s) " + matched
                 + " of " + r.decisions.size() + "; most done " + lastDone);
         if (r.decisions.size() > 0 && withPlan == 0) {
             failures.add(label + ": hud: the run made " + r.decisions.size() + " decision(s) but the HUD never drew a plan");

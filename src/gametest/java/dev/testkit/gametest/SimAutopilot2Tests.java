@@ -52,6 +52,9 @@ public class SimAutopilot2Tests implements FabricClientGameTest {
     private static final String SIM_ITEMS = "com.killer560.hub.roomsim.SimItems";
     private static final String SIM_ROOM_STATE = "com.killer560.hub.roomsim.SimRoomState";
     private static final String SIM_KEYS = "com.killer560.hub.roomsim.SimKeys";
+    /** The stand Auto Secret chose for a key: "[AutoSecret] key: going for ... standing on X (4.6 from the key)". */
+    private static final java.util.regex.Pattern KEY_STAND = java.util.regex.Pattern.compile(
+            "\\[AutoSecret\\] key: going for .* \\((\\d+(?:\\.\\d+)?) from the key\\)");
     private static final String SIM_DOORS = "com.killer560.hub.roomsim.SimDoors";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
     private static final String FLOOR_GEN = "com.killer560.hub.roomsim.SimFloorGen";
@@ -571,9 +574,24 @@ public class SimAutopilot2Tests implements FabricClientGameTest {
         boolean noWarpLine = r.log.stream().anyMatch(l -> l.contains("inside the") && l.contains("pickup range"));
         println(String.format(Locale.US, "key: pickup range %.1f; picked up from %.2f blocks%s", range, at,
                 noWarpLine ? " (already in range - no warp)" : ""));
-        if (at <= 3.0) {
+        // The stand the mod CHOSE is what says whether it used the range: "[AutoSecret] key: going for ... standing on X
+        // (N from the key)". The pickup distance alone is not - on 2026-10-20 the Interactive Map's 11-warp path to a stand
+        // 4.6 from the key landed one hop early within 0.05 of it, and the sim (rightly) took the key there.
+        double planned = -1;
+        for (String l : r.log) {
+            java.util.regex.Matcher pm = KEY_STAND.matcher(l);
+            if (pm.find()) {
+                planned = Double.parseDouble(pm.group(1));
+            }
+        }
+        boolean enRoute = planned > 3.0 && at >= 0 && at < planned - 0.5;
+        if (enRoute) {
+            println(String.format(Locale.US, "key: it chose a stand %.1f from the key and picked it up %.2f from it on the"
+                    + " way there", planned, at));
+        }
+        if (at <= 3.0 && !enRoute) {
             failures.add(String.format(Locale.US, "key: picked up from %.2f blocks - not beyond 3, so the longer range was"
-                    + " not used", at));
+                    + " not used (stand chosen %.1f from the key)", at, planned));
         }
         if (Math.abs(range - 6.0) > 0.01) {
             failures.add(String.format(Locale.US, "key: the pickup range is %.1f, expected 6.0 (base 1 + 5, no talisman)", range));
@@ -671,6 +689,14 @@ public class SimAutopilot2Tests implements FabricClientGameTest {
         int step = trapRoom == null ? 5 : 1;
         for (int t = 0; t < CASE_TICKS; t += step) {
             ctx.waitTicks(step);
+            // Closed for him, as he would (93-solve's run loop does the same): a secret chest's window stays up until the
+            // player shuts it, and every auto holds while a screen is open - Auto Teleport Maze's walk to the end pad
+            // after its centre chest waited on it for the whole case (2026-10-20). Auto Close Chest is off by default.
+            ctx.runOnClient(mc -> {
+                if (mc.player != null && mc.player.containerMenu != mc.player.inventoryMenu) {
+                    mc.player.closeContainer();
+                }
+            });
             Vec3 now = ctx.computeOnClient(mc -> mc.player.position());
             r.travelled += now.distanceTo(last);
             last = now;
