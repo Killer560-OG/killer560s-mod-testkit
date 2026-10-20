@@ -65,7 +65,8 @@ public class SimFullClearTests implements FabricClientGameTest {
     /** Rooms with a route he may finish short of every secret (killer560: "only 1-2 rooms it shouldnt get a secret in"). */
     private static final int MAX_MISSED_ROOMS = 2;
     private static final double STALL_SECONDS = 4.0;
-    private static final int RUN_LIMIT_TICKS = 20 * 60 * 8;
+    /** 8 minutes; with mobs on, 12 (every clear and every puzzle, which a slow Teleport Maze alone can take 80 s of). */
+    private static final int RUN_LIMIT_TICKS = 20 * 60 * (Integer.getInteger("testkit.fullclearMobs", 0) > 0 ? 12 : 8);
     private static final Set<String> SKIP_TYPES = Set.of("PUZZLE", "TRAP", "BLOOD", "FAIRY", "ENTRANCE");
 
     private static final Pattern PLACED = Pattern.compile("Sim secrets for (.+?): (\\d+) placed");
