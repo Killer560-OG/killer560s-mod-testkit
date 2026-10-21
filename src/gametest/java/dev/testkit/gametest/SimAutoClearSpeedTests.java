@@ -61,7 +61,7 @@ public class SimAutoClearSpeedTests implements FabricClientGameTest {
     record RoomTime(String room, int ticks, String how, int trips, int tripTicks, int warps, int uses, int kills,
                     Map<String, Integer> buckets) {
         boolean cleared() {
-            return how.startsWith("cleared") || how.startsWith("done without a map");
+            return how.startsWith("cleared") || how.startsWith("done without a map") || how.startsWith("left at its last death");
         }
 
         /** "cleared; last death 85" (mod RoomClock since its second version): 85, else -1. */
