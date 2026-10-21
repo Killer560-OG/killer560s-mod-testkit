@@ -202,6 +202,7 @@
 			"dev.testkit.gametest.menu.MenuSuite",
 			"dev.testkit.gametest.ui.UiSuite",
 			"dev.testkit.gametest.ui.FontsMainMenuSuite",
+			"dev.testkit.gametest.ui.ThemeExtrasSuite",
 			"dev.testkit.gametest.ui.GreenThemeSuite",
 			"dev.testkit.gametest.ui.PaintedScenesSuite",
 			"dev.testkit.gametest.ui.AmberAuroraSuite",

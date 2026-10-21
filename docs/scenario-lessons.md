@@ -1084,3 +1084,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   GroundSpoof + Simulation flags (1850). 2762's flake was a mod bug (the flipper bought twice through its own clicked
   Confirm page) and 890's half was one too (a refused Windows file replace dropped the Croesus save): a flaky case is
   worth reading for a real race before the test gets the blame.
+- 1021-theme-music/-font/-bg-import/-sound-import (`ui/ThemeExtrasSuite`, mod themes-1021): each menu theme's own music
+  (the sound engine's channel and its answer, not the muted speakers), font (built id and the menu's text widths), and
+  imported GIF/video background (draw and upload counters plus the title screen's own pixels) and music (the mod's
+  stream hook opened the file). ffmpeg makes the test media; without it on the PATH those halves note SKIPPED.
