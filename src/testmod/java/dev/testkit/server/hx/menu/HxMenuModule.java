@@ -59,6 +59,20 @@ public final class HxMenuModule implements HxModule {
     private static final Map<String, JsonObject> ON_ENTITY = new ConcurrentHashMap<>();
     private static final Map<java.util.UUID, Integer> LAST_ENTITY_OPEN = new ConcurrentHashMap<>();
 
+    /**
+     * A menu slot action {@code {"command": {name, menu}}} (HxMenuSpec): from then on /name opens {@code menu} (null
+     * clears it), so a click can change what the next /bz shows - Manage Orders listing the order a Confirm Buy Order
+     * click just placed - without the test racing the client. The command must already be registered by
+     * {@code menu.onCommand}.
+     */
+    static void setCommandMenu(String name, JsonObject menu) {
+        if (menu == null) {
+            ON_COMMAND.remove(name);
+        } else {
+            ON_COMMAND.put(name, menu);
+        }
+    }
+
     @Override
     public String name() {
         return "menu";

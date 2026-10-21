@@ -28,22 +28,29 @@ import java.util.Map;
  * and money changes. Every buy is judged by what the SERVER recorded (menu.click, sign.update and its lines, menu.give,
  * sell.sold), never by what the mod meant to do.
  *
+ * <p>Since mod de5cb49c (2026-10-20) the cheat build always runs the AUTOPILOT, which decides from Bazaar API prices,
+ * the advisor's answers and NPC prices ({@link BazaarFlipKit} feeds all three) and reads Manage Orders before anything
+ * else. With the advisor's Insta Buy / NPC answers its flip is the old cycle's; each case keeps its purpose:
  * <ul>
  *   <li>2761 his exact cut title and slot layout: Custom Amount, the sign gets "100", Done is sent, 100 arrive and are
- *       sold, and the profit tracker gets the cycle from Hypixel's own Bought / You sold lines (net = purse change).
+ *       sold, and the profit tracker gets the sale (cost within a coin of the Bought line, NPC price per unit sold).
  *       On a jar before the fix this stops at "unexpected menu" with nothing bought.</li>
  *   <li>2762 the same through a Confirm Instant Buy page.</li>
  *   <li>2763 Custom Amount that never opens a sign: stops, nothing bought.</li>
- *   <li>2764 "Buy up to 40x.": 100 wanted is typed as 40, 40, 20.</li>
- *   <li>2765 Hypixel rejecting the typed amount: stops (nothing delivered), no /trades.</li>
+ *   <li>2764 "Buy up to 40x.": 100 offered, one Insta Buy types 40 (capped by that line), and sells them.</li>
+ *   <li>2765 Hypixel rejecting the typed amount: stops (nothing arrived), no /trades.</li>
  *   <li>2766 a key in a Bazaar container mid-run (reskin off) stops it and names the key.</li>
  *   <li>2767 a key while the amount sign is open stops it; the sign is never sent with a number.</li>
- *   <li>2768 the NPC sell limit line mid-sale: stops naming the limit and its reset; only the sold part is revenue.</li>
- *   <li>2769 near the limit: the buy is sized down to what the NPCs will still pay for.</li>
+ *   <li>2768 the NPC sell limit line mid-sale: only the sold part is booked, the rest is kept, today's limit is marked
+ *       and the session waits (the autopilot stops selling to the NPC, not the session).</li>
+ *   <li>2769 near the limit: the buy is sized down to what the NPCs will still pay for (Buy a stack!, exactly 64).</li>
  *   <li>2770 the profit tracker's Bazaar Flipper entry exists on cheat jars only.</li>
  *   <li>2771 the tab: removed rows gone, Target Purse typed (commas, k/m/b, nonsense, empty), saved and reloaded; an
  *       old file's minProfitPerRun ignored.</li>
- *   <li>2772 nothing profitable: stops and says so (no floor any more; profit after fees must be above 0).</li>
+ *   <li>2772 nothing profitable: after reading Manage Orders it waits, never opening the product or /trades.</li>
+ *   <li>2773 a live page dearer than the API: that product is skipped for the session, the next best flipped twice.</li>
+ *   <li>2774 a new session starts from empty books (what the last one skipped is tried again); the old scanner's test
+ *       hook still refuses a JVM that is not a harness.</li>
  * </ul>
  */
 final class BazaarFlipCustomCases {
@@ -218,9 +225,24 @@ final class BazaarFlipCustomCases {
         return m;
     }
 
-    /** The flipper on, Hub sidebar with a 1,000,000 purse, a Cookie Buff, and one fixed scan result. */
+    /** The Insta Buy product the API reports: {@code units} offered at {@code each}, the NPC paying {@code npc}. */
+    static BazaarFlipKit.Product api(Product p, int units, double each, double npc) {
+        return BazaarFlipKit.insta(p.id(), p.item().toUpperCase(java.util.Locale.ROOT), units, each, npc);
+    }
+
+    /** The flipper on, Hub sidebar with a 1,000,000 purse, a Cookie Buff, and one API product. */
     static AutoCloseable world(Session c, Product p, int units, double each, double npc, double npcSoldToday, int speed,
                                boolean reskin) {
+        return world(c, List.of(api(p, units, each, npc)), npcSoldToday, speed, reskin, 1, BazaarFlipKit.Answers.INSTA_TO_NPC);
+    }
+
+    /**
+     * The flipper on, Hub sidebar with a 1,000,000 purse, a Cookie Buff, and the autopilot (BazaarFlipKit) on
+     * {@code products} with {@code answers}. {@code maxOrders} 1: one buy and its sale, then the session ends itself
+     * ("the session's order cap (1) is reached").
+     */
+    static AutoCloseable world(Session c, List<BazaarFlipKit.Product> products, double npcSoldToday, int speed,
+                               boolean reskin, int maxOrders, BazaarFlipKit.Answers answers) {
         MenuKit.reset(c);
         // Server-side: units a case left unsold (2768 stops at the NPC limit with a stack) must not be the next case's.
         c.server().command("clear @a");
@@ -234,18 +256,23 @@ final class BazaarFlipCustomCases {
                 .set("bazaarflip.BazaarFlipConfig", "Speed", speed)
                 .set("bazaarflip.BazaarFlipConfig", "TargetPurse", 0L)
                 .set("auction.AuctionConfig", "BazaarEnabled", reskin);
+        AutoCloseable kit;
+        try {
+            kit = BazaarFlipKit.autopilot(c, cfg, answers, maxOrders, products.toArray(new BazaarFlipKit.Product[0]));
+        } catch (RuntimeException | AssertionError e) {
+            cfg.close();
+            throw e;
+        }
         c.ctx().runOnClient(mc -> {
             Mod.staticCall("util.SkyblockGate", "setEnabled", false);
             if (Mod.has("bazaarflip.BazaarFlipNpcLimit")) {
                 Mod.staticCall("bazaarflip.BazaarFlipNpcLimit", "setSoldTodayForTest", npcSoldToday);
             }
-            Mod.staticCall("bazaarflip.BazaarFlipScanner", "setTestCandidateForTest", p.id(), p.name(), 64, units, each, npc);
         });
         c.ctx().waitTicks(10);
         return () -> {
             c.ctx().runOnClient(mc -> {
                 Mod.staticCall("bazaarflip.BazaarFlipFeature", "requestStop");
-                Mod.staticCall("bazaarflip.BazaarFlipScanner", "clearTestCandidateForTest");
                 if (Mod.has("bazaarflip.BazaarFlipNpcLimit")) {
                     Mod.staticCall("bazaarflip.BazaarFlipNpcLimit", "setSoldTodayForTest", 0.0);
                 }
@@ -261,9 +288,24 @@ final class BazaarFlipCustomCases {
             c.hx().tab(List.of(), null, "");
             c.server().command("clear @a");
             c.ctx().waitTicks(5);
+            kit.close();
             cfg.close();
         };
     }
+
+    /** /bz: the search page (whose Manage Orders opens an empty "Your Bazaar Orders" - the autopilot reads it first),
+     *  the product page, then {@code instant}. */
+    static JsonObject bz(Product p, JsonObject instant) {
+        return BazaarFlipKit.withManageOrders(bazaar(p, instant), BazaarFlipKit.ordersPage());
+    }
+
+    /** Waits for the session to end by itself (the order cap, or a stop), up to {@code ticks}. */
+    static void awaitEnd(Session c, int ticks) {
+        c.waitUntil("the flipper session to end", mc -> !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature",
+                "isRunning"), ticks);
+    }
+
+    static final String CAP_1 = "the session's order cap (1) is reached";
 
     static boolean running(Session c) {
         return c.onClient(mc -> (Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"));
@@ -325,20 +367,23 @@ final class BazaarFlipCustomCases {
         double npc = 2_400.0;
         int units = 100;
         try (AutoCloseable w = world(c, PUFFER, units, each, npc, 0, 10, false)) {
-            JsonObject page = instant(PUFFER, PUFFER_CUT, each, "71,680", new Sign(false, confirm, 71_680), 1);
-            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bazaar(PUFFER, page)));
+            JsonObject page = instant(PUFFER, PUFFER_CUT, each, "71,680", new Sign(false, confirm, 71_680), 0);
+            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bz(PUFFER, page)));
             c.hx().call("menu.onCommand", Hx.args("name", "trades", "menu", trades(npc, 0, null)));
             int cyclesBefore = Mod.has("bazaarflip.BazaarFlipProfitLog") ? profitCycles(c) : 0;
             String refusal = FlipCroesusCases.start(c);
             c.check(refusal == null, "start refused: " + refusal);
             java.util.Set<String> screens = new java.util.LinkedHashSet<>();
-            c.waitUntil("the flipper to finish one cycle or stop", mc -> {
+            c.waitUntil("the autopilot to buy, sell and end on its order cap", mc -> {
                 screens.add(McCompat.screen(mc) == null ? "none" : McCompat.screen(mc).getClass().getSimpleName());
-                return ((Number) Mod.staticCall("bazaarflip.BazaarFlipFeature", "getCycles")).intValue() >= 1
-                        || !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning");
+                return !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning");
             }, 900);
             c.note("screens seen during the run: " + screens);
             String reason = stopReason(c);
+            c.check(reason.contains(CAP_1), "the session ended with: " + reason + "; all " + FlipCroesusCases.allClicks(c));
+            // Manage Orders (50) is read before anything else, then the product (11).
+            c.check(FlipCroesusCases.clicksOn(c, PUFFER.searchTitle()).equals(List.of(50, 11)),
+                    "search page clicks " + FlipCroesusCases.clicksOn(c, PUFFER.searchTitle()));
             List<Integer> instantClicks = FlipCroesusCases.clicksOn(c, PUFFER_CUT);
             c.check(FlipCroesusCases.clicksOn(c, PUFFER.productTitle()).equals(List.of(10)),
                     "product clicks " + FlipCroesusCases.clicksOn(c, PUFFER.productTitle()) + "; all " + FlipCroesusCases.allClicks(c));
@@ -358,18 +403,18 @@ final class BazaarFlipCustomCases {
             c.check(given(c) == units, "the server delivered " + given(c));
             c.check(sold(c) == units, "sold " + sold(c));
             c.check(c.commands().contains("trades"), "no /trades: " + c.commands());
-            c.ctx().runOnClient(mc -> Mod.staticCall("bazaarflip.BazaarFlipFeature", "requestStop"));
-            // The profit tracker: one cycle, from the Bought and You sold lines; net = the purse change those lines are.
+            // The profit tracker: one sale. The autopilot books the cost from the Bought line (or, when the items beat the
+            // line in, the page's quote less Hypixel's 4%, which is within a coin of it) and the NPC price per unit sold.
             c.check(profitCycles(c) == cyclesBefore + 1, "profit cycles " + cyclesBefore + " -> " + profitCycles(c));
             Object cyc = lastCycle(c);
             double spent = num(cyc, "spent");
             double received = num(cyc, "received");
             double net = num(cyc, "net");
             double purseChange = units * npc - units * each;
-            c.check(spent == units * each, "spent " + spent + ", the Bought line said " + units * each);
+            c.check(Math.abs(spent - units * each) <= 1.0, "spent " + spent + ", the Bought line said " + units * each);
             c.check(received == units * npc, "received " + received + ", the You sold lines said " + units * npc);
             c.check(num(cyc, "tax") == 0.0, "tax " + num(cyc, "tax"));
-            c.check(net == purseChange, "net " + net + " vs the purse change " + purseChange);
+            c.check(Math.abs(net - purseChange) <= 1.0, "net " + net + " vs the purse change " + purseChange);
             c.check(((Number) Mod.call(cyc, "sold")).intValue() == units, "sold in the record " + Mod.call(cyc, "sold"));
             c.note("\"" + PUFFER_CUT + "\": clicks " + FlipCroesusCases.allClicks(c) + "sign line 1 " + amounts
                     + ", delivered " + given(c) + ", sold " + sold(c) + "; profit cycle spent " + spent + " received "
@@ -385,7 +430,7 @@ final class BazaarFlipCustomCases {
         }
         try (AutoCloseable w = world(c, PUFFER, 100, 1_900.0, 2_400.0, 0, 10, false)) {
             JsonObject page = instant(PUFFER, PUFFER_CUT, 1_900.0, "71,680", new Sign(true, false, 0), 0);
-            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bazaar(PUFFER, page)));
+            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bz(PUFFER, page)));
             String refusal = FlipCroesusCases.start(c);
             c.check(refusal == null, "start refused: " + refusal);
             c.waitUntil("the flipper to stop", mc -> !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 400);
@@ -404,21 +449,22 @@ final class BazaarFlipCustomCases {
         if (cheatOnly(c) != null) {
             return;
         }
+        // The API offers 100 under the NPC price; Custom Amount says "Buy up to 40x.": one Insta Buy takes 40 (the autopilot
+        // caps a buy by that line; the next decision would buy again), sells them, and the order cap ends the session.
         try (AutoCloseable w = world(c, PUFFER, 100, 1_900.0, 2_400.0, 0, 10, false)) {
-            JsonObject page = instant(PUFFER, PUFFER_CUT, 1_900.0, "40", Sign.normal(), 4);
-            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bazaar(PUFFER, page)));
+            JsonObject page = instant(PUFFER, PUFFER_CUT, 1_900.0, "40", Sign.normal(), 0);
+            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bz(PUFFER, page)));
             c.hx().call("menu.onCommand", Hx.args("name", "trades", "menu", trades(2_400.0, 0, null)));
             String refusal = FlipCroesusCases.start(c);
             c.check(refusal == null, "start refused: " + refusal);
-            c.waitUntil("the flipper to finish one cycle or stop", mc -> ((Number) Mod.staticCall(
-                    "bazaarflip.BazaarFlipFeature", "getCycles")).intValue() >= 1
-                    || !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 1200);
+            awaitEnd(c, 1200);
             List<String> amounts = signAmounts(c);
-            c.check(amounts.equals(List.of("40", "40", "20")), "sign amounts " + amounts + " (Buy up to 40, 100 wanted); stop: "
+            c.check(amounts.equals(List.of("40")), "sign amounts " + amounts + " (Buy up to 40, 100 offered); stop: "
                     + stopReason(c) + "; sign prompts the server opened " + c.events("sign.opened").size() + "; clicks "
                     + FlipCroesusCases.allClicks(c));
-            c.check(given(c) == 100 && sold(c) == 100, "delivered " + given(c) + ", sold " + sold(c));
-            c.note("Buy up to 40x., 100 wanted: typed " + amounts + ", delivered " + given(c));
+            c.check(given(c) == 40 && sold(c) == 40, "delivered " + given(c) + ", sold " + sold(c));
+            c.check(stopReason(c).contains(CAP_1), "the session ended with: " + stopReason(c));
+            c.note("Buy up to 40x., 100 offered: typed " + amounts + ", delivered " + given(c) + ", sold " + sold(c));
         }
     }
 
@@ -431,14 +477,15 @@ final class BazaarFlipCustomCases {
         // The lore says up to 71,680 but the server takes at most 50: Hypixel refusing what was typed.
         try (AutoCloseable w = world(c, PUFFER, 100, 1_900.0, 2_400.0, 0, 10, false)) {
             JsonObject page = instant(PUFFER, PUFFER_CUT, 1_900.0, "71,680", new Sign(false, false, 50), 0);
-            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bazaar(PUFFER, page)));
+            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bz(PUFFER, page)));
             String refusal = FlipCroesusCases.start(c);
             c.check(refusal == null, "start refused: " + refusal);
             c.waitUntil("the flipper to stop", mc -> !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 500);
             String reason = stopReason(c);
             c.check(signAmounts(c).equals(List.of("100")), "sign amounts " + signAmounts(c));
             c.check(c.events("sign.rejected").size() == 1, "the server rejected " + c.events("sign.rejected").size());
-            c.check(reason.contains("never delivered"), "stopped with: " + reason);
+            // The autopilot's words: it waits for the items, and stops when none arrive.
+            c.check(reason.contains("nothing arrived in your inventory"), "stopped with: " + reason);
             c.check(given(c) == 0 && !c.commands().contains("trades"), "delivered " + given(c) + ", commands " + c.commands());
             c.note("amount over the server's limit: typed " + signAmounts(c) + ", rejected, stopped: \"" + reason + "\"");
         }
@@ -452,7 +499,7 @@ final class BazaarFlipCustomCases {
         }
         try (AutoCloseable w = world(c, PUFFER, 100, 1_900.0, 2_400.0, 0, 1, false)) { // speed 1: ~1 s per step
             JsonObject page = instant(PUFFER, PUFFER_CUT, 1_900.0, "71,680", Sign.normal(), 0);
-            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bazaar(PUFFER, page)));
+            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bz(PUFFER, page)));
             String refusal = FlipCroesusCases.start(c);
             c.check(refusal == null, "start refused: " + refusal);
             c.waitUntil("the product page to be open", mc -> PUFFER.productTitle().equals(MenuKit.screenTitle(mc)), 400);
@@ -474,7 +521,7 @@ final class BazaarFlipCustomCases {
         }
         try (AutoCloseable w = world(c, PUFFER, 100, 1_900.0, 2_400.0, 0, 1, false)) {
             JsonObject page = instant(PUFFER, PUFFER_CUT, 1_900.0, "71,680", Sign.normal(), 0);
-            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bazaar(PUFFER, page)));
+            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bz(PUFFER, page)));
             String refusal = FlipCroesusCases.start(c);
             c.check(refusal == null, "start refused: " + refusal);
             c.waitUntil("the amount sign to open", mc -> McCompat.screen(mc) instanceof AbstractSignEditScreen, 600);
@@ -507,35 +554,42 @@ final class BazaarFlipCustomCases {
         double each = 35.0;
         double npc = 50.0;
         try (AutoCloseable w = world(c, MAGMA, 128, each, npc, 0, 10, false)) {
-            JsonObject page = instant(MAGMA, MAGMA.instantTitle(), each, "71,680", Sign.normal(), 1);
-            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bazaar(MAGMA, page)));
+            JsonObject page = instant(MAGMA, MAGMA.instantTitle(), each, "71,680", Sign.normal(), 0);
+            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bz(MAGMA, page)));
             // The NPC pays for one stack (64 x 50) and then says the limit is reached.
             c.hx().call("menu.onCommand", Hx.args("name", "trades", "menu", trades(npc, 64 * npc, LIMIT_CHAT)));
             int before = profitCycles(c);
             String refusal = FlipCroesusCases.start(c);
             c.check(refusal == null, "start refused: " + refusal);
-            c.waitUntil("the flipper to stop", mc -> !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 900);
-            String reason = stopReason(c);
+            // The autopilot books the part the NPC took and keeps the rest: it stops SELLING at the limit, not the session.
+            c.waitUntil("the NPC sale to be booked", mc -> ((List<?>) Mod.staticCall("bazaarflip.BazaarFlipProfitLog",
+                    "cycles", (Object) null)).size() > before || !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature",
+                    "isRunning"), 900);
+            c.ctx().waitTicks(20);
+            c.check(running(c), "the session ended: " + stopReason(c));
             c.check(given(c) == 128, "delivered " + given(c));
             c.check(sold(c) == 64 && c.events("sell.refused").size() == 1, "sold " + sold(c) + ", refused "
                     + c.events("sell.refused").size());
-            c.check(reason.contains("daily NPC sell limit") && reason.contains("00:00 UTC"), "stopped with: " + reason);
             c.check(profitCycles(c) == before + 1, "profit cycles " + before + " -> " + profitCycles(c));
             Object cyc = lastCycle(c);
             c.check(num(cyc, "received") == 64 * npc, "received " + num(cyc, "received") + " (only the sold stack pays)");
-            c.check(num(cyc, "spent") == 128 * each, "spent " + num(cyc, "spent"));
-            c.check(((Number) Mod.call(cyc, "sold")).intValue() == 64 && ((Number) Mod.call(cyc, "bought")).intValue() == 128,
+            c.check(Math.abs(num(cyc, "spent") - 64 * each) <= 1.0, "spent " + num(cyc, "spent") + " (the sold stack's cost)");
+            c.check(((Number) Mod.call(cyc, "sold")).intValue() == 64 && ((Number) Mod.call(cyc, "bought")).intValue() == 64,
                     "record sold " + Mod.call(cyc, "sold") + " bought " + Mod.call(cyc, "bought"));
-            int clicksAfter = c.events("menu.click").size();
-            c.ctx().waitTicks(40);
-            c.check(c.events("menu.click").size() == clicksAfter, "clicked after the stop");
             boolean limitLeft = c.onClient(mc -> ((Number) Mod.staticCall("bazaarflip.BazaarFlipNpcLimit", "remaining"))
                     .doubleValue() <= 0);
             c.check(limitLeft, "the limit line did not mark today's limit reached");
-            String again = FlipCroesusCases.start(c);
-            c.check(again != null && again.contains("daily NPC sell limit"), "a restart was not refused: " + again);
-            c.note("limit after one stack: \"" + reason + "\"; record received " + num(cyc, "received") + " of spent "
-                    + num(cyc, "spent") + ", net " + num(cyc, "net") + "; restart refused: \"" + again + "\"");
+            c.check(BazaarFlipKit.held(c, MAGMA.id()) == 64, "the session holds " + BazaarFlipKit.held(c, MAGMA.id())
+                    + " (want the unsold stack)");
+            int clicksAfter = c.events("menu.click").size();
+            int cmdsAfter = c.commands().size();
+            c.ctx().waitTicks(60);
+            c.check(c.events("menu.click").size() == clicksAfter && c.commands().size() == cmdsAfter,
+                    "acted after the limit: " + FlipCroesusCases.allClicks(c) + " " + c.commands());
+            String waiting = BazaarFlipKit.lastWait(c);
+            c.check(waiting.contains("nothing else worth doing"), "not waiting: \"" + waiting + "\"");
+            c.note("limit after one stack: record received " + num(cyc, "received") + " of spent " + num(cyc, "spent")
+                    + ", net " + num(cyc, "net") + "; 64 kept, then \"Waiting: " + waiting + "\"");
         }
     }
 
@@ -547,15 +601,13 @@ final class BazaarFlipCustomCases {
         // 64 units (3,200 coins) plus 10 coins left today: the 128 the scan wanted is sized down to one stack.
         double soldToday = 500_000_000.0 - 64 * npc - 10;
         try (AutoCloseable w = world(c, MAGMA, 128, 35.0, npc, soldToday, 10, false)) {
-            JsonObject page = instant(MAGMA, MAGMA.instantTitle(), 35.0, "71,680", Sign.normal(), 1);
-            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bazaar(MAGMA, page)));
+            JsonObject page = instant(MAGMA, MAGMA.instantTitle(), 35.0, "71,680", Sign.normal(), 0);
+            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bz(MAGMA, page)));
             c.hx().call("menu.onCommand", Hx.args("name", "trades", "menu", trades(npc, 0, null)));
             String refusal = FlipCroesusCases.start(c);
             c.check(refusal == null, "start refused: " + refusal);
-            c.waitUntil("the flipper to finish one cycle or stop", mc -> ((Number) Mod.staticCall(
-                    "bazaarflip.BazaarFlipFeature", "getCycles")).intValue() >= 1
-                    || !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 900);
-            c.ctx().runOnClient(mc -> Mod.staticCall("bazaarflip.BazaarFlipFeature", "requestStop"));
+            awaitEnd(c, 900);
+            c.check(stopReason(c).contains(CAP_1), "the session ended with: " + stopReason(c));
             List<Integer> clicks = FlipCroesusCases.clicksOn(c, MAGMA.instantTitle());
             c.check(clicks.equals(List.of(12)), "Instant Buy clicks " + clicks + " (want Buy a stack! once: exactly 64)");
             c.check(given(c) == 64 && sold(c) == 64, "delivered " + given(c) + ", sold " + sold(c));
@@ -686,15 +738,23 @@ final class BazaarFlipCustomCases {
         if (cheatOnly(c) != null) {
             return;
         }
-        // The NPC limit leaves room for no unit: the scan's one candidate sizes to nothing.
+        // The NPC limit leaves room for no unit: the API's one product sizes to nothing. The autopilot reads Manage Orders
+        // (a plain /bz), finds nothing worth doing and waits - it never opens the product or /trades.
         try (AutoCloseable w = world(c, MAGMA, 128, 35.0, 50.0, 500_000_000.0 - 49, 10, false)) {
+            JsonObject page = instant(MAGMA, MAGMA.instantTitle(), 35.0, "71,680", Sign.normal(), 0);
+            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bz(MAGMA, page)));
             String refusal = FlipCroesusCases.start(c);
             c.check(refusal == null, "start refused: " + refusal);
-            c.waitUntil("the flipper to stop", mc -> !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 200);
-            String reason = stopReason(c);
-            c.check(reason.contains("nothing is profitable"), "stopped with: " + reason);
-            c.check(c.commands().stream().noneMatch(x -> x.startsWith("bz")), "sent " + c.commands());
-            c.note("no unit sellable today: \"" + reason + "\", no /bz");
+            c.waitUntil("the autopilot to wait", mc -> !String.valueOf(Mod.field(BazaarFlipKit.AUTOPILOT, "lastWaitWhy"))
+                    .isEmpty() || !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 300);
+            c.ctx().waitTicks(40);
+            String waiting = BazaarFlipKit.lastWait(c);
+            c.check(running(c), "the session ended: " + stopReason(c));
+            c.check(waiting.contains("nothing else worth doing"), "waiting: \"" + waiting + "\"");
+            c.check(c.commands().stream().noneMatch(x -> x.startsWith("bz ") || x.startsWith("trades")), "sent " + c.commands());
+            c.check(FlipCroesusCases.clicksOn(c, MAGMA.searchTitle()).equals(List.of(50)) && c.events("menu.click").size() == 1,
+                    "clicks " + FlipCroesusCases.allClicks(c) + " (want Manage Orders only)");
+            c.note("no unit sellable today: \"Waiting: " + waiting + "\", commands " + c.commands());
         }
     }
 
@@ -721,20 +781,21 @@ final class BazaarFlipCustomCases {
     }
 
     /**
-     * killer560, 2026-10-17: "It keeps going back to Enchanted Pufferfish then it says Stopped: bought nothing". The scan
+     * killer560, 2026-10-17: "It keeps going back to Enchanted Pufferfish then it says Stopped: bought nothing". The API
      * ranks Enchanted Pufferfish first at 1,900 a unit, but its live Instant Buy page prices the book at 2,500 (quoting
-     * 2,600) against an NPC 2,400; Lump of Magma is second. The flipper must leave the pufferfish untouched, rescan, take
-     * the Lump of Magma and finish its cycle - and never open the pufferfish again (same scan price).
+     * 2,600) against an NPC 2,400; Lump of Magma is second. The autopilot must leave the pufferfish untouched (skip it for
+     * the session), take the Lump of Magma and flip it - and never open the pufferfish again.
      */
     static void livePriceNextBest(Session c) throws Exception {
         if (cheatOnly(c) != null) {
             return;
         }
-        try (AutoCloseable w = world(c, PUFFER, 100, 1_900.0, 2_400.0, 0, 10, false)) {
-            c.ctx().runOnClient(mc -> Mod.staticCall("bazaarflip.BazaarFlipScanner", "addTestCandidateForTest",
-                    MAGMA.id(), MAGMA.name(), 64, 128, 35.0, 50.0));
-            JsonObject pufferInstant = instant(PUFFER, PUFFER_CUT, 2_500.0, "71,680", Sign.normal(), 1);
-            JsonObject magmaInstant = instant(MAGMA, MAGMA.instantTitle(), 35.0, "71,680", Sign.normal(), 1);
+        // Two orders: the pufferfish is skipped once, then two whole Lump of Magma flips, and the pufferfish is never
+        // opened again in the session (it stays skipped at the same price).
+        try (AutoCloseable w = world(c, List.of(api(PUFFER, 100, 1_900.0, 2_400.0), api(MAGMA, 128, 35.0, 50.0)), 0, 10,
+                false, 2, BazaarFlipKit.Answers.INSTA_TO_NPC)) {
+            JsonObject pufferInstant = instant(PUFFER, PUFFER_CUT, 2_500.0, "71,680", Sign.normal(), 0);
+            JsonObject magmaInstant = instant(MAGMA, MAGMA.instantTitle(), 35.0, "71,680", Sign.normal(), 0);
             JsonObject search = FlipCroesusCases.menu("Bazaar ➜ \"Enchanted\"", 6, Map.of(
                     11, priced(PUFFER), 12, priced(MAGMA),
                     45, FlipCroesusCases.item("minecraft:oak_sign", "§aSearch"),
@@ -742,26 +803,23 @@ final class BazaarFlipCustomCases {
                     50, FlipCroesusCases.item("minecraft:book", "§aManage Orders")),
                     Map.of(11, FlipCroesusCases.open(productPage(PUFFER, pufferInstant)),
                             12, FlipCroesusCases.open(productPage(MAGMA, magmaInstant))));
-            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", search));
+            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu",
+                    BazaarFlipKit.withManageOrders(search, BazaarFlipKit.ordersPage())));
             c.hx().call("menu.onCommand", Hx.args("name", "trades", "menu", trades(50.0, 0, null)));
             String refusal = FlipCroesusCases.start(c);
             c.check(refusal == null, "start refused: " + refusal);
-            c.waitUntil("the flipper to finish a cycle or stop", mc -> ((Number) Mod.staticCall(
-                    "bazaarflip.BazaarFlipFeature", "getCycles")).intValue() >= 1
-                    || !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 1200);
-            // Let it start the next cycle: the pufferfish must not come back at the same price.
-            c.ctx().waitTicks(80);
+            c.waitUntil("the pufferfish to be skipped", mc -> ((java.util.Set<?>) Mod.field(BazaarFlipKit.AUTOPILOT, "avoid"))
+                    .contains(PUFFER.id()) || !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 600);
+            awaitEnd(c, 1600);
             String reason = stopReason(c);
-            c.ctx().runOnClient(mc -> Mod.staticCall("bazaarflip.BazaarFlipFeature", "requestStop"));
+            c.check(reason.contains("the session's order cap (2) is reached"), "the session ended with: " + reason);
             List<String> cmds = c.commands();
             long pufferBz = cmds.stream().filter(x -> x.equals("bz Enchanted Pufferfish")).count();
             List<Integer> pufferClicks = FlipCroesusCases.clicksOn(c, PUFFER_CUT);
             c.check(pufferClicks.isEmpty(), "bought on the pufferfish page: " + pufferClicks);
             c.check(pufferBz == 1, "/bz Enchanted Pufferfish sent " + pufferBz + " time(s): " + cmds + " (stop: " + reason + ")");
             c.check(cmds.contains("bz Lump of Magma"), "never went to the next best: " + cmds + " (stop: " + reason + ")");
-            // One or more whole Lump of Magma cycles (the 80 ticks after the first may start another).
-            c.check(!signAmounts(c).isEmpty() && signAmounts(c).stream().allMatch("128"::equals)
-                            && given(c) >= 128 && given(c) % 128 == 0 && sold(c) <= given(c) && sold(c) >= 128,
+            c.check(signAmounts(c).equals(List.of("128", "128")) && given(c) == 256 && sold(c) == 256,
                     "Lump of Magma: sign " + signAmounts(c) + ", delivered " + given(c) + ", sold " + sold(c));
             c.note("pufferfish live at 2,500 (quoted 2,600) vs NPC 2,400: skipped once, then " + cmds
                     + "; magma sign " + signAmounts(c) + ", sold " + sold(c));
@@ -777,26 +835,36 @@ final class BazaarFlipCustomCases {
         if (cheatOnly(c) != null) {
             return;
         }
-        try (AutoCloseable w = world(c, MAGMA, 128, 35.0, 50.0, 0, 1, false)) {
+        // The live page asks 55 against the NPC's 50: the first session skips Lump of Magma (its books say "avoid").
+        // A second session starts from empty books, so it goes to Lump of Magma again rather than acting on the first's.
+        try (AutoCloseable w = world(c, MAGMA, 128, 35.0, 50.0, 0, 10, false)) {
+            JsonObject page = instant(MAGMA, MAGMA.instantTitle(), 55.0, "71,680", Sign.normal(), 0);
+            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bz(MAGMA, page)));
             String first = FlipCroesusCases.start(c);
             c.check(first == null, "start refused: " + first);
-            c.waitUntil("the first session to send /bz", mc -> c.commands().contains("bz Lump of Magma"), 200);
+            c.waitUntil("the first session to skip Lump of Magma", mc -> ((java.util.Set<?>) Mod.field(
+                    BazaarFlipKit.AUTOPILOT, "avoid")).contains(MAGMA.id())
+                    || !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 400);
+            c.check(BazaarFlipKit.avoided(c).contains(MAGMA.id()), "the first session never skipped it - the case proves"
+                    + " nothing (stop: " + stopReason(c) + ")");
             c.ctx().runOnClient(mc -> {
                 Mod.staticCall("bazaarflip.BazaarFlipFeature", "requestStop");
-                Mod.staticCall("bazaarflip.BazaarFlipScanner", "clearTestCandidateForTest");
                 McCompat.setScreen(mc, null);
             });
-            Object leftover = c.onClient(mc -> Mod.staticCall("bazaarflip.BazaarFlipScanner", "getLast"));
-            c.check(leftover != null, "the first session left no scan to (wrongly) reuse - the case proves nothing");
-            int bzBefore = (int) c.commands().stream().filter(x -> x.startsWith("bz")).count();
+            c.ctx().waitTicks(10);
+            long bzBefore = c.commands().stream().filter(x -> x.equals("bz Lump of Magma")).count();
             String second = FlipCroesusCases.start(c);
             c.check(second == null, "second start refused: " + second);
-            c.waitUntil("the second session to stop", mc -> !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature",
-                    "isRunning"), 400);
+            c.check(BazaarFlipKit.avoided(c).isEmpty(), "the second session started with the first's books: "
+                    + BazaarFlipKit.avoided(c));
+            c.waitUntil("the second session to open Lump of Magma", mc -> c.commands().stream()
+                    .filter(x -> x.equals("bz Lump of Magma")).count() > bzBefore
+                    || !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 400);
             String reason = stopReason(c);
-            int bzAfter = (int) c.commands().stream().filter(x -> x.startsWith("bz")).count();
-            c.check(bzAfter == bzBefore, "the second session sent /bz from the old scan: " + c.commands());
-            c.check(reason.contains("fetch failed"), "the second session stopped with: " + reason);
+            long bzAfter = c.commands().stream().filter(x -> x.equals("bz Lump of Magma")).count();
+            c.check(bzBefore == 1 && bzAfter == 2, "/bz Lump of Magma " + bzBefore + " then " + bzAfter + ": " + c.commands()
+                    + " (stop: " + reason + ")");
+            c.check(c.events("menu.give").isEmpty(), "bought at 55 against 50");
             // The hook refuses a JVM that is not the testkit's.
             boolean refusedOutside = c.onClient(mc -> {
                 String off = System.getProperty("killer560.net.offline");
@@ -820,8 +888,8 @@ final class BazaarFlipCustomCases {
                 }
             });
             c.check(refusedOutside, "a test candidate was accepted outside a harness");
-            c.note("restart after a session: fresh fetch (offline here) -> \"" + reason + "\", no /bz from the old scan;"
-                    + " test candidate refused outside a harness");
+            c.note("restart after a session that skipped Lump of Magma: the new session's books are empty and it went back"
+                    + " to it (/bz x" + bzAfter + "); test candidate refused outside a harness");
         }
     }
 }

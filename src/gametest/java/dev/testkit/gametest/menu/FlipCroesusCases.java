@@ -153,6 +153,7 @@ final class FlipCroesusCases {
                 16, item("minecraft:map", "§6Create Sell Offer"),
                 31, item("minecraft:arrow", "§aGo Back")),
                 Map.of(10, open(instant)));
+        // Manage Orders (50) opens an empty "Your Bazaar Orders": the autopilot reads it before anything else.
         return menu(SEARCH_TITLE, 6, Map.of(
                 0, item("minecraft:golden_hoe", "§eFarming"),
                 9, item("minecraft:diamond_pickaxe", "§bMining"),
@@ -162,7 +163,7 @@ final class FlipCroesusCases {
                 47, item("minecraft:chest", "§aSell Inventory Now"),
                 49, item("minecraft:arrow", "§aGo Back"),
                 50, item("minecraft:book", "§aManage Orders")),
-                Map.of(11, open(product)));
+                Map.of(11, open(product), 50, open(BazaarFlipKit.ordersPage())));
     }
 
     static JsonObject trades() {
@@ -171,9 +172,15 @@ final class FlipCroesusCases {
         return m;
     }
 
-    /** Hub sidebar with a purse, the tab footer's Cookie Buff, a fixed scan result, and the flipper on. */
+    /**
+     * Hub sidebar with a purse, the tab footer's Cookie Buff, and the flipper on: the autopilot (BazaarFlipKit) with the
+     * advisor's Insta Buy / NPC answers, the API offering 128 Lump of Magma at 35 under the NPC's {@code npc}, and an
+     * order cap of 1 (one buy and its sale, then the session ends itself).
+     */
     static AutoCloseable flipWorld(Session c, boolean cookie, boolean reskin, double npc) {
         MenuKit.reset(c);
+        c.server().command("clear @a");
+        c.ctx().waitTicks(5);
         c.hx().sidebar("§e§lSKYBLOCK", "§710/11/26 §8m12AB", "", " §7⏣ §bVillage", "", "Purse: §61,000,000", "",
                 "§ewww.hypixel.net");
         c.hx().tab(List.of("§b§lArea: §7Hub"), null, cookie ? BazaarV3Cases.COOKIE_ON : BazaarV3Cases.COOKIE_OFF);
@@ -184,16 +191,24 @@ final class FlipCroesusCases {
                 .set("bazaarflip.BazaarFlipConfig", "TargetPurse", 0L)
                 // One switch since 2026-10-11: the Bazaar feature is the browser AND the reskin.
                 .set("auction.AuctionConfig", "BazaarEnabled", reskin);
+        AutoCloseable kit;
+        try {
+            kit = BazaarFlipKit.autopilot(c, cfg, BazaarFlipKit.Answers.INSTA_TO_NPC, 1,
+                    BazaarFlipKit.insta("LUMP_OF_MAGMA", "MAGMA_CREAM", 128, 35.0, npc));
+        } catch (RuntimeException | AssertionError e) {
+            cfg.close();
+            throw e;
+        }
         c.ctx().runOnClient(mc -> {
             Mod.staticCall("util.SkyblockGate", "setEnabled", false);
-            Mod.staticCall("bazaarflip.BazaarFlipScanner", "setTestCandidateForTest", "LUMP_OF_MAGMA", "Lump of Magma",
-                    64, 128, 35.0, npc);
+            if (Mod.has("bazaarflip.BazaarFlipNpcLimit")) {
+                Mod.staticCall("bazaarflip.BazaarFlipNpcLimit", "setSoldTodayForTest", 0.0);
+            }
         });
         c.ctx().waitTicks(10);
         return () -> {
             c.ctx().runOnClient(mc -> {
                 Mod.staticCall("bazaarflip.BazaarFlipFeature", "requestStop");
-                Mod.staticCall("bazaarflip.BazaarFlipScanner", "clearTestCandidateForTest");
                 Mod.staticCall("util.SkyblockGate", "setEnabled", gate);
             });
             c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", JsonNull.INSTANCE));
@@ -201,7 +216,9 @@ final class FlipCroesusCases {
             MenuKit.reset(c);
             c.hx().sidebarClear();
             c.hx().tab(List.of(), null, "");
-            c.ctx().runOnClient(mc -> mc.player.getInventory().clearContent());
+            c.server().command("clear @a");
+            c.ctx().waitTicks(5);
+            kit.close();
             cfg.close();
         };
     }
@@ -229,19 +246,24 @@ final class FlipCroesusCases {
             c.check(refusal == null, "start refused: " + refusal);
             boolean[] reskinHid = {false};
             java.util.Set<String> drawn = new java.util.LinkedHashSet<>();
-            c.waitUntil("the flipper to finish one cycle", mc -> {
+            // The autopilot on the advisor's Insta Buy / NPC answers is the old cycle: read Manage Orders, buy the API's
+            // 128 under the NPC price, sell them at /trades, then (order cap 1) end the session.
+            c.waitUntil("the autopilot to buy, sell and end on its order cap", mc -> {
                 if (McCompat.screen(mc) instanceof AbstractContainerScreen<?> s
                         && (Boolean) Mod.staticCall("bazaar.BazaarReskin", "isHiding", s)) {
                     reskinHid[0] = true;
                     drawn.add(String.valueOf(Mod.staticCall("bazaar.BazaarReskin", "kindForTest")));
                 }
-                return ((Number) Mod.staticCall("bazaarflip.BazaarFlipFeature", "getCycles")).intValue() >= 1;
-            }, 600);
-            c.ctx().runOnClient(mc -> Mod.staticCall("bazaarflip.BazaarFlipFeature", "requestStop"));
+                return !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning");
+            }, 900);
+            String reason = BazaarFlipCustomCases.stopReason(c);
+            c.check(reason.contains(BazaarFlipCustomCases.CAP_1), "the session ended with: " + reason + "; " + allClicks(c));
             List<String> cmds = c.commands();
+            c.check(cmds.contains("bz"), "Manage Orders was never read (no plain /bz), commands " + cmds);
             c.check(cmds.contains("bz Lump of Magma"), "no /bz Lump of Magma, commands " + cmds);
             c.check(cmds.contains("trades"), "no /trades, commands " + cmds);
-            c.check(clicksOn(c, SEARCH_TITLE).equals(List.of(11)), "search clicks " + clicksOn(c, SEARCH_TITLE));
+            c.check(clicksOn(c, SEARCH_TITLE).equals(List.of(50, 11)), "search clicks " + clicksOn(c, SEARCH_TITLE)
+                    + " (want Manage Orders, then the product)");
             c.check(clicksOn(c, PRODUCT_TITLE).equals(List.of(10)), "product clicks " + clicksOn(c, PRODUCT_TITLE));
             c.check(clicksOn(c, INSTANT_TITLE).equals(List.of(16)), "instant-buy clicks "
                     + clicksOn(c, INSTANT_TITLE) + " (want Custom Amount once for 128 units)");
@@ -293,17 +315,26 @@ final class FlipCroesusCases {
             c.note("legit jar: covered by 761");
             return;
         }
-        // The scan said 35 each against an NPC 50; the Instant Buy page now asks 55 each: nothing may be bought.
+        // The API said 35 each against an NPC 50; the Instant Buy page now asks 55 each: nothing may be bought. The
+        // autopilot skips the product for the session and, with nothing else worth doing, waits.
         try (AutoCloseable w = flipWorld(c, true, false, 50.0)) {
             c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bazaar(55.0)));
             String refusal = start(c);
             c.check(refusal == null, "start refused: " + refusal);
-            c.waitUntil("the flipper to stop", mc -> !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 400);
+            c.waitUntil("the autopilot to skip Lump of Magma", mc -> ((java.util.Set<?>) Mod.field(BazaarFlipKit.AUTOPILOT,
+                    "avoid")).contains("LUMP_OF_MAGMA") || !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature",
+                    "isRunning"), 400);
+            c.ctx().waitTicks(40);
+            c.check(BazaarFlipCustomCases.running(c), "the session ended: " + BazaarFlipCustomCases.stopReason(c));
+            c.check(BazaarFlipKit.avoided(c).contains("LUMP_OF_MAGMA"), "not skipped: " + BazaarFlipKit.avoided(c));
             c.check(clicksOn(c, PRODUCT_TITLE).equals(List.of(10)), "it never reached Instant Buy: " + allClicks(c));
             c.check(clicksOn(c, INSTANT_TITLE).isEmpty(), "it bought at a loss: " + clicksOn(c, INSTANT_TITLE));
             c.check(c.events("menu.give").isEmpty(), "items were delivered");
             c.check(!c.commands().contains("trades"), "sent /trades with nothing bought");
-            c.note("Instant Buy at 55/ea vs NPC 50: reached the page, clicked no option, stopped; " + allClicks(c));
+            c.check(c.commands().stream().filter(x -> x.equals("bz Lump of Magma")).count() == 1,
+                    "went back to it: " + c.commands());
+            c.note("Instant Buy at 55/ea vs NPC 50: reached the page, clicked no option, skipped it, waiting (\""
+                    + BazaarFlipKit.lastWait(c) + "\"); " + allClicks(c));
         }
     }
 

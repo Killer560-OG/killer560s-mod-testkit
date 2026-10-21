@@ -81,7 +81,10 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *       Auto Croesus going back into a claimed run for a keyed chest ({@link FlipCroesusCases})</li>
  *   <li>2761-2772 the flipper on Hypixel's cut Instant Buy title and its Custom Amount sign (typed amount, Done, a
  *       Confirm page, Buy up to, no sign, a rejected amount), keys in a container and in the sign, the NPC sell limit,
- *       the cheat-only profit tracker, the tab's typed Target Purse ({@link BazaarFlipCustomCases})</li>
+ *       the cheat-only profit tracker, the tab's typed Target Purse ({@link BazaarFlipCustomCases}); since 2026-10-20
+ *       all of them run the autopilot the cheat build always uses, fed Bazaar API prices ({@link BazaarFlipKit})</li>
+ *   <li>2776-2779 the autopilot: the advisor asked each boot, buy orders through Buy 4! / Buy only one!, collecting a
+ *       filled order, Hypixel's order cooldown pause ({@link BazaarAutopilotCases})</li>
  * </ul>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -163,6 +166,8 @@ public class MenuSuite implements FabricClientGameTest {
                     FlipCroesusCases.register(s);
                     // ---- 2761-2772 bazaarflip-custom-1016: cut titles, Custom Amount's sign, NPC sell limit, tab ----
                     BazaarFlipCustomCases.register(s);
+                    // ---- 2776-2779 bazaar-cases-1020: the autopilot's advisor-each-boot, buy order presets, collect, cooldown ----
+                    BazaarAutopilotCases.register(s);
                     // ---- 768-769 bz-reskin (2026-10-11): reskin during the flipper, one Bazaar/AH switch ----
                     ReskinSwitchCases.register(s);
                     // ---- 773-776 croesus-price (2026-10-11): M4 chest valuation, Croesus Price Mode ----

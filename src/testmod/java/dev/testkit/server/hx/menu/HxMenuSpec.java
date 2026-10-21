@@ -206,6 +206,13 @@ final class HxMenuSpec {
                 menu.items().setItem(Integer.parseInt(se.getKey()), slot(server, se.getValue()));
             }
         }
+        if (action.has("command")) {
+            // What a later /name opens (HxMenuModule.setCommandMenu): the click changes the server's state, as Hypixel's do.
+            JsonObject cmd = action.getAsJsonObject("command");
+            JsonElement next = cmd.get("menu");
+            HxMenuModule.setCommandMenu(cmd.get("name").getAsString(),
+                    next == null || next.isJsonNull() ? null : next.getAsJsonObject().deepCopy());
+        }
         if (action.has("give")) {
             // Items into the player's own inventory (a Bazaar instant buy delivering), one slot spec per stack.
             JsonArray gives = action.get("give").isJsonArray() ? action.getAsJsonArray("give") : null;
