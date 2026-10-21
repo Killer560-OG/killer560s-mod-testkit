@@ -209,7 +209,8 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-15 to-do: /class + /leaporder, Class Overrides folded into the Leap Order, the editor's layout,
      *  Party Finder styles and the custom style editor ({@link LeapQueueCases}). Own block for merges. */
     static final String[] LEAPQUEUE_CASES = {"1071-ui-class-commands", "1072-ui-class-overrides-migrated",
-            "1073-ui-leaporder-layout", "1074-ui-pf-queue-styles", "1075-ui-pf-custom-editor"};
+            "1073-ui-leaporder-layout", "1074-ui-pf-queue-styles", "1075-ui-pf-custom-editor",
+            "1076-ui-leaporder-chat"}; // 1076: the editor's chat panel (LeapChatCases, 2026-10-21)
     /** killer560's 2026-10-12 Health and Mana Bars styles ({@link BarStyleCases}). Own block for merges. */
     static final String[] BAR_STYLE_CASES = {"891-ui-bars-style-fill", "892-ui-bars-style-overflow",
             "893-ui-bars-style-settings", "894-ui-bars-style-ghost", "895-ui-bars-style-shots",
@@ -630,6 +631,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1073-ui-leaporder-layout", LeapQueueCases::layout);
                     UiCase.run(ctx, "1074-ui-pf-queue-styles", LeapQueueCases::queueStyles);
                     UiCase.run(ctx, "1075-ui-pf-custom-editor", LeapQueueCases::customEditor);
+                    UiCase.run(ctx, "1076-ui-leaporder-chat", LeapChatCases::chatPanel);
                     // ---- item / inventory UI (701-712; 708 is in the menu suite) ----
                     UiCase.run(ctx, "701-ui-invsearch-red-fill", ItemUiCases::redFill);
                     UiCase.run(ctx, "702-ui-invsearch-calculator", ItemUiCases::calculator);
