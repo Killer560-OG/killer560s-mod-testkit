@@ -745,14 +745,14 @@ final class TrailRibbonCases {
             c.note("chroma rows: " + chromaRows);
             for (String want : new String[]{"Ribbon Trail: ON", "Ribbon Height: 2.00", "Ribbon Length: 0.2s", "Opacity: 40%",
                     "Colour Mode: Gradient *", "Colours: 3 *", "Head Colour", "Middle Colour", "Tail Colour",
-                    "Show In First Person", "Share Trail", "Show Others' Trails"}) {
+                    "Show In First Person", "Share Ribbon Trail", "Show Others' Trails"}) {
                 c.check(ribbonRows.stream().anyMatch(r -> r.startsWith(want)), "Ribbon Trail tab has no row '" + want + "': " + ribbonRows);
             }
             c.check(ribbonRows.stream().noneMatch(r -> r.startsWith("Style")), "the Ribbon Trail tab has a Style row");
             c.check(chromaRows.stream().noneMatch(r -> r.startsWith("Head Colour")), "Chroma still shows color pickers");
             for (String label : new String[]{"Ribbon Trail: ON", "Ribbon Height: 2.00", "Ribbon Length: 0.2s", "Opacity: 40%",
                     "Colour Mode: Gradient", "Colours: 3", "Head Colour", "Middle Colour", "Tail Colour",
-                    "Show In First Person: ON", "Share Trail: ON", "Show Others' Trails: ON"}) {
+                    "Show In First Person: ON", "Share Ribbon Trail: ON", "Show Others' Trails: ON"}) {
                 String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Ribbon Trail", label));
                 c.note("tooltip '" + label + "': " + tip);
                 c.check(tip != null && !tip.isEmpty(), "no tooltip for '" + label + "'");
@@ -837,7 +837,10 @@ final class TrailRibbonCases {
             return out;
         });
         c.note("Cosmetics tabs: " + names);
-        c.check(names.contains("Ribbon Trail"), "the Cosmetics category has no Ribbon Trail tab: " + names);
+        // Since mod 4a7ffc31 (2026-10-18) the Ribbon Trail has no card of its own: it is the Ribbon Trail section of
+        // Player Cosmetics, which 1018-ui-ribbon-in-cosmetics opens and checks.
+        c.check(!names.contains("Ribbon Trail"), "Ribbon Trail is a Cosmetics tab of its own again: " + names);
+        c.check(names.contains("Player Cosmetics"), "the Cosmetics category has no Player Cosmetics tab: " + names);
         c.check(names.contains("Trail"), "the Cosmetics category lost the Trail tab: " + names);
         boolean wasOn = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(SQ), "isEnabledRaw"));
         try {

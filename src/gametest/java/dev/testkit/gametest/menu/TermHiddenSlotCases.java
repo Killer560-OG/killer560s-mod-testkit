@@ -170,6 +170,14 @@ final class TermHiddenSlotCases {
         List<String> failures = new ArrayList<>();
         int typesChecked = 0;
         int squareClicks = 0;
+        // The pictures compare two frames pixel for pixel, and the world shows behind the menu: looking at the horizon,
+        // drifting clouds changed 12 px of the tooltip area between two frames with no tooltip at all (2026-10-20).
+        // Looking down at the platform keeps the background still.
+        float pitchWas = c.onClient(mc -> mc.player.getXRot());
+        c.onClient(mc -> {
+            mc.player.setXRot(90f);
+            return null;
+        });
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutoTerminalsEnabled", false)
                     .set(CONFIG, "MelodyEnabled", true).set(CONFIG, "CustomGuiEnabled", true);
@@ -273,6 +281,10 @@ final class TermHiddenSlotCases {
         } finally {
             c.ctx().getInput().setCursorPos(2, 2);
             MenuKit.reset(c);
+            c.onClient(mc -> {
+                mc.player.setXRot(pitchWas);
+                return null;
+            });
         }
         c.check(typesChecked == TerminalCases.SPECS.size(), "only " + typesChecked + " terminal types were checked");
         c.check(squareClicks == TerminalCases.SPECS.size(), "only " + squareClicks + " custom-square clicks matched");

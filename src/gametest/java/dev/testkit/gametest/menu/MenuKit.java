@@ -101,6 +101,28 @@ final class MenuKit {
         c.ctx().waitTicks(4);
     }
 
+    /**
+     * Stands him on a barrier at y 300 looking straight up, so the world behind a menu picture is empty sky that does
+     * not change between two frames; closing puts him back where he was. A picture compared pixel for pixel against
+     * another must not have water, leaves, clouds or a fall behind it (824 and 875, 2026-10-20).
+     */
+    static AutoCloseable stillSky(Session c) {
+        double[] was = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ(),
+                mc.player.getYRot(), mc.player.getXRot()});
+        int bx = (int) Math.floor(was[0]);
+        int bz = (int) Math.floor(was[2]);
+        c.server().command("setblock " + bx + " 299 " + bz + " minecraft:barrier");
+        c.hx().call("dungeon.tp", "x", bx + 0.5, "y", 300.0, "z", bz + 0.5, "yaw", (float) was[3], "pitch", -90f);
+        c.ctx().waitTicks(5);
+        c.ctx().runOnClient(mc -> mc.player.setXRot(-90f));
+        c.ctx().waitTicks(2);
+        return () -> {
+            c.hx().call("dungeon.tp", "x", was[0], "y", was[1], "z", was[2], "yaw", (float) was[3], "pitch", (float) was[4]);
+            c.server().command("setblock " + bx + " 299 " + bz + " minecraft:air");
+            c.ctx().waitTicks(3);
+        };
+    }
+
     /** Events of a type since the case started. */
     static List<JsonObject> ev(Session c, String type) {
         return c.events(type);

@@ -722,8 +722,9 @@ final class Solver1018Cases {
                 c.check(v.waitFor(60, java.util.concurrent.TimeUnit.SECONDS) && v.exitValue() == 0 && Files.size(mp4) > 0,
                         "premise: ffmpeg could not make the test mp4");
                 savedMp4 = (String) Mod.staticCall(CLICKS, "importFile", mp4);
-                c.check(savedMp4.endsWith(".wav") && Files.isRegularFile(dir.resolve(savedMp4)),
-                        "the video's audio did not come in as a .wav: " + savedMp4);
+                // Since mod 9c437b1d anything not kept as it is (a video here) is cut to 3 s and saved as .ogg by ffmpeg.
+                c.check(savedMp4.endsWith(".ogg") && Files.isRegularFile(dir.resolve(savedMp4)),
+                        "the video's audio did not come in as an .ogg: " + savedMp4);
                 Mod.set(CLICK_CFG, "setChoice", "import:" + savedMp4);
                 c.check(click(c).startsWith("killer560smod:imported/"), "the video's audio did not play");
                 c.note("mp3 kept as " + savedMp3 + ", video imported as " + savedMp4);
@@ -761,6 +762,22 @@ final class Solver1018Cases {
 
     // ---- 45: Custom Items colour ------------------------------------------------------------------------------------
 
+    /** The first widget on {@code screen} whose label starts with {@code prefix}, or null. */
+    private static AbstractWidget button(Session c, Screen screen, String prefix) {
+        return c.onClient(mc -> screen.children().stream()
+                .filter(w -> w instanceof AbstractWidget aw && aw.getMessage().getString().startsWith(prefix))
+                .map(w -> (AbstractWidget) w).findFirst().orElse(null));
+    }
+
+    /** A left click on the widget, the way the mouse sends it. */
+    private static void press(Session c, AbstractWidget w) {
+        c.onClient(mc -> {
+            w.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(w.getX() + 3, w.getY() + 3,
+                    new net.minecraft.client.input.MouseButtonInfo(0, 0)), false);
+            return null;
+        });
+    }
+
     static void customItems(Session c) throws Exception {
         String cfgClass = "armourdye.ArmourDyeConfig";
         try (AutoCloseable on = Mod.with(cfgClass, "Enabled", true);
@@ -792,17 +809,33 @@ final class Solver1018Cases {
             c.ctx().waitTicks(4);
             Object key = c.onClient(mc -> Mod.field(screen, "selectedKey"));
             c.check(key != null, "premise: the item could not be selected (no key)");
-            // The real colour button, pressed.
-            AbstractWidget colour = c.onClient(mc -> screen.children().stream()
-                    .filter(w -> w instanceof AbstractWidget aw && aw.getMessage().getString().startsWith("Custom Colour"))
-                    .map(w -> (AbstractWidget) w).findFirst().orElse(null));
-            c.check(colour != null, "premise: no Color button on the Custom Items screen");
-            c.check(colour != null && colour.active, "premise: the Color button is not active for the selected item");
+            // Since the redesign (mod 998c9f96) the main page's Custom Colour button opens the Custom Colour page, and
+            // that page's Color swatch opens the picker. Both real buttons, pressed.
             c.onClient(mc -> {
-                colour.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(colour.getX() + 3, colour.getY() + 3,
-                        new net.minecraft.client.input.MouseButtonInfo(0, 0)), false);
+                Mod.call(screen, "refresh"); // select() alone does not rebuild the buttons; a grid click does both
                 return null;
             });
+            AbstractWidget page = button(c, screen, "Custom Colour");
+            c.check(page != null, "premise: no Custom Colour button on the Custom Items screen");
+            c.check(page != null && page.active, "premise: the Custom Colour button is not active for the selected item");
+            if (page == null) {
+                return;
+            }
+            press(c, page);
+            c.ctx().waitTicks(4);
+            Screen colourPage = c.onClient(mc -> McCompat.screen(mc));
+            c.check(colourPage != null && colourPage.getClass().getSimpleName().equals("CustomColorScreen"),
+                    "premise: Custom Colour did not open its page: " + (colourPage == null ? null : colourPage.getClass().getName()));
+            if (colourPage == null || !colourPage.getClass().getSimpleName().equals("CustomColorScreen")) {
+                return;
+            }
+            AbstractWidget colour = button(c, colourPage, "Color:");
+            c.check(colour != null, "premise: no Color button on the Custom Colour page");
+            c.check(colour != null && colour.active, "premise: the Color button is not active for the selected item");
+            if (colour == null) {
+                return;
+            }
+            press(c, colour);
             c.ctx().waitTicks(4);
             Screen picker = c.onClient(mc -> McCompat.screen(mc));
             c.check(picker != null && picker.getClass().getSimpleName().equals("ColorPickerScreen"),
@@ -829,15 +862,26 @@ final class Solver1018Cases {
                 c.check(saved == colours[0], String.format("the item's colour is #%08X, the picker's is #%08X", saved, colours[0]));
                 c.check((Boolean) Mod.field(entryAfter, "colorEnabled"), "choosing a colour did not turn Use Color on");
             }
-            // Back to Custom Items, rendered with the dyed item on screen.
+            // Back to the Custom Colour page, then Back to Custom Items, each rendered with the dyed item on screen.
             c.onClient(mc -> {
                 picker.onClose();
                 return null;
             });
             c.ctx().waitTicks(6);
+            Screen mid = c.onClient(mc -> McCompat.screen(mc));
+            c.check(mid != null && mid.getClass().getSimpleName().equals("CustomColorScreen"),
+                    "closing the picker did not return to the Custom Colour page: " + (mid == null ? null : mid.getClass().getName()));
+            if (mid != null) {
+                AbstractWidget back = button(c, mid, "Back");
+                c.check(back != null, "the Custom Colour page has no Back button");
+                if (back != null) {
+                    press(c, back);
+                }
+            }
+            c.ctx().waitTicks(6);
             Screen now = c.onClient(mc -> McCompat.screen(mc));
-            c.check(now == screen || (now != null && now.getClass().getSimpleName().equals("CustomItemsScreen")),
-                    "closing the picker did not return to Custom Items: " + (now == null ? null : now.getClass().getName()));
+            c.check(now == screen, "Back did not return to the same Custom Items screen: "
+                    + (now == null ? null : now.getClass().getName()));
             // The dye hook ran for the stack and gave the chosen opaque colour.
             int tint = c.onClient(mc -> (Integer) Mod.staticCall("armourdye.ArmourDye", "dyeColor", stack, 0xFFA06540));
             c.check(tint == (0xFF000000 | (colours[0] & 0xFFFFFF)), String.format("the dye hook gave #%08X for #%08X", tint, colours[0]));
@@ -880,7 +924,8 @@ final class Solver1018Cases {
             }
             c.onClient(mc -> {
                 McCompat.setScreen(mc, screen);
-                Mod.call(screen, "setLook", "diamond_sword");
+                // The typed Look is gone since mod 998c9f96; the Custom Item page applies a look with copyLookFrom.
+                Mod.call(screen, "copyLookFrom", new ItemStack(Items.DIAMOND_SWORD));
                 return null;
             });
             for (int i = 0; i < 10; i++) {

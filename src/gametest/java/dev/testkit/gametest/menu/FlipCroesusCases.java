@@ -162,7 +162,14 @@ final class FlipCroesusCases {
                 47, item("minecraft:chest", "§aSell Inventory Now"),
                 49, item("minecraft:arrow", "§aGo Back"),
                 50, item("minecraft:book", "§aManage Orders")),
-                Map.of(11, open(product)));
+                Map.of(11, open(product), 50, open(noOrders())));
+    }
+
+    /** Manage Orders with no order on it. Since the autopilot rework (mod f0641a08) a session reads Your Bazaar Orders
+     *  before anything else, then closes it and sends /bz again; the fake had no such page, so every session stopped
+     *  with "the Manage Orders read never finished" (2026-10-20). */
+    static JsonObject noOrders() {
+        return menu("Your Bazaar Orders", 4, Map.of(31, item("minecraft:arrow", "§aGo Back")), Map.of());
     }
 
     static JsonObject trades() {
@@ -207,6 +214,9 @@ final class FlipCroesusCases {
     }
 
     static String start(Session c) {
+        // Since mod 4be360bb the flipper refuses until the advisor's questions are answered once per boot (or "Use
+        // last" is pressed); the player has done that here, so the per-boot flag is set the way the setup screen sets it.
+        c.ctx().runOnClient(mc -> Mod.staticCall("bazaaradvisor.BazaarAdvisorConfig", "markAnsweredThisBoot"));
         return c.onClient(mc -> (String) Mod.staticCall("bazaarflip.BazaarFlipFeature", "start"));
     }
 

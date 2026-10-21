@@ -21,14 +21,14 @@ import java.util.function.Consumer;
 /**
  * Shared trails (mod trail-share, relay trail-share; killer560 2026-10-13: "it should be toggleable to see in cosmetics
  * for whether it is shared or not and it can only be shared by a supporter"). The relay's supporter entry gained an
- * optional {@code trail}; Player Cosmetics gained Share Trail (supporters only) and Show Others' Trails. Since
+ * optional {@code trail}; Player Cosmetics gained Share Ribbon Trail (supporters only) and Show Others' Trails. Since
  * ribbon-cosmetic (killer560 2026-10-14: "The other trail option should not be shared even for the squares") only the
  * Ribbon Trail is shared: the squares Trail never goes up, and a received squares entry draws nothing.
  * <ul>
  *   <li>1036 send: the share push ({@code SupportersSelfService.lastAttempt}, set before the network call, so it reads
  *       the same offline) carries the Ribbon Trail in the relay's exact shape only when linked AND Share if Supporter AND
- *       Share Trail AND the Ribbon Trail are on; the squares Trail never appears in it, even with everything on; nothing at all is attempted for a non-supporter; with no display name the trail goes
- *       up alone (name ""). The tab's Share Trail is greyed out with "Only supporters can share a trail." until linked,
+ *       Share Ribbon Trail AND the Ribbon Trail are on; the squares Trail never appears in it, even with everything on; nothing at all is attempted for a non-supporter; with no display name the trail goes
+ *       up alone (name ""). The tab's Share Ribbon Trail is greyed out with "Only supporters can share a trail." until linked,
  *       then live; both switches default ON, survive save + load and a profile reload, and have tooltips. The startup
  *       supporter check backs off (30 s doubling) offline without linking; a linked answer links and pushes at once.</li>
  *   <li>1037 remote: a relay entry (parsed by the mod's own {@code SupportersFetcher.parseSupporters}) gives a fake
@@ -240,8 +240,8 @@ final class TrailShareCases {
                 return null;
             });
             String shareOff = push(c);
-            c.note("Share Trail off: " + shareOff);
-            c.check(shareOff.startsWith("POST ") && !shareOff.contains("trail"), "Share Trail OFF still sends a trail: " + shareOff);
+            c.note("Share Ribbon Trail off: " + shareOff);
+            c.check(shareOff.startsWith("POST ") && !shareOff.contains("trail"), "Share Ribbon Trail OFF still sends a trail: " + shareOff);
 
             c.onClient(mc -> {
                 Mod.set(SC, "setShareTrail", true);
@@ -275,7 +275,7 @@ final class TrailShareCases {
                 return null;
             });
             String nothing = push(c);
-            c.note("no display name, Share Trail off: " + nothing);
+            c.note("no display name, Share Ribbon Trail off: " + nothing);
             c.check("DELETE".equals(nothing), "with no name and no trail the entry is not cleared: " + nothing);
 
             // The tab: greyed out with the reason until linked.
@@ -306,10 +306,10 @@ final class TrailShareCases {
             c.note("first build: " + rowsOut);
             c.note("not linked: " + rowsNo);
             c.note("linked: " + rowsYes);
-            c.check(rowsNo.contains("Share Trail: OFF [inactive]"), "Share Trail is not grayed out for a non-supporter: " + rowsNo);
+            c.check(rowsNo.contains("Share Ribbon Trail: OFF [inactive]"), "Share Ribbon Trail is not grayed out for a non-supporter: " + rowsNo);
             c.check(rowsNo.contains("Only supporters can share a trail."), "no one-line reason for a non-supporter: " + rowsNo);
             c.check(rowsNo.contains("Show Others' Trails: ON"), "Show Others' Trails is missing or not ON: " + rowsNo);
-            c.check(rowsYes.contains("Share Trail: ON"), "Share Trail is not live for a supporter: " + rowsYes);
+            c.check(rowsYes.contains("Share Ribbon Trail: ON"), "Share Ribbon Trail is not live for a supporter: " + rowsYes);
             c.check(rowsYes.stream().noneMatch(r -> r.startsWith("Only supporters")), "a supporter still sees the reason: " + rowsYes);
             // The same two switches on the Ribbon Trail tab, greyed out the same way.
             Object ribbonTab = c.onClient(mc -> {
@@ -328,9 +328,9 @@ final class TrailShareCases {
             List<String> ribbonYes = rows(c, ribbonTab);
             c.note("Ribbon Trail tab, not linked: " + ribbonNo);
             c.note("Ribbon Trail tab, linked: " + ribbonYes);
-            c.check(ribbonNo.contains("Share Trail: OFF [inactive]") && ribbonNo.contains("Only supporters can share a trail."),
-                    "the Ribbon Trail tab's Share Trail is not grayed out with the reason: " + ribbonNo);
-            c.check(ribbonYes.contains("Share Trail: ON") && ribbonYes.contains("Show Others' Trails: ON"),
+            c.check(ribbonNo.contains("Share Ribbon Trail: OFF [inactive]") && ribbonNo.contains("Only supporters can share a trail."),
+                    "the Ribbon Trail tab's Share Ribbon Trail is not grayed out with the reason: " + ribbonNo);
+            c.check(ribbonYes.contains("Share Ribbon Trail: ON") && ribbonYes.contains("Show Others' Trails: ON"),
                     "the Ribbon Trail tab's sharing switches are not live for a supporter: " + ribbonYes);
 
             // Saved, loaded, defaults, profile reload, tooltips.
@@ -361,7 +361,7 @@ final class TrailShareCases {
             c.check(Boolean.FALSE.equals(round[0]) && Boolean.FALSE.equals(round[1]), "save + load lost the switches");
             c.check(Boolean.FALSE.equals(round[2]) && Boolean.FALSE.equals(round[3]), "a profile reload did not restore the switches");
             c.check(Boolean.TRUE.equals(round[4]) && Boolean.TRUE.equals(round[5]), "the switches do not default ON");
-            for (String label : new String[]{"Share Trail: ON", "Show Others' Trails: ON"}) {
+            for (String label : new String[]{"Share Ribbon Trail: ON", "Show Others' Trails: ON"}) {
                 String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Player Cosmetics", label));
                 c.note("tooltip '" + label + "': " + tip);
                 c.check(tip != null && tip.toLowerCase(Locale.ROOT).contains("trail"), "no tooltip for '" + label + "'");

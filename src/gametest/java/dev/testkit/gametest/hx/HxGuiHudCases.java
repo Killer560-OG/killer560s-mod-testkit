@@ -389,13 +389,14 @@ final class HxGuiHudCases {
             AbstractWidget pageBtn = widget(c, s, "Settings");
             c.check(pageBtn != null, "no Settings page button");
             click(c, s, pageBtn.getX() + pageBtn.getWidth() / 2.0, pageBtn.getY() + pageBtn.getHeight() / 2.0);
-            c.check(widget(c, s, "Background Colour") != null, "the Settings page has no 'Background Colour'");
+            // The common settings (Text Shadow among them). Background Colour is in Advanced's Box rows (mod b6c05d58),
+            // below the rows the page shows at once, so it is not looked for here.
+            c.check(widget(c, s, "Text Shadow") != null, "the Settings page has no 'Text Shadow'");
             layoutCheck(c, s, "Settings page, Advanced closed");
             AbstractWidget adv = widget(c, s, "▶ §6§lAdvanced"); // CollapsibleSection: arrow, amber header codes, title
             c.check(adv != null, "the Settings page has no closed Advanced row");
             click(c, s, adv.getX() + adv.getWidth() / 2.0, adv.getY() + adv.getHeight() / 2.0);
-            c.check(widget(c, s, "Hide Vanilla Scoreboard:") != null, "Advanced opened without 'Hide Vanilla Scoreboard'");
-            layoutCheck(c, s, "Settings page, Advanced open");
+            c.check(widget(c, s, "Hide Vanilla Scoreboard:") != null, "Advanced opened without 'Hide Vanilla Scoreboard'");            layoutCheck(c, s, "Settings page, Advanced open");
             AbstractWidget boardBtn = widget(c, s, "Board");
             click(c, s, boardBtn.getX() + boardBtn.getWidth() / 2.0, boardBtn.getY() + boardBtn.getHeight() / 2.0);
         } finally {

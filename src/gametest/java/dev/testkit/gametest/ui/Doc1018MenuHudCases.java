@@ -1539,6 +1539,16 @@ final class Doc1018MenuHudCases {
         c.check(!leafNames().contains("Ribbon Trail"), "a 'Ribbon Trail' card is still listed");
         c.check(hasLeaf("TrailTab"), "the squares Trail card is gone");
         Object tab = c.onClient(mc -> MenuACases.leaf("CosmeticsTab"));
+        // The tab object is the menu's own, and an earlier case can leave its sections open (every one was, 2026-10-20):
+        // close the Ribbon Trail section first so the case starts from the closed header.
+        c.onClient(mc -> {
+            for (AbstractWidget w : build(tab)) {
+                if (ModScreenDriver.label(w).startsWith("▼ Ribbon Trail")) {
+                    ModScreenDriver.press(w);
+                }
+            }
+            return null;
+        });
         List<AbstractWidget> closed = c.onClient(mc -> build(tab));
         List<String> before = new ArrayList<>();
         for (AbstractWidget w : closed) {
@@ -1567,7 +1577,7 @@ final class Doc1018MenuHudCases {
         });
         c.note("with the Ribbon Trail section open: " + open);
         c.check(has(open, "Ribbon Trail:"), "the open section has no 'Ribbon Trail' switch: " + open);
-        c.check(count(open, "Share Trail") == 1, "'Share Trail' shows " + count(open, "Share Trail") + " times, want once (the top one)");
+        c.check(count(open, "Share Ribbon Trail") == 1, "'Share Ribbon Trail' shows " + count(open, "Share Ribbon Trail") + " times, want once (the top one)");
         c.check(count(open, "Show Others' Trails") == 1, "'Show Others' Trails' shows " + count(open, "Show Others' Trails") + " times, want once");
         c.onClient(mc -> {
             // Close it again for the next case.

@@ -431,8 +431,8 @@ final class AutoMaskCases {
             notes.add("save + load: " + read + "; file keys swapStepDelayTicks=" + saved.get("swapStepDelayTicks")
                     + ", autoMaskMode=" + saved.get("autoMaskMode"));
 
-            // An old file: one Auto Swap switch, a millisecond delay.
-            String[][] old = {{"350", "7"}, {"150", "3"}, {"1000", "20"}, {"520", "10"}, {"9999", "20"}};
+            // An old file: one Auto Swap switch, a millisecond delay. The step delay runs 0-40 ticks since mod ba77f3e0.
+            String[][] old = {{"350", "7"}, {"150", "3"}, {"1000", "20"}, {"520", "10"}, {"9999", "40"}};
             for (String[] o : old) {
                 Files.writeString(path, "{\"enabled\":true,\"autoSwapEnabled\":true,\"swapStepDelayMs\":" + o[0] + "}",
                         StandardCharsets.UTF_8);

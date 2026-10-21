@@ -1008,6 +1008,11 @@
       "key": "chat translate enabled",
       "text": "Run /translate to change the language, or pick it below; all your messages are then sent in that language. Your messages are sent to Google Translate (or MyMemory) to be translated.",
       "why": "mod settings sweep 2026-10-20 (1c10b812 and its follow-up): hover text cut to one sentence, British spelling, labels renamed with their keys"
+    },
+    {
+      "owner": "Best Friends",
+      "key": "party time tracker",
+      "gone": "menu-fixes-1020: the switch is labelled Track Party Time now, with its tooltip under that key (killer560 2026-10-20: the label was left to Claude)"
     }
   ]
 }

@@ -182,6 +182,18 @@ final class InvBatchMenuCases {
                     sent(c, () -> screenClick(c, hot0 + 1, 0, ContainerInput.PICKUP));
                 }
                 record(table, wrong, m[0] + ": click", prot, ctrl);
+                if (m[0].equals("Anvil")) {
+                    // Since mod ba2de7ac a dungeon-starred item may go into the anvil (an item protected by hand still
+                    // stops there, the click row above): the shift-click goes out, and the chestplate is given back.
+                    table.put("Anvil: starred shift-click", "starred " + star + " packet(s) (allowed on the anvil)");
+                    if (star != 1) {
+                        wrong.add("Anvil: the starred shift-click was not let through (" + star + " sent)");
+                    }
+                    MenuKit.reset(c);
+                    c.hx().give(2, MenuKit.item("items.necron-chestplate-starred"));
+                    c.waitUntil("the starred chestplate back", mc -> mc.player.getInventory().getItem(2).is(Items.LEATHER_CHESTPLATE), 80);
+                    continue;
+                }
                 record(table, wrong, m[0] + ": starred shift-click", star, ctrl);
                 if (m[1] == null) {
                     // Number key 1 over the diamond would put the Hyperion into the sell menu's player slot.

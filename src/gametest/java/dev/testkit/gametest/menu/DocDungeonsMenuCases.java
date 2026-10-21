@@ -175,6 +175,9 @@ final class DocDungeonsMenuCases {
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set(FLC, "Enabled", true);
             DungeonMenuCases.inDungeon(c);
+            // Teammates are only forgotten on a world change, which a Session never has: an earlier case's party (the
+            // leap memory cases' LrB, a Tank) was still known and won the class pick (2026-10-20). A new run's party only.
+            c.ctx().runOnClient(mc -> Mod.staticCall("fastleap.Teammates", "clear"));
             c.hx().tab(List.of("§r[42] §r§aAlice §r§f(§r§dMage L§r§f)", "§r[40] §r§aBob §r§f(§r§dHealer XL§r§f)",
                     "§r[39] §r§aCarol §r§f(§r§dArcher XX§r§f)"), null, null);
             c.waitUntil("Teammates to read Alice, Bob and Carol off the tab list", mc ->

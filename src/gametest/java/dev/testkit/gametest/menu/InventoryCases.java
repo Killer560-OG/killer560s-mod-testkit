@@ -67,16 +67,15 @@ final class InventoryCases {
             c.hx().call("give", "slot", 1, "stack", "minecraft:stone", "count", 3);
             MenuKit.show(c, MenuKit.menu("menus.sell"));
             MenuKit.awaitScreen(c, "Sell", 100);
-            c.ctx().waitTicks(5);
-            String refusal = c.onClient(mc -> (String) Mod.staticCall("autosell.AutoSellFeature", "start"));
+            // No start command since mod 7e3b5d92: Auto Sell starts by itself on a sell screen while it is on.
             if (!MenuKit.cheat()) {
-                c.check(refusal != null, "legit jar: AutoSellFeature.start() accepted");
                 c.ctx().waitTicks(40);
                 c.check(c.events("container.click").isEmpty(), "legit jar clicked in the Sell menu");
-                c.note("legit jar: start() refused (" + refusal + "), 0 clicks");
+                c.check(!(Boolean) c.onClient(mc -> Mod.staticCall("autosell.AutoSellFeature", "isRunning")),
+                        "legit jar: Auto Sell is running in the Sell menu");
+                c.note("legit jar: Auto Sell did not start, 0 clicks");
                 return;
             }
-            c.check(refusal == null, "AutoSellFeature.start() refused: " + refusal);
             JsonObject sold = MenuKit.awaitEvent(c, "sell.sold", 200);
             c.waitUntil("Auto Sell to finish", mc -> !(Boolean) Mod.staticCall("autosell.AutoSellFeature", "isRunning"), 300);
             List<String> ids = new ArrayList<>();

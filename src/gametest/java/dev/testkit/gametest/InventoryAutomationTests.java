@@ -95,20 +95,10 @@ public class InventoryAutomationTests implements FabricClientGameTest {
                         throw new AssertionError("the chest did not open, so Auto Sell has no menu to act in");
                     }
 
-                    List<String> sellable = configure(ctx, scenario);
-
-                    // Auto Sell does not arm itself: it waits for /autosell or its menu button. Its own
-                    // start() reports why it refused, so the scenario asks rather than assuming - the first
-                    // run set every gate correctly, never started, and looked exactly like a clean result.
-                    ctx.runOnClient(mc -> {
-                        Object refusal = ModUnderTest.staticCall(
-                                "com.killer560.hub.autosell.AutoSellFeature", "start");
-                        if (refusal != null) {
-                            throw new AssertionError("Auto Sell refused to start: " + refusal);
-                        }
-                    });
-
+                    // Since mod 7e3b5d92 Auto Sell has no start command: it starts by itself on a matching screen
+                    // the tick after it is configured, so the watch starts first and catches its first click.
                     PacketWatch.start();
+                    List<String> sellable = configure(ctx, scenario);
                     ctx.waitTicks(220);
                     PacketWatch.stop();
 

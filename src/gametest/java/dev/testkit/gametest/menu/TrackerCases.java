@@ -230,6 +230,10 @@ final class TrackerCases {
             c.note("old file: " + legacyEntries + " entries, " + legacyChests + " counted");
             c.check(legacyChests == 2 && legacyEntries == 3, "old file read as " + legacyChests + " counted of "
                     + legacyEntries + ", want 2 of 3 (its earlier reset kept)");
+            // Reading the old file gave its claims an account and saved it back on the log's own thread; writing the
+            // next file while that save is replacing this one made the load below read nothing ("Could not read ...
+            // starting a fresh log", 2026-10-20). Let the save land first.
+            c.ctx().waitTicks(10);
 
             String v2 = "{\"version\":2,\"resets\":[],\"entries\":["
                     + entry("2026-01-02T00:00:01Z", "AcctA", "Apple", 500) + ","

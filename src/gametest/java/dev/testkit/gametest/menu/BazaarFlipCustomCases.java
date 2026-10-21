@@ -202,7 +202,7 @@ final class BazaarFlipCustomCases {
                 45, FlipCroesusCases.item("minecraft:oak_sign", "§aSearch"),
                 49, FlipCroesusCases.item("minecraft:arrow", "§aGo Back"),
                 50, FlipCroesusCases.item("minecraft:book", "§aManage Orders")),
-                Map.of(11, FlipCroesusCases.open(product)));
+                Map.of(11, FlipCroesusCases.open(product), 50, FlipCroesusCases.open(FlipCroesusCases.noOrders())));
     }
 
     /** The NPC: sells at {@code npc} a unit with Hypixel's "You sold" line; {@code limit} coins in all (0 = none). */
@@ -741,7 +741,8 @@ final class BazaarFlipCustomCases {
                     49, FlipCroesusCases.item("minecraft:arrow", "§aGo Back"),
                     50, FlipCroesusCases.item("minecraft:book", "§aManage Orders")),
                     Map.of(11, FlipCroesusCases.open(productPage(PUFFER, pufferInstant)),
-                            12, FlipCroesusCases.open(productPage(MAGMA, magmaInstant))));
+                            12, FlipCroesusCases.open(productPage(MAGMA, magmaInstant)),
+                            50, FlipCroesusCases.open(FlipCroesusCases.noOrders())));
             c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", search));
             c.hx().call("menu.onCommand", Hx.args("name", "trades", "menu", trades(50.0, 0, null)));
             String refusal = FlipCroesusCases.start(c);

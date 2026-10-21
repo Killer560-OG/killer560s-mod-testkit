@@ -139,7 +139,9 @@ final class CroesusUiCases {
     // ---- 875 ----------------------------------------------------------------------------------------------------------
 
     static void highlight(Session c) throws Exception {
-        try (AutoCloseable w = cfg(c, false, false)) {
+        // The tooltip box is found by diffing two frames: with jungle water and leaves moving behind the menu, the whole
+        // screen read as "tooltip" and 19667 px changed (2026-10-20). Empty sky behind it instead.
+        try (AutoCloseable sky = MenuKit.stillSky(c); AutoCloseable w = cfg(c, false, false)) {
             MenuKit.show(c, page("(1/3) Croesus", 27, 1));
             MenuKit.awaitScreen(c, "(1/3) Croesus", 100);
             c.ctx().waitTicks(10);

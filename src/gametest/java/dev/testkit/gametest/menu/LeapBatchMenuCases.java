@@ -474,7 +474,12 @@ final class LeapBatchMenuCases {
                     mc.player.getYRot()});
             // Up at y 300 nothing but sky is above him (the 2026-10-12 legit run stood under a jungle canopy, and looking
             // up there still moved 2131 pixels between two clean frames).
-            c.hx().call("dungeon.tp", "x", posWas[0], "y", 300.0, "z", posWas[2], "yaw", (float) posWas[3], "pitch", -90f);
+            // A barrier under him first: with nothing there he fell from y 300 between the two clean frames and landed in
+            // jungle water (3088 changed pixels, 2026-10-20).
+            int bx = (int) Math.floor(posWas[0]);
+            int bz = (int) Math.floor(posWas[2]);
+            c.server().command("setblock " + bx + " 299 " + bz + " minecraft:barrier");
+            c.hx().call("dungeon.tp", "x", bx + 0.5, "y", 300.0, "z", bz + 0.5, "yaw", (float) posWas[3], "pitch", -90f);
             c.ctx().waitTicks(5);
             c.onClient(mc -> {
                 mc.player.setXRot(-90f);
@@ -513,6 +518,7 @@ final class LeapBatchMenuCases {
             }
             c.hx().call("dungeon.tp", "x", posWas[0], "y", posWas[1], "z", posWas[2], "yaw", (float) posWas[3],
                     "pitch", pitchWas);
+            c.server().command("setblock " + bx + " 299 " + bz + " minecraft:air");
             c.check(noise[0] <= 5 && noise[1] <= 5, "the background moved between two clean frames (" + noise[0] + ", "
                     + noise[1] + " pixel(s)) - the comparison means nothing");
             c.check(counts[1] > 50, "control: a plain chest with a carried head changed only " + counts[1]
