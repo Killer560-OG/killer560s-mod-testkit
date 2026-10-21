@@ -203,6 +203,7 @@
 			"dev.testkit.gametest.ui.MenuAnimSuite",
 			"dev.testkit.gametest.ui.VideoGeneralSuite",
 			"dev.testkit.gametest.ui.VideoAutoSecretSuite",
+			"dev.testkit.gametest.ui.VideoAutoRoutesSuite",
 			"dev.testkit.gametest.ui.MenuOpenSuite",
 			"dev.testkit.gametest.logic.LogicSuite",
 			"dev.testkit.gametest.ui.RebootCommandTest",

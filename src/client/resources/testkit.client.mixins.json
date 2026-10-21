@@ -14,7 +14,8 @@
 		"MixinOutboundPackets",
 		"MixinPacketEncoder",
 		"MixinServerGamePacketListenerUse",
-		"MixinServerPlayerTeleport"
+		"MixinServerPlayerTeleport",
+		"MixinVideoCamera"
 	],
 	"injectors": {
 		"defaultRequire": 1

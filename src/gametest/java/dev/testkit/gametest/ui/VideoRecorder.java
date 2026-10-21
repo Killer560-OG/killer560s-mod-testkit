@@ -132,11 +132,35 @@ final class VideoRecorder {
      * to run the read-back's fenced callback at once. PNGs are written on worker threads. Encode at 60 fps.
      */
     VideoRecorder partialTicks() {
+        return partialTicks(3);
+    }
+
+    /**
+     * {@link #partialTicks()} with {@code perTick} frames per game tick, at partial ticks 1/perTick .. 1: 6 gives 120 fps at
+     * real speed (1917-video-autoroutes-clear, killer560 2026-10-20: "at least 60 fps, higher if you can"). Encode at
+     * {@link #fps()}.
+     */
+    VideoRecorder partialTicks(int perTick) {
+        if (perTick < 1) {
+            throw new IllegalArgumentException("perTick " + perTick);
+        }
         partialTicks = true;
+        this.perTick = perTick;
         return this;
     }
 
+    /** Frames per second of game time the clip must be encoded at for real speed. */
+    double fps() {
+        return partialTicks ? 20.0 * perTick : tickPerFrame ? 20.0 : 60.0;
+    }
+
+    /** Game time per frame, ms. */
+    double frameMs() {
+        return 1000.0 / fps();
+    }
+
     private boolean partialTicks;
+    private int perTick = 3;
     private java.util.concurrent.ExecutorService writers;
     private final java.util.concurrent.Semaphore inFlight = new java.util.concurrent.Semaphore(12);
     private final java.util.concurrent.atomic.AtomicReference<Throwable> writeError =
@@ -152,7 +176,7 @@ final class VideoRecorder {
     void frame() throws IOException {
         clocks();
         if (partialTicks) {
-            float delta = (sub + 1) / 3f;
+            float delta = (sub + 1) / (float) perTick;
             Path file = dir.resolve(String.format(Locale.ROOT, "frame_%05d.png", frame));
             if (writeError.get() != null) {
                 throw new IOException("a frame failed to write", writeError.get());
@@ -165,12 +189,12 @@ final class VideoRecorder {
             }
             cursorLog.write(String.format(Locale.ROOT, "%d,%.1f,%.1f,%d,%d\n", frame, cx, cy, shown ? 1 : 0, down ? 1 : 0));
             frame++;
-            t += FRAME_MS;
-            if (sub == 2) {
+            t += frameMs();
+            if (sub == perTick - 1) {
                 c.ctx().waitTick();
                 ticksAdvanced++;
             }
-            sub = (sub + 1) % 3;
+            sub = (sub + 1) % perTick;
             return;
         }
         if (tickPerFrame) {
@@ -397,8 +421,8 @@ final class VideoRecorder {
                 throw new IOException("a frame failed to write", writeError.get());
             }
         }
-        c.note("wrote " + frame + " frames (" + String.format(Locale.ROOT, "%.1f", frame / (tickPerFrame ? 20.0 : 60.0))
-                + " s) to " + dir);
+        c.note("wrote " + frame + " frames (" + String.format(Locale.ROOT, "%.1f", frame / fps()) + " s at "
+                + (int) fps() + " fps) to " + dir);
         System.out.println("[video] " + dir.getFileName() + ": " + frame + " frames in " + dir.toAbsolutePath());
     }
 }
