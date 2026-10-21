@@ -931,7 +931,7 @@ public class FairySoulTests implements FabricClientGameTest {
 
     /**
      * 1017-fairy-settings: the Fairy Souls tab's rows in killer560's order (switch, Show Waypoints, Show Path + Path
-     * Mode, Dim Path + Path Color, the sliders, HUD + Start On Island Join), no "Found n/m" line and no Stop Navigation;
+     * Mode, Dim Path + Path Colour, the sliders, HUD + Start On Island Join), no "Found n/m" line and no Stop Navigation;
      * the Auto Fairy Souls tab (cheat) with its switch first, Auto Walk and Auto Click ON by default and no Turn Speed;
      * every setting through save and load; and a version-1 file migrated.
      */
@@ -954,7 +954,7 @@ public class FairySoulTests implements FabricClientGameTest {
                             List<String> legit = rows("com.killer560.hub.gui.tab.PathfindingTab");
                             out.append("fairy souls rows ").append(legit).append('\n');
                             List<String> want = List.of("Fairy Souls", "Show Waypoints", "Show Path", "Path Mode", "Dim Path",
-                                    "Path Color", "Visible Path", "Line Width", "Re-Path After", "Text Scale", "HUD",
+                                    "Path Colour", "Visible Path", "Line Width", "Re-Path After", "Text Scale", "HUD",
                                     "Start On Island Join");
                             check(legit.size() >= want.size() && legit.subList(0, want.size()).equals(want),
                                     "Fairy Souls rows out of order: " + legit);

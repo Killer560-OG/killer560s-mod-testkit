@@ -103,18 +103,23 @@ public class FreelookTests implements FabricClientGameTest {
                 });
                 ctx.waitTicks(3);
                 float[] before = rotations(ctx);
-                ctx.getInput().pressKey(F5);
+                // 2026-10-18 release (8156ef47): the rear view is the Freelook key's press edge; F5 is vanilla again.
+                ctx.runOnClient(mc -> Mod.setField(FEATURE, "panHeldForTest", Boolean.TRUE));
                 ctx.waitTicks(3);
                 CameraType on = ctx.computeOnClient(mc -> mc.options.getCameraType());
                 float[] during = rotations(ctx);
-                ctx.getInput().pressKey(F5);
+                ctx.runOnClient(mc -> Mod.setField(FEATURE, "panHeldForTest", Boolean.FALSE));
+                ctx.waitTicks(3);
+                ctx.runOnClient(mc -> Mod.setField(FEATURE, "panHeldForTest", Boolean.TRUE));
+                ctx.waitTicks(2);
+                ctx.runOnClient(mc -> Mod.setField(FEATURE, "panHeldForTest", Boolean.FALSE));
                 ctx.waitTicks(3);
                 CameraType off = ctx.computeOnClient(mc -> mc.options.getCameraType());
                 float[] after = rotations(ctx);
                 scenario.log(String.format(Locale.ROOT, "toggle: F5 -> %s (camera yaw %.1f, player yaw %.1f->%.1f), F5 -> %s, "
                         + "player yaw/pitch after %.2f/%.2f", on, during[2], before[0], during[0], off, after[0], after[1]));
-                check(on == CameraType.THIRD_PERSON_FRONT, "F5 did not go to the backwards view: " + on);
-                check(Math.abs(wrap(during[2] - during[0] - 180f)) < 1f, "the camera was not facing back at the player: camera "
+                check(on == CameraType.THIRD_PERSON_BACK, "the rear view did not go to the back view: " + on);
+                check(Math.abs(wrap(during[2] - during[0])) < 1f, "the camera was not behind the player: camera "
                         + during[2] + ", player " + during[0]);
                 check(off == CameraType.FIRST_PERSON, "F5 again did not return to first person: " + off);
                 check(same(before, during) && same(before, after), "the player's yaw or pitch changed");
@@ -135,16 +140,16 @@ public class FreelookTests implements FabricClientGameTest {
                 });
                 ctx.waitTicks(3);
                 float[] before = rotations(ctx);
-                ctx.getInput().holdKey(o -> o.keyTogglePerspective);
+                ctx.runOnClient(mc -> Mod.setField(FEATURE, "panHeldForTest", Boolean.TRUE));
                 ctx.waitTicks(10);
                 CameraType held = ctx.computeOnClient(mc -> mc.options.getCameraType());
                 float[] during = rotations(ctx);
-                ctx.getInput().releaseKey(o -> o.keyTogglePerspective);
+                ctx.runOnClient(mc -> Mod.setField(FEATURE, "panHeldForTest", Boolean.FALSE));
                 ctx.waitTicks(3);
                 CameraType released = ctx.computeOnClient(mc -> mc.options.getCameraType());
                 float[] after = rotations(ctx);
                 scenario.log("hold: held -> " + held + ", released -> " + released);
-                check(held == CameraType.THIRD_PERSON_FRONT, "holding F5 did not show the backwards view: " + held);
+                check(held == CameraType.THIRD_PERSON_BACK, "holding the Freelook key did not show the back view: " + held);
                 check(released == CameraType.FIRST_PERSON, "releasing F5 did not return to first person: " + released);
                 check(same(before, during) && same(before, after), "the player's yaw or pitch changed");
             } finally {
@@ -162,7 +167,7 @@ public class FreelookTests implements FabricClientGameTest {
             try {
                 ctx.runOnClient(mc -> {
                     Mod.set(CFG, "setEnabled", true);
-                    Mod.set(CFG, "setMode", Mod.enumValue(MODE, "TOGGLE"));
+                    Mod.set(CFG, "setMode", Mod.enumValue(MODE, "HOLD"));
                     mc.options.setCameraType(CameraType.FIRST_PERSON);
                 });
                 // MouseHandler drops the first cursor move after the mouse is grabbed (ignoreFirstMove, set on joining
@@ -210,9 +215,9 @@ public class FreelookTests implements FabricClientGameTest {
                 check(up[3] >= -90.001f && up[3] <= -89f, "the camera pitch was not held at -90 looking up: " + up[3]);
                 check(afterView == CameraType.FIRST_PERSON, "releasing the pan key did not return to first person: " + afterView);
                 check(Math.abs(wrap(after[2] - after[0])) < 0.5f, "the camera did not return behind the player");
-                check(rearView == CameraType.THIRD_PERSON_FRONT, "a pan in the backwards view left it: " + rearView);
-                check(Math.abs(wrap(rearTurned[2] - rearTurned[0] - 180f)) > 5f, "the mouse did not move the backwards camera");
-                check(Math.abs(wrap(rearAfter[2] - rearAfter[0] - 180f)) < 0.5f, "the backwards camera did not come back");
+                check(rearView == CameraType.THIRD_PERSON_BACK, "a pan in the back view left it: " + rearView);
+                check(Math.abs(wrap(rearTurned[2] - rearTurned[0])) > 5f, "the mouse did not move the back-view camera");
+                check(Math.abs(wrap(rearAfter[2] - rearAfter[0])) < 0.5f, "the back-view camera did not come back behind him");
                 check(same(before, turned) && same(before, up) && same(before, after) && same(before, rearTurned)
                         && same(before, rearAfter), "the player's yaw or pitch changed while panning");
             } finally {
