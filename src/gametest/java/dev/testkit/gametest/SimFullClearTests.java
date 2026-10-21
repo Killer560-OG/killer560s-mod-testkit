@@ -506,6 +506,10 @@ public class SimFullClearTests implements FabricClientGameTest {
                         (Integer) ModUnderTest.staticCall(SIM_SCORE, "roomsCleared"),
                         (Integer) ModUnderTest.staticCall(SIM_SCORE, "roomsTotal"), t.secretsFound, t.secretsTotal,
                         ModUnderTest.staticCall(SIM_SCORE, "summary"));
+                // What the Score Calculator itself read (Autopilot's reading): its parts and its inputs.
+                t.simScore += "; calculator " + ModUnderTest.staticCall("com.killer560.hub.scorecalc.ScoreCalculatorFeature",
+                        "currentResult") + " from " + ModUnderTest.staticCall(
+                        "com.killer560.hub.scorecalc.ScoreCalculatorFeature", "currentInputs");
             }
             return null;
         });
