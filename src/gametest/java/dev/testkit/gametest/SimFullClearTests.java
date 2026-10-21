@@ -645,6 +645,45 @@ public class SimFullClearTests implements FabricClientGameTest {
         }
     }
 
+    /**
+     * For the video scenarios (ui/VideoAutoSecretSuite via {@link VideoSim#fullClearFloor}): this scenario's floor as he
+     * generates it, built in the sim, his chunks loaded and his hotbar given - everything {@link #oneRun} does before
+     * the run's GO. Returns the map code, or null when no floor could be planned.
+     */
+    static String prepareFloor(ClientGameTestContext ctx, String code) {
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
+                new Object[]{"gametest"}));
+        long before = Scenario.simBuildCount(ctx);
+        String floorCode = code != null ? code : ctx.computeOnClient(mc -> planFloor());
+        if (floorCode == null) {
+            return null;
+        }
+        ctx.runOnClient(mc -> mc.execute(() -> {
+            ModUnderTest.staticCall(SIM_STATE, "setFloorLabel", new Class<?>[]{String.class}, new Object[]{"F7"});
+            java.util.function.Consumer<Minecraft> build = c -> ModUnderTest.staticCall(
+                    "com.killer560.hub.roomsim.SimBuilder", "build", new Class<?>[]{Minecraft.class, String.class},
+                    new Object[]{c, floorCode});
+            ModUnderTest.staticCall(SIM_WORLD, "open", new Class<?>[]{Minecraft.class, String.class,
+                    java.util.function.Consumer.class, String.class}, new Object[]{mc, floorCode, build, "Generating Floor 7"});
+        }));
+        ctx.waitFor(mc -> mc.level != null, 2400);
+        Scenario.awaitSimBuild(ctx, before);
+        ctx.waitTicks(60);
+        awaitClientChunks(ctx);
+        giveLoadout(ctx);
+        return ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(SIM_STATE, "mapCode")));
+    }
+
+    /** The rooms his routes file has a route for. */
+    static Set<String> routed(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> routedRooms());
+    }
+
+    /** Out of the sim to the title screen, Auto Secret stopped first. */
+    static void leaveSim(ClientGameTestContext ctx) {
+        leave(ctx);
+    }
+
     // ================================================================================================ helpers
 
     private static final java.util.Random RNG = new java.util.Random();
