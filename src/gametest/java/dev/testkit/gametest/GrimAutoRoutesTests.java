@@ -178,6 +178,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-870-jump", GrimAutoRoutesTests::caseJumpCount); // ar-jump-n (2026-10-12)
             s.test("62-argrim-1014-jumpcd", GrimAutoRoutesTests::caseJumpCooldown); // ar-jump-cooldown (2026-10-14)
             s.testExpectingFlags("62-argrim-correction", GrimAutoRoutesTests::caseCorrection);
+            s.test("62-argrim-1020-align", GrimAutoRoutesTests::caseAlign); // ar-align-1020
+            s.testExpectingFlags("62-argrim-1020-aligncorrection", GrimAutoRoutesTests::caseAlignCorrection);
             s.test("62-argrim-boom", GrimAutoRoutesTests::caseBoom);
             s.test("62-argrim-breaker", GrimAutoRoutesTests::caseBreaker);
             s.test("62-argrim-1013-breakerfall", GrimAutoRoutesTests::caseBreakerFall); // ar breaker linger (2026-10-13)
@@ -606,6 +608,139 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 + reports + ", log lines " + reportLines + ", chat line " + chatLine + ")");
         check(alarms >= 1, "the correction alarm never played");
         noteFlags(c, s);
+    }
+
+    /** Relative block of the ALIGN cases' node; the point it aligns onto is its centre. */
+    private static final int ALIGN_X = 14;
+    private static final int ALIGN_Z = 12;
+
+    /**
+     * ar-align-1020 (killer560, 2026-10-20: "for auto routes I need an align node that I can do W2 L2 on"). First
+     * {@code /ar add align w2 l2} must save an ALIGN node with AP3's width 2 and length 2. Then a written ALIGN start node,
+     * W2 L2, at (14,12): stepping into its box 0.8 / 0.7 off the centre fires it, and AP3's align brings him to rest on the
+     * centre - the node's own log line, his position within 0.001 on both axes, at rest, the route done - having actually
+     * moved there (distance travelled first). GrimAC silent.
+     */
+    private static void caseAlign(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        // ---- the command ----
+        tpRel(ctx, 6.5, 6.5, 0f, 0f);
+        ctx.waitTicks(5);
+        cmd(ctx, "/ar add align w2 l2");
+        ctx.waitTicks(5);
+        JsonArray added = fileNodes(ctx);
+        JsonObject a0 = added.size() == 1 ? added.get(0).getAsJsonObject() : null;
+        check(a0 != null && "ALIGN".equals(a0.get("type").getAsString()) && a0.has("width") && a0.has("length")
+                        && a0.get("width").getAsDouble() == 2.0 && a0.get("length").getAsDouble() == 2.0,
+                "/ar add align w2 l2 did not save one ALIGN node with width 2 and length 2: " + added);
+        // ---- the align ----
+        resetRoutes(ctx);
+        tpRel(ctx, ALIGN_X + 0.5, 6.5, 0f, 0f);
+        ctx.waitTicks(5);
+        JsonObject n = node("ALIGN", ALIGN_X, ALIGN_Z, 0f, 0f);
+        n.addProperty("width", 2.0);
+        n.addProperty("length", 2.0);
+        n.addProperty("start", true);
+        writeRoute(ctx, List.of(n));
+        ctx.waitTicks(5);
+        int doneBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "alignsDone"));
+        long m = LogTap.mark();
+        startSampling(ctx);
+        // Off the line on both axes, inside the 2 x 2 box (it spans 13.5..15.5 by 11.5..13.5).
+        // Where the server put him: the align can start moving him inside tpRel's own wait, so the tp target is the start.
+        Vec3 from = new Vec3(ALIGN_X + 0.5 + 0.8, F, ALIGN_Z + 0.5 - 0.7);
+        tpRel(ctx, from.x, from.z, 0f, 0f);
+        Vec3 last = relPos(ctx);
+        double travelled = Math.hypot(last.x - from.x, last.z - from.z);
+        boolean done = false;
+        for (int t = 0; t < 160 && !done; t++) {
+            ctx.waitTicks(1);
+            Vec3 p = relPos(ctx);
+            travelled += Math.hypot(p.x - last.x, p.z - last.z);
+            last = p;
+            done = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "alignsDone")) > doneBefore;
+        }
+        ctx.waitTicks(5);
+        List<Sample> s = stopSampling(ctx);
+        Vec3 end = relPos(ctx);
+        double ex = end.x - (ALIGN_X + 0.5);
+        double ez = end.z - (ALIGN_Z + 0.5);
+        Vec3 vel = ctx.computeOnClient(mc -> mc.player.getDeltaMovement());
+        boolean running = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+        boolean fired = logHas(m, "ALIGN") && logHas(m, "aligning onto");
+        boolean onPoint = logHas(m, "ALIGN: on the point");
+        boolean refused = logHas(m, "ALIGN: refused");
+        long moveTicks = s.stream().filter(x -> x.out().stream().anyMatch(p -> p.startsWith("move_player"))).count();
+        boolean sprinted = s.stream().anyMatch(Sample::sprint);
+        c.note(String.format(Locale.ROOT, "align W2 L2: from (%.3f, %.3f) to (%.5f, %.5f), off %+.5f / %+.5f, travelled "
+                        + "%.3f, velocity %.5f, fired=%s on-point=%s refused=%s done=%s running=%s, %d move tick(s), sprint=%s",
+                from.x, from.z, end.x, end.z, ex, ez, travelled, vel.horizontalDistance(), fired, onPoint, refused, done,
+                running, moveTicks, sprinted));
+        check(Math.hypot(from.x - (ALIGN_X + 0.5), from.z - (ALIGN_Z + 0.5)) > 0.9, "he did not start off the line: "
+                + from);
+        check(fired, "the ALIGN node never fired (no \"aligning onto\" line)");
+        check(travelled > 0.9, "he travelled only " + travelled + " blocks - the align did not move him");
+        check(!refused, "the align was refused");
+        check(done && onPoint, "the align never finished on the point (done " + done + ", log " + onPoint + ")");
+        check(Math.abs(ex) <= 0.001 && Math.abs(ez) <= 0.001, String.format(Locale.ROOT,
+                "he ended %+.5f / %+.5f off the align point", ex, ez));
+        check(vel.horizontalDistance() < 0.003, "he was still moving at the end: " + vel);
+        check(!sprinted, "the align sprinted");
+        check(!running, "the route was still running after its only node aligned");
+        noteFlags(c, s);
+        resetRoutes(ctx);
+    }
+
+    /**
+     * ar-align-1020, mod rule "a correction never stops anything": a server setback (a block along -x, the position packet
+     * a setback is) a few ticks into the W2 L2 align must be reported and the align must carry on from there and still end
+     * on the point. Expecting flags: the tp itself is the server's.
+     */
+    private static void caseAlignCorrection(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        tpRel(ctx, ALIGN_X + 0.5, 6.5, 0f, 0f);
+        ctx.waitTicks(5);
+        JsonObject n = node("ALIGN", ALIGN_X, ALIGN_Z, 0f, 0f);
+        n.addProperty("width", 2.0);
+        n.addProperty("length", 2.0);
+        n.addProperty("start", true);
+        writeRoute(ctx, List.of(n));
+        ctx.waitTicks(5);
+        int doneBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "alignsDone"));
+        int reportsBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(CORRECTIONS, "reports"));
+        long m = LogTap.mark();
+        startSampling(ctx);
+        tpRel(ctx, ALIGN_X + 0.5 + 0.8, ALIGN_Z + 0.5 - 0.7, 0f, 0f);
+        ctx.waitTicks(3);
+        boolean runningBefore = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+        c.server().command("execute as @p at @s run tp @s ~-1 ~ ~");
+        ctx.waitTicks(4);
+        boolean runningAfter = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+        boolean done = waitFor(ctx, 200,
+                () -> ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "alignsDone")) > doneBefore);
+        ctx.waitTicks(5);
+        List<Sample> s = stopSampling(ctx);
+        Vec3 end = relPos(ctx);
+        double ex = end.x - (ALIGN_X + 0.5);
+        double ez = end.z - (ALIGN_Z + 0.5);
+        int reports = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(CORRECTIONS, "reports")) - reportsBefore;
+        boolean reportLine = logHas(m, "during align #1");
+        boolean stopLine = LogTap.since(m).stream().anyMatch(l -> l.contains("[AutoRoutes] Stopped: ")
+                && !l.contains("[AutoRoutes] Stopped: null"));
+        c.note(String.format(Locale.ROOT, "align with a setback: running before=%s after=%s, done=%s, end off %+.5f / "
+                + "%+.5f, reports %d, report line=%s, stop line=%s", runningBefore, runningAfter, done, ex, ez, reports,
+                reportLine, stopLine));
+        check(runningBefore, "the align was not running when the setback came - the case proves nothing");
+        check(runningAfter && !stopLine, "the correction stopped the align (running after=" + runningAfter + ")");
+        check(reports >= 1 && reportLine, "the correction was not reported (reports " + reports + ", line " + reportLine + ")");
+        check(done && Math.abs(ex) <= 0.001 && Math.abs(ez) <= 0.001, String.format(Locale.ROOT,
+                "the align did not carry on to the point after the setback (done %s, off %+.5f / %+.5f)", done, ex, ez));
+        noteFlags(c, s);
+        resetRoutes(ctx);
     }
 
     /** /ar add boom at cracked bricks: START/ABORT + swing, the server's Superboom clears them. */

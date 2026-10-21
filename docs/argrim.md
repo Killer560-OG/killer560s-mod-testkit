@@ -72,3 +72,8 @@ abilities are `hx/dungeon/HxAbilities` (etherwarp, Instant Transmission, Superbo
   every run (62-argrim-autopilot drew it about one run in seven). `harness/UseRotationWatch` replays GrimAC 2.3.74's
   BadPacketsJ on the outbound packets (the teleport answer is not a tick packet; a tick end is one when no movement went), and
   every autosecret/autopilot case and this one require it empty. Requires the precomputed trip and the block-half line.
+- `62-argrim-1020-align` / `-aligncorrection` (ar-align-1020): `/ar add align w2 l2` must save an ALIGN node with width
+  and length 2; then a written W2 L2 ALIGN start node at (14,12), entered 0.8 / 0.7 off its centre, must end within 0.001
+  of the centre at rest (AP3's align), route done, no sprint, GrimAC silent. The tp target is the start point (the align
+  moves him inside tpRel's own wait). `-aligncorrection` sets him a block back mid-align: reported, never a stop, still
+  ends on the point. Mod bb96dbf6: 1.11 blocks in 15 move ticks, off 1e-5, clean.
