@@ -963,8 +963,44 @@ public class SimAutoClearTests implements FabricClientGameTest {
      * Interactive Map runner is busy with the trip. The teleport must arrive while Auto Clear runs, be counted as a
      * correction, and the zombie must still die with onDone.
      */
+    /** The server sets hotbar slot {@code slot} to the sim item {@code id}, or empties it for null. */
+    private static void setSlot(ClientGameTestContext ctx, int slot, String id) {
+        AtomicReference<Boolean> set = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            UUID uuid = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(uuid);
+                if (sp != null) {
+                    sp.getInventory().setItem(slot, id == null ? ItemStack.EMPTY : (ItemStack) ModUnderTest.staticCall(
+                            SIM_ITEMS, "build", new Class<?>[]{String.class}, new Object[]{id}));
+                }
+                set.set(true);
+            });
+        });
+        ctx.waitFor(mc -> set.get() != null, 200);
+        ctx.waitTicks(3);
+    }
+
     private static void correctionCase(ClientGameTestContext ctx, List<String> failures, String label, String here,
                                        boolean hops, boolean withStart) {
+        // Without hops the case needs a TRIP to the zombie, 9-16 blocks off: since mod autoclear-speed-1020 a Spirit
+        // Sceptre bat from where he stands is priced right and wins at that range, so the sceptre is out of the hotbar
+        // for these two cases and back after.
+        if (!hops) {
+            setSlot(ctx, 2, null);
+        }
+        try {
+            correctionCaseBody(ctx, failures, label, here, hops, withStart);
+        } finally {
+            if (!hops) {
+                setSlot(ctx, 2, "BAT_WAND");
+            }
+        }
+    }
+
+    private static void correctionCaseBody(ClientGameTestContext ctx, List<String> failures, String label, String here,
+                                           boolean hops, boolean withStart) {
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setHyperionHops", hops));
         // A zombie spot in this room with a floor spot behind him to be moved to (pickCorrection). Where he stands, or,
         // when he stands at the room's edge with nothing of the room behind him (2026-10-07, Scaffolding: 789 pairs,
