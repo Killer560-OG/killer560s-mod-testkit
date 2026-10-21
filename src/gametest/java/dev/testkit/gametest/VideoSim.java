@@ -144,6 +144,62 @@ public final class VideoSim {
         return SimFullClearTests.routed(ctx);
     }
 
+    /**
+     * From the title screen: an F7 (3 puzzles, 4 rooms to Blood, as 1020-sim-ac-speed generates it) with the sim's own
+     * live starred mobs ({@code SimLiveMobs.configure}: {@code perTile} a tile of {@code hp} health, walking when
+     * {@code walk}, a miniboss in each CHAMPION room) placed at GO, which also turns the sim's clear-on-entry off.
+     * {@code code} replays a floor (null: a fresh one). Returns the map code; false-y (null) when the jar has no live mobs.
+     */
+    public static String liveMobFloor(ClientGameTestContext ctx, String code, int perTile, double hp, boolean walk) {
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
+                new Object[]{"gametest"}));
+        try {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimLiveMobs", "configure",
+                    new Class<?>[]{int.class, double.class, boolean.class, boolean.class}, new Object[]{perTile, hp, walk, true}));
+        } catch (RuntimeException | Error e) {
+            System.out.println("[video] this jar has no SimLiveMobs: " + e);
+            return null;
+        }
+        long before = Scenario.simBuildCount(ctx);
+        if (code == null || code.isBlank()) {
+            ctx.runOnClient(mc -> mc.execute(() -> {
+                Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
+                ModUnderTest.staticCall(FLOOR_GEN, "generate", new Class<?>[]{Minecraft.class, floor.getClass(), int.class,
+                        int.class}, new Object[]{mc, floor, 3, 4});
+            }));
+        } else {
+            ctx.runOnClient(mc -> mc.execute(() -> {
+                ModUnderTest.staticCall(SIM_STATE, "setFloorLabel", new Class<?>[]{String.class}, new Object[]{"F7"});
+                java.util.function.Consumer<Minecraft> build = c -> ModUnderTest.staticCall(BUILDER, "build",
+                        new Class<?>[]{Minecraft.class, String.class}, new Object[]{c, code});
+                ModUnderTest.staticCall("com.killer560.hub.roomsim.SimWorld", "open", new Class<?>[]{Minecraft.class,
+                        String.class, java.util.function.Consumer.class, String.class},
+                        new Object[]{mc, code, build, "Generating Floor 7"});
+            }));
+        }
+        ctx.waitFor(mc -> mc.level != null, 2400);
+        Scenario.awaitSimBuild(ctx, before);
+        ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
+        ctx.waitTicks(80);
+        SimAutoClearTests.awaitFloorChunks(ctx);
+        return ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(SIM_STATE, "mapCode")));
+    }
+
+    /** Switches the sim's live mobs off again (a jar without them: nothing). */
+    public static void liveMobsOff(ClientGameTestContext ctx) {
+        try {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimLiveMobs", "configure",
+                    new Class<?>[]{int.class, double.class, boolean.class, boolean.class}, new Object[]{0, 1.0, false, true}));
+        } catch (RuntimeException | Error ignored) {
+            // a jar without the option
+        }
+    }
+
+    /** Auto Clear's mode and weapon by constant name (SimAutoClearTests.setMode), then waits for him on the ground. */
+    public static void autoClearMode(ClientGameTestContext ctx, String mode, String weapon) {
+        SimAutoClearTests.setMode(ctx, mode, weapon);
+    }
+
     /** Leaves the sim world for the title screen. */
     public static void leave(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave"));
