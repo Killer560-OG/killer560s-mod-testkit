@@ -83,7 +83,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     // he has been through one (the map-arrival interlock), so the cases that arm non-start nodes run before it.
     private static final String[] CASES = {"96-ar-add", "96-ar-play", "96-ar-interact", "96-ar-await",
             "96-ar-awaitskip", "96-ar-leverwp", "96-ar-complete", "96-ar-mimic",
-            "96-ar-crypt", "96-ar-breaker", "96-ar-breakerwait", "96-ar-pingpong", "96-ar-chain", "96-ar-stackorder", "96-ar-crypthold",
+            "96-ar-crypt", "96-ar-breaker", "96-ar-breaker-occluded", "96-ar-breakerwait", "96-ar-pingpong", "96-ar-chain", "96-ar-stackorder", "96-ar-crypthold",
             "96-ar-charges", "96-ar-museum", "96-ar-398-offnode", "96-ar-398-regrow",
             // ar-nodes block (mod ar-nodes, 2026-10-11): run before 96-ar-edit's Go To, like the cases above.
             "96-ar-656-dbaddbreak", "96-ar-657-dbeditattack", "96-ar-658-dbreach", "96-ar-659-ewblockwait",
@@ -283,6 +283,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-mimic" -> caseMimic(ctx);
                         case "96-ar-crypt" -> caseCrypt(ctx);
                         case "96-ar-breaker" -> caseBreaker(ctx);
+                        case "96-ar-breaker-occluded" -> caseBreakerOccluded(ctx);
                         case "96-ar-breakerwait" -> caseBreakerWait(ctx);
                         case "96-ar-pingpong" -> casePingPong(ctx);
                         case "96-ar-chain" -> caseChain(ctx);
@@ -1051,6 +1052,59 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      * item shows 6: all six digs on ONE tick, every block broken, and the stacked etherwarp goes after it (the route
      * carries on). Second pass: drained again, a fresh strafe key while it waits stops the route with nothing sent.
      */
+    /**
+     * 96-ar-breaker-occluded (killer560, 2026-10-20): a dig through a wall is a dig nobody can see. Column x 13 sits behind
+     * a three-high wall at z 11, so only the four visible blocks may be dug, all on one tick with Multi Break on.
+     */
+    private void caseBreakerOccluded(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        int[][] six = {{12, 0}, {13, 0}, {14, 0}, {12, 1}, {13, 1}, {14, 1}};
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+        Map<int[], BlockState> put = new HashMap<>();
+        JsonArray blocks = new JsonArray();
+        for (int[] b : six) {
+            put.put(new int[]{b[0], F + b[1], 12}, Blocks.STONE.defaultBlockState());
+            blocks.add(b[0] + " " + (F + b[1]) + " 12");
+        }
+        // A three-high wall across all three columns at z 11: from the eye at z 10.5 every ray to the six crosses it, so
+        // none is in sight and none may be dug (the diagonal rays cross x 13.25 and 12.75, inside the wall too).
+        for (int x = 12; x <= 14; x++) {
+            for (int y = 0; y < 3; y++) {
+                put.put(new int[]{x, F + y, 11}, Blocks.STONE.defaultBlockState());
+            }
+        }
+        setBlocks(ctx, put);
+        JsonObject br = node("DUNGEON_BREAKER", 13, 10, 0f, 0f);
+        br.add("blocks", blocks);
+        br.addProperty("start", true);
+        writeRoute(ctx, List.of(br));
+        tpRel(ctx, 13.5, 8.5, 0f, 0f);
+        ctx.waitTicks(40);   // charges back up
+        long m = LogTap.mark();
+        startSampling(ctx);
+        tpRel(ctx, 13.5, 10.5, 0f, 0f);
+        // Sixty ticks: the node's own breaker and the linger that follows it both get their turns while nothing is visible.
+        ctx.waitTicks(60);
+        List<Sample> s = stopSampling(ctx);
+        int most = 0;
+        int total = 0;
+        for (Sample x : s) {
+            int c = (int) x.out().stream().filter("player_action"::equals).count();
+            most = Math.max(most, c);
+            total += c;
+        }
+        boolean allIntact = !blockAir(ctx, 12, F, 12) && !blockAir(ctx, 13, F, 12) && !blockAir(ctx, 14, F, 12)
+                && !blockAir(ctx, 12, F + 1, 12) && !blockAir(ctx, 13, F + 1, 12) && !blockAir(ctx, 14, F + 1, 12);
+        println("breaker occluded: " + total + " dig(s), at most " + most + " on one tick, all six still standing " + allIntact);
+        check(total == 0, "occluded: " + total + " dig packets at blocks behind a wall, expected none");
+        check(allIntact, "occluded: a block behind the wall was broken");
+        check(logHas(m, "not in sight - skipped"), "occluded: the walled blocks were not logged as out of sight");
+        tpRel(ctx, 13.5, 6.5, 0f, 0f);
+        ctx.waitTicks(5);
+    }
+
     private void caseBreakerWait(ClientGameTestContext ctx) {
         resetRoutes(ctx);
         arena(ctx, false);
