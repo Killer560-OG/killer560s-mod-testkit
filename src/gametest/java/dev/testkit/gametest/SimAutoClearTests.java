@@ -384,9 +384,12 @@ public class SimAutoClearTests implements FabricClientGameTest {
         Room offRoom = off.get(0);
         List<Placed> p6 = new ArrayList<>();
         for (Room r : List.of(rush, offRoom)) {
+            // The mob first, then the room un-cleared: the other way round, the sim's 10-tick room check could run between
+            // the two, find only the room's earlier (dead) mobs and clear it again before the new one was recorded - then
+            // the room read cleared with a live zombie in it (3 runs of 3 on 2026-10-20, Rail Track, Mural, Temple).
+            p6.addAll(spawnIn(ctx, r, 1, false));
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_ROOM_STATE, "clearRoom", new Class<?>[]{String.class},
                     new Object[]{r.name()}));
-            p6.addAll(spawnIn(ctx, r, 1, false));
         }
         ctx.waitTicks(30);
         setMode(ctx, "ANY_MOB_ROOM", "HYPERION");
