@@ -121,9 +121,58 @@ final class VideoRecorder {
 
     private boolean tickPerFrame;
 
+    /**
+     * 60 fps at the world's real speed (1915-video-autosecret, killer560 2026-10-20: "It needs to be 60fps"): three frames
+     * per game tick, each rendered at its own partial tick - 1/3, 2/3 and 1 of the way from the last tick's state to this
+     * one's, the interpolation the game itself draws between ticks - and then ONE client tick. Fabric's
+     * {@code takeScreenshot} cannot do this: it waits a tick for every capture ({@link #tickPerFrame}), so its frames are
+     * one per tick. Here the frame is rendered and read back on the client thread with no tick between
+     * ({@link #capturePartial}): {@code GameRenderer.extract/render} at a fixed {@code DeltaTracker} (what Fabric's
+     * screenshot does), {@code Screenshot.takeScreenshot}, {@code glFinish} and {@code RenderSystem.executePendingTasks}
+     * to run the read-back's fenced callback at once. PNGs are written on worker threads. Encode at 60 fps.
+     */
+    VideoRecorder partialTicks() {
+        partialTicks = true;
+        return this;
+    }
+
+    private boolean partialTicks;
+    private java.util.concurrent.ExecutorService writers;
+    private final java.util.concurrent.Semaphore inFlight = new java.util.concurrent.Semaphore(12);
+    private final java.util.concurrent.atomic.AtomicReference<Throwable> writeError =
+            new java.util.concurrent.atomic.AtomicReference<>();
+    private int ticksAdvanced;
+
+    /** Client ticks the recorder itself advanced ({@link #partialTicks} mode): one per three frames. */
+    int ticksAdvanced() {
+        return ticksAdvanced;
+    }
+
     /** One frame: the clocks, a client tick on every third frame, the picture at this third of the tick. */
     void frame() throws IOException {
         clocks();
+        if (partialTicks) {
+            float delta = (sub + 1) / 3f;
+            Path file = dir.resolve(String.format(Locale.ROOT, "frame_%05d.png", frame));
+            if (writeError.get() != null) {
+                throw new IOException("a frame failed to write", writeError.get());
+            }
+            inFlight.acquireUninterruptibly();
+            Boolean ok = c.onClient(mc -> capturePartial(mc, delta, file));
+            if (!Boolean.TRUE.equals(ok)) {
+                inFlight.release();
+                throw new IOException("frame " + frame + ": the read-back never completed");
+            }
+            cursorLog.write(String.format(Locale.ROOT, "%d,%.1f,%.1f,%d,%d\n", frame, cx, cy, shown ? 1 : 0, down ? 1 : 0));
+            frame++;
+            t += FRAME_MS;
+            if (sub == 2) {
+                c.ctx().waitTick();
+                ticksAdvanced++;
+            }
+            sub = (sub + 1) % 3;
+            return;
+        }
         if (tickPerFrame) {
             String name = String.format(Locale.ROOT, "frame_%05d", frame);
             c.ctx().takeScreenshot(TestScreenshotOptions.of(name).disableCounterPrefix().withDestinationDir(dir));
@@ -271,8 +320,83 @@ final class VideoRecorder {
         p.yBodyRotO = yaw;
     }
 
+    /** Reflection handles for {@link #capturePartial}, resolved once (26.2 has no getMainRenderTarget; this compiles on both). */
+    private static java.lang.reflect.Method mainTarget;
+    private static java.lang.reflect.Method extract;
+    private static java.lang.reflect.Method render;
+    private static java.lang.reflect.Method deltaOf;
+
+    private static void resolve() throws ReflectiveOperationException {
+        if (deltaOf != null) {
+            return;
+        }
+        mainTarget = Minecraft.class.getMethod("getMainRenderTarget");
+        Class<?> dt = Class.forName("net.minecraft.client.DeltaTracker");
+        Class<?> gr = Class.forName("net.minecraft.client.renderer.GameRenderer");
+        extract = gr.getMethod("extract", dt, boolean.class);
+        render = gr.getMethod("render", dt, boolean.class);
+        deltaOf = Class.forName("net.fabricmc.fabric.mixin.client.gametest.screenshot.DeltaTrackerDefaultValueAccessor")
+                .getMethod("create", float.class);
+    }
+
+    /**
+     * Client thread: renders the frame at partial tick {@code delta} (no tick), reads the main target back and hands the
+     * image to a writer thread for {@code file}. True when the read-back completed.
+     */
+    private boolean capturePartial(Minecraft mc, float delta, Path file) {
+        try {
+            resolve();
+            Object tracker = deltaOf.invoke(null, delta);
+            extract.invoke(mc.gameRenderer, tracker, true);
+            render.invoke(mc.gameRenderer, tracker, true);
+            com.mojang.blaze3d.pipeline.RenderTarget target = (com.mojang.blaze3d.pipeline.RenderTarget) mainTarget.invoke(mc);
+            java.util.concurrent.atomic.AtomicBoolean got = new java.util.concurrent.atomic.AtomicBoolean();
+            net.minecraft.client.Screenshot.takeScreenshot(target, img -> {
+                got.set(true);
+                if (writers == null) {
+                    writers = java.util.concurrent.Executors.newFixedThreadPool(4, r -> {
+                        Thread th = new Thread(r, "video-writer");
+                        th.setDaemon(true);
+                        return th;
+                    });
+                }
+                writers.execute(() -> {
+                    try (img) {
+                        img.writeToFile(file);
+                    } catch (Throwable e) {
+                        writeError.compareAndSet(null, e);
+                    } finally {
+                        inFlight.release();
+                    }
+                });
+            });
+            // The read-back's callback is a fenced task: finish the GPU's work, then run the tasks whose fence is done.
+            for (int i = 0; i < 200 && !got.get(); i++) {
+                org.lwjgl.opengl.GL11.glFinish();
+                com.mojang.blaze3d.systems.RenderSystem.executePendingTasks();
+            }
+            return got.get();
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("partial-tick capture: " + e, e);
+        }
+    }
+
     void close() throws IOException {
         cursorLog.close();
+        if (writers != null) {
+            writers.shutdown();
+            try {
+                if (!writers.awaitTermination(120, java.util.concurrent.TimeUnit.SECONDS)) {
+                    throw new IOException("frame writers still busy after 120 s");
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException(e);
+            }
+            if (writeError.get() != null) {
+                throw new IOException("a frame failed to write", writeError.get());
+            }
+        }
         c.note("wrote " + frame + " frames (" + String.format(Locale.ROOT, "%.1f", frame / (tickPerFrame ? 20.0 : 60.0))
                 + " s) to " + dir);
         System.out.println("[video] " + dir.getFileName() + ": " + frame + " frames in " + dir.toAbsolutePath());

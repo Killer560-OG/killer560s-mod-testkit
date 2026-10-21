@@ -22,12 +22,13 @@ import java.util.regex.Pattern;
 
 /**
  * 1915-video-autosecret: promo footage of Auto Secret secreting a sim F7 at full speed, recorded with {@link VideoRecorder}
- * (1920x1080 PNG frames, one per game tick - {@link VideoRecorder#tickPerFrame} - so encoded at 20 fps the clip plays at
- * the game's real speed; the recorder's default 60 fps mode plays the world at 4x). The floor, his routes and
+ * (1920x1080 PNG frames, three per game tick, each at its own partial tick - {@link VideoRecorder#partialTicks} - so
+ * encoded at 60 fps the clip plays at the game's real speed with motion smooth at 60). The floor, his routes and
  * settings are 1016-sim-fullclear's ({@code -PseedConfig=<his config>}, floor planned with his designer filters, his
  * hotbar); Auto Secret is started at GO and the clip runs until it stops on its own. The camera is his own first-person
  * view with the HUD on (the mod's HUD from his config), no free camera. Night Vision on the sim's server player, for the
- * camera only (the sim's rooms are much darker than Hypixel's).
+ * camera only (the sim's rooms are much darker than Hypixel's). For the owner's 2026-10-20 notes: Auto Creeper Beams in
+ * Melee mode, and the Dungeon Map HUD in the top-left corner (its Edit HUD position, 0, 0).
  *
  * <p>Asserts that the run happened: frames recorded, Auto Secret started routes, the sim counted secrets, he travelled,
  * and Auto Secret ended on its own ("nothing left to do") rather than at the frame limit. GrimAC does not run inside the
@@ -42,6 +43,22 @@ public class VideoAutoSecretSuite implements FabricClientGameTest {
     private static final String SIM_RUN = "com.killer560.hub.roomsim.SimRun";
     private static final String SIM_SCORE = "com.killer560.hub.roomsim.SimScore";
     private static final String DUNGEON_INFO = "com.killer560.hub.dungeoninfo.DungeonInfoFeature";
+
+    private static final String AUTO_PUZZLES = "com.killer560.hub.autopuzzles.AutoPuzzlesConfig";
+    private static final String HUD_CONFIG = "com.killer560.hub.hud.HudConfig";
+    /** The Dungeon Map HUD's Edit HUD position: the top-left corner. */
+    private static final int MAP_X = 0;
+    private static final int MAP_Y = 0;
+    private static final Pattern BEAMS_MODE = Pattern.compile("\\[AutoPuzzles\\] Beams: entered with the auto on - mode (\\w+)");
+
+    private static Class<?> beamsModeClass() {
+        try {
+            return Class.forName(AUTO_PUZZLES + "$BeamsMode", false,
+                    ModUnderTest.staticCall(AUTO_PUZZLES, "getInstance").getClass().getClassLoader());
+        } catch (ClassNotFoundException e) {
+            throw new AssertionError("this jar has no Melee mode for Auto Creeper Beams", e);
+        }
+    }
 
     /** Game time the clip may run before it gives up (a full clear takes 70-90 s in 1016's runs). */
     private static final double LIMIT_MS = 180_000;
@@ -84,6 +101,15 @@ public class VideoAutoSecretSuite implements FabricClientGameTest {
             mc.options.renderDistance().set(10);
             mc.options.hideGui = false;
             mc.options.setCameraType(CameraType.FIRST_PERSON);
+            // Auto Creeper Beams in Melee mode, and the Dungeon Map HUD in the top-left corner (killer560, 2026-10-20).
+            Object auto = ModUnderTest.staticCall(AUTO_PUZZLES, "getInstance");
+            ModUnderTest.call(auto, "setAutoBeamsMode", new Class<?>[]{beamsModeClass()},
+                    new Object[]{ModUnderTest.enumValue(AUTO_PUZZLES + "$BeamsMode", "MELEE")});
+            ModUnderTest.call(auto, "save", new Class<?>[0], new Object[0]);
+            Object hud = ModUnderTest.staticCall(HUD_CONFIG, "getInstance");
+            ModUnderTest.call(hud, "setPosition", new Class<?>[]{String.class, int.class, int.class},
+                    new Object[]{"live_map", MAP_X, MAP_Y});
+            ModUnderTest.call(hud, "save", new Class<?>[0], new Object[0]);
             return null;
         });
         ctx.getInput().resizeWindow(1920, 1080);
@@ -129,9 +155,18 @@ public class VideoAutoSecretSuite implements FabricClientGameTest {
         ctx.runOnClient(mc -> dev.testkit.compat.McCompat.chat(mc).clearMessages(false));
         ctx.waitTicks(20);
 
-        // One frame per game tick (see VideoRecorder.tickPerFrame): the clip is encoded at 20 fps, so the world plays at
-        // real speed. Recorded the default way it played at 4x.
-        VideoRecorder r = new VideoRecorder(c, "autosecret-fullspeed").tickPerFrame();
+        // Three frames per game tick at partial ticks 1/3, 2/3, 1 (see VideoRecorder.partialTicks): encoded at 60 fps the
+        // world plays at real speed and moves smoothly at 60.
+        int[] mapPos = c.onClient(mc -> (int[]) ModUnderTest.call(ModUnderTest.staticCall(HUD_CONFIG, "getInstance"),
+                "getPosition", new Class<?>[]{String.class, int.class, int.class}, new Object[]{"live_map", -1, -1}));
+        String beamsMode = c.onClient(mc -> String.valueOf(ModUnderTest.call(ModUnderTest.staticCall(AUTO_PUZZLES,
+                "getInstance"), "getAutoBeamsMode", new Class<?>[0], new Object[0])));
+        c.note("Dungeon Map HUD at " + mapPos[0] + ", " + mapPos[1] + "; Auto Creeper Beams mode " + beamsMode);
+        System.out.println("[" + NAME + "] Dungeon Map HUD at " + mapPos[0] + ", " + mapPos[1] + "; Auto Creeper Beams mode "
+                + beamsMode);
+        c.check(mapPos[0] == MAP_X && mapPos[1] == MAP_Y, "the Dungeon Map HUD is not at the top left");
+        c.check("MELEE".equals(beamsMode), "Auto Creeper Beams is in " + beamsMode + " mode, not Melee");
+        VideoRecorder r = new VideoRecorder(c, "autosecret-60fps").partialTicks();
         long mark = LogTap.mark();
         Vec3 last = ctx.computeOnClient(mc -> mc.player.position());
         double travelled = 0;
@@ -142,8 +177,8 @@ public class VideoAutoSecretSuite implements FabricClientGameTest {
         long tick0 = clientTick(ctx);
         try {
             r.hideCursor();
-            int lead = 20;
-            int limit = (int) Math.round(LIMIT_MS / 50.0);
+            int lead = 60;
+            int limit = (int) Math.round(LIMIT_MS / VideoRecorder.FRAME_MS);
             int tail = -1;
             for (int i = 0; i < limit; i++) {
                 if (i == lead) {
@@ -157,10 +192,10 @@ public class VideoAutoSecretSuite implements FabricClientGameTest {
                     }
                 }
                 r.frame();
-                if (i % 5 == 0) {
+                if (i % 15 == 0) {
                     boolean world = ctx.computeOnClient(mc -> mc.level != null && mc.player != null);
                     if (!world) {
-                        c.note("the world went away " + i / 20 + " s in");
+                        c.note("the world went away " + i / 60 + " s in");
                         break;
                     }
                     Vec3 at = ctx.computeOnClient(mc -> mc.player.position());
@@ -171,7 +206,7 @@ public class VideoAutoSecretSuite implements FabricClientGameTest {
                         ended = true;
                         endFrame = i;
                         r.mark("autosecret-stopped");
-                        tail = i + 50;
+                        tail = i + 150;
                     }
                 }
                 if (tail >= 0 && i >= tail) {
@@ -182,8 +217,10 @@ public class VideoAutoSecretSuite implements FabricClientGameTest {
             r.close();
         }
         long ticks = clientTick(ctx) - tick0;
-        c.note("client ticks over the recording: " + ticks + " for " + r.frames() + " frames");
-        System.out.println("[" + NAME + "] client ticks over the recording: " + ticks + " for " + r.frames() + " frames");
+        c.note("client ticks over the recording: " + ticks + " (recorder advanced " + r.ticksAdvanced() + ") for "
+                + r.frames() + " frames");
+        System.out.println("[" + NAME + "] client ticks over the recording: " + ticks + " (recorder advanced "
+                + r.ticksAdvanced() + ") for " + r.frames() + " frames");
         // ---- what happened -------------------------------------------------------------------------------------
         Map<String, Integer> counted = new LinkedHashMap<>();
         Set<String> startedRoutes = new java.util.LinkedHashSet<>();
@@ -191,7 +228,12 @@ public class VideoAutoSecretSuite implements FabricClientGameTest {
         String stop = "(still running)";
         int corrections = 0;
         int grim = 0;
+        Set<String> beamsVisits = new java.util.LinkedHashSet<>();
         for (String l : LogTap.since(mark)) {
+            Matcher bm = BEAMS_MODE.matcher(l);
+            if (bm.find()) {
+                beamsVisits.add(bm.group(1));
+            }
             Matcher m = COUNTED.matcher(l);
             if (m.find()) {
                 counted.merge(m.group(2), 1, Integer::sum);
@@ -219,13 +261,16 @@ public class VideoAutoSecretSuite implements FabricClientGameTest {
         int[] score = c.onClient(mc -> new int[]{(Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound"),
                 (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsTotal")});
         double pct = c.onClient(mc -> (Double) ModUnderTest.staticCall(DUNGEON_INFO, "secretsFoundPercent"));
-        double runSeconds = (endFrame >= 0 ? endFrame - startFrame : r.frames() - startFrame) / 20.0;
-        c.note(String.format(Locale.ROOT, "%d frames (%.1f s at 20 fps); Auto Secret ran %.1f s of game time, ended \"%s\"; "
+        double runSeconds = (endFrame >= 0 ? endFrame - startFrame : r.frames() - startFrame) / 60.0;
+        c.note(String.format(Locale.ROOT, "%d frames (%.1f s at 60 fps); Auto Secret ran %.1f s of game time, ended \"%s\"; "
                         + "travelled %.0f blocks; sim secrets %d/%d (%d counted lines), tab %.1f%%; routes started %d, finished "
-                        + "%d; corrections %d; Grim lines %d", r.frames(), r.frames() / 20.0, runSeconds, stop, travelled,
+                        + "%d; corrections %d; Grim lines %d", r.frames(), r.frames() / 60.0, runSeconds, stop, travelled,
                 score[0], score[1], total, pct, startedRoutes.size(), finishedRoutes.size(), corrections, grim));
-        c.check(Math.abs(ticks - r.frames()) <= r.frames() / 50 + 5, "the clip is not one tick per frame: " + ticks
-                + " client ticks for " + r.frames() + " frames - it would not play at real speed");
+        c.check(Math.abs(ticks * 3 - r.frames()) <= r.frames() / 50 + 6, "the clip is not three frames per tick: " + ticks
+                + " client ticks for " + r.frames() + " frames - it would not play at real speed at 60 fps");
+        c.note("Creeper Beams visits: modes " + beamsVisits);
+        System.out.println("[" + NAME + "] Creeper Beams entered in mode(s) " + beamsVisits);
+        c.check(beamsVisits.isEmpty() || beamsVisits.equals(Set.of("melee")), "Auto Creeper Beams ran in " + beamsVisits);
         c.note("secrets per room: " + counted);
         System.out.println("[" + NAME + "] secrets per room: " + counted);
         System.out.println(String.format(Locale.ROOT, "[%s] RESULT frames %d, run %.1f s, ended \"%s\", travelled %.0f, "
