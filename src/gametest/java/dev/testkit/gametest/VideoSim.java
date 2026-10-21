@@ -130,6 +130,20 @@ public final class VideoSim {
         ctx.waitTicks(20);
     }
 
+    /**
+     * From the title screen: an F7 as 1016-sim-fullclear plans it (his designer filters, so with his routes from
+     * {@code -PseedConfig} every ordinary room has one), built, his chunks loaded and his hotbar given. The map code, or
+     * null when no floor could be planned. {@code code} replays a floor (null: a fresh one).
+     */
+    public static String fullClearFloor(ClientGameTestContext ctx, String code) {
+        return SimFullClearTests.prepareFloor(ctx, code);
+    }
+
+    /** The rooms his routes file holds a route for. */
+    public static java.util.Set<String> routedRooms(ClientGameTestContext ctx) {
+        return SimFullClearTests.routed(ctx);
+    }
+
     /** Leaves the sim world for the title screen. */
     public static void leave(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave"));

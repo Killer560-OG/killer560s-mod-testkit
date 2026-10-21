@@ -105,9 +105,33 @@ final class VideoRecorder {
         });
     }
 
+    /**
+     * One game tick per frame, for footage whose WORLD must play at real speed (1915-video-autosecret): Fabric's
+     * {@code takeScreenshot} captures on the next rendered frame and calls {@code waitTick()} until it has it
+     * (ClientGameTestContextImpl.doTakeScreenshot, fabric-client-gametest-api-v1 5.1.0), so every screenshot advances the
+     * client and server one tick. {@link #frame()}'s extra tick every third frame then makes 4 ticks per 3 frames: 80
+     * ticks per second of 60 fps video, the world at 4x (1915's first take, 2026-10-20: the mod's client tick counter ran
+     * well ahead of the recorder's own ticks). In this mode each frame is exactly one tick and 50 ms of driven clock;
+     * encode at 20 fps (or 20 fps resampled to 60) for real speed. 1915 checks the tick count against the frames.
+     */
+    VideoRecorder tickPerFrame() {
+        tickPerFrame = true;
+        return this;
+    }
+
+    private boolean tickPerFrame;
+
     /** One frame: the clocks, a client tick on every third frame, the picture at this third of the tick. */
     void frame() throws IOException {
         clocks();
+        if (tickPerFrame) {
+            String name = String.format(Locale.ROOT, "frame_%05d", frame);
+            c.ctx().takeScreenshot(TestScreenshotOptions.of(name).disableCounterPrefix().withDestinationDir(dir));
+            cursorLog.write(String.format(Locale.ROOT, "%d,%.1f,%.1f,%d,%d\n", frame, cx, cy, shown ? 1 : 0, down ? 1 : 0));
+            frame++;
+            t += 50.0;
+            return;
+        }
         if (sub == 0) {
             c.ticks(1);
         }
@@ -249,7 +273,8 @@ final class VideoRecorder {
 
     void close() throws IOException {
         cursorLog.close();
-        c.note("wrote " + frame + " frames (" + String.format(Locale.ROOT, "%.1f", frame / 60.0) + " s) to " + dir);
+        c.note("wrote " + frame + " frames (" + String.format(Locale.ROOT, "%.1f", frame / (tickPerFrame ? 20.0 : 60.0))
+                + " s) to " + dir);
         System.out.println("[video] " + dir.getFileName() + ": " + frame + " frames in " + dir.toAbsolutePath());
     }
 }
