@@ -1077,3 +1077,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   backdrop (Terminal Custom GUI) sees the world: stand at y 300 looking up and measure two cursor-away frames first (1015
   read moving water as 2889 hover pixels). 513 dumps every row's tooltip to menu-tooltips-now-<variant>.json; write
   menu-layout-merged.json entries from that, and use "renamed" for a label rename so the new key's text is still checked.
+- Menu suite stability, 2026-10-22 (later the same day). Teleporting to y 300 is not standing at y 300: he fell back into
+  the water during 824/1015, so `MenuKit.stillSky` puts a barrier block under him and waits until the client sees him
+  standing on it. Leap cases leave him off the platform (in the lake beside it); `MenuSuite.home` puts him back before
+  every case, but only while the client has the platform's chunk - a 520-block teleport into unloaded chunks drew
+  GroundSpoof + Simulation flags (1850). 2762's flake was a mod bug (the flipper bought twice through its own clicked
+  Confirm page) and 890's half was one too (a refused Windows file replace dropped the Croesus save): a flaky case is
+  worth reading for a real race before the test gets the blame.
