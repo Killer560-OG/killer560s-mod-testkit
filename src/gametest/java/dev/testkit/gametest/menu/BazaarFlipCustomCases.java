@@ -44,14 +44,20 @@ import java.util.Map;
  *   <li>2765 Hypixel rejecting the typed amount: stops (nothing arrived), no /trades.</li>
  *   <li>2766 a key in a Bazaar container mid-run (reskin off) stops it and names the key.</li>
  *   <li>2767 a key while the amount sign is open stops it; the sign is never sent with a number.</li>
- *   <li>2768 the NPC sell limit line mid-sale: selling ends, only the sold part is revenue, nothing more is bought.</li>
- *   <li>2769 near the limit: the buy is sized down to what the NPCs will still pay for (exactly one stack).</li>
+ *   <li>2768 the NPC sell limit line mid-sale: selling ends, only the sold part is revenue, nothing more is bought, it
+ *       stops on the limit and a restart is refused.</li>
+ *   <li>2769 near the limit: the buy is sized down to what the NPCs will still pay for (exactly one stack), then it
+ *       stops.</li>
  *   <li>2770 the profit tracker's Bazaar Flipper entry exists on cheat jars only.</li>
  *   <li>2771 the tab: removed rows gone, Target Purse typed (commas, k/m/b, nonsense, empty), saved and reloaded; an
  *       old file's minProfitPerRun ignored.</li>
- *   <li>2772 nothing profitable: nothing is bought and the autopilot says it is waiting (it no longer stops).</li>
+ *   <li>2772 nothing profitable: nothing is bought and the autopilot stops and says why (mod bazaar-fix-1021).</li>
  *   <li>2773 the snapshot's best pick priced out by its live page: skipped, the next best bought, never back to it.</li>
  *   <li>2774 nothing from an earlier session is reused: units it bought then are his now, never sold or added to.</li>
+ *   <li>2780 a Bazaar snapshot Hypixel built ten minutes ago (arrived just now) and a failed refresh: no trade, it
+ *       stops naming the age; two minutes old is traded.</li>
+ *   <li>2781 the profit record's spent is the Bought line's charge, not the Instant Buy page's quote.</li>
+ *   <li>2782 with no Bought line, spent is the page quote's estimate and the sale's chat line says so.</li>
  * </ul>
  */
 final class BazaarFlipCustomCases {
@@ -87,6 +93,9 @@ final class BazaarFlipCustomCases {
         MenuSuite.test(s, "2772-menu-bzflip-nothing-profitable" + sfx, BazaarFlipCustomCases::nothingProfitable);
         MenuSuite.test(s, "2773-menu-bzflip-live-price-next-best" + sfx, BazaarFlipCustomCases::livePriceNextBest);
         MenuSuite.test(s, "2774-menu-bzflip-no-reuse" + sfx, BazaarFlipCustomCases::noReuse);
+        MenuSuite.test(s, "2780-menu-bzflip-stale-snapshot" + sfx, BazaarFlipCustomCases::staleSnapshot);
+        MenuSuite.test(s, "2781-menu-bzflip-spent-true-cost" + sfx, BazaarFlipCustomCases::spentTrueCost);
+        MenuSuite.test(s, "2782-menu-bzflip-spent-estimated" + sfx, BazaarFlipCustomCases::spentEstimated);
     }
 
     // ---- the product and its Bazaar --------------------------------------------------------------------------
@@ -138,6 +147,12 @@ final class BazaarFlipCustomCases {
      * each Custom Amount purchase, so a case can buy several times.
      */
     static JsonObject instant(Product p, String title, double each, String upTo, Sign sign, int depth) {
+        return instant(p, title, each, each, upTo, sign, depth);
+    }
+
+    /** {@link #instant} whose presets quote {@code quoteEach} a unit (plus Hypixel's 4%) while a purchase is charged
+     *  {@code each} in its Bought line: the page's quote and the true cost apart. */
+    static JsonObject instant(Product p, String title, double each, double quoteEach, String upTo, Sign sign, int depth) {
         JsonObject one = new JsonObject();
         one.add("give", unit(p));
         one.addProperty("chat", String.format("[Bazaar] Bought 1x %s for %,.0f coins!", p.name(), each));
@@ -163,23 +178,24 @@ final class BazaarFlipCustomCases {
             amount.addProperty("stack", 64);
             amount.addProperty("confirm", sign.confirm());
             if (depth > 0) {
-                amount.add("reopen", instant(p, title, each, upTo, sign, depth - 1));
+                amount.add("reopen", instant(p, title, each, quoteEach, upTo, sign, depth - 1));
             }
             customSpec.add("amount", amount);
         }
         JsonObject custom = new JsonObject();
         custom.add("sign", customSpec);
+        double q = quoteEach;
         JsonObject s12 = FlipCroesusCases.item("minecraft:" + p.item(), "§aBuy a stack!", "§8" + p.name(), "",
-                "§7Amount: §a64§7x", String.format("§7Per unit: §6%,.1f coins", FlipCroesusCases.Q * each), "",
-                String.format("§7Price: §6%,.0f coins", FlipCroesusCases.Q * 64 * each), "", "§eClick to buy now!");
+                "§7Amount: §a64§7x", String.format("§7Per unit: §6%,.1f coins", FlipCroesusCases.Q * q), "",
+                String.format("§7Price: §6%,.0f coins", FlipCroesusCases.Q * 64 * q), "", "§eClick to buy now!");
         s12.addProperty("count", 64);
         Map<Integer, JsonObject> slots = new LinkedHashMap<>();
         slots.put(10, FlipCroesusCases.item("minecraft:golden_horse_armor", "§aBuy only §eone§a!", "§8" + p.name(), "",
-                "§7Amount: §a1§7x", "", String.format("§7Price: §6%,.1f coins", FlipCroesusCases.Q * each), "", "§eClick to buy now!"));
+                "§7Amount: §a1§7x", "", String.format("§7Price: §6%,.1f coins", FlipCroesusCases.Q * q), "", "§eClick to buy now!"));
         slots.put(12, s12);
         slots.put(14, FlipCroesusCases.item("minecraft:chest", "§aFill my inventory!", "§8" + p.name(), "",
-                "§7Amount: §a2,304§7x", String.format("§7Per unit: §6%,.1f coins", FlipCroesusCases.Q * each), "",
-                String.format("§7Price: §6%,.0f coins", FlipCroesusCases.Q * 2304 * each), "", "§eClick to buy now!"));
+                "§7Amount: §a2,304§7x", String.format("§7Per unit: §6%,.1f coins", FlipCroesusCases.Q * q), "",
+                String.format("§7Price: §6%,.0f coins", FlipCroesusCases.Q * 2304 * q), "", "§eClick to buy now!"));
         // His tooltip: "Custom Amount / Buy Order Quantity / Buy up to 71,680x. / Click to specify!"
         slots.put(16, FlipCroesusCases.item("minecraft:oak_sign", "§aCustom Amount", "§8Buy Order Quantity", "",
                 "§7Buy up to §a" + upTo + "§7x§7.", "", "§eClick to specify!"));
@@ -525,10 +541,9 @@ final class BazaarFlipCustomCases {
 
     /**
      * The NPC pays for one stack of the 128 and then says the daily limit is reached. The autopilot ends the NPC sale
-     * (the stack it could not sell stays), logs only the sold stack as revenue, marks today's limit reached and buys
-     * nothing more. It no longer stops on the limit as the old cycle did: with no NPC room left it has nothing to do and
-     * says it is waiting, so the case ends it there (and a restart is no longer refused - the autopilot path of
-     * {@code BazaarFlipFeature.start} does not check the NPC limit).
+     * (the stack it could not sell stays), logs only the sold stack as revenue, marks today's limit reached, buys
+     * nothing more and stops on "the daily NPC sell limit is reached" (mod bazaar-fix-1021; it used to wait forever). A
+     * restart is refused with the limit, instead of starting a session that could only wait.
      */
     static void npcLimitMidCycle(Session c) throws Exception {
         if (cheatOnly(c) != null) {
@@ -544,7 +559,7 @@ final class BazaarFlipCustomCases {
             int before = profitCycles(c);
             long mark = LogTap.mark();
             startAndAwaitSale(c, before, 900);
-            c.waitUntil("the autopilot to wait with the NPC limit reached", mc -> FlipMarket.waiting(mark)
+            c.waitUntil("the autopilot to stop with the NPC limit reached", mc -> FlipMarket.waiting(mark)
                     || !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 400);
             boolean stillRunning = running(c);
             String reason = stopReason(c);
@@ -552,8 +567,17 @@ final class BazaarFlipCustomCases {
             c.ctx().waitTicks(40);
             c.check(c.events("menu.click").size() == clicksAfter, "clicked after the limit: " + FlipCroesusCases.allClicks(c));
             FlipCroesusCases.requestStop(c);
-            c.check(stillRunning && FlipMarket.waiting(mark), "did not settle to waiting: running " + stillRunning
-                    + ", stop " + reason);
+            c.check(!stillRunning && reason.contains(FlipMarket.NPC_LIMIT) && reason.contains("64 unit(s) it holds stay with you")
+                    && reason.contains("resets at 00:00 UTC"), "did not stop on the limit: running " + stillRunning
+                    + ", stop \"" + reason + "\", waiting " + FlipMarket.waiting(mark));
+            // A restart with the limit still reached: refused, nothing sent.
+            int commandsBefore = c.commands().size();
+            String restart = FlipCroesusCases.start(c);
+            c.ctx().waitTicks(20);
+            c.check(restart != null && restart.contains("daily NPC sell limit") && !running(c),
+                    "a restart after the limit: \"" + restart + "\", running " + running(c));
+            c.check(c.commands().size() == commandsBefore, "the refused restart sent " + c.commands());
+            FlipCroesusCases.requestStop(c);
             c.check(given(c) == 128, "delivered " + given(c));
             c.check(sold(c) == 64 && c.events("sell.refused").size() == 1, "sold " + sold(c) + ", refused "
                     + c.events("sell.refused").size());
@@ -577,7 +601,8 @@ final class BazaarFlipCustomCases {
             });
             c.check(left == 64, "units left with him: " + left);
             c.note("limit after one stack: sold " + sold(c) + " of " + given(c) + ", record received "
-                    + num(cyc, "received") + " of spent " + num(cyc, "spent") + ", " + left + " left unsold; then waiting");
+                    + num(cyc, "received") + " of spent " + num(cyc, "spent") + ", " + left + " left unsold; stopped \""
+                    + reason + "\"; restart refused \"" + restart + "\"");
         }
     }
 
@@ -595,16 +620,21 @@ final class BazaarFlipCustomCases {
             int before = profitCycles(c);
             long mark = LogTap.mark();
             startAndAwaitSale(c, before, 900);
-            c.waitUntil("the autopilot to wait with 10 coins of NPC room left", mc -> FlipMarket.waiting(mark)
+            c.waitUntil("the autopilot to stop with 10 coins of NPC room left", mc -> FlipMarket.waiting(mark)
                     || !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 400);
+            boolean stillRunning = running(c);
+            String reason = stopReason(c);
             FlipCroesusCases.requestStop(c);
+            // Mod bazaar-fix-1021: with nothing open or held and no unit the NPCs still pay for, it stops (it used to wait).
+            c.check(!stillRunning && reason.contains(FlipMarket.NOTHING_PROFITABLE) && reason.contains("10 coins left"),
+                    "running " + stillRunning + ", stop \"" + reason + "\", waiting " + FlipMarket.waiting(mark));
             List<Integer> clicks = FlipCroesusCases.clicksOn(c, MAGMA.instantTitle());
             c.check(clicks.equals(List.of(12)), "Instant Buy clicks " + clicks + " (want Buy a stack! once: exactly 64)");
             c.check(given(c) == 64 && sold(c) == 64, "delivered " + given(c) + ", sold " + sold(c));
             c.check(c.events("sign.update").isEmpty(), "used Custom Amount for an exact stack");
             c.check(FlipMarket.sent(c, "bz Lump of Magma") == 1, "bought again past the limit: " + c.commands());
             c.note("10 + 3,200 coins left on the NPC limit: bought " + given(c) + " (Buy a stack!), sold " + sold(c)
-                    + ", then waited");
+                    + ", then stopped \"" + reason + "\"");
         }
     }
 
@@ -727,10 +757,9 @@ final class BazaarFlipCustomCases {
     // ---- 2772 ---------------------------------------------------------------------------------------------------
 
     /**
-     * Nothing profitable: today's NPC limit has room for no unit (49 coins left, 50 a unit), so no product prices. The old
-     * cycle stopped with "nothing is profitable"; the autopilot's decision is Wait, not Stop, when no product pays
-     * ({@code FlipAutopilot.decide}), so the current behaviour is: it reads Manage Orders, buys nothing, never opens the
-     * product, and says it is waiting. The case ends it there.
+     * Nothing profitable: today's NPC limit has room for no unit (49 coins left, 50 a unit), so no product prices. It
+     * reads Manage Orders, buys nothing, never opens the product, and stops on "nothing on the Bazaar is profitable right
+     * now within the 49 coins left on today's NPC sell limit" (mod bazaar-fix-1021; it used to wait forever).
      */
     static void nothingProfitable(Session c) throws Exception {
         if (cheatOnly(c) != null) {
@@ -742,18 +771,18 @@ final class BazaarFlipCustomCases {
             long mark = LogTap.mark();
             String refusal = FlipCroesusCases.start(c);
             c.check(refusal == null, "start refused: " + refusal);
-            c.waitUntil("the autopilot to say it is waiting", mc -> FlipMarket.waiting(mark)
+            c.waitUntil("the autopilot to stop", mc -> FlipMarket.waiting(mark)
                     || !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 400);
             boolean stillRunning = running(c);
             String reason = stopReason(c);
             FlipCroesusCases.requestStop(c);
             c.check(FlipMarket.readOrders(c, MAGMA.searchTitle()), "it never read Manage Orders (did it act at all?): "
                     + c.commands() + "; " + FlipCroesusCases.allClicks(c));
-            c.check(stillRunning && FlipMarket.waiting(mark), "running " + stillRunning + ", stop: " + reason);
+            c.check(!stillRunning && reason.contains(FlipMarket.NOTHING_PROFITABLE) && reason.contains("49 coins left"),
+                    "running " + stillRunning + ", stop \"" + reason + "\", waiting " + FlipMarket.waiting(mark));
             c.check(c.commands().stream().noneMatch(x -> x.startsWith("bz ")), "opened a product: " + c.commands());
             c.check(given(c) == 0 && !c.commands().contains("trades"), "bought " + given(c) + ", " + c.commands());
-            String line = FlipMarket.log(mark).stream().filter(l -> l.contains("Waiting: ")).findFirst().orElse("");
-            c.note("no unit sellable today: read Manage Orders, then \"" + line.trim() + "\"; no /bz <product>");
+            c.note("no unit sellable today: read Manage Orders, then stopped \"" + reason + "\"; no /bz <product>");
         }
     }
 
@@ -862,12 +891,14 @@ final class BazaarFlipCustomCases {
             long mark = LogTap.mark();
             String second = FlipCroesusCases.start(c);
             c.check(second == null, "second start refused: " + second);
-            c.waitUntil("the second session to wait", mc -> FlipMarket.waiting(mark)
+            c.waitUntil("the second session to stop", mc -> FlipMarket.waiting(mark)
                     || !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 400);
             String reason = stopReason(c);
             boolean stillRunning = running(c);
             FlipCroesusCases.requestStop(c);
-            c.check(stillRunning && FlipMarket.waiting(mark), "second session: running " + stillRunning + ", stop " + reason);
+            // His units are left alone, so nothing pays: it stops (mod bazaar-fix-1021; it used to wait forever).
+            c.check(!stillRunning && reason.contains(FlipMarket.NOTHING_PROFITABLE), "second session: running "
+                    + stillRunning + ", stop \"" + reason + "\", waiting " + FlipMarket.waiting(mark));
             c.check(FlipMarket.sent(c, "bz") > bareBefore, "the second session never read Manage Orders: " + c.commands());
             c.check(FlipMarket.logged(mark, "1 carried item type(s) left alone"), "the carried units were not left alone: "
                     + FlipMarket.log(mark).stream().filter(l -> l.contains("Autopilot start")).toList());
@@ -898,8 +929,126 @@ final class BazaarFlipCustomCases {
                 }
             });
             c.check(refusedOutside, "a test candidate was accepted outside a harness");
-            c.note("first session bought 128 and was stopped; the second left them alone (no sale, no buy), waited;"
-                    + " test candidate refused outside a harness");
+            c.note("first session bought 128 and was stopped; the second left them alone (no sale, no buy), stopped \""
+                    + reason + "\"; test candidate refused outside a harness");
+        }
+    }
+
+    // ---- 2780-2782 (bazaar-fix-1021) ----------------------------------------------------------------------------
+
+    /**
+     * Mod bazaar-fix-1021, bug 2: a failed refresh left the old products in place and the autopilot traded on them with no
+     * age check. Here Hypixel built the snapshot ten minutes ago but it arrived just now (so a check on arrival time
+     * would pass), and every refresh in the harness fails (offline). The autopilot must ask for a refresh, and when that
+     * fails stop naming the age - no /bz, no click, nothing bought. Control: the same market two minutes old is traded.
+     */
+    static void staleSnapshot(Session c) throws Exception {
+        if (cheatOnly(c) != null) {
+            return;
+        }
+        try (AutoCloseable w = world(c, MAGMA, 128, 35.0, 50.0, 0, 10, false)) {
+            JsonObject page = instant(MAGMA, MAGMA.instantTitle(), 35.0, "71,680", Sign.normal(), 0);
+            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bazaar(MAGMA, page)));
+            FlipMarket.reapply(c, System.currentTimeMillis() - 10 * 60_000L, MAGMA.market(50.0, 35.0, 128));
+            long mark = LogTap.mark();
+            String refusal = FlipCroesusCases.start(c);
+            c.check(refusal == null, "start refused: " + refusal);
+            c.waitUntil("the autopilot to stop on ten-minute-old prices", mc -> !(Boolean) Mod.staticCall(
+                    "bazaarflip.BazaarFlipFeature", "isRunning"), 600);
+            String reason = stopReason(c);
+            c.check(FlipMarket.logged(mark, "refreshing them before the next trade"), "it never asked for a refresh: "
+                    + FlipMarket.log(mark).stream().filter(l -> l.contains("BazaarFlip") || l.contains("Bazaar Flip")).toList());
+            c.check(reason.contains("10 min old") && reason.contains("refreshing them failed")
+                    && reason.contains("not trading on them"), "stopped with: \"" + reason + "\"");
+            c.check(c.commands().stream().noneMatch(x -> x.startsWith("bz")), "sent on stale prices: " + c.commands());
+            c.check(c.events("menu.click").isEmpty() && given(c) == 0, "clicked " + FlipCroesusCases.allClicks(c)
+                    + ", delivered " + given(c));
+            // Control: two minutes old is inside the limit, so the same market is traded at once.
+            FlipMarket.reapply(c, System.currentTimeMillis() - 2 * 60_000L, MAGMA.market(50.0, 35.0, 128));
+            long mark2 = LogTap.mark();
+            String again = FlipCroesusCases.start(c);
+            c.check(again == null, "second start refused: " + again);
+            c.waitUntil("the autopilot to open Lump of Magma on two-minute-old prices", mc -> FlipMarket.sent(c,
+                    "bz Lump of Magma") >= 1 || !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 600);
+            String reason2 = stopReason(c);
+            FlipCroesusCases.requestStop(c);
+            c.check(FlipMarket.sent(c, "bz Lump of Magma") >= 1, "two-minute-old prices were not traded: "
+                    + c.commands() + ", stop \"" + reason2 + "\"");
+            c.check(!FlipMarket.logged(mark2, "refreshing them before the next trade"),
+                    "two-minute-old prices were taken as stale");
+            c.note("built 10 min ago, arrived now, refresh failed: stopped \"" + reason + "\" with no command or click;"
+                    + " 2 min old: traded (" + c.commands() + ")");
+        }
+    }
+
+    /**
+     * Bug 3: the profit record's spent came from the Instant Buy page's quote (rounded, less an assumed 4%) whenever the
+     * units arrived before Hypixel's Bought line - which is the order the fake (and, it seems, Hypixel) sends them. Here
+     * the page quotes 1,950 a unit (plus 4%) and the Bought line charges 1,900: the record must spend 190,000, the
+     * Bought line's figure, and the sale's chat line must not call it an estimate.
+     */
+    static void spentTrueCost(Session c) throws Exception {
+        if (cheatOnly(c) != null) {
+            return;
+        }
+        double each = 1_900.0;
+        double quote = 1_950.0;
+        double npc = 2_400.0;
+        int units = 100;
+        try (AutoCloseable w = world(c, PUFFER, units, each, npc, 0, 10, false)) {
+            JsonObject page = instant(PUFFER, PUFFER_CUT, each, quote, "71,680", Sign.normal(), 1);
+            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bazaar(PUFFER, page)));
+            c.hx().call("menu.onCommand", Hx.args("name", "trades", "menu", trades(npc, 0, null)));
+            int before = profitCycles(c);
+            long mark = LogTap.mark();
+            startAndAwaitSale(c, before, 900);
+            FlipCroesusCases.requestStop(c);
+            c.check(FlipCroesusCases.first(signAmounts(c), 1).equals(List.of("100")), "sign amounts " + signAmounts(c));
+            c.check(given(c) >= units && sold(c) >= units, "delivered " + given(c) + ", sold " + sold(c));
+            c.check(FlipMarket.logged(mark, "Bought line for " + PUFFER.name()), "the Bought line never corrected the"
+                    + " quote's estimate (did the units not come first?)");
+            Object cyc = cycleAt(c, before);
+            double spent = num(cyc, "spent");
+            c.check(Math.abs(spent - units * each) < 1, "spent " + spent + ": the Bought line charged " + units * each
+                    + " (the quote's estimate is " + units * quote + ")");
+            String line = FlipMarket.log(mark).stream().filter(l -> l.contains("Sold " + units + " " + PUFFER.name()))
+                    .findFirst().orElse("");
+            c.check(line.contains("spent 190,000") && !line.contains("estimated"), "sale line: \"" + line + "\"");
+            c.note("quote 1,950 (+4%), Bought line 1,900: record spent " + spent + "; \"" + line.trim() + "\"");
+        }
+    }
+
+    /**
+     * Bug 3, the other half: Buy a stack! delivers its 64 with no Bought line at all, so no true cost reaches the client.
+     * The record's spent is then the page quote's estimate (2,330 rounded, less 4%) and the sale's chat line says it is
+     * an estimate from the rounded quote.
+     */
+    static void spentEstimated(Session c) throws Exception {
+        if (cheatOnly(c) != null) {
+            return;
+        }
+        double each = 35.0;
+        double npc = 50.0;
+        try (AutoCloseable w = world(c, MAGMA, 64, each, npc, 0, 10, false)) {
+            JsonObject page = instant(MAGMA, MAGMA.instantTitle(), each, "71,680", Sign.normal(), 0);
+            page.getAsJsonObject("on").getAsJsonObject("12").remove("chat");
+            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bazaar(MAGMA, page)));
+            c.hx().call("menu.onCommand", Hx.args("name", "trades", "menu", trades(npc, 0, null)));
+            int before = profitCycles(c);
+            long mark = LogTap.mark();
+            startAndAwaitSale(c, before, 900);
+            FlipCroesusCases.requestStop(c);
+            List<Integer> clicks = FlipCroesusCases.clicksOn(c, MAGMA.instantTitle());
+            c.check(FlipCroesusCases.first(clicks, 1).equals(List.of(12)), "Instant Buy clicks " + clicks);
+            c.check(given(c) >= 64 && sold(c) >= 64, "delivered " + given(c) + ", sold " + sold(c));
+            Object cyc = cycleAt(c, before);
+            double spent = num(cyc, "spent");
+            double estimate = Math.round(FlipCroesusCases.Q * 64 * each) / FlipCroesusCases.Q;
+            c.check(Math.abs(spent - estimate) < 0.01, "spent " + spent + " (want the quote's estimate " + estimate + ")");
+            String line = FlipMarket.log(mark).stream().filter(l -> l.contains("Sold 64 " + MAGMA.name())).findFirst()
+                    .orElse("");
+            c.check(line.contains("estimated from the Instant Buy page's rounded quote"), "sale line: \"" + line + "\"");
+            c.note("no Bought line: record spent " + spent + " (quote estimate " + estimate + "); \"" + line.trim() + "\"");
         }
     }
 }

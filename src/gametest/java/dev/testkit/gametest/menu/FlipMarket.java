@@ -103,6 +103,24 @@ final class FlipMarket {
 
     /** A {@code /v2/skyblock/bazaar} body for these products (buy_summary = the sell offers an Insta Buy takes). */
     static String bazaarJson(Prod... products) {
+        return bazaarJson(System.currentTimeMillis(), products);
+    }
+
+    /**
+     * The Bazaar replaced by {@code products} as a snapshot Hypixel built at {@code lastUpdatedMs} (mod bazaar-fix-1021:
+     * the autopilot judges a snapshot's age by this, not by when it arrived). A refresh in the harness always fails
+     * (offline), so these are the products the autopilot keeps.
+     */
+    static void reapply(Session c, long lastUpdatedMs, Prod... products) {
+        c.ctx().runOnClient(mc -> {
+            int n = (Integer) Mod.staticCall("auction.BazaarApi", "applyResponseForTest", bazaarJson(lastUpdatedMs, products));
+            if (n != products.length) {
+                throw new AssertionError("BazaarApi took " + n + " of " + products.length + " products");
+            }
+        });
+    }
+
+    static String bazaarJson(long lastUpdatedMs, Prod... products) {
         JsonObject all = new JsonObject();
         for (Prod p : products) {
             JsonObject qs = new JsonObject();
@@ -124,7 +142,7 @@ final class FlipMarket {
         }
         JsonObject root = new JsonObject();
         root.addProperty("success", true);
-        root.addProperty("lastUpdated", System.currentTimeMillis());
+        root.addProperty("lastUpdated", lastUpdatedMs);
         root.add("products", all);
         return root.toString();
     }
@@ -193,6 +211,11 @@ final class FlipMarket {
     static boolean waiting(long mark) {
         return LogTap.since(mark).stream().anyMatch(l -> l.contains("Waiting: ") && l.contains("nothing else worth doing"));
     }
+
+    /** The stop reason of a session that ended on nothing profitable (mod bazaar-fix-1021; it used to wait forever). */
+    static final String NOTHING_PROFITABLE = "nothing on the Bazaar is profitable";
+    /** The stop reason of a session that ended on the NPC sell limit (mod bazaar-fix-1021). */
+    static final String NPC_LIMIT = "the daily NPC sell limit is reached";
 
     /** Server-recorded commands that are exactly {@code cmd}. */
     static long sent(Session c, String cmd) {

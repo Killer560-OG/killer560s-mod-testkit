@@ -81,7 +81,8 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *       Auto Croesus going back into a claimed run for a keyed chest ({@link FlipCroesusCases})</li>
  *   <li>2761-2772 the flipper on Hypixel's cut Instant Buy title and its Custom Amount sign (typed amount, Done, a
  *       Confirm page, Buy up to, no sign, a rejected amount), keys in a container and in the sign, the NPC sell limit,
- *       the cheat-only profit tracker, the tab's typed Target Purse ({@link BazaarFlipCustomCases})</li>
+ *       the cheat-only profit tracker, the tab's typed Target Purse ({@link BazaarFlipCustomCases}); 2773-2774 and
+ *       2780-2782 its live-price skip, no reuse, stale-snapshot stop and the profit record's true cost</li>
  * </ul>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")

@@ -337,8 +337,8 @@ final class FlipCroesusCases {
     /**
      * 764: the snapshot offers Lump of Magma at 35 against an NPC 50, but the live Instant Buy page quotes 55 each (57.2
      * with Hypixel's 4%). The autopilot must reach the page, click no option, skip the product ("the live price ... no
-     * longer beats the sale") and never go back to it this session. It does not stop: with nothing else to buy it waits
-     * (FlipAutopilot returns Wait, not Stop, when no product pays), which is where the case ends it.
+     * longer beats the sale") and never go back to it this session. With nothing else to buy and nothing open it stops
+     * on "nothing on the Bazaar is profitable" (mod bazaar-fix-1021; it used to wait forever).
      */
     static void flipPriceGuard(Session c) throws Exception {
         if (!Mod.isCheat()) {
@@ -352,9 +352,12 @@ final class FlipCroesusCases {
             c.check(refusal == null, "start refused: " + refusal);
             c.waitUntil("the autopilot to skip the product on its live price", mc -> FlipMarket.logged(mark,
                     "Autopilot skipped") || !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 400);
-            c.check(running(c), "the autopilot stopped instead of skipping: " + BazaarFlipCustomCases.stopReason(c));
-            c.waitUntil("the autopilot to wait with nothing left to buy", mc -> FlipMarket.waiting(mark), 300);
+            c.check(FlipMarket.logged(mark, "Autopilot skipped"), "the autopilot stopped instead of skipping: "
+                    + BazaarFlipCustomCases.stopReason(c));
+            c.waitUntil("the autopilot to stop with nothing left to buy", mc -> !(Boolean) Mod.staticCall(
+                    "bazaarflip.BazaarFlipFeature", "isRunning"), 300);
             boolean stillRunning = running(c);
+            String reason = BazaarFlipCustomCases.stopReason(c);
             requestStop(c);
             List<String> skip = FlipMarket.log(mark).stream().filter(l -> l.contains("Skipping Lump of Magma")).toList();
             c.check(!skip.isEmpty() && skip.get(0).contains("no longer beats the sale"), "skip line: " + skip);
@@ -363,9 +366,11 @@ final class FlipCroesusCases {
             c.check(c.events("menu.give").isEmpty() && c.events("sign.opened").isEmpty(), "items were bought");
             c.check(!c.commands().contains("trades"), "sent /trades with nothing bought");
             c.check(FlipMarket.sent(c, "bz Lump of Magma") == 1, "went back to the skipped product: " + c.commands());
-            c.check(stillRunning, "stopped while waiting");
+            c.check(!stillRunning && reason.contains(FlipMarket.NOTHING_PROFITABLE), "after the skip: running "
+                    + stillRunning + ", stop \"" + reason + "\" (want it to stop on nothing profitable)");
+            c.check(!FlipMarket.waiting(mark), "it said it was waiting with nothing open");
             c.note("Instant Buy at 55/ea (quoted 57.2) vs NPC 50: reached the page, clicked no option, " + skip.get(0)
-                    + "; then waited, never back to it; " + allClicks(c));
+                    + "; then stopped (\"" + reason + "\"), never back to it; " + allClicks(c));
         }
     }
 
