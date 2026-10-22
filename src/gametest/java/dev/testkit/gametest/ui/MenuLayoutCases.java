@@ -93,7 +93,15 @@ final class MenuLayoutCases {
             // Chat History (mod menu-hud-1018, killer560 2026-10-18): its own Chat tab, unlimited history.
             "gui.tab.ChatHistoryTab",
             // Freelook (mod todo-freelook-1018, killer560 2026-10-18): its own tab in Misc, off by default.
-            "gui.tab.FreelookTab");
+            "gui.tab.FreelookTab",
+            // Streamer Mode (mod 23ef23da, 2026-10-19): its own Home tab, cheat build only.
+            "gui.tab.StreamerModeTab",
+            // Tabs added 2026-10-18/19, found by the menu run of 2026-10-22 (mod integrate-1021):
+            // Bazaar Advisor (b0ad78bf, Items), Mod User Tag (8186accc, Cosmetics), Held Item Transform out of Player
+            // Cosmetics into its own card (ba67f9bd), Legit GFS (f9ba82e3, Misc), Pack Disabler back as its own card
+            // (39f341e8), Session Recorder (22b1b7b9), Sound Effects (9c437b1d) and Zoom (19363eb7), all in Misc.
+            "gui.tab.BazaarAdvisorTab", "gui.tab.ModTagTab", "gui.tab.HeldItemTab", "gui.tab.LegitGfsTab",
+            "gui.tab.PackDisablerTab", "gui.tab.SessionRecorderTab", "gui.tab.SoundEffectsTab", "gui.tab.ZoomTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.
