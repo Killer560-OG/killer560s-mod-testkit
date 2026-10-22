@@ -212,8 +212,8 @@ final class DocMenuCases {
                 }
                 Mod.call(s[0], "closeDrawer");
                 // The Favourites PAGE stays.
-                if (!(Boolean) Mod.call(s[0], "selectCategory", "Favorites")) {
-                    return "the sidebar has no Favorites page";
+                if (!(Boolean) Mod.call(s[0], "selectCategory", "Favourites")) {
+                    return "the sidebar has no Favourites page";
                 }
                 List<?> favCards = (List<?>) Mod.call(s[0], "cards");
                 if (favCards.size() != 1 || !favCards.get(0).getClass().getSimpleName().equals("QuiverDisplayTab")) {

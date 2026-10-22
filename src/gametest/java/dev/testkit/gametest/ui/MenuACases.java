@@ -287,7 +287,11 @@ final class MenuACases {
                 Mod.staticCall("gui.MenuConfig", "load");
                 Mod.setField(Mod.ROOT + SCREEN, "tabs", null);
                 Screen fresh = open(mc);
-                Mod.call(fresh, "selectCategory", "Favorites");
+                // The sidebar entry is "Favourites" since the British-spelling sweep (mod 1c10b812); a name the
+                // sidebar does not have leaves the old category selected, so the result must be checked.
+                if (!(Boolean) Mod.call(fresh, "selectCategory", "Favourites")) {
+                    return "the sidebar has no Favourites page";
+                }
                 List<?> cards = (List<?>) Mod.call(fresh, "cards");
                 if (cards.size() != 1 || !cards.get(0).getClass().getSimpleName().equals(id)) {
                     return "after a restart Favorites shows " + cards;
@@ -300,7 +304,9 @@ final class MenuACases {
                 if (text.contains("\"" + id + "\"")) {
                     return "unstarring left " + id + " in the file";
                 }
-                Mod.call(fresh, "selectCategory", "Favorites");
+                if (!(Boolean) Mod.call(fresh, "selectCategory", "Favourites")) {
+                    return "the sidebar has no Favourites page after unstarring";
+                }
                 if (!((List<?>) Mod.call(fresh, "cards")).isEmpty()) {
                     return "Favorites still shows a card after unstarring";
                 }
