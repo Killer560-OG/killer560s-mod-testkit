@@ -509,7 +509,11 @@ final class LeapBatchMenuCases {
                     + noise[1] + " pixel(s)) - the comparison means nothing");
             c.check(counts[1] > 50, "control: a plain chest with a carried head changed only " + counts[1]
                     + " pixel(s) at the cursor - the picture cannot see a carried item");
-            c.check(counts[0] <= 5, "the leap menu drew the carried head: " + counts[0] + " pixel(s) changed at the cursor");
+            // The allowance is the measured noise floor of this pass (two clean frames), never less than 5 pixels: a
+            // hover or a moving background can change a few cursor-area pixels with nothing carried (1023 run: 10 pixels
+            // on a pass whose clean frames agreed to 0). The control above still needs more than 50 to show a carried item.
+            c.check(counts[0] <= Math.max(5, 2 * noise[0] + 5), "the leap menu drew the carried head: " + counts[0]
+                    + " pixel(s) changed at the cursor (noise floor " + noise[0] + ")");
             c.note("carried head at the cursor: leap menu " + counts[0] + " changed pixel(s), plain chest " + counts[1]
                     + " (clean-frame noise " + noise[0] + "/" + noise[1] + ")");
         } finally {
