@@ -432,7 +432,9 @@ final class AutoMaskCases {
                     + ", autoMaskMode=" + saved.get("autoMaskMode"));
 
             // An old file: one Auto Swap switch, a millisecond delay.
-            String[][] old = {{"350", "7"}, {"150", "3"}, {"1000", "20"}, {"520", "10"}, {"9999", "20"}};
+            // 9999 ms is 200 ticks, clamped to the top of the range: 40 since mod ba77f3e0 (killer560 2026-10-18,
+            // "0 to 2 seconds"), 20 before.
+            String[][] old = {{"350", "7"}, {"150", "3"}, {"1000", "20"}, {"520", "10"}, {"9999", "40"}};
             for (String[] o : old) {
                 Files.writeString(path, "{\"enabled\":true,\"autoSwapEnabled\":true,\"swapStepDelayMs\":" + o[0] + "}",
                         StandardCharsets.UTF_8);
