@@ -29,7 +29,7 @@ import net.minecraft.world.level.block.Blocks;
  * 362-logic-boss-timers        0.27.2 pacing (NoammAddons 1.2.9): Tick Timers, Blood Camp kill, Auto i4 prediction re-roll
  * 402-logic-autokick-units     Auto Kick populate: fastest_time_s is milliseconds (real AntsRNG profile, 263003 -> 264 s)
  * 363-logic-roof-cover         Interactive Map landings outside the sim: an open roof refused, under a ceiling accepted
- * 776..785-logic-autoupdate-*  Auto Update against a fake GitHub (asset choice, checksum, same hash, gates, installer):
+ * 776..786-logic-autoupdate-*  Auto Update against a fake GitHub (asset choice, checksum, same hash, gates, installer):
  *                              AutoUpdateCases; they run on the TEST thread (the installer cases wait seconds)
  * 991..993-logic-reboot-*     /reboot's launcher detection and its relauncher process (RebootCases), TEST thread
  * 2776-logic-mana-world-reset the etherwarp mana hold (Stat Bars' action-bar reading) clears on every world change
@@ -67,6 +67,7 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.runOffClient(ctx, "783-logic-autoupdate-source", AutoUpdateCases::source);
         LogicCase.runOffClient(ctx, "784-logic-autoupdate-helper", AutoUpdateCases::helper);
         LogicCase.runOffClient(ctx, "785-logic-autoupdate-helper-refuse", AutoUpdateCases::helperRefuse);
+        LogicCase.runOffClient(ctx, "786-logic-autoupdate-stall", AutoUpdateCases::stall);
         // ---- end Auto Update
         // ---- /reboot (reboot-cmd, 2026-10-13) - own block
         LogicCase.runOffClient(ctx, "991-logic-reboot-detect", RebootCases::detect);
