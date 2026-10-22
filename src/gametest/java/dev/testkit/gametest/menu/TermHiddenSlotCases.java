@@ -170,6 +170,18 @@ final class TermHiddenSlotCases {
         List<String> failures = new ArrayList<>();
         int typesChecked = 0;
         int squareClicks = 0;
+        // The Custom GUI draws no backdrop, so the world shows round the panel and the pixel compare below sees it. On the
+        // menu run of 2026-10-22 an earlier case had left him under water, and the moving water and seagrass "changed" up to
+        // 2889 pixels at every hidden slot with the mod doing nothing. Up at y 300 looking straight up there is only sky
+        // (824's fix, LeapBatchMenuCases); each compare also measures that floor with two cursor-away frames.
+        double[] posWas = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ(),
+                mc.player.getYRot(), mc.player.getXRot()});
+        c.hx().call("dungeon.tp", "x", posWas[0], "y", 300.0, "z", posWas[2], "yaw", (float) posWas[3], "pitch", -90f);
+        c.ctx().waitTicks(5);
+        c.onClient(mc -> {
+            mc.player.setXRot(-90f);
+            return null;
+        });
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutoTerminalsEnabled", false)
                     .set(CONFIG, "MelodyEnabled", true).set(CONFIG, "CustomGuiEnabled", true);
@@ -204,6 +216,15 @@ final class TermHiddenSlotCases {
                     double cx = g[0] + hs[1] + 8, cy = g[1] + hs[2] + 8;
                     cursorGui(c, 2, 2);
                     BufferedImage away = shot(c, spec.type().toLowerCase() + "-" + hs[0] + "-away");
+                    BufferedImage away2 = shot(c, spec.type().toLowerCase() + "-" + hs[0] + "-away-2");
+                    // The noise floor: the same two boxes in two frames with the cursor away. Anything here is the
+                    // background moving, not the hover, and would make the compare below mean nothing.
+                    int noise = changedIn(away, away2, guiScale, g[0] + hs[1], g[1] + hs[2], 16, 16)
+                            + changedIn(away, away2, guiScale, cx + 8, cy - 40, 160, 60);
+                    if (noise > 0) {
+                        failures.add(where + ": the background moved between two cursor-away frames (" + noise
+                                + " px) - the hover compare means nothing");
+                    }
                     cursorGui(c, cx, cy);
                     Integer hovered = hoveredIndex(c);
                     BufferedImage over = shot(c, spec.type().toLowerCase() + "-" + hs[0] + "-hover");
@@ -273,6 +294,8 @@ final class TermHiddenSlotCases {
         } finally {
             c.ctx().getInput().setCursorPos(2, 2);
             MenuKit.reset(c);
+            c.hx().call("dungeon.tp", "x", posWas[0], "y", posWas[1], "z", posWas[2], "yaw", (float) posWas[3],
+                    "pitch", (float) posWas[4]);
         }
         c.check(typesChecked == TerminalCases.SPECS.size(), "only " + typesChecked + " terminal types were checked");
         c.check(squareClicks == TerminalCases.SPECS.size(), "only " + squareClicks + " custom-square clicks matched");
