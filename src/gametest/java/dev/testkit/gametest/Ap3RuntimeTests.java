@@ -103,6 +103,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             }
             s.test("63-ap3-hold-boom-then-stop", Ap3RuntimeTests::caseBoomThenStop);
             s.test("63-ap3-stopwatch-hud", Ap3RuntimeTests::caseStopwatchHud);
+            s.test("63-ap3-stopwatch-lock", Ap3RuntimeTests::caseStopwatchLock);
             // mod blood-ap3-1018 (killer560's doc item 11): the ss modifier, and overlapping walk/run boxes.
             s.test("1018-ap3-ss-wait", Ap3RuntimeTests::caseSsWait);
             s.test("1018-ap3-run-centre", Ap3RuntimeTests::caseRunCentre);
@@ -984,6 +985,37 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
     private static long msSinceHud(ClientGameTestContext ctx) {
         return onClient(ctx, mc -> (Long) ModUnderTest.staticCall("com.killer560.hub.hud.HudSeen", "msSince",
                 new Class<?>[]{String.class, long.class}, new Object[]{"ap3_stopwatch", System.currentTimeMillis()}));
+    }
+
+    /**
+     * 63-ap3-stopwatch-lock (killer560, 2026-10-22): a stopwatch node that fired in the last second does not fire again.
+     * The same stopwatch node is hit twice within a second: the first hit starts the timer, and the second must be
+     * locked out (without the lock it would stop it straight away). The run then ends at a STOP, which leaves the timer
+     * running; so the timer must still be running and never have stopped.
+     */
+    private static void caseStopwatchLock(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        onClient(ctx, mc -> {
+            ModUnderTest.set(ModUnderTest.config(CONFIG), "setStopwatchHud", false);
+            resetStopwatch();
+            return null;
+        });
+        double z = lane();
+        Object run = runNode(z);
+        Object first = node("STOPWATCH", LANE_X0 + 8.0, z, -90f, 0f, 1.0, 3.0);
+        // The same node hit again (an align walks him off it and back on): the lock is per node, so it is the same object.
+        Object second = first;
+        Object stop = node("STOP", LANE_X0 + 20.0, z, -90f, 0f, 2.0, 3.0);
+        walkIntoRun(c, z, run, first, second, stop);
+        c.waitUntil("the stopwatch started", mc -> (Long) ModUnderTest.staticCall(EXEC, "stopwatchRunningMs") >= 0, 60);
+        ctx.waitTicks(10);
+        long running = (Long) ModUnderTest.staticCall(EXEC, "stopwatchRunningMs");
+        long stopped = (Long) ModUnderTest.staticCall(EXEC, "lastStopwatchMs");
+        c.note("stopwatch lock: running " + running + " ms, last stopped " + stopped + " ms");
+        if (running < 0 || stopped >= 0) {
+            throw new AssertionError("the second stopwatch node fired within a second of the first (running " + running
+                    + ", stopped " + stopped + ") - the lock is missing");
+        }
     }
 
     private static void caseStopwatchHud(Session c) {
