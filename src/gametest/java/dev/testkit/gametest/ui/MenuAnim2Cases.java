@@ -132,6 +132,88 @@ final class MenuAnim2Cases {
         });
     }
 
+    // ---- 2779 ---------------------------------------------------------------------------------------------------------
+
+    /** The animationSpeed killer560smod-menu.json holds on disk right now. */
+    static String menuFile() {
+        try {
+            java.nio.file.Path p = (java.nio.file.Path) Mod.staticCall("gui.MenuConfig", "path");
+            if (!java.nio.file.Files.exists(p)) {
+                return "no file";
+            }
+            com.google.gson.JsonObject o = com.google.gson.JsonParser.parseString(java.nio.file.Files.readString(p))
+                    .getAsJsonObject();
+            return o.has("animationSpeed") ? o.get("animationSpeed").getAsString() : "no animationSpeed";
+        } catch (Exception e) {
+            return "unreadable: " + e;
+        }
+    }
+
+    /**
+     * 2779-ui-slider-save-on-release (mod sweep-fix-1021, item 6b): a ThemedSliderButton wrote its config file on every
+     * drag step. Now the value applies live every step and the file is written once, on release. On the Menu Theme
+     * drawer's Animation Speed slider: press at Slow and drag to Normal with the button held - the setting follows live
+     * while killer560smod-menu.json still says FAST; release - the file says NORMAL. A press that is released at once
+     * (no drag) saves too.
+     */
+    static void saveOnRelease(UiCase c) throws Exception {
+        String wasMode = MenuAnimSuite.mode();
+        String wasSpeed = speed();
+        MenuAnimSuite.mode("OFF");
+        try {
+            speed("FAST");
+            c.onClient(mc -> Mod.call(Mod.cfg("gui.MenuConfig"), "save") == null);
+            Screen s = MenuAnimSuite.menu(c, "Chat", 3_000_000);
+            Object themeTab = MenuACases.leaf("MenuThemeTab");
+            c.onClient(mc -> Mod.call(s, "openFeature", themeTab) == null);
+            MenuAnimSuite.frame(c, 3_001_000);
+            AbstractWidget slider = speedSlider(c, s);
+            c.check(slider != null, "no Animation Speed slider in the Menu Theme drawer");
+            if (slider == null) {
+                return;
+            }
+            int[] track = c.onClient(mc -> (int[]) Mod.call(slider, "trackRange"));
+            double slowX = track[0] + 2;
+            double normalX = track[0] + (track[1] - track[0]) / 3.0 + 3;
+            double y = slider.getY() + slider.getHeight() / 2.0;
+            c.check(menuFile().equals("FAST"), "control: the file says FAST before the drag: " + menuFile());
+
+            c.onClient(mc -> slider.mouseClicked(new MouseButtonEvent(slowX, y, new MouseButtonInfo(0, 0)), false));
+            String livePress = speed();
+            boolean filePress = menuFile().equals("FAST");
+            c.onClient(mc -> slider.mouseDragged(new MouseButtonEvent(normalX, y, new MouseButtonInfo(0, 0)),
+                    normalX - slowX, 0));
+            String liveDrag = speed();
+            boolean fileDrag = menuFile().equals("FAST");
+            c.onClient(mc -> {
+                slider.mouseReleased(new MouseButtonEvent(normalX, y, new MouseButtonInfo(0, 0)));
+                return null;
+            });
+            String fileAfter = menuFile();
+            c.note("held press at Slow: live " + livePress + ", file still FAST " + filePress + "; dragged to Normal: live "
+                    + liveDrag + ", file still FAST " + fileDrag + "; released: file says NORMAL "
+                    + fileAfter.equals("NORMAL"));
+            c.check(livePress.equals("SLOW"), "the press did not apply live: " + livePress);
+            c.check(liveDrag.equals("NORMAL"), "the drag did not apply live: " + liveDrag);
+            c.check(filePress, "the file was written while the press was still held: " + menuFile());
+            c.check(fileDrag, "the file was written on a drag step: " + menuFile());
+            c.check(fileAfter.equals("NORMAL"), "the release did not write the file: " + fileAfter);
+
+            // A click (press and release with no drag) still saves.
+            AbstractWidget again = speedSlider(c, s);
+            c.onClient(mc -> {
+                press(again, slowX);
+                return null;
+            });
+            c.check(menuFile().equals("SLOW"), "a plain click did not save: " + menuFile());
+        } finally {
+            speed(wasSpeed);
+            MenuAnimSuite.mode(wasMode);
+            Mod.call(Mod.cfg("gui.MenuConfig"), "save");
+            MenuAnimSuite.releaseClock(c);
+        }
+    }
+
     static void press(AbstractWidget w, double x) {
         MouseButtonEvent e = new MouseButtonEvent(x, w.getY() + w.getHeight() / 2.0, new MouseButtonInfo(0, 0));
         w.mouseClicked(e, false);
