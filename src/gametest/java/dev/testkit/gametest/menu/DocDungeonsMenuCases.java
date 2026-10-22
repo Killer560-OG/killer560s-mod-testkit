@@ -175,6 +175,10 @@ final class DocDungeonsMenuCases {
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set(FLC, "Enabled", true);
             DungeonMenuCases.inDungeon(c);
+            // Teammates only forgets players on a world change (a real dungeon's party is fixed for its world), and the
+            // whole menu session is one world: the Leap Run Memory cases (829-834) leave LrA-LrD in it, one with a Tank
+            // pick, so in the full suite "leap to the Tank" went to LrB, who is not in this party's leap menu. Start clean.
+            c.ctx().runOnClient(mc -> Mod.staticCall("fastleap.Teammates", "clear"));
             c.hx().tab(List.of("§r[42] §r§aAlice §r§f(§r§dMage L§r§f)", "§r[40] §r§aBob §r§f(§r§dHealer XL§r§f)",
                     "§r[39] §r§aCarol §r§f(§r§dArcher XX§r§f)"), null, null);
             c.waitUntil("Teammates to read Alice, Bob and Carol off the tab list", mc ->
