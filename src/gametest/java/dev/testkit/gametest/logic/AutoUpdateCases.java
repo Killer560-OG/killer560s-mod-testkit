@@ -44,6 +44,8 @@ import java.util.stream.Stream;
  * 784-logic-autoupdate-helper      the real installer process, against a dummy parent: nothing moves while the parent
  *                                  runs; afterwards mods/ holds exactly one mod jar, the new one
  * 785-logic-autoupdate-helper-refuse a name collision leaves mods/ untouched; this test client itself never updates
+ * 786-logic-autoupdate-stall       a slow download that keeps moving stages; one that stops sending gives up after the
+ *                                  stall limit with "download stalled"
  * </pre>
  *
  * Every helper case runs in a temp folder; nothing here touches a Prism instance or this client's own mods.
@@ -71,6 +73,12 @@ final class AutoUpdateCases {
         final Map<String, AtomicInteger> hits = new ConcurrentHashMap<>();
         volatile String latest = "";
         volatile String beta = "";
+        /** 786: per download path, the pause between 8 KiB pieces of its body. */
+        final Map<String, Long> dripMs = new ConcurrentHashMap<>();
+        /** 786: per download path, the byte count after which its body stops arriving. */
+        final Map<String, Integer> stallAfter = new ConcurrentHashMap<>();
+        /** Released at close, so a stalled handler lets go of its connection. */
+        final java.util.concurrent.CountDownLatch closed = new java.util.concurrent.CountDownLatch(1);
         private final String oldApi;
         private final String oldDl;
 
@@ -111,9 +119,46 @@ final class AutoUpdateCases {
                 }
                 ex.sendResponseHeaders(code, body.length);
                 try (OutputStream os = ex.getResponseBody()) {
-                    os.write(body);
+                    Long drip = dripMs.get(path);
+                    Integer stall = stallAfter.get(path);
+                    if (code != 200 || (drip == null && stall == null)) {
+                        os.write(body);
+                    } else {
+                        // 786: send the body in 8 KiB pieces, a pause between them (drip), or stop sending after
+                        // `stall` bytes and hold the connection open until the fake closes (stall).
+                        int at = 0;
+                        while (at < body.length) {
+                            if (stall != null && at >= stall) {
+                                os.flush();
+                                try {
+                                    closed.await(60, java.util.concurrent.TimeUnit.SECONDS);
+                                } catch (InterruptedException ignored) {
+                                    Thread.currentThread().interrupt();
+                                }
+                                return;
+                            }
+                            int n = Math.min(8 * 1024, body.length - at);
+                            os.write(body, at, n);
+                            os.flush();
+                            at += n;
+                            if (drip != null && at < body.length) {
+                                try {
+                                    Thread.sleep(drip);
+                                } catch (InterruptedException e) {
+                                    Thread.currentThread().interrupt();
+                                    return;
+                                }
+                            }
+                        }
+                    }
                 }
             });
+            // A stalled download holds its handler thread; the API and other files must still answer.
+            server.setExecutor(java.util.concurrent.Executors.newCachedThreadPool(r -> {
+                Thread t = new Thread(r, "testkit-autoupdate-fake");
+                t.setDaemon(true);
+                return t;
+            }));
             server.start();
             oldApi = System.getProperty("killer560.net.github-api");
             oldDl = System.getProperty("killer560.net.github-download");
@@ -154,6 +199,7 @@ final class AutoUpdateCases {
 
         @Override
         public void close() {
+            closed.countDown();
             server.stop(0);
             restore("killer560.net.github-api", oldApi);
             restore("killer560.net.github-download", oldDl);
@@ -833,5 +879,69 @@ final class AutoUpdateCases {
         c.check("this test client never self-updates", gate != null && gate.contains("mods folder"),
                 String.valueOf(gate));
         c.note("launchGate in this client: " + gate);
+    }
+
+    // ---- 786 ---------------------------------------------------------------------------------------------------------
+
+    /**
+     * 786-logic-autoupdate-stall (mod sweep-fix-1021): the download gives up only when no byte has arrived for the stall
+     * limit, never on the whole download's length. The limit is shortened to 1.5 s through the mod's
+     * {@code killer560.test.autoUpdateStallMillis} hook. A jar that drips 8 KiB every 0.4 s takes about three stall
+     * limits end to end and must still stage; one that stops after 16 KiB must give up with the stall message, soon
+     * after the limit, leaving nothing in staging.
+     */
+    static void stall(LogicCase c) throws Exception {
+        String key = "killer560.test.autoUpdateStallMillis";
+        String old = System.getProperty(key);
+        System.setProperty(key, "1500");
+        try {
+            String name = jarName("26.1.2", "cheat");
+            try (Fake f = new Fake()) {
+                Release rel = new Release("dev-latest", true, 31);
+                rel.publish(f);
+                f.dripMs.put(f.dlPath("dev-latest", name), 400L);
+                Path staging = tempDir("drip");
+                try {
+                    long t0 = System.nanoTime();
+                    String out = check("BETA", false, null, "26.1.2", "cheat", CUR, staging);
+                    double s = (System.nanoTime() - t0) / 1e9;
+                    c.note(String.format(java.util.Locale.ROOT, "slow but moving: %s in %.1f s", out, s));
+                    c.check("a slow download that keeps moving stages", out.startsWith("STAGED"), out);
+                    c.check("it really took longer than the stall limit (else this proves nothing)", s > 2.5,
+                            String.format(java.util.Locale.ROOT, "%.1f s", s));
+                    c.eq("the jar was downloaded once", 1, f.hits(f.dlPath("dev-latest", name)));
+                } finally {
+                    deleteTree(staging);
+                }
+            }
+            try (Fake f = new Fake()) {
+                Release rel = new Release("dev-latest", true, 32);
+                rel.publish(f);
+                f.stallAfter.put(f.dlPath("dev-latest", name), 16 * 1024);
+                Path staging = tempDir("stall");
+                try {
+                    long t0 = System.nanoTime();
+                    String out = check("BETA", false, null, "26.1.2", "cheat", CUR, staging);
+                    double s = (System.nanoTime() - t0) / 1e9;
+                    c.note(String.format(java.util.Locale.ROOT, "stalled after 16 KiB: %s in %.1f s", out, s));
+                    c.check("a stalled download is an error", out.startsWith("ERROR"), out);
+                    c.check("its message says it stalled", out.contains("download stalled"), out);
+                    c.check("it gave up after the stall limit, not before", s >= 1.4,
+                            String.format(java.util.Locale.ROOT, "%.1f s", s));
+                    c.check("and soon after it (no fixed cap behind it)", s < 10,
+                            String.format(java.util.Locale.ROOT, "%.1f s", s));
+                    c.eq("the jar request was made", 1, f.hits(f.dlPath("dev-latest", name)));
+                    c.eq("nothing left in staging (no jar, no .part)", List.of(), list(staging));
+                } finally {
+                    deleteTree(staging);
+                }
+            }
+        } finally {
+            if (old == null) {
+                System.clearProperty(key);
+            } else {
+                System.setProperty(key, old);
+            }
+        }
     }
 }

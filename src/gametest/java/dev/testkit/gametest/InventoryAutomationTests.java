@@ -95,20 +95,21 @@ public class InventoryAutomationTests implements FabricClientGameTest {
                         throw new AssertionError("the chest did not open, so Auto Sell has no menu to act in");
                     }
 
+                    // Auto Sell has no start command since mod 2026-10-19: while it is on, with a sell list, it
+                    // starts by itself on any open container whose title matches its pattern. So the watch starts
+                    // BEFORE configure() switches it on - its first click can go out on the next tick.
+                    PacketWatch.start();
                     List<String> sellable = configure(ctx, scenario);
 
-                    // Auto Sell does not arm itself: it waits for /autosell or its menu button. Its own
-                    // start() reports why it refused, so the scenario asks rather than assuming - the first
-                    // run set every gate correctly, never started, and looked exactly like a clean result.
-                    ctx.runOnClient(mc -> {
-                        Object refusal = ModUnderTest.staticCall(
-                                "com.killer560.hub.autosell.AutoSellFeature", "start");
-                        if (refusal != null) {
-                            throw new AssertionError("Auto Sell refused to start: " + refusal);
-                        }
-                    });
-
-                    PacketWatch.start();
+                    // That it really ran is asserted, not assumed: a session that never starts looks exactly
+                    // like a clean result.
+                    boolean started = false;
+                    for (int t = 0; t < 40 && !started; t++) {
+                        ctx.waitTick();
+                        started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                                "com.killer560.hub.autosell.AutoSellFeature", "isRunning"));
+                    }
+                    scenario.log("Auto Sell session started on the chest by itself: " + started);
                     ctx.waitTicks(220);
                     PacketWatch.stop();
 

@@ -18,7 +18,8 @@ import java.nio.file.Path;
  * <ul>
  *   <li>768: with the reskin drawing the flipper's product page, a key press stops the flipper (the reskin's key
  *       listener runs first, so it must do the stopping); no click reaches the server after it, and the key is not a
- *       hotbar swap on the hidden slot.</li>
+ *       hotbar swap on the hidden slot. Since 2026-10-21 the flipper is the autopilot (FlipMarket): it reads Manage
+ *       Orders first, then walks the same pages for its Insta Buy.</li>
  *   <li>769: the one-switch migration on the real config files - an old reskin key that was on turns the feature on,
  *       both old keys leave the files, an "off" saved afterwards survives a reload; the files are put back after.</li>
  * </ul>
@@ -40,7 +41,8 @@ final class ReskinSwitchCases {
         }
         try (AutoCloseable w = FlipCroesusCases.flipWorld(c, true, true, 50.0)) {
             c.ctx().runOnClient(mc -> Mod.set("bazaarflip.BazaarFlipConfig", "setSpeed", 1)); // ~1 s per step
-            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", FlipCroesusCases.bazaar(35.0)));
+            c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu",
+                    FlipMarket.withManageOrders(FlipCroesusCases.bazaar(35.0))));
             String refusal = FlipCroesusCases.start(c);
             c.check(refusal == null, "start refused: " + refusal);
             c.waitUntil("the reskin to draw the product page the flipper reached",

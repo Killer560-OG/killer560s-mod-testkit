@@ -57,6 +57,7 @@ public class PerfBitsTest implements FabricClientGameTest {
         // several switches: "a|b|c" setters and getters; OR unless the row ends with "and"
         GATED.put("P3 Nav render", new String[]{"p3nav.P3NavConfig", "setGateHighlight|setTerminalEsp|setDeviceEsp",
                 "getGateHighlightRaw|getTerminalEspRaw|getDeviceEspRaw"});
+        GATED.put("Simon Says tick", new String[]{"simonsays.SimonSaysConfig", "setEnabled", "isEnabledRaw"});
         GATED.put("Simon Says render", new String[]{"simonsays.SimonSaysConfig", "setEnabled|setSolverEnabled",
                 "isEnabledRaw|isSolverEnabledRaw", "and"});
         GATED.put("Mage Beam render", new String[]{"dungeonextras.DungeonExtrasConfig", "setMageBeamEnabled",

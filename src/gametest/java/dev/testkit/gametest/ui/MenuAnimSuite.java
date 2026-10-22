@@ -53,7 +53,9 @@ public class MenuAnimSuite implements FabricClientGameTest {
     static final String[] CASES = {"1590-ui-menuanim-framerate", "1591-ui-menuanim-setting", "1592-ui-menuanim-final",
             "1593-ui-menuanim-clicks", "1594-ui-menuanim-alloc", "1595-ui-menuanim-shots",
             // mod menu-anim-2-1015: Animation Speed, sliders rest only on steps
-            "1597-ui-menuanim-speed", "1598-ui-slider-steps"};
+            "1597-ui-menuanim-speed", "1598-ui-slider-steps",
+            // mod sweep-fix-1021: a slider writes its file once, when the press is released
+            "2779-ui-slider-save-on-release"};
     static final String VIDEO = "1596-menuanim-video";
 
     static final String ANIM = "gui.MenuAnim";
@@ -96,6 +98,7 @@ public class MenuAnimSuite implements FabricClientGameTest {
             UiCase.run(ctx, "1595-ui-menuanim-shots", MenuAnimSuite::shots);
             UiCase.run(ctx, "1597-ui-menuanim-speed", MenuAnim2Cases::animationSpeed);
             UiCase.run(ctx, "1598-ui-slider-steps", MenuAnim2Cases::sliderSteps);
+            UiCase.run(ctx, "2779-ui-slider-save-on-release", MenuAnim2Cases::saveOnRelease);
             if (video) {
                 UiCase.run(ctx, VIDEO, MenuAnimVideo::record);
             }
