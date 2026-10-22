@@ -32,8 +32,8 @@
     {
       "owner": "(unscoped)",
       "key": "copy chat",
-      "text": "With chat open: Shift or Ctrl + Left-Click a message copies the whole message (every wrapped line); Shift or Ctrl + Right-Click copies only the line you clicked. Copied without color codes. A plain click does what it always did.",
-      "why": "chat-batch a64924b9: Copy Chat takes Shift or Ctrl and copies whole messages"
+      "text": "Shift or Ctrl + left-click copies a whole chat message; right-click copies one line. A plain click works as before.",
+      "why": "chat-batch a64924b9: Copy Chat takes Shift or Ctrl and copies whole messages; rewritten again: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
     },
     {
       "owner": "(unscoped)",
@@ -85,8 +85,8 @@
       "owner": "Chat Tidy",
       "key": "hide damage messages",
       "to": "Chat Hider",
-      "text": "Hides Hypixel's combat spam from the chat window: your ability damage lines ('Your Implosion hit 2 enemies for ...') and the hits you take ('A Crypt Wither Skull exploded, hitting you for ...', '... hit you for ...', '... struck you for ...'). Other features still read them, and the log keeps them.",
-      "why": "chat-batch a64924b9: Chat Tidy and Hide Chat Messages became Chat Hider"
+      "text": "Hides ability-damage and incoming-hit lines.",
+      "why": "chat-batch a64924b9: Chat Tidy and Hide Chat Messages became Chat Hider; rewritten again: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
     },
     {
       "owner": "Chat Tidy",
@@ -97,14 +97,14 @@
       "owner": "Chat Tidy",
       "key": "stack duplicate messages",
       "to": "Chat Hider",
-      "text": "A line that repeats one of the last 50 chat messages from the last 60 seconds replaces it: the earlier copy goes, and one line ending in a gray (x2), (x3)... is added at the bottom, even with other messages in between. Blank lines and separators never stack.",
-      "why": "chat-batch a64924b9: Chat Tidy and Hide Chat Messages became Chat Hider"
+      "text": "A message repeated within 60 seconds replaces its earlier copy with one line ending in a grey (x2), (x3)...",
+      "why": "chat-batch a64924b9: Chat Tidy and Hide Chat Messages became Chat Hider; rewritten again: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
     },
     {
       "owner": "Copy Chat",
       "key": "copy chat",
-      "text": "With chat open: Shift or Ctrl + Left-Click a message copies the whole message (every wrapped line); Shift or Ctrl + Right-Click copies only the line you clicked. Copied without color codes. A plain click does what it always did.",
-      "why": "chat-batch a64924b9: Copy Chat takes Shift or Ctrl and copies whole messages"
+      "text": "Shift or Ctrl + left-click copies a whole chat message; right-click copies one line. A plain click works as before.",
+      "why": "chat-batch a64924b9: Copy Chat takes Shift or Ctrl and copies whole messages; rewritten again: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
     },
     {
       "owner": "Inventory Sorter",
@@ -186,14 +186,12 @@
     {
       "owner": "Auto Fairy Souls",
       "key": "start/stop key",
-      "text": "Starts or stops Auto Fairy Souls (it has no button; /k560path souls auto starts it too).",
-      "why": "fairy-choc (killer560 2026-10-11): the Start button is gone, the key and command start it"
+      "gone": "e0807f88 (killer560 2026-10-17): Start/Stop Key shows only while Auto Fairy Souls is on (was: fairy-choc (killer560 2026-10-11): the Start button is gone, the key and command start it)"
     },
     {
       "owner": "Auto Fairy Souls",
       "key": "turn speed",
-      "text": "Top speed the camera turns while auto walking, in degrees per tick; it eases smoothly every frame below that.",
-      "why": "fairy-choc (killer560 2026-10-11): the walker's camera eases per frame"
+      "gone": "e0807f88 (killer560 2026-10-17): Turn Speed is gone (a human turning model replaced it) (was: fairy-choc (killer560 2026-10-11): the walker's camera eases per frame)"
     },
     {
       "owner": "Experiments",
@@ -237,8 +235,8 @@
     {
       "owner": "Bazaar",
       "key": "bazaar browser",
-      "text": "One switch for the whole Bazaar: the custom Bazaar browser (/killer560bz or a keybind; like Hypixel's remote Bazaar, only while your Booster Cookie is active), and Hypixel's real Bazaar (the NPC, or /bz) opened as the same screen - every click on one of Hypixel's buttons is the same click on the same slot, and pages it does not know stay Hypixel's own.",
-      "why": "bz-reskin c13a41e8: one switch for the Bazaar / Auction House browser and its reskin (killer560, 2026-10-11)"
+      "text": "Turns the Bazaar browser on or off (/killer560bz, or its keybind). Needs an active Booster Cookie, as Hypixel's remote Bazaar does.",
+      "why": "bz-reskin c13a41e8: one switch for the Bazaar / Auction House browser and its reskin (killer560, 2026-10-11); rewritten again: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
     },
     {
       "owner": "Bazaar",
@@ -271,14 +269,14 @@
     {
       "owner": "(unscoped)",
       "key": "breaker aura",
-      "text": "Cheat build: in a boss fight only, breaks the blocks you have picked (Pick Block Key) once they are in reach, while you hold a charged Dungeon Breaker. Nothing unpicked is broken. During clear it does nothing - use an Auto Routes breaker node.",
-      "why": "path-db 73c5b0e4: Breaker Aura works only in boss (killer560 2026-10-12)"
+      "text": "Cheat build: in a boss fight only, breaks the blocks you picked with the Pick Block Key once they are in reach, while you hold a charged Dungeon Breaker.",
+      "why": "path-db 73c5b0e4: Breaker Aura works only in boss (killer560 2026-10-12); rewritten again: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
     },
     {
       "owner": "Breaker Aura",
       "key": "breaker aura",
-      "text": "Cheat build: in a boss fight only, breaks the blocks you have picked (Pick Block Key) once they are in reach, while you hold a charged Dungeon Breaker. Nothing unpicked is broken. During clear it does nothing - use an Auto Routes breaker node.",
-      "why": "path-db 73c5b0e4: Breaker Aura works only in boss (killer560 2026-10-12)"
+      "text": "Cheat build: in a boss fight only, breaks the blocks you picked with the Pick Block Key once they are in reach, while you hold a charged Dungeon Breaker.",
+      "why": "path-db 73c5b0e4: Breaker Aura works only in boss (killer560 2026-10-12); rewritten again: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
     },
     {
       "owner": "(unscoped)",
@@ -296,19 +294,19 @@
       "owner": "Spotify Mod",
       "key": "chat destination",
       "text": "Which chat the lyrics are sent to: Party, All, Guild, Co-op / Plain, or Mod Chat.",
-      "why": "automeow-channel de1edf77: Auto Meow replies in the source channel; Spotify/Voice To Text gain a Mod Chat destination (killer560 2026-10-13)"
+      "why": "automeow-channel de1edf77: Auto Meow replies in the source channel; Spotify/Voice To Text gain a Mod Chat destination (killer560 2026-10-13); rewritten again: 39a02560: the tab is Spotify Lyrics",
+      "to": "Spotify Lyrics"
     },
     {
       "owner": "Croesus / Chest Profit",
       "key": "highlight runs",
-      "text": "In the Croesus menu, marks each run by what is left in it. Runs that need you stand out: unclaimed (solid orange) and worth going back to with a Dungeon Chest Key (solid magenta with a key mark). Runs with nothing to do are outlines or a light tint, no fill: not looked at yet (a muted teal outline), opened with nothing worth a key (a muted blue outline) and done with a key (a light dark tint). Drawn behind the items, under their tooltips; the key mark sits over the item.",
-      "why": "croesus-ui 79dd7ecc / croesus-key: Highlight Runs behind the items, then by chest-key state (killer560, 2026-10-12); croesus-colors 2026-10-12: magenta / cyan / blue-border palette; croesus-colors2 2026-10-13: action states solid, quiet states recede, no \"?\" mark; croesus-outline 5802c253 2026-10-13: muted teal/blue full outlines"
+      "text": "Marks each run in the Croesus menu by what is left in it: solid orange unclaimed, solid magenta worth a Dungeon Chest Key, outlines for runs with nothing to do.",
+      "why": "croesus-ui 79dd7ecc / croesus-key: Highlight Runs behind the items, then by chest-key state (killer560, 2026-10-12); croesus-colors 2026-10-12: magenta / cyan / blue-border palette; croesus-colors2 2026-10-13: action states solid, quiet states recede, no \"?\" mark; croesus-outline 5802c253 2026-10-13: muted teal/blue full outlines; rewritten again: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
     },
     {
       "owner": "Inventory Theme",
       "key": "inventory theme",
-      "text": "Re-skins the chest and inventory screens, and the hotbar: vanilla's own shapes (bevelled panel, sunken slots) in the colors of the Preset.",
-      "why": "inv-theme-reskin 8ef13dd9: vanilla-shaped reskin with presets (killer560 2026-10-13)"
+      "gone": "4a7ffc31 (killer560 2026-10-18 list): no Inventory Theme row, the card's switch is it (was: inv-theme-reskin 8ef13dd9: vanilla-shaped reskin with presets (killer560 2026-10-13))"
     },
     {
       "owner": "Croesus / Chest Profit",
@@ -380,8 +378,8 @@
     {
       "owner": "Dungeon Map",
       "key": "darken unexplored",
-      "text": "How much darker rooms you have not been in yet are drawn, 0 to 0.9: the grey question-mark rooms, and on Funny Map every room your hotbar map has not opened yet.",
-      "why": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list)"
+      "text": "How much darker unopened rooms are drawn, 0 to 0.9 (0 by default). On Funny Map, every room your hotbar map has not opened yet.",
+      "why": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list); rewritten again: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
     },
     {
       "owner": "Dungeon Map",
@@ -408,6 +406,744 @@
       "key": "funny map",
       "gone": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list): Funny Map is a cheat-build setting now",
       "variant": "legit"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "auto clear",
+      "text": "Cheat build: kills the starred mobs of the dungeon's mob rooms with your Hyperion or Spirit Sceptre; start and stop it with the Clear Toggle Key or /autoclear.",
+      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: one-sentence hovers"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "auto fairy souls",
+      "text": "Cheat build: walks the island's soul route and clicks each Fairy Soul, with your camera free. Any key or click stops it. Needs nothing else on.",
+      "why": "hover rewritten: e0807f88 2026-10-18 Fairy Souls / Auto Fairy Souls rework: free camera, any key stops, a movement model that b"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "auto gfs",
+      "text": "Runs /gfs to refill dungeon items from your sacks when you run low, asking only for what tops the stack off (cheat build only).",
+      "why": "hover rewritten: 20bd1e50 2026-10-19 Batch: map hatching, room fill and yellow-room guess, Blood Camp aim and Aura offset rows,"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "auto sell",
+      "text": "Sells every stack on your sell list by itself while a sell screen is open; an item added there is sold without reopening it.",
+      "why": "hover rewritten: ca1c6cb5 2026-10-20 Auto Sell: click every stack, not one per identity; sell an item added while the sell scre"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "center dot",
+      "to": "Custom Crosshair",
+      "renamed": "centre dot",
+      "text": "Adds a dot in the middle of any style.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Centre Dot')"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "chroma",
+      "to": "Custom Crosshair",
+      "text": "Cycles the main colour through the rainbow (keeps its transparency).",
+      "why": "Custom Crosshair rows are built by its own tab; 1c10b812 British text"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "color",
+      "to": "Custom Crosshair",
+      "renamed": "colour",
+      "text": "Main crosshair colour, with transparency.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour')"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "color on block",
+      "to": "Custom Crosshair",
+      "renamed": "colour on block",
+      "text": "Changes colour while you are aiming at a block in reach.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour On Block')"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "color on entity",
+      "to": "Custom Crosshair",
+      "renamed": "colour on entity",
+      "text": "Changes colour while you are aiming at an entity in reach.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour On Entity')"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "crosshair preview",
+      "to": "Custom Crosshair",
+      "text": "Your crosshair at its real in-game size. Click for another background, right click to go back; the strip below previews movement spread, recoil and target colours.",
+      "why": "Custom Crosshair rows are built by its own tab; 1c10b812 British text"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "fairy souls",
+      "text": "Tracks which Fairy Souls you have found and guides you to the missing ones. Turning it off stops the guide.",
+      "why": "hover rewritten: e0807f88 2026-10-18 Fairy Souls / Auto Fairy Souls rework: free camera, any key stops, a movement model that b"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "gap",
+      "to": "Custom Crosshair",
+      "text": "Space between the centre and each line; negative makes the lines overlap through the middle.",
+      "why": "Custom Crosshair rows are built by its own tab; 1c10b812 British text"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "item rarity backgrounds",
+      "text": "Draws a rarity-coloured square, circle or outline behind Skyblock items.",
+      "why": "1c10b812/d49e8398 British spelling in the hover text"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "outline color",
+      "to": "Custom Crosshair",
+      "renamed": "outline colour",
+      "text": "Colour of the outline.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Outline Colour')"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "slot binds",
+      "text": "Links two inventory slots so shift-clicking one swaps them. Hold the bind key over a slot and release it over a hotbar slot to swap the two. If Protect Item uses the same key, a quick tap protects the item and a drag is only a swap.",
+      "why": "hover rewritten: b9afe573 2026-10-18 Slot Binds: hold the bind key and release over a hotbar slot to swap"
+    },
+    {
+      "owner": "Auto Blood Camp",
+      "key": "aura",
+      "text": "Cheat build, Blood Room only: turns you to the next blood mob you can see and clicks it at your weapon's attack speed until it dies; moving your mouse takes over.",
+      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
+    },
+    {
+      "owner": "Auto Blood Camp",
+      "key": "trigger bot",
+      "text": "Cheat build: clicks a blood mob on its kill timer when you aim at it, never faster than your attack speed. Needs Blood Camp on.",
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "auto clear",
+      "text": "Cheat build: kills the starred mobs of the dungeon's mob rooms with your Hyperion or Spirit Sceptre; start and stop it with the Clear Toggle Key or /autoclear.",
+      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: one-sentence hovers"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "auto clear rooms",
+      "gone": "4119ac75 (2026-10-20): the row is gone, Room Plan decides how Auto Secret fits Auto Clear in; its stale tooltip went in 1c10b812"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "autopilot",
+      "text": "Cheat build: Dungeon Autopilot runs Auto Secret, Auto Clear and Auto Puzzles under one planner; any movement key takes over.",
+      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "do puzzles",
+      "text": "Treat puzzles like rooms: go to one and let Auto Puzzles solve it. Only puzzles whose auto is switched on.",
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "key base range",
+      "text": "Pickup range for dungeon keys, in blocks. The range used (shown after the arrow) adds 5 to this.",
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "run mode",
+      "text": "Solo plays for the best score per second toward 300 with the blood door last; Party does your routes first and never opens the blood door.",
+      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "status hud",
+      "text": "One small HUD showing what Auto Clear, Auto Secret and Dungeon Autopilot are doing, hidden while nothing runs; move it in the HUD editor.",
+      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
+    },
+    {
+      "owner": "Auto Correct",
+      "key": "correct commands",
+      "text": "Also fixes typos in command names you type, like /wardorbe to /wardrobe. The corrected command is what is sent.",
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+    },
+    {
+      "owner": "Auto Fairy Souls",
+      "key": "auto click souls",
+      "gone": "e0807f88 (killer560 2026-10-17): one switch; its parts (Auto Walk, Auto Click) show only while Auto Fairy Souls is on"
+    },
+    {
+      "owner": "Auto Fairy Souls",
+      "key": "auto fairy souls",
+      "text": "Cheat build: walks the island's soul route and clicks each Fairy Soul, with your camera free. Any key or click stops it. Needs nothing else on.",
+      "why": "hover rewritten: e0807f88 2026-10-18 Fairy Souls / Auto Fairy Souls rework: free camera, any key stops, a movement model that b"
+    },
+    {
+      "owner": "Auto Fairy Souls",
+      "key": "auto mode",
+      "gone": "e0807f88 (killer560 2026-10-17): Auto Mode shows only while Auto Fairy Souls is on"
+    },
+    {
+      "owner": "Auto Fairy Souls",
+      "key": "auto walk path",
+      "gone": "e0807f88 (killer560 2026-10-17): one switch; Auto Walk shows only while Auto Fairy Souls is on"
+    },
+    {
+      "owner": "Auto Fairy Souls",
+      "key": "sprint",
+      "gone": "e0807f88 (killer560 2026-10-17): Sprint shows only while Auto Fairy Souls is on"
+    },
+    {
+      "owner": "Auto GFS",
+      "key": "auto gfs",
+      "text": "Runs /gfs to refill dungeon items from your sacks when you run low, asking only for what tops the stack off (cheat build only).",
+      "why": "hover rewritten: 20bd1e50 2026-10-19 Batch: map hatching, room fill and yellow-room guess, Blood Camp aim and Aura offset rows,"
+    },
+    {
+      "owner": "Auto Sell",
+      "key": "auto sell",
+      "text": "Sells every stack on your sell list by itself while a sell screen is open; an item added there is sold without reopening it.",
+      "why": "hover rewritten: ca1c6cb5 2026-10-20 Auto Sell: click every stack, not one per identity; sell an item added while the sell scre"
+    },
+    {
+      "owner": "Auto Trap",
+      "key": "auto trap",
+      "text": "Cheat build: plays your New Trap and Old Trap routes through Auto Routes. Dungeon Autopilot uses trap rooms only with this on.",
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+    },
+    {
+      "owner": "Best Friends",
+      "key": "party time tracker",
+      "renamed": "track party time",
+      "text": "Counts the time you spend in a party with each player and the dungeon runs you clear together, for the /bestfriends list.",
+      "why": "5bb297b7 (2026-10-20): the switch is called Track Party Time"
+    },
+    {
+      "owner": "Blessings",
+      "key": "colors",
+      "renamed": "colours",
+      "text": "Text colour of each blessing's HUD line.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colours')"
+    },
+    {
+      "owner": "Blessings",
+      "key": "life color",
+      "renamed": "life colour",
+      "text": "Colour of the Life line on the Blessings HUD.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Life Colour')"
+    },
+    {
+      "owner": "Blessings",
+      "key": "power color",
+      "renamed": "power colour",
+      "text": "Colour of the Power line on the Blessings HUD.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Power Colour')"
+    },
+    {
+      "owner": "Blessings",
+      "key": "stone color",
+      "renamed": "stone colour",
+      "text": "Colour of the Stone line on the Blessings HUD.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Stone Colour')"
+    },
+    {
+      "owner": "Blessings",
+      "key": "time color",
+      "renamed": "time colour",
+      "text": "Colour of the Time line on the Blessings HUD.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Time Colour')"
+    },
+    {
+      "owner": "Blessings",
+      "key": "wisdom color",
+      "renamed": "wisdom colour",
+      "text": "Colour of the Wisdom line on the Blessings HUD.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Wisdom Colour')"
+    },
+    {
+      "owner": "Click Translate",
+      "key": "click translate enabled",
+      "text": "Left-click any chat message to translate it. The message is sent to Google Translate (or MyMemory) to be translated.",
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+    },
+    {
+      "owner": "Cosmetics",
+      "key": "custom names",
+      "to": "Player Cosmetics",
+      "text": "Opens the Name Changer: your own display name, its colours, and renames for other players.",
+      "why": "Cosmetics is the Player Cosmetics card (menu-a); 1c10b812 British text"
+    },
+    {
+      "owner": "Cosmetics",
+      "key": "held item",
+      "to": "Held Item Transform",
+      "renamed": "held item transform",
+      "text": "Resizes, moves and rotates your held item in first person.",
+      "why": "ba67f9bd (2026-10-19): Held Item moved to its own Held Item Transform card"
+    },
+    {
+      "owner": "Cosmetics",
+      "key": "reset cosmetics",
+      "to": "Player Cosmetics",
+      "text": "Clears your name, colours, bold, sizes, model shape and your chosen mob. The Play as Mob switch stays as it is.",
+      "why": "Cosmetics is the Player Cosmetics card (menu-a); its hover rewritten since"
+    },
+    {
+      "owner": "Cosmetics",
+      "key": "share if supporter",
+      "to": "Player Cosmetics",
+      "text": "Automatically shares your display name, your own player size and your Play as Mob choice with other players who have this mod.",
+      "why": "Cosmetics is the Player Cosmetics card (menu-a); its hover rewritten since"
+    },
+    {
+      "owner": "Custom Mage Beam",
+      "key": "custom mage beam",
+      "text": "In dungeons, redraws every Mage beam as one clean coloured line.",
+      "why": "1c10b812/d49e8398 British spelling in the hover text"
+    },
+    {
+      "owner": "Display Options",
+      "key": "pack disabler",
+      "to": "Pack Disabler",
+      "text": "Draws SkyBlock items with their pre-resource-pack look. Off by default.",
+      "why": "39f341e8 (2026-10-18): Pack Disabler is its own tab"
+    },
+    {
+      "owner": "Dungeon ESP",
+      "key": "color",
+      "renamed": "colour",
+      "text": "Colour of the boxes or glow for this row's target.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour')"
+    },
+    {
+      "owner": "Dungeon Map",
+      "key": "border color",
+      "renamed": "border colour",
+      "text": "Outline colour around the HUD map; set alpha to 0 for no border.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Border Colour')"
+    },
+    {
+      "owner": "Dungeon Map",
+      "key": "color rooms by type",
+      "renamed": "colour rooms by type",
+      "text": "Paints each room its real colour by type; off uses the Normal colour for every room.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour Rooms By Type')"
+    },
+    {
+      "owner": "Dungeon Map",
+      "key": "font scale",
+      "text": "Size of the room labels on both maps, 0.5x to 3x.",
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+    },
+    {
+      "owner": "Dungeon Map",
+      "key": "map background",
+      "text": "Colour behind the map; the alpha slider sets how see-through it is.",
+      "why": "1c10b812/d49e8398 British spelling in the hover text"
+    },
+    {
+      "owner": "Etherwarp Waypoints",
+      "key": "color",
+      "renamed": "colour",
+      "text": "Marker colour for etherwarp nodes.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour')"
+    },
+    {
+      "owner": "F7 Spots",
+      "key": "aim spot color",
+      "renamed": "aim spot colour",
+      "text": "Colour of the aim-spot crosshair markers.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Aim Spot Colour')"
+    },
+    {
+      "owner": "F7 Spots",
+      "key": "waypoint color",
+      "renamed": "waypoint colour",
+      "text": "Colour of walk-to waypoints that have no colour of their own.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Waypoint Colour')"
+    },
+    {
+      "owner": "Fairy Souls",
+      "key": "pathfinding",
+      "gone": "e0807f88 (killer560 2026-10-17): the Fairy Souls rework dropped the Pathfinding row"
+    },
+    {
+      "owner": "General",
+      "key": "auto join skyblock",
+      "to": "Auto Join Skyblock",
+      "text": "Runs /skyblock each time you join Hypixel, unless you send a command first.",
+      "why": "General is the Auto Join Skyblock card (menu-a); hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
+    },
+    {
+      "owner": "Health and Mana Bars",
+      "key": "armor",
+      "renamed": "armour",
+      "text": "Always hides the vanilla armour points bar, whether Stat Bars is on or not.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Armour')"
+    },
+    {
+      "owner": "Inventory Theme",
+      "key": "hide potion effects",
+      "gone": "4a7ffc31 (killer560 2026-10-18 list): Hide Potion Effects gone, always hidden with the theme"
+    },
+    {
+      "owner": "Item Rarity Backgrounds",
+      "key": "item rarity backgrounds",
+      "text": "Draws a rarity-coloured square, circle or outline behind Skyblock items.",
+      "why": "1c10b812/d49e8398 British spelling in the hover text"
+    },
+    {
+      "owner": "Leap Counter",
+      "key": "alert text (& color codes)",
+      "renamed": "alert text (& colour codes)",
+      "text": "The title text; & colour codes work.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Alert Text (& colour codes)')"
+    },
+    {
+      "owner": "Map, Leap & Party",
+      "key": "teammate highlight",
+      "to": "Teammate Highlight",
+      "text": "Draws a box around each party member, coloured by their dungeon class.",
+      "why": "Teammate Highlight is its own card (menu-layout); 1c10b812 British text"
+    },
+    {
+      "owner": "Mod & HUD",
+      "key": "auto scale (monitor)",
+      "text": "Keeps this mod's HUD elements and menus the same size relative to your window on any monitor and GUI Scale (on by default).",
+      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
+    },
+    {
+      "owner": "Mod & HUD",
+      "key": "correction alarm",
+      "to": "Correction Alarm",
+      "text": "Plays a siren when the server corrects your position during an automation. Nothing is stopped; the mod carries on from the corrected position.",
+      "why": "Correction Alarm is its own Home tab; its hover rewritten since"
+    },
+    {
+      "owner": "Mod & HUD",
+      "key": "hud scale",
+      "text": "Scales everything this mod draws at once, 5% to 300%: HUD elements, this menu and the mod's other screens.",
+      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
+    },
+    {
+      "owner": "Nickhider",
+      "key": "randomize others",
+      "renamed": "randomise others",
+      "text": "Gives every other player a fake name for this session; works without the Name Changer toggle.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Randomise Others')"
+    },
+    {
+      "owner": "P3 Nav",
+      "key": "color",
+      "renamed": "colour",
+      "text": "Colour of the boxes on this row.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour')"
+    },
+    {
+      "owner": "Puzzle Solvers",
+      "key": "teleport maze solver",
+      "to": "Teleport Maze Solver",
+      "text": "Colours the Teleport Maze pads to show which are used and which are likely exits.",
+      "why": "each solver is its own card; 1c10b812 British text"
+    },
+    {
+      "owner": "Secret Waypoints",
+      "key": "secret waypoints",
+      "text": "Draws a coloured box on every secret in rooms the mod has recognized.",
+      "why": "1c10b812/d49e8398 British spelling in the hover text"
+    },
+    {
+      "owner": "Secrets",
+      "key": "secret waypoints",
+      "to": "Secret Waypoints",
+      "text": "Draws a coloured box on every secret in rooms the mod has recognized.",
+      "why": "Secret Waypoints is its own card under Secrets; 1c10b812 British text"
+    },
+    {
+      "owner": "Sharp Shooter (i4)",
+      "key": "aim marker color",
+      "renamed": "aim marker colour",
+      "text": "Colour of the i4 Solver's aim dots.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Aim Marker Colour')"
+    },
+    {
+      "owner": "Sim Settings",
+      "key": "echoes of the lost",
+      "text": "Dungeon Sim only: charges each secret gives back to the Dungeon Breaker (0 is off; default is the maxed perk, 5).",
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+    },
+    {
+      "owner": "Slot Binds",
+      "key": "slot binds",
+      "text": "Links two inventory slots so shift-clicking one swaps them. Hold the bind key over a slot and release it over a hotbar slot to swap the two. If Protect Item uses the same key, a quick tap protects the item and a drag is only a swap.",
+      "why": "hover rewritten: b9afe573 2026-10-18 Slot Binds: hold the bind key and release over a hotbar slot to swap"
+    },
+    {
+      "owner": "Solver Highlights",
+      "key": "through walls",
+      "gone": "4a7ffc31 (killer560 2026-10-18): the shared Solver Highlights tab became per-solver highlight rows"
+    },
+    {
+      "owner": "Solver Highlights",
+      "key": "waypoint style",
+      "gone": "4a7ffc31 (killer560 2026-10-18): the shared Solver Highlights tab became per-solver highlight rows"
+    },
+    {
+      "owner": "Spotify Mod",
+      "key": "mod enabled",
+      "to": "Spotify Lyrics",
+      "renamed": "send lyrics to chat",
+      "text": "Posts the song you are playing on Spotify, or its lyrics, to the chat you pick.",
+      "why": "39a02560 (2026-10-20): Spotify Lyrics, \"Mod Enabled\" is now Send Lyrics To Chat"
+    },
+    {
+      "owner": "Storage Overlay",
+      "key": "overlay theme",
+      "text": "Amber (the original dark look), Dark (neutral greys) or Light, for the grid and the relocated inventory.",
+      "why": "1c10b812/d49e8398 British spelling in the hover text"
+    },
+    {
+      "owner": "Teammate Highlight",
+      "key": "teammate highlight",
+      "text": "Draws a box around each party member, coloured by their dungeon class.",
+      "why": "1c10b812/d49e8398 British spelling in the hover text"
+    },
+    {
+      "owner": "Teleport Maze Solver",
+      "key": "teleport maze solver",
+      "text": "Colours the Teleport Maze pads to show which are used and which are likely exits.",
+      "why": "1c10b812/d49e8398 British spelling in the hover text"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "custom gui",
+      "text": "Replaces the terminal window with a bigger centred panel showing only the slots you need.",
+      "why": "1c10b812/d49e8398 British spelling in the hover text"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "label text color",
+      "renamed": "label text colour",
+      "text": "Colour of the small label drawn on highlighted slots.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Label Text Colour')"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "melody button color",
+      "renamed": "melody button colour",
+      "text": "Colour of the real buttons you click in Melody's Custom GUI.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Melody Button Colour')"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "melody endpoint color",
+      "renamed": "melody endpoint colour",
+      "text": "Colour of Melody's two fixed track endpoint panes in Custom GUI.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Melody Endpoint Colour')"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "melody moving piece color",
+      "renamed": "melody moving piece colour",
+      "text": "Colour of Melody's moving marker pane in Custom GUI.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Melody Moving Piece Colour')"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "melody track color",
+      "renamed": "melody track colour",
+      "text": "Colour of Melody's static track background in Custom GUI.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Melody Track Colour')"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "numbers 3rd color",
+      "renamed": "numbers 3rd colour",
+      "text": "Colour of the 3rd upcoming click in the Numbers terminal.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Numbers 3Rd Colour')"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "numbers after next color",
+      "renamed": "numbers after next colour",
+      "text": "Colour of the slot after the next one in the Numbers terminal.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Numbers After Next Colour')"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "numbers next color",
+      "renamed": "numbers next colour",
+      "text": "Colour of the slot you need to click next in the Numbers terminal.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Numbers Next Colour')"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "overlay colors",
+      "renamed": "overlay colours",
+      "text": "Colours the terminal solver uses for its highlights.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Overlay Colours')"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "panel background color",
+      "renamed": "panel background colour",
+      "text": "Background colour of the Custom GUI panel, always fully opaque.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Panel Background Colour')"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "panel border color",
+      "renamed": "panel border colour",
+      "text": "Outline around the Custom GUI panel.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Panel Border Colour')"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "panes color",
+      "renamed": "panes colour",
+      "text": "Highlight colour for the Correct all the panes terminal.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Panes Colour')"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "reset colors",
+      "renamed": "reset colours",
+      "text": "Puts every terminal overlay colour back to the default orange.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Reset Colours')"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "rubix",
+      "text": "Shows which panes to click, and how many times, in the same-colour terminal.",
+      "why": "1c10b812/d49e8398 British spelling in the hover text"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "rubix count text color",
+      "renamed": "rubix count text colour",
+      "text": "Colour of the click-count number in each Rubix cell.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Rubix Count Text Colour')"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "rubix left click color",
+      "renamed": "rubix left click colour",
+      "text": "Colour of Rubix panes you should left click.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Rubix Left Click Colour')"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "rubix right click color",
+      "renamed": "rubix right click colour",
+      "text": "Colour of Rubix panes you should right click.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Rubix Right Click Colour')"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "select",
+      "text": "Highlights every item of the requested colour in the Select All terminal.",
+      "why": "1c10b812/d49e8398 British spelling in the hover text"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "select all color",
+      "renamed": "select all colour",
+      "text": "Highlight colour for matching items in the Select all the [colour] items terminal.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Select All Colour')"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "starts with color",
+      "renamed": "starts with colour",
+      "text": "Highlight colour for matching items in the What starts with terminal.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Starts With Colour')"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "terminal drop key",
+      "text": "Stops your drop key from throwing your weapon while a terminal is open. Bind it below.",
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+    },
+    {
+      "owner": "Terminal Solver",
+      "key": "terminals to solve",
+      "gone": "3d1859a8 (2026-10-18): the Terminals to solve label was removed"
+    },
+    {
+      "owner": "Thorn (F4)",
+      "key": "spirit bear color",
+      "renamed": "spirit bear colour",
+      "text": "Opens a colour picker for the Spirit Bear highlight.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Spirit Bear Colour')"
+    },
+    {
+      "owner": "Thorn (F4)",
+      "key": "spirit bow color",
+      "renamed": "spirit bow colour",
+      "text": "Opens a colour picker for the Spirit Bow highlight.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Spirit Bow Colour')"
+    },
+    {
+      "owner": "Thorn (F4)",
+      "key": "spirit mob color",
+      "renamed": "spirit mob colour",
+      "text": "Opens a colour picker for the spirit mob highlight.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Spirit Mob Colour')"
+    },
+    {
+      "owner": "Thorn (F4)",
+      "key": "stun spot color",
+      "renamed": "stun spot colour",
+      "text": "Opens a colour picker for stun-spot waypoints.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Stun Spot Colour')"
+    },
+    {
+      "owner": "Thorn (F4)",
+      "key": "thorn color",
+      "renamed": "thorn colour",
+      "text": "Opens a colour picker for the Thorn highlight.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Thorn Colour')"
+    },
+    {
+      "owner": "Thorn (F4)",
+      "key": "thorn highlights",
+      "text": "Coloured boxes or a glow on Thorn-fight targets during the F4/M4 boss.",
+      "why": "1c10b812/d49e8398 British spelling in the hover text"
+    },
+    {
+      "owner": "Timers, Score & Boss",
+      "key": "custom mage beam",
+      "to": "Custom Mage Beam",
+      "text": "In dungeons, redraws every Mage beam as one clean coloured line.",
+      "why": "Custom Mage Beam is its own card; 1c10b812 British text"
+    },
+    {
+      "owner": "Translate",
+      "key": "chat translate enabled",
+      "text": "Run /translate to change the language, or pick it below; all your messages are then sent in that language. Your messages are sent to Google Translate (or MyMemory) to be translated.",
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+    },
+    {
+      "owner": "Maxor's Crystals",
+      "key": "highlight color",
+      "renamed": "highlight colour",
+      "text": "Colour of the crystal boxes.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Highlight Colour')"
+    },
+    {
+      "owner": "Maxor's Crystals",
+      "key": "reset best place time",
+      "text": "Shows your fastest crystal placement. Click once and the box turns red; after 2 seconds, click again to wipe it.",
+      "why": "hover rewritten: af2665f0 2026-10-18 Maxor reset: a box of its own at the bottom, red on the first click"
+    },
+    {
+      "owner": "Starred Mob Hitboxes",
+      "key": "color",
+      "renamed": "colour",
+      "text": "Colour of the boxes or glow for this row's target.",
+      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour'); legit jar's name for Dungeon ESP"
     }
   ]
 }

@@ -481,6 +481,12 @@ final class MenuLayoutCases {
             List<ModScreenDriver.Node> tree = c.onClient(mc -> d.tree());
             Map<String, Map<String, String>> now = collect(c, d, tree, deny);
             close(c, d);
+            // What every row shows now (owner sub-tab -> label key -> tooltip), so an intended change can be written into
+            // menu-layout-merged.json from what the menu really says rather than from a truncated failure line.
+            Path nowFile = Report.dir().resolve("menu-tooltips-now-" + variant + ".json");
+            Files.createDirectories(nowFile.getParent());
+            Files.writeString(nowFile, new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create()
+                    .toJson(new java.util.TreeMap<>(now)), StandardCharsets.UTF_8);
             // No scoped key names a tab that the change took away (it would never be found again).
             Set<String> namesNow = new HashSet<>();
             List<ModScreenDriver.Node> flat = new ArrayList<>();
@@ -552,14 +558,19 @@ final class MenuLayoutCases {
                             continue;
                         }
                         String to = change.has("to") ? change.get("to").getAsString() : owner;
+                        // "renamed": the row's label (its tooltip key) changed, e.g. the British-spelling sweep's
+                        // "center dot" -> "centre dot"; the new key must carry the text.
+                        String newKey = change.has("renamed") ? change.get("renamed").getAsString() : key;
                         String want = change.get("text").getAsString();
                         Map<String, String> there = now.get(to);
-                        String gotThere = there == null ? null : there.get(key);
+                        String gotThere = there == null ? null : there.get(newKey);
                         if (want.equals(gotThere)) {
                             c.note("row '" + owner + "/" + key + "' changed on purpose" + (to.equals(owner) ? "" : " (now in '"
-                                    + to + "')") + ": " + change.get("why").getAsString());
+                                    + to + "')") + (newKey.equals(key) ? "" : " (now '" + newKey + "')") + ": "
+                                    + change.get("why").getAsString());
                         } else {
-                            c.problem("tooltip for '" + owner + "' row '" + key + "' should now be (in '" + to + "') \""
+                            c.problem("tooltip for '" + owner + "' row '" + key + "'"
+                                    + (newKey.equals(key) ? "" : " (now '" + newKey + "')") + " should now be (in '" + to + "') \""
                                     + want + "\" (" + change.get("why").getAsString() + "), shows "
                                     + (gotThere == null ? "none (row not built there)" : "\"" + gotThere + "\""));
                         }
