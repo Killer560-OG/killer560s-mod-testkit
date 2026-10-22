@@ -34,6 +34,7 @@
     {"root": "reset", "why": "sim only: .requires the sim (roomsim/SimResetCommand.java), so outside it the line goes to the server; 1771-1775 drive it"},
     {"root": "reload", "why": "sim only: .requires the sim (roomsim/SimResetCommand.java), so outside it the line goes to the server; 1771-1775 drive it"},
     {"root": "simscore", "why": "sim only (roomsim/SimScoreCommand.java:23)"},
+    {"root": "simlive", "why": "sim only: the sim live-mob control (roomsim/SimLiveMobs.java, .requires the sim like simscore)"},
     {"root": "start", "why": "sim only: starts a sim run (roomsim/SimRun.java:58)"},
     {"root": "simitem", "why": "sim only: gives sim items (roomsim/SimItems)"},
     {"root": "item", "why": "sim only: alias of simitem (roomsim/SimItems)"},
