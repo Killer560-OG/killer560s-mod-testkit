@@ -90,6 +90,13 @@ final class Solver1018Cases {
         return () -> Mod.staticCall("util.SkyblockGate", "setEnabled", was);
     }
 
+    /** The first widget on {@code screen} whose text starts with {@code prefix}, or null. */
+    private static AbstractWidget button(Screen screen, String prefix) {
+        return screen.children().stream()
+                .filter(w -> w instanceof AbstractWidget aw && aw.getMessage().getString().startsWith(prefix))
+                .map(w -> (AbstractWidget) w).findFirst().orElse(null);
+    }
+
     private static boolean anyStarts(List<String> texts, String prefix) {
         return texts.stream().anyMatch(t -> t.startsWith(prefix));
     }
@@ -788,18 +795,40 @@ final class Solver1018Cases {
             });
             c.ctx().waitTicks(4);
             c.onClient(mc -> {
+                // What a click on its grid cell does: select, then rebuild the buttons (they are enabled at build time).
                 Mod.call(screen, "select", stack);
+                Mod.call(screen, "refresh");
                 return null;
             });
             c.ctx().waitTicks(4);
             Object key = c.onClient(mc -> Mod.field(screen, "selectedKey"));
             c.check(key != null, "premise: the item could not be selected (no key)");
-            // The real colour button, pressed.
-            AbstractWidget colour = c.onClient(mc -> screen.children().stream()
-                    .filter(w -> w instanceof AbstractWidget aw && aw.getMessage().getString().startsWith("Color"))
-                    .map(w -> (AbstractWidget) w).findFirst().orElse(null));
-            c.check(colour != null, "premise: no Color button on the Custom Items screen");
-            c.check(colour != null && colour.active, "premise: the Color button is not active for the selected item");
+            // Since the 2026-10-18 redesign (mod 998c9f96) the colour lives on the Custom Colour page: the main page's
+            // "Custom Colour" button opens it, and its "Colour" button opens the picker. Both real buttons, pressed.
+            AbstractWidget page = c.onClient(mc -> button(screen, "Custom Colour"));
+            c.check(page != null, "premise: no Custom Colour button on the Custom Items screen");
+            c.check(page != null && page.active, "premise: the Custom Colour button is not active for the selected item");
+            if (page == null || !page.active) {
+                return;
+            }
+            c.onClient(mc -> {
+                page.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(page.getX() + 3, page.getY() + 3,
+                        new net.minecraft.client.input.MouseButtonInfo(0, 0)), false);
+                return null;
+            });
+            c.ctx().waitTicks(4);
+            Screen colourPage = c.onClient(mc -> McCompat.screen(mc));
+            c.check(colourPage != null && colourPage.getClass().getSimpleName().equals("CustomColorScreen"),
+                    "premise: Custom Colour did not open its page: " + (colourPage == null ? null : colourPage.getClass().getName()));
+            if (colourPage == null || !colourPage.getClass().getSimpleName().equals("CustomColorScreen")) {
+                return;
+            }
+            AbstractWidget colour = c.onClient(mc -> button(colourPage, "Colour:"));
+            c.check(colour != null, "premise: no Colour button on the Custom Colour page");
+            c.check(colour != null && colour.active, "premise: the Colour button is not active for the selected item");
+            if (colour == null) {
+                return;
+            }
             c.onClient(mc -> {
                 colour.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(colour.getX() + 3, colour.getY() + 3,
                         new net.minecraft.client.input.MouseButtonInfo(0, 0)), false);
@@ -831,15 +860,15 @@ final class Solver1018Cases {
                 c.check(saved == colours[0], String.format("the item's colour is #%08X, the picker's is #%08X", saved, colours[0]));
                 c.check((Boolean) Mod.field(entryAfter, "colorEnabled"), "choosing a colour did not turn Use Color on");
             }
-            // Back to Custom Items, rendered with the dyed item on screen.
+            // Back to the Custom Colour page it was opened from, rendered with the dyed item on screen.
             c.onClient(mc -> {
                 picker.onClose();
                 return null;
             });
             c.ctx().waitTicks(6);
             Screen now = c.onClient(mc -> McCompat.screen(mc));
-            c.check(now == screen || (now != null && now.getClass().getSimpleName().equals("CustomItemsScreen")),
-                    "closing the picker did not return to Custom Items: " + (now == null ? null : now.getClass().getName()));
+            c.check(now == colourPage, "closing the picker did not return to the Custom Colour page: "
+                    + (now == null ? null : now.getClass().getName()));
             // The dye hook ran for the stack and gave the chosen opaque colour.
             int tint = c.onClient(mc -> (Integer) Mod.staticCall("armourdye.ArmourDye", "dyeColor", stack, 0xFFA06540));
             c.check(tint == (0xFF000000 | (colours[0] & 0xFFFFFF)), String.format("the dye hook gave #%08X for #%08X", tint, colours[0]));
@@ -882,7 +911,8 @@ final class Solver1018Cases {
             }
             c.onClient(mc -> {
                 McCompat.setScreen(mc, screen);
-                Mod.call(screen, "setLook", "diamond_sword");
+                // A Look is another item's model since the redesign (998c9f96): the Custom Item page's copyLookFrom.
+                Mod.call(screen, "copyLookFrom", new ItemStack(Items.DIAMOND_SWORD));
                 return null;
             });
             for (int i = 0; i < 10; i++) {
