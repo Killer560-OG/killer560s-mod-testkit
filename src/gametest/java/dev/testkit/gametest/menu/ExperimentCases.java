@@ -29,6 +29,7 @@ final class ExperimentCases {
         MenuSuite.test(s, "220-menu-exp-solver-chronomatron", c -> solver(c, "CHRONOMATRON"));
         MenuSuite.test(s, "221-menu-exp-solver-ultrasequencer", c -> solver(c, "ULTRASEQUENCER"));
         MenuSuite.test(s, "222-menu-exp-solver-superpairs", ExperimentCases::superpairsSolver);
+        MenuSuite.test(s, "2778-menu-exp-superpairs-highlight-switch", ExperimentCases::superpairsHighlightSwitch);
         MenuSuite.test(s, "223-menu-exp-auto-chronomatron", c -> auto(c, "CHRONOMATRON"));
         MenuSuite.test(s, "224-menu-exp-auto-ultrasequencer", c -> auto(c, "ULTRASEQUENCER"));
         MenuSuite.test(s, "225-menu-exp-auto-superpairs", c -> auto(c, "SUPERPAIRS"));
@@ -703,6 +704,56 @@ final class ExperimentCases {
         } finally {
             MenuKit.reset(c);
         }
+    }
+
+    /**
+     * 2778-menu-exp-superpairs-highlight-switch (mod sweep-fix-1021, item 5; killer560, 2026-10-21): the Superpairs
+     * highlights follow Auto E-Table's Auto-Solve Superpairs switch. On a live board, with the solver on and the bot
+     * not running: switch on, the highlight path draws frames; switch off, it draws none and the skip path counts them
+     * instead. A legit jar has no switch, so there the highlights draw either way.
+     */
+    static void superpairsHighlightSwitch(Session c) throws Exception {
+        MenuKit.reset(c);
+        boolean cheat = c.onClient(mc -> (Boolean) Mod.field("BuildVariant", "CHEAT_FEATURES_ENABLED"));
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutonomousMode", false).set(CONFIG, "SuperpairsEnabled", true);
+            JsonObject st = c.hx().call("menu.experiment", "game", "SUPERPAIRS", "seed", 29, "pairs", 3, "clicks", 20)
+                    .getAsJsonObject();
+            MenuKit.awaitScreen(c, st.get("title").getAsString(), 100);
+            c.ctx().waitTicks(5);
+            MenuKit.click(c, 9, 0, ContainerInput.PICKUP);
+            c.ctx().waitTicks(10);
+
+            long drawn0 = frames(c, "superpairsHighlightFrames");
+            long hidden0 = frames(c, "superpairsHighlightsHiddenFrames");
+            c.ctx().waitTicks(20);
+            long drawnOn = frames(c, "superpairsHighlightFrames") - drawn0;
+            long hiddenOn = frames(c, "superpairsHighlightsHiddenFrames") - hidden0;
+            c.check(drawnOn > 0, "control: switch on, the Superpairs highlights drew no frame in 20 ticks");
+            c.check(hiddenOn == 0, "switch on, yet " + hiddenOn + " frame(s) skipped the highlights");
+
+            c.onClient(mc -> Mod.call(Mod.cfg(CONFIG), "setSuperpairsEnabled", false));
+            c.ctx().waitTicks(2);
+            long drawn1 = frames(c, "superpairsHighlightFrames");
+            long hidden1 = frames(c, "superpairsHighlightsHiddenFrames");
+            c.ctx().waitTicks(20);
+            long drawnOff = frames(c, "superpairsHighlightFrames") - drawn1;
+            long hiddenOff = frames(c, "superpairsHighlightsHiddenFrames") - hidden1;
+            if (cheat) {
+                c.check(drawnOff == 0, "switch off, yet the Superpairs highlights drew " + drawnOff + " frame(s)");
+                c.check(hiddenOff > 0, "switch off, the skip path never ran (the board was not being drawn?)");
+            } else {
+                c.check(drawnOff > 0, "legit jar (no switch): the highlights must still draw, drew " + drawnOff);
+            }
+            c.note((cheat ? "cheat" : "legit") + " jar: switch on drew " + drawnOn + " highlight frame(s); switch off drew "
+                    + drawnOff + ", skipped " + hiddenOff);
+        } finally {
+            MenuKit.reset(c);
+        }
+    }
+
+    private static long frames(Session c, String field) {
+        return c.onClient(mc -> ((Number) Mod.field(FEATURE, field)).longValue());
     }
 
     static AutoCloseable autoConfig(Session c, MenuKit.Cfg cfg) {
