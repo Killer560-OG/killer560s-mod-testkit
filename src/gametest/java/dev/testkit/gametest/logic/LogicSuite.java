@@ -32,6 +32,8 @@ import net.minecraft.world.level.block.Blocks;
  * 776..785-logic-autoupdate-*  Auto Update against a fake GitHub (asset choice, checksum, same hash, gates, installer):
  *                              AutoUpdateCases; they run on the TEST thread (the installer cases wait seconds)
  * 991..993-logic-reboot-*     /reboot's launcher detection and its relauncher process (RebootCases), TEST thread
+ * 2776-logic-mana-world-reset the etherwarp mana hold (Stat Bars' action-bar reading) clears on every world change
+ *                              (ManaResetCases), TEST thread: it opens and closes a singleplayer world
  * </pre>
  *
  * The catalog comes from {@code python tools/extract-patterns.py -PmodSource=<mod checkout>}; the mod source is read
@@ -71,6 +73,9 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.runOffClient(ctx, "992-logic-reboot-helper", RebootCases::helper);
         LogicCase.runOffClient(ctx, "993-logic-reboot-helper-timeout", RebootCases::timeout);
         // ---- end /reboot
+        // ---- mana hold reset on world change (mod sweep-fix-1021) - opens and closes its own world, TEST thread
+        ManaResetCases.ctx = ctx;
+        LogicCase.runOffClient(ctx, "2776-logic-mana-world-reset", ManaResetCases::worldReset);
         // ItemStacks need item components, which are bound only once a world's registries load ("Components not
         // bound yet" at the title screen). The two cases that build stacks run in a throwaway singleplayer world.
         if (!Scenario.skip("354-logic-terminals") || !Scenario.skip("357-logic-items-ap3-routes")
