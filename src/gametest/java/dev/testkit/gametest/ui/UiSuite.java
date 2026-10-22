@@ -166,7 +166,7 @@ public class UiSuite implements FabricClientGameTest {
             "803-ui-autokick-joininstance-ignored", "804-ui-autokick-forged-queue", "805-ui-autokick-floor-source"};
     /** killer560's 2026-10-18 to-do item 1, the Custom Party Finder ({@link PartyFinder1018Cases}). Own block for merges. */
     static final String[] PARTY_FINDER_1018_CASES = {"1018-pf-leader-accept", "1018-pf-joiner-accept", "1018-pf-dual-list",
-            "1018-pf-requirements", "1018-pf-settings", "1018-pf-nokuudra"};
+            "1018-pf-requirements", "1018-pf-settings", "1018-pf-nokuudra", "1022-pf-dropdown", "1022-pf-no-label"};
     /** killer560's 2026-10-11 "left click forward, right click backward" for every cycling setting ({@link CycleButtonCases}). Own block. */
     static final String[] CYCLE_BACK_CASES = {"806-ui-cycle-buttons-both-ways"};
     /** killer560's 2026-10-14 to-do batch: defaults on, removed toggles gone ({@link DocSmall1014Cases}). Own block. */
@@ -676,6 +676,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1018-pf-requirements", PartyFinder1018Cases::requirements);
                     UiCase.run(ctx, "1018-pf-settings", PartyFinder1018Cases::settings);
                     UiCase.run(ctx, "1018-pf-nokuudra", PartyFinder1018Cases::noKuudra);
+                    UiCase.run(ctx, "1022-pf-dropdown", PartyFinder1018Cases::dropdown);
+                    UiCase.run(ctx, "1022-pf-no-label", PartyFinder1018Cases::noLabel);
                     // ---- cycle-back (806) ----
                     UiCase.run(ctx, "806-ui-cycle-buttons-both-ways", c -> CycleButtonCases.cycleButtons(c, deny));
                     // ---- doc-small (807) ----

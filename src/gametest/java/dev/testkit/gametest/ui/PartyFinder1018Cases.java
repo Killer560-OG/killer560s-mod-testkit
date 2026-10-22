@@ -565,6 +565,218 @@ final class PartyFinder1018Cases {
         }
     }
 
+    // ---- 1022-pf-dropdown / 1022-pf-no-label (mod pf-dropdown-1022) -------------------------------------------------
+
+    private static final String DD = "gui.DropdownWidget";
+
+    /** The Dungeons tab, entered by a real click on its start-screen button. */
+    private static Screen openDungeons(UiCase c) {
+        Screen s = openScreen(c);
+        List<AbstractWidget> dungeons = widgets(c, s, "Dungeons");
+        c.check(dungeons.size() == 1, "the start screen should have one Dungeons button, has " + dungeons.size());
+        if (!dungeons.isEmpty()) {
+            InvBatchCases.clickWidget(c, s, dungeons.get(0));
+        }
+        c.ticks(2);
+        return c.onClient(McCompat::screen);
+    }
+
+    private static boolean isOpen(UiCase c, AbstractWidget d) {
+        return c.onClient(mc -> (Boolean) Mod.call(d, "isOpen"));
+    }
+
+    /**
+     * 1022-pf-dropdown: every choice on the Dungeons tab is a drop-down (no cycling button left); a real click opens the
+     * "Show" list under its button, a real click on "only parties that meet my requirements" sets Meets Only, saves it and
+     * closes the list; a click outside and Escape each close an open list with nothing changed and the menu still open;
+     * no click on the list reached the Join buttons under it.
+     */
+    static void dropdown(UiCase c) throws Exception {
+        Path file = c.onClient(mc -> (Path) Mod.field(CFG, "CONFIG_PATH"));
+        byte[] saved = java.nio.file.Files.exists(file) ? java.nio.file.Files.readAllBytes(file) : null;
+        try {
+            reset(c);
+            c.onClient(mc -> {
+                Object cfg = Mod.cfg(CFG);
+                Mod.call(cfg, "setMeetsOnly", false);
+                Mod.call(cfg, "setHideFull", false);
+                Mod.call(cfg, "setSort", Mod.enumValue("lfg.LfgFilter$Sort", "NEWEST"));
+                Mod.call(cfg, "setActivityFilter", Mod.enumValue(CAT, "DUNGEONS"), "");
+                Mod.call(cfg, "save");
+                String a = listingJson("abab00000001", "Alice_L", "F7", "{}", 2, 5, "mod");
+                String b = listingJson("abab00000002", "Carl_Z", "M3", "{}", 3, 5, "mod");
+                Mod.staticCall(F, "onListingsForTest", "dungeons", "{\"listings\":[" + a + "," + b + "]}");
+                return null;
+            });
+            Screen s = openDungeons(c);
+            Class<?> dd = c.onClient(mc -> Mod.cls(DD));
+            List<String> kinds = c.onClient(mc -> {
+                List<String> out = new ArrayList<>();
+                for (GuiEventListener l : s.children()) {
+                    if (l instanceof AbstractWidget w) {
+                        boolean cyc = false;
+                        try {
+                            cyc = Boolean.TRUE.equals(Mod.call(w, "isCycling"));
+                        } catch (Throwable ignored) {
+                            // not a SettingsButtonWidget
+                        }
+                        if (dd.isInstance(w) || cyc) {
+                            out.add((dd.isInstance(w) ? "dropdown " : "CYCLING ") + ModScreenDriver.label(w));
+                        }
+                    }
+                }
+                return out;
+            });
+            c.note("choice controls on the Dungeons tab: " + kinds);
+            c.check(kinds.stream().noneMatch(k -> k.startsWith("CYCLING")), "a cycling button is left on the tab: " + kinds);
+            c.check(kinds.equals(List.of("dropdown Floor: any", "dropdown All parties", "dropdown Full: shown", "dropdown Sort: Newest")),
+                    "the tab's drop-downs are not Floor, Show, Full and Sort: " + kinds);
+
+            List<AbstractWidget> show = widgets(c, s, "All parties");
+            c.check(show.size() == 1 && dd.isInstance(show.get(0)), "no 'All parties' drop-down");
+            if (show.size() != 1) {
+                return;
+            }
+            AbstractWidget meets = show.get(0);
+            List<String> callsBefore = calls(c);
+
+            // Open, then pick the second choice by a real click on it.
+            InvBatchCases.clickWidget(c, s, meets);
+            boolean opened = isOpen(c, meets);
+            int[] list = c.onClient(mc -> (int[]) Mod.call(meets, "listBounds"));
+            @SuppressWarnings("unchecked")
+            List<String> labels = c.onClient(mc -> (List<String>) Mod.call(meets, "optionLabels"));
+            int[] opt = c.onClient(mc -> (int[]) Mod.call(meets, "optionBounds", 1));
+            c.note("after one click: open " + opened + ", list " + java.util.Arrays.toString(list) + ", choices " + labels
+                    + ", button at y " + meets.getY() + "+" + meets.getHeight());
+            c.check(opened, "a click on the drop-down did not open its list");
+            c.check(labels.equals(List.of("Show: all parties", "Show: only parties that meet my requirements")),
+                    "the Show choices are not written as a selection: " + labels);
+            c.check(list != null && list[1] == meets.getY() + meets.getHeight(), "the list does not open right under its button");
+            c.check(opt != null, "the second choice is not in view");
+            if (opt == null) {
+                return;
+            }
+            InvBatchCases.click(c, s, opt[0] + opt[2] / 2.0, opt[1] + opt[3] / 2.0);
+            Object[] after = c.onClient(mc -> new Object[]{Mod.call(Mod.cfg(CFG), "isMeetsOnly"), Mod.call(meets, "isOpen"),
+                    ModScreenDriver.label(meets), McCompat.screen(mc) == s});
+            c.note("after the click on 'only parties that meet my requirements': meetsOnly " + after[0] + ", open " + after[1]
+                    + ", button '" + after[2] + "', same screen " + after[3]);
+            c.check(Boolean.TRUE.equals(after[0]), "picking 'only parties that meet my requirements' did not set Meets Only");
+            c.check(Boolean.FALSE.equals(after[1]), "the list stayed open after a choice");
+            c.check("Reqs I meet".equals(after[2]), "the button does not show the new choice: " + after[2]);
+            c.check(Boolean.TRUE.equals(after[3]), "the menu was rebuilt or closed by the choice");
+
+            // A click outside closes without a change.
+            InvBatchCases.clickWidget(c, s, meets);
+            boolean reopened = isOpen(c, meets);
+            int[] panel = c.onClient(mc -> (int[]) Mod.call(s, "themedPanelBounds"));
+            InvBatchCases.click(c, s, panel[0] + panel[2] / 2.0, panel[1] + 8); // the header, no widget there
+            Object[] outside = c.onClient(mc -> new Object[]{Mod.call(Mod.cfg(CFG), "isMeetsOnly"), Mod.call(meets, "isOpen")});
+            c.note("re-opened " + reopened + "; after a click on the header: meetsOnly " + outside[0] + ", open " + outside[1]);
+            c.check(reopened, "a second click did not open the list again");
+            c.check(Boolean.TRUE.equals(outside[0]) && Boolean.FALSE.equals(outside[1]), "a click outside changed the choice or left the list open");
+
+            // Escape closes the list, not the menu.
+            InvBatchCases.clickWidget(c, s, meets);
+            boolean third = isOpen(c, meets);
+            c.ctx().getInput().pressKey(256);
+            c.ticks(2);
+            Object[] esc = c.onClient(mc -> new Object[]{Mod.call(Mod.cfg(CFG), "isMeetsOnly"), Mod.call(meets, "isOpen"),
+                    McCompat.screen(mc) == s});
+            c.note("opened " + third + "; after Escape: meetsOnly " + esc[0] + ", open " + esc[1] + ", menu still up " + esc[2]);
+            c.check(third && Boolean.FALSE.equals(esc[1]), "Escape did not close the list");
+            c.check(Boolean.TRUE.equals(esc[0]), "Escape changed the choice");
+            c.check(Boolean.TRUE.equals(esc[2]), "Escape closed the whole menu instead of the list");
+
+            // Screenshots of the two longest lists open over the listing rows (the list must cover the Join buttons).
+            for (String which : new String[]{"Floor: any", "Sort: Newest"}) {
+                List<AbstractWidget> dw = widgets(c, s, which);
+                if (dw.size() == 1) {
+                    InvBatchCases.clickWidget(c, s, dw.get(0));
+                    int[] lb = c.onClient(mc -> (int[]) Mod.call(dw.get(0), "listBounds"));
+                    c.ticks(2);
+                    Path shot = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(c.name() + "-" + which.substring(0, 4).toLowerCase(Locale.ROOT)));
+                    c.note("'" + which + "' open, list " + java.util.Arrays.toString(lb) + ", screenshot " + shot);
+                    c.ctx().getInput().pressKey(256);
+                    c.ticks(2);
+                    c.check(!isOpen(c, dw.get(0)), "Escape left '" + which + "' open");
+                }
+            }
+
+            // The choice was saved: a fresh load from the file reads it.
+            boolean onDisk = c.onClient(mc -> {
+                Mod.staticCall(CFG, "load");
+                return (Boolean) Mod.call(Mod.cfg(CFG), "isMeetsOnly");
+            });
+            c.check(onDisk, "Meets Only was not saved to the config file");
+            List<String> callsAfter = calls(c);
+            c.check(callsAfter.stream().skip(callsBefore.size()).noneMatch(x -> x.startsWith("POST /lfg/join")),
+                    "a click on the list reached a Join button: " + callsAfter);
+        } finally {
+            if (saved == null) {
+                java.nio.file.Files.deleteIfExists(file);
+            } else {
+                java.nio.file.Files.write(file, saved);
+            }
+            c.onClient(mc -> {
+                Mod.staticCall(CFG, "load");
+                Mod.staticCall(F, "resetForTest");
+                restoreGate();
+                McCompat.setScreen(mc, null);
+                return null;
+            });
+        }
+    }
+
+    /** 1022-pf-no-label: with no listing live the header's top-right draws nothing (it said "/pf"); "Listing..." and
+     *  "Listed: ..." still show; the /pf and /partyfinder commands are still registered. */
+    static void noLabel(UiCase c) throws Exception {
+        try {
+            reset(c);
+            Screen s = openScreen(c);
+            c.ticks(2);
+            String start = c.onClient(mc -> (String) Mod.call(s, "headerRightForTest"));
+            Screen d = openDungeons(c);
+            c.ticks(2);
+            String tab = c.onClient(mc -> (String) Mod.call(d, "headerRightForTest"));
+            String me = self(c);
+            c.onClient(mc -> {
+                Object spec = Mod.staticCall(F, "spec", Mod.enumValue(CAT, "DUNGEONS"), "M7", "", new LinkedHashMap<String, Integer>(), 5, false);
+                Mod.staticCall(F, "list", spec);
+                return null;
+            });
+            c.ticks(2);
+            String listing = c.onClient(mc -> (String) Mod.call(McCompat.screen(mc), "headerRightForTest"));
+            String json = listingJson("acac00000001", me, "M7", "{}", 1, 5, "mod");
+            c.onClient(mc -> {
+                Mod.staticCall(F, "onUpsertForTest", "{\"listing\":" + json + "}");
+                return null;
+            });
+            me(c, "{\"listing\":" + json + ",\"requests\":[],\"outgoing\":[]}");
+            c.ticks(2);
+            String listed = c.onClient(mc -> (String) Mod.call(McCompat.screen(mc), "headerRightForTest"));
+            boolean commands = c.onClient(mc -> {
+                var d2 = net.fabricmc.fabric.impl.command.client.ClientCommandInternals.getActiveDispatcher();
+                return d2 != null && d2.getRoot().getChild("pf") != null && d2.getRoot().getChild("partyfinder") != null;
+            });
+            c.note("top-right: start '" + start + "', Dungeons tab '" + tab + "', listing '" + listing + "', listed '" + listed
+                    + "'; /pf and /partyfinder registered " + commands);
+            c.check("".equals(start), "the start screen's top-right is not empty: '" + start + "'");
+            c.check("".equals(tab), "the Dungeons tab's top-right is not empty: '" + tab + "'");
+            c.check("Listing...".equals(listing), "a listing on its way does not say Listing...: '" + listing + "'");
+            c.check(listed != null && listed.startsWith("Listed: Dungeons M7"), "a live listing does not say Listed: '" + listed + "'");
+            c.check(commands, "/pf or /partyfinder is no longer registered");
+        } finally {
+            c.onClient(mc -> {
+                Mod.staticCall(F, "resetForTest");
+                restoreGate();
+                McCompat.setScreen(mc, null);
+                return null;
+            });
+        }
+    }
+
     // ---- 1018-pf-settings -------------------------------------------------------------------------------------------
 
     static void settings(UiCase c) throws Exception {
