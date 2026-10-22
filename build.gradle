@@ -561,8 +561,18 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 		systemProperty "testkit.listFile", file(project.property("listScenarios").toString()).absolutePath
 	}
 	// 1016-sim-fullclear: -PfullclearRuns=N fresh floors in one client, -PfullclearCode=<map code> to replay one,
-	// -PfullclearOut=<dir> for the run-NNN.md tallies (default: the report dir).
-	["fullclearRuns", "fullclearCode", "fullclearOut"].each { k ->
+	// -PfullclearOut=<dir> for the run-NNN.md tallies (default: the report dir). -PfullclearMobs=N starred zombies per
+	// tile of every mob room (the sim's clear-on-entry off, so Auto Clear has real clears), -PfullclearCodes=<file> one
+	// map code a line, each replayed once, -PfullclearPlan=<Auto Secret RoomPlan constant> (a jar without it: ignored),
+	// -PfullclearNoTraps=true plans floors without a trap room.
+	// 131e-sim-ac-1020: -PacCode=<map code> replays the floor a first run printed.
+	// 1020-sim-ac-speed: -PacsCodes=<file> (one map code a line) or -PacsRuns=N fresh floors, -PacsMobs=N live starred mobs
+	// a tile, -PacsHp=H their health, -PacsWalk=true walking, -PacsHype=true a Hyperion too, -PacsMinutes=M a floor's limit.
+	// 1020-sim-300: -Pfullclear300=true (set by the scenario itself), -PfullclearLive=N live mobs a tile instead of the
+	// testkit's own placement, -PfullclearLiveHp=H.
+	["fullclearRuns", "fullclearCode", "fullclearOut", "fullclearMobs", "fullclearCodes", "fullclearPlan", "fullclearNoTraps", "acCode",
+	 "acsCodes", "acsRuns", "acsMobs", "acsHp", "acsWalk", "acsHype", "acsHypeWeapon", "acsMinutes", "fullclearLive",
+	 "fullclearLiveHp"].each { k ->
 		if (project.hasProperty(k)) {
 			systemProperty "testkit.${k}", project.property(k)
 		}

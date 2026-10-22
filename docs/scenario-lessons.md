@@ -1064,3 +1064,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   case in SimAutopilotTests; `1018-autoclear-eta` (SimAutoClearEtaTests) runs Auto Clear on two sim rooms and reads the Auto
   Clear Status HUD's "Done in ~m:ss" line counting down.
 - 1018-freelook-setting/-toggle/-hold/-pan (`FreelookTests`): Freelook's F5 rear view (Toggle, and Hold via `holdKey(o -> o.keyTogglePerspective)`) and pan key (`FreelookFeature.panHeldForTest`), each checking the camera type and the rendered `Camera.yRot/xRot` moved while the player's yaw and pitch did not, GrimAC clean. The first `moveCursor` after joining a world is dropped by vanilla (`MouseHandler.ignoreFirstMove`, set when the mouse is grabbed), so a case that measures a mouse turn spends one move first; without it the pan read "camera 0.0". Main fails all four (no `FreelookConfig`); the fix passes 4/4 on 26.1.2 cheat and legit and 26.2.
+- 131-sim-midas-1020 (`SimAutoClearMidasTests`) and 62-argrim-1020-midas (mod midas-1020): Auto Clear in King Midas must
+  superboom the altar (35-slab lid) before the mob exists. The sim one builds King Midas alone; scan for the lid around his
+  feet, never at a fixed y (the sim's altitude put it at y -58 and a 40..130 band read 0 slabs). The Grim case pastes King
+  Midas over the session room, so it runs last, and must leave and re-enter the dungeon (sidebar) for the live map to
+  re-identify the cell; `HxAbilities.superboom` now blows a smooth stone slab lid whole, and the test places the starred
+  mob only once the lid is gone (Hypixel's part). Run one case with `62-argrim-session:,62-argrim-1020-midas`.

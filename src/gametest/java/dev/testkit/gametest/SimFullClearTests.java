@@ -65,8 +65,23 @@ public class SimFullClearTests implements FabricClientGameTest {
     /** Rooms with a route he may finish short of every secret (killer560: "only 1-2 rooms it shouldnt get a secret in"). */
     private static final int MAX_MISSED_ROOMS = 2;
     private static final double STALL_SECONDS = 4.0;
-    private static final int RUN_LIMIT_TICKS = 20 * 60 * 8;
+    /** 8 minutes; with mobs on, 12 (every clear and every puzzle, which a slow Teleport Maze alone can take 80 s of). */
+    private static final int RUN_LIMIT_TICKS = 20 * 60 * (Integer.getInteger("testkit.fullclearMobs", 0) > 0
+            || Integer.getInteger("testkit.fullclearLive", 0) > 0
+            || System.getProperty("testkit.scenario", "").contains("1020-sim-300") ? 12 : 8);
     private static final Set<String> SKIP_TYPES = Set.of("PUZZLE", "TRAP", "BLOOD", "FAIRY", "ENTRANCE");
+
+    /**
+     * <b>1020-sim-300</b> (mod autoclear-speed-1020, killer560 2026-10-20: "the 300 score option: test it on the private
+     * sim ... treat the trap room as already cleared with all its secrets"): one or more floors (as this scenario plans
+     * them, trap room allowed) run by Dungeon Autopilot in Solo ("300 score") with Auto Clear on, the sim's own live mobs
+     * ({@code -PfullclearLive=N} a tile, default 2, {@code -PfullclearLiveHp}) and the sim's trap-cleared option, until
+     * Autopilot says "300 reached - finishing". Read: the score Autopilot read when it stopped, the sim's own score
+     * (skill / explore / bonus), and the trap room's state on the map. Needs his routes ({@code -PseedConfig}).
+     */
+    static final String NAME_300 = "1020-sim-300";
+    private static boolean mode300 = false;
+    private static final Pattern DECIDE_SCORE = Pattern.compile("\\[Autopilot\\] decide \\(SOLO[^)]*\\): score (-?\\d+)");
 
     private static final Pattern PLACED = Pattern.compile("Sim secrets for (.+?): (\\d+) placed");
     private static final Pattern PLACED_ONE = Pattern.compile("Sim secret placed: (\\w+) at (-?\\d+, -?\\d+, -?\\d+)");
@@ -83,6 +98,10 @@ public class SimFullClearTests implements FabricClientGameTest {
         }
         boolean fullClear = !Scenario.skip(NAME);
         boolean highBlaze = !Scenario.skip(HIGH_NAME);
+        mode300 = !Scenario.skip(NAME_300);
+        if (mode300) {
+            fullClear = true;
+        }
         if (!fullClear && !highBlaze) {
             return;
         }
@@ -128,6 +147,21 @@ public class SimFullClearTests implements FabricClientGameTest {
         }
         int runs = Integer.getInteger("testkit.fullclearRuns", 1);
         String code = System.getProperty("testkit.fullclearCode", "");
+        List<String> codes = new ArrayList<>();
+        String codesFile = System.getProperty("testkit.fullclearCodes", "");
+        if (!codesFile.isBlank()) {
+            try {
+                for (String l : Files.readAllLines(Path.of(codesFile), StandardCharsets.UTF_8)) {
+                    if (!l.isBlank() && !l.startsWith("#")) {
+                        codes.add(l.trim());
+                    }
+                }
+            } catch (java.io.IOException e) {
+                throw new AssertionError("could not read " + codesFile + ": " + e);
+            }
+            runs = codes.size() * Math.max(1, Integer.getInteger("testkit.fullclearRuns", 1));
+            println("replaying " + codes.size() + " floor(s) from " + codesFile + ", " + runs + " run(s)");
+        }
         int renderBefore = ctx.computeOnClient(mc -> mc.options.renderDistance().get());
         ctx.runOnClient(mc -> mc.options.renderDistance().set(10));
         List<String> verdicts = new ArrayList<>();
@@ -136,7 +170,8 @@ public class SimFullClearTests implements FabricClientGameTest {
             for (int run = 1; run <= runs; run++) {
                 Tally t = new Tally();
                 try {
-                    oneRun(ctx, t, code.isBlank() ? null : code);
+                    String c = !codes.isEmpty() ? codes.get((run - 1) % codes.size()) : code.isBlank() ? null : code;
+                    oneRun(ctx, t, c);
                 } catch (Throwable e) {
                     t.problems.add("scenario threw: " + e);
                     e.printStackTrace(System.out);
@@ -144,6 +179,11 @@ public class SimFullClearTests implements FabricClientGameTest {
                     leave(ctx);
                 }
                 String file = write(t);
+                println(String.format(Locale.US, "SUMMARY code#%08x seconds=%.2f secrets=%d/%d clears=%d gaveup=%d"
+                                + " endgameTrips=%d clearsHere=%d uncleared=%d mobs=%d plan=%s verdict=%s",
+                        t.code.hashCode(), t.seconds, t.secretsFound, t.secretsTotal, t.clearsDone, t.clearsGaveUp,
+                        t.clearTripsEndgame, t.clearsHere, t.unclearedAtEnd, t.mobsPlaced, t.plan.replace(' ', '_'),
+                        t.verdict().replace(' ', '_')));
                 String v = String.format(Locale.US, "run %d/%d: %s - %s", run, runs, t.verdict(), file);
                 verdicts.add(v);
                 println(v);
@@ -185,6 +225,20 @@ public class SimFullClearTests implements FabricClientGameTest {
         int noLanding;
         int unarmed;
         boolean ran;
+        int mobsPlaced;
+        int mobRooms;
+        String plan = "(default)";
+        int clearsDone;
+        int clearsGaveUp;
+        int clearTripsEndgame;
+        int clearsHere;
+        int unclearedAtEnd;
+        double firstAllClearedSeconds = -1;
+        // 1020-sim-300
+        boolean reached300;
+        int lastScore = -1;
+        String simScore = "";
+        String trap = "no trap room on this floor";
 
         String verdict() {
             return !ran ? "NOT RUN" : clean() ? "CLEAN" : "BROKE (" + problems.size() + " problem(s))";
@@ -249,6 +303,16 @@ public class SimFullClearTests implements FabricClientGameTest {
         long mark0 = LogTap.mark();
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
                 new Object[]{"gametest"}));
+        int live = Integer.getInteger("testkit.fullclearLive", mode300 ? 2 : 0);
+        if (mode300 || live > 0) {
+            // The sim's own options (SimLiveMobs): set before the build, as the trap room's secrets are left out of it.
+            double hp = Double.parseDouble(System.getProperty("testkit.fullclearLiveHp", "1"));
+            ctx.runOnClient(mc -> {
+                ModUnderTest.staticCall(SIM_LIVE, "setTrapCleared", new Class<?>[]{boolean.class}, new Object[]{mode300});
+                ModUnderTest.staticCall(SIM_LIVE, "configure", new Class<?>[]{int.class, double.class, boolean.class,
+                        boolean.class}, new Object[]{live, hp, false, true});
+            });
+        }
         long before = Scenario.simBuildCount(ctx);
         // As he generates them (the map designer's Generate then Play): an F7, the sliders at "pick for me" (drawn inside
         // their ranges), the room pool narrowed by his designer filters - "routes: HAS", so every room but Entrance,
@@ -307,8 +371,37 @@ public class SimFullClearTests implements FabricClientGameTest {
             return null;
         });
 
+        int mobsPerTile = Integer.getInteger("testkit.fullclearMobs", 0);
+        if (live > 0) {
+            // The sim placed them at GO; its line says how many.
+            for (int i = 0; i < 100 && t.mobsPlaced == 0; i += 5) {
+                ctx.waitTicks(5);
+                for (String l : LogTap.since(mark0)) {
+                    Matcher m = Pattern.compile("\\[Sim\\] live mobs placed: (\\d+) starred mob\\(s\\) in (\\d+)").matcher(l);
+                    if (m.find()) {
+                        t.mobsPlaced = Integer.parseInt(m.group(1));
+                        t.mobRooms = Integer.parseInt(m.group(2));
+                        println(l.replaceAll("^.*\\[Sim\\]", "[Sim]"));
+                    }
+                }
+            }
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclear.AutoClearConfig"),
+                    "setEnabled", true));
+        } else if (mobsPerTile > 0) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOBS, "setClearRoomsOnEntry", new Class<?>[]{boolean.class},
+                    new Object[]{false}));
+            placeMobs(ctx, t, mobsPerTile);
+            ctx.runOnClient(mc -> {
+                Object ac = ModUnderTest.config("com.killer560.hub.autoclear.AutoClearConfig");
+                ModUnderTest.set(ac, "setEnabled", true);
+            });
+        }
+        applyPlan(ctx, t);
+        if (mode300) {
+            SimAutopilotTests.setMode(ctx, "SOLO", false);
+        }
         long mark = LogTap.mark();
-        Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "start"));
+        Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, mode300 ? "startAutopilot" : "start"));
         if (!Boolean.TRUE.equals(started)) {
             t.problems.add("Auto Secret refused to start: " + String.join(" | ", LogTap.since(mark)));
             return;
@@ -405,9 +498,81 @@ public class SimFullClearTests implements FabricClientGameTest {
                     r.type = (String) ModUnderTest.call(o, "type", new Class<?>[0], new Object[0]);
                 }
             }
+            if (mode300) {
+                t.simScore = String.format(Locale.US, "skill %d + explore %d + bonus %d (rooms %d/%d, secrets %d/%d) - %s",
+                        (Integer) ModUnderTest.staticCall(SIM_SCORE, "skillScore"),
+                        (Integer) ModUnderTest.staticCall(SIM_SCORE, "exploreScore"),
+                        (Integer) ModUnderTest.staticCall(SIM_SCORE, "bonusScore"),
+                        (Integer) ModUnderTest.staticCall(SIM_SCORE, "roomsCleared"),
+                        (Integer) ModUnderTest.staticCall(SIM_SCORE, "roomsTotal"), t.secretsFound, t.secretsTotal,
+                        ModUnderTest.staticCall(SIM_SCORE, "summary"));
+                // What the Score Calculator itself read (Autopilot's reading): its parts and its inputs.
+                t.simScore += "; calculator " + ModUnderTest.staticCall("com.killer560.hub.scorecalc.ScoreCalculatorFeature",
+                        "currentResult") + " from " + ModUnderTest.staticCall(
+                        "com.killer560.hub.scorecalc.ScoreCalculatorFeature", "currentInputs");
+            }
             return null;
         });
+        if (mode300) {
+            judge300(t);
+            return;
+        }
         judge(t);
+    }
+
+    private static final String SIM_LIVE = "com.killer560.hub.roomsim.SimLiveMobs";
+
+    /** 1020-sim-300's verdict: Autopilot stopped at 300, the trap room on the map cleared with every secret. */
+    private static void judge300(Tally t) {
+        for (String l : t.log) {
+            Matcher m = DECIDE_SCORE.matcher(l);
+            if (m.find()) {
+                t.lastScore = Integer.parseInt(m.group(1));
+            }
+            if (l.contains("300 reached - finishing")) {
+                t.reached300 = true;
+                t.events.add(clip(l));
+            }
+            Matcher a = AS_STOP.matcher(l);
+            if (a.find()) {
+                t.asStop = a.group(1).trim();
+            }
+            if (l.contains("[Sim] trap room ") || l.contains("Sim secrets credited")) {
+                t.events.add(clip(l));
+            }
+            if (l.contains("[AutoClear] gave up on ")) {
+                t.clearsGaveUp++;
+                t.events.add(clip(l));
+            }
+            String[] parts = l.split(" ", 4);
+            if (parts.length >= 3 && parts[1].equals("ERROR") && parts[2].startsWith("(")) {
+                t.errors.add(clip(l));
+            }
+        }
+        t.ran = t.travelled > 20;
+        if (!t.ran) {
+            t.problems.add(String.format(Locale.US, "the run never moved (travelled %.1f)", t.travelled));
+        }
+        for (Room r : t.rooms.values()) {
+            if ("TRAP".equals(r.type)) {
+                t.trap = String.format(Locale.US, "%s: map %s, %d/%d secret(s) on the map, %d counted by the sim, %d placed",
+                        r.name, r.mapCleared ? "cleared" : "NOT cleared", r.mapSecrets - r.mapUnfound, r.mapSecrets, r.found,
+                        Math.max(0, r.placed));
+                if (!r.mapCleared || r.mapUnfound > 0 || r.found <= 0) {
+                    t.problems.add("the trap room is not counted cleared with its secrets: " + t.trap);
+                }
+            }
+        }
+        if (!t.reached300) {
+            t.problems.add("Autopilot never read 300 (last score it read " + t.lastScore + ", stopped: " + t.asStop + ")");
+        }
+        if (!t.errors.isEmpty()) {
+            t.problems.add(t.errors.size() + " mod ERROR line(s), first: " + t.errors.get(0));
+        }
+        t.notes.add("300: reached " + t.reached300 + ", last score Autopilot read " + t.lastScore + "; sim score "
+                + t.simScore + "; trap " + t.trap);
+        println("[" + NAME_300 + "] reached 300 " + t.reached300 + ", Autopilot's last reading " + t.lastScore
+                + ", sim: " + t.simScore + ", trap: " + t.trap + ", Auto Secret stopped: " + t.asStop);
     }
 
     private static void judge(Tally t) {
@@ -449,6 +614,24 @@ public class SimFullClearTests implements FabricClientGameTest {
             }
             if (l.contains("Kill Mimic done: timed out")) {
                 t.problems.add("Kill Mimic never killed the mimic: " + clip(l));
+            }
+            if (l.contains("[AutoClear] done: ") && l.contains(" cleared (")) {
+                t.clearsDone++;
+            }
+            if (l.contains("[AutoClear] gave up on ") || l.contains("[AutoSecret] Auto Clear gave up on ")) {
+                t.clearsGaveUp++;
+                t.events.add(clip(l));
+            }
+            if (l.contains("[AutoSecret] endgame: uncleared room")) {
+                t.clearTripsEndgame++;
+            }
+            if (l.contains("[AutoSecret] clear here:") || l.contains("[AutoSecret] clear first:")
+                    || l.contains("[AutoSecret] clear stop (")) {
+                t.clearsHere++;
+            }
+            if (l.contains("[AutoSecret] plan ") || l.contains("[AutoSecret] clear here:") || l.contains("[AutoSecret] clear stop (")
+                    || l.contains("[AutoSecret] clear first:") || l.contains("[AutoSecret] skipping the secrets")) {
+                t.events.add(clip(l));
             }
             if (l.contains("start node did not arm")) {
                 t.unarmed++;
@@ -504,6 +687,22 @@ public class SimFullClearTests implements FabricClientGameTest {
                         r.mapSecrets - r.mapUnfound, r.mapSecrets, r.missing()));
             }
         }
+        for (Room r : t.rooms.values()) {
+            if ("TRAP".equals(r.type)) {
+                t.notes.add("TRAP room on this floor: " + r.name + " (leave this floor out of comparisons)");
+            }
+        }
+        if (t.mobsPlaced > 0) {
+            for (Room r : t.rooms.values()) {
+                if (Set.of("NORMAL", "RARE", "CHAMPION").contains(r.type) && !r.mapCleared) {
+                    t.unclearedAtEnd++;
+                    t.notes.add(r.name + " (" + r.type + ") is not cleared on the map at the end");
+                }
+            }
+            if (t.unclearedAtEnd > 0) {
+                t.problems.add(t.unclearedAtEnd + " mob room(s) not cleared at the end");
+            }
+        }
         if (missed > MAX_MISSED_ROOMS) {
             t.problems.add(missed + " routed room(s) short of their secrets (at most " + MAX_MISSED_ROOMS + ")");
         }
@@ -516,6 +715,125 @@ public class SimFullClearTests implements FabricClientGameTest {
         if (!t.errors.isEmpty()) {
             t.problems.add(t.errors.size() + " mod ERROR line(s), first: " + t.errors.get(0));
         }
+    }
+
+    // ================================================================================================ mobs and plan
+
+    private static final String SIM_MOBS = "com.killer560.hub.roomsim.SimMobs";
+    private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
+
+    /**
+     * {@code perTile} starred zombies and skeletons on open floor in each tile of every mob room (NORMAL, RARE, CHAMPION),
+     * at spots drawn from a random seeded by the map code and the room's name - so one floor gets the same mobs in every
+     * run, whichever jar. Sim mobs never move and die to one hit; the room clears when its last one dies.
+     */
+    private static void placeMobs(ClientGameTestContext ctx, Tally t, int perTile) {
+        // room name -> its tiles' centres, from the live map
+        Map<String, List<BlockPos>> tiles = ctx.computeOnClient(mc -> {
+            Map<String, List<BlockPos>> out = new TreeMap<>();
+            Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+            int n = (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[0], new Object[0]);
+            for (int i = 0; i < n; i++) {
+                Boolean mob = (Boolean) ModUnderTest.staticCall("com.killer560.hub.autoclear.AutoClearFeature", "isMobRoom",
+                        new Class<?>[]{layout.getClass(), int.class}, new Object[]{layout, i});
+                String name = (String) ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{i});
+                if (!Boolean.TRUE.equals(mob) || name == null || "Unknown".equals(name)) {
+                    continue;
+                }
+                int[] ts = (int[]) ModUnderTest.call(layout, "tiles", new Class<?>[]{int.class}, new Object[]{i});
+                List<BlockPos> cs = new ArrayList<>();
+                for (int tile : ts) {
+                    cs.add((BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class},
+                            new Object[]{tile}));
+                }
+                out.put(name, cs);
+            }
+            return out;
+        });
+        AtomicReference<Map<String, List<BlockPos>>> spots = new AtomicReference<>();
+        String code = t.code;
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            server.execute(() -> {
+                var level = server.overworld();
+                Map<String, List<BlockPos>> out = new TreeMap<>();
+                for (Map.Entry<String, List<BlockPos>> e : tiles.entrySet()) {
+                    java.util.Random rng = new java.util.Random((code + "|" + e.getKey()).hashCode());
+                    List<BlockPos> got = new ArrayList<>();
+                    for (BlockPos c : e.getValue()) {
+                        int want = got.size() + perTile;
+                        for (int tries = 0; tries < 400 && got.size() < want; tries++) {
+                            int x = c.getX() + rng.nextInt(23) - 11;
+                            int z = c.getZ() + rng.nextInt(23) - 11;
+                            for (int y = c.getY() - 6; y <= c.getY() + 8; y++) {
+                                BlockPos feet = new BlockPos(x, y, z);
+                                if (solidAt(level, feet.below()) && !solidAt(level, feet) && !solidAt(level, feet.above())
+                                        && level.getFluidState(feet).isEmpty()) {
+                                    boolean far = true;
+                                    for (BlockPos o : got) {
+                                        far &= o.distSqr(feet) >= 9;
+                                    }
+                                    if (far) {
+                                        got.add(feet);
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    out.put(e.getKey(), got);
+                }
+                spots.set(out);
+            });
+        });
+        ctx.waitFor(mc -> spots.get() != null, 400);
+        int placed = 0;
+        List<String> per = new ArrayList<>();
+        for (Map.Entry<String, List<BlockPos>> e : spots.get().entrySet()) {
+            int k = 0;
+            for (BlockPos p : e.getValue()) {
+                String kind = (k++ % 3 == 2) ? "SKELETON" : "ZOMBIE";
+                ctx.runOnClient(mc -> {
+                    Object kk = ModUnderTest.enumValue(SIM_MOBS + "$Kind", kind);
+                    ModUnderTest.staticCall(SIM_MOBS, "spawnStarred", new Class<?>[]{Minecraft.class, BlockPos.class,
+                            kk.getClass()}, new Object[]{mc, p, kk});
+                });
+                placed++;
+            }
+            per.add(e.getKey() + " " + e.getValue().size());
+            if (e.getValue().isEmpty()) {
+                t.notes.add("no open floor found for a mob in " + e.getKey() + " - it can never clear");
+            }
+        }
+        ctx.waitTicks(10);
+        t.mobsPlaced = placed;
+        t.mobRooms = spots.get().size();
+        println("placed " + placed + " starred mob(s) in " + spots.get().size() + " mob room(s): " + String.join(", ", per));
+    }
+
+    private static boolean solidAt(net.minecraft.server.level.ServerLevel level, BlockPos p) {
+        return !level.getBlockState(p).getCollisionShape(level, p).isEmpty();
+    }
+
+    /** {@code -PfullclearPlan=<constant>}: Auto Secret's Room Plan (a jar that has none: noted, nothing set). */
+    private static void applyPlan(ClientGameTestContext ctx, Tally t) {
+        String plan = System.getProperty("testkit.fullclearPlan", "");
+        if (plan.isBlank()) {
+            return;
+        }
+        String result = ctx.computeOnClient(mc -> {
+            try {
+                Object cfg = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
+                Class<?> e = Class.forName("com.killer560.hub.autosecret.AutoSecretConfig$RoomPlan");
+                Object v = ModUnderTest.enumValue(e.getName(), plan);
+                ModUnderTest.call(cfg, "setRoomPlan", new Class<?>[]{e}, new Object[]{v});
+                return "Room Plan " + plan;
+            } catch (Throwable x) {
+                return "no Room Plan in this jar (" + x.getClass().getSimpleName() + ")";
+            }
+        });
+        t.plan = result;
+        println(result);
     }
 
     // ================================================================================================ high blaze
@@ -663,6 +981,12 @@ public class SimFullClearTests implements FabricClientGameTest {
         boolean isDefault = (Boolean) ModUnderTest.staticCall(filters, "isDefault");
         java.util.function.Predicate<String> allow = isDefault ? null : n -> (Boolean) ModUnderTest.staticCall(filters,
                 "generatorAllows", new Class<?>[]{String.class}, new Object[]{n});
+        if (Boolean.getBoolean("testkit.fullclearNoTraps")) {
+            // killer560, 2026-10-20: his trap routes are not working yet - floors for comparisons have no trap room.
+            java.util.function.Predicate<String> base = allow;
+            allow = n -> !"TRAP".equalsIgnoreCase(String.valueOf(ModUnderTest.staticCall(FLOOR_GEN, "typeOf",
+                    new Class<?>[]{String.class}, new Object[]{n}))) && (base == null || base.test(n));
+        }
         Object planned = ModUnderTest.staticCall(FLOOR_GEN, "plan", new Class<?>[]{floor.getClass(), int.class, int.class,
                 Map.class, java.util.function.Predicate.class}, new Object[]{floor, puzzles, blood, null, allow});
         if (planned == null) {
@@ -783,6 +1107,17 @@ public class SimFullClearTests implements FabricClientGameTest {
                             new Object[]{"test over", true});
                 }
             });
+            ctx.runOnClient(mc -> {
+                try {
+                    ModUnderTest.staticCall(SIM_LIVE, "configure", new Class<?>[]{int.class, double.class, boolean.class,
+                            boolean.class}, new Object[]{0, 1.0, false, true});
+                    ModUnderTest.staticCall(SIM_LIVE, "setTrapCleared", new Class<?>[]{boolean.class}, new Object[]{false});
+                } catch (RuntimeException | Error ignored) {
+                    // a jar without the sim's live-mob option
+                }
+            });
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOBS, "setClearRoomsOnEntry", new Class<?>[]{boolean.class},
+                    new Object[]{true}));
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave"));
             ctx.runOnClient(mc -> mc.execute(() -> {
                 if (mc.level != null) {
@@ -818,6 +1153,10 @@ public class SimFullClearTests implements FabricClientGameTest {
                             + "Auto Secret ended: %s. Corrections %d, warps never landed %d, start nodes not armed %d.\n\n",
                     t.seconds, t.travelled, t.secretsFound, t.secretsTotal, t.mapPercent, t.asStop, t.corrections,
                     t.noLanding, t.unarmed));
+            sb.append(String.format(Locale.US, "Mobs: %d starred placed in %d mob room(s); Auto Clear %d cleared, %d gave up;"
+                            + " endgame clear trips %d, clears before leaving %d; uncleared at the end %d; %s.\n\n",
+                    t.mobsPlaced, t.mobRooms, t.clearsDone, t.clearsGaveUp, t.clearTripsEndgame, t.clearsHere,
+                    t.unclearedAtEnd, t.plan));
             sb.append("GrimAC: not applicable (the sim's integrated server runs no anticheat).\n\n");
             sb.append("## Problems\n\n");
             for (String p : t.problems) {

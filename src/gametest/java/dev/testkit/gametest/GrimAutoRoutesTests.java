@@ -179,8 +179,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1014-jumpcd", GrimAutoRoutesTests::caseJumpCooldown); // ar-jump-cooldown (2026-10-14)
             s.testExpectingFlags("62-argrim-correction", GrimAutoRoutesTests::caseCorrection);
             s.test("62-argrim-boom", GrimAutoRoutesTests::caseBoom);
+            s.test("62-argrim-1020-boomsneak", GrimAutoRoutesTests::caseBoomSneak);
             s.test("62-argrim-breaker", GrimAutoRoutesTests::caseBreaker);
             s.test("62-argrim-1013-breakerfall", GrimAutoRoutesTests::caseBreakerFall); // ar breaker linger (2026-10-13)
+            s.test("62-argrim-1020-breakerstand", GrimAutoRoutesTests::caseBreakerStand); // stall-1020 (his Wizard #1)
             s.test("62-argrim-use", GrimAutoRoutesTests::caseUse);
             s.test("62-argrim-play", GrimAutoRoutesTests::casePlay);
             s.test("62-argrim-awaitskip", GrimAutoRoutesTests::caseAwaitSkip);
@@ -202,6 +204,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-mimic", GrimAutoRoutesTests::caseMimic);
             s.test("62-argrim-1017-mimicaim", GrimAutoRoutesTests::caseMimicAim); // ar-bridges-bat-1017
             s.test("62-argrim-autoclear", GrimAutoRoutesTests::caseAutoClear);
+            s.test("62-argrim-1020-autoclearaura", GrimAutoRoutesTests::caseAutoClearAura); // mod ac-aura-memory-1020
+            s.test("62-argrim-1020-acbat", GrimAutoRoutesTests::caseAutoClearBat); // ac-1020
+            s.test("62-argrim-1020-battest", GrimAutoRoutesTests::caseBatTest); // mod battest-1020: /test
             // The Interactive Map's own executor (livemap/autoclear/ClearExecutor), last: a map warp or a Go To sets the
             // map-arrival interlock (only a START node arms afterwards) and Go To leaves edit mode on.
             // Auto Secret (mod auto-secret): drives the same map warp and route; before imwarp, after the AR cases.
@@ -216,9 +221,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // autosecret-bloodfirst-1017: Auto Secret with Secret Blood First = Door Camp on the arena (no blood door on
             // its map): it says so, secrets meanwhile, and sends exactly what the plain run does.
             s.test("62-argrim-1017-autosecret-bloodfirst", GrimAutoRoutesTests::caseAutoSecretBloodFirst);
+            // acplan-1020: Auto Secret's Fastest Total - the route, then the room's clear in the same visit.
+            s.test("62-argrim-1020-clearhere", GrimAutoRoutesTests::caseClearHere);
             s.test("62-argrim-imwarp", c -> caseMapWarp(c, false));
             s.test("62-argrim-imwarp-run", c -> caseMapWarp(c, true));
             s.test("62-argrim-goto", GrimAutoRoutesTests::caseGoTo);
+            // midas-1020: pastes King Midas over the session's room, so it goes last.
+            s.test("62-argrim-1020-midas", GrimAutoRoutesTests::caseMidas);
             teardown(ctx);
         });
     }
@@ -627,6 +636,44 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         check(broke, "/ar add boom did not blow the cracked bricks in front of him");
         check(delta(before, "superbooms") == 1, "the server ran " + delta(before, "superbooms") + " superboom(s)");
         c.note("boom: " + count(s, "player_action") + " player_action, " + count(s, "swing") + " swing; bricks gone");
+        noteFlags(c, s);
+    }
+
+    /**
+     * boom-eye-1020: an etherwarp onto a tile (its sneak still held), then two booms recorded standing at 30 degrees down,
+     * east and west, each onto a cracked stone brick in the floor three blocks out. From the sneaking eye the recorded
+     * look meets the floor a block short (plain stone: the server's Superboom blows nothing there), so the boom must aim
+     * at the recorded block with a look of its own - and GrimAC must say nothing about that turn and dig.
+     */
+    private static void caseBoomSneak(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        setBlocks(ctx, Map.of(new int[]{13, F - 1, 14}, "minecraft:cracked_stone_bricks",
+                new int[]{7, F - 1, 14}, "minecraft:cracked_stone_bricks"));
+        writeRoute(ctx, List.of(ew(6, 14, 10, 14, true), node("BOOM", 10, 14, relYawTo(10, 14, 13, 14), 30f),
+                node("BOOM", 10, 14, relYawTo(10, 14, 7, 14), 30f)));
+        JsonObject before = stats();
+        long m = LogTap.mark();
+        startSampling(ctx);
+        warpOnto(ctx, 6.5, 18.5, 6, 14);
+        boolean gone = waitFor(ctx, 80, () -> blockAir(ctx, 13, F - 1, 14) && blockAir(ctx, 7, F - 1, 14));
+        ctx.waitTicks(10);
+        cmd(ctx, "/ar stop");
+        ctx.waitTicks(5);
+        List<Sample> s = stopSampling(ctx);
+        printTrace("boomsneak", s);
+        for (String l : LogTap.since(m)) {
+            if (l.contains("BOOM") || l.contains("Boom")) {
+                System.out.println("[62-argrim] boomsneak log: " + l);
+            }
+        }
+        long booms = delta(before, "superbooms");
+        check(logHas(m, "Node #2 BOOM acted") && logHas(m, "Node #3 BOOM acted"), "the two booms did not both act");
+        check(gone, "the cracked bricks the booms were recorded on were not both blown (east "
+                + blockAir(ctx, 13, F - 1, 14) + ", west " + blockAir(ctx, 7, F - 1, 14) + ")");
+        c.note("boomsneak: " + booms + " superboom(s) on the server, " + count(s, "player_action") + " player_action; both "
+                + "recorded bricks gone " + gone);
         noteFlags(c, s);
     }
 
@@ -1885,6 +1932,640 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         noteFlags(c, s);
     }
 
+    /**
+     * Auto Clear with the Spirit Sceptre on GrimAC (mod ac-1020, 2026-10-20): three starred zombies 12-15 blocks off in
+     * the open arena, one walked back and forth by the server ({@code dungeon.move}, 0.25 blocks a tick) so the bats are
+     * LED, and a mana figure on the action bar (1000 max: the one-tap Intelligence floor is 4,480, the tags say 20) so
+     * every first bat is trusted and Auto Clear moves on to the next mob the tick it leaves. The server has no bat, so
+     * nothing dies: each mob is shot, left, shot again when its bat is late, and skipped at Mob Timeout. What is read is
+     * the client's traffic under that - fast turns between mobs, a use per turn - and GrimAC for the whole stretch.
+     */
+    private static void caseAutoClearBat(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        c.hx().give(5, "minecraft:iron_sword[custom_data={id:\"BAT_WAND\"},unbreakable={}]");
+        String auto = "com.killer560.hub.autoclear.AutoClearFeature";
+        String autoCfg = "com.killer560.hub.autoclear.AutoClearConfig";
+        boolean isNew = ctx.computeOnClient(mc -> {
+            Object cfg = ModUnderTest.config(autoCfg);
+            ModUnderTest.set(cfg, "setEnabled", true);
+            ModUnderTest.set(cfg, "setHyperionHops", false);
+            ModUnderTest.call(cfg, "setMobTimeoutTicks", new Class<?>[]{int.class}, new Object[]{80});
+            ModUnderTest.call(cfg, "setWeapon", new Class<?>[]{ModUnderTest.enumValue(autoCfg + "$Weapon",
+                    "SPIRIT_SCEPTRE").getClass()}, new Object[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "SPIRIT_SCEPTRE")});
+            try {
+                ModUnderTest.set(cfg, "setPredictiveBats", true);
+                Object at = ModUnderTest.enumValue(autoCfg + "$OneTap", "AT_ONCE");
+                ModUnderTest.call(cfg, "setOneTap", new Class<?>[]{at.getClass()}, new Object[]{at});
+                return true;
+            } catch (RuntimeException | Error e) {
+                return false;
+            }
+        });
+        c.hx().call("actionbar.packet", "text", "§c1000/1000❤     §b1000/1000✎ Mana");
+        tpRel(ctx, 5.5, 15.5, -90f, 0f);
+        ctx.waitTicks(10);
+        double[][] spots = {{19.5, 8.5}, {20.5, 15.5}, {19.5, 22.5}};
+        List<JsonObject> mobs = new ArrayList<>();
+        List<Vec3> at = new ArrayList<>();
+        for (double[] sp : spots) {
+            Vec3 v = ctx.computeOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                        double.class, double.class}, new Object[]{frame, sp[0], (double) F, sp[1]});
+            });
+            at.add(v);
+            mobs.add(c.hx().call("dungeon.starred", "x", v.x, "y", v.y, "z", v.z).getAsJsonObject());
+        }
+        ctx.waitTicks(20);
+        long m = LogTap.mark();
+        startSampling(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class, Runnable.class,
+                java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> { }, (java.util.function.Consumer<String>)
+                why -> { }}));
+        // The middle mob walks along the arena's z axis, 0.25 a tick, 4 blocks each way.
+        Vec3 base = at.get(1);
+        double off = 0;
+        double dir = 0.5;
+        int ticks = 0;
+        for (; ticks < 600; ticks += 2) {
+            ctx.waitTicks(2);
+            off += dir;
+            if (Math.abs(off) >= 4) {
+                dir = -dir;
+            }
+            Vec3 p = ctx.computeOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                        double.class, double.class}, new Object[]{frame, 20.5, (double) F, 15.5});
+            });
+            Vec3 alongZ = ctx.computeOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                        double.class, double.class}, new Object[]{frame, 20.5, (double) F, 16.5});
+            });
+            Vec3 step = alongZ.subtract(p);
+            Vec3 to = base.add(step.scale(off));
+            c.hx().call("dungeon.move", "id", mobs.get(1).get("mob").getAsString(), "stand",
+                    mobs.get(1).get("stand").getAsString(), "x", to.x, "y", to.y, "z", to.z);
+            if (!ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto, "isBusy"))) {
+                break;
+            }
+        }
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "cancel"));
+        ctx.waitTicks(5);
+        List<Sample> s = stopSampling(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(autoCfg), "setEnabled", false));
+        int trusted = 0;
+        int led = 0;
+        int interacts = 0;
+        for (String l : LogTap.since(m)) {
+            if (l.contains("[AutoClear]")) {
+                println("  " + l.replaceAll("^.*?\\[AutoClear\\]", "[AutoClear]"));
+            }
+            trusted += l.contains("one-tap:") && l.contains("trusting the bat") ? 1 : 0;
+            led += l.contains("leading the bat") ? 1 : 0;
+        }
+        for (Sample x : s) {
+            interacts += (int) x.out().stream().filter(p -> p.contains("interact")).count();
+        }
+        printTrace("acbat", s);
+        println("acbat: jar " + (isNew ? "NEW" : "OLD") + ", " + ticks + " ticks, use_item " + count(s, "use_item")
+                + ", one-tap trusted " + trusted + ", lead lines " + led + ", entity packets " + interacts);
+        check(count(s, "use_item") > 0, "no use_item at all - Auto Clear never fired a bat, so nothing was measured");
+        check(interacts == 0, interacts + " entity packet(s)");
+        if (isNew) {
+            check(trusted > 0, "the new jar never trusted a bat (the one-tap path did not run)");
+            check(led > 0, "the new jar never led the walking mob (the predictive path did not run)");
+        }
+        c.note("acbat: " + count(s, "use_item") + " sceptre uses at 3 mobs (one walking), one-tap trusted " + trusted
+                + ", led " + led);
+        noteFlags(c, s);
+    }
+
+    /**
+     * {@code /test} (mod battest-1020, killer560 2026-10-20): the Spirit Sceptre bat measurement as typed, on GrimAC. One
+     * starred zombie ({@code dungeon.starred}, NoAI) at rel (24.5, 15.5) of the open arena, him at (13.5, 15.5) facing away
+     * from it; the server emulates no sceptre, so no bat ever flies and every fired shot ends "no bat seen" - what is under
+     * test is everything the client SENDS: the moves to ~10/20/30 blocks (ShortWalk or a map etherwarp), the hotbar swap,
+     * each turn a tick before its use, and exactly one {@code use_item} per fired shot (at most five; 30 blocks does not
+     * fit in this arena, so that shot is skipped). Requires the test to start and end with its summary, at least three
+     * shots fired, one use per fired shot with the [Bat] use line for it, the use key up, and GrimAC silent.
+     */
+    private static void caseBatTest(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        String batTest = "com.killer560.hub.autoclear.BatTest";
+        c.hx().give(5, "minecraft:iron_sword[custom_data={id:\"BAT_WAND\"},unbreakable={}]");
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclear.AutoClearConfig"),
+                "setEnabled", false));
+        tpRel(ctx, 13.5, 15.5, 90f, 0f);
+        ctx.waitTicks(10);
+        Vec3 at = ctx.computeOnClient(mc -> {
+            Object frame = ModUnderTest.staticCall(FRAME, "current");
+            return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                    double.class, double.class}, new Object[]{frame, 24.5, (double) F, 15.5});
+        });
+        JsonObject mob = c.hx().call("dungeon.starred", "x", at.x, "y", at.y, "z", at.z).getAsJsonObject();
+        ctx.waitTicks(20);
+        List<Sample> s = List.of();
+        try {
+            int seen = ctx.computeOnClient(mc -> ((List<?>) ModUnderTest.staticCall("com.killer560.hub.mobesp.MobEspFeature",
+                    "starredMobs", new Class<?>[]{net.minecraft.client.Minecraft.class}, new Object[]{mc})).size());
+            println("battest: starred zombie at " + at + ", resolved by the client: " + seen + "; him at " + relPos(ctx));
+            check(seen >= 1, "the client resolved no starred mob - /test would have nothing to shoot");
+            JsonObject before = stats();
+            long m = LogTap.mark();
+            Vec3 start = ctx.computeOnClient(mc -> mc.player.position());
+            String batLog = "com.killer560.hub.autoclear.BatLog";
+            int shotsBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(batLog, "shots"));
+            startSampling(ctx);
+            ctx.runOnClient(mc -> mc.player.connection.sendCommand("test"));
+            boolean started = waitFor(ctx, 20, () -> ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(batTest,
+                    "isRunning")));
+            boolean ended = started && waitFor(ctx, 2600, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                    batTest, "isRunning")));
+            ctx.waitTicks(5);
+            s = stopSampling(ctx);
+            Vec3 end = ctx.computeOnClient(mc -> mc.player.position());
+            int fired = 0;
+            int skipped = 0;
+            int useLines = 0;
+            boolean summary = false;
+            for (String l : LogTap.since(m)) {
+                if (l.contains("[BatTest]") || l.contains("[Bat] #") && !l.contains(" fly ")) {
+                    println("  " + l.replaceAll("^.*?(\\[Bat(Test)?\\])", "$1"));
+                }
+                fired += l.contains("[BatTest] shot") && l.contains(" done: bat #") ? 1 : 0;
+                skipped += l.contains("[BatTest] shot") && l.contains(" skipped: ") ? 1 : 0;
+                useLines += l.contains("[Bat] #") && l.contains(" use tick ") ? 1 : 0;
+                summary |= l.contains("[BatTest] summary:") && l.contains("bat(s) seen");
+            }
+            boolean keyUp = ctx.computeOnClient(mc -> !mc.options.keyUse.isDown());
+            int uses = count(s, "use_item");
+            // BatLog logs every Spirit Sceptre use packet as it leaves: these are the shots; the rest are trip etherwarps.
+            int sceptreUses = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(batLog, "shots")) - shotsBefore;
+            printTrace("battest", s);
+            println(String.format(Locale.ROOT, "battest: started %s, ended %s, fired %d, skipped %d, use_item %d (Spirit"
+                            + " Sceptre %d), [Bat] use lines %d, etherwarps %d, moved %.1f blocks, summary %s, use key up %s",
+                    started, ended, fired, skipped, uses, sceptreUses, useLines, delta(before, "etherwarps"),
+                    start.distanceTo(end), summary, keyUp));
+            check(started, "/test did not start");
+            check(ended, "/test was still running");
+            check(summary, "no [BatTest] summary line");
+            check(fired >= 3, "only " + fired + " shot(s) fired");
+            check(fired + skipped == 5, fired + " fired + " + skipped + " skipped is not the set of 5");
+            check(sceptreUses == fired && useLines == fired && uses >= fired, "sceptre uses " + sceptreUses + " (use_item "
+                    + uses + "), [Bat] use lines " + useLines + " for " + fired + " fired shot(s) - one use per shot expected");
+            // It goes out for the 20-block shot and back for the 10-block ones, so where it ends says nothing: its moves do.
+            boolean moved = logHas(m, "[BatTest] shot 2/5: the trip ended") || logHas(m, "[BatTest] shot 2/5: the walk ended ARRIVED");
+            check(moved, "it never moved for the 20-block shot");
+            check(keyUp, "the use key was left down");
+            c.note(String.format(Locale.ROOT, "battest: %d shot(s) fired with %d sceptre use(s), %d skipped, moved %.1f blocks",
+                    fired, sceptreUses, skipped, start.distanceTo(end)));
+            noteFlags(c, s);
+        } finally {
+            if (ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(batTest, "isRunning"))) {
+                ctx.runOnClient(mc -> mc.player.connection.sendCommand("test"));
+            }
+            c.hx().call("dungeon.alive", "id", mob.get("mob").getAsString(), "stand", mob.get("stand").getAsString());
+            c.server().command("kill @e[type=minecraft:zombie]");
+        }
+    }
+
+    /**
+     * Auto Clear in King Midas on GrimAC (mod midas-1020, killer560 2026-10-19/20: the gold altar in the middle has to be
+     * superboomed, and only then does the room's mob spawn and have to be killed). His captured King Midas is pasted over
+     * the session's room and identified by the live map's own scan; there is no starred mob in it. {@code clearRoom} must
+     * aim a Superboom at the altar's lid (the server's {@code HxAbilities} blows a smooth stone slab lid whole); the test
+     * plays Hypixel's part and puts a starred mob on the altar only once the lid is gone, and Auto Clear must then kill it
+     * with the Hyperion and call onDone. Order and GrimAC are judged on the whole stretch.
+     */
+    private static void caseMidas(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        Hx hx = c.hx();
+        String midas = "King Midas";
+        JsonObject pasted = paste(ctx, hx, midas);
+        println("midas: pasted: " + pasted);
+        // On the red carpet in front of the altar (capture x 16, z 20 - the paste puts capture x/z 16 on the cell centre).
+        hx.call("dungeon.tp", "x", CENTRE + 0.5, "y", 67.0625, "z", CENTRE + 4.5, "yaw", 180f, "pitch", 0f);
+        ctx.waitTicks(10);
+        // The live map keeps the cell's identification for the run: leave the dungeon (sidebar) and enter it again, so
+        // its "Dungeon entered" grid reset makes it scan the cell afresh.
+        hx.sidebar("SKYBLOCK", "§7Hub");
+        boolean left = waitFor(ctx, 200, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                "com.killer560.hub.secrets.DungeonState", "isInDungeon")));
+        hx.sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
+        boolean back = waitFor(ctx, 400, () -> ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                "com.killer560.hub.secrets.DungeonState", "isInDungeon")));
+        println("midas: left the dungeon " + left + ", back in " + back);
+        boolean known = waitFor(ctx, 300, () -> midas.equals(ctx.computeOnClient(mc -> {
+            Object f = ModUnderTest.staticCall(FRAME, "current");
+            return f == null ? null : (String) ModUnderTest.call(f, "roomName", new Class<?>[]{}, new Object[]{});
+        })));
+        println("midas: live map " + (known ? "identified King Midas, frame " : "did NOT identify King Midas, frame ")
+                + frameString(ctx));
+        check(known, "the pasted King Midas was not identified by the live map - Auto Clear cannot find the room");
+        ctx.waitTicks(20);
+        // The lid, read from the client's world: every smooth stone slab within 12 blocks of the cell centre.
+        Supplier<List<BlockPos>> lid = () -> ctx.computeOnClient(mc -> {
+            List<BlockPos> out = new ArrayList<>();
+            for (int dx = -12; dx <= 12; dx++) {
+                for (int dz = -12; dz <= 12; dz++) {
+                    for (int y = 60; y <= 100; y++) {
+                        BlockPos p = new BlockPos(CENTRE + dx, y, CENTRE + dz);
+                        if (mc.level.getBlockState(p).is(net.minecraft.world.level.block.Blocks.SMOOTH_STONE_SLAB)) {
+                            out.add(p);
+                        }
+                    }
+                }
+            }
+            return out;
+        });
+        List<BlockPos> lidBefore = lid.get();
+        int seenBefore = ctx.computeOnClient(mc -> ((List<?>) ModUnderTest.staticCall(
+                "com.killer560.hub.mobesp.MobEspFeature", "starredMobs", new Class<?>[]{net.minecraft.client.Minecraft.class},
+                new Object[]{mc})).size());
+        println("midas: " + lidBefore.size() + " lid slab(s) standing, " + seenBefore + " starred mob(s) in sight");
+        check(lidBefore.size() >= 30, "the King Midas altar's lid is not standing (" + lidBefore.size() + " slabs)");
+        check(seenBefore == 0, seenBefore + " starred mob(s) already in sight - the boom would prove nothing");
+        double sx = 0;
+        double sz = 0;
+        int ly = lidBefore.get(0).getY();
+        for (BlockPos p : lidBefore) {
+            sx += p.getX() + 0.5;
+            sz += p.getZ() + 0.5;
+        }
+        double mobX = sx / lidBefore.size();
+        double mobZ = sz / lidBefore.size();
+
+        String auto = "com.killer560.hub.autoclear.AutoClearFeature";
+        String autoCfg = "com.killer560.hub.autoclear.AutoClearConfig";
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(autoCfg);
+            ModUnderTest.set(cfg, "setEnabled", true);
+            ModUnderTest.set(cfg, "setHyperionHops", true);
+            ModUnderTest.call(cfg, "setWeapon", new Class<?>[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")
+                    .getClass()}, new Object[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")});
+        });
+        JsonObject before = stats();
+        java.util.concurrent.atomic.AtomicReference<String> done = new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<String> gaveUp = new java.util.concurrent.atomic.AtomicReference<>();
+        long m = LogTap.mark();
+        startSampling(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class, Runnable.class,
+                java.util.function.Consumer.class}, new Object[]{midas, (Runnable) () -> done.set("done"),
+                (java.util.function.Consumer<String>) gaveUp::set}));
+        JsonObject mob = null;
+        int openedTick = -1;
+        boolean finished = false;
+        for (int t = 0; t < 900; t++) {
+            ctx.waitTicks(1);
+            if (mob == null && lid.get().size() < lidBefore.size()) {
+                // Hypixel's part: the room's mob appears once the altar is open.
+                openedTick = t;
+                mob = hx.call("dungeon.starred", "x", mobX, "y", (double) ly, "z", mobZ).getAsJsonObject();
+                println("midas: altar open at t" + t + " - starred mob placed at " + String.format(Locale.ROOT,
+                        "%.1f %d %.1f", mobX, ly, mobZ) + ": " + mob);
+            }
+            if (!ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto, "isBusy"))) {
+                finished = true;
+                break;
+            }
+        }
+        if (!finished) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "cancel"));
+        }
+        ctx.waitTicks(5);
+        List<Sample> s = stopSampling(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(autoCfg), "setEnabled", false));
+        String state = mob == null ? "never placed" : hx.call("dungeon.alive", "id", mob.get("mob").getAsString(), "stand",
+                mob.get("stand").getAsString()).getAsString();
+        for (String l : LogTap.since(m)) {
+            if (l.contains("[AutoClear]") || l.contains("[testkit] superboom")) {
+                println("  " + l.replaceAll("^.*?(\\[AutoClear\\]|\\[testkit\\])", "$1"));
+            }
+        }
+        printTrace("midas", s);
+        int boomAt = logIndex(m, "[AutoClear] King Midas: Superboom 1 on the altar");
+        int openedAt = logIndex(m, "[AutoClear] King Midas: altar opened");
+        int deadAt = logIndex(m, " in King Midas is dead");
+        int interacts = 0;
+        for (Sample x : s) {
+            interacts += (int) x.out().stream().filter(p -> p.contains("interact")).count();
+        }
+        println("midas: " + (finished ? "finished" : "STILL RUNNING") + ", onDone=" + done.get() + " onGiveUp="
+                + gaveUp.get() + ", superbooms " + delta(before, "superbooms") + " (blocks " + delta(before, "boomBlocks")
+                + "), lid " + lidBefore.size() + " -> " + lid.get().size() + ", opened at t" + openedTick + ", mob " + state
+                + ", Wither Impacts " + delta(before, "witherImpacts") + ", etherwarps " + delta(before, "etherwarps")
+                + ", player_action " + count(s, "player_action") + ", entity packets " + interacts + "; log: boom "
+                + boomAt + ", opened " + openedAt + ", dead " + deadAt);
+        check(boomAt >= 0, "Auto Clear never superboomed the King Midas altar");
+        check(delta(before, "superbooms") >= 1, "the server ran no Superboom");
+        check(mob != null, "the altar's lid never broke in the client's world");
+        check(openedAt > boomAt, "Auto Clear did not see the altar open after its boom");
+        check(!"alive".equals(state), "the starred mob that came out of the altar is " + state);
+        check(deadAt > openedAt, "the kill was not logged after the altar opened (opened " + openedAt + ", dead " + deadAt
+                + ")");
+        check(interacts == 0, interacts + " entity packet(s): a melee hit or an entity click");
+        check(finished && done.get() != null && gaveUp.get() == null, "clearRoom ended onDone=" + done.get() + " onGiveUp="
+                + gaveUp.get());
+        c.note("midas: altar boomed (" + delta(before, "superbooms") + " superboom, " + delta(before, "boomBlocks")
+                + " blocks), mob placed when it opened and killed by " + delta(before, "witherImpacts")
+                + " Wither Impact(s); onDone");
+        noteFlags(c, s);
+    }
+
+    /**
+     * 62-argrim-1020-autoclearaura (killer560, 2026-10-20: Auto Clear "grabs a secret (a chest, lever or skull) while
+     * killing. Then when Auto Routes comes through the same room, it is missing that secret and waits for it").
+     * <p>
+     * Pass 1: caseAutoClear's three starred mobs, with chests and levers beside the start and beside each mob (and one
+     * chest at eye height on the line toward the first mob), Secret Aura on for chests and levers. While Auto Clear kills,
+     * no secret may be clicked - not by the aura, not by the held Hyperion - while the aura must have SEEN a candidate and
+     * been held by Auto Clear (so the pass is not vacuous). An item dropped at his feet mid-kill is picked up: Auto Routes'
+     * run memory must hold it with its room's name. Pass 2: with no route running he opens chest A by hand. Pass 3: a WALK
+     * start node with await:1 beside chest A, Secret Aura off: the await must be met at once from the run memory (chest A
+     * already got) and the route run to its end - without the memory it would wait forever. GrimAC must say nothing.
+     */
+    private static void caseAutoClearAura(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, true);
+        String auto = "com.killer560.hub.autoclear.AutoClearFeature";
+        String autoCfg = "com.killer560.hub.autoclear.AutoClearConfig";
+        String cheat = "com.killer560.hub.cheatutils.CheatUtilsConfig";
+        String memory = "com.killer560.hub.autoroutes.RouteRunMemory";
+        // chest A beside the start (the one taken by hand in pass 2), a floor lever beside the start, one chest at eye
+        // height on the start-to-first-mob line, a chest and a lever beside the mobs.
+        int[] chestA = {6, F, 15};
+        int[] leverA = {4, F, 13};
+        int[] chestEye = {7, F + 1, 13};
+        int[] chestB = {12, F, 11};
+        int[] leverB = {21, F, 11};
+        int[] chestC = {13, F, 22};
+        Map<int[], String> secrets = new LinkedHashMap<>();
+        secrets.put(chestA, "minecraft:chest");
+        secrets.put(leverA, "minecraft:lever[face=floor,facing=north,powered=false]");
+        secrets.put(chestEye, "minecraft:chest");
+        secrets.put(chestB, "minecraft:chest");
+        secrets.put(leverB, "minecraft:lever[face=floor,facing=north,powered=false]");
+        secrets.put(chestC, "minecraft:chest");
+        // A ring of floor levers two blocks round each mob (not in the middle wall): Auto Clear hops off the start in a
+        // few ticks, inside the aura's 150 ms first-seen wait, so these are what keep a secret in reach of where it
+        // stands to kill and of its end-of-room wait (the first run saw no candidate past the wait: a vacuous pass).
+        List<int[]> ring = new ArrayList<>();
+        for (int[] mob : new int[][]{{11, 8}, {15, 21}, {22, 9}}) {
+            for (int dx = -2; dx <= 2; dx += 2) {
+                for (int dz = -2; dz <= 2; dz += 2) {
+                    int x = mob[0] + dx;
+                    int z = mob[1] + dz;
+                    if ((dx != 0 || dz != 0) && x != 15 && x > 3 && x < 27 && z > 3 && z < 27) {
+                        ring.add(new int[]{x, F, z});
+                    }
+                }
+            }
+        }
+        for (int[] r : ring) {
+            secrets.put(r, "minecraft:lever[face=floor,facing=north,powered=false]");
+        }
+        setBlocks(ctx, secrets);
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(autoCfg);
+            ModUnderTest.set(cfg, "setEnabled", true);
+            ModUnderTest.set(cfg, "setHyperionHops", true);
+            ModUnderTest.call(cfg, "setWeapon", new Class<?>[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")
+                    .getClass()}, new Object[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")});
+            Object aura = ModUnderTest.config(cheat);
+            ModUnderTest.set(aura, "setAuraChests", true);
+            ModUnderTest.set(aura, "setAuraLevers", true);
+            ModUnderTest.set(aura, "setAuraPauseWhileSneaking", false);
+            ModUnderTest.call(aura, "setAuraPauseHolding", new Class<?>[]{String.class}, new Object[]{""});
+        });
+        List<JsonObject> mobs = new ArrayList<>();
+        try {
+            tpRel(ctx, 5.5, 15.5, -90f, 0f);
+            ctx.waitTicks(10);
+            double[][] spots = {{11.5, 8.5}, {15.5, 21.5}, {22.5, 9.5}};
+            for (double[] sp : spots) {
+                Vec3 at = ctx.computeOnClient(mc -> {
+                    Object frame = ModUnderTest.staticCall(FRAME, "current");
+                    return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                            double.class, double.class}, new Object[]{frame, sp[0], (double) F, sp[1]});
+                });
+                mobs.add(c.hx().call("dungeon.starred", "x", at.x, "y", at.y, "z", at.z).getAsJsonObject());
+            }
+            ctx.waitTicks(20);
+
+            // ---- pass 1: Auto Clear kills with Secret Aura on ----
+            java.util.concurrent.atomic.AtomicReference<String> done = new java.util.concurrent.atomic.AtomicReference<>();
+            java.util.concurrent.atomic.AtomicReference<String> gaveUp = new java.util.concurrent.atomic.AtomicReference<>();
+            long m = LogTap.mark();
+            startSampling(ctx);
+            ctx.runOnClient(mc -> {
+                ModUnderTest.set(ModUnderTest.config(cheat), "setSecretAuraEnabled", true);
+                // The aura goes off in the same client tick the run ends (onDone / onGiveUp run inside Auto Clear's tick),
+                // so a click right after the kill cannot be mistaken for one during it.
+                ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class, Runnable.class,
+                        java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> {
+                            ModUnderTest.turnOff(cheat, "setSecretAuraEnabled");
+                            done.set("done");
+                        }, (java.util.function.Consumer<String>) why -> {
+                            ModUnderTest.turnOff(cheat, "setSecretAuraEnabled");
+                            gaveUp.set(why);
+                        }});
+            });
+            // An item dropped at his feet mid-kill: picked up while Auto Clear runs, as an item secret on his way would be.
+            ctx.waitTicks(15);
+            Vec3 dropAt = relPos(ctx);
+            boolean busyAtDrop = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto, "isBusy"));
+            c.server().command("execute at @p run summon minecraft:item ~ ~ ~ {Item:{id:\"minecraft:bone\",count:1},"
+                    + "PickupDelay:0s}");
+            boolean finished = waitFor(ctx, 900, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto,
+                    "isBusy")));
+            if (!finished) {
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "cancel"));
+            }
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(cheat, "setSecretAuraEnabled"));
+            ctx.waitTicks(5);
+            List<Sample> s1 = stopSampling(ctx);
+            List<String> states = new ArrayList<>();
+            for (JsonObject mob : mobs) {
+                states.add(c.hx().call("dungeon.alive", "id", mob.get("mob").getAsString(), "stand",
+                        mob.get("stand").getAsString()).getAsString());
+            }
+            int auraClicks = 0;
+            boolean auraHeld = false;
+            boolean useTurned = false;
+            for (String l : LogTap.since(m)) {
+                if (l.contains("[SecretAura] click sent")) {
+                    auraClicks++;
+                    println("  " + l.replaceAll("^.*?\\[SecretAura\\]", "[SecretAura]"));
+                }
+                auraHeld |= l.contains("Auto Clear is killing mobs");
+                useTurned |= l.contains("held use: the look meets the secret");
+                if (l.contains("[AutoClear]") || l.contains("[RouteMemory] remembered")) {
+                    println("  " + l.replaceAll("^.*?\\[(AutoClear|RouteMemory)\\]", "[$1]"));
+                }
+            }
+            int useOn = count(s1, "use_item_on");
+            // use_item_on alone is not a secret click: an etherwarp sends the block half of its right click on the stone
+            // it lands on first (util/RightClick). Every click on a chest, lever or skull through the game mode is logged
+            // by Auto Routes' await hook ("secret click sent"), whoever made it.
+            int secretClicks = 0;
+            for (String l : LogTap.since(m)) {
+                if (l.contains("[AutoRoutes] secret click sent")) {
+                    secretClicks++;
+                    println("  " + l.replaceAll("^.*?\\[AutoRoutes\\]", "[AutoRoutes]"));
+                }
+            }
+            boolean leversOff = true;
+            for (var e : secrets.entrySet()) {
+                if (e.getValue().contains("lever")) {
+                    int[] p = e.getKey();
+                    leversOff &= !String.valueOf(blockState(ctx, p[0], p[1], p[2])).contains("powered=true");
+                }
+            }
+            String inRoom = ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(memory, "gotInRoom",
+                    new Class<?>[]{String.class}, new Object[]{room})));
+            boolean itemRemembered = false;
+            for (String l : LogTap.since(m)) {
+                itemRemembered |= l.contains("[RouteMemory] remembered secret item picked up") && l.contains("in room " + room)
+                        && l.contains("Auto Clear running=true");
+            }
+            printTrace("autoclearaura", s1);
+            println(String.format(Locale.ROOT, "autoclearaura pass 1: %s, onDone=%s onGiveUp=%s, mobs %s, aura clicks %d, "
+                            + "aura held by Auto Clear %s, held use turned off a secret %s, secret clicks %d, use_item_on %d "
+                            + "(etherwarp block halves), levers off %s (%d), item dropped at %.1f,%.1f (Auto Clear busy %s), "
+                            + "memory in %s: %s",
+                    finished ? "finished" : "STILL RUNNING", done.get(), gaveUp.get(), states, auraClicks, auraHeld,
+                    useTurned, secretClicks, useOn, leversOff, ring.size() + 2, dropAt.x, dropAt.z, busyAtDrop, room,
+                    inRoom));
+            for (int i = 0; i < mobs.size(); i++) {
+                check(!"alive".equals(states.get(i)), "pass 1: starred mob " + i + " is still alive");
+            }
+            check(finished && done.get() != null && gaveUp.get() == null, "pass 1: clearRoom ended onDone=" + done.get()
+                    + " onGiveUp=" + gaveUp.get());
+            check(auraHeld, "pass 1: Secret Aura never had a secret in reach to hold back - the pass proves nothing");
+            check(auraClicks == 0, "pass 1: Secret Aura clicked " + auraClicks + " secret(s) while Auto Clear was killing");
+            check(secretClicks == 0, "pass 1: " + secretClicks + " click(s) on a chest, lever or skull while Auto Clear "
+                    + "was killing");
+            check(!inRoom.contains("chest at") && !inRoom.contains("lever at"), "pass 1: the run memory holds a chest or "
+                    + "lever taken while Auto Clear was killing: " + inRoom);
+            check(leversOff, "pass 1: a lever was flipped while Auto Clear was killing");
+            check(busyAtDrop, "pass 1: Auto Clear had already finished when the item was dropped");
+            check(itemRemembered, "pass 1: the item picked up during the kill was not remembered with room " + room);
+            noteFlags(c, s1);
+
+            // ---- pass 2: chest A taken by hand, no route running ----
+            tpRel(ctx, 8.5, 16.5, 90f, 0f);
+            ctx.waitTicks(5);
+            long m2 = LogTap.mark();
+            startSampling(ctx);
+            rightClick(ctx, chestA[0], chestA[1], chestA[2], Direction.UP);
+            boolean opened = waitFor(ctx, 20, () -> ctx.computeOnClient(mc -> McCompat.screen(mc) != null));
+            ctx.runOnClient(mc -> {
+                if (mc.player.containerMenu != mc.player.inventoryMenu) {
+                    mc.player.closeContainer();
+                }
+            });
+            ctx.waitTicks(5);
+            List<Sample> s2 = stopSampling(ctx);
+            boolean chestRemembered = logHasAll(m2, "[RouteMemory] remembered secret chest at", "in room " + room);
+            println("autoclearaura pass 2: chest A opened " + opened + ", remembered with its room " + chestRemembered
+                    + ", use_item_on " + count(s2, "use_item_on"));
+            // (Auto Close Chest, when on, cancels the screen: the click itself is what is checked.)
+            check(count(s2, "use_item_on") == 1, "pass 2: the hand click on chest A sent " + count(s2, "use_item_on")
+                    + " use_item_on");
+            check(chestRemembered, "pass 2: chest A was not remembered with room " + room);
+            noteFlags(c, s2);
+
+            // ---- pass 3: the route's await beside chest A is met from memory ----
+            JsonObject w = node("WALK", 8, 19, 0f, 0f);
+            w.addProperty("start", true);
+            w.addProperty("awaitEnabled", true);
+            w.addProperty("await", "SECRET");
+            w.addProperty("amount", 1);
+            writeRoute(ctx, List.of(w, node("UNSNEAK", 8, 26, 0f, 0f)));
+            long m3 = LogTap.mark();
+            startSampling(ctx);
+            walkOnto(ctx, 8.5, 16.5, 8, 19);
+            boolean complete = waitFor(ctx, 100, () -> logHas(m3, "\" complete") || logHas(m3, "Stopped"));
+            ctx.waitTicks(5);
+            List<Sample> s3 = stopSampling(ctx);
+            boolean counted = logHasAll(m3, "await counts chest at", "already got this run");
+            boolean atOnce = logHas(m3, "await satisfied at once");
+            for (String l : LogTap.since(m3)) {
+                if (l.contains("Node #1") || l.contains("complete")) {
+                    println("  " + l.replaceAll("^.*?\\[AutoRoutes\\]", "[AutoRoutes]"));
+                }
+            }
+            println("autoclearaura pass 3: chest A counted from memory " + counted + ", met at once " + atOnce
+                    + ", route complete " + logHas(m3, "\" complete") + ", use_item_on " + count(s3, "use_item_on"));
+            check(counted && atOnce, "pass 3: the await beside chest A did not count it from the run memory");
+            check(complete && logHas(m3, "\" complete"), "pass 3: the route did not run to its end (it waited for chest A)");
+            check(count(s3, "use_item_on") == 0, "pass 3: the route clicked something (" + count(s3, "use_item_on") + ")");
+            c.note("autoclearaura: Auto Clear killed 3 mobs beside 4 chests and 2 levers with Secret Aura on - 0 secret "
+                    + "clicks (aura held by Auto Clear" + (useTurned ? ", held use turned off a secret" : "")
+                    + "); item picked up mid-kill remembered in " + room + "; chest A by hand then met the route's await "
+                    + "at once from memory, route complete");
+            noteFlags(c, s3);
+        } finally {
+            ctx.runOnClient(mc -> {
+                ModUnderTest.staticCall(auto, "cancel");
+                ModUnderTest.turnOff(cheat, "setSecretAuraEnabled");
+                ModUnderTest.set(ModUnderTest.config(autoCfg), "setEnabled", false);
+                if (mc.player.containerMenu != mc.player.inventoryMenu) {
+                    mc.player.closeContainer();
+                }
+            });
+            c.server().command("kill @e[type=minecraft:zombie]");
+            c.server().command("kill @e[type=minecraft:item]");
+            resetRoutes(ctx);
+        }
+    }
+
+    /**
+     * stall-1020 (his Wizard #1, fullclear acplan-1020): a breaker node fired the tick an etherwarp landed, the sneak still
+     * at the server, and its block 6 over his feet - 4.73 from the crouched eye (1.27), 4.38 from the standing one - was
+     * left out of reach for good. The node must wait for the stand to reach the server, then dig it, against GrimAC: his
+     * own sneaking etherwarp onto (14,14), the start node there a breaker of one snow block at F+6.
+     */
+    private static void caseBreakerStand(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+        int high = F + 6;
+        setBlocks(ctx, Map.of(new int[]{14, high, 14}, "minecraft:snow_block"));
+        JsonObject br = node("DUNGEON_BREAKER", 14, 14, 0f, -90f);
+        JsonArray blocks = new JsonArray();
+        blocks.add("14 " + high + " 14");
+        br.add("blocks", blocks);
+        br.addProperty("start", true);
+        writeRoute(ctx, List.of(br));
+        long m = LogTap.mark();
+        startSampling(ctx);
+        warpOnto(ctx, 6.5, 18.5, 14, 14);
+        boolean gone = waitFor(ctx, 80, () -> blockAir(ctx, 14, high, 14));
+        ctx.waitTicks(10);
+        List<Sample> s = stopSampling(ctx);
+        printTrace("breaker stand", s);
+        boolean held = logHas(m, "in reach only from the standing eye");
+        boolean stood = logHas(m, "Breaker: standing after");
+        c.note("breaker stand: block gone " + gone + ", held for the stand " + held + ", stood " + stood + ", "
+                + count(s, "player_action") + " player_action");
+        check(logHas(m, "DUNGEON_BREAKER begins") || logHas(m, "DUNGEON_BREAKER acted"),
+                "the breaker node never fired after his etherwarp - the case proves nothing");
+        check(held, "the breaker did not wait for the stand (the sneak was not at the server, or the block was in reach "
+                + "crouched) - the case proves nothing");
+        check(gone, "the block 6 over his feet was never broken");
+        noteFlags(c, s);
+    }
+
     // ============================================================================================ Interactive Map
 
     private static final String IM_FEATURE = "com.killer560.hub.livemap.InteractiveMapFeature";
@@ -2082,6 +2763,118 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     ModUnderTest.staticCall(as, "stop", new Class<?>[]{String.class, boolean.class},
                             new Object[]{"test over", true});
                 }
+            });
+            writeRoute(ctx, null);
+        }
+    }
+
+    /**
+     * acplan-1020 (mod: Auto Secret's Room Plan, Fastest Total): Auto Secret with the arena room's route and two starred mobs
+     * in the room out of the weapon's reach from where the route ends, Auto Clear on (Hyperion, hops). The room's clear must
+     * go in the same visit as its route - "clear here" after the route, or "clear first" before it when that prices
+     * cheaper - so the hand-over between the route's packets and Auto Clear's runs under GrimAC. Requires the route to
+     * finish, one of those two lines, both mobs dead, no entity packet; GrimAC silent.
+     */
+    private static void caseClearHere(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        String as = "com.killer560.hub.autosecret.AutoSecretFeature";
+        String asCfg = "com.killer560.hub.autosecret.AutoSecretConfig";
+        String autoCfg = "com.killer560.hub.autoclear.AutoClearConfig";
+        boolean hasPlan = ctx.computeOnClient(mc -> {
+            try {
+                Class.forName(asCfg + "$RoomPlan");
+                return true;
+            } catch (ClassNotFoundException e) {
+                return false;
+            }
+        });
+        check(hasPlan, "this jar has no Auto Secret Room Plan - nothing to test");
+        Object[] planBefore = new Object[1];
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(asCfg);
+            planBefore[0] = ModUnderTest.call(cfg, "getRoomPlan", new Class<?>[]{}, new Object[]{});
+            Object ft = ModUnderTest.enumValue(asCfg + "$RoomPlan", "FASTEST_TOTAL");
+            ModUnderTest.call(cfg, "setRoomPlan", new Class<?>[]{ft.getClass()}, new Object[]{ft});
+            Object ac = ModUnderTest.config(autoCfg);
+            ModUnderTest.set(ac, "setEnabled", true);
+            ModUnderTest.set(ac, "setHyperionHops", true);
+            ModUnderTest.call(ac, "setWeapon", new Class<?>[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")
+                    .getClass()}, new Object[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")});
+        });
+        resetRoutes(ctx);
+        arena(ctx, true);
+        writeRoute(ctx, List.of(ew(24, 10, 24, 22, true)));
+        List<Sample> s = List.of();
+        try {
+            tpRel(ctx, 6.5, 20.5, 0f, 0f);
+            ctx.waitTicks(5);
+            // Both well over the Hyperion's reach from the route's end (24, 22) and from each other.
+            double[][] spots = {{11.5, 8.5}, {22.5, 9.5}};
+            List<JsonObject> mobs = new ArrayList<>();
+            for (double[] sp : spots) {
+                Vec3 at = ctx.computeOnClient(mc -> {
+                    Object frame = ModUnderTest.staticCall(FRAME, "current");
+                    return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                            double.class, double.class}, new Object[]{frame, sp[0], (double) F, sp[1]});
+                });
+                mobs.add(c.hx().call("dungeon.starred", "x", at.x, "y", at.y, "z", at.z).getAsJsonObject());
+            }
+            ctx.waitTicks(20);
+            int seen = ctx.computeOnClient(mc -> ((List<?>) ModUnderTest.staticCall("com.killer560.hub.mobesp.MobEspFeature",
+                    "starredMobs", new Class<?>[]{net.minecraft.client.Minecraft.class}, new Object[]{mc})).size());
+            JsonObject before = stats();
+            long m = LogTap.mark();
+            startSampling(ctx);
+            Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as, "start"));
+            check(Boolean.TRUE.equals(started), "Auto Secret refused to start");
+            boolean stopped = waitFor(ctx, 1200, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as,
+                    "isRunning")));
+            ctx.waitTicks(10);
+            s = stopSampling(ctx);
+            printTrace("clearhere", s);
+            for (String l : LogTap.since(m)) {
+                if (l.contains("[AutoSecret]") || l.contains("[AutoClear]")) {
+                    println("  " + l.replaceAll("^.*?\\[(AutoSecret|AutoClear)\\]", "[$1]"));
+                }
+            }
+            List<String> states = new ArrayList<>();
+            for (JsonObject mob : mobs) {
+                states.add(c.hx().call("dungeon.alive", "id", mob.get("mob").getAsString(), "stand",
+                        mob.get("stand").getAsString()).getAsString());
+            }
+            int interacts = 0;
+            for (Sample x : s) {
+                interacts += (int) x.out().stream().filter(p -> p.contains("interact")).count();
+            }
+            boolean here = logHas(m, "[AutoSecret] clear here:");
+            boolean first = logHas(m, "[AutoSecret] clear first:");
+            println("clearhere: " + seen + " starred mob(s) resolved, mobs " + states + ", clear here " + here + ", clear first "
+                    + first + ", Wither Impacts " + delta(before, "witherImpacts") + ", etherwarps " + delta(before, "etherwarps")
+                    + ", entity packets " + interacts + ", stopped " + stopped);
+            check(seen >= 2, "the client resolved only " + seen + " of the 2 starred mobs - nothing to clear");
+            check(logHas(m, "[AutoSecret] route " + room + " finished"), "Auto Secret never saw the route finish");
+            check(here || first, "the room's clear did not go in the same visit as its route (no clear here / clear first)");
+            for (int i = 0; i < states.size(); i++) {
+                check(!"alive".equals(states.get(i)), "starred mob " + i + " is still alive");
+            }
+            check(interacts == 0, interacts + " entity packet(s): a melee hit or an entity click");
+            check(stopped, "Auto Secret was still running after the clear");
+            List<String> twoLooks = dev.testkit.harness.UseRotationWatch.violations();
+            check(twoLooks.isEmpty(), "a use's look was not the one its tick reported (GrimAC BadPacketsJ): " + twoLooks);
+            List<String> outside = PacketTrace.sentOutsideTick();
+            check(outside.isEmpty(), "sent outside a tick (after its client_tick_end, before the next tick): " + outside);
+            c.note("route then " + (here ? "clear here" : "clear first") + ": " + delta(before, "witherImpacts")
+                    + " Wither Impact(s), " + delta(before, "etherwarps") + " etherwarp(s), mobs " + states);
+            noteFlags(c, s);
+        } finally {
+            ctx.runOnClient(mc -> {
+                if ((Boolean) ModUnderTest.staticCall(as, "isRunning")) {
+                    ModUnderTest.staticCall(as, "stop", new Class<?>[]{String.class, boolean.class},
+                            new Object[]{"test over", true});
+                }
+                Object cfg = ModUnderTest.config(asCfg);
+                ModUnderTest.call(cfg, "setRoomPlan", new Class<?>[]{planBefore[0].getClass()}, new Object[]{planBefore[0]});
+                ModUnderTest.set(ModUnderTest.config(autoCfg), "setEnabled", false);
             });
             writeRoute(ctx, null);
         }
@@ -2395,6 +3188,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         });
         session.hx().call("dungeon.blocks", "blocks", set);
         ctx.waitTicks(10);
+        // Loose items are picked up as secrets. The world persists between runs, and the rebuild above knocks the last
+        // case's chests and levers (1020-autoclearaura's, an earlier run's) out as drops: 1016-auraawait's await was
+        // met by three of them with no click at all (2026-10-20). Every arena starts with none.
+        session.server().command("kill @e[type=minecraft:item]");
+        ctx.waitTicks(2);
     }
 
     private static String spec(BlockPos p, String state) {

@@ -369,6 +369,31 @@ public final class HxAbilities {
 
     private static void superboom(ServerPlayer sp, BlockPos target) {
         ServerLevel level = (ServerLevel) sp.level();
+        if (level.getBlockState(target).is(Blocks.SMOOTH_STONE_SLAB)) {
+            // A crypt lid (the mod's sim and CryptScanner: a run of smooth stone slabs) - King Midas' altar is one, 35
+            // slabs (2026-10-20, 62-argrim-1020-midas). The whole horizontal run goes, as the sim's Superboom takes it.
+            Set<BlockPos> seenSlabs = new HashSet<>();
+            ArrayDeque<BlockPos> run = new ArrayDeque<>();
+            run.add(target);
+            seenSlabs.add(target);
+            int slabs = 0;
+            while (!run.isEmpty() && slabs < 64) {
+                BlockPos p = run.poll();
+                level.destroyBlock(p, false, sp, 512);
+                slabs++;
+                for (Direction d : Direction.Plane.HORIZONTAL) {
+                    BlockPos n = p.relative(d);
+                    if (seenSlabs.add(n) && level.getBlockState(n).is(Blocks.SMOOTH_STONE_SLAB)) {
+                        run.add(n);
+                    }
+                }
+            }
+            superbooms++;
+            boomBlocks += slabs;
+            System.out.println("[testkit] superboom at " + target.toShortString() + ": a slab lid of " + slabs
+                    + " block(s) blown");
+            return;
+        }
         if (!level.getBlockState(target).is(Blocks.CRACKED_STONE_BRICKS)) {
             System.out.println("[testkit] superboom at " + target.toShortString() + ": not cracked stone bricks ("
                     + level.getBlockState(target) + ") - nothing to blow up");

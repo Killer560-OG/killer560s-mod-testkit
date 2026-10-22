@@ -84,7 +84,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     private static final String[] CASES = {"96-ar-add", "96-ar-play", "96-ar-interact", "96-ar-await",
             "96-ar-awaitskip", "96-ar-leverwp", "96-ar-complete", "96-ar-mimic",
             "96-ar-crypt", "96-ar-breaker", "96-ar-breakerwait", "96-ar-pingpong", "96-ar-chain", "96-ar-stackorder", "96-ar-crypthold",
-            "96-ar-charges", "96-ar-museum", "96-ar-398-offnode", "96-ar-398-regrow",
+            "96-ar-charges", "96-ar-museum",
+            // boom-eye-1020: a stack's booms aim at the block they were recorded on, whatever eye the warp's sneak leaves
+            "96-ar-1020-boomsneak",
+            "96-ar-398-offnode", "96-ar-398-regrow",
             // ar-nodes block (mod ar-nodes, 2026-10-11): run before 96-ar-edit's Go To, like the cases above.
             "96-ar-656-dbaddbreak", "96-ar-657-dbeditattack", "96-ar-658-dbreach", "96-ar-659-ewblockwait",
             "96-ar-662-jump",
@@ -290,6 +293,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-crypthold" -> caseCryptHold(ctx);
                         case "96-ar-charges" -> caseCharges(ctx);
                         case "96-ar-museum" -> caseMuseum(ctx);
+                        case "96-ar-1020-boomsneak" -> caseBoomSneak(ctx);
                         case "96-ar-1016-eaten" -> caseEatenHop(ctx);
                         case "96-ar-1016-carry" -> ArMainServerCases.carryPastAwaitless(ctx);
                         case "96-ar-1016-farstart" -> ArMainServerCases.farBeforeStart(ctx);
@@ -2996,6 +3000,213 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             room = saved;
             buildRoom(ctx, 0);
         }
+    }
+
+    /**
+     * boom-eye-1020 (killer560, 2026-10-20: "it struggles when two superbooms land on one spot ... look at the Slime room";
+     * his Mod Only Test log 09:55:55 Museum #11 and 09:56:37 Slime #7). His current stacks, exact: an etherwarp onto the
+     * tile (its sneak still held when the stack fires, as after his warps and path hops), then BOOM, BOOM, CRYPT. On Hypixel
+     * the second boom of each changed nothing; the Museum one fired standing 20 s later blew 30 blocks. The boom aimed its
+     * recorded look from the LIVE eye, 0.35 lower while sneaking, so a shallow look met the floor a block short of where
+     * it was recorded. Each room: both booms must act, the first pass must not end in "nothing left to blow" for a boom
+     * whose recorded block the sim blows, and the line saying which block the node's standing eye meets is printed.
+     */
+    private void caseBoomSneak(ClientGameTestContext ctx) {
+        String saved = room;
+        resetRoutes(ctx);
+        List<String> problems = new ArrayList<>();
+        try {
+            setArEnum(ctx, "setCryptWeapon", "CryptWeapon", "SPIRIT_SCEPTRE");
+            ctx.runOnClient(mc -> {
+                Object ar = ModUnderTest.config(AR_CONFIG);
+                ModUnderTest.set(ar, "setStartFromStartNodeOnly", false);
+                ModUnderTest.call(ar, "setCryptAttackTicks", new Class<?>[]{int.class}, new Object[]{20});
+            });
+            problems.addAll(boomSneakRoom(ctx, "Museum", """
+                    [
+                    {"type":"ETHERWARP","x":28.5,"y":69.0,"z":10.5,"yaw":-149.797974,"pitch":13.055761,"at":0,"start":true,"landing":"31.500000 69.050000 5.500000","placeEye":"28.500000 70.270000 10.500000"},
+                    {"type":"BOOM","x":31.5,"y":69.0,"z":5.5,"yaw":88.540649,"pitch":27.09864,"at":0},
+                    {"type":"BOOM","x":31.5,"y":69.0,"z":5.5,"yaw":-87.284668,"pitch":27.098658,"at":0},
+                    {"type":"CRYPT","x":31.5,"y":69.0,"z":5.5,"yaw":-174.453796,"pitch":86.699799,"at":0}
+                    ]
+                    """, 28.5, 69.0, 10.5, -149.797974f, 13.055761f));
+            problems.addAll(boomSneakRoom(ctx, "Slime", """
+                    [
+                    {"type":"ETHERWARP","x":27.5,"y":69.0,"z":15.5,"yaw":98.972626,"pitch":4.014616,"at":0,"start":true,"landing":"8.500000 69.050000 12.500000"},
+                    {"type":"BOOM","x":8.5,"y":69.0,"z":12.5,"yaw":72.881744,"pitch":90.0,"at":0},
+                    {"type":"BOOM","x":8.5,"y":69.0,"z":12.5,"yaw":160.309799,"pitch":12.473152,"at":0},
+                    {"type":"CRYPT","x":8.5,"y":69.0,"z":12.5,"yaw":130.671112,"pitch":89.805862,"at":0}
+                    ]
+                    """, 27.5, 69.0, 15.5, 98.972626f, 4.014616f));
+        } finally {
+            try {
+                stopRoute(ctx);
+            } catch (Throwable ignored) {
+                // the rebuild below matters more
+            }
+            setArEnum(ctx, "setCryptWeapon", "CryptWeapon", "HYPERION");
+            ctx.runOnClient(mc -> {
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true);
+                ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setCryptAttackTicks", new Class<?>[]{int.class},
+                        new Object[]{100});
+            });
+            resetRoutes(ctx);
+            room = saved;
+            buildRoom(ctx, 0);
+        }
+        check(problems.isEmpty(), String.join("; ", problems));
+    }
+
+    /** One room of {@link #caseBoomSneak}: @return what went wrong (empty on a pass). */
+    private List<String> boomSneakRoom(ClientGameTestContext ctx, String name, String routeJson, double x, double y,
+                                       double z, float relYaw, float pitch) {
+        List<String> problems = new ArrayList<>();
+        room = name;
+        buildRoom(ctx, 0);
+        giveHotbar(ctx);
+        giveSlot(ctx, 4, "BAT_WAND");
+        List<JsonObject> nodes = new ArrayList<>();
+        for (JsonElement e : JsonParser.parseString(routeJson).getAsJsonArray()) {
+            nodes.add(e.getAsJsonObject());
+        }
+        writeRoute(ctx, nodes);
+        forgetRunMemory(ctx);
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+        // The block each boom was recorded on: its look from the node's STANDING eye (/ar add is typed standing), walls
+        // still up. Worked out here, independently of the mod.
+        String[] expected = new String[nodes.size()];
+        for (int i = 0; i < nodes.size(); i++) {
+            JsonObject n = nodes.get(i);
+            if (!"BOOM".equals(n.get("type").getAsString())) {
+                continue;
+            }
+            double nx = n.get("x").getAsDouble();
+            double ny = n.get("y").getAsDouble();
+            double nz = n.get("z").getAsDouble();
+            float ry = n.get("yaw").getAsFloat();
+            float rp = n.get("pitch").getAsFloat();
+            expected[i] = ctx.computeOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                Vec3 at = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                        double.class, double.class}, new Object[]{frame, nx, ny, nz});
+                float yaw = (Float) ModUnderTest.staticCall(COORDS, "toRealYaw", new Class<?>[]{frame.getClass(),
+                        float.class}, new Object[]{frame, ry});
+                Vec3 eye = at.add(0, 1.62, 0);
+                Vec3 look = Vec3.directionFromRotation(rp, yaw).scale(4.5);
+                var hit = mc.level.clip(new net.minecraft.world.level.ClipContext(eye, eye.add(look),
+                        net.minecraft.world.level.ClipContext.Block.OUTLINE, net.minecraft.world.level.ClipContext.Fluid.NONE,
+                        mc.player));
+                return hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
+                        ? ((net.minecraft.world.phys.BlockHitResult) hit).getBlockPos().toShortString() : "nothing";
+            });
+        }
+        long m = LogTap.mark();
+        tpRelY(ctx, x, y, z, relYaw, pitch);
+        boolean ended = waitFor(ctx, 300, () -> logHas(m, "Node #4 CRYPT acted") || logHas(m, "Stopped"));
+        ctx.waitTicks(10);
+        stopRoute(ctx);
+        int changed = 0;
+        int nothing = 0;
+        List<String> detonations = new ArrayList<>();
+        for (String l : LogTap.since(m)) {
+            if (l.contains("Sim superboom at") || l.contains("Boom") || l.contains("BOOM: START") || l.contains("standing eye")
+                    || l.contains("Stopped") || l.contains("ETHERWARP acted") || l.contains("sneak held")) {
+                println("boomsneak " + name + " log: " + l);
+            }
+            if (l.contains("Sim superboom at")) {
+                detonations.add(l.substring(l.indexOf("Sim superboom at")));
+            }
+            if (l.contains("Boom: blocks changed")) {
+                changed++;
+            }
+            if (l.contains("nothing left to blow")) {
+                nothing++;
+            }
+        }
+        int i2 = logIndex(m, "Node #2 BOOM acted");
+        int i3 = logIndex(m, "Node #3 BOOM acted");
+        int i4 = logIndex(m, "Node #4 CRYPT acted");
+        println(String.format(Locale.ROOT, "boomsneak %s: ended %s, boom #2@%d #3@%d crypt #4@%d, booms that changed blocks %d,"
+                + " nothing left to blow %d, detonations %s", name, ended, i2, i3, i4, changed, nothing, detonations));
+        if (i2 < 0 || i3 <= i2) {
+            problems.add(name + ": the two booms did not both act (" + i2 + ", " + i3 + ")");
+        }
+        if (changed < 2) {
+            problems.add(name + ": only " + changed + " of the stack's 2 booms blew anything (" + nothing
+                    + " said nothing left to blow)");
+        }
+        if (i4 <= i3) {
+            problems.add(name + ": the crypt node did not follow the booms");
+        }
+        for (int i = 0; i < expected.length; i++) {
+            if (expected[i] == null) {
+                continue;
+            }
+            String dug = null;
+            String prefix = "Node #" + (i + 1) + " BOOM: START+ABORT dig sent at ";
+            for (String l : LogTap.since(m)) {
+                int at = l.indexOf(prefix);
+                if (at >= 0) {
+                    dug = l.substring(at + prefix.length(), l.indexOf(" (", at + prefix.length()));
+                    break;
+                }
+            }
+            println("boomsneak " + name + " #" + (i + 1) + ": recorded on " + expected[i] + " (standing eye), dug " + dug);
+            if (!expected[i].equals(dug)) {
+                problems.add(name + " #" + (i + 1) + ": dug " + dug + ", not the block it was recorded on (" + expected[i]
+                        + ")");
+            }
+        }
+        int stack1 = stackTicks(m);
+        // ---- the same stack again this run (his 09:56:46 / 09:56:51 Slime re-runs): its walls are open, and a boom that
+        // blew this run is not sent again - main sent each again and waited a round trip, twice on the landing tick ----
+        // As caseMuseum's second pass: Auto Routes off while he is moved, on again on the start node.
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", false));
+        stopRoute(ctx);
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", true));
+        // Four blocks over the start node (in no node, which clears the latch the stop left), then he drops onto it.
+        long m2 = LogTap.mark();
+        tpRelY(ctx, x, y + 4, z, relYaw, pitch);
+        boolean ended2 = waitFor(ctx, 300, () -> logHas(m2, "Node #4 CRYPT acted") || logHas(m2, "Stopped"));
+        ctx.waitTicks(10);
+        stopRoute(ctx);
+        int skipped = 0;
+        int sent = 0;
+        for (String l : LogTap.since(m2)) {
+            if (l.contains("blew its wall earlier this run") || l.contains("Boom") || l.contains("BOOM: START")) {
+                println("boomsneak " + name + " again log: " + l);
+            }
+            skipped += l.contains("blew its wall earlier this run") ? 1 : 0;
+            sent += l.contains("BOOM: START+ABORT dig sent") ? 1 : 0;
+        }
+        int stack2 = stackTicks(m2);
+        println(String.format(Locale.ROOT, "boomsneak %s again: ended %s, booms skipped %d, digs sent %d, ticks from the "
+                + "first boom to the crypt node: first pass %d, again %d", name, ended2, skipped, sent, stack1, stack2));
+        if (skipped < changed) {
+            problems.add(name + " again: only " + skipped + " of the " + changed + " booms that blew were skipped");
+        }
+        return problems;
+    }
+
+    /** Run ticks from "Node #2 BOOM begins" to "Node #4 CRYPT begins" since {@code mark}, or -1. */
+    private static int stackTicks(long mark) {
+        int a = -1;
+        int b = -1;
+        java.util.regex.Pattern tick = java.util.regex.Pattern.compile("run tick (\\d+)");
+        for (String l : LogTap.since(mark)) {
+            java.util.regex.Matcher mt = tick.matcher(l);
+            if (!mt.find()) {
+                continue;
+            }
+            if (a < 0 && l.contains("Node #2 BOOM begins")) {
+                a = Integer.parseInt(mt.group(1));
+            }
+            if (b < 0 && l.contains("Node #4 CRYPT begins")) {
+                b = Integer.parseInt(mt.group(1));
+            }
+        }
+        return a < 0 || b < 0 ? -1 : b - a;
     }
 
     /**
@@ -9037,14 +9248,15 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      * redstone block with the key found puts it in - the block goes and a stand wears the key - and counts one secret).
      * Hypixel gives the room's key secret for the PLACING (wiki, Redstone Key: "rewards 1 secret"), not the pickup.
      * <ul>
-     *   <li>keyawait, by hand: a node click with no key, and the key pickup, each leave await:1 unmet; the node click with
-     *   the key meets it and the server has the key in; a teammate's key (found server-side only) put in by his click
-     *   meets it once the server's answer shows.</li>
+     *   <li>keyawait, by hand: a node click with no key leaves await:1 unmet; the key pickup meets it once the skull is
+     *   gone (stall-1020: his routes count the pickup - Redstone Crypt #1 waits for its chest and the key - though the
+     *   room's secret is the placing); the node click with the key meets it and the server has the key in; a teammate's
+     *   key (found server-side only) put in by his click meets it once the server's answer shows.</li>
      *   <li>keyaura: Secret Aura (Redstone Key + Place Redstone Key) takes the key and puts it in with no input, while the
-     *   route's await:1 waits: two use_item_on packets went out, the server has the key in, and the await was met by the
-     *   placing (its line) and not before it (no met line between the pickup and the placing).</li>
-     *   <li>keyreach: the node 5.1 from his eye to its centre (past the 4.7 skull range): the key is taken, the node is
-     *   not clicked and the await stays unmet; a node walled in on all six sides, in reach, is never clicked either;
+     *   route's await:1 waits: two use_item_on packets went out, the server has the key in, the await was met at the
+     *   pickup, and the placing followed once the route was done.</li>
+     *   <li>keyreach: the node 5.1 from his eye to its centre (past the 4.7 skull range): the key is taken (which meets the
+     *   await) and the node is not clicked; a node walled in on all six sides, in reach, is never clicked either;
      *   stood in reach of an open node, it goes in.</li>
      * </ul>
      */
@@ -9123,7 +9335,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             note.accept(awaitRun(ctx, "a node click with no key", false,
                     () -> rightClick(ctx, node[0], node[1], node[2], Direction.UP)));
             check(placed(ctx) == p0 && !serverAir(ctx, node[0], node[1], node[2]), "the node took a key nobody had found");
-            note.accept(awaitRun(ctx, "our key pickup", false, () -> rightClick(ctx, key[0], key[1], key[2], Direction.UP)));
+            note.accept(awaitRun(ctx, "our key pickup", true, () -> rightClick(ctx, key[0], key[1], key[2], Direction.UP)));
             check(serverAir(ctx, key[0], key[1], key[2]), "premise: the sim server did not take the key on his click");
             note.accept(awaitRun(ctx, "our click putting the key in", true,
                     () -> rightClick(ctx, node[0], node[1], node[2], Direction.UP)));
@@ -9191,7 +9403,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 List<String> log = LogTap.since(m);
                 for (int i = 0; i < log.size(); i++) {
                     String l = log.get(i);
-                    if (l.contains("redstone key at") && l.contains("not a secret") && pickupAt < 0) {
+                    if (l.contains("you took the redstone key") && pickupAt < 0) {
                         pickupAt = i;
                     }
                     if (l.contains("redstone key put on its redstone block") && placeAt < 0) {
@@ -9210,10 +9422,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 check(keyGone, "Secret Aura did not take the key (server side)");
                 check(nodeIn && placedNow == 1, "Secret Aura did not put the key in (server side, placed " + placedNow + ")");
                 check(clicks >= 2, "only " + clicks + " use_item_on packet(s) went out for the key and its node");
-                check(met, "the route's await:1 was never met by the aura's placing");
+                check(met, "the route's await:1 was never met by the aura's pickup");
                 check(pickupAt >= 0 && placeAt > pickupAt, "the log does not show the pickup, then the placing");
-                check(metAt > placeAt, "the await was met before the key was put in (met line " + metAt + ", placing "
-                        + placeAt + ")");
+                check(metAt > pickupAt, "the await was met before the key was taken (met line " + metAt + ", pickup "
+                        + pickupAt + ")");
             } finally {
                 auraOff(ctx);
                 stopRoute(ctx);
@@ -9249,7 +9461,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 check(taken, "premise: Secret Aura did not take the key");
                 check(d > 4.7, "premise: the far node is only " + d + " from the eye");
                 check(!farIn && placed(ctx) == p0, "Secret Aura put the key in a node " + d + " from his eye");
-                check(!metFar, "the await was met with the key only picked up");
+                // stall-1020: the pickup is one await event (his routes count it), so await:1 is met by it here.
+                check(metFar, "the await was not met by the key's pickup");
                 stopRoute(ctx);
 
                 // In reach but walled in: every face against stone. Never clicked.

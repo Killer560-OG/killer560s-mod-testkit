@@ -384,9 +384,12 @@ public class SimAutoClearTests implements FabricClientGameTest {
         Room offRoom = off.get(0);
         List<Placed> p6 = new ArrayList<>();
         for (Room r : List.of(rush, offRoom)) {
+            // The mob first, then the room un-cleared: the other way round, the sim's 10-tick room check could run between
+            // the two, find only the room's earlier (dead) mobs and clear it again before the new one was recorded - then
+            // the room read cleared with a live zombie in it (3 runs of 3 on 2026-10-20, Rail Track, Mural, Temple).
+            p6.addAll(spawnIn(ctx, r, 1, false));
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_ROOM_STATE, "clearRoom", new Class<?>[]{String.class},
                     new Object[]{r.name()}));
-            p6.addAll(spawnIn(ctx, r, 1, false));
         }
         ctx.waitTicks(30);
         setMode(ctx, "ANY_MOB_ROOM", "HYPERION");
@@ -963,8 +966,44 @@ public class SimAutoClearTests implements FabricClientGameTest {
      * Interactive Map runner is busy with the trip. The teleport must arrive while Auto Clear runs, be counted as a
      * correction, and the zombie must still die with onDone.
      */
+    /** The server sets hotbar slot {@code slot} to the sim item {@code id}, or empties it for null. */
+    private static void setSlot(ClientGameTestContext ctx, int slot, String id) {
+        AtomicReference<Boolean> set = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            UUID uuid = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(uuid);
+                if (sp != null) {
+                    sp.getInventory().setItem(slot, id == null ? ItemStack.EMPTY : (ItemStack) ModUnderTest.staticCall(
+                            SIM_ITEMS, "build", new Class<?>[]{String.class}, new Object[]{id}));
+                }
+                set.set(true);
+            });
+        });
+        ctx.waitFor(mc -> set.get() != null, 200);
+        ctx.waitTicks(3);
+    }
+
     private static void correctionCase(ClientGameTestContext ctx, List<String> failures, String label, String here,
                                        boolean hops, boolean withStart) {
+        // Without hops the case needs a TRIP to the zombie, 9-16 blocks off: since mod autoclear-speed-1020 a Spirit
+        // Sceptre bat from where he stands is priced right and wins at that range, so the sceptre is out of the hotbar
+        // for these two cases and back after.
+        if (!hops) {
+            setSlot(ctx, 2, null);
+        }
+        try {
+            correctionCaseBody(ctx, failures, label, here, hops, withStart);
+        } finally {
+            if (!hops) {
+                setSlot(ctx, 2, "BAT_WAND");
+            }
+        }
+    }
+
+    private static void correctionCaseBody(ClientGameTestContext ctx, List<String> failures, String label, String here,
+                                           boolean hops, boolean withStart) {
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setHyperionHops", hops));
         // A zombie spot in this room with a floor spot behind him to be moved to (pickCorrection). Where he stands, or,
         // when he stands at the room's edge with nothing of the room behind him (2026-10-07, Scaffolding: 789 pairs,
