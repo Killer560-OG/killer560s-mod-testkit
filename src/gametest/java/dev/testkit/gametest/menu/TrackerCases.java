@@ -212,8 +212,20 @@ final class TrackerCases {
         return all == null ? 0 : ((Number) Mod.field(all, "profit")).longValue();
     }
 
+    /**
+     * Waits until every save CroesusProfitLog has queued on its writer thread is on disk (a no-op queued behind them).
+     * Reading the log migrates old claims and queues a save; on the sweep of 2026-10-21 that save replaced the file while
+     * this case was writing the next fixture, load() found no file ("Could not read ... starting a fresh log") and every
+     * total read 0. Nothing in the game reloads this log after startup, so only a test that writes the file can race it.
+     */
+    static void drainCroesusWriter() throws Exception {
+        ((java.util.concurrent.ExecutorService) Mod.field(CROESUS, "WRITER")).submit(() -> { })
+                .get(10, java.util.concurrent.TimeUnit.SECONDS);
+    }
+
     static void croesusScope(Session c) throws Exception {
         Path path = c.onClient(mc -> (Path) Mod.field(CROESUS, "PATH"));
+        drainCroesusWriter();
         byte[] before = Files.exists(path) ? Files.readAllBytes(path) : null;
         try {
             Files.createDirectories(path.getParent());
@@ -235,6 +247,7 @@ final class TrackerCases {
                     + entry("2026-01-02T00:00:01Z", "AcctA", "Apple", 500) + ","
                     + entry("2026-01-02T00:00:02Z", "AcctB", "Apple", 700) + ","
                     + entry("2026-01-02T00:00:03Z", "AcctA", "Banana", 300) + "]}";
+            drainCroesusWriter(); // reading the old file queued a save (its claims were given an account)
             Files.writeString(path, v2, StandardCharsets.UTF_8);
             c.ctx().runOnClient(mc -> Mod.staticCall(CROESUS, "load"));
             Object a = filter("AcctA", null, null);
@@ -248,7 +261,7 @@ final class TrackerCases {
             c.check(pa == 800 && pb == 700 && pBanana == 300 && pAll == 1500, "scoped profit wrong (want 800/700/300/1500)");
 
             c.ctx().runOnClient(mc -> Mod.staticCall(CROESUS, "reset", a));
-            c.ctx().waitTicks(10); // the log writes on its own thread
+            drainCroesusWriter(); // the log writes on its own thread
             c.ctx().runOnClient(mc -> Mod.staticCall(CROESUS, "load"));
             long ra = c.onClient(mc -> chests(croesusAllTime(a)));
             long rb = c.onClient(mc -> profit(croesusAllTime(b)));
@@ -256,6 +269,7 @@ final class TrackerCases {
             c.note("after resetting AcctA and reloading: A " + ra + " chests, B profit " + rb + ", " + entries + " entries kept");
             c.check(ra == 0 && rb == 700 && entries == 3, "AcctA reset: A " + ra + " chests, B " + rb + ", entries " + entries);
         } finally {
+            drainCroesusWriter();
             if (before != null) {
                 Files.write(path, before);
             } else {
