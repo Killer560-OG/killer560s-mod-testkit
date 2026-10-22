@@ -723,8 +723,9 @@ final class Solver1018Cases {
                 c.check(v.waitFor(60, java.util.concurrent.TimeUnit.SECONDS) && v.exitValue() == 0 && Files.size(mp4) > 0,
                         "premise: ffmpeg could not make the test mp4");
                 savedMp4 = (String) Mod.staticCall(CLICKS, "importFile", mp4);
-                c.check(savedMp4.endsWith(".wav") && Files.isRegularFile(dir.resolve(savedMp4)),
-                        "the video's audio did not come in as a .wav: " + savedMp4);
+                // ffmpeg's output is .ogg (libvorbis) since mod 9c437b1d, the engine's own format; it was .wav before.
+                c.check(savedMp4.endsWith(".ogg") && Files.isRegularFile(dir.resolve(savedMp4)),
+                        "the video's audio did not come in as an .ogg: " + savedMp4);
                 Mod.set(CLICK_CFG, "setChoice", "import:" + savedMp4);
                 c.check(click(c).startsWith("killer560smod:imported/"), "the video's audio did not play");
                 c.note("mp3 kept as " + savedMp3 + ", video imported as " + savedMp4);
