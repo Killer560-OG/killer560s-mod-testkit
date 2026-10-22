@@ -843,15 +843,15 @@ final class TrailRibbonCases {
         try {
             List<String> rows = tabRows(c, "gui.tab.TrailTab", () -> Mod.call(Mod.cfg(SQ), "setEnabled", true));
             c.note("Trail tab rows: " + rows);
-            for (String want : new String[]{"Trail: ON", "Length", "Square Size", "Opacity", "Fade Toward Tail",
+            for (String want : new String[]{"Trail: ON", "Length", "Square Size", "Opacity", "Fade Towards Tail",
                     "Show In First Person"}) {
                 c.check(rows.stream().anyMatch(r -> r.startsWith(want)), "the Trail tab lost its row '" + want + "': " + rows);
             }
             c.check(rows.stream().noneMatch(r -> r.startsWith("Style") || r.contains("Ribbon") || r.contains("Share")
-                            || r.contains("Others' Trails") || r.contains("Color")),
-                    "the Trail tab still has Style, ribbon, color or share rows: " + rows);
+                            || r.contains("Others' Trails") || r.contains("Colour") || r.contains("Color")),
+                    "the Trail tab still has Style, ribbon, colour or share rows: " + rows);
             for (String label : new String[]{"Trail: ON", "Length: 40", "Square Size: 0.30", "Opacity: 60%",
-                    "Fade Toward Tail: ON", "Show In First Person: ON"}) {
+                    "Fade Towards Tail: ON", "Show In First Person: ON"}) {
                 String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Trail", label));
                 c.note("tooltip '" + label + "': " + tip);
                 c.check(tip != null && !tip.isEmpty() && !tip.toLowerCase(Locale.ROOT).contains("ribbon"),
