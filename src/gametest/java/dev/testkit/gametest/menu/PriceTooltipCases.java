@@ -273,12 +273,14 @@ final class PriceTooltipCases {
 
             ItemStack dia = give(c, 1, DIAMONDS, 64);
             List<String> one = priceLines(c, dia);
-            c.check(one.equals(List.of("§eNPC Sell Price: §b1,280.0 Coins", "§eBazaar Buy/Sell: §b1,700.5 / 1,600.5 Coins")),
+            // Buy and Sell are two lines since mod 7feff06b ("Bazaar buy and sell on separate tooltip lines").
+            c.check(one.equals(List.of("§eNPC Sell Price: §b1,280.0 Coins", "§eBazaar Buy: §b1,700.5 Coins",
+                            "§eBazaar Sell: §b1,600.5 Coins")),
                     "64 Enchanted Diamonds without Shift: " + one);
             shift(true);
             List<String> stack = priceLines(c, dia);
             c.check(stack.equals(List.of("§eNPC Sell Price: §b81,920.0 Coins §8(64x)",
-                            "§eBazaar Buy/Sell: §b108,832.0 / 102,432.0 Coins §8(64x)")),
+                            "§eBazaar Buy: §b108,832.0 Coins §8(64x)", "§eBazaar Sell: §b102,432.0 Coins §8(64x)")),
                     "64 Enchanted Diamonds with Shift: " + stack);
             c.note("diamonds: " + one + " / shift " + stack);
         } finally {
