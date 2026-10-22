@@ -182,7 +182,17 @@ final class InvBatchMenuCases {
                     sent(c, () -> screenClick(c, hot0 + 1, 0, ContainerInput.PICKUP));
                 }
                 record(table, wrong, m[0] + ": click", prot, ctrl);
-                record(table, wrong, m[0] + ": starred shift-click", star, ctrl);
+                if (m[0].equals("Anvil")) {
+                    // A dungeon-starred item may go into the anvil (mod ba2de7ac, owner 2026-10-20: "Blocked using in the
+                    // anvil Storm's Chestplate - this should not exist"); the hand-protected Hyperion's click above still
+                    // must not.
+                    table.put("Anvil: starred shift-click", star + " packet(s) (allowed on purpose)");
+                    if (star != 1) {
+                        wrong.add("Anvil: the starred shift-click sent " + star + " packet(s), want 1 (the anvil allows starred items)");
+                    }
+                } else {
+                    record(table, wrong, m[0] + ": starred shift-click", star, ctrl);
+                }
                 if (m[1] == null) {
                     // Number key 1 over the diamond would put the Hyperion into the sell menu's player slot.
                     int swap = sent(c, () -> screenClick(c, hot0 + 1, 0, ContainerInput.SWAP));
