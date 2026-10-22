@@ -66,18 +66,18 @@ final class InventoryCases {
             c.ctx().runOnClient(mc -> Mod.call(cfgObj, "setScreenTitlePattern", "(?i).*sell.*"));
             c.hx().call("give", "slot", 0, "stack", MenuKit.item("items.enchanted-diamond"), "count", 16);
             c.hx().call("give", "slot", 1, "stack", "minecraft:stone", "count", 3);
+            // No start command since mod 2026-10-19: switched on with a sell list, Auto Sell starts by itself on any
+            // open container whose title matches its pattern, so opening the Sell menu is the whole trigger.
             MenuKit.show(c, MenuKit.menu("menus.sell"));
             MenuKit.awaitScreen(c, "Sell", 100);
-            c.ctx().waitTicks(5);
-            String refusal = c.onClient(mc -> (String) Mod.staticCall("autosell.AutoSellFeature", "start"));
             if (!MenuKit.cheat()) {
-                c.check(refusal != null, "legit jar: AutoSellFeature.start() accepted");
                 c.ctx().waitTicks(40);
+                boolean ran = c.onClient(mc -> (Boolean) Mod.staticCall("autosell.AutoSellFeature", "isRunning"));
+                c.check(!ran, "legit jar: Auto Sell started a session");
                 c.check(c.events("container.click").isEmpty(), "legit jar clicked in the Sell menu");
-                c.note("legit jar: start() refused (" + refusal + "), 0 clicks");
+                c.note("legit jar: the Sell menu opened, no session, 0 clicks");
                 return;
             }
-            c.check(refusal == null, "AutoSellFeature.start() refused: " + refusal);
             JsonObject sold = MenuKit.awaitEvent(c, "sell.sold", 200);
             c.waitUntil("Auto Sell to finish", mc -> !(Boolean) Mod.staticCall("autosell.AutoSellFeature", "isRunning"), 300);
             List<String> ids = new ArrayList<>();
