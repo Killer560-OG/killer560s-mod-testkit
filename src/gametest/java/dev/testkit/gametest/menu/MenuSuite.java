@@ -97,14 +97,43 @@ public class MenuSuite implements FabricClientGameTest {
      */
     static void test(Session s, String name, Session.Case body) {
         if (selected(name)) {
-            s.test(name, body);
+            s.test(name, c -> {
+                home(c, name);
+                body.run(c);
+            });
         }
     }
 
     static void testExpectingFlags(Session s, String name, Session.Case body) {
         if (selected(name)) {
-            s.testExpectingFlags(name, body);
+            s.testExpectingFlags(name, c -> {
+                home(c, name);
+                body.run(c);
+            });
         }
+    }
+
+    /** Where the session's map puts him: on the 13x13 platform at (-520, 150, -520). */
+    static final double SPAWN_X = -519.5;
+    static final double SPAWN_Y = 151.0;
+    static final double SPAWN_Z = -519.5;
+
+    /**
+     * Every case starts standing on the platform. The session is one world and nothing put him back, so a case that moved
+     * him (a leap, a teleport) left every later case wherever he ended up: on the menu runs of 2026-10-22 that was under
+     * the water beside the platform, and the moving water behind a see-through screen read as hundreds of "changed"
+     * pixels in 875's tooltip and in 824 / 1015. Says so when it had to move him, so the case that moved him can be found.
+     */
+    static void home(Session c, String name) {
+        double[] p = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+        if (Math.abs(p[0] - SPAWN_X) <= 6 && Math.abs(p[2] - SPAWN_Z) <= 6 && Math.abs(p[1] - SPAWN_Y) < 1e-3) {
+            return;
+        }
+        System.out.println(String.format(java.util.Locale.ROOT, "[menu] %s: found him at %.1f, %.1f, %.1f, off the"
+                + " platform - back to the spawn", name, p[0], p[1], p[2]));
+        c.hx().call("dungeon.tp", "x", SPAWN_X, "y", SPAWN_Y, "z", SPAWN_Z, "yaw", 0f, "pitch", 0f);
+        c.waitUntil("him standing on the platform at the spawn", mc -> mc.player.onGround()
+                && Math.abs(mc.player.getY() - SPAWN_Y) < 1e-3 && Math.abs(mc.player.getX() - SPAWN_X) < 0.5, 100);
     }
 
     static boolean selected(String name) {

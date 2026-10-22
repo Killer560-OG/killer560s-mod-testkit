@@ -173,15 +173,9 @@ final class TermHiddenSlotCases {
         // The Custom GUI draws no backdrop, so the world shows round the panel and the pixel compare below sees it. On the
         // menu run of 2026-10-22 an earlier case had left him under water, and the moving water and seagrass "changed" up to
         // 2889 pixels at every hidden slot with the mod doing nothing. Up at y 300 looking straight up there is only sky
-        // (824's fix, LeapBatchMenuCases); each compare also measures that floor with two cursor-away frames.
-        double[] posWas = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ(),
-                mc.player.getYRot(), mc.player.getXRot()});
-        c.hx().call("dungeon.tp", "x", posWas[0], "y", 300.0, "z", posWas[2], "yaw", (float) posWas[3], "pitch", -90f);
-        c.ctx().waitTicks(5);
-        c.onClient(mc -> {
-            mc.player.setXRot(-90f);
-            return null;
-        });
+        // (824's fix, LeapBatchMenuCases), standing on a barrier block so he does not fall back into the water during the
+        // case (MenuKit.stillSky); each compare also measures that floor with two cursor-away frames.
+        AutoCloseable sky = MenuKit.stillSky(c);
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutoTerminalsEnabled", false)
                     .set(CONFIG, "MelodyEnabled", true).set(CONFIG, "CustomGuiEnabled", true);
@@ -294,8 +288,7 @@ final class TermHiddenSlotCases {
         } finally {
             c.ctx().getInput().setCursorPos(2, 2);
             MenuKit.reset(c);
-            c.hx().call("dungeon.tp", "x", posWas[0], "y", posWas[1], "z", posWas[2], "yaw", (float) posWas[3],
-                    "pitch", (float) posWas[4]);
+            sky.close();
         }
         c.check(typesChecked == TerminalCases.SPECS.size(), "only " + typesChecked + " terminal types were checked");
         c.check(squareClicks == TerminalCases.SPECS.size(), "only " + squareClicks + " custom-square clicks matched");

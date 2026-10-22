@@ -94,6 +94,35 @@ final class MenuKit {
         });
     }
 
+    /**
+     * A backdrop that holds still for a pixel compare over a screen that draws no backdrop of its own (or a see-through
+     * one): standing on a barrier block at y 300, looking straight up, where there is only sky (the server keeps it noon
+     * and clear). 824 and 1015 used to teleport him to y 300 and nothing more; he fell back into the water below within
+     * the case, and on the menu runs of 2026-10-22 the moving water then "changed" up to 1041 pixels between two clean
+     * frames. Each wait here is on what the client sees: the block, then him standing on it. Close to go back.
+     */
+    static AutoCloseable stillSky(Session c) {
+        double[] was = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ(),
+                mc.player.getYRot(), mc.player.getXRot()});
+        int bx = (int) Math.floor(was[0]);
+        int bz = (int) Math.floor(was[2]);
+        net.minecraft.core.BlockPos under = new net.minecraft.core.BlockPos(bx, 299, bz);
+        c.server().command("setblock " + bx + " 299 " + bz + " minecraft:barrier");
+        c.waitUntil("the barrier block at " + bx + ", 299, " + bz + " on the client",
+                mc -> mc.level.getBlockState(under).is(net.minecraft.world.level.block.Blocks.BARRIER), 100);
+        c.hx().call("dungeon.tp", "x", bx + 0.5, "y", 300.0, "z", bz + 0.5, "yaw", (float) was[3], "pitch", -90f);
+        c.waitUntil("him standing on the barrier at y 300", mc -> mc.player.onGround()
+                && Math.abs(mc.player.getY() - 300.0) < 1e-3, 100);
+        c.onClient(mc -> {
+            mc.player.setXRot(-90f);
+            return null;
+        });
+        return () -> {
+            c.hx().call("dungeon.tp", "x", was[0], "y", was[1], "z", was[2], "yaw", (float) was[3], "pitch", (float) was[4]);
+            c.server().command("setblock " + bx + " 299 " + bz + " minecraft:air");
+        };
+    }
+
     /** Close whatever is open on both sides, so the next case starts from no screen. */
     static void reset(Session c) {
         closeClient(c);

@@ -78,6 +78,7 @@ final class CroesusTrackCases {
             String file = "";
             if (restart) {
                 Path p = c.onClient(mc -> (Path) Mod.staticCall("util.ModPaths", "config", "killer560smod-croesus-runs.json"));
+                drainRunsWriter();
                 file = Files.exists(p) ? Files.readString(p, StandardCharsets.UTF_8) : "";
                 int runs = file.split("\"sig\"", -1).length - 1;
                 c.check(runs == 2, "the run file holds " + runs + " run(s), want 2: " + file);
@@ -98,6 +99,16 @@ final class CroesusTrackCases {
             c.note("before: " + CroesusStableCases.log(pre) + "; after the shift" + (restart ? " + reload from disk" : "")
                     + ": " + CroesusStableCases.log(post) + (restart ? "; file " + file.replaceAll("\\s+", " ") : ""));
         }
+    }
+
+    /**
+     * Waits until every save CroesusRunMemory has queued on its writer thread is on disk. The test reads and writes the
+     * run file itself; a save still in flight then either lands on top of the fixture or finds the file held open by this
+     * read (on Windows the replace fails, and jars before 2026-10-22 dropped that save: 890 lost pages 2 and 3).
+     */
+    static void drainRunsWriter() throws Exception {
+        ((java.util.concurrent.ExecutorService) Mod.field("croesus.CroesusRunMemory", "WRITER")).submit(() -> { })
+                .get(10, java.util.concurrent.TimeUnit.SECONDS);
     }
 
     static final int[] HEAD_SLOTS = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25,
@@ -157,6 +168,7 @@ final class CroesusTrackCases {
             JsonObject file = new JsonObject();
             file.add("runs", runs);
             Files.createDirectories(p.getParent());
+            drainRunsWriter(); // a save queued by shift() or the reset must not land on top of the fixture
             Files.writeString(p, file.toString(), StandardCharsets.UTF_8);
             c.ctx().runOnClient(mc -> Mod.staticCall("croesus.ChestProfitFeature", "reloadRunMemoryForTest"));
             // The heads: each remembered run where its order puts it (its real expiry 20 minutes into the hour its
