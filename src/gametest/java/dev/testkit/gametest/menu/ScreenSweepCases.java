@@ -350,7 +350,8 @@ final class ScreenSweepCases {
             }
             menuTheme(c, "AMBER");
             // Clearing the box shows everyone again.
-            c.ctx().runOnClient(mc -> ((net.minecraft.client.gui.components.EditBox) Mod.field(s, "searchBox")).setValue(""));
+            // One bar searches and adds since mod 1c0f3686: the search box is the Add row's box, addBox.
+            c.ctx().runOnClient(mc -> ((net.minecraft.client.gui.components.EditBox) Mod.field(s, "addBox")).setValue(""));
             c.ctx().waitTicks(2);
             int all = visibleNames(c, s).size();
             c.check(all == 30, "after clearing the search " + all + " friends show, not 30");
