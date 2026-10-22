@@ -58,6 +58,10 @@ final class GrimTickCases {
         // hotbar-select-rest-1016: the hotbar swaps of Auto i4 (Auto Swap To Bow) and Auto Debuff, through HotbarSelect.
         s.test("836-boss-grim-autoi4-swap", c -> autoI4(c, false, true));
         s.test("837-boss-grim-autodebuff-swap", GrimTickCases::autoDebuff);
+        // i4-release-1022: every aimed shot's arrow is out before the turn to the next target (Hypixel shortbows emulated).
+        s.test("838-boss-grim-autoi4-arrowfirst-rotate", c -> arrowFirst(c, true, "TERMINATOR", "TERMINATOR"));
+        s.test("839-boss-grim-autoi4-arrowfirst-norotate", c -> arrowFirst(c, false, "TERMINATOR", "TERMINATOR"));
+        s.test("840-boss-grim-autoi4-arrowfirst-shortbow", c -> arrowFirst(c, true, "MACHINE_GUN_BOW", "MACHINE_GUN_SHORTBOW"));
     }
 
     private static HxKit.Settings gateOff(Session c) {
@@ -305,24 +309,7 @@ final class GrimTickCases {
                      .custom(() -> Mod.call(Mod.cfg(I4_CFG), "setCpsRange", 7, 7),
                              restoreCps(c))
                      .with(I4_CFG, "AutoI4Enabled", false)) {
-            // Built before he is put there (forceloaded, as 421 does): a tp above it and a 20-tick wait had him falling
-            // while the floor appeared, and GrimAC said AntiKB + Simulation (this case's second run).
-            c.server().command("forceload add 60 32 70 51");
-            c.server().sync(20);
-            c.server().command("fill 60 126 32 67 126 39 stone");
-            c.server().command("fill 62 124 51 70 132 51 stone");
-            for (int x = 64; x <= 68; x += 2) {
-                for (int y = 126; y <= 130; y += 2) {
-                    c.server().command("setblock " + x + " " + y + " 50 blue_terracotta");
-                }
-            }
-            c.server().command("item replace entity @a hotbar.0 with bow[custom_data={id:\"TERMINATOR\"}]");
-            c.server().command("item replace entity @a hotbar.4 with stick");
-            c.server().command("give @a arrow 64");
-            c.hx().call("dungeon.tp", "x", 63.5, "y", 127.0, "z", 35.5, "yaw", 0f, "pitch", 0f);
-            c.waitUntil("on the i4 platform with a bow", mc -> mc.player.onGround()
-                    && Math.abs(mc.player.getY() - 127.0) < 0.01 && !mc.level.getBlockState(I4_TARGETS[0]).isAir() // the wall (no colour-block constant: 26.2 has none)
-                    && mc.player.getInventory().getItem(0).is(net.minecraft.world.item.Items.BOW), 200);
+            i4Platform(c, "TERMINATOR");
             int startSlot = swap ? 4 : 0;
             c.onClient(mc -> {
                 mc.player.getInventory().setSelectedSlot(startSlot);
@@ -371,17 +358,347 @@ final class GrimTickCases {
                         + shots.size() + " bow shot(s); nothing sent outside a tick");
             }
         } finally {
+            i4Cleanup(c);
+        }
+    }
+
+    /** The i4 platform, wall and targets, {@code bowId}'s bow in slot 0 (a stick in 4, 64 arrows), him on the device. */
+    private static void i4Platform(Session c, String bowId) {
+        // Built before he is put there (forceloaded, as 421 does): a tp above it and a 20-tick wait had him falling
+        // while the floor appeared, and GrimAC said AntiKB + Simulation (this case's second run).
+        c.server().command("forceload add 60 32 70 51");
+        c.server().sync(20);
+        c.server().command("fill 60 126 32 67 126 39 stone");
+        c.server().command("fill 62 124 51 70 132 51 stone");
+        for (int x = 64; x <= 68; x += 2) {
+            for (int y = 126; y <= 130; y += 2) {
+                c.server().command("setblock " + x + " " + y + " 50 blue_terracotta");
+            }
+        }
+        c.server().command("item replace entity @a hotbar.0 with bow[custom_data={id:\"" + bowId + "\"}]");
+        c.server().command("item replace entity @a hotbar.4 with stick");
+        c.server().command("give @a arrow 64");
+        c.hx().call("dungeon.tp", "x", 63.5, "y", 127.0, "z", 35.5, "yaw", 0f, "pitch", 0f);
+        c.waitUntil("on the i4 platform with a bow", mc -> mc.player.onGround()
+                && Math.abs(mc.player.getY() - 127.0) < 0.01 && !mc.level.getBlockState(I4_TARGETS[0]).isAir() // the wall (no colour-block constant: 26.2 has none)
+                && mc.player.getInventory().getItem(0).is(net.minecraft.world.item.Items.BOW), 200);
+    }
+
+    private static void i4Cleanup(Session c) {
+        c.onClient(mc -> {
+            PacketTrace.stop();
+            PacketTrace.tap = null;
+            ArrowLog.on = false;
+            Mod.set(I4_CFG, "setAutoI4Enabled", false);
+            mc.player.getInventory().setSelectedSlot(0);
+            return null;
+        });
+        c.hx().call("dungeon.shortbow", "enabled", false);
+        c.server().command("kill @e[type=arrow]");
+        c.server().command("clear @a");
+        // Home first: clearing the floor under him and then teleporting let him fall a tick, and the next i4 case drew
+        // GroundSpoof + Simulation .0784 at its start (840 after 839, i4-release-1022 control run).
+        home(c);
+        c.server().sync(5);
+        c.server().command("fill 60 124 32 70 132 51 air");
+        c.server().command("forceload remove 60 32 70 51");
+    }
+
+    // ---- 838 / 839 / 840 --------------------------------------------------------------------------------------------
+
+    /**
+     * Client-side record for 838-840, by client tick (counted at END_CLIENT_TICK, so what a START handler sends in tick k
+     * is k, and an entity the client got before tick k started is first seen at k): the use, release and movement packets
+     * with their rotations (through {@link PacketTrace#tap}), and every arrow entity the first tick it is there.
+     */
+    private static final class ArrowLog {
+        static volatile boolean on;
+        static int tick;
+        static boolean hooked;
+        /** {tick, kind (0 use, 1 release, 2 move with rotation), yaw, pitch}. */
+        static final List<float[]> packets = new java.util.ArrayList<>();
+        /** {tick, id, vx, vy, vz}. */
+        static final List<double[]> arrows = new java.util.ArrayList<>();
+        static final java.util.Set<Integer> seen = new java.util.HashSet<>();
+        /** {tick, I4_TARGETS index}: the first tick the client has that target lit. */
+        static final List<int[]> lights = new java.util.ArrayList<>();
+        static final boolean[] lit = new boolean[I4_TARGETS.length];
+
+        static void start(net.minecraft.client.Minecraft mc) {
+            if (!hooked) {
+                hooked = true;
+                net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
+                    if (!on || client.level == null) {
+                        return;
+                    }
+                    synchronized (packets) {
+                        for (var e : client.level.entitiesForRendering()) {
+                            if (e instanceof net.minecraft.world.entity.projectile.arrow.AbstractArrow && seen.add(e.getId())) {
+                                Vec3 v = e.getDeltaMovement();
+                                arrows.add(new double[]{tick, e.getId(), v.x, v.y, v.z});
+                            }
+                        }
+                        for (int k = 0; k < I4_TARGETS.length; k++) {
+                            boolean now = "emerald_block".equals(net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                                    .getKey(client.level.getBlockState(I4_TARGETS[k]).getBlock()).getPath());
+                            if (now && !lit[k]) {
+                                lights.add(new int[]{tick, k});
+                            }
+                            lit[k] = now;
+                        }
+                        tick++;
+                    }
+                });
+            }
+            synchronized (packets) {
+                packets.clear();
+                arrows.clear();
+                seen.clear();
+                lights.clear();
+                java.util.Arrays.fill(lit, false);
+                tick = 0;
+                for (var e : mc.level.entitiesForRendering()) {
+                    if (e instanceof net.minecraft.world.entity.projectile.arrow.AbstractArrow) {
+                        seen.add(e.getId());
+                    }
+                }
+            }
+            PacketTrace.tap = packet -> {
+                if (!on) {
+                    return;
+                }
+                float[] row = null;
+                if (packet instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket use) {
+                    row = new float[]{0, 0, use.getYRot(), use.getXRot()};
+                } else if (packet instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket act
+                        && act.getAction() == net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action.RELEASE_USE_ITEM) {
+                    row = new float[]{0, 1, 0, 0};
+                } else if (packet instanceof net.minecraft.network.protocol.game.ServerboundMovePlayerPacket move
+                        && move.hasRotation()) {
+                    row = new float[]{0, 2, move.getYRot(0f), move.getXRot(0f)};
+                }
+                if (row != null) {
+                    synchronized (packets) {
+                        row[0] = tick;
+                        packets.add(row);
+                    }
+                }
+            };
+            on = true;
+        }
+    }
+
+    /** The larger of the yaw (wrapped) and pitch differences, in degrees. */
+    private static float angleBetween(float yaw1, float pitch1, float yaw2, float pitch2) {
+        return Math.max(Math.abs(net.minecraft.util.Mth.wrapDegrees(yaw1 - yaw2)), Math.abs(pitch1 - pitch2));
+    }
+
+    /** Vanilla's look vector for a yaw/pitch, in plain doubles. */
+    private static Vec3 lookOf(float yaw, float pitch) {
+        double y = Math.toRadians(yaw);
+        double p = Math.toRadians(pitch);
+        return new Vec3(-Math.sin(y) * Math.cos(p), -Math.sin(p), Math.cos(y) * Math.cos(p));
+    }
+
+    /**
+     * Mod branch i4-release-1022 (killer560, 2026-10-22: Auto i4 "often aims at a spot, does not shoot, and has to come
+     * back to it about 2 seconds later"; he wants the arrow out of the bow before the camera turns to the next target).
+     * The server here fires shortbows as Hypixel does ({@code dungeon.shortbow}: on the use, no draw, a 6-tick cooldown
+     * that DROPS a use inside it - Hypixel's {@code ceil(10 / (1 + AS/100))} at 66 Attack Speed); 7 CPS with Rotation
+     * Time 150 ms and Predictions on, so a mid-turn click routinely spends the cooldown the aimed click needs. Three
+     * targets lit in turn. For every aimed shot (a run of uses at one of the mod's aim points) the client must have SEEN a
+     * new arrow along that aim no later than the tick its movement packets first turn away (to anything but the held
+     * camera view, for No Rotate's hand-back), and the bow's vanilla release ({@code player_action RELEASE_USE_ITEM})
+     * must go out before that turn too. Proves it acted: aimed shots, arrows and cooldown drops all counted. GrimAC
+     * silent is the session's verdict.
+     */
+    private static void arrowFirst(Session c, boolean rotate, String bowId, String weapon) throws Exception {
+        boolean shortbow = "MACHINE_GUN_SHORTBOW".equals(weapon);
+        try (HxKit.Settings off = gateOff(c);
+             HxKit.Settings ip = hypixelIp(c);
+             HxKit.Settings on = new HxKit.Settings(c).with(I4_CFG, "AutoSwapToBow", false).with(I4_CFG, "AutoMask", false)
+                     .with(I4_CFG, "AutoI4Weapon", Mod.enumValue(Mod.ROOT + I4_CFG + "$Weapon", weapon))
+                     .with(I4_CFG, "AutoI4Predictions", true).with(I4_CFG, "ShotAccuracyPercent", 100)
+                     .with(I4_CFG, "AutoI4Rotate", rotate).with(I4_CFG, "AutoI4RotationTimeMs", 150)
+                     .custom(() -> Mod.call(Mod.cfg(I4_CFG), "setCpsRange", 7, 7),
+                             restoreCps(c))
+                     .with(I4_CFG, "AutoI4Enabled", false)) {
+            i4Platform(c, bowId);
+            c.hx().call("dungeon.shortbow", "enabled", true, "cooldownTicks", 6);
             c.onClient(mc -> {
-                PacketTrace.stop();
-                Mod.set(I4_CFG, "setAutoI4Enabled", false);
                 mc.player.getInventory().setSelectedSlot(0);
                 return null;
             });
-            c.server().command("kill @e[type=arrow]");
-            c.server().command("clear @a");
-            c.server().command("fill 60 124 32 70 132 51 air");
-            c.server().command("forceload remove 60 32 70 51");
-            home(c);
+            c.ctx().waitTicks(5);
+            Vec3 eye = c.onClient(mc -> mc.player.getEyePosition());
+            float[] view = c.onClient(mc -> new float[]{mc.player.getYRot(), mc.player.getXRot()});
+            // The mod's aim points (AutoI4Feature.aimPointFor): between columns for the Terminator, block centres for the
+            // one-arrow shortbow; y 131 - 2 * row, z 50.
+            double[] xs = shortbow ? new double[]{64.5, 66.5, 68.5} : new double[]{65.5, 67.5};
+            List<float[]> aims = new java.util.ArrayList<>();
+            for (double x : xs) {
+                for (int row = 0; row < 3; row++) {
+                    Vec3 d = new Vec3(x, 131 - 2.0 * row, 50).subtract(eye);
+                    float yaw = (float) Math.toDegrees(Math.atan2(d.z, d.x)) - 90f;
+                    float pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+                    aims.add(new float[]{yaw, pitch});
+                }
+            }
+            long since = c.hx().head();
+            c.ctx().runOnClient(mc -> {
+                PacketTrace.start();
+                ArrowLog.start(mc);
+            });
+            c.onClient(mc -> {
+                Mod.set(I4_CFG, "setAutoI4Enabled", true);
+                return null;
+            });
+            c.ctx().waitTicks(10);
+            for (BlockPos t : I4_TARGETS) {
+                c.server().command("setblock " + t.getX() + " " + t.getY() + " " + t.getZ() + " emerald_block");
+                c.ctx().waitTicks(40);
+                c.server().command("setblock " + t.getX() + " " + t.getY() + " " + t.getZ() + " blue_terracotta");
+                c.ctx().waitTicks(5);
+            }
+            c.onClient(mc -> {
+                Mod.set(I4_CFG, "setAutoI4Enabled", false);
+                return null;
+            });
+            c.ctx().waitTicks(5);
+            c.ctx().runOnClient(mc -> {
+                ArrowLog.on = false;
+                PacketTrace.tap = null;
+                PacketTrace.stop();
+            });
+            List<float[]> packets;
+            List<double[]> arrows;
+            List<int[]> lights;
+            synchronized (ArrowLog.packets) {
+                packets = List.copyOf(ArrowLog.packets);
+                arrows = List.copyOf(ArrowLog.arrows);
+                lights = List.copyOf(ArrowLog.lights);
+            }
+            // The aim point each aim index stands for, to tell whether a shot covers a target that lit under it.
+            List<Vec3> aimPoints = new java.util.ArrayList<>();
+            for (double x : xs) {
+                for (int row = 0; row < 3; row++) {
+                    aimPoints.add(new Vec3(x, 131 - 2.0 * row, 50));
+                }
+            }
+            int preempted = 0;
+            int drops = c.hx().events(since, "shortbow.cooldown").size();
+            int fired = c.hx().events(since, "shortbow.shot").size();
+            // Aimed shots: runs of uses at one aim point (re-clicks of a held shot are the same run).
+            int shots = 0;
+            int retried = 0;
+            int checked = 0;
+            int uses = 0;
+            int releases = 0;
+            List<String> bad = new java.util.ArrayList<>();
+            List<String> detail = new java.util.ArrayList<>();
+            int lastAim = -1;
+            for (int i = 0; i < packets.size(); i++) {
+                float[] p = packets.get(i);
+                if (p[1] == 1) {
+                    releases++;
+                }
+                if (p[1] != 0) {
+                    continue;
+                }
+                uses++;
+                int aim = -1;
+                for (int k = 0; k < aims.size(); k++) {
+                    if (angleBetween(p[2], p[3], aims.get(k)[0], aims.get(k)[1]) < 0.3f) {
+                        aim = k;
+                    }
+                }
+                if (aim < 0) {
+                    lastAim = -1; // a mid-turn click
+                    continue;
+                }
+                if (aim == lastAim) {
+                    retried++;
+                    continue;
+                }
+                lastAim = aim;
+                shots++;
+                int u = (int) p[0];
+                float ay = aims.get(aim)[0];
+                float ap = aims.get(aim)[1];
+                // The turn away: the first rotation packet after this use pointing neither at this aim nor (No Rotate's
+                // hand-back) at the held view.
+                int turn = -1;
+                int release = -1;
+                for (int j = i + 1; j < packets.size(); j++) {
+                    float[] q = packets.get(j);
+                    if (q[1] == 1 && release < 0) {
+                        release = (int) q[0];
+                    }
+                    if (q[1] == 2 && angleBetween(q[2], q[3], ay, ap) > 0.5f
+                            && (rotate || angleBetween(q[2], q[3], view[0], view[1]) > 0.5f)) {
+                        turn = (int) q[0];
+                        break;
+                    }
+                }
+                int arrowAt = -1;
+                Vec3 want = lookOf(ay, ap);
+                for (double[] a : arrows) {
+                    Vec3 v = new Vec3(a[2], a[3], a[4]);
+                    if (a[0] >= u && v.lengthSqr() > 0.01
+                            && Math.toDegrees(Math.acos(Math.min(1.0, v.normalize().dot(want)))) < 3.0) {
+                        arrowAt = (int) a[0];
+                        break;
+                    }
+                }
+                detail.add(String.format(Locale.ROOT, "aim %d: use t%d release t%d arrow t%d turn t%d", aim, u, release,
+                        arrowAt, turn));
+                if (turn < 0) {
+                    continue; // the last shot: nothing turned after it
+                }
+                // A newly lit target outranks a shot that does not cover it (the mod's Noamm retarget): that turn is the
+                // rule, not the bug, so such a shot is counted apart instead of checked.
+                Vec3 pt = aimPoints.get(aim);
+                boolean lightUnder = false;
+                for (int[] l : lights) {
+                    BlockPos t = I4_TARGETS[l[1]];
+                    boolean covers = Math.abs(pt.y - (t.getY() + 1)) < 0.01 && (shortbow ? Math.abs(pt.x - (t.getX() + 0.5)) < 0.01
+                            : Math.abs(pt.x - (t.getX() + 0.5)) < 1.01);
+                    if (l[0] > u && l[0] <= turn && !covers) {
+                        lightUnder = true;
+                    }
+                }
+                if (lightUnder && (arrowAt < 0 || arrowAt > turn)) {
+                    preempted++;
+                    continue;
+                }
+                checked++;
+                if (arrowAt < 0 || arrowAt > turn) {
+                    bad.add(String.format(Locale.ROOT, "aim %d used t%d, turned away t%d, arrow %s", aim, u, turn,
+                            arrowAt < 0 ? "never" : "t" + arrowAt));
+                }
+                if (release < 0 || release >= turn) {
+                    bad.add(String.format(Locale.ROOT, "aim %d used t%d, turned away t%d, release %s", aim, u, turn,
+                            release < 0 ? "never" : "t" + release));
+                }
+            }
+            c.note(String.format(Locale.ROOT, "auto i4 %s %s: %d use_item (%d aimed shots, %d re-clicks), %d releases, "
+                            + "server fired %d / dropped %d (cooldown), %d client arrows, %d shots checked, %d given up for a "
+                            + "new light (lights %s)",
+                    rotate ? "rotate" : "no rotate", weapon, uses, shots, retried, releases, fired, drops, arrows.size(),
+                    checked, preempted, lights.stream().map(l -> "t" + l[0] + "#" + l[1]).toList()));
+            c.note("shots: " + detail);
+            c.note("uses (tick yaw/pitch): " + packets.stream().filter(p -> p[1] == 0)
+                    .map(p -> String.format(Locale.ROOT, "t%d %.2f/%.2f", (int) p[0], p[2], p[3])).toList()
+                    + "; aims " + aims.stream().map(a -> String.format(Locale.ROOT, "%.2f/%.2f", a[0], a[1])).toList());
+            c.check(shots >= 3 && checked >= 2, "only " + shots + " aimed shots (" + checked + " followed by a turn) - "
+                    + "nothing tested");
+            c.check(fired > 0 && !arrows.isEmpty(), "the server fired " + fired + " shots, the client saw "
+                    + arrows.size() + " arrows - nothing tested");
+            c.check(bad.isEmpty(), "turned to the next target before the arrow (or the release) was out: " + bad);
+            List<String> outside = PacketTrace.sentOutsideTick();
+            c.check(outside.isEmpty(), "sent outside a tick (after its client_tick_end, before the next tick): " + outside);
+        } finally {
+            i4Cleanup(c);
         }
     }
 

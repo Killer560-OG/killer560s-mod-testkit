@@ -27,6 +27,8 @@ import net.minecraft.world.level.block.state.BlockState;
  *       (core hash over y 140..12, the blue terracotta roof marker) sees exactly the capture.</li>
  *   <li>{@code dungeon.blocks} - set blocks ("x y z state" strings) with neighbour updates.</li>
  *   <li>{@code dungeon.abilities} - turn the Hypixel ability emulation ({@link HxAbilities}) on or off.</li>
+ *   <li>{@code dungeon.shortbow} - Hypixel's shortbows ({@link HxShortbow}) on or off, with a {@code cooldownTicks};
+ *       {@code dungeon.shortbowStats} - its shot and dropped counts.</li>
  *   <li>{@code dungeon.stats} / {@code dungeon.reset} - what the abilities did, so a scenario can prove a warp was
  *       the SERVER's.</li>
  * </ul>
@@ -51,6 +53,11 @@ public final class HxDungeonModule implements HxModule {
             HxAbilities.setEnabled(!args.has("enabled") || args.get("enabled").getAsBoolean());
             return new JsonPrimitive(HxAbilities.enabled());
         });
+        HxShortbow.register();
+        HxBridge.register("dungeon.shortbow", (server, args) -> HxShortbow.set(
+                !args.has("enabled") || args.get("enabled").getAsBoolean(),
+                args.has("cooldownTicks") ? args.get("cooldownTicks").getAsInt() : 5));
+        HxBridge.register("dungeon.shortbowStats", (server, args) -> HxShortbow.stats());
         HxBridge.register("dungeon.stats", (server, args) -> HxAbilities.stats());
         HxBridge.register("dungeon.reset", (server, args) -> {
             HxAbilities.resetStats();
