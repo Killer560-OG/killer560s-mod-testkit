@@ -1020,8 +1020,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             check(landed != null, label + ": the warp after the lever click did not land (at " + relPos(ctx) + ")");
             check(delta(before, "etherwarps") == 1, label + ": the server made " + delta(before, "etherwarps")
                     + " etherwarp(s), expected 1");
-            check(acted != null && (acted.contains("acted 0 tick(s)") || acted.contains("acted 1 tick(s)")),
-                    label + ": the warp did not go the tick after the click: " + acted);
+            // 2026-10-21: the warp is held one tick after a block click with the same item, because Hypixel gave no
+            // teleport one tick after such a click in 45 of 69 measured warps (2026-10-19; AutoRoutes' click-gap hold).
+            // So the warp goes 0 to 2 ticks after the click; more than that is the failure.
+            check(acted != null && (acted.contains("acted 0 tick(s)") || acted.contains("acted 1 tick(s)")
+                    || acted.contains("acted 2 tick(s)")),
+                    label + ": the warp went more than 2 ticks after the click: " + acted);
             if (near) {
                 check(logHas(m, "sent the block half of the right click first"), label + ": the near warp did not send the "
                         + "click on its block first (vanilla's two-packet right click)");
