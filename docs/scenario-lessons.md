@@ -1070,3 +1070,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   Midas over the session room, so it runs last, and must leave and re-enter the dungeon (sidebar) for the live map to
   re-identify the cell; `HxAbilities.superboom` now blows a smooth stone slab lid whole, and the test places the starred
   mob only once the lid is gone (Hypixel's part). Run one case with `62-argrim-session:,62-argrim-1020-midas`.
+- Menu suite fixes of 2026-10-22 (mod menu-fix-1022). The menu session is ONE world, so state that the mod clears only on
+  a world change leaks from case to case: Fast Leap's Teammates kept 829-834's LrA-LrD, and 983's "leap to the Tank" went
+  to LrB (clear it first). A case that writes a mod file the mod also saves on a writer thread must drain that writer
+  before writing (732 read a half-swapped Croesus log and saw a fresh one). A pixel compare over a screen with no
+  backdrop (Terminal Custom GUI) sees the world: stand at y 300 looking up and measure two cursor-away frames first (1015
+  read moving water as 2889 hover pixels). 513 dumps every row's tooltip to menu-tooltips-now-<variant>.json; write
+  menu-layout-merged.json entries from that, and use "renamed" for a label rename so the new key's text is still checked.
