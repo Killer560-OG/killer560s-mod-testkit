@@ -123,10 +123,20 @@ public class MenuSuite implements FabricClientGameTest {
      * him (a leap, a teleport) left every later case wherever he ended up: on the menu runs of 2026-10-22 that was under
      * the water beside the platform, and the moving water behind a see-through screen read as hundreds of "changed"
      * pixels in 875's tooltip and in 824 / 1015. Says so when it had to move him, so the case that moved him can be found.
+     * Only while the client has the platform's chunk: a teleport into chunks the client has not loaded yet (from the
+     * leap cases' dungeon by the origin, 520 blocks away) let the client fall a tick through a floor GrimAC could see,
+     * and 1850 failed on GroundSpoof + Simulation flags. Out there he stays where he is (the cases that follow ran
+     * there before this existed).
      */
     static void home(Session c, String name) {
-        double[] p = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+        double[] p = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ(),
+                mc.level.hasChunk(((int) Math.floor(SPAWN_X)) >> 4, ((int) Math.floor(SPAWN_Z)) >> 4) ? 1 : 0});
         if (Math.abs(p[0] - SPAWN_X) <= 6 && Math.abs(p[2] - SPAWN_Z) <= 6 && Math.abs(p[1] - SPAWN_Y) < 1e-3) {
+            return;
+        }
+        if (p[3] == 0) {
+            System.out.println(String.format(java.util.Locale.ROOT, "[menu] %s: found him at %.1f, %.1f, %.1f, out of"
+                    + " the platform's loaded chunks - left there", name, p[0], p[1], p[2]));
             return;
         }
         System.out.println(String.format(java.util.Locale.ROOT, "[menu] %s: found him at %.1f, %.1f, %.1f, off the"
