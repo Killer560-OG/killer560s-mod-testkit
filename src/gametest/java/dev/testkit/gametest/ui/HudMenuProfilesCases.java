@@ -450,6 +450,10 @@ final class HudMenuProfilesCases {
                 if (b == null) {
                     return false;
                 }
+                c.note("Home's Edit Bars at " + java.util.Arrays.toString(b) + " on a " + home.screen.width + "x"
+                        + home.screen.height + " screen; window " + mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight()
+                        + " GUI " + mc.options.guiScale().get() + "; Auto Scale " + Mod.call(Mod.cfg(HUD), "isAutoScale")
+                        + "; HUD scale " + Mod.call(Mod.cfg(HUD), "getGlobalScale"));
                 MenuACases.press(home.screen, b[0] + b[2] / 2.0, b[1] + b[3] / 2.0);
                 return true;
             });

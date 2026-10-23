@@ -276,6 +276,10 @@ final class MapHeadCases {
                         }
                     }
                     Mod.call(Mod.cfg(CFG), "save");
+                    // Auto Scale was turned off in memory only (Mod.with), but the HUD config is saved while the map
+                    // draws, so the file kept "autoScale": false; the next HudConfig.load (613's Home rows) then turned
+                    // Auto Scale off for every case after it (614, 615, 621 in a full run, 2026-10-23). Save it back.
+                    Mod.call(Mod.cfg("hud.HudConfig"), "save");
                     Mod.staticCall("secrets.DungeonState", "setRoomSim", false);
                     dev.testkit.compat.McCompat.setHudHidden(mc, hideGuiWas);
                     var server = mc.getSingleplayerServer();
