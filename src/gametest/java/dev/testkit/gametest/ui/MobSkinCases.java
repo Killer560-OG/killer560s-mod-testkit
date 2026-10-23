@@ -9,6 +9,7 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.player.RemotePlayer;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 
@@ -33,7 +34,8 @@ import java.util.function.Consumer;
  *   <li>1018-mob-share: the share push carries {@code "mob":"pig"} only when linked with Share if Supporter on, alone with
  *       no display name; the relay's entry (the mod's own parser) gives another player a mob, a boss or junk value none;
  *       Show Others' Mobs OFF and being in a dungeon both draw him as a player; the cache keeps the mob.</li>
- *   <li>1018-mob-settings: defaults, save + load, profile reload, the tab's rows and cycling both ways, tooltips.</li>
+ *   <li>1018-mob-settings: defaults, save + load, profile reload, the tab's rows, the My Mob picker (list, search, pick;
+ *       mod 7cb76871 replaced the cycling button), tooltips.</li>
  *   <li>1018-mob-all: every mob the tab offers draws in real frames without being marked broken.</li>
  * </ul>
  */
@@ -95,6 +97,14 @@ final class MobSkinCases {
             mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
             mc.player.setYRot(0f);
             mc.player.setXRot(0f);
+            // Body and head too: a standing player's body only drifts after the head, so with yRot alone the pig turned
+            // from side-on to facing the camera across one case's shots and their pixel counts compared two views.
+            mc.player.yRotO = 0f;
+            mc.player.xRotO = 0f;
+            mc.player.setYHeadRot(0f);
+            mc.player.yHeadRotO = 0f;
+            mc.player.setYBodyRot(0f);
+            mc.player.yBodyRotO = 0f;
             Mod.set(SC, "setOwnScale", 1.0f);
             Mod.set(SC, "setModelWidth", 1.0f);
             Mod.set(SC, "setModelHeight", 1.0f);
@@ -223,6 +233,7 @@ final class MobSkinCases {
             scene(c);
             setMob(c, "pig");
             int one = pink(shot(c, "pig-1x"));
+            EntityRenderState full = ownState(c);
             c.onClient(mc -> {
                 Mod.set(SC, "setOwnScale", 0.5f);
                 return null;
@@ -242,6 +253,11 @@ final class MobSkinCases {
             c.note(String.format(Locale.ROOT, "pink: 1x %d, 0.5x %d (%.2f), 2x wide %d (%.2f); 0.5x state scale %.2f %s; "
                     + "wide stretch %s", one, small, small / (double) one, wideN, wideN / (double) one, halfScale,
                     typeId(half), shapeText));
+            float yaw1 = ((LivingEntityRenderState) full).bodyRot;
+            float yaw2 = ((LivingEntityRenderState) wide).bodyRot;
+            c.note(String.format(Locale.ROOT, "body yaw 1x %.1f, 2x wide %.1f", yaw1, yaw2));
+            c.check(Math.abs(Mth.wrapDegrees(yaw1 - yaw2)) < 2f, "the pig turned between the 1x and 2x-wide shots ("
+                    + yaw1 + " -> " + yaw2 + "), so their pixels compare two different views");
             c.check(one > 400, "no pig at 1x to measure against (" + one + ")");
             c.check("pig".equals(typeId(half)) && Math.abs(halfScale - 0.5f) < 0.01, "My Size 0.5 did not reach the pig's state");
             c.check(small > one * 0.1 && small < one * 0.5, "a 0.5x pig is not about a quarter of a 1x pig on screen");
@@ -475,6 +491,7 @@ final class MobSkinCases {
         }
     }
 
+    @SuppressWarnings("unchecked")
     static void settings(UiCase c) {
         if (!ready(c)) {
             return;
@@ -548,28 +565,51 @@ final class MobSkinCases {
             c.note("rows: " + rs);
             c.check(rs.contains("▼ Play as Mob") || rs.stream().anyMatch(r -> r.contains("Play as Mob")), "no Play as Mob section");
             c.check(rs.contains("My Mob: Player") && rs.contains("Show Others' Mobs: ON"), "the Play as Mob rows are missing: " + rs);
+            // My Mob opens a searchable picker (mod 7cb76871 "My Mob: pick from a searchable menu", replacing the
+            // cycling button): the list is Player first, then every offered mob; a search narrows it; a pick saves it.
             AbstractWidget my = row(c, tab, "My Mob:");
-            c.check(my != null && Boolean.TRUE.equals(c.onClient(mc -> Mod.call(my, "isCycling"))),
-                    "My Mob is not a cycling button");
-            String first = c.onClient(mc -> {
+            c.check(my != null, "no My Mob row: " + rs);
+            Object[] picker = c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
                 press(my, "onPress");
-                return String.valueOf(Mod.get(SC, "getOwnMob"));
+                net.minecraft.client.gui.screens.Screen s = McCompat.screen(mc);
+                if (s == null || !s.getClass().getSimpleName().equals("MobPickerScreen")) {
+                    return new Object[]{String.valueOf(s), null, null};
+                }
+                List<String> all = new ArrayList<>((List<String>) Mod.field(s, "all"));
+                ((net.minecraft.client.gui.components.EditBox) Mod.field(s, "search")).setValue("pig");
+                List<String> found = new ArrayList<>((List<String>) Mod.field(s, "shown"));
+                return new Object[]{s.getClass().getSimpleName(), all, found};
             });
-            // Right click back twice from the first mob: Player, then the last mob (it wraps).
-            String[] backs = c.onClient(mc -> {
-                press(my, "onSecondaryPress");
-                String a = String.valueOf(Mod.get(SC, "getOwnMob"));
-                press(my, "onSecondaryPress");
-                String b = String.valueOf(Mod.get(SC, "getOwnMob"));
-                return new String[]{a, b};
+            c.note("My Mob opened " + picker[0] + "; search 'pig' shows " + picker[2]);
+            c.check("MobPickerScreen".equals(picker[0]), "My Mob did not open the mob picker: " + picker[0]);
+            if (picker[1] != null) {
+                @SuppressWarnings("unchecked")
+                List<String> all = (List<String>) picker[1];
+                @SuppressWarnings("unchecked")
+                List<String> found = (List<String>) picker[2];
+                c.check(!all.isEmpty() && "".equals(all.get(0)) && all.containsAll(offered),
+                        "the picker does not list Player first and every offered mob");
+                c.check(found.contains("pig") && !found.contains("zombie") && !found.contains(""),
+                        "searching 'pig' does not narrow the list to pigs: " + found);
+                String picked = c.onClient(mc -> {
+                    net.minecraft.client.gui.screens.Screen s = McCompat.screen(mc);
+                    @SuppressWarnings("unchecked")
+                    Consumer<String> onPick = (Consumer<String>) Mod.field(s, "onPick");
+                    onPick.accept("pig");
+                    s.onClose();
+                    return String.valueOf(Mod.get(SC, "getOwnMob"));
+                });
+                c.check("pig".equals(picked), "picking Pig in the picker saved '" + picked + "'");
+            }
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                return null;
             });
-            String label = c.onClient(mc -> net.minecraft.ChatFormatting.stripFormatting(my.getMessage().getString()));
-            c.note("left click from Player: '" + first + "'; right click: '" + backs[0] + "', again: '" + backs[1]
-                    + "' (label " + label + ")");
-            c.check(first.equals(offered.get(0)), "left click from Player is not the first mob: " + first);
-            c.check("".equals(backs[0]) && backs[1].equals(offered.get(offered.size() - 1)),
-                    "right click does not step back and wrap: " + backs[0] + ", " + backs[1]);
-            c.check(label.startsWith("My Mob: ") && !label.equals("My Mob: Player"), "the button does not name the mob: " + label);
+            AbstractWidget rebuilt = row(c, tab, "My Mob:");
+            String label = rebuilt == null ? "(none)"
+                    : c.onClient(mc -> net.minecraft.ChatFormatting.stripFormatting(rebuilt.getMessage().getString()));
+            c.check(label.equals("My Mob: Pig"), "the button does not name the picked mob: " + label);
             for (String l : new String[]{"Play as Mob", "My Mob: Player", "Show Others' Mobs: ON"}) {
                 String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Player Cosmetics", l));
                 c.note("tooltip '" + l + "': " + tip);
