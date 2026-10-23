@@ -79,6 +79,85 @@ final class HxBloodCampCases {
         s.test("193-hx-bloodcamp-named-blood-mobs", HxBloodCampCases::namedBloodMobs);
         // blood-ap3-1018 (doc item 19): the map calling his Blood Room something else must not stop the Trigger Bot.
         s.test("1018-bloodcamp-map-type", HxBloodCampCases::mapType);
+        // blood-giant-esp-1022: the F7 Blood Room's reanimated giant, and mob-type icons in a blood mob's tag.
+        s.test("1022-bloodcamp-giant-esp", HxBloodCampCases::giantEsp);
+    }
+
+    // ---- 1022 -------------------------------------------------------------------------------------------------------
+
+    /**
+     * killer560, 2026-10-22 (F7 Blood Room screenshot): a giant tagged "MINIBOSS" over "<icon><icon> Boomer Giant 25.3M❤"
+     * was not highlighted by Blood Mobs ESP. Until mod blood-giant-esp-1022 the name-tag pattern knew no plain "Giant"
+     * and no mob-type icons, and a giant is never thrown as a skull, so nothing tagged it; and with ESP off the line of
+     * sight went to the giant's eye, 10.4 blocks up, which is in the room's ceiling. Here a giant stands with its eye above
+     * a stone ceiling and its body in plain view, ESP (through walls) OFF, with the screenshot's two tags; beside it a husk
+     * tagged "[Lv79] <icon> Parasite 33,333/33,333❤" (the same screenshot's Parasite). Both must be drawn blood red. The
+     * icon characters Hypixel really sends are not known (only how its pack draws them); any symbol stands in for them.
+     */
+    private static void giantEsp(Session c) {
+        String ceiling = "-417 159 -428 -410 159 -421";
+        try (HxKit.Settings s = base(c)) {
+            boolean[] was = c.onClient(mc -> new boolean[]{(Boolean) Mod.call(Mod.cfg(ESP_CFG), "getBloodMobsRaw"),
+                    (Boolean) Mod.call(Mod.cfg(ESP_CFG), "isEspRaw")});
+            s.custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setBloodMobs", true),
+                            () -> Mod.call(Mod.cfg(ESP_CFG), "setBloodMobs", was[0]))
+                    .custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setEsp", false),
+                            () -> Mod.call(Mod.cfg(ESP_CFG), "setEsp", was[1]));
+            watcher(c, WATCHER_IN);
+            stand(c, AWAY_YAW, 10f);
+            int red = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(ESP_CFG), "getBloodColor"));
+            c.server().command("fill " + ceiling + " minecraft:smooth_stone replace minecraft:air");
+            c.server().command("summon giant -413.5 151 -424.5 {Tags:[\"bcdecoy\"],NoAI:1b,NoGravity:1b,Silent:1b,"
+                    + "PersistenceRequired:1b,Invulnerable:1b,CustomName:\"bloodgiant\"}");
+            c.server().command("summon armor_stand -413.5 163.9 -424.5 {Tags:[\"bcdecoy\"],Invisible:1b,NoGravity:1b,"
+                    + "Marker:1b,CustomNameVisible:1b,CustomName:\"MINIBOSS\"}");
+            c.server().command("summon armor_stand -413.5 163.3 -424.5 {Tags:[\"bcdecoy\"],Invisible:1b,NoGravity:1b,"
+                    + "Marker:1b,CustomNameVisible:1b,CustomName:\"☣♜ Boomer Giant 25.3M❤\"}");
+            taggedHusk(c, "iconparasite", "[Lv79] ☠ Parasite 33,333/33,333❤", -421.0, -417.5);
+            c.ctx().waitTicks(3);
+            // The case is only about the ceiling if his eye cannot see the giant's eye, and can see its body.
+            boolean[] rays = c.onClient(mc -> {
+                net.minecraft.world.entity.Entity g = mc.level.getEntity(clientId(mc, "bloodgiant"));
+                if (g == null) {
+                    return null;
+                }
+                Vec3 eye = mc.player.getEyePosition();
+                java.util.function.Function<Vec3, Boolean> clear = p -> mc.level.clip(new net.minecraft.world.level.ClipContext(
+                        eye, p, net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                        net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getType()
+                        == net.minecraft.world.phys.HitResult.Type.MISS;
+                return new boolean[]{clear.apply(g.getEyePosition()), clear.apply(g.getBoundingBox().getCenter())};
+            });
+            c.check(rays != null, "the giant never reached the client - nothing was tested");
+            if (rays == null) {
+                return;
+            }
+            c.note("giant eye visible " + rays[0] + ", giant body visible " + rays[1]);
+            c.check(!rays[0] && rays[1], "the ceiling does not hide the giant's eye while showing its body - nothing was tested");
+            Object[] seen = new Object[2];
+            for (int i = 0; i < 60; i++) {
+                c.ctx().waitTicks(1);
+                if (i >= 20) {
+                    Object[] r = c.onClient(mc -> {
+                        @SuppressWarnings("unchecked")
+                        Map<Integer, Integer> drawn = (Map<Integer, Integer>) Mod.staticCall(ESP, "drawnColors");
+                        return new Object[]{drawn.get(clientId(mc, "bloodgiant")), drawn.get(clientId(mc, "iconparasite"))};
+                    });
+                    seen = r;
+                    if (Integer.valueOf(red).equals(r[0]) && Integer.valueOf(red).equals(r[1])) {
+                        break;
+                    }
+                }
+            }
+            c.note("Boomer Giant: ESP colour " + seen[0] + "; [Lv79] <icon> Parasite: ESP colour " + seen[1] + "; red "
+                    + Integer.toHexString(red));
+            c.check(Integer.valueOf(red).equals(seen[0]), "the Blood Room giant was not highlighted red");
+            c.check(Integer.valueOf(red).equals(seen[1]), "the blood mob with a mob-type icon in its tag was not highlighted red");
+        } finally {
+            clearDecoys(c);
+            c.server().command("fill " + ceiling + " minecraft:air replace minecraft:smooth_stone");
+            c.hx().removeStands();
+        }
     }
 
     // ---- 1018 -------------------------------------------------------------------------------------------------------
