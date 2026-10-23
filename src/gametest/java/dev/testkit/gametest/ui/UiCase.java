@@ -118,6 +118,15 @@ public final class UiCase {
                     SafeWorld.reviveIfDead(ctx);
                 }
                 ctx.runOnClient(mc -> McCompat.setScreen(mc, null));
+                // setScreen(null) skips the container screen's onClose, so a creative inventory a case opened left
+                // player.containerMenu on its ItemPickerMenu with no screen up - which in play only Escape/E can do,
+                // and that also closes the container. The mod reads it as "a menu is open" (LoadoutSwapper.openLoadouts),
+                // so 1018-ui-loadout-open-key failed in every full run (2026-10-23). Close it the way the game does.
+                ctx.runOnClient(mc -> {
+                    if (mc.player != null && mc.player.containerMenu != mc.player.inventoryMenu) {
+                        mc.player.closeContainer();
+                    }
+                });
             } catch (Throwable ignored) {
                 // the next case sets its own screen anyway
             }
