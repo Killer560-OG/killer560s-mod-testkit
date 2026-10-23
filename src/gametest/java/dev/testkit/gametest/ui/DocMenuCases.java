@@ -608,8 +608,9 @@ final class DocMenuCases {
             // Dungeon Alerts, Thorn, Maxor's Crystals, P3 Nav and F7 Spots had a master here until 2026-10-15 (killer560:
             // "not always should the first setting dictate whether the mod as a whole is on or off"): their parts are
             // independent now and the card stands for all of them - 518-ui-menu-independent-masters.
-            new Master("SolverHighlightsTab", "puzzlesolvers.SolverEspConfig", "Enabled", "Solver Highlights",
-                    new String[]{}, new String[]{"isEnabled"}),
+            // Solver Highlights had one here until mod 4a7ffc31 (killer560, 2026-10-18: "remove solver highlights and put
+            // each of those as an individual option in each of the solvers"): there is no SolverHighlightsTab card any more
+            // and SolverEspConfig keeps one switch per solver, so solverDraws checks each solver's own switch instead.
             new Master("ObjectHiderTab", "objecthider.ObjectHiderConfig", "ObjectHiderEnabled", "Object Hider",
                     new String[]{"setHideFairy", "setDisableFog", "setHidePlayers"},
                     new String[]{"isHideFairy", "isDisableFog", "hidesAnyEntity"}),
@@ -785,37 +786,64 @@ final class DocMenuCases {
         c.check(why == null, why);
     }
 
-    /** Solver Highlights: switched off, a solver's draw call returns before it touches the render context. */
+    /**
+     * Each solver's Solver Highlight switch (mod 4a7ffc31, 2026-10-18: one per solver, the shared Solver Highlights switch
+     * removed): for every {@code SolverEspConfig.Solver}, with its own highlight on a draw call reaches the renderer (which
+     * throws on the case's null render context), and with it off the outline, waypoint and filled draws all return before
+     * it - while every OTHER solver's highlight is on, so the switch is that solver's alone. Each solver's switch and
+     * Through Walls are put back as they were.
+     */
     private static void solverDraws(UiCase c) {
         String why = c.onClient(mc -> {
             Object cfg = Mod.cfg("puzzlesolvers.SolverEspConfig");
-            boolean walls = (Boolean) Mod.call(cfg, "isThroughWalls");
+            Object[] solvers = Mod.cls("puzzlesolvers.SolverEspConfig$Solver").getEnumConstants();
+            boolean[] wasOn = new boolean[solvers.length];
+            boolean[] wasWalls = new boolean[solvers.length];
+            for (int i = 0; i < solvers.length; i++) {
+                wasOn[i] = (Boolean) Mod.call(cfg, "isEnabled", solvers[i]);
+                wasWalls[i] = (Boolean) Mod.call(cfg, "isThroughWalls", solvers[i]);
+            }
             Object box = new net.minecraft.world.phys.AABB(0, 0, 0, 1, 1, 1);
+            String render = "puzzlesolvers.SolverEspRender";
             try {
-                Mod.call(cfg, "setThroughWalls", false);
-                Mod.call(cfg, "setEnabled", true);
-                boolean onReached;
-                try {
-                    Mod.staticCall("puzzlesolvers.SolverEspRender", "renderOutlineBox", null, box, 1f, 0f, 0f, 1f, 2f);
-                    onReached = false;
-                } catch (AssertionError e) {
-                    onReached = true; // it reached the renderer, which threw on the case's null render context
+                for (Object s : solvers) {
+                    Mod.call(cfg, "setThroughWalls", s, false);
+                    Mod.call(cfg, "setEnabled", s, true);
                 }
-                Mod.call(cfg, "setEnabled", false);
-                Mod.staticCall("puzzlesolvers.SolverEspRender", "renderOutlineBox", null, box, 1f, 0f, 0f, 1f, 2f);
-                Mod.staticCall("puzzlesolvers.SolverEspRender", "renderWaypoint", null, box, 1f, 0f, 0f, 2f);
-                Mod.staticCall("puzzlesolvers.SolverEspRender", "renderFilledBox", null, box, 1f, 0f, 0f, 1f);
-                if (!onReached) {
-                    return "with Solver Highlights on, the draw call never reached the renderer - the instrument is blind";
+                List<String> checked = new ArrayList<>();
+                for (Object s : solvers) {
+                    Mod.call(cfg, "setEnabled", s, true);
+                    boolean onReached;
+                    try {
+                        Mod.staticCall(render, "renderOutlineBox", s, null, box, 1f, 0f, 0f, 1f, 2f);
+                        onReached = false;
+                    } catch (AssertionError e) {
+                        onReached = true; // it reached the renderer, which threw on the case's null render context
+                    }
+                    if (!onReached) {
+                        return s + ": with its Solver Highlight on, the draw call never reached the renderer - the "
+                                + "instrument is blind";
+                    }
+                    Mod.call(cfg, "setEnabled", s, false);
+                    try {
+                        Mod.staticCall(render, "renderOutlineBox", s, null, box, 1f, 0f, 0f, 1f, 2f);
+                        Mod.staticCall(render, "renderWaypoint", s, null, box, 1f, 0f, 0f, 2f);
+                        Mod.staticCall(render, "renderFilledBox", s, null, box, 1f, 0f, 0f, 1f);
+                    } catch (AssertionError e) {
+                        return s + ": with its Solver Highlight off (every other solver's on), a draw still reached the "
+                                + "renderer: " + e.getMessage();
+                    }
+                    Mod.call(cfg, "setEnabled", s, true);
+                    checked.add(String.valueOf(s));
                 }
-                c.note("Solver Highlights: on, a draw reached the renderer (threw on the null context); off, outline, "
-                        + "waypoint and filled draws all returned before it");
-                return null;
-            } catch (AssertionError e) {
-                return "with Solver Highlights off, a draw still reached the renderer: " + e.getMessage();
+                c.note("Solver Highlight per solver, " + checked.size() + " solvers " + checked + ": on, a draw reached the "
+                        + "renderer (threw on the null context); off, outline, waypoint and filled draws all returned before it");
+                return checked.size() >= 12 ? null : "only " + checked.size() + " solvers have a highlight switch: " + checked;
             } finally {
-                Mod.call(cfg, "setThroughWalls", walls);
-                Mod.call(cfg, "setEnabled", true);
+                for (int i = 0; i < solvers.length; i++) {
+                    Mod.call(cfg, "setThroughWalls", solvers[i], wasWalls[i]);
+                    Mod.call(cfg, "setEnabled", solvers[i], wasOn[i]);
+                }
             }
         });
         c.check(why == null, why);

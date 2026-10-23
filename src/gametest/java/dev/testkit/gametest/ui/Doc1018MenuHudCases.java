@@ -431,6 +431,7 @@ final class Doc1018MenuHudCases {
     // =================================================================================================================
 
     private static final int KEY = 326; // GLFW_KEY_KP_6
+    private static final String SWAPPER = "loadoutkeybinds.LoadoutSwapper";
 
     static void loadoutOpenKey(UiCase c) {
         Object cfg = Mod.cfg("loadoutkeybinds.LoadoutKeybindsConfig");
@@ -454,16 +455,17 @@ final class Doc1018MenuHudCases {
                 }
             };
             c.ticks(3);
-            // A held key sends once; a second press sends again.
-            c.ctx().getInput().holdKey(KEY);
+            // A held key sends once; a second press sends again. The key is held through LoadoutSwapper's
+            // openKeyHeldForTest hook (mod 4a7ffc31): a harness key press never reaches the GLFW poll it reads.
+            Mod.setField(SWAPPER, "openKeyHeldForTest", Boolean.TRUE);
             c.ticks(12);
-            c.ctx().getInput().releaseKey(KEY);
+            Mod.setField(SWAPPER, "openKeyHeldForTest", Boolean.FALSE);
             c.ticks(3);
             c.note("after one long press: " + sent);
             c.check(sent.equals(List.of("loadouts")), "one press of the Open Loadouts Key sent " + sent + ", want exactly [loadouts]");
-            c.ctx().getInput().holdKey(KEY);
+            Mod.setField(SWAPPER, "openKeyHeldForTest", Boolean.TRUE);
             c.ticks(3);
-            c.ctx().getInput().releaseKey(KEY);
+            Mod.setField(SWAPPER, "openKeyHeldForTest", Boolean.FALSE);
             c.ticks(3);
             c.check(sent.size() == 2, "a second press did not send again: " + sent);
 
@@ -474,9 +476,9 @@ final class Doc1018MenuHudCases {
                 return null;
             });
             c.ticks(3);
-            c.ctx().getInput().holdKey(KEY);
+            Mod.setField(SWAPPER, "openKeyHeldForTest", Boolean.TRUE);
             c.ticks(3);
-            c.ctx().getInput().releaseKey(KEY);
+            Mod.setField(SWAPPER, "openKeyHeldForTest", Boolean.FALSE);
             c.ticks(3);
             c.check(sent.isEmpty(), "the key sent " + sent + " with a menu open");
             // Unbound: nothing.
@@ -486,14 +488,14 @@ final class Doc1018MenuHudCases {
                 return null;
             });
             c.ticks(3);
-            c.ctx().getInput().holdKey(KEY);
+            Mod.setField(SWAPPER, "openKeyHeldForTest", Boolean.TRUE);
             c.ticks(3);
-            c.ctx().getInput().releaseKey(KEY);
+            Mod.setField(SWAPPER, "openKeyHeldForTest", Boolean.FALSE);
             c.ticks(3);
             c.check(sent.isEmpty(), "with no key set the old key still sent " + sent);
         } finally {
             PacketTrace.tap = null;
-            c.ctx().getInput().releaseKey(KEY);
+            Mod.setField(SWAPPER, "openKeyHeldForTest", null);
             c.onClient(mc -> {
                 Mod.call(cfg, "setOpenKey", -1);
                 Mod.call(cfg, "setEnabled", was);
@@ -605,8 +607,9 @@ final class Doc1018MenuHudCases {
             {"BlazeSolverTab", "puzzlesolvers.BlazeSolverConfig", "BLAZE", "n"},
             {"TicTacToeSolverTab", "puzzlesolvers.TicTacToeSolverConfig", "TIC_TAC_TOE", "n"},
             {"TeleportMazeSolverTab", "puzzlesolvers.TeleportMazeSolverConfig", "TELEPORT_MAZE", "y"},
-            {"LividSolverTab", "boss.LividSolverConfig", "LIVID", "n"},
-            {"P4PlatformHighlightTab", "p4platform.P4PlatformHighlightConfig", "P4_PLATFORM", "n"},
+            {"LividSolverTab", "boss.LividSolverConfig", "LIVID", "y"}, // style row since mod 20908fcf
+            // "-": no shared section at all since mod 212d2763 (its 3x3 box is the tab's only highlight).
+            {"P4PlatformHighlightTab", "p4platform.P4PlatformHighlightConfig", "P4_PLATFORM", "-"},
     };
 
     static void solverHighlights(UiCase c) throws Exception {
@@ -628,6 +631,10 @@ final class Doc1018MenuHudCases {
             // ---- the rows, in every solver ----
             for (String[] s : SOLVERS) {
                 List<String> l = labels(c, s[0]);
+                if (s[3].equals("-")) {
+                    c.check(!has(l, "Solver Highlight"), s[0] + " still has a shared Solver Highlight section: " + l);
+                    continue;
+                }
                 boolean ok = has(l, "Solver Highlight: ") && has(l, "Solver Highlight Through Walls");
                 c.check(ok, s[0] + " has no Solver Highlight / Solver Highlight Through Walls rows: " + l);
                 c.check(has(l, "Solver Highlight Style") == s[3].equals("y"),
@@ -1072,7 +1079,7 @@ final class Doc1018MenuHudCases {
             });
             List<String> l = labels(c, "PetWheelTab");
             c.note("Pet Wheel rows: " + l);
-            c.check(has(l, "Add Page") && has(l, "Delete Page") && has(l, "Page: 1/"), "the Pet Wheel tab has no page rows (Page / Add Page / Delete Page): " + l);
+            c.check(has(l, "Add Page") && has(l, "Delete Page") && has(l, "Page 1 of "), "the Pet Wheel tab has no page rows (Page 1 of N / Add Page / Delete Page): " + l);
 
             // Page 1 has two pets; Add Page (a real click) makes an empty page 2, which gets one.
             c.onClient(mc -> {
