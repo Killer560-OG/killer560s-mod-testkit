@@ -540,6 +540,8 @@ final class MiscCases {
                 + accounts);
         List<String> procs = watch.seen();
         c.note("child processes started during the UI run: " + procs.size() + (procs.isEmpty() ? "" : " " + procs));
+        List<String> expected = watch.expected();
+        c.note("child processes a case started on purpose: " + expected.size() + (expected.isEmpty() ? "" : " " + expected));
         if (!procs.isEmpty()) {
             c.problem("the client started " + procs.size() + " process(es) during the UI run (clipboard/OS side "
                     + "effects go through child processes): " + procs);

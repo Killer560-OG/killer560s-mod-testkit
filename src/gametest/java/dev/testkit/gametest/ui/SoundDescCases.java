@@ -328,7 +328,8 @@ final class SoundDescCases {
             // A bad file is refused and nothing lands in the folder.
             List<String> before = importedNames();
             boolean refused = false;
-            try {
+            // The mod cannot read it, so it asks ffmpeg (when installed): that process is this case's, not a side effect.
+            try (AutoCloseable ff = ProcWatch.expect("1064's refused import (ClickSounds runs ffmpeg on " + bad.getFileName() + ")")) {
                 Mod.staticCall(CLICKS, "importFile", bad);
             } catch (Throwable t) {
                 refused = true;
