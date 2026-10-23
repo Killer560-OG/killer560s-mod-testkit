@@ -190,10 +190,21 @@ final class InvStorageCases {
                 "UseCustomAccent", "CustomAccentColor", "UseCustomSlotColor", "CustomSlotColor", "BackgroundOpacity"}) {
             r.save(cfg, p);
         }
+        if (hasChoice()) {
+            r.save(cfg, "Choice"); // getChoice / setChoice (ScreenThemes, saved by the setter)
+        }
         return r;
     }
 
-    /** The theme on, every container, hotbar themed, Amber, line 1, scale 1, no custom colours, opacity 0.85. */
+    /**
+     * The theme on, every container, hotbar themed, Amber, line 1, scale 1, no custom colours, opacity 0.85.
+     * <p>
+     * The look is Custom on a jar since mod 4a7ffc31 (it was the Mod Theme preset before): Custom on the Amber base is
+     * the old Mod Theme look - near-black panel, #CC6600 accent (PanelTheme.AMBER.invAccent) - and the only choice the
+     * Theme base, Accent Colour and Slot Colour still apply to ({@code InventoryThemeConfig.computePalette}: "The Slot and
+     * Accent overrides apply to Custom only"). The Mod Theme preset itself became the menu's AMBER theme (accent #FF8A1F),
+     * whose colours ignore every one of those settings, so the #CC6600 and custom-colour checks below need Custom.
+     */
     private static void themeDefaults(UiCase c, Object cfg) {
         c.onClient(mc -> {
             Mod.call(cfg, "setEnabled", true);
@@ -205,8 +216,10 @@ final class InvStorageCases {
             Mod.call(cfg, "setUseCustomAccent", false);
             Mod.call(cfg, "setUseCustomSlotColor", false);
             Mod.call(cfg, "setBackgroundOpacity", 0.85f);
-            if (Mod.has(ICFG + "$Preset")) {
-                Mod.call(cfg, "setPreset", Mod.enumValue(ICFG + "$Preset", "MOD_THEME"));
+            if (hasChoice()) {
+                look(cfg, "CUSTOM");
+            } else if (Mod.has(ICFG + "$Preset")) {
+                look(cfg, "MOD_THEME");
             }
             return null;
         });
@@ -215,6 +228,73 @@ final class InvStorageCases {
     /** True for a jar with the vanilla-shaped reskin (mod inv-theme-reskin): presets, bevels, no grid lines. */
     static boolean reskin(UiCase c) {
         return c.onClient(mc -> Mod.has(ICFG + "$Preset"));
+    }
+
+    /** True for a jar where the look is ONE Theme choice ({@code setChoice}) instead of {@code setPreset}: mod 4a7ffc31
+     *  (killer560, 2026-10-18, "first row Theme (Default follows the mod menu, then the menu's themes, Vanilla, Custom)").
+     *  The {@code Preset} enum is still there, but only for {@code load()} to carry an old file's preset over. */
+    static boolean hasChoice() {
+        for (java.lang.reflect.Method m : R.cls(ICFG).getMethods()) {
+            if (m.getName().equals("setChoice")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** RGB of a slot's top line in palette {@code p}: the dark bevel ({@code slotDark}) when it bevels slots (vanilla),
+     *  otherwise the one-colour outline ({@code slotLight}) every other look draws on all four sides (mod 6c9442d6,
+     *  2026-10-13: "make a full outline for the left side of my inventory slots and the top side";
+     *  InventoryThemeFeature.slotSquare). */
+    static int topLine(Object p) {
+        boolean bevel;
+        try {
+            bevel = (Boolean) Mod.call(p, "bevelSlots");
+        } catch (Throwable t) {
+            bevel = true; // a jar from before 6c9442d6: every preset bevelled
+        }
+        return ((Number) Mod.call(p, bevel ? "slotDark" : "slotLight")).intValue() & 0xFFFFFF;
+    }
+
+    /** The Theme choice an old preset name became, exactly as the mod's own {@code InventoryThemeConfig.load()} carries a
+     *  saved preset over: Default (vanilla colours then) to VANILLA, Dark to the menu's DARK, Mod Theme to the menu's
+     *  AMBER, Custom to INVENTORY_CUSTOM. */
+    static String choiceFor(String preset) {
+        return switch (preset) {
+            case "DEFAULT" -> "VANILLA";
+            case "MOD_THEME" -> "AMBER";
+            case "CUSTOM" -> "INVENTORY_CUSTOM";
+            default -> preset;
+        };
+    }
+
+    /** Sets the Inventory Theme's look by its old preset name: {@code setChoice(choiceFor(preset))} on a jar since mod
+     *  4a7ffc31, {@code setPreset} before it. Call on the client thread. */
+    static void look(Object cfg, String preset) {
+        if (hasChoice()) {
+            Mod.call(cfg, "setChoice", choiceFor(preset));
+        } else {
+            Mod.call(cfg, "setPreset", Mod.enumValue(ICFG + "$Preset", preset));
+        }
+    }
+
+    /** The current look as an old preset name's choice ({@code getChoice}), or the preset on an older jar. */
+    static String lookNow(Object cfg) {
+        return String.valueOf(Mod.call(cfg, hasChoice() ? "getChoice" : "getPreset"));
+    }
+
+    /** Puts the Theme choice back (it lives in ScreenThemes' file since mod 4a7ffc31, not in the Inventory Theme's own
+     *  file, so restoring that file does not restore it). Returns the undo; a no-op on an older jar. */
+    static Runnable keepChoice(UiCase c) {
+        if (!c.onClient(mc -> hasChoice())) {
+            return () -> {
+            };
+        }
+        String old = c.onClient(mc -> String.valueOf(Mod.call(Mod.cfg(ICFG), "getChoice")));
+        return () -> c.onClient(mc -> {
+            Mod.call(Mod.cfg(ICFG), "setChoice", old);
+            return null;
+        });
     }
 
     private static void set(UiCase c, Object cfg, String setter, Object value) {
@@ -358,6 +438,9 @@ final class InvStorageCases {
                 // The vanilla-shaped reskin has no separator line: slot 0's sunken square ends in its light (orange in Mod
                 // Theme) edge at x0 + 19 = cx - 72, then two units of panel, then slot 1's dark edge.
                 gapAmb = amb.getRGB(b.px(b.cx() - 72), gy) & 0xFFFFFF;
+                // Since mod 6c9442d6 slot 1's square is outlined on all four sides, so one unit right of the gap is its
+                // accent edge, not a dark cell: the panel BETWEEN the two edges (cx - 70) is what must be dark.
+                cellAmb = amb.getRGB(gx, gy) & 0xFFFFFF;
             }
             c.note(String.format(Locale.ROOT, "between slots 0 and 1: vanilla #%06X, themed #%06X (cell beside it #%06X)",
                     gapVan, gapAmb, cellAmb));
@@ -431,20 +514,41 @@ final class InvStorageCases {
                 // -- Preset: the panel between slots 0 and 1 in each preset's panel shade --
                 StringBuilder seen = new StringBuilder();
                 // Default draws vanilla's own hotbar (inv-theme-hotbar): x0 + 21 is its light #7E7E7E frame column.
-                String[][] presets = {{"DEFAULT", "7E7E7E"}, {"DARK", "2E2E30"}, {"MOD_THEME", "161616"}};
+                // Since mod 4a7ffc31 (2026-10-18) Dark and Mod Theme are the menu's DARK and AMBER themes
+                // (InventoryPalette.fromMenu; their old fixed #2E2E30 / #161616 palettes were deleted in 967bf9f6), so
+                // their panel is the menu theme's derived panel shade, read from the mod's palette ("" below); Custom on
+                // the Amber base is PanelTheme.AMBER.invPanelBg #0D0D0D.
+                String[][] presets = hasChoice()
+                        ? new String[][]{{"DEFAULT", "7E7E7E"}, {"DARK", ""}, {"MOD_THEME", ""}, {"CUSTOM", "0D0D0D"}}
+                        : new String[][]{{"DEFAULT", "7E7E7E"}, {"DARK", "2E2E30"}, {"MOD_THEME", "161616"}};
                 set(c, cfg, "setBackgroundOpacity", 1.0f);
+                java.util.Set<Integer> panels = new java.util.HashSet<>();
                 for (String[] pr : presets) {
-                    set(c, cfg, "setPreset", Mod.enumValue(ICFG + "$Preset", pr[0]));
+                    c.onClient(mc -> {
+                        look(cfg, pr[0]);
+                        return null;
+                    });
+                    int want = pr[1].isEmpty()
+                            ? c.onClient(mc -> ((Number) Mod.call(Mod.call(cfg, "getPalette"), "panel")).intValue()) & 0xFFFFFF
+                            : Integer.parseInt(pr[1], 16);
                     BufferedImage pi = shot(c, "preset-" + pr[0].toLowerCase(Locale.ROOT), 4);
                     int px = pi.getRGB(gx, gy) & 0xFFFFFF;
-                    seen.append(pr[0]).append(String.format(Locale.ROOT, " #%06X ", px));
-                    if (px != Integer.parseInt(pr[1], 16)) {
-                        c.problem(String.format(Locale.ROOT, "preset %s draws the hotbar panel #%06X, want #%s", pr[0], px, pr[1]));
+                    panels.add(px);
+                    seen.append(pr[0]).append(String.format(Locale.ROOT, " #%06X (want #%06X) ", px, want));
+                    if (px != want) {
+                        c.problem(String.format(Locale.ROOT, "preset %s draws the hotbar panel #%06X, want #%06X", pr[0], px, want));
                     }
                 }
                 c.note("hotbar panel between slots 0 and 1 per preset: " + seen.toString().trim());
+                // Not vacuous: every look draws its own panel shade.
+                if (panels.size() != presets.length) {
+                    c.problem("two looks draw the same hotbar panel: " + seen.toString().trim());
+                }
                 set(c, cfg, "setBackgroundOpacity", 0.85f);
-                set(c, cfg, "setPreset", Mod.enumValue(ICFG + "$Preset", "CUSTOM"));
+                c.onClient(mc -> {
+                    look(cfg, "CUSTOM");
+                    return null;
+                });
             } else {
                 // -- Line Width: the panel's top border down the middle of slot 0's cell (not a separator). Since the polish
                 // branch Line Width is in screen PIXELS: 1/3/0 draws 1/3/0 pixels at any GUI scale. --
@@ -483,8 +587,10 @@ final class InvStorageCases {
             c.onClient(mc -> {
                 Mod.call(cfg, "setUseCustomAccent", false);
                 Mod.call(cfg, "setUseCustomSlotColor", false);
-                if (Mod.has(ICFG + "$Preset")) {
-                    Mod.call(cfg, "setPreset", Mod.enumValue(ICFG + "$Preset", "MOD_THEME"));
+                if (hasChoice()) {
+                    look(cfg, "CUSTOM"); // the #CC6600 look the Hotbar Scale checks below measure (see themeDefaults)
+                } else if (Mod.has(ICFG + "$Preset")) {
+                    look(cfg, "MOD_THEME");
                 }
                 return null;
             });
@@ -516,7 +622,9 @@ final class InvStorageCases {
                 }
                 // Reskin: the topmost accent right of centre is a slot's light right edge (from 19 units up) and the
                 // rightmost is slot 8's (its last pixel 89 units right of centre).
-                int wantTop = reskin ? b.px(b.gh() - 19 * scale) : b.px(b.gh() - 22 * scale);
+                // Since mod 6c9442d6 the reskin outlines each slot on all four sides, so its topmost accent is the slot's
+                // top edge, 20 units up (it was the light right edge, from 19 up).
+                int wantTop = reskin ? b.px(b.gh() - 20 * scale) : b.px(b.gh() - 22 * scale);
                 int wantRight = reskin ? b.px(b.cx() + 89 * scale) - 1 : b.px(b.cx() + 91 * scale) - 1;
                 // Since mod inv-theme-fix2 the bar's end lines sit on the cell boundary x0 + 181 (centred end slots), so its
                 // last pixel is lineWidth/2 past that boundary: accept that edge too.
@@ -553,6 +661,10 @@ final class InvStorageCases {
         Path storageFile = c.onClient(mc -> (Path) Mod.staticCall("util.ModPaths", "config",
                 "killer560smod-storageoverlay.json"));
         byte[] storageWas = Files.exists(storageFile) ? Files.readAllBytes(storageFile) : null;
+        // This case replaces the config instance (load) and ends on a test file, so the Restore (which holds cfg0) is
+        // not enough: the file itself goes back at the end.
+        Path themeFile = InvBatchCases.configPath(c, ICFG);
+        byte[] themeWas = InvBatchCases.read(themeFile);
         try {
             // -- round trip through the file --
             c.onClient(mc -> {
@@ -563,10 +675,14 @@ final class InvStorageCases {
                 Mod.call(cfg0, "setUseCustomSlotColor", true);
                 Mod.call(cfg0, "setCustomSlotColor", 0xFF123456);
                 if (Mod.has(ICFG + "$Preset")) {
-                    Mod.call(cfg0, "setPreset", Mod.enumValue(ICFG + "$Preset", "DARK"));
+                    look(cfg0, "DARK");
                 }
                 Mod.call(cfg0, "save");
                 Mod.staticCall(ICFG, "load");
+                if (hasChoice()) {
+                    // The choice is ScreenThemes' since mod 4a7ffc31: re-read its file too, or the check reads memory.
+                    Mod.staticCall("gui.ScreenThemes", "load");
+                }
                 return null;
             });
             Object cfg = c.onClient(mc -> Mod.cfg(ICFG));
@@ -576,8 +692,8 @@ final class InvStorageCases {
                     + Integer.toHexString((Integer) Mod.call(cfg, "getCustomSlotColor")));
             c.note("after save + load from disk: " + back);
             if (reskin(c)) {
-                String preset = c.onClient(mc -> String.valueOf(Mod.call(cfg, "getPreset")));
-                c.note("preset after save + load: " + preset);
+                String preset = c.onClient(mc -> lookNow(cfg));
+                c.note("preset (Theme choice since mod 4a7ffc31) after save + load: " + preset);
                 c.check(preset.equals("DARK"), "Preset did not survive a reload: " + preset);
             }
             c.check(back.equals("LIGHT hotbar=false scale=1.37 line=3 slotCustom=true slot=ff123456"),
@@ -676,8 +792,7 @@ final class InvStorageCases {
                     return 0;
                 });
                 runs[i] = runDown(img, colX, rowY - d, AMBER_ACCENT);
-                int darkPx = c.onClient(mc -> Mod.has(ICFG + "$Preset")
-                        ? ((Number) Mod.call(Mod.call(Mod.cfg(ICFG), "getPalette"), "slotDark")).intValue() & 0xFFFFFF : -1);
+                int darkPx = c.onClient(mc -> Mod.has(ICFG + "$Preset") ? topLine(Mod.call(Mod.cfg(ICFG), "getPalette")) : -1);
                 bevels[i] = darkPx < 0 ? 0 : runDown(img, colX, rowY, darkPx);
                 slotPx[i] = img.getRGB(colX, b.px(topPos + 17 + 9)) & 0xFFFFFF;
                 c.onClient(mc -> {
@@ -690,16 +805,15 @@ final class InvStorageCases {
             // Screen pixels since the polish branch (Line Width 1 was one GUI unit, 2 px at GUI 2, before it). The
             // vanilla-shaped reskin has no lines: slot 0's top edge is its one-unit dark bevel at every Line Width.
             if (reskin(c)) {
-                int dark = c.onClient(mc -> ((Number) Mod.call(Mod.call(Mod.cfg(ICFG), "getPalette"), "slotDark")).intValue())
-                        & 0xFFFFFF;
+                int dark = c.onClient(mc -> topLine(Mod.call(Mod.cfg(ICFG), "getPalette")));
                 boolean allBevel = true;
                 for (int i = 0; i < 3; i++) {
                     allBevel &= bevels[i] == b.px(1);
                 }
-                c.note("reskin: slot 0's dark top bevel at Line Width 1/3/0: " + bevels[0] + "/" + bevels[1] + "/" + bevels[2]
-                        + String.format(Locale.ROOT, " px of #%06X", dark));
+                c.note("reskin: slot 0's top line (dark bevel, or the one-colour outline) at Line Width 1/3/0: " + bevels[0]
+                        + "/" + bevels[1] + "/" + bevels[2] + String.format(Locale.ROOT, " px of #%06X", dark));
                 if (!allBevel) {
-                    c.problem("slot 0 has no one-unit dark bevel: " + bevels[0] + "/" + bevels[1] + "/" + bevels[2]);
+                    c.problem("slot 0 has no one-unit top line: " + bevels[0] + "/" + bevels[1] + "/" + bevels[2]);
                 }
             } else if (runs[0] != 1 || runs[1] != 3 || runs[2] != 0) {
                 c.problem("Line Width does not set the chest's slot lines: " + runs[0] + "/" + runs[1] + "/" + runs[2]);
@@ -709,15 +823,28 @@ final class InvStorageCases {
             }
             if (reskin(c)) {
                 // Last, as it replaces the config instance the checks above hold.
-                // A file from before presets loads as Default (killer560: everyone starts on Default).
+                // A file from before presets loads as Default (killer560: everyone starts on Default). Since mod 4a7ffc31
+                // load() carries the saved preset over to the Theme choice once, while the choice is still Theme Default:
+                // no preset (Default, vanilla colours then) becomes VANILLA, and a saved Mod Theme becomes the menu's AMBER.
                 Path f = InvBatchCases.configPath(c, ICFG);
-                Files.writeString(f, "{\"enabled\":true,\"theme\":\"AMBER\",\"lineWidthPx\":2}", StandardCharsets.UTF_8);
-                String old = c.onClient(mc -> {
-                    Mod.staticCall(ICFG, "load");
-                    return String.valueOf(Mod.call(Mod.cfg(ICFG), "getPreset"));
-                });
-                c.note("a file from before presets loads as " + old);
-                c.check(old.equals("DEFAULT"), "a pre-preset file loads as " + old + ", want DEFAULT");
+                String[][] olds = hasChoice()
+                        ? new String[][]{{"{\"enabled\":true,\"theme\":\"AMBER\",\"lineWidthPx\":2}", "VANILLA"},
+                                {"{\"enabled\":true,\"preset\":\"MOD_THEME\",\"lineWidthPx\":2}", "AMBER"},
+                                // Already carried over: the choice is left alone.
+                                {"{\"enabled\":true,\"preset\":\"MOD_THEME\",\"themeChoiceMigrated\":true}", "DEFAULT"}}
+                        : new String[][]{{"{\"enabled\":true,\"theme\":\"AMBER\",\"lineWidthPx\":2}", "DEFAULT"}};
+                for (String[] o : olds) {
+                    Files.writeString(f, o[0], StandardCharsets.UTF_8);
+                    String old = c.onClient(mc -> {
+                        if (hasChoice()) {
+                            Mod.call(Mod.cfg(ICFG), "setChoice", "DEFAULT");
+                        }
+                        Mod.staticCall(ICFG, "load");
+                        return lookNow(Mod.cfg(ICFG));
+                    });
+                    c.note("inventory theme file " + o[0] + " loads as " + old);
+                    c.check(old.equals(o[1]), "the file " + o[0] + " loads as " + old + ", want " + o[1]);
+                }
             }
         } finally {
             if (storageWas != null) {
@@ -730,10 +857,7 @@ final class InvStorageCases {
                 return null;
             });
             restore.run(c);
-            c.onClient(mc -> {
-                Mod.call(Mod.cfg(ICFG), "save");
-                return null;
-            });
+            InvBatchCases.restoreConfig(c, ICFG, themeFile, themeWas);
             HudEditorCases.restoreWindow(c, window, oldGui);
         }
     }

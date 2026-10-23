@@ -72,7 +72,9 @@ final class InvThemeCenterCases {
             Object cfg = Mod.cfg(ICFG);
             Mod.call(cfg, "setEnabled", true);
             Mod.call(cfg, "setHypixelOnly", false);
-            Mod.call(cfg, "setPreset", Mod.enumValue(ICFG + "$Preset", preset));
+            // Old preset names; since mod 4a7ffc31 they map to the Theme choice the mod's load() carries them over to
+            // (DEFAULT -> VANILLA, DARK -> the menu's DARK, MOD_THEME -> the menu's AMBER).
+            InvStorageCases.look(cfg, preset);
             Mod.call(cfg, "setUseCustomAccent", false);
             Mod.call(cfg, "setUseCustomSlotColor", false);
             // 0.3: since mod inv-theme-ring2 everything is opaque whatever this says (killer560, 2026-10-12: "make the
@@ -395,7 +397,12 @@ final class InvThemeCenterCases {
         HudEditorCases.setWindow(c, 2560, 1440, 3);
         int gs = c.onClient(mc -> mc.getWindow().getGuiScale());
         InvBatchCases.inventory(c, Map.of());
-        String[][] presets = {{"DARK", "FFFFFF"}, {"DEFAULT", "404040"}};
+        // Since mod 4a7ffc31 (2026-10-18) Dark is the menu's DARK theme and the title takes that theme's text colour
+        // (InventoryPalette.fromMenu: "the menu's text for titles so a light theme stays readable"), MenuTheme.DARK's
+        // #E6E6EA, no longer the fixed Dark preset's #FFFFFF (deleted in 967bf9f6). The old #D8D8DC must still be absent.
+        String[][] presets = InvStorageCases.hasChoice()
+                ? new String[][]{{"DARK", "E6E6EA"}, {"DEFAULT", "404040"}}
+                : new String[][]{{"DARK", "FFFFFF"}, {"DEFAULT", "404040"}};
         for (String[] pr : presets) {
             theme(c, pr[0]);
             int want = Integer.parseInt(pr[1], 16);
@@ -588,6 +595,7 @@ final class InvThemeCenterCases {
                     + "this case measures (mod inv-theme-reskin)");
             return;
         }
+        Runnable choiceBack = InvStorageCases.keepChoice(c);
         String envTag = System.getenv("TESTKIT_SHOT_TAG");
         String tag = envTag != null && !envTag.isBlank() ? envTag : "reskin";
         List<String> problems = new ArrayList<>();
@@ -671,6 +679,7 @@ final class InvThemeCenterCases {
             close(c);
             HudEditorCases.restoreWindow(c, window, oldGui);
             InvBatchCases.restoreConfig(c, ICFG, cfgPath, oldCfg);
+            choiceBack.run();
             InvBatchCases.restoreConfig(c, RCFG, rarityPath, oldRarity);
             InvBatchCases.inventory(c, Map.of());
         }

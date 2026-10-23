@@ -477,7 +477,8 @@ final class DocMiscCases {
             Object cfg = Mod.cfg(ICFG);
             Mod.call(cfg, "setEnabled", true);
             Mod.call(cfg, "setHypixelOnly", false);
-            Mod.call(cfg, "setPreset", Mod.enumValue(ICFG + "$Preset", preset));
+            // Old preset names, mapped to the Theme choice since mod 4a7ffc31 (see InvStorageCases.choiceFor).
+            InvStorageCases.look(cfg, preset);
             Mod.call(cfg, "setUseCustomAccent", false);
             Mod.call(cfg, "setUseCustomSlotColor", false);
             Mod.call(cfg, "setThemeHotbar", true);
@@ -526,6 +527,7 @@ final class DocMiscCases {
     static void slotOutlines(UiCase c) throws Exception {
         Path file = c.onClient(mc -> (Path) R.getStatic(R.cls(ICFG), "CONFIG_PATH"));
         byte[] saved = Files.exists(file) ? Files.readAllBytes(file) : null;
+        Runnable choiceBack = InvStorageCases.keepChoice(c);
         int[] window = HudEditorCases.windowSize(c);
         int oldGui = c.onClient(mc -> mc.options.guiScale().get());
         try {
@@ -624,6 +626,7 @@ final class DocMiscCases {
                 Mod.staticCall(ICFG, "load");
                 return null;
             });
+            choiceBack.run();
         }
     }
 
