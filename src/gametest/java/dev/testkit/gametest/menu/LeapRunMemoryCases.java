@@ -45,6 +45,11 @@ final class LeapRunMemoryCases {
         MenuSuite.test(s, "832-menu-leap-memory-three-leave", LeapRunMemoryCases::threeLeave);
         MenuSuite.test(s, "833-menu-leap-memory-two-leave", LeapRunMemoryCases::twoLeave);
         MenuSuite.test(s, "834-menu-leap-memory-guards", LeapRunMemoryCases::guards);
+        // killer560, 2026-10-22: picks and pins set in the Dungeon Hub before a run were reset when the run started.
+        MenuSuite.test(s, "2341-menu-leap-memory-hub-same-party", LeapRunMemoryCases::hubSameParty);
+        MenuSuite.test(s, "2342-menu-leap-memory-hub-new-party", LeapRunMemoryCases::hubNewParty);
+        MenuSuite.test(s, "2343-menu-leap-memory-hub-two-new", LeapRunMemoryCases::hubTwoNew);
+        MenuSuite.test(s, "2344-menu-leap-memory-run-pick-next-run", LeapRunMemoryCases::runPickNextRun);
     }
 
     // ---- fixture ------------------------------------------------------------------------------------------------------
@@ -362,6 +367,124 @@ final class LeapRunMemoryCases {
             String real = run(c, List.of("LrA", "LrB", "LrC"));
             c.check(!overrides(c).containsKey("LrD"), "the real run start did not clear LrD: " + real);
             c.note("reload kept " + remembered + "; forged all/party chat and a sim run changed nothing; the real line: " + real);
+        } finally {
+            restore(c, sv);
+        }
+    }
+
+    // ---- 2341-2344: picks and pins set in the Dungeon Hub (killer560, 2026-10-22) -------------------------------------
+
+    /** Leaves the dungeon for the Hub and forms the party there from Hypixel's own party lines (you join
+     *  {@code leader}'s party, "You'll be partying with" the rest); waits until the mod's party is exactly it. */
+    @SuppressWarnings("unchecked")
+    static void hub(Session c, String leader, List<String> others) {
+        c.hx().tabClear();
+        DungeonMenuCases.leaveDungeon(c);
+        c.hx().chat("You left the party.");
+        c.hx().chat("You have joined [MVP+] " + leader + "'s party!");
+        c.hx().chat("You'll be partying with: " + String.join(", ", others));
+        java.util.Set<String> want = new java.util.HashSet<>(others);
+        want.add(leader);
+        c.waitUntil("the Hub party to read " + want, mc ->
+                new java.util.HashSet<>((List<String>) Mod.staticCall("leapmenu.PartyTracker", "teammates")).equals(want), 100);
+        c.note("in the Hub with " + want);
+    }
+
+    /** Back into a dungeon for the next run (sidebar first, then {@link #run} puts up the tab list and Mort's line). */
+    static void enter(Session c) {
+        DungeonMenuCases.inDungeon(c);
+    }
+
+    static long pinCount(List<String> pins) {
+        return pins.stream().filter(s -> !s.isEmpty()).count();
+    }
+
+    /** The party ran together last time; picks and a pin set in the Hub before the next run with the same people. */
+    static void hubSameParty(Session c) throws Exception {
+        Saved sv = setUp(c);
+        try {
+            run(c, P);
+            hub(c, "LrA", List.of("LrB", "LrC", "LrD"));
+            pick(c, "LrB", "MAGE");
+            pick(c, "LrD", "HEALER");
+            swap(c, 0, 3);
+            Map<String, String> ovr = overrides(c);
+            List<String> pins = pins(c);
+            c.check(ovr.size() == 2 && pinCount(pins) == 2, "Hub setup: " + ovr + " " + pins);
+            enter(c);
+            String out = run(c, P);
+            c.check(overrides(c).equals(ovr), "Hub picks changed at the run start: " + ovr + " -> " + overrides(c) + " (" + out + ")");
+            c.check(pins(c).equals(pins), "Hub pins changed at the run start: " + pins + " -> " + pins(c) + " (" + out + ")");
+            c.note("same party, set in the Hub: picks " + ovr + ", pins " + pins + " kept; " + out);
+        } finally {
+            restore(c, sv);
+        }
+    }
+
+    /** A new party formed in the Hub (three of last run's teammates gone): what he set there for them is kept, while the
+     *  old party's pick still goes. */
+    static void hubNewParty(Session c) throws Exception {
+        Saved sv = setUp(c);
+        try {
+            run(c, P);
+            pick(c, "LrB", "MAGE"); // last run's, for someone not in the next one
+            hub(c, "LrE", List.of("LrF", "LrG", "LrA"));
+            pick(c, "LrE", "HEALER");
+            pick(c, "LrF", "TANK");
+            swap(c, 0, 1);
+            Map<String, String> ovr = new java.util.TreeMap<>(overrides(c));
+            ovr.remove("LrB");
+            List<String> pins = pins(c);
+            c.check(pinCount(pins) == 2 && ovr.size() == 2, "Hub setup: " + overrides(c) + " " + pins);
+            enter(c);
+            String out = run(c, List.of("LrA", "LrE", "LrF", "LrG"));
+            c.check(overrides(c).equals(ovr), "Hub picks after the run start: " + overrides(c) + ", want " + ovr + " (" + out + ")");
+            c.check(pins(c).equals(pins), "Hub pins changed at the run start: " + pins + " -> " + pins(c) + " (" + out + ")");
+            c.note("new party, set in the Hub: picks " + ovr + ", pins " + pins + " kept, LrB's old pick gone; " + out);
+        } finally {
+            restore(c, sv);
+        }
+    }
+
+    /** Two newcomers formed in the Hub and pinned there: the run start must not move them into the departed's spots. */
+    static void hubTwoNew(Session c) throws Exception {
+        Saved sv = setUp(c);
+        try {
+            run(c, P);
+            pick(c, "LrD", "ARCHER");
+            hub(c, "LrA", List.of("LrB", "LrE", "LrF"));
+            pick(c, "LrE", "MAGE");
+            List<String> lay = layout(c);
+            swap(c, lay.indexOf("LrE"), lay.indexOf("LrF"));
+            List<String> pins = pins(c);
+            c.check(pins.contains("LrE") && pins.contains("LrF"), "Hub setup: " + pins + " (layout " + lay + ")");
+            enter(c);
+            String out = run(c, List.of("LrA", "LrB", "LrE", "LrF"));
+            c.check(pins(c).equals(pins), "Hub pins moved at the run start: " + pins + " -> " + pins(c) + " (" + out + ")");
+            c.check("MAGE".equals(overrides(c).get("LrE")), "LrE's Hub pick went: " + overrides(c) + " (" + out + ")");
+            c.check(!overrides(c).containsKey("LrD"), "LrD's pick survived a run without him: " + overrides(c));
+            c.note("two new, pinned in the Hub: pins " + pins + " kept, LrE MAGE kept, LrD's pick gone; " + out);
+        } finally {
+            restore(c, sv);
+        }
+    }
+
+    /** Set during a run, then a trip to the Hub with the same party: kept into the next run. */
+    static void runPickNextRun(Session c) throws Exception {
+        Saved sv = setUp(c);
+        try {
+            run(c, P);
+            pick(c, "LrA", "TANK");
+            swap(c, 1, 2);
+            Map<String, String> ovr = overrides(c);
+            List<String> pins = pins(c);
+            c.check(ovr.size() == 1 && pinCount(pins) == 2, "in-run setup: " + ovr + " " + pins);
+            hub(c, "LrA", List.of("LrB", "LrC", "LrD"));
+            enter(c);
+            String out = run(c, P);
+            c.check(overrides(c).equals(ovr), "in-run picks changed at the next run: " + ovr + " -> " + overrides(c) + " (" + out + ")");
+            c.check(pins(c).equals(pins), "in-run pins changed at the next run: " + pins + " -> " + pins(c) + " (" + out + ")");
+            c.note("set during a run, kept into the next: picks " + ovr + ", pins " + pins + "; " + out);
         } finally {
             restore(c, sv);
         }
