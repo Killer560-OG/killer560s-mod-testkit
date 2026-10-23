@@ -33,7 +33,10 @@ final class MiningShelvedCases {
             "com.killer560.hub.gui.profit.MiningProfitScreen", "com.killer560.hub.gui.profit.NucleusProfitScreen");
     /** Lower-cased words no tab name may contain while mining is shelved. */
     private static final List<String> MINING_WORDS = List.of("mining", "crystal hollows", "nucleus", "metal detector");
-    private static final List<String> EXPECTED_CARDS = List.of("Dungeon Profit", "Experimentation Table");
+    /** Mod df2b3a1b added the cheat-only Bazaar Flipper tracker (ProfitTracker.BAZAAR_FLIP, left out of a legit jar). */
+    private static final List<String> EXPECTED_CARDS = Mod.isCheat()
+            ? List.of("Dungeon Profit", "Experimentation Table", "Bazaar Flipper")
+            : List.of("Dungeon Profit", "Experimentation Table");
     private static final String HUB = "gui.profit.ProfitHubScreen";
 
     private MiningShelvedCases() {
