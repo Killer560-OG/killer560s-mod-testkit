@@ -48,8 +48,10 @@ final class CheatTabsCases {
     private static final String TIPS = "gui.SettingTooltips";
     private static final List<String> AUTO_ROWS = List.of("Trigger Bot", "Aura", "Auto Detect Lag", "Trigger Offset",
             "Never Miss", "Freecam Mode");
+    // Countdown Start Sound and Start Sound Type were removed on purpose in mod b357f6de (2026-10-18: the start sound no
+    // longer plays and "its rows are gone; its saved value still loads"); 392 checks the sound stays silent.
     private static final List<String> LEGIT_ROWS = List.of("Show Overlay", "Kill Popup", "Spawn Line",
-            "Countdown Start Sound", "Kill Sound", "Start Sound Type", "Kill Sound Type", "Sound Volume");
+            "Kill Sound", "Kill Sound Type", "Sound Volume");
 
     private CheatTabsCases() {
     }
@@ -106,6 +108,11 @@ final class CheatTabsCases {
                     c.problem("Blood Camp lost its legit row '" + row + "'");
                 }
                 tooltip(c, "Blood Camp", row, "blood camp/");
+            }
+            for (String row : List.of("Countdown Start Sound", "Start Sound Type")) {
+                if (hasRow(bcLabels, row)) {
+                    c.problem("Blood Camp still shows the removed row '" + row + "' (mod b357f6de)");
+                }
             }
 
             if (cheat) {
@@ -364,17 +371,25 @@ final class CheatTabsCases {
                             + " flight (one step is %.3f); text '%s'", a.predictError, a.oldPredictError,
                     a.lineSettledError, a.lineFlightError, a.step, a.text));
             c.check(a.tracked, "A: the mod never tracked the stand - no move packets reached Blood Camp");
-            if (afterA[0] - before[0] != 1) {
-                c.problem("A: expected exactly one countdown start sound, got " + (afterA[0] - before[0]));
+            // The Countdown Start Sound no longer plays at all, even with its saved toggle ON (mod b357f6de, killer560
+            // 2026-10-18: "The sound should play only on the tick the trigger bot should hit to kill a mob, not ...
+            // starting to spawn"). The toggle is still read from the file, so the case keeps it ON and expects silence.
+            if (afterA[0] - before[0] != 0) {
+                c.problem("A: the removed countdown start sound played " + (afterA[0] - before[0]) + " time(s)");
             }
             if (afterA[1] - before[1] != 1) {
                 c.problem("A: expected exactly one kill sound, got " + (afterA[1] - before[1]));
             }
-            if (a.startSoundAt < 0 || a.startSoundAt > 8) {
-                c.problem("A: the start sound came at tick +" + a.startSoundAt + ", not with the first moves");
-            }
-            if (a.killSoundAt < 0 || Math.abs(a.killSoundAt - a.greenAt) > 1) {
-                c.problem("A: the kill sound came at +" + a.killSoundAt + ", the box turned green at +" + a.greenAt);
+            // Since b357f6de the Kill Sound plays on the Trigger Bot's hit tick: the first tick whose countdown is below
+            // triggerTargetTicks (ping in ticks with Auto Detect Lag, plus Trigger Offset, default -1), which is one
+            // tick AFTER the box turns green, not with it. Measured in game ticks from the first move packet, not in
+            // loop steps (a loop step and a game tick are not the same clock).
+            c.note(String.format(Locale.ROOT, "A: kill sound %d game ticks after the first move packet, expected %d"
+                    + " (clickBelow %.2f); box green at %d", a.killSoundAfterStart, a.killSoundExpected, a.clickBelow,
+                    a.greenAfterStart));
+            if (a.killSoundAfterStart < 0 || Math.abs(a.killSoundAfterStart - a.killSoundExpected) > 1) {
+                c.problem("A: the kill sound came " + a.killSoundAfterStart + " ticks after the first move packet, not on"
+                        + " the Trigger Bot's hit tick (" + a.killSoundExpected + ")");
             }
             c.note("A: box green " + a.greenAfterStart + " ticks after the first move packet (countdown "
                     + a.countdown + ", minus the ping lead)");
@@ -398,7 +413,7 @@ final class CheatTabsCases {
                 c.problem("A: the box is not Noamm's 1x1x1 from +1.5 to +2.5 over the spot: " + a.boxDesc);
             }
 
-            // ---- B: three mobs leaving together -> one start sound, one kill sound ----
+            // ---- B: three mobs leaving together -> no start sound (removed, b357f6de), one kill sound ----
             before = sounds(c);
             Trip b = trip(c, mobTex, List.of(new Vec3(-7.5, -60, 13.5), new Vec3(-7.5, -60, 15.5),
                     new Vec3(-7.5, -60, 16.5)), "bcB");
@@ -406,8 +421,8 @@ final class CheatTabsCases {
             c.note("B: three mobs together -> " + (afterB[0] - before[0]) + " start, " + (afterB[1] - before[1])
                     + " kill sound(s)");
             c.check(b.tracked, "B: the mod never tracked the stands");
-            if (afterB[0] - before[0] != 1 || afterB[1] - before[1] != 1) {
-                c.problem("B: three mobs at one moment must make one start and one kill sound");
+            if (afterB[0] - before[0] != 0 || afterB[1] - before[1] != 1) {
+                c.problem("B: three mobs at one moment must make no start sound and one kill sound");
             }
 
             // ---- C: both sounds off -> silence ----
@@ -464,6 +479,12 @@ final class CheatTabsCases {
         int greenAt = -1;
         /** Game ticks from the countdown's own start (the first move packet) to the box turning green. */
         long greenAfterStart = -1;
+        /** The mod's startedAtTick for stand 0 (game tick of its first move packet). */
+        long startedAt = -1;
+        /** Game ticks from startedAt to the first Kill Sound at or after it, and where the mod's own rule puts it. */
+        long killSoundAfterStart = -1;
+        long killSoundExpected = -1;
+        double clickBelow = Double.NaN;
         double predictError = Double.NaN;
         double oldPredictError = Double.NaN;
         double lineSettledError = Double.NaN;
@@ -518,6 +539,9 @@ final class CheatTabsCases {
             if (now[0] != null && startTick < 0) {
                 startTick = i;
             }
+            if (t.startedAt < 0 && now[4] != null) {
+                t.startedAt = (Long) now[4];
+            }
             int[] snd = sounds(c);
             if (t.startSoundAt < 0 && snd[0] > base[0]) {
                 t.startSoundAt = i;
@@ -552,10 +576,27 @@ final class CheatTabsCases {
             }
         }
         t.tracked = startTick >= 0;
-        if (t.startSoundAt >= 0 && startTick >= 0) {
-            t.startSoundAt -= startTick;
+        // Rebased on the tracking step whether or not a start sound played (it no longer does, b357f6de; gating this
+        // on it left the kill and green steps unrebased).
+        if (startTick >= 0) {
+            t.startSoundAt = t.startSoundAt < 0 ? -1 : t.startSoundAt - startTick;
             t.killSoundAt = t.killSoundAt < 0 ? -1 : t.killSoundAt - startTick;
             t.greenAt = t.greenAt < 0 ? -1 : t.greenAt - startTick;
+        }
+        if (t.startedAt >= 0) {
+            @SuppressWarnings("unchecked")
+            List<Long> killTicks = (List<Long>) c.onClient(mc -> Mod.staticCall(BC, "killSoundTicks"));
+            for (Long k : killTicks) {
+                if (k >= t.startedAt) {
+                    t.killSoundAfterStart = k - t.startedAt;
+                    break;
+                }
+            }
+            // The mod's rule (BloodCampFeature.hitSound): the first tick whose time left, countdown - elapsed, is below
+            // triggerTargetTicks.
+            t.clickBelow = c.onClient(mc -> ((Number) Mod.staticCall(BC, "triggerTargetTicks",
+                    Mod.cfg(BC_CFG), mc)).doubleValue());
+            t.killSoundExpected = (long) Math.floor(t.countdown - t.clickBelow) + 1;
         }
         Object[] last = c.onClient(mc -> snapshot(mc, standId));
         Vec3 end = starts.get(0).add(dir.scale(t.distance));
