@@ -373,8 +373,11 @@ final class ProfileDataCases {
             }
             return;
         }
-        c.check(Files.isDirectory(old), "no old-build profile at " + old + " - run 983 on a jar from before "
-                + "profiles-all first");
+        if (!Files.isDirectory(old)) {
+            // The old folder only exists after 983 ran on a pre-profiles-all jar from this checkout; without one there
+            // is nothing to load, which is a missing input, not a mod fault.
+            c.skipCase("no old-build profile at " + old + " - run 983 on a jar from before profiles-all first");
+        }
         String name = "tk-983-old-in";
         Restore restore = Restore.begin(c, "tk-983-orig");
         try {
@@ -471,7 +474,10 @@ final class ProfileDataCases {
             }
         }
         c.note("this jar: " + own + "; zips from other jars: " + zips.stream().map(p -> p.getFileName().toString()).toList());
-        c.check(!zips.isEmpty(), "no profile from another jar in " + xferDir() + " - run 984 on another jar first");
+        if (zips.isEmpty()) {
+            // Another jar's 984 must have run from this checkout first; a fresh checkout has none to import.
+            c.skipCase("no profile from another jar in " + xferDir() + " - run 984 on another jar first");
+        }
         Restore restore = Restore.begin(c, "tk-985-orig");
         List<String> made = new ArrayList<>();
         try {

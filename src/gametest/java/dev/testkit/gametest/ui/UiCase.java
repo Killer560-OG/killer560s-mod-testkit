@@ -94,6 +94,9 @@ public final class UiCase {
             Report.caseFinished(name, "PASS", "n/a (singleplayer)", detail, List.of(), LogTap.since(logMark));
             System.out.println("[" + name + "] PASS");
             return true;
+        } catch (Skipped s) {
+            Scenario.skipped(name, s.getMessage());
+            return false;
         } catch (Throwable t) {
             if (t instanceof VirtualMachineError fatal) {
                 throw fatal;
@@ -146,6 +149,21 @@ public final class UiCase {
 
     public int problemCount() {
         return problems.size();
+    }
+
+    /** Thrown by {@link #skipCase}: the case cannot run here, which is a SKIP row with the reason, never a pass. */
+    private static final class Skipped extends RuntimeException {
+        Skipped(String why) {
+            super(why, null, false, false);
+        }
+    }
+
+    /**
+     * End the case as SKIP: what it needs is missing from this machine or checkout (another jar's earlier run), not
+     * broken in the mod. Call it only before the case has checked anything; the reason is the row's detail.
+     */
+    public void skipCase(String why) {
+        throw new Skipped(why);
     }
 
     /** Fail now. */
