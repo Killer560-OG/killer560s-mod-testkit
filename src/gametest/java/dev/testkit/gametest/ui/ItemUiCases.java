@@ -196,9 +196,28 @@ final class ItemUiCases {
     private static Object entry(String id, String name, String material, String tier) {
         try {
             Class<?> cls = Mod.cls("itembrowser.SkyblockItemEntry");
-            Constructor<?> k = cls.getDeclaredConstructors()[0];
+            // By record component NAME (as menu/FlipMarket.itemEntry does), not position: mod 92cc8e87 ("Leather armour in
+            // the catalog keeps its colour") added a 15th component, Integer dyeColor, and the positional call broke with
+            // "wrong number of arguments: 14 expected: 15". Every component not named here is empty: null, 0 for an int,
+            // List.of() for obtainLines (recipeIngredients stays null, as before).
+            java.lang.reflect.RecordComponent[] rc = cls.getRecordComponents();
+            Class<?>[] types = new Class<?>[rc.length];
+            Object[] args = new Object[rc.length];
+            for (int i = 0; i < rc.length; i++) {
+                types[i] = rc[i].getType();
+                args[i] = switch (rc[i].getName()) {
+                    case "id" -> id;
+                    case "name" -> name;
+                    case "material" -> material;
+                    case "tier" -> tier;
+                    case "category" -> "SWORD";
+                    case "obtainLines" -> List.of();
+                    default -> types[i] == int.class ? (Object) 0 : null;
+                };
+            }
+            Constructor<?> k = cls.getDeclaredConstructor(types);
             k.setAccessible(true);
-            return k.newInstance(id, name, material, null, null, null, tier, "SWORD", null, null, null, null, 0, List.of());
+            return k.newInstance(args);
         } catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
         }
@@ -982,7 +1001,14 @@ final class ItemUiCases {
                 }
                 return out;
             });
-            c.check(rows.stream().anyMatch(r -> r.contains("Inventory Search bar")), "no note about the search bar: " + rows);
+            // The tab's three-line note about the Inventory Search bar (killer560, 2026-10-11) was removed on purpose in mod
+            // 511e04c2 ("Item Browser: remove the note lines", 2026-10-18), so the check is now that it stays gone and the
+            // tab still builds, its on/off switch first. The tandem itself (the bar shows with only the Item Browser on) is
+            // still measured below.
+            c.note("Item Browser tab rows: " + rows);
+            c.check(!rows.isEmpty() && rows.get(0).startsWith("Item Browser"), "the tab's first row is not its switch: " + rows);
+            c.check(rows.stream().noneMatch(r -> r.contains("Inventory Search bar")),
+                    "the removed note about the search bar is back: " + rows);
         } finally {
             InvBatchCases.restoreConfig(c, IBC, ibPath, oldIb);
         }

@@ -443,7 +443,17 @@ final class MapHeadCases {
             c.onClient(mc -> {
                 Mod.setField("roomsim.SimState", "active", true);
                 Object room = Mod.staticCall("roomsim.FlatTestRoom", "build");
-                Mod.staticCall("roomsim.SimBuilder", "publishSingleRoomMap", room, 4);
+                // Since mod 86a0d608 the publish also takes the paste rotation (setSingleRoomRotationForTest can turn a
+                // one-tile room); 0 is the default and what Load a Room and All Rooms always use.
+                boolean withRotation = false;
+                for (java.lang.reflect.Method m : R.cls("roomsim.SimBuilder").getDeclaredMethods()) {
+                    withRotation |= m.getName().equals("publishSingleRoomMap") && m.getParameterCount() == 3;
+                }
+                if (withRotation) {
+                    Mod.staticCall("roomsim.SimBuilder", "publishSingleRoomMap", room, 4, 0);
+                } else {
+                    Mod.staticCall("roomsim.SimBuilder", "publishSingleRoomMap", room, 4);
+                }
                 return null;
             });
             c.ticks(10);
