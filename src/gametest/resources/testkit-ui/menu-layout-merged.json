@@ -554,8 +554,15 @@
     {
       "owner": "Auto Clear",
       "key": "run mode",
-      "text": "Solo plays for the best score per second toward 300 with the blood door last; Party does your routes first and never opens the blood door.",
+      "text": "Solo plays for the best score per second towards 300 with the blood door last; Party does your routes first and never opens the blood door.",
       "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
+    },
+    {
+      "owner": "Croesus / Chest Profit",
+      "to": "Croesus",
+      "key": "include essence",
+      "text": "Counts essence rewards towards a chest's value.",
+      "why": "spelling-uk-1022 British spelling: towards"
     },
     {
       "owner": "Auto Clear",
@@ -851,14 +858,14 @@
     {
       "owner": "Secret Waypoints",
       "key": "secret waypoints",
-      "text": "Draws a coloured box on every secret in rooms the mod has recognized.",
+      "text": "Draws a coloured box on every secret in rooms the mod has recognised.",
       "why": "1c10b812/d49e8398 British spelling in the hover text"
     },
     {
       "owner": "Secrets",
       "key": "secret waypoints",
       "to": "Secret Waypoints",
-      "text": "Draws a coloured box on every secret in rooms the mod has recognized.",
+      "text": "Draws a coloured box on every secret in rooms the mod has recognised.",
       "why": "Secret Waypoints is its own card under Secrets; 1c10b812 British text"
     },
     {
