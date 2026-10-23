@@ -462,6 +462,12 @@ final class Doc1018MenuHudCases {
             Mod.setField(SWAPPER, "openKeyHeldForTest", Boolean.FALSE);
             c.ticks(3);
             c.note("after one long press: " + sent);
+            if (sent.isEmpty()) {
+                // Which of LoadoutSwapper's own conditions held it back (pollKeys / openLoadouts).
+                c.note(c.onClient(mc -> "state: screen " + McCompat.screen(mc) + ", swapper stage " + Mod.field(SWAPPER, "stage")
+                        + ", enabled " + Mod.call(cfg, "isEnabled") + ", open key " + Mod.call(cfg, "getOpenKey")
+                        + ", container menu " + (mc.player == null ? "no player" : mc.player.containerMenu.getClass().getSimpleName())));
+            }
             c.check(sent.equals(List.of("loadouts")), "one press of the Open Loadouts Key sent " + sent + ", want exactly [loadouts]");
             Mod.setField(SWAPPER, "openKeyHeldForTest", Boolean.TRUE);
             c.ticks(3);
@@ -769,8 +775,12 @@ final class Doc1018MenuHudCases {
             Mod.setField("spotify.SpotifyLyricsFeature", "enabled", true);
             String problem = (String) Mod.staticCall("spotify.SpotifyLyricsFeature", "sourceProblem");
             c.note("Spotify's own status on this machine: '" + problem + "'");
-            c.check(!problem.isEmpty(), "Spotify is running here, so the 'not running' line could not show before either - "
-                    + "this case proves nothing on this machine");
+            if (problem.isEmpty()) {
+                // Spotify is open on this machine (killer560 listening, 2026-10-23): the status line could not show
+                // before the change either, so the drawer check below would prove nothing. Machine state, not a fault.
+                c.skipCase("Spotify is running on this machine, so the old 'not running' line could not show either - "
+                        + "close Spotify to run this case");
+            }
             List<String> l = labels(c, "SpotifyTab");
             c.note("Spotify Lyrics rows: " + l);
             c.check(count(l, "not running") == 0 && count(l, "Spotify is") == 0, "the drawer still shows the status line: " + l);
