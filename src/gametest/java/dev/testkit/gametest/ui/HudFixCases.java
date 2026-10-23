@@ -403,7 +403,7 @@ final class HudFixCases {
                     live.get("statbar_health"), live.get("statbar_mana"), live.get("statbar_defence"));
         });
         c.note("HUD editor: one scroll up over the Mana Bar: Predefined Scale " + got);
-        Matcher mm = Pattern.compile("([\\d.]+)->([\\d.]+) health ([\\d.]+) mana ([\\d.]+) defence ([\\d.]+)").matcher(got);
+        Matcher mm = Pattern.compile("([\\d.]+)->([\\d.]+) health ([\\d.]+) mana ([\\d.]+) defense ([\\d.]+)").matcher(got);
         if (!mm.matches()) {
             c.problem("editor scroll: " + got);
         } else {
