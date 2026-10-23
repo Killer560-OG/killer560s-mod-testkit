@@ -544,8 +544,8 @@ final class LeapRunMemoryCases {
             long n0 = notices(c);
             String out = run(c, List.of("LrA", "LrB", "LrC", "LrE"));
             List<String> after = layout(c);
-            c.check("BERSERK".equals(overrides(c).get("LrE")) && cls(c, "LrE").equals("BERSERK"),
-                    "LrE's class is " + cls(c, "LrE") + " (picks " + overrides(c) + "), want LrD's BERSERK (" + out + ")");
+            c.check("BERSERKER".equals(overrides(c).get("LrE")) && cls(c, "LrE").equals("BERSERKER"),
+                    "LrE's class is " + cls(c, "LrE") + " (picks " + overrides(c) + "), want LrD's BERSERKER (" + out + ")");
             c.check(after.get(dSpot).equals("LrE"), "LrE is not in LrD's old spot " + dSpot + ": " + before + " -> " + after);
             for (String n : List.of("LrA", "LrB", "LrC")) {
                 c.check(after.indexOf(n) == before.indexOf(n), n + " moved: " + before + " -> " + after);
@@ -553,7 +553,7 @@ final class LeapRunMemoryCases {
             }
             c.ctx().waitTicks(5);
             c.check(notices(c) == n0, "a reset notice was shown for a clean swap (" + out + ")");
-            c.note("one-for-one swap: LrE takes BERSERK and spot " + dSpot + ", no notice; " + before + " -> " + after
+            c.note("one-for-one swap: LrE takes BERSERKER and spot " + dSpot + ", no notice; " + before + " -> " + after
                     + "; " + out);
         } finally {
             restore(c, sv);
