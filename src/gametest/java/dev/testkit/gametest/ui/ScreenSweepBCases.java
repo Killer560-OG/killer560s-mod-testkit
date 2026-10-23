@@ -446,17 +446,24 @@ final class ScreenSweepBCases {
                 c.note("menu palette after it: PANEL_TOP #" + Integer.toHexString(menuPanel) + " (Amber panel #"
                         + Integer.toHexString(amber) + ")");
 
-                // On round to Theme Default: follows the menu again.
+                // On round to Theme Default: follows the menu again. The choices are ScreenThemes.builtInChoices():
+                // Default, every MenuTheme (Viridian, GREEN, since mod 765563c6), then any theme saved in this client,
+                // so from Light it takes (choices - index of LIGHT) clicks: Ocean, Viridian, Custom, [saved...], Default.
+                @SuppressWarnings("unchecked")
+                List<String> builtIn = c.onClient(mc -> (List<String>) Mod.staticCall(st, "builtInChoices"));
+                int toDefault = builtIn.size() - builtIn.indexOf("LIGHT");
+                c.note("built-in screen theme choices: " + builtIn);
                 List<String> back = new ArrayList<>();
-                for (int i = 0; i < 3; i++) {
+                for (int i = 0; i < toDefault; i++) {
                     c.onClient(mc -> {
                         Mod.call(row, "press");
                         return null;
                     });
                     back.add(ModScreenDriver.label(row));
                 }
-                c.check(back.get(2).equals("Theme: Theme Default"), "three more clicks: " + back);
-                c.note("three more clicks: " + back);
+                c.check(back.size() >= 4 && back.subList(0, 3).equals(List.of("Theme: Ocean", "Theme: Viridian", "Theme: Custom"))
+                        && back.get(back.size() - 1).equals("Theme: Theme Default"), toDefault + " more clicks: " + back);
+                c.note(toDefault + " more clicks: " + back);
                 Screen s2 = open(c, make, "StorageSearchScreen");
                 shotAndPanel(c, s2, "screen-theme-default-amber", "AMBER", shots);
                 menuTheme(c, "LIGHT");
@@ -464,7 +471,7 @@ final class ScreenSweepBCases {
                 shotAndPanel(c, s3, "screen-theme-default-light", "LIGHT", shots);
 
                 // The Bazaar and AH keep their older look as a choice: Inventory Theme, drawn flat. Their tab rows offer it
-                // after Custom (the row's seventh value).
+                // after every built-in choice (after Custom and any saved theme), so it is builtIn.size() clicks from Default.
                 List<String> bzSeen = new ArrayList<>();
                 String oldBz = (String) Mod.staticCall(st, "get", "bazaar");
                 String oldAh = (String) Mod.staticCall(st, "get", "auction_house");
@@ -493,7 +500,7 @@ final class ScreenSweepBCases {
                         }
                     });
                     c.check(bzRow != null, "the Bazaar tab has no Theme row");
-                    for (int i = 0; i < 6; i++) {
+                    for (int i = 0; i < builtIn.size(); i++) {
                         c.onClient(mc -> {
                             Mod.call(bzRow, "press");
                             return null;
@@ -507,7 +514,8 @@ final class ScreenSweepBCases {
                     });
                 }
                 c.note("the Bazaar tab's Theme row: " + bzSeen);
-                c.check(bzSeen.get(5).equals("Theme: Inventory"), "the Bazaar row's sixth click shows " + bzSeen.get(5));
+                c.check(bzSeen.get(bzSeen.size() - 1).equals("Theme: Inventory"), "the Bazaar row's click " + bzSeen.size()
+                        + " shows " + bzSeen.get(bzSeen.size() - 1));
                 try {
                     boolean[] bevel = c.onClient(mc -> {
                         boolean[] out = new boolean[4];

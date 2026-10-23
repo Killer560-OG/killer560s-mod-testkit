@@ -37,7 +37,7 @@ import java.util.Set;
  *       theme is Custom (then only a scheme pill and Edit Scheme); Funny Map only on the cheat jar, at the bottom under a
  *       red header, Show Mimic Room and Mimic Room Color only with it on; a fresh config has Mark Reported Rooms and
  *       Color Rooms by Type ON and Funny Map OFF.</li>
- *   <li><b>1015-ui-map-themes</b> - Map Theme steps through Real Map, Amber, Dark, Light, Ocean, Match Menu Theme and
+ *   <li><b>1015-ui-map-themes</b> - Map Theme steps through Real Map, Amber, Dark, Light, Ocean, Viridian, Match Menu Theme and
  *       Custom; each preset paints a palette other than Real Map's; Match Menu Theme follows the menu's theme when that
  *       changes; New Custom Scheme opens the scheme editor on a new scheme; a colour and a name set in it are on disk
  *       (re-read with load()), the map paints with them, and the editor's sample map draws that colour; a second scheme
@@ -341,7 +341,8 @@ final class MapOverhaulCases {
                 Mod.call(Mod.cfg(MAP), "setMapThemeName", "REAL");
                 return null;
             });
-            String[] themes = {"REAL", "AMBER", "DARK", "LIGHT", "OCEAN", "MATCH", "CUSTOM"};
+            // GREEN (the Viridian menu theme's map palette) sits between Ocean and Match since mod 765563c6.
+            String[] themes = {"REAL", "AMBER", "DARK", "LIGHT", "OCEAN", "GREEN", "MATCH", "CUSTOM"};
             int[] real = palette(c);
             for (String t : themes) {
                 c.onClient(mc -> {
@@ -356,13 +357,13 @@ final class MapOverhaulCases {
                     c.check(!java.util.Arrays.equals(p, real), t + " paints Real Map's palette");
                 }
             }
-            // The theme pill steps through all seven, in order, and wraps.
+            // The theme pill steps through all eight, in order, and wraps.
             List<String> stepped = c.onClient(mc -> {
                 Object cfg = Mod.cfg(MAP);
                 Mod.call(cfg, "setMapThemeName", "REAL");
                 List<String> out = new ArrayList<>();
                 Class<?> sbw = Mod.cls("gui.SettingsButtonWidget");
-                for (int i = 0; i < 7; i++) {
+                for (int i = 0; i < themes.length; i++) {
                     Object cur = Mod.call(cfg, "getMapTheme");
                     try {
                         Object next = sbw.getMethod("step", Enum.class, int.class).invoke(null, cur, 1);
@@ -375,8 +376,8 @@ final class MapOverhaulCases {
                 return out;
             });
             c.note("stepping forward from Real Map: " + stepped);
-            c.check(stepped.equals(List.of("AMBER", "DARK", "LIGHT", "OCEAN", "MATCH", "CUSTOM", "REAL")),
-                    "Map Theme does not step Real > Amber > Dark > Light > Ocean > Match > Custom > Real");
+            c.check(stepped.equals(List.of("AMBER", "DARK", "LIGHT", "OCEAN", "GREEN", "MATCH", "CUSTOM", "REAL")),
+                    "Map Theme does not step Real > Amber > Dark > Light > Ocean > Viridian > Match > Custom > Real");
 
             // Match Menu Theme follows the menu.
             int[][] match = new int[2][];

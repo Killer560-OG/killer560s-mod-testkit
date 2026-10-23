@@ -183,18 +183,28 @@ final class AuraThemeCases {
 
     // ---- 1421 -----------------------------------------------------------------------------------------------------
 
-    /** id -> {tab class, button label, config class that gates the button (or null)}. */
+    /**
+     * id -> {tab class (null: the button is built by the factory its screen calls), button label, config class that
+     * gates the button (or null), what the button reads on Default}, in {@code OverlayThemes.ids()} order.
+     * <p>Mod 4a7ffc31 (killer560, 2026-10-18: "one theme specifically per mod section") stores the Croesus chest panel
+     * and start button under the Croesus section, the Experiments start button (experiments_start, new there) under
+     * Experiments' "profit" and the Leap Menu under the Leap Order's: each is set by that tab's one "Theme" row, which
+     * reads "Theme Default". The Inventory Theme's row is "Theme" too. Mod 36119eff added the Custom Scoreboard board,
+     * whose "Theme" row 3a957c1a moved into the scoreboard editor's Settings page (ScreenThemes.overlayButton there).
+     */
     private static final Map<String, String[]> TABS = new LinkedHashMap<>();
 
     static {
-        TABS.put("storage_overlay", new String[]{"gui.tab.StorageOverlayTab", "Menu Theme", "storageoverlay.StorageOverlayConfig"});
-        TABS.put("inventory_theme", new String[]{"gui.tab.InventoryThemeTab", "Menu Theme", "inventorytheme.InventoryThemeConfig"});
-        TABS.put("inventory_hud", new String[]{"gui.tab.InventoryHudTab", "Menu Theme", "inventoryhud.InventoryHudConfig"});
-        TABS.put("chest_profit", new String[]{"gui.tab.CroesusTab", "Menu Theme", null});
-        TABS.put("start_buttons", new String[]{"gui.tab.ExperimentsTab", "Start Button Menu Theme", null});
-        TABS.put("leap_menu", new String[]{"gui.tab.LeapMenuTab", "Menu Theme", "spiritleap.SpiritLeapOverlayConfig"});
-        TABS.put("item_browser", new String[]{"gui.tab.ItemBrowserTab", "Menu Theme", "itembrowser.ItemBrowserConfig"});
-        TABS.put("terminal_solver", new String[]{"gui.tab.TerminalSolverTab", "Menu Theme", "terminals.TerminalSolverConfig"});
+        TABS.put("storage_overlay", new String[]{"gui.tab.StorageOverlayTab", "Menu Theme", "storageoverlay.StorageOverlayConfig", "Default"});
+        TABS.put("inventory_theme", new String[]{"gui.tab.InventoryThemeTab", "Theme", "inventorytheme.InventoryThemeConfig", "Default"});
+        TABS.put("inventory_hud", new String[]{"gui.tab.InventoryHudTab", "Menu Theme", "inventoryhud.InventoryHudConfig", "Default"});
+        TABS.put("chest_profit", new String[]{"gui.tab.CroesusTab", "Theme", null, "Theme Default"});
+        TABS.put("start_buttons", new String[]{"gui.tab.CroesusTab", "Theme", null, "Theme Default"});
+        TABS.put("experiments_start", new String[]{"gui.tab.ExperimentsTab", "Theme", null, "Theme Default"});
+        TABS.put("leap_menu", new String[]{"gui.tab.LeapMenuTab", "Theme", "spiritleap.SpiritLeapOverlayConfig", "Theme Default"});
+        TABS.put("item_browser", new String[]{"gui.tab.ItemBrowserTab", "Menu Theme", "itembrowser.ItemBrowserConfig", "Default"});
+        TABS.put("terminal_solver", new String[]{"gui.tab.TerminalSolverTab", "Menu Theme", "terminals.TerminalSolverConfig", "Default"});
+        TABS.put("custom_scoreboard", new String[]{null, "Theme", null, "Default"});
     }
 
     private static final String OT = "gui.OverlayThemes";
@@ -208,6 +218,10 @@ final class AuraThemeCases {
         String[] t = TABS.get(id);
         if (t[2] != null) {
             Mod.set(t[2], "setEnabled", true);
+        }
+        if (t[0] == null) {
+            // The scoreboard editor's Theme row: the same call ScoreboardEditorScreen.buildSettings makes.
+            return c.onClient(mc -> (AbstractWidget) Mod.staticCall(ST, "overlayButton", id, t[1], 0, 0, 200, 20));
         }
         Object tab = tabOf(t[0]);
         List<AbstractWidget> ws = c.onClient(mc -> build(tab));
@@ -266,12 +280,19 @@ final class AuraThemeCases {
         try {
             // 1. each overlay: setting present, starts on Default, no palette
             Map<String, AbstractWidget> buttons = new LinkedHashMap<>();
+            // A pre-2026-10-18 Inventory Theme file migrates to Vanilla (its old Default meant vanilla colours,
+            // InventoryThemeConfig.load); start that one from Default by hand, every other overlay must already be there.
+            if (!choice("inventory_theme").equals("DEFAULT")) {
+                c.note("inventory_theme starts on " + choice("inventory_theme") + " (a migrated file); set to Default");
+                Mod.staticCall(ST, "set", "inventory_theme", "DEFAULT");
+            }
             for (String id : ids) {
                 c.check(choice(id).equals("DEFAULT"), id + " does not start on Default: " + choice(id));
                 c.check(Mod.staticCall(OT, "of", id) == null, id + " has a palette while on Default");
                 AbstractWidget b = button(c, id);
                 buttons.put(id, b);
-                c.check(text(b).endsWith(": Default"), id + "'s button reads '" + text(b) + "', not Default");
+                c.check(text(b).endsWith(": " + TABS.get(id)[3]), id + "'s button reads '" + text(b) + "', not "
+                        + TABS.get(id)[3]);
             }
             c.note("overlays with a Menu Theme setting, all on Default: " + ids);
 
@@ -281,7 +302,8 @@ final class AuraThemeCases {
                 AbstractWidget b = buttons.get(id);
                 press(c, b);
                 c.check(choice(id).equals("AMBER"), id + ": one press gave " + choice(id));
-                c.check(text(b).endsWith(": Amber"), id + ": button reads '" + text(b) + "' after a press");
+                String afterPress = text(button(c, id));
+                c.check(afterPress.endsWith(": Amber"), id + ": button reads '" + afterPress + "' after a press");
                 int amber = drawn(id);
                 Mod.staticCall(ST, "set", id, "OCEAN");
                 int ocean = drawn(id);
@@ -292,8 +314,21 @@ final class AuraThemeCases {
                 c.check(amber != ocean && ocean != light && amber != light,
                         id + ": presets do not draw different colours (" + Integer.toHexString(amber) + ", "
                                 + Integer.toHexString(ocean) + ", " + Integer.toHexString(light) + ")");
-                if (id.equals("storage_overlay") || id.equals("inventory_theme")) {
+                if (id.equals("storage_overlay")) {
                     c.check(base != amber && base != ocean && base != light, id + ": Default draws the same as a menu preset");
+                }
+                if (id.equals("inventory_theme")) {
+                    // Since mod 4a7ffc31 the Inventory Theme's Default follows the mod menu's theme: it draws what the
+                    // menu's own theme, picked by name, draws.
+                    String menuTheme = String.valueOf(Mod.call(menu, "getTheme"));
+                    if (!menuTheme.equals("CUSTOM")) {
+                        Mod.staticCall(ST, "set", id, menuTheme);
+                        int asMenu = drawn(id);
+                        c.check(asMenu == base, id + ": Default draws " + Integer.toHexString(base) + ", the menu's theme "
+                                + menuTheme + " draws " + Integer.toHexString(asMenu));
+                    } else {
+                        c.note(id + ": the menu is on Custom, so Default-follows-the-menu is not compared to a preset");
+                    }
                 }
                 Mod.staticCall(ST, "set", id, "DEFAULT");
                 c.check(drawn(id) == base, id + ": back on Default draws " + Integer.toHexString(drawn(id)) + ", was " + Integer.toHexString(base));
@@ -320,7 +355,9 @@ final class AuraThemeCases {
                     reached = choice(id).equals(savedChoice);
                 }
                 c.check(reached, id + ": pressing the button never reached the saved theme (stopped on " + choice(id) + ")");
-                c.check(text(b).endsWith(": " + MenuShownName(saved)), id + ": button reads '" + text(b) + "' on the saved theme");
+                String onSavedLabel = text(button(c, id));
+                c.check(onSavedLabel.endsWith(": " + MenuShownName(saved)), id + ": button reads '" + onSavedLabel
+                        + "' on the saved theme");
                 Object pal = Mod.staticCall(OT, "of", id);
                 c.check(pal != null, id + " has no palette on the saved theme");
                 int panelBase = ((int[]) Mod.call(pal, "base"))[1] & 0xFFFFFF;
