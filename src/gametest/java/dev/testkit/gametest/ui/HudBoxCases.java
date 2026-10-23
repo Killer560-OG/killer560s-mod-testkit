@@ -251,7 +251,7 @@ final class HudBoxCases {
                     }
                     grow(b, el.bounds());
                 }, GuiRenderState.TraverseRange.ALL);
-                state.forEachText(t -> grow(b, dev.testkit.gametest.TextRuns.box(t)));
+                state.forEachText(t -> grow(b, textBox(t)));
                 state.forEachItem(i -> grow(b, i.bounds()));
                 out.add(new Measured(id, listed, w, h, b[0] == Integer.MAX_VALUE ? null : b));
             }
@@ -259,6 +259,45 @@ final class HudBoxCases {
             throw new RuntimeException(ex);
         }
         return out;
+    }
+
+    /** The Vitality Bar's icon: BarPainter draws Hypixel's ♨ as text (mod 815c448f/6e977c45), outlined, sized and
+     *  centred by Unifont's 8-unit glyph cell in the icon square. */
+    private static final String ICON_GLYPH = "♨";
+    /** The ♨'s ink rows inside Unifont's 8-unit cell (BarPainter.GLYPH_ROWS = 6, centred in the cell). */
+    private static final float GLYPH_INK_FROM = 1f;
+    private static final float GLYPH_INK_TO = 7f;
+    /** The ink's width and how far its centre sits left of the advance box's (BarPainter GLYPH_NUDGE_X). */
+    private static final float GLYPH_INK_W = 4f;
+    private static final float GLYPH_NUDGE_X = 1.2f;
+
+    /**
+     * A text run's footprint: its advance box ({@link dev.testkit.gametest.TextRuns#box}), except for the ♨ icon, which
+     * is measured by its ink rows, the way the mod sizes it. The advance box is {@code font.lineHeight} (9) tall, the extra unit being the
+     * line gap under a line of text where its shadow lands; the icon is one glyph with no shadow, centred by its cell,
+     * so at the icon's 1.5x the line gap alone read as 1.5 units of "spill" under statbar_vitality (B -2.5 with the
+     * outline, 2026-10-22) although the symbol's ink (about 6 of the cell's 8 units) sits inside the box.
+     */
+    private static ScreenRectangle textBox(net.minecraft.client.renderer.state.gui.GuiTextRenderState t) {
+        ScreenRectangle r = dev.testkit.gametest.TextRuns.box(t);
+        if (!ICON_GLYPH.equals(dev.testkit.gametest.TextRuns.string(t))) {
+            return r;
+        }
+        // BarPainter.drawGlyph sizes and centres the symbol by its INK, not by its text box (testkit 899's measurement:
+        // about 4 units wide and GLYPH_ROWS = 6 of the cell's 8 rows tall, its centre 1.2 units left of the advance
+        // box's), so the advance box is the wrong footprint both ways: its empty cell rows run past the 12-unit icon
+        // square above and below (run 2, 2026-10-22: T -1, B -1), and it starts 4 units into the square while the ink
+        // sits centred in it (L 4). The footprint is the ink box; each of the eight outline runs is its own text run at
+        // its half-unit offset, so the union still covers the outline.
+        net.minecraft.client.gui.Font font = net.minecraft.client.Minecraft.getInstance().font;
+        float inkCentre = (font.width(ICON_GLYPH) - 1) / 2f - GLYPH_NUDGE_X;
+        org.joml.Vector2f lo = t.pose.transformPosition(new org.joml.Vector2f(inkCentre - GLYPH_INK_W / 2f, GLYPH_INK_FROM));
+        org.joml.Vector2f hi = t.pose.transformPosition(new org.joml.Vector2f(inkCentre + GLYPH_INK_W / 2f, GLYPH_INK_TO));
+        int left = (int) Math.floor(Math.min(lo.x, hi.x));
+        int top = (int) Math.floor(Math.min(lo.y, hi.y));
+        int right = (int) Math.ceil(Math.max(lo.x, hi.x));
+        int bottom = (int) Math.ceil(Math.max(lo.y, hi.y));
+        return new ScreenRectangle(left, top, Math.max(1, right - left), Math.max(1, bottom - top));
     }
 
     private static void grow(int[] b, ScreenRectangle r) {
