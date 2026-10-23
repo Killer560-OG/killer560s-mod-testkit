@@ -1147,7 +1147,8 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
             c.note("account " + real + "; Name Changer turns it into '" + control + "' elsewhere");
             c.check(control.contains("FontTester"), "Name Changer was not on (control): '" + control + "'");
 
-            // The chip, as the font will see it.
+            // The chip, as the font will see it, and where the "Playing as" line and the name sit (GUI px).
+            int[] chip = {Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE};
             List<String> drawn = c.onClient(mc -> {
                 Screen s = McCompat.screen(mc);
                 GuiRenderState state = new GuiRenderState();
@@ -1155,8 +1156,17 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                 s.extractRenderStateWithTooltipAndSubtitles(g, -1, -1, 0.5f);
                 ScreenEvents.afterExtract(s).invoker().afterExtract(s, g, -1, -1, 0.5f);
                 List<String> out = new ArrayList<>();
-                state.forEachText(t -> out.add(plain((FormattedCharSequence) Mod.staticCall("namechanger.NameReplacer",
-                        "replace", textOf(t)))));
+                state.forEachText(t -> {
+                    String str = plain((FormattedCharSequence) Mod.staticCall("namechanger.NameReplacer", "replace", textOf(t)));
+                    out.add(str);
+                    ScreenRectangle b = t.bounds();
+                    if (b != null && (str.equals("Playing as ") || str.equals(real) || str.contains("FontTester"))) {
+                        chip[0] = Math.min(chip[0], b.left());
+                        chip[1] = Math.min(chip[1], b.top());
+                        chip[2] = Math.max(chip[2], b.right());
+                        chip[3] = Math.max(chip[3], b.bottom());
+                    }
+                });
                 return out;
             });
             c.note("title screen texts as drawn: " + drawn);
@@ -1165,11 +1175,20 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                     "the title screen draws Name Changer's name: " + drawn);
             c.check(drawn.contains("Playing as "), "no 'Playing as' line on the title screen: " + drawn);
 
-            // Pixels: no Name Changer red anywhere on the title screen.
+            // Pixels: no Name Changer red in the "Playing as" line. Only that line is read: a theme's main menu picture
+            // (Amber's sunset aurora, 2026-10-22 run: 3007 such pixels with the real name drawn in theme orange) has
+            // reds of its own. The line is widened right by 60 GUI px so a longer replaced name would still fall inside.
+            c.check(chip[2] > chip[0], "could not find where the 'Playing as' line is drawn");
             Pic p = pic(shot(c, "playing-as"));
+            int scale = 2; // setWindow(..., 2) above
+            int x0 = Math.max(0, (chip[0] - 4) * scale);
+            int y0 = Math.max(0, (chip[1] - 2) * scale);
+            int x1 = Math.min(p.img().getWidth(), (chip[2] + 60) * scale);
+            int y1 = Math.min(p.img().getHeight(), (chip[3] + 2) * scale);
+            c.note("'Playing as' line at GUI " + chip[0] + "," + chip[1] + " to " + chip[2] + "," + chip[3]);
             int red = 0;
-            for (int y = 0; y < p.img().getHeight(); y++) {
-                for (int x = 0; x < p.img().getWidth(); x++) {
+            for (int y = y0; y < y1; y++) {
+                for (int x = x0; x < x1; x++) {
                     int px = p.img().getRGB(x, y);
                     int r = (px >> 16) & 0xFF;
                     int g = (px >> 8) & 0xFF;
@@ -1179,8 +1198,8 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                     }
                 }
             }
-            c.note("Name Changer red pixels on the title screen: " + red);
-            c.check(red < 4, red + " Name Changer red pixels on the title screen");
+            c.note("Name Changer red pixels in the 'Playing as' line: " + red);
+            c.check(red < 4, red + " Name Changer red pixels in the 'Playing as' line");
         } finally {
             c.onClient(mc -> {
                 Object cfg = Mod.cfg(cls);

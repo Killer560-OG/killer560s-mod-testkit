@@ -399,9 +399,12 @@ final class TrailRibbonCases {
         return n;
     }
 
-    /** Red-led: R rises well above G (the head is red, so the band's near end runs red into orange). */
+    /** Red-led: R rises well above G (the head is red, so the band's near end runs red into orange). The rise in R itself
+     *  is capped by the background: over the light grey fog the test world now shows behind the band (R about 180-200)
+     *  pure red can add at most ~70, and the near fifth averages red into orange (run of 2026-10-22: +56 R, -64 G, -143 B
+     *  for a visibly red head), so R's own floor is 30 and the red-over-green margin does the judging. */
     private static boolean reddish(double[] d) {
-        return d[0] > 60 && d[0] - d[1] > 60;
+        return d[0] > 30 && d[0] - d[1] > 60 && d[0] - d[2] > 60;
     }
 
     private static boolean yellowish(double[] d) {

@@ -322,10 +322,12 @@ final class LeapQueueCases {
                 int top = (Integer) Mod.field("gui.MenuStyle", "CARD_TOP");
                 int bottom = (Integer) Mod.field("gui.MenuStyle", "CARD_BOTTOM");
                 float f = (py + 0.5f - (mage.getY() + 1)) / Math.max(1f, mage.getHeight() - 2);
-                int expected = mix(top, bottom, f) | 0xFF000000;
+                // Since mod 975f1d5e the whole card carries the class colour at alpha 0x30 over the theme's card.
+                int mageColor = (Integer) Mod.call(Mod.enumValue("dungeonclass.DungeonClass", "MAGE"), "color");
+                int expected = mix(mix(top, bottom, f) | 0xFF000000, mageColor | 0xFF000000, 0x30 / 255f) | 0xFF000000;
                 seen[t] = new int[]{sampled, expected};
-                c.note(String.format(Locale.ROOT, "%s: Mage card pixel %s, the %s card gradient gives %s", theme,
-                        MenuACases.hex(sampled), theme, MenuACases.hex(expected)));
+                c.note(String.format(Locale.ROOT, "%s: Mage card pixel %s, the %s card gradient under Mage blue at 0x30 gives %s",
+                        theme, MenuACases.hex(sampled), theme, MenuACases.hex(expected)));
                 c.check(near(sampled, expected), theme + ": the Mage card reads " + MenuACases.hex(sampled)
                         + " where the menu theme's card is " + MenuACases.hex(expected) + " - it does not follow the theme");
             }
@@ -384,7 +386,12 @@ final class LeapQueueCases {
         c.check(left <= 24 && right >= w - 24, where + ": the cards span x " + left + ".." + right + " of " + w
                 + ", not edge to edge");
         c.check(bottom - top >= h * 0.45, where + ": the cards are only " + (bottom - top) + " tall in a " + h + " tall screen");
-        c.check(top <= h * 0.25, where + ": the cards start at y " + top + " of " + h);
+        // Since mod 975f1d5e the header is taller (a 2x "Select the class" line): LeapOrderScreen.classArea starts the row
+        // at y 76 under it, and past 280 units tall (c4e72491) the row is centred in the room between header and Done.
+        int room = Math.max(40, h - 40 - 76);
+        int wantTop = 76 + (room - Math.min(room, 280)) / 2;
+        c.check(Math.abs(top - wantTop) <= 2, where + ": the cards start at y " + top + " of " + h + ", want " + wantTop
+                + " (under the header, centred past 280 tall)");
         c.check(area >= (long) w * h * 0.40, where + ": the cards cover " + (100 * area / ((long) w * h)) + "% of the screen");
         AbstractWidget done = byLabel(ws, "Done");
         c.check(done != null && done.getY() >= bottom && done.getWidth() >= 80, where + ": Done is not a wide button under the cards");
