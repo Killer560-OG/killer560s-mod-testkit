@@ -353,8 +353,10 @@ final class NamesProfilesCases {
                 if (rankRow == null) {
                     return "no Rank row in Cosmetics' Custom Names: " + labels(s[0]);
                 }
-                if (row(s[0], "Per-Profile Names") == null) {
-                    return "no Per-Profile Names row";
+                // Mod 89a8e7fe (2026-10-18) removed the Per-Profile Names switch from the menu on purpose ("its saved setting
+                // still loads as before"; 1552 drives it through the config), so the row must be gone.
+                if (row(s[0], "Per-Profile Names") != null) {
+                    return "the removed Per-Profile Names row is back in Cosmetics";
                 }
                 for (int i = 0; i < 8 && !"CUSTOM".equals(((Enum<?>) Mod.call(Mod.cfg(NC), "getOwnRank")).name()); i++) {
                     ModScreenDriver.press(row(s[0], "Rank:"));

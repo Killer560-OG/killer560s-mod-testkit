@@ -739,14 +739,43 @@ final class InvBatchCases {
             c.note("every copy, green: slot 9 " + Integer.toHexString(dyeAll[0]) + ", slot 10 " + Integer.toHexString(dyeAll[1]));
             c.check(dyeAll[0] == 0xFF00FF00 && dyeAll[1] == 0xFF00FF00, "every-copy color not on both copies");
 
-            Screen s2 = screen(c); // the menu rebuilds itself on every change; the screen object is the same
-            clickWidget(c, s2, widget(c, s2, "Applies To"));
-            key = c.onClient(mc -> (String) Mod.call(s2, "selectedKey"));
+            // Mod 998c9f96 (2026-10-18, Custom Items redesign) moved Applies To, Use Colour and Skin onto the Custom Colour
+            // page, gave Look its own Custom Item page (the free-text Look box, Set and Clear Look are gone), made Copy
+            // Look copy the selection's changes TO the next item clicked, renamed Remove to Clear Changes and dropped the
+            // saved-looks list. Every control below is the new page's, clicked through the real input layer.
+            clickWidget(c, s, widget(c, s, "Custom Colour"));
+            awaitScreen(c, "CustomColorScreen");
+            Screen colour = screen(c); // rebuilds its widgets on every change; widget() reads them live
+            clickWidget(c, colour, widget(c, colour, "Applies To"));
+            key = c.onClient(mc -> (String) Mod.call(s, "selectedKey"));
             int[] dyeOne = dyes(c);
             c.note("this item only (" + key + "): slot 9 " + Integer.toHexString(dyeOne[0]) + ", slot 10 " + Integer.toHexString(dyeOne[1]));
             c.check("UUID:CI-1".equals(key), "Applies To switched the key to " + key);
             c.check(dyeOne[0] == 0xFF00FF00 && dyeOne[1] == 0xFF123456, "this-item color: " + Integer.toHexString(dyeOne[0])
                     + " / " + Integer.toHexString(dyeOne[1]));
+
+            // Use Colour off and on.
+            clickWidget(c, colour, widget(c, colour, "Use Colour"));
+            int off = dyes(c)[0];
+            clickWidget(c, colour, widget(c, colour, "Use Colour"));
+            int on = dyes(c)[0];
+            c.check(off == 0xFF123456 && on == 0xFF00FF00, "Use Colour off/on: " + Integer.toHexString(off) + "/" + Integer.toHexString(on));
+
+            // Armor Skin (a cycling button, left click steps forward): None -> Leather; the worn asset changes, the icon does not.
+            clickWidget(c, colour, widget(c, colour, "Skin"));
+            String asset = c.onClient(mc -> {
+                Equippable e = mc.player.getInventory().getItem(9).get(DataComponents.EQUIPPABLE);
+                return e == null ? "none" : e.assetId().map(Object::toString).orElse("none");
+            });
+            String icon = c.onClient(mc -> String.valueOf(mc.player.getInventory().getItem(9).get(DataComponents.ITEM_MODEL)));
+            c.note("Armor Skin once: equippable asset " + asset + ", item model " + icon);
+            c.check(asset.contains("leather"), "Armor Skin did not set the leather asset: " + asset);
+            c.check(icon.equals("minecraft:leather_chestplate"), "the skin changed the inventory icon: " + icon);
+
+            clickWidget(c, colour, widget(c, colour, "Back"));
+            awaitScreen(c, "CustomItemsScreen");
+            Screen s2 = screen(c);
+            c.check(s2 == s, "Back from Custom Colour did not return to the same Custom Items screen");
 
             // The drawn pixels: green in slot 9's cell, none in slot 10's (same item, its own look).
             c.ctx().getInput().setCursorPos(2, 2);
@@ -759,63 +788,62 @@ final class InvBatchCases {
             c.note("green pixels drawn: slot 9 cell " + g9 + ", slot 10 cell " + g10);
             c.check(g9 > 40 && g10 < 5, "drawn color: slot 9 " + g9 + " green px, slot 10 " + g10);
 
-            // Use Colour off and on.
-            clickWidget(c, s2, widget(c, s2, "Use Colour"));
-            int off = dyes(c)[0];
-            clickWidget(c, s2, widget(c, s2, "Use Colour"));
-            int on = dyes(c)[0];
-            c.check(off == 0xFF123456 && on == 0xFF00FF00, "Use Colour off/on: " + Integer.toHexString(off) + "/" + Integer.toHexString(on));
-
-            // Armor Skin: None -> Leather -> ...; the worn asset changes, the icon does not.
-            clickWidget(c, s2, widget(c, s2, "Skin"));
-            String asset = c.onClient(mc -> {
-                Equippable e = mc.player.getInventory().getItem(9).get(DataComponents.EQUIPPABLE);
-                return e == null ? "none" : e.assetId().map(Object::toString).orElse("none");
-            });
-            String icon = c.onClient(mc -> String.valueOf(mc.player.getInventory().getItem(9).get(DataComponents.ITEM_MODEL)));
-            c.note("Armor Skin once: equippable asset " + asset + ", item model " + icon);
-            c.check(asset.contains("leather"), "Armor Skin did not set the leather asset: " + asset);
-            c.check(icon.equals("minecraft:leather_chestplate"), "the skin changed the inventory icon: " + icon);
-
-            // Look by typing an id.
-            EditBox look = editBox(c, s2);
-            clickWidget(c, s2, look);
-            c.ctx().getInput().typeChars("diamond_sword");
+            // Look from the Custom Item page: search, pick the Minecraft Trident, Apply to Selected.
+            clickWidget(c, s2, widget(c, s2, "Custom Item"));
+            awaitScreen(c, "CustomItemPickerScreen");
+            Screen picker = screen(c);
+            EditBox search = editBox(c, picker);
+            clickWidget(c, picker, search);
+            c.ctx().getInput().typeChars("trident");
             c.ticks(2);
-            clickWidget(c, s2, widget(c, s2, "Set"));
+            int row = c.onClient(mc -> {
+                List<?> shown = (List<?>) Mod.field(picker, "shown");
+                for (int i = 0; i < shown.size(); i++) {
+                    if ("Trident".equals(Mod.call(shown.get(i), "name")) && Mod.call(shown.get(i), "minecraft") != null) {
+                        return i;
+                    }
+                }
+                return -1;
+            });
+            int pickerRows = (Integer) Mod.field(picker, "rows");
+            c.note("Custom Item search 'trident': the Minecraft Trident is row " + row + " of " + pickerRows + " shown");
+            c.check(row >= 0 && row < pickerRows, "the Custom Item search 'trident' does not show the Minecraft Trident on screen (row "
+                    + row + ")");
+            int listY = (Integer) Mod.field(picker, "listY");
+            int pickerX = (Integer) Mod.field(picker, "panelX");
+            click(c, picker, pickerX + 20, listY + row * 18 + 9);
+            clickWidget(c, picker, widget(c, picker, "Apply to Selected"));
+            awaitScreen(c, "CustomItemsScreen");
             String[] models = c.onClient(mc -> new String[]{
                     String.valueOf(mc.player.getInventory().getItem(9).get(DataComponents.ITEM_MODEL)),
                     String.valueOf(mc.player.getInventory().getItem(10).get(DataComponents.ITEM_MODEL))});
-            c.note("Look 'diamond_sword': slot 9 model " + models[0] + ", slot 10 " + models[1]);
-            c.check(models[0].equals("minecraft:diamond_sword") && models[1].equals("minecraft:leather_chestplate"),
+            c.note("Custom Item 'Trident': slot 9 model " + models[0] + ", slot 10 " + models[1]);
+            c.check(models[0].equals("minecraft:trident") && models[1].equals("minecraft:leather_chestplate"),
                     "Look models " + models[0] + " / " + models[1]);
             shot(c, "menu-look-gui2");
 
-            // Copy Look From Item: the sword's own model onto the chestplate.
-            clickWidget(c, s2, widget(c, s2, "Clear Look"));
+            // Copy Look: the selection's changes onto the next item clicked (the sword), the selection unchanged.
             clickWidget(c, s2, widget(c, s2, "Copy Look"));
             click(c, s2, cell11[0] + 9, cell11[1] + 9);
-            String copied = c.onClient(mc -> String.valueOf(mc.player.getInventory().getItem(9).get(DataComponents.ITEM_MODEL)));
+            String copied = c.onClient(mc -> String.valueOf(mc.player.getInventory().getItem(11).get(DataComponents.ITEM_MODEL)));
             String still = c.onClient(mc -> (String) Mod.call(s2, "selectedKey"));
-            c.check(copied.equals("minecraft:diamond_sword") && "UUID:CI-1".equals(still),
-                    "copy look: model " + copied + ", selection " + still);
+            c.note("Copy Look onto the sword: its model " + copied + ", selection " + still);
+            c.check(copied.equals("minecraft:trident") && "UUID:CI-1".equals(still),
+                    "copy look: sword model " + copied + ", selection " + still);
 
-            // The saved list selects by row.
-            int listY = (Integer) Mod.field(s2, "listY");
-            int gridX = (Integer) Mod.field(s2, "gridX");
+            // Clear Changes: select slot 9 again (its UUID look is found first), then clear it.
             click(c, s2, cell10[0] + 9, cell10[1] + 9);   // select another item first
-            click(c, s2, gridX + 20, listY + 1 + 6);       // row 0: the only saved look
-            c.check("UUID:CI-1".equals(c.onClient(mc -> Mod.call(s2, "selectedKey"))), "the saved-list row did not select the look");
-
-            // Remove.
-            clickWidget(c, s2, widget(c, s2, "Remove"));
+            click(c, s2, cell9[0] + 9, cell9[1] + 9);
+            c.check("UUID:CI-1".equals(c.onClient(mc -> Mod.call(s2, "selectedKey"))), "clicking slot 9 did not select its own look");
+            clickWidget(c, s2, widget(c, s2, "Clear Changes"));
             String afterRemove = c.onClient(mc -> Mod.call(Mod.cfg(ADC), "entryCount") + " "
                     + mc.player.getInventory().getItem(9).get(DataComponents.ITEM_MODEL) + " "
                     + Integer.toHexString(DyedItemColor.getOrDefault(mc.player.getInventory().getItem(9), 0xFF123456)));
-            c.note("after Remove: " + afterRemove);
-            c.check(afterRemove.equals("0 minecraft:leather_chestplate ff123456"), "Remove left " + afterRemove);
+            c.note("after Clear Changes (the sword's copied look stays): " + afterRemove);
+            c.check(afterRemove.equals("1 minecraft:leather_chestplate ff123456"), "Clear Changes left " + afterRemove);
 
-            // A head texture (set from text, checked without drawing it - no skin download in a test).
+            // A head texture (set on the entry, as the Hypixel Skin list does; checked without drawing it - no skin
+            // download in a test), then Clear Changes removes it.
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
                 return null;
@@ -825,18 +853,21 @@ final class InvBatchCases {
                 try {
                     Object menu = Mod.cls("armourdye.CustomItemsScreen").getConstructor(Screen.class).newInstance((Object) null);
                     Mod.call(menu, "select", mc.player.getInventory().getItem(11));
-                    Mod.call(menu, "setLook", tex);
+                    Object e = Mod.call(menu, "editable");
+                    ItemCasesAccess.setPublic(e, "headTexture", tex);
+                    ItemCasesAccess.setPublic(e, "iconModel", "");
+                    Mod.call(Mod.cfg(ADC), "save");
                     ItemStack sw = mc.player.getInventory().getItem(11);
                     var prof = sw.get(DataComponents.PROFILE);
                     String got = prof == null ? "none" : prof.partialProfile().properties().get("textures").iterator().next().value();
                     String model = String.valueOf(sw.get(DataComponents.ITEM_MODEL));
-                    Mod.call(menu, "removeSelected");
+                    Mod.call(menu, "clearChanges");
                     return model + "|" + got.equals(tex) + "|" + sw.get(DataComponents.PROFILE);
                 } catch (ReflectiveOperationException e) {
                     throw new AssertionError(e);
                 }
             });
-            c.note("head texture Look on the sword: model|texture matches|profile after remove = " + head);
+            c.note("head texture Look on the sword: model|texture matches|profile after Clear Changes = " + head);
             c.check(head.equals("minecraft:player_head|true|null"), "head look " + head);
 
             // Reset All needs two presses.
@@ -879,7 +910,9 @@ final class InvBatchCases {
             });
             String file = text(cfgPath);
             c.note("old Armor Recolor file: color|asset|model = " + migrated + "; saved again: " + file);
-            c.check(migrated.startsWith("ff0000ff|") && migrated.contains("iron") && migrated.endsWith("|minecraft:leather_chestplate"),
+            // An Iron skin also shows the iron icon since the mod's 2026-10-18 change (ArmourDye.iconModel: "the skin only
+            // changed the worn texture, so the inventory icon ... never showed it"), so the model is the iron chestplate.
+            c.check(migrated.startsWith("ff0000ff|") && migrated.contains("iron") && migrated.endsWith("|minecraft:iron_chestplate"),
                     "old entry " + migrated);
             c.check(!file.contains("captureKey") && !file.contains("skinInventoryIcons") && file.contains("\"IB_CHEST\""),
                     "the saved file " + file);
@@ -967,7 +1000,10 @@ final class InvBatchCases {
         });
         c.note("top-level tabs: " + tree);
         c.check(tree.containsKey("Cosmetics"), "no Cosmetics category");
-        c.check(tree.get("Cosmetics").equals(List.of("Player Cosmetics", "Custom Items", "Held Item Outline", "Nickhider", "Trail")),
+        // Alphabetical since mod 12ac4d84 (MenuCategories.cheatLast); Held Item Transform became its own card in ba67f9bd
+        // and Mod User Tag arrived in 8186accc.
+        c.check(tree.get("Cosmetics").equals(List.of("Custom Items", "Held Item Outline", "Held Item Transform",
+                        "Mod User Tag", "Nickhider", "Player Cosmetics", "Trail")),
                 "Cosmetics holds " + tree.get("Cosmetics"));
         for (Map.Entry<String, List<String>> e : tree.entrySet()) {
             if (e.getKey().equals("Cosmetics")) {

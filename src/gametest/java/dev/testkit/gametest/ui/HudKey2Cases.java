@@ -508,7 +508,14 @@ final class HudKey2Cases {
                 c.note("Auto Croesus Price Mode: '" + pm[0] + "' -> '" + pm[1] + "', config " + before + " -> " + after
                         + "; tooltip: " + pm[2]);
                 c.check(!before.equals(after), "Auto Croesus's Price Mode did not change the shared CroesusConfig price mode");
-                c.check(pm[2] != null && pm[2].contains("same setting"), "Auto Croesus Price Mode tooltip does not say it is linked");
+                // The hover no longer spells out the link: mod 1c10b812 (settings sweep) gave both Price Mode rows the
+                // one text, and d49e8398 cut it to one sentence. One setting, one hover: it must be the Croesus tab's
+                // own Price Mode text, word for word.
+                String croesusTip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Croesus",
+                        pm[0]));
+                c.note("Croesus tab's Price Mode tooltip: " + croesusTip);
+                c.check(pm[2] != null && !pm[2].isBlank() && pm[2].equals(croesusTip),
+                        "Auto Croesus Price Mode tooltip '" + pm[2] + "' is not the Croesus tab's '" + croesusTip + "'");
                 Mod.call(Mod.cfg("croesus.CroesusConfig"), "setPriceMode", before);
             }
         } finally {

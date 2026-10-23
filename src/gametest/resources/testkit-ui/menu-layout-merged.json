@@ -1151,6 +1151,39 @@
       "renamed": "colour",
       "text": "Colour of the boxes or glow for this row's target.",
       "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour'); legit jar's name for Dungeon ESP"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "dungeon map",
+      "text": "Draws the real dungeon map as a HUD overlay, showing only what your hotbar map has revealed. Scroll over it in the HUD editor to size it.",
+      "why": "412's New-category header row: map-overhaul-1015 0519a85b added the HUD editor sentence"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "autopilot hud",
+      "renamed": "status hud",
+      "text": "One small HUD showing what Auto Clear, Auto Secret and Dungeon Autopilot are doing, hidden while nothing runs; move it in the HUD editor.",
+      "why": "412's fixture row: bce20273 (2026-10-15) Autopilot HUD became the one Status HUD; hover rewritten d49e8398"
+    },
+    {
+      "owner": "Player Cosmetics",
+      "key": "held item",
+      "to": "Held Item Transform",
+      "renamed": "held item transform",
+      "text": "Resizes, moves and rotates your held item in first person.",
+      "why": "412's fixture row: ba67f9bd (2026-10-19) Held Item moved to its own Held Item Transform card"
+    },
+    {
+      "owner": "Player Cosmetics",
+      "key": "reset cosmetics",
+      "text": "Clears your name, colours, bold, sizes, model shape and your chosen mob. The Play as Mob switch stays as it is.",
+      "why": "412's fixture row: hover rewritten 1c10b812, then 73a70ba3 Play as Mob (reset clears the chosen mob)"
+    },
+    {
+      "owner": "Player Cosmetics",
+      "key": "share if supporter",
+      "text": "Automatically shares your display name, your own player size and your Play as Mob choice with other players who have this mod.",
+      "why": "412's fixture row: 73a70ba3 Play as Mob (supporters share their mob choice too)"
     }
   ]
 }

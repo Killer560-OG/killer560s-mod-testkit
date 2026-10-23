@@ -141,7 +141,9 @@ final class ChatBatchUiCases {
 
     static final List<String> HIDER_ROWS = List.of("Chat Hider", "Stack Duplicate Messages", "Hide Damage Messages",
             "Hide Useless Messages", "Hide Discord Warnings", "Hide Microsoft Warnings", "Hide Empty Chat Messages",
-            "Hide Actionbar", "Hide Non-Rank Invites");
+            "Hide Actionbar", "Hide Non-Rank Invites",
+            // mod 4a7ffc31 (Menu and HUD list of 2026-10-18): Hypixel's Watchdog ban announcement gets its own switch
+            "Hide Ban Announcements");
 
     static void hiderTab(UiCase c) throws Exception {
         // A -PtestingBuild jar keeps every untested tab in its Untested category; count them all tested meanwhile so
@@ -219,7 +221,8 @@ final class ChatBatchUiCases {
                     throw new AssertionError(ex);
                 }
             });
-            c.check(damageTip != null && damageTip.contains("ability") && damageTip.contains("hits you take"),
+            // Reworded by mod 1c10b812 (settings sweep): "Hides ability-damage and incoming-hit lines."
+            c.check(damageTip != null && damageTip.contains("ability") && damageTip.contains("incoming-hit"),
                     "the Hide Damage Messages tooltip does not cover both families: " + damageTip);
             String copyTip = c.onClient(mc -> {
                 try {
