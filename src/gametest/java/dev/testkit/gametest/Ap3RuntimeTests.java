@@ -107,6 +107,18 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             // mod blood-ap3-1018 (killer560's doc item 11): the ss modifier, and overlapping walk/run boxes.
             s.test("1018-ap3-ss-wait", Ap3RuntimeTests::caseSsWait);
             s.test("1018-ap3-run-centre", Ap3RuntimeTests::caseRunCentre);
+            // mod ap3-breaker-tick-1022 (killer560: the breaker "must break the very next tick after the teleport"):
+            // Breaker Aura's first dig after a landing, on blocks the client already has and on blocks it first sees
+            // after landing. Last but one, so a failure here costs no other case.
+            s.test("1022-ap3-breaker-tp", c -> caseBreakerTeleport(c, "1022-ap3-breaker-tp", Arrival.LOADED, false));
+            s.test("1022-ap3-breaker-tp-run", c -> caseBreakerTeleport(c, "1022-ap3-breaker-tp-run", Arrival.LOADED, true));
+            s.test("1022-ap3-breaker-tp-late-blocks",
+                    c -> caseBreakerTeleport(c, "1022-ap3-breaker-tp-late-blocks", Arrival.BLOCKS_LATER, false));
+            s.test("1022-ap3-breaker-tp-new-chunk",
+                    c -> caseBreakerTeleport(c, "1022-ap3-breaker-tp-new-chunk", Arrival.NEW_CHUNK, false));
+            s.test("1022-ap3-breaker-ew", Ap3RuntimeTests::caseBreakerEtherwarp);
+            s.test("1022-ap3-breaker-leap-menu",
+                    c -> caseBreakerTeleport(c, "1022-ap3-breaker-leap-menu", Arrival.AFTER_MENU, false));
             s.testExpectingFlags("63-ap3-corrections", Ap3RuntimeTests::caseCorrection);
             onClient(ctx, mc -> {
                 PacketTrace.tap = null;
@@ -168,7 +180,11 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         probeInstalled = true;
         ClientTickEvents.START_CLIENT_TICK.register(mc -> {
             if (recording) {
-                add(new Ev(tick, "S", 0, 0, 0, 0, 0, 0, 0, -1, ""));
+                // After the mod's own START listeners: the position and the picks are what Breaker Aura just judged
+                // from (Zero Ping is off in the breaker cases, so a pick it dug is still standing here).
+                LocalPlayer sp = mc.player;
+                add(new Ev(tick, "S", sp == null ? 0 : sp.getX(), sp == null ? 0 : sp.getY(), sp == null ? 0 : sp.getZ(),
+                        0, 0, 0, 0, -1, sp == null || probePicks.isEmpty() ? "" : String.valueOf(eligiblePicks(mc))));
                 if (startStallMs > 0) {
                     // A slow tick: registered after the mod's START listeners, so this sits between anything the mod
                     // sends at START and the player tick's movement packet (1018-ap3-block-slow-tick).
@@ -1191,6 +1207,435 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
                 ModUnderTest.staticCall(EXEC, "stop", new Class<?>[]{String.class}, new Object[]{"test end"});
                 return null;
             });
+        }
+    }
+
+    // ------------------------------------------------------------------------------------------------- Breaker Aura after a teleport
+    //
+    // killer560 (2026-10-22): the breaker "sometimes does not break blocks for a few ticks after a teleport ... It must
+    // break the very next tick after the teleport", and "it happens a lot when he runs into the blocks for the first
+    // time". Breaker Aura is what breaks blocks in AP3 (the AP3 Breaker node was removed for it, 2026-09-20). Every case
+    // judges the same thing: the first START_DESTROY_BLOCK goes out on the first tick at which a pick is in the client,
+    // standing, and in reach of where he is - measured at START, after the mod's own START work, so it is exactly what
+    // the aura saw. Mod ap3-breaker-tick-1022: ActionGate held every world actor 6 ticks after any jump of over 4 blocks.
+
+    private static final String DX = "com.killer560.hub.dungeonextras.DungeonExtrasConfig";
+    private static final String BREAKER_STORE = "com.killer560.hub.dungeonextras.BreakerAuraStore";
+    private static final String DUNGEON_STATE = "com.killer560.hub.secrets.DungeonState";
+    private static final int BREAKER_SLOT = 7;
+    private static final int AOTV_SLOT = 8;
+    /** The new-chunk case's pad: 600 blocks out, far past anything the client has been sent. */
+    private static final int FAR_X = 600;
+
+    enum Arrival {
+        /** The picks are in the client before the landing. */
+        LOADED,
+        /** The picks are air in the client until the server places them, a tick or two after the landing. */
+        BLOCKS_LATER,
+        /** The landing is in chunks the client has never had: the picks arrive with them. */
+        NEW_CHUNK,
+        /** The picks are loaded; the teleport closes a server menu first, as a Spirit Leap does. */
+        AFTER_MENU
+    }
+
+    private static volatile List<net.minecraft.core.BlockPos> probePicks = List.of();
+    private static volatile double probeReach = 4.5;
+
+    /** How many picks are loaded, standing and within Breaker Aura's reach of his eye (to the block's box, as it measures). */
+    private static int eligiblePicks(Minecraft mc) {
+        if (mc.level == null) {
+            return 0;
+        }
+        Vec3 eye = mc.player.getEyePosition();
+        int n = 0;
+        for (net.minecraft.core.BlockPos p : probePicks) {
+            if (!mc.level.isLoaded(p) || mc.level.getBlockState(p).isAir()) {
+                continue;
+            }
+            double dx = eye.x - Math.max(p.getX(), Math.min(eye.x, p.getX() + 1.0));
+            double dy = eye.y - Math.max(p.getY(), Math.min(eye.y, p.getY() + 1.0));
+            double dz = eye.z - Math.max(p.getZ(), Math.min(eye.z, p.getZ() + 1.0));
+            if (dx * dx + dy * dy + dz * dz <= probeReach * probeReach) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /** Breaker Aura on for these picks (single break, no Zero Ping), the dungeon gate opened by the mod's own sim toggle. */
+    private static void breakerOn(Session c, List<net.minecraft.core.BlockPos> picks, boolean autoSwap) {
+        String failed = onClient(c.ctx(), mc -> {
+            Object cfg = ModUnderTest.config(DX);
+            ModUnderTest.set(cfg, "setBreakerAuraEnabled", true);
+            ModUnderTest.set(cfg, "setBreakerAuraEditMode", false);
+            ModUnderTest.set(cfg, "setBreakerAuraAutoSwap", autoSwap);
+            ModUnderTest.set(cfg, "setBreakerAuraSwapBack", true);
+            ModUnderTest.call(cfg, "setBreakerAuraSwapDelayTicks", new Class<?>[]{int.class}, new Object[]{1});
+            ModUnderTest.set(cfg, "setBreakerAuraMultiBreak", false);
+            ModUnderTest.set(cfg, "setBreakerAuraZeroPing", false);
+            Object store = ModUnderTest.staticCall(BREAKER_STORE, "getInstance");
+            ModUnderTest.call(store, "clear", new Class<?>[0], new Object[0]);
+            for (net.minecraft.core.BlockPos p : picks) {
+                ModUnderTest.call(store, "addPick", new Class<?>[]{String.class},
+                        new Object[]{p.getX() + "," + p.getY() + "," + p.getZ()});
+            }
+            if (!Boolean.TRUE.equals(ModUnderTest.staticCall(DUNGEON_STATE, "isSimOverrideActive"))) {
+                ModUnderTest.staticCall(DUNGEON_STATE, "toggleSimOverride");
+            }
+            probeReach = ((Number) ModUnderTest.call(cfg, "getBreakerAuraReach", new Class<?>[0], new Object[0])).doubleValue();
+            probePicks = List.copyOf(picks);
+            if (!ModUnderTest.getBoolean(cfg, "isBreakerAuraEnabled")) {
+                return "isBreakerAuraEnabled() is false after switching it on (a legit jar?)";
+            }
+            if (!Boolean.TRUE.equals(ModUnderTest.staticCall(DUNGEON_STATE, "isSimOverrideActive"))) {
+                return "the dungeon sim override did not come on, so Breaker Aura stays asleep";
+            }
+            return null;
+        });
+        if (failed != null) {
+            throw new AssertionError(failed);
+        }
+    }
+
+    private static void breakerOff(Session c) {
+        try {
+            onClient(c.ctx(), mc -> {
+                probePicks = List.of();
+                Object store = ModUnderTest.staticCall(BREAKER_STORE, "getInstance");
+                ModUnderTest.call(store, "clear", new Class<?>[0], new Object[0]);
+                Object cfg = ModUnderTest.config(DX);
+                ModUnderTest.set(cfg, "setBreakerAuraAutoSwap", false);
+                ModUnderTest.call(cfg, "setBreakerAuraSwapDelayTicks", new Class<?>[]{int.class}, new Object[]{4});
+                ModUnderTest.turnOff(DX, "setBreakerAuraEnabled");
+                if (Boolean.TRUE.equals(ModUnderTest.staticCall(DUNGEON_STATE, "isSimOverrideActive"))) {
+                    ModUnderTest.staticCall(DUNGEON_STATE, "toggleSimOverride");
+                }
+                ModUnderTest.staticCall(EXEC, "stop", new Class<?>[]{String.class}, new Object[]{"test end"});
+                return null;
+            });
+        } catch (Throwable ignored) {
+            // cleanup must not become the failure
+        }
+    }
+
+    /** The Dungeon Breaker in hotbar index BREAKER_SLOT, Efficiency V under Haste V so snow goes in one dig. */
+    private static void giveBreaker(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        c.hx().give(BREAKER_SLOT, "minecraft:diamond_shovel[custom_data={id:\"DUNGEONBREAKER\"},unbreakable={},"
+                + "lore=[{text:\"Charges: 9999/9999\",italic:false}]]");
+        c.server().command("effect give @p minecraft:haste 99999 4 true");
+        onClient(ctx, mc -> {
+            mc.player.getInventory().setSelectedSlot(BREAKER_SLOT);
+            return null;
+        });
+        ctx.waitTicks(5);
+        c.server().command("enchant @p minecraft:efficiency 5");
+        c.waitUntil("the breaker in slot " + (BREAKER_SLOT + 1) + " with Efficiency V", mc -> {
+            var st = mc.player.getInventory().getItem(BREAKER_SLOT);
+            return st.getComponents().toString().contains("DUNGEONBREAKER") && st.isEnchanted();
+        }, 40);
+    }
+
+    private static Ev firstLanding(List<Ev> evs, double x, double z) {
+        for (Ev e : evs) {
+            if (e.kind().equals("S") && Math.abs(e.x() - x) < 0.6 && Math.abs(e.z() - z) < 0.6) {
+                return e;
+            }
+        }
+        return null;
+    }
+
+    private static Ev firstEligible(List<Ev> evs) {
+        for (Ev e : evs) {
+            if (e.kind().equals("S") && !e.extra().isEmpty() && Integer.parseInt(e.extra()) > 0) {
+                return e;
+            }
+        }
+        return null;
+    }
+
+    private static Ev firstDig(List<Ev> evs) {
+        for (Ev e : evs) {
+            if (e.kind().equals("action") && e.extra().equals("START_DESTROY_BLOCK")) {
+                return e;
+            }
+        }
+        return null;
+    }
+
+    private static boolean allGone(ClientGameTestContext ctx, List<net.minecraft.core.BlockPos> picks) {
+        return onClient(ctx, mc -> {
+            for (net.minecraft.core.BlockPos p : picks) {
+                if (!mc.level.getBlockState(p).isAir()) {
+                    return false;
+                }
+            }
+            return true;
+        });
+    }
+
+    /**
+     * A landing 30 blocks along his lane (a server teleport, the same position packet an etherwarp's landing is) beside
+     * a two-high snow pillar he has picked, the breaker in his hand. {@code underRun}: AP3 is carrying him on a RUN when
+     * the teleport comes, and carries on after it.
+     */
+    private static void caseBreakerTeleport(Session c, String name, Arrival arrival, boolean underRun) {
+        ClientGameTestContext ctx = c.ctx();
+        double z = lane();
+        int bz = (int) Math.floor(z);
+        int baseX = arrival == Arrival.NEW_CHUNK ? FAR_X : LANE_X0;
+        double landX = baseX + 30.5;
+        List<net.minecraft.core.BlockPos> picks = List.of(new net.minecraft.core.BlockPos(baseX + 32, FLOOR + 1, bz),
+                new net.minecraft.core.BlockPos(baseX + 32, FLOOR + 2, bz));
+        try {
+            if (arrival == Arrival.NEW_CHUNK) {
+                // Forceloaded so the server can build there; the client is never sent these chunks until he lands.
+                c.server().command(String.format(Locale.ROOT, "forceload add %d %d %d %d", baseX + 20, bz - 8, baseX + 44,
+                        bz + 8));
+                c.server().command(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:smooth_stone", baseX + 20,
+                        FLOOR, bz - 4, baseX + 44, FLOOR, bz + 4));
+                c.server().command(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:air", baseX + 20,
+                        FLOOR + 1, bz - 4, baseX + 44, FLOOR + 4, bz + 4));
+            }
+            for (net.minecraft.core.BlockPos p : picks) {
+                c.server().command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:%s", p.getX(), p.getY(), p.getZ(),
+                        arrival == Arrival.BLOCKS_LATER ? "air" : "snow_block"));
+            }
+            c.server().sync(20);
+            giveBreaker(c);
+            breakerOn(c, picks, false);
+            if (underRun) {
+                walkIntoRun(c, z, runNode(z), node("STOP", LANE_X0 + 46.0, z, -90f, 0f, 2.0, 3.0));
+                // walkIntoRun cleared and re-picked nothing of the breaker's; the hand is still on it.
+            } else {
+                c.server().command(String.format(Locale.ROOT, "tp @p %.2f %d %.2f -90 0", LANE_X0 + 0.5, FLOOR + 1, z));
+                c.server().sync(20);
+                ctx.waitTicks(15);
+            }
+            boolean inClientBefore = onClient(ctx, mc -> {
+                for (net.minecraft.core.BlockPos p : picks) {
+                    if (mc.level.isLoaded(p) && !mc.level.getBlockState(p).isAir()) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+            boolean chunkInClientBefore = onClient(ctx, mc -> mc.level.isLoaded(picks.get(0)));
+            int heldSlot = onClient(ctx, mc -> mc.player.getInventory().getSelectedSlot());
+            c.note(String.format(Locale.ROOT, "%s: picks %s, standing in the client before the teleport %s, chunk loaded "
+                    + "in the client %s, reach %.2f, held slot %d, AP3 running %s", name, picks, inClientBefore,
+                    chunkInClientBefore, probeReach, heldSlot + 1,
+                    onClient(ctx, mc -> ModUnderTest.staticCall(EXEC, "isRunning"))));
+            if (heldSlot != BREAKER_SLOT) {
+                throw new AssertionError("the breaker is not in his hand (slot " + (heldSlot + 1) + ")");
+            }
+            if ((arrival == Arrival.LOADED || arrival == Arrival.AFTER_MENU) && !inClientBefore) {
+                throw new AssertionError("the picks were not in the client before the teleport - wrong case");
+            }
+            if ((arrival == Arrival.BLOCKS_LATER || arrival == Arrival.NEW_CHUNK) && inClientBefore) {
+                throw new AssertionError("the picks were already standing in the client before the teleport - this is not "
+                        + "a first contact");
+            }
+            if (arrival == Arrival.NEW_CHUNK && chunkInClientBefore) {
+                throw new AssertionError("the far pad's chunk was already loaded in the client - not a new chunk");
+            }
+            if (arrival == Arrival.AFTER_MENU) {
+                // A Spirit Leap as Hypixel does it: a server menu is open, then the server closes it and teleports him.
+                c.hx().call("menu.show", "title", "Spirit Leap", "rows", 4);
+                c.waitUntil("the leap menu on screen", mc -> McCompat.screen(mc)
+                        instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>, 40);
+                ctx.waitTicks(5);
+            }
+            startProbe(ctx);
+            ctx.waitTicks(3);
+            if (arrival == Arrival.AFTER_MENU) {
+                c.hx().call("menu.close");
+            }
+            c.hx().call("dungeon.tp", "x", landX, "y", (double) (FLOOR + 1), "z", z, "yaw", -90f, "pitch", 0f);
+            c.waitUntil("the landing in the client",
+                    mc -> Math.abs(mc.player.getX() - landX) < 0.6 && Math.abs(mc.player.getZ() - z) < 0.6, 60);
+            if (arrival == Arrival.BLOCKS_LATER) {
+                ctx.waitTicks(1);
+                List<String> put = new ArrayList<>();
+                for (net.minecraft.core.BlockPos p : picks) {
+                    put.add(p.getX() + " " + p.getY() + " " + p.getZ() + " minecraft:snow_block");
+                }
+                c.hx().call("dungeon.blocks", "blocks", put);
+            }
+            if (arrival == Arrival.BLOCKS_LATER || arrival == Arrival.NEW_CHUNK) {
+                // They read as air until they arrive (an unloaded chunk reads as air too), so "all gone" is true before
+                // they are there: wait for them first.
+                c.waitUntil("the late picks in the client", mc -> {
+                    for (net.minecraft.core.BlockPos p : picks) {
+                        if (!mc.level.getBlockState(p).isAir()) {
+                            return true;
+                        }
+                    }
+                    synchronized (EVENTS) {
+                        return EVENTS.stream().anyMatch(e -> e.kind().equals("S") && !e.extra().isEmpty()
+                                && Integer.parseInt(e.extra()) > 0);
+                    }
+                }, 20);
+            }
+            for (int i = 0; i < 40 && !allGone(ctx, picks); i++) {
+                ctx.waitTick();
+            }
+            ctx.waitTicks(5);
+            List<Ev> evs = stopProbe(ctx);
+            judgeBreakerLanding(c, evs, landX, z, picks, arrival, -1);
+        } finally {
+            breakerOff(c);
+            if (arrival == Arrival.NEW_CHUNK) {
+                c.server().command(String.format(Locale.ROOT, "tp @p %.2f %d %.2f -90 0", LANE_X0 + 0.5, FLOOR + 1, z));
+                c.server().command(String.format(Locale.ROOT, "forceload remove %d %d %d %d", baseX + 20, bz - 8,
+                        baseX + 44, bz + 8));
+            }
+        }
+    }
+
+    /**
+     * The owner's own move: an etherwarp BY HAND (Aspect of the Void, sneak, one right click; the testkit server's
+     * etherwarp, a real server teleport) onto a floor block 20 blocks along the lane, beside a picked snow pillar, with
+     * Auto Swap on at a Swap Delay of 1: the breaker comes to hand on the first tick the pillar is in reach, and the dig
+     * goes out on the tick after (the one tick his Swap Delay asks for), not later.
+     */
+    private static void caseBreakerEtherwarp(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        double z = lane();
+        int bz = (int) Math.floor(z);
+        double landX = LANE_X0 + 20.5;
+        List<net.minecraft.core.BlockPos> picks = List.of(new net.minecraft.core.BlockPos(LANE_X0 + 22, FLOOR + 1, bz),
+                new net.minecraft.core.BlockPos(LANE_X0 + 22, FLOOR + 2, bz));
+        try {
+            // On his lane first: after the far pad the lane's chunks may not be loaded on the server yet, and a setblock
+            // there says "That position is not loaded" and places nothing (this case's first run, 2026-10-22).
+            c.server().command(String.format(Locale.ROOT, "tp @p %.2f %d %.2f -90 0", LANE_X0 + 0.5, FLOOR + 1, z));
+            c.server().sync(20);
+            ctx.waitTicks(10);
+            for (net.minecraft.core.BlockPos p : picks) {
+                c.server().command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:snow_block", p.getX(), p.getY(),
+                        p.getZ()));
+            }
+            c.server().sync(20);
+            c.waitUntil("the snow pillar in the client", mc -> {
+                for (net.minecraft.core.BlockPos p : picks) {
+                    if (mc.level.getBlockState(p).isAir()) {
+                        return false;
+                    }
+                }
+                return true;
+            }, 40);
+            giveBreaker(c);
+            c.hx().give(AOTV_SLOT, "minecraft:diamond_shovel[custom_data={id:\"ASPECT_OF_THE_VOID\",ethermerge:1,"
+                    + "tuned_transmission:4},unbreakable={}]");
+            c.hx().call("dungeon.abilities", "enabled", true);
+            // Looking at the top of floor block x 20 from the sneaking eye (1.27) at x 0.5.
+            float pitch = (float) Math.toDegrees(Math.atan2(1.27, 20.0));
+            c.server().command(String.format(Locale.ROOT, "tp @p %.2f %d %.2f -90 %.3f", LANE_X0 + 0.5, FLOOR + 1, z, pitch));
+            c.server().sync(20);
+            ctx.waitTicks(15);
+            onClient(ctx, mc -> {
+                mc.player.getInventory().setSelectedSlot(AOTV_SLOT);
+                return null;
+            });
+            ctx.waitTicks(3);
+            breakerOn(c, picks, true);
+            int etherwarpsBefore = c.hx().call("dungeon.stats").getAsJsonObject().get("etherwarps").getAsInt();
+            startProbe(ctx);
+            ctx.getInput().holdKey(o -> o.keyShift);
+            try {
+                ctx.waitTicks(4);
+                ctx.getInput().pressKey(o -> o.keyUse);
+                c.waitUntil("the etherwarp landing in the client",
+                        mc -> Math.abs(mc.player.getX() - landX) < 0.6 && Math.abs(mc.player.getZ() - z) < 0.6, 40);
+            } finally {
+                ctx.getInput().releaseKey(o -> o.keyShift);
+            }
+            for (int i = 0; i < 40 && !allGone(ctx, picks); i++) {
+                ctx.waitTick();
+            }
+            ctx.waitTicks(5);
+            List<Ev> evs = stopProbe(ctx);
+            int etherwarps = c.hx().call("dungeon.stats").getAsJsonObject().get("etherwarps").getAsInt() - etherwarpsBefore;
+            c.note("server etherwarps: " + etherwarps);
+            if (etherwarps != 1) {
+                throw new AssertionError("the server made " + etherwarps + " etherwarp(s), expected 1");
+            }
+            judgeBreakerLanding(c, evs, landX, z, picks, Arrival.LOADED, BREAKER_SLOT);
+        } finally {
+            try {
+                c.hx().call("dungeon.abilities", "enabled", false);
+                c.server().command("item replace entity @p hotbar." + AOTV_SLOT + " with minecraft:air");
+            } catch (Throwable ignored) {
+                // cleanup
+            }
+            breakerOff(c);
+        }
+    }
+
+    /**
+     * The verdict shared by every breaker case. {@code swapTo} >= 0: Auto Swap is on, so the swap to that slot must go out
+     * on the first tick a pick is in reach and the dig one tick later (Swap Delay 1); otherwise the dig on that tick.
+     */
+    private static void judgeBreakerLanding(Session c, List<Ev> evs, double landX, double z,
+                                            List<net.minecraft.core.BlockPos> picks, Arrival arrival, int swapTo) {
+        ClientGameTestContext ctx = c.ctx();
+        Ev land = firstLanding(evs, landX, z);
+        Ev eligible = firstEligible(evs);
+        Ev dig = firstDig(evs);
+        Ev swap = null;
+        if (swapTo >= 0) {
+            for (Ev e : evs) {
+                if (e.kind().equals("carry") && e.slot() == swapTo) {
+                    swap = e;
+                    break;
+                }
+            }
+        }
+        if (land != null) {
+            int to = Math.max(land.tick(), Math.max(eligible == null ? 0 : eligible.tick(), dig == null ? 0 : dig.tick()));
+            for (Ev e : evs) {
+                if (e.tick() >= land.tick() - 1 && e.tick() <= to + 1 && !e.kind().equals("move")) {
+                    c.note(e.kind().equals("S")
+                            ? String.format(Locale.ROOT, "t%d S pos(%.2f, %.2f, %.2f) picks in reach %s", e.tick(), e.x(),
+                                    e.y(), e.z(), e.extra())
+                            : e.kind().equals("carry") ? "t" + e.tick() + "   carry slot " + (e.slot() + 1)
+                            : e.kind().equals("E") ? "t" + e.tick() + " E" : "t" + e.tick() + "   " + e.kind() + " " + e.extra());
+                }
+            }
+        }
+        boolean gone = allGone(ctx, picks);
+        c.note(String.format(Locale.ROOT, "landing t%s, first pick in reach t%s, first dig t%s%s, all picks broken %s",
+                land == null ? "-" : land.tick(), eligible == null ? "-" : eligible.tick(), dig == null ? "-" : dig.tick(),
+                swapTo >= 0 ? ", swap to the breaker t" + (swap == null ? "-" : swap.tick()) : "", gone));
+        if (land == null) {
+            throw new AssertionError("the probe never saw him land");
+        }
+        if (eligible == null) {
+            throw new AssertionError("no pick was ever in reach after the landing - nothing to break, the case proves nothing");
+        }
+        if (dig == null) {
+            throw new AssertionError("Breaker Aura never sent a dig after the landing");
+        }
+        if (!gone) {
+            throw new AssertionError("the picks were not all broken");
+        }
+        if ((arrival == Arrival.LOADED || arrival == Arrival.AFTER_MENU) && eligible.tick() != land.tick()) {
+            throw new AssertionError("the picks were in the client but not in reach on the landing tick (t" + land.tick()
+                    + " vs t" + eligible.tick() + ") - the case is set up wrong");
+        }
+        if (arrival == Arrival.BLOCKS_LATER && eligible.tick() <= land.tick()) {
+            throw new AssertionError("the late blocks were already there on the landing tick - not a first contact");
+        }
+        int want = eligible.tick() + (swapTo >= 0 ? 1 : 0);
+        if (swapTo >= 0 && (swap == null || swap.tick() != eligible.tick())) {
+            throw new AssertionError("Auto Swap: the swap to the breaker went out at t" + (swap == null ? "-" : swap.tick())
+                    + ", want t" + eligible.tick() + " (the first tick a pick was in reach)");
+        }
+        if (dig.tick() != want) {
+            throw new AssertionError(String.format(Locale.ROOT, "the first dig went out at t%d, %d tick(s) after the first "
+                    + "tick it could (t%d; landing t%d)%s", dig.tick(), dig.tick() - want, want, land.tick(),
+                    swapTo >= 0 ? " - Swap Delay 1 allows one tick for the swap and no more" : ""));
         }
     }
 
