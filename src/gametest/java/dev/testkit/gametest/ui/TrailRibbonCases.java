@@ -36,7 +36,8 @@ import java.util.Locale;
  *   <li>1034 settings: every ribbon field survives save + load in config/killer560/interface/ribbontrail/, an old Trail
  *       file with Style Ribbon becomes the Ribbon Trail (on, its settings) with the squares off, Style Squares changes
  *       nothing visible, clamps, the tab's rows, cycling buttons and tooltips.</li>
- *   <li>1040 tabs: the Cosmetics category has a Ribbon Trail tab; the Trail tab has no Style, ribbon or share rows.</li>
+ *   <li>1040 tabs: the Ribbon Trail is a section of Player Cosmetics, not a Cosmetics card (mod 4a7ffc31); the Trail tab
+ *   has no Style, ribbon or share rows.</li>
  *   <li>1041 camera: the band's world-space vertices are identical from six camera angles at one player position,
  *       every point's bottom and top share x and z, and on screen it keeps a vertical extent from every angle.</li>
  *   <li>1035 gallery: the default red / orange / yellow from the side, from behind and round a curve, and Chroma.</li>
@@ -744,15 +745,15 @@ final class TrailRibbonCases {
             c.note("ribbon rows: " + ribbonRows);
             c.note("chroma rows: " + chromaRows);
             for (String want : new String[]{"Ribbon Trail: ON", "Ribbon Height: 2.00", "Ribbon Length: 0.2s", "Opacity: 40%",
-                    "Color Mode: Gradient *", "Colors: 3 *", "Head Color", "Middle Color", "Tail Color",
-                    "Show In First Person", "Share Trail", "Show Others' Trails"}) {
+                    "Colour Mode: Gradient *", "Colours: 3 *", "Head Colour", "Middle Colour", "Tail Colour",
+                    "Show In First Person", "Share Ribbon Trail", "Show Others' Trails"}) {
                 c.check(ribbonRows.stream().anyMatch(r -> r.startsWith(want)), "Ribbon Trail tab has no row '" + want + "': " + ribbonRows);
             }
             c.check(ribbonRows.stream().noneMatch(r -> r.startsWith("Style")), "the Ribbon Trail tab has a Style row");
-            c.check(chromaRows.stream().noneMatch(r -> r.startsWith("Head Color")), "Chroma still shows color pickers");
+            c.check(chromaRows.stream().noneMatch(r -> r.startsWith("Head Colour")), "Chroma still shows colour pickers");
             for (String label : new String[]{"Ribbon Trail: ON", "Ribbon Height: 2.00", "Ribbon Length: 0.2s", "Opacity: 40%",
-                    "Color Mode: Gradient", "Colors: 3", "Head Color", "Middle Color", "Tail Color",
-                    "Show In First Person: ON", "Share Trail: ON", "Show Others' Trails: ON"}) {
+                    "Colour Mode: Gradient", "Colours: 3", "Head Colour", "Middle Colour", "Tail Colour",
+                    "Show In First Person: ON", "Share Ribbon Trail: ON", "Show Others' Trails: ON"}) {
                 String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Ribbon Trail", label));
                 c.note("tooltip '" + label + "': " + tip);
                 c.check(tip != null && !tip.isEmpty(), "no tooltip for '" + label + "'");
@@ -837,8 +838,28 @@ final class TrailRibbonCases {
             return out;
         });
         c.note("Cosmetics tabs: " + names);
-        c.check(names.contains("Ribbon Trail"), "the Cosmetics category has no Ribbon Trail tab: " + names);
+        // Since mod 4a7ffc31 (killer560, 2026-10-18: the ribbon trail "only shows up in player cosmetics to be adjusted")
+        // the Ribbon Trail is a collapsible section of Player Cosmetics, not a card of its own.
+        c.check(!names.contains("Ribbon Trail"), "the Ribbon Trail is a Cosmetics card again (it belongs in Player Cosmetics): " + names);
+        c.check(names.contains("Player Cosmetics"), "the Cosmetics category lost Player Cosmetics: " + names);
         c.check(names.contains("Trail"), "the Cosmetics category lost the Trail tab: " + names);
+        // The section's other rows sit behind its Ribbon Trail switch, so build it with the ribbon on (then restore).
+        List<String> section = c.onClient(mc -> {
+            Object rc = Mod.cfg(CFG);
+            boolean ribbonWasOn = (Boolean) Mod.call(rc, "isEnabledRaw");
+            Mod.call(rc, "setEnabled", true);
+            try {
+                return ribbonSectionRows();
+            } finally {
+                Mod.call(rc, "setEnabled", ribbonWasOn);
+            }
+        });
+        c.note("Player Cosmetics rows, Ribbon Trail open: " + section);
+        c.check(section.contains("▼ Ribbon Trail"), "Player Cosmetics has no open Ribbon Trail section: " + section);
+        for (String want : new String[]{"Ribbon Trail: ON", "Ribbon Height: ", "Ribbon Length: ", "Colour Mode: "}) {
+            c.check(section.stream().anyMatch(r -> r.startsWith(want)),
+                    "Player Cosmetics' Ribbon Trail section has no '" + want + "' row: " + section);
+        }
         boolean wasOn = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(SQ), "isEnabledRaw"));
         try {
             List<String> rows = tabRows(c, "gui.tab.TrailTab", () -> Mod.call(Mod.cfg(SQ), "setEnabled", true));
@@ -863,6 +884,27 @@ final class TrailRibbonCases {
                 return null;
             });
         }
+    }
+
+    /** Player Cosmetics built with its Ribbon Trail section open (1040); call on the client. */
+    private static List<String> ribbonSectionRows() {
+        Object tab;
+        try {
+            tab = Mod.cls("gui.tab.CosmeticsTab").getDeclaredConstructor().newInstance();
+            var open = Mod.cls("gui.tab.CosmeticsTab").getDeclaredField("ribbonTrailOpen");
+            open.setAccessible(true);
+            open.set(tab, true);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("could not open Player Cosmetics' Ribbon Trail section: " + e, e);
+        }
+        @SuppressWarnings("unchecked")
+        List<AbstractWidget> ws = (List<AbstractWidget>) Mod.call(tab, "buildWidgets", 0, 0, 300, (Runnable) () -> {
+        });
+        List<String> out = new ArrayList<>();
+        for (AbstractWidget w : ws) {
+            out.add(net.minecraft.ChatFormatting.stripFormatting(w.getMessage().getString()));
+        }
+        return out;
     }
 
     // ---- 1041 camera angles ---------------------------------------------------------------------------------------
