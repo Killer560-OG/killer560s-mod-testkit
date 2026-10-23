@@ -292,6 +292,9 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   is right only for something drawn on Auto Scale's canvas (the Bazaar/AH reskins, the mod's own screens). A box an overlay
   draws on a vanilla container is plain GUI units: 472 pressed Search instead of Scan All once bazaar-v3 changed the helper
   (2026-10-08). Convert those with the GUI scale alone.
+- To lay a mod screen out at another size, `Screen.init(w, h)`/`resize(w, h)` do not work: Auto Scale's mixin divides both
+  arguments (400 came back as 800 in 1076, 2026-10-22). Set `s.width` and `Mod.call(s, "init")`, measure in that same client
+  call, then restore the same way.
 
 - A HUD editor box is drawn at the element's `resolveScale` (HUD Scale x Auto Scale, 0.5 in the GUI-2 test window), so a
   press at `pos + width/2` of the UNSCALED size lands on the box's corner handle and RESIZES it: 613's first drop "never
