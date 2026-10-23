@@ -17,7 +17,9 @@ import java.util.Map;
  * <ul>
  *   <li>829: the same party twice: picks and pins all kept.</li>
  *   <li>830: one swap (LrD out, LrE in): LrE is pinned in LrD's old spot, LrA-LrC are where they were, LrD's pick is gone,
- *       LrE's class is the tab list's.</li>
+ *       and LrE has it instead (since 2026-10-23 the newcomer takes the leaver's class).</li>
+ *   <li>2345-2347 (2026-10-23): a clean one-for-one swap gives the newcomer the leaver's tab-list class with no notice;
+ *       two leaving, or a stayer's class changing, shows the "Leap Order was reset" notice and runs the old rules.</li>
  *   <li>831: a run without LrD: LrD's pick and pin are cleared, LrA's pick and pin kept.</li>
  *   <li>832: three leave: every pick and pin reset, the layout is the plain Default Order.</li>
  *   <li>833: two leave (LrC, LrD out; LrE, LrF in): the vacated spots in spot order go to LrE then LrF (leap-menu order).</li>
@@ -50,6 +52,11 @@ final class LeapRunMemoryCases {
         MenuSuite.test(s, "2342-menu-leap-memory-hub-new-party", LeapRunMemoryCases::hubNewParty);
         MenuSuite.test(s, "2343-menu-leap-memory-hub-two-new", LeapRunMemoryCases::hubTwoNew);
         MenuSuite.test(s, "2344-menu-leap-memory-run-pick-next-run", LeapRunMemoryCases::runPickNextRun);
+        // killer560, 2026-10-23: one out, one in, nothing else changed - the newcomer takes the leaver's class; any other
+        // party change shows a "Leap Order was reset" notice.
+        MenuSuite.test(s, "2345-menu-leap-memory-swap-takes-class", LeapRunMemoryCases::swapTakesClass);
+        MenuSuite.test(s, "2346-menu-leap-memory-two-leave-notice", LeapRunMemoryCases::twoLeaveNotice);
+        MenuSuite.test(s, "2347-menu-leap-memory-class-change-notice", LeapRunMemoryCases::classChangeNotice);
     }
 
     // ---- fixture ------------------------------------------------------------------------------------------------------
@@ -114,11 +121,17 @@ final class LeapRunMemoryCases {
     /** The dungeon tab list for {@code party} (him first, as Archer), then waits until the mod's party is exactly it. */
     @SuppressWarnings("unchecked")
     static void tab(Session c, List<String> party) {
+        tab(c, party, TAB_CLASS);
+    }
+
+    /** The same, with the tab list showing each teammate as {@code classes} says (a class change between runs). */
+    @SuppressWarnings("unchecked")
+    static void tab(Session c, List<String> party, Map<String, String> classes) {
         String self = c.onClient(mc -> mc.player.getGameProfile().name());
         List<String> entries = new ArrayList<>();
         entries.add("[50] " + self + " (Archer L)");
         for (String n : party) {
-            entries.add("[50] " + n + " (" + TAB_CLASS.get(n) + " L)");
+            entries.add("[50] " + n + " (" + classes.get(n) + " L)");
         }
         c.hx().tab(entries, null, null);
         try {
@@ -138,7 +151,11 @@ final class LeapRunMemoryCases {
 
     /** A run: the tab list for {@code party}, then Mort's line; waits for the mod to process it. @return its outcome. */
     static String run(Session c, List<String> party) {
-        tab(c, party);
+        return run(c, party, TAB_CLASS);
+    }
+
+    static String run(Session c, List<String> party, Map<String, String> classes) {
+        tab(c, party, classes);
         int before = runs(c);
         c.hx().chat(MORT);
         c.waitUntil("the run start to be processed", mc -> runs(mc) > before, 100);
@@ -243,8 +260,9 @@ final class LeapRunMemoryCases {
                 c.check(after.indexOf(n) == before.indexOf(n), n + " moved: " + before + " -> " + after);
             }
             c.check(!overrides(c).containsKey("LrD"), "LrD's pick survived: " + overrides(c));
-            c.check(!overrides(c).containsKey("LrE") && cls(c, "LrE").equals("ARCHER"),
-                    "LrE's class is " + cls(c, "LrE") + " (overrides " + overrides(c) + "), want the tab list's ARCHER");
+            // Since 2026-10-23 a one-for-one swap gives the newcomer the leaver's class: LrD's pick, MAGE.
+            c.check("MAGE".equals(overrides(c).get("LrE")) && cls(c, "LrE").equals("MAGE"),
+                    "LrE's class is " + cls(c, "LrE") + " (overrides " + overrides(c) + "), want LrD's MAGE");
             c.check(pins(c).get(dSpot).equals("LrE"), "LrE is not pinned in spot " + dSpot + ": " + pins(c));
             c.note("one swap: before " + before + " -> after " + after + "; " + out);
         } finally {
@@ -485,6 +503,112 @@ final class LeapRunMemoryCases {
             c.check(overrides(c).equals(ovr), "in-run picks changed at the next run: " + ovr + " -> " + overrides(c) + " (" + out + ")");
             c.check(pins(c).equals(pins), "in-run pins changed at the next run: " + pins + " -> " + pins(c) + " (" + out + ")");
             c.note("set during a run, kept into the next: picks " + ovr + ", pins " + pins + "; " + out);
+        } finally {
+            restore(c, sv);
+        }
+    }
+
+    // ---- 2345-2347: one-for-one swap and the reset notice (killer560, 2026-10-23) --------------------------------------
+
+    static final String NOTICE = "Leap Order was reset";
+
+    /** Lines of the chat WINDOW (what he sees, newest first) holding the reset notice. */
+    @SuppressWarnings("unchecked")
+    static long notices(Session c) {
+        return c.onClient(mc -> ((List<String>) Mod.staticCall("chattidy.ChatTidy", "testChatLines", 200)).stream()
+                .filter(l -> l.contains(NOTICE)).count());
+    }
+
+    /** The on-screen title's text, or "?" when the Gui field cannot be read. */
+    static String title(Session c) {
+        return c.onClient(mc -> {
+            try {
+                java.lang.reflect.Field f = mc.gui.getClass().getDeclaredField("title");
+                f.setAccessible(true);
+                Object t = f.get(mc.gui);
+                return t == null ? "" : ((net.minecraft.network.chat.Component) t).getString();
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                return "?";
+            }
+        });
+    }
+
+    /** LrD (Berserk, no pick) out, LrE (tab list Archer) in, nobody else's class changed: LrE takes LrD's spot AND his
+     *  Berserk, as a pick, and no notice is shown. */
+    static void swapTakesClass(Session c) throws Exception {
+        Saved sv = setUp(c);
+        try {
+            run(c, P);
+            List<String> before = layout(c);
+            int dSpot = before.indexOf("LrD");
+            long n0 = notices(c);
+            String out = run(c, List.of("LrA", "LrB", "LrC", "LrE"));
+            List<String> after = layout(c);
+            c.check("BERSERKER".equals(overrides(c).get("LrE")) && cls(c, "LrE").equals("BERSERKER"),
+                    "LrE's class is " + cls(c, "LrE") + " (picks " + overrides(c) + "), want LrD's BERSERKER (" + out + ")");
+            c.check(after.get(dSpot).equals("LrE"), "LrE is not in LrD's old spot " + dSpot + ": " + before + " -> " + after);
+            for (String n : List.of("LrA", "LrB", "LrC")) {
+                c.check(after.indexOf(n) == before.indexOf(n), n + " moved: " + before + " -> " + after);
+                c.check(!overrides(c).containsKey(n), n + " was given a pick: " + overrides(c));
+            }
+            c.ctx().waitTicks(5);
+            c.check(notices(c) == n0, "a reset notice was shown for a clean swap (" + out + ")");
+            c.note("one-for-one swap: LrE takes BERSERKER and spot " + dSpot + ", no notice; " + before + " -> " + after
+                    + "; " + out);
+        } finally {
+            restore(c, sv);
+        }
+    }
+
+    /** Two out (LrC with a pick, LrD), two in: the old rules run (LrC's pick gone, newcomers in the vacated spots with
+     *  their tab-list classes) and the reset notice is shown in chat and as a title. */
+    static void twoLeaveNotice(Session c) throws Exception {
+        Saved sv = setUp(c);
+        try {
+            run(c, P);
+            pick(c, "LrC", "ARCHER");
+            List<String> before = layout(c);
+            List<Integer> vacated = new ArrayList<>(List.of(before.indexOf("LrC"), before.indexOf("LrD")));
+            vacated.sort(Integer::compare);
+            long n0 = notices(c);
+            String out = run(c, List.of("LrA", "LrB", "LrE", "LrF"));
+            c.ctx().waitTicks(5);
+            long n1 = notices(c);
+            String title = title(c);
+            List<String> after = layout(c);
+            c.check(n1 == n0 + 1, "the reset notice is in the chat window " + (n1 - n0) + " times, want once (" + out + ")");
+            c.check(title.equals("?") || title.contains("Leap Order reset"), "the title reads '" + title + "'");
+            c.check(!overrides(c).containsKey("LrC"), "LrC's pick survived: " + overrides(c));
+            c.check(!overrides(c).containsKey("LrE") && !overrides(c).containsKey("LrF"),
+                    "a newcomer was given a pick: " + overrides(c));
+            c.check(after.get(vacated.get(0)).equals("LrE") && after.get(vacated.get(1)).equals("LrF"),
+                    "vacated spots " + vacated + " hold " + after + ", want LrE then LrF");
+            c.note("two left: notice shown (title '" + title + "'), LrC's pick gone, " + before + " -> " + after + "; " + out);
+        } finally {
+            restore(c, sv);
+        }
+    }
+
+    /** LrD out, LrE in, but LrB came back as Mage instead of Tank: not a clean swap, so LrE keeps the tab list's Archer
+     *  (no pick) and the reset notice is shown. */
+    static void classChangeNotice(Session c) throws Exception {
+        Saved sv = setUp(c);
+        try {
+            run(c, P);
+            List<String> before = layout(c);
+            int dSpot = before.indexOf("LrD");
+            Map<String, String> changed = new java.util.HashMap<>(TAB_CLASS);
+            changed.put("LrB", "Mage");
+            long n0 = notices(c);
+            String out = run(c, List.of("LrA", "LrB", "LrC", "LrE"), changed);
+            c.ctx().waitTicks(5);
+            long n1 = notices(c);
+            c.check(cls(c, "LrB").equals("MAGE"), "setup: LrB reads as " + cls(c, "LrB") + ", want MAGE");
+            c.check(n1 == n0 + 1, "the reset notice is in the chat window " + (n1 - n0) + " times, want once (" + out + ")");
+            c.check(!overrides(c).containsKey("LrE") && cls(c, "LrE").equals("ARCHER"),
+                    "LrE's class is " + cls(c, "LrE") + " (picks " + overrides(c) + "), want the tab list's ARCHER");
+            c.check(pins(c).get(dSpot).equals("LrE"), "LrE is not pinned in LrD's old spot " + dSpot + ": " + pins(c));
+            c.note("LrB's class changed: notice shown, LrE ARCHER pinned in spot " + dSpot + "; " + out);
         } finally {
             restore(c, sv);
         }

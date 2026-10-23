@@ -62,7 +62,8 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *   <li>670 the custom leap menu follows the Leap Order's default order and pins ({@link LeapOrderMenuCases})</li>
  *   <li>821-825 the 2026-10-11 leap-menu batch: faces, map in clear, open delay, no carried head, frozen layout ({@link LeapBatchMenuCases})</li>
  *   <li>829-834 how long class picks and pins last: same party, one swap, a run without X, 3 leave, 2 leave, guards ({@link LeapRunMemoryCases});
- *       2341-2344 picks and pins set in the Hub before a run (same party, new party, two new) and set during a run</li>
+ *       2341-2344 picks and pins set in the Hub before a run (same party, new party, two new) and set during a run;
+ *       2345-2347 a one-for-one swap takes the leaver's class, two leaving or a changed class shows the reset notice</li>
  *   <li>899-902 the Leap Order editor: Reset Classes, Reset Positions, a party refresh on opening, the removed button and hint ({@link LeapEditorCases})</li>
  *   <li>754-755 the Chocolate Factory on its current layout: Auto Chocolate Factory's clicks, the legit helper's
  *       reading and alerts ({@link ChocolateCases})</li>
