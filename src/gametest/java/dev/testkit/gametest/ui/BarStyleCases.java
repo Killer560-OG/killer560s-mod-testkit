@@ -363,8 +363,7 @@ final class BarStyleCases {
                 if (w == null) {
                     return "no Style row";
                 }
-                w.mouseClicked(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)), false);
-                w.mouseReleased(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)));
+                pillPress(w, 0);
                 return String.valueOf(Mod.call(Mod.cfg(PS), "getBarStyle"));
             });
             c.ticks(2);
@@ -375,8 +374,7 @@ final class BarStyleCases {
                 if (w == null) {
                     return "no Style row";
                 }
-                w.mouseClicked(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(1, 0)), false);
-                w.mouseReleased(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(1, 0)));
+                pillPress(w, 1);
                 return String.valueOf(Mod.call(Mod.cfg(PS), "getBarStyle"));
             });
             c.ticks(2);
@@ -402,8 +400,7 @@ final class BarStyleCases {
                 if (w == null) {
                     return "no Style row";
                 }
-                w.mouseClicked(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)), false);
-                w.mouseReleased(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)));
+                pillPress(w, 0);
                 return String.valueOf(Mod.call(Mod.cfg(PS), "getBarStyle"));
             });
             c.check(wrap.equals("SLEEK"), "a left click on Bar Style (Bold) gave " + wrap + ", want SLEEK");
@@ -418,8 +415,7 @@ final class BarStyleCases {
                     return "no Text Size row";
                 }
                 Object before = Mod.call(Mod.cfg(PS), "getBarTextSize");
-                w.mouseClicked(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)), false);
-                w.mouseReleased(new MouseButtonEvent(w.getX() + 2, w.getY() + 2, new MouseButtonInfo(0, 0)));
+                pillPress(w, 0);
                 Mod.staticCall(PS, "load");
                 return before + "->" + Mod.call(Mod.cfg(PS), "getBarTextSize");
             });
@@ -756,6 +752,18 @@ final class BarStyleCases {
             }
         }
         return out;
+    }
+
+    /** A press on a cycling row's value pill, where the menu takes it: since mod 9ffd77cd (killer560, 2026-10-13) a
+     *  cycling row in the menu steps only from its pill (SettingsButtonWidget.pillClick) - left click on the right
+     *  half forward, right click back - and a click on the label does nothing. Button 0 lands on the right half,
+     *  button 1 on the middle. */
+    private static void pillPress(AbstractWidget w, int button) {
+        int[] cb = (int[]) Mod.call(w, "controlBounds");
+        double x = cb[0] + cb[2] * (button == 0 ? 0.75 : 0.5);
+        double y = cb[1] + cb[3] / 2.0;
+        w.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(button, 0)), false);
+        w.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(button, 0)));
     }
 
     /** The first row of the Health and Mana Bars tab whose label starts with {@code prefix}. */

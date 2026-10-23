@@ -248,10 +248,15 @@ final class LeapWizardCases {
         });
     }
 
+    /** A click on the row's control, where the menu takes it: since mod 2026-10-13 (SettingsButtonWidget.pillClick) a
+     *  cycling row in the menu steps only from its value pill - left click on the right half (›) forward, right click
+     *  back - and a click on the label does nothing. So button 0 lands on the pill's right half, button 1 on its middle;
+     *  a switch row's control is its switch. */
     static void clickRow(UiCase c, AbstractWidget w, int button) {
         c.onClient(mc -> {
-            double x = w.getX() + w.getWidth() / 2.0;
-            double y = w.getY() + w.getHeight() / 2.0;
+            int[] cb = (int[]) Mod.call(w, "controlBounds");
+            double x = cb[0] + cb[2] * (button == 0 ? 0.75 : 0.5);
+            double y = cb[1] + cb[3] / 2.0;
             w.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(button, 0)), false);
             w.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(button, 0)));
             return null;
@@ -283,7 +288,7 @@ final class LeapWizardCases {
             boolean h2 = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(cfgCls), "isShowHeads"));
             c.check(!h1 && h2, "Show Player Heads: left " + h1 + ", then right " + h2 + " (want false, true)");
             trail.add("Show Player Heads left -> " + h1 + ", right -> " + h2);
-            clickRow(c, style, 0);
+            clickRow(c, row(c, d, "Leap Style:"), 0);
             String s1 = c.onClient(mc -> String.valueOf(Mod.call(Mod.cfg(cfgCls), "getStyle")));
             clickRow(c, row(c, d, "Leap Style:"), 1);
             String s2 = c.onClient(mc -> String.valueOf(Mod.call(Mod.cfg(cfgCls), "getStyle")));
