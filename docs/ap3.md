@@ -24,6 +24,13 @@ real W press and lets go inside it - AP3 carries him from there.
   head of `sendPosition`. Each case notes the gap; `1018-ap3-block-slow-tick` sleeps 25 ms after the mod's START work
   every tick and must stay clean (the START-sending jar flags it every time).
 - `stopwatch-hud`, `cmdtree`: see the case code. `corrections`: two server moves 10 ticks apart while a RUN carries him - AP3 must keep running and enabled, report each (chat line, `[Correction] AP3:` log line) and play the alarm (`ModSounds.correctionAlarmsPlayed`); mod rule 2026-10-06, a correction never stops anything.
+- `1022-ap3-breaker-*` (mod ap3-breaker-tick-1022): Breaker Aura's first dig after a landing must go out on the first tick
+  a pick is in the client, standing and in reach - read at START after the mod's own START work (the S marker carries the
+  position and that count). `tp` / `tp-run` (blocks loaded, AP3 RUN carrying him), `tp-late-blocks` (server places them
+  after the landing), `tp-new-chunk` (a forceloaded pad 600 blocks out the client was never sent), `ew` (hand etherwarp,
+  Auto Swap at Swap Delay 1: swap on that tick, dig the next), `leap-menu` (server closes a menu, then teleports). Mod
+  final-1025 digs 4-6 ticks late in every one (ActionGate's teleport and screen settles). Picks that start as air read
+  "all gone" before they arrive, and a setblock right after leaving the far pad says "That position is not loaded".
 
 Traps found writing it:
 - A server-console `tp @p ~0.3 ~ ~` is relative to the CONSOLE (world spawn), not the player: it moved him 176
