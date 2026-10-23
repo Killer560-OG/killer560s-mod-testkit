@@ -174,6 +174,13 @@ final class ConfigSweep {
                     continue;
                 }
                 JsonPrimitive v = e.getValue().getAsJsonPrimitive();
+                if (isMarker(s.rel(), e.getKey()) || isVersionKey(e.getKey())) {
+                    // left as saved: flipping a migration marker or a file version makes the file read as an OLD one,
+                    // so load() re-runs that migration and resets the real settings it covers (run 1, 2026-10-22:
+                    // LiveMap noammLook1019 -> textShadow/playerHeadMarkers, Pathfinding version 2->1 -> autoWalk,
+                    // CustomScoreboard lookVersion 2->1 -> roundedCorners). Those settings are then checked properly.
+                    continue;
+                }
                 if (v.isBoolean()) {
                     flipped.addProperty(e.getKey(), !v.getAsBoolean());
                     bools.add(e.getKey());
@@ -252,12 +259,20 @@ final class ConfigSweep {
      * presetsSeeded, ScoreCalculator legacyAlertsMigrated, SecretWaypoints noammDefaultsV1 / colorPassV2,
      * StorageSearch extrasOnV1, TickTimers goldorFrenzyMigrated / f7spotsCrushMigrated), and VoiceToText's legacy
      * sendToPartyChat, which save() derives from chatDestination (voicetotext/VoiceToTextConfig.java:81,102).
+     * Run 1 of 2026-10-22 added date-stamped ones that save() writes as a constant true (LiveMapConfig
+     * darkenUnopenedDefault1019 / darkenUnopenedNoamm1019 / noammLook1019) and CroesusConfig chestKeyModeDefaulted, which
+     * load() never reads into the field (only its presence matters, CroesusConfig.java:209).
      */
     static boolean isMarker(String rel, String key) {
-        if (key.matches("(?i).*(seeded|migrated|V\\d+)$")) {
+        if (key.matches("(?i).*(seeded|migrated|defaulted|V\\d+|\\d{4})$")) {
             return true;
         }
         return rel.equals("voicetotext.VoiceToTextConfig") && key.equals("sendToPartyChat");
+    }
+
+    /** A file-format number (PathfindingConfig "version", CustomScoreboardConfig "lookVersion"): not a setting. */
+    static boolean isVersionKey(String key) {
+        return key.matches("(?i)(.*Version|version)$");
     }
 
     // ---- 311 ------------------------------------------------------------------------------------------------
