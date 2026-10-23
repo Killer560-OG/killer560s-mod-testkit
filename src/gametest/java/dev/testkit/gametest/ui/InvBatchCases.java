@@ -440,14 +440,14 @@ final class InvBatchCases {
             });
             List<String> labels = tabLabels(c, "gui.tab.ItemProtectTab");
             c.note("Item Protection rows: " + labels);
-            for (String gone : new String[]{"Slot Lock", "Lock Key", "Marker", "Lock Color", "Clear Locks",
-                    "Show Protected Key", "Lock Icon", "Highlight Color"}) {
+            for (String gone : new String[]{"Slot Lock", "Lock Key", "Marker", "Lock Colour", "Lock Color", "Clear Locks",
+                    "Show Protected Key", "Lock Icon", "Highlight Colour", "Highlight Color"}) {
                 c.check(labels.stream().noneMatch(l -> l.startsWith(gone)), "the tab still has '" + gone + "'");
             }
             c.check(labels.stream().anyMatch(l -> l.startsWith("Lock In Place")), "no Lock In Place row");
-            c.check(labels.stream().anyMatch(l -> l.startsWith("Star Color")), "no Star Color row");
+            c.check(labels.stream().anyMatch(l -> l.startsWith("Star Colour")), "no Star Colour row");
             String tipLock = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Item Protection", "Lock In Place: OFF"));
-            String tipStar = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Item Protection", "Star Color"));
+            String tipStar = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Item Protection", "Star Colour"));
             String tipOld = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Item Protection", "Slot Lock: ON"));
             c.check(tipLock != null && tipStar != null, "new rows lack tooltips: " + tipLock + " / " + tipStar);
             c.check(tipOld == null, "a Slot Lock tooltip is still registered: " + tipOld);
@@ -760,11 +760,11 @@ final class InvBatchCases {
             c.check(g9 > 40 && g10 < 5, "drawn color: slot 9 " + g9 + " green px, slot 10 " + g10);
 
             // Use Colour off and on.
-            clickWidget(c, s2, widget(c, s2, "Use Color"));
+            clickWidget(c, s2, widget(c, s2, "Use Colour"));
             int off = dyes(c)[0];
-            clickWidget(c, s2, widget(c, s2, "Use Color"));
+            clickWidget(c, s2, widget(c, s2, "Use Colour"));
             int on = dyes(c)[0];
-            c.check(off == 0xFF123456 && on == 0xFF00FF00, "Use Color off/on: " + Integer.toHexString(off) + "/" + Integer.toHexString(on));
+            c.check(off == 0xFF123456 && on == 0xFF00FF00, "Use Colour off/on: " + Integer.toHexString(off) + "/" + Integer.toHexString(on));
 
             // Armor Skin: None -> Leather -> ...; the worn asset changes, the icon does not.
             clickWidget(c, s2, widget(c, s2, "Skin"));
@@ -973,7 +973,7 @@ final class InvBatchCases {
             if (e.getKey().equals("Cosmetics")) {
                 continue;
             }
-            for (String moved : new String[]{"Cosmetics", "Player Cosmetics", "Custom Items", "Nickhider", "Trail", "Armor Recolor"}) {
+            for (String moved : new String[]{"Cosmetics", "Player Cosmetics", "Custom Items", "Nickhider", "Trail", "Armour Recolour", "Armor Recolor"}) {
                 c.check(!e.getValue().contains(moved), "'" + moved + "' is still in " + e.getKey());
             }
         }

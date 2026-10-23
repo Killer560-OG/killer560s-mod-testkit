@@ -261,7 +261,8 @@ final class SmallDungeonCases {
             Screen s = DungeonB2Cases.openTab(c, cheat ? "Dungeon ESP" : "Starred Mob Hitboxes");
             List<String> rows = DungeonB2Cases.labels(c, s);
             c.note("ESP tab rows: " + rows);
-            c.check(rows.stream().noneMatch(l -> l.startsWith("Wither Boss Color")), "the 'Wither Boss Color' row is still there");
+            c.check(rows.stream().noneMatch(l -> l.startsWith("Wither Boss Colour") || l.startsWith("Wither Boss Color")),
+                    "the 'Wither Boss Colour' row is still there");
             c.check(rows.stream().anyMatch(l -> l.startsWith("Tracer:")), "no Tracer row in the Wither Boss Highlight section");
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
@@ -365,7 +366,7 @@ final class SmallDungeonCases {
             Screen s = DungeonB2Cases.openTab(c, "Secrets HUD");
             List<String> rows = DungeonB2Cases.labels(c, s);
             c.note("Secrets HUD rows: " + rows);
-            c.check(rows.stream().anyMatch(l -> l.startsWith("Secrets Text Color")), "no 'Secrets Text Color' row");
+            c.check(rows.stream().anyMatch(l -> l.startsWith("Secrets Text Colour")), "no 'Secrets Text Colour' row");
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
                 return null;

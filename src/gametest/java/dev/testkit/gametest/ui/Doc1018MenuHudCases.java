@@ -1194,7 +1194,7 @@ final class Doc1018MenuHudCases {
                 return null;
             });
             List<String> l = labels(c, "LagDisplayTab");
-            for (String want : new String[]{"Good Color", "Okay Color", "Bad Color", "Awful Color", "Text Color"}) {
+            for (String want : new String[]{"Good Colour", "Okay Colour", "Bad Colour", "Awful Colour", "Text Colour"}) {
                 c.check(has(l, want), "the Performance HUD tab has no '" + want + "' row: " + l);
             }
             int good = 0xFF0A0B01;
@@ -1402,11 +1402,11 @@ final class Doc1018MenuHudCases {
             List<String> l = labels(c, "InventoryThemeTab");
             c.note("Inventory Theme rows: " + l);
             c.check(!l.isEmpty() && l.get(0).startsWith("Theme: Default"), "the first row is not 'Theme: Default': " + l);
-            c.check(!has(l, "Inventory Theme") && !has(l, "Hide Potion Effects") && !has(l, "Preset") && !has(l, "Slot Color")
+            c.check(!has(l, "Inventory Theme") && !has(l, "Hide Potion Effects") && !has(l, "Preset") && !has(l, "Slot Colour") && !has(l, "Slot Color")
                     && !has(l, "Accent"), "rows from before are still there: " + l);
             c.check(has(l, "Theme Hotbar") && has(l, "Applies To"), "Applies To / Theme Hotbar are missing: " + l);
             c.check(has(l, "Hotbar Scale"), "the Hotbar Scale slider is not with Theme Hotbar: " + l);
-            c.check(!has(l, "Customize"), "Customize shows while the Theme is not Custom: " + l);
+            c.check(!has(l, "Customise"), "Customise shows while the Theme is not Custom: " + l);
 
             // The card's own switch is the setting (the drawer has no row for it).
             Object tab = c.onClient(mc -> MenuACases.leaf("InventoryThemeTab"));
@@ -1466,12 +1466,12 @@ final class Doc1018MenuHudCases {
             c.note("the Theme row reached Custom after " + steps + " click(s)");
             c.check((Boolean) Mod.call(cfg, "isCustom"), "clicking the Theme row never reached Custom");
             List<String> custom = labels(c, "InventoryThemeTab");
-            c.check(has(custom, "Customize"), "a Customize row does not show on Custom: " + custom);
-            boolean opened = pressRow(c, "InventoryThemeTab", "Customize");
+            c.check(has(custom, "Customise"), "a Customise row does not show on Custom: " + custom);
+            boolean opened = pressRow(c, "InventoryThemeTab", "Customise");
             c.ticks(3);
             String screen = c.onClient(mc -> String.valueOf(McCompat.screen(mc)));
-            c.note("after Customize: " + screen);
-            c.check(opened && screen.contains("InventoryCustomizeScreen"), "Customize did not open the customize menu: " + screen);
+            c.note("after Customise: " + screen);
+            c.check(opened && screen.contains("InventoryCustomizeScreen"), "Customise did not open the customize menu: " + screen);
             Screen cs = c.onClient(McCompat::screen);
             List<String> customRows = c.onClient(mc -> {
                 List<String> out = new ArrayList<>();
@@ -1485,7 +1485,7 @@ final class Doc1018MenuHudCases {
                 return out;
             });
             c.note("the customize menu: " + customRows);
-            c.check(has(customRows, "Base:") && has(customRows, "Slot Color Source") && has(customRows, "Accent Source")
+            c.check(has(customRows, "Base:") && has(customRows, "Slot Colour Source") && has(customRows, "Accent Source")
                     && has(customRows, "Done"), "the customize menu is missing its rows: " + customRows);
             shot(c, "customize");
             closeScreen(c);
@@ -1567,7 +1567,7 @@ final class Doc1018MenuHudCases {
         });
         c.note("with the Ribbon Trail section open: " + open);
         c.check(has(open, "Ribbon Trail:"), "the open section has no 'Ribbon Trail' switch: " + open);
-        c.check(count(open, "Share Trail") == 1, "'Share Trail' shows " + count(open, "Share Trail") + " times, want once (the top one)");
+        c.check(count(open, "Share Ribbon Trail") == 1, "'Share Ribbon Trail' shows " + count(open, "Share Ribbon Trail") + " times, want once (the top one)");
         c.check(count(open, "Show Others' Trails") == 1, "'Show Others' Trails' shows " + count(open, "Show Others' Trails") + " times, want once");
         c.onClient(mc -> {
             // Close it again for the next case.

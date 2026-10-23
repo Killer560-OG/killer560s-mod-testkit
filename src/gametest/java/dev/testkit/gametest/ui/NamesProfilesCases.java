@@ -371,15 +371,15 @@ final class NamesProfilesCases {
                 if (!"CHAMP".equals(Mod.call(Mod.cfg(NC), "getOwnRankCustomText"))) {
                     return "typing in the rank box did not reach the config";
                 }
-                AbstractWidget colour = row(s[0], "Rank Color");
+                AbstractWidget colour = row(s[0], "Rank Colour");
                 if (colour == null) {
-                    return "no Rank Color row for a custom rank: " + labels(s[0]);
+                    return "no Rank Colour row for a custom rank: " + labels(s[0]);
                 }
                 ModScreenDriver.press(colour);
                 Mod.call(s[0], "refresh");
                 int picked = (Integer) Mod.call(Mod.cfg(NC), "getOwnRankColor");
                 if (picked == 0) {
-                    return "pressing Rank Color left the colour on 'the rank's own'";
+                    return "pressing Rank Colour left the colour on 'the rank's own'";
                 }
                 c.note("the tab's Rank row cycled to Custom, the text box took 'CHAMP', Rank Color picked "
                         + Integer.toHexString(picked));
