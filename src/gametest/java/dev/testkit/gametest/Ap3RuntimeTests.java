@@ -64,7 +64,10 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
     private static final int LANE_X0 = 0;
     private static final int LANE_LEN = 48;
     private static final int LANE_DZ = 8;
-    private static final int LANES = 32;
+    /** Enough for every case in the session: lane() must never wrap. With 32 the 33rd lane (1018-ap3-run-centre) went
+     *  back to lane 0, a 248-block teleport into chunks the client no longer had - it fell into them, the server put
+     *  it back, and about one run in four Grim set back the case's own hand walk (Simulation .150944, before AP3 ran). */
+    private static final int LANES = 64;
     private static final String WAND = "AP3_TEST_WAND";
 
     private static int nextLane;
@@ -133,6 +136,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         s.scenario().assertDetectorWorks();
         LogTap.install();
         TestMap map = TestMap.on(s.server());
+        nextLane = 0; // the floor below is new: every lane is fresh again
         int zMax = LANES * LANE_DZ;
         // One long floor for every lane, in slices (a fill is capped at 32768 blocks).
         for (int z = -4; z <= zMax + 4; z += 16) {
@@ -316,7 +320,11 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
 
     /** A fresh lane: z of its centre line. */
     private static double lane() {
-        return (nextLane++ % LANES) * LANE_DZ + 0.5;
+        if (nextLane >= LANES) {
+            throw new AssertionError("out of lanes (" + LANES + "): raise LANES rather than reuse one - a reused lane is a"
+                    + " long teleport into chunks the client has dropped");
+        }
+        return nextLane++ * LANE_DZ + 0.5;
     }
 
     /**

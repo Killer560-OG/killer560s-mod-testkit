@@ -33,6 +33,10 @@ real W press and lets go inside it - AP3 carries him from there.
   "all gone" before they arrive, and a setblock right after leaving the far pad says "That position is not loaded".
 
 Traps found writing it:
+- `lane()` must never wrap. With 32 lanes the 33rd case (`1018-ap3-run-centre`) went back to lane 0, a 248-block
+  teleport into chunks the client had dropped: it fell into them, the server put it back, and in about one full session
+  in four Grim set back the case's hand walk (Simulation .150944, AP3 not yet running - traced 2026-10-22). 64 lanes now,
+  and running out throws.
 - A server-console `tp @p ~0.3 ~ ~` is relative to the CONSOLE (world spawn), not the player: it moved him 176
   blocks. Use `execute as @p at @s run tp @s ~0.3 ~ ~`.
 - `HudSeen.markDrawn` does nothing while the HUD editor is open, so it cannot tell whether the editor previewed an
