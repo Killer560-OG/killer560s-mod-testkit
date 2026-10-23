@@ -19,8 +19,9 @@ import java.util.List;
  * layout page - the panel is opened or kept open, shows a chat line seeded through the real chat listener, and a line
  * typed into its input with Enter reaches the integrated server, which echoes it back as player chat (the external proof
  * it was sent, not the panel's own counter). Also: closed by default, the editor stays open after each send, Escape
- * leaves the box without closing the editor, the panel never reaches down to a bottom-row button and the stage's own
- * controls stay left of it, the wheel scrolls it back and forward, and Hide Chat closes it.
+ * leaves the box without closing the editor, the panel sits on the LEFT (moved there 2026-10-22, mod branch
+ * leap-chat-left-1022), never reaches down to a bottom-row button, the stage's own controls stay right of it with at
+ * least 200 units, also on a 400-unit-wide window, the wheel scrolls it back and forward, and Hide Chat closes it.
  */
 final class LeapChatCases {
 
@@ -77,11 +78,12 @@ final class LeapChatCases {
             for (int spot = 0; spot < 4; spot++) {
                 final int sp = spot;
                 int[] b = c.onClient(mc -> (int[]) Mod.call(s, "spotBounds", sp));
-                c.check(b[0] + b[2] <= panel[0], "layout spot " + spot + " reaches into the chat panel: " + b[0] + "+" + b[2]
-                        + " vs panel x " + panel[0]);
+                c.check(b[0] >= panel[0] + panel[2], "layout spot " + spot + " reaches into the chat panel: x " + b[0]
+                        + " vs panel right edge " + (panel[0] + panel[2]));
             }
+            narrowChecks(c, s);
             sendTyped(c, s, "layout " + tok, true);
-            trail.add("layout: seeded line shown, spots left of the panel, typed line echoed");
+            trail.add("layout: seeded line shown, spots right of the panel, 400-wide window fits, typed line echoed");
 
             // The wheel: back through older lines and forward again.
             // More than any panel holds, and more than the 300 messages the panel wraps, so the oldest drop off its end
@@ -127,6 +129,10 @@ final class LeapChatCases {
         List<String> shown = lines(c, s);
         c.check(shown.stream().anyMatch(l -> l.contains(seed)), stage + ": the panel does not show the seeded line: " + shown);
         int[] p = panelBounds(c, s);
+        int sw = c.onClient(mc -> s.width);
+        c.check(p[0] <= 24 && p[0] + p[2] < sw / 2, stage + ": the panel is not on the left: x " + p[0] + " w " + p[2]
+                + " on a " + sw + " wide screen");
+        c.check(sw - (p[0] + p[2]) >= 200, stage + ": the page keeps only " + (sw - (p[0] + p[2])) + " units right of the panel");
         for (String l : bottomRow) {
             AbstractWidget w = InvBatchCases.widget(c, s, l);
             c.check(w != null, stage + ": no '" + l + "' button with the panel open");
@@ -137,10 +143,66 @@ final class LeapChatCases {
             AbstractWidget w = InvBatchCases.widget(c, s, l);
             c.check(w != null, stage + ": no '" + l + "' control with the panel open");
             boolean header = w.getY() + w.getHeight() <= p[1];
-            c.check(header || w.getX() + w.getWidth() <= p[0], stage + ": '" + l + "' (" + w.getX() + "+" + w.getWidth()
-                    + ") reaches under the panel at x " + p[0]);
+            c.check(header || w.getX() >= p[0] + p[2], stage + ": '" + l + "' (x " + w.getX()
+                    + ") reaches under the panel, which ends at x " + (p[0] + p[2]));
         }
         shot(c, s, stage.replace(' ', '-'));
+    }
+
+    /** The layout page laid out for a 400-unit-wide window (the panel shrinks, the page keeps 200), then restored. The
+     *  width is set on the screen and its own init() rerun, not Screen.init/resize, which the mod's Auto Scale rewrites. */
+    private static void narrowChecks(UiCase c, Screen s) {
+        List<String> bad = c.onClient(mc -> {
+            List<String> out = new ArrayList<>();
+            int rw = s.width;
+            try {
+                s.width = 400;
+                Mod.call(s, "init");
+                if (s.width != 400) {
+                    out.add("the screen did not take the 400 width (" + s.width + ")");
+                }
+                int[] p = ((int[]) Mod.field(chat(s), "bounds")).clone();
+                int right = p[0] + p[2];
+                if (p[0] > 24) {
+                    out.add("the panel is not on the left: x " + p[0]);
+                }
+                if (400 - right < 200) {
+                    out.add("the page keeps only " + (400 - right) + " units (panel x " + p[0] + " w " + p[2] + ")");
+                }
+                for (int spot = 0; spot < 4; spot++) {
+                    int[] b = (int[]) Mod.call(s, "spotBounds", spot);
+                    if (b[0] < right || b[0] + b[2] > 400) {
+                        out.add("spot " + spot + " at x " + b[0] + "+" + b[2] + " is not between the panel (to " + right
+                                + ") and the right edge");
+                    }
+                }
+                for (String l : List.of("Back", "Reset Classes", "Reset Positions", "Done", "Hide Chat")) {
+                    AbstractWidget w = null;
+                    for (var child : s.children()) {
+                        if (child instanceof AbstractWidget aw && ModScreenDriver.label(aw).startsWith(l)) {
+                            w = aw;
+                            break;
+                        }
+                    }
+                    if (w == null) {
+                        out.add("no '" + l + "' button");
+                        continue;
+                    }
+                    if (!l.equals("Hide Chat") && w.getY() < p[1] + p[3]) {
+                        out.add("the panel (to y " + (p[1] + p[3]) + ") covers '" + l + "' at y " + w.getY());
+                    }
+                    if (w.getX() < 0 || w.getX() + w.getWidth() > 400) {
+                        out.add("'" + l + "' is off the window (x " + w.getX() + "+" + w.getWidth() + ")");
+                    }
+                }
+            } finally {
+                s.width = rw;
+                Mod.call(s, "init");
+            }
+            return out;
+        });
+        c.check(bad.isEmpty(), "narrow (400 wide): " + String.join("; ", bad));
+        c.ticks(2);
     }
 
     /** Types a line and presses Enter; the editor must stay, the box empty, and the server echo the line back. */
