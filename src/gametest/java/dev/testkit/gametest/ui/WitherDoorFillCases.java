@@ -4,7 +4,12 @@ import dev.testkit.gametest.mod.Mod;
 import net.minecraft.client.multiplayer.ClientCommonPacketListenerImpl;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.saveddata.maps.MapId;
+import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 
 import java.awt.image.BufferedImage;
 import java.lang.reflect.Field;
@@ -23,6 +28,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * the player 5.5 blocks in front of it, facing +x straight at its face. Wither Doors gates on a Hypixel/p3sim address
  * and on being in a dungeon (not the boss): the singleplayer connection's ServerData is labelled "mc.hypixel.net" by
  * reflection for the case, and DungeonState.setRoomSim(true) says "in a clear". Both are put back in the finally.
+ *
+ * <p>Without Show All Doors (every shot but the Through Walls pair) Wither Doors draws only the doors the dungeon map in
+ * hotbar slot 9 shows, and nothing until the run has started (mod f44bbfe3, 2026-10-15: "it will only show the door it
+ * can see from the normal map", "the mod should not show wither doors before mort finishes his countdown"). So the case
+ * puts a Hypixel-shaped map there, client-side as SimMapItemTests does: the Entrance at grid (0, 0), an opened room at
+ * (2, 0) and a wither-black door (colour 119) between them at (1, 0) - the cell whose door block is the coal above. A
+ * calibrated map is also what {@code WitherDoorsFeature.runStarted} takes as the run having started. Before f44bbfe3
+ * the case needed no map, and from it on every frame matched the no-draw frame ("waiting for the run to start").
  *
  * <p>Every frame is diffed against a no-draw frame (Wither Doors off) of the same scene; a pixel counts only above a
  * summed RGB delta of 30 (testkit CLAUDE.md, 388/389). The door's face on screen is the bounding box of the Fill
@@ -44,6 +57,8 @@ final class WitherDoorFillCases {
     private static final int RED = 0xFF0000;
     private static final int GREEN = 0x00FF00;
     private static final int CUSTOM = 0x2060FF;
+    /** The case's own map id (client-side data only; the server has no map by this id). */
+    private static final int MAP_ID = 39001;
 
     private WitherDoorFillCases() {
     }
@@ -88,6 +103,9 @@ final class WitherDoorFillCases {
         boolean showAllWas = (Boolean) Mod.call(cfg0, "isShowAllDoorsRaw");
         int lockedWas = (Integer) Mod.call(cfg0, "getWitherLockedColor");
         int readyWas = (Integer) Mod.call(cfg0, "getWitherReadyColor");
+        boolean labelsWas = (Boolean) Mod.call(cfg0, "isDoorLabels");
+        int slotWas = c.onClient(mc -> mc.player.getInventory().getSelectedSlot());
+        ItemStack slot9Was = c.onClient(mc -> mc.player.getInventory().getItem(8).copy());
         boolean labelled = false;
         try {
             server(c, level -> {
@@ -121,11 +139,51 @@ final class WitherDoorFillCases {
                 Mod.call(cfg, "setCustomFillColor", false);
                 Mod.call(cfg, "setWitherLockedColor", 0xFF000000 | RED);
                 Mod.call(cfg, "setWitherReadyColor", 0xFF000000 | GREEN);
+                // The held-map doors carry a see-through "Wither Door 6m" label above the box, which would widen the
+                // changed-pixel box the case measures the door face by. The labels are not what this case judges.
+                Mod.call(cfg, "setDoorLabels", false);
                 Mod.call(cfg, "save");
                 return true;
             });
             c.check(c.onClient(mc -> (Boolean) Mod.staticCall("cheatutils.CheatUtils", "isOnDungeonServer", mc)),
                     "CheatUtils.isOnDungeonServer is still false after labeling the connection - nothing would draw");
+            // The map, once "in a clear" has registered (the dungeon-entered reset runs on the next tick). Wither Doors
+            // on is what makes the map scanner read it (it is one of LiveMap's scan consumers).
+            c.ctx().waitFor(mc -> (Boolean) Mod.staticCall("secrets.DungeonState", "isInDungeon"), 100);
+            giveDungeonMap(c);
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(CFG), "setEnabled", true);
+                return null;
+            });
+            // Bounded wait on the real condition: the map rule draws a wither door (kind 0) at cell 1. The scanner
+            // reads slot 9 every 250 ms and retries calibration once a second.
+            boolean mapReady = false;
+            for (int i = 0; i < 200 && !mapReady; i++) {
+                mapReady = c.onClient(mc -> {
+                    if (!(Boolean) Mod.staticCall("livemap.DungeonMapScanner", "isCalibrated")
+                            || !(Boolean) Mod.staticCall(FEATURE, "runStarted")) {
+                        return false;
+                    }
+                    for (Object o : (List<?>) Mod.staticCall(FEATURE, "mapDoorsNow")) {
+                        int[] d = (int[]) o;
+                        if (d[0] == 1 && d[1] == 0) {
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+                if (!mapReady) {
+                    c.ticks(1);
+                }
+            }
+            String mapState = c.onClient(mc -> "calibrated " + Mod.staticCall("livemap.DungeonMapScanner", "isCalibrated")
+                    + ", run started " + Mod.staticCall(FEATURE, "runStarted") + ", status '"
+                    + Mod.staticCall(FEATURE, "status") + "'");
+            c.note("held map: " + mapState);
+            if (!mapReady) {
+                c.problem("the held map never gave Wither Doors the door at cell (1, 0) within 200 ticks: " + mapState);
+                return;
+            }
             c.note("door at " + DX + ",69," + DZ + " (coal 3x4x3, roof y 73); player to " + camX + "," + camY + ","
                     + camZ + " facing +x");
 
@@ -304,8 +362,13 @@ final class WitherDoorFillCases {
                     Mod.call(cfg, "setShowAllDoors", showAllWas);
                     Mod.call(cfg, "setWitherLockedColor", lockedWas);
                     Mod.call(cfg, "setWitherReadyColor", readyWas);
+                    Mod.call(cfg, "setDoorLabels", labelsWas);
                     Mod.call(cfg, "save");
                     Mod.staticCall(FEATURE, "onChat", "Someone opened a WITHER door!");
+                    // The map out of slot 9 on both sides, and the scanner's calibration dropped with it.
+                    mc.player.getInventory().setItem(8, slot9Was.copy());
+                    mc.player.getInventory().setSelectedSlot(slotWas);
+                    Mod.staticCall("livemap.DungeonMapScanner", "reset");
                     Mod.staticCall("secrets.DungeonState", "setRoomSim", false);
                     if (wasLabelled) {
                         setServerData(mc, null);
@@ -320,6 +383,7 @@ final class WitherDoorFillCases {
                             }
                         }
                         var sp = server.getPlayerList().getPlayer(uuid);
+                        sp.getInventory().setItem(8, slot9Was.copy());
                         sp.teleportTo(startPos[0], startPos[1], startPos[2]);
                     });
                     return null;
@@ -451,6 +515,49 @@ final class WitherDoorFillCases {
             }
         }
         return n;
+    }
+
+    /**
+     * Hypixel's dungeon map in hotbar slot 9 (F7's 16 px rooms from corner 5,5, DungeonMapScanner.knownCorner): the
+     * Entrance (colour 30) at grid (0, 0), an opened normal room (63) at (2, 0), and a wither door (119) in the 4 px gap
+     * between them, grid (1, 0). The pixels are client-side map data (as SimMapItemTests.giveMap); the item goes in slot
+     * 9 on both sides, and slot 1 is selected so the map is never in his hand or in the shot.
+     */
+    private static void giveDungeonMap(UiCase c) {
+        byte[] px = new byte[128 * 128];
+        rect(px, 5, 5, 16, 16, 30);
+        rect(px, 25, 5, 16, 16, 63);
+        rect(px, 21, 10, 4, 6, 119);
+        AtomicBoolean done = new AtomicBoolean();
+        c.onClient(mc -> {
+            MapId id = new MapId(MAP_ID);
+            MapItemSavedData data = MapItemSavedData.createForClient((byte) 0, true, mc.level.dimension());
+            System.arraycopy(px, 0, data.colors, 0, px.length);
+            mc.level.overrideMapData(id, data);
+            ItemStack stack = new ItemStack(Items.FILLED_MAP);
+            stack.set(DataComponents.MAP_ID, id);
+            mc.player.getInventory().setItem(8, stack.copy());
+            mc.player.getInventory().setSelectedSlot(0);
+            var server = mc.getSingleplayerServer();
+            var uuid = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(uuid);
+                if (sp != null) {
+                    sp.getInventory().setItem(8, stack.copy());
+                }
+                done.set(true);
+            });
+            return null;
+        });
+        c.ctx().waitFor(mc -> done.get(), 200);
+    }
+
+    private static void rect(byte[] px, int x0, int y0, int w, int h, int colour) {
+        for (int y = y0; y < y0 + h; y++) {
+            for (int x = x0; x < x0 + w; x++) {
+                px[y * 128 + x] = (byte) colour;
+            }
+        }
     }
 
     /** The connection's ServerData (protected final in ClientCommonPacketListenerImpl), so the mod's server gate opens. */
