@@ -603,8 +603,8 @@ public class VideoGeneralSuite implements FabricClientGameTest {
     // 1905 themes
     // =================================================================================================================
 
-    /** {x, y, w, h} of Home's Menu Theme chip {@code i} (MenuTheme order; values().length is Customize...), computed the
-     *  way ModScreen.ThemeBlock lays them out; null if Home is not showing it. The click that follows checks it. */
+    /** {x, y, w, h} of Home's Menu Theme chip {@code i} (MenuTheme order; values().length is Customise...), from
+     *  ModScreen.ThemeBlock's own chip(); null if Home is not showing it. The click that follows checks it. */
     @SuppressWarnings("unchecked")
     private static int[] themeChip(UiCase c, Screen s, int i) {
         return c.onClient(mc -> {
@@ -617,9 +617,9 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                 int x = (Integer) Mod.field(it, "x");
                 int y = (Integer) Mod.field(it, "y") - scroll;
                 int w = (Integer) Mod.field(it, "w");
-                int n = ((Object[]) Mod.staticCall("gui.MenuTheme", "values")).length + 1;
-                int cw = Math.min(90, (w - 20 - (n - 1) * 6) / n);
-                return new int[]{x + 10 + i * (cw + 6), y + 20, cw, 14};
+                // The block's own layout (the themes' row, then Customise... and Main Menu on a row of their own since
+                // mod theme-ui-1022), so a layout change cannot leave this a click off the chip.
+                return (int[]) Mod.call(block, "chip", i, x, y, w);
             }
             return null;
         });

@@ -1088,3 +1088,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   (the sound engine's channel and its answer, not the muted speakers), font (built id and the menu's text widths), and
   imported GIF/video background (draw and upload counters plus the title screen's own pixels) and music (the mod's
   stream hook opened the file). ffmpeg makes the test media; without it on the PATH those halves note SKIPPED.
+- 1022-theme-preview (mod theme-ui-1022): to prove a sound STOPPED, read the channel, not `SoundManager.isActive`. The
+  engine keeps a stopped instance in `instanceToChannel` until `soundDeleteTime` (its start tick + 20, javap 26.1.2
+  `SoundEngine.tickNonPaused`), so isActive read true for 10 ticks after a preview that had played 10 ticks was stopped.
+  `ChannelAccess$ChannelHandle.isStopped()` turns true when the sound thread releases the OpenAL source: 1-2 ticks.
+  Since theme-ui-1022 Theme Music defaults ON, so `defaultsWhy` no longer checks the switch; 1021-theme-music checks the
+  default on a deleted file, and that a file which saved OFF still loads OFF.

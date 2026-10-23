@@ -32,8 +32,11 @@ import java.util.function.Consumer;
  * killer560's 2026-10-21 Theme Extras (mod themes-1021, {@code menuthemes/}): each menu theme's own music, font, and
  * imported video/GIF main menu background and music.
  * <ul>
- *   <li>1021-theme-music: every theme starts with nothing set (Theme Music OFF, Theme Track, Keep Current, Theme Scene);
- *       with the switch off nothing plays on the title screen (control); on, the title screen hands the sound engine the
+ *   <li>1021-theme-music: a fresh config has Theme Music ON (killer560, 2026-10-22) and every theme on Theme Track,
+ *       Keep Current and Theme Scene, each preset's Theme Track its own loop (Viridian the green one), and the title
+ *       screen plays Amber's loop from the defaults alone; a file that saved Theme Music OFF loads OFF, and one that never
+ *       saved it loads ON; with the switch off nothing plays on the title screen (control); on, the title screen hands
+ *       the sound engine the
  *       menu theme's bundled loop (a live engine channel, still live 40 ticks later, so the stream did not fail), at the
  *       slider's volume, vanilla menu music is not playing; another theme switches the track, Off for that theme stops it,
  *       a loading screen stops it and the title screen starts it again; the rows are in the Themes drawer and a click on
@@ -49,13 +52,18 @@ import java.util.function.Consumer;
  *   <li>1021-theme-sound-import: an .ogg is imported as it is and an .mp3 converted to .ogg (ffmpeg); as Amber's music
  *       the engine opens the imported file through the mod's stream hook and keeps it playing; a file that is not sound
  *       is refused; other themes keep Theme Track.</li>
+ *   <li>1022-theme-preview: Play Preview under the Music row starts the edited theme's track in the click itself (the
+ *       engine holds a live, non-looping channel for it before any tick passes), at Music Volume, while the main menu's
+ *       own track and vanilla's menu music hold off; the row then reads Stop Preview and a second click ends the channel;
+ *       closing the mod menu ends it too; with the theme's Music set to Off the button cannot be pressed.</li>
  * </ul>
  * ffmpeg is needed for the video and mp3 halves; without it on the PATH those parts are noted and skipped, never passed.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class ThemeExtrasSuite implements FabricClientGameTest {
 
-    static final String[] CASES = {"1021-theme-music", "1021-theme-font", "1021-theme-bg-import", "1021-theme-sound-import"};
+    static final String[] CASES = {"1021-theme-music", "1021-theme-font", "1021-theme-bg-import", "1021-theme-sound-import",
+            "1022-theme-preview"};
 
     static final String CFG = "menuthemes.ThemeExtrasConfig";
     static final String MUSIC = "menuthemes.ThemeMusic";
@@ -93,6 +101,7 @@ public class ThemeExtrasSuite implements FabricClientGameTest {
         UiCase.run(ctx, "1021-theme-font", ThemeExtrasSuite::font);
         UiCase.run(ctx, "1021-theme-bg-import", ThemeExtrasSuite::backgroundImport);
         UiCase.run(ctx, "1021-theme-sound-import", ThemeExtrasSuite::soundImport);
+        UiCase.run(ctx, "1022-theme-preview", ThemeExtrasSuite::preview);
     }
 
     // =================================================================================================================
@@ -144,11 +153,10 @@ public class ThemeExtrasSuite implements FabricClientGameTest {
         c.ticks(3);
     }
 
-    /** Every theme still has the defaults: nothing set, so it looks and sounds as before. */
+    /** Every theme still has its per-theme defaults: its own track, the current font, its own scene. (The Theme Music
+     *  switch is not checked here: it is ON by default since 2026-10-22 and a saved OFF is kept, so the test client's
+     *  file decides it; 1021-theme-music checks the default on a fresh file.) */
     static String defaultsWhy(Object cfg) {
-        if ((Boolean) Mod.call(cfg, "isMusicOn")) {
-            return "Theme Music is ON by default";
-        }
         for (String t : ALL_THEMES) {
             Object th = theme(t);
             String m = (String) Mod.call(cfg, "getMusic", th);
@@ -225,14 +233,69 @@ public class ThemeExtrasSuite implements FabricClientGameTest {
     static void music(UiCase c) throws Exception {
         Saved saved = save(c);
         try {
-            String defaults = c.onClient(mc -> defaultsWhy(cfg()));
-            c.check(defaults == null, defaults);
+            // A fresh config (no file): Theme Music ON, every theme on its own track.
+            Path file = c.onClient(mc -> (Path) Mod.staticCall(CFG, "path"));
+            Files.deleteIfExists(file);
+            String fresh = c.onClient(mc -> {
+                Mod.staticCall(CFG, "load");
+                Object cfg = cfg();
+                if (!(Boolean) Mod.call(cfg, "isMusicOn")) {
+                    return "a fresh config has Theme Music OFF (wanted ON by default)";
+                }
+                if ((Integer) Mod.call(cfg, "getMusicVolume") != 50) {
+                    return "a fresh config's Music Volume is " + Mod.call(cfg, "getMusicVolume") + ", not 50";
+                }
+                String[][] own = {{"AMBER", "amber"}, {"DARK", "dark"}, {"LIGHT", "light"}, {"OCEAN", "ocean"}, {"GREEN", "green"}};
+                for (String[] t : own) {
+                    Object b = Mod.staticCall(MUSIC, "themeTrack", theme(t[0]));
+                    String ev = b == null ? null : String.valueOf(Mod.call(b, "event"));
+                    if (!("killer560smod:theme_music_" + t[1]).equals(ev)) {
+                        return t[0] + "'s own track is " + ev;
+                    }
+                }
+                if (Mod.staticCall(MUSIC, "themeTrack", theme("CUSTOM")) != null) {
+                    return "Custom has a track of its own";
+                }
+                return defaultsWhy(cfg);
+            });
+            c.check(fresh == null, fresh);
+            c.onClient(mc -> {
+                setMenuTheme(mc, "AMBER");
+                return null;
+            });
+            title(c);
+            c.ticks(5);
+            Object[] byDefault = c.onClient(mc -> new Object[]{Mod.staticCall(MUSIC, "currentKey"),
+                    Mod.staticCall(MUSIC, "engineActive")});
+            c.note("fresh config on the title screen: playing " + byDefault[0] + ", engine active " + byDefault[1]);
+            c.check("killer560smod:theme_music_amber".equals(byDefault[0]) && Boolean.TRUE.equals(byDefault[1]),
+                    "with the defaults alone the title screen played " + byDefault[0] + " (active " + byDefault[1] + ")");
+
+            // A file that saved OFF keeps OFF; one that never saved the switch gets the new default.
+            Files.writeString(file, "{\"musicOn\": false, \"musicVolume\": 30}");
+            Object[] savedOff = c.onClient(mc -> {
+                Mod.staticCall(CFG, "load");
+                return new Object[]{Mod.call(cfg(), "isMusicOn"), Mod.call(cfg(), "getMusicVolume")};
+            });
+            Files.writeString(file, "{\"musicVolume\": 30}");
+            boolean unsaved = c.onClient(mc -> {
+                Mod.staticCall(CFG, "load");
+                return (Boolean) Mod.call(cfg(), "isMusicOn");
+            });
+            c.note("saved OFF loads " + savedOff[0] + " (volume " + savedOff[1] + "); no saved switch loads " + unsaved);
+            c.check(Boolean.FALSE.equals(savedOff[0]) && Integer.valueOf(30).equals(savedOff[1]),
+                    "a file that saved Theme Music OFF loaded " + savedOff[0] + " at " + savedOff[1] + "%");
+            c.check(unsaved, "a file with no musicOn loaded Theme Music OFF");
+            Files.deleteIfExists(file);
 
             // Control: the switch off, the title screen up, nothing starts.
-            int starts0 = c.onClient(mc -> {
-                setMenuTheme(mc, "AMBER");
-                return (Integer) Mod.staticCall(MUSIC, "starts");
+            c.onClient(mc -> {
+                Mod.staticCall(CFG, "load");
+                Mod.call(cfg(), "setMusicOn", false);
+                return null;
             });
+            c.ticks(3);
+            int starts0 = c.onClient(mc -> (Integer) Mod.staticCall(MUSIC, "starts"));
             title(c);
             c.ticks(5);
             Object[] off = c.onClient(mc -> new Object[]{Mod.staticCall(MUSIC, "currentKey"), Mod.staticCall(MUSIC, "starts")});
@@ -344,8 +407,177 @@ public class ThemeExtrasSuite implements FabricClientGameTest {
         } finally {
             restore(c, saved);
         }
-        Object after = c.onClient(mc -> Mod.staticCall(MUSIC, "currentKey"));
-        c.check(after == null, "after restoring the defaults the title screen still plays " + after);
+        // After restoring the client's own file: with its switch OFF nothing plays; ON (the default), its theme's track.
+        Object[] after = c.onClient(mc -> new Object[]{Mod.call(cfg(), "isMusicOn"), Mod.staticCall(MUSIC, "currentKey")});
+        c.note("after restoring: Theme Music " + after[0] + ", playing " + after[1]);
+        if (!(Boolean) after[0]) {
+            c.check(after[1] == null, "after restoring (Theme Music OFF) the title screen still plays " + after[1]);
+        }
+    }
+
+    // =================================================================================================================
+    // 1022-theme-preview
+    // =================================================================================================================
+
+    /** The sound engine's channel handle for {@code inst} (SoundEngine.instanceToChannel), or null. */
+    static Object channelHandle(Minecraft mc, Object inst) {
+        Object engine = Mod.field(mc.getSoundManager(), "soundEngine");
+        return ((Map<?, ?>) Mod.field(engine, "instanceToChannel")).get(inst);
+    }
+
+    /** ChannelAccess.ChannelHandle.isStopped: set when the sound thread finds the OpenAL source stopped and releases it. */
+    static boolean channelReleased(Object handle) {
+        return (Boolean) Mod.call(handle, "isStopped");
+    }
+
+    /** Ticks until {@code handle}'s channel is released, polled one tick at a time; 11 when it is not within 10. */
+    static int ticksUntilReleased(UiCase c, Object handle) {
+        for (int t = 0; t <= 10; t++) {
+            if (c.onClient(mc -> channelReleased(handle))) {
+                return t;
+            }
+            c.ticks(1);
+        }
+        return 11;
+    }
+
+    static void preview(UiCase c) throws Exception {
+        Saved saved = save(c);
+        try {
+            // Amber on the main menu with its own loop playing; Ocean is the theme being set up.
+            c.onClient(mc -> {
+                setMenuTheme(mc, "AMBER");
+                Object cfg = cfg();
+                Mod.call(cfg, "setMusicOn", true);
+                Mod.call(cfg, "setMusicVolume", 35);
+                Mod.call(cfg, "setMusic", theme("AMBER"), "theme");
+                Mod.call(cfg, "setMusic", theme("OCEAN"), "theme");
+                return null;
+            });
+            title(c);
+            c.ticks(5);
+            String menuTrack = c.onClient(mc -> (String) Mod.staticCall(MUSIC, "currentKey"));
+            c.check("killer560smod:theme_music_amber".equals(menuTrack), "the title screen plays " + menuTrack
+                    + " before the preview");
+
+            int starts0 = c.onClient(mc -> (Integer) Mod.staticCall(MUSIC, "previewStarts"));
+            Object[] st = c.onClient(mc -> {
+                Mod.staticCall("menuthemes.ThemeExtrasSettings", "setEditing", theme("OCEAN"));
+                Screen s = FontsMainMenuSuite.themesDrawer(mc);
+                AbstractWidget b = row(s, "Play Preview: Ocean Loop");
+                if (b == null) {
+                    return new Object[]{"no 'Play Preview: Ocean Loop' row in the Themes drawer: " + FontsMainMenuSuite.labels(s)};
+                }
+                // It sits right under the Music row.
+                AbstractWidget music = row(s, "Music: ");
+                if (music == null || b.getY() <= music.getY() || b.getY() - music.getY() > 30) {
+                    return new Object[]{"Play Preview is not right under the Music row (Music "
+                            + (music == null ? "missing" : music.getY()) + ", preview " + b.getY() + ")"};
+                }
+                ModScreenDriver.press(b);
+                // In the same call, no tick passed: the engine already holds it.
+                Object inst = Mod.field(Mod.ROOT + MUSIC, "preview");
+                AbstractWidget now = row(s, "Stop Preview");
+                return new Object[]{null, Mod.staticCall(MUSIC, "previewKey"), Mod.staticCall(MUSIC, "previewEngineActive"),
+                        Mod.staticCall(MUSIC, "lastPreviewResult"), Mod.staticCall(MUSIC, "previewLooping"),
+                        inst == null ? -1f : Mod.call(inst, "rawVolume"), Mod.staticCall(MUSIC, "currentKey"),
+                        ModScreenDriver.label(now == null ? b : now), inst};
+            });
+            c.check(st[0] == null, String.valueOf(st[0]));
+            if (st[0] != null) {
+                return;
+            }
+            Object inst = st[8];
+            c.note("pressed Play Preview: key " + st[1] + ", engine active " + st[2] + ", result " + st[3] + ", looping "
+                    + st[4] + ", volume " + st[5] + ", menu track " + st[6] + ", row now '" + st[7] + "'");
+            c.check("killer560smod:theme_music_ocean".equals(st[1]), "Play Preview played " + st[1] + ", not Ocean's loop");
+            c.check(Boolean.TRUE.equals(st[2]), "the sound engine holds no channel for the preview right after the click ("
+                    + st[3] + ")");
+            c.check(String.valueOf(st[3]).startsWith("STARTED"), "the engine answered " + st[3]);
+            c.check(Boolean.FALSE.equals(st[4]), "the preview loops; it should play once");
+            c.check(st[5] instanceof Float f && Math.abs(f - 0.35f) < 0.001f, "the preview's volume is " + st[5]
+                    + ", Music Volume says 35%");
+            c.check(st[6] == null, "the menu's own track kept playing beside the preview: " + st[6]);
+            c.check("Stop Preview".equals(st[7]), "after the click the row reads '" + st[7] + "'");
+            int starts1 = c.onClient(mc -> (Integer) Mod.staticCall(MUSIC, "previewStarts"));
+            c.check(starts1 == starts0 + 1, "previewStarts went " + starts0 + " -> " + starts1);
+
+            // Still playing 20 ticks on (the stream did not fail, and nothing stopped it on a timer); no vanilla music.
+            c.ticks(20);
+            Object[] later = c.onClient(mc -> new Object[]{Mod.staticCall(MUSIC, "previewEngineActive"),
+                    Mod.staticCall(MUSIC, "currentKey"), mc.getMusicManager().getCurrentMusicTranslationKey()});
+            c.check(Boolean.TRUE.equals(later[0]), "the preview stopped by itself within 20 ticks");
+            c.check(later[1] == null && later[2] == null, "music beside the preview: theme " + later[1] + ", vanilla "
+                    + later[2]);
+
+            // The second click stops it: the OpenAL channel the click started is released. (SoundEngine.isActive is not the
+            // test here: the engine keeps a stopped instance in its map until 20 ticks after it started, javap 26.1.2
+            // tickNonPaused/soundDeleteTime, so it reads true for a channel that is already silent.)
+            Object handle = c.onClient(mc -> channelHandle(mc, inst));
+            c.check(handle != null && !channelReleased(handle), "the preview's channel is not live before the second click");
+            Object[] stop = c.onClient(mc -> {
+                Screen s = McCompat.screen(mc);
+                AbstractWidget b = row(s, "Stop Preview");
+                if (b == null) {
+                    return new Object[]{"no 'Stop Preview' row: " + FontsMainMenuSuite.labels(s)};
+                }
+                ModScreenDriver.press(b);
+                return new Object[]{null, Mod.staticCall(MUSIC, "previewing"), ModScreenDriver.label(b)};
+            });
+            c.check(stop[0] == null, String.valueOf(stop[0]));
+            int stopTicks = ticksUntilReleased(c, handle);
+            c.note("second click: previewing " + stop[1] + ", channel released after " + stopTicks + " tick(s), row '"
+                    + stop[2] + "'");
+            c.check(Boolean.FALSE.equals(stop[1]), "the second click did not stop the preview");
+            c.check(stopTicks <= 10, "the preview's channel was still playing 10 ticks after the second click");
+            c.check(String.valueOf(stop[2]).startsWith("Play Preview: Ocean Loop"), "after stopping the row reads " + stop[2]);
+
+            // Closing the mod menu stops one too.
+            Object inst2 = c.onClient(mc -> {
+                AbstractWidget b = row(McCompat.screen(mc), "Play Preview: ");
+                if (b != null) {
+                    ModScreenDriver.press(b);
+                }
+                return Mod.field(Mod.ROOT + MUSIC, "preview");
+            });
+            c.check(inst2 != null, "the third click started nothing");
+            if (inst2 == null) {
+                return;
+            }
+            // A human closes the menu some ticks after a click; by then the stream is attached and playing.
+            c.ticks(10);
+            Object handle2 = c.onClient(mc -> channelHandle(mc, inst2));
+            c.check(handle2 != null && !channelReleased(handle2), "the third click's channel is not live 10 ticks on");
+            title(c);
+            c.ticks(1);
+            boolean flagOff = c.onClient(mc -> !(Boolean) Mod.staticCall(MUSIC, "previewing"));
+            int closeTicks = 1 + (handle2 == null ? 0 : ticksUntilReleased(c, handle2));
+            String menuTrack2 = c.onClient(mc -> (String) Mod.staticCall(MUSIC, "currentKey"));
+            c.note("menu closed: preview off after 1 tick " + flagOff + ", channel released after " + closeTicks
+                    + " tick(s), menu track " + menuTrack2);
+            c.check(flagOff, "the preview was still on a tick after the menu closed");
+            c.check(closeTicks <= 11, "the preview's channel was still playing 10 ticks after the menu closed");
+            c.check("killer560smod:theme_music_amber".equals(menuTrack2), "after the preview the title screen plays " + menuTrack2);
+
+            // Music: Off for Ocean: nothing to preview, the button cannot be pressed.
+            String off = c.onClient(mc -> {
+                Mod.call(cfg(), "setMusic", theme("OCEAN"), "none");
+                Screen s = FontsMainMenuSuite.themesDrawer(mc);
+                AbstractWidget b = row(s, "Play Preview");
+                if (b == null) {
+                    return "no Play Preview row with Ocean on Off: " + FontsMainMenuSuite.labels(s);
+                }
+                return b.active ? "Play Preview can be pressed with Ocean's music Off ('" + ModScreenDriver.label(b) + "')" : null;
+            });
+            c.check(off == null, off);
+        } finally {
+            c.onClient(mc -> {
+                Mod.staticCall(MUSIC, "stopPreview");
+                Mod.staticCall("menuthemes.ThemeExtrasSettings", "setEditing", (Object) null);
+                return null;
+            });
+            restore(c, saved);
+        }
     }
 
     // =================================================================================================================

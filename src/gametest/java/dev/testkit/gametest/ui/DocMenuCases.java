@@ -155,6 +155,84 @@ final class DocMenuCases {
 
     // ---- 980 -------------------------------------------------------------------------------------------------------
 
+    /** Home's Menu Theme row (killer560, 2026-10-22: the two editing buttons were squeezed beside the themes and cut
+     *  off): at every width the grid can take, from narrower than the 320-wide window's grid to 1000, the theme chips are
+     *  no smaller than when they shared the row with the editing buttons; Customise... and Main Menu sit below the theme
+     *  row, inside the box, no narrower than a theme chip, never overlapping, and every label they can show fits uncut.
+     *  Null when it holds. */
+    /** What the last {@link #themeRowWhy} measured, for the case's note. */
+    static String themeRowNote = "";
+
+    static String themeRowWhy(Minecraft mc, Object block, int n) {
+        int widestStacked = -1;
+        int narrowestWide = -1;
+        String[] labels = {"Customise...", "Main Menu: Fancy", "Main Menu: Simple"};
+        for (String l : labels) {
+            if (!l.startsWith("Customise")) {
+                // the scene labels the mod can show
+                boolean known = false;
+                for (Object m : Mod.cls("mainmenu.MainMenuThemeConfig$SceneMode").getEnumConstants()) {
+                    known |= l.equals("Main Menu: " + Mod.field(m, "label"));
+                }
+                if (!known) {
+                    return "the scene modes changed; '" + l + "' is not one of them";
+                }
+            }
+        }
+        for (int w = 150; w <= 1000; w++) {
+            int h = (Integer) Mod.call(block, "height", w);
+            int oldCw = Math.min(90, (w - 20 - (n + 1) * 6) / (n + 2));
+            int[] last = null;
+            for (int i = 0; i < n; i++) {
+                int[] b = (int[]) Mod.call(block, "chip", i, 0, 0, w);
+                if (b[2] < oldCw) {
+                    return "at width " + w + " theme chip " + i + " is " + b[2] + " wide, narrower than the old " + oldCw;
+                }
+                if (last != null && b[0] < last[0] + last[2]) {
+                    return "at width " + w + " theme chips " + (i - 1) + " and " + i + " overlap";
+                }
+                last = b;
+            }
+            int themeBottom = last[1] + last[3];
+            if ((Boolean) Mod.call(block, "stacked", w)) {
+                widestStacked = w;
+            } else if (narrowestWide < 0) {
+                narrowestWide = w;
+            }
+            int[] cz = (int[]) Mod.call(block, "chip", n, 0, 0, w);
+            int[] mz = (int[]) Mod.call(block, "chip", n + 1, 0, 0, w);
+            for (int[] b : new int[][]{cz, mz}) {
+                if (b[1] < themeBottom + 2) {
+                    return "at width " + w + " an editing button " + java.util.Arrays.toString(b) + " is on the theme row";
+                }
+                if (b[2] < last[2]) {
+                    return "at width " + w + " an editing button is " + b[2] + " wide, a theme chip " + last[2];
+                }
+                if (b[0] < 0 || b[0] + b[2] > w || b[1] + b[3] > h - 2) {
+                    return "at width " + w + " an editing button " + java.util.Arrays.toString(b) + " leaves the box ("
+                            + w + "x" + h + ")";
+                }
+            }
+            boolean apart = cz[1] + cz[3] <= mz[1] || mz[1] + mz[3] <= cz[1] || cz[0] + cz[2] <= mz[0]
+                    || mz[0] + mz[2] <= cz[0];
+            if (!apart) {
+                return "at width " + w + " Customise... " + java.util.Arrays.toString(cz) + " overlaps Main Menu "
+                        + java.util.Arrays.toString(mz);
+            }
+            if (mc.font.width("Customise...") > cz[2] - 6) {
+                return "at width " + w + " 'Customise...' is cut in a " + cz[2] + "-wide button";
+            }
+            for (int k = 1; k < labels.length; k++) {
+                if (mc.font.width(labels[k]) > mz[2] - 6) {
+                    return "at width " + w + " '" + labels[k] + "' is cut in a " + mz[2] + "-wide button";
+                }
+            }
+        }
+        themeRowNote = "Menu Theme row measured at widths 150-1000: editing buttons stacked up to " + widestStacked
+                + ", side by side from " + narrowestWide;
+        return null;
+    }
+
     static void home(UiCase c) throws Exception {
         String variant = Mod.isCheat() ? "cheat" : "legit";
         Object menuCfg = Mod.cfg("gui.MenuConfig");
@@ -211,6 +289,12 @@ final class DocMenuCases {
                     return "Customize... opened " + (open == null ? "nothing" : open.getClass().getSimpleName());
                 }
                 Mod.call(s[0], "closeDrawer");
+                // killer560, 2026-10-22: Customise... and Main Menu sit full-size on their own row under the themes.
+                String rowWhy = themeRowWhy(mc, Mod.field(themeItem, "block"), n);
+                if (rowWhy != null) {
+                    return rowWhy;
+                }
+                // (519 clicks the Main Menu button where it now is, through homeSceneChipBounds.)
                 // The Favourites PAGE stays.
                 if (!(Boolean) Mod.call(s[0], "selectCategory", "Favourites")) {
                     return "the sidebar has no Favourites page";
@@ -221,7 +305,7 @@ final class DocMenuCases {
                 }
                 Mod.call(s[0], "selectCategory", "Home");
                 c.note("Home: quick buttons " + kept + "; boxes " + blocks + "; cards " + cards
-                        + "; Customize... opened Menu Theme; the Favorites page lists the starred card");
+                        + "; Customize... opened Menu Theme; the Favorites page lists the starred card; " + themeRowNote);
                 return null;
             });
             c.check(why == null, why);
@@ -279,6 +363,7 @@ final class DocMenuCases {
                         "DiscordRpcTab", "AutoUpdateTab"));
                 if (Mod.isCheat()) {
                     wantCards.add("CorrectionAlarmTab");
+                    wantCards.add("StreamerModeTab"); // mod 23ef23da (2026-10-19): Home's cheat block
                 }
                 if (!cards.equals(wantCards)) {
                     return "Home's cards are " + cards + ", wanted " + wantCards;
