@@ -352,6 +352,7 @@ final class MenuAnim2Cases {
                 continue;
             }
             Mod.call(w, "press");
+            backToMenu(s);
             Mod.call(s, "rebuild");
             try {
                 checkAll(s, tab, tabName + " [" + sw + " on]", done, results, stepNames);
@@ -359,6 +360,7 @@ final class MenuAnim2Cases {
                 AbstractWidget back = row(s, "SWITCH", sw);
                 if (back != null && (Boolean) Mod.call(back, "isOn")) {
                     Mod.call(back, "press");
+                    backToMenu(s);
                     Mod.call(s, "rebuild");
                 }
             }
@@ -371,6 +373,18 @@ final class MenuAnim2Cases {
             }
         }
         return results;
+    }
+
+    /**
+     * Puts the menu back if a switch opened a screen over it. Turning the Bazaar Flipper on opens the Bazaar Advisor's
+     * questions (mod f0641a08, killer560 2026-10-19); with the menu no longer the open screen a slider is not "in the
+     * menu", skips its step snap, and every drawer swept after it read as knobs resting between values.
+     */
+    static void backToMenu(Screen s) {
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+        if (dev.testkit.compat.McCompat.screen(mc) != s) {
+            dev.testkit.compat.McCompat.setScreen(mc, s);
+        }
     }
 
     static void checkAll(Screen s, Object tab, String where, java.util.Set<String> done, List<String> results,
@@ -396,6 +410,9 @@ final class MenuAnim2Cases {
     /** Drags one slider across its track and checks every resting knob against a fresh drawer. Client thread. Returns
      *  null (fine, continuous), "STEPPED ..." (fine, snaps) or a problem. */
     static String checkSlider(Screen s, Object tab, String key, int ord, String where, List<String> stepNames) {
+        if (dev.testkit.compat.McCompat.screen(net.minecraft.client.Minecraft.getInstance()) != s) {
+            return where + ": the menu is not the open screen, so its sliders are not in the menu";
+        }
         AbstractWidget w = find(s, key, ord);
         if (w == null) {
             return where + ": slider not found";
