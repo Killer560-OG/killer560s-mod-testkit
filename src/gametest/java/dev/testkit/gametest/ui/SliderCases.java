@@ -595,6 +595,12 @@ final class SliderCases {
                 }
                 boolean hit = p.getX() < q.getX() + q.getWidth() && q.getX() < p.getX() + p.getWidth()
                         && p.getY() < q.getY() + q.getHeight() && q.getY() < p.getY() + p.getHeight();
+                // A gui.PaintedPanel is a painted card that never takes a click, with its buttons placed ON it (mod
+                // 438b4c60, the Profiles page: "Add it BEFORE the widgets that sit on it"). A widget wholly inside a
+                // card is the design; one sticking out of it, or two cards crossing, is still an overlap.
+                if (hit && (backdropHolds(p, q) || backdropHolds(q, p))) {
+                    hit = false;
+                }
                 if (hit) {
                     String pair = "'" + where + "': '" + stripValue(ModScreenDriver.label(p)) + "' and '"
                             + stripValue(ModScreenDriver.label(q)) + "'";
@@ -608,6 +614,16 @@ final class SliderCases {
                 }
             }
         }
+    }
+
+    /** True when {@code card} is a gui.PaintedPanel backdrop and {@code w} (not itself one) lies entirely inside it. */
+    private static boolean backdropHolds(AbstractWidget card, AbstractWidget w) {
+        if (!card.getClass().getSimpleName().equals("PaintedPanel") || w.getClass().getSimpleName().equals("PaintedPanel")) {
+            return false;
+        }
+        return w.getX() >= card.getX() && w.getY() >= card.getY()
+                && w.getX() + w.getWidth() <= card.getX() + card.getWidth()
+                && w.getY() + w.getHeight() <= card.getY() + card.getHeight();
     }
 
     /** "Cooldown: 7 ticks" -> "Cooldown", so a pair is reported once however the values moved. */
