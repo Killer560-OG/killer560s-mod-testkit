@@ -122,7 +122,7 @@ public class SimDesignerGridTests implements FabricClientGameTest {
             throw new AssertionError(failures.size() + " problem(s), first " + shown + ":\n  "
                     + String.join("\n  ", failures.subList(0, shown)));
         }
-        println("PASS - evenly spaced grid lines and every room on its cells to the pixel, label centred, at every size");
+        println("PASS - evenly spaced grid lines and every room on its cells to the pixel, label centered, at every size");
     }
 
     // ============================================================================================ rooms and placing
@@ -517,7 +517,7 @@ public class SimDesignerGridTests implements FabricClientGameTest {
             }
         }
         if (count == 0) {
-            check(false, who + ": no pixel of its colour " + String.format("#%06X", colour) + " inside its cells");
+            check(false, who + ": no pixel of its color " + String.format("#%06X", colour) + " inside its cells");
             return null;
         }
         int gl = minX - (sx0 + t);
@@ -551,10 +551,10 @@ public class SimDesignerGridTests implements FabricClientGameTest {
                 double frac = all == 0 ? 0 : in / (double) all;
                 if (isMissing && frac > 0.02) {
                     check(false, who + ": its missing quarter " + dx + "," + dz + " is " + Math.round(frac * 100)
-                            + "% room colour - the L is drawn as its whole box");
+                            + "% room color - the L is drawn as its whole box");
                 } else if (!isMissing && frac < 0.55) {
                     check(false, who + ": its tile " + dx + "," + dz + " is only " + Math.round(frac * 100)
-                            + "% room colour");
+                            + "% room color");
                 }
             }
         }
@@ -586,8 +586,8 @@ public class SimDesignerGridTests implements FabricClientGameTest {
             double dy = (uy0 + uy1) / 2 - (box[1] + box[3]) / 2.0;
             double tol = 2.0 * gs;
             if (Math.abs(dx) > tol || Math.abs(dy) > tol) {
-                check(false, who + ": its label's centre is " + String.format("%.1f, %.1f", dx, dy)
-                        + " px off its " + (p.missing() != null ? "horizontal pair" : "box") + "'s centre");
+                check(false, who + ": its label's center is " + String.format("%.1f, %.1f", dx, dy)
+                        + " px off its " + (p.missing() != null ? "horizontal pair" : "box") + "'s center");
             }
         }
         return new int[]{g};

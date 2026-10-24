@@ -229,11 +229,11 @@ final class MapOverhaulCases {
             c.check(indexOf(on, "Player Heads") == indexOf(on, "Show Teammates") + 1,
                     "Player Heads is not directly under Show Teammates while it is on");
             for (String want : new String[]{"Player Marker Size", "Custom Checkmark Sprite", "Darken Unexplored",
-                    "Map Theme", "New Custom Scheme", "Names Holding Leap", "Recolour by Class"}) {
+                    "Map Theme", "New Custom Scheme", "Names Holding Leap", "Recolor by Class"}) {
                 c.check(contains(on, want), "no '" + want + "' row");
             }
-            for (String gone : new String[]{"Room Colours", "Room Colors", "Normal", "Save Theme", "Checkmark Sprites", "Icon Scale",
-                    "Mimic Room Show/Hide", "Player-Head Class Recolour", "Player-Head Class Recolor"}) {
+            for (String gone : new String[]{"Room Colors", "Room Colors", "Normal", "Save Theme", "Checkmark Sprites", "Icon Scale",
+                    "Mimic Room Show/Hide", "Player-Head Class Recolor", "Player-Head Class Recolor"}) {
                 c.check(!containsExact(on, gone), "'" + gone + "' is still a row of the tab");
             }
             c.check(contains(on, "Funny Map") == Mod.isCheat(), "Funny Map shown on the " + (Mod.isCheat() ? "cheat" : "legit")
@@ -251,8 +251,8 @@ final class MapOverhaulCases {
             List<String> off = drawerLabels(c, "Dungeon Map");
             c.note("Dungeon Map drawer (Show Teammates OFF, Funny Map ON): " + off);
             c.check(!contains(off, "Player Heads"), "Player Heads shown with Show Teammates off");
-            c.check(contains(off, "Show Mimic Room") == Mod.isCheat() && contains(off, "Mimic Room Colour") == Mod.isCheat(),
-                    "Show Mimic Room / Mimic Room Colour must be there exactly on the cheat jar with Funny Map on");
+            c.check(contains(off, "Show Mimic Room") == Mod.isCheat() && contains(off, "Mimic Room Color") == Mod.isCheat(),
+                    "Show Mimic Room / Mimic Room Color must be there exactly on the cheat jar with Funny Map on");
             if (!Mod.isCheat()) {
                 boolean funny = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(MAP), "isFunnyMap"));
                 c.check(!funny, "the legit jar reports Funny Map on (a saved true must do nothing there)");
@@ -580,7 +580,7 @@ final class MapOverhaulCases {
             double[] ring = c.onClient(mc -> (double[]) Mod.staticCall("doorkeys.DoorKeysFeature", "pickupRing"));
             c.note("radius circle " + java.util.Arrays.toString(ring));
             c.check(ring != null && Math.abs(ring[1] - 101.3) < 1e-6 && Math.abs(ring[0] - 270.5) < 1e-6
-                    && Math.abs(ring[2] - 270.5) < 1e-6, "the Radius circle is not centred on the key at its height (y 101.3)");
+                    && Math.abs(ring[2] - 270.5) < 1e-6, "the Radius circle is not centered on the key at its height (y 101.3)");
             c.onClient(mc -> {
                 Mod.call(Mod.cfg(KEYS), "setRangeStyle", 1);
                 return null;
@@ -591,7 +591,7 @@ final class MapOverhaulCases {
             c.note("sphere " + java.util.Arrays.toString(sp) + " (pickup range " + range + "; before switching "
                     + java.util.Arrays.toString(sphere0) + ")");
             c.check(sp != null && Math.abs(sp[0] - 270.5) < 1e-6 && Math.abs(sp[1] - 101.3) < 1e-6
-                    && Math.abs(sp[2] - 270.5) < 1e-6, "the sphere is not centred on the key's stand");
+                    && Math.abs(sp[2] - 270.5) < 1e-6, "the sphere is not centered on the key's stand");
             c.check(sp != null && Math.abs(sp[3] - range) < 1e-9, "the sphere's radius is not the pickup range");
             c.onClient(mc -> {
                 Mod.call(Mod.cfg(KEYS), "setEnabled", false);

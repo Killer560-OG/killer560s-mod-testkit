@@ -390,7 +390,7 @@ public class SimAutoClear1020Tests implements FabricClientGameTest {
             }
             long dead = alive.values().stream().filter("dead"::equals).count();
             String line = String.format(Locale.US, "onetap (%s): %d/%d mobs dead, onDone=%s onGiveUp=%s, %d tick(s), uses %d,"
-                            + " trusted %d, survivors %d, moves on %d, travelled %.1f", room.name(), dead, placed.size(),
+                            + " trusted %d, survivors %d, moves on %d, traveled %.1f", room.name(), dead, placed.size(),
                     done.get(), gaveUp.get(), r.ticks, r.uses, trusted, survived, oneTapMoves(ctx) - movesBefore,
                     r.travelled);
             println(line);
@@ -476,7 +476,7 @@ public class SimAutoClear1020Tests implements FabricClientGameTest {
                 led += l.contains("leading the bat") ? 1 : 0;
             }
             String line = String.format(Locale.US, "predict (%s): walking zombie %s, onDone=%s onGiveUp=%s, %d tick(s), uses"
-                            + " %d, lead lines %d, travelled %.1f", room.name(), alive.get(pair[0]), done.get(), gaveUp.get(),
+                            + " %d, lead lines %d, traveled %.1f", room.name(), alive.get(pair[0]), done.get(), gaveUp.get(),
                     r.ticks, r.uses, led, r.travelled);
             println(line);
             lines.add(line);

@@ -417,7 +417,7 @@ public class SimClickGapTests implements FabricClientGameTest {
         }
         if (uses < 2 || clicks < uses - 1 || seen < clicks || r.travelled < 20) {
             failures.add("autoclear: only " + uses + " AOTV use(s), " + clicks + " click(s) made, " + seen + " seen by the "
-                    + "server, travelled " + String.format(java.util.Locale.US, "%.0f", r.travelled)
+                    + "server, traveled " + String.format(java.util.Locale.US, "%.0f", r.travelled)
                     + " - the clicks did not precede 2+ hops, so this proves nothing");
         }
         if (dropped != 0) {

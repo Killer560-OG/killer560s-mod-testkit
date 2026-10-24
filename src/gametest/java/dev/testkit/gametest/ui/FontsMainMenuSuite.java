@@ -619,7 +619,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                         return e.label() + ": scene " + l[0] + ", expected " + e.wantScene();
                     }
                     if (!java.util.Arrays.equals(want, (int[]) l[1])) {
-                        return e.label() + ": colours " + hex((int[]) l[1]) + ", expected " + e.coloursOf() + "'s " + hex(want);
+                        return e.label() + ": colors " + hex((int[]) l[1]) + ", expected " + e.coloursOf() + "'s " + hex(want);
                     }
                     if ((Boolean) l[2] != e.panel() || Math.abs((Float) l[3] - e.speed() / 100f) > 0.001f) {
                         return e.label() + ": panel/speed " + l[2] + "/" + l[3];

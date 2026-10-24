@@ -149,7 +149,7 @@ final class HxBloodCampCases {
                     }
                 }
             }
-            c.note("Boomer Giant: ESP colour " + seen[0] + "; [Lv79] <icon> Parasite: ESP colour " + seen[1] + "; red "
+            c.note("Boomer Giant: ESP color " + seen[0] + "; [Lv79] <icon> Parasite: ESP color " + seen[1] + "; red "
                     + Integer.toHexString(red));
             c.check(Integer.valueOf(red).equals(seen[0]), "the Blood Room giant was not highlighted red");
             c.check(Integer.valueOf(red).equals(seen[1]), "the blood mob with a mob-type icon in its tag was not highlighted red");
@@ -1436,8 +1436,8 @@ final class HxBloodCampCases {
             }
             long onNamed = namedAttacks(c, since, "namedblood");
             long onLookalike = namedAttacks(c, since, "lookalike");
-            c.note("named Revoker (never seen landing): ESP colour " + seen[0] + ", attacks " + onNamed + "; look-alike tag:"
-                    + " ESP colour " + seen[1] + ", attacks " + onLookalike + "; red " + Integer.toHexString(red));
+            c.note("named Revoker (never seen landing): ESP color " + seen[0] + ", attacks " + onNamed + "; look-alike tag:"
+                    + " ESP color " + seen[1] + ", attacks " + onLookalike + "; red " + Integer.toHexString(red));
             c.check(Integer.valueOf(red).equals(seen[0]), "the named blood mob was not highlighted red");
             c.check(seen[1] == null, "a mob whose tag only looks like a blood mob's was highlighted");
             c.check(onLookalike == 0, "the Aura attacked a mob whose tag only looks like a blood mob's");

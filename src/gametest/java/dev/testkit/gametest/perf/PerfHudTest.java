@@ -62,7 +62,7 @@ public class PerfHudTest implements FabricClientGameTest {
             defaults.putAll(ctx.computeOnClient(mc -> PerfBench.states(all)));
 
             // ---- correctness, render thread ----
-            failures.addAll(ctx.computeOnClient(mc -> guarded("colour codes", () -> colourCodeChecks(report))));
+            failures.addAll(ctx.computeOnClient(mc -> guarded("color codes", () -> colourCodeChecks(report))));
             failures.addAll(ctx.computeOnClient(mc -> guarded("ability cooldowns", () -> abilityChecks(report))));
             failures.addAll(ctx.computeOnClient(mc -> guarded("tick timers", () -> tickTimerChecks(report))));
             failures.addAll(ctx.computeOnClient(mc -> guarded("stat text", () -> statTextChecks(report))));
@@ -213,7 +213,7 @@ public class PerfHudTest implements FabricClientGameTest {
                 }
             }
         }
-        report.add("colour codes: " + checked + " strings, scan == regex");
+        report.add("color codes: " + checked + " strings, scan == regex");
         return fails;
     }
 
@@ -239,7 +239,7 @@ public class PerfHudTest implements FabricClientGameTest {
         Object a = Mod.staticCall(cls, "cachedLine", ability, 1000L, 1.0, 0xFFFF5555);
         Object b = Mod.staticCall(cls, "cachedLine", ability, 1001L, 1.001, 0xFFFFAA00);
         if ((Integer) Mod.call(b, "color") != 0xFFFFAA00 || (Integer) Mod.call(a, "color") != 0xFFFF5555) {
-            fails.add("ability row kept a stale colour across the 1.0 s boundary");
+            fails.add("ability row kept a stale color across the 1.0 s boundary");
         }
         report.add("ability cooldowns: 12,001 ms values == String.format");
         return fails;

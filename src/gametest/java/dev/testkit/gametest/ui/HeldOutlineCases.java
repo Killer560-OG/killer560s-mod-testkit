@@ -738,8 +738,8 @@ final class HeldOutlineCases {
             });
             c.note("Cosmetics tabs: " + cosmetics);
             c.check(cosmetics.contains("Held Item Outline"), "Held Item Outline is not a tab in Cosmetics: " + cosmetics);
-            for (String label : new String[]{"Held Item Outline: OFF", "Style: Outline", "Outline Colour", "Outline Width: 3.0 px",
-                    "Fill Colour", "Main Hand: ON", "Off Hand: OFF"}) {
+            for (String label : new String[]{"Held Item Outline: OFF", "Style: Outline", "Outline Color", "Outline Width: 3.0 px",
+                    "Fill Color", "Main Hand: ON", "Off Hand: OFF"}) {
                 String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Held Item Outline",
                         label));
                 c.note("tooltip '" + label + "': " + tip);

@@ -86,7 +86,7 @@ public class SimMapUnknownRoomTests implements FabricClientGameTest {
                 }
             });
             System.out.println(String.format(Locale.ROOT, "[%s] world-scanned %s, type %s, fill #%08X, Normal #%08X, "
-                            + "unopened grey #%08X", CASE, answer[0], answer[1], (Integer) answer[2], (Integer) answer[3],
+                            + "unopened gray #%08X", CASE, answer[0], answer[1], (Integer) answer[2], (Integer) answer[3],
                     (Integer) answer[4]));
             if (Boolean.TRUE.equals(answer[0])) {
                 failures.add("the far-corner tile was world-scanned, the case does not test an unscanned room");
@@ -96,7 +96,7 @@ public class SimMapUnknownRoomTests implements FabricClientGameTest {
             }
             if (!answer[2].equals(answer[3])) {
                 failures.add(String.format(Locale.ROOT, "a room with no database entry is filled #%08X, want the Normal"
-                        + " colour #%08X", (Integer) answer[2], (Integer) answer[3]));
+                        + " color #%08X", (Integer) answer[2], (Integer) answer[3]));
             }
         } catch (Throwable t) {
             failures.add("scenario threw: " + t);

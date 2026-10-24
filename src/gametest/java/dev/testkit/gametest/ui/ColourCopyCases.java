@@ -79,7 +79,7 @@ final class ColourCopyCases {
         ModScreenDriver.press(hit);
         Screen picker = McCompat.screen(mc);
         if (picker == null || !picker.getClass().getSimpleName().equals(PICKER)) {
-            throw new AssertionError(tab + "'s \"" + row + "\" row opened " + picker + ", not the colour picker");
+            throw new AssertionError(tab + "'s \"" + row + "\" row opened " + picker + ", not the color picker");
         }
         return picker;
     }
@@ -122,7 +122,7 @@ final class ColourCopyCases {
             c.check(parsed("  # 3A 7B D5 \n") == 0xFF3A7BD5, "whitespace was not ignored");
             for (String bad : new String[]{"", "   ", "#12345", "zzzzzz", "#GGGGGG", "3AB", "red", "#1234567890",
                     "0x", "#", "rgb(1,2,3)", "#3A7BD5;"}) {
-                c.check(Mod.staticCall("gui.ColourHex", "parse", bad) == null, "\"" + bad + "\" was read as a colour");
+                c.check(Mod.staticCall("gui.ColourHex", "parse", bad) == null, "\"" + bad + "\" was read as a color");
             }
             c.check(Mod.staticCall("gui.ColourHex", "format", 0xFF3A7BD5).equals("#3A7BD5"), "an opaque color is not #RRGGBB");
             c.check(Mod.staticCall("gui.ColourHex", "format", 0x803A7BD5).equals("#803A7BD5"), "a translucent one is not #AARRGGBB");
@@ -178,7 +178,7 @@ final class ColourCopyCases {
             int diskBefore = realTimeOnDisk();
             Screen b = c.onClient(mc -> {
                 try {
-                    return openPicker(mc, "RealTimeTab", "Text Colour:");
+                    return openPicker(mc, "RealTimeTab", "Text Color:");
                 } catch (Exception e) {
                     throw new AssertionError(e);
                 }
@@ -190,9 +190,9 @@ final class ColourCopyCases {
                     pressWidget(b, "pasteButton");
                     return argb(b) != bBefore;
                 });
-                c.check(!took, "pasting \"" + junk + "\" changed the colour to " + hex(argb(b)));
-                c.check(statusBad(b) && status(b).toLowerCase(java.util.Locale.ROOT).contains("not a colour"),
-                        "pasting \"" + junk + "\" showed \"" + status(b) + "\", not a red not-a-colour line");
+                c.check(!took, "pasting \"" + junk + "\" changed the color to " + hex(argb(b)));
+                c.check(statusBad(b) && status(b).toLowerCase(java.util.Locale.ROOT).contains("not a color"),
+                        "pasting \"" + junk + "\" showed \"" + status(b) + "\", not a red not-a-color line");
             }
             c.check(c.onClient(mc -> McCompat.screen(mc) == b), "a bad paste closed the picker");
             c.check(realTimeOnDisk() == diskBefore, "a bad paste wrote " + hex(realTimeOnDisk()) + " to disk");
@@ -242,7 +242,7 @@ final class ColourCopyCases {
                 return null;
             });
             String boxNow = c.onClient(mc -> ((EditBox) Mod.field(b, "hexBox")).getValue());
-            c.note("Ctrl+V with the hex box focused: box \"" + boxNow + "\", colour " + hex(argb(b)));
+            c.note("Ctrl+V with the hex box focused: box \"" + boxNow + "\", color " + hex(argb(b)));
             c.check(argb(b) == 0xFF112233, "Ctrl+V in a focused hex box was taken by the picker: " + hex(argb(b)));
             c.onClient(mc -> {
                 EditBox box = (EditBox) Mod.field(b, "hexBox");
@@ -289,7 +289,7 @@ final class ColourCopyCases {
             List<Integer> before = recent();
             Path file = (Path) Mod.staticCall("util.ModPaths", "config", "killer560smod-colours.json");
             String onDisk = Files.readString(file, StandardCharsets.UTF_8);
-            c.check(onDisk.contains("#112233"), "killer560smod-colours.json does not hold #112233: " + onDisk);
+            c.check(onDisk.contains("#112233"), "killer560smod-colors.json does not hold #112233: " + onDisk);
             c.onClient(mc -> {
                 Mod.setField("gui.RecentColours", "instance", null);
                 Mod.staticCall("gui.RecentColours", "load");
@@ -299,7 +299,7 @@ final class ColourCopyCases {
             c.check(before.equals(after), "after a restart Recent is " + fmt(after) + ", was " + fmt(before));
             Screen b2 = c.onClient(mc -> {
                 try {
-                    return openPicker(mc, "RealTimeTab", "Text Colour:");
+                    return openPicker(mc, "RealTimeTab", "Text Color:");
                 } catch (Exception e) {
                     throw new AssertionError(e);
                 }

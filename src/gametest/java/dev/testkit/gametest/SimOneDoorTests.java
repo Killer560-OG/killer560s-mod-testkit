@@ -132,7 +132,7 @@ public class SimOneDoorTests implements FabricClientGameTest {
                 int[] open = result.get();
                 println("BUILD: Old Trap's seams open at the doorway floor: " + open[0] + " of " + open[1]);
                 if (open[1] != 4) {
-                    failures.add("premise: Old Trap has " + open[1] + " neighbouring seams, expected 4 at cell (2,2)");
+                    failures.add("premise: Old Trap has " + open[1] + " neighboring seams, expected 4 at cell (2,2)");
                 }
                 if (open[0] != 1) {
                     failures.add("BUILD: Old Trap is open on " + open[0] + " of its sides in the world");

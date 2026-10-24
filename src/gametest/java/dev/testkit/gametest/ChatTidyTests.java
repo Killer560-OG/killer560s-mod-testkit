@@ -110,7 +110,7 @@ public class ChatTidyTests implements FabricClientGameTest {
         String colour = (String) onClient(ctx, () -> ModUnderTest.staticCall(TIDY, "testNewestLastColour"));
         expect("gray".equalsIgnoreCase(colour), "the (x3) suffix is gray (read " + colour + ")", lines);
         expect(num("testStacked") - stackedBefore == 2, "the mod counted 2 stacks", lines);
-        scenario.log("PASS stack: 3 identical lines -> one \"" + lines.get(0) + "\", grey suffix");
+        scenario.log("PASS stack: 3 identical lines -> one \"" + lines.get(0) + "\", gray suffix");
 
         send(ctx, server, "Tidy probe beta", "white");
         send(ctx, server, "Tidy probe gamma", "white");

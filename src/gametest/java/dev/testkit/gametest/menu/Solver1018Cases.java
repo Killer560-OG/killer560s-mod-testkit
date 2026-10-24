@@ -295,9 +295,9 @@ final class Solver1018Cases {
         c.check(pts.length > 8 && java.util.Arrays.stream(pts).allMatch(p -> Math.abs(p.y - y) < 1e-9),
                 "the ring points are not all at the circle's height");
         float[] auto = (float[]) Mod.staticCall(feature, "resolveColor", 0, new float[]{0.1f, 0.2f, 0.3f}, 1f);
-        c.check(auto[0] == 0.1f && auto[1] == 0.2f && auto[2] == 0.3f && auto[3] == 1f, "Auto did not follow the key colour");
+        c.check(auto[0] == 0.1f && auto[1] == 0.2f && auto[2] == 0.3f && auto[3] == 1f, "Auto did not follow the key color");
         float[] custom = (float[]) Mod.staticCall(feature, "resolveColor", 0xFF336699, new float[]{0.1f, 0.2f, 0.3f}, 1f);
-        c.check(Math.abs(custom[0] - 0x33 / 255f) < 0.01f && Math.abs(custom[2] - 0x99 / 255f) < 0.01f, "a chosen colour was not used");
+        c.check(Math.abs(custom[0] - 0x33 / 255f) < 0.01f && Math.abs(custom[2] - 0x99 / 255f) < 0.01f, "a chosen color was not used");
         try (AutoCloseable t = Mod.with(cfgClass, "CircleThickness", 2f);
              AutoCloseable l = Mod.with(cfgClass, "CircleLift", 0.5f);
              AutoCloseable a = Mod.with(cfgClass, "TracerColor", 0);
@@ -314,16 +314,16 @@ final class Solver1018Cases {
             Mod.staticCall(cfgClass, "load");
             c.check((Float) Mod.get(cfgClass, "getCircleThickness") == 6f, "thickness did not survive a reload");
             c.check((Float) Mod.get(cfgClass, "getCircleLift") == 1.5f, "height did not survive a reload");
-            c.check((Integer) Mod.get(cfgClass, "getTracerColor") == 0xFF112233, "tracer colour did not survive a reload");
-            c.check((Integer) Mod.get(cfgClass, "getCircleColor") == 0xFF445566, "circle colour did not survive a reload");
-            c.check((Integer) Mod.get(cfgClass, "getFillColor") == 0x80778899, "fill colour did not survive a reload");
+            c.check((Integer) Mod.get(cfgClass, "getTracerColor") == 0xFF112233, "tracer color did not survive a reload");
+            c.check((Integer) Mod.get(cfgClass, "getCircleColor") == 0xFF445566, "circle color did not survive a reload");
+            c.check((Integer) Mod.get(cfgClass, "getFillColor") == 0x80778899, "fill color did not survive a reload");
         }
         try (AutoCloseable sphere = Mod.with(cfgClass, "RangeStyle", 1)) {
             List<String> texts = tabTexts(c, "gui.tab.DoorKeysTab", cfgClass, "Enabled");
             c.check(anyStarts(texts, "Circle Thickness:"), "no Circle Thickness slider: " + texts);
-            // Labels are British since mod 1c10b812 (settings sweep: "colour", not "color").
-            c.check(anyStarts(texts, "Circle Colour:") && anyStarts(texts, "Tracer Colour:"), "no circle/tracer colour rows: " + texts);
-            c.check(anyStarts(texts, "Sphere Fill:"), "Sphere style has no fill colour row: " + texts);
+            // Labels are American again since mod spelling-us-1024 ("color", not "colour").
+            c.check(anyStarts(texts, "Circle Color:") && anyStarts(texts, "Tracer Color:"), "no circle/tracer color rows: " + texts);
+            c.check(anyStarts(texts, "Sphere Fill:"), "Sphere style has no fill color row: " + texts);
         }
         try (AutoCloseable radius = Mod.with(cfgClass, "RangeStyle", 0)) {
             List<String> texts = tabTexts(c, "gui.tab.DoorKeysTab", cfgClass, "Enabled");
@@ -369,21 +369,21 @@ final class Solver1018Cases {
                 return null;
             });
             c.check("Room Cleared!".equals(Mod.staticCall(alerts, "lastAlertText")), "the alert text is not the one raised");
-            c.check((Integer) Mod.staticCall(alerts, "lastAlertColor") == 0x12AB34, "the alert did not carry the chosen colour");
+            c.check((Integer) Mod.staticCall(alerts, "lastAlertColor") == 0x12AB34, "the alert did not carry the chosen color");
             setField(cfg, "shadowAssassinColor", 0x336699);
             Component sub = (Component) Mod.staticCall("dungeonalerts.ShadowAssassinAlert", "subtitle", cfg);
             c.check("Shadow Assassin!".equals(sub.getString()), "the subtitle reads " + sub.getString());
             c.check(sub.getStyle().getColor() != null && sub.getStyle().getColor().getValue() == 0x336699,
-                    "the subtitle is not in the chosen colour: " + sub.getStyle().getColor());
+                    "the subtitle is not in the chosen color: " + sub.getStyle().getColor());
             // Saved.
             setField(cfg, "roomAlertsClearedColor", 0x010203);
             setField(cfg, "roomAlertsSecretsColor", 0x040506);
             Mod.call(cfg, "save");
             Mod.staticCall(cfgClass, "load");
             Object back = Mod.cfg(cfgClass);
-            c.check((Integer) Mod.field(back, "roomAlertsClearedColor") == 0x010203, "cleared colour did not survive a reload");
-            c.check((Integer) Mod.field(back, "roomAlertsSecretsColor") == 0x040506, "secrets colour did not survive a reload");
-            c.check((Integer) Mod.field(back, "shadowAssassinColor") == 0x336699, "shadow assassin colour did not survive a reload");
+            c.check((Integer) Mod.field(back, "roomAlertsClearedColor") == 0x010203, "cleared color did not survive a reload");
+            c.check((Integer) Mod.field(back, "roomAlertsSecretsColor") == 0x040506, "secrets color did not survive a reload");
+            c.check((Integer) Mod.field(back, "shadowAssassinColor") == 0x336699, "shadow assassin color did not survive a reload");
         } finally {
             Object back = Mod.cfg(cfgClass);
             setField(back, "roomAlertsClearedColor", oldCleared);
@@ -399,8 +399,8 @@ final class Solver1018Cases {
             setField(live, "shadowAssassinEnabled", true);
             List<String> texts = tabTexts(c, "gui.tab.DungeonAlertsTab", null, null);
             c.check(!anyContains(texts, "On-screen Text"), "the On-screen Text switch is still there: " + texts);
-            c.check(anyStarts(texts, "Cleared Colour") && anyStarts(texts, "Secrets Colour"), "no room alert colour rows: " + texts);
-            c.check(anyStarts(texts, "Alert Colour"), "no shadow assassin colour row: " + texts);
+            c.check(anyStarts(texts, "Cleared Color") && anyStarts(texts, "Secrets Color"), "no room alert color rows: " + texts);
+            c.check(anyStarts(texts, "Alert Color"), "no shadow assassin color row: " + texts);
         } finally {
             setField(live, "roomAlertsEnabled", wasRoom);
             setField(live, "shadowAssassinEnabled", wasSa);
@@ -498,10 +498,10 @@ final class Solver1018Cases {
             Mod.call(cfg, "save");
             Mod.staticCall(cfgClass, "load");
             c.check((Integer) Mod.get(cfgClass, "getLabelColor") == 0x112233 && (Integer) Mod.get(cfgClass, "getBadColor") == 0x445566
-                    && (Integer) Mod.get(cfgClass, "getGoodColor") == 0x778899, "the HUD colours did not survive a reload");
+                    && (Integer) Mod.get(cfgClass, "getGoodColor") == 0x778899, "the HUD colors did not survive a reload");
             int key1 = (Integer) Mod.get(cfgClass, "colorsKey");
             Mod.set(cfgClass, "setValueColor", 0x0A0B0C);
-            c.check((Integer) Mod.get(cfgClass, "colorsKey") != key1, "the HUD cache key ignores a colour change");
+            c.check((Integer) Mod.get(cfgClass, "colorsKey") != key1, "the HUD cache key ignores a color change");
 
             // The tab: the two lines are gone, Crypts and Deaths are two rows, colour rows exist.
             List<String> texts = tabTexts(c, "gui.tab.ScoreCalculatorTab", cfgClass, "Enabled");
@@ -509,8 +509,8 @@ final class Solver1018Cases {
             c.check(!anyContains(texts, "at most once per run"), "the 'send at most once per run' line is still there");
             c.check(!anyContains(texts, "Crypts & Deaths"), "Crypts & Deaths is still one switch");
             c.check(anyStarts(texts, "Crypts:") && anyStarts(texts, "Deaths:"), "no separate Crypts / Deaths rows: " + texts);
-            c.check(anyStarts(texts, "Label Colour") && anyStarts(texts, "Good Colour") && anyStarts(texts, "Bad Colour"),
-                    "no HUD colour rows: " + texts);
+            c.check(anyStarts(texts, "Label Color") && anyStarts(texts, "Good Color") && anyStarts(texts, "Bad Color"),
+                    "no HUD color rows: " + texts);
         } finally {
             if (saved == null) {
                 Files.deleteIfExists(file);
@@ -805,9 +805,9 @@ final class Solver1018Cases {
             c.check(key != null, "premise: the item could not be selected (no key)");
             // Since the 2026-10-18 redesign (mod 998c9f96) the colour lives on the Custom Colour page: the main page's
             // "Custom Colour" button opens it, and its "Colour" button opens the picker. Both real buttons, pressed.
-            AbstractWidget page = c.onClient(mc -> button(screen, "Custom Colour"));
-            c.check(page != null, "premise: no Custom Colour button on the Custom Items screen");
-            c.check(page != null && page.active, "premise: the Custom Colour button is not active for the selected item");
+            AbstractWidget page = c.onClient(mc -> button(screen, "Custom Color"));
+            c.check(page != null, "premise: no Custom Color button on the Custom Items screen");
+            c.check(page != null && page.active, "premise: the Custom Color button is not active for the selected item");
             if (page == null || !page.active) {
                 return;
             }
@@ -819,13 +819,13 @@ final class Solver1018Cases {
             c.ctx().waitTicks(4);
             Screen colourPage = c.onClient(mc -> McCompat.screen(mc));
             c.check(colourPage != null && colourPage.getClass().getSimpleName().equals("CustomColorScreen"),
-                    "premise: Custom Colour did not open its page: " + (colourPage == null ? null : colourPage.getClass().getName()));
+                    "premise: Custom Color did not open its page: " + (colourPage == null ? null : colourPage.getClass().getName()));
             if (colourPage == null || !colourPage.getClass().getSimpleName().equals("CustomColorScreen")) {
                 return;
             }
-            AbstractWidget colour = c.onClient(mc -> button(colourPage, "Colour:"));
-            c.check(colour != null, "premise: no Colour button on the Custom Colour page");
-            c.check(colour != null && colour.active, "premise: the Colour button is not active for the selected item");
+            AbstractWidget colour = c.onClient(mc -> button(colourPage, "Color:"));
+            c.check(colour != null, "premise: no Color button on the Custom Color page");
+            c.check(colour != null && colour.active, "premise: the Color button is not active for the selected item");
             if (colour == null) {
                 return;
             }
@@ -837,7 +837,7 @@ final class Solver1018Cases {
             c.ctx().waitTicks(4);
             Screen picker = c.onClient(mc -> McCompat.screen(mc));
             c.check(picker != null && picker.getClass().getSimpleName().equals("ColorPickerScreen"),
-                    "premise: the colour picker did not open: " + (picker == null ? null : picker.getClass().getName()));
+                    "premise: the color picker did not open: " + (picker == null ? null : picker.getClass().getName()));
             if (picker == null || !picker.getClass().getSimpleName().equals("ColorPickerScreen")) {
                 return;
             }
@@ -854,11 +854,11 @@ final class Solver1018Cases {
                 c.ctx().waitTicks(1);
             }
             Object entryAfter = c.onClient(mc -> Mod.call(screen, "entry"));
-            c.check(entryAfter != null, "the colour was never kept: no entry for the item");
+            c.check(entryAfter != null, "the color was never kept: no entry for the item");
             if (entryAfter != null) {
                 int saved = (Integer) Mod.field(entryAfter, "color");
-                c.check(saved == colours[0], String.format("the item's colour is #%08X, the picker's is #%08X", saved, colours[0]));
-                c.check((Boolean) Mod.field(entryAfter, "colorEnabled"), "choosing a colour did not turn Use Color on");
+                c.check(saved == colours[0], String.format("the item's color is #%08X, the picker's is #%08X", saved, colours[0]));
+                c.check((Boolean) Mod.field(entryAfter, "colorEnabled"), "choosing a color did not turn Use Color on");
             }
             // Back to the Custom Colour page it was opened from, rendered with the dyed item on screen.
             c.onClient(mc -> {
@@ -867,7 +867,7 @@ final class Solver1018Cases {
             });
             c.ctx().waitTicks(6);
             Screen now = c.onClient(mc -> McCompat.screen(mc));
-            c.check(now == colourPage, "closing the picker did not return to the Custom Colour page: "
+            c.check(now == colourPage, "closing the picker did not return to the Custom Color page: "
                     + (now == null ? null : now.getClass().getName()));
             // The dye hook ran for the stack and gave the chosen opaque colour.
             int tint = c.onClient(mc -> (Integer) Mod.staticCall("armourdye.ArmourDye", "dyeColor", stack, 0xFFA06540));
@@ -881,7 +881,7 @@ final class Solver1018Cases {
                 });
                 c.ctx().waitTicks(3);
             }
-            c.check(!(Boolean) Mod.staticCall("armourdye.ArmourDye", "hasFailed"), "ArmourDye failed on an extreme colour");
+            c.check(!(Boolean) Mod.staticCall("armourdye.ArmourDye", "hasFailed"), "ArmourDye failed on an extreme color");
             // Worn: the piece on his chest drawn in third person and in the inventory while the colour keeps changing, then the
             // same colour on a Look (another item model) and on a head texture.
             c.onClient(mc -> {

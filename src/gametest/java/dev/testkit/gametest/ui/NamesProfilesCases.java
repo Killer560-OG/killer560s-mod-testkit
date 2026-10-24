@@ -251,7 +251,7 @@ final class NamesProfilesCases {
                     return "VIP+ over Hypixel's multi-part MVP++ line painted '" + vip.text() + "'";
                 }
                 if (vip.colours().get(0) != 0x55FF55 || vip.colours().get(4) != 0xFFAA00) {
-                    return "VIP+ colours were " + vip.colours().subList(0, 6) + " (want green bracket, gold plus)";
+                    return "VIP+ colors were " + vip.colours().subList(0, 6) + " (want green bracket, gold plus)";
                 }
                 // Rank colour: a quick pick over the preset's own.
                 Mod.call(cfg, "setOwnRank", Mod.enumValue(PRESET, "MVP_PLUS_PLUS"));
@@ -259,7 +259,7 @@ final class NamesProfilesCases {
                 Mod.call(cfg, "save");
                 Flat mvp = replaceSeq(hypixelTag(real, ChatFormatting.GREEN, ChatFormatting.GREEN));
                 if (!mvp.text().equals("[MVP++] Zed: hi") || mvp.colours().get(0) != 0x5555FF) {
-                    return "MVP++ in blue painted '" + mvp.text() + "' with '[' colour " + Integer.toHexString(mvp.colours().get(0));
+                    return "MVP++ in blue painted '" + mvp.text() + "' with '[' color " + Integer.toHexString(mvp.colours().get(0));
                 }
                 if (mvp.colours().get(4) != 0xFF5555) {
                     return "MVP++'s plus lost its own red: " + Integer.toHexString(mvp.colours().get(4));
@@ -275,13 +275,13 @@ final class NamesProfilesCases {
                     return "a custom KING++ painted '" + king.text() + "'";
                 }
                 if (king.colours().get(0) != 0x5555FF || king.colours().get(5) != 0x5555FF) {
-                    return "custom rank colours were " + king.colours().subList(0, 8);
+                    return "custom rank colors were " + king.colours().subList(0, 8);
                 }
                 Mod.call(cfg, "setOwnRankPlusColor", RED);
                 Mod.call(cfg, "save");
                 Flat kingRed = replaceSeq(hypixelTag(real, ChatFormatting.GOLD, ChatFormatting.RED));
                 if (kingRed.colours().get(5) != 0xFF5555 || kingRed.colours().get(1) != 0x5555FF) {
-                    return "a picked plus colour was not used: " + kingRed.colours().subList(0, 8);
+                    return "a picked plus color was not used: " + kingRed.colours().subList(0, 8);
                 }
                 // The String path: a Skyblock level before the rank stays; the rank is swapped.
                 String level = replaceStr("[285] [MVP+] " + real + ": hi");
@@ -373,15 +373,15 @@ final class NamesProfilesCases {
                 if (!"CHAMP".equals(Mod.call(Mod.cfg(NC), "getOwnRankCustomText"))) {
                     return "typing in the rank box did not reach the config";
                 }
-                AbstractWidget colour = row(s[0], "Rank Colour");
+                AbstractWidget colour = row(s[0], "Rank Color");
                 if (colour == null) {
-                    return "no Rank Colour row for a custom rank: " + labels(s[0]);
+                    return "no Rank Color row for a custom rank: " + labels(s[0]);
                 }
                 ModScreenDriver.press(colour);
                 Mod.call(s[0], "refresh");
                 int picked = (Integer) Mod.call(Mod.cfg(NC), "getOwnRankColor");
                 if (picked == 0) {
-                    return "pressing Rank Colour left the colour on 'the rank's own'";
+                    return "pressing Rank Color left the color on 'the rank's own'";
                 }
                 c.note("the tab's Rank row cycled to Custom, the text box took 'CHAMP', Rank Color picked "
                         + Integer.toHexString(picked));

@@ -461,7 +461,7 @@ public class SimFloorShapeTests implements FabricClientGameTest {
         double meanFill = fillSum / Math.max(1, planned);
         if (meanFill < 0.60) {
             throw new AssertionError(String.format(
-                    "floors average only %.0f%% of their bounding box - the generator has drifted towards "
+                    "floors average only %.0f%% of their bounding box - the generator has drifted toward "
                             + "corridors even though no single floor is bad enough to fail on its own",
                     meanFill * 100));
         }

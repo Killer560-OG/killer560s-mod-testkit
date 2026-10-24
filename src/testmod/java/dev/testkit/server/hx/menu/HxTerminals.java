@@ -395,7 +395,7 @@ final class HxTerminals {
             case SELECT -> {
                 String color = a.has("color") ? a.get("color").getAsString().toUpperCase(Locale.ROOT) : "RED";
                 if (!SELECT.containsKey(color)) {
-                    throw new IllegalArgumentException("Select colour must be one of " + SELECT.keySet());
+                    throw new IllegalArgumentException("Select color must be one of " + SELECT.keySet());
                 }
                 t = new Terminal(type, seed, "Select all the " + color + " items!", 6, gridOf(1, 4, 1, 7), close, interval);
                 t.colorWord = color;

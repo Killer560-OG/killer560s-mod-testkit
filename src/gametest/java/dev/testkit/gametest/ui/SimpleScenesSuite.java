@@ -252,12 +252,12 @@ public class SimpleScenesSuite implements FabricClientGameTest {
                 double vsFancy = FontsMainMenuSuite.changed(a.img(), fancy.img());
                 double titleLum = PaintedScenesSuite.titleLum(a.img());
                 double band = PaintedScenesSuite.bandEdge(a.img());
-                c.note(String.format(Locale.ROOT, "%s Simple: scene %s flavour %s, %s particles, %d shader frames, %d shader elements;"
+                c.note(String.format(Locale.ROOT, "%s Simple: scene %s flavor %s, %s particles, %d shader frames, %d shader elements;"
                                 + " rgb %.1f,%.1f,%.1f lum %.3f; moved %.2f%% over 1 s, %d px changed in 1/120 s; %.1f%% differs from"
                                 + " Fancy; title band lum %.3f; band edge %.2f", th[0], probe[0], probe[1], probe[2], f1 - f0, e1 - e0,
                         a.r(), a.g(), a.b(), a.lum(), moved1s * 100, frameMoved, vsFancy * 100, titleLum, band));
                 c.check(th[1].equals(probe[0]), th[0] + " on Simple draws " + probe[0] + ", not " + th[1]);
-                c.check(th[2].equals(probe[1]), th[0] + " on Simple drew the " + probe[1] + " flavour, not " + th[2]);
+                c.check(th[2].equals(probe[1]), th[0] + " on Simple drew the " + probe[1] + " flavor, not " + th[2]);
                 c.check((Integer) probe[2] >= 10, th[0] + "'s Simple scene planned only " + probe[2] + " particles");
                 c.check(f1 - f0 >= 3 && e1 > e0, th[0] + "'s Simple scene was not drawn by the scene shaders: " + (f1 - f0)
                         + " frames, " + (e1 - e0) + " elements");
@@ -403,7 +403,7 @@ public class SimpleScenesSuite implements FabricClientGameTest {
                     long f1 = simpleFrames(c);
                     Object flavour = c.onClient(mc -> String.valueOf(Mod.field(Mod.ROOT + SIMPLE, "lastFlavour")));
                     FontsMainMenuSuite.shot(c, "options-" + mode.toLowerCase(Locale.ROOT));
-                    c.note("Options screen on " + mode + ": " + (f1 - f0) + " Simple frames, last flavour " + flavour);
+                    c.note("Options screen on " + mode + ": " + (f1 - f0) + " Simple frames, last flavor " + flavour);
                     if ("SIMPLE".equals(mode)) {
                         c.check(f1 - f0 >= 3 && "BUBBLES".equals(flavour), "the Options screen did not draw Ocean's Simple scene"
                                 + " behind it: " + (f1 - f0) + " frames, " + flavour);
@@ -478,7 +478,7 @@ public class SimpleScenesSuite implements FabricClientGameTest {
             // Custom on Fancy: its own colours through the Simple embers, never Plain
             title(c, "SEPARATE", "CUSTOM", "FANCY");
             String custom = c.onClient(mc -> lookScene());
-            c.check("SIMPLE_EMBERS".equals(custom), "Custom on Fancy draws " + custom + ", not the embers in its colours");
+            c.check("SIMPLE_EMBERS".equals(custom), "Custom on Fancy draws " + custom + ", not the embers in its colors");
         });
     }
 

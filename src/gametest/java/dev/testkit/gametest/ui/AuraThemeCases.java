@@ -312,7 +312,7 @@ final class AuraThemeCases {
                 c.note(String.format("%s: panel Default %08X, Amber %08X, Ocean %08X, Light %08X", id, base, amber, ocean, light));
                 c.check(Mod.staticCall(OT, "of", id) != null, id + " has no palette on Light");
                 c.check(amber != ocean && ocean != light && amber != light,
-                        id + ": presets do not draw different colours (" + Integer.toHexString(amber) + ", "
+                        id + ": presets do not draw different colors (" + Integer.toHexString(amber) + ", "
                                 + Integer.toHexString(ocean) + ", " + Integer.toHexString(light) + ")");
                 if (id.equals("storage_overlay")) {
                     c.check(base != amber && base != ocean && base != light, id + ": Default draws the same as a menu preset");
@@ -366,9 +366,9 @@ final class AuraThemeCases {
                 // recolour the saved theme while it is in use: the overlay follows
                 Mod.call(menu, "setCustomColour", Mod.enumValue("gui.MenuTheme$Slot", "PANEL"), 0x654321);
                 int recoloured = drawn(id);
-                c.check(recoloured != onSaved, id + ": recolouring the saved theme did not change what is drawn");
+                c.check(recoloured != onSaved, id + ": recoloring the saved theme did not change what is drawn");
                 Mod.call(menu, "setCustomColour", Mod.enumValue("gui.MenuTheme$Slot", "PANEL"), 0x123456);
-                c.check(drawn(id) == onSaved, id + ": restoring the colour did not restore what is drawn");
+                c.check(drawn(id) == onSaved, id + ": restoring the color did not restore what is drawn");
                 Mod.staticCall(ST, "set", id, "AMBER");
                 c.check(drawn(id) != onSaved, id + ": the saved theme draws the same as Amber");
                 Mod.staticCall(ST, "set", id, savedChoice);
@@ -406,11 +406,11 @@ final class AuraThemeCases {
             c.check(((List<?>) Mod.staticCall(ST, "builtInChoices")).contains(choice2), "second saved theme not in the list");
             Mod.staticCall(ST, "set", "termism", choice2);
             int[] cols = (int[]) Mod.staticCall("gui.MenuTheme", "forScreen", "termism");
-            c.check((cols[3] & 0xFFFFFF) == 0x00FF00, "Termism's colours on the saved theme: text " + Integer.toHexString(cols[3]));
+            c.check((cols[3] & 0xFFFFFF) == 0x00FF00, "Termism's colors on the saved theme: text " + Integer.toHexString(cols[3]));
             Mod.call(menu, "deleteSavedTheme", idx2);
             int[] fallback = (int[]) Mod.staticCall("gui.MenuTheme", "forScreen", "termism");
             int[] menuNow = (int[]) Mod.call(Mod.cfg("gui.MenuConfig"), "activeColours");
-            c.check(java.util.Arrays.equals(fallback, menuNow), "a deleted theme should read as Theme Default (the menu's colours)");
+            c.check(java.util.Arrays.equals(fallback, menuNow), "a deleted theme should read as Theme Default (the menu's colors)");
             c.check(((String) Mod.staticCall(ST, "label", choice("termism"))).equals("Theme Default"),
                     "a deleted theme's label on a menu screen is not Theme Default");
         } finally {

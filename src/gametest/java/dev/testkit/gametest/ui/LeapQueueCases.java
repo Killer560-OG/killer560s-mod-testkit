@@ -391,7 +391,7 @@ final class LeapQueueCases {
         int room = Math.max(40, h - 40 - 76);
         int wantTop = 76 + (room - Math.min(room, 280)) / 2;
         c.check(Math.abs(top - wantTop) <= 2, where + ": the cards start at y " + top + " of " + h + ", want " + wantTop
-                + " (under the header, centred past 280 tall)");
+                + " (under the header, centered past 280 tall)");
         c.check(area >= (long) w * h * 0.40, where + ": the cards cover " + (100 * area / ((long) w * h)) + "% of the screen");
         AbstractWidget done = byLabel(ws, "Done");
         c.check(done != null && done.getY() >= bottom && done.getWidth() >= 80, where + ": Done is not a wide button under the cards");

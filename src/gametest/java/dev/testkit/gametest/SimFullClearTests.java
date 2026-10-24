@@ -551,7 +551,7 @@ public class SimFullClearTests implements FabricClientGameTest {
         }
         t.ran = t.travelled > 20;
         if (!t.ran) {
-            t.problems.add(String.format(Locale.US, "the run never moved (travelled %.1f)", t.travelled));
+            t.problems.add(String.format(Locale.US, "the run never moved (traveled %.1f)", t.travelled));
         }
         for (Room r : t.rooms.values()) {
             if ("TRAP".equals(r.type)) {
@@ -648,7 +648,7 @@ public class SimFullClearTests implements FabricClientGameTest {
         }
         t.ran = t.travelled > 20 && t.secretsFound > 0 && t.rooms.values().stream().anyMatch(r -> r.started > 0);
         if (!t.ran) {
-            t.problems.add(String.format(Locale.US, "the clear never ran (travelled %.1f, %d secret(s), routes started %d)",
+            t.problems.add(String.format(Locale.US, "the clear never ran (traveled %.1f, %d secret(s), routes started %d)",
                     t.travelled, t.secretsFound, t.rooms.values().stream().mapToInt(r -> r.started).sum()));
         }
         if (!t.asStop.startsWith("nothing left to do")) {
@@ -1149,7 +1149,7 @@ public class SimFullClearTests implements FabricClientGameTest {
             StringBuilder sb = new StringBuilder();
             sb.append("# ").append(out.getFileName()).append(" - ").append(t.verdict()).append("\n\n");
             sb.append("Map code: `").append(t.code).append("`\n\n");
-            sb.append(String.format(Locale.US, "Ran %.1f s, travelled %.0f blocks, secrets %d/%d (sim), tab/map %.1f%%, "
+            sb.append(String.format(Locale.US, "Ran %.1f s, traveled %.0f blocks, secrets %d/%d (sim), tab/map %.1f%%, "
                             + "Auto Secret ended: %s. Corrections %d, warps never landed %d, start nodes not armed %d.\n\n",
                     t.seconds, t.travelled, t.secretsFound, t.secretsTotal, t.mapPercent, t.asStop, t.corrections,
                     t.noLanding, t.unarmed));

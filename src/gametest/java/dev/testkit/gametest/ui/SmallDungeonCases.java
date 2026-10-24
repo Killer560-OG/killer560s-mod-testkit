@@ -261,8 +261,8 @@ final class SmallDungeonCases {
             Screen s = DungeonB2Cases.openTab(c, cheat ? "Dungeon ESP" : "Starred Mob Hitboxes");
             List<String> rows = DungeonB2Cases.labels(c, s);
             c.note("ESP tab rows: " + rows);
-            c.check(rows.stream().noneMatch(l -> l.startsWith("Wither Boss Colour") || l.startsWith("Wither Boss Color")),
-                    "the 'Wither Boss Colour' row is still there");
+            c.check(rows.stream().noneMatch(l -> l.startsWith("Wither Boss Color") || l.startsWith("Wither Boss Color")),
+                    "the 'Wither Boss Color' row is still there");
             c.check(rows.stream().anyMatch(l -> l.startsWith("Tracer:")), "no Tracer row in the Wither Boss Highlight section");
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
@@ -277,7 +277,7 @@ final class SmallDungeonCases {
                 }
                 return false;
             });
-            c.check(!hasOldColour, "MobEspConfig still has a separate wither (ESP) colour");
+            c.check(!hasOldColour, "MobEspConfig still has a separate wither (ESP) color");
             c.onClient(mc -> Mod.call(e0, "save"));
             String json = Files.readString(saved.keySet().iterator().next());
             c.check(!json.contains("witherColor\""), "the config still saves a separate witherColor");
@@ -285,7 +285,7 @@ final class SmallDungeonCases {
             // ---- legit highlight: a visible wither gets a tracer, a hidden one does not ----
             Map<String, Object> seen = looked(c, id);
             c.note("highlight only, in sight: glow " + seen.get("glow") + ", tracer " + seen.get("tracer"));
-            c.check(Integer.valueOf(mine).equals(seen.get("glow")), "the highlight does not draw the wither in the highlight colour: " + seen.get("glow"));
+            c.check(Integer.valueOf(mine).equals(seen.get("glow")), "the highlight does not draw the wither in the highlight color: " + seen.get("glow"));
             c.check(Integer.valueOf(mine).equals(seen.get("tracer")), "no tracer to a visible wither with only the highlight on: " + seen.get("tracer"));
             wall(c, true);
             c.ticks(12);
@@ -311,8 +311,8 @@ final class SmallDungeonCases {
                 c.ticks(12);
                 Map<String, Object> esp = looked(c, id);
                 c.note("ESP on, behind a wall: box " + esp.get("box") + ", tracer " + esp.get("tracer"));
-                c.check(Integer.valueOf(mine).equals(esp.get("box")), "the ESP did not draw the wither in the highlight colour: " + esp.get("box"));
-                c.check(Integer.valueOf(mine).equals(esp.get("tracer")), "the ESP tracer is missing or not in the highlight colour: " + esp.get("tracer"));
+                c.check(Integer.valueOf(mine).equals(esp.get("box")), "the ESP did not draw the wither in the highlight color: " + esp.get("box"));
+                c.check(Integer.valueOf(mine).equals(esp.get("tracer")), "the ESP tracer is missing or not in the highlight color: " + esp.get("tracer"));
             }
         } finally {
             c.onClient(mc -> {
@@ -366,7 +366,7 @@ final class SmallDungeonCases {
             Screen s = DungeonB2Cases.openTab(c, "Secrets HUD");
             List<String> rows = DungeonB2Cases.labels(c, s);
             c.note("Secrets HUD rows: " + rows);
-            c.check(rows.stream().anyMatch(l -> l.startsWith("Secrets Text Colour")), "no 'Secrets Text Colour' row");
+            c.check(rows.stream().anyMatch(l -> l.startsWith("Secrets Text Color")), "no 'Secrets Text Color' row");
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
                 return null;
@@ -393,7 +393,7 @@ final class SmallDungeonCases {
             });
             List<int[]> after = hudColours(c);
             c.note("set to 22CC44: " + describe(after));
-            c.check(!after.isEmpty() && after.stream().allMatch(r -> r[0] == mine), "the Secrets HUD text did not take the chosen colour: " + describe(after));
+            c.check(!after.isEmpty() && after.stream().allMatch(r -> r[0] == mine), "the Secrets HUD text did not take the chosen color: " + describe(after));
 
             // reload from disk: the colour is read back and drawn
             c.onClient(mc -> {
@@ -404,8 +404,8 @@ final class SmallDungeonCases {
             int read = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(DI_CFG), "getTextColor"));
             List<int[]> reloaded = hudColours(c);
             c.note("after a reload: setting " + Integer.toHexString(read) + ", drawn " + describe(reloaded));
-            c.check(read == mine, "the colour did not survive a reload: " + Integer.toHexString(read));
-            c.check(!reloaded.isEmpty() && reloaded.stream().allMatch(r -> r[0] == mine), "the reloaded colour is not drawn: " + describe(reloaded));
+            c.check(read == mine, "the color did not survive a reload: " + Integer.toHexString(read));
+            c.check(!reloaded.isEmpty() && reloaded.stream().allMatch(r -> r[0] == mine), "the reloaded color is not drawn: " + describe(reloaded));
         } finally {
             c.onClient(mc -> {
                 Mod.staticCall("secrets.DungeonState", "setRoomSim", false);

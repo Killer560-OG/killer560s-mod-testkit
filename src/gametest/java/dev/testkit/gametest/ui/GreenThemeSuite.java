@@ -319,7 +319,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
                         return e.label() + ": scene " + l[0] + ", expected FIREFLIES";
                     }
                     if (!Arrays.equals(green, (int[]) l[1])) {
-                        return e.label() + ": colours " + FontsMainMenuSuite.hex((int[]) l[1]) + ", expected Green's";
+                        return e.label() + ": colors " + FontsMainMenuSuite.hex((int[]) l[1]) + ", expected Green's";
                     }
                     return null;
                 });
@@ -570,9 +570,9 @@ public class GreenThemeSuite implements FabricClientGameTest {
                         (int) ((gx + gw * 0.7) * sc), (int) ((gyy + gh * 0.3) * sc));
                 int foot = brighter(imgs[2], imgs[0], (int) ((gx + 4) * sc), (int) ((gyy + gh * 0.8) * sc),
                         (int) ((gx + gw - 8) * sc), (int) ((gyy + gh - 4) * sc));
-                c.note("canopy glow: " + top + " well pixels brighter than forest night in the top centre, " + foot
+                c.note("canopy glow: " + top + " well pixels brighter than forest night in the top center, " + foot
                         + " at the foot");
-                c.check(top > 500, "the canopy glow is not drawn: only " + top + " brighter pixels in the well's top centre");
+                c.check(top > 500, "the canopy glow is not drawn: only " + top + " brighter pixels in the well's top center");
                 c.check(foot < 50, "the canopy glow reaches the foot of the well: " + foot + " brighter pixels there");
             }
 

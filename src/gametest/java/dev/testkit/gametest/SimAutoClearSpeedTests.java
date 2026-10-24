@@ -240,7 +240,7 @@ public class SimAutoClearSpeedTests implements FabricClientGameTest {
             }
         }
         if (ctx.computeOnClient(mc -> mc.level != null && (Boolean) ModUnderTest.staticCall(AUTO, "isBusy"))) {
-            println("floor " + run + ": still running after " + minutes + " min - cancelled");
+            println("floor " + run + ": still running after " + minutes + " min - canceled");
             ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "cancel"));
         }
         ctx.waitTicks(10);

@@ -440,14 +440,14 @@ final class InvBatchCases {
             });
             List<String> labels = tabLabels(c, "gui.tab.ItemProtectTab");
             c.note("Item Protection rows: " + labels);
-            for (String gone : new String[]{"Slot Lock", "Lock Key", "Marker", "Lock Colour", "Lock Color", "Clear Locks",
-                    "Show Protected Key", "Lock Icon", "Highlight Colour", "Highlight Color"}) {
+            for (String gone : new String[]{"Slot Lock", "Lock Key", "Marker", "Lock Color", "Lock Color", "Clear Locks",
+                    "Show Protected Key", "Lock Icon", "Highlight Color", "Highlight Color"}) {
                 c.check(labels.stream().noneMatch(l -> l.startsWith(gone)), "the tab still has '" + gone + "'");
             }
             c.check(labels.stream().anyMatch(l -> l.startsWith("Lock In Place")), "no Lock In Place row");
-            c.check(labels.stream().anyMatch(l -> l.startsWith("Star Colour")), "no Star Colour row");
+            c.check(labels.stream().anyMatch(l -> l.startsWith("Star Color")), "no Star Color row");
             String tipLock = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Item Protection", "Lock In Place: OFF"));
-            String tipStar = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Item Protection", "Star Colour"));
+            String tipStar = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Item Protection", "Star Color"));
             String tipOld = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Item Protection", "Slot Lock: ON"));
             c.check(tipLock != null && tipStar != null, "new rows lack tooltips: " + tipLock + " / " + tipStar);
             c.check(tipOld == null, "a Slot Lock tooltip is still registered: " + tipOld);
@@ -743,7 +743,7 @@ final class InvBatchCases {
             // page, gave Look its own Custom Item page (the free-text Look box, Set and Clear Look are gone), made Copy
             // Look copy the selection's changes TO the next item clicked, renamed Remove to Clear Changes and dropped the
             // saved-looks list. Every control below is the new page's, clicked through the real input layer.
-            clickWidget(c, s, widget(c, s, "Custom Colour"));
+            clickWidget(c, s, widget(c, s, "Custom Color"));
             awaitScreen(c, "CustomColorScreen");
             Screen colour = screen(c); // rebuilds its widgets on every change; widget() reads them live
             clickWidget(c, colour, widget(c, colour, "Applies To"));
@@ -755,11 +755,11 @@ final class InvBatchCases {
                     + " / " + Integer.toHexString(dyeOne[1]));
 
             // Use Colour off and on.
-            clickWidget(c, colour, widget(c, colour, "Use Colour"));
+            clickWidget(c, colour, widget(c, colour, "Use Color"));
             int off = dyes(c)[0];
-            clickWidget(c, colour, widget(c, colour, "Use Colour"));
+            clickWidget(c, colour, widget(c, colour, "Use Color"));
             int on = dyes(c)[0];
-            c.check(off == 0xFF123456 && on == 0xFF00FF00, "Use Colour off/on: " + Integer.toHexString(off) + "/" + Integer.toHexString(on));
+            c.check(off == 0xFF123456 && on == 0xFF00FF00, "Use Color off/on: " + Integer.toHexString(off) + "/" + Integer.toHexString(on));
 
             // Armor Skin (a cycling button, left click steps forward): None -> Leather; the worn asset changes, the icon does not.
             clickWidget(c, colour, widget(c, colour, "Skin"));
@@ -775,7 +775,7 @@ final class InvBatchCases {
             clickWidget(c, colour, widget(c, colour, "Back"));
             awaitScreen(c, "CustomItemsScreen");
             Screen s2 = screen(c);
-            c.check(s2 == s, "Back from Custom Colour did not return to the same Custom Items screen");
+            c.check(s2 == s, "Back from Custom Color did not return to the same Custom Items screen");
 
             // The drawn pixels: green in slot 9's cell, none in slot 10's (same item, its own look).
             c.ctx().getInput().setCursorPos(2, 2);
@@ -1009,7 +1009,7 @@ final class InvBatchCases {
             if (e.getKey().equals("Cosmetics")) {
                 continue;
             }
-            for (String moved : new String[]{"Cosmetics", "Player Cosmetics", "Custom Items", "Nickhider", "Trail", "Armour Recolour", "Armor Recolor"}) {
+            for (String moved : new String[]{"Cosmetics", "Player Cosmetics", "Custom Items", "Nickhider", "Trail", "Armor Recolor", "Armor Recolor"}) {
                 c.check(!e.getValue().contains(moved), "'" + moved + "' is still in " + e.getKey());
             }
         }

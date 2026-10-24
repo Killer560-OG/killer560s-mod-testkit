@@ -162,7 +162,7 @@ public class SimMageCaptureTests implements FabricClientGameTest {
             }
             int[] good = alongX ? new int[]{bad[0] == 16 ? 48 : 16, bad[1]} : new int[]{bad[0], bad[1] == 16 ? 48 : 16};
             int copied = copyColumn(ctx, originX + good[0], originZ + good[1], originX + bad[0], originZ + bad[1]);
-            println("copied the good tile's centre column (capture " + good[0] + "," + good[1] + ") over the stitched one ("
+            println("copied the good tile's center column (capture " + good[0] + "," + good[1] + ") over the stitched one ("
                     + bad[0] + "," + bad[1] + "): " + copied + " block(s) changed");
             final int bx = originX + bad[0];
             final int bz = originZ + bad[1];

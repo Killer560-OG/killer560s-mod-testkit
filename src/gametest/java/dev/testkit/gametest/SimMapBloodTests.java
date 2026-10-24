@@ -171,8 +171,8 @@ public class SimMapBloodTests implements FabricClientGameTest {
         int want = funny ? SimMapItemTests.multiply(UNOPENED, 0.6f) : UNOPENED;
         if (blood == null || blood != want) {
             failures.add(tag + ": the unopened Blood Room is " + SimMapItemTests.hexOrNone(blood) + ", want "
-                    + SimMapItemTests.hexOrNone(want) + (funny ? " (greyed like every unopened room)"
-                    : " (the light unopened grey, undarkened)"));
+                    + SimMapItemTests.hexOrNone(want) + (funny ? " (grayed like every unopened room)"
+                    : " (the light unopened gray, undarkened)"));
         }
         if (!funny && marks != 0) {
             failures.add(tag + ": " + marks + " mark fill(s) drawn on the unopened Blood Room (a \"?\")");

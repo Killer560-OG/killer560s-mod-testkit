@@ -997,9 +997,9 @@ final class Doc1018MenuHudCases {
             double midX = r[0] + boxW / 2;
             double bottom = r[1] + boxH;
             double aboveHotbar = r[6] - 22 - bottom;
-            c.note(String.format("Inventory HUD default: x %.0f y %.0f, box %.0f x %.0f, screen %.0f x %.0f; centre %.1f vs %.1f, "
+            c.note(String.format("Inventory HUD default: x %.0f y %.0f, box %.0f x %.0f, screen %.0f x %.0f; center %.1f vs %.1f, "
                     + "bottom edge %.1f above the hotbar", r[0], r[1], boxW, boxH, r[5], r[6], midX, r[5] / 2, aboveHotbar));
-            c.check(Math.abs(midX - r[5] / 2) <= 1.5, "the panel is not centred over the hotbar (centre " + midX + ", screen centre " + r[5] / 2 + ")");
+            c.check(Math.abs(midX - r[5] / 2) <= 1.5, "the panel is not centered over the hotbar (center " + midX + ", screen center " + r[5] / 2 + ")");
             c.check(aboveHotbar >= 20 && aboveHotbar <= 90, "the panel's bottom edge is " + aboveHotbar + " units above the hotbar, want a little way up (20 to 90)");
         } finally {
             c.onClient(mc -> {
@@ -1211,7 +1211,7 @@ final class Doc1018MenuHudCases {
                 return null;
             });
             List<String> l = labels(c, "LagDisplayTab");
-            for (String want : new String[]{"Good Colour", "Okay Colour", "Bad Colour", "Awful Colour", "Text Colour"}) {
+            for (String want : new String[]{"Good Color", "Okay Color", "Bad Color", "Awful Color", "Text Color"}) {
                 c.check(has(l, want), "the Performance HUD tab has no '" + want + "' row: " + l);
             }
             int good = 0xFF0A0B01;
@@ -1248,7 +1248,7 @@ final class Doc1018MenuHudCases {
                 colours.add((Integer) color.invoke(line));
                 texts.add((String) t.invoke(line));
             }
-            c.note("lines " + texts + " colours " + colours.stream().map(x -> String.format("%08X", x)).toList());
+            c.note("lines " + texts + " colors " + colours.stream().map(x -> String.format("%08X", x)).toList());
             c.check(texts.size() == 4, "expected four lines (TPS, Ping, FPS, CPS), got " + texts);
             for (int i = 0; i < colours.size(); i++) {
                 int col = colours.get(i);
@@ -1259,7 +1259,7 @@ final class Doc1018MenuHudCases {
                     c.check(col == text, "the unknown-value line '" + texts.get(i) + "' is " + String.format("%08X", col) + ", want the Text Color");
                 } else {
                     c.check(col == good || col == ok || col == bad || col == awful,
-                            "'" + texts.get(i) + "' is " + String.format("%08X", col) + ", not one of the four custom value colours");
+                            "'" + texts.get(i) + "' is " + String.format("%08X", col) + ", not one of the four custom value colors");
                 }
             }
             // Color By Value off: every line in the Text Color (and the cached lines were rebuilt for the new colours).
@@ -1292,7 +1292,7 @@ final class Doc1018MenuHudCases {
             Object back = c.onClient(mc -> Mod.cfg(cfgCls));
             int gb = c.onClient(mc -> (Integer) Mod.call(back, "getColorGood"));
             int tb = c.onClient(mc -> (Integer) Mod.call(back, "getColorText"));
-            c.check(gb == good && tb == text, "the colours did not survive a reload: good " + String.format("%08X", gb) + ", text " + String.format("%08X", tb));
+            c.check(gb == good && tb == text, "the colors did not survive a reload: good " + String.format("%08X", gb) + ", text " + String.format("%08X", tb));
         } finally {
             restore(file, saved);
             c.onClient(mc -> {
@@ -1419,11 +1419,11 @@ final class Doc1018MenuHudCases {
             List<String> l = labels(c, "InventoryThemeTab");
             c.note("Inventory Theme rows: " + l);
             c.check(!l.isEmpty() && l.get(0).startsWith("Theme: Default"), "the first row is not 'Theme: Default': " + l);
-            c.check(!has(l, "Inventory Theme") && !has(l, "Hide Potion Effects") && !has(l, "Preset") && !has(l, "Slot Colour") && !has(l, "Slot Color")
+            c.check(!has(l, "Inventory Theme") && !has(l, "Hide Potion Effects") && !has(l, "Preset") && !has(l, "Slot Color") && !has(l, "Slot Color")
                     && !has(l, "Accent"), "rows from before are still there: " + l);
             c.check(has(l, "Theme Hotbar") && has(l, "Applies To"), "Applies To / Theme Hotbar are missing: " + l);
             c.check(has(l, "Hotbar Scale"), "the Hotbar Scale slider is not with Theme Hotbar: " + l);
-            c.check(!has(l, "Customise"), "Customise shows while the Theme is not Custom: " + l);
+            c.check(!has(l, "Customize"), "Customize shows while the Theme is not Custom: " + l);
 
             // The card's own switch is the setting (the drawer has no row for it).
             Object tab = c.onClient(mc -> MenuACases.leaf("InventoryThemeTab"));
@@ -1469,7 +1469,7 @@ final class Doc1018MenuHudCases {
                 return null;
             });
             Object vanilla = c.onClient(mc -> Mod.call(cfg, "getPalette"));
-            c.check(vanilla.equals(Mod.field("inventorytheme.InventoryPalette", "DEFAULT")), "Vanilla did not give vanilla's greys");
+            c.check(vanilla.equals(Mod.field("inventorytheme.InventoryPalette", "DEFAULT")), "Vanilla did not give vanilla's grays");
             // The real Theme row steps through the choices and reaches Custom.
             c.onClient(mc -> {
                 Mod.call(cfg, "setChoice", "DEFAULT");
@@ -1483,12 +1483,12 @@ final class Doc1018MenuHudCases {
             c.note("the Theme row reached Custom after " + steps + " click(s)");
             c.check((Boolean) Mod.call(cfg, "isCustom"), "clicking the Theme row never reached Custom");
             List<String> custom = labels(c, "InventoryThemeTab");
-            c.check(has(custom, "Customise"), "a Customise row does not show on Custom: " + custom);
-            boolean opened = pressRow(c, "InventoryThemeTab", "Customise");
+            c.check(has(custom, "Customize"), "a Customize row does not show on Custom: " + custom);
+            boolean opened = pressRow(c, "InventoryThemeTab", "Customize");
             c.ticks(3);
             String screen = c.onClient(mc -> String.valueOf(McCompat.screen(mc)));
-            c.note("after Customise: " + screen);
-            c.check(opened && screen.contains("InventoryCustomizeScreen"), "Customise did not open the customize menu: " + screen);
+            c.note("after Customize: " + screen);
+            c.check(opened && screen.contains("InventoryCustomizeScreen"), "Customize did not open the customize menu: " + screen);
             Screen cs = c.onClient(McCompat::screen);
             List<String> customRows = c.onClient(mc -> {
                 List<String> out = new ArrayList<>();
@@ -1502,7 +1502,7 @@ final class Doc1018MenuHudCases {
                 return out;
             });
             c.note("the customize menu: " + customRows);
-            c.check(has(customRows, "Base:") && has(customRows, "Slot Colour Source") && has(customRows, "Accent Source")
+            c.check(has(customRows, "Base:") && has(customRows, "Slot Color Source") && has(customRows, "Accent Source")
                     && has(customRows, "Done"), "the customize menu is missing its rows: " + customRows);
             shot(c, "customize");
             closeScreen(c);

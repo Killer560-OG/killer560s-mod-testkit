@@ -235,10 +235,10 @@ public class SimSavedRunTests implements FabricClientGameTest {
         int[] found = roomPixels(shot, thumb, screenW);
         System.out.println("[" + NAME + "] Previous Runs: " + listedRuns + " card(s); card 0 at "
                 + java.util.Arrays.toString(card) + ", thumbnail " + java.util.Arrays.toString(thumb) + " holds "
-                + found[0] + " room-colour pixel(s) in " + found[1] + " colour(s) (" + shot.getFileName() + ")");
+                + found[0] + " room-color pixel(s) in " + found[1] + " color(s) (" + shot.getFileName() + ")");
         check(failures, listedRuns == 1, "Previous Runs lists " + listedRuns + " run(s), expected the 1 saved");
         check(failures, found[0] >= 100 && found[1] >= 3, "card 0's thumbnail holds " + found[0]
-                + " room-colour pixel(s) in " + found[1] + " colour(s) - no map drawn there");
+                + " room-color pixel(s) in " + found[1] + " color(s) - no map drawn there");
 
         // A click on the card opens the run's page.
         pressAt(ctx, card[0] + card[2] * 0.75, card[1] + card[3] / 2.0);

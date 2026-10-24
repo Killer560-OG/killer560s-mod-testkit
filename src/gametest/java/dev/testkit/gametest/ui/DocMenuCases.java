@@ -166,9 +166,9 @@ final class DocMenuCases {
     static String themeRowWhy(Minecraft mc, Object block, int n) {
         int widestStacked = -1;
         int narrowestWide = -1;
-        String[] labels = {"Customise...", "Main Menu: Fancy", "Main Menu: Simple"};
+        String[] labels = {"Customize...", "Main Menu: Fancy", "Main Menu: Simple"};
         for (String l : labels) {
-            if (!l.startsWith("Customise")) {
+            if (!l.startsWith("Customize")) {
                 // the scene labels the mod can show
                 boolean known = false;
                 for (Object m : Mod.cls("mainmenu.MainMenuThemeConfig$SceneMode").getEnumConstants()) {
@@ -216,11 +216,11 @@ final class DocMenuCases {
             boolean apart = cz[1] + cz[3] <= mz[1] || mz[1] + mz[3] <= cz[1] || cz[0] + cz[2] <= mz[0]
                     || mz[0] + mz[2] <= cz[0];
             if (!apart) {
-                return "at width " + w + " Customise... " + java.util.Arrays.toString(cz) + " overlaps Main Menu "
+                return "at width " + w + " Customize... " + java.util.Arrays.toString(cz) + " overlaps Main Menu "
                         + java.util.Arrays.toString(mz);
             }
-            if (mc.font.width("Customise...") > cz[2] - 6) {
-                return "at width " + w + " 'Customise...' is cut in a " + cz[2] + "-wide button";
+            if (mc.font.width("Customize...") > cz[2] - 6) {
+                return "at width " + w + " 'Customize...' is cut in a " + cz[2] + "-wide button";
             }
             for (int k = 1; k < labels.length; k++) {
                 if (mc.font.width(labels[k]) > mz[2] - 6) {
@@ -296,8 +296,8 @@ final class DocMenuCases {
                 }
                 // (519 clicks the Main Menu button where it now is, through homeSceneChipBounds.)
                 // The Favourites PAGE stays.
-                if (!(Boolean) Mod.call(s[0], "selectCategory", "Favourites")) {
-                    return "the sidebar has no Favourites page";
+                if (!(Boolean) Mod.call(s[0], "selectCategory", "Favorites")) {
+                    return "the sidebar has no Favorites page";
                 }
                 List<?> favCards = (List<?>) Mod.call(s[0], "cards");
                 if (favCards.size() != 1 || !favCards.get(0).getClass().getSimpleName().equals("QuiverDisplayTab")) {

@@ -195,7 +195,7 @@ final class CroesusColorCases {
             c.check(failures.isEmpty(), String.join("; ", failures));
             boolean legend = panel.stream().anyMatch(l -> l.contains("new") && l.contains("key") && l.contains("unchecked")
                     && l.contains("done") && l.contains("used") && !l.contains("?"));
-            c.check(legend, "no colour legend line (new key unchecked done used, no \"?\") in the info box: " + panel);
+            c.check(legend, "no color legend line (new key unchecked done used, no \"?\") in the info box: " + panel);
             // The old gold default moves to the new one; a picked colour stays.
             String migrate = migration(c);
             c.note("legend " + legend + "; " + migrate);

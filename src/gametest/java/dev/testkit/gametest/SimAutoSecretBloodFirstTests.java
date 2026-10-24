@@ -331,7 +331,7 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
                 rFinished++;
             }
         }
-        println(String.format(Locale.US, "%s: %.1f s, travelled %.1f blocks, ended %s; first target line %d, blood trip %d,"
+        println(String.format(Locale.US, "%s: %.1f s, traveled %.1f blocks, ended %s; first target line %d, blood trip %d,"
                         + " blood open line %d (lock air %s), clear R line %d, first hand-over %d, R cleared %s, routes done %d,"
                         + " Blood First state %s", tag, ticks / 20.0, travelled, ended, firstTarget, bloodTrip, bloodOpened,
                 bloodOpen, clearR, handed, rCleared, rFinished, state));

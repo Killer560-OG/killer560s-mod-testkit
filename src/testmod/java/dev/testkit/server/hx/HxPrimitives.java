@@ -424,7 +424,7 @@ public final class HxPrimitives implements HxModule {
             stand.setItemSlot(EquipmentSlot.HEAD, stack(s, a.get("helmet").getAsString(), 1));
         }
         if (!level.addFreshEntity(stand)) {
-            throw new IllegalStateException("the level refused the armour stand");
+            throw new IllegalStateException("the level refused the armor stand");
         }
         STANDS.put(stand.getUUID(), stand);
         JsonObject out = new JsonObject();

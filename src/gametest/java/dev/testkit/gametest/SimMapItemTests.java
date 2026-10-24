@@ -207,7 +207,7 @@ public class SimMapItemTests implements FabricClientGameTest {
                     failures.add("Funny Map ON drew " + fills.size() + " room(s) (map-item-only " + itemOnly + "), want all 5");
                 }
                 if (cell == null || cell != multiply(NORMAL, 0.6f) || blood == null || blood != multiply(BLOOD, 0.6f)) {
-                    failures.add("Funny Map's unexplored rooms are not drawn in their own colour darkened by Darken "
+                    failures.add("Funny Map's unexplored rooms are not drawn in their own color darkened by Darken "
                             + "Unexplored 0.4: Cell " + hexOrNone(cell) + ", Blood " + hexOrNone(blood));
                 }
                 ctx.runOnClient(mc -> Mod.set(MAP, "setDarkenUnopened", 0f));

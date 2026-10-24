@@ -506,7 +506,7 @@ public final class PacketWatch {
                         + "%d hotbar swaps, %d breaks with no swing that tick, collided with something on "
                         + "%d of %d movement packets, %d breaks sent AFTER that "
                         + "tick's movement packet, furthest reach %.2f to box "
-                        + "/ %.2f to centre; rotation sent: max abs yaw %.1f, biggest one-tick yaw step "
+                        + "/ %.2f to center; rotation sent: max abs yaw %.1f, biggest one-tick yaw step "
                         + "%.1f, pitch %.1f..%.1f%s",
                 ticksObserved, totalBreaks, ticksWithABreak, maxBreaksOnOneTick, tickOfMaxBreaks,
                 totalUses, maxUsesOnOneTick, usesAfterMove, totalContainerClicks, maxClicksOnOneTick,

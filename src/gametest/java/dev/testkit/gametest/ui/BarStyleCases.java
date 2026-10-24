@@ -346,7 +346,7 @@ final class BarStyleCases {
             });
             ModScreenDriver d = HudMenuProfilesCases.tabByClass(c, "HealthAndManaBarsTab");
             String[] rows = {STYLE_ROW, "Corners", "Icons", "Value Position", "Smooth Fill", "Damage Ghost",
-                    "Text Size", "Overflow Mana Colour", "Absorption Colour"};
+                    "Text Size", "Overflow Mana Color", "Absorption Color"};
             List<String> labels = c.onClient(mc -> barTabLabels(d));
             c.note("rows: " + labels);
             for (String row : rows) {
@@ -520,7 +520,7 @@ final class BarStyleCases {
                 c.check(find(main, want) != null, "the main view has no " + want + " row");
             }
             for (String hidden : new String[]{"Corners", "Icons", "Smooth Fill", "Damage Ghost", "Layout", "Bar Width",
-                    "Health Colour", "Overflow Mana Colour", "Health Text", "Hearts"}) {
+                    "Health Color", "Overflow Mana Color", "Health Text", "Hearts"}) {
                 c.check(find(main, hidden) == null, "the main view still shows " + hidden + " (it belongs in Advanced)");
             }
             copyScreen(c, "menu-collapsed");
@@ -608,8 +608,8 @@ final class BarStyleCases {
             });
             c.note("Advanced open (" + open.size() + " rows): " + open);
             for (String want : new String[]{"▼ Advanced", "Layout", "Corners", "Icons", "Show Value", "Smooth Fill",
-                    "Damage Ghost", "Bar Width", "Bar Height", "Health Colour", "Mana Colour", "Absorption Colour",
-                    "Overflow Mana Colour", "Background", "Health Text", "Text Shadow", "Hearts", "XP Bar And Level",
+                    "Damage Ghost", "Bar Width", "Bar Height", "Health Color", "Mana Color", "Absorption Color",
+                    "Overflow Mana Color", "Background", "Health Text", "Text Shadow", "Hearts", "XP Bar And Level",
                     "Held Item Name"}) {
                 c.check(find(open, want) != null, "Advanced has no " + want + " row");
             }
@@ -617,7 +617,7 @@ final class BarStyleCases {
             for (String l : open) {
                 String key = l.contains(":") ? l.substring(0, l.indexOf(':')) : l;
                 if (key.isBlank() || key.endsWith("is on") || key.equals("Always") || key.equals("Look")
-                        || key.equals("Colours") || key.equals("Text readouts") || key.equals("Hide")) {
+                        || key.equals("Colors") || key.equals("Text readouts") || key.equals("Hide")) {
                     continue;
                 }
                 String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", TAB, l));
@@ -1152,7 +1152,7 @@ final class BarStyleCases {
                     c.check(h[0] > 0, name + ": the health bar did not draw");
                     if (v[2].equals("INSIDE")) {
                         int icon = iconRoom(c, 150, BH, v[0]);
-                        String[] bars = {"health", "mana", "defence"};
+                        String[] bars = {"health", "mana", "defense"};
                         int[] ys = {20, 50, 80};
                         StringBuilder line = new StringBuilder(name + " number contrast against white, worst neighbor:");
                         for (int k = 0; k < 3; k++) {

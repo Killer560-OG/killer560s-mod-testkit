@@ -415,7 +415,7 @@ public class MenuAnimSuite implements FabricClientGameTest {
             float[] k = card(c, fresh, tab);
             float want = on ? 0f : 1f;
             c.check(k[1] == want && k[2] == want, "Off: the card switch is not at once at " + want + " (knob " + f(k[1])
-                    + ", colour " + f(k[2]) + ")");
+                    + ", color " + f(k[2]) + ")");
             pressCenter(c, fresh, sw);
             frame(c, t);
             pressBody(c, fresh, tab);
@@ -440,9 +440,9 @@ public class MenuAnimSuite implements FabricClientGameTest {
             pressCenter(c, fresh, sw);
             frame(c, r + 40);
             float[] rk = card(c, fresh, tab);
-            c.note("Reduced, 40 ms after a switch: knob " + f(rk[1]) + " colour " + f(rk[2]));
+            c.note("Reduced, 40 ms after a switch: knob " + f(rk[1]) + " color " + f(rk[2]));
             c.check(rk[1] == want, "Reduced: the knob moved instead of jumping (" + f(rk[1]) + ")");
-            c.check(between(rk[2], 1f - want, want), "Reduced: the switch colour did not fade (" + f(rk[2]) + ")");
+            c.check(between(rk[2], 1f - want, want), "Reduced: the switch color did not fade (" + f(rk[2]) + ")");
             frame(c, r + 1000);
             pressCenter(c, fresh, sw);
             frame(c, r + 2000);

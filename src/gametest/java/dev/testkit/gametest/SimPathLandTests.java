@@ -168,7 +168,7 @@ public class SimPathLandTests implements FabricClientGameTest {
         if (totals[1] > 0) {
             failures.add(totals[1] + " hop(s) landed on a block other than the one planned");
         }
-        println(String.format(Locale.US, "AIM PROBE: %d run-time etherwarp aim(s) from a landing (0.05 over a block centre), "
+        println(String.format(Locale.US, "AIM PROBE: %d run-time etherwarp aim(s) from a landing (0.05 over a block center), "
                 + "%d fragile (miss the block within 0.01 degrees), %d of them with a firm aim to be had", totals[6], totals[7],
                 totals[8]));
         if (totals[6] < 100) {

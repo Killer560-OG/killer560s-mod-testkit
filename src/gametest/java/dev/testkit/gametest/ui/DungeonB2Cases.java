@@ -930,8 +930,8 @@ final class DungeonB2Cases {
             if (cheat) {
                 c.check(off.stream().anyMatch(l -> l.startsWith("ESP:")), "no ESP switch");
                 c.check(off.stream().anyMatch(l -> l.startsWith("Tracer:")), "no Tracer row in the Wither Boss Highlight section");
-                c.check(off.stream().noneMatch(l -> l.startsWith("Wither Boss Colour") || l.startsWith("Wither Boss Color")),
-                        "the ESP still has a Wither Boss Colour row");
+                c.check(off.stream().noneMatch(l -> l.startsWith("Wither Boss Color") || l.startsWith("Wither Boss Color")),
+                        "the ESP still has a Wither Boss Color row");
                 boolean[] before = espState(c);
                 // Real press on the ESP switch.
                 double[] b = button(c, s, "ESP:");
@@ -942,8 +942,8 @@ final class DungeonB2Cases {
                         + java.util.Arrays.toString(after) + "; rows " + on);
                 c.check(!before[0] && !before[1], "with ESP off something still draws through walls");
                 c.check(after[0] && after[1], "one ESP press did not turn every ESP item on");
-                c.check(on.stream().anyMatch(l -> l.startsWith("Tracer:")) && on.stream().noneMatch(l -> l.startsWith("Wither Boss Colour") || l.startsWith("Wither Boss Color")),
-                        "the Tracer row is gone or a Wither Boss Colour row appeared under the switch");
+                c.check(on.stream().anyMatch(l -> l.startsWith("Tracer:")) && on.stream().noneMatch(l -> l.startsWith("Wither Boss Color") || l.startsWith("Wither Boss Color")),
+                        "the Tracer row is gone or a Wither Boss Color row appeared under the switch");
             } else {
                 c.check(off.stream().noneMatch(l -> l.startsWith("ESP:")), "legit jar shows an ESP switch");
                 c.onClient(mc -> {

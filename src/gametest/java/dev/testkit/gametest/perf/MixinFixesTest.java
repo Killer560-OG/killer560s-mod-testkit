@@ -213,9 +213,9 @@ public class MixinFixesTest implements FabricClientGameTest {
                 return n[0];
             });
             double bpc = bytesPerCall(c, () -> System.identityHashCode(starred.getHoverName()) & 1);
-            lines.add(String.format(Locale.ROOT, "revert master stars: \"%s\" (%d recoloured), %.2f B/call", shown, red, bpc));
+            lines.add(String.format(Locale.ROOT, "revert master stars: \"%s\" (%d recolored), %.2f B/call", shown, red, bpc));
             if (!"Hyperion ✪✪✪✪✪".equals(shown) || !shown.equals(again) || red != 2) {
-                failures.add("Revert Master Stars did not rewrite the name: \"" + shown + "\", " + red + " recoloured star(s)");
+                failures.add("Revert Master Stars did not rewrite the name: \"" + shown + "\", " + red + " recolored star(s)");
             }
             if (bpc >= 2 * BUDGET) {
                 failures.add(String.format(Locale.ROOT, "getHoverName with Revert Master Stars allocates %.1f B per call", bpc));

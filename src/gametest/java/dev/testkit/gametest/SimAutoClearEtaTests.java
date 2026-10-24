@@ -250,14 +250,14 @@ public class SimAutoClearEtaTests implements FabricClientGameTest {
                 downs++;
             }
         }
-        println(String.format(java.util.Locale.US, "run finished %s, travelled %.1f blocks, mobs %s; first time line %s;"
+        println(String.format(java.util.Locale.US, "run finished %s, traveled %.1f blocks, mobs %s; first time line %s;"
                 + " readings %s; one-second steps down %d", finished, travelled, alive, firstLine, readings, downs));
         // The run must have happened before the line is judged.
         if (!finished) {
             failures.add("Auto Clear was still running after " + RUN_TICKS / 20 + " s");
         }
         if (travelled < 20) {
-            failures.add(String.format(java.util.Locale.US, "travelled only %.1f blocks - nothing ran", travelled));
+            failures.add(String.format(java.util.Locale.US, "traveled only %.1f blocks - nothing ran", travelled));
         }
         for (SimAutoClearTests.Placed p : placed) {
             if (!"dead".equals(alive.get(p.id()))) {

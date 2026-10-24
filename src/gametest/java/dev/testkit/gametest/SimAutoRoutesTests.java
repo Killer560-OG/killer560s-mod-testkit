@@ -4839,7 +4839,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                             batReal.getZ() - nodeReal.getZ()));
                     float dyaw = Math.abs(net.minecraft.util.Mth.wrapDegrees(third[1] - wantReal));
                     if (Float.isNaN(third[1]) || dyaw > 25f) {
-                        failures.add(weapon + ": use 3 yaw " + third[1] + " is not towards the bat (" + wantReal + ")");
+                        failures.add(weapon + ": use 3 yaw " + third[1] + " is not toward the bat (" + wantReal + ")");
                     }
                 } else {
                     for (int k = 0; k < aims.size(); k++) {
@@ -7431,7 +7431,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 List<Sample> s = stopSampling(ctx);
                 boolean killed = logHas(m, "Mimic of the trapped chest");
                 println(String.format(Locale.US, "644 %s: mimic killed %s, landed on (14,5) %s, from (%.2f, %.2f), furthest "
-                        + "+z %.2f (%.2f towards the chest), now %s", label, killed, landed, before.x, before.z, maxZ,
+                        + "+z %.2f (%.2f toward the chest), now %s", label, killed, landed, before.x, before.z, maxZ,
                         maxZ - before.z, relPos(ctx)));
                 for (String mv : moves) {
                     println("644 " + label + " move: " + mv);
@@ -7469,7 +7469,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     failures.add(label + ": the mimic was not killed");
                 }
                 if (maxZ - before.z > 0.5) {
-                    failures.add(String.format(Locale.US, "%s: he moved %.2f towards the mimic", label, maxZ - before.z));
+                    failures.add(String.format(Locale.US, "%s: he moved %.2f toward the mimic", label, maxZ - before.z));
                 }
                 if (!landed) {
                     failures.add(label + ": #1 never warped him to (14,5) - he is at " + relPos(ctx));
@@ -8361,7 +8361,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         Map.entry("item picked up, no click", item))) {
                     ClickRun r = e.getValue();
                     println(String.format(Locale.US, "warpafterclick %s: started+waiting %s, warp sent %s (%d tick(s) after "
-                                    + "firing), landed %s tick(s) after the act, travelled %.2f, uses ignored %d, turned-first "
+                                    + "firing), landed %s tick(s) after the act, traveled %.2f, uses ignored %d, turned-first "
                                     + "line %s", e.getKey(), r.started(), r.acted(), r.actedAfterFiring(),
                             r.landTick() < 0 ? "never (30)" : String.valueOf(r.landTick()), r.travelled(), r.dropped(),
                             r.turnedFirst()));
@@ -8388,7 +8388,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 check(same.acted(), "#1 never sent its warp after the lever click");
                 check(same.dropped() == 0 && same.landTick() >= 0 && same.travelled() > 7.5,
                         "the warp after a lever click made with the AOTV held was ignored or did not land (landed "
-                                + same.landTick() + ", travelled " + String.format(Locale.US, "%.2f", same.travelled())
+                                + same.landTick() + ", traveled " + String.format(Locale.US, "%.2f", same.travelled())
                                 + ", uses ignored " + same.dropped() + ")");
                 check(same.actedAfterFiring() <= 1, "the warp after the lever click went " + same.actedAfterFiring()
                         + " tick(s) after firing - it must go the next tick, as his own does");
@@ -8594,7 +8594,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         Map.entry("block click with the AOTV held", same), Map.entry("same click, RAW use (control)", raw))) {
                     PuzzleRun r = e.getValue();
                     println(String.format(Locale.US, "puzzleclick %s: sneaking %s, use sent at tick %d, landed %s tick(s) after, "
-                                    + "travelled %.2f, block clicks seen %d, uses ignored %d, turned-first line %s", e.getKey(), r.sneaking(),
+                                    + "traveled %.2f, block clicks seen %d, uses ignored %d, turned-first line %s", e.getKey(), r.sneaking(),
                             r.sentTick(), r.landTick() < 0 ? "never (20)" : String.valueOf(r.landTick()), r.travelled(),
                             r.clicks(), r.dropped(), r.held()));
                 }
@@ -8607,7 +8607,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                                 + ", ignored " + swap.dropped() + ")");
                 check(raw.clicks() >= 1 && raw.dropped() >= 1 && raw.travelled() < 1.0,
                         "control: a raw use right after the same-item click was not ignored (clicks " + raw.clicks() + ", ignored "
-                                + raw.dropped() + ", travelled " + String.format(Locale.US, "%.2f", raw.travelled())
+                                + raw.dropped() + ", traveled " + String.format(Locale.US, "%.2f", raw.travelled())
                                 + ") - the rule is not live, so the case proves nothing");
                 check(same.clicks() >= 1, "the block click never reached the server - the case proves nothing");
                 check(same.sentTick() == 1 && same.held(),
@@ -8615,7 +8615,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                                 + same.held() + ") - it must turn to its look first and go the next tick");
                 check(same.dropped() == 0 && same.landTick() >= 0 && same.travelled() > 7.5,
                         "the use was ignored or did not land (ignored " + same.dropped() + ", landed " + same.landTick()
-                                + ", travelled " + String.format(Locale.US, "%.2f", same.travelled()) + ")");
+                                + ", traveled " + String.format(Locale.US, "%.2f", same.travelled()) + ")");
             } finally {
                 ctx.getInput().releaseKey(options -> options.keyShift);
                 ctx.runOnClient(mc -> dev.testkit.harness.HypixelUseAfterClick.reset());

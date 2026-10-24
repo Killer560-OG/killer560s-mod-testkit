@@ -273,7 +273,7 @@ public class PerfLiveMapTest implements FabricClientGameTest {
                 !(Boolean) Mod.get("livemap.LiveMapConfig", "isTextShadow")));
         out.put("Darken Unexplored 0.5", mc -> Mod.set("livemap.LiveMapConfig", "setDarkenUnopened", 0.5f));
         out.put("Theme: Ocean", mc -> Mod.call(Mod.cfg("livemap.LiveMapConfig"), "setMapThemeName", "OCEAN"));
-        out.put("Colour By Type off", mc -> Mod.set("livemap.LiveMapConfig", "setColourByType", false));
+        out.put("Color By Type off", mc -> Mod.set("livemap.LiveMapConfig", "setColourByType", false));
         out.put("sim room failed", mc -> Mod.staticCall("roomsim.SimRoomState", "markFailed", roomName(1)));
         out.put("sim room back to normal", mc -> Mod.staticCall("roomsim.SimRoomState", "clearRoom", roomName(1)));
         out.put("sim door made a wither door", mc -> Mod.staticCall("livemap.LiveMapFeature", "setSimDoorWither",
@@ -282,7 +282,7 @@ public class PerfLiveMapTest implements FabricClientGameTest {
                 !(Boolean) Mod.get("livemap.LiveMapConfig", "isCustomCheckmarks")));
         out.put("Predictive Rooms toggled", mc -> Mod.set("livemap.predict.PredictiveRoomsConfig", "setEnabled",
                 !(Boolean) Mod.get("livemap.predict.PredictiveRoomsConfig", "isEnabledRaw")));
-        out.put("Map Background colour", mc -> Mod.set("livemap.LiveMapConfig", "setMapBackground", 0xC0102030));
+        out.put("Map Background color", mc -> Mod.set("livemap.LiveMapConfig", "setMapBackground", 0xC0102030));
         out.put("Room Labels: Name + Secrets", mc -> Mod.set("livemap.LiveMapConfig", "setRoomLabels", 4));
         out.put("walked into another room", mc -> moveToRoom((net.minecraft.client.Minecraft) mc, 3));
         return out;

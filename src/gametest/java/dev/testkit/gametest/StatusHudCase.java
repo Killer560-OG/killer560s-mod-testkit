@@ -243,10 +243,10 @@ final class StatusHudCase {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(AS, "stop", new Class<?>[]{String.class, boolean.class},
                     new Object[]{"test timeout", true}));
         }
-        println(String.format(Locale.US, "run: %s, travelled %.1f blocks, %d sample(s)", finished ? "ended by itself"
+        println(String.format(Locale.US, "run: %s, traveled %.1f blocks, %d sample(s)", finished ? "ended by itself"
                 : "timed out", travelled, samples.size()));
         if (travelled < 10) {
-            failures.add(String.format(Locale.US, "hud: the run travelled only %.1f blocks - nothing happened", travelled));
+            failures.add(String.format(Locale.US, "hud: the run traveled only %.1f blocks - nothing happened", travelled));
         }
         if (!hasHud) {
             return;

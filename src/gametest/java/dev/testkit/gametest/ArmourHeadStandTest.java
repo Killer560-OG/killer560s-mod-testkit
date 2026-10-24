@@ -79,7 +79,7 @@ public class ArmourHeadStandTest implements FabricClientGameTest {
                                 return "threw " + rootName(t);
                             }
                         });
-                        scenario.log("named player head: entry found + colour -> " + named);
+                        scenario.log("named player head: entry found + color -> " + named);
                         if (!named.equals("true " + Integer.toHexString(COLOUR))) {
                             throw new AssertionError("a player head named after the entry did not get it ("
                                     + named + "), so the name path no longer works");
@@ -117,9 +117,9 @@ public class ArmourHeadStandTest implements FabricClientGameTest {
                                         : stands.get(0).getItemBySlot(EquipmentSlot.HEAD).getItem().toString();
                             });
                         }
-                        scenario.log("client armour stand wears: " + head);
+                        scenario.log("client armor stand wears: " + head);
                         if (!head.endsWith("player_head")) {
-                            throw new AssertionError("the armour stand never reached the client wearing a player "
+                            throw new AssertionError("the armor stand never reached the client wearing a player "
                                     + "head (" + head + "), so nothing was drawn");
                         }
                         ctx.waitTicks(40);
@@ -165,7 +165,7 @@ public class ArmourHeadStandTest implements FabricClientGameTest {
                 entry.getClass().getField("colorEnabled").setBoolean(entry, true);
                 entry.getClass().getField("color").setInt(entry, 0xFF000000 | COLOUR);
             } catch (ReflectiveOperationException e) {
-                throw new AssertionError("could not set the Custom Items entry's colour", e);
+                throw new AssertionError("could not set the Custom Items entry's color", e);
             }
         }
         ModUnderTest.set(cfg, "setEnabled", on);

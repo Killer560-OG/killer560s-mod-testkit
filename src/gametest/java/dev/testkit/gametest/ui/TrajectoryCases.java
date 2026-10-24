@@ -354,9 +354,9 @@ final class TrajectoryCases {
             double left = yawOf(level.firstSteps.get(0)[1].subtract(level.firstSteps.get(0)[0]));
             double right = yawOf(level.firstSteps.get(2)[1].subtract(level.firstSteps.get(2)[0]));
             c.note(String.format(Locale.ROOT, "measured yaws %.3f / %.3f / %.3f (player yaw 30)", left, centre, right));
-            c.check(Math.abs(centre - 30.0) < 0.05, String.format(Locale.ROOT, "centre arc at yaw %.3f, want 30", centre));
+            c.check(Math.abs(centre - 30.0) < 0.05, String.format(Locale.ROOT, "center arc at yaw %.3f, want 30", centre));
             c.check(Math.abs((centre - left) - 5.0) < 0.05 && Math.abs((right - centre) - 5.0) < 0.05,
-                    String.format(Locale.ROOT, "side arcs %.3f and %.3f degrees off the centre, want 5 each",
+                    String.format(Locale.ROOT, "side arcs %.3f and %.3f degrees off the center, want 5 each",
                             centre - left, right - centre));
             for (Vec3[] s : level.firstSteps) {
                 Vec3 d = s[1].subtract(s[0]);
@@ -370,7 +370,7 @@ final class TrajectoryCases {
             Drawn up = drawn(c);
             double steep = up.firstSteps.size() == 3 ? angle(up.firstSteps.get(0)[1].subtract(up.firstSteps.get(0)[0]),
                     up.firstSteps.get(1)[1].subtract(up.firstSteps.get(1)[0])) : -1;
-            c.note(String.format(Locale.ROOT, "3D angle side-centre: %.3f at pitch 0, %.3f at pitch -60", flat, steep));
+            c.note(String.format(Locale.ROOT, "3D angle side-center: %.3f at pitch 0, %.3f at pitch -60", flat, steep));
             c.check(up.arcs == 3 && steep > 0 && steep < flat - 1.0,
                     "the spread does not narrow looking up: " + up.describe());
 

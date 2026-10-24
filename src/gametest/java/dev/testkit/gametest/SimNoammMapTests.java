@@ -123,7 +123,7 @@ public class SimNoammMapTests implements FabricClientGameTest {
             println(String.format(Locale.ROOT, "door New Trap - Andesite (map byte 85): drawn %s, want #%08X",
                     SimMapItemTests.hexOrNone(door), want));
             if (door == null || door != want) {
-                failures.add("the grey (85) door is drawn " + SimMapItemTests.hexOrNone(door) + ", not the unopened colour #"
+                failures.add("the gray (85) door is drawn " + SimMapItemTests.hexOrNone(door) + ", not the unopened color #"
                         + String.format(Locale.ROOT, "%08X", want));
             }
 

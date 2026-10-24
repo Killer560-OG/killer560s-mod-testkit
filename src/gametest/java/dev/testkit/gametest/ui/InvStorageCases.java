@@ -810,7 +810,7 @@ final class InvStorageCases {
                 for (int i = 0; i < 3; i++) {
                     allBevel &= bevels[i] == b.px(1);
                 }
-                c.note("reskin: slot 0's top line (dark bevel, or the one-colour outline) at Line Width 1/3/0: " + bevels[0]
+                c.note("reskin: slot 0's top line (dark bevel, or the one-color outline) at Line Width 1/3/0: " + bevels[0]
                         + "/" + bevels[1] + "/" + bevels[2] + String.format(Locale.ROOT, " px of #%06X", dark));
                 if (!allBevel) {
                     c.problem("slot 0 has no one-unit top line: " + bevels[0] + "/" + bevels[1] + "/" + bevels[2]);

@@ -389,7 +389,7 @@ final class HxGuiHudCases {
             AbstractWidget pageBtn = widget(c, s, "Settings");
             c.check(pageBtn != null, "no Settings page button");
             click(c, s, pageBtn.getX() + pageBtn.getWidth() / 2.0, pageBtn.getY() + pageBtn.getHeight() / 2.0);
-            c.check(widget(c, s, "Background Colour") != null, "the Settings page has no 'Background Colour'");
+            c.check(widget(c, s, "Background Color") != null, "the Settings page has no 'Background Color'");
             layoutCheck(c, s, "Settings page, Advanced closed");
             AbstractWidget adv = widget(c, s, "▶ §6§lAdvanced"); // CollapsibleSection: arrow, amber header codes, title
             c.check(adv != null, "the Settings page has no closed Advanced row");

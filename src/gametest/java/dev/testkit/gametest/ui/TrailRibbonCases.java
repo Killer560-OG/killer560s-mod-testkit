@@ -748,14 +748,14 @@ final class TrailRibbonCases {
             c.note("ribbon rows: " + ribbonRows);
             c.note("chroma rows: " + chromaRows);
             for (String want : new String[]{"Ribbon Trail: ON", "Ribbon Height: 2.00", "Ribbon Length: 0.2s", "Opacity: 40%",
-                    "Colour Mode: Gradient *", "Colours: 3 *", "Head Colour", "Middle Colour", "Tail Colour",
+                    "Color Mode: Gradient *", "Colors: 3 *", "Head Color", "Middle Color", "Tail Color",
                     "Show In First Person", "Share Ribbon Trail", "Show Others' Trails"}) {
                 c.check(ribbonRows.stream().anyMatch(r -> r.startsWith(want)), "Ribbon Trail tab has no row '" + want + "': " + ribbonRows);
             }
             c.check(ribbonRows.stream().noneMatch(r -> r.startsWith("Style")), "the Ribbon Trail tab has a Style row");
-            c.check(chromaRows.stream().noneMatch(r -> r.startsWith("Head Colour")), "Chroma still shows colour pickers");
+            c.check(chromaRows.stream().noneMatch(r -> r.startsWith("Head Color")), "Chroma still shows color pickers");
             for (String label : new String[]{"Ribbon Trail: ON", "Ribbon Height: 2.00", "Ribbon Length: 0.2s", "Opacity: 40%",
-                    "Colour Mode: Gradient", "Colours: 3", "Head Colour", "Middle Colour", "Tail Colour",
+                    "Color Mode: Gradient", "Colors: 3", "Head Color", "Middle Color", "Tail Color",
                     "Show In First Person: ON", "Share Ribbon Trail: ON", "Show Others' Trails: ON"}) {
                 String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Ribbon Trail", label));
                 c.note("tooltip '" + label + "': " + tip);
@@ -859,7 +859,7 @@ final class TrailRibbonCases {
         });
         c.note("Player Cosmetics rows, Ribbon Trail open: " + section);
         c.check(section.contains("▼ Ribbon Trail"), "Player Cosmetics has no open Ribbon Trail section: " + section);
-        for (String want : new String[]{"Ribbon Trail: ON", "Ribbon Height: ", "Ribbon Length: ", "Colour Mode: "}) {
+        for (String want : new String[]{"Ribbon Trail: ON", "Ribbon Height: ", "Ribbon Length: ", "Color Mode: "}) {
             c.check(section.stream().anyMatch(r -> r.startsWith(want)),
                     "Player Cosmetics' Ribbon Trail section has no '" + want + "' row: " + section);
         }
@@ -867,15 +867,15 @@ final class TrailRibbonCases {
         try {
             List<String> rows = tabRows(c, "gui.tab.TrailTab", () -> Mod.call(Mod.cfg(SQ), "setEnabled", true));
             c.note("Trail tab rows: " + rows);
-            for (String want : new String[]{"Trail: ON", "Length", "Square Size", "Opacity", "Fade Towards Tail",
+            for (String want : new String[]{"Trail: ON", "Length", "Square Size", "Opacity", "Fade Toward Tail",
                     "Show In First Person"}) {
                 c.check(rows.stream().anyMatch(r -> r.startsWith(want)), "the Trail tab lost its row '" + want + "': " + rows);
             }
             c.check(rows.stream().noneMatch(r -> r.startsWith("Style") || r.contains("Ribbon") || r.contains("Share")
-                            || r.contains("Others' Trails") || r.contains("Colour") || r.contains("Color")),
-                    "the Trail tab still has Style, ribbon, colour or share rows: " + rows);
+                            || r.contains("Others' Trails") || r.contains("Color") || r.contains("Color")),
+                    "the Trail tab still has Style, ribbon, color or share rows: " + rows);
             for (String label : new String[]{"Trail: ON", "Length: 40", "Square Size: 0.30", "Opacity: 60%",
-                    "Fade Towards Tail: ON", "Show In First Person: ON"}) {
+                    "Fade Toward Tail: ON", "Show In First Person: ON"}) {
                 String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Trail", label));
                 c.note("tooltip '" + label + "': " + tip);
                 c.check(tip != null && !tip.isEmpty() && !tip.toLowerCase(Locale.ROOT).contains("ribbon"),

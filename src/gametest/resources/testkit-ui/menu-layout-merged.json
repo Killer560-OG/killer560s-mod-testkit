@@ -97,7 +97,7 @@
       "owner": "Chat Tidy",
       "key": "stack duplicate messages",
       "to": "Chat Hider",
-      "text": "A message repeated within 60 seconds replaces its earlier copy with one line ending in a grey (x2), (x3)...",
+      "text": "A message repeated within 60 seconds replaces its earlier copy with one line ending in a gray (x2), (x3)...",
       "why": "chat-batch a64924b9: Chat Tidy and Hide Chat Messages became Chat Hider; rewritten again: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
     },
     {
@@ -435,7 +435,6 @@
       "owner": "(unscoped)",
       "key": "center dot",
       "to": "Custom Crosshair",
-      "renamed": "centre dot",
       "text": "Adds a dot in the middle of any style.",
       "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Centre Dot')"
     },
@@ -443,38 +442,35 @@
       "owner": "(unscoped)",
       "key": "chroma",
       "to": "Custom Crosshair",
-      "text": "Cycles the main colour through the rainbow (keeps its transparency).",
+      "text": "Cycles the main color through the rainbow (keeps its transparency).",
       "why": "Custom Crosshair rows are built by its own tab; 1c10b812 British text"
     },
     {
       "owner": "(unscoped)",
       "key": "color",
       "to": "Custom Crosshair",
-      "renamed": "colour",
-      "text": "Main crosshair colour, with transparency.",
+      "text": "Main crosshair color, with transparency.",
       "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour')"
     },
     {
       "owner": "(unscoped)",
       "key": "color on block",
       "to": "Custom Crosshair",
-      "renamed": "colour on block",
-      "text": "Changes colour while you are aiming at a block in reach.",
+      "text": "Changes color while you are aiming at a block in reach.",
       "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour On Block')"
     },
     {
       "owner": "(unscoped)",
       "key": "color on entity",
       "to": "Custom Crosshair",
-      "renamed": "colour on entity",
-      "text": "Changes colour while you are aiming at an entity in reach.",
+      "text": "Changes color while you are aiming at an entity in reach.",
       "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour On Entity')"
     },
     {
       "owner": "(unscoped)",
       "key": "crosshair preview",
       "to": "Custom Crosshair",
-      "text": "Your crosshair at its real in-game size. Click for another background, right click to go back; the strip below previews movement spread, recoil and target colours.",
+      "text": "Your crosshair at its real in-game size. Click for another background, right click to go back; the strip below previews movement spread, recoil and target colors.",
       "why": "Custom Crosshair rows are built by its own tab; 1c10b812 British text"
     },
     {
@@ -487,21 +483,14 @@
       "owner": "(unscoped)",
       "key": "gap",
       "to": "Custom Crosshair",
-      "text": "Space between the centre and each line; negative makes the lines overlap through the middle.",
+      "text": "Space between the center and each line; negative makes the lines overlap through the middle.",
       "why": "Custom Crosshair rows are built by its own tab; 1c10b812 British text"
-    },
-    {
-      "owner": "(unscoped)",
-      "key": "item rarity backgrounds",
-      "text": "Draws a rarity-coloured square, circle or outline behind Skyblock items.",
-      "why": "1c10b812/d49e8398 British spelling in the hover text"
     },
     {
       "owner": "(unscoped)",
       "key": "outline color",
       "to": "Custom Crosshair",
-      "renamed": "outline colour",
-      "text": "Colour of the outline.",
+      "text": "Color of the outline.",
       "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Outline Colour')"
     },
     {
@@ -554,14 +543,14 @@
     {
       "owner": "Auto Clear",
       "key": "run mode",
-      "text": "Solo plays for the best score per second towards 300 with the blood door last; Party does your routes first and never opens the blood door.",
+      "text": "Solo plays for the best score per second toward 300 with the blood door last; Party does your routes first and never opens the blood door.",
       "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
     },
     {
       "owner": "Croesus / Chest Profit",
       "to": "Croesus",
       "key": "include essence",
-      "text": "Counts essence rewards towards a chest's value.",
+      "text": "Counts essence rewards toward a chest's value.",
       "why": "spelling-uk-1022 British spelling: towards"
     },
     {
@@ -628,48 +617,6 @@
       "why": "5bb297b7 (2026-10-20): the switch is called Track Party Time"
     },
     {
-      "owner": "Blessings",
-      "key": "colors",
-      "renamed": "colours",
-      "text": "Text colour of each blessing's HUD line.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colours')"
-    },
-    {
-      "owner": "Blessings",
-      "key": "life color",
-      "renamed": "life colour",
-      "text": "Colour of the Life line on the Blessings HUD.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Life Colour')"
-    },
-    {
-      "owner": "Blessings",
-      "key": "power color",
-      "renamed": "power colour",
-      "text": "Colour of the Power line on the Blessings HUD.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Power Colour')"
-    },
-    {
-      "owner": "Blessings",
-      "key": "stone color",
-      "renamed": "stone colour",
-      "text": "Colour of the Stone line on the Blessings HUD.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Stone Colour')"
-    },
-    {
-      "owner": "Blessings",
-      "key": "time color",
-      "renamed": "time colour",
-      "text": "Colour of the Time line on the Blessings HUD.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Time Colour')"
-    },
-    {
-      "owner": "Blessings",
-      "key": "wisdom color",
-      "renamed": "wisdom colour",
-      "text": "Colour of the Wisdom line on the Blessings HUD.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Wisdom Colour')"
-    },
-    {
       "owner": "Click Translate",
       "key": "click translate enabled",
       "text": "Left-click any chat message to translate it. The message is sent to Google Translate (or MyMemory) to be translated.",
@@ -679,7 +626,7 @@
       "owner": "Cosmetics",
       "key": "custom names",
       "to": "Player Cosmetics",
-      "text": "Opens the Name Changer: your own display name, its colours, and renames for other players.",
+      "text": "Opens the Name Changer: your own display name, its colors, and renames for other players.",
       "why": "Cosmetics is the Player Cosmetics card (menu-a); 1c10b812 British text"
     },
     {
@@ -694,7 +641,7 @@
       "owner": "Cosmetics",
       "key": "reset cosmetics",
       "to": "Player Cosmetics",
-      "text": "Clears your name, colours, bold, sizes, model shape and your chosen mob. The Play as Mob switch stays as it is.",
+      "text": "Clears your name, colors, bold, sizes, model shape and your chosen mob. The Play as Mob switch stays as it is.",
       "why": "Cosmetics is the Player Cosmetics card (menu-a); its hover rewritten since"
     },
     {
@@ -705,38 +652,11 @@
       "why": "Cosmetics is the Player Cosmetics card (menu-a); its hover rewritten since"
     },
     {
-      "owner": "Custom Mage Beam",
-      "key": "custom mage beam",
-      "text": "In dungeons, redraws every Mage beam as one clean coloured line.",
-      "why": "1c10b812/d49e8398 British spelling in the hover text"
-    },
-    {
       "owner": "Display Options",
       "key": "pack disabler",
       "to": "Pack Disabler",
       "text": "Draws SkyBlock items with their pre-resource-pack look. Off by default.",
       "why": "39f341e8 (2026-10-18): Pack Disabler is its own tab"
-    },
-    {
-      "owner": "Dungeon ESP",
-      "key": "color",
-      "renamed": "colour",
-      "text": "Colour of the boxes or glow for this row's target.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour')"
-    },
-    {
-      "owner": "Dungeon Map",
-      "key": "border color",
-      "renamed": "border colour",
-      "text": "Outline colour around the HUD map; set alpha to 0 for no border.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Border Colour')"
-    },
-    {
-      "owner": "Dungeon Map",
-      "key": "color rooms by type",
-      "renamed": "colour rooms by type",
-      "text": "Paints each room its real colour by type; off uses the Normal colour for every room.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour Rooms By Type')"
     },
     {
       "owner": "Dungeon Map",
@@ -745,31 +665,10 @@
       "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
     },
     {
-      "owner": "Dungeon Map",
-      "key": "map background",
-      "text": "Colour behind the map; the alpha slider sets how see-through it is.",
-      "why": "1c10b812/d49e8398 British spelling in the hover text"
-    },
-    {
       "owner": "Etherwarp Waypoints",
       "key": "color",
-      "renamed": "colour",
-      "text": "Marker colour for etherwarp nodes.",
+      "text": "Marker color for etherwarp nodes.",
       "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour')"
-    },
-    {
-      "owner": "F7 Spots",
-      "key": "aim spot color",
-      "renamed": "aim spot colour",
-      "text": "Colour of the aim-spot crosshair markers.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Aim Spot Colour')"
-    },
-    {
-      "owner": "F7 Spots",
-      "key": "waypoint color",
-      "renamed": "waypoint colour",
-      "text": "Colour of walk-to waypoints that have no colour of their own.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Waypoint Colour')"
     },
     {
       "owner": "Fairy Souls",
@@ -784,35 +683,15 @@
       "why": "General is the Auto Join Skyblock card (menu-a); hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
     },
     {
-      "owner": "Health and Mana Bars",
-      "key": "armor",
-      "renamed": "armour",
-      "text": "Always hides the vanilla armour points bar, whether Stat Bars is on or not.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Armour')"
-    },
-    {
       "owner": "Inventory Theme",
       "key": "hide potion effects",
       "gone": "4a7ffc31 (killer560 2026-10-18 list): Hide Potion Effects gone, always hidden with the theme"
     },
     {
-      "owner": "Item Rarity Backgrounds",
-      "key": "item rarity backgrounds",
-      "text": "Draws a rarity-coloured square, circle or outline behind Skyblock items.",
-      "why": "1c10b812/d49e8398 British spelling in the hover text"
-    },
-    {
-      "owner": "Leap Counter",
-      "key": "alert text (& color codes)",
-      "renamed": "alert text (& colour codes)",
-      "text": "The title text; & colour codes work.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Alert Text (& colour codes)')"
-    },
-    {
       "owner": "Map, Leap & Party",
       "key": "teammate highlight",
       "to": "Teammate Highlight",
-      "text": "Draws a box around each party member, coloured by their dungeon class.",
+      "text": "Draws a box around each party member, colored by their dungeon class.",
       "why": "Teammate Highlight is its own card (menu-layout); 1c10b812 British text"
     },
     {
@@ -835,45 +714,18 @@
       "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
     },
     {
-      "owner": "Nickhider",
-      "key": "randomize others",
-      "renamed": "randomise others",
-      "text": "Gives every other player a fake name for this session; works without the Name Changer toggle.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Randomise Others')"
-    },
-    {
-      "owner": "P3 Nav",
-      "key": "color",
-      "renamed": "colour",
-      "text": "Colour of the boxes on this row.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour')"
-    },
-    {
       "owner": "Puzzle Solvers",
       "key": "teleport maze solver",
       "to": "Teleport Maze Solver",
-      "text": "Colours the Teleport Maze pads to show which are used and which are likely exits.",
+      "text": "Colors the Teleport Maze pads to show which are used and which are likely exits.",
       "why": "each solver is its own card; 1c10b812 British text"
-    },
-    {
-      "owner": "Secret Waypoints",
-      "key": "secret waypoints",
-      "text": "Draws a coloured box on every secret in rooms the mod has recognised.",
-      "why": "1c10b812/d49e8398 British spelling in the hover text"
     },
     {
       "owner": "Secrets",
       "key": "secret waypoints",
       "to": "Secret Waypoints",
-      "text": "Draws a coloured box on every secret in rooms the mod has recognised.",
+      "text": "Draws a colored box on every secret in rooms the mod has recognized.",
       "why": "Secret Waypoints is its own card under Secrets; 1c10b812 British text"
-    },
-    {
-      "owner": "Sharp Shooter (i4)",
-      "key": "aim marker color",
-      "renamed": "aim marker colour",
-      "text": "Colour of the i4 Solver's aim dots.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Aim Marker Colour')"
     },
     {
       "owner": "Sim Settings",
@@ -906,168 +758,6 @@
       "why": "39a02560 (2026-10-20): Spotify Lyrics, \"Mod Enabled\" is now Send Lyrics To Chat"
     },
     {
-      "owner": "Storage Overlay",
-      "key": "overlay theme",
-      "text": "Amber (the original dark look), Dark (neutral greys) or Light, for the grid and the relocated inventory.",
-      "why": "1c10b812/d49e8398 British spelling in the hover text"
-    },
-    {
-      "owner": "Teammate Highlight",
-      "key": "teammate highlight",
-      "text": "Draws a box around each party member, coloured by their dungeon class.",
-      "why": "1c10b812/d49e8398 British spelling in the hover text"
-    },
-    {
-      "owner": "Teleport Maze Solver",
-      "key": "teleport maze solver",
-      "text": "Colours the Teleport Maze pads to show which are used and which are likely exits.",
-      "why": "1c10b812/d49e8398 British spelling in the hover text"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "custom gui",
-      "text": "Replaces the terminal window with a bigger centred panel showing only the slots you need.",
-      "why": "1c10b812/d49e8398 British spelling in the hover text"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "label text color",
-      "renamed": "label text colour",
-      "text": "Colour of the small label drawn on highlighted slots.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Label Text Colour')"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "melody button color",
-      "renamed": "melody button colour",
-      "text": "Colour of the real buttons you click in Melody's Custom GUI.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Melody Button Colour')"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "melody endpoint color",
-      "renamed": "melody endpoint colour",
-      "text": "Colour of Melody's two fixed track endpoint panes in Custom GUI.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Melody Endpoint Colour')"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "melody moving piece color",
-      "renamed": "melody moving piece colour",
-      "text": "Colour of Melody's moving marker pane in Custom GUI.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Melody Moving Piece Colour')"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "melody track color",
-      "renamed": "melody track colour",
-      "text": "Colour of Melody's static track background in Custom GUI.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Melody Track Colour')"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "numbers 3rd color",
-      "renamed": "numbers 3rd colour",
-      "text": "Colour of the 3rd upcoming click in the Numbers terminal.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Numbers 3Rd Colour')"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "numbers after next color",
-      "renamed": "numbers after next colour",
-      "text": "Colour of the slot after the next one in the Numbers terminal.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Numbers After Next Colour')"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "numbers next color",
-      "renamed": "numbers next colour",
-      "text": "Colour of the slot you need to click next in the Numbers terminal.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Numbers Next Colour')"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "overlay colors",
-      "renamed": "overlay colours",
-      "text": "Colours the terminal solver uses for its highlights.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Overlay Colours')"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "panel background color",
-      "renamed": "panel background colour",
-      "text": "Background colour of the Custom GUI panel, always fully opaque.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Panel Background Colour')"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "panel border color",
-      "renamed": "panel border colour",
-      "text": "Outline around the Custom GUI panel.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Panel Border Colour')"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "panes color",
-      "renamed": "panes colour",
-      "text": "Highlight colour for the Correct all the panes terminal.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Panes Colour')"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "reset colors",
-      "renamed": "reset colours",
-      "text": "Puts every terminal overlay colour back to the default orange.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Reset Colours')"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "rubix",
-      "text": "Shows which panes to click, and how many times, in the same-colour terminal.",
-      "why": "1c10b812/d49e8398 British spelling in the hover text"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "rubix count text color",
-      "renamed": "rubix count text colour",
-      "text": "Colour of the click-count number in each Rubix cell.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Rubix Count Text Colour')"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "rubix left click color",
-      "renamed": "rubix left click colour",
-      "text": "Colour of Rubix panes you should left click.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Rubix Left Click Colour')"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "rubix right click color",
-      "renamed": "rubix right click colour",
-      "text": "Colour of Rubix panes you should right click.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Rubix Right Click Colour')"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "select",
-      "text": "Highlights every item of the requested colour in the Select All terminal.",
-      "why": "1c10b812/d49e8398 British spelling in the hover text"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "select all color",
-      "renamed": "select all colour",
-      "text": "Highlight colour for matching items in the Select all the [colour] items terminal.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Select All Colour')"
-    },
-    {
-      "owner": "Terminal Solver",
-      "key": "starts with color",
-      "renamed": "starts with colour",
-      "text": "Highlight colour for matching items in the What starts with terminal.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Starts With Colour')"
-    },
-    {
       "owner": "Terminal Solver",
       "key": "terminal drop key",
       "text": "Stops your drop key from throwing your weapon while a terminal is open. Bind it below.",
@@ -1079,51 +769,10 @@
       "gone": "3d1859a8 (2026-10-18): the Terminals to solve label was removed"
     },
     {
-      "owner": "Thorn (F4)",
-      "key": "spirit bear color",
-      "renamed": "spirit bear colour",
-      "text": "Opens a colour picker for the Spirit Bear highlight.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Spirit Bear Colour')"
-    },
-    {
-      "owner": "Thorn (F4)",
-      "key": "spirit bow color",
-      "renamed": "spirit bow colour",
-      "text": "Opens a colour picker for the Spirit Bow highlight.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Spirit Bow Colour')"
-    },
-    {
-      "owner": "Thorn (F4)",
-      "key": "spirit mob color",
-      "renamed": "spirit mob colour",
-      "text": "Opens a colour picker for the spirit mob highlight.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Spirit Mob Colour')"
-    },
-    {
-      "owner": "Thorn (F4)",
-      "key": "stun spot color",
-      "renamed": "stun spot colour",
-      "text": "Opens a colour picker for stun-spot waypoints.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Stun Spot Colour')"
-    },
-    {
-      "owner": "Thorn (F4)",
-      "key": "thorn color",
-      "renamed": "thorn colour",
-      "text": "Opens a colour picker for the Thorn highlight.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Thorn Colour')"
-    },
-    {
-      "owner": "Thorn (F4)",
-      "key": "thorn highlights",
-      "text": "Coloured boxes or a glow on Thorn-fight targets during the F4/M4 boss.",
-      "why": "1c10b812/d49e8398 British spelling in the hover text"
-    },
-    {
       "owner": "Timers, Score & Boss",
       "key": "custom mage beam",
       "to": "Custom Mage Beam",
-      "text": "In dungeons, redraws every Mage beam as one clean coloured line.",
+      "text": "In dungeons, redraws every Mage beam as one clean colored line.",
       "why": "Custom Mage Beam is its own card; 1c10b812 British text"
     },
     {
@@ -1134,23 +783,9 @@
     },
     {
       "owner": "Maxor's Crystals",
-      "key": "highlight color",
-      "renamed": "highlight colour",
-      "text": "Colour of the crystal boxes.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Highlight Colour')"
-    },
-    {
-      "owner": "Maxor's Crystals",
       "key": "reset best place time",
       "text": "Shows your fastest crystal placement. Click once and the box turns red; after 2 seconds, click again to wipe it.",
       "why": "hover rewritten: af2665f0 2026-10-18 Maxor reset: a box of its own at the bottom, red on the first click"
-    },
-    {
-      "owner": "Starred Mob Hitboxes",
-      "key": "color",
-      "renamed": "colour",
-      "text": "Colour of the boxes or glow for this row's target.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour'); legit jar's name for Dungeon ESP"
     },
     {
       "owner": "(unscoped)",
@@ -1176,7 +811,7 @@
     {
       "owner": "Player Cosmetics",
       "key": "reset cosmetics",
-      "text": "Clears your name, colours, bold, sizes, model shape and your chosen mob. The Play as Mob switch stays as it is.",
+      "text": "Clears your name, colors, bold, sizes, model shape and your chosen mob. The Play as Mob switch stays as it is.",
       "why": "412's fixture row: hover rewritten 1c10b812, then 73a70ba3 Play as Mob (reset clears the chosen mob)"
     },
     {

@@ -322,7 +322,7 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         }
         int[] pair = f.offPathPair(near);
         if (pair == null) {
-            row(R_MAPONLY, false, "premise: no room away from the Entrance with a free neighbour");
+            row(R_MAPONLY, false, "premise: no room away from the Entrance with a free neighbor");
             return;
         }
         int room = pair[1];
@@ -358,7 +358,7 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         List<double[]> after = ctx.computeOnClient(mc -> boxes());
         boolean atDoor = boxAt(after, f.doorCentre(door)) != null;
         row(R_MAPONLY, made > 0 && !anyAtRoom && atDoor && !contains(visited, room) && !contains(visited, neighbour),
-                made + " coal door(s) round " + f.names.get(room) + " (room " + room + ", neighbour " + neighbour
+                made + " coal door(s) round " + f.names.get(room) + " (room " + room + ", neighbor " + neighbour
                         + ", visited " + names(f, java.util.Arrays.stream(visited).boxed().toList()) + "); standing in its doorway " + door + " to "
                         + f.names.get(neighbour) + ", opened rooms " + Arrays.toString(visited) + ": a box on any of its doors "
                         + anyAtRoom + " (" + before.size() + " box(es) in all); " + f.names.get(neighbour)
@@ -755,7 +755,7 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
             break;
         }
         if (pick < 0) {
-            row(R_GUESS, false, "premise: no one-tile room with every neighbour tile a room");
+            row(R_GUESS, false, "premise: no one-tile room with every neighbor tile a room");
             return;
         }
         final int p = pick;
@@ -780,7 +780,7 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         }
         boolean ok = none.isEmpty() && state == 4 && guessed.contains("PUZZLE")
                 && plan.getOrDefault(tile, "").startsWith("guess:") && (afterTrap == null || !afterTrap.contains("TRAP"));
-        row(R_GUESS, ok, f.names.get(pick) + " (tile " + tile + ", really " + f.types.get(pick) + "), neighbours "
+        row(R_GUESS, ok, f.names.get(pick) + " (tile " + tile + ", really " + f.types.get(pick) + "), neighbors "
                 + names(f, around) + ": before they open " + none + "; opened, its state " + state + " (4 unopened), guess "
                 + guessed + ", painter plan '" + plan.get(tile) + "'; " + (trap < 0 ? "no trap room on this floor"
                 : "trap " + f.names.get(trap) + " opened: " + afterTrap));

@@ -355,8 +355,8 @@ final class SliderCases {
             List<String> missed = new ArrayList<>();
             // Since the 2026-10-12 simplification each colour row is "<Bar> Colour" in Advanced's colour grid, and the
             // second "Hide Vanilla XP Bar" row is gone (Hide's "XP Bar And Level" is the setting).
-            List<String> wants = new ArrayList<>(List.of("Stat Bars:", "Health Bar:", "Health Text:", "Health Colour",
-                    "Bar Width:", "Bar Height:", "Show Value:", "Background:", "Absorption Colour:", "Hearts:",
+            List<String> wants = new ArrayList<>(List.of("Stat Bars:", "Health Bar:", "Health Text:", "Health Color",
+                    "Bar Width:", "Bar Height:", "Show Value:", "Background:", "Absorption Color:", "Hearts:",
                     "Unhide Hearts In Rift:", "Health:", "XP Bar And Level:", "Text Shadow:"));
             if (hudEditorBars) {
                 wants.addAll(List.of("Vitality Bar:", "XP Bar:", "Vitality Text:", "XP Text:", "Hypixel Stat Text:",
@@ -406,8 +406,8 @@ final class SliderCases {
         // Quiver Display's colour and Low Arrow Alert, Spring Boots' box colour and style (mod gui-hud, 2026-10-11),
         // both jars, behind their tabs' OFF switches. Own block for merges; 721-724 test what they do.
         if (Mod.has("util.PingTracker")) {
-            for (String want : new String[]{"Quiver Display|Quiver Text Colour", "Quiver Display|Low Arrow Alert:",
-                    "Quiver Display|Low Arrow Threshold:", "Spring Boots|Height Box Colour", "Spring Boots|Height Box Style:"}) {
+            for (String want : new String[]{"Quiver Display|Quiver Text Color", "Quiver Display|Low Arrow Alert:",
+                    "Quiver Display|Low Arrow Threshold:", "Spring Boots|Height Box Color", "Spring Boots|Height Box Style:"}) {
                 String[] p = want.split("\\|");
                 boolean seen = SEEN.stream().anyMatch(x -> x.contains(p[0] + "|" + p[1]));
                 c.note("swept " + p[1] + " on " + p[0] + ": " + seen);
@@ -417,7 +417,7 @@ final class SliderCases {
         if (Mod.has("witherdoors.WitherDoorsConfig$Style")) {
             // Wither Doors' fill rows (mod door-fill), both jars: they sit behind the tab's master switch.
             for (String want : new String[]{"Wither Doors|Style:", "Wither Doors|Fill Opacity:",
-                    "Wither Doors|Fill Colour:", "Wither Doors|Custom Fill Colour:"}) {
+                    "Wither Doors|Fill Color:", "Wither Doors|Custom Fill Color:"}) {
                 String[] p = want.split("\\|");
                 List<String> where = SEEN.stream().filter(x -> x.contains("|" + p[1])).map(x -> x.substring(0, x.indexOf('|')))
                         .distinct().toList();
@@ -429,7 +429,7 @@ final class SliderCases {
         // Wither Doors' Fairy Door rows (mod fairy-door, 2026-10-07): cheat jar only, under the tab's Cheat Build header,
         // each with its "wither doors/..." tooltip. Own block for merges; 531-538 test what the option draws.
         if (Mod.has("witherdoors.FairyDoor")) {
-            for (String want : new String[]{"Fairy Door:", "Fairy Door Colour"}) {
+            for (String want : new String[]{"Fairy Door:", "Fairy Door Color"}) {
                 boolean seen = SEEN.stream().filter(x -> x.contains("|" + want))
                         .anyMatch(x -> x.substring(0, x.indexOf('|')).contains("Wither Doors"));
                 c.note("swept " + want + " on Wither Doors: " + seen + " (" + (Mod.isCheat() ? "cheat" : "legit") + " jar)");

@@ -954,7 +954,7 @@ public class FairySoulTests implements FabricClientGameTest {
                             List<String> legit = rows("com.killer560.hub.gui.tab.PathfindingTab");
                             out.append("fairy souls rows ").append(legit).append('\n');
                             List<String> want = List.of("Fairy Souls", "Show Waypoints", "Show Path", "Path Mode", "Dim Path",
-                                    "Path Colour", "Visible Path", "Line Width", "Re-Path After", "Text Scale", "HUD",
+                                    "Path Color", "Visible Path", "Line Width", "Re-Path After", "Text Scale", "HUD",
                                     "Start On Island Join");
                             check(legit.size() >= want.size() && legit.subList(0, want.size()).equals(want),
                                     "Fairy Souls rows out of order: " + legit);

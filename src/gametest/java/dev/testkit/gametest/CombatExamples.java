@@ -208,7 +208,7 @@ public class CombatExamples implements FabricClientGameTest {
                     naked.remove();
                     ctx.waitTicks(20);
 
-                    TestEnemy armoured = TestEnemy.named("AB", "Armoured")
+                    TestEnemy armoured = TestEnemy.named("AB", "Armored")
                             .at(2.5, y, 0.5).health(20).frozen(true)
                             .armor("minecraft:diamond_helmet", "minecraft:diamond_chestplate",
                                     "minecraft:diamond_leggings", "minecraft:diamond_boots")

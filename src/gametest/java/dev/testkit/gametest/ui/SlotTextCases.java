@@ -245,7 +245,7 @@ final class SlotTextCases {
                     {"attribute shard", attribute, "Chest", 4, false, "[BOTTOM_RIGHT:3:" + CREAM + "]"},
                     {"skill", skill, "Your Skills", 11, false, "[BOTTOM_LEFT:12:" + CREAM + "]"},
                     {"skill maxed", skillMax, "Your Skills", 12, false, "[BOTTOM_LEFT:50:" + GOLD + "]"},
-                    {"skill never levelled", skillFresh, "Your Skills", 13, false, "[BOTTOM_LEFT:0:" + CREAM + "]"},
+                    {"skill never leveled", skillFresh, "Your Skills", 13, false, "[BOTTOM_LEFT:0:" + CREAM + "]"},
                     {"skill header row", skill, "Your Skills", 4, false, "[]"},
                     {"skill in own inventory", skill, "Your Skills", 11, true, "[]"},
                     {"skill in another menu", skill, "Chest", 11, false, "[]"},
@@ -611,13 +611,13 @@ final class SlotTextCases {
             int extraMid = greys(onMid) - greys(offMid);
             int extraEmpty = greys(onEmpty) - greys(offEmpty);
             int changedEmpty = changedIn(onEmpty, offEmpty, 0, 0, onEmpty.getWidth(), onEmpty.getHeight());
-            c.note("slot-grey px added by the grid: compactor 7000 (2 items of 12) " + extraBig + ", 5000 (1 item of 3) " + extraMid
+            c.note("slot-gray px added by the grid: compactor 7000 (2 items of 12) " + extraBig + ", 5000 (1 item of 3) " + extraMid
                     + ", empty 7000 " + extraEmpty + " (frame changed " + changedEmpty + " px: the '12 slots' line)");
-            c.check(greyOffBig > 0, "the instrument saw no slot grey at all in the baseline frame");
-            c.check(extraBig >= 8000, "7000 grid missing: only " + extraBig + " extra grey px");
-            c.check(extraMid >= 1500, "5000 grid missing: only " + extraMid + " extra grey px");
+            c.check(greyOffBig > 0, "the instrument saw no slot gray at all in the baseline frame");
+            c.check(extraBig >= 8000, "7000 grid missing: only " + extraBig + " extra gray px");
+            c.check(extraMid >= 1500, "5000 grid missing: only " + extraMid + " extra gray px");
             c.check(extraBig > 3 * extraMid, "the 7000 grid (" + extraBig + ") is not far bigger than the 5000's (" + extraMid + ")");
-            c.check(extraEmpty <= 200, "an empty compactor drew a grid: " + extraEmpty + " extra grey px");
+            c.check(extraEmpty <= 200, "an empty compactor drew a grid: " + extraEmpty + " extra gray px");
             c.check(changedEmpty > 0, "an empty compactor added nothing (no '12 slots' line): the feature did not act");
         } finally {
             closeScreen(c);
@@ -661,7 +661,7 @@ final class SlotTextCases {
                 note.append(k[0]).append('/').append(k[1]).append("/key=").append(k[2]).append(" +").append(extra).append("; ");
                 boolean grid = extra >= 8000;
                 if (grid != k[3].equals("grid") || (!grid && extra > 200)) {
-                    wrong.add("enabled=" + k[0] + " " + k[1] + " key=" + k[2] + ": +" + extra + " grey px, expected " + k[3]);
+                    wrong.add("enabled=" + k[0] + " " + k[1] + " key=" + k[2] + ": +" + extra + " gray px, expected " + k[3]);
                 }
             }
             c.note(note.toString());

@@ -306,7 +306,7 @@ final class TrailShareCases {
             c.note("first build: " + rowsOut);
             c.note("not linked: " + rowsNo);
             c.note("linked: " + rowsYes);
-            c.check(rowsNo.contains("Share Ribbon Trail: OFF [inactive]"), "Share Ribbon Trail is not greyed out for a non-supporter: " + rowsNo);
+            c.check(rowsNo.contains("Share Ribbon Trail: OFF [inactive]"), "Share Ribbon Trail is not grayed out for a non-supporter: " + rowsNo);
             c.check(rowsNo.contains("Only supporters can share a trail."), "no one-line reason for a non-supporter: " + rowsNo);
             c.check(rowsNo.contains("Show Others' Trails: ON"), "Show Others' Trails is missing or not ON: " + rowsNo);
             c.check(rowsYes.contains("Share Ribbon Trail: ON"), "Share Ribbon Trail is not live for a supporter: " + rowsYes);
@@ -329,7 +329,7 @@ final class TrailShareCases {
             c.note("Ribbon Trail tab, not linked: " + ribbonNo);
             c.note("Ribbon Trail tab, linked: " + ribbonYes);
             c.check(ribbonNo.contains("Share Ribbon Trail: OFF [inactive]") && ribbonNo.contains("Only supporters can share a trail."),
-                    "the Ribbon Trail tab's Share Ribbon Trail is not greyed out with the reason: " + ribbonNo);
+                    "the Ribbon Trail tab's Share Ribbon Trail is not grayed out with the reason: " + ribbonNo);
             c.check(ribbonYes.contains("Share Ribbon Trail: ON") && ribbonYes.contains("Show Others' Trails: ON"),
                     "the Ribbon Trail tab's sharing switches are not live for a supporter: " + ribbonYes);
 
