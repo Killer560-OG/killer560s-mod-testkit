@@ -287,7 +287,7 @@ final class MenuACases {
                 Mod.staticCall("gui.MenuConfig", "load");
                 Mod.setField(Mod.ROOT + SCREEN, "tabs", null);
                 Screen fresh = open(mc);
-                // The sidebar entry is "Favorites" (American again since mod spelling-us-1024); a name the
+                // The sidebar entry is "Favorites" (American again since mod 50bd4911); a name the
                 // sidebar does not have leaves the old category selected, so the result must be checked.
                 if (!(Boolean) Mod.call(fresh, "selectCategory", "Favorites")) {
                     return "the sidebar has no Favorites page";
