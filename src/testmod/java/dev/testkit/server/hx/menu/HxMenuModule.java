@@ -54,6 +54,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class HxMenuModule implements HxModule {
 
+    /** Skyblock ids of the leap items: an ender pearl stack Hypixel never lets fly. */
+    private static final java.util.Set<String> LEAP_IDS = java.util.Set.of("SPIRIT_LEAP", "INFINITE_SPIRIT_LEAP");
     private static final Map<String, JsonObject> ON_USE = new ConcurrentHashMap<>();
     private static final Map<String, JsonObject> ON_COMMAND = new ConcurrentHashMap<>();
     private static final Map<String, JsonObject> ON_ENTITY = new ConcurrentHashMap<>();
@@ -82,6 +84,15 @@ public final class HxMenuModule implements HxModule {
                     e.addProperty("id", id);
                     HxEvents.custom("menu.use", sp, e);
                     HxMenus.later(() -> HxMenuSpec.open(sp.level().getServer(), sp, spec));
+                }
+                // A Spirit Leap is an ender pearl to the client, but Hypixel never throws it: the use opens the leap menu
+                // (or nothing) and the item stays. Left to vanilla, every leap use threw a real pearl whose landing
+                // teleported the player mid-case: GroundSpoof "claimed true" in 1342 (final-1034, 11:47:20), about a
+                // second after the "not in the menu" use. Refuse the throw and send the slot back, since the client
+                // predicted the pearl as consumed.
+                if (LEAP_IDS.contains(id)) {
+                    sp.inventoryMenu.broadcastFullState();
+                    return InteractionResult.FAIL;
                 }
             }
             return InteractionResult.PASS;

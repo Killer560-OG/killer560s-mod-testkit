@@ -543,9 +543,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 1314 (Peek Chat): the held item on the right sways between two screenshots (2,053 changed px in one run), and the
   chat sits wherever the window puts it (top-left at 854x480). Diff a strip LEFT of the hotbar and judge by share of
   the area; find a chat line on the picture by its color, not by a fixed y (2026-10-13).
-- The Hx test server SPENDS the `items.spirit-leap` fixture on every use (it is a plain item on a vanilla server), so a
-  second leap in one case finds nothing ("Could not find INFINITE_SPIRIT_LEAP, SPIRIT_LEAP"): give it again before each
-  leap, and zero `LeapManager.leapCdTicks` (983, 2026-10-13).
+- The `items.spirit-leap` fixture is a vanilla ender pearl, and until 2026-10-24 the Hx server let vanilla THROW it on
+  every use: the item was spent, and the pearl's landing teleported him (that is what left leap cases "in the lake") and
+  drew GroundSpoof "claimed true" in 1342 a second after a leap use. `HxMenuModule` now refuses the throw for SPIRIT_LEAP
+  and INFINITE_SPIRIT_LEAP and sends the slot back, as Hypixel does. Still give the leap before each leap (the client
+  predicts it consumed until the slot comes back) and zero `LeapManager.leapCdTicks` (983, 2026-10-13).
 - 1321-ui-etherwarp-box-faces samples each camera-facing face of the Etherwarp box where it projects (camera from
   `Camera.position()/yRot()/xRot()`, vertical FOV from options with FOV effects 0), skipping samples a client raycast says
   are occluded. Sodium (0.9.2-alpha.4, `-ModUnderTest "mod.jar,sodium.jar"`) breaks the gametest `takeScreenshot` with
