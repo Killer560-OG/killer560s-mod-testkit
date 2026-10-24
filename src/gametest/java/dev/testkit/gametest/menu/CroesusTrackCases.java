@@ -34,6 +34,9 @@ import java.util.Map;
  *       over pages 1 and 2, every one remembered and recently seen except the last on page 2; read page 1, page 2, then
  *       page 1 again. Page 2 keeps each run's own state (the old matcher shifted page 1's last run onto page 2's first
  *       head and every page 2 run took its neighbor's), and page 1 has no "not looked at" afterwards.</li>
+ *   <li>907 (croesus-page-leak-pause, 2026-10-24): 906 with a 4-minute pause between the page 1 read and the page 2 read
+ *       (every remembered run's last sighting moved 4 minutes back, nothing added to the list). Time alone then lets page
+ *       1's last run reach page 2's first head, and before the fix its vote won shift -1 by 10 to 9: the same leak.</li>
  * </ul>
  */
 final class CroesusTrackCases {
@@ -48,7 +51,8 @@ final class CroesusTrackCases {
             shift(c, true, "1d 20h!");
             real(c);
         });
-        MenuSuite.test(s, "906-menu-croesus-page-leak", CroesusTrackCases::pageLeak);
+        MenuSuite.test(s, "906-menu-croesus-page-leak", c -> pageLeak(c, 0L));
+        MenuSuite.test(s, "907-menu-croesus-page-leak-pause", c -> pageLeak(c, 4 * 60_000L));
     }
 
     static JsonObject head(String player, String stateLine, String expiry) {
@@ -290,8 +294,12 @@ final class CroesusTrackCases {
      * one reads "not looked at". Before mod d877a026 the page 2 read voted for a shift of one (page 1's last run, seen a
      * moment before, counted as "reachable" from page 2's first slot), so each page 2 run took its neighbor's state, and
      * page 1's last run, moved onto page 2, read "not looked at" on page 1 afterwards.
+     * <p>
+     * 907 ({@code pauseMs} 4 minutes): after the page 1 read every remembered run's last sighting is moved back by the
+     * pause, as if he waited that long before turning the page; no run joined. Before the fix page 1's last run was then
+     * "reachable" from page 2's first head by time alone (one join per 3 minutes) and voted shift -1 to a 10-9 win.
      */
-    static void pageLeak(Session c) throws Exception {
+    static void pageLeak(Session c, long pauseMs) throws Exception {
         final int last = 37; // overall place of the run nobody remembered: the tenth head of page 2
         final int pages = 2;
         String sig = "The Catacombs|Floor VII|Bravo: Mage (40)";
@@ -370,15 +378,53 @@ final class CroesusTrackCases {
                                 .append(" want ").append(want.get(order)).append("; ");
                     }
                 }
+                if (step == 0 && pauseMs > 0) {
+                    pushSightingsBack(c, pauseMs);
+                }
             }
-            c.note(String.format("%d remembered Bravo runs, order %d not; heads checked %s; \"not looked at\" on page 1: %d"
-                    + " first read, %d after page 2", last, last, java.util.Arrays.toString(checked), unknownOnPage1[0],
-                    unknownOnPage1[1]));
+            c.note(String.format("%d remembered Bravo runs, order %d not; pause %d s before page 2; heads checked %s;"
+                    + " \"not looked at\" on page 1: %d first read, %d after page 2", last, last, pauseMs / 1000,
+                    java.util.Arrays.toString(checked), unknownOnPage1[0], unknownOnPage1[1]));
             // Premise: every head of each read was there to be judged (the menus drew and the states were read).
             c.check(checked[0] == HEAD_SLOTS.length && checked[1] == last + 1 - HEAD_SLOTS.length
                     && checked[2] == HEAD_SLOTS.length, "heads checked " + java.util.Arrays.toString(checked));
             c.check(bad.length() == 0, "states: " + bad);
             c.check(unknownOnPage1[1] == 0, unknownOnPage1[1] + " run(s) on page 1 read \"not looked at\" after page 2 was read");
         }
+    }
+
+    /**
+     * Moves every remembered run's last sighting {@code ms} into the past, as if that long had passed since the last list
+     * read (the run memory reads the wall clock, so the test moves the sightings instead). Premise checked: every run was
+     * moved, and page 1's last run (order 27) is among them.
+     */
+    static void pushSightingsBack(Session c, long ms) {
+        int[] moved = c.onClient(mc -> {
+            Class<?> mem = Mod.cls("croesus.CroesusRunMemory");
+            synchronized (mem) {
+                List<?> runs = (List<?>) Mod.field("croesus.CroesusRunMemory", "RUNS");
+                int n = 0;
+                int edge = 0;
+                for (Object r : runs) {
+                    try {
+                        java.lang.reflect.Field f = r.getClass().getDeclaredField("seenAtMs");
+                        f.setAccessible(true);
+                        long seen = f.getLong(r);
+                        if (seen > 0) {
+                            f.setLong(r, seen - ms);
+                            n++;
+                            if (((Number) Mod.field(r, "order")).intValue() == HEAD_SLOTS.length - 1) {
+                                edge++;
+                            }
+                        }
+                    } catch (ReflectiveOperationException e) {
+                        throw new AssertionError("no seenAtMs on " + r.getClass().getName(), e);
+                    }
+                }
+                return new int[]{n, runs.size(), edge};
+            }
+        });
+        c.check(moved[0] == moved[1] && moved[0] > 0 && moved[2] == 1, "premise: moved " + moved[0] + " of " + moved[1]
+                + " runs' sightings back (page 1's last run among them: " + moved[2] + ")");
     }
 }
