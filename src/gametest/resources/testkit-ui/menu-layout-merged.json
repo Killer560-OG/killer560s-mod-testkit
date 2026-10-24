@@ -547,13 +547,6 @@
       "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
     },
     {
-      "owner": "Croesus / Chest Profit",
-      "to": "Croesus",
-      "key": "include essence",
-      "text": "Counts essence rewards toward a chest's value.",
-      "why": "spelling-uk-1022 spelling: towards"
-    },
-    {
       "owner": "Auto Clear",
       "key": "status hud",
       "text": "One small HUD showing what Auto Clear, Auto Secret and Dungeon Autopilot are doing, hidden while nothing runs; move it in the HUD editor.",
