@@ -222,8 +222,8 @@ function Sync-SlotWindow {
         [WinSlot]::GetWindowRect($p.MainWindowHandle, [ref]$r) | Out-Null
         if ([math]::Abs($r.Left - $t[0]) -gt 2 -or [math]::Abs($r.Top - $t[1]) -gt 2 -or
                 [math]::Abs(($r.Right - $r.Left) - $t[2]) -gt 2 -or [math]::Abs(($r.Bottom - $r.Top) - $t[3]) -gt 2) {
-            # SWP_NOZORDER | SWP_NOACTIVATE
-            [WinSlot]::SetWindowPos($p.MainWindowHandle, [IntPtr]::Zero, $t[0], $t[1], $t[2], $t[3], 0x14) | Out-Null
+            # HWND_BOTTOM, SWP_NOACTIVATE: the client goes behind whatever is open on the monitor, and takes no focus.
+            [WinSlot]::SetWindowPos($p.MainWindowHandle, [IntPtr]::new(1), $t[0], $t[1], $t[2], $t[3], 0x10) | Out-Null
         }
     }
 }

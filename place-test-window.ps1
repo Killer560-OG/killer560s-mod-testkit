@@ -83,9 +83,9 @@ while (-not $moved -and (Get-Date) -lt $deadline) {
     $style = [WinPlace]::GetWindowLong($h, -16)
     $stripped = $style -band (-bnot (0x00C00000 -bor 0x00040000 -bor 0x00800000 -bor 0x00080000))
     [WinPlace]::SetWindowLong($h, -16, $stripped) | Out-Null
-    # SWP_NOZORDER (0x4) | SWP_NOACTIVATE (0x10) | SWP_FRAMECHANGED (0x20): apply the new style, but do not
-    # raise it or steal focus from whatever is being played on the main monitor.
-    [WinPlace]::SetWindowPos($h, [IntPtr]::Zero, $X, $Y, $Width, $Height, 0x34) | Out-Null
+    # HWND_BOTTOM (1) with SWP_NOACTIVATE (0x10) | SWP_FRAMECHANGED (0x20): apply the new style and send the client
+    # behind whatever is open on the monitor, without raising it or stealing focus from the main monitor's game.
+    [WinPlace]::SetWindowPos($h, [IntPtr]::new(1), $X, $Y, $Width, $Height, 0x30) | Out-Null
     Start-Sleep -Milliseconds 400
     $r = New-Object WinPlace+RECT
     [WinPlace]::GetWindowRect($h, [ref]$r) | Out-Null
