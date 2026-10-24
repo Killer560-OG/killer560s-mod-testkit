@@ -62,7 +62,7 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   `ensureInRoom` (server `tp` back to the pad, wait for the frame). Setup also failed once to identify any of 8 rooms; a rerun passed.
 
 - A screenshot camera must not be a spectator: spectators draw invisible entities as translucent ghosts, so 143-sim-key-look's
-  first pictures showed the key's armour stand under its head (2026-10-06). Use survival with `mayfly`/`flying`, and set
+  first pictures showed the key's armor stand under its head (2026-10-06). Use survival with `mayfly`/`flying`, and set
   `flying` again on the client after each teleport - survival flight drops the moment he touches ground. A roofed sim room
   stays dark at noon and full gamma; 143 switches the mod's Fullbright on for its shots and restores it.
 - 141-sim-autopilot re-shuts the sim blood door by putting its blocks back (`SimDoors` keeps a door registered once open);
@@ -90,7 +90,7 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   result straight into the inventory, `preview:false` hides the slot-13 preview, `previewOverride` fakes a wrong one; whether
   real Hypixel previews or how it hands the result over is NOT verified. Cases 292-297 (`AnvilCases`), selected with
   `-Scenario "200-menu-session:,-menu-anvil-"`.
-- 392-ui-blood-camp drives Blood Camp with REAL move packets: armour stands wearing a blood-mob skull (`summon ... equipment:
+- 392-ui-blood-camp drives Blood Camp with REAL move packets: armor stands wearing a blood-mob skull (`summon ... equipment:
   {head:{... "minecraft:profile":{properties:[{name:"textures",value:...}]}}}`) moved by server-side `setPos` beside a zombie
   wearing a Watcher skull. Difficulty must be EASY for the run (peaceful discards the zombie). The tag accessor on 26.1.2 is
   `Entity.entityTags()`, not `getTags()`. A muted client reports no played sounds to `SoundEventListener`s, so the sounds are
@@ -110,7 +110,7 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   spilling (2026-10-07). Measure text with `TextRuns.box` (advance width x line height through the pose); its fields are
   private on 26.2, so `TextRuns` reads them by name.
 
-- 236-menu-partyfinder-style (`PartyFinderStyleCases`): for each Party Finder style it compares the REAL tooltip (`getTooltipFromContainerItem`, through the mod's mixin) with the settings preview (`renderPreviewLines`) colour run by colour run, after putting the preview's own stats into `PartyFinderStatsApi.CACHE`; and, with no stats (offline = what Hypixel's stats service gives on 2026-10-07), that every member line is still styled and draws 0x555555 brackets. Highlight is judged by pure green/red pixels per slot against a highlight-off frame. Fails on mod 0b492828, passes on pf-overlay 2aecfd9a.
+- 236-menu-partyfinder-style (`PartyFinderStyleCases`): for each Party Finder style it compares the REAL tooltip (`getTooltipFromContainerItem`, through the mod's mixin) with the settings preview (`renderPreviewLines`) color run by color run, after putting the preview's own stats into `PartyFinderStatsApi.CACHE`; and, with no stats (offline = what Hypixel's stats service gives on 2026-10-07), that every member line is still styled and draws 0x555555 brackets. Highlight is judged by pure green/red pixels per slot against a highlight-off frame. Fails on mod 0b492828, passes on pf-overlay 2aecfd9a.
   The selected dungeon class (`PartyFinderOverlay.currentRole`) is session state: 234-menu-dungeonclass-select leaves it
   on MAGE, slot 10's roster has a Mage, and the mod rightly marks it DUPE_CLASS - so in the full menu suite slot 10 drew
   red (2026-10-07 sharded run). 236 now clears it for the case and restores it.
@@ -119,7 +119,7 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   just before a `TestInput` release; in the lockstep nothing ticks or renders between that read and the input task, so 0 ticks
   and "sent inside the input task" means the release itself sent it. `TestInput` fakes `InputConstants.isKeyDown` only, NOT
   `glfwGetMouseButton`, so a raw-polled bind under test must be a keyboard key. Wait a tick after `setCursorPos` before a
-  release: a screen that resolves the hover from its last DRAWN cursor otherwise reads the stale centre (the old jar picked
+  release: a screen that resolves the hover from its last DRAWN cursor otherwise reads the stale center (the old jar picked
   nothing on the first run, 2026-10-07).
 - 396-sim-smooth-tp (`SimSmoothTeleportTests`, mod smooth-tp): anything timed in WALL time (the camera glide) needs the test
   thread to sleep between `waitTicks(1)` calls - in the gametest lockstep the client renders one frame per tick as fast as it
@@ -252,7 +252,7 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   Profile Viewer's own profile/name caches, or a direct lookup after 400/406/410 never reaches the fake.
 
 - 407-ui-stat-bars-layout (`StatBarsLayoutCases`, mod bars-anchors): Health and Mana Bars' Layout. Geometry is measured on
-  screenshots by exact colour (each bar its own opaque colour, Show Value and text shadow off) in SURVIVAL with XP level 5,
+  screenshots by exact color (each bar its own opaque color, Show Value and text shadow off) in SURVIVAL with XP level 5,
   so the hearts/hunger/XP rows really draw; the case puts the suite's creative world back with `SafeWorld.apply`. A real
   press in the mod menu (`ModScreenDriver.press`) must run inside ONE `c.onClient` task, as 393 does: from the gametest
   thread it reaches `Minecraft.getInstance()` and throws. Cross-jar old config: `TESTKIT_BARSLAYOUT_EXPORT=<dir>` on the old
@@ -282,7 +282,7 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   read as "1 warp for 175 blocks" (2026-10-06). It now lists every plan, fails on any "[Sim] no etherwarp target there"
   (a planned hop the server refused - knife-edge aims, fixed in mod im-quickgraph) and on N warps covering more than
   N x 61 + 30 blocks, and asserts a tile press uses exactly the warps of the mod's own [check] plan without the
-  centre preference (build.gradle sets `killer560.test.checkFewest`), printing landing depth before vs after.
+  center preference (build.gradle sets `killer560.test.checkFewest`), printing landing depth before vs after.
   Floors are random per run and the refusals depend on the floor: judge 95 over 8+ runs, not one.
 
 ## Moved from CLAUDE.md (2026-10-07, when it became a guide for any machine)
@@ -309,7 +309,7 @@ flags on the client; only when named, `TESTKIT_SIM_INSTANCE=Map Logger`),
 99-sim-map-fit / 99-sim-extra-info / 99-sim-secrets-boss (`SimMapHudTests`: the Dungeon Map fills its frame on 4x5, 5x5,
 6x6 and offset sim floors and Interactive Map presses hit the drawn room; Extra Info with Score Calculator off; Secrets
 HUD hidden in the boss and back on a new run - all fail on mod 0b492828), 394-ui-hud-boxes (every HUD element's box vs
-what it draws, slack 3 units, centred elements judged on their other axis),
+what it draws, slack 3 units, centered elements judged on their other axis),
 399-ui-hud-editor-resize / 399-ui-hud-editor-snap / 399-ui-stat-bars-vitality-xp (HUD editor resize handles, cursors and
 snapping by real mouse drags at Auto Scale 0.5 and 1; Vitality and XP readouts; Classic Display migration; all fail on mod 6f3515ba),
 407-ui-stat-bars-layout (Health and Mana Bars Layout: Predefined areas measured on screenshots at Auto Scale 0.5 and 1,
@@ -379,10 +379,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   fails; a new config class missing from `ProfileManager.reloadAllConfigs` fails 320 (both caught here, 2026-10-07).
 - 441-447 (`HudFixCases`, mod hud-fixes): killer560's 2026-10-07 HUD report, each measured on a GUI-2/4 screenshot or the
   element's own text runs, with Auto Scale off so a unit is exactly guiScale px. With a screen open, judge "behind the
-  screen" by the bar's RAW colour beside the panel (0 px) and by the ON/OFF diff under it, not by "changed" alone: a bar on
+  screen" by the bar's RAW color beside the panel (0 px) and by the ON/OFF diff under it, not by "changed" alone: a bar on
   Fabric's addLast layer is drawn past the dim (vanilla defers SUBTITLES and what follows into extractBackground) and still
   reads "changed". The survival inventory's player model idles between frames (~350 px of diff elsewhere), and the vanilla
-  vignette shifts a HUD colour by 1-2 levels in survival, so exact-colour boxes are for creative frames. Map Extra Info
+  vignette shifts a HUD color by 1-2 levels in survival, so exact-color boxes are for creative frames. Map Extra Info
   text is read inside its opaque panel only: the map's player arrow and a wandering mob beside it changed between frames.
   446 injects a finished F7 run into `SplitTimersFeature.run` and sets `SplitLagClock.pingClockSeen`.
 
@@ -409,7 +409,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   When the room after Fairy is the one the Blood door opens from, the mod says "already at the blood door", not "avoids".
 
 - 581-587 `-ui-` (`ui/InvBatchCases`) and 583/585 `-menu-` (`menu/InvBatchMenuCases`), mod inv-batch (2026-10-08). 581 counts the
-  Item Protect star's exact colour pixels in a protected slot's top-right corner, cell by cell against `ItemProtectFeature.STAR`,
+  Item Protect star's exact color pixels in a protected slot's top-right corner, cell by cell against `ItemProtectFeature.STAR`,
   and 0 on a starred-only item (Auto-Protect Starred on, so the "no marker" is not vacuous). 582: Slot Lock gone from the API,
   tab and tooltips; an old file's locked slots become protected UUIDs on the next tick (a slot without a UUID is named, not
   carried). 583 runs every action Slot Lock blocked against the menu server and counts `container.click`s, each with an
@@ -455,7 +455,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   server's own level - pickup reach measured at 0.1-block steps, one Superboom against two lids + a crypt wall in reach and
   a lid + decorative brick out of it, a secret bat far then near (with an await window opened by `AwaitEvents.begin` then
   `window`: begin also replays his own pickups from just before, here 641's dirt, which read as 9 bat secrets), a
-  straight-down Hyperion from an off-centre spot, Big Red Flag's and Leaves' princes, and four lever doors flicked as the
+  straight-down Hyperion from an off-center spot, Big Red Flag's and Leaves' princes, and four lever doors flicked as the
   player. 645-650 screenshot at GUI 2 into the report's screens. 96-ar-644-mimic-warp (in `SimAutoRoutesTests`) plays the
   mimic route in eight variants and prints every non-movement packet per tick.
 - 776-785 `-logic-autoupdate-` (`logic/AutoUpdateCases`, mod auto-update 2026-10-11): Auto Update against an in-process fake
@@ -468,7 +468,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - **746-750 Auto Fairy Souls (`FairySoulTests`), 754-755 Chocolate Factory (`menu/ChocolateCases`).** Each fairy case
   writes its own SkyHanni-format HUB graph into `GraphRepository.dataDir()`, drops `HUB` from its `LOADED`/`NEXT_ATTEMPT`
   maps, labels the island through the tab list (`Area: Hub`), and answers each soul stand the server sees used with
-  Hypixel's SOUL line; proof is the server's use_entity events, distance travelled and take-offs counted from the client's
+  Hypixel's SOUL line; proof is the server's use_entity events, distance traveled and take-offs counted from the client's
   motion. On a legit jar 746 checks nothing walks and 747-750 SKIP. 754 lays the current factory out with traps on the old
   reader's slots (39 Shrine, 42 a menu button).
 - **791-796 (ping automation, Hx session)**: every case adds a real round trip with `harness/Latency` and reads the mod's own
@@ -484,7 +484,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   a wither summoned into a dying one is shoved away. The frame-driven trigger bots (Simon Says, Arrow Align, Goldor)
   draw GrimAC Post on every click, so those three run expecting flags.
 - 811-818 (cosmetic names): a translucent background (tab list, chat, nametag box) over sky is itself blue-ish and passed a
-  "green-blue text" colour test, so the whole tab read as one smeared run; drop pixels that are a uniform darkening of the
+  "green-blue text" color test, so the whole tab read as one smeared run; drop pixels that are a uniform darkening of the
   base frame before classifying. ModScreen's content widgets sit in a PRIVATE nested pane: reach them through
   `ContainerEventHandler.children()`, not reflection on the pane's class (IllegalAccessException, silently no widgets).
   A literal carrying legacy codes keeps the `§` characters in `getString()`, so match with `contains`, not `startsWith`.
@@ -504,7 +504,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   on a different one), no use/dig in a swap's trace bucket, at most one slot a tick, and `PacketTrace.sentOutsideTick()`
   empty; 50/51/53/55-61, 60 and 833/834 require that last one too. 837 fakes M7 P5 the mod's own way: the M7 sidebar,
   y 30 at x, z >= 0, and Hypixel's spawn burst `particle minecraft:flame 27.0 19.0 59.0 2 3 2 0 20 force @a` over two
-  statues. Write the coordinates as DECIMALS: a whole `27` is centred to 27.5 by the command and the mod's
+  statues. Write the coordinates as DECIMALS: a whole `27` is centered to 27.5 by the command and the mod's
   whole-block check rejects the packet (837's first run: no dragon ever spawning).
 - A pixel compare of a screen drawn over the WORLD is only as still as the world behind it: 824's legit run counted
   2474 changed pixels at the cursor with no carried item anywhere, because the camera view moved between frames
@@ -512,7 +512,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 841-843 (AuraQuoiTests, SimAuraSkipTests, nt-aura-quoi, 2026-10-12): Secret Aura's QUOI items. 841 changes world with
   `execute in minecraft:the_nether run tp` and back (the nether pad needs `forceload add` first) and times the first use from
   the tick the client's level object is replaced: 21 ticks, against 4-5 beside a lever and 7 after a same-world tp. 842 places
-  Hypixel's essence skull with `player_head{profile:{id:[I;...],name:...}}` and stands at 4.8 / 4.6 eye-to-centre (0 / 2 uses).
+  Hypixel's essence skull with `player_head{profile:{id:[I;...],name:...}}` and stands at 4.8 / 4.6 eye-to-center (0 / 2 uses).
   843 puts a server chest in the sim's Water Board (none mid-solve, clicked once `SimRoomState.markCleared`). The three ran
   past run-scenario's default 240 s deadline together with 81-83/419/420/99-sim-*: pass `-TimeoutSeconds`.
 - 846-847 (LeverAuraCpsCases in the boss session, AuraQuoiTests; nt-aura-2, 2026-10-12). 846 builds the six S2 Lights
@@ -525,9 +525,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   redstone block it is placed on - which is itself a redstone key skull, so the aura's first version picked it straight
   back up (2 uses, nothing on the block). Count uses per phase, and check the head is still there afterwards.
   Since nt-key-place-2: the node only takes the key on an AIR-facing face and logs every use with its face; 848 covers
-  the eye-to-centre face with stone so the open-face rule is what is measured, and counts key detection at 9 vs 11.
+  the eye-to-center face with stone so the open-face rule is what is measured, and counts key detection at 9 vs 11.
 - 940-945 (mod menu-a, the Option A mod menu, 2026-10-12): a category is a grid of feature cards and a tab's rows live in
-  its drawer, one feature at a time. `ModScreenDriver.rebuild()` still honours the old way of asking (a section index in
+  its drawer, one feature at a time. `ModScreenDriver.rebuild()` still honors the old way of asking (a section index in
   the folder's `expanded`, `expandAll` on a group): one opened feature is its real drawer, several are opened in turn and
   their rows stacked and re-scoped. A row's own press works on any of them, but a REAL-MOUSE press through the screen only
   reaches the drawer opened last - a real-input case opens one feature with `d.open(leaf)` (or `openChain`). Tooltips are
@@ -542,7 +542,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 
 - 1314 (Peek Chat): the held item on the right sways between two screenshots (2,053 changed px in one run), and the
   chat sits wherever the window puts it (top-left at 854x480). Diff a strip LEFT of the hotbar and judge by share of
-  the area; find a chat line on the picture by its colour, not by a fixed y (2026-10-13).
+  the area; find a chat line on the picture by its color, not by a fixed y (2026-10-13).
 - The Hx test server SPENDS the `items.spirit-leap` fixture on every use (it is a plain item on a vanilla server), so a
   second leap in one case finds nothing ("Could not find INFINITE_SPIRIT_LEAP, SPIRIT_LEAP"): give it again before each
   leap, and zero `LeapManager.leapCdTicks` (983, 2026-10-13).
@@ -557,7 +557,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   needs 7 magenta pixels in its 5x5 (a whole 2 px line, about 10): 'any magenta within 2 px' passed main's chest at 54/63,
   because the half of each line outside the chest's silhouette survived. Main 26.1.2: chest Outline 0/63, Filled 0/50; 26.2
   and the fix: all pass. Etherwarp passes through heads, so the head case's box is the stone below it, red.
-- 1401-1403 (`SimWorldTests`, sim-superboom-radius 2026-10-14): the sim Superboom's 3-block radius (blast at the hit FACE's centre, measured to each block's box) and whole groups. 1401 Big Red Flag's prince tomb (86 blocks, wall z 27 / x 18 and floor kept) plus a floor cracked chain; 1402 Arrow Trap's slab crypt from an overhang 2 above the lid (out of the old y +-2 cube); 1403 a cracked chain with one end in reach beside a stone brick wall that stays. All three fail on main (46/86 tomb left, 0 broken, 8/8 chain left). 642/645 now expect the decorative brick in reach, the eave and the wall under the lid to go.
+- 1401-1403 (`SimWorldTests`, sim-superboom-radius 2026-10-14): the sim Superboom's 3-block radius (blast at the hit FACE's center, measured to each block's box) and whole groups. 1401 Big Red Flag's prince tomb (86 blocks, wall z 27 / x 18 and floor kept) plus a floor cracked chain; 1402 Arrow Trap's slab crypt from an overhang 2 above the lid (out of the old y +-2 cube); 1403 a cracked chain with one end in reach beside a stone brick wall that stays. All three fail on main (46/86 tomb left, 0 broken, 8/8 chain left). 642/645 now expect the decorative brick in reach, the eave and the wall under the lid to go.
 - 96-ar-1014-jumpcd / 62-argrim-1014-jumpcd (ar-jump-cooldown, 2026-10-14): a finished jump node's tile does not arm for
   3 s. Count take-offs on the CLIENT's ground flag and only after the node has pressed: the integrated server's flag drops
   once for the teleport onto the node (first run: 4 server take-offs for 3 presses, 545 ms apart), and a teleport can drop
@@ -612,7 +612,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   S1->S2, PATH S2->S3, ... so every pair after the first fires on the etherwarp's landing tick (0.05 up, the run-time re-aim).
   Pass 1 plans (he settles while it plans, so no re-aim), 2 flies the saved plans, 3 adds `ClickPrimer`. Each hop is judged
   against its saved plan's target block (RouteNode.PathHop.target), not the mod's 2-block "landed"; a correction during a
-  path warp is a warp landed elsewhere. Plus an aim probe: the mod's `getEtherwarpDirection` from 0.05 over a block centre
+  path warp is a warp landed elsewhere. Plus an aim probe: the mod's `getEtherwarpDirection` from 0.05 over a block center
   to landable blocks, fragile = lands for the exact float look but not within 0.01 degrees. Mod main d1eda658: 3600 aims,
   260 fragile, 67 with a firm one to be had - FAIL; path-wrongblock-1015: 8 fragile, 0 avoidable, no saved look fired from
   above its spot, PASS. End-to-end wrong blocks are rare (0 in 552 main hops one run; one 5.4-block miss on Overgrown in
@@ -678,7 +678,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 1435-sim-deuces-exact (SimDeucesExactTests, mod deuces-exact-1018, 2026-10-18): Deuces' chest doorway against the mod's
   own table (`DeucesChestDoorway.overrides`, via `DeucesExact`), every block, solo and on the 1433 floor at 0/90/180/270;
   the door-piece sweep on each build; the passage into Altar at floor 0. The table states are turned by the paste's
-  rotation; a wall is compared by block only (its arms follow its neighbours). Premise: >= 20 of the table's blocks
+  rotation; a wall is compared by block only (its arms follow its neighbors). Premise: >= 20 of the table's blocks
   differ from the capture, so a paste that ignored the table fails.
 - 1434-sim-deuces-hypixelview takes `-PdeucesVariants=spec=<file>` (lines `x y z block`, ranges `a..b`, capture frame,
   cumulative), `-PdeucesZs`, `-PdeucesOut`. The test client FLIES, and flying multiplies FOV by 1.1: his FOV 110 is
@@ -735,7 +735,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - **190-192 Auto Blood Camp, round 4 (mod bloodcamp-4-1015, 2026-10-15)**: blood mobs are now known by IDENTITY (the mob on
   a trip's landing spot as it lands), so a husk summoned with no trip is not a blood mob and the Aura ignores it - 185,
   186, 188 and 189 were rewritten to use trip husks (named "blood", NoGravity). 190 Dungeon ESP's Blood Mobs: the trip
-  husk is drawn red, a plain husk is not, a starred zombie keeps its own colour, and the husk stays red after a `tp` out
+  husk is drawn red, a plain husk is not, a starred zombie keeps its own color, and the husk stays red after a `tp` out
   of the room tile (Blood Camp itself off - the ESP tracks on its own). 191 a plain husk in reach in front of him is never
   attacked or aimed at; 192 a plain husk standing on the line to the blood mob holds every click (control: clicks).
   `MobEspConfig`'s Blood Mobs/Starred/Room Scoped have no bean getter, so 190 sets them with `.custom`.
@@ -749,7 +749,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   or a text box is fine; it opens every leaf's real drawer (`ModScreenDriver.open`), not the stacked folder view.
 
 - **1720-1731 sim-doors-predict** (mod doors-predict-1015, 2026-10-15). The sim has no map item, so the mod's `HeldMap`
-  stand-in decides what "the map shows": a room is opened once someone stands within 14 blocks of one of its tile centres
+  stand-in decides what "the map shows": a room is opened once someone stands within 14 blocks of one of its tile centers
   (x/z only - hovering high over a room opens it too). So a test that must keep a room unopened waits HIGH OVER A DOORWAY
   GAP, never in it once the doorway is coal: placed inside a coal doorway the server pushes him out into a room, which
   then counts as opened (1722's first runs, "Black Flag opened (you at -24, -71)"). And a door block read right after
@@ -763,7 +763,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   unloaded case hands the client `ClientboundForgetLevelChunkPacket` through the real handler and runs `/mage` in the SAME
   client task (the server sends it straight back), and it runs last. Ask `mc.level.getChunkSource().hasChunk`, never
   `mc.level.hasChunk`: ClientLevel's is hard-wired to true. The stitched tile is made sound by copying the good tile's
-  centre column over it on the server, so the save path can be tested on the shipped capture.
+  center column over it on the server, so the save path can be tested on the shipped capture.
 - **188-189 Auto Blood Camp, round 3 (mod bloodcamp-3-1015, 2026-10-15)**: 188 a husk 6 blocks out (NoGravity, it is off
   the platform): a mage weapon (blaze rod) gets swings and no attack, a lore-"Shortbow" bow gets uses (use_item at the
   server even with no arrows - the packet goes before the item's own check), nothing behind a wall, and the Trigger Bot
@@ -782,7 +782,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   etherwarp toward`: before mod ac-optimize-1015 that line was logged again when the body had to be given back first
   (Phase.RELEASE) and a 3-trip clear logged 5. Case 8 leaves a live zombie in the room he stands in; case 9 avoids it.
 - 1015-noamm-map (SimNoammMapTests, mod noamm-map-compare-1015) reuses SimMapItemTests' floor and painted map: the gray
-  (85) door's drawn colour, four fake dungeon tab entries (`PlayerInfo`s put straight into the connection's
+  (85) door's drawn color, four fake dungeon tab entries (`PlayerInfo`s put straight into the connection's
   `playerInfoMap`/`listedPlayers`, sorted by their `!B-x` profile names) against four PLAYER decorations, a marker moved
   three rooms and sampled per tick, then a map with a stray green run at (16,5). Empty slot 9 before a sim REBUILD: the
   rebuild resets the map reading and the old map still in slot 9 recalibrates first (the old jar measured (16,5) off the
@@ -851,7 +851,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 1571-1573 (mod vanilla-themes-1015, 2026-10-15; first numbered 1568-1570, which Amber already used): 1572 walks the vanilla menus by real clicks from the title screen and
   leaves each by its own Done/Back/Cancel. Never press `selectWorld.create` on CreateWorldScreen: with no saved worlds
   Singleplayer opens it directly and that key is its "Create New World" button - the first run made a world and the client
-  hung. A theme check measures a button's mean colour in two screenshots (old jar: 30,30,30 in both themes). 1566 counts
+  hung. A theme check measures a button's mean color in two screenshots (old jar: 30,30,30 in both themes). 1566 counts
   scene motion only in the side strips: the splash text pulsed, so a whole-screen count moved 0.1% on Plain too (the themed menu draws no splash since mod no-splash-1015; 1568 embers moved 0.23% with it, 0.10% without).
 - **93-solve-waterboard-timing, 1015-sim-water-mappress, 1015-grim-water-clickwarp** (mod water-late-1015, 2026-10-15):
   Auto Water's timing. The timing case (`SimWaterTimingTests`, on `SimPuzzleSolveTests.Base`) reads Water Board Solver's
@@ -969,7 +969,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 1961-1979 (sim-grassruin-lever-1016, `SimLeverGateTests`): room levers drop their gates. Gates are written against the
   mod's BUNDLED captures, but the library prefers a local capture, and Mod Only Test's Overgrown is the bundled one turned
   180 degrees: each gate is turned to the quarter turn that lands its lever on a lever before anything is read. Stand in
-  reach by distance to the lever's block BOX, not its centre (Purple Flags' hanging lever is 4.4 / 4.9). The numbers
+  reach by distance to the lever's block BOX, not its center (Purple Flags' hanging lever is 4.4 / 4.9). The numbers
   1781-1798 were taken first and collided with 1790-sim-map-leave-secrets - a filter of bare digits ran another class's
   cases; grep the testkit for a number before using it.
 - 1980-1994 (sim-rails-spider-1017, same class): 1980 checks `/simwhere` (`SimWhere.roomNameAt`) on every column of each
@@ -1046,7 +1046,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   Drawer rows are read by building the registered tab (`build(MenuACases.leaf(...))`, label = `ModScreenDriver.label`) and
   pressed with `ModScreenDriver.press`; a feature that is not there makes `MenuACases.leaf`/`openTab` throw "no feature tab X",
   which is the main-jar failure of the new-tab cases. Pixel probes are relative (a row's brightness range, a same-row
-  reference, the HUD off vs on over the panel's box) so no absolute colour is assumed; each has a positive control or was
+  reference, the HUD off vs on over the panel's box) so no absolute color is assumed; each has a positive control or was
   seen failing on the main jar (c099a9fa). A new settings row must not reuse another row's label: the tooltip table is keyed
   by label, and the Solver Highlight rows first clashed with Tic Tac Toe's own "Highlight Style" and Breaker Aura's tooltip.
   Run: `./run-scenario.ps1 -Scenario 1018-ui -ModUnderTest <jar> -Port 27803` (about a minute with the build warm).

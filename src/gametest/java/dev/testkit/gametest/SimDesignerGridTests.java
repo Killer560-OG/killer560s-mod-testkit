@@ -22,13 +22,13 @@ import java.util.Map;
  * (1x1, 1x2, 1x3, 1x4, 2x2, L) is placed by real clicks - two arrangements, so each shape sits at two positions - and at
  * every window size / GUI scale / Auto Scale below:
  * <ul>
- *   <li>the grid's lines are found as columns and rows of the line colour: there are {@code across - 1} and
+ *   <li>the grid's lines are found as columns and rows of the line color: there are {@code across - 1} and
  *       {@code down - 1} of them, all the same thickness and exactly the same distance apart, and one more step out on
  *       each side is the well's border (dark), so the first and last row and column are the same size as the rest;</li>
- *   <li>each room's drawn colour, bounded on the pixel lattice those lines give, leaves exactly the same gutter to the
+ *   <li>each room's drawn color, bounded on the pixel lattice those lines give, leaves exactly the same gutter to the
  *       lines on all four sides, the same for every room in the frame, and fills its cells (an L its three cells, its
  *       fourth cell empty);</li>
- *   <li>each room's label is centred in its shape (an L: on its horizontal pair, as the live map places it).</li>
+ *   <li>each room's label is centered in its shape (an L: on its horizontal pair, as the live map places it).</li>
  * </ul>
  * Fails on main: rooms start on a line and stop a fifth of a cell short of the next, the L is drawn as its whole 2x2 box,
  * and at a fractional pixels-per-unit (1920x1080 GUI 3 under Auto Scale is 2.25) the line spacing alternates.
@@ -401,7 +401,7 @@ public class SimDesignerGridTests implements FabricClientGameTest {
         return true;
     }
 
-    /** Runs of columns (vertical) or rows where at least a fifth of the band is the line colour: {start, thickness}. */
+    /** Runs of columns (vertical) or rows where at least a fifth of the band is the line color: {start, thickness}. */
     private static int[][] lines(BufferedImage img, int colour, int x0, int y0, int x1, int y1, boolean vertical) {
         List<int[]> out = new ArrayList<>();
         int len = vertical ? y1 - y0 : x1 - x0;
@@ -489,8 +489,8 @@ public class SimDesignerGridTests implements FabricClientGameTest {
     }
 
     /**
-     * One room: its colour's bounding box inside its cells' span leaves the same gutter {@code g} to the lines on all
-     * four sides; its cells are filled and an L's fourth cell is empty; its label is centred in it. Returns {g}.
+     * One room: its color's bounding box inside its cells' span leaves the same gutter {@code g} to the lines on all
+     * four sides; its cells are filled and an L's fourth cell is empty; its label is centered in it. Returns {g}.
      */
     private int[] room(BufferedImage img, String tag, Placed p, int[] lx, int[] ly, int t, List<DesignerKit.Run> runs,
                        int gs) {
@@ -530,7 +530,7 @@ public class SimDesignerGridTests implements FabricClientGameTest {
                     + lx[p.ax() + p.w()] + ", y " + sy0 + ".." + ly[p.az() + p.h()] + ")");
         }
         int g = Math.max(1, gl);
-        // Each tile: its inside (less the gutter and one more pixel) the room's colour, an L's missing one empty.
+        // Each tile: its inside (less the gutter and one more pixel) the room's color, an L's missing one empty.
         for (int dx = 0; dx < p.w(); dx++) {
             for (int dz = 0; dz < p.h(); dz++) {
                 boolean isMissing = p.missing() != null && p.missing()[0] == dx && p.missing()[1] == dz;
@@ -558,7 +558,7 @@ public class SimDesignerGridTests implements FabricClientGameTest {
                 }
             }
         }
-        // The label: the text runs whose centre falls in the room, centred on its shape (an L: its horizontal pair).
+        // The label: the text runs whose center falls in the room, centered on its shape (an L: its horizontal pair).
         int[] box = {minX, minY, maxX + 1, maxY + 1};
         if (p.missing() != null) {
             int row = p.missing()[1] == 0 ? 1 : 0;

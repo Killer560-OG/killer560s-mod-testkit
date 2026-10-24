@@ -854,7 +854,7 @@ public class ThemeExtrasSuite implements FabricClientGameTest {
         }
     }
 
-    /** A screenshot's average colour over the left fifth of the screen (background only: the button panel is centred). */
+    /** A screenshot's average color over the left fifth of the screen (background only: the button panel is centered). */
     static Pic pic(UiCase c, String label) throws Exception {
         Path p = c.ctx().takeScreenshot(Report.fileName(c.name() + "-" + label));
         Report.screenshot(c.name(), p);

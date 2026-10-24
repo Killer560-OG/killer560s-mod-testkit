@@ -24,9 +24,9 @@ import java.util.Map;
  * the whole time", stuck on walls, no ladders, no God Potion sense, no failsafes.
  * <p>
  * Each case writes its own island graph (SkyHanni's format: feet-block positions, {@code fairy_soul} tags) as the
- * cached HUB graph, labels the island Hub through the tab list, puts real armour stands with heads where the souls are,
+ * cached HUB graph, labels the island Hub through the tab list, puts real armor stands with heads where the souls are,
  * and answers each stand the server sees used with Hypixel's {@code SOUL! You found a Fairy Soul!} line and removes it.
- * The proof is the server's: the {@code use_entity} events it received, the distance the client travelled, and souls
+ * The proof is the server's: the {@code use_entity} events it received, the distance the client traveled, and souls
  * the mod logged found - never only the mod's own state.
  * <ul>
  *   <li>746 walk: a wall the straight line goes through (the path rounds its end), a bottom-slab row and a one-block
@@ -61,7 +61,7 @@ public class FairySoulTests implements FabricClientGameTest {
     private static final String WALKER = "pathfinding.AutoWalker";
     private static final String SOUL_LINE = "§d§lSOUL! §fYou found a §dFairy Soul§f!";
 
-    /** A graph node: feet block, tags, neighbour ids. */
+    /** A graph node: feet block, tags, neighbor ids. */
     record Node(int id, int x, int y, int z, boolean soul, int... next) {
     }
 
@@ -931,7 +931,7 @@ public class FairySoulTests implements FabricClientGameTest {
 
     /**
      * 1017-fairy-settings: the Fairy Souls tab's rows in killer560's order (switch, Show Waypoints, Show Path + Path
-     * Mode, Dim Path + Path Colour, the sliders, HUD + Start On Island Join), no "Found n/m" line and no Stop Navigation;
+     * Mode, Dim Path + Path Color, the sliders, HUD + Start On Island Join), no "Found n/m" line and no Stop Navigation;
      * the Auto Fairy Souls tab (cheat) with its switch first, Auto Walk and Auto Click ON by default and no Turn Speed;
      * every setting through save and load; and a version-1 file migrated.
      */
@@ -1132,7 +1132,7 @@ public class FairySoulTests implements FabricClientGameTest {
                 text = text == null ? "" : text.trim();
                 int colon = text.indexOf(':');
                 String label = (colon > 0 ? text.substring(0, colon) : text).trim();
-                // a colour swatch's label carries the swatch glyph after the name
+                // a color swatch's label carries the swatch glyph after the name
                 label = label.replaceAll("[^A-Za-z0-9/ ()?.'-]", "").trim();
                 out.add(label);
             }

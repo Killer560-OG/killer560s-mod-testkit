@@ -35,7 +35,7 @@ import java.util.regex.Pattern;
  * the map's count, whether he stood in it, whether he has a route for it and whether that route started and finished;
  * puzzles by the map; stalls (Auto Secret running and him not moving for 3 s or more), Auto Routes stops other than its
  * own end, start nodes that did not arm, warps that never landed, corrections, mod ERROR lines, and the distance he
- * travelled. A run that never moved, never started a route or never counted a secret is reported as NOT RUN.
+ * traveled. A run that never moved, never started a route or never counted a secret is reported as NOT RUN.
  *
  * <p>The verdict: every room he has a route for (not a puzzle, trap, blood, fairy or entrance) visited and fully found,
  * at most {@code MAX_MISSED_ROOMS} rooms short; every puzzle done or failed by the map; Auto Secret ended by "nothing
@@ -728,7 +728,7 @@ public class SimFullClearTests implements FabricClientGameTest {
      * run, whichever jar. Sim mobs never move and die to one hit; the room clears when its last one dies.
      */
     private static void placeMobs(ClientGameTestContext ctx, Tally t, int perTile) {
-        // room name -> its tiles' centres, from the live map
+        // room name -> its tiles' centers, from the live map
         Map<String, List<BlockPos>> tiles = ctx.computeOnClient(mc -> {
             Map<String, List<BlockPos>> out = new TreeMap<>();
             Object layout = ModUnderTest.staticCall(LAYOUT, "capture");

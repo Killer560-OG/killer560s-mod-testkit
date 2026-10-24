@@ -65,7 +65,7 @@ final class TitleSwitcherCases {
         return null;
     }
 
-    /** A real click through the screen's own mouseClicked/mouseReleased at the widget's centre. */
+    /** A real click through the screen's own mouseClicked/mouseReleased at the widget's center. */
     private static boolean click(Screen s, AbstractWidget w, int button) {
         double x = w.getX() + w.getWidth() / 2.0;
         double y = w.getY() + w.getHeight() / 2.0;

@@ -118,7 +118,7 @@ public class SimLoadTests implements FabricClientGameTest {
         //    copy of chunks 100 blocks from spawn is not loaded and every read comes back void_air, which is
         //    how a previous version of the other scenario "passed" while nothing had been placed.
         ctx.waitTicks(40);
-        // The EVEN centre cell the mod uses. GRID/2 is 5, which is odd, and rooms sit on even cells - the
+        // The EVEN center cell the mod uses. GRID/2 is 5, which is odd, and rooms sit on even cells - the
         // builder was corrected on 2026-09-29 and this had kept looking half a tile away.
         int centre = (GRID / 2) & ~1;
         int x0 = START + centre * HALF_ROOM - TILE / 2;

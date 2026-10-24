@@ -423,7 +423,7 @@ public class InstaClearTests implements FabricClientGameTest {
             // ---- 1. WALK from A into B through their door; B flips while its stars stand -> INSTA
             Vec3 doorAt = ctx.computeOnClient(mc -> (Vec3) ModUnderTest.staticCall(LAYOUT, "doorCentre",
                     new Class<?>[]{int.class}, new Object[]{doorOf(ra, rb)}));
-            // Unit step from A's tile towards B's tile.
+            // Unit step from A's tile toward B's tile.
             int[] ta = ra.tileFacing(rb);
             int[] tb = rb.tileFacing(ra);
             int sx = Integer.signum(tb[0] - ta[0]);
@@ -640,7 +640,7 @@ public class InstaClearTests implements FabricClientGameTest {
             + "AAoDAQAAAAkCAQAAAA8CAQAAABQB";
 
     /**
-     * His live F7 runs of 2026-10-06, travelling only with the Interactive Map, rebuilt on a sim floor (map states
+     * His live F7 runs of 2026-10-06, traveling only with the Interactive Map, rebuilt on a sim floor (map states
      * forced, as in 98-sim-insta-clear; the paths, landings and mobs are real):
      * <ul>
      *   <li><b>Entrance</b> - walking/teleporting into it records nothing.</li>
@@ -792,7 +792,7 @@ public class InstaClearTests implements FabricClientGameTest {
         }
         giveAotv(ctx);
 
-        // Rooms for the teleport cases: X, Y, U, Z, plus a neighbour of each to step out to. The map path uses
+        // Rooms for the teleport cases: X, Y, U, Z, plus a neighbor of each to step out to. The map path uses
         // the rest, so the path's two ends are picked from rooms none of these touched.
         List<Room> pool = new ArrayList<>(rooms);
         Room rx = pool.remove(0);
@@ -1116,7 +1116,7 @@ public class InstaClearTests implements FabricClientGameTest {
                 new Class<?>[]{layout.getClass(), int.class}, new Object[]{layout, r});
     }
 
-    /** Spawns up to {@code n} real sim starred zombies in the room, off its first tile's centre. @return how many. */
+    /** Spawns up to {@code n} real sim starred zombies in the room, off its first tile's center. @return how many. */
     private static int spawnStarred(ClientGameTestContext ctx, Room x, int n) {
         int done = 0;
         for (int[] off : new int[][]{{5, 0}, {-5, 0}, {0, 5}, {0, -5}, {8, 8}, {-8, -8}}) {
@@ -1249,7 +1249,7 @@ public class InstaClearTests implements FabricClientGameTest {
         return -185 + (r.tiles[0] / GRID) * 16;
     }
 
-    /** First standable spot (solid, two air) in the column at the tile centre + (dx, dz), found on the server. */
+    /** First standable spot (solid, two air) in the column at the tile center + (dx, dz), found on the server. */
     private static BlockPos standable(ClientGameTestContext ctx, int tile, int dx, int dz) {
         AtomicReference<BlockPos> out = new AtomicReference<>();
         AtomicReference<Boolean> done = new AtomicReference<>();

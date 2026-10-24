@@ -216,7 +216,7 @@ final class GrimTickCases {
                         "the sweep at %d CPS (a turn before every frame) came out at %.2f", sweepWant[i], sweepRate[i]));
             }
 
-            // On the look (killer560 2026-10-12, Aura CPS 1-20): the centre frame starts at rotation 2, so it needs seven
+            // On the look (killer560 2026-10-12, Aura CPS 1-20): the center frame starts at rotation 2, so it needs seven
             // clicks, and he looks straight at it; the Aura takes it first with no turn. Its clicks alone are timed.
             for (int want : new int[]{20, 5}) {
                 int centre = grid(c, 12)[0];
@@ -380,7 +380,7 @@ final class GrimTickCases {
         c.server().command("give @a arrow 64");
         c.hx().call("dungeon.tp", "x", 63.5, "y", 127.0, "z", 35.5, "yaw", 0f, "pitch", 0f);
         c.waitUntil("on the i4 platform with a bow", mc -> mc.player.onGround()
-                && Math.abs(mc.player.getY() - 127.0) < 0.01 && !mc.level.getBlockState(I4_TARGETS[0]).isAir() // the wall (no colour-block constant: 26.2 has none)
+                && Math.abs(mc.player.getY() - 127.0) < 0.01 && !mc.level.getBlockState(I4_TARGETS[0]).isAir() // the wall (no color-block constant: 26.2 has none)
                 && mc.player.getInventory().getItem(0).is(net.minecraft.world.item.Items.BOW), 200);
     }
 
@@ -532,7 +532,7 @@ final class GrimTickCases {
             c.ctx().waitTicks(5);
             Vec3 eye = c.onClient(mc -> mc.player.getEyePosition());
             float[] view = c.onClient(mc -> new float[]{mc.player.getYRot(), mc.player.getXRot()});
-            // The mod's aim points (AutoI4Feature.aimPointFor): between columns for the Terminator, block centres for the
+            // The mod's aim points (AutoI4Feature.aimPointFor): between columns for the Terminator, block centers for the
             // one-arrow shortbow; y 131 - 2 * row, z 50.
             double[] xs = shortbow ? new double[]{64.5, 66.5, 68.5} : new double[]{65.5, 67.5};
             List<float[]> aims = new java.util.ArrayList<>();

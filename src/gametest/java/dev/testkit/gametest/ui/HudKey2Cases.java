@@ -56,7 +56,7 @@ import java.util.function.Supplier;
  *       flips CroesusConfig and persists, and its rows show their tooltips under the new scope; a legit jar has no such
  *       tab.</li>
  *   <li>865 the container overlays are Edit HUD elements: the Croesus panel, the Chocolate Factory info line and the two
- *       Start buttons are registered, follow their settings, and the info line's draw call honours a saved position.</li>
+ *       Start buttons are registered, follow their settings, and the info line's draw call honors a saved position.</li>
  * </ul>
  */
 final class HudKey2Cases {

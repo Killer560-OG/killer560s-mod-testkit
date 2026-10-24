@@ -5,7 +5,7 @@ import java.util.List;
 
 /**
  * The QUIET profile: switch off every mod feature that talks to the network or the real machine, so a case against
- * a server labelled {@code mc.hypixel.net} cannot reach a real service, post to a real relay, or open a window.
+ * a server labeled {@code mc.hypixel.net} cannot reach a real service, post to a real relay, or open a window.
  *
  * <p>Belt and braces with the JVM flags build.gradle passes by default ({@code killer560.net.offline=true} refuses
  * every mod HTTP/WebSocket call; {@code killer560.test.noExternalOpen=true} turns OS opens into a log line). Those

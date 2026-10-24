@@ -41,8 +41,8 @@ import java.util.Map;
  *   <li>584 the Inventory Sorter's layouts menu by real mouse and keys: swap, drag, type a name, save, select, rename,
  *       bind, delete; the tab's rows; the pacing settings' persistence and the ms-to-ticks migration. Legit: no
  *       /invsort, no executor.</li>
- *   <li>586 Custom Items by real clicks: pick an item, colour every copy then this item only (DyedItemColor and the
- *       drawn pixels), Use Colour, Look, Armor Skin, head texture, remove, Reset All; an old Armour Recolour file
+ *   <li>586 Custom Items by real clicks: pick an item, color every copy then this item only (DyedItemColor and the
+ *       drawn pixels), Use Color, Look, Armor Skin, head texture, remove, Reset All; an old Armor Recolor file
  *       loads and its removed keys are dropped.</li>
  *   <li>587 the Cosmetics category: what moved in and out, and the moved rows' tooltips.</li>
  * </ul>
@@ -373,7 +373,7 @@ final class InvBatchCases {
             for (int i = 0; i < 3; i++) {
                 inSlot[i] = count(img, pos[i][0] * gs, pos[i][1] * gs, (pos[i][0] + 16) * gs, (pos[i][1] + 16) * gs, MAGENTA);
             }
-            // Cell by cell: the star's '#' cells are the colour, its '.' cells are not, in the slot's top-right corner.
+            // Cell by cell: the star's '#' cells are the color, its '.' cells are not, in the slot's top-right corner.
             int x0 = pos[0][0] + 16 - star.length;
             int y0 = pos[0][1];
             int wrong = 0;
@@ -739,7 +739,7 @@ final class InvBatchCases {
             c.note("every copy, green: slot 9 " + Integer.toHexString(dyeAll[0]) + ", slot 10 " + Integer.toHexString(dyeAll[1]));
             c.check(dyeAll[0] == 0xFF00FF00 && dyeAll[1] == 0xFF00FF00, "every-copy color not on both copies");
 
-            // Mod 998c9f96 (2026-10-18, Custom Items redesign) moved Applies To, Use Colour and Skin onto the Custom Colour
+            // Mod 998c9f96 (2026-10-18, Custom Items redesign) moved Applies To, Use Color and Skin onto the Custom Color
             // page, gave Look its own Custom Item page (the free-text Look box, Set and Clear Look are gone), made Copy
             // Look copy the selection's changes TO the next item clicked, renamed Remove to Clear Changes and dropped the
             // saved-looks list. Every control below is the new page's, clicked through the real input layer.
@@ -754,7 +754,7 @@ final class InvBatchCases {
             c.check(dyeOne[0] == 0xFF00FF00 && dyeOne[1] == 0xFF123456, "this-item color: " + Integer.toHexString(dyeOne[0])
                     + " / " + Integer.toHexString(dyeOne[1]));
 
-            // Use Colour off and on.
+            // Use Color off and on.
             clickWidget(c, colour, widget(c, colour, "Use Color"));
             int off = dyes(c)[0];
             clickWidget(c, colour, widget(c, colour, "Use Color"));
@@ -895,7 +895,7 @@ final class InvBatchCases {
             c.note("Reset All: entries after one press, after two: " + reset);
             c.check(reset.equals("1,0"), "Reset All " + reset);
 
-            // An Armour Recolour file from before the rename.
+            // An Armor Recolor file from before the rename.
             Files.writeString(cfgPath, "{\"enabled\":true,\"skinInventoryIcons\":true,\"captureKey\":71,\"entries\":[{\"itemId\":"
                     + "\"IB_CHEST\",\"label\":\"Old Chest\",\"enabled\":true,\"colorEnabled\":true,\"color\":-16776961,\"skin\":\"IRON\","
                     + "\"skinAsset\":\"\",\"iconModel\":\"\",\"trimMaterial\":\"\",\"trimPattern\":\"\"}]}");

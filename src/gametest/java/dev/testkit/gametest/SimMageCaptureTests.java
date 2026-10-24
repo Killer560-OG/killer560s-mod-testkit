@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
  * mage-capture-1015, 2026-10-15).
  *
  * <p>killer560 (2026-10-15): "Make the command /mage". The shipped Mage capture has ALTAR stitched in as its second
- * tile (that tile's centre column hashes to Altar's core in the room database), so he is re-scanning Mage on Hypixel.
+ * tile (that tile's center column hashes to Altar's core in the room database), so he is re-scanning Mage on Hypixel.
  * The command is typed for real ({@code connection.sendCommand}), in a sim world where Mage is loaded on its own:
  * <ol>
  *   <li><b>the corrupt capture is rejected</b>: {@code RoomCapture.validateLibraryRoom("Mage")} on the library's Mage
@@ -35,7 +35,7 @@ import java.util.regex.Pattern;
  *   <li><b>unloaded chunks refuse</b> (run last): standing in the near end, the client is handed the server's
  *       "forget chunk" packet for the chunks under the far end (premise checked: the client really lacks them and he is
  *       still in Mage); it refuses for unloaded chunks and the file is unchanged;</li>
- *   <li><b>a sound room is captured and round-trips</b>: the stitched tile's centre column is replaced, on the server,
+ *   <li><b>a sound room is captured and round-trips</b>: the stitched tile's center column is replaced, on the server,
  *       by the good tile's (so every tile's column hashes to Mage); {@code /mage} saves, the file decodes to exactly the
  *       server's blocks (full state strings, every x/z of the footprint, every y of the file's band, y moved back by the
  *       sim's altitude offset) and the layers outside the band are empty in the world; the file it replaced was backed

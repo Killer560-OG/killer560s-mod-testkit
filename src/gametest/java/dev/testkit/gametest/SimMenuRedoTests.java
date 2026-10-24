@@ -505,8 +505,8 @@ public class SimMenuRedoTests implements FabricClientGameTest {
     }
 
     /**
-     * The colour of a control's face in the screenshot: the pixel 3 units in from its left edge at mid height, clear of
-     * the centred label and of the outline.
+     * The color of a control's face in the screenshot: the pixel 3 units in from its left edge at mid height, clear of
+     * the centered label and of the outline.
      */
     private static int[] face(ClientGameTestContext ctx, BufferedImage img, String label) {
         // GUI units to framebuffer pixels through the mod's Auto Scale, as DesignerKit.toWindow does for clicks.

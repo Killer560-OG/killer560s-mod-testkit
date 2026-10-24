@@ -22,7 +22,7 @@ import net.minecraft.world.phys.Vec3;
  * <p>killer560's Mod Only Test log of a real run (2026-10-14 17:22-17:29): six Auto Routes etherwarps a tick after a chest
  * or lever click with the AOTV in hand did nothing ("no landing after 61 ticks", no chat line), every retry 3 s later
  * landed, and along the warps' own looks the rays meet nothing within 4.5 (Red Blue #5 and #6 against the room capture) -
- * it was the look the chest was clicked with that the server traced. The verdict modelled here is the harsh one: any click
+ * it was the look the chest was clicked with that the server traced. The verdict modeled here is the harsh one: any click
  * with an item in hand denied the item (an empty hand did not).
  *
  * <p>Fed by {@code dev.testkit.mixin.MixinServerGamePacketListenerUse} at HEAD of {@code handleUseItemOn} /
@@ -38,7 +38,7 @@ public final class HypixelUseAfterClick {
     public static final double TRACE = 4.5;
     /** 1.8's sneaking eye height (1.62 - 0.08), which a 1.8 server traces from. */
     public static final double SNEAK_EYE = 1.54;
-    /** A 1.8 server stores a block click only within this distance (squared 64, to the block's centre). */
+    /** A 1.8 server stores a block click only within this distance (squared 64, to the block's center). */
     public static final double CLICK_STORE_RANGE = 8.0;
 
     public static volatile boolean enabled;

@@ -318,7 +318,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
 
     // ------------------------------------------------------------------------------------------------- driving
 
-    /** A fresh lane: z of its centre line. */
+    /** A fresh lane: z of its center line. */
     private static double lane() {
         if (nextLane >= LANES) {
             throw new AssertionError("out of lanes (" + LANES + "): raise LANES rather than reuse one - a reused lane is a"
@@ -984,7 +984,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
     }
 
     /** Ap3Executor.moverDeferredCount(), or -1 on a jar without it - so such a jar is judged by where B took over (the
-     *  behaviour), not by a missing hook. */
+     *  behavior), not by a missing hook. */
     private static int deferredCount() {
         try {
             return ((Number) ModUnderTest.staticCall(EXEC, "moverDeferredCount")).intValue();

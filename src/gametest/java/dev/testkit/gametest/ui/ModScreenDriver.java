@@ -188,7 +188,7 @@ final class ModScreenDriver {
         }
     }
 
-    /** The menu's sidebar rows as laid out: {x, y, w, h, tab index (-1 = Favourites)} (gui/ModScreen.layout). */
+    /** The menu's sidebar rows as laid out: {x, y, w, h, tab index (-1 = Favorites)} (gui/ModScreen.layout). */
     static List<int[]> sideRows(net.minecraft.client.gui.screens.Screen s) {
         List<int[]> out = new ArrayList<>();
         for (Object e : (List<?>) R.get(s, "side")) {
@@ -432,7 +432,7 @@ final class ModScreenDriver {
         return opened;
     }
 
-    /** A real left click on the widget's centre, through its own mouseClicked (active/visible/bounds checks). */
+    /** A real left click on the widget's center, through its own mouseClicked (active/visible/bounds checks). */
     static boolean press(AbstractWidget w) {
         double x = w.getX() + w.getWidth() / 2.0;
         double y = w.getY() + Math.min(w.getHeight() / 2.0, 5);

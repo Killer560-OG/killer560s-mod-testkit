@@ -425,7 +425,7 @@ final class PackDisablerCases {
             ItemStack seeds = skyblockStack(Items.WHEAT_SEEDS, "SEEDS", "hypixel_skyblock:item/testkit/seeds_431");
             ItemStack saliva = skyblockStack(Items.PAPER, "BEE_SALIVA",
                     "hypixel_skyblock:item/island_relevant/foraging_3/bee_saliva");
-            // Without the pack: the vanilla seeds sprite and our own texture, neither a solid colour.
+            // Without the pack: the vanilla seeds sprite and our own texture, neither a solid color.
             String seedsBefore = c.onClient(mc -> drawn(mc, seeds));
             String salivaBefore = c.onClient(mc -> drawn(mc, saliva));
             int[] seedsPx = c.onClient(mc -> spritePixels(mc, seeds));
@@ -507,7 +507,7 @@ final class PackDisablerCases {
         javax.imageio.ImageIO.write(img, "png", file.toFile());
     }
 
-    /** Every pixel of the sprite the resolver picks for {@code stack}, as stored (colour order does not matter here). */
+    /** Every pixel of the sprite the resolver picks for {@code stack}, as stored (color order does not matter here). */
     static int[] spritePixels(Minecraft mc, ItemStack stack) {
         ItemStackRenderState state = new ItemStackRenderState();
         mc.getItemModelResolver().updateForTopItem(state, stack, ItemDisplayContext.GUI, mc.level, null, 0);

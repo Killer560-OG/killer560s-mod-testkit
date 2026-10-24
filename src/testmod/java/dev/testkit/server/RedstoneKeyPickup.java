@@ -21,7 +21,7 @@ import java.util.UUID;
  *       redstone node (hypixelskyblock.minecraft.wiki, Redstone Key). The node is a REDSTONE_BLOCK (QUOI and RSA
  *       click one once the key skull has gone); placing it opens a redstone door, which RSM detects by the piston sound;
  *       the key then sits on TOP of the block (killer560, 2026-10-12; Skyblocker files the key's secret at the redstone
- *       block's pos.above()). So: a right click on a redstone block, on a face whose neighbour is AIR, while a key is
+ *       block's pos.above()). So: a right click on a redstone block, on a face whose neighbor is AIR, while a key is
  *       found, sets the key's head on top, plays a piston extend there and uses the key up. A covered face does
  *       nothing. Every use on a redstone block is logged with its face. Any placement chat line is not known.</li>
  * </ul>

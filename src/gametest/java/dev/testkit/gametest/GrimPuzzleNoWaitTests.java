@@ -31,7 +31,7 @@ import java.util.Locale;
  *   in hand; the next tick the shot (its look in the use packet); the next tick the AOTV back in hand and the next warp's
  *   use in that same tick (sneak already heard). Before, the gate's 6-tick teleport settle held the shot.</li>
  *   <li><b>talk rounds</b> (Auto Three Weirdos after its own warp into reach, mod branch weirdos-reach-1015): in the landing
- *   tick sneak is let go and the body turns onto the first "CLICK" armour stand ({@code AutoPuzzleUtil.aimBodyAt} on its
+ *   tick sneak is let go and the body turns onto the first "CLICK" armor stand ({@code AutoPuzzleUtil.aimBodyAt} on its
  *   box); the next tick the interact (no turn tick: {@code gateWorldClick} must let it straight through) and, after it in
  *   the same tick, the body onto the second stand; the next tick the second interact. GrimAC judges each interact against
  *   the reported look (Hitboxes) and its reach.</li>
@@ -200,7 +200,7 @@ public class GrimPuzzleNoWaitTests implements FabricClientGameTest {
     }
 
     /** Auto Three Weirdos' talk: the gate (which must not need a turn - the body is already on the stand), then the
-     *  interact at the point of the stand's box on the line to its centre, and the swing. */
+     *  interact at the point of the stand's box on the line to its center, and the swing. */
     private static void talk(Minecraft mc, LocalPlayer p, net.minecraft.world.entity.Entity stand, String when) {
         boolean gate = (Boolean) ModUnderTest.staticCall(UTIL, "gateWorldClick",
                 new Class<?>[]{Minecraft.class, net.minecraft.world.entity.Entity.class}, new Object[]{mc, stand});
@@ -270,7 +270,7 @@ public class GrimPuzzleNoWaitTests implements FabricClientGameTest {
                         map.command("setblock " + l.getX() + " " + l.getY() + " " + l.getZ()
                                 + " minecraft:lever[face=wall,facing=north]");
                     }
-                    // Two "CLICK" armour stands per talk round, two blocks either side of its landing and two further from
+                    // Two "CLICK" armor stands per talk round, two blocks either side of its landing and two further from
                     // the lever wall: 2.47 blocks eye to box, inside the 3.0 entity reach.
                     for (int t = 0; t < TALK_ROUNDS; t++) {
                         int tx = talkX(t);

@@ -22,7 +22,7 @@ import java.util.List;
  * like the ESP hit boxes pick up."
  *
  * <p>So this asserts the contract {@code MobEspFeature} actually reads, rather than that a mob exists.
- * Hypixel does not mark the mob at all: it puts a {@code "✯ ... ❤"} name on a separate invisible armour stand
+ * Hypixel does not mark the mob at all: it puts a {@code "✯ ... ❤"} name on a separate invisible armor stand
  * standing over it, and every mod - this one included - finds the stand and resolves it DOWN to the mob. Three
  * things have to be true together, and a sim mob that satisfies two of them is invisible to the whole feature:
  *
@@ -150,7 +150,7 @@ public class SimStarredMobTests implements FabricClientGameTest {
                 //
                 // The server has no floor under the spawn point, so every entity read below would be a
                 // reading of the harness rather than of the mod: mobs spawn into unloaded space, the counts
-                // flicker frame to frame, and armour stands turn up with their mob "missing from the level".
+                // flicker frame to frame, and armor stands turn up with their mob "missing from the level".
                 // That is exactly what happened on 2026-09-30 - "block under the spawn point: void_air"
                 // while the mod's own counters said eight entities had been spawned - and it was reported
                 // as "sim starred mobs are not real starred mobs", a claim about the mod that the run had no

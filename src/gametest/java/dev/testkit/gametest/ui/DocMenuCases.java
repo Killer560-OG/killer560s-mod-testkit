@@ -23,8 +23,8 @@ import java.util.Map;
  * 980-989: killer560's 2026-10-13 menu and settings list (mod doc-menu). Each case drives the real {@code gui.ModScreen}
  * and proves the change ACTED, not just that it compiled:
  * <ul>
- *   <li>980 Home: no Profiles or Changelog quick button, no Favourites box (the Favourites page still lists a starred
- *       card), no Menu Theme card, and the Menu Theme row's Customise... still opens its drawer. Screenshot.</li>
+ *   <li>980 Home: no Profiles or Changelog quick button, no Favorites box (the Favorites page still lists a starred
+ *       card), no Menu Theme card, and the Menu Theme row's Customize... still opens its drawer. Screenshot.</li>
  *   <li>981 Mod & HUD: Check for Updates, Join Discord, Edit HUD Positions and Edit Bars are gone; Equal Spacing's switch
  *       lines up with Snapping's on the right; the card has no switch. Screenshot.</li>
  *   <li>982 Auto Update's switch: it is the card's switch; a real click on it turns the updater off (its request asks
@@ -43,7 +43,7 @@ import java.util.Map;
  *       left half back, a right click back.</li>
  *   <li>988 the search bar's calculator: implicit products next to brackets, every older expression unchanged.</li>
  *   <li>989 saved themes: Save as New Theme twice, rename one by typing in its box, Use, a reload from disk keeps names,
- *       colours and the one in use, Delete takes two clicks and is saved.</li>
+ *       colors and the one in use, Delete takes two clicks and is saved.</li>
  * </ul>
  */
 final class DocMenuCases {
@@ -157,7 +157,7 @@ final class DocMenuCases {
 
     /** Home's Menu Theme row (killer560, 2026-10-22: the two editing buttons were squeezed beside the themes and cut
      *  off): at every width the grid can take, from narrower than the 320-wide window's grid to 1000, the theme chips are
-     *  no smaller than when they shared the row with the editing buttons; Customise... and Main Menu sit below the theme
+     *  no smaller than when they shared the row with the editing buttons; Customize... and Main Menu sit below the theme
      *  row, inside the box, no narrower than a theme chip, never overlapping, and every label they can show fits uncut.
      *  Null when it holds. */
     /** What the last {@link #themeRowWhy} measured, for the case's note. */
@@ -278,7 +278,7 @@ final class DocMenuCases {
                 if (cards.contains("MenuThemeTab")) {
                     return "Home still has a Menu Theme card: " + cards;
                 }
-                // Customise... (the chip after the presets) still opens the Menu Theme drawer, by a real click.
+                // Customize... (the chip after the presets) still opens the Menu Theme drawer, by a real click.
                 int n = Mod.cls("gui.MenuTheme").getEnumConstants().length;
                 int gridScroll = (Integer) Mod.field(Mod.ROOT + "gui.ModScreen", "gridScroll");
                 int[] chip = (int[]) Mod.call(Mod.field(themeItem, "block"), "chip", n, (Integer) Mod.field(themeItem, "x"),
@@ -289,13 +289,13 @@ final class DocMenuCases {
                     return "Customize... opened " + (open == null ? "nothing" : open.getClass().getSimpleName());
                 }
                 Mod.call(s[0], "closeDrawer");
-                // killer560, 2026-10-22: Customise... and Main Menu sit full-size on their own row under the themes.
+                // killer560, 2026-10-22: Customize... and Main Menu sit full-size on their own row under the themes.
                 String rowWhy = themeRowWhy(mc, Mod.field(themeItem, "block"), n);
                 if (rowWhy != null) {
                     return rowWhy;
                 }
                 // (519 clicks the Main Menu button where it now is, through homeSceneChipBounds.)
-                // The Favourites PAGE stays.
+                // The Favorites PAGE stays.
                 if (!(Boolean) Mod.call(s[0], "selectCategory", "Favorites")) {
                     return "the sidebar has no Favorites page";
                 }
@@ -1207,7 +1207,7 @@ final class DocMenuCases {
                     return "no Save as New Theme row: " + rowLabels(s);
                 }
                 ModScreenDriver.press(save);
-                // Custom 1 is Ocean's colours; change the Accent while it is in use, then save a second theme.
+                // Custom 1 is Ocean's colors; change the Accent while it is in use, then save a second theme.
                 Object[] slots = Mod.cls("gui.MenuTheme$Slot").getEnumConstants();
                 Mod.staticCall("gui.tab.MenuThemeTab", "setColour", slots[0], 0xFF22AA44);
                 ModScreenDriver.press(row(s, "Save as New Theme"));

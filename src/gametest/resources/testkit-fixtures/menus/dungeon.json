@@ -90,7 +90,7 @@
       "line": 94
     },
     "verifiedBy": "regex",
-    "notes": "Exact title (:94, QUOI's equalsOneOf); teammates are player heads whose stripped name ends in the IGN (IGN :40). Names carry rank colours mid-name like Hypixel's. A click on a head closes the menu (the leap)."
+    "notes": "Exact title (:94, QUOI's equalsOneOf); teammates are player heads whose stripped name ends in the IGN (IGN :40). Names carry rank colors mid-name like Hypixel's. A click on a head closes the menu (the leap)."
   },
   {
     "id": "menus.catacombs-gate-classes",

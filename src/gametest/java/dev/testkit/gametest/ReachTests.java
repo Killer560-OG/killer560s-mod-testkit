@@ -17,7 +17,7 @@ import java.util.Locale;
  * <p>Vanilla's block interaction limit is 4.5 blocks to the nearest point of the block's box. Several of this
  * mod's auras default above it - Secret Aura at 6.2, Lever Aura at 5.0 with a 6.5 maximum, Auto Door Opener at
  * 5.0 - and that is a static per-packet property, so a server can check it on every interaction without
- * modelling anything. killer560's instruction (2026-09-28): "Just use the sim as the test. [...] Just make the
+ * modeling anything. killer560's instruction (2026-09-28): "Just use the sim as the test. [...] Just make the
  * max whatever you find the max to be that doesnt flag."
  *
  * <p>So this is a ladder: one lever, one distance, one scenario, and the answer is the largest rung that the

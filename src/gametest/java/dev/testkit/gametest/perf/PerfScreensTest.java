@@ -364,7 +364,7 @@ public class PerfScreensTest implements FabricClientGameTest {
             {"ENCHANTED_BOOK", "Enchanted Book", "COMMON", "f"},
     };
 
-    /** A SkyBlock-looking stack: id/uuid custom data, a coloured name, five lore lines, a stack count on some. */
+    /** A SkyBlock-looking stack: id/uuid custom data, a colored name, five lore lines, a stack count on some. */
     private static ItemStack sbItem(int i) {
         String[] it = SB[i % SB.length];
         ItemStack s = new ItemStack(ITEMS[i % ITEMS.length], i % SB.length == 6 ? 1 + i % 64 : 1);

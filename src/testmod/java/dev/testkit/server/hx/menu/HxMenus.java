@@ -31,7 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class HxMenus {
 
-    /** Per-menu behaviour that also wants the server tick (Melody's moving marker, experiment playback). */
+    /** Per-menu behavior that also wants the server tick (Melody's moving marker, experiment playback). */
     public interface Ticking {
         void tick(MinecraftServer server, HxChestMenu menu, ServerPlayer player);
     }
@@ -137,8 +137,8 @@ public final class HxMenus {
 
     /**
      * Section-sign text as STYLED components, the shape a modern client gets Hypixel's item names and lore in (the
-     * colour codes become styles, so {@code getString()} is the plain text - which is what the mod's lore readers
-     * match). Not italic, like Hypixel's. {@code "§6LEGENDARY"} -> literal "LEGENDARY" coloured gold.
+     * color codes become styles, so {@code getString()} is the plain text - which is what the mod's lore readers
+     * match). Not italic, like Hypixel's. {@code "§6LEGENDARY"} -> literal "LEGENDARY" colored gold.
      */
     public static Component legacy(String text) {
         net.minecraft.network.chat.MutableComponent out = Component.empty();
@@ -155,7 +155,7 @@ public final class HxMenus {
                     }
                     if (f == net.minecraft.ChatFormatting.RESET) {
                         style = net.minecraft.network.chat.Style.EMPTY.withItalic(false);
-                    } else if (f.ordinal() < 16) { // the 16 colours come first; isColor() is gone on 26.2 (same rule as the mod's ChatColors)
+                    } else if (f.ordinal() < 16) { // the 16 colors come first; isColor() is gone on 26.2 (same rule as the mod's ChatColors)
                         style = net.minecraft.network.chat.Style.EMPTY.withItalic(false).applyFormat(f);
                     } else {
                         style = style.applyFormat(f);

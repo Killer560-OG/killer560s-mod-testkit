@@ -44,10 +44,10 @@ import java.util.function.LongConsumer;
  *   <li>35 spotify-lyrics-name: the tab is Spotify Lyrics and has no "not running" line.</li>
  *   <li>36 peek-chat-modes: Peek Mode Toggle/Hold; the wheel scrolls chat and never the hotbar.</li>
  *   <li>37 voice-status-hud: Show Status On HUD hides the overlay lines; the download percent line.</li>
- *   <li>38 inventory-hud-default / inventory-hud-opacity: centred above the hotbar until moved; no black box below 100%.</li>
+ *   <li>38 inventory-hud-default / inventory-hud-opacity: centered above the hotbar until moved; no black box below 100%.</li>
  *   <li>39 pet-wheel-pages: pages as presets, switched in the tab and on the wheel; saved; an old file is page 1.</li>
  *   <li>40 sim-keybinds-text: no "Dungeon Sim only" line.</li>
- *   <li>41 performance-hud-colors: five colours, drawn and saved.</li>
+ *   <li>41 performance-hud-colors: five colors, drawn and saved.</li>
  *   <li>42 chat-hider-ban: Hide Ban Announcements hides the Watchdog lines and nothing a player says.</li>
  *   <li>43 party-commands-defaults: every command on, Guild and All Chat off.</li>
  *   <li>44 inventory-theme-settings: the rearranged tab, Default follows the menu, Customize, the old preset carried over.</li>
@@ -660,7 +660,7 @@ final class Doc1018MenuHudCases {
             c.note("after Boulder's two rows: Boulder through walls " + bTw + ", highlight " + bOn + "; Quiz " + qTw + ", " + qOn);
             c.check(!bTw && !bOn, "Boulder's rows did not change Boulder (through walls " + bTw + ", highlight " + bOn + ")");
             c.check(qTw && qOn, "Boulder's rows changed Quiz as well (through walls " + qTw + ", highlight " + qOn + ")");
-            // The renderer honours the solver's own switch.
+            // The renderer honors the solver's own switch.
             boolean offBoulder = (Boolean) Mod.staticCall("puzzlesolvers.SolverEspRender", "off", boulder);
             boolean offQuiz = (Boolean) Mod.staticCall("puzzlesolvers.SolverEspRender", "off", quiz);
             c.check(offBoulder && !offQuiz, "the renderer's gate is Boulder " + offBoulder + ", Quiz " + offQuiz + " (want true / false)");
@@ -733,7 +733,7 @@ final class Doc1018MenuHudCases {
                     + gapTop + ", last terminal to Done " + gapDone);
             c.check(gapTop >= 12, "Random is only " + gapTop + " units above the terminal buttons (was 6)");
             c.check(gapDone >= 16, "Done is only " + gapDone + " units below the last terminal (was 10)");
-            // The explanatory line sat across the panel at 126 above the centre; a row of pixels across it there must now be flat.
+            // The explanatory line sat across the panel at 126 above the center; a row of pixels across it there must now be flat.
             BufferedImage img = shot(c, "menu");
             double f = c.onClient(mc -> ((Number) Mod.staticCall("hud.AutoScale", "appliedFactor", s)).doubleValue());
             double k = img.getWidth() / (double) c.onClient(mc -> mc.getWindow().getGuiScaledWidth());
@@ -1191,7 +1191,7 @@ final class Doc1018MenuHudCases {
     }
 
     // =================================================================================================================
-    // 41 Performance HUD: colours
+    // 41 Performance HUD: colors
     // =================================================================================================================
 
     @SuppressWarnings("unchecked")
@@ -1262,7 +1262,7 @@ final class Doc1018MenuHudCases {
                             "'" + texts.get(i) + "' is " + String.format("%08X", col) + ", not one of the four custom value colors");
                 }
             }
-            // Color By Value off: every line in the Text Color (and the cached lines were rebuilt for the new colours).
+            // Color By Value off: every line in the Text Color (and the cached lines were rebuilt for the new colors).
             c.onClient(mc -> {
                 Mod.call(cfg, "setColorByValue", false);
                 return null;

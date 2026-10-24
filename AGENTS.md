@@ -71,14 +71,14 @@ When a run fails, the answer is usually already written down:
 
 ## 5. Scope every claim
 
-- A clean GrimAC run says nothing about behavioural/server-side detection that leaves no verbose and acts
+- A clean GrimAC run says nothing about behavioral/server-side detection that leaves no verbose and acts
   on a delay. Say which one your result covers.
 - One clean run is not a durable claim. Say how long, on what map, doing what.
 - The local server has no round trip unless you give it one (`Latency`). A result about anything that
   depends on the server's answer arriving later than the client's action says whether it was measured with
   latency, and how much.
 - A `-Pnogrim` run is not a clean run. It has no anticheat on it at all.
-- Do not generalise from one movement pattern to "the module is safe".
+- Do not generalize from one movement pattern to "the module is safe".
 
 ## 6. Conventions
 

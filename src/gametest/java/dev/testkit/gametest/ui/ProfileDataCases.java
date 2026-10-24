@@ -29,7 +29,7 @@ import java.util.zip.ZipOutputStream;
  * <ul>
  *   <li>980 two profiles with different GIFs, crosshair presets and sim speeds; A -> B -> A, each proven on disk (the
  *       live files are the profile's, byte for byte), in the running feature (which GIF the GIF Player holds, which
- *       one the HUD drew, its colour counted on a screenshot) and in the sim speed it reads.</li>
+ *       one the HUD drew, its color counted on a screenshot) and in the sim speed it reads.</li>
  *   <li>981 Export then Import into a fresh profile reproduces every file byte for byte; no secret (login token, proxy
  *       password, Last.fm key, Profile Viewer API key) and no excluded cache is in the zip or the profile.</li>
  *   <li>982 a zip from a NEWER build (format 99, unknown setting files and keys, a damaged file, an unknown data
@@ -660,7 +660,7 @@ final class ProfileDataCases {
         byte[] g = {(byte) (rgb >> 8), 0};
         byte[] b = {(byte) rgb, 0};
         BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_INDEXED, new IndexColorModel(1, 2, r, g, b));
-        // every pixel index 0 = the colour
+        // every pixel index 0 = the color
         java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
         if (!javax.imageio.ImageIO.write(img, "gif", out)) {
             throw new AssertionError("no GIF writer");
@@ -754,7 +754,7 @@ final class ProfileDataCases {
         return out;
     }
 
-    /** Pixels within 20 of each exact colour on a fresh screenshot (no screen open). */
+    /** Pixels within 20 of each exact color on a fresh screenshot (no screen open). */
     static int[] countColours(UiCase c, String shot, int... colours) throws Exception {
         c.onClient(mc -> {
             McCompat.setScreen(mc, null);

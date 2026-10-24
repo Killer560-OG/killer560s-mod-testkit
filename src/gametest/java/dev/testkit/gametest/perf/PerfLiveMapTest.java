@@ -26,7 +26,7 @@ import java.util.function.Consumer;
  *       map on, 84.5 KB under ALL ON; the cache 2.6 KB and 14.8 KB at 1.5 frames a tick, 2026-10-16),
  *       with the cache actually replaying (hits counted by the mod);</li>
  *   <li><b>same picture</b>: with the mod's verify mode on, every replayed frame is also painted afresh, unsubmitted, and
- *       compared element by element (rectangles, text, pose, colours, scissor). While that runs, a change is made every
+ *       compared element by element (rectangles, text, pose, colors, scissor). While that runs, a change is made every
  *       {@link #STEP} ticks to something the map is painted from - settings, a sim room's state, a door, Predictive
  *       Rooms, custom checkmarks, the background - and each must make the cache paint again (asserted, so the test cannot
  *       pass by never changing anything). A replay that differs from the fresh paint after the tick it was painted in

@@ -20,7 +20,7 @@ import java.util.Locale;
  * <p>Until this existed, every part of the sim was written, compiled and shipped without anyone standing in it.
  * The room placer in particular is the piece most likely to be quietly wrong - a room can be pasted with its
  * geometry perfect and its rotation or its block states off, and that looks almost right, which is the failure
- * mode nobody notices until a route practised in the sim does not work on Hypixel.
+ * mode nobody notices until a route practiced in the sim does not work on Hypixel.
  *
  * <p>Uses a SINGLEPLAYER world, not the dedicated test server the other scenarios use, because that is what the
  * sim actually is - a local world this mod opens and owns. Testing it against a server would be testing
@@ -101,7 +101,7 @@ public class SimTests implements FabricClientGameTest {
             // that the live map, the room scan and secret routes all measure against. This scenario kept the
             // old odd cell and so read a position the mod had stopped building at: it failed with
             // "floor=air at -105,69,-105" while the mod's own chat line said "Flat test room built at
-            // -121 70 -121", sixteen blocks away. The test was measuring the behaviour that was fixed.
+            // -121 70 -121", sixteen blocks away. The test was measuring the behavior that was fixed.
             int centre = (GRID / 2) & ~1;
             int originX = START + centre * HALF_ROOM;
             int originZ = START + centre * HALF_ROOM;
@@ -390,7 +390,7 @@ public class SimTests implements FabricClientGameTest {
             //
             // The harness holds the attack key, and its state flickers, so an unknown number of extra shots go
             // out at times this test cannot control. That makes "the far mob is still alive" unassertable here:
-            // a second legitimate shot kills it, and the test would fail on correct behaviour. Chasing that was
+            // a second legitimate shot kills it, and the test would fail on correct behavior. Chasing that was
             // costing more than it proved.
             //
             // Two invariants survive any number of shots and are the ones worth protecting:
@@ -403,7 +403,7 @@ public class SimTests implements FabricClientGameTest {
             // It should, and on clean runs it does. But the harness holds the attack key and its state
             // flickers, so shots go out at ticks this test cannot control - including while the camera is still
             // swinging round from the previous step, which kills whatever is under it. That made this assertion
-            // fail on correct behaviour perhaps half the time, and a test that cries wolf gets ignored, which
+            // fail on correct behavior perhaps half the time, and a test that cries wolf gets ignored, which
             // is worse than one that checks less.
             //
             // The property itself is guaranteed by construction rather than by this test: fire() clips along

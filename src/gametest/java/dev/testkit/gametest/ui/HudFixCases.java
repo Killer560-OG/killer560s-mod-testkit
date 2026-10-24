@@ -29,14 +29,14 @@ import java.util.regex.Pattern;
 
 /**
  * 441-447: killer560's in-game HUD report of 2026-10-07 (mod branch hud-fixes), each fix measured on screenshots or on
- * what the element really draws. Every case first proves its HUD drew (a pixel of its colour, a text run, a draw
+ * what the element really draws. Every case first proves its HUD drew (a pixel of its color, a text run, a draw
  * stamp) so no pass is vacuous. Auto Scale is off in every case, so one GUI unit is exactly {@code guiScale} pixels.
  * {@code TESTKIT_HUDFIX_SHOTS=<dir>} also copies the GUI-scale-2 pictures there (before/after comparisons).
  *
  * <ul>
  *   <li>441-ui-bars-under-screens: "The custom health bars should show even in my inventory." A Health Bar straddling
  *       the survival inventory's left edge: with the inventory open, the half outside the panel changes the picture
- *       and has no pixel of the bar's raw colour (drawn, dimmed like vanilla's hotbar), the half under the panel does
+ *       and has no pixel of the bar's raw color (drawn, dimmed like vanilla's hotbar), the half under the panel does
  *       not change (the panel draws over it).</li>
  *   <li>442-ui-bars-absorption: "Whenever I get absorption it breaks the health one." Hypixel's gold "(6)12,000/10,464"
  *       health segment read through the real action-bar path (was 612,000); the bar's absorption segment measured for
@@ -51,7 +51,7 @@ import java.util.regex.Pattern;
  *       them is drawn clear of the map's box. 521-525 ({@link MapInfoBatCases}) measure it filled in, at GUI 2 and 4.</li>
  *   <li>446-ui-split-format: "have the no lag in parentheses to the right of the total." Total reads "Total: X (Y)",
  *       no "No Lag" line, every split row "X (Y)", the Lag line under its toggle; the chat suffix the same.</li>
- *   <li>447-ui-scoreboard-solo: "Solo" (in any colour-code form) and the "Keys:" line are known dungeon lines; an
+ *   <li>447-ui-scoreboard-solo: "Solo" (in any color-code form) and the "Keys:" line are known dungeon lines; an
  *       unknown line is logged once per shape and, by default, never put in chat.</li>
  * </ul>
  */
@@ -119,7 +119,7 @@ final class HudFixCases {
             place(c, "statbar_health", bx, by);
 
             // In game with no screen: the bar draws where it was put (the HUD is live at all).
-            // Within a few levels of its colour: in survival the vanilla vignette (drawn first) can shift it by one or two.
+            // Within a few levels of its color: in survival the vanilla vignette (drawn first) can shift it by one or two.
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
                 return null;
@@ -170,7 +170,7 @@ final class HudFixCases {
                     + underArea + " px changed) - it must draw under the screen, not over it");
             // Behind the screen means behind its dimmed background too, as the vanilla hotbar is (hud-fixes-2 drew it from
             // Fabric's addLast layer, which vanilla defers past the dim). The fill is a gradient (Bold, mod bars-2), so
-            // there is no one raw colour to look for: its brightest pixel beside the panel, against the same place with no
+            // there is no one raw color to look for: its brightest pixel beside the panel, against the same place with no
             // screen open, must be dimmed - and never as bright as undimmed.
             int litOn = brightest(on, HEALTH, outX0, y0, outX1, y1);
             int litPlain = brightest(plainShot, HEALTH, outX0, y0, outX1, y1);
@@ -577,7 +577,7 @@ final class HudFixCases {
             check(c, size[1] > mapPx, "the map's box has no Extra Info section - the check would be vacuous");
 
             // Text pixels: inside the Extra Info panel (opaque, so nothing in the world shows through it), anything
-            // that is not the panel's own colour. Beside the panel: the labels' exact orange (every line starts with
+            // that is not the panel's own color. Beside the panel: the labels' exact orange (every line starts with
             // one), so a moving mob or the map's own player arrow out there is never read as spilled text.
             int top = (10 + mapPx) * gs;
             int panelX0 = 10 * gs;
@@ -979,7 +979,7 @@ final class HudFixCases {
     // helpers
     // ================================================================================================================
 
-    /** Stat Bars on, Custom layout, only {@code on} switched on (own scale 1, Auto Scale off), unique colours. */
+    /** Stat Bars on, Custom layout, only {@code on} switched on (own scale 1, Auto Scale off), unique colors. */
     private static void custom(UiCase c, String[] on, int thickness, boolean showValue) {
         c.onClient(mc -> {
             Object ps = Mod.cfg(PS);
@@ -1151,7 +1151,7 @@ final class HudFixCases {
                 + Math.abs((a & 0xFF) - (b & 0xFF));
     }
 
-    /** Brightest (summed RGB) pixel of {@code colour}'s tint in the region; 0 when none. */
+    /** Brightest (summed RGB) pixel of {@code color}'s tint in the region; 0 when none. */
     private static int brightest(BufferedImage img, int colour, int x0, int y0, int x1, int y1) {
         int best = 0;
         for (int y = Math.max(0, y0); y < Math.min(img.getHeight(), y1); y++) {

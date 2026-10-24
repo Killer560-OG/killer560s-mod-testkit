@@ -25,12 +25,12 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>The one-door rooms are the puzzle, trap, Blood, Entrance, champion and rare rooms: on his 50 real F7 maps (run
  * history, 2026-10-15) every Entrance, Blood, Old/New Trap, puzzle and champion room had exactly one door. Each measures
  * exactly one doorway in the captures, and the layout only joins rooms through doorways - except the fill pass's carve
- * through a neighbour's wall, which on main could pick Old Trap's back wall (or New Trap's, the Entrance's, a rare
+ * through a neighbor's wall, which on main could pick Old Trap's back wall (or New Trap's, the Entrance's, a rare
  * room's) and give it a second door.
  * <ol>
  *   <li>MEASURE: every one-door-type room in the library measures exactly one doorway (RoomDoors.of).</li>
  *   <li>PLAN: {@value #SEEDED} F7s from fixed seeds (SimFloorGen.RNG seeded, recency cleared), then {@value #PINNED} each
- *       with Old Trap and New Trap pinned at room cell (2,2) - the middle of the map, four neighbours. Every one-door room
+ *       with Old Trap and New Trap pinned at room cell (2,2) - the middle of the map, four neighbors. Every one-door room
  *       on every floor must have exactly one door in the floor's door graph (the map code's door cells). Old Trap has to
  *       have been on at least {@value #PINNED} floors, or nothing was checked.</li>
  *   <li>BUILD the first pinned Old Trap floor and read the server's level at Old Trap's four seams: exactly one is open
@@ -250,7 +250,7 @@ public class SimOneDoorTests implements FabricClientGameTest {
         ctx.waitTicks(60);
     }
 
-    /** {open seams, neighbouring seams} of {@code room}'s one cell, read from the server level at the doorway floor. */
+    /** {open seams, neighboring seams} of {@code room}'s one cell, read from the server level at the doorway floor. */
     private static void seams(Minecraft mc, String code, String room, AtomicReference<int[]> out) {
         Object decoded = ModUnderTest.staticCall("com.killer560.hub.roomsim.MapCode", "decode",
                 new Class<?>[]{String.class}, new Object[]{code});

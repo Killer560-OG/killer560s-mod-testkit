@@ -136,7 +136,7 @@ final class BossTimerCases {
                 return; // no wall, no candidates: every check below would pass or fail for the wrong reason
             }
 
-            // Forced: lit = top-left (aim x 67.5), only top-middle left, its right neighbour done -> its aim is 67.5 too.
+            // Forced: lit = top-left (aim x 67.5), only top-middle left, its right neighbor done -> its aim is 67.5 too.
             // Noamm 1.2.9 re-rolls it away, and with nothing else left there is no prediction.
             BlockPos lit = dev.get(0);
             Mod.staticCall(I4, "resetDevice", "362");

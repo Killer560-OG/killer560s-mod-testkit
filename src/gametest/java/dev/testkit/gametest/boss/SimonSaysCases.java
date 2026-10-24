@@ -182,7 +182,7 @@ final class SimonSaysCases {
         });
     }
 
-    /** The centre of the block's shape (a button is a small box against the wall), else the block centre. */
+    /** The center of the block's shape (a button is a small box against the wall), else the block center. */
     static Vec3 aimPoint(net.minecraft.client.Minecraft mc, BlockPos pos) {
         var shape = mc.level.getBlockState(pos).getShape(mc.level, pos);
         return shape.isEmpty() ? Vec3.atCenterOf(pos) : shape.bounds().getCenter().add(pos.getX(), pos.getY(), pos.getZ());

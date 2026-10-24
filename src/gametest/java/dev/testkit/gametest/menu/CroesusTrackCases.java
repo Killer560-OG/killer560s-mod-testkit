@@ -27,7 +27,7 @@ import java.util.Map;
  *   <li>889: two Bravo runs with the very same "expire in 2d 3h" stay distinct, before and after the shift.</li>
  *   <li>890: after looking at the runs, the memory is reloaded from disk (a restart) and the shifted list still reads
  *       needs-a-key / opened; the file holds the two runs. Then (croesus-outline, 2026-10-13, "make it save across
- *       reloading my instance") his real run file, names anonymised (testkit-fixtures/croesus-runs-real-2026-10-12.json,
+ *       reloading my instance") his real run file, names anonymized (testkit-fixtures/croesus-runs-real-2026-10-12.json,
  *       59 runs over three pages): every page read, a restart, page 1 alone - the same states and the same totals, with
  *       no "+" and no "Pages seen".</li>
  * </ul>

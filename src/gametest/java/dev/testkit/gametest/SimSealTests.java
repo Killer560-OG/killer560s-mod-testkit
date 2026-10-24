@@ -339,7 +339,7 @@ public class SimSealTests implements FabricClientGameTest {
         return lo > hi ? null : new int[]{lo, hi};
     }
 
-    /** By tile, as the sim's own SimState.roomNameAt does: a tile reaches 16 either side of its centre. */
+    /** By tile, as the sim's own SimState.roomNameAt does: a tile reaches 16 either side of its center. */
     private static boolean inRoom(boolean[][] room, BlockPos c0, int x, int z) {
         int gx = 2 * Math.floorDiv(x - c0.getX() + 16, 32);
         int gz = 2 * Math.floorDiv(z - c0.getZ() + 16, 32);

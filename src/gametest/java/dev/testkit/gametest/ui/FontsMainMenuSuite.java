@@ -581,7 +581,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
         }
     }
 
-    /** {scene name, colours, panel, speed} of MainMenuLook.current(). */
+    /** {scene name, colors, panel, speed} of MainMenuLook.current(). */
     static Object[] look() {
         Object look = Mod.staticCall("mainmenu.MainMenuLook", "current");
         return new Object[]{String.valueOf(Mod.call(look, "scene")), Mod.call(look, "colours"),

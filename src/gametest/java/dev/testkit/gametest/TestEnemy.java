@@ -31,7 +31,7 @@ import java.util.Locale;
  * <h2>Why it is driven from the test rather than the server</h2>
  * The anticheat server runs as its own process and the harness talks to it through its console, so
  * everything here is expressed as commands rather than server-side code. That turns out to be a feature:
- * the behaviour is visible in the console log next to the anticheat's own output, so a flag and the thing
+ * the behavior is visible in the console log next to the anticheat's own output, so a flag and the thing
  * that caused it appear in the same place, in order.
  *
  * <h2>Naming</h2>
@@ -312,7 +312,7 @@ public final class TestEnemy {
     // ------------------------------------------------------------------ drive
 
     /**
-     * Run the enemy for {@code ticks} client ticks. The behaviour itself runs on the server, once per
+     * Run the enemy for {@code ticks} client ticks. The behavior itself runs on the server, once per
      * server tick, so this only has to let time pass.
      */
     public void drive(int ticks) {

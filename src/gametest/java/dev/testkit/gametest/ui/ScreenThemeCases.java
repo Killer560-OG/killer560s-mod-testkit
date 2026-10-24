@@ -24,7 +24,7 @@ import java.util.function.Function;
  *   <li>975 every sweep-c screen (the sim's five, AP3's two, the Auto Routes node editor, Breaker Aura's config picker,
  *       Leap Order, the Interactive Map, the HUD editor, the scoreboard editor, Termism's two) opened under Amber and
  *       under Light at 1920x1080 GUI 2: the panel pixel the mod names (its themedPanelBounds) is sampled from the
- *       screenshot and must be the colour the theme puts there, and Amber's and Light's must differ; then the screen's
+ *       screenshot and must be the color the theme puts there, and Amber's and Light's must differ; then the screen's
  *       main interaction still works (a list pick and a grid placement on Design a Map, a chip and Clear all on the
  *       Filters panel, Give me everything on Sim Items, Esc ignored by the loading screen, typing into a config name box, the
  *       node editors' Close, a class pick in Leap Order, the map legend's Controls toggle, the scoreboard editor's page
@@ -272,7 +272,7 @@ final class ScreenThemeCases {
         return w;
     }
 
-    /** A real left press and release at the widget's centre, through the screen, on the client thread. */
+    /** A real left press and release at the widget's center, through the screen, on the client thread. */
     private static void press(UiCase c, Screen s, AbstractWidget w) {
         c.onClient(mc -> {
             MenuACases.press(s, w.getX() + w.getWidth() / 2.0, w.getY() + w.getHeight() / 2.0);
@@ -293,7 +293,7 @@ final class ScreenThemeCases {
 
     /**
      * Screenshot of {@code s}, kept as {@code label}; one pixel of its themed panel (themedPanelBounds, just inside the
-     * bottom-left bevel where every screen leaves the panel bare) sampled, and the colour the open screen's palette puts
+     * bottom-left bevel where every screen leaves the panel bare) sampled, and the color the open screen's palette puts
      * there (MenuStyle's panel or card gradient at that row, read while the screen is up).
      * @return {sampled, expected}
      */

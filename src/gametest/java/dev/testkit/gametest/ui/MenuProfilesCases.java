@@ -17,7 +17,7 @@ import java.util.List;
 
 /**
  * The Profiles page of the Option A menu (mod menu-profiles-ctrlf; killer560, 2026-10-13: "I dont like how this profile
- * screen is set up"). Every press is a REAL click on the screen at the button's centre, so a painted card under a button
+ * screen is set up"). Every press is a REAL click on the screen at the button's center, so a painted card under a button
  * that took the click would fail it, and every action is proved on disk:
  * <ul>
  *   <li>948 the page: an Active Profile card naming the loaded profile, a card per saved profile (one per
@@ -52,7 +52,7 @@ final class MenuProfilesCases {
         return null;
     }
 
-    /** The real button labelled {@code label} inside {@code card}'s box, or null. */
+    /** The real button labeled {@code label} inside {@code card}'s box, or null. */
     private static AbstractWidget buttonIn(Screen s, AbstractWidget card, String label) {
         for (AbstractWidget w : rows(s)) {
             if (!isPanel(w) && ModScreenDriver.label(w).equals(label) && w.getX() >= card.getX()
@@ -74,7 +74,7 @@ final class MenuProfilesCases {
     }
 
     /**
-     * A real left click at the widget's centre, through the screen (as a mouse press arrives). A widget outside the
+     * A real left click at the widget's center, through the screen (as a mouse press arrives). A widget outside the
      * visible pane (the narrow drawer of a testing build's Untested category) is scrolled into view first, as he would.
      */
     private static void click(Screen s, AbstractWidget w) {

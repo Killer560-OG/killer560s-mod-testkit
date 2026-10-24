@@ -185,7 +185,7 @@ public class SimDummyLeverTests implements FabricClientGameTest {
             check(live.isEmpty() || new HashSet<>(live).equals(Set.of(d1, d2)),
                     "the live map's resolution " + live + " disagrees with the sim's");
         } else {
-            // A jar from before the list (the control): the behaviour checks below still decide.
+            // A jar from before the list (the control): the behavior checks below still decide.
             say(c + ": this jar has no secrets.DummyLevers");
         }
 

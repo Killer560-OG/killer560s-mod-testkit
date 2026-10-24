@@ -193,7 +193,7 @@ public class SimMapScreenTests implements FabricClientGameTest {
 
         // ---- 3. room TYPES resolve, and the floor is not all 1x1 -----------------------------------------
         // The sim opens from the main menu, where nothing used to start the room database load, so every room
-        // came back NORMAL - one colour for the whole grid, and a generator that could not tell a puzzle from
+        // came back NORMAL - one color for the whole grid, and a generator that could not tell a puzzle from
         // an ordinary room while being asked for three of them.
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(
                 "com.killer560.hub.roomdatabase.RoomDatabase", "isReady"));

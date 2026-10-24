@@ -33,16 +33,16 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>A five-room sim floor - Entrance (1,1), New Trap (2,1), Andesite (3,1), Cell (1,2), Blood (3,2) - all of it built
  * and loaded in the world, and published to the map. Then the player is given a Hypixel-style dungeon map in hotbar slot
  * 9 (a filled map whose pixels the case paints itself, the way NoammAddons and the mod read Hypixel's: room squares of
- * 16 at a 20-pixel pitch, the entrance's 16-pixel run of colour 30 for calibration) showing the Entrance opened, New Trap
- * opened and cleared (a white check, colour 34, through its centre) and Andesite as an unopened grey room (85) with a
+ * 16 at a 20-pixel pitch, the entrance's 16-pixel run of color 30 for calibration) showing the Entrance opened, New Trap
+ * opened and cleared (a white check, color 34, through its center) and Andesite as an unopened gray room (85) with a
  * black "?" (119). Cell and Blood are not on it.
  *
  * <p>Read from what the Dungeon Map HUD DRAWS (its render extracted into a render state, room-sized fills and their
- * colours):
+ * colors):
  * <ul>
  *   <li>legit, and cheat with Funny Map OFF: exactly the three rooms the item shows are drawn; no Blood red and no Cell
  *       brown anywhere, though the world has both loaded;</li>
- *   <li>cheat with Funny Map ON: all five, Cell and Blood in their own colours darkened by Darken Unexplored;</li>
+ *   <li>cheat with Funny Map ON: all five, Cell and Blood in their own colors darkened by Darken Unexplored;</li>
  *   <li>Darken Unexplored changes the drawn Andesite (and, with Funny Map, Cell) fill: 0 against 0.6 differ by exactly
  *       the multiply;</li>
  *   <li>Checkmarks: New Trap's mark is Hypixel's own, copied off the item (white pixels inside New Trap's square, the
@@ -103,7 +103,7 @@ public class SimMapItemTests implements FabricClientGameTest {
                 try {
                     Mod.set(MAP, "setMapThemeName", "REAL");
                 } catch (AssertionError oldJar) {
-                    // a jar from before map-overhaul paints Real Map colours by default
+                    // a jar from before map-overhaul paints Real Map colors by default
                 }
                 restore.add(0, Mod.with(MAP, "DarkenUnopened", 0.4f));
                 restore.add(0, Mod.with("autopuzzles.AutoPuzzlesConfig", "AutoPuzzlesMasterEnabled", false));
@@ -290,17 +290,17 @@ public class SimMapItemTests implements FabricClientGameTest {
 
     // ---- the painted dungeon map ---------------------------------------------------------------------------------
 
-    /** Hypixel's map bytes: rooms of 16 at a pitch of 20 from corner (5, 5); the colours NoammAddons decodes. */
+    /** Hypixel's map bytes: rooms of 16 at a pitch of 20 from corner (5, 5); the colors NoammAddons decodes. */
     static byte[] paintMap() {
         byte[] px = new byte[128 * 128];
         room(px, 1, 1, 30);          // Entrance, opened
         room(px, 2, 1, 62);          // New Trap, opened...
         int[] t = origin(2, 1);
         int[][] check = {{4, 8}, {5, 9}, {6, 10}, {7, 9}, {8, 8}, {9, 7}, {10, 6}, {11, 5}, {5, 8}, {6, 9}, {7, 8}};
-        for (int[] p : check) {      // ...and cleared: a white check through the room's centre (8, 8)
+        for (int[] p : check) {      // ...and cleared: a white check through the room's center (8, 8)
             set(px, t[0] + p[0], t[1] + p[1], 34);
         }
-        room(px, 3, 1, 85);          // Andesite, unopened grey with a black "?"
+        room(px, 3, 1, 85);          // Andesite, unopened gray with a black "?"
         int[] a = origin(3, 1);
         int[][] q = {{6, 4}, {7, 4}, {8, 4}, {9, 4}, {10, 5}, {10, 6}, {9, 7}, {8, 8}, {8, 9}, {8, 11}};
         for (int[] p : q) {
@@ -338,7 +338,7 @@ public class SimMapItemTests implements FabricClientGameTest {
         px[y * 128 + x] = (byte) colour;
     }
 
-    /** Puts a filled map with id {@link #MAP_ID} in hotbar slot 9 on both sides, its pixels {@code colours} client-side. */
+    /** Puts a filled map with id {@link #MAP_ID} in hotbar slot 9 on both sides, its pixels {@code colors} client-side. */
     static void giveMap(ClientGameTestContext ctx, byte[] colours) {
         AtomicReference<String> done = new AtomicReference<>();
         ctx.runOnClient(mc -> {

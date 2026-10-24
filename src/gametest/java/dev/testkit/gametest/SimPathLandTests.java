@@ -335,9 +335,9 @@ public class SimPathLandTests implements FabricClientGameTest {
     /**
      * The mechanism under the wrong-block hops, measured where it happens: the mod's own run-time etherwarp aim
      * ({@code TeleportUtils.getEtherwarpDirection}, what a path hop or etherwarp node fired 0.05 over its spot re-aims
-     * with) from 0.05 over a block centre to another landable block of the room. An aim is FRAGILE when it lands for its
+     * with) from 0.05 over a block center to another landable block of the room. An aim is FRAGILE when it lands for its
      * exact float values but not for a look 0.01 degrees off (the server reads the running yaw a few float bits off - the
-     * planner's own {@code EtherSearch.AIM_MARGIN}); such an aim goes into the neighbouring block a coin toss of the time.
+     * planner's own {@code EtherSearch.AIM_MARGIN}); such an aim goes into the neighboring block a coin toss of the time.
      * @return {aims, fragile, fragile with a firm aim to be had}. Client thread.
      */
     private static int[] probe(Minecraft mc, RoomRoute rr, Random rng) {

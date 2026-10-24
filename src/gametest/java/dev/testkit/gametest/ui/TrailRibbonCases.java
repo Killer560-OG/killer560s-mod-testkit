@@ -16,12 +16,12 @@ import java.util.Locale;
 
 /**
  * killer560's Ribbon Trail (mod trail-ribbon 2026-10-13, its own Cosmetics tab since ribbon-cosmetic 2026-10-14): one
- * smooth band streaming behind the player, head colour at the body to tail colour at the end, fading to nothing there,
+ * smooth band streaming behind the player, head color at the body to tail color at the end, fading to nothing there,
  * shrinking away when he stands still. Since ribbon-cosmetic it is a WORLD-FIXED vertical band (killer560: "I want the
  * ribbon to be vertical behind them, not horizontal or any angle"): every point's two vertices share x and z. Judged from F5 screenshots: each frame is diffed against a frame of the SAME scene with
  * the trail off (a pixel counts as changed above a summed RGB delta of 30, the {@code CrosshairCases} rule), and the
  * changed pixels' largest 8-connected component is the band. Distances along the band are a breadth-first walk from
- * its pixel nearest the player, so "near the player" and "further back" follow the band round a curve too. Colours are
+ * its pixel nearest the player, so "near the player" and "further back" follow the band round a curve too. Colors are
  * read from the SIGN of each pixel's change against the trail-off frame (red raises R and lowers G, yellow raises both,
  * blue raises B), which holds however much of the ground shows through.
  * <ul>
@@ -244,7 +244,7 @@ final class TrailRibbonCases {
 
     /**
      * The band in {@code on} against {@code off}: the largest 8-connected component of changed pixels outside the
-     * player's own box (centre column +-{@code skip} px), walked breadth-first from its pixel nearest the player.
+     * player's own box (center column +-{@code skip} px), walked breadth-first from its pixel nearest the player.
      */
     private static Band band(BufferedImage off, BufferedImage on, int skip) {
         int w = on.getWidth(), h = on.getHeight();
@@ -386,7 +386,7 @@ final class TrailRibbonCases {
                 seedRows, mean[0], mean[1], mean[2], mag[0], mag[1], mag[2]);
     }
 
-    /** Changed pixels within {@code half} px of the centre column (the player's body in F5). */
+    /** Changed pixels within {@code half} px of the center column (the player's body in F5). */
     private static int overPlayer(BufferedImage off, BufferedImage on, int half) {
         int n = 0, cx = on.getWidth() / 2;
         for (int y = 0; y < on.getHeight(); y++) {
@@ -400,7 +400,7 @@ final class TrailRibbonCases {
     }
 
     /** Red-led: R rises well above G (the head is red, so the band's near end runs red into orange). The rise in R itself
-     *  is capped by the background: over the light grey fog the test world now shows behind the band (R about 180-200)
+     *  is capped by the background: over the light gray fog the test world now shows behind the band (R about 180-200)
      *  pure red can add at most ~70, and the near fifth averages red into orange (run of 2026-10-22: +56 R, -64 G, -143 B
      *  for a visibly red head), so R's own floor is 30 and the red-over-green margin does the judging. */
     private static boolean reddish(double[] d) {
@@ -412,12 +412,12 @@ final class TrailRibbonCases {
     }
 
     /** How far a change leans to blue over red. The tail is blue, but faded over the green grass, so this is judged as
-     *  a trend along the band rather than a colour. */
+     *  a trend along the band rather than a color. */
     private static double blueLean(double[] d) {
         return d[2] - d[0];
     }
 
-    /** Head colour at the player, tail colour further back: red over green falls and blue over red rises along the band. */
+    /** Head color at the player, tail color further back: red over green falls and blue over red rises along the band. */
     private static boolean headToTail(Band b) {
         return b.nearD()[0] - b.nearD()[1] > b.midD()[0] - b.midD()[1] + 40
                 && blueLean(b.farD()) > blueLean(b.midD()) + 30 && blueLean(b.midD()) >= blueLean(b.nearD());
@@ -461,7 +461,7 @@ final class TrailRibbonCases {
             c.check(b.nearMag() > b.farMag() * 1.5, "the band does not fade toward the tail: " + b.describe());
             c.check(b.height() < b.thickness() * 1.6, "a straight walk drew a bent band: " + b.describe());
             // The band starts behind him (against his movement), not inside his body: nothing drawn over him.
-            // His model is one block wide arm to arm (+-30 px here), so the band's head 0.3 blocks behind his centre
+            // His model is one block wide arm to arm (+-30 px here), so the band's head 0.3 blocks behind his center
             // sits about 18 px out, beside his arm: +-20 px reached into it (67 px on 26.2, where the arm does not
             // cover it). +-12 px is his torso and legs.
             int overBody = overPlayer(off, on, 12);
@@ -737,7 +737,7 @@ final class TrailRibbonCases {
             c.note("clamped: " + clamped);
             c.check(clamped.equals("2.0 0.2 3"), "clamps gave " + clamped);
 
-            // The Ribbon Trail tab's rows, in Gradient / 3 colours and in Chroma.
+            // The Ribbon Trail tab's rows, in Gradient / 3 colors and in Chroma.
             List<String> ribbonRows = tabRows(c, "gui.tab.RibbonTrailTab", () -> {
                 Mod.call(rc, "setEnabled", true);
                 Mod.call(rc, "setColorMode", Mod.enumValue(MODE, "GRADIENT"));
@@ -782,7 +782,7 @@ final class TrailRibbonCases {
         }
     }
 
-    /** "enabled height seconds opacity mode count head mid tail firstPerson" (colours as hex). */
+    /** "enabled height seconds opacity mode count head mid tail firstPerson" (colors as hex). */
     private static String ribbonState(Object r) {
         return Mod.call(r, "isEnabledRaw") + " " + Mod.call(r, "getRibbonHeight") + " " + Mod.call(r, "getRibbonSeconds")
                 + " " + Mod.call(r, "getOpacityPercent") + " " + Mod.call(r, "getColorMode") + " "

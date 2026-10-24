@@ -8,7 +8,7 @@ abilities are `hx/dungeon/HxAbilities` (etherwarp, Instant Transmission, Superbo
   entered there latches "boss room", which turns room matching off (no room is ever identified).
 - An etherwarp START node reached by walking fires at the ring's edge and a long warp then lands a block short; reach
   one with a hand etherwarp (`warpOnto`). Aims for clicks must also tolerate the ring-edge offset.
-- A harness click must LOOK at the block first (a turn, then the click on the ray's hit): a synthetic centre hit while
+- A harness click must LOOK at the block first (a turn, then the click on the ray's hit): a synthetic center hit while
   facing elsewhere is GrimAC RotationPlace, and it is the harness's flag, not the mod's.
 - The Interactive Map's executor (`ClearExecutor`) has its own cases at the end: `62-argrim-imwarp` (the Go + Secret
   press on the room's cell with the map screen OPEN, a START-node warp across the 4-high wall), `-imwarp-run` (the same
@@ -54,7 +54,7 @@ abilities are `hx/dungeon/HxAbilities` (etherwarp, Instant Transmission, Superbo
   swings count against the skip. Both cases also skip a crypt node's kill wait (no player_action). 96-ar-awaitskip adds a
   still pig: a mod-style dig + swing + attack straight through the game mode must NOT skip, and his click with the pig
   under the crosshair must (no attack packet).
-  96-ar also has `-leverwp` (Secret Waypoints hides a clicked lever, not its neighbour) and `-complete` (`await:`).
+  96-ar also has `-leverwp` (Secret Waypoints hides a clicked lever, not its neighbor) and `-complete` (`await:`).
 - `62-argrim-1015-cryptaim` (crypt-aim-1015): two unstarred crypt mobs as Hypixel shows them (`dungeon.starred` with a
   `name`, Hypixel's "(sword) Crypt Undead 512.6k(heart)") 9 blocks either side of a Spirit Sceptre crypt node. The server emulates no
   sceptre, so nothing dies: two held uses down, then exactly two aimed `use_item` per mob (by the node's log, per mob id),

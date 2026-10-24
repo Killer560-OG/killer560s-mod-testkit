@@ -266,7 +266,7 @@ final class PartyFinderCoverageCases {
         return party.floor().equals("Entrance") ? p.f0() : party.dungeon().startsWith("Master") ? p.m3() : p.f7();
     }
 
-    /** The Style 1 line for a member, exactly as the mod should draw it (colours stripped). */
+    /** The Style 1 line for a member, exactly as the mod should draw it (colors stripped). */
     static String style1(M m, Party party) {
         P p = player(m.name());
         if (p.cata() < 0) {
@@ -355,7 +355,7 @@ final class PartyFinderCoverageCases {
                 }
             }
 
-            // 2. The 429s happened, were counted by the mod, and every Retry-After was honoured.
+            // 2. The 429s happened, were counted by the mod, and every Retry-After was honored.
             int modThrottled = PartyFinderStatsCases.hookInt("THROTTLED");
             System.out.println(TAG + "429s: fake " + fake.throttled.get() + ", mod THROTTLED +" + (modThrottled < 0 ? "n/a (no hook)" : modThrottled - throttledBefore));
             if (fake.throttled.get() < 2) {

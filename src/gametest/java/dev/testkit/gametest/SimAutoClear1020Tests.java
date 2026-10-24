@@ -487,7 +487,7 @@ public class SimAutoClear1020Tests implements FabricClientGameTest {
         SUMMARY.addAll(lines);
     }
 
-    /** Two ends of a straight 8-block run of open floor along +x near the tile centre (same y), or null. */
+    /** Two ends of a straight 8-block run of open floor along +x near the tile center (same y), or null. */
     private static BlockPos[] walkRun(ServerLevel level, int cx, int cz, int yHint, int len) {
         for (int ring = 0; ring <= 10; ring += 2) {
             for (int dz = -ring; dz <= ring; dz += 2) {

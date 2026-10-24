@@ -29,14 +29,14 @@ import static dev.testkit.gametest.hx.HxKit.*;
  * is frozen ({@code NameAnimation.freezeClockForTest}) so two frames are exact: Wave at 1x moves one letter per 250 ms,
  * Pulse at 1x is brightest at 0 ms and darkest (55%) at 1000 ms.
  * <ul>
- *   <li>960: Wave in chat - the glyph colours the Font hook paints at 250 ms are the 0 ms colours moved one letter to
- *       the right, and the SCREENSHOT agrees: each letter's measured colour (blue share) at 250 ms is the one its left
- *       neighbour had at 0 ms. Frames are in the report's screens
+ *   <li>960: Wave in chat - the glyph colors the Font hook paints at 250 ms are the 0 ms colors moved one letter to
+ *       the right, and the SCREENSHOT agrees: each letter's measured color (blue share) at 250 ms is the one its left
+ *       neighbor had at 0 ms. Frames are in the report's screens
  *       ({@code -Dtestkit.nameWaveShots=<dir>} also copies them there by name).</li>
  *   <li>961: Pulse in chat - the same pixels are about 55% as bright at 1000 ms, with the same hue per letter.</li>
- *   <li>962: Off - glyph colours and pixels identical at two times.</li>
+ *   <li>962: Off - glyph colors and pixels identical at two times.</li>
  *   <li>963: Wave everywhere else the name is drawn: the tab list, the own F5 nametag, and the Player Cosmetics preview
- *       (each: the name run found, and most of its pixels a different colour 250 ms later).</li>
+ *       (each: the name run found, and most of its pixels a different color 250 ms later).</li>
  *   <li>964: the setting survives a restart (load from disk, profile reload), has tooltips, shows as two cycling
  *       buttons beside the fade in the menu, and is what Share if Supporter sends.</li>
  *   <li>965: another player's relay entry ({@code GET /supporters} body with {@code animation}, the mod's own parser)
@@ -85,7 +85,7 @@ final class HxNameWaveCases {
         throw new AssertionError("no NameAnimation.Mode." + name);
     }
 
-    /** The own fade ({@link HxCosmeticNameCases#fade}, the same name and colours) with an animation at 1x. */
+    /** The own fade ({@link HxCosmeticNameCases#fade}, the same name and colors) with an animation at 1x. */
     private static HxKit.Settings animated(Session c, String mode) {
         return HxCosmeticNameCases.fade(c).with(NC, "OwnAnimation", mode(mode)).with(NC, "OwnAnimationSpeed", 1.0);
     }
@@ -154,7 +154,7 @@ final class HxNameWaveCases {
     }
 
     /**
-     * Per letter of the name run {@code r}: mean colour of the pixels that are on the green-blue line in {@code mask}
+     * Per letter of the name run {@code r}: mean color of the pixels that are on the green-blue line in {@code mask}
      * (the frame the run was found in), read from {@code img}. -1 for a letter with no such pixel.
      */
     private static int[] letters(BufferedImage img, BufferedImage mask, HxCosmeticNameCases.Run r, int[] adv, double k) {
@@ -179,7 +179,7 @@ final class HxNameWaveCases {
         return out;
     }
 
-    /** Share of the on-line pixels of {@code r} in {@code a} that are a different colour (by more than 30) in {@code b}. */
+    /** Share of the on-line pixels of {@code r} in {@code a} that are a different color (by more than 30) in {@code b}. */
     private static double changedShare(BufferedImage a, BufferedImage b, HxCosmeticNameCases.Run r) {
         int on = 0, moved = 0;
         for (int y = r.y0(); y <= r.y1(); y++) {

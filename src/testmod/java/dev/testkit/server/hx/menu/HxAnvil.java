@@ -37,7 +37,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * result slot 13 (a barrier "Anvil" while empty), the "Combine Items" anvil in 22, the two inputs 29 (upgrade) and
  * 33 (sacrifice), a red pane bottom row and the close barrier in 49.
  *
- * <p>Behaviour (what is NOT on the wiki is marked as this fake's choice): a shift-click on one of the player's own
+ * <p>Behavior (what is NOT on the wiki is marked as this fake's choice): a shift-click on one of the player's own
  * slots moves that stack into 29, or 33 if 29 is taken; a click on 29/33 hands it back. A click on 22 with both inputs
  * filled COMBINES - deliberately permissive, like an anvil that takes anything, so a wrong pair the mod sends is
  * recorded rather than hidden: two books merge enchant by enchant (equal levels +1, otherwise the higher; no cap), any

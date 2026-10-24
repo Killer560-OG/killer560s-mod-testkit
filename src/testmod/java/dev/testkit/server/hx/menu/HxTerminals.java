@@ -30,7 +30,7 @@ import java.util.Random;
  * {@code src/main/java/com/killer560/hub/}), never invented:
  * <ul>
  *   <li>titles: {@code terminals/TerminalType.java:12-17} (regexes) and {@code termism/TermismPracticeScreen.java:776-786}
- *       (the concrete "What starts with: 'X'?" / "Select all the RED items!" / SILVER for light grey);</li>
+ *       (the concrete "What starts with: 'X'?" / "Select all the RED items!" / SILVER for light gray);</li>
  *   <li>grid shapes and click results: {@code termism/TermismPracticeScreen.java} generators (Panes 5x3 :384, Rubix
  *       3x3 :407, Numbers 2x7 counts 1-14 :420, Starts With 3x7 :435, Select 4x7 :496, Melody 9x6 :270-330) and
  *       {@code handleCellClick} :533-614 (Rubix left = forward / right = backward through ORANGE YELLOW GREEN BLUE RED
@@ -46,7 +46,7 @@ import java.util.Random;
  * Both layouts of Hypixel's 2026-10-06 update (killer560: Melody 3 rows instead of 4, "Click in order!" 10 numbers
  * instead of 14): {@code bandRows} (Melody, default 4) and {@code count} (Numbers, default 14). The NEW boards' exact
  * shape is not known yet - this builds a 3-row Melody as the same board one band row shorter (a 5-row chest, buttons
- * 16/25/34, markers in rows 0 and 4) and 10 numbers as a centred 2x5. Change them here once the real ones are seen.
+ * 16/25/34, markers in rows 0 and 4) and 10 numbers as a centered 2x5. Change them here once the real ones are seen.
  * Where the grid sits inside the chest (one border row/column of filler) is the testkit's choice - nothing in the mod
  * pins it, and the mod's solver is position-independent (it reads every slot but the player's 36).
  */
@@ -59,8 +59,8 @@ final class HxTerminals {
     /** TermismPracticeScreen.java:60 - Rubix cycle order. */
     private static final String[] RUBIX = {"orange", "yellow", "green", "blue", "red"};
 
-    /** TermismPracticeScreen.java:178-187 - one display name + wool per colour (the solver's SELECT_PREFIXES,
-     *  TerminalSolverFeature.java:95-104, accepts these names). Key = the title colour word. */
+    /** TermismPracticeScreen.java:178-187 - one display name + wool per color (the solver's SELECT_PREFIXES,
+     *  TerminalSolverFeature.java:95-104, accepts these names). Key = the title color word. */
     private static final Map<String, String[]> SELECT = new LinkedHashMap<>();
 
     static {
@@ -99,7 +99,7 @@ final class HxTerminals {
         final Random rng;
         final String title;
         /** What the window is opened with: {@link #title}, or it wrapped in {@code titlePrefix}/{@code titleSuffix} (a
-         *  resource-pack GUI title carries private-use glyphs and colour codes round the text). */
+         *  resource-pack GUI title carries private-use glyphs and color codes round the text). */
         String displayTitle;
         final boolean closeOnSolve;
         final int melodyInterval;
@@ -242,7 +242,7 @@ final class HxTerminals {
                 nums.forEach(n -> out.add(n[1]));
             }
             if (type == Type.RUBIX) {
-                // Not "a solution" (any common colour solves it) - the slots NOT of the majority colour.
+                // Not "a solution" (any common color solves it) - the slots NOT of the majority color.
                 Map<String, Integer> counts = new LinkedHashMap<>();
                 for (int slot : grid) {
                     counts.merge(id(menu.items().getItem(slot)), 1, Integer::sum);
@@ -355,7 +355,7 @@ final class HxTerminals {
                 }
             }
             case NUMBERS -> {
-                // 14 numbers (old, 2x7) or 10 (2026-10-06 update; 2x5 is a guess at the shape), centred in row 1-2.
+                // 14 numbers (old, 2x7) or 10 (2026-10-06 update; 2x5 is a guess at the shape), centered in row 1-2.
                 int count = a.has("count") ? a.get("count").getAsInt() : 14;
                 if (count < 2 || count > 14 || count % 2 != 0) {
                     throw new IllegalArgumentException("Numbers count must be even, 2-14, got " + count);

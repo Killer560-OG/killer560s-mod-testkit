@@ -137,7 +137,7 @@ public class YourModTests implements FabricClientGameTest {
                 // Prove it acted before the clean verdict means anything:
                 double moved = ctx.computeOnClient(mc -> mc.player.position().x) + 699.5;
                 if (moved < 5) throw new AssertionError("the bridge never moved the player: " + moved);
-                s.log("travelled " + moved);
+                s.log("traveled " + moved);
             });                                // the anticheat must stay silent, or this fails with its lines
     }
 }
@@ -160,13 +160,13 @@ than use reflection, add it as a `gametestImplementation` dependency in `build.g
   is the shipped artifact, not a dev-classpath rebuild of it.
 - **`PacketWatch`** taps `ClientCommonPacketListenerImpl#send` and counts, per client tick: block breaks and
   block uses, the most on any one tick, how many went out *after* that tick's movement packet, swings,
-  hotbar swaps, reach to the block box *and* to its centre, rotation sent, and horizontal collisions as the
+  hotbar swaps, reach to the block box *and* to its center, rotation sent, and horizontal collisions as the
   client itself reports them.
 - **`-Pport=N`** gives a separate server, world and port (written into `run/testserver/server.properties`), so
   several copies of this project can run scenarios at the same time. The Hx bridge listens on N+5.
 - **Hx: the test server impersonating Hypixel.** A loopback JSON-RPC bridge in the companion server mod
   (`src/testmod/.../hx/`) sends Hypixel-shaped chat, action bars, titles, sidebars (team prefixes on invisible
-  owners), tab lists (fake profiles), items, armour stands, menus and command stubs, and records what the client
+  owners), tab lists (fake profiles), items, armor stands, menus and command stubs, and records what the client
   sent back (commands, chat, clicks, interactions). Client side: `gametest/hx/Hx`.
 - **`hx/Session`**: one server start for many cases, each with its own verdict, anticheat check, health check
   (`mod/Mod.assertHealthy`) and report row.
@@ -224,7 +224,7 @@ the anticheat's verbose output, and **fails the build on any flag**.
 
 ```
 [11-example-bridge] connected as Player0
-[11-example-bridge] travelled 39.4 blocks, ended at y=151.00
+[11-example-bridge] traveled 39.4 blocks, ended at y=151.00
 [11-example-bridge] anticheat clean — no verbose lines
 ```
 
@@ -289,7 +289,7 @@ Every one of these runs as-is. Copy the closest and change the body.
 | --- | --- |
 | [`ExampleTest`](src/gametest/java/dev/testkit/gametest/ExampleTest.java) | walk, bridge, duel — start here |
 | [`MovementExamples`](src/gametest/java/dev/testkit/gametest/MovementExamples.java) | sprint-jump with a speed assertion, long fall, obstacle course, ice/soul-sand/slabs, a per-second sampled run |
-| [`CombatExamples`](src/gametest/java/dev/testkit/gametest/CombatExamples.java) | knockback with a displacement assertion, frozen dummy, waypoint patrol, a crowd of four for target selection, an A/B armour comparison |
+| [`CombatExamples`](src/gametest/java/dev/testkit/gametest/CombatExamples.java) | knockback with a displacement assertion, frozen dummy, waypoint patrol, a crowd of four for target selection, an A/B armor comparison |
 | [`PlacementExamples`](src/gametest/java/dev/testkit/gametest/PlacementExamples.java) | straight gap, diagonal gap, rising gap, tower, breaking a wall |
 | [`SmokeTest`](src/gametest/java/dev/testkit/gametest/SmokeTest.java) / [`ProofTest`](src/gametest/java/dev/testkit/gametest/ProofTest.java) | the harness testing itself |
 
@@ -372,7 +372,7 @@ find, and they are why the positive control exists.
    PacketEvents build it bundles installs client hooks that are incomplete on 26.1.2 — the client's own
    connection dies with *Invalid player data*. The server is a separate process for this reason; do not
    "simplify" it back to an in-process one.
-3. **A dead server can look ready.** Signalling readiness when the process output closes makes a crashed
+3. **A dead server can look ready.** Signaling readiness when the process output closes makes a crashed
    server report itself started, and the client then fails with a bare *connection refused*.
 4. **`/fill` skips unloaded chunks.** Use `TestMap`, which goes through the companion mod.
 5. **Every scenario gets a fresh world.** The server deletes its world folder before each run — otherwise
@@ -380,7 +380,7 @@ find, and they are why the positive control exists.
    arena.
 6. **No anticheat and no flags look identical.** Hence `scenario.assertDetectorWorks()`.
 
-**A clean run is a statement about GrimAC only.** Server-side behavioural detection (Hypixel's Watchdog
+**A clean run is a statement about GrimAC only.** Server-side behavioral detection (Hypixel's Watchdog
 and similar) leaves no verbose, bans on a delay, and catches input-less automation with regular timing
 that Grim allows. Passing here is necessary, not sufficient — say which one your result covers.
 
@@ -411,7 +411,7 @@ build changes its config layout or startup requirements, the positive control is
 
 ---
 
-## Licence
+## License
 
 MIT. GrimAC is downloaded at build time and is not redistributed here; it is licensed separately
 (GPL-3.0) by its authors.

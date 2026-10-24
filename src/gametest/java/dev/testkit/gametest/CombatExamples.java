@@ -189,7 +189,7 @@ public class CombatExamples implements FabricClientGameTest {
     /**
      * The same fight twice, changing exactly one thing.
      *
-     * <p>The pattern worth copying: two bots, identical but for armour, and a single number compared
+     * <p>The pattern worth copying: two bots, identical but for armor, and a single number compared
      * between them. One scenario that changes two variables at once tells you nothing about either.
      */
     private void armouredVsNaked(ClientGameTestContext ctx) {

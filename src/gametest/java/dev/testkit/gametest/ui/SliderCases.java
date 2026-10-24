@@ -26,7 +26,7 @@ import java.util.Set;
  * <ul>
  *   <li>REAL INPUT (cheat jar): with Breaker Aura on, the real ModScreen on the Breaker Aura tab; the cursor is
  *       moved and the left button held in WINDOW coordinates (Auto Scale's transform in the path). For Cooldown and,
- *       as the control, Reach: drag from the centre past the left end (must read its minimum), past the right end
+ *       as the control, Reach: drag from the center past the left end (must read its minimum), past the right end
  *       (its maximum), and a plain click a quarter of the way along (about a quarter of the range). The OTHER
  *       slider's value is read after every move (Cooldown while Reach is driven and the reverse), so a press that
  *       lands on the wrong slider is named.</li>
@@ -353,7 +353,7 @@ final class SliderCases {
         boolean hudEditorBars = SEEN.stream().anyMatch(x -> x.contains("Health and Mana Bars|Vitality Bar:"));
         if (hudEditorBars || SEEN.stream().anyMatch(x -> x.contains("Health and Mana Bars|Hide Hypixel Stat Text:"))) {
             List<String> missed = new ArrayList<>();
-            // Since the 2026-10-12 simplification each colour row is "<Bar> Colour" in Advanced's colour grid, and the
+            // Since the 2026-10-12 simplification each color row is "<Bar> Color" in Advanced's color grid, and the
             // second "Hide Vanilla XP Bar" row is gone (Hide's "XP Bar And Level" is the setting).
             List<String> wants = new ArrayList<>(List.of("Stat Bars:", "Health Bar:", "Health Text:", "Health Color",
                     "Bar Width:", "Bar Height:", "Show Value:", "Background:", "Absorption Color:", "Hearts:",
@@ -403,7 +403,7 @@ final class SliderCases {
                 c.check(seen, "the sweep never laid out '" + p[1] + "' on the " + p[0] + " tab");
             }
         }
-        // Quiver Display's colour and Low Arrow Alert, Spring Boots' box colour and style (mod gui-hud, 2026-10-11),
+        // Quiver Display's color and Low Arrow Alert, Spring Boots' box color and style (mod gui-hud, 2026-10-11),
         // both jars, behind their tabs' OFF switches. Own block for merges; 721-724 test what they do.
         if (Mod.has("util.PingTracker")) {
             for (String want : new String[]{"Quiver Display|Quiver Text Color", "Quiver Display|Low Arrow Alert:",

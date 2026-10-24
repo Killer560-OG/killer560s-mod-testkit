@@ -322,7 +322,7 @@ final class LeapQueueCases {
                 int top = (Integer) Mod.field("gui.MenuStyle", "CARD_TOP");
                 int bottom = (Integer) Mod.field("gui.MenuStyle", "CARD_BOTTOM");
                 float f = (py + 0.5f - (mage.getY() + 1)) / Math.max(1f, mage.getHeight() - 2);
-                // Since mod 975f1d5e the whole card carries the class colour at alpha 0x30 over the theme's card.
+                // Since mod 975f1d5e the whole card carries the class color at alpha 0x30 over the theme's card.
                 int mageColor = (Integer) Mod.call(Mod.enumValue("dungeonclass.DungeonClass", "MAGE"), "color");
                 int expected = mix(mix(top, bottom, f) | 0xFF000000, mageColor | 0xFF000000, 0x30 / 255f) | 0xFF000000;
                 seen[t] = new int[]{sampled, expected};
@@ -387,7 +387,7 @@ final class LeapQueueCases {
                 + ", not edge to edge");
         c.check(bottom - top >= h * 0.45, where + ": the cards are only " + (bottom - top) + " tall in a " + h + " tall screen");
         // Since mod 975f1d5e the header is taller (a 2x "Select the class" line): LeapOrderScreen.classArea starts the row
-        // at y 76 under it, and past 280 units tall (c4e72491) the row is centred in the room between header and Done.
+        // at y 76 under it, and past 280 units tall (c4e72491) the row is centered in the room between header and Done.
         int room = Math.max(40, h - 40 - 76);
         int wantTop = 76 + (room - Math.min(room, 280)) / 2;
         c.check(Math.abs(top - wantTop) <= 2, where + ": the cards start at y " + top + " of " + h + ", want " + wantTop

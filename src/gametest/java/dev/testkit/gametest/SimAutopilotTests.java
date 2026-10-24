@@ -1118,7 +1118,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
         ctx.waitTicks(2);
     }
 
-    /** One starred zombie on an open floor spot near the room's first tile's centre; its UUID, or null. */
+    /** One starred zombie on an open floor spot near the room's first tile's center; its UUID, or null. */
     static UUID spawnOne(ClientGameTestContext ctx, Room room) {
         AtomicReference<BlockPos> spot = new AtomicReference<>();
         AtomicReference<Boolean> done = new AtomicReference<>();

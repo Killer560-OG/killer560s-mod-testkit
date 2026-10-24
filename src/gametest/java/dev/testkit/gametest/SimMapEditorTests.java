@@ -177,7 +177,7 @@ public class SimMapEditorTests implements FabricClientGameTest {
             throw new AssertionError("the drawn floor has no doors at all - the rooms touch but nothing links");
         }
 
-        // 5. A room that cannot fit is dropped, not pasted over its neighbour.
+        // 5. A room that cannot fit is dropped, not pasted over its neighbor.
         Map<Integer, String> overlapping = new LinkedHashMap<>();
         overlapping.put(0, multis.get(0));
         overlapping.put(1, multis.get(0));   // immediately to the right of a room wider than one cell

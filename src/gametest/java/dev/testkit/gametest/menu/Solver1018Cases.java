@@ -29,19 +29,19 @@ import java.util.Set;
 
 /**
  * killer560's 2026-10-18 dungeon-doc batch "solver-sound" (mod branch worktree-agent-afda21ebbc4d90d20): items 12, 14, 18, 23,
- * 24, 33 and 45 of his list. Every case first proves its premise (the thing under test acted), then asserts the new behaviour.
+ * 24, 33 and 45 of his list. Every case first proves its premise (the thing under test acted), then asserts the new behavior.
  * Run with {@code -Pscenario=-menu-} and {@code TESTKIT_MENU_ONLY=1018}.
  *
  * <ul>
  *   <li>1018-croesus-page-match (14): two pages of the same party's runs read back to back must not share run memory</li>
  *   <li>1018-magebeam-shape (18): the beam's faces are fixed to the world, not turned to the camera; Square is the default</li>
- *   <li>1018-doorkeys-circle (23): the circle sits higher, has its own thickness and colours, all saved</li>
- *   <li>1018-roomalerts-current-room (24): only the room he is in, no room name, colours, no On-screen Text switch</li>
- *   <li>1018-scorecalc-toggles-colors (33): Crypts and Deaths separate, the two lines gone, the HUD colours</li>
+ *   <li>1018-doorkeys-circle (23): the circle sits higher, has its own thickness and colors, all saved</li>
+ *   <li>1018-roomalerts-current-room (24): only the room he is in, no room name, colors, no On-screen Text switch</li>
+ *   <li>1018-scorecalc-toggles-colors (33): Crypts and Deaths separate, the two lines gone, the HUD colors</li>
  *   <li>1018-clicksound-volume (12): 100-500% by layering, on every screen, config clamps and survives a reload</li>
  *   <li>1018-clicksound-slot-click (12): a click on a slot of a chest-style Skyblock menu plays the click</li>
  *   <li>1018-clicksound-import (12): a .wav imports and decodes; an mp3 through ffmpeg when ffmpeg is installed</li>
- *   <li>1018-customitems-color (45): changing a Custom Items colour through the real picker draws without a crash</li>
+ *   <li>1018-customitems-color (45): changing a Custom Items color through the real picker draws without a crash</li>
  * </ul>
  */
 final class Solver1018Cases {
@@ -353,7 +353,7 @@ final class Solver1018Cases {
         c.check("Room Cleared!".equals(Mod.field(alerts, "CLEARED_TEXT")), "the cleared text is " + Mod.field(alerts, "CLEARED_TEXT"));
         c.check("Secrets Done!".equals(Mod.field(alerts, "SECRETS_TEXT")), "the secrets text is " + Mod.field(alerts, "SECRETS_TEXT"));
 
-        // Colours: defaults, a raised alert carrying the chosen one, and the shadow assassin's purple subtitle.
+        // Colors: defaults, a raised alert carrying the chosen one, and the shadow assassin's purple subtitle.
         Object cfg = Mod.cfg(cfgClass);
         int sa = (Integer) Mod.field(cfg, "shadowAssassinColor");
         int r = (sa >> 16) & 255;
@@ -487,7 +487,7 @@ final class Solver1018Cases {
             c.check(findSegment(cryptsOnly, "Crypts: ") != null && findSegment(cryptsOnly, "  Deaths: ") == null
                     && findSegment(cryptsOnly, "Deaths: ") == null, "Deaths is OFF but the HUD still shows it");
 
-            // Colours.
+            // Colors.
             Mod.call(cfg, "setShowDeaths", true);
             Mod.call(cfg, "setLabelColor", 0x112233);
             Mod.call(cfg, "setBadColor", 0x445566);
@@ -503,7 +503,7 @@ final class Solver1018Cases {
             Mod.set(cfgClass, "setValueColor", 0x0A0B0C);
             c.check((Integer) Mod.get(cfgClass, "colorsKey") != key1, "the HUD cache key ignores a color change");
 
-            // The tab: the two lines are gone, Crypts and Deaths are two rows, colour rows exist.
+            // The tab: the two lines are gone, Crypts and Deaths are two rows, color rows exist.
             List<String> texts = tabTexts(c, "gui.tab.ScoreCalculatorTab", cfgClass, "Enabled");
             c.check(!anyContains(texts, "Estimates the dungeon score"), "the 'Estimates the dungeon score' line is still there");
             c.check(!anyContains(texts, "at most once per run"), "the 'send at most once per run' line is still there");
@@ -768,7 +768,7 @@ final class Solver1018Cases {
         }
     }
 
-    // ---- 45: Custom Items colour ------------------------------------------------------------------------------------
+    // ---- 45: Custom Items color ------------------------------------------------------------------------------------
 
     static void customItems(Session c) throws Exception {
         String cfgClass = "armourdye.ArmourDyeConfig";
@@ -803,8 +803,8 @@ final class Solver1018Cases {
             c.ctx().waitTicks(4);
             Object key = c.onClient(mc -> Mod.field(screen, "selectedKey"));
             c.check(key != null, "premise: the item could not be selected (no key)");
-            // Since the 2026-10-18 redesign (mod 998c9f96) the colour lives on the Custom Colour page: the main page's
-            // "Custom Colour" button opens it, and its "Colour" button opens the picker. Both real buttons, pressed.
+            // Since the 2026-10-18 redesign (mod 998c9f96) the color lives on the Custom Color page: the main page's
+            // "Custom Color" button opens it, and its "Color" button opens the picker. Both real buttons, pressed.
             AbstractWidget page = c.onClient(mc -> button(screen, "Custom Color"));
             c.check(page != null, "premise: no Custom Color button on the Custom Items screen");
             c.check(page != null && page.active, "premise: the Custom Color button is not active for the selected item");
@@ -860,7 +860,7 @@ final class Solver1018Cases {
                 c.check(saved == colours[0], String.format("the item's color is #%08X, the picker's is #%08X", saved, colours[0]));
                 c.check((Boolean) Mod.field(entryAfter, "colorEnabled"), "choosing a color did not turn Use Color on");
             }
-            // Back to the Custom Colour page it was opened from, rendered with the dyed item on screen.
+            // Back to the Custom Color page it was opened from, rendered with the dyed item on screen.
             c.onClient(mc -> {
                 picker.onClose();
                 return null;
@@ -869,7 +869,7 @@ final class Solver1018Cases {
             Screen now = c.onClient(mc -> McCompat.screen(mc));
             c.check(now == colourPage, "closing the picker did not return to the Custom Color page: "
                     + (now == null ? null : now.getClass().getName()));
-            // The dye hook ran for the stack and gave the chosen opaque colour.
+            // The dye hook ran for the stack and gave the chosen opaque color.
             int tint = c.onClient(mc -> (Integer) Mod.staticCall("armourdye.ArmourDye", "dyeColor", stack, 0xFFA06540));
             c.check(tint == (0xFF000000 | (colours[0] & 0xFFFFFF)), String.format("the dye hook gave #%08X for #%08X", tint, colours[0]));
             c.check(!(Boolean) Mod.staticCall("armourdye.ArmourDye", "hasFailed"), "ArmourDye latched itself off after a render failure");
@@ -882,8 +882,8 @@ final class Solver1018Cases {
                 c.ctx().waitTicks(3);
             }
             c.check(!(Boolean) Mod.staticCall("armourdye.ArmourDye", "hasFailed"), "ArmourDye failed on an extreme color");
-            // Worn: the piece on his chest drawn in third person and in the inventory while the colour keeps changing, then the
-            // same colour on a Look (another item model) and on a head texture.
+            // Worn: the piece on his chest drawn in third person and in the inventory while the color keeps changing, then the
+            // same color on a Look (another item model) and on a head texture.
             c.onClient(mc -> {
                 mc.player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, stack);
                 mc.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_BACK);

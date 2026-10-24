@@ -20,7 +20,7 @@ python tools/extract-patterns.py -PmodSource=<modSource>   # catalog -> src/game
 python tools/coverage-matrix.py --worktrees --report build/testkit-report     # build/coverage-matrix.md|json
 ```
 
-Re-extract the catalog whenever the mod jar under test moves: 350 compares every catalogued regex with the jar's
+Re-extract the catalog whenever the mod jar under test moves: 350 compares every cataloged regex with the jar's
 live Pattern and fails on drift. The suite takes about 6 s (budget 60 s); 352 also writes
 `build/testkit-report/pattern-coverage.md`. The mod source is read from `-Dtestkit.modSource`, `$TESTKIT_MOD_SOURCE`,
 else `<modSource>` (see docs/requests/logic.md for the gradle property).

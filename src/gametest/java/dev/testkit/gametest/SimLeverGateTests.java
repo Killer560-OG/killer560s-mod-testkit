@@ -548,7 +548,7 @@ public class SimLeverGateTests implements FabricClientGameTest {
                             continue;
                         }
                         // To the lever's block BOX, the measure the server uses (Purple Flags' lever hangs at the top of
-                        // a shaft: 4.4 to its box from the floor, 4.9 to its centre).
+                        // a shaft: 4.4 to its box from the floor, 4.9 to its center).
                         double d = Math.sqrt(new net.minecraft.world.phys.AABB(lever)
                                 .distanceToSqr(new Vec3(f.getX() + 0.5, f.getY() + 1.62, f.getZ() + 0.5)));
                         if (d < bestD && d <= 4.45) {

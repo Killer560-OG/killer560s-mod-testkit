@@ -23,23 +23,23 @@ import java.util.Locale;
 import java.util.function.IntPredicate;
 
 /**
- * 451-454: the Inventory Theme on the hotbar and its new settings, and the Storage Overlay's centring and themes
- * (killer560, 2026-10-07). Every judgement is made on screenshots (GUI scale 2 unless a size says otherwise) and on the
+ * 451-454: the Inventory Theme on the hotbar and its new settings, and the Storage Overlay's centering and themes
+ * (killer560, 2026-10-07). Every judgment is made on screenshots (GUI scale 2 unless a size says otherwise) and on the
  * mod's own frame counters, so a pass means the thing was drawn - not that a setter returned.
  *
  * <ul>
  *   <li>451-ui-hotbar-theme: vanilla vs themed hotbar (exact accent pixels, one separator line between slots), vanilla's own
  *       overlays still drawn through the theme (stack count, durability bar, offhand item, cooldown, hotbar attack
  *       indicator - each measured as a pixel change), Line Width 0/1/3 as the border's thickness in screen pixels, a custom accent
- *       and slot colour, and Hotbar Scale 50/100/200% as the bar's drawn top and right edge.</li>
+ *       and slot color, and Hotbar Scale 50/100/200% as the bar's drawn top and right edge.</li>
  *   <li>452-ui-inventory-theme-settings: every new setting saved, reloaded from disk and read back; the setters' clamps
  *       equal the sliders' MIN/MAX; the Storage Overlay's old {@code darkMode} migrates (true to Amber, false to Light);
  *       and Line Width / Slot Color change the drawn slot squares of a real chest screen.</li>
  *   <li>453-ui-storage-overlay-centre: with killer560's own saved position ({@code storage_overlay x 0, y 20}) the grid
- *       and the Inventory panel are measured against the screen centre at six window sizes / GUI scales, and on the GUI 2
+ *       and the Inventory panel are measured against the screen center at six window sizes / GUI scales, and on the GUI 2
  *       screenshot from the drawn border pixels.</li>
  *   <li>454-ui-storage-overlay-themes: Amber / Dark / Light rendered for the overlay and the hotbar; Amber draws the old
- *       dark colours exactly, Dark and Light draw (almost) no orange pixels.</li>
+ *       dark colors exactly, Dark and Light draw (almost) no orange pixels.</li>
  * </ul>
  */
 final class InvStorageCases {
@@ -197,13 +197,13 @@ final class InvStorageCases {
     }
 
     /**
-     * The theme on, every container, hotbar themed, Amber, line 1, scale 1, no custom colours, opacity 0.85.
+     * The theme on, every container, hotbar themed, Amber, line 1, scale 1, no custom colors, opacity 0.85.
      * <p>
      * The look is Custom on a jar since mod 4a7ffc31 (it was the Mod Theme preset before): Custom on the Amber base is
      * the old Mod Theme look - near-black panel, #CC6600 accent (PanelTheme.AMBER.invAccent) - and the only choice the
-     * Theme base, Accent Colour and Slot Colour still apply to ({@code InventoryThemeConfig.computePalette}: "The Slot and
+     * Theme base, Accent Color and Slot Color still apply to ({@code InventoryThemeConfig.computePalette}: "The Slot and
      * Accent overrides apply to Custom only"). The Mod Theme preset itself became the menu's AMBER theme (accent #FF8A1F),
-     * whose colours ignore every one of those settings, so the #CC6600 and custom-colour checks below need Custom.
+     * whose colors ignore every one of those settings, so the #CC6600 and custom-color checks below need Custom.
      */
     private static void themeDefaults(UiCase c, Object cfg) {
         c.onClient(mc -> {
@@ -243,7 +243,7 @@ final class InvStorageCases {
     }
 
     /** RGB of a slot's top line in palette {@code p}: the dark bevel ({@code slotDark}) when it bevels slots (vanilla),
-     *  otherwise the one-colour outline ({@code slotLight}) every other look draws on all four sides (mod 6c9442d6,
+     *  otherwise the one-color outline ({@code slotLight}) every other look draws on all four sides (mod 6c9442d6,
      *  2026-10-13: "make a full outline for the left side of my inventory slots and the top side";
      *  InventoryThemeFeature.slotSquare). */
     static int topLine(Object p) {
@@ -257,7 +257,7 @@ final class InvStorageCases {
     }
 
     /** The Theme choice an old preset name became, exactly as the mod's own {@code InventoryThemeConfig.load()} carries a
-     *  saved preset over: Default (vanilla colours then) to VANILLA, Dark to the menu's DARK, Mod Theme to the menu's
+     *  saved preset over: Default (vanilla colors then) to VANILLA, Dark to the menu's DARK, Mod Theme to the menu's
      *  AMBER, Custom to INVENTORY_CUSTOM. */
     static String choiceFor(String preset) {
         return switch (preset) {
@@ -425,7 +425,7 @@ final class InvStorageCases {
                 c.problem("the themed hotbar does not draw the theme's accent: " + accAmb + " px themed, " + accVan
                         + " vanilla");
             }
-            // Between slot 0 and 1 (GUI x cx-70, vanilla's cell boundary), mid height: vanilla's grey sprite, or - since
+            // Between slot 0 and 1 (GUI x cx-70, vanilla's cell boundary), mid height: vanilla's gray sprite, or - since
             // the polish branch (2026-10-07: touching slots share ONE line) - the theme's separator line in the accent,
             // with the dark slot cell one unit to its right.
             int gx = b.px(b.cx() - 70);
@@ -568,7 +568,7 @@ final class InvStorageCases {
                 set(c, cfg, "setLineWidth", 1);
             }
 
-            // -- custom colours --
+            // -- custom colors --
             c.onClient(mc -> {
                 Mod.call(cfg, "setUseCustomAccent", true);
                 Mod.call(cfg, "setCustomAccentColor", 0xFF00FF00);
@@ -620,13 +620,13 @@ final class InvStorageCases {
                         }
                     }
                 }
-                // Reskin: the topmost accent right of centre is a slot's light right edge (from 19 units up) and the
-                // rightmost is slot 8's (its last pixel 89 units right of centre).
+                // Reskin: the topmost accent right of center is a slot's light right edge (from 19 units up) and the
+                // rightmost is slot 8's (its last pixel 89 units right of center).
                 // Since mod 6c9442d6 the reskin outlines each slot on all four sides, so its topmost accent is the slot's
                 // top edge, 20 units up (it was the light right edge, from 19 up).
                 int wantTop = reskin ? b.px(b.gh() - 20 * scale) : b.px(b.gh() - 22 * scale);
                 int wantRight = reskin ? b.px(b.cx() + 89 * scale) - 1 : b.px(b.cx() + 91 * scale) - 1;
-                // Since mod inv-theme-fix2 the bar's end lines sit on the cell boundary x0 + 181 (centred end slots), so its
+                // Since mod inv-theme-fix2 the bar's end lines sit on the cell boundary x0 + 181 (centered end slots), so its
                 // last pixel is lineWidth/2 past that boundary: accept that edge too.
                 int lw = ((Number) c.onClient(mc -> Mod.call(cfg, "getLineWidth"))).intValue();
                 int wantRight2 = b.px(b.cx() + 90 * scale) + lw / 2 - 1;
@@ -825,7 +825,7 @@ final class InvStorageCases {
                 // Last, as it replaces the config instance the checks above hold.
                 // A file from before presets loads as Default (killer560: everyone starts on Default). Since mod 4a7ffc31
                 // load() carries the saved preset over to the Theme choice once, while the choice is still Theme Default:
-                // no preset (Default, vanilla colours then) becomes VANILLA, and a saved Mod Theme becomes the menu's AMBER.
+                // no preset (Default, vanilla colors then) becomes VANILLA, and a saved Mod Theme becomes the menu's AMBER.
                 Path f = InvBatchCases.configPath(c, ICFG);
                 String[][] olds = hasChoice()
                         ? new String[][]{{"{\"enabled\":true,\"theme\":\"AMBER\",\"lineWidthPx\":2}", "VANILLA"},
@@ -963,10 +963,10 @@ final class InvStorageCases {
                         // On the picture: the outer border pixels of the panels' top row.
                         BufferedImage img = shot(c, "overlay-gui2", 4);
                         // 44 units into the grid: below the Search (0..16) and Scan All (20..36) buttons beside it,
-                        // whose outlines are the panels' border colour, through the left and right borders of the first
+                        // whose outlines are the panels' border color, through the left and right borders of the first
                         // row of panels (each at least 70 tall).
                         int y = b.px(box[4] + 44);
-                        // A jar from before the themes (the "before" run) draws the old dark colours.
+                        // A jar from before the themes (the "before" run) draws the old dark colors.
                         int border = Mod.has(THEME)
                                 ? c.onClient(mc -> (Integer) themeField(Mod.call(scfg, "getTheme"), "border")) : 0xFF553311;
                         int active = Mod.has(THEME)
@@ -1071,7 +1071,7 @@ final class InvStorageCases {
                             + " px) - nothing to judge");
                 }
                 if (name.equals("AMBER")) {
-                    // Exactly the old dark mode's colours: border #553311, cell line #37373C, active #CC6600.
+                    // Exactly the old dark mode's colors: border #553311, cell line #37373C, active #CC6600.
                     if (border != 0xFF553311 || cellLine != 0xFF37373C
                             || (Integer) themeField(theme, "activeBorder") != 0xFFCC6600
                             || (Integer) themeField(theme, "panelBg") != 0xCC101010

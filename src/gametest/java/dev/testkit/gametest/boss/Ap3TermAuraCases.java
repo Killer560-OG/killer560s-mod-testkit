@@ -25,7 +25,7 @@ import java.util.List;
  *   <li>416 (cheat jar): the terminal directly BEHIND him, Turn To Terminal on (the default). The click must reach the
  *       server and open the terminal, GrimAC must stay silent, the TERMINAL node must take over and finish on the
  *       completion line, the CAMERA must never move, and the body must be given back to where he was facing.</li>
- *   <li>417 (cheat jar): the terminal in FRONT of him - the click needs no turn. Same judgement; this is the case that
+ *   <li>417 (cheat jar): the terminal in FRONT of him - the click needs no turn. Same judgment; this is the case that
  *       says whether the node's click goes out at a point in the tick GrimAC accepts at all.</li>
  *   <li>418 (cheat jar, EXPECTING flags): behind, Turn To Terminal off - the click goes out with a look ray that misses
  *       the stand. Recorded, not judged: what GrimAC says about it is the reason the turn exists.</li>

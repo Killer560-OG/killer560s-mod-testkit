@@ -241,7 +241,7 @@ tasks.register("prepareTestServer") {
 
 		// -Pnogrim has to mean NO ANTICHEAT, not "ignore what it says". With the jar left in place the anticheat
 		// is still installed and still correcting every movement, so a "muted" run measures a watching server
-		// while labelling itself a vanilla one. The jar leaves the folder, and anything left over from an
+		// while labeling itself a vanilla one. The jar leaves the folder, and anything left over from an
 		// older Grim pin goes with it; the current one is put back the moment the flag is not passed.
 		mods.listFiles().findAll { it.name.startsWith("grimac-") && it.name != grimJar.name }.each { it.delete() }
 		def grim = new File(mods, grimJar.name)
@@ -738,7 +738,7 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	// The mod's unreleased main menu pictures (Green's TARGET scene, gradient C) show only in killer560's Title Screen GUI
 	// instance or with this property (mod MainMenuScenes.previewScenes, 2026-10-16); 1651-1653 check those pictures.
 	systemProperty "killer560smod.previewScenes", "true"
-	// Interactive Map tile clicks also plan without the centre preference and log it (95 asserts the warps match).
+	// Interactive Map tile clicks also plan without the center preference and log it (95 asserts the warps match).
 	systemProperty "killer560.test.checkFewest", "true"
 	// The mod menu's animations are instant (as with Animations: Off) unless a case drives their clock: the lockstep
 	// renders one frame per tick as fast as it can, and many cases read the very frame after a click (its text, its

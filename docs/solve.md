@@ -32,7 +32,7 @@ first and remove the arrow (`BlazeMiss`), and require the order secret taken, th
 complete. A jar without `testProbe` prints the timings only ("secret timeline: last blaze dead at ..., chest opened at
 ...") - that is how main's wait-then-walk was compared.
 
-Water Board checks more than the solve (mod 5cd5b881): before the auto starts, exactly three colour layers of the
+Water Board checks more than the solve (mod 5cd5b881): before the auto starts, exactly three color layers of the
 walkway under the glass are fully out (x 14..16 at y 56, x 14/16 at y 57, 5 of 5 cells) and no reward chest exists;
 after the solve, a chest at room-relative (15, 56, 22) equal to `SimWaterPuzzle.rewardChestPos()`, all five layers
 clear, Secret Aura opening it within 15 s with `SimScore.secretsFound` unchanged, then (auto off)
@@ -185,7 +185,7 @@ interacts each within 3.0 eye to box (PacketWatch), talks without a move between
 Minecraft.disconnect against the server parked in the gametest's postRunTasks). Main d1eda658: 3 of 3 FAIL (never solved;
 2 / 1 / 0 talks; 781 waiting lines in one case). Branch b77b8df9: 16 of 16 PASS, solved in 0.70-0.90 s (the doorway starts by an Interactive
 Map trip: no warp line from there reaches a spot in reach). Full 93-solve on 93293970: 38 of 38 in one launch.
-`1015-grim-puzzle-nowait` also plays two talk rounds: land, body onto a CLICK armour stand in the landing tick, the interact
+`1015-grim-puzzle-nowait` also plays two talk rounds: land, body onto a CLICK armor stand in the landing tick, the interact
 the next tick with no turn tick, the body onto the second stand after it, its interact the tick after (4 interacts at
 2.48 eye to box, GrimAC clean on the branch; a jar before weirdos-reach-1015 has no `aimBodyAt(LocalPlayer, AABB, FreeCam)`).
 weirdos-fast-1016: the case also requires the chest within 3 ticks of the last talk (the Chest Open Delay default is

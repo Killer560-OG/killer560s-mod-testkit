@@ -252,7 +252,7 @@ public class SimDeucesDoorwayTests implements FabricClientGameTest {
         @SuppressWarnings("unchecked")
         List<String> palette = (List<String>) room.getClass().getField("palette").get(room);
         var at = room.getClass().getMethod("at", int.class, int.class, int.class);
-        // Capture (x, y, z) -> world, at rotation 0: the paste anchors capture x 0 at centre - TILE/2 - margin = centre - 16.
+        // Capture (x, y, z) -> world, at rotation 0: the paste anchors capture x 0 at center - TILE/2 - margin = center - 16.
         int ox = centre.getX() - 16;
         int oz = centre.getZ() - 16;
         java.util.function.Function<int[], BlockPos> w = c -> new BlockPos(ox + c[0], c[1] + dy, oz + c[2]);
@@ -570,7 +570,7 @@ public class SimDeucesDoorwayTests implements FabricClientGameTest {
         }
     }
 
-    /** World position of Deuces' capture block (x, y, z) pasted at rotation 0 or 180 on the cell centred at {@code o}. */
+    /** World position of Deuces' capture block (x, y, z) pasted at rotation 0 or 180 on the cell centered at {@code o}. */
     private static BlockPos world(BlockPos o, int rotation, int x, int y, int z, int dy) {
         int x0 = o.getX() - 16;
         int z0 = o.getZ() - 16;
@@ -619,7 +619,7 @@ public class SimDeucesDoorwayTests implements FabricClientGameTest {
 
     /**
      * His view in his report (killer560, 2026-10-16, a solo Deuces): standing in the room about eight blocks from the
-     * chest doorway's wall, facing it and looking up towards the chest. Feet at capture (9.5, 69, 16.5), facing the
+     * chest doorway's wall, facing it and looking up toward the chest. Feet at capture (9.5, 69, 16.5), facing the
      * doorway (west at rotation 0, east at 180), pitch -22, FOV 90. Copied to {@link #SHOTS}.
      */
     private static void heroShot(ClientGameTestContext ctx, String tag, int cell, int rotation) {

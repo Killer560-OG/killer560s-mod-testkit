@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * Records every chat line the server sends.
  *
  * <p>An anticheat's verbose output is ordinary chat, so this is how a scenario can read what the server
- * said rather than inferring it from behaviour. Both flavours are hooked because a server is free to use
+ * said rather than inferring it from behavior. Both flavors are hooked because a server is free to use
  * either. The harness reads flags from the server console rather than from here — chat only reaches
  * players with the alerts permission, and granting the test player that permission also makes it exempt —
  * but this stays because a scenario often wants the server's replies to its own commands.

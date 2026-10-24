@@ -279,7 +279,7 @@ final class MapInfoBatCases {
         return c.onClient(mc -> List.copyOf((List<String>) Mod.staticCall(SCF, "mapInfoLines", false)));
     }
 
-    /** {green, red} pixel counts (the tick and cross colours, exact) in one band across the map's width. */
+    /** {green, red} pixel counts (the tick and cross colors, exact) in one band across the map's width. */
     private static int[] colours(BufferedImage img, int x0, int x1, int[] band) {
         int g = 0, r = 0;
         for (int y = band[0]; y <= band[1]; y++) {
@@ -295,7 +295,7 @@ final class MapInfoBatCases {
         return new int[]{g, r};
     }
 
-    /** A 4x nearest-neighbour crop of the map and its rows, for looking at (GUI 2 only, like the pictures). */
+    /** A 4x nearest-neighbor crop of the map and its rows, for looking at (GUI 2 only, like the pictures). */
     private static void saveCrop(UiCase c, BufferedImage img, int gs, int mapPx, int height, String tag) {
         String dir = System.getenv("TESTKIT_HUDFIX_SHOTS");
         if (dir == null || dir.isBlank() || gs != 2) {

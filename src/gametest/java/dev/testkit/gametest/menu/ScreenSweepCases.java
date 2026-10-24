@@ -27,7 +27,7 @@ import java.util.UUID;
  * its own Theme setting ("Theme Default" follows the menu). 950-957. Every themed screen is shot in Amber and Light;
  * the shot is read back and the panel's accent ring must be the palette's {@code FRAME_RING} for that theme, the panel
  * itself dark on Amber and light on Light (the pet wheel has no panel: its first tile), and on Light no text the screen
- * draws may carry a drop shadow or a bright base colour (the smear and the white-on-light the sweep fixes). Then each
+ * draws may carry a drop shadow or a bright base color (the smear and the white-on-light the sweep fixes). Then each
  * screen's main action, done with real presses and typing:
  * <ul>
  *   <li>950-menu-sweep-pv: /pv on AntsRNG loads from the fake SkyBlockPV backend (the fixture 400 uses) to READY with
@@ -195,7 +195,7 @@ final class ScreenSweepCases {
     /**
      * Shoots {@code s} in Amber and Light (the menu's theme, the screen on Theme Default) and checks its panel follows:
      * the ring pixel is the palette's FRAME_RING (when {@code ring}), the panel body dark / light, the two themes
-     * different, and on Light every text run unshadowed with a dark base colour (item counts excepted).
+     * different, and on Light every text run unshadowed with a dark base color (item counts excepted).
      * Returns {amber body, light body}.
      */
     static int[] themed(Session c, Screen s, String screenName, boolean ring) throws Exception {

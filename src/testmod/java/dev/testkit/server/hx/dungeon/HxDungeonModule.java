@@ -25,7 +25,7 @@ import net.minecraft.world.level.block.state.BlockState;
  *   <li>{@code dungeon.paste} - one captured room (the mod's {@code RoomLibrary.Room}, sent by the client as palette +
  *       base64 big-endian shorts) at a dungeon grid cell, with the whole column cleared so the live map's real scan
  *       (core hash over y 140..12, the blue terracotta roof marker) sees exactly the capture.</li>
- *   <li>{@code dungeon.blocks} - set blocks ("x y z state" strings) with neighbour updates.</li>
+ *   <li>{@code dungeon.blocks} - set blocks ("x y z state" strings) with neighbor updates.</li>
  *   <li>{@code dungeon.abilities} - turn the Hypixel ability emulation ({@link HxAbilities}) on or off.</li>
  *   <li>{@code dungeon.shortbow} - Hypixel's shortbows ({@link HxShortbow}) on or off, with a {@code cooldownTicks};
  *       {@code dungeon.shortbowStats} - its shot and dropped counts.</li>
@@ -73,7 +73,7 @@ public final class HxDungeonModule implements HxModule {
 
     /**
      * A Catacombs starred mob as Hypixel shows it: a zombie (no AI, persistent) and, built right after it so its entity
-     * id is the zombie's plus one, an invisible marker armour stand over it named " (star) Zombie 20(heart)" - what Mob
+     * id is the zombie's plus one, an invisible marker armor stand over it named " (star) Zombie 20(heart)" - what Mob
      * ESP (and so Auto Clear) resolves. Args x, y, z (the zombie's feet), optional name (the stand's tag, e.g. an
      * unstarred "[Lv89] Crypt Undead 45k❤" crypt mob). Returns the two UUIDs and entity ids.
      */
@@ -157,7 +157,7 @@ public final class HxDungeonModule implements HxModule {
 
     /**
      * Pastes a captured room at grid cell (cellX, cellZ) exactly as the sim's {@code RoomPlacer.paste} lays it out
-     * (origin = cell centre - TILE/2 - margin, no rotation, no altitude shift: relative y IS world y on Hypixel), and
+     * (origin = cell center - TILE/2 - margin, no rotation, no altitude shift: relative y IS world y on Hypixel), and
      * writes AIR everywhere in the footprint from {@code clearMinY} to {@code clearMaxY} the capture does not cover,
      * so the dedicated server's own terrain cannot leak into the core hash.
      */
@@ -228,7 +228,7 @@ public final class HxDungeonModule implements HxModule {
         return out;
     }
 
-    /** {@code blocks}: ["x y z state", ...], each set with a full update (neighbours, clients). */
+    /** {@code blocks}: ["x y z state", ...], each set with a full update (neighbors, clients). */
     private static JsonElement blocks(MinecraftServer server, JsonObject a) {
         ServerLevel level = server.overworld();
         int n = 0;

@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * <ol>
  *   <li>Toggles off: no crypt or prince waypoint, while the ordinary secret waypoints ARE drawn (so the feature ran).</li>
  *   <li>Toggles on: five crypt waypoints and one prince, each anchored on a block of the right kind in the client's
- *       world, and a screenshot aimed at one shows its colour; with the toggle off again it does not.</li>
+ *       world, and a screenshot aimed at one shows its color; with the toggle off again it does not.</li>
  *   <li>Opened: the lid blocks are removed on the server and a zombie spawned in it by the sim's own
  *       {@code SimMobs.spawn} (what the sim's Superboom does). The waypoint stays past the 3 s grace while the zombie
  *       lives - proof the feature saw it - and is gone once the zombie is removed. A second lid opened with nothing
@@ -50,7 +50,7 @@ public class SimCryptWaypointTests implements FabricClientGameTest {
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
     private static final String SIM_MOBS = "com.killer560.hub.roomsim.SimMobs";
 
-    /** Colours nothing else in a dungeon room is: magenta crypts, cyan princes. */
+    /** Colors nothing else in a dungeon room is: magenta crypts, cyan princes. */
     private static final int CRYPT_ARGB = 0xFFFF00FF;
     private static final int PRINCE_ARGB = 0xFF00FFFF;
 
@@ -176,7 +176,7 @@ public class SimCryptWaypointTests implements FabricClientGameTest {
                     + " prince (the capture census), but shows " + crypts.size() + " and " + princes.size());
         }
 
-        // Screenshot check: aim at one crypt and the prince, count their colour with the toggle on and off.
+        // Screenshot check: aim at one crypt and the prince, count their color with the toggle on and off.
         double[] cryptBox = boxes(ctx, "CRYPT").get(0);
         double[] princeBox = boxes(ctx, "PRINCE").get(0);
         aimAt(ctx, cryptBox);
@@ -297,7 +297,7 @@ public class SimCryptWaypointTests implements FabricClientGameTest {
         return ctx.computeOnClient(mc -> mc.level.getBlockState(p).toString());
     }
 
-    /** Points the camera at a box's centre from where the player stands. Rotation only, no movement. */
+    /** Points the camera at a box's center from where the player stands. Rotation only, no movement. */
     private static void aimAt(ClientGameTestContext ctx, double[] box) {
         ctx.runOnClient(mc -> {
             var eye = mc.player.getEyePosition();

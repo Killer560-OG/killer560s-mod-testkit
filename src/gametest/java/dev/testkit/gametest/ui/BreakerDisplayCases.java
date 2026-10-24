@@ -210,8 +210,8 @@ final class BreakerDisplayCases {
     private static java.awt.image.BufferedImage baseImg;
 
     /**
-     * Pixels that CHANGED from the no-picks frame and moved towards Breaker Aura's orange (1, 0.55 or 0.30, 0).
-     * A fixed colour window was tried first and missed the dim fill over dark stone entirely (it reads as a dull
+     * Pixels that CHANGED from the no-picks frame and moved toward Breaker Aura's orange (1, 0.55 or 0.30, 0).
+     * A fixed color window was tried first and missed the dim fill over dark stone entirely (it reads as a dull
      * red-brown) while the sunrise sky behind the scene is itself peach, so the frame is diffed instead.
      */
     private static int countOrange(UiCase c, Path shot) {

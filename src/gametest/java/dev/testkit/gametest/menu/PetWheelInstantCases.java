@@ -168,7 +168,7 @@ final class PetWheelInstantCases {
         });
         c.ctx().getInput().setCursorPos(px[0], px[1]);
         // One tick so a frame draws the wheel under the new cursor, as it would for a player who aimed: the old tick
-        // poll resolves the slice from the last DRAWN position, and without this it read the stale centre and picked
+        // poll resolves the slice from the last DRAWN position, and without this it read the stale center and picked
         // nothing. The gate's settle from the wheel opening (three ticks from the tick after it opened) still covers it.
         c.ctx().waitTicks(1);
         String claimed = "";

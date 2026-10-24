@@ -9,8 +9,8 @@ import java.util.List;
  * killer560, 2026-10-08: "All terminal solvers and auto terminal is broken, probably because they changed all boss
  * dialogue." The six titles and the item rules are unchanged in every reference mod's current source (Odin, NoammAddons,
  * Skyblocker, Devonian, jcnlk's quoi), so what Hypixel changed was not found offline. The mod now reads every terminal
- * title through {@code TerminalType.normalizeTitle} (colour codes and resource-pack glyphs out). These cases open every
- * type with the title wrapped the way a resource-pack GUI title is - private-use glyphs and colour codes round the text -
+ * title through {@code TerminalType.normalizeTitle} (color codes and resource-pack glyphs out). These cases open every
+ * type with the title wrapped the way a resource-pack GUI title is - private-use glyphs and color codes round the text -
  * and require the same results as {@link TerminalCases}' plain titles:
  * <ul>
  *   <li>554: the solver detects each type, its highlights match the server's board, a "human" following them solves it
@@ -21,7 +21,7 @@ import java.util.List;
  */
 final class DungeonFixTerminalCases {
 
-    /** A resource-pack style title: glyphs from the private-use area plus colour codes before, a glyph after. */
+    /** A resource-pack style title: glyphs from the private-use area plus color codes before, a glyph after. */
     static final String PREFIX = "\uE000\uF801§f§l";
     static final String SUFFIX = "§r\uF802";
 

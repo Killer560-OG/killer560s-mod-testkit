@@ -29,7 +29,7 @@ import java.util.UUID;
  * 975-perf-nametag (killer560, 2026-10-13: "look at the third person name and see if that is eating a bunch of fps").
  * Times the render thread's CPU per frame ({@link FrameClock}) with the mod's NAME features in four settings - off,
  * own custom name with a fade (and My Name in F5), the same plus Wave, each in first person and in F5 - first in a quiet
- * scene and then in a busy one: 50 named armour stands, six player bots whose supporter names are faded and waving, an
+ * scene and then in a busy one: 50 named armor stands, six player bots whose supporter names are faded and waving, an
  * 80-row tab list held open and a chat line every tick (every other one naming the player). Cells are interleaved over
  * rounds, so a drift lands on every cell alike; read DELTAS against "off" in the same scene and camera.
  * <p>
@@ -546,7 +546,7 @@ public class NametagPerfBenchTest implements FabricClientGameTest {
         });
     }
 
-    /** What of a Style reaches the pixels: colour, the five formats, font, shadow colour (not click/hover/insertion). */
+    /** What of a Style reaches the pixels: color, the five formats, font, shadow color (not click/hover/insertion). */
     private static String look(net.minecraft.network.chat.Style st) {
         net.minecraft.network.chat.TextColor col = st.getColor();
         return (col == null ? "-" : String.format("%06x", col.getValue() & 0xFFFFFF)) + (st.isBold() ? "b" : "")

@@ -27,7 +27,7 @@ import java.util.Locale;
  * <h2>Getting the mod to run at all</h2>
  * These features are gated on being in a dungeon on Hypixel. Two of the mod's own real switches open that up
  * without touching feature code: {@code DungeonState.toggleSimOverride()} (its {@code /killer560 sim} command)
- * and labelling the connection so {@code getCurrentServer().ip} contains {@code p3sim.net}, which is the check
+ * and labeling the connection so {@code getCurrentServer().ip} contains {@code p3sim.net}, which is the check
  * the features actually read and the one thing they have no override for. Neither changes a byte of what the
  * server receives.
  */

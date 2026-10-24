@@ -103,7 +103,7 @@ final class DesignerKit {
         return null;
     }
 
-    /** Clicks the visible control labelled exactly {@code text} with the real mouse. False when there is none. */
+    /** Clicks the visible control labeled exactly {@code text} with the real mouse. False when there is none. */
     static boolean click(ClientGameTestContext ctx, String text) {
         double[] at = ctx.computeOnClient(mc -> {
             Screen s = McCompat.screen(mc);

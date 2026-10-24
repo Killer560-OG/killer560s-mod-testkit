@@ -27,8 +27,8 @@ import java.util.Locale;
  * have it do the colors of their custom theme". At 1920x1080 GUI 2, clock held, no previewScenes property anywhere.
  * <ul>
  *   <li>1700 each Simple scene (Amber embers, Ocean bubbles, Dark stardust, Viridian fireflies, Custom embers in a pink
- *       Custom set): drawn through the scene shaders (their frame counter rises, the flavour is the theme's, particles were
- *       planned), in the theme's own colours, moving over 1 s and between two 1/120 s frames, dark behind the title, a
+ *       Custom set): drawn through the scene shaders (their frame counter rises, the flavor is the theme's, particles were
+ *       planned), in the theme's own colors, moving over 1 s and between two 1/120 s frames, dark behind the title, a
  *       different picture from the theme's Fancy scene, and dithered (no band edge in the calm sky; the GuiRects fallback of
  *       the same scene bands, which shows the instrument sees bands).</li>
  *   <li>1701 the toggle: every theme in Match and Separate draws its Fancy scene on Fancy and its Simple one on Simple (Light
@@ -54,7 +54,7 @@ public class SimpleScenesSuite implements FabricClientGameTest {
     static final String SIMPLE = "mainmenu.SimpleScenes";
     static final String MM = FontsMainMenuSuite.MM;
     static final String PREVIEW = "killer560smod.previewScenes";
-    /** A pink Custom set, far from every preset, so Custom's scene is seen to take its colours. */
+    /** A pink Custom set, far from every preset, so Custom's scene is seen to take its colors. */
     static final int[] PINK = {0xFFE040C0, 0xFF1C1020, 0xFF2A1830, 0xFFF2E6F0, 0xFFC03090};
 
     @Override
@@ -95,7 +95,7 @@ public class SimpleScenesSuite implements FabricClientGameTest {
         void run() throws Exception;
     }
 
-    /** At 1920x1080 GUI 2 with the main menu settings, scene mode and Custom colours saved and restored; no preview
+    /** At 1920x1080 GUI 2 with the main menu settings, scene mode and Custom colors saved and restored; no preview
      *  property and the Title Screen Switcher off, as in every normal instance. */
     private static void around(UiCase c, Body body) throws Exception {
         FontsMainMenuSuite.MmState saved = FontsMainMenuSuite.saveMm(c);
@@ -220,7 +220,7 @@ public class SimpleScenesSuite implements FabricClientGameTest {
         return n;
     }
 
-    /** {theme, expected Simple scene, expected flavour, Fancy scene}. */
+    /** {theme, expected Simple scene, expected flavor, Fancy scene}. */
     static final String[][] THEMES = {
             {"AMBER", "SIMPLE_EMBERS", "EMBERS", "EMBERS"},
             {"OCEAN", "SIMPLE_BUBBLES", "BUBBLES", "WATERFALL"},
@@ -475,7 +475,7 @@ public class SimpleScenesSuite implements FabricClientGameTest {
                     return null;
                 });
             }
-            // Custom on Fancy: its own colours through the Simple embers, never Plain
+            // Custom on Fancy: its own colors through the Simple embers, never Plain
             title(c, "SEPARATE", "CUSTOM", "FANCY");
             String custom = c.onClient(mc -> lookScene());
             c.check("SIMPLE_EMBERS".equals(custom), "Custom on Fancy draws " + custom + ", not the embers in its colors");

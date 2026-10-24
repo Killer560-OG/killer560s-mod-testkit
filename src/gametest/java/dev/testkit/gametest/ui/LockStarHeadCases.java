@@ -79,7 +79,7 @@ final class LockStarHeadCases {
         return s;
     }
 
-    /** Is {@code rgb} the star's colour, also when the hover highlight's translucent white is blended over it? */
+    /** Is {@code rgb} the star's color, also when the hover highlight's translucent white is blended over it? */
     static boolean starish(int rgb) {
         int r = (rgb >> 16) & 0xFF;
         int g = (rgb >> 8) & 0xFF;
@@ -104,7 +104,7 @@ final class LockStarHeadCases {
         return n;
     }
 
-    /** Cells of the 5x5 star in the slot's top-right corner that are not drawn as the star (sampled at cell centres). */
+    /** Cells of the 5x5 star in the slot's top-right corner that are not drawn as the star (sampled at cell centers). */
     static int wrongCells(BufferedImage img, int[] slot, double ppu, String[] star, boolean loose) {
         int x0 = slot[0] + 16 - star.length;
         int y0 = slot[1];
@@ -122,7 +122,7 @@ final class LockStarHeadCases {
         return wrong;
     }
 
-    /** Puts the real cursor over the centre of a slot (GUI units, screen-relative). */
+    /** Puts the real cursor over the center of a slot (GUI units, screen-relative). */
     static void hover(UiCase c, int[] slot) {
         double[] a = c.onClient(mc -> {
             Window win = mc.getWindow();

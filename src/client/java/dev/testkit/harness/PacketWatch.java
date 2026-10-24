@@ -29,7 +29,7 @@ import java.util.Locale;
  * module. It says nothing about whether the module sent one interaction per tick or five, how far away the
  * block was, or whether a swing went with it - and those are the numbers a server-side check is built
  * from. A scenario that reads them can state what the module did in the units an anticheat measures, so a
- * clean verdict is attached to a described behaviour instead of standing in for one.
+ * clean verdict is attached to a described behavior instead of standing in for one.
  *
  * <p>The tap is {@code ClientCommonPacketListenerImpl#send}, the one method every outbound packet in the
  * game and in every loaded mod passes through - so this sees a mod's automation whether or not the mod
@@ -90,7 +90,7 @@ public final class PacketWatch {
      */
     private static final List<String> digTimeline = new ArrayList<>();
     private static BlockPos firstDig;
-    /** Digs whose eye-to-centre line hit a DIFFERENT block first (client's view of the world at send time). */
+    /** Digs whose eye-to-center line hit a DIFFERENT block first (client's view of the world at send time). */
     private static int occludedDigs;
     /** Largest angle, degrees, between where the player was looking and the block a dig named. */
     private static double maxDigLookAngle;
@@ -332,8 +332,8 @@ public final class PacketWatch {
 
     /**
      * Both distances, because they are not the same number and the difference has already mattered once: a
-     * reach measured to the block's CENTRE reads up to half a block longer than the one a server computes
-     * to the nearest point of its box, and a module tuned against the centre figure reads as out of reach
+     * reach measured to the block's CENTER reads up to half a block longer than the one a server computes
+     * to the nearest point of its box, and a module tuned against the center figure reads as out of reach
      * when it is not.
      */
     private static void measureReach(BlockPos pos) {

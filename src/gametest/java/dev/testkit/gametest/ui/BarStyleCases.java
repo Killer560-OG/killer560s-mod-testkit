@@ -37,9 +37,9 @@ import java.util.Map;
  *   <li>894-ui-bars-style-ghost: smooth easing passes through values in between; after a drop the ghost marks the old
  *       value, holds, then drains to the new one; with Damage Ghost off there is none. Picture mid-drain.</li>
  *   <li>895-ui-bars-style-shots: Bold and Sleek at full, half and low at both text sizes, with overflow, and a Beside
- *       column, in the default colours (copied to {@code TESTKIT_BARS_SHOTS} as v2-*.png when set); on every picture
+ *       column, in the default colors (copied to {@code TESTKIT_BARS_SHOTS} as v2-*.png when set); on every picture
  *       each white pixel of a number touches only outline-dark pixels (contrast against white measured, at least 7:1),
- *       on red health, blue mana, green defence and the overflow mana layer.</li>
+ *       on red health, blue mana, green defense and the overflow mana layer.</li>
  *   <li>896-ui-bars-style-editor: Bold with icons and the number Beside: everything drawn inside the element's box; bars
  *       stacked in one column share one Beside width (the same track) and a bar elsewhere keeps its own; in Edit Bars a
  *       real drag moves and saves the bar and an edge drag resizes and saves it.</li>
@@ -251,7 +251,7 @@ final class BarStyleCases {
                 c.note(style + " mana 400/1000 + 300: fill " + m[1] + ", overflow " + m[2]);
                 c.check(m[2] == Math.max(1, Math.round(m[0] * 0.3f)), style + " overflow mana below max is not 30%");
 
-                // Defence: never an overflow layer.
+                // Defense: never an overflow layer.
                 m = measured(c, "DEFENCE_BAR");
                 c.check(m[0] > 0 && m[2] == 0, style + " defense: track " + m[0] + ", overflow " + m[2]);
             }
@@ -424,7 +424,7 @@ final class BarStyleCases {
                     "the Text Size row did not change and save the size: " + textSize);
 
             // Old files: a saved "classic" loads Bold; no style saved loads Bold; the first overflow mana default (pale
-            // cyan, never chosen by anyone) loads as the deep blue one, a chosen colour stays.
+            // cyan, never chosen by anyone) loads as the deep blue one, a chosen color stays.
             String old = c.onClient(mc -> {
                 try {
                     Path f = (Path) R.getStatic(R.cls(PS), "CONFIG_PATH");
@@ -903,7 +903,7 @@ final class BarStyleCases {
                     double w = v[4] - v[2];
                     double h = v[5] - v[3];
                     int icon = (int) v[1];
-                    // The icon square, centred on the bar's height at its left.
+                    // The icon square, centered on the bar's height at its left.
                     int x0 = (int) Math.floor(v[2] * gs);
                     int x1 = (int) Math.ceil((v[2] + icon * v[6]) * gs);
                     int y0 = (int) Math.floor((v[3] + (h - icon * v[6]) / 2) * gs);
@@ -1112,7 +1112,7 @@ final class BarStyleCases {
                 setup(c, v[0], new String[]{"HEALTH_BAR", "MANA_BAR", "DEFENCE_BAR"}, true, false, false);
                 c.onClient(mc -> {
                     Object ps = Mod.cfg(PS);
-                    // His colours: the defaults, not the cases' test colours.
+                    // His colors: the defaults, not the cases' test colors.
                     for (Object rr : R.cls(READOUT).getEnumConstants()) {
                         Mod.call(ps, "setReadoutColor", rr, (Integer) R.get(rr, "defaultColor"));
                     }
@@ -1156,7 +1156,7 @@ final class BarStyleCases {
                         int[] ys = {20, 50, 80};
                         StringBuilder line = new StringBuilder(name + " number contrast against white, worst neighbor:");
                         for (int k = 0; k < 3; k++) {
-                            // From past the icon: the iron chestplate has white highlights beside light grey.
+                            // From past the icon: the iron chestplate has white highlights beside light gray.
                             double[] cr = contrast(img, (int) ((20 + icon * 1.5) * gs), ys[k] * gs,
                                     (int) ((20 + 150 * 1.5) * gs),
                                     (int) ((ys[k] + BH * 1.5) * gs));
@@ -1195,7 +1195,7 @@ final class BarStyleCases {
         }
     }
 
-    /** {lowest contrast ratio between a white (#FFFFFF) pixel and any non-white pixel of its eight neighbours, white
+    /** {lowest contrast ratio between a white (#FFFFFF) pixel and any non-white pixel of its eight neighbors, white
      *  pixels counted} in the region. */
     private static double[] contrast(BufferedImage img, int x0, int y0, int x1, int y1) {
         double worst = 21;
@@ -1219,7 +1219,7 @@ final class BarStyleCases {
         return new double[]{worst, whites};
     }
 
-    /** WCAG contrast ratio of two sRGB colours. */
+    /** WCAG contrast ratio of two sRGB colors. */
     static double ratio(int a, int b) {
         double la = luminance(a);
         double lb = luminance(b);
@@ -1334,7 +1334,7 @@ final class BarStyleCases {
             c.check(ink == null, "the bar draws past its box's right end (columns " + (ink == null ? "" : ink[0] + ".."
                     + ink[1]) + ")");
 
-            // One Beside width per column: Health and Defence stacked at one x take the wider of their numbers ("1,000/1,000"
+            // One Beside width per column: Health and Defense stacked at one x take the wider of their numbers ("1,000/1,000"
             // against "50 (33.3%)"), so their tracks match; Mana elsewhere ("50/100") keeps its own, longer, track.
             c.onClient(mc -> {
                 Object ps = Mod.cfg(PS);
@@ -1624,7 +1624,7 @@ final class BarStyleCases {
         return first < 0 ? null : new int[]{first, last};
     }
 
-    /** The rightmost pixel column holding exactly {@code colour} in rows {@code y0..y1}; -1 when none. */
+    /** The rightmost pixel column holding exactly {@code color} in rows {@code y0..y1}; -1 when none. */
     private static int rightmost(BufferedImage img, int colour, int y0, int y1) {
         int best = -1;
         for (int y = Math.max(0, y0); y < Math.min(img.getHeight(), y1); y++) {
@@ -1649,8 +1649,8 @@ final class BarStyleCases {
         return n;
     }
 
-    /** Columns in the region holding a near-black or bar-coloured pixel the plain superflat sky/ground has not: the
-     *  bar's frame (black), or its value text (its colour). Null when none. */
+    /** Columns in the region holding a near-black or bar-colored pixel the plain superflat sky/ground has not: the
+     *  bar's frame (black), or its value text (its color). Null when none. */
     private static int[] inkColumns(BufferedImage img, int x0, int y0, int x1, int y1) {
         int first = -1;
         int last = -1;

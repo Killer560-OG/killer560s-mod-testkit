@@ -26,8 +26,8 @@ import java.util.Set;
  * cheat switch on its target is, flagged as drawn through walls. The legit jar has neither row and picks nothing even
  * with the saved flags on.
  *
- * <p>1052 Dungeon ESP: the ESP has no colour of its own (no "Wither Boss Color" row, no saved witherColor) and draws in the
- * Wither Boss Highlight's colour; the Tracer row is on both builds and, without the cheat ESP, a tracer goes only to a
+ * <p>1052 Dungeon ESP: the ESP has no color of its own (no "Wither Boss Color" row, no saved witherColor) and draws in the
+ * Wither Boss Highlight's color; the Tracer row is on both builds and, without the cheat ESP, a tracer goes only to a
  * wither that can be seen.
  *
  * <p>1053 Secrets HUD: a "Secrets Text Color" setting; the HUD line is drawn in it and it survives a config reload.
@@ -217,7 +217,7 @@ final class SmallDungeonCases {
     }
 
     // =================================================================================================================
-    // 1052 Dungeon ESP colour + tracer
+    // 1052 Dungeon ESP color + tracer
     // =================================================================================================================
 
     static void espColourTracer(UiCase c) throws Exception {
@@ -299,7 +299,7 @@ final class SmallDungeonCases {
             Map<String, Object> off = looked(c, id);
             c.check(off.get("tracer") == null, "a tracer is drawn with Tracer off");
 
-            // ---- the cheat ESP: same colour, through walls, tracer to every wither ----
+            // ---- the cheat ESP: same color, through walls, tracer to every wither ----
             if (cheat) {
                 c.onClient(mc -> {
                     Mod.call(e0, "setWitherHighlight", false);
@@ -329,7 +329,7 @@ final class SmallDungeonCases {
         }
     }
 
-    /** What the Dungeon ESP holds for the wither right now: glow colour, box colour, tracer colour (null = none). */
+    /** What the Dungeon ESP holds for the wither right now: glow color, box color, tracer color (null = none). */
     @SuppressWarnings("unchecked")
     private static Map<String, Object> looked(UiCase c, int id) {
         return c.onClient(mc -> {
@@ -346,7 +346,7 @@ final class SmallDungeonCases {
     }
 
     // =================================================================================================================
-    // 1053 Secrets HUD colour
+    // 1053 Secrets HUD color
     // =================================================================================================================
 
     static void secretsHudColour(UiCase c) throws Exception {
@@ -395,7 +395,7 @@ final class SmallDungeonCases {
             c.note("set to 22CC44: " + describe(after));
             c.check(!after.isEmpty() && after.stream().allMatch(r -> r[0] == mine), "the Secrets HUD text did not take the chosen color: " + describe(after));
 
-            // reload from disk: the colour is read back and drawn
+            // reload from disk: the color is read back and drawn
             c.onClient(mc -> {
                 Mod.call(cfg, "setTextColor", 0xFFFFFFFF);
                 Mod.staticCall(DI_CFG, "load");
@@ -424,7 +424,7 @@ final class SmallDungeonCases {
         return out.toString();
     }
 
-    /** The colour of every text run the Secrets HUD element draws, rendered the way SimMapHudTests renders an element. */
+    /** The color of every text run the Secrets HUD element draws, rendered the way SimMapHudTests renders an element. */
     private static List<int[]> hudColours(UiCase c) {
         return c.onClient(mc -> {
             Object element = Mod.staticCall("hud.HudElementRegistry", "byId", "dungeon_info");

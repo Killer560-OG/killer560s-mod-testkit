@@ -523,9 +523,9 @@ public class SimWorldTests implements FabricClientGameTest {
     // ============================================================================================ 644
 
     /**
-     * Kill Mimic's Hyperion straight down, by the real use packet, from an OFF-CENTRE spot: the blast kills a mob two
+     * Kill Mimic's Hyperion straight down, by the real use packet, from an OFF-CENTER spot: the blast kills a mob two
      * blocks away and he does not move. Before the fix the sim's dash "settled" on his own block and snapped him to its
-     * centre (up to 0.7 blocks sideways), which then moved Auto Routes' next etherwarp origin.
+     * center (up to 0.7 blocks sideways), which then moved Auto Routes' next etherwarp origin.
      */
     private void caseHypeDown(ClientGameTestContext ctx) {
         build(ctx, "Mossy");
@@ -761,7 +761,7 @@ public class SimWorldTests implements FabricClientGameTest {
 
     // ============================================================================================ 1401-1403
 
-    /** The blast point the sim uses: the centre of the face the charge hit. */
+    /** The blast point the sim uses: the center of the face the charge hit. */
     private static Vec3 boomAt(BlockPos hit, Direction face) {
         BlockPos out = hit.relative(face);
         return Vec3.atCenterOf(hit).add((out.getX() - hit.getX()) * 0.5, (out.getY() - hit.getY()) * 0.5,
@@ -776,7 +776,7 @@ public class SimWorldTests implements FabricClientGameTest {
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
-    /** The face of {@code hit} that looks at the neighbouring block {@code toward}. */
+    /** The face of {@code hit} that looks at the neighboring block {@code toward}. */
     private static Direction faceToward(BlockPos hit, BlockPos toward) {
         for (Direction d : Direction.values()) {
             if (hit.relative(d).equals(toward)) {
@@ -867,7 +867,7 @@ public class SimWorldTests implements FabricClientGameTest {
         BlockPos hit = capW(ctx, room, 13, 70, 23);
         Direction face = faceToward(hit, capW(ctx, room, 12, 70, 23));
         Vec3 at = boomAt(hit, face);
-        // A cracked brick chain in the floor beside it: x 11 (in reach) to x 7 (5 blocks out). Its floor neighbours stay.
+        // A cracked brick chain in the floor beside it: x 11 (in reach) to x 7 (5 blocks out). Its floor neighbors stay.
         List<BlockPos> chain = new ArrayList<>();
         List<BlockPos> chainSides = new ArrayList<>();
         for (int x = 7; x <= 11; x++) {
@@ -1671,7 +1671,7 @@ public class SimWorldTests implements FabricClientGameTest {
 
     /**
      * A clear 21 x 21 stone-floored box round where he stands (floor and 3 below stone, 6 above air), and him on its
-     * centre facing +z. Returns his feet block.
+     * center facing +z. Returns his feet block.
      */
     private static BlockPos arena(ClientGameTestContext ctx) {
         // At the room's middle column (capture 16, 16) and his own height, so everything in the box is in the room.
@@ -1709,7 +1709,7 @@ public class SimWorldTests implements FabricClientGameTest {
 
     /**
      * Stands him on the first spot near capture column (cx, cz) - scanning down from yHint + 4 - with a solid block
-     * under his feet and air for both, trying the column and then its neighbours, and turns him to look at the capture
+     * under his feet and air for both, trying the column and then its neighbors, and turns him to look at the capture
      * point {@code look}.
      */
     private static void stand(ClientGameTestContext ctx, String room, int cx, int cz, int yHint, double[] look) {
@@ -1731,7 +1731,7 @@ public class SimWorldTests implements FabricClientGameTest {
         }
         check(spot != null, "no standing spot near capture " + cx + "," + cz + " in " + room);
         BlockPos at = spot;
-        // The look point's block through the same transform, aimed at its centre (the room may be turned, so the
+        // The look point's block through the same transform, aimed at its center (the room may be turned, so the
         // fraction of x/z inside the block is not carried over - y is never turned).
         BlockPos lookBlock = capW(ctx, room, (int) Math.floor(look[0]), (int) Math.floor(look[1]), (int) Math.floor(look[2]));
         double wx = lookBlock.getX() + 0.5;

@@ -43,7 +43,7 @@ public class LeverScanTests implements FabricClientGameTest {
      * <p>Since 2026-09-29 a built floor is moved bodily so its lowest block sits just above the void - about
      * 123 blocks down normally and 185 UP on a floor with Higher Blaze on it. A band hard-coded to 68..108
      * lands in empty air and this scenario reported "no levers anywhere on the floor", which is the test
-     * being wrong rather than the optimisation.
+     * being wrong rather than the optimization.
      */
     private static final int BASE_MIN_Y = 68;
     private static final int BASE_MAX_Y = 108;

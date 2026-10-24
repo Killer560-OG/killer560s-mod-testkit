@@ -280,7 +280,7 @@ public final class HxPrimitives implements HxModule {
         JsonArray owners = new JsonArray();
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i).getAsString();
-            // An invisible, unique owner per line, like Hypixel's: a colour code and a reset, which renders as
+            // An invisible, unique owner per line, like Hypixel's: a color code and a reset, which renders as
             // nothing. The visible text lives in the owner's team prefix (and suffix).
             String owner = "§" + Integer.toHexString(i) + "§r";
             PlayerTeam team = board.addPlayerTeam(TEAM_PREFIX + i);

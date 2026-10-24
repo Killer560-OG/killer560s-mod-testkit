@@ -64,7 +64,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
      * Since mod 2026-10-05 Breaker Aura breaks ONLY picked blocks (killer560: "the aura shouldn't randomly grab
      * blocks, only ones I have selected"); the path sweep, Side Reach and Only Picked Blocks are gone. So the wall
      * scenarios pick the whole corridor first, which is exactly what he does with a wall in a dungeon, and on an
-     * older jar they also switch Only Picked Blocks on (and Side Reach off) so both jars run the same behaviour.
+     * older jar they also switch Only Picked Blocks on (and Side Reach off) so both jars run the same behavior.
      */
     private static final String STORE = "com.killer560.hub.dungeonextras.BreakerAuraStore";
 
@@ -464,7 +464,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
             Object cfg = ModUnderTest.config(CONFIG);
             ModUnderTest.set(cfg, "setBreakerAuraEnabled", true);
             // An older jar still has the path sweep behind "Only Picked Blocks" and a Side Reach slider. Put it
-            // in picked-only mode with no side corridor, which is the only behaviour the current jar has, so the
+            // in picked-only mode with no side corridor, which is the only behavior the current jar has, so the
             // two jars run the same thing. On a current jar these setters do not exist and nothing happens.
             boolean legacyPicked = setIfPresent(cfg, "setBreakerAuraSelectedOnly", boolean.class, true);
             boolean legacySide = setIfPresent(cfg, "setBreakerAuraSideReach", double.class, 0.0);
@@ -473,7 +473,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
             ModUnderTest.set(cfg, "setBreakerAuraAutoSwap", false);
             ModUnderTest.set(cfg, "setBreakerAuraMultiBreak", multiBreak);
             setPicks(picks);
-            // Everything else is left at whatever ships, so what gets measured is the shipped behaviour.
+            // Everything else is left at whatever ships, so what gets measured is the shipped behavior.
             if (ModUnderTest.getBoolean(cfg, "isBreakerAuraMultiBreak") != multiBreak) {
                 throw new AssertionError("Multi Break did not take the value it was set to, so this scenario "
                         + "is not testing what it says it is");

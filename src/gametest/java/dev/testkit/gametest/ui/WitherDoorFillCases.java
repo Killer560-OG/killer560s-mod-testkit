@@ -26,14 +26,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p>The scene: a real locked wither door where the mod's door scanner looks for one - grid cell (1, 0), anchor
  * (-169, 69, -185), coal 3 wide x 4 high x 3 deep with a roof block at y 73 so the column's top layer reads 73 - and
  * the player 5.5 blocks in front of it, facing +x straight at its face. Wither Doors gates on a Hypixel/p3sim address
- * and on being in a dungeon (not the boss): the singleplayer connection's ServerData is labelled "mc.hypixel.net" by
+ * and on being in a dungeon (not the boss): the singleplayer connection's ServerData is labeled "mc.hypixel.net" by
  * reflection for the case, and DungeonState.setRoomSim(true) says "in a clear". Both are put back in the finally.
  *
  * <p>Without Show All Doors (every shot but the Through Walls pair) Wither Doors draws only the doors the dungeon map in
  * hotbar slot 9 shows, and nothing until the run has started (mod f44bbfe3, 2026-10-15: "it will only show the door it
  * can see from the normal map", "the mod should not show wither doors before mort finishes his countdown"). So the case
  * puts a Hypixel-shaped map there, client-side as SimMapItemTests does: the Entrance at grid (0, 0), an opened room at
- * (2, 0) and a wither-black door (colour 119) between them at (1, 0) - the cell whose door block is the coal above. A
+ * (2, 0) and a wither-black door (color 119) between them at (1, 0) - the cell whose door block is the coal above. A
  * calibrated map is also what {@code WitherDoorsFeature.runStarted} takes as the run having started. Before f44bbfe3
  * the case needed no map, and from it on every frame matched the no-draw frame ("waiting for the run to start").
  *
@@ -41,7 +41,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * summed RGB delta of 30 (testkit CLAUDE.md, 388/389). The door's face on screen is the bounding box of the Fill
  * frame's changed pixels; its INTERIOR is the middle half of that box, which no outline edge reaches. Checked:
  * Outline changes edge pixels and (almost) nothing inside; Fill and Filled Outline change nearly every interior pixel,
- * towards the door's colour, at the chosen opacity (the least-squares alpha of each pixel against that colour,
+ * toward the door's color, at the chosen opacity (the least-squares alpha of each pixel against that color,
  * averaged); the fill follows the key state (green with a Wither Key) and a Custom Fill Color; Through Walls (cheat
  * jar) draws the fill through a stone wall that hides it otherwise; and the settings survive a config reload.
  */
@@ -238,7 +238,7 @@ final class WitherDoorFillCases {
                         + ") - its outline did not draw");
             }
 
-            // Key state: the default fill follows the door's state colour.
+            // Key state: the default fill follows the door's state color.
             c.onClient(mc -> {
                 Mod.staticCall(FEATURE, "onChat", "Wither Key was picked up!");
                 return null;
@@ -498,7 +498,7 @@ final class WitherDoorFillCases {
         return new Stat(n, n == 0 ? 0 : sum / n);
     }
 
-    /** Changed pixels inside the face box but outside its interior that moved towards red (the outline). */
+    /** Changed pixels inside the face box but outside its interior that moved toward red (the outline). */
     private static int edgeRedCount(BufferedImage base, BufferedImage img, int[] box, int[] inner) {
         int n = 0;
         for (int y = Math.max(0, box[1] - 4); y <= Math.min(img.getHeight() - 1, box[3] + 4); y++) {
@@ -519,7 +519,7 @@ final class WitherDoorFillCases {
 
     /**
      * Hypixel's dungeon map in hotbar slot 9 (F7's 16 px rooms from corner 5,5, DungeonMapScanner.knownCorner): the
-     * Entrance (colour 30) at grid (0, 0), an opened normal room (63) at (2, 0), and a wither door (119) in the 4 px gap
+     * Entrance (color 30) at grid (0, 0), an opened normal room (63) at (2, 0), and a wither door (119) in the 4 px gap
      * between them, grid (1, 0). The pixels are client-side map data (as SimMapItemTests.giveMap); the item goes in slot
      * 9 on both sides, and slot 1 is selected so the map is never in his hand or in the shot.
      */

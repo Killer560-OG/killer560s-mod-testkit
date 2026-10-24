@@ -40,7 +40,7 @@ import java.util.Optional;
 /**
  * 95-mixin-fixes: the mixin hot paths fixed on 2026-10-15 (mod branch fps-mixins-1015) stay allocation-free, and each
  * feature still acts. Judged on the client thread's allocated bytes per call over 20,000 calls after a warm-up of the
- * same length (deterministic, unlike time), on a hub-labelled Hx server so the Skyblock gates are open. The mod's
+ * same length (deterministic, unlike time), on a hub-labeled Hx server so the Skyblock gates are open. The mod's
  * methods are called through exact {@link MethodHandle}s, which allocate nothing themselves. Fails on mod main 69505e45:
  * <ul>
  *   <li>Secrets' expanded button hitbox: {@code BlockState.getShape} lower-cased the server address on every call;</li>

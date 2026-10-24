@@ -26,13 +26,13 @@ import java.util.concurrent.TimeUnit;
  * <p>Everything goes through the real mod: the command is executed on the real client dispatcher, the hub is
  * screenshotted and its cards found by their widget class and checked against the pixels (the card's accent stripe
  * must be on the screenshot where layout x Auto Scale factor says), each card is clicked through the real input
- * layer at its DRAWN centre, and Back is clicked the same way. Direct subcommands, aliases, the unknown-name chat
+ * layer at its DRAWN center, and Back is clicked the same way. Direct subcommands, aliases, the unknown-name chat
  * line and tab completion are checked against the same dispatcher.
  */
 final class ProfitCases {
 
     private static final String HUB = "gui.profit.ProfitHubScreen";
-    /** The card stripe's colour: the menu theme's accent (sweep-b: the hub is drawn in the menu's theme). Read from the
+    /** The card stripe's color: the menu theme's accent (sweep-b: the hub is drawn in the menu's theme). Read from the
      *  mod after the hub drew, so it is the palette that drew it. */
     private static int orange() {
         return ((Integer) R.getStatic(R.cls("gui.MenuStyle"), "OR")) & 0xFFFFFF;
@@ -327,7 +327,7 @@ final class ProfitCases {
         return c.onClient(mc -> new int[]{mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight()});
     }
 
-    /** Centre of {@code w} in GUI pixels: layout position times the screen's Auto Scale factor. */
+    /** Center of {@code w} in GUI pixels: layout position times the screen's Auto Scale factor. */
     private static double[] drawnCentre(UiCase c, Screen s, AbstractWidget w) {
         float f = factor(c, s);
         return new double[]{(w.getX() + w.getWidth() / 2.0) * f, (w.getY() + w.getHeight() / 2.0) * f};

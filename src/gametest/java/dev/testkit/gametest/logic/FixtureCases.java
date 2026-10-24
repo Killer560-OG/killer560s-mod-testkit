@@ -30,7 +30,7 @@ final class FixtureCases {
 
     /**
      * The catalog (from the mod SOURCE) agrees with the loaded JAR: every static Pattern field and list element it
-     * names exists and has the same regex text, and every static Pattern field in a catalogued class is catalogued
+     * names exists and has the same regex text, and every static Pattern field in a cataloged class is cataloged
      * (so the extractor is not silently missing declarations).
      */
     static void catalog(LogicCase c) {
@@ -75,12 +75,12 @@ final class FixtureCases {
                 if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType() == Pattern.class
                         && !cls.getValue().contains(f.getName())) {
                     missing++;
-                    c.check("catalogued " + cls.getKey() + "#" + f.getName(), false,
+                    c.check("cataloged " + cls.getKey() + "#" + f.getName(), false,
                             "the jar has this static Pattern but the catalog does not");
                 }
             }
         }
-        c.note("compared " + compared + " regex texts with the jar; " + missing + " uncatalogued static Pattern fields");
+        c.note("compared " + compared + " regex texts with the jar; " + missing + " uncataloged static Pattern fields");
         c.check("compared some regexes", compared > 300, compared + " compared");
     }
 

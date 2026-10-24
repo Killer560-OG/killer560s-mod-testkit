@@ -23,7 +23,7 @@ import java.util.Locale;
  *   <li>671 controls: OFF draws nothing and runs nothing; two OFF frames agree (the diff can be trusted); with Skyblock
  *       Only ON outside Skyblock it still draws (killer560, 2026-10-11).</li>
  *   <li>672 styles: opaque blue Fill is the item's silhouette S (no change outside it); red Outline lies outside S, next
- *       to it, within the width, and leaves the item itself untouched; width 1 vs 6; Filled Outline draws both colours;
+ *       to it, within the width, and leaves the item itself untouched; width 1 vs 6; Filled Outline draws both colors;
  *       a half-alpha fill blends instead of painting.</li>
  *   <li>673 hands: an empty hand draws and runs nothing; Off Hand adds the off-hand item (2 items) and pixels on the
  *       left; Off Hand OFF keeps it at 1.</li>
@@ -215,7 +215,7 @@ final class HeldOutlineCases {
         };
     }
 
-    /** Pixels of {@code img} that changed AND are the pure colour. */
+    /** Pixels of {@code img} that changed AND are the pure color. */
     private static boolean[][] colour(BufferedImage base, BufferedImage img, int channel) {
         boolean[][] m = changed(base, img);
         for (int y = 0; y < img.getHeight(); y++) {
@@ -476,7 +476,7 @@ final class HeldOutlineCases {
                 c.problem("Filled Outline: " + overlap(g, s) + " outline px lie on the item");
             }
 
-            // Colour change: a red fill paints the same pixels red, none blue.
+            // Color change: a red fill paints the same pixels red, none blue.
             configure(c, true, "FILL", 0xFF00FF00, 0xFFFF0000, 3f);
             BufferedImage fr = shot(c, "fill-red");
             int red = count(colour(base, fr, 0));
@@ -605,7 +605,7 @@ final class HeldOutlineCases {
             BufferedImage on = shot(c, "on");
             long f1 = frames();
             boolean[][] ch = changed(base, on);
-            // The hotbar, in screen pixels: 182 x 22 GUI units centred at the bottom; slot 0 (holding the sword's icon)
+            // The hotbar, in screen pixels: 182 x 22 GUI units centered at the bottom; slot 0 (holding the sword's icon)
             // is its leftmost 20 x 20.
             int[] hb = c.onClient(mc -> {
                 double s = mc.getWindow().getGuiScale();
@@ -667,7 +667,7 @@ final class HeldOutlineCases {
             BufferedImage tpOn = shot(c, "third-person-on");
             long f3 = frames();
             // The third-person model idles (arm sway), so two OFF frames already differ a little: judge by the
-            // feature's own colours (pure red outline, pure blue fill) and by the pass counter instead.
+            // feature's own colors (pure red outline, pure blue fill) and by the pass counter instead.
             int tp = count(changed(tpOff, tpOn));
             int tpRed = count(colour(tpOff, tpOn, 0));
             int tpBlue = count(colour(tpOff, tpOn, 2));

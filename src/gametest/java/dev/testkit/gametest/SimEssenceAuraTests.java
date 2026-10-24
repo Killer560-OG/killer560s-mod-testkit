@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * on the first world this client opens, and again after leaving and building a fresh floor? Only when named.
  *
  * <p>killer560 (2026-10-05): "secret aura isn't grabbing skulls when I just booted in." The sim is meant to send
- * the client what Hypixel sends, so the essence must be something Secret Aura recognises by Hypixel's own rule,
+ * the client what Hypixel sends, so the essence must be something Secret Aura recognizes by Hypixel's own rule,
  * and its click must be a real {@code use_item_on} that the SERVER answers by taking the skull away.
  *
  * <p>Per visit: a fresh sim F7, the player put (server teleport, Secret Aura OFF) on a floor block within reach of

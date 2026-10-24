@@ -36,7 +36,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * anyone enters fairy". Only when named.
  *
  * <p>One generated sim F7 (3 puzzles, 4 rooms to blood: the sim always puts the Fairy on the Entrance-to-Blood path),
- * Wither Doors on with Fill Opacity 100, Filled Outline, Through Walls, Fairy Door colour pure magenta. Rows:
+ * Wither Doors on with Fill Opacity 100, Filled Outline, Through Walls, Fairy Door color pure magenta. Rows:
  * <ul>
  * <li>531 premise: this test's OWN breadth-first search from the Entrance to Blood over the published layout passes
  *     the Fairy room, and the mod's {@code FairyDoor.door()} is the door that search enters Fairy through (and one of
@@ -551,7 +551,7 @@ public class SimFairyDoorTests implements FabricClientGameTest {
             f.problem = "entrance " + entrance + ", blood " + blood + ", fairy " + fairy + " among " + rooms + " rooms";
             return f;
         }
-        // Breadth-first over rooms: neighbours through a door cell between two room tiles.
+        // Breadth-first over rooms: neighbors through a door cell between two room tiles.
         int[] prevRoom = new int[rooms];
         int[] prevDoor = new int[rooms];
         Arrays.fill(prevRoom, -2);
@@ -603,7 +603,7 @@ public class SimFairyDoorTests implements FabricClientGameTest {
         f.doorY = db.getY();
         f.doorBlock = db;
         f.doorCentre = new double[]{db.getX() + 0.5, db.getY(), db.getZ() + 0.5};
-        // The neighbour tile of the door on the "before" side: the door cell minus the step into Fairy.
+        // The neighbor tile of the door on the "before" side: the door cell minus the step into Fairy.
         int dx = (f.fairyTile % 11) - (f.entryDoor % 11);
         int dz = (f.fairyTile / 11) - (f.entryDoor / 11);
         f.towardFairy = new int[]{dx, dz};
@@ -753,7 +753,7 @@ public class SimFairyDoorTests implements FabricClientGameTest {
         return taken;
     }
 
-    /** {count, centroid x, centroid y, width, height}: pixels that changed from {@code base} towards magenta. */
+    /** {count, centroid x, centroid y, width, height}: pixels that changed from {@code base} toward magenta. */
     private static int[] magenta(Path shot, Path base) {
         try {
             java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(shot.toFile());

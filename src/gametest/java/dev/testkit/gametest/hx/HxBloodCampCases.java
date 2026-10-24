@@ -20,7 +20,7 @@ import java.util.function.BiConsumer;
  * server with GrimAC (every case must be clean). A Watcher's skull stand and a blood mob's skull stand stand on the Hx
  * platform, the mob's move packets sent on server ticks the case knows (the way 792 does it), and a husk on the
  * predicted landing spot is the mob that "spawns" there. The player stands at (-419.5, 151, -419.5), room tile (-7, -7)
- * of the dungeon grid (centres at -185 + 32n); the Watcher goes in the same tile unless a case says otherwise.
+ * of the dungeon grid (centers at -185 + 32n); the Watcher goes in the same tile unless a case says otherwise.
  *
  * <ul>
  *   <li>177 Trigger Offset: the first click goes exactly -offset ticks after the kill timer (the tick the box turns
@@ -75,7 +75,7 @@ final class HxBloodCampCases {
         s.test("190-hx-bloodcamp-blood-esp", HxBloodCampCases::bloodEsp);
         s.test("191-hx-bloodcamp-only-blood-mobs", HxBloodCampCases::onlyBloodMobs);
         s.test("192-hx-bloodcamp-line-of-fire", HxBloodCampCases::lineOfFire);
-        // bloodcamp-5-1015: blood mobs recognised by their Hypixel name tags.
+        // bloodcamp-5-1015: blood mobs recognized by their Hypixel name tags.
         s.test("193-hx-bloodcamp-named-blood-mobs", HxBloodCampCases::namedBloodMobs);
         // blood-ap3-1018 (doc item 19): the map calling his Blood Room something else must not stop the Trigger Bot.
         s.test("1018-bloodcamp-map-type", HxBloodCampCases::mapType);

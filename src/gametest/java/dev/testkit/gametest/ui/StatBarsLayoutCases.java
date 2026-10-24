@@ -32,7 +32,7 @@ import java.util.Properties;
  *       bars sharing the hotbar's 182 GUI px (first on its left edge, last on its right, widths within 1, gaps 1-3, no
  *       overlap), none of their pixels at or below the heart/hunger row; Row 2's bar sits above them; the texts sit left
  *       and right of the hotbar near the bottom. With every vanilla row hidden the row drops to just above the hotbar.</li>
- *   <li>EDITOR (real mouse, Auto Scale 1): Defence dragged from Row 2 onto Above Hotbar between Health and Mana lands
+ *   <li>EDITOR (real mouse, Auto Scale 1): Defense dragged from Row 2 onto Above Hotbar between Health and Mana lands
  *       there in that order and is saved; Vitality dragged onto the Hidden tray is hidden (no pixel in game, still
  *       listed in the editor's tray); a drop on no area changes nothing. The mid-drag frame is photographed.</li>
  *   <li>CUSTOM: each bar's own saved position draws exactly where it did before Predefined was used (the pixel boxes
@@ -51,7 +51,7 @@ final class StatBarsLayoutCases {
     private static final String AREA = "playerstats.StatLayout$Area";
     private static final String EXPORT_FILE = "bars-layout-export.properties";
 
-    // Opaque colours nothing else on a superflat HUD has; every bar is filled completely except Defence.
+    // Opaque colors nothing else on a superflat HUD has; every bar is filled completely except Defense.
     static final int HEALTH = 0xFFFE01FD;
     static final int MANA = 0xFF01FEFD;
     static final int VITALITY = 0xFFFDFE02;
@@ -240,7 +240,7 @@ final class StatBarsLayoutCases {
     // geometry
     // ================================================================================================================
 
-    /** Stat Bars on, Predefined, Health/Mana/Vitality in Above Hotbar, Defence in Row 2, the two texts beside the
+    /** Stat Bars on, Predefined, Health/Mana/Vitality in Above Hotbar, Defense in Row 2, the two texts beside the
      *  hotbar; vanilla rows shown. */
     private static void setupPredefined(UiCase c) {
         c.onClient(mc -> {
@@ -415,7 +415,7 @@ final class StatBarsLayoutCases {
             int[] db = HudEditorBox.box(c, s, "statbar_defence");
             c.note(tag + " editor: Health " + HudEditorCases.str(hb) + ", Mana " + HudEditorCases.str(mb) + ", Defense "
                     + HudEditorCases.str(db));
-            // ---- Defence from Row 2 onto Above Hotbar, between Health and Mana --------------------------------------
+            // ---- Defense from Row 2 onto Above Hotbar, between Health and Mana --------------------------------------
             int gx = (db[0] + db[2]) / 2;
             int gy = (db[1] + db[3]) / 2;
             int tx = ((hb[0] + hb[2]) / 2 + (mb[0] + mb[2]) / 2) / 2;
@@ -482,7 +482,7 @@ final class StatBarsLayoutCases {
         expect(c, listed, tag + " a hidden readout is not listed in the HUD editor, so it can never be dragged back");
         HudEditorCases.closeEditor(c);
 
-        // ---- in game: Health, Defence, Mana share the row, Vitality draws nothing ---------------------------------
+        // ---- in game: Health, Defense, Mana share the row, Vitality draws nothing ---------------------------------
         int[] gw = c.onClient(mc -> new int[]{mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight()});
         int hbX = gw[0] / 2 - 91;
         Map<Integer, double[]> m = measure(c, tag + "-predefined-after-drag", HEALTH, MANA, VITALITY, DEFENCE,
@@ -825,9 +825,9 @@ final class StatBarsLayoutCases {
     }
 
     /**
-     * One screenshot of the HUD (no screen open); for each colour, its box. Returns colour -> {x0, y0, x1, y1, solid,
-     * px0, py0, px1, py1}: GUI units (x1/y1 exclusive), 1 when every pixel of the box is that colour, then framebuffer
-     * pixels (inclusive). Absent when no pixel has the colour.
+     * One screenshot of the HUD (no screen open); for each color, its box. Returns color -> {x0, y0, x1, y1, solid,
+     * px0, py0, px1, py1}: GUI units (x1/y1 exclusive), 1 when every pixel of the box is that color, then framebuffer
+     * pixels (inclusive). Absent when no pixel has the color.
      */
     static Map<Integer, double[]> measure(UiCase c, String shot, int... colours) throws Exception {
         c.onClient(mc -> {
@@ -844,8 +844,8 @@ final class StatBarsLayoutCases {
         c.note("picture " + name + " -> " + (kept != null ? kept : taken));
         BufferedImage img = javax.imageio.ImageIO.read(taken.toFile());
         Map<Integer, double[]> out = new LinkedHashMap<>();
-        // A bar colour is found by its tint and mapped to its element's box (BarPixels: Bold/Sleek since mod bars-2);
-        // a text colour by exact match, as before.
+        // A bar color is found by its tint and mapped to its element's box (BarPixels: Bold/Sleek since mod bars-2);
+        // a text color by exact match, as before.
         BarPixels.Scene scene = BarPixels.scene(c);
         for (int col : colours) {
             double[] b = BarPixels.box(img, col, gs, scene);

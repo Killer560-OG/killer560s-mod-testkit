@@ -33,17 +33,17 @@ import java.util.Set;
  *       another row beside it. On main the Dungeon Map's Names Holding Leap (and Door Keys' Show Tracer with its tracer
  *       off, and others) stopped halfway with nothing to its right.</li>
  *   <li><b>1015-ui-map-tab</b> - the Dungeon Map drawer: no Room Size; Player Heads only under Show Teammates when that
- *       is on; Player Marker Size, Custom Checkmark Sprite and New Custom Scheme present; no room colour row unless the
+ *       is on; Player Marker Size, Custom Checkmark Sprite and New Custom Scheme present; no room color row unless the
  *       theme is Custom (then only a scheme pill and Edit Scheme); Funny Map only on the cheat jar, at the bottom under a
  *       red header, Show Mimic Room and Mimic Room Color only with it on; a fresh config has Mark Reported Rooms and
  *       Color Rooms by Type ON and Funny Map OFF.</li>
  *   <li><b>1015-ui-map-themes</b> - Map Theme steps through Real Map, Amber, Dark, Light, Ocean, Viridian, Match Menu Theme and
  *       Custom; each preset paints a palette other than Real Map's; Match Menu Theme follows the menu's theme when that
- *       changes; New Custom Scheme opens the scheme editor on a new scheme; a colour and a name set in it are on disk
- *       (re-read with load()), the map paints with them, and the editor's sample map draws that colour; a second scheme
+ *       changes; New Custom Scheme opens the scheme editor on a new scheme; a color and a name set in it are on disk
+ *       (re-read with load()), the map paints with them, and the editor's sample map draws that color; a second scheme
  *       can be made, both are kept, and deleting one leaves the other.</li>
  *   <li><b>1015-ui-door-key-style</b> - Door Keys' Pickup Range: Radius draws the circle at the key's height (not the floor under it), Sphere draws a shaded
- *       ball centred on the key's stand with the pickup radius; the Sphere picture has far more changed pixels around the
+ *       ball centered on the key's stand with the pickup radius; the Sphere picture has far more changed pixels around the
  *       key than the Radius one.</li>
  * </ul>
  */
@@ -431,7 +431,7 @@ final class MapOverhaulCases {
             c.check("CUSTOM".equals(after[0]), "the theme is not Custom after New Custom Scheme");
             c.check("Testkit Green".equals(after[1]), "the scheme's name was not saved");
             c.check((Integer) after[2] == pick && (Integer) after[3] == pick, "the scheme's Normal color was not saved or not painted");
-            // The editor's sample map draws the scheme's colour.
+            // The editor's sample map draws the scheme's color.
             boolean drawn = c.onClient(mc -> {
                 try {
                     Screen s = (Screen) Mod.cls("livemap.MapSchemeEditorScreen").getConstructor(Screen.class, int.class)
@@ -447,7 +447,7 @@ final class MapOverhaulCases {
                                 int col = (Integer) part.getClass().getMethod("col1").invoke(part);
                                 hit[0] |= col == pick;
                             } catch (ReflectiveOperationException ignored) {
-                                // not a coloured rectangle
+                                // not a colored rectangle
                             }
                         }
                     }, GuiRenderState.TraverseRange.ALL);

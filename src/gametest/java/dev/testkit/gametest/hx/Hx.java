@@ -224,12 +224,12 @@ public final class Hx implements AutoCloseable {
         call("tab.clear");
     }
 
-    /** Put a stack (vanilla item syntax) in an inventory slot (0-8 hotbar, 9-35 main, 36-39 armour, 40 offhand). */
+    /** Put a stack (vanilla item syntax) in an inventory slot (0-8 hotbar, 9-35 main, 36-39 armor, 40 offhand). */
     public void give(int slot, String stack) {
         call("give", "slot", slot, "stack", stack);
     }
 
-    /** An armour stand; returns its UUID. Extra keys: small, marker, invisible, nameVisible, helmet. */
+    /** An armor stand; returns its UUID. Extra keys: small, marker, invisible, nameVisible, helmet. */
     public String stand(double x, double y, double z, String name, Object... extra) {
         JsonObject a = args(extra);
         a.addProperty("x", x);

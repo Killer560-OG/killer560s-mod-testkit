@@ -31,7 +31,7 @@ import java.util.Map;
  *       (Add Server, Direct Connection), Options and every "..." page under it (and Controls' Key Binds / Mouse Settings),
  *       plus a confirm dialog, a disconnected screen and a message screen - each photographed in Amber and Ocean, and
  *       each left through its own Done / Back / Cancel, which must land on the screen it came from. The Done button's
- *       drawn colour must differ between the two themes (the old fixed dark-and-orange look is the same in both).</li>
+ *       drawn color must differ between the two themes (the old fixed dark-and-orange look is the same in both).</li>
  *   <li>1573-ui-vanilla-pause: in a world, the pause menu with the sim's Change Room button: photographed in two themes,
  *       and the theme switched while it stays open - the drawn Back to Game button changes on the next frames. Options
  *       from the pause menu, and back.</li>
@@ -86,7 +86,7 @@ final class VanillaThemeCases {
         return p;
     }
 
-    /** Mean colour {r,g,b} of a widget's box in a screenshot (GUI units scaled by the screenshot's width). */
+    /** Mean color {r,g,b} of a widget's box in a screenshot (GUI units scaled by the screenshot's width). */
     static double[] mean(Path png, int screenW, int[] box) throws Exception {
         BufferedImage img = ImageIO.read(png.toFile());
         double k = img.getWidth() / (double) screenW;

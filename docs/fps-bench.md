@@ -16,7 +16,7 @@ per tick and every frame here is CPU-light (~0.8 ms), so tick costs weigh far mo
 ## Hub bench (403-perf-hub)
 
 `perf/HubPerfBenchTest`, about 18 minutes, only when named (`-Pscenario=403`). What 95 does not exercise: on the Hx test
-server (labelled mc.hypixel.net, hub sidebar, an 80-entry tab list) with 120 named armour stands and 60 zombies around the
+server (labeled mc.hypixel.net, hub sidebar, an 80-entry tab list) with 120 named armor stands and 60 zombies around the
 player, five sub-phases are timed ON vs OFF (2 rounds x 600 ticks each), then one ON and one OFF JFR per phase:
 `lobby` (no screen), `tab` (player list held), `chat` (one Hypixel-shaped public/party/private line every tick), `menu`
 (a 54-slot "Auctions Browser" of SkyBlock items) and `storage` (the same items on "Ender Chest (1/9)"). ON is 95's set
@@ -92,7 +92,7 @@ PerfProbe sees Fabric listeners and HUD layers only; a mixin handler is merged i
 
 **95-mixin-bench** (`perf/MixinBenchTest`, ~3 min, only when named; runs with or without the mod): 403's hub scene (120
 named stands, 60 zombies, 80-row tab, the SkyBlock sidebar) plus a chest, button, lever and skull. DIRECT: about
-twenty hot vanilla methods the mod hooks (team colour, glow, entity culling, hover name, components, dye colour, font
+twenty hot vanilla methods the mod hooks (team color, glow, entity culling, hover name, components, dye color, font
 width, tooltips, chunk lookups, block shapes, cooldowns, view yaw, FOV, mouse scaling) called in a tight loop on the
 client thread, best of 5 after 2 warm-ups, in ns per call; the mod's cost is the difference from the `-NoMod` run. FRAME:
 `harness/MixinBench` `@WrapMethod` timers (`testkit.bench.mixins.json`, applied only for a filter naming `95-mixin`)
@@ -139,7 +139,7 @@ counted nothing, or the mod's draw allocates over `CEILING_KB` (menu 150, drawer
 69505e45 measured 342 / 697 / 100). Results in `perf-screens.txt`.
 **95-perf-hud** (~3 min, fps-hud-1015): the HUD text caches stay correct and cheap. Compares each cached answer with a
 fresh build (Score Calculator lines across input changes, Advanced Position every tick while turning, Health and Mana
-Bars text readouts, Ability Cooldowns for every ms 0-12 s, Tick Timers 0-3000 ticks, the scoreboard colour-code scan
+Bars text readouts, Ability Cooldowns for every ms 0-12 s, Tick Timers 0-3000 ticks, the scoreboard color-code scan
 against its regex on 20,000 strings), then budgets allocation per draw / per call (Score Calculator and Advanced
 Position draws and width(), a never-moved element's resolvePosition, Split Timers' layoutPosition). Fails on mod main
 69505e45, passes on fps-hud-1015.
@@ -163,7 +163,7 @@ chest open and the solver on). Results in `perf-autoidle.txt` / `.tsv`.
 
 `perf/ArRenderBenchTest`, ~4 min, only when named; run it through `perf-lock.py` (ar-render-1016). PerfBench's scene with
 a 30-node route seeded 3-13 blocks south of the player (two nodes of every type, a start node, await modifiers, a stacked
-tile, a node of its own colour and radius, breaker blocks, a recorded path). Phases OFF (only the Dungeon Map on), then
+tile, a node of its own color and radius, breaker blocks, a recorded path). Phases OFF (only the Dungeon Map on), then
 Auto Routes in BOX, BOX bare (no labels), CYLINDER, FILLED and EDIT BOX, `-PperfRounds` (1) x `-PperfBigTicks` (400).
 FAILS when the render listener allocates over 1500 B a frame plus 2500 B per node label drawn (a label is vanilla's
 `Font.drawInBatch`, ~0.8 KB), when the renderer rebuilt its mesh or palette with nothing changing, drew no frame, or

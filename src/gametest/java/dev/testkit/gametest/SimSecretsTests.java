@@ -229,7 +229,7 @@ public class SimSecretsTests implements FabricClientGameTest {
         // How many the database says this floor SHOULD have.
         //
         // "All the chests we placed are inside rooms" is true of a floor with one chest, so the count matters
-        // as much as the positions: a 21-room F7 with eight secrets is not something to practise routes on.
+        // as much as the positions: a 21-room F7 with eight secrets is not something to practice routes on.
         int[] expected = new int[1];
         int[] roomsWithData = new int[1];
         int[] roomsTotal = new int[1];
@@ -376,7 +376,7 @@ public class SimSecretsTests implements FabricClientGameTest {
         System.out.println("[76-sim-secrets] PASS - every secret chest is inside a room");
     }
 
-    /** Runs SimPrince over the built world and records what it found, plus the blow/score behaviour. */
+    /** Runs SimPrince over the built world and records what it found, plus the blow/score behavior. */
     private static void scanPrince(ClientGameTestContext ctx,
                                    java.util.concurrent.atomic.AtomicReference<int[]> prince) {
         ctx.runOnClient(mc -> {

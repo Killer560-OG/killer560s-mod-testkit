@@ -14,13 +14,13 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * 1018-map-blood-unknown (mod todo-map-blood-1018): killer560, 2026-10-18, to-do 20: "just show it as normal no grey". A
+ * 1018-map-blood-unknown (mod todo-map-blood-1018): killer560, 2026-10-18, to-do 20: "just show it as normal no gray". A
  * room the map has no database entry for, and that the world scan has not reached either, was typed "UNKNOWN" and drawn in
- * the unopened grey. It is drawn as an ordinary room now.
+ * the unopened gray. It is drawn as an ordinary room now.
  *
  * <p>A sim floor (no map item, so nothing is hidden), then a room group the painter has never seen - a tile no placement
  * covers, no database entry - is handed to {@code MapPainter.roomType} and {@code roomColor}: the type must be NORMAL and
- * the fill the Normal colour, not the unopened grey.
+ * the fill the Normal color, not the unopened gray.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimMapUnknownRoomTests implements FabricClientGameTest {
@@ -57,7 +57,7 @@ public class SimMapUnknownRoomTests implements FabricClientGameTest {
                 try {
                     Mod.set(MAP, "setMapThemeName", "REAL");
                 } catch (AssertionError oldJar) {
-                    // a jar from before map-overhaul paints Real Map colours by default
+                    // a jar from before map-overhaul paints Real Map colors by default
                 }
             });
             Map<Integer, String> placements = new LinkedHashMap<>();

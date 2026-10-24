@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *   <li><b>one answer</b>: the map's tiles, {@code SimRoomIndex}'s cells for the room and the sidebar's map code agree,
  *       and there are three of them;</li>
  *   <li><b>built where drawn</b>: the quarter of the 2x2 box the map leaves out holds no block (a 5x5 of columns at its
- *       centre, whole world height), and every tile the map draws does;</li>
+ *       center, whole world height), and every tile the map draws does;</li>
  *   <li><b>no lava</b>: a solid block under him, his feet and head clear of blocks and fluid, and no lava, fire,
  *       magma (or the other hazard blocks below) at the head, feet, the block stood on or the two under it.</li>
  * </ul>
@@ -287,7 +287,7 @@ public class SimLShapeSoloTests implements FabricClientGameTest {
                         hazards.add(id + "@dy" + dy);
                     }
                 }
-                // Blocks standing in each box tile: a 5x5 of columns at the tile centre, the whole world height.
+                // Blocks standing in each box tile: a 5x5 of columns at the tile center, the whole world height.
                 StringBuilder tiles = new StringBuilder();
                 for (int c : box) {
                     int cx = START + (c % GRID) * 16;

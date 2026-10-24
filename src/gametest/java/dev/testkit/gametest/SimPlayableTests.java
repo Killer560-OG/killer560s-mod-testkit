@@ -137,7 +137,7 @@ public class SimPlayableTests implements FabricClientGameTest {
                     int cz = START_Z + gz * HALF_ROOM;
                     checked++;
                     // A doorway is walkable when, somewhere across the seam, there is a column of two air
-                    // blocks at floor height. Checked at the centre and one to each side, because the exact
+                    // blocks at floor height. Checked at the center and one to each side, because the exact
                     // seam column can hold the door's own blocks.
                     boolean open = false;
                     for (int d = -2; d <= 2 && !open; d++) {

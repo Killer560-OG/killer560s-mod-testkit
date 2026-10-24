@@ -41,10 +41,10 @@ final class HudBoxCases {
     static final int SPILL = 1;
     private static final float SCALE = 2f;
     /**
-     * Elements that draw CENTRED in their box, so the box's centre is where they are anchored and a box that hugged
+     * Elements that draw CENTERED in their box, so the box's center is where they are anchored and a box that hugged
      * the text would move the text whenever it changed length (and move every saved one when it shrank): Room Alerts
-     * centre "<room> Cleared!" across the box's width, the blood camp popup centres "KILL"/"Kill in 1.2s" on the
-     * box's middle. Judged on the axes that are not centred only.
+     * center "<room> Cleared!" across the box's width, the blood camp popup centers "KILL"/"Kill in 1.2s" on the
+     * box's middle. Judged on the axes that are not centered only.
      */
     static final java.util.Map<String, String> CENTRED = java.util.Map.of(
             "room_alerts", "x", "blood_camp_kill", "xy");
@@ -262,19 +262,19 @@ final class HudBoxCases {
     }
 
     /** The Vitality Bar's icon: BarPainter draws Hypixel's ♨ as text (mod 815c448f/6e977c45), outlined, sized and
-     *  centred by Unifont's 8-unit glyph cell in the icon square. */
+     *  centered by Unifont's 8-unit glyph cell in the icon square. */
     private static final String ICON_GLYPH = "♨";
-    /** The ♨'s ink rows inside Unifont's 8-unit cell (BarPainter.GLYPH_ROWS = 6, centred in the cell). */
+    /** The ♨'s ink rows inside Unifont's 8-unit cell (BarPainter.GLYPH_ROWS = 6, centered in the cell). */
     private static final float GLYPH_INK_FROM = 1f;
     private static final float GLYPH_INK_TO = 7f;
-    /** The ink's width and how far its centre sits left of the advance box's (BarPainter GLYPH_NUDGE_X). */
+    /** The ink's width and how far its center sits left of the advance box's (BarPainter GLYPH_NUDGE_X). */
     private static final float GLYPH_INK_W = 4f;
     private static final float GLYPH_NUDGE_X = 1.2f;
 
     /**
      * A text run's footprint: its advance box ({@link dev.testkit.gametest.TextRuns#box}), except for the ♨ icon, which
      * is measured by its ink rows, the way the mod sizes it. The advance box is {@code font.lineHeight} (9) tall, the extra unit being the
-     * line gap under a line of text where its shadow lands; the icon is one glyph with no shadow, centred by its cell,
+     * line gap under a line of text where its shadow lands; the icon is one glyph with no shadow, centered by its cell,
      * so at the icon's 1.5x the line gap alone read as 1.5 units of "spill" under statbar_vitality (B -2.5 with the
      * outline, 2026-10-22) although the symbol's ink (about 6 of the cell's 8 units) sits inside the box.
      */
@@ -283,11 +283,11 @@ final class HudBoxCases {
         if (!ICON_GLYPH.equals(dev.testkit.gametest.TextRuns.string(t))) {
             return r;
         }
-        // BarPainter.drawGlyph sizes and centres the symbol by its INK, not by its text box (testkit 899's measurement:
-        // about 4 units wide and GLYPH_ROWS = 6 of the cell's 8 rows tall, its centre 1.2 units left of the advance
+        // BarPainter.drawGlyph sizes and centers the symbol by its INK, not by its text box (testkit 899's measurement:
+        // about 4 units wide and GLYPH_ROWS = 6 of the cell's 8 rows tall, its center 1.2 units left of the advance
         // box's), so the advance box is the wrong footprint both ways: its empty cell rows run past the 12-unit icon
         // square above and below (run 2, 2026-10-22: T -1, B -1), and it starts 4 units into the square while the ink
-        // sits centred in it (L 4). The footprint is the ink box; each of the eight outline runs is its own text run at
+        // sits centered in it (L 4). The footprint is the ink box; each of the eight outline runs is its own text run at
         // its half-unit offset, so the union still covers the outline.
         net.minecraft.client.gui.Font font = net.minecraft.client.Minecraft.getInstance().font;
         float inkCentre = (font.width(ICON_GLYPH) - 1) / 2f - GLYPH_NUDGE_X;
@@ -310,7 +310,7 @@ final class HudBoxCases {
         b[3] = Math.max(b[3], r.bottom());
     }
 
-    /** A fill whose colours are both fully transparent rasterises nothing. Read by reflection: the record's
+    /** A fill whose colors are both fully transparent rasterizes nothing. Read by reflection: the record's
      *  accessors are the same on 26.1.2 and 26.2, but nothing else here needs the class. */
     private static boolean transparent(Object el) {
         try {

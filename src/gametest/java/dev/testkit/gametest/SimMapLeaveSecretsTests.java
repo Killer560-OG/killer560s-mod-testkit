@@ -46,7 +46,7 @@ import java.util.function.BiFunction;
  * room's door into the next room, on the server; ETHERWARP: the sim's own server etherwarp from inside the room, along
  * the doorway into the next room) and per timing (the SAME server tick the secret registered, before any action bar of
  * that tick could see him in the room, or ONE tick later), on a two-room floor built from a map code (room R with the
- * secret, a NORMAL door, a 1x1 neighbour B, both unrotated):
+ * secret, a NORMAL door, a 1x1 neighbor B, both unrotated):
  * <ol>
  *   <li>he stands in R (so it is entered and cleared) and the server is told every secret of R but one is found - the
  *       map must then read (N-1)/N, the premise that the map reads the sim at all;</li>
@@ -178,7 +178,7 @@ public class SimMapLeaveSecretsTests implements FabricClientGameTest {
 
     /**
      * {R, side (EAST or SOUTH), B, tilesX, tilesZ}: the first usable room (sorted by name) with a secret of this kind and
-     * a doorway on its east (or south) side at tile 0, and a 1x1 neighbour with the matching doorway. Client thread.
+     * a doorway on its east (or south) side at tile 0, and a 1x1 neighbor with the matching doorway. Client thread.
      */
     @SuppressWarnings("unchecked")
     private static String[] pickRooms(Kind kind) {
@@ -629,7 +629,7 @@ public class SimMapLeaveSecretsTests implements FabricClientGameTest {
                 && level.getBlockState(floor.above(2)).getCollisionShape(level, floor.above(2)).isEmpty();
     }
 
-    /** A standable spot in room r whose eye is 1.5..3.8 from the block's centre - a click in reach. */
+    /** A standable spot in room r whose eye is 1.5..3.8 from the block's center - a click in reach. */
     private static double[] reachSpot(ServerLevel level, BlockPos s, String r) {
         double[] best = null;
         double bestD = Double.MAX_VALUE;
@@ -653,7 +653,7 @@ public class SimMapLeaveSecretsTests implements FabricClientGameTest {
         return best;
     }
 
-    /** The nearest standable spot in room r within {@code max} of the position (feet to its centre). */
+    /** The nearest standable spot in room r within {@code max} of the position (feet to its center). */
     private static double[] nearSpot(ServerLevel level, BlockPos s, String r, double max) {
         double[] best = null;
         double bestD = Double.MAX_VALUE;

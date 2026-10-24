@@ -97,13 +97,13 @@ public class SimSingleRoomTests implements FabricClientGameTest {
             // reach it rather than merely cover the middle.
             //
             // FOUND, not assumed. The first version read one fixed position and it came back air - the corner
-            // cell's centre column at the dungeon floor is often a doorway, and a room's y band moves with the
+            // cell's center column at the dungeon floor is often a doorway, and a room's y band moves with the
             // floor's altitude - so the run printed "air ... air" and the world half of this scenario proved
             // nothing while still passing. A probe that cannot find the floor must say so, not shrug.
             int shift = (Integer) ModUnderTest.staticCall(ALTITUDE, "offset");
             BlockPos far = null;
             String farBefore = "air";
-            // Cells of the 11x11 grid the single room can never cover: it goes at the even centre cell (4) and
+            // Cells of the 11x11 grid the single room can never cover: it goes at the even center cell (4) and
             // is at most two tiles, so anything at column or row 0 is outside it.
             int[][] probeCells = {{0, 0}, {2, 0}, {0, 2}, {4, 0}, {0, 4}, {6, 0}, {0, 6}, {8, 0}, {0, 8},
                     {10, 0}, {0, 10}};

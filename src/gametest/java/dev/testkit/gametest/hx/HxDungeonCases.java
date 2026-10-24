@@ -131,7 +131,7 @@ final class HxDungeonCases {
                         mc -> !(Boolean) Mod.staticCall("util.SkyblockGate", "isOnSkyblock"), 40);
                 c.check(!c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "allows")),
                         "allows() true off Skyblock with Skyblock Only on");
-                // Spaces and colour codes inside the title still count (stripped, de-spaced).
+                // Spaces and color codes inside the title still count (stripped, de-spaced).
                 sidebar(c, "template", "hub", "title", "§e§lSKY §6BLOCK");
                 c.waitUntil("isOnSkyblock() with 'SKY BLOCK' title",
                         mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isOnSkyblock"), 40);
@@ -681,14 +681,14 @@ final class HxDungeonCases {
             try (Settings set = new Settings(c).with("livemap.LiveMapConfig", "Enabled", true)) {
                 dungeon(c);
                 run(c, () -> Mod.staticCall("livemap.DungeonMapScanner", "reset"));
-                // Forged: no 16/18-pixel entrance run (colour 30, DungeonMapScanner :37, :258-283) - noise only.
+                // Forged: no 16/18-pixel entrance run (color 30, DungeonMapScanner :37, :258-283) - noise only.
                 c.hx().call("surface.map", "id", 9002, "rects", List.of(List.of(5, 5, 10, 3, 30), List.of(40, 40, 16, 16, 63)));
                 c.hx().give(8, "minecraft:filled_map[map_id=9002]");
                 c.ctx().waitTicks(40);
                 c.check(!c.onClient(mc -> (Boolean) Mod.staticCall("livemap.DungeonMapScanner", "isCalibrated")),
                         "a map with no entrance room calibrated");
                 // Real shape: entrance 16x16 at (5,5) -> room size 16, start corner (5,5) for F7 (:270-276);
-                // a normal room (63) two cells right, centre 34 = cleared (:203); a door (63) between them.
+                // a normal room (63) two cells right, center 34 = cleared (:203); a door (63) between them.
                 c.hx().call("surface.map", "id", 9001, "rects", List.of(
                         List.of(5, 5, 16, 16, 30),
                         List.of(25, 5, 16, 16, 63), List.of(31, 11, 4, 4, 34),

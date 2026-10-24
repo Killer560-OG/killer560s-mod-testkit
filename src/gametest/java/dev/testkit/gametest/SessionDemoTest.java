@@ -176,7 +176,7 @@ public class SessionDemoTest implements FabricClientGameTest {
                         // sound and particle: the ops must succeed (nothing in the mod reads them here)
                         c.hx().sound("minecraft:entity.experience_orb.pickup", 0.05, 1.0);
                         c.hx().call("particle", "type", "minecraft:flame", "count", 3);
-                        // stand -> the client sees a named armour stand; entity.remove -> it goes
+                        // stand -> the client sees a named armor stand; entity.remove -> it goes
                         double[] at = c.scenario().playerPosition();
                         c.hx().stand(at[0] + 2, at[1], at[2], "§cHx Stand", "small", true, "marker", true);
                         c.waitUntil("the client to see an armor stand named 'Hx Stand'",

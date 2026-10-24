@@ -39,8 +39,8 @@ import java.util.regex.Pattern;
  *
  * <p>Asserted, from the mod's log and chat and from where he went:
  * <ul>
- *   <li>it ACTED: he travelled, map warps arrived, and every seeded reachable room's route started and finished;</li>
- *   <li>the no-route room was skipped with the chat line, exactly once, and never travelled to;</li>
+ *   <li>it ACTED: he traveled, map warps arrived, and every seeded reachable room's route started and finished;</li>
+ *   <li>the no-route room was skipped with the chat line, exactly once, and never traveled to;</li>
  *   <li>rooms were taken in the order it logged (mod ac-optimize-1015: secrets per tick of travel between the rooms, over
  *       the Interactive Map's real trip costs - no longer most-unfound first);</li>
  *   <li>no room behind a closed door was ever a target;</li>

@@ -44,7 +44,7 @@ import java.util.function.LongSupplier;
  *
  * <p>Two kinds of number, both read against the same run with {@code -NoMod} (vanilla plus this testkit):
  * <ul>
- *   <li><b>direct</b>: a hot vanilla method the mod hooks (entity glow/team colour, item hover name and components, font
+ *   <li><b>direct</b>: a hot vanilla method the mod hooks (entity glow/team color, item hover name and components, font
  *       width, tooltips, chunk lookups, block shapes, view yaw, FOV, mouse scaling...) called in a tight loop on the
  *       client thread, best of 5 repetitions, in ns per call. The mod's cost is the difference from the no-mod run.</li>
  *   <li><b>in-frame</b>: {@link MixinBench}'s {@code @WrapMethod} timers around slot drawing and a whole container

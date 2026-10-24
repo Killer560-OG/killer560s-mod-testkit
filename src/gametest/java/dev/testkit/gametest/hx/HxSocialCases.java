@@ -206,14 +206,14 @@ final class HxSocialCases {
     private static void autoJoinSkyblock(Session s) {
         s.test("125-hx-autojoinskyblock", c -> {
             try (Settings set = new Settings(c).with("autojoinskyblock.AutoJoinSkyblockConfig", "Enabled", true)) {
-                // Negative first: a pending auto-join is cancelled by any command the player sends (:19-23).
+                // Negative first: a pending auto-join is canceled by any command the player sends (:19-23).
                 run(c, () -> {
                     Mod.setField("autojoinskyblock.AutoJoinSkyblockFeature", "pending", true);
                     Mod.setField("autojoinskyblock.AutoJoinSkyblockFeature", "fireAtMs", System.currentTimeMillis() + 1500L);
                     Minecraft.getInstance().player.connection.sendCommand("hxcancel");
                 });
                 assertNoCommand(c, 60, "skyblock");
-                // Positive: a real join to a server labelled mc.hypixel.net.
+                // Positive: a real join to a server labeled mc.hypixel.net.
                 c.scenario().reconnect();
                 String cmd = awaitCommand(c, "skyblock", 100);
                 c.note("own command cancels a pending auto-join; re-joining 'mc.hypixel.net' -> /" + cmd);

@@ -476,7 +476,7 @@ final class Ap3EditCases {
         c.check(ok, "no '" + name + "' box on the editor");
     }
 
-    /** A real left click at the widget's centre, in window coordinates through the screen's Auto Scale factor. */
+    /** A real left click at the widget's center, in window coordinates through the screen's Auto Scale factor. */
     private static void click(UiCase c, Screen s, AbstractWidget w) {
         c.check(w != null, "no such control on the AP3 editor");
         double[] a = c.onClient(mc -> {

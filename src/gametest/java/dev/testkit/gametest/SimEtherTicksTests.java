@@ -241,7 +241,7 @@ public class SimEtherTicksTests implements FabricClientGameTest {
         return out;
     }
 
-    /** {tile, room} of every room but his own, farthest first (by the first tile's centre). */
+    /** {tile, room} of every room but his own, farthest first (by the first tile's center). */
     static List<int[]> farthestRooms(Minecraft mc) {
         Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
         int rooms = (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[]{}, new Object[]{});

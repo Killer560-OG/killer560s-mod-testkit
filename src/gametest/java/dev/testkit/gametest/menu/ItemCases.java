@@ -80,7 +80,7 @@ final class ItemCases {
         }
     }
 
-    /** Every literal segment of a component with its colour. */
+    /** Every literal segment of a component with its color. */
     static Map<String, Integer> segments(List<Component> lines) {
         Map<String, Integer> out = new LinkedHashMap<>();
         for (Component line : lines) {

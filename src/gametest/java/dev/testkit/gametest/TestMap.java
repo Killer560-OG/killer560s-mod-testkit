@@ -7,7 +7,7 @@ import java.util.Locale;
  *
  * <pre>{@code
  * TestMap.on(server)
- *         .platform(0, 150, 0, 12)        // 25x25 stone pad centred on x=0,z=0, surface at y=151
+ *         .platform(0, 150, 0, 12)        // 25x25 stone pad centered on x=0,z=0, surface at y=151
  *         .walls(4)                       // barrier walls so nothing walks off by accident
  *         .catchFloor(140)                // somewhere survivable to land
  *         .bridgeGap(1, 40)               // carve everything past x=1 into void
@@ -69,7 +69,7 @@ public final class TestMap {
         return platform(cx, GROUND_Y, cz, radius);
     }
 
-    /** A square platform centred on the origin at the standard layer. */
+    /** A square platform centered on the origin at the standard layer. */
     public TestMap platform(int radius) {
         return platform(0, GROUND_Y, 0, radius);
     }
@@ -97,7 +97,7 @@ public final class TestMap {
      * Barrier walls around the last {@link #platform}, so a test that goes wrong stops at the edge
      * instead of falling out of the world.
      *
-     * <p>Uses the last platform's own centre and radius. It used to assume radius 12 whatever the
+     * <p>Uses the last platform's own center and radius. It used to assume radius 12 whatever the
      * platform was, which walled a 48-block pad at 12 and left the player spawning <i>outside</i> the
      * walls — a sprint-jump example then measured 0.14 blocks/tick, less than half vanilla, because it
      * spent the run against a barrier.

@@ -13,8 +13,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * {@code ChatTidy.testChatLines}), never on the log alone. Every line arrives from the dedicated server by
  * {@code tellraw}, so it takes the real system-chat packet path a Hypixel line takes.
  *
- * <p>Stacking: one line three times is ONE line ending "(x3)" in grey; different lines, the same text in a different
- * colour, separators and blank lines do not stack; with the setting off nothing stacks. Hider: one real line of every
+ * <p>Stacking: one line three times is ONE line ending "(x3)" in gray; different lines, the same text in a different
+ * color, separators and blank lines do not stack; with the setting off nothing stacks. Hider: one real line of every
  * family collected from his Dungeons log is hidden AND still reached the mod's ChatObserver (hidden at display, not at
  * receive); the same text inside a party message, with extra text after it, or from {@code /say} is shown; with the
  * toggle off nothing of it is hidden.

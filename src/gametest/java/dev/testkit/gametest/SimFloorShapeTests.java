@@ -137,7 +137,7 @@ public class SimFloorShapeTests implements FabricClientGameTest {
             // 1. Every room covers exactly the cells its capture is wide.
             //
             // This catches a layout planning against one footprint while the paste uses another, which on
-            // 2026-09-29 put every multi-tile room over its neighbour. It only means anything because room ids
+            // 2026-09-29 put every multi-tile room over its neighbor. It only means anything because room ids
             // are per PLACEMENT: while they were deduplicated by name, two placements of one room shared an id
             // and this could not tell that from a real mismatch.
             Map<Integer, Integer> cells = new HashMap<>();
@@ -266,7 +266,7 @@ public class SimFloorShapeTests implements FabricClientGameTest {
             int[][] doorsOf = (int[][]) out[5];
             Set<Integer> doorwayCells = new HashSet<>();
             // Which rooms have a doorway at each door cell. A door with a doorway on ONE side only is the fill
-            // pass's deliberate carve (SimFloorLayout.fillGaps step 3: "the door cut through the neighbour's wall",
+            // pass's deliberate carve (SimFloorLayout.fillGaps step 3: "the door cut through the neighbor's wall",
             // the builder lays its floor), so it does not count against the carved-into room's doorway total.
             Map<Integer, Set<Integer>> doorwayRooms = new HashMap<>();
             Map<Integer, Integer> linksPerRoom = new HashMap<>();
@@ -411,7 +411,7 @@ public class SimFloorShapeTests implements FabricClientGameTest {
             //
             // This was 0.45 per floor, which made the scenario flap: the generator averages about 77% with a
             // tail, and one floor in a hundred landing at 43% failed the whole suite. A floor at 43% is
-            // sparse, not broken. 0.30 is a genuine corridor, and a generator that drifted towards sparse
+            // sparse, not broken. 0.30 is a genuine corridor, and a generator that drifted toward sparse
             // floors would show up in the mean long before any single floor hit that.
             if (fill < 0.30) {
                 failures.add(String.format("%s #%d: fills only %.0f%% of its box - that is a corridor",

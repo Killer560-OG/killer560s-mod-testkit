@@ -20,7 +20,7 @@ import java.util.List;
  *   <li>Title {@code §e§lSKYBLOCK}: util/SkyblockGate.java:96-97 (title, stripped and de-spaced, contains SKYBLOCK).</li>
  *   <li>Lobby line {@code §710/04/26 §8m12AB}: scoreboard/ScoreboardPattern.java:36 LOBBY_CODE.</li>
  *   <li>Area line {@code  §7⏣ §b<area>}: pathfinding/IslandDetector.java:37 SIDEBAR_AREA, ScoreboardPattern.java:35.</li>
- *   <li>Dungeon floor {@code  §7⏣ §cThe Catac§combs §7(F7)}: secrets/DungeonState.java:43 and the mid-word colour code
+ *   <li>Dungeon floor {@code  §7⏣ §cThe Catac§combs §7(F7)}: secrets/DungeonState.java:43 and the mid-word color code
  *       its comment at :209-212 quotes.</li>
  *   <li>{@code Keys: §c■ §c✗ §6■ §a0x}: ScoreboardPattern.java:55 KEYS.</li>
  *   <li>{@code Time Elapsed: §a01m 23s}: scorecalc/ScoreCalculatorFeature.java:97, ScoreboardPattern.java:49.</li>

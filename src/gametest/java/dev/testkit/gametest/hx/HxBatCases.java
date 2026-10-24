@@ -22,7 +22,7 @@ import static dev.testkit.gametest.hx.HxKit.*;
  *
  * <ul>
  *   <li>521-hx-scorecalc-bat-line: forged copies (all chat, party chat, guild chat, extra text, another player's
- *       "Bat Killed!" outside party chat) count nothing; the real line, plain and coloured, counts once for him.</li>
+ *       "Bat Killed!" outside party chat) count nothing; the real line, plain and colored, counts once for him.</li>
  *   <li>522-hx-scorecalc-bat-score: the estimate's bonus rises by exactly 1 for the Prince line and by exactly 1 for the
  *       bat line, 1 more for a party mate's "Bat Killed!", nothing for his own party echo or a second line of his; and
  *       {@code ScoreCalculator.calculate} adds bat 0/1/3/9 as 0/1/3/5 (the cap), the old yes/no form as 1.</li>
@@ -112,7 +112,7 @@ final class HxBatCases {
             c.check(k1.equals("[" + self + "]"), "the bat was counted for " + k1 + ", want his own name " + self);
             c.check(c.onClient(mc -> batBonus()) == 1, "batBonus " + c.onClient(mc -> batBonus()) + " after one line");
 
-            // A coloured copy of the same server line is the same bonus (stripped before matching), not a second one.
+            // A colored copy of the same server line is the same bonus (stripped before matching), not a second one.
             c.hx().chat("§r§e" + BAT_LINE.replace("+1", "§a+1"));
             c.ctx().waitTicks(10);
             c.check(c.onClient(mc -> batBonus()) == 1, "a second line of his own counted twice: " + killers(c));

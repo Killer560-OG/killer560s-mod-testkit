@@ -6,7 +6,7 @@
     "source": {"file": "src/main/java/com/killer560/hub/secrets/DungeonState.java", "line": 63},
     "matches": ["secrets.DungeonState#BOSS_START_PATTERN"],
     "verifiedBy": "regex",
-    "notes": "Exact sentence from BOSS_START_PATTERN; colour codes as DungeonState's comment at :45-52 says real lines carry (§4/§r/§c), stripped before matching. Also the F7 Maxor split, splittimers/SplitTimersFeature.java:153."
+    "notes": "Exact sentence from BOSS_START_PATTERN; color codes as DungeonState's comment at :45-52 says real lines carry (§4/§r/§c), stripped before matching. Also the F7 Maxor split, splittimers/SplitTimersFeature.java:153."
   },
   {
     "id": "chat.prince-killed",
@@ -24,7 +24,7 @@
     "source": {"file": "src/main/java/com/killer560/hub/dungeonqueue/DungeonQueueFeature.java", "line": 32},
     "matches": ["dungeonqueue.DungeonQueueFeature#EXTRA_STATS", "runstats.RunStatsFeature#EXTRA_STATS", "runsummary.RunSummaryFeature#EXTRA_STATS"],
     "verifiedBy": "regex",
-    "notes": "Leading centring spaces are allowed by the ^\\s* in all three patterns; the count of spaces is not from the mod."
+    "notes": "Leading centering spaces are allowed by the ^\\s* in all three patterns; the count of spaces is not from the mod."
   },
   {
     "id": "chat.run-start",
@@ -76,7 +76,7 @@
     "payload": "                         What SkyBlock year is it?",
     "source": {"file": "src/main/java/com/killer560/hub/puzzlesolvers/QuizSolverFeature.java", "line": 151},
     "verifiedBy": "regex",
-    "notes": "Compared on the trimmed line with equals(); the comment at :157-160 says Oruo's question is a server line of centring spaces and the question."
+    "notes": "Compared on the trimmed line with equals(); the comment at :157-160 says Oruo's question is a server line of centering spaces and the question."
   },
   {
     "id": "chat.creeper-veil",
@@ -86,7 +86,7 @@
     "matches": ["abilitycooldown.AbilityCooldownState#CREEPER_VEIL_ON"],
     "mode": "matches",
     "verifiedBy": "regex",
-    "notes": "Colour codes from the comment at :73 (SkyHanni's §dCreeper Veil §r§aActivated!)."
+    "notes": "Color codes from the comment at :73 (SkyHanni's §dCreeper Veil §r§aActivated!)."
   },
   {
     "id": "chat.leap-teleported",

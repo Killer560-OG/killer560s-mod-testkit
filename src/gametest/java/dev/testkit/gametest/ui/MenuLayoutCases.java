@@ -77,7 +77,7 @@ final class MenuLayoutCases {
             // Auto Croesus (mod hud-key-2, killer560 2026-10-12): out of the Croesus tab into its own, in Dungeon's cheat
             // block; cheat jar only.
             "gui.tab.AutoCroesusTab",
-            // Menu Theme (mod menu-a, killer560 2026-10-12): the Option A menu's colour presets, a section of Home.
+            // Menu Theme (mod menu-a, killer560 2026-10-12): the Option A menu's color presets, a section of Home.
             "gui.tab.MenuThemeTab",
             // Click Sounds and Descriptions (mod sounds-desc, killer560 2026-10-15): two sections of Home, legit in both builds.
             "gui.tab.ClickSoundsTab", "gui.tab.DescriptionsTab",
@@ -162,7 +162,7 @@ final class MenuLayoutCases {
                 return;
             }
 
-            // The Option A categories (mod menu-a, 2026-10-12): Favourites is a sidebar entry, not a category.
+            // The Option A categories (mod menu-a, 2026-10-12): Favorites is a sidebar entry, not a category.
             c.check(top.equals(List.of("Home", "Dungeons", "HUD", "Chat", "Items", "Social", "Cosmetics", "Misc", "Profiles")),
                     "the categories are " + top);
             // (a) Crosshair: not top level, a card of HUD (General until the 2026-10-12 regroup), and its rows build there.

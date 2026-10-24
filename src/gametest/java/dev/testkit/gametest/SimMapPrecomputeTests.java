@@ -682,7 +682,7 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
         println("  doorway: no cached trip from the entrance spot passes a doorway on this floor - not tested");
     }
 
-    /** The door cell centre (its lock block) within 2.5 blocks of any hop of the corridor, or null. */
+    /** The door cell center (its lock block) within 2.5 blocks of any hop of the corridor, or null. */
     private static BlockPos doorOn(ClientGameTestContext ctx, double[] c) {
         return ctx.computeOnClient(mc -> {
             Object layout = ModUnderTest.staticCall(LAYOUT, "capture");

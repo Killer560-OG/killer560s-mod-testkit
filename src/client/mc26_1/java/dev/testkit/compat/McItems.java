@@ -4,8 +4,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
 /**
- * Colour-variant items, for 26.1.x, where each colour is its own {@code Items} constant. 26.2 folds them into
- * {@code ColorCollection}s, so scenarios name them through here. Only what the scenarios use; add a colour to
+ * Color-variant items, for 26.1.x, where each color is its own {@code Items} constant. 26.2 folds them into
+ * {@code ColorCollection}s, so scenarios name them through here. Only what the scenarios use; add a color to
  * BOTH copies.
  */
 public final class McItems {

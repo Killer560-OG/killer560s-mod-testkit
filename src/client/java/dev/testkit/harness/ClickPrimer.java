@@ -68,7 +68,7 @@ public final class ClickPrimer {
     }
 
     /**
-     * A solid block a 1.8 server would store a click on (its centre under {@link HypixelUseAfterClick#CLICK_STORE_RANGE}
+     * A solid block a 1.8 server would store a click on (its center under {@link HypixelUseAfterClick#CLICK_STORE_RANGE}
      * from his feet) but this server answers nothing on (more than 6 from his eye, past the 4.5 + 1 reach a block click
      * gets): the nearest such block east of him first. Null when there is none.
      */

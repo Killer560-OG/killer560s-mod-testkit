@@ -11,7 +11,7 @@ import java.util.Map;
 import static dev.testkit.gametest.hx.HxKit.*;
 
 /**
- * 150: scenario 86 generalised. EVERY fixture under {@code testkit-fixtures/hostile/} is broadcast twice - as Hypixel
+ * 150: scenario 86 generalized. EVERY fixture under {@code testkit-fixtures/hostile/} is broadcast twice - as Hypixel
  * delivers other players' chat (system chat, the path every Hypixel line takes) and through vanilla {@code /say}
  * (the signed player-chat path, so {@code ClientReceiveMessageEvents.CHAT} listeners see it too) - with the action-gating
  * features switched on inside an F7 run. Then: the client is still connected, no listener threw (Session's

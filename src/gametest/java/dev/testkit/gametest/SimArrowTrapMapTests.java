@@ -264,7 +264,7 @@ public class SimArrowTrapMapTests implements FabricClientGameTest {
     }
 
     /**
-     * Stands him in the column {@code (dx, dz)} from tile (gx, gz)'s centre: the first block near the nominal floor
+     * Stands him in the column {@code (dx, dz)} from tile (gx, gz)'s center: the first block near the nominal floor
      * height with two of air on it and a ceiling somewhere above, found and teleported to on the SERVER thread (the
      * sim's /goto scans from the render thread and deadlocks the gametest lockstep - see 99-sim-im).
      */

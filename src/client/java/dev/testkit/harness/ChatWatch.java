@@ -28,7 +28,7 @@ public final class ChatWatch {
     private ChatWatch() {
     }
 
-    /** Called from the client packet listener for every chat flavour the server can send. */
+    /** Called from the client packet listener for every chat flavor the server can send. */
     public static void record(Component message) {
         if (message == null) {
             return;

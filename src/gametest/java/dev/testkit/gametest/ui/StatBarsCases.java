@@ -56,7 +56,7 @@ final class StatBarsCases {
     private static final String TAB_CLASS = "gui.tab.HealthAndManaBarsTab";
     private static final String EXPORT_FILE = "bars-tab-export.properties";
     private static final String HEALTH_BAR_ID = "statbar_health";
-    /** A colour nothing else on a superflat HUD has: the measured bar is every pixel of exactly it. */
+    /** A color nothing else on a superflat HUD has: the measured bar is every pixel of exactly it. */
     private static final int MAGENTA = 0xFFFF00FF;
 
     /** Readout label -> enum constant (the readouts' labels are the enum's own). */
@@ -87,7 +87,7 @@ final class StatBarsCases {
         }
     }
 
-    /** Every row the tab must be able to show (label before any ':'), besides the readouts and their colours. */
+    /** Every row the tab must be able to show (label before any ':'), besides the readouts and their colors. */
     private static final String[] OTHER_ROWS = {"Bar Width", "Bar Height", "Background", "Absorption Color"};
     /** Classic Display and its rows: gone from every layout since mod hud-editor-bars. */
     private static final String[] CLASSIC = {"Classic Display", "Show Health", "Show Mana", "Show Defense", "Show Text",
@@ -185,7 +185,7 @@ final class StatBarsCases {
                 for (String s : new String[]{"Hearts", "Hunger Bar", "Armor Bar", "Air Bar", "Text Shadow"}) {
                     present(c, l, s, "Stat Bars is ON");
                 }
-                // Since mod bars-menu the bar look rows are in Advanced whenever Stat Bars is on; colours only for
+                // Since mod bars-menu the bar look rows are in Advanced whenever Stat Bars is on; colors only for
                 // what is on.
                 for (String s : new String[]{"Bar Width", "Bar Height", "Show Value"}) {
                     present(c, l, s, "Stat Bars is ON (Advanced open)");
@@ -400,7 +400,7 @@ final class StatBarsCases {
         int n = 0;
         for (AbstractWidget w : ws) {
             String k = key(ModScreenDriver.label(w));
-            // A text readout's swatch is "Colour"; a bar's is in the Colours grid as "<Bar> Colour" (mod bars-menu).
+            // A text readout's swatch is "Color"; a bar's is in the Colors grid as "<Bar> Color" (mod bars-menu).
             if (k.equals("Color") || BAR_COLOURS.contains(k)) {
                 n++;
             }

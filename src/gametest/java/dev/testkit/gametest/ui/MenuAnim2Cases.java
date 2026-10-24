@@ -235,7 +235,7 @@ final class MenuAnim2Cases {
         return (String) Mod.call(w, "dragKey");
     }
 
-    /** The {@code ordinal}-th slider labelled {@code key} in the open pane, or null. */
+    /** The {@code ordinal}-th slider labeled {@code key} in the open pane, or null. */
     static AbstractWidget find(Screen s, String key, int ordinal) {
         int n = 0;
         for (AbstractWidget w : MenuACases.paneRows(s)) {

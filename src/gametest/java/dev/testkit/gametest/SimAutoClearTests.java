@@ -1170,7 +1170,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
 
     /**
      * Puts him (server teleport, then waits until the client stands there on the ground) on the block the mod's own
-     * {@code TeleportUtils.etherwarpableInTile} picks nearest the centre of {@code room}'s first map tile.
+     * {@code TeleportUtils.etherwarpableInTile} picks nearest the center of {@code room}'s first map tile.
      * @return null when he stands there, else why not
      */
     private static String toRoomMiddle(ClientGameTestContext ctx, String room) {
@@ -1642,7 +1642,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
                     for (BlockPos f : floors) {
                         BlockPos w = wallNear(level, f);
                         // Well inside the tile, so the wall is this room's own and not the one it shares with a
-                        // neighbour (whose mob the map would file under the other room).
+                        // neighbor (whose mob the map would file under the other room).
                         if (w != null && Math.abs(w.getX() - room.x()) <= 12 && Math.abs(w.getZ() - room.z()) <= 12) {
                             out.add(new BlockPos[]{w, f});
                             break;
@@ -1674,7 +1674,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
         return !level.getBlockState(p).getCollisionShape(level, p).isEmpty();
     }
 
-    /** Standable floor spots (solid below, two air) around the room tile's centre, spread out. */
+    /** Standable floor spots (solid below, two air) around the room tile's center, spread out. */
     private static List<BlockPos> floorSpots(ServerLevel level, int cx, int cz, int yHint, int want) {
         List<BlockPos> out = new ArrayList<>();
         for (int ring = 2; ring <= 12 && out.size() < want; ring += 2) {

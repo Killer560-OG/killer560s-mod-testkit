@@ -193,7 +193,7 @@ final class TerminalCases {
 
     // ---- 218 Melody moving square across jumps ------------------------------------------------------------------
 
-    /** A colour nothing else in the Melody panel uses, swapped in for the moving piece so a screenshot can find it. */
+    /** A color nothing else in the Melody panel uses, swapped in for the moving piece so a screenshot can find it. */
     static final int PROBE_ARGB = 0xFF00FFFF;
     /** TerminalSolverFeature's private CELL_SIZE / SLOT_SIZE (Custom GUI cell pitch and filled square). */
     static final int CELL = 18;
@@ -208,7 +208,7 @@ final class TerminalCases {
      * Custom GUI "no longer draws the moving square". Drives the Melody board through the Hx bridge the way a fast
      * auto terminal makes it arrive - a one-row advance, a two-row jump as many slot updates in one tick, a two-row
      * jump as one ContainerSetContent, a full resend, and a reopen under a new container id - and after each one
-     * requires the moving square to be DRAWN on the lime marker's slot: read off a screenshot (the moving colour is
+     * requires the moving square to be DRAWN on the lime marker's slot: read off a screenshot (the moving color is
      * swapped for cyan and the cell is located through the solver's own layout), plus the solver's own record of the
      * slot it drew when the jar has one. Run twice: once with every row redrawn (TermismPracticeScreen / Odin's
      * MelodySim), once with finished rows keeping their lime pane and lime terracotta (the board Odin's MelodyHandler

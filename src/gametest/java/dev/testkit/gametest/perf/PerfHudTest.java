@@ -30,7 +30,7 @@ import java.util.regex.Pattern;
  *       X/Y/Z lines are the same String objects from frame to frame (the cache acted);</li>
  *   <li>Health and Mana Bars text readouts follow their numbers; Ability Cooldowns' row equals String.format for every
  *       millisecond from 0 to 12 s; Tick Timers' seconds text equals String.format for 0-3000 ticks;</li>
- *   <li>the Custom Scoreboard's colour-code scan returns what its regex did, for a corpus and 20,000 random strings.</li>
+ *   <li>the Custom Scoreboard's color-code scan returns what its regex did, for a corpus and 20,000 random strings.</li>
  * </ul>
  * Then allocation (deterministic, unlike time): Score Calculator's and Advanced Position's draws and width(), a
  * never-moved element's resolvePosition, and Split Timers' layoutPosition, each under a budget that mod main 69505e45
@@ -173,7 +173,7 @@ public class PerfHudTest implements FabricClientGameTest {
         }
     }
 
-    // ---- Custom Scoreboard colour codes ----
+    // ---- Custom Scoreboard color codes ----
 
     private static final Pattern COLOR_CODES = Pattern.compile("(?:§[0-9a-fk-orA-FK-OR])+");
 
@@ -235,7 +235,7 @@ public class PerfHudTest implements FabricClientGameTest {
                 break;
             }
         }
-        // A colour change inside one tenth must not keep the old colour.
+        // A color change inside one tenth must not keep the old color.
         Object a = Mod.staticCall(cls, "cachedLine", ability, 1000L, 1.0, 0xFFFF5555);
         Object b = Mod.staticCall(cls, "cachedLine", ability, 1001L, 1.001, 0xFFFFAA00);
         if ((Integer) Mod.call(b, "color") != 0xFFFFAA00 || (Integer) Mod.call(a, "color") != 0xFFFF5555) {

@@ -18,7 +18,7 @@ import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Hypixel's shortbows as SERVER behaviour (mod branch i4-release-1022): a use packet with a Terminator
+ * Hypixel's shortbows as SERVER behavior (mod branch i4-release-1022): a use packet with a Terminator
  * ({@code TERMINATOR}, three arrows, the outer two 5 degrees either side) or a Machine Gun Shortbow
  * ({@code MACHINE_GUN_BOW}, one arrow) fires at once - no draw - along the rotation the use packet carried, at a fully
  * drawn bow's 3.0, unless it lands inside the shortbow cooldown ({@code cooldownTicks}; Hypixel's

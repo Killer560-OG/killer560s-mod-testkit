@@ -403,7 +403,7 @@ public class SimMapFilterTests implements FabricClientGameTest {
 
     // ---- real input ------------------------------------------------------------------------------------------------
 
-    /** Clicks the visible control whose label (colour codes stripped) is exactly {@code text}, or starts with it. */
+    /** Clicks the visible control whose label (color codes stripped) is exactly {@code text}, or starts with it. */
     private void click(ClientGameTestContext ctx, String text) {
         double[] at = ctx.computeOnClient(mc -> {
             Screen s = McCompat.screen(mc);
@@ -442,7 +442,7 @@ public class SimMapFilterTests implements FabricClientGameTest {
         ctx.waitTicks(4);
     }
 
-    /** The control labelled exactly {@code text} (else the first starting with it); visible ones only if asked. */
+    /** The control labeled exactly {@code text} (else the first starting with it); visible ones only if asked. */
     private static AbstractWidget find(Screen s, String text, boolean visibleOnly) {
         AbstractWidget best = null;
         for (var ch : s.children()) {

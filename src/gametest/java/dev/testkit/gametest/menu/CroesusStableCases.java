@@ -21,7 +21,7 @@ import java.util.Map;
  * reappear orange like it hasn't been checked yet for needing a key when it should read it while I am in the chest".
  * <p>
  * The first is runs that look alike: the same floor with the same party, all day. A run was known by its name, floor
- * and players only, so looking at one run's chests re-coloured every run with that party. The second is Hypixel's list
+ * and players only, so looking at one run's chests re-colored every run with that party. The second is Hypixel's list
  * head lagging a claim by a refresh. Every frame of every screen is recorded ({@code hidesSlot}, {@code runStateForTest}).
  * <ul>
  *   <li>884: four claimed runs with the same party; look at run 10 (worth a key) and run 11 (not) in turn, list - run -
@@ -31,7 +31,7 @@ import java.util.Map;
  *   <li>886: claim the first chest in its chest screen, back to a list whose head still says "No chests opened yet!":
  *       needs-a-key on the first frame; then claim the keyed chest, back to a head still saying "Opened Chest": key-used
  *       on the first frame.</li>
- *   <li>887: a refreshed head (other "Completed" / expiry text, rank-coloured names split differently) keeps its state.</li>
+ *   <li>887: a refreshed head (other "Completed" / expiry text, rank-colored names split differently) keeps its state.</li>
  * </ul>
  */
 final class CroesusStableCases {

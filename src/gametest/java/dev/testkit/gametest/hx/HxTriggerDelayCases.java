@@ -11,7 +11,7 @@ import net.minecraft.world.phys.Vec3;
  *
  * <ul>
  *   <li>797 Secret Triggerbot ({@code Delay}): a chest on the Hx platform, the floor in "dungeon" (room sim) and the
- *   server labelled as Hypixel; 0 vs 400 ms, read off the server's {@code use_block}.</li>
+ *   server labeled as Hypixel; 0 vs 400 ms, read off the server's {@code use_block}.</li>
  *   <li>798 Auto Door Opener in Triggerbot mode ({@code Triggerbot Delay}, new): a wither door where Door Helpers
  *   scans for one (a coal door with its roof at y 73, at the -185 + 16n grid), armed by Hypixel's "RIGHT CLICK on a
  *   WITHER door" line; 0 vs 500 ms, {@code use_block} on the coal.</li>

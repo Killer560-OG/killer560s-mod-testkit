@@ -37,7 +37,7 @@ import java.util.Set;
  * the replay must reproduce room for room, and the build's own door audit ("Sim doors: the door at cell ... is backed
  * by N of its two rooms") which must say no more on the replay than on the original.
  *
- * <p>The page part reads pixels: the thumbnail's rectangle on a real screenshot must hold the run map's room colours.
+ * <p>The page part reads pixels: the thumbnail's rectangle on a real screenshot must hold the run map's room colors.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimSavedRunTests implements FabricClientGameTest {
@@ -54,7 +54,7 @@ public class SimSavedRunTests implements FabricClientGameTest {
     private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
     private static final String DOOR_AUDIT = "Sim doors: the door at cell";
 
-    /** RunMapPainter's room colours (and the run log's before it). */
+    /** RunMapPainter's room colors (and the run log's before it). */
     private static final int[] ROOM_COLOURS = {0x8E7A5E, 0x2E9B3E, 0xB33A3A, 0x9B4FD1, 0xCC7722, 0xD8C13A, 0xE07FB8};
 
     @Override
@@ -260,7 +260,7 @@ public class SimSavedRunTests implements FabricClientGameTest {
         }
     }
 
-    /** {pixels in a room colour, distinct room colours} inside the thumbnail's rectangle of a screenshot. */
+    /** {pixels in a room color, distinct room colors} inside the thumbnail's rectangle of a screenshot. */
     private static int[] roomPixels(Path shot, int[] rect, int screenWidth) {
         try {
             BufferedImage img = javax.imageio.ImageIO.read(shot.toFile());

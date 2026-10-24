@@ -58,7 +58,7 @@ public class WorldRenderBenchTest implements FabricClientGameTest {
      *  lines, plus slack for the text's glyph pages and an event with nothing in it. */
     static final double MAX_ADDED_DRAWS = 12.0;
     /** Render-thread bytes per frame the world callbacks may allocate with ESP on (20 filled boxes): main 69505e45
-     *  allocated ~112 KB (a colour array, a lambda, an AABB and two Vec3 per box and draw, plus a buffer per draw call);
+     *  allocated ~112 KB (a color array, a lambda, an AABB and two Vec3 per box and draw, plus a buffer per draw call);
      *  the branch ~6.6 KB, nearly all of it vanilla's own batch end. */
     static final int MAX_ESP_BYTES = 16384;
     /** The world render packages this bench is about, plus the batch flush in the mod's compat layer. */

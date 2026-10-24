@@ -43,17 +43,17 @@ import java.util.concurrent.atomic.AtomicReference;
  * Special Room Guess (mod doors-predict-1015). killer560's item, 2026-10-15 (wither doors only from the normal map,
  * waypoint style, nothing before Mort's countdown; the Blood door without Show All Doors; the Fairy door only once it is
  * known and the door after it hidden until Fairy is opened; line-of-sight room prediction that never scans; a split
- * colour for a one-tile room that is likely a puzzle, yellow or trap). Only when named.
+ * color for a one-tile room that is likely a puzzle, yellow or trap). Only when named.
  *
  * <p>One generated sim F7 (3 puzzles, 4 rooms to blood). The sim sends no map item, so the mod's held-map stand-in
  * answers ({@code HeldMap}): rooms are opened when someone stands in them, which this test does by placing the player
- * or by {@code HeldMap.simVisit}. Show All Doors is OFF throughout: every row is the no-cheat-ESP behaviour, on both
+ * or by {@code HeldMap.simVisit}. Show All Doors is OFF throughout: every row is the no-cheat-ESP behavior, on both
  * jars. Rows:
  * <ul>
  * <li>1721 not before start: coal doors round the first room after the Entrance; through the whole {@code /start}
  *     countdown nothing is drawn and the status says it is waiting; after GO the Entrance's door is drawn with a label.</li>
  * <li>1722 map only: coal doors round a room no opened room touches, the player standing in one of its doorways: none
- *     drawn; once a neighbour is opened, that neighbour's door is.</li>
+ *     drawn; once a neighbor is opened, that neighbor's door is.</li>
  * <li>1723 blood: the Blood door is drawn without Show All Doors once the room before it is opened, not before.</li>
  * <li>1724 fairy: with the room before Fairy opened and the player out of sight, the Fairy door is what the map says (a
  *     wither door); once he looks at its empty doorway it is the Fairy door (box, label); a teammate in Fairy clears it.</li>
@@ -66,8 +66,8 @@ import java.util.concurrent.atomic.AtomicReference;
  *     the first block that ray meets.</li>
  * <li>1729 hidden block: an emerald sealed under a room's floor is never seen while a gold block standing in the open
  *     in the same view is.</li>
- * <li>1730 guess: a one-tile room whose neighbours are all opened gets a guess with Puzzle in it; a room with an
- *     unopened neighbour gets none; an opened Trap takes Trap out.</li>
+ * <li>1730 guess: a one-tile room whose neighbors are all opened gets a guess with Puzzle in it; a room with an
+ *     unopened neighbor gets none; an opened Trap takes Trap out.</li>
  * <li>1731 settings: Predictive Rooms, Special Room Guess and Door Labels survive a save and reload.</li>
  * </ul>
  */
@@ -597,7 +597,7 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         double[] u = f.toward(hFrom, hd);
         double[] dc = f.doorCentre(hd);
         server(ctx, level -> {
-            // Sealed: every neighbour solid. Searched through the room's tile - under its floor first, then up through
+            // Sealed: every neighbor solid. Searched through the room's tile - under its floor first, then up through
             // its walls and pillars - anywhere more than six blocks from the doorway.
             outer:
             for (int k = 0; k < 24; k++) {
@@ -739,7 +739,7 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
     private void guess(ClientGameTestContext ctx, Floor f) {
         Report.caseStarted(R_GUESS);
         ctx.runOnClient(mc -> opt(HELD, "resetSimVisits", null));
-        // A one-tile room every in-floor neighbour tile of which is another room it has a door to at least one of.
+        // A one-tile room every in-floor neighbor tile of which is another room it has a door to at least one of.
         int pick = -1;
         List<Integer> around = new ArrayList<>();
         for (int r = 0; r < f.names.size(); r++) {
@@ -760,7 +760,7 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         }
         final int p = pick;
         int tile = f.tiles.get(pick)[0];
-        // Before: its neighbours are not opened, so it is not known to be one tile.
+        // Before: its neighbors are not opened, so it is not known to be one tile.
         List<String> none = guessAt(ctx, tile);
         for (int n : around) {
             ctx.runOnClient(mc -> optInt(HELD, "simVisit", n, null));
@@ -1093,7 +1093,7 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
             return new double[]{b.getX() + 0.5, b.getY(), b.getZ() + 0.5};
         }
 
-        /** Unit step {x, z} from room {@code from}'s side of door {@code d} towards the other side. */
+        /** Unit step {x, z} from room {@code from}'s side of door {@code d} toward the other side. */
         double[] toward(int from, int d) {
             int gx = d % 11;
             int gz = d / 11;

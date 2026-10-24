@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>For Deuces solo (Load a Room) at 0, 90, 180 and 270, and on a two-room floor (Altar on cells x 2..4, z 4..6, Deuces
  * on (6,6), a normal door at (5,6)) with Deuces at 0, 90, 180 and 270, every block of the table is read back from the
  * server's level at the paste's rotation and must be the table's state turned the same way (a wall by block only, as its
- * arms follow its neighbours; air where the solo seal laid diamond counts as sealed). At floor rotation 0 the chest doorway
+ * arms follow its neighbors; air where the solo seal laid diamond counts as sealed). At floor rotation 0 the chest doorway
  * is the one Altar's east doorway opens into, so the carve runs through it and the passage must be open. On every build
  * the door-piece sweep ({@link DoorPieceSweep}) runs with Deuces' chest doorway exempt and must find no wrong doorway;
  * its counts are printed for comparison with 1433's.

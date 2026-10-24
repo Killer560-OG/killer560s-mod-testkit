@@ -48,7 +48,7 @@ final class HxExperiments {
 
     /** Note positions: inside 10-43 (Chronomatron) and 9-44 (Ultrasequencer), away from the filler border. */
     private static final int[] NOTE_SLOTS = {10, 12, 14, 16, 28, 30, 32, 34, 20, 22, 24, 38, 40, 42};
-    /** Chronomatron note colours (terracotta; the solver only reads the glint). */
+    /** Chronomatron note colors (terracotta; the solver only reads the glint). */
     private static final String[] NOTE_ITEMS = {"minecraft:red_terracotta", "minecraft:blue_terracotta",
             "minecraft:lime_terracotta", "minecraft:yellow_terracotta", "minecraft:purple_terracotta",
             "minecraft:orange_terracotta", "minecraft:cyan_terracotta", "minecraft:white_terracotta",

@@ -28,7 +28,7 @@ import java.util.TreeMap;
  * is random. This asks every room in the library the same question at once, with no world build at all, and
  * names the ones to look at.
  *
- * <p>It REPORTS rather than fails. Which rooms are miscaptured is killer560's data, not the mod's behaviour,
+ * <p>It REPORTS rather than fails. Which rooms are miscaptured is killer560's data, not the mod's behavior,
  * and a scenario that went red over his captures would stay red until he rescanned - which is a worse signal
  * than a list he can act on.
  */

@@ -83,7 +83,7 @@ public class SimLeaveLoopTests implements FabricClientGameTest {
         System.out.println("[97-leave-loop] PASS - left a sim F7 " + count + " times without the client crashing");
     }
 
-    /** Spectator, then the floor's four corners and centre, 15 ticks each. */
+    /** Spectator, then the floor's four corners and center, 15 ticks each. */
     private static void tour(ClientGameTestContext ctx) {
         int[] b = (int[]) ctx.computeOnClient(mc -> ModUnderTest.staticCall(
                 "com.killer560.hub.roomsim.SimBuildQueue", "touchedBounds"));

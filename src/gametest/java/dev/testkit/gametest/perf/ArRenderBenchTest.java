@@ -29,7 +29,7 @@ import java.util.Map;
  *
  * <p>In {@link PerfBench}'s scene (sim F7, camera turning) a 30-node route is seeded in the player's room, two nodes of
  * every {@code RouteNode.Type}, 3-13 blocks in front of him: a start node, await modifiers, a stacked tile, a node of
- * its own colour and radius, three breaker blocks and a recorded path. Phases: <b>OFF</b> (every switch off but the
+ * its own color and radius, three breaker blocks and a recorded path. Phases: <b>OFF</b> (every switch off but the
  * Dungeon Map, which gives the room), then Auto Routes on in each render style <b>BOX</b>, <b>CYLINDER</b>,
  * <b>FILLED</b>, and <b>EDIT</b> (edit mode, Box), {@code testkit.perf.rounds} (1) x {@code testkit.perf.bigTicks}
  * (400) ticks. Per phase: the probe's Auto Routes keys (us/f@144, bytes per frame).
@@ -463,7 +463,7 @@ public class ArRenderBenchTest implements FabricClientGameTest {
 
     /**
      * Client thread. Two nodes of every type 3-13 blocks south of the player (in memory, not saved): node 1 the start
-     * node, a few with await modifiers, one of its own colour and radius, the last two on one tile (stacked labels), the
+     * node, a few with await modifiers, one of its own color and radius, the last two on one tile (stacked labels), the
      * breaker nodes with three blocks each, and a 60-sample recorded path through them.
      */
     private static String seedRoute(Minecraft mc) {

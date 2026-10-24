@@ -98,7 +98,7 @@
       "key": "stack duplicate messages",
       "to": "Chat Hider",
       "text": "A message repeated within 60 seconds replaces its earlier copy with one line ending in a gray (x2), (x3)...",
-      "why": "chat-batch a64924b9: Chat Tidy and Hide Chat Messages became Chat Hider; rewritten again: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
+      "why": "chat-batch a64924b9: Chat Tidy and Hide Chat Messages became Chat Hider; rewritten again: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, label spelling outside gui/"
     },
     {
       "owner": "Copy Chat",
@@ -270,13 +270,13 @@
       "owner": "(unscoped)",
       "key": "breaker aura",
       "text": "Cheat build: in a boss fight only, breaks the blocks you picked with the Pick Block Key once they are in reach, while you hold a charged Dungeon Breaker.",
-      "why": "path-db 73c5b0e4: Breaker Aura works only in boss (killer560 2026-10-12); rewritten again: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
+      "why": "path-db 73c5b0e4: Breaker Aura works only in boss (killer560 2026-10-12); rewritten again: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, label spelling outside gui/"
     },
     {
       "owner": "Breaker Aura",
       "key": "breaker aura",
       "text": "Cheat build: in a boss fight only, breaks the blocks you picked with the Pick Block Key once they are in reach, while you hold a charged Dungeon Breaker.",
-      "why": "path-db 73c5b0e4: Breaker Aura works only in boss (killer560 2026-10-12); rewritten again: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
+      "why": "path-db 73c5b0e4: Breaker Aura works only in boss (killer560 2026-10-12); rewritten again: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, label spelling outside gui/"
     },
     {
       "owner": "(unscoped)",
@@ -301,7 +301,7 @@
       "owner": "Croesus / Chest Profit",
       "key": "highlight runs",
       "text": "Marks each run in the Croesus menu by what is left in it: solid orange unclaimed, solid magenta worth a Dungeon Chest Key, outlines for runs with nothing to do.",
-      "why": "croesus-ui 79dd7ecc / croesus-key: Highlight Runs behind the items, then by chest-key state (killer560, 2026-10-12); croesus-colors 2026-10-12: magenta / cyan / blue-border palette; croesus-colors2 2026-10-13: action states solid, quiet states recede, no \"?\" mark; croesus-outline 5802c253 2026-10-13: muted teal/blue full outlines; rewritten again: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
+      "why": "croesus-ui 79dd7ecc / croesus-key: Highlight Runs behind the items, then by chest-key state (killer560, 2026-10-12); croesus-colors 2026-10-12: magenta / cyan / blue-border palette; croesus-colors2 2026-10-13: action states solid, quiet states recede, no \"?\" mark; croesus-outline 5802c253 2026-10-13: muted teal/blue full outlines; rewritten again: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, label spelling outside gui/"
     },
     {
       "owner": "Inventory Theme",
@@ -443,7 +443,7 @@
       "key": "chroma",
       "to": "Custom Crosshair",
       "text": "Cycles the main color through the rainbow (keeps its transparency).",
-      "why": "Custom Crosshair rows are built by its own tab; 1c10b812 British text"
+      "why": "Custom Crosshair rows are built by its own tab; 1c10b812 label spelling"
     },
     {
       "owner": "(unscoped)",
@@ -471,7 +471,7 @@
       "key": "crosshair preview",
       "to": "Custom Crosshair",
       "text": "Your crosshair at its real in-game size. Click for another background, right click to go back; the strip below previews movement spread, recoil and target colors.",
-      "why": "Custom Crosshair rows are built by its own tab; 1c10b812 British text"
+      "why": "Custom Crosshair rows are built by its own tab; 1c10b812 label spelling"
     },
     {
       "owner": "(unscoped)",
@@ -484,7 +484,7 @@
       "key": "gap",
       "to": "Custom Crosshair",
       "text": "Space between the center and each line; negative makes the lines overlap through the middle.",
-      "why": "Custom Crosshair rows are built by its own tab; 1c10b812 British text"
+      "why": "Custom Crosshair rows are built by its own tab; 1c10b812 label spelling"
     },
     {
       "owner": "(unscoped)",
@@ -503,7 +503,7 @@
       "owner": "Auto Blood Camp",
       "key": "aura",
       "text": "Cheat build, Blood Room only: turns you to the next blood mob you can see and clicks it at your weapon's attack speed until it dies; moving your mouse takes over.",
-      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
+      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, label spelling outside gui/"
     },
     {
       "owner": "Auto Blood Camp",
@@ -526,7 +526,7 @@
       "owner": "Auto Clear",
       "key": "autopilot",
       "text": "Cheat build: Dungeon Autopilot runs Auto Secret, Auto Clear and Auto Puzzles under one planner; any movement key takes over.",
-      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
+      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, label spelling outside gui/"
     },
     {
       "owner": "Auto Clear",
@@ -544,13 +544,13 @@
       "owner": "Auto Clear",
       "key": "run mode",
       "text": "Solo plays for the best score per second toward 300 with the blood door last; Party does your routes first and never opens the blood door.",
-      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
+      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, label spelling outside gui/"
     },
     {
       "owner": "Auto Clear",
       "key": "status hud",
       "text": "One small HUD showing what Auto Clear, Auto Secret and Dungeon Autopilot are doing, hidden while nothing runs; move it in the HUD editor.",
-      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
+      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, label spelling outside gui/"
     },
     {
       "owner": "Auto Correct",
@@ -620,7 +620,7 @@
       "key": "custom names",
       "to": "Player Cosmetics",
       "text": "Opens the Name Changer: your own display name, its colors, and renames for other players.",
-      "why": "Cosmetics is the Player Cosmetics card (menu-a); 1c10b812 British text"
+      "why": "Cosmetics is the Player Cosmetics card (menu-a); 1c10b812 label spelling"
     },
     {
       "owner": "Cosmetics",
@@ -673,7 +673,7 @@
       "key": "auto join skyblock",
       "to": "Auto Join Skyblock",
       "text": "Runs /skyblock each time you join Hypixel, unless you send a command first.",
-      "why": "General is the Auto Join Skyblock card (menu-a); hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
+      "why": "General is the Auto Join Skyblock card (menu-a); hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, label spelling outside gui/"
     },
     {
       "owner": "Inventory Theme",
@@ -685,13 +685,13 @@
       "key": "teammate highlight",
       "to": "Teammate Highlight",
       "text": "Draws a box around each party member, colored by their dungeon class.",
-      "why": "Teammate Highlight is its own card (menu-layout); 1c10b812 British text"
+      "why": "Teammate Highlight is its own card (menu-layout); 1c10b812 label spelling"
     },
     {
       "owner": "Mod & HUD",
       "key": "auto scale (monitor)",
       "text": "Keeps this mod's HUD elements and menus the same size relative to your window on any monitor and GUI Scale (on by default).",
-      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
+      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, label spelling outside gui/"
     },
     {
       "owner": "Mod & HUD",
@@ -704,21 +704,21 @@
       "owner": "Mod & HUD",
       "key": "hud scale",
       "text": "Scales everything this mod draws at once, 5% to 300%: HUD elements, this menu and the mod's other screens.",
-      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, British labels outside gui/"
+      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, label spelling outside gui/"
     },
     {
       "owner": "Puzzle Solvers",
       "key": "teleport maze solver",
       "to": "Teleport Maze Solver",
       "text": "Colors the Teleport Maze pads to show which are used and which are likely exits.",
-      "why": "each solver is its own card; 1c10b812 British text"
+      "why": "each solver is its own card; 1c10b812 label spelling"
     },
     {
       "owner": "Secrets",
       "key": "secret waypoints",
       "to": "Secret Waypoints",
       "text": "Draws a colored box on every secret in rooms the mod has recognized.",
-      "why": "Secret Waypoints is its own card under Secrets; 1c10b812 British text"
+      "why": "Secret Waypoints is its own card under Secrets; 1c10b812 label spelling"
     },
     {
       "owner": "Sim Settings",
@@ -766,7 +766,7 @@
       "key": "custom mage beam",
       "to": "Custom Mage Beam",
       "text": "In dungeons, redraws every Mage beam as one clean colored line.",
-      "why": "Custom Mage Beam is its own card; 1c10b812 British text"
+      "why": "Custom Mage Beam is its own card; 1c10b812 label spelling"
     },
     {
       "owner": "Translate",

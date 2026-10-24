@@ -103,7 +103,7 @@ public final class Scenario {
     }
 
     /**
-     * Honour {@code -Pscenario=…}: a substring of the name, or several separated by commas, any of which
+     * Honor {@code -Pscenario=…}: a substring of the name, or several separated by commas, any of which
      * selects it. {@code -Pfailed} arrives here as the same comma list.
      *
      * <p>Public so a test that does not go through {@link #run} — a singleplayer check, say — can be
@@ -634,7 +634,7 @@ public final class Scenario {
                 new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
     }
 
-    /** Print a labelled line into the run output, so a trace reads in order with the harness's own. */
+    /** Print a labeled line into the run output, so a trace reads in order with the harness's own. */
     public void log(String message) {
         System.out.println("[" + name + "] " + message);
     }

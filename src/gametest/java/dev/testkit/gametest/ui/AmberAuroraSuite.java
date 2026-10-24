@@ -301,7 +301,7 @@ public class AmberAuroraSuite implements FabricClientGameTest {
 
     private static BufferedImage embersImg;
 
-    /** Mean |luminance step| between horizontal neighbours in a box (fractions of the image): vertical rays read high. */
+    /** Mean |luminance step| between horizontal neighbors in a box (fractions of the image): vertical rays read high. */
     static double rayDetail(BufferedImage img, double x0, double y0, double x1, double y1) {
         double sum = 0;
         long n = 0;

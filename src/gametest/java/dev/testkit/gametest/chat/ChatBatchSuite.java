@@ -37,12 +37,12 @@ import static dev.testkit.gametest.hx.HxKit.assertNoCommand;
 /**
  * killer560's chat batch (mod branch chat-batch, 2026-10-08), one shared server ({@code 560-chat-session}). Every chat
  * line arrives from the dedicated server as a real system-chat packet (Hx {@code chat}), so it takes the path a Hypixel
- * line takes; every judgement is on what is IN the chat window, on the real clipboard, or on the commands the server
+ * line takes; every judgment is on what is IN the chat window, on the real clipboard, or on the commands the server
  * received.
  *
  * <ul>
  *   <li>561-chat-copy-whole: Shift or Ctrl + LEFT click on any wrapped line of a long message (and past the end of its
- *       text) puts the WHOLE message on the clipboard, plain (colour codes gone). Click positions come from vanilla's own
+ *       text) puts the WHOLE message on the clipboard, plain (color codes gone). Click positions come from vanilla's own
  *       chat geometry ({@code ChatComponent.extractRenderState}, javap), computed here, not asked of the mod.</li>
  *   <li>562-chat-copy-line: Shift or Ctrl + RIGHT click copies only the clicked wrapped line; every line of the message
  *       in turn, and their concatenation is the message.</li>
@@ -256,7 +256,7 @@ public class ChatBatchSuite implements FabricClientGameTest {
         c.ctx().runOnClient(mc -> mc.keyboardHandler.setClipboard(text));
     }
 
-    /** A long, colour-coded message that wraps over several chat rows. */
+    /** A long, color-coded message that wraps over several chat rows. */
     static String longMessage(String marker) {
         StringBuilder sb = new StringBuilder("§6" + marker + " §ccolour §acodes §rand");
         for (int i = 1; i <= 34; i++) {
@@ -769,7 +769,7 @@ public class ChatBatchSuite implements FabricClientGameTest {
             c.check(orphans[0] == 0, orphans[0] + " wrapped row(s) of a removed copy left in the chat");
             c.note("wrapped line stacked across one message; " + orphans[1] + " rows in chat, 0 orphans");
 
-            // different colour in between and repeated: no stack across a different style
+            // different color in between and repeated: no stack across a different style
             sayJson(c, colour("StackProbe color", "red"));
             say(c, "StackProbe spacer");
             sayJson(c, colour("StackProbe color", "green"));

@@ -20,7 +20,7 @@ import java.util.Locale;
  * 1680-1683: the picture scenes (mod scenes-dark-aurora-1016). killer560, 2026-10-16: "can you make the starfield more milky
  * way themed?", "For the starfield one make one without the character ... and one with", an inspiration picture, "mainly
  * black and white", and "I will create them and just let you animate them" - so a scene is his picture animated by
- * {@code mainmenu.PictureScene}, which was generalised from Green's TARGET scene. Every case runs at 1920x1080 GUI 2 with the
+ * {@code mainmenu.PictureScene}, which was generalized from Green's TARGET scene. Every case runs at 1920x1080 GUI 2 with the
  * clock held, and turns {@code killer560smod.previewScenes} on in this JVM where it needs the new scenes (off again after).
  * <ul>
  *   <li>1680 Milky Way: MILKY_WAY_HERO's cape moves (its ripple tiles counted) and MILKY_WAY draws no character; both are
@@ -31,8 +31,8 @@ import java.util.Locale;
  *   <li>1682 gating: Dark draws MILKY_WAY_HERO with her with and without previewScenes (released to every instance,
  *       mod simple-scenes-1016; before it, STARS without).</li>
  *   <li>1684 Light's Soft Light drawn smooth (killer560: "can you smooth out the light one"): without previewScenes the
- *       blocky scene, with it the smooth one; both light, both moving, the same picture in tone (mean colour within a few
- *       levels) but drawn differently, the smooth one's side vignette has no strips (its calmest row steps at most 2 levels between neighbours, the
+ *       blocky scene, with it the smooth one; both light, both moving, the same picture in tone (mean color within a few
+ *       levels) but drawn differently, the smooth one's side vignette has no strips (its calmest row steps at most 2 levels between neighbors, the
  *       blocky one 3 or more) and its rays still show.</li>
  *   <li>1683 video (only when named): ~8 s at {@code -PpaintedFps} (default 60) of each of {@code -PpaintedScene} (default
  *       MILKY_WAY, MILKY_WAY_HERO; SOFT_LIGHT and TARGET too) into {@code <report>/painted-<scene>/}.</li>
@@ -377,7 +377,7 @@ public class PaintedScenesSuite implements FabricClientGameTest {
         c.check(tone < 12, "the smooth Soft Light is not the same picture in tone: " + tone + " levels apart");
         c.check(differ > 0.0005 || smooth.alloc()[2] != blocky.alloc()[2], "the smooth Soft Light draws the same as the blocky one");
         // The side vignette: the blocky one is ten strips of falling alpha (a few levels' step at each), the smooth one a
-        // true gradient (at most a level or two between neighbours). Rows that a drifting light crosses read high either
+        // true gradient (at most a level or two between neighbors). Rows that a drifting light crosses read high either
         // way, so the measure is the calmest row's largest step.
         int bStep = vignetteStep(blocky.a().img());
         int sStep = vignetteStep(smooth.a().img());
@@ -427,7 +427,7 @@ public class PaintedScenesSuite implements FabricClientGameTest {
 
     /**
      * Banding: in the calm sky at the right (x 80-95%, rows 30-70%: no rays, the vignette constant down a column), for each
-     * pair of neighbouring rows the share of columns whose green level stepped down (or up) between them; the largest share.
+     * pair of neighboring rows the share of columns whose green level stepped down (or up) between them; the largest share.
      * A smooth vertical gradient rounded to 8 bits steps every column at the same row - a band edge, a share near 1. Dithered,
      * each column steps at its own rows (a level held for a while is still fine; what shows is a line), so no row gathers more
      * than a fraction of them (~0.33 measured). A drifting light crossing the box only lowers the share.
@@ -604,7 +604,7 @@ public class PaintedScenesSuite implements FabricClientGameTest {
         }
     }
 
-    /** Over rows of the left sixth of the screen: each row's largest step between neighbouring pixels (summed RGB / 3);
+    /** Over rows of the left sixth of the screen: each row's largest step between neighboring pixels (summed RGB / 3);
      *  the smallest of those over the rows. */
     static int vignetteStep(BufferedImage img) {
         int w = img.getWidth();

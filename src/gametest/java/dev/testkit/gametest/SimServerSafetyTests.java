@@ -14,7 +14,7 @@ import java.util.List;
  *
  * <p>This is the single safety boundary of the {@code roomsim} package. Everything in there writes the
  * player's position and pastes blocks by the million, which is correct in a world we own and is the exact
- * behaviour that gets an account banned on Hypixel. The package gates on {@code SimState.canAct}, which
+ * behavior that gets an account banned on Hypixel. The package gates on {@code SimState.canAct}, which
  * requires a singleplayer server AND no connected server - but a gate is only worth what it has been tested
  * against, and reading the code found a real hole: {@code SimBuilder.build(code)} had no gate at all, and
  * since {@code getSingleplayerServer()} is null on a real server it read that as "no world yet" and called

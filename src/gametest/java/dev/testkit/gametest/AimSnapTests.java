@@ -23,7 +23,7 @@ import java.util.Locale;
  * turn, and turning sends movement packets on the way.
  *
  * <p>Driven at the primitive on purpose. Every feature that uses it is gated on a puzzle room the live map has
- * to recognise, which needs real dungeon data; the primitive is what produces the packet, and it is
+ * to recognize, which needs real dungeon data; the primitive is what produces the packet, and it is
  * {@code public static}, so this tests the real shipped code path with none of the scaffolding.
  *
  * <p>Two sizes, because the interesting question is whether there is a threshold: a small correction of the

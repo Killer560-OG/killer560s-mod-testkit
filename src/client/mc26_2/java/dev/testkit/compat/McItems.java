@@ -5,9 +5,9 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
 /**
- * Colour-variant items, for 26.2, where {@code Items.WOOL}, {@code Items.DYE} and {@code Items.STAINED_GLASS_PANE}
+ * Color-variant items, for 26.2, where {@code Items.WOOL}, {@code Items.DYE} and {@code Items.STAINED_GLASS_PANE}
  * are {@code ColorCollection<Item>}s picked by {@code DyeColor} (javap'd on the 26.2 jar; the mod's own
- * McItems does the same). Same constants as the 26.1 copy; add a colour to BOTH.
+ * McItems does the same). Same constants as the 26.1 copy; add a color to BOTH.
  */
 public final class McItems {
 

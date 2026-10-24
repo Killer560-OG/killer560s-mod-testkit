@@ -1969,7 +1969,7 @@ public class SimPathOptimalTests implements FabricClientGameTest {
                 return null;
             }
             double in = 0.004;
-            // The face centres first (the common hit), then the whole grid.
+            // The face centers first (the common hit), then the whole grid.
             for (int pass = 0; pass < 2; pass++) {
                 int cells = pass == 0 ? 1 : grid;
                 for (int axis = 0; axis < 3; axis++) {

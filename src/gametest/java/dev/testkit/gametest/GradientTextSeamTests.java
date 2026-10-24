@@ -23,13 +23,13 @@ import java.util.List;
  *
  * <p>{@code MenuStyle.gradientText} is the one place the mod draws gradient text (the Profiles tab's active profile name
  * at 1.5x, the menu's brand at 4/3, ScreenChrome titles and the Profile Viewer's at 1x - every call site goes through it). It
- * draws the text in three horizontal scissor bands of colour. Scissor edges round to whole pixels and a scaled band edge
+ * draws the text in three horizontal scissor bands of color. Scissor edges round to whole pixels and a scaled band edge
  * does not land on one, so a one-pixel row between two bands could draw nothing and show the shadow underneath: a dark
  * line across the glyphs.
  *
- * <p>A screen draws each site's exact call (text, scale) on a flat grey background, plain and again inside an extra
+ * <p>A screen draws each site's exact call (text, scale) on a flat gray background, plain and again inside an extra
  * 1.25x pose (the menu's HUD Scale draws the whole menu scaled), at GUI scales 1, 2, 3 and 4. Beside each, a CONTROL: the
- * same text at the same pose, shadow then one plain colour, with no scissor. Every pixel row of the gradient copy must
+ * same text at the same pose, shadow then one plain color, with no scissor. Every pixel row of the gradient copy must
  * hold about as many lit glyph pixels as the control's same row - a seam is a row that is lit above and below and empty in
  * between. Proof the feature drew: every gradient copy has lit pixels, and its top rows are lighter than its bottom rows
  * (the gradient). Screenshots in {@code killer560s-mod-logs/deuces-door-2/gradient-text/}.
@@ -173,7 +173,7 @@ public class GradientTextSeamTests implements FabricClientGameTest {
         }
     }
 
-    /** Lit glyph pixel: the brand oranges and the control's (red channel high, well above the grey background). */
+    /** Lit glyph pixel: the brand oranges and the control's (red channel high, well above the gray background). */
     private static boolean lit(int rgb) {
         int r = (rgb >> 16) & 0xFF;
         int g = (rgb >> 8) & 0xFF;

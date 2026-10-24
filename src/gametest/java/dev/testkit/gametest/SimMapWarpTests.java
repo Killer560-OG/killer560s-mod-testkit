@@ -464,8 +464,8 @@ public class SimMapWarpTests implements FabricClientGameTest {
         }
         // How far into the room he ended (killer560, 2026-10-06: "it takes me essentially still in the hallway to
         // that room" and "as central and far into the square as possible with the exact same etherwarps"): the
-        // larger of his x and z offsets from the clicked tile's centre (a tile is 31 across, its doorways on the seam
-        // 16 out). The mod, with killer560.test.checkFewest, plans the same click once more without the centre
+        // larger of his x and z offsets from the clicked tile's center (a tile is 31 across, its doorways on the seam
+        // 16 out). The mod, with killer560.test.checkFewest, plans the same click once more without the center
         // preference: that is the fewest warps and the landing it would have had before. The press must use exactly
         // that many warps. A recorded spot (an exact goal) is where he asked to go and is not judged.
         if (travelled >= 1 && inTile && kind.equals("tile")) {
@@ -480,7 +480,7 @@ public class SimMapWarpTests implements FabricClientGameTest {
                         + " [check] plan (killer560.test.checkFewest)");
             } else if (!warps.trim().matches("\\d+") || Integer.parseInt(warps.trim()) > checkWarps) {
                 // More warps than the no-preference plan is the bug; FEWER (13 vs 14 on 26.2, 2026-10-06) only means the
-                // no-preference search is not perfectly minimal itself, and the centred plan is fine.
+                // no-preference search is not perfectly minimal itself, and the centered plan is fine.
                 failures.add(label + ": " + warps + " warp(s), but the fewest without the center preference is "
                         + checkWarps + " - landing nearer the center must never cost a warp");
             }
@@ -573,7 +573,7 @@ public class SimMapWarpTests implements FabricClientGameTest {
     /** ClearExecutor's "[Path] running N warp(s) from (x, y, z) to BlockPos{x=.., y=.., z=..}". */
     private static final Pattern RUNNING = Pattern.compile("\\[Path\\] running (\\d+) warp\\(s\\) from \\((-?[0-9.]+),"
             + " (-?[0-9.]+), (-?[0-9.]+)\\) to BlockPos\\{x=(-?\\d+), y=(-?\\d+), z=(-?\\d+)\\}");
-    /** The mod's [check] plan of the same click without the centre preference (killer560.test.checkFewest). */
+    /** The mod's [check] plan of the same click without the center preference (killer560.test.checkFewest). */
     private static final Pattern CHECK_FEWEST = Pattern.compile("\\[check\\] without the cent(?:re|er) preference: (\\d+)"
             + " warp\\(s\\), landing (\\d+) block");
     private static final List<String> DEPTHS = new ArrayList<>();
@@ -621,7 +621,7 @@ public class SimMapWarpTests implements FabricClientGameTest {
         }
     }
 
-    /** The target whose tile centre is farthest from where he stands. */
+    /** The target whose tile center is farthest from where he stands. */
     private static int[] farthest(ClientGameTestContext ctx, List<int[]> targets) {
         Vec3 at = ctx.computeOnClient(mc -> mc.player.position());
         int[] best = null;

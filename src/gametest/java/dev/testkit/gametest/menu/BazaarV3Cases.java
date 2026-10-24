@@ -50,17 +50,17 @@ import java.util.concurrent.atomic.AtomicInteger;
  *   <li>486-menu-bazaar-v3-seamless: three page switches recorded frame by frame - a reskinned page to the next, a next
  *       page whose items trickle in a slot a tick, and the menu-less screen to Hypixel's product page through /bz and the
  *       follow-up - none may draw Hypixel's chest, no screen, or an empty panel; screenshots taken while the next page is
- *       still empty must show no chest grey; the panel, header, tabs, recents, bottom bar, product header and card
+ *       still empty must show no chest gray; the panel, header, tabs, recents, bottom bar, product header and card
  *       positions must be identical before and after.</li>
  *   <li>487-menu-bazaar-v3-product-click: with a Booster Cookie a product press sends {@code /bz <name>} and lands on the
- *       product (one follow-up click); at the NPC without a Cookie no command is sent and each press is one click towards
+ *       product (one follow-up click); at the NPC without a Cookie no command is sent and each press is one click toward
  *       the product (its group, then the product; another category's tab first).</li>
  *   <li>488-menu-bazaar-v3-followup: exactly one click on a single match, none on zero or two matches, none without his
  *       product press, none after the timeout, none with Follow-up Click off (the results show with the product
  *       highlighted), and never a second one when the same results come back. Run on the legit AND the cheat jar.</li>
  *   <li>489-menu-bazaar-v3-themes: Amber, Dark and Light (the Inventory Theme setting) on the browse view and a
  *       reskinned product page, at GUI 2 and the small window: no layout problems, the panel drawn in that theme's
- *       colour; screenshots of each.</li>
+ *       color; screenshots of each.</li>
  *   <li>490-menu-bazaar-v3-inventory: his inventory in the screen (killer560: "it needs a way for me to click on items in
  *       my inventory as well so I can list them"). Over Hypixel's main page the panel shows the menu's own 36 player
  *       slots (each mapped to its container slot index), Bazaar items live, the rest dimmed: presses on a non-Bazaar item
@@ -968,7 +968,7 @@ final class BazaarV3Cases {
                     + (clicks(c) - base) + " clicks, last " + lastClick(c));
             c.note("Cookie: press on Wheat -> '/bz Wheat', one follow-up click on result slot 10 -> PRODUCT");
 
-            // At the NPC without one: each press is one click towards the product, no command.
+            // At the NPC without one: each press is one click toward the product, no command.
             MenuKit.reset(c);
             cookie(c, false);
             c.ctx().runOnClient(mc -> Mod.staticCall(VIEW, "resetForTest"));

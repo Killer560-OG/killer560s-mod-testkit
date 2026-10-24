@@ -23,8 +23,8 @@ import java.util.function.Function;
  * the standalone screens drawn in the menu's theme through {@code gui/ScreenChrome}, and each screen's own Screen Theme.
  * Every screen is opened under Amber and Light at 1920x1080 GUI 2 (Auto Scale on, as he plays), screenshotted, and its
  * panel pixel read where layout x Auto Scale puts the frame's inside: it must be the theme's own panel gradient (Light
- * bright, Amber dark), so a screen still drawing its old fixed colours fails. Then its main actions are pressed with REAL
- * clicks at the controls' drawn centres under Light and proved by the screen's or config's state:
+ * bright, Amber dark), so a screen still drawing its old fixed colors fails. Then its main actions are pressed with REAL
+ * clicks at the controls' drawn centers under Light and proved by the screen's or config's state:
  * <ul>
  *   <li>1020 /profit hub, Experimentation Table, Dungeon Profit: a card opens its tracker, Back returns, By Floor switches.</li>
  *   <li>1021 Storage Search: a click on the search well focuses the (borderless) box, Inv toggles the config.</li>

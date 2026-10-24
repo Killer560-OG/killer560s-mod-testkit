@@ -195,7 +195,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
         return VideoRecorder.menuToWindow(c, s, box[0] + box[2] / 2.0, box[1] + box[3] / 2.0);
     }
 
-    /** Glides to a point a little off the centre of a box (a person rarely hits dead centre) in menu units. */
+    /** Glides to a point a little off the center of a box (a person rarely hits dead center) in menu units. */
     private static void glideTo(VideoRecorder r, int[] box, double fx, double fy, double ms) throws Exception {
         Screen s = screen(r.c);
         double[] w = VideoRecorder.menuToWindow(r.c, s, box[0] + box[2] * fx, box[1] + box[3] * fy);
@@ -603,7 +603,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
     // 1905 themes
     // =================================================================================================================
 
-    /** {x, y, w, h} of Home's Menu Theme chip {@code i} (MenuTheme order; values().length is Customise...), from
+    /** {x, y, w, h} of Home's Menu Theme chip {@code i} (MenuTheme order; values().length is Customize...), from
      *  ModScreen.ThemeBlock's own chip(); null if Home is not showing it. The click that follows checks it. */
     @SuppressWarnings("unchecked")
     private static int[] themeChip(UiCase c, Screen s, int i) {
@@ -617,7 +617,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                 int x = (Integer) Mod.field(it, "x");
                 int y = (Integer) Mod.field(it, "y") - scroll;
                 int w = (Integer) Mod.field(it, "w");
-                // The block's own layout (the themes' row, then Customise... and Main Menu on a row of their own since
+                // The block's own layout (the themes' row, then Customize... and Main Menu on a row of their own since
                 // mod theme-ui-1022), so a layout change cannot leave this a click off the chip.
                 return (int[]) Mod.call(block, "chip", i, x, y, w);
             }
@@ -736,7 +736,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
                 Mod.call(cfg, "save");
                 return null;
             });
-            // grab it a little left of centre and carry it to the right side of the screen
+            // grab it a little left of center and carry it to the right side of the screen
             double[] g0 = c.onClient(mc -> VideoRecorder.guiToWindow(mc, box[0] + (box[2] - box[0]) * 0.45,
                     box[1] + (box[3] - box[1]) * 0.5));
             r.glide(g0[0], g0[1], 700);
@@ -773,7 +773,7 @@ public class VideoGeneralSuite implements FabricClientGameTest {
             r.hold(200);
             r.release();
             r.hold(1500);
-            // carried to the middle of the screen: the centre guide shows, and it snaps there
+            // carried to the middle of the screen: the center guide shows, and it snaps there
             int[] mid0 = hudBox(c, ed, id);
             double[] grab0 = c.onClient(mc -> VideoRecorder.guiToWindow(mc, mid0[0] + (mid0[2] - mid0[0]) * 0.45,
                     mid0[1] + (mid0[3] - mid0[1]) * 0.5));

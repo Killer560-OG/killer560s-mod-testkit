@@ -31,7 +31,7 @@ import java.util.Map;
  * of the GUI scale (2560x1369 GUI 3 / Auto, 1920x1017 GUI 2 / 4), in the Default preset (Dark and Mod Theme at the 1440p
  * GUI 3 and 1369 Auto sizes):
  * <ul>
- *   <li>the slot's inside (its fill colour, read out from the centre on a frame with no items) is exactly the 16-unit
+ *   <li>the slot's inside (its fill color, read out from the center on a frame with no items) is exactly the 16-unit
  *   item box, and the stone's opaque box sits in it with equal margins on both axes;</li>
  *   <li>its sunken bevel is there: one GUI unit of the dark shade above and left of the inside, one of the light shade
  *   below and right;</li>
@@ -46,21 +46,21 @@ final class InvThemeCenterCases {
 
     private static final String ICFG = "inventorytheme.InventoryThemeConfig";
     private static final String RCFG = "itemrarity.ItemRarityConfig";
-    /** Item Rarity Background colour of a LEGENDARY item (ItemRarity.LEGENDARY), drawn opaque in this case. */
+    /** Item Rarity Background color of a LEGENDARY item (ItemRarity.LEGENDARY), drawn opaque in this case. */
     private static final int GOLD = 0xFFAA00;
     private static final Path SHOTS = Path.of("C:/Users/Hunter/killer560s-mod-logs/inv-theme-shots");
 
     private InvThemeCenterCases() {
     }
 
-    /** The palette's colours (RGB, no alpha): border, panel, light, dark, slotFill, slotDark, slotLight. */
+    /** The palette's colors (RGB, no alpha): border, panel, light, dark, slotFill, slotDark, slotLight. */
     private record Pal(int border, int panel, int light, int dark, int slotFill, int slotDark, int slotLight,
                        boolean bevel) {
         Pal(int border, int panel, int light, int dark, int slotFill, int slotDark, int slotLight) {
             this(border, panel, light, dark, slotFill, slotDark, slotLight, true);
         }
 
-        /** The colour of a slot's top and left line: the dark bevel in Default, the light outline elsewhere (mod
+        /** The color of a slot's top and left line: the dark bevel in Default, the light outline elsewhere (mod
          *  doc-misc, 2026-10-13: every preset but Default outlines each slot on all four sides in slotLight). */
         int topLeft() {
             return bevel ? slotDark : slotLight;
@@ -78,7 +78,7 @@ final class InvThemeCenterCases {
             Mod.call(cfg, "setUseCustomAccent", false);
             Mod.call(cfg, "setUseCustomSlotColor", false);
             // 0.3: since mod inv-theme-ring2 everything is opaque whatever this says (killer560, 2026-10-12: "make the
-            // inventories not transparent"), so every exact palette colour this case reads proves the pixel opaque.
+            // inventories not transparent"), so every exact palette color this case reads proves the pixel opaque.
             Mod.call(cfg, "setBackgroundOpacity", 0.3f);
             Mod.call(cfg, "setThemeHotbar", true);
             Mod.call(cfg, "setHotbarScale", 1.0f);
@@ -121,7 +121,7 @@ final class InvThemeCenterCases {
                 + Math.abs((p & 0xFF) - (q & 0xFF)) > 30;
     }
 
-    /** Pixels of {@code colour} from (x, y) stepping by (dx, dy). */
+    /** Pixels of {@code color} from (x, y) stepping by (dx, dy). */
     private static int run(BufferedImage img, int x, int y, int dx, int dy, int colour) {
         int n = 0;
         while (rgb(img, x + n * dx, y + n * dy) == colour) {
@@ -204,7 +204,7 @@ final class InvThemeCenterCases {
     }
 
     /** Checks every slot against the 16-unit item box vanilla draws at slot.x / slot.y; returns how many were measured.
-     *  Read from the frame WITH items (an empty armour slot shows vanilla's placeholder icon), where the stone leaves the
+     *  Read from the frame WITH items (an empty armor slot shows vanilla's placeholder icon), where the stone leaves the
      *  inside's edge rows and columns showing. */
     private static int measure(String label, BufferedImage full, BufferedImage rarity, List<int[]> slots, int gs, Pal p,
                                List<String> problems, UiCase c) {
@@ -212,7 +212,7 @@ final class InvThemeCenterCases {
     }
 
     /** With {@code empty} (a frame with no items) the inside may be translucent: it is judged as "what the item frame
-     *  shows where the item is not", the item as "what changed", instead of against the palette's fill colour. */
+     *  shows where the item is not", the item as "what changed", instead of against the palette's fill color. */
     private static int measure(String label, BufferedImage empty, BufferedImage full, BufferedImage rarity, List<int[]> slots,
                                int gs, Pal p, List<String> problems, UiCase c) {
         int checked = 0;
@@ -243,7 +243,7 @@ final class InvThemeCenterCases {
             int dt = run(full, cx, by0 - 1, 0, -1, p.topLeft());
             int lr = run(full, bx1 + 1, cy, 1, 0, p.slotLight());
             int lb = run(full, cx, by1 + 1, 0, 1, p.slotLight());
-            // A one-colour outline runs on into a touching neighbour's own line: one unit, or two between two slots.
+            // A one-color outline runs on into a touching neighbor's own line: one unit, or two between two slots.
             boolean ok = p.bevel() ? dl == gs && dt == gs && lr == gs && lb == gs
                     : one(dl, gs) && one(dt, gs) && one(lr, gs) && one(lb, gs);
             if (!ok) {
@@ -388,7 +388,7 @@ final class InvThemeCenterCases {
     }
 
     /**
-     * The screen titles' colour per preset (killer560, 2026-10-12: "in dark mode make text pure white"): in a 2560x1440
+     * The screen titles' color per preset (killer560, 2026-10-12: "in dark mode make text pure white"): in a 2560x1440
      * GUI 3 window, the title of the inventory ("Crafting") and of a 6-row chest is counted pixel by pixel in its label
      * box. Dark must draw it #FFFFFF (and nothing of its old #D8D8DC), Default vanilla's #404040. Pictures of Dark go to
      * {@code inv-theme-shots/dark-white-*.png}.
@@ -397,7 +397,7 @@ final class InvThemeCenterCases {
         HudEditorCases.setWindow(c, 2560, 1440, 3);
         int gs = c.onClient(mc -> mc.getWindow().getGuiScale());
         InvBatchCases.inventory(c, Map.of());
-        // Since mod 4a7ffc31 (2026-10-18) Dark is the menu's DARK theme and the title takes that theme's text colour
+        // Since mod 4a7ffc31 (2026-10-18) Dark is the menu's DARK theme and the title takes that theme's text color
         // (InventoryPalette.fromMenu: "the menu's text for titles so a light theme stays readable"), MenuTheme.DARK's
         // #E6E6EA, no longer the fixed Dark preset's #FFFFFF (deleted in 967bf9f6). The old #D8D8DC must still be absent.
         String[][] presets = InvStorageCases.hasChoice()
@@ -537,7 +537,7 @@ final class InvThemeCenterCases {
                 problems.add(preset + ": the ring changes " + insideChanged + " px inside the slot's 16-unit inside");
             }
             // Vanilla's band structure, mirrored: from the outline inward on the left light > mid > faint; on the right the
-            // reverse (faint by the outline, light by the slot). The outline's top row is the bar's own edge colour.
+            // reverse (faint by the outline, light by the slot). The outline's top row is the bar's own edge color.
             int sxp = (x0 - 1 + 80) * gs + gs / 2;
             int my = (g[1] - 10) * gs + gs / 2;
             int[] left = {rgb(s4, sxp + gs, my), rgb(s4, sxp + 2 * gs, my), rgb(s4, sxp + 3 * gs, my)};

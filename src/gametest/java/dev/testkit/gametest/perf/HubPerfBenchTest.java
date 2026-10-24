@@ -22,7 +22,7 @@ import java.util.Map;
 
 /**
  * 403-perf-hub: what 95-fps-bench does not exercise - a Hypixel-shaped HUB rather than a dungeon. On the Hx test
- * server (so the mod sees mc.hypixel.net, a SkyBlock sidebar and an 80-entry tab list), with ~120 named armour stands
+ * server (so the mod sees mc.hypixel.net, a SkyBlock sidebar and an 80-entry tab list), with ~120 named armor stands
  * and 60 mobs around the player, five sub-phases are timed with the mod's features ON vs OFF, alternated:
  * <ul>
  *   <li><b>lobby</b> - entities, sidebar and tab list, no screen;</li>

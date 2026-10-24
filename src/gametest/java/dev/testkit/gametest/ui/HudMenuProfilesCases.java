@@ -52,7 +52,7 @@ import java.util.zip.ZipFile;
  *       "Edit Bars" and the Health and Mana Bars tab's "Edit Bars" both open the bar editor, which lists exactly the
  *       readouts that are on and nothing else; a real drag there moves the Health Bar and is saved.</li>
  *   <li>615 HUD Scale sizes the mod menu: at 50/100/150/200% the open ModScreen is laid out at
- *       {@code AutoScale.menuFactor()}, which grows with HUD Scale; a real click at the DRAWN centre of sidebar row 1
+ *       {@code AutoScale.menuFactor()}, which grows with HUD Scale; a real click at the DRAWN center of sidebar row 1
  *       selects tab 1 at each; the panel's drawn rectangle is inside the window at each, also at 854x480 GUI 2 with
  *       HUD Scale 300%; screenshots at 1920x1080 GUI 2.</li>
  *   <li>616 the menu factor's math, no Minecraft state: identity at 100%, the clamp, the fit cap, crisp snapping.</li>
@@ -669,7 +669,7 @@ final class HudMenuProfilesCases {
         return f;
     }
 
-    /** A real click (TestInput, through the mouse funnel) at the DRAWN centre of sidebar row 1; it must select tab 1. */
+    /** A real click (TestInput, through the mouse funnel) at the DRAWN center of sidebar row 1; it must select tab 1. */
     private static void clickSidebar(UiCase c, Class<?> cls, float f, String where) {
         Screen s = c.onClient(McCompat::screen);
         int target = 1;
@@ -1194,7 +1194,7 @@ final class HudMenuProfilesCases {
 
     private static Object probeElement;
 
-    /** A real {@code hud.HudElement} (a proxy of the mod's interface): a PROBE_W x PROBE_H grey block, always on. */
+    /** A real {@code hud.HudElement} (a proxy of the mod's interface): a PROBE_W x PROBE_H gray block, always on. */
     private static Object probe() {
         if (probeElement != null) {
             return probeElement;

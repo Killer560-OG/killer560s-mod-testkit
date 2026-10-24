@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * <ul>
  *   <li>Museum (not the Water Board): the flowing block is still there, the count is unchanged, and the mod's own
- *       {@code SimStaticWater.frozenTicks} went up - proof the hook cancelled ticks rather than none being scheduled.</li>
+ *       {@code SimStaticWater.frozenTicks} went up - proof the hook canceled ticks rather than none being scheduled.</li>
  *   <li>Water Board: the flowing block drained, the source spread (several new water blocks), and
  *       {@code SimStaticWater.allowedTicks} went up - the same placement does flow in there, which is also the
  *       positive control showing the Museum half would have spread without the hook.</li>
@@ -119,7 +119,7 @@ public class SimStaticWaterTests implements FabricClientGameTest {
             return "FAIL premise - " + tag + "the mod's Water Board box is '" + boxes + "'";
         }
 
-        // A free spot: air with a solid floor, and the same for its four neighbours, so a source has room to spread.
+        // A free spot: air with a solid floor, and the same for its four neighbors, so a source has room to spread.
         BlockPos spot = onServer(ctx, (level, sp) -> {
             BlockPos feet = sp.blockPosition();
             for (int d = 2; d <= 6; d++) {

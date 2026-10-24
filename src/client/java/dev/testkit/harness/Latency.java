@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>The test server runs on the same machine, so its round trip is well under a tick. The client handles
  * packets between frames, not only at tick boundaries, so anything the server answers arrives inside the tick
- * that asked — which is not what a player on a real connection sees. Anything whose behaviour depends on the gap
+ * that asked — which is not what a player on a real connection sees. Anything whose behavior depends on the gap
  * between an action and the server's answer to it (a prediction the server overrules, a correction, an
  * acknowledgement) needs this to be tested at all.
  *

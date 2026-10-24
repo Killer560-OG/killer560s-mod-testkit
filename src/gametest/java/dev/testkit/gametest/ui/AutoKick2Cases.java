@@ -27,7 +27,7 @@ import java.util.Map;
  * <p>802 Detect Queued (Party Finder only): a client-side "Group Builder" with his screenshot's exact items ("Select
  * Dungeon Type" / "Select Floor", "Currently Selected: ...") is read by item name, and the pick becomes the floor only
  * when "Party Finder > Your party has been queued in the dungeon finder!" arrives through the real chat hook; a joiner is
- * then judged on it. Normal mode, other slots and colour codes too.
+ * then judged on it. Normal mode, other slots and color codes too.
  * <p>803 /joininstance is NOT a source: after a Party Finder F5 queue, a sendCommand /joininstance, the /m6 shortcut
  * and the ServerCommands packet path all leave F5.
  * <p>804 Forgery: another player's chat line carrying the queued text (all, party, guild, private, with a suffix), a
@@ -146,7 +146,7 @@ final class AutoKick2Cases {
             c.ticks(5);
             List<String> all = decisions(c);
             List<String> mine = new ArrayList<>(all.subList(Math.min(d0, all.size()), all.size()));
-            // Normal mode, the items in other slots (found by NAME), colour codes on the lines.
+            // Normal mode, the items in other slots (found by NAME), color codes on the lines.
             openBuilder(c, 12, "§aThe Catacombs", 30, "§aFloor VI", false);
             String pick2 = pick(c);
             close(c);

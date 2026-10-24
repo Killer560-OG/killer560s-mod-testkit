@@ -16,7 +16,7 @@ GrimAC: the same pin, `2.3.74-8eb5f28` (its only per-version module is `grimac-f
 smoke's positive control and proof's 46 verbose lines both came back on 2026-10-04.
 
 Status 2026-10-04, first runs: `smoke,proof,02-seed` and the UI world group (301-306, 365) pass on 26.2 with the
-26.2 cheat jar. What it took: `menu/*` goes through `McCompat.screen/setScreen`; `HxMenus` reads colours as the first
+26.2 cheat jar. What it took: `menu/*` goes through `McCompat.screen/setScreen`; `HxMenus` reads colors as the first
 16 `ChatFormatting` ordinals (26.2 removed `isColor()`); the mod's own 26.2 startup crash (seven `Gui.extractRenderState`
 mixins, fixed there in b0ae44cb; `365-ui-overlay-draws` proves an overlay draws); and `Scenario.connect` retries a join
 that fails instantly (26.2 only: the client dials the moment the restarted server prints Done) up to 5 times, 2 s apart.
@@ -32,8 +32,8 @@ are not hidden by F1 on either version; a screenshot diff calls `McCompat.clearC
 Version-specific API goes in `dev.testkit.compat` (`McCompat.screen/setScreen`, `McItems`, `McEntities`) under
 `src/client/mc26_1/java` and `src/client/mc26_2/java`, one of which build.gradle puts on the client source path.
 Both copies keep identical public signatures. Nothing in `src/*/java` may use `mc.screen`, `mc.setScreen`, a
-colour-variant `Items.RED_...` constant or `EntityType.<CONSTANT>`: those are gone on 26.2 (the screen moved to
-`Minecraft.gui`, colours to `ColorCollection.pick(DyeColor)`, entity constants to `EntityTypes`), and
+color-variant `Items.RED_...` constant or `EntityType.<CONSTANT>`: those are gone on 26.2 (the screen moved to
+`Minecraft.gui`, colors to `ColorCollection.pick(DyeColor)`, entity constants to `EntityTypes`), and
 `BlockPos.getCenter()` is gone too (use `Vec3.atCenterOf`). Before merging a branch, compile it with
 `-Pminecraft_version=26.2` as well, or new code quietly breaks the 26.2 build.
 - `GuiTextRenderState`'s `dropShadow` and `color` are public in 26.1.2 and private in 26.2: a scenario reading them

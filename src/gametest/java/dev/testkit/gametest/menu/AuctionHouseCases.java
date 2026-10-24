@@ -52,7 +52,7 @@ import java.util.Set;
  *   <li>493-menu-ah-open-listing: a real press on a listing sends exactly {@code /viewauction <uuid>} (the API's 32-hex
  *       id) to the server, once, and no container click; a right press sends nothing.</li>
  *   <li>494-menu-ah-reskin-pages: every mapped AH menu reskins as its kind; every non-filler slot has a clickable element
- *       (scrolling through long pages); layout rules; no chest-grey pixels at 1920x1080 GUI 2; drawing sends nothing.</li>
+ *       (scrolling through long pages); layout rules; no chest-gray pixels at 1920x1080 GUI 2; drawing sends nothing.</li>
  *   <li>495-menu-ah-reskin-click: idle = 0 clicks; one press = one click on the right slot (left, right, shift; a
  *       listing card, a category tab, a filter, the page arrow, Buy Item Right Now -> the server's Confirm Purchase ->
  *       Confirm, an inventory item on Create BIN Auction); empty panel space = nothing.</li>
@@ -60,7 +60,7 @@ import java.util.Set;
  *       backdrop (no HUD or world pixel); with Hypixel's GUI (Left Alt) the same strip shows the hotbar (positive
  *       control).</li>
  *   <li>497-menu-ah-seamless: a page change through the reskin never shows the chest or a blank panel - while the next
- *       menu's items are missing the previous page stays drawn (screenshot: no chest grey, the old page's texts), and the
+ *       menu's items are missing the previous page stays drawn (screenshot: no chest gray, the old page's texts), and the
  *       mod's frame counters stay at 0 chest/0 blank.</li>
  *   <li>498-menu-ah-fallback: Auction Stats and a malformed Auctions Browser stay Hypixel's GUI (chest pixels, vanilla
  *       click); the Auction House switched off likewise; Left Alt shows Hypixel's GUI and releasing brings the reskin
@@ -961,7 +961,7 @@ final class AuctionHouseCases {
         }
     }
 
-    /** Hypixel's GUI is really drawn (chest grey) and a press on a real slot is vanilla's own click on it. */
+    /** Hypixel's GUI is really drawn (chest gray) and a press on a real slot is vanilla's own click on it. */
     static void vanillaClick(Session c, JsonObject spec, String what) {
         BufferedImage img = shot(c, "ah-vanilla-" + what.replaceAll("[^a-z0-9]+", "-"));
         int grey = count(img, CHEST_GREY);

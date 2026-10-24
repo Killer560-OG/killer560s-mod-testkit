@@ -27,7 +27,7 @@ import java.util.List;
  *       same through a Component's visual order and the width path all come back untouched, while ordinary text with the
  *       name is replaced (the control that the feature acted); the command-suggestions mixin is applied.</li>
  *   <li>1551 the rank tag: Keep Original leaves "[MVP++] name", None removes it, a Hypixel rank or a custom one replaces
- *       it (text, bracket colour, plus colour), through a String and through Hypixel's multi-part Component, and a tag that
+ *       it (text, bracket color, plus color), through a String and through Hypixel's multi-part Component, and a tag that
  *       is not directly in front of the name or is not a rank ("[285]") is left alone; the Name Changer tab's Rank row
  *       cycles it and shows the custom text box; it survives a reload.</li>
  *   <li>1552 names shared by every profile: with Per-Profile Names off, loading a profile does not change the names and a
@@ -80,7 +80,7 @@ final class NamesProfilesCases {
         return mc.getUser().getName();
     }
 
-    /** The text a sequence paints, and the colour (0xRRGGBB, -1 none) of each glyph. */
+    /** The text a sequence paints, and the color (0xRRGGBB, -1 none) of each glyph. */
     private record Flat(String text, List<Integer> colours) {
     }
 
@@ -164,7 +164,7 @@ final class NamesProfilesCases {
                         return "the width of the command '" + cmd + "' was measured on a replaced name";
                     }
                 }
-                // A coloured Hypixel-style line (a § code first) with a slash behind it is a command too.
+                // A colored Hypixel-style line (a § code first) with a slash behind it is a command too.
                 Flat styled = replaceSeq(Component.literal("/").withStyle(ChatFormatting.GRAY)
                         .append(Component.literal(real).withStyle(ChatFormatting.GRAY)));
                 if (!styled.text().equals("/" + real)) {
@@ -253,7 +253,7 @@ final class NamesProfilesCases {
                 if (vip.colours().get(0) != 0x55FF55 || vip.colours().get(4) != 0xFFAA00) {
                     return "VIP+ colors were " + vip.colours().subList(0, 6) + " (want green bracket, gold plus)";
                 }
-                // Rank colour: a quick pick over the preset's own.
+                // Rank color: a quick pick over the preset's own.
                 Mod.call(cfg, "setOwnRank", Mod.enumValue(PRESET, "MVP_PLUS_PLUS"));
                 Mod.call(cfg, "setOwnRankColor", BLUE);
                 Mod.call(cfg, "save");
@@ -264,7 +264,7 @@ final class NamesProfilesCases {
                 if (mvp.colours().get(4) != 0xFF5555) {
                     return "MVP++'s plus lost its own red: " + Integer.toHexString(mvp.colours().get(4));
                 }
-                // A custom rank: text, colour, and a plus that follows it unless picked.
+                // A custom rank: text, color, and a plus that follows it unless picked.
                 Mod.call(cfg, "setOwnRank", Mod.enumValue(PRESET, "CUSTOM"));
                 Mod.call(cfg, "setOwnRankCustomText", "KING++");
                 Mod.call(cfg, "setOwnRankColor", BLUE);
@@ -328,7 +328,7 @@ final class NamesProfilesCases {
             });
             c.check(why == null, why);
 
-            // The tab: the Rank row cycles, Custom shows the text box, the colour row steps.
+            // The tab: the Rank row cycles, Custom shows the text box, the color row steps.
             Screen[] s = new Screen[1];
             String ui = c.onClient(mc -> {
                 Object cfg = Mod.cfg(NC);

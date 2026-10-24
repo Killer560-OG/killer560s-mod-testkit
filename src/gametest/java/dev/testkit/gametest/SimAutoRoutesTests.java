@@ -55,7 +55,7 @@ import java.util.function.Supplier;
  * nodes and the two await counters), breaker, breakerwait (a node short of charges waits, then one burst), pingpong, charges (a secret gives the sim breaker 2 charges), museum (his
  * exact Museum route: stacked booms into a crypt node), edit, mapopen, mapopen-aim (aim and land with the map open,
  * on the node and after Go + Secret, legit and obvious), 398-offnode / 398-regrow / 398-startawait (his 2026-10-07
- * Museum log: off-centre warps, a rebuilt room's stale regrow, the start await after a map warp), path, screen, rotate.
+ * Museum log: off-center warps, a rebuilt room's stale regrow, the start await after a map warp), path, screen, rotate.
  * GrimAC does not apply
  * here: the sim is an integrated server.
  */
@@ -131,7 +131,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-920-nostart-mapwarp",
             // ar-redo (2026-10-12): /ar redo restores deletes and clears
             "96-ar-960-redo-restore",
-            // ar-render-1016: the node renderer draws the executor's active node in the active colour on every frame
+            // ar-render-1016: the node renderer draws the executor's active node in the active color on every frame
             "96-ar-1016-activeframe",
             // fullclear-1016: a path hop the server takes as an unpaired chest click's second half is sent again
             "96-ar-1016-eaten",
@@ -1731,7 +1731,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     /*
      * killer560, 2026-10-07 ~01:17, his own sim on Map Logger, his Museum route: "on occasion it wouldn't proc nodes
      * properly, some just wouldn't proc at all or only partway". Three things in his log, one case each:
-     *  - 96-ar-398-offnode: #10 armed with him 0.6 off its centre and 0.27 up (mid-jump), fired the RECORDED look, landed a
+     *  - 96-ar-398-offnode: #10 armed with him 0.6 off its center and 0.27 up (mid-jump), fired the RECORDED look, landed a
      *    block wide of #11 and the route stood still. The look must be worked out from where he really is.
      *  - 96-ar-398-startawait: after the Interactive Map took him to the start node, #1's await (the chest beside it) sat
      *    at 0/1 until he skipped it, three runs of four. Secret Aura and Auto Routes are let go on the same tick after a
@@ -1789,7 +1789,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     }
 
     /** Whether a sneaking eye over relative feet (x, y, z) has a clear line to a point on the top of relative block
-     *  {@code b} (centre or 0.3 in from a corner), by a client clip on colliders. */
+     *  {@code b} (center or 0.3 in from a corner), by a client clip on colliders. */
     private static boolean visible(ClientGameTestContext ctx, double x, double y, double z, BlockPos b) {
         return ctx.computeOnClient(mc -> {
             Object frame = ModUnderTest.staticCall(FRAME, "current");
@@ -1831,7 +1831,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
 
     /**
      * 96-ar-398-offnode. His Museum #10 (28.5, 69, 10.5) etherwarps onto #11 (31.5, 69.05, 5.5). He is put inside #10's
-     * ring but OFF its centre, at a spot from which the recorded look - checked here with a client clip first - does
+     * ring but OFF its center, at a spot from which the recorded look - checked here with a client clip first - does
      * NOT stop on #11's block, so firing it from there misses (the premise, asserted). Twice: standing still there,
      * and dropped in from 0.6 above it, still falling when it fires (his 01:16:43, y 0.27 over the node). Each time the
      * warp must land on #11.
@@ -2881,7 +2881,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      * tile), so the stack #11 BOOM, #12 BOOM, #13 CRYPT (await 2), #14 ETHERWARP fires as it does for him. Each boom
      * must act and complete (blew something, or nothing left to blow), the crypt node must then hold use with his
      * Spirit Sceptre, a crypt undead must die, and the route must carry on to #14. On main before the fix the first
-     * boom opened its crypt (the sim broke 30 blocks) but watched only the hit block and its six neighbours, saw no
+     * boom opened its crypt (the sim broke 30 blocks) but watched only the hit block and its six neighbors, saw no
      * change, and stopped the route with "superboom didn't break anything".
      */
     private void caseMuseum(ClientGameTestContext ctx) {
@@ -3942,7 +3942,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         return s.is(Blocks.LEVER) && s.getValue(net.minecraft.world.level.block.LeverBlock.POWERED);
     }
 
-    /** Pitch from a STANDING eye over block (fx,fz) to a point {@code h} above the floor top at (tx,tz)'s centre. */
+    /** Pitch from a STANDING eye over block (fx,fz) to a point {@code h} above the floor top at (tx,tz)'s center. */
     private static float standPitch(int fx, int fz, int tx, int tz, double h) {
         double horiz = Math.hypot(tx - fx, tz - fz);
         return (float) Math.toDegrees(Math.atan2(1.62 - h, horiz));
@@ -4766,7 +4766,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      * that have it look right at the bat to use the rest of them till it times out. If using hype have it keep looking
      * down." A secret bat stands seven blocks to the side of a lone bat node (outside the straight-down blast). Spirit
      * Sceptre: the server takes at least three uses, the first two at pitch exactly 90.0, the rest aimed at the bat
-     * (pitch short of straight down, yaw towards it). Hyperion: every use at 90.0. Obvious mode (legit mode is testing-build only).
+     * (pitch short of straight down, yaw toward it). Hyperion: every use at 90.0. Obvious mode (legit mode is testing-build only).
      */
     private void caseBatSeek(ClientGameTestContext ctx) {
         resetRoutes(ctx);
@@ -5942,7 +5942,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         return (float) Math.toDegrees(Math.atan2(-(tx - fx), tz - fz));
     }
 
-    /** Pitch from a sneaking eye over block (fx,fz) down onto the top centre of the floor block at (tx,tz). */
+    /** Pitch from a sneaking eye over block (fx,fz) down onto the top center of the floor block at (tx,tz). */
     private static float pitchTo(int fx, int fz, int tx, int tz) {
         double horiz = Math.hypot(tx - fx, tz - fz);
         return (float) Math.toDegrees(Math.atan2(1.27, horiz));
@@ -6121,7 +6121,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         });
     }
 
-    /** A click at the widget's DRAWN centre, through the screen's own mouseClicked. Exact label, else prefix. */
+    /** A click at the widget's DRAWN center, through the screen's own mouseClicked. Exact label, else prefix. */
     private static void press(ClientGameTestContext ctx, String label) {
         String result = ctx.computeOnClient(mc -> {
             Screen s = McCompat.screen(mc);
@@ -7078,7 +7078,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     // ============================================================================================ path-wait (2026-10-11)
 
     /**
-     * 96-ar-639-legit-warp-exact: 644/651's warp - an etherwarp start node at (14,12) aimed at the top centre of the
+     * 96-ar-639-legit-warp-exact: 644/651's warp - an etherwarp start node at (14,12) aimed at the top center of the
      * floor block at (14,5), 0.7 degrees of margin - fired 20 times in LEGIT mode, each from a fresh look turned away and
      * down (50-86 degrees, as after Kill Mimic's Wither Impact), so every run is a real turn up to the warp's pitch. Every one must land on (14,5), as the same node does in obvious
      * mode (run once first as the control). The jar before path-wait clicked once the camera was within 1 degree and
@@ -7282,7 +7282,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      * in the direction of the mimic"). Node #1 is an etherwarp start node with await secret 1, aimed AWAY from the mimic's
      * trapped chest (#1 at (14,12), its warp to (14,5), the chest at (14,14)). He turns to the chest and clicks it, Kill
      * Mimic kills the mimic, the kill meets the await and #1 warps. Every tick his relative position is read: he must end
-     * on (14,5) and never go more than half a block towards the chest (+z) on the way. Once per Kill Mimic item and mode
+     * on (14,5) and never go more than half a block toward the chest (+z) on the way. Once per Kill Mimic item and mode
      * (Spirit Sceptre / Hyperion, obvious / legit); every use packet is printed with the sneak the server had for it and
      * every server-side move with its tick, so a failure names the packet that moved him.
      */
@@ -9133,8 +9133,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     }
 
     /**
-     * ar-render-1016: the node renderer caches its geometry and keeps colours in a palette rebuilt when the active node
-     * changes. This plays a three-node route and checks, on EVERY frame the renderer drew, that the node it coloured as
+     * ar-render-1016: the node renderer caches its geometry and keeps colors in a palette rebuilt when the active node
+     * changes. This plays a three-node route and checks, on EVERY frame the renderer drew, that the node it colored as
      * active is the node {@code RouteExecutor.activeNode()} reports at that moment (read by a listener after the
      * default phase of the same render event), and that the highlight really moved (three or more different nodes).
      */
@@ -9255,7 +9255,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      *   <li>keyaura: Secret Aura (Redstone Key + Place Redstone Key) takes the key and puts it in with no input, while the
      *   route's await:1 waits: two use_item_on packets went out, the server has the key in, the await was met at the
      *   pickup, and the placing followed once the route was done.</li>
-     *   <li>keyreach: the node 5.1 from his eye to its centre (past the 4.7 skull range): the key is taken (which meets the
+     *   <li>keyreach: the node 5.1 from his eye to its center (past the 4.7 skull range): the key is taken (which meets the
      *   await) and the node is not clicked; a node walled in on all six sides, in reach, is never clicked either;
      *   stood in reach of an open node, it goes in.</li>
      * </ul>
@@ -9440,7 +9440,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             arena(ctx, false);
             giveHotbar(ctx);
             writeRoute(ctx, List.of(handUse(12, 12, 0f, 80f, true, 1)));
-            // Out of reach: eye (12.5, F+1.62, 12.5) to the node's centre (12.5, F+0.5, 17.5) is 5.12, past 4.7.
+            // Out of reach: eye (12.5, F+1.62, 12.5) to the node's center (12.5, F+0.5, 17.5) is 5.12, past 4.7.
             // Its own key spot: Secret Aura's done-set (per block, per run) still holds keyaura's (13, F, 14).
             int[] key = {14, F, 13};
             int[] far = {12, F, 17};
@@ -9466,7 +9466,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 stopRoute(ctx);
 
                 // In reach but walled in: every face against stone. Never clicked.
-                // Eye (12.5, F+1.62, 12.5) to its centre (9.5, F+0.5, 12.5) is 3.2.
+                // Eye (12.5, F+1.62, 12.5) to its center (9.5, F+0.5, 12.5) is 3.2.
                 // Walled in BEFORE it is armed: the first run armed it first and the aura put the key in at once.
                 int[] boxed = {9, F, 12};
                 setBlocks(ctx, Map.of(new int[]{8, F, 12}, Blocks.STONE.defaultBlockState(),
@@ -9593,7 +9593,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             });
         }
 
-        /** Closest his eye came to the block's centre over the samples (feet + 1.62). */
+        /** Closest his eye came to the block's center over the samples (feet + 1.62). */
         private static double closest(ClientGameTestContext ctx, List<Sample> s, int[] at) {
             Vec3 c = Vec3.atCenterOf(realNow(ctx, at[0], at[1], at[2]));
             double best = Double.MAX_VALUE;

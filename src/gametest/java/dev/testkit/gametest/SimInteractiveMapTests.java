@@ -304,7 +304,7 @@ public class SimInteractiveMapTests implements FabricClientGameTest {
     }
 
     /**
-     * Stands him on tile (gx, gz) of the 6x6 room grid: the lowest solid block in the tile's centre column with two
+     * Stands him on tile (gx, gz) of the 6x6 room grid: the lowest solid block in the tile's center column with two
      * blocks of air on it, found and teleported to ON THE SERVER THREAD. Not the sim's /goto: that scans the
      * ServerLevel from the render thread, and in the gametest's client/server lockstep a chunk load there deadlocks
      * the client (thread dump, 2026-10-05: render thread parked in ServerChunkCache.getChunk under goTo).

@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * used to accept any 3x4 opening from y64 to y86, which also took two openings that are not doors: Mage's north wall on
  * its second tile (open y72..87 - that tile of the capture is a tile of Altar, by the room database's core hash) and a red
  * terracotta panel at y77..80 in Quad Lava's east wall (red terracotta reads as a shut blood door). The layout then joined
- * a neighbour to them there, and the carve, at the doorway floor, cut 3x4x3 into the solid wall below the opening: a
+ * a neighbor to them there, and the carve, at the doorway floor, cut 3x4x3 into the solid wall below the opening: a
  * tunnel that ends in stone.
  *
  * <p>For each of those rooms (Mage, and Quad Lava with its edge E0 in the capture's own frame):
@@ -89,7 +89,7 @@ public class SimDoorHeightTests implements FabricClientGameTest {
      * Mage carries no edge (side -1): the stitched capture whose second tile was Altar's interior (N1 of a 65x33 room) was
      * replaced on 2026-10-15 by a real 33x65 one, which has no N1 - the old case's edge then pointed at the cell EAST of
      * Mage and counted other rooms' doors (4 of 30 "joined" floors on main 4a2b306d, every one a door between two
-     * neighbours). It stays as a room to pin and build, so every door of it is still checked.
+     * neighbors). It stays as a room to pin and build, so every door of it is still checked.
      */
     private static final List<Case> CASES = List.of(
             new Case("Mage", -1, 0, "Mage (re-captured 2026-10-15, 1x2)"),
@@ -603,7 +603,7 @@ public class SimDoorHeightTests implements FabricClientGameTest {
             int roomCell = aIs ? az * GRID + ax : bz * GRID + bx;
             int removed = removedSolid(level, captures.get(room), anchorCell(cellRoom, roomCell), cellRotation[roomCell],
                     centres, c, alongX, s, f, dy);
-            // The room's side of the doorway, centre column (w 0), d 1..6, rows f-1..f+4: one letter per block.
+            // The room's side of the doorway, center column (w 0), d 1..6, rows f-1..f+4: one letter per block.
             StringBuilder prof = new StringBuilder();
             for (int y = f + 4; y >= f - 1; y--) {
                 prof.append(" y+").append(y - f).append(':');

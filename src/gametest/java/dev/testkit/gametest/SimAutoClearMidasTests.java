@@ -257,7 +257,7 @@ public class SimAutoClearMidasTests implements FabricClientGameTest {
                 "starredMobs", new Class<?>[]{Minecraft.class}, new Object[]{mc})).size());
     }
 
-    /** Smooth stone slabs within 16 blocks of the room's centre cell and 30 of his feet's height (the lid is 35). */
+    /** Smooth stone slabs within 16 blocks of the room's center cell and 30 of his feet's height (the lid is 35). */
     private static int lidSlabs(ClientGameTestContext ctx) {
         SimAutoClearTests.Room r = room(ctx);
         if (r == null) {

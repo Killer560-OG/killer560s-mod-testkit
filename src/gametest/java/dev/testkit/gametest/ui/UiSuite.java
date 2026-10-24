@@ -46,8 +46,8 @@ import java.util.List;
  *                427-432 Pack Disabler: models through vanilla's resolver ON/OFF, the pack push left to vanilla, the
  *                missing-texture command, a chest at GUI 2, a player's resource pack beating both vanilla-look and our
  *                textures, Bazaar icons from the same table ({@link PackDisablerCases}),
- *                451-454 Inventory Theme on the hotbar (vanilla overlays kept, line width, colours, scale), its
- *                settings round trip, the Storage Overlay centred at six window/GUI sizes, and the Amber / Dark /
+ *                451-454 Inventory Theme on the hotbar (vanilla overlays kept, line width, colors, scale), its
+ *                settings round trip, the Storage Overlay centered at six window/GUI sizes, and the Amber / Dark /
  *                Light themes measured on screenshots ({@link InvStorageCases})
  *                441-447 killer560's 2026-10-07 HUD report: Health and Mana Bars behind an open inventory, the
  *                absorption segment and Hypixel's gold health text, one scale in Predefined, room round a bar's number
@@ -55,8 +55,8 @@ import java.util.List;
  *                the dungeon board's Solo/Keys lines and the quiet unknown-line notice ({@link HudFixCases})
  *                471-476 killer560's 2026-10-07 22:08 polish report: held-item name Shown / Hidden Over Bars / Hidden,
  *                Line Width in screen pixels at GUI 2 and 3 (and old unit widths converted), one shared line between
- *                touching slots (chest, inventory, hotbar), the armour column against the model frame, the bar number
- *                centred to the pixel ({@link PolishCases})
+ *                touching slots (chest, inventory, hotbar), the armor column against the model frame, the bar number
+ *                centered to the pixel ({@link PolishCases})
  *                581-587 killer560's 2026-10-08 inventory batch: Item Protect's star (pixels) and Slot Lock's removal +
  *                migration, the Inventory Sorter's layouts menu by real input, Custom Items by real clicks, the Cosmetics
  *                category ({@link InvBatchCases})
@@ -74,13 +74,13 @@ import java.util.List;
  *                611-618 killer560's 2026-10-08 HUD / menu / profiles list: the Edit HUD key only with no screen,
  *                Edit HUD without its panels and their settings in Home, Edit Bars, HUD Scale sizing the mod menu,
  *                the blank profile and the share folder ({@link HudMenuProfilesCases})
- *                671-675 Held Item Outline: off controls, styles/colours/width/alpha from screenshots, hands, hotbar and
+ *                671-675 Held Item Outline: off controls, styles/colors/width/alpha from screenshots, hands, hotbar and
  *                third person untouched, settings; 676 Outline Side near/far/both, 677 one screenshot per setting
  *                ({@link HeldOutlineCases})
  *                940-947 the Option A mod menu: screenshots, card switches flip the config, a card opens its drawer,
- *                favourites survive a restart, Ctrl F search, no sidebar counts, colour presets and Custom colours
+ *                favorites survive a restart, Ctrl F search, no sidebar counts, color presets and Custom colors
  *                ({@link MenuACases})
- *                955 every colour picker's Copy / Paste / hex box / Ctrl+C / Ctrl+V / Recent row, between two different
+ *                955 every color picker's Copy / Paste / hex box / Ctrl+C / Ctrl+V / Recent row, between two different
  *                settings, proven on disk and after a restart ({@link ColourCopyCases})
  * end:           370 deny lists (no child process, hooks in force)
  * </pre>
@@ -154,7 +154,7 @@ public class UiSuite implements FabricClientGameTest {
             "703-ui-slotbinds-key-toggle", "704-ui-petwheel-no-slices-text-scale", "705-ui-itemprotect-hover-star-drops",
             "706-ui-gif-dvd-hidden-in-containers", "707-ui-storagesearch-equipment-wardrobe", "709-ui-itembrowser-tooltip",
             "710-ui-itembrowser-minion-tiers", "711-ui-itembrowser-neu-recipe", "712-ui-itembrowser-sort-and-bar"};
-    /** killer560's 2026-10-15 small dungeon list ({@link SmallDungeonCases}): Thorn through-walls switches, one ESP wither colour + legit tracer, Secrets HUD colour. Own block. */
+    /** killer560's 2026-10-15 small dungeon list ({@link SmallDungeonCases}): Thorn through-walls switches, one ESP wither color + legit tracer, Secrets HUD color. Own block. */
     static final String[] SMALL_DUNGEON_CASES = {"1051-ui-thorn-through-walls", "1052-ui-esp-colour-tracer", "1053-ui-secrets-hud-colour"};
     /** killer560's 2026-10-15 Slot Text + Personal Compactor/Deletor overlay ({@link SlotTextCases}). Own block for merges. */
     static final String[] SLOT_TEXT_CASES = {"960-ui-slottext-types", "961-ui-slottext-drawn", "962-ui-slottext-modes",
@@ -174,7 +174,7 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-15 Dungeon Map list (mod map-overhaul-1015, {@link MapOverhaulCases}). Own block for merges. */
     static final String[] MAP_OVERHAUL_CASES = {"1015-ui-switch-align", "1015-ui-map-tab", "1015-ui-map-themes",
             "1015-ui-door-key-style"};
-    /** The Option A mod menu (mod menu-a, {@link MenuACases}): shots, card switch, drawer, favourites, search, counts.
+    /** The Option A mod menu (mod menu-a, {@link MenuACases}): shots, card switch, drawer, favorites, search, counts.
      *  Own block for merges. */
     static final String[] MENU_A_CASES = {"940-ui-menu-a-shots", "941-ui-menu-a-cards", "942-ui-menu-a-drawer",
             "943-ui-menu-a-favourites", "944-ui-menu-a-search", "945-ui-menu-a-no-counts", "946-ui-menu-a-themes",
@@ -216,7 +216,7 @@ public class UiSuite implements FabricClientGameTest {
             "893-ui-bars-style-settings", "894-ui-bars-style-ghost", "895-ui-bars-style-shots",
             "896-ui-bars-style-editor", "898-ui-bars-menu",
             "899-ui-bars-his-icons"};
-    /** Inventory Theme: every item centred in its slot frame (mod inv-theme-fix, {@link InvThemeCenterCases}). Own block. */
+    /** Inventory Theme: every item centered in its slot frame (mod inv-theme-fix, {@link InvThemeCenterCases}). Own block. */
     static final String[] INV_THEME_CENTRE_CASES = {"897-ui-inventory-theme-item-centred"};
     /** The chroma waterfall (mod chroma-waterfall, {@link ChromaWaveCases}). Own block for merges. */
     static final String[] CHROMA_WAVE_CASES = {"971-ui-chroma-enchant-waterfall", "972-ui-chroma-scoreboard-border",
@@ -719,7 +719,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "987-ui-docmenu-cycle-halves", DocMenuCases::cycleHalves);
                     UiCase.run(ctx, "988-ui-docmenu-calculator", DocMenuCases::calculator);
                     UiCase.run(ctx, "989-ui-docmenu-saved-themes", DocMenuCases::savedThemes);
-                    // ---- colour picker Copy / Paste / Recent (955) ----
+                    // ---- color picker Copy / Paste / Recent (955) ----
                     UiCase.run(ctx, "955-ui-colour-copy-paste", ColourCopyCases::copyPaste);
                     // ---- Item Protect star on player heads (961) ----
                     UiCase.run(ctx, "961-ui-lockstar-heads", LockStarHeadCases::heads);
@@ -758,7 +758,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "896-ui-bars-style-editor", BarStyleCases::editor);
                     UiCase.run(ctx, "898-ui-bars-menu", BarStyleCases::menu);
                     UiCase.run(ctx, "899-ui-bars-his-icons", BarStyleCases::hisIcons);
-                    // ---- Inventory Theme item centring (897) ----
+                    // ---- Inventory Theme item centering (897) ----
                     UiCase.run(ctx, "897-ui-inventory-theme-item-centred", InvThemeCenterCases::centred);
                     // ---- chroma waterfall (971-973) ----
                     UiCase.run(ctx, "971-ui-chroma-enchant-waterfall", ChromaWaveCases::enchantTooltip);

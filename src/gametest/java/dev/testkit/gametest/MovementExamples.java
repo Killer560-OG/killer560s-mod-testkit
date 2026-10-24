@@ -265,7 +265,7 @@ public class MovementExamples implements FabricClientGameTest {
      * The same sprint-jump over a 100 ms round trip.
      *
      * <p>The local server answers inside the tick that asked, which no real connection does, so anything whose
-     * behaviour depends on the gap between an action and the server's answer is untested without this. The
+     * behavior depends on the gap between an action and the server's answer is untested without this. The
      * scenario proves the delay is real before it relies on it — a block set by the server takes measurably
      * longer to reach the client with the stage in — and then that taking it out again is clean too: a
      * naive delay pulled out mid-stream reorders the anticheat's transactions and flags the harness.

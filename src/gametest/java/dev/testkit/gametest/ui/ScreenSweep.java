@@ -45,7 +45,7 @@ final class ScreenSweep {
             Object hudCfg = dev.testkit.gametest.mod.Mod.cfg("hud.HudConfig");
             boolean before = (Boolean) dev.testkit.gametest.mod.Mod.call(hudCfg, "isEditorShowAll");
             // A free drop: with Show Unseen every enabled element is listed, container overlays included (mod hud-key-2),
-            // and a neighbour's edge 4 px off snapped this drop (26.2, 2026-10-12). Snapping is 613's.
+            // and a neighbor's edge 4 px off snapped this drop (26.2, 2026-10-12). Snapping is 613's.
             boolean snapBefore = (Boolean) dev.testkit.gametest.mod.Mod.call(hudCfg, "isEditorSnap");
             dev.testkit.gametest.mod.Mod.call(hudCfg, "setEditorSnap", false);
             try {
@@ -135,7 +135,7 @@ final class ScreenSweep {
                 }
                 out.put("sizes", sizes);
                 out.put("zero", zero);
-                // one real drag, on the centre of the first listed element with a real box (Show Unseen on)
+                // one real drag, on the center of the first listed element with a real box (Show Unseen on)
                 if (grab != null) {
                     Object el = grab;
                     String id = (String) dev.testkit.gametest.mod.Mod.call(el, "id");
@@ -179,7 +179,7 @@ final class ScreenSweep {
                             "resolvePosition", dragged);
                     out.put("drag", id + " from " + p[0] + "," + p[1] + " -> HudConfig " + saved[0] + "," + saved[1]
                             + " (expected " + want[0] + "," + want[1] + "), drawn back at " + back[0] + "," + back[1]);
-                    // The Storage Overlay is always horizontally centred (mod inv-storage, 2026-10-07: its x is a
+                    // The Storage Overlay is always horizontally centered (mod inv-storage, 2026-10-07: its x is a
                     // layoutPosition, only its height is dragged), so a drag moves it down but not across.
                     boolean pinnedX = "storage_overlay".equals(id) && back[0] == p[0];
                     out.put("dragOk", saved[0] == want[0] && saved[1] == want[1]

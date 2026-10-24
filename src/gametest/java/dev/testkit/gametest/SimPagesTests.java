@@ -43,7 +43,7 @@ import java.util.Map;
  *       it round, Size sorts by tiles, and the page's own Size and Secrets chips leave exactly the matching rooms.</li>
  * </ul>
  *
- * <p>Every press goes through the screen's own mouseClicked at the widget's drawn centre. Failures are collected and
+ * <p>Every press goes through the screen's own mouseClicked at the widget's drawn center. Failures are collected and
  * all reported, so one run on the old jar shows every part that is missing.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -357,7 +357,7 @@ public class SimPagesTests implements FabricClientGameTest {
         return "";
     }
 
-    /** A left click at the drawn centre of the first widget labelled {@code label} (or starting with it). */
+    /** A left click at the drawn center of the first widget labeled {@code label} (or starting with it). */
     private static void pressButton(ClientGameTestContext ctx, String label, boolean exact) {
         String result = ctx.computeOnClient(mc -> {
             Screen s = McCompat.screen(mc);

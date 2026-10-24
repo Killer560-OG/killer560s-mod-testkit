@@ -813,7 +813,7 @@ public class SimAutopilot2Tests implements FabricClientGameTest {
 
     /**
      * A standable block of the trap room whose feet block is PAST its start line - room-relative z >= 0, the test
-     * {@code AutoClearUtils.canPath} applies - nearest the main tile's centre.
+     * {@code AutoClearUtils.canPath} applies - nearest the main tile's center.
      */
     private static BlockPos pastTrapLine(ClientGameTestContext ctx, Room trap) {
         return ctx.computeOnClient(mc -> {

@@ -30,19 +30,19 @@ import java.util.function.BiConsumer;
 
 /**
  * The chroma waterfall (mod chroma-waterfall, killer560 2026-10-13: "make it so it waterfalls the color from top left to
- * bottom right in a wavy manner"). Every chroma colour now comes from {@code util/ChromaWave}: the hue at a point is
+ * bottom right in a wavy manner"). Every chroma color now comes from {@code util/ChromaWave}: the hue at a point is
  * {@code (x + y + wobble) / span - t / period}. The chroma clock is frozen with {@code ChromaWave.setClockOverride} so
  * two frames are a known time apart, and everything is judged from screenshots.
  *
  * <ul>
- *   <li>971: a real enchanted-item tooltip (Enchant Colours, Perfect Chroma) drawn on black at a fixed place, with two
+ *   <li>971: a real enchanted-item tooltip (Enchant Colors, Perfect Chroma) drawn on black at a fixed place, with two
  *       IDENTICAL enchant lines, so each glyph of line 2 sits exactly under its twin on line 1. (1) hue rises along a
  *       line and the top-left and bottom-right glyphs differ, (2) at a fixed pixel the hue falls over time - the bands
  *       move toward the bottom right, (3) a line-2 glyph is a fixed step past its line-1 twin (a per-line restart
- *       would make them equal). Control: Enchant Colours off leaves no chroma pixel.</li>
+ *       would make them equal). Control: Enchant Colors off leaves no chroma pixel.</li>
  *   <li>972: the Custom Scoreboard's Chroma Border, drawn through its own {@code drawRoundedBorder}: corners differ and
  *       every border pixel's hue moves over time.</li>
- *   <li>973: the Custom Crosshair's Chroma: its pixels change over time and match ChromaWave at the screen centre.</li>
+ *   <li>973: the Custom Crosshair's Chroma: its pixels change over time and match ChromaWave at the screen center.</li>
  * </ul>
  */
 final class ChromaWaveCases {
@@ -79,7 +79,7 @@ final class ChromaWaveCases {
                 return s;
             });
             c.ticks(6);
-            // The lines the tooltip really shows: the enchant segments must carry the Perfect spec's colour.
+            // The lines the tooltip really shows: the enchant segments must carry the Perfect spec's color.
             int specSegments = c.onClient(mc -> {
                 Object spec = Mod.staticCall("enchantcolors.EnchantColorsFeature", "perfectChroma");
                 TextColor tc = (TextColor) Mod.call(spec, "textColor");
@@ -105,7 +105,7 @@ final class ChromaWaveCases {
             setClock(c, T0 + 750);
             shot(c, canvas, "t750");
 
-            // Control: Enchant Colours off -> the same lines in Hypixel's grey, no chroma pixel at all.
+            // Control: Enchant Colors off -> the same lines in Hypixel's gray, no chroma pixel at all.
             c.onClient(mc -> {
                 Mod.call(cfg, "setEnabled", false);
                 Mod.staticCall("enchantcolors.EnchantColorsFeature", "clearCache");
@@ -247,7 +247,7 @@ final class ChromaWaveCases {
      * up as "turbo wheat" while the lore prints "Turbo-Wheat" and the enchant was never tiered. A hoe with real NBT
      * enchantments turbo_wheat 7, turbo_carrot 7 and turbo_cactus 7 (the aliased control), one lore line each: all three
      * lines must draw chroma - hue rising along the line and falling over 250 ms, like 971. A second hoe with turbo_wheat
-     * 5 must draw Turbo-Wheat V in the static Great colour: same hue along the line and over time.
+     * 5 must draw Turbo-Wheat V in the static Great color: same hue along the line and over time.
      */
     static void turboCrops(UiCase c) throws Exception {
         Object cfg = Mod.cfg(ENCHANT_CFG);
@@ -357,7 +357,7 @@ final class ChromaWaveCases {
                         sevenNames[b] + " does not move over time: median change " + m + " over " + moved.size());
             }
 
-            // ---- Turbo-Wheat V: a static tier colour
+            // ---- Turbo-Wheat V: a static tier color
             c.onClient(mc -> {
                 Mod.call(cfg, "setEnabled", true);
                 Mod.staticCall("enchantcolors.EnchantColorsFeature", "clearCache");
@@ -418,7 +418,7 @@ final class ChromaWaveCases {
         }
     }
 
-    /** The same tooltip with Enchant Colours off: whatever is saturated then (the tooltip frame) is not enchant colour. */
+    /** The same tooltip with Enchant Colors off: whatever is saturated then (the tooltip frame) is not enchant color. */
     private static boolean[][] offMask(UiCase c, Object cfg, Canvas canvas, String label) throws Exception {
         c.onClient(mc -> {
             Mod.call(cfg, "setEnabled", false);
@@ -434,7 +434,7 @@ final class ChromaWaveCases {
         return mask;
     }
 
-    /** A Hypixel-style hoe: NBT {@code enchantments} ids/levels and one grey lore line per enchant, as the game prints it. */
+    /** A Hypixel-style hoe: NBT {@code enchantments} ids/levels and one gray lore line per enchant, as the game prints it. */
     private static ItemStack turboHoe(String[] ids, int[] levels, String[] loreLines) {
         CompoundTag ench = new CompoundTag();
         for (int i = 0; i < ids.length; i++) {
@@ -599,7 +599,7 @@ final class ChromaWaveCases {
         });
     }
 
-    /** Mean hue (circular) and count of saturated bright pixels within 40 px of the frame centre. */
+    /** Mean hue (circular) and count of saturated bright pixels within 40 px of the frame center. */
     private static float[] centreHue(BufferedImage img) {
         int cx = img.getWidth() / 2;
         int cy = img.getHeight() / 2;
@@ -687,7 +687,7 @@ final class ChromaWaveCases {
         return javax.imageio.ImageIO.read(taken.toFile());
     }
 
-    /** Saturated, bright pixels {x, y}: chroma glyph/border pixels (shadows are 25% brightness; grey text unsaturated). */
+    /** Saturated, bright pixels {x, y}: chroma glyph/border pixels (shadows are 25% brightness; gray text unsaturated). */
     private static List<int[]> chromaPixels(BufferedImage img, boolean[][] mask) {
         List<int[]> out = new ArrayList<>();
         float[] hsb = new float[3];

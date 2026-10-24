@@ -4,7 +4,7 @@
     {"class": "gui.ModScreen", "args": ["null"], "source": "gui/ModScreen.java:84"},
     {"class": "gui.profit.BazaarFlipProfitScreen", "args": ["null"], "source": "gui/profit/BazaarFlipProfitScreen.java:16 (cheat only)"},
     {"class": "autoupdate.UpdatedScreen", "args": ["null", "str:abc1234", "str:v1.1.1", "str:Release notes"], "source": "autoupdate/UpdatedScreen.java:31"},
-    {"class": "gui.ColorPickerScreen", "args": ["null", "str:Test Colour", "int:-3381760", "int:-1", "intconsumer"], "source": "gui/ColorPickerScreen.java"},
+    {"class": "gui.ColorPickerScreen", "args": ["null", "str:Test Color", "int:-3381760", "int:-1", "intconsumer"], "source": "gui/ColorPickerScreen.java"},
     {"class": "hud.HudEditorScreen", "args": ["null"], "source": "hud/HudEditorScreen.java:70"},
     {"class": "livemap.MapSchemeEditorScreen", "args": ["null", "int:0"], "source": "livemap/MapSchemeEditorScreen.java (scheme 0, or 'This scheme was deleted.' with none saved)"},
     {"class": "ap3.Ap3ConfigScreen", "args": ["null"], "source": "ap3/Ap3ConfigScreen.java"},

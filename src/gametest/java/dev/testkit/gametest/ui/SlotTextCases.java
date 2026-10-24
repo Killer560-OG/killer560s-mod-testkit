@@ -27,14 +27,14 @@ import java.util.Map;
  * 960-967: killer560's 2026-10-15 to-do items "Slot Text" (Skyblocker's small text on item slots) and the Personal
  * Compactor / Deletor contents overlay (mod branch slottext-compactor-1015).
  * <ul>
- *   <li>960 Slot Text: sample items per type give the right text, corner and colour; every type's switch removes it;
+ *   <li>960 Slot Text: sample items per type give the right text, corner and color; every type's switch removes it;
  *       nothing for plain items; menu-only types stay off in the player's own inventory.</li>
  *   <li>961 Slot Text drawn: a real inventory screenshot with the feature off against on - the text lands in the right
  *       corner of each slot and nowhere else.</li>
  *   <li>962 Slot Text modes: Always / Hold Key to Show / Hold Key to Hide against a held and a released key (the key is
  *       the {@code keyHeldForTest} hook), one type's switch in the picture, and the settings surviving a reload.</li>
  *   <li>963 Compactor Preview reads a compactor / deletor: rows, columns, slots, Active, hostile keys, other items.</li>
- *   <li>964 Compactor Preview drawn on hover: the grid's slot grey appears in the tooltip, and scales with the size.</li>
+ *   <li>964 Compactor Preview drawn on hover: the grid's slot gray appears in the tooltip, and scales with the size.</li>
  *   <li>965 Compactor Preview modes: On Hover against While Holding Key with the key held and released, and off.</li>
  *   <li>966 Compactor Preview settings survive a reload.</li>
  * </ul>

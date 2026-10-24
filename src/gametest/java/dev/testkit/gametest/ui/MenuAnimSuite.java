@@ -32,7 +32,7 @@ import java.util.function.Function;
  *       and once at 300 FPS (one rendered frame per clock step). At the same elapsed time both show the same value, part
  *       way (so it IS animating), and at 200 ms both are exactly at the final state.</li>
  *   <li>1591 the Animations setting: Off is instant (same clock, final state), Reduced moves nothing (the knob and the
- *       drawer are in place at once) but still fades (the switch colour and the drawer's opacity part way), the row in
+ *       drawer are in place at once) but still fades (the switch color and the drawer's opacity part way), the row in
  *       the Menu Theme drawer steps it, and it survives a config reload.</li>
  *   <li>1592 every animation reaches its final state within its duration and is part way before: a hover by the real
  *       cursor, a drawer row's switch (handed to the rebuilt row), the drawer closing, the drawer's eased scroll, the menu
@@ -431,7 +431,7 @@ public class MenuAnimSuite implements FabricClientGameTest {
             c.check(state(c, fresh)[7] == 0f, "Off: the closed drawer is still sliding out");
             c.note("Off: open, card switch, drawer open and close all final on the same clock");
 
-            // ---- Reduced: nothing moves, colours and opacity still fade ----
+            // ---- Reduced: nothing moves, colors and opacity still fade ----
             mode("SMOOTH");
             frame(c, t + 2000);
             mode("REDUCED");

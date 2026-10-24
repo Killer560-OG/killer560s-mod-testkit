@@ -21,7 +21,7 @@ import java.util.Locale;
  *       clicks. Two controls in the same run say the 20 is the world change's: the first lever, with the aura switched on
  *       beside it, and a same-world teleport onto a second lever, are both clicked well inside 20 ticks. The world change
  *       is timed by the client's own level object being replaced, the click by the use packet's tick.</li>
- *   <li>842-aura-skull-range: a Wither Essence skull (Hypixel's profile id) 4.8 blocks from the eye to its centre is
+ *   <li>842-aura-skull-range: a Wither Essence skull (Hypixel's profile id) 4.8 blocks from the eye to its center is
  *       not clicked; at 4.6 it is. Skull Range is set to 4.7 first and must read back 4.7 (until aura-quoi it clamped to
  *       4.5, measured to the box, which clicked both).</li>
  * </ul>
@@ -283,7 +283,7 @@ public class AuraQuoiTests implements FabricClientGameTest {
                     facts.add("Skull Range set to 4.7, reads back " + readBack);
                     PacketWatch.start();
                     for (int i = 0; i < want.length; i++) {
-                        // Eye 1.62 over the feet, the skull block's centre 1.5 over them: solve the horizontal leg.
+                        // Eye 1.62 over the feet, the skull block's center 1.5 over them: solve the horizontal leg.
                         double h = Math.sqrt(want[i] * want[i] - 0.12 * 0.12);
                         double z = sz + 0.5 - h;
                         ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
@@ -334,7 +334,7 @@ public class AuraQuoiTests implements FabricClientGameTest {
     // ---- 847 ----
 
     /**
-     * 847-aura-redstone-key (mod aura-2): Secret Aura picks up a Redstone Key skull 4.6 from the eye to its centre, and the
+     * 847-aura-redstone-key (mod aura-2): Secret Aura picks up a Redstone Key skull 4.6 from the eye to its center, and the
      * key is gone afterwards - the test server takes it away on the click as Hypixel does (testmod RedstoneKeyPickup). A
      * decorative head (another profile) at the same 4.6 is never clicked. Essence is switched OFF, so only the key option
      * can click it. GrimAC clean.
@@ -439,12 +439,12 @@ public class AuraQuoiTests implements FabricClientGameTest {
      * Hypixel does (testmod RedstoneKeyPickup: a key found by anyone; a click on a redstone block's AIR-facing side sets
      * the key's head on TOP of it; every use on the block is logged with its face).
      * <ol>
-     *   <li>A key skull 11 blocks from the eye (to its centre) vanishes: not counted. He is then put by the redstone
+     *   <li>A key skull 11 blocks from the eye (to its center) vanishes: not counted. He is then put by the redstone
      *       block - Place Redstone Key on - and nothing is clicked.</li>
      *   <li>Another key 9 blocks away vanishes (a teammate's pickup, {@code testkitkey found}): counted. By the block with
      *       Place OFF: 0 uses. Place ON: exactly one use, the key's head on top of the block.</li>
      * </ol>
-     * The face of the block the eye-to-centre ray meets (north, toward him) has stone against it, so the aura must pick
+     * The face of the block the eye-to-center ray meets (north, toward him) has stone against it, so the aura must pick
      * another face open to air (west); the server log must show no use on a covered face. GrimAC clean.
      */
     private void keyPlace(ClientGameTestContext ctx) {
@@ -571,7 +571,7 @@ public class AuraQuoiTests implements FabricClientGameTest {
                 });
     }
 
-    /** Put him so his eye is {@code d} from the skull block's centre, due south of it; returns the distance he stands at. */
+    /** Put him so his eye is {@code d} from the skull block's center, due south of it; returns the distance he stands at. */
     private static double standFrom(ClientGameTestContext ctx, TestServer server, BlockPos skull, double d) {
         double z = skull.getZ() + 0.5 - Math.sqrt(d * d - 0.12 * 0.12);
         server.command(String.format(Locale.ROOT, "tp @p %.4f %d %.4f 0 0", skull.getX() + 0.5, SURFACE_Y, z));
@@ -580,7 +580,7 @@ public class AuraQuoiTests implements FabricClientGameTest {
         return ctx.computeOnClient(mc -> mc.player.getEyePosition().distanceTo(Vec3.atCenterOf(skull)));
     }
 
-    /** By the redstone block, south-west of it, its north face (toward him on the eye-to-centre line) covered. */
+    /** By the redstone block, south-west of it, its north face (toward him on the eye-to-center line) covered. */
     private static double standByNode(ClientGameTestContext ctx, TestServer server, BlockPos node) {
         double x = node.getX() - 0.5;
         double z = node.getZ() - 2.098;

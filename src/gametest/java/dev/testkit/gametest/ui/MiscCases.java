@@ -488,7 +488,7 @@ final class MiscCases {
      * The mod's popup text ({@code notify.ModOverlayMessage}) really reaches the screen. It is drawn by a Fabric HUD
      * layer since 2026-10-04 (seven {@code Gui} mixins crashed 26.2 at startup), and "the jar booted" says nothing
      * about whether a layer draws - so this counts theme-orange pixels (0xCC6600) in the middle of a screenshot,
-     * where the popup is centred.
+     * where the popup is centered.
      */
     static void overlayDraws(UiCase c) {
         c.onClient(mc -> {

@@ -13,18 +13,18 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * 1018-map-blood-unopened (mod todo-map-blood-1018): killer560, 2026-10-18, to-do 20: "but like the light grey for blood
+ * 1018-map-blood-unopened (mod todo-map-blood-1018): killer560, 2026-10-18, to-do 20: "but like the light gray for blood
  * room that the funny map style uses for unopened rooms". The Blood Room behind the red door, still unopened, is drawn in
- * the plain unopened grey (undarkened), with no "?" over it. Every other room is left as it was.
+ * the plain unopened gray (undarkened), with no "?" over it. Every other room is left as it was.
  *
- * <p>Corrected the same day: greyed in both styles - Funny Map like every other unopened room (darkened), the regular map
- * in the light undarkened grey when its blood door is known.
+ * <p>Corrected the same day: grayed in both styles - Funny Map like every other unopened room (darkened), the regular map
+ * in the light undarkened gray when its blood door is known.
  *
  * <p>The sim floor of 1015-sim-map-item-only (Entrance, New Trap, Andesite, Cell, Blood) and its Hypixel-style map item,
- * plus a Blood room painted as an unopened grey square below Andesite with a red (colour 18) door between them. Read from
- * what the Dungeon Map HUD draws: the Blood fill must equal the unopened grey exactly (Darken Unexplored 0.4 would make
+ * plus a Blood room painted as an unopened gray square below Andesite with a red (color 18) door between them. Read from
+ * what the Dungeon Map HUD draws: the Blood fill must equal the unopened gray exactly (Darken Unexplored 0.4 would make
  * it 0.6 of that), it carries no mark fills of its own, and Andesite - an ordinary unopened room - is still darkened.
- * The cheat build repeats it with Funny Map ON, where Cell (not on the item) must still be its own colour darkened.
+ * The cheat build repeats it with Funny Map ON, where Cell (not on the item) must still be its own color darkened.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimMapBloodTests implements FabricClientGameTest {
@@ -69,7 +69,7 @@ public class SimMapBloodTests implements FabricClientGameTest {
                 try {
                     Mod.set(MAP, "setMapThemeName", "REAL");
                 } catch (AssertionError oldJar) {
-                    // a jar from before map-overhaul paints Real Map colours by default
+                    // a jar from before map-overhaul paints Real Map colors by default
                 }
                 restore.add(0, Mod.with(MAP, "DarkenUnopened", 0.4f));
                 restore.add(0, Mod.with("autopuzzles.AutoPuzzlesConfig", "AutoPuzzlesMasterEnabled", false));
@@ -93,7 +93,7 @@ public class SimMapBloodTests implements FabricClientGameTest {
                     SimMapItemTests.set(px, e[0] + x, e[1] + y, 63);
                 }
             }
-            SimMapItemTests.room(px, 3, 2, 85);              // Blood: unopened grey, as the item shows a room not opened
+            SimMapItemTests.room(px, 3, 2, 85);              // Blood: unopened gray, as the item shows a room not opened
             int[] o = SimMapItemTests.origin(3, 1);
             for (int y = 16; y < 20; y++) {                  // the red (18) door below Andesite, leading into it
                 for (int x = 5; x <= 10; x++) {

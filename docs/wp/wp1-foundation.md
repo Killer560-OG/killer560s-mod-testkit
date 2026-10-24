@@ -40,7 +40,7 @@ ping, ops, players, events.poll/head, chat {text|textJson, overlay}, actionbar.p
 tab.set/clear, sound, particle, give, stand, entity.remove, menu.open, kick, cmd.stub. `HxEvents` records player chat,
 every player command (`[hx] cmd /...` on the console too, via a mixin on `Commands.performCommand`), container
 clicks/closes (mixin), use/attack interactions, joins/disconnects. `HxChestMenu` is the core menu (clicks never move
-items; `HxChestMenu.registerScript(name, script)` for behaviour). A WP adds ops in ITS module
+items; `HxChestMenu.registerScript(name, script)` for behavior). A WP adds ops in ITS module
 (`hx/surface/HxSurfaceModule`, `hx/menu/HxMenuModule`, `hx/dungeon/HxDungeonModule`, `hx/boss/HxBossModule`), named
 `<prefix>.<verb>`; registering an existing name is a startup error. Use `HxEvents.custom(type, player, data)` to put a
 module's own events in the stream. javap every vanilla constructor/method you use against

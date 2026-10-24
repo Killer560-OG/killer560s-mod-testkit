@@ -10,21 +10,21 @@ import java.util.Set;
 
 /**
  * Finds a Health and Mana Bars bar on a screenshot whatever its style (mod bars-2, 2026-10-12: Classic, the flat bar the
- * older bar cases measured by exact colour, was removed; every bar is now Bold or Sleek: framed, a gradient fill, an icon).
+ * older bar cases measured by exact color, was removed; every bar is now Bold or Sleek: framed, a gradient fill, an icon).
  *
  * <p>Two steps, both from what is on screen plus the painter's own geometry:
  * <ol>
- *   <li>The FILL is every pixel of the bar colour's TINT: the colour with any amount of white or black mixed in (the
+ *   <li>The FILL is every pixel of the bar color's TINT: the color with any amount of white or black mixed in (the
  *       gradient, the light top edge, the inner shadow and Bold's notches all mix with white or black, so they keep the
- *       tint exactly, to 8-bit rounding). Exact pixels of the enabled TEXT readouts' colours and their shadows are left
- *       out (Health Text's colour shares Health Bar's tint in these cases).</li>
+ *       tint exactly, to 8-bit rounding). Exact pixels of the enabled TEXT readouts' colors and their shadows are left
+ *       out (Health Text's color shares Health Bar's tint in these cases).</li>
  *   <li>The BOX: the fill area is the element's box less the painter's insets (icon, frame, Beside number;
  *       {@code BarPainter.lastInset*}), at the element's scale. The fill box is mapped from the track onto the box
  *       linearly, so a full fill comes back as exactly the element's box and a part fill as the share of it the flat bar
- *       drew - the numbers the older cases were written for. An overflow colour (absorption, overflow mana) is mapped by
+ *       drew - the numbers the older cases were written for. An overflow color (absorption, overflow mana) is mapped by
  *       its bar's track.</li>
  * </ol>
- * On a jar without {@code BarPainter} (before bars-style) it is the old exact-colour box.
+ * On a jar without {@code BarPainter} (before bars-style) it is the old exact-color box.
  */
 final class BarPixels {
 
@@ -32,11 +32,11 @@ final class BarPixels {
     private static final String READOUT = "playerstats.StatElements$Readout";
     private static final String PAINTER = "playerstats.BarPainter";
 
-    /** A bar colour's geometry: element scale, insets (units), track length (units) and the colour of its bar. */
+    /** A bar color's geometry: element scale, insets (units), track length (units) and the color of its bar. */
     record Info(float scale, int left, int top, int right, int bottom, int track, int barColour, float[] window) {
     }
 
-    /** What the mod is drawing now: colour (RGB) -> geometry, and the text readouts' colours to leave out. */
+    /** What the mod is drawing now: color (RGB) -> geometry, and the text readouts' colors to leave out. */
     record Scene(Map<Integer, Info> bars, Set<Integer> exclude) {
     }
 
@@ -126,8 +126,8 @@ final class BarPixels {
     }
 
     /**
-     * The box of {@code colour} in {@code img}, in pixels: {x0, y0, x1, y1 (inclusive), solid (1/0), n}; for a bar colour
-     * the element-box equivalent (see the class doc), else the exact-colour box. Null when nothing has the colour.
+     * The box of {@code color} in {@code img}, in pixels: {x0, y0, x1, y1 (inclusive), solid (1/0), n}; for a bar color
+     * the element-box equivalent (see the class doc), else the exact-color box. Null when nothing has the color.
      */
     static double[] box(BufferedImage img, int colour, int gs, Scene scene) {
         int rgb = colour & 0xFFFFFF;
@@ -162,7 +162,7 @@ final class BarPixels {
         double y0 = bt + (b[1] - tt) * sy;
         double y1 = bt + (b[3] + 1 - tt) * sy - 1;
         // "Solid" leaves out one unit at each corner of the fill: rounded bars (mod bars-menu) paint the track's corner
-        // unit in the frame colour, over the fill.
+        // unit in the frame color, over the fill.
         double solid = solidBut(img, rgb, b, (int) Math.ceil(unit - 1e-3), scene.exclude()) ? 1 : 0;
         return new double[]{Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), solid, b[5]};
     }
@@ -177,9 +177,9 @@ final class BarPixels {
                 (int) Math.ceil((info.window()[3] - info.bottom() * u) * gs - 1e-3)};
     }
 
-    /** The whole element box of the bar drawn in {@code colour}, in pixels {x0, y0, x1, y1} (inclusive): its track, from
+    /** The whole element box of the bar drawn in {@code color}, in pixels {x0, y0, x1, y1} (inclusive): its track, from
      *  the fill's left/top/bottom on screen and the painter's track length, plus the insets. Null when no fill shows or
-     *  the colour is not a bar's. */
+     *  the color is not a bar's. */
     static double[] elementBox(BufferedImage img, int colour, int gs, Scene scene) {
         Info info = scene.bars().get(colour & 0xFFFFFF);
         if (info == null) {
@@ -251,8 +251,8 @@ final class BarPixels {
         }
     }
 
-    /** Whether {@code p} is {@code c} with white or black mixed in: the same direction once the grey part (the smallest
-     *  channel) is taken out, within 8-bit rounding, and with enough colour left to tell. */
+    /** Whether {@code p} is {@code c} with white or black mixed in: the same direction once the gray part (the smallest
+     *  channel) is taken out, within 8-bit rounding, and with enough color left to tell. */
     static boolean sameTint(int p, int c) {
         int pr = (p >> 16) & 0xFF, pg = (p >> 8) & 0xFF, pb = p & 0xFF;
         int cr = (c >> 16) & 0xFF, cg = (c >> 8) & 0xFF, cb = c & 0xFF;

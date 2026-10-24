@@ -18,8 +18,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 955: colour Copy / Paste / Recent in every colour picker (mod color-copy, killer560 2026-10-13: "for all color gui menus
- * add a button to copy the hex id of that color ... and an easy way to paste it between menus"). Every colour setting
+ * 955: color Copy / Paste / Recent in every color picker (mod color-copy, killer560 2026-10-13: "for all color gui menus
+ * add a button to copy the hex id of that color ... and an easy way to paste it between menus"). Every color setting
  * opens {@code gui.ColorPickerScreen}, so the case drives that screen from two different settings, through the real menu
  * rows and real presses on the picker's own buttons and swatches:
  * <ol>
@@ -27,9 +27,9 @@ import java.util.List;
  *       {@code #AARRGGBB}, whitespace) give the right ARGB, and junk gives null (never a throw);</li>
  *   <li>Menu Theme's Accent picker: Copy puts the accent's hex on the system clipboard and says "Copied";</li>
  *   <li>Real Time's Text Color picker (a DIFFERENT setting): junk on the clipboard is refused (red line, nothing changes,
- *       the file on disk untouched), then Paste applies the copied colour, proven in killer560smod-realtime.json; Ctrl+C
+ *       the file on disk untouched), then Paste applies the copied color, proven in killer560smod-realtime.json; Ctrl+C
  *       copies, Ctrl+V pastes, a typed hex in the hex box applies;</li>
- *   <li>Recent: back in the Accent picker the Recent row holds those colours newest first; a real click on a swatch applies
+ *   <li>Recent: back in the Accent picker the Recent row holds those colors newest first; a real click on a swatch applies
  *       it to the menu's accent; after a restart (the file re-read) the row is the same and is DRAWN in a fresh picker
  *       (screenshot pixel at the swatch).</li>
  * </ol>
@@ -84,7 +84,7 @@ final class ColourCopyCases {
         return picker;
     }
 
-    /** A real press at the centre of one of the picker's widgets, through the screen. */
+    /** A real press at the center of one of the picker's widgets, through the screen. */
     static void pressWidget(Screen picker, String field) {
         AbstractWidget w = (AbstractWidget) Mod.field(picker, field);
         MenuACases.press(picker, w.getX() + w.getWidth() / 2.0, w.getY() + w.getHeight() / 2.0);
@@ -174,7 +174,7 @@ final class ColourCopyCases {
                 return null;
             });
 
-            // ---- Paste into Real Time's Text Color: junk first, then the copied colour ------------------------------
+            // ---- Paste into Real Time's Text Color: junk first, then the copied color ------------------------------
             int diskBefore = realTimeOnDisk();
             Screen b = c.onClient(mc -> {
                 try {
@@ -225,7 +225,7 @@ final class ColourCopyCases {
                 return mc.keyboardHandler.getClipboard();
             });
             c.check("#2EC4B6".equals(ctrlC), "Ctrl+C put \"" + ctrlC + "\" on the clipboard");
-            // the hex box: typed text applies; the box shows the current colour
+            // the hex box: typed text applies; the box shows the current color
             c.onClient(mc -> {
                 EditBox box = (EditBox) Mod.field(b, "hexBox");
                 c.check("#2EC4B6".equals(box.getValue()), "the hex box shows \"" + box.getValue() + "\"");

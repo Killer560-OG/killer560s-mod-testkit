@@ -29,7 +29,7 @@ import java.util.Random;
  * simonsays/SimonSaysFeature.java}: sea-lantern wall x=111, stone buttons x=110, y 120-123, z 92-95, start button
  * (110, 121, 91)). Rounds 5 (old) or 4 (Hypixel's 2026-10-06 update, killer560) - {@code rounds}.
  *
- * <p>Modelled only as far as the mod's detection needs, and every rule is the mod's own reading of Hypixel, not a
+ * <p>Modeled only as far as the mod's detection needs, and every rule is the mod's own reading of Hypixel, not a
  * claim about Hypixel: the start button begins round 1; a round lights its steps one at a time (sea lantern, then back
  * to obsidian), then all 16 grid buttons appear; round N has N steps, each new round replays the old steps plus one
  * new one; a wrong press removes every button (a break); after the last round the buttons go and, with {@code line}

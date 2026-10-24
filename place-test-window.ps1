@@ -47,7 +47,7 @@ if (-not $PSBoundParameters.ContainsKey('X') -or $Width -le 0 -or $Height -le 0)
 if ($Marker -eq '') { $Marker = $PSScriptRoot }
 $Marker = $Marker.Replace('\', '/').TrimEnd('/') + '/'
 function Test-OurClient($cl) {
-  # Slashes normalised (the client's command line carries backslash paths), the marker anchored by its trailing
+  # Slashes normalized (the client's command line carries backslash paths), the marker anchored by its trailing
   # slash, and only the gametest client itself, never a Gradle daemon.
   return $cl -and ($cl.Replace('\', '/') -like ("*" + $Marker + "*")) -and ($cl -like '*fabric.dli.env=client*')
 }

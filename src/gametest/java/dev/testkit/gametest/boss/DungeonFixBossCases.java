@@ -42,7 +42,7 @@ final class DungeonFixBossCases {
         return c.onClient(mc -> String.valueOf(Mod.staticCall(TRACKER, "getPhase")));
     }
 
-    /** A 3x3 stone floor with its top at y, centred on block x/z. */
+    /** A 3x3 stone floor with its top at y, centered on block x/z. */
     static void floor(Session c, int x, int y, int z) {
         JsonArray blocks = new JsonArray();
         for (int dx = -1; dx <= 1; dx++) {

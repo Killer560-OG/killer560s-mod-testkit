@@ -44,7 +44,7 @@ public final class Frames {
     }
 
     /**
-     * {@code count} extracts: the first with the mouse off every widget, then one over the centre of each of the
+     * {@code count} extracts: the first with the mouse off every widget, then one over the center of each of the
      * first visible widgets in turn (hover states and tooltips run too). Returns the smallest frame drawn.
      */
     public static Drawn extractFrames(Minecraft mc, Screen screen, int count) {

@@ -16,17 +16,17 @@ import java.util.Locale;
  *
  * <p>The scene: the player looks straight down at the superflat (a static texture: no clouds, no sky drift), the HUD
  * on (F1 is not touched: {@code options.hideGui} does not exist on 26.2, and the UI world starts with the HUD
- * shown). Frame 0 has the custom crosshair ON with a fully transparent colour, so NOTHING is drawn at the centre - the
+ * shown). Frame 0 has the custom crosshair ON with a fully transparent color, so NOTHING is drawn at the center - the
  * world alone. Pixels count as changed above a summed RGB delta of 30: the grass brightens a little between shots. Every later frame is diffed against it, so only what the crosshair changed is counted.
  * <ul>
- *   <li>Vanilla control: feature OFF must change pixels at the centre (vanilla's own crosshair) - proof this check can
+ *   <li>Vanilla control: feature OFF must change pixels at the center (vanilla's own crosshair) - proof this check can
  *       see a crosshair at all.</li>
  *   <li>Green cross, Screen Pixels mode (one unit = one screen pixel): length 10, thickness 2, gap 4 must be EXACTLY
- *       4 x 10 x 2 = 80 green pixels in a 30 x 30 box centred on the screen, and nothing else changed - vanilla's cross
+ *       4 x 10 x 2 = 80 green pixels in a 30 x 30 box centered on the screen, and nothing else changed - vanilla's cross
  *       (inverted, 30 px wide here) would show as non-green changes.</li>
  *   <li>Red: the same 80 pixels, red, none green. Bigger (length 20, thickness 3): 240 pixels, a 51 x 51 box.</li>
- *   <li>T-Shape: nothing above the centre; rotated 90: nothing right of it. Dot 6: 36 pixels. Circle: a ring with an
- *       untouched centre. Colour On Block (looking at the ground): the cross turns blue.</li>
+ *   <li>T-Shape: nothing above the center; rotated 90: nothing right of it. Dot 6: 36 pixels. Circle: a ring with an
+ *       untouched center. Color On Block (looking at the ground): the cross turns blue.</li>
  *   <li>The editor: the Custom Crosshair card's drawer (HUD) opens and its live preview draws the crosshair.</li>
  * </ul>
  */
@@ -210,7 +210,7 @@ final class CrosshairCases {
                 c.problem("Circle changed " + ring.centreChanged + " px in its middle - the ring is not hollow");
             }
 
-            // Colour On Block, aiming at the ground.
+            // Color On Block, aiming at the ground.
             boolean onBlock = c.onClient(mc -> mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.BLOCK);
             if (onBlock) {
                 c.onClient(mc -> {
@@ -360,7 +360,7 @@ final class CrosshairCases {
         }
     }
 
-    /** Pixels changed from the base frame within 120 px of the centre, by colour. */
+    /** Pixels changed from the base frame within 120 px of the center, by color. */
     static final class Count {
         int changed, green, red, blue, other, above, right, centreChanged;
         int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, maxX = -1, maxY = -1;

@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>Three parts, each measured, none trusting the mod's own idea of where a doorway is:
  * <ul>
  *   <li><b>first load</b>: from the title screen through the All Rooms menu, as he did. The map must hold exactly ONE
- *       labelled group for the room, of the database's tile count, and the sidebar's room must be the room.</li>
+ *       labeled group for the room, of the database's tile count, and the sidebar's room must be the room.</li>
  *   <li><b>single rooms</b>: every captured room loaded on its own. For each doorway the mod's mask names, the
  *       doorway's floor is MEASURED in the world (lowest y where all three columns of the opening have something
  *       to stand on and three blocks of nothing above, read on the server thread). He must stand at one of those
@@ -39,7 +39,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *   <li><b>/goto</b>: a generated F7, {@code /goto} every room on it through the real command; same checks.</li>
  * </ul>
  * Rooms whose doorway cannot be measured (Blood, Higher Blaze: no opening cut through the perimeter) are reported and
- * not judged. Also counts, per single room, the labelled map groups (must be 1) and the sidebar room.
+ * not judged. Also counts, per single room, the labeled map groups (must be 1) and the sidebar room.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimRoomSpawnTests implements FabricClientGameTest {
@@ -139,7 +139,7 @@ public class SimRoomSpawnTests implements FabricClientGameTest {
         }
     }
 
-    /** "ok ..." or what is wrong: one labelled map group for {@code room}, of its tile count, and the sidebar room. */
+    /** "ok ..." or what is wrong: one labeled map group for {@code room}, of its tile count, and the sidebar room. */
     private static String mapAndSidebar(ClientGameTestContext ctx, String room) {
         return ctx.computeOnClient(mc -> {
             try {
@@ -281,7 +281,7 @@ public class SimRoomSpawnTests implements FabricClientGameTest {
     }
 
     /**
-     * Anything standing BELOW a placed room's own capture band, in its tiles' centre and wall-centre columns. The
+     * Anything standing BELOW a placed room's own capture band, in its tiles' center and wall-center columns. The
      * 2026-10-06 full check stood him 47 blocks under New Trap on a generated floor (y -56, its doorway at -9) on a
      * block New Trap's capture (y 60..100, solid walls on three sides) cannot have put there; something else - an
      * earlier floor's leftovers is the suspect - was in the column. "none ..." when every column is clean.

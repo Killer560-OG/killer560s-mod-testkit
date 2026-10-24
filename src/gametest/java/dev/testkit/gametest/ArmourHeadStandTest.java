@@ -14,15 +14,15 @@ import java.util.Locale;
 /**
  * Custom Items (mod {@code armourdye/ArmourDye}) with any entry saved, and a plain player head in the world.
  *
- * <p>Crash 2026-10-18 (Mod Only Test): a StackOverflowError on the render thread while extracting an armour stand
+ * <p>Crash 2026-10-18 (Mod Only Test): a StackOverflowError on the render thread while extracting an armor stand
  * that wore a player head. {@code PlayerHeadItem.getName} reads {@code minecraft:profile} through
  * {@code DataComponentHolder#get}, which Custom Items overrides; the override looked the stack up by identity, an
  * id-less stack's identity is its display name, and the display name is {@code PlayerHeadItem.getName} again.
  *
  * <p>Checks, in order, so a broken jar fails on an assertion before anything is drawn: the feature is ACTIVE (an
  * entry saved, master on, gate open - otherwise the mixin returns at once and nothing is tested); the name path
- * still works (a named player head finds its entry by name and gets its colour, so the guard did not simply switch
- * the feature off); {@code getHoverName} on a bare player head returns; then a real armour stand wearing a player
+ * still works (a named player head finds its entry by name and gets its color, so the guard did not simply switch
+ * the feature off); {@code getHoverName} on a bare player head returns; then a real armor stand wearing a player
  * head is summoned in front of the player and drawn for 40 ticks, and the client must still answer.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -101,7 +101,7 @@ public class ArmourHeadStandTest implements FabricClientGameTest {
                                     + bare);
                         }
 
-                        // The crash as he hit it: an armour stand wearing a player head, drawn in front of him.
+                        // The crash as he hit it: an armor stand wearing a player head, drawn in front of him.
                         server.command(String.format(Locale.ROOT,
                                 "summon minecraft:armor_stand %d %d %d {NoGravity:1b,Invulnerable:1b,"
                                         + "Tags:[\"tk1018\"]}", X, Y, Z + 3));
@@ -154,7 +154,7 @@ public class ArmourHeadStandTest implements FabricClientGameTest {
                 });
     }
 
-    /** Adds (or removes) one colour entry keyed on the name identity and turns the master switch on (or off). */
+    /** Adds (or removes) one color entry keyed on the name identity and turns the master switch on (or off). */
     private static void configure(boolean on) {
         Object cfg = ModUnderTest.config(CFG);
         ModUnderTest.call(cfg, "remove", new Class<?>[]{String.class}, new Object[]{KEY});

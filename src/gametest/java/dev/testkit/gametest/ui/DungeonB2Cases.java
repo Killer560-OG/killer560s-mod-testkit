@@ -46,7 +46,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * lose health on the server. Plus: a player-model NPC (version-2 UUID) counts as a mob to hit, a real player (v4) does not.
  * The legit jar must click nothing.
  *
- * <p>687 Door Keys circle: a "Wither Key" stand over a stone floor; the circle the mod draws is centred under it, on the
+ * <p>687 Door Keys circle: a "Wither Key" stand over a stone floor; the circle the mod draws is centered under it, on the
  * floor, with radius = the 0.27.2 key pickup range ({@code AutoSecretConfig.keyPickupRange}, 1 + 5 by default); a
  * "Blood Key" picture at GUI 2 against a Door-Keys-off frame of the same view.
  *
@@ -918,7 +918,7 @@ final class DungeonB2Cases {
                 return null;
             });
             // small-dungeon (2026-10-15): the Tracer is the Wither Boss Highlight's, on both builds, and the ESP has no
-            // colour row of its own.
+            // color row of its own.
             String tab = cheat ? "Dungeon ESP" : "Starred Mob Hitboxes";
             Screen s = openTab(c, tab);
             List<String> off = labels(c, s);

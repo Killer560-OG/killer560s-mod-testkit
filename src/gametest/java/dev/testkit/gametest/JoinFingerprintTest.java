@@ -48,7 +48,7 @@ import java.util.TreeSet;
  *   and must come back resolved ("Jump", and a key name for the keybind); a made-up key is the negative control and must
  *   come back as its fallback / raw name. Every killer560smod key must come back unresolved too.</li>
  * </ol>
- * The server is labelled {@code mc.hypixel.net} so the mod behaves as it would there. The test server is a Fabric
+ * The server is labeled {@code mc.hypixel.net} so the mod behaves as it would there. The test server is a Fabric
  * server (Fabric API on it), so the configuration-phase {@code c:version}/{@code c:register} exchange happens here and
  * would not on a non-Fabric server; the play-phase {@code minecraft:register} is sent regardless.
  */

@@ -34,8 +34,8 @@ import java.util.UUID;
  * work on your own head as well. Also don't make the green blend in so well with green room for the arrow pointer."
  *
  * <p>The scene: the singleplayer world with {@code DungeonState.setRoomSim(true)} (so the map HUD draws), Auto Scale
- * off, and the map's Map Background set to a room colour - the Entrance's #00FF00 (the green room), then Normal's
- * #724318 - so the whole map is "a room" of that colour. Him at map room (1,1) facing yaw 30; two teammates added to the
+ * off, and the map's Map Background set to a room color - the Entrance's #00FF00 (the green room), then Normal's
+ * #724318 - so the whole map is "a room" of that color. Him at map room (1,1) facing yaw 30; two teammates added to the
  * client as {@code RemotePlayer}s with real v4 UUIDs: MapHeadMate at room (3,1) facing yaw 90, WITH a PlayerInfo
  * (injected through {@code handlePlayerInfoUpdate}, as a server sends it), and MapArrowMate at room (1,3) facing yaw 180,
  * with NO PlayerInfo (no skin known). The party tracker is empty, so the map takes every real player as a teammate.
@@ -43,10 +43,10 @@ import java.util.UUID;
  * <p>Every frame is diffed against a no-marker frame of the same map (him placed where his marker lands outside the
  * map's frame, teammates hidden); a pixel counts above a summed RGB delta of 30. The changed pixels inside the frame
  * fall into one cluster per marker. A HEAD is proven by finding, in the cluster, an 8x8 grid (at any turn, since mod
- * map-heads 2026-10-08 turns the head to the heading: {@link #findRotated}) whose cell centres match
+ * map-heads 2026-10-08 turns the head to the heading: {@link #findRotated}) whose cell centers match
  * that player's skin face (face layer with the hat layer over it, read from the skin texture the client holds for
  * them) on at least 56 of 64 cells. An arrow's OUTLINE is measured on its boundary pixels (cluster pixels touching an
- * unchanged map pixel): the share that are the outline colour, and the WCAG contrast of the boundary against the room.
+ * unchanged map pixel): the share that are the outline color, and the WCAG contrast of the boundary against the room.
  */
 final class MapHeadCases {
 
@@ -67,7 +67,7 @@ final class MapHeadCases {
     static final int ARROW_ENTITY = -395002;
     /** Cells of 64 that must match the skin's face for a head to count as drawn. */
     static final int FACE_CELLS = 56;
-    /** Boundary share in the outline colour, and contrast against the room, an outlined marker must reach. */
+    /** Boundary share in the outline color, and contrast against the room, an outlined marker must reach. */
     static final double MIN_COVERAGE = 0.85;
     static final double MIN_CONTRAST = 4.5;
 
@@ -121,7 +121,7 @@ final class MapHeadCases {
                 return null;
             });
 
-            // An earlier case's map (a door cell left in the grid by the sim / interactive map cases) changes colour
+            // An earlier case's map (a door cell left in the grid by the sim / interactive map cases) changes color
             // between frames and reads as a fourth marker in a full ui run (2026-10-08): start from an empty grid.
             c.onClient(mc -> {
                 Mod.staticCall("livemap.LiveMapFeature", "resetGrid", "395-ui-map-heads start");
@@ -668,7 +668,7 @@ final class MapHeadCases {
         return best;
     }
 
-    /** A face found at any turn: cells matched, the turn (degrees clockwise on screen, 0 = upright), its centre and
+    /** A face found at any turn: cells matched, the turn (degrees clockwise on screen, 0 = upright), its center and
      *  side in screen pixels. */
     record RotFace(int score, int angle, double cx, double cy, double side) {
         @Override
@@ -680,8 +680,8 @@ final class MapHeadCases {
 
     /**
      * The best 8x8 grid against a skin face at any turn: every 5 degrees, every side from 8 px to the cluster's
-     * narrower box side, the centre within 8 px of the cluster box's centre. A cell is sampled at its centre turned
-     * about the grid's centre (screen y down, so a positive angle is clockwise, as the mod's pose rotate draws it).
+     * narrower box side, the center within 8 px of the cluster box's center. A cell is sampled at its center turned
+     * about the grid's center (screen y down, so a positive angle is clockwise, as the mod's pose rotate draws it).
      */
     static RotFace findRotated(BufferedImage img, Cluster cl, int[] face) {
         if (face == null) {
@@ -694,7 +694,7 @@ final class MapHeadCases {
         int[] px = img.getRGB(bx0, by0, bw, bh, null, 0, bw);
         int maxSide = Math.min(cl.x1 - cl.x0 + 1, cl.y1 - cl.y0 + 1) + 2;
         // The head is most of the marker, but an upright head with a heading tick (mod before map-heads) puts the box
-        // centre off the face's: look up to 8 px either way.
+        // center off the face's: look up to 8 px either way.
         double bcx = (cl.x0 + cl.x1 + 1) / 2.0, bcy = (cl.y0 + cl.y1 + 1) / 2.0;
         RotFace best = new RotFace(0, 0, 0, 0, 0);
         for (int deg = 0; deg < 360; deg += 5) {
@@ -768,9 +768,9 @@ final class MapHeadCases {
     }
 
     /**
-     * Boundary pixels: cluster pixels with a 4-neighbour the frame left unchanged. The outline colour is whichever of
+     * Boundary pixels: cluster pixels with a 4-neighbor the frame left unchanged. The outline color is whichever of
      * black / white is further from the fill; coverage is the boundary's share within 90 summed RGB of it. Contrast is
-     * WCAG's, the mean boundary colour against the room.
+     * WCAG's, the mean boundary color against the room.
      */
     static Outline outline(BufferedImage img, BufferedImage base, Cluster cl, int room, int fill) {
         double fillLuma = luminance(fill);
@@ -880,7 +880,7 @@ final class MapHeadCases {
         return delta(a, b) > 30;
     }
 
-    /** Bounding box of the pixels within 8 of the room colour - the map's interior. */
+    /** Bounding box of the pixels within 8 of the room color - the map's interior. */
     static int[] frameBox(BufferedImage img, int room) {
         int x0 = Integer.MAX_VALUE, y0 = Integer.MAX_VALUE, x1 = -1, y1 = -1;
         int n = 0;

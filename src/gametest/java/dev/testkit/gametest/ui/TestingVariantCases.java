@@ -230,7 +230,7 @@ final class TestingVariantCases {
         });
     }
 
-    /** Opens {@code top}, expands the section path down to tab {@code id}, presses the row labelled {@code label}. */
+    /** Opens {@code top}, expands the section path down to tab {@code id}, presses the row labeled {@code label}. */
     private static String press(UiCase c, String top, String id, String label) {
         return c.onClient(mc -> {
             try {

@@ -444,7 +444,7 @@ final class FlipCroesusCases {
                     11, chest("§5Obsidian Chest", "Testkit Idol", "§6500,000 Coins", false, false),
                     49, item("minecraft:arrow", "§aGo Back")),
                     Map.of(10, open(chestScreen("Bedrock Chest", "Testkit Relic", "§61,000,000 Coins", false))));
-            // Croesus himself: an armour stand named Croesus beside the player; using it opens the post-claim menu.
+            // Croesus himself: an armor stand named Croesus beside the player; using it opens the post-claim menu.
             double[] at = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
             c.hx().stand(at[0] + 1.6, at[1], at[2], "Croesus", "marker", false, "invisible", false);
             c.hx().call("menu.onEntity", Hx.args("name", "Croesus", "menu", menuAfter));

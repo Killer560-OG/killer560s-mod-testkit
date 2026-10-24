@@ -621,7 +621,7 @@ final class SwapAccountsCases {
      * killer560 (2026-10-16): "Make Active a bit more noticeable, and remove the 'Click an account to switch to it' line."
      * At three window sizes, measured on the screenshot: the hint is drawn nowhere and the list runs down to the footer
      * (its bottom within 10 units of the footer's top, where the hint row left 20); the signed-in account's card carries
-     * a SOLID accent pill (at least two pixel rows inside the card with a run of 20+ units of the accent colour, which a
+     * a SOLID accent pill (at least two pixel rows inside the card with a run of 20+ units of the accent color, which a
      * plain card has none of) and its background, sampled where no text is, is at least 35 (RGB distance) nearer the
      * accent than a plain card's. Fails on main: the hint is there, the list stops 20 above the footer, and the tag is a
      * faint green outline.
@@ -695,7 +695,7 @@ final class SwapAccountsCases {
     }
 
     /** Pixel rows inside the card (8 units in from the left, 3 from the other edges) holding a run of 20+ units of the
-     *  accent colour - only a solid accent fill makes one; the frame and the side bar are outside the inset. */
+     *  accent color - only a solid accent fill makes one; the frame and the side bar are outside the inset. */
     static int accentRows(java.awt.image.BufferedImage img, int[] r, double ppu, int accent) {
         int x0 = (int) Math.ceil((r[0] + 8) * ppu);
         int x1 = (int) Math.floor((r[0] + r[2] - 3) * ppu);
@@ -722,7 +722,7 @@ final class SwapAccountsCases {
         return rows;
     }
 
-    /** The card's mean colour over a strip with no text: 30..10 units left of its buttons, 3 units in from top/bottom. */
+    /** The card's mean color over a strip with no text: 30..10 units left of its buttons, 3 units in from top/bottom. */
     static double[] background(java.awt.image.BufferedImage img, int[] r, int textRight, double ppu) {
         int x0 = (int) Math.ceil((textRight - 30) * ppu);
         int x1 = (int) Math.floor((textRight - 10) * ppu);

@@ -42,7 +42,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * <p>Seeded: routes on the 2nd and 3rd eligible rooms in list order, and on one PUZZLE room - so the filter has a
  * route-bearing room it must still hide, and the walk from the 1st eligible room has to skip two routed rooms.
- * Every press goes through the real widget at its drawn centre, via the screen's own mouseClicked.
+ * Every press goes through the real widget at its drawn center, via the screen's own mouseClicked.
  *
  * <p>Since mod sim-filters (killer560, 2026-10-07: "the single room should have the same filter option"), the
  * picker's Routes, shape and Puzzles buttons are rows of the shared Filters panel on the picker's own filter
@@ -230,7 +230,7 @@ public class SimRoomPickTests implements FabricClientGameTest {
 
     /**
      * Opens the picker's Filters panel with its button, presses the chip {@code label} in {@code row} at its drawn
-     * centre, and comes back with Done. The chip is found by its row, since "Any" is in several.
+     * center, and comes back with Done. The chip is found by its row, since "Any" is in several.
      */
     private static void setOnPanel(ClientGameTestContext ctx, String row, String label) {
         pressButtonStartingWith(ctx, "Filters");
@@ -344,7 +344,7 @@ public class SimRoomPickTests implements FabricClientGameTest {
     }
 
     /**
-     * A left click at the widget's DRAWN centre, sent to the SCREEN - so it has to reach this widget through the
+     * A left click at the widget's DRAWN center, sent to the SCREEN - so it has to reach this widget through the
      * screen's own dispatch, as his click would, not by calling the widget directly.
      */
     private static void pressButtonStartingWith(ClientGameTestContext ctx, String label) {

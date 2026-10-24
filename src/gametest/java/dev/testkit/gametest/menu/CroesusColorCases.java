@@ -117,8 +117,8 @@ final class CroesusColorCases {
                             img.getRGB((int) (sx + 13.5 * px), (int) (sy + 2.5 * px)) & 0xFFFFFF,
                             img.getRGB((int) (sx + 10.5 * px), (int) (sy + 5.5 * px)) & 0xFFFFFF,
                             img.getRGB((int) (sx + px / 2), (int) (sy + 8.5 * px)) & 0xFFFFFF};
-                    // Salience: every pixel of the slot the head does not cover (the reference shot shows plain slot grey
-                    // there): how far the highlight moves it (CIEDE2000) and how colourful it is. The whole slot, not
+                    // Salience: every pixel of the slot the head does not cover (the reference shot shows plain slot gray
+                    // there): how far the highlight moves it (CIEDE2000) and how colorful it is. The whole slot, not
                     // just its frame, since croesus-outline (2026-10-13): the quiet states are full outlines now, as loud
                     // as a border, and what keeps the action states louder is their fill.
                     int n = 0;
@@ -196,7 +196,7 @@ final class CroesusColorCases {
             boolean legend = panel.stream().anyMatch(l -> l.contains("new") && l.contains("key") && l.contains("unchecked")
                     && l.contains("done") && l.contains("used") && !l.contains("?"));
             c.check(legend, "no color legend line (new key unchecked done used, no \"?\") in the info box: " + panel);
-            // The old gold default moves to the new one; a picked colour stays.
+            // The old gold default moves to the new one; a picked color stays.
             String migrate = migration(c);
             c.note("legend " + legend + "; " + migrate);
             c.check(salience.isEmpty(), String.join("; ", salience));
@@ -263,7 +263,7 @@ final class CroesusColorCases {
         }
     }
 
-    // ---- colour maths ---------------------------------------------------------------------------------------------
+    // ---- color maths ---------------------------------------------------------------------------------------------
 
     static double lin(double v) {
         v /= 255.0;

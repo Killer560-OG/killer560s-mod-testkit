@@ -39,7 +39,7 @@ public final class FakePlayerManager {
         PLAYERS.clear();
     }
 
-    /** Whether this server player is one of ours, so behaviour never targets another fake. */
+    /** Whether this server player is one of ours, so behavior never targets another fake. */
     public static boolean isFake(ServerPlayer candidate) {
         for (FakePlayer player : PLAYERS.values()) {
             if (player.entity() == candidate) {

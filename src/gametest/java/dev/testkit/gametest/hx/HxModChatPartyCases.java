@@ -126,7 +126,7 @@ final class HxModChatPartyCases {
                 restore(file, saved);
                 c.onClient(mc -> Mod.staticCall(MC, "load"));
             }
-            // Real behaviour: a line from the relay shows in chat.
+            // Real behavior: a line from the relay shows in chat.
             try (Settings set = new Settings(c).with(MC, "Enabled", true).with(MC, "LogToChat", true)) {
                 hub(c);
                 long mark = LogTap.mark();

@@ -23,10 +23,10 @@ import java.util.Map;
  * open!" (done with a key); 14 opened but never looked at (needs a look). Runs 11 and 12 are told apart by their players.
  * Their run views are opened once by a real mouse press on the head, as he would, which is what the mod learns from.
  * <ul>
- *   <li>879: the five states read off the heads, each drawn in its own colour (sampled in the shot).</li>
+ *   <li>879: the five states read off the heads, each drawn in its own color (sampled in the shot).</li>
  *   <li>880: Hide Opened Runs hides 12 and 13 only - never 11 (needs a key), 14 (needs a look) or 10.</li>
  *   <li>881: the key floor is Auto Croesus's current one: raised to 2M, run 11 becomes "opened" (and hides).</li>
- *   <li>882: the two new colours are saved and reloaded.</li>
+ *   <li>882: the two new colors are saved and reloaded.</li>
  * </ul>
  */
 final class CroesusKeyCases {
@@ -129,7 +129,7 @@ final class CroesusKeyCases {
         return out;
     }
 
-    /** The colour of the pixel 1 GUI px inside a slot's top-left corner (its border, or its tint over the slot). */
+    /** The color of the pixel 1 GUI px inside a slot's top-left corner (its border, or its tint over the slot). */
     static int borderPixel(Session c, BufferedImage img, int slot) {
         double[] g = CroesusUiCases.geometry(c);
         double px = img.getWidth() / g[2];

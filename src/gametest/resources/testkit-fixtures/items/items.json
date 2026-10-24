@@ -36,7 +36,7 @@
       "line": 267
     },
     "verifiedBy": "regex",
-    "notes": "'[Lvl N] ' name prefix; the colour after it decides (ItemRarity.byColor): gold = LEGENDARY."
+    "notes": "'[Lvl N] ' name prefix; the color after it decides (ItemRarity.byColor): gold = LEGENDARY."
   },
   {
     "id": "items.tooltip-style-mythic",

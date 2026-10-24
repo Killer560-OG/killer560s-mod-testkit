@@ -22,9 +22,9 @@ import java.util.Map;
  *       and "enabled": false never turns In Boss off. Cheat jar only.</li>
  *   <li>1421 every overlay with a Menu Theme setting ({@code gui.OverlayThemes.ids()}): the setting is in its tab and starts on
  *       Default (the overlay's own look, no palette); a press on the button steps to Amber; Amber, Ocean and Light each give a
- *       palette and the colours the overlay really reads differ from Default's and from each other; a custom theme saved at
- *       run time is in the choice list, is reached by pressing the button, shows its name, draws its own colours, follows a
- *       rename and a recolour, survives a save and reload, and reads as Default once deleted. The same list is what a menu
+ *       palette and the colors the overlay really reads differ from Default's and from each other; a custom theme saved at
+ *       run time is in the choice list, is reached by pressing the button, shows its name, draws its own colors, follows a
+ *       rename and a recolor, survives a save and reload, and reads as Default once deleted. The same list is what a menu
  *       screen's own Theme setting offers (Termism).</li>
  * </ul>
  */
@@ -245,7 +245,7 @@ final class AuraThemeCases {
         });
     }
 
-    /** The colour the overlay reads from its Menu Theme right now (the same method its drawing calls). */
+    /** The color the overlay reads from its Menu Theme right now (the same method its drawing calls). */
     private static int drawn(String id) {
         Object pal = Mod.staticCall(OT, "of", id);
         switch (id) {
@@ -280,7 +280,7 @@ final class AuraThemeCases {
         try {
             // 1. each overlay: setting present, starts on Default, no palette
             Map<String, AbstractWidget> buttons = new LinkedHashMap<>();
-            // A pre-2026-10-18 Inventory Theme file migrates to Vanilla (its old Default meant vanilla colours,
+            // A pre-2026-10-18 Inventory Theme file migrates to Vanilla (its old Default meant vanilla colors,
             // InventoryThemeConfig.load); start that one from Default by hand, every other overlay must already be there.
             if (!choice("inventory_theme").equals("DEFAULT")) {
                 c.note("inventory_theme starts on " + choice("inventory_theme") + " (a migrated file); set to Default");
@@ -334,7 +334,7 @@ final class AuraThemeCases {
                 c.check(drawn(id) == base, id + ": back on Default draws " + Integer.toHexString(drawn(id)) + ", was " + Integer.toHexString(base));
             }
 
-            // 3. a custom theme made now is in every list and draws its own colours
+            // 3. a custom theme made now is in every list and draws its own colors
             Mod.call(menu, "setCustomColour", Mod.enumValue("gui.MenuTheme$Slot", "PANEL"), 0x123456);
             Mod.call(menu, "setCustomColour", Mod.enumValue("gui.MenuTheme$Slot", "ACCENT"), 0xE0E010);
             int idx = (Integer) Mod.call(menu, "saveCurrentAsTheme");
@@ -363,7 +363,7 @@ final class AuraThemeCases {
                 int panelBase = ((int[]) Mod.call(pal, "base"))[1] & 0xFFFFFF;
                 c.check(panelBase == 0x123456, id + ": palette panel base " + Integer.toHexString(panelBase) + " is not the saved 123456");
                 int onSaved = drawn(id);
-                // recolour the saved theme while it is in use: the overlay follows
+                // recolor the saved theme while it is in use: the overlay follows
                 Mod.call(menu, "setCustomColour", Mod.enumValue("gui.MenuTheme$Slot", "PANEL"), 0x654321);
                 int recoloured = drawn(id);
                 c.check(recoloured != onSaved, id + ": recoloring the saved theme did not change what is drawn");

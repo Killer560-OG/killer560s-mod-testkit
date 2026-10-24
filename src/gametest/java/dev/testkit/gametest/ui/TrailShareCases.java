@@ -28,7 +28,7 @@ import java.util.function.Consumer;
  *   <li>1036 send: the share push ({@code SupportersSelfService.lastAttempt}, set before the network call, so it reads
  *       the same offline) carries the Ribbon Trail in the relay's exact shape only when linked AND Share if Supporter AND
  *       Share Trail AND the Ribbon Trail are on; the squares Trail never appears in it, even with everything on; nothing at all is attempted for a non-supporter; with no display name the trail goes
- *       up alone (name ""). The tab's Share Trail is greyed out with "Only supporters can share a trail." until linked,
+ *       up alone (name ""). The tab's Share Trail is grayed out with "Only supporters can share a trail." until linked,
  *       then live; both switches default ON, survive save + load and a profile reload, and have tooltips. The startup
  *       supporter check backs off (30 s doubling) offline without linking; a linked answer links and pushes at once.</li>
  *   <li>1037 remote: a relay entry (parsed by the mod's own {@code SupportersFetcher.parseSupporters}) gives a fake
@@ -278,7 +278,7 @@ final class TrailShareCases {
             c.note("no display name, Share Trail off: " + nothing);
             c.check("DELETE".equals(nothing), "with no name and no trail the entry is not cleared: " + nothing);
 
-            // The tab: greyed out with the reason until linked.
+            // The tab: grayed out with the reason until linked.
             c.onClient(mc -> {
                 Mod.set(SC, "setShareTrail", true);
                 Mod.staticCall(SA, "setLinked", false);
@@ -311,7 +311,7 @@ final class TrailShareCases {
             c.check(rowsNo.contains("Show Others' Trails: ON"), "Show Others' Trails is missing or not ON: " + rowsNo);
             c.check(rowsYes.contains("Share Ribbon Trail: ON"), "Share Ribbon Trail is not live for a supporter: " + rowsYes);
             c.check(rowsYes.stream().noneMatch(r -> r.startsWith("Only supporters")), "a supporter still sees the reason: " + rowsYes);
-            // The same two switches on the Ribbon Trail tab, greyed out the same way.
+            // The same two switches on the Ribbon Trail tab, grayed out the same way.
             Object ribbonTab = c.onClient(mc -> {
                 Mod.staticCall(SA, "setLinked", false);
                 try {
@@ -390,7 +390,7 @@ final class TrailShareCases {
         }
     }
 
-    /** The Player Cosmetics tab's rows (" [inactive]" for a greyed-out button; text lines are never active), colour
+    /** The Player Cosmetics tab's rows (" [inactive]" for a grayed-out button; text lines are never active), color
      *  codes stripped. */
     private static List<String> rows(UiCase c, Object tab) {
         return c.onClient(mc -> {
@@ -619,7 +619,7 @@ final class TrailShareCases {
             c.note("his band: " + d.describe());
             c.check(d.changed() > 1500, "no band on screen behind him: " + d.describe());
             // He walked to the right of the screen, so the band streams out to his left: his end (right) is the head
-            // colour, red; the far end (left) leans further to the tail colour, blue.
+            // color, red; the far end (left) leans further to the tail color, blue.
             c.check(d.right()[0] > 40 && d.right()[0] - d.right()[1] > 40,
                     "the band at his end is not the head color (red): " + d.describe());
             c.check(d.left()[2] - d.left()[0] > d.right()[2] - d.right()[0] + 30,

@@ -35,8 +35,8 @@ import java.util.Map;
  *       for this case so only the resize is measured.</li>
  *   <li><b>399-ui-hud-editor-snap</b> ("Those should kind of do a snapping style where they snap to align with
  *       things"): a box dropped 3 px from another's left edge lands exactly on it; a text dropped 3 px off the screen's
- *       centre lands centred (within half a pixel, the parity limit); one dropped into a row lands at the gap its
- *       neighbours already have; with Alt held, or with Snapping switched off, the same drop stays where it was
+ *       center lands centered (within half a pixel, the parity limit); one dropped into a row lands at the gap its
+ *       neighbors already have; with Alt held, or with Snapping switched off, the same drop stays where it was
  *       dropped; the snapped positions survive a reload with 0 units of difference. Guides are photographed mid-drag.
  *   </li>
  * </ul>
@@ -301,7 +301,7 @@ final class HudEditorCases {
         c.note(tag + ": Auto Scale factor " + factor + ", editor " + w + "x" + h + ", A " + str(box(c, s, A)) + ", B "
                 + str(box(c, s, B)) + ", C " + str(box(c, s, C)));
 
-        // ---- screen centre: the text dropped 3 px right and 2 px up of centred --------------------------------------
+        // ---- screen center: the text dropped 3 px right and 2 px up of centered --------------------------------------
         int[] t = box(c, s, C);
         int tw = t[2] - t[0];
         int th = t[3] - t[1];

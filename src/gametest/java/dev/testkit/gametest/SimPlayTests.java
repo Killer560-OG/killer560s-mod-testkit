@@ -119,7 +119,7 @@ public class SimPlayTests implements FabricClientGameTest {
             // ---- 1. walk through every doorway on the floor -------------------------------------------
             // The first version of this walked forward from the middle of one room for six seconds and asked
             // whether the room changed. That tests blind navigation, not the doorway: it failed after 16.2
-            // blocks because it aimed from the CELL CENTRE rather than from where the player was standing, and
+            // blocks because it aimed from the CELL CENTER rather than from where the player was standing, and
             // it only ever covered one door. This places him four blocks in front of each doorway in turn,
             // square on to it, and asks the one question worth asking - can a player get through this hole.
             int shift = (Integer) ModUnderTest.staticCall(ALTITUDE, "offset");
@@ -186,7 +186,7 @@ public class SimPlayTests implements FabricClientGameTest {
                 double sx = 0;
                 double sz = 0;
                 float yaw = 0;
-                // +1 when he walks towards increasing x/z, -1 when towards decreasing. The crossing is
+                // +1 when he walks toward increasing x/z, -1 when toward decreasing. The crossing is
                 // measured along the way he is FACING, and forgetting that was worth three false failures:
                 // approaching from the positive side and crossing perfectly reads as "moved -16.5 across",
                 // which fails a "did he get at least N across" test on a doorway he walked straight through.
@@ -200,8 +200,8 @@ public class SimPlayTests implements FabricClientGameTest {
                         if (standable(ctx, tx + 0.5, floorY, tz + 0.5)) {
                             sx = tx;
                             sz = tz;
-                            // Face across the seam FROM the side he is actually on: -90 looks towards +X and
-                            // +90 towards -X, 0 towards +Z and 180 towards -Z.
+                            // Face across the seam FROM the side he is actually on: -90 looks toward +X and
+                            // +90 toward -X, 0 toward +Z and 180 toward -Z.
                             yaw = alongX ? (sign < 0 ? -90f : 90f) : (sign < 0 ? 0f : 180f);
                             travel = sign < 0 ? 1 : -1;
                             placed = true;
@@ -498,7 +498,7 @@ public class SimPlayTests implements FabricClientGameTest {
     /**
      * How much of the carve volume is open, layer by layer.
      *
-     * <p>{@code SimDoors.carveDoorway} clears 3 wide by 4 high by 7 deep centred on the connector cell, at a
+     * <p>{@code SimDoors.carveDoorway} clears 3 wide by 4 high by 7 deep centered on the connector cell, at a
      * floor it SEARCHES for. So a doorway can be impassable two ways that look identical from the player's
      * side: the carve never happened (every layer solid), or it happened at a height the player is not
      * standing at (a run of fully open layers, somewhere other than the walking floor). This prints the open

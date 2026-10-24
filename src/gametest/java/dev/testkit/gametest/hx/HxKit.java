@@ -26,7 +26,7 @@ public final class HxKit {
     // ---- player stats -----------------------------------------------------------------------------------------
 
     /**
-     * What Stat Bars last read off the action bar, as "cur/max" (or "value" for defence), null before the first read.
+     * What Stat Bars last read off the action bar, as "cur/max" (or "value" for defense), null before the first read.
      * The mod's String fields {@code health}/{@code mana}/{@code defense} fed only the Classic Display and went with it
      * (mod a302cab2, hud-editor-bars, 2026-10-07); the bars and readouts read the numeric copies used here.
      * {@code stat} is "health", "mana" or "defense".

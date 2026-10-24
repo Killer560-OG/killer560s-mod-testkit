@@ -23,7 +23,7 @@ import java.util.List;
  * it.
  * <ul>
  *   <li>1015-menu-term-hidden-slots: for every terminal type (Correct Panes, Rubix, Click in Order, Starts With, Select
- *       Colour, Melody), the cursor on a hidden slot that no custom square covers - one in the terminal grid and one in
+ *       Color, Melody), the cursor on a hidden slot that no custom square covers - one in the terminal grid and one in
  *       the player inventory - leaves {@code hoveredSlot} null and changes no pixel of that slot; left, right, middle and
  *       shift clicks and the hotbar 1, drop and pick-block keys there reach the server as nothing; a real click on a
  *       custom square still sends exactly the click the solver's own target names (slot, button, input).</li>
@@ -72,7 +72,7 @@ final class TermHiddenSlotCases {
         });
     }
 
-    /** Centre of a custom square for a real slot index, in GUI units. */
+    /** Center of a custom square for a real slot index, in GUI units. */
     static double[] cellCentre(Session c, int slot) {
         return c.onClient(mc -> {
             Object layout = Mod.staticCall(FEATURE, "computeCustomGuiLayout", McCompat.screen(mc));

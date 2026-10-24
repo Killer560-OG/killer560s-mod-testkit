@@ -33,7 +33,7 @@ import java.util.regex.Pattern;
  *       capture a number Integer.parseInt cannot hold.</li>
  * </ul>
  * Then the handlers themselves are fed forged lines (Auto Door Opener, PartyTracker, PartyLeaderTracker), and every
- * catalogued pattern is run against long hostile strings under a deadline.
+ * cataloged pattern is run against long hostile strings under a deadline.
  */
 final class HostileCases {
 
@@ -193,7 +193,7 @@ final class HostileCases {
             R.set(door, "pendingType", savedType);
         }
 
-        // PartyTracker: the teammate list Party Commands authorises against.
+        // PartyTracker: the teammate list Party Commands authorizes against.
         String tracker = "leapmenu.PartyTracker";
         Collection<String> members = (Collection<String>) R.get(tracker, "MEMBERS");
         List<String> saved = new ArrayList<>(members);
@@ -268,7 +268,7 @@ final class HostileCases {
 
     // ---- catastrophic backtracking -----------------------------------------------------------------------------
 
-    /** Every catalogued pattern against long hostile strings, each match bounded by a deadline. */
+    /** Every cataloged pattern against long hostile strings, each match bounded by a deadline. */
     private static void backtracking(LogicCase c) {
         Catalog cat = Catalog.load();
         List<String> inputs = List.of(

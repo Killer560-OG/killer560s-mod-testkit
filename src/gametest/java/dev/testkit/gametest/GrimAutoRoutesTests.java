@@ -33,7 +33,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * 62-argrim-*: Auto Routes on the DEDICATED server with GrimAC - every node type and the timing behaviours, judged on
+ * 62-argrim-*: Auto Routes on the DEDICATED server with GrimAC - every node type and the timing behaviors, judged on
  * what happened (where he landed, what the server's ability emulation did, which blocks broke, the packets per tick)
  * and on GrimAC's verbose output, one verdict per case, with the session's positive control at both ends.
  *
@@ -41,7 +41,7 @@ import java.util.function.Supplier;
  * Auto Routes only runs inside a room the live map has identified (a {@code RouteCoords.Frame}). So the session pastes
  * one of his real captured rooms ({@code RoomLibrary}, sent through Hx {@code dungeon.paste}) at dungeon grid cell
  * (4,4) with its whole column cleared, puts up a Catacombs sidebar, and lets the mod's REAL world scan find it: the core
- * hash of the centre column and the blue-terracotta roof marker, exactly as on Hypixel. Only once the room is
+ * hash of the center column and the blue-terracotta roof marker, exactly as on Hypixel. Only once the room is
  * identified is the 96-ar arena carved into it (relative x,z 3..27, floor at relative y {@link #F}).
  *
  * <h2>Abilities</h2>
@@ -70,7 +70,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     private static final String AR_CONFIG = "com.killer560.hub.autoroutes.AutoRoutesConfig";
     private static final String DX_CONFIG = "com.killer560.hub.dungeonextras.DungeonExtrasConfig";
 
-    /** Grid cell the room is pasted at (centre -57, -57). */
+    /** Grid cell the room is pasted at (center -57, -57). */
     private static final int CELL = 4;
     private static final int CENTRE = -185 + CELL * 32;
     /** Feet height of the arena floor: relative y is world y outside the sim, and 69 is a Catacombs floor. */
@@ -279,7 +279,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         for (String name : candidates.subList(0, Math.min(8, candidates.size()))) {
             JsonObject result = paste(ctx, hx, name);
             println("pasted \"" + name + "\": " + result);
-            // A 3x3 pad beside the centre column (never on it: that column IS the room's identity) to stand on.
+            // A 3x3 pad beside the center column (never on it: that column IS the room's identity) to stand on.
             List<String> pad = new ArrayList<>();
             for (int dx = -1; dx <= 1; dx++) {
                 for (int dz = 2; dz <= 4; dz++) {
@@ -1449,7 +1449,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         resetRoutes(ctx);
         arena(ctx, false);
         // A lever on a wall at eye height and a chest hit on its side: aims that land on them from anywhere in the
-        // node's ring along the approach (walked in, a node fires at the ring's edge, not its centre).
+        // node's ring along the approach (walked in, a node fires at the ring's edge, not its center).
         setBlocks(ctx, Map.of(new int[]{14, F + 1, 14}, "minecraft:stone",
                 new int[]{13, F + 1, 14}, "minecraft:lever[face=wall,facing=west,powered=false]",
                 new int[]{13, F, 18}, "minecraft:chest"));
@@ -2154,7 +2154,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         String midas = "King Midas";
         JsonObject pasted = paste(ctx, hx, midas);
         println("midas: pasted: " + pasted);
-        // On the red carpet in front of the altar (capture x 16, z 20 - the paste puts capture x/z 16 on the cell centre).
+        // On the red carpet in front of the altar (capture x 16, z 20 - the paste puts capture x/z 16 on the cell center).
         hx.call("dungeon.tp", "x", CENTRE + 0.5, "y", 67.0625, "z", CENTRE + 4.5, "yaw", 180f, "pitch", 0f);
         ctx.waitTicks(10);
         // The live map keeps the cell's identification for the run: leave the dungeon (sidebar) and enter it again, so
@@ -2174,7 +2174,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 + frameString(ctx));
         check(known, "the pasted King Midas was not identified by the live map - Auto Clear cannot find the room");
         ctx.waitTicks(20);
-        // The lid, read from the client's world: every smooth stone slab within 12 blocks of the cell centre.
+        // The lid, read from the client's world: every smooth stone slab within 12 blocks of the cell center.
         Supplier<List<BlockPos>> lid = () -> ctx.computeOnClient(mc -> {
             List<BlockPos> out = new ArrayList<>();
             for (int dx = -12; dx <= 12; dx++) {
@@ -3125,7 +3125,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         ctx.waitTicks(3);
     }
 
-    /** A click at the widget's DRAWN centre, through the screen's own mouseClicked (96-ar's helper). */
+    /** A click at the widget's DRAWN center, through the screen's own mouseClicked (96-ar's helper). */
     private static void press(ClientGameTestContext ctx, String label) {
         String result = ctx.computeOnClient(mc -> {
             net.minecraft.client.gui.screens.Screen sc = McCompat.screen(mc);
@@ -3263,7 +3263,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * key until the route starts (or 40 ticks), then the key is let go.
      */
     private static void walkOnto(ClientGameTestContext ctx, double fx, double fz, int tx, int tz) {
-        // Facing the node's centre exactly from (fx, fz), both relative.
+        // Facing the node's center exactly from (fx, fz), both relative.
         float yaw = (float) Math.toDegrees(Math.atan2(-(tx + 0.5 - fx), tz + 0.5 - fz));
         tpRel(ctx, fx, fz, yaw, 0f);
         ctx.waitTicks(10);
@@ -3278,7 +3278,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     /**
      * Arrives on a node by etherwarping onto it BY HAND, as he would: from (sx, sz) looking at the floor of (tx, tz),
      * the sneak key held, the use key pressed once (a vanilla click: use-on-block, then use), the sneak let go once
-     * he has landed. The server's etherwarp puts him on the block centre, so an etherwarp start node fires from
+     * he has landed. The server's etherwarp puts him on the block center, so an etherwarp start node fires from
      * exactly where it was written - walking in fires it from the ring's edge, which on a long warp is a block short.
      */
     private static void warpOnto(ClientGameTestContext ctx, double sx, double sz, int tx, int tz) {
@@ -3360,7 +3360,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         return (float) Math.toDegrees(Math.atan2(-(tx - fx), tz - fz));
     }
 
-    /** Pitch from a sneaking eye over block (fx,fz) down onto the top centre of the floor block at (tx,tz). */
+    /** Pitch from a sneaking eye over block (fx,fz) down onto the top center of the floor block at (tx,tz). */
     private static float pitchTo(int fx, int fz, int tx, int tz) {
         double horiz = Math.hypot(tx - fx, tz - fz);
         return (float) Math.toDegrees(Math.atan2(1.27, horiz));
@@ -3488,7 +3488,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     /** A real right click on a relative block, through the game mode (his click). */
     private static void rightClick(ClientGameTestContext ctx, int x, int y, int z, Direction face) {
         // He LOOKS at it first (a turn, reported by the next movement packet), then clicks the point his ray strikes.
-        // Clicking a block's centre while facing elsewhere is not a click a hand makes: GrimAC RotationPlace flagged
+        // Clicking a block's center while facing elsewhere is not a click a hand makes: GrimAC RotationPlace flagged
         // exactly that on the first version of this helper (2026-10-05).
         ctx.runOnClient(mc -> {
             BlockPos pos = real(ModUnderTest.staticCall(FRAME, "current"), x, y, z);

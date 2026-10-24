@@ -15,18 +15,18 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * 1013-sim-map-mimic: the mimic's room stays red on the map for the rest of the run.
  *
- * <p>killer560, 2026-10-13: "If i get a mimic in a room do not have that room go back to being grey it should stay red
+ * <p>killer560, 2026-10-13: "If i get a mimic in a room do not have that room go back to being gray it should stay red
  * on my map." The map's mimic tint (cheat build) was a once-a-second SNAPSHOT of whether a {@code trapped_chest} stood
  * at one of the room's database secret positions. The mimic springing replaces that chest (Hypixel, and the sim with
  * air), so the tint went the moment he found it.
  *
  * <p>A real F7 floor from a map code (SimFloorGen.generate - SimBuilder.build), the run begun with SimRun.begin. The
- * mimic is moved to a secret chest whose nearest cell centre is not one of its room's cells, because on main the sim
- * also had a sim-only branch that painted the room from that NEAREST cell centre - which hid the bug for chests near
+ * mimic is moved to a secret chest whose nearest cell center is not one of its room's cells, because on main the sim
+ * also had a sim-only branch that painted the room from that NEAREST cell center - which hid the bug for chests near
  * the middle of their room; the case is about the live check, which is what Hypixel runs. Then: stand in the room, see the
  * tint, open the chest on the server (the packet path's own handler), kill the mimic, walk to the entrance, clear the
- * mimic room and three others, and sample the room's fill colour for six seconds (six map scans). Cheat: every sample
- * must be the tinted colour. Legit (killer560, 2026-10-13): plain while the chest is shut and while the mimic is out
+ * mimic room and three others, and sample the room's fill color for six seconds (six map scans). Cheat: every sample
+ * must be the tinted color. Legit (killer560, 2026-10-13): plain while the chest is shut and while the mimic is out
  * alive (no advance warning), then tinted in every sample after HIS kill.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -122,7 +122,7 @@ public class SimMapMimicTests implements FabricClientGameTest {
         if (picked == null) {
             throw new AssertionError("the F7 floor has no mimic - the sim's one-per-run rule broke, nothing to test");
         }
-        // The secret chest to make the mimic: in an eligible, identified room, off its tile centre if any is.
+        // The secret chest to make the mimic: in an eligible, identified room, off its tile center if any is.
         Object[] choice = ctx.computeOnClient(mc -> chooseChest());
         if (choice == null) {
             throw new AssertionError("no secret chest in an eligible identified room on this floor");
@@ -272,7 +272,7 @@ public class SimMapMimicTests implements FabricClientGameTest {
                 : "legit: plain until his kill, then red through leaving it and four rooms clearing"));
     }
 
-    /** {chest, tile, room name, off-centre} or null. Client thread. */
+    /** {chest, tile, room name, off-center} or null. Client thread. */
     private static Object[] chooseChest() {
         @SuppressWarnings("unchecked")
         List<BlockPos> placed;
@@ -294,7 +294,7 @@ public class SimMapMimicTests implements FabricClientGameTest {
                     new Class<?>[]{String.class}, new Object[]{name})) {
                 continue;
             }
-            // "Off" = the nearest cell centre of ALL 121 (what main's sim-only branch used) is not one of this room's
+            // "Off" = the nearest cell center of ALL 121 (what main's sim-only branch used) is not one of this room's
             // cells, so main has nothing but the live check to keep the room red.
             int nearest = -1;
             long bestD = Long.MAX_VALUE;
@@ -346,7 +346,7 @@ public class SimMapMimicTests implements FabricClientGameTest {
         return out;
     }
 
-    /** Names (with their tiles) of every room other than the one on {@code mimicTile} whose fill is the tinted colour. */
+    /** Names (with their tiles) of every room other than the one on {@code mimicTile} whose fill is the tinted color. */
     private static List<String> otherTintedRooms(int mimicTile) {
         List<String> out = new ArrayList<>();
         Object mine = group(mimicTile);
@@ -406,7 +406,7 @@ public class SimMapMimicTests implements FabricClientGameTest {
                 new Object[]{g, ModUnderTest.config(CONFIG)});
     }
 
-    /** {plain type colour, the same with the mimic tint} for the room on this tile. */
+    /** {plain type color, the same with the mimic tint} for the room on this tile. */
     private static int[] colours(int tile) {
         Object g = group(tile);
         Object cfg = ModUnderTest.config(CONFIG);

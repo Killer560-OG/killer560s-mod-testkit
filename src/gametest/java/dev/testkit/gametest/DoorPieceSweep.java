@@ -218,8 +218,8 @@ final class DoorPieceSweep {
 
     /**
      * Capture position of the box over doorway {@code (side, index)}: {@code k} blocks in from the wall plane, {@code u}
-     * along the wall from the tile's centre. The same arithmetic {@code RoomDoors} measures with (wall plane {@code margin}
-     * in, tile centres {@code margin + 15} and every 32 after).
+     * along the wall from the tile's center. The same arithmetic {@code RoomDoors} measures with (wall plane {@code margin}
+     * in, tile centers {@code margin + 15} and every 32 after).
      */
     static int[] at(int sizeX, int sizeZ, int margin, int side, int index, int k, int u, int y) {
         int c = margin + 15 + index * 32;

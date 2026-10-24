@@ -20,7 +20,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * A P3 terminal as the mod's Terminal Open Logger sees one: an invisible, NON-marker armour stand named "Inactive
+ * A P3 terminal as the mod's Terminal Open Logger sees one: an invisible, NON-marker armor stand named "Inactive
  * Terminal" standing on a three-block pillar whose top block is a command block, with a platform to stand LEVEL with
  * the stand's feet on one side and one two blocks ABOVE them on another; standing on the ground beside the pillar is
  * BELOW. Right-clicking the stand opens a "Click in order!" terminal (menu.terminal's NUMBERS) when the player's eye is

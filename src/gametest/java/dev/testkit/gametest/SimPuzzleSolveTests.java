@@ -836,7 +836,7 @@ public final class SimPuzzleSolveTests {
                     return null;
                 });
                 if (ownWarp()) {
-                    // Two blocks from the outside spot (relative 15, 69, -4) towards the room: relative 15, 69, -2. Worked out
+                    // Two blocks from the outside spot (relative 15, 69, -4) toward the room: relative 15, 69, -2. Worked out
                     // from that spot because outside the room the live map has no clay/rotation to go through.
                     double yawRad = Math.toRadians(outside[3]);
                     double[] door = {outside[0] - Math.sin(yawRad) * 2.0, outside[1], outside[2] + Math.cos(yawRad) * 2.0};
@@ -1560,16 +1560,16 @@ public final class SimPuzzleSolveTests {
 
     // ------------------------------------------------------------------ Water Board: bottom path and reward chest
     //
-    // killer560 (2026-10-06): a colour that is out fills its whole layer of the walkway under the glass, not just the
+    // killer560 (2026-10-06): a color that is out fills its whole layer of the walkway under the glass, not just the
     // middle block, and solving the board spawns a chest "in between those carpets down low but closer to the exit".
     // Everything here is read off the CLIENT's world through PuzzleCoords - the solver's coordinate path, not the
     // sim's own anchor - so a sim that put either in the wrong place cannot agree with itself and pass.
 
     private static final String WATER = PUZZLES + "SimWaterPuzzle";
-    /** The walkway cells a colour layer fills when out: x 14..16 at y 56, and x 14 and 16 at y 57. */
+    /** The walkway cells a color layer fills when out: x 14..16 at y 56, and x 14 and 16 at y 57. */
     private static final int[][] LAYER_CELLS = {{14, 56}, {15, 56}, {16, 56}, {14, 57}, {16, 57}};
 
-    /** Per colour layer z 15..19, how many of its five walkway cells hold wool, e.g. "0,5,5,0,5". */
+    /** Per color layer z 15..19, how many of its five walkway cells hold wool, e.g. "0,5,5,0,5". */
     private static String waterLayers(Minecraft mc) {
         StringBuilder sb = new StringBuilder();
         for (int z = 15; z <= 19; z++) {

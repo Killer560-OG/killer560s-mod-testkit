@@ -41,7 +41,7 @@ import java.util.function.Predicate;
  * <p>The ORACLE is independent of the mod, as in 97-sim-roompick: eligibility read straight from the copied
  * {@code rooms-modern.json} (not PUZZLE/BLOOD/ENTRANCE/FAIRY, secrets &gt; 0), "has routes" from the route file this
  * scenario writes (routes on the 2nd and 3rd eligible rooms and on a puzzle room), order from the library's names.
- * Every menu press goes through the screen's own mouseClicked at the widget's drawn centre, and /next and /back go
+ * Every menu press goes through the screen's own mouseClicked at the widget's drawn center, and /next and /back go
  * through {@code sendCommand}, which Fabric's client command API intercepts as it does a typed command.
  *
  * <p>For each step it requires: a build actually ran (or, at an end, did NOT), the sim reports exactly ONE placed

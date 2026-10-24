@@ -278,7 +278,7 @@ final class DomainCases {
         c.eq("five push sizes (docs/AP3.md)", new TreeSet<>(List.of("0.00000", "0.13377", "0.13650", "0.17390",
                 "0.17745")), sizes);
 
-        // AP3 store precision (docs/AP3.md: angles were quantised on save; "Store at 5-6 decimals").
+        // AP3 store precision (docs/AP3.md: angles were quantized on save; "Store at 5-6 decimals").
         String store = "ap3.Ap3Store";
         Object node = R.construct("ap3.Ap3Node", Mod.enumValue("ap3.Ap3Node$Type", "USE"), 12.345678912, 64.0625,
                 -7.123456789, 123.456789f, -45.678901f);
@@ -343,7 +343,7 @@ final class DomainCases {
             c.eq("route use item", "HYPERION", R.get(nb.get(1), "item"));
             c.eq("route breaker block", List.of(new BlockPos(3, 71, -2)), R.get(nb.get(2), "breakerBlocks"));
             // The etherwarp's aim (RouteExecutor.java:1581, AutoRoutesEditScreen.java:444) is the node's yaw/pitch;
-            // AP3 was fixed for exactly this quantisation (docs/AP3.md), routes still write 1 decimal.
+            // AP3 was fixed for exactly this quantization (docs/AP3.md), routes still write 1 decimal.
             c.near("route etherwarp yaw survives a save", 37.123456f, (Float) R.get(e, "yaw"), 1e-3);
             c.near("route etherwarp pitch survives a save", -12.987654f, (Float) R.get(e, "pitch"), 1e-3);
         }
@@ -540,7 +540,7 @@ final class DomainCases {
                 Mod.enumValue("bazaarflip.BazaarFlipConfig$RankingMode", "PERCENTAGE_MARGIN")));
         c.eq("rank by margin: best margin first", "S", Mod.call(list.get(0), "productId"));
 
-        // Party-command authorisation (PartyCommandsFeature.handle, isTeammate). Since mod modchat-party (2026-10-08)
+        // Party-command authorization (PartyCommandsFeature.handle, isTeammate). Since mod modchat-party (2026-10-08)
         // the chat a command came from no longer picks the command: commandFor takes the word alone, the chat is a
         // per-channel toggle, and the teammate gate covers every party-changing command from any chat.
         String pc = "partycommands.PartyCommandsFeature";

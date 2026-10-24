@@ -28,7 +28,7 @@ import java.util.Map;
  * 701-707, 709-712: killer560's 2026-10-11 item / inventory UI list (mod branch item-ui). 708 is in the menu suite
  * ({@code menu/ItemUiMenuCases}).
  * <ul>
- *   <li>701 Inventory Search fills a matching slot solid in the highlight colour (screenshot, GUI 2) and nothing else.</li>
+ *   <li>701 Inventory Search fills a matching slot solid in the highlight color (screenshot, GUI 2) and nothing else.</li>
  *   <li>702 the search bar's NEU-style calculator: a table of sums, plain text left alone, and "= result" after a sum
  *       typed into the bar with real key presses.</li>
  *   <li>703 Slot Binds by the bind key alone: press on one slot, press on the other; a left click in between binds
@@ -73,7 +73,7 @@ final class ItemUiCases {
         return rgb >= 0 && r >= 180 && g <= 100 && b >= 180;
     }
 
-    /** Star colour under the hovered slot's highlight: magenta possibly lightened, never green-dominant. */
+    /** Star color under the hovered slot's highlight: magenta possibly lightened, never green-dominant. */
     private static boolean pinkLoose(int rgb) {
         int r = (rgb >> 16) & 0xFF;
         int g = (rgb >> 8) & 0xFF;
@@ -93,7 +93,7 @@ final class ItemUiCases {
         return n;
     }
 
-    /** Pixels whose summed RGB delta between two frames is above 30 (docs: a fixed-colour window is fragile). */
+    /** Pixels whose summed RGB delta between two frames is above 30 (docs: a fixed-color window is fragile). */
     private static int changed(BufferedImage a, BufferedImage b, int[] skipRect) {
         int n = 0;
         int w = Math.min(a.getWidth(), b.getWidth());
@@ -196,8 +196,8 @@ final class ItemUiCases {
     private static Object entry(String id, String name, String material, String tier) {
         try {
             Class<?> cls = Mod.cls("itembrowser.SkyblockItemEntry");
-            // By record component NAME (as menu/FlipMarket.itemEntry does), not position: mod 92cc8e87 ("Leather armour in
-            // the catalog keeps its colour") added a 15th component, Integer dyeColor, and the positional call broke with
+            // By record component NAME (as menu/FlipMarket.itemEntry does), not position: mod 92cc8e87 ("Leather armor in
+            // the catalog keeps its color") added a 15th component, Integer dyeColor, and the positional call broke with
             // "wrong number of arguments: 14 expected: 15". Every component not named here is empty: null, 0 for an int,
             // List.of() for obtainLines (recipeIngredients stays null, as before).
             java.lang.reflect.RecordComponent[] rc = cls.getRecordComponents();
@@ -312,7 +312,7 @@ final class ItemUiCases {
                     + "whole screen %d, no-query frame %d; slotMatches %s/%s", gs, pink9, 256 * gs * gs, pink10, pinkAll,
                     pinkNone, m9, m10));
             c.check(m9 && !m10, "slotMatches: diamond " + m9 + ", golden " + m10);
-            // A filled slot: well over a third of the 16x16 is the colour around the sword (an outline is 60 of 256).
+            // A filled slot: well over a third of the 16x16 is the color around the sword (an outline is 60 of 256).
             c.check(pink9 >= 100 * gs * gs, "the matching slot is not filled: " + pink9 + " pink px");
             c.check(pink10 == 0, "the non-matching slot is colored: " + pink10);
             c.check(pinkNone == 0, "color drawn with no query: " + pinkNone);
@@ -829,7 +829,7 @@ final class ItemUiCases {
         }
     }
 
-    /** {screenX, screenY, screenW, screenH} of the panel and the GUI centre of grid cell 0. */
+    /** {screenX, screenY, screenW, screenH} of the panel and the GUI center of grid cell 0. */
     private static double[] panel(UiCase c) {
         return c.onClient(mc -> {
             Object layout = Mod.staticCall(IBF, "layout", McCompat.screen(mc), Mod.cfg(IBC));
@@ -947,7 +947,7 @@ final class ItemUiCases {
             c.check("IU_TEST_BLADE".equals(opened), "left click opened " + opened);
             int[] bounds = c.onClient(mc -> (int[]) Mod.field(CRAFT, "panelBounds"));
             BufferedImage img = InvBatchCases.shot(c, "recipe-popup");
-            // The grid: nine dark cells with brown outlines inside the popup; count the outline colour there.
+            // The grid: nine dark cells with brown outlines inside the popup; count the outline color there.
             int brown = InvBatchCases.count(img, bounds[0] * gs, bounds[1] * gs, (bounds[0] + bounds[2]) * gs,
                     (bounds[1] + bounds[3]) * gs, 0x553311);
             c.note("popup at " + java.util.Arrays.toString(bounds) + ": " + brown + " px of grid outline color");

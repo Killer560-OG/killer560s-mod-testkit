@@ -32,14 +32,14 @@ import java.util.regex.Pattern;
  *
  * <p>The menu has four parties: slot 10 is the preview's own roster (killer560, aut0balls, agreencatgirl,
  * femboy_recruiter, latinomommy as Tank/Healer/Archer/Berserk/Mage 50/45/40/35/30, Master Mode floor 7, the names in
- * the preview's rank colours), 11 needs Catacombs 50, 12 needs the previous floor, 13 is a joinable floor 5 party.
+ * the preview's rank colors), 11 needs Catacombs 50, 12 needs the previous floor, 13 is a joinable floor 5 party.
  * For each of None / Style 1 / Style 2 / Custom (Style 1 as a custom string) / Style 1 with Rank Name Colors:
  * <ol>
  *   <li>no stats: every member line of the REAL tooltip ({@code getTooltipFromContainerItem}, through the mod's
  *       mixin) is in the chosen style with {@code ?} for the stats, killer560's exactly; and the drawn tooltip has
- *       the style's dark-grey brackets in it (pixels of {@code 0x555555} that the plain tooltip does not have);</li>
- *   <li>with the preview's own stats put in the mod's stats cache: the real tooltip's member lines are, colour for
- *       colour and character for character, the lines the preview widget draws ({@code renderPreviewLines}).</li>
+ *       the style's dark-gray brackets in it (pixels of {@code 0x555555} that the plain tooltip does not have);</li>
+ *   <li>with the preview's own stats put in the mod's stats cache: the real tooltip's member lines are, color for
+ *       color and character for character, the lines the preview widget draws ({@code renderPreviewLines}).</li>
  * </ol>
  * Then the highlight, by pixels against a highlight-off frame: green only on 10 and 13, red only on 11 and 12.
  * Every style is run and reported before the case fails, so an old jar shows which ones are broken.
@@ -234,7 +234,7 @@ final class PartyFinderStyleCases {
                 }
             }
 
-            // 3. Highlight colours on the right slots.
+            // 3. Highlight colors on the right slots.
             parkCursor(c);
             BufferedImage noHighlight;
             try (AutoCloseable off = c.onClient(mc -> Mod.with(CFG, "Highlight", false))) {
@@ -313,8 +313,8 @@ final class PartyFinderStyleCases {
             0x555555, 0x5555FF, 0x55FF55, 0x55FFFF, 0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF};
 
     /**
-     * The line as it is DRAWN: each visible character with the colour it renders in, whether the colour came from a
-     * style or from an inline section-sign code. Whitespace carries no colour (it draws nothing). Bold/italic are not
+     * The line as it is DRAWN: each visible character with the color it renders in, whether the color came from a
+     * style or from an inline section-sign code. Whitespace carries no color (it draws nothing). Bold/italic are not
      * compared.
      */
     static String runs(Component line) {

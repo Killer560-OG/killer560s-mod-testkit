@@ -40,10 +40,10 @@ import java.util.Map;
  *   <li>474-ui-inventory-shared-lines: "two touching slots have their lines touching each other". Between two touching
  *       slots there is one line of Line Width pixels, not two, across and down, in a chest, the player inventory (main
  *       grid, its hotbar row, the crafting grid) and the in-game hotbar; each group keeps its outer line.</li>
- *   <li>475-ui-inventory-armour-model: "make the player's model box just a hair larger so they are even". The armour
+ *   <li>475-ui-inventory-armour-model: "make the player's model box just a hair larger so they are even". The armor
  *       column's outline and the player-model frame start and end on the same pixel rows, at GUI 2 and 3, lines 1 and 3,
- *       with iron armour worn and with nothing worn (empty armour slots draw only their outline icon).</li>
- *   <li>476-ui-bars-text-centred: "center the text for my custom health bars". The number's white pixels centred in its
+ *       with iron armor worn and with nothing worn (empty armor slots draw only their outline icon).</li>
+ *   <li>476-ui-bars-text-centred: "center the text for my custom health bars". The number's white pixels centered in its
  *       bar within one pixel across and down (the digit body - the comma's tail is not the number's height), at GUI 2
  *       and 4, Predefined and Custom, with and without the absorption segment.</li>
  * </ul>
@@ -113,7 +113,7 @@ final class PolishCases {
         return img.getRGB(x, y) & 0xFFFFFF;
     }
 
-    /** Pixels of {@code colour} on the row {@code y} from {@code x0} (inclusive) to {@code x1} (exclusive). */
+    /** Pixels of {@code color} on the row {@code y} from {@code x0} (inclusive) to {@code x1} (exclusive). */
     private static int rowCount(BufferedImage img, int y, int x0, int x1, int colour) {
         int n = 0;
         for (int x = x0; x < x1; x++) {
@@ -134,7 +134,7 @@ final class PolishCases {
         return n;
     }
 
-    /** The theme on for every container, hotbar themed, Amber, no custom colours, the given line width. */
+    /** The theme on for every container, hotbar themed, Amber, no custom colors, the given line width. */
     private static void theme(UiCase c, int line) {
         c.onClient(mc -> {
             Object cfg = Mod.cfg(ICFG);
@@ -291,7 +291,7 @@ final class PolishCases {
             });
             int[] g = gui(c);
             int gs = g[0];
-            // Vanilla's box (javap, both versions): text centred at guiHeight - 59, +14 where the player cannot be hurt
+            // Vanilla's box (javap, both versions): text centered at guiHeight - 59, +14 where the player cannot be hurt
             // (this world is creative), with textWithBackdrop's two units round it.
             int nameW = c.onClient(mc -> mc.font.width(new ItemStack(Items.DIAMOND_SWORD).getHoverName()));
             boolean creative = c.onClient(mc -> !mc.gameMode.canHurtPlayer());
@@ -429,7 +429,7 @@ final class PolishCases {
     }
 
     /** Stat Bars on, Health and Mana Bars on with their numbers, Custom layout unless {@code predefined}, own scale 1,
-     *  Auto Scale off, bar 100 x 14, the colours {@link HudFixCases} measures. */
+     *  Auto Scale off, bar 100 x 14, the colors {@link HudFixCases} measures. */
     private static void bars(UiCase c, boolean custom) {
         c.onClient(mc -> {
             Object ps = Mod.cfg(PS);
@@ -500,7 +500,7 @@ final class PolishCases {
                     int top = (g[2] - 222) / 2;
                     openChest(c);
                     BufferedImage img = shot(c, "chest-gui" + gs + "-line" + w);
-                    // Slot 0's top line, down its centre column; its left line along its centre row; the panel's top
+                    // Slot 0's top line, down its center column; its left line along its center row; the panel's top
                     // border down the panel's middle.
                     // Since mod inv-theme-fix every slot-grid line sits lineShift(w) pixels up and left of the unit edge,
                     // straddling the gap between two items (897); an older jar has no lineShift and no shift.
@@ -673,7 +673,7 @@ final class PolishCases {
         }
     }
 
-    /** One line between the slot at (sx, sy) and its right neighbour, and between it and the one below. */
+    /** One line between the slot at (sx, sy) and its right neighbor, and between it and the one below. */
     private static void between(UiCase c, BufferedImage img, String what, int left, int top, int sx, int sy, int gs,
                                 int t) {
         betweenAcross(c, img, what, left, top, sx, sy, gs, t);
@@ -699,7 +699,7 @@ final class PolishCases {
         c.check(n == t, what + ": the outer line is " + n + " px, want " + t);
     }
 
-    // ==== 475 armour column against the model frame ====================================================================
+    // ==== 475 armor column against the model frame ====================================================================
 
     static void armourModel(UiCase c) throws Exception {
         if (InvStorageCases.reskin(c)) {
@@ -725,7 +725,7 @@ final class PolishCases {
                     boolean worn = k % 2 == 1;
                     theme(c, w);
                     c.onClient(mc -> {
-                        // Iron armour worn (his screenshot) or nothing worn (empty slots draw only their outline icon).
+                        // Iron armor worn (his screenshot) or nothing worn (empty slots draw only their outline icon).
                         var in = mc.player.getInventory();
                         in.setItem(39, worn ? new ItemStack(Items.IRON_HELMET) : ItemStack.EMPTY);
                         in.setItem(38, worn ? new ItemStack(Items.IRON_CHESTPLATE) : ItemStack.EMPTY);
@@ -788,7 +788,7 @@ final class PolishCases {
         return s == null ? "none" : s[0] + ".." + s[1];
     }
 
-    // ==== 476 bar text centred =========================================================================================
+    // ==== 476 bar text centered =========================================================================================
 
     static void barTextCentred(UiCase c) throws Exception {
         Map<Path, byte[]> saved = snapshot(c, PS, HUD);
@@ -848,8 +848,8 @@ final class PolishCases {
     }
 
     /**
-     * The bar's box (its fill colour's tint, and the absorption colour's on the same rows - a gradient since mod bars-2,
-     * centred inside the frame the number is centred on) against the WHITE pixels of its number:
+     * The bar's box (its fill color's tint, and the absorption color's on the same rows - a gradient since mod bars-2,
+     * centered inside the frame the number is centered on) against the WHITE pixels of its number:
      * the gap left of the leftmost white pixel against the gap right of the rightmost, and the gap above the digits'
      * top row against the gap below their bottom row. The digits' rows are those holding at least a quarter of the
      * busiest row's white pixels, so a comma's one-unit tail is not counted as the number's height.
@@ -857,7 +857,7 @@ final class PolishCases {
     private static void centred(UiCase c, String tag, BufferedImage img, int gs, int fill, int absorb) {
         int bx0 = Integer.MAX_VALUE, by0 = Integer.MAX_VALUE, bx1 = -1, by1 = -1;
         // Since mod bars-2 the bar is Bold: its element box from the fill's tint and the painter's insets (BarPixels),
-        // which already spans the absorption segment; the number is centred on that box (icons are off here).
+        // which already spans the absorption segment; the number is centered on that box (icons are off here).
         double[] bb = BarPixels.elementBox(img, fill, gs, BarPixels.scene(c));
         if (bb != null) {
             bx0 = (int) bb[0];

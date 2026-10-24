@@ -26,7 +26,7 @@ import java.util.List;
  * <ul>
  *   <li>461-menu-bazaar-reskin-pages: each of the twelve mapped menus opens as the reskin of its kind; every non-filler
  *       slot of the fixture has a clickable element; every text lies inside its region and the screen and no two texts
- *       intersect; at 1920x1080 GUI 2 a screenshot of each must show no chest-grey pixels (the chest is hidden) and the
+ *       intersect; at 1920x1080 GUI 2 a screenshot of each must show no chest-gray pixels (the chest is hidden) and the
  *       reskin's texts; the same layout checks at the small gametest window.</li>
  *   <li>462-menu-bazaar-reskin-click: nothing is sent without a press (40 ticks idle on the product page = 0 clicks);
  *       a real mouse press on a card sends exactly one container click on that card's slot (left PICKUP 0, right PICKUP
@@ -51,7 +51,7 @@ import java.util.List;
 final class BazaarReskinCases {
 
     private static final String RESKIN = "bazaar.BazaarReskin";
-    /** The vanilla chest panel's grey (198,198,198): thousands of pixels when Hypixel's GUI shows, none under the reskin. */
+    /** The vanilla chest panel's gray (198,198,198): thousands of pixels when Hypixel's GUI shows, none under the reskin. */
     private static final int CHEST_GREY = 0xC6C6C6;
     private static final int LEFT_ALT = 342;
 
@@ -568,7 +568,7 @@ final class BazaarReskinCases {
         }
     }
 
-    /** Hypixel's GUI is really drawn (chest grey) and a press on a real slot is vanilla's own click on it. */
+    /** Hypixel's GUI is really drawn (chest gray) and a press on a real slot is vanilla's own click on it. */
     private static void vanillaClick(Session c, JsonObject spec, String what) {
         BufferedImage img = shot(c, "vanilla-" + what.replaceAll("[^a-z0-9]+", "-"));
         int grey = count(img, CHEST_GREY);

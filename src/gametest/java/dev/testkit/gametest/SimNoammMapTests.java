@@ -33,8 +33,8 @@ import java.util.UUID;
  * HUD map draws and what it places, on a sim floor holding a Hypixel-style map item (the same five-room floor and map as
  * {@link SimMapItemTests}).
  * <ul>
- *   <li><b>unopened door</b>: the door the map item paints grey (85), New Trap - Andesite, is drawn in the unopened
- *       colour (darkened by Darken Unexplored like the room), as Hypixel and NoammAddons draw it; main drew New Trap's
+ *   <li><b>unopened door</b>: the door the map item paints gray (85), New Trap - Andesite, is drawn in the unopened
+ *       color (darkened by Darken Unexplored like the room), as Hypixel and NoammAddons draw it; main drew New Trap's
  *       orange darkened;</li>
  *   <li><b>marker names</b>: four teammates in the tab list (Hypixel's "[n] Name (Class)" lines, ordered by their tab
  *       profile names) and four player markers on the map item in that order: each name lands on its own marker. Main
@@ -91,7 +91,7 @@ public class SimNoammMapTests implements FabricClientGameTest {
                 try {
                     Mod.set(MAP, "setMapThemeName", "REAL");
                 } catch (AssertionError oldJar) {
-                    // a jar from before map-overhaul paints Real Map colours by default
+                    // a jar from before map-overhaul paints Real Map colors by default
                 }
                 restore.add(0, Mod.with(MAP, "DarkenUnopened", 0.4f));
                 restore.add(0, Mod.with("autopuzzles.AutoPuzzlesConfig", "AutoPuzzlesMasterEnabled", false));
@@ -318,7 +318,7 @@ public class SimNoammMapTests implements FabricClientGameTest {
         return (T) f.get(owner);
     }
 
-    /** The map item's decorations: a teammate marker per entry of {@code mapX} (row 1's centre line), then his frame. */
+    /** The map item's decorations: a teammate marker per entry of {@code mapX} (row 1's center line), then his frame. */
     private static void setMarkers(Minecraft mc, int[] mapX) {
         MapId id = mc.player.getInventory().getItem(8).get(DataComponents.MAP_ID);
         MapItemSavedData data = mc.level.getMapData(id);

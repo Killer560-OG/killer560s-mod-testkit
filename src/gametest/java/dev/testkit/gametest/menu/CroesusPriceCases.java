@@ -81,7 +81,7 @@ final class CroesusPriceCases {
 
     static final String RUN_TITLE = "Master Catacombs - Floor IV";
 
-    /** The Obsidian chest's lore as Hypixel colours it (names in rarity colour, essence counts in dark grey). */
+    /** The Obsidian chest's lore as Hypixel colors it (names in rarity color, essence counts in dark gray). */
     static JsonObject obsidianHead(String cost) {
         return FlipCroesusCases.item("minecraft:player_head", "§5Obsidian Chest", "§7Contents", "§9Spirit Stone",
                 "§5Fuming Potato Book", "§5Thorn Shard", "§dWither Essence §8x66", "§dUndead Essence §8x94", "",

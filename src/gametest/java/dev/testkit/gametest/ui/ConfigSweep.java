@@ -187,7 +187,7 @@ final class ConfigSweep {
                 } else if (v.isNumber()) {
                     double d = v.getAsDouble();
                     if (d == Math.rint(d) && Math.abs(d) < 1e9) {
-                        // ints: a nearby value (towards zero for big ones keeps most clamps happy)
+                        // ints: a nearby value (toward zero for big ones keeps most clamps happy)
                         long nv = d > 1 ? (long) d - 1 : (long) d + 1;
                         flipped.addProperty(e.getKey(), nv);
                     } else {

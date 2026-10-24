@@ -227,7 +227,7 @@ public class SimImapGapTests implements FabricClientGameTest {
                 new Object[]{ox + ux * ppu, oy + uz * ppu});
     }
 
-    /** The tile of {@code g} nearest a map point (centre to point), recomputed here. */
+    /** The tile of {@code g} nearest a map point (center to point), recomputed here. */
     private static int nearestTile(Group g, double ux, double uz) {
         int best = -1;
         double bestD = Double.MAX_VALUE;
@@ -375,7 +375,7 @@ public class SimImapGapTests implements FabricClientGameTest {
                 throw new RuntimeException(e);
             }
             // Pixels: the hovered tile's inside (lit), the strip's near half (must be lit the same), the next tile's
-            // inside (not hovered - the room's plain colour).
+            // inside (not hovered - the room's plain color).
             double sx = img.getWidth() / (double) ctx.computeOnClient(mc -> mc.getWindow().getWidth());
             java.util.function.BiFunction<Double, Double, Integer> pix = (ux, uz) -> {
                 int x = (int) Math.round((px[0] + ux * px[2]) * px[3] * sx);
@@ -583,7 +583,7 @@ public class SimImapGapTests implements FabricClientGameTest {
         double ux = cellPos(sx) + cellSize(sx) * 0.5;
         double uz = cellPos(sz) + cellSize(sz) * 0.3;
         int target = side;
-        // Start in another room: Atlas's centre tile area.
+        // Start in another room: Atlas's center tile area.
         Vec3 start = ctx.computeOnClient(mc -> mc.player.position());
         openMap(ctx);
         int cell = ctx.computeOnClient(mc -> cellAtUnits(mc, ux, uz));
@@ -829,7 +829,7 @@ public class SimImapGapTests implements FabricClientGameTest {
                 int gx = c % GRID;
                 int gz = c / GRID;
                 if (gx % 2 == gz % 2) {
-                    continue;   // a tile or a centre cross
+                    continue;   // a tile or a center cross
                 }
                 BlockPos gap = ctx.computeOnClient(mc -> (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter",
                         new Class<?>[]{int.class}, new Object[]{c}));

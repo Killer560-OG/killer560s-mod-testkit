@@ -111,7 +111,7 @@ final class SolverCases {
         c.eq("starts with G keeps the glinting golden apple", Set.of(10, 12),
                 solve("STARTS_WITH", "What starts with: 'G'?", sg).keySet());
 
-        // SELECT: colour from the title (Hypixel writes it upper case), aliases, glint and black panes skipped.
+        // SELECT: color from the title (Hypixel writes it upper case), aliases, glint and black panes skipped.
         List<ItemStack> sel = board(45);
         sel.set(10, stack(McItems.LIGHT_BLUE_WOOL, 1, "Light Blue Wool", false));
         sel.set(11, stack(McItems.BLUE_WOOL, 1, "Blue Wool", false));
@@ -144,9 +144,9 @@ final class SolverCases {
     }
 
     /**
-     * Random 3x3 Rubix boards: applying each label's signed click count (one step per click through the 5-colour
-     * cycle, negative = backwards) must leave every pane the same colour, and the total clicks must be the minimum
-     * over every target colour.
+     * Random 3x3 Rubix boards: applying each label's signed click count (one step per click through the 5-color
+     * cycle, negative = backwards) must leave every pane the same color, and the total clicks must be the minimum
+     * over every target color.
      */
     private static void rubixSweep(LogicCase c) {
         Item[] cycle = {McItems.ORANGE_STAINED_GLASS_PANE, McItems.YELLOW_STAINED_GLASS_PANE,

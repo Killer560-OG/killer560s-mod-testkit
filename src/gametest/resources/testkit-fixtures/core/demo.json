@@ -20,7 +20,7 @@
     "matches": ["secrets.DungeonState#CATACOMBS_FLOOR_PATTERN"],
     "mode": "find",
     "verifiedBy": "regex",
-    "notes": "Mid-word colour code as in DungeonState's comment at line 209-212 (\"The Catac§combs §7(F7)\"). WP1 positive control: DungeonState.getFloor() == F7."
+    "notes": "Mid-word color code as in DungeonState's comment at line 209-212 (\"The Catac§combs §7(F7)\"). WP1 positive control: DungeonState.getFloor() == F7."
   },
   {
     "id": "core.overlay-stats",

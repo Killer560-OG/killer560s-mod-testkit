@@ -105,7 +105,7 @@
     {"root": "speed", "why": "sim speed (SimSpeed.java:86)"},
     {"root": "cpf", "why": "Custom Party Finder (lfg/LfgCommands.java): opens LfgScreen only when the feature is on (off by default, so a chat line) and 'cpf unlist' talks to the relay; 1018-pf-* drive it, 305 shows LfgScreen"},
     {"root": "translate","why": "sets the translate language; Google Translate is network (Killer560ModClient.java:673)"},
-    {"root": "center", "why": "sim only: moves the server player to the centre of his block (roomsim/SimCenterCommand.java:26); outside the sim it only prints a line"},
+    {"root": "center", "why": "sim only: moves the server player to the center of his block (roomsim/SimCenterCommand.java:26); outside the sim it only prints a line"},
     {"root": "test", "why": "cheat only: starts the Auto Clear bat test, a second /test ends it (autoclear/BatTest.java:134)"},
     {"root": "pf", "why": "Party Finder (lfg/LfgCommands.java:17): opens LfgScreen, and 'pf unlist' talks to the relay; 305 shows LfgScreen"},
     {"root": "partyfinder", "why": "the same command as pf (lfg/LfgCommands.java:17)"},

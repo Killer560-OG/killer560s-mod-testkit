@@ -28,7 +28,7 @@
 ### Minecraft 26.2 runs
 
 - First runs on 26.2: `smoke`, `proof`, `02-seed` and the UI world group pass; GrimAC detects there.
-- Menu cases and `HxMenus` compile on 26.2 (`McCompat` screen access; colour check by ordinal).
+- Menu cases and `HxMenus` compile on 26.2 (`McCompat` screen access; color check by ordinal).
 - **`Scenario.connect` retries a join that dies before the server says anything** ("Failed to connect", no
   connection) - on 26.2 every join after the first did, the instant the restarted server said Done. A join that
   still times out now names the screen it is stuck on instead of "Timed out waiting for predicate".

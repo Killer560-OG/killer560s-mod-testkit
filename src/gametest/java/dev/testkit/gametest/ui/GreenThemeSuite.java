@@ -380,7 +380,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
     static final String[] VARIANT_BG = {"FOREST_NIGHT_BG", "MOSS_FLOOR_BG", "CANOPY_GLOW_BG"};
     static final String[] VARIANT_SHOT = {"variant-a-forest-night", "variant-b-moss-floor", "variant-c-canopy-glow"};
 
-    /** The colour the panel's background should have at GUI row {@code y} (pixel centre) in its left margin column, for a
+    /** The color the panel's background should have at GUI row {@code y} (pixel center) in its left margin column, for a
      *  background with {@code stops} spread over y0..y1 and, when {@code ring0} is set, the widest glow ring over it. */
     static int expected(int[] stops, int ring0, int y0, int y1, double y) {
         int n = stops.length - 1;
@@ -558,7 +558,7 @@ public class GreenThemeSuite implements FabricClientGameTest {
                         + "/" + MenuACases.hex(sideWant));
             }
 
-            // C is A's stops plus the glow: in the card well, C is brighter than A in the top centre and the same at the
+            // C is A's stops plus the glow: in the card well, C is brighter than A in the top center and the same at the
             // foot (the cards are the same in both, so only well pixels can differ).
             if (imgs[0] != null && imgs[2] != null) {
                 double sc = imgs[0].getWidth() / (double) s.width;

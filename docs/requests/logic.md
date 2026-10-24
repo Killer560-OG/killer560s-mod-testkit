@@ -11,7 +11,7 @@
 - change: let `matches`/`mustNotMatch` accept `Class#FIELD[i]` (element i of a static `List<Pattern>`/`Pattern[]`), as
   `logic.R.pattern` already does; document WP5's extra fields (gates, sender, senderGroup, channel, hostileExempt,
   parsedAsInt) in SCHEMA.md
-- why: 43 catalogued patterns live in lists (PartyLeaderTracker.CLEARED, DungeonQueueFeature.PARTY_LEAVE,
+- why: 43 cataloged patterns live in lists (PartyLeaderTracker.CLEARED, DungeonQueueFeature.PARTY_LEAVE,
   ArchitectDraftFeature.FAIL_PATTERNS, WeirdosSolverFeature.SOLUTIONS/WRONG ...) and Fixtures.checkPatterns cannot
   reach them, so they can never count as covered by other WPs' fixtures
 - workaround in use: WP5 fixtures list them under `gates`, which only LogicSuite reads
@@ -26,7 +26,7 @@
 - change: anchor the disband alternative to a name, as PartyLeaderTracker.CLEARED[0] already does:
   `^(?:\[[^]]+] )?[A-Za-z0-9_]{1,16} has disbanded the party!$` in place of `.+ has disbanded the party!`
 - why: `.+` swallows a chat prefix, so any player typing "x has disbanded the party!" in all/party/guild/DM/co-op chat
-  matches and `MEMBERS.clear()` runs: the teammate list Party Commands authorises against (isTeammate) and the leap
+  matches and `MEMBERS.clear()` runs: the teammate list Party Commands authorizes against (isTeammate) and the leap
   menu use is wiped. Repro: PartyTracker.MEMBERS = {Killer560}; PartyTracker.onChat(Component.literal("[VIP] Eve:
   Killer560 has disbanded the party!")) -> MEMBERS = []. Denial of service, not escalation (it removes teammates).
   Case 353-logic-hostile-anchors.
@@ -34,7 +34,7 @@
 ## mod: Auto Routes saves node yaw/pitch to 1 decimal
 - file(s): killer560s-mod src/main/java/com/killer560/hub/autoroutes/RouteStore.java:412-413 (writeNode)
 - change: `round(n.yaw, 5)` / `round(n.pitch, 5)`, the precision Ap3Store.writeNode moved to for the same reason
-  (docs/AP3.md "A node's angle was being quantised on every save")
+  (docs/AP3.md "A node's angle was being quantized on every save")
 - why: an etherwarp node aims with its stored yaw/pitch (RouteExecutor.java:1581, AutoRoutesEditScreen.java:444);
   after a save/load 37.123456 -> 37.1 and -12.987654 -> -13.0, up to 0.05 degrees, about 0.05 blocks at 60 blocks of
   etherwarp range. RouteNode.equals (RouteNode.java:304) also stops matching the in-memory node. Case

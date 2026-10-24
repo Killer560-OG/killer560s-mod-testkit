@@ -498,7 +498,7 @@ final class EtherwarpFaceCases {
         if (above != null) {
             DocDungeonsCases.command(c, "setblock " + CX + " 101 " + CZ + " " + above);
         }
-        // a one-high step 2 blocks off (horizontal distance from the block's centre ~2.6), turned `angle` towards +z
+        // a one-high step 2 blocks off (horizontal distance from the block's center ~2.6), turned `angle` toward +z
         double th = Math.toRadians(angle);
         double px = CX + 0.5 - 2.6 * Math.cos(th);
         double pz = CZ + 0.5 + 2.6 * Math.sin(th);
@@ -575,7 +575,7 @@ final class EtherwarpFaceCases {
                 box.minY - 100, box.maxY - 100, box.minZ - CZ, box.maxZ - CZ, frac(edge), frac(fill));
     }
 
-    /** {magenta within 2 px, usable} along every edge of {@code box} that bounds a face turned towards the camera. */
+    /** {magenta within 2 px, usable} along every edge of {@code box} that bounds a face turned toward the camera. */
     private static int[] boxEdgeSamples(UiCase c, Cam cam, BufferedImage img, net.minecraft.world.phys.AABB box) {
         double[] xs = {box.minX, box.maxX}, ys = {box.minY, box.maxY}, zs = {box.minZ, box.maxZ};
         boolean[] faces = {cam.pos.x < box.minX, cam.pos.x > box.maxX, cam.pos.y < box.minY, cam.pos.y > box.maxY,
@@ -608,7 +608,7 @@ final class EtherwarpFaceCases {
                         }
                         usable++;
                         // a whole line, not the half of it that sticks out past a model drawn over it: a 2 px line
-                        // across a 5x5 window colours about 10 of its pixels, the outer half alone about 5
+                        // across a 5x5 window colors about 10 of its pixels, the outer half alone about 5
                         if (magentaCount(img, px, 2) >= 7) {
                             hit++;
                         }
@@ -619,7 +619,7 @@ final class EtherwarpFaceCases {
         return new int[]{hit, usable};
     }
 
-    /** {changed, usable} over a 5x5 grid inside each face of {@code box} turned towards the camera. */
+    /** {changed, usable} over a 5x5 grid inside each face of {@code box} turned toward the camera. */
     private static int[] boxFillSamples(UiCase c, Cam cam, BufferedImage on, BufferedImage off,
                                         net.minecraft.world.phys.AABB box) {
         int changed = 0, usable = 0;
@@ -734,7 +734,7 @@ final class EtherwarpFaceCases {
 
     private static Result view(UiCase c, View v, int angle, double gap) throws Exception {
         String label = String.format(Locale.ROOT, "%s-a%d-g%.1f", v.name().toLowerCase(Locale.ROOT), angle, gap);
-        // horizontal: from the -x side, turned `angle` degrees towards +z; r puts his box `gap` from the target's
+        // horizontal: from the -x side, turned `angle` degrees toward +z; r puts his box `gap` from the target's
         double th = Math.toRadians(angle);
         double rr = (0.8 + gap + 1e-3) / Math.max(Math.cos(th), Math.sin(th));
         double px = CX + 0.5 - rr * Math.cos(th);
@@ -943,7 +943,7 @@ final class EtherwarpFaceCases {
                 double a = e[0] < 0 ? t : e[0];
                 double b = e[1] < 0 ? t : e[1];
                 Vec3 p = facePoint(bx, by, bz, n, a, b);
-                // just outside the box at that edge: out along this face's normal and the neighbouring face's
+                // just outside the box at that edge: out along this face's normal and the neighboring face's
                 Vec3 centre = new Vec3(bx + 0.5, by + 0.5, bz + 0.5);
                 Vec3 out = p.add(p.subtract(centre).normalize().scale(0.03));
                 int[] px = cam.project(p, on.getWidth(), on.getHeight());

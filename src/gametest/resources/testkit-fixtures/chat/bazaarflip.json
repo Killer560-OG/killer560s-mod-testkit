@@ -18,7 +18,7 @@
     "mustNotMatch": ["bazaarflip.BazaarFlipNpcLimit#LIMIT_LINE"],
     "mode": "matches",
     "verifiedBy": "capture:26.1.2 (Dungeons)/logs/2026-07-05-1.log.gz:35079",
-    "notes": "An NPC sale: counted towards the daily NPC sell limit and, during a cycle, its revenue."
+    "notes": "An NPC sale: counted toward the daily NPC sell limit and, during a cycle, its revenue."
   },
   {
     "id": "chat.bazaarflip-npc-sold-one-coin",

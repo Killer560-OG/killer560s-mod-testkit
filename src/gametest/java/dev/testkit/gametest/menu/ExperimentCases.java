@@ -206,7 +206,7 @@ final class ExperimentCases {
 
     /** One Superpairs board played by Auto E-Table to the server's end (or 1800 ticks). */
     record Played(JsonObject end, List<String> claims, List<Integer> clicked, int used, String reason, List<JsonObject> clickEvents) {
-        /** Claimed reward names in claim order, colour codes stripped, "*" marking the Instant Find claim. */
+        /** Claimed reward names in claim order, color codes stripped, "*" marking the Instant Find claim. */
         List<String> names() {
             List<String> out = new ArrayList<>();
             for (String c : claims) {
@@ -376,7 +376,7 @@ final class ExperimentCases {
      * its matched click goes to the first one in snake order it is allowed to claim: Grand (9), unless Grand is
      * skipped, then Guardian (10), unless both are skipped, then Titanic (11). Every kind has its partner further on
      * and no two consecutive reveals are partners, so nothing is claimed by chance.
-     * Names carry colour codes like Hypixel's; the mod reads them stripped.
+     * Names carry color codes like Hypixel's; the mod reads them stripped.
      */
     private static com.google.gson.JsonArray skipsLayout() {
         com.google.gson.JsonArray a = new com.google.gson.JsonArray();

@@ -19,7 +19,7 @@ import java.util.Set;
  *       wrote (1064's refused import: ClickSounds hands anything it cannot read itself to ffmpeg). 370 used to fail
  *       whenever a poll happened to land in the second that ffmpeg ran, and pass when it did not;</li>
  *   <li>the Spotify media-session reader, a read-only powershell.exe the mod keeps while Send Lyrics To Chat or the
- *       Spotify HUD is on (310/311 flip that switch, 1018-ui-spotify-lyrics turns it on). It is recognised by the pid
+ *       Spotify HUD is on (310/311 flip that switch, 1018-ui-spotify-lyrics turns it on). It is recognized by the pid
  *       the mod itself holds ({@code SpotifyLyricsFeature.MEDIA.process}), so a screenshot copy's powershell.exe still
  *       counts.</li>
  * </ul>

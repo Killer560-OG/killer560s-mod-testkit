@@ -22,7 +22,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *       party finder ({@link DungeonMenuCases})</li>
  *   <li>240-259 inventory menus: Sell, Item Protect, sorter, slot binds, storage, pets, loadout, auction helper,
  *       bazaar dump, Chocolate Factory ({@link InventoryCases})</li>
- *   <li>260-279 items: rarity, enchant colours, master stars, dye, held item, tooltip scroll, theme, HUD, search,
+ *   <li>260-279 items: rarity, enchant colors, master stars, dye, held item, tooltip scroll, theme, HUD, search,
  *       readers ({@link ItemCases})</li>
  *   <li>280-289 more experiments: Superpairs deductions and reward priority ({@link ExperimentCases})</li>
  *   <li>292-297 Auto Anvil in Hypixel's Anvil ({@code menu.anvil}): only exact book pairs combined, cascade, direct
@@ -40,7 +40,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *   <li>884-887 Croesus run states stay put: runs with the same party, list/run/list navigation, a head lagging a
  *       claim, refreshed lore; never a hidden slot in a run view or chest ({@link CroesusStableCases})</li>
  *   <li>883 opening the Croesus menu never draws a frame of stale or unhidden runs ({@link CroesusFlashCases})</li>
- *   <li>879-882 Croesus run states (unclaimed / needs a key / opened / key used / not looked at), their colours, Hide
+ *   <li>879-882 Croesus run states (unclaimed / needs a key / opened / key used / not looked at), their colors, Hide
  *       Opened Runs never hiding a run that needs a key, the live key floor ({@link CroesusKeyCases})</li>
  *   <li>875-878 the Croesus menu: Highlight Runs behind the items and under the tooltip, Hide Opened Runs (empty, no
  *       tooltip, no click; Auto Croesus unaffected), unclaimed/claimed totals across all pages ({@link CroesusUiCases})</li>
@@ -220,7 +220,7 @@ public class MenuSuite implements FabricClientGameTest {
                     // ---- 888-890 croesus-track (2026-10-12): run state follows a run that moves, and restarts ----
                     CroesusTrackCases.register(s);
                     Solver1018Cases.register(s); // 1018-*: the 2026-10-18 solver-sound batch
-                    // ---- 898 croesus-colors (2026-10-12): run states distinct by colour (deltaE, CVD) and marks ----
+                    // ---- 898 croesus-colors (2026-10-12): run states distinct by color (deltaE, CVD) and marks ----
                     CroesusColorCases.register(s);
                     // ---- 903-905 croesus-colors2 (2026-10-13): a run's chest view - free claim green, key chest orange ----
                     CroesusChestViewCases.register(s);

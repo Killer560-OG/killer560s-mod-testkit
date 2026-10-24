@@ -16,7 +16,7 @@ import java.util.List;
 
 /**
  * 940-949: the Option A mod menu (mod menu-a, killer560 2026-10-12) - a sidebar of categories with on/total counts, a
- * grid of feature cards with their master switch, a settings drawer per feature, Favourites, and the Ctrl F search.
+ * grid of feature cards with their master switch, a settings drawer per feature, Favorites, and the Ctrl F search.
  * Everything is driven through the real {@code gui.ModScreen}: its public navigation methods, and real mouse presses
  * at the bounds it reports.
  * <ul>
@@ -27,18 +27,18 @@ import java.util.List;
  *       one, and a second click puts it back.</li>
  *   <li>942 a real click on a card body opens THAT feature's drawer with exactly the rows the tab builds; Escape closes the
  *       menu and keeps the drawer (since mod doc-menu, 2026-10-13).</li>
- *   <li>943 the star on a card saves the feature in Favourites; after a restart (config re-read from disk, tab list and
- *       screen rebuilt) Favourites still lists it; unstarring removes it from the file.</li>
+ *   <li>943 the star on a card saves the feature in Favorites; after a restart (config re-read from disk, tab list and
+ *       screen rebuilt) Favorites still lists it; unstarring removes it from the file.</li>
  *   <li>944 Ctrl F focuses the search (Ctrl K no longer does, and a plain f typed in it is a letter); typing "etable" lists the Experimentation Table features and a setting; Enter
  *       opens the first hit's drawer; "bar width" finds the Health and Mana Bars setting and opening it scrolls the
  *       drawer to that row; a hit's switch toggles the feature in place.</li>
  *   <li>945 the sidebar shows no on/total counts (killer560, 2026-10-12: "HUD 7/12" becomes "HUD"): every row's drawn
- *       text is its name (Favourites keeps its number of stars).</li>
+ *       text is its name (Favorites keeps its number of stars).</li>
  *   <li>946 the menu theme: a real click on the header's theme button steps Amber - Dark - Light (right click back); each
- *       preset changes the DRAWN colours (the panel ring pixel is the palette's, the three differ, Light's sidebar is
+ *       preset changes the DRAWN colors (the panel ring pixel is the palette's, the three differ, Light's sidebar is
  *       light) and the choice survives a restart.</li>
- *   <li>947 Custom: the Menu Theme drawer's Accent button opens the colour picker, its answer switches the menu to Custom
- *       and the drawn ring follows the new accent; it survives a restart; Reset puts the preset's colours back.</li>
+ *   <li>947 Custom: the Menu Theme drawer's Accent button opens the color picker, its answer switches the menu to Custom
+ *       and the drawn ring follows the new accent; it survives a restart; Reset puts the preset's colors back.</li>
  * </ul>
  */
 final class MenuACases {
@@ -525,7 +525,7 @@ final class MenuACases {
 
     // ---- 946 / 947 ----------------------------------------------------------------------------------------------
 
-    /** Takes a screenshot of the menu and returns {ring ARGB, sidebar ARGB} at the panel ring's top centre and in the
+    /** Takes a screenshot of the menu and returns {ring ARGB, sidebar ARGB} at the panel ring's top center and in the
      *  sidebar's empty lower part (screen pixels per layout unit from the open screen's own width). */
     static int[] sample(UiCase c, Screen s, String label) throws Exception {
         c.ticks(3);
@@ -665,7 +665,7 @@ final class MenuACases {
                 }
             });
             int[] amber = sample(c, s, "amber");
-            // a real press on the drawer's Accent row: the colour picker opens; its answer is what a pick sends
+            // a real press on the drawer's Accent row: the color picker opens; its answer is what a pick sends
             String why = c.onClient(mc -> {
                 AbstractWidget accent = null;
                 for (AbstractWidget w : paneRows(s)) {
@@ -707,7 +707,7 @@ final class MenuACases {
                     Mod.enumValue("gui.MenuTheme$Slot", "ACCENT"));
             c.check(themeName().equals("CUSTOM") && (saved & 0xFFFFFF) == (teal & 0xFFFFFF),
                     "after a restart the theme is " + themeName() + " with accent " + hex(saved));
-            // Reset puts Amber's colours back (a real press on the Reset row)
+            // Reset puts Amber's colors back (a real press on the Reset row)
             c.onClient(mc -> {
                 Mod.call(s, "refresh");
                 for (AbstractWidget w : paneRows(s)) {
@@ -741,7 +741,7 @@ final class MenuACases {
         Object hud = Mod.cfg("hud.HudConfig");
         boolean oldAuto = (Boolean) Mod.call(hud, "isAutoScale");
         List<String> taken = new ArrayList<>();
-        // A livelier frame, like the mockup: a few HUD features on and four favourites; all put back in finally.
+        // A livelier frame, like the mockup: a few HUD features on and four favorites; all put back in finally.
         String[] lively = {"HealthAndManaBarsTab", "QuiverDisplayTab", "AbilityCooldownTab", "CustomScoreboardTab",
                 "LagDisplayTab"};
         List<Object> flipped = new ArrayList<>();
@@ -830,7 +830,7 @@ final class MenuACases {
             });
             taken.add(shot(c, s[0], variant + "-5-dungeons-bottom", null));
 
-            // 6-9: the HUD drawer in every colour preset and one Custom set (teal on blue-grey)
+            // 6-9: the HUD drawer in every color preset and one Custom set (teal on blue-gray)
             int[] customSet = {0xFF2EC4B6, 0xFF101820, 0xFF1B2733, 0xFFE8F1F2, 0xFF2EC4B6};
             for (String theme : new String[]{"AMBER", "DARK", "LIGHT", "CUSTOM"}) {
                 c.onClient(mc -> {

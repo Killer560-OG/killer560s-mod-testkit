@@ -128,7 +128,7 @@ final class DocMiscCases {
     private static final String TEAM = "k560docmisc";
 
     /** The sidebar as a server shows it: one invisible owner per line, the text in its team's prefix (and suffix from
-     *  {@code split}, the suffix repeating the colour in force when {@code repeatColour}). */
+     *  {@code split}, the suffix repeating the color in force when {@code repeatColour}). */
     private static void board(UiCase c, List<String> lines, int split, boolean repeatColour) {
         c.onClient(mc -> {
             MinecraftServer server = mc.getSingleplayerServer();
@@ -193,7 +193,7 @@ final class DocMiscCases {
         c.ticks(4);
     }
 
-    /** The mod's own reading: the sidebar read now, then each entry's drawn lines (colour codes stripped). */
+    /** The mod's own reading: the sidebar read now, then each entry's drawn lines (color codes stripped). */
     @SuppressWarnings("unchecked")
     private static List<String> entryLines(UiCase c, String... entries) {
         return c.onClient(mc -> {
@@ -225,7 +225,7 @@ final class DocMiscCases {
     // any number crossing character 16: a friend's ~114k Copper and his coins read a digit short.
 
     private static final String[] HYPIXEL_VALUES = {"1,140", "14,000", "114,250", "1,140,250", "11,402,507", "114,025,073"};
-    /** Split offsets from just after the value's colour code: -2 (before the code), then 0..11 (every place in a
+    /** Split offsets from just after the value's color code: -2 (before the code), then 0..11 (every place in a
      *  number up to 11 characters, and past it). */
     private static final int[] HYPIXEL_OFFSETS = {-2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
     private static final int HYPIXEL_SPLITS = HYPIXEL_OFFSETS.length;
@@ -250,7 +250,7 @@ final class DocMiscCases {
                         ObjectiveCriteria.RenderType.INTEGER, false, null);
                 for (int i = 0; i < lines.size(); i++) {
                     String line = lines.get(i);
-                    int valueAt = line.indexOf(": §") + 4; // just after the value's colour code
+                    int valueAt = line.indexOf(": §") + 4; // just after the value's color code
                     int s = Math.max(0, Math.min(line.length(), valueAt + offset));
                     if (s > 0 && line.charAt(s - 1) == '§') {
                         s++; // a server never splits a code from its character
@@ -299,7 +299,7 @@ final class DocMiscCases {
     }
 
     /** Purse (with an earned "(+1,234)"), Bits, Motes, Copper (with a "(+1,234)") and Gems in Hypixel's line shape,
-     *  split at every offset, with and without the colour repeated; Long and Short. Returns the rounds run. */
+     *  split at every offset, with and without the color repeated; Long and Short. Returns the rounds run. */
     @SuppressWarnings("unchecked")
     private static int hypixelShapes(UiCase c) {
         int rounds = 0;
@@ -382,8 +382,8 @@ final class DocMiscCases {
             for (String[] v : values) {
                 List<String> lines = List.of("§fPurse: §6" + v[0], "Bits: §b" + v[0], "§fMotes: §d" + v[0],
                         "§fCopper: §c" + v[0]);
-                // Whole line in the prefix; split after the label; split after the colour code; split inside the
-                // number with and without the colour repeated at the start of the suffix (the 16-char-prefix style).
+                // Whole line in the prefix; split after the label; split after the color code; split inside the
+                // number with and without the color repeated at the start of the suffix (the 16-char-prefix style).
                 int[][] splits = {{0, 0}, {7, 0}, {9, 0}, {10, 0}, {10, 1}, {12, 1}};
                 for (int[] sp : splits) {
                     board(c, lines, sp[0], sp[1] == 1);
@@ -394,7 +394,7 @@ final class DocMiscCases {
                         });
                         List<String> got = entryLines(c, "PURSE", "BITS", "MOTES", "COPPER");
                         String want = fmt.equals("LONG") ? v[1] : v[2];
-                        String label = v[0] + " split " + sp[0] + (sp[1] == 1 ? "+colour" : "") + " " + fmt;
+                        String label = v[0] + " split " + sp[0] + (sp[1] == 1 ? "+color" : "") + " " + fmt;
                         rounds++;
                         boolean ok = got.size() >= 4;
                         for (String name : new String[]{"Purse", "Bits", "Motes", "Copper"}) {
@@ -488,7 +488,7 @@ final class DocMiscCases {
     }
 
     /** Checks the line just outside each side of the 16-unit item box at (sx, sy) (GUI units), plus the corners when
-     *  the preset outlines in one colour. Returns a problem or null. */
+     *  the preset outlines in one color. Returns a problem or null. */
     private static String sides(BufferedImage img, int sx, int sy, int gs, Pal p) {
         int bx0 = sx * gs;
         int by0 = sy * gs;

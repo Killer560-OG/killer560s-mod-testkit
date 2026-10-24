@@ -33,7 +33,7 @@ import java.util.regex.Pattern;
  *   <li><b>144-sim-autosecret-handoff</b>: four routed rooms, taken in whatever order it picks. The first one's secrets
  *       all count before its route ends: the first warp to the next room goes the tick after the route finished. The
  *       second's never count: the first warp goes exactly {@code 6} ticks after. The third's count two ticks into the
- *       wait: the warp goes on the tick they count. Every hand-over runs the path planned while he travelled ("planned
+ *       wait: the warp goes on the tick they count. Every hand-over runs the path planned while he traveled ("planned
  *       ahead"), with no search.</li>
  *   <li><b>145-sim-autosecret-order</b>: three routed rooms - two small ones beside the Entrance and one with more
  *       unfound secrets across the floor. Run twice from the Entrance: the old order (most unfound first) crosses the map
@@ -579,7 +579,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
 
     /**
      * A standable, warpable block in room {@code id}, with {@code secret} in reach from it: a chest within 4.0 of both
-     * the standing and the sneaking eye (box), an essence within 4.2 (centre), an item within 1.5 of the body. Closest
+     * the standing and the sneaking eye (box), an essence within 4.2 (center), an item within 1.5 of the body. Closest
      * first. Client thread via computeOnClient.
      */
     private static BlockPos standFor(ClientGameTestContext ctx, String kind, BlockPos secret, int id) {

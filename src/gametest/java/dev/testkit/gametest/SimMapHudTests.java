@@ -28,8 +28,8 @@ import java.util.concurrent.atomic.AtomicReference;
  *   <li><b>99-sim-map-fit</b> - "the map doesn't rescale very well for other floors". Floors drawn on 4x5 (F1's
  *       grid), 5x5 (F3's), 6x6 (F7's) and a 4x3 block that does not start at slot 0, built from two rooms at
  *       opposite corners. The Dungeon Map HUD's room fills must fill the map's frame on the long side (within
- *       {@link #FIT_MARGIN} units) and be centred on the short one; and on the cheat jar an Interactive Map press at
- *       the drawn centre of each room must resolve to that room's cell.</li>
+ *       {@link #FIT_MARGIN} units) and be centered on the short one; and on the cheat jar an Interactive Map press at
+ *       the drawn center of each room must resolve to that room's cell.</li>
  *   <li><b>99-sim-extra-info</b> - "I have the extra info overlay on for the map but the info isn't coming up below
  *       the map". With Score Calculator OFF (the fresh-config default), Map Extras' Extra Info Overlay ON and the
  *       Interactive Map's Extra Info ON: the Dungeon Map HUD must draw Score / Secrets / Crypts lines under the map,
@@ -54,7 +54,7 @@ public class SimMapHudTests implements FabricClientGameTest {
     private static final float S = 2f;
     private static final int X0 = 20;
     private static final int Y0 = 20;
-    /** Map units the drawn grid may fall short of the frame by, on its long side and in centring. */
+    /** Map units the drawn grid may fall short of the frame by, on its long side and in centering. */
     private static final float FIT_MARGIN = 2f;
 
     @Override
@@ -210,7 +210,7 @@ public class SimMapHudTests implements FabricClientGameTest {
         }
     }
 
-    /** An Interactive Map press at the drawn centre of each room must resolve to that room's cell. */
+    /** An Interactive Map press at the drawn center of each room must resolve to that room's cell. */
     private static void imClicks(ClientGameTestContext ctx, List<String> failures, String tag, int[][] rooms) {
         Screen screen = openMap(ctx);
         List<int[]> squares = ctx.computeOnClient(mc -> {

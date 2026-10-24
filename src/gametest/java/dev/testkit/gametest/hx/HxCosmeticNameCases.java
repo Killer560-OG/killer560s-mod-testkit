@@ -35,7 +35,7 @@ import static dev.testkit.gametest.hx.HxKit.*;
  * Player Cosmetics names (mod branch cosmetic-names, killer560 2026-10-11), 811-818:
  * <ul>
  *   <li>811-814: "fade color is broken and just shows a bunch of random colors in between". The fade was written as
- *       Bungee's {@code §x§R§R§G§G§B§B} escape, which vanilla's decoder misreads as six legacy colour codes. Each case
+ *       Bungee's {@code §x§R§R§G§G§B§B} escape, which vanilla's decoder misreads as six legacy color codes. Each case
  *       paints the own name faded green (00FF00) to blue (0000FF) and reads the SCREENSHOT: every name pixel lies on the
  *       green-blue line (red ~0, green + blue ~255), the blue share rises left to right, and it spans the two ends -
  *       in chat (811), the tab list (812), the own F5 nametag (813) and the Name Changer tab's preview (814).</li>
@@ -49,7 +49,7 @@ import static dev.testkit.gametest.hx.HxKit.*;
  *   <li>818: My Name in F5 is saved, loaded, restored by a profile reload, tooltipped and in the tab.</li>
  *   <li>819: a supporter's shared fade - the relay's {@code GET /supporters} body with a per-letter {@code colors}
  *       list, read by the mod's own parser - paints green to blue on that player's nametag and in the tab list
- *       (screenshots); an old entry with no {@code colors} and one with a wrong-length list keep their single colour;
+ *       (screenshots); an old entry with no {@code colors} and one with a wrong-length list keep their single color;
  *       the cache keeps the list; and your own fade is what Share if Supporter would send.</li>
  * </ul>
  */
@@ -81,7 +81,7 @@ final class HxCosmeticNameCases {
 
     // ---- shared -----------------------------------------------------------------------------------------------------
 
-    /** Own name changed to {@link #FADE_NAME}, faded {@link #FROM} -> {@link #TO}, no letter colours. */
+    /** Own name changed to {@link #FADE_NAME}, faded {@link #FROM} -> {@link #TO}, no letter colors. */
     static Settings fade(Session c) {
         c.onClient(mc -> {
             Mod.call(Mod.cfg(NC), "clearOwnCharColors");
@@ -272,7 +272,7 @@ final class HxCosmeticNameCases {
                 } else if (changed(img, base, ox + xx, oy + yy) && bright(p) && !neutral(p)
                         && (base == null || !overlay(p, base.getRGB(ox + xx, oy + yy)))
                         // where the base frame had white text (the real name the styled one replaced), what shows
-                        // through now is background, not a foreign colour of the name
+                        // through now is background, not a foreign color of the name
                         && (base == null || !(neutral(base.getRGB(ox + xx, oy + yy)) && bright(base.getRGB(ox + xx, oy + yy))))) {
                     foreign++;
                 }
@@ -292,7 +292,7 @@ final class HxCosmeticNameCases {
         return new Run(ox + left, ox + right, oy + top, oy + bottom, n, foreign, cols.size(), drops, tMin, tMax);
     }
 
-    /** The per-glyph colours a sequence paints, in order. */
+    /** The per-glyph colors a sequence paints, in order. */
     static List<Integer> colours(FormattedCharSequence seq) {
         List<Integer> out = new ArrayList<>();
         seq.accept((pos, style, cp) -> {
@@ -368,7 +368,7 @@ final class HxCosmeticNameCases {
             BufferedImage img = shot(c, "open");
             Fade f = fadeOf(img, base, 0, 0, img.getWidth(), img.getHeight() / 2);
             c.note("tab: " + f);
-            // Other rows are in the shot too, so foreign colour is not judged here; the name must still be a clean fade.
+            // Other rows are in the shot too, so foreign color is not judged here; the name must still be a clean fade.
             c.check(f.ok(), "own name in the tab list is not a green->blue fade: " + f);
         } finally {
             tabDown(c, false);
@@ -641,7 +641,7 @@ final class HxCosmeticNameCases {
 
     // ---- 816 nametag height -----------------------------------------------------------------------------------------
 
-    /** Rows {top, bottom} of the first changed run in the centre band, then the top of the next run (-1 if none). */
+    /** Rows {top, bottom} of the first changed run in the center band, then the top of the next run (-1 if none). */
     static int[] tagAndHead(BufferedImage img, BufferedImage base) {
         int w = img.getWidth();
         int x0 = w / 2 - w / 10, x1 = w / 2 + w / 10;

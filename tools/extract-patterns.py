@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Catalogue every Pattern.compile in killer560s-mod into a JSON file the LogicSuite reads.
+"""Catalog every Pattern.compile in killer560s-mod into a JSON file the LogicSuite reads.
 
     python tools/extract-patterns.py                       (modSource from testkit.properties / TESTKIT_MOD_SOURCE)
     python tools/extract-patterns.py -PmodSource=<killer560s-mod checkout>

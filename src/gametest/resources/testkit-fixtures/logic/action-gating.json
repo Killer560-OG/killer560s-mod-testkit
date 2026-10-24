@@ -270,7 +270,7 @@
       "scoreboard.ScoreboardPartyLeader#DISBAND[0]"
     ],
     "sender": "Killer560",
-    "notes": "PartyTracker.CLEARED empties the teammate list Party Commands authorises against; PARTY_LEAVE cancels a queued requeue; PartyLeaderTracker.CLEARED forgets the leader."
+    "notes": "PartyTracker.CLEARED empties the teammate list Party Commands authorizes against; PARTY_LEAVE cancels a queued requeue; PartyLeaderTracker.CLEARED forgets the leader."
   },
   {
     "id": "logic.joined-party",
@@ -303,7 +303,7 @@
     "mode": "matches",
     "verifiedBy": "regex",
     "sender": "Killer560",
-    "notes": "Adds a teammate - the set Party Commands authorises against."
+    "notes": "Adds a teammate - the set Party Commands authorizes against."
   },
   {
     "id": "logic.transfer-leave",

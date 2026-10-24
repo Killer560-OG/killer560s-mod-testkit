@@ -58,7 +58,7 @@ instance reads) and passes `killer560.net.offline=true` and `killer560.test.noEx
 cases/, screens/, coverage.md). WP1 foundation and every API: `docs/wp/wp1-foundation.md`; change requests to frozen
 files go in `docs/requests/`.
 
-**Any mod, or none.** A scenario class that drives killer560s-mod (reflection, its commands, its behaviour) carries
+**Any mod, or none.** A scenario class that drives killer560s-mod (reflection, its commands, its behavior) carries
 `@RequiresMod("killer560smod")`; without that mod loaded its scenarios and Session cases become `SKIP - needs
 killer560smod` rows (`harness/ModGate`), never failures. A class without the annotation is generic and must pass with
 `-NoMod` and with someone else's mod (suite `generic`; `k560` is the rest). A scenario that cannot run for lack of
@@ -84,7 +84,7 @@ group, 96-ar) are never split unless `-SplitLarge`. Merged report in `build/shar
 `0.160.0+26.2`, loader `0.19.5`, cloud-fabric `2.0.0-beta.17`); scripts take `-Minecraft 26.2` and pick the snapshot's
 `killer560smod-*-26.2-cheat.jar`. GrimAC is the same pin and detects on 26.2. Version-specific API goes in
 `dev.testkit.compat` (`src/client/mc26_1/java` vs `mc26_2/java`, identical public signatures); nothing in `src/*/java`
-may use `mc.screen`, `mc.setScreen`, colour-variant `Items.RED_...`, `EntityType.<CONSTANT>` or `BlockPos.getCenter()`.
+may use `mc.screen`, `mc.setScreen`, color-variant `Items.RED_...`, `EntityType.<CONSTANT>` or `BlockPos.getCenter()`.
 Compile with `-Pminecraft_version=26.2` before merging a branch. Run status, what it took, and the full rules:
 [docs/minecraft-262.md](docs/minecraft-262.md).
 
@@ -167,7 +167,7 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   `Scenario.skipped` when it is missing. Before 2026-10-07 ~40 files named one machine's Prism folder and the mod
   checkout outright, so on any other machine a sim scenario either failed for want of data or ended as a RAN row whose
   "SKIPPED" was only in the log.
-- Upstream scenarios 40, 41, 42 ("built 0 block(s)") and 34 ("naked 0, diamond-armoured 0") go green proving nothing.
+- Upstream scenarios 40, 41, 42 ("built 0 block(s)") and 34 ("naked 0, diamond-armored 0") go green proving nothing.
 - **The instrument is broken more often than the feature.** Three times on 2026-09-29: scenario 76 reported
   20 of 29 secret chests missing because it scanned only chunks that `hasChunk` said were loaded, and the
   player stands in one corner of a six-room-wide floor (use `getChunk`, which loads it); scenario 78 reported
@@ -178,9 +178,9 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
 - `System.out.printf` does NOT reach the gametest log - only `println` does. Scenario 82 printed its PASS line
   and silently dropped every per-floor number behind it, so the run "passed" with nothing to read. Use
   `System.out.println(String.format(...))`.
-- A movement scenario must assert DISTANCE TRAVELLED before it asserts anything about where the player ended
+- A movement scenario must assert DISTANCE TRAVELED before it asserts anything about where the player ended
   up. Scenario 81 reported "a player cannot pass this doorway" twice while the player had moved 0.00 blocks,
-  and once more after walking 16.2 blocks into a wall because it aimed him from the cell centre rather than
+  and once more after walking 16.2 blocks into a wall because it aimed him from the cell center rather than
   from where he stood. Place him square on to the thing under test and measure the crossing axis only.
 - Name the block that stopped the player. "3 of 8 doorways impassable" reads as a floor-generation bug when a
   shut wither door (coal block) and a blood door (red terracotta) are solid on purpose.
@@ -271,7 +271,7 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   only on the 20-tick reminder - hence "some runs"; 60 turns the player so it is deterministic. Read
   `PacketWatch.digTimeline()` for which packet claimed ground over the dug block.
 
-- A screenshot pixel count with a FIXED colour window is fragile: 388's first window missed a translucent fill blended
+- A screenshot pixel count with a FIXED color window is fragile: 388's first window missed a translucent fill blended
   over stone and its second counted peach sunrise sky uncovered by a 1 px edge shift. Diff each frame against a no-draw
   frame of the same scene and classify only changed pixels (`ui/BreakerDisplayCases.countOrange`), and look at the PNGs.
   An EXACT compare against that frame fails too: the superflat grass brightens a few levels between shots as the day
@@ -319,7 +319,7 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
 - An enchanted item drawn on the HUD (the mana bar's enchanted book icon) changes between any two screenshots: its glint
   moves. 892's first run counted 192 "changed" px for overflow mana 0 against none, all in the icon (2026-10-12). Diff
   from past the icon.
-- Health and Mana Bars have no flat colour since mod bars-2 (Bold/Sleek gradients, frame, icon), so an exact-colour pixel
+- Health and Mana Bars have no flat color since mod bars-2 (Bold/Sleek gradients, frame, icon), so an exact-color pixel
   search finds nothing. Use `ui/BarPixels`: the fill by its TINT, searched only inside the painter's fill area (the
   superflat ground's olive is 0.09 from yellow's tint and came in through a rounded corner), mapped back to the element
   box by the painter's insets. 407/441-444/476/393/399 use it.

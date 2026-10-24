@@ -464,7 +464,7 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
             return new double[]{b.getX() + 0.5, b.getY(), b.getZ() + 0.5};
         }
 
-        /** Unit step {x, z} from room {@code from}'s side of door {@code d} towards the other side. */
+        /** Unit step {x, z} from room {@code from}'s side of door {@code d} toward the other side. */
         double[] toward(int from, int d) {
             int gx = d % 11;
             int gz = d / 11;

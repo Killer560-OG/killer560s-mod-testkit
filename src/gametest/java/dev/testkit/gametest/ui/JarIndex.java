@@ -53,7 +53,7 @@ public final class JarIndex {
         return new ArrayList<>(out);
     }
 
-    /** Load without initialising (so listing a class never runs its static init). Null if it cannot be loaded. */
+    /** Load without initializing (so listing a class never runs its static init). Null if it cannot be loaded. */
     public static Class<?> peek(String fq) {
         try {
             return Class.forName(fq, false, JarIndex.class.getClassLoader());

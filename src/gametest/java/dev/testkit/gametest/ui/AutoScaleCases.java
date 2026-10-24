@@ -234,7 +234,7 @@ final class AutoScaleCases {
         Report.screenshot(c.name(), shot);
         // The Option A menu (mod menu-a) has no orange header underline; its panel's outer ring (FRAME_RING, one unit
         // outside the panel on every side) is the full-width line now: panelW + 2 units.
-        // The ring's colour comes from the menu theme's palette (gui.MenuStyle.FRAME_RING since mod menu-a's presets).
+        // The ring's color comes from the menu theme's palette (gui.MenuStyle.FRAME_RING since mod menu-a's presets).
         int ring = (Integer) Mod.field("gui.MenuStyle", "FRAME_RING");
         int headerRun = longestRun(shot, (ring >> 16) & 0xFF, (ring >> 8) & 0xFF, ring & 0xFF);
         int wantRun = Math.round((panelW + 2) * layoutF * 3);
@@ -252,7 +252,7 @@ final class AutoScaleCases {
         return new Measured(w, h, real[2], f, probeBox, headerRun, panelW, layoutF);
     }
 
-    /** The sidebar's rows as laid out: {x, y, w, h, tab index (-1 for Favourites)} (gui/ModScreen.layout). */
+    /** The sidebar's rows as laid out: {x, y, w, h, tab index (-1 for Favorites)} (gui/ModScreen.layout). */
     private static java.util.List<int[]> sideRows(Screen menu) {
         java.util.List<int[]> out = new java.util.ArrayList<>();
         for (Object e : (java.util.List<?>) R.get(menu, "side")) {
@@ -369,7 +369,7 @@ final class AutoScaleCases {
         return new int[]{x0, y0, x1, y1};
     }
 
-    /** Longest horizontal run of one colour (within 10 per channel) - the menu panel's outer ring. */
+    /** Longest horizontal run of one color (within 10 per channel) - the menu panel's outer ring. */
     private static int longestRun(Path shot, int wr, int wg, int wb) throws java.io.IOException {
         BufferedImage img = javax.imageio.ImageIO.read(shot.toFile());
         int best = 0;

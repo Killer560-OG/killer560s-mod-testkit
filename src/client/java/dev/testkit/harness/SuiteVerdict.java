@@ -117,7 +117,7 @@ public final class SuiteVerdict {
         return !failures.isEmpty();
     }
 
-    /** Fail every scenario that started and never finished, write (or clear) the failed-names file, summarise. */
+    /** Fail every scenario that started and never finished, write (or clear) the failed-names file, summarize. */
     public static String finish() {
         if (ScenarioList.active()) {
             ScenarioList.write();

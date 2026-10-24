@@ -12,18 +12,18 @@ import java.util.Locale;
  * limit than blocks.
  *
  * <p>Vanilla allows 4.5 blocks to a block's box but only 3.0 to an entity's. Three of this mod's features click
- * entities: Terminal Aura on armour stands (range 4.0), Arrow Align on item frames (range 5.0, ceiling 6.0),
+ * entities: Terminal Aura on armor stands (range 4.0), Arrow Align on item frames (range 5.0, ceiling 6.0),
  * and Goldor Triggerbot on the wither. Every one of those defaults above 3.0, so the same question that the
  * block reach ladder answered needs asking again against the smaller number.
  *
  * <p><b>What this measures, precisely.</b> Not a feature - the SERVER. Arrow Align cannot be driven without a
  * real 5x5 frame grid at exact coordinates whose rotations match a known puzzle layout, which is more
- * scaffolding than the answer is worth. So this walks the harness itself outward from an armour stand and finds
+ * scaffolding than the answer is worth. So this walks the harness itself outward from an armor stand and finds
  * the distance at which the server stops accepting an entity interaction and the anticheat starts objecting.
  *
  * <p>That is the number needed to cap the features: killer560 (2026-09-28) asked for "whatever you find the max
  * to be that doesnt flag", and a limit enforced by the server applies to every feature that clicks an entity
- * whether or not this scenario drove it. It is labelled this way so nobody later reads it as proof that Arrow
+ * whether or not this scenario drove it. It is labeled this way so nobody later reads it as proof that Arrow
  * Align, Terminal Aura or Goldor Triggerbot were themselves exercised - they were not.
  */
 public class EntityReachTests implements FabricClientGameTest {
@@ -70,7 +70,7 @@ public class EntityReachTests implements FabricClientGameTest {
                     double lowestFlagged = Double.NaN;
                     for (int step = 40; step >= 15; step--) {
                         double want = step / 10.0;
-                        // The stand's box is 0.5 wide, so its face is 0.25 from its centre; place the eye that
+                        // The stand's box is 0.5 wide, so its face is 0.25 from its center; place the eye that
                         // much further out to make the eye-to-BOX distance the number we asked for.
                         server.command(String.format(Locale.ROOT, "tp @p %.3f %d %.3f 0 0",
                                 DEV_X + 0.5, DEV_Y, DEV_Z + 8 - 0.25 - want));
@@ -114,7 +114,7 @@ public class EntityReachTests implements FabricClientGameTest {
                 });
     }
 
-    /** One interact against the armour stand, whatever the distance. @return that distance, or NaN if absent. */
+    /** One interact against the armor stand, whatever the distance. @return that distance, or NaN if absent. */
     private double interactOnce(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> {
             var stands = mc.level.getEntitiesOfClass(net.minecraft.world.entity.decoration.ArmorStand.class,

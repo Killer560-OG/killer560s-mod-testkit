@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
  * landings kept to the mod's own rules (cover, blacklist, no warp on from a trap, maze or Boulder).
  *
  * <p><b>404-sim-planner-gaps</b> (pinned F7 of 98-sim-insta-clear-live): four spots on Atlas's ledge from which the
- * floor graph "proved" no way to the room's centre block while three or four warps reach it. Plans each and RUNS the
+ * floor graph "proved" no way to the room's center block while three or four warps reach it. Plans each and RUNS the
  * trip with {@code ClearExecutor.etherPath}: he must travel, end on the block in Atlas, and the sim's server must refuse
  * none of the planned warps. Fails on mod 799c5c2f ("no way ... not trying room by room").
  *
@@ -35,7 +35,7 @@ import java.util.regex.Pattern;
  * run nothing; from the doorway two blocks south the same trip must arrive.
  *
  * <p><b>404-sim-planner-sweep</b> (pinned F7): plans from every standable spot of a 2-block grid over each room's tiles
- * (seams included) to that room's centre block, one line per spot so two jars compare line by line, judges every "no
+ * (seams included) to that room's center block, one line per spot so two jars compare line by line, judges every "no
  * way" against the ground truth (fails on any the ground truth reaches) and runs a sample of the found plans.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -93,7 +93,7 @@ public class SimPlannerGapsTests implements FabricClientGameTest {
 
     /**
      * The sweep's real gaps on the pinned F7 (mod 799c5c2f, 2026-10-07): spots on Atlas's ledge by the seam between its
-     * two tile rows, from which the planner "proved" no way to the room's centre block while three or four warps reach it
+     * two tile rows, from which the planner "proved" no way to the room's center block while three or four warps reach it
      * (the sweep's breadth-first ground truth). World coordinates: the pinned floor always sits at the same height.
      */
     private static final double[][] ATLAS_GAPS = {
@@ -426,7 +426,7 @@ public class SimPlannerGapsTests implements FabricClientGameTest {
     }
 
     /**
-     * The sweep's real gaps: from each Atlas ledge spot, plan to the room's centre block and run the trip; it must
+     * The sweep's real gaps: from each Atlas ledge spot, plan to the room's center block and run the trip; it must
      * arrive with nothing refused. The ground truth is printed beside it.
      */
     private static void gapsBody(ClientGameTestContext ctx, List<String> failures) {
@@ -734,7 +734,7 @@ public class SimPlannerGapsTests implements FabricClientGameTest {
         return ctx.computeOnClient(mc -> mc.player.onGround() && mc.player.position().distanceTo(feet) < 0.1);
     }
 
-    /** The blocks around his feet, layer by layer: '#' solid, '.' air, '@' him, 'T' the line towards the target. */
+    /** The blocks around his feet, layer by layer: '#' solid, '.' air, '@' him, 'T' the line toward the target. */
     private static void dumpAround(ClientGameTestContext ctx, String name, String label, Vec3 feet, BlockPos target) {
         List<String> lines = ctx.computeOnClient(mc -> {
             List<String> out = new ArrayList<>();
@@ -927,7 +927,7 @@ public class SimPlannerGapsTests implements FabricClientGameTest {
 
     // ------------------------------------------------------------------------------------------------ sweep
 
-    /** A start spot of the sweep: feet, the room's index and the room's centre block. */
+    /** A start spot of the sweep: feet, the room's index and the room's center block. */
     private record Start(int room, String roomName, Vec3 feet, BlockPos target) {
     }
 

@@ -29,7 +29,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Hypixel's right/left-click abilities that Auto Routes drives, as SERVER behaviour on the GrimAC test server - the same
+ * Hypixel's right/left-click abilities that Auto Routes drives, as SERVER behavior on the GrimAC test server - the same
  * model the mod's own dungeon sim answers its packets with ({@code roomsim.SimAbilities} / {@code SimItems}), rebuilt
  * here because the testmod cannot load the mod. Off until {@code dungeon.abilities} turns it on, so no other scenario
  * sees it.
@@ -43,11 +43,11 @@ import java.util.Set;
  *       Hypixel does. Same walk as {@code TeleportUtils.traverseVoxels}, except "passable" here means "no collision
  *       box" rather than the mod's block list; the two agree for every block the scenarios use.</li>
  *   <li><b>Instant Transmission</b>: the same items without sneak: along the look in quarter-block steps, up to
- *       8 + tuners, to the last block-centred spot the player's box fits ({@code SimAbilities.dashTarget}'s level
+ *       8 + tuners, to the last block-centered spot the player's box fits ({@code SimAbilities.dashTarget}'s level
  *       walk, without its settle-on-blocked-vertical refinements).</li>
  *   <li><b>Superboom</b>: a START_DESTROY_BLOCK (left click) or a use on a block with {@code SUPERBOOM_TNT} /
  *       {@code INFINITE_SUPERBOOM_TNT}: the cracked stone bricks hit and every cracked stone brick connected to it
- *       within two blocks are destroyed; vanilla's own break / TNT placement is cancelled.</li>
+ *       within two blocks are destroyed; vanilla's own break / TNT placement is canceled.</li>
  * </ul>
  * The Dungeon Breaker is NOT emulated: as in scenarios 48-52, its blocks are snow broken in one packet by a vanilla
  * diamond shovel with Efficiency V under Haste V, which GrimAC models as a legal instant break.
@@ -294,7 +294,7 @@ public final class HxAbilities {
     /**
      * Wither Impact (hypixelskyblock.minecraft.wiki: "Teleports 10 blocks ahead of you dealing 10,000 Damage damage to
      * nearby enemies within a 6 block radius"): the Instant Transmission walk 10 blocks along the use's look, then a
-     * 6-block blast at where he stands (his centre to each mob's box) - the mod's sim model, SimAbilities.witherImpact.
+     * 6-block blast at where he stands (his center to each mob's box) - the mod's sim model, SimAbilities.witherImpact.
      * Straight down it goes nowhere and still blasts. Added 2026-10-06 for Auto Clear (62-argrim-autoclear).
      */
     private static void witherImpact(ServerPlayer sp) {

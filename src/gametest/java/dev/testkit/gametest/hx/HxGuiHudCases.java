@@ -39,7 +39,7 @@ import static dev.testkit.gametest.hx.HxKit.*;
  *       Advanced section and tooltips, the tab is only the switch and the editor button, and a drag list keeps every wheel turn.</li>
  *   <li>721-722 Quiver Display: the Low Arrow Alert fires once per dip below the threshold and re-arms above it; the
  *       threshold snaps to 20..200 in 20s; the HUD line is drawn in the Text Color, and the settings survive a reload.</li>
- *   <li>723 Spring Boots: real sound packets charge the height, and the box is drawn in the chosen colour and style
+ *   <li>723 Spring Boots: real sound packets charge the height, and the box is drawn in the chosen color and style
  *       (screenshot diff against a no-box frame: Filled covers far more pixels than Outline).</li>
  *   <li>724 Ping: the Performance HUD's ping follows an injected 200 ms round trip ({@link Latency}), and no ping
  *       requests are sent while nothing shows the ping.</li>
@@ -565,7 +565,7 @@ final class HxGuiHudCases {
             c.note("reloaded: " + back);
             c.check(back.equals("ff33ccff|true|false|140|&eRefill {count}"), "settings after a reload: " + back);
 
-            // The HUD line: plain text in the chosen colour.
+            // The HUD line: plain text in the chosen color.
             setArrows(c, 250);
             c.waitUntil("the quiver count is read", mc -> "250".equals(Mod.field(QUIVER, "cachedCount")), 40);
             String drawn = c.onClient(mc -> {

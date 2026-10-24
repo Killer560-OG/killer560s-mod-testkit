@@ -35,7 +35,7 @@ import java.util.Map;
  * opens its screen (the cheat jar closes it, the positive control).
  *
  * <p>392 Blood Camp, "make the kill timer ... make a sound once it starts counting down and as you need to kill" and
- * "nearly identical to noamm's in look and function": real armour stands wearing a blood-mob skull, moved on the
+ * "nearly identical to noamm's in look and function": real armor stands wearing a blood-mob skull, moved on the
  * integrated server beside a zombie wearing a Watcher skull, so the mod tracks them from real move packets. Asserts the
  * drawn geometry against NoammAddons' numbers, the line's start against the stand's position, the predicted spot
  * against where the stand stops, and the two sounds (once each, merged across mobs, silent when switched off).
