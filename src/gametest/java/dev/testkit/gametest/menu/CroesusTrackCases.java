@@ -30,6 +30,10 @@ import java.util.Map;
  *       reloading my instance") his real run file, names anonymized (testkit-fixtures/croesus-runs-real-2026-10-12.json,
  *       59 runs over three pages): every page read, a restart, page 1 alone - the same states and the same totals, with
  *       no "+" and no "Pages seen".</li>
+ *   <li>906 (croesus-page-leak, mod d877a026, 2026-10-24, "randomly marks a run as not seen before"): one party's runs
+ *       over pages 1 and 2, every one remembered and recently seen except the last on page 2; read page 1, page 2, then
+ *       page 1 again. Page 2 keeps each run's own state (the old matcher shifted page 1's last run onto page 2's first
+ *       head and every page 2 run took its neighbor's), and page 1 has no "not looked at" afterwards.</li>
  * </ul>
  */
 final class CroesusTrackCases {
@@ -44,6 +48,7 @@ final class CroesusTrackCases {
             shift(c, true, "1d 20h!");
             real(c);
         });
+        MenuSuite.test(s, "906-menu-croesus-page-leak", CroesusTrackCases::pageLeak);
     }
 
     static JsonObject head(String player, String stateLine, String expiry) {
@@ -275,6 +280,105 @@ final class CroesusTrackCases {
                     "totals before the restart " + before + ", after it with page 1 alone " + java.util.Arrays.toString(after));
             c.check(panel.stream().noneMatch(l -> l.startsWith("Pages seen") || l.contains("+")),
                     "the info box after the restart is partial: " + panel);
+        }
+    }
+
+    /**
+     * 906: one party (Bravo) over two pages, every run expiring inside every other's hour-wide window. Orders 0..36 are
+     * remembered (claimed Bedrock; even orders worth a key, odd ones not) and were seen a minute ago; order 37, the last on
+     * page 2, never was. Read page 1, page 2, page 1 again: every remembered run keeps its own state and the unremembered
+     * one reads "not looked at". Before mod d877a026 the page 2 read voted for a shift of one (page 1's last run, seen a
+     * moment before, counted as "reachable" from page 2's first slot), so each page 2 run took its neighbor's state, and
+     * page 1's last run, moved onto page 2, read "not looked at" on page 1 afterwards.
+     */
+    static void pageLeak(Session c) throws Exception {
+        final int last = 37; // overall place of the run nobody remembered: the tenth head of page 2
+        final int pages = 2;
+        String sig = "The Catacombs|Floor VII|Bravo: Mage (40)";
+        long now = System.currentTimeMillis();
+        long expiresAt = now + 40 * HOUR; // "1d 16h!" for all of them, read to the hour
+        JsonArray runs = new JsonArray();
+        Map<Integer, Byte> want = new java.util.HashMap<>();
+        for (int order = 0; order < last; order++) {
+            JsonObject r = new JsonObject();
+            r.addProperty("id", "testkit-906-" + order);
+            r.addProperty("sig", sig);
+            r.addProperty("expiresAt", expiresAt);
+            r.addProperty("tolMs", HOUR);
+            r.addProperty("order", order);
+            r.addProperty("seenAt", now - 60_000L);
+            JsonObject chests = new JsonObject();
+            chests.addProperty("OBSIDIAN", order % 2 == 0 ? 600_000L : 100_000L);
+            r.add("chests", chests);
+            r.addProperty("claimType", "BEDROCK");
+            r.addProperty("claimKeyed", false);
+            r.addProperty("claimAt", now - HOUR);
+            runs.add(r);
+            want.put(order, (byte) (order % 2 == 0 ? 2 : 3));
+        }
+        want.put(last, (byte) 5);
+        try (AutoCloseable w = CroesusStableCases.world(c)) {
+            Path p = c.onClient(mc -> (Path) Mod.staticCall("util.ModPaths", "config", "killer560smod-croesus-runs.json"));
+            JsonObject file = new JsonObject();
+            file.add("runs", runs);
+            Files.createDirectories(p.getParent());
+            drainRunsWriter(); // a save queued by the reset must not land on top of the fixture
+            Files.writeString(p, file.toString(), StandardCharsets.UTF_8);
+            c.ctx().runOnClient(mc -> Mod.staticCall("croesus.ChestProfitFeature", "reloadRunMemoryForTest"));
+            List<JsonObject> lists = new java.util.ArrayList<>();
+            for (int pg = 0; pg < pages; pg++) {
+                Map<Integer, JsonObject> heads = new LinkedHashMap<>();
+                for (int i = 0; i < HEAD_SLOTS.length; i++) {
+                    int order = pg * HEAD_SLOTS.length + i;
+                    if (order > last) {
+                        break;
+                    }
+                    heads.put(HEAD_SLOTS[i], realHead(sig, "§7Opened Chest: §4Bedrock", expiry(40 * HOUR + 20 * 60_000L)));
+                }
+                Map<Integer, JsonObject> slots = new LinkedHashMap<>(heads);
+                slots.put(49, FlipCroesusCases.item("minecraft:barrier", "§cClose"));
+                Map<Integer, JsonObject> on = new LinkedHashMap<>();
+                heads.keySet().forEach(k -> on.put(k, new JsonObject()));
+                JsonObject m = FlipCroesusCases.menu("(" + (pg + 1) + "/" + pages + ") Croesus", 6, slots, on);
+                m.addProperty("fill", false);
+                lists.add(m);
+            }
+            StringBuilder bad = new StringBuilder();
+            int[] checked = new int[3];
+            int[] unknownOnPage1 = new int[2];
+            int[] readOrder = {0, 1, 0};
+            String[] label = {"page 1", "page 2", "page 1 again"};
+            for (int step = 0; step < readOrder.length; step++) {
+                int pg = readOrder[step];
+                MenuKit.show(c, lists.get(pg));
+                MenuKit.awaitScreen(c, "(" + (pg + 1) + "/" + pages + ") Croesus", 100);
+                c.ctx().getInput().setCursorPos(2, 2);
+                c.ctx().waitTicks(8);
+                byte[] st = c.onClient(mc -> (byte[]) Mod.staticCall("croesus.ChestProfitFeature", "runStatesForTest"));
+                for (int i = 0; i < HEAD_SLOTS.length; i++) {
+                    int order = pg * HEAD_SLOTS.length + i;
+                    if (!want.containsKey(order)) {
+                        continue;
+                    }
+                    byte got = HEAD_SLOTS[i] < st.length ? st[HEAD_SLOTS[i]] : -1;
+                    checked[step]++;
+                    if (pg == 0 && got == 5) {
+                        unknownOnPage1[step == 0 ? 0 : 1]++;
+                    }
+                    if (got != want.get(order) && bad.length() < 600) {
+                        bad.append(label[step]).append(" order ").append(order).append(" state ").append(got)
+                                .append(" want ").append(want.get(order)).append("; ");
+                    }
+                }
+            }
+            c.note(String.format("%d remembered Bravo runs, order %d not; heads checked %s; \"not looked at\" on page 1: %d"
+                    + " first read, %d after page 2", last, last, java.util.Arrays.toString(checked), unknownOnPage1[0],
+                    unknownOnPage1[1]));
+            // Premise: every head of each read was there to be judged (the menus drew and the states were read).
+            c.check(checked[0] == HEAD_SLOTS.length && checked[1] == last + 1 - HEAD_SLOTS.length
+                    && checked[2] == HEAD_SLOTS.length, "heads checked " + java.util.Arrays.toString(checked));
+            c.check(bad.length() == 0, "states: " + bad);
+            c.check(unknownOnPage1[1] == 0, unknownOnPage1[1] + " run(s) on page 1 read \"not looked at\" after page 2 was read");
         }
     }
 }

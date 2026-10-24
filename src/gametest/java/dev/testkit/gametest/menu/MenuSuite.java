@@ -35,8 +35,8 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *       states that need action far more salient than the quiet ones ({@link CroesusColorCases})</li>
  *   <li>903-905 a run's chest view: the free claim green and one key chest orange, the same chest after a claim, nothing
  *       after a key, always agreeing with the run list ({@link CroesusChestViewCases})</li>
- *   <li>888-890 a Croesus run keeps its state when it moves a slot, between same-party runs, and across a restart
- *       ({@link CroesusTrackCases})</li>
+ *   <li>888-890 a Croesus run keeps its state when it moves a slot, between same-party runs, and across a restart;
+ *       906 one party over two pages read in turn keeps each run's own state ({@link CroesusTrackCases})</li>
  *   <li>884-887 Croesus run states stay put: runs with the same party, list/run/list navigation, a head lagging a
  *       claim, refreshed lore; never a hidden slot in a run view or chest ({@link CroesusStableCases})</li>
  *   <li>883 opening the Croesus menu never draws a frame of stale or unhidden runs ({@link CroesusFlashCases})</li>
@@ -217,7 +217,8 @@ public class MenuSuite implements FabricClientGameTest {
                     CroesusFlashCases.register(s);
                     // ---- 884-887 croesus-stable (2026-10-12): same-party runs, lagging heads, no hide in views ----
                     CroesusStableCases.register(s);
-                    // ---- 888-890 croesus-track (2026-10-12): run state follows a run that moves, and restarts ----
+                    // ---- 888-890 croesus-track (2026-10-12): run state follows a run that moves, and restarts;
+                    // 906 croesus-page-leak (2026-10-24): page 2 never takes page 1's runs ----
                     CroesusTrackCases.register(s);
                     Solver1018Cases.register(s); // 1018-*: the 2026-10-18 solver-sound batch
                     // ---- 898 croesus-colors (2026-10-12): run states distinct by color (deltaE, CVD) and marks ----
