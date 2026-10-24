@@ -420,7 +420,12 @@ final class LeapBatchMenuCases {
                 c.ctx().getInput().pressKey(o -> o.keyUse);
                 c.waitUntil("the Spirit Leap menu to open", mc -> screenInitNanos != 0, 100);
                 long opened = screenInitNanos;
-                // A 1 key every tick until one leaps: the first tick it can is when the menu is usable.
+                // The mod's own ready signal first: a key sent before the menu has settled (about 8 ms after the cold first
+                // open) is dropped, and a player's press never comes that early. Then 1 key every tick until one leaps.
+                if (hasTiming) {
+                    c.waitUntil("the Spirit Leap menu to be ready", mc -> ((Number) Mod.staticCall(FEAT,
+                            "lastOpenToReadyMs")).doubleValue() >= 0, 100);
+                }
                 int presses = 0;
                 while (c.events("menu.action").size() == before && presses < 40) {
                     c.ctx().getInput().pressKey(49);

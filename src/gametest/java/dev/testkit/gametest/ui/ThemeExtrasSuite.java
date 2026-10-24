@@ -332,7 +332,7 @@ public class ThemeExtrasSuite implements FabricClientGameTest {
                 Mod.call(cfg(), "setMusicVolume", 75);
                 return null;
             });
-            c.ticks(3);
+            c.ticks(45); // the menu track ramps in over 40 ticks (ThemeMusicInstance), then holds the slider's volume
             float vol = c.onClient(mc -> (Float) Mod.staticCall(MUSIC, "currentVolume"));
             c.check(Math.abs(vol - 0.75f) < 0.001f, "after the slider moved to 75% the track plays at " + vol);
 
