@@ -91,6 +91,12 @@ public final class HxMenuModule implements HxModule {
                 // second after the "not in the menu" use. Refuse the throw and send the slot back, since the client
                 // predicted the pearl as consumed.
                 if (LEAP_IDS.contains(id)) {
+                    // Recorded here: a FAIL ahead of HxEvents' own use listener would skip its use_item record.
+                    JsonObject use = new JsonObject();
+                    use.addProperty("hand", hand.name());
+                    use.addProperty("item", net.minecraft.core.registries.BuiltInRegistries.ITEM
+                            .getKey(player.getItemInHand(hand).getItem()).toString());
+                    HxEvents.custom("use_item", sp, use);
                     sp.inventoryMenu.broadcastFullState();
                     return InteractionResult.FAIL;
                 }
