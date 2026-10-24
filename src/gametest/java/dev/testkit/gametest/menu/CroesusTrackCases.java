@@ -37,6 +37,10 @@ import java.util.Map;
  *   <li>907 (croesus-page-leak-pause, 2026-10-24): 906 with a 4-minute pause between the page 1 read and the page 2 read
  *       (every remembered run's last sighting moved 4 minutes back, nothing added to the list). Time alone then lets page
  *       1's last run reach page 2's first head, and before the fix its vote won shift -1 by 10 to 9: the same leak.</li>
+ *   <li>908 (croesus-new-run-front, 2026-10-24): one party, its runs remembered and claimed, then a new unclaimed run
+ *       joins at place 0 and pushes every run one place later. Every old run keeps its own state at its new place, the
+ *       new head takes no memory and reads unclaimed. With 28 old runs (page 1 full) the old matcher gave shift 0 28
+ *       votes against 27 (the new head paired with run 0), so every run took its successor's state.</li>
  * </ul>
  */
 final class CroesusTrackCases {
@@ -53,6 +57,12 @@ final class CroesusTrackCases {
         });
         MenuSuite.test(s, "906-menu-croesus-page-leak", c -> pageLeak(c, 0L));
         MenuSuite.test(s, "907-menu-croesus-page-leak-pause", c -> pageLeak(c, 4 * 60_000L));
+        MenuSuite.test(s, "908-menu-croesus-new-run-front", c -> {
+            newRunFront(c, 27, false);
+            newRunFront(c, 27, true);
+            newRunFront(c, 28, false);
+            newRunFront(c, 28, true);
+        });
     }
 
     static JsonObject head(String player, String stateLine, String expiry) {
@@ -390,6 +400,122 @@ final class CroesusTrackCases {
                     && checked[2] == HEAD_SLOTS.length, "heads checked " + java.util.Arrays.toString(checked));
             c.check(bad.length() == 0, "states: " + bad);
             c.check(unknownOnPage1[1] == 0, unknownOnPage1[1] + " run(s) on page 1 read \"not looked at\" after page 2 was read");
+        }
+    }
+
+    /**
+     * 908: one party (Bravo), orders 0..{@code old}-1 remembered (claimed Bedrock; even orders worth a key, odd ones not),
+     * seen a minute ago, every expiry inside every other's hour-wide window. Then a new unclaimed run N joins at place 0,
+     * so the old run at order o is now at place o + 1. {@code fresh}: N's head expires in "2d 23h!" as a run just done
+     * does, outside the old runs' windows; otherwise its expiry text is theirs and only its "No chests opened yet!" against
+     * their claims tells it apart. Read page 1, page 2 (28 old runs: run 27 pushed onto it), then page 1 again: every old
+     * run has its own state and its own memory at its new place, and N has no memory and reads unclaimed.
+     * <p>
+     * Before the fix, with 28 old runs the page 1 read gave shift 0 28 votes (N paired with run 0) against 27 for shift -1
+     * (27 against 27 with a fresh N, the tie going to shift 0): N took run 0's memory and every old run its successor's.
+     */
+    static void newRunFront(Session c, int old, boolean fresh) throws Exception {
+        final int per = HEAD_SLOTS.length;
+        final int heads = old + 1;
+        final int pages = (heads + per - 1) / per;
+        String sig = "The Catacombs|Floor VII|Bravo: Mage (40)";
+        long now = System.currentTimeMillis();
+        long expiresAt = now + 40 * HOUR; // "1d 16h!" for all the old runs, read to the hour
+        JsonArray runs = new JsonArray();
+        for (int order = 0; order < old; order++) {
+            JsonObject r = new JsonObject();
+            r.addProperty("id", "testkit-908-" + order);
+            r.addProperty("sig", sig);
+            r.addProperty("expiresAt", expiresAt);
+            r.addProperty("tolMs", HOUR);
+            r.addProperty("order", order);
+            r.addProperty("seenAt", now - 60_000L);
+            JsonObject chests = new JsonObject();
+            chests.addProperty("OBSIDIAN", order % 2 == 0 ? 600_000L : 100_000L);
+            r.add("chests", chests);
+            r.addProperty("claimType", "BEDROCK");
+            r.addProperty("claimKeyed", false);
+            r.addProperty("claimAt", now - HOUR);
+            runs.add(r);
+        }
+        // Place p's wanted state and run: place 0 is N (unclaimed, no memory), place o + 1 the old run o.
+        Map<Integer, Byte> want = new java.util.HashMap<>();
+        Map<Integer, String> wantId = new java.util.HashMap<>();
+        want.put(0, (byte) 1);
+        for (int order = 0; order < old; order++) {
+            want.put(order + 1, (byte) (order % 2 == 0 ? 2 : 3));
+            wantId.put(order + 1, "testkit-908-" + order);
+        }
+        String variant = old + " old runs, " + (fresh ? "fresh" : "same-window") + " new run";
+        try (AutoCloseable w = CroesusStableCases.world(c)) {
+            Path p = c.onClient(mc -> (Path) Mod.staticCall("util.ModPaths", "config", "killer560smod-croesus-runs.json"));
+            JsonObject file = new JsonObject();
+            file.add("runs", runs);
+            Files.createDirectories(p.getParent());
+            drainRunsWriter(); // a save queued by the reset must not land on top of the fixture
+            Files.writeString(p, file.toString(), StandardCharsets.UTF_8);
+            c.ctx().runOnClient(mc -> Mod.staticCall("croesus.ChestProfitFeature", "reloadRunMemoryForTest"));
+            List<JsonObject> lists = new java.util.ArrayList<>();
+            for (int pg = 0; pg < pages; pg++) {
+                Map<Integer, JsonObject> slotHeads = new LinkedHashMap<>();
+                for (int i = 0; i < per; i++) {
+                    int place = pg * per + i;
+                    if (place >= heads) {
+                        break;
+                    }
+                    slotHeads.put(HEAD_SLOTS[i], place == 0
+                            ? realHead(sig, "§cNo chests opened yet!", fresh ? "2d 23h!" : expiry(40 * HOUR + 20 * 60_000L))
+                            : realHead(sig, "§7Opened Chest: §4Bedrock", expiry(40 * HOUR + 20 * 60_000L)));
+                }
+                Map<Integer, JsonObject> slots = new LinkedHashMap<>(slotHeads);
+                slots.put(49, FlipCroesusCases.item("minecraft:barrier", "§cClose"));
+                Map<Integer, JsonObject> on = new LinkedHashMap<>();
+                slotHeads.keySet().forEach(k -> on.put(k, new JsonObject()));
+                JsonObject m = FlipCroesusCases.menu("(" + (pg + 1) + "/" + pages + ") Croesus", 6, slots, on);
+                m.addProperty("fill", false);
+                lists.add(m);
+            }
+            StringBuilder bad = new StringBuilder();
+            int[] readOrder = pages > 1 ? new int[]{0, 1, 0} : new int[]{0, 0};
+            int[] checked = new int[readOrder.length];
+            for (int step = 0; step < readOrder.length; step++) {
+                int pg = readOrder[step];
+                String label = "read " + (step + 1) + " (page " + (pg + 1) + ")";
+                MenuKit.show(c, lists.get(pg));
+                MenuKit.awaitScreen(c, "(" + (pg + 1) + "/" + pages + ") Croesus", 100);
+                c.ctx().getInput().setCursorPos(2, 2);
+                c.ctx().waitTicks(8);
+                byte[] st = c.onClient(mc -> (byte[]) Mod.staticCall("croesus.ChestProfitFeature", "runStatesForTest"));
+                Map<Integer, String> idBySlot = c.onClient(mc -> {
+                    Map<Integer, String> ids = new java.util.HashMap<>();
+                    Map<?, ?> bySlot = (Map<?, ?>) Mod.field("croesus.ChestProfitFeature", "runBySlot");
+                    bySlot.forEach((k, v) -> ids.put((Integer) k, (String) Mod.field(v, "id")));
+                    return ids;
+                });
+                for (int i = 0; i < per; i++) {
+                    int place = pg * per + i;
+                    if (!want.containsKey(place)) {
+                        continue;
+                    }
+                    byte got = HEAD_SLOTS[i] < st.length ? st[HEAD_SLOTS[i]] : -1;
+                    String gotId = idBySlot.get(HEAD_SLOTS[i]);
+                    checked[step]++;
+                    if ((got != want.get(place) || !java.util.Objects.equals(gotId, wantId.get(place))) && bad.length() < 600) {
+                        bad.append(label).append(" place ").append(place).append(" state ").append(got).append(" run ")
+                                .append(gotId).append(" want ").append(want.get(place)).append(" run ")
+                                .append(wantId.get(place)).append("; ");
+                    }
+                }
+            }
+            c.note(String.format("%s: %d remembered Bravo runs, a new one at place 0; heads checked %s", variant, old,
+                    java.util.Arrays.toString(checked)));
+            // Premise: every head of each read was there to be judged (the menus drew and the states were read).
+            boolean all = true;
+            for (int step = 0; step < readOrder.length; step++) {
+                all &= checked[step] == Math.min(per, heads - readOrder[step] * per);
+            }
+            c.check(all, variant + ": heads checked " + java.util.Arrays.toString(checked));
+            c.check(bad.length() == 0, variant + ": " + bad);
         }
     }
 
