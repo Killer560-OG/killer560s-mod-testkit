@@ -33,7 +33,7 @@
       "owner": "(unscoped)",
       "key": "copy chat",
       "text": "Shift or Ctrl + left-click copies a whole chat message; right-click copies one line. A plain click works as before.",
-      "why": "chat-batch a64924b9: Copy Chat takes Shift or Ctrl and copies whole messages; rewritten again: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+      "why": "chat-batch a64924b9: Copy Chat takes Shift or Ctrl and copies whole messages; rewritten again: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
     },
     {
       "owner": "(unscoped)",
@@ -86,7 +86,7 @@
       "key": "hide damage messages",
       "to": "Chat Hider",
       "text": "Hides ability-damage and incoming-hit lines.",
-      "why": "chat-batch a64924b9: Chat Tidy and Hide Chat Messages became Chat Hider; rewritten again: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+      "why": "chat-batch a64924b9: Chat Tidy and Hide Chat Messages became Chat Hider; rewritten again: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
     },
     {
       "owner": "Chat Tidy",
@@ -104,7 +104,7 @@
       "owner": "Copy Chat",
       "key": "copy chat",
       "text": "Shift or Ctrl + left-click copies a whole chat message; right-click copies one line. A plain click works as before.",
-      "why": "chat-batch a64924b9: Copy Chat takes Shift or Ctrl and copies whole messages; rewritten again: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+      "why": "chat-batch a64924b9: Copy Chat takes Shift or Ctrl and copies whole messages; rewritten again: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
     },
     {
       "owner": "Inventory Sorter",
@@ -236,7 +236,7 @@
       "owner": "Bazaar",
       "key": "bazaar browser",
       "text": "Turns the Bazaar browser on or off (/killer560bz, or its keybind). Needs an active Booster Cookie, as Hypixel's remote Bazaar does.",
-      "why": "bz-reskin c13a41e8: one switch for the Bazaar / Auction House browser and its reskin (killer560, 2026-10-11); rewritten again: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+      "why": "bz-reskin c13a41e8: one switch for the Bazaar / Auction House browser and its reskin (killer560, 2026-10-11); rewritten again: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
     },
     {
       "owner": "Bazaar",
@@ -379,7 +379,7 @@
       "owner": "Dungeon Map",
       "key": "darken unexplored",
       "text": "How much darker unopened rooms are drawn, 0 to 0.9 (0 by default). On Funny Map, every room your hotbar map has not opened yet.",
-      "why": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list); rewritten again: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+      "why": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list); rewritten again: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
     },
     {
       "owner": "Dungeon Map",
@@ -436,7 +436,7 @@
       "key": "center dot",
       "to": "Custom Crosshair",
       "text": "Adds a dot in the middle of any style.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Centre Dot')"
+      "why": "1c10b812 settings sweep (spelling: the label, so its tooltip key, is now 'Center Dot')"
     },
     {
       "owner": "(unscoped)",
@@ -450,21 +450,21 @@
       "key": "color",
       "to": "Custom Crosshair",
       "text": "Main crosshair color, with transparency.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour')"
+      "why": "1c10b812 settings sweep (spelling: the label, so its tooltip key, is now 'Color')"
     },
     {
       "owner": "(unscoped)",
       "key": "color on block",
       "to": "Custom Crosshair",
       "text": "Changes color while you are aiming at a block in reach.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour On Block')"
+      "why": "1c10b812 settings sweep (spelling: the label, so its tooltip key, is now 'Color On Block')"
     },
     {
       "owner": "(unscoped)",
       "key": "color on entity",
       "to": "Custom Crosshair",
       "text": "Changes color while you are aiming at an entity in reach.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour On Entity')"
+      "why": "1c10b812 settings sweep (spelling: the label, so its tooltip key, is now 'Color On Entity')"
     },
     {
       "owner": "(unscoped)",
@@ -491,7 +491,7 @@
       "key": "outline color",
       "to": "Custom Crosshair",
       "text": "Color of the outline.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Outline Colour')"
+      "why": "1c10b812 settings sweep (spelling: the label, so its tooltip key, is now 'Outline Color')"
     },
     {
       "owner": "(unscoped)",
@@ -509,7 +509,7 @@
       "owner": "Auto Blood Camp",
       "key": "trigger bot",
       "text": "Cheat build: clicks a blood mob on its kill timer when you aim at it, never faster than your attack speed. Needs Blood Camp on.",
-      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
     },
     {
       "owner": "Auto Clear",
@@ -532,13 +532,13 @@
       "owner": "Auto Clear",
       "key": "do puzzles",
       "text": "Treat puzzles like rooms: go to one and let Auto Puzzles solve it. Only puzzles whose auto is switched on.",
-      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
     },
     {
       "owner": "Auto Clear",
       "key": "key base range",
       "text": "Pickup range for dungeon keys, in blocks. The range used (shown after the arrow) adds 5 to this.",
-      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
     },
     {
       "owner": "Auto Clear",
@@ -551,7 +551,7 @@
       "to": "Croesus",
       "key": "include essence",
       "text": "Counts essence rewards toward a chest's value.",
-      "why": "spelling-uk-1022 British spelling: towards"
+      "why": "spelling-uk-1022 spelling: towards"
     },
     {
       "owner": "Auto Clear",
@@ -563,7 +563,7 @@
       "owner": "Auto Correct",
       "key": "correct commands",
       "text": "Also fixes typos in command names you type, like /wardorbe to /wardrobe. The corrected command is what is sent.",
-      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
     },
     {
       "owner": "Auto Fairy Souls",
@@ -607,7 +607,7 @@
       "owner": "Auto Trap",
       "key": "auto trap",
       "text": "Cheat build: plays your New Trap and Old Trap routes through Auto Routes. Dungeon Autopilot uses trap rooms only with this on.",
-      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
     },
     {
       "owner": "Best Friends",
@@ -620,7 +620,7 @@
       "owner": "Click Translate",
       "key": "click translate enabled",
       "text": "Left-click any chat message to translate it. The message is sent to Google Translate (or MyMemory) to be translated.",
-      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
     },
     {
       "owner": "Cosmetics",
@@ -662,13 +662,13 @@
       "owner": "Dungeon Map",
       "key": "font scale",
       "text": "Size of the room labels on both maps, 0.5x to 3x.",
-      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
     },
     {
       "owner": "Etherwarp Waypoints",
       "key": "color",
       "text": "Marker color for etherwarp nodes.",
-      "why": "1c10b812 settings sweep (British spelling: the label, so its tooltip key, is now 'Colour')"
+      "why": "1c10b812 settings sweep (spelling: the label, so its tooltip key, is now 'Color')"
     },
     {
       "owner": "Fairy Souls",
@@ -731,7 +731,7 @@
       "owner": "Sim Settings",
       "key": "echoes of the lost",
       "text": "Dungeon Sim only: charges each secret gives back to the Dungeon Breaker (0 is off; default is the maxed perk, 5).",
-      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
     },
     {
       "owner": "Slot Binds",
@@ -761,7 +761,7 @@
       "owner": "Terminal Solver",
       "key": "terminal drop key",
       "text": "Stops your drop key from throwing your weapon while a terminal is open. Bind it below.",
-      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
     },
     {
       "owner": "Terminal Solver",
@@ -779,7 +779,7 @@
       "owner": "Translate",
       "key": "chat translate enabled",
       "text": "Run /translate to change the language, or pick it below; all your messages are then sent in that language. Your messages are sent to Google Translate (or MyMemory) to be translated.",
-      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, British spelling, dead code"
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
     },
     {
       "owner": "Maxor's Crystals",

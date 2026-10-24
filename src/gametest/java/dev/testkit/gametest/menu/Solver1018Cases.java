@@ -321,7 +321,7 @@ final class Solver1018Cases {
         try (AutoCloseable sphere = Mod.with(cfgClass, "RangeStyle", 1)) {
             List<String> texts = tabTexts(c, "gui.tab.DoorKeysTab", cfgClass, "Enabled");
             c.check(anyStarts(texts, "Circle Thickness:"), "no Circle Thickness slider: " + texts);
-            // Labels are American again since mod 50bd4911 ("color", not "colour").
+            // Labels are American again since the mod's spelling sweep (spelling-us-1024) ("color", not "colour").
             c.check(anyStarts(texts, "Circle Color:") && anyStarts(texts, "Tracer Color:"), "no circle/tracer color rows: " + texts);
             c.check(anyStarts(texts, "Sphere Fill:"), "Sphere style has no fill color row: " + texts);
         }

@@ -1017,7 +1017,7 @@
       "ice path solver": "Draws the shortest path for pushing the silverfish to the exit."
     },
     "Interactive Map": {
-      "auto blood rush": "Cheat build: etherwarp-rushes you door to door towards blood once toggled on.",
+      "auto blood rush": "Cheat build: etherwarp-rushes you door to door toward blood once toggled on.",
       "interactive map": "Cheat build: full-screen dungeon map; click a room to etherwarp to it or start its secret route."
     },
     "Inventory HUD": {
