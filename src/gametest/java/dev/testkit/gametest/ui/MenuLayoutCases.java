@@ -104,7 +104,10 @@ final class MenuLayoutCases {
             "gui.tab.PackDisablerTab", "gui.tab.SessionRecorderTab", "gui.tab.SoundEffectsTab", "gui.tab.ZoomTab",
             // Auto Nucleus Run (mod 66283eb4, killer560 2026-10-25): the stub back, no switch, in Misc's cheat block
             // (from Helpers); cheat jar only.
-            "gui.tab.AutoNucleusRunTab");
+            "gui.tab.AutoNucleusRunTab",
+            // Blink and Zero Ping Etherwarp (Dungeons cheat block) and Inventory Walk (Misc cheat block), mod blink-1025,
+            // killer560 2026-10-25; cheat jar only.
+            "gui.tab.BlinkTab", "gui.tab.ZeroPingEtherwarpTab", "gui.tab.InventoryWalkTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.
