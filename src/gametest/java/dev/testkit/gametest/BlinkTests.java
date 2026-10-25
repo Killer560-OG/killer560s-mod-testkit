@@ -52,6 +52,7 @@ public class BlinkTests implements FabricClientGameTest {
         for (Consumer<ClientGameTestContext> c : List.<Consumer<ClientGameTestContext>>of(
                 BlinkTests::setting, BlinkTests::still, BlinkTests::walk, BlinkTests::sprintJump, BlinkTests::pulse,
                 BlinkTests::latency, BlinkTests::pulseMax, BlinkTests::attack, BlinkTests::dig, BlinkTests::place,
+                BlinkTests::teleport, BlinkTests::worldChange,
                 BlinkTests::sweepWalk, BlinkTests::sweepStill,
                 BlinkTests::sweepLatency)) {
             try {
@@ -614,6 +615,110 @@ public class BlinkTests implements FabricClientGameTest {
                 tearDown(ctx, gate);
             }
             ctx.waitTicks(40);
+        });
+    }
+
+    /**
+     * 1025-blink-teleport: a server teleport in the middle of a sprinting hold. Blink must release first, the teleport is
+     * honored (he ends up where the server put him, not where he was walking), and Toggle keeps holding afterwards.
+     */
+    private static void teleport(ClientGameTestContext ctx) {
+        int x = -4400;
+        int z = -3000;
+        Scenario.run(ctx, "1025-blink-teleport", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 200, "RELEASE");
+            try {
+                String name = playerName(ctx);
+                ctx.getInput().holdKey(o -> o.keyUp);
+                ctx.getInput().holdKey(o -> o.keySprint);
+                ctx.waitTicks(5);
+                long holds0 = num(ctx, "releasedHolds");
+                pressBlink(ctx);
+                ctx.waitTicks(10);
+                boolean heldBefore = holding(ctx);
+                releaseKeys(ctx);
+                server.command("tp " + name + " " + (x + 0.5) + " " + SURFACE_Y + " " + (z + 20.5));
+                // The release and the accept go out at once; the hold starts again on the next tick.
+                boolean released = false;
+                for (int i = 0; i < 40 && !released; i++) {
+                    ctx.waitTicks(1);
+                    released = num(ctx, "releasedHolds") > holds0;
+                }
+                ctx.waitTicks(5);
+                boolean holdingAgain = holding(ctx);
+                double[] client = scenario.playerPosition();
+                pressBlink(ctx);
+                ctx.waitTicks(10);
+                double[] srv = serverPos(server, ctx, name);
+                scenario.log(String.format(Locale.ROOT, "teleport: holding before %s, released %s, holding again %s; client %s, "
+                        + "server %s", heldBefore, released, holdingAgain, fmt(client), fmt(srv)));
+                check(heldBefore, "no hold was running when the teleport came");
+                check(released, "the teleport did not release the hold");
+                check(holdingAgain, "Blink did not carry on holding after the teleport");
+                check(Math.abs(client[2] - (z + 20.5)) < 1.0 && Math.abs(client[0] - (x + 0.5)) < 1.0,
+                        "the client is not where the server put him: " + fmt(client));
+                check(flat(client, srv) < 0.5, "client and server disagree after the teleport: " + fmt(client) + " vs " + fmt(srv));
+            } finally {
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /**
+     * 1025-blink-world: the server moves him to another dimension in the middle of a sprinting hold. The held moves belong
+     * to the world he left and are dropped; everything else goes; the blink ends; he is not kicked and Grim says nothing.
+     */
+    private static void worldChange(ClientGameTestContext ctx) {
+        int x = -4500;
+        int z = -3000;
+        Scenario.run(ctx, "1025-blink-world", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 200, "RELEASE");
+            try {
+                String name = playerName(ctx);
+                String dimBefore = ctx.computeOnClient(mc -> mc.level.dimension().toString());
+                ctx.getInput().holdKey(o -> o.keyUp);
+                ctx.getInput().holdKey(o -> o.keySprint);
+                ctx.waitTicks(5);
+                pressBlink(ctx);
+                ctx.waitTicks(10);
+                boolean heldBefore = holding(ctx);
+                long heldMoves = num(ctx, "heldMoves");
+                releaseKeys(ctx);
+                server.command("execute in minecraft:the_nether run forceload add 0 0");
+                server.command("execute in minecraft:the_nether run fill -8 100 -8 8 100 8 minecraft:stone");
+                server.command("execute in minecraft:the_nether run fill -8 101 -8 8 105 8 minecraft:air");
+                server.command("execute in minecraft:the_nether run tp " + name + " 0.5 101 0.5");
+                String dimAfter = dimBefore;
+                for (int i = 0; i < 200 && dimAfter.equals(dimBefore); i++) {
+                    ctx.waitTicks(1);
+                    dimAfter = ctx.computeOnClient(mc -> mc.level == null ? "" : mc.level.dimension().toString());
+                }
+                ctx.waitTicks(60);
+                boolean holdingAfter = holding(ctx);
+                boolean connected = ctx.computeOnClient(mc -> mc.getConnection() != null && mc.player != null);
+                // Walk a little in the new world, so a desync would show up as a flag or a setback.
+                ctx.runOnClient(mc -> PacketTrace.start());
+                ctx.getInput().holdKey(o -> o.keyUp);
+                ctx.waitTicks(20);
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                ctx.waitTicks(20);
+                ctx.runOnClient(mc -> PacketTrace.stop());
+                int setbacks = PacketTrace.received("player_position");
+                scenario.log("world change: " + dimBefore + " -> " + dimAfter + "; holding before " + heldBefore + " (" + heldMoves
+                        + " move(s) held), holding after " + holdingAfter + ", connected " + connected + ", " + setbacks
+                        + " setback(s) walking in the new world");
+                check(heldBefore && heldMoves > 0, "no moves were held when the world changed: nothing was tested");
+                check(!dimAfter.equals(dimBefore), "the dimension never changed: " + dimAfter);
+                check(connected, "he was disconnected");
+                check(!holdingAfter, "Blink kept holding into the new world");
+                check(setbacks == 0, "the server set him back " + setbacks + " time(s) in the new world");
+            } finally {
+                tearDown(ctx, gate);
+                server.command("execute in minecraft:overworld run tp " + playerName(ctx) + " " + (x + 0.5) + " " + SURFACE_Y
+                        + " " + (z + 0.5));
+                ctx.waitTicks(60);
+            }
         });
     }
 
