@@ -37,7 +37,7 @@ public class BlinkTests implements FabricClientGameTest {
     /** The sweep lengths, from the system property testkit.blinkSweep (comma list) or this default. */
     private static int[] sweepLengths() {
         String p = System.getProperty("testkit.blinkSweep");
-        String s = p == null || p.isBlank() ? "17,20,30,40,60,80,100,140,200" : p;
+        String s = p == null || p.isBlank() ? "20,21,22,23,24,30" : p;
         String[] parts = s.split(",");
         int[] out = new int[parts.length];
         for (int i = 0; i < parts.length; i++) {
@@ -51,7 +51,8 @@ public class BlinkTests implements FabricClientGameTest {
         AssertionError first = null;
         for (Consumer<ClientGameTestContext> c : List.<Consumer<ClientGameTestContext>>of(
                 BlinkTests::setting, BlinkTests::still, BlinkTests::walk, BlinkTests::sprintJump, BlinkTests::pulse,
-                BlinkTests::latency, BlinkTests::pulseMax, BlinkTests::sweepWalk, BlinkTests::sweepStill,
+                BlinkTests::latency, BlinkTests::pulseMax, BlinkTests::attack, BlinkTests::dig, BlinkTests::place,
+                BlinkTests::sweepWalk, BlinkTests::sweepStill,
                 BlinkTests::sweepLatency)) {
             try {
                 c.accept(ctx);
@@ -203,7 +204,7 @@ public class BlinkTests implements FabricClientGameTest {
                 Mod.set(CFG, "setEnabled", false);
                 Mod.set(CFG, "setMode", Mod.enumValue(MODE, "TOGGLE"));
                 Mod.set(CFG, "setLimitAction", Mod.enumValue(LIMIT, "RELEASE"));
-                Mod.set(CFG, "setMaxTicks", 17);
+                Mod.set(CFG, "setMaxTicks", 22);
                 Mod.set(CFG, "setKeyCode", -1);
                 Mod.set(CFG, "setShowHud", true);
                 Mod.set(CFG, "setShowServerBox", true);
@@ -217,7 +218,7 @@ public class BlinkTests implements FabricClientGameTest {
             boolean heldWhileOff = holding(ctx);
             ctx.runOnClient(mc -> Mod.setField(FEATURE, "keyHeldForTest", null));
             scenario.log("defaults " + got[0] + "; loaded " + got[1] + "; held while off " + heldWhileOff);
-            check(got[0].equals("false TOGGLE 17 -1"), "defaults wrong: " + got[0]);
+            check(got[0].equals("false TOGGLE 22 -1"), "defaults wrong: " + got[0]);
             check(got[1].equals("true HOLD PULSE 33 66 false false true"), "settings did not come back from disk: " + got[1]);
             check(!heldWhileOff, "Blink held packets while switched off");
         });
@@ -445,6 +446,139 @@ public class BlinkTests implements FabricClientGameTest {
                 check(maxGap > 1.0, "the server never lagged behind the client: nothing was held");
                 check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
             } finally {
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /** Pulse at the default (Grim's max) Max Ticks, for a case that acts while blinking. */
+    private static int defaultTicks(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> ((Number) Mod.field(CFG, "DEFAULT_TICKS")).intValue());
+    }
+
+    /** 1025-blink-attack: hitting a frozen dummy for 200 ticks while Pulse holds every swing in bursts. */
+    private static void attack(ClientGameTestContext ctx) {
+        Scenario.run(ctx, "1025-blink-attack", (server, scenario) -> {
+            arena(server, -4000, -3000);
+            server.command("give @p minecraft:diamond_sword");
+        }, (server, scenario) -> {
+            boolean gate = setUp(ctx, defaultTicks(ctx), "PULSE");
+            TestEnemy dummy = null;
+            try {
+                dummy = TestEnemy.named("Blink", "Dummy")
+                        .at(-4000 + 3.0, SURFACE_Y, -3000 + 0.5)
+                        .health(20)
+                        .frozen(true)
+                        .spawn(ctx, server);
+                check(dummy.visibleToClient(), "the dummy never appeared to the client");
+                long before = num(ctx, "releasedHolds");
+                pressBlink(ctx);
+                int swings = scenario.attackFor(200);
+                pressBlink(ctx);
+                ctx.waitTicks(20);
+                long holds = num(ctx, "releasedHolds") - before;
+                scenario.log("attack: " + swings + " swing(s), dummy died " + dummy.deaths() + " time(s), " + holds
+                        + " release(s)");
+                check(holds >= 5, "Pulse did not hold and release while attacking: " + holds);
+                check(swings >= 10 && dummy.deaths() > 0, "the swings never landed (" + swings + " swings, "
+                        + dummy.deaths() + " deaths): nothing about combat was tested");
+            } finally {
+                if (dummy != null) {
+                    dummy.remove();
+                }
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    private static int stoneLeft(ClientGameTestContext ctx, int x, int z) {
+        return ctx.computeOnClient(mc -> {
+            int n = 0;
+            for (int y = SURFACE_Y; y <= SURFACE_Y + 2; y++) {
+                for (int dz = -2; dz <= 2; dz++) {
+                    if (!mc.level.getBlockState(new net.minecraft.core.BlockPos(x + 2, y, z + dz)).isAir()) {
+                        n++;
+                    }
+                }
+            }
+            return n;
+        });
+    }
+
+    /** 1025-blink-dig: mining a stone wall with a pickaxe for 160 ticks while Pulse holds every dig in bursts. */
+    private static void dig(ClientGameTestContext ctx) {
+        int x = -4100;
+        int z = -3000;
+        Scenario.run(ctx, "1025-blink-dig", (server, scenario) -> {
+            TestMap.on(server)
+                    .platform(x, SURFACE_Y - 1, z, 12)
+                    .catchFloor(120)
+                    .survival()
+                    .clearInventory()
+                    .give("diamond_pickaxe", 1)
+                    .fill(x + 2, SURFACE_Y, z - 2, x + 2, SURFACE_Y + 2, z + 2, "stone")
+                    .spawn(x + 0.5, z + 0.5, -90f)
+                    .build();
+        }, (server, scenario) -> {
+            boolean gate = setUp(ctx, defaultTicks(ctx), "PULSE");
+            try {
+                int before = stoneLeft(ctx, x, z);
+                long holds0 = num(ctx, "releasedHolds");
+                pressBlink(ctx);
+                ctx.getInput().holdKey(o -> o.keyAttack);
+                ctx.waitTicks(160);
+                ctx.getInput().releaseKey(o -> o.keyAttack);
+                pressBlink(ctx);
+                ctx.waitTicks(40);
+                int after = stoneLeft(ctx, x, z);
+                long holds = num(ctx, "releasedHolds") - holds0;
+                scenario.log("dig: wall " + before + " -> " + after + " block(s) (as the client sees it 40 ticks after the "
+                        + "last release), " + holds + " release(s)");
+                check(before == 15, "the wall was not built: " + before);
+                check(after < before, "nothing was mined: nothing about digging was tested");
+                check(holds >= 5, "Pulse did not hold and release while digging: " + holds);
+            } finally {
+                ctx.getInput().releaseKey(o -> o.keyAttack);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /** 1025-blink-place: placing wool on the floor ahead for 120 ticks while Pulse holds every placement in bursts. */
+    private static void place(ClientGameTestContext ctx) {
+        int x = -4200;
+        int z = -3000;
+        Scenario.run(ctx, "1025-blink-place", (server, scenario) -> {
+            TestMap.on(server)
+                    .platform(x, SURFACE_Y - 1, z, 12)
+                    .catchFloor(120)
+                    .survival()
+                    .clearInventory()
+                    .give("white_wool", 64)
+                    .spawn(x + 0.5, z + 0.5, -90f, 60f)
+                    .build();
+        }, (server, scenario) -> {
+            boolean gate = setUp(ctx, defaultTicks(ctx), "PULSE");
+            try {
+                int woolBefore = ctx.computeOnClient(mc -> mc.player.getInventory().countItem(net.minecraft.world.item.Items.WHITE_WOOL));
+                long holds0 = num(ctx, "releasedHolds");
+                pressBlink(ctx);
+                ctx.getInput().holdKey(o -> o.keyUse);
+                ctx.waitTicks(120);
+                ctx.getInput().releaseKey(o -> o.keyUse);
+                pressBlink(ctx);
+                ctx.waitTicks(40);
+                int woolAfter = ctx.computeOnClient(mc -> mc.player.getInventory().countItem(net.minecraft.world.item.Items.WHITE_WOOL));
+                long holds = num(ctx, "releasedHolds") - holds0;
+                scenario.log("place: wool " + woolBefore + " -> " + woolAfter + " (40 ticks after the last release), " + holds
+                        + " release(s)");
+                check(woolBefore > 0 && woolAfter < woolBefore, "nothing was placed: nothing about placing was tested");
+                check(holds >= 3, "Pulse did not hold and release while placing: " + holds);
+            } finally {
+                ctx.getInput().releaseKey(o -> o.keyUse);
                 tearDown(ctx, gate);
             }
             ctx.waitTicks(40);
