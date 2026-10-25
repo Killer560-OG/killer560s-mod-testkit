@@ -1437,7 +1437,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                         chain.gaps()));
                 check(landed != null, label + ": the chain did not reach its end at " + end[0] + "," + end[1] + " (at "
                         + relPos(ctx) + ")");
-                check(acted == pts.length && chain.warps() == pts.length, label + ": expected " + pts.length
+                // PacketTrace hooks Connection.send, as Blink does: with Blink holding it counts a held packet when it is
+                // made and again when the burst releases it, so the blinked pass is judged by the log and the server.
+                check(acted == pts.length && (blinkChain || chain.warps() == pts.length), label + ": expected " + pts.length
                         + " route etherwarps, the log says " + acted + " acted and the trace has " + chain.warps());
                 check(serverWarps == pts.length + 1, label + ": the server made " + serverWarps + " etherwarps, expected "
                         + (pts.length + 1));
