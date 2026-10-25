@@ -1096,3 +1096,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   `ChannelAccess$ChannelHandle.isStopped()` turns true when the sound thread releases the OpenAL source: 1-2 ticks.
   Since theme-ui-1022 Theme Music defaults ON, so `defaultsWhy` no longer checks the switch; 1021-theme-music checks the
   default on a deleted file, and that a file which saved OFF still loads OFF.
+- **Hx session: a case that stands the player in a boss area latches the boss for every later case.** LiveMap's coordinate
+  boss check (`LiveMapFeature.bossLatched`) and the Score Calculator's `inBoss` clear only on a world change, which a Session
+  never makes. 1025-alerts-livid stood at x 5, z 50, and 1025-alerts-scorewarning, run after it, logged "Boss room entered
+  (livemap)" and never warned. Clear both fields after such a case, and before a case that needs the clear.
+- **On 26.2 the title is on `mc.gui.hud`, not `mc.gui`.** A reflective read of `Gui.title` gives "?" there (four 1025-alerts
+  cases on 26.2, 2026-10-25); `HxAlerts1025Cases.guiTitle` reads `gui.hud` first.
+- A chest or lever click as the mod sees it, with nothing sent: invoke `UseBlockCallback.EVENT.invoker().interact(...)` on the
+  client, so the anticheat has no interaction to judge (1025-alerts-secretclicked).
