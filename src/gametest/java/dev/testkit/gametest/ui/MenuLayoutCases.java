@@ -107,7 +107,9 @@ final class MenuLayoutCases {
             "gui.tab.AutoNucleusRunTab",
             // Blink and Zero Ping Etherwarp (Dungeons cheat block) and Inventory Walk (Misc cheat block), mod blink-1025,
             // killer560 2026-10-25; cheat jar only.
-            "gui.tab.BlinkTab", "gui.tab.ZeroPingEtherwarpTab", "gui.tab.InventoryWalkTab");
+            "gui.tab.BlinkTab", "gui.tab.ZeroPingEtherwarpTab", "gui.tab.InventoryWalkTab",
+            // P3 Status (mod p3-chat-1025, 2026-10-25): F7/M7 P3 status HUD and titles, its own Dungeons card, legit.
+            "gui.tab.P3StatusTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.
