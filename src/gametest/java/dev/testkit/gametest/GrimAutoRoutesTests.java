@@ -190,6 +190,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1017-breakerwarp", GrimAutoRoutesTests::caseBreakerWarpPaired); // ar-bridges-bat-1017
             s.test("62-argrim-pingpong", GrimAutoRoutesTests::casePingPong);
             s.test("62-argrim-chain", GrimAutoRoutesTests::caseChain);
+            s.test("62-argrim-1025-zpchain", GrimAutoRoutesTests::caseZeroPingChain); // mod blink-1025
             s.test("62-argrim-path", GrimAutoRoutesTests::casePath);
             // mod ar-obvious-only (2026-10-11): legit mode exists only in -PtestingBuild jars.
             if (SimAutoRoutesTests.legitSelectable()) {
@@ -1352,6 +1353,96 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     new Class<?>[]{int.class}, new Object[]{20}));
         }
         c.note("chain: " + notes);
+        noteFlags(c, all);
+    }
+
+    /**
+     * 62-argrim-1025-zpchain (killer560, 2026-10-25: zero ping etherwarp "for auto routes and such"): the twelve-warp chain
+     * at 150 ms of latency, first as it is (the control: each warp waits for the previous landing, a round trip), then with
+     * Zero Ping Chain on (each warp aimed from the previous one's PREDICTED landing, one a tick). Both must reach the end
+     * with every server etherwarp made; with the chain every prediction must be confirmed by the server, none broken, and
+     * the warps must come faster than the control's. GrimAC must say nothing.
+     */
+    private static void caseZeroPingChain(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        int[][] pts = ArChainMeasure.CHAIN;
+        int[] end = ArChainMeasure.END;
+        List<JsonObject> n = new ArrayList<>();
+        for (int i = 0; i < pts.length; i++) {
+            int[] to = i + 1 < pts.length ? pts[i + 1] : end;
+            n.add(ew(pts[i][0], pts[i][1], to[0], to[1], i == 0));
+        }
+        writeRoute(ctx, n);
+        List<Sample> all = new ArrayList<>();
+        StringBuilder notes = new StringBuilder();
+        double controlTpw = -1;
+        try {
+            ctx.runOnClient(mc -> dev.testkit.harness.Latency.install(150));
+            ctx.waitTicks(40);
+            for (boolean zp : new boolean[]{false, true}) {
+                ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setZeroPingChain",
+                        new Class<?>[]{boolean.class}, new Object[]{zp}));
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                        new Object[]{"test"}));
+                int chained0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingChained"));
+                int confirmed0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingConfirmed"));
+                int broken0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingBroken"));
+                JsonObject before = stats();
+                long m = LogTap.mark();
+                startSampling(ctx);
+                warpOnto(ctx, 6.5, 10.5, 6, 6);
+                Vec3 landed = waitLanded(ctx, end[0], end[1], 600);
+                ctx.waitTicks(20);
+                List<Sample> smp = stopSampling(ctx);
+                all.addAll(smp);
+                ArChainMeasure.Chain chain = ArChainMeasure.chain(1);
+                int acted = 0;
+                int corrections = 0;
+                for (String l : LogTap.since(m)) {
+                    acted += l.contains("ETHERWARP acted") ? 1 : 0;
+                    corrections += l.contains("[Correction] Auto Routes") ? 1 : 0;
+                }
+                int serverWarps = delta(before, "etherwarps");
+                int chained = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingChained")) - chained0;
+                int confirmed = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingConfirmed"))
+                        - confirmed0;
+                int broken = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingBroken")) - broken0;
+                String label = zp ? "zero ping chain" : "control";
+                println(String.format(Locale.ROOT, "%s at 150 ms: %s; server made %d etherwarp(s); %d acted; chained %d, "
+                                + "confirmed %d, broken %d; %d correction line(s)", label, chain.describe(), serverWarps, acted,
+                        chained, confirmed, broken, corrections));
+                notes.append(String.format(Locale.ROOT, "%s %.2f ticks/warp (gaps %s); ", label, chain.ticksPerWarp(),
+                        chain.gaps()));
+                check(landed != null, label + ": the chain did not reach its end at " + end[0] + "," + end[1] + " (at "
+                        + relPos(ctx) + ")");
+                check(acted == pts.length && chain.warps() == pts.length, label + ": expected " + pts.length
+                        + " route etherwarps, the log says " + acted + " acted and the trace has " + chain.warps());
+                check(serverWarps == pts.length + 1, label + ": the server made " + serverWarps + " etherwarps, expected "
+                        + (pts.length + 1));
+                check(corrections == 0, label + ": " + corrections + " correction line(s) - a landing read as a correction");
+                if (!zp) {
+                    controlTpw = chain.ticksPerWarp();
+                    check(chained == 0, "control: Zero Ping Chain chained " + chained + " warp(s) while switched off");
+                } else {
+                    check(chained >= pts.length - 2, "zero ping: only " + chained + " warp(s) were chained");
+                    check(confirmed == chained && broken == 0, "zero ping: " + confirmed + " of " + chained
+                            + " predicted landings confirmed, " + broken + " broken");
+                    check(chain.usesBeforeLanding() > 0, "zero ping: no warp went out before the previous landing - "
+                            + "nothing was chained on the wire");
+                    check(chain.ticksPerWarp() < controlTpw - 0.5, String.format(Locale.ROOT, "zero ping: %.2f ticks per "
+                            + "warp is not faster than the control's %.2f", chain.ticksPerWarp(), controlTpw));
+                }
+            }
+        } finally {
+            ctx.runOnClient(mc -> {
+                dev.testkit.harness.Latency.remove();
+                ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setZeroPingChain", new Class<?>[]{boolean.class},
+                        new Object[]{false});
+            });
+        }
+        c.note("zero ping chain: " + notes);
         noteFlags(c, all);
     }
 
