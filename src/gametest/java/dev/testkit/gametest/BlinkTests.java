@@ -547,7 +547,7 @@ public class BlinkTests implements FabricClientGameTest {
         });
     }
 
-    /** 1025-blink-place: placing wool on the floor ahead for 120 ticks while Pulse holds every placement in bursts. */
+    /** 1025-blink-place: placing cobblestone on the floor ahead for 120 ticks while Pulse holds every placement in bursts. */
     private static void place(ClientGameTestContext ctx) {
         int x = -4200;
         int z = -3000;
@@ -557,13 +557,13 @@ public class BlinkTests implements FabricClientGameTest {
                     .catchFloor(120)
                     .survival()
                     .clearInventory()
-                    .give("white_wool", 64)
+                    .give("cobblestone", 64)
                     .spawn(x + 0.5, z + 0.5, -90f, 60f)
                     .build();
         }, (server, scenario) -> {
             boolean gate = setUp(ctx, defaultTicks(ctx), "PULSE");
             try {
-                int woolBefore = ctx.computeOnClient(mc -> mc.player.getInventory().countItem(net.minecraft.world.item.Items.WHITE_WOOL));
+                int woolBefore = ctx.computeOnClient(mc -> mc.player.getInventory().countItem(net.minecraft.world.item.Items.COBBLESTONE));
                 long holds0 = num(ctx, "releasedHolds");
                 pressBlink(ctx);
                 ctx.getInput().holdKey(o -> o.keyUse);
@@ -571,9 +571,9 @@ public class BlinkTests implements FabricClientGameTest {
                 ctx.getInput().releaseKey(o -> o.keyUse);
                 pressBlink(ctx);
                 ctx.waitTicks(40);
-                int woolAfter = ctx.computeOnClient(mc -> mc.player.getInventory().countItem(net.minecraft.world.item.Items.WHITE_WOOL));
+                int woolAfter = ctx.computeOnClient(mc -> mc.player.getInventory().countItem(net.minecraft.world.item.Items.COBBLESTONE));
                 long holds = num(ctx, "releasedHolds") - holds0;
-                scenario.log("place: wool " + woolBefore + " -> " + woolAfter + " (40 ticks after the last release), " + holds
+                scenario.log("place: cobblestone " + woolBefore + " -> " + woolAfter + " (40 ticks after the last release), " + holds
                         + " release(s)");
                 check(woolBefore > 0 && woolAfter < woolBefore, "nothing was placed: nothing about placing was tested");
                 check(holds >= 3, "Pulse did not hold and release while placing: " + holds);
