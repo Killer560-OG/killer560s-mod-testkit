@@ -602,6 +602,12 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	if (project.hasProperty("blinkHoldHits")) {
 		systemProperty "testkit.blinkHoldHits", "true"
 	}
+	if (project.hasProperty("blinkHoldDigs")) {
+		systemProperty "testkit.blinkHoldDigs", "true"
+	}
+	if (project.hasProperty("blinkDigRepeat")) {
+		systemProperty "testkit.blinkDigRepeat", project.property("blinkDigRepeat")
+	}
 	// Play each selected 93-solve room N times in one launch, to measure a flake rate:  -PsolveRepeat=N
 	if (project.hasProperty("solveRepeat")) {
 		systemProperty "testkit.solveRepeat", project.property("solveRepeat")

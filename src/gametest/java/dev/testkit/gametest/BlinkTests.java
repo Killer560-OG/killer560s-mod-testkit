@@ -90,6 +90,7 @@ public class BlinkTests implements FabricClientGameTest {
             Mod.set(CFG, "setMaxTicks", maxTicks);
             Mod.set(CFG, "setChatMessages", false);
             Mod.set(CFG, "setReleaseOnHit", !Boolean.getBoolean("testkit.blinkHoldHits"));
+            Mod.set(CFG, "setReleaseOnDig", !Boolean.getBoolean("testkit.blinkHoldDigs"));
             return gate;
         });
     }
@@ -544,9 +545,23 @@ public class BlinkTests implements FabricClientGameTest {
 
     /** 1025-blink-dig: mining a stone wall with a pickaxe for 160 ticks while Pulse holds every dig in bursts. */
     private static void dig(ClientGameTestContext ctx) {
-        int x = -4100;
+        int repeat = Integer.getInteger("testkit.blinkDigRepeat", 1);
+        AssertionError first = null;
+        for (int i = 0; i < repeat; i++) {
+            try {
+                digCase(ctx, "1025-blink-dig" + (repeat > 1 ? "-" + (i + 1) : ""), -4100 - 30 * i);
+            } catch (AssertionError e) {
+                first = first == null ? e : first;
+            }
+        }
+        if (first != null) {
+            throw first;
+        }
+    }
+
+    private static void digCase(ClientGameTestContext ctx, String caseName, int x) {
         int z = -3000;
-        Scenario.run(ctx, "1025-blink-dig", (server, scenario) -> {
+        Scenario.run(ctx, caseName, (server, scenario) -> {
             TestMap.on(server)
                     .platform(x, SURFACE_Y - 1, z, 12)
                     .catchFloor(120)
