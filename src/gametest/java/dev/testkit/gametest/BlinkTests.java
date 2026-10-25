@@ -1004,7 +1004,7 @@ public class BlinkTests implements FabricClientGameTest {
                     double[] srv = serverPos(server, ctx, name);
                     rounds.append(String.format(Locale.ROOT, " [round %d: bank %d, shot %d tick(s) %.2f blocks in one tick; "
                             + "client %s server %s]", round + 1, bank, (long) shot[2], shot[0], fmt(client), fmt(srv)));
-                    if (bank == 22 && shot[1] == 1 && shot[2] == 22 && shot[0] > 3.5 && flat(client, srv) < 0.5) {
+                    if (bank == 21 && shot[1] == 1 && shot[2] == 21 && shot[0] > 3.5 && flat(client, srv) < 0.5) {
                         good++;
                     }
                 }
@@ -1209,7 +1209,7 @@ public class BlinkTests implements FabricClientGameTest {
                     rounds.append(String.format(Locale.ROOT, " [round %d: bank %d standing, %d after 20 sprinting ticks; key press "
                                     + "shot %d tick(s), %.2f blocks over the press's 2 ticks, still charging %s; client %s server %s]",
                             round + 1, bankStill, bankRunning, ticks, went, stillCharging, fmt(client), fmt(srv)));
-                    if (bankStill == 22 && bankRunning == 22 && shots == 1 && ticks == 22 && went > 6.0 && stillCharging
+                    if (bankStill == 21 && bankRunning == 21 && shots == 1 && ticks == 21 && went > 6.0 && stillCharging
                             && flat(client, srv) < 0.5) {
                         good++;
                     }
@@ -1261,7 +1261,7 @@ public class BlinkTests implements FabricClientGameTest {
                     chargeOff(ctx);
                     ctx.waitTicks(40);
                     List<String> flags = scenario.flags();
-                    boolean ok = flags.isEmpty() && bank == len && (long) shot[2] == len;
+                    boolean ok = flags.isEmpty() && bank == len - 1 && (long) shot[2] == len - 1;
                     String row = String.format(Locale.ROOT, "bank %3d: banked %d, shot %d tick(s) %.2f blocks, %s", len, bank,
                             (long) shot[2], shot[0], flags.isEmpty() ? "clean" : flags.size() + " flag(s): " + firstChecks(flags));
                     rows.add(row);
@@ -1328,7 +1328,7 @@ public class BlinkTests implements FabricClientGameTest {
                                 + "hold started %s, %d release(s), last hold %d tick(s); %.2f blocks in all; client %s server %s; "
                                 + "%d setback(s)", bank, shotTicks, flat(start, afterShot), followUp, released, lastHold,
                         flat(start, client), fmt(client), fmt(srv), setbacks));
-                check(bank == 22 && shotTicks == 22 && flat(start, afterShot) > 5.0, "the charge did not shoot 22 ticks");
+                check(bank == 21 && shotTicks == 21 && flat(start, afterShot) > 5.0, "the charge did not shoot its 21 banked ticks");
                 check(followUp, "no follow-up hold started after the shot");
                 check(released >= 1 && lastHold == 22, "the follow-up hold did not run to 22 ticks and release");
                 check(flat(client, srv) < 0.5, "client and server disagree at the end: " + fmt(client) + " vs " + fmt(srv));
@@ -1444,7 +1444,7 @@ public class BlinkTests implements FabricClientGameTest {
                     String label = jump && speed ? "sprint-jump + Speed IV" : jump ? "sprint-jump" : "sprint + Speed IV";
                     rows.append(String.format(Locale.ROOT, " [%s: bank %d, shot %d tick(s) %.2f blocks in one tick; client %s "
                             + "server %s; %d position packet(s) after]", label, bank, ticks, dist[k], fmt(client), fmt(srv), sb));
-                    if (bank == 22 && ticks == 22 && dist[k] > walk[0] && flat(client, srv) < 0.5 && sb == 0) {
+                    if (bank == 21 && ticks == 21 && dist[k] > walk[0] && flat(client, srv) < 0.5 && sb == 0) {
                         good++;
                     }
                 }
@@ -1452,7 +1452,7 @@ public class BlinkTests implements FabricClientGameTest {
                 server.command("effect clear " + name);
                 scenario.log(String.format(Locale.ROOT, "charge-far: walking shot %d tick(s) %.2f blocks;", (long) walk[2], walk[0])
                         + rows);
-                check(walk[2] == 22, "the walking shot was not 22 ticks");
+                check(walk[2] == 21, "the walking shot was not 21 banked ticks");
                 check(good == 3, good + " of 3 fast shots went further than walking with the server agreeing");
             } finally {
                 server.command("effect clear " + name);
@@ -1523,8 +1523,8 @@ public class BlinkTests implements FabricClientGameTest {
                                 + "shot %d tick(s), %.2f blocks over the press's 2 ticks; client %s server %s; %d setback(s)", bank,
                         connected, ticks, flat(before, after), fmt(client), fmt(srv), setbacks));
                 check(connected, "he was disconnected while charging");
-                check(bank == 22, "the bank was not full after the wait: " + bank);
-                check(shots == 1 && ticks == 22 && flat(before, after) > 4.0, "no full shot after the wait");
+                check(bank == 21, "the bank was not full after the wait: " + bank);
+                check(shots == 1 && ticks == 21 && flat(before, after) > 4.0, "no full shot after the wait");
                 check(flat(client, srv) < 0.5, "client and server disagree after the shot: " + fmt(client) + " vs " + fmt(srv));
                 check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
             } finally {
