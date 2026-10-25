@@ -152,6 +152,7 @@ public class InvWalkZpewTests implements FabricClientGameTest {
             Mod.set(IW_CFG, "setJump", true);
             Mod.set(IW_CFG, "setSprint", true);
             Mod.set(IW_CFG, "setPauseAfterClickTicks", 0);
+            Mod.set(IW_CFG, "setStopToClick", !Boolean.getBoolean("testkit.invwalkRawClicks"));
             Mod.setField(IW, "heldForTest", held);
         });
     }
@@ -175,29 +176,33 @@ public class InvWalkZpewTests implements FabricClientGameTest {
                 Mod.staticCall(IW_CFG, "load");
                 Object f = Mod.cfg(IW_CFG);
                 String defaults = Mod.call(f, "isEnabled") + " " + Mod.call(f, "getScreens") + " " + Mod.call(f, "isJump")
-                        + " " + Mod.call(f, "isSprint") + " " + Mod.call(f, "getPauseAfterClickTicks");
+                        + " " + Mod.call(f, "isSprint") + " " + Mod.call(f, "getPauseAfterClickTicks") + " "
+                        + Mod.call(f, "isStopToClick");
                 Mod.set(IW_CFG, "setEnabled", true);
                 Mod.set(IW_CFG, "setScreens", Mod.enumValue(IW_SCREENS, "ALL"));
                 Mod.set(IW_CFG, "setJump", false);
                 Mod.set(IW_CFG, "setSprint", false);
                 Mod.set(IW_CFG, "setPauseAfterClickTicks", 7);
+                Mod.set(IW_CFG, "setStopToClick", false);
                 Mod.call(Mod.cfg(IW_CFG), "save");
                 Mod.set(IW_CFG, "setEnabled", false);
                 Mod.staticCall(IW_CFG, "load");
                 Object l = Mod.cfg(IW_CFG);
                 String loaded = Mod.call(l, "isEnabled") + " " + Mod.call(l, "getScreens") + " " + Mod.call(l, "isJump")
-                        + " " + Mod.call(l, "isSprint") + " " + Mod.call(l, "getPauseAfterClickTicks");
+                        + " " + Mod.call(l, "isSprint") + " " + Mod.call(l, "getPauseAfterClickTicks") + " "
+                        + Mod.call(l, "isStopToClick");
                 Mod.set(IW_CFG, "setEnabled", false);
                 Mod.set(IW_CFG, "setScreens", Mod.enumValue(IW_SCREENS, "CONTAINERS"));
                 Mod.set(IW_CFG, "setJump", true);
                 Mod.set(IW_CFG, "setSprint", true);
                 Mod.set(IW_CFG, "setPauseAfterClickTicks", 0);
+                Mod.set(IW_CFG, "setStopToClick", true);
                 Mod.call(Mod.cfg(IW_CFG), "save");
                 return new String[]{defaults, loaded};
             });
             scenario.log("invwalk defaults " + got[0] + "; loaded " + got[1]);
-            check(got[0].equals("false CONTAINERS true true 0"), "defaults wrong: " + got[0]);
-            check(got[1].equals("true ALL false false 7"), "settings did not come back from disk: " + got[1]);
+            check(got[0].equals("false CONTAINERS true true 0 true"), "defaults wrong: " + got[0]);
+            check(got[1].equals("true ALL false false 7 false"), "settings did not come back from disk: " + got[1]);
         });
     }
 
@@ -256,14 +261,19 @@ public class InvWalkZpewTests implements FabricClientGameTest {
             try {
                 iwOn(ctx, true, Set.of("key.forward", "key.sprint"));
                 ctx.runOnClient(mc -> PacketTrace.start());
-                long clicksBefore = num(ctx, IW, "clicksWhileWalking");
+                long heldBefore = num(ctx, IW, "clicksHeld");
                 double[] r = walkInInventory(server, scenario, ctx, 60, 5);
+                ctx.waitTicks(5);
                 ctx.runOnClient(mc -> PacketTrace.stop());
-                long clicks = num(ctx, IW, "clicksWhileWalking") - clicksBefore;
+                long held = num(ctx, IW, "clicksHeld") - heldBefore;
+                int sentClicks = PacketTrace.sent("container_click");
                 int setbacks = PacketTrace.received("player_position");
-                scenario.log("clicks while walking " + clicks + ", setbacks " + setbacks);
+                scenario.log("clicks held for a still tick " + held + ", container clicks on the wire " + sentClicks
+                        + ", setbacks " + setbacks);
                 check(r[0] > 8 && r[1] > 8, "he did not walk in the inventory (client " + r[0] + ", server " + r[1] + ")");
-                check(clicks >= 5, "fewer than five clicks were made while walking: " + clicks);
+                check(sentClicks >= 5, "fewer than five clicks reached the wire: " + sentClicks);
+                check(Boolean.getBoolean("testkit.invwalkRawClicks") || held >= 1,
+                        "no click was ever made while walking: Stop To Click was not tested");
                 check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
             } finally {
                 iwOff(ctx);
@@ -303,7 +313,7 @@ public class InvWalkZpewTests implements FabricClientGameTest {
                 ctx.waitTicks(10);
                 boolean open = ctx.computeOnClient(mc -> McCompat.screen(mc) instanceof
                         net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>);
-                long clicksBefore = num(ctx, IW, "clicksWhileWalking");
+                long heldBefore = num(ctx, IW, "clicksHeld");
                 ctx.runOnClient(mc -> PacketTrace.start());
                 for (int t = 0; t < 60; t++) {
                     ctx.waitTicks(1);
@@ -315,18 +325,21 @@ public class InvWalkZpewTests implements FabricClientGameTest {
                         });
                     }
                 }
+                ctx.waitTicks(5);
                 ctx.runOnClient(mc -> PacketTrace.stop());
                 boolean stillOpen = ctx.computeOnClient(mc -> McCompat.screen(mc) instanceof
                         net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>);
                 double[] c1 = scenario.playerPosition();
                 double[] s1 = serverPos(server, ctx, name);
-                long clicks = num(ctx, IW, "clicksWhileWalking") - clicksBefore;
+                long held = num(ctx, IW, "clicksHeld") - heldBefore;
+                int clicks = PacketTrace.sent("container_click");
                 int setbacks = PacketTrace.received("player_position");
                 scenario.log(String.format(Locale.ROOT, "chest %d open %s/%s: client moved %.2f, server moved %.2f, %d click(s) "
-                        + "while walking, %d setback(s)", id, open, stillOpen, flat(c0, c1), flat(s0, s1), clicks, setbacks));
+                        + "on the wire, %d held for a still tick, %d setback(s)", id, open, stillOpen, flat(c0, c1), flat(s0, s1),
+                        clicks, held, setbacks));
                 check(open && stillOpen, "the chest menu was not open the whole time: nothing was tested");
                 check(flat(c0, c1) > 8 && flat(s0, s1) > 8, "he did not walk with the chest open");
-                check(clicks >= 4, "fewer than four clicks were made while walking: " + clicks);
+                check(clicks >= 4, "fewer than four clicks reached the wire: " + clicks);
                 check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
             } finally {
                 iwOff(ctx);

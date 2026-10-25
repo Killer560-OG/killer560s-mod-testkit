@@ -608,6 +608,10 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	if (project.hasProperty("blinkHoldUses")) {
 		systemProperty "testkit.blinkHoldUses", "true"
 	}
+	// -PinvwalkRawClicks: Inventory Walk with Stop To Click OFF, to show what clicking while walking does
+	if (project.hasProperty("invwalkRawClicks")) {
+		systemProperty "testkit.invwalkRawClicks", "true"
+	}
 	if (project.hasProperty("blinkDigRepeat")) {
 		systemProperty "testkit.blinkDigRepeat", project.property("blinkDigRepeat")
 	}
