@@ -529,10 +529,12 @@ public class BlinkTests implements FabricClientGameTest {
     private static int stoneLeft(ClientGameTestContext ctx, int x, int z) {
         return ctx.computeOnClient(mc -> {
             int n = 0;
-            for (int y = SURFACE_Y; y <= SURFACE_Y + 2; y++) {
-                for (int dz = -2; dz <= 2; dz++) {
-                    if (!mc.level.getBlockState(new net.minecraft.core.BlockPos(x + 2, y, z + dz)).isAir()) {
-                        n++;
+            for (int dx = 2; dx <= 4; dx++) {
+                for (int y = SURFACE_Y; y <= SURFACE_Y + 2; y++) {
+                    for (int dz = -2; dz <= 2; dz++) {
+                        if (!mc.level.getBlockState(new net.minecraft.core.BlockPos(x + dx, y, z + dz)).isAir()) {
+                            n++;
+                        }
                     }
                 }
             }
@@ -551,7 +553,7 @@ public class BlinkTests implements FabricClientGameTest {
                     .survival()
                     .clearInventory()
                     .give("diamond_pickaxe", 1)
-                    .fill(x + 2, SURFACE_Y, z - 2, x + 2, SURFACE_Y + 2, z + 2, "stone")
+                    .fill(x + 2, SURFACE_Y, z - 2, x + 4, SURFACE_Y + 2, z + 2, "stone")
                     .spawn(x + 0.5, z + 0.5, -90f)
                     .build();
         }, (server, scenario) -> {
@@ -569,8 +571,8 @@ public class BlinkTests implements FabricClientGameTest {
                 long holds = num(ctx, "releasedHolds") - holds0;
                 scenario.log("dig: wall " + before + " -> " + after + " block(s) (as the client sees it 40 ticks after the "
                         + "last release), " + holds + " release(s)");
-                check(before == 15, "the wall was not built: " + before);
-                check(after < before, "nothing was mined: nothing about digging was tested");
+                check(before == 45, "the wall was not built: " + before);
+                check(after <= before - 2, "fewer than two blocks were mined (" + (before - after) + "): digging was hardly tested");
                 check(holds >= 5, "Pulse did not hold and release while digging: " + holds);
             } finally {
                 ctx.getInput().releaseKey(o -> o.keyAttack);
@@ -591,27 +593,33 @@ public class BlinkTests implements FabricClientGameTest {
                     .survival()
                     .clearInventory()
                     .give("cobblestone", 64)
-                    .spawn(x + 0.5, z + 0.5, -90f, 60f)
+                    .spawn(x + 0.5, z + 0.5, -90f, 90f)
                     .build();
         }, (server, scenario) -> {
             boolean gate = setUp(ctx, defaultTicks(ctx), "PULSE");
             try {
                 int woolBefore = ctx.computeOnClient(mc -> mc.player.getInventory().countItem(net.minecraft.world.item.Items.COBBLESTONE));
                 long holds0 = num(ctx, "releasedHolds");
+                double y0 = scenario.playerPosition()[1];
                 pressBlink(ctx);
                 ctx.getInput().holdKey(o -> o.keyUse);
+                ctx.getInput().holdKey(o -> o.keyJump);
                 ctx.waitTicks(120);
+                ctx.getInput().releaseKey(o -> o.keyJump);
                 ctx.getInput().releaseKey(o -> o.keyUse);
                 pressBlink(ctx);
                 ctx.waitTicks(40);
                 int woolAfter = ctx.computeOnClient(mc -> mc.player.getInventory().countItem(net.minecraft.world.item.Items.COBBLESTONE));
                 long holds = num(ctx, "releasedHolds") - holds0;
-                scenario.log("place: cobblestone " + woolBefore + " -> " + woolAfter + " (40 ticks after the last release), " + holds
-                        + " release(s)");
-                check(woolBefore > 0 && woolAfter < woolBefore, "nothing was placed: nothing about placing was tested");
+                double rose = scenario.playerPosition()[1] - y0;
+                scenario.log(String.format(Locale.ROOT, "place: cobblestone %d -> %d (40 ticks after the last release), towered "
+                        + "%.1f blocks, %d release(s)", woolBefore, woolAfter, rose, holds));
+                check(woolBefore > 0 && woolAfter <= woolBefore - 3, "fewer than three blocks were placed: placing was hardly tested");
+                check(rose >= 2.5, "he did not tower up (" + rose + " blocks): the placements were not under him");
                 check(holds >= 3, "Pulse did not hold and release while placing: " + holds);
             } finally {
                 ctx.getInput().releaseKey(o -> o.keyUse);
+                ctx.getInput().releaseKey(o -> o.keyJump);
                 tearDown(ctx, gate);
             }
             ctx.waitTicks(40);
