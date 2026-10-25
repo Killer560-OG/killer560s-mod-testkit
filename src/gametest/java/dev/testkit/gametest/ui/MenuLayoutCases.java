@@ -101,7 +101,10 @@ final class MenuLayoutCases {
             // Cosmetics into its own card (ba67f9bd), Legit GFS (f9ba82e3, Misc), Pack Disabler back as its own card
             // (39f341e8), Session Recorder (22b1b7b9), Sound Effects (9c437b1d) and Zoom (19363eb7), all in Misc.
             "gui.tab.BazaarAdvisorTab", "gui.tab.ModTagTab", "gui.tab.HeldItemTab", "gui.tab.LegitGfsTab",
-            "gui.tab.PackDisablerTab", "gui.tab.SessionRecorderTab", "gui.tab.SoundEffectsTab", "gui.tab.ZoomTab");
+            "gui.tab.PackDisablerTab", "gui.tab.SessionRecorderTab", "gui.tab.SoundEffectsTab", "gui.tab.ZoomTab",
+            // Auto Nucleus Run (mod 66283eb4, killer560 2026-10-25): the stub back, no switch, in Misc's cheat block
+            // (from Helpers); cheat jar only.
+            "gui.tab.AutoNucleusRunTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.
