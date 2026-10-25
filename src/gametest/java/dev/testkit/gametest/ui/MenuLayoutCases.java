@@ -107,7 +107,9 @@ final class MenuLayoutCases {
             "gui.tab.AutoNucleusRunTab",
             // Blink and Zero Ping Etherwarp (Dungeons cheat block) and Inventory Walk (Misc cheat block), mod blink-1025,
             // killer560 2026-10-25; cheat jar only.
-            "gui.tab.BlinkTab", "gui.tab.ZeroPingEtherwarpTab", "gui.tab.InventoryWalkTab");
+            "gui.tab.BlinkTab", "gui.tab.ZeroPingEtherwarpTab", "gui.tab.InventoryWalkTab",
+            // Boss Health (Dungeons, legit), mod boss-hp-1025.
+            "gui.tab.BossHealthTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.
