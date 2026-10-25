@@ -248,7 +248,9 @@ public class SimChestClearTests implements FabricClientGameTest {
             clearedLine |= l.contains("chest rule: " + target + " counts as cleared now");
         }
         Integer done = doneAt.get();
-        int sinceClick = done == null ? -1 : done - clickAt;
+        // clock[0] goes up AFTER each waitTicks(1), so an onDone in the k-th tick after the click reads clickAt + k - 1:
+        // add the one back (it read 59 while the mod logged "3.0 s", 60 of its ticks, on main a091e9bd, 2026-10-25).
+        int sinceClick = done == null ? -1 : done - clickAt + 1;
         println(String.format(Locale.ROOT, "%s: chest %s clicked at t=%d; rule grabbed %s, counted cleared %s; onDone %s "
                         + "(%d tick(s) after the click), onGiveUp %s", target, chestAt.toShortString(), clickAt, grabbed,
                 clearedLine, done == null ? "never" : "t=" + done, sinceClick, gaveUp.get()));
