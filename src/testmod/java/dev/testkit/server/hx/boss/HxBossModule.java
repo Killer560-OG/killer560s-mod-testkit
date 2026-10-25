@@ -39,5 +39,8 @@ public final class HxBossModule implements HxModule {
         HxBridge.register("boss.relic.state", (server, args) -> HxRelic.describe());
         HxBridge.register("boss.relic.clear", HxRelic::clear);
         HxRelic.register();
+        // Boss bars (2026-10-25, the mod's Boss Health): HxBossBar.
+        HxBridge.register("boss.bar.set", HxBossBar::set);
+        HxBridge.register("boss.bar.clear", HxBossBar::clear);
     }
 }

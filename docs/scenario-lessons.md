@@ -1102,3 +1102,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   click by hand through Full Block's widened box (crosshair off the block with it off, on it with it on, hit 0.63 / 0.13
   outside the real shape) and require Grim clean; GrimAC 2.3.74's RotationPlace and FarPlace measure the clicked block's
   FULL cell (javap), so a full-box hit is not what they flag.
+- 1025-bosshp-* (HxBossHealthCases, last in HxSuite): Boss Health reads name-tag stands and boss bars (`boss.bar.set`/
+  `boss.bar.clear`, HxBossBar). The boss room is LiveMap's per-floor box, latched until the dungeon is left: (-30.5, 141, 0.5)
+  on HxSuite's catch floor is inside F1's and outside its room grid, and 1025-bosshp-cleanup leaves the dungeon so the latch
+  does not leak into later cases. A waitUntil predicate already runs on the client thread: calling c.onClient inside it
+  would wait on itself, so read the mod there directly. Boss-bar values lerp over ~100 ms (LerpingBossEvent), so the log's
+  first line for a bar can read an in-between value (Necron 546M on the way to 350M); the cases wait for the settled one.
