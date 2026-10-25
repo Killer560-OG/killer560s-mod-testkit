@@ -833,6 +833,15 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   the Interactive Map runner"); when the trip's search is still running Auto Clear files it as the trip's own and nothing
   counts it. main's cheat jar passed 2 of 6 runs, the branch 2 of 9. A failure there also leaves the sim world open and
   the client hangs until the deadline (the keep-going disconnect deadlock above).
+- 131-sim-auto-clear on 2026-10-25 (mod merge-train-1025) failed four ways that were the case, not the mod, each depending on
+  the random floor: the HUD header gained "  ~m:ss left" (1018-autoclear-eta) and the case wanted the bare header;
+  "repositions" picked a start the planner has no etherwarp way out of (Supertall, Mushroom: 0 trips, "no etherwarp path")
+  and now tries the next room; a Spirit Sceptre bat from the start took a zombie, so 1 trip was right; and "hop" wanted a
+  hop where Auto Clear's own cost line priced the etherwarp cheaper (a dirt hill in Water). Read the mod's "cost for" and
+  "[Path]" lines before calling a missing move a regression. 1020-sim-chestclear's tick count was one short (59 for the
+  mod's logged 3.0 s): its clock goes up after each waitTicks.
+- 1018-sim-prince-stairs fails its premise ("-121, -40, -125 is not part of Stairs's prince") on mod main a091e9bd's cheat
+  jar too (2026-10-25); not looked into.
 - Mod main's sim clears every room on entry (2026-10-14). A case that judges which rooms its clears killed their way to
   (141) turns `SimMobs.setClearRoomsOnEntry(false)` for its run, or any trip passing through a room "clears" it.
 - **1080-1083 (TrajectoryCases, mod shortbow-traj-1015, 2026-10-15):** Trajectories for shortbows. Each draw is judged by the
