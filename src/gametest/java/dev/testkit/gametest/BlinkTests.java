@@ -1423,18 +1423,19 @@ public class BlinkTests implements FabricClientGameTest {
                     ctx.waitTicks(60);
                     long bank = cnum(ctx, "banked");
                     int sb0 = PacketTrace.received("player_position");
+                    long st0 = cnum(ctx, "shotTicks");
                     double[] before = scenario.playerPosition();
                     ctx.getInput().holdKey(o -> o.keySprint);
                     if (jump) {
                         ctx.getInput().holdKey(o -> o.keyJump);
                     }
                     ctx.getInput().holdKey(o -> o.keyUp);
-                    ctx.waitTicks(1);
+                    ctx.waitTicks(2);
                     double[] after = scenario.playerPosition();
                     ctx.getInput().releaseKey(o -> o.keyUp);
                     ctx.getInput().releaseKey(o -> o.keyJump);
                     ctx.getInput().releaseKey(o -> o.keySprint);
-                    long ticks = cnum(ctx, "lastShotTicks");
+                    long ticks = cnum(ctx, "shotTicks") - st0;
                     ctx.waitTicks(30);
                     double[] client = scenario.playerPosition();
                     double[] srv = serverPos(server, ctx, name);
