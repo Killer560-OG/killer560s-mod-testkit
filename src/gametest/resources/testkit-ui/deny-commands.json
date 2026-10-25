@@ -84,6 +84,7 @@
     {"root": "killer560bz", "why": "bazaar browser: network (BazaarFeature.java:37)"},
     {"root": "ap3", "why": "AP3 route editing/recording writes route files and drives automation (Ap3Commands.java:229)"},
     {"root": "freezestate", "why": "AP3 freeze state (Ap3Commands.java:199)"},
+    {"root": "blink", "why": "Blink holds every outgoing packet (blink/BlinkCommands.java, cheat build)"},
     {"root": "rewind", "why": "AP3 rewind moves the player (Ap3Commands.java:205)"},
     {"root": "autokick", "why": "populate sends party kicks (AutoKickCommands.java:31)"},
     {"root": "autosell", "why": "on/start drive selling; only 'autosell list' is executed"},

@@ -595,6 +595,13 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	if (project.hasProperty("blinkLatency")) {
 		systemProperty "testkit.blinkLatency", project.property("blinkLatency")
 	}
+	if (project.hasProperty("blinkAttackRepeat")) {
+		systemProperty "testkit.blinkAttackRepeat", project.property("blinkAttackRepeat")
+	}
+	// -PblinkHoldHits: run the cases with Release On Hit OFF, to show what holding hits does
+	if (project.hasProperty("blinkHoldHits")) {
+		systemProperty "testkit.blinkHoldHits", "true"
+	}
 	// Play each selected 93-solve room N times in one launch, to measure a flake rate:  -PsolveRepeat=N
 	if (project.hasProperty("solveRepeat")) {
 		systemProperty "testkit.solveRepeat", project.property("solveRepeat")

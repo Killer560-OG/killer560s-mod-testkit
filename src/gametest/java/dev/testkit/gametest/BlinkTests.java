@@ -88,6 +88,7 @@ public class BlinkTests implements FabricClientGameTest {
             Mod.set(CFG, "setLimitAction", Mod.enumValue(LIMIT, limitAction));
             Mod.set(CFG, "setMaxTicks", maxTicks);
             Mod.set(CFG, "setChatMessages", false);
+            Mod.set(CFG, "setReleaseOnHit", !Boolean.getBoolean("testkit.blinkHoldHits"));
             return gate;
         });
     }
@@ -183,7 +184,8 @@ public class BlinkTests implements FabricClientGameTest {
                 Mod.staticCall(CFG, "load");
                 Object fresh = Mod.cfg(CFG);
                 String defaults = Mod.call(fresh, "isEnabled") + " " + Mod.call(fresh, "getMode") + " "
-                        + Mod.call(fresh, "getMaxTicks") + " " + Mod.call(fresh, "getKeyCode");
+                        + Mod.call(fresh, "getMaxTicks") + " " + Mod.call(fresh, "getKeyCode") + " "
+                        + Mod.call(fresh, "isReleaseOnHit");
                 Mod.set(CFG, "setEnabled", true);
                 Mod.set(CFG, "setMode", Mod.enumValue(MODE, "HOLD"));
                 Mod.set(CFG, "setLimitAction", Mod.enumValue(LIMIT, "PULSE"));
@@ -192,6 +194,7 @@ public class BlinkTests implements FabricClientGameTest {
                 Mod.set(CFG, "setShowHud", false);
                 Mod.set(CFG, "setShowServerBox", false);
                 Mod.set(CFG, "setChatMessages", true);
+                Mod.set(CFG, "setReleaseOnHit", false);
                 Mod.call(Mod.cfg(CFG), "save");
                 Mod.set(CFG, "setEnabled", false);
                 Mod.set(CFG, "setMaxTicks", 5);
@@ -199,7 +202,8 @@ public class BlinkTests implements FabricClientGameTest {
                 Object l = Mod.cfg(CFG);
                 String loaded = Mod.call(l, "isEnabled") + " " + Mod.call(l, "getMode") + " " + Mod.call(l, "getLimitAction")
                         + " " + Mod.call(l, "getMaxTicks") + " " + Mod.call(l, "getKeyCode") + " " + Mod.call(l, "isShowHud")
-                        + " " + Mod.call(l, "isShowServerBox") + " " + Mod.call(l, "isChatMessages");
+                        + " " + Mod.call(l, "isShowServerBox") + " " + Mod.call(l, "isChatMessages") + " "
+                        + Mod.call(l, "isReleaseOnHit");
                 // Back to the defaults on disk for the cases behind this one.
                 Mod.set(CFG, "setEnabled", false);
                 Mod.set(CFG, "setMode", Mod.enumValue(MODE, "TOGGLE"));
@@ -209,6 +213,7 @@ public class BlinkTests implements FabricClientGameTest {
                 Mod.set(CFG, "setShowHud", true);
                 Mod.set(CFG, "setShowServerBox", true);
                 Mod.set(CFG, "setChatMessages", false);
+                Mod.set(CFG, "setReleaseOnHit", true);
                 Mod.call(Mod.cfg(CFG), "save");
                 return new String[]{defaults, loaded};
             });
@@ -218,8 +223,8 @@ public class BlinkTests implements FabricClientGameTest {
             boolean heldWhileOff = holding(ctx);
             ctx.runOnClient(mc -> Mod.setField(FEATURE, "keyHeldForTest", null));
             scenario.log("defaults " + got[0] + "; loaded " + got[1] + "; held while off " + heldWhileOff);
-            check(got[0].equals("false TOGGLE 22 -1"), "defaults wrong: " + got[0]);
-            check(got[1].equals("true HOLD PULSE 33 66 false false true"), "settings did not come back from disk: " + got[1]);
+            check(got[0].equals("false TOGGLE 22 -1 true"), "defaults wrong: " + got[0]);
+            check(got[1].equals("true HOLD PULSE 33 66 false false true false"), "settings did not come back from disk: " + got[1]);
             check(!heldWhileOff, "Blink held packets while switched off");
         });
     }
@@ -457,30 +462,57 @@ public class BlinkTests implements FabricClientGameTest {
         return ctx.computeOnClient(mc -> ((Number) Mod.field(CFG, "DEFAULT_TICKS")).intValue());
     }
 
-    /** 1025-blink-attack: hitting a frozen dummy for 200 ticks while Pulse holds every swing in bursts. */
+    /** 1025-blink-attack: hitting a frozen dummy for 200 ticks while Pulse holds every swing in bursts; and -control. */
     private static void attack(ClientGameTestContext ctx) {
-        Scenario.run(ctx, "1025-blink-attack", (server, scenario) -> {
-            arena(server, -4000, -3000);
+        int repeat = Integer.getInteger("testkit.blinkAttackRepeat", 1);
+        AssertionError first = null;
+        for (int i = 0; i < repeat; i++) {
+            String sfx = repeat > 1 ? "-" + (i + 1) : "";
+            for (int k = 0; k < 2; k++) {
+                try {
+                    if (k == 0) {
+                        attackCase(ctx, "1025-blink-attack-control" + sfx, false, -4300 - 40 * i);
+                    } else {
+                        attackCase(ctx, "1025-blink-attack" + sfx, true, -4000 - 40 * i);
+                    }
+                } catch (AssertionError e) {
+                    first = first == null ? e : first;
+                }
+            }
+        }
+        if (first != null) {
+            throw first;
+        }
+    }
+
+    private static void attackCase(ClientGameTestContext ctx, String caseName, boolean blink, int ax) {
+        Scenario.run(ctx, caseName, (server, scenario) -> {
+            arena(server, ax, -3000);
             server.command("give @p minecraft:diamond_sword");
         }, (server, scenario) -> {
             boolean gate = setUp(ctx, defaultTicks(ctx), "PULSE");
             TestEnemy dummy = null;
             try {
                 dummy = TestEnemy.named("Blink", "Dummy")
-                        .at(-4000 + 3.0, SURFACE_Y, -3000 + 0.5)
+                        .at(ax + 3.0, SURFACE_Y, -3000 + 0.5)
                         .health(20)
                         .frozen(true)
                         .spawn(ctx, server);
                 check(dummy.visibleToClient(), "the dummy never appeared to the client");
                 long before = num(ctx, "releasedHolds");
-                pressBlink(ctx);
+                if (blink) {
+                    pressBlink(ctx);
+                }
                 int swings = scenario.attackFor(200);
-                pressBlink(ctx);
+                if (blink) {
+                    pressBlink(ctx);
+                }
                 ctx.waitTicks(20);
                 long holds = num(ctx, "releasedHolds") - before;
-                scenario.log("attack: " + swings + " swing(s), dummy died " + dummy.deaths() + " time(s), " + holds
-                        + " release(s)");
-                check(holds >= 5, "Pulse did not hold and release while attacking: " + holds);
+                scenario.log("attack (" + (blink ? "Blink Pulse" : "no Blink") + "): " + swings + " swing(s), dummy died "
+                        + dummy.deaths() + " time(s), " + holds + " release(s)");
+                check(!blink || holds >= 5, "Pulse did not hold and release while attacking: " + holds);
+                check(blink || holds == 0, "Blink held packets in the control: " + holds);
                 check(swings >= 10 && dummy.deaths() > 0, "the swings never landed (" + swings + " swings, "
                         + dummy.deaths() + " deaths): nothing about combat was tested");
             } finally {
