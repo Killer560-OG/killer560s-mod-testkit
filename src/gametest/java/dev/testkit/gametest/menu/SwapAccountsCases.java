@@ -453,7 +453,7 @@ final class SwapAccountsCases {
                 fails.add("the failed sign-in left " + still + " open instead of the list");
             }
 
-            // Copy ID on another row fetches THAT account's session.
+            // A plain Copy ID copies that account's UUID (the token is Shift-click only, since the 2026-10-25 security fix).
             Screen s2 = SocialCases.current(c);
             AbstractWidget echo = row(c, s2, NAMES[4]);
             AbstractWidget copy = echo == null ? null : inRow(c, s2, echo, "Copy ID");
@@ -464,8 +464,8 @@ final class SwapAccountsCases {
                 waitIdle(c, s2);
                 st = status(c, s2);
                 c.note("after Copy ID on " + NAMES[4] + ": " + st);
-                if (!st.contains("session ID for " + NAMES[4])) {
-                    fails.add("Copy ID on " + NAMES[4] + " did not fetch its session: " + st);
+                if (!st.contains("UUID of " + NAMES[4])) {
+                    fails.add("Copy ID on " + NAMES[4] + " did not copy its UUID: " + st);
                 }
             }
 
