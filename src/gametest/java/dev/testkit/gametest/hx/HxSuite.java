@@ -58,6 +58,9 @@ public class HxSuite implements FabricClientGameTest {
                     // Player Cosmetics names: fade, tab, nametag height, own name in F5 (811-818, branch
                     // nt-cosmetic-names), own block.
                     HxCosmeticNameCases.register(s);
+                    // Song Tag: a supporter's Spotify song above the name, over the relay (820, branch song-tag), own
+                    // block.
+                    HxSongTagCases.register(s);
                     // Auto Meow replies in the trigger's channel, and Mod Chat sends (874, branch
                     // nt-automeow-channel), own block.
                     HxAutoMeowChannelCases.register(s);
