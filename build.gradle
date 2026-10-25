@@ -585,6 +585,16 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 			systemProperty "testkit.deuces.${k}", project.property(p)
 		}
 	}
+	// 1025-blink-sweep-*: the hold lengths to try, a comma list:  -PblinkSweep=20,40,80
+	if (project.hasProperty("blinkSweep")) {
+		systemProperty "testkit.blinkSweep", project.property("blinkSweep")
+	}
+	if (project.hasProperty("blinkPulse")) {
+		systemProperty "testkit.blinkPulse", project.property("blinkPulse")
+	}
+	if (project.hasProperty("blinkLatency")) {
+		systemProperty "testkit.blinkLatency", project.property("blinkLatency")
+	}
 	// Play each selected 93-solve room N times in one launch, to measure a flake rate:  -PsolveRepeat=N
 	if (project.hasProperty("solveRepeat")) {
 		systemProperty "testkit.solveRepeat", project.property("solveRepeat")

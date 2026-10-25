@@ -11,6 +11,7 @@
 			"dev.testkit.gametest.ArmourHeadStandTest",
 			"dev.testkit.gametest.FairySoulTests",
 			"dev.testkit.gametest.FreelookTests",
+			"dev.testkit.gametest.BlinkTests",
 			"dev.testkit.gametest.JoinFingerprintTest",
 			"dev.testkit.gametest.ProofTest",
 			"dev.testkit.gametest.SeedWorldTest",
