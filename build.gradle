@@ -605,6 +605,9 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	if (project.hasProperty("blinkHoldDigs")) {
 		systemProperty "testkit.blinkHoldDigs", "true"
 	}
+	if (project.hasProperty("blinkHoldUses")) {
+		systemProperty "testkit.blinkHoldUses", "true"
+	}
 	if (project.hasProperty("blinkDigRepeat")) {
 		systemProperty "testkit.blinkDigRepeat", project.property("blinkDigRepeat")
 	}

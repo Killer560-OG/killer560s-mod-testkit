@@ -52,7 +52,7 @@ public class BlinkTests implements FabricClientGameTest {
         for (Consumer<ClientGameTestContext> c : List.<Consumer<ClientGameTestContext>>of(
                 BlinkTests::setting, BlinkTests::still, BlinkTests::walk, BlinkTests::sprintJump, BlinkTests::pulse,
                 BlinkTests::latency, BlinkTests::pulseMax, BlinkTests::attack, BlinkTests::dig, BlinkTests::place,
-                BlinkTests::teleport, BlinkTests::worldChange,
+                BlinkTests::teleport, BlinkTests::worldChange, BlinkTests::bow,
                 BlinkTests::sweepWalk, BlinkTests::sweepStill,
                 BlinkTests::sweepLatency)) {
             try {
@@ -91,6 +91,7 @@ public class BlinkTests implements FabricClientGameTest {
             Mod.set(CFG, "setChatMessages", false);
             Mod.set(CFG, "setReleaseOnHit", !Boolean.getBoolean("testkit.blinkHoldHits"));
             Mod.set(CFG, "setReleaseOnDig", !Boolean.getBoolean("testkit.blinkHoldDigs"));
+            Mod.set(CFG, "setReleaseOnCharge", !Boolean.getBoolean("testkit.blinkHoldUses"));
             return gate;
         });
     }
@@ -742,6 +743,47 @@ public class BlinkTests implements FabricClientGameTest {
                         + " " + (z + 0.5));
                 ctx.waitTicks(60);
             }
+        });
+    }
+
+    /** 1025-blink-bow: drawing and loosing a bow five times (25-tick draws) while Pulse holds them in bursts. */
+    private static void bow(ClientGameTestContext ctx) {
+        int x = -4600;
+        int z = -3000;
+        Scenario.run(ctx, "1025-blink-bow", (server, scenario) -> {
+            TestMap.on(server)
+                    .platform(x, SURFACE_Y - 1, z, 12)
+                    .catchFloor(120)
+                    .survival()
+                    .clearInventory()
+                    .give("bow", 1)
+                    .give("arrow", 64)
+                    .spawn(x + 0.5, z + 0.5, -90f, -10f)
+                    .build();
+        }, (server, scenario) -> {
+            boolean gate = setUp(ctx, defaultTicks(ctx), "PULSE");
+            try {
+                int before = ctx.computeOnClient(mc -> mc.player.getInventory().countItem(net.minecraft.world.item.Items.ARROW));
+                long holds0 = num(ctx, "releasedHolds");
+                pressBlink(ctx);
+                for (int i = 0; i < 5; i++) {
+                    ctx.getInput().holdKey(o -> o.keyUse);
+                    ctx.waitTicks(25);
+                    ctx.getInput().releaseKey(o -> o.keyUse);
+                    ctx.waitTicks(10);
+                }
+                pressBlink(ctx);
+                ctx.waitTicks(40);
+                int after = ctx.computeOnClient(mc -> mc.player.getInventory().countItem(net.minecraft.world.item.Items.ARROW));
+                long holds = num(ctx, "releasedHolds") - holds0;
+                scenario.log("bow: arrows " + before + " -> " + after + " (40 ticks after the last release), " + holds + " release(s)");
+                check(before == 64 && after <= before - 4, "fewer than four arrows were loosed: the bow was hardly tested");
+                check(holds >= 4, "Pulse did not hold and release while shooting: " + holds);
+            } finally {
+                ctx.getInput().releaseKey(o -> o.keyUse);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
         });
     }
 
