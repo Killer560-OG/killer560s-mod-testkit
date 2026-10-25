@@ -1381,9 +1381,17 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         try {
             ctx.runOnClient(mc -> dev.testkit.harness.Latency.install(150));
             ctx.waitTicks(40);
-            for (boolean zp : new boolean[]{false, true}) {
-                ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setZeroPingChain",
-                        new Class<?>[]{boolean.class}, new Object[]{zp}));
+            for (int pass = 0; pass < 3; pass++) {
+                boolean zp = pass >= 1;
+                boolean blinkChain = pass == 2;
+                ctx.runOnClient(mc -> {
+                    ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setZeroPingChain", new Class<?>[]{boolean.class},
+                            new Object[]{zp});
+                    ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setBlinkChain", new Class<?>[]{boolean.class},
+                            new Object[]{blinkChain});
+                    ModUnderTest.call(ModUnderTest.config("com.killer560.hub.blink.BlinkConfig"), "setEnabled",
+                            new Class<?>[]{boolean.class}, new Object[]{blinkChain});
+                });
                 ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
                         new Object[]{"test"}));
                 int chained0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingChained"));
@@ -1409,7 +1417,19 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 int confirmed = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingConfirmed"))
                         - confirmed0;
                 int broken = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingBroken")) - broken0;
-                String label = zp ? "zero ping chain" : "control";
+                String label = blinkChain ? "zero ping chain + blink" : zp ? "zero ping chain" : "control";
+                int burstUses = 0;
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("[Blink] released (Auto Routes chain sent)")) {
+                        java.util.regex.Matcher bm = java.util.regex.Pattern.compile("UseItem=(\\d+)").matcher(l);
+                        if (bm.find()) {
+                            burstUses = Math.max(burstUses, Integer.parseInt(bm.group(1)));
+                        }
+                    }
+                }
+                if (blinkChain) {
+                    println("zero ping chain + blink: the largest burst carried " + burstUses + " etherwarp use(s)");
+                }
                 println(String.format(Locale.ROOT, "%s at 150 ms: %s; server made %d etherwarp(s); %d acted; chained %d, "
                                 + "confirmed %d, broken %d; %d correction line(s)", label, chain.describe(), serverWarps, acted,
                         chained, confirmed, broken, corrections));
@@ -1431,8 +1451,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                             + " predicted landings confirmed, " + broken + " broken");
                     check(chain.usesBeforeLanding() > 0, "zero ping: no warp went out before the previous landing - "
                             + "nothing was chained on the wire");
-                    check(chain.ticksPerWarp() < controlTpw - 0.5, String.format(Locale.ROOT, "zero ping: %.2f ticks per "
-                            + "warp is not faster than the control's %.2f", chain.ticksPerWarp(), controlTpw));
+                    if (!blinkChain) {
+                        check(chain.ticksPerWarp() < controlTpw - 0.5, String.format(Locale.ROOT, "zero ping: %.2f ticks per "
+                                + "warp is not faster than the control's %.2f", chain.ticksPerWarp(), controlTpw));
+                    } else {
+                        check(burstUses >= pts.length - 2, "blink chain: the released burst carried " + burstUses
+                                + " etherwarp use(s), expected the chain's");
+                    }
                 }
             }
         } finally {
@@ -1440,6 +1465,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 dev.testkit.harness.Latency.remove();
                 ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setZeroPingChain", new Class<?>[]{boolean.class},
                         new Object[]{false});
+                ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setBlinkChain", new Class<?>[]{boolean.class},
+                        new Object[]{false});
+                ModUnderTest.call(ModUnderTest.config("com.killer560.hub.blink.BlinkConfig"), "setEnabled",
+                        new Class<?>[]{boolean.class}, new Object[]{false});
             });
         }
         c.note("zero ping chain: " + notes);
