@@ -191,6 +191,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-pingpong", GrimAutoRoutesTests::casePingPong);
             s.test("62-argrim-chain", GrimAutoRoutesTests::caseChain);
             s.test("62-argrim-1025-zpchain", GrimAutoRoutesTests::caseZeroPingChain); // mod blink-1025
+            s.test("62-argrim-1025-chargechain", GrimAutoRoutesTests::caseChargedChain); // mod blink-charge-1025
             s.test("62-argrim-path", GrimAutoRoutesTests::casePath);
             // mod ar-obvious-only (2026-10-11): legit mode exists only in -PtestingBuild jars.
             if (SimAutoRoutesTests.legitSelectable()) {
@@ -1476,6 +1477,113 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             });
         }
         c.note("zero ping chain: " + notes);
+        noteFlags(c, all);
+    }
+
+    /**
+     * 62-argrim-1025-chargechain (killer560, 2026-10-25: "multiple etherwarps in a tick for 0tick routes"): Blink Charge
+     * banks 22 ticks while he stands on the start node with a menu open (nothing arms under a screen - his terminal); the
+     * menu closes, the route fires its first warp and Charged Chain spends the bank on the rest, so the chain's warps all
+     * leave within a tick or two. Every server etherwarp made, every prediction confirmed, none broken, GrimAC silent.
+     */
+    private static void caseChargedChain(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        int[][] pts = ArChainMeasure.CHAIN;
+        int[] end = ArChainMeasure.END;
+        List<JsonObject> n = new ArrayList<>();
+        for (int i = 0; i < pts.length; i++) {
+            int[] to = i + 1 < pts.length ? pts[i + 1] : end;
+            n.add(ew(pts[i][0], pts[i][1], to[0], to[1], i == 0));
+        }
+        writeRoute(ctx, n);
+        List<Sample> all = new ArrayList<>();
+        try {
+            ctx.runOnClient(mc -> {
+                ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setZeroPingChain", new Class<?>[]{boolean.class},
+                        new Object[]{true});
+                ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setChargedChain", new Class<?>[]{boolean.class},
+                        new Object[]{true});
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", true);
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setStyle",
+                        dev.testkit.gametest.mod.Mod.enumValue("blink.BlinkConfig$Style", "CHARGE"));
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setMode",
+                        dev.testkit.gametest.mod.Mod.enumValue("blink.BlinkConfig$Mode", "TOGGLE"));
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setMaxTicks", 22);
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setShootOnMove", false);
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setHoldAfterShot", false);
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChatMessages", false);
+                ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"});
+            });
+            // Hypixel-like latency: without it every landing is back before the next tick and there is no chain to fire.
+            ctx.runOnClient(mc -> dev.testkit.harness.Latency.install(150));
+            ctx.waitTicks(40);
+            // A menu open (his terminal), then onto the start node: nothing arms under a screen.
+            ctx.runOnClient(mc -> mc.setScreen(new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player)));
+            ctx.waitTicks(3);
+            tpRel(ctx, pts[0][0] + 0.5, pts[0][1] + 0.5, relYawTo(pts[0][0], pts[0][1], pts[1][0], pts[1][1]), 0f);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+            ctx.waitTicks(10);
+            // Charge on, through the test hook the Blink tick reads.
+            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkFeature", "keyHeldForTest", Boolean.TRUE));
+            ctx.waitTicks(1);
+            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkFeature", "keyHeldForTest", Boolean.FALSE));
+            ctx.waitTicks(35);
+            int bank = ctx.computeOnClient(mc -> ((Number) ModUnderTest.staticCall("com.killer560.hub.blink.BlinkCharge", "banked")).intValue());
+            int chained0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingChained"));
+            int confirmed0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingConfirmed"));
+            int broken0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingBroken"));
+            JsonObject before = stats();
+            long m = LogTap.mark();
+            startSampling(ctx);
+            ctx.runOnClient(mc -> mc.setScreen(null));
+            Vec3 landed = waitLanded(ctx, end[0], end[1], 600);
+            ctx.waitTicks(20);
+            all.addAll(stopSampling(ctx));
+            int acted = 0;
+            int corrections = 0;
+            int bestBurst = 0;
+            java.util.regex.Pattern bp = java.util.regex.Pattern.compile("Charged Chain: (\\d+) warp\\(s\\) fired in one tick");
+            for (String l : LogTap.since(m)) {
+                acted += l.contains("ETHERWARP acted") ? 1 : 0;
+                corrections += l.contains("[Correction] Auto Routes") ? 1 : 0;
+                java.util.regex.Matcher bm = bp.matcher(l);
+                if (bm.find()) {
+                    bestBurst = Math.max(bestBurst, Integer.parseInt(bm.group(1)));
+                }
+            }
+            int serverWarps = delta(before, "etherwarps");
+            int chained = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingChained")) - chained0;
+            int confirmed = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingConfirmed")) - confirmed0;
+            int broken = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingBroken")) - broken0;
+            String line = String.format(Locale.ROOT, "charged chain: bank %d; largest burst %d warp(s) in one tick; server made %d "
+                            + "etherwarp(s); %d acted; chained %d, confirmed %d, broken %d; %d correction line(s)", bank, bestBurst,
+                    serverWarps, acted, chained, confirmed, broken, corrections);
+            println(line);
+            c.note(line);
+            check(bank >= 20, "the bank did not fill on the start node: " + bank);
+            check(landed != null, "the chain did not reach its end at " + end[0] + "," + end[1] + " (at " + relPos(ctx) + ")");
+            check(acted == pts.length, "expected " + pts.length + " route etherwarps, the log says " + acted);
+            check(serverWarps == pts.length, "the server made " + serverWarps + " etherwarps, expected " + pts.length);
+            check(bestBurst >= pts.length - 2, "the largest charged burst fired " + bestBurst + " warp(s), expected the chain's");
+            check(confirmed == chained && broken == 0, confirmed + " of " + chained + " predictions confirmed, " + broken
+                    + " broken");
+            check(corrections == 0, corrections + " correction line(s)");
+        } finally {
+            ctx.runOnClient(mc -> {
+                mc.setScreen(null);
+                dev.testkit.harness.Latency.remove();
+                dev.testkit.gametest.mod.Mod.setField("blink.BlinkFeature", "keyHeldForTest", null);
+                ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setZeroPingChain", new Class<?>[]{boolean.class},
+                        new Object[]{false});
+                ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setChargedChain", new Class<?>[]{boolean.class},
+                        new Object[]{false});
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setStyle",
+                        dev.testkit.gametest.mod.Mod.enumValue("blink.BlinkConfig$Style", "HOLD_PACKETS"));
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", false);
+            });
+        }
         noteFlags(c, all);
     }
 

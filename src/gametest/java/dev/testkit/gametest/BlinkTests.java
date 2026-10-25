@@ -53,6 +53,8 @@ public class BlinkTests implements FabricClientGameTest {
                 BlinkTests::setting, BlinkTests::still, BlinkTests::walk, BlinkTests::sprintJump, BlinkTests::pulse,
                 BlinkTests::latency, BlinkTests::pulseMax, BlinkTests::attack, BlinkTests::dig, BlinkTests::place,
                 BlinkTests::teleport, BlinkTests::refused, BlinkTests::leap, BlinkTests::knockback, BlinkTests::etherwarp,
+                BlinkTests::charge, BlinkTests::chargeActions, BlinkTests::chargeWarp, BlinkTests::chargeRun,
+                BlinkTests::chargeSweep, BlinkTests::chargeDouble, BlinkTests::clicks, BlinkTests::chargeFar, BlinkTests::chargeLong,
                 BlinkTests::worldChange, BlinkTests::bow,
                 BlinkTests::sweepWalk, BlinkTests::sweepStill,
                 BlinkTests::sweepLatency)) {
@@ -911,6 +913,623 @@ public class BlinkTests implements FabricClientGameTest {
                     hx.call("dungeon.abilities", "enabled", false);
                     hx.close();
                 }
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    // ---- Charge (killer560, 2026-10-25: "stand still and do a terminal then once it is done I start walking and release
+    // it so I shoot 22 packets forward"; "flick levers mine blocks"; "infinite"; "hold through leaps and etherwarps") ----
+
+    private static final String STYLE = "blink.BlinkConfig$Style";
+    private static final String CHARGE = "blink.BlinkCharge";
+
+    private static void chargeOn(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> {
+            Mod.set(CFG, "setStyle", Mod.enumValue(STYLE, "CHARGE"));
+            Mod.set(CFG, "setShootOnMove", true);
+            Mod.set(CFG, "setHoldAfterShot", false);
+        });
+        pressBlink(ctx);
+    }
+
+    private static void chargeOff(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> {
+            Mod.setField(FEATURE, "keyHeldForTest", Boolean.FALSE);
+            Mod.set(CFG, "setStyle", Mod.enumValue(STYLE, "HOLD_PACKETS"));
+        });
+        ctx.waitTicks(2);
+    }
+
+    private static long cnum(ClientGameTestContext ctx, String getter) {
+        return ctx.computeOnClient(mc -> ((Number) Mod.staticCall(CHARGE, getter)).longValue());
+    }
+
+    private static double lastShotBlocks(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> ((Number) Mod.staticCall(CHARGE, "lastShotBlocks")).doubleValue());
+    }
+
+    private static void look(ClientGameTestContext ctx, double tx, double ty, double tz) {
+        ctx.runOnClient(mc -> {
+            double ex = mc.player.getX();
+            double ey = mc.player.getEyeY();
+            double ez = mc.player.getZ();
+            double dx = tx - ex;
+            double dy = ty - ey;
+            double dz = tz - ez;
+            float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+            float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.hypot(dx, dz)));
+            mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(yaw - mc.player.getYRot()));
+            mc.player.setXRot(net.minecraft.util.Mth.clamp(pitch, -90f, 90f));
+        });
+    }
+
+    /**
+     * Walk forward one tick after standing charged and return how far the client went that tick, plus the shot's own
+     * numbers. The shot runs at the start of the tick the key is first down.
+     */
+    private static double[] shootByWalking(ClientGameTestContext ctx) {
+        long shots0 = cnum(ctx, "shots");
+        double[] before = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+        ctx.getInput().holdKey(o -> o.keyUp);
+        ctx.waitTicks(1);
+        double[] after = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+        ctx.getInput().releaseKey(o -> o.keyUp);
+        long shots = cnum(ctx, "shots") - shots0;
+        return new double[]{flat(before, after), shots, cnum(ctx, "lastShotTicks")};
+    }
+
+    /**
+     * 1025-blink-charge: Charge on, stand still 40 ticks (the bank fills to 22 and stops), then walk: the 22 ticks run at
+     * once and he is about five blocks on in one tick, client and server agreeing. Three times over - it never runs out.
+     */
+    private static void charge(ClientGameTestContext ctx) {
+        int x = -4600;
+        int z = -3400;
+        Scenario.run(ctx, "1025-blink-charge", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 22, "RELEASE");
+            try {
+                String name = playerName(ctx);
+                ctx.runOnClient(mc -> PacketTrace.start());
+                chargeOn(ctx);
+                StringBuilder rounds = new StringBuilder();
+                int good = 0;
+                for (int round = 0; round < 3; round++) {
+                    ctx.waitTicks(40);
+                    long bank = cnum(ctx, "banked");
+                    double[] shot = shootByWalking(ctx);
+                    ctx.waitTicks(10);
+                    double[] client = scenario.playerPosition();
+                    double[] srv = serverPos(server, ctx, name);
+                    rounds.append(String.format(Locale.ROOT, " [round %d: bank %d, shot %d tick(s) %.2f blocks in one tick; "
+                            + "client %s server %s]", round + 1, bank, (long) shot[2], shot[0], fmt(client), fmt(srv)));
+                    if (bank == 22 && shot[1] == 1 && shot[2] == 22 && shot[0] > 3.5 && flat(client, srv) < 0.5) {
+                        good++;
+                    }
+                }
+                ctx.runOnClient(mc -> PacketTrace.stop());
+                int setbacks = PacketTrace.received("player_position");
+                scenario.log("charge:" + rounds + "; " + setbacks + " setback(s)");
+                check(good == 3, good + " of 3 charge shots banked 22 ticks and shot him forward with the server agreeing");
+                check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
+            } finally {
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /**
+     * 1025-blink-charge-actions: while charged, flick a lever and dig two dirt blocks by hand, then shoot. The lever and the
+     * digs must reach the server (it shows them), the bank must still be there for the shot, and Grim says nothing.
+     */
+    private static void chargeActions(ClientGameTestContext ctx) {
+        int x = -4600;
+        int z = -3600;
+        Scenario.run(ctx, "1025-blink-charge-actions", (server, scenario) -> {
+            arena(server, x, z);
+            server.command("setblock " + (x + 2) + " " + SURFACE_Y + " " + (z + 2) + " minecraft:stone");
+            server.command("setblock " + (x + 2) + " " + (SURFACE_Y + 1) + " " + (z + 2) + " minecraft:lever[face=floor,facing=east]");
+            server.command("setblock " + (x + 2) + " " + SURFACE_Y + " " + (z - 2) + " minecraft:dirt");
+            server.command("setblock " + (x + 2) + " " + (SURFACE_Y + 1) + " " + (z - 2) + " minecraft:dirt");
+        }, (server, scenario) -> {
+            boolean gate = setUp(ctx, 22, "RELEASE");
+            try {
+                String name = playerName(ctx);
+                ctx.runOnClient(mc -> PacketTrace.start());
+                chargeOn(ctx);
+                ctx.waitTicks(30);
+                long bankBefore = cnum(ctx, "banked");
+                // The lever.
+                look(ctx, x + 2.5, SURFACE_Y + 1.1, z + 2.5);
+                ctx.waitTicks(2);
+                ctx.getInput().pressKey(o -> o.keyUse);
+                ctx.waitTicks(10);
+                // The two dirt blocks, top first, by hand.
+                look(ctx, x + 2.5, SURFACE_Y + 1.5, z - 1.5);
+                ctx.waitTicks(2);
+                ctx.getInput().holdKey(o -> o.keyAttack);
+                ctx.waitTicks(30);
+                look(ctx, x + 2.5, SURFACE_Y + 0.5, z - 1.5);
+                ctx.waitTicks(30);
+                ctx.getInput().releaseKey(o -> o.keyAttack);
+                // Face along +x again and stand a moment, still charged.
+                ctx.runOnClient(mc -> {
+                    mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(-90f - mc.player.getYRot()));
+                    mc.player.setXRot(0f);
+                });
+                ctx.waitTicks(30);
+                long bank = cnum(ctx, "banked");
+                double[] shot = shootByWalking(ctx);
+                ctx.waitTicks(20);
+                ctx.runOnClient(mc -> PacketTrace.stop());
+                server.command("execute if block " + (x + 2) + " " + (SURFACE_Y + 1) + " " + (z + 2)
+                        + " minecraft:lever[powered=true] run say LEVER_ON");
+                server.command("execute if block " + (x + 2) + " " + (SURFACE_Y + 1) + " " + (z - 2)
+                        + " minecraft:air if block " + (x + 2) + " " + SURFACE_Y + " " + (z - 2) + " minecraft:air run say DIRT_GONE");
+                ctx.waitTicks(10);
+                String tail = server.tail(80);
+                boolean lever = tail.contains("LEVER_ON");
+                boolean dirt = tail.contains("DIRT_GONE");
+                double[] client = scenario.playerPosition();
+                double[] srv = serverPos(server, ctx, name);
+                int setbacks = PacketTrace.received("player_position");
+                scenario.log(String.format(Locale.ROOT, "charge-actions: bank %d before, %d at the shot; lever on (server) %s, both "
+                                + "dirt gone (server) %s; shot %d tick(s) %.2f blocks in one tick; client %s server %s; %d setback(s)",
+                        bankBefore, bank, lever, dirt, (long) shot[2], shot[0], fmt(client), fmt(srv), setbacks));
+                check(bankBefore >= 20, "the bank did not fill before the actions: " + bankBefore);
+                check(lever, "the lever flick did not reach the server");
+                check(dirt, "the digging did not reach the server");
+                check(shot[1] == 1 && shot[2] >= 20 && shot[0] > 3.0, "no full shot after the actions: " + (long) shot[2]
+                        + " tick(s), " + shot[0] + " blocks");
+                check(flat(client, srv) < 0.5, "client and server disagree after the shot: " + fmt(client) + " vs " + fmt(srv));
+                check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
+            } finally {
+                ctx.getInput().releaseKey(o -> o.keyAttack);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /**
+     * 1025-blink-charge-warp: charged, then a real etherwarp (Hx abilities) and a server teleport (a leap) in the middle of
+     * the charge; the bank refills and the shot still goes, with the server agreeing and Grim silent.
+     */
+    private static void chargeWarp(ClientGameTestContext ctx) {
+        int x = -4600;
+        int z = -3800;
+        Scenario.run(ctx, "1025-blink-charge-warp", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 22, "RELEASE");
+            dev.testkit.gametest.hx.Hx hx = null;
+            try {
+                String name = playerName(ctx);
+                hx = dev.testkit.gametest.hx.Hx.connect();
+                hx.call("dungeon.abilities", "enabled", true);
+                hx.give(0, AOTV);
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+                ctx.waitTicks(10);
+                com.google.gson.JsonObject before = hx.call("dungeon.stats").getAsJsonObject();
+                ctx.runOnClient(mc -> PacketTrace.start());
+                chargeOn(ctx);
+                ctx.waitTicks(30);
+                long bank1 = cnum(ctx, "banked");
+                // Etherwarp 12 blocks on, sneaking.
+                ctx.getInput().holdKey(o -> o.keyShift);
+                ctx.waitTicks(3);
+                look(ctx, x + 12.5, SURFACE_Y, z + 0.5);
+                ctx.waitTicks(1);
+                ctx.getInput().pressKey(o -> o.keyUse);
+                ctx.waitTicks(10);
+                ctx.getInput().releaseKey(o -> o.keyShift);
+                ctx.waitTicks(30);
+                // A leap: the server moves him 10 blocks to the side.
+                server.command("tp " + name + " " + (x + 12.5) + " " + SURFACE_Y + " " + (z + 10.5));
+                ctx.waitTicks(30);
+                ctx.runOnClient(mc -> {
+                    mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(-90f - mc.player.getYRot()));
+                    mc.player.setXRot(0f);
+                });
+                ctx.waitTicks(30);
+                long bank2 = cnum(ctx, "banked");
+                double[] shot = shootByWalking(ctx);
+                ctx.waitTicks(20);
+                ctx.runOnClient(mc -> PacketTrace.stop());
+                com.google.gson.JsonObject after = hx.call("dungeon.stats").getAsJsonObject();
+                int warps = after.get("etherwarps").getAsInt() - before.get("etherwarps").getAsInt();
+                double[] client = scenario.playerPosition();
+                double[] srv = serverPos(server, ctx, name);
+                int positions = PacketTrace.received("player_position");
+                scenario.log(String.format(Locale.ROOT, "charge-warp: bank %d before the warp, %d at the shot; %d server warp(s), "
+                                + "%d position packet(s); shot %d tick(s) %.2f blocks in one tick; client %s server %s", bank1,
+                        bank2, warps, positions, (long) shot[2], shot[0], fmt(client), fmt(srv)));
+                check(bank1 >= 20, "the bank did not fill before the warp: " + bank1);
+                check(warps == 1, "the server did not etherwarp: " + warps);
+                check(positions == 2, positions + " position packet(s), not the warp and the leap");
+                check(shot[1] == 1 && shot[2] >= 20 && shot[0] > 3.0, "no full shot after the warp and leap: " + (long) shot[2]
+                        + " tick(s), " + shot[0] + " blocks");
+                check(Math.abs(client[2] - (z + 10.5)) < 1.0, "he is not on the leap's row: " + fmt(client));
+                check(flat(client, srv) < 0.5, "client and server disagree after the shot: " + fmt(client) + " vs " + fmt(srv));
+            } finally {
+                ctx.getInput().releaseKey(o -> o.keyShift);
+                if (hx != null) {
+                    hx.call("dungeon.abilities", "enabled", false);
+                    hx.close();
+                }
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /**
+     * 1025-blink-charge-run (killer560, 2026-10-25: "make it charge while blinking and running"): Shoot When You Move off.
+     * Charge standing still, then sprint about for 40 ticks - the bank is kept - and press the Blink key mid-sprint: the
+     * bank fires at once, charging goes on, and after standing again it is full and fires again. Grim silent.
+     */
+    private static void chargeRun(ClientGameTestContext ctx) {
+        int x = -4800;
+        int z = -3400;
+        Scenario.run(ctx, "1025-blink-charge-run", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 22, "RELEASE");
+            try {
+                String name = playerName(ctx);
+                ctx.runOnClient(mc -> PacketTrace.start());
+                chargeOn(ctx);
+                ctx.runOnClient(mc -> Mod.set(CFG, "setShootOnMove", false));
+                StringBuilder rounds = new StringBuilder();
+                int good = 0;
+                for (int round = 0; round < 2; round++) {
+                    ctx.waitTicks(35);
+                    long bankStill = cnum(ctx, "banked");
+                    ctx.getInput().holdKey(o -> o.keyUp);
+                    ctx.getInput().holdKey(o -> o.keySprint);
+                    ctx.waitTicks(20);
+                    long bankRunning = cnum(ctx, "banked");
+                    long shots0 = cnum(ctx, "shots");
+                    double[] before = scenario.playerPosition();
+                    pressBlink(ctx);
+                    double[] after = scenario.playerPosition();
+                    long shots = cnum(ctx, "shots") - shots0;
+                    long ticks = cnum(ctx, "lastShotTicks");
+                    boolean stillCharging = ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "isActive"));
+                    ctx.waitTicks(5);
+                    ctx.getInput().releaseKey(o -> o.keySprint);
+                    ctx.getInput().releaseKey(o -> o.keyUp);
+                    // Turn round so the next sprint stays on the platform.
+                    ctx.runOnClient(mc -> mc.player.setYRot(mc.player.getYRot() + 180f));
+                    ctx.waitTicks(10);
+                    double[] client = scenario.playerPosition();
+                    double[] srv = serverPos(server, ctx, name);
+                    double went = flat(before, after);
+                    rounds.append(String.format(Locale.ROOT, " [round %d: bank %d standing, %d after 20 sprinting ticks; key press "
+                                    + "shot %d tick(s), %.2f blocks over the press's 2 ticks, still charging %s; client %s server %s]",
+                            round + 1, bankStill, bankRunning, ticks, went, stillCharging, fmt(client), fmt(srv)));
+                    if (bankStill == 22 && bankRunning == 22 && shots == 1 && ticks == 22 && went > 6.0 && stillCharging
+                            && flat(client, srv) < 0.5) {
+                        good++;
+                    }
+                }
+                ctx.runOnClient(mc -> PacketTrace.stop());
+                int setbacks = PacketTrace.received("player_position");
+                scenario.log("charge-run:" + rounds + "; " + setbacks + " setback(s)");
+                check(good == 2, good + " of 2 rounds kept the bank while sprinting and fired it on the key");
+                check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
+            } finally {
+                ctx.getInput().releaseKey(o -> o.keySprint);
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /**
+     * 1025-blink-charge-sweep: how big a bank GrimAC takes. For each length (testkit.chargeSweep, default 22,23,24,26,30):
+     * back to the start, charge exactly that many ticks standing, shoot by walking, and record what Grim said.
+     */
+    private static void chargeSweep(ClientGameTestContext ctx) {
+        int x = -4800;
+        int z = -3600;
+        Scenario.runExpectingFlags(ctx, "1025-blink-charge-sweep", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 22, "RELEASE");
+            String p = System.getProperty("testkit.chargeSweep");
+            String[] parts = (p == null || p.isBlank() ? "22,23,24,26,30" : p).split(",");
+            List<String> rows = new ArrayList<>();
+            int longestClean = 0;
+            boolean brokeClean = false;
+            String name = playerName(ctx);
+            try {
+                for (String part : parts) {
+                    int len = Integer.parseInt(part.trim());
+                    server.command("tp " + name + " " + (x - 20.5) + " " + SURFACE_Y + " " + (z + 0.5) + " -90 0");
+                    ctx.waitTicks(30);
+                    ctx.runOnClient(mc -> Mod.set(CFG, "setMaxTicks", len));
+                    server.mark();
+                    chargeOn(ctx);
+                    ctx.waitTicks(len + 15);
+                    long bank = cnum(ctx, "banked");
+                    double[] shot = shootByWalking(ctx);
+                    ctx.getInput().holdKey(o -> o.keyUp);
+                    ctx.waitTicks(10);
+                    ctx.getInput().releaseKey(o -> o.keyUp);
+                    chargeOff(ctx);
+                    ctx.waitTicks(40);
+                    List<String> flags = scenario.flags();
+                    boolean ok = flags.isEmpty() && bank == len && (long) shot[2] == len;
+                    String row = String.format(Locale.ROOT, "bank %3d: banked %d, shot %d tick(s) %.2f blocks, %s", len, bank,
+                            (long) shot[2], shot[0], flags.isEmpty() ? "clean" : flags.size() + " flag(s): " + firstChecks(flags));
+                    rows.add(row);
+                    scenario.log(row);
+                    if (ok && !brokeClean) {
+                        longestClean = len;
+                    } else if (!ok) {
+                        brokeClean = true;
+                    }
+                    if (!flags.isEmpty()) {
+                        ctx.waitTicks(60);
+                    }
+                }
+            } finally {
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            scenario.log("SWEEP 1025-blink-charge-sweep: biggest bank clean (and every smaller one) " + longestClean + " tick(s)");
+            for (String r : rows) {
+                scenario.log("  " + r);
+            }
+            check(!rows.isEmpty(), "the sweep ran no lengths");
+            server.mark();
+        });
+    }
+
+    /**
+     * 1025-blink-charge-double (killer560, 2026-10-25: "effectively get 2 blinks"): charge 22 standing, then sprint - the
+     * bank fires at once and a normal 22-tick hold starts straight after (Blink Again After Shot), released at its limit.
+     * Grim must stay silent and client and server agree at the end.
+     */
+    private static void chargeDouble(ClientGameTestContext ctx) {
+        int x = -4800;
+        int z = -3800;
+        Scenario.run(ctx, "1025-blink-charge-double", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 22, "RELEASE");
+            try {
+                String name = playerName(ctx);
+                chargeOn(ctx);
+                ctx.runOnClient(mc -> Mod.set(CFG, "setHoldAfterShot", true));
+                ctx.waitTicks(35);
+                long bank = cnum(ctx, "banked");
+                long holds0 = num(ctx, "releasedHolds");
+                ctx.runOnClient(mc -> PacketTrace.start());
+                double[] start = scenario.playerPosition();
+                ctx.getInput().holdKey(o -> o.keyUp);
+                ctx.getInput().holdKey(o -> o.keySprint);
+                ctx.waitTicks(1);
+                double[] afterShot = scenario.playerPosition();
+                long shotTicks = cnum(ctx, "lastShotTicks");
+                boolean followUp = holding(ctx) && "charge follow-up".equals(
+                        ctx.computeOnClient(mc -> (String) Mod.staticCall(FEATURE, "holdOwner")));
+                ctx.waitTicks(30);
+                ctx.getInput().releaseKey(o -> o.keySprint);
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                ctx.waitTicks(10);
+                ctx.runOnClient(mc -> PacketTrace.stop());
+                long released = num(ctx, "releasedHolds") - holds0;
+                long lastHold = num(ctx, "lastHoldTicks");
+                int setbacks = PacketTrace.received("player_position");
+                double[] client = scenario.playerPosition();
+                double[] srv = serverPos(server, ctx, name);
+                scenario.log(String.format(Locale.ROOT, "charge-double: bank %d; shot %d tick(s) %.2f blocks in one tick; follow-up "
+                                + "hold started %s, %d release(s), last hold %d tick(s); %.2f blocks in all; client %s server %s; "
+                                + "%d setback(s)", bank, shotTicks, flat(start, afterShot), followUp, released, lastHold,
+                        flat(start, client), fmt(client), fmt(srv), setbacks));
+                check(bank == 22 && shotTicks == 22 && flat(start, afterShot) > 5.0, "the charge did not shoot 22 ticks");
+                check(followUp, "no follow-up hold started after the shot");
+                check(released >= 1 && lastHold == 22, "the follow-up hold did not run to 22 ticks and release");
+                check(flat(client, srv) < 0.5, "client and server disagree at the end: " + fmt(client) + " vs " + fmt(srv));
+                check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
+            } finally {
+                ctx.getInput().releaseKey(o -> o.keySprint);
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /**
+     * 1025-blink-clicks (killer560, 2026-10-25: a blink "while being in a terminal menu and clicking"): a server menu open,
+     * a 22-tick Hold Packets blink, four slot clicks during it. The clicks go out live (Menu Clicks Go Through), the hold
+     * runs to its limit and releases, the menu stays open, Grim silent.
+     */
+    private static void clicks(ClientGameTestContext ctx) {
+        int x = -5000;
+        int z = -3400;
+        Scenario.run(ctx, "1025-blink-clicks", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 22, "RELEASE");
+            try (dev.testkit.gametest.hx.Hx hx = dev.testkit.gametest.hx.Hx.connect()) {
+                ctx.runOnClient(mc -> Mod.set(CFG, "setClicksLive", true));
+                hx.menu("Blink Terminal", 3, java.util.Map.of(11, "minecraft:stone", 13, "minecraft:dirt", 15,
+                        "minecraft:oak_log"), null);
+                ctx.waitTicks(10);
+                long live0 = num(ctx, "clicksLive");
+                long holds0 = num(ctx, "releasedHolds");
+                pressBlink(ctx);
+                for (int t = 0; t < 20; t++) {
+                    ctx.waitTicks(1);
+                    if (t % 5 == 2) {
+                        int slot = 11 + (t / 5 % 3) * 2;
+                        ctx.runOnClient(mc -> {
+                            var menu = mc.player.containerMenu;
+                            mc.gameMode.handleContainerInput(menu.containerId, slot, 0,
+                                    net.minecraft.world.inventory.ContainerInput.PICKUP, mc.player);
+                        });
+                    }
+                }
+                ctx.waitTicks(15);
+                boolean open = ctx.computeOnClient(mc -> mc.screen instanceof
+                        net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>);
+                long live = num(ctx, "clicksLive") - live0;
+                long released = num(ctx, "releasedHolds") - holds0;
+                long lastHold = num(ctx, "lastHoldTicks");
+                ctx.runOnClient(mc -> mc.player.closeContainer());
+                scenario.log(String.format(Locale.ROOT, "clicks: %d click(s) went out live during the hold, %d release(s), last "
+                        + "hold %d tick(s), menu still open %s", live, released, lastHold, open));
+                check(live >= 4, "fewer than four clicks went out live during the hold: " + live);
+                check(released >= 1 && lastHold == 22, "the hold did not run to 22 ticks and release");
+                check(open, "the menu closed during the blink");
+            } finally {
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /**
+     * 1025-blink-charge-far (killer560, 2026-10-25: "blink as far as possible"): the shot runs his real movement, so its
+     * length is his speed times 22 ticks. A plain walking shot, then one sprint-jumping with Speed IV: both must be clean
+     * and agree with the server; the log gives the distances.
+     */
+    private static void chargeFar(ClientGameTestContext ctx) {
+        int x = -5000;
+        int z = -3800;
+        Scenario.run(ctx, "1025-blink-charge-far", (server, scenario) -> arena(server, x - 25, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 22, "RELEASE");
+            String name = playerName(ctx);
+            try {
+                ctx.runOnClient(mc -> PacketTrace.start());
+                chargeOn(ctx);
+                ctx.waitTicks(35);
+                double[] walk = shootByWalking(ctx);
+                StringBuilder rows = new StringBuilder();
+                int good = 0;
+                // jump only, Speed IV only (sprinting), both
+                boolean[][] kinds = {{true, false}, {false, true}, {true, true}};
+                double[] dist = new double[3];
+                for (int k = 0; k < 3; k++) {
+                    boolean jump = kinds[k][0];
+                    boolean speed = kinds[k][1];
+                    server.command("effect clear " + name);
+                    server.command("tp " + name + " " + (x - 55.5) + " " + SURFACE_Y + " " + (z + 0.5) + " -90 0");
+                    if (speed) {
+                        server.command("effect give " + name + " minecraft:speed 60 3 true");
+                    }
+                    ctx.waitTicks(60);
+                    long bank = cnum(ctx, "banked");
+                    int sb0 = PacketTrace.received("player_position");
+                    double[] before = scenario.playerPosition();
+                    ctx.getInput().holdKey(o -> o.keySprint);
+                    if (jump) {
+                        ctx.getInput().holdKey(o -> o.keyJump);
+                    }
+                    ctx.getInput().holdKey(o -> o.keyUp);
+                    ctx.waitTicks(1);
+                    double[] after = scenario.playerPosition();
+                    ctx.getInput().releaseKey(o -> o.keyUp);
+                    ctx.getInput().releaseKey(o -> o.keyJump);
+                    ctx.getInput().releaseKey(o -> o.keySprint);
+                    long ticks = cnum(ctx, "lastShotTicks");
+                    ctx.waitTicks(30);
+                    double[] client = scenario.playerPosition();
+                    double[] srv = serverPos(server, ctx, name);
+                    int sb = PacketTrace.received("player_position") - sb0;
+                    dist[k] = flat(before, after);
+                    String label = jump && speed ? "sprint-jump + Speed IV" : jump ? "sprint-jump" : "sprint + Speed IV";
+                    rows.append(String.format(Locale.ROOT, " [%s: bank %d, shot %d tick(s) %.2f blocks in one tick; client %s "
+                            + "server %s; %d position packet(s) after]", label, bank, ticks, dist[k], fmt(client), fmt(srv), sb));
+                    if (bank == 22 && ticks == 22 && dist[k] > walk[0] && flat(client, srv) < 0.5 && sb == 0) {
+                        good++;
+                    }
+                }
+                ctx.runOnClient(mc -> PacketTrace.stop());
+                server.command("effect clear " + name);
+                scenario.log(String.format(Locale.ROOT, "charge-far: walking shot %d tick(s) %.2f blocks;", (long) walk[2], walk[0])
+                        + rows);
+                check(walk[2] == 22, "the walking shot was not 22 ticks");
+                check(good == 3, good + " of 3 fast shots went further than walking with the server agreeing");
+            } finally {
+                server.command("effect clear " + name);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /**
+     * 1025-blink-charge-long (killer560, 2026-10-25: "I don't want the charge to be dropped due to time"): charge, then
+     * wait 40 s - standing, then a lever flick, then sprinting about - and shoot. The bank must still be full and the shot
+     * clean; he is never kicked (Grim's max-transaction-time is 60 s).
+     */
+    private static void chargeLong(ClientGameTestContext ctx) {
+        int x = -5200;
+        int z = -3400;
+        Scenario.run(ctx, "1025-blink-charge-long", (server, scenario) -> {
+            arena(server, x, z);
+            server.command("setblock " + (x + 2) + " " + SURFACE_Y + " " + (z + 2) + " minecraft:stone");
+            server.command("setblock " + (x + 2) + " " + (SURFACE_Y + 1) + " " + (z + 2) + " minecraft:lever[face=floor,facing=east]");
+        }, (server, scenario) -> {
+            boolean gate = setUp(ctx, 22, "RELEASE");
+            try {
+                String name = playerName(ctx);
+                ctx.runOnClient(mc -> PacketTrace.start());
+                chargeOn(ctx);
+                ctx.runOnClient(mc -> Mod.set(CFG, "setShootOnMove", false));
+                ctx.waitTicks(400);
+                look(ctx, x + 2.5, SURFACE_Y + 1.1, z + 2.5);
+                ctx.waitTicks(2);
+                ctx.getInput().pressKey(o -> o.keyUse);
+                ctx.waitTicks(200);
+                ctx.runOnClient(mc -> {
+                    mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(90f - mc.player.getYRot()));
+                    mc.player.setXRot(0f);
+                });
+                ctx.getInput().holdKey(o -> o.keyUp);
+                ctx.getInput().holdKey(o -> o.keySprint);
+                ctx.waitTicks(60);
+                ctx.runOnClient(mc -> mc.player.setYRot(mc.player.getYRot() + 180f));
+                ctx.waitTicks(60);
+                ctx.getInput().releaseKey(o -> o.keySprint);
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                ctx.waitTicks(80);
+                ctx.runOnClient(mc -> {
+                    mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(-90f - mc.player.getYRot()));
+                    mc.player.setXRot(0f);
+                });
+                ctx.waitTicks(5);
+                long bank = cnum(ctx, "banked");
+                boolean connected = ctx.computeOnClient(mc -> mc.getConnection() != null && mc.player != null);
+                long shots0 = cnum(ctx, "shots");
+                double[] before = scenario.playerPosition();
+                ctx.getInput().holdKey(o -> o.keyUp);
+                pressBlink(ctx);
+                double[] after = scenario.playerPosition();
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                long shots = cnum(ctx, "shots") - shots0;
+                long ticks = cnum(ctx, "lastShotTicks");
+                ctx.waitTicks(20);
+                ctx.runOnClient(mc -> PacketTrace.stop());
+                int setbacks = PacketTrace.received("player_position");
+                double[] client = scenario.playerPosition();
+                double[] srv = serverPos(server, ctx, name);
+                scenario.log(String.format(Locale.ROOT, "charge-long: after ~40 s (standing, a lever, sprinting) bank %d, connected %s; "
+                                + "shot %d tick(s), %.2f blocks over the press's 2 ticks; client %s server %s; %d setback(s)", bank,
+                        connected, ticks, flat(before, after), fmt(client), fmt(srv), setbacks));
+                check(connected, "he was disconnected while charging");
+                check(bank == 22, "the bank was not full after the wait: " + bank);
+                check(shots == 1 && ticks == 22 && flat(before, after) > 4.0, "no full shot after the wait");
+                check(flat(client, srv) < 0.5, "client and server disagree after the shot: " + fmt(client) + " vs " + fmt(srv));
+                check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
+            } finally {
+                ctx.getInput().releaseKey(o -> o.keySprint);
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                chargeOff(ctx);
                 tearDown(ctx, gate);
             }
             ctx.waitTicks(40);
