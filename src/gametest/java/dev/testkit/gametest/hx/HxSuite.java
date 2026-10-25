@@ -76,6 +76,9 @@ public class HxSuite implements FabricClientGameTest {
                     // Staleness of the FPS pass's caches: every cached input changed, the display read back
                     // (1016-hx-stale-*, branch fps-combined-1016), own block.
                     HxStaleCases.register(s);
+                    // Dungeon alerts of 2026-10-25: low health, Livid extras, score warning, secret feedback, breaker
+                    // charges, key spawn (1025-alerts-*, branch dungeon-alerts-1025), own block.
+                    HxAlerts1025Cases.register(s);
                 });
     }
 }
