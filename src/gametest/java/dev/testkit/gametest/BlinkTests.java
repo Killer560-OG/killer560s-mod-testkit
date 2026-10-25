@@ -52,7 +52,8 @@ public class BlinkTests implements FabricClientGameTest {
         for (Consumer<ClientGameTestContext> c : List.<Consumer<ClientGameTestContext>>of(
                 BlinkTests::setting, BlinkTests::still, BlinkTests::walk, BlinkTests::sprintJump, BlinkTests::pulse,
                 BlinkTests::latency, BlinkTests::pulseMax, BlinkTests::attack, BlinkTests::dig, BlinkTests::place,
-                BlinkTests::teleport, BlinkTests::worldChange, BlinkTests::bow,
+                BlinkTests::teleport, BlinkTests::refused, BlinkTests::leap, BlinkTests::knockback, BlinkTests::etherwarp,
+                BlinkTests::worldChange, BlinkTests::bow,
                 BlinkTests::sweepWalk, BlinkTests::sweepStill,
                 BlinkTests::sweepLatency)) {
             try {
@@ -650,46 +651,266 @@ public class BlinkTests implements FabricClientGameTest {
     }
 
     /**
-     * 1025-blink-teleport: a server teleport in the middle of a sprinting hold. Blink must release first, the teleport is
-     * honored (he ends up where the server put him, not where he was walking), and Toggle keeps holding afterwards.
+     * 1025-blink-teleport (killer560, 2026-10-25: "make the blink survive taking knock back and etherwarping and leaping"):
+     * a server teleport in the middle of a sprinting Toggle hold. Blink keeps holding (the accept goes into the queue in
+     * order), the client is where the server put him, and once the hold ends client and server agree. Under 20 ticks in
+     * all, so the hold stays inside GrimAC's 22 and the server does not resend the teleport.
      */
     private static void teleport(ClientGameTestContext ctx) {
         int x = -4400;
         int z = -3000;
         Scenario.run(ctx, "1025-blink-teleport", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
-            boolean gate = setUp(ctx, 200, "RELEASE");
+            boolean gate = setUp(ctx, 22, "RELEASE");
             try {
                 String name = playerName(ctx);
                 ctx.getInput().holdKey(o -> o.keyUp);
                 ctx.getInput().holdKey(o -> o.keySprint);
                 ctx.waitTicks(5);
                 long holds0 = num(ctx, "releasedHolds");
+                long tp0 = num(ctx, "teleportsHeld");
                 pressBlink(ctx);
-                ctx.waitTicks(10);
+                ctx.waitTicks(6);
                 boolean heldBefore = holding(ctx);
                 releaseKeys(ctx);
                 server.command("tp " + name + " " + (x + 0.5) + " " + SURFACE_Y + " " + (z + 20.5));
-                // The release and the accept go out at once; the hold starts again on the next tick.
-                boolean released = false;
-                for (int i = 0; i < 40 && !released; i++) {
+                boolean kept = false;
+                for (int i = 0; i < 12 && !kept; i++) {
                     ctx.waitTicks(1);
-                    released = num(ctx, "releasedHolds") > holds0;
+                    kept = num(ctx, "teleportsHeld") > tp0;
                 }
-                ctx.waitTicks(5);
-                boolean holdingAgain = holding(ctx);
-                double[] client = scenario.playerPosition();
+                boolean stillHolding = holding(ctx);
+                boolean releasedByTp = num(ctx, "releasedHolds") > holds0;
+                double[] clientHeld = scenario.playerPosition();
                 pressBlink(ctx);
                 ctx.waitTicks(10);
+                double[] client = scenario.playerPosition();
                 double[] srv = serverPos(server, ctx, name);
-                scenario.log(String.format(Locale.ROOT, "teleport: holding before %s, released %s, holding again %s; client %s, "
-                        + "server %s", heldBefore, released, holdingAgain, fmt(client), fmt(srv)));
+                scenario.log(String.format(Locale.ROOT, "teleport: holding before %s, held through %s, still holding %s, released "
+                        + "by it %s; client while held %s, after %s, server %s", heldBefore, kept, stillHolding, releasedByTp,
+                        fmt(clientHeld), fmt(client), fmt(srv)));
                 check(heldBefore, "no hold was running when the teleport came");
-                check(released, "the teleport did not release the hold");
-                check(holdingAgain, "Blink did not carry on holding after the teleport");
-                check(Math.abs(client[2] - (z + 20.5)) < 1.0 && Math.abs(client[0] - (x + 0.5)) < 1.0,
-                        "the client is not where the server put him: " + fmt(client));
-                check(flat(client, srv) < 0.5, "client and server disagree after the teleport: " + fmt(client) + " vs " + fmt(srv));
+                check(kept && stillHolding && !releasedByTp, "Blink did not keep holding through the teleport");
+                check(Math.abs(clientHeld[2] - (z + 20.5)) < 1.0 && Math.abs(clientHeld[0] - (x + 0.5)) < 1.0,
+                        "the client is not where the server put him: " + fmt(clientHeld));
+                check(flat(client, srv) < 0.5, "client and server disagree after the hold: " + fmt(client) + " vs " + fmt(srv));
             } finally {
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /**
+     * 1025-blink-refused: the server puts him back where a sprinting hold started (what a refused blink looks like). Blink
+     * drops the blink - the held moves never go - and he carries on from the start with client and server agreeing.
+     */
+    private static void refused(ClientGameTestContext ctx) {
+        int x = -4400;
+        int z = -3200;
+        Scenario.run(ctx, "1025-blink-refused", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 22, "RELEASE");
+            try {
+                String name = playerName(ctx);
+                ctx.waitTicks(10);
+                double[] start = serverPos(server, ctx, name);
+                long ref0 = num(ctx, "refused");
+                long holds0 = num(ctx, "releasedHolds");
+                pressBlink(ctx);
+                ctx.getInput().holdKey(o -> o.keyUp);
+                ctx.getInput().holdKey(o -> o.keySprint);
+                ctx.waitTicks(10);
+                boolean heldBefore = holding(ctx);
+                double[] walked = scenario.playerPosition();
+                releaseKeys(ctx);
+                server.command(String.format(Locale.ROOT, "tp %s %.4f %.4f %.4f", name, start[0], start[1], start[2]));
+                boolean dropped = false;
+                for (int i = 0; i < 12 && !dropped; i++) {
+                    ctx.waitTicks(1);
+                    dropped = num(ctx, "refused") > ref0;
+                }
+                pressBlink(ctx);
+                ctx.waitTicks(10);
+                boolean released = num(ctx, "releasedHolds") > holds0;
+                double[] client = scenario.playerPosition();
+                double[] srv = serverPos(server, ctx, name);
+                scenario.log(String.format(Locale.ROOT, "refused: started %s, walked to %s while held, dropped %s, released %s; "
+                        + "client %s, server %s", fmt(start), fmt(walked), dropped, released, fmt(client), fmt(srv)));
+                check(heldBefore && flat(start, walked) > 2, "no sprinting hold was running when the server set him back");
+                check(dropped && released, "Blink did not drop the refused blink");
+                check(flat(client, start) < 0.5, "he is not back at the start: " + fmt(client));
+                check(flat(client, srv) < 0.5, "client and server disagree after the drop: " + fmt(client) + " vs " + fmt(srv));
+            } finally {
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /**
+     * 1025-blink-leap: Pulse at 22 while sprinting, the server moves him three times (a leap is a server teleport). Each
+     * one is held through, the pulses carry on, no setback beyond the three teleports, client and server agree at the end.
+     */
+    private static void leap(ClientGameTestContext ctx) {
+        int x = -4400;
+        int z = -3400;
+        Scenario.run(ctx, "1025-blink-leap", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 22, "PULSE");
+            try {
+                String name = playerName(ctx);
+                long tp0 = num(ctx, "teleportsHeld");
+                long holds0 = num(ctx, "releasedHolds");
+                long ref0 = num(ctx, "refused");
+                ctx.runOnClient(mc -> PacketTrace.start());
+                pressBlink(ctx);
+                int[][] spots = {{-15, -15}, {15, -15}, {0, 15}};
+                for (int[] spot : spots) {
+                    ctx.getInput().holdKey(o -> o.keyUp);
+                    ctx.getInput().holdKey(o -> o.keySprint);
+                    ctx.waitTicks(17);
+                    server.command("tp " + name + " " + (x + spot[0] + 0.5) + " " + SURFACE_Y + " " + (z + spot[1] + 0.5));
+                    ctx.waitTicks(13);
+                }
+                releaseKeys(ctx);
+                ctx.waitTicks(10);
+                pressBlink(ctx);
+                ctx.waitTicks(20);
+                ctx.runOnClient(mc -> PacketTrace.stop());
+                long held = num(ctx, "teleportsHeld") - tp0;
+                long holds = num(ctx, "releasedHolds") - holds0;
+                long refusedN = num(ctx, "refused") - ref0;
+                int positions = PacketTrace.received("player_position");
+                double[] client = scenario.playerPosition();
+                double[] srv = serverPos(server, ctx, name);
+                scenario.log(String.format(Locale.ROOT, "leap: %d teleport(s) held through, %d release(s), %d refused, %d position "
+                        + "packet(s); client %s, server %s", held, holds, refusedN, positions, fmt(client), fmt(srv)));
+                check(held >= 2, "Blink held through fewer than two of the three teleports: " + held);
+                check(holds >= 4, "Pulse did not keep going: " + holds + " release(s)");
+                check(refusedN == 0, "a teleport was taken for a refused blink");
+                check(positions == 3, "the server sent " + positions + " position packet(s), not the three teleports");
+                check(flat(client, srv) < 0.5, "client and server disagree at the end: " + fmt(client) + " vs " + fmt(srv));
+            } finally {
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /**
+     * 1025-blink-knockback: Pulse at 22 standing in front of a bot that hits him once a second. The knockback must reach
+     * him (he is moved), Pulse keeps holding and releasing, and nothing sets him back.
+     */
+    private static void knockback(ClientGameTestContext ctx) {
+        int x = -4400;
+        int z = -3600;
+        Scenario.run(ctx, "1025-blink-knockback", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 22, "PULSE");
+            TestEnemy attacker = null;
+            try {
+                double[] start = scenario.playerPosition();
+                long holds0 = num(ctx, "releasedHolds");
+                ctx.runOnClient(mc -> PacketTrace.start());
+                pressBlink(ctx);
+                attacker = TestEnemy.named("Knockback", "Blink")
+                        .at(x + 3.5, SURFACE_Y, z + 0.5)
+                        .health(20)
+                        .heldItem("minecraft:stick")
+                        .attacking(4.0f, 20, 1.0f)
+                        .chasing(true)
+                        .spawn(ctx, server);
+                attacker.drive(200);
+                pressBlink(ctx);
+                ctx.waitTicks(10);
+                ctx.runOnClient(mc -> PacketTrace.stop());
+                long holds = num(ctx, "releasedHolds") - holds0;
+                int setbacks = PacketTrace.received("player_position");
+                double[] end = scenario.playerPosition();
+                double moved = flat(start, end);
+                String name = playerName(ctx);
+                double[] srv = serverPos(server, ctx, name);
+                scenario.log(String.format(Locale.ROOT, "knockback: %d hit(s), moved %.2f blocks, %d release(s), %d setback(s); "
+                        + "client %s, server %s", attacker.hits(), moved, holds, setbacks, fmt(end), fmt(srv)));
+                check(attacker.hits() >= 5, "only " + attacker.hits() + " hit(s): knockback was hardly tested");
+                check(moved >= 0.5, "he was not knocked anywhere (" + moved + " blocks): no knockback was delivered");
+                check(holds >= 6, "Pulse did not keep going under the hits: " + holds + " release(s)");
+                check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
+                check(flat(end, srv) < 0.5, "client and server disagree at the end: " + fmt(end) + " vs " + fmt(srv));
+            } finally {
+                if (attacker != null) {
+                    attacker.remove();
+                }
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    private static final String AOTV = "minecraft:diamond_shovel[custom_data={id:\"ASPECT_OF_THE_VOID\",ethermerge:1,"
+            + "tuned_transmission:4},unbreakable={}]";
+
+    /**
+     * 1025-blink-etherwarp: Pulse at 22, four real etherwarps (hx/dungeon/HxAbilities) 15 ticks apart. Each warp's use is
+     * held and released with its pulse, and the landing arrives while the next hold is running: Blink must keep holding,
+     * the server must warp all four times, and client and server agree at the end.
+     */
+    private static void etherwarp(ClientGameTestContext ctx) {
+        int x = -4400;
+        int z = -3800;
+        Scenario.run(ctx, "1025-blink-etherwarp", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 22, "PULSE");
+            dev.testkit.gametest.hx.Hx hx = null;
+            try {
+                hx = dev.testkit.gametest.hx.Hx.connect();
+                hx.call("dungeon.abilities", "enabled", true);
+                hx.give(0, AOTV);
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+                ctx.waitTicks(10);
+                com.google.gson.JsonObject before = hx.call("dungeon.stats").getAsJsonObject();
+                long tp0 = num(ctx, "teleportsHeld");
+                long ref0 = num(ctx, "refused");
+                long holds0 = num(ctx, "releasedHolds");
+                ctx.getInput().holdKey(o -> o.keyShift);
+                ctx.waitTicks(5);
+                pressBlink(ctx);
+                for (int i = 1; i <= 4; i++) {
+                    int bx = x + 6 * i;
+                    ctx.runOnClient(mc -> {
+                        net.minecraft.world.phys.Vec3 f = mc.player.position();
+                        double dx = bx + 0.5 - f.x;
+                        double dy = SURFACE_Y - (f.y + 1.27);
+                        double dz = z + 0.5 - f.z;
+                        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+                        float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.hypot(dx, dz)));
+                        mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(yaw - mc.player.getYRot()));
+                        mc.player.setXRot(net.minecraft.util.Mth.clamp(pitch, -90f, 90f));
+                    });
+                    ctx.getInput().pressKey(o -> o.keyUse);
+                    ctx.waitTicks(30);
+                }
+                pressBlink(ctx);
+                ctx.waitTicks(20);
+                ctx.getInput().releaseKey(o -> o.keyShift);
+                com.google.gson.JsonObject after = hx.call("dungeon.stats").getAsJsonObject();
+                int warps = after.get("etherwarps").getAsInt() - before.get("etherwarps").getAsInt();
+                long held = num(ctx, "teleportsHeld") - tp0;
+                long refusedN = num(ctx, "refused") - ref0;
+                long holds = num(ctx, "releasedHolds") - holds0;
+                double[] client = scenario.playerPosition();
+                String name = playerName(ctx);
+                double[] srv = serverPos(server, ctx, name);
+                scenario.log(String.format(Locale.ROOT, "etherwarp: %d server warp(s), %d landing(s) held through, %d refused, %d "
+                        + "release(s); client %s, server %s", warps, held, refusedN, holds, fmt(client), fmt(srv)));
+                check(warps == 4, "the server did not etherwarp four times: " + warps);
+                check(held >= 3, "Blink held through fewer than three of the landings: " + held);
+                check(refusedN == 0, "a landing was taken for a refused blink");
+                check(Math.abs(client[0] - (x + 24.5)) < 1.0 && Math.abs(client[2] - (z + 0.5)) < 1.0,
+                        "he is not on the last warp's block: " + fmt(client));
+                check(flat(client, srv) < 0.5, "client and server disagree at the end: " + fmt(client) + " vs " + fmt(srv));
+            } finally {
+                ctx.getInput().releaseKey(o -> o.keyShift);
+                if (hx != null) {
+                    hx.call("dungeon.abilities", "enabled", false);
+                    hx.close();
+                }
                 tearDown(ctx, gate);
             }
             ctx.waitTicks(40);
