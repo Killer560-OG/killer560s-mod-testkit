@@ -1096,3 +1096,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   `ChannelAccess$ChannelHandle.isStopped()` turns true when the sound thread releases the OpenAL source: 1-2 ticks.
   Since theme-ui-1022 Theme Music defaults ON, so `defaultsWhy` no longer checks the switch; 1021-theme-music checks the
   default on a deleted file, and that a file which saved OFF still loads OFF.
+- 1025-lcew-* (CheatExtrasTests, mod cheat-extras-1025): Left Click Etherwarp. Packet order is read from
+  `PacketTrace.tap` (the input packet with its sneak bit), not from the name trace; `-control` (feature off) proves a left
+  click with the AOTV digs and swings, so the warp cases' "0 digs, 0 swings" means something. 1025-fullblock-lever/-chest
+  click by hand through Full Block's widened box (crosshair off the block with it off, on it with it on, hit 0.63 / 0.13
+  outside the real shape) and require Grim clean; GrimAC 2.3.74's RotationPlace and FarPlace measure the clicked block's
+  FULL cell (javap), so a full-box hit is not what they flag.
