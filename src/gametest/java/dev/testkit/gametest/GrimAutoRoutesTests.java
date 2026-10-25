@@ -1420,7 +1420,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 String label = blinkChain ? "zero ping chain + blink" : zp ? "zero ping chain" : "control";
                 int burstUses = 0;
                 for (String l : LogTap.since(m)) {
-                    if (l.contains("[Blink] released (Auto Routes chain sent)")) {
+                    if (l.contains("[Blink] released (") && l.contains("owner Auto Routes chain")) {
                         java.util.regex.Matcher bm = java.util.regex.Pattern.compile("UseItem=(\\d+)").matcher(l);
                         if (bm.find()) {
                             burstUses = Math.max(burstUses, Integer.parseInt(bm.group(1)));
@@ -1455,8 +1455,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                         check(chain.ticksPerWarp() < controlTpw - 0.5, String.format(Locale.ROOT, "zero ping: %.2f ticks per "
                                 + "warp is not faster than the control's %.2f", chain.ticksPerWarp(), controlTpw));
                     } else {
-                        check(burstUses >= pts.length - 2, "blink chain: the released burst carried " + burstUses
-                                + " etherwarp use(s), expected the chain's");
+                        check(burstUses >= pts.length - 1, "blink chain: the largest released burst carried " + burstUses
+                                + " etherwarp use(s), expected the whole chain's");
+                        check(logHas(m, "[Blink] released (Auto Routes chain sent)"), "blink chain: the hold was never "
+                                + "released by the chain's last warp (Blink's own limit or something else ended it)");
                     }
                 }
             }
