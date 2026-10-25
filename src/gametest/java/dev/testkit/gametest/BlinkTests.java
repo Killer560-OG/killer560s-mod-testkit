@@ -54,7 +54,7 @@ public class BlinkTests implements FabricClientGameTest {
                 BlinkTests::latency, BlinkTests::pulseMax, BlinkTests::attack, BlinkTests::dig, BlinkTests::place,
                 BlinkTests::teleport, BlinkTests::refused, BlinkTests::leap, BlinkTests::knockback, BlinkTests::etherwarp,
                 BlinkTests::charge, BlinkTests::chargeActions, BlinkTests::chargeWarp, BlinkTests::chargeRun,
-                BlinkTests::chargeSweep, BlinkTests::chargeDouble, BlinkTests::clicks, BlinkTests::chargeFar, BlinkTests::chargeLong,
+                BlinkTests::chargeSweep, BlinkTests::chargeDouble, BlinkTests::clicks, BlinkTests::chargeFar, BlinkTests::chargeLong, BlinkTests::shotLever,
                 BlinkTests::worldChange, BlinkTests::bow,
                 BlinkTests::sweepWalk, BlinkTests::sweepStill,
                 BlinkTests::sweepLatency)) {
@@ -1530,6 +1530,80 @@ public class BlinkTests implements FabricClientGameTest {
             } finally {
                 ctx.getInput().releaseKey(o -> o.keySprint);
                 ctx.getInput().releaseKey(o -> o.keyUp);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /**
+     * 1025-blink-shot-lever (killer560, 2026-10-25: "if I blink past a lever it'll still flick it right"; "make it do
+     * stuff while it is actively blinking forward"). A lever 7 blocks ahead and to the side, out of Secret Aura's reach
+     * while he charges; a sprinting Charge shot takes him past it, and the aura flicks it inside the shot. The server must
+     * show it on, client and server agree, GrimAC silent. Dungeon-looking server (Secret Aura's gate).
+     */
+    private static void shotLever(ClientGameTestContext ctx) {
+        int x = -5400;
+        int z = -3800;
+        String name = "1025-blink-shot-lever";
+        if (Scenario.skip(name)) {
+            return;
+        }
+        Scenario.labelServerAs("localhost.p3sim.net:25565");
+        Scenario.run(ctx, name, (server, scenario) -> TestMap.on(server)
+                .platform(x + 5, SURFACE_Y - 1, z, 12)
+                .catchFloor(120)
+                .survival()
+                .clearInventory()
+                .skyblockSidebar("F7")
+                .command("setblock " + (x + 7) + " " + (SURFACE_Y + 1) + " " + (z + 3) + " minecraft:stone")
+                .command("setblock " + (x + 7) + " " + (SURFACE_Y + 1) + " " + (z + 2) + " minecraft:lever[face=wall,facing=north]")
+                .spawn(x + 0.5, z + 0.5, -90f)
+                .build(), (server, scenario) -> {
+            boolean gate = setUp(ctx, 22, "RELEASE");
+            String cheatCfg = "com.killer560.hub.cheatutils.CheatUtilsConfig";
+            try {
+                ctx.runOnClient(mc -> {
+                    Object cfg = dev.testkit.gametest.ModUnderTest.config(cheatCfg);
+                    dev.testkit.gametest.ModUnderTest.set(cfg, "setAuraLevers", true);
+                    dev.testkit.gametest.ModUnderTest.set(cfg, "setAuraRange", 4.5);
+                    dev.testkit.gametest.ModUnderTest.set(cfg, "setSecretAuraEnabled", true);
+                    if (!dev.testkit.gametest.ModUnderTest.getBoolean(cfg, "isSecretAuraEnabled")) {
+                        throw new AssertionError("Secret Aura is not live - needs the cheat jar and a dungeon-looking server");
+                    }
+                });
+                String player = playerName(ctx);
+                chargeOn(ctx);
+                ctx.waitTicks(40);
+                net.minecraft.core.BlockPos lever = new net.minecraft.core.BlockPos(x + 7, SURFACE_Y + 1, z + 2);
+                boolean before = ctx.computeOnClient(mc -> mc.level.getBlockState(lever)
+                        .getValue(net.minecraft.world.level.block.LeverBlock.POWERED));
+                long bank = cnum(ctx, "banked");
+                long acts0 = cnum(ctx, "shotTickActions");
+                double x0 = ctx.computeOnClient(mc -> mc.player.getX());
+                ctx.getInput().holdKey(o -> o.keySprint);
+                ctx.getInput().holdKey(o -> o.keyUp);
+                ctx.waitTicks(1);
+                double x1 = ctx.computeOnClient(mc -> mc.player.getX());
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                ctx.getInput().releaseKey(o -> o.keySprint);
+                long acts = cnum(ctx, "shotTickActions") - acts0;
+                ctx.waitTicks(20);
+                server.command("execute if block " + (x + 7) + " " + (SURFACE_Y + 1) + " " + (z + 2)
+                        + " minecraft:lever[powered=true] run say LEVER_ON");
+                ctx.waitTicks(10);
+                boolean on = server.tail(60).contains("LEVER_ON");
+                double[] client = scenario.playerPosition();
+                double[] srv = serverPos(server, ctx, player);
+                scenario.log(String.format(Locale.ROOT, "blink-shot-lever: lever on before %s, bank %d; shot %.2f blocks (x %.2f -> %.2f, "
+                                + "lever at x %d); %d shot tick(s) sent an action; lever on (server) %s; client %s server %s", before,
+                        bank, x1 - x0, x0, x1, x + 7, acts, on, fmt(client), fmt(srv)));
+                check(!before && bank >= 20, "nothing was tested: the lever was already on or the bank never filled");
+                check(on && acts >= 1, "the shot went past the lever without flicking it");
+                check(flat(client, srv) < 0.5, "client and server disagree after the shot: " + fmt(client) + " vs " + fmt(srv));
+            } finally {
+                ctx.runOnClient(mc -> dev.testkit.gametest.ModUnderTest.turnOff(cheatCfg, "setSecretAuraEnabled"));
                 chargeOff(ctx);
                 tearDown(ctx, gate);
             }

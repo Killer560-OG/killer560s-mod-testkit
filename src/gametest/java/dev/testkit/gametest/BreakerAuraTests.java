@@ -112,6 +112,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
         }
         // Picked blocks BEHIND him and behind another block: measured, not asserted clean.
         pickedBehindAndOccluded(ctx);
+        // A Blink Charge shot into a picked wall: the aura mines it inside the shot (killer560, 2026-10-25).
+        blinkShotThroughWall(ctx);
     }
 
     /**
@@ -452,6 +454,111 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                 + "quoting the finding.");
                     }
                     } finally {
+                        unconfigure(ctx);
+                    }
+                });
+    }
+
+    /**
+     * 1025-blink-shot-breaker (killer560, 2026-10-25: "If a blink goes off and runs me into breaker blocks it should mine
+     * those as well"; "make it do stuff while it is actively blinking forward"). A two-high picked wall 6.5 blocks ahead,
+     * out of Breaker Aura's reach while he charges. A sprinting Charge shot with Speed II would stop at it; the aura gets
+     * its turn in every tick of the shot, mines it as he comes into reach, and he goes through - on his screen and on the
+     * server - with GrimAC silent.
+     */
+    private void blinkShotThroughWall(ClientGameTestContext ctx) {
+        String name = "1025-blink-shot-breaker";
+        if (Scenario.skip(name)) {
+            return;
+        }
+        ModUnderTest.require(MOD_ID);
+        int cx = -6400;
+        int cz = -1200;
+        int fy = SURFACE_Y - 1;
+        List<BlockPos> wall = List.of(new BlockPos(cx + 7, SURFACE_Y, cz), new BlockPos(cx + 7, SURFACE_Y + 1, cz));
+        Scenario.run(ctx, name,
+                (server, scenario) -> TestMap.on(server)
+                        .platform(cx + 6, fy, cz, 10)
+                        .catchFloor(120)
+                        .survival()
+                        .clearInventory()
+                        .give("diamond_shovel", 1)
+                        .command("enchant @p minecraft:efficiency 5")
+                        .command("effect give @p minecraft:haste 99999 4 true")
+                        .fill(cx + 7, SURFACE_Y, cz, cx + 7, SURFACE_Y + 1, cz, "snow_block")
+                        .spawn(cx + 0.5, cz + 0.5, -90f)
+                        .build(),
+                (server, scenario) -> {
+                    scenario.assertDetectorWorks();
+                    for (BlockPos p : wall) {
+                        if (isAir(ctx, p)) {
+                            throw new AssertionError("wall block " + xyz(p) + " was never built");
+                        }
+                    }
+                    String player = ctx.computeOnClient(mc -> mc.player.getName().getString());
+                    configure(ctx, scenario, true, wall);
+                    boolean gate = ctx.computeOnClient(mc -> {
+                        boolean g = (Boolean) dev.testkit.gametest.mod.Mod.staticCall("util.SkyblockGate", "isEnabled");
+                        dev.testkit.gametest.mod.Mod.staticCall("util.SkyblockGate", "setEnabled", false);
+                        dev.testkit.gametest.mod.Mod.setField("blink.BlinkFeature", "keyHeldForTest", Boolean.FALSE);
+                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", true);
+                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setStyle",
+                                dev.testkit.gametest.mod.Mod.enumValue("blink.BlinkConfig$Style", "CHARGE"));
+                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setMode",
+                                dev.testkit.gametest.mod.Mod.enumValue("blink.BlinkConfig$Mode", "TOGGLE"));
+                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setMaxTicks", 22);
+                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setShootOnMove", true);
+                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setHoldAfterShot", false);
+                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChatMessages", false);
+                        return g;
+                    });
+                    try {
+                        server.command("effect give " + player + " minecraft:speed 60 1 true");
+                        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkFeature", "keyHeldForTest", Boolean.TRUE));
+                        ctx.waitTicks(1);
+                        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkFeature", "keyHeldForTest", Boolean.FALSE));
+                        ctx.waitTicks(40);
+                        boolean wallBefore = !isAir(ctx, wall.get(0)) && !isAir(ctx, wall.get(1));
+                        long bank = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "banked")).longValue());
+                        long acts0 = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "shotTickActions")).longValue());
+                        double x0 = ctx.computeOnClient(mc -> mc.player.getX());
+                        ctx.getInput().holdKey(o -> o.keySprint);
+                        ctx.getInput().holdKey(o -> o.keyUp);
+                        ctx.waitTicks(2);
+                        double x1 = ctx.computeOnClient(mc -> mc.player.getX());
+                        ctx.getInput().releaseKey(o -> o.keyUp);
+                        ctx.getInput().releaseKey(o -> o.keySprint);
+                        long acts = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "shotTickActions")).longValue()) - acts0;
+                        ctx.waitTicks(20);
+                        server.command("execute if block " + (cx + 7) + " " + SURFACE_Y + " " + cz + " minecraft:air if block "
+                                + (cx + 7) + " " + (SURFACE_Y + 1) + " " + cz + " minecraft:air run say WALL_GONE");
+                        ctx.waitTicks(10);
+                        boolean wallGone = server.tail(60).contains("WALL_GONE");
+                        double[] client = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getZ()});
+                        scenario.log(String.format(Locale.ROOT, "blink-shot-breaker: wall there before %s, bank %d; shot moved %.2f "
+                                        + "blocks over 2 ticks (x %.2f -> %.2f, wall at %d); %d shot tick(s) sent an action; wall gone "
+                                        + "(server) %s; client x %.2f", wallBefore, bank, x1 - x0, x0, x1, cx + 7, acts, wallGone,
+                                client[0]));
+                        if (!wallBefore || bank < 20) {
+                            throw new AssertionError("nothing was tested: the wall went before the shot or the bank never filled");
+                        }
+                        if (!wallGone || acts < 1) {
+                            throw new AssertionError("the shot did not mine the wall (" + acts + " action tick(s), gone " + wallGone + ")");
+                        }
+                        if (client[0] < cx + 7.8) {
+                            throw new AssertionError("he did not go through the wall: x " + client[0]);
+                        }
+                    } finally {
+                        ctx.getInput().releaseKey(o -> o.keyUp);
+                        ctx.getInput().releaseKey(o -> o.keySprint);
+                        ctx.runOnClient(mc -> {
+                            dev.testkit.gametest.mod.Mod.setField("blink.BlinkFeature", "keyHeldForTest", null);
+                            dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setStyle",
+                                    dev.testkit.gametest.mod.Mod.enumValue("blink.BlinkConfig$Style", "HOLD_PACKETS"));
+                            dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", false);
+                            dev.testkit.gametest.mod.Mod.staticCall("util.SkyblockGate", "setEnabled", gate);
+                        });
+                        server.command("effect clear " + player + " minecraft:speed");
                         unconfigure(ctx);
                     }
                 });
