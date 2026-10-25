@@ -18,7 +18,8 @@ import java.util.Set;
  * code is no longer shipped"; mod shelved/mining/README.md). Three checks, each against the real jar:
  * <ol>
  *   <li>the jar has no class under {@code com/killer560/hub/mining/} and none of the shelved tab/screen classes;</li>
- *   <li>the mod menu's whole tab tree (every folder expanded) has no mining tab, by class and by name;</li>
+ *   <li>the mod menu's whole tab tree (every folder expanded) has no mining tab, by class and by name, except the one
+ *       stub he asked back on 2026-10-25 (Misc &gt; Auto Nucleus Run, cheat jars only, exactly once);</li>
  *   <li>{@code /profit} opens the hub and its cards are exactly the non-mining trackers.</li>
  * </ol>
  * Each finding is a PROBLEM (the case fails at its end), so an old jar reports all three. Fails on any jar before the shelving (b7528f86 has 14 mining classes, the "Mining (WIP)" category and 4 cards).
@@ -38,6 +39,10 @@ final class MiningShelvedCases {
             ? List.of("Dungeon Profit", "Experimentation Table", "Bazaar Flipper")
             : List.of("Dungeon Profit", "Experimentation Table");
     private static final String HUB = "gui.profit.ProfitHubScreen";
+    /** The one mining tab allowed back (killer560, 2026-10-25; mod 66283eb4): the Auto Nucleus Run stub, in Helpers'
+     *  cheat block, so on a cheat jar exactly this path and class, and on a legit jar nothing. */
+    private static final String STUB_CLASS = "com.killer560.hub.gui.tab.AutoNucleusRunTab";
+    private static final String STUB_PATH = "Misc > Auto Nucleus Run";
 
     private MiningShelvedCases() {
     }
@@ -81,8 +86,15 @@ final class MiningShelvedCases {
                     top.add((String) R.get(t, "name"));
                 }
                 List<String> bad = new ArrayList<>();
+                List<String> stubs = new ArrayList<>();
                 for (ModScreenDriver.Node n : flat) {
                     String cls = n.tab().getClass().getName();
+                    if (cls.equals(STUB_CLASS) || n.path().equals(STUB_PATH)) {
+                        stubs.add(n.path() + " [" + cls.replace("com.killer560.hub.", "") + "]");
+                        if (cls.equals(STUB_CLASS) && n.path().equals(STUB_PATH)) {
+                            continue;
+                        }
+                    }
                     String name = n.name() == null ? "" : n.name().toLowerCase(Locale.ROOT);
                     boolean byClass = cls.startsWith(MINING_PKG) || SHELVED_OUTSIDE.contains(cls)
                             || (n.tab().getClass().getEnclosingClass() != null
@@ -95,6 +107,7 @@ final class MiningShelvedCases {
                 m.put("total", flat.size());
                 m.put("top", top);
                 m.put("bad", bad);
+                m.put("stubs", stubs);
             } catch (Throwable t) {
                 m.put("error", UiCase.describe(t));
             }
@@ -108,6 +121,15 @@ final class MiningShelvedCases {
         c.check((Integer) out.get("total") > 50, "only " + out.get("total") + " tabs walked - the walk is broken");
         if (!bad.isEmpty()) {
             c.problem("the menu still has " + bad.size() + " mining tab(s): " + bad);
+        }
+        @SuppressWarnings("unchecked")
+        List<String> stubs = (List<String>) out.get("stubs");
+        List<String> wantStubs = Mod.isCheat()
+                ? List.of(STUB_PATH + " [" + STUB_CLASS.replace("com.killer560.hub.", "") + "]")
+                : List.of();
+        c.note("Auto Nucleus Run stub: " + stubs + " (want " + wantStubs + ")");
+        if (!wantStubs.equals(stubs)) {
+            c.problem("the Auto Nucleus Run stub is " + stubs + ", want " + wantStubs);
         }
     }
 

@@ -31,7 +31,8 @@ import java.util.zip.ZipOutputStream;
  *       live files are the profile's, byte for byte), in the running feature (which GIF the GIF Player holds, which
  *       one the HUD drew, its color counted on a screenshot) and in the sim speed it reads.</li>
  *   <li>981 Export then Import into a fresh profile reproduces every file byte for byte; no secret (login token, proxy
- *       password, Last.fm key, Profile Viewer API key) and no excluded cache is in the zip or the profile.</li>
+ *       password, Last.fm key, Profile Viewer API key) and no excluded cache is in the zip or the profile. A tampered
+ *       copy of the zip cannot change his Auto Update channel or sharing settings (mod a8ea619e).</li>
  *   <li>982 a zip from a NEWER build (format 99, unknown setting files and keys, a damaged file, an unknown data
  *       folder, path-escape entries) imports and loads without a throw and says so; junk files are refused.</li>
  *   <li>983 a profile folder written by a build from BEFORE this change: on such a build (no ProfileData class) the
@@ -159,6 +160,7 @@ final class ProfileDataCases {
     static void exportImport(UiCase c) throws Exception {
         String src = "tk-981-src";
         String imp = "tk-981-imp";
+        String lock = "tk-981-lock";
         Restore restore = Restore.begin(c, "tk-981-orig");
         List<Path> planted = new ArrayList<>();
         Object viewer = Mod.cfg("profileviewer.ProfileViewerConfig");
@@ -188,9 +190,17 @@ final class ProfileDataCases {
             planted.add(plant(modPath(c, "killer560smod-tk.log"), "log line"));
             planted.add(plant(modPath(c, "killer560smod-auction-cache.json"), "{\"tk\": 1}"));
 
+            // A setting with no ModPaths table row lives in other/ (Mod Users is one); it must ride in the profile too
+            // (mod ModPaths.settingFiles missed other/ until 2026-10-25, so an import of a zip without it grew a file).
+            Path otherSetting = modPath(c, "killer560smod-modusers.json");
+            c.check(otherSetting.getParent().getFileName().toString().equals("other"),
+                    "Mod Users' file is no longer in other/: " + otherSetting);
+            Files.writeString(otherSetting, "{\"seeOthers\": false, \"share\": false, \"shareAs\": \"legit\"}");
             String save = save(c, src);
             c.note("save: " + save);
             Path srcDir = profilesDir().resolve(src);
+            c.check(Files.isRegularFile(srcDir.resolve("killer560smod-modusers.json")),
+                    "the profile left out killer560smod-modusers.json, a setting file in other/");
             String export = c.onClient(mc -> HudMenuProfilesCases.resultText(Mod.staticCall(PM, "exportProfile", src)));
             c.note("export: " + export);
             Path zip = shareFolder().resolve(src + ".zip");
@@ -240,6 +250,7 @@ final class ProfileDataCases {
             c.note("zip: " + entries.size() + " entries, e.g. " + entries.subList(0, Math.min(6, entries.size())));
             c.check(entries.contains("profile.json"), "the zip has no profile.json stamp");
             c.check(leaks.isEmpty(), "secrets or caches in the export: " + leaks);
+            importLock(c, zip, lock);
             // The secret the profile left out is still the user's own after loading the import.
             String apply = apply(c, imp);
             c.note("load import: " + apply);
@@ -257,8 +268,81 @@ final class ProfileDataCases {
                 Files.deleteIfExists(p);
             }
             Files.deleteIfExists(shareFolder().resolve(src + ".zip"));
-            restore.end(c, src, imp);
+            restore.end(c, src, imp, lock);
         }
+    }
+
+    /**
+     * Mod a8ea619e: an imported zip never changes his Auto Update channel or sharing settings. A copy of {@code zip} with
+     * Auto Update's channel and switch and Supporters' two share switches changed (plus one Supporters key that is NOT
+     * locked), and Mod Users left out, is imported into {@code name}: the locked keys must read his live values, the
+     * free key the zip's, and the left-out Mod Users file must be his live share settings.
+     */
+    private static void importLock(UiCase c, Path zip, String name) throws Exception {
+        String au = "killer560smod-autoupdate.json";
+        String sup = "killer560smod-supporters.json";
+        String mu = "killer560smod-modusers.json";
+        // Known live values, planted (a fresh run dir has none of these files; Restore.end puts his back).
+        com.google.gson.JsonObject liveAu = json("{\"channel\": \"FULL_RELEASE\", \"enabled\": true}");
+        com.google.gson.JsonObject liveSup = json("{\"showSupporterNames\": false, \"shareIfSupporter\": false, "
+                + "\"shareTrail\": true}");
+        com.google.gson.JsonObject liveMu = json("{\"seeOthers\": false, \"share\": false, \"shareAs\": \"legit\"}");
+        Files.writeString(modPath(c, au), liveAu.toString());
+        Files.writeString(modPath(c, sup), liveSup.toString());
+        Files.writeString(modPath(c, mu), liveMu.toString());
+        Path tampered = Files.createTempFile("tk-981-lock", ".zip");
+        try {
+            try (ZipFile in = new ZipFile(zip.toFile());
+                 OutputStream os = Files.newOutputStream(tampered); ZipOutputStream out = new ZipOutputStream(os)) {
+                var it = in.entries();
+                while (it.hasMoreElements()) {
+                    ZipEntry e = it.nextElement();
+                    if (e.getName().equals(au) || e.getName().equals(sup) || e.getName().equals(mu)) {
+                        continue;
+                    }
+                    put(out, e.getName(), in.getInputStream(e).readAllBytes());
+                }
+                // Every locked key the other way round, one free key flipped too, and Mod Users left out.
+                put(out, au, "{\"channel\": \"TK_TAMPERED\", \"enabled\": false}");
+                put(out, sup, "{\"showSupporterNames\": true, \"shareIfSupporter\": true, \"shareTrail\": false}");
+            }
+            String imported = c.onClient(mc -> HudMenuProfilesCases.resultText(
+                    Mod.staticCall(PM, "importProfile", tampered.toString(), name)));
+            c.check(imported.startsWith("true"), "the tampered zip did not import: " + imported);
+            Path dir = profilesDir().resolve(name);
+            com.google.gson.JsonObject gotAu = json(Files.readString(dir.resolve(au)));
+            com.google.gson.JsonObject gotSup = json(Files.readString(dir.resolve(sup)));
+            Path muFile = dir.resolve(mu);
+            com.google.gson.JsonObject gotMu = Files.isRegularFile(muFile) ? json(Files.readString(muFile)) : null;
+            List<String> wrong = new ArrayList<>();
+            for (String k : List.of("channel", "enabled")) {
+                if (!liveAu.get(k).equals(gotAu.get(k))) {
+                    wrong.add("autoupdate " + k + " " + gotAu.get(k) + " (live " + liveAu.get(k) + ")");
+                }
+            }
+            for (String k : List.of("shareIfSupporter", "shareTrail")) {
+                if (!liveSup.get(k).equals(gotSup.get(k))) {
+                    wrong.add("supporters " + k + " " + gotSup.get(k) + " (live " + liveSup.get(k) + ")");
+                }
+            }
+            boolean freeKey = true;
+            if (gotSup.get("showSupporterNames") == null || gotSup.get("showSupporterNames").getAsBoolean() != freeKey) {
+                wrong.add("supporters showSupporterNames " + gotSup.get("showSupporterNames") + " (the zip's " + freeKey
+                        + ": an unlocked key must keep the zip's value)");
+            }
+            com.google.gson.JsonObject wantMu = json("{\"share\": false, \"shareAs\": \"legit\"}");
+            if (!wantMu.equals(gotMu)) {
+                wrong.add("modusers (left out of the zip) " + gotMu + ", want exactly " + wantMu);
+            }
+            c.note("tampered import: " + imported + "; locked keys " + (wrong.isEmpty() ? "all his live values" : wrong));
+            c.check(wrong.isEmpty(), "an imported zip changed locked settings: " + wrong);
+        } finally {
+            Files.deleteIfExists(tampered);
+        }
+    }
+
+    private static com.google.gson.JsonObject json(String s) {
+        return com.google.gson.JsonParser.parseString(s).getAsJsonObject();
     }
 
     // =============================================================================================================

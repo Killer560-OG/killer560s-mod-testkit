@@ -25,8 +25,8 @@ import java.util.Map;
  *       Finish shows the editor laid out by the Default Order (Odin) from those classes. With every class known, picking
  *       Archer goes straight to the editor; there is no Set Classes button, and after Reset Classes picking the class starts
  *       the wizard again.</li>
- *   <li>827: the two new Leap Menu settings: Show Player Heads and Leap Style rows in the tab, left click forward, right
- *       click back, saved to the file and read back by a reload, each with a tooltip.</li>
+ *   <li>827: the two new Leap Menu settings: Show Player Heads (an on/off switch since mod 02debd4e: left click toggles,
+ *       right click does nothing) and Leap Style (left click forward, right click back) rows in the tab, saved to the file and read back by a reload, each with a tooltip.</li>
  *   <li>828: pictures at GUI 2 of a wizard page and the editor after it (to {@code TESTKIT_LEAP2_SHOTS}).</li>
  * </ul>
  */
@@ -284,10 +284,14 @@ final class LeapWizardCases {
             List<String> trail = new ArrayList<>();
             clickRow(c, heads, 0);
             boolean h1 = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(cfgCls), "isShowHeads"));
+            // A plain on/off switch since mod 02debd4e (no longer a cycler): left toggles, right does nothing.
             clickRow(c, row(c, d, "Show Player Heads:"), 1);
             boolean h2 = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(cfgCls), "isShowHeads"));
-            c.check(!h1 && h2, "Show Player Heads: left " + h1 + ", then right " + h2 + " (want false, true)");
-            trail.add("Show Player Heads left -> " + h1 + ", right -> " + h2);
+            clickRow(c, row(c, d, "Show Player Heads:"), 0);
+            boolean h3 = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(cfgCls), "isShowHeads"));
+            c.check(!h1 && !h2 && h3, "Show Player Heads: left " + h1 + ", then right " + h2 + ", then left " + h3
+                    + " (want false, false, true)");
+            trail.add("Show Player Heads left -> " + h1 + ", right -> " + h2 + ", left -> " + h3);
             clickRow(c, row(c, d, "Leap Style:"), 0);
             String s1 = c.onClient(mc -> String.valueOf(Mod.call(Mod.cfg(cfgCls), "getStyle")));
             clickRow(c, row(c, d, "Leap Style:"), 1);
