@@ -109,7 +109,9 @@ final class MenuLayoutCases {
             // killer560 2026-10-25; cheat jar only.
             "gui.tab.BlinkTab", "gui.tab.ZeroPingEtherwarpTab", "gui.tab.InventoryWalkTab",
             // Left Click Etherwarp (Dungeons cheat block), mod cheat-extras-1025, killer560 2026-10-25; cheat jar only.
-            "gui.tab.LeftClickEtherwarpTab");
+            "gui.tab.LeftClickEtherwarpTab",
+            // Relic Helpers (Relic Triggerbot + Relic Look, M7 P5), Dungeons cheat block, mod relic-1025; cheat jar only.
+            "gui.tab.RelicHelpersTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.
