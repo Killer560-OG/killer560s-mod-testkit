@@ -188,7 +188,8 @@ public class BlinkTests implements FabricClientGameTest {
                 Object fresh = Mod.cfg(CFG);
                 String defaults = Mod.call(fresh, "isEnabled") + " " + Mod.call(fresh, "getMode") + " "
                         + Mod.call(fresh, "getMaxTicks") + " " + Mod.call(fresh, "getKeyCode") + " "
-                        + Mod.call(fresh, "isReleaseOnHit");
+                        + Mod.call(fresh, "isReleaseOnHit") + " " + Mod.call(fresh, "isReleaseOnDig") + " "
+                        + Mod.call(fresh, "isReleaseOnCharge");
                 Mod.set(CFG, "setEnabled", true);
                 Mod.set(CFG, "setMode", Mod.enumValue(MODE, "HOLD"));
                 Mod.set(CFG, "setLimitAction", Mod.enumValue(LIMIT, "PULSE"));
@@ -198,6 +199,8 @@ public class BlinkTests implements FabricClientGameTest {
                 Mod.set(CFG, "setShowServerBox", false);
                 Mod.set(CFG, "setChatMessages", true);
                 Mod.set(CFG, "setReleaseOnHit", false);
+                Mod.set(CFG, "setReleaseOnDig", false);
+                Mod.set(CFG, "setReleaseOnCharge", false);
                 Mod.call(Mod.cfg(CFG), "save");
                 Mod.set(CFG, "setEnabled", false);
                 Mod.set(CFG, "setMaxTicks", 5);
@@ -206,7 +209,8 @@ public class BlinkTests implements FabricClientGameTest {
                 String loaded = Mod.call(l, "isEnabled") + " " + Mod.call(l, "getMode") + " " + Mod.call(l, "getLimitAction")
                         + " " + Mod.call(l, "getMaxTicks") + " " + Mod.call(l, "getKeyCode") + " " + Mod.call(l, "isShowHud")
                         + " " + Mod.call(l, "isShowServerBox") + " " + Mod.call(l, "isChatMessages") + " "
-                        + Mod.call(l, "isReleaseOnHit");
+                        + Mod.call(l, "isReleaseOnHit") + " " + Mod.call(l, "isReleaseOnDig") + " "
+                        + Mod.call(l, "isReleaseOnCharge");
                 // Back to the defaults on disk for the cases behind this one.
                 Mod.set(CFG, "setEnabled", false);
                 Mod.set(CFG, "setMode", Mod.enumValue(MODE, "TOGGLE"));
@@ -217,6 +221,8 @@ public class BlinkTests implements FabricClientGameTest {
                 Mod.set(CFG, "setShowServerBox", true);
                 Mod.set(CFG, "setChatMessages", false);
                 Mod.set(CFG, "setReleaseOnHit", true);
+                Mod.set(CFG, "setReleaseOnDig", true);
+                Mod.set(CFG, "setReleaseOnCharge", true);
                 Mod.call(Mod.cfg(CFG), "save");
                 return new String[]{defaults, loaded};
             });
@@ -226,8 +232,9 @@ public class BlinkTests implements FabricClientGameTest {
             boolean heldWhileOff = holding(ctx);
             ctx.runOnClient(mc -> Mod.setField(FEATURE, "keyHeldForTest", null));
             scenario.log("defaults " + got[0] + "; loaded " + got[1] + "; held while off " + heldWhileOff);
-            check(got[0].equals("false TOGGLE 22 -1 true"), "defaults wrong: " + got[0]);
-            check(got[1].equals("true HOLD PULSE 33 66 false false true false"), "settings did not come back from disk: " + got[1]);
+            check(got[0].equals("false TOGGLE 22 -1 true true true"), "defaults wrong: " + got[0]);
+            check(got[1].equals("true HOLD PULSE 33 66 false false true false false false"),
+                    "settings did not come back from disk: " + got[1]);
             check(!heldWhileOff, "Blink held packets while switched off");
         });
     }
