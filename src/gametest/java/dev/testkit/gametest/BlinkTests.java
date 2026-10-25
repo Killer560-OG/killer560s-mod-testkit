@@ -1373,7 +1373,7 @@ public class BlinkTests implements FabricClientGameTest {
                     }
                 }
                 ctx.waitTicks(15);
-                boolean open = ctx.computeOnClient(mc -> mc.screen instanceof
+                boolean open = ctx.computeOnClient(mc -> dev.testkit.compat.McCompat.screen(mc) instanceof
                         net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>);
                 long live = num(ctx, "clicksLive") - live0;
                 long released = num(ctx, "releasedHolds") - holds0;

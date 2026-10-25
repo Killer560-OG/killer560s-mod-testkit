@@ -1520,7 +1520,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> dev.testkit.harness.Latency.install(150));
             ctx.waitTicks(40);
             // A menu open (his terminal), then onto the start node: nothing arms under a screen.
-            ctx.runOnClient(mc -> mc.setScreen(new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player)));
+            ctx.runOnClient(mc -> dev.testkit.compat.McCompat.setScreen(mc, new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player)));
             ctx.waitTicks(3);
             tpRel(ctx, pts[0][0] + 0.5, pts[0][1] + 0.5, relYawTo(pts[0][0], pts[0][1], pts[1][0], pts[1][1]), 0f);
             ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
@@ -1537,7 +1537,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             JsonObject before = stats();
             long m = LogTap.mark();
             startSampling(ctx);
-            ctx.runOnClient(mc -> mc.setScreen(null));
+            ctx.runOnClient(mc -> dev.testkit.compat.McCompat.setScreen(mc, null));
             Vec3 landed = waitLanded(ctx, end[0], end[1], 600);
             ctx.waitTicks(20);
             all.addAll(stopSampling(ctx));
@@ -1572,7 +1572,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             check(corrections == 0, corrections + " correction line(s)");
         } finally {
             ctx.runOnClient(mc -> {
-                mc.setScreen(null);
+                dev.testkit.compat.McCompat.setScreen(mc, null);
                 dev.testkit.harness.Latency.remove();
                 dev.testkit.gametest.mod.Mod.setField("blink.BlinkFeature", "keyHeldForTest", null);
                 ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setZeroPingChain", new Class<?>[]{boolean.class},
