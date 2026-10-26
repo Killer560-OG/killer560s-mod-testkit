@@ -210,6 +210,7 @@ public class SimAutoClearEtaTests implements FabricClientGameTest {
         String firstLine = null;
         double travelled = 0;
         boolean finished = false;
+        int ranTicks = RUN_TICKS;
         ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "start"));
         Vec3 last = ctx.computeOnClient(mc -> mc.player.position());
         for (int t = 0; t < RUN_TICKS; t++) {
@@ -234,6 +235,7 @@ public class SimAutoClearEtaTests implements FabricClientGameTest {
             }
             if (!(Boolean) ctx.computeOnClient(mc -> ModUnderTest.staticCall(AUTO, "isBusy"))) {
                 finished = true;
+                ranTicks = t + 1;
                 break;
             }
             if (t % 100 == 99) {
@@ -271,8 +273,20 @@ public class SimAutoClearEtaTests implements FabricClientGameTest {
         if (readings.get(0) <= 0) {
             failures.add("the first estimate was " + readings.get(0) + " s for two rooms still to clear");
         }
-        if (downs < 3) {
-            failures.add("the time left did not count down (only " + downs + " one-second steps down in " + readings + ")");
+        // A short run cannot show three one-second steps: on 2026-10-25 both rooms were done in about 3 s and the estimate
+        // re-priced from the run's own pace after the first ([27, 26, 1, 0]). Ask for a step each second the run lasted
+        // past its first, up to three, and that the time left never goes up.
+        int wantDowns = Math.max(1, Math.min(3, ranTicks / 20 - 1));
+        boolean rose = false;
+        for (int i = 1; i < readings.size(); i++) {
+            rose |= readings.get(i) > readings.get(i - 1);
+        }
+        if (rose) {
+            failures.add("the time left went up during the run: " + readings);
+        }
+        if (downs < wantDowns) {
+            failures.add("the time left did not count down (only " + downs + " one-second steps down in " + readings
+                    + ", wanted " + wantDowns + " for a " + ranTicks + "-tick run)");
         }
     }
 
