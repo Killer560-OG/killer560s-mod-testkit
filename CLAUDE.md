@@ -338,6 +338,14 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   `prismaccountswitcher.universalProxyFile` at a fixture; a jar older than mod 6c09a491 ignores it and cannot join while
   his universal proxy is on. Join failures now print the DisconnectedScreen reason (`Scenario.describeScreen`).
 
+- GrimAC's own update check logs `Failed to check latest version.` (INFO, Grim-Async thread) at an unfixed time after the
+  start; it matched the "failed" flag marker and failed 1025-blink-shot-lever as "anticheat flagged 1 time(s)" naming no
+  check (2026-10-25). Exempt in `Scenario.FLAG_EXEMPT` now.
+- A key test hook flipped TRUE then FALSE then TRUE with only one tick between reads as ONE press: the feature's tick never
+  saw the key up. BlinkTests.pressCharge waits a tick after letting go (1025-blink-charge-arm's "second press" did nothing).
+- Blink holds are key-driven since mod blink-rework-1025: between two holds the key needs a tick up and a tick down, so a
+  landing released with one hold lands in that gap unless there is latency; 1025-blink-etherwarp installs 150 ms.
+
 Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosecret wither doors, 62-argrim frames,
 143 camera, 141/142 autopilot, the mod's Auto Scale, terminal layouts, the logic world, 386's sweep):
 [docs/scenario-lessons.md](docs/scenario-lessons.md).
