@@ -47,6 +47,8 @@ public class BossSuite implements FabricClientGameTest {
                     LightsDeviceCases.register(s);
                     // Auto Simon Says Stim and Momentum (1018-ss-*, branch todo-ss-stim-1018), own block.
                     SsStimMomentumCases.register(s);
+                    // Quiz and relic wrong-click blockers (1090-1091, branch clickguards-1025), own block.
+                    ClickGuardCases.register(s);
                 });
     }
 }

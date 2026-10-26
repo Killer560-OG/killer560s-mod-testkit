@@ -338,6 +338,12 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   `prismaccountswitcher.universalProxyFile` at a fixture; a jar older than mod 6c09a491 ignores it and cannot join while
   his universal proxy is on. Join failures now print the DisconnectedScreen reason (`Scenario.describeScreen`).
 
+- A `c.waitUntil` predicate already runs on the client thread: calling `c.onClient` (or a helper that does) inside it
+  fails at once and is reported as "timed out after N ticks waiting for ..." (1094's first run, 2026-10-25). Read the mod
+  directly with `Mod.staticCall` in a predicate.
+- A harness turn written as an absolute `atan2` yaw jumps across the +-180 seam from wherever he was looking, and GrimAC
+  flags it as AimModulo360 (1091's first run, 2026-10-25). Turn by `yaw + Mth.wrapDegrees(want - yaw)`.
+
 Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosecret wither doors, 62-argrim frames,
 143 camera, 141/142 autopilot, the mod's Auto Scale, terminal layouts, the logic world, 386's sweep):
 [docs/scenario-lessons.md](docs/scenario-lessons.md).
