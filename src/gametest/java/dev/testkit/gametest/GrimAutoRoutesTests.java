@@ -1482,7 +1482,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
 
     /**
      * 62-argrim-1025-chargechain (killer560, 2026-10-25: "multiple etherwarps in a tick for 0tick routes"): Blink Charge
-     * banks 22 ticks while he stands on the start node with a menu open (nothing arms under a screen - his terminal); the
+     * banks 20 ticks (Charge Ticks) while he stands on the start node with a menu open (nothing arms under a screen - his terminal); the
      * menu closes, the route fires its first warp and Charged Chain spends the bank on the rest, so the chain's warps all
      * leave within a tick or two. Every server etherwarp made, every prediction confirmed, none broken, GrimAC silent.
      */
@@ -1506,13 +1506,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setChargedChain", new Class<?>[]{boolean.class},
                         new Object[]{true});
                 dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", true);
-                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setStyle",
-                        dev.testkit.gametest.mod.Mod.enumValue("blink.BlinkConfig$Style", "CHARGE"));
-                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setMode",
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChargeMode",
                         dev.testkit.gametest.mod.Mod.enumValue("blink.BlinkConfig$Mode", "TOGGLE"));
-                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setMaxTicks", 22);
-                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setShootOnMove", false);
-                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setHoldAfterShot", false);
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChargeTicks", 20);
                 dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChatMessages", false);
                 ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"});
             });
@@ -1526,9 +1522,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
             ctx.waitTicks(10);
             // Charge on, through the test hook the Blink tick reads.
-            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkFeature", "keyHeldForTest", Boolean.TRUE));
+            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE));
             ctx.waitTicks(1);
-            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkFeature", "keyHeldForTest", Boolean.FALSE));
+            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
             ctx.waitTicks(35);
             int bank = ctx.computeOnClient(mc -> ((Number) ModUnderTest.staticCall("com.killer560.hub.blink.BlinkCharge", "banked")).intValue());
             int chained0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingChained"));
@@ -1575,12 +1571,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 dev.testkit.compat.McCompat.setScreen(mc, null);
                 dev.testkit.harness.Latency.remove();
                 dev.testkit.gametest.mod.Mod.setField("blink.BlinkFeature", "keyHeldForTest", null);
+                dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", null);
+                dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "reset", "test teardown");
                 ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setZeroPingChain", new Class<?>[]{boolean.class},
                         new Object[]{false});
                 ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setChargedChain", new Class<?>[]{boolean.class},
                         new Object[]{false});
-                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setStyle",
-                        dev.testkit.gametest.mod.Mod.enumValue("blink.BlinkConfig$Style", "HOLD_PACKETS"));
                 dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", false);
             });
         }

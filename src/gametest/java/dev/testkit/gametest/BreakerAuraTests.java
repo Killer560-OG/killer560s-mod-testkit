@@ -501,22 +501,20 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         boolean g = (Boolean) dev.testkit.gametest.mod.Mod.staticCall("util.SkyblockGate", "isEnabled");
                         dev.testkit.gametest.mod.Mod.staticCall("util.SkyblockGate", "setEnabled", false);
                         dev.testkit.gametest.mod.Mod.setField("blink.BlinkFeature", "keyHeldForTest", Boolean.FALSE);
+                        dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE);
                         dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", true);
-                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setStyle",
-                                dev.testkit.gametest.mod.Mod.enumValue("blink.BlinkConfig$Style", "CHARGE"));
-                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setMode",
+                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChargeMode",
                                 dev.testkit.gametest.mod.Mod.enumValue("blink.BlinkConfig$Mode", "TOGGLE"));
-                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setMaxTicks", 22);
-                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setShootOnMove", true);
-                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setHoldAfterShot", false);
+                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChargeTicks", 20);
                         dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChatMessages", false);
                         return g;
                     });
                     try {
                         server.command("effect give " + player + " minecraft:speed 60 1 true");
-                        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkFeature", "keyHeldForTest", Boolean.TRUE));
+                        // Charge on (a Toggle press of the Charge key).
+                        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE));
                         ctx.waitTicks(1);
-                        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkFeature", "keyHeldForTest", Boolean.FALSE));
+                        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
                         ctx.waitTicks(40);
                         boolean wallBefore = !isAir(ctx, wall.get(0)) && !isAir(ctx, wall.get(1));
                         long bank = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "banked")).longValue());
@@ -524,7 +522,10 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         double x0 = ctx.computeOnClient(mc -> mc.player.getX());
                         ctx.getInput().holdKey(o -> o.keySprint);
                         ctx.getInput().holdKey(o -> o.keyUp);
+                        // Fire: the Charge key pressed with a movement key down (since the rework nothing fires on a move alone).
+                        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE));
                         ctx.waitTicks(2);
+                        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
                         double x1 = ctx.computeOnClient(mc -> mc.player.getX());
                         ctx.getInput().releaseKey(o -> o.keyUp);
                         ctx.getInput().releaseKey(o -> o.keySprint);
@@ -553,8 +554,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         ctx.getInput().releaseKey(o -> o.keySprint);
                         ctx.runOnClient(mc -> {
                             dev.testkit.gametest.mod.Mod.setField("blink.BlinkFeature", "keyHeldForTest", null);
-                            dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setStyle",
-                                    dev.testkit.gametest.mod.Mod.enumValue("blink.BlinkConfig$Style", "HOLD_PACKETS"));
+                            dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", null);
+                            dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "reset", "test teardown");
                             dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", false);
                             dev.testkit.gametest.mod.Mod.staticCall("util.SkyblockGate", "setEnabled", gate);
                         });
