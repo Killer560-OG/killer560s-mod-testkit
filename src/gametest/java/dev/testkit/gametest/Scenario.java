@@ -83,10 +83,15 @@ public final class Scenario {
      * {@code [hx] cmd /...} per player command, op errors). Those echo what a SCENARIO did - a stubbed
      * {@code /joininstance}, say - and a command can contain any word, "failed" included. GrimAC never prints that
      * prefix, so this exempts nothing the anticheat said.
+     *
+     * <p>{@code Failed to check latest version.} is GrimAC's own update check timing out offline (Grim-Async thread, a
+     * minute or so after the start; its ERROR twin names GrimAC and is already exempt, this INFO line does not). It
+     * failed 1025-blink-shot-lever on 2026-10-25 as "anticheat flagged 1 time(s)" with no check named.
      */
     private static final String[] FLAG_EXEMPT = {"verbose enabled", "verbose is now", "alerts enabled",
             "alerts is now", "now receiving", "no longer receiving", "grimac", "logged in",
-            "joined the game", "left the game", "made the advancement", "[testkit]", "packetevents", "[hx] "};
+            "joined the game", "left the game", "made the advancement", "[testkit]", "packetevents", "[hx] ",
+            "failed to check latest version"};
 
     private final ClientGameTestContext ctx;
     private final String name;
