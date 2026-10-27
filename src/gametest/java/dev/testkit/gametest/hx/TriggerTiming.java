@@ -59,7 +59,7 @@ public final class TriggerTiming {
                         was.accept(p);
                     }
                     if (kind.equals(packetName(p))) {
-                        sent.add(new long[]{CLIENT_TICK.get()});
+                        sent.add(new long[]{CLIENT_TICK.get(), System.nanoTime()});
                     }
                 };
             }
@@ -68,10 +68,12 @@ public final class TriggerTiming {
         try {
             long since = c.hx().head();
             // The look and the tick it was set in, in one client task: the trigger bot sees it from the next tick on.
-            long lookTick = c.onClient(mc -> {
+            long[] look = c.onClient(mc -> {
                 aim(mc, at);
-                return CLIENT_TICK.get();
+                return new long[]{CLIENT_TICK.get(), System.nanoTime()};
             });
+            long lookTick = look[0];
+            lastFireMs = -1;
             if (arm != null) {
                 arm.run();
             }
@@ -84,6 +86,8 @@ public final class TriggerTiming {
                         synchronized (sent) {
                             for (long[] s : sent) {
                                 if (s[0] > lookTick) {
+                                    lastFireMs = (s[1] - look[1]) / 1e6;
+                                    lastMsPerTick = s[0] - lookTick > 0 ? lastFireMs / (s[0] - lookTick) : 50.0;
                                     c.note(String.format(java.util.Locale.ROOT, "%s: %d client tick(s) from the aim to "
                                             + "the %s packet (server clock: %d)", type, s[0] - lookTick, kind, server));
                                     return s[0] - lookTick;
@@ -107,6 +111,36 @@ public final class TriggerTiming {
         }
     }
 
+    private static volatile double lastFireMs = -1;
+    private static volatile double lastMsPerTick = 50.0;
+
+    /** Wall-clock milliseconds from the aim to the packet in the last {@link #ticksToFire} (-1 if not measured). */
+    public static double lastFireMs() {
+        return lastFireMs;
+    }
+
+    /** The client's milliseconds per tick over the last {@link #ticksToFire}'s wait (50 at full speed). */
+    public static double lastMsPerTick() {
+        return lastMsPerTick;
+    }
+
+    /**
+     * The verdict for a trigger bot whose delay is a WALL-CLOCK timer checked once a tick (Secret Triggerbot and the Auto
+     * Door Opener read System.currentTimeMillis; the P3 trigger bots count whole ticks since mod grim-post and use
+     * {@link #judge}). Counted in ticks such a delay shrinks when the client runs slow: 400 ms read 6 ticks under nine
+     * clients. In milliseconds it holds; each trial fires on the first tick start past its due time, so the difference
+     * is the delay within one tick of the slower trial's tick length either way (half a tick more for timer jitter).
+     */
+    public static void judgeMs(Session c, String what, double[] ms, double msPerTick, int delayMs) {
+        double tol = 1.5 * Math.max(50.0, msPerTick);
+        c.note(String.format(java.util.Locale.ROOT, "%s: delay 0 fired %.0f ms after the aim, delay %d ms %.0f ms; moved %.0f"
+                + " ms, want %d +- %.0f (client %.0f ms a tick)", what, ms[0], delayMs, ms[1], ms[1] - ms[0], delayMs, tol,
+                msPerTick));
+        c.check(ms[0] >= 0 && ms[1] >= 0, what + " never fired (or its packet was not seen) (" + ms[0] + ", " + ms[1] + ")");
+        c.check(Math.abs((ms[1] - ms[0]) - delayMs) <= tol, String.format(java.util.Locale.ROOT,
+                "%s: a %d ms delay moved the click %.0f ms (tolerance %.0f)", what, delayMs, ms[1] - ms[0], tol));
+    }
+
     /** The serverbound packet each Hx event type is the server's record of. */
     private static final java.util.Map<String, String> CLIENT_PACKET = java.util.Map.of(
             "term.interact", "interact", "use_entity", "interact", "attack_entity", "attack", "use_block", "use_item_on");
@@ -118,8 +152,12 @@ public final class TriggerTiming {
     private static void hookClock() {
         if (!clockHooked) {
             clockHooked = true;
-            net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.START_CLIENT_TICK.register(
-                    mc -> CLIENT_TICK.incrementAndGet());
+            // Ahead of every mod's START handler: registered in the default phase it ran after the trigger bots, so a
+            // delay-0 click went out on the counter of the tick before and read as "no packet after the aim".
+            net.minecraft.resources.Identifier head = net.minecraft.resources.Identifier.parse("testkit:triggertiming_head");
+            var ev = net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.START_CLIENT_TICK;
+            ev.addPhaseOrdering(head, net.fabricmc.fabric.api.event.Event.DEFAULT_PHASE);
+            ev.register(head, mc -> CLIENT_TICK.incrementAndGet());
         }
     }
 
