@@ -482,7 +482,9 @@ final class Ap3Fix1026Cases {
             }
             String[] names = {"LeapA", "LeapB"};
             for (String n : names) {
-                c.server().command(String.format(Locale.ROOT, "testkit spawn %s %.2f %d %.2f", n, ax, FLOOR + 1, z + 24));
+                // Far off: the client spreads a remote player's teleport over three ticks of lerp, and the counter needs an
+                // 8-block step in one tick (a 22-block tp was missed in the first run; real Spirit Leaps cross the map).
+                c.server().command(String.format(Locale.ROOT, "testkit spawn %s %.2f %d %.2f", n, ax, FLOOR + 1, z + 64));
             }
             c.server().sync(20);
             ctx.waitTicks(20);
