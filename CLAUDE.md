@@ -354,6 +354,18 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
 - Blink holds are key-driven since mod blink-rework-1025: between two holds the key needs a tick up and a tick down, so a
   landing released with one hold lands in that gap unless there is latency; 1025-blink-etherwarp installs 150 ms.
 
+- **Load is the normal state (up to nine clients, 2026-10-26).** Four shapes of test broke under it and were fixed in
+  preexisting-1026: a delay counted in client ticks but read on the SERVER's clock (trigger bots; count client ticks, see
+  TriggerTiming); a key press counted as "the one that worked" by when the SERVER's event arrived (823 read "press 2" on
+  the cold open: count the client's own packet); "drawn within the last 500 ms" (899: the 2560x1440 screenshot took
+  longer; use "drawn since the scene was set up"); and two console `data get` reads assumed to land inside a 5-tick
+  Blink hold (each is a round trip of a tick or more: check the hold was still running when the answer came).
+- A `dungeon.tp` above a spot followed by a console `fill` there N ticks later lets him fall INTO the blocks as they appear:
+  GrimAC Simulation x3 in 787 on every jar. `forceload add`, `sync`, fill, then tp onto it (832/835/787/788 do).
+- A tp to where he already stands passes its own position wait before the teleport lands; 417 (AP3 Term Aura FRONT) then
+  clicked with it in flight and the server handled none of three interacts. `TerminalAuraCases.tp` skips such a tp and
+  waits for the look as well as the position.
+
 Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosecret wither doors, 62-argrim frames,
 143 camera, 141/142 autopilot, the mod's Auto Scale, terminal layouts, the logic world, 386's sweep):
 [docs/scenario-lessons.md](docs/scenario-lessons.md).
