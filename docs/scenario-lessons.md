@@ -1242,3 +1242,13 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 1027-zpewc-*: a server `tp` to where he already stands passes a position check at once while the tp's packet is still
   in flight; under 300 ms it landed mid-shot and read as a ZPEW miss (solo run, chain-300). `tpTo` now waits for the
   tp's own position packet (counted by the inbound tap) as well as the position.
+- 1027-zpewmt-* (ZpewMultiTickTests, 2026-10-27): several etherwarps in ONE client tick - ZPEW Warps Per Tick 2/3/5/10, two
+  bursts on consecutive ticks, Left Click Etherwarp with it, a burst running off its floor, and vanilla clients' own 2 and
+  20 clicks in a tick; 0/50/150/300 ms. Proof per shot: every use_item recorded with the client tick it left in (a counter
+  bumped at START_CLIENT_TICK, read in `PacketTrace.tap`), same look, rising sequence; the server's etherwarp count; a
+  position packet at each 8-block step; the end position. 1027-zpewmt-difflook (runExpectingFlags) is the control: the
+  harness sends two uses in one tick at two pitches and GrimAC flags BadPacketsJ (x1, x2), at one pitch nothing.
+- `ctx.getInput().pressKey(k)` twice is two TICKS, not one (it holds the key a tick): 1027-zpewc-chain's "two uses in one
+  tick" were at ticks 1991 and 1992. For clicks inside one tick, queue `KeyMapping.click(key)` N times from
+  START_CLIENT_TICK (`ZpewCampaignTests.atTickStart`); `handleKeybinds` turns each into a use that tick. Fabric API 0.155 has
+  no `client.keybinding.v1.KeyBindingHelper`; the test client's options are fresh, so `getDefaultKey()` is the bound key.

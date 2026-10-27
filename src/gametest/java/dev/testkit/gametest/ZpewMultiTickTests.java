@@ -68,6 +68,11 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 first = first == null ? e : first;
             }
         }
+        try {
+            diffLook(ctx);
+        } catch (AssertionError e) {
+            first = first == null ? e : first;
+        }
         if (first != null) {
             throw first;
         }
@@ -136,12 +141,20 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
      */
     static List<String> shot(ClientGameTestContext ctx, TestServer server, Hx hx, Scenario scenario, String who, int lat,
                              String label, int lane, Runnable fire, int expectUses, int expectWarps, int expectExtra) {
-        return shot(ctx, server, hx, scenario, who, lat, label, lane, STEP, fire, expectUses, expectWarps, expectExtra);
+        return shot(ctx, server, hx, scenario, who, lat, label, lane, STEP, fire, expectUses, expectWarps, expectExtra,
+                expectUses > 1 ? 1 : expectUses);
     }
 
     static List<String> shot(ClientGameTestContext ctx, TestServer server, Hx hx, Scenario scenario, String who, int lat,
                              String label, int lane, int step, Runnable fire, int expectUses, int expectWarps,
                              int expectExtra) {
+        return shot(ctx, server, hx, scenario, who, lat, label, lane, step, fire, expectUses, expectWarps, expectExtra,
+                expectUses > 1 ? 1 : expectUses);
+    }
+
+    static List<String> shot(ClientGameTestContext ctx, TestServer server, Hx hx, Scenario scenario, String who, int lat,
+                             String label, int lane, int step, Runnable fire, int expectUses, int expectWarps,
+                             int expectExtra, int expectTicks) {
         List<String> problems = new ArrayList<>();
         int z = Z0 + 10 * lane;
         ZpewCampaignTests.tpTo(ctx, server, who, X0 + 0.5, Y, z + 0.5, true);
@@ -213,8 +226,8 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
         if (uses.size() != expectUses) {
             problems.add(label + ": expected " + expectUses + " use(s), sent " + uses.size() + " | " + line);
         }
-        if (expectUses > 1 && ticks.size() != 1) {
-            problems.add(label + ": the uses went in " + ticks.size() + " ticks, not one | " + line);
+        if (ticks.size() != expectTicks) {
+            problems.add(label + ": the uses went in " + ticks.size() + " tick(s), expected " + expectTicks + " | " + line);
         }
         if (!sameLook || !seqRising) {
             problems.add(label + ": look changed or sequence not rising | " + line);
@@ -269,6 +282,24 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                                 () -> ctx.getInput().pressKey(o -> o.keyUse), expect, expect, expect - 1));
                     }
                 }
+                // Two bursts on consecutive ticks: the second is cast from the first burst's last PREDICTED landing (the
+                // server has answered none of it yet at 150/300 ms), so 3 + 3 warps walk on to 48.
+                setWpt(ctx, 3);
+                int two = cheat ? 6 : 2;
+                problems.addAll(shot(ctx, server, hx, scenario, who, lat, "wpt-3 two bursts", 0, STEP, () -> {
+                    ctx.getInput().pressKey(o -> o.keyUse);
+                    ctx.getInput().pressKey(o -> o.keyUse);
+                }, two, two, cheat ? 4 : 0, 2));
+                // Left Click Etherwarp is his own warp too (cheat build only).
+                if (cheat) {
+                    ctx.runOnClient(mc -> Mod.set(ZpewCampaignTests.LC_CFG, "setEnabled", true));
+                    try {
+                        problems.addAll(shot(ctx, server, hx, scenario, who, lat, "wpt-3 left click etherwarp", 0,
+                                () -> ctx.getInput().pressKey(o -> o.keyAttack), 3, 3, 2));
+                    } finally {
+                        ctx.runOnClient(mc -> Mod.set(ZpewCampaignTests.LC_CFG, "setEnabled", false));
+                    }
+                }
                 // Off the end: the floor ends 16 in, so 2 land and the 3rd (aimed at nothing) is never sent.
                 setWpt(ctx, 5);
                 int cutUses = cheat ? 2 : 1;
@@ -280,6 +311,74 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 ZpewCampaignTests.tearDown(ctx, hx);
             }
             check(problems.isEmpty(), "zpewmt " + lat + " ms: " + problems);
+        });
+    }
+
+    /**
+     * 1027-zpewmt-difflook: the control for WHY the burst keeps one look. Two uses in one tick sent by the harness (not the
+     * mod) at two different pitches must draw GrimAC BadPacketsJ, and the same pair at one pitch must not. Runs once, 0 ms.
+     */
+    static void diffLook(ClientGameTestContext ctx) {
+        Scenario.runExpectingFlags(ctx, "1027-zpewmt-difflook", (server, scenario) -> build(server), (server, scenario) -> {
+            scenario.assertDetectorWorks();
+            Hx hx = null;
+            List<String> problems = new ArrayList<>();
+            try {
+                hx = ZpewCampaignTests.setUp(ctx, 4);
+                hookTicks(ctx);
+                String who = ZpewCampaignTests.name(ctx);
+                setWpt(ctx, 1);
+                ctx.getInput().holdKey(o -> o.keyShift);
+                ctx.waitTicks(5);
+                float[] a = ZpewCampaignTests.aim(new Vec3(X0 + 0.5, Y + 1.27, Z0 + 0.5), new Vec3(X0 + 8.5, Y, Z0 + 0.5));
+                float[] b = ZpewCampaignTests.aim(new Vec3(X0 + 8.5, Y + 1.32, Z0 + 0.5), new Vec3(X0 + 12.5, Y, Z0 + 0.5));
+                for (boolean differ : new boolean[]{false, true}) {
+                    ZpewCampaignTests.tpTo(ctx, server, who, X0 + 0.5, Y, Z0 + 0.5, true);
+                    ZpewCampaignTests.look(ctx, a[0], a[1]);
+                    ctx.waitTicks(3);
+                    server.mark();
+                    int w0 = ZpewCampaignTests.counters(ctx, hx).warps();
+                    ctx.runOnClient(mc -> USES.clear());
+                    float p2 = differ ? b[1] : a[1];
+                    ZpewCampaignTests.atTickStart = () -> {
+                        var mc = net.minecraft.client.Minecraft.getInstance();
+                        // vanilla's sequenced send (MultiPlayerGameMode.startPrediction), reached by reflection
+                        try {
+                            var getter = net.minecraft.client.multiplayer.ClientLevel.class
+                                    .getDeclaredMethod("getBlockStatePredictionHandler");
+                            getter.setAccessible(true);
+                            var handler = (net.minecraft.client.multiplayer.prediction.BlockStatePredictionHandler)
+                                    getter.invoke(mc.level);
+                            for (float pitch : new float[]{a[1], p2}) {
+                                try (var h = handler.startPredicting()) {
+                                    mc.getConnection().send(new ServerboundUseItemPacket(
+                                            net.minecraft.world.InteractionHand.MAIN_HAND, h.currentSequence(),
+                                            mc.player.getYRot(), pitch));
+                                }
+                            }
+                        } catch (ReflectiveOperationException e) {
+                            throw new IllegalStateException(e);
+                        }
+                    };
+                    ctx.waitTicks(30);
+                    int warps = ZpewCampaignTests.counters(ctx, hx).warps() - w0;
+                    List<String> flags = scenario.flags();
+                    boolean j = flags.stream().anyMatch(f -> f.contains("BadPacketsJ"));
+                    scenario.log(String.format(Locale.ROOT, "%s looks: %d use(s) in tick(s) %s, %d server warp(s), flags %s",
+                            differ ? "different" : "same", USES.size(), USES.stream().map(Use::tick).distinct().toList(),
+                            warps, flags));
+                    if (USES.size() != 2 || USES.stream().map(Use::tick).distinct().count() != 1 || warps != 2) {
+                        problems.add((differ ? "different" : "same") + ": the pair did not go out in one tick and land twice");
+                    }
+                    if (differ != j) {
+                        problems.add((differ ? "different looks did not draw" : "the same look drew") + " BadPacketsJ: " + flags);
+                    }
+                }
+            } finally {
+                ZpewCampaignTests.atTickStart = null;
+                ZpewCampaignTests.tearDown(ctx, hx);
+            }
+            check(problems.isEmpty(), "zpewmt difflook: " + problems);
         });
     }
 
