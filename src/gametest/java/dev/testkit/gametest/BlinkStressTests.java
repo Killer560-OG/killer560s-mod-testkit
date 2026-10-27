@@ -2044,6 +2044,9 @@ public class BlinkStressTests implements FabricClientGameTest {
                 long mem0 = usedMemoryMb(ctx);
                 StringBuilder samples = new StringBuilder();
                 int bad = 0;
+                // The mod's longest wait is a session-long maximum: an earlier case (1026-blink-lag's 2 s spike set it to
+                // 3534 ms, blinkmerge-1027) would fail this one. Only a maximum set during this case counts.
+                long waitBefore = cnum(ctx, "maxAnswerWaitMs");
                 long maxWait = 0;
                 for (int m = 0; m < minutes; m++) {
                     for (int s = 0; s < 6; s++) {
@@ -2068,11 +2071,14 @@ public class BlinkStressTests implements FabricClientGameTest {
                 ctx.waitTicks(10);
                 chargeOff(ctx);
                 double g = gap(server, ctx);
-                scenario.log(String.format(Locale.ROOT, "long-charge %d min:%s; longest answer wait %d ms; memory %d -> %d MB; "
-                        + "shot %d tick(s) %.2f blocks, gap %.2f", minutes, samples, maxWait, mem0, mem1, (long) shot[2], shot[0], g));
+                boolean newMax = maxWait > waitBefore;
+                scenario.log(String.format(Locale.ROOT, "long-charge %d min:%s; longest answer wait %s; memory %d -> %d MB; "
+                        + "shot %d tick(s) %.2f blocks, gap %.2f", minutes, samples, newMax ? maxWait + " ms"
+                        : "not above the session's earlier " + waitBefore + " ms (the minute samples bound it)", mem0, mem1,
+                        (long) shot[2], shot[0], g));
                 check(bad == 0, bad + " minute sample(s) out of bounds");
                 // Answers go only at a tick start, so a frame stall on a loaded machine adds to the 990 ms (1458 ms once, 2026-10-26).
-                check(maxWait < 2000, "an answer waited " + maxWait + " ms");
+                check(!newMax || maxWait < 2000, "an answer waited " + maxWait + " ms");
                 check(shot[2] == 20 && shot[0] > 4.5 && g < 0.5, "the shot after the long charge was not clean");
             } finally {
                 chargeOff(ctx);

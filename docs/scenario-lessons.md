@@ -1200,3 +1200,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   frame count is now only a floor of 3; "3 nodes drawn active" with 0 mismatches is what proves the highlight follows.
 - 96-ar-1017-bridges failed in batch1026-c-ar-1 too (the batch report missed it): a MOD bug, the path arrival #16 stacked on
   #3's tile fired after #3's etherwarp moved him and stopped "not at path #16". Fixed in mod 1e34b9a7 (pre1026-ar).
+- **blinkmerge-1027: kept-bank costs leak into the next case.** A case that keeps Blink's bank through a server teleport
+  (1026-ap3-blink-leap) leaves GrimAC a BadPacketsN that fires on the NEXT case's lane teleport, a second later: in the 63
+  session it failed 1027-ap3-shot-turn. Such a case runs last before an expecting-flags case (63-ap3-corrections). Also,
+  `BlinkCharge.maxAnswerWaitMs` is a session-long maximum: 1026-blink-lag's spike (3.5 s) failed 1026-blink-long-charge
+  run after it, so long-charge counts only a maximum set during the case.
