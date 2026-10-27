@@ -426,11 +426,12 @@ final class HxModChatPartyCases {
                 Map<String, Object> cc = loadState(c);
                 expect(problems, "C", cc, Map.of("enabled", true, "DICE", false, "FPS", true, "WARP", false));
 
-                // D: a fresh install - defaults, nothing written.
+                // D: a fresh install - defaults, nothing written. Every command starts ON since mod 4a7ffc31
+                // (killer560, 2026-10-18: "Party Commands: every command starts ON, Guild and All Chat off").
                 delete(party);
                 delete(chat);
                 Map<String, Object> d = loadState(c);
-                expect(problems, "D", d, Map.of("enabled", false, "COORDS", true, "WARP", false, "ch.PARTY", true,
+                expect(problems, "D", d, Map.of("enabled", false, "COORDS", true, "WARP", true, "ch.PARTY", true,
                         "ch.ALL", false, "ch.MOD_CHAT", true, "delay", 200));
                 if (Files.exists(party)) {
                     problems.add("D: a fresh install wrote a config file");
@@ -569,16 +570,24 @@ final class HxModChatPartyCases {
                     Mod.setField("partycommands.PartyLeaderTracker", "leader", null);
                 });
                 dungeon(c);
-                // All chat OFF: a stranger's all-chat !coords gets nothing.
+                // All chat OFF: even a teammate's all-chat !coords gets nothing (the channel gate, not the sender gate).
                 run(c, HxSocialCases::resetPartyCommandLimits);
-                c.hx().chat("§7[312] §b[MVP§c+§b] HxStranger§f: !coords");
+                c.hx().chat("§7[300] §b[MVP§c+§b] HxMateA§f: !coords");
                 assertNoCommand(c, 30, "ac ", "pc ");
-                // All chat ON: the reply goes back to all chat.
+                // All chat ON: a stranger still gets nothing - since mod 41099b8f (security audit 2026-10-24) no
+                // command, info replies included, answers anyone who is neither a teammate nor a friend.
                 run(c, () -> {
                     HxSocialCases.resetPartyCommandLimits();
                     Mod.call(cfg, "setChannelOn", all, true);
                 });
+                long markStranger = LogTap.mark();
                 c.hx().chat("§7[312] §b[MVP§c+§b] HxStranger§f: !coords");
+                assertNoCommand(c, 30, "ac ", "pc ");
+                c.check(LogTap.since(markStranger).stream().anyMatch(l -> l.contains("HxStranger")
+                        && l.contains("not a teammate or friend")), "the stranger's all-chat !coords was not refused");
+                // ...and a teammate's all-chat !coords is answered back into all chat.
+                run(c, HxSocialCases::resetPartyCommandLimits);
+                c.hx().chat("§7[300] §b[MVP§c+§b] HxMateA§f: !coords");
                 String ac = awaitCommand(c, "ac ", 60);
                 double[] at = c.scenario().playerPosition();
                 String want = String.format(Locale.US, "ac %.0f, %.0f, %.0f", at[0], at[1], at[2]);
@@ -617,7 +626,7 @@ final class HxModChatPartyCases {
                 c.ctx().waitTicks(30);
                 c.check(LogTap.since(mark3).stream().noneMatch(l -> l.contains("from HxMateA answered")),
                         "Mod Chat OFF still answered a Mod Chat command");
-                c.note("all chat off: nothing; on: /" + ac + "; stranger !warp gated; teammate !warp warped;"
+                c.note("all chat off: nothing; on: stranger nothing, teammate /" + ac + "; stranger !warp gated; teammate !warp warped;"
                         + " Mod Chat !coords answered to the relay, never Hypixel; Mod Chat off: nothing");
             } finally {
                 run(c, () -> {

@@ -109,6 +109,21 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   advance on every text HUD element (6 on one), so 394-ui-hud-boxes' first run read every correctly sized text box as
   spilling (2026-10-07). Measure text with `TextRuns.box` (advance width x line height through the pose); its fields are
   private on 26.2, so `TextRuns` reads them by name.
+- A fill's `bounds()` is `floor(left)` + `ceil(width)`, so at a fractional HUD scale (Auto Scale draws "1.0" at 0.8 on a
+  1366x768 GUI 2 window) it lands a pixel either side of the real edge, and which side depends on the left edge too.
+  1668/1669 read the custom scoreboard's largest element's bounds as its wall and failed 662 vs 663 for a wall drawn at
+  exactly 663 - also because since mod b7dd38cd (border on by default) the largest fill is the background inset by the
+  border. Measure fills exactly: ColoredRectangleRenderState `x0`/`x1` through its `pose` (HxScoreboardAnchorCases.fillLR),
+  over every visible fill, GuiRects batch parts included.
+- A row in a menu drawer can be laid out below the visible band (Player Cosmetics' Custom Names "Preview:" sat at y 521 on a
+  480-high screen once Ribbon Trail joined the drawer, 2026-10-18); cropping a screenshot there threw
+  NegativeArraySizeException (814, 963). Scroll it in first (`ModScreen.scrollOffset` + `rebuild`, then wait until
+  `drawnScroll` equals `scrollOffset`, as `HxCosmeticNameCases.previewRect` does). The scoreboard editor's Settings panel
+  adds only the rows inside it, so its Advanced Box group (Padding, Background Color) is absent from `children()` until
+  the panel is wheeled down (`HxScoreboardCases.wheelPanel`, 718 and 1666).
+- Hx cases that pin a design go stale when the owner redesigns: 113 (Auto Kick became Party Finder only, mod 95d9e514),
+  576 (every Party Commands command starts ON, 4a7ffc31), 578 (no command answers a stranger, 41099b8f), 718/719/1666
+  (Custom Scoreboard's 2026-10-18 Settings order, 3a957c1a). Before "fixing" the mod, read the feature's `git log`.
 
 - 236-menu-partyfinder-style (`PartyFinderStyleCases`): for each Party Finder style it compares the REAL tooltip (`getTooltipFromContainerItem`, through the mod's mixin) with the settings preview (`renderPreviewLines`) color run by color run, after putting the preview's own stats into `PartyFinderStatsApi.CACHE`; and, with no stats (offline = what Hypixel's stats service gives on 2026-10-07), that every member line is still styled and draws 0x555555 brackets. Highlight is judged by pure green/red pixels per slot against a highlight-off frame. Fails on mod 0b492828, passes on pf-overlay 2aecfd9a.
   The selected dungeon class (`PartyFinderOverlay.currentRole`) is session state: 234-menu-dungeonclass-select leaves it
