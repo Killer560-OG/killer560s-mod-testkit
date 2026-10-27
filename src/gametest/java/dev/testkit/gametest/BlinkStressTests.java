@@ -2216,7 +2216,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                         var w = (net.minecraft.client.gui.components.AbstractWidget) o;
                         String label = w.getMessage().getString();
                         if (w instanceof net.minecraft.client.gui.components.StringWidget) {
-                            texts.add(label);
+                            texts.add(net.minecraft.ChatFormatting.stripFormatting(label));
                             continue;
                         }
                         rows++;
