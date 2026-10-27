@@ -15,8 +15,8 @@ import java.util.Locale;
  * same start: once with the Lights Aura off (the path), once with it on and two levers unlit along the run. Judged:
  * <ul>
  *   <li>the levers get flicked during the second run (otherwise nothing was tested);</li>
- *   <li>tick by tick after the align, the movement direction of the aura run matches the path's within 2 degrees: the
- *       count of ticks that differ must be 0 (speed may differ by W's 2% where a turn used W instead of W+A);</li>
+ *   <li>every tick of the aura run stays within 0.05 blocks of the no-aura path's line (a turn that used W instead of
+ *       W+A is 2% slower, so the runs are compared in space; the tick-aligned direction differences are noted);</li>
  *   <li>GrimAC silent (Session.test).</li>
  * </ul>
  */
@@ -32,6 +32,15 @@ final class Ap3LightsPathCases {
             return;
         }
         s.test("1027-boss-ap3-lights-path", Ap3LightsPathCases::run);
+    }
+
+    /** Distance from p to the segment a-b, in x/z. */
+    private static double segDist(double[] p, double[] a, double[] b) {
+        double dx = b[0] - a[0];
+        double dz = b[1] - a[1];
+        double len2 = dx * dx + dz * dz;
+        double t = len2 < 1e-12 ? 0 : Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / len2));
+        return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dz));
     }
 
     private static String activeType() {
@@ -143,14 +152,34 @@ final class Ap3LightsPathCases {
                     }
                 }
             }
+            // The judgment is spatial: how far each tick of the aura run is from the no-aura path's line (a turn that used W
+            // instead of W+A is 2% slower, which shifts ticks along the line but not off it).
+            double worstOff = 0;
+            int worstOffTick = -1;
+            for (int i = 0; i < withAura.size(); i++) {
+                double[] p = withAura.get(i);
+                double best = Double.MAX_VALUE;
+                for (int j = 1; j < base.size(); j++) {
+                    best = Math.min(best, segDist(p, base.get(j - 1), base.get(j)));
+                }
+                if (base.size() == 1) {
+                    best = Math.hypot(p[0] - base.get(0)[0], p[1] - base.get(0)[1]);
+                }
+                if (best > worstOff) {
+                    worstOff = best;
+                    worstOffTick = i;
+                }
+            }
             double endGap = n == 0 ? Double.NaN : Math.hypot(base.get(n - 1)[0] - withAura.get(n - 1)[0],
                     base.get(n - 1)[1] - withAura.get(n - 1)[1]);
-            c.note(String.format(Locale.ROOT, "path ticks %d / %d; flicks in the aura run %d; ticks whose direction differs by"
-                    + " more than 2 degrees: %d (worst %.2f deg); worst per-tick speed difference %.4f; gap at tick %d %.3f%s",
-                    base.size(), withAura.size(), flicks, differ, worstDeg, worstSpeed, n - 1, endGap, where));
+            c.note(String.format(Locale.ROOT, "path ticks %d / %d; flicks in the aura run %d; farthest the aura run got from the"
+                    + " no-aura path: %.4f blocks (tick %d); tick-aligned: %d tick(s) whose direction differs by more than 2"
+                    + " degrees (worst %.2f deg), worst per-tick speed difference %.4f, gap at tick %d %.3f%s",
+                    base.size(), withAura.size(), flicks, worstOff, worstOffTick, differ, worstDeg, worstSpeed, n - 1, endGap, where));
             c.check(base.size() >= 10, "the no-aura run lasted only " + base.size() + " ticks after the align");
             c.check(flicks >= 1, "the Lights Aura flicked nothing during the AP3 run - nothing was tested");
-            c.check(differ == 0, differ + " tick(s) moved in a different direction from the no-aura path:" + where);
+            c.check(worstOff <= 0.05, String.format(Locale.ROOT, "the aura run left the no-aura path by %.3f blocks at tick %d",
+                    worstOff, worstOffTick));
         } finally {
             c.onClient(mc -> {
                 try {
