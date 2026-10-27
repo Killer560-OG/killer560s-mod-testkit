@@ -190,17 +190,18 @@ final class ProfileDataCases {
             planted.add(plant(modPath(c, "killer560smod-tk.log"), "log line"));
             planted.add(plant(modPath(c, "killer560smod-auction-cache.json"), "{\"tk\": 1}"));
 
-            // A setting with no ModPaths table row lives in other/ (Mod Users is one); it must ride in the profile too
-            // (mod ModPaths.settingFiles missed other/ until 2026-10-25, so an import of a zip without it grew a file).
-            Path otherSetting = modPath(c, "killer560smod-modusers.json");
+            // A setting with no ModPaths table row lives in other/; it must ride in the profile too (mod
+            // ModPaths.settingFiles missed other/ until 2026-10-25, so an import of a zip without it grew a file). Mod
+            // Users was that file until it got its own row (mod layout-fixes-1026); a made-up name stands in now.
+            Path otherSetting = modPath(c, "killer560smod-tkother.json");
             c.check(otherSetting.getParent().getFileName().toString().equals("other"),
-                    "Mod Users' file is no longer in other/: " + otherSetting);
-            Files.writeString(otherSetting, "{\"seeOthers\": false, \"share\": false, \"shareAs\": \"legit\"}");
+                    "the unrowed test file is not in other/: " + otherSetting);
+            Files.writeString(otherSetting, "{\"tk\": 1}");
             String save = save(c, src);
             c.note("save: " + save);
             Path srcDir = profilesDir().resolve(src);
-            c.check(Files.isRegularFile(srcDir.resolve("killer560smod-modusers.json")),
-                    "the profile left out killer560smod-modusers.json, a setting file in other/");
+            c.check(Files.isRegularFile(srcDir.resolve("killer560smod-tkother.json")),
+                    "the profile left out killer560smod-tkother.json, a setting file in other/");
             String export = c.onClient(mc -> HudMenuProfilesCases.resultText(Mod.staticCall(PM, "exportProfile", src)));
             c.note("export: " + export);
             Path zip = shareFolder().resolve(src + ".zip");
@@ -682,8 +683,16 @@ final class ProfileDataCases {
         return (Path) Mod.staticCall(PM, "shareFolder");
     }
 
+    /** The mod's path for {@code name}, with its parent folder made: since mod layout-fixes-1026 ModPaths.config no
+     *  longer makes it, and these cases write the path straight away. */
     static Path modPath(UiCase c, String name) {
-        return (Path) Mod.staticCall("util.ModPaths", "config", name);
+        Path p = (Path) Mod.staticCall("util.ModPaths", "config", name);
+        try {
+            Files.createDirectories(p.getParent());
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+        return p;
     }
 
     static Path modRoot(UiCase c) {

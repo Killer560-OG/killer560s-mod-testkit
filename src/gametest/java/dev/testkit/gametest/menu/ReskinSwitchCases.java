@@ -121,6 +121,7 @@ final class ReskinSwitchCases {
     }
 
     private static void write(Path p, String json) throws Exception {
+        Files.createDirectories(p.getParent()); // mod layout-fixes-1026: ModPaths.config no longer makes the folder
         Files.writeString(p, json, StandardCharsets.UTF_8);
     }
 

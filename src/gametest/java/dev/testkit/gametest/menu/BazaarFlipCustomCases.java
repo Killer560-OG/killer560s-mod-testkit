@@ -712,6 +712,7 @@ final class BazaarFlipCustomCases {
                     .orElse("?");
             c.check(shown.equals("3,000,000"), "the rebuilt box shows \"" + shown + "\"");
             // An old file with the removed minProfitPerRun: ignored on load, gone after the next save.
+            Files.createDirectories(file.getParent()); // mod layout-fixes-1026: ModPaths.config no longer makes the folder
             Files.writeString(file, "{\"enabled\":true,\"minProfitPerRun\":60000,\"targetPurse\":123456,\"speed\":4}",
                     StandardCharsets.UTF_8);
             c.ctx().runOnClient(mc -> Mod.staticCall("bazaarflip.BazaarFlipConfig", "load"));
