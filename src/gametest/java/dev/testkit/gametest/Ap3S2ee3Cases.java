@@ -72,8 +72,9 @@ final class Ap3S2ee3Cases {
         // The pit east of the stair: x 3..6, z 103..107, floor 3 down (blocks at y 105, top 106).
         cmd(c, "fill %d 106 103 %d 108 107 minecraft:air", x0 + 3, x0 + 6);
         cmd(c, "fill %d 105 103 %d 105 107 minecraft:stone", x0 + 3, x0 + 6);
-        // The stair: block x 2, z 103..107, high half west (top 109), low half east (top 108.5).
-        cmd(c, "fill %d 108 103 %d 108 107 minecraft:stone_brick_stairs[facing=east,half=bottom]", x0 + 2, x0 + 2);
+        // The stair: block x 2, z 103..107, high half west (top 109), low half east (top 108.5). A stair's tall side is
+        // toward its facing: facing=west puts it on the west.
+        cmd(c, "fill %d 108 103 %d 108 107 minecraft:stone_brick_stairs[facing=west,half=bottom]", x0 + 2, x0 + 2);
         // Under the floor's edge at z 103: nothing for 10 blocks (the drop he must never take).
         c.server().sync(20);
     }
