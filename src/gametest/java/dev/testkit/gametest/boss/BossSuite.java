@@ -49,6 +49,8 @@ public class BossSuite implements FabricClientGameTest {
                     SsStimMomentumCases.register(s);
                     // M7 P5 Relic Triggerbot and Relic Look (1025-boss-relic-*, branch relic-1025), own block.
                     RelicCases.register(s);
+                    // AP3 run beside the Lights levers: no backwards step under the aura's turns (1026, ap3-backwards-1026).
+                    Ap3LightsRunCases.register(s);
                 });
     }
 }

@@ -518,6 +518,9 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "385-ui-interactive-map", InteractiveMapCases::run);
                     UiCase.run(ctx, "386-ui-sliders", c -> SliderCases.run(c, deny));
                     UiCase.run(ctx, "387-ui-ap3-edit", Ap3EditCases::run);
+                    // mod ap3-backwards-1026: a typed 167.9 stays 167.9, and the leapcounter: suffix (parse, save, reload,
+                    // migration of the old Leap Counter node).
+                    UiCase.run(ctx, "1026-ui-ap3-angle-leapcounter", Ap3AngleLeapCases::run);
                     UiCase.run(ctx, "388-ui-breaker-display", BreakerDisplayCases::run);
                     UiCase.run(ctx, "389-ui-crosshair", CrosshairCases::run);
                     UiCase.run(ctx, "390-ui-wither-doors-fill", WitherDoorFillCases::run);

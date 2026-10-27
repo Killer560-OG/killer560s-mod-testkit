@@ -51,17 +51,17 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
 
     static final String SESSION = "63-ap3-session";
     private static final String P = "com.killer560.hub.ap3.";
-    private static final String EXEC = P + "Ap3Executor";
-    private static final String FEATURE = P + "Ap3Feature";
-    private static final String CONFIG = P + "Ap3Config";
-    private static final String STORE = P + "Ap3Store";
+    static final String EXEC = P + "Ap3Executor";
+    static final String FEATURE = P + "Ap3Feature";
+    static final String CONFIG = P + "Ap3Config";
+    static final String STORE = P + "Ap3Store";
     private static final String NODE = P + "Ap3Node";
     private static final String TYPE = P + "Ap3Node$Type";
     private static final String AREA = P + "Ap3Area";
 
     /** Floor block layer; the player stands at FLOOR + 1. Lanes run +x from LANE_X0, one every LANE_DZ in z. */
-    private static final int FLOOR = 120;
-    private static final int LANE_X0 = 0;
+    static final int FLOOR = 120;
+    static final int LANE_X0 = 0;
     private static final int LANE_LEN = 48;
     private static final int LANE_DZ = 8;
     /** Enough for every case in the session: lane() must never wrap. With 32 the 33rd lane (1018-ap3-run-centre) went
@@ -122,6 +122,8 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             s.test("1022-ap3-breaker-ew", Ap3RuntimeTests::caseBreakerEtherwarp);
             s.test("1022-ap3-breaker-leap-menu",
                     c -> caseBreakerTeleport(c, "1022-ap3-breaker-leap-menu", Arrival.AFTER_MENU, false));
+            // mod ap3-backwards-1026: the ledge guard, the boom that runs to its use, the leapcounter: gate.
+            Ap3Fix1026Cases.register(s);
             s.testExpectingFlags("63-ap3-corrections", Ap3RuntimeTests::caseCorrection);
             onClient(ctx, mc -> {
                 PacketTrace.tap = null;
@@ -250,7 +252,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         }
     }
 
-    private static void startProbe(ClientGameTestContext ctx) {
+    static void startProbe(ClientGameTestContext ctx) {
         onClient(ctx, mc -> {
             synchronized (EVENTS) {
                 EVENTS.clear();
@@ -262,7 +264,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         });
     }
 
-    private static List<Ev> stopProbe(ClientGameTestContext ctx) {
+    static List<Ev> stopProbe(ClientGameTestContext ctx) {
         return onClient(ctx, mc -> {
             recording = false;
             synchronized (EVENTS) {
@@ -319,7 +321,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
     // ------------------------------------------------------------------------------------------------- driving
 
     /** A fresh lane: z of its center line. */
-    private static double lane() {
+    static double lane() {
         if (nextLane >= LANES) {
             throw new AssertionError("out of lanes (" + LANES + "): raise LANES rather than reuse one - a reused lane is a"
                     + " long teleport into chunks the client has dropped");
@@ -331,7 +333,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
      * Put him at the lane's start (server tp, facing +x), arm the given nodes, then walk him into the RUN box with a
      * real W press and let go inside it - the hand-over AP3 is built for. Returns once the run is carrying him.
      */
-    private static void walkIntoRun(Session c, double z, Object run, Object... rest) {
+    static void walkIntoRun(Session c, double z, Object run, Object... rest) {
         ClientGameTestContext ctx = c.ctx();
         onClient(ctx, mc -> {
             ModUnderTest.staticCall(EXEC, "stop", new Class<?>[]{String.class}, new Object[]{"test lane"});
@@ -369,14 +371,14 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
     }
 
     /** A RUN node at the start of a lane, pointing +x, box 2x2 so a hand walk lands in it. */
-    private static Object runNode(double z) {
+    static Object runNode(double z) {
         return node("RUN", LANE_X0 + 3.0, z, -90f, 0f, 2.0, 2.0);
     }
 
     // ------------------------------------------------------------------------------------------------- analysis
 
     /** The first END marker at which {@code node} contains his position, or null. */
-    private static Ev firstInside(ClientGameTestContext ctx, List<Ev> evs, Object node) {
+    static Ev firstInside(ClientGameTestContext ctx, List<Ev> evs, Object node) {
         return onClient(ctx, mc -> {
             for (Ev e : evs) {
                 if (e.kind().equals("E") && contains(node, new Vec3(e.x(), e.y(), e.z()))) {
@@ -387,7 +389,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         });
     }
 
-    private static Ev endAt(List<Ev> evs, int t) {
+    static Ev endAt(List<Ev> evs, int t) {
         for (Ev e : evs) {
             if (e.kind().equals("E") && e.tick() == t) {
                 return e;
@@ -409,7 +411,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         return Math.abs(Mth.wrapDegrees(a - b)) <= tol;
     }
 
-    private static void dump(Session c, List<Ev> evs, int fromTick, int toTick) {
+    static void dump(Session c, List<Ev> evs, int fromTick, int toTick) {
         for (Ev e : evs) {
             if (e.tick() < fromTick || e.tick() > toTick) {
                 continue;
@@ -994,7 +996,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
     }
 
     /** A private static field of a mod class, read by reflection. */
-    private static Object staticField(String className, String name) {
+    static Object staticField(String className, String name) {
         try {
             Field f = Class.forName(className).getDeclaredField(name);
             f.setAccessible(true);
@@ -1730,6 +1732,22 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             m.invoke(null);
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("Ap3Executor.resetStopwatch", e);
+        }
+    }
+
+    /** Stops AP3 (reason "test lane"), puts Force Dungeon on and empties the chain (1026 cases). */
+    static void staticCallStop() {
+        ModUnderTest.staticCall(EXEC, "stop", new Class<?>[]{String.class}, new Object[]{"test lane"});
+        ModUnderTest.staticCall(FEATURE, "setForceDungeon", new Class<?>[]{boolean.class}, new Object[]{true});
+        setChain();
+    }
+
+    /** A public field of a mod object. */
+    static Object field(Object o, String name) {
+        try {
+            return o.getClass().getField(name).get(o);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(o.getClass().getSimpleName() + "." + name, e);
         }
     }
 
