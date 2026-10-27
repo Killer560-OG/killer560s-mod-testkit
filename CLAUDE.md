@@ -362,9 +362,8 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   Blink hold (each is a round trip of a tick or more: check the hold was still running when the answer came).
 - A `dungeon.tp` above a spot followed by a console `fill` there N ticks later lets him fall INTO the blocks as they appear:
   GrimAC Simulation x3 in 787 on every jar. `forceload add`, `sync`, fill, then tp onto it (832/835/787/788 do).
-- A tp to where he already stands passes its own position wait before the teleport lands; 417 (AP3 Term Aura FRONT) then
-  clicked with it in flight and the server handled none of three interacts. `TerminalAuraCases.tp` skips such a tp and
-  waits for the look as well as the position.
+- A tp to where he already stands passes its own position wait before the teleport lands, and the landing then resets the
+  look: 799 waits 20 ticks after it and only then looks away from the stand (the bot had clicked it the tick P3 began).
 
 Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosecret wither doors, 62-argrim frames,
 143 camera, 141/142 autopilot, the mod's Auto Scale, terminal layouts, the logic world, 386's sweep):

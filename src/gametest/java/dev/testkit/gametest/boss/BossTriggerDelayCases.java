@@ -111,8 +111,9 @@ final class BossTriggerDelayCases {
                 // Off the stand until the aim: the tp leaves him looking straight at it, so the bot clicked it the tick
                 // P3 began (delay 0), before the aim, and never again ("clicked [106]", lastClick 2 ticks after the
                 // Goldor line - preexisting-1026's diagnostic); at 400 ms its delay ran from the stand's spawn instead.
+                c.ctx().waitTicks(20); // a tp to the spot he already stands on lands inside this, look and all
                 TriggerTiming.lookAway(c);
-                c.ctx().waitTicks(20);
+                c.ctx().waitTicks(2);
                 int standId = c.hx().call("boss.term.spawn").getAsJsonObject().get("standId").getAsInt();
                 c.hx().call("boss.term.config", "line", true);
                 c.waitUntil("the client to have the terminal stand", mc -> mc.level.getEntity(standId) != null, 200);

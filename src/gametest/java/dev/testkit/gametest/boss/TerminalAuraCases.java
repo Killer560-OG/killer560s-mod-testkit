@@ -193,20 +193,9 @@ final class TerminalAuraCases {
     }
 
     static void tp(Session c, double x, double y, double z, float yaw) {
-        // A tp to where he already stands, facing the same way, is skipped: its position wait passed before the
-        // teleport landed, and 417 (AP3 Term Aura, FRONT) then clicked with that teleport still in flight - three
-        // interacts sent, none handled by the server (batch-1026 under load). A real move is waited for, look included.
-        Vec3 want = new Vec3(x, y, z);
-        boolean there = c.onClient(mc -> mc.player != null && mc.player.position().distanceTo(want) < 0.05
-                && Math.abs(net.minecraft.util.Mth.wrapDegrees(mc.player.getYRot() - yaw)) < 0.01
-                && Math.abs(mc.player.getXRot()) < 0.01);
-        if (!there) {
-            c.hx().call("dungeon.tp", "x", x, "y", y, "z", z, "yaw", yaw, "pitch", 0f);
-            c.waitUntil("the client at " + x + "," + y + "," + z + " facing " + yaw, mc -> mc.player != null
-                    && mc.player.position().distanceTo(want) < 0.05
-                    && Math.abs(net.minecraft.util.Mth.wrapDegrees(mc.player.getYRot() - yaw)) < 0.01
-                    && Math.abs(mc.player.getXRot()) < 0.01, 200);
-        }
+        c.hx().call("dungeon.tp", "x", x, "y", y, "z", z, "yaw", yaw, "pitch", 0f);
+        c.waitUntil("the client at " + x + "," + y + "," + z, mc -> mc.player != null
+                && mc.player.position().distanceTo(new Vec3(x, y, z)) < 0.05, 200);
         c.ctx().waitTicks(3);
     }
 

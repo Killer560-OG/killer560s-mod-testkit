@@ -137,6 +137,11 @@ final class Ap3TermAuraCases {
                         + " pos=" + c.onClient(mc -> mc.player.position())
                         + " inBox=" + c.onClient(mc -> Mod.call(termAura, "contains", mc.player.position()))
                         + " stop='" + c.onClient(mc -> String.valueOf(Mod.staticCall(EXEC, "stopReason"))) + "'");
+                // preexisting-1026: three interacts on the wire, none handled, twice under load; which side dropped them?
+                c.note(mode + ": server stand state " + c.hx().call("boss.term.state") + ", events since: "
+                        + c.events("term.interact").size() + " term.interact (before " + before + "), client screen "
+                        + c.onClient(mc -> String.valueOf(dev.testkit.compat.McCompat.screen(mc))) + ", client container "
+                        + c.onClient(mc -> mc.player.containerMenu.containerId));
                 throw e;
             }
             List<JsonObject> ev = c.events("term.interact");
