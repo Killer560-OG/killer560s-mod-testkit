@@ -1493,6 +1493,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 new Class<?>[]{int.class}, new Object[]{10}));
         try {
             for (int startOn : new int[]{1, 3}) {
+                // Each pass rebuilds both walls, so it is a new run: forget the last one. Since mod 1c6f4a28 (2026-10-20,
+                // his Slime stack) a boom that blew its wall this run is not sent again ("nothing left to blow"), so the
+                // second pass found both booms remembered from the first and broke nothing.
+                forgetRunMemory(ctx);
                 BlockState cracked = Blocks.CRACKED_STONE_BRICKS.defaultBlockState();
                 setBlocks(ctx, Map.of(new int[]{12, F, 14}, cracked, new int[]{12, F + 1, 14}, cracked,
                         new int[]{17, F, 14}, cracked, new int[]{17, F + 1, 14}, cracked));
@@ -6564,7 +6568,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
          * node: no use for 40 ticks, the route still running, he has not moved. The stone removed on the server: the use
          * goes on the first tick the client sees it gone (at most one tick later) and he lands on (16,10). Controls: a
          * node /ar add-ed with the stone ALREADY there lands on the stone as before (no wait); a node from before
-         * placeEye existed warps straight away.
+         * placeEye existed never takes this wait (the aim check of mod c81e0cf0 holds it while the stone is in its line,
+         * and it lands once the stone goes).
          */
         static void ewBlockWait(ClientGameTestContext ctx) {
             resetRoutes(ctx);
@@ -6636,21 +6641,37 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 check(executorInt(ctx, "lineWaitTicksTotal") == waitBefore, "a block that was there at placement was waited on");
                 stopRoute(ctx);
 
-                // ---- control: a node saved before placeEye existed warps as before, block in its line or not ----
+                // ---- control: a node saved before placeEye existed never takes the 659 placement wait ----
+                // With the stone in its line it used to warp straight into the stone. Since mod c81e0cf0 (2026-10-19, "a
+                // warp is sent only when the client's trace lands on the planned block") the executor's own aim check
+                // holds it instead (aimHolds, "no look from ... lands on"). So: no 659 wait counted, the aim hold is
+                // what holds it, and once the stone goes it warps and lands on its block with still no 659 wait.
                 resetRoutes(ctx);
                 ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true));
                 writeRoute(ctx, List.of(ew(8, 10, 16, 10, true)));
                 tpRel(ctx, 8.5, 6.5, yaw, pitch);
                 ctx.waitTicks(5);
                 waitBefore = executorInt(ctx, "lineWaitTicksTotal");
+                int holdsBefore = executorInt(ctx, "aimHolds");
+                long m3 = LogTap.mark();
                 startSampling(ctx);
                 tpRel(ctx, 8.5, 10.5, yaw, pitch);
                 ctx.waitTicks(15);
                 s = stopSampling(ctx);
-                println("659 legacy node: " + countOut(s, "use_item") + " use_item in 15 ticks, waited "
+                int legacyHolds = executorInt(ctx, "aimHolds") - holdsBefore;
+                println("659 legacy node, stone in its line: " + countOut(s, "use_item") + " use_item in 15 ticks, aim holds "
+                        + legacyHolds + ", 659 waited " + (executorInt(ctx, "lineWaitTicksTotal") - waitBefore));
+                check(!logHas(m3, "was not there when the node was placed"), "a node without placeEye took the 659 wait");
+                check(executorInt(ctx, "lineWaitTicksTotal") == waitBefore, "a node without placeEye waited (659 wait)");
+                check(countOut(s, "use_item") == 0 && legacyHolds >= 1, "a node without placeEye, stone in its line: "
+                        + countOut(s, "use_item") + " use_item, " + legacyHolds + " aim hold(s) - the aim check did not hold it");
+                setServerBlock(ctx, 12, F, 10, Blocks.AIR.defaultBlockState());
+                Vec3 legacyLanded = waitLanded(ctx, 16, 10, 40);
+                println("659 legacy node, stone removed: landed " + legacyLanded + ", 659 waited "
                         + (executorInt(ctx, "lineWaitTicksTotal") - waitBefore));
-                check(countOut(s, "use_item") >= 1, "a node without placeEye did not warp as before");
-                check(executorInt(ctx, "lineWaitTicksTotal") == waitBefore, "a node without placeEye waited");
+                check(legacyLanded != null, "a node without placeEye did not warp onto (16,10) once its line was clear (at "
+                        + relPos(ctx) + ")");
+                check(executorInt(ctx, "lineWaitTicksTotal") == waitBefore, "a node without placeEye waited (659 wait)");
             } finally {
                 ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true));
                 stopRoute(ctx);
@@ -8133,7 +8154,11 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 int taken2 = dev.testkit.harness.HypixelOrder.taken;
                 int iPick = logIndex(m2, "item picked up by you");
                 int iLand = logIndex(m2, "Landed in node #2");
-                boolean skipped = logHas(m2, "left click");
+                // A skip's own lines ("left click skipped the await", "your left click taken from vanilla", "the left
+                // click held ... is used now"), not the bare words: since mod 0c85c603 (2026-10-19) every "secret wait
+                // start" line ends "a left click skips it", and run 2's #2 logs one even when its await is met at once.
+                boolean skipped = logHas(m2, "skipped the await") || logHas(m2, "your left click taken")
+                        || logHas(m2, "is used now");
                 stopRoute(ctx);
                 println("landpickup run 2 (his pickup on the landing, Hypixel's order): landed on #2 " + landed2
                         + ", items taken " + taken2 + ", pickup line #" + iPick + " vs landing line #" + iLand
@@ -8395,8 +8420,12 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         "the warp after a lever click made with the AOTV held was ignored or did not land (landed "
                                 + same.landTick() + ", traveled " + String.format(Locale.US, "%.2f", same.travelled())
                                 + ", uses ignored " + same.dropped() + ")");
-                check(same.actedAfterFiring() <= 1, "the warp after the lever click went " + same.actedAfterFiring()
-                        + " tick(s) after firing - it must go the next tick, as his own does");
+                // Since mod c81e0cf0 (2026-10-19) a warp goes no sooner than RouteExecutor.CLICK_TO_WARP_TICKS (2) after a
+                // block click made with the same item: on Hypixel 45 of 69 warps one tick after such a click got no
+                // teleport, 1 of 7 at two ticks, 0 of ~250 at three or more (his Mod Only Test / Untested Cheat logs).
+                // So the second tick is the first one Hypixel reliably takes; any later is a wasted tick.
+                check(same.actedAfterFiring() <= 2, "the warp after the lever click went " + same.actedAfterFiring()
+                        + " tick(s) after firing - it must go on the click-gap's tick (2), not later");
                 check(item.acted() && item.dropped() == 0 && item.landTick() >= 0 && !item.turnedFirst(),
                         "the warp after an item pickup did not go and land at once (landed " + item.landTick()
                                 + ", ignored " + item.dropped() + ", turned first " + item.turnedFirst() + ")");
@@ -9214,7 +9243,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             List<JsonObject> n = new ArrayList<>();
             n.add(ew(6, 6, 14, 6, true));               // #1
             n.add(ew(14, 6, 22, 6, false));             // #2
-            n.add(node("WALK", 22, 6, 0f, 0f));         // #3
+            // #3 was a WALK. Since mod c81e0cf0 (2026-10-19, no settle between obvious-mode nodes) a walk node begins,
+            // acts and finishes inside its landing tick, so it is never the active node when a frame draws and the
+            // case read "only 2 node(s) drawn active". A third etherwarp is in flight for ticks, as #1 and #2 are.
+            n.add(ew(22, 6, 22, 14, false));            // #3
             writeRoute(ctx, n);
             ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
             tpRel(ctx, 4.5, 6.5, 0f, 0f);
@@ -9230,7 +9262,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             });
             try {
                 tpRel(ctx, 6.5, 6.5, -90f, 0f);
-                boolean done = waitFor(ctx, 200, () -> logHas(mark, "Node #3 WALK acted"));
+                boolean done = waitFor(ctx, 200, () -> logHas(mark, "Node #3 ETHERWARP acted"))
+                        && waitLanded(ctx, 22, 14, 40) != null;
                 ctx.waitTicks(5);
                 check(done, "the route never reached #3 (at " + relPos(ctx) + ")");
             } finally {
@@ -9239,7 +9272,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             println("96-ar-1016-activeframe: " + frames + " frame(s) drawn while sampling, " + mismatches
                     + " with a different active node, " + seen.size() + " node(s) drawn active"
                     + (firstMismatch == null ? "" : "; first: " + firstMismatch));
-            check(frames >= 20, "the renderer drew only " + frames + " frame(s) while the route played");
+            // Frames, not a fixed count: under nine clients the route's ~10 ticks drew 18 (batch1026-c-ar-1 failed
+            // "drew only 18" with 20 required). What the case needs is a drawn frame inside each node's turn, which
+            // "3 nodes drawn active" below proves; with mismatches 0 on every one of them.
+            check(frames >= 3, "the renderer drew only " + frames + " frame(s) while the route played");
             check(seen.size() >= 3, "only " + seen.size() + " node(s) were ever drawn active - the highlight did not move");
             check(mismatches == 0, mismatches + " frame(s) drew a different active node than the executor's: "
                     + firstMismatch);
@@ -9657,7 +9693,17 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 check(dl < 3.0 && dc < 3.0 && ds < 3.0, "premise: the route did not take him past all three in reach");
                 check(clicks == 0, "Secret Aura sent " + clicks + " use_item_on during a non-await stretch of the route");
                 check(!leverFlipped, "the lever was flipped during the route");
-                check(!logHas(m, "clicked by you"), "a secret block was clicked during the route");
+                // Not the route start's lookback lines: AwaitEvents.begin names every secret he got before the start
+                // ("... (clicked by you, key found) 80 tick(s) before the route started ..."), and in a full 96-ar
+                // session 96-ar-1016-keyreach's key placement is still there - batch1026-c-ar-1 failed on that line.
+                String clickDuring = null;
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("clicked by you") && !l.contains("before the route started")) {
+                        clickDuring = l;
+                        break;
+                    }
+                }
+                check(clickDuring == null, "a secret block was clicked during the route: " + clickDuring);
                 check(picked, "the item on his path was not picked up");
 
                 // Control: no route running, the same three blocks in reach - the aura takes them, as before.
