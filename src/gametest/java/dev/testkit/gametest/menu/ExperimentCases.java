@@ -30,6 +30,8 @@ final class ExperimentCases {
         MenuSuite.test(s, "221-menu-exp-solver-ultrasequencer", c -> solver(c, "ULTRASEQUENCER"));
         MenuSuite.test(s, "222-menu-exp-solver-superpairs", ExperimentCases::superpairsSolver);
         MenuSuite.test(s, "2778-menu-exp-superpairs-highlight-switch", ExperimentCases::superpairsHighlightSwitch);
+        MenuSuite.test(s, "2783-menu-exp-chronomatron-stop-at-target", c -> stopAtTarget(c, "CHRONOMATRON"));
+        MenuSuite.test(s, "2784-menu-exp-ultrasequencer-stop-at-target", c -> stopAtTarget(c, "ULTRASEQUENCER"));
         MenuSuite.test(s, "223-menu-exp-auto-chronomatron", c -> auto(c, "CHRONOMATRON"));
         MenuSuite.test(s, "224-menu-exp-auto-ultrasequencer", c -> auto(c, "ULTRASEQUENCER"));
         MenuSuite.test(s, "225-menu-exp-auto-superpairs", c -> auto(c, "SUPERPAIRS"));
@@ -790,6 +792,66 @@ final class ExperimentCases {
                     + " during the watch phase; " + MenuKit.cadence(c));
             c.check(reason.equals(expect), "the game ended with '" + reason + "', expected '" + expect + "': " + over);
             c.check(over.get("clicksDuringWatch").getAsInt() == 0, "clicked while the server was still showing the pattern");
+            c.check(MenuKit.maxPerTick(MenuKit.clicksPerTick(c)) <= 1, "more than one click in a tick");
+        } finally {
+            MenuKit.reset(c);
+        }
+    }
+
+    /**
+     * Stop At Max Clicks leaves the moment the target round is accepted (killer560, 2026-10-27: "every time after
+     * getting its 9th click it'll wait for the full 10th to go off for chronomatron then it'll exit, every time it
+     * says 10/9"). The server plays up to 6 rounds; the target is 3 (what the "Chain of N" lore would have set). The
+     * screen must close within a few ticks of the click that completes the target round, before the next sequence has
+     * finished playing (4+ notes x 8 ticks), with no click in the next round, and the rounds counter must read the
+     * target. Ultrasequencer keeps its one-fewer rule (its sequence is shown whole when the next round starts).
+     */
+    static void stopAtTarget(Session c, String game) throws Exception {
+        MenuKit.reset(c);
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c); AutoCloseable armed = autoConfig(c, cfg)) {
+            if (!MenuKit.cheat()) {
+                c.note("legit jar: Auto E-Table is cheat-only (223/224 cover the no-click check)");
+                return;
+            }
+            final int target = 3;
+            cfg.set(CONFIG, "StopStrategy", Mod.enumValue("experiments.ExperimentStopStrategy", "MAX_CLICKS"))
+                    .set(CONFIG, "ProfitTrackerEnabled", true).set(CONFIG, "NotifyMaxClicksReached", true);
+            JsonObject st = c.hx().call("menu.experiment", "game", game, "seed", 41, "rounds", 6, "watch", 8, "hold", 6)
+                    .getAsJsonObject();
+            MenuKit.awaitScreen(c, st.get("title").getAsString(), 100);
+            c.ctx().waitTicks(2);
+            // What the navigator would have read off "Chain of 3:" / "Series of 3:" on the stakes screen.
+            c.ctx().runOnClient(mc -> Mod.setField(FEATURE, "activeRoundsNeeded", target));
+            JsonObject close = MenuKit.awaitEvent(c, "container.close", 1200);
+            c.ctx().waitTicks(4);
+            List<JsonObject> rounds = c.events("experiment.round");
+            List<JsonObject> clicks = c.events("container.click");
+            long closeTick = close.get("tick").getAsLong();
+            int completed = rounds.size();
+            // Ultrasequencer: the sim's round r shows r+1 numbers and the mod stops once a series of `target` is shown,
+            // so round target-2 is the last one played (its rule, unchanged here).
+            int expectCompleted = game.equals("CHRONOMATRON") ? target : target - 2;
+            long lastRoundTick = rounds.isEmpty() ? -1 : rounds.get(rounds.size() - 1).get("tick").getAsLong();
+            long lastClickTick = clicks.isEmpty() ? -1 : clicks.get(clicks.size() - 1).get("tick").getAsLong();
+            long clicksAfterRound = clicks.stream().filter(e -> e.get("tick").getAsLong() > lastRoundTick).count();
+            JsonObject now = state(c);
+            Object pending = c.onClient(mc -> Mod.field(PROFIT, "pending"));
+            int reached = pending == null ? -1 : c.onClient(mc -> ((Number) Mod.field(pending, "roundsReached")).intValue());
+            int chain = c.onClient(mc -> ((Number) Mod.call(solverObj(), "currentChainLength")).intValue());
+            c.note(game + ": " + completed + " round(s) completed, last accepted click tick " + lastRoundTick
+                    + ", close tick " + closeTick + " (" + (closeTick - lastRoundTick) + " ticks later), server then at round "
+                    + now.get("round") + " phase " + now.get("phase") + ", " + now.get("wrong") + " wrong, "
+                    + now.get("clicksDuringWatch") + " during watch, " + clicksAfterRound + " click(s) after the last round; "
+                    + "counter " + reached + "/" + target + ", solver chain " + chain + "; " + MenuKit.cadence(c));
+            c.check(completed == expectCompleted, completed + " round(s) completed, expected " + expectCompleted);
+            c.check(lastRoundTick >= 0 && closeTick - lastRoundTick <= 4, "closed " + (closeTick - lastRoundTick)
+                    + " ticks after the last accepted click (want <= 4)");
+            c.check(clicksAfterRound == 0, clicksAfterRound + " click(s) sent in the next round");
+            c.check(lastClickTick == lastRoundTick, "a click after the last completed round (tick " + lastClickTick + ")");
+            c.check(now.get("wrong").getAsInt() == 0 && now.get("clicksDuringWatch").getAsInt() == 0, "wrong/watch clicks: " + now);
+            if (game.equals("CHRONOMATRON")) {
+                c.check(reached == target, "rounds counter reads " + reached + "/" + target);
+            }
             c.check(MenuKit.maxPerTick(MenuKit.clicksPerTick(c)) <= 1, "more than one click in a tick");
         } finally {
             MenuKit.reset(c);
