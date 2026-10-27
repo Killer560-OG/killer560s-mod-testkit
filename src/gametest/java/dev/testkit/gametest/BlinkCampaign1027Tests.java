@@ -225,6 +225,10 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
         ctx.waitTicks(1);
         ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
         ctx.waitTicks(1);
+        // A split shot's rest runs the tick after next (mod campaign-blink-1027): keep the keys down until it has.
+        for (int i = 0; i < 4 && ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "shotPending")); i++) {
+            ctx.waitTicks(1);
+        }
         double[] b = here(ctx);
         releaseKeys(ctx);
         return new double[]{dist3(a, b), cnum(ctx, "shots") - shots0, cnum(ctx, "shotTicks") - ticks0};
