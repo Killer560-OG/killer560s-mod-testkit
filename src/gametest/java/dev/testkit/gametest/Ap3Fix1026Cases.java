@@ -99,7 +99,7 @@ final class Ap3Fix1026Cases {
     }
 
     private static String activeType() {
-        Object n = dev.testkit.gametest.ModUnderTest.staticCall(EXEC, "activeNode");
+        Object n = dev.testkit.gametest.mod.Mod.field("ap3.Ap3Executor", "activeNode");
         return n == null ? "none" : String.valueOf(Ap3RuntimeTests.field(n, "type"));
     }
 
@@ -229,9 +229,10 @@ final class Ap3Fix1026Cases {
     }
 
     /**
-     * The Superboom tap(s) in the trace: exactly one is required; the look the server last heard before it (the last
-     * movement packet carrying a rotation, from the last position sent) must meet {@code target}. Returns the tap's
-     * index in {@code evs}.
+     * The Superboom tap(s) in the trace: exactly one is required, and the look it is judged by must meet {@code target}.
+     * That look is the movement packet that follows the tap in the same tick: AP3 sends the tap right ahead of it
+     * (beforeSendPosition), and GrimAC judges a use / dig by the rotation of the NEXT movement packet (BadPacketsJ;
+     * docs/AP3.md in the mod). Returns the tap's index in {@code evs}.
      */
     private static int judgeTap(Session c, List<Ap3RuntimeTests.Ev> evs, BlockPos target) {
         int tap = -1;
@@ -261,6 +262,17 @@ final class Ap3Fix1026Cases {
         float yaw = Float.NaN, pitch = Float.NaN;
         for (int i = 0; i < tap; i++) {
             Ap3RuntimeTests.Ev e = evs.get(i);
+            if (e.kind().equals("move") && !Double.isNaN(e.x())) {
+                px = e.x();
+                py = e.y();
+                pz = e.z();
+            }
+        }
+        for (int i = tap + 1; i < evs.size(); i++) {
+            Ap3RuntimeTests.Ev e = evs.get(i);
+            if (e.kind().equals("E")) {
+                break; // the tick ended without a movement packet
+            }
             if (e.kind().equals("move")) {
                 if (!Double.isNaN(e.x())) {
                     px = e.x();
@@ -271,13 +283,14 @@ final class Ap3Fix1026Cases {
                     yaw = e.yRot();
                     pitch = e.xRot();
                 }
+                break;
             }
         }
         if (Double.isNaN(px) || Float.isNaN(yaw)) {
-            throw new AssertionError("no movement packet with a position and a rotation went out before the tap");
+            throw new AssertionError("no movement packet carrying a rotation followed the tap in its tick");
         }
         BlockPos met = lookBlock(c.ctx(), new Vec3(px, py + 1.62, pz), yaw, pitch);
-        c.note(String.format(Locale.ROOT, "the look before the tap: %.2f/%.2f from (%.2f, %.2f, %.2f) meets %s; target %s",
+        c.note(String.format(Locale.ROOT, "the look reported with the tap: %.2f/%.2f from (%.2f, %.2f, %.2f) meets %s; target %s",
                 yaw, pitch, px, py, pz, met == null ? "nothing" : met.toShortString(), target.toShortString()));
         if (!target.equals(met)) {
             throw new AssertionError("the look the server had at the tap meets " + (met == null ? "nothing" : met.toShortString())
@@ -301,6 +314,7 @@ final class Ap3Fix1026Cases {
             Object boom = node("BOOM", LANE_X0 + 10.0, nodeZ, -90f, 0f, 1.0, 3.0);
             Object stop = node("STOP", LANE_X0 + 26.0, z, -90f, 0f, 2.0, 3.0);
             c.server().sync(20);
+            ctx.waitTicks(10); // the block update reaches the client
             BlockPos made = nodeBlock(ctx, LANE_X0 + 10.0, nodeZ, -90f, 0f);
             BlockPos fromLine = lookBlock(ctx, new Vec3(LANE_X0 + 10.0, FLOOR + 1 + 1.62, z), -90f, 0f);
             c.note("the node's angle meets " + made + " from its point and " + fromLine + " from his line");
