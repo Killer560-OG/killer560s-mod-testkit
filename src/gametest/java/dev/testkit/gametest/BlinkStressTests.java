@@ -1894,7 +1894,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                 long mem0 = usedMemoryMb(ctx);
                 int setbacks = setbacksDuring(ctx, () -> {
                     for (int i = 0; i < 120; i++) {
-                        ctx.waitTicks(7);
+                        // He slides for a few ticks after each shot (not still, not banked): 16 ticks fill a 5-tick bank.
+                        ctx.waitTicks(16);
                         maxAnswers[0] = Math.max(maxAnswers[0], (int) cnum(ctx, "answersHeld"));
                         boolean fwd = (i / 6) % 2 == 0;
                         long before = cnum(ctx, "shots");
@@ -1906,6 +1907,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                         ctx.getInput().releaseKey(o -> o.keyDown);
                         if (cnum(ctx, "shots") != before + 1 || cnum(ctx, "lastShotTicks") != 5) {
                             bad[0]++;
+                            scenario.log("shot " + i + ": shots +" + (cnum(ctx, "shots") - before) + ", last "
+                                    + cnum(ctx, "lastShotTicks") + " tick(s)");
                         }
                     }
                     ctx.waitTicks(10);
