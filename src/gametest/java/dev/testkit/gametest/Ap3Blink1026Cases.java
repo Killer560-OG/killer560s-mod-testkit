@@ -368,7 +368,8 @@ final class Ap3Blink1026Cases {
                 c.note("  " + l);
             }
             c.check(fired != null && ticks == 10, "Blink Release 10 did not fire 10 after the leap: " + ticks);
-            c.check(serverMoved > 1.0, "the server did not move him");
+            // GrimAC sets the kept bank's shot back after the leap (owner 2026-10-27 accepts it): recorded, not demanded.
+            c.note(String.format(Locale.ROOT, "server moved %.2f after the release (0 = GrimAC set the shot back)", serverMoved));
         } finally {
             onClient(ctx, mc -> {
                 Ap3RuntimeTests.staticCallStop();
