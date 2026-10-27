@@ -1224,3 +1224,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 792-hx-ping-bloodcamp read the kill moment one tick late (-1.2) twice under 8 clients and -0.2 on the rerun: the
   click itself went out on its tick. Cause not proven (a skipped client game-time tick would fit); BloodCamp is untouched
   since the last passing jar.
+- **campaign-blink-1027 (1027-blink-c-*, `BlinkCampaign1027Tests`).** `BlinkTests.serverPos` reads the last 60 console lines:
+  a flagged shot puts 30-60 GrimAC lines after the `data get` answer and it "never answered". The campaign class tags its
+  request with a `say` and reads 1500 lines. A split shot's rest runs the tick after next since mod campaign-blink-1027, so a
+  case that reads shot ticks or distance right after the press must wait while `BlinkCharge.shotPending()` (1025-blink-charge-far
+  failed "2 of 3" on that). An effect the server gives while charging reaches GrimAC ~1 s late (the answers wait): jump boost
+  given right before a charged jump shot drew Simulation 0.1998 x28 - give effects 2 s before charging. A split needs speed
+  already built up: from standing even Speed IV's 20 ticks stay under 9.5 blocks.

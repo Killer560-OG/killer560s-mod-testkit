@@ -355,6 +355,8 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
 - When the freeze watcher closes a client frozen at startup, that run's test server can stay up holding the port (and its
   logs): the next run in that checkout fails "Anticheat test server exited ... before it was ready" (FAILED TO BIND). Find the
   java.exe with `fabric.dli.env=server` and that checkout's path, kill it, rerun (2026-10-26, tk-blink-rework-c).
+- A test client loads the mod jar straight from the `-ModUnderTest` path (fabric.addMods), lazily: overwriting that jar while
+  the client runs crashed it ("ZipFile invalid LOC header", campaign-blink-1027). Give every build its own folder.
 - Blink holds are key-driven since mod blink-rework-1025: between two holds the key needs a tick up and a tick down, so a
   landing released with one hold lands in that gap unless there is latency; 1025-blink-etherwarp installs 150 ms.
 
