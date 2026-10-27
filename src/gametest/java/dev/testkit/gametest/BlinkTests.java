@@ -1679,7 +1679,8 @@ public class BlinkTests implements FabricClientGameTest {
                 ctx.waitTicks(3);
                 long bankAfterMove = cnum(ctx, "banked");
                 long moved = cnum(ctx, "movingTeleports") - mv0;
-                ctx.waitTicks(35);
+                // ~1 s settle after a moving teleport (mod b743dc10), then ~1 s to refill.
+                ctx.waitTicks(60);
                 long bankRefilled = cnum(ctx, "banked");
                 double[] shot2 = shootByPress(ctx, true);
                 ctx.waitTicks(20);
