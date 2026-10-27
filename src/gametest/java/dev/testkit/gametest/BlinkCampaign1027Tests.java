@@ -1182,10 +1182,13 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                             }
                             waitBank(ctx, c, c + 30);
                             holdRun(ctx, true, h);
-                            ctx.waitTicks(c + 8);
+                            // The bank may hold more than C (a lowered Charge Ticks keeps it): stand until all of it is
+                            // backed again, as a player who waits for it would.
+                            long kept = cnum(ctx, "banked");
+                            ctx.waitTicks((int) kept + 8);
                             shoot(ctx, true, false);
                             ctx.waitTicks(5);
-                            label = "charge C" + c + ", hold H" + h + ", shot";
+                            label = "charge C" + c + " (bank " + kept + "), hold H" + h + ", shot";
                         }
                         case 3 -> { // inventory while charging or holding
                             if (rnd.nextBoolean()) {
