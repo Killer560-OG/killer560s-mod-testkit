@@ -591,7 +591,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   Secret Aura's turn to a chest does). Controls: a left-click skip lands; the lever clicked with an empty hand lands; a raw use
   a tick after a click with the body NOT turned is ignored (rule live); the human stream (look at the lever, click; next tick
   look at the warp's block + sneak; next tick a real use key press) lands. The case: the lever clicked with the AOTV held must
-  land with the warp 1 tick after firing; an item pickup (no click) must warp and land with no turn. 2026-10-15: new jar
+  land with the warp at most 2 ticks after firing (1 until mod c81e0cf0 added the click-gap hold, 2026-10-19); an item pickup (no click) must warp and land with no turn. 2026-10-15: new jar
   (nexttick) acted 1 tick after firing, landed 3 ticks after the click, 0 ignored, PASS; the click-gap jar (95e50d7c) held 4
   ticks and was STILL ignored (never landed), FAIL; the jar before it (8cf017b7) ignored at 1 tick, FAIL. `waitLanded(ctx, x, z, 0)` used to check NOTHING (its loop ran `ticks` times) and always
   returned null - the first run of this case read every landing as "never"; earlyskip's in-flight checks and mimicskip's
@@ -1139,3 +1139,14 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 1026-sim-autostart: the entrance gate is the blocks `SimDoors.DOORS` registered for the DOOR_ENTRANCE door (12 on the floors
   seen), not a box round `SimBuilder.entranceDoor()` (that is the door cell's center, and a 3-block box round it found 0).
   Snapshot the positions during the countdown: `openEntranceGate` drops the entry at GO.
+- **96-ar stale cases fixed on pre1026-ar (2026-10-26).** Five 96-ar cases had failed since mod c81e0cf0 / 0c85c603
+  (2026-10-19) and 1c6f4a28 (2026-10-20) changed intended behavior; each test now asserts the current rule. stackorder:
+  a boom that blew its wall this run is not sent again, so each pass (walls rebuilt) forgets the run first. 659-ewblockwait
+  legacy control: a node without placeEye and a stone in its line is held by the aim check (`aimHolds`, no 659 wait), then
+  lands once the stone goes. 1015-landpickup: "left click" matched every "secret wait start" line ("a left click skips it");
+  it matches a skip's own lines now. 1015-warpclick: the warp after a same-item click goes on the click-gap tick (2 after
+  firing; Hypixel dropped 45 of 69 at one tick), not the next. 1016-activeframe: a last WALK node begins and ends inside
+  one tick (no settle between obvious-mode nodes), so it is never drawn active; #3 is a third etherwarp.
+  1016-auranoawait "flaky": not load but order - `AwaitEvents.begin` logs every secret got before the route start
+  ("(clicked by you, key found) 80 tick(s) before the route started"), and in the full 96-ar session keyreach's key
+  placement is still there. The during-the-route check skips "before the route started" lines.
