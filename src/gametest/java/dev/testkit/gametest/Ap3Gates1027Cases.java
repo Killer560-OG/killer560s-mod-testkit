@@ -326,12 +326,12 @@ final class Ap3Gates1027Cases {
                     // A screen (his chat, the leap menu, a terminal) must not drop a waiting gate: 09:22:39 in his log
                     // dropped leapcounter #37 on "a screen opened", and no click could reach it after.
                     onClient(ctx, mc -> {
-                        mc.setScreen(new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player));
+                        McCompat.setScreen(mc, new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player));
                         return null;
                     });
                     ctx.waitTicks(10);
                     onClient(ctx, mc -> {
-                        mc.setScreen(null);
+                        McCompat.setScreen(mc, null);
                         return null;
                     });
                     ctx.waitTicks(3);
@@ -379,7 +379,7 @@ final class Ap3Gates1027Cases {
         } finally {
             onClient(ctx, mc -> {
                 if (McCompat.screen(mc) != null) {
-                    mc.setScreen(null);
+                    McCompat.setScreen(mc, null);
                 }
                 Ap3RuntimeTests.staticCallStop();
                 return null;
