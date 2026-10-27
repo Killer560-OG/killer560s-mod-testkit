@@ -191,7 +191,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-pingpong", GrimAutoRoutesTests::casePingPong);
             s.test("62-argrim-chain", GrimAutoRoutesTests::caseChain);
             s.test("62-argrim-1025-zpchain", GrimAutoRoutesTests::caseZeroPingChain); // mod blink-1025
-            s.test("62-argrim-1025-chargechain", GrimAutoRoutesTests::caseChargedChain); // mod blink-charge-1025
+            // mod blink-charge-1025. Expecting flags since mod blink-keep-1027 (owner, 2026-10-27): the 12 ticks the chain
+            // does not spend stay banked through its 11 server teleports, and each kept teleport costs the GrimAC lines
+            // docs/LESSONS-AUTOMATION.md lists. The case still fails on any other check, and waits for the leak.
+            s.testExpectingFlags("62-argrim-1025-chargechain", GrimAutoRoutesTests::caseChargedChain);
             s.test("62-argrim-path", GrimAutoRoutesTests::casePath);
             // mod ar-obvious-only (2026-10-11): legit mode exists only in -PtestingBuild jars.
             if (SimAutoRoutesTests.legitSelectable()) {
@@ -1585,8 +1588,25 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", false);
             });
         }
+        // The kept bank's BadPacketsN arrives about a second after the last teleport (it landed on 62-argrim-path in
+        // final-1027): wait for it here, then allow only what a kept teleport is documented to cost.
+        c.ctx().waitTicks(60);
         noteFlags(c, all);
+        List<String> other = new ArrayList<>();
+        for (String f : c.scenario().flags()) {
+            java.util.regex.Matcher fm = java.util.regex.Pattern.compile("failed ([A-Za-z]+) \\(x").matcher(f);
+            String check = fm.find() ? fm.group(1) : "?";
+            if (!KEPT_BANK_CHECKS.contains(check)) {
+                other.add(f);
+            }
+        }
+        check(other.isEmpty(), other.size() + " GrimAC line(s) outside what a kept Blink teleport costs: " + other);
     }
+
+    /** What a teleport kept through a Blink charge costs on GrimAC (mod docs/LESSONS-AUTOMATION.md, blink-keep-1027).
+     *  AimDuplicateLook (24 lines in final-1027) is not on that list and still fails the case. */
+    private static final java.util.Set<String> KEPT_BANK_CHECKS =
+            java.util.Set.of("Simulation", "GroundSpoof", "TickTimer", "BadPacketsN", "Timer");
 
     /** Path nodes across a wall: planned once by the floor planner, the saved warps flown twice. */
     private static void casePath(Session c) {
