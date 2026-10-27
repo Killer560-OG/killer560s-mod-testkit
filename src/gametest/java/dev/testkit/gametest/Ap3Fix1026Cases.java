@@ -169,6 +169,7 @@ final class Ap3Fix1026Cases {
                 }
             }
             List<String> guard = logSince(mark, "would take you off a ledge");
+            guard.addAll(logSince(mark, "more than 0.5 below where the align started")); // the guard's line since ap3-stairs-1026
             List<String> settled = logSince(mark, "settled as close as is safe");
             String reason = onClient(ctx, mc -> String.valueOf(dev.testkit.gametest.ModUnderTest.staticCall(EXEC, "stopReason")));
             c.note(String.format(Locale.ROOT, "h %d, point x %.2f (edge %.1f): lowest y %.3f against standing %.1f, ended at"
