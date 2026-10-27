@@ -1150,3 +1150,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   1016-auranoawait "flaky": not load but order - `AwaitEvents.begin` logs every secret got before the route start
   ("(clicked by you, key found) 80 tick(s) before the route started"), and in the full 96-ar session keyreach's key
   placement is still there. The during-the-route check skips "before the route started" lines.
+- 96-ar-1016-activeframe also failed under load ("the renderer drew only 18 frame(s)", 20 required, batch1026-c-ar-1): the
+  frame count is now only a floor of 3; "3 nodes drawn active" with 0 mismatches is what proves the highlight follows.
+- 96-ar-1017-bridges failed in batch1026-c-ar-1 too (the batch report missed it): a MOD bug, the path arrival #16 stacked on
+  #3's tile fired after #3's etherwarp moved him and stopped "not at path #16". Fixed in mod 1e34b9a7 (pre1026-ar).

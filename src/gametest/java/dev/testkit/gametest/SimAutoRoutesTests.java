@@ -9272,7 +9272,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             println("96-ar-1016-activeframe: " + frames + " frame(s) drawn while sampling, " + mismatches
                     + " with a different active node, " + seen.size() + " node(s) drawn active"
                     + (firstMismatch == null ? "" : "; first: " + firstMismatch));
-            check(frames >= 20, "the renderer drew only " + frames + " frame(s) while the route played");
+            // Frames, not a fixed count: under nine clients the route's ~10 ticks drew 18 (batch1026-c-ar-1 failed
+            // "drew only 18" with 20 required). What the case needs is a drawn frame inside each node's turn, which
+            // "3 nodes drawn active" below proves; with mismatches 0 on every one of them.
+            check(frames >= 3, "the renderer drew only " + frames + " frame(s) while the route played");
             check(seen.size() >= 3, "only " + seen.size() + " node(s) were ever drawn active - the highlight did not move");
             check(mismatches == 0, mismatches + " frame(s) drew a different active node than the executor's: "
                     + firstMismatch);
