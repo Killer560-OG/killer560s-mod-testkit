@@ -714,8 +714,11 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
 
     /** At most this many ticks from the last warp of the trip onto a start node to its one-node route ending there. */
     private static final int ARRIVAL_MAX_TICKS = 2;
-    /** Ticks from the last warp to the tick its arrival is counted, with the server answering at once. */
-    private static final int ARRIVAL_ANSWER_TICKS = 1;
+    /**
+     * Ticks from the last warp to the tick its arrival is counted, with the server answering at once (measured
+     * 2026-10-26: 2 on every trip of an unloaded run, with the route ending on that same tick).
+     */
+    private static final int ARRIVAL_ANSWER_TICKS = 2;
 
     /**
      * 146-sim-autosecret-arrival (mod ac-optimize-2-1015; killer560 wants routes as fast as possible): four rooms with a
@@ -816,8 +819,8 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                 println(ARRIVAL, e.getKey() + ": no warp of a trip into it (it was where he stood) - not counted");
             } else {
                 gaps.add(end - last);
-                // The server's own delay past the normal one tick (its answer seen on the warp's next tick) is not the
-                // mod's; with no arrival seen in the window it is taken as none.
+                // The server's own delay past the normal answer (counted two ticks after the warp) is not the mod's;
+                // with no arrival seen in the window it is taken as none.
                 long serverLate = arrived < 0 ? 0 : Math.max(0, arrived - last - ARRIVAL_ANSWER_TICKS);
                 println(ARRIVAL, String.format(Locale.US, "%s: last warp of the trip on tick %d, its arrival counted on"
                         + " tick %d, route finished on tick %d: %d tick(s) from the warp to the route (the server's answer"
