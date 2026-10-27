@@ -73,7 +73,7 @@ final class Ap3ShotSteer1027Cases {
                 ClientTickEvents.END_CLIENT_TICK.register(m -> {
                     if (rec && m.player != null) {
                         int f = ((Number) Mod.staticCall(EXEC_SHORT, "blinkFrozenTicks")).intValue();
-                        boolean frozen = f != lastFrozen;
+                        boolean frozen = f > lastFrozen; // the mod's count restarts at 0 for each charge
                         lastFrozen = f;
                         add(m, false, frozen);
                     }
