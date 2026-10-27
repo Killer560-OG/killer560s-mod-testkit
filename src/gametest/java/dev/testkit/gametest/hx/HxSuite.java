@@ -76,6 +76,8 @@ public class HxSuite implements FabricClientGameTest {
                     // Staleness of the FPS pass's caches: every cached input changed, the display read back
                     // (1016-hx-stale-*, branch fps-combined-1016), own block.
                     HxStaleCases.register(s);
+                    // P3 Status HUD and titles, Chat Hider's dungeon pack (2140-2142, branch p3-chat-1025), own block.
+                    HxP3ChatCases.register(s);
                     // Boss Health: name tags and boss bars to HUD lines (1025-bosshp-*, branch boss-hp-1025), own
                     // block, last: it latches the boss room and its cleanup case leaves it again.
                     HxBossHealthCases.register(s);
