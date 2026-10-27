@@ -46,6 +46,88 @@ final class Ap3Stairs1026Cases {
         s.test("1026-ap3-stairs-sprint", c -> stairs(c, Shape.SPRINT));
         s.test("1026-ap3-lava-beside", Ap3Stairs1026Cases::lavaBeside);
         s.test("1026-ap3-lava-inside", Ap3Stairs1026Cases::lavaInside);
+        s.test("1026-ap3-leapgate-click", Ap3Stairs1026Cases::leapGateClick);
+    }
+
+    // ------------------------------------------------------------------------------------------------- leap gate click
+
+    /**
+     * 1026-ap3-leapgate-click (killer560, 2026-10-26: "on a leapcounter node if i left click it should fire as well"): a
+     * Stop with leapcounter:3 holds a Walk; with 0 leaps counted his real left click (the attack key, pressed through the
+     * game's own input) opens the gate, the Walk runs after it, and no swing or dig packet goes out for that click.
+     */
+    private static void leapGateClick(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        double z = Ap3RuntimeTests.lane();
+        double ax = LANE_X0 + 10.5;
+        Object run = node("RUN", LANE_X0 + 3.0, z, -90f, 0f, 2.0, 2.0);
+        Object stop = node("STOP", ax, z, -90f, 0f, 3.0, 3.0);
+        set(stop, "leapCounter", 3);
+        Object walk = node("WALK", ax, z, 0f, 0f, 3.0, 3.0);
+        long mark = LogTap.mark();
+        java.util.concurrent.atomic.AtomicInteger swings = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger digs = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicBoolean watching = new java.util.concurrent.atomic.AtomicBoolean();
+        var old = dev.testkit.harness.PacketTrace.tap;
+        dev.testkit.harness.PacketTrace.tap = p -> {
+            if (old != null) {
+                old.accept(p);
+            }
+            if (!watching.get()) {
+                return;
+            }
+            if (p instanceof net.minecraft.network.protocol.game.ServerboundSwingPacket) {
+                swings.incrementAndGet();
+            } else if (p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket
+                    || p instanceof net.minecraft.network.protocol.game.ServerboundInteractPacket) {
+                digs.incrementAndGet();
+            }
+        };
+        try {
+            walkIn(c, z, FLOOR + 1, run, stop, walk);
+            c.waitUntil("the leapcounter gate to hold", mc -> ModUnderTest.staticCall(EXEC, "leapGateNode") != null, 40);
+            ctx.waitTicks(10);
+            double z0 = onClient(ctx, mc -> mc.player.getZ());
+            boolean held = onClient(ctx, mc -> ModUnderTest.staticCall(EXEC, "leapGateNode") != null);
+            c.note("gate holding before the click: " + held + ", z " + z0);
+            if (!held) {
+                throw new AssertionError("the leapcounter:3 gate is not holding - nothing to click");
+            }
+            watching.set(true);
+            ctx.getInput().pressKey(o -> o.keyAttack);
+            boolean released = false;
+            double zEnd = z0;
+            for (int t = 0; t < 40; t++) {
+                ctx.waitTick();
+                Object[] r = onClient(ctx, mc -> new Object[]{ModUnderTest.staticCall(EXEC, "leapGateNode") == null, mc.player.getZ()});
+                released |= (Boolean) r[0];
+                zEnd = (Double) r[1];
+            }
+            watching.set(false);
+            List<String> skip = logSince(mark, "leap counter skipped by left click");
+            c.note(String.format(Locale.ROOT, "after the click: released %s, walked %+.2f along the Walk, swing packets %d,"
+                    + " dig/interact packets %d, skip lines %d", released, zEnd - z0, swings.get(), digs.get(), skip.size()));
+            for (String l : skip) {
+                c.note("  " + l);
+            }
+            if (!released || skip.isEmpty()) {
+                throw new AssertionError("the left click did not open the leap gate");
+            }
+            if (zEnd - z0 < 2.0) {
+                throw new AssertionError(String.format(Locale.ROOT, "the Walk held behind it did not run (%.2f)", zEnd - z0));
+            }
+            if (swings.get() != 0 || digs.get() != 0) {
+                throw new AssertionError("the click reached the server: " + swings.get() + " swing(s), " + digs.get()
+                        + " dig/interact packet(s)");
+            }
+        } finally {
+            watching.set(false);
+            dev.testkit.harness.PacketTrace.tap = old;
+            onClient(ctx, mc -> {
+                Ap3RuntimeTests.staticCallStop();
+                return null;
+            });
+        }
     }
 
     enum Shape { TOP_EDGE, SIDE_DROP, SPIRAL, SPRINT }
@@ -109,10 +191,11 @@ final class Ap3Stairs1026Cases {
         if (!inside) {
             throw new AssertionError("walking with W never reached the RUN node's box");
         }
+        c.waitUntil("AP3 running the RUN node's held walk", mc -> running(), 10);
     }
 
     private record Watch(boolean alignSeen, double startY, double minY, double[] end, boolean lavaTouched, boolean burned,
-                         int ticks) {
+                         int ticks, double maxX, String lastStop) {
     }
 
     /** Ticks until AP3 has stopped (after the align ran) and 20 more: the lowest feet, whether lava / fire was touched. */
@@ -124,6 +207,7 @@ final class Ap3Stairs1026Cases {
         boolean burn = false;
         int after = -1;
         double[] last = null;
+        double maxX = -1e9;
         int t = 0;
         for (; t < max; t++) {
             ctx.waitTick();
@@ -142,6 +226,7 @@ final class Ap3Stairs1026Cases {
             lava |= (Boolean) r[5];
             burn |= (Boolean) r[6];
             last = new double[]{(Double) r[0], (Double) r[1], (Double) r[2]};
+            maxX = Math.max(maxX, (Double) r[0]);
             if (alignSeen && !(Boolean) r[4] && after < 0) {
                 after = t;
             }
@@ -149,7 +234,8 @@ final class Ap3Stairs1026Cases {
                 break;
             }
         }
-        return new Watch(alignSeen, startY, minY, last, lava, burn, after < 0 ? -1 : t);
+        String stop = onClient(ctx, mc -> String.valueOf(ModUnderTest.staticCall(EXEC, "stopReason")));
+        return new Watch(alignSeen, startY, minY, last, lava, burn, after < 0 ? -1 : t, maxX, stop);
     }
 
     // ------------------------------------------------------------------------------------------------- stairs
@@ -185,10 +271,12 @@ final class Ap3Stairs1026Cases {
             }
             case SIDE_DROP -> {
                 // One stair at the end of the one-wide path, its low half 0.5 down; the point beside its open side.
-                cmd(c, "setblock %d %d %d minecraft:stone_brick_stairs[facing=west,half=bottom]", lastX + 1, top, zc);
+                // A half step (bottom slab, top 0.5 down) at the end of the one-wide path; the point on it, its box at the
+                // slab's open side (3 blocks down beyond z zc+1).
+                cmd(c, "setblock %d %d %d minecraft:stone_slab[type=bottom]", lastX + 1, top, zc);
                 cmd(c, "fill %d %d %d %d %d %d minecraft:stone", lastX + 1, FLOOR + 1, zc, lastX + 1, top - 1, zc);
-                tx = lastX + 1 + 0.75;
-                tz = zc + 0.8;
+                tx = lastX + 1 + 0.6;
+                tz = zc + 0.7;
             }
             default -> {
                 // SPIRAL: half-step slabs turning a corner, each 0.5 below the last: (15,zc) 0.5, (15,zc+1) 1.0,
@@ -233,7 +321,8 @@ final class Ap3Stairs1026Cases {
                 c.note("  " + l);
             }
             if (!w.alignSeen()) {
-                throw new AssertionError("the Fast Align never ran - nothing was tested");
+                throw new AssertionError(String.format(Locale.ROOT, "the Fast Align never ran - nothing was tested (got to x"
+                        + " %.2f, ended (%.2f, %.2f, %.2f), stop '%s')", w.maxX(), w.end()[0], w.end()[1], w.end()[2], w.lastStop()));
             }
             if (w.ticks() < 0) {
                 throw new AssertionError("AP3 was still running at the end of the watch");
@@ -380,7 +469,8 @@ final class Ap3Stairs1026Cases {
                     over += ms >= 50 ? 1 : 0;
                 }
             }
-            List<String> stopped = logSince(mark, "you are in lava");
+            List<String> stopped = logSince(mark, "you are in lava - the align stops here");
+            seen |= !stopped.isEmpty();
             String reason = onClient(ctx, mc -> String.valueOf(ModUnderTest.staticCall(EXEC, "stopReason")));
             c.note(String.format(Locale.ROOT, "lava inside: align seen %s, %d ticks timed, max %.1f ms, mean %.1f ms, %d at 50 ms or"
                             + " more; 'in lava' lines %d; stop '%s'; AP3 running at the end %s", seen, TICK_MS.size(), max,
