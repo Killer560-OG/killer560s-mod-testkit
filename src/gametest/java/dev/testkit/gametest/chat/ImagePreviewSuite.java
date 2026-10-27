@@ -75,6 +75,8 @@ import static dev.testkit.gametest.hx.HxKit.Settings;
  *   <li>1075-imgprev-not-image: a .png link answering text/plain, and a .txt page: fetched once, nothing drawn.</li>
  *   <li>1076-imgprev-cache: after every in-memory picture is dropped, hovering again draws it with no new request
  *       (from the disk cache), and the cache folder holds the file.</li>
+ *   <li>1082-imgprev-imgur-fallback: the imgur API gives 404 (a dead client id); the album shows the cover its page
+ *       names in og:image, one picture, no caption.</li>
  *   <li>1077-imgprev-imgur: imgur.com/a/&lt;id&gt; resolves through the (faked) imgur API to 3 pictures: "1/3", the
  *       wheel steps to "2/3" (a different picture), a middle click opens the viewer, the right arrow steps, Escape is
  *       back in chat; a scheme-less imgur.com/&lt;id&gt; shows its one picture.</li>
@@ -122,6 +124,7 @@ public class ImagePreviewSuite implements FabricClientGameTest {
                         s.test("1079-imgprev-hosts", ImagePreviewSuite::hosts);
                         s.test("1080-imgprev-off", ImagePreviewSuite::off);
                         s.test("1081-imgprev-cost", ImagePreviewSuite::cost);
+                        s.test("1082-imgprev-imgur-fallback", ImagePreviewSuite::imgurFallback);
                     } catch (IOException e) {
                         throw new AssertionError("the picture server did not start", e);
                     }
@@ -142,6 +145,7 @@ public class ImagePreviewSuite implements FabricClientGameTest {
         final Map<String, AtomicInteger> hits = new ConcurrentHashMap<>();
         private final String oldApi;
         private final String oldI;
+        private final String oldPage;
         private final String oldHosts;
 
         Fake() throws IOException {
@@ -180,9 +184,11 @@ public class ImagePreviewSuite implements FabricClientGameTest {
             server.start();
             oldApi = System.getProperty("killer560.net.imgur-api");
             oldI = System.getProperty("killer560.net.imgur-i");
+            oldPage = System.getProperty("killer560.net.imgur");
             oldHosts = System.getProperty(HOSTS_PROP);
             System.setProperty("killer560.net.imgur-api", base + "/imgurapi");
             System.setProperty("killer560.net.imgur-i", base + "/imgur-i");
+            System.setProperty("killer560.net.imgur", base + "/imgur");
             System.setProperty(HOSTS_PROP, "127.0.0.1:" + port);
             build();
         }
@@ -227,6 +233,9 @@ public class ImagePreviewSuite implements FabricClientGameTest {
             put("/imgur-i/AAAAA02.png", halves(20, 20, GREEN, GREEN, "png"), "image/png");
             put("/imgur-i/AAAAA03.png", halves(20, 20, BLUE, BLUE, "png"), "image/png");
             put("/imgur-i/PiCcc01.jpeg", halves(48, 24, BLUE, BLUE, "jpg"), "image/jpeg");
+            // DeAd001: no API answer (404, as if the shared client id died); its page names a cover in og:image.
+            put("/imgur/a/DeAd001", ("<html><head><meta property=\"og:image\" content=\"https://i.imgur.com/AAAAA02.png?fb\">"
+                    + "</head><body></body></html>").getBytes(StandardCharsets.UTF_8), "text/html; charset=utf-8");
         }
 
         @Override
@@ -234,6 +243,7 @@ public class ImagePreviewSuite implements FabricClientGameTest {
             server.stop(0);
             restore("killer560.net.imgur-api", oldApi);
             restore("killer560.net.imgur-i", oldI);
+            restore("killer560.net.imgur", oldPage);
             restore(HOSTS_PROP, oldHosts);
         }
 
@@ -717,6 +727,26 @@ public class ImagePreviewSuite implements FabricClientGameTest {
             }
             c.check(files >= 1, "no cached picture in " + dir);
             c.note("PASS second hover drawn from " + dir + " (" + files + " picture file(s)), still 1 request");
+        }
+    }
+
+    /** The imgur API does not answer (dead client id): the album falls back to the cover its page names in og:image. */
+    static void imgurFallback(Session c) {
+        try (Settings set = base(c)) {
+            reset(c);
+            String album = "https://imgur.com/a/DeAd001";
+            say(c, "DeadApiProbe " + album + " cover");
+            openChat(c);
+            hover(c, "DeAd001");
+            Object d = waitPicture(c, album);
+            c.check(fake.hits("/imgurapi/post/v1/albums/DeAd001") >= 1, "the album API was never asked");
+            c.check(fake.hits("/imgur/a/DeAd001") >= 1, "the album page was never read for its og:image");
+            c.check(d != null && (Integer) get(d, "textureW") == 20 && "".equals(caption(d)),
+                    "the dead-API album did not show its one cover picture: " + d);
+            c.check(sample(c, album, 0.5, 0.5) == GREEN, "the cover is " + hex(sample(c, album, 0.5, 0.5))
+                    + ", want green (AAAAA02.png)");
+            c.check(fake.hits("/imgur-i/AAAAA02.png") >= 1, "i.imgur.com/AAAAA02.png was never fetched");
+            c.note("PASS API 404 -> page og:image -> i.imgur.com cover shown (green, no album caption)");
         }
     }
 
