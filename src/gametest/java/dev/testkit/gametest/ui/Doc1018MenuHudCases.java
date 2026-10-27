@@ -1253,12 +1253,15 @@ final class Doc1018MenuHudCases {
                 texts.add((String) t.invoke(line));
             }
             c.note("lines " + texts + " colors " + colours.stream().map(x -> String.format("%08X", x)).toList());
-            c.check(texts.size() == 4, "expected four lines (TPS, Ping, FPS, CPS), got " + texts);
+            // TPS, Ping, FPS, CPS, then the Frame line (Frame Time, on by default since mod stutter-1026 b1af39d5) and
+            // 1% Low when they are on.
+            long base = texts.stream().filter(x -> !x.startsWith("Frame:") && !x.startsWith("1% Low:")).count();
+            c.check(base == 4 && texts.size() <= 6, "expected four lines (TPS, Ping, FPS, CPS) plus Frame / 1% Low, got " + texts);
             for (int i = 0; i < colours.size(); i++) {
                 int col = colours.get(i);
                 if (texts.get(i).startsWith("CPS")) {
                     c.check(col == text, "the CPS line is " + String.format("%08X", col) + ", want the Text Color");
-                } else if (texts.get(i).endsWith("-")) {
+                } else if (texts.get(i).endsWith("-") || texts.get(i).startsWith("Frame: -")) {
                     // A value the game does not know yet ("TPS: -") is drawn plain, in the Text Color.
                     c.check(col == text, "the unknown-value line '" + texts.get(i) + "' is " + String.format("%08X", col) + ", want the Text Color");
                 } else {

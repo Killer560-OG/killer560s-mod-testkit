@@ -19,6 +19,18 @@
   },
   "tooltips": [
     {
+      "owner": "(unscoped)",
+      "key": "performance hud",
+      "text": "Shows TPS, ping, FPS, frame times and a click counter in one movable HUD element.",
+      "why": "stutter-1026 b1af39d5: the Performance HUD gained the Frame Time line (frame times and stutters)"
+    },
+    {
+      "owner": "Performance HUD",
+      "key": "performance hud",
+      "text": "Shows TPS, ping, FPS, frame times and a click counter in one movable HUD element.",
+      "why": "stutter-1026 b1af39d5: the Performance HUD gained the Frame Time line (frame times and stutters)"
+    },
+    {
       "owner": "Party Interop",
       "key": "log pickups",
       "gone": "doc-small-1014: Log Pickups (printed every piece of party info to chat) removed, killer560 2026-10-14"
