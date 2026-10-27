@@ -1233,3 +1233,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   in a session's first frame cases) makes vanilla send `accept_teleportation` + a PosRot between ticks; it is not a turn.
   Read the server's frame rotations (`data get entity <uuid> ItemRotation`) right after the clicks: frames have vanished
   from the server about a second after a solve in a session's first frame case (cause not found).
+  With experimental checks on, BadPacketsR* (x1, "time=2013ms") fired once at the START of a case that followed a
+  150 ms Latency case, before any click (g2 1027-aafast-cpt1-300); the rerun was clean. It is the Latency teardown, not a feature.
+  Frames Per Tick on experimental checks: Grim cancels the flagged second-frame clicks, the mod resends after its 1 s
+  pending timeout, and the device still solves (76 sent, 40 reached, fpt15).
