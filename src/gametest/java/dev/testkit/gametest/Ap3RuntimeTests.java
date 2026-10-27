@@ -169,6 +169,59 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             ModUnderTest.set(cfg, "setChatFeedback", true);
             installProbe();
         });
+        warmPlaces(ctx, s);
+    }
+
+    /**
+     * ap3-blockuse-1027: three plain places (slab, slab, wand use-on-block) with the look sent long before, before any case.
+     * A freshly started test server takes 8-40 ms to process its FIRST block place (cold code in the anticheat and the
+     * server; measured by the testmod's {@code [testkit-gap]} probe), and GrimAC 2.3.74 counts that time against the 15 ms
+     * in which it lends a place the NEXT movement packet's rotation ({@code CheckManagerListener.handleQueuedPlaces},
+     * server {@code currentTimeMillis} at each packet). AP3 turns on the packet right after its place, so the session's
+     * first AP3 place (63-ap3-use-on-block) drew RotationPlace post-flying whenever the machine was busy, and pre-flying on
+     * every place after it (ten cases, 2026-10-26/27). A place whose look went out ticks before it is clean however slow
+     * the server is, and afterwards the cases measure AP3, not a cold server.
+     */
+    private static void warmPlaces(ClientGameTestContext ctx, Session s) {
+        s.server().command(String.format(Locale.ROOT, "tp @p %.1f %d %.1f -90 40", LANE_X0 + 0.5, FLOOR + 1, 0.5));
+        s.server().sync(20);
+        ctx.waitTicks(10);
+        int placed = 0;
+        for (int slot : new int[]{5, 5, 3}) {
+            ctx.getInput().pressKey(options -> options.keyHotbarSlots[slot]);
+            ctx.waitTicks(10);
+            boolean sent = onClient(ctx, mc -> {
+                Vec3 eye = mc.player.getEyePosition();
+                float yr = mc.player.getYRot() * Mth.DEG_TO_RAD;
+                float pr = mc.player.getXRot() * Mth.DEG_TO_RAD;
+                Vec3 dir = new Vec3(-Mth.sin(yr) * Mth.cos(pr), -Mth.sin(pr), Mth.cos(yr) * Mth.cos(pr));
+                net.minecraft.world.phys.HitResult h = mc.level.clip(new net.minecraft.world.level.ClipContext(eye,
+                        eye.add(dir.scale(4.5)), net.minecraft.world.level.ClipContext.Block.OUTLINE,
+                        net.minecraft.world.level.ClipContext.Fluid.NONE, mc.player));
+                if (!(h instanceof net.minecraft.world.phys.BlockHitResult b)
+                        || h.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) {
+                    return false;
+                }
+                mc.gameMode.useItemOn(mc.player, net.minecraft.world.InteractionHand.MAIN_HAND, b);
+                mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+                return true;
+            });
+            if (sent) {
+                placed++;
+            }
+            ctx.waitTicks(10);
+        }
+        ctx.getInput().pressKey(options -> options.keyHotbarSlots[0]);
+        s.server().command(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:air", LANE_X0 + 1, FLOOR + 1, -1,
+                LANE_X0 + 5, FLOOR + 3, 1));
+        s.server().command(String.format(Locale.ROOT, "tp @p %.1f %d %.1f -90 0", LANE_X0 + 0.5, FLOOR + 1, 0.5));
+        s.server().sync(20);
+        ctx.waitTicks(10);
+        System.out.println("[" + SESSION + "] warm-up: " + placed + " of 3 plain place(s) sent before the cases"
+                + " (the server log's [testkit-gap] lines time each)");
+        if (placed == 0) {
+            throw new AssertionError("warm-up placed nothing: the cases would meet a cold server");
+        }
     }
 
     // ------------------------------------------------------------------------------------------------- probe
@@ -657,6 +710,17 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
      * entered the box, a Block's swap back sent once, and the run still going. GrimAC judges the rest (Post,
      * BadPacketsA, RotationPlace) because the case is a plain test.
      */
+    /** Ap3Executor.heldFlushes() (mod ap3-blockuse-1027), or -1 on a jar without it. */
+    private static int heldFlushes(ClientGameTestContext ctx) {
+        return onClient(ctx, mc -> {
+            try {
+                return ((Number) ModUnderTest.staticCall("com.killer560.hub.ap3.Ap3Executor", "heldFlushes")).intValue();
+            } catch (Throwable t) {
+                return -1;
+            }
+        });
+    }
+
     private static void caseInteract(Session c, String type) {
         ClientGameTestContext ctx = c.ctx();
         ctx.getInput().pressKey(options -> options.keyHotbarSlots[0]);
@@ -667,10 +731,16 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         Object run = runNode(z);
         Object n = node(type, LANE_X0 + 10.0, z, block ? 0f : -90f, 60f, 1.0, 3.0);
         Object stop = node("STOP", LANE_X0 + 22.0, z, -90f, 0f, 2.0, 3.0);
+        int heldBefore = heldFlushes(ctx);
         startProbe(ctx);
         walkIntoRun(c, z, run, n, stop);
         ctx.waitTicks(60); // the box is ~10 blocks in: entered around trace tick 50, then 12 more to measure
         List<Ev> evs = stopProbe(ctx);
+        int heldAfter = heldFlushes(ctx);
+        // mod ap3-blockuse-1027: the act's packets are written unflushed and go out in one write with the movement
+        // packet behind them, so the server reads them together (server log: "[testkit-probe] place read -> next move").
+        c.note(heldBefore < 0 ? "this jar does not hold the act's flush (before ap3-blockuse-1027)"
+                : "packets written unflushed ahead of the movement packet: " + (heldAfter - heldBefore));
         Ev entry = firstInside(ctx, evs, n);
         if (entry == null) {
             throw new AssertionError("never entered the " + type + " box");

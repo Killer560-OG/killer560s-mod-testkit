@@ -367,6 +367,10 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
 - The harness LagSpike (two-way freeze) draws GrimAC TimerLimit with NO mod feature on (8 flags for 1.5 s, sprinting or
   standing; 1026-blink-controls). A frozen client (render thread asleep 2.5 s) is clean. Compare against that control.
 - `release=true` jars fail 306-ui-smoke-commands on `/killer560 mage` (a dev-only subcommand), not a regression.
+- A fresh test server's FIRST block place takes it 16-162 ms to process on a busy machine, and GrimAC's 15 ms window for
+  lending a place the next packet's rotation counts that time: a session whose first place turns on the packet after it
+  flags RotationPlace post-flying, then pre-flying on every later place ("fails on every jar", 63-ap3, 2026-10-27). Warm
+  the path with a plain place first (`Ap3RuntimeTests.warmPlaces`); the server log's `[testkit-gap]` line is GrimAC's number.
 
 Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosecret wither doors, 62-argrim frames,
 143 camera, 141/142 autopilot, the mod's Auto Scale, terminal layouts, the logic world, 386's sweep):
