@@ -202,25 +202,31 @@ public class ZpewCampaignTests implements FabricClientGameTest {
         });
     }
 
+    /** Every server position packet the client has received since {@link #setUp} (network thread). */
+    static final java.util.concurrent.atomic.AtomicInteger POSITIONS = new java.util.concurrent.atomic.AtomicInteger();
+
+    static void installInTap(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> PacketTrace.inTap = p -> {
+            if (p instanceof ClientboundPlayerPositionPacket pp) {
+                POSITIONS.incrementAndGet();
+                if (capturing) {
+                    TELEPORTS.add(pp.change().position());
+                }
+            }
+        });
+    }
+
     static void captureStart(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> {
             SEEN_PRED.clear();
             PREDS.clear();
             TELEPORTS.clear();
-            PacketTrace.inTap = p -> {
-                if (p instanceof ClientboundPlayerPositionPacket pp && capturing) {
-                    TELEPORTS.add(pp.change().position());
-                }
-            };
             capturing = true;
         });
     }
 
     static void captureStop(ClientGameTestContext ctx) {
-        ctx.runOnClient(mc -> {
-            capturing = false;
-            PacketTrace.inTap = null;
-        });
+        ctx.runOnClient(mc -> capturing = false);
     }
 
     static String name(ClientGameTestContext ctx) {
@@ -255,10 +261,15 @@ public class ZpewCampaignTests implements FabricClientGameTest {
 
     /** Server teleport to a station start; waits until the client stands there. */
     static void tpTo(ClientGameTestContext ctx, TestServer server, String who, double x, double y, double z, boolean ground) {
+        // Wait for the tp's own position packet too: when he already stands there, the position check alone passed at
+        // once and the tp landed (300 ms later) in the middle of the next shot - a ZPEW "miss" the harness made
+        // (1027-zpewc-chain-300, solo run B4).
+        int before = POSITIONS.get();
         server.command(String.format(Locale.ROOT, "tp %s %.4f %.4f %.4f -90 0", who, x, y, z));
         for (int i = 0; i < 100; i++) {
             ctx.waitTicks(1);
-            boolean there = ctx.computeOnClient(mc -> Math.hypot(mc.player.getX() - x, mc.player.getZ() - z) < 0.001
+            boolean arrived = POSITIONS.get() > before;
+            boolean there = arrived && ctx.computeOnClient(mc -> Math.hypot(mc.player.getX() - x, mc.player.getZ() - z) < 0.001
                     && (!ground || mc.player.onGround()));
             if (there) {
                 break;
@@ -269,6 +280,7 @@ public class ZpewCampaignTests implements FabricClientGameTest {
 
     static Hx setUp(ClientGameTestContext ctx, int tuners) {
         hook(ctx);
+        installInTap(ctx);
         Hx hx = Hx.connect();
         hx.call("dungeon.abilities", "enabled", true);
         hx.give(0, aotv(tuners));
