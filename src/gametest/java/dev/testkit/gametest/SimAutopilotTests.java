@@ -1069,6 +1069,16 @@ public class SimAutopilotTests implements FabricClientGameTest {
     }
 
     /** A one-node route: a ROTATE start node standing on a standable block of the room's main tile (102's). */
+    /** The block {@link #routeFor} stands its start node on (the node is one above it), or null. */
+    static BlockPos standOf(ClientGameTestContext ctx, Status r) {
+        return ctx.computeOnClient(mc -> {
+            BlockPos centre = (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class},
+                    new Object[]{r.mainTile()});
+            return (BlockPos) ModUnderTest.staticCall(TELEPORT_UTILS, "etherwarpableInTile",
+                    new Class<?>[]{BlockPos.class, Vec3.class}, new Object[]{centre, Vec3.atCenterOf(centre)});
+        });
+    }
+
     static JsonObject routeFor(ClientGameTestContext ctx, Status r) {
         return ctx.computeOnClient(mc -> {
             Object layout = ModUnderTest.staticCall(LAYOUT, "capture");

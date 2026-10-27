@@ -1245,7 +1245,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
      * node's warp is exact ({@code AutoRoutesFeature.warpToStartNode}); the plain search above also counts a plan that only
      * lands NEAR the block, and a route stood on such a block never arms (147, 2026-10-25: Double Diamond, Gravel).
      */
-    private static boolean landsOn(ClientGameTestContext ctx, Vec3 from, BlockPos to) {
+    static boolean landsOn(ClientGameTestContext ctx, Vec3 from, BlockPos to) {
         AtomicReference<Boolean> out = new AtomicReference<>();
         ctx.runOnClient(mc -> {
             Object layout = ModUnderTest.staticCall(LAYOUT, "capture");

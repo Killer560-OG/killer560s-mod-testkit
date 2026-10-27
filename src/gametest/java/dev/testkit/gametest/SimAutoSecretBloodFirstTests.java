@@ -200,6 +200,17 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
                     continue;
                 }
                 JsonObject route = SimAutopilotTests.routeFor(ctx, s);
+                // Only a stand some warp lands ON: a start node's warp is exact, and a stand only reached by a near
+                // landing never arms ("landed, but its start node did not arm - skipped"), which is the planner's
+                // business, not Blood First's (147's rule; Silver Sword in preexisting-1026's final run).
+                if (route != null) {
+                    net.minecraft.core.BlockPos stand = SimAutopilotTests.standOf(ctx, s);
+                    Vec3 here = ctx.computeOnClient(mc -> mc.player.position());
+                    if (stand == null || !SimAutoSecretOptimizeTests.landsOn(ctx, here, stand)) {
+                        println(tag + ": " + s.name() + " left out - no warp lands exactly on its stand " + stand);
+                        route = null;
+                    }
+                }
                 if (route != null) {
                     secretRooms.add(s);
                     routes.put(s.name(), route);
