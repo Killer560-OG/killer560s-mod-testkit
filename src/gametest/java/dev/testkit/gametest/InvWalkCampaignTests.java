@@ -597,13 +597,16 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
         double[] prev = cpos(ctx);
         double[] sPrev = spos(state(hx));
         double after = 0;
+        double afterFlat = 0;
         for (int i = 0; i < RESUME_TICKS; i++) {
             ctx.waitTicks(1);
             double[] now = cpos(ctx);
-            after += flat(prev, now);
+            // 3D: on a ladder he walks on by climbing (1027-iw-terrain ladder read 0.00 flat).
+            after += dist3(prev, now);
+            afterFlat += flat(prev, now);
             prev = now;
         }
-        w.clientPath += after;
+        w.clientPath += afterFlat;
         double[] sp = spos(state(hx));
         w.serverPath += flat(sPrev, sp);
         w.ticks += RESUME_TICKS;
@@ -1093,8 +1096,10 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
                     ctx.getInput().releaseKey(o -> o.keyUp);
                     ctx.getInput().releaseKey(o -> o.keySprint);
                     extraClicks = 2;
-                    walkRow(rows, ctx, hx, "L" + lat + " click on the open tick", shuttle(5), new int[]{2},
-                            singles(List.of(Click.right(10))), Set.of(0), 3, null, true);
+                    // A right-click pick-up is followed by its put-down: since invwalk-legit-1027 an own-inventory pick-up
+                    // waits (he keeps walking) until the cursor is empty again, so a lone pick-up would still be waiting.
+                    walkRow(rows, ctx, hx, "L" + lat + " click on the open tick", shuttle(5), new int[]{2, 6},
+                            singles(List.of(Click.right(10), Click.left(20))), Set.of(0), 3, null, true);
                     List<JsonObject> ev = hx.events(since, "container.click");
                     rows.scenario.log("  open-tick: " + ev.size() + " click(s) on the server, " + movingClicks(ev) + " while moving");
                     if (movingClicks(ev) > 0) {
