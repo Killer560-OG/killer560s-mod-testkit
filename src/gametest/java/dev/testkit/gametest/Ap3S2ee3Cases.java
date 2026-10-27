@@ -44,11 +44,15 @@ final class Ap3S2ee3Cases {
     private Ap3S2ee3Cases() {
     }
 
+    /** Why the pass-beside cases are shelved (ship3-1027). */
+    static final String BESIDE = "by design since mod 343c49ff (killer560, 2026-10-27): only a leap pulls him into an align, and a run never "
+            + "hands over to a node whose box it missed; RUN #33 passes 1.4 beside #34, so #34 never runs";
+
     static void register(Session s) {
         for (double speed : new double[]{0.4, 0.5}) {
             for (double off : new double[]{-0.45, -0.3, -0.15, 0.0, 0.15, 0.3, 0.45}) {
                 String name = String.format(Locale.ROOT, "1027-ap3-s2ee3-run-%.1f-%+.2f", speed, off);
-                s.test(name, c -> run(c, speed, off, false));
+                s.shelved(name, BESIDE, c -> run(c, speed, off, false));
             }
         }
         s.test("1027-ap3-s2ee3-lowstep", c -> standing(c, 2.85, 108.5, 106.0, 1.0));
@@ -64,13 +68,18 @@ final class Ap3S2ee3Cases {
         }
         s.test("1027-ap3-s2ee3-leapin-high", c -> leapIn(c, 2.35, 109.0, 105.3));
         s.test("1027-ap3-s2ee3-leapin-low", c -> leapIn(c, 2.85, 108.5, 105.9));
-        s.test("1027-ap3-s2ee3-blink-0.4", c -> run(c, 0.4, 0.0, true));
-        s.test("1027-ap3-s2ee3-blink-0.5", c -> run(c, 0.5, 0.15, true));
+        s.shelved("1027-ap3-s2ee3-blink-0.4", BESIDE, c -> run(c, 0.4, 0.0, true));
+        s.shelved("1027-ap3-s2ee3-blink-0.5", BESIDE, c -> run(c, 0.5, 0.15, true));
         // His live route at 15:11 (Mod Only Test): #34 is a 2x2 FAST_ALIGN, a Blink Charge (#49) sits on its point and a
         // leapcounter:3 RUN (#40) after it; boom #39 waits for its gate while he runs on to #34.
         for (String mode : new String[]{"boom", "charge-first", "beside-leap"}) {
             for (double sp : new double[]{0.4, 0.5}) {
-                s.test(String.format(Locale.ROOT, "1027-ap3-live34-%s-%.1f", mode, sp), c -> live(c, mode, sp));
+                String name = String.format(Locale.ROOT, "1027-ap3-live34-%s-%.1f", mode, sp);
+                if ("beside-leap".equals(mode)) {
+                    s.test(name, c -> live(c, mode, sp));
+                } else {
+                    s.shelved(name, BESIDE, c -> live(c, mode, sp));
+                }
             }
         }
         // The two Blink entries again and again (ship2-1027: 26.2 flagged / missed a few of 9), only when named.
@@ -263,7 +272,9 @@ final class Ap3S2ee3Cases {
                     return null;
                 });
                 ctx.waitTicks(5);
-                // 2.1 blocks west of the point, outside the 2x2 box (x 1.5..3.5), on the floor at y 109.
+                // 2.1 blocks west of the point, outside the 2x2 box (x 1.5..3.5), on the floor at y 109. A LEAP: since mod
+                // 343c49ff only a leap pulls him in, known by Hypixel's own line (or landing on a player), so say it first.
+                cmd(c, "tellraw @p {\"text\":\"You have teleported to Bob!\"}");
                 cmd(c, "tp @p %.3f 109 %.3f 140 0", 0.4 + DX, 105.5);
                 c.server().sync(20);
             } else {
