@@ -575,10 +575,20 @@ public class ZpewCampaignTests implements FabricClientGameTest {
     static void buildStations(TestServer server, List<Station> list) {
         TestMap.on(server).platform(X0, Y - 1, Z0, 4).catchFloor(120).survival().clearInventory()
                 .spawn(X0 + 0.5, Z0 + 0.5, -90f).build();
+        // Vanilla fill/setblock refuse an unloaded chunk ("That position is not loaded": the first run's lanes were never
+        // built and he fell through every one). Keep the whole strip loaded, load it with testkit fill (which loads
+        // what it touches), and only then place the blocks that need a state.
+        server.command(String.format(Locale.ROOT, "forceload add %d %d %d %d", X0 - 3, Z0 - 3, X0 + 70,
+                Z0 + 10 * list.size() + 3));
         for (int lane = 0; lane < list.size(); lane++) {
             int z = Z0 + 10 * lane;
-            server.command(fill(X0 - 3, Y, z - 3, X0 + 70, Y + 6, z + 3, "air"));
-            server.command(fill(X0 - 3, Y - 1, z - 2, X0 + 30, Y - 1, z + 2, "stone"));
+            server.command(String.format(Locale.ROOT, "testkit fill %d %d %d %d %d %d minecraft:air", X0 - 3, Y, z - 3,
+                    X0 + 70, Y + 6, z + 3));
+            server.command(String.format(Locale.ROOT, "testkit fill %d %d %d %d %d %d minecraft:stone", X0 - 3, Y - 1,
+                    z - 2, X0 + 30, Y - 1, z + 2));
+        }
+        server.sync(120);
+        for (int lane = 0; lane < list.size(); lane++) {
             for (String cmd : list.get(lane).setup) {
                 server.command(cmd);
             }
