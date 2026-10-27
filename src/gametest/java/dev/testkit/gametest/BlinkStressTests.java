@@ -548,6 +548,34 @@ public class BlinkStressTests implements FabricClientGameTest {
                 g = gap(server, ctx);
                 rows.add(server, scenario, "(c) Hold-mode Charge + Hold", bankC >= 20 && bothC && offC && g < 0.5,
                         String.format(Locale.ROOT, "bank %d before, both on %s, both off after %s, gap %.2f", bankC, bothC, offC, g));
+                // (d) Charging (Toggle), a hold that walks 10 ticks and then stands 6 before the key comes up: the release
+                // happens standing still. Before mod b95c8146 the burst went through Charge's hook, which banked its
+                // tick-ends (dropping the walk's moves) because he stood still at that moment.
+                ctx.runOnClient(mc -> Mod.set(CFG, "setChargeMode", Mod.enumValue(MODE, "TOGGLE")));
+                tp(server, ctx, x - 10.5, SURFACE_Y, z + 10.5, -90f);
+                chargeOn(ctx);
+                ctx.waitTicks(10);
+                double[] d0 = here(ctx);
+                long holdsD = num(ctx, "releasedHolds");
+                String nameD = playerName(ctx);
+                int sbD = setbacksDuring(ctx, () -> {
+                    holdDown(ctx);
+                    ctx.getInput().holdKey(o -> o.keyUp);
+                    ctx.getInput().holdKey(o -> o.keySprint);
+                    ctx.waitTicks(10);
+                    releaseKeys(ctx);
+                    ctx.waitTicks(6);
+                    holdUp(ctx);
+                    ctx.waitTicks(20);
+                });
+                double walked = flat(d0, here(ctx));
+                double[] srvD = serverPos(server, ctx, nameD);
+                double serverWalked = flat(d0, srvD);
+                g = gap(server, ctx);
+                chargeOff(ctx);
+                rows.add(server, scenario, "(d) release standing, charging", num(ctx, "releasedHolds") > holdsD && walked > 2
+                        && sbD == 0 && g < 0.5, String.format(Locale.ROOT, "client walked %.2f, server has him %.2f on, %d setback(s), "
+                        + "gap %.2f", walked, serverWalked, sbD, g));
             } finally {
                 chargeOff(ctx);
                 tearDown(ctx, gate);
