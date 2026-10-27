@@ -214,6 +214,15 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   before the feature ever saved must `Files.createDirectories(p.getParent())` first (981 and six others did not, 2026-10-26).
   1026-layout-* (seed `fixtures/seed-layout-fixes-1026`) covers the layout; on an old jar 1026-layout-empty lists ~83 empty folders.
 
+- Since mod 03c7270d Inventory Walk's Stop To Click waits for a FULL stop (then 3 still ticks), so 1027-iw-* walkRow waits
+  until `InventoryWalkFeature.heldNow()` is 0, reads the server's items, then walks 20 more ticks and requires >= 1 block
+  ("walked on N after the last held packet"). Read items BEFORE walking on: the walk picks up what a Q / ctrl+Q click
+  dropped (1027-iw-clicks "one tick" read dirt*11 for dirt*2, 2026-10-27).
+- `wire.record` (Hx, testmod) turns on wire.* events: every move, input, player command, click and close the server
+  handles, in arrival order. 1027-iwl-diff uses it to compare Inventory Walk's packet shape with a vanilla run. A vanilla
+  run in a test must set the movement keys down again itself after closing a screen: vanilla's `KeyMapping.setAll` reads
+  the physical keyboard, which a test's held keys are not.
+
 The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [docs/scenario-lessons.md](docs/scenario-lessons.md).
 
 - The mod arrives via Fabric Loader's `fabric.addMods` (`-PmodUnderTest`). `modLocalRuntime` does not exist
