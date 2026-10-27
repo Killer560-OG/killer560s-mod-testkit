@@ -554,6 +554,14 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                     holdUp(ctx);
                     releaseKeys(ctx);
                     ctx.waitTicks(5);
+                    // Since mod campaign-blink-1027 a shot inside a hold waits for the hold to end and the bank to be
+                    // covered again; he stands meanwhile.
+                    for (int i = 0; i < 80 && waiting(ctx); i++) {
+                        ctx.waitTicks(1);
+                    }
+                    if (shotsInHold == 0) {
+                        shotsInHold = cnum(ctx, "shots") - shots0;
+                    }
                     ctx.runOnClient(mc -> Mod.set(CFG, "setChargeMode", Mod.enumValue(MODE, "TOGGLE")));
                     chargeOff(ctx);
                     g = gap(server, ctx);
@@ -562,8 +570,8 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                     // The shot's ticks count toward Hold Ticks, so the hold lets go inside the shot (wasHolding is then false).
                     rows.add(server, scenario, "(e) Hold-mode fire inside a hold C" + c, bank == c && shotsInHold == 1
                                     && num(ctx, "releasedHolds") > holds0,
-                            String.format(Locale.ROOT, "bank %d, %d shot(s) inside the hold (%d tick(s)), gap %.2f", bank,
-                                    shotsInHold, cnum(ctx, "lastShotTicks"), g), true);
+                            String.format(Locale.ROOT, "bank %d, %d shot(s) (%d tick(s)), gap %.2f", bank,
+                                    shotsInHold, cnum(ctx, "lastShotTicks"), g));
                 }
             } finally {
                 removeLatency(ctx);
