@@ -28,6 +28,7 @@ import java.util.Locale;
  *   ({@code use_entity}). Then the Aura CPS setting (1-20, mod aura-cps) on a frame under the crosshair needing seven
  *   clicks, at 20 and 5 CPS: seven clicks each, at 17-24 and 4-6 CPS on the server's clock. And the nine-frame sweep
  *   (a body turn before every frame) at 5 and 10 CPS, each within 15% (mod arrow-turn).</li>
+ *   <li>832-leavelast: Leave Last Arrow (on by default) holds the lowest, leftmost frame until S3, then completes it.</li>
  *   <li>833 / 834 Auto i4, Rotate / No Rotate: a bow on the i4 platform, targets lit by the server one after another;
  *   shots ({@code use_item}) must reach the server.</li>
  *   <li>835 Goldor Triggerbot rate: Use (right click) mode at 16 CPS for 60 ticks on a wither; must come out at 13-19 CPS (a flat
@@ -52,6 +53,7 @@ final class GrimTickCases {
         }
         s.test("831-boss-grim-ss-autosolve-rotate", GrimTickCases::simonRotate);
         s.test("832-boss-grim-arrowalign-aura", GrimTickCases::arrowAura);
+        s.test("832-boss-grim-arrowalign-leavelast", GrimTickCases::arrowLeaveLast);
         s.test("833-boss-grim-autoi4-rotate", c -> autoI4(c, true, false));
         s.test("834-boss-grim-autoi4-norotate", c -> autoI4(c, false, false));
         s.test("835-boss-grim-goldor-cps", GrimTickCases::goldorRate);
@@ -157,7 +159,12 @@ final class GrimTickCases {
         try (HxKit.Settings off = gateOff(c);
              HxKit.Settings on = new HxKit.Settings(c).with(AA_CFG, "SolverEnabled", true)
                      .with(AA_CFG, "PreventMisclicksEnabled", false).with(AA_CFG, "TriggerBotEnabled", false)
-                     .with(AA_CFG, "AuraEnabled", false).with(AA_CFG, "AuraRange", 3.0).with(AA_CFG, "AuraCps", 16)) {
+                     .with(AA_CFG, "AuraEnabled", false).with(AA_CFG, "AuraRange", 3.0).with(AA_CFG, "AuraCps", 16)
+                     // Leave Last Arrow (mod b4b6e44f, on by default, killer560 2026-10-18/19) keeps one frame a click
+                     // from done until S3 while he is in the F7 boss before S3, which an earlier case in the session
+                     // leaves him in (787's Goldor line). This case counts every frame clicked once and times the
+                     // rates, so it measures the Aura without it; 832-boss-grim-arrowalign-leavelast covers it.
+                     .with(AA_CFG, "AuraLeaveLastArrow", false)) {
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
             c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
             // Built before he is put there: a tp above it and a wait had him falling as the floor appeared, and GrimAC
@@ -243,6 +250,80 @@ final class GrimTickCases {
                         "Aura CPS %d came out at %.1f on a frame under the crosshair", want, rate));
             }
         } finally {
+            c.hx().removeStands();
+            c.server().command("kill @e[type=item_frame,x=-2,y=122,z=77,distance=..6]");
+            c.server().command("fill -3 119 72 3 125 82 air");
+            c.server().command("forceload remove -3 72 3 82");
+            home(c);
+        }
+    }
+
+    /**
+     * Leave Last Arrow (mod b4b6e44f / 2026-10-19, killer560: "before S3 starts, during the PD phase, the aura should
+     * always leave the lowest, leftmost arrow not done"; "leave the last arrow one click from being done"): in the F7 boss
+     * at P3 S1, nine frames each one click from solved, the Aura clicks eight and leaves the lowest, leftmost one (grid
+     * index 15: bottom row, largest z as he looks west). Once the stage reaches S3 the Aura gives it its one click.
+     */
+    private static void arrowLeaveLast(Session c) throws Exception {
+        String tracker = "fastleap.Floor7Tracker";
+        Object stageWas = c.onClient(mc -> Mod.field(tracker, "stage"));
+        try (HxKit.Settings off = gateOff(c);
+             HxKit.Settings on = new HxKit.Settings(c).with(AA_CFG, "SolverEnabled", true)
+                     .with(AA_CFG, "PreventMisclicksEnabled", false).with(AA_CFG, "TriggerBotEnabled", false)
+                     .with(AA_CFG, "AuraEnabled", false).with(AA_CFG, "AuraRange", 3.0).with(AA_CFG, "AuraCps", 16)
+                     .with(AA_CFG, "AuraLeaveLastArrow", true)) {
+            c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
+            c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
+            c.server().command("forceload add -3 72 3 82");
+            c.server().sync(20);
+            c.server().command("fill -1 119 72 3 119 82 stone");
+            c.server().command("fill -3 119 74 -3 125 80 stone");
+            c.hx().call("dungeon.tp", "x", -0.7, "y", 120.0, "z", 77.5, "yaw", 90f, "pitch", 0f);
+            c.waitUntil("standing by the wall", mc -> mc.player.onGround() && Math.abs(mc.player.getY() - 120.0) < 0.01
+                    && mc.level.getBlockState(new BlockPos(-3, 122, 77)).is(net.minecraft.world.level.block.Blocks.STONE), 200);
+            c.hx().chat(TerminalAuraCases.GOLDOR);
+            c.waitUntil("P3 S1 in the F7 boss", mc -> "P3".equals(String.valueOf(Mod.staticCall(tracker, "getPhase")))
+                    && "S1".equals(String.valueOf(Mod.staticCall(tracker, "getStage"))), 100);
+            grid(c, -1);
+            int held = c.onClient(mc -> {
+                for (var f : mc.level.getEntitiesOfClass(net.minecraft.world.entity.decoration.ItemFrame.class,
+                        new AABB(-4, 118, 73, 0, 126, 81))) {
+                    if (f.blockPosition().equals(new BlockPos(-2, 120, 78))) {
+                        return f.getId();
+                    }
+                }
+                return -1;
+            });
+            c.check(held >= 0, "no frame at grid index 15 (-2, 120, 78)");
+            long since = c.hx().head();
+            aura(c, true);
+            c.waitUntil("eight frames clicked (server use_entity)",
+                    mc -> c.hx().events(since, "use_entity").size() >= LAYOUT.length - 1, 200);
+            c.ctx().waitTicks(30); // long enough for a ninth click at 16 CPS several times over
+            List<JsonObject> before = c.hx().events(since, "use_entity");
+            c.note("before S3: " + before.size() + " use_entity, on the lowest leftmost frame "
+                    + onFrame(c, since, held).size());
+            c.check(before.size() == LAYOUT.length - 1, "before S3 the Aura sent " + before.size() + " clicks, want "
+                    + (LAYOUT.length - 1) + " (every frame but the held one)");
+            c.check(onFrame(c, since, held).isEmpty(), "before S3 the Aura clicked the lowest, leftmost frame");
+            // S3 starts: the tracker's stage moves on (what its terminal/gate chat does in a real run).
+            c.onClient(mc -> {
+                Mod.setField(tracker, "stage", Mod.enumValue(tracker + "$Stage", "S3"));
+                return null;
+            });
+            c.waitUntil("the held frame clicked once S3 started", mc -> !onFrame(c, since, held).isEmpty(), 100);
+            c.ctx().waitTicks(20);
+            aura(c, false);
+            c.check(onFrame(c, since, held).size() == 1, "after S3 the held frame got " + onFrame(c, since, held).size()
+                    + " clicks, it needed 1");
+            c.check(c.hx().events(since, "use_entity").size() == LAYOUT.length, "in all the Aura sent "
+                    + c.hx().events(since, "use_entity").size() + " clicks for " + LAYOUT.length + " frames");
+        } finally {
+            aura(c, false);
+            c.onClient(mc -> {
+                Mod.setField(tracker, "stage", stageWas);
+                return null;
+            });
             c.hx().removeStands();
             c.server().command("kill @e[type=item_frame,x=-2,y=122,z=77,distance=..6]");
             c.server().command("fill -3 119 72 3 125 82 air");

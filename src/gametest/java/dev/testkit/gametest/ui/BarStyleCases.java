@@ -833,7 +833,7 @@ final class BarStyleCases {
             for (int[] win : windows) {
                 HudEditorCases.setWindow(c, win[0], win[1], win[2]);
                 // His files, as they are.
-                c.onClient(mc -> {
+                long setAt = c.onClient(mc -> {
                     try {
                         Files.writeString((Path) R.getStatic(R.cls(PS), "CONFIG_PATH"),
                                 resource("bars-his-1013/killer560smod-playerstats.json"));
@@ -855,7 +855,7 @@ final class BarStyleCases {
                     R.setStatic(f, "vitalityMax", 117L);
                     R.setStatic(f, "otherCur", 40L);
                     R.setStatic(f, "otherMax", 100L);
-                    return null;
+                    return System.nanoTime();
                 });
                 c.ticks(10);
                 BarPixels.settle(c);
@@ -873,7 +873,10 @@ final class BarStyleCases {
                         Class<?> p = R.cls(PAINTER);
                         int i = ordinal(b);
                         long drawn = ((long[]) R.getStatic(p, "lastDrawNanos"))[i];
-                        boolean fresh = drawn > 0 && System.nanoTime() - drawn < 500_000_000L;
+                        // Drawn since his files were loaded and the values set. "Within the last 500 ms" failed
+                        // the 2560x1440 pass under load (batch-1026, 9 clients): the screenshot alone took longer,
+                        // and all five bars read "not drawn" although the picture shows them.
+                        boolean fresh = drawn > setAt;
                         float[] sb = (float[]) R.getStatic(p, "lastScreenBox");
                         Object e = Mod.staticCall("hud.HudElementRegistry", "byId", (String) R.get(r(b), "hudId"));
                         float s = ((Number) Mod.staticCall("hud.HudElementRegistry", "resolveScale", e)).floatValue();

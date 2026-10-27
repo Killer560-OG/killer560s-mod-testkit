@@ -404,14 +404,20 @@ public class BlinkTests implements FabricClientGameTest {
         }
         ctx.waitTicks(10);
         ctx.runOnClient(mc -> PacketTrace.start());
+        long releasesBefore = num(ctx, "releasedHolds");
         holdDown(ctx);
         ctx.waitTicks(1);
         double[] clientStart = scenario.playerPosition();
         // Read after the hold began: from here the server must hear nothing until the release.
         double[] serverStart = serverPos(server, ctx, name);
-        int midWait = Math.max(2, ticks / 2 - 4);
+        int midWait = Math.max(0, ticks / 2 - 4);
         ctx.waitTicks(midWait);
         double[] serverMid = holding(ctx) ? serverPos(server, ctx, name) : null;
+        // Both server reads count only if the hold was still running when the second answer came back. Each read is a
+        // console round trip of a tick or more, and under load (9 clients) the 5-tick hold of the 26.2 sweeps had
+        // released before the "mid" answer: the server reported the caught-up position (moved 1.68 against the
+        // client's 1.40) and the length read as "wrong" with no flag (batch-1026). Such a hold is unmeasured (-2).
+        boolean measured = serverMid != null && holding(ctx) && num(ctx, "releasedHolds") == releasesBefore;
         for (int i = 0; i < ticks + 10 && holding(ctx); i++) {
             ctx.waitTicks(1);
         }
@@ -424,7 +430,7 @@ public class BlinkTests implements FabricClientGameTest {
         double[] clientEnd = scenario.playerPosition();
         ctx.runOnClient(mc -> PacketTrace.stop());
         int setbacks = PacketTrace.received("player_position");
-        double serverMoved = serverMid == null ? -1 : flat(serverStart, serverMid);
+        double serverMoved = serverMid == null ? -1 : !measured ? -2 : flat(serverStart, serverMid);
         double clientMoved = flat(clientStart, clientAtRelease);
         double gap = flat(serverEnd, clientEnd);
         scenario.log(String.format(Locale.ROOT, "hold %d: server %s -> mid %s (moved %.2f) while the client moved %.2f over the hold; "
@@ -2667,6 +2673,9 @@ public class BlinkTests implements FabricClientGameTest {
             String player = playerName(ctx);
             try {
                 for (int len : sweepLengths()) {
+                  // A walking hold whose server reads landed after the release (r[0] -2, see walkHold) measured nothing:
+                  // it is tried again, up to three times in all, and still counts as wrong if it never measures.
+                  for (int attempt = 0; attempt < 3; attempt++) {
                     server.command("tp " + player + " " + (x - 34.5) + " " + SURFACE_Y + " " + (-3000 + 0.5) + " -90 0");
                     ctx.waitTicks(30);
                     ctx.runOnClient(mc -> Mod.set(CFG, "setHoldTicks", len));
@@ -2682,6 +2691,11 @@ public class BlinkTests implements FabricClientGameTest {
                     ctx.waitTicks(40);
                     List<String> flags = scenario.flags();
                     tested++;
+                    if (walking && r[0] == -2 && flags.isEmpty() && r[3] == 0 && r[5] == len && attempt < 2) {
+                        scenario.log(String.format(Locale.ROOT, "len %3d: the server's reads came back after the release"
+                                + " (unmeasured), trying again", len));
+                        continue;
+                    }
                     boolean ok = flags.isEmpty() && r[3] == 0 && r[5] == len && (!walking || (r[0] >= 0 && r[0] < 0.2));
                     String row = String.format(Locale.ROOT, "len %3d: held %d tick(s), %s, %d setback(s)%s", len,
                             (int) r[5], flags.isEmpty() ? "clean" : flags.size() + " flag(s): " + firstChecks(flags),
@@ -2697,6 +2711,8 @@ public class BlinkTests implements FabricClientGameTest {
                     if (!flags.isEmpty()) {
                         ctx.waitTicks(60);
                     }
+                    break;
+                  }
                 }
             } finally {
                 if (latencyMs > 0) {
