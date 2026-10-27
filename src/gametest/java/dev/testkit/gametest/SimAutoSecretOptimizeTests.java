@@ -219,7 +219,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         enterFloor(ctx);
         awaitWarmGraph(ctx, HANDOFF);
         List<SimAutoSecretTests.Room> rooms = ctx.computeOnClient(SimAutoSecretTests::readRooms);
-        List<SimAutoSecretTests.Room> eligible = eligible(rooms);
+        List<SimAutoSecretTests.Room> eligible = notPreBlood(ctx, eligible(rooms));
         eligible.sort((a, b) -> Integer.compare(b.unfound(), a.unfound()));
         Map<String, JsonObject> routes = new LinkedHashMap<>();
         for (SimAutoSecretTests.Room r : eligible) {
@@ -401,7 +401,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"), "setEnabled",
                     true);
         });
-        List<SimAutoSecretTests.Room> eligible = eligible(ctx.computeOnClient(SimAutoSecretTests::readRooms));
+        List<SimAutoSecretTests.Room> eligible = notPreBlood(ctx, eligible(ctx.computeOnClient(SimAutoSecretTests::readRooms)));
         Map<Integer, SimAutoSecretTests.Room> byId = new HashMap<>();
         for (SimAutoSecretTests.Room r : eligible) {
             byId.put(r.id(), r);
@@ -731,7 +731,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
     private static void arrivalBody(ClientGameTestContext ctx, List<String> failures) {
         enterFloor(ctx);
         awaitWarmGraph(ctx, ARRIVAL);
-        List<SimAutoSecretTests.Room> eligible = eligible(ctx.computeOnClient(SimAutoSecretTests::readRooms));
+        List<SimAutoSecretTests.Room> eligible = notPreBlood(ctx, eligible(ctx.computeOnClient(SimAutoSecretTests::readRooms)));
         eligible.sort((a, b) -> Integer.compare(b.unfound(), a.unfound()));
         Map<String, JsonObject> routes = new LinkedHashMap<>();
         for (SimAutoSecretTests.Room r : eligible) {
@@ -870,7 +870,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                 leaveSim(ctx);
             }
             enterFloor(ctx);
-            List<SimAutoSecretTests.Room> eligible = eligible(ctx.computeOnClient(SimAutoSecretTests::readRooms));
+            List<SimAutoSecretTests.Room> eligible = notPreBlood(ctx, eligible(ctx.computeOnClient(SimAutoSecretTests::readRooms)));
             // Distances are ROOMS on the map's path (a trip goes round by the doors: on 2026-10-15 two rooms 45 blocks
             // apart in a straight line were 13 etherwarps, six rooms, apart).
             Map<String, Integer> fromHere = new HashMap<>();
@@ -1177,6 +1177,18 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
     }
 
     // ================================================================================================ helpers
+
+    /**
+     * {@code rooms} without the room in front of the blood door: Auto Secret holds it until every other room with secrets
+     * is done (killer560, 2026-10-18; mod 1e31ca30), so a case that routes it judges that rule instead of its own (145,
+     * 2026-10-26: Mossy as the far room was held, and the old order could not cross the map to it). 1018-preblood tests it.
+     */
+    private static List<SimAutoSecretTests.Room> notPreBlood(ClientGameTestContext ctx, List<SimAutoSecretTests.Room> rooms) {
+        String pre = ctx.computeOnClient(SimAutoSecretTests::preBloodName);
+        List<SimAutoSecretTests.Room> out = new ArrayList<>(rooms);
+        out.removeIf(r -> r.name().equals(pre));
+        return out;
+    }
 
     private static List<SimAutoSecretTests.Room> eligible(List<SimAutoSecretTests.Room> rooms) {
         List<SimAutoSecretTests.Room> out = new ArrayList<>();
