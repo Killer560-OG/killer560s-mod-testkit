@@ -22,7 +22,10 @@ import java.util.Locale;
  * 982 Auto E-Table stops on any key, click or scroll and on another screen opening, never on a mouse move or on the
  *     Start ETable click that began it (a real click), names what stopped it, and sends nothing after
  * 983 Fast/Auto Leap: a class target goes to the teammate Leap Order's class pick gave it, a name target to that
- *     name; Fast alone fires on his left click and not on its trigger, Auto alone on its trigger and not on the click
+ *     name; Fast alone fires on his left click and not on its trigger, Auto alone on its trigger and not on the click;
+ *     Class Targets (2026-10-27): with his own tab-list class Mage the leap goes to the Mage target (a name), as Healer
+ *     to the Healer target (a class), as Archer (none set) to the leap's own Target, and the per-class targets survive
+ *     a save and reload
  * 984 Storage Scan All: every wait 1.1-1.4x the old one (mean 1.25), varied, measured on the wall clock
  * </pre>
  */
@@ -208,6 +211,9 @@ final class DocDungeonsMenuCases {
                     Mod.staticCall(FLF, "leapToConfigured", tP1)));
             c.check(slot == 15, "a name target Carol leapt to slot " + slot + ", Carol is 15");
 
+            // ---- Class Targets: who the leap goes to depends on HIS class this run (tab list) ----
+            classTargets(c, cfgObj, tP1);
+
             // ---- Door Opener Fast on, Auto off: the door opening does not leap, his left click does ----
             c.ctx().runOnClient(mc -> {
                 Mod.call(cfgObj, "setLeapFast", door, true);
@@ -226,6 +232,23 @@ final class DocDungeonsMenuCases {
             c.check(slot == 11, "an Auto Door Opener leap on Alice's door went to slot " + slot + ", Alice is 11");
             none = noLeapAfter(c, "Auto: his left click", () -> c.ctx().getInput().pressMouse(0));
             c.check(none == 0, "his left click leapt with the Door Opener leap in Auto mode (" + none + " click(s))");
+
+            // ---- Class Targets survive a restart: save, load, and the fresh config has them ----
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfgObj, "save");
+                Mod.staticCall(FLC, "load");
+            });
+            Object mage = Mod.enumValue("dungeonclass.DungeonClass", "MAGE");
+            Object healer = Mod.enumValue("dungeonclass.DungeonClass", "HEALER");
+            Object archer = Mod.enumValue("dungeonclass.DungeonClass", "ARCHER");
+            String loaded = c.onClient(mc -> {
+                Object fresh = Mod.staticCall(FLC, "getInstance");
+                return Mod.call(fresh, "getClassTarget", tP1, mage) + " / " + Mod.call(fresh, "getClassTarget", tP1, healer)
+                        + " / " + Mod.call(fresh, "getClassTarget", tP1, archer);
+            });
+            c.note("after load: as Mage / Healer / Archer = " + loaded);
+            c.check(loaded.equals("ClassPick[clazz=null, name=Alice] / ClassPick[clazz=ARCHER, name=null] / null"),
+                    "per-class targets after a reload are " + loaded);
         } finally {
             if (was != null) {
                 Files.write(file, was);
@@ -242,6 +265,81 @@ final class DocDungeonsMenuCases {
             DungeonMenuCases.leaveDungeon(c);
             MenuKit.reset(c);
         }
+    }
+
+    /** 983 Class Targets: the leap's Target is the Tank (Bob, 13); as Mage it goes to Alice (11) by name, as Healer to the
+     *  Archer (Carol, 15) by class, as Archer (nothing set) to the Target. His class comes off the fake tab list. */
+    private static void classTargets(Session c, Object cfgObj, Object tP1) throws Exception {
+        String self = c.onClient(mc -> mc.player.getGameProfile().name());
+        Object mage = Mod.enumValue("dungeonclass.DungeonClass", "MAGE");
+        Object healer = Mod.enumValue("dungeonclass.DungeonClass", "HEALER");
+        Object archer = Mod.enumValue("dungeonclass.DungeonClass", "ARCHER");
+        Object tank = Mod.enumValue("dungeonclass.DungeonClass", "TANK");
+        c.ctx().runOnClient(mc -> {
+            Mod.call(cfgObj, "setTargetPickClass", tP1, tank);
+            Mod.call(cfgObj, "setClassTargetName", tP1, mage, "Alice");
+            Mod.call(cfgObj, "setClassTargetClass", tP1, healer, archer);
+            Mod.call(cfgObj, "save");
+        });
+        // the per-class targets are in the saved file (983's last step reads them back with load)
+        Path file = c.onClient(mc -> (Path) Mod.staticCall("util.ModPaths", "config", "killer560smod-fastleap.json"));
+        com.google.gson.JsonObject p1 = com.google.gson.JsonParser.parseString(Files.readString(file)).getAsJsonObject()
+                .getAsJsonObject("targets").getAsJsonObject("P1").getAsJsonObject("classTargets");
+        c.note("saved P1 classTargets: " + p1);
+        c.check(p1 != null && p1.has("MAGE") && "Alice".equals(p1.getAsJsonObject("MAGE").get("name").getAsString())
+                        && p1.has("HEALER") && "ARCHER".equals(p1.getAsJsonObject("HEALER").get("class").getAsString())
+                        && !p1.has("ARCHER"),
+                "the saved file's P1 classTargets are " + p1 + ", want MAGE -> name Alice, HEALER -> class ARCHER, no ARCHER");
+
+        String[][] runs = {
+                {"Mage", "MAGE", "11", "name Alice", "true"},
+                {"Healer", "HEALER", "15", "class ARCHER", "true"},
+                {"Archer", "ARCHER", "13", "class TANK", "false"},
+        };
+        for (String[] r : runs) {
+            c.hx().tab(List.of("§r[42] §r§aAlice §r§f(§r§dMage L§r§f)", "§r[40] §r§aBob §r§f(§r§dHealer XL§r§f)",
+                    "§r[39] §r§aCarol §r§f(§r§dArcher XX§r§f)", "§r[45] §r§a" + self + " §r§f(§r§d" + r[0] + " XL§r§f)"), null, null);
+            c.waitUntil("PartyTracker to read him as " + r[0], mc -> {
+                Object sc = Mod.staticCall("leapmenu.PartyTracker", "selfClass");
+                return sc != null && r[1].equals(((Enum<?>) sc).name());
+            }, 100);
+            int slot = leapAndClick(c, "as " + r[0], () -> c.ctx().runOnClient(mc ->
+                    Mod.staticCall(FLF, "leapToConfigured", tP1)));
+            String sent = c.onClient(mc -> (String) Mod.staticCall(FLF, "lastTarget"));
+            String seen = c.onClient(mc -> (String) Mod.staticCall(FLF, "lastSelfClass"));
+            boolean used = c.onClient(mc -> (Boolean) Mod.staticCall(FLF, "lastUsedClassTarget"));
+            c.note("as " + r[0] + ": clicked slot " + slot + ", sent to " + sent + ", saw class " + seen
+                    + ", per-class target used " + used);
+            c.check(slot == Integer.parseInt(r[2]) && r[3].equals(sent) && r[1].equals(seen)
+                            && used == Boolean.parseBoolean(r[4]),
+                    "as " + r[0] + " the leap clicked slot " + slot + " (" + sent + ", class seen " + seen + ", per-class "
+                            + used + "); want slot " + r[2] + " (" + r[3] + ", per-class " + r[4] + ")");
+        }
+
+        // ---- the menu: Class Targets set to Healer shows "As Healer" under the Crystal leap's Target, and a left click
+        //      on it steps Archer -> Berserker (classes in DungeonClass order, then party names) ----
+        String shown = c.onClient(mc -> {
+            Mod.setField("fastleap.FastLeapSection", "editingClass", healer);
+            List<Object> widgets = new ArrayList<>();
+            Mod.staticCall("fastleap.FastLeapSection", "buildLeapList", widgets, 0, 0, 400, (Runnable) () -> { });
+            Mod.setField("fastleap.FastLeapSection", "editingClass", null);
+            String found = "";
+            for (Object w : widgets) {
+                String text = net.minecraft.ChatFormatting.stripFormatting(
+                        ((net.minecraft.client.gui.components.AbstractWidget) w).getMessage().getString());
+                if (text != null && text.startsWith("As Healer: ")) {
+                    found += text + " | ";
+                }
+            }
+            return found;
+        });
+        c.note("Class Targets on Healer shows: " + shown);
+        c.check(shown.startsWith("As Healer: Archer"), "the Crystal leap's first As Healer button reads \"" + shown
+                + "\", want \"As Healer: Archer ...\"");
+        c.ctx().runOnClient(mc -> Mod.staticCall("fastleap.FastLeapSection", "stepClassTarget", tP1, healer, cfgObj, 1));
+        String stepped = c.onClient(mc -> String.valueOf(Mod.call(cfgObj, "getClassTarget", tP1, healer)));
+        c.check(stepped.contains("clazz=BERSERKER"), "a left click on As Healer: Archer gave " + stepped + ", want Berserker");
+        c.ctx().runOnClient(mc -> Mod.call(cfgObj, "setClassTargetClass", tP1, healer, archer));
     }
 
     /** A Spirit Leap in hotbar slot 0, held (the test server spends the item on each use). */

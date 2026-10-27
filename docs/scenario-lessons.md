@@ -1224,3 +1224,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 792-hx-ping-bloodcamp read the kill moment one tick late (-1.2) twice under 8 clients and -0.2 on the rerun: the
   click itself went out on its tick. Cause not proven (a skipped client game-time tick would fit); BloodCamp is untouched
   since the last passing jar.
+- **983 Class Targets (2026-10-27).** `FastLeapConfig.load()` replaces the instance, so a case that holds the config from
+  `getInstance` and reloads it mid-case keeps editing the old object; 983 checks the saved file's JSON mid-case and does
+  its save + load + `getInstance` read as its last step. His own class comes from a self line on the fake tab list
+  (`"[45] <his IGN> (Mage XL)"`); wait for `PartyTracker.selfClass()` to read it before leaping. Run the case with
+  `-Scenario "200-menu-session:,983-menu"`: a bare `983-menu` selects no Session case.
