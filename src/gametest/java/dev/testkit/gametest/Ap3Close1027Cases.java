@@ -58,9 +58,6 @@ final class Ap3Close1027Cases {
         // The chest floats at eye height 2 blocks ahead of where the Stop stands him (he faces +x, pitch 0), so his own
         // look ray hits it: no teleport to turn him (a server tp reads as a leap and drops the gate - first run).
         BlockPos chest = new BlockPos((int) Math.floor(ax) + 2, FLOOR + 2, (int) Math.floor(z));
-        c.server().command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:chest[facing=west]{CustomName:{text:\"Click in order!\"}}",
-                chest.getX(), chest.getY(), chest.getZ()));
-        c.server().sync(20);
         Object run = Ap3RuntimeTests.runNode(z);
         // Only the Walk carries close: a close Stop ahead of it is a second gate (the first run's click released the
         // Stop's gate and the Walk's held on, which is right, and read as a failure).
@@ -82,6 +79,10 @@ final class Ap3Close1027Cases {
         };
         try {
             Ap3RuntimeTests.walkIntoRun(c, z, run, stop, walk);
+            // Placed once he is in the lane: before, its chunk may not be loaded and the setblock fails (full session, z 544).
+            c.server().command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:chest[facing=west]{CustomName:{text:\"Click in order!\"}}",
+                    chest.getX(), chest.getY(), chest.getZ()));
+            c.server().sync(20);
             c.waitUntil("the close gate to hold on the Walk", mc -> ModUnderTest.staticCall(EXEC, "leapGateNode") == walk, 60);
             ctx.waitTicks(15);
             double z0 = onClient(ctx, mc -> mc.player.getZ());
