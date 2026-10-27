@@ -98,7 +98,12 @@ final class RelicCases {
                 float[] at = lookAt(c, new Vec3(RX, RY + 1.0, RZ));
                 tp(c, PX, PY, PZ, at[0], at[1]);
             }
-            c.waitUntil("the relic picked up by the server", mc -> c.events("relic.pickup").size() > pickBefore, 120);
+            try {
+                c.waitUntil("the relic picked up by the server", mc -> c.events("relic.pickup").size() > pickBefore, 120);
+            } catch (AssertionError e) {
+                c.note("relic pickup diag: " + diag(c));
+                throw e;
+            }
             JsonObject pick = last(c, "relic.pickup");
             c.note("pickup: " + pick);
             c.check(pick.get("taken").getAsBoolean(), "the server did not give the relic: " + pick);
@@ -112,15 +117,7 @@ final class RelicCases {
             } catch (AssertionError e) {
                 // preexisting-1026's final boss run: the trigger-only place never went out once (no "placed" line), with
                 // nothing in the log to say which gate held it. Name them before failing.
-                c.note("relic place diag: " + c.onClient(mc -> "inRelicPhase " + Mod.staticCall(FEATURE, "inRelicPhase", mc)
-                        + ", held " + Mod.staticCall(FEATURE, "heldRelic", mc.player) + ", selected slot "
-                        + mc.player.getInventory().getSelectedSlot() + ", hit " + (mc.hitResult instanceof
-                        net.minecraft.world.phys.BlockHitResult bh ? "block " + bh.getBlockPos().toShortString() : mc.hitResult == null
-                        ? "null" : mc.hitResult.getType().toString()) + ", heard " + java.util.Arrays.toString((float[])
-                        Mod.staticCall("util.RightClick", "heardLook")) + ", look " + mc.player.getYRot() + "/"
-                        + mc.player.getXRot() + ", eye " + mc.player.getEyePosition() + ", lastClick "
-                        + Mod.field(FEATURE, "lastClickTick") + ", swapped " + Mod.field(FEATURE, "swappedTick") + ", now "
-                        + Mod.staticCall("util.ActionGate", "currentTick") + ", screen " + dev.testkit.compat.McCompat.screen(mc)));
+                c.note("relic place diag: " + diag(c));
                 throw e;
             }
             JsonObject place = last(c, "relic.place");
@@ -192,6 +189,19 @@ final class RelicCases {
     }
 
     /** Yaw and pitch from his eye (standing at PX/PY/PZ) to {@code p}. */
+    /** Every gate of the Relic Triggerbot, for a click that never went out (preexisting-1026: once each for pickup and place). */
+    private static String diag(Session c) {
+        return c.onClient(mc -> "inRelicPhase " + Mod.staticCall(FEATURE, "inRelicPhase", mc)
+                        + ", held " + Mod.staticCall(FEATURE, "heldRelic", mc.player) + ", selected slot "
+                        + mc.player.getInventory().getSelectedSlot() + ", hit " + (mc.hitResult instanceof
+                        net.minecraft.world.phys.BlockHitResult bh ? "block " + bh.getBlockPos().toShortString() : mc.hitResult == null
+                        ? "null" : mc.hitResult.getType().toString()) + ", heard " + java.util.Arrays.toString((float[])
+                        Mod.staticCall("util.RightClick", "heardLook")) + ", look " + mc.player.getYRot() + "/"
+                        + mc.player.getXRot() + ", eye " + mc.player.getEyePosition() + ", lastClick "
+                        + Mod.field(FEATURE, "lastClickTick") + ", swapped " + Mod.field(FEATURE, "swappedTick") + ", now "
+                        + Mod.staticCall("util.ActionGate", "currentTick") + ", screen " + dev.testkit.compat.McCompat.screen(mc));
+    }
+
     static float[] lookAt(Session c, Vec3 p) {
         Vec3 eye = new Vec3(PX, PY + 1.62, PZ);
         Vec3 d = p.subtract(eye);
