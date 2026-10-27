@@ -150,7 +150,7 @@ public class BlinkStressTests implements FabricClientGameTest {
         releaseKeys(ctx);
         ctx.waitTicks(3);
         boolean released = num(ctx, "releasedHolds") > holds0;
-        return new double[]{released ? flat(a, b) : -1, num(ctx, "lastHoldTicks"), num(ctx, "lastHoldPackets")};
+        return new double[]{released ? dist3(a, b) : -1, num(ctx, "lastHoldTicks"), num(ctx, "lastHoldPackets")};
     }
 
     /** Charge on, stand {@code wait} ticks, fire sprinting. Returns {bank before, shot ticks, blocks in the firing tick}. */
