@@ -360,6 +360,11 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
 - A power loss (2026-10-27 blue screen) zeroed `run/testserver/banned-ips.json`, `banned-players.json` and `ops.json` in a
   checkout whose server was running: every later server start died with gson "Expected a JsonArray" and the client read as
   FROZEN. After a crash, check those files parse and write `[]` into any that do not.
+- GrimAC's experimental checks (MultiInteractA/B and others) are OFF in every checkout's gitignored
+  `run/testserver/config/GrimAC/config.yml`. To run a set with them on, give it its own checkout and, before its first run,
+  write that file with `experimental-checks: true` (a copy of another checkout's with the line changed works; GrimAC keeps
+  it). Prove it took: 1027-aafast-twoframes then records MultiInteractA/B (ship3-1027, tk-ship3-1027-x). The mod owner wants
+  every new setting tested this way at its highest value (2026-10-27).
 - Killing a queue script mid-run (or its client) can leave that checkout's test server running; the next server's GrimAC
   then waits ~14 s for the old datastore lease ("persistent storage UUID ... is owned by startupId ...") and the freeze
   watcher closes every client at startup (campaign-blink-1027). Kill the orphan `runTestServer` java of that checkout (match
