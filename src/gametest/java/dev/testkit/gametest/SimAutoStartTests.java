@@ -7,7 +7,6 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.block.Blocks;
 
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -57,6 +56,7 @@ public class SimAutoStartTests implements FabricClientGameTest {
         Scenario.ensureRoomDatabase(ctx);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(ROOM_LIBRARY, "forceReload"));
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isReady"), 2400);
+        String floorVerdict = null;
         if (floor) {
             String v;
             try {
@@ -65,9 +65,7 @@ public class SimAutoStartTests implements FabricClientGameTest {
                 leave(ctx);
             }
             System.out.println("[" + FLOOR_CASE + "] " + v);
-            if (!v.startsWith("PASS")) {
-                throw new AssertionError(v);
-            }
+            floorVerdict = v;
         }
         if (room) {
             String v;
@@ -80,6 +78,10 @@ public class SimAutoStartTests implements FabricClientGameTest {
             if (!v.startsWith("PASS")) {
                 throw new AssertionError(v);
             }
+        }
+        // The floor verdict is thrown last, so a floor failure never costs the room case its run.
+        if (floorVerdict != null && !floorVerdict.startsWith("PASS")) {
+            throw new AssertionError(floorVerdict);
         }
     }
 
@@ -117,6 +119,7 @@ public class SimAutoStartTests implements FabricClientGameTest {
         int last = -2;
         long armedAt = -1;
         int gateDuring = -1;
+        java.util.List<BlockPos> gate = java.util.List.of();
         boolean sawArmed = false;
         for (int t = 0; t < 2400; t++) {
             ctx.waitTicks(1);
@@ -140,7 +143,8 @@ public class SimAutoStartTests implements FabricClientGameTest {
                     last = left;
                 }
                 if (gateDuring < 0 && left <= 40) {
-                    gateDuring = gateBlocks(ctx);
+                    gate = entranceGate(ctx);
+                    gateDuring = solid(ctx, gate);
                 }
             }
             if (running) {
@@ -153,11 +157,11 @@ public class SimAutoStartTests implements FabricClientGameTest {
         long goNanos = System.nanoTime() - armedAt;
         boolean running = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_RUN, "isRunning"));
         ctx.waitTicks(30);
-        int gateAfter = gateBlocks(ctx);
+        int gateAfter = solid(ctx, gate);
         BlockPos door = ctx.computeOnClient(mc -> (BlockPos) ModUnderTest.staticCall(BUILDER, "entranceDoor"));
         System.out.println(String.format("[%s] countdown: max %d tick(s) seen, %d sample(s), %d distinct value(s); "
-                + "armed->GO %.2f s; running %s; gate blocks round %s during %d, after %d", FLOOR_CASE, maxSeen, samples,
-                distinct, goNanos / 1e9, running, door, gateDuring, gateAfter));
+                + "armed->GO %.2f s; running %s; door %s; %d registered gate block(s), solid during %d, after %d", FLOOR_CASE,
+                maxSeen, samples, distinct, goNanos / 1e9, running, door, gate.size(), gateDuring, gateAfter));
         if (startCommand) {
             return "FAIL - /start is still registered on the client dispatcher";
         }
@@ -176,8 +180,9 @@ public class SimAutoStartTests implements FabricClientGameTest {
         if (door == null) {
             return "FAIL premise - the floor has no entrance door";
         }
-        if (gateDuring <= 0) {
-            return "FAIL - no gate block stood round the entrance during the countdown (" + gateDuring + ")";
+        if (gate.isEmpty() || gateDuring <= 0) {
+            return "FAIL - no entrance gate block stood during the countdown (" + gate.size() + " registered, "
+                    + gateDuring + " solid)";
         }
         if (gateAfter != 0) {
             return "FAIL - " + gateAfter + " gate block(s) still stand after GO";
@@ -215,26 +220,49 @@ public class SimAutoStartTests implements FabricClientGameTest {
         return "PASS - a single room never armed a run";
     }
 
-    /** Infested chiseled stone bricks (the entrance gate) within 3 blocks of the entrance door, on the server. */
-    private static int gateBlocks(ClientGameTestContext ctx) {
+    /** The entrance gate's block positions as SimDoors registered them at carve time (its private DOORS list, the
+     *  entries of type DungeonLayout.DOOR_ENTRANCE) - what openEntranceGate clears at GO. */
+    @SuppressWarnings("unchecked")
+    private static java.util.List<BlockPos> entranceGate(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                Class<?> doors = Class.forName("com.killer560.hub.roomsim.SimDoors");
+                java.lang.reflect.Field f = doors.getDeclaredField("DOORS");
+                f.setAccessible(true);
+                int entrance = (Integer) Class.forName("com.killer560.hub.livemap.DungeonLayout")
+                        .getField("DOOR_ENTRANCE").get(null);
+                java.util.List<BlockPos> out = new java.util.ArrayList<>();
+                for (Object d : (java.util.List<Object>) f.get(null)) {
+                    java.lang.reflect.Method type = d.getClass().getDeclaredMethod("type");
+                    java.lang.reflect.Method blocks = d.getClass().getDeclaredMethod("blocks");
+                    type.setAccessible(true);
+                    blocks.setAccessible(true);
+                    if ((Integer) type.invoke(d) == entrance) {
+                        out.addAll((java.util.List<BlockPos>) blocks.invoke(d));
+                    }
+                }
+                return out;
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError("could not read SimDoors.DOORS: " + e, e);
+            }
+        });
+    }
+
+    /** How many of {@code at} are not air on the server. */
+    private static int solid(ClientGameTestContext ctx, java.util.List<BlockPos> at) {
         AtomicReference<Integer> out = new AtomicReference<>();
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
-            BlockPos door = (BlockPos) ModUnderTest.staticCall(BUILDER, "entranceDoor");
-            if (server == null || door == null) {
+            if (server == null) {
                 out.set(-1);
                 return;
             }
             server.execute(() -> {
                 var level = server.overworld();
                 int n = 0;
-                for (int dx = -3; dx <= 3; dx++) {
-                    for (int dz = -3; dz <= 3; dz++) {
-                        for (int dy = -3; dy <= 6; dy++) {
-                            if (level.getBlockState(door.offset(dx, dy, dz)).is(Blocks.INFESTED_CHISELED_STONE_BRICKS)) {
-                                n++;
-                            }
-                        }
+                for (BlockPos p : at) {
+                    if (!level.getBlockState(p).isAir()) {
+                        n++;
                     }
                 }
                 out.set(n);

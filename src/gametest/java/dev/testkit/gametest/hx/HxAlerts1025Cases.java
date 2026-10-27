@@ -126,6 +126,7 @@ final class HxAlerts1025Cases {
                 + "lore=[{text:\"Charges: " + charges + "/20\",italic:false}]]");
     }
 
+    /** Long.MAX_VALUE when it never drew since the last HudSeen.forget (HudSeen.everDrawn left the mod in cleanup-gui 163778ec). */
     private static long msSinceDrawn(Minecraft mc) {
         return (Long) Mod.staticCall("hud.HudSeen", "msSince", "breaker_charges", System.currentTimeMillis());
     }
@@ -137,7 +138,7 @@ final class HxAlerts1025Cases {
             c.ctx().waitTicks(10);
             run(c, () -> Mod.staticCall("hud.HudSeen", "forget", "breaker_charges"));
             c.ctx().waitTicks(10);
-            boolean drawnWithout = c.onClient(mc -> (Boolean) Mod.staticCall("hud.HudSeen", "everDrawn", "breaker_charges"));
+            boolean drawnWithout = c.onClient(mc -> msSinceDrawn(mc) != Long.MAX_VALUE);
             c.check(!drawnWithout, "the Breaker Charges line drew with no breaker in the hotbar");
             giveBreaker(c, 14);
             c.waitUntil("the HUD draws 14/20", mc -> String.valueOf(Mod.staticCall(BREAKER_HUD, "lastDrawn")).contains("14§7/§f20")
@@ -151,7 +152,7 @@ final class HxAlerts1025Cases {
             hub(c);
             run(c, () -> Mod.staticCall("hud.HudSeen", "forget", "breaker_charges"));
             c.ctx().waitTicks(20);
-            boolean drawnInHub = c.onClient(mc -> (Boolean) Mod.staticCall("hud.HudSeen", "everDrawn", "breaker_charges"));
+            boolean drawnInHub = c.onClient(mc -> msSinceDrawn(mc) != Long.MAX_VALUE);
             c.check(!drawnInHub, "the Breaker Charges line drew outside a dungeon");
             c.note("no breaker: not drawn; 14/20 -> '" + at14 + "'; 3/20 -> '" + at3 + "'; hub: not drawn");
         } finally {

@@ -143,7 +143,10 @@ final class ChatBatchUiCases {
             "Hide Useless Messages", "Hide Discord Warnings", "Hide Microsoft Warnings", "Hide Empty Chat Messages",
             "Hide Actionbar", "Hide Non-Rank Invites",
             // mod 4a7ffc31 (Menu and HUD list of 2026-10-18): Hypixel's Watchdog ban announcement gets its own switch
-            "Hide Ban Announcements");
+            "Hide Ban Announcements",
+            // Chat Hider's dungeon pack (mod p3-chat-1025, 2026-10-25): six switches under the rest
+            "Hide Boss Dialogue", "Hide Mort", "Hide Blessings", "Hide Others' Pickups", "Hide Ability Spam",
+            "Hide Dungeon Breaker Spam");
 
     static void hiderTab(UiCase c) throws Exception {
         // A -PtestingBuild jar keeps every untested tab in its Untested category; count them all tested meanwhile so
