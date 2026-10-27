@@ -224,6 +224,24 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
         ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
         ctx.waitTicks(1);
         ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+        if (waiting(ctx)) {
+            // Since mod campaign-blink-1027 a shot the lag allowance does not cover yet (after a teleport or a hold) waits
+            // for cover; he stands still meanwhile (moving ticks are not covered), then walks the tick it fires.
+            ctx.getInput().releaseKey(o -> o.keyUp);
+            ctx.getInput().releaseKey(o -> o.keySprint);
+            ctx.getInput().releaseKey(o -> o.keyJump);
+            for (int i = 0; i < 100 && waiting(ctx) && !coveredNow(ctx); i++) {
+                ctx.waitTicks(1);
+            }
+            ctx.getInput().holdKey(o -> o.keyUp);
+            if (sprint) {
+                ctx.getInput().holdKey(o -> o.keySprint);
+            }
+            if (jump) {
+                ctx.getInput().holdKey(o -> o.keyJump);
+            }
+            a = here(ctx);
+        }
         ctx.waitTicks(1);
         // A split shot's rest runs the tick after next (mod campaign-blink-1027): keep the keys down until it has.
         for (int i = 0; i < 4 && ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "shotPending")); i++) {
@@ -232,6 +250,21 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
         double[] b = here(ctx);
         releaseKeys(ctx);
         return new double[]{dist3(a, b), cnum(ctx, "shots") - shots0, cnum(ctx, "shotTicks") - ticks0};
+    }
+
+    private static boolean waiting(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                return (Boolean) Mod.staticCall(CHARGE, "shotWaiting");
+            } catch (RuntimeException | AssertionError e) {
+                return false;
+            }
+        });
+    }
+
+    private static boolean coveredNow(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> !(Boolean) Mod.staticCall(CHARGE, "teleportHeld")
+                && ((Number) Mod.staticCall(CHARGE, "unbacked")).intValue() == 0);
     }
 
     /** A sprinting hold with the Hold key down until Hold Ticks releases it. Returns {moved, held ticks, released}. */

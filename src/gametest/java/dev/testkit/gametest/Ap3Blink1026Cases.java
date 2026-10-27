@@ -58,6 +58,98 @@ final class Ap3Blink1026Cases {
         s.test("1027-ap3-blink-leap-now", c -> leapThenRelease(c, 0));
         s.test("1027-ap3-blink-leap-10", c -> leapThenRelease(c, 10));
         s.test("1027-ap3-blink-leap-40", c -> leapThenRelease(c, 40));
+        s.test("1027-ap3-blink-leap-route", Ap3Blink1026Cases::leapRoute);
+    }
+
+    /**
+     * 1027-ap3-blink-leap-route: the whole AP3 route - Blink Charge 20, a leap (AP3 stops), then a new chain where the
+     * leap landed: Run, Blink Release (all), Run, Stop. AP3 holds on the release node until GrimAC covers the kept bank, then
+     * the shot fires along the run: 20 ticks, the server follows all of it, GrimAC silent.
+     */
+    private static void leapRoute(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        double z = Ap3RuntimeTests.lane();
+        c.server().command("attribute @p minecraft:movement_speed base set 0.10");
+        c.server().sync(20);
+        boolean gate = onClient(ctx, mc -> {
+            Mod.staticCall("blink.BlinkFeature", "end", "test setup");
+            Mod.staticCall(CHARGE, "reset", "test setup");
+            boolean g = (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled");
+            Mod.staticCall("util.SkyblockGate", "setEnabled", false);
+            Mod.setField("blink.BlinkFeature", "keyHeldForTest", null);
+            Mod.setField(CHARGE, "keyHeldForTest", null);
+            Mod.set(CFG, "setEnabled", true);
+            Mod.set(CFG, "setChargeMode", Mod.enumValue(CFG + "$Mode", "TOGGLE"));
+            Mod.set(CFG, "setChargeTicks", 20);
+            Mod.set(CFG, "setChargeKeyCode", -1);
+            Mod.set(CFG, "setChatMessages", false);
+            return g;
+        });
+        long mark = LogTap.mark();
+        try {
+            double cx = LANE_X0 + 10.5;
+            Object run = Ap3RuntimeTests.runNode(z);
+            Object charge = node("BLINK_CHARGE", cx, z, 0f, 0f, 2.0, 2.0);
+            set(charge, "blinkTicks", 20);
+            Object hold = node("BLINK_CHARGE", cx + 30, z, 0f, 0f, 2.0, 2.0);
+            Ap3RuntimeTests.walkIntoRun(c, z, run, charge, node("RUN", cx, z, -90f, 0f, 2.0, 2.0), hold);
+            Sample s = null;
+            for (int t = 0; t < 200; t++) {
+                ctx.waitTick();
+                s = sample(ctx, t);
+                if (s.banked() >= 20 && !"BLINK_CHARGE".equals(s.active())) {
+                    break;
+                }
+            }
+            c.check(s != null && s.banked() == 20, "the charge node never banked 20");
+            double z2 = z + 12;
+            long shots0 = s.shots();
+            c.server().command(String.format(Locale.ROOT, "tp @p %.2f %d %.2f -90 0", LANE_X0 + 3.5, Ap3RuntimeTests.FLOOR + 1, z2));
+            ctx.waitTicks(3);
+            onClient(ctx, mc -> {
+                ModUnderTest.staticCall(Ap3RuntimeTests.EXEC, "stop", new Class<?>[]{String.class}, new Object[]{"you leapt"});
+                return null;
+            });
+            Object run2 = Ap3RuntimeTests.runNode(z2);
+            Object rel = node("BLINK_RELEASE", LANE_X0 + 4.5, z2, 0f, 0f, 2.0, 2.0);
+            Object run3 = node("RUN", LANE_X0 + 6.5, z2, -90f, 0f, 2.0, 2.0);
+            Ap3RuntimeTests.walkIntoRun(c, z2, run2, rel, run3, node("STOP", LANE_X0 + 40.5, z2, 0f, 0f, 2.0, 2.0));
+            Sample fired = null;
+            double[] from = null;
+            for (int t = 0; t < 160; t++) {
+                double[] p0 = onClient(ctx, mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+                ctx.waitTick();
+                Sample x = sample(ctx, t);
+                if (x.shots() > shots0) {
+                    fired = x;
+                    from = p0;
+                    break;
+                }
+            }
+            ctx.waitTicks(80);
+            int ticks = onClient(ctx, mc -> ((Number) Mod.staticCall(CHARGE, "lastReleaseTicks")).intValue());
+            double shotBlocks = onClient(ctx, mc -> ((Number) Mod.staticCall(CHARGE, "lastReleaseBlocks")).doubleValue());
+            double[] client = onClient(ctx, mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+            double[] srv = BlinkTests.serverPos(c.server(), ctx, BlinkTests.playerName(ctx));
+            double gap = Math.hypot(srv[0] - client[0], srv[2] - client[2]);
+            List<String> waited = logSince(mark, "the bank is covered after");
+            c.note(String.format(Locale.ROOT, "route after the leap: fired %s, %d tick(s), %.2f blocks; client/server gap %.2f; %s",
+                    fired != null, ticks, shotBlocks, gap, waited.isEmpty() ? "no wait line" : waited.get(0)));
+            for (String l : logSince(mark, "[Blink]")) {
+                c.note("  " + l);
+            }
+            c.check(fired != null && ticks == 20 && shotBlocks > 4.0, "the release did not fire 20 along the run: " + ticks + ", "
+                    + shotBlocks);
+            c.check(gap < 0.5, String.format(Locale.ROOT, "client and server disagree after the route: %.2f", gap));
+        } finally {
+            onClient(ctx, mc -> {
+                Ap3RuntimeTests.staticCallStop();
+                Mod.staticCall(CHARGE, "reset", "test teardown");
+                Mod.set(CFG, "setEnabled", false);
+                Mod.staticCall("util.SkyblockGate", "setEnabled", gate);
+                return null;
+            });
+        }
     }
 
     private static void leapThenRelease(Session c, int delay) {
