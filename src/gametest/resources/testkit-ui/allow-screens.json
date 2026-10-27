@@ -52,6 +52,7 @@
     {"class": "mobskin.MobPickerScreen", "args": ["null", "null", "consumer"], "source": "mobskin/MobPickerScreen.java:56 (null current = the player; render only)"}
   ],
   "deny": [
+    {"class": "imagepreview.ImageViewerScreen", "why": "Image Preview's viewer needs a hovered chat link's resolved pictures (a package-private Entry), and opens only by a middle click on one; testkit 1077-imgprev-imgur opens it for real and steps it"},
     {"class": "peekchat.PeekChatScreen", "why": "read-only chat history: in the empty smoke world it has no lines to draw, so it draws nothing by design (testkit 1314 drives it with real chat)"},
     {"class": "accounts.gui.AccountProxyConfigScreen", "why": "needs a real PrismAccount (accounts/gui/AccountProxyConfigScreen.java:24); the accounts store is the empty fixture"},
     {"class": "autoroutes.AutoRoutesEditScreen", "why": "needs a Route and RouteNode of the dungeon room the player stands in (autoroutes/AutoRoutesCommands.java:390 refuses to open it otherwise)"}

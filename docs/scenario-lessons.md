@@ -1139,3 +1139,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 1026-sim-autostart: the entrance gate is the blocks `SimDoors.DOORS` registered for the DOOR_ENTRANCE door (12 on the floors
   seen), not a box round `SimBuilder.entranceDoor()` (that is the door cell's center, and a 3-block box round it found 0).
   Snapshot the positions during the countdown: `openEntranceGate` drops the entry at GO.
+- 1070-1081 imgprev (Image Preview): `HxKit.Settings.custom`'s restore already runs inside `runOnClient`; a restore that calls
+  `runOnClient` again throws "runOnClient can only be called from the client gametest thread" and fails every later case.
+  The real cursor stays where the last case left it, so opening the chat again hovers whatever older link now sits under
+  it (a refused-file case counted another case's texture): move the cursor off the chat before `openChat`. A filter part
+  `1070-imgprev-session+` starts the session with NO cases; use `-imgprev-`. Pictures come from an in-JVM `HttpServer` on
+  an ephemeral 127.0.0.1 port, named trusted through `killer560.test.imagePreviewHosts` and standing in for imgur through
+  the `imgur-api` / `imgur-i` service overrides (which also let it through `killer560.net.offline`).
