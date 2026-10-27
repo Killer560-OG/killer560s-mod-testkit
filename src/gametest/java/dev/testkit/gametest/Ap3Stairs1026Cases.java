@@ -44,6 +44,7 @@ final class Ap3Stairs1026Cases {
         s.test("1026-ap3-stairs-side-drop", c -> stairs(c, Shape.SIDE_DROP));
         s.test("1026-ap3-stairs-spiral", c -> stairs(c, Shape.SPIRAL));
         s.test("1026-ap3-stairs-sprint", c -> stairs(c, Shape.SPRINT));
+        s.test("1026-ap3-stairs-halfstep-off", c -> stairs(c, Shape.HALFSTEP_OFF));
         s.test("1026-ap3-lava-beside", Ap3Stairs1026Cases::lavaBeside);
         s.test("1026-ap3-lava-inside", Ap3Stairs1026Cases::lavaInside);
         s.test("1026-ap3-leapgate-click", Ap3Stairs1026Cases::leapGateClick);
@@ -130,7 +131,7 @@ final class Ap3Stairs1026Cases {
         }
     }
 
-    enum Shape { TOP_EDGE, SIDE_DROP, SPIRAL, SPRINT }
+    enum Shape { TOP_EDGE, SIDE_DROP, SPIRAL, SPRINT, HALFSTEP_OFF }
 
     // ------------------------------------------------------------------------------------------------- shared
 
@@ -269,6 +270,14 @@ final class Ap3Stairs1026Cases {
                 // TOP_EDGE: the point on the top stair's high half, at its edge (x 15.0-15.5 is the high half).
                 tx = shape == Shape.TOP_EDGE ? lastX + 1 + 0.2 : lastX + 1 - 0.3;
             }
+            case HALFSTEP_OFF -> {
+                // His 23:15:14 shape: past the top a single stair whose low half (half a block wide, 0.5 down) is the
+                // last thing before a 3-block drop. The point on its high half; he comes in at sprint.
+                cmd(c, "fill %d %d %d %d %d %d minecraft:stone", lastX + 1, FLOOR + 1, zc - half, lastX + 1, top - 1, zc + half);
+                cmd(c, "fill %d %d %d %d %d %d minecraft:stone_brick_stairs[facing=east,half=bottom]", lastX + 1, top,
+                        zc - half, lastX + 1, top, zc + half);
+                tx = lastX + 1 + 0.2;
+            }
             case SIDE_DROP -> {
                 // One stair at the end of the one-wide path, its low half 0.5 down; the point beside its open side.
                 // A half step (bottom slab, top 0.5 down) at the end of the one-wide path; the point on it, its box at the
@@ -297,13 +306,14 @@ final class Ap3Stairs1026Cases {
                 expectSettle = true;
             }
         }
-        speed(c, shape == Shape.SPRINT ? 0.5 : 0.4);
+        speed(c, shape == Shape.SPRINT || shape == Shape.HALFSTEP_OFF ? 0.5 : 0.4);
         long mark = LogTap.mark();
         try {
             Object run = node("RUN", LANE_X0 + 3.0, z, -90f, 0f, 2.0, 2.0);
             set(run, "y", standY);
             Object align = node("FAST_ALIGN", tx, tz, 0f, 0f, 3.0, 3.0);
-            set(align, "y", standY);
+            // The node sits where its point stands: the slab's top for the side drop, the start height elsewhere.
+            set(align, "y", shape == Shape.SIDE_DROP ? standY - 0.5 : standY);
             ctx.waitTicks(5);
             walkIn(c, z, standY, run, align);
             Watch w = watch(ctx, 220);
