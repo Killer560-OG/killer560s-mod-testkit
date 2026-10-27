@@ -130,6 +130,8 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             Ap3ShotSteer1027Cases.register(s);
             // mod ap3-levers-1027: option (a), a lever clicked with no turn, measured against GrimAC (expecting flags).
             Ap3Levers1027Cases.register(s);
+            // mod ap3-s2ee3-1027: his RUN #33 and stair-straddling Fast Align #34, rebuilt from his traces.
+            Ap3S2ee3Cases.register(s);
             // mod ap3-blink-1026: the Blink Charge and Blink Release nodes. Registered last: 1026-ap3-blink-leap keeps the
             // bank through a leap (killer560 2026-10-27) and GrimAC's BadPacketsN from it lands on the next case's lane
             // teleport, so the Blink cases run right before 63-ap3-corrections (blinkmerge-1027).
