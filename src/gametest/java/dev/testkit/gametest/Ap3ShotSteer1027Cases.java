@@ -150,6 +150,10 @@ final class Ap3ShotSteer1027Cases {
     private static List<Pt> runLane(Session c, double z, Object run, List<Object> rest, int maxTicks) {
         ClientGameTestContext ctx = c.ctx();
         install(ctx);
+        // Late in the session he can be too hungry to sprint (one lane sprinted, the next walked - 2026-10-27 full run):
+        // both lanes of a case must run on a full food bar.
+        c.server().command("effect give @p minecraft:saturation 30 10 true");
+        c.server().sync(20);
         Ap3RuntimeTests.walkIntoRun(c, z, run, rest.toArray());
         startRec(ctx);
         // walkIntoRun returns once the run is carrying him; the recording starts there, in both runs alike.
