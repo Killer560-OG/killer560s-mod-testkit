@@ -554,7 +554,9 @@ public class ZpewCampaignTests implements FabricClientGameTest {
         s.add(at("ceiling-ok", lane++, List.of(sb(tx, Y, z, "stone"), sb(tx, Y + 3, z, "stone")), tx + 0.5, Y + 1,
                 "head room 2: lands", true));
         z = Z0 + 10 * lane;
-        s.add(at("diagonal", lane++, List.of(sb(X0 + 9, Y, z + 4, "stone")), X0 + 9.5, Y + 1, "off the lane's axis", true));
+        s.add(new Station("diagonal", 4, List.of(sb(X0 + 9, Y, z + 2, "stone")), new Vec3(X0 + 9.5, Y + 1, z + 2.5),
+                Float.NaN, Float.NaN, true, "off the lane's axis"));
+        lane++;
         z = Z0 + 10 * lane;
         s.add(new Station("no-target-sky", 4, List.of(), null, -90f, -30f, true, "nothing to hit"));
         lane++;
