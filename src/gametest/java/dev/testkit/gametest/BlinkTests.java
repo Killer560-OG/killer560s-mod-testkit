@@ -31,11 +31,11 @@ import java.util.regex.Pattern;
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class BlinkTests implements FabricClientGameTest {
 
-    private static final String CFG = "blink.BlinkConfig";
-    private static final String MODE = "blink.BlinkConfig$Mode";
-    private static final String FEATURE = "blink.BlinkFeature";
-    private static final String CHARGE = "blink.BlinkCharge";
-    private static final int SURFACE_Y = 151;
+    static final String CFG = "blink.BlinkConfig";
+    static final String MODE = "blink.BlinkConfig$Mode";
+    static final String FEATURE = "blink.BlinkFeature";
+    static final String CHARGE = "blink.BlinkCharge";
+    static final int SURFACE_Y = 151;
     private static final Pattern POS = Pattern.compile("has the following entity data: \\[(-?[0-9.E-]+)d, (-?[0-9.E-]+)d, (-?[0-9.E-]+)d\\]");
 
     /** The hold sweep lengths, from testkit.blinkSweep (comma list) or this default; Hold Ticks stops at 20. */
@@ -76,7 +76,7 @@ public class BlinkTests implements FabricClientGameTest {
         }
     }
 
-    private static void arena(TestServer server, int x, int z) {
+    static void arena(TestServer server, int x, int z) {
         TestMap.on(server)
                 .platform(x, SURFACE_Y - 1, z, 40)
                 .walls(x, SURFACE_Y, z, 40, 3)
@@ -88,7 +88,7 @@ public class BlinkTests implements FabricClientGameTest {
     }
 
     /** Blink ON, Charge in Toggle at 20, the given Hold Ticks; Skyblock Only off for the run. Returns what to restore. */
-    private static boolean setUp(ClientGameTestContext ctx, int holdTicks) {
+    static boolean setUp(ClientGameTestContext ctx, int holdTicks) {
         return ctx.computeOnClient(mc -> {
             Mod.staticCall(FEATURE, "end", "test setup");
             Mod.staticCall(CHARGE, "reset", "test setup");
@@ -107,7 +107,7 @@ public class BlinkTests implements FabricClientGameTest {
         });
     }
 
-    private static void tearDown(ClientGameTestContext ctx, boolean gate) {
+    static void tearDown(ClientGameTestContext ctx, boolean gate) {
         Pulser.on = false;
         ctx.runOnClient(mc -> {
             Mod.staticCall(FEATURE, "end", "test teardown");
@@ -121,7 +121,7 @@ public class BlinkTests implements FabricClientGameTest {
         ctx.waitTicks(5);
     }
 
-    private static void releaseKeys(ClientGameTestContext ctx) {
+    static void releaseKeys(ClientGameTestContext ctx) {
         ctx.getInput().releaseKey(o -> o.keyUp);
         ctx.getInput().releaseKey(o -> o.keyDown);
         ctx.getInput().releaseKey(o -> o.keySprint);
@@ -129,12 +129,12 @@ public class BlinkTests implements FabricClientGameTest {
     }
 
     /** The Hold key down (a hold starts at the next tick and lasts while it is down, up to Hold Ticks). */
-    private static void holdDown(ClientGameTestContext ctx) {
+    static void holdDown(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> Mod.setField(FEATURE, "keyHeldForTest", Boolean.TRUE));
     }
 
     /** The Hold key up: the hold is released at the next tick. */
-    private static void holdUp(ClientGameTestContext ctx) {
+    static void holdUp(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> Mod.setField(FEATURE, "keyHeldForTest", Boolean.FALSE));
     }
 
@@ -152,7 +152,7 @@ public class BlinkTests implements FabricClientGameTest {
      * One press of the Charge key (Toggle: on, fire, or off), and one tick with it up, so a press straight after it is a
      * new press (without that tick the Blink tick never saw the key come up and two presses read as one).
      */
-    private static void pressCharge(ClientGameTestContext ctx) {
+    static void pressCharge(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
         ctx.waitTicks(1);
         ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
@@ -198,20 +198,20 @@ public class BlinkTests implements FabricClientGameTest {
         }
     }
 
-    private static boolean holding(ClientGameTestContext ctx) {
+    static boolean holding(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(FEATURE, "isHolding"));
     }
 
-    private static long num(ClientGameTestContext ctx, String getter) {
+    static long num(ClientGameTestContext ctx, String getter) {
         return ctx.computeOnClient(mc -> ((Number) Mod.staticCall(FEATURE, getter)).longValue());
     }
 
-    private static String playerName(ClientGameTestContext ctx) {
+    static String playerName(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> mc.player.getName().getString());
     }
 
     /** The server's own idea of where the player is, from {@code data get entity}. */
-    private static double[] serverPos(TestServer server, ClientGameTestContext ctx, String name) {
+    static double[] serverPos(TestServer server, ClientGameTestContext ctx, String name) {
         int before = countPosLines(server);
         server.command("data get entity " + name + " Pos");
         for (int i = 0; i < 40; i++) {
@@ -241,17 +241,17 @@ public class BlinkTests implements FabricClientGameTest {
         return n;
     }
 
-    private static double flat(double[] a, double[] b) {
+    static double flat(double[] a, double[] b) {
         return Math.hypot(a[0] - b[0], a[2] - b[2]);
     }
 
-    private static void check(boolean ok, String why) {
+    static void check(boolean ok, String why) {
         if (!ok) {
             throw new AssertionError(why);
         }
     }
 
-    private static String fmt(double[] p) {
+    static String fmt(double[] p) {
         return String.format(Locale.ROOT, "(%.2f, %.2f, %.2f)", p[0], p[1], p[2]);
     }
 
@@ -976,7 +976,7 @@ public class BlinkTests implements FabricClientGameTest {
         });
     }
 
-    private static final String AOTV = "minecraft:diamond_shovel[custom_data={id:\"ASPECT_OF_THE_VOID\",ethermerge:1,"
+    static final String AOTV = "minecraft:diamond_shovel[custom_data={id:\"ASPECT_OF_THE_VOID\",ethermerge:1,"
             + "tuned_transmission:4},unbreakable={}]";
 
     /**
@@ -1057,11 +1057,11 @@ public class BlinkTests implements FabricClientGameTest {
     // it"; "flick levers mine blocks"; "infinite"; the rework: banks Charge Ticks, fires only on the key, arms standing) ----
 
     /** Charge on (a Toggle press of the Charge key). */
-    private static void chargeOn(ClientGameTestContext ctx) {
+    static void chargeOn(ClientGameTestContext ctx) {
         pressCharge(ctx);
     }
 
-    private static void chargeOff(ClientGameTestContext ctx) {
+    static void chargeOff(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> {
             Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE);
             Mod.staticCall(CHARGE, "reset", "test");
@@ -1069,19 +1069,19 @@ public class BlinkTests implements FabricClientGameTest {
         ctx.waitTicks(2);
     }
 
-    private static long cnum(ClientGameTestContext ctx, String getter) {
+    static long cnum(ClientGameTestContext ctx, String getter) {
         return ctx.computeOnClient(mc -> ((Number) Mod.staticCall(CHARGE, getter)).longValue());
     }
 
-    private static boolean charging(ClientGameTestContext ctx) {
+    static boolean charging(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "isActive"));
     }
 
-    private static boolean armed(ClientGameTestContext ctx) {
+    static boolean armed(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "isArmed"));
     }
 
-    private static void look(ClientGameTestContext ctx, double tx, double ty, double tz) {
+    static void look(ClientGameTestContext ctx, double tx, double ty, double tz) {
         ctx.runOnClient(mc -> {
             double ex = mc.player.getX();
             double ey = mc.player.getEyeY();
@@ -1100,7 +1100,7 @@ public class BlinkTests implements FabricClientGameTest {
      * Fires the bank the way he does: a movement key down and the Charge key pressed in the same tick (Toggle). Returns
      * {blocks moved over that one tick, shots made, ticks in the last shot}. The shot runs at the start of the tick.
      */
-    private static double[] shootByPress(ClientGameTestContext ctx, boolean sprint) {
+    static double[] shootByPress(ClientGameTestContext ctx, boolean sprint) {
         long shots0 = cnum(ctx, "shots");
         double[] before = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
         ctx.getInput().holdKey(o -> o.keyUp);
@@ -1789,10 +1789,10 @@ public class BlinkTests implements FabricClientGameTest {
     // ---- rapid etherwarps, menus and leaps (killer560, 2026-10-25: "double check that the blink will hold through
     // multiple very fast succession etherwarps and menu opens and things like that") ----
 
-    private static final String ZP_CFG = "zpew.ZeroPingEtherwarpConfig";
+    static final String ZP_CFG = "zpew.ZeroPingEtherwarpConfig";
 
     /** Abilities on, an AOTV in slot 0, Zero Ping Etherwarp on (so warps one tick apart aim from the predicted landing). */
-    private static dev.testkit.gametest.hx.Hx warpSetUp(ClientGameTestContext ctx) {
+    static dev.testkit.gametest.hx.Hx warpSetUp(ClientGameTestContext ctx) {
         dev.testkit.gametest.hx.Hx hx = dev.testkit.gametest.hx.Hx.connect();
         hx.call("dungeon.abilities", "enabled", true);
         hx.give(0, AOTV);
@@ -1806,7 +1806,7 @@ public class BlinkTests implements FabricClientGameTest {
         return hx;
     }
 
-    private static void warpTearDown(ClientGameTestContext ctx, dev.testkit.gametest.hx.Hx hx) {
+    static void warpTearDown(ClientGameTestContext ctx, dev.testkit.gametest.hx.Hx hx) {
         ctx.getInput().releaseKey(o -> o.keyShift);
         ctx.runOnClient(mc -> {
             Latency.remove();
@@ -1823,7 +1823,7 @@ public class BlinkTests implements FabricClientGameTest {
     }
 
     /** One etherwarp now from {@code feet} at the floor block (bx, bz): a client turn and a right click. */
-    private static void warpAt(ClientGameTestContext ctx, double[] feet, int bx, int bz) {
+    static void warpAt(ClientGameTestContext ctx, double[] feet, int bx, int bz) {
         double dx = bx + 0.5 - feet[0];
         double dy = SURFACE_Y - (feet[1] + 1.27);
         double dz = bz + 0.5 - feet[2];
@@ -1836,12 +1836,12 @@ public class BlinkTests implements FabricClientGameTest {
         ctx.getInput().pressKey(o -> o.keyUse);
     }
 
-    private static boolean menuOpen(ClientGameTestContext ctx) {
+    static boolean menuOpen(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> dev.testkit.compat.McCompat.screen(mc) instanceof
                 net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>);
     }
 
-    private static void clickSlot(ClientGameTestContext ctx, int slot) {
+    static void clickSlot(ClientGameTestContext ctx, int slot) {
         ctx.runOnClient(mc -> {
             var menu = mc.player.containerMenu;
             mc.gameMode.handleContainerInput(menu.containerId, slot, 0,
@@ -2715,7 +2715,7 @@ public class BlinkTests implements FabricClientGameTest {
         });
     }
 
-    private static String firstChecks(List<String> flags) {
+    static String firstChecks(List<String> flags) {
         StringBuilder b = new StringBuilder();
         for (int i = 0; i < Math.min(3, flags.size()); i++) {
             String f = flags.get(i);
