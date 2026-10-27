@@ -2122,7 +2122,9 @@ public class BlinkTests implements FabricClientGameTest {
                     from = new double[]{tx + 0.5, SURFACE_Y + 0.05, z + 0.5};
                     last = new int[]{tx, z};
                 }
-                for (int t = 0; t < 15; t++) {
+                // Since mod campaign-blink-1027 what he sends after a teleport while charging (here the next warp's use)
+                // waits behind that teleport's ping answer, so the server makes the later warps up to ~1 s later.
+                for (int t = 0; t < 70 && (t < 15 || cnum(ctx, "movingTeleports") - mv0 < 3); t++) {
                     ctx.waitTicks(1);
                     alwaysOn &= charging(ctx);
                 }
