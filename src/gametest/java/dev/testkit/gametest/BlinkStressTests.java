@@ -2134,7 +2134,7 @@ public class BlinkStressTests implements FabricClientGameTest {
             Rows rows = new Rows();
             String name = playerName(ctx);
             try {
-                for (int k = 0; k < 4; k++) {
+                for (int k = 0; k < 6; k++) {
                     int kk = k;
                     tp(server, ctx, x - 15.5, SURFACE_Y, z + 0.5, -90f);
                     chargeOn(ctx);
@@ -2158,11 +2158,21 @@ public class BlinkStressTests implements FabricClientGameTest {
                     server.command(String.format(Locale.ROOT, "tp %s %.4f %.4f %.4f", name, start[0], start[1], start[2]));
                     ctx.waitTicks(1);
                     releaseKeys(ctx);
+                    if (kk >= 4) {
+                        // A second shot after the tp-back: (4) the moment the bank is full again, (5) 60 ticks later.
+                        for (int t = 0; t < 60 && cnum(ctx, "banked") < 20; t++) {
+                            ctx.waitTicks(1);
+                        }
+                        if (kk == 5) {
+                            ctx.waitTicks(60);
+                        }
+                        shootByPress(ctx, true);
+                    }
                     ctx.waitTicks(40);
                     chargeOff(ctx);
                     double g = gap(server, ctx);
                     String label = kk == 0 ? "charging, sprint, tp" : kk == 1 ? "shot, off, 10t, tp" : kk == 2 ? "shot, on, 10t, tp"
-                            : "shot, tp next tick";
+                            : kk == 3 ? "shot, tp next tick" : kk == 4 ? "shot, tp, shot at full" : "shot, tp, shot +60t";
                     StringBuilder bl = new StringBuilder();
                     for (String l : LogTap.since(mark)) {
                         if (l.contains("[Blink]")) {
