@@ -128,6 +128,9 @@ final class HxTerminals {
         boolean melodyKeepDone;
         /** {@code freeze}: the marker stops moving on its own, so a test can put it exactly where it wants. */
         boolean melodyFrozen;
+        /** {@code keepTarget}: the target column stays the same for every row (no re-roll after a correct click), so a
+         *  lookahead burst - which gambles on exactly that - lands correct (testkit 275-277). */
+        boolean melodyKeepTarget;
         final Map<Integer, Integer> melodyDoneCol = new LinkedHashMap<>();
 
         Terminal(Type type, long seed, String title, int rows, int[] grid, boolean closeOnSolve, int melodyInterval) {
@@ -423,6 +426,7 @@ final class HxTerminals {
                 t.melodyTarget = a.has("target") ? a.get("target").getAsInt() : 1 + rng.nextInt(5);
                 t.melodyKeepDone = a.has("keepDone") && a.get("keepDone").getAsBoolean();
                 t.melodyFrozen = a.has("freeze") && a.get("freeze").getAsBoolean();
+                t.melodyKeepTarget = a.has("keepTarget") && a.get("keepTarget").getAsBoolean();
                 t.melodyLastMove = server.getTickCount();
                 items = new ArrayList<>();
                 for (int i = 0; i < t.rows * 9; i++) {
@@ -614,7 +618,9 @@ final class HxTerminals {
                     int row = slot / 9;
                     if (col == 7 && row == t.melodyRow && t.melodyLime == t.melodyTarget) {
                         t.melodyDoneCol.put(t.melodyRow, t.melodyLime);
-                        t.melodyTarget = 1 + t.rng.nextInt(5);
+                        if (!t.melodyKeepTarget) {
+                            t.melodyTarget = 1 + t.rng.nextInt(5);
+                        }
                         t.melodyRow++;
                         correct = true;
                         if (t.melodyRow <= t.melodyBandRows) {
