@@ -69,7 +69,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                 BlinkStressTests::dimensionCharge, BlinkStressTests::latencyMatrix, BlinkStressTests::lag,
                 BlinkStressTests::setbackShot, BlinkStressTests::lcew, BlinkStressTests::ui,
                 BlinkStressTests::longHolds, BlinkStressTests::longShots, BlinkStressTests::longCharge,
-                BlinkStressTests::releaseLog, BlinkStressTests::controls)) {
+                BlinkStressTests::releaseLog, BlinkStressTests::controls, BlinkStressTests::setbackVariants)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -2118,6 +2118,66 @@ public class BlinkStressTests implements FabricClientGameTest {
             }
             scenario.log("SUMMARY 1026-blink-controls (Blink off; flags here are GrimAC's own, not Blink's): " + rows.rows);
             server.mark();
+        });
+    }
+
+    /**
+     * 1026-blink-setback-variants: where the Simulation drift after a server tp-back comes from. (1) Charge on with a full
+     * bank, a plain 15-tick sprint (no shot), tp back. (2) a shot, Charge then off, 10 ticks, tp back. (3) a shot, Charge
+     * kept on, 10 standing ticks, tp back. (4) a shot and the tp one tick after it (1026-blink-setback-shot's shape).
+     */
+    private static void setbackVariants(ClientGameTestContext ctx) {
+        int x = -9600;
+        int z = -6000;
+        Scenario.runExpectingFlags(ctx, "1026-blink-setback-variants", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            Rows rows = new Rows();
+            String name = playerName(ctx);
+            try {
+                for (int k = 0; k < 4; k++) {
+                    int kk = k;
+                    tp(server, ctx, x - 15.5, SURFACE_Y, z + 0.5, -90f);
+                    chargeOn(ctx);
+                    ctx.waitTicks(30);
+                    server.mark();
+                    double[] start = serverPos(server, ctx, name);
+                    if (kk == 0) {
+                        ctx.getInput().holdKey(o -> o.keyUp);
+                        ctx.getInput().holdKey(o -> o.keySprint);
+                        ctx.waitTicks(15);
+                    } else {
+                        shootByPress(ctx, true);
+                        if (kk == 1) {
+                            chargeOff(ctx);
+                            ctx.waitTicks(10);
+                        } else if (kk == 2) {
+                            ctx.waitTicks(10);
+                        }
+                    }
+                    long mark = LogTap.mark();
+                    server.command(String.format(Locale.ROOT, "tp %s %.4f %.4f %.4f", name, start[0], start[1], start[2]));
+                    ctx.waitTicks(1);
+                    releaseKeys(ctx);
+                    ctx.waitTicks(40);
+                    chargeOff(ctx);
+                    double g = gap(server, ctx);
+                    String label = kk == 0 ? "charging, sprint, tp" : kk == 1 ? "shot, off, 10t, tp" : kk == 2 ? "shot, on, 10t, tp"
+                            : "shot, tp next tick";
+                    StringBuilder bl = new StringBuilder();
+                    for (String l : LogTap.since(mark)) {
+                        if (l.contains("[Blink]")) {
+                            bl.append(" | ").append(l.substring(Math.max(0, l.indexOf("[Blink]")), Math.min(l.length(),
+                                    l.indexOf("[Blink]") + 140)));
+                        }
+                    }
+                    rows.add(server, scenario, label, true, String.format(Locale.ROOT, "gap %.2f%s", g, bl));
+                }
+            } finally {
+                releaseKeys(ctx);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            scenario.log("SUMMARY 1026-blink-setback-variants: " + rows.bad);
         });
     }
 }
