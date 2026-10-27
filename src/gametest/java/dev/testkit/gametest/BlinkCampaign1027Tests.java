@@ -57,7 +57,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
         for (Consumer<ClientGameTestContext> c : List.<Consumer<ClientGameTestContext>>of(
                 BlinkCampaign1027Tests::interleave, BlinkCampaign1027Tests::interleaveNow, BlinkCampaign1027Tests::order,
                 BlinkCampaign1027Tests::terrain, BlinkCampaign1027Tests::air, BlinkCampaign1027Tests::split,
-                BlinkCampaign1027Tests::menus, BlinkCampaign1027Tests::keepDelay, BlinkCampaign1027Tests::tpSprint,
+                BlinkCampaign1027Tests::slowServer, BlinkCampaign1027Tests::menus, BlinkCampaign1027Tests::keepDelay, BlinkCampaign1027Tests::tpSprint,
                 BlinkCampaign1027Tests::mixed)) {
             try {
                 c.accept(ctx);
@@ -251,6 +251,25 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
         double[] b = here(ctx);
         releaseKeys(ctx);
         return new double[]{dist3(a, b), cnum(ctx, "shots") - shots0, cnum(ctx, "shotTicks") - ticks0};
+    }
+
+    private static void netStall(ClientGameTestContext ctx, int ms) {
+        ctx.runOnClient(mc -> {
+            try {
+                java.lang.reflect.Field f = net.minecraft.network.Connection.class.getDeclaredField("channel");
+                f.setAccessible(true);
+                io.netty.channel.Channel ch = (io.netty.channel.Channel) f.get(mc.getConnection().getConnection());
+                ch.eventLoop().execute(() -> {
+                    try {
+                        Thread.sleep(ms);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException("netStall: no Connection.channel", e);
+            }
+        });
     }
 
     private static boolean waiting(ClientGameTestContext ctx) {
@@ -846,6 +865,91 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                     }
                 }
             } finally {
+                server.command("effect clear " + player);
+                removeLatency(ctx);
+                releaseKeys(ctx);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            rows.finish(scenario, name);
+        });
+    }
+
+    /**
+     * 1027-blink-c-slowserver: the owner's p3sim lag-backs (2026-10-27 16:28): a split 20-tick shot whose parts and his own
+     * ticks between them land in one server tick when the server's ticks come late, and vanilla's "moved too quickly"
+     * (more than 5 moves in a server tick allow 10 blocks from where it began) puts him back mid-shot. The server runs at
+     * 20, 14 and 9 ticks a second ({@code /tick rate}); he sprints at Speed III and IV, with and without jump. A row is bad
+     * if the server teleported him at all during or right after the shot, or client and server end apart.
+     */
+    private static void slowServer(ClientGameTestContext ctx) {
+        int x = -11450;
+        int z = -6000;
+        String name = "1027-blink-c-slowserver";
+        Scenario.runExpectingFlags(ctx, name, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            installLatency(ctx, scenario);
+            boolean gate = setUp(ctx, 20);
+            Rows rows = new Rows();
+            String player = playerName(ctx);
+            try {
+                int lane = 0;
+                for (int rate : new int[]{20, 9}) {
+                    server.command("tick rate " + rate);
+                    ctx.waitTicks(10);
+                    for (int amp : new int[]{2, 3}) {
+                        server.command("effect give " + player + " minecraft:speed 600 " + amp + " true");
+                        for (boolean jump : new boolean[]{false, true}) {
+                            for (int stall : new int[]{0, 60, 120, 200}) {
+                                int rep = stall;
+                                tp(server, ctx, x - 35.5, SURFACE_Y, z - 30.5 + 6 * (lane++ % 11), -90f);
+                                server.mark();
+                                chargeOn(ctx);
+                                long bank = waitBank(ctx, 20, 60);
+                                double[] srv0 = serverPos(server, ctx, player);
+                                ctx.getInput().holdKey(o -> o.keyUp);
+                                ctx.getInput().holdKey(o -> o.keySprint);
+                                ctx.waitTicks(6);
+                                long tps0 = cnum(ctx, "movingTeleports");
+                                long lm = LogTap.mark();
+                                long ticks0 = cnum(ctx, "shotTicks");
+                                if (jump) {
+                                    ctx.getInput().holdKey(o -> o.keyJump);
+                                }
+                                ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
+                                ctx.waitTicks(1);
+                                ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+                                ctx.waitTicks(1);
+                                if (stall > 0) {
+                                    // Uplink jitter: the client's sends wait in its netty loop, then go out in a burst.
+                                    netStall(ctx, stall);
+                                }
+                                ctx.waitTicks(1);
+                                for (int i = 0; i < 60 && ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "shotPending")); i++) {
+                                    ctx.waitTicks(1);
+                                }
+                                long shotTicks = cnum(ctx, "shotTicks") - ticks0;
+                                ctx.waitTicks(12);
+                                long tps = cnum(ctx, "movingTeleports") - tps0;
+                                releaseKeys(ctx);
+                                ctx.waitTicks(20);
+                                double[] srv1 = serverPos(server, ctx, player);
+                                chargeOff(ctx);
+                                double g = gap(server, ctx);
+                                long parts = LogTap.since(lm).stream().filter(l -> l.contains("charge SHOT (")).count();
+                                rows.add(server, scenario, "tick rate " + rate + ", speed " + (amp + 1) + (jump ? " jump" : "")
+                                                + ", uplink stall " + rep + " ms", bank == 20 && shotTicks == 20 && tps == 0 && g < 0.6,
+                                        String.format(Locale.ROOT, "bank %d, %d tick(s) in %d part(s), server teleports %d, "
+                                                + "server moved %.2f, gap %.2f", bank, shotTicks, parts, tps,
+                                                flat(srv0, srv1), g));
+                                ctx.waitTicks(10);
+                            }
+                        }
+                        server.command("effect clear " + player);
+                        ctx.waitTicks(5);
+                    }
+                }
+            } finally {
+                server.command("tick rate 20");
                 server.command("effect clear " + player);
                 removeLatency(ctx);
                 releaseKeys(ctx);
