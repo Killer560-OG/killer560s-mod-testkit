@@ -147,7 +147,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // ar-bridges-bat-1017: his Bridges route runs to the end (no warp eaten after the breaker); Kill Mimic aims
             "96-ar-1017-bridges", "96-ar-1017-mimicaim",
             // sim-secrets-1018: an await beside a Redstone Key spot the key never spawned at starts one secret on
-            "1018-ar-keyspot-empty"};
+            "1018-ar-keyspot-empty",
+            // ar-range-1026: Replan For My Range - a saved path warp longer than his etherwarp reaches is planned again
+            "96-ar-1026-range-off", "96-ar-1026-range-on", "96-ar-1026-range-noitem"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -345,6 +347,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1015-batseek" -> caseBatSeek(ctx);
                         case "96-ar-1017-bridges" -> caseBridges(ctx);
                         case "1018-ar-keyspot-empty" -> caseKeySpotEmpty(ctx);
+                        case "96-ar-1026-range-off" -> ArRangeCases.off(ctx);
+                        case "96-ar-1026-range-on" -> ArRangeCases.on(ctx);
+                        case "96-ar-1026-range-noitem" -> ArRangeCases.noItem(ctx);
                         case "96-ar-1017-mimicaim" -> caseMimicAim(ctx);
                         case "96-ar-1015-cryptaim" -> caseCryptAim(ctx);
                         case "96-ar-1013-breakerfall" -> caseBreakerFall(ctx);
@@ -9742,6 +9747,408 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
 
         private static BlockPos realNow0(int[] p) {
             return real(ModUnderTest.staticCall(FRAME, "current"), p[0], p[1], p[2]);
+        }
+    }
+
+    /**
+     * {@code 96-ar-1026-range-off / -on / -noitem} (mod ar-range-1026, "(c) Replan For My Range"). killer560's friend,
+     * 2026-10-26: a routes file shared with a player who has fewer Transmission Tuners kept path warps his item cannot
+     * reach, and the route stopped. With Auto Routes' {@code replanForRange} on and an etherwarp item in the hotbar,
+     * {@code RoutePathPlanner.withinReach} makes a pair stale when a saved hop's target block is farther than
+     * {@code ClearExecutor.hopRange() + 0.5} from the hop origin's sneaking eye, so the pair is planned again for his range.
+     *
+     * <p>The off and on cases fly in Museum (2x2): a 1x1 room holds no straight line of 57.5 blocks. A strip on relative
+     * x 4..8, z 3..61 is cleared on a stone floor, and the pair is PATH #1 at (6.5, 3.5), start, and PATH #2 at (6.5, 61.5),
+     * with ONE saved warp from #1 onto block (6, F-1, 61): 57.51 from the eye to the block's nearest point - what the
+     * floor planner saves with the sim's fully tuned Aspect of the Void (57 + 4 = 61, hop range 60), and out of reach of
+     * an untuned one (57, hop range 56, judged against 56.5). The noitem case needs no flight and uses the session room.
+     */
+    static final class ArRangeCases {
+
+        private static final String HOPPER = "com.killer560.hub.pathfinding.EtherwarpHopper";
+        /** Origin block of the long warp, and the block it lands on (relative; y is the arena floor F-1). */
+        private static final int OX = 6;
+        private static final int OZ = 3;
+        private static final int TZ = 61;
+
+        private ArRangeCases() {
+        }
+
+        // ------------------------------------------------------------------------------------------- cases
+
+        /** Setting OFF: the long saved warp is kept whatever the item's range, and it is what the route flies. */
+        static void off(ClientGameTestContext ctx) {
+            if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+                caseSkip = "Auto Routes fires nodes only in a cheat build";
+                return;
+            }
+            inMuseum(ctx, () -> {
+                setReplan(ctx, false);
+                writeLongPair(ctx);
+                // ---- untuned AOTV (57): the hop is out of its reach, and with the setting off it is still kept ----
+                giveAotv(ctx, 0);
+                check(longHopReach() > 56.5 && longHopReach() < 60.0, "premise: the saved hop reaches "
+                        + fmt(longHopReach()) + ", not between 56.5 and 60");
+                check(!withinReachWith(ctx, true), "premise: with the setting ON this hop must be out of a 57-range item's "
+                        + "reach (withinReach true) - the control that makes the OFF answer mean something");
+                setReplan(ctx, false);
+                check(withinReach(ctx), "setting OFF, 57-range AOTV: withinReach said false for the saved hop");
+                check(valid(ctx), "setting OFF, 57-range AOTV: the pair's saved warps are not valid");
+                int plans0 = plans(ctx);
+                long m = LogTap.mark();
+                Flight f = replay(ctx, 80);
+                println("range-off 57: landed " + (f.landed != null) + ", uses " + f.uses + ", plans " + plans0 + " -> "
+                        + plans(ctx) + ", at " + relPos(ctx));
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("PATH") || l.contains("etherwarp refused") || l.contains("Etherwarp (") || l.contains("Stopped")) {
+                        println("range-off 57 log: " + l);
+                    }
+                }
+                check(logHas(m, "PATH: flying 1 saved warp(s)"), "setting OFF: the route did not fly its 1 saved warp");
+                check(!logHas(m, "planning them once") && plans(ctx) == plans0, "setting OFF: the pair was planned again");
+                check(f.landed == null, "setting OFF, 57-range AOTV: he reached #2 along a 57.5-block warp - the premise "
+                        + "(out of this item's reach) is wrong");
+                check(hopCount(ctx) == 1, "setting OFF: the saved warps changed (" + hopCount(ctx) + " now)");
+                stopRoute(ctx);
+                // ---- tuned AOTV (61): the same saved warp, flown as saved, lands on #2 ----
+                giveAotv(ctx, 4);
+                check(withinReach(ctx) && valid(ctx), "setting OFF, 61-range AOTV: the saved warp is not kept");
+                long m2 = LogTap.mark();
+                Flight g = replay(ctx, 200);
+                println("range-off 61: landed " + (g.landed != null) + ", uses " + g.uses + ", plans " + plans0 + " -> "
+                        + plans(ctx));
+                check(g.landed != null, "setting OFF, 61-range AOTV: the saved warp did not land him on #2 (at " + relPos(ctx)
+                        + ")");
+                check(logHas(m2, "PATH: flying 1 saved warp(s)"), "61-range replay did not fly the 1 saved warp");
+                check(g.uses == 1, "61-range replay sent " + g.uses + " use_item, expected the 1 saved warp");
+                check(plans(ctx) == plans0, "61-range replay planned");
+                check(hopCount(ctx) == 1, "61-range replay changed the saved warps");
+            });
+        }
+
+        /** Setting ON with a 57-range AOTV: the long warp makes the pair stale, it is planned again within 56.5, and lands. */
+        static void on(ClientGameTestContext ctx) {
+            if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+                caseSkip = "Auto Routes fires nodes only in a cheat build";
+                return;
+            }
+            inMuseum(ctx, () -> {
+                setReplan(ctx, false);
+                writeLongPair(ctx);
+                setReplan(ctx, true);
+                // ---- control: a 61-range item reaches the hop, so ON keeps it ----
+                giveAotv(ctx, 4);
+                check(withinReach(ctx) && valid(ctx), "setting ON, 61-range AOTV: the saved 57.5 warp is within 60.5 and "
+                        + "must be kept");
+                // ---- 57-range item: stale ----
+                giveAotv(ctx, 0);
+                check(!withinReach(ctx), "setting ON, 57-range AOTV: withinReach kept a warp of " + fmt(longHopReach())
+                        + " against 56.5");
+                check(!valid(ctx), "setting ON, 57-range AOTV: the pair is still valid");
+                int plans0 = plans(ctx);
+                long m = LogTap.mark();
+                Flight f = replay(ctx, 600);
+                List<double[]> hops = hops(ctx);
+                StringBuilder hs = new StringBuilder();
+                double worst = 0;
+                for (double[] h : hops) {
+                    double r = reach(h[0], h[1], h[2], (int) h[3], (int) h[4], (int) h[5]);
+                    worst = Math.max(worst, r);
+                    hs.append(String.format(Locale.US, " [%.1f %.1f %.1f -> %d %d %d: %.2f]", h[0], h[1], h[2], (int) h[3],
+                            (int) h[4], (int) h[5], r));
+                }
+                println("range-on 57: landed " + (f.landed != null) + ", uses " + f.uses + ", plans " + plans0 + " -> "
+                        + plans(ctx) + ", " + hops.size() + " warp(s) saved:" + hs);
+                for (String l : LogTap.since(m)) {
+                    if (l.contains("PATH") || l.contains("Path #") || l.contains("etherwarp refused") || l.contains("Stopped")) {
+                        println("range-on 57 log: " + l);
+                    }
+                }
+                check(logHas(m, "planning them once"), "setting ON, 57-range AOTV: the route did not plan the pair again");
+                check(plans(ctx) == plans0 + 1, "planned " + (plans(ctx) - plans0) + " time(s), expected once");
+                check(f.landed != null, "setting ON: the replanned path did not land him on #2 (6, " + TZ + "); at "
+                        + relPos(ctx));
+                check(hops.size() >= 2, "the replanned path has " + hops.size() + " warp(s); 57.5 blocks at range 56 needs 2");
+                check(worst <= 56.5, "a replanned warp reaches " + fmt(worst) + ", beyond the 57-range item's 56.5");
+                double[] last = hops.get(hops.size() - 1);
+                check((int) last[3] == OX && (int) last[4] == F - 1 && (int) last[5] == TZ, "the replanned path does not end "
+                        + "on #2's block (" + OX + ", " + (F - 1) + ", " + TZ + "): " + hs);
+                check(logHas(m, "PATH: flying " + hops.size() + " saved warp(s)"), "the route did not fly the "
+                        + hops.size() + " replanned warp(s)");
+                check(f.uses == hops.size(), "sent " + f.uses + " use_item for " + hops.size() + " replanned warp(s)");
+                check(hopCount(ctx) == hops.size(), "the routes file holds " + hopCount(ctx) + " warp(s), memory "
+                        + hops.size());
+                check(withinReach(ctx) && valid(ctx), "the replanned pair is not valid for the 57-range item");
+                stopRoute(ctx);
+                // ---- replay: the new warps are kept, nothing plans again ----
+                long m2 = LogTap.mark();
+                Flight g = replay(ctx, 300);
+                println("range-on 57 replay: landed " + (g.landed != null) + ", uses " + g.uses + ", plans " + plans(ctx));
+                check(g.landed != null, "the replay of the replanned path did not land on #2");
+                check(plans(ctx) == plans0 + 1 && !logHas(m2, "planning them once"), "the replay planned again");
+                check(g.uses == hops.size(), "the replay sent " + g.uses + " use_item for " + hops.size() + " warp(s)");
+            });
+        }
+
+        /** Setting ON, no etherwarp item in the hotbar: the long warp is kept (his range is unknown). */
+        static void noItem(ClientGameTestContext ctx) {
+            resetRoutes(ctx);
+            giveHotbar(ctx);
+            tpRel(ctx, 20.5, 20.5, 0f, 0f);   // off the pair's tiles: nothing here may fire
+            ctx.waitTicks(5);
+            try {
+                setReplan(ctx, false);
+                writeLongPair(ctx);
+                setReplan(ctx, true);
+                int plans0 = plans(ctx);
+                long m = LogTap.mark();
+                giveSlot(ctx, 0, null);
+                boolean none = waitFor(ctx, 40, () -> hopperRange(ctx) == 0.0);
+                println("range-noitem: EtherwarpHopper.range() " + hopperRange(ctx) + ", hop reach " + fmt(longHopReach()));
+                check(none, "premise: an etherwarp item is still in the hotbar (range " + hopperRange(ctx) + ")");
+                check(withinReach(ctx), "setting ON, no etherwarp item: withinReach said false - the unknown range replans");
+                check(valid(ctx), "setting ON, no etherwarp item: the pair is not valid");
+                // ---- control on the same node: with a 57-range item the same warp IS stale, with 61 it is kept ----
+                giveAotv(ctx, 0);
+                check(!withinReach(ctx), "control: a 57-range AOTV did not make the " + fmt(longHopReach())
+                        + " warp stale - the no-item answer would mean nothing");
+                giveAotv(ctx, 4);
+                check(withinReach(ctx), "control: a 61-range AOTV made the warp stale");
+                giveSlot(ctx, 0, null);
+                waitFor(ctx, 40, () -> hopperRange(ctx) == 0.0);
+                check(withinReach(ctx), "no etherwarp item again: withinReach said false");
+                ctx.waitTicks(10);
+                check(plans(ctx) == plans0 && !logHas(m, "planning"), "something planned the pair during the case");
+                check(hopCount(ctx) == 1, "the saved warp changed (" + hopCount(ctx) + " now)");
+            } finally {
+                setReplan(ctx, false);
+                resetRoutes(ctx);
+                giveHotbar(ctx);
+            }
+        }
+
+        // ------------------------------------------------------------------------------------------- setup
+
+        private static void inMuseum(ClientGameTestContext ctx, Runnable body) {
+            String saved = room;
+            resetRoutes(ctx);
+            room = "Museum";
+            try {
+                buildRoom(ctx, 0);
+                strip(ctx);
+                giveHotbar(ctx);
+                forgetRunMemory(ctx);
+                // The block he lands on, and the floor under the strip, must be on the client for the planner and the aim.
+                check(!blockAir(ctx, OX, F - 1, TZ) && !blockAir(ctx, OX, F - 1, OZ + 30),
+                        "premise: the strip's floor is not on the client at (" + OX + ", " + (F - 1) + ", " + TZ + ")");
+                body.run();
+            } finally {
+                try {
+                    stopRoute(ctx);
+                } catch (Throwable ignored) {
+                    // the rebuild below matters more
+                }
+                setReplan(ctx, false);
+                resetRoutes(ctx);
+                room = saved;
+                buildRoom(ctx, 0);
+                giveHotbar(ctx);
+            }
+        }
+
+        /** Relative x 3..9, z 2..62: a stone floor at F-1, air F..F+8, stone walls F..F+3 round it. */
+        private static void strip(ClientGameTestContext ctx) {
+            AtomicReference<Boolean> done = new AtomicReference<>();
+            ctx.runOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                Map<BlockPos, BlockState> set = new LinkedHashMap<>();
+                for (int x = 3; x <= 9; x++) {
+                    for (int z = 2; z <= 62; z++) {
+                        boolean edge = x == 3 || x == 9 || z == 2 || z == 62;
+                        set.put(real(frame, x, F - 1, z), Blocks.STONE.defaultBlockState());
+                        for (int y = F; y <= F + 8; y++) {
+                            set.put(real(frame, x, y, z), edge && y <= F + 3 ? Blocks.STONE.defaultBlockState()
+                                    : Blocks.AIR.defaultBlockState());
+                        }
+                    }
+                }
+                var server = mc.getSingleplayerServer();
+                server.execute(() -> {
+                    for (var e : set.entrySet()) {
+                        server.overworld().setBlockAndUpdate(e.getKey(), e.getValue());
+                    }
+                    done.set(true);
+                });
+            });
+            ctx.waitFor(mc -> done.get() != null, 200);
+            ctx.waitTicks(20);
+        }
+
+        /** #1 (start) at (OX, OZ), #2 at (OX, TZ), with ONE saved warp from #1 onto block (OX, F-1, TZ). */
+        private static void writeLongPair(ClientGameTestContext ctx) {
+            double ox = OX + 0.5;
+            double oy = F;
+            double oz = OZ + 0.5;
+            double cx = OX + 0.5;
+            double cz = TZ + 0.5;
+            double top = F;
+            double horiz = Math.hypot(cx - ox, cz - oz);
+            float yaw = (float) Math.toDegrees(Math.atan2(-(cx - ox), cz - oz));
+            float pitch = (float) Math.toDegrees(Math.atan2(oy + 1.27 - top, horiz));
+            JsonArray hops = new JsonArray();
+            hops.add(String.format(Locale.US, "%.6f %.6f %.6f %.6f %.6f %d %d %d %.6f %.6f %.6f", ox, oy, oz, yaw, pitch,
+                    OX, F - 1, TZ, cx, top + 0.05, cz));
+            JsonObject start = node("PATH", OX, OZ, 0f, 0f);
+            start.addProperty("start", true);
+            start.add("hops", hops);
+            start.addProperty("planFrom", String.format(Locale.US, "%.6f %.6f %.6f", ox, oy, oz));
+            start.addProperty("planTo", String.format(Locale.US, "%.6f %.6f %.6f", cx, (double) F, cz));
+            start.addProperty("planBreakers", 0);
+            JsonObject arrival = node("PATH", OX, TZ, 0f, 0f);
+            writeRoute(ctx, List.of(start, arrival));
+            check(hopCount(ctx) == 1, "premise: the written pair holds " + hopCount(ctx) + " saved warp(s)");
+            check(ctx.computeOnClient(mc -> routeAndNode() != null), "premise: the route is not in memory for " + room);
+        }
+
+        private record Flight(Vec3 landed, int uses) {
+        }
+
+        /** Off #1's tile, then onto it (the start node arms); waits up to {@code ticks} for him to stand on #2's block. */
+        private static Flight replay(ClientGameTestContext ctx, int ticks) {
+            forgetRunMemory(ctx);
+            tpRel(ctx, OX + 0.5, OZ + 3.5, 0f, 0f);
+            ctx.waitTicks(10);
+            startSampling(ctx);
+            tpRel(ctx, OX + 0.5, OZ + 0.5, 0f, 0f);
+            Vec3 l = waitLanded(ctx, OX, TZ, ticks);
+            ctx.waitTicks(l == null ? 0 : 5);
+            List<Sample> s = stopSampling(ctx);
+            return new Flight(l, useTicks(s).size());
+        }
+
+        // ------------------------------------------------------------------------------------------- mod reads
+
+        private static void setReplan(ClientGameTestContext ctx, boolean on) {
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setReplanForRange", on));
+            check(ctx.computeOnClient(mc -> (Boolean) ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "isReplanForRange",
+                    new Class<?>[]{}, new Object[]{})) == on, "isReplanForRange did not read " + on);
+        }
+
+        /** The sim's Aspect of the Void in slot 0 with {@code tuners} Transmission Tuners; waits for the client's range. */
+        private static void giveAotv(ClientGameTestContext ctx, int tuners) {
+            AtomicReference<Boolean> given = new AtomicReference<>();
+            ctx.runOnClient(mc -> {
+                var server = mc.getSingleplayerServer();
+                var uuid = mc.player.getUUID();
+                server.execute(() -> {
+                    var sp = server.getPlayerList().getPlayer(uuid);
+                    ItemStack st = (ItemStack) ModUnderTest.staticCall(SIM_ITEMS, "build", new Class<?>[]{String.class},
+                            new Object[]{"ASPECT_OF_THE_VOID"});
+                    var data = st.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+                    net.minecraft.nbt.CompoundTag tag = data.copyTag();
+                    tag.putInt("tuned_transmission", tuners);
+                    st.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
+                            net.minecraft.world.item.component.CustomData.of(tag));
+                    sp.getInventory().setItem(0, st);
+                    given.set(true);
+                });
+            });
+            ctx.waitFor(mc -> given.get() != null, 200);
+            double want = 57.0 + tuners;
+            boolean ok = waitFor(ctx, 60, () -> hopperRange(ctx) == want);
+            check(ok, "premise: EtherwarpHopper.range() reads " + hopperRange(ctx) + " for an AOTV with " + tuners
+                    + " tuner(s), expected " + want);
+            ctx.waitTicks(2);
+        }
+
+        private static double hopperRange(ClientGameTestContext ctx) {
+            return ctx.computeOnClient(mc -> (Double) ModUnderTest.staticCall(HOPPER, "range"));
+        }
+
+        /** {route, its first node} for {@link #room}, or null. Client thread. */
+        private static Object[] routeAndNode() {
+            Object store = ModUnderTest.staticCall(STORE, "getInstance");
+            Map<?, ?> routes = (Map<?, ?>) ModUnderTest.call(store, "routes", new Class<?>[]{}, new Object[]{});
+            Object route = routes.get(room);
+            if (route == null) {
+                return null;
+            }
+            List<?> nodes = (List<?>) ModUnderTest.call(route, "nodes", new Class<?>[]{}, new Object[]{});
+            return nodes.isEmpty() ? null : new Object[]{route, nodes.get(0)};
+        }
+
+        private static boolean withinReach(ClientGameTestContext ctx) {
+            return ctx.computeOnClient(mc -> {
+                Object[] rn = routeAndNode();
+                return (Boolean) ModUnderTest.staticCall(PLANNER, "withinReach", new Class<?>[]{rn[1].getClass()},
+                        new Object[]{rn[1]});
+            });
+        }
+
+        /** withinReach with the setting forced to {@code on} for the call, then put back. */
+        private static boolean withinReachWith(ClientGameTestContext ctx, boolean on) {
+            boolean was = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.call(ModUnderTest.config(AR_CONFIG),
+                    "isReplanForRange", new Class<?>[]{}, new Object[]{}));
+            setReplan(ctx, on);
+            try {
+                return withinReach(ctx);
+            } finally {
+                setReplan(ctx, was);
+            }
+        }
+
+        private static boolean valid(ClientGameTestContext ctx) {
+            return ctx.computeOnClient(mc -> {
+                Object[] rn = routeAndNode();
+                return (Boolean) ModUnderTest.staticCall(PLANNER, "valid", new Class<?>[]{rn[0].getClass(),
+                        rn[1].getClass()}, new Object[]{rn[0], rn[1]});
+            });
+        }
+
+        /** The first node's saved warps in memory: {ox, oy, oz, tx, ty, tz} each. */
+        private static List<double[]> hops(ClientGameTestContext ctx) {
+            return ctx.computeOnClient(mc -> {
+                List<double[]> out = new ArrayList<>();
+                try {
+                    Object[] rn = routeAndNode();
+                    for (Object h : (List<?>) rn[1].getClass().getField("pathHops").get(rn[1])) {
+                        BlockPos t = (BlockPos) h.getClass().getMethod("target").invoke(h);
+                        out.add(new double[]{(Double) h.getClass().getMethod("ox").invoke(h),
+                                (Double) h.getClass().getMethod("oy").invoke(h), (Double) h.getClass().getMethod("oz").invoke(h),
+                                t.getX(), t.getY(), t.getZ()});
+                    }
+                } catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+                return out;
+            });
+        }
+
+        private static int hopCount(ClientGameTestContext ctx) {
+            JsonArray nodes = fileNodes(ctx);
+            if (nodes.isEmpty()) {
+                return 0;
+            }
+            JsonObject n = nodes.get(0).getAsJsonObject();
+            return n.has("hops") ? n.getAsJsonArray("hops").size() : 0;
+        }
+
+        /** The long warp's reach: #1's sneaking eye to the nearest point of block (OX, F-1, TZ). */
+        private static double longHopReach() {
+            return reach(OX + 0.5, F, OZ + 0.5, OX, F - 1, TZ);
+        }
+
+        /** The mod's measure (RoutePathPlanner.withinReach): sneaking eye (1.27) to the nearest point of the block. */
+        private static double reach(double ox, double oy, double oz, int tx, int ty, int tz) {
+            double ey = oy + 1.27;
+            double dx = Math.max(Math.max(tx - ox, 0.0), ox - (tx + 1.0));
+            double dy = Math.max(Math.max(ty - ey, 0.0), ey - (ty + 1.0));
+            double dz = Math.max(Math.max(tz - oz, 0.0), oz - (tz + 1.0));
+            return Math.sqrt(dx * dx + dy * dy + dz * dz);
+        }
+
+        private static String fmt(double d) {
+            return String.format(Locale.US, "%.2f", d);
         }
     }
 }
