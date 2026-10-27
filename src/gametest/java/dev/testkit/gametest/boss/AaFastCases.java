@@ -46,7 +46,11 @@ import java.util.regex.Pattern;
  * them. Ticks to solve = client ticks from the first click to the last, inclusive.
  * <ul>
  *   <li>1027-aafast-&lt;mode&gt;-&lt;ms&gt;: modes cpt1 (CPT 1, the default), cpt4 (the old max), cpt7, same1 (CPT 1 + same
- *   tick), same7 (CPT 7 + same tick, the fastest); 0/50/150/300 ms round trip (inbound {@link Latency}).</li>
+ *   tick), same7 (CPT 7 + same tick); 0/50/150/300 ms round trip (inbound {@link Latency}). Frames Per Tick 1 in these.</li>
+ *   <li>1027-aafast-fpt3-&lt;ms&gt; / fpt15-&lt;ms&gt;: Frames Per Tick 3 and 15 (CPT 7, same tick): the device in 3 ticks / 1 tick.
+ *   On Grim's default config they must be clean (checked in the body; registered as expecting flags). On a server with
+ *   experimental-checks: true they record MultiInteractA/B instead (MultiInteractA required, nothing else allowed), how
+ *   many clicks Grim let through and whether the device still got solved.</li>
  *   <li>1027-aafast-twoframes (FLAGGED expected): the harness clicks two frames in one tick at START, each on its own
  *   look written that tick - the control for "more than one frame per tick". Recorded, not judged: MultiInteractA and
  *   MultiInteractB are EXPERIMENTAL in GrimAC 2.3.74 and report only with experimental-checks: true in the test server's
