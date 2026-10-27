@@ -169,7 +169,7 @@ public class LayoutFixTests implements FabricClientGameTest {
                     }
                     Files.deleteIfExists(probeFull.resolve("keep.txt"));
                     Files.deleteIfExists(probeFull);
-                } catch (Exception e) {
+                } catch (Exception | AssertionError e) {
                     out.add("PROBLEM probe folders: " + e);
                 }
 
