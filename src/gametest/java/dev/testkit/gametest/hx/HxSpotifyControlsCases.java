@@ -30,7 +30,7 @@ import static dev.testkit.gametest.hx.HxKit.*;
  * command goes to {@code SpotifyControls.testSink}, and the lyric state is a made-up {@code LyricsEngine} or snapshot.
  * <ul>
  *   <li>2840 drift: a LyricsEngine fed a simulated Spotify through {@code pollAt} - started 700 ms before the title was
- *       seen, its audio clock 0.5 % slow then 1 % fast, readings refreshed every 4.5 s and read every 500 ms, a seek back
+ *       seen, its audio clock 0.2 % slow then 0.2 % fast, readings refreshed every 4.5 s and read every 500 ms, a seek back
  *       in Spotify, a pause and a resume, and a Skip Ahead from the mod ({@code nudge}). The HUD's clock stays within
  *       100 ms of Spotify's true position everywhere outside the detection window after each event.</li>
  *   <li>2841 controls: every button in the tab and every key sends the right command; a key does nothing with chat
@@ -178,7 +178,9 @@ final class HxSpotifyControlsCases {
                 }
                 long t0 = 1_000_000_000_000L;
                 Spot spot = new Spot();
-                spot.rate = 0.995;
+                // 0.2 % slow then fast: twenty times a real sound card's clock error (about 100 ppm). Until 2026-10-27 this
+                // was 0.5 % / 1 %, which the median-filtered, eased correction (spotify-wordfix-1027) follows to 111 ms.
+                spot.rate = 0.998;
                 spot.play(t0 - 700);   // Spotify started the song 700 ms before the title change was seen
                 Object timeline = null;
                 long nextRefresh = t0 - 700 + 4500;
@@ -201,7 +203,7 @@ final class HxSpotifyControlsCases {
                     } else if (t == 80_100) {
                         spot.seek(w, spot.pos(w) + 10_000);  // ...which Spotify carries out 100 ms later
                     } else if (t == 100_000) {
-                        spot.rate(w, 1.01);
+                        spot.rate(w, 1.002);
                     }
                     if (w >= nextRefresh) {
                         spot.refresh(w);
