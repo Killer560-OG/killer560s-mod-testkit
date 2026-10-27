@@ -1,0 +1,11 @@
+{
+  "hunts": [
+    {
+      "startedMs": 1700000000000,
+      "eggs": 7,
+      "newRabbits": 1,
+      "dupes": 2,
+      "dupeChocolate": 5
+    }
+  ]
+}
