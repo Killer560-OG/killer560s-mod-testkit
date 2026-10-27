@@ -116,7 +116,7 @@
       "p4 platform highlight": "F7/M7 only: boxes the platform you mine through to reach Necron.",
       "party commands": "",
       "party interop": "",
-      "performance hud": "Shows TPS, ping, FPS and a click counter in one movable HUD element.",
+      "performance hud": "Shows TPS, ping, FPS, frame times and a click counter in one movable HUD element.",
       "pet wheel": "",
       "profile viewer": "Run /pv <name> to open any player's Skyblock profile in game.",
       "quiver display": "Shows how many arrows you have left in a HUD line.",
@@ -455,7 +455,7 @@
       "work it out myself": "Works out dungeon run info on its own from what Hypixel already sends you."
     },
     "Performance HUD": {
-      "performance hud": "Shows TPS, ping, FPS and a click counter in one movable HUD element."
+      "performance hud": "Shows TPS, ping, FPS, frame times and a click counter in one movable HUD element."
     },
     "Pet Wheel": {
       "pet wheel": "Turns on the Pet Wheel for quickly summoning pets."
