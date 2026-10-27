@@ -2381,11 +2381,16 @@ public class BlinkTests implements FabricClientGameTest {
                     boolean jump = kinds[k][0];
                     boolean speed = kinds[k][1];
                     server.command("effect clear " + name);
+                    // Charge off across the reset teleport: since 2026-10-27 a teleport keeps the bank (owner's decision) and
+                    // GrimAC sets the next shot back; this case measures shot distance, not teleports (1026-blink-keep-warp).
+                    chargeOff(ctx);
                     server.command("tp " + name + " " + (x - 55.5) + " " + SURFACE_Y + " " + (z + 0.5) + " -90 0");
                     if (speed) {
                         server.command("effect give " + name + " minecraft:speed 60 3 true");
                     }
-                    ctx.waitTicks(60);
+                    ctx.waitTicks(10);
+                    chargeOn(ctx);
+                    ctx.waitTicks(50);
                     long bank = cnum(ctx, "banked");
                     int sb0 = PacketTrace.received("player_position");
                     long st0 = cnum(ctx, "shotTicks");
