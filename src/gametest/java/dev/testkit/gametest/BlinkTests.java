@@ -2409,6 +2409,10 @@ public class BlinkTests implements FabricClientGameTest {
                     ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
                     ctx.waitTicks(2);
                     ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+                    // A split shot's rest runs the tick after next (mod campaign-blink-1027): keep running until it has.
+                    for (int i = 0; i < 4 && ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "shotPending")); i++) {
+                        ctx.waitTicks(1);
+                    }
                     double[] after = scenario.playerPosition();
                     ctx.getInput().releaseKey(o -> o.keyUp);
                     ctx.getInput().releaseKey(o -> o.keyJump);
