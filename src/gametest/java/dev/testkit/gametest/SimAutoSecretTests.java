@@ -485,7 +485,8 @@ public class SimAutoSecretTests implements FabricClientGameTest {
             }
         }
 
-        checkProgressHud(failures, log, hudSamples, hudEnd, phaseAtEnd, reportedSeen, noRoute.name(), finished);
+        checkProgressHud(failures, log, hudSamples, hudEnd, phaseAtEnd, reportedSeen, noRoute.name(), finished,
+                preRouted != null ? 1 : 0);
 
         // ---- the no-route room: skipped once, said in chat, never a target ------------------------------------
         int noRouteLines = 0;
@@ -737,17 +738,20 @@ public class SimAutoSecretTests implements FabricClientGameTest {
      */
     private static void checkProgressHud(List<String> failures, List<String> log, List<List<String>> samples,
                                          List<String> end, String phaseAtEnd, Map<String, int[]> reportedSeen, String noRoute,
-                                         Set<String> finished) {
+                                         Set<String> finished, int doneAtStart) {
         if (!samples.isEmpty() && samples.get(0).size() == 1 && samples.get(0).get(0).startsWith("<no hud")) {
             failures.add("hud: " + samples.get(0).get(0));
             return;
         }
-        String firstTarget = null;
+        // Every target in the order the log chose them. The HUD is sampled every 10 ticks, and a planned-ahead trip plus a
+        // one-node route can be over inside that (2026-10-26: Supertall done before the first sample, which showed
+        // "2/4 > Wizard"), so the first sample is judged against the target under way at ITS count: the one after as
+        // many targets as it shows done (less the room counted done before the run, the route marked as already run).
+        List<String> targetOrder = new ArrayList<>();
         for (String l : log) {
             Matcher t = TARGET.matcher(l);
-            if (t.find()) {
-                firstTarget = t.group(1);
-                break;
+            if (t.find() && !targetOrder.contains(t.group(1))) {
+                targetOrder.add(t.group(1));
             }
         }
         int withPlan = 0;
@@ -783,10 +787,13 @@ public class SimAutoSecretTests implements FabricClientGameTest {
             if (total - done != listed) {
                 failures.add("hud: header says " + (total - done) + " room(s) left, " + listed + " listed: " + rows);
             }
-            if (!firstChecked && firstTarget != null) {
+            int k = done - doneAtStart;
+            if (!firstChecked && k >= 0 && k < targetOrder.size()) {
                 firstChecked = true;
-                if (rows.size() < 2 || !rows.get(1).startsWith("> " + firstTarget)) {
-                    failures.add("hud: the room under way should be the first target " + firstTarget + ": " + rows);
+                String underWay = targetOrder.get(k);
+                if (rows.size() < 2 || !rows.get(1).startsWith("> " + underWay)) {
+                    failures.add("hud: the room under way should be target " + (k + 1) + " " + underWay + " (" + done
+                            + " done): " + rows);
                 }
             }
         }
