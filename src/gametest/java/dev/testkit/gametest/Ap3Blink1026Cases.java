@@ -53,7 +53,7 @@ final class Ap3Blink1026Cases {
 
     /** One tick's reading, taken between client ticks. */
     private record Sample(int t, double x, double y, double z, String active, int banked, long shots, long shotTicks,
-                          boolean charging, String owner) {
+                          boolean charging, String owner, long oldestAnswerMs) {
     }
 
     private static Sample sample(ClientGameTestContext ctx, int t) {
@@ -65,7 +65,8 @@ final class Ap3Blink1026Cases {
                     ((Number) Mod.staticCall(CHARGE, "shots")).longValue(),
                     ((Number) Mod.staticCall(CHARGE, "shotTicks")).longValue(),
                     (Boolean) Mod.staticCall(CHARGE, "isActive"),
-                    (String) Mod.staticCall(CHARGE, "owner"));
+                    (String) Mod.staticCall(CHARGE, "owner"),
+                    ((Number) Mod.staticCall(CHARGE, "oldestAnswerAgeMs")).longValue());
         });
     }
 
@@ -196,8 +197,19 @@ final class Ap3Blink1026Cases {
             c.check(still < 1e-6, String.format(Locale.ROOT, "he moved %.6f blocks while the charge banked", still));
             c.check(bankAtEnd == chargeTarget, "the charge finished with " + bankAtEnd + " banked, expected " + chargeTarget);
             c.check(maxBank == chargeTarget, "the bank reached " + maxBank + ", expected at most " + chargeTarget);
-            c.check(logSince(mark, "blinkcharge #1: charged - " + chargeTarget + " tick(s) banked").size() == 1,
+            c.check(logSince(mark, ": charged - " + chargeTarget + " tick(s) banked").size() == 1,
                     "no \"charged - " + chargeTarget + " tick(s) banked\" line");
+
+            // ---- the ping answers keep their delay while he runs charged (a 2026-10-26 bug held them all while moving)
+            long delay = Math.min(1050, 50L * chargeTarget - 10);
+            long oldest = 0;
+            for (Sample s : samples) {
+                if (s.t() >= chargeEnd.t() && s.charging()) {
+                    oldest = Math.max(oldest, s.oldestAnswerMs());
+                }
+            }
+            c.note("oldest waiting ping answer while running charged: " + oldest + " ms (delay " + delay + " ms)");
+            c.check(oldest <= delay + 300, "a ping answer waited " + oldest + " ms while he ran charged (delay " + delay + ")");
 
             // ---- the releases: one shot each, of exactly the asked ticks, 1 tick's step times that
             List<Integer> shotIdx = new ArrayList<>();
