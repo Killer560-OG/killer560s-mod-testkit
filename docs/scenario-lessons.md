@@ -1224,3 +1224,12 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 792-hx-ping-bloodcamp read the kill moment one tick late (-1.2) twice under 8 clients and -0.2 on the rerun: the
   click itself went out on its tick. Cause not proven (a skipped client game-time tick would fit); BloodCamp is untouched
   since the last passing jar.
+- 1027-aafast-* (`boss/AaFastCases`, mod aafast-1027): Arrow Align Aura Clicks Per Tick 1-7 and Turn And Click Same Tick.
+  GrimAC's MultiInteractA/B are EXPERIMENTAL in 2.3.74 and silent unless the test server's (gitignored)
+  `run/testserver/config/GrimAC/config.yml` says `experimental-checks: true`; a "two entities in one tick" control is
+  meaningless without it. Grim's Reach/Hitboxes return NONE for any non-living target, so an item-frame case cannot prove
+  anything about the look. Bucket a client tick by `client_tick_end` on the wire, not `PacketTrace.tickCount()`: its START
+  hook runs after the mod's, so a click sent at START lands one bucket early. A server teleport mid-case (seen once a run
+  in a session's first frame cases) makes vanilla send `accept_teleportation` + a PosRot between ticks; it is not a turn.
+  Read the server's frame rotations (`data get entity <uuid> ItemRotation`) right after the clicks: frames have vanished
+  from the server about a second after a solve in a session's first frame case (cause not found).
