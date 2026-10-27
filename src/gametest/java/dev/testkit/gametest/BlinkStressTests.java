@@ -69,7 +69,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                 BlinkStressTests::dimensionCharge, BlinkStressTests::latencyMatrix, BlinkStressTests::lag,
                 BlinkStressTests::setbackShot, BlinkStressTests::lcew, BlinkStressTests::ui,
                 BlinkStressTests::longHolds, BlinkStressTests::longShots, BlinkStressTests::longCharge,
-                BlinkStressTests::releaseLog, BlinkStressTests::controls, BlinkStressTests::setbackVariants, BlinkStressTests::tab)) {
+                BlinkStressTests::releaseLog, BlinkStressTests::controls, BlinkStressTests::setbackVariants, BlinkStressTests::tab,
+                BlinkStressTests::keepWarp, BlinkStressTests::keepMisc)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -90,10 +91,24 @@ public class BlinkStressTests implements FabricClientGameTest {
         final List<String> bad = new ArrayList<>();
 
         void add(TestServer server, Scenario scenario, String label, boolean ok, String detail) {
+            add(server, scenario, label, ok, detail, false);
+        }
+
+        /**
+         * A row whose shot follows a teleport made while charging: the bank is kept through it by the owner's decision
+         * (killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff like that"; he
+         * accepts that GrimAC flags the next shot), so its flags are recorded, not failed.
+         */
+        void addKept(TestServer server, Scenario scenario, String label, boolean ok, String detail) {
+            add(server, scenario, label, ok, detail, true);
+        }
+
+        void add(TestServer server, Scenario scenario, String label, boolean ok, String detail, boolean flagsExpected) {
             List<String> flags = scenario.flags();
-            boolean clean = flags.isEmpty();
+            boolean clean = flags.isEmpty() || flagsExpected;
             String row = String.format(Locale.ROOT, "%-28s %s %s; %s", label, ok ? "acted" : "DID NOT ACT", detail,
-                    clean ? "clean" : flags.size() + " flag(s): " + firstChecks(flags));
+                    flags.isEmpty() ? "clean" : flags.size() + " flag(s)" + (flagsExpected ? " (expected: bank kept through a "
+                            + "teleport, owner 2026-10-27)" : "") + ": " + firstChecks(flags));
             rows.add(row);
             scenario.log(row);
             if (!ok || !clean) {
@@ -489,11 +504,13 @@ public class BlinkStressTests implements FabricClientGameTest {
                 long bankAfterHold = cnum(ctx, "banked");
                 long carried = cnum(ctx, "rotationsCarried") - carried0;
                 double g = gap(server, ctx);
-                rows.add(server, scenario, "(a) bank, turn, hold", bank >= 3 && bankAfterTurn > bank && h[0] > 3 && h[1] == 20 && g < 0.5
+                rows.add(server, scenario, "(a) bank, turn, hold", bank >= 3 && bankAfterTurn > bank && bankAfterHold >= bankAfterTurn && h[0] > 3 && h[1] == 20 && g < 0.5
                                 && carried >= 1, String.format(Locale.ROOT, "bank %d, after the turn %d, hold %d tick(s) moved %.2f, "
                                 + "bank right after the hold %d, %d look(s) carried, gap %.2f", bank, bankAfterTurn, (int) h[1], h[0],
                         bankAfterHold, carried, g));
-                tp(server, ctx, x - 10.5, SURFACE_Y, z + 0.5, -90f);
+                // No teleport here: a teleport while charging keeps the bank (owner 2026-10-27) and GrimAC flags the shot.
+                ctx.runOnClient(mc -> mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(-90f
+                        - mc.player.getYRot())));
                 ctx.waitTicks(30);
                 long bank2 = cnum(ctx, "banked");
                 double[] s = shootByPress(ctx, true);
@@ -759,7 +776,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                 long bank1 = cnum(ctx, "banked");
                 long clicks = hx.events(ev1, "menu.click").size();
                 boolean chatC = server.tail(80).contains("blinkstress-charge-chat");
-                tp(server, ctx, x - 10.5, SURFACE_Y, z + 0.5, -90f);
+                ctx.runOnClient(mc -> mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(-90f
+                        - mc.player.getYRot())));
                 ctx.waitTicks(25);
                 double[] s = shootByPress(ctx, true);
                 ctx.waitTicks(5);
@@ -1014,9 +1032,10 @@ public class BlinkStressTests implements FabricClientGameTest {
                     }
                     double g = gap(server, ctx);
                     String label = kk == 0 ? "pearl inside a hold" : kk == 1 ? "pearl landing in holds" : "pearl while charging";
-                    rows.add(server, scenario, label, sb >= 1 && moved > 3 && g < 0.5 && (kk != 2 || s[2] >= 19),
+                    rows.add(server, scenario, label, sb >= 1 && moved > 3 && g < 0.5 && (kk != 2 || (s[2] >= 19 && bankAfter == 20)),
                             String.format(Locale.ROOT, "%d position packet(s), %d held through, moved %.2f, %sgap %.2f", sb, heldTp,
-                                    moved, kk == 2 ? "bank after landing " + bankAfter + ", shot " + (long) s[2] + " tick(s), " : "", g));
+                                    moved, kk == 2 ? "bank after landing " + bankAfter + " (kept), shot " + (long) s[2] + " tick(s), " : "", g),
+                            kk == 2);
                 }
                 // Hyperion and AOTV transmission, inside a hold and while charging.
                 hx.give(0, AOTV);
@@ -1064,7 +1083,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                         String label = (item == 0 ? "AOTV transmission" : "Hyperion") + (mode == 0 ? " in a hold" : " charging");
                         rows.add(server, scenario, label, sb >= 1 && moved > 4 && g < 0.5 && (s == null || s[2] >= 19),
                                 String.format(Locale.ROOT, "%d position packet(s), moved %.2f%s, gap %.2f", sb, moved,
-                                        s == null ? "" : ", shot " + (long) s[2] + " tick(s)", g));
+                                        s == null ? "" : ", shot " + (long) s[2] + " tick(s)", g), s != null);
                     }
                 }
                 // Five etherwarps in a row while charging (ZPEW on), then a refill and a shot.
@@ -1093,7 +1112,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                 chargeOff(ctx);
                 ctx.runOnClient(mc -> Latency.remove());
                 double g = gap(server, ctx);
-                rows.add(server, scenario, "5 etherwarps charging", warps == 5 && s[2] >= 19 && g < 0.5,
+                rows.addKept(server, scenario, "5 etherwarps charging", warps == 5 && s[2] >= 19 && g < 0.5,
                         String.format(Locale.ROOT, "%d server warp(s), then shot %d tick(s) %.2f blocks, gap %.2f", warps,
                                 (long) s[2], s[0], g));
             } finally {
@@ -1308,8 +1327,12 @@ public class BlinkStressTests implements FabricClientGameTest {
                     releaseKeys(ctx);
                     boolean holdingAfter = holding(ctx);
                     boolean chargingAfter = charging(ctx);
+                    long bankAfter = cnum(ctx, "banked");
                     long left = num(ctx, "heldPackets");
                     holdUp(ctx);
+                    // Charge and its bank carry over a death and respawn (killer560 2026-10-27: never drop a blink he did
+                    // not release); the test ends it itself before the next part.
+                    chargeOff(ctx);
                     ctx.runOnClient(mc -> {
                         Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE);
                         Mod.set(CFG, "setChargeMode", Mod.enumValue(MODE, "TOGGLE"));
@@ -1320,10 +1343,11 @@ public class BlinkStressTests implements FabricClientGameTest {
                     double[] s = chargeShot(ctx, 30, true);
                     double g = gap(server, ctx);
                     String label = kk == 0 ? "(a) die mid-hold" : kk == 1 ? "(b) die charging" : "(c) die, Hold-mode key down";
-                    rows.add(server, scenario, label, before && !holdingAfter && !chargingAfter && left == 0 && h[1] == 20
-                                    && s[1] == 20 && g < 0.5, String.format(Locale.ROOT, "on before %s; after respawn holding %s, "
-                                    + "charging %s, %d left held; then hold %d tick(s), shot %d tick(s), gap %.2f", before, holdingAfter,
-                            chargingAfter, left, (int) h[1], (long) s[1], g));
+                    boolean kept = kk == 0 || (chargingAfter && bankAfter == 20);
+                    rows.addKept(server, scenario, label, before && left == 0 && kept && h[1] == 20 && s[1] == 20 && g < 0.5,
+                            String.format(Locale.ROOT, "on before %s; after respawn holding %s, charging %s, bank %d (kept: %s), %d "
+                                    + "left held; then hold %d tick(s), shot %d tick(s), gap %.2f", before, holdingAfter,
+                                    chargingAfter, bankAfter, kept, left, (int) h[1], (long) s[1], g));
                 }
             } finally {
                 chargeOff(ctx);
@@ -1406,7 +1430,8 @@ public class BlinkStressTests implements FabricClientGameTest {
     private static void dimensionCharge(ClientGameTestContext ctx) {
         int x = -8500;
         int z = -6000;
-        Scenario.run(ctx, "1026-blink-dimension-charge", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+        // killer560, 2026-10-27: the bank is kept through every teleport and world change; GrimAC flags the next shot.
+        Scenario.runExpectingFlags(ctx, "1026-blink-dimension-charge", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             String name = playerName(ctx);
             try {
@@ -1449,7 +1474,9 @@ public class BlinkStressTests implements FabricClientGameTest {
                         chargedOnNew, bank2, moved, g));
                 check(bank == 20, "the bank never filled before the move: " + bank);
                 check(!dim1.equals(dim0), "the dimension never changed");
-                check(!chargedOnNew, "Charge started again on the new world with the key still down from the old one");
+                // Since 2026-10-27 Charge and its bank carry over a dimension change (killer560: never drop a blink he did
+                // not release).
+                check(chargedOnNew, "Charge did not carry over the dimension change");
                 check(bank2 == 20 && moved > 3, "after key up and down Charge did not bank and fire: bank " + bank2);
                 check(g < 0.5, "client and server disagree: " + g);
             } finally {
@@ -1582,7 +1609,9 @@ public class BlinkStressTests implements FabricClientGameTest {
     private static void setbackShot(ClientGameTestContext ctx) {
         int x = -8800;
         int z = -6000;
-        Scenario.run(ctx, "1026-blink-setback-shot", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+        // killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff like that" (he
+        // accepts that GrimAC flags the next shot): a teleport while charging keeps the bank, so flags after it are recorded.
+        Scenario.runExpectingFlags(ctx, "1026-blink-setback-shot", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             try {
                 String name = playerName(ctx);
@@ -1679,7 +1708,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                     double g = gap(server, ctx);
                     rows.add(server, scenario, mode == 0 ? "LCEW charging" : "LCEW in holds", warps == 3 && g < 0.5
                                     && (s == null || s[2] >= 19), String.format(Locale.ROOT, "%d server warp(s)%s, gap %.2f", warps,
-                                    s == null ? "" : ", shot " + (long) s[2] + " tick(s)", g));
+                                    s == null ? "" : ", shot " + (long) s[2] + " tick(s)", g), mode == 0);
                 }
             } finally {
                 ctx.runOnClient(mc -> Mod.set("leftclickew.LeftClickEtherwarpConfig", "setEnabled", false));
@@ -2236,6 +2265,161 @@ public class BlinkStressTests implements FabricClientGameTest {
             check(Integer.parseInt(got[0]) >= 10, "the tab has only " + got[0] + " row(s)");
             check(got[1].equals("[Charge, Hold]"), "the tab still has text lines: " + got[1]);
             check(got[2].equals("[]"), "rows without a hover tooltip: " + got[2]);
+        });
+    }
+
+    /**
+     * 1026-blink-keep-warp (killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff
+     * like that"; he accepts that GrimAC flags the next shot - recorded here, not failed): (1) charge 20, an etherwarp, the
+     * bank is still 20 after it, then a shot runs 20 ticks and the server moves him; (2) charge 20, a pearl thrown and landed
+     * mid-charge, the bank is still 20 at the landing, then a 20-tick shot.
+     */
+    private static void keepWarp(ClientGameTestContext ctx) {
+        int x = -9800;
+        int z = -6000;
+        Scenario.runExpectingFlags(ctx, "1026-blink-keep-warp", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            Rows rows = new Rows();
+            dev.testkit.gametest.hx.Hx hx = null;
+            String name = playerName(ctx);
+            try {
+                hx = dev.testkit.gametest.hx.Hx.connect();
+                hx.call("dungeon.abilities", "enabled", true);
+                hx.give(0, AOTV);
+                for (int k = 0; k < 2; k++) {
+                    tp(server, ctx, x - 20.5, SURFACE_Y, z + 0.5 + 8 * k, -90f);
+                    if (k == 1) {
+                        server.command("give " + name + " minecraft:ender_pearl 4");
+                        ctx.waitTicks(5);
+                        ctx.runOnClient(mc -> {
+                            for (int i = 0; i < 9; i++) {
+                                if (mc.player.getInventory().getItem(i).getItem() == net.minecraft.world.item.Items.ENDER_PEARL) {
+                                    mc.player.getInventory().setSelectedSlot(i);
+                                }
+                            }
+                        });
+                    } else {
+                        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+                    }
+                    chargeOn(ctx);
+                    ctx.waitTicks(30);
+                    long bank0 = cnum(ctx, "banked");
+                    double[] srv0 = serverPos(server, ctx, name);
+                    long mv0 = cnum(ctx, "movingTeleports");
+                    if (k == 0) {
+                        ctx.getInput().holdKey(o -> o.keyShift);
+                        ctx.waitTicks(3);
+                        look(ctx, x - 8.5, SURFACE_Y, z + 0.5);
+                        ctx.waitTicks(1);
+                        ctx.getInput().pressKey(o -> o.keyUse);
+                        ctx.waitTicks(10);
+                        ctx.getInput().releaseKey(o -> o.keyShift);
+                    } else {
+                        ctx.runOnClient(mc -> mc.player.setXRot(-20f));
+                        ctx.waitTicks(2);
+                        ctx.getInput().pressKey(o -> o.keyUse);
+                        for (int t = 0; t < 80 && cnum(ctx, "movingTeleports") == mv0; t++) {
+                            ctx.waitTicks(1);
+                        }
+                    }
+                    ctx.waitTicks(3);
+                    long moved = cnum(ctx, "movingTeleports") - mv0;
+                    long bankAfter = cnum(ctx, "banked");
+                    double[] srvLanded = serverPos(server, ctx, name);
+                    ctx.runOnClient(mc -> {
+                        mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(-90f - mc.player.getYRot()));
+                        mc.player.setXRot(0f);
+                    });
+                    ctx.waitTicks(2);
+                    double[] shot = shootByPress(ctx, true);
+                    ctx.waitTicks(20);
+                    double[] srvEnd = serverPos(server, ctx, name);
+                    chargeOff(ctx);
+                    double g = gap(server, ctx);
+                    rows.addKept(server, scenario, k == 0 ? "charge 20, warp, shoot" : "charge 20, pearl, shoot", bank0 == 20
+                                    && moved >= 1 && bankAfter == 20 && shot[1] == 1 && shot[2] == 20 && flat(srv0, srvLanded) > 3,
+                            String.format(Locale.ROOT, "bank %d, %d moving teleport(s), bank after it %d (kept), server landed "
+                                            + "%.2f on; shot %d tick(s) %.2f blocks, server then moved %.2f more; gap %.2f", bank0,
+                                    moved, bankAfter, flat(srv0, srvLanded), (long) shot[2], shot[0], flat(srvLanded, srvEnd), g));
+                }
+            } finally {
+                ctx.getInput().releaseKey(o -> o.keyShift);
+                if (hx != null) {
+                    hx.call("dungeon.abilities", "enabled", false);
+                    hx.close();
+                }
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            rows.finish(scenario, "1026-blink-keep-warp");
+        });
+    }
+
+    /**
+     * 1026-blink-keep-misc (killer560, 2026-10-27: "it should never drop blink if possible except if i release it"): with a
+     * full bank, (1) Skyblock Only switching on (not Skyblock here) keeps the charge and its bank, (2) a Charge Mode change
+     * keeps it, (3) Charge Ticks lowered keeps the bank as it is, (4) a hold started while charging keeps the bank, and the
+     * Skyblock gate flipping mid-hold does not end the hold; (5) Hold Ticks lowered mid-hold still releases (the limit).
+     */
+    private static void keepMisc(ClientGameTestContext ctx) {
+        int x = -9900;
+        int z = -6000;
+        Scenario.run(ctx, "1026-blink-keep-misc", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            Rows rows = new Rows();
+            try {
+                chargeOn(ctx);
+                ctx.waitTicks(30);
+                long bank0 = cnum(ctx, "banked");
+                ctx.runOnClient(mc -> Mod.staticCall("util.SkyblockGate", "setEnabled", true));
+                ctx.waitTicks(20);
+                boolean gateKept = charging(ctx) && cnum(ctx, "banked") == bank0;
+                ctx.runOnClient(mc -> Mod.staticCall("util.SkyblockGate", "setEnabled", false));
+                rows.add(server, scenario, "(1) Skyblock gate on", bank0 == 20 && gateKept, "bank " + bank0 + ", kept " + gateKept);
+                ctx.runOnClient(mc -> Mod.set(CFG, "setChargeMode", Mod.enumValue(MODE, "HOLD")));
+                ctx.waitTicks(10);
+                boolean modeKept = charging(ctx) && cnum(ctx, "banked") == 20;
+                ctx.runOnClient(mc -> Mod.set(CFG, "setChargeMode", Mod.enumValue(MODE, "TOGGLE")));
+                ctx.waitTicks(5);
+                modeKept &= charging(ctx) && cnum(ctx, "banked") == 20;
+                rows.add(server, scenario, "(2) Charge Mode changed", modeKept, "kept " + modeKept);
+                ctx.runOnClient(mc -> Mod.set(CFG, "setChargeTicks", 10));
+                ctx.waitTicks(10);
+                long bankCap = cnum(ctx, "banked");
+                ctx.runOnClient(mc -> Mod.set(CFG, "setChargeTicks", 20));
+                rows.add(server, scenario, "(3) Charge Ticks lowered", charging(ctx) && bankCap == 20, "bank " + bankCap);
+                long holds0 = num(ctx, "releasedHolds");
+                holdDown(ctx);
+                ctx.waitTicks(4);
+                long bankInHold = cnum(ctx, "banked");
+                ctx.runOnClient(mc -> Mod.staticCall("util.SkyblockGate", "setEnabled", true));
+                ctx.waitTicks(4);
+                boolean stillHolding = holding(ctx);
+                ctx.runOnClient(mc -> Mod.staticCall("util.SkyblockGate", "setEnabled", false));
+                holdUp(ctx);
+                ctx.waitTicks(3);
+                long bankAfterHold = cnum(ctx, "banked");
+                rows.add(server, scenario, "(4) hold while charging", bankInHold == 20 && stillHolding && bankAfterHold == 20
+                        && num(ctx, "releasedHolds") > holds0, "bank in the hold " + bankInHold + ", holding through the gate "
+                        + stillHolding + ", bank after " + bankAfterHold);
+                double[] shot = shootByPress(ctx, true);
+                ctx.waitTicks(5);
+                chargeOff(ctx);
+                rows.add(server, scenario, "(4b) shot after it", shot[2] == 20, "shot " + (long) shot[2] + " tick(s)");
+                holdDown(ctx);
+                ctx.waitTicks(8);
+                ctx.runOnClient(mc -> Mod.set(CFG, "setHoldTicks", 5));
+                ctx.waitTicks(3);
+                boolean limitReleased = !holding(ctx);
+                holdUp(ctx);
+                ctx.runOnClient(mc -> Mod.set(CFG, "setHoldTicks", 20));
+                rows.add(server, scenario, "(5) Hold Ticks lowered", limitReleased, "released at the new limit " + limitReleased);
+            } finally {
+                ctx.runOnClient(mc -> Mod.staticCall("util.SkyblockGate", "setEnabled", false));
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            rows.finish(scenario, "1026-blink-keep-misc");
         });
     }
 }

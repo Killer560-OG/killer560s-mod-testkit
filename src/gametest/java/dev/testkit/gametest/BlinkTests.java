@@ -1242,7 +1242,9 @@ public class BlinkTests implements FabricClientGameTest {
     private static void chargeWarp(ClientGameTestContext ctx) {
         int x = -4600;
         int z = -3800;
-        Scenario.run(ctx, "1025-blink-charge-warp", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+        // killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff like that" - the
+        // bank is kept through every teleport and he accepts that GrimAC flags the next shot, so the flags are recorded.
+        Scenario.runExpectingFlags(ctx, "1025-blink-charge-warp", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             dev.testkit.gametest.hx.Hx hx = null;
             try {
@@ -1264,9 +1266,12 @@ public class BlinkTests implements FabricClientGameTest {
                 ctx.waitTicks(1);
                 ctx.getInput().pressKey(o -> o.keyUse);
                 ctx.waitTicks(10);
+                long bankAfterWarp = cnum(ctx, "banked");
                 ctx.getInput().releaseKey(o -> o.keyShift);
                 ctx.waitTicks(30);
                 server.command("tp " + name + " " + (x + 12.5) + " " + SURFACE_Y + " " + (z + 10.5));
+                ctx.waitTicks(3);
+                long bankAfterLeap = cnum(ctx, "banked");
                 ctx.waitTicks(30);
                 ctx.runOnClient(mc -> {
                     mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(-90f - mc.player.getYRot()));
@@ -1288,11 +1293,15 @@ public class BlinkTests implements FabricClientGameTest {
                                 + "client %s server %s", bank1, bank2, warps, positions, moving, (long) shot[2], shot[0], fmt(client),
                         fmt(srv)));
                 check(bank1 >= 20, "the bank did not fill before the warp: " + bank1);
+                scenario.log("charge-warp: bank right after the warp " + bankAfterWarp + ", right after the leap " + bankAfterLeap);
+                check(bankAfterWarp == 20 && bankAfterLeap == 20, "the bank was not kept through the warp and the leap: "
+                        + bankAfterWarp + ", " + bankAfterLeap);
                 check(warps == 1, "the server did not etherwarp: " + warps);
                 check(positions == 2 && moving == 2, positions + " position packet(s), " + moving
                         + " moving teleport(s): not the warp and the leap");
                 check(shot[1] == 1 && shot[2] >= 19 && shot[0] > 3.0, "no full shot after the warp and leap: " + (long) shot[2]
                         + " tick(s), " + shot[0] + " blocks");
+                // A flagged shot may be set back: then he is back on the leap's spot, client and server agreeing.
                 check(Math.abs(client[2] - (z + 10.5)) < 1.0, "he is not on the leap's row: " + fmt(client));
                 check(flat(client, srv) < 0.5, "client and server disagree after the shot: " + fmt(client) + " vs " + fmt(srv));
             } finally {
@@ -1678,6 +1687,8 @@ public class BlinkTests implements FabricClientGameTest {
                 server.command("execute as " + name + " at @s run tp @s ~ ~ ~3");
                 ctx.waitTicks(3);
                 long bankAfterMove = cnum(ctx, "banked");
+                check(bankAfterMove == bankBeforeMove, "the moving teleport did not keep the bank (owner 2026-10-27): "
+                        + bankBeforeMove + " -> " + bankAfterMove);
                 long moved = cnum(ctx, "movingTeleports") - mv0;
                 // ~1 s settle after a moving teleport (mod b743dc10), then ~1 s to refill.
                 ctx.waitTicks(60);
@@ -2045,7 +2056,9 @@ public class BlinkTests implements FabricClientGameTest {
     private static void chargeRapid(ClientGameTestContext ctx) {
         int x = -5600;
         int z = -4800;
-        Scenario.run(ctx, "1025-blink-charge-rapid", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+        // killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff like that" - the
+        // bank is kept through every teleport and he accepts that GrimAC flags the next shot, so the flags are recorded.
+        Scenario.runExpectingFlags(ctx, "1025-blink-charge-rapid", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             dev.testkit.gametest.hx.Hx hx = null;
             try {
@@ -2131,6 +2144,7 @@ public class BlinkTests implements FabricClientGameTest {
                 check(Math.abs(cw[0] - (last[0] + 0.5)) < 1.0, "he is not where the last warp put him: " + fmt(cw));
                 check(opened && onTime == 3, "the menu clicks did not reach the server on time: " + lag);
                 check(alwaysOn, "Charge went off during the warps or the menu");
+                check(bankAfterWarps == 20, "the bank was not kept through the warps: " + bankAfterWarps);
                 check(bankRefilled == 20 && shot[1] == 1 && shot[2] == 20 && shot[0] > 4.5, "no full shot afterwards");
                 check(flat(client, srv) < 0.5, "client and server disagree after the shot: " + fmt(client) + " vs " + fmt(srv));
             } finally {
