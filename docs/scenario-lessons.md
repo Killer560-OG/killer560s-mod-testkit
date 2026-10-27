@@ -1108,3 +1108,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   does not leak into later cases. A waitUntil predicate already runs on the client thread: calling c.onClient inside it
   would wait on itself, so read the mod there directly. Boss-bar values lerp over ~100 ms (LerpingBossEvent), so the log's
   first line for a bar can read an in-between value (Necron 546M on the way to 350M); the cases wait for the settled one.
+- **blinkmerge-1027: kept-bank costs leak into the next case.** A case that keeps Blink's bank through a server teleport
+  (1026-ap3-blink-leap) leaves GrimAC a BadPacketsN that fires on the NEXT case's lane teleport, a second later: in the 63
+  session it failed 1027-ap3-shot-turn. Such a case runs last before an expecting-flags case (63-ap3-corrections). Also,
+  `BlinkCharge.maxAnswerWaitMs` is a session-long maximum: 1026-blink-lag's spike (3.5 s) failed 1026-blink-long-charge
+  run after it, so long-charge counts only a maximum set during the case.
