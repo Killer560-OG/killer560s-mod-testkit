@@ -44,6 +44,12 @@ import static dev.testkit.gametest.hx.HxKit.*;
  *   <li>2846 F5 word (spotify-f5word-1026): with the clock frozen at six moments through a line, the word the F5 lyric
  *       line lights is the word the Spotify HUD lights at that moment, in the HUD's accent color and underlined; with
  *       Highlight Word In F5 off, or paused, none is lit; with the time held the line is not rebuilt each frame.</li>
+ *   <li>2847 version: {@code LyricsEngine.chooseFrom} on made-up lrclib listings - his log's "High Forever - Marlon
+ *       Hoffstadt Remix" against lrclib's real "High Forever (Marlon Hoffstadt Remix)" listings (229-230 s), one song in
+ *       four lengths and versions, remaster and feat. suffixes, a sped-up listing ahead of the plain one, and no listing
+ *       of Spotify's length (closest used, note kept).</li>
+ *   <li>2848 HUD in chat: with chat open, a click on each control under the Spotify HUD calls that control, the chat
+ *       input is unchanged, and a click on the panel is consumed; with chat closed no row is shown.</li>
  *   <li>2845 share: with Share My Song forced on in the config, a non-supporter hands nothing to the relay and has no own
  *       tag, and the row is grayed out ("Supporters only") when off; in the supporter list the play packet goes out.</li>
  * </ul>
@@ -74,6 +80,8 @@ final class HxSpotifyControlsCases {
         s.test("2844-hx-spotify-scroll", HxSpotifyControlsCases::scroll);
         s.test("2845-hx-spotify-share-supporter", HxSpotifyControlsCases::share);
         s.test("2846-hx-spotify-f5-word", HxSpotifyControlsCases::f5Word);
+        s.test("2847-hx-spotify-version", HxSpotifyControlsCases::version);
+        s.test("2848-hx-spotify-hud-chat-controls", HxSpotifyControlsCases::hudChat);
     }
 
     // ---- reflection helpers -----------------------------------------------------------------------------------
@@ -748,6 +756,194 @@ final class HxSpotifyControlsCases {
             });
             HxCosmeticNameCases.camera(c, CameraType.FIRST_PERSON);
         }
+    }
+
+    // ---- 2847: the right lyrics version -----------------------------------------------------------------------
+
+    private static Object cand(String artist, String title, double seconds) {
+        return newRecord("spotify.LyricsEngine$Candidate", artist, title, seconds, List.of(line(1.0, "a line")));
+    }
+
+    /** "title|seconds|mismatch|nearest|why" of the choice. */
+    private static String choose(Session c, String artist, String title, double spotify, Object... cands) {
+        return c.onClient(mc -> {
+            Object choice = Mod.staticCall(E, "chooseFrom", List.of(cands), artist, title, spotify);
+            Object pick = Mod.call(choice, "pick");
+            return (pick == null ? "none|0" : Mod.call(pick, "title") + "|" + Mod.call(pick, "durationSeconds"))
+                    + "|" + Mod.call(choice, "mismatch") + "|" + Mod.call(choice, "nearestSeconds") + "|" + Mod.call(choice, "why");
+        });
+    }
+
+    private static void expect(Session c, String label, String got, String title, double seconds, boolean mismatch) {
+        String[] f = got.split("\\|", 5);
+        c.note(label + ": " + f[0] + " " + f[1] + " s, other version " + f[2] + " | " + f[4]);
+        c.check(f[0].equals(title) && Math.abs(Double.parseDouble(f[1]) - seconds) < 0.01
+                        && Boolean.parseBoolean(f[2]) == mismatch,
+                label + ": picked '" + f[0] + "' " + f[1] + " s (other version " + f[2] + "), wanted '" + title + "' "
+                        + seconds + " s (other version " + mismatch + ")");
+    }
+
+    private static void version(Session c) throws Exception {
+        c.check(c.onClient(mc -> {
+            try {
+                Mod.cls(E).getDeclaredMethod("chooseFrom", List.class, String.class, String.class, double.class);
+                return true;
+            } catch (NoSuchMethodException e) {
+                return false;
+            }
+        }), "this jar has no scored lyrics version choice (mod before spotify-f5word-1026)");
+        String remix = "High Forever (Marlon Hoffstadt Remix)";
+        expect(c, "his log's song", choose(c, "Petite Meller", "High Forever - Marlon Hoffstadt Remix", 229.6,
+                        cand("Petite Meller", "High Forever", 214.0),
+                        cand("PETITE MELLER", remix, 229.0), cand("Petite Meller", remix, 230.0),
+                        cand("Petite Meller", "High Forever (Sped Up)", 190.0),
+                        cand("Petite Meller y Marlon Hoffstadt", remix, 229.0)),
+                remix, 230.0, false);   // the closest length to Spotify's 229.6 s
+        expect(c, "four versions of one song", choose(c, "Artist", "Song", 214.8,
+                        cand("Artist", "Song (Sped Up)", 180.0), cand("Artist", "Song - Live", 214.0),
+                        cand("Artist", "Song", 200.0), cand("Artist", "Song", 214.0),
+                        cand("Artist", "Song (Extended Mix)", 230.0)),
+                "Song", 214.0, false);
+        expect(c, "remaster suffix", choose(c, "Artist", "Song - Remastered 2011", 201.0,
+                        cand("Artist", "Song (Live)", 260.0), cand("Artist", "Song", 200.5)),
+                "Song", 200.5, false);
+        expect(c, "feat. suffix", choose(c, "Artist", "Song (feat. Guest)", 180.0,
+                        cand("Artist, Guest", "Song", 181.0)),
+                "Song", 181.0, false);
+        expect(c, "sped-up listed first", choose(c, "Artist", "Song", 200.0,
+                        cand("Artist", "Song (Sped Up)", 200.0), cand("Artist", "Song", 200.0)),
+                "Song", 200.0, false);
+        expect(c, "no listing of Spotify's length", choose(c, "Artist", "Song", 300.0,
+                        cand("Artist", "Song", 250.0), cand("Artist", "Song", 280.0), cand("Artist", "Other Song", 300.0)),
+                "Song", 280.0, true);
+        expect(c, "another artist's song only", choose(c, "Artist", "Song", 200.0,
+                        cand("Someone Else", "Song", 200.0)),
+                "none", 0.0, true);
+        String clean = c.onClient(mc -> (String) Mod.staticCall(E, "titleKey", "Clean"));
+        String dashed = c.onClient(mc -> (String) Mod.staticCall(E, "titleKey", "Song - X Remix"));
+        String paren = c.onClient(mc -> (String) Mod.staticCall(E, "titleKey", "Song (X Remix) [feat. Y]"));
+        c.note("titleKey: Clean -> '" + clean + "', 'Song - X Remix' -> '" + dashed + "', 'Song (X Remix) [feat. Y]' -> '" + paren + "'");
+        c.check("clean".equals(clean), "a song called Clean lost its name: '" + clean + "'");
+        c.check(dashed.equals(paren), "the dash and bracket spellings differ: '" + dashed + "' / '" + paren + "'");
+    }
+
+    // ---- 2848: the HUD's control row in chat ------------------------------------------------------------------
+
+    private static String chatInput(Session c) {
+        return c.onClient(mc -> {
+            Object screen = McCompat.screen(mc);
+            if (!(screen instanceof ChatScreen)) {
+                return null;
+            }
+            for (Class<?> k = screen.getClass(); k != null; k = k.getSuperclass()) {
+                for (java.lang.reflect.Field f : k.getDeclaredFields()) {
+                    if (net.minecraft.client.gui.components.EditBox.class.isAssignableFrom(f.getType())) {
+                        try {
+                            f.setAccessible(true);
+                            net.minecraft.client.gui.components.EditBox box = (net.minecraft.client.gui.components.EditBox) f.get(screen);
+                            return box.getValue() + "@" + box.getCursorPosition() + (box.isFocused() ? "F" : "");
+                        } catch (IllegalAccessException e) {
+                            throw new AssertionError(e);
+                        }
+                    }
+                }
+            }
+            return "(no input)";
+        });
+    }
+
+    /** Moves the real cursor to HUD-local (lx, ly) and left-clicks there through the game's own input. */
+    private static void clickHud(Session c, double lx, double ly) {
+        double[] at = c.onClient(mc -> {
+            Object hud = Mod.field(HUD, "INSTANCE");
+            int[] pos = (int[]) Mod.staticCall("hud.HudElementRegistry", "resolvePosition", hud);
+            float scale = (Float) Mod.staticCall("hud.HudElementRegistry", "resolveScale", hud);
+            double gs = (double) mc.getWindow().getScreenWidth() / mc.getWindow().getGuiScaledWidth();
+            return new double[]{(pos[0] + lx * scale) * gs, (pos[1] + ly * scale) * gs};
+        });
+        c.ctx().getInput().setCursorPos(at[0], at[1]);
+        c.ctx().waitTicks(2);
+        c.ctx().getInput().pressMouse(0);
+        c.ctx().waitTicks(2);
+    }
+
+    private static void hudChat(Session c) throws Exception {
+        c.check(c.onClient(mc -> Mod.has("spotify.SpotifyHudControls")), "this jar has no Spotify HUD controls in chat");
+        List<String> sent = new CopyOnWriteArrayList<>();
+        Consumer<String> sink = sent::add;
+        long now = System.currentTimeMillis();
+        List<Object> lines = c.onClient(mc -> List.of(line(0.0, "a line"), line(600.0, "later")));
+        Object snap = c.onClient(mc -> snapshot(5000, now, lines));
+        int panelH = c.onClient(mc -> (Integer) Mod.call(Mod.field(HUD, "INSTANCE"), "height"));
+        try (Settings s = new Settings(c).with(HC, "HudEnabled", true).with(HC, "ShowLyrics", true)) {
+            c.onClient(mc -> {
+                Mod.setField(CTL, "testSink", sink);
+                Mod.setField(CTL, "testReason", "");
+                Mod.setField(SLF, "testSnapshot", snap);
+                Mod.call(Mod.cfg(CC), "setVolume", 50);
+                Mod.call(Mod.cfg(CC), "setSeekSeconds", 10);
+                return null;
+            });
+            HxCosmeticNameCases.camera(c, CameraType.FIRST_PERSON);
+            // Chat closed: no row, whatever the cursor does.
+            clickless(c, 100, panelH + 8);
+            boolean closedRow = c.onClient(mc -> (Boolean) Mod.field("spotify.SpotifyHudControls", "rowShown"));
+            c.check(!closedRow, "the control row is shown with chat closed");
+
+            c.ctx().runOnClient(mc -> McCompat.setScreen(mc, new ChatScreen("hello", false)));
+            c.ctx().waitTicks(3);
+            String before = chatInput(c);
+            double rowY = panelH + 2 + 7;
+            double[] cellX = {11, 35, 59, 83, 107, 136, 192};
+            String[] expect = {"prev", "rel -10000", "toggle", "rel 10000", "next", "vol 45", "vol 50"};
+            for (int i = 0; i < cellX.length; i++) {
+                sent.clear();
+                clickHud(c, cellX[i], rowY);
+                boolean shown = c.onClient(mc -> (Boolean) Mod.field("spotify.SpotifyHudControls", "rowShown"));
+                c.note("cell " + i + " (" + expect[i] + "): sent " + sent + ", row shown " + shown);
+                c.check(shown, "the control row is not shown with chat open and the mouse on it");
+                c.check(sent.equals(List.of(expect[i])), "the HUD cell for '" + expect[i] + "' sent " + sent);
+            }
+            // A click on the panel itself does nothing but is still taken from chat.
+            long taken = c.onClient(mc -> (Long) Mod.field("spotify.SpotifyHudControls", "clicksTaken"));
+            sent.clear();
+            clickHud(c, 100, 20);
+            long taken2 = c.onClient(mc -> (Long) Mod.field("spotify.SpotifyHudControls", "clicksTaken"));
+            c.check(sent.isEmpty() && taken2 == taken + 1, "a click on the panel: sent " + sent + ", taken " + (taken2 - taken));
+            String after = chatInput(c);
+            c.note("chat input before '" + before + "', after '" + after + "'");
+            c.check(before != null && before.equals(after), "the chat input changed: '" + before + "' -> '" + after + "'");
+            // Grayed out: no command.
+            c.onClient(mc -> {
+                Mod.setField(CTL, "testReason", "Spotify is not open on this PC.");
+                return null;
+            });
+            sent.clear();
+            clickHud(c, 59, rowY);
+            c.check(sent.isEmpty(), "a grayed-out HUD control still sent " + sent);
+        } finally {
+            c.ctx().runOnClient(mc -> McCompat.setScreen(mc, null));
+            c.onClient(mc -> {
+                Mod.setField(CTL, "testSink", null);
+                Mod.setField(CTL, "testReason", null);
+                Mod.setField(SLF, "testSnapshot", null);
+                Mod.staticCall(CC, "load");
+                return null;
+            });
+        }
+    }
+
+    /** Puts the cursor over HUD-local (lx, ly) without clicking, and lets a few frames draw. */
+    private static void clickless(Session c, double lx, double ly) {
+        double[] at = c.onClient(mc -> {
+            Object hud = Mod.field(HUD, "INSTANCE");
+            int[] pos = (int[]) Mod.staticCall("hud.HudElementRegistry", "resolvePosition", hud);
+            float scale = (Float) Mod.staticCall("hud.HudElementRegistry", "resolveScale", hud);
+            double gs = (double) mc.getWindow().getScreenWidth() / mc.getWindow().getGuiScaledWidth();
+            return new double[]{(pos[0] + lx * scale) * gs, (pos[1] + ly * scale) * gs};
+        });
+        c.ctx().getInput().setCursorPos(at[0], at[1]);
+        c.ctx().waitTicks(3);
     }
 
     // ---- 2845: Share My Song is supporters only -------------------------------------------------------------
