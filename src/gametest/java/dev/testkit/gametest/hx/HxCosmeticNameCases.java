@@ -459,18 +459,62 @@ final class HxCosmeticNameCases {
         return out;
     }
 
+    /**
+     * The Custom Names "Preview: " line's rect, scrolled into the drawer's visible band first. Player Cosmetics grew
+     * (Ribbon Trail became a section of it, mod 4a7ffc31, 2026-10-18), so at 854x480 the line sits below the fold
+     * (laid out at y 521) and a screenshot crop there ran past the image (NegativeArraySizeException -39). A player
+     * scrolls to it; so does this, then waits until the eased scroll is drawn where the rows are laid out.
+     */
+    static int[] previewRect(Session c, Screen screen) {
+        boolean found = c.onClient(mc -> {
+            StringWidget w = previewWidget(screen);
+            if (w == null) {
+                return false;
+            }
+            AbstractWidget pane = (AbstractWidget) Mod.field(screen, "contentPane");
+            if (pane == null) {
+                return false;
+            }
+            int top = pane.getY() + 4;
+            int bottom = pane.getY() + pane.getHeight() - 4;
+            if (w.getY() < top || w.getY() + w.getHeight() > bottom) {
+                int offset = ((Number) Mod.field("gui.ModScreen", "scrollOffset")).intValue();
+                Mod.setField("gui.ModScreen", "scrollOffset",
+                        Math.max(0, offset + w.getY() - (pane.getY() + pane.getHeight() / 2)));
+                Mod.call(screen, "rebuild");
+            }
+            return true;
+        });
+        c.check(found, "no Preview line in Player Cosmetics > Custom Names");
+        c.waitUntil("the menu's drawn scroll reaches its laid-out scroll", mc ->
+                ((Number) Mod.field(screen, "drawnScroll")).intValue()
+                        == ((Number) Mod.field("gui.ModScreen", "scrollOffset")).intValue(), 100);
+        c.ctx().waitTicks(2);
+        int[] rect = c.onClient(mc -> {
+            StringWidget w = previewWidget(screen);
+            AbstractWidget pane = (AbstractWidget) Mod.field(screen, "contentPane");
+            if (w == null || pane == null || w.getY() < pane.getY() || w.getY() + w.getHeight() > pane.getY() + pane.getHeight()) {
+                return null;
+            }
+            return new int[]{w.getX(), w.getY(), w.getWidth(), w.getHeight()};
+        });
+        c.check(rect != null, "the Preview line is not inside the drawer's visible band after scrolling");
+        return rect;
+    }
+
+    private static StringWidget previewWidget(Screen screen) {
+        for (var child : widgets(screen)) {
+            if (child instanceof StringWidget w && w.getMessage().getString().contains("Preview: ")) {
+                return w;
+            }
+        }
+        return null;
+    }
+
     private static void fadePreview(Session c) throws Exception {
         try (Settings s = fade(c)) {
             Screen screen = openCosmetics(c);
-            int[] rect = c.onClient(mc -> {
-                for (var child : widgets(screen)) {
-                    if (child instanceof StringWidget w && w.getMessage().getString().contains("Preview: ")) {
-                        return new int[]{w.getX(), w.getY(), w.getWidth(), w.getHeight()};
-                    }
-                }
-                return null;
-            });
-            c.check(rect != null, "no Preview line in Player Cosmetics > Custom Names");
+            int[] rect = previewRect(c, screen);
             List<Integer> painted = c.onClient(mc -> {
                 for (var child : widgets(screen)) {
                     if (child instanceof StringWidget w && w.getMessage().getString().contains("Preview: ")) {

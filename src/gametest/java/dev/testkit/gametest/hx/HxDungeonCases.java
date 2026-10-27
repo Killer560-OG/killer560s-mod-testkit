@@ -494,48 +494,84 @@ final class HxDungeonCases {
 
     // ---- 113 autokick -----------------------------------------------------------------------------------------
 
+    /**
+     * Auto Kick is Party Finder only since mod 95d9e514 (2026-10-11; killer560, 2026-10-09: "Auto kick is only something
+     * to be used during the party finder stage while you are queuing for a run."): the old in-run Kick Specific mode and
+     * its ActionMode enum are gone. A "Party Finder > Name joined the dungeon group!" server line, out of a dungeon,
+     * looks the joiner up and kicks one slower than the floor's limit. Forged: the same text inside another player's
+     * all-chat line (AutoKickFeature.PF_JOINED is anchored at "^Party Finder > ") must not even be judged.
+     */
     private static void autoKick(Session s) {
         s.test("113-hx-autokick", c -> {
-            Object cfg = c.onClient(mc -> Mod.cfg("autokick.AutoKickConfig"));
-            Object f7 = c.onClient(mc -> Mod.enumValue("autokick.AutoKickConfig$Floor", "F7"));
-            Object specific = c.onClient(mc -> Mod.enumValue("autokick.AutoKickConfig$ActionMode", "KICK_SPECIFIC"));
-            Object oldMode = c.onClient(mc -> Mod.call(cfg, "getMode"));
-            String oldMembers = c.onClient(mc -> (String) Mod.call(cfg, "getSpecificMembers"));
+            String cfgName = "autokick.AutoKickConfig";
+            Object cfg = c.onClient(mc -> Mod.cfg(cfgName));
+            Object f7 = c.onClient(mc -> Mod.enumValue(cfgName + "$Floor", "F7"));
+            Object fixed = c.onClient(mc -> Mod.enumValue(cfgName + "$FloorSource", "FIXED"));
+            Object sPlus = c.onClient(mc -> Mod.enumValue(cfgName + "$TimeMode", "S_PLUS"));
+            Object oldSource = c.onClient(mc -> Mod.call(cfg, "getFloorSource"));
+            Object oldQueue = c.onClient(mc -> Mod.call(cfg, "getQueueFloor"));
+            Object oldMode = c.onClient(mc -> Mod.call(cfg, "getTimeMode"));
             int oldTarget = c.onClient(mc -> ((Number) Mod.call(cfg, "getTargetSeconds", f7)).intValue());
-            try (Settings set = new Settings(c).with("autokick.AutoKickConfig", "Enabled", true)
-                    .with("splittimers.SplitTimersConfig", "Enabled", true)
+            try (Settings set = new Settings(c).with(cfgName, "Enabled", true)
                     .custom(() -> {
-                        Mod.call(cfg, "setMode", specific);
-                        Mod.call(cfg, "setTargetSeconds", f7, 1);
+                        Mod.call(cfg, "setFloorSource", fixed);
+                        Mod.call(cfg, "setQueueFloor", f7);
+                        Mod.call(cfg, "setTimeMode", sPlus);
+                        Mod.call(cfg, "setTargetSeconds", f7, 240);
                     }, () -> {
-                        Mod.call(cfg, "setMode", oldMode);
+                        Mod.call(cfg, "setFloorSource", oldSource);
+                        Mod.call(cfg, "setQueueFloor", oldQueue);
+                        Mod.call(cfg, "setTimeMode", oldMode);
                         Mod.call(cfg, "setTargetSeconds", f7, oldTarget);
-                        Mod.call(cfg, "setSpecificMembers", oldMembers);
+                        pfCache().remove("hxslow");
                     })) {
-                dungeon(c);
-                // Forged: the name is configured, but HxEvil is NOT on the tab list - only in all chat.
-                run(c, () -> Mod.call(cfg, "setSpecificMembers", "HxEvil"));
-                startRun(c);
-                c.hx().chat("§7[VIP] HxEvil§f: [42] HxEvil (Mage L)");
+                hub(c);
+                run(c, () -> {
+                    Mod.setField("autokick.AutoKickFeature", "lastKickAtMs", 0L);
+                    pfStats("HxSlow", "5:00");
+                });
+                int d0 = kickDecisions(c).size();
+                // Forged: another player types the Party Finder line in all chat.
+                c.hx().chat("§7[VIP] HxEvil§f: Party Finder > HxSlow joined the dungeon group! (Mage Level 40)");
                 assertNoCommand(c, 50, "p kick");
-                // Positive: a real teammate named in the settings.
-                run(c, () -> Mod.call(cfg, "setSpecificMembers", "HxMateA"));
-                startRun(c);
+                List<String> after = kickDecisions(c);
+                c.check(after.size() == d0, "a forged line was judged: " + after.subList(d0, after.size()));
+                // Real: the server's line, a joiner whose F7 S+ (5:00) is slower than the 4:00 limit.
+                c.hx().chat("§dParty Finder §f> §bHxSlow §ejoined the dungeon group! (§bMage Level 40§e)");
                 String cmd = awaitCommand(c, "p kick", 100);
-                c.check(cmd.equals("p kick HxMateA"), "kicked the wrong name: /" + cmd);
-                c.note("non-teammate name -> no kick in 2.5 s; teammate HxMateA, F7 target 1 s -> /" + cmd);
+                c.check(cmd.equals("p kick HxSlow"), "kicked the wrong name: /" + cmd);
+                List<String> all = kickDecisions(c);
+                c.note("forged PF line in all chat -> nothing judged, no kick in 2.5 s; real PF join, F7 S+ 5:00 over 4:00 -> /"
+                        + cmd + " " + all.subList(d0, all.size()));
             }
         });
     }
 
-    /** "Starting in 1 second." then Mort's line: Split Timers' first split, which starts the run clock. */
-    private static void startRun(Session c) {
-        run(c, () -> Mod.setField("autokick.AutoKickFeature", "lastKickAtMs", 0L));
-        send(c, "chat.run-start");
-        c.ctx().waitTicks(6);
-        send(c, "chat.mort-map");
-        c.waitUntil("SplitTimersFeature.getRunStartedAtMs() > 0",
-                mc -> ((Number) Mod.staticCall("splittimers.SplitTimersFeature", "getRunStartedAtMs")).longValue() > 0, 40);
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> pfCache() {
+        return (Map<String, Object>) Mod.field("partyfinder.PartyFinderStatsApi", "CACHE");
+    }
+
+    /** A Party Finder lookup answer for {@code name} with an F7 S+ time, as AutoKick2Cases seeds it. */
+    private static void pfStats(String name, String sPlusF7) {
+        JsonObject normal = new JsonObject();
+        JsonObject sp = new JsonObject();
+        sp.addProperty("floor_7", sPlusF7);
+        normal.add("s_plus", sp);
+        normal.add("s", new JsonObject());
+        try {
+            Object st = Mod.cls("partyfinder.PartyFinderStatsApi$PlayerStats").getDeclaredConstructor(double.class,
+                    int.class, double.class, JsonObject.class, JsonObject.class, long.class)
+                    .newInstance(40.0, 1000, 8.0, normal, new JsonObject(), System.currentTimeMillis());
+            pfCache().put(name.toLowerCase(java.util.Locale.ROOT), st);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> kickDecisions(Session c) {
+        return c.onClient(mc -> (List<String>) Mod.staticCall("autokick.AutoKickFeature", "decisions"));
     }
 
     // ---- 114 doorkeys -----------------------------------------------------------------------------------------

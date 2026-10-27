@@ -434,15 +434,7 @@ final class HxNameWaveCases {
 
             // Player Cosmetics preview.
             Screen screen = HxCosmeticNameCases.openCosmetics(c);
-            int[] rect = c.onClient(mc -> {
-                for (var child : HxCosmeticNameCases.widgets(screen)) {
-                    if (child instanceof StringWidget w && w.getMessage().getString().contains("Preview: ")) {
-                        return new int[]{w.getX(), w.getY(), w.getWidth(), w.getHeight()};
-                    }
-                }
-                return null;
-            });
-            c.check(rect != null, "no Preview line in Player Cosmetics > Custom Names");
+            int[] rect = HxCosmeticNameCases.previewRect(c, screen);
             BufferedImage p0 = shotAt(c, T0, "preview-0", "preview-wave-0ms.png");
             BufferedImage p1 = shotAt(c, T0 + WAVE_STEP, "preview-250", "preview-wave-250ms.png");
             int width = c.onClient(mc -> McCompat.screen(mc).width);

@@ -6,7 +6,6 @@ import dev.testkit.gametest.mod.Mod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.state.gui.GuiRenderState;
 import net.minecraft.client.renderer.state.gui.GuiTextRenderState;
@@ -78,18 +77,19 @@ final class HxScoreboardAnchorCases {
         } else {
             Mod.staticCall(FEATURE, "drawInGame", g);
         }
+        // The box's outer walls: the exact (unrounded) extent of every visible fill the board submitted. Since mod
+        // b7dd38cd (2026-10-18) the border is on by default, so the background fill is inset by the border and the
+        // walls are the border's own fills; and an element's bounds() is floor(left) + ceil(width), which at a
+        // fractional HUD scale (Auto Scale makes 1.0 draw at 0.8) lands a pixel either side of the real edge. Taking the
+        // largest element's bounds() read 662 for a wall drawn at exactly 663.
         double[] bg = {Double.NaN, Double.NaN};
-        long[] bestArea = {-1};
         state.forEachElement(el -> {
-            ScreenRectangle r = el.bounds();
-            if (r == null) {
-                return;
-            }
-            long area = (long) r.width() * r.height();
-            if (area > bestArea[0]) {
-                bestArea[0] = area;
-                bg[0] = r.left();
-                bg[1] = r.right();
+            for (Object part : fillParts(el)) {
+                float[] lr = fillLR(part);
+                if (lr != null) {
+                    bg[0] = Double.isNaN(bg[0]) ? lr[0] : Math.min(bg[0], lr[0]);
+                    bg[1] = Double.isNaN(bg[1]) ? lr[1] : Math.max(bg[1], lr[1]);
+                }
             }
         }, GuiRenderState.TraverseRange.ALL);
         double[] text = {Double.MAX_VALUE, -Double.MAX_VALUE};
@@ -102,6 +102,48 @@ final class HxScoreboardAnchorCases {
             text[1] = Math.max(text[1], lr[1]);
         });
         return new double[]{bg[0], bg[1], text[0], text[1], mc.getWindow().getGuiScaledWidth()};
+    }
+
+    /** The solid fills in one render element: itself when it is a ColoredRectangleRenderState, or the parts of a
+     *  mod {@code hud/GuiRects} batch (as SimMapHudTests.fillElements reads them). */
+    private static List<Object> fillParts(Object el) {
+        if (el.getClass().getSimpleName().contains("ColoredRectangle")) {
+            return List.of(el);
+        }
+        if (el.getClass().getName().equals("com.killer560.hub.hud.GuiRects$Batch")) {
+            try {
+                java.lang.reflect.Method parts = el.getClass().getDeclaredMethod("parts");
+                parts.setAccessible(true);
+                return java.util.Arrays.asList((Object[]) parts.invoke(el));
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError("cannot read the parts of a GuiRects batch", e);
+            }
+        }
+        return List.of();
+    }
+
+    /** A visible fill's left/right through its pose, unrounded; null for a fully transparent or empty fill. */
+    private static float[] fillLR(Object rect) {
+        try {
+            java.lang.reflect.Method m = rect.getClass().getMethod("col1");
+            int c1 = (Integer) m.invoke(rect);
+            int c2 = (Integer) rect.getClass().getMethod("col2").invoke(rect);
+            if ((c1 >>> 24) == 0 && (c2 >>> 24) == 0) {
+                return null;
+            }
+            int x0 = (Integer) rect.getClass().getMethod("x0").invoke(rect);
+            int x1 = (Integer) rect.getClass().getMethod("x1").invoke(rect);
+            int y0 = (Integer) rect.getClass().getMethod("y0").invoke(rect);
+            if (x0 == x1) {
+                return null;
+            }
+            org.joml.Matrix3x2fc pose = (org.joml.Matrix3x2fc) rect.getClass().getMethod("pose").invoke(rect);
+            org.joml.Vector2f a = pose.transformPosition(x0, y0, new org.joml.Vector2f());
+            org.joml.Vector2f b = pose.transformPosition(x1, y0, new org.joml.Vector2f());
+            return new float[]{Math.min(a.x, b.x), Math.max(a.x, b.x)};
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("cannot read a fill's corners", e);
+        }
     }
 
     /** A text run's advance box left/right through its pose, unrounded; null for a blank run. */

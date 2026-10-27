@@ -389,12 +389,20 @@ final class HxGuiHudCases {
             AbstractWidget pageBtn = widget(c, s, "Settings");
             c.check(pageBtn != null, "no Settings page button");
             click(c, s, pageBtn.getX() + pageBtn.getWidth() / 2.0, pageBtn.getY() + pageBtn.getHeight() / 2.0);
-            c.check(widget(c, s, "Background Color") != null, "the Settings page has no 'Background Color'");
+            // killer560's 2026-10-18 order (mod 3a957c1a): the page opens on Theme; Background and its color moved down
+            // into Advanced's Box group.
+            c.check(widget(c, s, "Theme:") != null, "the Settings page has no 'Theme'");
+            c.check(widget(c, s, "Background Color") == null, "'Background Color' shows with Advanced closed");
             layoutCheck(c, s, "Settings page, Advanced closed");
             AbstractWidget adv = widget(c, s, "▶ §6§lAdvanced"); // CollapsibleSection: arrow, amber header codes, title
             c.check(adv != null, "the Settings page has no closed Advanced row");
             click(c, s, adv.getX() + adv.getWidth() / 2.0, adv.getY() + adv.getHeight() / 2.0);
             c.check(widget(c, s, "Hide Vanilla Scoreboard:") != null, "Advanced opened without 'Hide Vanilla Scoreboard'");
+            // The Box group is below the panel's fold since the 2026-10-18 order: wheel down to it, then back.
+            HxScoreboardCases.wheelPanel(c, s, -1000);
+            c.check(widget(c, s, "Background Color") != null, "Advanced opened without 'Background Color' (Box)");
+            layoutCheck(c, s, "Settings page, Advanced open, scrolled to the Box");
+            HxScoreboardCases.wheelPanel(c, s, 1000);
             layoutCheck(c, s, "Settings page, Advanced open");
             AbstractWidget boardBtn = widget(c, s, "Board");
             click(c, s, boardBtn.getX() + boardBtn.getWidth() / 2.0, boardBtn.getY() + boardBtn.getHeight() / 2.0);
@@ -424,8 +432,9 @@ final class HxGuiHudCases {
                 }
             });
             c.note("Custom Scoreboard tab (on): " + labels);
-            // The Theme row (screen sweep, 2026-10-13) picks the editor's own theme; it is part of the tab since then.
-            c.check(labels.equals(List.of("Custom Scoreboard: ON", "Open Visual Editor", "Theme: Theme Default")),
+            // The Theme row added by the 2026-10-13 screen sweep left the tab again with mod 3a957c1a (killer560,
+            // 2026-10-18: themes move into the editor; "The tab keeps its switch and Open Visual Editor").
+            c.check(labels.equals(List.of("Custom Scoreboard: ON", "Open Visual Editor")),
                     "the tab shows " + labels + ", expected only the switch and Open Visual Editor");
         }
     }
