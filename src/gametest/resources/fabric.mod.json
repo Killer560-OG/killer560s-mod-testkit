@@ -53,6 +53,7 @@
 			"dev.testkit.gametest.HostileChatTests",
 			"dev.testkit.gametest.ChatTidyTests",
 			"dev.testkit.gametest.chat.ChatBatchSuite",
+			"dev.testkit.gametest.chat.ImagePreviewSuite",
 			"dev.testkit.gametest.SimSecretsTests",
 			"dev.testkit.gametest.LeverScanTests",
 			"dev.testkit.gametest.SimCryptWaypointTests",

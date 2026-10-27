@@ -92,6 +92,8 @@ final class MenuLayoutCases {
             "gui.tab.CustomPartyFinderTab",
             // Chat History (mod menu-hud-1018, killer560 2026-10-18): its own Chat tab, unlimited history.
             "gui.tab.ChatHistoryTab",
+            // Image Preview (mod imagepreview-1027, killer560 2026-10-27): pictures from chat links, its own Chat tab.
+            "gui.tab.ImagePreviewTab",
             // Freelook (mod todo-freelook-1018, killer560 2026-10-18): its own tab in Misc, off by default.
             "gui.tab.FreelookTab",
             // Streamer Mode (mod 23ef23da, 2026-10-19): its own Home tab, cheat build only.

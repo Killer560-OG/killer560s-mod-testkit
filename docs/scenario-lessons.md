@@ -1142,3 +1142,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 62-argrim-1027-zpew-map: after a map warp onto a route's START node with the map open, the route's etherwarp fires once
   the screen closes, so the run's server etherwarps include one Auto Routes warp: count the map's warps as the server's
   minus Auto Routes' seen uses, never the server's total (the first run read 3 map warps against 2 predicted).
+- 1070-1081 imgprev (Image Preview): `HxKit.Settings.custom`'s restore already runs inside `runOnClient`; a restore that calls
+  `runOnClient` again throws "runOnClient can only be called from the client gametest thread" and fails every later case.
+  The real cursor stays where the last case left it, so opening the chat again hovers whatever older link now sits under
+  it (a refused-file case counted another case's texture): move the cursor off the chat before `openChat`. A filter part
+  `1070-imgprev-session+` starts the session with NO cases; use `-imgprev-`. Pictures come from an in-JVM `HttpServer` on
+  an ephemeral 127.0.0.1 port, named trusted through `killer560.test.imagePreviewHosts` and standing in for imgur through
+  the `imgur-api` / `imgur-i` service overrides (which also let it through `killer560.net.offline`).
