@@ -80,9 +80,15 @@ final class HxP3ChatCases {
             try (Settings st = new Settings(c)) {
                 st.custom(() -> Mod.set(CFG, "setEnabled", true), () -> Mod.set(CFG, "setEnabled", false));
                 // Stand him beside S1's Terminal 2 (110, 119, 79).
+                // Loaded first (forceload): the console's fill does nothing in an area nobody has loaded, and he was put
+                // over no floor and fell - GrimAC Simulation x4 under load (preexisting-1026, the 787 numbers exactly).
+                c.server().command("forceload add 108 77 112 81");
+                c.server().sync(20);
                 c.server().command("fill 108 117 77 112 117 81 minecraft:stone");
                 c.server().command("tp " + self + " 110.5 118 79.5");
-                c.waitUntil("standing at S1 Terminal 2", mc -> mc.player.position().distanceToSqr(110.5, 118, 79.5) < 1.0, 60);
+                c.waitUntil("standing at S1 Terminal 2", mc -> mc.player.position().distanceToSqr(110.5, 118, 79.5) < 0.01
+                        && mc.player.onGround() && mc.level.getBlockState(new net.minecraft.core.BlockPos(110, 117, 79))
+                        .is(net.minecraft.world.level.block.Blocks.STONE), 100);
 
                 c.hx().chat(GOLDOR);
                 c.waitUntil("HUD shows P3 Section 1", mc -> {
@@ -182,6 +188,7 @@ final class HxP3ChatCases {
                 c.hx().removeStands();
                 endP3(c);
                 c.server().command("tp " + self + " -419.5 151 -419.5");
+                c.server().command("forceload remove 108 77 112 81");
             }
         });
     }
