@@ -48,11 +48,13 @@ import java.util.regex.Pattern;
  *   <li>1027-aafast-&lt;mode&gt;-&lt;ms&gt;: modes cpt1 (CPT 1, the default), cpt4 (the old max), cpt7, same1 (CPT 1 + same
  *   tick), same7 (CPT 7 + same tick, the fastest); 0/50/150/300 ms round trip (inbound {@link Latency}).</li>
  *   <li>1027-aafast-twoframes (FLAGGED expected): the harness clicks two frames in one tick at START, each on its own
- *   look written that tick - the control for "more than one frame per tick". MultiInteractA must be among the flags.</li>
+ *   look written that tick - the control for "more than one frame per tick". Recorded, not judged: MultiInteractA and
+ *   MultiInteractB are EXPERIMENTAL in GrimAC 2.3.74 and report only with experimental-checks: true in the test server's
+ *   config/GrimAC/config.yml (off by default); with it on, both flag and Grim drops the second click.</li>
  *   <li>1027-aafast-sameframe7: the harness clicks one frame 7 times in one tick on the look the last movement packet
  *   reported - the same-frame control, must be clean.</li>
  *   <li>1027-aafast-settings: Clicks Per Tick clamps to 1..7, Turn And Click Same Tick persists through save + load
- *   (and on a legit jar reads false whatever is set, and the Aura sends nothing).</li>
+ *   (and on a legit jar reads false whatever is saved).</li>
  * </ul>
  */
 final class AaFastCases {
@@ -219,8 +221,14 @@ final class AaFastCases {
     }
 
     /** One wire event: an interact (entity id) or a movement packet's look (the frame it meets, -2 = no rotation). */
-    private record Wire(int tick, boolean interact, int entity) {
+    private record Wire(int tick, boolean interact, int entity, boolean teleport) {
+        Wire(int tick, boolean interact, int entity) {
+            this(tick, interact, entity, false);
+        }
     }
+
+    /** The move after an accept_teleportation is vanilla's answer to a server teleport, not a turn of the mod's. */
+    private static final boolean[] TELEPORT_NEXT = {false};
 
     private static final List<Wire> WIRE = Collections.synchronizedList(new ArrayList<>());
 
@@ -232,13 +240,17 @@ final class AaFastCases {
         WIRE.clear();
         c.onClient(mc -> {
             TICK[0] = 0;
+            TELEPORT_NEXT[0] = false;
             PacketTrace.start();
             PacketTrace.tap = p -> {
                 Minecraft m = Minecraft.getInstance();
                 if (p instanceof ServerboundInteractPacket in) {
                     WIRE.add(new Wire(TICK[0], true, in.entityId()));
+                } else if (p instanceof net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket) {
+                    TELEPORT_NEXT[0] = true;
                 } else if (p instanceof ServerboundMovePlayerPacket mv && mv.hasRotation() && m.player != null) {
-                    WIRE.add(new Wire(TICK[0], false, frameOnLook(m, mv.getYRot(0f), mv.getXRot(0f))));
+                    WIRE.add(new Wire(TICK[0], false, frameOnLook(m, mv.getYRot(0f), mv.getXRot(0f)), TELEPORT_NEXT[0]));
+                    TELEPORT_NEXT[0] = false;
                 } else if (p instanceof net.minecraft.network.protocol.game.ServerboundClientTickEndPacket) {
                     TICK[0]++;
                 }
@@ -341,7 +353,7 @@ final class AaFastCases {
                     }
                 } else {
                     lastLook = w.entity;
-                    if (w.entity >= 0 && !perTick.containsKey(w.tick)) {
+                    if (w.entity >= 0 && !w.teleport && !perTick.containsKey(w.tick)) {
                         framesTurnedFirst++;
                         turnOnly.add("t" + w.tick + " look on #" + w.entity);
                     }
@@ -394,8 +406,12 @@ final class AaFastCases {
             c.check(wrongLook.isEmpty(), "a click on a frame neither the last look nor this tick's move met: " + wrongLook);
             if (mode.same) {
                 c.check(sameTickClicks > 0, "Turn And Click Same Tick never clicked in its turn tick: nothing was tested");
+                if (framesTurnedFirst != 0) {
+                    c.note("turn-only ticks " + turnOnly + "; PacketTrace (START-bucketed):");
+                    PacketTrace.lines().forEach(c::note);
+                }
                 c.check(framesTurnedFirst == 0, framesTurnedFirst + " tick(s) turned without clicking under Same Tick: "
-                        + turnOnly + "; wire " + wire);
+                        + turnOnly);
                 c.check(ticks <= LAYOUT.length * ((7 + mode.cpt - 1) / mode.cpt) + 2,
                         "same tick took " + ticks + " ticks");
             } else {
