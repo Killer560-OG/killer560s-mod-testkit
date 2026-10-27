@@ -1252,3 +1252,18 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   tick" were at ticks 1991 and 1992. For clicks inside one tick, queue `KeyMapping.click(key)` N times from
   START_CLIENT_TICK (`ZpewCampaignTests.atTickStart`); `handleKeybinds` turns each into a use that tick. Fabric API 0.155 has
   no `client.keybinding.v1.KeyBindingHelper`; the test client's options are fresh, so `getDefaultKey()` is the bound key.
+- **campaign-blink-1027 (1027-blink-c-*, `BlinkCampaign1027Tests`).** `BlinkTests.serverPos` reads the last 60 console lines:
+  a flagged shot puts 30-60 GrimAC lines after the `data get` answer and it "never answered". The campaign class tags its
+  request with a `say` and reads 1500 lines. A split shot's rest runs the tick after next since mod campaign-blink-1027, so a
+  case that reads shot ticks or distance right after the press must wait while `BlinkCharge.shotPending()` (1025-blink-charge-far
+  failed "2 of 3" on that). An effect the server gives while charging reaches GrimAC ~1 s late (the answers wait): jump boost
+  given right before a charged jump shot drew Simulation 0.1998 x28 - give effects 2 s before charging. A split needs speed
+  already built up: from standing even Speed IV's 20 ticks stay under 9.5 blocks.
+- **campaign-blink-1027, the cover wait.** Since mod 10760079 a Blink shot GrimAC would not cover yet (a teleport's confirm
+  still held, a Blink hold running, ticks sent since not backed again) waits and fires the tick the bank is covered (about
+  2 s after a teleport if he stands still). A case that presses the Charge key and reads the shot one tick later must check
+  `BlinkCharge.shotWaiting()`, stand still until `shotCovered()`, then walk (BlinkTests.shootByPress and the campaign
+  class's shoot() do). Holding W through the wait never covers it (moving ticks are not covered): it fires after 3 s anyway.
+  1027-ap3-blink-leap-* release through `BlinkCharge.shootFor` where the leap lands; a second lane walk-in would teleport him
+  again. Another agent's `gradle --stop` ends every running client of every checkout at once ("build daemon has been stopped:
+  stop command received", 11:14:31 2026-10-27): rerun, it is not a result.

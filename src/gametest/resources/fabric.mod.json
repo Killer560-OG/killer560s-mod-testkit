@@ -13,6 +13,7 @@
 			"dev.testkit.gametest.FreelookTests",
 			"dev.testkit.gametest.BlinkTests",
 			"dev.testkit.gametest.BlinkStressTests",
+			"dev.testkit.gametest.BlinkCampaign1027Tests",
 			"dev.testkit.gametest.ConfigFolderTests",
 			"dev.testkit.gametest.LayoutFixTests",
 			"dev.testkit.gametest.InvWalkZpewTests",

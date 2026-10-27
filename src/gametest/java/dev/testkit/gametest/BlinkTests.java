@@ -1106,6 +1106,20 @@ public class BlinkTests implements FabricClientGameTest {
      * Fires the bank the way he does: a movement key down and the Charge key pressed in the same tick (Toggle). Returns
      * {blocks moved over that one tick, shots made, ticks in the last shot}. The shot runs at the start of the tick.
      */
+    static boolean shotWaiting(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                return (Boolean) Mod.staticCall(CHARGE, "shotWaiting");
+            } catch (RuntimeException | AssertionError e) {
+                return false;
+            }
+        });
+    }
+
+    static boolean shotCoveredNow(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "shotCovered"));
+    }
+
     static double[] shootByPress(ClientGameTestContext ctx, boolean sprint) {
         long shots0 = cnum(ctx, "shots");
         double[] before = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
@@ -1115,6 +1129,22 @@ public class BlinkTests implements FabricClientGameTest {
         }
         ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
         ctx.waitTicks(1);
+        if (shotWaiting(ctx)) {
+            // Since mod campaign-blink-1027 a shot GrimAC would not cover yet (after a teleport or a hold) waits for cover.
+            // He stands meanwhile (moving ticks are not covered) and walks the tick it fires.
+            ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+            ctx.getInput().releaseKey(o -> o.keyUp);
+            ctx.getInput().releaseKey(o -> o.keySprint);
+            for (int i = 0; i < 100 && shotWaiting(ctx) && !shotCoveredNow(ctx); i++) {
+                ctx.waitTicks(1);
+            }
+            ctx.getInput().holdKey(o -> o.keyUp);
+            if (sprint) {
+                ctx.getInput().holdKey(o -> o.keySprint);
+            }
+            before = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+            ctx.waitTicks(1);
+        }
         double[] after = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
         ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
         ctx.getInput().releaseKey(o -> o.keyUp);
@@ -2092,7 +2122,9 @@ public class BlinkTests implements FabricClientGameTest {
                     from = new double[]{tx + 0.5, SURFACE_Y + 0.05, z + 0.5};
                     last = new int[]{tx, z};
                 }
-                for (int t = 0; t < 15; t++) {
+                // Since mod campaign-blink-1027 what he sends after a teleport while charging (here the next warp's use)
+                // waits behind that teleport's ping answer, so the server makes the later warps up to ~1 s later.
+                for (int t = 0; t < 70 && (t < 15 || cnum(ctx, "movingTeleports") - mv0 < 3); t++) {
                     ctx.waitTicks(1);
                     alwaysOn &= charging(ctx);
                 }
@@ -2409,6 +2441,10 @@ public class BlinkTests implements FabricClientGameTest {
                     ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
                     ctx.waitTicks(2);
                     ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+                    // A split shot's rest runs the tick after next (mod campaign-blink-1027): keep running until it has.
+                    for (int i = 0; i < 4 && ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "shotPending")); i++) {
+                        ctx.waitTicks(1);
+                    }
                     double[] after = scenario.playerPosition();
                     ctx.getInput().releaseKey(o -> o.keyUp);
                     ctx.getInput().releaseKey(o -> o.keyJump);
