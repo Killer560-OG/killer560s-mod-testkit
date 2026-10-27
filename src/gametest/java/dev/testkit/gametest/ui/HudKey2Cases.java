@@ -205,7 +205,12 @@ final class HudKey2Cases {
             }
         }
         if (home != null) {
-            R.set(home, "listening", on);
+            // An int since mod open-key-1026 (0 none, 1 Edit HUD, 2 Open Menu); a boolean before it.
+            if (R.get(home, "listening") instanceof Boolean) {
+                R.set(home, "listening", on);
+            } else {
+                R.set(home, "listening", on ? 1 : 0);
+            }
         }
     }
 

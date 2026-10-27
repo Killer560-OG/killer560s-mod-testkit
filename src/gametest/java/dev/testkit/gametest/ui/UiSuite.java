@@ -200,7 +200,9 @@ public class UiSuite implements FabricClientGameTest {
             "1022-ui-sweepb-run-log", "1023-ui-sweepb-invsort", "1024-ui-sweepb-custom-items", "1025-ui-sweepb-screen-theme"};
     /** killer560's 2026-10-12 Edit HUD key / Croesus batch ({@link HudKey2Cases}). Own block for merges. */
     /** Container overlays in Edit HUD only within 10 s (mod hud-key-3, {@link HudKey2Cases#containerGrace}). Own block. */
-    static final String[] HUD_KEY3_CASES = {"866-ui-container-overlay-grace"};
+    static final String[] HUD_KEY3_CASES = {"866-ui-container-overlay-grace",
+            // The Open Menu Key (mod open-key-1026, {@link OpenMenuKeyCases}).
+            "1100-ui-open-menu-key"};
     static final String[] HUD_KEY2_CASES = {"862-ui-hud-key-typing", "863-ui-hud-key-over-container",
             "864-ui-croesus-split", "865-ui-container-overlays"};
     /** killer560's 2026-10-11 leap-menu batch, the editor half ({@link LeapWizardCases}); 821-825 are in the menu
@@ -749,6 +751,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "865-ui-container-overlays", HudKey2Cases::overlays);
                     // ---- container overlays only within 10 s (866) ----
                     UiCase.run(ctx, "866-ui-container-overlay-grace", HudKey2Cases::containerGrace);
+                    // ---- Open Menu Key (1100, mod open-key-1026) ----
+                    UiCase.run(ctx, "1100-ui-open-menu-key", OpenMenuKeyCases::openKey);
                     // ---- Health and Mana Bars styles (891-896) ----
                     UiCase.run(ctx, "891-ui-bars-style-fill", BarStyleCases::fill);
                     UiCase.run(ctx, "892-ui-bars-style-overflow", BarStyleCases::overflow);
