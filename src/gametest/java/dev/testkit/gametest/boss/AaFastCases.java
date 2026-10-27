@@ -47,7 +47,8 @@ import java.util.regex.Pattern;
  * <ul>
  *   <li>1027-aafast-&lt;mode&gt;-&lt;ms&gt;: modes cpt1 (CPT 1, the default), cpt4 (the old max), cpt7, same1 (CPT 1 + same
  *   tick), same7 (CPT 7 + same tick); 0/50/150/300 ms round trip (inbound {@link Latency}). Frames Per Tick 1 in these.</li>
- *   <li>1027-aafast-fpt3-&lt;ms&gt; / fpt15-&lt;ms&gt;: Frames Per Tick 3 and 15 (CPT 7, same tick): the device in 3 ticks / 1 tick.
+ *   <li>(No longer registered: Frames Per Tick was removed from the mod in ship3-1027.) 1027-aafast-fpt3-&lt;ms&gt; /
+ *   fpt15-&lt;ms&gt;: Frames Per Tick 3 and 15 (CPT 7, same tick): the device in 3 ticks / 1 tick.
  *   On Grim's default config they must be clean (checked in the body; registered as expecting flags). On a server with
  *   experimental-checks: true they record MultiInteractA/B instead (MultiInteractA required, nothing else allowed), how
  *   many clicks Grim let through and whether the device still got solved.</li>
@@ -78,10 +79,11 @@ final class AaFastCases {
     private record Mode(String name, int cpt, boolean same, int fpt) {
     }
 
-    /** Frames Per Tick 1 everywhere but fpt3 / fpt15 (killer560, 2026-10-27: "Add Frames Per Tick as a cheat-only option"). */
+    /** One frame a tick in every mode. Frames Per Tick (fpt3 / fpt15) was removed from the mod before it shipped
+     *  (ship3-1027; killer560, 2026-10-27: "if a setting is flagging then it shouldnt be pushed with that setting"): above
+     *  1 it drew MultiInteractA/B with experimental checks on. The fpt code paths below stay for a jar that still has it. */
     private static final Mode[] MODES = {new Mode("cpt1", 1, false, 1), new Mode("cpt4", 4, false, 1),
-            new Mode("cpt7", 7, false, 1), new Mode("same1", 1, true, 1), new Mode("same7", 7, true, 1),
-            new Mode("fpt3", 7, true, 3), new Mode("fpt15", 7, true, 15)};
+            new Mode("cpt7", 7, false, 1), new Mode("same1", 1, true, 1), new Mode("same7", 7, true, 1)};
 
     /** Whether the test server's GrimAC runs its experimental checks (MultiInteractA/B among them): its config.yml. */
     private static boolean experimentalChecks() {
@@ -305,7 +307,6 @@ final class AaFastCases {
                      .with(AA_CFG, "PreventMisclicksEnabled", false).with(AA_CFG, "TriggerBotEnabled", false)
                      .with(AA_CFG, "AuraEnabled", false).with(AA_CFG, "AuraRange", 3.0).with(AA_CFG, "AuraCps", 20)
                      .with(AA_CFG, "AuraClicksPerTick", mode.cpt).with(AA_CFG, "AuraSameTickTurn", mode.same)
-                     .with(AA_CFG, "AuraFramesPerTick", mode.fpt)
                      .with(AA_CFG, "AuraLeaveLastArrow", false).with(AA_CFG, "AuraDisableWhileCrouching", true)) {
             wall(c);
             if (ms > 0) {
@@ -677,24 +678,18 @@ final class AaFastCases {
                 if (same != cheat) {
                     problems.add("Turn And Click Same Tick reads " + same + " on a " + (cheat ? "cheat" : "legit") + " jar");
                 }
-                // Frames Per Tick: 1..15, saved; always 1 on a legit jar whatever is saved.
-                Mod.call(re, "setAuraFramesPerTick", 99);
-                int fhi = (Integer) Mod.field(re, "auraFramesPerTick");
-                Mod.call(re, "setAuraFramesPerTick", 0);
-                int flo = (Integer) Mod.field(re, "auraFramesPerTick");
-                Mod.call(re, "setAuraFramesPerTick", 4);
-                Mod.call(re, "save");
-                Mod.staticCall(AA_CFG, "load");
-                int fpt = (Integer) Mod.call(Mod.cfg(AA_CFG), "getAuraFramesPerTick");
-                c.note("settings: Frames Per Tick set 99 -> " + fhi + ", set 0 -> " + flo + ", saved 4 -> reads " + fpt);
-                if (fhi != 15 || flo != 1) {
-                    problems.add("Frames Per Tick clamps to " + flo + ".." + fhi + ", want 1..15");
+                // Frames Per Tick was removed before it shipped (ship3-1027): no setter, no saved key, one frame a tick.
+                boolean hasFpt = false;
+                for (java.lang.reflect.Method m : re.getClass().getMethods()) {
+                    if (m.getName().equals("setAuraFramesPerTick") || m.getName().equals("getAuraFramesPerTick")) {
+                        hasFpt = true;
+                    }
                 }
-                if (fpt != (cheat ? 4 : 1)) {
-                    problems.add("Frames Per Tick reads " + fpt + " after saving 4 on a " + (cheat ? "cheat" : "legit") + " jar");
+                c.note("settings: Frames Per Tick present in the jar: " + hasFpt);
+                if (hasFpt) {
+                    problems.add("Frames Per Tick is still in the jar (removed in ship3-1027)");
                 }
                 re = Mod.cfg(AA_CFG);
-                Mod.call(re, "setAuraFramesPerTick", 1);
                 Mod.call(re, "setAuraSameTickTurn", false);
                 Mod.call(re, "save");
                 Mod.staticCall(AA_CFG, "load");
