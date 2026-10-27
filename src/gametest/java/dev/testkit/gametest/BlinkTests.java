@@ -4,6 +4,7 @@ import dev.testkit.gametest.mod.Mod;
 import dev.testkit.harness.Latency;
 import dev.testkit.harness.PacketTrace;
 
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
@@ -15,29 +16,32 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 1025-blink-* (killer560, 2026-10-25: "fully build blink and add it to the mod"; then "work on getting as many packets as
- * possible for the blink"). Blink holds every packet the client sends and releases them together. Every case proves the
- * hold happened before it says anything about GrimAC: the mod's own counters (ticks and packets held and released) AND
- * the SERVER's view of the player (`data get entity`), which must stand still while the client walks and catch up after.
+ * 1025-blink-* (killer560, 2026-10-25: "fully build blink and add it to the mod"; reworked the same day after testing on
+ * Hypixel: Charge and Hold are two sections with their own keys and 1-20 tick sliders). Blink's Hold holds every packet
+ * the client sends while the Hold key is down and releases them together when it comes up (or at Hold Ticks, after which
+ * it waits for the key to come up). Charge banks still ticks (up to Charge Ticks) and fires them on the Charge key.
  *
- * <p>The sweep cases (1025-blink-sweep-*) run with {@link Scenario#runExpectingFlags}: they try longer and longer holds
- * and print, per length, what Grim said, so the longest clean hold is a measured number. Cheat build only; every case
- * fails on a jar without {@code blink.BlinkConfig}.
+ * <p>Every case proves the feature acted before it says anything about GrimAC: the mod's own counters (ticks and packets
+ * held and released, ticks banked and shot) AND the SERVER's view of the player ({@code data get entity}).
+ *
+ * <p>Since the rework nothing auto-releases a hold (the owner's choice): a hit, a dig or a bow/eat use inside a hold is
+ * held with everything else. The 1025-blink-hold-hit-1 / -hit-2 / -dig / -place / -bow cases therefore run with
+ * {@link Scenario#runExpectingFlags} and record exactly what GrimAC says. Cheat build only.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class BlinkTests implements FabricClientGameTest {
 
     private static final String CFG = "blink.BlinkConfig";
     private static final String MODE = "blink.BlinkConfig$Mode";
-    private static final String LIMIT = "blink.BlinkConfig$LimitAction";
     private static final String FEATURE = "blink.BlinkFeature";
+    private static final String CHARGE = "blink.BlinkCharge";
     private static final int SURFACE_Y = 151;
     private static final Pattern POS = Pattern.compile("has the following entity data: \\[(-?[0-9.E-]+)d, (-?[0-9.E-]+)d, (-?[0-9.E-]+)d\\]");
 
-    /** The sweep lengths, from the system property testkit.blinkSweep (comma list) or this default. */
+    /** The hold sweep lengths, from testkit.blinkSweep (comma list) or this default; Hold Ticks stops at 20. */
     private static int[] sweepLengths() {
         String p = System.getProperty("testkit.blinkSweep");
-        String s = p == null || p.isBlank() ? "20,21,22,23,24,30" : p;
+        String s = p == null || p.isBlank() ? "5,10,15,18,19,20" : p;
         String[] parts = s.split(",");
         int[] out = new int[parts.length];
         for (int i = 0; i < parts.length; i++) {
@@ -51,10 +55,13 @@ public class BlinkTests implements FabricClientGameTest {
         AssertionError first = null;
         for (Consumer<ClientGameTestContext> c : List.<Consumer<ClientGameTestContext>>of(
                 BlinkTests::setting, BlinkTests::still, BlinkTests::walk, BlinkTests::sprintJump, BlinkTests::pulse,
-                BlinkTests::latency, BlinkTests::pulseMax, BlinkTests::attack, BlinkTests::dig, BlinkTests::place,
+                BlinkTests::latency, BlinkTests::pulseMax, BlinkTests::holdHits, BlinkTests::holdDig, BlinkTests::place,
                 BlinkTests::teleport, BlinkTests::refused, BlinkTests::leap, BlinkTests::knockback, BlinkTests::etherwarp,
                 BlinkTests::charge, BlinkTests::chargeActions, BlinkTests::chargeWarp, BlinkTests::chargeRun,
-                BlinkTests::chargeSweep, BlinkTests::chargeDouble, BlinkTests::clicks, BlinkTests::chargeFar, BlinkTests::chargeLong, BlinkTests::shotLever,
+                BlinkTests::chargeSweep, BlinkTests::chargeArm, BlinkTests::chargeHoldMode, BlinkTests::chargeWait,
+                BlinkTests::chargeInPlace, BlinkTests::chargeLanding, BlinkTests::hud,
+                BlinkTests::holdRapid, BlinkTests::chargeRapid, BlinkTests::chargeArmedMenu,
+                BlinkTests::clicks, BlinkTests::chargeFar, BlinkTests::chargeLong, BlinkTests::shotLever,
                 BlinkTests::worldChange, BlinkTests::bow,
                 BlinkTests::sweepWalk, BlinkTests::sweepStill,
                 BlinkTests::sweepLatency)) {
@@ -80,29 +87,33 @@ public class BlinkTests implements FabricClientGameTest {
                 .build();
     }
 
-    /** Blink ON, Toggle, the given limit and action; Skyblock Only off for the run. Returns what to restore. */
-    private static boolean setUp(ClientGameTestContext ctx, int maxTicks, String limitAction) {
+    /** Blink ON, Charge in Toggle at 20, the given Hold Ticks; Skyblock Only off for the run. Returns what to restore. */
+    private static boolean setUp(ClientGameTestContext ctx, int holdTicks) {
         return ctx.computeOnClient(mc -> {
             Mod.staticCall(FEATURE, "end", "test setup");
+            Mod.staticCall(CHARGE, "reset", "test setup");
             boolean gate = (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled");
             Mod.staticCall("util.SkyblockGate", "setEnabled", false);
             Mod.setField(FEATURE, "keyHeldForTest", Boolean.FALSE);
+            Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE);
             Mod.set(CFG, "setEnabled", true);
-            Mod.set(CFG, "setMode", Mod.enumValue(MODE, "TOGGLE"));
-            Mod.set(CFG, "setLimitAction", Mod.enumValue(LIMIT, limitAction));
-            Mod.set(CFG, "setMaxTicks", maxTicks);
+            Mod.set(CFG, "setChargeMode", Mod.enumValue(MODE, "TOGGLE"));
+            Mod.set(CFG, "setChargeTicks", 20);
+            Mod.set(CFG, "setHoldTicks", holdTicks);
             Mod.set(CFG, "setChatMessages", false);
-            Mod.set(CFG, "setReleaseOnHit", !Boolean.getBoolean("testkit.blinkHoldHits"));
-            Mod.set(CFG, "setReleaseOnDig", !Boolean.getBoolean("testkit.blinkHoldDigs"));
-            Mod.set(CFG, "setReleaseOnCharge", !Boolean.getBoolean("testkit.blinkHoldUses"));
+            Mod.set(CFG, "setShowHud", true);
+            Mod.set(CFG, "setShowServerBox", true);
             return gate;
         });
     }
 
     private static void tearDown(ClientGameTestContext ctx, boolean gate) {
+        Pulser.on = false;
         ctx.runOnClient(mc -> {
             Mod.staticCall(FEATURE, "end", "test teardown");
+            Mod.staticCall(CHARGE, "reset", "test teardown");
             Mod.setField(FEATURE, "keyHeldForTest", null);
+            Mod.setField(CHARGE, "keyHeldForTest", null);
             Mod.set(CFG, "setEnabled", false);
             Mod.staticCall("util.SkyblockGate", "setEnabled", gate);
         });
@@ -117,11 +128,74 @@ public class BlinkTests implements FabricClientGameTest {
         ctx.getInput().releaseKey(o -> o.keyJump);
     }
 
-    /** One press of the Blink key (Toggle: start or stop a hold), through the test hook the tick reads. */
-    private static void pressBlink(ClientGameTestContext ctx) {
+    /** The Hold key down (a hold starts at the next tick and lasts while it is down, up to Hold Ticks). */
+    private static void holdDown(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> Mod.setField(FEATURE, "keyHeldForTest", Boolean.TRUE));
-        ctx.waitTicks(1);
+    }
+
+    /** The Hold key up: the hold is released at the next tick. */
+    private static void holdUp(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> Mod.setField(FEATURE, "keyHeldForTest", Boolean.FALSE));
+    }
+
+    /** The Hold key down, kept down until the hold's own limit releases it (or {@code maxTicks}), then up. */
+    private static void holdToLimit(ClientGameTestContext ctx, int maxTicks) {
+        holdDown(ctx);
+        ctx.waitTicks(2);
+        for (int i = 0; i < maxTicks && holding(ctx); i++) {
+            ctx.waitTicks(1);
+        }
+        holdUp(ctx);
+    }
+
+    /**
+     * One press of the Charge key (Toggle: on, fire, or off), and one tick with it up, so a press straight after it is a
+     * new press (without that tick the Blink tick never saw the key come up and two presses read as one).
+     */
+    private static void pressCharge(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
+        ctx.waitTicks(1);
+        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+        ctx.waitTicks(1);
+    }
+
+    /**
+     * Stands in for a player who keeps the Hold key down and lets it up whenever the Hold Ticks limit released it: back to
+     * back holds, the old Pulse setting done by the hand on the key. Runs from the client's own START tick (after the mod's).
+     */
+    static final class Pulser {
+        static volatile boolean on;
+        private static boolean registered;
+
+        static synchronized void start(ClientGameTestContext ctx) {
+            if (!registered) {
+                registered = true;
+                ClientTickEvents.START_CLIENT_TICK.register(mc -> {
+                    if (!on) {
+                        return;
+                    }
+                    try {
+                        Object k = Mod.field(FEATURE, "keyHeldForTest");
+                        boolean down = Boolean.TRUE.equals(k);
+                        boolean held = (Boolean) Mod.staticCall(FEATURE, "isHolding");
+                        if (down && !held) {
+                            Mod.setField(FEATURE, "keyHeldForTest", Boolean.FALSE);
+                        } else if (!down) {
+                            Mod.setField(FEATURE, "keyHeldForTest", Boolean.TRUE);
+                        }
+                    } catch (RuntimeException | AssertionError e) {
+                        on = false;
+                    }
+                });
+            }
+            ctx.runOnClient(mc -> Mod.setField(FEATURE, "keyHeldForTest", Boolean.TRUE));
+            on = true;
+        }
+
+        static void stop(ClientGameTestContext ctx) {
+            on = false;
+            ctx.runOnClient(mc -> Mod.setField(FEATURE, "keyHeldForTest", Boolean.FALSE));
+        }
     }
 
     private static boolean holding(ClientGameTestContext ctx) {
@@ -183,86 +257,132 @@ public class BlinkTests implements FabricClientGameTest {
 
     // ---------------------------------------------------------------------------------------------------------------
 
-    /** 1025-blink-setting: OFF by default, every setting saved and loaded from disk, and with it OFF the key holds nothing. */
+    /**
+     * 1025-blink-setting: OFF and unbound by default, Charge Toggle 20 / Hold 20; every setting saved and loaded from disk;
+     * both sliders clamp to 1-20; an old one-key file migrates its key to the section its Style was; with Blink OFF neither
+     * key does anything.
+     */
     private static void setting(ClientGameTestContext ctx) {
         Scenario.run(ctx, "1025-blink-setting", (server, scenario) -> arena(server, -3000, -3000), (server, scenario) -> {
             String[] got = ctx.computeOnClient(mc -> {
+                java.nio.file.Path path = (java.nio.file.Path) Mod.field(CFG, "CONFIG_PATH");
+                try {
+                    java.nio.file.Files.deleteIfExists(path);
+                } catch (java.io.IOException e) {
+                    throw new AssertionError(e);
+                }
                 Mod.staticCall(CFG, "load");
-                Object fresh = Mod.cfg(CFG);
-                String defaults = Mod.call(fresh, "isEnabled") + " " + Mod.call(fresh, "getMode") + " "
-                        + Mod.call(fresh, "getMaxTicks") + " " + Mod.call(fresh, "getKeyCode") + " "
-                        + Mod.call(fresh, "isReleaseOnHit") + " " + Mod.call(fresh, "isReleaseOnDig") + " "
-                        + Mod.call(fresh, "isReleaseOnCharge");
+                String defaults = describe(Mod.cfg(CFG));
                 Mod.set(CFG, "setEnabled", true);
-                Mod.set(CFG, "setMode", Mod.enumValue(MODE, "HOLD"));
-                Mod.set(CFG, "setLimitAction", Mod.enumValue(LIMIT, "PULSE"));
-                Mod.set(CFG, "setMaxTicks", 33);
-                Mod.set(CFG, "setKeyCode", 66);
+                Mod.set(CFG, "setChargeMode", Mod.enumValue(MODE, "HOLD"));
+                Mod.set(CFG, "setChargeTicks", 33);
+                Mod.set(CFG, "setChargeKeyCode", 66);
+                Mod.set(CFG, "setHoldKeyCode", 67);
+                Mod.set(CFG, "setHoldTicks", 0);
                 Mod.set(CFG, "setShowHud", false);
                 Mod.set(CFG, "setShowServerBox", false);
                 Mod.set(CFG, "setChatMessages", true);
-                Mod.set(CFG, "setReleaseOnHit", false);
-                Mod.set(CFG, "setReleaseOnDig", false);
-                Mod.set(CFG, "setReleaseOnCharge", false);
                 Mod.call(Mod.cfg(CFG), "save");
                 Mod.set(CFG, "setEnabled", false);
-                Mod.set(CFG, "setMaxTicks", 5);
+                Mod.set(CFG, "setHoldTicks", 5);
                 Mod.staticCall(CFG, "load");
-                Object l = Mod.cfg(CFG);
-                String loaded = Mod.call(l, "isEnabled") + " " + Mod.call(l, "getMode") + " " + Mod.call(l, "getLimitAction")
-                        + " " + Mod.call(l, "getMaxTicks") + " " + Mod.call(l, "getKeyCode") + " " + Mod.call(l, "isShowHud")
-                        + " " + Mod.call(l, "isShowServerBox") + " " + Mod.call(l, "isChatMessages") + " "
-                        + Mod.call(l, "isReleaseOnHit") + " " + Mod.call(l, "isReleaseOnDig") + " "
-                        + Mod.call(l, "isReleaseOnCharge");
-                // Back to the defaults on disk for the cases behind this one.
-                Mod.set(CFG, "setEnabled", false);
-                Mod.set(CFG, "setMode", Mod.enumValue(MODE, "TOGGLE"));
-                Mod.set(CFG, "setLimitAction", Mod.enumValue(LIMIT, "RELEASE"));
-                Mod.set(CFG, "setMaxTicks", 22);
-                Mod.set(CFG, "setKeyCode", -1);
-                Mod.set(CFG, "setShowHud", true);
-                Mod.set(CFG, "setShowServerBox", true);
-                Mod.set(CFG, "setChatMessages", false);
-                Mod.set(CFG, "setReleaseOnHit", true);
-                Mod.set(CFG, "setReleaseOnDig", true);
-                Mod.set(CFG, "setReleaseOnCharge", true);
-                Mod.call(Mod.cfg(CFG), "save");
-                return new String[]{defaults, loaded};
+                String loaded = describe(Mod.cfg(CFG));
+                // The one-key file from before the rework, both Styles.
+                String migratedCharge;
+                String migratedHold;
+                try {
+                    java.nio.file.Files.writeString(path, "{\"enabled\":true,\"keyCode\":70,\"style\":\"CHARGE\","
+                            + "\"mode\":\"HOLD\",\"maxTicks\":22,\"limitAction\":\"PULSE\",\"showHud\":true}");
+                    Mod.staticCall(CFG, "load");
+                    migratedCharge = describe(Mod.cfg(CFG));
+                    java.nio.file.Files.writeString(path, "{\"enabled\":false,\"keyCode\":71,\"style\":\"HOLD_PACKETS\","
+                            + "\"mode\":\"TOGGLE\",\"maxTicks\":12}");
+                    Mod.staticCall(CFG, "load");
+                    migratedHold = describe(Mod.cfg(CFG));
+                    java.nio.file.Files.deleteIfExists(path);
+                } catch (java.io.IOException e) {
+                    throw new AssertionError(e);
+                }
+                Mod.staticCall(CFG, "load");
+                return new String[]{defaults, loaded, migratedCharge, migratedHold};
             });
-            // OFF: the key does nothing.
-            ctx.runOnClient(mc -> Mod.setField(FEATURE, "keyHeldForTest", Boolean.TRUE));
+            // OFF: neither key does anything.
+            ctx.runOnClient(mc -> {
+                Mod.setField(FEATURE, "keyHeldForTest", Boolean.TRUE);
+                Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE);
+            });
             ctx.waitTicks(4);
             boolean heldWhileOff = holding(ctx);
-            ctx.runOnClient(mc -> Mod.setField(FEATURE, "keyHeldForTest", null));
-            scenario.log("defaults " + got[0] + "; loaded " + got[1] + "; held while off " + heldWhileOff);
-            check(got[0].equals("false TOGGLE 22 -1 true true true"), "defaults wrong: " + got[0]);
-            check(got[1].equals("true HOLD PULSE 33 66 false false true false false false"),
-                    "settings did not come back from disk: " + got[1]);
-            check(!heldWhileOff, "Blink held packets while switched off");
+            boolean chargingWhileOff = ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "isActive"));
+            ctx.runOnClient(mc -> {
+                Mod.setField(FEATURE, "keyHeldForTest", null);
+                Mod.setField(CHARGE, "keyHeldForTest", null);
+            });
+            scenario.log("defaults [" + got[0] + "]; loaded [" + got[1] + "]; old Charge file [" + got[2] + "]; old Hold file ["
+                    + got[3] + "]; held while off " + heldWhileOff + ", charging while off " + chargingWhileOff);
+            check(got[0].equals("false -1 TOGGLE 20 -1 20 true true false"), "defaults wrong: " + got[0]);
+            check(got[1].equals("true 66 HOLD 20 67 1 false false true"), "settings did not come back from disk (or the "
+                    + "sliders did not clamp to 1-20): " + got[1]);
+            check(got[2].equals("true 70 HOLD 20 -1 20 true true false"), "an old Charge file did not migrate: " + got[2]);
+            check(got[3].equals("false -1 TOGGLE 12 71 12 true true false"), "an old Hold file did not migrate: " + got[3]);
+            check(!heldWhileOff && !chargingWhileOff, "Blink acted while switched off");
         });
     }
 
-    /** 1025-blink-still: standing still, one 17-tick hold by the key; the limit releases it; Grim silent. */
+    private static String describe(Object c) {
+        return Mod.call(c, "isEnabled") + " " + Mod.call(c, "getChargeKeyCode") + " " + Mod.call(c, "getChargeMode") + " "
+                + Mod.call(c, "getChargeTicks") + " " + Mod.call(c, "getHoldKeyCode") + " " + Mod.call(c, "getHoldTicks") + " "
+                + Mod.call(c, "isShowHud") + " " + Mod.call(c, "isShowServerBox") + " " + Mod.call(c, "isChatMessages");
+    }
+
+    /**
+     * 1025-blink-still (the Hold key, standing still): key down = a hold; at Hold Ticks (17) it is released and does NOT
+     * start again while the key stays down; key up then down starts a new one; key up releases it at once. Grim silent.
+     */
     private static void still(ClientGameTestContext ctx) {
         Scenario.run(ctx, "1025-blink-still", (server, scenario) -> arena(server, -3100, -3000), (server, scenario) -> {
-            boolean gate = setUp(ctx, 17, "RELEASE");
+            boolean gate = setUp(ctx, 17);
             try {
                 long holdsBefore = num(ctx, "releasedHolds");
-                pressBlink(ctx);
+                holdDown(ctx);
                 ctx.waitTicks(8);
                 boolean mid = holding(ctx);
                 long midPackets = num(ctx, "heldPackets");
                 ctx.waitTicks(20);
-                boolean after = holding(ctx);
-                long holds = num(ctx, "releasedHolds") - holdsBefore;
-                long ticks = num(ctx, "lastHoldTicks");
-                long packets = num(ctx, "lastHoldPackets");
-                scenario.log("mid-hold " + mid + " (" + midPackets + " held), after " + after + "; " + holds
-                        + " release(s), last " + ticks + " tick(s) / " + packets + " packet(s)");
-                check(mid && midPackets >= 8, "no hold was running 8 ticks after the press");
-                check(!after && holds == 1, "the tick limit did not release the hold exactly once");
-                check(ticks == 17, "the hold was not 17 ticks: " + ticks);
-                check(packets >= 17, "fewer packets than ticks were released: " + packets);
+                boolean afterLimit = holding(ctx);
+                long holds1 = num(ctx, "releasedHolds") - holdsBefore;
+                long ticks1 = num(ctx, "lastHoldTicks");
+                long packets1 = num(ctx, "lastHoldPackets");
+                // Key still down for another 15 ticks: nothing starts.
+                boolean restarted = false;
+                for (int i = 0; i < 15; i++) {
+                    ctx.waitTicks(1);
+                    restarted |= holding(ctx);
+                }
+                long holds2 = num(ctx, "releasedHolds") - holdsBefore;
+                // Key up, then down: a new hold; up after 6 ticks releases it then.
+                holdUp(ctx);
+                ctx.waitTicks(2);
+                holdDown(ctx);
+                ctx.waitTicks(3);
+                boolean second = holding(ctx);
+                ctx.waitTicks(3);
+                holdUp(ctx);
+                ctx.waitTicks(2);
+                boolean afterUp = holding(ctx);
+                long holds3 = num(ctx, "releasedHolds") - holdsBefore;
+                long ticks3 = num(ctx, "lastHoldTicks");
+                scenario.log("mid-hold " + mid + " (" + midPackets + " held); at the limit: holding " + afterLimit + ", " + holds1
+                        + " release(s), " + ticks1 + " tick(s) / " + packets1 + " packet(s); key kept down 15 more ticks: "
+                        + "restarted " + restarted + "; key up+down: holding " + second + "; key up: holding " + afterUp
+                        + ", releases " + holds3 + ", last " + ticks3 + " tick(s)");
+                check(mid && midPackets >= 8, "no hold was running 8 ticks after the key went down");
+                check(!afterLimit && holds1 == 1 && ticks1 == 17, "the Hold Ticks limit did not release a 17-tick hold once");
+                check(packets1 >= 17, "fewer packets than ticks were released: " + packets1);
+                check(!restarted && holds2 == 1, "a hold started again while the key stayed down after the limit");
+                check(second, "key up then down did not start a new hold");
+                check(!afterUp && holds3 == 2 && ticks3 >= 3 && ticks3 <= 8, "key up did not release the second hold at "
+                        + "once (" + ticks3 + " tick(s))");
             } finally {
                 tearDown(ctx, gate);
             }
@@ -271,8 +391,8 @@ public class BlinkTests implements FabricClientGameTest {
     }
 
     /**
-     * One walking hold of {@code ticks}, returning {server moved during hold, client moved during hold, gap after
-     * release, setbacks}. Walks +x from where he stands.
+     * One walking hold of {@code ticks} (the key held until Hold Ticks releases it), returning {server moved during
+     * hold, client moved during hold, gap after release, setbacks, still holding, last hold ticks}. Walks +x.
      */
     private static double[] walkHold(TestServer server, Scenario scenario, ClientGameTestContext ctx, int ticks,
                                      boolean jump) {
@@ -284,22 +404,20 @@ public class BlinkTests implements FabricClientGameTest {
         }
         ctx.waitTicks(10);
         ctx.runOnClient(mc -> PacketTrace.start());
-        pressBlink(ctx);
+        holdDown(ctx);
+        ctx.waitTicks(1);
         double[] clientStart = scenario.playerPosition();
-        // Read after the press: from here the server must hear nothing until the release.
+        // Read after the hold began: from here the server must hear nothing until the release.
         double[] serverStart = serverPos(server, ctx, name);
-        // Read the server mid-hold (it must still be where the hold began).
         int midWait = Math.max(2, ticks / 2 - 4);
         ctx.waitTicks(midWait);
         double[] serverMid = holding(ctx) ? serverPos(server, ctx, name) : null;
-        double[] clientMid = scenario.playerPosition();
-        // Out to the limit and a little past it.
         for (int i = 0; i < ticks + 10 && holding(ctx); i++) {
             ctx.waitTicks(1);
         }
         boolean stillHolding = holding(ctx);
-        // How far the client went over the whole hold (the hold has just been released at its limit).
         double[] clientAtRelease = scenario.playerPosition();
+        holdUp(ctx);
         releaseKeys(ctx);
         ctx.waitTicks(20);
         double[] serverEnd = serverPos(server, ctx, name);
@@ -317,17 +435,17 @@ public class BlinkTests implements FabricClientGameTest {
         return new double[]{serverMoved, clientMoved, gap, setbacks, stillHolding ? 1 : 0, num(ctx, "lastHoldTicks")};
     }
 
-    /** 1025-blink-walk: sprinting through a 17-tick hold - the server stands still, then catches up; Grim silent. */
+    /** 1025-blink-walk: sprinting through a 20-tick hold (the most Hold Ticks allows) - the server stands still, then catches up. */
     private static void walk(ClientGameTestContext ctx) {
         Scenario.run(ctx, "1025-blink-walk", (server, scenario) -> arena(server, -3200, -3000), (server, scenario) -> {
-            boolean gate = setUp(ctx, 17, "RELEASE");
+            boolean gate = setUp(ctx, 20);
             try {
-                double[] r = walkHold(server, scenario, ctx, 17, false);
+                double[] r = walkHold(server, scenario, ctx, 20, false);
                 check(r[1] >= 3.0, "the client did not walk during the hold (" + r[1] + " blocks): nothing was tested");
                 check(r[0] >= 0 && r[0] < 0.2, "the server saw him move during the hold (" + r[0] + "): nothing was held");
                 check(r[2] < 0.5, "the server did not catch up after the release (gap " + r[2] + ")");
                 check(r[3] == 0, "the server set him back " + (int) r[3] + " time(s)");
-                check(r[5] == 17, "the hold was not 17 ticks: " + (int) r[5]);
+                check(r[5] == 20, "the hold was not 20 ticks: " + (int) r[5]);
             } finally {
                 tearDown(ctx, gate);
             }
@@ -335,12 +453,12 @@ public class BlinkTests implements FabricClientGameTest {
         });
     }
 
-    /** 1025-blink-jump: sprint-jumping through a 17-tick hold. */
+    /** 1025-blink-jump: sprint-jumping through a 20-tick hold. */
     private static void sprintJump(ClientGameTestContext ctx) {
         Scenario.run(ctx, "1025-blink-jump", (server, scenario) -> arena(server, -3300, -3000), (server, scenario) -> {
-            boolean gate = setUp(ctx, 17, "RELEASE");
+            boolean gate = setUp(ctx, 20);
             try {
-                double[] r = walkHold(server, scenario, ctx, 17, true);
+                double[] r = walkHold(server, scenario, ctx, 20, true);
                 check(r[1] >= 3.0, "the client did not move during the hold (" + r[1] + " blocks): nothing was tested");
                 check(r[0] >= 0 && r[0] < 0.2, "the server saw him move during the hold (" + r[0] + ")");
                 check(r[2] < 0.5, "the server did not catch up after the release (gap " + r[2] + ")");
@@ -352,19 +470,19 @@ public class BlinkTests implements FabricClientGameTest {
         });
     }
 
-    /** 1025-blink-pulse: Release and keep going at 10 ticks while sprinting 160 ticks - a burst every half second. */
+    /** 1025-blink-pulse: Hold Ticks 10, the key let up and pressed again at each limit, while sprinting 160 ticks. */
     private static void pulse(ClientGameTestContext ctx) {
         Scenario.run(ctx, "1025-blink-pulse", (server, scenario) -> arena(server, -3400, -3000), (server, scenario) -> {
-            boolean gate = setUp(ctx, 10, "PULSE");
+            boolean gate = setUp(ctx, 10);
             try {
                 long before = num(ctx, "releasedHolds");
                 double[] start = scenario.playerPosition();
                 ctx.getInput().holdKey(o -> o.keyUp);
                 ctx.getInput().holdKey(o -> o.keySprint);
                 ctx.runOnClient(mc -> PacketTrace.start());
-                pressBlink(ctx);
+                Pulser.start(ctx);
                 ctx.waitTicks(160);
-                pressBlink(ctx);
+                Pulser.stop(ctx);
                 releaseKeys(ctx);
                 ctx.waitTicks(20);
                 ctx.runOnClient(mc -> PacketTrace.stop());
@@ -374,7 +492,7 @@ public class BlinkTests implements FabricClientGameTest {
                 scenario.log(String.format(Locale.ROOT, "pulse: %d release(s) over 160 ticks, moved %.1f blocks, %d setback(s)",
                         holds, moved, setbacks));
                 check(moved > 20, "he did not sprint (" + moved + " blocks)");
-                check(holds >= 14, "Pulse did not keep releasing and holding again: " + holds + " release(s)");
+                check(holds >= 11, "the holds did not keep coming: " + holds + " release(s)");
                 check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
             } finally {
                 tearDown(ctx, gate);
@@ -383,16 +501,16 @@ public class BlinkTests implements FabricClientGameTest {
         });
     }
 
-    /** 1025-blink-latency: the 17-tick walking hold with a 100 ms round trip. */
+    /** 1025-blink-latency: the 20-tick walking hold with a 100 ms round trip. */
     private static void latency(ClientGameTestContext ctx) {
         Scenario.run(ctx, "1025-blink-latency", (server, scenario) -> arena(server, -3500, -3000), (server, scenario) -> {
-            boolean gate = setUp(ctx, 17, "RELEASE");
+            boolean gate = setUp(ctx, 20);
             try {
                 ctx.runOnClient(mc -> Latency.install(100));
                 ctx.waitTicks(40);
-                double[] r = walkHold(server, scenario, ctx, 17, false);
+                double[] r = walkHold(server, scenario, ctx, 20, false);
                 check(r[1] >= 3.0, "the client did not walk during the hold (" + r[1] + " blocks): nothing was tested");
-                // 100 ms each way: the moves sent just before the press are still arriving when the server is first read.
+                // 100 ms each way: the moves sent just before the hold are still arriving when the server is first read.
                 check(r[0] >= 0 && r[0] < 0.8, "the server saw him move during the hold (" + r[0] + ")");
                 check(r[3] == 0, "the server set him back " + (int) r[3] + " time(s)");
             } finally {
@@ -403,7 +521,7 @@ public class BlinkTests implements FabricClientGameTest {
         });
     }
 
-    /** 1025-blink-sweep-walk: longer and longer sprinting holds; per length, what Grim said. The longest clean is printed. */
+    /** 1025-blink-sweep-walk: sprinting holds of each length up to 20; per length, what Grim said. */
     private static void sweepWalk(ClientGameTestContext ctx) {
         sweep(ctx, "1025-blink-sweep-walk", -3600, true, 0);
     }
@@ -419,14 +537,14 @@ public class BlinkTests implements FabricClientGameTest {
     }
 
     /**
-     * 1025-blink-pulse-max: Pulse at the longest hold the sweeps found clean (testkit.blinkPulse, default the mod's own
-     * default Max Ticks) while sprinting for about 400 ticks - a burst every hold, back to back. Grim must stay silent.
+     * 1025-blink-pulse-max: back-to-back holds at the default Hold Ticks (20) while sprinting about 400 ticks - the key let
+     * up and down again at each limit. Grim must stay silent.
      */
     private static void pulseMax(ClientGameTestContext ctx) {
         Scenario.run(ctx, "1025-blink-pulse-max", (server, scenario) -> arena(server, -3900, -3000), (server, scenario) -> {
             int len = Integer.getInteger("testkit.blinkPulse",
                     ctx.computeOnClient(mc -> ((Number) Mod.field(CFG, "DEFAULT_TICKS")).intValue()));
-            boolean gate = setUp(ctx, len, "PULSE");
+            boolean gate = setUp(ctx, len);
             try {
                 long before = num(ctx, "releasedHolds");
                 String name = playerName(ctx);
@@ -434,9 +552,8 @@ public class BlinkTests implements FabricClientGameTest {
                 ctx.getInput().holdKey(o -> o.keyUp);
                 ctx.getInput().holdKey(o -> o.keySprint);
                 ctx.runOnClient(mc -> PacketTrace.start());
-                pressBlink(ctx);
+                Pulser.start(ctx);
                 double maxGap = 0;
-                // Sprint forwards, then walk backwards, twice over, so the run stays on the platform.
                 for (int i = 0; i < 4; i++) {
                     if (i % 2 == 1) {
                         ctx.getInput().releaseKey(o -> o.keyUp);
@@ -451,7 +568,7 @@ public class BlinkTests implements FabricClientGameTest {
                     double[] sp = serverPos(server, ctx, name);
                     maxGap = Math.max(maxGap, flat(sp, scenario.playerPosition()));
                 }
-                pressBlink(ctx);
+                Pulser.stop(ctx);
                 releaseKeys(ctx);
                 ctx.waitTicks(20);
                 ctx.runOnClient(mc -> PacketTrace.stop());
@@ -460,7 +577,8 @@ public class BlinkTests implements FabricClientGameTest {
                 int setbacks = PacketTrace.received("player_position");
                 scenario.log(String.format(Locale.ROOT, "pulse-max at %d: %d release(s) over ~400 ticks, largest server/client gap "
                         + "seen %.2f blocks, ended %.1f from the start, %d setback(s)", len, holds, maxGap, moved, setbacks));
-                check(holds >= 400 / (len + 1) - 1, "Pulse did not keep holding and releasing: " + holds + " release(s)");
+                check(len == 20, "the default Hold Ticks is not 20: " + len);
+                check(holds >= 400 / (len + 3) - 1, "the holds did not keep coming: " + holds + " release(s)");
                 check(maxGap > 1.0, "the server never lagged behind the client: nothing was held");
                 check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
             } finally {
@@ -470,97 +588,14 @@ public class BlinkTests implements FabricClientGameTest {
         });
     }
 
-    /** Pulse at the default (Grim's max) Max Ticks, for a case that acts while blinking. */
-    private static int defaultTicks(ClientGameTestContext ctx) {
-        return ctx.computeOnClient(mc -> ((Number) Mod.field(CFG, "DEFAULT_TICKS")).intValue());
-    }
+    // ---- what a hold does to hits and digs (the owner's choice since 2026-10-25: nothing releases a hold early) ----
 
-    /** 1025-blink-attack: hitting a frozen dummy for 200 ticks while Pulse holds every swing in bursts; and -control. */
-    private static void attack(ClientGameTestContext ctx) {
-        int repeat = Integer.getInteger("testkit.blinkAttackRepeat", 1);
+    /** 1025-blink-hold-hit-1 and -hit-2: one and two full-strength sword hits inside one 20-tick hold; what Grim says. */
+    private static void holdHits(ClientGameTestContext ctx) {
         AssertionError first = null;
-        for (int i = 0; i < repeat; i++) {
-            String sfx = repeat > 1 ? "-" + (i + 1) : "";
-            for (int k = 0; k < 2; k++) {
-                try {
-                    if (k == 0) {
-                        attackCase(ctx, "1025-blink-attack-control" + sfx, false, -4300 - 40 * i);
-                    } else {
-                        attackCase(ctx, "1025-blink-attack" + sfx, true, -4000 - 40 * i);
-                    }
-                } catch (AssertionError e) {
-                    first = first == null ? e : first;
-                }
-            }
-        }
-        if (first != null) {
-            throw first;
-        }
-    }
-
-    private static void attackCase(ClientGameTestContext ctx, String caseName, boolean blink, int ax) {
-        Scenario.run(ctx, caseName, (server, scenario) -> {
-            arena(server, ax, -3000);
-            server.command("give @p minecraft:diamond_sword");
-        }, (server, scenario) -> {
-            boolean gate = setUp(ctx, defaultTicks(ctx), "PULSE");
-            TestEnemy dummy = null;
+        for (int hits = 1; hits <= 2; hits++) {
             try {
-                dummy = TestEnemy.named("Blink", "Dummy")
-                        .at(ax + 3.0, SURFACE_Y, -3000 + 0.5)
-                        .health(20)
-                        .frozen(true)
-                        .spawn(ctx, server);
-                check(dummy.visibleToClient(), "the dummy never appeared to the client");
-                long before = num(ctx, "releasedHolds");
-                if (blink) {
-                    pressBlink(ctx);
-                }
-                int swings = scenario.attackFor(200);
-                if (blink) {
-                    pressBlink(ctx);
-                }
-                ctx.waitTicks(20);
-                long holds = num(ctx, "releasedHolds") - before;
-                scenario.log("attack (" + (blink ? "Blink Pulse" : "no Blink") + "): " + swings + " swing(s), dummy died "
-                        + dummy.deaths() + " time(s), " + holds + " release(s)");
-                check(!blink || holds >= 5, "Pulse did not hold and release while attacking: " + holds);
-                check(blink || holds == 0, "Blink held packets in the control: " + holds);
-                check(swings >= 10 && dummy.deaths() > 0, "the swings never landed (" + swings + " swings, "
-                        + dummy.deaths() + " deaths): nothing about combat was tested");
-            } finally {
-                if (dummy != null) {
-                    dummy.remove();
-                }
-                tearDown(ctx, gate);
-            }
-            ctx.waitTicks(40);
-        });
-    }
-
-    private static int stoneLeft(ClientGameTestContext ctx, int x, int z) {
-        return ctx.computeOnClient(mc -> {
-            int n = 0;
-            for (int dx = 2; dx <= 4; dx++) {
-                for (int y = SURFACE_Y; y <= SURFACE_Y + 2; y++) {
-                    for (int dz = -2; dz <= 2; dz++) {
-                        if (!mc.level.getBlockState(new net.minecraft.core.BlockPos(x + dx, y, z + dz)).isAir()) {
-                            n++;
-                        }
-                    }
-                }
-            }
-            return n;
-        });
-    }
-
-    /** 1025-blink-dig: mining a stone wall with a pickaxe for 160 ticks while Pulse holds every dig in bursts. */
-    private static void dig(ClientGameTestContext ctx) {
-        int repeat = Integer.getInteger("testkit.blinkDigRepeat", 1);
-        AssertionError first = null;
-        for (int i = 0; i < repeat; i++) {
-            try {
-                digCase(ctx, "1025-blink-dig" + (repeat > 1 ? "-" + (i + 1) : ""), -4100 - 30 * i);
+                holdHitCase(ctx, "1025-blink-hold-hit-" + hits, hits, -4000 - 40 * hits);
             } catch (AssertionError e) {
                 first = first == null ? e : first;
             }
@@ -570,49 +605,141 @@ public class BlinkTests implements FabricClientGameTest {
         }
     }
 
-    private static void digCase(ClientGameTestContext ctx, String caseName, int x) {
+    private static void holdHitCase(ClientGameTestContext ctx, String caseName, int wantHits, int ax) {
+        Scenario.runExpectingFlags(ctx, caseName, (server, scenario) -> {
+            arena(server, ax, -3000);
+            server.command("give @p minecraft:diamond_sword");
+        }, (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            TestEnemy dummy = null;
+            try {
+                dummy = TestEnemy.named("Blink", "Dummy" + wantHits)
+                        .at(ax + 2.5, SURFACE_Y, -3000 + 0.5)
+                        .health(20)
+                        .frozen(true)
+                        .spawn(ctx, server);
+                check(dummy.visibleToClient(), "the dummy never appeared to the client");
+                ctx.waitTicks(30);
+                float hp0 = dummy.health();
+                server.mark();
+                long holds0 = num(ctx, "releasedHolds");
+                holdDown(ctx);
+                ctx.waitTicks(2);
+                int swings = 0;
+                for (int t = 0; t < 17 && swings < wantHits; t++) {
+                    if (ctx.computeOnClient(mc -> mc.player.getAttackStrengthScale(0f) >= 1.0f
+                            && mc.hitResult instanceof net.minecraft.world.phys.EntityHitResult)) {
+                        ctx.getInput().pressKey(o -> o.keyAttack);
+                        swings++;
+                    }
+                    ctx.waitTick();
+                }
+                boolean heldThrough = holding(ctx);
+                for (int i = 0; i < 25 && holding(ctx); i++) {
+                    ctx.waitTicks(1);
+                }
+                holdUp(ctx);
+                ctx.waitTicks(40);
+                float hp1 = dummy.health();
+                long holds = num(ctx, "releasedHolds") - holds0;
+                long ticks = num(ctx, "lastHoldTicks");
+                List<String> flags = scenario.flags();
+                scenario.log(String.format(Locale.ROOT, "%s: %d swing(s) inside one hold (still holding after them %s), %d "
+                                + "release(s), last hold %d tick(s); dummy %.1f -> %.1f HP; GrimAC %s", caseName, swings,
+                        heldThrough, holds, ticks, hp0, hp1, flags.isEmpty() ? "clean" : flags.size() + " flag(s): "
+                                + firstChecks(flags)));
+                for (String f : flags) {
+                    scenario.log("  FLAG " + f);
+                }
+                check(swings == wantHits, "only " + swings + " of " + wantHits + " swing(s) happened inside the hold");
+                check(heldThrough, "a hit released the hold (nothing may auto-release since the rework)");
+                check(holds == 1 && ticks == 20, "the hits were not inside one 20-tick hold");
+                check(hp1 < hp0, "no hit reached the server (dummy " + hp0 + " -> " + hp1 + "): nothing was tested");
+            } finally {
+                if (dummy != null) {
+                    dummy.remove();
+                }
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(60);
+            server.mark();
+        });
+    }
+
+    /** 1025-blink-hold-dig: one stone block mined by hand (start to finish) inside one 20-tick hold; what Grim says. */
+    private static void holdDig(ClientGameTestContext ctx) {
+        int x = -4100;
         int z = -3000;
-        Scenario.run(ctx, caseName, (server, scenario) -> {
+        Scenario.runExpectingFlags(ctx, "1025-blink-hold-dig", (server, scenario) -> {
             TestMap.on(server)
                     .platform(x, SURFACE_Y - 1, z, 12)
                     .catchFloor(120)
                     .survival()
                     .clearInventory()
                     .give("diamond_pickaxe", 1)
-                    .fill(x + 2, SURFACE_Y, z - 2, x + 4, SURFACE_Y + 2, z + 2, "stone")
-                    .spawn(x + 0.5, z + 0.5, -90f)
+                    .command("setblock " + (x + 2) + " " + (SURFACE_Y + 1) + " " + z + " minecraft:stone")
+                    .spawn(x + 0.5, z + 0.5, -90f, 10f)
                     .build();
         }, (server, scenario) -> {
-            boolean gate = setUp(ctx, defaultTicks(ctx), "PULSE");
+            boolean gate = setUp(ctx, 20);
+            net.minecraft.core.BlockPos block = new net.minecraft.core.BlockPos(x + 2, SURFACE_Y + 1, z);
             try {
-                int before = stoneLeft(ctx, x, z);
+                ctx.waitTicks(20);
+                boolean aimed = ctx.computeOnClient(mc -> mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult b
+                        && b.getBlockPos().equals(block));
+                server.mark();
                 long holds0 = num(ctx, "releasedHolds");
-                pressBlink(ctx);
+                holdDown(ctx);
+                ctx.waitTicks(2);
                 ctx.getInput().holdKey(o -> o.keyAttack);
-                ctx.waitTicks(160);
+                int mined = -1;
+                for (int t = 0; t < 16; t++) {
+                    ctx.waitTicks(1);
+                    if (mined < 0 && ctx.computeOnClient(mc -> mc.level.getBlockState(block).isAir())) {
+                        mined = t + 1;
+                        ctx.getInput().releaseKey(o -> o.keyAttack);
+                    }
+                }
                 ctx.getInput().releaseKey(o -> o.keyAttack);
-                pressBlink(ctx);
+                boolean heldThrough = holding(ctx);
+                for (int i = 0; i < 25 && holding(ctx); i++) {
+                    ctx.waitTicks(1);
+                }
+                holdUp(ctx);
                 ctx.waitTicks(40);
-                int after = stoneLeft(ctx, x, z);
+                server.command("execute if block " + (x + 2) + " " + (SURFACE_Y + 1) + " " + z + " minecraft:air run say DUG_OK");
+                ctx.waitTicks(10);
+                boolean dug = server.tail(60).contains("DUG_OK");
                 long holds = num(ctx, "releasedHolds") - holds0;
-                scenario.log("dig: wall " + before + " -> " + after + " block(s) (as the client sees it 40 ticks after the "
-                        + "last release), " + holds + " release(s)");
-                check(before == 45, "the wall was not built: " + before);
-                check(after <= before - 2, "fewer than two blocks were mined (" + (before - after) + "): digging was hardly tested");
-                check(holds >= 5, "Pulse did not hold and release while digging: " + holds);
+                long ticks = num(ctx, "lastHoldTicks");
+                List<String> flags = new ArrayList<>();
+                for (String f : scenario.flags()) {
+                    flags.add(f);
+                }
+                scenario.log(String.format(Locale.ROOT, "hold-dig: aimed %s; mined on the client after %d tick(s) of digging, "
+                                + "inside the hold %s; %d release(s), last hold %d tick(s); gone on the server %s; GrimAC %s",
+                        aimed, mined, heldThrough, holds, ticks, dug, flags.isEmpty() ? "clean" : flags.size() + " flag(s): "
+                                + firstChecks(flags)));
+                for (String f : flags) {
+                    scenario.log("  FLAG " + f);
+                }
+                check(aimed, "he was not looking at the block: nothing was tested");
+                check(mined > 0, "the block was never mined on the client");
+                check(heldThrough && holds == 1 && ticks == 20, "the dig was not inside one 20-tick hold");
             } finally {
                 ctx.getInput().releaseKey(o -> o.keyAttack);
                 tearDown(ctx, gate);
             }
-            ctx.waitTicks(40);
+            ctx.waitTicks(60);
+            server.mark();
         });
     }
 
-    /** 1025-blink-place: placing cobblestone on the floor ahead for 120 ticks while Pulse holds every placement in bursts. */
+    /** 1025-blink-place: placing cobblestone under him (towering) for 120 ticks with back-to-back holds; what Grim says. */
     private static void place(ClientGameTestContext ctx) {
         int x = -4200;
         int z = -3000;
-        Scenario.run(ctx, "1025-blink-place", (server, scenario) -> {
+        Scenario.runExpectingFlags(ctx, "1025-blink-place", (server, scenario) -> {
             TestMap.on(server)
                     .platform(x, SURFACE_Y - 1, z, 12)
                     .catchFloor(120)
@@ -622,47 +749,50 @@ public class BlinkTests implements FabricClientGameTest {
                     .spawn(x + 0.5, z + 0.5, -90f, 90f)
                     .build();
         }, (server, scenario) -> {
-            boolean gate = setUp(ctx, defaultTicks(ctx), "PULSE");
+            boolean gate = setUp(ctx, 20);
             try {
-                int woolBefore = ctx.computeOnClient(mc -> mc.player.getInventory().countItem(net.minecraft.world.item.Items.COBBLESTONE));
+                server.mark();
+                int before = ctx.computeOnClient(mc -> mc.player.getInventory().countItem(net.minecraft.world.item.Items.COBBLESTONE));
                 long holds0 = num(ctx, "releasedHolds");
                 double y0 = scenario.playerPosition()[1];
-                pressBlink(ctx);
+                Pulser.start(ctx);
                 ctx.getInput().holdKey(o -> o.keyUse);
                 ctx.getInput().holdKey(o -> o.keyJump);
                 ctx.waitTicks(120);
                 ctx.getInput().releaseKey(o -> o.keyJump);
                 ctx.getInput().releaseKey(o -> o.keyUse);
-                pressBlink(ctx);
+                Pulser.stop(ctx);
                 ctx.waitTicks(40);
-                int woolAfter = ctx.computeOnClient(mc -> mc.player.getInventory().countItem(net.minecraft.world.item.Items.COBBLESTONE));
+                int after = ctx.computeOnClient(mc -> mc.player.getInventory().countItem(net.minecraft.world.item.Items.COBBLESTONE));
                 long holds = num(ctx, "releasedHolds") - holds0;
                 double rose = scenario.playerPosition()[1] - y0;
-                scenario.log(String.format(Locale.ROOT, "place: cobblestone %d -> %d (40 ticks after the last release), towered "
-                        + "%.1f blocks, %d release(s)", woolBefore, woolAfter, rose, holds));
-                check(woolBefore > 0 && woolAfter <= woolBefore - 3, "fewer than three blocks were placed: placing was hardly tested");
-                check(rose >= 2.5, "he did not tower up (" + rose + " blocks): the placements were not under him");
-                check(holds >= 3, "Pulse did not hold and release while placing: " + holds);
+                List<String> flags = scenario.flags();
+                scenario.log(String.format(Locale.ROOT, "place: cobblestone %d -> %d, towered %.1f blocks, %d release(s); GrimAC %s",
+                        before, after, rose, holds, flags.isEmpty() ? "clean" : flags.size() + " flag(s): " + firstChecks(flags)));
+                for (String f : flags) {
+                    scenario.log("  FLAG " + f);
+                }
+                check(before > 0 && after <= before - 3, "fewer than three blocks were placed: placing was hardly tested");
+                check(holds >= 3, "the holds did not keep coming while placing: " + holds);
             } finally {
                 ctx.getInput().releaseKey(o -> o.keyUse);
                 ctx.getInput().releaseKey(o -> o.keyJump);
                 tearDown(ctx, gate);
             }
-            ctx.waitTicks(40);
+            ctx.waitTicks(60);
+            server.mark();
         });
     }
 
     /**
-     * 1025-blink-teleport (killer560, 2026-10-25: "make the blink survive taking knock back and etherwarping and leaping"):
-     * a server teleport in the middle of a sprinting Toggle hold. Blink keeps holding (the accept goes into the queue in
-     * order), the client is where the server put him, and once the hold ends client and server agree. Under 20 ticks in
-     * all, so the hold stays inside GrimAC's 22 and the server does not resend the teleport.
+     * 1025-blink-teleport: a server teleport in the middle of a sprinting hold. Blink keeps holding (the accept goes into
+     * the queue in order), the client is where the server put him, and once the key comes up client and server agree.
      */
     private static void teleport(ClientGameTestContext ctx) {
         int x = -4400;
         int z = -3000;
         Scenario.run(ctx, "1025-blink-teleport", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
-            boolean gate = setUp(ctx, 22, "RELEASE");
+            boolean gate = setUp(ctx, 20);
             try {
                 String name = playerName(ctx);
                 ctx.getInput().holdKey(o -> o.keyUp);
@@ -670,20 +800,20 @@ public class BlinkTests implements FabricClientGameTest {
                 ctx.waitTicks(5);
                 long holds0 = num(ctx, "releasedHolds");
                 long tp0 = num(ctx, "teleportsHeld");
-                pressBlink(ctx);
+                holdDown(ctx);
                 ctx.waitTicks(6);
                 boolean heldBefore = holding(ctx);
                 releaseKeys(ctx);
                 server.command("tp " + name + " " + (x + 0.5) + " " + SURFACE_Y + " " + (z + 20.5));
                 boolean kept = false;
-                for (int i = 0; i < 12 && !kept; i++) {
+                for (int i = 0; i < 10 && !kept; i++) {
                     ctx.waitTicks(1);
                     kept = num(ctx, "teleportsHeld") > tp0;
                 }
                 boolean stillHolding = holding(ctx);
                 boolean releasedByTp = num(ctx, "releasedHolds") > holds0;
                 double[] clientHeld = scenario.playerPosition();
-                pressBlink(ctx);
+                holdUp(ctx);
                 ctx.waitTicks(10);
                 double[] client = scenario.playerPosition();
                 double[] srv = serverPos(server, ctx, name);
@@ -710,14 +840,14 @@ public class BlinkTests implements FabricClientGameTest {
         int x = -4400;
         int z = -3200;
         Scenario.run(ctx, "1025-blink-refused", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
-            boolean gate = setUp(ctx, 22, "RELEASE");
+            boolean gate = setUp(ctx, 20);
             try {
                 String name = playerName(ctx);
                 ctx.waitTicks(10);
                 double[] start = serverPos(server, ctx, name);
                 long ref0 = num(ctx, "refused");
                 long holds0 = num(ctx, "releasedHolds");
-                pressBlink(ctx);
+                holdDown(ctx);
                 ctx.getInput().holdKey(o -> o.keyUp);
                 ctx.getInput().holdKey(o -> o.keySprint);
                 ctx.waitTicks(10);
@@ -730,7 +860,7 @@ public class BlinkTests implements FabricClientGameTest {
                     ctx.waitTicks(1);
                     dropped = num(ctx, "refused") > ref0;
                 }
-                pressBlink(ctx);
+                holdUp(ctx);
                 ctx.waitTicks(10);
                 boolean released = num(ctx, "releasedHolds") > holds0;
                 double[] client = scenario.playerPosition();
@@ -749,32 +879,32 @@ public class BlinkTests implements FabricClientGameTest {
     }
 
     /**
-     * 1025-blink-leap: Pulse at 22 while sprinting, the server moves him three times (a leap is a server teleport). Each
-     * one is held through, the pulses carry on, no setback beyond the three teleports, client and server agree at the end.
+     * 1025-blink-leap: back-to-back 20-tick holds while sprinting, the server moves him three times (a leap is a server
+     * teleport). Each one is held through, the holds carry on, client and server agree at the end.
      */
     private static void leap(ClientGameTestContext ctx) {
         int x = -4400;
         int z = -3400;
         Scenario.run(ctx, "1025-blink-leap", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
-            boolean gate = setUp(ctx, 22, "PULSE");
+            boolean gate = setUp(ctx, 20);
             try {
                 String name = playerName(ctx);
                 long tp0 = num(ctx, "teleportsHeld");
                 long holds0 = num(ctx, "releasedHolds");
                 long ref0 = num(ctx, "refused");
                 ctx.runOnClient(mc -> PacketTrace.start());
-                pressBlink(ctx);
+                Pulser.start(ctx);
                 int[][] spots = {{-15, -15}, {15, -15}, {0, 15}};
                 for (int[] spot : spots) {
                     ctx.getInput().holdKey(o -> o.keyUp);
                     ctx.getInput().holdKey(o -> o.keySprint);
-                    ctx.waitTicks(17);
+                    ctx.waitTicks(10);
                     server.command("tp " + name + " " + (x + spot[0] + 0.5) + " " + SURFACE_Y + " " + (z + spot[1] + 0.5));
-                    ctx.waitTicks(13);
+                    ctx.waitTicks(20);
                 }
                 releaseKeys(ctx);
                 ctx.waitTicks(10);
-                pressBlink(ctx);
+                Pulser.stop(ctx);
                 ctx.waitTicks(20);
                 ctx.runOnClient(mc -> PacketTrace.stop());
                 long held = num(ctx, "teleportsHeld") - tp0;
@@ -786,7 +916,7 @@ public class BlinkTests implements FabricClientGameTest {
                 scenario.log(String.format(Locale.ROOT, "leap: %d teleport(s) held through, %d release(s), %d refused, %d position "
                         + "packet(s); client %s, server %s", held, holds, refusedN, positions, fmt(client), fmt(srv)));
                 check(held >= 2, "Blink held through fewer than two of the three teleports: " + held);
-                check(holds >= 4, "Pulse did not keep going: " + holds + " release(s)");
+                check(holds >= 4, "the holds did not keep coming: " + holds + " release(s)");
                 check(refusedN == 0, "a teleport was taken for a refused blink");
                 check(positions == 3, "the server sent " + positions + " position packet(s), not the three teleports");
                 check(flat(client, srv) < 0.5, "client and server disagree at the end: " + fmt(client) + " vs " + fmt(srv));
@@ -798,20 +928,20 @@ public class BlinkTests implements FabricClientGameTest {
     }
 
     /**
-     * 1025-blink-knockback: Pulse at 22 standing in front of a bot that hits him once a second. The knockback must reach
-     * him (he is moved), Pulse keeps holding and releasing, and nothing sets him back.
+     * 1025-blink-knockback: back-to-back 20-tick holds standing in front of a bot that hits him once a second. The
+     * knockback must reach him (he is moved), the holds keep coming, and nothing sets him back.
      */
     private static void knockback(ClientGameTestContext ctx) {
         int x = -4400;
         int z = -3600;
         Scenario.run(ctx, "1025-blink-knockback", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
-            boolean gate = setUp(ctx, 22, "PULSE");
+            boolean gate = setUp(ctx, 20);
             TestEnemy attacker = null;
             try {
                 double[] start = scenario.playerPosition();
                 long holds0 = num(ctx, "releasedHolds");
                 ctx.runOnClient(mc -> PacketTrace.start());
-                pressBlink(ctx);
+                Pulser.start(ctx);
                 attacker = TestEnemy.named("Knockback", "Blink")
                         .at(x + 3.5, SURFACE_Y, z + 0.5)
                         .health(20)
@@ -820,7 +950,7 @@ public class BlinkTests implements FabricClientGameTest {
                         .chasing(true)
                         .spawn(ctx, server);
                 attacker.drive(200);
-                pressBlink(ctx);
+                Pulser.stop(ctx);
                 ctx.waitTicks(10);
                 ctx.runOnClient(mc -> PacketTrace.stop());
                 long holds = num(ctx, "releasedHolds") - holds0;
@@ -833,7 +963,7 @@ public class BlinkTests implements FabricClientGameTest {
                         + "client %s, server %s", attacker.hits(), moved, holds, setbacks, fmt(end), fmt(srv)));
                 check(attacker.hits() >= 5, "only " + attacker.hits() + " hit(s): knockback was hardly tested");
                 check(moved >= 0.5, "he was not knocked anywhere (" + moved + " blocks): no knockback was delivered");
-                check(holds >= 6, "Pulse did not keep going under the hits: " + holds + " release(s)");
+                check(holds >= 6, "the holds did not keep coming under the hits: " + holds + " release(s)");
                 check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
                 check(flat(end, srv) < 0.5, "client and server disagree at the end: " + fmt(end) + " vs " + fmt(srv));
             } finally {
@@ -850,29 +980,32 @@ public class BlinkTests implements FabricClientGameTest {
             + "tuned_transmission:4},unbreakable={}]";
 
     /**
-     * 1025-blink-etherwarp: Pulse at 22, four real etherwarps (hx/dungeon/HxAbilities) 15 ticks apart. Each warp's use is
-     * held and released with its pulse, and the landing arrives while the next hold is running: Blink must keep holding,
-     * the server must warp all four times, and client and server agree at the end.
+     * 1025-blink-etherwarp: back-to-back 20-tick holds, four real etherwarps (hx/dungeon/HxAbilities) 30 ticks apart. Each
+     * warp's use is held and released with its hold, and the landing arrives while the next hold is running: Blink must
+     * keep holding, the server must warp all four times, and client and server agree at the end.
      */
     private static void etherwarp(ClientGameTestContext ctx) {
         int x = -4400;
         int z = -3800;
         Scenario.run(ctx, "1025-blink-etherwarp", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
-            boolean gate = setUp(ctx, 22, "PULSE");
+            boolean gate = setUp(ctx, 20);
             dev.testkit.gametest.hx.Hx hx = null;
             try {
                 hx = dev.testkit.gametest.hx.Hx.connect();
                 hx.call("dungeon.abilities", "enabled", true);
                 hx.give(0, AOTV);
                 ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
-                ctx.waitTicks(10);
+                // Hypixel-like latency: the landing of a warp released with one hold comes back during the next one (the
+                // key needs a tick up and a tick down between holds, so with none it lands in that gap).
+                ctx.runOnClient(mc -> Latency.install(150));
+                ctx.waitTicks(30);
                 com.google.gson.JsonObject before = hx.call("dungeon.stats").getAsJsonObject();
                 long tp0 = num(ctx, "teleportsHeld");
                 long ref0 = num(ctx, "refused");
                 long holds0 = num(ctx, "releasedHolds");
                 ctx.getInput().holdKey(o -> o.keyShift);
                 ctx.waitTicks(5);
-                pressBlink(ctx);
+                Pulser.start(ctx);
                 for (int i = 1; i <= 4; i++) {
                     int bx = x + 6 * i;
                     ctx.runOnClient(mc -> {
@@ -888,7 +1021,7 @@ public class BlinkTests implements FabricClientGameTest {
                     ctx.getInput().pressKey(o -> o.keyUse);
                     ctx.waitTicks(30);
                 }
-                pressBlink(ctx);
+                Pulser.stop(ctx);
                 ctx.waitTicks(20);
                 ctx.getInput().releaseKey(o -> o.keyShift);
                 com.google.gson.JsonObject after = hx.call("dungeon.stats").getAsJsonObject();
@@ -902,13 +1035,14 @@ public class BlinkTests implements FabricClientGameTest {
                 scenario.log(String.format(Locale.ROOT, "etherwarp: %d server warp(s), %d landing(s) held through, %d refused, %d "
                         + "release(s); client %s, server %s", warps, held, refusedN, holds, fmt(client), fmt(srv)));
                 check(warps == 4, "the server did not etherwarp four times: " + warps);
-                check(held >= 3, "Blink held through fewer than three of the landings: " + held);
+                check(held >= 2, "Blink held through fewer than two of the landings: " + held);
                 check(refusedN == 0, "a landing was taken for a refused blink");
                 check(Math.abs(client[0] - (x + 24.5)) < 1.0 && Math.abs(client[2] - (z + 0.5)) < 1.0,
                         "he is not on the last warp's block: " + fmt(client));
                 check(flat(client, srv) < 0.5, "client and server disagree at the end: " + fmt(client) + " vs " + fmt(srv));
             } finally {
                 ctx.getInput().releaseKey(o -> o.keyShift);
+                ctx.runOnClient(mc -> Latency.remove());
                 if (hx != null) {
                     hx.call("dungeon.abilities", "enabled", false);
                     hx.close();
@@ -920,24 +1054,17 @@ public class BlinkTests implements FabricClientGameTest {
     }
 
     // ---- Charge (killer560, 2026-10-25: "stand still and do a terminal then once it is done I start walking and release
-    // it so I shoot 22 packets forward"; "flick levers mine blocks"; "infinite"; "hold through leaps and etherwarps") ----
+    // it"; "flick levers mine blocks"; "infinite"; the rework: banks Charge Ticks, fires only on the key, arms standing) ----
 
-    private static final String STYLE = "blink.BlinkConfig$Style";
-    private static final String CHARGE = "blink.BlinkCharge";
-
+    /** Charge on (a Toggle press of the Charge key). */
     private static void chargeOn(ClientGameTestContext ctx) {
-        ctx.runOnClient(mc -> {
-            Mod.set(CFG, "setStyle", Mod.enumValue(STYLE, "CHARGE"));
-            Mod.set(CFG, "setShootOnMove", true);
-            Mod.set(CFG, "setHoldAfterShot", false);
-        });
-        pressBlink(ctx);
+        pressCharge(ctx);
     }
 
     private static void chargeOff(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> {
-            Mod.setField(FEATURE, "keyHeldForTest", Boolean.FALSE);
-            Mod.set(CFG, "setStyle", Mod.enumValue(STYLE, "HOLD_PACKETS"));
+            Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE);
+            Mod.staticCall(CHARGE, "reset", "test");
         });
         ctx.waitTicks(2);
     }
@@ -946,8 +1073,12 @@ public class BlinkTests implements FabricClientGameTest {
         return ctx.computeOnClient(mc -> ((Number) Mod.staticCall(CHARGE, getter)).longValue());
     }
 
-    private static double lastShotBlocks(ClientGameTestContext ctx) {
-        return ctx.computeOnClient(mc -> ((Number) Mod.staticCall(CHARGE, "lastShotBlocks")).doubleValue());
+    private static boolean charging(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "isActive"));
+    }
+
+    private static boolean armed(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "isArmed"));
     }
 
     private static void look(ClientGameTestContext ctx, double tx, double ty, double tz) {
@@ -966,29 +1097,36 @@ public class BlinkTests implements FabricClientGameTest {
     }
 
     /**
-     * Walk forward one tick after standing charged and return how far the client went that tick, plus the shot's own
-     * numbers. The shot runs at the start of the tick the key is first down.
+     * Fires the bank the way he does: a movement key down and the Charge key pressed in the same tick (Toggle). Returns
+     * {blocks moved over that one tick, shots made, ticks in the last shot}. The shot runs at the start of the tick.
      */
-    private static double[] shootByWalking(ClientGameTestContext ctx) {
+    private static double[] shootByPress(ClientGameTestContext ctx, boolean sprint) {
         long shots0 = cnum(ctx, "shots");
         double[] before = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
         ctx.getInput().holdKey(o -> o.keyUp);
+        if (sprint) {
+            ctx.getInput().holdKey(o -> o.keySprint);
+        }
+        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
         ctx.waitTicks(1);
         double[] after = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
         ctx.getInput().releaseKey(o -> o.keyUp);
+        ctx.getInput().releaseKey(o -> o.keySprint);
         long shots = cnum(ctx, "shots") - shots0;
         return new double[]{flat(before, after), shots, cnum(ctx, "lastShotTicks")};
     }
 
     /**
-     * 1025-blink-charge: Charge on, stand still 40 ticks (the bank fills to 22 and stops), then walk: the 22 ticks run at
-     * once and he is about five blocks on in one tick, client and server agreeing. Three times over - it never runs out.
+     * 1025-blink-charge: Charge Ticks 20. Stand still 40 ticks (the bank fills to exactly 20 and stops), then sprint and
+     * press the Charge key: the 20 ticks run at once and he is about six blocks on in one tick, client and server agreeing.
+     * Three times over - Toggle keeps charging after a shot, so it never runs out.
      */
     private static void charge(ClientGameTestContext ctx) {
         int x = -4600;
         int z = -3400;
         Scenario.run(ctx, "1025-blink-charge", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
-            boolean gate = setUp(ctx, 22, "RELEASE");
+            boolean gate = setUp(ctx, 20);
             try {
                 String name = playerName(ctx);
                 ctx.runOnClient(mc -> PacketTrace.start());
@@ -998,20 +1136,25 @@ public class BlinkTests implements FabricClientGameTest {
                 for (int round = 0; round < 3; round++) {
                     ctx.waitTicks(40);
                     long bank = cnum(ctx, "banked");
-                    double[] shot = shootByWalking(ctx);
+                    double[] shot = shootByPress(ctx, true);
+                    boolean still = charging(ctx);
                     ctx.waitTicks(10);
+                    // Turn round so the next round stays on the platform.
+                    ctx.runOnClient(mc -> mc.player.setYRot(mc.player.getYRot() + 180f));
                     double[] client = scenario.playerPosition();
                     double[] srv = serverPos(server, ctx, name);
-                    rounds.append(String.format(Locale.ROOT, " [round %d: bank %d, shot %d tick(s) %.2f blocks in one tick; "
-                            + "client %s server %s]", round + 1, bank, (long) shot[2], shot[0], fmt(client), fmt(srv)));
-                    if (bank == 21 && shot[1] == 1 && shot[2] == 21 && shot[0] > 3.5 && flat(client, srv) < 0.5) {
+                    rounds.append(String.format(Locale.ROOT, " [round %d: bank %d, shot %d tick(s) %.2f blocks in one tick, still "
+                            + "charging %s; client %s server %s]", round + 1, bank, (long) shot[2], shot[0], still, fmt(client),
+                            fmt(srv)));
+                    if (bank == 20 && shot[1] == 1 && shot[2] == 20 && shot[0] > 4.5 && still && flat(client, srv) < 0.5) {
                         good++;
                     }
                 }
                 ctx.runOnClient(mc -> PacketTrace.stop());
                 int setbacks = PacketTrace.received("player_position");
                 scenario.log("charge:" + rounds + "; " + setbacks + " setback(s)");
-                check(good == 3, good + " of 3 charge shots banked 22 ticks and shot him forward with the server agreeing");
+                check(good == 3, good + " of 3 sprinting charge shots banked exactly 20 ticks and shot him forward with the "
+                        + "server agreeing");
                 check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
             } finally {
                 chargeOff(ctx);
@@ -1035,19 +1178,17 @@ public class BlinkTests implements FabricClientGameTest {
             server.command("setblock " + (x + 2) + " " + SURFACE_Y + " " + (z - 2) + " minecraft:dirt");
             server.command("setblock " + (x + 2) + " " + (SURFACE_Y + 1) + " " + (z - 2) + " minecraft:dirt");
         }, (server, scenario) -> {
-            boolean gate = setUp(ctx, 22, "RELEASE");
+            boolean gate = setUp(ctx, 20);
             try {
                 String name = playerName(ctx);
                 ctx.runOnClient(mc -> PacketTrace.start());
                 chargeOn(ctx);
                 ctx.waitTicks(30);
                 long bankBefore = cnum(ctx, "banked");
-                // The lever.
                 look(ctx, x + 2.5, SURFACE_Y + 1.1, z + 2.5);
                 ctx.waitTicks(2);
                 ctx.getInput().pressKey(o -> o.keyUse);
                 ctx.waitTicks(10);
-                // The two dirt blocks, top first, by hand.
                 look(ctx, x + 2.5, SURFACE_Y + 1.5, z - 1.5);
                 ctx.waitTicks(2);
                 ctx.getInput().holdKey(o -> o.keyAttack);
@@ -1055,14 +1196,13 @@ public class BlinkTests implements FabricClientGameTest {
                 look(ctx, x + 2.5, SURFACE_Y + 0.5, z - 1.5);
                 ctx.waitTicks(30);
                 ctx.getInput().releaseKey(o -> o.keyAttack);
-                // Face along +x again and stand a moment, still charged.
                 ctx.runOnClient(mc -> {
                     mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(-90f - mc.player.getYRot()));
                     mc.player.setXRot(0f);
                 });
                 ctx.waitTicks(30);
                 long bank = cnum(ctx, "banked");
-                double[] shot = shootByWalking(ctx);
+                double[] shot = shootByPress(ctx, false);
                 ctx.waitTicks(20);
                 ctx.runOnClient(mc -> PacketTrace.stop());
                 server.command("execute if block " + (x + 2) + " " + (SURFACE_Y + 1) + " " + (z + 2)
@@ -1082,7 +1222,7 @@ public class BlinkTests implements FabricClientGameTest {
                 check(bankBefore >= 20, "the bank did not fill before the actions: " + bankBefore);
                 check(lever, "the lever flick did not reach the server");
                 check(dirt, "the digging did not reach the server");
-                check(shot[1] == 1 && shot[2] >= 20 && shot[0] > 3.0, "no full shot after the actions: " + (long) shot[2]
+                check(shot[1] == 1 && shot[2] >= 19 && shot[0] > 3.0, "no full shot after the actions: " + (long) shot[2]
                         + " tick(s), " + shot[0] + " blocks");
                 check(flat(client, srv) < 0.5, "client and server disagree after the shot: " + fmt(client) + " vs " + fmt(srv));
                 check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
@@ -1103,7 +1243,7 @@ public class BlinkTests implements FabricClientGameTest {
         int x = -4600;
         int z = -3800;
         Scenario.run(ctx, "1025-blink-charge-warp", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
-            boolean gate = setUp(ctx, 22, "RELEASE");
+            boolean gate = setUp(ctx, 20);
             dev.testkit.gametest.hx.Hx hx = null;
             try {
                 String name = playerName(ctx);
@@ -1117,7 +1257,7 @@ public class BlinkTests implements FabricClientGameTest {
                 chargeOn(ctx);
                 ctx.waitTicks(30);
                 long bank1 = cnum(ctx, "banked");
-                // Etherwarp 12 blocks on, sneaking.
+                long moving0 = cnum(ctx, "movingTeleports");
                 ctx.getInput().holdKey(o -> o.keyShift);
                 ctx.waitTicks(3);
                 look(ctx, x + 12.5, SURFACE_Y, z + 0.5);
@@ -1126,7 +1266,6 @@ public class BlinkTests implements FabricClientGameTest {
                 ctx.waitTicks(10);
                 ctx.getInput().releaseKey(o -> o.keyShift);
                 ctx.waitTicks(30);
-                // A leap: the server moves him 10 blocks to the side.
                 server.command("tp " + name + " " + (x + 12.5) + " " + SURFACE_Y + " " + (z + 10.5));
                 ctx.waitTicks(30);
                 ctx.runOnClient(mc -> {
@@ -1135,7 +1274,8 @@ public class BlinkTests implements FabricClientGameTest {
                 });
                 ctx.waitTicks(30);
                 long bank2 = cnum(ctx, "banked");
-                double[] shot = shootByWalking(ctx);
+                long moving = cnum(ctx, "movingTeleports") - moving0;
+                double[] shot = shootByPress(ctx, false);
                 ctx.waitTicks(20);
                 ctx.runOnClient(mc -> PacketTrace.stop());
                 com.google.gson.JsonObject after = hx.call("dungeon.stats").getAsJsonObject();
@@ -1144,12 +1284,14 @@ public class BlinkTests implements FabricClientGameTest {
                 double[] srv = serverPos(server, ctx, name);
                 int positions = PacketTrace.received("player_position");
                 scenario.log(String.format(Locale.ROOT, "charge-warp: bank %d before the warp, %d at the shot; %d server warp(s), "
-                                + "%d position packet(s); shot %d tick(s) %.2f blocks in one tick; client %s server %s", bank1,
-                        bank2, warps, positions, (long) shot[2], shot[0], fmt(client), fmt(srv)));
+                                + "%d position packet(s), %d moving teleport(s) counted; shot %d tick(s) %.2f blocks in one tick; "
+                                + "client %s server %s", bank1, bank2, warps, positions, moving, (long) shot[2], shot[0], fmt(client),
+                        fmt(srv)));
                 check(bank1 >= 20, "the bank did not fill before the warp: " + bank1);
                 check(warps == 1, "the server did not etherwarp: " + warps);
-                check(positions == 2, positions + " position packet(s), not the warp and the leap");
-                check(shot[1] == 1 && shot[2] >= 20 && shot[0] > 3.0, "no full shot after the warp and leap: " + (long) shot[2]
+                check(positions == 2 && moving == 2, positions + " position packet(s), " + moving
+                        + " moving teleport(s): not the warp and the leap");
+                check(shot[1] == 1 && shot[2] >= 19 && shot[0] > 3.0, "no full shot after the warp and leap: " + (long) shot[2]
                         + " tick(s), " + shot[0] + " blocks");
                 check(Math.abs(client[2] - (z + 10.5)) < 1.0, "he is not on the leap's row: " + fmt(client));
                 check(flat(client, srv) < 0.5, "client and server disagree after the shot: " + fmt(client) + " vs " + fmt(srv));
@@ -1167,20 +1309,19 @@ public class BlinkTests implements FabricClientGameTest {
     }
 
     /**
-     * 1025-blink-charge-run (killer560, 2026-10-25: "make it charge while blinking and running"): Shoot When You Move off.
-     * Charge standing still, then sprint about for 40 ticks - the bank is kept - and press the Blink key mid-sprint: the
-     * bank fires at once, charging goes on, and after standing again it is full and fires again. Grim silent.
+     * 1025-blink-charge-run (killer560, 2026-10-25: "make it charge while blinking and running"): charge standing still,
+     * then sprint about for 20 ticks - the bank is kept - and press the Charge key mid-sprint: the bank fires at once,
+     * charging goes on, and after standing again it is full and fires again. Grim silent.
      */
     private static void chargeRun(ClientGameTestContext ctx) {
         int x = -4800;
         int z = -3400;
         Scenario.run(ctx, "1025-blink-charge-run", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
-            boolean gate = setUp(ctx, 22, "RELEASE");
+            boolean gate = setUp(ctx, 20);
             try {
                 String name = playerName(ctx);
                 ctx.runOnClient(mc -> PacketTrace.start());
                 chargeOn(ctx);
-                ctx.runOnClient(mc -> Mod.set(CFG, "setShootOnMove", false));
                 StringBuilder rounds = new StringBuilder();
                 int good = 0;
                 for (int round = 0; round < 2; round++) {
@@ -1192,24 +1333,23 @@ public class BlinkTests implements FabricClientGameTest {
                     long bankRunning = cnum(ctx, "banked");
                     long shots0 = cnum(ctx, "shots");
                     double[] before = scenario.playerPosition();
-                    pressBlink(ctx);
+                    pressCharge(ctx);
                     double[] after = scenario.playerPosition();
                     long shots = cnum(ctx, "shots") - shots0;
                     long ticks = cnum(ctx, "lastShotTicks");
-                    boolean stillCharging = ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "isActive"));
+                    boolean stillCharging = charging(ctx);
                     ctx.waitTicks(5);
                     ctx.getInput().releaseKey(o -> o.keySprint);
                     ctx.getInput().releaseKey(o -> o.keyUp);
-                    // Turn round so the next sprint stays on the platform.
                     ctx.runOnClient(mc -> mc.player.setYRot(mc.player.getYRot() + 180f));
                     ctx.waitTicks(10);
                     double[] client = scenario.playerPosition();
                     double[] srv = serverPos(server, ctx, name);
                     double went = flat(before, after);
                     rounds.append(String.format(Locale.ROOT, " [round %d: bank %d standing, %d after 20 sprinting ticks; key press "
-                                    + "shot %d tick(s), %.2f blocks over the press's 2 ticks, still charging %s; client %s server %s]",
+                                    + "shot %d tick(s), %.2f blocks over the press's tick, still charging %s; client %s server %s]",
                             round + 1, bankStill, bankRunning, ticks, went, stillCharging, fmt(client), fmt(srv)));
-                    if (bankStill == 21 && bankRunning == 21 && shots == 1 && ticks == 21 && went > 6.0 && stillCharging
+                    if (bankStill == 20 && bankRunning == 20 && shots == 1 && ticks == 20 && went > 5.5 && stillCharging
                             && flat(client, srv) < 0.5) {
                         good++;
                     }
@@ -1230,48 +1370,44 @@ public class BlinkTests implements FabricClientGameTest {
     }
 
     /**
-     * 1025-blink-charge-sweep: how big a bank GrimAC takes. For each length (testkit.chargeSweep, default 22,23,24,26,30):
-     * back to the start, charge exactly that many ticks standing, shoot by walking, and record what Grim said.
+     * 1025-blink-charge-sweep: each Charge Ticks setting (testkit.chargeSweep, default 1,5,10,15,18,19,20): back to the
+     * start, charge, sprint and fire, and record what Grim said. The bank must be exactly the setting (since the rework,
+     * 20 banks 20) and every length up to 20 must be clean.
      */
     private static void chargeSweep(ClientGameTestContext ctx) {
         int x = -4800;
         int z = -3600;
         Scenario.runExpectingFlags(ctx, "1025-blink-charge-sweep", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
-            boolean gate = setUp(ctx, 22, "RELEASE");
+            boolean gate = setUp(ctx, 20);
             String p = System.getProperty("testkit.chargeSweep");
-            String[] parts = (p == null || p.isBlank() ? "22,23,24,26,30" : p).split(",");
+            String[] parts = (p == null || p.isBlank() ? "1,5,10,15,18,19,20" : p).split(",");
             List<String> rows = new ArrayList<>();
-            int longestClean = 0;
-            boolean brokeClean = false;
+            List<Integer> bad = new ArrayList<>();
             String name = playerName(ctx);
             try {
                 for (String part : parts) {
                     int len = Integer.parseInt(part.trim());
                     server.command("tp " + name + " " + (x - 20.5) + " " + SURFACE_Y + " " + (z + 0.5) + " -90 0");
                     ctx.waitTicks(30);
-                    ctx.runOnClient(mc -> Mod.set(CFG, "setMaxTicks", len));
+                    ctx.runOnClient(mc -> Mod.set(CFG, "setChargeTicks", len));
                     server.mark();
                     chargeOn(ctx);
                     ctx.waitTicks(len + 15);
                     long bank = cnum(ctx, "banked");
-                    double[] shot = shootByWalking(ctx);
+                    double[] shot = shootByPress(ctx, true);
                     ctx.getInput().holdKey(o -> o.keyUp);
                     ctx.waitTicks(10);
                     ctx.getInput().releaseKey(o -> o.keyUp);
                     chargeOff(ctx);
                     ctx.waitTicks(40);
                     List<String> flags = scenario.flags();
-                    boolean ok = flags.isEmpty() && bank == len - 1 && (long) shot[2] == len - 1;
-                    String row = String.format(Locale.ROOT, "bank %3d: banked %d, shot %d tick(s) %.2f blocks, %s", len, bank,
-                            (long) shot[2], shot[0], flags.isEmpty() ? "clean" : flags.size() + " flag(s): " + firstChecks(flags));
+                    boolean ok = flags.isEmpty() && bank == len && (long) shot[2] == len;
+                    String row = String.format(Locale.ROOT, "Charge Ticks %2d: banked %d, shot %d tick(s) %.2f blocks, %s", len,
+                            bank, (long) shot[2], shot[0], flags.isEmpty() ? "clean" : flags.size() + " flag(s): " + firstChecks(flags));
                     rows.add(row);
                     scenario.log(row);
-                    if (ok && !brokeClean) {
-                        longestClean = len;
-                    } else if (!ok) {
-                        brokeClean = true;
-                    }
-                    if (!flags.isEmpty()) {
+                    if (!ok) {
+                        bad.add(len);
                         ctx.waitTicks(60);
                     }
                 }
@@ -1279,63 +1415,877 @@ public class BlinkTests implements FabricClientGameTest {
                 chargeOff(ctx);
                 tearDown(ctx, gate);
             }
-            scenario.log("SWEEP 1025-blink-charge-sweep: biggest bank clean (and every smaller one) " + longestClean + " tick(s)");
+            scenario.log("SWEEP 1025-blink-charge-sweep: lengths that were not clean or banked the wrong amount " + bad);
             for (String r : rows) {
                 scenario.log("  " + r);
             }
             check(!rows.isEmpty(), "the sweep ran no lengths");
+            check(bad.isEmpty(), "Charge Ticks " + bad + " flagged or banked the wrong amount");
             server.mark();
         });
     }
 
     /**
-     * 1025-blink-charge-double (killer560, 2026-10-25: "effectively get 2 blinks"): charge 22 standing, then sprint - the
-     * bank fires at once and a normal 22-tick hold starts straight after (Blink Again After Shot), released at its limit.
-     * Grim must stay silent and client and server agree at the end.
+     * 1025-blink-charge-arm (killer560, 2026-10-25): a Toggle fire while standing still ARMS the shot - nothing moves, the
+     * bank stays - and it fires the first tick a movement key is down, moving him the whole bank in that tick. A second
+     * press while armed switches Charge off (nothing is fired). Grim silent.
      */
-    private static void chargeDouble(ClientGameTestContext ctx) {
-        int x = -4800;
-        int z = -3800;
-        Scenario.run(ctx, "1025-blink-charge-double", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
-            boolean gate = setUp(ctx, 22, "RELEASE");
+    private static void chargeArm(ClientGameTestContext ctx) {
+        int x = -5000;
+        int z = -3000;
+        Scenario.run(ctx, "1025-blink-charge-arm", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
             try {
                 String name = playerName(ctx);
+                ctx.runOnClient(mc -> PacketTrace.start());
                 chargeOn(ctx);
-                ctx.runOnClient(mc -> Mod.set(CFG, "setHoldAfterShot", true));
                 ctx.waitTicks(35);
                 long bank = cnum(ctx, "banked");
-                long holds0 = num(ctx, "releasedHolds");
-                ctx.runOnClient(mc -> PacketTrace.start());
-                double[] start = scenario.playerPosition();
+                long shots0 = cnum(ctx, "shots");
+                double[] p0 = scenario.playerPosition();
+                pressCharge(ctx);
+                boolean armedNow = armed(ctx);
+                ctx.waitTicks(15);
+                double[] p1 = scenario.playerPosition();
+                boolean armedLater = armed(ctx);
+                long bankArmed = cnum(ctx, "banked");
+                long shotsArmed = cnum(ctx, "shots") - shots0;
+                // A movement key: it fires that very tick.
                 ctx.getInput().holdKey(o -> o.keyUp);
                 ctx.getInput().holdKey(o -> o.keySprint);
                 ctx.waitTicks(1);
-                double[] afterShot = scenario.playerPosition();
-                long shotTicks = cnum(ctx, "lastShotTicks");
-                boolean followUp = holding(ctx) && "charge follow-up".equals(
-                        ctx.computeOnClient(mc -> (String) Mod.staticCall(FEATURE, "holdOwner")));
-                ctx.waitTicks(30);
-                ctx.getInput().releaseKey(o -> o.keySprint);
+                double[] p2 = scenario.playerPosition();
                 ctx.getInput().releaseKey(o -> o.keyUp);
-                ctx.waitTicks(10);
-                ctx.runOnClient(mc -> PacketTrace.stop());
-                long released = num(ctx, "releasedHolds") - holds0;
-                long lastHold = num(ctx, "lastHoldTicks");
-                int setbacks = PacketTrace.received("player_position");
+                ctx.getInput().releaseKey(o -> o.keySprint);
+                long shots = cnum(ctx, "shots") - shots0;
+                long ticks = cnum(ctx, "lastShotTicks");
+                boolean armedAfter = armed(ctx);
+                boolean stillCharging = charging(ctx);
+                ctx.waitTicks(20);
                 double[] client = scenario.playerPosition();
                 double[] srv = serverPos(server, ctx, name);
-                scenario.log(String.format(Locale.ROOT, "charge-double: bank %d; shot %d tick(s) %.2f blocks in one tick; follow-up "
-                                + "hold started %s, %d release(s), last hold %d tick(s); %.2f blocks in all; client %s server %s; "
-                                + "%d setback(s)", bank, shotTicks, flat(start, afterShot), followUp, released, lastHold,
-                        flat(start, client), fmt(client), fmt(srv), setbacks));
-                check(bank == 21 && shotTicks == 21 && flat(start, afterShot) > 5.0, "the charge did not shoot its 21 banked ticks");
-                check(followUp, "no follow-up hold started after the shot");
-                check(released >= 1 && lastHold == 22, "the follow-up hold did not run to 22 ticks and release");
-                check(flat(client, srv) < 0.5, "client and server disagree at the end: " + fmt(client) + " vs " + fmt(srv));
+                // Armed again, then a second press: Charge off, nothing fired.
+                ctx.waitTicks(30);
+                long shotsB = cnum(ctx, "shots");
+                pressCharge(ctx);
+                boolean armed2 = armed(ctx);
+                pressCharge(ctx);
+                boolean offAfterSecond = !charging(ctx);
+                boolean firedB = cnum(ctx, "shots") != shotsB;
+                ctx.runOnClient(mc -> PacketTrace.stop());
+                int setbacks = PacketTrace.received("player_position");
+                scenario.log(String.format(Locale.ROOT, "charge-arm: bank %d; press standing: armed %s, 15 ticks later armed %s, "
+                                + "moved %.3f, bank %d, %d shot(s); forward: %d shot(s) of %d tick(s), %.2f blocks that tick, armed "
+                                + "after %s, still charging %s; client %s server %s; armed again %s then a press: off %s, fired %s; "
+                                + "%d setback(s)", bank, armedNow, armedLater, flat(p0, p1), bankArmed, shotsArmed, shots, ticks,
+                        flat(p1, p2), armedAfter, stillCharging, fmt(client), fmt(srv), armed2, offAfterSecond, firedB, setbacks));
+                check(bank == 20, "the bank did not fill to 20: " + bank);
+                check(armedNow && armedLater && shotsArmed == 0 && flat(p0, p1) < 0.01 && bankArmed == 20,
+                        "a standing press did not arm the shot and wait (nothing may move)");
+                check(shots == 1 && ticks == 20 && flat(p1, p2) > 4.5, "the armed shot did not fire the tick he moved");
+                check(!armedAfter && stillCharging, "after the armed shot it is still armed or Charge went off");
+                check(flat(client, srv) < 0.5, "client and server disagree after the shot: " + fmt(client) + " vs " + fmt(srv));
+                check(armed2 && offAfterSecond && !firedB, "a press while armed did not switch Charge off without firing");
                 check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
             } finally {
-                ctx.getInput().releaseKey(o -> o.keySprint);
                 ctx.getInput().releaseKey(o -> o.keyUp);
+                ctx.getInput().releaseKey(o -> o.keySprint);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /**
+     * 1025-blink-charge-holdmode: Charge in Hold mode. Key down = charging; letting go while sprinting fires the bank and
+     * turns Charge off; letting go standing still arms it, the first movement fires it and turns Charge off. Grim silent.
+     */
+    private static void chargeHoldMode(ClientGameTestContext ctx) {
+        int x = -5000;
+        int z = -3200;
+        Scenario.run(ctx, "1025-blink-charge-holdmode", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            try {
+                String name = playerName(ctx);
+                ctx.runOnClient(mc -> {
+                    Mod.set(CFG, "setChargeMode", Mod.enumValue(MODE, "HOLD"));
+                    PacketTrace.start();
+                });
+                // Round 1: let go while sprinting.
+                ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
+                ctx.waitTicks(2);
+                boolean on1 = charging(ctx);
+                ctx.waitTicks(35);
+                long bank1 = cnum(ctx, "banked");
+                long shots0 = cnum(ctx, "shots");
+                double[] a0 = scenario.playerPosition();
+                ctx.getInput().holdKey(o -> o.keyUp);
+                ctx.getInput().holdKey(o -> o.keySprint);
+                ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+                ctx.waitTicks(1);
+                double[] a1 = scenario.playerPosition();
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                ctx.getInput().releaseKey(o -> o.keySprint);
+                long shots1 = cnum(ctx, "shots") - shots0;
+                long ticks1 = cnum(ctx, "lastShotTicks");
+                boolean off1 = !charging(ctx);
+                ctx.waitTicks(15);
+                ctx.runOnClient(mc -> mc.player.setYRot(mc.player.getYRot() + 180f));
+                double[] c1 = scenario.playerPosition();
+                double[] s1 = serverPos(server, ctx, name);
+                // Round 2: let go standing still - armed, fires on the first move, then off.
+                ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
+                ctx.waitTicks(35);
+                long bank2 = cnum(ctx, "banked");
+                ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+                ctx.waitTicks(10);
+                boolean armed2 = armed(ctx);
+                boolean on2 = charging(ctx);
+                long shots2a = cnum(ctx, "shots");
+                double[] b0 = scenario.playerPosition();
+                ctx.getInput().holdKey(o -> o.keyUp);
+                ctx.getInput().holdKey(o -> o.keySprint);
+                ctx.waitTicks(1);
+                double[] b1 = scenario.playerPosition();
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                ctx.getInput().releaseKey(o -> o.keySprint);
+                long shots2 = cnum(ctx, "shots") - shots2a;
+                long ticks2 = cnum(ctx, "lastShotTicks");
+                boolean off2 = !charging(ctx);
+                ctx.waitTicks(15);
+                double[] c2 = scenario.playerPosition();
+                double[] s2 = serverPos(server, ctx, name);
+                ctx.runOnClient(mc -> PacketTrace.stop());
+                int setbacks = PacketTrace.received("player_position");
+                scenario.log(String.format(Locale.ROOT, "charge-holdmode: key down -> charging %s, bank %d; let go sprinting: %d "
+                                + "shot(s) of %d tick(s), %.2f blocks that tick, Charge off %s; client %s server %s. Again: bank %d, "
+                                + "let go standing: armed %s, charging %s; forward: %d shot(s) of %d tick(s), %.2f blocks, off %s; "
+                                + "client %s server %s; %d setback(s)", on1, bank1, shots1, ticks1, flat(a0, a1), off1, fmt(c1),
+                        fmt(s1), bank2, armed2, on2, shots2, ticks2, flat(b0, b1), off2, fmt(c2), fmt(s2), setbacks));
+                check(on1 && bank1 == 20, "holding the key did not charge to 20");
+                check(shots1 == 1 && ticks1 == 20 && flat(a0, a1) > 4.5 && off1, "letting go while sprinting did not fire "
+                        + "the bank and switch Charge off");
+                check(flat(c1, s1) < 0.5, "client and server disagree after the first shot");
+                check(bank2 == 20 && armed2 && on2, "letting go standing still did not arm the shot");
+                check(shots2 == 1 && ticks2 == 20 && flat(b0, b1) > 4.5 && off2, "the armed shot did not fire on the first "
+                        + "move and switch Charge off");
+                check(flat(c2, s2) < 0.5, "client and server disagree after the second shot");
+                check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
+            } finally {
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                ctx.getInput().releaseKey(o -> o.keySprint);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /**
+     * 1025-blink-charge-wait: a full bank (20) stays full for 7 seconds standing, with no shot and no flag (read every
+     * second), then the shot is still all 20 ticks and clean.
+     */
+    private static void chargeWait(ClientGameTestContext ctx) {
+        int x = -5000;
+        int z = -3400;
+        Scenario.run(ctx, "1025-blink-charge-wait", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            try {
+                String name = playerName(ctx);
+                ctx.runOnClient(mc -> PacketTrace.start());
+                chargeOn(ctx);
+                ctx.waitTicks(30);
+                long shots0 = cnum(ctx, "shots");
+                StringBuilder banks = new StringBuilder();
+                boolean full = true;
+                for (int s = 0; s < 7; s++) {
+                    ctx.waitTicks(20);
+                    long b = cnum(ctx, "banked");
+                    banks.append(b).append(s < 6 ? "," : "");
+                    full &= b == 20;
+                }
+                long shotsWaiting = cnum(ctx, "shots") - shots0;
+                List<String> flagsWaiting = scenario.flags();
+                double[] shot = shootByPress(ctx, true);
+                ctx.waitTicks(20);
+                ctx.runOnClient(mc -> PacketTrace.stop());
+                double[] client = scenario.playerPosition();
+                double[] srv = serverPos(server, ctx, name);
+                int setbacks = PacketTrace.received("player_position");
+                scenario.log(String.format(Locale.ROOT, "charge-wait: bank each second for 7 s [%s], %d shot(s) and %d flag(s) "
+                                + "meanwhile; then shot %d tick(s) %.2f blocks; client %s server %s; %d setback(s)", banks,
+                        shotsWaiting, flagsWaiting.size(), (long) shot[2], shot[0], fmt(client), fmt(srv), setbacks));
+                check(full, "the bank did not stay at 20 for 7 s: " + banks);
+                check(shotsWaiting == 0, "something fired while he waited");
+                check(flagsWaiting.isEmpty(), "Grim flagged while the full bank waited: " + flagsWaiting);
+                check(shot[1] == 1 && shot[2] == 20 && shot[0] > 4.5, "no full shot after the wait");
+                check(flat(client, srv) < 0.5, "client and server disagree after the shot: " + fmt(client) + " vs " + fmt(srv));
+                check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
+            } finally {
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /**
+     * 1025-blink-charge-inplace (killer560, 2026-10-25: Hypixel re-syncs a charging player about once a second and each
+     * re-sync emptied the bank): while charged the server teleports him to exactly where he stands - once by relative
+     * {@code tp @s ~ ~ ~}, once to his absolute coordinates - and the bank must be kept; a shot 5 ticks after the second
+     * one must be all 20 ticks and clean. Then a teleport that moves him 3 blocks must restart the bank (and the next full
+     * shot is clean too). Grim silent throughout.
+     */
+    private static void chargeInPlace(ClientGameTestContext ctx) {
+        int x = -5000;
+        int z = -3600;
+        Scenario.runExpectingFlags(ctx, "1025-blink-charge-inplace", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            try {
+                String name = playerName(ctx);
+                ctx.runOnClient(mc -> PacketTrace.start());
+                chargeOn(ctx);
+                ctx.waitTicks(35);
+                server.mark();
+                long bank0 = cnum(ctx, "banked");
+                long in0 = cnum(ctx, "inPlaceTeleports");
+                long mv0 = cnum(ctx, "movingTeleports");
+                // Relative, in place.
+                server.command("execute as " + name + " at @s run tp @s ~ ~ ~");
+                ctx.waitTicks(10);
+                long bankRel = cnum(ctx, "banked");
+                long inRel = cnum(ctx, "inPlaceTeleports") - in0;
+                // Absolute, to where the server has him.
+                ctx.waitTicks(20);
+                double[] sp = serverPos(server, ctx, name);
+                server.command(String.format(Locale.ROOT, "tp %s %s %s %s", name, Double.toString(sp[0]), Double.toString(sp[1]),
+                        Double.toString(sp[2])));
+                ctx.waitTicks(5);
+                long bankAbs = cnum(ctx, "banked");
+                long inAbs = cnum(ctx, "inPlaceTeleports") - in0;
+                long answersWaiting = cnum(ctx, "answersHeld");
+                double[] shot = shootByPress(ctx, true);
+                ctx.waitTicks(20);
+                double[] c1 = scenario.playerPosition();
+                double[] s1 = serverPos(server, ctx, name);
+                List<String> flags1 = scenario.flags();
+                server.mark();
+                // A teleport that moves him: the bank starts again.
+                ctx.runOnClient(mc -> mc.player.setYRot(mc.player.getYRot() + 180f));
+                ctx.waitTicks(35);
+                long bankBeforeMove = cnum(ctx, "banked");
+                server.command("execute as " + name + " at @s run tp @s ~ ~ ~3");
+                ctx.waitTicks(3);
+                long bankAfterMove = cnum(ctx, "banked");
+                long moved = cnum(ctx, "movingTeleports") - mv0;
+                ctx.waitTicks(35);
+                long bankRefilled = cnum(ctx, "banked");
+                double[] shot2 = shootByPress(ctx, true);
+                ctx.waitTicks(20);
+                ctx.runOnClient(mc -> PacketTrace.stop());
+                double[] c2 = scenario.playerPosition();
+                double[] s2 = serverPos(server, ctx, name);
+                int positions = PacketTrace.received("player_position");
+                List<String> flags2 = scenario.flags();
+                for (String f : flags1) {
+                    scenario.log("  FLAG (in place, then the shot) " + f);
+                }
+                for (String f : flags2) {
+                    scenario.log("  FLAG (moving teleport, then the shot) " + f);
+                }
+                scenario.log(String.format(Locale.ROOT, "charge-inplace: bank %d; relative in-place tp: bank %d, %d in-place "
+                                + "counted; absolute in-place tp: bank %d, %d in-place in all, %d answer(s) waiting; shot 5 ticks "
+                                + "later %d tick(s) %.2f blocks, client %s server %s, %d flag(s) so far. Moving tp (3 blocks): bank "
+                                + "%d -> %d, %d moving counted, refilled to %d; shot %d tick(s) %.2f blocks; client %s server %s; "
+                                + "%d position packet(s)", bank0, bankRel, inRel, bankAbs, inAbs, answersWaiting, (long) shot[2],
+                        shot[0], fmt(c1), fmt(s1), flags1.size(), bankBeforeMove, bankAfterMove, moved, bankRefilled,
+                        (long) shot2[2], shot2[0], fmt(c2), fmt(s2), positions));
+                check(bank0 == 20, "the bank did not fill: " + bank0);
+                check(inRel == 1 && bankRel == 20, "the relative in-place teleport did not keep the bank");
+                check(inAbs == 2 && bankAbs == 20, "the absolute in-place teleport did not keep the bank");
+                check(shot[1] == 1 && shot[2] == 20 && shot[0] > 4.5, "no full shot after the in-place teleports");
+                // The bank kept through an in-place teleport is the owner's design (2026-10-25). On GrimAC the teleport's
+                // confirm then arrives before the answer to the ping GrimAC sent with it (the answers wait 990 ms), which
+                // GrimAC reads as a confirm and a move with no teleport pending; recorded here, see the report.
+                scenario.log(String.format(Locale.ROOT, "IN-PLACE VERDICT: shot after the in-place teleports %s with %d flag(s); "
+                        + "shot after the moving teleport %s with %d flag(s)", flat(c1, s1) < 0.5 ? "landed" : "was REFUSED",
+                        flags1.size(), flat(c2, s2) < 0.5 ? "landed" : "was REFUSED", flags2.size()));
+                // The moving-teleport half runs after GrimAC has been upset by the in-place half (it set him back once
+                // more, counted as a second moving teleport), so it is only recorded here; 1025-blink-charge-warp and
+                // -rapid prove a moving teleport restarts the bank cleanly.
+                check(bankRefilled == 20 && shot2[1] == 1 && shot2[2] == 20, "the bank did not refill and fire after the move");
+            } finally {
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(60);
+            server.mark();
+        });
+    }
+
+    /**
+     * 1025-blink-charge-landing: charged, then sprinting - the green landing box must draw (landingFrames rises), and the
+     * estimate read the tick before the shot must be within 1.5 blocks of where the shot (fired that next tick) left him,
+     * on flat ground.
+     */
+    private static void chargeLanding(ClientGameTestContext ctx) {
+        int x = -5000;
+        int z = -3800;
+        Scenario.run(ctx, "1025-blink-charge-landing", (server, scenario) -> arena(server, x - 15, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            try {
+                String name = playerName(ctx);
+                chargeOn(ctx);
+                ctx.waitTicks(35);
+                long bank = cnum(ctx, "banked");
+                long frames0 = num(ctx, "landingFrames");
+                long framesStill = 0;
+                ctx.waitTicks(10);
+                framesStill = num(ctx, "landingFrames") - frames0;
+                ctx.getInput().holdKey(o -> o.keyUp);
+                ctx.getInput().holdKey(o -> o.keySprint);
+                long f1 = num(ctx, "landingFrames");
+                ctx.waitTicks(12);
+                long framesMoving = num(ctx, "landingFrames") - f1;
+                long bankMoving = cnum(ctx, "banked");
+                double[] est = ctx.computeOnClient(mc -> {
+                    net.minecraft.world.phys.Vec3 v = (net.minecraft.world.phys.Vec3) Mod.staticCall(CHARGE, "landingEstimate");
+                    Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE);
+                    return v == null ? null : new double[]{v.x, v.y, v.z};
+                });
+                double[] from = scenario.playerPosition();
+                ctx.waitTicks(1);
+                ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+                double[] landed = scenario.playerPosition();
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                ctx.getInput().releaseKey(o -> o.keySprint);
+                long ticks = cnum(ctx, "lastShotTicks");
+                ctx.waitTicks(20);
+                double[] client = scenario.playerPosition();
+                double[] srv = serverPos(server, ctx, name);
+                double err = est == null ? -1 : flat(est, landed);
+                scenario.log(String.format(Locale.ROOT, "charge-landing: bank %d; landing frames standing %d, sprinting %d (bank "
+                                + "%d); estimate %s from %s; the shot (%d tick(s)) left him at %s (%.2f blocks on), %.2f from the "
+                                + "estimate; client %s server %s", bank, framesStill, framesMoving, bankMoving,
+                        est == null ? "-" : fmt(est), fmt(from), ticks, fmt(landed), flat(from, landed), err, fmt(client), fmt(srv)));
+                check(bank == 20 && bankMoving == 20, "the bank was not full while sprinting");
+                check(framesStill == 0, "the landing box drew while he stood still");
+                check(framesMoving > 0, "the landing box never drew while charging and moving");
+                check(est != null, "no landing estimate while charging and moving");
+                check(ticks == 20 && flat(from, landed) > 4.5, "the shot did not fire");
+                check(err >= 0 && err < 1.5, String.format(Locale.ROOT, "the estimate was %.2f blocks off", err));
+                check(flat(client, srv) < 0.5, "client and server disagree after the shot");
+            } finally {
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                ctx.getInput().releaseKey(o -> o.keySprint);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    // ---- rapid etherwarps, menus and leaps (killer560, 2026-10-25: "double check that the blink will hold through
+    // multiple very fast succession etherwarps and menu opens and things like that") ----
+
+    private static final String ZP_CFG = "zpew.ZeroPingEtherwarpConfig";
+
+    /** Abilities on, an AOTV in slot 0, Zero Ping Etherwarp on (so warps one tick apart aim from the predicted landing). */
+    private static dev.testkit.gametest.hx.Hx warpSetUp(ClientGameTestContext ctx) {
+        dev.testkit.gametest.hx.Hx hx = dev.testkit.gametest.hx.Hx.connect();
+        hx.call("dungeon.abilities", "enabled", true);
+        hx.give(0, AOTV);
+        ctx.runOnClient(mc -> {
+            mc.player.getInventory().setSelectedSlot(0);
+            Mod.set(ZP_CFG, "setEnabled", true);
+            Mod.set(ZP_CFG, "setChain", true);
+            Mod.set(ZP_CFG, "setTimeoutMs", 1500);
+        });
+        ctx.waitTicks(10);
+        return hx;
+    }
+
+    private static void warpTearDown(ClientGameTestContext ctx, dev.testkit.gametest.hx.Hx hx) {
+        ctx.getInput().releaseKey(o -> o.keyShift);
+        ctx.runOnClient(mc -> {
+            Latency.remove();
+            Mod.set(ZP_CFG, "setEnabled", false);
+            if (dev.testkit.compat.McCompat.screen(mc) != null) {
+                mc.player.closeContainer();
+            }
+        });
+        if (hx != null) {
+            hx.call("dungeon.abilities", "enabled", false);
+            hx.close();
+        }
+        ctx.waitTicks(20);
+    }
+
+    /** One etherwarp now from {@code feet} at the floor block (bx, bz): a client turn and a right click. */
+    private static void warpAt(ClientGameTestContext ctx, double[] feet, int bx, int bz) {
+        double dx = bx + 0.5 - feet[0];
+        double dy = SURFACE_Y - (feet[1] + 1.27);
+        double dz = bz + 0.5 - feet[2];
+        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.hypot(dx, dz)));
+        ctx.runOnClient(mc -> {
+            mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(yaw - mc.player.getYRot()));
+            mc.player.setXRot(net.minecraft.util.Mth.clamp(pitch, -90f, 90f));
+        });
+        ctx.getInput().pressKey(o -> o.keyUse);
+    }
+
+    private static boolean menuOpen(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> dev.testkit.compat.McCompat.screen(mc) instanceof
+                net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>);
+    }
+
+    private static void clickSlot(ClientGameTestContext ctx, int slot) {
+        ctx.runOnClient(mc -> {
+            var menu = mc.player.containerMenu;
+            mc.gameMode.handleContainerInput(menu.containerId, slot, 0,
+                    net.minecraft.world.inventory.ContainerInput.PICKUP, mc.player);
+        });
+    }
+
+    /** 1025-blink-hold-rapid-warps / -menu / -mixed: see {@link #holdRapidCase}. */
+    private static void holdRapid(ClientGameTestContext ctx) {
+        AssertionError first = null;
+        String[][] kinds = {{"warps", "1", "0", "0"}, {"menu", "0", "1", "0"}, {"mixed", "1", "1", "1"}};
+        int i = 0;
+        for (String[] k : kinds) {
+            try {
+                holdRapidCase(ctx, "1025-blink-hold-rapid-" + k[0], "1".equals(k[1]), "1".equals(k[2]), "1".equals(k[3]),
+                        -5600 - 100 * i);
+            } catch (AssertionError e) {
+                first = first == null ? e : first;
+            }
+            i++;
+        }
+        if (first != null) {
+            throw first;
+        }
+    }
+
+    /**
+     * One hold with the Hold key down (Hold Ticks 20, 150 ms latency like Hypixel): with {@code warps}, two etherwarps sent
+     * one tick apart just before the key goes down (their landings come back during the hold and are held through) and
+     * three more one tick apart inside it (Zero Ping Etherwarp aims each from the one before); with {@code menu}, a server
+     * chest menu opened during the hold, two slots clicked (they reach the server during the hold) and the menu closed;
+     * with {@code leap}, a server teleport 10 blocks to the side first. The hold must stay on until the key comes up, every
+     * teleport that arrives during it (counted by PacketTrace) is held through, and he ends where the last warp put him on
+     * client and server. Grim silent. He stands up before the hold when there are warps: a menu click while the server
+     * still has him sneaking is GrimAC MultiActionsC, and GrimAC drops the click (2026-10-25 first run).
+     */
+    private static void holdRapidCase(ClientGameTestContext ctx, String caseName, boolean warps, boolean menu, boolean leap,
+                                      int x) {
+        int z = -4400;
+        Scenario.run(ctx, caseName, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            dev.testkit.gametest.hx.Hx hx = null;
+            try {
+                hx = warpSetUp(ctx);
+                String name = playerName(ctx);
+                server.command("tp " + name + " " + (x - 30.5) + " " + SURFACE_Y + " " + (z + 0.5) + " -90 0");
+                ctx.runOnClient(mc -> Latency.install(150));
+                ctx.waitTicks(40);
+                com.google.gson.JsonObject before = hx.call("dungeon.stats").getAsJsonObject();
+                long tp0 = num(ctx, "teleportsHeld");
+                long ref0 = num(ctx, "refused");
+                long holds0 = num(ctx, "releasedHolds");
+                long live0 = num(ctx, "clicksLive");
+                long ev0 = hx.head();
+                int bx = x - 31;
+                int[] lastWarp = null;
+                double[] from = scenario.playerPosition();
+                int sentWarps = 0;
+                if (warps) {
+                    // Two warps one tick apart just before the key goes down: their landings come back during the hold.
+                    ctx.getInput().holdKey(o -> o.keyShift);
+                    ctx.waitTicks(5);
+                    for (int w = 0; w < 2; w++) {
+                        int tx = bx + 6 * (w + 1);
+                        warpAt(ctx, from, tx, z);
+                        ctx.waitTicks(1);
+                        from = new double[]{tx + 0.5, SURFACE_Y + 0.05, z + 0.5};
+                        lastWarp = new int[]{tx, z};
+                        sentWarps++;
+                    }
+                    // Stand up before the hold, so the sneak's end reaches the server live: a menu click while the server
+                    // still has him sneaking is GrimAC MultiActionsC, and GrimAC then drops the click.
+                    ctx.getInput().releaseKey(o -> o.keyShift);
+                    ctx.waitTicks(1);
+                }
+                ctx.runOnClient(mc -> PacketTrace.start());
+                holdDown(ctx);
+                ctx.waitTicks(1);
+                int heldTicks = 0;
+                boolean droppedEarly = false;
+                long clicksDuringHold = 0;
+                // Three ticks in: the two warps sent before the key are with the server. Then the leap and the menu.
+                for (int t = 0; t < 3; t++) {
+                    ctx.waitTicks(1);
+                    droppedEarly |= !holding(ctx);
+                }
+                int row = z;
+                if (leap) {
+                    int lx = lastWarp == null ? bx : lastWarp[0];
+                    row = z + 10;
+                    server.command("tp " + name + " " + (lx + 0.5) + " " + SURFACE_Y + " " + (row + 0.5));
+                    from = new double[]{lx + 0.5, SURFACE_Y, row + 0.5};
+                    lastWarp = new int[]{lx, row};
+                }
+                boolean opened = false;
+                int clickTick = -1;
+                if (menu) {
+                    hx.menu("Blink Rapid Menu", 3, java.util.Map.of(11, "minecraft:stone", 13, "minecraft:dirt"), null);
+                    for (int t = 0; t < 10 && !opened; t++) {
+                        ctx.waitTicks(1);
+                        droppedEarly |= !holding(ctx);
+                        opened = menuOpen(ctx);
+                    }
+                    clickTick = (int) num(ctx, "heldTicks");
+                    clickSlot(ctx, 11);
+                    ctx.waitTicks(1);
+                    clickSlot(ctx, 13);
+                    ctx.waitTicks(1);
+                    droppedEarly |= !holding(ctx);
+                    ctx.runOnClient(mc -> mc.player.closeContainer());
+                    ctx.waitTicks(1);
+                    droppedEarly |= !holding(ctx);
+                } else {
+                    for (int t = 0; t < 4; t++) {
+                        ctx.waitTicks(1);
+                        droppedEarly |= !holding(ctx);
+                    }
+                }
+                if (warps) {
+                    // Three more one tick apart inside the hold (the sneak goes into the hold with them, in order).
+                    ctx.getInput().holdKey(o -> o.keyShift);
+                    ctx.waitTicks(1);
+                    int startX = lastWarp[0];
+                    for (int w = 0; w < 3; w++) {
+                        int tx = startX + 6 * (w + 1);
+                        warpAt(ctx, from, tx, row);
+                        ctx.waitTicks(1);
+                        droppedEarly |= !holding(ctx);
+                        from = new double[]{tx + 0.5, SURFACE_Y + 0.05, row + 0.5};
+                        lastWarp = new int[]{tx, row};
+                        sentWarps++;
+                    }
+                }
+                if (menu) {
+                    // The clicks went out live: they must have reached the server while the hold is still on.
+                    for (int t = 0; t < 6 && hx.events(ev0, "menu.click").size() < 2 && holding(ctx); t++) {
+                        ctx.waitTicks(1);
+                    }
+                    boolean stillHolding = holding(ctx);
+                    clicksDuringHold = stillHolding ? hx.events(ev0, "menu.click").size() : -1;
+                    droppedEarly |= !stillHolding;
+                }
+                heldTicks = (int) num(ctx, "heldTicks");
+                boolean holdingAtKeyUp = holding(ctx);
+                long holdsBeforeUp = num(ctx, "releasedHolds") - holds0;
+                long heldDuring = num(ctx, "teleportsHeld") - tp0;
+                holdUp(ctx);
+                ctx.runOnClient(mc -> PacketTrace.stop());
+                int positionsDuring = PacketTrace.received("player_position");
+                ctx.waitTicks(40);
+                ctx.getInput().releaseKey(o -> o.keyShift);
+                ctx.waitTicks(10);
+                long clicksAfter = hx.events(ev0, "menu.click").size();
+                com.google.gson.JsonObject after = hx.call("dungeon.stats").getAsJsonObject();
+                int serverWarps = after.get("etherwarps").getAsInt() - before.get("etherwarps").getAsInt();
+                long refusedN = num(ctx, "refused") - ref0;
+                long holds = num(ctx, "releasedHolds") - holds0;
+                long live = num(ctx, "clicksLive") - live0;
+                double[] client = scenario.playerPosition();
+                double[] srv = serverPos(server, ctx, name);
+                int expectAtLeast = (warps ? 1 : 0) + (leap ? 1 : 0);
+                scenario.log(String.format(Locale.ROOT, "%s: %d warp(s) sent (server made %d); %d position packet(s) arrived "
+                                + "during the hold, %d held through, %d refused; menu opened %s (clicked at hold tick %d), %d "
+                                + "click(s) live, %d reached the server during the hold (%d by the end); hold %d tick(s) at key "
+                                + "up, holding then %s, %d release(s) before key up, dropped early %s, %d release(s) in all; ended "
+                                + "client %s server %s, last warp %s", caseName, sentWarps, serverWarps, positionsDuring,
+                        heldDuring, refusedN, opened, clickTick, live, clicksDuringHold, clicksAfter, heldTicks, holdingAtKeyUp,
+                        holdsBeforeUp, droppedEarly, holds, fmt(client), fmt(srv),
+                        lastWarp == null ? "-" : lastWarp[0] + "," + lastWarp[1]));
+                check(!droppedEarly && holdingAtKeyUp && holdsBeforeUp == 0 && holds == 1,
+                        "the hold did not stay on until the key came up");
+                check(positionsDuring >= expectAtLeast, "only " + positionsDuring + " teleport(s) arrived during the hold, "
+                        + "wanted at least " + expectAtLeast + ": nothing to hold through");
+                check(heldDuring == positionsDuring && refusedN == 0, "not every teleport during the hold was held through ("
+                        + heldDuring + " of " + positionsDuring + ", " + refusedN + " refused)");
+                if (warps) {
+                    check(serverWarps == sentWarps, "the server made " + serverWarps + " of " + sentWarps + " etherwarps");
+                    check(Math.abs(client[0] - (lastWarp[0] + 0.5)) < 1.0 && Math.abs(client[2] - (lastWarp[1] + 0.5)) < 1.0,
+                            "the client is not where the last warp put him: " + fmt(client));
+                }
+                if (menu) {
+                    check(opened && live >= 2, "the menu did not open or its clicks did not go out live");
+                    check(clicksDuringHold >= 2, "the clicks did not reach the server during the hold: " + clicksDuringHold);
+                }
+                check(flat(client, srv) < 0.5, "client and server disagree at the end: " + fmt(client) + " vs " + fmt(srv));
+            } finally {
+                warpTearDown(ctx, hx);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /**
+     * 1025-blink-charge-rapid: while charging (Toggle, a full bank), three etherwarps one tick apart (Zero Ping Etherwarp,
+     * 150 ms latency), then a server menu opened, three slots clicked and closed. The warps restart the bank as designed
+     * (moving teleports), every click reaches the server within 6 ticks, Charge stays on every tick, and once the bank
+     * has refilled a sprinting shot of 20 ticks is clean with client and server agreeing.
+     */
+    private static void chargeRapid(ClientGameTestContext ctx) {
+        int x = -5600;
+        int z = -4800;
+        Scenario.run(ctx, "1025-blink-charge-rapid", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            dev.testkit.gametest.hx.Hx hx = null;
+            try {
+                hx = warpSetUp(ctx);
+                String name = playerName(ctx);
+                server.command("tp " + name + " " + (x - 30.5) + " " + SURFACE_Y + " " + (z + 0.5) + " -90 0");
+                ctx.runOnClient(mc -> Latency.install(150));
+                ctx.waitTicks(30);
+                ctx.runOnClient(mc -> PacketTrace.start());
+                chargeOn(ctx);
+                ctx.waitTicks(35);
+                long bank0 = cnum(ctx, "banked");
+                long mv0 = cnum(ctx, "movingTeleports");
+                com.google.gson.JsonObject before = hx.call("dungeon.stats").getAsJsonObject();
+                boolean alwaysOn = true;
+                ctx.getInput().holdKey(o -> o.keyShift);
+                ctx.waitTicks(3);
+                double[] from = scenario.playerPosition();
+                int[] last = null;
+                for (int w = 0; w < 3; w++) {
+                    int tx = x - 31 + 6 * (w + 1);
+                    warpAt(ctx, from, tx, z);
+                    ctx.waitTicks(1);
+                    alwaysOn &= charging(ctx);
+                    from = new double[]{tx + 0.5, SURFACE_Y + 0.05, z + 0.5};
+                    last = new int[]{tx, z};
+                }
+                for (int t = 0; t < 15; t++) {
+                    ctx.waitTicks(1);
+                    alwaysOn &= charging(ctx);
+                }
+                ctx.getInput().releaseKey(o -> o.keyShift);
+                long moved = cnum(ctx, "movingTeleports") - mv0;
+                long bankAfterWarps = cnum(ctx, "banked");
+                double[] cw = scenario.playerPosition();
+                // A menu: three clicks, each must reach the server on time.
+                hx.menu("Blink Charge Menu", 3, java.util.Map.of(11, "minecraft:stone", 13, "minecraft:dirt", 15,
+                        "minecraft:oak_log"), null);
+                boolean opened = false;
+                for (int t = 0; t < 10 && !opened; t++) {
+                    ctx.waitTicks(1);
+                    alwaysOn &= charging(ctx);
+                    opened = menuOpen(ctx);
+                }
+                int onTime = 0;
+                StringBuilder lag = new StringBuilder();
+                for (int slot : new int[]{11, 13, 15}) {
+                    long ev = hx.head();
+                    clickSlot(ctx, slot);
+                    int seenAfter = -1;
+                    for (int t = 0; t < 12 && seenAfter < 0; t++) {
+                        ctx.waitTicks(1);
+                        alwaysOn &= charging(ctx);
+                        if (!hx.events(ev, "menu.click").isEmpty()) {
+                            seenAfter = t + 1;
+                        }
+                    }
+                    lag.append(seenAfter).append(' ');
+                    if (seenAfter > 0 && seenAfter <= 6) {
+                        onTime++;
+                    }
+                }
+                ctx.runOnClient(mc -> mc.player.closeContainer());
+                ctx.waitTicks(40);
+                alwaysOn &= charging(ctx);
+                long bankRefilled = cnum(ctx, "banked");
+                com.google.gson.JsonObject after = hx.call("dungeon.stats").getAsJsonObject();
+                int serverWarps = after.get("etherwarps").getAsInt() - before.get("etherwarps").getAsInt();
+                double[] shot = shootByPress(ctx, true);
+                ctx.waitTicks(20);
+                ctx.runOnClient(mc -> PacketTrace.stop());
+                double[] client = scenario.playerPosition();
+                double[] srv = serverPos(server, ctx, name);
+                scenario.log(String.format(Locale.ROOT, "charge-rapid: bank %d; 3 warps one tick apart: server made %d, %d moving "
+                                + "teleport(s) counted, bank %d after, at %s (last warp %d,%d); menu opened %s, clicks reached the "
+                                + "server after [%s] tick(s) (%d on time); charging every tick %s; bank refilled to %d; shot %d "
+                                + "tick(s) %.2f blocks; client %s server %s", bank0, serverWarps, moved, bankAfterWarps, fmt(cw),
+                        last[0], last[1], opened, lag.toString().trim(), onTime, alwaysOn, bankRefilled, (long) shot[2], shot[0],
+                        fmt(client), fmt(srv)));
+                check(bank0 == 20, "the bank did not fill before the warps: " + bank0);
+                check(serverWarps == 3 && moved == 3, "the warps did not all land as moving teleports (" + serverWarps
+                        + " made, " + moved + " counted)");
+                check(Math.abs(cw[0] - (last[0] + 0.5)) < 1.0, "he is not where the last warp put him: " + fmt(cw));
+                check(opened && onTime == 3, "the menu clicks did not reach the server on time: " + lag);
+                check(alwaysOn, "Charge went off during the warps or the menu");
+                check(bankRefilled == 20 && shot[1] == 1 && shot[2] == 20 && shot[0] > 4.5, "no full shot afterwards");
+                check(flat(client, srv) < 0.5, "client and server disagree after the shot: " + fmt(client) + " vs " + fmt(srv));
+            } finally {
+                warpTearDown(ctx, hx);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /**
+     * 1025-blink-charge-armed-menu: a shot armed (a Toggle fire standing still), then a server menu opens. With the menu up
+     * the shot must not fire, not even with a movement key down; the menu closes, he stands 3 ticks (still armed), and the
+     * first movement after it fires the whole bank. Grim silent.
+     */
+    private static void chargeArmedMenu(ClientGameTestContext ctx) {
+        int x = -5600;
+        int z = -5200;
+        Scenario.run(ctx, "1025-blink-charge-armed-menu", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            try (dev.testkit.gametest.hx.Hx hx = dev.testkit.gametest.hx.Hx.connect()) {
+                String name = playerName(ctx);
+                ctx.runOnClient(mc -> PacketTrace.start());
+                chargeOn(ctx);
+                ctx.waitTicks(35);
+                long bank = cnum(ctx, "banked");
+                long shots0 = cnum(ctx, "shots");
+                pressCharge(ctx);
+                boolean armed0 = armed(ctx);
+                hx.menu("Blink Armed Menu", 3, java.util.Map.of(13, "minecraft:stone"), null);
+                boolean opened = false;
+                for (int t = 0; t < 10 && !opened; t++) {
+                    ctx.waitTicks(1);
+                    opened = menuOpen(ctx);
+                }
+                clickSlot(ctx, 13);
+                ctx.getInput().holdKey(o -> o.keyUp);
+                ctx.waitTicks(6);
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                long shotsInMenu = cnum(ctx, "shots") - shots0;
+                boolean armedInMenu = armed(ctx);
+                ctx.runOnClient(mc -> mc.player.closeContainer());
+                ctx.waitTicks(3);
+                long shotsClosed = cnum(ctx, "shots") - shots0;
+                boolean armedClosed = armed(ctx);
+                double[] p0 = scenario.playerPosition();
+                ctx.getInput().holdKey(o -> o.keyUp);
+                ctx.getInput().holdKey(o -> o.keySprint);
+                ctx.waitTicks(1);
+                double[] p1 = scenario.playerPosition();
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                ctx.getInput().releaseKey(o -> o.keySprint);
+                long shots = cnum(ctx, "shots") - shots0;
+                long ticks = cnum(ctx, "lastShotTicks");
+                ctx.waitTicks(20);
+                ctx.runOnClient(mc -> PacketTrace.stop());
+                double[] client = scenario.playerPosition();
+                double[] srv = serverPos(server, ctx, name);
+                int setbacks = PacketTrace.received("player_position");
+                scenario.log(String.format(Locale.ROOT, "charge-armed-menu: bank %d, armed %s; menu opened %s; with the menu up "
+                                + "and forward held 6 ticks: %d shot(s), armed %s; closed, 3 ticks standing: %d shot(s), armed %s; "
+                                + "first move: %d shot(s) of %d tick(s), %.2f blocks that tick; client %s server %s; %d setback(s)",
+                        bank, armed0, opened, shotsInMenu, armedInMenu, shotsClosed, armedClosed, shots, ticks, flat(p0, p1),
+                        fmt(client), fmt(srv), setbacks));
+                check(bank == 20 && armed0, "the shot was not armed with a full bank");
+                check(opened, "the menu never opened: nothing was tested");
+                check(shotsInMenu == 0 && armedInMenu, "the armed shot fired (or was dropped) with the menu up");
+                check(shotsClosed == 0 && armedClosed, "the armed shot fired (or was dropped) before he moved");
+                check(shots == 1 && ticks == 20 && flat(p0, p1) > 4.5, "the first move after the menu did not fire the bank");
+                check(flat(client, srv) < 0.5, "client and server disagree after the shot: " + fmt(client) + " vs " + fmt(srv));
+                check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
+            } finally {
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                ctx.getInput().releaseKey(o -> o.keySprint);
+                ctx.runOnClient(mc -> {
+                    if (dev.testkit.compat.McCompat.screen(mc) != null) {
+                        mc.player.closeContainer();
+                    }
+                });
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    private static String statusLine(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            Object c = Mod.staticCall(FEATURE, "statusLine");
+            return c == null ? "" : ((net.minecraft.network.chat.Component) c).getString().replaceAll("§.", "");
+        });
+    }
+
+    /**
+     * 1025-blink-hud: while charging the HUD reads "Charge n/20" and while holding "Hold n/20"; it really draws in game
+     * (hudFrames, HudSeen), and the HUD editor then lists the "blink" element with Show Unseen OFF.
+     */
+    @SuppressWarnings("unchecked")
+    private static void hud(ClientGameTestContext ctx) {
+        int x = -5200;
+        int z = -3000;
+        Scenario.run(ctx, "1025-blink-hud", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            boolean showAll = ctx.computeOnClient(mc -> (Boolean) Mod.get("hud.HudConfig", "isEditorShowAll"));
+            try {
+                ctx.runOnClient(mc -> Mod.staticCall("hud.HudSeen", "forget", "blink"));
+                long frames0 = num(ctx, "hudFrames");
+                chargeOn(ctx);
+                ctx.waitTicks(30);
+                String chargeLine = statusLine(ctx);
+                long framesCharge = num(ctx, "hudFrames") - frames0;
+                boolean seen = ctx.computeOnClient(mc -> (Boolean) Mod.staticCall("hud.HudSeen", "drawnRecently", "blink"));
+                chargeOff(ctx);
+                holdDown(ctx);
+                ctx.waitTicks(6);
+                String holdLine = statusLine(ctx);
+                ctx.waitTicks(20);
+                holdUp(ctx);
+                ctx.waitTicks(3);
+                String idleLine = statusLine(ctx);
+                List<String> listed = ctx.computeOnClient(mc -> {
+                    Mod.set("hud.HudConfig", "setEditorShowAll", false);
+                    try {
+                        net.minecraft.client.gui.screens.Screen editor = (net.minecraft.client.gui.screens.Screen)
+                                Mod.cls("hud.HudEditorScreen").getConstructor(net.minecraft.client.gui.screens.Screen.class)
+                                        .newInstance((Object) null);
+                        dev.testkit.compat.McCompat.setScreen(mc, editor);
+                        return null;
+                    } catch (ReflectiveOperationException e) {
+                        throw new AssertionError(e);
+                    }
+                });
+                ctx.waitTicks(3);
+                listed = ctx.computeOnClient(mc -> {
+                    List<String> ids = new ArrayList<>();
+                    Object s = dev.testkit.compat.McCompat.screen(mc);
+                    for (Object e : (List<Object>) Mod.field(s, "shown")) {
+                        ids.add((String) Mod.call(e, "id"));
+                    }
+                    dev.testkit.compat.McCompat.setScreen(mc, null);
+                    return ids;
+                });
+                scenario.log("hud: charging line \"" + chargeLine + "\" (" + framesCharge + " frame(s) drawn, HudSeen " + seen
+                        + "); holding line \"" + holdLine + "\"; idle \"" + idleLine + "\"; HUD editor (Show Unseen off) lists "
+                        + listed);
+                check(chargeLine.startsWith("Charge 20/20"), "the charging line is not \"Charge 20/20\": " + chargeLine);
+                check(holdLine.matches("Hold \\d+/20"), "the holding line is not \"Hold n/20\": " + holdLine);
+                check(idleLine.isEmpty(), "the HUD still shows a line with nothing running: " + idleLine);
+                check(framesCharge > 0 && seen, "the Blink HUD never drew in game");
+                check(listed.contains("blink"), "the HUD editor does not list the blink element without Show Unseen");
+            } finally {
+                ctx.runOnClient(mc -> {
+                    Mod.set("hud.HudConfig", "setEditorShowAll", showAll);
+                    dev.testkit.compat.McCompat.setScreen(mc, null);
+                });
                 chargeOff(ctx);
                 tearDown(ctx, gate);
             }
@@ -1345,22 +2295,21 @@ public class BlinkTests implements FabricClientGameTest {
 
     /**
      * 1025-blink-clicks (killer560, 2026-10-25: a blink "while being in a terminal menu and clicking"): a server menu open,
-     * a 22-tick Hold Packets blink, four slot clicks during it. The clicks go out live (Menu Clicks Go Through), the hold
-     * runs to its limit and releases, the menu stays open, Grim silent.
+     * the Hold key down for a 20-tick hold, four slot clicks during it. The clicks go out live, the hold runs to its limit
+     * and releases, the menu stays open, Grim silent.
      */
     private static void clicks(ClientGameTestContext ctx) {
         int x = -5000;
-        int z = -3400;
+        int z = -4000;
         Scenario.run(ctx, "1025-blink-clicks", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
-            boolean gate = setUp(ctx, 22, "RELEASE");
+            boolean gate = setUp(ctx, 20);
             try (dev.testkit.gametest.hx.Hx hx = dev.testkit.gametest.hx.Hx.connect()) {
-                ctx.runOnClient(mc -> Mod.set(CFG, "setClicksLive", true));
                 hx.menu("Blink Terminal", 3, java.util.Map.of(11, "minecraft:stone", 13, "minecraft:dirt", 15,
                         "minecraft:oak_log"), null);
                 ctx.waitTicks(10);
                 long live0 = num(ctx, "clicksLive");
                 long holds0 = num(ctx, "releasedHolds");
-                pressBlink(ctx);
+                holdDown(ctx);
                 for (int t = 0; t < 20; t++) {
                     ctx.waitTicks(1);
                     if (t % 5 == 2) {
@@ -1373,6 +2322,7 @@ public class BlinkTests implements FabricClientGameTest {
                     }
                 }
                 ctx.waitTicks(15);
+                holdUp(ctx);
                 boolean open = ctx.computeOnClient(mc -> dev.testkit.compat.McCompat.screen(mc) instanceof
                         net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>);
                 long live = num(ctx, "clicksLive") - live0;
@@ -1382,7 +2332,7 @@ public class BlinkTests implements FabricClientGameTest {
                 scenario.log(String.format(Locale.ROOT, "clicks: %d click(s) went out live during the hold, %d release(s), last "
                         + "hold %d tick(s), menu still open %s", live, released, lastHold, open));
                 check(live >= 4, "fewer than four clicks went out live during the hold: " + live);
-                check(released >= 1 && lastHold == 22, "the hold did not run to 22 ticks and release");
+                check(released == 1 && lastHold == 20, "the hold did not run to 20 ticks and release");
                 check(open, "the menu closed during the blink");
             } finally {
                 tearDown(ctx, gate);
@@ -1393,23 +2343,22 @@ public class BlinkTests implements FabricClientGameTest {
 
     /**
      * 1025-blink-charge-far (killer560, 2026-10-25: "blink as far as possible"): the shot runs his real movement, so its
-     * length is his speed times 22 ticks. A plain walking shot, then one sprint-jumping with Speed IV: both must be clean
-     * and agree with the server; the log gives the distances.
+     * length is his speed times 20 ticks. A plain walking shot, then sprint-jump, Speed IV sprint, and both: all clean and
+     * agreeing with the server; the log gives the distances.
      */
     private static void chargeFar(ClientGameTestContext ctx) {
         int x = -5000;
-        int z = -3800;
+        int z = -4200;
         Scenario.run(ctx, "1025-blink-charge-far", (server, scenario) -> arena(server, x - 25, z), (server, scenario) -> {
-            boolean gate = setUp(ctx, 22, "RELEASE");
+            boolean gate = setUp(ctx, 20);
             String name = playerName(ctx);
             try {
                 ctx.runOnClient(mc -> PacketTrace.start());
                 chargeOn(ctx);
                 ctx.waitTicks(35);
-                double[] walk = shootByWalking(ctx);
+                double[] walk = shootByPress(ctx, false);
                 StringBuilder rows = new StringBuilder();
                 int good = 0;
-                // jump only, Speed IV only (sprinting), both
                 boolean[][] kinds = {{true, false}, {false, true}, {true, true}};
                 double[] dist = new double[3];
                 for (int k = 0; k < 3; k++) {
@@ -1430,7 +2379,9 @@ public class BlinkTests implements FabricClientGameTest {
                         ctx.getInput().holdKey(o -> o.keyJump);
                     }
                     ctx.getInput().holdKey(o -> o.keyUp);
+                    ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
                     ctx.waitTicks(2);
+                    ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
                     double[] after = scenario.playerPosition();
                     ctx.getInput().releaseKey(o -> o.keyUp);
                     ctx.getInput().releaseKey(o -> o.keyJump);
@@ -1442,9 +2393,9 @@ public class BlinkTests implements FabricClientGameTest {
                     int sb = PacketTrace.received("player_position") - sb0;
                     dist[k] = flat(before, after);
                     String label = jump && speed ? "sprint-jump + Speed IV" : jump ? "sprint-jump" : "sprint + Speed IV";
-                    rows.append(String.format(Locale.ROOT, " [%s: bank %d, shot %d tick(s) %.2f blocks in one tick; client %s "
+                    rows.append(String.format(Locale.ROOT, " [%s: bank %d, shot %d tick(s) %.2f blocks over 2 ticks; client %s "
                             + "server %s; %d position packet(s) after]", label, bank, ticks, dist[k], fmt(client), fmt(srv), sb));
-                    if (bank == 21 && ticks == 21 && dist[k] > walk[0] && flat(client, srv) < 0.5 && sb == 0) {
+                    if (bank == 20 && ticks == 20 && dist[k] > walk[0] && flat(client, srv) < 0.5 && sb == 0) {
                         good++;
                     }
                 }
@@ -1452,7 +2403,7 @@ public class BlinkTests implements FabricClientGameTest {
                 server.command("effect clear " + name);
                 scenario.log(String.format(Locale.ROOT, "charge-far: walking shot %d tick(s) %.2f blocks;", (long) walk[2], walk[0])
                         + rows);
-                check(walk[2] == 21, "the walking shot was not 21 banked ticks");
+                check(walk[2] == 20, "the walking shot was not 20 banked ticks");
                 check(good == 3, good + " of 3 fast shots went further than walking with the server agreeing");
             } finally {
                 server.command("effect clear " + name);
@@ -1476,12 +2427,11 @@ public class BlinkTests implements FabricClientGameTest {
             server.command("setblock " + (x + 2) + " " + SURFACE_Y + " " + (z + 2) + " minecraft:stone");
             server.command("setblock " + (x + 2) + " " + (SURFACE_Y + 1) + " " + (z + 2) + " minecraft:lever[face=floor,facing=east]");
         }, (server, scenario) -> {
-            boolean gate = setUp(ctx, 22, "RELEASE");
+            boolean gate = setUp(ctx, 20);
             try {
                 String name = playerName(ctx);
                 ctx.runOnClient(mc -> PacketTrace.start());
                 chargeOn(ctx);
-                ctx.runOnClient(mc -> Mod.set(CFG, "setShootOnMove", false));
                 ctx.waitTicks(400);
                 look(ctx, x + 2.5, SURFACE_Y + 1.1, z + 2.5);
                 ctx.waitTicks(2);
@@ -1506,25 +2456,18 @@ public class BlinkTests implements FabricClientGameTest {
                 ctx.waitTicks(5);
                 long bank = cnum(ctx, "banked");
                 boolean connected = ctx.computeOnClient(mc -> mc.getConnection() != null && mc.player != null);
-                long shots0 = cnum(ctx, "shots");
-                double[] before = scenario.playerPosition();
-                ctx.getInput().holdKey(o -> o.keyUp);
-                pressBlink(ctx);
-                double[] after = scenario.playerPosition();
-                ctx.getInput().releaseKey(o -> o.keyUp);
-                long shots = cnum(ctx, "shots") - shots0;
-                long ticks = cnum(ctx, "lastShotTicks");
+                double[] shot = shootByPress(ctx, false);
                 ctx.waitTicks(20);
                 ctx.runOnClient(mc -> PacketTrace.stop());
                 int setbacks = PacketTrace.received("player_position");
                 double[] client = scenario.playerPosition();
                 double[] srv = serverPos(server, ctx, name);
                 scenario.log(String.format(Locale.ROOT, "charge-long: after ~40 s (standing, a lever, sprinting) bank %d, connected %s; "
-                                + "shot %d tick(s), %.2f blocks over the press's 2 ticks; client %s server %s; %d setback(s)", bank,
-                        connected, ticks, flat(before, after), fmt(client), fmt(srv), setbacks));
+                                + "shot %d tick(s), %.2f blocks over the press's tick; client %s server %s; %d setback(s)", bank,
+                        connected, (long) shot[2], shot[0], fmt(client), fmt(srv), setbacks));
                 check(connected, "he was disconnected while charging");
-                check(bank == 21, "the bank was not full after the wait: " + bank);
-                check(shots == 1 && ticks == 21 && flat(before, after) > 4.0, "no full shot after the wait");
+                check(bank == 20, "the bank was not full after the wait: " + bank);
+                check(shot[1] == 1 && shot[2] == 20 && shot[0] > 3.5, "no full shot after the wait");
                 check(flat(client, srv) < 0.5, "client and server disagree after the shot: " + fmt(client) + " vs " + fmt(srv));
                 check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
             } finally {
@@ -1538,10 +2481,9 @@ public class BlinkTests implements FabricClientGameTest {
     }
 
     /**
-     * 1025-blink-shot-lever (killer560, 2026-10-25: "if I blink past a lever it'll still flick it right"; "make it do
-     * stuff while it is actively blinking forward"). A lever 7 blocks ahead and to the side, out of Secret Aura's reach
-     * while he charges; a sprinting Charge shot takes him past it, and the aura flicks it inside the shot. The server must
-     * show it on, client and server agree, GrimAC silent. Dungeon-looking server (Secret Aura's gate).
+     * 1025-blink-shot-lever (killer560, 2026-10-25: "if I blink past a lever it'll still flick it right"). A lever 7 blocks
+     * ahead and to the side, out of Secret Aura's reach while he charges; a sprinting Charge shot takes him past it, and
+     * the aura flicks it inside the shot. The server must show it on, client and server agree, GrimAC silent.
      */
     private static void shotLever(ClientGameTestContext ctx) {
         int x = -5400;
@@ -1561,7 +2503,7 @@ public class BlinkTests implements FabricClientGameTest {
                 .command("setblock " + (x + 7) + " " + (SURFACE_Y + 1) + " " + (z + 2) + " minecraft:lever[face=wall,facing=north]")
                 .spawn(x + 0.5, z + 0.5, -90f)
                 .build(), (server, scenario) -> {
-            boolean gate = setUp(ctx, 22, "RELEASE");
+            boolean gate = setUp(ctx, 20);
             String cheatCfg = "com.killer560.hub.cheatutils.CheatUtilsConfig";
             try {
                 ctx.runOnClient(mc -> {
@@ -1582,12 +2524,8 @@ public class BlinkTests implements FabricClientGameTest {
                 long bank = cnum(ctx, "banked");
                 long acts0 = cnum(ctx, "shotTickActions");
                 double x0 = ctx.computeOnClient(mc -> mc.player.getX());
-                ctx.getInput().holdKey(o -> o.keySprint);
-                ctx.getInput().holdKey(o -> o.keyUp);
-                ctx.waitTicks(1);
+                shootByPress(ctx, true);
                 double x1 = ctx.computeOnClient(mc -> mc.player.getX());
-                ctx.getInput().releaseKey(o -> o.keyUp);
-                ctx.getInput().releaseKey(o -> o.keySprint);
                 long acts = cnum(ctx, "shotTickActions") - acts0;
                 ctx.waitTicks(20);
                 server.command("execute if block " + (x + 7) + " " + (SURFACE_Y + 1) + " " + (z + 2)
@@ -1619,21 +2557,21 @@ public class BlinkTests implements FabricClientGameTest {
         int x = -4500;
         int z = -3000;
         Scenario.run(ctx, "1025-blink-world", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
-            boolean gate = setUp(ctx, 200, "RELEASE");
+            boolean gate = setUp(ctx, 20);
             try {
                 String name = playerName(ctx);
                 String dimBefore = ctx.computeOnClient(mc -> mc.level.dimension().toString());
-                ctx.getInput().holdKey(o -> o.keyUp);
-                ctx.getInput().holdKey(o -> o.keySprint);
-                ctx.waitTicks(5);
-                pressBlink(ctx);
-                ctx.waitTicks(10);
-                boolean heldBefore = holding(ctx);
-                long heldMoves = num(ctx, "heldMoves");
-                releaseKeys(ctx);
                 server.command("execute in minecraft:the_nether run forceload add 0 0");
                 server.command("execute in minecraft:the_nether run fill -8 100 -8 8 100 8 minecraft:stone");
                 server.command("execute in minecraft:the_nether run fill -8 101 -8 8 105 8 minecraft:air");
+                ctx.getInput().holdKey(o -> o.keyUp);
+                ctx.getInput().holdKey(o -> o.keySprint);
+                ctx.waitTicks(5);
+                holdDown(ctx);
+                ctx.waitTicks(6);
+                boolean heldBefore = holding(ctx);
+                long heldMoves = num(ctx, "heldMoves");
+                releaseKeys(ctx);
                 server.command("execute in minecraft:the_nether run tp " + name + " 0.5 101 0.5");
                 String dimAfter = dimBefore;
                 for (int i = 0; i < 200 && dimAfter.equals(dimBefore); i++) {
@@ -1642,8 +2580,8 @@ public class BlinkTests implements FabricClientGameTest {
                 }
                 ctx.waitTicks(60);
                 boolean holdingAfter = holding(ctx);
+                holdUp(ctx);
                 boolean connected = ctx.computeOnClient(mc -> mc.getConnection() != null && mc.player != null);
-                // Walk a little in the new world, so a desync would show up as a flag or a setback.
                 ctx.runOnClient(mc -> PacketTrace.start());
                 ctx.getInput().holdKey(o -> o.keyUp);
                 ctx.waitTicks(20);
@@ -1668,11 +2606,11 @@ public class BlinkTests implements FabricClientGameTest {
         });
     }
 
-    /** 1025-blink-bow: drawing and loosing a bow five times (25-tick draws) while Pulse holds them in bursts. */
+    /** 1025-blink-bow: drawing and loosing a bow five times (25-tick draws) with back-to-back holds; what Grim says. */
     private static void bow(ClientGameTestContext ctx) {
         int x = -4600;
         int z = -3000;
-        Scenario.run(ctx, "1025-blink-bow", (server, scenario) -> {
+        Scenario.runExpectingFlags(ctx, "1025-blink-bow", (server, scenario) -> {
             TestMap.on(server)
                     .platform(x, SURFACE_Y - 1, z, 12)
                     .catchFloor(120)
@@ -1683,35 +2621,41 @@ public class BlinkTests implements FabricClientGameTest {
                     .spawn(x + 0.5, z + 0.5, -90f, -10f)
                     .build();
         }, (server, scenario) -> {
-            boolean gate = setUp(ctx, defaultTicks(ctx), "PULSE");
+            boolean gate = setUp(ctx, 20);
             try {
+                server.mark();
                 int before = ctx.computeOnClient(mc -> mc.player.getInventory().countItem(net.minecraft.world.item.Items.ARROW));
                 long holds0 = num(ctx, "releasedHolds");
-                pressBlink(ctx);
+                Pulser.start(ctx);
                 for (int i = 0; i < 5; i++) {
                     ctx.getInput().holdKey(o -> o.keyUse);
                     ctx.waitTicks(25);
                     ctx.getInput().releaseKey(o -> o.keyUse);
                     ctx.waitTicks(10);
                 }
-                pressBlink(ctx);
+                Pulser.stop(ctx);
                 ctx.waitTicks(40);
                 int after = ctx.computeOnClient(mc -> mc.player.getInventory().countItem(net.minecraft.world.item.Items.ARROW));
                 long holds = num(ctx, "releasedHolds") - holds0;
-                scenario.log("bow: arrows " + before + " -> " + after + " (40 ticks after the last release), " + holds + " release(s)");
-                check(before == 64 && after <= before - 4, "fewer than four arrows were loosed: the bow was hardly tested");
-                check(holds >= 4, "Pulse did not hold and release while shooting: " + holds);
+                List<String> flags = scenario.flags();
+                scenario.log("bow: arrows " + before + " -> " + after + " (40 ticks after the last release), " + holds
+                        + " release(s); GrimAC " + (flags.isEmpty() ? "clean" : flags.size() + " flag(s): " + firstChecks(flags)));
+                for (String f : flags) {
+                    scenario.log("  FLAG " + f);
+                }
+                check(holds >= 4, "the holds did not keep coming while shooting: " + holds);
             } finally {
                 ctx.getInput().releaseKey(o -> o.keyUse);
                 tearDown(ctx, gate);
             }
-            ctx.waitTicks(40);
+            ctx.waitTicks(60);
+            server.mark();
         });
     }
 
     private static void sweep(ClientGameTestContext ctx, String name, int x, boolean walking, int latencyMs) {
         Scenario.runExpectingFlags(ctx, name, (server, scenario) -> arena(server, x, -3000), (server, scenario) -> {
-            boolean gate = setUp(ctx, 17, "RELEASE");
+            boolean gate = setUp(ctx, 17);
             if (latencyMs > 0) {
                 ctx.runOnClient(mc -> Latency.install(latencyMs));
                 ctx.waitTicks(40);
@@ -1723,20 +2667,15 @@ public class BlinkTests implements FabricClientGameTest {
             String player = playerName(ctx);
             try {
                 for (int len : sweepLengths()) {
-                    // Back to the start, then let the teleport settle before the hold.
                     server.command("tp " + player + " " + (x - 34.5) + " " + SURFACE_Y + " " + (-3000 + 0.5) + " -90 0");
                     ctx.waitTicks(30);
-                    ctx.runOnClient(mc -> Mod.set(CFG, "setMaxTicks", len));
+                    ctx.runOnClient(mc -> Mod.set(CFG, "setHoldTicks", len));
                     server.mark();
                     double[] r;
                     if (walking) {
-                        // A sprint covers ~5.6 blocks/s; walk back and forth so a long hold stays on the platform.
                         r = walkHold(server, scenario, ctx, len, false);
                     } else {
-                        pressBlink(ctx);
-                        for (int i = 0; i < len + 10 && holding(ctx); i++) {
-                            ctx.waitTicks(1);
-                        }
+                        holdToLimit(ctx, len + 10);
                         ctx.waitTicks(20);
                         r = new double[]{0, 0, 0, 0, holding(ctx) ? 1 : 0, num(ctx, "lastHoldTicks")};
                     }
@@ -1756,7 +2695,6 @@ public class BlinkTests implements FabricClientGameTest {
                         cleanLens.add(len);
                     }
                     if (!flags.isEmpty()) {
-                        // Grim marks him after a flag; let it settle so the next length starts clean.
                         ctx.waitTicks(60);
                     }
                 }
@@ -1766,19 +2704,13 @@ public class BlinkTests implements FabricClientGameTest {
                 }
                 tearDown(ctx, gate);
             }
-            int longestClean = 0;
-            for (int l : cleanLens) {
-                if (!failedLens.contains(l) && failedLens.headSet(l).isEmpty()) {
-                    longestClean = l;
-                }
-            }
-            scenario.log("SWEEP " + name + ": longest hold clean every time (and every shorter one too) " + longestClean
-                    + " tick(s); " + tested + " hold(s) tried; clean lengths " + cleanLens + ", flagged lengths " + failedLens
-                    + (latencyMs > 0 ? "; latency " + latencyMs + " ms" : ""));
+            scenario.log("SWEEP " + name + ": clean lengths " + cleanLens + ", flagged or wrong lengths " + failedLens
+                    + (latencyMs > 0 ? "; latency " + latencyMs + " ms" : "") + "; " + tested + " hold(s) tried");
             for (String r : rows) {
                 scenario.log("  " + r);
             }
             check(tested > 0, "the sweep ran no lengths");
+            check(failedLens.isEmpty(), "hold lengths " + failedLens + " (all within Hold Ticks' 1-20) flagged or were wrong");
             server.mark();
         });
     }
