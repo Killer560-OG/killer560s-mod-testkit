@@ -228,6 +228,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-imwarp", c -> caseMapWarp(c, false));
             s.test("62-argrim-imwarp-run", c -> caseMapWarp(c, true));
             s.test("62-argrim-goto", GrimAutoRoutesTests::caseGoTo);
+            // imap-zpew-1026 (killer560, 2026-10-27): Zero Ping Etherwarp's Works For list - each sender's hops predicted
+            // with its switch on, none with it off, the others unaffected, nothing with ZPEW off.
+            s.test("62-argrim-1027-zpew-map", GrimAutoRoutesTests::caseZpewMap);
+            s.test("62-argrim-1027-zpew-routes", GrimAutoRoutesTests::caseZpewRoutes);
+            s.test("62-argrim-1027-zpew-secret", GrimAutoRoutesTests::caseZpewSecret);
             // midas-1020: pastes King Midas over the session's room, so it goes last.
             s.test("62-argrim-1020-midas", GrimAutoRoutesTests::caseMidas);
             teardown(ctx);
@@ -3303,6 +3308,261 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             writeRoute(ctx, null);
         }
         noteFlags(c, s);
+    }
+
+    // ============================================================================================ Zero Ping Etherwarp
+
+    private static final String ZP = "com.killer560.hub.zpew.ZeroPingEtherwarp";
+    private static final String ZP_CFG = "com.killer560.hub.zpew.ZeroPingEtherwarpConfig";
+    private static final String[] ZP_SOURCES = {"MANUAL", "LEFT_CLICK", "AUTO_ROUTES", "INTERACTIVE_MAP", "AUTO_SECRET",
+            "AUTO_CLEAR", "AUTO_PUZZLES", "AP3", "PATHFINDING"};
+
+    /** Per source {predicted, hit, skipped}, then {all predictions, misses, timeouts, uses seen} last. */
+    private static long[][] zpCounts(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            long[][] out = new long[ZP_SOURCES.length + 1][];
+            for (int i = 0; i < ZP_SOURCES.length; i++) {
+                Object[] a = {ZP_SOURCES[i]};
+                Class<?>[] t = {String.class};
+                out[i] = new long[]{((Number) ModUnderTest.staticCall(ZP, "predictedBy", t, a)).longValue(),
+                        ((Number) ModUnderTest.staticCall(ZP, "hitsBy", t, a)).longValue(),
+                        ((Number) ModUnderTest.staticCall(ZP, "skippedBy", t, a)).longValue()};
+            }
+            out[ZP_SOURCES.length] = new long[]{((Number) ModUnderTest.staticCall(ZP, "predictions")).longValue(),
+                    ((Number) ModUnderTest.staticCall(ZP, "misses")).longValue(),
+                    ((Number) ModUnderTest.staticCall(ZP, "timeouts")).longValue(),
+                    ((Number) ModUnderTest.staticCall(ZP, "usesSeen")).longValue()};
+            return out;
+        });
+    }
+
+    private static long[][] zpDelta(long[][] before, long[][] after) {
+        long[][] d = new long[before.length][];
+        for (int i = 0; i < before.length; i++) {
+            d[i] = new long[before[i].length];
+            for (int j = 0; j < before[i].length; j++) {
+                d[i][j] = after[i][j] - before[i][j];
+            }
+        }
+        return d;
+    }
+
+    private static int zpIdx(String source) {
+        return java.util.Arrays.asList(ZP_SOURCES).indexOf(source);
+    }
+
+    private static String zpDescribe(long[][] d) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < ZP_SOURCES.length; i++) {
+            if (d[i][0] != 0 || d[i][1] != 0 || d[i][2] != 0) {
+                sb.append(ZP_SOURCES[i]).append(" p").append(d[i][0]).append("/h").append(d[i][1]).append("/s")
+                        .append(d[i][2]).append(" ");
+            }
+        }
+        long[] t = d[ZP_SOURCES.length];
+        return sb.append("| all p").append(t[0]).append(" miss ").append(t[1]).append(" timeout ").append(t[2])
+                .append(" seen ").append(t[3]).toString();
+    }
+
+    /** ZPEW on/off, and one source's Works For switch (every other source on). */
+    private static void zpSet(ClientGameTestContext ctx, boolean on, String source, boolean sourceOn) {
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(ZP_CFG);
+            ModUnderTest.set(cfg, "setEnabled", on);
+            ModUnderTest.call(cfg, "setTimeoutMs", new Class<?>[]{int.class}, new Object[]{1500});
+            for (String s : ZP_SOURCES) {
+                ModUnderTest.call(cfg, "setWorksForByName", new Class<?>[]{String.class, boolean.class},
+                        new Object[]{s, source == null || !s.equals(source) || sourceOn});
+            }
+        });
+    }
+
+    /** Every source's predictions in {@code d} are zero except the allowed ones'. */
+    private static void zpOnlyFrom(long[][] d, String label, String... allowed) {
+        List<String> ok = java.util.Arrays.asList(allowed);
+        for (int i = 0; i < ZP_SOURCES.length; i++) {
+            if (!ok.contains(ZP_SOURCES[i])) {
+                check(d[i][0] == 0, label + ": " + ZP_SOURCES[i] + " predicted " + d[i][0] + " warp(s) it did not send ("
+                        + zpDescribe(d) + ")");
+            }
+        }
+    }
+
+    /** The gaps, in client ticks, between the map hop sends made since {@code sentBefore} were on record. */
+    private static List<Long> mapHopGaps(ClientGameTestContext ctx, int sentBefore) {
+        List<Long> sends = ctx.computeOnClient(mc -> {
+            List<Long> out = new ArrayList<>();
+            for (Object o : (List<?>) ModUnderTest.staticCall("com.killer560.hub.livemap.autoclear.ClearExecutor",
+                    "hopSendTicks")) {
+                out.add(((Number) o).longValue());
+            }
+            return out;
+        });
+        List<Long> gaps = new ArrayList<>();
+        for (int i = Math.max(1, sentBefore + 1); i < sends.size(); i++) {
+            gaps.add(sends.get(i) - sends.get(i - 1));
+        }
+        return gaps;
+    }
+
+    private static int mapHopsSent(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> ((List<?>) ModUnderTest.staticCall(
+                "com.killer560.hub.livemap.autoclear.ClearExecutor", "hopSendTicks")).size());
+    }
+
+    /**
+     * imap-zpew-1026: the Interactive Map's warp (62-argrim-imwarp's press, run three times) with ZPEW on and Works For
+     * "Interactive Map" on - every hop predicted and hit, from the map and nothing else, one hop a tick; with the switch
+     * off - none predicted, every hop skipped; with ZPEW off - nothing seen at all. Each run is imwarp's own case, so
+     * its checks (planned warps sent, landed, the sneak, the body given back, GrimAC) hold in all three.
+     */
+    private static void caseZpewMap(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        StringBuilder notes = new StringBuilder();
+        try {
+            String[] mode = {"map on", "map off", "zpew off"};
+            for (int k = 0; k < 3; k++) {
+                zpSet(ctx, k != 2, "INTERACTIVE_MAP", k != 1);
+                JsonObject before = stats();
+                int hops0 = mapHopsSent(ctx);
+                long[][] z0 = zpCounts(ctx);
+                caseMapWarp(c, false);
+                ctx.waitTicks(10);
+                long[][] d = zpDelta(z0, zpCounts(ctx));
+                int im = zpIdx("INTERACTIVE_MAP");
+                int ar = zpIdx("AUTO_ROUTES");
+                // The route's START node may fire once the map screen closes (he is standing on it): that warp is Auto
+                // Routes', not the map's.
+                int warps = delta(before, "etherwarps") - (int) (d[ar][0] + d[ar][2]);
+                List<Long> gaps = mapHopGaps(ctx, hops0);
+                println("zpew map (" + mode[k] + "): " + warps + " server etherwarp(s), hop gaps " + gaps + "; "
+                        + zpDescribe(d));
+                notes.append(mode[k]).append(": ").append(warps).append(" warps, gaps ").append(gaps).append(", ")
+                        .append(zpDescribe(d)).append("; ");
+                check(warps >= 2, mode[k] + ": the map made " + warps + " etherwarp(s) - the case proves nothing");
+                if (k == 0) {
+                    check(d[im][0] == warps && d[im][1] == warps, "map on: " + warps + " map warp(s), " + d[im][0]
+                            + " predicted, " + d[im][1] + " hit (" + zpDescribe(d) + ")");
+                    long[] t = d[ZP_SOURCES.length];
+                    check(t[1] == 0 && t[2] == 0, "map on: " + t[1] + " miss(es), " + t[2] + " timeout(s)");
+                    for (long g : gaps) {
+                        check(g == 1, "map on: the hops did not go one a tick: gaps " + gaps);
+                    }
+                    zpOnlyFrom(d, "map on", "INTERACTIVE_MAP", "AUTO_ROUTES");
+                } else if (k == 1) {
+                    check(d[im][0] == 0 && d[im][2] == warps, "map off: " + d[im][0] + " predicted, " + d[im][2]
+                            + " skipped of " + warps + " (" + zpDescribe(d) + ")");
+                    zpOnlyFrom(d, "map off", "AUTO_ROUTES");
+                } else {
+                    long[] t = d[ZP_SOURCES.length];
+                    check(t[0] == 0 && t[3] == 0, "zpew off: " + t[0] + " prediction(s), " + t[3] + " use(s) seen");
+                }
+            }
+            c.note("zpew map: " + notes);
+        } finally {
+            zpSet(ctx, false, null, true);
+        }
+    }
+
+    /**
+     * imap-zpew-1026: Auto Routes' chain (62-argrim-chain's route) started by his own hand etherwarp: with Works For
+     * "Auto Routes" and "Manual Etherwarps" on, the hand warp is MANUAL's and every route warp AUTO_ROUTES' - all hit;
+     * Auto Routes off - only the hand warp is predicted; Manual off - only the route's.
+     */
+    private static void caseZpewRoutes(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        int[][] pts = ArChainMeasure.CHAIN;
+        int[] end = ArChainMeasure.END;
+        List<JsonObject> n = new ArrayList<>();
+        for (int i = 0; i < pts.length; i++) {
+            int[] to = i + 1 < pts.length ? pts[i + 1] : end;
+            n.add(ew(pts[i][0], pts[i][1], to[0], to[1], i == 0));
+        }
+        writeRoute(ctx, n);
+        List<Sample> all = new ArrayList<>();
+        StringBuilder notes = new StringBuilder();
+        try {
+            ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setEtherwarpsPerSecond",
+                    new Class<?>[]{int.class}, new Object[]{20}));
+            String[][] runs = {{"both on", null}, {"routes off", "AUTO_ROUTES"}, {"manual off", "MANUAL"}};
+            for (String[] run : runs) {
+                zpSet(ctx, true, run[1], false);
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                        new Object[]{"test"}));
+                JsonObject before = stats();
+                long[][] z0 = zpCounts(ctx);
+                startSampling(ctx);
+                warpOnto(ctx, 6.5, 10.5, 6, 6);
+                Vec3 landed = waitLanded(ctx, end[0], end[1], 400);
+                ctx.waitTicks(15);
+                all.addAll(stopSampling(ctx));
+                long[][] d = zpDelta(z0, zpCounts(ctx));
+                int warps = delta(before, "etherwarps");
+                int ar = zpIdx("AUTO_ROUTES");
+                int man = zpIdx("MANUAL");
+                println("zpew routes (" + run[0] + "): " + warps + " server etherwarp(s), landed " + landed + "; "
+                        + zpDescribe(d));
+                notes.append(run[0]).append(": ").append(warps).append(" warps, ").append(zpDescribe(d)).append("; ");
+                check(landed != null, run[0] + ": the chain did not reach its end (at " + relPos(ctx) + ")");
+                check(warps == pts.length + 1, run[0] + ": the server made " + warps + " etherwarps, expected "
+                        + (pts.length + 1));
+                long wantAr = "AUTO_ROUTES".equals(run[1]) ? 0 : pts.length;
+                long wantMan = "MANUAL".equals(run[1]) ? 0 : 1;
+                check(d[ar][0] == wantAr && d[ar][1] == wantAr, run[0] + ": Auto Routes predicted/hit " + d[ar][0] + "/"
+                        + d[ar][1] + ", expected " + wantAr + " (" + zpDescribe(d) + ")");
+                check(d[man][0] == wantMan && d[man][1] == wantMan, run[0] + ": Manual predicted/hit " + d[man][0] + "/"
+                        + d[man][1] + ", expected " + wantMan + " (" + zpDescribe(d) + ")");
+                check(d[ar][2] == pts.length - wantAr && d[man][2] == 1 - wantMan, run[0] + ": skipped Auto Routes "
+                        + d[ar][2] + ", Manual " + d[man][2]);
+                check(d[ZP_SOURCES.length][1] == 0 && d[ZP_SOURCES.length][2] == 0, run[0] + ": misses/timeouts "
+                        + d[ZP_SOURCES.length][1] + "/" + d[ZP_SOURCES.length][2]);
+                zpOnlyFrom(d, run[0], "AUTO_ROUTES", "MANUAL");
+            }
+            c.note("zpew routes: " + notes);
+        } finally {
+            zpSet(ctx, false, null, true);
+            writeRoute(ctx, null);
+        }
+        noteFlags(c, all);
+    }
+
+    /**
+     * imap-zpew-1026: Auto Secret (62-argrim-autosecret, run twice): its map trip's hops are AUTO_SECRET's - predicted
+     * with that switch on, skipped with it off - and the route's etherwarp on arrival stays AUTO_ROUTES' either way.
+     */
+    private static void caseZpewSecret(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        StringBuilder notes = new StringBuilder();
+        try {
+            for (boolean on : new boolean[]{true, false}) {
+                zpSet(ctx, true, "AUTO_SECRET", on);
+                long[][] z0 = zpCounts(ctx);
+                caseAutoSecret(c, false);
+                ctx.waitTicks(10);
+                long[][] d = zpDelta(z0, zpCounts(ctx));
+                int as = zpIdx("AUTO_SECRET");
+                int ar = zpIdx("AUTO_ROUTES");
+                String mode = on ? "secret on" : "secret off";
+                println("zpew secret (" + mode + "): " + zpDescribe(d));
+                notes.append(mode).append(": ").append(zpDescribe(d)).append("; ");
+                long trip = d[as][0] + d[as][2];
+                check(trip >= 1, mode + ": Auto Secret sent no etherwarp the send tap saw (" + zpDescribe(d) + ")");
+                if (on) {
+                    check(d[as][0] == trip && d[as][1] == trip, mode + ": " + trip + " trip warp(s), predicted/hit "
+                            + d[as][0] + "/" + d[as][1]);
+                } else {
+                    check(d[as][0] == 0, mode + ": " + d[as][0] + " trip warp(s) predicted");
+                }
+                check(d[ar][0] >= 1, mode + ": the route's own etherwarp was not predicted as Auto Routes' ("
+                        + zpDescribe(d) + ")");
+                zpOnlyFrom(d, mode, "AUTO_SECRET", "AUTO_ROUTES");
+            }
+            c.note("zpew secret: " + notes);
+        } finally {
+            zpSet(ctx, false, null, true);
+        }
     }
 
     private static int firstPlannedWarps(long mark) {
