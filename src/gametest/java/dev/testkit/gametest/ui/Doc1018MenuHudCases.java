@@ -641,7 +641,11 @@ final class Doc1018MenuHudCases {
                     c.check(!has(l, "Solver Highlight"), s[0] + " still has a shared Solver Highlight section: " + l);
                     continue;
                 }
-                boolean ok = has(l, "Solver Highlight: ") && has(l, "Solver Highlight Through Walls");
+                // Livid's Through Walls row is cheat-only by design (mod 20908fcf, killer560 2026-10-18: a legit build never
+                // draws Livid through blocks): a legit jar must NOT have it there.
+                boolean walls = has(l, "Solver Highlight Through Walls");
+                boolean ok = has(l, "Solver Highlight: ")
+                        && (s[0].equals("LividSolverTab") && !Mod.isCheat() ? !walls : walls);
                 c.check(ok, s[0] + " has no Solver Highlight / Solver Highlight Through Walls rows: " + l);
                 c.check(has(l, "Solver Highlight Style") == s[3].equals("y"),
                         s[0] + (s[3].equals("y") ? " is missing" : " has") + " a Solver Highlight Style row: " + l);

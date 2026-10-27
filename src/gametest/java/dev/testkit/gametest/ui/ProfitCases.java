@@ -94,8 +94,9 @@ final class ProfitCases {
         AbstractWidget close = widget(hub, "Close");
         c.check(close != null, "the hub has no Close button");
 
-        // A summary line for every tracker (read straight off the enum the cards draw from).
-        for (Object tracker : (Object[]) Mod.cls("gui.profit.ProfitTracker").getEnumConstants()) {
+        // A summary line for every tracker this build shows (ProfitTracker.available(), what the cards draw from): a legit
+        // jar's BAZAAR_FLIP is folded empty on purpose (cheat build only, killer560 2026-10-16) and never shown.
+        for (Object tracker : (java.util.List<?>) Mod.staticCall("gui.profit.ProfitTracker", "available")) {
             Object summary = Mod.call(tracker, "summary");
             String text = (String) Mod.call(summary, "text");
             c.note("summary " + tracker + ": \"" + text + "\"");
