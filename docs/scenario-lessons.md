@@ -1276,3 +1276,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   (+x, +z, -x, -z, +x): queuing those five presses spins the client 360 between two ticks, which is AimModulo360 on any
   client - use a zigzag; (3) queued presses need `KeyMapping.click` plus the mod's `pollClicks` per press, all between two
   ticks (`runOnClient`), because the burst runs in the mod's START_CLIENT_TICK, before the harness's own START hook.
+- **983 Class Targets (2026-10-27).** `FastLeapConfig.load()` replaces the instance, so a case that holds the config from
+  `getInstance` and reloads it mid-case keeps editing the old object; 983 checks the saved file's JSON mid-case and does
+  its save + load + `getInstance` read as its last step. His own class comes from a self line on the fake tab list
+  (`"[45] <his IGN> (Mage XL)"`); wait for `PartyTracker.selfClass()` to read it before leaping. Run the case with
+  `-Scenario "200-menu-session:,983-menu"`: a bare `983-menu` selects no Session case.
