@@ -122,13 +122,25 @@ public final class HxEvents {
         e.addProperty("button", button);
         e.addProperty("input", input);
         e.addProperty("menu", player.containerMenu == null ? "none" : player.containerMenu.getClass().getSimpleName());
+        serverView(e, player);
         add(e);
     }
 
     public static void containerClose(ServerPlayer player, int containerId) {
         JsonObject e = base("container.close", player);
         e.addProperty("containerId", containerId);
+        serverView(e, player);
         add(e);
+    }
+
+    /**
+     * What the server holds of him when the packet is handled (1027-iw-*): his last input (the movement keys GrimAC's
+     * MultiActionsC/D read), sprint and sneak. A click or close with any of them set is what those checks flag.
+     */
+    private static void serverView(JsonObject e, ServerPlayer player) {
+        e.addProperty("serverInput", HxPrimitives.inputText(player.getLastClientInput()));
+        e.addProperty("sprinting", player.isSprinting());
+        e.addProperty("shift", player.isShiftKeyDown());
     }
 
     /** From the packet-listener mixin: the client's held-item packet ({@code held}, hotbar slot 0-8). */
