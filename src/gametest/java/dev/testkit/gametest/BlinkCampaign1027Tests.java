@@ -57,7 +57,8 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
         for (Consumer<ClientGameTestContext> c : List.<Consumer<ClientGameTestContext>>of(
                 BlinkCampaign1027Tests::interleave, BlinkCampaign1027Tests::interleaveNow, BlinkCampaign1027Tests::order,
                 BlinkCampaign1027Tests::terrain, BlinkCampaign1027Tests::air, BlinkCampaign1027Tests::split,
-                BlinkCampaign1027Tests::menus, BlinkCampaign1027Tests::keepDelay, BlinkCampaign1027Tests::mixed)) {
+                BlinkCampaign1027Tests::menus, BlinkCampaign1027Tests::keepDelay, BlinkCampaign1027Tests::tpSprint,
+                BlinkCampaign1027Tests::mixed)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -1120,6 +1121,92 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
      * later, D = 2..200. Records what GrimAC says at the teleport and at the shot, and whether the server followed the
      * shot. Charge off (the control): the same teleport and a walk are clean.
      */
+    /**
+     * 1027-blink-c-tpsprint (isolating menus (g)): a server teleport (relative "~ ~ ~3" or absolute) that lands while he is
+     * sprinting, with Charge off and on, then keys up 3 ticks later or sprinting on for 20, with and without a chest click
+     * inside the second after it. Every row must be clean; the server must end where the client is.
+     */
+    private static void tpSprint(ClientGameTestContext ctx) {
+        int x = -11900;
+        int z = -6000;
+        String name = "1027-blink-c-tpsprint";
+        Scenario.runExpectingFlags(ctx, name, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            installLatency(ctx, scenario);
+            boolean gate = setUp(ctx, 20);
+            Rows rows = new Rows();
+            dev.testkit.gametest.hx.Hx hx = null;
+            String player = playerName(ctx);
+            try {
+                hx = dev.testkit.gametest.hx.Hx.connect();
+                int lane = 0;
+                for (boolean charge : new boolean[]{false, true}) {
+                    for (String tpKind : new String[]{"relative", "absolute"}) {
+                        for (String after : new String[]{"keys up", "sprint on", "keys up + click"}) {
+                            double lz = z - 30.5 + 6 * (lane++ % 11);
+                            tp(server, ctx, x - 25.5, SURFACE_Y, lz, -90f);
+                            server.mark();
+                            long bank = 0;
+                            if (charge) {
+                                chargeOn(ctx);
+                                bank = waitBank(ctx, 20, 60);
+                            }
+                            ctx.getInput().holdKey(o -> o.keyUp);
+                            ctx.getInput().holdKey(o -> o.keySprint);
+                            ctx.waitTicks(6);
+                            double[] c0 = here(ctx);
+                            if ("relative".equals(tpKind)) {
+                                server.command(String.format(Locale.ROOT, "tp %s ~ ~ ~3", player));
+                            } else {
+                                server.command(String.format(Locale.ROOT, "tp %s %.2f %.2f %.2f", player, c0[0] + 2.0,
+                                        (double) SURFACE_Y, lz + 3));
+                            }
+                            ctx.waitTicks(3);
+                            long clicks = -1;
+                            if (!"sprint on".equals(after)) {
+                                releaseKeys(ctx);
+                            }
+                            if ("keys up + click".equals(after)) {
+                                long ev = hx.head();
+                                hx.menu("Blink Tp Chest", 3, java.util.Map.of(11, "minecraft:stone"), null);
+                                for (int t = 0; t < 10 && !BlinkTests.menuOpen(ctx); t++) {
+                                    ctx.waitTicks(1);
+                                }
+                                BlinkTests.clickSlot(ctx, 11);
+                                ctx.waitTicks(30);
+                                clicks = hx.events(ev, "menu.click").size();
+                                ctx.runOnClient(mc -> {
+                                    if (dev.testkit.compat.McCompat.screen(mc) != null) {
+                                        dev.testkit.compat.McCompat.screen(mc).onClose();
+                                    }
+                                });
+                            } else {
+                                ctx.waitTicks(20);
+                                releaseKeys(ctx);
+                            }
+                            ctx.waitTicks(40);
+                            chargeOff(ctx);
+                            double g = gap(server, ctx);
+                            rows.add(server, scenario, (charge ? "charging" : "Charge off") + ", " + tpKind + " tp, " + after,
+                                    (!charge || bank == 20) && g < 0.5 && clicks != 0,
+                                    String.format(Locale.ROOT, "bank %d, clicks %d, gap %.2f", bank, clicks, g));
+                            ctx.waitTicks(20);
+                        }
+                    }
+                }
+            } finally {
+                closeScreen(ctx);
+                if (hx != null) {
+                    hx.close();
+                }
+                removeLatency(ctx);
+                releaseKeys(ctx);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            rows.finish(scenario, name);
+        });
+    }
+
     private static void keepDelay(ClientGameTestContext ctx) {
         int x = -11700;
         int z = -6000;
