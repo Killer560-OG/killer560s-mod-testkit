@@ -8,7 +8,6 @@
 		"InvokerArmorStand",
 		"MixinCommands",
 		"MixinServerGamePacketListener",
-		"MixinPlaceReadGap",
 		"MixinServerSignUpdate"
 	],
 	"injectors": {

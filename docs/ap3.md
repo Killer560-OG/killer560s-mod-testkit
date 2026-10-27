@@ -23,6 +23,14 @@ real W press and lets go inside it - AP3 carries him from there.
   the place at START_CLIENT_TICK, so a slow tick opened the gap; since mod todo-blood-ap3-grim-1018 it goes out at the
   head of `sendPosition`. Each case notes the gap; `1018-ap3-block-slow-tick` sleeps 25 ms after the mod's START work
   every tick and must stay clean (the START-sending jar flags it every time).
+  The 15 ms is the SERVER's time between reading the place and reading the movement packet, and it includes the server's
+  processing of the place. A freshly started test server takes 16-162 ms over its first place when the machine is busy
+  (cold code), so from 2026-10-26 the session's first AP3 place (`use-on-block`) flagged post-flying and every later place
+  pre-flying - ten cases on every jar, "environment changed" (it was load). `setup()` now makes three plain places with
+  the look sent ticks before (`warmPlaces`), clean however slow the server is. The testmod's probes print, per place, in
+  `run/testserver/logs/latest.log`: `[testkit-gap] place -> movement packet: N ms (lends its rotation | judged by the
+  rotation before ...)`, GrimAC's own number (`handleQueuedPlaces`, read through `grimprobe/GrimPlayerAccess`; a timer in
+  vanilla's handlers disagreed with it by up to 15 ms and was dropped). A/B on one jar side by side: no warm-up 0 of 3 clean (16-19 ms), warm-up 3 of 3 (0-1 ms).
 - `stopwatch-hud`, `cmdtree`: see the case code. `corrections`: two server moves 10 ticks apart while a RUN carries him - AP3 must keep running and enabled, report each (chat line, `[Correction] AP3:` log line) and play the alarm (`ModSounds.correctionAlarmsPlayed`); mod rule 2026-10-06, a correction never stops anything.
 - `1022-ap3-breaker-*` (mod ap3-breaker-tick-1022): Breaker Aura's first dig after a landing must go out on the first tick
   a pick is in the client, standing and in reach - read at START after the mod's own START work (the S marker carries the
