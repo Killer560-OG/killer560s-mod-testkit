@@ -59,6 +59,9 @@ public class BossSuite implements FabricClientGameTest {
                     Ap3LightsPathCases.register(s);
                     // Blink Charge + Release + Run in one box, in the boss world (1027, ap3-s2ee3-1027).
                     Ap3BlinkComboBossCases.register(s);
+                    // Arrow Align Aura as fast as GrimAC allows: Clicks Per Tick 1-7, Turn And Click Same Tick, latency
+                    // 0-300 ms, two-frame and same-frame controls (1027-aafast-*, mod aafast-1027), own block.
+                    AaFastCases.register(s);
                 });
     }
 }

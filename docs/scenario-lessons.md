@@ -1281,3 +1281,16 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   its save + load + `getInstance` read as its last step. His own class comes from a self line on the fake tab list
   (`"[45] <his IGN> (Mage XL)"`); wait for `PartyTracker.selfClass()` to read it before leaping. Run the case with
   `-Scenario "200-menu-session:,983-menu"`: a bare `983-menu` selects no Session case.
+- 1027-aafast-* (`boss/AaFastCases`, mod aafast-1027): Arrow Align Aura Clicks Per Tick 1-7 and Turn And Click Same Tick.
+  GrimAC's MultiInteractA/B are EXPERIMENTAL in 2.3.74 and silent unless the test server's (gitignored)
+  `run/testserver/config/GrimAC/config.yml` says `experimental-checks: true`; a "two entities in one tick" control is
+  meaningless without it. Grim's Reach/Hitboxes return NONE for any non-living target, so an item-frame case cannot prove
+  anything about the look. Bucket a client tick by `client_tick_end` on the wire, not `PacketTrace.tickCount()`: its START
+  hook runs after the mod's, so a click sent at START lands one bucket early. A server teleport mid-case (seen once a run
+  in a session's first frame cases) makes vanilla send `accept_teleportation` + a PosRot between ticks; it is not a turn.
+  Read the server's frame rotations (`data get entity <uuid> ItemRotation`) right after the clicks: frames have vanished
+  from the server about a second after a solve in a session's first frame case (cause not found).
+  With experimental checks on, BadPacketsR* (x1, "time=2013ms") fired once at the START of a case that followed a
+  150 ms Latency case, before any click (g2 1027-aafast-cpt1-300); the rerun was clean. It is the Latency teardown, not a feature.
+  Frames Per Tick on experimental checks: Grim cancels the flagged second-frame clicks, the mod resends after its 1 s
+  pending timeout, and the device still solves (76 sent, 40 reached, fpt15).
