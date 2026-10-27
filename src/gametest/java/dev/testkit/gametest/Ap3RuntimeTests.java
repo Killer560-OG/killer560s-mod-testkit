@@ -124,10 +124,12 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
                     c -> caseBreakerTeleport(c, "1022-ap3-breaker-leap-menu", Arrival.AFTER_MENU, false));
             // mod ap3-backwards-1026: the ledge guard, the boom that runs to its use, the leapcounter: gate.
             Ap3Fix1026Cases.register(s);
+            // mod ap3-shotsteer-1027: AP3 steers every shot tick; a momentum-keeping charge. Registered before the 1026
+            // Blink cases: 1026-ap3-blink-leap keeps the bank through a leap (killer560 2026-10-27) and GrimAC's BadPacketsN
+            // from it lands on the next case's lane teleport, so the leap case runs last, before 63-ap3-corrections.
+            Ap3ShotSteer1027Cases.register(s);
             // mod ap3-blink-1026: the Blink Charge and Blink Release nodes.
             Ap3Blink1026Cases.register(s);
-            // mod ap3-shotsteer-1027: AP3 steers every shot tick; a momentum-keeping charge.
-            Ap3ShotSteer1027Cases.register(s);
             s.testExpectingFlags("63-ap3-corrections", Ap3RuntimeTests::caseCorrection);
             onClient(ctx, mc -> {
                 PacketTrace.tap = null;
