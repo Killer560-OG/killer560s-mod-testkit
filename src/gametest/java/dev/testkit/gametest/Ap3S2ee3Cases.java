@@ -55,6 +55,13 @@ final class Ap3S2ee3Cases {
         s.test("1027-ap3-s2ee3-stall", c -> standing(c, 2.64, 109.0, 104.73, 3.0));
         // Leap-in arrivals (killer560: his Blink trouble comes after a leap up there): a teleport of 30+ blocks lands him in
         // #34's box - on its point's stair, and on the low half - with his route armed.
+        // The half-low standing start again and again (2026-10-27: intermittent Simulation flags on the first press).
+        // Registered only when the -Scenario names them ("1027-ap3-lowrep"), so the whole session stays its usual length.
+        if (System.getProperty("testkit.scenario", "").contains("1027-ap3-lowrep")) {
+            for (int r = 1; r <= 24; r++) {
+                s.test(String.format(Locale.ROOT, "1027-ap3-lowrep-r%02d", r), c -> standing(c, 2.85, 108.5, 106.0, 1.0));
+            }
+        }
         s.test("1027-ap3-s2ee3-leapin-high", c -> leapIn(c, 2.35, 109.0, 105.3));
         s.test("1027-ap3-s2ee3-leapin-low", c -> leapIn(c, 2.85, 108.5, 105.9));
         s.test("1027-ap3-s2ee3-blink-0.4", c -> run(c, 0.4, 0.0, true));
@@ -326,7 +333,15 @@ final class Ap3S2ee3Cases {
                 setChain(n34);
                 return null;
             });
-            Watch w = watch(ctx, 2.5 + DX, 105.5, 160);
+            // GrimAC's own per-tick prediction (P predicted, A actual, O offset) into the server log for this align.
+            String who = BlinkTests.playerName(ctx);
+            cmd(c, "grim consoledebug %s", who);
+            Watch w;
+            try {
+                w = watch(ctx, 2.5 + DX, 105.5, 160);
+            } finally {
+                cmd(c, "grim consoledebug %s", who);
+            }
             judge(c, String.format(Locale.ROOT, "standing start (%.2f, %.2f, %.2f), box %.0f", x, y, z, box), w, mark);
         } finally {
             onClient(ctx, mc -> {
