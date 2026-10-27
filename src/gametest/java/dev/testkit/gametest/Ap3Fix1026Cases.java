@@ -48,6 +48,13 @@ final class Ap3Fix1026Cases {
     private Ap3Fix1026Cases() {
     }
 
+    /** Ap3Executor.leapGateNode(), on the client thread. */
+    private static final class ModUnderTestHolder {
+        static Object gate() {
+            return dev.testkit.gametest.ModUnderTest.staticCall(EXEC, "leapGateNode");
+        }
+    }
+
     static void register(Session s) {
         s.test("1026-ap3-ledge-1", c -> ledge(c, 1, false));
         s.test("1026-ap3-ledge-3", c -> ledge(c, 3, false));
@@ -355,7 +362,8 @@ final class Ap3Fix1026Cases {
         double z = Ap3RuntimeTests.lane();
         Object run = Ap3RuntimeTests.runNode(z);
         Object boom = node("BOOM", LANE_X0 + 10.0, z, -90f, 60f, 1.0, 3.0);
-        Object look = node("LOOK", LANE_X0 + 10.6, z, 0f, 0f, 1.0, 3.0);
+        // Yaw 0 turns the box: length runs along z, width along x - so 1 wide (x 10.1-11.1) and 3 long across the lane.
+        Object look = node("LOOK", LANE_X0 + 10.6, z, 0f, 0f, 3.0, 1.0);
         Object stop = node("STOP", LANE_X0 + 24.0, z, -90f, 0f, 2.0, 3.0);
         try {
             BlockPos target = nodeBlock(ctx, LANE_X0 + 10.0, z, -90f, 60f);
@@ -443,7 +451,10 @@ final class Ap3Fix1026Cases {
         Object run = Ap3RuntimeTests.runNode(z);
         Object stop = node("STOP", ax, z, -90f, 0f, 3.0, 3.0);
         set(stop, "leapCounter", 2);
-        Object align = node("ALIGN", ax, z, 0f, 0f, 2.0, 2.0);
+        // The align is further on: the gate ends his run, and he is then put onto it (a 2.5-block server tp, well under
+        // AP3's 8-block leap line) the way he would step onto one while waiting.
+        double alx = ax + 2.5;
+        Object align = node("ALIGN", alx, z, 0f, 0f, 2.0, 2.0);
         Object walk = node("WALK", ax, z, 0f, 0f, 3.0, 3.0);
         long mark = LogTap.mark();
         try {
@@ -453,6 +464,10 @@ final class Ap3Fix1026Cases {
                 return null;
             });
             walkIntoRunAt(c, z, FLOOR + 1, run, stop, align, walk);
+            c.waitUntil("the leapcounter gate to hold", mc -> ModUnderTestHolder.gate() != null, 40);
+            ctx.waitTicks(10);
+            c.server().command(String.format(Locale.ROOT, "tp @p %.2f %d %.2f", alx - 0.6, FLOOR + 1, z + 0.4));
+            c.server().sync(20);
             ctx.waitTicks(60);
             Object[] mid = onClient(ctx, mc -> new Object[]{mc.player.getX(), mc.player.getZ(),
                     dev.testkit.gametest.ModUnderTest.staticCall(EXEC, "leapGateNode") != null, activeType()});
@@ -461,9 +476,9 @@ final class Ap3Fix1026Cases {
             if (!(Boolean) mid[2]) {
                 throw new AssertionError("the leapcounter:2 gate is not holding before any teammate leapt");
             }
-            if (Math.abs((Double) mid[0] - ax) > 1e-3 || Math.abs((Double) mid[1] - z) > 1e-3) {
+            if (Math.abs((Double) mid[0] - alx) > 1e-3 || Math.abs((Double) mid[1] - z) > 1e-3) {
                 throw new AssertionError(String.format(Locale.ROOT, "the align did not run during the wait: %.4f / %.4f off",
-                        (Double) mid[0] - ax, (Double) mid[1] - z));
+                        (Double) mid[0] - alx, (Double) mid[1] - z));
             }
             String[] names = {"LeapA", "LeapB"};
             for (String n : names) {

@@ -71,8 +71,12 @@ final class Ap3LightsRunCases {
             c.server().sync(20);
             c.server().command("fill 30 132 134 53 132 144 minecraft:stone");
             c.server().command("fill 30 133 134 53 139 144 minecraft:air");
-            LightsDeviceCases.setLevers(c, 0, 2, 4);
-            LightsDeviceCases.waitLevers(c, "three lit, three unlit", 0, 2, 4);
+            // Unlit: only the two at x 58 (58,136 and 58,133). With a 3.0 range they are out of reach from the align's point
+            // (about 3.4 to their boxes) and in reach along RUN 15-17 (under 2), so the aura's turns land on the RUN -
+            // where his backwards steps were - and not all during the align.
+            LightsDeviceCases.setLevers(c, 0, 2, 3, 4);
+            LightsDeviceCases.waitLevers(c, "four lit, two unlit", 0, 2, 3, 4);
+            undo.add(c.onClient(mc -> Mod.with(LightsDeviceCases.CFG, "Range", 3.0)));
             LightsDeviceCases.newRun(c);
             undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Enabled", true)));
             undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Strafe45", true)));
