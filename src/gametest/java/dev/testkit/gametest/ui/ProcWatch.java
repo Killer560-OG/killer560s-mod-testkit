@@ -70,19 +70,20 @@ final class ProcWatch implements AutoCloseable {
     private static final long JUDGE_NANOS = 2_000_000_000L;
     private final java.util.Map<Long, Pending> pending = new java.util.HashMap<>();
 
-    private record Pending(ProcessHandle handle, String cmd, long since) {
+    private record Pending(ProcessHandle handle, String cmd, long since, long parent) {
     }
 
     private synchronized void pollOnce() {
         long now = System.nanoTime();
         ProcessHandle.current().descendants().forEach(p -> {
             if (!baseline.contains(p.pid()) && seenPids.add(p.pid())) {
-                pending.put(p.pid(), new Pending(p, p.info().commandLine().orElse(p.info().command().orElse("?")), now));
+                pending.put(p.pid(), new Pending(p, p.info().commandLine().orElse(p.info().command().orElse("?")), now,
+                        p.parent().map(ProcessHandle::pid).orElse(-1L)));
             }
         });
         for (var it = pending.values().iterator(); it.hasNext(); ) {
             Pending pd = it.next();
-            String why = expectedWhy(pd.handle());
+            String why = expectedWhy(pd.handle(), pd.parent());
             boolean expected = why != null;
             if (!expected && pd.handle().isAlive() && now - pd.since() < JUDGE_NANOS) {
                 continue;
@@ -102,7 +103,7 @@ final class ProcWatch implements AutoCloseable {
     /** Judges every child still waiting (the end of the run): what is not expected by now counts. */
     private synchronized void flush() {
         for (Pending pd : pending.values()) {
-            String why = expectedWhy(pd.handle());
+            String why = expectedWhy(pd.handle(), pd.parent());
             synchronized (seen) {
                 (why != null ? expectedSeen : seen).add(pd.handle().pid() + " " + pd.cmd() + (why != null ? " (" + why + ")" : ""));
             }
@@ -110,14 +111,22 @@ final class ProcWatch implements AutoCloseable {
         pending.clear();
     }
 
-    private String expectedWhy(ProcessHandle p) {
+    /**
+     * {@code seenParent} is the parent read when the child was first seen: a short child (the csc.exe the Spotify
+     * reader's {@code Add-Type} starts to compile its volume code, mod spotify-controls-1026) is often judged after
+     * it exited, when Windows no longer gives its parent (370 on final-1027).
+     */
+    private String expectedWhy(ProcessHandle p, long seenParent) {
         String s = scope;
         if (s != null) {
             return s;
         }
-        Long parent = p.parent().map(ProcessHandle::pid).orElse(null);
+        Long parent = p.parent().map(ProcessHandle::pid).orElse(seenParent >= 0 ? seenParent : null);
         if (parent != null && expectedPids.contains(parent)) {
             return "child of expected " + parent;
+        }
+        if (parent != null && parent == spotifyReaderPid()) {
+            return "child of the Spotify media-session reader " + parent;
         }
         if (p.pid() == spotifyReaderPid()) {
             return "the Spotify media-session reader (SpotifyLyricsFeature.MEDIA)";
