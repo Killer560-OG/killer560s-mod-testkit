@@ -21,8 +21,8 @@ import java.util.TreeSet;
 
 /**
  * 1027-zpewlk-* - etherwarps at DIFFERENT looks inside one client tick (killer560, 2026-10-27: "Can you make it etherwarp
- * different directions during the same tick?"). On a 14 x 14 floor each warp of a burst goes 8 blocks a new way (+x, +z,
- * -x, -z, +x), cast by the server from the landing before, so every landing is known in advance.
+ * different directions during the same tick?"). On a 16 x 24 floor each warp of a burst goes 8 blocks a new way (+x, +z,
+ * -x, +z, +x), cast by the server from the landing before, so every landing is known in advance.
  *
  * <p>Shapes measured against GrimAC 2.3.74, each shot on its own server mark so its flags are its own:
  * <ul>
@@ -44,7 +44,9 @@ public class ZpewLooksTests implements FabricClientGameTest {
     static final int X0 = ZpewMultiTickTests.X0;
     static final int Y = ZpewMultiTickTests.Y;
     static final int SQ_Z = ZpewMultiTickTests.SQ_Z;
-    static final int[][] DIRS = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}, {1, 0}};
+    // A zigzag, not a square: five turns of a whole circle put a 360 between the first press and the last, and a client
+    // whose look jumps 360 in one move is GrimAC AimModulo360 with or without the mod (1027-zpewlk n=5, first runs).
+    static final int[][] DIRS = {{1, 0}, {0, 1}, {-1, 0}, {0, 1}, {1, 0}};
     static final int[] LATENCIES = {0, 50, 150, 300};
 
     @Override
