@@ -526,8 +526,9 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                     g = gap(server, ctx);
                     // A shot inside a hold: the hold sent the waiting answers at its start and the shot's ticks join its
                     // burst, so hold + shot exceed GrimAC's one lag allowance (Timer). Recorded, not failed.
+                    // The shot's ticks count toward Hold Ticks, so the hold lets go inside the shot (wasHolding is then false).
                     rows.add(server, scenario, "(e) Hold-mode fire inside a hold C" + c, bank == c && shotsInHold == 1
-                                    && wasHolding && num(ctx, "releasedHolds") > holds0,
+                                    && num(ctx, "releasedHolds") > holds0,
                             String.format(Locale.ROOT, "bank %d, %d shot(s) inside the hold (%d tick(s)), gap %.2f", bank,
                                     shotsInHold, cnum(ctx, "lastShotTicks"), g), true);
                 }
