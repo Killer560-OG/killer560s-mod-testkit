@@ -592,6 +592,14 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	if (project.hasProperty("blinkPulse")) {
 		systemProperty "testkit.blinkPulse", project.property("blinkPulse")
 	}
+	// 1027-blink-c-*: -PblinkCampaignLatency=ms (whole case), -PblinkCampaignFull=true (Charge x Hold 1..20 each),
+	// -PblinkCampaignCharges=1,5 -PblinkCampaignHolds=1,20, -PblinkMixedMinutes=30 -PblinkMixedSeed=N; -PblinkLongMinutes=10
+	["blinkCampaignLatency", "blinkCampaignFull", "blinkCampaignCharges", "blinkCampaignHolds", "blinkMixedMinutes",
+	 "blinkMixedSeed", "blinkLongMinutes"].each { k ->
+		if (project.hasProperty(k)) {
+			systemProperty "testkit.${k}", project.property(k)
+		}
+	}
 	if (project.hasProperty("blinkLatency")) {
 		systemProperty "testkit.blinkLatency", project.property("blinkLatency")
 	}
