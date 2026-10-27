@@ -174,6 +174,17 @@ public class BlinkStressTests implements FabricClientGameTest {
         return PacketTrace.received("player_position");
     }
 
+    /** How many {@code id} packets the server sent while {@code r} ran. */
+    private static int setbacksDuringReceived(ClientGameTestContext ctx, String id, Runnable r) {
+        ctx.runOnClient(mc -> PacketTrace.start());
+        try {
+            r.run();
+        } finally {
+            ctx.runOnClient(mc -> PacketTrace.stop());
+        }
+        return PacketTrace.received(id);
+    }
+
     private static void sendCommand(ClientGameTestContext ctx, String command) {
         ctx.runOnClient(mc -> mc.player.connection.sendCommand(command));
     }
@@ -754,13 +765,14 @@ public class BlinkStressTests implements FabricClientGameTest {
 
     private static void lanes(ClientGameTestContext ctx, String caseName, int x, List<Lane> lanes) {
         int z0 = -6000;
-        Scenario.runExpectingFlags(ctx, caseName, (server, scenario) -> {
-            arena(server, x, z0);
+        Scenario.runExpectingFlags(ctx, caseName, (server, scenario) -> arena(server, x, z0), (server, scenario) -> {
+            // Built now, with him standing in the arena: a vanilla fill/setblock in a chunk nobody has loaded fails
+            // ("That position is not loaded"), and in the build step the lanes' chunks were not loaded yet.
             for (int i = 0; i < lanes.size(); i++) {
                 int lz = z0 - 30 + 6 * i;
                 lanes.get(i).build().accept(server, new int[]{x, lz});
             }
-        }, (server, scenario) -> {
+            ctx.waitTicks(20);
             boolean gate = setUp(ctx, 20);
             Rows rows = new Rows();
             String name = playerName(ctx);
@@ -1071,13 +1083,12 @@ public class BlinkStressTests implements FabricClientGameTest {
     private static void itemsB(ClientGameTestContext ctx) {
         int x = -8200;
         int z = -6000;
-        Scenario.runExpectingFlags(ctx, "1026-blink-items-b", (server, scenario) -> {
-            arena(server, x, z);
+        Scenario.runExpectingFlags(ctx, "1026-blink-items-b", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             server.command("setblock " + (x + 2) + " " + SURFACE_Y + " " + (z + 2) + " minecraft:stone");
             server.command("setblock " + (x + 2) + " " + (SURFACE_Y + 1) + " " + (z + 2) + " minecraft:lever[face=floor,facing=east]");
             server.command("setblock " + (x + 2) + " " + SURFACE_Y + " " + (z - 2) + " minecraft:chest");
             server.command("setblock " + (x - 2) + " " + SURFACE_Y + " " + (z + 2) + " minecraft:dirt");
-        }, (server, scenario) -> {
+            ctx.waitTicks(10);
             boolean gate = setUp(ctx, 20);
             Rows rows = new Rows();
             String name = playerName(ctx);
@@ -1098,7 +1109,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                         ctx.waitTicks(25);
                     }
                     ctx.getInput().holdKey(o -> o.keyUse);
-                    ctx.waitTicks(45);
+                    ctx.waitTicks(mode == 0 ? 80 : 45);
                     ctx.getInput().releaseKey(o -> o.keyUse);
                     if (mode == 0) {
                         BlinkTests.Pulser.stop(ctx);
@@ -1169,9 +1180,11 @@ public class BlinkStressTests implements FabricClientGameTest {
                     ctx.getInput().releaseKey(o -> o.keyAttack);
                     look(ctx, x + 2.5, SURFACE_Y + 0.5, z - 1.5);
                     ctx.waitTicks(2);
-                    ctx.getInput().pressKey(o -> o.keyUse);
-                    ctx.waitTicks(10);
-                    boolean chestOpen = BlinkTests.menuOpen(ctx);
+                    int opens = setbacksDuringReceived(ctx, "open_screen", () -> {
+                        ctx.getInput().pressKey(o -> o.keyUse);
+                        ctx.waitTicks(10);
+                    });
+                    boolean chestOpen = opens >= 1;
                     ctx.runOnClient(mc -> mc.player.closeContainer());
                     ctx.waitTicks(5);
                     dummy = TestEnemy.named("BlinkDummy", "Stress").at(x - 2.5, SURFACE_Y, z - 1.5).health(20).spawn(ctx, server);
@@ -1188,8 +1201,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                     long bank1 = cnum(ctx, "banked");
                     double[] s2 = shootByPress(ctx, false);
                     ctx.waitTicks(10);
-                    server.command("execute if block " + (x - 1) + " " + SURFACE_Y + " " + z + " minecraft:cobblestone run say "
-                            + "PLACED_OK");
+                    server.command("execute if block " + (x - 2) + " " + SURFACE_Y + " " + (z - 1)
+                            + " minecraft:cobblestone run say PLACED_OK");
                     server.command("execute if block " + (x + 2) + " " + (SURFACE_Y + 1) + " " + (z + 2)
                             + " minecraft:lever[powered=true] run say LEVER_OK");
                     server.command("execute if block " + (x - 2) + " " + SURFACE_Y + " " + (z + 2) + " minecraft:air run say DUG_OK");
@@ -1198,7 +1211,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                     chargeOff(ctx);
                     g = gap(server, ctx);
                     rows.add(server, scenario, "place/lever/dig/chest/hit", tail.contains("LEVER_OK") && tail.contains("DUG_OK")
-                                    && chestOpen && s2[2] >= 19 && g < 0.5, String.format(Locale.ROOT, "bank %d -> %d; placed %s, lever %s, "
+                                    && tail.contains("PLACED_OK") && chestOpen && s2[2] >= 19 && g < 0.5, String.format(Locale.ROOT, "bank %d -> %d; placed %s, lever %s, "
                                     + "dug %s, chest opened %s, %d hit(s) on the dummy, shot %d tick(s) %.2f blocks, gap %.2f", bank0, bank1,
                             tail.contains("PLACED_OK"), tail.contains("LEVER_OK"), tail.contains("DUG_OK"), chestOpen, hits,
                             (long) s2[2], s2[0], g));
