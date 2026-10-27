@@ -1224,3 +1224,21 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 792-hx-ping-bloodcamp read the kill moment one tick late (-1.2) twice under 8 clients and -0.2 on the rerun: the
   click itself went out on its tick. Cause not proven (a skipped client game-time tick would fit); BloodCamp is untouched
   since the last passing jar.
+- 1027-zpewc-* (ZpewCampaignTests, zpew campaign 2026-10-27): Zero Ping Etherwarp's shapes, motion, chains, refused
+  warps, packet identity, Works For sources, LCEW, Overlay From Prediction, Smooth Teleport hand-off and frame cost.
+  Each shot reads ZPEW's private PENDING queue at END_CLIENT_TICK (the answer cannot arrive inside the tick that sent the
+  use, so even 0 ms is caught) and the server's teleport through `PacketTrace.inTap` (new: clientbound packet objects).
+  The stations sit on a strip far from spawn: vanilla `fill`/`setblock` refuse an unloaded chunk ("That position is not
+  loaded"), so the first run's lanes never existed and he fell through every one. `forceload add` the strip, load it with
+  `testkit fill` (default states only), then place stateful blocks with vanilla commands.
+- HxAbilities' etherwarp calls a block solid by its vanilla collision shape; the mod's list (TeleportUtils) passes
+  through skulls, ladders, flower pots, lanterns, candles, comparators/repeaters and every snow layer. Shots onto a skull or
+  snow of 2+ layers therefore disagree by construction (skull-floor 3.16 off, snow-4 6.08, snow-8 server-only, skull-wall
+  1.00); the cases mark them modelsAgree=false. Heads passing through is Hypixel's (1324); snow on Hypixel is unverified.
+- HxAbilities' Transmission walks the box along the look from the FEET and stops at the first collision, so a no-sneak
+  use aimed down at the floor moves nothing and counts no transmission; 1027-zpewc-motion's no-sneak shots look level.
+- Under `Latency.install(150)` a chain of uses one tick apart (each `pressKey` then `waitTicks(1)`) reads 1 pending at
+  the end of each tick; 3 at 300 ms. Assert overlap at 300 ms (the chain-off mispredictions prove it at 150 too).
+- 1027-zpewc-*: a server `tp` to where he already stands passes a position check at once while the tp's packet is still
+  in flight; under 300 ms it landed mid-shot and read as a ZPEW miss (solo run, chain-300). `tpTo` now waits for the
+  tp's own position packet (counted by the inbound tap) as well as the position.
