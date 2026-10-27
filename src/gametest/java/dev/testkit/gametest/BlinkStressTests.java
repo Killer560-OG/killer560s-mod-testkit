@@ -572,6 +572,12 @@ public class BlinkStressTests implements FabricClientGameTest {
                 });
                 ctx.waitTicks(5);
                 releaseKeys(ctx);
+                // Since mod campaign-blink-1027 the shot let go during the hold waits for the hold to end and the bank to be
+                // covered (he stands meanwhile), then fires and Charge goes off.
+                for (int i = 0; i < 100 && BlinkTests.shotWaiting(ctx); i++) {
+                    ctx.waitTicks(1);
+                }
+                ctx.waitTicks(3);
                 boolean offC = !charging(ctx) && !holding(ctx);
                 g = gap(server, ctx);
                 rows.addKept(ctx, server, scenario, "(c) Hold-mode Charge + Hold", bankC >= 20 && bothC && offC,
