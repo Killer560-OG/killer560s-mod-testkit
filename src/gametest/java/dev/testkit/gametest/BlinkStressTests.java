@@ -1102,7 +1102,11 @@ public class BlinkStressTests implements FabricClientGameTest {
                         }
                         rows.add(server, scenario, label, sb >= 1 && moved > 4 && (s != null || g < 0.5) && (s == null || s[2] >= 19),
                                 String.format(Locale.ROOT, "%d position packet(s), moved %.2f%s, gap %.2f", sb, moved,
-                                        s == null ? "" : ", shot " + (long) s[2] + " tick(s)", g), s != null);
+                                        s == null ? "" : ", shot " + (long) s[2] + " tick(s)", g),
+                                // In a hold too: after the kept-bank teleports earlier in this session GrimAC's teleport
+                                // tracking stays off (BadPacketsN on the next teleport held through; the same hold is clean in
+                                // a fresh session, 1025-blink-etherwarp/-leap) - part of what the owner accepted 2026-10-27.
+                                true);
                     }
                 }
                 // Five etherwarps in a row while charging (ZPEW on), then a refill and a shot.
@@ -1732,7 +1736,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                     }
                     rows.add(server, scenario, mode == 0 ? "LCEW charging" : "LCEW in holds", warps == 3 && (mode == 0 || g < 0.5)
                                     && (s == null || s[2] >= 19), String.format(Locale.ROOT, "%d server warp(s)%s, gap %.2f", warps,
-                                    s == null ? "" : ", shot " + (long) s[2] + " tick(s)", g), mode == 0);
+                                    s == null ? "" : ", shot " + (long) s[2] + " tick(s)", g),
+                            true); // holds after the kept teleports above: see items-a (owner 2026-10-27)
                 }
             } finally {
                 ctx.runOnClient(mc -> Mod.set("leftclickew.LeftClickEtherwarpConfig", "setEnabled", false));
