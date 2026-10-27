@@ -1222,4 +1222,5 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 412 / 1018-ui-performance-colors: the Performance HUD's Frame line (mod stutter-1026, on by default) is a fifth line
   and a new tooltip; menu-layout-merged.json records the tooltip as intended.
 - 792-hx-ping-bloodcamp read the kill moment one tick late (-1.2) twice under 8 clients and -0.2 on the rerun: the
-  countdown is read on the client's game time, which can skip a tick under load. Not a mod change (BloodCamp untouched).
+  click itself went out on its tick. Cause not proven (a skipped client game-time tick would fit); BloodCamp is untouched
+  since the last passing jar.
