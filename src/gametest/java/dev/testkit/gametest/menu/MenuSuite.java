@@ -175,6 +175,7 @@ public class MenuSuite implements FabricClientGameTest {
                     ModUnderTest.require("killer560smod");
                     TerminalCases.register(s);
                     TermHoldCases.register(s); // 271-279: terms-1026 (Hover Melody, Hold To Click, lookahead, Fake Cursor)
+                    TermHumanCases.register(s); // 1027-menu-term-*: Stream Safe human cursor, Rubix repeats (autoterms-human-1027)
                     ExperimentCases.register(s);
                     DungeonMenuCases.register(s);
                     InventoryCases.register(s);
