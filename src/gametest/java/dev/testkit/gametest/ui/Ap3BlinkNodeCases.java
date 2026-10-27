@@ -83,7 +83,7 @@ final class Ap3BlinkNodeCases {
             String d1 = c.onClient(mc -> String.valueOf(Mod.call(ns.get(1), "describe")));
             String l0 = c.onClient(mc -> String.valueOf(Mod.staticCall("ap3.Ap3Commands", "describe", ns.get(0))));
             c.note("describe: '" + d0 + "', '" + d1 + "'; list: '" + l0 + "'");
-            c.check(d0.startsWith("Blink Charge [3 ticks]"), "charge describes as " + d0);
+            c.check(d0.startsWith("Blink Charge [3 ticks, momentum kept]"), "charge describes as " + d0);
             c.check(d1.startsWith("Blink Release [all]") && d1.contains("leapcounter:2"), "release describes as " + d1);
             c.check(l0.contains("3 ticks"), "the list line does not show the count: " + l0);
 
@@ -130,6 +130,7 @@ final class Ap3BlinkNodeCases {
             Object releaseType = Mod.enumValue("ap3.Ap3Node$Type", "BLINK_RELEASE");
             Object[] parsed = c.onClient(mc -> new Object[]{parse(chargeType, "3"), parse(chargeType, ""),
                     parse(releaseType, "6 wait:100 leapcounter:1"), parse(chargeType, "25"), parse(releaseType, "0"),
+                    parse(chargeType, "3 stop"), parse(releaseType, "stop"),
                     Mod.staticCall("ap3.Ap3Node$Type", "parse", "blinkcharge"),
                     Mod.staticCall("ap3.Ap3Node$Type", "parse", "blinkrelease")});
             c.check(parsed[0] != null && Integer.valueOf(3).equals(Mod.field(parsed[0], "blinkTicks")), "'3' parsed as "
@@ -139,8 +140,10 @@ final class Ap3BlinkNodeCases {
                     && Integer.valueOf(1).equals(Mod.field(parsed[2], "leapCounter")), "'6 wait:100 leapcounter:1' parsed wrong");
             c.check(parsed[3] == null, "25 ticks (over 20) was accepted");
             c.check(parsed[4] == null, "0 ticks was accepted");
-            c.check(chargeType.equals(parsed[5]) && releaseType.equals(parsed[6]), "the type words parse as " + parsed[5]
-                    + " / " + parsed[6]);
+            c.check(chargeType.equals(parsed[7]) && releaseType.equals(parsed[8]), "the type words parse as " + parsed[7]
+                    + " / " + parsed[8]);
+            c.check(parsed[5] != null && Boolean.TRUE.equals(Mod.field(parsed[5], "blinkStop")), "'3 stop' did not set the plain stop");
+            c.check(parsed[6] == null, "a release took the charge-only stop word");
             List<String> words = staticList("TYPE_WORDS");
             c.note("tab-complete type words: " + words);
             c.check(words.contains("blinkcharge") && words.contains("blinkrelease"), "tab-complete does not offer both");
