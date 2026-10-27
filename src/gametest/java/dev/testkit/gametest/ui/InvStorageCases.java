@@ -733,6 +733,7 @@ final class InvStorageCases {
                     {"{\"enabled\":true,\"darkMode\":false,\"theme\":\"nonsense\"}", "LIGHT"},
                     // An older jar flipped darkMode after this one wrote AMBER: its choice wins.
                     {"{\"enabled\":true,\"darkMode\":false,\"theme\":\"AMBER\"}", "LIGHT"}};
+            Files.createDirectories(storageFile.getParent()); // mod layout-fixes-1026: ModPaths.config no longer makes the folder
             for (String[] f : files) {
                 Files.writeString(storageFile, f[0], StandardCharsets.UTF_8);
                 String got = c.onClient(mc -> {
@@ -833,6 +834,7 @@ final class InvStorageCases {
                                 // Already carried over: the choice is left alone.
                                 {"{\"enabled\":true,\"preset\":\"MOD_THEME\",\"themeChoiceMigrated\":true}", "DEFAULT"}}
                         : new String[][]{{"{\"enabled\":true,\"theme\":\"AMBER\",\"lineWidthPx\":2}", "DEFAULT"}};
+                Files.createDirectories(f.getParent()); // mod layout-fixes-1026: ModPaths.config no longer makes the folder
                 for (String[] o : olds) {
                     Files.writeString(f, o[0], StandardCharsets.UTF_8);
                     String old = c.onClient(mc -> {

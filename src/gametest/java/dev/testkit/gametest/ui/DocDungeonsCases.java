@@ -202,6 +202,7 @@ final class DocDungeonsCases {
             c.check("true".equals(old[7]) && "HEALER".equals(old[8]) && "true".equals(old[9]) && "ARCHER".equals(old[10]),
                     "an old Class mode's targets did not become class picks");
             // ---- an old Name-mode file, and an old Posmsg one with no name ----
+            Files.createDirectories(file.getParent()); // mod layout-fixes-1026: ModPaths.config no longer makes the folder
             Files.writeString(file, "{\"enabled\":true,\"targetMode\":\"NAME\",\"targets\":{"
                     + "\"P1\":{\"name\":\"Bob\",\"class\":\"HEALER\",\"keywords\":\"p2\"}}}");
             String[] named = c.onClient(mc -> {

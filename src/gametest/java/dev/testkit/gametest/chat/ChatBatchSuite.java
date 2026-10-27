@@ -682,6 +682,7 @@ public class ChatBatchSuite implements FabricClientGameTest {
 
             // b: only Hide Chat had something on, no Chat Tidy file at all
             Files.delete(tidyFile);
+            Files.createDirectories(ohFile.getParent()); // mod layout-fixes-1026: ModPaths.config no longer makes the folder
             Files.writeString(ohFile, "{\"hideNonRankInvites\": true}", StandardCharsets.UTF_8);
             String b = load(c);
             c.check(b.startsWith("enabled=true") && b.endsWith("invites=true"), "migration b: " + b);
