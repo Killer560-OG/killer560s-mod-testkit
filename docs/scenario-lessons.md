@@ -1132,3 +1132,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   With the setting OFF and a 57 item the saved out-of-reach warp is NOT sent: the executor's own aim check (hop range + 1)
   finds no ray onto the block and holds it, sneak down ("no look ... lands on ... held"), 0 use_item. So "flown as saved"
   is proved by "flying 1 saved warp(s)" with no plan, and the landing by the same saved warp with a 61 item.
+- A legit jar folds cheat-only enum constants empty rather than removing them (`ProfitTracker.BAZAAR_FLIP` has an empty label
+  and summary there; `available()` skips it). Iterate what the mod shows (`available()`), not `getEnumConstants()`: 307 failed
+  on every legit jar until batch-1026. Before asserting a row is cheat-only (386's Fairy Door, 1018's Livid Through Walls), check
+  docs/FEATURES.md and the tab: both had moved since the test was written.
+- 1026-sim-autostart: the entrance gate is the blocks `SimDoors.DOORS` registered for the DOOR_ENTRANCE door (12 on the floors
+  seen), not a box round `SimBuilder.entranceDoor()` (that is the door cell's center, and a 3-block box round it found 0).
+  Snapshot the positions during the countdown: `openEntranceGate` drops the entry at GO.
