@@ -477,6 +477,11 @@ final class Ap3EditCases {
     }
 
     /** A real left click at the widget's center, in window coordinates through the screen's Auto Scale factor. */
+    /** The real click, for {@link Ap3AngleLeapCases} (1026). */
+    static void clickFor1026(UiCase c, Screen s, AbstractWidget w) {
+        click(c, s, w);
+    }
+
     private static void click(UiCase c, Screen s, AbstractWidget w) {
         c.check(w != null, "no such control on the AP3 editor");
         double[] a = c.onClient(mc -> {

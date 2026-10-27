@@ -51,6 +51,8 @@ public class BossSuite implements FabricClientGameTest {
                     RelicCases.register(s);
                     // Quiz and relic wrong-click blockers (1090-1091, branch clickguards-1025), own block.
                     ClickGuardCases.register(s);
+                    // AP3 run beside the Lights levers: no backwards step under the aura's turns (1026, ap3-backwards-1026).
+                    Ap3LightsRunCases.register(s);
                 });
     }
 }
