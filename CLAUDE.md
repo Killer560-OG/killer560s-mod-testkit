@@ -354,6 +354,16 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
 - Blink holds are key-driven since mod blink-rework-1025: between two holds the key needs a tick up and a tick down, so a
   landing released with one hold lands in that gap unless there is latency; 1025-blink-etherwarp installs 150 ms.
 
+- A vanilla `fill`/`setblock` from a scenario's BUILD step fails with "That position is not loaded" for chunks the player
+  has not loaded yet (the arena's own builder loads its area; the rest of a 40-block radius may not be). 1026-blink-terrain's
+  first run measured ice, soul sand and cobweb lanes that were never built (identical distances everywhere). Build extras in
+  the body after he stands there, and check the server log for that line.
+- `TestEnemy.hits()` counts the enemy's own hits on the player, not hits it took. `BlinkTests.serverPos` scans `tail(400)`:
+  with a chatty client the new `data get` line can fall outside it and an older one is returned (one 33-block "gap", 2026-10-26).
+- The harness LagSpike (two-way freeze) draws GrimAC TimerLimit with NO mod feature on (8 flags for 1.5 s, sprinting or
+  standing; 1026-blink-controls). A frozen client (render thread asleep 2.5 s) is clean. Compare against that control.
+- `release=true` jars fail 306-ui-smoke-commands on `/killer560 mage` (a dev-only subcommand), not a regression.
+
 Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosecret wither doors, 62-argrim frames,
 143 camera, 141/142 autopilot, the mod's Auto Scale, terminal layouts, the logic world, 386's sweep):
 [docs/scenario-lessons.md](docs/scenario-lessons.md).
