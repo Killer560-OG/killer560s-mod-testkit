@@ -253,6 +253,15 @@ public class SimAutoSecretTests implements FabricClientGameTest {
             }
             (r.reachable() ? eligible : blocked).add(r);
         }
+        // The room in front of the blood door is held until every other room with secrets is done, the closed door's
+        // room included (killer560, 2026-10-18: "never have it secret the room before blood until very last under any
+        // circumstance"; mod 1e31ca30, AutoSecretFeature.preBloodRoom). So it can be neither a main-run room nor the
+        // no-route room here; 1018-sim-autosecret-preblood tests it.
+        String preBlood = ctx.computeOnClient(SimAutoSecretTests::preBloodName);
+        if (preBlood != null && (eligible.removeIf(r -> r.name().equals(preBlood))
+                | blocked.removeIf(r -> r.name().equals(preBlood)))) {
+            println("left out " + preBlood + ": the room in front of the blood door goes last (1018-sim-autosecret-preblood)");
+        }
         eligible.sort((a, b) -> Integer.compare(b.unfound(), a.unfound()));
         blocked.sort((a, b) -> Integer.compare(b.unfound(), a.unfound()));
         println(rooms.size() + " room(s); eligible reachable: " + describe(eligible) + "; behind a closed door: "
@@ -821,6 +830,37 @@ public class SimAutoSecretTests implements FabricClientGameTest {
         Vec3 at = mc.player.position();
         Object arrival = ModUnderTest.staticCall(EXECUTOR, "arrivalPos");
         return String.format(Locale.US, "he stands at %.2f %.2f %.2f; last map arrival %s", at.x, at.y, at.z, arrival);
+    }
+
+    /**
+     * The room in front of the blood door as Auto Secret works it out ({@code AutoSecretFeature.preBloodRoom}: of the
+     * blood door cell's two neighbors, the one that is not the blood room), or null when there is none. Client thread.
+     */
+    static String preBloodName(Minecraft mc) {
+        Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+        int door = (Integer) ModUnderTest.call(layout, "bloodDoor", new Class<?>[]{}, new Object[]{});
+        if (door < 0) {
+            return null;
+        }
+        int[] side = door % 11 % 2 == 1 ? new int[]{door - 1, door + 1} : new int[]{door - 11, door + 11};
+        String found = null;
+        int bloods = 0;
+        for (int cell : side) {
+            int room = (Integer) ModUnderTest.call(layout, "roomOfCell", new Class<?>[]{int.class}, new Object[]{cell});
+            Object entry = room < 0 ? null : ModUnderTest.call(layout, "entry", new Class<?>[]{int.class}, new Object[]{room});
+            String type = null;
+            try {
+                type = entry == null ? null : (String) entry.getClass().getField("type").get(entry);
+            } catch (ReflectiveOperationException ignored) {
+                // no type
+            }
+            if ("BLOOD".equalsIgnoreCase(type)) {
+                bloods++;
+            } else if (room >= 0) {
+                found = (String) ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{room});
+            }
+        }
+        return bloods == 1 ? found : null;
     }
 
     /** Every room the mod's RoomStatus lists, with reachability from where he stands. Client thread. */

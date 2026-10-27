@@ -449,7 +449,10 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                     continue;
                 }
                 BlockPos stand = standFor(ctx, kind, pos, id);
-                if (stand == null || warps(ctx, here, stand) >= 999) {
+                // ...and a way OUT of it: a stand in a nook no warp leaves strands the run there (2026-10-25 batch, Red
+                // Green: every later trip "no etherwarp path"), which judges the planner, not the last-node wait.
+                if (stand == null || !landsOn(ctx, here, stand)
+                        || warps(ctx, feet(stand), BlockPos.containing(here.x, here.y - 0.5, here.z)) >= 999) {
                     continue;
                 }
                 int total = ctx.computeOnClient(mc -> {
@@ -588,6 +591,13 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             BlockPos best = null;
             double bestD = Double.MAX_VALUE;
             for (BlockPos b : BlockPos.betweenClosed(secret.offset(-5, -5, -5), secret.offset(5, 3, 5))) {
+                // Never under the secret's own block: a sim chest is not there until he has been near it a moment (mod
+                // sim-secrets-1018), so its spot reads as head room now, and once it spawns the stand has none - the start
+                // node is inside the chest, no etherwarp lands on it, and Auto Secret (rightly) skips the room as "did not
+                // arm" (2026-10-25 batch: Mossy, Doors, Hallway under their chests). A skull is a block too.
+                if (!kind.equals("item") && (b.above().equals(secret) || b.above(2).equals(secret))) {
+                    continue;
+                }
                 if (b.equals(secret) || (Integer) ModUnderTest.call(layout, "roomAtWorld",
                         new Class<?>[]{double.class, double.class}, new Object[]{b.getX() + 0.5, b.getZ() + 0.5}) != id) {
                     continue;
@@ -704,6 +714,8 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
 
     /** At most this many ticks from the last warp of the trip onto a start node to its one-node route ending there. */
     private static final int ARRIVAL_MAX_TICKS = 2;
+    /** Ticks from the last warp to the tick its arrival is counted, with the server answering at once. */
+    private static final int ARRIVAL_ANSWER_TICKS = 1;
 
     /**
      * 146-sim-autosecret-arrival (mod ac-optimize-2-1015; killer560 wants routes as fast as possible): four rooms with a
@@ -742,8 +754,20 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
         }
         List<String> targets = new ArrayList<>();
         Map<String, Long> finishedAt = new LinkedHashMap<>();
+        // The ticks (ClearExecutor's clock, read after each client tick) on which a trip's arrival was counted - the
+        // server's answer to its last landing. Under load (9 clients on one machine) the sim's server thread can answer a
+        // tick or more late, which is not the mod waiting (2026-10-26 batch: Waterfall 3 ticks from warp to route, its
+        // landing answered a tick late); what the mod owns is the time from that answer to the route.
+        List<Long> arrivals = new ArrayList<>();
+        int seq = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "arrivalSeq"));
         for (int t = 0; t < 20 * 150 && finishedAt.size() < routes.size(); t++) {
             ctx.waitTicks(1);
+            long[] now = ctx.computeOnClient(mc -> new long[]{(Integer) ModUnderTest.staticCall(EXECUTOR, "arrivalSeq"),
+                    clientTick()});
+            if (now[0] != seq) {
+                seq = (int) now[0];
+                arrivals.add(now[1]);
+            }
             for (String l : LogTap.since(mark)) {
                 Matcher m = TARGET.matcher(l);
                 if (m.find() && !targets.contains(m.group(1))) {
@@ -767,7 +791,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                 println(ARRIVAL, "  " + l.replaceAll("^.*?(\\[AutoSecret\\]|\\[Path\\]|\\[AutoRoutes\\])", "$1"));
             }
         }
-        println(ARRIVAL, "finished at " + finishedAt + ", hop ticks " + hops);
+        println(ARRIVAL, "finished at " + finishedAt + ", arrivals seen on ticks " + arrivals + ", hop ticks " + hops);
         if (finishedAt.size() < 3) {
             failures.add("fewer than three routes ran to their end (" + finishedAt.keySet() + ")");
             return;
@@ -782,15 +806,26 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                     last = h;
                 }
             }
+            long arrived = -1;
+            for (long a : arrivals) {
+                if (a > last && a <= end) {
+                    arrived = a;
+                }
+            }
             if (last < 0) {
                 println(ARRIVAL, e.getKey() + ": no warp of a trip into it (it was where he stood) - not counted");
             } else {
                 gaps.add(end - last);
-                println(ARRIVAL, String.format(Locale.US, "%s: last warp of the trip on tick %d, route finished on tick"
-                        + " %d: %d tick(s) from the warp to the route", e.getKey(), last, end, end - last));
-                if (end - last > ARRIVAL_MAX_TICKS) {
+                // The server's own delay past the normal one tick (its answer seen on the warp's next tick) is not the
+                // mod's; with no arrival seen in the window it is taken as none.
+                long serverLate = arrived < 0 ? 0 : Math.max(0, arrived - last - ARRIVAL_ANSWER_TICKS);
+                println(ARRIVAL, String.format(Locale.US, "%s: last warp of the trip on tick %d, its arrival counted on"
+                        + " tick %d, route finished on tick %d: %d tick(s) from the warp to the route (the server's answer"
+                        + " %d tick(s) late)", e.getKey(), last, arrived, end, end - last, serverLate));
+                if (end - last - serverLate > ARRIVAL_MAX_TICKS) {
                     failures.add(e.getKey() + ": " + (end - last) + " ticks from the trip's last warp to its start node's"
-                            + " route - the arrival settle is still there (want at most " + ARRIVAL_MAX_TICKS + ")");
+                            + " route, " + serverLate + " of them the server answering late - the arrival settle is still"
+                            + " there (want at most " + ARRIVAL_MAX_TICKS + " plus the server's lateness)");
                 }
             }
             from = end;
@@ -1053,33 +1088,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             }
             enterFloor(ctx);
             List<SimAutoSecretTests.Room> eligible = eligible(ctx.computeOnClient(SimAutoSecretTests::readRooms));
-            String preName = ctx.computeOnClient(mc -> {
-                Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
-                int door = (Integer) ModUnderTest.call(layout, "bloodDoor", new Class<?>[]{}, new Object[]{});
-                if (door < 0) {
-                    return null;
-                }
-                int[] side = door % 11 % 2 == 1 ? new int[]{door - 1, door + 1} : new int[]{door - 11, door + 11};
-                String found = null;
-                int bloods = 0;
-                for (int cell : side) {
-                    int room = (Integer) ModUnderTest.call(layout, "roomOfCell", new Class<?>[]{int.class}, new Object[]{cell});
-                    Object entry = room < 0 ? null : ModUnderTest.call(layout, "entry", new Class<?>[]{int.class},
-                            new Object[]{room});
-                    String type = null;
-                    try {
-                        type = entry == null ? null : (String) entry.getClass().getField("type").get(entry);
-                    } catch (ReflectiveOperationException ignored) {
-                        // no type
-                    }
-                    if ("BLOOD".equalsIgnoreCase(type)) {
-                        bloods++;
-                    } else if (room >= 0) {
-                        found = (String) ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{room});
-                    }
-                }
-                return bloods == 1 ? found : null;
-            });
+            String preName = ctx.computeOnClient(SimAutoSecretTests::preBloodName);
             SimAutoSecretTests.Room p = null;
             for (SimAutoSecretTests.Room r : eligible) {
                 if (r.name().equals(preName)) {
@@ -1207,6 +1216,34 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
                     out.set(path == null ? 999 : ((List<?>) path).size());
                 } catch (RuntimeException e) {
                     out.set(999);
+                }
+            };
+            ModUnderTest.staticCall(EXECUTOR, "onPlanner", new Class<?>[]{Runnable.class}, new Object[]{job});
+        });
+        ctx.waitFor(mc -> out.get() != null, 600);
+        return out.get();
+    }
+
+    /**
+     * Whether some chain of etherwarps from {@code from} ends ON {@code to} itself - the mod's own test for a path node
+     * ({@code EtherwarpPathfinder.findOptimalPath}, null when "the block itself cannot be reached by etherwarp"). A start
+     * node's warp is exact ({@code AutoRoutesFeature.warpToStartNode}); the plain search above also counts a plan that only
+     * lands NEAR the block, and a route stood on such a block never arms (147, 2026-10-25: Double Diamond, Gravel).
+     */
+    private static boolean landsOn(ClientGameTestContext ctx, Vec3 from, BlockPos to) {
+        AtomicReference<Boolean> out = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+            Object cfg = ModUnderTest.staticCall(EXECUTOR, "pathConfig");
+            double range = (Double) ModUnderTest.staticCall(EXECUTOR, "hopRange");
+            Runnable job = () -> {
+                try {
+                    Object path = ModUnderTest.staticCall("com.killer560.hub.livemap.autoclear.EtherwarpPathfinder",
+                            "findOptimalPath", new Class<?>[]{Vec3.class, BlockPos.class, cfg.getClass(), double.class,
+                                    layout.getClass(), long.class}, new Object[]{from, to, cfg, range, layout, 200_000_000L});
+                    out.set(path != null);
+                } catch (RuntimeException e) {
+                    out.set(false);
                 }
             };
             ModUnderTest.staticCall(EXECUTOR, "onPlanner", new Class<?>[]{Runnable.class}, new Object[]{job});
