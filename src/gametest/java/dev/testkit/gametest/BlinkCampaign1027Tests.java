@@ -978,6 +978,38 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                 g = gap(server, ctx);
                 rows.add(server, scenario, "(f) chat while holding", heldUnderChat && num(ctx, "releasedHolds") > holds0 && g < 0.5,
                         String.format(Locale.ROOT, "held under chat %s, gap %.2f", heldUnderChat, g));
+                // (g0) the control for (g): Charge off, sprinting into the same teleport, keys up, the same clicks.
+                {
+                    tp(server, ctx, x - 20.5, SURFACE_Y, z + 27.5, -90f);
+                    server.mark();
+                    ctx.getInput().holdKey(o -> o.keyUp);
+                    ctx.getInput().holdKey(o -> o.keySprint);
+                    ctx.waitTicks(6);
+                    server.command(String.format(Locale.ROOT, "tp %s ~ ~ ~3", player));
+                    ctx.waitTicks(3);
+                    releaseKeys(ctx);
+                    long ev0g = hx.head();
+                    hx.menu("Blink Campaign Chest 3", 3, java.util.Map.of(11, "minecraft:stone", 13, "minecraft:dirt"), null);
+                    boolean op = false;
+                    for (int t = 0; t < 10 && !op; t++) {
+                        ctx.waitTicks(1);
+                        op = BlinkTests.menuOpen(ctx);
+                    }
+                    BlinkTests.clickSlot(ctx, 11);
+                    ctx.waitTicks(1);
+                    BlinkTests.clickSlot(ctx, 13);
+                    ctx.waitTicks(40);
+                    long cl = hx.events(ev0g, "menu.click").size();
+                    ctx.runOnClient(mc -> {
+                        if (dev.testkit.compat.McCompat.screen(mc) != null) {
+                            dev.testkit.compat.McCompat.screen(mc).onClose();
+                        }
+                    });
+                    ctx.waitTicks(40);
+                    g = gap(server, ctx);
+                    rows.add(server, scenario, "(g0) control: no charge, sprint, tp, click", op && cl >= 2 && g < 0.5,
+                            String.format(Locale.ROOT, "%d click(s) reached the server, gap %.2f", cl, g), true);
+                }
                 // (g)/(h) a chest clicked while a teleport's confirm is held behind its ping answer (charging): walking
                 // into the teleport (the click waits in order behind his still input), and standing (it goes live).
                 for (boolean walking : new boolean[]{true, false}) {
