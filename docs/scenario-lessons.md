@@ -1153,4 +1153,6 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   polled each tick) and charges the mod only for what follows it.
 - 148 Door Camp: Room Plan Fastest Total (default since mod 4119ac75) clears mob rooms as tour stops after the door, so
   "nothing handed to Auto Clear" holds only until the blood door is open.
+- 102's HUD is sampled every 10 ticks, and a planned-ahead trip plus a one-node route can finish inside one sample, so the
+  first sample is judged against the target under way at its own done count, not against the first target logged.
 - run-scenario.ps1 prints a `jcmd Thread.print` of a client it kills as frozen (between THREAD DUMP / END THREAD DUMP).
