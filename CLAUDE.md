@@ -355,6 +355,10 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
 - When the freeze watcher closes a client frozen at startup, that run's test server can stay up holding the port (and its
   logs): the next run in that checkout fails "Anticheat test server exited ... before it was ready" (FAILED TO BIND). Find the
   java.exe with `fabric.dli.env=server` and that checkout's path, kill it, rerun (2026-10-26, tk-blink-rework-c).
+- Killing a queue script mid-run (or its client) can leave that checkout's test server running; the next server's GrimAC
+  then waits ~14 s for the old datastore lease ("persistent storage UUID ... is owned by startupId ...") and the freeze
+  watcher closes every client at startup (campaign-blink-1027). Kill the orphan `runTestServer` java of that checkout (match
+  the checkout name in the command line; `[\/]` patterns missed it) before rerunning.
 - A test client loads the mod jar straight from the `-ModUnderTest` path (fabric.addMods), lazily: overwriting that jar while
   the client runs crashed it ("ZipFile invalid LOC header", campaign-blink-1027). Give every build its own folder.
 - Blink holds are key-driven since mod blink-rework-1025: between two holds the key needs a tick up and a tick down, so a
