@@ -343,6 +343,9 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   check (2026-10-25). Exempt in `Scenario.FLAG_EXEMPT` now.
 - A key test hook flipped TRUE then FALSE then TRUE with only one tick between reads as ONE press: the feature's tick never
   saw the key up. BlinkTests.pressCharge waits a tick after letting go (1025-blink-charge-arm's "second press" did nothing).
+- When the freeze watcher closes a client frozen at startup, that run's test server can stay up holding the port (and its
+  logs): the next run in that checkout fails "Anticheat test server exited ... before it was ready" (FAILED TO BIND). Find the
+  java.exe with `fabric.dli.env=server` and that checkout's path, kill it, rerun (2026-10-26, tk-blink-rework-c).
 - Blink holds are key-driven since mod blink-rework-1025: between two holds the key needs a tick up and a tick down, so a
   landing released with one hold lands in that gap unless there is latency; 1025-blink-etherwarp installs 150 ms.
 
