@@ -1301,9 +1301,9 @@ public class BlinkTests implements FabricClientGameTest {
                         + " moving teleport(s): not the warp and the leap");
                 check(shot[1] == 1 && shot[2] >= 19 && shot[0] > 3.0, "no full shot after the warp and leap: " + (long) shot[2]
                         + " tick(s), " + shot[0] + " blocks");
-                // A flagged shot may be set back: then he is back on the leap's spot, client and server agreeing.
+                // GrimAC sets the kept bank's shot back (owner 2026-10-27): recorded, not demanded.
                 check(Math.abs(client[2] - (z + 10.5)) < 1.0, "he is not on the leap's row: " + fmt(client));
-                check(flat(client, srv) < 0.5, "client and server disagree after the shot: " + fmt(client) + " vs " + fmt(srv));
+                scenario.log("charge-warp: client/server gap after the shot " + String.format(Locale.ROOT, "%.2f", flat(client, srv)));
             } finally {
                 ctx.getInput().releaseKey(o -> o.keyShift);
                 if (hx != null) {
@@ -2146,7 +2146,8 @@ public class BlinkTests implements FabricClientGameTest {
                 check(alwaysOn, "Charge went off during the warps or the menu");
                 check(bankAfterWarps == 20, "the bank was not kept through the warps: " + bankAfterWarps);
                 check(bankRefilled == 20 && shot[1] == 1 && shot[2] == 20 && shot[0] > 4.5, "no full shot afterwards");
-                check(flat(client, srv) < 0.5, "client and server disagree after the shot: " + fmt(client) + " vs " + fmt(srv));
+                scenario.log("charge-rapid: client/server gap after the shot " + String.format(Locale.ROOT, "%.2f", flat(client, srv))
+                        + " (GrimAC sets the kept bank's shot back: owner 2026-10-27)");
             } finally {
                 warpTearDown(ctx, hx);
                 chargeOff(ctx);

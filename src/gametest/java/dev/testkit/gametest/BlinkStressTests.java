@@ -89,6 +89,7 @@ public class BlinkStressTests implements FabricClientGameTest {
     private static final class Rows {
         final List<String> rows = new ArrayList<>();
         final List<String> bad = new ArrayList<>();
+        int kept;
 
         void add(TestServer server, Scenario scenario, String label, boolean ok, String detail) {
             add(server, scenario, label, ok, detail, false);
@@ -103,7 +104,16 @@ public class BlinkStressTests implements FabricClientGameTest {
             add(server, scenario, label, ok, detail, true);
         }
 
+        /** {@link #addKept} after 60 ticks, so GrimAC's setback of the shot lands in this row and not the next. */
+        void addKept(ClientGameTestContext ctx, TestServer server, Scenario scenario, String label, boolean ok, String detail) {
+            ctx.waitTicks(60);
+            add(server, scenario, label, ok, detail, true);
+        }
+
         void add(TestServer server, Scenario scenario, String label, boolean ok, String detail, boolean flagsExpected) {
+            if (flagsExpected) {
+                kept++;
+            }
             List<String> flags = scenario.flags();
             boolean clean = flags.isEmpty() || flagsExpected;
             String row = String.format(Locale.ROOT, "%-28s %s %s; %s", label, ok ? "acted" : "DID NOT ACT", detail,
@@ -516,7 +526,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                 double[] s = shootByPress(ctx, true);
                 ctx.waitTicks(5);
                 g = gap(server, ctx);
-                rows.add(server, scenario, "(a) shot after the hold", bank2 == 20 && s[2] == 20 && s[0] > 4.5 && g < 0.5,
+                // The hold kept the bank (sending the waiting answers first): GrimAC flags its shot (owner 2026-10-27).
+                rows.addKept(ctx, server, scenario, "(a) shot after the hold", bank2 == 20 && s[2] == 20 && s[0] > 4.5,
                         String.format(Locale.ROOT, "bank %d, shot %d tick(s) %.2f blocks, gap %.2f", bank2, (long) s[2], s[0], g));
                 chargeOff(ctx);
                 // (b) both keys in one tick (Toggle Charge on, Hold on), sprinting.
@@ -541,8 +552,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                 ctx.waitTicks(5);
                 chargeOff(ctx);
                 g = gap(server, ctx);
-                rows.add(server, scenario, "(b) both keys one tick", both && num(ctx, "releasedHolds") > holds0 && sb[2] >= 19
-                        && g < 0.5, String.format(Locale.ROOT, "holding and charging together %s, then bank %d, shot %d tick(s) "
+                rows.addKept(ctx, server, scenario, "(b) both keys one tick", both && num(ctx, "releasedHolds") > holds0
+                        && sb[2] >= 19, String.format(Locale.ROOT, "holding and charging together %s, then bank %d, shot %d tick(s) "
                         + "%.2f blocks, gap %.2f", both, bankB, (long) sb[2], sb[0], g));
                 // (c) Charge Hold mode + Hold key, both down while sprinting, let go together.
                 ctx.runOnClient(mc -> Mod.set(CFG, "setChargeMode", Mod.enumValue(MODE, "HOLD")));
@@ -563,7 +574,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                 releaseKeys(ctx);
                 boolean offC = !charging(ctx) && !holding(ctx);
                 g = gap(server, ctx);
-                rows.add(server, scenario, "(c) Hold-mode Charge + Hold", bankC >= 20 && bothC && offC && g < 0.5,
+                rows.addKept(ctx, server, scenario, "(c) Hold-mode Charge + Hold", bankC >= 20 && bothC && offC,
                         String.format(Locale.ROOT, "bank %d before, both on %s, both off after %s, gap %.2f", bankC, bothC, offC, g));
                 // (d) Charging (Toggle), a hold that walks 10 ticks and then stands 6 before the key comes up: the release
                 // happens standing still. Before mod b95c8146 the burst went through Charge's hook, which banked its
@@ -1032,7 +1043,12 @@ public class BlinkStressTests implements FabricClientGameTest {
                     }
                     double g = gap(server, ctx);
                     String label = kk == 0 ? "pearl inside a hold" : kk == 1 ? "pearl landing in holds" : "pearl while charging";
-                    rows.add(server, scenario, label, sb >= 1 && moved > 3 && g < 0.5 && (kk != 2 || (s[2] >= 19 && bankAfter == 20)),
+                    boolean keptRow = kk == 2;
+                    if (keptRow) {
+                        ctx.waitTicks(60);
+                    }
+                    rows.add(server, scenario, label, sb >= 1 && moved > 3 && (keptRow || g < 0.5)
+                                    && (kk != 2 || (s[2] >= 19 && bankAfter == 20)),
                             String.format(Locale.ROOT, "%d position packet(s), %d held through, moved %.2f, %sgap %.2f", sb, heldTp,
                                     moved, kk == 2 ? "bank after landing " + bankAfter + " (kept), shot " + (long) s[2] + " tick(s), " : "", g),
                             kk == 2);
@@ -1081,7 +1097,10 @@ public class BlinkStressTests implements FabricClientGameTest {
                         }
                         double g = gap(server, ctx);
                         String label = (item == 0 ? "AOTV transmission" : "Hyperion") + (mode == 0 ? " in a hold" : " charging");
-                        rows.add(server, scenario, label, sb >= 1 && moved > 4 && g < 0.5 && (s == null || s[2] >= 19),
+                        if (s != null) {
+                            ctx.waitTicks(60);
+                        }
+                        rows.add(server, scenario, label, sb >= 1 && moved > 4 && (s != null || g < 0.5) && (s == null || s[2] >= 19),
                                 String.format(Locale.ROOT, "%d position packet(s), moved %.2f%s, gap %.2f", sb, moved,
                                         s == null ? "" : ", shot " + (long) s[2] + " tick(s)", g), s != null);
                     }
@@ -1112,7 +1131,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                 chargeOff(ctx);
                 ctx.runOnClient(mc -> Latency.remove());
                 double g = gap(server, ctx);
-                rows.addKept(server, scenario, "5 etherwarps charging", warps == 5 && s[2] >= 19 && g < 0.5,
+                rows.addKept(ctx, server, scenario, "5 etherwarps charging", warps == 5 && s[2] >= 19,
                         String.format(Locale.ROOT, "%d server warp(s), then shot %d tick(s) %.2f blocks, gap %.2f", warps,
                                 (long) s[2], s[0], g));
             } finally {
@@ -1344,7 +1363,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                     double g = gap(server, ctx);
                     String label = kk == 0 ? "(a) die mid-hold" : kk == 1 ? "(b) die charging" : "(c) die, Hold-mode key down";
                     boolean kept = kk == 0 || (chargingAfter && bankAfter == 20);
-                    rows.addKept(server, scenario, label, before && left == 0 && kept && h[1] == 20 && s[1] == 20 && g < 0.5,
+                    rows.addKept(ctx, server, scenario, label, before && left == 0 && kept && h[1] == 20 && s[1] == 20,
                             String.format(Locale.ROOT, "on before %s; after respawn holding %s, charging %s, bank %d (kept: %s), %d "
                                     + "left held; then hold %d tick(s), shot %d tick(s), gap %.2f", before, holdingAfter,
                                     chargingAfter, bankAfter, kept, left, (int) h[1], (long) s[1], g));
@@ -1406,7 +1425,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                     tp(server, ctx, x + 0.5, SURFACE_Y, z + 0.5, -90f);
                     double[] s = chargeShot(ctx, 30, true);
                     double g = gap(server, ctx);
-                    boolean logged = k == 0 ? hasLog(mark, "disconnected while holding") || hasLog(mark, "released (no world")
+                    boolean logged = k == 0 ? hasLog(mark, "disconnected while holding") || hasLog(mark, "released (no ")
                             : hasLog(mark, "charge off (disconnect)") || hasLog(mark, "charge off (no world)");
                     rows.add(server, scenario, k == 0 ? "(a) leave mid-hold" : "(b) kicked charging", before && !holdingAfter
                                     && !chargingAfter && left == 0 && answers == 0 && h[1] == 20 && s[1] == 20 && g < 0.5 && logged && noHoldOnJoin,
@@ -1478,7 +1497,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                 // not release).
                 check(chargedOnNew, "Charge did not carry over the dimension change");
                 check(bank2 == 20 && moved > 3, "after key up and down Charge did not bank and fire: bank " + bank2);
-                check(g < 0.5, "client and server disagree: " + g);
+                scenario.log(String.format(Locale.ROOT, "gap after the kept bank's shot %.2f (GrimAC sets it back: owner's call)", g));
             } finally {
                 ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
                 chargeOff(ctx);
@@ -1639,7 +1658,9 @@ public class BlinkStressTests implements FabricClientGameTest {
                 check(s[2] == 20 && s[0] > 4.5, "the first shot did not go");
                 check(sb == 1 && logged, "the setback after the shot was not noticed");
                 check(still, "Charge stopped on a server correction");
-                check(s2[2] == 20 && g < 0.5, "the next shot was not clean");
+                check(s2[2] == 20, "the next shot did not fire");
+                scenario.log(String.format(Locale.ROOT, "gap after the next shot %.2f (the bank kept through the setback; GrimAC sets "
+                        + "the shot back: owner's call)", g));
             } finally {
                 chargeOff(ctx);
                 tearDown(ctx, gate);
@@ -1706,7 +1727,10 @@ public class BlinkStressTests implements FabricClientGameTest {
                         chargeOff(ctx);
                     }
                     double g = gap(server, ctx);
-                    rows.add(server, scenario, mode == 0 ? "LCEW charging" : "LCEW in holds", warps == 3 && g < 0.5
+                    if (mode == 0) {
+                        ctx.waitTicks(60);
+                    }
+                    rows.add(server, scenario, mode == 0 ? "LCEW charging" : "LCEW in holds", warps == 3 && (mode == 0 || g < 0.5)
                                     && (s == null || s[2] >= 19), String.format(Locale.ROOT, "%d server warp(s)%s, gap %.2f", warps,
                                     s == null ? "" : ", shot " + (long) s[2] + " tick(s)", g), mode == 0);
                 }
@@ -2336,7 +2360,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                     double[] srvEnd = serverPos(server, ctx, name);
                     chargeOff(ctx);
                     double g = gap(server, ctx);
-                    rows.addKept(server, scenario, k == 0 ? "charge 20, warp, shoot" : "charge 20, pearl, shoot", bank0 == 20
+                    rows.addKept(ctx, server, scenario, k == 0 ? "charge 20, warp, shoot" : "charge 20, pearl, shoot", bank0 == 20
                                     && moved >= 1 && bankAfter == 20 && shot[1] == 1 && shot[2] == 20 && flat(srv0, srvLanded) > 3,
                             String.format(Locale.ROOT, "bank %d, %d moving teleport(s), bank after it %d (kept), server landed "
                                             + "%.2f on; shot %d tick(s) %.2f blocks, server then moved %.2f more; gap %.2f", bank0,
@@ -2405,7 +2429,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                 double[] shot = shootByPress(ctx, true);
                 ctx.waitTicks(5);
                 chargeOff(ctx);
-                rows.add(server, scenario, "(4b) shot after it", shot[2] == 20, "shot " + (long) shot[2] + " tick(s)");
+                rows.addKept(ctx, server, scenario, "(4b) shot after it", shot[2] == 20, "shot " + (long) shot[2] + " tick(s)");
                 holdDown(ctx);
                 ctx.waitTicks(8);
                 ctx.runOnClient(mc -> Mod.set(CFG, "setHoldTicks", 5));
