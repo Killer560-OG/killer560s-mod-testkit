@@ -130,6 +130,8 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             Ap3Blink1026Cases.register(s);
             // mod ap3-shotsteer-1027: AP3 steers every shot tick; a momentum-keeping charge.
             Ap3ShotSteer1027Cases.register(s);
+            // mod ap3-levers-1027: option (a), a lever clicked with no turn, measured against GrimAC (expecting flags).
+            Ap3Levers1027Cases.register(s);
             s.testExpectingFlags("63-ap3-corrections", Ap3RuntimeTests::caseCorrection);
             onClient(ctx, mc -> {
                 PacketTrace.tap = null;
