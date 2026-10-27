@@ -52,6 +52,10 @@ public final class PacketTrace {
     /** Every serverbound packet object, as it is handed to the connection (null = none). For a scenario that must
      *  read a packet's FIELDS (a use packet's rotation, a move packet's position), which the name trace drops. */
     public static volatile java.util.function.Consumer<Packet<?>> tap;
+    /** Every clientbound packet object as the connection's own handler receives it (network thread, after
+     *  {@link Latency}'s delay), null = none. For a scenario that must read an inbound packet's fields (a teleport's
+     *  target). Added for the zpew campaign, 2026-10-27. */
+    public static volatile java.util.function.Consumer<Packet<?>> inTap;
 
     private static boolean hooked;
 
@@ -151,6 +155,10 @@ public final class PacketTrace {
 
     /** From the connection, for every packet its handler receives. */
     public static void onReceived(Packet<?> packet) {
+        java.util.function.Consumer<Packet<?>> t = inTap;
+        if (t != null && packet.type().flow() == PacketFlow.CLIENTBOUND) {
+            t.accept(packet);
+        }
         if (recording && packet.type().flow() == PacketFlow.CLIENTBOUND) {
             String name = name(packet);
             synchronized (ticks) {
