@@ -66,6 +66,13 @@ final class Ap3S2ee3Cases {
         s.test("1027-ap3-s2ee3-leapin-low", c -> leapIn(c, 2.85, 108.5, 105.9));
         s.test("1027-ap3-s2ee3-blink-0.4", c -> run(c, 0.4, 0.0, true));
         s.test("1027-ap3-s2ee3-blink-0.5", c -> run(c, 0.5, 0.15, true));
+        // His live route at 15:11 (Mod Only Test): #34 is a 2x2 FAST_ALIGN, a Blink Charge (#49) sits on its point and a
+        // leapcounter:3 RUN (#40) after it; boom #39 waits for its gate while he runs on to #34.
+        for (String mode : new String[]{"boom", "charge-first", "beside-leap"}) {
+            for (double sp : new double[]{0.4, 0.5}) {
+                s.test(String.format(Locale.ROOT, "1027-ap3-live34-%s-%.1f", mode, sp), c -> live(c, mode, sp));
+            }
+        }
         // The two Blink entries again and again (ship2-1027: 26.2 flagged / missed a few of 9), only when named.
         if (System.getProperty("testkit.scenario", "").contains("1027-ap3-blinkrep")) {
             for (int r = 1; r <= 12; r++) {
@@ -188,6 +195,142 @@ final class Ap3S2ee3Cases {
         if (!missed33 && (Math.abs(w.end()[0] - px) > 1e-3 || Math.abs(w.end()[2] - pz) > 1e-3 || Math.abs(w.end()[1] - 109.0) > 1e-6)) {
             throw new AssertionError(String.format(Locale.ROOT, "align #34 did not land: ended (%.4f, %.3f, %.4f)", w.end()[0],
                     w.end()[1], w.end()[2]));
+        }
+    }
+
+    /**
+     * killer560 2026-10-27 15:11 ("that 34 fast align still isnt pulling me in"; "for blink make sure the align takes
+     * priority over it charging"). His nodes: #33 RUN, #34 FAST_ALIGN 2x2, #49 BLINK_CHARGE on #34's point, #40 RUN
+     * leapcounter:3 on the point.
+     * <ul>
+     *   <li>boom: a BOOM on the run line before #33 aims at the floor (nothing breaks): its 40-tick gate wait must not
+     *       hold #34 (his 15:11:04 and 15:11:40: #34 queued behind the boom, then "superboom didn't break anything"
+     *       stopped AP3 and #34 with it).</li>
+     *   <li>charge-first: #34's box is 1x1 and the charge's 3x3, so he is in the charge's box before the align's: the
+     *       align must land before the charge banks or freezes him.</li>
+     *   <li>beside-leap: a teleport puts him 2.1 blocks from #34's point, outside its 2x2 box: it pulls him in.</li>
+     * </ul>
+     * Judged: #34 lands within 0.001 at y 109, never below 108.5, the charge starts only after the align finished and at
+     * its point, AP3 never stopped on the boom, GrimAC clean.
+     */
+    private static void live(Session c, String mode, double speed) {
+        ClientGameTestContext ctx = c.ctx();
+        build(c);
+        cmd(c, "attribute @p minecraft:movement_speed base set %.2f", speed);
+        c.server().sync(20);
+        double dx = -Math.sin(Math.toRadians(140)), dz = Math.cos(Math.toRadians(140));
+        double sx = 7 + DX - dx * 4.0, sz = 113 - dz * 4.0;
+        Object hand = Ap3RuntimeTests.node("RUN", sx + dx * 1.2, sz + dz * 1.2, 140f, 0f, 1.5, 1.5);
+        set(hand, "y", 109.0);
+        Object boom = Ap3RuntimeTests.node("BOOM", sx + dx * 2.6, sz + dz * 2.6, 140f, 60f, 1.0, 1.0);
+        set(boom, "y", 109.0);
+        Object n33 = node("RUN", 7, 109, 113, 140f, 1.0);
+        Object n34 = node("FAST_ALIGN", 2.5, 109, 105.5, 0f, "charge-first".equals(mode) ? 1.0 : 2.0);
+        Object n49 = node("BLINK_CHARGE", 2.5, 109, 105.5, 0f, "charge-first".equals(mode) ? 3.0 : 1.0);
+        Object n40 = node("RUN", 2.5, 109, 105.5, 164.5f, 1.0);
+        set(n40, "leapCounter", 3);
+        boolean gateWas = onClient(ctx, mc -> {
+            Mod.staticCall("blink.BlinkFeature", "end", "test setup");
+            Mod.staticCall(CHARGE, "reset", "test setup");
+            boolean g = (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled");
+            Mod.staticCall("util.SkyblockGate", "setEnabled", false);
+            Mod.setField("blink.BlinkFeature", "keyHeldForTest", null);
+            Mod.setField(CHARGE, "keyHeldForTest", null);
+            Mod.set(CFG, "setEnabled", true);
+            Mod.set(CFG, "setChargeMode", Mod.enumValue(CFG + "$Mode", "TOGGLE"));
+            Mod.set(CFG, "setChargeTicks", 20);
+            Mod.set(CFG, "setChargeKeyCode", -1);
+            Mod.set(CFG, "setChatMessages", false);
+            return g;
+        });
+        long mark = LogTap.mark();
+        try {
+            onClient(ctx, mc -> {
+                Ap3RuntimeTests.staticCallStop();
+                return null;
+            });
+            List<Object> chain = new ArrayList<>();
+            if ("beside-leap".equals(mode)) {
+                cmd(c, "forceload add %d %d %d %d", (int) DX, 130, (int) DX + 10, 140);
+                cmd(c, "fill %d 108 %d %d 108 %d minecraft:stone", (int) (7 + DX) - 1, 134, (int) (7 + DX) + 1, 136);
+                c.server().sync(20);
+                cmd(c, "tp @p %.3f 109 %.3f 140 0", 7 + DX, 135.5);
+                c.server().sync(20);
+                ctx.waitTicks(20);
+                chain.addAll(List.of(n33, n34, n49, n40));
+                onClient(ctx, mc -> {
+                    setChain(chain.toArray());
+                    return null;
+                });
+                ctx.waitTicks(5);
+                // 2.1 blocks west of the point, outside the 2x2 box (x 1.5..3.5), on the floor at y 109.
+                cmd(c, "tp @p %.3f 109 %.3f 140 0", 0.4 + DX, 105.5);
+                c.server().sync(20);
+            } else {
+                chain.add(hand);
+                if ("boom".equals(mode)) {
+                    chain.add(boom);
+                }
+                chain.addAll(List.of(n33, n34, n49, n40));
+                cmd(c, "tp @p %.3f 109 %.3f 140 0", sx, sz);
+                c.server().sync(20);
+                ctx.waitTicks(20);
+                onClient(ctx, mc -> {
+                    setChain(chain.toArray());
+                    return null;
+                });
+                ctx.waitTicks(2);
+                ctx.getInput().holdKey(o -> o.keyUp);
+                boolean in = false;
+                for (int i = 0; i < 40 && !in; i++) {
+                    ctx.waitTick();
+                    in = onClient(ctx, mc -> contains(hand, mc.player.position()));
+                }
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                if (!in) {
+                    throw new AssertionError("the hand walk never reached the start node");
+                }
+            }
+            Watch w = watch(ctx, 2.5 + DX, 105.5, 120);
+            List<String> all = LogTap.since(mark);
+            List<String> alignDone = logSince(mark, "Fast Align #");
+            List<String> chargeStart = new ArrayList<>(logSince(mark, "charge started"));
+            chargeStart.removeIf(l -> !l.contains("blinkcharge #"));
+            List<String> boomStop = logSince(mark, "Stopped: superboom");
+            for (String needle : new String[]{"boom #", "goes first", "landed you", "passed beside", "charge started"}) {
+                for (String l : logSince(mark, needle)) {
+                    c.note("  " + l);
+                }
+            }
+            judge(c, String.format(Locale.ROOT, "live %s speed %.1f", mode, speed), w, mark);
+            c.check(boomStop.isEmpty(), "AP3 stopped on the boom: " + boomStop);
+            c.check(!chargeStart.isEmpty(), "the Blink Charge never started");
+            c.check(!alignDone.isEmpty() && all.indexOf(alignDone.get(0)) < all.indexOf(chargeStart.get(0)),
+                    "the charge started before Fast Align #34 finished");
+            c.check(chargeStart.get(0).contains(String.format(Locale.ROOT, "(%.3f, 109.000, 105.500)", 2.5 + DX)),
+                    "the charge did not start on #34's point: " + chargeStart.get(0));
+            if ("boom".equals(mode)) {
+                c.check(!logSince(mark, "checked in the background").isEmpty() || !logSince(mark, "result: the gate broke").isEmpty(),
+                        "the boom's gate check never reported");
+            }
+        } finally {
+            boolean g = gateWas;
+            onClient(ctx, mc -> {
+                Ap3RuntimeTests.staticCallStop();
+                Mod.staticCall("blink.BlinkFeature", "end", "test end");
+                Mod.staticCall(CHARGE, "reset", "test end");
+                Mod.set(CFG, "setEnabled", false);
+                Mod.staticCall("util.SkyblockGate", "setEnabled", g);
+                return null;
+            });
+            cmd(c, "attribute @p minecraft:movement_speed base set 0.10");
+            cmd(c, "tp @p 0.50 121 0.50 -90 0");
+            c.server().sync(20);
+            if ("beside-leap".equals(mode)) {
+                cmd(c, "fill %d 108 %d %d 108 %d minecraft:air", (int) (7 + DX) - 1, 134, (int) (7 + DX) + 1, 136);
+                cmd(c, "forceload remove %d %d %d %d", (int) DX, 130, (int) DX + 10, 140);
+            }
+            clear(c);
         }
     }
 
