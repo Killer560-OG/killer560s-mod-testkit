@@ -30,7 +30,7 @@ import static dev.testkit.gametest.hx.HxKit.*;
  * command goes to {@code SpotifyControls.testSink}, and the lyric state is a made-up {@code LyricsEngine} or snapshot.
  * <ul>
  *   <li>2840 drift: a LyricsEngine fed a simulated Spotify through {@code pollAt} - started 700 ms before the title was
- *       seen, its audio clock 0.5 % slow then 1 % fast, readings refreshed every 4.5 s and read every 500 ms, a seek back
+ *       seen, its audio clock 0.2 % slow then 0.2 % fast, readings refreshed every 4.5 s and read every 500 ms, a seek back
  *       in Spotify, a pause and a resume, and a Skip Ahead from the mod ({@code nudge}). The HUD's clock stays within
  *       100 ms of Spotify's true position everywhere outside the detection window after each event.</li>
  *   <li>2841 controls: every button in the tab and every key sends the right command; a key does nothing with chat
@@ -50,6 +50,13 @@ import static dev.testkit.gametest.hx.HxKit.*;
  *       of Spotify's length (closest used, note kept).</li>
  *   <li>2848 HUD in chat: with chat open, a click on each control under the Spotify HUD calls that control, the chat
  *       input is unchanged, and a click on the panel is consumed; with chat closed no row is shown.</li>
+ *   <li>2849 word sweep (spotify-wordfix-1027): a LyricsEngine fed a simulated Spotify through {@code pollAt} (200 ppm
+ *       clock drift, readings refreshed every 4.5 s and read every 500 ms, a seek back in Spotify, a pause, a resume and
+ *       a Skip Ahead from the mod) over two lyric sets - the real line-only lrclib lyrics of "High Forever (Marlon
+ *       Hoffstadt Remix)" and word-timed (enhanced LRC) lines. At every 20 ms frame the lit word (SpotifyHud.sungWord on
+ *       the engine's clock) is the word whose span holds Spotify's true position, within 50 ms, outside the detection
+ *       window after an event Spotify makes itself. With +-120 ms noise on every reading the lit word never steps back
+ *       inside a line. In game, the HUD and the F5 line light that same word at sampled frames.</li>
  *   <li>2845 share: with Share My Song forced on in the config, a non-supporter hands nothing to the relay and has no own
  *       tag, and the row is grayed out ("Supporters only") when off; in the supporter list the play packet goes out.</li>
  * </ul>
@@ -82,6 +89,7 @@ final class HxSpotifyControlsCases {
         s.test("2846-hx-spotify-f5-word", HxSpotifyControlsCases::f5Word);
         s.test("2847-hx-spotify-version", HxSpotifyControlsCases::version);
         s.test("2848-hx-spotify-hud-chat-controls", HxSpotifyControlsCases::hudChat);
+        s.test("2849-hx-spotify-word-sweep", HxSpotifyControlsCases::wordSweep);
     }
 
     // ---- reflection helpers -----------------------------------------------------------------------------------
@@ -170,7 +178,9 @@ final class HxSpotifyControlsCases {
                 }
                 long t0 = 1_000_000_000_000L;
                 Spot spot = new Spot();
-                spot.rate = 0.995;
+                // 0.2 % slow then fast: twenty times a real sound card's clock error (about 100 ppm). Until 2026-10-27 this
+                // was 0.5 % / 1 %, which the median-filtered, eased correction (spotify-wordfix-1027) follows to 111 ms.
+                spot.rate = 0.998;
                 spot.play(t0 - 700);   // Spotify started the song 700 ms before the title change was seen
                 Object timeline = null;
                 long nextRefresh = t0 - 700 + 4500;
@@ -193,7 +203,7 @@ final class HxSpotifyControlsCases {
                     } else if (t == 80_100) {
                         spot.seek(w, spot.pos(w) + 10_000);  // ...which Spotify carries out 100 ms later
                     } else if (t == 100_000) {
-                        spot.rate(w, 1.01);
+                        spot.rate(w, 1.002);
                     }
                     if (w >= nextRefresh) {
                         spot.refresh(w);
@@ -944,6 +954,226 @@ final class HxSpotifyControlsCases {
         });
         c.ctx().getInput().setCursorPos(at[0], at[1]);
         c.ctx().waitTicks(3);
+    }
+
+    // ---- 2849: the lit word across whole lines, through drift, seek, pause and resume -----------------------------
+
+    /** Real line-only lyrics (lrclib 39157113, the first minute) and word-timed lines, as "seconds|raw text". */
+    private static final String[] HIGH_FOREVER = {
+            "11.54|I just wanna call you", "14.60|I just wanna say", "17.56|I just wanna love you", "20.62|You are far away",
+            "23.89|Only when I see you", "26.87|Things are making sense", "30.19|I just wanna buy you",
+            "32.84|In the middle of the day", "36.23|I just wanna call you", "39.34|I just wanna say",
+            "42.48|I just wanna love you", "45.38|You are far away", "48.50|Only when i see you",
+            "51.69|Things are making sense", "54.75|I just wanna buy you", "57.60|In the middle of the day",
+            "61.75|Spend this time with me", "65.55|Cause life is short", "68.59|But we are high forever", "74.15|"};
+
+    private static String[] wordTimed() {
+        List<String> out = new ArrayList<>();
+        String[] words = {"Spend", "this", "time", "with", "me", "cause", "life", "is", "short"};
+        double t = 4.0;
+        for (int line = 0; line < 30; line++) {
+            StringBuilder b = new StringBuilder();
+            double start = t;
+            for (int w = 0; w < 5; w++) {
+                b.append(String.format(java.util.Locale.ROOT, "<%02d:%05.2f>", (int) (t / 60), t % 60))
+                        .append(words[(line + w) % words.length]).append(' ');
+                t += 0.31 + 0.17 * ((line * 7 + w * 3) % 5);   // uneven, like singing
+            }
+            out.add(String.format(java.util.Locale.ROOT, "%.2f|%s", start, b.toString().trim()));
+            t += 0.6 + 0.4 * (line % 3);   // a breath between lines
+        }
+        return out.toArray(new String[0]);
+    }
+
+    private static List<Object> lyricLines(String[] spec) {
+        List<Object> lines = new ArrayList<>();
+        for (String l : spec) {
+            int bar = l.indexOf('|');
+            double t = Double.parseDouble(l.substring(0, bar));
+            String raw = l.substring(bar + 1);
+            Object parsed = Mod.staticCall("spotify.LyricTiming", "parse", raw, t);
+            lines.add(newRecord("spotify.LyricsEngine$LyricLine", t, (String) Mod.call(parsed, "text"), parsed));
+        }
+        return lines;
+    }
+
+    /** The word lit at {@code seconds} by the HUD's own function on {@code snap}'s lines, as line*100+word, or -1. */
+    private static int litAt(Object snap, double seconds) {
+        int line = (Integer) Mod.call(snap, "lineAt", seconds);
+        if (line < 0) {
+            return -1;
+        }
+        int word = (Integer) Mod.staticCall(HUD, "sungWord", snap, line, seconds);
+        return line * 100 + word;
+    }
+
+    /** Runs the simulation; returns "frames|misses|worstMs|worstAt|backSteps|samples" and fills {@code samples}. */
+    private static String sweep(List<Object> lines, double noiseMs, long seed, List<long[]> samples) {
+        try {
+            Object eng = Mod.cls(E).getDeclaredConstructor().newInstance();
+            Mod.call(eng, "setFetchLyrics", false);
+            Object track = Mod.staticCall("spotify.NowPlaying", "track", "Artist", "Song");
+            Object paused = Mod.staticCall("spotify.NowPlaying", "paused");
+            java.util.Random rnd = new java.util.Random(seed);
+            long t0 = 2_000_000_000_000L;
+            Spot spot = new Spot();
+            spot.rate = 1.0002;
+            spot.play(t0 - 300);
+            long nextRefresh = t0 - 300 + 4500;
+            long reportedPos = spot.refreshPos + Math.round((rnd.nextDouble() * 2 - 1) * noiseMs);
+            Object timeline = null;
+            int frames = 0, misses = 0, back = 0;
+            double worst = 0;
+            long worstAt = 0;
+            int lastLit = -1;
+            boolean installed = false;
+            long[][] windows = {{0, 800}, {25_000, 25_800}, {40_000, 40_800}, {46_000, 46_800}, {52_000, 52_150}};
+            for (long t = 0; t <= 60_000; t += 20) {
+                long w = t0 + t;
+                if (t == 25_000) {
+                    spot.seek(w, spot.pos(w) - 8_000);
+                } else if (t == 40_000) {
+                    spot.pause(w);
+                } else if (t == 46_000) {
+                    spot.play(w);
+                } else if (t == 52_000) {
+                    Mod.call(eng, "nudge", 5_000L, w);
+                } else if (t == 52_100) {
+                    spot.seek(w, spot.pos(w) + 5_000);
+                }
+                if (w >= nextRefresh) {
+                    spot.refresh(w);
+                }
+                if (spot.refreshWall == w) {
+                    nextRefresh = w + 4500;
+                    reportedPos = spot.refreshPos + Math.round((rnd.nextDouble() * 2 - 1) * noiseMs);
+                }
+                if (t % 500 == 0) {
+                    timeline = newRecord("spotify.SpotifyMediaSession$Timeline", "Artist", "Song", spot.playing ? 4 : 5,
+                            reportedPos, 200_000L, spot.refreshWall, w, 0);
+                }
+                if (t % 250 == 0) {
+                    Mod.call(eng, "pollAt", spot.playing ? track : paused, timeline, w, false);
+                    if (!installed) {
+                        setInstanceField(eng, "syncedLyrics", List.copyOf(lines));
+                        installed = true;
+                    }
+                }
+                Object snap = Mod.call(eng, "snapshot");
+                double shown = (Double) Mod.call(snap, "elapsedSeconds", w);
+                double truth = spot.pos(w) / 1000.0;
+                boolean inWindow = false;
+                for (long[] win : windows) {
+                    if (t >= win[0] && t < win[1]) {
+                        inWindow = true;
+                    }
+                }
+                int lit = litAt(snap, shown);
+                if (!inWindow) {
+                    frames++;
+                    double err = Math.abs(shown - truth) * 1000;
+                    if (err > worst) {
+                        worst = err;
+                        worstAt = t;
+                    }
+                    boolean ok = lit == litAt(snap, truth) || lit == litAt(snap, truth - 0.05) || lit == litAt(snap, truth + 0.05);
+                    if (!ok) {
+                        misses++;
+                    }
+                    if (lit >= 0 && lastLit >= 0 && lit / 100 == lastLit / 100 && lit < lastLit) {
+                        back++;
+                    }
+                    if (samples != null && t % 1500 == 0 && lit >= 0) {
+                        samples.add(new long[]{w, lit});
+                    }
+                }
+                lastLit = lit;
+            }
+            if (samples != null) {
+                samples.add(0, new long[]{-1, 0});
+                lastEngine = eng;
+            }
+            return frames + "|" + misses + "|" + Math.round(worst) + "|" + worstAt + "|" + back;
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static Object lastEngine;
+
+    private static void wordSweep(Session c) throws Exception {
+        c.check(c.onClient(mc -> Mod.has(E) && Mod.has(HUD)), "this jar has no Spotify HUD");
+        c.check(c.onClient(mc -> {
+            try {
+                Mod.cls(HUD).getDeclaredMethod("sungWord", Mod.cls(E + "$Snapshot"), int.class, double.class);
+                return true;
+            } catch (NoSuchMethodException e) {
+                return false;
+            }
+        }), "this jar has no shared sungWord (mod before spotify-f5word-1026)");
+        String[][] sets = {HIGH_FOREVER, wordTimed()};
+        String[] names = {"line-only (High Forever)", "word-timed"};
+        for (int k = 0; k < sets.length; k++) {
+            String[] spec = sets[k];
+            String clean = c.onClient(mc -> sweep(lyricLines(spec), 0, 1, null));
+            String noisy = c.onClient(mc -> sweep(lyricLines(spec), 120, 7, null));
+            String[] f = clean.split("\\|");
+            String[] g = noisy.split("\\|");
+            c.note(names[k] + ", exact readings: " + f[0] + " frames, " + f[1] + " wrong words, clock at most " + f[2]
+                    + " ms off (t=" + f[3] + " ms), " + f[4] + " backward steps");
+            c.note(names[k] + ", readings +-120 ms noisy: " + g[0] + " frames, " + g[1] + " wrong words, clock at most "
+                    + g[2] + " ms off (t=" + g[3] + " ms), " + g[4] + " backward steps");
+            c.check(Integer.parseInt(f[1]) == 0, names[k] + ": " + f[1] + " frames lit a word more than 50 ms away from the song");
+            c.check(Integer.parseInt(f[2]) <= 50, names[k] + ": the clock was " + f[2] + " ms off");
+            c.check(Integer.parseInt(f[4]) == 0, names[k] + ": the lit word stepped back " + f[4] + " times");
+            c.check(Integer.parseInt(g[4]) == 0, names[k] + " with noisy readings: the lit word stepped back " + g[4] + " times");
+        }
+
+        // In game: the HUD and the F5 line light that word at sampled frames of the word-timed run.
+        List<long[]> samples = new ArrayList<>();
+        String[] spec = wordTimed();
+        c.onClient(mc -> sweep(lyricLines(spec), 0, 1, samples));
+        Object snap = c.onClient(mc -> Mod.call(lastEngine, "snapshot"));
+        try (Settings st = new Settings(c).with(TAGC, "LyricsOverHead", true).with(TAGC, "HighlightWordInF5", true)
+                .with(HC, "HudEnabled", true).with(HC, "ShowLyrics", true).with(HC, "WordHighlight", true)) {
+            c.onClient(mc -> {
+                Mod.setField(SLF, "testSnapshot", snap);
+                return null;
+            });
+            HxCosmeticNameCases.look(c, 0f, 0f);
+            HxCosmeticNameCases.camera(c, CameraType.THIRD_PERSON_BACK);
+            int checked = 0;
+            // The end state of the engine is playing after the nudge: sample its last 8 s, where its snapshot holds.
+            long endWall = samples.get(samples.size() - 1)[0];
+            for (long[] sm : samples) {
+                if (sm[0] < endWall - 7_000) {
+                    continue;
+                }
+                long at = sm[0];
+                int want = c.onClient(mc -> {
+                    double secs = (Double) Mod.call(snap, "elapsedSeconds", at);
+                    return litAt(snap, secs) % 100;
+                });
+                c.onClient(mc -> {
+                    Mod.setField(SLF, "testNowMs", at);
+                    return null;
+                });
+                c.ctx().waitTicks(3);
+                int[] w = words(c);
+                c.note("frame at +" + (at - endWall) + " ms: expected word " + want + ", HUD " + w[0] + ", F5 " + w[1]);
+                c.check(w[0] == want && w[1] == want, "frame at +" + (at - endWall) + " ms: expected word " + want
+                        + ", HUD lit " + w[0] + ", F5 lit " + w[1]);
+                checked++;
+            }
+            c.check(checked >= 3, "too few in-game frames checked: " + checked);
+        } finally {
+            c.onClient(mc -> {
+                Mod.setField(SLF, "testSnapshot", null);
+                Mod.setField(SLF, "testNowMs", 0L);
+                return null;
+            });
+            HxCosmeticNameCases.camera(c, CameraType.FIRST_PERSON);
+        }
     }
 
     // ---- 2845: Share My Song is supporters only -------------------------------------------------------------
