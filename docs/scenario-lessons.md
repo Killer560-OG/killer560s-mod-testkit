@@ -1239,3 +1239,6 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   use aimed down at the floor moves nothing and counts no transmission; 1027-zpewc-motion's no-sneak shots look level.
 - Under `Latency.install(150)` a chain of uses one tick apart (each `pressKey` then `waitTicks(1)`) reads 1 pending at
   the end of each tick; 3 at 300 ms. Assert overlap at 300 ms (the chain-off mispredictions prove it at 150 too).
+- 1027-zpewc-*: a server `tp` to where he already stands passes a position check at once while the tp's packet is still
+  in flight; under 300 ms it landed mid-shot and read as a ZPEW miss (solo run, chain-300). `tpTo` now waits for the
+  tp's own position packet (counted by the inbound tap) as well as the position.
