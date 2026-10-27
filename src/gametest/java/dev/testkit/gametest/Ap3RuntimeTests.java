@@ -153,7 +153,10 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         // One long floor for every lane, in slices (a fill is capped at 32768 blocks).
         for (int z = -4; z <= zMax + 4; z += 16) {
             map.fill(LANE_X0 - 8, FLOOR, z, LANE_X0 + LANE_LEN + 8, FLOOR, Math.min(z + 15, zMax + 4), "smooth_stone");
-            map.fill(LANE_X0 - 8, FLOOR + 1, z, LANE_X0 + LANE_LEN + 8, FLOOR + 4, Math.min(z + 15, zMax + 4), "air");
+            // Up to FLOOR + 12: a USE node looks up at pitch -35 and must meet air within reach. Cleared only to + 4,
+            // a normal-world seed with terrain at y 125 over a lane turned 63-ap3-use-walk/-swap into a block click
+            // (final-1027, 26.2: "useon 7, 125, 19", "expected exactly one use packet, saw 0").
+            map.fill(LANE_X0 - 8, FLOOR + 1, z, LANE_X0 + LANE_LEN + 8, FLOOR + 12, Math.min(z + 15, zMax + 4), "air");
         }
         map.surface(FLOOR + 1)
                 .catchFloor(FLOOR - 20)

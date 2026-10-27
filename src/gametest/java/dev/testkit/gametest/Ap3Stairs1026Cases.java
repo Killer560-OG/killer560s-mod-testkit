@@ -511,6 +511,11 @@ final class Ap3Stairs1026Cases {
             cmd(c, "fill %d %d %d %d %d %d minecraft:air", px0 - 1, FLOOR - 2, zc - 3, px0 + 5, FLOOR - 1, zc + 3);
             cmd(c, "fill %d %d %d %d %d %d minecraft:smooth_stone", px0, FLOOR, zc - 2, px0 + 4, FLOOR, zc + 2);
             cmd(c, "effect clear @p");
+            // He leaves the lava still burning (about 15 s). Without fire resistance every later case took fire damage
+            // once a second: the plain run of 1027-ap3-shot-turn slowed every 20 ticks and its charge drew GrimAC
+            // Simulation x7 + AntiKB (final-1027, both Minecraft versions, only in the full session). Keep it until the
+            // burn is over.
+            cmd(c, "effect give @p minecraft:fire_resistance 20 0 true");
             cmd(c, "tp @p %.2f %d %.2f -90 0", LANE_X0 + 0.5, FLOOR + 1, z);
         }
     }
