@@ -71,11 +71,28 @@ final class AaFastCases {
     private AaFastCases() {
     }
 
-    private record Mode(String name, int cpt, boolean same) {
+    private record Mode(String name, int cpt, boolean same, int fpt) {
     }
 
-    private static final Mode[] MODES = {new Mode("cpt1", 1, false), new Mode("cpt4", 4, false),
-            new Mode("cpt7", 7, false), new Mode("same1", 1, true), new Mode("same7", 7, true)};
+    /** Frames Per Tick 1 everywhere but fpt3 / fpt15 (killer560, 2026-10-27: "Add Frames Per Tick as a cheat-only option"). */
+    private static final Mode[] MODES = {new Mode("cpt1", 1, false, 1), new Mode("cpt4", 4, false, 1),
+            new Mode("cpt7", 7, false, 1), new Mode("same1", 1, true, 1), new Mode("same7", 7, true, 1),
+            new Mode("fpt3", 7, true, 3), new Mode("fpt15", 7, true, 15)};
+
+    /** Whether the test server's GrimAC runs its experimental checks (MultiInteractA/B among them): its config.yml. */
+    private static boolean experimentalChecks() {
+        try {
+            java.util.Properties props = new java.util.Properties();
+            try (var in = java.nio.file.Files.newInputStream(java.nio.file.Path.of(
+                    System.getProperty("testkit.testserver.launch")))) {
+                props.load(in);
+            }
+            java.nio.file.Path cfg = java.nio.file.Path.of(props.getProperty("dir"), "config", "GrimAC", "config.yml");
+            return java.nio.file.Files.readString(cfg).lines().anyMatch(l -> l.trim().equals("experimental-checks: true"));
+        } catch (Exception e) {
+            return false;
+        }
+    }
 
     static void register(Session s) {
         s.test("1027-aafast-settings", AaFastCases::settings);
@@ -84,7 +101,12 @@ final class AaFastCases {
         }
         for (int ms : LATENCIES) {
             for (Mode m : MODES) {
-                s.test("1027-aafast-" + m.name + "-" + ms, c -> solve(c, m, ms));
+                if (m.fpt > 1) {
+                    // Judged in the body: clean on Grim's default config; on experimental checks MultiInteractA/B must show.
+                    s.testExpectingFlags("1027-aafast-" + m.name + "-" + ms, c -> solve(c, m, ms));
+                } else {
+                    s.test("1027-aafast-" + m.name + "-" + ms, c -> solve(c, m, ms));
+                }
             }
         }
         s.test("1027-aafast-sameframe7", AaFastCases::sameFrame7);
@@ -279,6 +301,7 @@ final class AaFastCases {
                      .with(AA_CFG, "PreventMisclicksEnabled", false).with(AA_CFG, "TriggerBotEnabled", false)
                      .with(AA_CFG, "AuraEnabled", false).with(AA_CFG, "AuraRange", 3.0).with(AA_CFG, "AuraCps", 20)
                      .with(AA_CFG, "AuraClicksPerTick", mode.cpt).with(AA_CFG, "AuraSameTickTurn", mode.same)
+                     .with(AA_CFG, "AuraFramesPerTick", mode.fpt)
                      .with(AA_CFG, "AuraLeaveLastArrow", false).with(AA_CFG, "AuraDisableWhileCrouching", true)) {
             wall(c);
             if (ms > 0) {
@@ -297,6 +320,10 @@ final class AaFastCases {
             tapOn(c);
             aura(c, true);
             final int want = total;
+            if (mode.fpt > 1 && experimentalChecks()) {
+                expectedFlags(c, mode, ms, since, want, uuids);
+                return;
+            }
             c.waitUntil("every click reached the server (use_entity)",
                     mc -> c.hx().events(since, "use_entity").size() >= want, 400);
             // The server's own rotations, read at once: the frames have been seen to vanish from the server about a second
@@ -324,6 +351,7 @@ final class AaFastCases {
             int framesTurnedFirst = 0;
             List<String> turnOnly = new ArrayList<>();
             int prevLookAtTickStart = -1;
+            int firstFrameOfTick = -1;
             int curTick = -1;
             Set<Integer> turnedTicks = new LinkedHashSet<>();
             List<String> wrongLook = new ArrayList<>();
@@ -332,10 +360,15 @@ final class AaFastCases {
                 if (w.tick != curTick) {
                     curTick = w.tick;
                     prevLookAtTickStart = lastLook;
+                    firstFrameOfTick = -1;
                 }
                 if (w.interact) {
                     perTick.computeIfAbsent(w.tick, k -> new ArrayList<>()).add(w.entity);
-                    if (w.entity != prevLookAtTickStart) {
+                    if (firstFrameOfTick < 0) {
+                        firstFrameOfTick = w.entity;
+                    }
+                    // Frames Per Tick's further frames go at the first frame's look on purpose: only the first is judged.
+                    if (w.entity == firstFrameOfTick && w.entity != prevLookAtTickStart) {
                         // Not on the look the server last had: the movement packet later in THIS tick must turn to it.
                         int after = -3;
                         for (int j = i + 1; j < wire.size() && wire.get(j).tick == w.tick; j++) {
@@ -363,12 +396,16 @@ final class AaFastCases {
             int first = perTick.isEmpty() ? 0 : ((java.util.TreeMap<Integer, List<Integer>>) perTick).firstKey();
             int last = perTick.isEmpty() ? 0 : ((java.util.TreeMap<Integer, List<Integer>>) perTick).lastKey();
             int ticks = perTick.isEmpty() ? 0 : last - first + 1;
-            int maxPerTick = 0;
+            int maxPerTick = 0; // clicks on ONE frame in one tick, the most seen
+            int maxFrames = 0; // distinct frames in one tick, the most seen
             List<String> twoFrames = new ArrayList<>();
             StringBuilder shape = new StringBuilder();
             for (var e : perTick.entrySet()) {
-                maxPerTick = Math.max(maxPerTick, e.getValue().size());
-                if (new LinkedHashSet<>(e.getValue()).size() > 1) {
+                Map<Integer, Integer> byFrame = new HashMap<>();
+                e.getValue().forEach(id -> byFrame.merge(id, 1, Integer::sum));
+                maxPerTick = Math.max(maxPerTick, java.util.Collections.max(byFrame.values()));
+                maxFrames = Math.max(maxFrames, byFrame.size());
+                if (byFrame.size() > mode.fpt) {
                     twoFrames.add("t" + e.getKey() + " " + e.getValue());
                 }
                 shape.append(e.getKey() - first).append(':').append(e.getValue().size()).append(' ');
@@ -400,7 +437,7 @@ final class AaFastCases {
             c.check(used.size() == total, "the server handled " + used.size() + " clicks, the frames needed " + total);
             c.check(wrongCount.isEmpty(), "clicks per frame wrong: " + wrongCount);
             c.check(wrongRot.isEmpty(), "server rotations not solved: " + wrongRot);
-            c.check(twoFrames.isEmpty(), "two frames in one tick (MultiInteractA): " + twoFrames);
+            c.check(twoFrames.isEmpty(), "more frames in one tick than Frames Per Tick " + mode.fpt + ": " + twoFrames);
             c.check(maxPerTick <= mode.cpt, "a tick carried " + maxPerTick + " clicks with Clicks Per Tick " + mode.cpt);
             c.check(outside.isEmpty(), "sent outside a tick (Post): " + outside);
             c.check(wrongLook.isEmpty(), "a click on a frame neither the last look nor this tick's move met: " + wrongLook);
@@ -420,7 +457,17 @@ final class AaFastCases {
             if (mode.cpt == 7) {
                 c.check(maxPerTick == 7, "Clicks Per Tick 7 never put 7 clicks in a tick (a frame needing 7 was there)");
             }
-            if (mode.same && mode.cpt == 7) {
+            if (mode.fpt > 1) {
+                int wantTicks = (LAYOUT.length + mode.fpt - 1) / mode.fpt;
+                c.note("aafast " + mode.name + " " + ms + " ms: up to " + maxFrames + " frames in a tick, " + ticks
+                        + " tick(s) to solve (want " + wantTicks + "), Grim experimental checks off");
+                c.check(maxFrames == Math.min(mode.fpt, LAYOUT.length), "Frames Per Tick " + mode.fpt + " put at most "
+                        + maxFrames + " frames in a tick");
+                c.check(ticks == wantTicks, mode.name + " took " + ticks + " ticks, want " + wantTicks);
+                c.ctx().waitTicks(10);
+                c.check(c.scenario().flags().isEmpty(), "Grim's default checks flagged Frames Per Tick: "
+                        + c.scenario().flags());
+            } else if (mode.same && mode.cpt == 7) {
                 c.check(ticks == LAYOUT.length, "same7 should take exactly one tick per frame (" + LAYOUT.length
                         + "), took " + ticks);
             }
@@ -436,6 +483,42 @@ final class AaFastCases {
             }
             cleanup(c);
         }
+    }
+
+    /**
+     * Frames Per Tick above 1 with GrimAC's experimental checks on: recorded for the owner, not a pass/fail on cleanliness.
+     * MultiInteractA (a second entity before the next tick packet) must be among the flags; how many clicks still reached
+     * the server (Grim cancels a flagged interact), and whether the device got solved anyway, are noted.
+     */
+    private static void expectedFlags(Session c, Mode mode, int ms, long since, int want, String[] uuids) {
+        c.waitUntil("the Aura to send its first ticks", mc -> !c.hx().events(since, "use_entity").isEmpty(), 200);
+        for (int i = 0; i < 200 && c.hx().events(since, "use_entity").size() < want; i++) {
+            c.ctx().waitTicks(1);
+        }
+        int got = c.hx().events(since, "use_entity").size();
+        int[] rot = new int[LAYOUT.length];
+        for (int i = 0; i < LAYOUT.length; i++) {
+            rot[i] = serverRotation(c, uuids[i]);
+        }
+        c.ctx().waitTicks(20 + ms / 25);
+        aura(c, false);
+        tapOff(c);
+        List<String> flags = c.scenario().flags();
+        long a = flags.stream().filter(f -> f.contains("MultiInteractA")).count();
+        long b = flags.stream().filter(f -> f.contains("MultiInteractB")).count();
+        long other = flags.size() - a - b;
+        long sent;
+        synchronized (WIRE) {
+            sent = WIRE.stream().filter(w -> w.interact).count();
+        }
+        boolean solved = java.util.Arrays.stream(rot).allMatch(r -> r == 1);
+        c.note(String.format(Locale.ROOT, "aafast %s %d ms, Grim EXPERIMENTAL checks on: %d flag line(s) (MultiInteractA %d, "
+                        + "MultiInteractB %d, other %d); %d clicks sent, %d reached the server (needed %d); server rotations %s, "
+                        + "solved within 10 s: %s", mode.name, ms, flags.size(), a, b, other, sent, got, want,
+                java.util.Arrays.toString(rot), solved));
+        flags.stream().limit(6).forEach(f -> c.note("  " + f));
+        c.check(a > 0, "Frames Per Tick " + mode.fpt + " with experimental checks on drew no MultiInteractA: " + flags);
+        c.check(other == 0, "flags other than MultiInteractA/B: " + flags);
     }
 
     // ---- controls ---------------------------------------------------------------------------------------------------
@@ -590,6 +673,24 @@ final class AaFastCases {
                 if (same != cheat) {
                     problems.add("Turn And Click Same Tick reads " + same + " on a " + (cheat ? "cheat" : "legit") + " jar");
                 }
+                // Frames Per Tick: 1..15, saved; always 1 on a legit jar whatever is saved.
+                Mod.call(re, "setAuraFramesPerTick", 99);
+                int fhi = (Integer) Mod.field(re, "auraFramesPerTick");
+                Mod.call(re, "setAuraFramesPerTick", 0);
+                int flo = (Integer) Mod.field(re, "auraFramesPerTick");
+                Mod.call(re, "setAuraFramesPerTick", 4);
+                Mod.call(re, "save");
+                Mod.staticCall(AA_CFG, "load");
+                int fpt = (Integer) Mod.call(Mod.cfg(AA_CFG), "getAuraFramesPerTick");
+                c.note("settings: Frames Per Tick set 99 -> " + fhi + ", set 0 -> " + flo + ", saved 4 -> reads " + fpt);
+                if (fhi != 15 || flo != 1) {
+                    problems.add("Frames Per Tick clamps to " + flo + ".." + fhi + ", want 1..15");
+                }
+                if (fpt != (cheat ? 4 : 1)) {
+                    problems.add("Frames Per Tick reads " + fpt + " after saving 4 on a " + (cheat ? "cheat" : "legit") + " jar");
+                }
+                re = Mod.cfg(AA_CFG);
+                Mod.call(re, "setAuraFramesPerTick", 1);
                 Mod.call(re, "setAuraSameTickTurn", false);
                 Mod.call(re, "save");
                 Mod.staticCall(AA_CFG, "load");
