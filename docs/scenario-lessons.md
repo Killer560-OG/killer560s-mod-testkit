@@ -1267,3 +1267,12 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   1027-ap3-blink-leap-* release through `BlinkCharge.shootFor` where the leap lands; a second lane walk-in would teleport him
   again. Another agent's `gradle --stop` ends every running client of every checkout at once ("build daemon has been stopped:
   stop command received", 11:14:31 2026-10-27): rerun, it is not a result.
+- 1027-zpewlk-* (ZpewLooksTests, 2026-10-27): etherwarps at DIFFERENT looks in one client tick. Harness shapes (RSA's n uses
+  at n looks; a look packet before each use; a look-only packet after each) flag by design and are recorded per shot on
+  their own `server.mark()`; the mod's Aimed Warps (Blink Charge bank, one spent tick per extra look) must be clean with
+  every landing where planned. Pitfalls found: (1) the vanilla server re-sends a teleport whose confirm is more than 20 ticks
+  late, and Blink Charge holds every confirm about a second behind its ping answer, so each burst's last landing arrives
+  twice ("in place (re-sync)" in Blink's log) - dedupe repeats before counting landings; (2) the first path was a square
+  (+x, +z, -x, -z, +x): queuing those five presses spins the client 360 between two ticks, which is AimModulo360 on any
+  client - use a zigzag; (3) queued presses need `KeyMapping.click` plus the mod's `pollClicks` per press, all between two
+  ticks (`runOnClient`), because the burst runs in the mod's START_CLIENT_TICK, before the harness's own START hook.

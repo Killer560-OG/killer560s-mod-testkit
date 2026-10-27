@@ -81,7 +81,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
     static void build(TestServer server) {
         TestMap.on(server).platform(X0, Y - 1, Z0, 4).catchFloor(120).survival().clearInventory()
                 .spawn(X0 + 0.5, Z0 + 0.5, -90f).build();
-        server.command(String.format(Locale.ROOT, "forceload add %d %d %d %d", X0 - 3, Z0 - 3, X0 + 100, Z0 + 43));
+        server.command(String.format(Locale.ROOT, "forceload add %d %d %d %d", X0 - 4, Z0 - 3, X0 + 100, Z0 + 74));
         for (int lane = 0; lane <= SHORT_LANE; lane++) {
             int z = Z0 + 10 * lane;
             int end = lane == SHORT_LANE ? X0 + 16 : X0 + 96;
@@ -90,10 +90,18 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
             server.command(String.format(Locale.ROOT, "testkit fill %d %d %d %d %d %d minecraft:stone", X0 - 3, Y - 1,
                     z - 2, end, Y - 1, z + 2));
         }
+        // The floor for different-look bursts (ZpewLooksTests): 16 x 24 at Z0 + 50.
+        server.command(String.format(Locale.ROOT, "testkit fill %d %d %d %d %d %d minecraft:air", X0 - 4, Y, SQ_Z - 4,
+                X0 + 14, Y + 6, SQ_Z + 22));
+        server.command(String.format(Locale.ROOT, "testkit fill %d %d %d %d %d %d minecraft:stone", X0 - 3, Y - 1,
+                SQ_Z - 3, X0 + 12, Y - 1, SQ_Z + 20));
         server.command("effect give @a minecraft:resistance infinite 255 true");
         server.command("effect give @a minecraft:fire_resistance infinite 0 true");
         server.sync(120);
     }
+
+    /** The different-look square's start row (feet at X0 + 0.5, SQ_Z + 0.5). */
+    static final int SQ_Z = Z0 + 50;
 
     static void hookTicks(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> {
