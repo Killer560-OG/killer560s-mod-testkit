@@ -47,6 +47,8 @@ public class BossSuite implements FabricClientGameTest {
                     LightsDeviceCases.register(s);
                     // Auto Simon Says Stim and Momentum (1018-ss-*, branch todo-ss-stim-1018), own block.
                     SsStimMomentumCases.register(s);
+                    // Auto Simon Says Timer Target on 4- and 5-round devices (1027-ss-*, branch ss4-1027), own block.
+                    SsTimerTargetCases.register(s);
                     // M7 P5 Relic Triggerbot and Relic Look (1025-boss-relic-*, branch relic-1025), own block.
                     RelicCases.register(s);
                 });
