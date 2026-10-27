@@ -37,6 +37,9 @@ import static dev.testkit.gametest.Ap3RuntimeTests.set;
  *       the per-tick positions equal to it once the paused ticks are left out.</li>
  *   <li>1027-ap3-momentum-air: the same with a Jump just before the charge, so it banks in mid-jump.</li>
  *   <li>1027-ap3-shot-stop: a Stop 2 blocks into a 20-tick shot: the shot ends when he has stopped, the rest stays banked.</li>
+ *   <li>1027-ap3-shot-abort-keep (blinkmerge-1027): AP3 stopped from inside the 5th tick of a 20-tick shot: the shot ends
+ *       at its next tick, the other 15 stay banked, and the charge is handed back to the Charge key with AP3's cap
+ *       (blink-keep-1027: never drop a blink he did not release).</li>
  * </ul>
  */
 final class Ap3ShotSteer1027Cases {
@@ -53,6 +56,7 @@ final class Ap3ShotSteer1027Cases {
         s.test("1027-ap3-momentum-ground", c -> momentum(c, false));
         s.test("1027-ap3-momentum-air", c -> momentum(c, true));
         s.test("1027-ap3-shot-stop", Ap3ShotSteer1027Cases::shotStop);
+        s.test("1027-ap3-shot-abort-keep", Ap3ShotSteer1027Cases::shotAbortKeep);
     }
 
     // ---------------------------------------------------------------------------------------------------- recorder
@@ -434,6 +438,68 @@ final class Ap3ShotSteer1027Cases {
                     && early.get(0).contains((20 - shotTicks) + " tick(s) kept banked"), "the rest was not kept banked");
             serverAgrees(c);
         } finally {
+            blinkOff(ctx, gate);
+        }
+    }
+
+    /** One-shot: stop AP3 from inside shot tick N (set before the release, cleared when it fires). */
+    private static volatile int abortAtShotTick;
+    private static volatile int abortShotTicks;
+    private static boolean abortHookInstalled;
+
+    private static void shotAbortKeep(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        c.server().command("attribute @p minecraft:movement_speed base set 0.10");
+        double z = Ap3RuntimeTests.lane();
+        boolean gate = blinkOn(ctx);
+        long mark = LogTap.mark();
+        onClient(ctx, mc -> {
+            if (!abortHookInstalled) {
+                abortHookInstalled = true;
+                Consumer<Minecraft> hook = m -> {
+                    if (abortAtShotTick > 0 && ++abortShotTicks == abortAtShotTick) {
+                        abortAtShotTick = 0;
+                        dev.testkit.gametest.ModUnderTest.staticCall(Ap3RuntimeTests.EXEC, "stop", new Class<?>[]{String.class},
+                                new Object[]{"test: stopped inside a shot tick"});
+                    }
+                };
+                Mod.staticCall(CHARGE, "addShotTickEndHook", hook);
+            }
+            abortShotTicks = 0;
+            abortAtShotTick = 5;
+            return null;
+        });
+        try {
+            List<Object> nodes = new ArrayList<>();
+            Object charge = node("BLINK_CHARGE", LANE_X0 + 6.5, z, 0f, 0f, 2.0, 2.0);
+            set(charge, "blinkTicks", 20);
+            nodes.add(charge);
+            nodes.add(node("BLINK_RELEASE", LANE_X0 + 9.5, z, 0f, 0f, 2.0, 2.0));
+            nodes.add(node("STOP", LANE_X0 + 30.5, z, 0f, 0f, 2.0, 2.0));
+            List<Pt> pts = runLane(c, z, Ap3RuntimeTests.runNode(z), nodes, 200);
+            note(c, "run", pts, z);
+            for (String l : logSince(mark, "charge SHOT")) {
+                c.note("  " + l);
+            }
+            List<String> handed = logSince(mark, "charge handed back to the Charge key by AP3");
+            long shotTicks = pts.stream().filter(Pt::shot).count();
+            List<String> early = logSince(mark, "charge SHOT ended early");
+            Object[] st = onClient(ctx, mc -> new Object[]{Mod.staticCall(CHARGE, "isActive"), Mod.staticCall(CHARGE, "banked"),
+                    Mod.staticCall(CHARGE, "owner"), Mod.staticCall(CHARGE, "cap"), abortAtShotTick});
+            c.note("shot ticks " + shotTicks + ", early end: " + (early.isEmpty() ? "none" : early.get(0)));
+            c.note("after: charging " + st[0] + ", bank " + st[1] + ", owner " + st[2] + ", cap " + st[3] + "; hand-back: "
+                    + (handed.isEmpty() ? "none" : handed.get(0)));
+            c.check((Integer) st[4] == 0, "the test's stop never fired inside the shot");
+            c.check(shotTicks == 5, "expected the shot to end after 5 tick(s), it ran " + shotTicks);
+            c.check(!early.isEmpty() && early.get(0).contains("after 5 of 20 tick(s): AP3 stopped")
+                    && early.get(0).contains("15 tick(s) kept banked"), "the shot did not end at AP3's stop with 15 kept");
+            c.check(Boolean.TRUE.equals(st[0]) && ((Number) st[1]).intValue() == 15, "the bank was not kept: charging "
+                    + st[0] + ", bank " + st[1]);
+            c.check(st[2] == null && ((Number) st[3]).intValue() == 20 && !handed.isEmpty(),
+                    "the charge was not handed back to the Charge key with AP3's cap");
+            serverAgrees(c);
+        } finally {
+            abortAtShotTick = 0;
             blinkOff(ctx, gate);
         }
     }
