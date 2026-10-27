@@ -235,6 +235,8 @@ public class MenuSuite implements FabricClientGameTest {
                     SwapAccountsCases.register(s);
                     // ---- 1880-1886 auto-mask-1016 (2026-10-16): Auto Mask's Keybind / Full Auto, Swap Order, gates, ticks ----
                     AutoMaskCases.register(s);
+                    // ---- 1092-1094 clickguards-1025: Reroll Protection, Kismet Count, Croesus Chests HUD ----
+                    CroesusRerollCases.register(s);
                 });
     }
 }

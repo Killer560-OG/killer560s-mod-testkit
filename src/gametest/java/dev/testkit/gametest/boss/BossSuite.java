@@ -49,6 +49,8 @@ public class BossSuite implements FabricClientGameTest {
                     SsStimMomentumCases.register(s);
                     // M7 P5 Relic Triggerbot and Relic Look (1025-boss-relic-*, branch relic-1025), own block.
                     RelicCases.register(s);
+                    // Quiz and relic wrong-click blockers (1090-1091, branch clickguards-1025), own block.
+                    ClickGuardCases.register(s);
                 });
     }
 }
