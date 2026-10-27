@@ -287,6 +287,14 @@ final class AaFastCases {
             final int want = total;
             c.waitUntil("every click reached the server (use_entity)",
                     mc -> c.hx().events(since, "use_entity").size() >= want, 400);
+            // The server's own rotations, read at once: the frames have been seen to vanish from the server about a second
+            // after a solve in a session's first frame case (m2, cause not found), and the click count after the quiet
+            // wait below is what proves nothing overshot.
+            c.ctx().waitTicks(5);
+            int[] rot = new int[LAYOUT.length];
+            for (int i = 0; i < LAYOUT.length; i++) {
+                rot[i] = serverRotation(c, uuids[i]);
+            }
             c.ctx().waitTicks(30 + ms / 25); // nothing more may go out: every frame is solved
             aura(c, false);
             tapOff(c);
@@ -302,6 +310,7 @@ final class AaFastCases {
             int lastLook = -1; // the frame the last reported look met
             int sameTickClicks = 0; // ticks whose clicks were on a frame the previous look did not meet
             int framesTurnedFirst = 0;
+            List<String> turnOnly = new ArrayList<>();
             int prevLookAtTickStart = -1;
             int curTick = -1;
             Set<Integer> turnedTicks = new LinkedHashSet<>();
@@ -334,6 +343,7 @@ final class AaFastCases {
                     lastLook = w.entity;
                     if (w.entity >= 0 && !perTick.containsKey(w.tick)) {
                         framesTurnedFirst++;
+                        turnOnly.add("t" + w.tick + " look on #" + w.entity);
                     }
                 }
             }
@@ -353,10 +363,8 @@ final class AaFastCases {
             }
             long st0 = used.isEmpty() ? 0 : used.get(0).get("tick").getAsLong();
             long st1 = used.isEmpty() ? 0 : used.get(used.size() - 1).get("tick").getAsLong();
-            int[] rot = new int[LAYOUT.length];
             List<String> wrongRot = new ArrayList<>();
             for (int i = 0; i < LAYOUT.length; i++) {
-                rot[i] = serverRotation(c, uuids[i]);
                 if (rot[i] != 1) {
                     wrongRot.add("grid " + LAYOUT[i] + " (#" + ids[i] + ") at " + rot[i]);
                 }
@@ -386,7 +394,8 @@ final class AaFastCases {
             c.check(wrongLook.isEmpty(), "a click on a frame neither the last look nor this tick's move met: " + wrongLook);
             if (mode.same) {
                 c.check(sameTickClicks > 0, "Turn And Click Same Tick never clicked in its turn tick: nothing was tested");
-                c.check(framesTurnedFirst == 0, framesTurnedFirst + " tick(s) turned without clicking under Same Tick");
+                c.check(framesTurnedFirst == 0, framesTurnedFirst + " tick(s) turned without clicking under Same Tick: "
+                        + turnOnly + "; wire " + wire);
                 c.check(ticks <= LAYOUT.length * ((7 + mode.cpt - 1) / mode.cpt) + 2,
                         "same tick took " + ticks + " ticks");
             } else {
