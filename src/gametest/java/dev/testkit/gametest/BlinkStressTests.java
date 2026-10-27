@@ -1344,6 +1344,7 @@ public class BlinkStressTests implements FabricClientGameTest {
         Scenario.runExpectingFlags(ctx, "1026-blink-disconnect", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             Rows rows = new Rows();
+            long[] holdsAtJoin = {-1};
             try {
                 for (int k = 0; k < 2; k++) {
                     long mark = LogTap.mark();
@@ -1355,6 +1356,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                         before = holding(ctx);
                         releaseKeys(ctx);
                         scenario.reconnect();
+                        holdsAtJoin[0] = num(ctx, "releasedHolds");
                     } else {
                         chargeOn(ctx);
                         ctx.waitTicks(30);
@@ -1368,6 +1370,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                     boolean chargingAfter = charging(ctx);
                     long left = num(ctx, "heldPackets");
                     long answers = cnum(ctx, "answersHeld");
+                    // (a) the Hold key is still down after the rejoin: no hold may start until it comes up.
+                    boolean noHoldOnJoin = k != 0 || (!holdingAfter && num(ctx, "releasedHolds") == holdsAtJoin[0]);
                     holdUp(ctx);
                     ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
                     ctx.waitTicks(5);
@@ -1377,11 +1381,12 @@ public class BlinkStressTests implements FabricClientGameTest {
                     tp(server, ctx, x + 0.5, SURFACE_Y, z + 0.5, -90f);
                     double[] s = chargeShot(ctx, 30, true);
                     double g = gap(server, ctx);
-                    boolean logged = k == 0 ? hasLog(mark, "disconnected while holding") : hasLog(mark, "charge off (disconnect)");
+                    boolean logged = k == 0 ? hasLog(mark, "disconnected while holding") || hasLog(mark, "released (no world")
+                            : hasLog(mark, "charge off (disconnect)") || hasLog(mark, "charge off (no world)");
                     rows.add(server, scenario, k == 0 ? "(a) leave mid-hold" : "(b) kicked charging", before && !holdingAfter
-                                    && !chargingAfter && left == 0 && answers == 0 && h[1] == 20 && s[1] == 20 && g < 0.5 && logged,
+                                    && !chargingAfter && left == 0 && answers == 0 && h[1] == 20 && s[1] == 20 && g < 0.5 && logged && noHoldOnJoin,
                             String.format(Locale.ROOT, "on before %s; after rejoin holding %s, charging %s, %d held, %d answers; "
-                                    + "logged %s; then hold %d tick(s), shot %d tick(s), gap %.2f", before, holdingAfter, chargingAfter,
+                                    + "no hold on join with the key down " + noHoldOnJoin + "; logged %s; then hold %d tick(s), shot %d tick(s), gap %.2f", before, holdingAfter, chargingAfter,
                                     left, answers, logged, (int) h[1], (long) s[1], g));
                 }
             } finally {
