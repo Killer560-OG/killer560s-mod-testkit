@@ -1265,6 +1265,47 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                     ctx.waitTicks(30);
                     server.mark();
                 }
+                // A shot fired while he keeps walking after a teleport: moving ticks can never cover the kept bank (GrimAC
+                // allows him behind only by the ticks he did not send since the teleport), so it must not fire uncovered:
+                // after 10 s it is dropped as a shot, the bank kept, and nothing flags. Then standing, the next shot lands.
+                {
+                    double lz = z - 30.5 + 6 * (lane++ % 11);
+                    tp(server, ctx, x - 20.5, SURFACE_Y, lz, -90f);
+                    server.mark();
+                    chargeOn(ctx);
+                    long bank = waitBank(ctx, 20, 50);
+                    server.command(String.format(Locale.ROOT, "tp %s %.2f %.2f %.2f", player, x - 16.5, (double) SURFACE_Y, lz));
+                    ctx.waitTicks(4);
+                    long shots0 = cnum(ctx, "shots");
+                    ctx.getInput().holdKey(o -> o.keyUp);
+                    ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
+                    ctx.waitTicks(1);
+                    ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+                    for (int t = 0; t < 230; t++) {
+                        boolean fwd = (t / 10) % 2 == 0;
+                        ctx.getInput().releaseKey(o -> o.keyUp);
+                        ctx.getInput().releaseKey(o -> o.keyDown);
+                        ctx.getInput().holdKey(o -> fwd ? o.keyUp : o.keyDown);
+                        ctx.waitTicks(1);
+                    }
+                    releaseKeys(ctx);
+                    long shotsWalking = cnum(ctx, "shots") - shots0;
+                    boolean stillWaiting = waiting(ctx);
+                    long bankAfter = cnum(ctx, "banked");
+                    double[] s = shoot(ctx, true, false);
+                    ctx.waitTicks(40);
+                    chargeOff(ctx);
+                    g = gap(server, ctx);
+                    rows.add(server, scenario, "walking after the tp, shot pressed", bank == 20 && shotsWalking == 0 && !stillWaiting
+                                    && bankAfter == 20 && s[2] == 20 && g < 0.5,
+                            String.format(Locale.ROOT, "shots while walking %d, still waiting after 11.5 s %s, bank kept %d; then "
+                                    + "standing: shot %d tick(s) %.2f, gap %.2f", shotsWalking, stillWaiting, bankAfter, (long) s[2],
+                                    s[0], g));
+                    ctx.waitTicks(20);
+                    server.command("tp " + player + " ~ ~ ~");
+                    ctx.waitTicks(30);
+                    server.mark();
+                }
                 for (boolean inPlace : new boolean[]{false, true}) {
                     for (int d : inPlace ? new int[]{2, 20, 60, 200} : new int[]{2, 10, 20, 30, 40, 60, 100, 200}) {
                         double lz = z - 30.5 + 6 * (lane++ % 11);
