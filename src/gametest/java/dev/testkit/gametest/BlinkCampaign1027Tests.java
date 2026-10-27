@@ -693,6 +693,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                         tp(server, ctx, edge ? x0 + 0.5 : x0 + 0.5, SURFACE_Y, lz, -90f);
                         if (kind.equals("jump boost")) {
                             server.command("effect give " + player + " minecraft:jump_boost 600 1 true");
+                            ctx.waitTicks(40);
                         }
                         server.mark();
                         chargeOn(ctx);
@@ -774,6 +775,10 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                             chargeOn(ctx);
                             long bank = waitBank(ctx, 20, 50);
                             double[] srv0 = serverPos(server, ctx, player);
+                            ctx.getInput().holdKey(o -> o.keyUp);
+                            ctx.getInput().holdKey(o -> o.keySprint);
+                            ctx.waitTicks(6);
+                            long lm = LogTap.mark();
                             double[] a = here(ctx);
                             double[] s = shoot(ctx, true, jump);
                             ctx.waitTicks(30 + ms / 25);
@@ -781,10 +786,11 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                             chargeOff(ctx);
                             double g = gap(server, ctx);
                             double moved = flat(a, srv1);
-                            rows.add(server, scenario, ms + " ms speed " + (amp + 1) + (jump ? " jump" : ""), bank == 20 && s[2] == 20
-                                            && s[1] == 2 && flat(srv0, srv1) > 9.5 && g < 0.6,
-                                    String.format(Locale.ROOT, "bank %d, %d tick(s) in %d shot(s), %.2f over the two ticks, server "
-                                            + "moved %.2f, gap %.2f", bank, (long) s[2], (long) s[1], s[0], flat(srv0, srv1), g));
+                            long splits = LogTap.since(lm).stream().filter(l -> l.contains("SPLIT:")).count();
+                            rows.add(server, scenario, ms + " ms speed " + (amp + 1) + (jump ? " jump" : ""), bank == 20
+                                            && flat(srv0, srv1) > 9.5 && g < 0.6,
+                                    String.format(Locale.ROOT, "bank %d, %d split(s), %.2f over the two ticks, server "
+                                            + "moved %.2f, gap %.2f", bank, splits, s[0], flat(srv0, srv1), g));
                         }
                         server.command("effect clear " + player);
                         ctx.waitTicks(5);
@@ -1012,6 +1018,41 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                 double g = gap(server, ctx);
                 rows.add(server, scenario, "control: no charge, tp, sprint", g < 0.5, String.format(Locale.ROOT, "gap %.2f", g));
                 lane++;
+                // A walk (no shot) after a kept teleport: does the server follow him at all?
+                for (int d : new int[]{20, 100}) {
+                    double lz = z - 30.5 + 6 * (lane++ % 11);
+                    tp(server, ctx, x - 20.5, SURFACE_Y, lz, -90f);
+                    server.mark();
+                    chargeOn(ctx);
+                    long bank = waitBank(ctx, 20, 50);
+                    long tps0 = cnum(ctx, "movingTeleports");
+                    server.command(String.format(Locale.ROOT, "tp %s %.2f %.2f %.2f", player, x - 16.5, (double) SURFACE_Y, lz));
+                    for (int i = 0; i < 40 && cnum(ctx, "movingTeleports") == tps0; i++) {
+                        ctx.waitTicks(1);
+                    }
+                    ctx.waitTicks(d);
+                    List<String> atTp = new ArrayList<>(scenario.flags());
+                    server.mark();
+                    double[] srv0 = serverPos(server, ctx, player);
+                    double[] c0 = here(ctx);
+                    ctx.getInput().holdKey(o -> o.keyUp);
+                    ctx.getInput().holdKey(o -> o.keySprint);
+                    ctx.waitTicks(15);
+                    releaseKeys(ctx);
+                    ctx.waitTicks(20);
+                    double[] srv1 = serverPos(server, ctx, player);
+                    double walked = flat(c0, here(ctx));
+                    chargeOff(ctx);
+                    g = gap(server, ctx);
+                    rows.add(server, scenario, "moving 4, walk after " + d + " tick(s)", bank == 20 && walked > 2,
+                            String.format(Locale.ROOT, "at the tp %s; client walked %.2f, server moved %.2f, gap %.2f",
+                                    atTp.isEmpty() ? "clean" : atTp.size() + " flag(s): " + firstChecks(atTp), walked,
+                                    flat(srv0, srv1), g), true);
+                    ctx.waitTicks(20);
+                    server.command("tp " + player + " ~ ~ ~");
+                    ctx.waitTicks(30);
+                    server.mark();
+                }
                 for (boolean inPlace : new boolean[]{false, true}) {
                     for (int d : inPlace ? new int[]{2, 20, 60, 200} : new int[]{2, 10, 20, 30, 40, 60, 100, 200}) {
                         double lz = z - 30.5 + 6 * (lane++ % 11);
