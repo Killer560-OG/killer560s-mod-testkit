@@ -116,11 +116,35 @@ final class Ap3Blink1026Cases {
             double[] from = onClient(ctx, mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
             // The release where the leap landed, as his S2's Blink Release node asks it (BlinkCharge.shootFor, what the node
             // calls), walking on (+x) - no lane walk-in, which would teleport him again and wait.
-            ctx.getInput().holdKey(o -> o.keyUp);
+            // He stands where the leap put him (his log: speed 0 at the release). Since mod campaign-blink-1027 the shot waits
+            // until GrimAC covers the kept bank; the walk key goes down the tick it is about to fire.
+            long asked = System.currentTimeMillis();
             onClient(ctx, mc -> {
                 Mod.staticCall(CHARGE, "shootFor", "AP3", 20);
                 return null;
             });
+            int waitedTicks = 0;
+            boolean hasWait = Mod.has(CHARGE) && onClient(ctx, mc -> {
+                try {
+                    Mod.staticCall(CHARGE, "shotWaiting");
+                    return true;
+                } catch (RuntimeException | AssertionError e) {
+                    return false;
+                }
+            });
+            for (int t = 0; t < 100 && hasWait; t++) {
+                ctx.waitTick();
+                boolean waiting = onClient(ctx, mc -> (Boolean) Mod.staticCall(CHARGE, "shotWaiting"));
+                boolean ready = onClient(ctx, mc -> !(Boolean) Mod.staticCall(CHARGE, "teleportHeld")
+                        && ((Number) Mod.staticCall(CHARGE, "unbacked")).intValue() == 0);
+                waitedTicks = t + 1;
+                if (!waiting || ready) {
+                    break;
+                }
+            }
+            ctx.getInput().holdKey(o -> o.keyUp);
+            c.note(String.format(Locale.ROOT, "the shot waited about %d tick(s) (%d ms) for cover", waitedTicks,
+                    System.currentTimeMillis() - asked));
             Sample fired = null;
             for (int t = 0; t < 120; t++) {
                 ctx.waitTick();
