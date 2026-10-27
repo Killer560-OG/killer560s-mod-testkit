@@ -1139,3 +1139,6 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 1026-sim-autostart: the entrance gate is the blocks `SimDoors.DOORS` registered for the DOOR_ENTRANCE door (12 on the floors
   seen), not a box round `SimBuilder.entranceDoor()` (that is the door cell's center, and a 3-block box round it found 0).
   Snapshot the positions during the countdown: `openEntranceGate` drops the entry at GO.
+- 62-argrim-1027-zpew-map: after a map warp onto a route's START node with the map open, the route's etherwarp fires once
+  the screen closes, so the run's server etherwarps include one Auto Routes warp: count the map's warps as the server's
+  minus Auto Routes' seen uses, never the server's total (the first run read 3 map warps against 2 predicted).
