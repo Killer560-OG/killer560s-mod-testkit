@@ -1590,6 +1590,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         }
         // The kept bank's BadPacketsN arrives about a second after the last teleport (it landed on 62-argrim-path in
         // final-1027): wait for it here, then allow only what a kept teleport is documented to cost.
+        // The BadPacketsN fires on the NEXT teleport, not with time (24 lines, 2 per kept teleport, on 62-argrim-path even
+        // after a 60-tick wait): give it one here, in place.
+        c.server().command("execute as @p at @s run tp @s ~ ~ ~");
         c.ctx().waitTicks(60);
         noteFlags(c, all);
         List<String> other = new ArrayList<>();
