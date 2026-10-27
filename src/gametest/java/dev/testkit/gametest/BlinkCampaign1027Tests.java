@@ -1265,9 +1265,10 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                     ctx.waitTicks(30);
                     server.mark();
                 }
-                // A shot fired while he keeps walking after a teleport: moving ticks can never cover the kept bank (GrimAC
-                // allows him behind only by the ticks he did not send since the teleport), so it must not fire uncovered:
-                // after 10 s it is dropped as a shot, the bank kept, and nothing flags. Then standing, the next shot lands.
+                // A shot fired while he keeps walking after a teleport: the teleport's answers go back to back with its
+                // confirm, so GrimAC's floor stays on the oldest withheld ping and the kept bank is still covered - the shot
+                // fires at once while he walks, all 20 ticks, and nothing flags (blink-fastcover-1027; before it the shot
+                // waited for cover that walking never earned). The standing shot after it has nothing banked.
                 {
                     double lz = z - 30.5 + 6 * (lane++ % 11);
                     tp(server, ctx, x - 20.5, SURFACE_Y, lz, -90f);
@@ -1296,8 +1297,8 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                     ctx.waitTicks(40);
                     chargeOff(ctx);
                     g = gap(server, ctx);
-                    rows.add(server, scenario, "walking after the tp, shot pressed", bank == 20 && shotsWalking == 0 && !stillWaiting
-                                    && bankAfter == 20 && s[2] == 20 && g < 0.5,
+                    rows.add(server, scenario, "walking after the tp, shot pressed", bank == 20 && shotsWalking == 1 && !stillWaiting
+                                    && bankAfter == 0 && g < 0.5,
                             String.format(Locale.ROOT, "shots while walking %d, still waiting after 11.5 s %s, bank kept %d; then "
                                     + "standing: shot %d tick(s) %.2f, gap %.2f", shotsWalking, stillWaiting, bankAfter, (long) s[2],
                                     s[0], g));
