@@ -31,7 +31,7 @@ final class Ap3LightsRunCases {
     private static final String EXEC = "ap3.Ap3Executor";
     private static final String NODE = "com.killer560.hub.ap3.Ap3Node";
     private static final String TYPE = "com.killer560.hub.ap3.Ap3Node$Type";
-    private static final double Y = 133;
+    static final double Y = 133;
 
     private Ap3LightsRunCases() {
     }

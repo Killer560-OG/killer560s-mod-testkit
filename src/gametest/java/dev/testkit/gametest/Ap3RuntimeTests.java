@@ -126,6 +126,8 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             Ap3Fix1026Cases.register(s);
             // mod ap3-stairs-1026: stairs, half-step spirals, lava beside and under the align.
             Ap3Stairs1026Cases.register(s);
+            // mod ap3-levers-1027: option (a), a lever clicked with no turn, measured against GrimAC (expecting flags).
+            Ap3Levers1027Cases.register(s);
             s.testExpectingFlags("63-ap3-corrections", Ap3RuntimeTests::caseCorrection);
             onClient(ctx, mc -> {
                 PacketTrace.tap = null;

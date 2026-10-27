@@ -51,6 +51,8 @@ public class BossSuite implements FabricClientGameTest {
                     RelicCases.register(s);
                     // AP3 run beside the Lights levers: no backwards step under the aura's turns (1026, ap3-backwards-1026).
                     Ap3LightsRunCases.register(s);
+                    // The same route twice, aura off and on: the path must not change (1027, ap3-levers-1027).
+                    Ap3LightsPathCases.register(s);
                 });
     }
 }
