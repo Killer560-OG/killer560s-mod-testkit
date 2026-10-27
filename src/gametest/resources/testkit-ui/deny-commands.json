@@ -28,6 +28,7 @@
     {"input": "k560search", "expect": "ok","source": "storagesearch/StorageSearchFeature.java:110 (opens Storage Search only when its setting is on; otherwise a chat line)"}
   ],
   "parseOnly": [
+    {"root": "lag", "why": "mod stutter-1026 (lagdisplay/StutterCommand.java): /lag stutters [count|clear] only prints or clears the Performance HUD's stutter list in chat; nothing for a sweep to check"},
     {"root": "reboot", "why": "closes the game and relaunches it through Prism (reboot-cmd); the test client is not started by Prism so it only refuses, but running it in a sweep is pointless - testkit 995 drives it"},
     {"root": "k560tested", "why": "testing jars only (mod -PtestingBuild, testing/TestingCommands.java): prints the marks; 413 runs it and checks its output"},
     {"root": "simwhere", "why": "sim only: .requires the sim, so outside it the command is not even visible (roomsim/SimWhere.java:54)"},

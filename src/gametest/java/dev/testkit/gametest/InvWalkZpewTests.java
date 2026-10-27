@@ -51,7 +51,7 @@ public class InvWalkZpewTests implements FabricClientGameTest {
         for (Consumer<ClientGameTestContext> c : List.<Consumer<ClientGameTestContext>>of(
                 InvWalkZpewTests::iwSetting, InvWalkZpewTests::iwControl, InvWalkZpewTests::iwInventory,
                 InvWalkZpewTests::iwJump, InvWalkZpewTests::iwChest, InvWalkZpewTests::zpSetting, InvWalkZpewTests::zpSingle,
-                InvWalkZpewTests::zpChain)) {
+                InvWalkZpewTests::zpChain, InvWalkZpewTests::zpWorksFor)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -379,6 +379,156 @@ public class InvWalkZpewTests implements FabricClientGameTest {
             scenario.log("zpew defaults " + got[0] + "; loaded " + got[1]);
             check(got[0].equals("false 1000 true true"), "defaults wrong: " + got[0]);
             check(got[1].equals("true 750 false false"), "settings did not come back from disk: " + got[1]);
+        });
+    }
+
+    private static final String[] CHEAT_SOURCES = {"LEFT_CLICK", "AUTO_ROUTES", "INTERACTIVE_MAP", "AUTO_SECRET",
+            "AUTO_CLEAR", "AUTO_PUZZLES", "AP3", "PATHFINDING"};
+    private static final String[] CHEAT_LABELS = {"Left Click Etherwarp", "Auto Routes", "Interactive Map",
+            "Auto Secret / Autopilot", "Auto Clear", "Auto Puzzles", "AP3", "Pathfinding Hopper"};
+
+    /** The Zero Ping Etherwarp tab's rows (labels, formatting stripped) with ZPEW on. */
+    @SuppressWarnings("unchecked")
+    private static List<String> zpTabLabels(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                Object tab = Mod.cls("gui.tab.ZeroPingEtherwarpTab").getConstructor().newInstance();
+                List<net.minecraft.client.gui.components.AbstractWidget> ws =
+                        (List<net.minecraft.client.gui.components.AbstractWidget>) Mod.call(tab, "buildWidgets", 0, 0, 300,
+                                (Runnable) () -> {
+                                });
+                List<String> out = new java.util.ArrayList<>();
+                for (var w : ws) {
+                    String s = net.minecraft.ChatFormatting.stripFormatting(w.getMessage().getString());
+                    int colon = s.indexOf(':');
+                    out.add((colon > 0 ? s.substring(0, colon) : s).trim());
+                }
+                return out;
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+        });
+    }
+
+    /** One hand etherwarp (sneak held, use pressed) onto (bx, SURFACE_Y-1, bz); waits for the landing. */
+    private static void handWarp(ClientGameTestContext ctx, int bx, int bz) {
+        Vec3 start = ctx.computeOnClient(mc -> mc.player.position());
+        float[] aim = aimAt(start, bx, bz);
+        useAt(ctx, aim[0], aim[1]);
+        for (int i = 0; i < 40; i++) {
+            ctx.waitTicks(1);
+            double d = ctx.computeOnClient(mc -> Math.hypot(mc.player.getX() - (bx + 0.5), mc.player.getZ() - (bz + 0.5)));
+            if (d < 0.6) {
+                break;
+            }
+        }
+        ctx.waitTicks(10);
+    }
+
+    /**
+     * 1027-zpew-worksfor (killer560, 2026-10-27: "make an option like things that zpew works for with a list of
+     * everything"): the Works For switches are saved and loaded; the tab lists only Manual Etherwarps in a legit jar and
+     * all nine (the eight cheat ones under the red header) in a cheat jar; a cheat source never predicts in a legit jar;
+     * and a hand etherwarp is predicted with Manual on, not with Manual off, and nothing at all with ZPEW off.
+     */
+    private static void zpWorksFor(ClientGameTestContext ctx) {
+        int x = -5600;
+        int z = -3000;
+        Scenario.run(ctx, "1027-zpew-worksfor", (server, scenario) -> arena(server, x, z, 40), (server, scenario) -> {
+            boolean cheat = Mod.isCheat();
+            // ---- saved and loaded ----
+            String loaded = ctx.computeOnClient(mc -> {
+                Mod.call(Mod.cfg(ZP_CFG), "setWorksForByName", "MANUAL", false);
+                Mod.call(Mod.cfg(ZP_CFG), "setWorksForByName", "AP3", false);
+                Mod.call(Mod.cfg(ZP_CFG), "save");
+                Mod.call(Mod.cfg(ZP_CFG), "setWorksForByName", "MANUAL", true);
+                Mod.call(Mod.cfg(ZP_CFG), "setWorksForByName", "AP3", true);
+                Mod.staticCall(ZP_CFG, "load");
+                Object l = Mod.cfg(ZP_CFG);
+                String out = Mod.call(l, "getWorksForByName", "MANUAL") + " " + Mod.call(l, "getWorksForByName", "AP3")
+                        + " " + Mod.call(l, "getWorksForByName", "AUTO_ROUTES");
+                Mod.call(l, "setWorksForByName", "MANUAL", true);
+                Mod.call(l, "setWorksForByName", "AP3", true);
+                Mod.call(l, "save");
+                return out;
+            });
+            scenario.log("works for, loaded after saving MANUAL and AP3 off: " + loaded);
+            check(loaded.equals("false false true"), "Works For did not come back from disk: " + loaded);
+
+            // ---- the tab, by build ----
+            ctx.runOnClient(mc -> Mod.set(ZP_CFG, "setEnabled", true));
+            List<String> labels = zpTabLabels(ctx);
+            scenario.log((cheat ? "cheat" : "legit") + " tab rows: " + labels);
+            check(labels.contains("Works For") && labels.contains("Manual Etherwarps"),
+                    "the tab has no Works For section with Manual Etherwarps: " + labels);
+            for (String l : CHEAT_LABELS) {
+                check(labels.contains(l) == cheat, (cheat ? "the cheat tab is missing " : "the legit tab shows ") + l);
+            }
+            check(labels.contains("Cheat Build - Works For") == cheat, "cheat header shown=" + !cheat + " in a "
+                    + (cheat ? "cheat" : "legit") + " jar");
+            if (cheat) {
+                int manualAt = labels.indexOf("Manual Etherwarps");
+                int headerAt = labels.indexOf("Cheat Build - Works For");
+                check(headerAt > manualAt && labels.indexOf("AP3") > headerAt, "the cheat sources are not under the red "
+                        + "header at the bottom: " + labels);
+            }
+            String legitGate = ctx.computeOnClient(mc -> {
+                Object c = Mod.cfg(ZP_CFG);
+                StringBuilder sb = new StringBuilder();
+                for (String s : CHEAT_SOURCES) {
+                    sb.append(s).append('=').append(Mod.call(c, "worksFor", Mod.enumValue("zpew.ZpewSource", s))).append(' ');
+                }
+                return sb.toString().trim();
+            });
+            scenario.log("worksFor() per cheat source: " + legitGate);
+            check(cheat == !legitGate.contains("=false"), "cheat sources' worksFor() in a " + (cheat ? "cheat" : "legit")
+                    + " jar: " + legitGate);
+
+            // ---- live: Manual on, Manual off, ZPEW off ----
+            Hx hx = null;
+            try {
+                hx = zpSetUp(ctx);
+                ctx.getInput().holdKey(o -> o.keyShift);
+                ctx.waitTicks(10);
+                int[] go = {x + 16, x};
+                String[] mode = {"manual on", "manual off", "zpew off"};
+                long[][] got = new long[3][];
+                for (int i = 0; i < 3; i++) {
+                    final int k = i;
+                    ctx.runOnClient(mc -> {
+                        Mod.call(Mod.cfg(ZP_CFG), "setWorksForByName", "MANUAL", k != 1);
+                        Mod.set(ZP_CFG, "setEnabled", k != 2);
+                    });
+                    ctx.waitTicks(2);
+                    JsonObject before = hx.call("dungeon.stats").getAsJsonObject();
+                    long p0 = ctx.computeOnClient(mc -> ((Number) Mod.staticCall(ZP, "predictedBy", "MANUAL")).longValue());
+                    long h0 = ctx.computeOnClient(mc -> ((Number) Mod.staticCall(ZP, "hitsBy", "MANUAL")).longValue());
+                    long s0 = ctx.computeOnClient(mc -> ((Number) Mod.staticCall(ZP, "skippedBy", "MANUAL")).longValue());
+                    long all0 = num(ctx, ZP, "predictions");
+                    long seen0 = num(ctx, ZP, "usesSeen");
+                    handWarp(ctx, go[k % 2], z);
+                    JsonObject after = hx.call("dungeon.stats").getAsJsonObject();
+                    long warps = after.get("etherwarps").getAsInt() - before.get("etherwarps").getAsInt();
+                    long p = ctx.computeOnClient(mc -> ((Number) Mod.staticCall(ZP, "predictedBy", "MANUAL")).longValue()) - p0;
+                    long h = ctx.computeOnClient(mc -> ((Number) Mod.staticCall(ZP, "hitsBy", "MANUAL")).longValue()) - h0;
+                    long s = ctx.computeOnClient(mc -> ((Number) Mod.staticCall(ZP, "skippedBy", "MANUAL")).longValue()) - s0;
+                    long all = num(ctx, ZP, "predictions") - all0;
+                    long seen = num(ctx, ZP, "usesSeen") - seen0;
+                    got[k] = new long[]{warps, p, h, s, all, seen};
+                    scenario.log(String.format(Locale.ROOT, "%s: %d server warp(s), manual predicted %d hit %d skipped %d; "
+                            + "all predictions %d, uses seen %d", mode[k], warps, p, h, s, all, seen));
+                }
+                check(got[0][0] == 1 && got[0][1] == 1 && got[0][2] == 1, "Manual on: the hand warp was not predicted and "
+                        + "hit (warps/predicted/hit " + got[0][0] + "/" + got[0][1] + "/" + got[0][2] + ")");
+                check(got[1][0] == 1 && got[1][1] == 0 && got[1][3] == 1 && got[1][4] == 0, "Manual off: warps/predicted/"
+                        + "skipped/all " + got[1][0] + "/" + got[1][1] + "/" + got[1][3] + "/" + got[1][4]);
+                check(got[2][0] == 1 && got[2][4] == 0 && got[2][5] == 0, "ZPEW off: warps/all/seen " + got[2][0] + "/"
+                        + got[2][4] + "/" + got[2][5]);
+            } finally {
+                ctx.runOnClient(mc -> Mod.call(Mod.cfg(ZP_CFG), "setWorksForByName", "MANUAL", true));
+                zpTearDown(ctx, hx);
+                ctx.runOnClient(mc -> Mod.call(Mod.cfg(ZP_CFG), "save"));
+            }
         });
     }
 
