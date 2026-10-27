@@ -57,6 +57,11 @@ import static dev.testkit.gametest.hx.HxKit.*;
  *       the engine's clock) is the word whose span holds Spotify's true position, within 50 ms, outside the detection
  *       window after an event Spotify makes itself. With +-120 ms noise on every reading the lit word never steps back
  *       inside a line. In game, the HUD and the F5 line light that same word at sampled frames.</li>
+ *   <li>2850 Kugou words (spotify-words-1027): KRC made here (no real lyrics stored), compressed, XORed and base64'd as
+ *       Kugou sends it, decodes to the same text; credits are dropped and joined syllables make one word; the search pick
+ *       takes the same song within 2 s over a sped-up, another artist's and a 3 s-off listing. Through the engine (a fake
+ *       Kugou answering the two requests), the track gets word-timed lines, and the HUD and F5 light the word whose start
+ *       has passed at each sampled moment; with Kugou down, or Word-Timed Lyrics off, it stays on line times, quietly.</li>
  *   <li>2845 share: with Share My Song forced on in the config, a non-supporter hands nothing to the relay and has no own
  *       tag, and the row is grayed out ("Supporters only") when off; in the supporter list the play packet goes out.</li>
  * </ul>
@@ -90,6 +95,7 @@ final class HxSpotifyControlsCases {
         s.test("2847-hx-spotify-version", HxSpotifyControlsCases::version);
         s.test("2848-hx-spotify-hud-chat-controls", HxSpotifyControlsCases::hudChat);
         s.test("2849-hx-spotify-word-sweep", HxSpotifyControlsCases::wordSweep);
+        s.test("2850-hx-spotify-kugou-words", HxSpotifyControlsCases::kugouWords);
     }
 
     // ---- reflection helpers -----------------------------------------------------------------------------------
@@ -1174,6 +1180,188 @@ final class HxSpotifyControlsCases {
             });
             HxCosmeticNameCases.camera(c, CameraType.FIRST_PERSON);
         }
+    }
+
+    // ---- 2850: Kugou word-timed lyrics ----------------------------------------------------------------------------
+
+    private static final String KRC = String.join("\n",
+            "[ti:Testsong]", "[ar:Testartist]", "[offset:0]",
+            "[0,1500]<0,500,0>Testsong <500,500,0>- <1000,500,0>Testartist",
+            "[1600,2000]<0,400,0>Lyrics <400,400,0>by: <800,400,0>Some <1200,400,0>One",
+            "[5000,3000]<0,300,0>Hold <300,250,0>on <550,200,0>to<750,250,0>night <1000,400,0>we <1400,500,0>dance",
+            "[9000,2500]<0,350,0>Under <350,300,0>the <650,450,0>moon <1100,600,0>again",
+            "[12500,3000]<0,200,0>Every <200,300,0>single <500,250,0>time <750,700,0>forever");
+
+    /** As Kugou's download sends it: base64 of "krc1" + the zlib-compressed text XORed with the KRC key. */
+    private static String encodeKrc(String text) {
+        byte[] key = {64, 71, 97, 119, 94, 50, 116, 71, 81, 54, 49, 45, (byte) 206, (byte) 210, 110, 105};
+        java.util.zip.Deflater d = new java.util.zip.Deflater();
+        d.setInput(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        d.finish();
+        byte[] buf = new byte[65536];
+        int n = d.deflate(buf);
+        d.end();
+        byte[] out = new byte[4 + n];
+        out[0] = 'k';
+        out[1] = 'r';
+        out[2] = 'c';
+        out[3] = '1';
+        for (int i = 0; i < n; i++) {
+            out[4 + i] = (byte) (buf[i] ^ key[i % key.length]);
+        }
+        return java.util.Base64.getEncoder().encodeToString(out);
+    }
+
+    private static final String SEARCH = "{\"status\":200,\"candidates\":["
+            + "{\"id\":\"1\",\"accesskey\":\"A1\",\"singer\":\"Testartist\",\"song\":\"Testsong (Sped Up)\",\"duration\":180000},"
+            + "{\"id\":\"2\",\"accesskey\":\"A2\",\"singer\":\"Someone Else\",\"song\":\"Testsong\",\"duration\":200500},"
+            + "{\"id\":\"3\",\"accesskey\":\"A3\",\"singer\":\"Testartist\",\"song\":\"Testsong\",\"duration\":203500},"
+            + "{\"id\":\"4\",\"accesskey\":\"A4\",\"singer\":\"Testartist, Guest\",\"song\":\"Testsong - Remastered 2011\",\"duration\":201000}]}";
+
+    private static void kugouWords(Session c) throws Exception {
+        String K = "spotify.KugouLyrics";
+        c.check(c.onClient(mc -> Mod.has(K)), "this jar has no Kugou word-timed lyrics (mod before spotify-words-1027)");
+        // decode
+        String decoded = c.onClient(mc -> (String) Mod.staticCall(K, "decode", encodeKrc(KRC)));
+        c.check(KRC.equals(decoded), "the KRC did not decode back to its text: " + decoded);
+        // parse
+        String parsed = c.onClient(mc -> {
+            List<?> lines = (List<?>) Mod.staticCall(K, "parse", KRC);
+            StringBuilder b = new StringBuilder();
+            for (Object l : lines) {
+                Object p = Mod.call(l, "parsed");
+                double[] st = (double[]) Mod.call(p, "wordStarts");
+                b.append(Mod.call(l, "timeSeconds")).append(':').append(Mod.call(l, "text")).append('@');
+                for (double v : st) {
+                    b.append(String.format(java.util.Locale.ROOT, "%.2f,", v));
+                }
+                b.append(" | ");
+            }
+            return b.toString();
+        });
+        c.note("parsed: " + parsed);
+        c.check(parsed.startsWith("5.0:Hold on tonight we dance@5.00,5.30,5.55,6.00,6.40,"),
+                "credits not dropped, or the syllables 'to'+'night' not joined at 5.55: " + parsed);
+        c.check(parsed.contains("12.5:Every single time forever@12.50,12.70,13.00,13.25,"), "the last line is wrong: " + parsed);
+        // search pick
+        String pick = c.onClient(mc -> {
+            Object h = Mod.staticCall(K, "pick", SEARCH, "Testartist", "Testsong", 200.4);
+            return h == null ? "none" : (String) Mod.call(h, "id");
+        });
+        c.note("search pick for 200.4 s: id " + pick);
+        c.check("4".equals(pick), "the search pick was id " + pick + ", not 4 (same song, 0.6 s off)");
+        String none = c.onClient(mc -> {
+            Object h = Mod.staticCall(K, "pick", SEARCH, "Testartist", "Testsong", 195.0);
+            return h == null ? "none" : (String) Mod.call(h, "id");
+        });
+        c.check("none".equals(none), "a listing more than 2 s off was picked: " + none);
+
+        // through the engine, with a fake Kugou
+        List<String> asked = new CopyOnWriteArrayList<>();
+        String body = "{\"status\":200,\"content\":\"" + encodeKrc(KRC) + "\"}";
+        java.util.function.Function<String, String> fake = url -> {
+            asked.add(url.replaceAll("\\?.*", ""));
+            return url.contains("/search") ? SEARCH : url.contains("/download") ? body : null;
+        };
+        try (Settings st = new Settings(c).with(HC, "WordTimedLyrics", true)) {
+            Object eng = engineWithKugou(c, fake, 201.0);
+            c.waitUntil("word-timed lines installed", mc -> timedLines(eng) > 0, 100);
+            c.note("Kugou asked: " + asked + "; timed lines " + c.onClient(mc -> timedLines(eng)));
+            c.check(asked.size() == 2, "Kugou was not asked exactly search + download: " + asked);
+            Object snap = c.onClient(mc -> Mod.call(eng, "snapshot"));
+            // HUD and F5 against the true word: 30 ms after each word start
+            double[] truth = {5.03, 5.33, 5.58, 6.03, 6.43, 9.03, 9.38, 9.68, 10.13};
+            int[] want = {0, 1, 2, 3, 4, 0, 1, 2, 3};
+            try (Settings f5 = new Settings(c).with(TAGC, "LyricsOverHead", true).with(TAGC, "HighlightWordInF5", true)
+                    .with(HC, "HudEnabled", true).with(HC, "ShowLyrics", true).with(HC, "WordHighlight", true)) {
+                long base = System.currentTimeMillis();
+                Object frozen = c.onClient(mc -> newRecord("spotify.LyricsEngine$Snapshot",
+                        Mod.enumValue("spotify.NowPlaying$Kind", "TRACK"), "Testartist", "Testsong", 0L, base, 201.0,
+                        Mod.call(snap, "lines"), true, false, 0.0, true));
+                c.onClient(mc -> {
+                    Mod.setField(SLF, "testSnapshot", frozen);
+                    return null;
+                });
+                HxCosmeticNameCases.look(c, 0f, 0f);
+                HxCosmeticNameCases.camera(c, CameraType.THIRD_PERSON_BACK);
+                for (int i = 0; i < truth.length; i++) {
+                    freeze(c, base + Math.round(truth[i] * 1000));
+                    int[] w = words(c);
+                    c.note(truth[i] + " s: true word " + want[i] + ", HUD " + w[0] + ", F5 " + w[1]);
+                    c.check(w[0] == want[i] && w[1] == want[i], "at " + truth[i] + " s the true word is " + want[i]
+                            + ", HUD lit " + w[0] + ", F5 lit " + w[1]);
+                }
+            } finally {
+                c.onClient(mc -> {
+                    Mod.setField(SLF, "testSnapshot", null);
+                    Mod.setField(SLF, "testNowMs", 0L);
+                    return null;
+                });
+                HxCosmeticNameCases.camera(c, CameraType.FIRST_PERSON);
+            }
+
+            // Kugou down: quietly stays on line times.
+            asked.clear();
+            Object down = engineWithKugou(c, url -> {
+                asked.add(url);
+                return null;
+            }, 201.0);
+            c.ctx().waitTicks(40);
+            c.check(timedLines(down) == 0 && !asked.isEmpty(), "with Kugou down: timed lines " + timedLines(down) + ", asked " + asked.size());
+            // Off: Kugou is never asked.
+            c.onClient(mc -> {
+                Mod.set(HC, "setWordTimedLyrics", false);
+                return null;
+            });
+            asked.clear();
+            Object off = engineWithKugou(c, url -> {
+                asked.add(url);
+                return SEARCH;
+            }, 201.0);
+            c.ctx().waitTicks(40);
+            c.check(asked.isEmpty() && timedLines(off) == 0, "with Word-Timed Lyrics off Kugou was asked: " + asked);
+        } finally {
+            c.onClient(mc -> {
+                Mod.setField(K, "testResponder", null);
+                return null;
+            });
+        }
+    }
+
+    /** A fresh engine playing "Testsong" with Spotify's length known; the per-track cache is cleared so it asks. */
+    private static Object engineWithKugou(Session c, java.util.function.Function<String, String> responder, double seconds) {
+        return c.onClient(mc -> {
+            try {
+                Mod.setField("spotify.KugouLyrics", "testResponder", responder);
+                Object eng = Mod.cls(E).getDeclaredConstructor().newInstance();
+                Mod.call(eng, "setFetchLyrics", true);
+                String artist = "Testartist";
+                Object track = Mod.staticCall("spotify.NowPlaying", "track", artist, "Testsong");
+                long now = System.currentTimeMillis();
+                Object tl = newRecord("spotify.SpotifyMediaSession$Timeline", artist, "Testsong", 4, 1000L,
+                        Math.round(seconds * 1000), now, now, 0);
+                // clear the per-track cache so every engine here asks
+                java.util.Map<?, ?> cache = (java.util.Map<?, ?>) Mod.field(E, "WORD_CACHE");
+                synchronized (cache) {
+                    cache.clear();
+                }
+                Mod.call(eng, "pollAt", track, tl, now, false);
+                return eng;
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+        });
+    }
+
+    private static int timedLines(Object eng) {
+        Object snap = Mod.call(eng, "snapshot");
+        int n = 0;
+        for (Object l : (List<?>) Mod.call(snap, "lines")) {
+            if ((Boolean) Mod.call(Mod.call(l, "parsed"), "timed")) {
+                n++;
+            }
+        }
+        return n;
     }
 
     // ---- 2845: Share My Song is supporters only -------------------------------------------------------------
