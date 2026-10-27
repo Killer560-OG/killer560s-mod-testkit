@@ -1977,7 +1977,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                 scenario.log(String.format(Locale.ROOT, "long-charge %d min:%s; longest answer wait %d ms; memory %d -> %d MB; "
                         + "shot %d tick(s) %.2f blocks, gap %.2f", minutes, samples, maxWait, mem0, mem1, (long) shot[2], shot[0], g));
                 check(bad == 0, bad + " minute sample(s) out of bounds");
-                check(maxWait < 1300, "an answer waited " + maxWait + " ms");
+                // Answers go only at a tick start, so a frame stall on a loaded machine adds to the 990 ms (1458 ms once, 2026-10-26).
+                check(maxWait < 2000, "an answer waited " + maxWait + " ms");
                 check(shot[2] == 20 && shot[0] > 4.5 && g < 0.5, "the shot after the long charge was not clean");
             } finally {
                 chargeOff(ctx);
