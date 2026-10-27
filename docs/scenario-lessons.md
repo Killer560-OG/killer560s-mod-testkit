@@ -1117,3 +1117,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   does not leak into later cases. A waitUntil predicate already runs on the client thread: calling c.onClient inside it
   would wait on itself, so read the mod there directly. Boss-bar values lerp over ~100 ms (LerpingBossEvent), so the log's
   first line for a bar can read an in-between value (Necron 546M on the way to 350M); the cases wait for the settled one.
+- **Hx session: a case that stands the player in a boss area latches the boss for every later case.** LiveMap's coordinate
+  boss check (`LiveMapFeature.bossLatched`) and the Score Calculator's `inBoss` clear only on a world change, which a Session
+  never makes. 1025-alerts-livid stood at x 5, z 50, and 1025-alerts-scorewarning, run after it, logged "Boss room entered
+  (livemap)" and never warned. Clear both fields after such a case, and before a case that needs the clear.
+- **On 26.2 the title is on `mc.gui.hud`, not `mc.gui`.** A reflective read of `Gui.title` gives "?" there (four 1025-alerts
+  cases on 26.2, 2026-10-25); `HxAlerts1025Cases.guiTitle` reads `gui.hud` first.
+- A chest or lever click as the mod sees it, with nothing sent: invoke `UseBlockCallback.EVENT.invoker().interact(...)` on the
+  client, so the anticheat has no interaction to judge (1025-alerts-secretclicked).

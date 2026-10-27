@@ -115,7 +115,10 @@ final class MenuLayoutCases {
             // Boss Health (Dungeons, legit), mod boss-hp-1025.
             "gui.tab.BossHealthTab",
             // P3 Status (mod p3-chat-1025, 2026-10-25): F7/M7 P3 status HUD and titles, its own Dungeons card, legit.
-            "gui.tab.P3StatusTab");
+            "gui.tab.P3StatusTab",
+            // Low Health Alert, Score Warning and Breaker Charges (Dungeon) and Secret Clicked (Dungeon > Secrets), mod
+            // dungeon-alerts-1025, 2026-10-25; legit in both builds.
+            "gui.tab.LowHealthAlertTab", "gui.tab.ScoreWarningTab", "gui.tab.BreakerChargesTab", "gui.tab.SecretClickedTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.

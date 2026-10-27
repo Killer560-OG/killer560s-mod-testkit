@@ -78,6 +78,9 @@ public class HxSuite implements FabricClientGameTest {
                     HxStaleCases.register(s);
                     // P3 Status HUD and titles, Chat Hider's dungeon pack (2140-2142, branch p3-chat-1025), own block.
                     HxP3ChatCases.register(s);
+                    // Dungeon alerts of 2026-10-25: low health, Livid extras, score warning, secret feedback, breaker
+                    // charges, key spawn (1025-alerts-*, branch dungeon-alerts-1025), own block.
+                    HxAlerts1025Cases.register(s);
                     // Boss Health: name tags and boss bars to HUD lines (1025-bosshp-*, branch boss-hp-1025), own
                     // block, last: it latches the boss room and its cleanup case leaves it again.
                     HxBossHealthCases.register(s);
