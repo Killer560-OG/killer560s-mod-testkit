@@ -999,7 +999,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                             chargeOn(ctx);
                             ctx.waitTicks(30);
                             ctx.getInput().pressKey(o -> o.keyUse);
-                            ctx.waitTicks(60);
+                            // Flight, then ~2 s for the bank to settle and refill after the landing.
+                            ctx.waitTicks(110);
                         }
                     });
                     pearlTps[k] = sb;
