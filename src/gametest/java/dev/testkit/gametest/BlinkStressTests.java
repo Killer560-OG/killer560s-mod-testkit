@@ -69,7 +69,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                 BlinkStressTests::dimensionCharge, BlinkStressTests::latencyMatrix, BlinkStressTests::lag,
                 BlinkStressTests::setbackShot, BlinkStressTests::lcew, BlinkStressTests::ui,
                 BlinkStressTests::longHolds, BlinkStressTests::longShots, BlinkStressTests::longCharge,
-                BlinkStressTests::releaseLog)) {
+                BlinkStressTests::releaseLog, BlinkStressTests::controls)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -2058,6 +2058,61 @@ public class BlinkStressTests implements FabricClientGameTest {
                 chargeOff(ctx);
                 tearDown(ctx, gate);
             }
+        });
+    }
+
+    /**
+     * 1026-blink-controls: the same disturbances with Blink OFF, so a flag in a Blink case can be told apart from what
+     * GrimAC says anyway: (1) a server tp back to the start one tick after a sprint, (2) a 1.5 s two-way lag spike while
+     * sprinting, (3) the same standing still, (4) a 2.5 s frozen client while sprinting. Records the flags of each.
+     */
+    private static void controls(ClientGameTestContext ctx) {
+        int x = -9500;
+        int z = -6000;
+        Scenario.runExpectingFlags(ctx, "1026-blink-controls", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            Rows rows = new Rows();
+            String name = playerName(ctx);
+            try {
+                for (int k = 0; k < 4; k++) {
+                    int kk = k;
+                    tp(server, ctx, x - 15.5, SURFACE_Y, z + 0.5, -90f);
+                    server.mark();
+                    double[] start = serverPos(server, ctx, name);
+                    boolean moving = kk != 2;
+                    if (moving) {
+                        ctx.getInput().holdKey(o -> o.keyUp);
+                        ctx.getInput().holdKey(o -> o.keySprint);
+                        ctx.waitTicks(15);
+                    }
+                    if (kk == 0) {
+                        server.command(String.format(Locale.ROOT, "tp %s %.4f %.4f %.4f", name, start[0], start[1], start[2]));
+                        ctx.waitTicks(1);
+                        releaseKeys(ctx);
+                    } else if (kk == 3) {
+                        ctx.runOnClient(mc -> {
+                            try {
+                                Thread.sleep(2500);
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                            }
+                        });
+                    } else {
+                        ctx.runOnClient(mc -> LagSpike.start(1500));
+                        ctx.waitTicks(30);
+                    }
+                    ctx.waitTicks(10);
+                    releaseKeys(ctx);
+                    ctx.waitTicks(40);
+                    double g = gap(server, ctx);
+                    String label = kk == 0 ? "tp back after a sprint" : kk == 1 ? "lag spike sprinting" : kk == 2
+                            ? "lag spike standing" : "frozen client sprinting";
+                    rows.add(server, scenario, label, true, String.format(Locale.ROOT, "gap %.2f", g));
+                }
+            } finally {
+                releaseKeys(ctx);
+            }
+            scenario.log("SUMMARY 1026-blink-controls (Blink off; flags here are GrimAC's own, not Blink's): " + rows.rows);
+            server.mark();
         });
     }
 }
