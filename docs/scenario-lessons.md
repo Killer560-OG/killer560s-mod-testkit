@@ -1139,3 +1139,18 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 1026-sim-autostart: the entrance gate is the blocks `SimDoors.DOORS` registered for the DOOR_ENTRANCE door (12 on the floors
   seen), not a box round `SimBuilder.entranceDoor()` (that is the door cell's center, and a 3-block box round it found 0).
   Snapshot the positions during the countdown: `openEntranceGate` drops the entry at GO.
+- Sim Auto Secret cases (102, 144-147): the room in front of the blood door is held by Auto Secret until every other room
+  with secrets is done, the closed door's room included (killer560 2026-10-18, mod 1e31ca30). A case that routes it, or
+  picks it as the far or no-route room, judges that rule instead of its own (102 "the route in Flags never started", 145
+  "the old order did not cross the map"). Leave it out with `SimAutoSecretTests.preBloodName`; 1018-sim-autosecret-preblood
+  tests the hold itself.
+- 147's stand for a secret: never directly under the secret's block (a sim chest spawns in there only once he has been near,
+  so the spot reads as head room when the case is picked, and later the start node is inside the chest), landed on EXACTLY
+  (`EtherwarpPathfinder.findOptimalPath`; the plain `findDungeonPath` also accepts a near landing, and a start node off its
+  ring never arms - "did not arm - skipped"), and with a warp back out (a nook no warp leaves strands the rest of the floor).
+- 146 under load: the server's answer to a landing is counted two ticks after the warp when it answers at once; with nine
+  clients it can come a tick later. The case now measures the tick the arrival was counted (`ClearExecutor.arrivalSeq`
+  polled each tick) and charges the mod only for what follows it.
+- 148 Door Camp: Room Plan Fastest Total (default since mod 4119ac75) clears mob rooms as tour stops after the door, so
+  "nothing handed to Auto Clear" holds only until the blood door is open.
+- run-scenario.ps1 prints a `jcmd Thread.print` of a client it kills as frozen (between THREAD DUMP / END THREAD DUMP).
