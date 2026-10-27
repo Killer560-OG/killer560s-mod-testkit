@@ -206,12 +206,12 @@ public class BlinkTests implements FabricClientGameTest {
         return ctx.computeOnClient(mc -> ((Number) Mod.staticCall(FEATURE, getter)).longValue());
     }
 
-    static String playerName(ClientGameTestContext ctx) {
+    public static String playerName(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> mc.player.getName().getString());
     }
 
     /** The server's own idea of where the player is, from {@code data get entity}. */
-    static double[] serverPos(TestServer server, ClientGameTestContext ctx, String name) {
+    public static double[] serverPos(TestServer server, ClientGameTestContext ctx, String name) {
         int before = countPosLines(server);
         server.command("data get entity " + name + " Pos");
         for (int i = 0; i < 40; i++) {

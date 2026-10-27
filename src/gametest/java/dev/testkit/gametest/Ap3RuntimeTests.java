@@ -67,7 +67,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
     /** Enough for every case in the session: lane() must never wrap. With 32 the 33rd lane (1018-ap3-run-centre) went
      *  back to lane 0, a 248-block teleport into chunks the client no longer had - it fell into them, the server put
      *  it back, and about one run in four Grim set back the case's own hand walk (Simulation .150944, before AP3 ran). */
-    private static final int LANES = 80;
+    private static final int LANES = 110;
     private static final String WAND = "AP3_TEST_WAND";
 
     private static int nextLane;
@@ -130,6 +130,12 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             Ap3ShotSteer1027Cases.register(s);
             // mod ap3-levers-1027: option (a), a lever clicked with no turn, measured against GrimAC (expecting flags).
             Ap3Levers1027Cases.register(s);
+            // mod ap3-s2ee3-1027: his RUN #33 and stair-straddling Fast Align #34, rebuilt from his traces.
+            Ap3S2ee3Cases.register(s);
+            // mod ap3-s2ee3-1027: the close suffix (after a terminal is closed).
+            Ap3Close1027Cases.register(s);
+            Ap3Gates1027Cases.register(s);
+            Ap3BlinkCombo1027Cases.register(s);
             // mod ap3-blink-1026: the Blink Charge and Blink Release nodes. Registered last: 1026-ap3-blink-leap keeps the
             // bank through a leap (killer560 2026-10-27) and GrimAC's BadPacketsN from it lands on the next case's lane
             // teleport, so the Blink cases run right before 63-ap3-corrections (blinkmerge-1027).

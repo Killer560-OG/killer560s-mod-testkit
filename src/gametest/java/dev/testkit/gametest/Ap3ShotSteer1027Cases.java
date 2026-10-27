@@ -123,7 +123,7 @@ final class Ap3ShotSteer1027Cases {
 
     // ---------------------------------------------------------------------------------------------------- shared
 
-    private static boolean blinkOn(ClientGameTestContext ctx) {
+    static boolean blinkOn(ClientGameTestContext ctx) {
         return onClient(ctx, mc -> {
             Mod.staticCall("blink.BlinkFeature", "end", "test setup");
             Mod.staticCall(CHARGE, "reset", "test setup");
@@ -140,7 +140,7 @@ final class Ap3ShotSteer1027Cases {
         });
     }
 
-    private static void blinkOff(ClientGameTestContext ctx, boolean gate) {
+    static void blinkOff(ClientGameTestContext ctx, boolean gate) {
         onClient(ctx, mc -> {
             Ap3RuntimeTests.staticCallStop();
             Mod.staticCall(CHARGE, "reset", "test teardown");
@@ -151,7 +151,7 @@ final class Ap3ShotSteer1027Cases {
     }
 
     /** Runs the chain in lane z until AP3 is idle or a Stop is active; returns the recorded movement ticks. */
-    private static List<Pt> runLane(Session c, double z, Object run, List<Object> rest, int maxTicks) {
+    static List<Pt> runLane(Session c, double z, Object run, List<Object> rest, int maxTicks) {
         ClientGameTestContext ctx = c.ctx();
         install(ctx);
         // Late in the session he can be too hungry to sprint (one lane sprinted, the next walked - 2026-10-27 full run):
@@ -220,7 +220,7 @@ final class Ap3ShotSteer1027Cases {
         return worst;
     }
 
-    private static List<String> logSince(long mark, String needle) {
+    static List<String> logSince(long mark, String needle) {
         List<String> out = new ArrayList<>();
         for (String l : LogTap.since(mark)) {
             if (l.contains(needle)) {
@@ -230,7 +230,7 @@ final class Ap3ShotSteer1027Cases {
         return out;
     }
 
-    private static void serverAgrees(Session c) {
+    static void serverAgrees(Session c) {
         ClientGameTestContext ctx = c.ctx();
         ctx.waitTicks(10);
         String name = BlinkTests.playerName(ctx);
@@ -242,7 +242,7 @@ final class Ap3ShotSteer1027Cases {
         c.check(gap < 0.05, String.format(Locale.ROOT, "the server has him %.3f from the client", gap));
     }
 
-    private static void note(Session c, String label, List<Pt> pts, double laneZ) {
+    static void note(Session c, String label, List<Pt> pts, double laneZ) {
         StringBuilder sb = new StringBuilder(label).append(": ");
         int i = 0;
         for (Pt p : pts) {
