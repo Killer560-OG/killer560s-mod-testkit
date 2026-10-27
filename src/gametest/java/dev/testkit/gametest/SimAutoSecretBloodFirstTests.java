@@ -31,7 +31,8 @@ import java.util.concurrent.atomic.AtomicReference;
  *       secret rooms OFF the rush path, Auto Clear switched on (so Door Camp could use it and must not).
  *       <ol>
  *         <li><b>door camp</b>: it goes to the blood door and opens it (the lock block is air) before any secret target;
- *             nothing is handed to Auto Clear (R's zombie is left); afterwards both routes run; Blood First ends "done".</li>
+ *             nothing is handed to Auto Clear before the door is open (afterwards the Room Plan may clear R as a tour stop);
+ *             both routes run; Blood First ends "done".</li>
  *         <li><b>full blood rush</b>: R is handed to Auto Clear ("Blood First (Full Blood Rush): clearing R") and is
  *             cleared on the map, then the blood door is opened, all before any secret target; then both routes run.</li>
  *         <li><b>off</b>: the first thing it does is a secret target, it never goes to the blood door and the door stays
@@ -347,8 +348,13 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
                 if (firstTarget >= 0 && (bloodOpened < 0 || firstTarget < bloodOpened)) {
                     failures.add(tag + ": a secret room was targeted before the blood door opened");
                 }
-                if (handed >= 0 || rCleared) {
-                    failures.add(tag + ": it cleared a room (hand-over line " + handed + ", R cleared " + rCleared
+                // Door Camp's own part only opens doors: nothing goes to Auto Clear before the blood door is open. After
+                // it, the secrets part runs under the Room Plan, and its default Fastest Total (mod 4119ac75, killer560
+                // 2026-10-19: "it can do either") clears a mob room as a stop on the tour while Auto Clear is on - R
+                // included - so a hand-over after the door is the plan's, not Door Camp's.
+                if (clearR >= 0 || handed >= 0 && (bloodOpened < 0 || handed < bloodOpened)) {
+                    failures.add(tag + ": it cleared a room before the blood door opened (Blood First clear line " + clearR
+                            + ", hand-over line " + handed + ", blood open line " + bloodOpened
                             + ") - Door Camp only opens doors");
                 }
                 if (!"DOOR_CAMP done".equals(state)) {
