@@ -327,6 +327,32 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 hx = ZpewCampaignTests.setUp(ctx, 4);
                 hookTicks(ctx);
                 String who = ZpewCampaignTests.name(ctx);
+                // Warps Per Tick survives a save and a reload from disk (ProfileManager.reloadAllConfigs calls the same
+                // load), and clamps to 1..10.
+                int[] persist = ctx.computeOnClient(mc -> {
+                    Mod.call(Mod.cfg(ZP_CFG), "setWarpsPerTick", 99);
+                    int high = (Integer) Mod.call(Mod.cfg(ZP_CFG), "getWarpsPerTick");
+                    Mod.call(Mod.cfg(ZP_CFG), "setWarpsPerTick", 0);
+                    int low = (Integer) Mod.call(Mod.cfg(ZP_CFG), "getWarpsPerTick");
+                    Mod.call(Mod.cfg(ZP_CFG), "setWarpsPerTick", 4);
+                    Mod.call(Mod.cfg(ZP_CFG), "save");
+                    Mod.staticCall(ZP_CFG, "load");
+                    int reloaded = (Integer) Mod.call(Mod.cfg(ZP_CFG), "getWarpsPerTick");
+                    Mod.call(Mod.cfg(ZP_CFG), "setWarpsPerTick", 1);
+                    Mod.call(Mod.cfg(ZP_CFG), "save");
+                    Mod.staticCall(ZP_CFG, "load");
+                    return new int[]{high, low, reloaded, (Integer) Mod.call(Mod.cfg(ZP_CFG), "getWarpsPerTick")};
+                });
+                scenario.log(String.format(Locale.ROOT, "persist: set 99 -> %d, set 0 -> %d, saved 4 reloaded %d, saved 1 "
+                        + "reloaded %d", persist[0], persist[1], persist[2], persist[3]));
+                if (persist[0] != 10 || persist[1] != 1 || persist[2] != 4 || persist[3] != 1) {
+                    problems.add("Warps Per Tick did not clamp or persist: " + java.util.Arrays.toString(persist));
+                }
+                // setUp's settings again (the reload read them from disk)
+                ctx.runOnClient(mc -> {
+                    Mod.set(ZP_CFG, "setEnabled", true);
+                    Mod.set(ZP_CFG, "setChain", true);
+                });
                 setWpt(ctx, 1);
                 ctx.getInput().holdKey(o -> o.keyShift);
                 ctx.waitTicks(5);
