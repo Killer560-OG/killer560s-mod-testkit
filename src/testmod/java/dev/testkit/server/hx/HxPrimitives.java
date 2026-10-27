@@ -179,6 +179,7 @@ public final class HxPrimitives implements HxModule {
         HxBridge.register("sound", HxPrimitives::sound);
         HxBridge.register("particle", HxPrimitives::particle);
         HxBridge.register("give", HxPrimitives::give);
+        HxBridge.register("player.state", HxPrimitives::playerState);
         HxBridge.register("stand", HxPrimitives::stand);
         HxBridge.register("entity.remove", HxPrimitives::entityRemove);
         HxBridge.register("entity.move", HxPrimitives::entityMove);
@@ -405,6 +406,58 @@ public final class HxPrimitives implements HxModule {
         out.addProperty("item", BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
         out.addProperty("count", stack.getCount());
         return out;
+    }
+
+    /**
+     * player.state {player?}: the server's own view of the player right now (1027-iw-*): position, ground, sprint and sneak,
+     * the last input the client sent, the open menu (id, class, every slot as "id*count" or "", the carried stack) and the
+     * 41 inventory slots. Read without waiting for a client tick, unlike {@code data get entity}.
+     */
+    private static JsonElement playerState(MinecraftServer s, JsonObject a) {
+        ServerPlayer p = player(s, a);
+        JsonObject o = new JsonObject();
+        o.addProperty("x", p.getX());
+        o.addProperty("y", p.getY());
+        o.addProperty("z", p.getZ());
+        o.addProperty("onGround", p.onGround());
+        o.addProperty("sprinting", p.isSprinting());
+        o.addProperty("shift", p.isShiftKeyDown());
+        o.addProperty("input", inputText(p.getLastClientInput()));
+        o.addProperty("containerId", p.containerMenu.containerId);
+        o.addProperty("menu", p.containerMenu.getClass().getSimpleName());
+        JsonArray slots = new JsonArray();
+        for (net.minecraft.world.inventory.Slot sl : p.containerMenu.slots) {
+            slots.add(stackText(sl.getItem()));
+        }
+        o.add("slots", slots);
+        o.addProperty("carried", stackText(p.containerMenu.getCarried()));
+        JsonArray inv = new JsonArray();
+        for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
+            inv.add(stackText(p.getInventory().getItem(i)));
+        }
+        o.add("inventory", inv);
+        return o;
+    }
+
+    /** "minecraft:stone*12", or "" for an empty stack. */
+    public static String stackText(ItemStack st) {
+        return st == null || st.isEmpty() ? "" : BuiltInRegistries.ITEM.getKey(st.getItem()) + "*" + st.getCount();
+    }
+
+    /** The keys in a client input record, e.g. "forward,sprint" ("" when still). */
+    public static String inputText(net.minecraft.world.entity.player.Input in) {
+        if (in == null) {
+            return "";
+        }
+        List<String> k = new ArrayList<>();
+        if (in.forward()) k.add("forward");
+        if (in.backward()) k.add("back");
+        if (in.left()) k.add("left");
+        if (in.right()) k.add("right");
+        if (in.jump()) k.add("jump");
+        if (in.shift()) k.add("sneak");
+        if (in.sprint()) k.add("sprint");
+        return String.join(",", k);
     }
 
     private static JsonElement stand(MinecraftServer s, JsonObject a) throws Exception {

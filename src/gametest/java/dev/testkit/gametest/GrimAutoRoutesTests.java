@@ -175,6 +175,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             session = s;
             s.test("62-argrim-ew-add", GrimAutoRoutesTests::caseEwAdd);
             s.test("62-argrim-walk", GrimAutoRoutesTests::caseWalk);
+            // iw-campaign-1027: Inventory Walk on while a route sprints him and he clicks in his inventory, then closes it.
+            s.test("62-argrim-1027-invwalk", GrimAutoRoutesTests::caseInvWalk);
+            // ... and 62-argrim-play's whole route (its chest window keeps the route running) with Inventory Walk on.
+            s.test("62-argrim-1027-invwalk-play", GrimAutoRoutesTests::caseInvWalkPlay);
             s.test("62-argrim-870-jump", GrimAutoRoutesTests::caseJumpCount); // ar-jump-n (2026-10-12)
             s.test("62-argrim-1014-jumpcd", GrimAutoRoutesTests::caseJumpCooldown); // ar-jump-cooldown (2026-10-14)
             s.testExpectingFlags("62-argrim-correction", GrimAutoRoutesTests::caseCorrection);
@@ -572,6 +576,132 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         check(s.stream().noneMatch(Sample::shift), "the walk sent shift down");
         c.note(String.format(Locale.ROOT, "walk: %.2f blocks along +z, sprinting", after.z - from.z));
         noteFlags(c, s);
+    }
+
+    /**
+     * Inventory Walk + a running route (iw-campaign-1027): {@code /ar add walk} sprints him along +z; six ticks in he opens
+     * his inventory (the route's input mixin keeps driving him), makes three clicks and closes it while the route still
+     * runs. Every click and the close must reach the server with no movement in the input it last had (what MultiActionsC/D
+     * flag), the items must move, and he must still get down the arena.
+     */
+    private static void caseInvWalk(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        tpRel(ctx, 14.5, 6.5, 0f, 0f);
+        ctx.waitTicks(5);
+        // Main-inventory slots only: the session's hotbar (AOTV, tools) is what the later route cases use.
+        c.server().command("item replace entity @p inventory.0 with minecraft:stone 32");
+        c.server().command("item replace entity @p inventory.1 with minecraft:dirt 16");
+        c.server().command("item replace entity @p inventory.10 with minecraft:air");
+        c.server().command("item replace entity @p inventory.11 with minecraft:air");
+        c.server().sync(10);
+        ctx.waitTicks(10);
+        String iwCfg = "com.killer560.hub.invwalk.InventoryWalkConfig";
+        String iw = "com.killer560.hub.invwalk.InventoryWalkFeature";
+        ctx.runOnClient(mc -> {
+            dev.testkit.gametest.mod.Mod.set(iwCfg, "setEnabled", true);
+            dev.testkit.gametest.mod.Mod.set(iwCfg, "setStopToClick", true);
+            dev.testkit.gametest.mod.Mod.setField(iw, "heldForTest", java.util.Set.of());
+        });
+        try {
+            Vec3 from = relPos(ctx);
+            startSampling(ctx);
+            cmd(ctx, "/ar add walk");
+            ctx.waitTicks(6);
+            ctx.runOnClient(mc -> dev.testkit.compat.McCompat.setScreen(mc,
+                    new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player)));
+            ctx.waitTicks(2);
+            boolean runningInScreen = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+            Vec3 opened = relPos(ctx);
+            int[][] clicks = {{9, 0}, {19, 0}, {10, 1}};
+            for (int[] k : clicks) {
+                ctx.runOnClient(mc -> mc.gameMode.handleContainerInput(mc.player.containerMenu.containerId, k[0], k[1],
+                        net.minecraft.world.inventory.ContainerInput.PICKUP, mc.player));
+                ctx.waitTicks(3);
+            }
+            // Put the half stack of dirt down, then close while the route still drives him.
+            ctx.runOnClient(mc -> mc.gameMode.handleContainerInput(mc.player.containerMenu.containerId, 20, 0,
+                    net.minecraft.world.inventory.ContainerInput.PICKUP, mc.player));
+            ctx.waitTicks(2);
+            boolean runningAtClose = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+            Vec3 atClose = relPos(ctx);
+            ctx.runOnClient(mc -> dev.testkit.compat.McCompat.screen(mc).onClose());
+            ctx.waitTicks(40);
+            List<Sample> s = stopSampling(ctx);
+            Vec3 after = relPos(ctx);
+            List<JsonObject> cl = c.events("container.click");
+            List<JsonObject> cc = c.events("container.close");
+            long movingClicks = cl.stream().filter(GrimAutoRoutesTests::serverHadHimMoving).count();
+            long movingCloses = cc.stream().filter(GrimAutoRoutesTests::serverHadHimMoving).count();
+            JsonObject st = c.hx().call("player.state").getAsJsonObject();
+            String inv19 = st.getAsJsonArray("inventory").get(19).getAsString();
+            String inv20 = st.getAsJsonArray("inventory").get(20).getAsString();
+            c.note(String.format(Locale.ROOT, "invwalk: route running in the screen %s / at the close %s; moved %.2f before the "
+                            + "screen, %.2f with it open, %.2f overall; %d click(s) on the server (%d moving), %d close(s) (%d "
+                            + "moving); inventory 19=%s 20=%s", runningInScreen, runningAtClose, opened.z - from.z,
+                    atClose.z - opened.z, after.z - from.z, cl.size(), movingClicks, cc.size(), movingCloses, inv19, inv20));
+            printTrace("invwalk", s);
+            // A route stops when a screen it did not open comes up (RouteExecutor: "a screen opened"; only a route chest's
+            // window keeps it running), so here Inventory Walk is his own walking, not the route's.
+            check(opened.z - from.z > 1.0, "the route never moved him before the screen - the case proves nothing");
+            check(!runningInScreen, "the route kept running under his inventory (it stops on a screen it did not open)");
+            check(cl.size() == 4 && cc.size() == 1, "not every click and the close reached the server: " + cl.size() + " / "
+                    + cc.size());
+            check(movingClicks == 0 && movingCloses == 0, "a click or the close reached the server while it had him moving ("
+                    + movingClicks + " / " + movingCloses + ")");
+            check(inv19.equals("minecraft:stone*32") && inv20.equals("minecraft:dirt*8"), "the items did not move: 19=" + inv19
+                    + " 20=" + inv20);
+            noteFlags(c, s);
+            check(c.scenario().flags().isEmpty(), "GrimAC flagged the inventory part");
+        } finally {
+            ctx.runOnClient(mc -> {
+                dev.testkit.gametest.mod.Mod.setField(iw, "heldForTest", null);
+                dev.testkit.gametest.mod.Mod.set(iwCfg, "setEnabled", false);
+                if (dev.testkit.compat.McCompat.screen(mc) != null) {
+                    dev.testkit.compat.McCompat.screen(mc).onClose();
+                }
+            });
+            ctx.waitTicks(5);
+            c.server().command("item replace entity @p inventory.0 with minecraft:air");
+            c.server().command("item replace entity @p inventory.1 with minecraft:air");
+            c.server().command("item replace entity @p inventory.10 with minecraft:air");
+            c.server().command("item replace entity @p inventory.11 with minecraft:air");
+        }
+    }
+
+    /** 62-argrim-play with Inventory Walk on (Stop To Click), forward held in any screen: judged by casePlay's own checks. */
+    private static void caseInvWalkPlay(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        String iwCfg = "invwalk.InventoryWalkConfig";
+        String iw = "invwalk.InventoryWalkFeature";
+        ctx.runOnClient(mc -> {
+            dev.testkit.gametest.mod.Mod.set(iwCfg, "setEnabled", true);
+            dev.testkit.gametest.mod.Mod.set(iwCfg, "setStopToClick", true);
+            dev.testkit.gametest.mod.Mod.setField(iw, "heldForTest", java.util.Set.of("key.forward"));
+        });
+        long held0 = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall(iw, "clicksHeld")).longValue()
+                + ((Number) dev.testkit.gametest.mod.Mod.staticCall(iw, "closesHeld")).longValue());
+        long act0 = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall(iw, "activations")).longValue());
+        try {
+            casePlay(c);
+        } finally {
+            long held1 = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall(iw, "clicksHeld")).longValue()
+                    + ((Number) dev.testkit.gametest.mod.Mod.staticCall(iw, "closesHeld")).longValue());
+            long act1 = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall(iw, "activations")).longValue());
+            c.note("invwalk + play: Inventory Walk activated " + (act1 - act0) + " time(s), held " + (held1 - held0)
+                    + " click/close packet(s) for a still tick");
+            ctx.runOnClient(mc -> {
+                dev.testkit.gametest.mod.Mod.setField(iw, "heldForTest", null);
+                dev.testkit.gametest.mod.Mod.set(iwCfg, "setEnabled", false);
+            });
+        }
+    }
+
+    private static boolean serverHadHimMoving(JsonObject e) {
+        String in = e.has("serverInput") ? e.get("serverInput").getAsString() : "";
+        return in.contains("forward") || in.contains("back") || in.contains("left") || in.contains("right")
+                || in.contains("jump") || in.contains("sneak") || (e.has("sprinting") && e.get("sprinting").getAsBoolean());
     }
 
     /**
