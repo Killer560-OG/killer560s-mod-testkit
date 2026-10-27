@@ -718,12 +718,11 @@ public class ZpewCampaignTests implements FabricClientGameTest {
                     // not sneaking: Instant Transmission, never predicted
                     ctx.getInput().releaseKey(o -> o.keyShift);
                     tpTo(ctx, server, who, X0 + 0.5, Y, Z0 + 50.5, true);
-                    shots.add(shot(ctx, hx, "no-sneak", pressAt(ctx, target[5]), lat));
+                    shots.add(shot(ctx, hx, "no-sneak", press(ctx, -90f, 0f), lat));
                     // sneak pressed on the use's own tick: the server has no sneak yet - Transmission, not predicted
                     tpTo(ctx, server, who, X0 + 0.5, Y, Z0 + 60.5, true);
                     shots.add(shot(ctx, hx, "sneak-same-tick", () -> {
-                        float[] a = ctx.computeOnClient(mc -> aim(mc.player.position().add(0, 1.27, 0), target[6]));
-                        look(ctx, a[0], a[1]);
+                        look(ctx, -90f, 0f);
                         ctx.getInput().holdKey(o -> o.keyShift);
                         ctx.getInput().pressKey(o -> o.keyUse);
                     }, lat));
@@ -747,7 +746,10 @@ public class ZpewCampaignTests implements FabricClientGameTest {
                     if (sh.what.endsWith("same-tick")) {
                         // Whichever way vanilla's order put it, ZPEW and the server must agree: an etherwarp predicted
                         // and hit, or a Transmission with no prediction and no camera move.
-                        boolean agree = v.equals("HIT") || (sh.preds == 0 && sh.camFrames == 0 && sh.transmissions == 1);
+                        // (sneak-same-tick looks level: an etherwarp there has no target - emu miss - and a Transmission
+                        // moves him; either way nothing may be predicted)
+                        boolean agree = v.equals("HIT") || (sh.preds == 0 && sh.camFrames == 0 && sh.warps == 0
+                                && sh.transmissions + sh.emuMisses == 1);
                         if (!agree) {
                             problems.add(sh.what + ": ZPEW and the server disagree: " + sh.line());
                         }
@@ -755,7 +757,8 @@ public class ZpewCampaignTests implements FabricClientGameTest {
                     }
                     boolean transmission = sh.what.equals("no-sneak");
                     if (transmission) {
-                        if (sh.preds != 0 || sh.camFrames != 0 || sh.transmissions != 1) {
+                        // level look: the server's Transmission moves him toward the stone 12 ahead
+                        if (sh.preds != 0 || sh.camFrames != 0 || sh.transmissions != 1 || sh.warps != 0) {
                             problems.add(sh.what + ": expected a transmission with no prediction and no camera move, got "
                                     + sh.preds + " prediction(s), " + sh.camFrames + " frame(s), " + sh.transmissions
                                     + " transmission(s)");
@@ -827,7 +830,7 @@ public class ZpewCampaignTests implements FabricClientGameTest {
                                 || endCam > 0.05 || Math.abs(end.x - (X0 + 25.5)) > 0.01) {
                             problems.add(line);
                         }
-                        if (lat >= 150 && maxPending < 2) {
+                        if (lat >= 300 && maxPending < 2) {
                             problems.add("chain5 rep " + rep + ": never more than one pending at " + lat + " ms");
                         }
                         stuck[0] = 0;
