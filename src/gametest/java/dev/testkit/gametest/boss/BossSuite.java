@@ -57,6 +57,9 @@ public class BossSuite implements FabricClientGameTest {
                     Ap3LightsRunCases.register(s);
                     // The same route twice, aura off and on: the path must not change (1027, ap3-levers-1027).
                     Ap3LightsPathCases.register(s);
+                    // Arrow Align Aura as fast as GrimAC allows: Clicks Per Tick 1-7, Turn And Click Same Tick, latency
+                    // 0-300 ms, two-frame and same-frame controls (1027-aafast-*, mod aafast-1027), own block.
+                    AaFastCases.register(s);
                 });
     }
 }
