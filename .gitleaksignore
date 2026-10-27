@@ -1,0 +1,6 @@
+# Reviewed false positives (security audit 2026-10-27): mod protected-item key names, a skull profile id, and an
+# RSA key pair the Mod Chat party test generates at run time. One gitleaks fingerprint per line.
+4c9122c06792afe245040a34f2ccebbf9a877675:src/gametest/java/dev/testkit/gametest/perf/MixinFixesTest.java:generic-api-key:249
+4c9122c06792afe245040a34f2ccebbf9a877675:src/gametest/java/dev/testkit/gametest/perf/MixinFixesTest.java:generic-api-key:251
+801afb27d0ae306815e255751c552dd0ebf7cc90:src/gametest/java/dev/testkit/gametest/AuraQuoiTests.java:hypixel-api-key:37
+cfb6e9ce1679e7652f6a295db0dc162d4cc346a6:src/gametest/java/dev/testkit/gametest/hx/HxModChatPartyCases.java:private-key:815

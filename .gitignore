@@ -8,3 +8,13 @@ run/
 # Per-machine configuration and agent notes (see testkit.properties and CLAUDE.md)
 testkit.local.properties
 CLAUDE.local.md
+
+# Secrets never belong in this repo (security audit 2026-10-27).
+.env
+.env.*
+.dev.vars
+*.pem
+secrets/
+*-token*.txt
+*api-key*.txt
+secret-fingerprints.json
