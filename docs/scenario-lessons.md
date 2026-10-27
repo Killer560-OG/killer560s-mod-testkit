@@ -1125,3 +1125,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   cases on 26.2, 2026-10-25); `HxAlerts1025Cases.guiTitle` reads `gui.hud` first.
 - A chest or lever click as the mod sees it, with nothing sent: invoke `UseBlockCallback.EVENT.invoker().interact(...)` on the
   client, so the anticheat has no interaction to judge (1025-alerts-secretclicked).
+- **96-ar-1026-range-off / -on / -noitem** (`SimAutoRoutesTests.ArRangeCases`, mod ar-range-1026, Replan For My Range).
+  The sim's AOTV is fully tuned (`SimItems.DEFAULT_TUNERS` 4: range 61, hop range 60), so a 57-range item needs
+  `tuned_transmission` 0 written into its CUSTOM_DATA (`giveAotv`), then a wait for `EtherwarpHopper.range()` to read it.
+  A 1x1 room has no straight 57.5-block line: the long warp needs Museum (2x2) and a cleared strip (x 3..9, z 2..62).
+  With the setting OFF and a 57 item the saved out-of-reach warp is NOT sent: the executor's own aim check (hop range + 1)
+  finds no ray onto the block and holds it, sneak down ("no look ... lands on ... held"), 0 use_item. So "flown as saved"
+  is proved by "flying 1 saved warp(s)" with no plan, and the landing by the same saved warp with a 61 item.
