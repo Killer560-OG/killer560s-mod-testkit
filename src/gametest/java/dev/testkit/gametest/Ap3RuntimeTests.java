@@ -657,6 +657,17 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
      * entered the box, a Block's swap back sent once, and the run still going. GrimAC judges the rest (Post,
      * BadPacketsA, RotationPlace) because the case is a plain test.
      */
+    /** Ap3Executor.heldFlushes() (mod ap3-blockuse-1027), or -1 on a jar without it. */
+    private static int heldFlushes(ClientGameTestContext ctx) {
+        return onClient(ctx, mc -> {
+            try {
+                return ((Number) ModUnderTest.staticCall("com.killer560.hub.ap3.Ap3Executor", "heldFlushes")).intValue();
+            } catch (Throwable t) {
+                return -1;
+            }
+        });
+    }
+
     private static void caseInteract(Session c, String type) {
         ClientGameTestContext ctx = c.ctx();
         ctx.getInput().pressKey(options -> options.keyHotbarSlots[0]);
@@ -667,10 +678,16 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         Object run = runNode(z);
         Object n = node(type, LANE_X0 + 10.0, z, block ? 0f : -90f, 60f, 1.0, 3.0);
         Object stop = node("STOP", LANE_X0 + 22.0, z, -90f, 0f, 2.0, 3.0);
+        int heldBefore = heldFlushes(ctx);
         startProbe(ctx);
         walkIntoRun(c, z, run, n, stop);
         ctx.waitTicks(60); // the box is ~10 blocks in: entered around trace tick 50, then 12 more to measure
         List<Ev> evs = stopProbe(ctx);
+        int heldAfter = heldFlushes(ctx);
+        // mod ap3-blockuse-1027: the act's packets are written unflushed and go out in one write with the movement
+        // packet behind them, so the server reads them together (server log: "[testkit-probe] place read -> next move").
+        c.note(heldBefore < 0 ? "this jar does not hold the act's flush (before ap3-blockuse-1027)"
+                : "packets written unflushed ahead of the movement packet: " + (heldAfter - heldBefore));
         Ev entry = firstInside(ctx, evs, n);
         if (entry == null) {
             throw new AssertionError("never entered the " + type + " box");
