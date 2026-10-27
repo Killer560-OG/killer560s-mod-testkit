@@ -354,7 +354,12 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   saw the key up. BlinkTests.pressCharge waits a tick after letting go (1025-blink-charge-arm's "second press" did nothing).
 - When the freeze watcher closes a client frozen at startup, that run's test server can stay up holding the port (and its
   logs): the next run in that checkout fails "Anticheat test server exited ... before it was ready" (FAILED TO BIND). Find the
-  java.exe with `fabric.dli.env=server` and that checkout's path, kill it, rerun (2026-10-26, tk-blink-rework-c).
+  java.exe with `fabric.dli.env=server` and that checkout's path, kill it, rerun (2026-10-26, tk-blink-rework-c). Under
+  load a server JVM can take 25+ s to boot, the client window reads "Not Responding" while the test thread waits for it,
+  and the watcher kills the client mid-run with the server left behind the same way (2026-10-27, ship2 tk-ship2-1027-e).
+- A power loss (2026-10-27 blue screen) zeroed `run/testserver/banned-ips.json`, `banned-players.json` and `ops.json` in a
+  checkout whose server was running: every later server start died with gson "Expected a JsonArray" and the client read as
+  FROZEN. After a crash, check those files parse and write `[]` into any that do not.
 - Blink holds are key-driven since mod blink-rework-1025: between two holds the key needs a tick up and a tick down, so a
   landing released with one hold lands in that gap unless there is latency; 1025-blink-etherwarp installs 150 ms.
 
