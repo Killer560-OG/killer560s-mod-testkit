@@ -177,9 +177,17 @@ final class TerminalCases {
                 int slot = (Integer) Mod.call(target, "slot");
                 int button = (Integer) Mod.call(target, "button");
                 ContainerInput input = (ContainerInput) Mod.call(target, "clickType");
+                Map<Integer, Object> before = c.onClient(mc -> new java.util.HashMap<>(highlights()));
                 MenuKit.click(c, slot, button, input);
                 clicks++;
-                c.ctx().waitTicks(4);
+                // Until the server's answer changed the board (or it is solved): a fixed 4 ticks was not "wait for the
+                // server" under load, and the next pass clicked the same slot again - one wrong click on the legit
+                // menu suite of preexisting-1026, STARTS_WITH, 7 clicks for 6. A player waits for the board too.
+                for (int w = 0; w < 40 && MenuKit.ev(c, "terminal.solved").isEmpty()
+                        && c.onClient(mc -> highlights().equals(before)); w++) {
+                    c.ctx().waitTicks(1);
+                }
+                c.ctx().waitTicks(1);
             }
             JsonObject solved = MenuKit.awaitEvent(c, "terminal.solved", 40);
             c.check(solved.get("wrong").getAsInt() == 0, "the server counted " + solved.get("wrong")
