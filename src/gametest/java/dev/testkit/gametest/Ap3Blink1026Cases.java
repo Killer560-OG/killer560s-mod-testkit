@@ -119,6 +119,17 @@ final class Ap3Blink1026Cases {
             // He stands where the leap put him (his log: speed 0 at the release). Since mod campaign-blink-1027 the shot waits
             // until GrimAC covers the kept bank; the walk key goes down the tick it is about to fire.
             long asked = System.currentTimeMillis();
+            boolean coveredNow = onClient(ctx, mc -> {
+                try {
+                    return !(Boolean) Mod.staticCall(CHARGE, "teleportHeld")
+                            && ((Number) Mod.staticCall(CHARGE, "unbacked")).intValue() == 0;
+                } catch (RuntimeException | AssertionError e) {
+                    return true;
+                }
+            });
+            if (coveredNow) {
+                ctx.getInput().holdKey(o -> o.keyUp); // it fires at the next tick start
+            }
             onClient(ctx, mc -> {
                 Mod.staticCall(CHARGE, "shootFor", "AP3", 20);
                 return null;
