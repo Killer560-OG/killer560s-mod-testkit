@@ -57,7 +57,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
         for (Consumer<ClientGameTestContext> c : List.<Consumer<ClientGameTestContext>>of(
                 BlinkCampaign1027Tests::interleave, BlinkCampaign1027Tests::interleaveNow, BlinkCampaign1027Tests::order,
                 BlinkCampaign1027Tests::terrain, BlinkCampaign1027Tests::air, BlinkCampaign1027Tests::split,
-                BlinkCampaign1027Tests::slowServer, BlinkCampaign1027Tests::menus, BlinkCampaign1027Tests::keepDelay, BlinkCampaign1027Tests::tpSprint,
+                BlinkCampaign1027Tests::slowServer, BlinkCampaign1027Tests::p3simAlerts, BlinkCampaign1027Tests::menus, BlinkCampaign1027Tests::keepDelay, BlinkCampaign1027Tests::tpSprint,
                 BlinkCampaign1027Tests::mixed)) {
             try {
                 c.accept(ctx);
@@ -251,6 +251,16 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
         double[] b = here(ctx);
         releaseKeys(ctx);
         return new double[]{dist3(a, b), cnum(ctx, "shots") - shots0, cnum(ctx, "shotTicks") - ticks0};
+    }
+
+    private static long cnumOr(ClientGameTestContext ctx, String getter) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                return ((Number) Mod.staticCall(CHARGE, getter)).longValue();
+            } catch (RuntimeException | AssertionError e) {
+                return -1L;
+            }
+        });
     }
 
     private static void netStall(ClientGameTestContext ctx, int ms) {
@@ -862,6 +872,83 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                         }
                         server.command("effect clear " + player);
                         ctx.waitTicks(5);
+                    }
+                }
+            } finally {
+                server.command("effect clear " + player);
+                removeLatency(ctx);
+                releaseKeys(ctx);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            rows.finish(scenario, name);
+        });
+    }
+
+    /**
+     * 1027-blink-c-p3sim: the GrimAC alerts in the owner's p3sim log (2026-10-27 16:54-16:55). (a) Post "entity action":
+     * sprint flipping while the bank fills (AP3's frozen charge does it) - an action sent in a banked tick sat after his
+     * last sent move. (b)/(c) Simulation 2.07 decaying: an explosion pushes him while Charge holds the answers - with a
+     * full bank, and with an empty one (his case: a superboom right after a shot). A row is bad if GrimAC says anything
+     * or client and server end apart; (b) also fires the bank afterwards and needs it to land.
+     */
+    private static void p3simAlerts(ClientGameTestContext ctx) {
+        int x = -11450;
+        int z = -6200;
+        String name = "1027-blink-c-p3sim";
+        Scenario.runExpectingFlags(ctx, name, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            installLatency(ctx, scenario);
+            boolean gate = setUp(ctx, 20);
+            Rows rows = new Rows();
+            String player = playerName(ctx);
+            try {
+                server.command("effect give " + player + " minecraft:resistance 600 4 true");
+                int lane = 0;
+                for (int rep = 0; rep < 3; rep++) {
+                    // (a) sprint flips while banking
+                    tp(server, ctx, x - 20.5, SURFACE_Y, z - 30.5 + 6 * (lane++ % 11), -90f);
+                    server.mark();
+                    chargeOn(ctx);
+                    for (int t = 0; t < 40; t++) {
+                        boolean on = (t / 2) % 2 == 0;
+                        ctx.runOnClient(mc -> mc.player.setSprinting(on));
+                        ctx.waitTicks(1);
+                    }
+                    ctx.runOnClient(mc -> mc.player.setSprinting(false));
+                    long bankA = cnum(ctx, "banked");
+                    ctx.waitTicks(30);
+                    chargeOff(ctx);
+                    double g = gap(server, ctx);
+                    rows.add(server, scenario, "(a) sprint flips while banking #" + rep, bankA >= 15 && g < 0.5,
+                            String.format(Locale.ROOT, "bank %d, gap %.2f", bankA, g));
+                    ctx.waitTicks(20);
+                    // (b) explosion with a full bank, then the shot
+                    for (boolean full : new boolean[]{true, false}) {
+                        tp(server, ctx, x - 20.5, SURFACE_Y, z - 30.5 + 6 * (lane++ % 11), -90f);
+                        server.mark();
+                        chargeOn(ctx);
+                        long bank = full ? waitBank(ctx, 20, 60) : 0;
+                        if (!full) {
+                            // Empty bank, answers still held: walk while charging so nothing banks.
+                            ctx.getInput().holdKey(o -> o.keyUp);
+                            ctx.waitTicks(25);
+                        }
+                        double[] here = here(ctx);
+                        long pushes0 = cnumOr(ctx, "pushReleases");
+                        server.command(String.format(Locale.ROOT, "summon minecraft:tnt %.2f %.2f %.2f {fuse:0}",
+                                here[0] - 1.5, here[1], here[2] + 0.5));
+                        ctx.waitTicks(40);
+                        releaseKeys(ctx);
+                        long pushes = cnumOr(ctx, "pushReleases") - pushes0;
+                        double[] s = full ? shoot(ctx, true, false) : new double[]{0, 0, 0};
+                        ctx.waitTicks(30);
+                        chargeOff(ctx);
+                        g = gap(server, ctx);
+                        rows.add(server, scenario, (full ? "(b) explosion, bank 20, then shot" : "(c) explosion, bank empty")
+                                        + " #" + rep, (!full || (bank == 20 && s[2] == 20)) && g < 0.5,
+                                String.format(Locale.ROOT, "bank %d, push releases %d, shot %d tick(s) %.2f, gap %.2f",
+                                        bank, pushes, (long) s[2], s[0], g));
+                        ctx.waitTicks(20);
                     }
                 }
             } finally {
