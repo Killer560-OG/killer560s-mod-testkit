@@ -1494,6 +1494,16 @@ public class BlinkStressTests implements FabricClientGameTest {
                 double[] a = here(ctx);
                 ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
                 ctx.waitTicks(1);
+                if (BlinkTests.shotWaiting(ctx)) {
+                    // Since mod campaign-blink-1027 the shot waits for cover after the dimension change's teleport: stand.
+                    releaseKeys(ctx);
+                    for (int i = 0; i < 100 && BlinkTests.shotWaiting(ctx) && !BlinkTests.shotCoveredNow(ctx); i++) {
+                        ctx.waitTicks(1);
+                    }
+                    ctx.getInput().holdKey(o -> o.keyUp);
+                    a = here(ctx);
+                    ctx.waitTicks(2);
+                }
                 double moved = flat(a, here(ctx));
                 releaseKeys(ctx);
                 ctx.waitTicks(10);
