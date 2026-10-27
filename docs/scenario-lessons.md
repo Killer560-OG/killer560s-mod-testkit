@@ -1231,3 +1231,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   failed "2 of 3" on that). An effect the server gives while charging reaches GrimAC ~1 s late (the answers wait): jump boost
   given right before a charged jump shot drew Simulation 0.1998 x28 - give effects 2 s before charging. A split needs speed
   already built up: from standing even Speed IV's 20 ticks stay under 9.5 blocks.
+- **campaign-blink-1027, the cover wait.** Since mod 10760079 a Blink shot GrimAC would not cover yet (a teleport's confirm
+  still held, a Blink hold running, ticks sent since not backed again) waits and fires the tick the bank is covered (about
+  2 s after a teleport if he stands still). A case that presses the Charge key and reads the shot one tick later must check
+  `BlinkCharge.shotWaiting()`, stand still until `shotCovered()`, then walk (BlinkTests.shootByPress and the campaign
+  class's shoot() do). Holding W through the wait never covers it (moving ticks are not covered): it fires after 3 s anyway.
+  1027-ap3-blink-leap-* release through `BlinkCharge.shootFor` where the leap lands; a second lane walk-in would teleport him
+  again. Another agent's `gradle --stop` ends every running client of every checkout at once ("build daemon has been stopped:
+  stop command received", 11:14:31 2026-10-27): rerun, it is not a result.
