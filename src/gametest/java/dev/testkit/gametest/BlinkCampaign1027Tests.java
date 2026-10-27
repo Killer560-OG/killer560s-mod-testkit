@@ -977,6 +977,51 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                 g = gap(server, ctx);
                 rows.add(server, scenario, "(f) chat while holding", heldUnderChat && num(ctx, "releasedHolds") > holds0 && g < 0.5,
                         String.format(Locale.ROOT, "held under chat %s, gap %.2f", heldUnderChat, g));
+                // (g)/(h) a chest clicked while a teleport's confirm is held behind its ping answer (charging): walking
+                // into the teleport (the click waits in order behind his still input), and standing (it goes live).
+                for (boolean walking : new boolean[]{true, false}) {
+                    String lbl = walking ? "(g) click in a teleport hold, walking" : "(h) click in a teleport hold, standing";
+                    tp(server, ctx, x - 20.5, SURFACE_Y, z + 15.5 + (walking ? 0 : 6), -90f);
+                    server.mark();
+                    chargeOn(ctx);
+                    long bankG = waitBank(ctx, 20, 50);
+                    if (walking) {
+                        ctx.getInput().holdKey(o -> o.keyUp);
+                        ctx.getInput().holdKey(o -> o.keySprint);
+                        ctx.waitTicks(6);
+                    }
+                    long holds0G = cnum(ctx, "teleportHolds");
+                    server.command(String.format(Locale.ROOT, "tp %s ~ ~ ~3", player));
+                    for (int t = 0; t < 20 && cnum(ctx, "teleportHolds") == holds0G; t++) {
+                        ctx.waitTicks(1);
+                    }
+                    releaseKeys(ctx);
+                    boolean inHold = ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "teleportHeld"));
+                    long evG = hx.head();
+                    hx.menu("Blink Campaign Chest 2", 3, java.util.Map.of(11, "minecraft:stone", 13, "minecraft:dirt"), null);
+                    boolean openedG = false;
+                    for (int t = 0; t < 10 && !openedG; t++) {
+                        ctx.waitTicks(1);
+                        openedG = BlinkTests.menuOpen(ctx);
+                    }
+                    BlinkTests.clickSlot(ctx, 11);
+                    ctx.waitTicks(1);
+                    BlinkTests.clickSlot(ctx, 13);
+                    ctx.waitTicks(40);
+                    long clicksG = hx.events(evG, "menu.click").size();
+                    ctx.runOnClient(mc -> {
+                        if (dev.testkit.compat.McCompat.screen(mc) != null) {
+                            dev.testkit.compat.McCompat.screen(mc).onClose();
+                        }
+                    });
+                    ctx.waitTicks(60);
+                    long bankAfter = cnum(ctx, "banked");
+                    chargeOff(ctx);
+                    g = gap(server, ctx);
+                    rows.add(server, scenario, lbl, bankG == 20 && openedG && clicksG >= 2 && g < 0.5,
+                            String.format(Locale.ROOT, "bank %d (after %d), teleport held when the menu opened %s, %d click(s) "
+                                    + "reached the server, gap %.2f", bankG, bankAfter, inHold, clicksG, g));
+                }
             } finally {
                 closeScreen(ctx);
                 server.command("effect clear " + player);
