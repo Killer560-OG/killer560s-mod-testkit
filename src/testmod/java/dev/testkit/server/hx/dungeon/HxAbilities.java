@@ -49,8 +49,9 @@ import java.util.Set;
  *       {@code INFINITE_SUPERBOOM_TNT}: the cracked stone bricks hit and every cracked stone brick connected to it
  *       within two blocks are destroyed; vanilla's own break / TNT placement is canceled.</li>
  * </ul>
- * The Dungeon Breaker is NOT emulated: as in scenarios 48-52, its blocks are snow broken in one packet by a vanilla
- * diamond shovel with Efficiency V under Haste V, which GrimAC models as a legal instant break.
+ * The Dungeon Breaker (an item with id {@code DUNGEONBREAKER}) breaks any block that is NOT vanilla-instant for the held
+ * item on its first START_DESTROY_BLOCK, as Hypixel does (2026-10-27, 1027-blink-breaker-*). Scenarios 48-52 still use snow
+ * broken in one packet by a diamond shovel with Efficiency V under Haste V, which vanilla (and GrimAC) count as instant.
  */
 public final class HxAbilities {
 
@@ -62,6 +63,7 @@ public final class HxAbilities {
     private static int transmissions;
     private static int superbooms;
     private static int boomBlocks;
+    private static int dungeonBreaks;
     private static Vec3 lastLanding;
 
     private static final double ETHERWARP_RANGE = 57.0;
@@ -107,6 +109,19 @@ public final class HxAbilities {
                 superboom(sp, pos.immutable());
                 return InteractionResult.SUCCESS;
             }
+            if ("DUNGEONBREAKER".equals(skyblockId(sp.getItemInHand(hand)))) {
+                // Hypixel's Dungeon Breaker: one left click breaks the block on the server, however long vanilla would take
+                // with the held item - so GrimAC, which predicts air only for a vanilla-instant break, waits for the
+                // server's block update (and the ping after it). Vanilla-instant blocks (the snow of scenarios 48-52) are
+                // left to vanilla, as before.
+                BlockState st = level.getBlockState(pos);
+                if (!st.isAir() && st.getDestroySpeed(level, pos) >= 0f && !st.is(Blocks.OBSIDIAN)
+                        && st.getDestroyProgress(sp, level, pos) < 1.0f) {
+                    level.destroyBlock(pos.immutable(), false, sp, 512);
+                    dungeonBreaks++;
+                    return InteractionResult.SUCCESS;
+                }
+            }
             return InteractionResult.PASS;
         });
     }
@@ -118,6 +133,7 @@ public final class HxAbilities {
         o.addProperty("transmissions", transmissions);
         o.addProperty("superbooms", superbooms);
         o.addProperty("boomBlocks", boomBlocks);
+        o.addProperty("dungeonBreaks", dungeonBreaks);
         o.addProperty("witherImpacts", witherImpacts);
         o.addProperty("witherHits", witherHits);
         if (lastLanding != null) {
@@ -136,6 +152,7 @@ public final class HxAbilities {
         transmissions = 0;
         superbooms = 0;
         boomBlocks = 0;
+        dungeonBreaks = 0;
         witherImpacts = 0;
         witherHits = 0;
         lastLanding = null;

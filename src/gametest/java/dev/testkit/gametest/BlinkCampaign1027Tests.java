@@ -950,6 +950,33 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                                         bank, pushes, (long) s[2], s[0], g));
                         ctx.waitTicks(20);
                     }
+                    // (d) a server correction in the middle of a split shot (owner's p3sim log 16:54:51-53: a correction
+                    // mid-shot, a teleport hold of 51 packets let go, Simulation .336/.187/.163): Speed IV, the full bank
+                    // fired sprinting, and one tick after the first part the server moves him 3 blocks back.
+                    server.command("effect give " + player + " minecraft:speed 600 3 true");
+                    tp(server, ctx, x - 30.5, SURFACE_Y, z - 30.5 + 6 * (lane++ % 11), -90f);
+                    server.mark();
+                    chargeOn(ctx);
+                    long bankD = waitBank(ctx, 20, 60);
+                    ctx.getInput().holdKey(o -> o.keyUp);
+                    ctx.getInput().holdKey(o -> o.keySprint);
+                    ctx.waitTicks(4);
+                    long tpsD = cnum(ctx, "movingTeleports");
+                    ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
+                    ctx.waitTicks(1);
+                    ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+                    ctx.waitTicks(1);
+                    server.command("tp " + player + " ~-3 ~ ~");
+                    ctx.waitTicks(40);
+                    releaseKeys(ctx);
+                    ctx.waitTicks(30);
+                    long corr = cnum(ctx, "movingTeleports") - tpsD;
+                    chargeOff(ctx);
+                    server.command("effect clear " + player + " minecraft:speed");
+                    double gD = gap(server, ctx);
+                    rows.add(server, scenario, "(d) correction mid-shot #" + rep, bankD == 20 && corr >= 1 && gD < 0.5,
+                            String.format(Locale.ROOT, "bank %d, server teleports %d, gap %.2f", bankD, corr, gD));
+                    ctx.waitTicks(20);
                 }
             } finally {
                 server.command("effect clear " + player);
