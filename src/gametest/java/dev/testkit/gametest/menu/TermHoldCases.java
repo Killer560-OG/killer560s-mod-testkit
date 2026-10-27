@@ -236,7 +236,7 @@ final class TermHoldCases {
         }
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutoTerminalsEnabled", true).set(CONFIG, "AutoMelodyEnabled", true)
-                    .set(CONFIG, "HoverTerminalsEnabled", false).set(CONFIG, "FakeCursor", false)
+                    .set(CONFIG, "HoverTerminalsEnabled", false).set(CONFIG, "AutoStreamSafe", false)
                     .set(CONFIG, "MelodySkipMode", Mod.enumValue(CONFIG + "$MelodySkipMode", "EDGES"))
                     .set(CONFIG, "MelodyLookaheadClicks", n);
             int got = c.onClient(mc -> (Integer) Mod.get(CONFIG, "getMelodyLookaheadClicks"));
@@ -274,7 +274,7 @@ final class TermHoldCases {
         }
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutoTerminalsEnabled", true).set(CONFIG, "AutoNumbersEnabled", true)
-                    .set(CONFIG, "CustomGuiEnabled", customGui).set(CONFIG, "FakeCursor", true).set(CONFIG, "FakeCursorSpeed", 100)
+                    .set(CONFIG, "CustomGuiEnabled", customGui).set(CONFIG, "AutoStreamSafe", true).set(CONFIG, "FakeCursorSpeed", 100)
                     .set(CONFIG, "HoverTerminalsEnabled", false);
             JsonObject t = TerminalCases.open(c, TerminalCases.NUMBERS_10);
             MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
@@ -308,6 +308,7 @@ final class TermHoldCases {
             int[] slots = c.onClient(mc -> ((int[]) Mod.field(CURSOR, "CLICK_SLOT")).clone());
             float[] xs = c.onClient(mc -> ((float[]) Mod.field(CURSOR, "CLICK_X")).clone());
             float[] ys = c.onClient(mc -> ((float[]) Mod.field(CURSOR, "CLICK_Y")).clone());
+            float[] halves = c.onClient(mc -> ((float[]) Mod.field(CURSOR, "CLICK_HALF")).clone());
             int serverClicks = clicks(c).size();
             double worst = 0;
             List<String> off = new ArrayList<>();
@@ -319,7 +320,8 @@ final class TermHoldCases {
                 }
                 double d = Math.hypot(xs[i] - e[0], ys[i] - e[1]);
                 worst = Math.max(worst, d);
-                if (d > 1.5) {
+                // Stream Safe lands somewhere inside the slot (2026-10-27), not dead center.
+                if (Math.abs(xs[i] - e[0]) > halves[i] + 0.6 || Math.abs(ys[i] - e[1]) > halves[i] + 0.6) {
                     off.add(String.format("click %d slot %d: pointer (%.1f, %.1f), slot (%.1f, %.1f), %.1f px off",
                             i, slots[i], xs[i], ys[i], e[0], e[1], d));
                 }
