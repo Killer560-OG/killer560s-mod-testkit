@@ -18,6 +18,7 @@
 			"dev.testkit.gametest.InvWalkZpewTests",
 			"dev.testkit.gametest.ZpewCampaignTests",
 			"dev.testkit.gametest.ZpewMultiTickTests",
+			"dev.testkit.gametest.ZpewLooksTests",
 			"dev.testkit.gametest.CheatExtrasTests",
 			"dev.testkit.gametest.JoinFingerprintTest",
 			"dev.testkit.gametest.ProofTest",
