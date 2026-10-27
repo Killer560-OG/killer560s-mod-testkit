@@ -70,7 +70,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                 BlinkStressTests::setbackShot, BlinkStressTests::lcew, BlinkStressTests::ui,
                 BlinkStressTests::longHolds, BlinkStressTests::longShots, BlinkStressTests::longCharge,
                 BlinkStressTests::releaseLog, BlinkStressTests::controls, BlinkStressTests::setbackVariants, BlinkStressTests::tab,
-                BlinkStressTests::keepWarp, BlinkStressTests::keepMisc)) {
+                BlinkStressTests::keepWarp, BlinkStressTests::keepMisc, BlinkStressTests::hudBar)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -2421,5 +2421,114 @@ public class BlinkStressTests implements FabricClientGameTest {
             }
             rows.finish(scenario, "1026-blink-keep-misc");
         });
+    }
+
+    /**
+     * 1026-blink-hud-bar (killer560, 2026-10-27: "make the charge bar for blink more unique and have a growing bar"): the
+     * Blink HUD is registered and in the in-game draw list (3210's check); with HUD Style Both, the charge bar aims at
+     * bank/cap and its eased fill reaches it (6 of 20 = 0.30, then full = 1.00 with state "full"), an armed shot shows
+     * "armed", a shot drains it, a hold draws its own bar at heldTicks/Hold Ticks; the HUD editor shows the sample (charge
+     * 0.60, hold 0.25). Screenshots of the bar while charging, full, holding and in the editor.
+     */
+    private static void hudBar(ClientGameTestContext ctx) {
+        int x = -10000;
+        int z = -6000;
+        Scenario.run(ctx, "1026-blink-hud-bar", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            String HUD = "blink.BlinkHud";
+            try {
+                boolean listed = ctx.computeOnClient(mc -> {
+                    boolean reg = false;
+                    for (Object e : (List<?>) Mod.staticCall("hud.HudElementRegistry", "all")) {
+                        reg |= "blink".equals(Mod.call(e, "id"));
+                    }
+                    boolean drawn = false;
+                    for (Object e : (List<?>) Mod.staticCall("hud.HudInGameRenderer", "drawList")) {
+                        drawn |= "blink".equals(Mod.call(e, "id"));
+                    }
+                    return reg && drawn;
+                });
+                ctx.runOnClient(mc -> Mod.set(CFG, "setHudStyle", Mod.enumValue("blink.BlinkConfig$HudStyle", "BOTH")));
+                // Charge to 6: the bank is filled by standing; stop the charge's growth by lowering the cap for this read.
+                ctx.runOnClient(mc -> Mod.set(CFG, "setChargeTicks", 6));
+                chargeOn(ctx);
+                ctx.waitTicks(20);
+                float[] six = hudState(ctx);
+                String sixState = ctx.computeOnClient(mc -> (String) Mod.field(HUD, "chargeState"));
+                java.nio.file.Path shot1 = ctx.takeScreenshot(dev.testkit.harness.Report.fileName("1026-blink-hud-bar-full6"));
+                chargeOff(ctx);
+                ctx.runOnClient(mc -> Mod.set(CFG, "setChargeTicks", 20));
+                chargeOn(ctx);
+                ctx.waitTicks(8);
+                float[] mid = hudState(ctx);
+                java.nio.file.Path shot2 = ctx.takeScreenshot(dev.testkit.harness.Report.fileName("1026-blink-hud-bar-filling"));
+                ctx.waitTicks(25);
+                float[] full = hudState(ctx);
+                String fullState = ctx.computeOnClient(mc -> (String) Mod.field(HUD, "chargeState"));
+                pressCharge(ctx);
+                String armedState = ctx.computeOnClient(mc -> (String) Mod.field(HUD, "chargeState"));
+                java.nio.file.Path shot3 = ctx.takeScreenshot(dev.testkit.harness.Report.fileName("1026-blink-hud-bar-armed"));
+                ctx.getInput().holdKey(o -> o.keyUp);
+                ctx.waitTicks(1);
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                ctx.waitTicks(10);
+                float[] drained = hudState(ctx);
+                chargeOff(ctx);
+                holdDown(ctx);
+                ctx.waitTicks(6);
+                float[] hold = hudState(ctx);
+                java.nio.file.Path shot4 = ctx.takeScreenshot(dev.testkit.harness.Report.fileName("1026-blink-hud-bar-hold"));
+                holdUp(ctx);
+                ctx.waitTicks(5);
+                ctx.runOnClient(mc -> {
+                    try {
+                        dev.testkit.compat.McCompat.setScreen(mc, (net.minecraft.client.gui.screens.Screen) Mod.cls(
+                                "hud.HudEditorScreen").getConstructor(net.minecraft.client.gui.screens.Screen.class)
+                                .newInstance((Object) null));
+                    } catch (ReflectiveOperationException e) {
+                        throw new AssertionError(e);
+                    }
+                });
+                ctx.waitTicks(10);
+                float[] ed = hudState(ctx);
+                java.nio.file.Path shot5 = ctx.takeScreenshot(dev.testkit.harness.Report.fileName("1026-blink-hud-bar-editor"));
+                ctx.runOnClient(mc -> dev.testkit.compat.McCompat.setScreen(mc, null));
+                long frames = ctx.computeOnClient(mc -> ((Number) Mod.field(HUD, "barFrames")).longValue());
+                scenario.log(String.format(Locale.ROOT, "hud-bar: listed %s; cap 6 bank 6: target %.2f fill %.2f (%s); filling: "
+                                + "target %.2f fill %.2f; full: target %.2f fill %.2f (%s); armed: %s; after the shot: target "
+                                + "%.2f fill %.2f; hold: target %.2f fill %.2f; editor: charge %.2f hold %.2f; %d bar frame(s); "
+                                + "shots %s %s %s %s %s", listed, six[0], six[1], sixState, mid[0], mid[1], full[0], full[1],
+                        fullState, armedState, drained[0], drained[1], hold[2], hold[3], ed[1], ed[3], frames, shot1, shot2,
+                        shot3, shot4, shot5));
+                check(listed, "the Blink HUD is not registered or not in the in-game draw list");
+                check(Math.abs(six[0] - 1f) < 0.01 && Math.abs(six[1] - 1f) < 0.05 && "full".equals(sixState),
+                        "cap 6, bank 6: the bar is not full");
+                check(mid[0] > 0.1 && mid[0] < 0.9 && Math.abs(mid[1] - mid[0]) < 0.15, "a filling bank is not shown (target "
+                        + mid[0] + ", fill " + mid[1] + ")");
+                check(Math.abs(full[1] - 1f) < 0.05 && "full".equals(fullState), "a full bank is not shown full");
+                check("armed".equals(armedState), "an armed shot is not shown armed: " + armedState);
+                check(drained[1] < 0.2, "the bar did not drain after the shot: " + drained[1]);
+                check(Math.abs(hold[2] - 6 / 20f) < 0.11 && hold[3] > 0.1, "the hold bar does not count toward Hold Ticks");
+                check(Math.abs(ed[1] - 0.6f) < 0.01 && Math.abs(ed[3] - 0.25f) < 0.01, "the editor does not show the sample bar");
+                check(frames > 20, "the bar was hardly drawn: " + frames);
+            } finally {
+                ctx.runOnClient(mc -> {
+                    Mod.set(CFG, "setChargeTicks", 20);
+                    if (dev.testkit.compat.McCompat.screen(mc) != null) {
+                        dev.testkit.compat.McCompat.setScreen(mc, null);
+                    }
+                });
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+        });
+    }
+
+    /** {chargeTarget, chargeFill, holdTarget, holdFill} of the Blink HUD (read on the render thread). */
+    private static float[] hudState(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> new float[]{((Number) Mod.field("blink.BlinkHud", "chargeTarget")).floatValue(),
+                ((Number) Mod.field("blink.BlinkHud", "chargeFill")).floatValue(),
+                ((Number) Mod.field("blink.BlinkHud", "holdTarget")).floatValue(),
+                ((Number) Mod.field("blink.BlinkHud", "holdFill")).floatValue()});
     }
 }
