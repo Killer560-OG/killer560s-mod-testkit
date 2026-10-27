@@ -42,6 +42,30 @@ public class MixinServerGamePacketListener {
         }
     }
 
+    /** 1027-iwl-*: moves at HEAD (before the server applies them: x/y/z in the event is where he WAS). */
+    @Inject(method = "handleMovePlayer", at = @At("HEAD"))
+    private void testkit$wireMove(net.minecraft.network.protocol.game.ServerboundMovePlayerPacket packet, CallbackInfo ci) {
+        if (HxEvents.wire && HxBridge.onServerThread()) {
+            HxEvents.wire(player, "move", String.format(java.util.Locale.ROOT, "%s %.4f %.4f %.4f %s",
+                    packet.hasPosition() ? "pos" : "nopos", packet.getX(Double.NaN), packet.getY(Double.NaN),
+                    packet.getZ(Double.NaN), packet.isOnGround()));
+        }
+    }
+
+    @Inject(method = "handlePlayerInput", at = @At("HEAD"))
+    private void testkit$wireInput(net.minecraft.network.protocol.game.ServerboundPlayerInputPacket packet, CallbackInfo ci) {
+        if (HxEvents.wire && HxBridge.onServerThread()) {
+            HxEvents.wire(player, "input", dev.testkit.server.hx.HxPrimitives.inputText(packet.input()));
+        }
+    }
+
+    @Inject(method = "handlePlayerCommand", at = @At("HEAD"))
+    private void testkit$wireCommand(net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket packet, CallbackInfo ci) {
+        if (HxEvents.wire && HxBridge.onServerThread()) {
+            HxEvents.wire(player, "cmd", String.valueOf(packet.getAction()));
+        }
+    }
+
     @Inject(method = "handleSetCarriedItem", at = @At("HEAD"))
     private void testkit$recordHeld(ServerboundSetCarriedItemPacket packet, CallbackInfo ci) {
         if (HxBridge.onServerThread()) {
