@@ -1205,3 +1205,21 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   session it failed 1027-ap3-shot-turn. Such a case runs last before an expecting-flags case (63-ap3-corrections). Also,
   `BlinkCharge.maxAnswerWaitMs` is a session-long maximum: 1026-blink-lag's spike (3.5 s) failed 1026-blink-long-charge
   run after it, so long-charge counts only a maximum set during the case.
+- **final-1027 (the 2.0 pre-ship check).** A kept bank's BadPacketsN fires on the next TELEPORT, not after a wait:
+  62-argrim-1025-chargechain's 12 kept chain teleports left 24 on 62-argrim-path even after 60 ticks; a `tp @s ~ ~ ~` at
+  the case's end takes them. Each kept chain teleport also draws 2 AimDuplicateLook, which is not on the mod's documented
+  kept-bank list, so that case still fails on it until the owner rules.
+- 1026-ap3-lava-inside's cleanup cleared fire resistance while he still burned (~15 s after lava): every case after it
+  took fire damage once a second, which slowed 1027-ap3-shot-turn's plain run every 20 ticks and drew Simulation x7 +
+  AntiKB on its charge, only in the full session. After lava, keep fire resistance until the burn is over.
+- The test servers run NORMAL worlds with a new seed per checkout: 63-ap3's lanes were cleared only to FLOOR + 4, and on
+  one 26.2 seed terrain at y 125 turned the upward USE of 63-ap3-use-walk/-swap into a block click. Clear above anything
+  a case looks at.
+- 96-ar-1017-bridges: node #6's chest is the mimic on some floors and a plain chest on others; with Auto Close Chest off
+  (default) Secret Aura's window stayed up and the route waited under it for good. The case turns Auto Close Chest on.
+- 370-ui-deny: the Spotify reader's `Add-Type` starts csc.exe (volume control, mod spotify-controls-1026); csc exits
+  before it is judged and Windows then gives no parent. ProcWatch keeps the parent read at first sight.
+- 412 / 1018-ui-performance-colors: the Performance HUD's Frame line (mod stutter-1026, on by default) is a fifth line
+  and a new tooltip; menu-layout-merged.json records the tooltip as intended.
+- 792-hx-ping-bloodcamp read the kill moment one tick late (-1.2) twice under 8 clients and -0.2 on the rerun: the
+  countdown is read on the client's game time, which can skip a tick under load. Not a mod change (BloodCamp untouched).
