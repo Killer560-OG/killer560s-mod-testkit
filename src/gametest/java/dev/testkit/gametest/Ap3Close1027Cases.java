@@ -55,12 +55,16 @@ final class Ap3Close1027Cases {
         ClientGameTestContext ctx = c.ctx();
         double z = Ap3RuntimeTests.lane();
         double ax = LANE_X0 + 10.5;
-        BlockPos chest = new BlockPos((int) Math.floor(ax), FLOOR + 1, (int) Math.floor(z) - 2);
-        c.server().command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:chest[facing=south]{CustomName:'\"Click in order!\"'}",
+        // The chest floats at eye height 2 blocks ahead of where the Stop stands him (he faces +x, pitch 0), so his own
+        // look ray hits it: no teleport to turn him (a server tp reads as a leap and drops the gate - first run).
+        BlockPos chest = new BlockPos((int) Math.floor(ax) + 2, FLOOR + 2, (int) Math.floor(z));
+        c.server().command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:chest[facing=west]{CustomName:{text:\"Click in order!\"}}",
                 chest.getX(), chest.getY(), chest.getZ()));
+        c.server().sync(20);
         Object run = Ap3RuntimeTests.runNode(z);
+        // Only the Walk carries close: a close Stop ahead of it is a second gate (the first run's click released the
+        // Stop's gate and the Walk's held on, which is right, and read as a failure).
         Object stop = node("STOP", ax, z, -90f, 0f, 3.0, 3.0);
-        set(stop, "closeGate", true);
         Object walk = node("WALK", ax, z, 0f, 0f, 3.0, 3.0);
         set(walk, "closeGate", true);
         long mark = LogTap.mark();
@@ -78,25 +82,28 @@ final class Ap3Close1027Cases {
         };
         try {
             Ap3RuntimeTests.walkIntoRun(c, z, run, stop, walk);
-            c.waitUntil("the close gate to hold", mc -> ModUnderTest.staticCall(EXEC, "leapGateNode") != null, 60);
+            c.waitUntil("the close gate to hold on the Walk", mc -> ModUnderTest.staticCall(EXEC, "leapGateNode") == walk, 60);
             ctx.waitTicks(15);
             double z0 = onClient(ctx, mc -> mc.player.getZ());
             if (terminal) {
-                // Look at the chest (server tp facing it - no movement), then open it with a real block click.
-                c.server().command(String.format(Locale.ROOT, "tp @p ~ ~ ~ facing %.2f %.2f %.2f", chest.getX() + 0.5,
-                        chest.getY() + 0.5, chest.getZ() + 0.5));
-                c.server().sync(20);
-                ctx.waitTicks(5);
-                onClient(ctx, mc -> {
-                    Vec3 eye = mc.player.getEyePosition();
-                    var shape = mc.level.getBlockState(chest).getShape(mc.level, chest);
-                    Vec3 centre = shape.bounds().getCenter().add(chest.getX(), chest.getY(), chest.getZ());
-                    BlockHitResult hit = shape.clip(eye, eye.add(centre.subtract(eye).normalize().scale(6)), chest);
-                    if (hit != null) {
-                        mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, hit);
+                // Open it with a real block click along his own look (pitch 0, +x), which hits the chest's face.
+                String opened = onClient(ctx, mc -> {
+                    var state = mc.level.getBlockState(chest);
+                    var shape = state.getShape(mc.level, chest);
+                    if (shape.isEmpty()) {
+                        return "no chest at " + chest + " (" + state + ")";
                     }
+                    Vec3 eye = mc.player.getEyePosition();
+                    BlockHitResult hit = shape.clip(eye, eye.add(mc.player.getViewVector(1f).scale(5)), chest);
+                    if (hit == null) {
+                        return "his look misses the chest from " + eye;
+                    }
+                    mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, hit);
                     return null;
                 });
+                if (opened != null) {
+                    throw new AssertionError(opened);
+                }
                 c.waitUntil("the terminal screen to open", mc -> McCompat.screen(mc) != null, 40);
                 String title = onClient(ctx, mc -> McCompat.screen(mc).getTitle().getString());
                 c.note("screen open: '" + title + "'");

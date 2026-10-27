@@ -57,6 +57,8 @@ public class BossSuite implements FabricClientGameTest {
                     Ap3LightsRunCases.register(s);
                     // The same route twice, aura off and on: the path must not change (1027, ap3-levers-1027).
                     Ap3LightsPathCases.register(s);
+                    // Blink Charge + Release + Run in one box, in the boss world (1027, ap3-s2ee3-1027).
+                    Ap3BlinkComboBossCases.register(s);
                 });
     }
 }
