@@ -62,7 +62,8 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
         for (Consumer<ClientGameTestContext> c : List.<Consumer<ClientGameTestContext>>of(
                 InvWalkCampaignTests::legitAbsent, InvWalkCampaignTests::controls, InvWalkCampaignTests::containers,
                 InvWalkCampaignTests::clickKinds, InvWalkCampaignTests::timing, InvWalkCampaignTests::moves,
-                InvWalkCampaignTests::terrain, InvWalkCampaignTests::interop, InvWalkCampaignTests::warp)) {
+                InvWalkCampaignTests::terrain, InvWalkCampaignTests::interop, InvWalkCampaignTests::warp,
+                InvWalkCampaignTests::craftControl)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -335,6 +336,7 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
     static final class Walk {
         double clientPath;
         double serverMax;
+        double serverPath;
         double clientMax;
         boolean screenAll = true;
         boolean ivActive = true;
@@ -343,8 +345,9 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
         int clicksSent;
 
         String text() {
-            return String.format(Locale.ROOT, "walked %d tick(s): client path %.2f (max %.2f from start), server max %.2f, screen "
-                    + "open throughout %s, IW active %s", ticks, clientPath, clientMax, serverMax, screenAll, ivActive);
+            return String.format(Locale.ROOT, "walked %d tick(s): client path %.2f (max %.2f from start), server path %.2f (max "
+                    + "%.2f), screen open throughout %s, IW active %s", ticks, clientPath, clientMax, serverPath, serverMax, screenAll,
+                    ivActive);
         }
     }
 
@@ -361,6 +364,7 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
         double[] c0 = cpos(ctx);
         double[] s0 = spos(state(hx));
         double[] prev = c0;
+        double[] sPrev = s0;
         int t = 0;
         int ci = 0;
         for (Seg seg : segs) {
@@ -381,7 +385,10 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
                 w.screenAll &= sa[0];
                 w.ivActive &= sa[1];
                 if (t % 3 == 2) {
-                    w.serverMax = Math.max(w.serverMax, flat(s0, spos(state(hx))));
+                    double[] sp = spos(state(hx));
+                    w.serverMax = Math.max(w.serverMax, flat(s0, sp));
+                    w.serverPath += flat(sPrev, sp);
+                    sPrev = sp;
                 }
             }
         }
@@ -513,11 +520,16 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
      * handle them all, compare the server's menu to the prediction, close the screen WHILE STILL WALKING (keys held),
      * and record the row.
      */
+    /** Clicks sent before a walkRow (held, so they reach the server inside it): added to what it expects. */
+    static int extraClicks;
+
     static void walkRow(Rows rows, ClientGameTestContext ctx, Hx hx, String label, List<Seg> segs, int[] at,
                         List<List<Click>> clicks, Set<Integer> ignore, double minMove, String expect, boolean itemsMove) {
         long since = hx.head();
         List<String> before = ctx.computeOnClient(InvWalkCampaignTests::clientSlots);
         Walk w = walk(ctx, hx, segs, at, clicks);
+        w.clicksSent += extraClicks;
+        extraClicks = 0;
         List<JsonObject> ev = awaitClicks(ctx, hx, since, w.clicksSent);
         JsonObject st = state(hx);
         List<String> server = serverSlots(st);
@@ -538,7 +550,7 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
         }
         boolean movingClose = closes.stream().anyMatch(InvWalkCampaignTests::moving);
         int mc = movingClicks(ev);
-        boolean acted = w.screenAll && w.clientPath >= minMove && w.serverMax >= minMove * 0.5 && ev.size() == w.clicksSent
+        boolean acted = w.screenAll && w.clientPath >= minMove && w.serverPath >= minMove * 0.5 && ev.size() == w.clicksSent
                 && (!itemsMove || (d.isEmpty() && changed)) && !closes.isEmpty();
         String detail = String.format(Locale.ROOT, "%s; clicks sent %d, server handled %d (%d while it had him moving), items %s%s; "
                         + "close reached server %s%s", w.text(), w.clicksSent, ev.size(), mc,
@@ -730,6 +742,8 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
         });
     }
 
+    static double rowMinMove = 4;
+
     static void containerRow(Rows rows, ClientGameTestContext ctx, TestServer server, Hx hx, int x, int z, int lat, String what,
                              Box box, List<Click> invScript, Set<Integer> ignore, boolean itemsMove) {
         tp(server, ctx, x + 0.5, SURFACE_Y, z + 0.5, -90f);
@@ -776,7 +790,9 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
             script = invScript;
         } else if (box.name().equals("craft")) {
             // grid 1-2 from main inventory (dirt at main 1 = c+1).
-            script = List.of(Click.left(c + 1), Click.left(1), Click.right(1), Click.left(2), Click.shift(1), Click.shift(2));
+            // (the half left in grid 2 keeps the end state different from the start)
+            script = List.of(Click.left(c + 1), Click.left(1), Click.right(1), Click.left(2), Click.shift(1), Click.right(2),
+                    Click.left(c + 12));
         } else if (box.name().equals("furnace")) {
             script = List.of(Click.left(c + 1), Click.left(0), Click.right(0), Click.left(c + 10), Click.shift(0), Click.swap(c + 10, 3));
         } else {
@@ -784,7 +800,7 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
             script = List.of(Click.left(0), Click.left(c + 10), Click.right(1), Click.left(c + 11), Click.shift(c + 10),
                     Click.swap(1, 0));
         }
-        walkRow(rows, ctx, hx, label, shuttle(7), spread(script.size(), 4, 6), singles(script), ignore, 4, null, itemsMove);
+        walkRow(rows, ctx, hx, label, shuttle(7), spread(script.size(), 4, 6), singles(script), ignore, rowMinMove, null, itemsMove);
         ctx.waitTicks(5);
     }
 
@@ -887,6 +903,43 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
         if (!solved || red.isEmpty()) {
             rows.bad.add(label + " (terminal not solved)");
         }
+    }
+
+    /**
+     * 1027-iw-craftctl: the crafting table row at each latency with Inventory Walk ON (walking) and OFF (standing, same
+     * clicks at the same ticks), several times: whether the client's prediction ever differs from the server with the
+     * feature out of the picture (the crafting result slot is the server's, and its updates arrive mid-script).
+     */
+    private static void craftControl(ClientGameTestContext ctx) {
+        if (!Mod.isCheat()) {
+            return;
+        }
+        int x = -9900;
+        int z = -9000;
+        Scenario.runExpectingFlags(ctx, "1027-iw-craftctl", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = gateOff(ctx);
+            Rows rows = new Rows(ctx, server, scenario);
+            try (Hx hx = Hx.connect()) {
+                int[] p = {x + 2, SURFACE_Y, z};
+                for (int rep = 0; rep < 3; rep++) {
+                    for (int lat : latencies()) {
+                        latency(ctx, lat);
+                        for (boolean on : new boolean[]{true, false}) {
+                            iwOn(ctx, true, 0);
+                            ctx.runOnClient(mc -> Mod.set(IW_CFG, "setEnabled", on));
+                            rowMinMove = on ? 4 : 0;
+                            containerRow(rows, ctx, server, hx, x, z, lat, "crafting table, IW " + (on ? "on" : "OFF (control)"),
+                                    new Box("craft", "setblock %d %d %d minecraft:crafting_table", p, null, Set.of(0), true), null,
+                                    Set.of(0), true);
+                        }
+                    }
+                }
+            } finally {
+                rowMinMove = 4;
+                tearDown(ctx, gate);
+            }
+            rows.finish("1027-iw-craftctl");
+        });
     }
 
     // -------------------------------------------------------------------------------------------- click kinds
@@ -994,6 +1047,7 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
                     });
                     ctx.getInput().releaseKey(o -> o.keyUp);
                     ctx.getInput().releaseKey(o -> o.keySprint);
+                    extraClicks = 2;
                     walkRow(rows, ctx, hx, "L" + lat + " click on the open tick", shuttle(5), new int[]{2},
                             singles(List.of(Click.right(10))), Set.of(0), 3, null, true);
                     List<JsonObject> ev = hx.events(since, "container.click");
@@ -1008,9 +1062,10 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
                     rows.begin();
                     openInventory(ctx);
                     keys(ctx, SPRINT);
-                    ctx.waitTicks(10);
-                    since = hx.head();
                     double[] a = cpos(ctx);
+                    ctx.waitTicks(10);
+                    double walked = flat(a, cpos(ctx));
+                    since = hx.head();
                     pred = ctx.computeOnClient(mc -> {
                         var m = mc.player.containerMenu;
                         mc.gameMode.handleContainerInput(m.containerId, 9, 0, ContainerInput.PICKUP, mc.player);
@@ -1024,11 +1079,11 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
                     ev = awaitClicks(ctx, hx, since, 2);
                     List<JsonObject> closes = hx.events(since, "container.close");
                     String inv = invDiff(pred, state(hx));
-                    boolean ok = ev.size() == 2 && closes.size() == 1 && inv.isEmpty() && flat(a, cpos(ctx)) > 1;
+                    boolean ok = ev.size() == 2 && closes.size() == 1 && inv.isEmpty() && walked > 1;
                     rows.end("L" + lat + " clicks + close same tick", ok && movingClicks(ev) == 0
                                     && closes.stream().noneMatch(InvWalkCampaignTests::moving),
-                            String.format(Locale.ROOT, "server handled %d click(s) (%d moving), %d close(s) (%s), inventory %s",
-                                    ev.size(), movingClicks(ev), closes.size(), closes.stream().anyMatch(InvWalkCampaignTests::moving)
+                            String.format(Locale.ROOT, "walked %.2f in the 10 ticks before; server handled %d click(s) (%d "
+                                            + "moving), %d close(s) (%s), inventory %s", walked, ev.size(), movingClicks(ev), closes.size(), closes.stream().anyMatch(InvWalkCampaignTests::moving)
                                             ? "MOVING" : "still", inv.isEmpty() ? "as predicted" : "DIFFER [" + inv + "]"), null);
 
                     // (3) close while sprinting, no click.
@@ -1387,8 +1442,15 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
             try (Hx hx = Hx.connect()) {
                 hx.call("dungeon.abilities", "enabled", true);
                 iwOn(ctx, true, 0);
+                int reps = Integer.getInteger("testkit.iwWarpRepeat", 1);
+                for (int rep = 0; rep < reps; rep++)
                 for (int lat : latencies()) {
-                    for (boolean zp : new boolean[]{false, true}) {
+                    for (int variant = 0; variant < 5; variant++) {
+                        boolean noScreen = variant == 3;
+                        boolean afterLanding = variant == 4;
+                        boolean zp = variant == 1;
+                        boolean iwOff = variant == 2;
+                        ctx.runOnClient(mc -> Mod.set(IW_CFG, "setEnabled", !iwOff));
                         latency(ctx, Math.max(lat, 0));
                         tp(server, ctx, x + 0.5, SURFACE_Y, z + 0.5, -90f);
                         give(server, ctx);
@@ -1406,14 +1468,68 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
                         look(ctx, x + 14.5, SURFACE_Y - 0.05, z + 0.5);
                         ctx.waitTicks(1);
                         double[] s0 = spos(state(hx));
+                        ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.start());
                         ctx.getInput().pressKey(o -> o.keyUse);
                         // Open the inventory at once: the landing arrives under it.
                         ctx.getInput().releaseKey(o -> o.keyShift);
+                        if (afterLanding) {
+                            // Control: no screen, his own key pressed the first tick after the landing reached the client -
+                            // the timing Inventory Walk's first walking tick has at 50 ms (vanilla releases keys on open).
+                            int waited = 0;
+                            while (waited++ < 40 && flat(cpos(ctx), new double[]{x + 0.5, 0, z + 0.5}) < 5) {
+                                ctx.waitTicks(1);
+                            }
+                            ctx.getInput().holdKey(o -> o.keyLeft);
+                            ctx.waitTicks(10);
+                            ctx.getInput().releaseKey(o -> o.keyLeft);
+                            ctx.getInput().holdKey(o -> o.keyRight);
+                            ctx.waitTicks(12);
+                            ctx.getInput().releaseKey(o -> o.keyRight);
+                            ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.stop());
+                            if (Boolean.getBoolean("testkit.iwWarpTrace")) {
+                                List<String> tl = dev.testkit.harness.PacketTrace.lines();
+                                for (String l : tl.subList(0, Math.min(8, tl.size()))) {
+                                    rows.scenario.log("  trace " + l);
+                                }
+                            }
+                            rows.end("L" + lat + " etherwarp, keys pressed the tick after landing (no screen, control)", waited < 40,
+                                    "pressed after " + waited + " tick(s)", null);
+                            ctx.waitTicks(10);
+                            continue;
+                        }
+                        if (noScreen) {
+                            // Control: no screen at all - the same strafe by real keys from the same tick, IW not involved.
+                            ctx.getInput().holdKey(o -> o.keyLeft);
+                            ctx.waitTicks(10);
+                            ctx.getInput().releaseKey(o -> o.keyLeft);
+                            ctx.getInput().holdKey(o -> o.keyRight);
+                            ctx.waitTicks(12);
+                            ctx.getInput().releaseKey(o -> o.keyRight);
+                            rows.end("L" + lat + " etherwarp lands while strafing (no screen, control)", true, "no screen", null);
+                            ctx.runOnClient(mc -> Mod.set("zpew.ZeroPingEtherwarpConfig", "setEnabled", false));
+                            ctx.runOnClient(mc -> Mod.set(IW_CFG, "setEnabled", true));
+                            ctx.waitTicks(10);
+                            continue;
+                        }
                         openInventory(ctx);
                         List<Click> script = List.of(Click.left(9), Click.left(19), Click.right(10), Click.left(20));
+                        if (iwOff) {
+                            // Control: Inventory Walk OFF, the same warp landing under the open inventory, no walking.
+                            ctx.waitTicks(30);
+                            closeScreen(ctx);
+                            ctx.waitTicks(5);
+                            rows.end("L" + lat + " etherwarp lands mid-screen (IW off, control)", true, "no walking", null);
+                        } else
                         walkRow(rows, ctx, hx, "L" + lat + " etherwarp lands mid-screen" + (zp ? " (ZPEW on)" : ""),
                                 List.of(new Seg(Set.of("key.left"), 10), new Seg(Set.of("key.right"), 12)), spread(script.size(), 2, 4),
                                 singles(script), Set.of(0), 1, null, true);
+                        ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.stop());
+                        if (Boolean.getBoolean("testkit.iwWarpTrace")) {
+                            List<String> tl = dev.testkit.harness.PacketTrace.lines();
+                            for (String l : tl.subList(0, Math.min(14, tl.size()))) {
+                                rows.scenario.log("  trace " + l);
+                            }
+                        }
                         JsonObject after = hx.call("dungeon.stats").getAsJsonObject();
                         int warps = after.get("etherwarps").getAsInt() - before.get("etherwarps").getAsInt();
                         double[] s1 = spos(state(hx));
@@ -1422,6 +1538,7 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
                             rows.bad.add("L" + lat + (zp ? " ZPEW" : "") + " the etherwarp never landed (" + warps + ")");
                         }
                         ctx.runOnClient(mc -> Mod.set("zpew.ZeroPingEtherwarpConfig", "setEnabled", false));
+                        ctx.runOnClient(mc -> Mod.set(IW_CFG, "setEnabled", true));
                         ctx.waitTicks(10);
                     }
                 }

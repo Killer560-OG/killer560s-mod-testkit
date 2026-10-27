@@ -616,6 +616,12 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	if (project.hasProperty("iwLatencies")) {
 		systemProperty "testkit.iwLatencies", project.property("iwLatencies")
 	}
+	if (project.hasProperty("iwWarpTrace")) {
+		systemProperty "testkit.iwWarpTrace", "true"
+	}
+	if (project.hasProperty("iwWarpRepeat")) {
+		systemProperty "testkit.iwWarpRepeat", project.property("iwWarpRepeat")
+	}
 	if (project.hasProperty("blinkDigRepeat")) {
 		systemProperty "testkit.blinkDigRepeat", project.property("blinkDigRepeat")
 	}
