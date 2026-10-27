@@ -114,13 +114,26 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
         List<String> failures = new ArrayList<>();
         try {
             for (String mode : List.of("DOOR_CAMP", "FULL_BLOOD_RUSH", "OFF")) {
-                try {
-                    oneMode(ctx, mode, failures);
-                } catch (Throwable t) {
-                    failures.add(mode + ": threw " + t);
-                    t.printStackTrace(System.out);
-                } finally {
-                    stopAll(ctx);
+                // A trip the map planned across a room it had not identified yet can land in the floor's trap room, where
+                // no etherwarp works and Auto Secret stops by design (preexisting-1026: Museum -> Overgrown landed in New
+                // Trap). Trap rooms are not functional yet (killer560): that floor measured nothing about Blood First, so
+                // the mode runs again on a new floor, three floors at most.
+                for (int floorTry = 1; floorTry <= 3; floorTry++) {
+                    try {
+                        oneMode(ctx, mode, failures);
+                        break;
+                    } catch (TrapStop t) {
+                        println(t.getMessage() + (floorTry < 3 ? " - a new floor" : ""));
+                        if (floorTry == 3) {
+                            failures.add(t.getMessage() + " on three floors running");
+                        }
+                    } catch (Throwable t) {
+                        failures.add(mode + ": threw " + t);
+                        t.printStackTrace(System.out);
+                        break;
+                    } finally {
+                        stopAll(ctx);
+                    }
                 }
             }
         } finally {
@@ -321,6 +334,11 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
         int bloodOpened = indexOf(log, "blood door at cell " + bloodCell + " is open");
         int clearR = indexOf(log, "Blood First (Full Blood Rush): clearing " + roomR.name());
         int handed = indexOf(log, "[AutoSecret] handing ");
+        for (String l : log) {
+            if (l.contains("[AutoSecret] stopped: in New Trap") || l.contains("[AutoSecret] stopped: in Old Trap")) {
+                throw new TrapStop(tag + ": the trip landed in a trap room and Auto Secret stopped there");
+            }
+        }
         int rFinished = 0;
         for (String n : routes.keySet()) {
             int f = indexOf(log, "[AutoSecret] route " + n + " finished");
@@ -394,6 +412,13 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
                     failures.add(tag + ": Blood First state " + state + ", want OFF");
                 }
             }
+        }
+    }
+
+    /** The run stopped inside the floor's trap room: nothing about Blood First was measured. */
+    private static final class TrapStop extends RuntimeException {
+        TrapStop(String message) {
+            super(message);
         }
     }
 
