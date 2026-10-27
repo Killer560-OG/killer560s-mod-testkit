@@ -27,7 +27,15 @@ import java.util.Random;
 /**
  * The F7/M7 P3 Simon Says device, server side, at the coordinates the mod reads it from ({@code
  * simonsays/SimonSaysFeature.java}: sea-lantern wall x=111, stone buttons x=110, y 120-123, z 92-95, start button
- * (110, 121, 91)). Rounds 5 (old) or 4 (Hypixel's 2026-10-06 update, killer560) - {@code rounds}.
+ * (110, 121, 91)). 4 rounds, 10 clicks by default - Hypixel's device since its 2026-10-06 update (SkyBlock 0.27.2);
+ * {@code rounds=5} builds the old device, which p3sim.net still runs (cases 501 and 1027-ss-target-5rounds use it).
+ *
+ * <p>Reveal pacing (2026-10-27) is fitted to what the mod measures on Hypixel, each round transition timed from the
+ * round's last click to the next round's reveal settling (the mod's 10-tick settle after the last lantern goes dark):
+ * 2->3 2148 ms and 3->4 2398 ms (the 4-round device in his 2026-10-23 log and the old device alike), 4->5 2798 ms (old
+ * device). Here a round's first light comes 16 ticks after its last click and each step is lit 4 ticks with 2 dark
+ * between, so those transitions read about 2150 / 2450 / 2750 ms (1->2 about 1850; Hypixel's is unmeasured). These are
+ * not observed lantern timings, only the totals the mod sees; {@code revealTicks}/{@code gapTicks} override them.
  *
  * <p>Modeled only as far as the mod's detection needs, and every rule is the mod's own reading of Hypixel, not a
  * claim about Hypixel: the start button begins round 1; a round lights its steps one at a time (sea lantern, then back
@@ -37,7 +45,7 @@ import java.util.Random;
  * position (the mod's {@code clickInOrder.contains} cannot hold one twice). Hypixel's round-1 reveal quirks (the
  * mod's firstPhase reverse / drop) are NOT emulated: round 1 here is one plain light.
  *
- * <p>Ops: {@code boss.ss.build {rounds=5, line=true, seed=1, revealTicks=8, gapTicks=4}}, {@code boss.ss.state},
+ * <p>Ops: {@code boss.ss.build {rounds=4, line=true, seed=1, revealTicks=4, gapTicks=2}}, {@code boss.ss.state},
  * {@code boss.ss.clear}. Events: {@code ss.start}, {@code ss.press}, {@code ss.round}, {@code ss.completed},
  * {@code ss.broke}.
  */
@@ -50,10 +58,10 @@ final class HxSimonSays {
     enum Phase { OFF, IDLE, REVEAL, INPUT, ROUND_DONE, DONE, BROKEN }
 
     private static Phase phase = Phase.OFF;
-    private static int rounds = 5;
+    private static int rounds = 4;
     private static boolean line = true;
-    private static int revealTicks = 8;
-    private static int gapTicks = 4;
+    private static int revealTicks = 4;
+    private static int gapTicks = 2;
     private static Random rng = new Random(1);
     private static final List<BlockPos> sequence = new ArrayList<>();
     private static int round;
@@ -92,10 +100,10 @@ final class HxSimonSays {
 
     static JsonElement build(MinecraftServer server, JsonObject a) {
         ServerLevel level = server.overworld();
-        rounds = a.has("rounds") ? a.get("rounds").getAsInt() : 5;
+        rounds = a.has("rounds") ? a.get("rounds").getAsInt() : 4;
         line = !a.has("line") || a.get("line").getAsBoolean();
-        revealTicks = a.has("revealTicks") ? a.get("revealTicks").getAsInt() : 8;
-        gapTicks = a.has("gapTicks") ? a.get("gapTicks").getAsInt() : 4;
+        revealTicks = a.has("revealTicks") ? a.get("revealTicks").getAsInt() : 4;
+        gapTicks = a.has("gapTicks") ? a.get("gapTicks").getAsInt() : 2;
         rng = new Random(a.has("seed") ? a.get("seed").getAsLong() : 1);
         BlockState air = Blocks.AIR.defaultBlockState();
         // Clear the arena, then a floor for the player, the device wall, and the start button.
