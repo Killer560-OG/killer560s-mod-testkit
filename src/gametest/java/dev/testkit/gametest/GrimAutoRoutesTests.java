@@ -1606,10 +1606,16 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         check(other.isEmpty(), other.size() + " GrimAC line(s) outside what a kept Blink teleport costs: " + other);
     }
 
-    /** What a teleport kept through a Blink charge costs on GrimAC (mod docs/LESSONS-AUTOMATION.md, blink-keep-1027).
-     *  AimDuplicateLook (24 lines in final-1027) is not on that list and still fails the case. */
+    /**
+     * What a teleport kept through a Blink charge costs on GrimAC (mod docs/LESSONS-AUTOMATION.md, blink-keep-1027).
+     * AimDuplicateLook is one of them (campaign-blink-1027): one line per kept teleport (12 for the chain's 12, final-1027;
+     * one per warp in 1026-blink-keep-warp too). The vanilla answer to a teleport is a move carrying the unchanged look, and
+     * GrimAC only takes it as the teleport once the ping it sent with it is answered - Charge holds that answer ~1 s - so
+     * the move is judged as an ordinary one: Simulation (the teleport's distance), GroundSpoof, TickTimer, and an unchanged
+     * look = AimDuplicateLook. Answering that ping first is what used to drop the bank (the owner's rule forbids it).
+     */
     private static final java.util.Set<String> KEPT_BANK_CHECKS =
-            java.util.Set.of("Simulation", "GroundSpoof", "TickTimer", "BadPacketsN", "Timer");
+            java.util.Set.of("Simulation", "GroundSpoof", "TickTimer", "BadPacketsN", "Timer", "AimDuplicateLook");
 
     /** Path nodes across a wall: planned once by the floor planner, the saved warps flown twice. */
     private static void casePath(Session c) {

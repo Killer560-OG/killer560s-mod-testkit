@@ -33,7 +33,6 @@ import static dev.testkit.gametest.BlinkTests.num;
 import static dev.testkit.gametest.BlinkTests.playerName;
 import static dev.testkit.gametest.BlinkTests.pressCharge;
 import static dev.testkit.gametest.BlinkTests.releaseKeys;
-import static dev.testkit.gametest.BlinkTests.serverPos;
 import static dev.testkit.gametest.BlinkTests.setUp;
 import static dev.testkit.gametest.BlinkTests.tearDown;
 
@@ -139,6 +138,33 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
     private static void tp(TestServer server, ClientGameTestContext ctx, double x, double y, double z, float yaw) {
         server.command(String.format(Locale.ROOT, "tp %s %.2f %.2f %.2f %.1f 0", playerName(ctx), x, y, z, yaw));
         ctx.waitTicks(20 + latency() / 25);
+    }
+
+    private static final java.util.regex.Pattern POS = java.util.regex.Pattern.compile(
+            "has the following entity data: \\[(-?[0-9.E-]+)d, (-?[0-9.E-]+)d, (-?[0-9.E-]+)d\\]");
+
+    /**
+     * The server's position for him. BlinkTests.serverPos reads only the last 60 console lines, and a flagged shot puts
+     * 30-60 GrimAC lines after the answer (1027-blink-c-interleave on 3011406a: "the server never answered"); this one
+     * tags its own request and reads 1500.
+     */
+    static double[] serverPos(TestServer server, ClientGameTestContext ctx, String name) {
+        String tag = "cbpos" + System.nanoTime();
+        server.command("say " + tag);
+        server.command("data get entity " + name + " Pos");
+        for (int i = 0; i < 60; i++) {
+            ctx.waitTicks(1);
+            String tail = server.tail(1500);
+            int at = tail.lastIndexOf(tag);
+            if (at >= 0) {
+                java.util.regex.Matcher m = POS.matcher(tail.substring(at));
+                if (m.find()) {
+                    return new double[]{Double.parseDouble(m.group(1)), Double.parseDouble(m.group(2)),
+                            Double.parseDouble(m.group(3))};
+                }
+            }
+        }
+        throw new AssertionError("the server never answered data get entity " + name + " Pos");
     }
 
     private static double[] here(ClientGameTestContext ctx) {
