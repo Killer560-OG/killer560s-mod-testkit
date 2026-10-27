@@ -17,6 +17,7 @@
 			"dev.testkit.gametest.ConfigFolderTests",
 			"dev.testkit.gametest.LayoutFixTests",
 			"dev.testkit.gametest.InvWalkZpewTests",
+			"dev.testkit.gametest.InvWalkCampaignTests",
 			"dev.testkit.gametest.CheatExtrasTests",
 			"dev.testkit.gametest.JoinFingerprintTest",
 			"dev.testkit.gametest.ProofTest",

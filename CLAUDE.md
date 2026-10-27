@@ -381,6 +381,15 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   Blink hold (each is a round trip of a tick or more: check the hold was still running when the answer came).
 - A `dungeon.tp` above a spot followed by a console `fill` there N ticks later lets him fall INTO the blocks as they appear:
   GrimAC Simulation x3 in 787 on every jar. `forceload add`, `sync`, fill, then tp onto it (832/835/787/788 do).
+- `McCompat.setScreen(mc, null)` on a container screen sends NO close packet; `screen.onClose()` (what Escape does) does.
+  The 1025-invwalk cases closed that way for two days and never saw the MultiActionsD every real close drew (1027-iw-*).
+  GrimAC also CANCELS a click it flags (MultiActionsC), so "the server handled 0 clicks" is the flag, not a lost packet;
+  Hx `player.state` and the `serverInput` on container.click/close events give the server's own view without a tick wait.
+- A key pressed the first client tick after an HxAbilities etherwarp landing draws Simulation (.068 falling to .018, 2 or 8
+  lines) with no screen and no mod feature involved (1027-iw-warp's key-after-landing control, 3 of 3); at 50 ms that is
+  exactly when Inventory Walk's first walking tick falls, so judge 1027-iw-warp's L50 rows against that control.
+- A crafting table at 300 ms: the client's prediction of a right-click in the grid differs from the server's result with no
+  mod feature on (1027-iw-craftctl, 3 of 3 on and off alike); the server's final state is the intended one.
 - A tp to where he already stands passes its own position wait before the teleport lands, and the landing then resets the
   look: 799 waits 20 ticks after it and only then looks away from the stand (the bot had clicked it the tick P3 began).
 

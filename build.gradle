@@ -620,6 +620,16 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	if (project.hasProperty("invwalkRawClicks")) {
 		systemProperty "testkit.invwalkRawClicks", "true"
 	}
+	// 1027-iw-*: the latencies every Inventory Walk row runs at:  -PiwLatencies=0,150
+	if (project.hasProperty("iwLatencies")) {
+		systemProperty "testkit.iwLatencies", project.property("iwLatencies")
+	}
+	if (project.hasProperty("iwWarpTrace")) {
+		systemProperty "testkit.iwWarpTrace", "true"
+	}
+	if (project.hasProperty("iwWarpRepeat")) {
+		systemProperty "testkit.iwWarpRepeat", project.property("iwWarpRepeat")
+	}
 	if (project.hasProperty("blinkDigRepeat")) {
 		systemProperty "testkit.blinkDigRepeat", project.property("blinkDigRepeat")
 	}
