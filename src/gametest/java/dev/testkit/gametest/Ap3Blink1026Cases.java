@@ -114,10 +114,13 @@ final class Ap3Blink1026Cases {
             }
             double[] srv0 = new double[]{LANE_X0 + 0.5, 0, z2};
             double[] from = onClient(ctx, mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
-            Object run2 = Ap3RuntimeTests.runNode(z2);
-            Object rel = node("BLINK_RELEASE", LANE_X0 + 0.5, z2, 0f, 0f, 3.0, 3.0);
-            set(rel, "blinkTicks", 20);
-            Ap3RuntimeTests.walkIntoRun(c, z2, run2, rel, node("STOP", LANE_X0 + 30.5, z2, 0f, 0f, 2.0, 2.0));
+            // The release where the leap landed, as his S2's Blink Release node asks it (BlinkCharge.shootFor, what the node
+            // calls), walking on (+x) - no lane walk-in, which would teleport him again and wait.
+            ctx.getInput().holdKey(o -> o.keyUp);
+            onClient(ctx, mc -> {
+                Mod.staticCall(CHARGE, "shootFor", "AP3", 20);
+                return null;
+            });
             Sample fired = null;
             for (int t = 0; t < 120; t++) {
                 ctx.waitTick();
@@ -127,6 +130,8 @@ final class Ap3Blink1026Cases {
                     break;
                 }
             }
+            ctx.waitTicks(4);
+            ctx.getInput().releaseKey(o -> o.keyUp);
             ctx.waitTicks(60);
             int ticks = onClient(ctx, mc -> ((Number) Mod.staticCall(CHARGE, "lastReleaseTicks")).intValue());
             double[] client = onClient(ctx, mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
