@@ -177,8 +177,12 @@ final class TerminalCases {
                 int slot = (Integer) Mod.call(target, "slot");
                 int button = (Integer) Mod.call(target, "button");
                 ContainerInput input = (ContainerInput) Mod.call(target, "clickType");
+                int sent = MenuKit.ev(c, "terminal.click").size();
                 MenuKit.click(c, slot, button, input);
                 clicks++;
+                // Wait for the server's answer, not a fixed 4 ticks: under load (two clients on the machine) the answer
+                // took longer and the same highlight was clicked twice (legit 201/204 flaked, 2026-10-27).
+                c.waitUntil("the server to take the click on " + slot, mc -> MenuKit.ev(c, "terminal.click").size() > sent, 60);
                 c.ctx().waitTicks(4);
             }
             JsonObject solved = MenuKit.awaitEvent(c, "terminal.solved", 40);
