@@ -81,6 +81,9 @@ public class HxSuite implements FabricClientGameTest {
                     // Dungeon alerts of 2026-10-25: low health, Livid extras, score warning, secret feedback, breaker
                     // charges, key spawn (1025-alerts-*, branch dungeon-alerts-1025), own block.
                     HxAlerts1025Cases.register(s);
+                    // ScoreboardData with Custom Scoreboard off; Auto GFS's Dungeons/Kuudra gate (1026-hx-sbdata-*, mod
+                    // open-key-1026), own block.
+                    HxSbData1026Cases.register(s);
                     // Boss Health: name tags and boss bars to HUD lines (1025-bosshp-*, branch boss-hp-1025), own
                     // block, last: it latches the boss room and its cleanup case leaves it again.
                     HxBossHealthCases.register(s);

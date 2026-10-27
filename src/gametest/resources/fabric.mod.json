@@ -40,6 +40,7 @@
 			"dev.testkit.gametest.SimStallTests",
 			"dev.testkit.gametest.SimFloorShapeTests",
 			"dev.testkit.gametest.SimRunTests",
+			"dev.testkit.gametest.SimAutoStartTests",
 			"dev.testkit.gametest.SimMapEditorTests",
 			"dev.testkit.gametest.SimMapFilterTests",
 			"dev.testkit.gametest.SimDesignerFloorTests",
