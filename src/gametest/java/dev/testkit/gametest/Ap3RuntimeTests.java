@@ -124,6 +124,8 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
                     c -> caseBreakerTeleport(c, "1022-ap3-breaker-leap-menu", Arrival.AFTER_MENU, false));
             // mod ap3-backwards-1026: the ledge guard, the boom that runs to its use, the leapcounter: gate.
             Ap3Fix1026Cases.register(s);
+            // mod ap3-stairs-1026: stairs, half-step spirals, lava beside and under the align.
+            Ap3Stairs1026Cases.register(s);
             s.testExpectingFlags("63-ap3-corrections", Ap3RuntimeTests::caseCorrection);
             onClient(ctx, mc -> {
                 PacketTrace.tap = null;
