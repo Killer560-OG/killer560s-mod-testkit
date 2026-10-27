@@ -4912,7 +4912,13 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             giveSlot(ctx, 4, "BAT_WAND");   // the Spirit Sceptre
             setArEnum(ctx, "setKillMimic", "KillMimic", "SPIRIT_SCEPTRE");
             setArEnum(ctx, "setBatWeapon", "CryptWeapon", "SPIRIT_SCEPTRE");
-            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CHEAT_CFG), "setSecretAuraEnabled", true));
+            // Node #6's chest is the mimic on some floors and a plain secret chest on others; Secret Aura opens a plain one,
+            // and with Auto Close Chest off (its default) the window stays up and the route waits under it for good
+            // (final-1027: "held: node #6 PATH waits under a screen (ContainerScreen)" for 60 s). A player closes it.
+            ctx.runOnClient(mc -> {
+                ModUnderTest.set(ModUnderTest.config(CHEAT_CFG), "setSecretAuraEnabled", true);
+                ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"), "setEnabled", true);
+            });
             List<JsonObject> nodes = new ArrayList<>();
             for (JsonElement e : JsonParser.parseString(BRIDGES_ROUTE).getAsJsonArray()) {
                 nodes.add(e.getAsJsonObject());
@@ -4978,7 +4984,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             } catch (Throwable ignored) {
                 // the rebuild below matters more
             }
-            ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+            ctx.runOnClient(mc -> {
+                ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled");
+                ModUnderTest.turnOff("com.killer560.hub.autoclosechest.AutoCloseChestConfig", "setEnabled");
+            });
             setArEnum(ctx, "setKillMimic", "KillMimic", "OFF");
             setArEnum(ctx, "setBatWeapon", "CryptWeapon", "HYPERION");
             forgetRunMemory(ctx);
