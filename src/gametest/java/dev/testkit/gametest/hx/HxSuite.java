@@ -61,6 +61,9 @@ public class HxSuite implements FabricClientGameTest {
                     // Song Tag: a supporter's Spotify song above the name, over the relay (820, branch song-tag), own
                     // block.
                     HxSongTagCases.register(s);
+                    // Spotify Controls, lyric clock re-sync, My Lyrics In F5, Smooth Lyric Scroll, supporter-only
+                    // Share My Song (2840-2845, branch spotify-controls-1026), own block.
+                    HxSpotifyControlsCases.register(s);
                     // Auto Meow replies in the trigger's channel, and Mod Chat sends (874, branch
                     // nt-automeow-channel), own block.
                     HxAutoMeowChannelCases.register(s);
