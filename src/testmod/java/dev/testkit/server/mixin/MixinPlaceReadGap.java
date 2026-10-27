@@ -44,7 +44,7 @@ public class MixinPlaceReadGap {
         long gapMillis = System.currentTimeMillis() - testkit$placeMillis;
         testkit$placeNanos = -1L;
         testkit$LOG.info(String.format(java.util.Locale.ROOT,
-                "[testkit-probe] place read -> next move read: %.2f ms (currentTimeMillis delta %d%s)",
-                gapNanos / 1e6, gapMillis, gapMillis >= 15 ? ", GrimAC judges by the rotation before" : ""));
+                "[testkit-probe] place read -> next move read: %.2f ms (currentTimeMillis delta %d, thread %s)",
+                gapNanos / 1e6, gapMillis, Thread.currentThread().getName()));
     }
 }
