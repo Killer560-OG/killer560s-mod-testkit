@@ -88,6 +88,12 @@ final class ProcWatch implements AutoCloseable {
             if (!expected && pd.handle().isAlive() && now - pd.since() < JUDGE_NANOS) {
                 continue;
             }
+            // A child whose parent is still waiting to be judged (csc.exe's cvtres.exe, seen in the same poll) waits for
+            // it: judged first, it found its parent not yet expected and counted (370, final-1027).
+            if (!expected && pending.containsKey(pd.parent()) && pd.parent() != pd.handle().pid()
+                    && now - pd.since() < JUDGE_NANOS) {
+                continue;
+            }
             it.remove();
             synchronized (seen) {
                 (expected ? expectedSeen : seen).add(pd.handle().pid() + " " + pd.cmd() + (expected ? " (" + why + ")" : ""));
@@ -102,6 +108,14 @@ final class ProcWatch implements AutoCloseable {
 
     /** Judges every child still waiting (the end of the run): what is not expected by now counts. */
     private synchronized void flush() {
+        // Parents first: an expected parent still pending makes its children expected too.
+        for (int pass = 0; pass < 3; pass++) {
+            for (Pending pd : pending.values()) {
+                if (expectedWhy(pd.handle(), pd.parent()) != null) {
+                    expectedPids.add(pd.handle().pid());
+                }
+            }
+        }
         for (Pending pd : pending.values()) {
             String why = expectedWhy(pd.handle(), pd.parent());
             synchronized (seen) {
