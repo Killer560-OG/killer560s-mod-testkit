@@ -116,22 +116,24 @@ final class Ap3AngleLeapCases {
                 McCompat.setScreen(mc, null);
                 return null;
             });
-            String described = c.onClient(mc -> String.valueOf(Mod.call(nodes(c).get(2), "describe")));
+            Object boomNode = nodes(c).get(2);
+            String described = c.onClient(mc -> String.valueOf(Mod.call(boomNode, "describe")));
             c.note("the Boom describes as: " + described);
             c.check(described.contains("leapcounter:3"), "describe() does not show the suffix: " + described);
 
             Object boom = Mod.enumValue("ap3.Ap3Node$Type", "BOOM");
-            c.onClient(mc -> {
-                Object a = parse(boom, "leapcounter:2 wait:100");
-                Object b = parse(boom, "lc 3");
-                Object bad = parse(boom, "leapcounter:9");
+            Object[] parsed = c.onClient(mc -> new Object[]{parse(boom, "leapcounter:2 wait:100"), parse(boom, "lc 3"),
+                    parse(boom, "leapcounter:9")});
+            {
+                Object a = parsed[0];
+                Object b = parsed[1];
+                Object bad = parsed[2];
                 c.check(a != null && Integer.valueOf(2).equals(Mod.field(a, "leapCounter")), "leapcounter:2 parsed as "
                         + (a == null ? "null" : Mod.field(a, "leapCounter")));
                 c.check(b != null && Integer.valueOf(3).equals(Mod.field(b, "leapCounter")), "lc 3 parsed as "
                         + (b == null ? "null" : Mod.field(b, "leapCounter")));
                 c.check(bad == null, "leapcounter:9 (over the maximum) was accepted");
-                return null;
-            });
+            }
         } finally {
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
