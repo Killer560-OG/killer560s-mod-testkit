@@ -78,6 +78,9 @@ public class HxSuite implements FabricClientGameTest {
                     HxStaleCases.register(s);
                     // Boss Health: name tags and boss bars to HUD lines (1025-bosshp-*, branch boss-hp-1025), own
                     // block, last: it latches the boss room and its cleanup case leaves it again.
+                    // Performance HUD stutters: frame times and attribution (1026-stutter-*, branch stutter-1026).
+                    // Before Boss Health, which latches the boss room until its cleanup case.
+                    HxStutterCases.register(s);
                     HxBossHealthCases.register(s);
                 });
     }
