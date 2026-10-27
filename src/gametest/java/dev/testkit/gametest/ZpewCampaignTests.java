@@ -847,7 +847,9 @@ public class ZpewCampaignTests implements FabricClientGameTest {
                         }
                         stuck[0] = 0;
                     }
-                    // two uses in ONE tick at the same look: the second is cast from the first's landing
+                    // two uses at the same look, the second cast from the first's landing. NOT one tick: pressKey holds
+                    // each press a tick, so they go on consecutive ticks (ZPEW log: ticks 1991, 1992). The real same-tick
+                    // case is ZpewMultiTickTests (1027-zpewmt-*).
                     {
                         int z = Z0 + 10;
                         tpTo(ctx, server, who, X0 + 0.5, Y, z + 0.5, true);
