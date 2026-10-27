@@ -69,6 +69,8 @@ final class HxTriggerDelayCases {
             TriggerTiming.lookAway(c);
             c.ctx().waitTicks(10);
             long[] t = new long[2];
+            double[] ms = {-1, -1};
+            double msPerTick = 50.0;
             int[] delays = {0, 400};
             for (int i = 0; i < 2; i++) {
                 int delay = delays[i];
@@ -80,13 +82,15 @@ final class HxTriggerDelayCases {
                 t[i] = TriggerTiming.ticksToFire(c, new Vec3(p[0] + 0.5, p[1] + 0.4, p[2] + 0.5), "use_block",
                         e -> e.getAsJsonArray("pos").get(0).getAsInt() == p[0]
                                 && e.getAsJsonArray("pos").get(2).getAsInt() == p[2], null, 80);
+                ms[i] = TriggerTiming.lastFireMs();
+                msPerTick = Math.max(msPerTick, TriggerTiming.lastMsPerTick());
                 c.ctx().waitTicks(3);
                 closeScreen(c);
                 TriggerTiming.lookAway(c);
                 c.ctx().waitTicks(15); // past the 250 ms cooldown
             }
             if (Mod.isCheat()) {
-                TriggerTiming.judge(c, "Secret Triggerbot", t[0], t[1], delays[1]);
+                TriggerTiming.judgeMs(c, "Secret Triggerbot", ms, msPerTick, delays[1]);
             } else {
                 c.check(t[0] < 0 && t[1] < 0, "legit jar: a secret was clicked by itself");
             }
@@ -164,6 +168,8 @@ final class HxTriggerDelayCases {
             }
             Vec3 face = new Vec3(DX + 0.5, 70.5, DZ - 0.01);
             long[] t = new long[2];
+            double[] ms = {-1, -1};
+            double msPerTick = 50.0;
             int[] delays = {0, 500};
             for (int i = 0; i < 2; i++) {
                 int delay = delays[i];
@@ -177,6 +183,8 @@ final class HxTriggerDelayCases {
                         e -> e.getAsJsonArray("pos").get(2).getAsInt() == DZ,
                         () -> c.hx().chat("RIGHT CLICK on a WITHER door to open it. This key can only be used to open 1 door!"),
                         60);
+                ms[i] = TriggerTiming.lastFireMs();
+                msPerTick = Math.max(msPerTick, TriggerTiming.lastMsPerTick());
                 if (t[i] < 0) {
                     c.note("door diag: " + c.onClient(mc -> "pending " + Mod.field("doorhelpers.AutoDoorOpenerFeature",
                             "pendingTicks") + ", aim " + Mod.field("doorhelpers.AutoDoorOpenerFeature", "triggerAimDoor")
@@ -189,7 +197,7 @@ final class HxTriggerDelayCases {
                 c.ctx().waitTicks(30); // past the 500 ms retry delay
             }
             if (cheat) {
-                TriggerTiming.judge(c, "Auto Door Opener (Triggerbot)", t[0], t[1], delays[1]);
+                TriggerTiming.judgeMs(c, "Auto Door Opener (Triggerbot)", ms, msPerTick, delays[1]);
             } else {
                 c.check(t[0] < 0 && t[1] < 0, "legit jar: a door was clicked by itself");
             }

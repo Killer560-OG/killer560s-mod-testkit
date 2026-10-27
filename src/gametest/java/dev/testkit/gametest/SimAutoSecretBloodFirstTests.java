@@ -31,7 +31,8 @@ import java.util.concurrent.atomic.AtomicReference;
  *       secret rooms OFF the rush path, Auto Clear switched on (so Door Camp could use it and must not).
  *       <ol>
  *         <li><b>door camp</b>: it goes to the blood door and opens it (the lock block is air) before any secret target;
- *             nothing is handed to Auto Clear (R's zombie is left); afterwards both routes run; Blood First ends "done".</li>
+ *             nothing is handed to Auto Clear before the door is open (afterwards the Room Plan may clear R as a tour stop);
+ *             both routes run; Blood First ends "done".</li>
  *         <li><b>full blood rush</b>: R is handed to Auto Clear ("Blood First (Full Blood Rush): clearing R") and is
  *             cleared on the map, then the blood door is opened, all before any secret target; then both routes run.</li>
  *         <li><b>off</b>: the first thing it does is a secret target, it never goes to the blood door and the door stays
@@ -113,13 +114,26 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
         List<String> failures = new ArrayList<>();
         try {
             for (String mode : List.of("DOOR_CAMP", "FULL_BLOOD_RUSH", "OFF")) {
-                try {
-                    oneMode(ctx, mode, failures);
-                } catch (Throwable t) {
-                    failures.add(mode + ": threw " + t);
-                    t.printStackTrace(System.out);
-                } finally {
-                    stopAll(ctx);
+                // A trip the map planned across a room it had not identified yet can land in the floor's trap room, where
+                // no etherwarp works and Auto Secret stops by design (preexisting-1026: Museum -> Overgrown landed in New
+                // Trap). Trap rooms are not functional yet (killer560): that floor measured nothing about Blood First, so
+                // the mode runs again on a new floor, three floors at most.
+                for (int floorTry = 1; floorTry <= 3; floorTry++) {
+                    try {
+                        oneMode(ctx, mode, failures);
+                        break;
+                    } catch (TrapStop t) {
+                        println(t.getMessage() + (floorTry < 3 ? " - a new floor" : ""));
+                        if (floorTry == 3) {
+                            failures.add(t.getMessage() + " on three floors running");
+                        }
+                    } catch (Throwable t) {
+                        failures.add(mode + ": threw " + t);
+                        t.printStackTrace(System.out);
+                        break;
+                    } finally {
+                        stopAll(ctx);
+                    }
                 }
             }
         } finally {
@@ -186,6 +200,17 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
                     continue;
                 }
                 JsonObject route = SimAutopilotTests.routeFor(ctx, s);
+                // Only a stand some warp lands ON: a start node's warp is exact, and a stand only reached by a near
+                // landing never arms ("landed, but its start node did not arm - skipped"), which is the planner's
+                // business, not Blood First's (147's rule; Silver Sword in preexisting-1026's final run).
+                if (route != null) {
+                    net.minecraft.core.BlockPos stand = SimAutopilotTests.standOf(ctx, s);
+                    Vec3 here = ctx.computeOnClient(mc -> mc.player.position());
+                    if (stand == null || !SimAutoSecretOptimizeTests.landsOn(ctx, here, stand)) {
+                        println(tag + ": " + s.name() + " left out - no warp lands exactly on its stand " + stand);
+                        route = null;
+                    }
+                }
                 if (route != null) {
                     secretRooms.add(s);
                     routes.put(s.name(), route);
@@ -320,6 +345,11 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
         int bloodOpened = indexOf(log, "blood door at cell " + bloodCell + " is open");
         int clearR = indexOf(log, "Blood First (Full Blood Rush): clearing " + roomR.name());
         int handed = indexOf(log, "[AutoSecret] handing ");
+        for (String l : log) {
+            if (l.contains("[AutoSecret] stopped: in New Trap") || l.contains("[AutoSecret] stopped: in Old Trap")) {
+                throw new TrapStop(tag + ": the trip landed in a trap room and Auto Secret stopped there");
+            }
+        }
         int rFinished = 0;
         for (String n : routes.keySet()) {
             int f = indexOf(log, "[AutoSecret] route " + n + " finished");
@@ -347,8 +377,13 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
                 if (firstTarget >= 0 && (bloodOpened < 0 || firstTarget < bloodOpened)) {
                     failures.add(tag + ": a secret room was targeted before the blood door opened");
                 }
-                if (handed >= 0 || rCleared) {
-                    failures.add(tag + ": it cleared a room (hand-over line " + handed + ", R cleared " + rCleared
+                // Door Camp's own part only opens doors: nothing goes to Auto Clear before the blood door is open. After
+                // it, the secrets part runs under the Room Plan, and its default Fastest Total (mod 4119ac75, killer560
+                // 2026-10-19: "it can do either") clears a mob room as a stop on the tour while Auto Clear is on - R
+                // included - so a hand-over after the door is the plan's, not Door Camp's.
+                if (clearR >= 0 || handed >= 0 && (bloodOpened < 0 || handed < bloodOpened)) {
+                    failures.add(tag + ": it cleared a room before the blood door opened (Blood First clear line " + clearR
+                            + ", hand-over line " + handed + ", blood open line " + bloodOpened
                             + ") - Door Camp only opens doors");
                 }
                 if (!"DOOR_CAMP done".equals(state)) {
@@ -388,6 +423,13 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
                     failures.add(tag + ": Blood First state " + state + ", want OFF");
                 }
             }
+        }
+    }
+
+    /** The run stopped inside the floor's trap room: nothing about Blood First was measured. */
+    private static final class TrapStop extends RuntimeException {
+        TrapStop(String message) {
+            super(message);
         }
     }
 

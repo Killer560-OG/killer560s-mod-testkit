@@ -109,6 +109,21 @@ Split out of [CLAUDE.md](../CLAUDE.md) on 2026-10-06 to keep it under its size l
   advance on every text HUD element (6 on one), so 394-ui-hud-boxes' first run read every correctly sized text box as
   spilling (2026-10-07). Measure text with `TextRuns.box` (advance width x line height through the pose); its fields are
   private on 26.2, so `TextRuns` reads them by name.
+- A fill's `bounds()` is `floor(left)` + `ceil(width)`, so at a fractional HUD scale (Auto Scale draws "1.0" at 0.8 on a
+  1366x768 GUI 2 window) it lands a pixel either side of the real edge, and which side depends on the left edge too.
+  1668/1669 read the custom scoreboard's largest element's bounds as its wall and failed 662 vs 663 for a wall drawn at
+  exactly 663 - also because since mod b7dd38cd (border on by default) the largest fill is the background inset by the
+  border. Measure fills exactly: ColoredRectangleRenderState `x0`/`x1` through its `pose` (HxScoreboardAnchorCases.fillLR),
+  over every visible fill, GuiRects batch parts included.
+- A row in a menu drawer can be laid out below the visible band (Player Cosmetics' Custom Names "Preview:" sat at y 521 on a
+  480-high screen once Ribbon Trail joined the drawer, 2026-10-18); cropping a screenshot there threw
+  NegativeArraySizeException (814, 963). Scroll it in first (`ModScreen.scrollOffset` + `rebuild`, then wait until
+  `drawnScroll` equals `scrollOffset`, as `HxCosmeticNameCases.previewRect` does). The scoreboard editor's Settings panel
+  adds only the rows inside it, so its Advanced Box group (Padding, Background Color) is absent from `children()` until
+  the panel is wheeled down (`HxScoreboardCases.wheelPanel`, 718 and 1666).
+- Hx cases that pin a design go stale when the owner redesigns: 113 (Auto Kick became Party Finder only, mod 95d9e514),
+  576 (every Party Commands command starts ON, 4a7ffc31), 578 (no command answers a stranger, 41099b8f), 718/719/1666
+  (Custom Scoreboard's 2026-10-18 Settings order, 3a957c1a). Before "fixing" the mod, read the feature's `git log`.
 
 - 236-menu-partyfinder-style (`PartyFinderStyleCases`): for each Party Finder style it compares the REAL tooltip (`getTooltipFromContainerItem`, through the mod's mixin) with the settings preview (`renderPreviewLines`) color run by color run, after putting the preview's own stats into `PartyFinderStatsApi.CACHE`; and, with no stats (offline = what Hypixel's stats service gives on 2026-10-07), that every member line is still styled and draws 0x555555 brackets. Highlight is judged by pure green/red pixels per slot against a highlight-off frame. Fails on mod 0b492828, passes on pf-overlay 2aecfd9a.
   The selected dungeon class (`PartyFinderOverlay.currentRole`) is session state: 234-menu-dungeonclass-select leaves it
@@ -476,8 +491,12 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   Terminal Protection's window from a server-opened "Click in order!" menu, the rest from their timing functions). A pong
   injected into `PingTracker.onPong` must be stamped with `Util.getMillis()` (called through `Mod.staticCall`), not
   `System.nanoTime()/1e6`: the first run's 2000 ms spike was silently rejected as an out-of-range round trip.
-- **786-788, 797-799 (trigger-bot delays)**: `hx/TriggerTiming` turns the view onto the target and reads the click on the
-  server's clock (Hx `server.tick` against the event's tick); each case compares delay 0 with a longer one. Traps met on
+- **786-788, 797-799 (trigger-bot delays)**: `hx/TriggerTiming` turns the view onto the target and, since preexisting-1026,
+  counts CLIENT ticks from the aim to the client's own packet (a `PacketTrace.tap`, a START_CLIENT_TICK counter in a
+  phase AHEAD of the mod's handlers); the Hx event only proves the server handled it. On the server's clock a 400 ms
+  delay read 6 ticks under nine clients (787, 797). Secret Triggerbot and the Auto Door Opener (797/798) time their
+  delay with `System.currentTimeMillis`, so they are judged in milliseconds (`judgeMs`, tolerance 1.5 measured client
+  ticks); the P3 trigger bots count whole ticks. Each case compares delay 0 with a longer one. Traps met on
   2026-10-11: a console `fill` silently does nothing in an unloaded area (`forceload add` first, or be there); the Hx world
   has terrain at (-169, -185), so clear above a built structure; a second `dungeon.tp` to the SAME spot passes a
   position wait before it lands and then resets the look; `summon item_frame {Facing:5b}` did not stick (Hx `frame` op);
@@ -591,7 +610,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   Secret Aura's turn to a chest does). Controls: a left-click skip lands; the lever clicked with an empty hand lands; a raw use
   a tick after a click with the body NOT turned is ignored (rule live); the human stream (look at the lever, click; next tick
   look at the warp's block + sneak; next tick a real use key press) lands. The case: the lever clicked with the AOTV held must
-  land with the warp 1 tick after firing; an item pickup (no click) must warp and land with no turn. 2026-10-15: new jar
+  land with the warp at most 2 ticks after firing (1 until mod c81e0cf0 added the click-gap hold, 2026-10-19); an item pickup (no click) must warp and land with no turn. 2026-10-15: new jar
   (nexttick) acted 1 tick after firing, landed 3 ticks after the click, 0 ignored, PASS; the click-gap jar (95e50d7c) held 4
   ticks and was STILL ignored (never landed), FAIL; the jar before it (8cf017b7) ignored at 1 tick, FAIL. `waitLanded(ctx, x, z, 0)` used to check NOTHING (its loop ran `ticks` times) and always
   returned null - the first run of this case read every landing as "never"; earlyskip's in-flight checks and mimicskip's
@@ -1149,3 +1168,35 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   `1070-imgprev-session+` starts the session with NO cases; use `-imgprev-`. Pictures come from an in-JVM `HttpServer` on
   an ephemeral 127.0.0.1 port, named trusted through `killer560.test.imagePreviewHosts` and standing in for imgur through
   the `imgur-api` / `imgur-i` service overrides (which also let it through `killer560.net.offline`).
+- Sim Auto Secret cases (102, 144-147): the room in front of the blood door is held by Auto Secret until every other room
+  with secrets is done, the closed door's room included (killer560 2026-10-18, mod 1e31ca30). A case that routes it, or
+  picks it as the far or no-route room, judges that rule instead of its own (102 "the route in Flags never started", 145
+  "the old order did not cross the map"). Leave it out with `SimAutoSecretTests.preBloodName`; 1018-sim-autosecret-preblood
+  tests the hold itself.
+- 147's stand for a secret: never directly under the secret's block (a sim chest spawns in there only once he has been near,
+  so the spot reads as head room when the case is picked, and later the start node is inside the chest), landed on EXACTLY
+  (`EtherwarpPathfinder.findOptimalPath`; the plain `findDungeonPath` also accepts a near landing, and a start node off its
+  ring never arms - "did not arm - skipped"), and with a warp back out (a nook no warp leaves strands the rest of the floor).
+- 146 under load: the server's answer to a landing is counted two ticks after the warp when it answers at once; with nine
+  clients it can come a tick later. The case now measures the tick the arrival was counted (`ClearExecutor.arrivalSeq`
+  polled each tick) and charges the mod only for what follows it.
+- 148 Door Camp: Room Plan Fastest Total (default since mod 4119ac75) clears mob rooms as tour stops after the door, so
+  "nothing handed to Auto Clear" holds only until the blood door is open.
+- 102's HUD is sampled every 10 ticks, and a planned-ahead trip plus a one-node route can finish inside one sample, so the
+  first sample is judged against the target under way at its own done count, not against the first target logged.
+- run-scenario.ps1 prints a `jcmd Thread.print` of a client it kills as frozen (between THREAD DUMP / END THREAD DUMP).
+- **96-ar stale cases fixed on pre1026-ar (2026-10-26).** Five 96-ar cases had failed since mod c81e0cf0 / 0c85c603
+  (2026-10-19) and 1c6f4a28 (2026-10-20) changed intended behavior; each test now asserts the current rule. stackorder:
+  a boom that blew its wall this run is not sent again, so each pass (walls rebuilt) forgets the run first. 659-ewblockwait
+  legacy control: a node without placeEye and a stone in its line is held by the aim check (`aimHolds`, no 659 wait), then
+  lands once the stone goes. 1015-landpickup: "left click" matched every "secret wait start" line ("a left click skips it");
+  it matches a skip's own lines now. 1015-warpclick: the warp after a same-item click goes on the click-gap tick (2 after
+  firing; Hypixel dropped 45 of 69 at one tick), not the next. 1016-activeframe: a last WALK node begins and ends inside
+  one tick (no settle between obvious-mode nodes), so it is never drawn active; #3 is a third etherwarp.
+  1016-auranoawait "flaky": not load but order - `AwaitEvents.begin` logs every secret got before the route start
+  ("(clicked by you, key found) 80 tick(s) before the route started"), and in the full 96-ar session keyreach's key
+  placement is still there. The during-the-route check skips "before the route started" lines.
+- 96-ar-1016-activeframe also failed under load ("the renderer drew only 18 frame(s)", 20 required, batch1026-c-ar-1): the
+  frame count is now only a floor of 3; "3 nodes drawn active" with 0 mismatches is what proves the highlight follows.
+- 96-ar-1017-bridges failed in batch1026-c-ar-1 too (the batch report missed it): a MOD bug, the path arrival #16 stacked on
+  #3's tile fired after #3's etherwarp moved him and stopped "not at path #16". Fixed in mod 1e34b9a7 (pre1026-ar).

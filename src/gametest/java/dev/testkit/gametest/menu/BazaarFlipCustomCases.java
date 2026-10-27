@@ -996,6 +996,10 @@ final class BazaarFlipCustomCases {
         double quote = 1_950.0;
         double npc = 2_400.0;
         int units = 100;
+        // The bug needs the units BEFORE the Bought line. Under load (preexisting-1026, nine clients) the Bought line once
+        // arrived first: the mod then took its charge straight away (spent 190,000, right) and wrote no correction line,
+        // so that run never reached the path this case is about. Such a run is tried again, three times in all.
+        for (int attempt = 1; ; attempt++) {
         try (AutoCloseable w = world(c, PUFFER, units, each, npc, 0, 10, false)) {
             JsonObject page = instant(PUFFER, PUFFER_CUT, each, quote, "71,680", Sign.normal(), 1);
             c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", bazaar(PUFFER, page)));
@@ -1006,8 +1010,15 @@ final class BazaarFlipCustomCases {
             FlipCroesusCases.requestStop(c);
             c.check(FlipCroesusCases.first(signAmounts(c), 1).equals(List.of("100")), "sign amounts " + signAmounts(c));
             c.check(given(c) >= units && sold(c) >= units, "delivered " + given(c) + ", sold " + sold(c));
-            c.check(FlipMarket.logged(mark, "Bought line for " + PUFFER.name()), "the Bought line never corrected the"
-                    + " quote's estimate (did the units not come first?)");
+            boolean corrected = FlipMarket.logged(mark, "Bought line for " + PUFFER.name());
+            if (!corrected && attempt < 3) {
+                double early = num(cycleAt(c, before), "spent");
+                c.note("attempt " + attempt + ": the Bought line came before the units (spent " + early
+                        + ", no correction needed) - the units-first path was not reached, again");
+                continue;
+            }
+            c.check(corrected, "the Bought line never corrected the quote's estimate in three runs (the units never came"
+                    + " first)");
             Object cyc = cycleAt(c, before);
             double spent = num(cyc, "spent");
             c.check(Math.abs(spent - units * each) < 1, "spent " + spent + ": the Bought line charged " + units * each
@@ -1016,6 +1027,8 @@ final class BazaarFlipCustomCases {
                     .findFirst().orElse("");
             c.check(line.contains("spent 190,000") && !line.contains("estimated"), "sale line: \"" + line + "\"");
             c.note("quote 1,950 (+4%), Bought line 1,900: record spent " + spent + "; \"" + line.trim() + "\"");
+        }
+        break;
         }
     }
 

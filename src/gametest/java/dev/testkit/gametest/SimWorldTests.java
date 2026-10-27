@@ -210,12 +210,15 @@ public class SimWorldTests implements FabricClientGameTest {
                                         {18, 69, 16}, {18, 70, 16}, {19, 70, 16}});
                         case "1018-sim-skull-redstone-key" -> SkullPrince1018.skull(ctx, "Redstone Key",
                                 new int[]{28, 68, 8}, SkullPrince1018.box(19, 22, 68, 68, 24, 24));
-                        case "1018-sim-prince-stairs" -> SkullPrince1018.prince(ctx, "Stairs", new int[]{16, 89, 12},
-                                new int[]{14, 13, 90}, new int[][]{{15, 89, 11}, {15, 89, 12}, {15, 89, 13}, {16, 89, 11},
-                                        {16, 89, 15}, {17, 89, 11}, {17, 89, 15}, {18, 89, 11}, {18, 89, 15}, {19, 89, 12},
-                                        {19, 89, 13}},
-                                // the rest of the ledge it is set into (one ring, not a flood)
-                                new int[][]{{14, 89, 12}, {13, 89, 11}});
+                        // Stairs' carpeted lantern is NOT a prince since mod 4f4231bb (killer560, 2026-10-19, of
+                        // Pirate's three identical tables: "these are not princes in pirates"; a crown needs air above
+                        // it, and Stairs' 3x3 at y 89 has a light gray carpet on its lantern). This case was written the
+                        // day before, when it was one; it now checks the rule holds and a Superboom leaves it standing.
+                        case "1018-sim-prince-stairs" -> SkullPrince1018.notPrince(ctx, "Stairs", new int[]{17, 89, 13},
+                                new int[]{16, 89, 12}, new int[]{14, 13, 90},
+                                // the 3x3's own andesite and the ledge round it
+                                new int[][]{{16, 89, 12}, {16, 89, 14}, {18, 89, 12}, {18, 89, 14}, {15, 89, 12},
+                                        {16, 89, 11}, {17, 89, 15}, {19, 89, 13}, {14, 89, 12}, {13, 89, 11}});
                         case "1018-sim-prince-withermancer" -> SkullPrince1018.prince(ctx, "Withermancer",
                                 new int[]{29, 73, 34}, new int[]{26, 34, 71}, new int[][]{{28, 71, 34}, {28, 71, 35},
                                         {29, 71, 33}, {29, 71, 34}, {29, 71, 35}, {29, 71, 36}, {30, 71, 33}, {30, 71, 34},
@@ -2232,6 +2235,40 @@ public class SimWorldTests implements FabricClientGameTest {
                     + " batch redstone blocks still standing after the key went in");
             check(othersAfter == others.size(), "placing the key took " + (others.size() - othersAfter)
                     + " redstone block(s) that are not the batch");
+        }
+
+        /**
+         * A sea lantern ringed by polished andesite with something on top of it is not a prince (CryptScanner.isPrinceCrown:
+         * the crown is the tomb's open top). Premise: the capture has the lantern, its ring and a block over it; then no
+         * block of it is part of a prince, and a Superboom aimed at it opens no prince and takes none of its andesite.
+         */
+        static void notPrince(ClientGameTestContext ctx, String room, int[] lanternC, int[] seedC, int[] standC,
+                              int[][] andesiteC) {
+            build(ctx, room);
+            BlockPos lantern = capW(ctx, room, lanternC[0], lanternC[1], lanternC[2]);
+            BlockPos seed = capW(ctx, room, seedC[0], seedC[1], seedC[2]);
+            List<BlockPos> andesite = capList(ctx, room, andesiteC);
+            String lanternBlock = blockName(ctx, lantern);
+            String over = blockName(ctx, lantern.above());
+            int andesiteBefore = countIs(ctx, andesite, Blocks.POLISHED_ANDESITE);
+            boolean lanternPart = isPart(ctx, lantern);
+            boolean seedPart = isPart(ctx, seed);
+            say("1018 not-a-prince " + room + " before: " + lanternBlock + " under " + over + ", a prince: lantern "
+                    + lanternPart + ", andesite " + seedPart + "; polished andesite " + andesiteBefore + "/" + andesite.size());
+            check(lanternBlock.equals("sea_lantern") && !over.equals("air") && andesiteBefore == andesite.size(),
+                    "premise: the capture is not a covered lantern in polished andesite (" + lanternBlock + " under " + over
+                            + ", andesite " + andesiteBefore + "/" + andesite.size() + ")");
+            check(!lanternPart && !seedPart, room + "'s covered lantern was taken for a prince (lantern " + lanternPart
+                    + ", andesite " + seedPart + ")");
+            stand(ctx, room, standC[0], standC[1], standC[2],
+                    new double[]{seedC[0] + 0.5, seedC[1] + 0.5, seedC[2] + 0.5});
+            String line = boom(ctx, seed, Direction.UP);
+            int andesiteAfter = countIs(ctx, andesite, Blocks.POLISHED_ANDESITE);
+            say("1018 not-a-prince " + room + " after one Superboom: polished andesite " + andesiteAfter + "/"
+                    + andesite.size() + ", lantern " + blockName(ctx, lantern) + "; " + line);
+            check(line.contains("prince=false"), "the Superboom opened a prince at " + room + "'s covered lantern: " + line);
+            check(andesiteAfter == andesite.size(), "the Superboom took " + (andesite.size() - andesiteAfter)
+                    + " polished andesite block(s) of " + room + "'s covered lantern");
         }
 
         static void prince(ClientGameTestContext ctx, String room, int[] seedC, int[] standC, int[][] ownedC,

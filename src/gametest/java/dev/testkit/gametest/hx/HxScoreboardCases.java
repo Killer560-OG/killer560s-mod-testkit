@@ -36,7 +36,7 @@ import static dev.testkit.gametest.hx.HxKit.*;
  *       look moves to the new one while a changed color is kept.</li>
  *   <li>1664 the lines drawn by the in-game layer are the real sidebar's (area, purse, lobby, footer).</li>
  *   <li>1665 a rebuild that reads the same keeps the same line list object (the frames' caches hold).</li>
- *   <li>1666 the editor's Settings page: the short list, Advanced closed by default and opening on click, Snap X / Snap Y /
+ *   <li>1666 the editor's Settings page: killer560's 2026-10-18 row order, Advanced closed by default and opening on click, Snap X / Snap Y /
  *       Screen Margin gone, every button with a tooltip and no overlaps.</li>
  *   <li>1667 a screenshot of the board in game (run on the old jar for "before"), copied to
  *       {@code TESTKIT_SCOREBOARD_SHOTS} when that is set.</li>
@@ -486,6 +486,18 @@ final class HxScoreboardCases {
         return out;
     }
 
+    /** Turns the mouse wheel over the editor's settings panel (its real mouseScrolled path, which clamps and rebuilds):
+     *  negative {@code amount} scrolls down. */
+    static void wheelPanel(Session c, Screen s, double amount) {
+        c.onClient(mc -> {
+            int px = ((Number) Mod.field(s, "panelX")).intValue();
+            int top = ((Number) Mod.field(s, "panelTop")).intValue();
+            s.mouseScrolled(px + 4, top + 4, 0, amount);
+            return null;
+        });
+        c.ctx().waitTicks(2);
+    }
+
     private static void settingsPage(Session c) {
         try (Saved saved = new Saved(c)) {
             enable(c);
@@ -527,7 +539,21 @@ final class HxScoreboardCases {
             c.check(closed.stream().noneMatch(l -> l.startsWith("Padding") || l.startsWith("Border")),
                     "box settings show with Advanced closed: " + closed);
             c.check(closed.stream().anyMatch(l -> l.startsWith("Reset Position")), "no Reset Position: " + closed);
-            c.check(closed.size() <= 18, closed.size() + " widgets on the closed Settings page");
+            // The page as killer560 ordered it on 2026-10-18 (mod 3a957c1a, "in killer560's order", plus Hide In Menus
+            // from 90b14487): it grew from the 1015 short list (at most 18 widgets) to these rows on purpose, and the
+            // box (Background, Blur, Corners, Border) stays under Advanced.
+            List<String> want = List.of("Board", "Settings", "Theme:", "Text Align:", "Reset Position",
+                    "Hide With Tab List:", "Hide With Chat Open:", "Hide In Menus:", "Numbers:", "Number Style:",
+                    "Line Spacing:", "Text Shadow:", "Image Background:", "Image Opacity:", "Reload Image",
+                    "Open Image Folder", "24h SkyBlock Time:", "Date Format:", "Outside Skyblock:", "Clickable Lines:",
+                    "Move it in Edit HUD.", "▶ Advanced", "Done");
+            boolean inOrder = closed.size() == want.size();
+            for (int i = 0; inOrder && i < want.size(); i++) {
+                inOrder = closed.get(i).startsWith(want.get(i));
+            }
+            c.check(inOrder, "the closed Settings page is not killer560's 2026-10-18 list: " + closed);
+            c.check(closed.stream().noneMatch(l -> l.startsWith("Background")),
+                    "Background rows show with Advanced closed: " + closed);
             net.minecraft.client.gui.components.AbstractWidget adv = c.onClient(mc -> {
                 for (var child : now.children()) {
                     if (child instanceof net.minecraft.client.gui.components.AbstractWidget w
@@ -540,9 +566,20 @@ final class HxScoreboardCases {
             click(c, adv);
             boolean remembered = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(CFG), "isEditorAdvancedOpen"));
             c.check(remembered, "clicking Advanced did not open it (setting still closed)");
-            List<String> open = c.onClient(mc -> labels(now));
-            c.note("Settings page, Advanced open: " + open);
-            c.check(open.stream().anyMatch(l -> l.startsWith("Padding")) && open.stream().anyMatch(l -> l.startsWith("Hide Vanilla Scoreboard")),
+            List<String> open = new ArrayList<>(c.onClient(mc -> labels(now)));
+            // The page is longer than the panel since the 2026-10-18 order (3a957c1a): the Box group is below the fold
+            // and only rows inside the panel are added, so wheel to the bottom as a player would, and back.
+            wheelPanel(c, now, -1000);
+            List<String> bottom = c.onClient(mc -> labels(now));
+            wheelPanel(c, now, 1000);
+            for (String l : bottom) {
+                if (!open.contains(l)) {
+                    open.add(l);
+                }
+            }
+            c.note("Settings page, Advanced open (top, then wheeled to the bottom): " + open);
+            c.check(open.stream().anyMatch(l -> l.startsWith("Padding")) && open.stream().anyMatch(l -> l.startsWith("Hide Vanilla Scoreboard"))
+                            && open.stream().anyMatch(l -> l.startsWith("Background Color")),
                     "Advanced opened without its settings: " + open);
             List<String> all = new ArrayList<>(closed);
             all.addAll(open);

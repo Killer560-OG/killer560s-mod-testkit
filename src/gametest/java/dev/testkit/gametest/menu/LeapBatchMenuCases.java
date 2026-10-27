@@ -401,6 +401,19 @@ final class LeapBatchMenuCases {
             }
         });
         List<String> rows = new ArrayList<>();
+        java.util.concurrent.atomic.AtomicInteger clicksSent = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.function.Consumer<net.minecraft.network.protocol.Packet<?>> tapWas = c.onClient(mc -> {
+            java.util.function.Consumer<net.minecraft.network.protocol.Packet<?>> was = dev.testkit.harness.PacketTrace.tap;
+            dev.testkit.harness.PacketTrace.tap = p -> {
+                if (was != null) {
+                    was.accept(p);
+                }
+                if ("container_click".equals(p.type().id().getPath())) {
+                    clicksSent.incrementAndGet();
+                }
+            };
+            return was;
+        });
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set(CFG, "Enabled", true);
             c.hx().give(0, MenuKit.item("items.spirit-leap"));
@@ -426,8 +439,14 @@ final class LeapBatchMenuCases {
                     c.waitUntil("the Spirit Leap menu to be ready", mc -> ((Number) Mod.staticCall(FEAT,
                             "lastOpenToReadyMs")).doubleValue() >= 0, 100);
                 }
+                // Counted on the CLIENT: the press that sent the container click. Counting on the server's event made
+                // the cold first open read "press 2" whenever the server's answer took longer than a tick (every run
+                // of batch-1026 and merge-train under load): the first press had leapt, the loop pressed again before
+                // the event arrived, and the 750 ms debounce swallowed that second press. The server event still
+                // has to arrive below.
+                int sentBefore = clicksSent.get();
                 int presses = 0;
-                while (c.events("menu.action").size() == before && presses < 40) {
+                while (clicksSent.get() == sentBefore && presses < 40) {
                     c.ctx().getInput().pressKey(49);
                     presses++;
                 }
@@ -452,6 +471,10 @@ final class LeapBatchMenuCases {
                 c.check(rows.stream().allMatch(r -> r.endsWith("press 1")), "a key press on the first tick did not leap: " + rows);
             }
         } finally {
+            c.onClient(mc -> {
+                dev.testkit.harness.PacketTrace.tap = tapWas;
+                return null;
+            });
             c.hx().call("menu.onUse", "id", "SPIRIT_LEAP", "menu", null);
             c.hx().call("give", "slot", 0, "stack", "minecraft:air");
             MenuKit.reset(c);

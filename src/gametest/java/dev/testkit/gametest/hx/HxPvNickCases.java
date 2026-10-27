@@ -439,7 +439,9 @@ final class HxPvNickCases {
                 return b == null ? null : new int[]{b.getWidth(), mc.font.width("WWWWWWWWWWWWWWWW")};
             });
             c.check(box != null, "the sidebar's name box is not shown at 800x450");
-            c.check(box[0] - 8 >= box[1], "a 16-character name (" + box[1] + " px) does not fit the " + box[0] + " px box");
+            // The box is a ThemedEditBox (mod 350c709a): getWidth() is already its inner text line, not a bordered box
+            // whose text area is width - 8, so the name must fit the width itself.
+            c.check(box[0] >= box[1], "a 16-character name (" + box[1] + " px) does not fit the " + box[0] + " px text line");
             Path shot = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(c.name()));
             c.note("screenshot " + dev.testkit.harness.Report.screenshot(c.name(), shot));
         } finally {

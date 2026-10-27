@@ -27,9 +27,9 @@ import net.minecraft.world.phys.Vec3;
  *   <li>787 Goldor Triggerbot ({@code Aim Delay}): a real (visible, no 800-tick invulnerability) NoAI wither in the boss
  *   area, Attack mode, in melee reach; 0 vs 400 ms to the FIRST {@code attack_entity}. GrimAC must be silent (it said
  *   Post on every attack from the render frame, before mod grim-post).</li>
- *   <li>788 Arrow Align Trigger Bot ({@code Trigger Bot Delay}): arrow item frames on the device grid (x -2, y 120-124,
- *   z 75-79) in layout 7 of the mod's solutions, each needing one click; 0 vs 300 ms, {@code use_entity} on the
- *   frame. GrimAC must be silent (Post on every click from the render frame, before mod grim-post).</li>
+ *   <li>788 Arrow Align Trigger Bot ({@code Trigger Bot CPS} range since mod b4b6e44f): arrow item frames on the device
+ *   grid (x -2, y 120-124, z 75-79) in layout 7 of the mod's solutions, each needing one click; CPS 20-20 vs 4-4 (the
+ *   first click waits one gap: 1 vs 5 ticks), {@code use_entity} on the frame. GrimAC must be silent (Post on every click from the render frame, before mod grim-post).</li>
  * </ul>
  * Delays are whole ticks since mod grim-post, rounded up (300 ms = 6, 400 ms = 8), which the +-1.5 band holds.
  * Legit jar: none of these trigger bots exists, so each case checks nothing is clicked.
@@ -108,7 +108,12 @@ final class BossTriggerDelayCases {
                 });
                 c.hx().call("boss.term.build", "x", x, "z", z, "groundY", g);
                 TerminalAuraCases.tp(c, x - 1.5, g + 3, z + 0.5, 90f);
-                c.ctx().waitTicks(20);
+                // Off the stand until the aim: the tp leaves him looking straight at it, so the bot clicked it the tick
+                // P3 began (delay 0), before the aim, and never again ("clicked [106]", lastClick 2 ticks after the
+                // Goldor line - preexisting-1026's diagnostic); at 400 ms its delay ran from the stand's spawn instead.
+                c.ctx().waitTicks(20); // a tp to the spot he already stands on lands inside this, look and all
+                TriggerTiming.lookAway(c);
+                c.ctx().waitTicks(2);
                 int standId = c.hx().call("boss.term.spawn").getAsJsonObject().get("standId").getAsInt();
                 c.hx().call("boss.term.config", "line", true);
                 c.waitUntil("the client to have the terminal stand", mc -> mc.level.getEntity(standId) != null, 200);
@@ -117,6 +122,18 @@ final class BossTriggerDelayCases {
                 }
                 Vec3 at = c.onClient(mc -> mc.level.getEntity(standId).position().add(0, 1.0, 0));
                 t[i] = TriggerTiming.ticksToFire(c, at, "term.interact", null, null, 60);
+                if (t[i] < 0) {
+                    // batch-1026: trial 0 once never fired under load, with nothing in the log to say why.
+                    String tf = "terminaltrigger.TerminalTriggerbotFeature";
+                    c.note("terminal diag: " + c.onClient(mc -> "screen " + McCompat.screen(mc) + ", inF7Boss "
+                            + Mod.staticCall(TerminalAuraCases.TRACKER, "inF7Boss") + ", phase "
+                            + Mod.staticCall(TerminalAuraCases.TRACKER, "getPhase") + ", pending "
+                            + Mod.field(tf, "pendingEntityId") + ", due " + Mod.field(tf, "triggerAtTick") + ", lastClick "
+                            + Mod.field(tf, "lastClickTick") + ", clicked " + Mod.field(tf, "clicked") + ", stand "
+                            + standId + " at " + mc.level.getEntity(standId) + ", now "
+                            + Mod.staticCall("util.ActionGate", "currentTick") + ", eye " + mc.player.getEyePosition()
+                            + ", look " + mc.player.getYRot() + "/" + mc.player.getXRot() + ", hit " + mc.hitResult));
+                }
                 c.ctx().waitTicks(5);
                 closeScreen(c);
                 c.hx().call("boss.term.clear");
@@ -206,13 +223,15 @@ final class BossTriggerDelayCases {
                      .custom(() -> net.minecraft.client.Minecraft.getInstance().getCurrentServer().ip = "mc.hypixel.net",
                              () -> net.minecraft.client.Minecraft.getInstance().getCurrentServer().ip = ipWas)
                      .with(GT_CFG, "Enabled", true).with(GT_CFG, "AimDelayMs", 0)) {
-            // Loaded first: the console's fill refuses an unloaded area (the session spawn is 600 blocks away).
-            c.hx().call("dungeon.tp", "x", 40.5, "y", 160.0, "z", 47.7, "yaw", 0f, "pitch", -90f);
-            c.ctx().waitTicks(20);
+            // Loaded first (forceload): the console's fill refuses an unloaded area (the session spawn is 600 blocks
+            // away). It used to tp him to y 160 and fill 20 ticks later, by when he had fallen INTO the platform as it
+            // appeared, and GrimAC said Simulation x3 (preexisting-1026; 832 and 835 had the same fix, nt-arrow-aura).
+            c.server().command("forceload add 34 42 46 56");
+            c.server().sync(20);
             c.server().command("fill 34 148 42 46 150 56 stone");
+            c.hx().call("dungeon.tp", "x", 40.5, "y", 151.0, "z", 47.7, "yaw", 0f, "pitch", -90f);
             c.waitUntil("the client to have the platform", mc -> mc.level.getBlockState(new BlockPos(40, 150, 47))
                     .is(net.minecraft.world.level.block.Blocks.STONE), 200);
-            c.hx().call("dungeon.tp", "x", 40.5, "y", 151.0, "z", 47.7, "yaw", 0f, "pitch", -90f);
             c.waitUntil("the player on the platform", mc -> mc.player.position().distanceTo(new Vec3(40.5, 151.0, 47.7))
                     < 0.1 && mc.player.onGround(), 200);
             p3(c);
@@ -267,6 +286,7 @@ final class BossTriggerDelayCases {
         } finally {
             c.server().command("kill @e[tag=pnggoldor]");
             c.server().command("fill 34 148 42 46 150 56 air");
+            c.server().command("forceload remove 34 42 46 56");
             home(c);
         }
     }
@@ -278,37 +298,45 @@ final class BossTriggerDelayCases {
     private static final int[] LAYOUT = {5, 7, 9, 10, 12, 14, 15, 17, 19};
 
     private static void arrowAlign(Session c) throws Exception {
-        int[] delays = {0, 300};
+        // Since mod b4b6e44f (killer560, 2026-10-18: "have trigger bot delay for arrow align be a range of cps instead")
+        // the Trigger Bot has a CPS range, not a delay; the first click on a newly aimed frame waits one gap of it. A
+        // range of 20-20 is a 1-tick gap, 4-4 a 5-tick one, so the second trial must come 4 ticks after the first.
+        int[] cps = {20, 4};
         long[] t = new long[2];
         int[] targets = {7, 12};
+        int[] cpsWas = c.onClient(mc -> new int[]{(Integer) Mod.call(Mod.cfg(AA_CFG), "getTriggerBotCpsMin"),
+                (Integer) Mod.call(Mod.cfg(AA_CFG), "getTriggerBotCpsMax")});
         try (HxKit.Settings off = gateOff(c);
              HxKit.Settings on = new HxKit.Settings(c).with(AA_CFG, "SolverEnabled", true)
                      .with(AA_CFG, "PreventMisclicksEnabled", false).with(AA_CFG, "AuraEnabled", false)
-                     .with(AA_CFG, "TriggerBotEnabled", true).with(AA_CFG, "TriggerBotDelayMs", 0)) {
+                     .with(AA_CFG, "TriggerBotEnabled", true)
+                     .custom(() -> Mod.call(Mod.cfg(AA_CFG), "setTriggerBotCpsRange", 20, 20),
+                             () -> Mod.call(Mod.cfg(AA_CFG), "setTriggerBotCpsRange", cpsWas[0], cpsWas[1]))) {
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
             c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
-            // Loaded first: the console's fill refuses an unloaded area.
-            c.hx().call("dungeon.tp", "x", 0.5, "y", 130.0, "z", 77.5, "yaw", 90f, "pitch", -90f);
-            c.ctx().waitTicks(20);
+            // Loaded first (forceload): the console's fill refuses an unloaded area, and a tp above the floor with a
+            // wait had him falling into it as it appeared (GrimAC Simulation, 787 and 832).
+            c.server().command("forceload add -3 72 3 82");
+            c.server().sync(20);
             c.server().command("fill -1 119 72 3 119 82 stone");
             c.server().command("fill -3 119 74 -3 125 80 stone");
-            c.waitUntil("the client to have the wall", mc -> mc.level.getBlockState(new BlockPos(-3, 122, 77))
-                    .is(net.minecraft.world.level.block.Blocks.STONE), 200);
             for (int idx : LAYOUT) {
                 int dy = idx % 5;
                 int dz = idx / 5;
                 c.hx().call("frame", "x", -2, "y", 120 + dy, "z", 75 + dz, "facing", "east", "item", "arrow");
             }
             c.hx().call("dungeon.tp", "x", 0.5, "y", 120.0, "z", 77.5, "yaw", 90f, "pitch", -90f);
+            c.waitUntil("the client to have the wall", mc -> mc.level.getBlockState(new BlockPos(-3, 122, 77))
+                    .is(net.minecraft.world.level.block.Blocks.STONE), 200);
             c.waitUntil("the client to have the frames", mc -> mc.level.getEntitiesOfClass(
                     net.minecraft.world.entity.decoration.ItemFrame.class,
                     new net.minecraft.world.phys.AABB(-4, 118, 73, 0, 126, 81)).size() == LAYOUT.length, 200);
             c.waitUntil("Arrow Align to read a solution", mc -> Mod.field(Mod.ROOT + "arrowalign.ArrowAlignFeature",
                     "solution") != null, 100);
             for (int i = 0; i < 2; i++) {
-                int delay = delays[i];
+                int rate = cps[i];
                 c.onClient(mc -> {
-                    Mod.call(Mod.cfg(AA_CFG), "setTriggerBotDelayMs", delay);
+                    Mod.call(Mod.cfg(AA_CFG), "setTriggerBotCpsRange", rate, rate);
                     return null;
                 });
                 TriggerTiming.lookAway(c);
@@ -342,10 +370,12 @@ final class BossTriggerDelayCases {
                 TriggerTiming.lookAway(c);
                 c.ctx().waitTicks(10);
             }
-            verdict(c, "Arrow Align Trigger Bot", t, delays[1]);
+            // 1000/4 - 1000/20 = 200 ms between the two first-click gaps: 4 ticks.
+            verdict(c, "Arrow Align Trigger Bot (CPS 20 vs 4)", t, 1000 / cps[1] - 1000 / cps[0]);
         } finally {
             c.hx().removeStands();
             c.server().command("fill -3 119 72 3 125 82 air");
+            c.server().command("forceload remove -3 72 3 82");
             home(c);
         }
     }

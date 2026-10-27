@@ -75,6 +75,11 @@ final class AutoMaskCases {
     }
 
     static void register(Session s) {
+        // Auto Mask is cheat-only (compiled out of legit); on a legit jar these eight read as failures in the legit menu
+        // suite (preexisting-1026). Its absence from the legit menu is 511/512's job, as for every cheat tab.
+        if (!Mod.isCheat()) {
+            return;
+        }
         MenuSuite.test(s, "1880-menu-automask-key", AutoMaskCases::keybind);
         MenuSuite.test(s, "1881-menu-automask-fullauto", AutoMaskCases::fullAuto);
         MenuSuite.test(s, "1882-menu-automask-order", AutoMaskCases::order);

@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-10-26T19:24:59",
- "modSource": "batch-1026",
- "modGitSha": "0d5986c3078661b5cedb092caf7155042cc5d70f",
+ "generatedAt": "2026-10-26T23:58:53",
+ "modSource": "k560-pre1026",
+ "modGitSha": "c63ea54cd2d51575f7f65b70c68b850200ab40de",
  "modSourceDirty": false,
  "count": 581,
  "byKind": {

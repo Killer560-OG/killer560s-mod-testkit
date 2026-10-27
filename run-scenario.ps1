@@ -298,6 +298,21 @@ while ((-not $proc.HasExited -or (Get-TestClients)) -and (Get-Date) -lt $deadlin
         if ($hungPolls -eq 1) { Write-Host "Test client has stopped responding - watching it" }
         if ($hungPolls -ge $hungLimit) {
             Write-Host "Test client frozen for ~$($hungLimit * 2) s - closing it so it is not left on screen"
+            # A thread dump first, so a freeze says where it stood (2026-10-26: 145 froze once on a sim leave under
+            # load and nothing in its log said which thread was stuck). jcmd sits beside the client's own java.exe.
+            foreach ($c in Get-TestClients) {
+                try {
+                    $exe = (Get-Process -Id $c.ProcessId -ErrorAction Stop).Path
+                    $jcmd = Join-Path (Split-Path $exe) "jcmd.exe"
+                    if (Test-Path $jcmd) {
+                        Write-Host "THREAD DUMP of the frozen client (pid $($c.ProcessId)):"
+                        & $jcmd $c.ProcessId Thread.print 2>&1 | ForEach-Object { Write-Host "  $_" }
+                        Write-Host "END THREAD DUMP"
+                    }
+                } catch {
+                    Write-Host "  (no thread dump: $($_.Exception.Message))"
+                }
+            }
             foreach ($c in Get-TestClients) {
                 Stop-Process -Id $c.ProcessId -Force -ErrorAction SilentlyContinue
             }

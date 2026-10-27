@@ -137,6 +137,16 @@ final class Ap3TermAuraCases {
                         + " pos=" + c.onClient(mc -> mc.player.position())
                         + " inBox=" + c.onClient(mc -> Mod.call(termAura, "contains", mc.player.position()))
                         + " stop='" + c.onClient(mc -> String.valueOf(Mod.staticCall(EXEC, "stopReason"))) + "'");
+                // preexisting-1026: three interacts on the wire, none handled, twice under load; which side dropped them?
+                c.note(mode + ": server stand state " + c.hx().call("boss.term.state") + ", events since: "
+                        + c.events("term.interact").size() + " term.interact (before " + before + "), client screen "
+                        + c.onClient(mc -> String.valueOf(dev.testkit.compat.McCompat.screen(mc))) + ", client container "
+                        + c.onClient(mc -> mc.player.containerMenu.containerId) + ", client entities at the stand "
+                        // h-q1-4: the server's stand was #397 and AP3 clicked #398 - which entity is that?
+                        + c.onClient(mc -> mc.level.getEntities((net.minecraft.world.entity.Entity) null,
+                                new net.minecraft.world.phys.AABB(X - 0.5, G + 2, Z - 0.5, X + 1.5, G + 6, Z + 1.5), en -> true)
+                                .stream().map(en -> "#" + en.getId() + " " + en.getType() + " '" + en.getName().getString() + "' at "
+                                        + en.position() + (en.isRemoved() ? " removed" : "")).toList()));
                 throw e;
             }
             List<JsonObject> ev = c.events("term.interact");

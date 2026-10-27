@@ -177,13 +177,19 @@ final class TerminalCases {
                 int slot = (Integer) Mod.call(target, "slot");
                 int button = (Integer) Mod.call(target, "button");
                 ContainerInput input = (ContainerInput) Mod.call(target, "clickType");
+                Map<Integer, Object> before = c.onClient(mc -> new java.util.HashMap<>(highlights()));
                 int sent = MenuKit.ev(c, "terminal.click").size();
                 MenuKit.click(c, slot, button, input);
                 clicks++;
-                // Wait for the server's answer, not a fixed 4 ticks: under load (two clients on the machine) the answer
-                // took longer and the same highlight was clicked twice (legit 201/204 flaked, 2026-10-27).
+                // Wait for the server's answer, then until it changed the board (or it is solved): a fixed 4 ticks was not
+                // "wait for the server" under load, and the next pass clicked the same slot again (legit 201/204, 2026-10-27;
+                // preexisting-1026, STARTS_WITH, 7 clicks for 6). A player waits for the board too. (final-1027 merged both.)
                 c.waitUntil("the server to take the click on " + slot, mc -> MenuKit.ev(c, "terminal.click").size() > sent, 60);
-                c.ctx().waitTicks(4);
+                for (int w = 0; w < 40 && MenuKit.ev(c, "terminal.solved").isEmpty()
+                        && c.onClient(mc -> highlights().equals(before)); w++) {
+                    c.ctx().waitTicks(1);
+                }
+                c.ctx().waitTicks(1);
             }
             JsonObject solved = MenuKit.awaitEvent(c, "terminal.solved", 40);
             c.check(solved.get("wrong").getAsInt() == 0, "the server counted " + solved.get("wrong")
