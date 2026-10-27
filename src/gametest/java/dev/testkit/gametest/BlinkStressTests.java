@@ -478,7 +478,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                 // (a)
                 tp(server, ctx, x - 10.5, SURFACE_Y, z + 0.5, 90f);
                 chargeOn(ctx);
-                ctx.waitTicks(30);
+                // Turn while the bank is still filling: only a BANKED tick owes its look (a full bank sends the turn).
+                ctx.waitTicks(8);
                 long bank = cnum(ctx, "banked");
                 long carried0 = cnum(ctx, "rotationsCarried");
                 ctx.runOnClient(mc -> mc.player.setYRot(mc.player.getYRot() - 180f));
@@ -488,7 +489,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                 long bankAfterHold = cnum(ctx, "banked");
                 long carried = cnum(ctx, "rotationsCarried") - carried0;
                 double g = gap(server, ctx);
-                rows.add(server, scenario, "(a) bank, turn, hold", bank == 20 && h[0] > 3 && h[1] == 20 && g < 0.5
+                rows.add(server, scenario, "(a) bank, turn, hold", bank >= 3 && bankAfterTurn > bank && h[0] > 3 && h[1] == 20 && g < 0.5
                                 && carried >= 1, String.format(Locale.ROOT, "bank %d, after the turn %d, hold %d tick(s) moved %.2f, "
                                 + "bank right after the hold %d, %d look(s) carried, gap %.2f", bank, bankAfterTurn, (int) h[1], h[0],
                         bankAfterHold, carried, g));
