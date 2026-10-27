@@ -9011,7 +9011,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         }
 
         private record Run(boolean met, boolean landed, int acted, int dropped, boolean reaimed, boolean noLanding,
-                           List<String> off, boolean window) {
+                           List<String> off, boolean window, int clickGap) {
         }
 
         /** Runs per side before giving up on one the chest's window did not land in. */
@@ -9050,8 +9050,15 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     + "click's second half (" + mismatch.dropped() + " use(s)) - the client sent a look it could not pair");
             check(mismatch.landed() && mismatch.off().isEmpty(), "mismatch: did not land on the raised block - off " + mismatch.off());
             check(mismatch.reaimed(), "mismatch: no re-aim line - the case it is about never happened");
-            check(mismatch.acted() == control.acted() + 1, "mismatch: the warp went " + mismatch.acted()
-                    + " tick(s) after firing, the control " + control.acted() + " - the re-aim must cost exactly one tick");
+            // The re-aim's one tick (the server hearing the new look) overlaps the click-gap hold (mod c81e0cf0: a warp
+            // waits until 2 ticks after a block click with the same item), which also costs the control a tick when the
+            // chest click was that recent: control 2 (click-gap 1), mismatch 2 (re-aim over it), preexisting-1026 under
+            // load. Without the hold the re-aim is the control's tick count plus one, as before.
+            int base = control.acted() - control.clickGap();
+            int want = base + Math.max(1, control.clickGap());
+            check(mismatch.acted() == want, "mismatch: the warp went " + mismatch.acted() + " tick(s) after firing, the "
+                    + "control " + control.acted() + " (click-gap hold " + control.clickGap() + ") - the re-aim must cost "
+                    + "exactly one tick, overlapping any click-gap hold (want " + want + ")");
         }
 
         /**
@@ -9161,8 +9168,15 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     acted = Integer.parseInt(mm.group(1));
                 }
             }
+            int clickGap = 0;
+            if (line != null) {
+                java.util.regex.Matcher gm = java.util.regex.Pattern.compile("click-gap hold (\\d+) tick").matcher(line);
+                if (gm.find()) {
+                    clickGap = Integer.parseInt(gm.group(1));
+                }
+            }
             return new Run(met, landed, acted, dropped, logHas(m, "re-aimed"), logHas(m, "no landing after"), off,
-                    logHas(m, "window arrived after the await was met"));
+                    logHas(m, "window arrived after the await was met"), clickGap);
         }
     }
 
