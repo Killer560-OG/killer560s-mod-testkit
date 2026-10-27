@@ -25,7 +25,8 @@
     {"input": "customitems", "expect": "screen:armourdye.CustomItemsScreen", "source": "armourdye/ArmourDyeFeature.java (opens the Custom Items menu)"},
     {"input": "k560textures missing", "expect": "ok", "source": "packdisabler/PackDisabler.java (dev tools only: chats the list, writes config/killer560/interface/packdisabler/killer560smod-packdisabler-missing.txt; 429 checks the file)"},
     {"input": "breakeraura config list", "expect": "ok", "source": "dungeonextras/BreakerAuraCommands.java:82 (prints to chat; list is under config)"},
-    {"input": "k560search", "expect": "ok","source": "storagesearch/StorageSearchFeature.java:110 (opens Storage Search only when its setting is on; otherwise a chat line)"}
+    {"input": "k560search", "expect": "ok","source": "storagesearch/StorageSearchFeature.java:110 (opens Storage Search only when its setting is on; otherwise a chat line)"},
+    {"input": "lag stutters", "expect": "ok", "source": "lagdisplay/StutterCommand.java (mod stutter-1026: lists the last stutters in chat)"}
   ],
   "parseOnly": [
     {"root": "reboot", "why": "closes the game and relaunches it through Prism (reboot-cmd); the test client is not started by Prism so it only refuses, but running it in a sweep is pointless - testkit 995 drives it"},
