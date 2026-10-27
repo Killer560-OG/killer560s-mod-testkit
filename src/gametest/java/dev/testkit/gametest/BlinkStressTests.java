@@ -69,7 +69,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                 BlinkStressTests::dimensionCharge, BlinkStressTests::latencyMatrix, BlinkStressTests::lag,
                 BlinkStressTests::setbackShot, BlinkStressTests::lcew, BlinkStressTests::ui,
                 BlinkStressTests::longHolds, BlinkStressTests::longShots, BlinkStressTests::longCharge,
-                BlinkStressTests::releaseLog, BlinkStressTests::controls, BlinkStressTests::setbackVariants)) {
+                BlinkStressTests::releaseLog, BlinkStressTests::controls, BlinkStressTests::setbackVariants, BlinkStressTests::tab)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -2191,6 +2191,51 @@ public class BlinkStressTests implements FabricClientGameTest {
                 tearDown(ctx, gate);
             }
             scenario.log("SUMMARY 1026-blink-setback-variants: " + rows.bad);
+        });
+    }
+
+    /**
+     * 1026-blink-tab (killer560, 2026-10-26: "there shouldn't be all those extra words just the settings and the brief
+     * explanations if you hover them"): with Blink ON the tab has no text lines but its two section headers, and every
+     * button and slider has a hover tooltip.
+     */
+    private static void tab(ClientGameTestContext ctx) {
+        int x = -9700;
+        int z = -6000;
+        Scenario.run(ctx, "1026-blink-tab", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            String[] got = ctx.computeOnClient(mc -> {
+                boolean was = (Boolean) Mod.get(CFG, "isEnabled");
+                Mod.set(CFG, "setEnabled", true);
+                try {
+                    Object tab = Mod.cls("gui.tab.BlinkTab").getConstructor().newInstance();
+                    List<?> widgets = (List<?>) Mod.call(tab, "buildWidgets", 0, 0, 300, (Runnable) () -> { });
+                    List<String> texts = new ArrayList<>();
+                    List<String> missing = new ArrayList<>();
+                    int rows = 0;
+                    for (Object o : widgets) {
+                        var w = (net.minecraft.client.gui.components.AbstractWidget) o;
+                        String label = w.getMessage().getString();
+                        if (w instanceof net.minecraft.client.gui.components.StringWidget) {
+                            texts.add(label);
+                            continue;
+                        }
+                        rows++;
+                        Object d = Mod.staticCall("gui.SettingTooltips", "describe", "Blink", label);
+                        if (d == null) {
+                            missing.add(label);
+                        }
+                    }
+                    return new String[]{String.valueOf(rows), texts.toString(), missing.toString()};
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                } finally {
+                    Mod.set(CFG, "setEnabled", was);
+                }
+            });
+            scenario.log("tab: " + got[0] + " row(s); text lines " + got[1] + "; rows without a tooltip " + got[2]);
+            check(Integer.parseInt(got[0]) >= 10, "the tab has only " + got[0] + " row(s)");
+            check(got[1].equals("[Charge, Hold]"), "the tab still has text lines: " + got[1]);
+            check(got[2].equals("[]"), "rows without a hover tooltip: " + got[2]);
         });
     }
 }
