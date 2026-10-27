@@ -1054,7 +1054,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                         double[] s = null;
                         if (mode == 1) {
                             ctx.runOnClient(mc -> mc.player.setYRot(mc.player.getYRot() + 180f));
-                            ctx.waitTicks(25);
+                            ctx.waitTicks(50);
                             s = shootByPress(ctx, true);
                             ctx.waitTicks(5);
                             chargeOff(ctx);
@@ -1597,7 +1597,9 @@ public class BlinkStressTests implements FabricClientGameTest {
                 long sb = cnum(ctx, "shotsSetBack") - sb0;
                 boolean still = charging(ctx);
                 boolean logged = hasLog(mark, "SHOT SET BACK");
-                ctx.waitTicks(30);
+                for (int t = 0; t < 100 && cnum(ctx, "banked") < 20; t++) {
+                    ctx.waitTicks(1);
+                }
                 double[] s2 = shootByPress(ctx, true);
                 ctx.waitTicks(10);
                 double g = gap(server, ctx);
@@ -1668,7 +1670,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                     double[] s = null;
                     if (mode == 0) {
                         ctx.runOnClient(mc -> mc.player.setXRot(0f));
-                        ctx.waitTicks(25);
+                        ctx.waitTicks(50);
                         s = shootByPress(ctx, true);
                         ctx.waitTicks(5);
                         chargeOff(ctx);
@@ -2160,7 +2162,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                     releaseKeys(ctx);
                     if (kk >= 4) {
                         // A second shot after the tp-back: (4) the moment the bank is full again, (5) 60 ticks later.
-                        for (int t = 0; t < 60 && cnum(ctx, "banked") < 20; t++) {
+                        for (int t = 0; t < 100 && cnum(ctx, "banked") < 20; t++) {
                             ctx.waitTicks(1);
                         }
                         if (kk == 5) {
