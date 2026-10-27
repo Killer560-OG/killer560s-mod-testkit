@@ -66,6 +66,13 @@ final class Ap3S2ee3Cases {
         s.test("1027-ap3-s2ee3-leapin-low", c -> leapIn(c, 2.85, 108.5, 105.9));
         s.test("1027-ap3-s2ee3-blink-0.4", c -> run(c, 0.4, 0.0, true));
         s.test("1027-ap3-s2ee3-blink-0.5", c -> run(c, 0.5, 0.15, true));
+        // The two Blink entries again and again (ship2-1027: 26.2 flagged / missed a few of 9), only when named.
+        if (System.getProperty("testkit.scenario", "").contains("1027-ap3-blinkrep")) {
+            for (int r = 1; r <= 12; r++) {
+                s.test(String.format(Locale.ROOT, "1027-ap3-blinkrep-0.4-r%02d", r), c -> run(c, 0.4, 0.0, true));
+                s.test(String.format(Locale.ROOT, "1027-ap3-blinkrep-0.5-r%02d", r), c -> run(c, 0.5, 0.15, true));
+            }
+        }
     }
 
     private static void cmd(Session c, String f, Object... a) {
@@ -251,7 +258,18 @@ final class Ap3S2ee3Cases {
             if (!in) {
                 throw new AssertionError("the hand walk never reached the start node");
             }
-            Watch w = watch(ctx, 2.5 + DX, 105.5, 260);
+            String who = BlinkTests.playerName(ctx);
+            if (blink) {
+                cmd(c, "grim consoledebug %s", who); // GrimAC's own P/A/O per tick into the server log
+            }
+            Watch w;
+            try {
+                w = watch(ctx, 2.5 + DX, 105.5, 260);
+            } finally {
+                if (blink) {
+                    cmd(c, "grim consoledebug %s", who);
+                }
+            }
             judge(c, String.format(Locale.ROOT, "%s speed %.1f offset %+.2f", blink ? "blink" : "run", speed, off), w, mark);
         } finally {
             boolean g = gateWas;
