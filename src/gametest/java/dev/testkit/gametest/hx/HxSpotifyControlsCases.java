@@ -41,6 +41,9 @@ import static dev.testkit.gametest.hx.HxKit.*;
  *       screenshot shows new text above the player.</li>
  *   <li>2844 scroll: when the line changes in the Spotify HUD the drawn offset eases from a row down to 0 over several
  *       frames (strictly decreasing, within 400 ms); with Smooth Lyric Scroll off it never moves.</li>
+ *   <li>2846 F5 word (spotify-f5word-1026): with the clock frozen at six moments through a line, the word the F5 lyric
+ *       line lights is the word the Spotify HUD lights at that moment, in the HUD's accent color and underlined; with
+ *       Highlight Word In F5 off, or paused, none is lit; with the time held the line is not rebuilt each frame.</li>
  *   <li>2845 share: with Share My Song forced on in the config, a non-supporter hands nothing to the relay and has no own
  *       tag, and the row is grayed out ("Supporters only") when off; in the supporter list the play packet goes out.</li>
  * </ul>
@@ -70,6 +73,7 @@ final class HxSpotifyControlsCases {
         s.test("2843-hx-spotify-f5", HxSpotifyControlsCases::f5);
         s.test("2844-hx-spotify-scroll", HxSpotifyControlsCases::scroll);
         s.test("2845-hx-spotify-share-supporter", HxSpotifyControlsCases::share);
+        s.test("2846-hx-spotify-f5-word", HxSpotifyControlsCases::f5Word);
     }
 
     // ---- reflection helpers -----------------------------------------------------------------------------------
@@ -641,6 +645,109 @@ final class HxSpotifyControlsCases {
             c.ctx().waitTicks(1);
         }
         return seen;
+    }
+
+    // ---- 2846: the F5 line lights the HUD's word ---------------------------------------------------------------
+
+    private static int[] words(Session c) {
+        return c.onClient(mc -> new int[]{(Integer) Mod.field(HUD, "lastSungWord"), (Integer) Mod.field(STD, "lastF5Word")});
+    }
+
+    private static void freeze(Session c, long at) {
+        c.onClient(mc -> {
+            Mod.setField(SLF, "testNowMs", at);
+            return null;
+        });
+        c.ctx().waitTicks(3);
+    }
+
+    private static void f5Word(Session c) throws Exception {
+        c.check(c.onClient(mc -> Mod.has(STD) && Mod.has(TAGC)) && c.onClient(mc -> {
+            try {
+                Mod.cls(TAGC).getMethod("isHighlightWordInF5");
+                return true;
+            } catch (NoSuchMethodException e) {
+                return false;
+            }
+        }), "this jar has no Highlight Word In F5 (mod before spotify-f5word-1026)");
+        long base = System.currentTimeMillis();
+        String text = "one two three four five six seven";
+        List<Object> lines = c.onClient(mc -> List.of(line(0.0, "the first line"), line(4.0, text), line(10.0, "next line")));
+        Object snap = c.onClient(mc -> snapshot(0, base, lines));
+        try (Settings s = new Settings(c).with(TAGC, "LyricsOverHead", true).with(TAGC, "HighlightWordInF5", true)
+                .with(HC, "HudEnabled", true).with(HC, "ShowLyrics", true).with(HC, "WordHighlight", true)) {
+            c.onClient(mc -> {
+                Mod.setField(SLF, "testSnapshot", snap);
+                return null;
+            });
+            HxCosmeticNameCases.look(c, 0f, 0f);
+            HxCosmeticNameCases.camera(c, CameraType.THIRD_PERSON_BACK);
+            java.util.Set<Integer> distinct = new java.util.TreeSet<>();
+            int accent = c.onClient(mc -> (Integer) Mod.call(Mod.staticCall("gui.OverlayThemes", "menu"), "accentHover")) & 0xFFFFFF;
+            for (double t : new double[]{4.05, 4.5, 5.0, 5.6, 6.3, 7.4}) {
+                freeze(c, base + Math.round(t * 1000));
+                int[] w = words(c);
+                String styled = c.onClient(mc -> {
+                    EntityRenderState state = mc.getEntityRenderDispatcher().extractEntity(mc.player, 1f);
+                    Object tag = Mod.call(state, "killer560smod$lyricTag");
+                    if (tag == null) {
+                        return "null";
+                    }
+                    StringBuilder b = new StringBuilder();
+                    for (Component part : ((Component) tag).getSiblings()) {
+                        net.minecraft.network.chat.TextColor col = part.getStyle().getColor();
+                        if (part.getStyle().isUnderlined()) {
+                            b.append(part.getString().trim()).append('#').append(col == null ? -1 : col.getValue());
+                        }
+                    }
+                    return b.toString();
+                });
+                c.note("t=" + t + " s: HUD lit word " + w[0] + ", F5 lit word " + w[1] + ", underlined in F5: " + styled);
+                c.check(w[0] >= 0, "the HUD lit no word at " + t + " s");
+                c.check(w[0] == w[1], "at " + t + " s the HUD lit word " + w[0] + " but the F5 line word " + w[1]);
+                String want = text.split(" ")[w[0]] + "#" + accent;
+                c.check(want.equals(styled), "at " + t + " s the F5 line's lit word is '" + styled + "', not '" + want + "'");
+                distinct.add(w[1]);
+            }
+            c.check(distinct.size() >= 3, "the lit word hardly moved through the line: " + distinct);
+
+            // Held time: the line is built once, not every frame.
+            long builds0 = c.onClient(mc -> (Long) Mod.field(STD, "lyricBuilds"));
+            c.ctx().waitTicks(20);
+            long builds = c.onClient(mc -> (Long) Mod.field(STD, "lyricBuilds")) - builds0;
+            c.note("rebuilds over 20 ticks with the time held: " + builds);
+            c.check(builds == 0, "the F5 line was rebuilt " + builds + " times with nothing changing");
+
+            // Off: no word lit in F5 (the HUD keeps its own).
+            c.onClient(mc -> {
+                Mod.set(TAGC, "setHighlightWordInF5", false);
+                return null;
+            });
+            freeze(c, base + 5000);
+            int[] off = words(c);
+            c.note("Highlight Word In F5 off: HUD " + off[0] + ", F5 " + off[1]);
+            c.check(off[1] == -1 && off[0] >= 0, "with Highlight Word In F5 off: HUD " + off[0] + ", F5 " + off[1]);
+
+            // Paused: held, nothing lit in either.
+            c.onClient(mc -> {
+                Mod.set(TAGC, "setHighlightWordInF5", true);
+                Object paused = newRecord("spotify.LyricsEngine$Snapshot", Mod.enumValue("spotify.NowPlaying$Kind", "PAUSED"),
+                        "Artist", "Song", 5000L, 0L, 200.0, lines, true, false, 0.0, true);
+                Mod.setField(SLF, "testSnapshot", paused);
+                return null;
+            });
+            freeze(c, base + 5100);
+            int[] paused = words(c);
+            c.note("paused: HUD " + paused[0] + ", F5 " + paused[1]);
+            c.check(paused[0] == -1 && paused[1] == -1, "a word is lit while paused: HUD " + paused[0] + ", F5 " + paused[1]);
+        } finally {
+            c.onClient(mc -> {
+                Mod.setField(SLF, "testSnapshot", null);
+                Mod.setField(SLF, "testNowMs", 0L);
+                return null;
+            });
+            HxCosmeticNameCases.camera(c, CameraType.FIRST_PERSON);
+        }
     }
 
     // ---- 2845: Share My Song is supporters only -------------------------------------------------------------
