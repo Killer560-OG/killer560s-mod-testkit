@@ -53,6 +53,10 @@ final class Ap3S2ee3Cases {
         }
         s.test("1027-ap3-s2ee3-lowstep", c -> standing(c, 2.85, 108.5, 106.0, 1.0));
         s.test("1027-ap3-s2ee3-stall", c -> standing(c, 2.64, 109.0, 104.73, 3.0));
+        // Leap-in arrivals (killer560: his Blink trouble comes after a leap up there): a teleport of 30+ blocks lands him in
+        // #34's box - on its point's stair, and on the low half - with his route armed.
+        s.test("1027-ap3-s2ee3-leapin-high", c -> leapIn(c, 2.35, 109.0, 105.3));
+        s.test("1027-ap3-s2ee3-leapin-low", c -> leapIn(c, 2.85, 108.5, 105.9));
         s.test("1027-ap3-s2ee3-blink-0.4", c -> run(c, 0.4, 0.0, true));
         s.test("1027-ap3-s2ee3-blink-0.5", c -> run(c, 0.5, 0.15, true));
     }
@@ -242,6 +246,43 @@ final class Ap3S2ee3Cases {
                     Mod.set(CFG, "setEnabled", false);
                     Mod.staticCall("util.SkyblockGate", "setEnabled", g);
                 }
+                return null;
+            });
+            cmd(c, "attribute @p minecraft:movement_speed base set 0.10");
+            cmd(c, "tp @p 0.50 121 0.50 -90 0");
+            c.server().sync(20);
+            clear(c);
+        }
+    }
+
+    private static void leapIn(Session c, double x, double y, double z) {
+        ClientGameTestContext ctx = c.ctx();
+        build(c);
+        cmd(c, "attribute @p minecraft:movement_speed base set 0.45");
+        long mark = LogTap.mark();
+        try {
+            onClient(ctx, mc -> {
+                Ap3RuntimeTests.staticCallStop();
+                return null;
+            });
+            // Start 30 blocks away with his route armed, then the teleport (a leap moves him 8+ blocks in one tick).
+            cmd(c, "tp @p %.3f 109 %.3f 140 0", 7 + DX, 135.0);
+            c.server().sync(20);
+            ctx.waitTicks(20);
+            Object n33 = node("RUN", 7, 109, 113, 140f, 1.0);
+            Object n34 = node("FAST_ALIGN", 2.5, 109, 105.5, 0f, 1.0);
+            onClient(ctx, mc -> {
+                setChain(n33, n34);
+                return null;
+            });
+            ctx.waitTicks(5);
+            cmd(c, "tp @p %.3f %.3f %.3f 140 0", x + DX, y, z);
+            c.server().sync(20);
+            Watch w = watch(ctx, 2.5 + DX, 105.5, 160);
+            judge(c, String.format(Locale.ROOT, "leap-in to (%.2f, %.2f, %.2f)", x, y, z), w, mark);
+        } finally {
+            onClient(ctx, mc -> {
+                Ap3RuntimeTests.staticCallStop();
                 return null;
             });
             cmd(c, "attribute @p minecraft:movement_speed base set 0.10");
