@@ -68,7 +68,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                 BlinkStressTests::itemsA, BlinkStressTests::itemsB, BlinkStressTests::death, BlinkStressTests::disconnect,
                 BlinkStressTests::dimensionCharge, BlinkStressTests::latencyMatrix, BlinkStressTests::lag,
                 BlinkStressTests::setbackShot, BlinkStressTests::lcew, BlinkStressTests::ui,
-                BlinkStressTests::longHolds, BlinkStressTests::longShots, BlinkStressTests::longCharge)) {
+                BlinkStressTests::longHolds, BlinkStressTests::longShots, BlinkStressTests::longCharge,
+                BlinkStressTests::releaseLog)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -1978,6 +1979,52 @@ public class BlinkStressTests implements FabricClientGameTest {
                 check(maxWait < 1300, "an answer waited " + maxWait + " ms");
                 check(shot[2] == 20 && shot[0] > 4.5 && g < 0.5, "the shot after the long charge was not clean");
             } finally {
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+        });
+    }
+
+    // ---------------------------------------------------------------------------------------------------------------
+    // 9. A release jar's log
+
+    /**
+     * 1026-blink-release-log: on a RELEASE cheat jar (-Prelease=true, what the GitHub builds are; SKIP on a dev jar) a hold
+     * and a charge shot with Debug Log OFF write no [Blink] line to the game log, and with it ON write them all; /blink
+     * debug answers either way.
+     */
+    private static void releaseLog(ClientGameTestContext ctx) {
+        String name = "1026-blink-release-log";
+        if (!Mod.isCheat() || Mod.isDevTools()) {
+            Scenario.skipped(name, "needs a release cheat jar");
+            return;
+        }
+        int x = -9400;
+        int z = -6000;
+        Scenario.run(ctx, name, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            try {
+                int[] lines = new int[2];
+                int[] dbg = new int[2];
+                for (int on = 0; on < 2; on++) {
+                    boolean d = on == 1;
+                    ctx.runOnClient(mc -> Mod.set(CFG, "setDebugLog", d));
+                    long mark = LogTap.mark();
+                    tp(server, ctx, x - 10.5, SURFACE_Y, z + 0.5, -90f);
+                    double[] h = sprintHold(ctx, true, 20);
+                    tp(server, ctx, x - 10.5, SURFACE_Y, z + 0.5, -90f);
+                    double[] s = chargeShot(ctx, 30, true);
+                    check(h[1] == 20 && s[1] == 20, "nothing was tested: hold " + h[1] + ", shot " + s[1]);
+                    lines[on] = countLog(mark, "[Blink]");
+                    dbg[on] = ctx.computeOnClient(mc -> ((List<?>) Mod.staticCall("blink.BlinkCommands", "debugLines", 10)).size());
+                }
+                scenario.log("release-log: Debug Log off " + lines[0] + " [Blink] line(s), on " + lines[1] + "; /blink debug "
+                        + dbg[0] + " / " + dbg[1] + " line(s)");
+                check(lines[0] == 0, "a release jar logged Blink with Debug Log off: " + lines[0]);
+                check(lines[1] >= 6, "a release jar with Debug Log on logged only " + lines[1] + " Blink line(s)");
+                check(dbg[0] >= 5 && dbg[1] >= 5, "/blink debug printed too little");
+            } finally {
+                ctx.runOnClient(mc -> Mod.set(CFG, "setDebugLog", false));
                 chargeOff(ctx);
                 tearDown(ctx, gate);
             }
