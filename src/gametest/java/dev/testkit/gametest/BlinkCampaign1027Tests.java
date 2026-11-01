@@ -57,7 +57,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
         for (Consumer<ClientGameTestContext> c : List.<Consumer<ClientGameTestContext>>of(
                 BlinkCampaign1027Tests::interleave, BlinkCampaign1027Tests::interleaveNow, BlinkCampaign1027Tests::order,
                 BlinkCampaign1027Tests::terrain, BlinkCampaign1027Tests::air, BlinkCampaign1027Tests::split,
-                BlinkCampaign1027Tests::slowServer, BlinkCampaign1027Tests::p3simAlerts, BlinkCampaign1027Tests::menus, BlinkCampaign1027Tests::keepDelay, BlinkCampaign1027Tests::tpSprint,
+                BlinkCampaign1027Tests::slowServer, BlinkCampaign1027Tests::jitter, BlinkCampaign1027Tests::p3simAlerts, BlinkCampaign1027Tests::menus, BlinkCampaign1027Tests::keepDelay, BlinkCampaign1027Tests::tpSprint,
                 BlinkCampaign1027Tests::mixed)) {
             try {
                 c.accept(ctx);
@@ -978,6 +978,96 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                     rows.add(server, scenario, "(d) correction mid-shot #" + rep, bankD == 20 && corr >= 1 && gD < 0.5,
                             String.format(Locale.ROOT, "bank %d, server teleports %d, gap %.2f", bankD, corr, gD));
                     ctx.waitTicks(20);
+                }
+            } finally {
+                server.command("effect clear " + player);
+                removeLatency(ctx);
+                releaseKeys(ctx);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            rows.finish(scenario, name);
+        });
+    }
+
+    /**
+     * 1027-blink-c-jitter (owner 2026-11-01: "if your ping spikes it just drops that extra one or something to blink the
+     * most amount possible"): full 20-tick shots while the latency swings 30-150 ms above a base of 50, 150 and 300 ms (a new
+     * random delay every tick, both ways for every third shot through a stalled client connection). A row is bad if GrimAC
+     * says anything (TimerLimit above all), if fewer than 20 ticks fired in all, or if the server did not follow him.
+     */
+    private static void jitter(ClientGameTestContext ctx) {
+        int x = -11450;
+        int z = -6400;
+        String name = "1027-blink-c-jitter";
+        Scenario.runExpectingFlags(ctx, name, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            Rows rows = new Rows();
+            String player = playerName(ctx);
+            java.util.Random rnd = new java.util.Random(1101);
+            try {
+                int lane = 0;
+                server.command("effect give " + player + " minecraft:speed 600 1 true");
+                for (int base : new int[]{50, 150, 300}) {
+                    ctx.runOnClient(mc -> {
+                        Latency.remove();
+                        Latency.install(base);
+                    });
+                    ctx.waitTicks(20);
+                    for (int rep = 0; rep < 6; rep++) {
+                        tp(server, ctx, x - 30.5, SURFACE_Y, z - 30.5 + 6 * (lane++ % 11), -90f);
+                        ctx.waitTicks(10 + base / 25);
+                        server.mark();
+                        chargeOn(ctx);
+                        long bank = waitBank(ctx, 20, 60);
+                        double[] srv0 = serverPos(server, ctx, player);
+                        double[] c0 = here(ctx);
+                        long ticks0 = cnum(ctx, "shotTicks");
+                        long left0 = cnumOr(ctx, "coverLeftTicks");
+                        ctx.getInput().holdKey(o -> o.keyUp);
+                        ctx.getInput().holdKey(o -> o.keySprint);
+                        // The swings start a second before the shot, so the measure sees them.
+                        for (int t = 0; t < 20; t++) {
+                            int ms = base + 30 + rnd.nextInt(121);
+                            ctx.runOnClient(mc -> Latency.install(ms));
+                            ctx.waitTicks(1);
+                        }
+                        final boolean stall = rep % 3 == 2;
+                        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
+                        ctx.waitTicks(1);
+                        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+                        if (stall) {
+                            netStall(ctx, 60 + rnd.nextInt(61));
+                        }
+                        long t0 = System.currentTimeMillis();
+                        long lastTicks = ticks0;
+                        long lastChangeMs = 0;
+                        for (int t = 0; t < 40; t++) {
+                            int ms = base + 30 + rnd.nextInt(121);
+                            ctx.runOnClient(mc -> Latency.install(ms));
+                            ctx.waitTicks(1);
+                            long now = cnum(ctx, "shotTicks");
+                            if (now != lastTicks) {
+                                lastTicks = now;
+                                lastChangeMs = System.currentTimeMillis() - t0;
+                            }
+                        }
+                        ctx.runOnClient(mc -> Latency.install(base));
+                        releaseKeys(ctx);
+                        ctx.waitTicks(20 + base / 25);
+                        long fired = cnum(ctx, "shotTicks") - ticks0;
+                        long kept = cnumOr(ctx, "coverLeftTicks") - left0;
+                        double[] srv1 = serverPos(server, ctx, player);
+                        double moved = flat(c0, here(ctx));
+                        chargeOff(ctx);
+                        double g = gap(server, ctx);
+                        rows.add(server, scenario, "base " + base + " ms, shot " + rep + (stall ? " + stall" : ""),
+                                bank == 20 && fired == 20 && g < 0.6,
+                                String.format(Locale.ROOT, "bank %d, fired %d, %d held for cover (last part %d ms after the "
+                                        + "first), client moved %.2f, server moved %.2f, gap %.2f", bank, fired, kept,
+                                        lastChangeMs, moved, flat(srv0, srv1), g));
+                        ctx.waitTicks(10);
+                    }
                 }
             } finally {
                 server.command("effect clear " + player);
