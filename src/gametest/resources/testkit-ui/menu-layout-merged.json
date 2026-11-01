@@ -24,6 +24,12 @@
       "gone": "doc-small-1014: Log Pickups (printed every piece of party info to chat) removed, killer560 2026-10-14"
     },
     {
+      "owner": "Party Interop",
+      "key": "cross-mod bridge",
+      "text": "Shares dungeon data both ways with users of Devonian and Odin.",
+      "why": "mod 958f6442 2026-11-01 Cross-Mod Bridge: never open or sign into NoammAddons' socket (NoammAddons' owner asked)"
+    },
+    {
       "owner": "Trail",
       "key": "trail",
       "text": "Draws squares behind you as you move: one per tick, green on the ground and blue in the air. Only you see it; it is never shared.",

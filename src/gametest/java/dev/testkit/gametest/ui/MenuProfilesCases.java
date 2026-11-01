@@ -200,7 +200,7 @@ final class MenuProfilesCases {
                     return "the name box holds '" + eb.getValue() + "' after typing";
                 }
                 // Ctrl F while the name box has focus: the search takes the cursor, the name stays as typed.
-                MenuACases.key(s[0], InputConstants.KEY_F, 2 /* GLFW_MOD_CONTROL */);
+                MenuACases.key(s[0], InputConstants.KEY_F, InputConstants.MOD_CONTROL);
                 EditBox search = (EditBox) Mod.field(s[0], "searchField");
                 if (!search.isFocused() || eb.isFocused()) {
                     return "Ctrl F with the name box focused: search focused " + search.isFocused() + ", name box "

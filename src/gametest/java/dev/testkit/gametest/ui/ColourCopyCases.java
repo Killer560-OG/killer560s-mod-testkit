@@ -211,7 +211,7 @@ final class ColourCopyCases {
             c.check(!statusBad(b) && status(b).startsWith("Pasted"), "no Pasted line: \"" + status(b) + "\"");
 
             // Ctrl+V (no box focused) and Ctrl+C
-            int ctrl = 2; // GLFW_MOD_CONTROL
+            int ctrl = InputConstants.MOD_CONTROL; // the version's Ctrl bit: GLFW 2 on 26.2, SDL KMOD_CTRL 0xC0 on 26.3
             c.onClient(mc -> {
                 mc.keyboardHandler.setClipboard("0x2E C4 B6");
                 MenuACases.key(b, InputConstants.KEY_V, ctrl);
