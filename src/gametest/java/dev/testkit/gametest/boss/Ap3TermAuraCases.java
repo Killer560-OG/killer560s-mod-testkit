@@ -62,16 +62,20 @@ final class Ap3TermAuraCases {
      * 1101: a RUN carries him along the ground beside the pillar into a TERM_AURA box with the terminal in range. The click
      * must open the terminal once, and he must stop like a STOP: from the tick after the box no push (each tick's move
      * is the last one times ground friction, about 0.55, never kept up), at rest within 15 ticks. Before 1101 the run kept
-     * pushing until the terminal screen arrived. The pillar's ground is built with minDy -5 so a click from the ground
-     * opens it (the stand's own rule is not under test here).
+     * pushing until the terminal screen arrived. He runs on a one-block runway level with the stand's feet.
      */
     static void runIn(Session c) throws Exception {
         List<AutoCloseable> undo = new ArrayList<>();
         try {
-            c.hx().call("boss.term.build", "x", X, "z", Z, "groundY", G, "minDy", -5.0);
+            c.hx().call("boss.term.build", "x", X, "z", Z, "groundY", G);
+            // A runway level with the stand's feet (the mod refuses a stand above the eyes, as Hypixel does since 2026-10),
+            // along z = Z - 1.5, south of the pillar: blocks at G + 2, so he runs at G + 3.
+            c.server().command(String.format(java.util.Locale.ROOT, "fill %d %d %d %d %d %d minecraft:stone", X - 4, G + 2, Z - 2, X + 4, G + 2, Z - 2));
+            c.server().sync(20);
             double px = X - 3.5;
+            double py = G + 3;
             double pz = Z - 1.5;
-            TerminalAuraCases.tp(c, px, G, pz, -90f);
+            TerminalAuraCases.tp(c, px, py, pz, -90f);
             JsonObject st = c.hx().call("boss.term.spawn").getAsJsonObject();
             int standId = st.get("standId").getAsInt();
             c.waitUntil("the client to have the terminal stand", mc -> mc.level.getEntity(standId) != null, 200);
@@ -93,12 +97,12 @@ final class Ap3TermAuraCases {
                 return null;
             });
             TerminalAuraCases.closeScreen(c);
-            TerminalAuraCases.tp(c, px, G, pz, -90f);
+            TerminalAuraCases.tp(c, px, py, pz, -90f);
             c.ctx().waitTicks(5);
             int before = c.events("term.interact").size();
-            Object run = node("RUN", px, G, pz);
+            Object run = node("RUN", px, py, pz);
             Mod.cls(NODE).getField("yaw").set(run, -90f); // east, along z = Z - 1.5, past the pillar's south side
-            Object termAura = node("TERM_AURA", X + 0.5, G, pz);
+            Object termAura = node("TERM_AURA", X + 0.5, py, pz);
             Mod.cls(NODE).getField("length").set(termAura, 1.0);
             Mod.cls(NODE).getField("width").set(termAura, 1.0);
             c.onClient(mc -> {
