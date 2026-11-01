@@ -303,7 +303,7 @@ public class SimDesignerLoadTests implements FabricClientGameTest {
                     + "\"floor\":\"F3\",\"totalMs\":600000,\"hypixelTime\":\"10:00\",\"map\":{\"rooms\":[{\"name\":"
                     + "\"Entrance\",\"type\":\"entrance\"}],\"roomCells\":\"" + cells + "\",\"doorCells\":\"" + doors
                     + "\"}}]}";
-            Path runs = ModUnderTest.modConfig("killer560smod-runs").resolve("history.json");
+            Path runs = runHistoryFile(ctx);
             Files.createDirectories(runs.getParent());
             Files.writeString(runs, run, StandardCharsets.UTF_8);
             Path presets = ModUnderTest.modConfig("killer560smod-simmaps.json");
@@ -433,5 +433,17 @@ public class SimDesignerLoadTests implements FabricClientGameTest {
 
     private static void println(String s) {
         System.out.println("[" + NAME + "] " + s);
+    }
+
+    /** The run history's file: the shared record store since mod shared-stats-1101 (pathForTest), the instance config
+     *  before it. */
+    static java.nio.file.Path runHistoryFile(net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext ctx) {
+        try {
+            // On the client thread: the store's folder is per signed-in account, read from the client.
+            return ctx.computeOnClient(mc -> (java.nio.file.Path) ModUnderTest.staticCall(
+                    "com.killer560.hub.runsummary.RunHistoryStore", "pathForTest"));
+        } catch (AssertionError | RuntimeException olderMod) {
+            return ModUnderTest.modConfig("killer560smod-runs").resolve("history.json");
+        }
     }
 }
