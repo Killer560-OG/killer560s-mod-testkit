@@ -69,6 +69,10 @@ To run a set on the OLD Grim for comparison (26.2 only; it refuses 26.3):
   `ClientboundOpenSignEditorPacket(pos, SignTextSlot)`; `ServerboundSignUpdatePacket` is a record (`pos()`, `lines()`).
 - `ClientboundMoveEntityPacket.Pos(id, VecDelta, onGround)` with `VecDelta.Linear(short, short, short)` (still 1/4096).
 - `Entity.setInvulnerable` -> `setPermanentlyInvulnerable`; `monster.EnderMan` -> `monster.Enderman`.
+- The 26.3 dedicated server writes `white-list=true` into a new server.properties (26.2 wrote false): every join was
+  refused "You are not white-listed on this server!". `prepareTestServer` writes and patches it to false.
+- The `sign_update` wire layout is pos, four strings (fixed list), then the slot (26.2: pos, front flag, strings):
+  65-join-fingerprint decodes it with `McPackets.signUpdateBytesBeforeLines()`.
 - authlib 10: `YggdrasilAuthenticationService` is gone (service discovery instead). `579-hx-mcp-account-swap-key`'s fake
   Mojang login is not ported: on 26.3 it is a SKIP row saying so.
 
